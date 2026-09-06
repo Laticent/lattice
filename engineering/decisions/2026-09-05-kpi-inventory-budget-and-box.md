@@ -493,19 +493,44 @@ Those stay UNVERIFIED (#23) rather than assumed.
 **The real design question — kpi's split. Move 5 is DONE; the re-cut it proposes is
 measured NOT worth doing.**
 5. ~~Center the hero's content on both axes and let the value scale with the box, THEN
-   reconsider the column ratio~~ — **the first half shipped**: the hero centers on both
-   axes, the value takes `calc(var(--fs-hero) * 1.25)`, the padding tightens to
-   `sp-lg`/`sp-xl`, and the orphaned corner spark retires. Capacity-neutral, measured:
-   against the shipped design on identical stress content (19.6px vertical / 10.1px
-   horizontal slack) it reads 20.4px and 23.1px.
-   **The second half was measured and abandoned.** Sweeping the column ratio from
-   2.6fr to 1.6fr with the filled hero, the rail's labels wrap at the documented
-   8-word density at EVERY ratio down to 1.8fr; they only stop at 1.6fr, which is near
-   the 60/40 the brief ruled out. The hero keeps 111.2px of vertical and 198-314px of
-   horizontal slack throughout. So the rail's wrapping is a type-size and density
-   problem, not a column-split one, and narrowing the hero trades away the presence it
-   just earned for nothing. **2.2fr stays.** That is the whole value of doing the fill
-   first: the ratio question answered itself once the hero used its box.
+   reconsider the column ratio~~ — **partly shipped, and the half that failed is the
+   more useful record.**
+
+   **Shipped:** the hero centers on both axes, its padding tightens to `sp-lg`/`sp-xl`,
+   and the corner spark retires (centered content orphans a top-right mark; keeping it
+   as a crown pushes ink above the panel's own top edge).
+
+   **NOT shipped — the value does not scale, and "fill" was the wrong frame.** Two
+   drafts put a multiplier on `--fs-hero` (x1.45, then x1.25 after a sweep said x1.45
+   overflowed the documented label density). Both were wrong, and an independent
+   checker caught the second one already committed. The sweep measured the wrong axis:
+   the slack around the LABEL, never the VALUE, whose width an author chooses and
+   nothing bounds. At x1.25 `$12,480,000` — an ordinary revenue line — runs 72.4px past
+   the hero panel and 8.4px into the rail, printing over the rail's own metric. Of
+   thirteen realistic values, 0 escaped at x1.0 and 5 did at x1.25. Nothing catches it:
+   the spill is horizontal and inside the frame, so the probe reads clean. `square`
+   went from 87.1px of spill to 215.1px. CSS has no fit-to-width for an author's
+   string, so a bigger hero number is unsafe by construction, not by tuning.
+
+   **So the fill ratio does not move: 15.2% before, 15.2% after.** The ink is the same
+   size, relocated from x=132 to x=332.3. What improved is composition — the block sits
+   centered in its panel instead of parked in the upper left, which is what the original
+   complaint ("doesn't center its elements") actually named. § 3's fill measurement
+   remains the right DIAGNOSIS of an empty hero; it was the wrong target for a fix, and
+   a single-character value can never move it.
+
+   **Also caught by that checker: `text-align: center` never reached the status line.**
+   A sub-bullet carrying a pill is `display: flex`, and flex items are positioned by
+   `justify-content`, not `text-align` — so the first draft centered the value and label
+   and left the status line hard against the left edge, 403.3px of empty to its right on
+   a short line. The gallery could not show it: its status lines are the widest child of
+   the block, so they fill and the asymmetry reads exactly 0.
+
+   **The re-cut this move proposes was measured and abandoned.** Sweeping 2.6fr to 1.6fr
+   with the centered hero, the rail's labels wrap at the documented 8-word density at
+   EVERY ratio down to 1.8fr, stopping only at 1.6fr — near the 60/40 the brief ruled
+   out — while the hero keeps 111.2px of vertical slack throughout. The rail's wrapping
+   is a type-size and density problem, not a column-split one. **2.2fr stays.**
 
 **The budgets.**
 6. Correct the declared numbers to the measured ones (kpi briefing hard 3 at

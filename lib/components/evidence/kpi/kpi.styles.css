@@ -26,7 +26,6 @@
  *   · Number (strong)— Playfair display, tabular figures
  *   · Pill (code)    — trailing inline `code` becomes a status / audience
  *                       pill; first pill carries the status color
- *   · Flagship (✦)   — four-point star on critical / hero card
  *
  * The bare `kpi` class resolves to briefing styling — when authors don't
  * pick a modifier, they get the power-play default.
@@ -264,8 +263,7 @@ section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(4)),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(4)) {
   grid-template-rows: repeat(3, minmax(min-content, 1fr));
 }
-/* THE HERO IS THE FOCUS, so it is composed like one: centered on BOTH axes, with a
- * value scaled to the box it sits in.
+/* THE HERO IS THE FOCUS, so it is composed like one: centered on BOTH axes.
  *
  * It used to center on the block axis only and sit left-aligned, so its content
  * parked in the upper left of a 748 x 438 panel and filled 15.2% of it — the
@@ -274,14 +272,24 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  * room, the hero is failing to use it, and narrowing the rail would take room from
  * the tile that is actually running out (66-81% full at word weight, and wrapping).
  *
- * x1.25 IS A MEASURED CEILING, not a taste. Swept against the documented stress
- * density (an 8-word label, a wide value, two pills) the vertical slack inside the
- * padding runs 51.6px at x1.0, 26.4 at x1.2, 14.3 at x1.3, 1.2 at x1.4 and -4.8 at
- * x1.45. The first draft used x1.45, which looked better and overflowed the
- * documented density. Against the SHIPPED design on identical content — 19.6px
- * vertical, 10.1px horizontal — x1.25 measures 20.4px and 23.1px, so it is
- * capacity-neutral on both axes and costs no label. x1.3 would cost 5.3px, which is
- * a regression this must not introduce (#18).
+ * THE VALUE IS NOT SCALED, and that half of this idea died on measurement. Two
+ * drafts shipped a multiplier on `--fs-hero` here — x1.45, then x1.25 after a sweep
+ * against the documented label density said x1.45 overflowed it. Both were wrong,
+ * because the sweep measured the wrong axis: it read the slack around the LABEL and
+ * never measured the VALUE, whose width is author-controlled and unbounded.
+ *
+ * At x1.25 an ordinary board figure bursts the panel. `$12,480,000` runs 72.4px past
+ * the hero's own right edge and 8.4px into the rail column, printing over the rail's
+ * metric — text on text. Of thirteen realistic values, 0 escaped the panel at x1.0
+ * and 5 did at x1.25, two of them onto the rail. Nothing catches it: the spill is
+ * HORIZONTAL and inside the frame, so the overflow probe reads clean and the export
+ * ships it silently. The value gets ~18% less runway (5.93 em-widths of panel down
+ * to 4.86), and CSS has no fit-to-width for a string an author chooses, so a bigger
+ * hero number is unsafe by construction rather than by tuning. `square` inherits the
+ * hero grid and made it worse still: 87.1px of spill became 215.1px.
+ *
+ * What survives is the composition, which is what the complaint was actually about:
+ * the block sits centered in its panel instead of parked in the upper left.
  *
  * THE CORNER SPARK RETIRES, and the reason is measured too. Centered content leaves
  * a top-right mark orphaned, so the alternative was to keep it as a crown above the
@@ -307,7 +315,7 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > strong,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > strong {
-  font-size: calc(var(--fs-hero) * 1.25);
+  font-size: var(--fs-hero);
   line-height: 0.88;
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > ul > li:first-child,
@@ -397,9 +405,11 @@ section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   border-left-color: var(--warn);
 }
-section.kpi.attention > .cell-stage > ol > li:nth-child(1)::after {
-  color: var(--warn);
-}
+/* The hero's flagship mark is retired (see the hero note above) and the rule that
+ * tinted it for `attention` goes with it. It never worked in any case: the shape was
+ * painted from `background-color` through a mask, so `color` on that pseudo was inert
+ * long before it was removed — measured on the parent build, computed
+ * `color: rgb(138, 93, 0)` while the mark still painted accent blue. */
 
 /* ─ MODIFIER · OPS (SLO/SLA review) ─────────────────────────────────── */
 section.kpi.ops > .cell-stage > ol {
@@ -649,6 +659,27 @@ section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nt
 section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(4)) {
   grid-template-rows: repeat(3, minmax(min-content, 1fr));
 }
+/* THE PILL LINE IS A FLEX CONTAINER, so `text-align` does not reach it.
+ *
+ * Any sub-bullet carrying a pill becomes `display: flex` (the shared rule far above),
+ * and flex items are positioned by `justify-content`, not `text-align`. The first
+ * draft of this composition therefore centered the value and the label and left the
+ * target/status line packed hard against the left edge underneath them — measured
+ * 403.3px of empty to its right on a short line, and 243.1px at the very density the
+ * change claimed to have swept. Two adjacent lines in one tile, two alignments.
+ *
+ * The gallery could not show it: its status lines are the widest child of the block,
+ * so they fill and the asymmetry reads exactly 0. It appears once the line is SHORTER
+ * than the label above it, which is the ordinary case.
+ *
+ * Scoped to the HERO. The rail's own pill lines stay left-aligned — they sit in a
+ * ledger, not a centered panel. */
+section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > ul > li,
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > ul > li,
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li {
+  justify-content: center;
+}
+
 /* Same composition as the briefing hero above, for the same measured reasons. */
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   grid-column: 1; grid-row: 1 / -1;

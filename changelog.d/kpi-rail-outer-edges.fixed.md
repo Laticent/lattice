@@ -21,9 +21,9 @@
   was pinned at four, so a 3-metric slide — the count the docs recommend — left an
   empty 270px track, 23% of the stage.
 - **Changed: the `kpi` hero is composed as the focus it is.** Its content centers on
-  both axes instead of parking in the upper left, the value scales to the box, and
-  the corner spark — orphaned once the content centers — retires. Measured
-  capacity-neutral against the previous design on identical content, so it costs no
-  label length. The column ratio is deliberately unchanged: sweeping it showed the
-  rail wraps at the documented density at every ratio worth having, so the split was
-  never the lever.
+  both axes — value, label and status line together — instead of parking in the upper
+  left, and the corner spark, orphaned once the content centers, retires. The value's
+  size is deliberately unchanged: it is author-supplied text of unbounded width, and
+  scaling it made ordinary figures like `$12,480,000` print over the rail. The column
+  ratio is unchanged too — sweeping it showed the rail wraps at the documented density
+  at every ratio worth having, so the split was never the lever.
