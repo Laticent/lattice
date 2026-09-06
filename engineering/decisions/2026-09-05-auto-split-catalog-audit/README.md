@@ -372,6 +372,58 @@ on it: `stats` centers its heading on the split page AND on the unsplit page.
 That is the component's own CSS, not the split's doing, and it is not what
 ruling 3 is about.
 
+### Three components the owner enrolled (2026-09-06)
+
+The audit reported eleven components that lose content with no split available to
+save them. Eight are `atomic` / `graphic` / `asset` — `NEVER_SPLIT`
+(`lib/core/split-facts.js:188`), so the engine refuses an axis on them and a
+manifest that declares one fails the build. The other three are classified
+splittable and simply were not enrolled. The owner enrolled all three:
+
+| Component | Treatment | The run the owner specified |
+|---|---|---|
+| `pricing` | `connected` | cover → **one tier card per page** |
+| `split-compare` | `read-across` | cover (title) → option A → option B → **closing (the recommendation)** |
+| `code` | `code` | cover → **code cards, cut on line boundaries** |
+
+**`split-compare` overturns a recorded refusal, and the ruling answers its
+objection directly.** The manifest carries `capacity.axisRetired` and
+`split-facts.js:232` records the component as *"examined for enrollment
+2026-09-02 and declined: N is 2 by contract, the `.verdict` is a sibling of
+`.options` so a slice repeats it on every page, and one `.option` in a
+`1fr 1fr` grid leaves half the slide empty at landscape."* Two of those three
+reasons dissolve under the ruling. The verdict does not repeat on every page —
+it becomes the run's **closing page**, which the envelope already builds
+(`closingPage`, `split-envelope.js:1170`). And half a slide left empty at
+landscape is not a cost, because the size gate never runs split at `wide`
+(`lattice-emulator.js:2026`). What survives is `N is 2` — a two-page body is a
+short run, not a broken one.
+
+**`code` is the one that needs machinery that does not exist.** Every splitter
+today divides a list or a table (`split-verdict.js:106`); none cuts a `<pre>`.
+The owner accepted this explicitly as the exception that gets a component-owned
+pre-processor, and `split-facts.js:161` already names the strategy —
+*"Code → code-cards (PROPOSED, unbuilt)"*.
+
+One complication is load-bearing and is recorded here so the build does not
+discover it late: **highlight spans cross line boundaries.** A block comment
+renders as a single `<span class="hljs-comment">` covering three source lines
+(measured on a real render), so cutting at a line boundary cuts inside the span
+and leaves one page with an unclosed tag and the next with an unopened one. A
+line-splitter must therefore carry an open-span stack — close every open span at
+the page break, reopen them at the top of the next page — rather than slicing the
+markup on newlines. Line numbering and any marked-line adornment ride on the same
+stack.
+
+**What the eleven have in common, and what the ruling does not settle.** Every
+treatment in `split-facts.js` was placed by asking whether splitting would
+destroy the component's meaning. None was placed by asking whether the slide
+survives a portrait box. `wifi` is `atomic` because a password has no second
+page — true, and silent on whether the one page it has fits. The eight
+`NEVER_SPLIT` placements are therefore all decided on a question that is only
+half the question, and the `wifi` / `contact` direction above is the first of
+them to be reopened.
+
 ## The recommendation
 
 **Refine the shared envelope; do not make each component own its auto-split look.**
