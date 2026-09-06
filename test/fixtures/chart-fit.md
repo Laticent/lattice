@@ -772,3 +772,97 @@ panel token, not to re-litigate that. -->
 - Partner-sourced ARR `0.9M` `1.4M`
 - Net revenue retention `1.2M` `1.1M`
 - Committed pipeline `2.1M` `2.4M`
+
+---
+
+<!-- _class: line -->
+
+## Category names long enough to overhang the plot edge.
+
+- Financial Year 2024 (restated) `4.2`
+- Financial Year 2025 (restated) `5.1`
+- Financial Year 2026 (forecast) `6.4`
+
+---
+
+<!-- _class: bullet -->
+
+## A shared axis whose last tick is five characters wide.
+
+- Qualified pipeline `128%` `100%`
+- Win rate `112%` `100%`
+- Ramped reps `96%` `100%`
+
+---
+
+<!-- _class: slope dumbbell -->
+
+## Fourteen dumbbell rows, every one named.
+
+- Enterprise Platform
+  - 2024 `10`
+  - 2026 `14`
+- Commercial Mid-market
+  - 2024 `11`
+  - 2026 `13`
+- Public Sector Frameworks
+  - 2024 `12`
+  - 2026 `16`
+- Payments Core
+  - 2024 `13`
+  - 2026 `15`
+- Data Platform
+  - 2024 `14`
+  - 2026 `19`
+- Developer Relations
+  - 2024 `15`
+  - 2026 `17`
+- Billing Operations
+  - 2024 `16`
+  - 2026 `18`
+- Corporate Security
+  - 2024 `17`
+  - 2026 `21`
+- Field Enablement
+  - 2024 `18`
+  - 2026 `20`
+- Customer Success
+  - 2024 `19`
+  - 2026 `24`
+- Partner and Channel
+  - 2024 `20`
+  - 2026 `22`
+- Professional Services
+  - 2024 `21`
+  - 2026 `26`
+- Managed Operations
+  - 2024 `22`
+  - 2026 `25`
+- Trust and Compliance
+  - 2024 `23`
+  - 2026 `28`
+
+---
+
+<!-- _class: slope -->
+
+## Six entities inside one point of each other.
+
+- Atlas
+  - FY23 `20.0`
+  - FY26 `30.6`
+- Borealis
+  - FY23 `20.3`
+  - FY26 `31.4`
+- Cormorant
+  - FY23 `20.6`
+  - FY26 `32.2`
+- Delphinus
+  - FY23 `20.9`
+  - FY26 `33.0`
+- Equuleus
+  - FY23 `21.2`
+  - FY26 `33.8`
+- Fornax
+  - FY23 `21.5`
+  - FY26 `34.6`

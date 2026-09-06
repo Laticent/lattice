@@ -31,6 +31,30 @@ Actual against target inside a qualitative band — one dense row per KPI.
 
 ---
 
+<!-- _class: bullet shared-axis -->
+<!-- _footer: "shared-axis · bullet shared-axis — Forces one value axis across every row, even where the kernel would have chosen per-row scales. Use only when the rows really are the same ruler and you want the bars comparable by length." -->
+
+## shared-axis puts every row on one ruler.
+
+- New ARR `4.2M` `5.0M`
+- Expansion ARR `3.6M` `3.0M`
+- Gross renewal `2.8M` `2.6M`
+
+
+---
+
+<!-- _class: bullet own-axis -->
+<!-- _footer: "own-axis · bullet own-axis — Forces per-row scales, so every target tick lands on one x and the bars are read against the plan line rather than against each other. Use when the rows are different measures that happen to share a unit." -->
+
+## own-axis lines the plan up and lets each row keep its scale.
+
+- Qualified pipeline `128%` `100%`
+- Win rate `112%` `100%`
+- Ramped reps `96%` `100%`
+
+
+---
+
 <!-- _class: bullet -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · bullet — Seven rows at the ceiling — the longest realistic KPI name, one measure far past every zone, one at zero, and one range authored by hand." -->

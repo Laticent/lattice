@@ -32,6 +32,7 @@ const {
   parseSlope,
   buildSlope,
   buildDesc,
+  transformSection,
 } = require('../../../lib/components/chart/slope/slope.transform');
 const cart = require('../../../lib/components/chart/_chart-family/cartesian');
 
@@ -104,8 +105,8 @@ describe('slope kernel', () => {
 
     test('rank is computed per column, highest value first', () => {
       const m = parseSlope(TWO);
-      assert.deepEqual(m.ranks[0].get(0), { rank: 2, of: 2 });  // Atlas 12 of {12,18}
-      assert.deepEqual(m.ranks[1].get(0), { rank: 1, of: 2 });  // Atlas 19 of {19,14}
+      assert.deepEqual(m.ranks[0].get(0), { rank: 2, of: 2, tied: false });  // Atlas 12 of {12,18}
+      assert.deepEqual(m.ranks[1].get(0), { rank: 1, of: 2, tied: false });  // Atlas 19 of {19,14}
     });
   });
 
@@ -527,5 +528,177 @@ describe('slope — de-collided labels stay inside the viewBox', () => {
     for (const [name] of tight) {
       assert.ok(svg.includes(name), `${name} is missing from the chart`);
     }
+  });
+});
+
+// ── Defects the adversarial trio confirmed ─────────────────────────────────
+//
+// Every arm here is a chart or a description that stated something the data
+// does not contain, and every one passed a 58-green suite.
+describe('slope — defects the adversarial trio confirmed', () => {
+  const desc = (svg) => /<desc>([^<]*)<\/desc>/.exec(svg)[1];
+  const build = (rows, tokens = ['slope']) =>
+    buildSlope(parseSlope(ul(rows)), { classTokens: tokens });
+  /** Every label with its EFFECTIVE baseline — the `<g translate>` folded in. */
+  const placed = (svg, cls) => {
+    const out = [];
+    for (const m of svg.matchAll(
+      /(?:<g transform="translate\(0 ([-\d.]+)\)">)?(<text class="[^"]{0,80}"[^<>]{0,300}>[\s\S]{0,300}?<\/text>)/g,
+    )) {
+      const tag = m[2];
+      if (!tag.includes(`class="${cls}"`)) continue;
+      const dy = Number(m[1] || 0);
+      out.push({
+        text: (/<tspan[^<>]{0,80}>([^<]*)</.exec(tag) || [])[1],
+        y: Number(/y="([-\d.]+)"/.exec(tag)[1]) + dy,
+        x: Number(/x="([-\d.]+)"/.exec(tag)[1]),
+      });
+    }
+    return out;
+  };
+
+  test('a detail bullet cannot close the template it is wrapped in', () => {
+    const html = transformSection(
+      '<section class="slope"><h2>H.</h2><ul>'
+      + '<li>Atlas<ul><li>2024 <code>12</code></li><li>2026 <code>19</code></li>'
+      + '<li>Won &lt;/template&gt;&lt;img src=x onerror=alert(1)&gt; it</li></ul></li>'
+      + '<li>Borealis<ul><li>2024 <code>18</code></li><li>2026 <code>14</code></li></ul></li>'
+      + '</ul></section>',
+      { classTokens: ['slope'] },
+    );
+    const payload = /<div class="chart-details"[\s\S]*?<\/div>/.exec(html)[0];
+    assert.doesNotMatch(payload, /<img/, 'no live element escaped the template');
+  });
+
+  test('a crowded cluster keeps its names in VALUE ORDER, and none overprint', () => {
+    // Six entities within a point of each other, plus one far above. The
+    // de-collision pass used to give up on a box it could not clear inside its
+    // budget and leave it put, so names slid past neighbors that had not moved.
+    const rows = [
+      ['Northwind', [['2023', '62%'], ['2026', '58%']]],
+      ['Kestrel', [['2023', '4.0%'], ['2026', '4.4%']]],
+      ['Vantage', [['2023', '3.8%'], ['2026', '4.1%']]],
+      ['Meridian', [['2023', '3.6%'], ['2026', '3.9%']]],
+      ['Halcyon', [['2023', '3.4%'], ['2026', '3.7%']]],
+      ['Fornax', [['2023', '3.2%'], ['2026', '3.5%']]],
+      ['Cormorant', [['2023', '3.1%'], ['2026', '3.3%']]],
+    ];
+    const svg = build(rows);
+    const left = placed(svg, 'cart-series slope-name').filter((l) => l.x < 160)
+      .sort((a, b) => a.y - b.y);
+    assert.deepEqual(left.map((l) => l.text),
+      ['Northwind', 'Kestrel', 'Vantage', 'Meridian', 'Halcyon', 'Fornax', 'Cormorant']);
+    for (let i = 1; i < left.length; i++) {
+      assert.ok(left[i].y - left[i - 1].y >= 8, `${left[i].text} overprints ${left[i - 1].text}`);
+    }
+    // …and a label that was never crowded does not get dragged into the pack.
+    assert.ok(left[0].y < 40, `Northwind moved to ${left[0].y}`);
+  });
+
+  test('an interior lone point is labeled at its own column, not in a gutter', () => {
+    const svg = build([
+      ['Atlas', [['22', '10'], ['24', '15'], ['26', '30']]],
+      ['Borealis', [['22', '25'], ['24', '20'], ['26', '12']]],
+      ['Ceres', [['22', 'n/a'], ['24', '10'], ['26', 'n/a']]],
+    ]);
+    const ceres = placed(svg, 'cart-value slope-value').find((l) => /Ceres/.test(l.text || ''));
+    assert.ok(ceres, 'the lone entity is named');
+    assert.ok(ceres.x > 120 && ceres.x < 200, `Ceres printed at x=${ceres.x}, not its own column`);
+  });
+
+  test('tied values are reported as tied, not ranked by authoring order', () => {
+    const d = desc(build([
+      ['A', [['x', '50'], ['y', '50']]],
+      ['B', [['x', '50'], ['y', '50']]],
+      ['C', [['x', '50'], ['y', '50']]],
+    ]));
+    assert.match(d, /A 50 to 50, unchanged, tied at rank 1 of 3/);
+    assert.doesNotMatch(d, /rank 2 of 3/);
+  });
+
+  test('a rank never reads "3 of 2" — both denominators are stated', () => {
+    const d = desc(build([
+      ['Atlas', [['2024', '12'], ['2026', '19']]],
+      ['Borealis', [['2024', '18'], ['2026', '14']]],
+      ['Cygnus', [['2024', '15'], ['2026', 'n/a']]],
+    ]));
+    assert.match(d, /rank 3 of 3 to 1 of 2/);
+    assert.doesNotMatch(d, /rank \d+ to \d+ of 2;/);
+  });
+
+  test('a percentage-point delta is not reported as a percentage', () => {
+    const d = desc(build([
+      ['Northwind', [['2023', '31%'], ['2026', '24%']]],
+      ['Kestrel', [['2023', '22%'], ['2026', '29%']]],
+    ]));
+    assert.match(d, /down 7 points/);
+    assert.doesNotMatch(d, /down 7%/);
+  });
+
+  test('the description says what was dropped', () => {
+    const seven = ul([
+      ['A', Array.from({ length: 7 }, (_, j) => [`Y${j}`, `${10 + j}`])],
+      ['B', Array.from({ length: 7 }, (_, j) => [`Y${j}`, `${20 + j}`])],
+    ]);
+    assert.match(desc(buildSlope(parseSlope(seven), { classTokens: ['slope'] })),
+      /past the six-column limit/);
+    const mixed = '<li>Atlas <code>12</code></li>'
+      + '<li>Borealis<ul><li>2024 <code>18</code></li><li>2026 <code>14</code></li></ul></li>'
+      + '<li>Cygnus<ul><li>2024 <code>9</code></li><li>2026 <code>11</code></li></ul></li>';
+    assert.match(desc(buildSlope(parseSlope(mixed), { classTokens: ['slope'] })),
+      /written as a single value/);
+  });
+
+  test('the interior readings reach the description', () => {
+    const d = desc(build([
+      ['Atlas', [['22', '10'], ['24', '15'], ['26', '30']]],
+      ['Borealis', [['22', '25'], ['24', '20'], ['26', '12']]],
+    ]));
+    assert.match(d, /via 15 at 24/);
+  });
+
+  test('an entity that names its points correctly is keyed, whatever its neighbors do', () => {
+    const m = parseSlope(ul([
+      ['Atlas', [['2024', '12'], ['2026', '19']]],
+      ['Borealis', [['2024', 'n/a'], ['2026', '14']]],
+      ['Cormorant', [['FY24', '10'], ['FY26', '11']]],
+    ]));
+    assert.equal(m.headerMismatch, true, 'the chart still reports the disagreement');
+    const b = m.entities.find((e) => e.label === 'Borealis');
+    assert.equal(b.points[0], null, 'the hole stays a hole');
+    assert.equal(b.points[1].num, 14, 'and 14 stays in 2026');
+  });
+
+  test('a fourteen-row dumbbell names every row', () => {
+    const rows = Array.from({ length: 14 }, (_, i) => [`Business Unit ${i + 1}`,
+      [['2024', `${10 + i}`], ['2026', `${12 + i}`]]]);
+    const svg = build(rows, ['slope', 'dumbbell']);
+    assert.equal((svg.match(/class="cart-cat"/g) || []).length, 14);
+  });
+
+  test('a status pill beats the `signal` register instead of being discarded', () => {
+    const svg = build([
+      ['Unit cost', [['2024', '12'], ['2026', '19']], 'fail'],
+      ['Volume', [['2024', '18'], ['2026', '22']]],
+    ], ['slope', 'signal']);
+    assert.match(svg, /slope-marked/);
+    assert.doesNotMatch(svg, /slope-signal/);
+    assert.match(svg, /data-s="fail"/);
+  });
+
+  test('a one-column dumbbell draws no before-and-after key', () => {
+    const svg = build([['Alpha', [['2026', '12']]], ['Bravo', [['2026', '18']]]],
+      ['slope', 'dumbbell']);
+    // The key is two swatch dots plus their headers; with one column there is
+    // no before and after to name, so it is not drawn at all.
+    assert.doesNotMatch(svg, /slope-dot-from"[^<>]{0,120}cy="[-\d.]+" r="2.4"\/><text class="cart-axis-title"/);
+  });
+
+  test('every mark carries the value its reveal popover reads', () => {
+    const svg = build([
+      ['Atlas', [['2024', '$1.2M'], ['2026', '$2.0M']]],
+      ['Borealis', [['2024', '$1.8M'], ['2026', '$1.4M']]],
+    ]);
+    assert.match(svg, /data-value="\$1\.2M to \$2\.0M"/);
   });
 });

@@ -558,7 +558,10 @@ describe('line — defects the adversarial trio confirmed', () => {
     const long = ['Financial Year 2024 (restated)', 'Financial Year 2025 (restated)',
       'Financial Year 2026 (forecast)'];
     const html = build(parseLine(flat(long.map((c, i) => [c, `${4 + i}`]))));
-    const xs = [...html.matchAll(/class="cart-cat"[^>]*><tspan x="([-\d.]+)"/g)]
+    // The run is BOUNDED: a literal prefix followed by an unbounded `[^>]*`
+    // restarts at every occurrence of the prefix, which backtracks
+    // polynomially (CodeQL js/polynomial-redos).
+    const xs = [...html.matchAll(/class="cart-cat"[^<>]{0,80}><tspan x="([-\d.]+)"/g)]
       .map((m) => Number(m[1]));
     assert.ok(xs.length >= 2, 'the edge labels survive the cull');
     for (const x of xs) assert.ok(x >= 0 && x <= 320, `a category label anchored at ${x}`);

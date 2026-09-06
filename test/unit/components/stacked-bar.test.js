@@ -530,9 +530,13 @@ describe('stacked-bar — defects the adversarial trio confirmed', () => {
     // reader who could not check them got the other one.
     const svg = build([['FY25', [['Product', 14], ['Returns', -2]]]], ['stacked-bar', 'share']);
     const d = desc(svg);
-    const inDesc = [...d.matchAll(/(−?-?\d+)%/g)].map((m) => m[1].replace('−', '-'));
-    const onChart = [...svg.matchAll(/<tspan[^<>]*>(−?-?\d+)%<\/tspan>/g)]
-      .map((m) => m[1].replace('−', '-'));
+    // The lookbehind is load-bearing: a bare `\d+%` scan restarts inside a long
+    // digit run at every offset, which backtracks polynomially on uncontrolled
+    // text (CodeQL js/polynomial-redos).
+    const PCT = /(?<![\d\u2212-])([\u2212-]?\d+)%/g;
+    const inDesc = [...d.matchAll(PCT)].map((m) => m[1].replace('\u2212', '-'));
+    const onChart = [...svg.matchAll(/<tspan[^<>]{0,80}>([\u2212-]?\d+)%<\/tspan>/g)]
+      .map((m) => m[1].replace('\u2212', '-'));
     for (const v of inDesc) assert.ok(onChart.includes(v), `${v}% is on the chart too`);
   });
 

@@ -507,3 +507,172 @@ describe('bullet kernel', () => {
     });
   });
 });
+
+// ── Defects the adversarial trio confirmed ─────────────────────────────────
+//
+// The suite that shipped with this component had a 32% mutation kill rate:
+// four of its assertions passed for a reason other than the invariant they were
+// named for. These arms assert VALUES, on the emitted output.
+describe('bullet — defects the adversarial trio confirmed', () => {
+  const cart = require('../../../lib/components/chart/_chart-family/cartesian');
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(COMPONENT_DIR, 'bullet.manifest.json'), 'utf8'));
+  const CTX = { classTokens: ['bullet'] };
+  const section = (inner) => `<section class="bullet"><h2>H.</h2><ul>${inner}</ul></section>`;
+  /** [label, measure, target, children?] rows, flat or with a nested sublist. */
+  const rowHtml = ([label, measure, target, children]) => {
+    const lead = `${label}${measure != null ? ` <code>${measure}</code>` : ''}`
+      + `${target != null ? ` <code>${target}</code>` : ''}`;
+    const kids = (children || []).map(([k, v]) => `<li>${k} <code>${v}</code></li>`).join('');
+    return `<li>${lead}${kids ? `<ul>${kids}</ul>` : ''}</li>`;
+  };
+  const build = (rows, tokens = ['bullet']) =>
+    buildBullet(parseBullet(rows.map(rowHtml).join('')), { classTokens: tokens });
+  const desc = (svg) => /<desc>([^<]*)<\/desc>/.exec(svg)[1];
+  const readouts = (svg) => [...svg.matchAll(
+    /class="(?:cart-value bullet-value|bullet-plan)"[^<>]{0,80}><tspan[^<>]{0,80}>([^<]*)</g,
+  )].map((m) => m[1]);
+
+  test('a detail bullet cannot close the template it is wrapped in', () => {
+    const html = transformSection(section(
+      '<li>New ARR <code>4.2M</code> <code>5.0M</code>'
+      + '<ul><li>Slipped &lt;/template&gt;&lt;img src=x onerror=alert(1)&gt;</li></ul></li>'
+      + '<li>Expansion <code>3.6M</code> <code>3.0M</code></li>',
+    ), CTX);
+    const payload = /<div class="chart-details"[\s\S]*?<\/div>/.exec(html)[0];
+    assert.doesNotMatch(payload, /<img/, 'no live element escaped the template');
+    assert.match(payload, /&lt;\/template&gt;/, 'and the author text is kept, escaped');
+  });
+
+  test('a near-100 pair never prints as one number', () => {
+    // The docs send uptime, NRR and renewal here BECAUSE they live near 100 —
+    // and two significant figures printed 99.982 against 99.99 as `100% vs
+    // 100%`, with a <desc> reading "100%, 100% of the 100% target — below plan".
+    const svg = build([
+      ['Core API', '99.982%', '99.99%', [['Floor', '99.9%']]],
+      ['Auth', '99.995%', '99.99%', [['Floor', '99.9%']]],
+    ]);
+    const shown = readouts(svg);
+    assert.ok(shown.includes('99.982%'), `measure lost its digits: ${shown.join(' ')}`);
+    assert.ok(shown.includes('vs 99.99%'));
+    assert.doesNotMatch(desc(svg), /100% of the 100% target/);
+  });
+
+  test('a pair straddling a magnitude rung keeps both numbers', () => {
+    const shown = readouts(build([['A', '1.04M', '1.0M'], ['B', '0.96M', '1.0M']]));
+    assert.ok(shown.includes('1.04M'), shown.join(' '));
+    assert.ok(shown.includes('0.96M'));
+  });
+
+  test('one runaway row does not crush every other row', () => {
+    const widths = (svg) => [...svg.matchAll(/class="bullet-measure"[^<>]{0,200}width="([\d.]+)"/g)]
+      .map((m) => Number(m[1]));
+    const w = widths(build([
+      ['Pipeline coverage', '480%', '100%'],
+      ['New ARR', '84%', '100%'],
+      ['Gross margin', '104%', '100%'],
+    ]));
+    // The two ordinary rows must still be told apart — 84% and 104% of plan
+    // used to draw within 12 units of each other on a 308-unit track.
+    assert.ok(Math.abs(w[2] - w[1]) > 20, `bars ${w[1]} and ${w[2]} are indistinguishable`);
+  });
+
+  test('a bar past the cap says it was clipped, and one below its floor says so too', () => {
+    const clipped = build([
+      ['Coverage', '480%', '100%'], ['ARR', '84%', '100%'], ['Margin', '104%', '100%'],
+    ]);
+    assert.match(clipped, /data-clipped="1"/);
+    assert.match(clipped, /data-marker="clipped"/);
+    const under = build([
+      ['KPI', '50', '80', [['Floor', '60']]], ['B', '70', '80', [['Floor', '60']]],
+    ]);
+    assert.match(under, /data-marker="under"/);
+    assert.match(desc(under), /below the bottom of its own scale/);
+  });
+
+  test('bands past the ceiling keep the ones NEAREST the target', () => {
+    const svg = build([['SLO', '82', '95', [
+      ['Band', '50'], ['Band', '70'], ['Band', '85'], ['Band', '90'], ['Band', '93'],
+    ]]]);
+    const zones = [...svg.matchAll(/class="bullet-band bullet-zone-(\d)"/g)].length;
+    assert.equal(zones, 4, 'three cuts, four zones');
+    // 85 · 90 · 93 are the cuts kept; the widths must reflect them, so the
+    // first zone runs from the origin to 85 and is the widest.
+    const w = [...svg.matchAll(/class="bullet-band bullet-zone-\d"[^<>]{0,200}width="([\d.]+)"/g)]
+      .map((m) => Number(m[1]));
+    assert.ok(w[0] > w[1] && w[0] > w[2], `zone widths ${w.join(', ')}`);
+  });
+
+  test('every authored band below the floor falls back to the derived cuts', () => {
+    const svg = build([['KPI', '50', '80', [['Floor', '60'], ['Band', '55']]]]);
+    assert.ok([...svg.matchAll(/class="bullet-band/g)].length >= 2,
+      'a row keeps its qualitative range rather than losing it to an off-scale band');
+  });
+
+  test('the affix may be typed on the target instead of the measure', () => {
+    const shown = readouts(build([['Uptime', '99.4', '99.9%'], ['Renewal', '91.2', '93.0%']]));
+    assert.ok(shown.every((t) => t.includes('%')), shown.join(' '));
+  });
+
+  test('a status pill stays with the name instead of vanishing', () => {
+    const m = parseBullet(
+      '<li>New ARR <code>4.2M</code> <code>5.0M</code> <code>at-risk</code></li>'
+      + '<li>B <code>3</code> <code>4</code></li>',
+    );
+    assert.equal(m.rows[0].label, 'New ARR at-risk');
+    assert.equal(m.rows[0].measureRaw, '4.2M');
+    assert.equal(m.rows[0].targetRaw, '5.0M');
+    // …and a status pill written FIRST no longer pushes the measure into the
+    // target slot, which drew a tick and no bar.
+    const front = parseBullet('<li>KPI <code>at-risk</code> <code>4.2M</code> <code>5.0M</code></li>');
+    assert.equal(front.rows[0].measureRaw, '4.2M');
+  });
+
+  test('attainment is measured from the floor, like the bar', () => {
+    const svg = build([
+      ['Uptime', '99.4%', '99.9%', [['Floor', '99.0%']]],
+      ['NRR', '104%', '105%', [['Floor', '100%']]],
+    ]);
+    // 99.4 of a 99.0-99.9 span is 44%, not 99%: the bar draws 44% and the
+    // description used to say 99%, which is a rounding error away from plan.
+    assert.match(desc(svg), /Uptime 99.4%, 44% of the 99.9% target/);
+  });
+
+  test('the description reports a target only where the tick is drawn', () => {
+    const svg = build([['KPI', '90', '80', [['Floor', '85']]], ['B', '50', '60']]);
+    assert.doesNotMatch(svg, /class="bullet-target"[^<>]{0,200}data-mark="0"/);
+    assert.doesNotMatch(desc(svg).split(';')[0], /target/);
+  });
+
+  test('a negative attainment prints U+2212, like every other number here', () => {
+    const d = desc(build([['Op margin', '-4%', '8%'], ['B', '5%', '8%']]));
+    assert.match(d, /−50% of the 8% target/);
+    assert.doesNotMatch(d, /-\d+% of the/);
+  });
+
+  test('the last axis tick fits inside the viewBox', () => {
+    const svg = build([
+      ['Qualified pipeline', '128%', '100%'],
+      ['Win rate', '112%', '100%'],
+      ['Ramped reps', '96%', '100%'],
+    ], ['bullet', 'shared-axis']);
+    const [, w] = svg.match(/viewBox="0 0 (\d+) \d+"/);
+    for (const m of svg.matchAll(/class="cart-tick"[^<>]{0,80}><tspan x="([\d.]+)"[^<>]{0,80}>([^<]*)</g)) {
+      const half = (m[2].length * cart.FS.tick * 0.6) / 2;
+      assert.ok(Number(m[1]) + half <= Number(w),
+        `tick ${m[2]} runs to ${Number(m[1]) + half} past ${w}`);
+    }
+  });
+
+  test('`shared-axis` is refused on a floored chart — the two are not one ruler', () => {
+    const svg = build([
+      ['A', '91%', '94%'],
+      ['B', '99.4%', '99.9%', [['Floor', '99.0%']]],
+    ], ['bullet', 'shared-axis']);
+    assert.doesNotMatch(svg, /class="cart-tick"/, 'no shared axis was drawn');
+  });
+
+  test('the manifest declares the two axis modes the kernel reads', () => {
+    assert.deepEqual(manifest.variants, ['shared-axis', 'own-axis']);
+  });
+});

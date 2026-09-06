@@ -8,7 +8,7 @@
 
 **Tags** `metric` · `okr` · `scorecard` · `assessment`
 
-Use when the question is 'are we on plan'. Each row carries a measure bar, a perpendicular target marker, and two to three neutral range zones behind them, so a reader sees attainment, threshold and context in one glance. Six KPIs fit where six gauges would not.
+Use when the question is 'are we on plan'. Each row carries a measure bar, a perpendicular target marker, and up to four neutral range zones behind them, so a reader sees attainment, threshold and context in one glance. Six KPIs fit where six gauges would not.
 
 ## Agent contract
 
@@ -20,7 +20,13 @@ Use when the question is 'are we on plan'. Each row carries a measure bar, a per
 | `eyebrow` | `p > code` | no | Optional eyebrow caption above the heading. |
 | `subtitle` | `p` | no | Optional plain subtitle after the heading. |
 | `rows` | `ul > li` | yes | One li per KPI. Lead text is the KPI name, then two trailing inline-code pills — the measure first, the target second: - New ARR `4.2M` `5.0M`. Magnitude suffixes scale (`4.2M` is 4 200 000), the unit affix carries onto the axis, and both printed values are normalized to one magnitude per chart. A row with only one pill draws a bare bar with no marker and no range. |
-| `range` | `li > ul` | no | Optional nested sublist, each child a NAME plus a value pill. `Target` (or `Plan`/`Goal`) overrides the second pill; `Actual` (or `Measure`) overrides the first; each `Band` (or `Range`) adds one internal cut point, so two Bands make three zones; `Floor` (or `Base`) starts the row's scale above zero, which is what a near-100% KPI — uptime, NRR, renewal rate — needs to show any movement at all. Every other nested bullet is mark detail: the Present-mode reveal payload and the PDF speaker note. That includes a bullet whose pill IS a number under an unrecognized name, so context never becomes a phantom band. Omit the sublist and the zones are derived from the target at 60% and 85%. |
+| `range` | `li > ul` | no | Optional nested sublist, each child a NAME plus a value pill. `Target` (or `Plan`/`Goal`) overrides the second pill; `Actual` (or `Measure`) overrides the first; each `Band` (or `Range`) adds one internal cut point, so two Bands make three zones and three is the ceiling — past that the cuts NEAREST the target are the ones kept; `Floor` (or `Base`) starts the row's scale above zero, which is what a near-100% KPI — uptime, NRR, renewal rate — needs to show any movement at all. Every other nested bullet is mark detail: the Present-mode reveal payload and the PDF speaker note. That includes a bullet whose pill IS a number under an unrecognized name, so context never becomes a phantom band. Omit the sublist and the zones are derived from the target at 60% and 85%. |
+
+### Variant decision rule
+
+- **default (no modifier).** Always, unless you have looked at the rendered chart and disagree with the axis it chose. The kernel shares an axis when the rows agree on their affix and sit inside one magnitude, and gives each row its own otherwise.
+- **`shared-axis`.** The rows are the same measure at different scales and the LENGTH comparison between bars is the point. Refused on a chart carrying a `Floor`, because a floored row and a zero-based row are not one ruler.
+- **`own-axis`.** The rows share a unit but not a meaning — five percentages of five different things — and you want every plan tick on one vertical line.
 
 ### Common mistakes
 
@@ -33,7 +39,7 @@ Use when the question is 'are we on plan'. Each row carries a measure bar, a per
 
 - Two pills per row, measure then target, in one consistent unit across every row — the affix is what decides whether one axis can honestly describe them all.
 - Keep the row domains within about 4x of each other if you want a shared axis; a 5.0M target beside a 0.2M target compresses the second row into a stub, and the chart falls back to per-row scales.
-- Explicit `Band` boundaries are ascending INTERNAL cut points, not zone widths: two Bands make three zones, and the last zone always runs to the top of the row's scale.
+- Explicit `Band` boundaries are ascending INTERNAL cut points, not zone widths: two Bands make three zones, the ceiling is three cuts (four zones) and past it the cuts nearest the target are kept, and the last zone always runs to the top of the row's scale.
 - A measure past the top of its range is drawn past it, on bare track — that overshoot is the read, so do not clamp values to their range.
 - Every row must be higher-is-better. There is no inverted mode; restate a cost or a cycle time as the thing you want to grow.
 - A `Floor` puts that row's scale above zero, so its bar LENGTH is no longer proportional to its value — the origin is drawn as a visible edge, and the whole chart drops to per-row scales because a floored row and a zero-based row are not the same ruler.
@@ -62,6 +68,36 @@ Use when the question is 'are we on plan'. Each row carries a measure bar, a per
 - First KPI `4.2M` `5.0M`
 - Second KPI `3.6M` `3.0M`
 - Third KPI `1.1M` `2.4M`
+```
+
+## Variants (component-specific)
+
+### `shared-axis` — shared-axis
+
+Forces one value axis across every row, even where the kernel would have chosen per-row scales. Use only when the rows really are the same ruler and you want the bars comparable by length.
+
+```markdown
+<!-- _class: bullet shared-axis -->
+
+## shared-axis puts every row on one ruler.
+
+- New ARR `4.2M` `5.0M`
+- Expansion ARR `3.6M` `3.0M`
+- Gross renewal `2.8M` `2.6M`
+```
+
+### `own-axis` — own-axis
+
+Forces per-row scales, so every target tick lands on one x and the bars are read against the plan line rather than against each other. Use when the rows are different measures that happen to share a unit.
+
+```markdown
+<!-- _class: bullet own-axis -->
+
+## own-axis lines the plan up and lets each row keep its scale.
+
+- Qualified pipeline `128%` `100%`
+- Win rate `112%` `100%`
+- Ramped reps `96%` `100%`
 ```
 
 ## Universal modifiers

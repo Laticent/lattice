@@ -111,6 +111,17 @@
   stroke-linecap: butt;
 }
 
+/* ── OFF THE SCALE ──────────────────────────────────────────────────────────
+ * A caret, drawn only when a bar cannot be shown at its true length: pointing
+ * right at the plot edge when one runaway row would otherwise have crushed
+ * every other row's scale (the bar is clipped at `K_CAP`), and pointing left at
+ * the origin when the measure is below the row's own `Floor` and the bar has no
+ * length at all. Measure ink, because it belongs to the measure — it is the
+ * part of the bar that did not fit, not a separate datum. */
+:is(section.bullet, figure.chart-frame) .bullet-offscale {
+  fill: var(--chart-cat-1-ink);
+}
+
 /* ── THE SCALE FLOOR ────────────────────────────────────────────────────────
  * Only drawn for a row whose author declared a `Floor`, i.e. a scale that does
  * not start at zero. On such a row the bar's LENGTH stops being proportional to
