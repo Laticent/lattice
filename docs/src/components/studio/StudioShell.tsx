@@ -820,6 +820,73 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// paths owned `#ssr-snap-css` / `#ssr-newcomer-css`); just remove the node after the fade.
 		setTimeout(() => el.remove(), 260);
 	}, []);
+	// STAGE 1 of the hand-off: uncover the app's chrome the frame it has painted, instead of
+	// holding it under the shell until the engine's first slide arrives.
+	//
+	// The shell stands in for two things that become ready at different times — the chrome
+	// (ready at React's first commit) and the live preview (ready when the engine renders).
+	// Waiting for the second before releasing the first is what produced the reported flicker:
+	// the app's finished chrome sat under an opaque cover at .62 for 672ms on a fast local path
+	// and 3463ms at 1200kbps, then cross-faded to 100%. Measured with `scripts/handoff-bench.mjs`.
+	const revealAppChrome = React.useCallback(() => {
+		const el = document.getElementById('studio-ssr-shell');
+		if (!el || el.dataset.handoff === 'chrome') return;
+		// EVERY STAND-IN GOES TO `opacity: 0`, and stays in the DOM at its own size.
+		//
+		// What has to end is the shell being SEEN — an opaque ground with the app's chrome
+		// duplicated over it at .62. Nothing has to end about the nodes, and three earlier
+		// attempts at ending them each broke something a gate could not see:
+		//
+		//   * a `display:none` RULE lost the cascade. The bands are shown by
+		//     `:root[data-ssr-chrome] #studio-ssr-shell .ssr-band`, which is (1,3,0), against a
+		//     teardown selector on the shell's id at (1,2,0) — so the chrome went, the bands
+		//     stayed, and the hand-off showed the app's real slide navigator with the shell's
+		//     skeleton chips ghosting under it.
+		//   * REMOVING the band nodes deletes `.ssr-activityrail`, `.ssr-editpane`,
+		//     `.ssr-panehdr` and `.ssr-paneftr` — which are 3 of the 5 roots
+		//     `studio-shell-parity` enumerates, and what `studio-instant-shell` and
+		//     `studio-reserved-slots` measure. Those specs hold the ENGINE, not the island, so
+		//     they were left racing hydration: they passed here only because fonts resolve
+		//     faster than React on this machine, and with the woff2 responses delayed 900ms the
+		//     parity spec read 14 shell controls against the app's 25 and reported eleven
+		//     missing controls that are in fact drawn.
+		//   * `visibility: hidden` keeps the box but is exactly what Playwright treats as NOT
+		//     visible, so it fails those specs the same way for a different reason.
+		//
+		// `opacity: 0` is the one form that ends the pixels and changes nothing else: the boxes
+		// stay, the flex flow stays (so `.ssr-stage` cannot re-center the Nacre), and Playwright
+		// still counts the controls as visible, because it tests for a non-empty box and
+		// `visibility`, and does not consider opacity. Set INLINE, so there is no specificity
+		// contest to lose — the same reason the background below is inline, since
+		// `:root[data-mode="dark"] #studio-ssr-shell` sets it at (1,2,0) and would otherwise
+		// keep the cover up in dark mode only.
+		for (const n of el.querySelectorAll<HTMLElement>('.ssr-chrome, .ssr-band')) n.style.opacity = '0';
+		el.style.background = 'transparent';
+		el.dataset.handoff = 'chrome';
+	}, []);
+	// A LAYOUT effect WITH NO rAF, which makes the swap atomic — and both halves of that were
+	// measured rather than reasoned.
+	//
+	// `useEffect` is a PASSIVE effect: React schedules it, the browser paints the commit first,
+	// and the callback runs whenever the scheduler comes back to it. Measured: header painted
+	// 481ms, reveal 817ms. `useLayoutEffect` runs synchronously at the end of the commit, which
+	// anchors it to the right commit — but on its own it only moved the reveal to 784ms against
+	// a 529ms paint, because the reveal was still behind two `requestAnimationFrame` hops and a
+	// `longtask` observer shows 78ms and 107ms tasks landing in exactly that window. rAF cannot
+	// run during a long task, and the engine load guarantees long tasks here.
+	//
+	// So there is no rAF. A layout effect runs after React has mutated the DOM and BEFORE the
+	// browser rasterizes that mutation, so setting the attribute here puts the app's chrome
+	// appearing and the shell's stand-in disappearing in the SAME paint. The visitor never sees
+	// either state alone — which is strictly better than the double-rAF's "wait until the app is
+	// provably painted, then uncover a frame later", and it is what removes the window instead
+	// of shortening it.
+	//
+	// The risk this trades for is the opposite one: revealing a chrome that has not SETTLED, if
+	// the app needed a second commit to reach its final layout. That is not a judgment call left
+	// hanging — `handoff-bench.mjs` tracks the app's own header, preview bar and Reader-view pill
+	// for sub-pixel movement after the reveal, and a settle would show up there as a shift.
+	React.useLayoutEffect(revealAppChrome, [revealAppChrome]);
 	React.useEffect(() => {
 		// Backstop: never trap the user behind the static shell if the engine never
 		// signals a first render. 8s — the primary dismissal is onPreviewFirstRender
@@ -844,6 +911,86 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Dismiss the instant-shell when the editor preview first renders (its own Nacre loader
 	// now covers the preview area) OR at the 8s backstop above. The editor DeckPreview lives
 	// in-flow in `previewBoxRef` and fires `onFirstRender` on its first paint — idempotent.
+	// STRANDED-NACRE GUARD. Stage 1 leaves the app's chrome LIVE and interactive while the
+	// shell's Nacre box still covers the preview, and that box is frozen at the rect
+	// `seedGeometry()` computed before hydration. `seedGeometry` re-runs on resize and
+	// orientationchange only — a posture change, a splitter drag, a pane collapse or a docked
+	// panel fires neither. So a visitor who clicks Read during the window (0.1-3.5s, and up to
+	// the 8s backstop) moves the app's preview box out from under a stand-in that stays put,
+	// and gets two Nacre rectangles at two geometries.
+	//
+	// Before stage 1 the shell hid that: the chrome underneath was `pointer-events:none` and
+	// therefore always clickable, but it was not VISIBLE, so the click was blind rather than
+	// invited. Making it visible is what turns a latent oddity into a defect, which makes it
+	// this change's to fix rather than a pre-existing one to log (HARD RULE #18).
+	//
+	// The fix is not a list of the controls that relayout — that list is a hand-maintained
+	// mirror, which is the failure mode this file keeps re-learning. It watches the app's own
+	// preview box instead: once that box has been REAL once, any further change to its geometry
+	// means the layout moved under the stand-in, and the stand-in goes immediately. Boot itself
+	// is not a false trigger, because the first transition is the box BECOMING real (it is
+	// 38x20.5 at stage 1 and 735x412.6 ~136ms later) and that one only arms the guard.
+	React.useEffect(() => {
+		const el = previewBoxRef.current;
+		if (!el) return;
+		// The same 40px floor the rect persister above uses for "this box is real".
+		const real = (r: DOMRect) => r.width >= 40 && r.height >= 40;
+		const key = () => {
+			const r = el.getBoundingClientRect();
+			return real(r) ? `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}` : null;
+		};
+		let armed: string | null = null;
+		// RESIZE AND ORIENTATIONCHANGE ARE NOT STRANDING, and excluding them is the whole
+		// difference between a guard and a bug. `seedGeometry()` re-runs on exactly those two
+		// events and re-places the Nacre for the new viewport — that is what makes "rotated
+		// while the engine was still loading" work. A guard that dismissed on them broke it:
+		// `rotating a phone into landscape leaves no chrome behind` went red, because the shell
+		// it reads after the rotation had been torn down. So those two RE-ARM the baseline
+		// instead, on the frame after the re-seed has moved the box.
+		let reseeding = 0;
+		const check = () => {
+			if (!document.getElementById('studio-ssr-shell')) return true;
+			const k = key();
+			if (k === null) return false;
+			if (armed === null || reseeding > 0) {
+				armed = k;
+				return false;
+			}
+			if (k === armed) return false;
+			dismissSsrShell();
+			return true;
+		};
+		if (check()) return;
+		const stop = () => {
+			ro.disconnect();
+			window.removeEventListener('resize', onReseed, true);
+			window.removeEventListener('orientationchange', onReseed, true);
+			document.removeEventListener('pointerup', onAny, true);
+			document.removeEventListener('keyup', onAny, true);
+		};
+		const onAny = () => { if (check()) stop(); };
+		const onReseed = () => {
+			// Hold past the re-seed AND the re-layout it causes: `seedGeometry` writes the new
+			// `--sb-*` synchronously on the event, and the app's own preview box settles on the
+			// following frames. Two frames of amnesty, then the baseline is whatever it now is.
+			reseeding += 1;
+			requestAnimationFrame(() => requestAnimationFrame(() => {
+				check();
+				reseeding -= 1;
+			}));
+		};
+		// A ResizeObserver sees the box RESIZE; it does not see it MOVE at a constant size,
+		// which a rail or a docked panel opening beside it does. The pointer/key release covers
+		// that — the cheapest honest proxy for "the visitor just did something", re-checking
+		// after the interaction, which is free.
+		const ro = new ResizeObserver(() => { if (check()) stop(); });
+		ro.observe(el);
+		window.addEventListener('resize', onReseed, true);
+		window.addEventListener('orientationchange', onReseed, true);
+		document.addEventListener('pointerup', onAny, true);
+		document.addEventListener('keyup', onAny, true);
+		return stop;
+	}, [dismissSsrShell]);
 	const onPreviewFirstRender = React.useCallback(() => {
 		crashCrumb('render', 'first preview paint');
 		dismissSsrShell();
