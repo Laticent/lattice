@@ -382,3 +382,202 @@ describe('cartesian — the CSS mirror', () => {
       'no margin in engine layout CSS (#20)');
   });
 });
+
+describe('cartesian — defects found by the independent checker', () => {
+  // Each arm below is a bug that was CONFIRMED with a reproduction against the
+  // first cut of this kernel. They are kept as named regressions because every
+  // one of them would otherwise have multiplied across seven members.
+
+  test('a minus that is not adjacent to the digits is still a minus', () => {
+    // `-$0.8M` took the first numeric run and dropped the sign, so every
+    // negative step of a waterfall pointed up and the bridge closed on the
+    // wrong number without ever crossing the zero rule it is read against.
+    assert.equal(C.parseValue('-$0.8M'), -800000);
+    assert.equal(C.parseValue('$-1.2M'), -1200000);
+    assert.equal(C.parseValue('($1.2M)'), -1200000, 'the accounting parenthesis');
+    assert.equal(C.parseValue('−1.2M'), -1200000, 'U+2212, what a spreadsheet paste gives');
+    assert.equal(C.parseValue('- 1.2'), -1.2);
+    assert.equal(C.parseValue('$1.2M'), 1200000, 'a positive is still positive');
+  });
+
+  test('the 2.5 rung of the nice ladder is labeled 2.5, not 3', () => {
+    // decimalsFor returned 0 for any step >= 1, so a gridline drawn at 2.5 was
+    // labeled 3 — a 20% error on the reference a reader takes values off, on
+    // the most ordinary domain there is.
+    const { ticks, step } = C.niceTicks(0, 10);
+    const fmt = C.axisFormatter({ ticks, step });
+    assert.deepEqual(ticks.map(fmt), ['0', '2.5', '5', '7.5', '10']);
+    for (const hi of [9, 10, 1e7, 9.7e6, 0.1]) {
+      const t = C.niceTicks(0, hi);
+      const f = C.axisFormatter({ ticks: t.ticks, step: t.step });
+      for (const v of t.ticks) {
+        const printed = Number(f(v).replace(/[^\d.-]/g, '')) * (/M$/.test(f(v)) ? 1e6 : /k$/.test(f(v)) ? 1e3 : 1);
+        if (v !== 0) {
+          assert.ok(Math.abs(printed - v) <= Math.abs(v) * 0.02,
+            `tick ${v} printed as ${f(v)} on the 0..${hi} axis`);
+        }
+      }
+    }
+  });
+
+  test('an axis below 1e-4 does not print duplicate ticks', () => {
+    const t = C.niceTicks(0, 0.00006);
+    const fmt = C.axisFormatter({ ticks: t.ticks, step: t.step });
+    const printed = t.ticks.map(fmt);
+    assert.equal(new Set(printed).size, printed.length, `duplicates: ${printed.join(' · ')}`);
+  });
+
+  test('a nanoscale domain does not collapse every tick to zero', () => {
+    // round6 was an absolute toFixed(6), so every tick under 1e-6 flattened to
+    // 0 — and since buildGrid tests `t === 0` (and -0 === 0) that painted five
+    // stacked zero rules and not one gridline.
+    const t = C.niceTicks(-1e-9, 1e-9);
+    assert.ok(t.ticks.some((v) => v !== 0), 'every tick flattened to zero');
+    const grid = C.buildGrid({ plot: C.plotBox({}), ticks: t.ticks, scale: () => 50 });
+    assert.equal((grid.match(/cart-zero/g) || []).length, 1, 'exactly one zero rule');
+  });
+
+  test('a pill that merely CONTAINS digits is detail, not a data point', () => {
+    // `parseValue('PROJ-42')` is -42, so a ticket id was plotted as a negative
+    // data point that dragged the axis to -42 and minted a phantom series.
+    const m = C.parseSeries(
+      '<li>Q1<ul><li>Revenue <code>2.4</code></li><li>Ticket <code>PROJ-42</code></li></ul></li>');
+    assert.deepEqual(m.series, ['Revenue']);
+    assert.equal(m.groups[0].detail.length, 1);
+    assert.ok(m.min >= 0 && m.max === 2.4, `axis was dragged to ${m.min}..${m.max}`);
+    assert.equal(C.isValuePill('PROJ-42'), false);
+    assert.equal(C.isValuePill('$1,200'), true);
+    assert.equal(C.isValuePill('-$0.8M'), true);
+    assert.equal(C.isValuePill('12%'), true);
+    assert.equal(C.isValuePill('EMEA'), false);
+  });
+
+  test('mixed-depth authoring keeps the flat group in the domain', () => {
+    // An author converts one group to multi-series and leaves another flat —
+    // the commonest authoring edit. The flat group used to fall out of the
+    // domain entirely, so a member drew a bar several times the axis maximum.
+    const m = C.parseSeries(
+      '<li>Q1<ul><li>P <code>2</code></li></ul></li><li>Q2 <code>9</code></li>');
+    assert.equal(m.mixedDepth, true, 'the model must flag it so a member can refuse');
+    assert.equal(m.max, 9, 'the flat group must reach the domain');
+  });
+
+  test('a series past the cap is TAGGED, not left to contradict the axis', () => {
+    // `series` was capped while `points` was not, so a member iterating points
+    // drew a 7th mark whose palette index was -1 — an unstyled mark — and the
+    // axis carried headroom no drawn mark reached.
+    const inner = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+      .map((x, i) => `<li>${x.toUpperCase()} <code>${(i + 1) * 100}</code></li>`).join('');
+    const m = C.parseSeries(`<li>Q1<ul>${inner}</ul></li>`);
+    assert.deepEqual(m.seriesOverflow, ['G']);
+    assert.equal(m.max, 600, 'the axis must not be set by a series that is never drawn');
+    assert.deepEqual(m.groups[0].points.map((p) => p.over),
+      [false, false, false, false, false, false, true]);
+  });
+
+  test('an <ol> sublist is a sublist', () => {
+    // `1. Product `2.4`` under a group rendered a blank chart: splitNested
+    // searched only for <ul> while parseTopLevelLis tracked <ol> correctly.
+    const m = C.parseSeries('<li>Q1<ol><li>P <code>2</code></li></ol></li>');
+    assert.ok(m, 'an ordered sublist returned the pass-through signal');
+    assert.deepEqual(m.series, ['P']);
+  });
+
+  test('the vertical axis culls its labels — the horizontal-bar branch', () => {
+    // This branch had NO cull at all. Thirty rows on the landscape plot gave a
+    // 4.9-unit band pitch against a 9.4-unit line height: every row label
+    // overprinted its neighbors and nothing was legible.
+    const plot = C.plotBox({});
+    const b = C.bandScale(30, [plot.y0, plot.y1]);
+    const out = C.buildCategoryLabels({
+      plot, labels: Array.from({ length: 30 }, (_, i) => `Business unit ${i}`),
+      center: (i) => b.center(i), width: 26, axis: 'y',
+    });
+    const drawn = (out.match(/class="cart-cat"/g) || []).length;
+    assert.ok(drawn > 0 && drawn < 30, `drew ${drawn} of 30 — expected a cull`);
+  });
+
+  test('the horizontal cull measures the PAINTED width, not the allowed width', () => {
+    // Culling on the allowed width threw away short names that had room: 2 of
+    // 20 survived a case where every one fits.
+    const plot = C.plotBox({});
+    const b = C.bandScale(20, [plot.x0, plot.x1]);
+    const out = C.buildCategoryLabels({
+      plot, labels: Array.from({ length: 20 }, (_, i) => `B${i}`),
+      center: (i) => b.center(i), width: b.width,
+    });
+    assert.equal((out.match(/class="cart-cat"/g) || []).length, 20,
+      'short labels that fit their bands must not be culled');
+  });
+
+  test('markFormatter speaks the axis unit at the value\'s own precision', () => {
+    // formatTick per mark gave three units on one chart; axisFormatter rounded
+    // a real 400k value to "0M".
+    const { ticks, step } = C.niceTicks(0, 5e6);
+    const fmt = C.markFormatter({ ticks, step });
+    assert.deepEqual([2500000, 900000, 5000000, 400000].map(fmt),
+      ['2.5M', '0.9M', '5M', '0.4M']);
+  });
+
+  test('includeZero:false is honored for a flat positive series', () => {
+    const t = C.niceTicks(42, 42, { includeZero: false });
+    assert.ok(t.min > 0, `min was ${t.min} — the series was squashed against the top`);
+  });
+
+  test('a domain near Number.MAX_VALUE terminates instead of throwing', () => {
+    // hi overflowed to Infinity, n with it, and the loop ran for ten seconds
+    // before throwing an uncaught RangeError from inside a chart kernel.
+    const t = C.niceTicks(0, 1.6e308);
+    assert.ok(t.ticks.length > 0 && t.ticks.length <= 201);
+    assert.ok(t.ticks.every(Number.isFinite));
+    const d = C.niceTicks(1e-323, 4e-323);
+    assert.ok(d.ticks.length > 0 && d.ticks.every(Number.isFinite), 'denormal domain');
+  });
+
+  test('bandScale survives a reversed range and a NaN count', () => {
+    // linearScale's own doc trains a caller to pass [y1, y0]; a member writing
+    // bandScale(n, [plot.y1, plot.y0]) by analogy got width 0 — invisible
+    // bars, no error.
+    const b = C.bandScale(3, [100, 0]);
+    assert.ok(b.width > 0, 'a descending range must not yield zero-width bands');
+    assert.ok(Number.isFinite(C.bandScale(NaN, [0, 100]).width));
+  });
+
+  test('a gradient slot cannot break out of its id attribute', () => {
+    const d = C.buildFillDefs({ kind: 'state', slots: ['a"onload=x'] });
+    assert.ok(!/["'<>]/.test(d.id('a"onload=x')), `unescaped id: ${d.id('a"onload=x')}`);
+    // The hostile slot text must not survive anywhere in the emitted defs —
+    // not in the id, and not in the `var(--state-…)` name either.
+    assert.ok(!d.defs.includes('onload=x'), 'the raw slot reached the markup');
+    assert.ok(!d.defs.includes('"onload'), 'an attribute break-out survived');
+  });
+
+  test('the gradient stem is a registered render-id family', () => {
+    // render-ids.js decides whether a deck is squatting an id by matching the
+    // family NAME. A stem it does not carry is a stem an author's raw
+    // <linearGradient> can hijack — and SVG is first-def-wins, so the chart
+    // would paint with the author's gradient while its legend read correctly.
+    const ids = require('../../../lib/core/render-ids');
+    ids.resetRenderIds('<linearGradient id="cart-fill-1-1-1">');
+    assert.notEqual(ids.renderIdPrefix(), '', 'cart-fill is not in the FAMILIES probe');
+    ids.resetRenderIds('');
+  });
+
+  test('buildSvgRoot emits the contract the skill pins', () => {
+    const svg = C.buildSvgRoot({
+      view: C.VIEW.landscape, className: 'bar-svg',
+      title: 'Bar chart', desc: 'Alpha 12; Beta 7', body: '<g/>',
+    });
+    assert.match(svg, /viewBox="0 0 320 180"/);
+    assert.match(svg, /preserveAspectRatio="xMidYMid meet"/);
+    assert.match(svg, /role="img"/);
+    assert.match(svg, /<title>Bar chart<\/title>/);
+    assert.match(svg, /<desc>Alpha 12; Beta 7<\/desc>/);
+    // role="img" prunes the subtree, so title/desc are the ONLY route to the
+    // data — they must survive author text that looks like markup.
+    const hostile = C.buildSvgRoot({
+      view: C.VIEW.landscape, className: 'x', title: 'a<b>&c', desc: 'd<e>', body: '',
+    });
+    assert.match(hostile, /<title>a&lt;b&gt;&amp;c<\/title>/);
+  });
+});
