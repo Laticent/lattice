@@ -60,7 +60,7 @@ SAFE_R = 54.0
 #
 # Measured, not assumed: every one of the five product marks places a haloed
 # hub at exactly (64,64), radius 13-16.5. The family is not merely "has a
-# hub", it is ORGANISED AROUND one — every child is centripetal. A letterform
+# hub", it is ORGANIZED AROUND one — every child is centripetal. A letterform
 # cannot be centripetal without ceasing to be a letter, so transplanting a hub
 # into the L fails on geometry, not taste: its node lands 38 units off center
 # and reads as a bolted-on dot.
@@ -175,7 +175,7 @@ GAP_CAPS = 0.42           # space to the wordmark, in cap heights
 
 
 TILE_CAPS = 1.90         # the tile's height in cap heights
-TILE_CENTRE = 69.5       # measured: between the cap-band center (67.5) and the
+TILE_CENTER = 69.5       # measured: between the cap-band center (67.5) and the
                          # word's center of mass (74.2). A tile is not a letter,
                          # so it has no baseline to share; the eye put it here.
 
@@ -187,7 +187,7 @@ def lockup(style, width=None, form="tile"):
     if form == "tile":
         th = TILE_CAPS * cap
         sc = th / 128
-        ty = TILE_CENTRE - th / 2
+        ty = TILE_CENTER - th / 2
         tx = 4 + th + GAP_CAPS * cap
         art = tile()
     else:
