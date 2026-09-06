@@ -1165,7 +1165,12 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// from the script text and so is forced by them. No markup, attribute or block order moved —
 	// this fixture's `aside.lattice-notes` means `hasNotes` is true here, so the gated branches
 	// contribute bytes, not behavior, to the golden.
-	assert.equal(sha, 'a1e08602fc36ee666ac23137e82f3c04e5c057aa28df65c2a379e05b3c4a3409', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED 2026-09-06: `playerCss` gained three `#lp-article .lp-roster` rules so a
+	// team-profile roster's portraits render at 1.9em in Read·Article instead of natural
+	// size. team-profile is the first component to emit `<img>` from a transform, so the
+	// article had no rule for one. Bytes move for EVERY deck because this is the shared
+	// stylesheet — that is what this golden is for, and it is the only reason it moved.
+	assert.equal(sha, '706f218d8cbabc5609ffce36bb36f637dc7d8ffb3759ed2ebb3cd153ee9c1ecd', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

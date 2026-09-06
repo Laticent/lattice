@@ -878,3 +878,73 @@ test('team-profile: a mid-stage blockquote is not swallowed by the roster walk',
 	assert.match(t, /Ada Okafor, Sponsor\./);
 	assert.match(t, /Marcus Vale, Director\./);
 });
+
+// ── team-profile: the person card is special; EVERYTHING else is delegated ────────
+// Two earlier versions re-implemented the block walk with a hand-copied subset of the
+// generic walkers' selectors and none of their per-tag walkers. Four content-loss
+// defects came out of that one decision, and the two below are the sharpest: a `<dl>`
+// matched the selector, found no handler, fell through to `textContent` and
+// RE-CREATED the concatenation bug the function exists to remove — in exported .vtt
+// captions. These pin the delegation itself, so a future selector list cannot drift
+// out of sync with the generic walker again.
+
+test('team-profile: a <dl> beside a roster keeps its term/definition reading', () => {
+	// Was "NetworkACME-GuestRoom4B." in a shipped caption sidecar.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n<dl><dt>Network</dt><dd>ACME-Guest</dd><dt>Room</dt><dd>4B</dd></dl>\n');
+	assert.match(t, /Network: ACME-Guest\./);
+	assert.match(t, /Room: 4B\./);
+	assert.doesNotMatch(t, /NetworkACME|GuestRoom/, 'the concatenation bug must not return on another element');
+});
+
+test('team-profile: a plain <ul> beside a roster is not swallowed', () => {
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n<div class="x"><ul><li>MUST SURVIVE</li></ul></div>\n');
+	assert.match(t, /MUST SURVIVE/);
+});
+
+test('team-profile: a ul.team-roster carrying no person flows on as an ordinary list', () => {
+	// The transform's idempotency guard lets an author-written `ul.team-roster` reach
+	// the projection untouched. Treating it as a roster emitted nothing AND suppressed
+	// the fallback, so its content vanished — but only when another block on the slide
+	// had already produced output, which is the worst way for it to fail.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## T\n\nAn intro paragraph.\n\n<ul class="team-roster"><li>MUST SURVIVE</li></ul>\n');
+	assert.match(t, /An intro paragraph\./);
+	assert.match(t, /MUST SURVIVE/);
+});
+
+test('team-profile: body blocks keep the sentence seam, not a paragraph beat', () => {
+	// Joining blocks with "\n\n" reversed 2026-07-14-paragraph-level-pauses.md, whose
+	// fix was "beat only lead->body, not every block": a paragraph seam widens to
+	// PARAGRAPH_PAUSE_MS, and a `sides` slide gained four of them.
+	const [t] = renderSpeech('<!-- _class: team-profile sides -->\n\n## T\n\n### Your team\n\n- Ada Okafor\n  - `VP Ops`\n\n### Our team\n\n- Marcus Vale\n  - `Director`\n');
+	const [lead, ...body] = t.split('\n\n');
+	assert.match(lead, /^T\./, 'the lead is its own paragraph');
+	assert.equal(body.length, 1, `body must be ONE block, got ${body.length}: ${JSON.stringify(t)}`);
+	assert.match(body[0], /Your team\.[\s\S]*Our team\./, 'both labels still read, in order');
+});
+
+test('team-profile: Read·Article keeps the portrait', () => {
+	// The component's first line is "a roster of named people, each under a portrait";
+	// an earlier version read only the three text spans and dropped every headshot.
+	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Sponsor`\n', 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /<img class="person-photo"[^>]*src="ada\.svg"/, 'the portrait rides into the article');
+	assert.match(articleHtml, /<strong>Ada Okafor<\/strong>/);
+});
+
+test('team-profile: a <pre> block survives into Read·Article', () => {
+	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n```\nrun the thing\n```\n', 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /<pre>[\s\S]*run the thing/);
+});
+
+test('team-profile: neither projection mutates the DOM it is handed', () => {
+	// The live Studio Present path re-projects the same nodes on every slide change.
+	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns it.\n', 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const secs = [...dom.window.document.querySelectorAll('section[data-class]')];
+	const before = dom.window.document.body.innerHTML;
+	speak(secs); project(secs); speak(secs);
+	assert.equal(dom.window.document.body.innerHTML, before, 'projection must be read-only');
+});
