@@ -67,7 +67,12 @@ export const CHROME = {
 	landingView: 'The view readers land on',
 	/** Activity-bar toggle for the Library (saved themes / components / finishes) panel. */
 	library: 'Open Library',
-	/** The deck-switcher / workspace launcher in the top bar. */
+	/** The brand MARK in the top bar — an `<a href>` to the site home, and a separate control
+	 *  from the launcher below it since 2026-09-05. Same accessible name as SiteHeader's
+	 *  `sh-brand`, deliberately: it is the same destination on every surface of the site. */
+	brandHome: 'Lattice — home',
+	/** The workspace launcher in the top bar — the wordmark + chevron that opens Decks /
+	 *  Fabricate / Import. It used to be the brand mark too; `brandHome` is the mark now. */
 	workspaceLauncher: 'Workspace launcher',
 	/** The workspace-settings sheet trigger. */
 	workspaceSettings: 'Workspace settings',

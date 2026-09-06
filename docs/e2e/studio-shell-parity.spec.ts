@@ -18,6 +18,17 @@ import { CHROME, expect, test } from './studio-fixture';
 // controls. It ENUMERATES every visible control in both chromes, keyed by accessible name,
 // and demands the two sets — and every box in them — agree.
 //
+// "BOTH CHROMES" IS A LIST OF ROOTS, AND THAT LIST IS THE REAL COVERAGE — read it as one.
+// This enumerates everything inside the roots passed to READ_CONTROLS, which is not the same
+// as everything the visitor sees, and the difference is exactly how a sixth divergence hid:
+// the EDIT/PREVIEW sub-bars were in neither list, so the shell drew ONE control where the app
+// drew twelve and this spec stayed green through all of it. Reported on an iPad Air 4, both
+// orientations; `studio-instant-shell` missed it too, because the band's BOX was right (45px
+// in both) and that spec compares bands rather than their contents. The roots now include the
+// editor pane and the preview bar. Before adding a control to a band that is NOT listed there,
+// add the band — an enumeration over a hand-picked subtree is a hand-picked list in better
+// clothes.
+//
 // That makes the guard generalize to the thing that will actually happen: someone adds an
 // icon to the header, or moves one, or gates one on a new breakpoint. A control present in
 // the app and absent from the shell fails here on the first run, without anyone remembering
@@ -33,10 +44,18 @@ type Box = [number, number, number, number];
 type Control = { name: string; box: Box };
 
 // Sub-pixel rounding only. Every real divergence found was >= 6px.
+//
+// ONE tolerance now, and the deck pill no longer has its own. `PILL_TOL = 6` used to sit here
+// "because the deck pill reserves a slot for a per-deck slide count the shell must not draw,
+// so a few px there is structural" — and a second exemption widened the posture dial's LEFT to
+// the same 6px as inherited from it. Both were conceding a real, visible defect: the shell's
+// reserved slot was a width FITTED to the welcome deck's own "7 slides", so the pill and every
+// control after it — the rule and all three dial buttons — sat 3px left of the app's at every
+// width from 1280 up, and jumped sideways when React took over. The slot is now taken from one
+// shared constant on both sides (`DECK_META_SLOT`), so the cause is gone and the concession
+// with it. A guard widened to fit the defect it is watching for reports only that the defect
+// has not grown.
 const TOL = 2;
-// The deck pill reserves a slot for a per-deck slide count the shell must not draw, so a few
-// px there is structural. See studio-instant-shell.spec.ts for the full reasoning.
-const PILL_TOL = 6;
 const ENGINE_HOLD_MS = 2500;
 
 /** Widths chosen at tier boundaries — that is where hand-copied gating breaks. */
@@ -79,8 +98,8 @@ const CASES: {
 	{ w: 1099, h: 900, stop: 'write', why: 'top of the app tablet tier' },
 	{ w: 1100, h: 900, stop: 'write', why: 'bottom of the app desktop tier' },
 	{ w: 1440, h: 900, stop: 'write', smoke: true, why: 'desktop' },
-	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — slim header, plain title' },
-	{ w: 1440, h: 900, stop: 'craft', why: 'desktop at Craft — activity rail + full header' },
+	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — same header as Write and Craft' },
+	{ w: 1440, h: 900, stop: 'craft', why: 'desktop at Craft — activity rail, plus the tail utilities the row keeps at xl' },
 	// SHORT desktop, and the height is the point: at a raised minimum font size the rail's
 	// natural height (690px) exceeds this column (666px), so both surfaces have to shrink their
 	// cells the same way. A tall 1440x900 case cannot see it — nothing overflows there — which
@@ -163,13 +182,17 @@ for (const c of CASES) {
 		// between a guard and a flake, so wait for BOTH surfaces to be on the final font.
 		await page.evaluate(() => document.fonts.ready);
 
-		// SCOPE: the topbar, the phone action bar and the desktop-Craft activity rail are the
-		// three chrome regions the shell claims to MIRROR control-for-control. It deliberately
-		// does not mirror the editor toolbar, the slide navigator or the status strip — those
-		// carry per-deck content (slide names, counts) the shell must not draw, and it reserves
-		// them as neutral bars instead. Band-level agreement for those regions is asserted by
-		// studio-instant-shell.spec.ts; asserting their CONTROLS here would demand the shell
-		// paint deck content, which is the failure the one-skeleton decision retired.
+		// SCOPE: the topbar, the phone action bar, the desktop-Craft activity rail, and — since
+		// the iPad report — the EDIT and PREVIEW sub-bars. The shell mirrors all five
+		// control-for-control.
+		//
+		// It still does not draw per-deck CONTENT: a slide count, the name of a reader view. But
+		// "the shell must not draw the count" was for years also read as "so its width is a
+		// guess", and that reading is what this spec spent six px of tolerance hiding. The two
+		// unknowable slots now reserve a fixed width from a shared constant (`DECK_META_SLOT`,
+		// `SLIDE_COUNTER_SLOT`), so their BOXES are comparable here like any other control's,
+		// and only the glyphs inside them differ. `studio-reserved-slots.spec.ts` owns that
+		// contract directly.
 		//
 		// The RAIL joined this scope after shipping as an empty 52px <div> from the day the band
 		// was added (2026-08-09): its geometry was right (`--sh-rail`, seeded desktop-Craft-only)
@@ -179,7 +202,7 @@ for (const c of CASES) {
 		// scoped itself to the two chrome ROWS. Every control the rail draws is fixed chrome (the
 		// panels all boot closed), so it belongs in a SET comparison like any other.
 		const shell = (await page.evaluate(
-			READ_CONTROLS(['#studio-ssr-shell .ssr-topbar', '#studio-ssr-shell .ssr-actionbar', '#studio-ssr-shell .ssr-activityrail']),
+			READ_CONTROLS(['#studio-ssr-shell .ssr-topbar', '#studio-ssr-shell .ssr-actionbar', '#studio-ssr-shell .ssr-activityrail', '#studio-ssr-shell [data-slot="edit-bar"]', '#studio-ssr-shell [data-slot="preview-bar"]']),
 		)) as Control[];
 		// A shell that already dismissed reports nothing and would pass every comparison
 		// vacuously — the whole spec rests on catching it up.
@@ -190,7 +213,7 @@ for (const c of CASES) {
 		await page.evaluate(() => document.fonts.ready);
 
 		const app = (await page.evaluate(
-			READ_CONTROLS(['header', 'fieldset[aria-label="Deck actions"]', 'nav[aria-label="Studio panels"]']),
+			READ_CONTROLS(['header', 'fieldset[aria-label="Deck actions"]', 'nav[aria-label="Studio panels"]', '[data-studio-root] [data-slot="edit-bar"]', '[data-studio-root] [data-slot="preview-bar"]']),
 		)) as Control[];
 		expect(app.length, 'no app chrome found — the selectors have drifted').toBeGreaterThan(0);
 
@@ -210,24 +233,11 @@ for (const c of CASES) {
 			expect(shellOnes.length, `control count differs for "${name}"`).toBe(appOnes.length);
 			for (const [i, a] of appOnes.entries()) {
 				const s = shellOnes[i];
-				const isPill = name.toLowerCase().includes('deck');
-				// The dial moved into the identity band, directly downstream of the deck pill
-				// (2026-08-16). Its LEFT is therefore a function of the pill's width, so it
-				// inherits the pill's structural variance — the reserved slide-count slot the
-				// shell must not draw. Measured in a production build: 3px, while a dev build
-				// shows 0.19px, which is exactly the font-metric seam PILL_TOL already exists
-				// for. Widening `left` here is inheritance, not a fudge: the drift has one
-				// cause and it is already conceded one control upstream.
-				// Deliberately NOT widened for width/height — the dial's own size is fixed by
-				// its content, owes nothing to the pill, and a real size divergence must still
-				// fail at TOL.
-				const inheritsPillDrift = (CHROME.postureStops as readonly string[]).includes(name);
 				for (const [axis, k] of (['left', 'top', 'width', 'height'] as const).entries()) {
-					const tol = isPill || (inheritsPillDrift && k === 'left') ? PILL_TOL : TOL;
 					expect(
 						Math.abs(s.box[axis] - a.box[axis]),
 						`${name} ${k} @${c.w}/${c.stop}: shell ${s.box[axis]} vs app ${a.box[axis]}`,
-					).toBeLessThanOrEqual(tol);
+					).toBeLessThanOrEqual(TOL);
 				}
 			}
 		}

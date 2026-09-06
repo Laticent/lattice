@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import StudioShell from './StudioShell';
 import { TOURS } from './tours';
@@ -9,6 +10,29 @@ import { TOURS } from './tours';
 // deck index without the newcomer welcome deck, plus the Craft posture — which is
 // the real shape for anyone who works with every panel docked. The fresh first-run
 // state (welcome deck, calm Write surface, no banner) is covered separately below.
+/**
+ * Fire one of the two departure signals the source flush listens on.
+ *
+ * `visibilityState` becomes an OWN property once redefined, so it has to be removed again or
+ * every later test in this file sees a hidden document — and this file also exercises the
+ * preview-rect `visibilitychange` handler. The restore is in a `finally` so a throw inside
+ * the dispatch cannot leak the hidden state into all of them.
+ */
+function fireDeparture(evt: string) {
+	try {
+		act(() => {
+			if (evt === 'pagehide') {
+				window.dispatchEvent(new Event('pagehide'));
+			} else {
+				Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+				document.dispatchEvent(new Event('visibilitychange'));
+			}
+		});
+	} finally {
+		if (evt !== 'pagehide') Reflect.deleteProperty(document, 'visibilityState');
+	}
+}
+
 function seedReturningUser() {
 	localStorage.setItem('lattice-studio-deck-index', JSON.stringify([
 		{ id: 'q3-board', title: 'Q3 Board Review', builtin: true },
@@ -185,20 +209,117 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 	});
 
-	it('Write keeps deck navigation — the switcher (Switch + New deck) rides the slim header; Read stays a calm label', async () => {
+	it('the brand mark is a link to the home page, and the launcher menu is a separate control', async () => {
 		seedPosture('read');
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		// Read: the deck is a calm label, not a switcher — no deck-CRUD affordance.
-		expect(document.querySelector('[data-demo="deck-switcher"]')).toBeNull();
-		// Dial to Write: the switcher appears. Deck-switching + New deck are the Write persona's
-		// most basic navigation — not strippable chrome (they used to be reachable NOWHERE in Write:
-		// not the slim header, and New deck wasn't even in ⌘K).
-		await user.click(screen.getByRole('button', { name: 'Write — editor + preview' }));
-		const switcher = document.querySelector('[data-demo="deck-switcher"]') as HTMLElement | null;
-		expect(switcher).not.toBeNull();
-		await user.click(switcher as HTMLElement);
+		// TWO CONTROLS, NOT ONE. They were a single button, so the only way out of the Studio
+		// to the marketing site was the browser's back button, and clicking the thing every
+		// other page on this site treats as a home link opened a menu instead.
+		const home = screen.getByRole('link', { name: 'Lattice — home' });
+		// A real href, not an onClick: ⌘-click, middle-click and "copy link address" all have
+		// to work, which is also what makes it match SiteHeader's `sh-brand`.
+		expect(home).toHaveAttribute('href', '/');
+		// …and the menu is still one tap away on its own trigger, with the same three doors.
+		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+		for (const door of ['Decks', 'Fabricate', 'Import deck…']) {
+			expect(screen.getByRole('menuitem', { name: new RegExp(door.replace('…', '')) })).toBeInTheDocument();
+		}
+	});
+
+	it.each(['pagehide', 'visibilitychange'])('a %s does NOT write a deck you only looked at', (evt) => {
+		// THE GATE, not the write. A flush is for work in flight; a deck you opened and left
+		// alone must stay unwritten, because in this store the ROW'S MERE EXISTENCE is a
+		// claim. `loadSource(id) ?? canonicalSource(deck)` pins a built-in deck to the copy
+		// shipped the day you first visited (a later release's better sample never reaches
+		// you), and `shouldNudgeBackup` counts "decks carrying edits" as `loadSource(id) !=
+		// null`, so browsing alone would arm a nudge reserved for real unbacked-up work.
+		// Measured before the gate: open at Read, touch nothing, leave — and
+		// `lattice-studio-src-welcome` exists.
+		localStorage.clear();
+		seedPosture('write');
+		render(<StudioShell options={options} />);
+		fireDeparture(evt);
+		expect(
+			Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-src-')),
+			`${evt} wrote a source row for a deck that was never edited`,
+		).toEqual([]);
+	});
+
+	it.each(['pagehide', 'visibilitychange'])('a %s does NOT write an untouched deck UNDER STRICTMODE either', (evt) => {
+		// THE BUILD THE OTHER ARM CANNOT SEE. `StudioIsland.tsx` wraps the shell in `<StrictMode>`
+		// on purpose, and StrictMode replays every effect body mount → cleanup → mount with
+		// IDENTICAL deps. A gate phrased as "the first run for this deck is its load, every later
+		// run is an edit" therefore takes the edit branch on run 2 and writes a deck nobody
+		// touched. Production React makes StrictMode inert, so that shipped a fixed site and a
+		// broken `npm run dev` — a split invisible to every guard here, because the arm above
+		// renders without StrictMode and every e2e drives the production bundle.
+		//
+		// The gate is value-based now (compare the loaded TEXT, not the run count), which is what
+		// makes it immune. This arm is the oracle for that, and it fails against the run-count
+		// version — which is the only reason it is worth its runtime.
+		localStorage.clear();
+		seedPosture('write');
+		render(
+			<React.StrictMode>
+				<StudioShell options={options} />
+			</React.StrictMode>,
+		);
+		fireDeparture(evt);
+		expect(
+			Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-src-')),
+			`${evt} wrote a source row for an untouched deck under StrictMode`,
+		).toEqual([]);
+	});
+
+	it.each(['pagehide', 'visibilitychange'])('a %s writes an EDITED deck through', async (evt) => {
+		// WHY THIS EXISTS: the editor's writes run on a 400ms debounce, and an unmount CLEARS
+		// that timer rather than running it — so anything typed in the last 400ms before a
+		// departure was lost. The exposure predates the brand link (the browser's own back
+		// button did it too), but the link puts a leave-the-page control one tap from the
+		// editor, which makes it a routine path (HARD RULE #18).
+		//
+		// WHAT THIS ARM DOES AND DOES NOT PROVE: it pins the OUTCOME — edit, leave, the edit
+		// survives — and, with the arm above, the gate. It does NOT pin the timing, because
+		// under real timers the 400ms debounce could also have written it. The timing claim
+		// is verified on the REAL surface instead (#23): typing into the actual CodeMirror
+		// and clicking the brand mark 306ms after the last keystroke, inside the debounce,
+		// left the edit in `lattice-studio-src-welcome`.
+		localStorage.clear();
+		seedPosture('write');
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// The editor is a `React.lazy` boundary, so this waits on Vite transforming CodeMirror
+		// on first use in this file — an explicit budget, not the 1000ms default (#1806).
+		const editor = await screen.findByLabelText('Deck source', undefined, { timeout: 15000 });
+		await user.click(editor);
+		await user.paste('\n\n<!-- flush-probe -->\n');
+		fireDeparture(evt);
+		const written = Object.entries(localStorage).find(([k]) => k.startsWith('lattice-studio-src-'));
+		expect(written, `${evt} did not write the edited deck`).toBeDefined();
+		expect(String(written?.[1])).toContain('flush-probe');
+	});
+
+	it('deck navigation is in the header at EVERY stop — Read included', async () => {
+		seedPosture('read');
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// READ GETS THE REAL SWITCHER. It used to get a dead title label, on the theory that
+		// managing decks is a Write-and-up concern — which left a reader whose saved posture is
+		// Read with no route to their other decks anywhere in the app, and made the header's
+		// left run change shape on every dial step (owner, 2026-09-05: *"read doesn't allow you
+		// to select a deck which is wrong imo"*).
+		const atRead = document.querySelector('[data-demo="deck-switcher"]') as HTMLElement | null;
+		expect(atRead).not.toBeNull();
+		await user.click(atRead as HTMLElement);
 		expect(screen.getByRole('menuitem', { name: 'New deck' })).toBeInTheDocument();
+		await user.keyboard('{Escape}');
+		// …and it is the SAME one control at Write and Craft, not a per-stop copy: exactly one
+		// element carries the hook at each stop, which is what makes the row's left run stable.
+		for (const stop of ['Write — editor + preview', 'Craft — every panel']) {
+			await user.click(screen.getByRole('button', { name: stop }));
+			expect(document.querySelectorAll('[data-demo="deck-switcher"]')).toHaveLength(1);
+		}
 	});
 
 	it('mobile: the Read home — "Edit this slide" swaps to the editor + persists Write', async () => {

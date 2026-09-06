@@ -871,6 +871,31 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by:** any `toast(title, { description })` call. See
   `engineering/decisions/2026-08-10-studio-crash-sentinel.md` § 5.
 
+## A DOM census over the chrome agrees with itself, but it is reading the wrong elements
+
+- **Symptom:** a spec enumerates every control in a row and compares the sets
+  across two states. It passes. What it actually compared was six identical
+  placeholder keys and one real control — `["rule 1", "rule 2", "rule 3",
+  "rule 4", "rule 5", "Search or run a command", "rule 6"]` at a width whose
+  row draws **no** separators at all.
+- **Cause:** `el.hasAttribute('data-slot')` is not "this is a separator."
+  **Every** shadcn primitive in `docs/src/components/ui/` stamps `data-slot` —
+  `Button` carries `data-slot="button"`, `Separator` carries
+  `data-slot="separator"` — so the loose test swallowed every button in the row
+  and keyed each one as a rule. Two states then "agreed" on a list of names
+  that described neither.
+- **Fix:** compare the VALUE (`getAttribute('data-slot') === 'separator'`),
+  never the presence of the attribute.
+- **And pin the census against emptiness, by NAME.** A census that finds nothing
+  agrees with itself, so assert that the controls you know are always there —
+  for the Studio header, the brand link, the workspace launcher, the deck
+  switcher and the ⋯ menu — are in the result. A COUNT floor looks equivalent
+  and is not: it has to be re-derived every time a width ladder moves a control
+  into an overflow menu, so it rots into either a false red or a number nobody
+  trusts.
+- **Guard:** `readRow` in `docs/e2e/studio-header-fit.spec.ts`, which is the
+  census this bit. See `engineering/decisions/2026-09-05-studio-one-header.md`.
+
 ## A control's own icon renders sliced/outside its button, and every overflow guard is green
 
 - **Symptom:** A control in a tight toolbar paints part of itself outside its

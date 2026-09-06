@@ -24,13 +24,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Per-metric policy. Two classes (see the decision doc):
-//   • DETERMINISTIC (script-size = bundle bytes; no runner/network noise) → tight.
-//   • ENVIRONMENT-COUPLED (LCP/CLS/TBT/score; runner + font-load variance) → a
-//     wider band PLUS an absolute noise floor, so a sub-noise wobble never trips.
+// Per-metric policy. EVERY metric here is ENVIRONMENT-COUPLED (LCP/CLS/TBT/score;
+// runner + font-load variance), so each carries a wide band PLUS an absolute noise
+// floor, and a sub-noise wobble never trips.
 // A metric regresses when the head is worse than the base by MORE than BOTH its
 // tolerance (relative %, or absolute) AND its noise floor. `floor` (score only)
 // is an absolute catastrophe backstop independent of the delta.
+//
+// THERE IS DELIBERATELY NO DETERMINISTIC CLASS HERE ANY MORE. `script-size` used to
+// be one, on the claim "bundle bytes; no runner/network noise", and it was not: it
+// summed Lighthouse network records, so it measured what happened to LOAD during a
+// visit, not what the build produced. Measured across 140 (commit, URL, form-factor)
+// triples read two or more times on IDENTICAL commits, 35% moved further than its own
+// 3% tolerance and the worst moved 104KB on a ~200KB page — through a median of three
+// runs. Deterministic bytes are now gated per-PR off the built artifact by
+// `check-route-budget.mjs`, which reads them off disk. Do not re-add a bytes metric
+// here; add a route to `docs/route-budget.json` instead.
+// See engineering/decisions/2026-09-02-alarm-channel-saturation.md.
 const METRICS = {
 	'performance-score': {
 		label: 'Perf score',
@@ -61,13 +71,6 @@ const METRICS = {
 		tolPct: 0.2, // > 20% slower
 		noiseAbs: 100,
 	},
-	'script-size': {
-		label: 'Script',
-		unit: 'KB',
-		higherIsBetter: false,
-		tolPct: 0.03, // deterministic → 3% is plenty
-		noiseAbs: 10 * 1024, // 10 KB, in bytes
-	},
 };
 
 const FORM_FACTORS = ['desktop', 'mobile'];
@@ -93,26 +96,14 @@ function median(nums) {
 	return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-// Pull the five tracked metrics out of one Lighthouse result object.
+// Pull the four tracked metrics out of one Lighthouse result object.
 function metricsFromLhr(lhr) {
 	const audit = (id) => lhr.audits?.[id]?.numericValue;
-	// resource-summary emits one aggregated row per resourceType today, but SUM
-	// (not overwrite) so a future multi-row shape can't silently undercount — the
-	// script-size ratchet (#327 item #2) is load-bearing on this being the total.
-	// Stays `null` when the audit is absent (partial/errored run) so it joins the
-	// "missing → skip" path like the other metrics, rather than collapsing a
-	// missing value into 0 (which would read as a huge improvement or false trip).
-	let scriptBytes = null;
-	const items = lhr.audits?.['resource-summary']?.details?.items ?? [];
-	for (const it of items) {
-		if (it.resourceType === 'script') scriptBytes = (scriptBytes ?? 0) + (it.transferSize ?? it.size ?? 0);
-	}
 	return {
 		'performance-score': lhr.categories?.performance?.score ?? null,
 		'largest-contentful-paint': audit('largest-contentful-paint') ?? null,
 		'cumulative-layout-shift': audit('cumulative-layout-shift') ?? null,
 		'total-blocking-time': audit('total-blocking-time') ?? null,
-		'script-size': scriptBytes,
 	};
 }
 
@@ -188,7 +179,6 @@ function fmt(metricId, v) {
 	const cfg = METRICS[metricId];
 	if (cfg.unit === 'score') return v.toFixed(3);
 	if (cfg.unit === 'ms') return `${Math.round(v)}ms`;
-	if (cfg.unit === 'KB') return `${(v / 1024).toFixed(0)}KB`;
 	return v.toFixed(3); // CLS
 }
 
