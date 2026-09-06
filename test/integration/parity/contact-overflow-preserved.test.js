@@ -54,7 +54,7 @@ const FITTING = `<!-- _class: contact -->
 - Ada Slide \`name\`
 - One scan saves the speaker \`title\`
 - Laticent \`org\`
-- hello@laticent.dev \`email\`
+- hello@laticent.io \`email\`
 `;
 
 const OVERSTUFFED = `<!-- _class: contact -->

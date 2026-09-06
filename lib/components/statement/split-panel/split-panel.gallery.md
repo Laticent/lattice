@@ -166,7 +166,7 @@ Same anatomy, flipped — for when the deck's rhythm wants the claim to land lat
 
 A bare URL auto-resolves; the caption line labels the scan.
 
-- https://laticent.dev/components/split-panel `qr`
+- https://laticent.io/components/split-panel `qr`
 - Scan for this layout's docs `caption`
 
 

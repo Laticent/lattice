@@ -8,7 +8,7 @@ theme: indaco
 
 ## Scan, don't dictate.
 
-- https://laticent.dev/lattice/qr
+- https://laticent.io/lattice/qr
 - Scan to explore `caption`
 
 ---
@@ -21,7 +21,7 @@ theme: indaco
 
 Every slide, the appendix, and the workbook — before you go.
 
-- https://laticent.dev/decks/q3-board-review
+- https://laticent.io/decks/q3-board-review
 - Scan to open `caption`
 
 ---
@@ -34,7 +34,7 @@ Every slide, the appendix, and the workbook — before you go.
 
 Every line on the prior slide traces to a driver you can open — pricing, seat expansion, net revenue retention — three scenarios off one shared set of assumptions.
 
-- https://laticent.dev/appendix/revenue-model `qr`
+- https://laticent.io/appendix/revenue-model `qr`
 - Scan for the live model `caption`
 
 ---
@@ -45,7 +45,7 @@ Every line on the prior slide traces to a driver you can open — pricing, seat 
 
 ## Begin the pilot.
 
-- https://laticent.dev/pilot/start
+- https://laticent.io/pilot/start
 - Scan to begin `caption`
 
 ---
@@ -80,4 +80,4 @@ A code needn't be a URL — force any string with the `qr` key. This one carries
 
 ## Questions?
 
-- https://laticent.dev/contact
+- https://laticent.io/contact

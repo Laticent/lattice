@@ -21,8 +21,8 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 - Ada Slide `name`
 - One scan saves the speaker `title`
 - Laticent `org`
-- hello@laticent.dev `email`
-- laticent.dev `url`
+- hello@laticent.io `email`
+- laticent.io `url`
 - The QR encodes this card as a vCard `caption`
 
 
@@ -34,8 +34,8 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 - Ada Slide `name`
 - One scan saves the speaker `title`
 - Laticent `org`
-- hello@laticent.dev `email`
-- laticent.dev `url`
+- hello@laticent.io `email`
+- laticent.io `url`
 - The QR encodes this card as a vCard `caption`
 
 
@@ -47,8 +47,8 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 - Ada Slide `name`
 - One scan saves the speaker `title`
 - Laticent `org`
-- hello@laticent.dev `email`
-- laticent.dev `url`
+- hello@laticent.io `email`
+- laticent.io `url`
 - The QR encodes this card as a vCard `caption`
 
 

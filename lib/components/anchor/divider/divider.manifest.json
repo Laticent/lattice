@@ -127,7 +127,7 @@
     "qr": {
       "label": "qr",
       "summary": "The payload bullet becomes a code.",
-      "sample": "<!-- _class: divider qr -->\n\n`divider qr`\n\n## The payload bullet below becomes a scannable code.\n\n- https://laticent.dev/components/divider\n- Scan for the divider's docs `caption`\n"
+      "sample": "<!-- _class: divider qr -->\n\n`divider qr`\n\n## The payload bullet below becomes a scannable code.\n\n- https://laticent.io/components/divider\n- Scan for the divider's docs `caption`\n"
     }
   },
   "showcase": {
