@@ -53,3 +53,11 @@
   as a `<br>`. The audit deck's Key Insight was wrapped at ~100 columns in the source and got one
   hard break per source line, inflating the panel well past what the text needs. Unwrapping the
   source, not cutting the words, is what made it fit.
+- **Fixed: a unit test enumerated scratch files as "committed decks".**
+  `slide-boundaries.test.js` walks the working tree for `*.md`, and `regression-gate.mjs`
+  writes transient `.regr-<name>.dark.md` sources beside the real galleries while it renders
+  (it must — the emulator resolves a deck's relative assets against the OUTPUT directory).
+  Running the unit suite during a corpus sweep therefore failed with a bare `ENOENT` on a file
+  that had already been cleaned up. That is the exact pairing a golden refresh performs, and it
+  cost a full debugging cycle before the pre-push hook caught it with the filename attached.
+  Dotfiles are now excluded; 306 committed decks are still enumerated.
