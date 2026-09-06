@@ -303,7 +303,7 @@ function saveIndex(index: IndexEntry[]): void {
 /** Edited source for a deck, or null if it has never been edited. */
 export function loadSource(id: string): string | null {
 	// AN INGEST BOUNDARY (the EOL/BOM policy — `docs/src/lib/normalize-source-text.ts`, and
-// `engineering/decisions/2026-08-04-line-endings-lf-boundaries.md`; it carries no rule number).
+	// `engineering/decisions/2026-08-04-line-endings-lf-boundaries.md`; it carries no rule number).
 	// A deck's stored bytes are author text arriving from outside the running app: written by
 	// an older build, by a hand-edited `localStorage`, or by any import path that reached the
 	// store without passing the file-open door. A leading U+FEFF there defeats the `^---`

@@ -113,7 +113,7 @@ describe('studio-store — per-deck source', () => {
 		expect(loadDeckList().find((d) => d.id === id)?.slides[0]).toContain('# Edited');
 	});
 
-	// AN INGEST BOUNDARY (the EOL/BOM policy — `lib/normalize-source-text.ts`). A deck's stored
+	// AN INGEST BOUNDARY (the EOL/BOM policy — `docs/src/lib/normalize-source-text.ts`). A deck's stored
 	// bytes are author text from outside the running app: an older build, a hand-edited
 	// `localStorage`, an import path that never passed the file-open door. A leading U+FEFF
 	// there defeats the `^---` front-matter anchor, so the block renders AS the first slide

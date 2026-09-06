@@ -27,10 +27,14 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * this input"; reach for that one for anything you can ask a component and the engine
  * directly. See the findings note §9.
  *
- * WHAT THE WALK DID. Eleven op families act unconditionally; the twelfth, the lint gutter's
- * Quick fix, is OPPORTUNISTIC — it needs a marker to be rendered when it is drawn, and lint is
- * asynchronous, so its coverage varies run to run and is reported rather than asserted (see the
- * note at the walk's own annotation). It drove those families against the shipped Studio in random
+ * WHAT THE WALK DID. Twelve op families, of which NINE act unconditionally and three are
+ * OPPORTUNISTIC — `quickFix` needs a lint marker rendered when it is drawn (and lint is
+ * asynchronous), `dropSeparator` needs a `---` in CodeMirror's viewport, and `railPick` needs a
+ * non-empty rail. Their coverage varies run to run and is reported rather than asserted. Three
+ * more (`type`, `paste`, `cutOrCopy`) inherit an escape from `caretIntoLine`, which returns
+ * silently when no line is rendered. An earlier revision of this line claimed eleven
+ * unconditional families, which was the same overstated-coverage mistake one paragraph away
+ * from the note about it. It drove those families against the shipped Studio in random
  * order — type, paste (CRLF / BOM / a 900-column line / a whole slide / a table / math /
  * block HTML / `* * *`), cut, copy, undo, redo, select-all-and-replace, front-matter edits,
  * directive edits, deleting a `---` separator to merge two slides, the lint gutter's Quick
@@ -73,9 +77,9 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  *   1440 Chromium            9/9      the shipped tier
  *   820  Chromium            9/9      pane and rail both on screen; nothing is width-coupled
  *   820  Chromium + touch    9/9      with the hover-only Quick-fix op skipped, see below
- *   1440 WebKit              7/7 + 2  the two clipboard oracles SKIP; see below
- *   1440 Firefox             7/7 + 2  same
- *   820  WebKit              7/7 + 2  same
+ *   1440 WebKit              9/9      no skips — see the note on the clipboard below
+ *   1440 Firefox             9/9      same
+ *   820  WebKit              9/9      same
  *   390  Chromium (± touch)  4/9      structural, and not a defect: see below
  *
  * THE PHONE IS A DIFFERENT SURFACE, and this is the measurement rather than a guess. At 390
@@ -99,11 +103,13 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * passer: the reload oracle's rail assertion counts DOM nodes, which the hidden rail still
  * satisfies — so it passes at 390 without really exercising the rail there.
  *
- * THE TWO ENGINE SKIPS ARE HONEST ONES. WebKit rejects the `clipboard-write` permission by
- * name and Firefox has no equivalent, and `navigator.clipboard.writeText` then rejects into a
- * catch — so a paste oracle would paste NOTHING and pass. They skip instead. Note what still
- * runs cross-engine: `a deck already STORED with a BOM opens canonical` seeds the store rather
- * than the clipboard, so the BOM fix IS verified on WebKit and Firefox through that door.
+ * THE CLIPBOARD NEEDS NO ENGINE SKIP, and an earlier revision of this file wrongly added one.
+ * WebKit rejects the `clipboard-write` permission NAME and Firefox rejects `clipboard-read`,
+ * which is a Playwright API quirk — on both engines `navigator.clipboard.writeText` resolves
+ * anyway, and the BOM oracle's own body passes there. Skipping on the failed grant cost the
+ * change's top-severity oracle two of its three engines for no reason. What actually keeps a
+ * silent clipboard failure honest is `pasteDeck` asserting that the paste DELIVERED: the
+ * document is emptied first, so a no-op paste leaves it empty and the oracle goes red.
  *
  * TRAPS, all paid for once already:
  *   · `.click()` resolves before CodeMirror moves its selection. `caretIntoLine` clicks and
@@ -249,7 +255,16 @@ async function pasteDeck(page: Page, text: string): Promise<void> {
 	await page.keyboard.press('Delete');
 	await page.evaluate((v) => navigator.clipboard.writeText(v).catch(() => {}), text);
 	await page.keyboard.press('ControlOrMeta+v');
-	await expect.poll(() => editorDoc(page), { message: 'the paste never reached the document' }).not.toBe('');
+	// ASSERT THE PASTE DELIVERED, which is what makes a silent clipboard failure a RED test
+	// rather than a hollow green one. The document was just emptied, so a no-op paste leaves it
+	// empty and this poll fails — and comparing the LENGTH catches a partial delivery too. This
+	// assertion is why the paste oracles need no engine skip: an earlier revision skipped them
+	// on WebKit and Firefox on the theory that `writeText` rejects there and a paste would
+	// silently do nothing. It does not reject — measured on both — and the skip cost the BOM
+	// oracle, the one guarding durable source corruption, two of its three engines.
+	await expect
+		.poll(() => editorDoc(page).then((d) => d.length), { message: 'the paste never reached the document' })
+		.toBeGreaterThanOrEqual(text.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '').length);
 }
 
 
@@ -275,31 +290,20 @@ async function toMarkdown(page: Page): Promise<void> {
 	await expect.poll(() => editorDoc(page)).not.toBe('');
 }
 
-/** Did this browser accept the clipboard grant? Chromium does; WebKit rejects the permission
- *  name outright and Firefox has no equivalent. Recorded rather than assumed, because the
- *  failure is SILENT in the dangerous direction: `navigator.clipboard.writeText` rejects, the
- *  helper's catch swallows it, and a paste oracle then pastes NOTHING and passes. A test that
- *  cannot fail is worse than no test, so the paste oracles skip on an engine that cannot grant
- *  it rather than run hollow. */
-let clipboardGranted = false;
-
-test.beforeEach(async ({ page, browserName }) => {
+test.beforeEach(async ({ page }) => {
 	// Granted for EVERY test, not per-test: the paste helper writes the clipboard through
 	// `navigator.clipboard`, which REJECTS without the permission — and the catch swallows
 	// it, so an ungranted test does not error, it silently pastes nothing.
-	clipboardGranted = await page
+	// BEST EFFORT, and deliberately not a gate. Chromium accepts these names; WebKit rejects
+	// `clipboard-write` by name and Firefox rejects `clipboard-read`, and on BOTH of those
+	// `navigator.clipboard.writeText` resolves anyway — measured, with the BOM oracle's own body
+	// passing on each. So there is nothing here to skip on. What keeps a silent clipboard
+	// failure honest is `pasteDeck`'s assertion that the paste actually delivered, not a
+	// permission probe standing in for one.
+	await page
 		.context()
 		.grantPermissions(['clipboard-read', 'clipboard-write'])
-		.then(() => true)
-		.catch(() => false);
-	// AND THE SKIP IT DRIVES IS ASSERTED, NOT TRUSTED. Chromium supports this permission, so
-	// on Chromium the grant failing is a defect in the harness — not a reason to skip. Without
-	// this line a broken grant would send both paste oracles to `test.skip`, and a skip does
-	// not show up in a pass count: `studio-smoke` would go green having quietly stopped
-	// running the BOM oracle, which is the one guarding durable corruption of the deck source.
-	if (browserName === 'chromium') {
-		expect(clipboardGranted, 'Chromium supports the clipboard grant; a failure here would silently skip the paste oracles').toBe(true);
-	}
+		.catch(() => {});
 	await gotoStudio(page);
 	await revealEditor(page);
 });
@@ -382,7 +386,6 @@ async function revealEditor(page: Page): Promise<void> {
 // exact defect class (#1349/#1388) and lists the boundaries that guard against it; the
 // Studio's file-open door was on that list and its PASTE door was not.
 test('@smoke a pasted BOM never reaches the deck source', async ({ page }) => {
-	test.skip(!clipboardGranted, 'this engine cannot grant the clipboard; a paste here would be a no-op that passes');
 	const DECK = '---\ntheme: indaco\npaginate: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
 	await pasteDeck(page, BOM + DECK);
 
@@ -452,7 +455,6 @@ test('a deck already STORED with a BOM opens canonical', async ({ page }) => {
 // separator `\n-{3,}\n` would stop matching, collapsing a deck to one slide; this goes red
 // rather than the comment in `Editor.tsx` going quietly stale.
 test('CodeMirror folds CRLF and a lone CR at the same door', async ({ page }) => {
-	test.skip(!clipboardGranted, 'this engine cannot grant the clipboard; a paste here would be a no-op that passes');
 	const DECK = '# One\n\n---\n\n# Two\n';
 	for (const [what, text] of [
 		['CRLF', DECK.replace(/\n/g, '\r\n')],
@@ -640,7 +642,23 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	const ops: Record<string, () => Promise<void>> = {
 		async type() {
 			const line = int(40);
-			const text = pick(['abc', '# H', '- item', '1. one', '> quote', '**b**', '`c`', '---', 'éè 🎉', '<!-- _class: zzznope -->']);
+			// `zzznope` is unknown and UNFIXABLE — too far from any component for a suggestion — and
+			// `kpii` is unknown and FIXABLE, one character off `kpi`. Both are here deliberately:
+			// with only the first, the Quick-fix op could hover a marker but never had an action
+			// to click, so its `applied` counter was structurally zero and no seed could move it.
+			const text = pick([
+				'abc',
+				'# H',
+				'- item',
+				'1. one',
+				'> quote',
+				'**b**',
+				'`c`',
+				'---',
+				'éè 🎉',
+				'<!-- _class: zzznope -->',
+				'<!-- _class: kpii -->',
+			]);
 			await caretIntoLine(page, line);
 			await page.keyboard.type(text);
 		},
@@ -841,7 +859,8 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	// So this op is OPPORTUNISTIC: it exercises the Quick fix when a marker happens to be up,
 	// and nothing more can truthfully be claimed for it. The counts go into the report so a
 	// reader can see what a given run actually covered, instead of an assertion that reads like
-	// a guarantee and is not one. The other eleven op families act unconditionally.
+	// a guarantee and is not one. `dropSeparator` and `railPick` are opportunistic in the same
+	// way and for the same reason; the other nine op families act unconditionally.
 	const canHover = await page.evaluate(() => matchMedia('(hover: hover)').matches);
 	test.info().annotations.push({
 		type: 'quickfix-coverage',
