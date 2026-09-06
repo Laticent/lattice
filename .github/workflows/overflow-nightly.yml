@@ -96,14 +96,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # THE BROWSER, and the thing that is easy to get wrong here. `lattice-emulator.js`
-      # does NOT read `CHROME_PATH` — `detectChromeExecutable()` (lattice-emulator.js:1253)
-      # resolves `PUPPETEER_EXECUTABLE_PATH`, then puppeteer's own cache under
-      # `$HOME/.cache/puppeteer`, then `which google-chrome|chromium|...`. Only
-      # `check-overflow-corpus.js:145` reads `CHROME_PATH`, and only to refuse to start
-      # without it. So setting `CHROME_PATH` alone satisfies the guard while the RENDER
-      # silently happens on whatever else resolves first — measured: with
-      # `CHROME_PATH=/nonexistent/chrome` the emulator renders a deck fine.
+      # THE BROWSER, and the thing that is easy to get wrong here. `detectChromeExecutable()`
+      # resolves `PUPPETEER_EXECUTABLE_PATH`, then `CHROME_PATH` if that file exists, then
+      # puppeteer's own cache under `$HOME/.cache/puppeteer`, then `which
+      # google-chrome|chromium|...`. `check-overflow-corpus.js:145` reads `CHROME_PATH`
+      # too, but only to refuse to start without it.
+      #
+      # This comment used to say the emulator did NOT read `CHROME_PATH`, and it was
+      # right: setting `CHROME_PATH` alone satisfied the guard while the RENDER happened
+      # on whatever else resolved first (measured — `CHROME_PATH=/nonexistent/chrome`
+      # rendered a deck fine). #2088 made the variable live. Setting BOTH from one
+      # binary, as below, was the correct answer then and is still the correct answer
+      # now, so nothing here changed — but the reason did.
       #
       # The browser is therefore pinned to puppeteer's own cached Chromium, the same one
       # `integration-nightly.yml` uses and the same one the ratchet's baseline was blessed
@@ -127,7 +131,7 @@ jobs:
       # `executablePath()` COMPUTES a path; it does not check the file is there. Measured: point
       # PUPPETEER_CACHE_DIR at an empty directory and it still returns a path and exits 0. That
       # matters because `detectChromeExecutable()` returns PUPPETEER_EXECUTABLE_PATH
-      # unconditionally (lattice-emulator.js:1254) — setting it turns the cache scan and `which`
+      # unconditionally — setting it turns the cache scan and `which`
       # fallbacks into dead code. So a partial or stale cache restore would hand both variables a
       # path to nothing, sail past the `check-overflow-corpus.js:145` guard (which only asks that
       # CHROME_PATH is non-empty), and fail all 279 renders. This step therefore fails HERE, where

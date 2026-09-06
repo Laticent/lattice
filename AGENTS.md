@@ -131,7 +131,7 @@ edit deck.md  →  npm run lint:deck -- deck.md  →  fix  →  render
   see `engineering/gotchas.md`):
 
   ```bash
-  CHROME_PATH=$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome | head -1) \
+  CHROME_PATH=$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome | sort -V | tail -1) \
     npx lattice deck.md deck.pdf
   ```
 
