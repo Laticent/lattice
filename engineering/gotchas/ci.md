@@ -38,21 +38,31 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   with "No suitable browser found. Please ensure one of the following
   browsers is installed: chrome, edge, firefox." A new session might
   conclude no browser is available and skip rendering entirely.
-- **Cause:** The headless-Chromium browser auto-detection (the owned
-  engine's Puppeteer launch, and anything marp-cli-based) looks in the
-  standard system locations
-  (`/usr/bin/google-chrome`, etc.) and doesn't know about the
-  puppeteer-cached chromium binary that the sandbox ships with. The
-  binary IS present at
+- **Cause:** marp-cli's browser auto-detection looks in the standard
+  system locations (`/usr/bin/google-chrome`, etc.) and doesn't know
+  about the puppeteer-cached chromium the sandbox ships with. The binary
+  IS present at
   `/root/.cache/puppeteer/chrome/linux-<version>/chrome-linux64/chrome`
-  — auto-detection just can't find it on its own.
-- **Mitigation:** Set `CHROME_PATH` in the env before rendering. The
-  canonical render is the owned emulator:
+  — marp-cli just can't find it on its own.
+  **The owned emulator is not in that boat and has not been for a while**:
+  `detectChromeExecutable()` scans that exact cache itself, which is why
+  rendering works in a fresh session whether or not you export anything.
+  This entry used to name the owned engine as a second victim; it was
+  wrong, and it hid a real defect underneath (below).
+- **Mitigation:** export `CHROME_PATH` before rendering — required for
+  marp-cli, belt-and-braces for the owned emulator (which finds the same
+  binary itself):
 
   ```bash
-  CHROME_PATH=$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome | head -1) \
+  CHROME_PATH=$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome | sort -V | tail -1) \
     node dist/lattice-emulator.js <deck>.md <deck>.pdf
   ```
+
+  `sort -V | tail -1`, not `head -1`: a cache that has accumulated two
+  builds must hand over the same one the emulator's own scan would pick,
+  which is the NEWEST. Every resolver in the tree agrees on that as of
+  #2088; before it, half of them picked the oldest and it did not matter
+  because the value never reached the renderer.
 
   The integration test helper at
   [test/helpers/render.js](../test/helpers/render.js) inherits
@@ -62,12 +72,24 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   (P4 retired it as a render path; the owned engine renders every
   first-party path) — the identical `CHROME_PATH` discovery issue
   applies to that `npx marp` invocation.
-- **Triggered by:** Any render (owned emulator, or an ad-hoc marp-cli
-  invocation) in a fresh cloud-sandbox session.
-- **Removable when:** The launcher adds puppeteer-cache discovery, or
-  the sandbox ships chromium at one of the canonical system paths.
-- **Commits:** documentation-only — captured here so future sessions
-  don't conclude no browser is available.
+- **Triggered by:** any marp-cli render in a fresh cloud-sandbox session.
+- **The defect this entry hid (fixed, #2088).** `CHROME_PATH` reached the
+  owned renderer through nothing at all: `detectChromeExecutable()` read
+  `PUPPETEER_EXECUTABLE_PATH`, then the cache, then `which` — never
+  `CHROME_PATH`. The command above worked by coincidence, on the cache
+  scan, while the variable it sets did nothing. Measured both ways:
+  `CHROME_PATH=/nonexistent/chrome` rendered a deck fine, and with the
+  cache made undiscoverable a *correct* `CHROME_PATH` still failed while
+  `PUPPETEER_EXECUTABLE_PATH` to the same file rendered. The emulator now
+  reads `CHROME_PATH` — after `PUPPETEER_EXECUTABLE_PATH`, and only when
+  it names a file this process may execute, so a stale or decorative
+  value still falls through to the cache scan instead of becoming a new
+  render failure. Pinned by
+  `test/integration/export/chrome-path-resolution.test.js`.
+- **Removable when:** the sandbox ships chromium at one of the canonical
+  system paths, or nothing here uses marp-cli. The puppeteer-cache half
+  of this entry is already obsolete for the owned engine.
+- **Commits:** documentation, then #2088 for the `CHROME_PATH` half.
 
 ## A generated `dist/` artifact goes "stale" after a rebase, and that is not a defect
 

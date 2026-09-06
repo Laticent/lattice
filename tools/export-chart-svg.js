@@ -150,7 +150,7 @@ async function main() {
       // correctly (the section is pinned to its real box so container queries
       // resolve), so a real element screenshot captures them — exactly how the
       // chart galleries are produced.
-      const KEYED = ['piechart', 'radar', 'map', 'quadrant', 'funnel'];
+      const KEYED = ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'piechart', 'radar', 'map', 'quadrant', 'funnel'];
       const out = [];
       const sections = Array.from(document.querySelectorAll('.lattice > section'));
       sections.forEach((sec, si) => {

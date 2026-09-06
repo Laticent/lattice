@@ -121,7 +121,7 @@ function serve() {
 function chromePath() {
 	if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
 	try {
-		return execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1').toString().trim() || undefined;
+		return execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1').toString().trim() || undefined;
 	} catch {
 		return undefined;
 	}

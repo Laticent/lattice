@@ -1,0 +1,161 @@
+/* line — the Cartesian family's TREND member (see line.manifest.json).
+ *
+ * The kernel (line.transform.js) emits a <div class="line-figure"> holding one
+ * <svg>: the shared plot chrome (grid, axis, ticks, category labels — painted
+ * by chart-family.css § Cartesian chrome, NOT here) plus this member's own
+ * marks: the line, the filled region, the dots, and the series' own name at the
+ * end of its line.
+ *
+ * All color lives here so the kernel stays palette-blind (HARD RULE #3): every
+ * mark carries `data-cat` (its 0-based series slot) and `--i`, and this file
+ * maps the slot onto the chart-family categorical spectrum.
+ *
+ * WHY `data-cat` AND NOT `nth-of-type`. The family's usual idiom cycles marks
+ * by position, which works where every mark is the same element in one flat
+ * run. A line chart's marks are not: a broken series emits several <path>s, an
+ * area emits a fill path AND a stroke path, and a stacked area emits a band per
+ * series. Position would then number the PATHS, not the SERIES, and a series
+ * with a hole in it would change color halfway along. The slot is therefore
+ * stamped by the kernel and read here — which is also immune to the
+ * nth-child/<defs> off-by-one that the family idiom exists to dodge.
+ *
+ * Unlayered, like every component file: @layer is inert in this bundle and a
+ * layered rule silently loses to an unlayered base rule (cascade.md). Anchored
+ * on :is(section.line, figure.chart-frame) so the colors also resolve in the
+ * Read·Article figure re-host, where the SVG is re-parented outside its
+ * <section>. */
+
+:is(section.line, figure.chart-frame) .line-figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* THE LINE ITSELF.
+ *
+ * 1.7 user units against a 0.5 gridline and a 0.6 axis rule — the data is
+ * roughly three times the weight of the furniture it sits on, which is what
+ * keeps the line the first thing read on the slide. A hairline that survives on
+ * paper white disappears against a dark canvas, and the dark canvas is the one
+ * to assess hardest, so the weight is set from there rather than trimmed to it.
+ *
+ * `--chart-cat-N-hue` and not `-ink`: the hue is the vivid graphical value
+ * (gated at the 3:1 WCAG 1.4.11 floor for strokes), while `-ink` is the
+ * text-safe sibling that is pulled toward the heading ink and reads flatter as
+ * a line. The direct label below takes `-ink` for exactly the opposite reason. */
+:is(section.line, figure.chart-frame) .line-path {
+  fill: none;
+  stroke: var(--chart-cat-1-hue);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:is(section.line, figure.chart-frame) .line-path[data-cat="1"] { stroke: var(--chart-cat-2-hue); }
+:is(section.line, figure.chart-frame) .line-path[data-cat="2"] { stroke: var(--chart-cat-3-hue); }
+:is(section.line, figure.chart-frame) .line-path[data-cat="3"] { stroke: var(--chart-cat-4-hue); }
+:is(section.line, figure.chart-frame) .line-path[data-cat="4"] { stroke: var(--chart-cat-5-hue); }
+:is(section.line, figure.chart-frame) .line-path[data-cat="5"] { stroke: var(--chart-cat-6-hue); }
+
+/* The upper edge of a stacked band. Lighter than a free-standing line: the band
+ * below it already carries the magnitude, so the edge only has to separate one
+ * series from the next. */
+:is(section.line, figure.chart-frame) .line-edge {
+  stroke-width: 1.3;
+}
+
+/* THE FILLED REGION — `area` and `stacked-area`.
+ *
+ * The fill itself comes from the family's CANONICAL gradient defs, emitted by
+ * `buildFillDefs` and referenced inline (SVG `fill` cannot take a CSS
+ * gradient), so an area under a line washes exactly like a gantt bar or a
+ * kanban card. Nothing to set here but the edge treatment. */
+:is(section.line, figure.chart-frame) .line-area,
+:is(section.line, figure.chart-frame) .line-band {
+  stroke: none;
+}
+
+/* THE DOTS.
+ *
+ * Emitted only where the point spacing is wide enough for them to read as
+ * measurements rather than as beads on a string (line.transform.js
+ * §DOT_MIN_SPACING). The canvas-colored halo is what keeps a dot legible where
+ * two lines cross — without it, the crossing paints a four-way ambiguity. */
+:is(section.line, figure.chart-frame) .line-dot {
+  fill: var(--chart-cat-1-hue);
+  stroke: var(--bg);
+  stroke-width: 0.9;
+}
+:is(section.line, figure.chart-frame) .line-dot[data-cat="1"] { fill: var(--chart-cat-2-hue); }
+:is(section.line, figure.chart-frame) .line-dot[data-cat="2"] { fill: var(--chart-cat-3-hue); }
+:is(section.line, figure.chart-frame) .line-dot[data-cat="3"] { fill: var(--chart-cat-4-hue); }
+:is(section.line, figure.chart-frame) .line-dot[data-cat="4"] { fill: var(--chart-cat-5-hue); }
+:is(section.line, figure.chart-frame) .line-dot[data-cat="5"] { fill: var(--chart-cat-6-hue); }
+
+/* THE DIRECT LABEL — the series' own name at the end of its own line.
+ *
+ * `.cart-series` (chart-family.css) sets the face, size and weight; this file
+ * only colors it, because the color is the whole point: a name painted in its
+ * line's own hue means the reader never travels to a key to match a swatch.
+ *
+ * `-ink` rather than `-hue` here, and the difference is the reason both tokens
+ * exist: `-ink` is the text-safe arm of the same hue, solved to clear AA
+ * against the canvas. A name set in the raw graphical hue would sit at the 3:1
+ * stroke floor, which is legal for a line and not for a word. */
+:is(section.line, figure.chart-frame) .line-series {
+  fill: var(--chart-cat-1-ink);
+}
+:is(section.line, figure.chart-frame) .line-series[data-cat="1"] { fill: var(--chart-cat-2-ink); }
+:is(section.line, figure.chart-frame) .line-series[data-cat="2"] { fill: var(--chart-cat-3-ink); }
+:is(section.line, figure.chart-frame) .line-series[data-cat="3"] { fill: var(--chart-cat-4-ink); }
+:is(section.line, figure.chart-frame) .line-series[data-cat="4"] { fill: var(--chart-cat-5-ink); }
+:is(section.line, figure.chart-frame) .line-series[data-cat="5"] { fill: var(--chart-cat-6-ink); }
+
+/* The per-category reveal target. Paints nothing — it exists so the
+ * Present-mode popover has a band to sit on — and is emitted ONLY for a
+ * category the author gave a detail sublist, so a chart without detail is
+ * byte-identical to one built before the feature existed. */
+:is(section.line, figure.chart-frame) .line-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+
+/* The endpoint value that rides under each series name. Neutral heading ink,
+ * not the series hue: the NAME above it already carries the color binding, and
+ * two colored registers stacked on one another read as decoration rather than
+ * as a label. `.cart-value` supplies the display face, weight and tabular
+ * figures. */
+:is(section.line, figure.chart-frame) .line-endvalue {
+  fill: var(--text-heading);
+}
+
+/* AREA FILL WEIGHT.
+ *
+ * The canonical recipe is authored for a BAR, whose fill occupies a narrow
+ * column. Stretched under a line it covers a third of the slide, and at full
+ * strength the slab out-shouts the line it exists to support — measured by
+ * looking: the round-2 render read as a blue block with a darker edge. Held
+ * back to a tint, the line is the loudest mark again and the fill still does
+ * its one job of saying "this is a quantity, measured from zero".
+ *
+ * A STACKED area keeps its full strength: there the bands ARE the data, they
+ * tile with no canvas between them, and thinning them would leave three
+ * neighboring pastels the reader has to work to separate. */
+:is(section.line, figure.chart-frame) .line-area {
+  fill-opacity: var(--line-area-alpha, 0.62);
+}
+
+/* ON THE DARK CANVAS THE FILL IS ALREADY QUIET, and holding it back a second
+ * time is what actually breaks it. The recipe mixes the hue toward BLACK on
+ * dark (`--chart-cat-base`), so the region is a dark blue on a dark navy before
+ * any opacity is applied; at 0.62 the baseline end of the wash was measured
+ * rendering as very nearly the canvas, and the area read as a smudge under the
+ * line rather than as a bounded region. Full strength on dark, held back on
+ * light — the same target on two grounds, not the same number.
+ *
+ * Set on the section rather than in the rule above because `fill-opacity` takes
+ * a number and `light-dark()` only returns a color; the section carries the
+ * canvas, so the custom property is the only seam. Same idiom as
+ * `section.quadrant.dark` and `section.radar.dark`. */
+section.line.dark { --line-area-alpha: 1; }

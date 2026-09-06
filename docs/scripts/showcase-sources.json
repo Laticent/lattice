@@ -1,4 +1,14 @@
 {
+	"bar.light": {
+		"src": "lib/components/chart/bar/bar.gallery.light.pdf",
+		"page": 2,
+		"srcSha256": "1d3d83d6bb1b5fb217502bd1c1de3bfde911efea5c0d58858b8bc5c728be74da"
+	},
+	"bar.dark": {
+		"src": "lib/components/chart/bar/bar.gallery.dark.pdf",
+		"page": 2,
+		"srcSha256": "f9873ecd18a9cd1680ee5fd7b8b8faead908b1012967bba23459b1bfc5ef49dd"
+	},
 	"big-number.light": {
 		"src": "lib/components/statement/big-number/big-number.gallery.light.pdf",
 		"page": 2,
@@ -148,5 +158,15 @@
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.dark.pdf",
 		"page": 2,
 		"srcSha256": "194be66ff25ad78189c076e50f993824229b83357ab880dc5d511c7cdbc0908b"
+	},
+	"waterfall.light": {
+		"src": "lib/components/chart/waterfall/waterfall.gallery.light.pdf",
+		"page": 2,
+		"srcSha256": "5b166930e28757c23b6267e3f2533015a8500718888685c98974c91cd0e7abe1"
+	},
+	"waterfall.dark": {
+		"src": "lib/components/chart/waterfall/waterfall.gallery.dark.pdf",
+		"page": 2,
+		"srcSha256": "0685dc90c087559ab85267d1d41d29ddcdec232a9a04c5ed5bf2d7eeaac182a1"
 	}
 }

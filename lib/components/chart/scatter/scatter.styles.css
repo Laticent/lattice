@@ -1,0 +1,139 @@
+/* ─────────────────────────────────────────────────────────────────────────
+ * scatter — the XY plot's own marks.
+ *
+ * UNLAYERED (engineering/cascade.md): `@layer` is inert in this bundle and a
+ * layered rule silently loses to an unlayered base rule regardless of
+ * specificity. Anchored on `:is(section.scatter, figure.chart-frame)` so the
+ * marks also resolve in the Read·Article figure re-host, where the SVG is
+ * re-parented outside its `section`.
+ *
+ * The plot CHROME — grid, zero rule, axis rule, tick labels, axis captions —
+ * is not styled here. It is family furniture painted once in chart-family.css
+ * § Cartesian chrome, and its whole job is to be identical on every Cartesian
+ * member. This file styles the dots, the bubbles, the trend line and the size
+ * key: this component's own geometry.
+ *
+ * px inside a viewBox is a USER UNIT, not a CSS pixel — it scales with the SVG
+ * (check-chart-responsiveness exempts SVG-context rules for this reason).
+ * ───────────────────────────────────────────────────────────────────────── */
+
+/* THE DOT IS SOLID INK WITH A CANVAS-COLORED RING, and both halves are load-
+ * bearing.
+ *
+ * Solid ink because a 3-unit dot painted in `--chart-cat-N-fill` — a restrained
+ * tint built to sit behind a bar's worth of area — reads as a smudge at this
+ * size; the mark has to hold its own against the grid.
+ *
+ * The ring is the answer to the overlap problem, and it is the honest one. Two
+ * entities at nearly the same coordinates genuinely ARE at nearly the same
+ * coordinates; jittering them apart would make the chart readable by making it
+ * lie about the one thing it encodes. A ring in the canvas color keeps two
+ * touching dots visibly two dots while every dot stays exactly where its
+ * numbers put it. (Same idiom as `.quadrant-dot`.)
+ */
+:is(section.scatter, figure.chart-frame) .scatter-dot {
+  fill: var(--chart-cat-1-ink);
+  stroke: var(--bg);
+  stroke-width: 0.9;
+}
+
+/* A bubble is large enough for a two-tone treatment: a translucent body — area
+ * IS the encoding, so the body has to read as area — with the saturated ink
+ * edge that keeps two overlapping bubbles distinct.
+ *
+ * THE BODY IS A WASH OF THE INK, NOT `--chart-cat-N-fill`, and the dark canvas
+ * is why. `-fill` is built by mixing the hue toward the canvas on light and
+ * toward BLACK on dark; on a dark slide that lands a hair off the background,
+ * so the bubbles rendered as holes and only their rims survived (measured on
+ * `indaco-dark`). A wash of the INK sits clear of the canvas in both
+ * directions. It also earns its keep on the light canvas: two overlapping
+ * bubbles deepen where they cross, which is the one place a scatter WANTS the
+ * overlap visible. */
+:is(section.scatter, figure.chart-frame) .scatter-bubble {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 42%, transparent);
+  stroke: var(--chart-cat-1-ink);
+  stroke-width: 0.7;
+}
+
+/* A BUBBLE WITH NO MAGNITUDE. `bubble` needs a third pill per point; a point
+ * without one has no area to encode, and drawing it as a filled bubble at the
+ * floor made "unknown" read as "the smallest value on the chart". Hollow says
+ * what it is: the position is real, the area is not data. */
+:is(section.scatter, figure.chart-frame) .scatter-bubble[data-size="none"] {
+  fill: none;
+  stroke-dasharray: 2 1.6;
+}
+
+/* The trend line is deliberately the quietest thing on the plot that is not
+ * chrome: dashed, thin, and muted. It is an inference drawn over the data, not
+ * data — a solid accent rule would assert more than a least-squares fit over a
+ * handful of board-deck entities can support. */
+:is(section.scatter, figure.chart-frame) .scatter-trend {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 46%, transparent);
+  stroke-width: 0.7;
+  stroke-dasharray: 3 2.4;
+  stroke-linecap: round;
+}
+
+/* An entity name beside its dot. `.cart-series` (family chrome) already carries
+ * the direct-labeling register — face, size, weight, body ink. This adds the
+ * one thing a label sitting ON a plot needs and a label at the end of a line
+ * does not: a canvas-colored halo, painted UNDER the glyphs, so a name that
+ * crosses a gridline is still readable without the gridline moving. */
+:is(section.scatter, figure.chart-frame) .scatter-label {
+  paint-order: stroke fill;
+  stroke: var(--bg);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+/* The size key — bubble only. The rings wear the MARK's own treatment, muted a
+ * step, so the key and the data are visibly the same object rather than two
+ * drawings that happen to sit beside each other. */
+:is(section.scatter, figure.chart-frame) .scatter-size-ring {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 26%, transparent);
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 62%, transparent);
+  stroke-width: 0.6;
+}
+
+:is(section.scatter, figure.chart-frame) .scatter-size-value {
+  fill: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: 6.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Sizing ───────────────────────────────────────────────────────────────
+ * The figure fills the chart body so the SVG scales to the height the slide
+ * grants it — responsive: it shrinks under a below-note and grows under
+ * `full`. `preserveAspectRatio="xMidYMid meet"` then letterboxes inside that
+ * box, so the plot keeps its proportions at every size.
+ */
+:is(section.scatter, figure.chart-frame) .scatter-figure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* IN-FORM — `.chart-body` is a size-query container under the Form, and a flex
+ * figure cannot mediate a height between a size container and its child.
+ * Collapse the figure's box so the SVG sizes straight off the chart body; this
+ * is the pie's proven fill-the-parent pattern (piechart.styles.css §IN-FORM,
+ * 2026-06-15-form-chart-clip.md). */
+section.form.scatter:not(.claim-hero):not(.claim-bleed) .scatter-figure {
+  display: contents;
+}
+
+/* The leader — a hairline from a dot to a name that could not sit against it.
+ * Lighter than the axis rule and only ever a few units long: it states an
+ * ownership the reader would otherwise have to guess, and must never read as a
+ * mark of its own. */
+:is(section.scatter, figure.chart-frame) .scatter-leader {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 52%, transparent);
+  stroke-width: 0.55;
+}

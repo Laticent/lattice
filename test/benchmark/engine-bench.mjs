@@ -281,7 +281,7 @@ async function exportTier() {
   let chrome = process.env.CHROME_PATH;
   if (!chrome || !existsSync(chrome)) {
     try {
-      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1', { encoding: 'utf8' }).trim();
     } catch {
       /* default */
     }
@@ -416,7 +416,7 @@ async function sweepTier() {
   let chrome = process.env.CHROME_PATH;
   if (!chrome || !existsSync(chrome)) {
     try {
-      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1', { encoding: 'utf8' }).trim();
     } catch {
       /* default */
     }
@@ -585,7 +585,7 @@ async function printTier() {
   let chrome = process.env.CHROME_PATH;
   if (!chrome || !existsSync(chrome)) {
     try {
-      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1', { encoding: 'utf8' }).trim();
     } catch { /* default */ }
   }
   const RUNTIME = readFileSync(join(ROOT, 'dist/lattice-runtime.js'), 'utf8');
@@ -669,7 +669,7 @@ async function diagramTier() {
   let chrome = process.env.CHROME_PATH;
   if (!chrome || !existsSync(chrome)) {
     try {
-      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1', { encoding: 'utf8' }).trim();
     } catch {
       /* default */
     }
@@ -775,7 +775,7 @@ async function cliTier() {
   let chrome = process.env.CHROME_PATH;
   if (!chrome || !existsSync(chrome)) {
     try {
-      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1', { encoding: 'utf8' }).trim();
     } catch { /* default */ }
   }
   const EMULATOR = join(ROOT, 'lattice-emulator.js');

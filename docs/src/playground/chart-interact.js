@@ -82,7 +82,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // figure is the static root (and still holds the measuring column's marks),
   // while the svg is what gets cloned onto the live stage, so listing only the
   // figure would leave the popover unbound during motion.
-  const CHART_SVG_SEL = '.piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .state-chart-figure, .state-chart-edges, .gantt-svg';
+  const CHART_SVG_SEL = '.bar-svg, .bullet-svg, .line-svg, .scatter-svg, .slope-svg, .stacked-bar-svg, .waterfall-svg, .piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .state-chart-figure, .state-chart-edges, .gantt-svg';
   // The same list scoped to the Anima live stage — each selector must be prefixed individually (a bare
   // `.scene-live ${CHART_SVG_SEL}` would only scope the FIRST of the comma list). Prefers the clone
   // EXPLICITLY over inferring visibility from box size (see chartSvgIn).

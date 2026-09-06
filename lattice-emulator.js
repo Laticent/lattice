@@ -1545,17 +1545,60 @@ function themeVarsForBand(band, hand = false) {
   return vars;
 }
 
+/** True when `p` is a regular file this process may execute — not a directory,
+ *  not a non-executable file, not a dangling path. `fs.existsSync` alone answers
+ *  none of those, and every one of them reaches puppeteer as `spawn … EACCES`. */
+function isLaunchableBinary(p) {
+  try {
+    if (!fs.statSync(p).isFile()) return false;
+    fs.accessSync(p, fs.constants.X_OK); // throws when it is not executable
+    return true;
+  } catch { return false; }
+}
+
 // ── Puppeteer config — chrome auto-detection ─────────────────────────────
 // Both the diagram render worker and the PDF rasterize step drive puppeteer, which
 // needs a Chrome binary; resolution order:
-//   1. PUPPETEER_EXECUTABLE_PATH env var (explicit override)
-//   2. puppeteer's bundled copy under <user>/.cache/puppeteer/chrome/
-//   3. system Chrome / Chromium (looked up via `which`)
+//   1. PUPPETEER_EXECUTABLE_PATH env var (explicit, unconditional override)
+//   2. CHROME_PATH env var, if it names an executable file
+//   3. puppeteer's bundled copy — under $HOME/.cache/puppeteer/chrome AND under
+//      EVERY /home/<user>/.cache/puppeteer/chrome, newest build first, regardless
+//      of what HOME says. Overriding HOME therefore does NOT isolate this step.
+//   4. system Chrome / Chromium (looked up via `which`)
 // If none of these resolve, we omit executablePath and let puppeteer use
 // its default (which may download a Chrome on first run).
+//
+// STEP 2 EXISTS BECAUSE EVERYTHING AROUND US ALREADY SETS `CHROME_PATH`, and until
+// #2088 this function did not read it. The SessionStart hook exports it, AGENTS.md
+// and engineering/gotchas/ci.md tell you to set it, test/helpers/chrome.js reads it
+// first, and test/benchmark/engine-bench.mjs goes to the trouble of resolving a
+// binary and passing it down as CHROME_PATH. None of that reached the renderer.
+// It looked like it worked only because the value everyone sets is the same binary
+// step 3 finds on its own — measured: `CHROME_PATH=/nonexistent/chrome` still
+// rendered a deck fine, and, in the one case the docs were actually written for
+// (no discoverable puppeteer cache), a correct `CHROME_PATH` still failed while
+// `PUPPETEER_EXECUTABLE_PATH` to the same file rendered.
+//
+// The two steps are deliberately NOT symmetric. Step 1 stays unconditional: an
+// explicit pin that has gone missing must fail loudly, not silently render on some
+// other browser — .github/workflows/overflow-nightly.yml pins a specific Chromium
+// precisely so its baseline stays comparable. Step 2 falls through instead, so a
+// stale or decorative CHROME_PATH lands on the cache scan exactly as it did before
+// this change rather than becoming a new render failure.
+//
+// "Falls through" has to mean more than `existsSync`, and the first draft of this
+// got it wrong. A path can exist and still not be a browser: `/Applications/Google
+// Chrome.app` is a DIRECTORY, and a non-executable file is just as unlaunchable.
+// Both passed `existsSync`, and both then died in puppeteer with `spawn … EACCES`
+// on renders that had worked the day before — a regression manufactured by the very
+// guard meant to prevent one. isFile + X_OK is what the sentence above actually
+// promises.
 function detectChromeExecutable() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
     return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  if (process.env.CHROME_PATH && isLaunchableBinary(process.env.CHROME_PATH)) {
+    return process.env.CHROME_PATH;
   }
   // Look in known puppeteer cache locations across users.
   const possibleHomes = [];
@@ -1607,7 +1650,7 @@ const CHROME_EXEC = detectChromeExecutable();
 // __dirname so a bundled emulator finds it the same way the fonts are found.
 const MERMAID_WORKER = path.join(PKG_ROOT, 'lib', 'integrations', 'mermaid', 'render-worker.js');
 if (!CHROME_EXEC) {
-  console.warn('  ⚠ No Chrome binary detected. Set PUPPETEER_EXECUTABLE_PATH or install puppeteer to download one.');
+  console.warn('  ⚠ No Chrome binary detected. Set PUPPETEER_EXECUTABLE_PATH or CHROME_PATH, or install puppeteer to download one.');
 }
 
 // A human name for a Mermaid diagram's TYPE, read from the first meaningful line of
@@ -3304,7 +3347,18 @@ let stateChartScript = '';
 if (hasStateChart) {
   try {
     const { STATE_CHART_BROWSER_JS } = require('./lib/components/chart/state-chart/state-chart.transform');
-    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${STATE_CHART_BROWSER_JS}\n</script>`;
+    // The pass is serialised through `.toString()`, so it carries no imports and
+    // can only reach a layout engine through a global that already exists in the
+    // document. This IIFE installs `globalThis.__latticeDagre` ahead of it.
+    // Prepended HERE rather than inside the transform because the runtime bundle
+    // imports that module too, and a top-level require there shipped the 62KB
+    // string to every reader of every deck — measured at +51KB gzipped on
+    // lattice-runtime.min.js (dagre carried twice: inlined AND as this string)
+    // against +28KB for the live library alone. Missing bundle (a clone that
+    // never ran `npm install`) → '' → the pass falls back to the numbered column.
+    let dagreIife = '';
+    try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* column fallback */ }
+    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${STATE_CHART_BROWSER_JS}\n</script>`;
   } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
 }
 

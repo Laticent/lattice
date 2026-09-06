@@ -55,6 +55,20 @@
     ],
     "description": "Provenance chain — statute to regulation to guidance to case, walked in order."
   },
+  "lattice: bar": {
+    "prefix": "lattice-bar",
+    "body": [
+      "<!-- _class: bar -->",
+      "",
+      "## Which category is biggest.",
+      "",
+      "- First `120`",
+      "- Second `86`",
+      "- Third `54`",
+      "- Fourth `31`"
+    ],
+    "description": "Bars from a zero baseline that compare magnitude across categories — as columns, rows, side-by-side groups, or signed off a centered zero."
+  },
   "lattice: big-number": {
     "prefix": "lattice-big-number",
     "body": [
@@ -66,6 +80,19 @@
       "  - of the audience remembers a single number from a deck."
     ],
     "description": "Single oversized number as the focal claim."
+  },
+  "lattice: bullet": {
+    "prefix": "lattice-bullet",
+    "body": [
+      "<!-- _class: bullet -->",
+      "",
+      "## Are we on plan.",
+      "",
+      "- First KPI `4.2M` `5.0M`",
+      "- Second KPI `3.6M` `3.0M`",
+      "- Third KPI `1.1M` `2.4M`"
+    ],
+    "description": "Actual against target inside a qualitative band — one dense row per KPI."
   },
   "lattice: cards-grid": {
     "prefix": "lattice-cards-grid",
@@ -448,6 +475,20 @@
       "   - +$180M QoQ `On plan` `Investor`"
     ],
     "description": "Executive KPI system — one base, five layout modifiers."
+  },
+  "lattice: line": {
+    "prefix": "lattice-line",
+    "body": [
+      "<!-- _class: line -->",
+      "",
+      "## The number moved, and here is the shape of it.",
+      "",
+      "- Q1 `12`",
+      "- Q2 `18`",
+      "- Q3 `17`",
+      "- Q4 `26`"
+    ],
+    "description": "A measure plotted across an ordered axis, so the movement is the read — one line or several, optionally filled, stacked, or stepped."
   },
   "lattice: list": {
     "prefix": "lattice-list",
@@ -855,6 +896,22 @@
     ],
     "description": "Phased multi-workstream grid — phases across the top, workstreams down the side."
   },
+  "lattice: scatter": {
+    "prefix": "lattice-scatter",
+    "body": [
+      "<!-- _class: scatter -->",
+      "",
+      "`X measure` `Y measure`",
+      "",
+      "## Two measures, one relationship.",
+      "",
+      "- First entity `4.2` `62`",
+      "- Second entity `2.1` `38`",
+      "- Third entity `6.8` `81`",
+      "- Fourth entity `3.4` `55`"
+    ],
+    "description": "An XY plot with real units on both axes — one dot per entity, showing how two measures relate."
+  },
   "lattice: scene": {
     "prefix": "lattice-scene",
     "body": [
@@ -884,6 +941,22 @@
       "```"
     ],
     "description": "An Anima motion scene as its poster still — an inline, palette-blind SVG that recolors with the theme and bakes crisp into the PDF; the live animation plays in the HTML/present surfaces."
+  },
+  "lattice: slope": {
+    "prefix": "lattice-slope",
+    "body": [
+      "<!-- _class: slope -->",
+      "",
+      "## Two of them swapped places.",
+      "",
+      "- First entity",
+      "  - Before `12`",
+      "  - After `19`",
+      "- Second entity",
+      "  - Before `18`",
+      "  - After `14`"
+    ],
+    "description": "Two labeled columns joined by one line per entity, so a change in ranking reads as a crossing."
   },
   "lattice: split-compare": {
     "prefix": "lattice-split-compare",
@@ -926,6 +999,24 @@
       "  - Supporting detail explaining the third point."
     ],
     "description": "Featured left panel + supporting right zone — one prominent claim beside the points that substantiate it."
+  },
+  "lattice: stacked-bar": {
+    "prefix": "lattice-stacked-bar",
+    "body": [
+      "<!-- _class: stacked-bar -->",
+      "",
+      "## What the total is made of.",
+      "",
+      "- First category",
+      "  - Part one `40`",
+      "  - Part two `25`",
+      "  - Part three `15`",
+      "- Second category",
+      "  - Part one `46`",
+      "  - Part two `31`",
+      "  - Part three `12`"
+    ],
+    "description": "Bars split into parts, so one chart carries both the total for each category and the mix inside it."
   },
   "lattice: state-chart": {
     "prefix": "lattice-state-chart",
@@ -1070,6 +1161,21 @@
       "- A guided walkthrough `caption`"
     ],
     "description": "A video as a static, PDF-safe embed: a poster that links to the clip, a play badge, the provider's name, and a scannable QR to the same URL — never a live iframe."
+  },
+  "lattice: waterfall": {
+    "prefix": "lattice-waterfall",
+    "body": [
+      "<!-- _class: waterfall -->",
+      "",
+      "## How the number moved.",
+      "",
+      "- Opening `100`",
+      "- First driver `+18`",
+      "- Second driver `-7`",
+      "- Third driver `-11`",
+      "- Closing `100`"
+    ],
+    "description": "A bridge from one total to another through signed contributions, each bar starting where the last one ended."
   },
   "lattice: wifi": {
     "prefix": "lattice-wifi",

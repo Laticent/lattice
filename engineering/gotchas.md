@@ -157,6 +157,8 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A committed render golden doesn't match a fresh render — check staleness FIRST](gotchas/lattice-internals.md#a-committed-render-golden-doesnt-match-a-fresh-render--check-staleness-first)
 - [A manifest slot's `selector` describes AUTHORING input — a transform may consume it](gotchas/lattice-internals.md#a-manifest-slots-selector-describes-authoring-input--a-transform-may-consume-it)
 - [Legacy `--fs-*` token names retired](gotchas/lattice-internals.md#legacy---fs--token-names-retired)
+- [Narration timed from `projectDeckToSpeech` is ~9x too short — it is ONE STAGE](gotchas/lattice-internals.md#narration-timed-from-projectdecktospeech-is-9x-too-short--it-is-one-stage)
+- [Per-slide dwell in Present IS the narration — there is no hidden stall](gotchas/lattice-internals.md#per-slide-dwell-in-present-is-the-narration--there-is-no-hidden-stall)
 - [Two render paths — land transforms in the shared kernel, not one path](gotchas/lattice-internals.md#two-render-paths--land-transforms-in-the-shared-kernel-not-one-path)
 - [Chart-family observer's broad `MutationObserver` scope](gotchas/lattice-internals.md#chart-family-observers-broad-mutationobserver-scope)
 - [Stray colors escape the palette via Mermaid's hardcoded defaults](gotchas/lattice-internals.md#stray-colors-escape-the-palette-via-mermaids-hardcoded-defaults)

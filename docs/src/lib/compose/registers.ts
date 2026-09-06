@@ -148,6 +148,13 @@ const TABLE_UNSUITED = new Set([
 	// ── A PRIMARY FIGURE owns the stage — the case that started this list ───────
 	// Every chart except the two whose table IS the figure (matrix-grid, roadmap).
 	'funnel',
+	'bar',
+	'bullet',
+	'line',
+	'scatter',
+	'slope',
+	'stacked-bar',
+	'waterfall',
 	'gantt',
 	'journey', // engine clips it with a table added
 	'kanban',

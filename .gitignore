@@ -131,4 +131,8 @@ test/fixtures/.*.md
 dist/
 docs/public/playground/
 docs/src/playground/*.generated.js
+# Same contract, engine side: a 62KB minified bundle on one line makes every
+# concurrent PR conflict. `prepare` builds it, so a fresh clone and
+# `npm publish` both have it. See tools/build-dagre-bundle.js.
+lib/core/dagre-bundle.generated.js
 docs/src/lib/*/dist/
