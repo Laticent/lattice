@@ -1,0 +1,188 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "bar",
+  "function": "evidence",
+  "form": "canvas",
+  "substance": "series",
+  "render": "svg",
+  "renderNote": "Bars, grid, axis, category labels and the printed values are one `<svg>`. A bar chart is a claim about LENGTH measured from a shared zero, so every mark and every label has to be placed in one coordinate system — assembled boxes would let the baseline drift and the comparison would quietly stop being true.",
+  "kernel": {
+    "figureClass": "bar-figure"
+  },
+  "stage": "canvas",
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "bucket": "chart",
+  "anatomyBlock": "bar",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "categories",
+      "detail"
+    ]
+  },
+  "tags": [
+    "metric",
+    "ranking",
+    "contrast",
+    "board-deck"
+  ],
+  "description": "Bars from a zero baseline that compare magnitude across categories — as columns, rows, side-by-side groups, or signed off a centered zero.",
+  "purpose": "Use when the claim is that these categories differ in size: revenue by region, headcount by team, spend by line item, variance against plan. Length from a common zero is the most accurately read encoding there is, so the bar is the default answer whenever the question is 'which is bigger, and by how much'. Values are printed on the bars and the value axis is dropped whenever that fits.",
+  "variants": [
+    "row",
+    "grouped",
+    "diverging"
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Short category names — a quarter, a product, a region code. Columns read left-to-right as a sequence, which suits anything with a natural order."
+    },
+    {
+      "variant": "row",
+      "useWhen": "Category names are long, or there are more than about seven of them. A row label reads on one line in the gutter instead of wrapping into a narrow band, so nothing gets shortened. Reach for it the moment a name is longer than about fifteen characters."
+    },
+    {
+      "variant": "grouped",
+      "useWhen": "Two to four series measured on the same scale across the same categories — this year vs last, plan vs actual. Authored as a nested list; the nesting is what selects it."
+    },
+    {
+      "variant": "diverging",
+      "useWhen": "Values carry a sign and the direction is the point: variance to plan, sentiment, a tornado / sensitivity chart. Zero sits at the middle of the plot and the two sides share one scale."
+    }
+  ],
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading — name the takeaway, not the chart ('Growth is concentrated in EMEA', not 'Revenue by region')."
+    },
+    "categories": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One li per category, in the order they should read. Lead text is the category name, the trailing inline-code pill is the value — `EMEA \\`4.2\\``. Commas, currency symbols, units and magnitude suffixes are all read: `$4.2M` is 4 200 000 and the `$` and the magnitude carry onto the axis. A negative value hangs below (or left of) the zero rule. Three to eight categories read best."
+    },
+    "series": {
+      "selector": "li > ul > li",
+      "required": false,
+      "description": "Nested items whose trailing pill is a NUMBER are the grouped form: each category gets one bar per series, side by side, and a key names them. Two to four series; past four the group gets too dense to compare across categories."
+    },
+    "detail": {
+      "selector": "li > ul",
+      "required": false,
+      "description": "Nested items whose trailing pill is NOT a number (or that carry no pill) are per-category detail, not data. They render nowhere on the chart face: they drive the Present-mode reveal popover and fold into the slide's speaker note, so a chart with detail is pixel-identical to one without. This is the same detail-vs-data rule every Cartesian member shares."
+    }
+  },
+  "skeleton": "<!-- _class: bar -->\n\n## Which category is biggest.\n\n- First `120`\n- Second `86`\n- Third `54`\n- Fourth `31`\n",
+  "sample": "<!-- _class: bar -->\n\n`Revenue · FY26`\n\n## Growth is concentrated in two regions.\n\n- North America `$4.2M`\n  - Two enterprise renewals landed in Q4\n- EMEA `$3.1M`\n- APAC `$1.8M`\n- LATAM `$0.6M`\n",
+  "stressDoc": {
+    "summary": "Eight business units with full-length names — the case that forces the row form.",
+    "sample": "<!-- _class: bar row -->\n\n## Every unit named in full, nothing abbreviated.\n\n- Commercial Banking `$182M`\n- Wealth & Asset Management `$154M`\n- Global Transaction Services `$121M`\n- Insurance & Protection `$96M`\n- Markets & Securities `$74M`\n- Retail & Small Business `$61M`\n- Corporate Real Estate `$38M`\n- Private Credit Partnerships `$12M`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "The claim is a difference in magnitude",
+      "body": "A bar earns its place when the audience should leave knowing which category is biggest and roughly by how much. Length from a shared zero is read more accurately than angle, area or color, which is why this beats a pie for anything that is not parts of one whole."
+    },
+    {
+      "title": "Three to eight categories",
+      "body": "Two categories is a ratio — say it as a `big-number` or a two-tile `stats`. Past eight the names crowd even in the row form and the reader stops comparing and starts scanning; consolidate the tail into 'Other'."
+    },
+    {
+      "title": "Long names mean `row`",
+      "body": "Column labels wrap into the width of one band, so a name past about fifteen characters is shortened or dropped. The row form puts the name in a wide left gutter where it reads on one line. When the names are business units, product lines or people, start from `row`."
+    },
+    {
+      "title": "One value per category, or two to four series",
+      "body": "The flat list is the single-series chart. Nesting numeric children turns it into the grouped form for a plan-vs-actual or year-over-year comparison. Past four series the bars inside a group get too thin to compare across groups — split the slide or switch to a small multiple."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Parts of one whole",
+      "body": "If the categories add up to a meaningful total and the story is the split, use `piechart` (one whole) or the `stacked-bar` sibling (a total that decomposes across categories). A plain bar deliberately says nothing about a sum."
+    },
+    {
+      "title": "A continuous series over time",
+      "body": "Twelve monthly bars ask the reader to compare twelve lengths when the claim is a trend. Use the `line` sibling — its whole job is the shape of the movement. Bars are for a handful of named categories, not a time series."
+    },
+    {
+      "title": "A percentage against a target",
+      "body": "'68% of goal' is attainment, not magnitude across categories. `progress` shows attainment; `bullet` adds the target and the qualitative band. A bar chart of percentages that do not compare to each other is a table with decoration."
+    },
+    {
+      "title": "A rainbow single series",
+      "body": "Do not reach for a per-category color. A single series is one hue here by design: the length already carries the whole comparison, and a second encoding that says nothing is the classic amateur tell. Color earns its place only in `grouped`, where it names the series."
+    }
+  ],
+  "related": [
+    {
+      "name": "progress",
+      "when": "attainment against 100% rather than magnitude against each other"
+    },
+    {
+      "name": "piechart",
+      "when": "parts of a single whole, where the shares sum to one total"
+    },
+    {
+      "name": "funnel",
+      "when": "each stage is a subset of the one before and the drop-off is the story"
+    },
+    {
+      "name": "stats",
+      "when": "a row of headline figures with no like-for-like comparison between them"
+    },
+    {
+      "name": "big-number",
+      "when": "one figure is the whole slide"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Adding a `grouped` class and leaving the list flat.",
+      "fix": "The grouped form is selected by the DATA, not the class: nest the series under each category with numeric pills. A `grouped` token on a flat list draws the ordinary single-series chart rather than an empty one."
+    },
+    {
+      "mistake": "Expecting the value axis to appear on a small chart.",
+      "fix": "The chart prints each value on its own bar and drops the axis and gridlines whenever those labels fit — the number is right there, so a second way to read it is redundant chrome. The axis returns only when a label would no longer fit the room it has: its whole band in a single-series column chart, or just its own bar's slot when the bars are grouped. A row chart never needs it, because its values print into a gutter sized to hold them."
+    },
+    {
+      "mistake": "Writing values in mixed units, like `$4.2M` next to `3100000`.",
+      "fix": "Both parse to a number, but the axis affix is only adopted when EVERY value agrees on it — a mixed series gets a bare axis and loses the currency. Author one vocabulary for the whole list."
+    },
+    {
+      "mistake": "Reaching for `diverging` just because one value happens to be negative.",
+      "fix": "The ordinary form already hangs a negative bar below the zero rule with the axis extended to cover it. `diverging` is a stronger claim — it centers zero, gives both sides the same reach, and colors by sign — so use it when direction IS the story, not merely when a minus sign appears."
+    }
+  ],
+  "dataShapeGuidance": [
+    "The value pill is a number with optional currency prefix, thousands commas, magnitude suffix and unit: `$4.2M`, `12,400`, `68%`, `-3.1`. The magnitude suffix is SCALE, not decoration — `1.2M` is 1 200 000 — so `800k` and `1.2M` sit correctly on one axis.",
+    "A negative value is legitimate in every form and hangs from the zero rule; the axis is widened to include it. Zero is legitimate too and draws no bar, with its value printed on the baseline.",
+    "Bars are drawn in AUTHORED order, never re-sorted. Sort the list yourself when ranking is the story; leave it in natural order when the categories have one (quarters, stages, sizes).",
+    "In the grouped form, a category that is missing one series simply draws fewer bars in that group rather than a zero — an absent measurement and a measured zero are different claims.",
+    "A category name that will not fit its column band on two lines is not shortened: the chart switches itself to the row form, where the name reads in the gutter. How long is too long depends on how many categories share the width — about forty characters at four categories, about twenty at eight — so `row` is worth asking for outright whenever the names are business units, product lines or people."
+  ],
+  "specimenVoice": true,
+  "showcase": {
+    "featured": true
+  },
+  "variantDocs": {
+    "row": {
+      "summary": "Horizontal bars with the category name in a wide left gutter — the correct form whenever the names are long or numerous.",
+      "sample": "<!-- _class: bar row -->\n\n## Support load sits with two teams.\n\n- Platform Engineering `1,240`\n- Customer Success `980`\n- Data & Analytics `410`\n- Design Systems `260`\n- Developer Relations `95`\n"
+    },
+    "grouped": {
+      "summary": "Two to four series side by side in each category, selected by nesting numeric children under each category.",
+      "sample": "<!-- _class: bar grouped -->\n\n## We beat plan everywhere but APAC.\n\n- Americas\n  - Plan `3.2`\n  - Actual `3.9`\n- EMEA\n  - Plan `2.6`\n  - Actual `3.1`\n- APAC\n  - Plan `1.9`\n  - Actual `1.4`\n"
+    },
+    "diverging": {
+      "summary": "Signed values off a centered zero rule, both sides on one scale — the variance and tornado form.",
+      "sample": "<!-- _class: bar diverging row -->\n\n## What moves the forecast, and which way.\n\n- Renewal rate `+2.4`\n- Enterprise pipeline `+1.6`\n- Price realization `+0.7`\n- Services attach `-0.5`\n- Churn in mid-market `-1.8`\n- FX exposure `-2.9`\n"
+    }
+  }
+}

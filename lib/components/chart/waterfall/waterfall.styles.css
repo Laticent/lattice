@@ -1,0 +1,163 @@
+/* waterfall — the bridge chart (chart-family Cartesian member).
+ * Contract: lib/components/chart/waterfall/waterfall.manifest.json
+ *
+ * The kernel (waterfall.transform.js) emits floating <rect> bars, the connector
+ * lines between them, and the delta labels. It emits NO color: every bar carries
+ * `data-s="up|down|flat|total"` and takes its gradient from the shared
+ * buildFillDefs recipe, so all paint decisions live here.
+ *
+ * THIS IS THE ONE CARTESIAN MEMBER WHERE COLOR MEANS SOMETHING. An increase and
+ * a decrease are not two categories, they are two directions, so they take the
+ * semantic `--state-pass-*` / `--state-fail-*` pair rather than categorical
+ * slots — and a total takes the neutral `--state-mute-*`, which is why the three
+ * registers read as different KINDS of bar and not as three items in a series.
+ * Everything else on this plot stays neutral so the one semantic channel is
+ * unmistakable.
+ *
+ * The direction is NEVER carried by hue alone: it is in the geometry (the bar
+ * climbs or falls from the connector), in the sign printed on the label, and in
+ * which side of the bar that label sits on. An achromatopsia palette flattens
+ * `--chart-state-pass` and `--chart-state-fail` to two near-identical grays
+ * (themes/a11y-achromatopsia.css) and the chart still reads.
+ *
+ * Unlayered like every other component file (@layer is inert in this bundle and
+ * a layered rule silently loses to an unlayered base rule — cascade.md), and
+ * matched on `:is(section.waterfall, figure.chart-frame)` so the fills also
+ * resolve in the Read·Article figure re-host, where the SVG is re-parented
+ * outside its `section`. */
+
+:is(section.waterfall, figure.chart-frame) .waterfall-figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+:is(section.waterfall, figure.chart-frame) .waterfall-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The bars. The gradient wash arrives on the `fill` attribute from the shared
+ * buildFillDefs recipe (the family's canonical rectangular fill, the same one
+ * the kanban card and the gantt bar wear); the saturated edge is the part that
+ * carries the semantics, so it is set here per direction. A stroked edge is not
+ * decoration on this chart: a step of 0.2% of the anchor is a 1.5-unit sliver,
+ * and the edge is what keeps it visible at all. */
+:is(section.waterfall, figure.chart-frame) .waterfall-bar {
+  stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
+  stroke-width: 0.5;
+  paint-order: stroke fill;
+}
+:is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="up"] {
+  stroke: var(--state-pass-ink);
+}
+:is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="down"] {
+  stroke: var(--state-fail-ink);
+}
+/* A step that netted to ZERO is its own outcome, not a rise of nothing: a
+ * hairline at the level it left the running total on, in the canvas's ink. It
+ * carries no fill because there is no area to fill, and no semantic hue because
+ * it went neither way — painting it green (zero is not negative) would have
+ * said the opposite of what happened. */
+:is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="flat"] {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
+  stroke-width: 0.7;
+}
+/* A total is a different KIND of bar, not a third category — and it is drawn in
+ * the CANVAS'S OWN INK rather than from the status palette, which is the one
+ * place this chart departs from the family's material on purpose. Two reasons,
+ * and the second is a defect this fixes.
+ *
+ * The design reason: an anchor is not a status, it is a REFERENCE — the same
+ * thing the zero rule is. Building it from `--text-body`, exactly as
+ * `.cart-zero` and `.cart-grid` are built, says so in the material: the walk is
+ * the data, the anchors are the frame the data is read against. It is also flat
+ * rather than gradient-washed, because on a walk whose drivers are 2% of the
+ * anchors those two bars own most of the plot, and that much area wearing the
+ * same wash as the steps reads as the loudest thing on the slide while saying
+ * the least.
+ *
+ * The defect: `--state-mute` is THEME-TUNED, and a theme is free to tint it.
+ * `cuoio` sets it to a warm taupe (`#825F58`), which next to that theme's
+ * crimson `--state-fail` reads as a decrease — measured on the cross-zero walk,
+ * where "Opening cash", "Trough" and "Closing cash" all looked like falls. A
+ * neutral that is only neutral in some themes is not a third register. The
+ * canvas ink is neutral BY CONSTRUCTION in every theme, which is exactly the
+ * property this bar needs.
+ *
+ * Mixed toward `--bg` on BOTH canvases, not toward black on dark: the family
+ * mixes dark fills toward black to stop WARM hues mudding into the navy
+ * ground, and this fill has no hue to protect — mixing it toward black on dark
+ * drove it BELOW the canvas and the anchors read as holes punched in the slide
+ * rather than as columns standing on it. */
+:is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="total"] {
+  fill: light-dark(
+    color-mix(in oklab, var(--text-body) 13%, var(--bg)),
+    color-mix(in oklab, var(--text-body) 20%, var(--bg)));
+  stroke: color-mix(in oklab, var(--text-body) 40%, transparent);
+  stroke-width: 0.6;
+}
+
+/* The connector — the line that makes this a bridge. It carries the running
+ * total across the gap between two bars, so it must be READ but never SEEN
+ * first: gridline weight and a fine dash, sitting between the grid and the axis
+ * rule. Solid at this weight it competed with the bar edges; dashed, it reads as
+ * a carried value rather than as another mark. */
+:is(section.waterfall, figure.chart-frame) .waterfall-connector {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 52%, transparent);
+  stroke-width: 0.55;
+  stroke-dasharray: 1.8 1.3;
+}
+
+/* Both printed figures carry a canvas-colored HALO under the glyphs.
+ *
+ * A delta hangs off its own bar's edge, and where that edge sits is the data's
+ * choice, not the layout's — so a figure lands on a gridline whenever the walk
+ * happens to pass near one (measured: `−4.2M` straddled the −2M rule on the
+ * cross-zero walk). Reserving enough space to guarantee otherwise would mean
+ * pushing bars away from the gridlines, i.e. distorting the geometry to protect
+ * the typography. The halo is the cheap correct answer: the glyphs are stroked
+ * in the canvas color BENEATH their own fill (`paint-order: stroke`), so the
+ * grid parts around the figure and the figure still sits on the canvas rather
+ * than on a mark. `--bg` is a token, so it follows the theme and both canvases.
+ *
+ * The DELTA label — the figure that matters on a step, so it takes the same
+ * display-face register as the family's `.cart-value`. Neutral ink: color on
+ * this chart means direction, and a tinted number would put a fourth thing in
+ * the one channel that is carrying meaning. */
+:is(section.waterfall, figure.chart-frame) :is(.waterfall-delta, .waterfall-total-value) {
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+:is(section.waterfall, figure.chart-frame) .waterfall-delta {
+  fill: var(--text-heading);
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A total's own figure. Same size as the delta — `buildValueLabel` wraps every
+ * printed figure at the family's one value size, so these two rules and that
+ * number are one mirror, gated in waterfall.test.js — but muted, because the
+ * anchors are the reference and the steps are the argument. */
+:is(section.waterfall, figure.chart-frame) .waterfall-total-value {
+  fill: var(--text-body);
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* NOTE for the a11y + print texture rules. The three bar registers are
+ * addressed by `data-s` on `.waterfall-bar`, with values `up` · `down` ·
+ * `flat` · `total`. They are deliberately NOT from the family's frozen `CHART_STATUS`
+ * vocabulary: this chart encodes DIRECTION, not project status. There is no
+ * `data-cat` on any mark here — nothing on a waterfall is categorical. */

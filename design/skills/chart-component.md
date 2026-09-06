@@ -153,21 +153,59 @@ mud and value-collapse hide there.
    no key.
 7. **Demo deck** `examples/<name>.md` + galleries; wire all three paths.
 8. **Validate contrast** on both canvases; `npm run build:check` + `npm test`.
-9. **Add yourself to the rosters the manifest does NOT drive.** The `kernel` block
-   registers your dispatch and framing. These lists are still hand-maintained, and
-   every one of them fails silently — no gate, no red test, just a capability your
-   chart quietly does not have:
+9. **Add yourself to the rosters the manifest does NOT drive.** The `kernel`
+   block registers your dispatch and framing. Everything else is hand-maintained.
+   A census of the tree (2026-09-06, while seven members landed at once) found
+   **sixteen** such rosters, not the six this step used to name — and the six it
+   named were all in the SILENT half, so following this list alone used to leave
+   you with a red build, and following only the gates left you with a chart that
+   has no prose projection, no vector export, no scorecard credit and no docs
+   entry.
+
+   **GATED — the build or a test goes red without these:**
+   - `lib/core/split-facts.js` `TREATMENTS` — every chart is `'graphic'` (it
+     never splits; overflow rings). Then `npm run split:treatments` and
+     `npm run oracle:bless`.
+   - `tools/check-ownership.js` `SANCTIONED_DENSITY_EXEMPT` — a chart's
+     substance is a series, so there is no prose axis to measure.
+   - `test/unit/components/gallery-contract.test.js` `VOICE_EXEMPT` — same reason.
+   - `test/unit/components/component-manifest.test.js` — pins the chart-bucket
+     COUNT and the exact name list. It goes red the moment your folder exists.
+   - `test/unit/forms/stage-catalog.test.js` `EXPECTED_CANVAS`.
+   - `test/integration/invariants/component-invariants.layer3.js` `CHARTS` — its
+     real job is `TRANSFORM` membership, which suppresses the layer-1 "required
+     slot selector resolves" check. A chart's `ul > li` is consumed by its
+     kernel, so without this the integration tier fails layer 1.
+
+   **SILENT — no gate, no red test, just a capability your chart quietly lacks:**
    - `lib/transformers/prose-projection.mjs` — `MEDIA_COMPONENTS` (the accessible
-     `<figure>` projection), `CHART_TOKEN_COMPONENTS` (without it the re-hosted
-     figure loses `chart-frame` and your fills fall to black),
-     `SPATIAL_BOUNDED_COMPONENTS` / `SPATIAL_PLACEHOLDER_COMPONENTS`.
-   - `lib/export/image-set.js` `KEYED_CHART_LAYOUTS` **and** its second copy in
-     `tools/export-chart-svg.js` — standalone SVG extraction.
+     `<figure>` projection) and `CHART_TOKEN_COMPONENTS` (without it the re-hosted
+     figure loses `chart-frame` and every fill paints SVG-initial BLACK), plus
+     `SPATIAL_BOUNDED_COMPONENTS` / `SPATIAL_PLACEHOLDER_COMPONENTS` / `FLOW_CHART_COMPONENTS`.
+   - `lib/export/image-set.js` `KEYED_CHART_LAYOUTS`, **and** its second copy as a
+     local `const KEYED` inside `page.evaluate()` in `tools/export-chart-svg.js` —
+     invisible to a grep for the exported name. Without both you export a raster
+     PNG where a vector SVG was meant.
    - `docs/src/components/studio/export/deck-export.js` `CLEAN_SVG_LAYOUTS`.
    - `lib/authoring/scorecard.js` `DATA_LAYOUTS` — else a deck built on your chart
      scores Data: N/A instead of scoring.
    - `docs/src/lib/families.mjs` — else the chart never appears in the docs picker.
-   - `docs/src/lib/single-slide-render.ts` — the Studio's chart-count chip.
+   - `docs/src/lib/single-slide-render.ts` — the Studio chart-count chip (a regex
+     alternation, not an array).
+   - `docs/src/playground/chart-interact.js` `CHART_SVG_SEL` — without it the
+     Present-mode mark reveal and detail popovers never attach.
+   - `docs/src/lib/compose/registers.ts` `TABLE_UNSUITED` — else Compose offers
+     "add a table" on a slide whose figure owns the whole stage.
+   - `themes/a11y-base.css` and `lib/base/base.print-textures.css` — the CVD and
+     print TEXTURE channels. Give every categorical filled mark `data-cat="N"`
+     and every stroked series mark `data-series="N"` and both files are a few
+     rules rather than a per-chart block.
+   - `test/fixtures/chart-fit.md` — else `npm run check:chart-fit` never renders
+     your chart and the stage-clip check silently skips it.
+   - Optionally `tools/check-viz-render.js` `CANVAS_TEXT` (contrast floors for
+     text your kernel paints on the canvas) and `lib/core/chart-narration.js`
+     `NARRATORS` (spoken facts in Present, captions and the webpage export).
+
    Folding these into the manifest the way dispatch now is would be the right
    follow-up; until then, this list is the map.
 

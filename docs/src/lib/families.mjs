@@ -20,7 +20,7 @@ export const FAMILY_DEFS = [
 	{ key: 'cards', label: 'Cards', members: ['cards-grid', 'cards-stack'] },
 	{ key: 'compare', label: 'Compare', members: ['compare-prose', 'compare-table', 'decision', 'matrix-2x2', 'redline', 'verdict-grid', 'pricing'] },
 	{ key: 'timelines', label: 'Timelines & roadmaps', members: ['timeline-list', 'roadmap'] },
-	{ key: 'charts', label: 'Charts & diagrams', members: ['journey', 'gantt', 'kanban', 'piechart', 'progress', 'quadrant', 'radar', 'state-chart', 'word-cloud', 'diagram', 'funnel', 'map'] },
+	{ key: 'charts', label: 'Charts & diagrams', members: ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'journey', 'gantt', 'kanban', 'piechart', 'progress', 'quadrant', 'radar', 'state-chart', 'word-cloud', 'diagram', 'funnel', 'map'] },
 	{ key: 'splits', label: 'Split layouts', members: ['split-panel', 'split-compare'] },
 	{ key: 'codemath', label: 'Code & math', members: ['code', 'compare-code', 'math'] },
 	{ key: 'legal', label: 'Legal', members: ['authority-chain', 'citation-card', 'obligation-matrix', 'regulatory-update', 'statute-stack'] },

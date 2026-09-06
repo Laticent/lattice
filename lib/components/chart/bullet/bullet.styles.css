@@ -1,0 +1,142 @@
+/* bullet — Stephen Few's bullet graph. UNLAYERED (a layered rule silently loses
+ * to an unlayered base rule in this bundle — engineering/cascade.md), and every
+ * selector anchored on `:is(section.bullet, figure.chart-frame)` so the fills
+ * also resolve in the Read·Article figure re-host, where the SVG is re-parented
+ * outside its `section`.
+ *
+ * The plot chrome — grid, axis rule, ticks, the category register — is painted
+ * once in chart-family.css § Cartesian chrome and is NOT restyled here. This
+ * file owns the three marks only: the qualitative band, the measure, the target.
+ *
+ * px inside a viewBox is a USER UNIT, not a CSS pixel, so the font sizes below
+ * scale with the SVG. They mirror the `FS` table in bullet.transform.js; the
+ * kernel needs the same numbers to break lines to the width the glyphs occupy,
+ * and bullet.test.js reads this file and fails when the two drift.
+ */
+
+/* The figure fills the chart body so the plot scales with the slide rather than
+ * sitting at the SVG's intrinsic size. `.cart-svg` (chart-family.css § Cartesian
+ * chrome) sizes the root inside it; this is the box that root fills. */
+:is(section.bullet, figure.chart-frame) .bullet-figure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ── THE QUALITATIVE RANGE ──────────────────────────────────────────────────
+ * Two to three contiguous zones behind the measure. Washes of ONE NEUTRAL, not
+ * red/amber/green, and that is the whole argument for the component: a
+ * traffic-light band double-encodes a judgment the target marker already
+ * carries, and it turns six rows into a Christmas tree in which the measure —
+ * the actual data — is the least visible thing on the slide. Few's own point.
+ *
+ * `--state-mute-hue` is the family's neutral (the gray `deferred` already
+ * wears), so a theme that re-tunes its chart grays re-tunes these too.
+ *
+ * Mixed toward `--bg` on BOTH canvases rather than toward black on dark. That
+ * looks like a violation of the family's "mix toward black on dark" rule and is
+ * not: the rule exists because mixing a WARM HUE into a dark `--bg` muddies it
+ * to brown. A mid-value gray has no hue to muddy, and mixing it toward black on
+ * a near-black canvas would make the band invisible — the wash has to LIFT off
+ * a dark canvas and SETTLE onto a light one, which is exactly what mixing a
+ * mid-gray toward the canvas does in each direction.
+ *
+ * DARKEST AT THE ORIGIN, lightest at the top. The measure grows from the origin,
+ * so the reader's eye lands on the TIP: putting the palest zone where a healthy
+ * bar ends gives the tip its maximum contrast, and the row visibly quietens as
+ * it gets better. A short bar sits on the darkest zone and still reads, because
+ * the measure is saturated ink against a wash that never exceeds 18%. */
+:is(section.bullet, figure.chart-frame) .bullet-band {
+  fill: light-dark(
+    color-mix(in oklab, var(--state-mute-hue) 26%, var(--bg)),
+    color-mix(in oklab, var(--state-mute-hue) 30%, var(--bg)));
+  stroke: none;
+}
+:is(section.bullet, figure.chart-frame) .bullet-zone-1 {
+  fill: light-dark(
+    color-mix(in oklab, var(--state-mute-hue) 16%, var(--bg)),
+    color-mix(in oklab, var(--state-mute-hue) 19%, var(--bg)));
+}
+:is(section.bullet, figure.chart-frame) .bullet-zone-2 {
+  fill: light-dark(
+    color-mix(in oklab, var(--state-mute-hue) 8%, var(--bg)),
+    color-mix(in oklab, var(--state-mute-hue) 10%, var(--bg)));
+}
+/* A fourth zone only exists when the author names three cut points. It is the
+ * top of the scale, so it is the quietest thing on the row — barely a tint. */
+:is(section.bullet, figure.chart-frame) .bullet-zone-3 {
+  fill: light-dark(
+    color-mix(in oklab, var(--state-mute-hue) 4%, var(--bg)),
+    color-mix(in oklab, var(--state-mute-hue) 5%, var(--bg)));
+}
+
+/* ── THE MEASURE ────────────────────────────────────────────────────────────
+ * The datum, and the most present mark on the row: a VIVID SOLID at 88% of the
+ * categorical hue with the saturated ink as a hairline — the same material the
+ * funnel's bands wear, so it reads as family.
+ *
+ * NOT the canonical GRADIENT fill (`buildFillDefs`), and the reason is measured
+ * rather than aesthetic. That emitter's stops are `light-dark(color-mix(in
+ * oklab, …))`, and in the CLI's PDF export path those stops come out
+ * systematically lighter than the browser paints them: on `indaco` the same bar
+ * measures rgb(60,124,169) in Chromium and rgb(117,160,191) in the exported PDF,
+ * roughly as if every mix percentage had been multiplied by 0.7 — enough to drop
+ * the measure from 4.98:1 against the canvas to about 2.2:1, under the family's
+ * 3:1 floor, in the artifact a board actually reads. A flat `color-mix` does not
+ * diverge: the funnel's 82% band and this 88% bar both round-trip to the exact
+ * computed color. A gradient across a bar six user units tall was buying almost
+ * nothing anyway, so the trade costs nothing and the export becomes trustworthy.
+ * Reported to the orchestrator — it is a property of `buildFillDefs`, not of
+ * this chart, so it affects every Cartesian member that wears the recipe. */
+:is(section.bullet, figure.chart-frame) .bullet-measure {
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) 88%, var(--bg));
+  stroke: var(--chart-cat-1-ink);
+  stroke-width: 0.5;
+}
+
+/* ── THE TARGET ─────────────────────────────────────────────────────────────
+ * A PERPENDICULAR TICK, never a dot. A dot sits on the track as one more
+ * datapoint at the same rank as the measure; a tick crossing the whole track
+ * reads as a threshold the bar is measured against. Heading ink, because it is
+ * the reference the entire chart is about — not the quietest mark on the plot
+ * (that is the grid) but the most declarative one after the measure itself. */
+:is(section.bullet, figure.chart-frame) .bullet-target {
+  fill: none;
+  stroke: var(--text-heading);
+  stroke-width: 1.6;
+  stroke-linecap: butt;
+}
+
+/* ── THE SCALE FLOOR ────────────────────────────────────────────────────────
+ * Only drawn for a row whose author declared a `Floor`, i.e. a scale that does
+ * not start at zero. On such a row the bar's LENGTH stops being proportional to
+ * its value, so the origin is given a visible edge rather than being left to
+ * look like a zero baseline. Border ink, not heading ink — it is chrome that
+ * qualifies the scale, not a datum. */
+:is(section.bullet, figure.chart-frame) .bullet-floor {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
+  stroke-width: 0.8;
+}
+
+/* ── THE ROW LABEL + READOUT ────────────────────────────────────────────────
+ * Both on the canvas, in the gutters, never on a mark — so their contrast is a
+ * property of the slide background and not of whichever wash sits behind them.
+ * The name takes the family's category register (`cart-cat`) and adds weight:
+ * in a bullet the row name is the reader's entry point, not an axis tag. */
+:is(section.bullet, figure.chart-frame) .bullet-name {
+  fill: var(--text-heading);
+  font-weight: 600;
+}
+/* What the measure was measured against. Muted and a step smaller, so the pair
+ * reads as one figure with its reference, not as two competing numbers. */
+:is(section.bullet, figure.chart-frame) .bullet-plan {
+  fill: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: 6.5px;
+  font-variant-numeric: tabular-nums;
+}

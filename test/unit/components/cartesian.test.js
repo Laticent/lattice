@@ -147,7 +147,9 @@ describe('cartesian — tick formatting', () => {
     for (const hi of [1.4e6, 9.5e3, 1.1e9, 1500]) {
       const { ticks, step } = C.niceTicks(0, hi);
       const fmt = C.axisFormatter({ ticks, step });
-      const units = ticks.map((t) => fmt(t).replace(/[\d.,-]/g, ''));
+      // Zero is exempt and deliberately so: it carries no magnitude, and `$0k`
+      // reads as a quantity of thousands.
+      const units = ticks.filter((t) => t !== 0).map((t) => fmt(t).replace(/[\d.,-]/g, ''));
       assert.equal(new Set(units).size, 1,
         `mixed units on the 0..${hi} axis: ${ticks.map(fmt).join(' · ')}`);
     }
@@ -579,5 +581,168 @@ describe('cartesian — defects found by the independent checker', () => {
       view: C.VIEW.landscape, className: 'x', title: 'a<b>&c', desc: 'd<e>', body: '',
     });
     assert.match(hostile, /<title>a&lt;b&gt;&amp;c<\/title>/);
+  });
+});
+
+describe('cartesian — domain policy', () => {
+  test('the default snaps the DOMAIN, which is right for a bar', () => {
+    const t = C.niceTicks(0, 4.4);
+    assert.equal(t.min, 0, 'a bar baseline is zero');
+    assert.ok(t.max >= 4.4);
+    assert.equal(t.ticks[t.ticks.length - 1], t.max, 'the top tick IS the domain top');
+  });
+
+  test('`tight` fills the plot with the data, which is right for a trend', () => {
+    // Snapping the domain gave a $60k..$420k series a $0..$600k axis — the
+    // right third of the plot spent on nothing.
+    const snapped = C.niceTicks(60000, 420000);
+    const tight = C.niceTicks(60000, 420000, { includeZero: false, tight: true });
+    assert.equal(snapped.max, 600000);
+    assert.ok(tight.min > 0 && tight.min < 60000, 'the domain hugs the data');
+    assert.ok(tight.max > 420000 && tight.max < 500000);
+    assert.ok(tight.ticks.every((v) => v >= tight.min && v <= tight.max),
+      'every drawn tick must fall inside the domain');
+    assert.ok(tight.ticks.length >= 2, 'a tight axis still needs gridlines');
+  });
+
+  test('`tight` falls back rather than drawing an axis with no gridlines', () => {
+    // A pad narrower than one step can leave nothing inside the domain.
+    const t = C.niceTicks(1000, 1000.0001, { tight: true, includeZero: false });
+    assert.ok(t.ticks.length >= 2);
+  });
+
+  test("target 'auto' spends less of the plot on dead headroom", () => {
+    const fixed = C.niceTicks(0, 4.4, { target: 4 });
+    const auto = C.niceTicks(0, 4.4, { target: 'auto' });
+    assert.ok(auto.max <= fixed.max, `auto ${auto.max} should not exceed fixed ${fixed.max}`);
+    assert.ok(auto.max >= 4.4, 'and must still cover the data');
+  });
+
+  test('zero carries no magnitude on a compacted axis', () => {
+    const t = C.niceTicks(0, 420000);
+    assert.equal(C.axisFormatter({ ticks: t.ticks, step: t.step, affix: { prefix: '$' } })(0), '$0');
+    assert.equal(C.markFormatter({ ticks: t.ticks, step: t.step })(0), '0');
+  });
+});
+
+describe('cartesian — gaps the member agents found', () => {
+  test('the affix survives EVERY sign form parseValue understands', () => {
+    // affixOf adopts an affix only when every value agrees, so one negative
+    // used to drop the `$` from the whole axis: the parts printed `$4.2M` from
+    // their raw text while the computed total printed `3.4M`, on one slide.
+    assert.deepEqual(C.affixOf(['$4.2M', '-$0.8M', '($1.2M)']), { prefix: '$', suffix: '' });
+    assert.deepEqual(C.affixOf(['+1.4%', '-0.9%']), { prefix: '', suffix: '%' });
+  });
+
+  test('the axis title measures its own uppercase tracking', () => {
+    // `.cart-axis-title` paints uppercase at 0.12em tracking; measured at the
+    // flat advance it under-counted and ellipsized a caption that fitted.
+    assert.ok(!C.buildAxisTitle('Second category', { x: 100, y: 10, width: 90 }).includes('…'),
+      'a caption that fits was ellipsized');
+  });
+
+  test('bandScale caps a band so one category is not a slab', () => {
+    assert.equal(C.bandScale(2, [0, 300], { maxWidth: 40 }).width, 40);
+    const b = C.bandScale(2, [0, 300], { maxWidth: 40 });
+    assert.ok(b.center(0) < b.center(1) && b.start(0) >= 0);
+  });
+
+  test('buildValueLabel takes a font size, so a member is not pinned to FS.value', () => {
+    // The size is a MEASUREMENT input, not an emitted attribute (CSS owns what
+    // is painted), so the proof is that the same text wraps differently: a
+    // string that fits one line at FS.value must break at twice the size.
+    const small = C.buildValueLabel('1,234,567', { x: 10, y: 10, width: 44 });
+    const large = C.buildValueLabel('1,234,567', { x: 10, y: 10, width: 44, fontSize: 20 });
+    const lines = (svg) => (svg.match(/<tspan/g) || []).length;
+    assert.equal(lines(small), 1);
+    assert.ok(lines(large) > 1 || large.includes('…'),
+      'the font size did not reach the measurement');
+  });
+});
+
+describe('cartesian — the magnitude unit comes from the domain', () => {
+  const label = (lo, hi, affix = {}) => {
+    const t = C.niceTicks(lo, hi, { includeZero: lo === 0, tight: lo !== 0 });
+    return t.ticks.map(C.axisFormatter({ ticks: t.ticks, step: t.step, affix })).join(' · ');
+  };
+
+  test('a narrow axis high up the scale speaks its own magnitude', () => {
+    // Gating the unit on the STEP read the wrong quantity: a $4.12M-$4.31M
+    // axis stepping by 50k printed `$4300k`, because the step alone said
+    // "thousands" while the numbers were plainly millions.
+    const out = label(4120000, 4310000, { prefix: '$' });
+    assert.ok(/M/.test(out), `expected millions, got ${out}`);
+    assert.ok(!/k/.test(out), `thousands leaked in: ${out}`);
+  });
+
+  test('compaction must buy back more characters than it costs', () => {
+    // `k` carries a floor of 1e4, not 1e3, so a 1500-max axis stays whole.
+    assert.equal(label(0, 1500), '0 · 500 · 1000 · 1500');
+    assert.match(label(0, 95000), /k/);
+  });
+
+  test('no tick ever needs more than two decimals', () => {
+    for (const [lo, hi] of [[0, 1500], [0, 1.4e6], [4.12e6, 4.31e6], [0, 12000], [0, 1.1e9]]) {
+      for (const part of label(lo, hi).split(' · ')) {
+        const dp = (part.match(/\.(\d+)/) || ['', ''])[1].length;
+        assert.ok(dp <= 2, `${part} on the ${lo}..${hi} axis carries ${dp} decimals`);
+      }
+    }
+  });
+
+  test('pointScale is a real export, not a bandScale trick', () => {
+    // Members were synthesizing one with `bandScale(n, r, { padOuter: -0.5 })`.
+    const ps = C.pointScale(5, [30, 310]);
+    assert.equal(ps.at(0), 30, 'the first point sits on the plot edge');
+    assert.equal(ps.at(4), 310, 'and the last on the other');
+    assert.equal(ps.at(2), 170);
+    assert.equal(C.pointScale(1, [30, 310]).at(0), 170, 'a lone point centers');
+    const inset = C.pointScale(5, [30, 310], { inset: 10 });
+    assert.equal(inset.at(0), 40);
+  });
+
+  test('edgeAnchor turns the first and last category label inward', () => {
+    const plot = C.plotBox({});
+    const ps = C.pointScale(3, [plot.x0, plot.x1]);
+    const out = C.buildCategoryLabels({
+      plot, labels: ['Q1', 'Q2', 'Q3'], center: ps.at, width: 40, edgeAnchor: true,
+    });
+    assert.match(out, /text-anchor="start"/);
+    assert.match(out, /text-anchor="end"/);
+  });
+});
+
+describe('cartesian — a category name is never silently dropped', () => {
+  test('a row chart ellipsizes a long name instead of culling it', () => {
+    // The vertical branch had no cull at all, then gained one — and the cure
+    // was worse: ten dumbbell rows with two-line names lost FIVE names, and
+    // five rows rendered anonymous with nothing on the slide to say so. Given
+    // the band pitch, the line budget comes from the row height, so a name
+    // that does not fit is ellipsized and every row keeps its label.
+    const plot = C.plotBox({});
+    const b = C.bandScale(10, [plot.y0, plot.y1]);
+    const names = Array.from({ length: 10 }, (_, i) => `Professional services division ${i}`);
+    const culled = C.buildCategoryLabels({
+      plot, labels: names, center: (i) => b.center(i), width: 26, axis: 'y',
+    });
+    const kept = C.buildCategoryLabels({
+      plot, labels: names, center: (i) => b.center(i), width: 26, axis: 'y', pitch: b.step,
+    });
+    assert.ok((culled.match(/class="cart-cat"/g) || []).length < 10, 'the hazard is real');
+    assert.equal((kept.match(/class="cart-cat"/g) || []).length, 10,
+      'every row must keep its name when the pitch is known');
+  });
+
+  test('the vertical axis measures and emits at the SAME width', () => {
+    // It used to measure at the caller's `width` and emit at the gutter, so a
+    // label could be culled for colliding at a size it was never painted at.
+    const plot = C.plotBox({ gutter: { left: 60 } });
+    const b = C.bandScale(4, [plot.y0, plot.y1]);
+    const out = C.buildCategoryLabels({
+      plot, labels: ['Alpha division', 'Beta', 'Gamma', 'Delta'],
+      center: (i) => b.center(i), width: 5, axis: 'y', pitch: b.step,
+    });
+    assert.equal((out.match(/class="cart-cat"/g) || []).length, 4,
+      'a width of 5 must not shrink the real gutter box');
   });
 });

@@ -400,6 +400,109 @@ def demo_blocks() -> dict[str, str]:
         ('split', 'footer', '1/19'),
     ])
 
+    # ── The Cartesian members ───────────────────────────────────────────
+    # Seven charts that plot a value against an axis, added together — see
+    # engineering/decisions/2026-09-06-cartesian-chart-expansion.md. Each block
+    # shows the composition a reader sees: where the value sits, where the
+    # category sits, and what carries the reference.
+
+    blocks['bar'] = frame([
+        ('left', 'header'),
+        ('center', 'Growth sits in two regions.'),
+        ('blank',),
+        ('center', '$4.2M  $3.1M'),
+        ('center', '[####] [###]  $1.8M'),
+        ('center', '[####] [###]  [##]   $0.6M'),
+        ('center', '[####] [###]  [##]   [#]'),
+        ('center', '-----------------------------'),
+        ('center', 'N.Am   EMEA   APAC   LATAM'),
+        ('blank',),
+        ('split', 'footer', '1/19'),
+    ])
+
+    blocks['stacked-bar'] = frame([
+        ('left', 'header'),
+        ('center', 'A total, and the mix inside it.'),
+        ('blank',),
+        ('center', '                     FY25'),
+        ('center', '[///] [///] [///]    Support   5.2'),
+        ('center', '[###] [###] [###]    Licenses 19.6'),
+        ('center', '-----------------'),
+        ('center', 'FY23  FY24  FY25'),
+        ('blank',),
+        ('split', 'footer', '1/19'),
+    ])
+
+    blocks['line'] = frame([
+        ('left', 'header'),
+        ('center', 'Services grew into the gap.'),
+        ('blank',),
+        ('center', '6M |        .-*-.      Renewals'),
+        ('center', '   |   .-*-`    `*'),
+        ('center', '3M | *-`     .-*--*    New'),
+        ('center', '   |.--*--*-`'),
+        ('center', ' 0 +-------------------'),
+        ('center', '    Q1  Q2  Q3  Q4  Q1'),
+        ('blank',),
+        ('split', 'footer', '1/19'),
+    ])
+
+    blocks['waterfall'] = frame([
+        ('left', 'header'),
+        ('center', 'Price paid for volume lost.'),
+        ('blank',),
+        ('center', '        +1.4'),
+        ('center', '[####]  [##] .. -0.8'),
+        ('center', '[####]   :   [##]  :  [####]'),
+        ('center', '[####]   :    :    :  [####]'),
+        ('center', '----------------------------'),
+        ('center', ' Plan  Price Volume   Actual'),
+        ('center', '12.0M                   9.8M'),
+        ('blank',),
+        ('split', 'footer', '1/19'),
+    ])
+
+    blocks['scatter'] = frame([
+        ('left', 'header'),
+        ('center', 'What we pay most for, nobody uses.'),
+        ('blank',),
+        ('center', '80% |            (o) Ember'),
+        ('center', '    |      (o) Delta'),
+        ('center', '40% |  (o) Cirrus'),
+        ('center', '    | (o) Borealis  (o) Atlas'),
+        ('center', ' 0  +-----------------------'),
+        ('center', '    $0k     $200k    $400k'),
+        ('center', '         ANNUAL COST'),
+        ('blank',),
+        ('split', 'footer', '1/19'),
+    ])
+
+    blocks['slope'] = frame([
+        ('left', 'header'),
+        ('center', 'Two brands traded places.'),
+        ('blank',),
+        ('center', ' Atlas 31 *--.      .--* 34 Boreal'),
+        ('center', '             `-.  .-`'),
+        ('center', 'Boreal 24 *-----`--`----* 22 Atlas'),
+        ('blank',),
+        ('center', '    2024               2026'),
+        ('blank',),
+        ('split', 'footer', '1/19'),
+    ])
+
+    blocks['bullet'] = frame([
+        ('left', 'header'),
+        ('center', 'Three of five KPIs are behind.'),
+        ('blank',),
+        ('center', 'New ARR   [::[####|####]::]  4.2M'),
+        ('center', 'Retention [::[#######|#]::]   94%'),
+        ('center', 'Pipeline  [:[###|:::::::]::] 8.1M'),
+        ('center', '          0     5M     10M'),
+        ('center', '          band measure | target'),
+        ('blank',),
+        ('split', 'footer', '1/19'),
+    ])
+
     blocks['pricing'] = frame([
         ('left', 'header'),
         ('center', 'Pick the plan that fits.'),
