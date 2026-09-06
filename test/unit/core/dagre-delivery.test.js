@@ -7,16 +7,29 @@
  * document. Two halves install that global:
  *
  *   emulator / CLI export  →  tools/build-dagre-bundle.js's IIFE, prepended at
- *                             the lattice-emulator.js call site
- *   runtime bundle + docs  →  lib/core/dagre-layout.js, inlined by esbuild
+ *                             the lattice-emulator.js call site, and only for a
+ *                             deck whose machine actually BRANCHES
+ *   every browser host     →  dist/lattice-dagre.min.js, the same IIFE as a
+ *                             standalone script, tagged BEFORE the runtime tag
+ *
+ * IT USED TO BE INLINED INTO THE RUNTIME BUNDLE, which is the drift this file now
+ * guards against: `2026-09-03-self-hosted-runtime-deps.md` records that a heavy
+ * dep "must never drift onto an eager path", and dagre was the one that had. A
+ * single import from `lib/runtime`, `docs/src` or a playground bundle re-inlines
+ * the whole library — those all esbuild with no externals — and silently undoes
+ * the split, costing every reader of every deck 25.9 KiB gzipped for an engine
+ * only a branching machine uses.
  *
  * What is pinned here is the SHAPE of that contract, because every part of it is
- * invisible to the type system and two of them have already been got wrong:
+ * invisible to the type system and three of them have already been got wrong:
  *
  *   1. the serialised pass must NOT carry the 62KB IIFE string — the runtime
- *      bundle imports the same module, and a top-level require there shipped
+ *      bundle imported the same module, and a top-level require there shipped
  *      dagre twice (+51KB gzipped instead of +28KB);
- *   2. a missing bundle must DEGRADE to the numbered column, not throw.
+ *   2. a missing bundle must DEGRADE to the numbered column, not throw;
+ *   3. the BUILT runtime must not contain dagre at all, and the standalone
+ *      script must — an assertion on the artifacts, not on the source, because
+ *      what an import costs is decided by the bundler and not by the import.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
@@ -26,7 +39,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '../../..');
 
 describe('dagre delivery to the state-chart pass', () => {
-  test('lib/core/dagre-layout.js installs the global', () => {
+  test('lib/core/dagre-layout.js installs the global', () => {   // NODE side: tests, and any Node caller
     delete globalThis.__latticeDagre;
     const mod = require(path.join(ROOT, 'lib/core/dagre-layout.js'));
     assert.equal(mod.hasDagre(), true, 'dagre is reachable from the bundled paths');
@@ -84,6 +97,34 @@ describe('dagre delivery to the state-chart pass', () => {
     // The require is guarded: a fresh clone that never ran `npm install` has no
     // generated bundle, and must still render — as the numbered column.
     assert.match(src, /try \{ \(\{ DAGRE_IIFE: dagreIife \} = require\([^)]*\)\); \} catch/);
+  });
+
+  // THE ASSERTION THE SPLIT RESTS ON. Everything else here reads source text; this
+  // reads the built artifact, because whether dagre lands in the runtime is decided
+  // by esbuild following an import graph, not by any string a source file contains.
+  // A re-added `require('../core/dagre-layout.js')` anywhere in that graph would
+  // leave every source assertion above green.
+  test('the BUILT runtime bundle carries no dagre, and the standalone script does', () => {
+    const runtime = path.join(ROOT, 'dist/lattice-runtime.min.js');
+    const standalone = path.join(ROOT, 'dist/lattice-dagre.min.js');
+    if (!fs.existsSync(runtime) || !fs.existsSync(standalone)) return;   // pre-build clone
+    const rt = fs.readFileSync(runtime, 'utf8');
+    const sa = fs.readFileSync(standalone, 'utf8');
+    // Internals only the LIBRARY contains. Not `__latticeDagre`: the runtime
+    // legitimately names that global (the pass reads it), and the standalone script
+    // legitimately sets it — the identifier says nothing about who carries the code.
+    for (const marker of ['barycenter', 'nestingGraph', 'normalizeRanks']) {
+      assert.equal(rt.includes(marker), false,
+        `dagre is back on the eager path (found "${marker}" in lattice-runtime.min.js). `
+        + 'Some module in the runtime\'s import graph requires it again; esbuild has no '
+        + 'externals here, so one import inlines the whole library — 25.9 KiB gzipped '
+        + 'paid by every reader of every deck, for an engine only a BRANCHING state '
+        + 'chart uses. It belongs in dist/lattice-dagre.min.js, tagged by the host.');
+      assert.equal(sa.includes(marker), true,
+        `the standalone engine is missing "${marker}" — a host tagging it would install `
+        + 'nothing, and every branching machine would fall back to the numbered column');
+    }
+    assert.ok(sa.includes('__latticeDagre'), 'the standalone script installs the global');
   });
 
   test('the generated bundle is real, and is the layout half only', () => {

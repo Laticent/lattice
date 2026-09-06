@@ -58,6 +58,13 @@ const distThemesDir = join(repoRoot, 'dist', 'themes');
 // dist/lattice.css + dist/lattice-runtime.js remain the debug artifacts).
 const latticeCss = join(repoRoot, 'dist', 'lattice.min.css');
 const runtimeJs = join(repoRoot, 'dist', 'lattice-runtime.min.js');
+// The dagre layout engine, split OUT of the runtime bundle. It is fetched only by
+// a preview document that carries a drawn state chart, via a `<script src>` the
+// host emits before the runtime tag — the same conditional shape mermaid uses.
+// Inlined into lattice-runtime.js until then, which put it on the eager path:
+// 25.9 KiB gzipped for every reader of every deck, for an engine only a BRANCHING
+// machine uses. See tools/build-dagre-bundle.js.
+const dagreJs = join(repoRoot, 'dist', 'lattice-dagre.min.js');
 const pgDir = join(here, '..', 'public', 'playground');
 const engineJs = join(pgDir, 'lattice-playground.js'); // committed engine bundle
 // KaTeX, split out of the engine bundle (tools/build-playground.js's `katex`
@@ -71,6 +78,7 @@ const katexProviderJs = join(pgDir, 'lattice-katex.js');
 // is the path under the hashed dir (and exactly what the pages request).
 const assets = [
   ['lattice-runtime.js', runtimeJs],
+  ['lattice-dagre.js', dagreJs],
   ['lattice-playground.js', engineJs],
   ['lattice-katex.js', katexProviderJs],
   ['themes/lattice.css', latticeCss],

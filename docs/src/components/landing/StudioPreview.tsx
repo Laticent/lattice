@@ -30,6 +30,7 @@ export type StudioPreviewData = {
 	runtimeUrl: string;
 	engineUrl: string;
 	mermaidUrl: string;
+	dagreUrl: string;
 	katexUrl: string;
 };
 
@@ -39,6 +40,7 @@ export default function StudioPreview({ data }: { data: StudioPreviewData }) {
 		runtimeUrl: data.runtimeUrl,
 		engineUrl: data.engineUrl,
 		mermaidUrl: data.mermaidUrl,
+		dagreUrl: data.dagreUrl,
 		katexUrl: data.katexUrl,
 	};
 

@@ -9,17 +9,38 @@
  * cannot `require('dagre-d3-es')` and cannot close over an imported symbol —
  * whatever it needs must already exist as a GLOBAL in the document it lands in.
  *
- * So dagre reaches the three render paths two different ways, and both end at
- * the same global:
+ * So dagre reaches the render paths two different ways, and both end at the
+ * same global:
  *
  *   · emulator / CLI export — this file's IIFE is prepended to the serialised
- *     pass, so `globalThis.__latticeDagre` exists before the pass runs.
- *   · runtime bundle + docs playground — `lib/core/dagre-layout.js` imports
- *     dagre normally and esbuild inlines it; importing it sets the same global.
+ *     pass, so `globalThis.__latticeDagre` exists before the pass runs. Only for
+ *     a deck whose machine actually BRANCHES (state-chart.adoption.js).
+ *   · every browser host — `dist/lattice-dagre.min.js`, this same IIFE as a
+ *     standalone script, referenced by a `<script src>` the host emits BEFORE
+ *     the runtime tag. Classic scripts execute in document order, so the global
+ *     is installed by the time the runtime's pass reads it.
+ *
+ * IT USED TO BE INLINED INTO THE RUNTIME BUNDLE, and that was the drift
+ * `2026-09-03-self-hosted-runtime-deps.md` warns about in so many words: a heavy
+ * dep "must never drift onto an eager path". Mermaid (3.16 MB) and the KaTeX
+ * provider (268 KB) are both separate, conditionally-fetched files; dagre was the
+ * one that sat inside `lattice-runtime.min.js`, so every reader of every deck
+ * paid 25.9 KiB gzipped for a layout engine all 9 drawn machines in
+ * the shipped galleries never use. Splitting it out took that bundle from 243,431
+ * to 216,937 B gzipped.
  *
  * The pass reads `globalThis.__latticeDagre` and falls back to the numbered
  * column when it is absent, so a host that loads neither degrades to today's
- * layout rather than rendering nothing.
+ * layout rather than rendering nothing. `lib/runtime/index.js` says so on the
+ * console when a document holds a state chart and the sibling did not load —
+ * the fallback is a different LAYOUT, not a blank diagram, so nothing else
+ * would show it happened.
+ *
+ * TWO OUTPUTS, one build. `lib/core/dagre-bundle.generated.js` wraps the IIFE as
+ * a CommonJS STRING export, because the emulator concatenates it into a
+ * `<script>` it is assembling; `dist/lattice-dagre.min.js` is the same bytes as
+ * a file a browser can fetch. Neither is derived from the other at run time, so
+ * they cannot drift: one esbuild run feeds both.
  *
  * OUTPUT IS GENERATED, NOT COMMITTED — same contract as the docs-site bundles
  * (engineering/decisions/2026-08-17-generated-bundles-uncommitted.md): a
@@ -32,6 +53,11 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'lib', 'core', 'dagre-bundle.generated.js');
+// The browser-fetchable half. `.min` in the dist name because that is what it is
+// (esbuild --minify below) and what every other dist script is called; the docs
+// site stages it as `lattice-dagre.js`, dropping `.min` exactly as it does for
+// the runtime.
+const DIST = path.join(ROOT, 'dist', 'lattice-dagre.min.js');
 const ENTRY = path.join(ROOT, '.dagre-entry.tmp.mjs');
 
 // Only `layout` and `Graph` are reachable, which is what keeps this at ~62KB
@@ -70,7 +96,8 @@ function build({ check = false } = {}) {
 
   if (check) {
     const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
-    if (cur !== out) {
+    const curDist = fs.existsSync(DIST) ? fs.readFileSync(DIST, 'utf8') : '';
+    if (cur !== out || curDist !== iife) {
       console.error('dagre-bundle STALE — run `node tools/build-dagre-bundle.js`');
       process.exit(1);
     }
@@ -78,8 +105,14 @@ function build({ check = false } = {}) {
     return;
   }
   fs.writeFileSync(OUT, out);
-  console.log(`[build-dagre-bundle] lib/core/dagre-bundle.generated.js (${(iife.length / 1024).toFixed(1)} KB IIFE)`);
+  fs.mkdirSync(path.dirname(DIST), { recursive: true });
+  // The IIFE VERBATIM — no banner, no wrapper. A browser fetches this file and
+  // runs it, and anything prepended would have to be valid JS in that context;
+  // the provenance the banner carries lives in dagre-bundle.generated.js and in
+  // assets/licenses/MIT-dagre-d3-es.txt, which the marp kit redistributes.
+  fs.writeFileSync(DIST, iife);
+  console.log(`[build-dagre-bundle] lib/core/dagre-bundle.generated.js + dist/lattice-dagre.min.js (${(iife.length / 1024).toFixed(1)} KB IIFE)`);
 }
 
 if (require.main === module) build({ check: process.argv.includes('--check') });
-module.exports = { build, OUT };
+module.exports = { build, OUT, DIST };

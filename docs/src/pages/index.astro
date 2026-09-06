@@ -124,6 +124,10 @@ const engineUrl = url(pg + 'lattice-playground.js');
 // from jsdelivr with no `integrity`: third-party code execution a firewall or an
 // offline reader can refuse, on every one of those renders.
 const mermaidUrl = url(pg + 'export/mermaid-v11.min.js');
+// The dagre layout engine, split out of the runtime bundle so a landing visitor with
+// no state chart on screen does not fetch it. The islands below hand it to the
+// renderer, which emits the tag only for a slide that carries a drawn machine.
+const dagreUrl = url(pg + 'lattice-dagre.js');
 const katexUrl = url(pg + 'katex/katex.min.css');
 
 const heroData = {
@@ -135,9 +139,10 @@ const heroData = {
 	runtimeUrl,
 	engineUrl,
 	mermaidUrl,
+	dagreUrl,
 	katexUrl,
 };
-const fieldCardsData = { cards: cardData, themeBase, runtimeUrl, engineUrl, mermaidUrl, katexUrl };
+const fieldCardsData = { cards: cardData, themeBase, runtimeUrl, engineUrl, mermaidUrl, dagreUrl, katexUrl };
 const restyleData = {
 	sample: restyleComp.sample || restyleComp.skeleton,
 	mermaid: needsMermaid(restyleComp.sample || restyleComp.skeleton),
@@ -146,6 +151,7 @@ const restyleData = {
 	runtimeUrl,
 	engineUrl,
 	mermaidUrl,
+	dagreUrl,
 	katexUrl,
 };
 
@@ -166,6 +172,7 @@ const studioData = {
 	runtimeUrl,
 	engineUrl,
 	mermaidUrl,
+	dagreUrl,
 	katexUrl,
 };
 

@@ -1293,9 +1293,14 @@ describe('dagre re-ranking (fake DOM)', () => {
   // by .toString() and carries no imports); requiring the module installs it.
   require('../../../lib/core/dagre-layout.js');
   const hasDagre = Boolean(globalThis.__latticeDagre);
+  // The Node-side export gate — the other statement of the adoption predicate.
+  const { machineBranches } = require('../../../lib/components/chart/state-chart/state-chart.adoption.js');
   const NODE_H = 40, ROW_GAP = 48, CX = 400;
 
-  function run(spec) {
+  // `unmeasurable` names states whose rect comes back non-finite — what the browser
+  // hands back for an element with no box. `draw()` drops those, which is the input
+  // the "keeps the column" arm below needs.
+  function run(spec, unmeasurable) {
     const rects = {};
     let y = 60;
     for (const nd of spec.nodes) {
@@ -1306,10 +1311,13 @@ describe('dagre re-ranking (fake DOM)', () => {
     const els = spec.nodes.map((nd) => {
       const a = { 'data-index': String(nd.index), 'data-kind': nd.kind || null };
       const r = rects[nd.index];
+      const bad = unmeasurable?.has(nd.index);
       return {
         getAttribute: (k) => (Object.hasOwn(a, k) ? a[k] : null),
         querySelector: () => null,
-        getBoundingClientRect: () => ({ left: r.x, top: r.y, width: r.w, height: r.h }),
+        getBoundingClientRect: () => (bad
+          ? { left: NaN, top: NaN, width: NaN, height: NaN }
+          : { left: r.x, top: r.y, width: r.w, height: r.h }),
       };
     });
     const svg = { _attrs: {}, innerHTML: '<title>t</title><desc>d</desc>',
@@ -1656,9 +1664,19 @@ describe('dagre re-ranking (fake DOM)', () => {
       const firstY = tspanYs.length ? Math.min(...tspanYs) : Number(lab[1]);
       if (!Number.isFinite(firstY)) continue;
       const boxTop = firstY - LABEL_LINE / 2;
+      const boxBottom = firstY + LABEL_LINE / 2
+        + (tspanYs.length ? (tspanYs.length - 1) * LABEL_LINE : 0);
       checked++;
-      assert.ok(boxTop - edgeY >= LABEL_OFF - 0.01,
-        `a label sits ${(boxTop - edgeY).toFixed(2)}px below its edge, under the ` +
+      // EITHER SIDE, and the clearance is what is asserted — not the side. This
+      // read `boxTop - edgeY >= LABEL_OFF`, which encodes "an lr label sits BELOW
+      // its run". That is the home side and still the usual answer, but the
+      // collision walk mirrors a label to the far side when nothing on the home
+      // side is clear of the nodes, the other labels and the canvas. A mirrored
+      // label clears the connector just as well — which is the property this test
+      // is named for, and the one it should be measuring.
+      const gap = boxTop >= edgeY ? boxTop - edgeY : edgeY - boxBottom;
+      assert.ok(gap >= LABEL_OFF - 0.01,
+        `a label's box comes within ${gap.toFixed(2)}px of its edge, under the ` +
         `${LABEL_OFF}px clearance — its halo will cut the connector`);
     }
     assert.ok(checked > 0, 'no level lr run with a label was found to measure');
@@ -1736,6 +1754,460 @@ describe('dagre re-ranking (fake DOM)', () => {
       transitions: FAN.transitions.map((t, i) => (i === 1 ? { ...t, event: 'needs\nreview' } : t)) });
     assert.match(svg, /<text class="state-edge-label"[^>]*>(<tspan[^>]*>[^<]*<\/tspan>){2,}/,
       'a two-line event label must emit one tspan per line');
+  });
+
+  // ── an edge label never lands on a node, or on another label ───────────────
+  //
+  // The clearance floor fed to dagre is an AXIS-ALIGNED guarantee: it reserves
+  // room along the rank and cross axes, which bounds a label sitting beside a
+  // straight run and bounds nothing beside a diagonal one. Measured on the
+  // shipped decks before the collision walk: `accept` overlapped node 2 by
+  // 3.28px, `block` overlapped node 9 by 1.63px, and `block` overlapped the
+  // `reject` label by 1.9px — 3 collisions across 118 labels.
+  //
+  // THE FIX THE DEFECT'S OWN NOTE PROPOSED IS THE WRONG ONE, and the reason is
+  // worth keeping: it said to anchor the label on "the longest AXIS-ALIGNED
+  // segment of the route (dagre's orthogonal routes always have one)". Measured,
+  // dagre-d3-es does not route orthogonally — it emits a point per rank boundary,
+  // so a route is a short stub at each node border joined by long diagonals. On
+  // the two figures that actually grazed, the longest axis-aligned segment was
+  // 34px against a 277px diagonal, and one edge had none at all. Anchoring there
+  // parks the label against a node border, which is worse than the graze.
+  describe('edge labels clear the boxes around them', () => {
+    const LH = 13;   // G.labelLine — the line box the renderer models against
+
+    // Both boxes as the renderer computes them. The width uses `makeLabelW`'s
+    // NO-CANVAS fallback (`len * 6.6 * S`), which is the branch a fake DOM takes,
+    // so these are the same numbers the pass itself worked from.
+    const geometry = (svg) => {
+      const attr = (tag, k) => { const m = tag.match(new RegExp(`${k}="([^"]*)"`)); return m ? m[1] : null; };
+      const nodes = [...svg.matchAll(
+        /<rect class="state-node-shape"[^>]*\bx="([-\d.]+)" y="([-\d.]+)" width="([-\d.]+)" height="([-\d.]+)"/g)]
+        .map((m) => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }));
+      const labels = [...svg.matchAll(/<text class="state-edge-label"([^>]*)>([\s\S]*?)<\/text>/g)].map((m) => {
+        const tag = m[1], body = m[2];
+        const tsp = [...body.matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)<\/tspan>/g)];
+        const lines = tsp.length ? tsp.map((t) => t[3]) : [body];
+        const cx = tsp.length ? +tsp[0][1] : +attr(tag, 'x');
+        const cy = tsp.length ? +tsp[0][2] + ((tsp.length - 1) * LH) / 2 : +attr(tag, 'y');
+        const w = Math.max(...lines.map((l) => l.length * 6.6));
+        const h = lines.length * LH;
+        const anc = attr(tag, 'text-anchor');
+        return { x: anc === 'start' ? cx : anc === 'end' ? cx - w : cx - w / 2,
+          y: cy - h / 2, w, h, cx, cy, anchor: anc, text: lines.join(' / ') };
+      });
+      return { nodes, labels };
+    };
+    const overlaps = (a, b) => (
+      Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0
+      && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0);
+
+    // A branch that rejoins, with labels long enough that the naive midpoint of
+    // the diagonal into `Blocked` puts `submit for review` over a node box. This
+    // spec is the arm's whole point: it is RED without the collision walk (one
+    // label-node overlap) and green with it. A spec that never collides would
+    // certify nothing.
+    const REJOIN = { dir: 'tb',
+      nodes: [n(1, 'Open', 'start'), n(2, 'Work'), n(3, 'Review'), n(4, 'Blocked'), n(5, 'Done')],
+      transitions: [e(1, 2, 'start'), e(2, 3, 'submit for review'), e(2, 4, 'block'),
+        e(4, 2, 'unblock'), e(3, 5, 'ship')] };
+
+    test('no label box overlaps a node box', { skip: !hasDagre }, () => {
+      const { nodes, labels } = geometry(run(REJOIN).svg);
+      assert.ok(labels.length >= 5, `expected the machine's labels, got ${labels.length}`);
+      for (const l of labels) {
+        for (const nd of nodes) {
+          assert.equal(overlaps(l, nd), false,
+            `"${l.text}" sits on the node at ${nd.x},${nd.y} — the label is unreadable and so is the state`);
+        }
+      }
+    });
+
+    // A WIDE FAN WITH LONG LABELS — the shape that exercises the walk rather than
+    // just satisfying it. An independent checker mutation-tested an earlier version
+    // of this block and found SEVEN of ten mutants surviving, including deleting
+    // the arc-length walk entirely (`LABEL_SPOTS = [0.5]`), deleting the far-side
+    // mirror, and zeroing the pad. `REJOIN` alone could not fail on any of them,
+    // and `no two label boxes overlap` was vacuous on it — it had no label-label
+    // collision to avoid in the first place. This spec has all three pressures at
+    // once, and each mutant below is named by the arm it kills.
+    const CROWD = { dir: 'tb',
+      nodes: [n(1, 'Intake', 'start'), n(2, 'Triage'), n(3, 'Alpha'), n(4, 'Bravo'),
+        n(5, 'Charlie'), n(6, 'Delta'), n(7, 'Echo'), n(8, 'Closed')],
+      transitions: [e(1, 2, 'receive'),
+        e(2, 3, 'route to alpha team'), e(2, 4, 'route to bravo team'),
+        e(2, 5, 'route to charlie team'), e(2, 6, 'route to delta team'),
+        e(2, 7, 'route to echo team'),
+        e(3, 8, 'close'), e(4, 8, 'close'), e(5, 8, 'close'),
+        e(6, 8, 'close'), e(7, 2, 'escalate back to triage for reassessment')] };
+
+    const SPECS = [['REJOIN', REJOIN], ['CROWD', CROWD], ['CROWD lr', { ...CROWD, dir: 'lr' }]];
+
+    for (const [name, spec] of SPECS) {
+      test(`${name}: no label box overlaps a node box`, { skip: !hasDagre }, () => {
+        const { nodes, labels } = geometry(run(spec).svg);
+        assert.ok(labels.length >= 5, `expected the machine's labels, got ${labels.length}`);
+        for (const l of labels) {
+          for (const nd of nodes) {
+            assert.equal(overlaps(l, nd), false,
+              `"${l.text}" sits on the node at ${nd.x},${nd.y} — the label is unreadable and so is the state`);
+          }
+        }
+      });
+
+      test(`${name}: no two label boxes overlap`, { skip: !hasDagre }, () => {
+        const { labels } = geometry(run(spec).svg);
+        for (let i = 0; i < labels.length; i++) {
+          for (let j = i + 1; j < labels.length; j++) {
+            assert.equal(overlaps(labels[i], labels[j]), false,
+              `"${labels[i].text}" and "${labels[j].text}" overlap — they read as one garbled token`);
+          }
+        }
+      });
+
+      // THE CANVAS IS A BOUNDARY, and it was not one at first. The viewBox is fixed
+      // from the node rects and the routed polylines before any label is placed, so
+      // a candidate can be clear of every box and still hang past the edge — where
+      // `.chart-body`'s `overflow: clip` cuts it and the engine's own CONTENT
+      // CLIPPED gate fires on a shipped PDF. Measured on the deck this spec is
+      // modeled from: the walk slid a back-edge label 97px outside its viewBox and
+      // the slide rendered `escalate back to triage f`, with the defect badge
+      // painted in the corner. §9.1's F1, in a new costume.
+      test(`${name}: no label is painted outside the canvas`, { skip: !hasDagre }, () => {
+        const out = run(spec);
+        const [, , vw, vh] = String(out.viewBox).split(/\s+/).map(Number);
+        assert.ok(vw > 0 && vh > 0, `no usable viewBox: ${out.viewBox}`);
+        for (const l of geometry(out.svg).labels) {
+          const over = Math.max(0, -l.x, (l.x + l.w) - vw, -l.y, (l.y + l.h) - vh);
+          assert.ok(over <= 0.5,
+            `"${l.text}" is painted ${over.toFixed(1)}px outside the ${vw}x${vh} canvas — its text is cut, and the engine reports CONTENT CLIPPED`);
+        }
+      });
+    }
+
+    // The three levers §9.5 names, each asserted by the thing it changes rather
+    // than by its presence in the source. Without these, the arms above pass with
+    // the walk deleted — the machine simply never needed it on their inputs.
+    test('the walk actually moves a crowded label off the midpoint', { skip: !hasDagre }, () => {
+      const moved = [];
+      for (const [, spec] of SPECS) {
+        const svg = run(spec).svg;
+        for (const g of svg.matchAll(/<g class="state-edge-group"[^>]*>([\s\S]*?)<\/g>/g)) {
+          const d = (g[1].match(/<path class="state-edge"[^>]*\bd="([^"]+)"/) || [])[1];
+          const lab = g[1].match(/<text class="state-edge-label"[^>]*\bx="([-\d.]+)" y="([-\d.]+)"/);
+          if (!d || !lab || d.includes('C')) continue;
+          const pts = [...d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => ({ x: +m[1], y: +m[2] }));
+          let total = 0;
+          for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+          let seen = 0, mid = pts[0];
+          for (let i = 1; i < pts.length; i++) {
+            const seg = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+            if (seen + seg >= total / 2) {
+              const u = seg > 0 ? (total / 2 - seen) / seg : 0;
+              mid = { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u, y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u };
+              break;
+            }
+            seen += seg;
+          }
+          if (Math.hypot(+lab[1] - mid.x, +lab[2] - mid.y) > 12) moved.push(1);
+        }
+      }
+      assert.ok(moved.length >= 1,
+        'no label in the crowded corpus left its midpoint — the arc-length walk is not doing anything, and every clearance arm above is passing for free');
+    });
+
+    // WHEN NOTHING FITS, WHAT DOES IT GIVE UP FIRST? Every spec above has a clear
+    // spot for every label, so the least-bad fallback never runs on them and three
+    // mutants of its ordering survived — including flattening the node weight and
+    // scoring off-canvas at zero. This machine has no clear spot: seven edges all
+    // carrying the same 68-character event, on seven states. Something has to
+    // overlap, and WHICH something is the whole content of the weighting.
+    //
+    // The order is lost text, then a hidden state, then two words that touch: a
+    // label pushed off the canvas has its text CUT (`.chart-body` is
+    // `overflow: clip`, and the engine reports CONTENT CLIPPED); one on a node box
+    // hides the state's name and its gradient; two labels that touch are both
+    // still readable. So the residue is allowed to be label-on-label and nothing
+    // else.
+    const IMPOSSIBLE = (() => {
+      const LONG = 'escalate this to the legal review board for reassessment and sign off';
+      return { dir: 'tb',
+        nodes: [n(1, 'A', 'start'), n(2, 'B'), n(3, 'C'), n(4, 'D'), n(5, 'E'), n(6, 'F'), n(7, 'G')],
+        transitions: [e(1, 2, LONG), e(2, 3, LONG), e(2, 4, LONG), e(2, 5, LONG),
+          e(2, 6, LONG), e(6, 7, LONG), e(7, 2, LONG)] };
+    })();
+
+    test('a machine with no clear spot gives up label-on-label, never a node or the canvas', { skip: !hasDagre }, () => {
+      const out = run(IMPOSSIBLE);
+      const { nodes, labels } = geometry(out.svg);
+      const [, , vw, vh] = String(out.viewBox).split(/\s+/).map(Number);
+
+      for (const l of labels) {
+        for (const nd of nodes) {
+          assert.equal(overlaps(l, nd), false,
+            `"${l.text}" was parked on a node box. On a machine where something must overlap, a node is the one thing it must not be — the state's own name goes with it`);
+        }
+        const over = Math.max(0, -l.x, (l.x + l.w) - vw, -l.y, (l.y + l.h) - vh);
+        assert.ok(over <= 0.5,
+          `"${l.text}" was parked ${over.toFixed(1)}px off the ${vw}x${vh} canvas — its text is cut, which is worse than any overlap it was avoiding`);
+      }
+
+      // ANTI-VACUITY. If this machine ever becomes solvable the arm above stops
+      // testing the fallback at all and starts passing for free, exactly like the
+      // arms it was written to replace.
+      let touching = 0;
+      for (let i = 0; i < labels.length; i++) {
+        for (let j = i + 1; j < labels.length; j++) if (overlaps(labels[i], labels[j])) touching++;
+      }
+      assert.ok(touching > 0,
+        'every label found a clear spot on the machine built to have none — the least-bad fallback is no longer exercised here, and this arm now proves nothing');
+    });
+
+    // A NODE THE PASS CANNOT MEASURE MAKES THE TWO PREDICATES DISAGREE, so the
+    // pass declines. `draw()` drops a `.state-node` whose rect is non-finite; the
+    // Node-side export gate reads `<li>`s out of markup and cannot see that, so the
+    // two run the identical predicate over DIFFERENT topologies — and the smaller
+    // one branches where the whole one does not, because the drop leaves nodes
+    // isolated and dagre parks every isolated node in rank 0. That is the unsafe
+    // direction: the export withholds an engine the browser then wants.
+    test('a machine with an unmeasurable node keeps the column', { skip: !hasDagre }, () => {
+      // A genuine fan-out — dagre WOULD re-rank this if it ran, so the arm cannot
+      // pass just because the machine is a chain.
+      const spec = { dir: 'tb',
+        nodes: [n(1, 'Intake', 'start'), n(2, 'Triage'), n(3, 'Fast'), n(4, 'Deep'), n(5, 'Hold')],
+        transitions: [e(1, 2, 'triage'), e(2, 3, 'fast'), e(2, 4, 'deep'), e(2, 5, 'hold')] };
+      const movedFrom = (out) => [...out.svg.matchAll(
+        /<rect class="state-node-shape" data-index="(\d+)"[^>]*\bx="([-\d.]+)" y="([-\d.]+)"/g)]
+        .some((m) => {
+          const r = out.rects[+m[1]];
+          return r && (Math.abs(r.x - +m[2]) >= 0.6 || Math.abs(r.y - +m[3]) >= 0.6);
+        });
+      assert.equal(movedFrom(run(spec)), true,
+        'the control machine must re-rank when every node measures — otherwise this arm passes because the machine is a chain, not because the guard fired');
+
+      // The same machine with node 4 unmeasurable.
+      const { svg, rects } = run(spec, new Set([4]));
+      const shapes = [...svg.matchAll(
+        /<rect class="state-node-shape" data-index="(\d+)"[^>]*\bx="([-\d.]+)" y="([-\d.]+)"/g)]
+        .map((m) => ({ i: +m[1], x: +m[2], y: +m[3] }));
+      for (const v of shapes) {
+        // Index 4 is skipped deliberately: with node 4 gone the synthetic exit
+        // reuses its index and the paint loop draws the exit under it. That is a
+        // pre-existing defect off this path, recorded in the decision note.
+        if (v.i === 4) continue;
+        const r = rects[v.i];
+        if (!r) continue;
+        assert.ok(Math.abs(r.x - v.x) < 0.6 && Math.abs(r.y - v.y) < 0.6,
+          `state ${v.i} moved to ${v.x},${v.y} — the pass re-ranked a machine the export gate reads as a chain, so the export ships no engine and the reader gets the column`);
+      }
+    });
+
+    test('the far-side mirror is reachable', { skip: !hasDagre }, () => {
+      const anchors = SPECS.flatMap(([, spec]) =>
+        [...run(spec).svg.matchAll(/<text class="state-edge-label"[^>]*text-anchor="(\w+)"/g)].map((m) => m[1]));
+      assert.ok(anchors.includes('end'),
+        'no label was mirrored anywhere in the crowded corpus — a `tb` label on the far side anchors `end`, so its absence means the mirror is unreachable and the last-resort branch is dead code');
+    });
+
+    // THE BLAST RADIUS, asserted rather than assumed. The walk tries the arc-length
+    // midpoint FIRST and keeps it whenever it is clear, so a machine with no
+    // collision must be laid out exactly as it was before the walk existed —
+    // measured across the four shipped state-chart decks, 3 pages of 38 changed.
+    // Recovering the home position from the DRAWN PATH rather than hardcoding
+    // coordinates keeps this from breaking on unrelated spacing changes.
+    test('a label that does not collide stays on its edge midpoint', { skip: !hasDagre }, () => {
+      const svg = run(FAN).svg;
+      const groups = [...svg.matchAll(/<g class="state-edge-group"[^>]*>([\s\S]*?)<\/g>/g)].map((m) => m[1]);
+      let checked = 0;
+      for (const g of groups) {
+        const d = (g.match(/<path class="state-edge"[^>]*\bd="([^"]+)"/) || [])[1];
+        const lab = g.match(/<text class="state-edge-label"[^>]*\bx="([-\d.]+)" y="([-\d.]+)"/);
+        if (!d || !lab || d.includes('C')) continue;
+        const pts = [...d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => ({ x: +m[1], y: +m[2] }));
+        let total = 0;
+        for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        let seen = 0, mid = pts[0];
+        for (let i = 1; i < pts.length; i++) {
+          const seg = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+          if (seen + seg >= total / 2) {
+            const u = seg > 0 ? (total / 2 - seen) / seg : 0;
+            mid = { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u,
+              y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u };
+            break;
+          }
+          seen += seg;
+        }
+        // FAN is `tb`: the label sits to the RIGHT of the run, `labelOff` (7) across,
+        // vertically centered on the midpoint.
+        assert.ok(Math.abs(+lab[1] - (mid.x + 7)) < 0.2 && Math.abs(+lab[2] - mid.y) < 0.2,
+          `an uncrowded label moved: drawn at ${lab[1]},${lab[2]}, midpoint puts it at ${(mid.x + 7).toFixed(1)},${mid.y.toFixed(1)}`);
+        checked++;
+      }
+      assert.ok(checked >= 3, `expected several straight labeled edges to check, got ${checked}`);
+    });
+  });
+
+  // ── the export gate READS REAL RENDERED MARKUP ────────────────────────────
+  //
+  // The agreement arm below drives `machineBranches` with a hand-built topology.
+  // Everything BETWEEN the rendered deck and that call — the figure splitter, the
+  // attribute regexes, the entity un-escaping, the `data-states` cross-check, the
+  // `data-kind="terminal"` read — is what actually runs on every CLI export, and
+  // it had no arm at all. A reader that silently stopped parsing would answer
+  // TRUE for everything (the safe direction), so nothing would break and the
+  // saving would just quietly disappear; a reader that mis-parsed the other way
+  // ships a branching machine as a numbered column.
+  describe('the export gate on real rendered decks', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const ROOT = path.join(__dirname, '..', '..', '..');
+    const engine = require('../../../lib/engine/index.js');
+    const { htmlNeedsDagre, figureChunks, figureNeedsDagre } =
+      require('../../../lib/components/chart/state-chart/state-chart.adoption.js');
+    const render = (rel) => engine.render(fs.readFileSync(path.join(ROOT, rel), 'utf8')).html;
+
+    // THE CLAIM THE WHOLE OPTIMIZATION RESTS ON. Every machine in the shipped
+    // gallery is a chain, so no gallery export owes the 62.2 KiB engine. If a
+    // gallery ever gains a branching machine this goes red, which is the right
+    // outcome: the number in the decision record stops being true that day.
+    test('the shipped state-chart gallery needs no layout engine', { skip: !hasDagre }, () => {
+      const html = render('lib/components/chart/state-chart/state-chart.gallery.md');
+      const figs = figureChunks(html);
+      assert.ok(figs.length >= 8, `expected the gallery's figures, found ${figs.length}`);
+      const adopting = figs.filter(figureNeedsDagre);
+      assert.equal(adopting.length, 0,
+        `${adopting.length} gallery machine(s) branch — every one of them is supposed to be a chain`);
+      assert.equal(htmlNeedsDagre(html), false);
+    });
+
+    // …AND THE READER CAN STILL SAY YES. Without this the arm above is satisfied
+    // by a reader that answers `false` unconditionally — which is the dangerous
+    // direction, and the one no other arm here would notice.
+    test('a shipped branching deck does need it', { skip: !hasDagre }, () => {
+      const html = render('examples/state-chart-branching.md');
+      const figs = figureChunks(html);
+      const adopting = figs.filter(figureNeedsDagre).length;
+      assert.ok(adopting >= 1 && adopting < figs.length,
+        `expected SOME of the ${figs.length} figures to branch, got ${adopting} — all or none means the reader is not discriminating`);
+      assert.equal(htmlNeedsDagre(html), true);
+    });
+
+    test('a deck with no state chart needs nothing, without parsing anything', { skip: !hasDagre }, () => {
+      assert.equal(htmlNeedsDagre('<section><h2>Just prose</h2></section>'), false);
+      assert.equal(htmlNeedsDagre(''), false);
+      assert.equal(htmlNeedsDagre(null), false);
+    });
+
+    // The `inline` variant renders chips, carries no `data-sc-transitions`, and is
+    // never drawn by the browser pass — so it can never need a layout engine.
+    test('an inline-variant figure never asks for the engine', { skip: !hasDagre }, () => {
+      const inline = '<div class="state-chart-figure" data-variant="inline" data-sc-dir="tb" '
+        + 'data-states="3" data-transitions="2"><ol class="state-rows"></ol></div>';
+      assert.equal(htmlNeedsDagre(inline), false);
+      assert.equal(figureNeedsDagre(figureChunks(inline)[0]), false);
+    });
+
+    // EVERY UNREADABLE SHAPE ANSWERS TRUE. A false positive ships an unused
+    // engine; a false negative silently returns a branching machine to the
+    // numbered column. These are the shapes a hostile or hand-edited deck can
+    // present to a regex reading its own output.
+    for (const [name, html] of [
+      ['unparseable transitions JSON',
+        '<div class="state-chart-figure" data-sc-dir="tb" data-states="2" data-sc-transitions="{{{"><ol></ol></div>'],
+      ['transitions that are not an array',
+        '<div class="state-chart-figure" data-sc-dir="tb" data-states="2" data-sc-transitions="7"><ol></ol></div>'],
+      ['a node count that disagrees with data-states',
+        '<div class="state-chart-figure" data-sc-dir="tb" data-states="9" data-sc-transitions="[]">'
+        + '<li class="state-node" data-index="1">A</li></div>'],
+      ['no recognizable nodes at all',
+        '<div class="state-chart-figure" data-sc-dir="tb" data-states="2" data-sc-transitions="[]"><ol></ol></div>'],
+    ]) {
+      test(`${name} ships the engine rather than guessing`, { skip: !hasDagre }, () => {
+        assert.equal(htmlNeedsDagre(html), true,
+          'an unreadable figure must err toward shipping the engine — the other direction is silent and wrong');
+      });
+    }
+  });
+
+  // ── the export gate agrees with the pass, machine for machine ──────────────
+  //
+  // `state-chart.adoption.js` decides in NODE whether an export owes the 62.2 KiB
+  // dagre IIFE, and the pass decides in the BROWSER whether to use it. They are
+  // two statements of one predicate — the pass is serialised through
+  // `.toString()`, so it carries no imports and cannot call the module, and the
+  // module cannot reach into the closure. Nothing structural binds them, so this
+  // does: one corpus, both answers, asserted equal.
+  //
+  // The pass's answer is read off its OUTPUT, not off a flag it sets — a node
+  // painted anywhere other than its CSS rect means dagre re-ranked. That is the
+  // §9.1 lesson: a test that asks the code what it did rather than what it drew
+  // passes with the defect present.
+  //
+  // The asymmetry is deliberate and is asserted directionally too: a gate that
+  // over-ships costs 21.8 KiB of unused engine, a gate that under-ships silently
+  // returns a branching machine to the numbered column.
+  describe('the Node export gate agrees with the pass', () => {
+    const CORPUS = [
+      ['a fan-out', FAN],
+      ['a fan-out, lr', { ...FAN, dir: 'lr' }],
+      ['a plain chain', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a'), e(2, 3, 'b'), e(3, 4, 'c')] }],
+      ['a chain with a self-loop', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a'), e(2, 2, 'retry'), e(2, 3, 'b'), e(3, 4, 'c')] }],
+      // The case a degree-counting gate gets wrong: the back edge gives state 1 a
+      // second in-edge, but dagre reverses it and the ranks stay strictly
+      // increasing. Every shipped gallery chain has one of these.
+      ['a chain with a back edge', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a'), e(2, 3, 'b'), e(3, 4, 'c'), e(4, 1, 'reopen')] }],
+      ['a chain with a skip edge', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, ''), e(2, 3, ''), e(3, 4, ''), e(1, 4, 'skip')] }],
+      ['a states-only chart', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [] }],
+      ['a chain with one orphan state', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, ''), e(2, 3, '')] }],
+      // A JOIN, not a fan-out: no state has two successors, so an out-degree test
+      // says chain — and dagre puts 1 and 2 in one rank.
+      ['a join', { dir: 'tb', nodes: [1, 2, 3].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 3, 'a'), e(2, 3, 'b')] }],
+      ['two disconnected chains', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a'), e(3, 4, 'b')] }],
+      ['duplicate transitions between one pair', { dir: 'tb', nodes: [1, 2, 3].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'fast'), e(1, 2, 'slow'), e(1, 3, 'defer')] }],
+      ['a terminal-marked state that still has an exit', { dir: 'tb',
+        nodes: [n(1, 'A', 'start'), n(2, 'B', 'terminal'), n(3, 'C')],
+        transitions: [e(1, 2, 'a'), e(2, 3, 'b')] }],
+      ['a two-state machine', { dir: 'tb', nodes: [1, 2].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a')] }],
+    ];
+
+    // The pass re-ranked iff some painted node left its CSS rect.
+    const passReRanked = (spec) => {
+      const { svg, rects } = run(spec);
+      return shapes(svg).some((v) => !Object.values(rects).some(
+        (r) => Math.abs(r.x - v.x) < 0.6 && Math.abs(r.y - v.y) < 0.6));
+    };
+
+    for (const [name, spec] of CORPUS) {
+      test(name, { skip: !hasDagre }, () => {
+        const gate = machineBranches({
+          nodes: spec.nodes.map((nd) => ({ index: nd.index, isTerminal: nd.kind === 'terminal' })),
+          transitions: spec.transitions,
+          dir: spec.dir,
+        });
+        assert.equal(gate, passReRanked(spec),
+          gate
+            ? 'the gate ships dagre for a machine the pass lays out as a column'
+            : 'THE GATE WITHHOLDS DAGRE FROM A MACHINE THE PASS RE-RANKS — the export '
+              + 'would silently fall back to the numbered column');
+      });
+    }
+
+    // At least one of each, or the loop above could pass by agreeing on nothing.
+    test('the corpus exercises both answers', { skip: !hasDagre }, () => {
+      const answers = CORPUS.map(([, spec]) => passReRanked(spec));
+      assert.ok(answers.some(Boolean), 'no machine in the corpus is re-ranked');
+      assert.ok(answers.some((a) => !a), 'no machine in the corpus keeps the column');
+    });
   });
 });
 

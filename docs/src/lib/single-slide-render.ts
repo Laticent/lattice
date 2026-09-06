@@ -129,6 +129,17 @@ export type SingleSlideOptions = {
 	 */
 	katexUrl?: string;
 	/**
+	 * URL of the dagre layout engine (`<assetBase>lattice-dagre.js`, staged by
+	 * sync-playground-assets) injected into a slide that carries a drawn state chart.
+	 *
+	 * **Absent → a state chart that BRANCHES falls back to the numbered column.** Not a
+	 * blank diagram and not an error — a different layout, which is why the runtime says
+	 * so on the console. Same removed-CDN-fallback reasoning as `mermaidUrl`. dagre used
+	 * to be inlined into the runtime bundle; that cost every reader of every deck 25.9 KiB
+	 * gzipped for an engine only a branching machine uses.
+	 */
+	dagreUrl?: string;
+	/**
 	 * This host renders a SPECIMEN — a catalog sample the author did not write and cannot
 	 * edit, shown so they can pick one (the add-slide gallery's tiles and its looks panel).
 	 * Stamps `data-lattice-specimen` on the frame's root element, which the runtime reads to
@@ -746,6 +757,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	};
 	// The locally-vendored Mermaid, or nothing. No CDN fallback (see the note above).
 	const mermaidUrl = opts.mermaidUrl || '';
+	const dagreUrl = opts.dagreUrl || '';
 	const themes = createThemeFetcher(themeBase);
 
 	// Teardown bookkeeping — everything THIS renderer instance creates that would
@@ -882,6 +894,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// Content AND url — the URL half was missing, so a diagram slide met by a caller
 		// passing no URL emitted `<script src="">` rather than nothing. See deck-preview.js.
 		if (mermaid && mermaidUrl) s += '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>';
+		// Read off the SANITIZED html above rather than taken as a caller flag the way
+		// `mermaid` is: the marker is on the element the pass draws, so a host cannot
+		// forget to set it. `data-sc-transitions` is emitted only by the DEFAULT state-chart
+		// variant — the `inline` variant is chips and needs no engine — and data-* attributes
+		// survive DOMPurify. Content AND url, so a missing URL emits nothing.
+		//
+		// BEFORE the runtime tag: classic scripts run in document order, and the runtime's
+		// pass reads `globalThis.__latticeDagre` synchronously on its first draw.
+		if (html.indexOf('data-sc-transitions') !== -1 && dagreUrl) {
+			s += '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>';
+		}
 		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>';
 		// Preview-only link guard: an external link tap (a video poster, a contact/qr
 		// URL) must not navigate — and blank — this scaled srcdoc frame on iOS. Also

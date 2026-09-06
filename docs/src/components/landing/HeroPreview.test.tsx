@@ -29,6 +29,7 @@ const DATA: HeroData = {
 	// Local paths, never a CDN — these are required on the island's props precisely so
 	// a host that forgets them fails here. See test/unit/docs/no-cdn-runtime.test.js.
 	mermaidUrl: '/mermaid.js',
+	dagreUrl: '/dagre.js',
 	katexUrl: '/katex.css',
 };
 

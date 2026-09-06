@@ -2729,6 +2729,16 @@ ${ENGINE_SCRIPT_OPEN}
 // is the canonical installStateChartLayout from the kernel, serialised so
 // the emulator and lattice-runtime share one implementation.
 const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure'));
+// Whether any machine on any slide would actually be RE-RANKED. Kept separate
+// from `hasStateChart`, which still gates the player's SVG bake below — a chain
+// is drawn by the pass and has to be baked exactly like a fan-out.
+let needsDagre = false;
+if (hasStateChart) {
+  try {
+    const { htmlNeedsDagre } = require('./lib/components/chart/state-chart/state-chart.adoption.js');
+    needsDagre = htmlNeedsDagre(highlightedSlides);
+  } catch (_e) { needsDagre = true; }   // unreadable gate → ship the engine
+}
 let stateChartScript = '';
 if (hasStateChart) {
   try {
@@ -2742,9 +2752,37 @@ if (hasStateChart) {
     // lattice-runtime.min.js (dagre carried twice: inlined AND as this string)
     // against +28KB for the live library alone. Missing bundle (a clone that
     // never ran `npm install`) → '' → the pass falls back to the numbered column.
+    //
+    // GATED ON THE MACHINE, NOT ON THE COMPONENT. dagre's answer is only ever
+    // USED when it puts two nodes in one rank, and zero of the 9 drawn machines in
+    // the shipped galleries branch — so keying this on `hasStateChart` made every
+    // one of them carry 62.2 KiB raw / 21.8 KiB gzipped for a layout the pass then
+    // discarded. `htmlNeedsDagre` runs the REAL dagre in Node over the real
+    // topology (rank assignment is topology-only, so unit boxes give the same
+    // partition the browser gets with measured ones) and answers TRUE for
+    // anything it cannot read — a false positive ships an unused engine, a false
+    // negative silently drops a branching machine back to the column.
     let dagreIife = '';
-    try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* column fallback */ }
-    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${STATE_CHART_BROWSER_JS}\n</script>`;
+    if (needsDagre) {
+      try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* column fallback */ }
+    }
+    // WITHHELD ON PURPOSE, and the document says so. `lib/runtime/index.js` warns
+    // when a state chart is present and the engine is not, because everywhere else
+    // that means a host forgot the tag. Here it means the gate looked at the deck's
+    // own machines and found nothing to lay out, so the warning would be a false
+    // alarm — on the exact artifact it exists to protect.
+    //
+    // MEASURED SCOPE, because the case is narrower than it looks: the only export
+    // that inlines the runtime at all is `--fluid`, and there the runtime's
+    // state-chart transform does not run (the SVG is already drawn by the pass
+    // above), so the warning does not fire today with or without this marker. It is
+    // one line that makes "withheld deliberately" distinguishable from "forgotten"
+    // at the moment the export knows the difference, rather than a fix for an alarm
+    // anyone has heard.
+    const noDagreMark = hasStateChart && !dagreIife ? 'globalThis.__latticeDagreNotNeeded=1;\n' : '';
+    stateChartScript = dagreIife
+      ? `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${STATE_CHART_BROWSER_JS}\n</script>`
+      : `${ENGINE_SCRIPT_OPEN}\n${noDagreMark}${STATE_CHART_BROWSER_JS}\n</script>`;
   } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
 }
 

@@ -293,6 +293,11 @@ export function buildSrcdoc({
 	// already `url ? tag : ''`), never "fetch it from a CDN". See the note at the top.
 	katexUrl = '',
 	mermaidUrl = '',
+	// The dagre layout engine (`dist/lattice-dagre.min.js`). Same contract as the two
+	// above: no default, and no URL means "omit the tag". It used to be inlined into
+	// lattice-runtime.js, which put 25.9 KiB gzipped on every reader of every deck for
+	// an engine only a BRANCHING state chart uses — see lib/runtime/index.js.
+	dagreUrl = '',
 	fontCss = '',
 	padding = 18,
 	// Visible px between stacked slides. A per-surface knob preserving each host's
@@ -386,6 +391,12 @@ export function buildSrcdoc({
 	// injects the asset rather than a section-only patch that would leave it out.
 	const needsKatex = html.indexOf('katex') !== -1;
 	const needsMermaid = html.indexOf('language-mermaid') !== -1;
+	// `data-sc-transitions` and not the `.state-chart-figure` class: only the DEFAULT
+	// variant emits the attribute, and it is the only variant the browser pass draws.
+	// The `inline` variant renders chips and needs no layout engine at all. The
+	// attribute survives DOMPurify (data-* attributes are allowed), so it reads the
+	// same on the sanitized sections renderDeck signs below.
+	const needsDagre = html.indexOf('data-sc-transitions') !== -1;
 	return (
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(diagrams && needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
@@ -452,6 +463,12 @@ export function buildSrcdoc({
 		// Same pairing as the KaTeX link above — content AND url, so a missing URL emits
 		// nothing rather than `<script src="">`.
 		(needsMermaid && mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
+		// BEFORE the runtime tag, and that order is the mechanism rather than a tidy
+		// preference: both are classic scripts, so they execute in document order, and
+		// the runtime's state-chart pass reads `globalThis.__latticeDagre` synchronously
+		// on its first draw. After the runtime tag the engine would arrive too late and
+		// every branching machine would paint as a numbered column.
+		(needsDagre && dagreUrl ? '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>' +
 		'<scr' + 'ipt>' + GEOM_GLOBALS + '</scr' + 'ipt>' +
 		'<scr' + 'ipt>' + fitAgent(gap, clamp) + '</scr' + 'ipt>' +
@@ -566,7 +583,13 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	const contentSig =
 		sig +
 		(sections.some((s) => s.indexOf('katex') !== -1) ? 'K' : '') +
-		(sections.some((s) => s.indexOf('language-mermaid') !== -1) ? 'M' : '');
+		(sections.some((s) => s.indexOf('language-mermaid') !== -1) ? 'M' : '') +
+		// Third flag, same reason as the other two: buildSrcdoc injects the dagre engine
+		// only for a deck that has a drawn state chart, so a deck that GAINS or LOSES one
+		// must force a full srcdoc rewrite. A section-only patch would leave a
+		// newly-typed branching machine without its engine — laid out as a column, with
+		// nothing to say why.
+		(sections.some((s) => s.indexOf('data-sc-transitions') !== -1) ? 'D' : '');
 	const canPatch =
 		!fresh &&
 		contentSig === st.frameSig &&

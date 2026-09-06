@@ -213,4 +213,5 @@ Nothing here needs a build step to try.
 
 <!-- markdownlint-disable MD033 -->
 <script src="mermaid-v11.min.js"></script>
+<script src="lattice-dagre.min.js"></script>
 <script src="lattice-runtime.min.js"></script>

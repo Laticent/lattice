@@ -78,8 +78,13 @@ describe('export-marp bundle (end-to-end)', () => {
 
   test('deck ends with the runtime scripts (browser render) under a lint-ignore', () => {
     const baked = fs.readFileSync(path.join(dest, 'split-headings.md'), 'utf8');
-    assert.match(baked, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\n/,
-      'markdown carries the lint-ignore + mermaid + runtime script tags');
+    // dagre sits BETWEEN the two, and that position is load-bearing rather than
+    // alphabetical: it installs `globalThis.__latticeDagre`, which the runtime's
+    // state-chart pass reads synchronously on its first draw. Classic scripts run in
+    // document order, so tagging it after the runtime would leave every branching
+    // machine painted as the numbered column — a plausible layout, silently wrong.
+    assert.match(baked, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-dagre\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\n/,
+      'markdown carries the lint-ignore + mermaid + dagre + runtime script tags');
   });
 
   // Marp strips front matter, and the runtime's old recovery path — fetching the

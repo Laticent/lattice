@@ -49,7 +49,20 @@ beforeEach(() => {
 	document.body.innerHTML = '';
 });
 
-async function srcdocFor(opts: Record<string, unknown>): Promise<string> {
+// A DRAWN state chart, as the transform emits it: the `data-sc-transitions` attribute is
+// what the dagre gate keys on, and only the DEFAULT variant carries it (the `inline`
+// variant is chips and needs no layout engine). Trimmed to the attribute and one node —
+// the gate is a string test, so a full figure would assert nothing extra.
+const STATE_CHART_HTML =
+	'<section class="lattice"><div class="state-chart-figure" data-variant="default" '
+	+ 'data-sc-dir="tb" data-states="2" data-transitions="1" data-sc-transitions="[]">'
+	+ '<ol class="state-nodes"><li class="state-node" data-index="1">A</li></ol></div></section>';
+
+async function srcdocFor(opts: Record<string, unknown>, html?: string): Promise<string> {
+	if (html) {
+		(renderMarkdown as unknown as ReturnType<typeof vi.fn>)
+			.mockImplementation(async () => ({ html, css: '' }));
+	}
 	const host = document.createElement('figure');
 	document.body.appendChild(host);
 	const r = createSingleSlideRenderer({ ...base, ...opts });
@@ -89,5 +102,46 @@ describe('single-slide Mermaid gating — content AND url', () => {
 		expect(doc).not.toContain('jsdelivr');
 		expect(doc).not.toContain('unpkg');
 		expect(doc).not.toContain('cdnjs');
+	});
+});
+
+// The SAME gate, for the dagre layout engine — added when dagre was split out of the
+// runtime bundle (it had been inlined, so every reader of every deck paid 25.9 KiB
+// gzipped for an engine only a BRANCHING state chart uses). Same content-AND-url shape
+// as Mermaid above, and the same failure to avoid: an absent URL must emit no tag, never
+// `src=""`. One difference worth stating — an absent engine is not a missing diagram
+// here. The chart still draws; it draws as the NUMBERED COLUMN, which is a plausible
+// layout, so nothing on the page looks wrong. That is why lib/runtime/index.js warns.
+describe('single-slide dagre gating — content AND url', () => {
+	it('a state-chart slide WITH a vendored URL injects that exact script', async () => {
+		const doc = await srcdocFor({ dagreUrl: '/playground/v/abc/lattice-dagre.js' }, STATE_CHART_HTML);
+		expect(doc).toContain('/playground/v/abc/lattice-dagre.js');
+		expect(doc).toContain('https://x/rt.js');
+	});
+
+	// The ORDER is the mechanism, not a preference: both are classic scripts, so they run
+	// in document order, and the runtime's pass reads `globalThis.__latticeDagre`
+	// synchronously on its first draw. A dagre tag after the runtime tag arrives too late
+	// and every branching machine silently paints as a column — which looks like a
+	// working chart, so no other assertion here would catch it.
+	it('the engine tag comes BEFORE the runtime tag', async () => {
+		const doc = await srcdocFor({ dagreUrl: '/playground/v/abc/lattice-dagre.js' }, STATE_CHART_HTML);
+		expect(doc.indexOf('lattice-dagre.js')).toBeLessThan(doc.indexOf('https://x/rt.js'));
+	});
+
+	it('a state-chart slide with NO dagreUrl injects no script tag — never an empty src', async () => {
+		const doc = await srcdocFor({}, STATE_CHART_HTML);
+		expect(doc).not.toContain('src=""');
+		expect(doc).not.toContain('lattice-dagre');
+		expect(doc).toContain('https://x/rt.js');
+	});
+
+	// The saving itself, asserted rather than assumed: a slide with no state chart must
+	// not pull the engine even when the host passes a perfectly good URL. This is the
+	// arm that would go red if the gate were ever loosened to "always inject".
+	it('a slide with NO state chart never fetches the engine', async () => {
+		const doc = await srcdocFor({ dagreUrl: '/playground/v/abc/lattice-dagre.js' }, DIAGRAM_HTML);
+		expect(doc).not.toContain('lattice-dagre');
+		expect(doc).toContain('https://x/rt.js');
 	});
 });

@@ -73,8 +73,15 @@ describe('marp-bundle spec', () => {
     // `$`-anchored — true only while a marker-less export emitted no settings block,
     // which is the block-less state the runtime reads as "authoring surface" and the
     // choke point now refuses to produce.)
-    assert.match(out, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\n/);
+    assert.match(out, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-dagre\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\n/);
     assert.ok(RUNTIME_SCRIPTS.includes('lattice-runtime.min.js'));
+    // ORDER, not just presence: dagre installs `globalThis.__latticeDagre`, and the
+    // runtime's state-chart pass reads it synchronously on its first draw. Classic
+    // scripts run in document order, so a dagre tag after the runtime tag arrives too
+    // late and every branching machine silently paints as the numbered column.
+    assert.ok(
+      RUNTIME_SCRIPTS.indexOf('lattice-dagre.min.js') < RUNTIME_SCRIPTS.indexOf('lattice-runtime.min.js'),
+      'the layout engine must be tagged BEFORE the runtime that reads it');
     // Nothing but generated data blocks may follow — no stray deck content. Asserted as
     // EXACT EQUALITY rather than "strip the script tags and check for leftovers": the
     // strip form needed a `<script[\s\S]*?</script>` regex, which CodeQL reads (fairly, on
@@ -87,6 +94,7 @@ describe('marp-bundle spec', () => {
       trailer,
       '<!-- markdownlint-disable MD033 -->\n'
       + '<script src="mermaid-v11.min.js"></script>\n'
+      + '<script src="lattice-dagre.min.js"></script>\n'
       + '<script src="lattice-runtime.min.js"></script>\n'
       + `<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>\n`,
     );
@@ -419,6 +427,58 @@ describe('marp bundle — the overflow-marker export setting', () => {
       'the previous `off` is gone and the default takes over — not carried forward, and not block-less');
     const third = withRuntimeScripts(first, { overflowMarker: 'author' });
     assert.deepEqual(settingsIn(third), { overflowMarker: 'author' }, 'and an explicit choice replaces it');
+  });
+
+  // A deck in a recipient's hands was baked by whatever version they had, and
+  // re-exporting it is ordinary. The strip is built from the TAG SET rather than from
+  // an escape of today's exact block for exactly this reason: when dagre was split out
+  // of the runtime bundle the block gained a line, and an exact-text strip would have
+  // left the older block in place and appended a new one — two copies of every runtime
+  // tag in the re-exported deck, and two Mermaid loads in the recipient's browser.
+  test('a deck baked by an OLDER version re-exports with one block, not two', () => {
+    const legacy = '---\nmarp: true\n---\n\n# A\n\n<!-- markdownlint-disable MD033 -->\n'
+      + '<script src="mermaid-v11.min.js"></script>\n'
+      + '<script src="lattice-runtime.min.js"></script>\n';
+    const out = withRuntimeScripts(legacy);
+    for (const [file, want] of [['mermaid-v11.min.js', 1], ['lattice-dagre.min.js', 1], ['lattice-runtime.min.js', 1]]) {
+      const esc = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const n = (out.match(new RegExp(`<script src="${esc}"></script>`, 'g')) || []).length;
+      assert.equal(n, want, `${file} appears ${n} times — the older block was not stripped`);
+    }
+    assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 1, 'one trailer, not two');
+    assert.match(out, /# A/, 'and the deck itself survives');
+  });
+
+  // The strip must recognize OUR tags, not any tag: a deck may legitimately carry the
+  // author's own script, and eating it would silently delete their content.
+  test('an author\'s own script tag survives a re-export', () => {
+    const deck = '---\nmarp: true\n---\n\n# A\n\n<script src="my-own-widget.js"></script>\n';
+    assert.match(withRuntimeScripts(deck), /<script src="my-own-widget\.js"><\/script>/);
+  });
+
+  // A DECK MAY QUOTE OUR OWN TAG BLOCK, and the kit's "how to wire the runtime"
+  // slide does — inside a fenced code block. Matching a tag SET rather than an exact
+  // string is what lets the strip survive the set changing, and it is also what
+  // widened the pattern enough to gut that fence: an unanchored match ate the tags
+  // and left an empty ```html``` in a delivered deck. The strip is anchored to the
+  // END for that reason — the block it removes is one this function appended, and by
+  // then it is the last thing in the document.
+  test('a deck that QUOTES the tag block in a code fence keeps it', () => {
+    const deck = ['---', 'marp: true', '---', '', '# Wiring', '',
+      'Add these to the end of your deck:', '', '```html',
+      '<!-- markdownlint-disable MD033 -->',
+      '<script src="lattice-dagre.min.js"></script>',
+      '<script src="lattice-runtime.min.js"></script>',
+      '```', '', 'Then open it in a browser.', ''].join('\n');
+    const out = withRuntimeScripts(deck);
+    assert.match(out, /```html\n<!-- markdownlint-disable MD033 -->\n<script src="lattice-dagre\.min\.js"><\/script>/,
+      'the quoted block was eaten — an author\'s own code fence is not ours to strip');
+    assert.match(out, /Then open it in a browser\./, 'and the prose after it survives');
+    // …and the real block is still appended exactly once, so the fix did not trade
+    // one silent defect for another.
+    assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 2,
+      'expected the quoted block plus exactly one appended block');
+    assert.equal(withRuntimeScripts(out), out, 'and re-exporting is still idempotent');
   });
 
   test('re-exporting at the same level is byte-identical, with one block', () => {

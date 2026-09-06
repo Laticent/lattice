@@ -59,6 +59,21 @@
  *   node tools/check-chart-fit.js [fixture.md]      # gate: exit 1 on a clip
  *   node tools/check-chart-fit.js --report          # per-slide numbers
  *   node tools/check-chart-fit.js --size portrait   # one size only
+ *   node tools/check-chart-fit.js --style '<css>'   # inject CSS as the deck's `style:`
+ *
+ * `--style` IS THE FALSIFIABILITY LEVER, and it is here because this gate had no
+ * way to prove it can still go red. A geometry rig degrades quietly — a selector
+ * that stops matching, a filter that swallows the very marks it should count —
+ * and from then on it reports "everything fits" for the same reason an unplugged
+ * smoke alarm reports no fire. The mechanism is `check-jank.js`'s: the CSS rides
+ * the deck's own front-matter `style:`, not a second injection path, so what the
+ * control renders is what an author could have written.
+ *
+ * The arm that needs it is the STAGE check's `visibility: hidden` filter (below).
+ * It exists so a hidden measuring scaffold is not counted as clipped content, and
+ * nothing else could distinguish that filter from one that had quietly stopped
+ * counting real marks. `test/integration/invariants/chart-fit-falsifiable.test.js`
+ * makes the scaffold visible through this flag and asserts the reports fire.
  *
  * Needs a Chromium (CHROME_PATH or the puppeteer cache). With none it EXITS 2
  * having verified nothing — never a false green (HARD RULE #23). This header said
@@ -148,6 +163,23 @@ function withSize(src, size, autosplit) {
     .filter((l) => !/^\s*(?:size|autosplit)\s*:/.test(l))
     .concat(extra);
   return `---\n${body.join('\n')}\n---\n${src.slice(fm[0].length)}`;
+}
+
+/**
+ * Inject `--style` CSS as the deck's own front-matter `style:` block scalar.
+ *
+ * Normalized at the read, like every other outside-world text this repo ingests:
+ * the CSS lands in a YAML BLOCK SCALAR, where a stray CR rides to the end of
+ * every line and a BOM lands mid-document
+ * (`2026-08-04-line-endings-lf-boundaries.md`).
+ */
+function withStyle(src, css) {
+  if (!css) return src;
+  const block = String(css).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
+    .trimEnd().split('\n').map((l) => `  ${l}`).join('\n');
+  const fm = /^---\r?\n/.exec(src);
+  if (!fm) return `---\nstyle: |\n${block}\n---\n\n${src}`;
+  return src.replace(/^---\r?\n/, `---\nstyle: |\n${block}\n`);
 }
 
 /** Measure one rendered sidecar: stage-fit for every chart, viewBox-fit for every SVG. */
@@ -374,7 +406,21 @@ async function main() {
     process.exit(2);
   }
 
-  const src = fs.readFileSync(FIXTURE, 'utf8');
+  // A `--style` that reads as nothing is a REFUSAL, not empty CSS: it would inject
+  // no declaration, the run would silently match its baseline, and a control arm
+  // asserting "the gate goes red" would go green for the wrong reason.
+  const styleArg = (() => {
+    const i = process.argv.indexOf('--style');
+    return i >= 0 ? process.argv[i + 1] : null;
+  })();
+  if (styleArg != null && !/\{/.test(styleArg)) {
+    console.error(`check-chart-fit: --style '${styleArg}' carries no rule block. `
+      + 'It would inject nothing and the run would match its baseline — refusing rather '
+      + 'than reporting a control that proved nothing.');
+    process.exit(2);
+  }
+
+  const src = withStyle(fs.readFileSync(FIXTURE, 'utf8'), styleArg);
   const puppeteer = require('puppeteer');
   const scratch = [];
   let browser;
@@ -546,4 +592,4 @@ if (require.main === module) {
   main().catch((err) => { console.error(`check-chart-fit: ${err?.stack || err}`); process.exit(2); });
 }
 
-module.exports = { SLACK, VB_SLACK, FIXTURE, SIZES, withSize };
+module.exports = { SLACK, VB_SLACK, FIXTURE, SIZES, withSize, withStyle };
