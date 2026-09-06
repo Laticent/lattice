@@ -24,9 +24,9 @@
   trips; size a pool with Little's law, then break it in both directions; say
   what a page does when three dependencies go slow rather than down. Inside Part four the longest
   stretch without the reader producing something drops from 51 slides to 20; deck
-  wide it drops from 51 to 45, and Part five now holds the longest run.
+  wide it drops from 51 to 45, and the longest run now starts in Part five.
 - **Part seven now closes the loop the deck opened on.** The first eleven slides
-  are a Tuesday that fails — pull request 482 does not merge. After one last
-  mention in Part two the deck never came back to it. A new slide before "What to do on Monday" says what
+  are a Tuesday that fails — pull request 482 does not merge. The thread runs on
+  through Part one, ends on one slide in Part two, and the deck never came back. A new slide before "What to do on Monday" says what
   would have made Tuesday different, in the deck's own vocabulary: a bounded pool
   of one, a deadline nothing inherited, and admission control twenty minutes late.

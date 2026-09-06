@@ -1105,14 +1105,14 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 `One answer`
 
-## The first question is the whole answer for two of the three.
+## For two of the three, the first question is the whole answer.
 
 1. Payroll, four thousand employees
    - No. Thirty tables and questions nobody has asked yet are the case relational was built for, and four thousand rows is not a size. The tree stops here.
 2. Four hundred thousand samples a second
    - Yes. No single machine takes four hundred thousand writes a second, so the tree walks on — joins next, then the shape questions decide the store.
 3. Nine thousand users
-   - No, and "will not scale" is not a measurement. The tree wants a table that outgrew a machine; you have brought it a feeling.
+   - No, so it stops here too. "Will not scale" is not a measurement — the tree wants a table that outgrew a machine, and you have brought it a feeling.
 
 ---
 
@@ -1413,7 +1413,7 @@ For each, say whether you take the write or refuse it while the link is down, an
 
 `One answer`
 
-## Only the seat refuses, and refusing is the cheaper half of what that costs.
+## Only the seat refuses, for ninety seconds — then pays a round trip on every read for years.
 
 1. A like
    - Take it. Eventual is correct: two replicas disagreeing about a count for a second costs nothing, and refusing costs you a user.
@@ -1737,7 +1737,7 @@ Name the runtime, and the invariant each one fails first if you get it wrong. Th
 ## The shape of the work decides the first two. The idle decides the last one.
 
 1. The nightly report
-   - A machine on a schedule. Forty minutes outlives the runtime cap on most functions, and one long run is not spiky. The invariant it fails first: capacity is a number somebody owns.
+   - A machine or a container on a schedule; what it is not is a function. Forty minutes outlives most function runtime caps, and one long run is not spiky. The invariant it fails first: capacity is a number somebody owns.
 2. Three thousand a second, six deploys a day
    - Containers behind a balancer — many teams, frequent deploys, one packaging story. It fails "any instance can be killed" the moment somebody keeps a session in memory.
 3. A few hundred thumbnails
@@ -3734,7 +3734,7 @@ So take one design you made in these pages and build the smallest version of it 
 ## 482 was not blocked by the build. It was blocked by a queue.
 
 1. The queue had one server
-   - Five pull requests, one reviewer, one waking hour: a bounded pool of one. Throughput is capped, so the queue in front grows. Maya chose none of those numbers.
+   - Five pull requests, one reviewer, one waking hour: a bounded pool of one. Throughput is capped, so the queue in front grows, and nothing Maya did after lunch could move any of the three.
 2. Nothing inherited a deadline
    - The window shut at four, and nothing downstream of it carried a shorter one. The network kit's first invariant says a call inherits its deadline from the caller, and inherits a shorter one. The review never got one, so nothing said it was late until it was.
 3. The one move she had, she made late
