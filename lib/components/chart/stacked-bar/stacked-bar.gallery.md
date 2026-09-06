@@ -199,13 +199,13 @@ Bars split into parts, so one chart carries both the total for each category and
 ## When NOT to reach for stacked-bar.
 
 - Tracking a part that is not at the bottom
-  - Only the bottom segment shares a baseline across bars. Every segment above it floats on the ones below, so a reader cannot see whether ‘Services’ grew — they can only see where its band sits. If ONE part is the story, put it at the bottom of the stack, or use `line` to plot it directly.
+  - Only the bottom segment shares a baseline, so a reader sees where 'Services' sits, not whether it grew. Put that part first.
 - Parts that are not parts
-  - Stacking independent metrics — revenue, headcount, NPS — produces a bar whose height means nothing. The parts must sum to something a reader would name. Use `bar` for independent magnitudes.
+  - Stacking revenue, headcount and NPS gives a bar whose height means nothing. The parts must sum to something a reader can name.
 - A long tail of slivers
-  - A 2 % part is about one unit of bar height: too thin to see, impossible to label, and it pushes everything above it around. Consolidate the tail into one ‘Other’ part before authoring, or drop to the four parts that carry the claim.
+  - A 2 % part is one unit of bar height: too thin to see and impossible to label. Consolidate the tail into one 'Other' part.
 - One category
-  - A single stacked bar is a pie chart drawn as a column, and a pie reads proportions better. Use `piechart` for one total; this chart earns its shape from the comparison ACROSS bars.
+  - A single stacked bar is a pie drawn as a column, and a pie reads proportions better. This chart earns its shape ACROSS bars.
 
 ---
 

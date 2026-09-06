@@ -150,13 +150,13 @@ Bars from a zero baseline that compare magnitude across categories — as column
 ## When NOT to reach for bar.
 
 - Parts of one whole
-  - If the categories add up to a meaningful total and the story is the split, use `piechart` (one whole) or the `stacked-bar` sibling (a total that decomposes across categories). A plain bar deliberately says nothing about a sum.
+  - If the categories add up to a total and the split is the story, use `piechart` or `stacked-bar`. A plain bar says nothing about it.
 - A continuous series over time
-  - Twelve monthly bars ask the reader to compare twelve lengths when the claim is a trend. Use the `line` sibling — its whole job is the shape of the movement. Bars are for a handful of named categories, not a time series.
+  - Twelve monthly bars ask a reader to compare twelve lengths when the claim is a trend. Use `line`, whose job is the movement.
 - A percentage against a target
-  - '68% of goal' is attainment, not magnitude across categories. `progress` shows attainment; `bullet` adds the target and the qualitative band. A bar chart of percentages that do not compare to each other is a table with decoration.
+  - '68% of goal' is attainment, not magnitude across categories. `progress` shows attainment; `bullet` adds the target and the band.
 - A rainbow single series
-  - Do not reach for a per-category color. A single series is one hue here by design: the length already carries the whole comparison, and a second encoding that says nothing is the classic amateur tell. Color earns its place only in `grouped`, where it names the series.
+  - One series is one hue by design: the length carries the comparison. Color earns its place in `grouped`, where it names the series.
 
 ---
 

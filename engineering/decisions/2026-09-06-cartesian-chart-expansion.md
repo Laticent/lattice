@@ -160,3 +160,33 @@ itself.
 - `lib/components/chart/_chart-family/cartesian.js` — the substrate.
 - `lib/components/chart/_chart-family/chart-family.css` § Cartesian chrome — the paint.
 - `lib/components/chart/_chart-family/chart-family.docs.md` — the frame and dispatcher.
+
+## 6. Known, recorded, not fixed here
+
+Three things the adversarial trio and the visual sweep found that this change
+records rather than repairs, each with the reason.
+
+**`scatter`'s tight cluster labels are not in value order.** On the twelve-tool
+stress slide, four dots inside one dot's width get four labels, and
+`placeLabels` — greedy, eight candidate positions per point, each point placed
+independently — settles `Cardinal` above `Granite` when their dots run the other
+way. Every leader line is correct and present, so the attribution is recoverable;
+a reader pairing by proximity alone gets that one pair wrong. Sorting the input
+by `cy` was tried and made it worse (it swapped a different pair). The real fix
+is an ORDERED pack, which `slope` now has for its gutter columns — lifting that
+into `placeLabels` touches `quadrant` as well and is a substrate change on its
+own, not a rider on this one.
+
+**The `cards-stack` anti-pattern slide reserves no bottom padding for a second
+line of body copy.** A one-line card has generous air under it; a two-line card
+grows into the padding, so the closing code chip is drawn across the card's
+bottom border. Every one of the seven galleries' "When NOT to reach for X" slides
+hit it, and every one is now written to one line — which is a workaround, not a
+fix. The form is shared by every component's anti-pattern slide in the tree.
+
+**`scatter`'s `domainFor` is a second implementation of the substrate's
+`niceTicks({ tight: true })`, and the better one.** Both docblocks justify
+themselves with the same anecdote. Folding `domainFor` back into the substrate is
+right, and it moves `slope`'s axis as well as `scatter`'s, so it belongs in its
+own change with its own renders.
+

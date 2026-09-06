@@ -53,10 +53,10 @@ Use when the question is 'are we on plan'. Each row carries a measure bar, a per
 
 ## When NOT to use
 
-- **No target to measure against.** A row with only one pill draws a bar with no marker and no range — every mark that makes it a bullet is gone. Use `bar` for magnitudes with no reference, or `progress` when the number really is a percent-complete.
-- **One KPI on its own.** A single row spends a whole slide on two numbers. Use `big-number` for a figure and its target, or `stats` for a short row of them. This chart earns its density from three rows up.
-- **Red/amber/green range bands.** Don't reach for this expecting a stoplight chart. The zones are one neutral on purpose: a traffic-light range re-states a verdict the target marker already carries, and it leaves the measure the least visible mark on the row. If the verdict is the message and the magnitudes are not, use `progress` and its status pills.
-- **A KPI where lower is better.** Cost against budget, cycle days against a service level, churn against a ceiling. The bar still grows rightward past the marker, so beating the target reads as missing it. There is no inverted mode: restate the metric so up is good — budget remaining, days saved, retention — or use `progress`, where the pill carries the verdict instead of the geometry.
+- **No target to measure against.** A row with one pill draws a bar with no marker and no range — every mark that makes it a bullet is gone. Use `bar` instead.
+- **One KPI on its own.** A single row spends a whole slide on two numbers. Use `big-number`, or `stats` for a short row. This chart earns its density.
+- **Red/amber/green range bands.** The zones are one neutral on purpose: a traffic-light range re-states the verdict the target marker already carries.
+- **A KPI where lower is better.** Cost against budget, churn against a ceiling: the bar grows past the marker, so beating the target reads as missing it.
 
 ## Authoring
 

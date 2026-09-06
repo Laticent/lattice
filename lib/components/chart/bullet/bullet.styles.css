@@ -49,22 +49,29 @@
  * so the reader's eye lands on the TIP: putting the palest zone where a healthy
  * bar ends gives the tip its maximum contrast, and the row visibly quietens as
  * it gets better. A short bar sits on the darkest zone and still reads, because
- * the measure is saturated ink against a wash that never exceeds 18%. */
+ * the measure is a saturated categorical hue and the wash is a mid-gray tint.
+ *
+ * THE LADDER IS 36 / 22 / 10 / 4, not the 26 / 16 / 8 / 4 of the first cut.
+ * Measured on the rendered slide, the old steps were 1.13:1 and 1.10:1 between
+ * adjacent zones and 1.06:1 between the outermost zone and the page — at
+ * projector distance the row read as one flat gray strip, which costs the
+ * component the qualitative range that is half its reason to exist beside
+ * `progress`. Doubling the step is what makes the zones legible as zones. */
 :is(section.bullet, figure.chart-frame) .bullet-band {
   fill: light-dark(
-    color-mix(in oklab, var(--state-mute-hue) 26%, var(--bg)),
-    color-mix(in oklab, var(--state-mute-hue) 30%, var(--bg)));
+    color-mix(in oklab, var(--state-mute-hue) 36%, var(--bg)),
+    color-mix(in oklab, var(--state-mute-hue) 40%, var(--bg)));
   stroke: none;
 }
 :is(section.bullet, figure.chart-frame) .bullet-zone-1 {
   fill: light-dark(
-    color-mix(in oklab, var(--state-mute-hue) 16%, var(--bg)),
-    color-mix(in oklab, var(--state-mute-hue) 19%, var(--bg)));
+    color-mix(in oklab, var(--state-mute-hue) 22%, var(--bg)),
+    color-mix(in oklab, var(--state-mute-hue) 26%, var(--bg)));
 }
 :is(section.bullet, figure.chart-frame) .bullet-zone-2 {
   fill: light-dark(
-    color-mix(in oklab, var(--state-mute-hue) 8%, var(--bg)),
-    color-mix(in oklab, var(--state-mute-hue) 10%, var(--bg)));
+    color-mix(in oklab, var(--state-mute-hue) 10%, var(--bg)),
+    color-mix(in oklab, var(--state-mute-hue) 13%, var(--bg)));
 }
 /* A fourth zone only exists when the author names three cut points. It is the
  * top of the scale, so it is the quietest thing on the row — barely a tint. */
@@ -79,19 +86,22 @@
  * categorical hue with the saturated ink as a hairline — the same material the
  * funnel's bands wear, so it reads as family.
  *
- * NOT the canonical GRADIENT fill (`buildFillDefs`), and the reason is measured
- * rather than aesthetic. That emitter's stops are `light-dark(color-mix(in
- * oklab, …))`, and in the CLI's PDF export path those stops come out
- * systematically lighter than the browser paints them: on `indaco` the same bar
- * measures rgb(60,124,169) in Chromium and rgb(117,160,191) in the exported PDF,
- * roughly as if every mix percentage had been multiplied by 0.7 — enough to drop
- * the measure from 4.98:1 against the canvas to about 2.2:1, under the family's
- * 3:1 floor, in the artifact a board actually reads. A flat `color-mix` does not
- * diverge: the funnel's 82% band and this 88% bar both round-trip to the exact
- * computed color. A gradient across a bar six user units tall was buying almost
- * nothing anyway, so the trade costs nothing and the export becomes trustworthy.
- * Reported to the orchestrator — it is a property of `buildFillDefs`, not of
- * this chart, so it affects every Cartesian member that wears the recipe. */
+ * NOT the canonical GRADIENT fill (`buildFillDefs`), and the reason is the BAR,
+ * not the export. A measure bar is six user units tall; a vertical wash across
+ * six units is a gradient nobody can see, and it costs a `<defs>` entry, a
+ * `url(#…)` reference and a render-id slot per chart to buy it.
+ *
+ * An earlier version of this comment claimed something stronger — that
+ * `buildFillDefs`' `light-dark(color-mix(…))` stops come out systematically
+ * lighter in the CLI's PDF export than the browser paints them, with specific
+ * RGB values and a contrast ratio. That claim is NOT reproducible on this tree
+ * and it is retracted (HARD RULE #23). Measured: a `bar` slide rendered through
+ * `lattice-emulator.js` twice off one deck, once to PNG (Chromium's own paint)
+ * and once to PDF (rasterized at 150 dpi), samples rgb(194,213,229) at every
+ * height of the bar in BOTH. The gradient does not diverge, and the three
+ * siblings that do wear the recipe are not shipping under any floor because of
+ * it — their contrast against the canvas comes from the saturated ink edge, as
+ * it does here. */
 :is(section.bullet, figure.chart-frame) .bullet-measure {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 88%, var(--bg));
   stroke: var(--chart-cat-1-ink);

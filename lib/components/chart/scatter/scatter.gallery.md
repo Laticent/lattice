@@ -165,13 +165,13 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 ## When NOT to reach for scatter.
 
 - A unitless 2x2 score
-  - If the axes are 1-to-10 judgments with no unit, and the read is which of four named zones an item lands in, use `quadrant`. It paints and names the four regions, groups items editorially and colors the dots by group — all things a scatter deliberately does not do, because a real scale has no quadrants in it.
+  - If the axes are unitless 1-to-10 judgments and the read is which of four named zones an item lands in, use `quadrant`.
 - A trend line over a handful of points
-  - `scatter trend` fits a least-squares line, and under five points it refuses to draw one — a line through four dots is nearly interpolation and asserts a rigor the data has not got. Even at eight, the line says 'these move together', not 'this predicts that'. If the audience will read it as a forecast, drop the variant and let the dots speak.
+  - `scatter trend` refuses a least-squares line under five points. Even at eight it says 'these move together', not 'this predicts'.
 - Points closer together than the eye can separate
-  - Four tools within four points of each other are four dots inside one dot's width. Nothing in the chart lies — the dots carry a canvas-colored ring so overlap stays visible and no point is jittered off its real position — but the names have to travel and read as a list. If the cluster IS the finding, say it in the heading and put the numbers in a `list-tabular`.
+  - Four tools within four points are four dots inside one dot's width: the ring keeps the overlap visible, but the names travel.
 - Time on the x axis
-  - A series measured at successive dates is a line, not a cloud: the reader needs the connection between consecutive points, which a scatter does not draw. Use `line`.
+  - A series measured at successive dates is a line, not a cloud — the reader needs the connection between points. Use `line`.
 
 ---
 

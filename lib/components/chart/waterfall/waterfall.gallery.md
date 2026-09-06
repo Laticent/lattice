@@ -132,13 +132,13 @@ A bridge from one total to another through signed contributions, each bar starti
 ## When NOT to reach for waterfall.
 
 - Independent magnitudes with no running total
-  - Revenue by region, spend by department, five metrics side by side — nothing accumulates, so the floating geometry is a lie. Use `bar`.
+  - Revenue by region, spend by department — nothing accumulates, so the floating geometry is a lie. Use `bar`.
 - Parts of one total, all positive
-  - A decomposition where every contribution is a positive share of one whole is a stack, not a walk: use `stacked-bar`, or `piechart` if there is only one total. A waterfall's whole apparatus — the sign, the two semantic hues, the connectors — buys you nothing when nothing goes down.
+  - Every contribution a positive share of one whole is a stack, not a walk: use `stacked-bar`, or `piechart` for one total.
 - A monotonic pipeline that narrows
-  - Visitors to signups to paid is a subset at every stage, not a set of signed contributions. Use `funnel`, whose taper IS the conversion rate.
+  - Visitors to signups to paid is a subset at every stage, not signed contributions. Use `funnel`, whose taper IS the rate.
 - Drivers that are 1% of the anchors
-  - A walk from 12.0M to 11.9M via steps of 20k gives you two full-height anchors and a row of hairlines. The chart is not wrong, but the picture says 'nothing happened' — which may be the finding, in which case say it in a `big-number`, or drop the anchors and plot the drivers alone as a diverging `bar`.
+  - A walk from 12.0M to 11.9M in steps of 20k is two anchors and a row of hairlines. Say it in a `big-number` instead.
 
 ---
 

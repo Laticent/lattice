@@ -59,10 +59,10 @@ Use when the claim is that something MOVED: revenue by quarter, headcount throug
 
 ## When NOT to use
 
-- **Two points.** A line between two points is a slope, and a slope chart is a better drawing of it: `slope` puts the entity names at both ends and makes the crossing — who overtook whom — the read. A two-point line chart spends a whole axis on one comparison.
-- **Categories that are not ordered.** Joining ‘Legal · Finance · Sales · Ops’ with a line asserts a progression between departments that does not exist. Use `bar` for magnitude across unordered categories and `stacked-bar` when each one decomposes.
-- **A filled area for several series.** Two opaque regions on one plot hide each other, and the one drawn last wins. Use `stacked-area` when the series genuinely sum to a total, and plain `line` when they do not — the kernel drops the fill by itself rather than draw the lie.
-- **A trend where the story is attainment against a target.** If the question is ‘did we hit the number’, the line is the wrong furniture — the target is not on it. `bullet` puts actual, target and a qualitative band on one row; `progress` shows plain attainment.
+- **Two points.** Two points are a slope, and `slope` draws it better. Note it is authored transposed: one bullet per entity, its two points nested.
+- **Categories that are not ordered.** Joining 'Legal, Finance, Sales, Ops' asserts a progression that does not exist. Use `bar`, or `stacked-bar` if each one decomposes.
+- **A filled area for several series.** Two opaque regions hide each other. Use `stacked-area` when the series sum to a total; the kernel drops the fill rather than lie.
+- **A trend where the story is attainment against a target.** If the question is 'did we hit the number', the target is not on the line. `bullet` puts actual, target and a band on one row.
 
 ## Authoring
 

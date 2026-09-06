@@ -571,11 +571,20 @@ describe('line — defects the adversarial trio confirmed', () => {
     assert.ok(Number(w) > 0);
   });
 
-  test('a signed chart draws NO plot-edge rule — the zero rule is the baseline', () => {
+  test('the plot-edge rule is drawn ONLY where the axis reaches zero', () => {
+    // Signed: `buildGrid` draws the real zero rule, and a second one at the
+    // plot edge reads as the floor.
     const signed = build(parseLine(flat([['Q1', '-1.8'], ['Q2', '0.5'], ['Q3', '2.9']])));
     assert.doesNotMatch(signed, /class="cart-axis"/);
     assert.match(signed, /class="cart-zero"/);
-    assert.match(build(parseLine(flat([['Q1', '1'], ['Q2', '3']]))), /class="cart-axis"/);
+    // Floating: the bottom of the plot is not the baseline either, and the rule
+    // sat a couple of units under the lowest gridline, reading as a duplicate
+    // whose heavier half a reader takes for zero.
+    assert.doesNotMatch(build(parseLine(flat([['Q1', '4.1'], ['Q2', '4.4'], ['Q3', '4.2']]))),
+      /class="cart-axis"/);
+    // Zero-anchored: one rule, and it IS the baseline.
+    const zeroed = build(parseLine(flat([['Q1', '0'], ['Q2', '3'], ['Q3', '5']])));
+    assert.match(zeroed, /class="cart-axis"/);
   });
 
   test('the seventh series is NAMED in the description, never just dropped', () => {

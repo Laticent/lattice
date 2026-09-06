@@ -2,12 +2,12 @@
 	"bar.light": {
 		"src": "lib/components/chart/bar/bar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "459b9817ecd8d0a9ecbcbf9ab7a93bd89b6f37a697d304b64048dc16bf8f4879"
+		"srcSha256": "1d3d83d6bb1b5fb217502bd1c1de3bfde911efea5c0d58858b8bc5c728be74da"
 	},
 	"bar.dark": {
 		"src": "lib/components/chart/bar/bar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "6e1c42dda107ab579386850669f7059adae51c7fb0fbc5520fc2cda1de2ed098"
+		"srcSha256": "f9873ecd18a9cd1680ee5fd7b8b8faead908b1012967bba23459b1bfc5ef49dd"
 	},
 	"big-number.light": {
 		"src": "lib/components/statement/big-number/big-number.gallery.light.pdf",
@@ -162,11 +162,11 @@
 	"waterfall.light": {
 		"src": "lib/components/chart/waterfall/waterfall.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "9b68226c0bdc357e1e63bd04097bef54f93b4f4cf40985724ce693e075bb60bf"
+		"srcSha256": "5b166930e28757c23b6267e3f2533015a8500718888685c98974c91cd0e7abe1"
 	},
 	"waterfall.dark": {
 		"src": "lib/components/chart/waterfall/waterfall.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "a8801a2f0fe046a38ec6ec7624bd64604a3466b7db31e06d5bcef336dd5763eb"
+		"srcSha256": "0685dc90c087559ab85267d1d41d29ddcdec232a9a04c5ed5bf2d7eeaac182a1"
 	}
 }
