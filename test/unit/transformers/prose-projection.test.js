@@ -786,3 +786,47 @@ test('speech: a coda already spoken as its own SENTENCE mid-block is not repeate
 	const [text] = speak(sections(claimed));
 	assert.equal(text.match(/Retention carries the year/g)?.length, 1, text);
 });
+// ── team-profile: a roster of PEOPLE, not a run of concatenated spans ────────────
+// Both defects below were live on a shipped surface (read-along, Read·Article, the
+// self-contained `.html` player) and no gate could see either, because the generic
+// walker's `speechText` is bare `textContent`. They render through the REAL engine
+// for the same reason the state-marker tests above do: a class rename in the
+// component's transform must fail a test rather than silently mute or mangle speech.
+
+test('team-profile: the card\'s spans are separated, not concatenated', () => {
+	// `.person-name` / `.person-role` / `.person-note` are adjacent SPANS with no
+	// whitespace between them — they are spaced by flex, not by markup. textContent
+	// therefore ran them together: "Ada OkaforExecutive SponsorClears blockers".
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - ![](a.svg)\n  - `Executive Sponsor`\n  - Clears blockers above the program.\n');
+	assert.match(t, /Ada Okafor, Executive Sponsor: Clears blockers above the program\./);
+	assert.doesNotMatch(t, /OkaforExecutive|SponsorClears/, 'no two spans may run together');
+});
+
+test('team-profile: the aria-hidden monogram is never spoken', () => {
+	// A person with no headshot gets initials in the portrait cell, marked
+	// `aria-hidden="true"` because the name is read beside it. `textContent` does not
+	// honor aria-hidden, so the roster used to narrate "AOAda Okafor…". The speaker
+	// reads the three named spans directly, which skips the monogram structurally.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n  - `Program Director`\n');
+	assert.doesNotMatch(t, /\bAO\b|\bMV\b/, 'initials are decoration, not narration');
+	assert.match(t, /Ada Okafor, Executive Sponsor\./);
+});
+
+test('team-profile sides: each roster keeps its own label', () => {
+	// Two rosters under two `###` labels. Querying the rosters alone would drop the
+	// labels and read six people as one undifferentiated list, so blocks are walked
+	// in document order.
+	const [t] = renderSpeech('<!-- _class: team-profile sides -->\n\n## Two teams\n\n### Your team\n\n- Ada Okafor\n  - `VP Operations`\n\n### Our team\n\n- Marcus Vale\n  - `Account Director`\n');
+	assert.match(t, /Your team\.[\s\S]*Ada Okafor, VP Operations\./);
+	assert.match(t, /Our team\.[\s\S]*Marcus Vale, Account Director\./);
+	assert.ok(t.indexOf('Your team') < t.indexOf('Our team'), 'labels keep document order');
+});
+
+test('team-profile: a person with no role or no note reads without an empty clause', () => {
+	// `bench` drops the note by design, and an author may give only a name. Neither
+	// may produce a stray colon or a dangling comma.
+	const [t] = renderSpeech('<!-- _class: team-profile bench -->\n\n## Bench\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n');
+	assert.match(t, /Ada Okafor, Executive Sponsor\./);
+	assert.match(t, /Marcus Vale\./);
+	assert.doesNotMatch(t, /:\s*\.|,\s*\./, 'no empty clause, no dangling separator');
+});
