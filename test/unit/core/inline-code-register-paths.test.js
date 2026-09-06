@@ -199,3 +199,53 @@ test('header and footer obey the register — chrome is a span like any other', 
   assert.equal(on.querySelectorAll('header .lat-pill').length, 1, 'control: chrome draws when the deck says nothing');
   assert.equal(on.querySelectorAll('footer .lat-state').length, 1);
 });
+
+/**
+ * THE CLASS BRANCH OF THE CHROME RECONSTRUCTION — the fifth mutant, which survived
+ * everything in the tree until a checker went looking for it.
+ *
+ * The arm above builds its front matter as `['inline-code: literal', 'header: …']`, so
+ * `slideIsInlineCodeLiteral` answers on `isLiteralFromSource` and RETURNS before it ever
+ * reads a class. Deleting the rest of that function — the half that handles `_class:` and
+ * the deck-wide `class:` — failed nothing: 9/9 green with the mutant live and chrome
+ * visibly drawing pills. A well-controlled arm covering half a function is still half a
+ * function.
+ *
+ * Both inputs below reach the class branch because the register spelling is absent.
+ */
+
+test('chrome obeys a per-slide `_class: inline-code-literal`', () => {
+  const body = [
+    '# One', '', BODY, '', '---', '',
+    `<!-- _class: ${INLINE_CODE_LITERAL} -->`,
+    '<!-- _header: "H `{HDR}`" -->',
+    '<!-- _footer: "F `[x]`" -->', '',
+    '# Two', '', BODY,
+  ].join('\n');
+  const doc = render(['header: "H `{HDR}`"', 'footer: "F `[x]`"'], body);
+  const chrome = [...doc.querySelectorAll('header, footer')];
+  assert.ok(chrome.length >= 4, 'anti-vacuity: both slides must carry chrome');
+  // Slide 1 is the CONTROL: same chrome text, no token, so it must draw.
+  const first = doc.querySelectorAll('section')[0];
+  assert.ok(first.querySelector('header .lat-pill'), 'control: slide 1 chrome must draw');
+  // Slide 2 carries the token and must not.
+  const second = doc.querySelectorAll('section')[1];
+  assert.equal(second.querySelectorAll('header .lat-pill, footer .lat-state').length, 0);
+});
+
+test('chrome obeys a deck-wide `class:` even on a slide that sets its own `_class:`', () => {
+  // Marpit's local directive REPLACES the global one, and the rule that puts the deck-wide
+  // token back runs ELEVEN rules after chrome is built — so reading the slide's class alone
+  // gave a literal BODY and drawn CHROME inside one section. Measured, then fixed by reading
+  // the deck's front matter the same way `deckClassPropagate` does.
+  const body = ['# One', '', BODY, '', '---', '', '<!-- _class: content -->', '', '# Two', '', BODY].join('\n');
+  const doc = render([`class: ${INLINE_CODE_LITERAL}`, 'header: "H `{HDR}`"', 'footer: "F `[x]`"'], body);
+  assert.ok(doc.querySelectorAll('header, footer').length >= 4, 'anti-vacuity: chrome on both slides');
+  assert.equal(doc.querySelectorAll('.lat-pill').length, 0, 'no pill anywhere — body or chrome, either slide');
+  assert.equal(doc.querySelectorAll('.lat-state').length, 0);
+  // And the token really is on both sections, so this is the reconstruction being right
+  // rather than the deck being empty.
+  for (const s of doc.querySelectorAll('section')) {
+    assert.ok(s.classList.contains(INLINE_CODE_LITERAL), `section missing the token: ${s.className}`);
+  }
+});

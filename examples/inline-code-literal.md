@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 paginate: true
 inline-code: literal
-header: "Lattice · inline-code: literal"
+header: "Lattice · `{DEMO}` and `[x]` stay text up here too"
 ---
 
 <!-- _class: title silent -->
@@ -63,6 +63,18 @@ One line of front matter, and every backtick span goes back to being text.
 - `lint:deck` warns `unknown-inline-code` and names the two real values.
 - The Studio writes the canonical value for you: **General · Inline pills and marks**.
 - Unknown always falls to the *running* default, never to silence.
+
+---
+
+<!-- _class: list -->
+<!-- _footer: "This slide's own footer: `{FTR}` `[x]` — literal, like the rest." -->
+
+## The header up there is the proof.
+
+- Chrome is markdown too — `header:` and `footer:` render inline like a paragraph.
+- So a literal deck has to silence them as well, or a foreign deck's running header still draws.
+- Look at the top of every page in this deck: `{DEMO}` and `[x]`, as characters.
+- One slide at a time: `<!-- _class: inline-code-literal -->` scopes it without the register.
 
 ---
 
