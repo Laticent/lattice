@@ -1,4 +1,4 @@
-import { CHROME, expect, test } from './studio-fixture';
+import { expect, test } from './studio-fixture';
 
 // SHELL ↔ APP CONTROL PARITY (#1438 follow-up).
 //

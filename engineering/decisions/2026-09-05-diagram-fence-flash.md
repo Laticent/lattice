@@ -491,26 +491,257 @@ slide; G is rejected on 116KB for what CSS does for free.
 - Candidate B was not measured under the typing scenario; it differs from A only in
   what fills the reserved slot, so its source-frame count is A's by construction —
   but that is an argument, not a measurement.
-- The `~~~mermaid` export gap this uncovered is REPORTED, not fixed: `preprocessMermaid`
-  still substitutes only ```` ```mermaid ````, so those fences render as source in a PDF.
-  Widening that regex changes export bytes, which is the QUALITY BAR's stop-and-show gate
-  and a different change from this one. Off the path (HARD RULE #18), so it is logged here
-  rather than pulled into this diff.
+- ~~The `~~~mermaid` export gap this uncovered is REPORTED, not fixed~~ — CLOSED
+  (2026-09-06). Both callers now read one walker, `lib/core/mermaid-fences.js`: the CLI's
+  substitution, and the NARRATOR, whose own docblock claims it reads the same fence
+  `preprocessMermaid` renders — widening one alone would have drawn a diagram the voice
+  could not read.
+
+  **It is a line walker rather than the obvious regex, and three independent passes are why.**
+  The first version was `/(```|~~~)mermaid\n([\s\S]*?)\1/`, argued as "no looser than the
+  pattern it replaces". True, and beside the point: the pattern it replaces had defects that
+  were unreachable while only backticks were recognized, and tildes reach them. Every row
+  below was DRIVEN on the real CLI, not reasoned — and the last two destroy slides:
+
+  | input | what the export drew |
+  |---|---|
+  | `~~~mermaid` … `~~~~` (a legal longer closer) | the diagram **and a stray `~`** beside it |
+  | a `~~~mermaid` sample inside a ```` ```markdown ```` block | the teaching example, **substituted into a picture** |
+  | a fence indented at all — a diagram written under a bullet | **raw Mermaid source in the PDF**, where the preview drew a diagram |
+  | a fence whose CLOSER is indented two spaces | the fence never closed: the substitution ate two `---` separators, and a **three-slide deck exported as one page** with both diagrams and a slide of prose gone |
+  | a fence commented out inside `<!-- … -->` | **12KB of SVG in the `.notes` sidecar**, where the author had a commented-out draft |
+  | ```` ```mermaid js ```` | source — the walker demanded the tag be EXACTLY `mermaid`, while markdown takes the first token |
+
+  **Five review passes ran, and each one found a real defect in the previous one's fixes.**
+  That is the fact to carry forward from this note, more than any individual bug. Two of the
+  six rows above were introduced BY THE FIX for the others, and the worst of them never reached
+  a reviewer only because a fourth pass ran: the span started N characters before the fence
+  line, so every indented fence spliced over the end of the preceding prose — "42 million."
+  exported as "42 millio" — and at offset 0 it went negative and duplicated the document. A
+  fifth pass then found that the guard added for the slide-boundary case tested `/^---$/` and
+  closed one spelling of a thematic break out of five, so this note's own unit-test deck still
+  lost a slide with the separator changed by one character; and that the same commit's comment
+  rule, justified as "a bare `<!--` in prose really does open a comment", was wrong about the
+  engine — CommonMark opens an HTML block only at the head of a line, so a mid-line `<!--` in
+  prose silently switched off every diagram after it.
+
+  The pattern is worth naming: every one of those was a boundary, not a mechanism — which
+  spelling, which column, which line position — and every one passed lint, `build:check` and
+  8000+ unit tests. What eventually held them was not review at all but the conformance corpus
+  below, which asks the ENGINE rather than the author of the change.
+
+  **So the corpus was extended until it would have caught rounds four and five UNAIDED**, which
+  is the only way off a treadmill where each review round finds the last one's mistake. The arm
+  that does it asks a different question from the rest of the file: not "is this a fence" but
+  **what does the SPLICE do**. It substitutes a placeholder over every span the walker reports —
+  exactly as `preprocessMermaid` does, back to front — re-renders through the real engine, and
+  requires that the deck still has the same number of SLIDES and that every sentinel the author
+  wrote outside a fence is still on one of them.
+
+  Both defects were correct about *which* fences and wrong about *what the splice does*, so both
+  fall to it. Mutation-proved: reverting the span to `offset - indent.length` turns it red, and
+  so does narrowing the break guard back to `/^---$/`. A reviewer found each of those by hand,
+  once; this asks the engine on every run.
+
+  The indented pair is the one worth dwelling on. This module exists to stop a fence the
+  PREVIEW draws from printing as source, and its first version reintroduced exactly that for
+  every fence an author indents — with a green unit test asserting the behavior was correct
+  and a docblock calling the gap "pre-existing". It was not: the regex being replaced was
+  unanchored and matched at any column. Checked against what `lib/engine` ACTUALLY emits, not
+  against a reading of CommonMark: one, two and three spaces of indent all render
+  `language-mermaid`, four is an indented code block and does not.
+
+  So the module walks lines the way the parser does — up to three spaces of indent opens, the
+  content is de-indented by the opener's indent, a run of the SAME character at least as long
+  closes, a fence opened by another info string swallows what is inside it, an HTML comment is
+  not markdown, and the info string is read the way markdown-it reads it (the FIRST
+  whitespace-delimited token), so ```` ```mermaid js ```` draws on both paths.
+
+  **The durable artifact is a CONFORMANCE TEST, and it is the part to keep.**
+  `test/unit/core/fence-recognizer-conformance.test.js` runs a corpus of fence shapes through
+  `lib/engine`'s REAL render and asks whether the preview would draw each one — using the
+  runtime's own `code[class*="language-mermaid"]` selector, not a reading of CommonMark. Then
+  it asserts two things: the engine still behaves as the corpus records (so a markdown-it
+  upgrade fails here by name rather than drifting the CLI away from the preview for a year),
+  and **the walker never OVER-MATCHES** — every disagreement must be a miss, where the author
+  sees their source. That budget is zero, not "few": a miss is a visible annoyance, an
+  over-match replaces something the author wrote as literal text with a picture.
+
+  It paid for itself immediately. Within a minute of existing it failed on
+  ```` ```mermaid js ````: markdown-it emits `language-mermaid` for it, the preview drew a
+  diagram, and the walker — which required the trimmed info to EQUAL `mermaid` — printed the
+  source. The same class of defect as the indented fence, found by an instrument this time
+  instead of by an adversary.
+
+  The test also writes down what the five recognizers in this repo actually do, which was
+  prose until now and wrong in at least one place: `createFenceReader` (narration) trims, so
+  it accepts any indent; `scanFences` (grammar loading) is arbitrarily generous; the Studio's
+  `extractDiagrams` and `hasMermaid` over-report on purpose because they are diagnostics.
+  Only the walker is strict, because only the walker REPLACES source with a picture. A red-team pass measured the result against markdown-it under the
+  engine's own config over 60,000 generated cases: the walker substitutes where the engine
+  renders something else in **0.5%** of them, against **38.6%** for the regex it replaces, and
+  every residual is a MISS — the author sees their source, never a wrong picture.
+
+  **No deck moves, and that is a differential rather than a spot check.** The pre-branch
+  regex against the shipped walker over every tracked `.md` file (48 of them carry a fence):
+  identical spans and bodies everywhere except three DOCS that were substituting their own
+  teaching examples — `engineering/mermaid.md`,
+  `lib/components/diagram/diagram/diagram.docs.md`, `changelog/pre-release-archive.md` — plus
+  the new demo deck. Backed by the direct check as well: `examples/a11y.md` exports a
+  BYTE-IDENTICAL `.html` sidecar from a `git archive` of the merge-base against this branch.
+
+  **The narrator had the same defect in three more places.** `withoutFences`
+  (chart-narration) and both fence toggles in `slide-speech.js` tracked state with their own
+  backtick-only `/^```/`, so a `~~~` fence's body was never fenced as far as speech was
+  concerned — its source lines narrated. One `createFenceReader` now, shared by all three.
+
+  Differential against the merge-base over every tracked `.md`. **State the method or the
+  number means nothing** — an independent checker could not reproduce the first version of this
+  paragraph because it did not say what was being counted. Both narrators (`narrateChart` and
+  `slideToSpeech`), every non-empty block of a `\n---\n` split, the whole tracked tree including
+  the files this branch itself edits:
+
+  **19 changed · 18 files · 13 longer, 6 shorter · exactly one of the 19 carries a `~~~` FENCE
+  line.** (An earlier draft also quoted a denominator — "6463 blocks" — which did not reproduce
+  for an independent re-derivation. Every figure above did, exactly. A count nobody can
+  reproduce is the thing this paragraph is about, so it is gone rather than guessed at again.)
+
+  **The only DECK among the 18 is this change's own new demo deck**, whose narration moved
+  because the deck gained slides. Every other file is documentation — `README.md`, `design/`,
+  `docs/src/content/docs/`, four component `.docs.md`, two `engineering/` notes. No shipped
+  deck's narration moved: `exemplars/`, the baseline decks and the six galleries are untouched.
+
+  **Two things the first version of this paragraph got wrong, and an independent checker caught
+  both.** It said 7 files, which came from reading the list off a diff printer that stopped
+  after eight lines — the count was never measured, it was miscounted. And it said every change
+  was fenced code no longer read aloud. The dominant effect is the opposite: prose that had been
+  wrongly SWALLOWED and is now spoken (`lib/base/base.docs.md` goes from 391 characters of
+  narration to 8875). The cause is not the tildes either — 18 of the 19 changed blocks contain
+  none. It is the closer rule: an info-string line such as ```` ```mermaid ```` inside a
+  ```` ````markdown ```` sample used to flip a naive toggle and blank everything after it.
+
+  It also said "none is a deck" in a paragraph whose own script had printed the demo deck's
+  name. That is three corrections to one paragraph, which is the lesson of this note applied to
+  itself: a number nobody re-derives is a claim, not a measurement.
+
+  `examples/mermaid-tilde-fences.md` is the demo deck, rendered and eyeballed in light and
+  dark.
 - A's failure mode is now STRUCTURAL rather than argued: the rule requires
   `[data-lattice-diagrams]`, which only a builder injecting the MERMAID script stamps, so a
   document that will not draw the diagram cannot match it. Verified on a real export (the
   fence renders `visibility: visible`) and on the second checker's own late-fence repro.
-  What is still not driven: a document that stamps the attribute and then fails to load
-  Mermaid — a CSP that blocks the script, or a 404 on `mermaidUrl`. There the source stays
-  hidden. That exposure was ALSO not preview-only until the third checker drove it: the
-  Studio's offscreen export capture frame stamped the attribute too, and a Mermaid failure
-  inside it rasterized an empty slot where the old behavior gave raw source — confirmed
-  through the real rasterizer, and fixed by not stamping in that frame. So the residual is
-  now genuinely preview-only: a WATCHED frame that stamps and then 404s or is CSP-blocked
-  keeps the source hidden. Reasoned, not driven.
+  What was still not driven: a document that stamps the attribute and then fails to load
+  Mermaid — a CSP that blocks the script, or a 404 on `mermaidUrl`. That exposure was ALSO
+  not preview-only until the third checker drove it: the Studio's offscreen export capture
+  frame stamped the attribute too, and a Mermaid failure inside it rasterized an empty slot
+  where the old behavior gave raw source — confirmed through the real rasterizer, and fixed
+  by not stamping in that frame.
+
+  **DRIVEN 2026-09-06, and the "genuinely preview-only" line this paragraph used to end on
+  was WRONG.** The real Studio, the real Share → Webpage export, Mermaid 404'd at the network
+  for every frame the Studio opens. Read back out of the downloaded file in real Chromium:
+
+  ```
+  data-lattice-diagrams on <html>   false      ← the opt-out holds; rule A is not live
+  <pre> data-mermaid-state          "pending"
+  computed display, that <pre>      "none"     ← hidden anyway
+  the fence's own text              present in the bytes, 0×0 on the page
+  rendered SVG                      absent
+  ```
+
+  So HALF the claim is now driven and true: `diagrams: false` keeps rule A out of the export,
+  exactly as §5 says. The other half is false. **The exported file shows an empty slot
+  regardless**, through the OLDER `data-mermaid-state` rule and a mechanism none of the three
+  checkers looked at: `bootstrap()` in `lib/runtime/index.js` calls `wrapFences()`
+  UNCONDITIONALLY, before it knows whether Mermaid will ever arrive — deliberately, to cover
+  the load window — and `mermaid.css` hides a tagged `<pre>` in every state but `error`
+  (`error` deliberately keeps showing the source, which is the whole argument). When Mermaid
+  never arrives,
+  `tick()` gives up after `MERMAID_WAIT_CAP` frames and nothing un-tags them. The author's
+  only signal that their diagram did not draw is gone, in a file they downloaded. It is the
+  same harm the first checker fixed for the CLI, arriving down a third path.
+
+  **A FOURTH export path was stamping, and an independent fact-check on this branch found
+  it.** The third checker fixed the raster capture frame; the Studio's DESKTOP VECTOR PRINT
+  document (`PrintOptionsPanel.tsx`'s `printDoc`) builds through the same `buildSrcdoc` with
+  a real Mermaid URL, is mounted off-screen and handed straight to `print()`, and did not opt
+  out — so #2073's own "no export path stamps" was false when it shipped, in three documents.
+  It passes `diagrams: false` now, and unlike the claim it replaces, this one is DRIVEN: the
+  real Studio, Share → Print deck → Print, Mermaid 404'd at the network, reading the offscreen
+  print document itself, before and after:
+
+  | in the print document | stamped (before) | `diagrams: false` (after) |
+  |---|---|---|
+  | `data-lattice-diagrams` on `<html>` | **true** | **false** |
+  | `data-mermaid-state` on the `<pre>` | `pending` | `pending` |
+  | computed `display` of that `<pre>` | `none` | `none` |
+  | the fence's box | 0×0 | 0×0 |
+
+  Read the fence AFTER the FIT agent reveals `.lattice`, or the measurement is worthless —
+  `buildSrcdoc` holds the whole deck `visibility:hidden` until then, and a first attempt at
+  this measurement reported `hidden` for a document where nothing was wrong.
+
+  Two things follow. The stamp is gone. And what an author sees is unchanged TODAY, because
+  the older `data-mermaid-state` rule hides the fence either way — so this is the third
+  independent path on which a failed Mermaid prints a blank, after the CLI and the webpage
+  export. It is fixed regardless, because fixing the older rule would make the stamp live.
+  The print PREVIEW cells keep the stamp: those are watched.
+
+  The lesson is the one the third checker already drew about the CSS gate and the builder's
+  stamp — a per-caller invariant that nothing enumerates drifts. `deck-preview.test.js` now
+  carries a CENSUS of every `previewDiagramsAttr` site and every `buildSrcdoc` caller,
+  classified watched-or-exported, so an unlisted one fails.
+
+  **It took three passes to get the census itself right, and the failures are the interesting
+  part.** Mutation-proved ten times in the end:
+
+  - deleting the new `diagrams: false` left it GREEN, because the matcher was reading the
+    knob's name inside the COMMENT explaining the fix;
+  - it enumerated `buildSrcdoc` callers, but the population that matters is
+    `previewDiagramsAttr` sites — and two builders assemble their own document and call it
+    directly, so the two shapes most like the bug it was written for were invisible to it;
+  - a red-team pass got four more past it: a newline before the brace, a variable argument, a
+    renaming import, and an `.astro` file (there are 41 under `docs/src`);
+  - and a string containing an unbalanced `{` — `css: '@media print {'` is real — ran the
+    brace scan off the end of the call and swallowed the NEXT call's opt-out, certifying an
+    export document that had never opted out. A false PASS, demonstrated.
+
+  Fixing that last one by blanking string BODIES made it worse in a way worth recording: with
+  no regex- or template-literal state, one apostrophe in JSX prose opened a string that never
+  closed and blanked the rest of the file. **40 of the files it walks were already partly
+  invisible** — `studio.astro` and `slide-thumb.tsx` among them — and the test was green
+  throughout. It blanks only comments now, and the argument window runs to the next call
+  rather than matching braces, which no string content can corrupt.
+
+  A text matcher has an envelope, so the census states it and FAILS LOUDLY at its edge: a
+  document assembled inside a template literal, a value passed through a variable, or a
+  renaming import each fail the test rather than pass silently.
+
+  **The un-tag defect is not fixed here** — it is pre-existing, it predates every part of
+  #2073, and it is off the path of this change (HARD RULE #18), so it is logged rather than
+  pulled in. **Tracked as #2092**, titled by its SYMPTOM ("a diagram that fails to render
+  exports an empty slot instead of its source") rather than its mechanism, because a
+  paragraph inside a file named after a date is not where anyone will look for it. It is also not
+  a small call: the shape of the fix is for `tick()` to UN-tag its pending fences when it
+  gives up, which is a shared-runtime change that alters export bytes on an error path and
+  reaches every host the runtime boots in. That belongs to its own change, with its own
+  sign-off.
+
+  The same mechanism answers the marp-vscode half of §7 by construction, and widens it: on
+  ANY host where the runtime boots and Mermaid never becomes real — the plain markdown
+  preview's render-blocks-only stub, a CSP block, a 404 — a fence present at boot is tagged
+  and hidden, whatever `data-lattice-diagrams` says. **marp-vscode itself remains
+  UNVERIFIED** (HARD RULE #23): no VS Code host is reachable from this sandbox, so nobody has
+  opened that preview, and the hand-rolled page the second checker drove is a stand-in, not
+  the surface.
 - D's first-mount cost is now MEASURED, and it is not free. Same build, one variable — a
   three-slide deck whose third slide is a diagram, against the same deck with prose in its
   place — timing a reload to the preview's first painted `.lattice`, 5 runs each:
+
+  **SUPERSEDED — do not quote this table.** It came from a scratch script that was never
+  committed, at 5 runs, and it does not reproduce on the committed instrument. It is left in
+  place because the paragraphs below reason from it; the re-measurement is at the end of this
+  section.
 
   | | idle (×1) | loaded (×4) |
   |---|---|---|
@@ -547,6 +778,68 @@ slide; G is rejected on 116KB for what CSS does for free.
   scope, and widening it dragged the second along because they are the same variable. The
   signature needs to be constant across the deck (that is what stops the realm rebuild); the
   3.16MB bundle does not need to be in the document from the first byte. Injecting it on first sight of a fence — from the
-  runtime, inside the frame — would keep every measured win and hand back the second. Not
-  attempted here: it changes when a shared dependency loads for every preview surface, which
-  is its own change with its own blast radius. Logged rather than folded in.
+  runtime, inside the frame — would keep every measured win and hand back the second.
+
+  **THE COST IS REAL AND IT IS ABOUT 200ms, NOT 1000ms — AND THE LOADER COSTS MORE THAN IT
+  SAVES. Re-measured 2026-09-06 on a committed instrument; built, priced, and DROPPED.**
+
+  The +1000ms came from a scratch script that was never committed, at 5 runs. `bench:flash`
+  now carries the arm (`--scenario mount --deck diagram|prose`), so anyone can re-derive
+  this: it types one of two decks that differ in ONE slide — the third is a diagram, or
+  prose in its place, and the SHOWN slide is prose in both — reloads the Studio, and times
+  the reload against the preview's first `.lattice`, using `performance.timeOrigin` on both
+  sides so the two clocks are directly comparable. ×4 CPU, 11 runs, medians — on the
+  TWO-VARIABLE arms this bench originally shipped with, superseded by the corrected pair
+  below:
+
+  | | before | with the loader |
+  |---|---|---|
+  | frame's own clock → `.lattice`, diagram deck | 490ms (395–642) | 494ms (378–584) |
+  | frame's own clock → `.lattice`, prose deck | 441ms (268–597) | 448ms (376–490) |
+  | **what containing a diagram costs** | **+49ms** | **+46ms** |
+  | reload → preview revealed, diagram deck | 2274ms | 2032ms |
+  | reload → preview revealed, prose deck | 2044ms | 2016ms |
+  | window.mermaid ready, frame's own clock | 754ms | 1182ms |
+
+  **HOW BIG THE COST ACTUALLY IS.** Five passes, at ×4, 9–11 runs each, of the diagram deck's
+  reveal minus the prose deck's: **−61ms, +199ms, +230ms, +16ms, +222ms**. The first four ran
+  on arms that differed in TWO things — a red-team pass caught that the prose arm had dropped
+  `<!-- _class: diagram -->` along with the fence, so the difference carried the `diagram`
+  component's own layout cost as well as Mermaid's. The fifth is the corrected one-variable
+  pair and is the one to quote: **+222ms page-total, +25ms frame-local**. So the note's
+  original +1000ms is about five times too large — and "there is no cost", which an earlier
+  draft of this paragraph said, is wrong in the other direction. There is a cost, it is around
+  200ms on a loaded machine, and it sits at the edge of what this instrument can resolve.
+
+  The frame-local half explains why it is small: `.lattice` is in the markup BEFORE the script
+  tag, so the parser reaches the slide either way, and the bundle's cost lands after that.
+
+  **WHY THE LOADER STILL DID NOT SHIP.** Its page-total effect was inside the spread on the
+  arms it was measured with (+199ms and +16ms, the two-variable pair), so it was never shown
+  to remove that 200ms. What it DID have was a cost with a stable sign: `window.mermaid` ready
+  moved from 754ms to 1182ms in the frame's own clock — **+428ms**, the same direction in
+  every arm — bought against a frame-local saving of about 3ms that is itself inside the
+  spread. A measurable cost against an unmeasured benefit is a decision, not a coin flip. HARD
+  RULE #19 is the rest: a perf win without a reproducible measurement is unproven.
+
+  **Reopen it with an instrument that can separate 200ms**, and re-measure the loader on the
+  corrected arms first — its numbers above are from the two-variable pair.
+
+  The prototype worked and is worth describing, because the next person will have the same
+  idea. `mermaidLoaderAgent()` in `deck-preview.js` — an inline script in the frame that
+  appends the same `<script src>` on the first of (a) a fence present at first paint, (b) a
+  fence arriving later, (c) the document going idle. Every path fires inside the runtime's
+  own ~10s bootstrap poll (`MERMAID_WAIT_CAP`), so it needs no hook into `lib/runtime`. Two
+  callers must keep the plain tag: the Stage window (a diagram missing mid-talk is worse
+  than a slower open) and the Studio's offscreen export capture frame, whose `rAF` and
+  `requestIdleCallback` are paused or starved in a backgrounded tab — which is exactly where
+  the print export runs. It also does NOT deliver the decoupling its own name promises: the
+  warm-up still fires off the deck-scoped `mermaid` PROP, so the signature term and the
+  injection switch remain one variable. Making the injection genuinely content-driven means
+  dropping the warm-up, which puts the injection outside that 10s poll and needs a runtime
+  hook — more blast radius again, for the same ~50ms.
+
+  So the conflation stands, documented, at a measured price of about 50ms of frame-local
+  work. Reopen this only with a measurement that separates the two arms by more than the
+  instrument's spread — a slower machine, a heavier throttle, or a metric with less of the
+  Studio's own boot in it.

@@ -152,13 +152,21 @@ export function numberSlides(source) {
 // same-marker wrapper. A model emits ~~~ essentially never, so the collision goes
 // away by marker class. `parseEdits` still ACCEPTS a backtick wrapper (a model that
 // ignores this shouldn't lose its edit) and reports the collision when one bites.
+//
+// "ESSENTIALLY NEVER" IS ABOUT THE MODEL, NOT THE DECK, and the deck half got likelier on
+// 2026-09-06: `~~~mermaid` now renders on the export path too, so it is a documented
+// authoring shape rather than an accident. A tilde-fenced slide inside a tilde wrapper is
+// refused loudly (the collision is detected, with the remedy), but the protocol never told
+// the model how to get out of it — so it now says: use a LONGER run. See
+// engineering/decisions/2026-09-05-diagram-fence-flash.md §7.
 // See engineering/decisions/2026-08-04-chat-edit-protocol.md.
 export const EDIT_PROTOCOL =
   'EDITING — you can change the deck, not just advise. When the author agrees to a ' +
   'change, propose it as an EDIT BLOCK; the app shows them a diff and an Apply button ' +
   '(nothing changes until they click). Rules:\n' +
   '- Wrap the block in a TILDE fence — NEVER backticks. The slide inside will contain ' +
-  '```mermaid / ```chart fences, and a backtick wrapper collides with them:\n' +
+  '```mermaid / ```chart fences, and a backtick wrapper collides with them. If the slide ' +
+  'you are editing carries its OWN ~~~ fence, make your wrapper LONGER than it (~~~~):\n' +
   '  ~~~lattice-edit slide=3\n' +
   '  <!-- _class: cards-grid -->\n' +
   '  ## Heading\n' +

@@ -1728,6 +1728,8 @@ const { resolveSize, orientationFor, orientationCss, geometryVarsCss } = require
 // stamp makes, so the split gate and the components can never disagree about which box this is.
 const { familyFor } = require('./lib/adaptive/families');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
+// The one pattern that says "this is a Mermaid fence", shared with the narrator (#1).
+const { matchMermaidFences } = require('./lib/core/mermaid-fences');
 // Reoriented raw Mermaid definitions, index-aligned with the `data-mmd-idx` stamp on each
 // rendered `.mermaid-svg`. The image-set export's cross-scheme SVG look uses this to RE-BAKE a
 // diagram in a different scheme (mmdc bakes colors at render time, so a CSS restyle can't recolor
@@ -1779,15 +1781,19 @@ function preprocessMermaid(source) {
   // Collect the fences, then let the kernel walk. Two passes rather than rendering
   // inside `String.replace`, because the kernel owns the walk now — and because a
   // walk over real slides is what makes the band per SLIDE rather than per fence.
+  // BOTH fence characters. The matcher is shared with the NARRATOR (lib/core/mermaid-fences.js)
+  // because `narrateDiagram` states the invariant that it reads the same fence this renders —
+  // and it used to carry its own copy of the same regex, backticks only. Widening only one of
+  // them would draw a `~~~mermaid` diagram the voice could not read.
   const fences = [];
-  for (const m of source.matchAll(/```mermaid\n([\s\S]*?)```/g)) {
-    const slideIndex = Math.max(0, slideIndexAt(spans, m.index));
+  for (const m of matchMermaidFences(source)) {
+    const slideIndex = Math.max(0, slideIndexAt(spans, m.start));
     fences.push({
-      matchStart: m.index,
-      matchEnd: m.index + m[0].length,
+      matchStart: m.start,
+      matchEnd: m.end,
       slideIndex,
-      slideClass: slideClassAt(spans, m.index),
-      source: reorientMermaidForPortrait(m[1].trim(), orientation),
+      slideClass: slideClassAt(spans, m.start),
+      source: reorientMermaidForPortrait(m.body.trim(), orientation),
     });
   }
   if (fences.length === 0) return source;

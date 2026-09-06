@@ -111,6 +111,174 @@ describe('buildSrcdoc', () => {
 		assert.match(buildSrcdoc({ ...withFence, diagrams: false }), /src="\/m\.js"/);
 	});
 
+	// A CENSUS OF THE STAMPERS, because the per-caller knob is the shape that keeps being got
+	// wrong. `data-lattice-diagrams` is a document's promise that something will draw a fence,
+	// and the rule that promise switches on withholds the fence's ink — right for a frame a
+	// human WATCHES, wrong for a document whose bytes the author keeps, where a Mermaid
+	// failure turns their unrendered source into an empty slot.
+	//
+	// #2073 fixed that for the raster capture frame and MISSED the desktop vector print
+	// document, because nothing in the tree enumerated the population: three documents said
+	// "no export path stamps" while one did.
+	//
+	// THE POPULATION IS `previewDiagramsAttr` CALL SITES, not `buildSrcdoc` ones, and the
+	// first version of this census got that wrong. Two builders assemble their own
+	// `<!doctype html>` and call the stamp directly — `single-slide-render.ts` and the Present
+	// stage window — so a `buildSrcdoc`-scoped census could not see either, which is the same
+	// blind spot in a new place. Every call site is listed below with what it builds; a new one
+	// fails here until someone classifies it.
+	//
+	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §5 and §7.
+	test('every document that can stamp data-lattice-diagrams is classified', async () => {
+		const fs = require('node:fs');
+		const path = require('node:path');
+		const root = path.join(__dirname, '../../../docs/src');
+		// file → one entry per call site, in source order. `true` = this site can stamp an
+		// EXPORT document (one whose bytes the author keeps) and must be gated so it does not.
+		const EXPECTED = {
+			// The shared builder. Gated on its `diagrams` knob, which is what its callers set.
+			'playground/deck-preview.js': ['gated'],
+			// The single-slide preview frame — the Studio editor, thumbs, landing previews.
+			'lib/single-slide-render.ts': ['watched'],
+			// The Present stage window: a presenter is watching it.
+			'components/studio/present/stage-window.js': ['watched'],
+		};
+		// And every caller of the gated builder, with what it hands the knob.
+		const KNOB = {
+			// renderDeck's full write — the deck preview frame. Forwards `...opts`; every host
+			// that reaches it today is a live preview.
+			'playground/deck-preview.js': ['default'],
+			// The print PREVIEW cells (watched), then the DESKTOP PRINT document (offscreen at
+			// -10000px, handed straight to print() — the author's PDF).
+			'components/studio/PrintOptionsPanel.tsx': ['default', 'false'],
+			// The offscreen raster capture frame: rasterized through html-to-image, which bakes
+			// the computed style into the .pdf/.png/.pptx.
+			'components/studio/export/deck-export.js': ['false'],
+		};
+		// COMMENTS BLANKED, STRINGS LEFT ALONE — and the second half is the correction that
+		// matters. An earlier version blanked string BODIES too, to stop a call whose CSS
+		// argument carried an unbalanced `{` from running off the end of the brace scan. It
+		// also had no regex-literal or template-literal state, so one apostrophe in JSX prose
+		// ("Here's the footer") opened a string that never closed and blanked the REST OF THE
+		// FILE: 40 of the files walked here were already partly invisible, `studio.astro` and
+		// `slide-thumb.tsx` among them. A census that cannot see the tree is worse than none.
+		//
+		// So: blank comment bodies only (the reason this exists — this file's own prose
+		// discusses `buildSrcdoc` and `diagrams: false` at length, and a matcher cannot tell a
+		// mention from a call), and drop brace-matching entirely. The argument window runs to
+		// the NEXT `buildSrcdoc(` or end of file, which no string content can corrupt.
+		//
+		// THE ENVELOPE, stated because a text matcher has one: this sees a literal
+		// `buildSrcdoc({…})` or `previewDiagramsAttr(…)` call. It cannot read a document
+		// assembled inside a template literal, and it cannot follow a value passed through a
+		// variable — so both of those, and any renaming import, FAIL LOUDLY below rather than
+		// pass silently.
+		const codeOnly = (text) => {
+			const out = text.split('');
+			const blank = (from, to) => {
+				for (let k = from; k < to && k < out.length; k++) if (out[k] !== '\n') out[k] = ' ';
+			};
+			for (let i = 0; i < text.length; ) {
+				const two = text.slice(i, i + 2);
+				if (two === '//') {
+					const end = text.indexOf('\n', i);
+					blank(i, end === -1 ? text.length : end);
+					i = end === -1 ? text.length : end;
+				} else if (two === '/*') {
+					const end = text.indexOf('*/', i + 2);
+					blank(i, end === -1 ? text.length : end + 2);
+					i = end === -1 ? text.length : end + 2;
+				} else i++;
+			}
+			return out.join('');
+		};
+		const stamps = {};
+		const knobs = {};
+		const indirect = [];
+		const walk = (dir) => {
+			for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+				const p = path.join(dir, e.name);
+				if (e.isDirectory()) {
+					walk(p);
+					continue;
+				}
+				// `.astro` is in scope: `docs/src` has 41 of them and one already imports this
+				// module and installs it on `window`. Leaving them out was a hole a red-team pass
+				// walked through.
+				if (!/\.(js|ts|tsx|mjs|astro)$/.test(e.name) || /\.test\./.test(e.name)) continue;
+				const text = codeOnly(fs.readFileSync(p, 'utf8'));
+				const rel = path.relative(root, p);
+				// Stamp sites. The definition and the import line are not call sites.
+				for (const m of text.matchAll(/previewDiagramsAttr\(/g)) {
+					const before = text.slice(Math.max(0, m.index - 30), m.index);
+					if (/function\s+$/.test(before) || /import\s*\{[^}]*$/.test(before)) continue;
+					(stamps[rel] ||= []).push(rel.endsWith('deck-preview.js') ? 'gated' : 'watched');
+				}
+				// Callers of the gated builder, and what each passes. The window runs to the NEXT
+				// call or end of file — no brace matching, so no string content can corrupt it.
+				const calls = [...text.matchAll(/buildSrcdoc\s*\(\s*\{/g)].filter(
+					(m) => !/function\s+$/.test(text.slice(Math.max(0, m.index - 20), m.index)),
+				);
+				calls.forEach((m, k) => {
+					const stop = k + 1 < calls.length ? calls[k + 1].index : text.length;
+					// THE KNOB MUST BE A PROPERTY, not a mention. Blanking string bodies is what
+					// made 40 files invisible, so strings are left alone — which means a literal
+					// `diagrams: false` inside one would satisfy a bare substring test. It did:
+					// deleting the real opt-out from the export capture frame and leaving
+					// `"set diagrams: false to opt out"` behind it kept this test GREEN. Two
+					// cheap discriminators close it. Same-line quoted runs are blanked (a
+					// single-line blank cannot run away the way an unterminated one did), and the
+					// match must follow a `{` or `,` — an object property does, English prose
+					// does not.
+					const window = text
+						.slice(m.index, stop)
+						.replace(/(['"`])(?:\\.|(?!\1)[^\\\n])*\1/g, (q) => q[0] + ' '.repeat(Math.max(0, q.length - 2)) + q[0]);
+					(knobs[rel] ||= []).push(/[{,]\s*diagrams:\s*false\b/.test(window) ? 'false' : 'default');
+				});
+				// AN INDIRECT REFERENCE THIS SCAN CANNOT CLASSIFY. `buildSrcdoc(opts)`, an alias,
+				// or a value passed on — each is a document this census would silently miss, so it
+				// FAILS rather than certifying a tree it cannot read. This is the honest edge of a
+				// text matcher, and it is the one that has to be loud.
+				for (const m of text.matchAll(/\b(?:buildSrcdoc|previewDiagramsAttr)\b/g)) {
+					const after = text.slice(m.index + m[0].length, m.index + m[0].length + 40);
+					const before = text.slice(Math.max(0, m.index - 40), m.index);
+					// `previewDiagramsAttr` takes a plain argument, `buildSrcdoc` an object literal.
+					const isCall = m[0] === 'buildSrcdoc' ? /^\s*\(\s*\{/.test(after) : /^\s*\(/.test(after);
+					const isDefn = /function\s+$/.test(before);
+					// A RENAMING import hides the call behind a name this scan never looks for —
+					// `import { buildSrcdoc as bsd }` then `bsd({…})`. It is the one evasion that
+					// survived the first hardening pass, so it is called out by name.
+					const isRenamed = /^\s*as\s+\w/.test(after);
+					const isImportOrExport = !isRenamed && (/(import|export)\s*\{[^}]*$/.test(before) || /^\s*[,}]/.test(after));
+					if (!isCall && !isDefn && !isImportOrExport) indirect.push(`${rel}: …${text.slice(Math.max(0, m.index - 25), m.index + 35).replace(/\n/g, ' ')}…`);
+				}
+			}
+		};
+		walk(root);
+		const listed = (found, want, what) => {
+			assert.deepEqual(
+				Object.keys(found).sort(),
+				Object.keys(want).sort(),
+				`${what}: a file appeared or vanished. A NEW one must be added to this census with ` +
+					'what it builds — a document nobody watches, whose bytes the author keeps, must not ' +
+					'withhold a fence it failed to draw. A file that vanished means the entry is stale.',
+			);
+			for (const [file, expect] of Object.entries(want)) {
+				assert.deepEqual(found[file], expect, `${what} — ${file}: each site must be ${expect.join(', then ')}`);
+			}
+		};
+		assert.deepEqual(
+			indirect,
+			[],
+			'a `buildSrcdoc` reference this census cannot classify — an alias, a variable argument, ' +
+				'or a value passed on. Give it a literal object argument, or teach this test to read it. ' +
+				'A document nobody watches, whose bytes the author keeps, must not withhold a fence it ' +
+				'failed to draw, and this scan cannot tell whether that one does.',
+		);
+		listed(stamps, EXPECTED, 'stamp sites');
+		listed(knobs, KNOB, 'buildSrcdoc callers');
+	});
+
 	test('always injects the link guard so an external tap cannot navigate (blank) the frame', async () => {
 		const { buildSrcdoc } = await load();
 		// The guard is unconditional (every filmstrip srcdoc), capture-phase, gated to

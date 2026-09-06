@@ -2,7 +2,8 @@
 
 ## 5.1 Diagrams in Markdown
 
-Write a fenced ` ```mermaid ` block. That is the whole authoring surface — the
+Write a fenced ` ```mermaid ` block — or a `~~~mermaid` one, which CommonMark treats as
+the same thing and so does the engine. That is the whole authoring surface — the
 engine owns the render on both paths, and neither one is Marp's built-in Mermaid:
 
 ````markdown
@@ -19,8 +20,32 @@ flowchart LR
 
 | Path | Who renders | When |
 | --- | --- | --- |
-| PDF / export (`lattice-emulator.js`) | `mmdc` (Mermaid's CLI, one process per diagram) | build time, pre-rendered to inline SVG |
+| PDF / export (`lattice-emulator.js`) | the engine's own Mermaid render worker, one batched child process (it replaced a per-diagram `mmdc` shell-out — `lib/integrations/mermaid/render-worker.js`) | build time, pre-rendered to inline SVG |
 | Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode |
+
+**Both fence characters, on both paths.** markdown-it emits `class="language-mermaid"` for
+a tilde fence exactly as it does for a backtick one, so the preview has always rendered
+either — but the export's substitution was backtick-only until 2026-09-06, and a
+`~~~mermaid` fence therefore rendered in the preview the author was working in and printed
+as raw source in the PDF. Both callers now read one walker
+(`lib/core/mermaid-fences.js`): the substitution, and the NARRATOR, which speaks a diagram
+slide from the same fence it renders.
+
+It walks lines rather than matching a regex, because a regex got five things wrong that only
+became reachable once tildes were recognized — a longer closing run left a stray `~` on the
+slide, a fence shown inside another fence was drawn as a picture, an INDENTED fence was not a
+fence at all (so a diagram written under a bullet printed as source), an indented CLOSER let
+one substitution swallow two slide separators, and a fence commented out was rendered into the
+speaker notes. All five driven on the real CLI. What the walker recognizes is checked against
+what the engine ACTUALLY emits: up to three spaces of indent is a fence, four is an indented
+code block, and an HTML comment is not markdown.
+
+What no SHIPPED deck sees is any change at all: measured against the pattern it replaces over
+every tracked markdown file, four files move — three DOCS that were substituting their own
+teaching examples, and the demo deck this change adds, whose tilde and indented fences are the
+point. That proves no regression and nothing more: apart from that deck, nothing here indents
+a Mermaid fence or writes one with tildes, so there was nothing for it to find. The hazard
+arrives with the decks written after this, which is what the unit arms are for.
 
 **The `.html` player takes a third step past either path: it BAKES the diagram.**
 The player sanitizes its slide DOM (`sanitizeSlideHtml`), and that sanitizer bars
@@ -87,24 +112,41 @@ fence; this one covers the window before that, which nothing did.
 not the runtime.** Hiding a diagram's source is right only where something is going to
 draw it, so the attribute is written by the BUILDER that injects Mermaid —
 `previewDiagramsAttr()` in `docs/src/playground/deck-preview.js`, called by the two
-preview frames, the Stage window and the Studio's export capture frame, and by nothing
-else. A document we did not assemble
+preview frames and the Stage window, and by nothing else. A document we did not assemble
 (a hand-rolled Marp page, marp-vscode's own preview) never gets it and keeps showing the
 source; so do the CLI export and the `.html` player builder, which is what keeps a
-fence the CLI could not substitute readable rather than blank. One export path DOES stamp,
-and it is worth knowing: the Studio's offscreen capture frame is built by `buildSrcdoc`
-with a real Mermaid URL, so the rule is live inside it — correctly, since Mermaid renders
-there, and the file it produces is re-assembled by the player builder, which does not stamp. It has to be in the MARKUP, not set
-by script at boot: the window this covers starts at the first paint of a full document
+fence the CLI could not substitute readable rather than blank. **No document whose bytes
+the author keeps stamps** — two build through this same `buildSrcdoc` with a real Mermaid
+URL and would otherwise, so both pass `diagrams: false`: the offscreen RASTER capture
+frame (rasterized through `html-to-image`, which copies the COMPUTED style onto its clone,
+so a `visibility:hidden` this rule applied is baked into the .pdf / .png / .pptx) and the
+desktop VECTOR PRINT document (mounted off-screen and handed straight to `print()`). The
+print PREVIEW cells beside it do stamp, correctly: those are watched. Which caller is
+which is a census, not a convention — `deck-preview.test.js` fails on a `buildSrcdoc` call
+site nobody has classified, because the print document was missed exactly once and three
+documents said otherwise. Driven on the real Share → Webpage export with the bundle 404'd:
+the exported `<html>` carries no `data-lattice-diagrams`. It has to be in the MARKUP, not
+set by script at boot: the window this covers starts at the first paint of a full document
 write.
+
+**What that opt-out does NOT buy, and it was only found by driving it.** The same export
+still shows an empty slot when Mermaid fails, through the OLDER `data-mermaid-state` rule
+(which hides a tagged `<pre>` in every state but `error`): `bootstrap()` tags every fence
+`pending` before it can know whether Mermaid will arrive — deliberately, since that covers
+the load window — `tick()` gives up after ~10s, and nothing un-tags them. Pre-existing,
+wider than the export, and logged rather than fixed — see
+`engineering/decisions/2026-09-05-diagram-fence-flash.md` §7.
 
 Two wrong versions of that gate shipped before this one, and both are worth knowing
 because both looked right:
 
 - **Ungated.** The rule matched anywhere the stylesheet did. `preprocessMermaid`
-  (`lattice-emulator.js`) substitutes only ```` ```mermaid ````, so a `~~~mermaid` fence
-  reaches the exported HTML unsubstituted with the runtime stripped — and the author's
-  only signal that the CLI never drew their diagram became an empty slot, in export bytes.
+  (`lattice-emulator.js`) substituted only ```` ```mermaid ```` at the time, so a
+  `~~~mermaid` fence reached the exported HTML unsubstituted with the runtime stripped —
+  and the author's only signal that the CLI never drew their diagram became an empty slot,
+  in export bytes. (That substitution gap is closed now — see §5.1 — but the gate stays:
+  the CLI can still fail to draw a fence for other reasons, and an empty slot is the wrong
+  way to say so.)
 - **Gated on `data-lattice-runtime`.** That is a name `lib/runtime/index.js` has always
   written on `document.documentElement` at boot, so the rule switched itself on in every
   document the runtime booted in — precisely the set it was meant to spare. On a host with
