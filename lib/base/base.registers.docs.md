@@ -341,6 +341,14 @@ cleanly.
 | `arrow` | `eyebrow-arrow` | A leading chevron (`›`) in the accent color. |
 | `underline` | `eyebrow-underline` | A hairline rule beneath the label. |
 
+**What this decorates has to BE an eyebrow first, and a pill is not one.** The kicker is a
+POSITION — a paragraph whose only child is a `<code>` element — so `` `{DRAFT}:c2` `` or
+`` `[x]` `` on that line renders as a pill or a mark alone on a line, and no `eyebrow:`
+treatment reaches it. Escape it (`` `\{DRAFT}` ``) to keep the `<code>` and keep the
+kicker. Measured harmless across shipped decks (1,273 eyebrows, zero affected) and gated by
+`test/unit/css/eyebrow-position-shadow.test.js`; see *Eyebrow labels* in
+[`base.docs.md`](base.docs.md).
+
 Pick **one** eyebrow treatment deck-wide so every kicker reads as one family — mixing marks
 per slide reads as a ransom note. Together `spectrum:` / `rule:` / `eyebrow:` are the Finish
 axis's **accent** sub-family (marks on chrome), distinct from `finish:` (backdrops behind

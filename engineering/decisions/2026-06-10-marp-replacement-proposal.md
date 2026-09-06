@@ -596,8 +596,25 @@ vars:
 footer: "`$client` · `$quarter` · `$slide.page`/`$slide.total`"
 ```
 
-**Built-in variables (a proposed *extension* to that grammar).** The inline-code
-note covers only author `vars:`; the engine should also expose render-time
+**Built-in variables (a proposed *extension* to that grammar).**
+
+> **SUPERSEDED 2026-09-06 on the SPELLING — the forms below are BRACED:
+> `` `{$now.date}` ``, `` `{$deck.title}` ``, `` `{$slide.page}` ``.** Everything else in
+> this table stands: the namespaces, what each resolves to, render-time resolution after
+> the split, and unknown-renders-literal-plus-lint-warn.
+>
+> The bare `` `$now.date` `` written below would be a THIRD opening character beside the
+> `{` and `[` that shipped in #2066 (`{LABEL}` pills, `[x]` marks). One brace pair
+> dispatches everything, with `$` as a NAMESPACE inside it rather than an opener — so the
+> grammar is braces-dispatch / brackets-mark, two characters with one rule each. The `$`
+> is kept rather than collapsing to `` `{now.date}` `` because dropping it would put
+> built-ins in the same namespace as author pill labels and require reserved words inside
+> that namespace — the mechanism deliberately refused for `{x}`.
+>
+> Reasoning and the measurement behind it:
+> `2026-05-11-inline-code-directives.md` § AMENDMENT 2026-09-06.
+
+The inline-code note covers only author `vars:`; the engine should also expose render-time
 built-ins. They slot into the existing dotted-path syntax under **reserved
 namespaces** (so they can't collide with a user `vars:` key, which is a bare
 identifier):

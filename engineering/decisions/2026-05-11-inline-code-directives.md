@@ -107,6 +107,61 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > becomes the general dispatch marker and `[x]` is the lone exception rather than a
 > separate vocabulary; revisit the respell at that point, not before.
 
+> **AMENDMENT 2026-09-06 — the fork above resolved, in the direction it predicted, and
+> the `$` grammar is BRACED: `` `{$now.date}` ``, not `` `$now.date` ``.**
+>
+> It came up immediately. `2026-06-10-marp-replacement-proposal.md` §12.5 proposes
+> render-time built-ins — `$now.date` / `$now.time` / `$now.datetime` / `$now.year`,
+> plus `$deck.*` and `$slide.*` — and specs them BARE. Shipped that way they would be a
+> THIRD opening character beside `{` and `[`, which is exactly the fraying the paragraph
+> above names.
+>
+> **The decision: `{}` is the dispatch marker, and `$` is a namespace INSIDE it.**
+> `` `{$now.date}` ``, `` `{$deck.title}` ``, `` `{$slide.page}/{$slide.total}` ``. The
+> grammar is then two characters with one rule each — **braces dispatch, brackets mark** —
+> rather than three vocabularies.
+>
+> **Why the sigil stays rather than collapsing to `` `{now.date}` ``.** Dropping `$` would
+> put built-ins in the same namespace as user pill labels, so `` `{now.date}` `` and
+> `` `{LABEL}` `` compete and the resolver needs reserved WORDS inside author label space.
+> That is the mechanism we deliberately refused for `{x}` (§ reserved markers), and
+> refusing it there while adopting it here would be incoherent. Keeping `$` means the
+> dispatcher routes on the character after the brace — cheap, and no author label is ever
+> shadowed.
+>
+> **What this does NOT change: `[x]` stays.** Measured 2026-09-06 across shipped decks —
+> 5 live inline `` `[x]` `` against **1,304** bare `- [x]` markers in 39 decks. Unifying
+> the marker is a 1,304-occurrence migration that also abandons GFM task-list syntax; the
+> brace decision above costs one character on a form nobody has written yet. Brackets are
+> the MARKER vocabulary (bare and inline, one spelling); braces are the DISPATCH grammar.
+> The two are not competing spellings of one idea.
+>
+> **Consequence for #289 / #288:** the acceptance criteria on both should read the braced
+> form. §12.5's table is superseded by this paragraph, and says so there.
+
+> **AMENDMENT 2026-09-06 — the EYEBROW position is shadowed by this grammar, measured
+> harmless, and now written down.**
+>
+> The eyebrow kicker is a POSITION, not a register: a paragraph whose only child is inline
+> code, immediately before a heading or list. The CSS is
+> `section p:has(> code:only-child):has(+ h1)` (`base.modifiers.css`) — it requires a
+> `<code>` ELEMENT. This grammar replaces that `<code>` with a `<span class="lat-pill">`,
+> so the paragraph stops matching and **the eyebrow promotion silently drops**: the author
+> gets a pill alone on a line instead of a kicker.
+>
+> **Measured before calling it harmless: 1,273 eyebrow-position spans across every shipped
+> deck, ZERO of which dispatch.** None starts with a brace; none is a bare marker. Real
+> eyebrows read `` `Section 01` `` and `` `H1 FY26 · 1,840 person-hours` ``. So this is a
+> shadow, not a regression — but the position is no longer "any inline code," which was
+> written down nowhere. It is now, in `base.docs.md` and `base.registers.docs.md`, and
+> `test/unit/css/eyebrow-position-shadow.test.js` fails if a shipped deck ever writes one.
+>
+> **Deliberately NOT fixed by widening the selector.** Letting `.lat-pill` satisfy the
+> eyebrow rule would make `` `{Q3 REVIEW}:c2` `` a colored kicker, which is a real
+> capability — and the eyebrow's mono-caps, letterspaced styling would then fight the pill
+> chrome. That is a visual design task with a review pass, not a one-line selector change,
+> so it is not smuggled in here.
+
 ## What's already done
 
 - **Branch `claude/fix-emoji-rendering-WO4vI`** ships the unicode-emoji
