@@ -6081,6 +6081,15 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'so a trailing `\\r` arrives as part of a card title.',
   },
   {
+    file: 'tools/check-chart-fit.js',
+    why: '`--style` — the same shape as check-jank.js below, and for the same reason: a '
+       + 'stylesheet handed on the command line is spliced into the fixture deck as a YAML '
+       + 'BLOCK SCALAR, where a CR rides to the end of every injected line and a BOM lands '
+       + 'mid-document. Here the flag IS the gate\'s falsifiability lever — the control run '
+       + 'that proves it can still go red — so a silently different deck would make the '
+       + 'control prove nothing while reporting that it had.',
+  },
+  {
     file: 'tools/check-jank.js',
     why: '`--style` — a user\'s stylesheet, spliced into the sweep deck as a YAML BLOCK SCALAR. '
        + 'The damage shape is the block scalar rather than a defeated `^---` anchor (the deck '

@@ -555,7 +555,7 @@ viewBoxes, identical counts), and a control that makes those same `<li>` boxes
 VISIBLE still fires all four reports — so the filter separates painted from
 not-painted rather than defanging the arm.
 
-**Two found and NOT fixed, named rather than filed:**
+**Two found and NOT fixed here. The first is now fixed — see §9.5.**
 
 - **A label can graze a node on a diagonal run.** The clearance floor is an
   axis-aligned guarantee; a diagonal edge takes its label at the arc-length
@@ -564,6 +564,7 @@ not-painted rather than defanging the arm.
   collision. The code comment claimed the floor prevents this "ever"; that claim is
   corrected in place. The real fix — place the label on the longest axis-aligned
   segment of the route — is a placement change owing its own visual review.
+  **This proposed fix was wrong, and §9.5 records what replaced it.**
 - **Nothing names a typo'd `:::token`.** The docblock, the docs and the manifest
   all said "`lint:deck` is where a typo gets named"; `lib/authoring/lint-core.js`
   has no `:::` handling at all. HARD RULE #29 was cited to justify the omission and
@@ -580,6 +581,60 @@ a synthetic resize event on a fixed viewport, so the `ResizeObserver` that owns 
 redraw never fires. Re-evaluating the pass's own `<script>` does fire it, and the
 oscillation reproduces every time. Worth recording because the harness, not the
 finding, is what differed.
+
+### 9.5 The label grazing is fixed, and the fix proposed for it was wrong
+
+§9.4 named a defect and a remedy. The defect was real and is now closed; the
+remedy would have made it worse, which is the part worth keeping.
+
+**The proposal.** "Place the label on the longest AXIS-ALIGNED segment of the
+route (dagre's orthogonal routes always have one)." Both halves are false, and
+one measurement settles both: **dagre-d3-es does not route orthogonally.** It
+emits a point per rank boundary, so a route is a short stub at each node border
+joined by long DIAGONALS — the same property §3.2 records from the other side
+("dagre fans three edges out of Triage as separately traceable diagonals").
+Counted off the shipped decks, on the two figures that actually grazed:
+
+| figure | longest axis-aligned segment | longest segment overall |
+|---|---:|---:|
+| `state-chart-stress` fig 4, 8 edges | 34px | 229 · 238 · **277**px |
+| `state-chart-stress` fig 3 | 9px (one edge has **none**) | 47 · 111px |
+
+The longest axis-aligned segment is the stub where the edge leaves a node. An
+anchor there parks every label a few pixels from a node border — decisively
+worse than the 3px graze it was meant to fix. It reads plausibly and it is
+wrong, which is the failure mode this record keeps running into.
+
+**What shipped instead: slide the label along its own edge.** Keep the
+arc-length midpoint, and when the label's box collides, walk outward through
+candidate points on the same polyline — then, only if nothing on the home side
+is clear, the mirror side. The label stays on the edge it names, which is the
+property that makes it readable at all.
+
+Three things make it behave:
+
+- **The midpoint is tried first and kept when clear**, so a label that does not
+  collide is emitted at exactly the coordinate it had before. Measured across the
+  four state-chart decks: **2 pages of 38 changed**, and the two demo decks whose
+  machines never grazed re-render byte-identically.
+- **The tested box is inflated past the line box.** Measured over the 22 labels
+  of `examples/state-chart-branching.md`, a one-line label's real `getBBox()` is
+  14px against the 13px line box and sits 1.48px above it — `dominant-baseline:
+  middle` does not centre the glyph box — and `paint-order: stroke` adds a halo
+  `getBBox` never reports. The first cut tested the bare line box and left two of
+  three collisions standing, at ~0.7px.
+- **The fallback is the least-bad candidate, not the midpoint.** Keeping the
+  midpoint when nothing is clear pushed `block` further INTO `reject` than it
+  started, trading one collision for a worse one. A node overlap is weighted
+  above a label overlap: a label over a node hides the state's name and its
+  gradient, while two labels that touch are still both readable.
+
+**Measured, in a real browser off the rendered decks** (HARD RULE #23 — the label
+is `<text>`, so its extent depends on the font that actually drew it):
+**118 labels across the four state-chart decks, 3 overlapping → 0.** The probe
+reproduces §9.4's own numbers before the change (3.28px and 1.63px against nodes)
+and finds a third §9.4 did not name — `block` overlapping the `reject` LABEL by
+1.9px, which the deck rendered as the single garbled token `reject›lock`.
 
 ## 8. Open
 

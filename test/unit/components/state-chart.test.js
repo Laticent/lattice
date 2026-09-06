@@ -1740,6 +1740,203 @@ describe('dagre re-ranking (fake DOM)', () => {
       'a two-line event label must emit one tspan per line');
   });
 
+  // ── an edge label never lands on a node, or on another label ───────────────
+  //
+  // The clearance floor fed to dagre is an AXIS-ALIGNED guarantee: it reserves
+  // room along the rank and cross axes, which bounds a label sitting beside a
+  // straight run and bounds nothing beside a diagonal one. Measured on the
+  // shipped decks before the collision walk: `accept` overlapped node 2 by
+  // 3.28px, `block` overlapped node 9 by 1.63px, and `block` overlapped the
+  // `reject` label by 1.9px — 3 collisions across 118 labels.
+  //
+  // THE FIX THE DEFECT'S OWN NOTE PROPOSED IS THE WRONG ONE, and the reason is
+  // worth keeping: it said to anchor the label on "the longest AXIS-ALIGNED
+  // segment of the route (dagre's orthogonal routes always have one)". Measured,
+  // dagre-d3-es does not route orthogonally — it emits a point per rank boundary,
+  // so a route is a short stub at each node border joined by long diagonals. On
+  // the two figures that actually grazed, the longest axis-aligned segment was
+  // 34px against a 277px diagonal, and one edge had none at all. Anchoring there
+  // parks the label against a node border, which is worse than the graze.
+  describe('edge labels clear the boxes around them', () => {
+    const LH = 13;   // G.labelLine — the line box the renderer models against
+
+    // Both boxes as the renderer computes them. The width uses `makeLabelW`'s
+    // NO-CANVAS fallback (`len * 6.6 * S`), which is the branch a fake DOM takes,
+    // so these are the same numbers the pass itself worked from.
+    const geometry = (svg) => {
+      const attr = (tag, k) => { const m = tag.match(new RegExp(`${k}="([^"]*)"`)); return m ? m[1] : null; };
+      const nodes = [...svg.matchAll(
+        /<rect class="state-node-shape"[^>]*\bx="([-\d.]+)" y="([-\d.]+)" width="([-\d.]+)" height="([-\d.]+)"/g)]
+        .map((m) => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }));
+      const labels = [...svg.matchAll(/<text class="state-edge-label"([^>]*)>([\s\S]*?)<\/text>/g)].map((m) => {
+        const tag = m[1], body = m[2];
+        const tsp = [...body.matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)<\/tspan>/g)];
+        const lines = tsp.length ? tsp.map((t) => t[3]) : [body];
+        const cx = tsp.length ? +tsp[0][1] : +attr(tag, 'x');
+        const cy = tsp.length ? +tsp[0][2] + ((tsp.length - 1) * LH) / 2 : +attr(tag, 'y');
+        const w = Math.max(...lines.map((l) => l.length * 6.6));
+        const h = lines.length * LH;
+        const anc = attr(tag, 'text-anchor');
+        return { x: anc === 'start' ? cx : anc === 'end' ? cx - w : cx - w / 2,
+          y: cy - h / 2, w, h, cx, cy, anchor: anc, text: lines.join(' / ') };
+      });
+      return { nodes, labels };
+    };
+    const overlaps = (a, b) => (
+      Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0
+      && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0);
+
+    // A branch that rejoins, with labels long enough that the naive midpoint of
+    // the diagonal into `Blocked` puts `submit for review` over a node box. This
+    // spec is the arm's whole point: it is RED without the collision walk (one
+    // label-node overlap) and green with it. A spec that never collides would
+    // certify nothing.
+    const REJOIN = { dir: 'tb',
+      nodes: [n(1, 'Open', 'start'), n(2, 'Work'), n(3, 'Review'), n(4, 'Blocked'), n(5, 'Done')],
+      transitions: [e(1, 2, 'start'), e(2, 3, 'submit for review'), e(2, 4, 'block'),
+        e(4, 2, 'unblock'), e(3, 5, 'ship')] };
+
+    test('no label box overlaps a node box', { skip: !hasDagre }, () => {
+      const { nodes, labels } = geometry(run(REJOIN).svg);
+      assert.ok(labels.length >= 5, `expected the machine's labels, got ${labels.length}`);
+      for (const l of labels) {
+        for (const nd of nodes) {
+          assert.equal(overlaps(l, nd), false,
+            `"${l.text}" sits on the node at ${nd.x},${nd.y} — the label is unreadable and so is the state`);
+        }
+      }
+    });
+
+    test('no two label boxes overlap', { skip: !hasDagre }, () => {
+      const { labels } = geometry(run(REJOIN).svg);
+      for (let i = 0; i < labels.length; i++) {
+        for (let j = i + 1; j < labels.length; j++) {
+          assert.equal(overlaps(labels[i], labels[j]), false,
+            `"${labels[i].text}" and "${labels[j].text}" overlap — they read as one garbled token`);
+        }
+      }
+    });
+
+    // THE BLAST RADIUS, asserted rather than assumed. The walk tries the arc-length
+    // midpoint FIRST and keeps it whenever it is clear, so a machine with no
+    // collision must be laid out exactly as it was before the walk existed —
+    // measured across the four shipped state-chart decks, 2 pages of 38 changed.
+    // Recovering the home position from the DRAWN PATH rather than hardcoding
+    // coordinates keeps this from breaking on unrelated spacing changes.
+    test('a label that does not collide stays on its edge midpoint', { skip: !hasDagre }, () => {
+      const svg = run(FAN).svg;
+      const groups = [...svg.matchAll(/<g class="state-edge-group"[^>]*>([\s\S]*?)<\/g>/g)].map((m) => m[1]);
+      let checked = 0;
+      for (const g of groups) {
+        const d = (g.match(/<path class="state-edge"[^>]*\bd="([^"]+)"/) || [])[1];
+        const lab = g.match(/<text class="state-edge-label"[^>]*\bx="([-\d.]+)" y="([-\d.]+)"/);
+        if (!d || !lab || d.includes('C')) continue;
+        const pts = [...d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => ({ x: +m[1], y: +m[2] }));
+        let total = 0;
+        for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        let seen = 0, mid = pts[0];
+        for (let i = 1; i < pts.length; i++) {
+          const seg = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+          if (seen + seg >= total / 2) {
+            const u = seg > 0 ? (total / 2 - seen) / seg : 0;
+            mid = { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u,
+              y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u };
+            break;
+          }
+          seen += seg;
+        }
+        // FAN is `tb`: the label sits to the RIGHT of the run, `labelOff` (7) across,
+        // vertically centred on the midpoint.
+        assert.ok(Math.abs(+lab[1] - (mid.x + 7)) < 0.2 && Math.abs(+lab[2] - mid.y) < 0.2,
+          `an uncrowded label moved: drawn at ${lab[1]},${lab[2]}, midpoint puts it at ${(mid.x + 7).toFixed(1)},${mid.y.toFixed(1)}`);
+        checked++;
+      }
+      assert.ok(checked >= 3, `expected several straight labelled edges to check, got ${checked}`);
+    });
+  });
+
+  // ── the export gate READS REAL RENDERED MARKUP ────────────────────────────
+  //
+  // The agreement arm below drives `machineBranches` with a hand-built topology.
+  // Everything BETWEEN the rendered deck and that call — the figure splitter, the
+  // attribute regexes, the entity un-escaping, the `data-states` cross-check, the
+  // `data-kind="terminal"` read — is what actually runs on every CLI export, and
+  // it had no arm at all. A reader that silently stopped parsing would answer
+  // TRUE for everything (the safe direction), so nothing would break and the
+  // saving would just quietly disappear; a reader that mis-parsed the other way
+  // ships a branching machine as a numbered column.
+  describe('the export gate on real rendered decks', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const ROOT = path.join(__dirname, '..', '..', '..');
+    const engine = require('../../../lib/engine/index.js');
+    const { htmlNeedsDagre, figureChunks, figureNeedsDagre } =
+      require('../../../lib/components/chart/state-chart/state-chart.adoption.js');
+    const render = (rel) => engine.render(fs.readFileSync(path.join(ROOT, rel), 'utf8')).html;
+
+    // THE CLAIM THE WHOLE OPTIMIZATION RESTS ON. Every machine in the shipped
+    // gallery is a chain, so no gallery export owes the 63.7 KB engine. If a
+    // gallery ever gains a branching machine this goes red, which is the right
+    // outcome: the number in the decision record stops being true that day.
+    test('the shipped state-chart gallery needs no layout engine', { skip: !hasDagre }, () => {
+      const html = render('lib/components/chart/state-chart/state-chart.gallery.md');
+      const figs = figureChunks(html);
+      assert.ok(figs.length >= 8, `expected the gallery's figures, found ${figs.length}`);
+      const adopting = figs.filter(figureNeedsDagre);
+      assert.equal(adopting.length, 0,
+        `${adopting.length} gallery machine(s) branch — every one of them is supposed to be a chain`);
+      assert.equal(htmlNeedsDagre(html), false);
+    });
+
+    // …AND THE READER CAN STILL SAY YES. Without this the arm above is satisfied
+    // by a reader that answers `false` unconditionally — which is the dangerous
+    // direction, and the one no other arm here would notice.
+    test('a shipped branching deck does need it', { skip: !hasDagre }, () => {
+      const html = render('examples/state-chart-branching.md');
+      const figs = figureChunks(html);
+      const adopting = figs.filter(figureNeedsDagre).length;
+      assert.ok(adopting >= 1 && adopting < figs.length,
+        `expected SOME of the ${figs.length} figures to branch, got ${adopting} — all or none means the reader is not discriminating`);
+      assert.equal(htmlNeedsDagre(html), true);
+    });
+
+    test('a deck with no state chart needs nothing, without parsing anything', { skip: !hasDagre }, () => {
+      assert.equal(htmlNeedsDagre('<section><h2>Just prose</h2></section>'), false);
+      assert.equal(htmlNeedsDagre(''), false);
+      assert.equal(htmlNeedsDagre(null), false);
+    });
+
+    // The `inline` variant renders chips, carries no `data-sc-transitions`, and is
+    // never drawn by the browser pass — so it can never need a layout engine.
+    test('an inline-variant figure never asks for the engine', { skip: !hasDagre }, () => {
+      const inline = '<div class="state-chart-figure" data-variant="inline" data-sc-dir="tb" '
+        + 'data-states="3" data-transitions="2"><ol class="state-rows"></ol></div>';
+      assert.equal(htmlNeedsDagre(inline), false);
+      assert.equal(figureNeedsDagre(figureChunks(inline)[0]), false);
+    });
+
+    // EVERY UNREADABLE SHAPE ANSWERS TRUE. A false positive ships an unused
+    // engine; a false negative silently returns a branching machine to the
+    // numbered column. These are the shapes a hostile or hand-edited deck can
+    // present to a regex reading its own output.
+    for (const [name, html] of [
+      ['unparseable transitions JSON',
+        '<div class="state-chart-figure" data-sc-dir="tb" data-states="2" data-sc-transitions="{{{"><ol></ol></div>'],
+      ['transitions that are not an array',
+        '<div class="state-chart-figure" data-sc-dir="tb" data-states="2" data-sc-transitions="7"><ol></ol></div>'],
+      ['a node count that disagrees with data-states',
+        '<div class="state-chart-figure" data-sc-dir="tb" data-states="9" data-sc-transitions="[]">'
+        + '<li class="state-node" data-index="1">A</li></div>'],
+      ['no recognisable nodes at all',
+        '<div class="state-chart-figure" data-sc-dir="tb" data-states="2" data-sc-transitions="[]"><ol></ol></div>'],
+    ]) {
+      test(`${name} ships the engine rather than guessing`, { skip: !hasDagre }, () => {
+        assert.equal(htmlNeedsDagre(html), true,
+          'an unreadable figure must err toward shipping the engine — the other direction is silent and wrong');
+      });
+    }
+  });
+
   // ── the export gate agrees with the pass, machine for machine ──────────────
   //
   // `state-chart.adoption.js` decides in NODE whether an export owes the 63.7 KB

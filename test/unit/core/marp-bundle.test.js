@@ -455,6 +455,31 @@ describe('marp bundle — the overflow-marker export setting', () => {
     assert.match(withRuntimeScripts(deck), /<script src="my-own-widget\.js"><\/script>/);
   });
 
+  // A DECK MAY QUOTE OUR OWN TAG BLOCK, and the kit's "how to wire the runtime"
+  // slide does — inside a fenced code block. Matching a tag SET rather than an exact
+  // string is what lets the strip survive the set changing, and it is also what
+  // widened the pattern enough to gut that fence: an unanchored match ate the tags
+  // and left an empty ```html``` in a delivered deck. The strip is anchored to the
+  // END for that reason — the block it removes is one this function appended, and by
+  // then it is the last thing in the document.
+  test('a deck that QUOTES the tag block in a code fence keeps it', () => {
+    const deck = ['---', 'marp: true', '---', '', '# Wiring', '',
+      'Add these to the end of your deck:', '', '```html',
+      '<!-- markdownlint-disable MD033 -->',
+      '<script src="lattice-dagre.min.js"></script>',
+      '<script src="lattice-runtime.min.js"></script>',
+      '```', '', 'Then open it in a browser.', ''].join('\n');
+    const out = withRuntimeScripts(deck);
+    assert.match(out, /```html\n<!-- markdownlint-disable MD033 -->\n<script src="lattice-dagre\.min\.js"><\/script>/,
+      'the quoted block was eaten — an author\'s own code fence is not ours to strip');
+    assert.match(out, /Then open it in a browser\./, 'and the prose after it survives');
+    // …and the real block is still appended exactly once, so the fix did not trade
+    // one silent defect for another.
+    assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 2,
+      'expected the quoted block plus exactly one appended block');
+    assert.equal(withRuntimeScripts(out), out, 'and re-exporting is still idempotent');
+  });
+
   test('re-exporting at the same level is byte-identical, with one block', () => {
     const once = withRuntimeScripts('---\nmarp: true\n---\n\n# A\n', { overflowMarker: 'reader' });
     const twice = withRuntimeScripts(once, { overflowMarker: 'reader' });

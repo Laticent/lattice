@@ -334,7 +334,17 @@ function withTimeout(p, ms) {
 	return Promise.race([Promise.resolve(p), new Promise((res) => setTimeout(res, ms))]);
 }
 
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl }) {
+// DESTRUCTURED BY NAME, and every asset URL a rendered slide can need has to be
+// listed here. `createCaptureFrame(render)` is handed the whole `DeckRender`, so a
+// field this list omits is dropped SILENTLY — `buildSrcdoc` defaults each URL to
+// `''` and simply emits no tag. That is how `dagreUrl` was lost when the layout
+// engine moved out of the runtime bundle: it was threaded correctly through
+// `SingleSlideOptions` and `buildDeckRender`, and fell out at this one hop, so a
+// branching state chart previewed as a fan-out and EXPORTED as a numbered column
+// — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
+// below. Not a blank chart; a plausible wrong one, in bytes handed to someone
+// else.
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl, dagreUrl }) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	const host = document.createElement('div');
@@ -361,6 +371,9 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// export-behavior decision covering the CLI too, not a local tweak.
 		const srcdoc = buildSrcdoc({ html, css, mode, geom: { w: gw, h: gh }, runtimeUrl, fontCss,
 			...(mermaidUrl ? { mermaidUrl } : {}),
+			// The dagre layout engine. `buildSrcdoc` still gates the tag on the slide
+			// actually carrying a drawn state chart, so a chart-less export fetches nothing.
+			...(dagreUrl ? { dagreUrl } : {}),
 			csp: false,
 			// `diagrams: false` — do NOT stamp `data-lattice-diagrams` here. Rule A hides an
 			// un-tagged mermaid fence, which is right for a frame a human watches and wrong for

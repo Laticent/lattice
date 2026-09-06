@@ -2766,9 +2766,23 @@ if (hasStateChart) {
     if (needsDagre) {
       try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* column fallback */ }
     }
+    // WITHHELD ON PURPOSE, and the document says so. `lib/runtime/index.js` warns
+    // when a state chart is present and the engine is not, because everywhere else
+    // that means a host forgot the tag. Here it means the gate looked at the deck's
+    // own machines and found nothing to lay out, so the warning would be a false
+    // alarm — on the exact artifact it exists to protect.
+    //
+    // MEASURED SCOPE, because the case is narrower than it looks: the only export
+    // that inlines the runtime at all is `--fluid`, and there the runtime's
+    // state-chart transform does not run (the SVG is already drawn by the pass
+    // above), so the warning does not fire today with or without this marker. It is
+    // one line that makes "withheld deliberately" distinguishable from "forgotten"
+    // at the moment the export knows the difference, rather than a fix for an alarm
+    // anyone has heard.
+    const noDagreMark = hasStateChart && !dagreIife ? 'globalThis.__latticeDagreNotNeeded=1;\n' : '';
     stateChartScript = dagreIife
       ? `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${STATE_CHART_BROWSER_JS}\n</script>`
-      : `${ENGINE_SCRIPT_OPEN}\n${STATE_CHART_BROWSER_JS}\n</script>`;
+      : `${ENGINE_SCRIPT_OPEN}\n${noDagreMark}${STATE_CHART_BROWSER_JS}\n</script>`;
   } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
 }
 

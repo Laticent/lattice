@@ -144,6 +144,29 @@ test('the relative paths the hosts request are the ones sync-playground-assets s
 		'docs/src/components/Specimen.astro',
 		'docs/src/components/craft/CraftLab.astro',
 	];
+	// The FORWARDING hop, not an originating host — and it is on this list because
+	// omitting it is exactly how the dagre URL was lost once already.
+	// `createCaptureFrame` destructures the `DeckRender` it is handed by NAME, so a
+	// field missing from that list is dropped silently and `buildSrcdoc` emits no
+	// tag. Every Studio export goes through it, so a branching state chart previewed
+	// as a fan-out and exported as a numbered column. The five hosts above all
+	// passed; nothing looked at the hop in between.
+	//
+	// ASSERTED ON THE DESTRUCTURE LIST, not on the file text. The first cut of this
+	// arm was `text.includes('dagreUrl')`, and it stayed green when the name was
+	// removed from the signature — the file still mentions it in a comment and in
+	// the spread two lines below. A guard that cannot fail is the thing this file
+	// keeps being written to prevent.
+	const CAPTURE = 'docs/src/components/studio/export/deck-export.js';
+	const captureSrc = fs.readFileSync(path.join(REPO, CAPTURE), 'utf8');
+	const params = (captureSrc.match(/async function createCaptureFrame\(\{([^}]*)\}/) || [])[1];
+	assert.ok(params, `${CAPTURE} no longer declares createCaptureFrame({ … }) — this arm cannot see what it forwards`);
+	for (const url of ['runtimeUrl', 'mermaidUrl', 'dagreUrl']) {
+		assert.ok(
+			new RegExp(`\\b${url}\\b`).test(params),
+			`createCaptureFrame must destructure ${url} — it takes the whole DeckRender and names its fields, so one left out is dropped SILENTLY: buildSrcdoc defaults the URL to '' and emits no tag, and every Studio export (.pdf, .pptx, .png, the shared player) ships a render missing that asset. Saw: { ${params.trim()} }`,
+		);
+	}
 	for (const rel of hosts) {
 		const text = fs.readFileSync(path.join(REPO, rel), 'utf8');
 		assert.ok(

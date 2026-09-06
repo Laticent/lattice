@@ -1799,11 +1799,13 @@ function exampleDecks() {
  * there. That is what makes them the right default rather than a Marp-only
  * footnote.
  */
-const RUNTIME_TAGS = [
-  '<!-- markdownlint-disable MD033 -->',
-  '<script src="mermaid-v11.min.js"></script>',
-  '<script src="lattice-runtime.min.js"></script>',
-];
+// DERIVED, not re-listed. This used to be a hand-copy of `RUNTIME_SCRIPTS` in
+// lib/core/marp-bundle.js, and it drifted the moment that list changed: dagre was
+// split out of the runtime bundle, the marp path gained a third tag, and this copy
+// silently kept emitting two — HARD RULE #1, in the small. Reading the one source
+// means a fourth engine lands here for free, and a rename cannot desynchronise them.
+const { RUNTIME_SCRIPTS } = require('../lib/core/marp-bundle.js');
+const RUNTIME_TAGS = RUNTIME_SCRIPTS.trim().split('\n');
 
 /**
  * examples/lattice-example-starter.md — the one deck to copy.
