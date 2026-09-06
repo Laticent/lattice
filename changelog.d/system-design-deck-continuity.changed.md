@@ -2,7 +2,7 @@
   section boundaries.** Six kit-opening slides (data, compute, network, scale,
   reliability, security) open by paying a debt instead of starting cold: five to
   the kit that just closed, and the data kit, which has none before it, to Part
-  three's rung one. The compute kit answers the data kit's promise that every
+  three's removal test. The compute kit answers the data kit's promise that every
   derived copy rebuilds unattended with the thing that runs the rebuild; the
   scale kit shows the cache and the replica returning as scaling moves; the
   security kit asks reliability's fail-apart question about credentials. None of

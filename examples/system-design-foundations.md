@@ -1724,7 +1724,7 @@ flowchart TB
 
 ## Three workloads land on your desk. Say what each one runs on.
 
-One: a nightly job that reads the whole orders table and writes one report file — forty minutes, once a day. Two: an API taking three thousand requests a second, deployed six times a day by four teams. Three: a thumbnail made whenever somebody uploads a photo — a few hundred a day, none overnight.
+One: a nightly job that reads the whole orders table and writes one report file — forty minutes, once a day. Two: an API taking three thousand requests a second, deployed six times a day by four teams. Three: a thumbnail made whenever somebody uploads a photo — a few hundred a day, at no fixed time.
 
 Name what each should run on, and the invariant it fails first if you get it wrong. Then turn the page.
 
@@ -1849,7 +1849,7 @@ flowchart LR
 
 Nothing changes that. The measured 150 milliseconds is well above the straight-line floor, because packets do not travel in straight lines and every hop queues.
 
-A design that needs three sequential intercontinental round trips has spent half a second on distance alone, whatever else it does in between. Replication, caching and edge delivery all exist to buy that distance back, and none of them makes it free.
+A design that needs three sequential intercontinental round trips has spent nearly half a second on distance alone, whatever else it does in between. Replication, caching and edge delivery all exist to buy that distance back, and none of them makes it free.
 
 ---
 
@@ -3621,7 +3621,7 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ## The most useful entry here is the one we refused.
 
-Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, sixty slides before this design began.
+Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, nearly ninety slides before this design began.
 
 - What the card said
   - Walk away when you have relationships but only ever join two hops.
