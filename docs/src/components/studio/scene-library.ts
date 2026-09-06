@@ -38,9 +38,35 @@ export type StudioScene = {
 	art?: string; // source:'svg' line-art markup (UNTRUSTED — sanitize before preview)
 };
 
+/** The spec shape a record was written under. Stamped on every save from #2071 onward.
+ *  A record with NO `specVersion` was written before we counted — which is "older than the
+ *  stamp", NOT "corrupt". That distinction is the whole point: it lets a future schema change
+ *  MIGRATE a record instead of dropping it, which is exactly what
+ *  `2026-09-02-frame-model-for-motion.md` §7c says was missing. */
+export const SCENE_SPEC_VERSION = 1;
+
+/** A stored record whose spec no longer validates. It is KEPT, not dropped — see
+ *  `listStoredScenes`. `raw` is the record exactly as persisted, so an export can hand the
+ *  user's work back byte-for-byte even though nothing can render it. */
+export type UnreadableScene = {
+	valid: false;
+	id: string;
+	name: string;
+	label: string;
+	description?: string;
+	/** Why `parseScene` rejected it — shown to the user, never swallowed. */
+	reason: string;
+	/** `undefined` for a record written before the stamp existed. */
+	specVersion?: number;
+	raw: unknown;
+};
+
+/** Every stored scene, readable or not. The discriminant is `valid`. */
+export type StoredScene = { valid: true; scene: StudioScene } | UnreadableScene;
+
 // The asset record asset-store persists. `kind:'scene'` keeps it in its own lane
 // (listAssets filters by kind), beside 'theme' / 'component' / 'finish'.
-type SceneAssetRecord = { id: string; kind: 'scene'; name: string; label?: string; description?: string; spec?: unknown; poster?: string; art?: string; addedAt?: number };
+type SceneAssetRecord = { id: string; kind: 'scene'; name: string; label?: string; description?: string; spec?: unknown; poster?: string; art?: string; addedAt?: number; specVersion?: number };
 
 /** The engine a scene targets, derived from its source (built→Zdog, svg→Vivus). */
 export function sceneEngine(spec: Scene): 'zdog' | 'vivus' {
@@ -64,12 +90,14 @@ export function slugify(text: string): string {
 		.replace(/-+$/, '');
 }
 
-function toStudioScene(a: SceneAssetRecord): StudioScene | null {
-	// The spec is the source of truth — a record whose spec no longer validates is
-	// dropped (fail-closed), so a corrupt/old record never yields an unrenderable scene.
+function toStoredScene(a: SceneAssetRecord): StoredScene {
+	// The spec is still the source of truth, and a record that fails to parse still never
+	// yields a renderable scene — but it is now REPORTED rather than erased. Fail-closed on
+	// RENDERING, fail-open on EXISTENCE: the two are different guarantees, and conflating them
+	// is what made a schema change able to delete a user's work (frame model §7c).
 	const r = parseScene(a.spec);
-	if (!r.ok) return null;
-	return { id: a.id, name: a.name, label: a.label || a.name, description: a.description, spec: r.scene, poster: a.poster, art: a.art };
+	if (!r.ok) return { valid: false, id: a.id, name: a.name, label: a.label || a.name, description: a.description, reason: r.errors.join('; '), specVersion: a.specVersion, raw: a };
+	return { valid: true, scene: { id: a.id, name: a.name, label: a.label || a.name, description: a.description, spec: r.scene, poster: a.poster, art: a.art } };
 }
 
 /**
@@ -95,6 +123,7 @@ export async function saveStudioScene(input: { id?: string; name: string; label?
 		poster,
 		art,
 		addedAt: Date.now(),
+		specVersion: SCENE_SPEC_VERSION,
 	};
 	const { id: _drop, ...rest } = record;
 	const stored = (await putAsset((input.id ? { ...rest, id: input.id } : rest) as unknown as SceneAssetRecord)) as SceneAssetRecord;
@@ -103,14 +132,59 @@ export async function saveStudioScene(input: { id?: string; name: string; label?
 	return { id: stored.id, name: stored.name, label: stored.label || stored.name, description: stored.description, spec: r.scene, poster: stored.poster, art: stored.art };
 }
 
-/** Every saved scene, newest first. Returns [] when the store is unavailable. */
+/**
+ * Every stored scene, newest first — READABLE OR NOT, and it THROWS when the store fails.
+ *
+ * Both halves are the fix for the data-loss defect in
+ * `2026-09-02-frame-model-for-motion.md` §7c, and each closes a different silent failure:
+ *
+ *  1. **Nothing is filtered away.** `listStudioScenes` used to drop every record whose spec no
+ *     longer validated. Because `workspace-backup.ts` builds the backup FROM that list, a
+ *     tightened schema deleted the user's scenes from the Library *and* from the only copy they
+ *     had — with no message. A caller that needs renderable scenes filters at its own call site,
+ *     where the drop is visible and countable.
+ *  2. **A failed read is not an empty shelf.** The old `catch { return [] }` let a transient
+ *     IndexedDB failure at backup time produce a backup that cheerfully reported `0 scene(s)`.
+ *     A backup is the one caller that must never confuse "I could not read" with "there is
+ *     nothing there", so this one rejects and the caller decides.
+ *
+ * `listStudioScenes` keeps the old forgiving contract for the UI callers that want it.
+ */
+export async function listStoredScenes(): Promise<StoredScene[]> {
+	const rows = (await listAssets('scene')) as SceneAssetRecord[];
+	return rows.map(toStoredScene);
+}
+
+/** Every RENDERABLE saved scene, newest first. Returns [] when the store is unavailable — the
+ *  module's long-standing "a read never throws" contract, kept for the UI callers that rely on
+ *  it. Anything that must not lose a record (a backup, an export) uses `listStoredScenes`. */
 export async function listStudioScenes(): Promise<StudioScene[]> {
 	try {
-		const rows = (await listAssets('scene')) as SceneAssetRecord[];
-		return rows.map(toStudioScene).filter((s): s is StudioScene => s != null);
+		const rows = await listStoredScenes();
+		return rows.filter((r): r is { valid: true; scene: StudioScene } => r.valid).map((r) => r.scene);
 	} catch {
 		return [];
 	}
+}
+
+/**
+ * Put an UNREADABLE record back exactly as it was — the restore half of the §7c fix.
+ *
+ * `saveStudioScene` validates, and must: it is the path a fabricated or AI-authored scene takes,
+ * and an invalid spec there is a bug to refuse. But a record that was already on the user's shelf
+ * before a schema tightened is not a bug to refuse — it is their work, and a restore that silently
+ * declined to put it back would re-open the same hole from the other end.
+ *
+ * The one thing that is NOT preserved verbatim is the untrusted markup: `poster`/`art` still go
+ * through `sanitizeSceneAssets`, because HARD RULE #22's store-boundary guarantee has to hold on
+ * EVERY write, and a backup file is exactly the hand-editable input that guarantee exists for.
+ */
+export async function putUnreadableScene(raw: unknown): Promise<void> {
+	if (!raw || typeof raw !== 'object') return;
+	const rec = raw as SceneAssetRecord;
+	if (!rec.name) return;
+	const { id: _drop, ...rest } = rec;
+	await putAsset({ ...rest, ...sanitizeSceneAssets({ poster: rec.poster, art: rec.art }), kind: 'scene' } as unknown as SceneAssetRecord);
 }
 
 /** Remove a saved scene by id (no-op if the store is unavailable). */
