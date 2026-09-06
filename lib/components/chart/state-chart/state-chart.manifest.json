@@ -62,7 +62,7 @@
     "transitions": {
       "selector": "ol > li > ul > li",
       "required": false,
-      "description": "Outgoing transitions from a state — one per nested bullet. Each carries a single inline-code arrow `event=>N` or `=>N` (event optional). Target is a state index or the literal `self` for self-loops. Whitespace inside the inline code is insignificant."
+      "description": "Outgoing transitions from a state — one per nested bullet. Each carries a single inline-code arrow `event=>N` or `=>N` (event optional). Target is a state index or the literal `self` for self-loops. Whitespace inside the inline code is insignificant. The event text may carry explicit line breaks — a literal `\\n` or an HTML `<br>` / `<br/>` — and anything still too long for the rank gap wraps on its own (never mid-word). Labels sit OFF the line: BELOW it on `lr`, to the RIGHT of it on the default, so a two-line label never punches a hole through the edge it belongs to."
     },
     "detail": {
       "selector": "ol > li > ul > li (prose, no arrow)",

@@ -1,0 +1,2 @@
+- `state-chart` edge labels now sit **off the line** — below it on `lr`, to the right of it on the default — so a multi-line label no longer knocks a hole through its own edge. Event text accepts explicit breaks (`\n` or `<br/>`) and wraps on its own when it is still too long, never mid-word.
+- Edge length is **responsive**: the rank gap stretches so a `tb` machine fills the stage's height and an `lr` machine fills its width, floored at the room the labels actually need — so a sparse machine gets air and a label can never reach a node.

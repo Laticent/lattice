@@ -854,9 +854,24 @@ describe('browser layout (fake DOM)', () => {
     });
 
     test('multiple edges sharing a face take distinct slots', () => {
-      // Router: 1→3, 1→4, 1→5 all leave state 1's right face (1→2 is the
-      // adjacent spine). Their attachment y-coords must be distinct.
-      const { svg, rects } = runLayout(ROUTER);
+      // A CHAIN WITH SKIPS, deliberately not ROUTER's four-way fan-out: ROUTER
+      // puts four nodes in one rank, so it is now re-ranked by dagre and routed
+      // by dagre's polylines — the 5-slot picker is never reached on it, and
+      // asserting the picker's output there would test nothing. A chain ranks
+      // linearly and keeps the column, and its three skips still stack on state
+      // 1's right face, which is the case this picker exists for.
+      const SKIPS = {
+        dir: 'tb',
+        nodes: [
+          node(1, 'Dispatch', 'start'), node(2, 'Handler A'), node(3, 'Handler B'),
+          node(4, 'Handler C'), node(5, 'Dead Letter', 'terminal'),
+        ],
+        transitions: [
+          tr(1, 2, 'a'), tr(2, 3, 'b'), tr(3, 4, 'c'), tr(4, 5, 'd'),
+          tr(1, 3, 'skip3'), tr(1, 4, 'skip4'), tr(1, 5, 'skip5'),
+        ],
+      };
+      const { svg, rects } = runLayout(SKIPS);
       const rightX = rects[1].x + rects[1].w + GAP;
       const starts = extractPaths(svg)
         .filter((p) => !p.isSelf)
@@ -1077,66 +1092,152 @@ describe('state-chart `:::token` tint channel', () => {
   });
 });
 
-/**
- * dagre re-ranking — the hybrid layout rule.
- *
- * A CHAIN keeps the numbered column: `state i at row i` is not an approximation
- * of good layout for a chain, it IS good layout, and keeping it means the six
- * shipped galleries and their committed PDFs cannot churn. A BRANCHING machine
- * has no correct single-column rendering, and that is the case dagre exists for.
- *
- * These are transform-level tests: the adoption decision happens inside the
- * browser pass (it needs measured boxes), so what is pinned here is the SHAPE of
- * the contract — that the pass is self-contained, reads the engine off a global,
- * and degrades to the column rather than throwing when that global is absent.
- * The positional guarantee itself is verified by rendering: the gallery's node
- * geometry is byte-identical before and after this change.
- */
-describe('state-chart dagre re-ranking contract', () => {
-  const src = installStateChartLayout.toString();
+// ── dagre re-ranking (behavioral, via a fake DOM) ────────────────────────
+// These replace an earlier set that regex-matched the pass's own SOURCE TEXT.
+// An independent checker showed that set could not fail on ANY of the four real
+// defects it was meant to guard — the start marker clipped off-canvas, `curved`
+// becoming a no-op, duplicate transitions collapsing onto one route, and chains
+// being re-ranked — because all four leave the source strings intact. Asserting
+// that a string is present is not asserting that a coordinate is right.
+describe('dagre re-ranking (fake DOM)', () => {
+  // The pass reaches a layout engine only through this global (it is serialised
+  // by .toString() and carries no imports); requiring the module installs it.
+  require('../../../lib/core/dagre-layout.js');
+  const hasDagre = Boolean(globalThis.__latticeDagre);
+  const NODE_H = 40, ROW_GAP = 48, CX = 400;
 
-  test('the pass reads the engine off a global, never an import', () => {
-    assert.match(src, /globalThis\.__latticeDagre/,
-      'a stringified function carries no module scope — a global is the only channel');
-    assert.equal(/\brequire\s*\(/.test(src), false,
-      'a require() inside the pass would be dead code once it is serialised');
-    assert.equal(/\bimport\s+/.test(src), false);
+  function run(spec) {
+    const rects = {};
+    let y = 60;
+    for (const nd of spec.nodes) {
+      const w = 70 + String(nd.label).length * 7;
+      rects[nd.index] = { x: CX - w / 2, y, w, h: NODE_H };
+      y += NODE_H + ROW_GAP;
+    }
+    const els = spec.nodes.map((nd) => {
+      const a = { 'data-index': String(nd.index), 'data-kind': nd.kind || null };
+      const r = rects[nd.index];
+      return {
+        getAttribute: (k) => (Object.hasOwn(a, k) ? a[k] : null),
+        querySelector: () => null,
+        getBoundingClientRect: () => ({ left: r.x, top: r.y, width: r.w, height: r.h }),
+      };
+    });
+    const svg = { _attrs: {}, innerHTML: '<title>t</title><desc>d</desc>',
+      setAttribute(k, v) { this._attrs[k] = v; } };
+    const at = {
+      'data-sc-transitions': JSON.stringify(spec.transitions),
+      'data-sc-dir': spec.dir === 'lr' ? 'lr' : 'tb',
+      'data-sc-style': spec.style === 'curved' ? 'curved' : null,
+    };
+    const fig = {
+      getAttribute: (k) => (Object.hasOwn(at, k) ? at[k] : null),
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 2400, height: 1200 }),
+      closest: (s2) => (s2 === 'section'
+        ? { getBoundingClientRect: () => ({ width: 1280 }) } : null),
+      querySelector: (s2) => (s2 === '.state-chart-edges' ? svg
+        : s2 === '.state-nodes' ? { style: {} } : null),
+      querySelectorAll: (s2) => (s2 === '.state-node' ? els : []),
+    };
+    installStateChartLayout({
+      readyState: 'complete',
+      addEventListener() {},
+      // BOTH selectors: the pass narrows to `[data-sc-transitions]`, and a stub
+      // answering only the bare class returns no figures — the draw never runs
+      // and every assertion below reads an untouched <svg>, green and vacuous.
+      querySelectorAll: (s2) => (
+        s2 === '.state-chart-figure[data-sc-transitions]' || s2 === '.state-chart-figure'
+          ? [fig] : []),
+    });
+    return { svg: svg.innerHTML, viewBox: svg._attrs.viewBox, rects };
+  }
+
+  const shapes = (svg) => [...svg.matchAll(
+    /<rect class="state-node-shape"[^>]*\bx="([-\d.]+)" y="([-\d.]+)"/g)]
+    .map((m) => ({ x: +m[1], y: +m[2] }));
+
+  const n = (index, label, kind) => ({ index, label, kind });
+  const e = (from, to, event) => ({ from, to, event, isSelf: from === to });
+
+  const FAN = {
+    dir: 'tb',
+    nodes: [n(1, 'Intake', 'start'), n(2, 'Triage'), n(3, 'Fast'), n(4, 'Deep'), n(5, 'Hold')],
+    transitions: [e(1, 2, 'triage'), e(2, 3, 'fast'), e(2, 4, 'deep'), e(2, 5, 'hold')],
+  };
+
+  test('a fan-out is re-ranked — two nodes share a rank', { skip: !hasDagre }, () => {
+    const ys = shapes(run(FAN).svg).map((v) => Math.round(v.y));
+    assert.ok(ys.filter((v, i) => ys.indexOf(v) !== i).length >= 2,
+      `expected a shared rank, got ys ${ys.join(',')}`);
   });
 
-  test('a missing engine falls back to the column instead of throwing', () => {
-    // The guard is what makes the whole feature safe to ship: hosts that never
-    // load dagre (a clone with no `npm install`) must render today's layout.
-    assert.match(src, /if \(!D \|\| typeof D\.Graph !== 'function'\) return null;/);
-    // …and any internal failure is caught rather than taking the diagram down.
-    assert.match(src, /catch \(_e\) \{\s*\n?\s*return null;/);
+  // F1. The start marker is painted `markerGap + startR` BEYOND the first node —
+  // geometry dagre knows nothing about. A pad of `G.gap` put it at cy = -35 on
+  // every re-ranked figure, and the engine's own CONTENT CLIPPED gate fired on a
+  // shipped PDF.
+  test('every painted mark sits inside the viewBox', { skip: !hasDagre }, () => {
+    const { svg, viewBox } = run(FAN);
+    const [, , vw, vh] = viewBox.split(/\s+/).map(Number);
+    for (const m of svg.matchAll(/<circle[^>]*cx="([-\d.]+)"[^>]*cy="([-\d.]+)"[^>]*r="([-\d.]+)"/g)) {
+      const [cx, cy, r] = [+m[1], +m[2], +m[3]];
+      assert.ok(cy - r >= -0.5, `a disc's top is at ${(cy - r).toFixed(1)} — above the canvas`);
+      assert.ok(cx - r >= -0.5 && cx + r <= vw + 0.5 && cy + r <= vh + 0.5, 'disc within canvas');
+    }
+    for (const m of svg.matchAll(/\b[ML] (-?[\d.]+) (-?[\d.]+)/g)) {
+      assert.ok(+m[2] >= -0.5, `a path vertex is at y=${m[2]} — above the canvas`);
+    }
   });
 
-  test('self-loops are withheld from dagre', () => {
-    // dagre does not route a self-edge, and feeding it one perturbs the ranking
-    // for no gain — the existing router draws them, as it does today.
-    assert.match(src, /if \(t\.isSelf \|\| t\.from === t\.to\) continue;/);
+  // F4. dagre parks every DISCONNECTED node in rank 0, so "two nodes share a
+  // rank" fired on machines with no branch anywhere.
+  for (const [name, spec] of [
+    ['a states-only chart with no transitions', {
+      dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)), transitions: [],
+    }],
+    ['a chain with one orphan state', {
+      dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+      transitions: [e(1, 2, ''), e(2, 3, '')],
+    }],
+    ['a chain with a skip edge', {
+      // The case that decided the rule's SHAPE: state 1 has two successors, so a
+      // grammar-level "does it branch" test says yes — but dagre still ranks this
+      // linearly, and adopting here re-laid out every shipped gallery for nothing.
+      dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+      transitions: [e(1, 2, ''), e(2, 3, ''), e(3, 4, ''), e(1, 4, 'skip')],
+    }],
+  ]) {
+    test(`${name} keeps the column`, { skip: !hasDagre }, () => {
+      const { svg, rects } = run(spec);
+      for (const v of shapes(svg)) {
+        assert.ok(Object.values(rects).some(
+          (r) => Math.abs(r.x - v.x) < 0.6 && Math.abs(r.y - v.y) < 0.6),
+        `node moved to ${v.x},${v.y} — it should keep its CSS position`);
+      }
+    });
+  }
+
+  // F2. `curved` reached only edgeTB/edgeLR, so a fan-out silently rendered as
+  // the default variant with no signal the modifier had been dropped.
+  test('`curved` survives a re-rank', { skip: !hasDagre }, () => {
+    assert.match(run({ ...FAN, style: 'curved' }).svg, / C /, 'must emit cubics');
+    assert.equal(/ C /.test(run(FAN).svg), false, 'and the default stays orthogonal');
   });
 
-  test('adoption requires a genuine rank collision', () => {
-    // Not "has a branch in the grammar" — two nodes sharing a rank in the LAID
-    // OUT graph. A machine whose branches happen to serialise into a column is
-    // left alone, which is what makes the chain guarantee hold by construction.
-    assert.match(src, /if \(!branching\) return null;/);
+  // F3. The graph is a multigraph with a distinct name per edge, so dagre routes
+  // two `1 -> 2` transitions separately; keying by endpoint PAIR threw one away.
+  test('duplicate transitions between one pair get distinct routes', { skip: !hasDagre }, () => {
+    const { svg } = run({
+      dir: 'tb', nodes: [1, 2, 3].map((i) => n(i, 'S' + i)),
+      transitions: [e(1, 2, 'fast'), e(1, 2, 'slow'), e(1, 3, 'defer')],
+    });
+    const ds = [...svg.matchAll(/<path class="state-edge"[^>]*\bd="([^"]+)"/g)].map((m) => m[1]);
+    assert.equal(new Set(ds).size, ds.length, `two edges share a route: ${ds.join(' | ')}`);
   });
 
-  test('the node children carry the same delta as the node', () => {
-    // The badge and label are painted from their OWN measured rects — they have
-    // to be, that is where the browser put the glyphs — so a moved node must
-    // shift them by the same amount or the text stays behind in the old column.
-    // This shipped broken once and is invisible to every non-visual gate.
-    assert.match(src, /const ddx = n\.x - \(n\.mx != null \? n\.mx : n\.x\);/);
-    assert.match(src, /const ddy = n\.y - \(n\.my != null \? n\.my : n\.y\);/);
-  });
-
-  test('the inline size pin is removed again when dagre is not adopted', () => {
-    // draw() re-runs on resize and fonts.ready. A pin left behind would outlive
-    // the layout it was computed for and silently letterbox the next one.
-    assert.match(src, /geo\.style\.removeProperty\('width'\)/);
-    assert.match(src, /geo\.style\.removeProperty\('height'\)/);
+  test('an authored line break renders as two tspans', { skip: !hasDagre }, () => {
+    const { svg } = run({ ...FAN,
+      transitions: FAN.transitions.map((t, i) => (i === 1 ? { ...t, event: 'needs\nreview' } : t)) });
+    assert.match(svg, /<text class="state-edge-label"[^>]*>(<tspan[^>]*>[^<]*<\/tspan>){2,}/,
+      'a two-line event label must emit one tspan per line');
   });
 });

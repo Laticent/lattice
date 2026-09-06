@@ -111,3 +111,24 @@ dagre does not route a self-edge, so the hand-written router keeps drawing them.
 3. Failed `end`
 
 *One machine, two routers — whichever is right for each edge.*
+
+---
+
+<!-- _class: state-chart lr -->
+
+`Long labels`
+
+## A label can break, or wrap itself.
+
+`\n` and `<br/>` break where you say; anything still too long wraps on its own.
+
+1. Submitted `start`
+   - `needs<br/>second review => 2`
+   - `auto approve => 3`:::state-pass-hue
+2. Second review
+   - `escalate to legal counsel => 4`
+3. Approved `done`:::state-pass-hue
+4. Escalated `end`
+
+*Labels sit below the line on `lr` and to the right on the default, so a two-line
+label never punches a hole through the edge it belongs to.*
