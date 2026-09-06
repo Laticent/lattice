@@ -356,7 +356,9 @@ untested as oracles: each could have been asserting something that is true no ma
 code does. Two of them turned out fine and one had already been silently rewritten, but none of
 that was known until the code under them was broken on purpose.
 
-Twelve mutations, one row per oracle (the first eight are the original pass):
+Twelve mutations across the ELEVEN oracles — the rail-names oracle carries two rows, because
+two independent defects meet in it. (The first eight are the original pass. The count colliding
+with the sweep's twelve op families above is a coincidence, not a correspondence.)
 
 | # | mutation | oracle | it failed with |
 |---|---|---|---|
