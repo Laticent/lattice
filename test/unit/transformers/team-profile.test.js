@@ -268,15 +268,17 @@ describe('team-profile — applyToDom', () => {
 // function was genuinely broken as a text extractor, and a broken one gets
 // reused. Both defects are pinned so they cannot come back.
 describe('team-profile — textOf', () => {
-  test('strips tags to a FIXPOINT (alert 241: incomplete multi-character sanitization)', () => {
-    // One pass removes the inner `<b>` and closes the halves into a live tag the
-    // pass has already walked past.
-    assert.doesNotMatch(t.textOf('<<b>b>Ada'), /</);
+  test('no tag survives, however it is nested (alerts 241/243)', () => {
+    // A single `replace(/<[^>]*>/g,'')` leaves a tag behind here; a depth-counting
+    // scanner consumes the whole run, so the NAME comes through intact rather than
+    // the fragment the regex left.
+    assert.equal(t.textOf('<<b>b>Ada Okafor'), 'Ada Okafor');
+    assert.equal(t.initialsOf('<<b>b>Ada Okafor'), 'AO');
     assert.doesNotMatch(t.textOf('<<script>script>alert(1)'), /</);
   });
 
-  test('leaves no bare angle bracket, even from an UNCLOSED tag', () => {
-    assert.doesNotMatch(t.textOf('<script src=x'), /[<>]/);
+  test('an UNCLOSED tag swallows its run and emits no bracket', () => {
+    assert.equal(t.textOf('<script src=x'), '');
     assert.doesNotMatch(t.textOf('a < b > c'), /[<>]/);
   });
 
