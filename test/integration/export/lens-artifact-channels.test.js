@@ -130,6 +130,27 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
 		assert.ok(!fs.existsSync(out));
 	});
 
+	test('a script that strips the hole class is refused on EVERY format', { timeout: TIMEOUT }, () => {
+		// The attack that defeated three checks at once, found by testing the third rather than trusting
+		// it. `setTimeout(… classList.remove('lens-hole') …, 0)` strips the marker in the LIVE page:
+		//   · `holeDrift` passed — it reads the rendered HTML STRING, before the browser saw it;
+		//   · the visibility check passed — it asks whether a HOLE has a box, and there were no holes;
+		//   · the artifact page-count check passed — it compared the file against a count taken from
+		//     the same mutated DOM, so both sides moved together.
+		// Measured before the fix: `brief — 3 of 5 slides ship` then `PNG: 5 slides`, exit 0, five
+		// images for a three-slide view. A promise derived from the thing being checked is not a
+		// promise; the withheld set now comes from the projection, which no script can reach.
+		const style = '<script>setTimeout(function(){for(const e of document.querySelectorAll(".lens-hole"))e.classList.remove("lens-hole")},0)</script>\n\n';
+		for (const ext of ['pdf', 'png', 'pptx', 'zip']) {
+			const { r, out, dir } = run(deck({ style }), `strip.${ext}`, ['--quiet', '--lens', 'brief']);
+			assert.notEqual(r.status, 0, `.${ext} refuses`);
+			assert.match(r.stderr, /should be withheld and are not marked as withheld/, `.${ext} names the cause`);
+			assert.ok(!fs.existsSync(out), `.${ext} wrote nothing`);
+			// PNG writes a numbered set rather than the named path, so check the directory too.
+			assert.equal(fs.readdirSync(dir).filter((f) => /^strip\./.test(f)).length, 0, `.${ext} left nothing behind`);
+		}
+	});
+
 	test('the RASTER formats are immune to the print-time attacks, and that is measured not assumed', { timeout: TIMEOUT }, () => {
 		// Both adversarial lenses reasoned this and neither measured it, so it went in their reports as
 		// "could not verify". PNG / PPTX / the image set screenshot the SCREEN document and never

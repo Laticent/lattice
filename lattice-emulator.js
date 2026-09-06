@@ -839,6 +839,76 @@ if (LENS_DEFAULT && !LENS_IDS.length) {
 let LENS_VIEWS = null;
 let LENS_PROJECTION = null;
 let LENS_REPORT = null;
+/**
+ * How many pages this run has told the user it is writing — set once, after the layout is checked.
+ * Every format asserts its own finished artifact against it. `null` until that check runs.
+ */
+let PROMISED_PAGES = null;
+
+/**
+ * DOES THE FINISHED ARTIFACT HAVE THE PAGES THIS RUN PROMISED?
+ *
+ * The last check in the chain, and the only one that reads the thing that actually ships. Everything
+ * upstream measures a document that will BECOME the artifact — the source, the render, the laid-out
+ * DOM — and each of those is a proxy. This feature has lost to a proxy five times: four CSS detectors
+ * that each asked about a different stand-in for the danger, and then a DOM visibility check that
+ * measured screen media while the PDF printed in print media, and then the same check measuring both
+ * media while a `beforeprint` handler ran after both.
+ *
+ * The pattern is not that each fix was careless. It is that a check which enumerates what can go
+ * wrong is exactly as complete as its enumeration, and nobody can prove an enumeration complete. So
+ * this one enumerates nothing: it counts what the file contains and compares that with the number
+ * the run printed. Whatever mechanism produced a disagreement — a media query, an event handler, a
+ * timer, something not yet invented — the disagreement is what it looks at.
+ *
+ * `count` is read from the WRITTEN artifact wherever a reader can be had (the PDF's page tree, the
+ * PPTX's slide parts, the zip's entries) rather than from the buffer list that produced it, because
+ * a buffer list is one more proxy.
+ *
+ * REFUSES UNDER A READER VIEW, WARNS WITHOUT ONE, which is the split every other check here uses.
+ * With a view the run has just promised a page count and breaking it is the projection's own contract
+ * broken. Without one, a deck that moves its own page count around at render time is something a deck
+ * could always do, and this is not the place to start refusing it — but the count line must not lie,
+ * so the warning is un-gated by `--quiet`.
+ *
+ * @param {number} got   pages/slides/images the artifact actually contains
+ * @param {string} noun  what to call them in the message ('page', 'slide', 'image')
+ * @param {() => void} [cleanup] removes anything already written, before the refusal is printed
+ */
+function assertArtifactPages(got, noun, cleanup) {
+  if (!Number.isInteger(PROMISED_PAGES) || PROMISED_PAGES <= 0 || got === PROMISED_PAGES) return;
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const detail = got > PROMISED_PAGES
+    ? ['       The extra ones are slides this export withheld, appearing at render time — so the file would',
+       "       publish the deck's real length and the exact positions you withheld. Something in the deck",
+       '       reveals them after the layout was checked: a `@media print` rule, a `beforeprint` handler,',
+       '       or a timer.']
+    : ['       Pages this export promised are missing, so the artifact is short of what this run reported.',
+       '       Something in the deck hides a slide after the layout was checked.'];
+  if (LENS_PROJECTION) {
+    if (cleanup) { try { cleanup(); } catch { /* best effort */ } }
+    try { fs.unlinkSync(outHtml); } catch { /* may never have been written */ }
+    console.error(`error: the artifact has ${plural(got, noun)} and this export ships ${plural(PROMISED_PAGES, 'slide')}.`);
+    for (const line of detail) console.error(line);
+    console.error('       Nothing was exported.');
+    process.exit(1);
+  }
+  console.warn(`  ⚠ the artifact has ${plural(got, noun)} and this deck renders ${plural(PROMISED_PAGES, 'slide')} — the deck changes its own page count at render time.`);
+}
+
+/**
+ * Slide parts in a WRITTEN `.pptx` — `ppt/slides/slideN.xml`, which is what PowerPoint opens.
+ * Read out of the package rather than taken from the writer's return value, which is derived from
+ * the buffers the writer was handed and so is one more proxy. Returns null if the zip cannot be
+ * read, so the caller falls back rather than refusing a file it merely failed to inspect.
+ */
+function countPptxSlides(file) {
+  try {
+    const { execFileSync } = require('node:child_process');
+    const listing = execFileSync('unzip', ['-Z1', file], { encoding: 'utf8' });
+    return listing.split('\n').filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n.trim())).length || null;
+  } catch { return null; }
+}
 /** Privacy-relevant lines about what the artifact CARRIES. Printed as warnings, never `--quiet`-gated. */
 const LENS_DISCLOSURES = [];
 let LENS_TOTAL = 0;
@@ -3993,6 +4063,42 @@ async function renderBody(browser, g, closeBrowser) {
       // printed below is not the count in the file.
       console.warn(`  ⚠ ${list} render${vanished.length === 1 ? 's' : ''} no page — the deck hides ${vanished.length === 1 ? 'it' : 'them'} with CSS, so the artifact is shorter than the slide count reported below.`);
     }
+    // AND THE LIVE DOM HAS TO AGREE WITH THE PROJECTION ABOUT WHICH SLIDES ARE HOLES.
+    //
+    // `holeDrift` asked this already — of the rendered HTML STRING, before the browser ever saw it.
+    // That is a different document from the one the artifact is built from, and the gap between them
+    // is a script. Measured: `setTimeout(() => { for (const e of document.querySelectorAll('.lens-hole'))
+    // e.classList.remove('lens-hole') }, 0)` stripped the class in the live page, and the export wrote
+    // FIVE images for a three-slide view — `brief — 3 of 5 slides ship`, `PNG: 5 slides`, exit 0.
+    //
+    // It walked past every check at once, and the reason is worth keeping: the visibility check asks
+    // whether a HOLE has a box, and after the strip there were no holes to ask about; the artifact
+    // page-count check compares the file against a count taken from this same mutated DOM, so both
+    // sides moved together and agreed. A promise derived from the thing being checked is not a
+    // promise. The withheld set comes from `LENS_PROJECTION` — the source, which no script can
+    // reach — and the live DOM is held to it.
+    if (LENS_PROJECTION) {
+      const want = Array.from({ length: LENS_PROJECTION.total }, (_, i) => i)
+        .filter((i) => !LENS_PROJECTION.kept.includes(i));
+      const saw = [...new Set(boxes.filter((b) => b.hole).map((b) => b.at))].sort((a, b) => a - b);
+      const lost = want.filter((i) => !saw.includes(i));
+      if (lost.length) {
+        refuse([
+          `error: slide${lost.length === 1 ? '' : 's'} ${lost.map((i) => i + 1).join(', ')} should be withheld and ${lost.length === 1 ? 'is' : 'are'} not marked as withheld in the rendered page.`,
+          '       Something in the deck removed the marker after the document was rendered — a script, most',
+          '       likely — so the slide would be captured as an ordinary page and the artifact would publish',
+          "       the deck's real length and the exact positions you withheld.",
+        ]);
+      }
+    }
+    // THE NUMBER THIS RUN IS PROMISING, fixed at the one moment the layout has been checked.
+    //
+    // Everything below writes an artifact, and each one is compared against THIS — not against a
+    // fresh count taken beside it, which would be a document comparing itself. Two different moments
+    // is the whole point: the gap between them is where a print-time rule, a `beforeprint` handler or
+    // a late timer lives, and comparing the ARTIFACT to the promise closes that gap without having to
+    // enumerate what can happen inside it.
+    PROMISED_PAGES = boxes.filter((b) => !b.hole).length;
   }
   // §8 rule 8's figures are reported on their OWN line: "clipped" would be a lie (the box fits)
   // and so would "trim content" (the fix is a simpler figure, or a bigger box).
@@ -4325,31 +4431,10 @@ async function renderBody(browser, g, closeBrowser) {
     // `pageCount` is read off the live DOM (non-hole top-level sections, post-split) rather than
     // from `kept.length`, because auto-split legitimately produces more pages than authored slides.
     {
-      const want = await g(() => page.evaluate((sel) =>
-        document.querySelectorAll(`#deck > ${sel}, body > ${sel}`).length, SHOOTABLE_SLIDES), 'count shipped pages');
       const { PDFDocument } = require('pdf-lib');
       const got = (await PDFDocument.load(pdfBytes)).getPageCount();
-      if (want > 0 && got !== want) {
-        // Same split as the visibility check above, for the same reason. Under a reader view this is
-        // the projection's own contract broken and it refuses. Without one, a deck moving its own
-        // pages around at print time is something a deck could always do and this is not the place to
-        // start refusing it — but the count line must not lie, so it warns, un-gated by `--quiet`.
-        const detail = got > want
-          ? ["       The extra pages are slides this export withheld, rendering at print time — so the file would",
-             "       publish the deck's real length and the exact positions you withheld. Something in the deck",
-             '       reveals them only when the PDF is printed: a `@media print` rule, or a `beforeprint` handler.']
-          : ['       Pages this export promised are missing, so the artifact is short of what this run reported.',
-             '       Something in the deck hides a slide only when the PDF is printed.'];
-        if (LENS_PROJECTION) {
-          await closeBrowser();
-          try { fs.unlinkSync(outHtml); } catch { /* may not exist */ }
-          console.error(`error: the PDF has ${got} page${got === 1 ? '' : 's'} and this export ships ${want} slide${want === 1 ? '' : 's'}.`);
-          for (const line of detail) console.error(line);
-          console.error('       Nothing was exported.');
-          process.exit(1);
-        }
-        console.warn(`  ⚠ the PDF has ${got} page${got === 1 ? '' : 's'} and this deck renders ${want} slide${want === 1 ? '' : 's'} — the deck changes its own page count at print time.`);
-      }
+      if (got !== PROMISED_PAGES) await closeBrowser();
+      assertArtifactPages(got, 'page');
     }
     await closeBrowser();
     // Bind notes to the RENDERED pages, not the authored slides — a split run has more
@@ -4756,6 +4841,9 @@ async function renderBody(browser, g, closeBrowser) {
     const zip = new JSZip();
     addPlanToZip(zip, plan);
     const zipBuf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+    // Counted off the ASSEMBLED PACKAGE — the manifest's own slide list, which is what a consumer
+    // reads — rather than off `images`, the array that produced it.
+    assertArtifactPages(Array.isArray(plan?.manifest?.slides) ? plan.manifest.slides.length : images.length, 'image');
     fs.writeFileSync(outFile, zipBuf);
     if (!QUIET) {
       const c = plan.manifest.counts;
@@ -4823,9 +4911,18 @@ async function renderBody(browser, g, closeBrowser) {
       // same convention marp's `--images png` used).
       const base = outFile.replace(/\.png$/i, '');
       const pad = Math.max(3, String(pngBuffers.length).length);
+      const written = [];
       pngBuffers.forEach((buf, i) => {
-        fs.writeFileSync(`${base}.${String(i + 1).padStart(pad, '0')}.png`, buf);
+        const at = `${base}.${String(i + 1).padStart(pad, '0')}.png`;
+        fs.writeFileSync(at, buf);
+        written.push(at);
       });
+      // Counted off the DIRECTORY, not off `pngBuffers`: the buffer list is what produced the files,
+      // so asking it how many there are is the artifact certifying itself.
+      const stem = path.basename(base).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const onDisk = fs.readdirSync(path.dirname(base) || '.')
+        .filter((f) => new RegExp(`^${stem}\\.\\d+\\.png$`).test(f)).length;
+      assertArtifactPages(onDisk, 'image', () => { for (const f of written) fs.unlinkSync(f); });
       if (!QUIET) console.log(`PNG: ${pngBuffers.length} slides → ${base}.NNN.png`);
     } else {
       // PPTX — image-per-slide via the shared writer (lib/export/pptx-export.js).
@@ -4841,6 +4938,7 @@ async function renderBody(browser, g, closeBrowser) {
         // recipient by default. This call site was the last one still reading the unstripped
         // array (#1837).
       }, asShippedSlides(materializedNotes), asShippedSlides(slideDescriptions));
+      assertArtifactPages(countPptxSlides(outFile) ?? count, 'slide', () => fs.unlinkSync(outFile));
       if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}`);
     }
   }

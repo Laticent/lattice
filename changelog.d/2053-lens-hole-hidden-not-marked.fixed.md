@@ -79,3 +79,21 @@
   print` un-hiding IS caught on those paths, by the print-media half of the visibility check. Pinned,
   because a negative that holds by construction holds only while the construction does, and these
   formats have no artifact-level count check behind them the way the PDF now does.
+- **Fixed: a script that strips the hole class defeated all three checks at once.**
+  `setTimeout(() => { for (const e of document.querySelectorAll('.lens-hole')) e.classList.remove('lens-hole') }, 0)`
+  removes the marker from the LIVE page, and every guard missed it for a different reason: `holeDrift`
+  reads the rendered HTML **string**, before the browser sees it; the visibility check asks whether a
+  HOLE has a layout box, and after the strip there were no holes to ask about; and the artifact
+  page-count check compared the file against a count taken from that same mutated DOM, so both sides
+  moved together and agreed. Measured: `brief — 3 of 5 slides ship` followed by `PNG: 5 slides`, exit
+  0 — five images for a three-slide view, two of them the withheld positions. **A promise derived from
+  the thing being checked is not a promise.** The withheld set is now taken from the projection — the
+  source, which no script in the page can reach — and the live DOM is held to it. Refused on all four
+  formats, nothing left on disk.
+- **Added: every format now asserts its own finished artifact against what the run promised.** The PDF
+  gained this in the ninth round; PNG, PPTX and the image set were still resting on a pre-render
+  measurement. Each now counts what the file CONTAINS — the PDF's page tree, `ppt/slides/slideN.xml`
+  out of the written package, the images on disk, the manifest's own slide list — rather than the
+  buffer list that produced it, which would be the artifact certifying itself. Refuses under a reader
+  view, warns un-gated without one: a deck that moves its own page count at render time is something a
+  deck could always do, but the count line must not lie about it.
