@@ -37,7 +37,10 @@ two slides, the lint gutter's Quick fix, rail picks, Markdown↔Compose round tr
 scrolling — asserting five structural invariants after every single op. Six seeds x 60 ops
 from a scratch harness. What is COMMITTED is smaller and should not be described as that
 sweep: `docs/e2e/markdown-stress.spec.ts` carries a named oracle per defect plus ONE seed at
-34 steps as a regression net.
+34 steps as a regression net — and ELEVEN op families, not twelve. The Quick-fix op was
+retired from the committed walk after measuring that it applied a fix zero times across seven
+seeds (the walk types into the middle of a line, and a `_class` directive off column 0 produces
+no finding), and the path it was meant to cover got a deterministic oracle of its own instead.
 
 **The five invariants, and the rule they were chosen by.** No two may be able to agree while
 being jointly WRONG — that is finding 11 of the Compose note, where `aria-expanded` and the
@@ -387,12 +390,18 @@ run.
   fallback path it serves. Found by a checker.
 
 - **The lint gutter's Quick fix is reachable only by HOVER, so a touch author cannot take it.**
-  Found by running this file at a tablet viewport with `hasTouch` — the walk's `quickFix` op
-  drives `.cm-lint-marker` with `hover()`, which a coarse pointer has no equivalent for, and the
-  action popup never opens. The op now skips on a no-hover context rather than asserting a path
-  a finger cannot take. The affordance itself is pre-existing (#562's inline validation), it is
-  off this change's path, and fixing it means giving the marker a tap target — its own change.
-  Everything else in the pane holds at 820px with touch: 9/9.
+  The mechanism is in `@codemirror/lint`: the gutter marker gets `elt.onmouseover` and nothing
+  else — no click, no pointer, no touch handler — and the tooltip opens `hoverTime` (300ms)
+  after the mouse arrives. A coarse pointer has no equivalent, so the action popup never opens.
+  The affordance is pre-existing (#562's inline validation), it is off this change's path, and
+  fixing it means giving the marker a tap target — its own change.
+  **The measurement here does NOT cover it, and saying so is the point (#23).** This spec's
+  Quick-fix oracle passes 10/10 at 820px under `hasTouch`, but Playwright's `hasTouch` adds a
+  touch surface to a context that still has a mouse, and `hover()` dispatches real mouse
+  events — so that green says the oracle works on a hybrid device, not that a finger can take
+  the fix. A touch-ONLY surface is unreached from here: **UNVERIFIED**. (An earlier revision
+  had the walk's `quickFix` op skip on a no-hover context; that op is gone entirely — the
+  spec header says why — so the skip went with it.)
 
 - **The Studio's slide list does not model `split: headings`, and that is the largest thing in
   this note.** `split: headings` is the DEFAULT register (`lib/core/resolve-split.js`): "a deck

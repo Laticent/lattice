@@ -33,7 +33,7 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * editor has rendered no line. The other six — `keys`, `undoRedo`, `selectAllReplace`,
  * `frontMatter`, `paneSwitch`, `scroll` — always act. A declining op still burns a step, so the
  * walk COUNTS how many times invariant 2 actually compared a source against a painted slide and
- * fails below 10: a run that only ever took its escapes would otherwise pass certifying nothing.
+ * fails at ten or fewer: a run that only took its escapes would otherwise pass certifying nothing.
  *
  * A TWELFTH OP WAS REMOVED RATHER THAN FIXED, and the reason is the useful part. The lint
  * gutter's Quick fix was an op here through three revisions and, measured across seven seeds,
@@ -84,19 +84,24 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * WHERE THESE HOLD, measured rather than assumed — the file is routed to the `desktop`
  * project, and "desktop-only by design" was a claim nobody had run:
  *
- *   1440 Chromium            9/9      the shipped tier
- *   820  Chromium            9/9      pane and rail both on screen; nothing is width-coupled
- *   820  Chromium + touch    9/9      with the hover-only Quick-fix op skipped, see below
- *   1440 WebKit              9/9      no skips — see the note on the clipboard below
- *   1440 Firefox             9/9      same
- *   820  WebKit              9/9      same
- *   390  Chromium (± touch)  4/9      structural, and not a defect: see below
+ *   1440 Chromium            10/10    the shipped tier
+ *   820  Chromium            10/10    pane and rail both on screen; nothing is width-coupled
+ *   820  Chromium + touch    10/10    the Quick-fix oracle hovers, and hovers fine under touch
+ *   1440 WebKit              10/10    no skips — see the note on the clipboard below
+ *   1440 Firefox             10/10    same
+ *   820  WebKit              10/10    same
+ *   390  Chromium (± touch)   5/10    structural, and not a defect: see below
+ *
+ * The table quotes PASS COUNTS, so adding an oracle makes it stale in a way nothing checks.
+ * Re-run `.scratch/pw-crosswidth.config.ts` when you add one — this row set is a re-measure
+ * of all ten, taken after the Quick-fix oracle below landed, not the nine-oracle run patched.
  *
  * THE PHONE IS A DIFFERENT SURFACE, and this is the measurement rather than a guess. At 390
  * the Studio shows ONE PANE AT A TIME — probed directly: by default the rail is visible and
  * the editor is not; reveal the editor through its `Markdown source` toggle and the rail goes.
- * Four oracles pass there — CR/CRLF folding, undo across Compose, the Compose carry, and the
- * reload round trip. The five that do not are blocked by three different things, which is worth
+ * Five oracles pass there — CR/CRLF folding, undo across Compose, the Compose carry, the Quick
+ * fix (it never leaves the editor) and the reload round trip. The five that do not are blocked
+ * by three different things, which is worth
  * stating precisely because an earlier draft of this paragraph said "must type in the editor
  * and then read the rail" for all of them and that is not what the failures say:
  *
@@ -127,7 +132,8 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  *     `compose-stress.spec.ts`'s `caretInto`, and for the same measured reason.
  *   · The persisted value is JSON-encoded. `persistedSource` returns the raw string; every
  *     comparison here goes through `persistedDeck`, which decodes it. Nothing else in the
- *     suite has had to notice, because every other caller uses `toContain`.
+ *     suite has had to notice, because every other caller asserts a SUBSTRING (`toContain`,
+ *     one `toMatch`), and the JSON wrapper still contains it. Byte equality does not.
  *   · The preview repaints asynchronously, so invariant 2 is POLLED. Read once and it
  *     reports the previous slide as a defect.
  *   · The editor document is read from CodeMirror's own state, never from `innerText`:
@@ -366,7 +372,7 @@ async function revealEditor(page: Page): Promise<void> {
 	// `max-width: 699px`; 1100 is where the Architect and Inspector stop being docked columns,
 	// which has nothing to do with the source pane. A checker measured the difference against a
 	// genuinely hidden pane: at 1099 and at 820 the old guard was silent and the toggle simply
-	// repaired it — 820 being exactly the width this file now claims 9/9 for.
+	// repaired it — 820 being exactly the width this file now claims 10/10 for.
 	//
 	// A LANDSCAPE PHONE is the other legitimate case, and it is not width-based: wide (667–932)
 	// but short, where the Studio locks to a full-bleed preview with no editor at all so the
