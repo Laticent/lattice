@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Tip } from '@/components/ui/tooltip';
 import type { Scene } from '@/lib/anima';
 import { cn } from '@/lib/utils';
+import { MotionFrames } from './MotionFrames';
 import { MotionInspector } from './MotionInspector';
 import { MotionParts } from './MotionParts';
 import { MotionReceipt } from './MotionReceipt';
@@ -69,6 +70,7 @@ export function MotionStudio({
 	const [editingId, setEditingId] = React.useState<string | null>(null);
 	const [owned] = React.useState<Set<string>>(() => new Set());
 	const [replay, setReplay] = React.useState(0);
+	const [frame, setFrame] = React.useState(0);
 	/** `pathRef`s the plan carries that the drawing no longer has. Shown, never dropped — silently
 	 *  losing a user's choreography is the §7c data-loss lesson wearing a different hat. */
 	const [missing, setMissing] = React.useState<{ pathRef: string; label: string }[]>([]);
@@ -139,6 +141,7 @@ export function MotionStudio({
 		return planToScene(loaded.parts, plan, pace, slugify(name) || 'drawing', loaded.viewBox);
 	}, [loaded, plan, pace, name]);
 
+	const beatCount = React.useMemo(() => new Set(Array.from(plan.values()).map((p) => p.beat)).size || 1, [plan]);
 	const validity = React.useMemo(() => (spec ? validatePlan(spec) : { ok: false as const, errors: ['nothing loaded'] }), [spec]);
 	const nameOk = slugify(name).length > 0;
 	const takenBy = React.useMemo(() => (nameOk ? findNameClash(savedScenes, slugify(name), editingId, owned) : undefined), [savedScenes, name, nameOk, editingId, owned]);
@@ -248,8 +251,13 @@ export function MotionStudio({
 						/>
 					</div>
 
-					{/* STAGE */}
-					<div className="flex min-w-0 flex-col gap-3 bg-[color-mix(in_srgb,var(--bg)_55%,var(--bg-alt))] p-4 [@media(min-width:1100px)]:overflow-y-auto [@media(min-width:1100px)]:p-6">
+					{/* STAGE — FIRST in the single-column stack, and only there.
+					    Below 1100px the panes stack, and source order would put the whole parts list above
+					    the preview: on a phone you would scroll past every part to see what you are
+					    choreographing, then scroll back. `order` moves it to the top of the stack without
+					    moving it in the DOM, so the reading order for a screen reader is unchanged and the
+					    three-column layout above 1100px is untouched. */}
+					<div className="order-first flex min-w-0 flex-col gap-3 bg-[color-mix(in_srgb,var(--bg)_55%,var(--bg-alt))] p-4 [@media(min-width:1100px)]:order-none [@media(min-width:1100px)]:overflow-y-auto [@media(min-width:1100px)]:p-6">
 						<div className="flex items-center justify-between gap-3">
 							<span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Live preview</span>
 							<div className="inline-flex shrink-0 rounded-lg border border-border bg-background p-[3px]">
@@ -261,6 +269,7 @@ export function MotionStudio({
 							</div>
 						</div>
 						<MotionStage art={loaded.art} spec={validity.ok ? spec : null} replayKey={`${replay}`} className="aspect-video w-full overflow-hidden rounded-lg border border-border bg-[var(--bg)] shadow-[0_6px_18px_rgba(10,22,40,.10)]" />
+						<MotionFrames art={loaded.art} spec={validity.ok ? spec : null} beats={beatCount} selected={frame} onSelect={setFrame} />
 						<p className="text-[12px] leading-relaxed text-muted-foreground">
 							Plays on screen; the PDF freezes the finished drawing. {loaded.receipt.kept.fixedColors > 0 && (
 								<button type="button" onClick={() => { setLoaded((prev) => (prev ? { ...prev, art: matchTheme(prev.art) } : prev)); setReplay((n) => n + 1); notify('Recolored the drawing with your theme tokens.'); }} className="font-semibold text-[var(--accent)] underline underline-offset-2">

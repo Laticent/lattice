@@ -149,7 +149,11 @@ export function MotionParts({
 													{part.childCount} shapes together · groups cannot be drawn
 												</p>
 											)}
-											{isSel && renderInspector ? <div className="pt-2 lg:hidden">{renderInspector(part.pathRef)}</div> : null}
+											{/* The SAME 1100px threshold the faculty's grid uses, not `lg`. At `lg` (1024px) this
+											    would hide between 1024 and 1099 while the aside had not appeared yet — leaving that
+											    whole band with no inspector at all. One component, placed by breakpoint, means the
+											    two breakpoints have to be the same number. */}
+											{isSel && renderInspector ? <div className="pt-2 [@media(min-width:1100px)]:hidden">{renderInspector(part.pathRef)}</div> : null}
 										</li>
 									);
 								})}
