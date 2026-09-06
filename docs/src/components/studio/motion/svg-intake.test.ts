@@ -461,3 +461,44 @@ describe('the red-team findings, each pinned so it cannot come back', () => {
 		expect(after.ok && after.parts.find((p) => p.pathRef === band.pathRef)?.childCount).toBe(before);
 	});
 });
+
+describe('the checker findings, pinned', () => {
+	it('a band id cannot be shadowed by one the drawing already had', () => {
+		// `svg-paint`'s node map is first-wins, so an author's own `id="band-1"` would take the
+		// choreography meant for the 15 shapes our band wraps.
+		const shapes = Array.from({ length: 30 }, (_, i) => `<rect id="r${i}" x="${i}" width="2" height="2" stroke="var(--accent)"/>`).join('');
+		const r = intake(svgOf(`${shapes}<g id="band-1"><rect x="90" width="2" height="2" stroke="var(--accent)"/></g>`));
+		if (!r.ok) throw new Error(r.message);
+		const art = parse(r.art);
+		const ids = Array.from(art.querySelectorAll('[id]')).map((e) => e.getAttribute('id'));
+		expect(new Set(ids).size, 'no duplicate id may reach the stored art').toBe(ids.length);
+		for (const p of r.parts) expect(art.querySelectorAll(`[id="${p.pathRef}"]`)).toHaveLength(1);
+	});
+
+	it('never makes more rows than the cap, at any size intake accepts', () => {
+		// `ceil(n / 24)` bands only stays under 24 while n <= 576; 600 shapes made 25 rows. Sizes are
+		// kept under the byte ceiling on purpose — past it the drawing is refused for its SIZE first,
+		// which is the other guard doing its job, not this one.
+		const tight = (n: number) => svgOf(`<g stroke="var(--accent)">${Array.from({ length: n }, (_, i) => `<path id="q${i}" d="M${i} 0h2"/>`).join('')}</g>`);
+		for (const n of [576, 600, 1400]) {
+			const r = intake(tight(n));
+			if (!r.ok) throw new Error(`${n}: ${r.message}`);
+			expect(r.parts.length, `${n} shapes`).toBeLessThanOrEqual(MAX_ROWS);
+			expect(r.parts.length, `${n} shapes must still band, not list`).toBeLessThan(n);
+		}
+	});
+
+	it('calls declarative animation what it is, not "a script or event handler"', () => {
+		// The receipt is the one screen this module exists to make honest.
+		const r = intake(svgOf('<path id="a" d="M0 0 H5" stroke="var(--accent)"><animate attributeName="opacity" to="0"/><set attributeName="fill" to="red"/></path>'));
+		if (!r.ok) throw new Error(r.message);
+		expect(r.receipt.removed.smil).toBeGreaterThanOrEqual(2);
+		expect(r.receipt.removed.unsafe).toBe(0);
+	});
+
+	it('still counts a real script as unsafe', () => {
+		const r = intake(svgOf('<script>alert(1)</script><path id="a" d="M0 0 H5" stroke="var(--accent)"/>'));
+		if (!r.ok) throw new Error(r.message);
+		expect(r.receipt.removed.unsafe).toBeGreaterThanOrEqual(1);
+	});
+});

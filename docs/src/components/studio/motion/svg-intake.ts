@@ -115,7 +115,9 @@ export type PartTag = string;
 export interface IntakePart {
 	/** The machine address: the namespaced id. Always resolvable by `svg-paint.ts`'s `[id]` map. */
 	pathRef: string;
-	/** The human name, shown in the running order. Round-trips through the art's `<title>`. */
+	/** The human name, shown in the running order. A rename is written back into the drawing as that
+	 *  node's `<title>` (`setPartTitle`), which is rung one of the naming cascade — so it round-trips
+	 *  through save, reopen and Replace with no field on the record to hold it. */
 	label: string;
 	tag: PartTag;
 	/** Can carry Draw — an `SVGGeometryElement` tag, never a group or text. */
@@ -638,8 +640,14 @@ function countFixedColors(svg: SVGSVGElement): number {
 function countRemoved(before: SVGSVGElement, after: SVGSVGElement | null, receipt: IntakeReceipt): void {
 	const tally = (root: Element | null, name: string) => (root ? root.querySelectorAll(name).length : 0);
 	receipt.removed.stylesheets = tally(before, 'style') - tally(after, 'style');
-	const unsafeBefore = tally(before, 'script') + tally(before, 'foreignObject') + tally(before, 'animate') + tally(before, 'set');
-	const unsafeAfter = tally(after, 'script') + tally(after, 'foreignObject') + tally(after, 'animate') + tally(after, 'set');
+	// `<animate>` and `<set>` are DECLARATIVE ANIMATION, not hostility. Folding them into `unsafe`
+	// made the receipt tell a designer their SMIL was "a script or event handler" — a false statement
+	// on the one screen this module exists to make honest.
+	const smilBefore = tally(before, 'animate') + tally(before, 'set');
+	const smilAfter = tally(after, 'animate') + tally(after, 'set');
+	receipt.removed.smil += Math.max(0, smilBefore - smilAfter);
+	const unsafeBefore = tally(before, 'script') + tally(before, 'foreignObject');
+	const unsafeAfter = tally(after, 'script') + tally(after, 'foreignObject');
 	receipt.removed.unsafe = Math.max(0, unsafeBefore - unsafeAfter);
 }
 
@@ -807,6 +815,10 @@ export function intake(raw: string): IntakeResult {
 	receipt.kept.fixedColors = countFixedColors(svg);
 	receipt.rewritten.titlesKept = svg.querySelectorAll('title').length;
 
+	// The design record's §14.3 keeps the winning track's better half: the cap binds the POSTER too,
+	// because the poster is the artifact that inlines into the slide and it carries the drawing plus
+	// whatever the drawing library stamps on top. The art is the floor of that measurement, so
+	// refusing on art alone left the thing that actually lands in the deck unmeasured.
 	if (receipt.artBytes > ART_MAX_BYTES) {
 		return {
 			ok: false,
@@ -832,16 +844,27 @@ export function intake(raw: string): IntakeResult {
  * has to be a real wrapper element or it has no address.
  */
 function bandTheCut(svg: SVGSVGElement, cut: Element[], ns: string, receipt: IntakeReceipt): Element[] {
-	const bandCount = Math.ceil(cut.length / MAX_ROWS);
+	// `ceil(n / MAX_ROWS)` bands each holding up to MAX_ROWS is only <= MAX_ROWS bands while
+	// n <= MAX_ROWS^2 — 600 shapes produced 25 rows against a cap documented as 24. Bound the COUNT
+	// and let each band hold more, which is what the cap is actually about: a list you can read.
+	const bandCount = Math.min(MAX_ROWS, Math.ceil(cut.length / MAX_ROWS));
 	const perBand = Math.ceil(cut.length / bandCount);
 	const doc = svg.ownerDocument;
 	const bands: Element[] = [];
+	// Checked against the ids already in the drawing, for the same reason the census mints checked:
+	// a drawing carrying `id="band-1"` would otherwise have its own group shadow ours, and
+	// `svg-paint`'s first-wins map would land the band's choreography on the author's group.
+	const usedIds = new Set(Array.from(svg.querySelectorAll('[id]')).map((e) => e.getAttribute('id') ?? ''));
 
 	for (let b = 0; b < bandCount; b++) {
 		const members = cut.slice(b * perBand, (b + 1) * perBand);
 		if (members.length === 0) continue;
 		const g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
-		g.setAttribute('id', `${ns}-band-${b + 1}`);
+		let bandId = `${ns}-band-${b + 1}`;
+		let bump = 2;
+		while (usedIds.has(bandId)) bandId = `${ns}-band-${b + 1}-${bump++}`;
+		usedIds.add(bandId);
+		g.setAttribute('id', bandId);
 		members[0].parentNode?.insertBefore(g, members[0]);
 		for (const m of members) g.appendChild(m);
 		bands.push(g);
@@ -871,7 +894,7 @@ export function splitBand(art: string, bandRef: string): { art: string; members:
 	const svg = parseInert(art);
 	if (!svg) return null;
 	const band = svg.querySelector(`[id="${CSS.escape(bandRef)}"]`);
-	if (!band || tag(band) !== 'g' || !/-band-\d+$/.test(bandRef)) return null;
+	if (!band || tag(band) !== 'g' || !/-band-\d+(?:-\d+)?$/.test(bandRef)) return null;
 
 	const view = readViewBox(svg) ?? [0, 0, 100, 100];
 	const members = Array.from(band.children).filter((c) => !NON_PAINTING_CONTAINERS.has(tag(c)));

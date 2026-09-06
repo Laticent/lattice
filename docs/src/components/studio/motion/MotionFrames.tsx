@@ -21,6 +21,7 @@ import * as React from 'react';
 import { compile, type Scene } from '@/lib/anima';
 import { rendererFor } from '@/lib/anima/backends/registry';
 import { cn } from '@/lib/utils';
+import { MOTION_PALETTE_STYLE } from './palette-fallback';
 import { seekMs } from './plan';
 
 /** At most this many stills. Nine is a strip you can read at 390px; a beat count above it samples
@@ -80,10 +81,14 @@ export function MotionFrames({ art, spec, beats, selected, onSelect }: { art: st
 		<div className="flex flex-col gap-1.5">
 			<div className="flex items-baseline justify-between gap-2">
 				<span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Frames</span>
-				<span className="text-[11px] text-muted-foreground">every frame this motion has</span>
+				<span className="text-[11px] text-muted-foreground">{beats + 1 > MAX_FRAMES ? `${MAX_FRAMES} of this motion's ${beats + 1} frames` : 'every frame this motion has'}</span>
 			</div>
 			{/* A radiogroup rather than a slider: there is no time between these, only known frames. */}
-			<div role="radiogroup" aria-label="Frames" className="flex gap-1.5 overflow-x-auto pb-1">
+			{/* The ramp has to be HERE too. A serialized poster carries `stroke="var(--cat-2-mark)"`
+			    verbatim, and these thumbnails live outside `.motion-stage` — so without it two shapes in
+			    three painted `stroke: none` on the one surface documented as the complete
+			    reduced-motion path. */}
+			<div role="radiogroup" aria-label="Frames" style={MOTION_PALETTE_STYLE} className="flex gap-1.5 overflow-x-auto pb-1">
 				{frames.length === 0
 					? Array.from({ length: stops }, (_, k) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: a frame IS its index — frame 3 is frame 3 whatever it currently paints, so the position is the stable identity
@@ -114,7 +119,7 @@ export function MotionFrames({ art, spec, beats, selected, onSelect }: { art: st
 						})}
 			</div>
 			<p className="text-[11px] leading-snug text-muted-foreground">
-				A motion is a set of known frames, not a clock. The last one is the still the PDF and the printed deck freeze.
+				A motion is a set of known frames, not a clock. The last one is the still the PDF and the printed deck freeze.{beats + 1 > MAX_FRAMES ? ' Long plans are sampled evenly across the run.' : ''}
 			</p>
 			{/* The offscreen host the strip serializes from. Hidden, but LAID OUT. */}
 			<div ref={hostRef} aria-hidden className="pointer-events-none absolute size-[320px] opacity-0" style={{ visibility: 'hidden', left: '-9999px', top: 0 }} />

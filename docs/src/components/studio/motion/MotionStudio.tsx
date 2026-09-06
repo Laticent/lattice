@@ -32,8 +32,8 @@ import { MotionStage } from './MotionStage';
 import { matchTheme } from './match-theme';
 import { DEFAULT_PART_PLAN, type Pace, type PartPlan, type Plan, planToScene, sceneToPlan, validatePlan } from './plan';
 import { reconcile, remapPlan } from './reconcile';
-import { slideSkeleton } from './skeleton';
-import { type IntakePart, type IntakeReceipt, intake, setPartTitle, splitBand } from './svg-intake';
+import { posterBytes, slideSkeleton } from './skeleton';
+import { ART_MAX_BYTES, type IntakePart, type IntakeReceipt, intake, setPartTitle, splitBand } from './svg-intake';
 
 /** A worked example, so a first-time user with nothing on their clipboard still reaches a playing
  *  asset in one click. Copied from `examples/anima-scene.md`'s own svg slide — a drawing already
@@ -59,6 +59,9 @@ export function MotionStudio({
 }) {
 	const [loaded, setLoaded] = React.useState<Loaded | null>(null);
 	const [plan, setPlan] = React.useState<Plan>(new Map());
+	// The live plan, readable from a callback without making it a dependency — see `load`.
+	const planRef = React.useRef(plan);
+	planRef.current = plan;
 	const [pace, setPace] = React.useState<Pace>('calm');
 	const [selected, setSelected] = React.useState<string | null>(null);
 	const [name, setName] = React.useState('');
@@ -81,8 +84,8 @@ export function MotionStudio({
 	/** The spec exactly as it was stored, kept ONLY for a custom-timing asset — see `save`. */
 	const [originalSpec, setOriginalSpec] = React.useState<Scene | null>(null);
 
-	// A worked example is the front door for someone with an empty clipboard, so it loads eagerly
-	// rather than waiting for a click that a first-time user has no reason to make.
+	// Read a pasted, dropped or example drawing. `keepPlanFromParts` carries the parts we had when
+	// Replace sent us back to the paste pane, so that path RECONCILES instead of resetting.
 	const load = React.useCallback(
 		(raw: string, keepPlanFromParts: IntakePart[] | null | boolean) => {
 			// `Replace` hands back the parts we had, so the diff runs against them rather than against a
@@ -100,21 +103,31 @@ export function MotionStudio({
 				}
 				const next: Loaded = { art: r.art, parts: r.parts, viewBox: r.viewBox, receipt: r.receipt };
 				const previous = keepPlanFrom;
-				setLoaded(() => {
-					if (previous) {
-						// Replace is a DIFF, not a reset — match the new parts to the plan already in hand.
-						const rec = reconcile(previous, r.parts);
-						setPlan((p) => remapPlan(p, rec.remap));
-						setMissing(rec.entries.filter((e) => e.how === 'gone').map((e) => ({ pathRef: e.previous ?? '', label: e.previousLabel ?? 'A part' })));
-						notify(rec.summary);
-					} else {
-						// Every part starts on beat 1, fading in — a plan that already plays, so nobody
-						// stares at a dead stage deciding what a verb is.
-						setPlan(new Map(r.parts.map((p) => [p.pathRef, { ...DEFAULT_PART_PLAN }])));
-						setMissing([]);
-					}
-					return next;
-				});
+
+				// EVERYTHING IS COMPUTED HERE, NOT INSIDE A STATE UPDATER.
+				//
+				// This block used to sit inside `setLoaded(...)`, calling `setPlan`, `setMissing` and
+				// `notify` from within it. React invokes an updater TWICE under StrictMode — which the
+				// Studio island turns on deliberately — so `remapPlan` ran a second time against a map
+				// already keyed on the NEW pathRefs, matched nothing, and returned empty. Replace then
+				// reset every part to the default while the toast cheerfully said "5 parts matched".
+				// Production React hid it; `astro dev`, the surface every manual check uses, did not.
+				//
+				// A state updater must be a pure function of its argument. The plan is read through a
+				// ref so this can compute the next one ONCE and hand over a plain value.
+				if (previous) {
+					// Replace is a DIFF, not a reset — match the new parts to the plan already in hand.
+					const rec = reconcile(previous, r.parts);
+					setPlan(remapPlan(planRef.current, rec.remap));
+					setMissing(rec.entries.filter((e) => e.how === 'gone').map((e) => ({ pathRef: e.previous ?? '', label: e.previousLabel ?? 'A part' })));
+					notify(rec.summary);
+				} else {
+					// Every part starts on beat 1, fading in — a plan that already plays, so nobody
+					// stares at a dead stage deciding what a verb is.
+					setPlan(new Map(r.parts.map((p) => [p.pathRef, { ...DEFAULT_PART_PLAN }])));
+					setMissing([]);
+				}
+				setLoaded(next);
 				setSelected(r.parts[0]?.pathRef ?? null);
 				setReplacing(null);
 				setBusy(false);
@@ -160,10 +173,13 @@ export function MotionStudio({
 	}, [loaded, plan, pace, name, customTiming, originalSpec]);
 
 	const beatCount = React.useMemo(() => new Set(Array.from(plan.values()).map((p) => p.beat)).size || 1, [plan]);
+	// The poster is what inlines into the slide, so it is what the ceiling has to bind.
+	const poster = React.useMemo(() => (loaded ? posterBytes({ label: name || 'Untitled drawing', description: desc || undefined, art: loaded.art }) : 0), [loaded, name, desc]);
+	const posterTooBig = poster > ART_MAX_BYTES;
 	const validity = React.useMemo(() => (spec ? validatePlan(spec) : { ok: false as const, errors: ['nothing loaded'] }), [spec]);
 	const nameOk = slugify(name).length > 0;
 	const takenBy = React.useMemo(() => (nameOk ? findNameClash(savedScenes, slugify(name), editingId, owned) : undefined), [savedScenes, name, nameOk, editingId, owned]);
-	const canSave = !!loaded && nameOk && !takenBy && validity.ok && !saving;
+	const canSave = !!loaded && nameOk && !takenBy && validity.ok && !posterTooBig && !saving;
 
 	const skeleton = React.useMemo(() => {
 		if (!loaded || !spec) return '';
@@ -247,7 +263,7 @@ export function MotionStudio({
 						<span className="hidden sm:inline">Add to deck</span>
 					</Button>
 				)}
-				<Tip label={takenBy ? `“${slugify(name)}” is already a saved motion — pick another name.` : !nameOk ? 'Name it to save.' : !validity.ok ? 'This plan does not validate yet.' : ''}>
+				<Tip label={takenBy ? `“${slugify(name)}” is already a saved motion — pick another name.` : !nameOk ? 'Name it to save.' : posterTooBig ? `The still this makes is ${Math.round(poster / 1024)} KB — over the ${ART_MAX_BYTES / 1024} KB a slide can carry.` : !validity.ok ? 'This plan does not validate yet.' : ''}>
 					<span className="inline-flex shrink-0">
 						<Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}>
 							{saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
@@ -282,6 +298,11 @@ export function MotionStudio({
 					{/* PARTS */}
 					<div className="flex min-w-0 flex-col gap-3 border-b border-border p-3 [@media(min-width:1100px)]:overflow-y-auto [@media(min-width:1100px)]:border-b-0 [@media(min-width:1100px)]:border-r">
 						<MotionReceipt receipt={loaded.receipt} onReplace={() => { setReplacing(loaded.parts); setLoaded(null); setPaste(''); }} />
+						{posterTooBig && (
+							<p role="alert" className="rounded-md border border-[color-mix(in_srgb,var(--fail)_45%,var(--border))] p-2 text-[11.5px] leading-snug text-[color-mix(in_srgb,var(--fail)_80%,var(--text-body))]">
+								The still this makes is {Math.round(poster / 1024)} KB, over the {ART_MAX_BYTES / 1024} KB a slide can carry. Simplify the drawing, or crop it to the part you want to animate.
+							</p>
+						)}
 						{customTiming && (
 							<div role="status" className="rounded-md border border-[color-mix(in_srgb,var(--warn)_45%,var(--border))] p-2 text-[11.5px] leading-snug text-muted-foreground">
 								<strong className="text-[var(--text-heading)]">Custom timing.</strong> This asset's parts do not fall on even beats, so it was written by hand or by an older tool. It is shown as-is and will be saved as-is — editing a beat here would re-time the whole thing, and a motion asset has no version history to undo that from.

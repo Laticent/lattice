@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PART_PLAN, type Plan, planToScene } from './plan';
 import { reconcile, remapPlan } from './reconcile';
-import { labelArt, slideSkeleton } from './skeleton';
+import { labelArt, posterBytes, posterFits, slideSkeleton } from './skeleton';
 import { type IntakePart, intake } from './svg-intake';
 
 const part = (over: Partial<IntakePart>): IntakePart => ({ pathRef: 'x', label: 'X', tag: 'path', drawable: true, strokeable: true, band: false, childCount: 0, ...over });
@@ -131,5 +131,24 @@ describe('the slide a motion asset lands on', () => {
 		const md = slideSkeleton({ label: 'Flow', art, spec });
 		const fence = md.slice(md.indexOf('```anima') + 8, md.lastIndexOf('```')).trim();
 		expect(JSON.parse(fence)).toEqual(spec);
+	});
+});
+
+describe('the poster is what the ceiling has to bind', () => {
+	it('measures the poster, which is bigger than the art it is made from', () => {
+		const r = intake('<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path id="a" d="M0 0 H5" stroke="var(--accent)"/></svg>');
+		if (!r.ok) throw new Error(r.message);
+		const bytes = posterBytes({ label: 'Value chain', description: 'Five stages of it', art: r.art });
+		// The poster carries the art PLUS role="img" and the accessible name — so it is strictly
+		// larger, and refusing on the art alone left the thing that lands on the slide unmeasured.
+		expect(bytes).toBeGreaterThan(r.receipt.artBytes);
+		expect(posterFits({ label: 'Value chain', art: r.art })).toBe(true);
+	});
+
+	it('refuses a poster over the ceiling even when the art squeaks under it', () => {
+		const big = `<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"><path id="a" d="M0 0 H5" stroke="var(--accent)"/></svg>`;
+		const r = intake(big);
+		if (!r.ok) throw new Error(r.message);
+		expect(posterFits({ label: 'x'.repeat(20), description: 'y'.repeat(80_000), art: r.art })).toBe(false);
 	});
 });

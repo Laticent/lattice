@@ -6,9 +6,16 @@
 // ── WHY A SHEET AND NOT A STAGE ─────────────────────────────────────────────────────────────
 //
 // `2026-09-02-frame-model-for-motion.md` narrowed motion to a property of things the engine
-// ALREADY draws, which retired the standalone scene the Fabricate Motion tab used to author
-// (§7b). The engine knows exactly what those things are, so the surface starts from the author's
-// deck rather than from a blank stage.
+// ALREADY draws, and its §7b pushed the standalone scene faculty out of scope. The engine knows
+// exactly what a deck's animatable things are, so THIS surface starts from the author's deck rather
+// than from a blank stage.
+//
+// THAT IS ABOUT THIS SHEET, NOT ABOUT CRAFTING. §7b offered three options and all three were about
+// disposal; `2026-09-06-fabricate-motion-craft.md` answered the question §7b did not ask — what a
+// Fabricate Motion tab is FOR — and the crafting faculty ships beside this file. Read "retired" here
+// as "not what a deck's motion CONTROLS are", which is this module's job. The two surfaces answer
+// different questions: this one reports what the deck already animates; the faculty brings a new
+// drawing into existence and puts it on the Library shelf.
 //
 // ── THE ONE RULE THIS MODULE MUST NOT BREAK ─────────────────────────────────────────────────
 //

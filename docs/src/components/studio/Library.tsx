@@ -567,7 +567,14 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		deleteStudioScene(m.id).then(() => { reload(); onChanged(); notify(`Deleted ${m.label}.`); });
 	}
 	function insertScene(m: StudioScene) {
-		const md = slideSkeleton({ label: m.label, description: m.description, art: m.art ?? '', spec: m.spec });
+		// A scene the RETIRED Motion tab saved carries a spec and no `art` — it authored a built scene,
+		// not a drawing. Inserting it wrote a heading over an empty poster and reported success, which
+		// is the silent-wrongness class this faculty exists to avoid. Edit already refuses honestly.
+		if (!m.art) {
+			notify(`“${m.label}” was saved by the old Motion tab and has no drawing, so there is nothing to place. Open it in Fabricate to bring one.`);
+			return;
+		}
+		const md = slideSkeleton({ label: m.label, description: m.description, art: m.art, spec: m.spec });
 		onInsert(md, m.name);
 		onOpenChange(false);
 		notify(`Inserted “${m.label}”.`);
@@ -749,7 +756,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 										<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden dangerouslySetInnerHTML={{ __html: m.art ?? '' }} />
 										<div className="p-2.5">
 											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{m.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Motion</span></div>
-											{metaLine(<>{m.name} · {partCount} part{partCount === 1 ? '' : 's'} · {beats} beat{beats === 1 ? '' : 's'}</>, { id: m.id, label: m.label })}
+											{metaLine(m.art ? <>{m.name} · {partCount} part{partCount === 1 ? '' : 's'} · {beats} beat{beats === 1 ? '' : 's'}</> : <>{m.name} · no drawing — saved by the old Motion tab</>, { id: m.id, label: m.label })}
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => insertScene(m)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
 												{onEditMotion && <button type="button" onClick={() => { onEditMotion(m); onOpenChange(false); }} aria-label={`Edit ${m.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}

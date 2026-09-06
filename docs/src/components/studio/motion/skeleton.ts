@@ -18,6 +18,7 @@
 //    saying "Value chain, five stages" and saying nothing at all.
 
 import type { Scene } from '@/lib/anima';
+import { ART_MAX_BYTES } from './svg-intake';
 
 /** Strip newlines out of serialized markup so it can sit on one markdown line. Attribute values are
  *  left alone — a newline inside one would be unusual and collapsing it is still safe here, because
@@ -73,6 +74,23 @@ export function labelArt(art: string, label: string, description?: string): stri
 	if (description) head.push(`<desc>${escapeText(description)}</desc>`);
 	if (head.length) svg.insertAdjacentHTML('afterbegin', head.join(''));
 	return svg.outerHTML;
+}
+
+/**
+ * How big the poster this slide will carry actually is.
+ *
+ * The design record keeps the winning track's better half: the ceiling binds the POSTER, not just
+ * the art, because the poster is the artifact that inlines into the deck — art plus the accessible
+ * name, plus whatever the drawing library stamped on the nodes. Refusing on art alone left the thing
+ * that lands on the slide unmeasured.
+ */
+export function posterBytes({ label, description, art }: { label: string; description?: string; art: string }): number {
+	return new TextEncoder().encode(oneLine(labelArt(art, oneLineText(label) || 'Untitled drawing', description))).length;
+}
+
+/** Whether that poster is small enough to travel inside a deck. */
+export function posterFits(input: { label: string; description?: string; art: string }): boolean {
+	return posterBytes(input) <= ART_MAX_BYTES;
 }
 
 export interface SkeletonInput {
