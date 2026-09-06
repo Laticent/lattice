@@ -21,6 +21,13 @@
 //              the first frame it is seen — so an SVG the runtime transplanted keeps its
 //              generation while a re-render or a cache replay gets a new one
 //   diagram  — the frame the SVG for THIS source first painted on
+//   renders  — `mermaid.render` calls in the window. NOT a frame count and not cosmetic:
+//              the render queue is strictly serial, so one call per keystroke instead of
+//              one per pause is seconds of main-thread work queued behind the author. The
+//              instrument gained this after a change that removed the render debounce for
+//              an empty slot passed every frame-based arm — an empty slot is also what an
+//              author sees mid-edit of a diagram that does not parse, so the arm that
+//              would have caught it is `edit-broken`
 //   shift    — layout shift (the "jump") accumulated across the swap
 //
 // Frames, not only milliseconds, because a human perceives a wrong frame — and the
@@ -96,7 +103,7 @@ function parseArgs(argv) {
 		else if (a === '--deck') o.deck = argv[++i];
 		else throw new Error(`unknown arg: ${a}`);
 	}
-	if (!['nav', 'type', 'edit', 'mount'].includes(o.scenario)) throw new Error(`unknown --scenario: ${o.scenario} (nav|type|edit|mount)`);
+	if (!['nav', 'type', 'edit', 'edit-broken', 'mount'].includes(o.scenario)) throw new Error(`unknown --scenario: ${o.scenario} (nav|type|edit|edit-broken|mount)`);
 	if (!['diagram', 'prose'].includes(o.deck)) throw new Error(`unknown --deck: ${o.deck} (diagram|prose)`);
 	// `--deck` only means anything to `mount`; accepting it silently elsewhere let a run be
 	// LABELLED `--deck prose` while measuring the diagram deck.
@@ -209,7 +216,7 @@ function sampler() {
 	const SRC = 'pre > code[class*="language-mermaid"], marp-pre > code[class*="language-mermaid"]';
 	// A NEW document means the parent did a full srcdoc rewrite rather than a patch —
 	// the single most expensive fact about a navigation, and invisible from the outside.
-	const state = { frames: [], swaps: [], shift: 0, t0: performance.now(), doc: Math.random().toString(36).slice(2), marks: {}, origin: performance.timeOrigin, gen: 0 };
+	const state = { frames: [], swaps: [], shift: 0, t0: performance.now(), doc: Math.random().toString(36).slice(2), marks: {}, origin: performance.timeOrigin, gen: 0, renders: 0 };
 	window.__flash = state;
 	// The rAF sampler is installed FIRST and never behind anything that can throw. An
 	// init script runs at document-start, where `document.documentElement` can still be
@@ -270,6 +277,32 @@ function sampler() {
 		requestAnimationFrame(tick);
 	};
 	requestAnimationFrame(tick);
+	// RENDER COUNTER. `mermaid.render` is the expensive half and nothing about it is visible
+	// in a frame sample: a candidate can queue eight renders and still paint perfectly,
+	// because the queue is serial and the author simply waits longer. The mermaid script has
+	// not run yet at document-start, so this intercepts the assignment rather than the
+	// object, and wraps `render` when it arrives.
+	try {
+		let mermaidValue;
+		Object.defineProperty(window, 'mermaid', {
+			configurable: true,
+			get: () => mermaidValue,
+			set: (v) => {
+				mermaidValue = v;
+				if (v && typeof v.render === 'function' && !v.render.__flashWrapped) {
+					const inner = v.render.bind(v);
+					const wrapped = (...args) => {
+						state.renders++;
+						return inner(...args);
+					};
+					wrapped.__flashWrapped = true;
+					v.render = wrapped;
+				}
+			},
+		});
+	} catch (_e) {
+		/* a host that already defined it non-configurably: count nothing rather than throw */
+	}
 	// Phase marks — the decomposition of the window, in this document's own clock.
 	const mark = (k) => {
 		if (state.marks[k] === undefined) state.marks[k] = performance.now();
@@ -361,11 +394,11 @@ async function main() {
 	// other process is serving. That is not a hypothetical — it produced a full set of
 	// plausible, wrong, internally-consistent numbers for four historical builds.
 	try {
-		const pre = await fetch(`${BASE}/studio/`);
-		if (pre.ok) {
-			console.error(`something is already serving ${BASE} — stop it first (this bench must own the port,\nor it measures that server's build instead of this one).`);
-			process.exit(2);
-		}
+		// ANY answer, not just a 2xx. A server that 404s `/studio/` still owns the port, so
+		// the one this run spawns still fails to bind and the numbers still come from it.
+		await fetch(`${BASE}/studio/`);
+		console.error(`something is already serving ${BASE} — stop it first (this bench must own the port,\nor it measures that server's build instead of this one).`);
+		process.exit(2);
 	} catch {
 		// Nothing listening — the only state this bench can trust.
 	}
@@ -570,15 +603,29 @@ async function main() {
 		await page.keyboard.press('ArrowLeft');
 		await page.waitForTimeout(600);
 	}
+	// `edit-broken` parks the caret AFTER the closing `]`, so every keystroke leaves the
+	// diagram unparseable. That is not an edge case — it is most of the time an author
+	// spends building a diagram — and it is the arm that measures the DEBOUNCE rather than
+	// the paint: with the slot empty on every pass, a policy that renders eagerly shows one
+	// `mermaid.render` per character on a serial queue.
+	if (opts.scenario === 'edit-broken') {
+		await rail.nth(1).click();
+		await page.waitForTimeout(2500);
+		await page.getByText('A[Input] --> B[Process]').first().click();
+		await page.keyboard.press('End');
+		await page.waitForTimeout(600);
+	}
 	for (let i = 0; i < order.length; i++) {
-		const typing = opts.scenario === 'type' || opts.scenario === 'edit';
+		const typing = opts.scenario === 'type' || opts.scenario === 'edit' || opts.scenario === 'edit-broken';
 		const target = typing ? 2 : order[i];
 		// Clear the sampler window, then act.
 		await page
 			.frameLocator('[aria-label="Live deck preview"] iframe.live')
 			.locator('.lattice')
 			.first()
-			.evaluate(() => {
+			// `(element, arg)` — a locator's evaluate hands the ELEMENT first and the argument
+			// second, so a single-parameter callback silently receives the element.
+			.evaluate((_el, seq) => {
 				const s = window.__flash;
 				if (!s) return;
 				s.frames.length = 0;
@@ -587,10 +634,23 @@ async function main() {
 				// The generation on screen BEFORE the action. Everything at or below it is the
 				// outgoing diagram; the window closes on the first generation above it.
 				const cur = document.querySelector('.mermaid > svg, .mermaid-svg svg');
-				s.baseGen = cur ? cur.__flashGen || 0 : 0;
-			})
+				// STAMP IT HERE if the rAF sampler has not yet. Defaulting to 0 for an
+				// un-stamped SVG makes the held diagram beat `baseGen` on the first frame, so
+				// `scoreWindow` closes the window immediately and reports a held run as an
+				// instant one — the flattering direction, which is the one to be afraid of.
+				if (cur && !cur.__flashGen) cur.__flashGen = ++s.gen;
+				s.baseGen = cur ? cur.__flashGen : 0;
+				s.clearSeq = seq;
+				s.renders = 0;
+			}, i + 1)
 			.catch(() => null);
-		if (typing) await page.keyboard.type('x');
+		// A BURST for `edit-broken`, one character for the others. The render debounce only
+		// has anything to coalesce when keystrokes land inside its window, so measuring it
+		// needs consecutive characters — eight at 120ms is a slow author, and still well
+		// inside 150ms apart. One pass should render once; one render per character is the
+		// debounce gone.
+		if (opts.scenario === 'edit-broken') await page.keyboard.type('xxxxxxxx', { delay: 120 });
+		else if (typing) await page.keyboard.type('x');
 		else if (railCount >= target) await rail.nth(target - 1).click();
 		await page.waitForTimeout(1600);
 		const sample = await page
@@ -600,11 +660,21 @@ async function main() {
 			.evaluate(() => {
 				const s = window.__flash;
 				const res = performance.getEntriesByType('resource').map((r) => [r.name.split('/').pop(), Math.round(r.startTime), Math.round(r.duration), r.transferSize || 0]);
-				return s ? { frames: s.frames.slice(), swaps: s.swaps.slice(), shift: s.shift, doc: s.doc, marks: s.marks, res, baseGen: s.baseGen || 0 } : null;
+				return s ? { frames: s.frames.slice(), swaps: s.swaps.slice(), shift: s.shift, doc: s.doc, marks: s.marks, res, baseGen: s.baseGen || 0, clearSeq: s.clearSeq, renders: s.renders } : null;
 			})
 			.catch(() => null);
 		if (!sample?.frames.length) {
 			if (process.env.FLASH_DEBUG) console.error('no sample for target', target);
+			continue;
+		}
+		// The clear-and-stamp above can fail (the frame was mid-navigation, the evaluate threw
+		// and the `.catch` swallowed it), which leaves `baseGen` at the PREVIOUS iteration's
+		// value — lower than whatever is on screen now, so `scoreWindow` closes the window on
+		// frame one and a held run reports as an instant one. The clear stamps this
+		// iteration's number; a mismatch means it never ran, so drop the sample rather than
+		// score it against someone else's baseline.
+		if (sample.clearSeq !== i + 1) {
+			if (process.env.FLASH_DEBUG) console.error('stale baseGen for target', target, sample.clearSeq, i + 1);
 			continue;
 		}
 		const from = sample.swaps.length ? sample.swaps[0] : sample.frames[0][0];
@@ -615,7 +685,7 @@ async function main() {
 		const m = sample.marks || {};
 		const rel = (k) => (m[k] === undefined ? null : Math.round(m[k] - (m.lattice ?? 0)));
 		if (process.env.FLASH_RES && isDiagram) console.error('res', target, JSON.stringify(sample.res));
-		results.push({ run: Math.floor(i / opts.order.length), target, isDiagram, cold: isDiagram && i < opts.order.length, rewrite, ...score, phases: { lattice: m.lattice === undefined ? null : Math.round(m.lattice), shown: rel('shown'), tagged: rel('tagged'), svg: rel('svg') }, shift: Math.round(sample.shift * 10000) / 10000 });
+		results.push({ run: Math.floor(i / opts.order.length), target, isDiagram, cold: isDiagram && i < opts.order.length, rewrite, renders: sample.renders ?? null, ...score, phases: { lattice: m.lattice === undefined ? null : Math.round(m.lattice), shown: rel('shown'), tagged: rel('tagged'), svg: rel('svg') }, shift: Math.round(sample.shift * 10000) / 10000 });
 		if (opts.shots && isDiagram) {
 			for (const d of [0, 60, 140]) {
 				await page.waitForTimeout(d ? 60 : 0);
@@ -643,7 +713,7 @@ async function main() {
 			const v = rows.filter((r) => r.rewrite).map((r) => r.phases?.[k]).filter((x) => x !== null && x !== undefined).sort((a, b) => a - b);
 			return v.length ? v[Math.floor(v.length / 2)] : null;
 		};
-		return { n: rows.length, sourceFrames: med('source'), sourceInk: med('sourceInk'), blankFrames: med('blank'), heldFrames: med('held'), diagramMs: med('diagramMs'), shift: med('shift'), rewrites: rows.filter((r) => r.rewrite).length, phaseShown: medPhase('shown'), phaseTagged: medPhase('tagged'), phaseSvg: medPhase('svg') };
+		return { n: rows.length, sourceFrames: med('source'), sourceInk: med('sourceInk'), blankFrames: med('blank'), heldFrames: med('held'), renders: med('renders'), diagramMs: med('diagramMs'), shift: med('shift'), rewrites: rows.filter((r) => r.rewrite).length, phaseShown: medPhase('shown'), phaseTagged: medPhase('tagged'), phaseSvg: medPhase('svg') };
 	};
 	const out = { variant: opts.variant, cpu: opts.cpu, runs: opts.runs, cold: agg(cold), warm: agg(warm), all: agg(diagrams), samples: results };
 	if (opts.shots) {
@@ -655,10 +725,10 @@ async function main() {
 		console.log(JSON.stringify(out, null, 2));
 	} else {
 		console.log(`\nvariant: ${opts.variant}   cpu×${opts.cpu}   runs: ${opts.runs}\n`);
-		console.log('                 raw-source frames   (ink-weighted)   blank frames   held frames   time-to-diagram   layout shift');
+		console.log('                 raw-source frames   (ink-weighted)   blank frames   held frames   time-to-diagram   layout shift   renders');
 		for (const [label, a] of [['cold (first visit)', out.cold], ['warm (cached)', out.warm]]) {
 			if (!a) continue;
-			console.log(`  ${label.padEnd(18)} ${String(a.sourceFrames).padStart(8)}       ${String(a.sourceInk).padStart(10)}      ${String(a.blankFrames).padStart(9)}   ${String(a.heldFrames).padStart(9)}    ${String(a.diagramMs === null ? 'never' : `${a.diagramMs}ms`).padStart(12)}   ${String(a.shift).padStart(10)}`);
+			console.log(`  ${label.padEnd(18)} ${String(a.sourceFrames).padStart(8)}       ${String(a.sourceInk).padStart(10)}      ${String(a.blankFrames).padStart(9)}   ${String(a.heldFrames).padStart(9)}    ${String(a.diagramMs === null ? 'never' : `${a.diagramMs}ms`).padStart(12)}   ${String(a.shift).padStart(10)}   ${String(a.renders).padStart(6)}`);
 		}
 		console.log('\n  phases, from the frame document\'s own `.lattice` (ms):   full rewrites / visits');
 		for (const [label, a] of [['cold (first visit)', out.cold], ['warm (cached)', out.warm]]) {

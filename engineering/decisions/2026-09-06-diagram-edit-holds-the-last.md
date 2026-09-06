@@ -16,10 +16,14 @@ summary: >
   pending so the real render still lands: 11 blank frames -> 11 HELD frames, 0 layout shift,
   and 9 held rather than 9 blank at 4x CPU. And the 150ms render debounce, which exists to
   protect a diagram the author can see, is dropped to 0 for a fence whose slot is EMPTY:
-  navigating onto a diagram for the first time goes 214ms -> 70ms. The bench grew an `edit`
-  scenario, a held-frames column keyed on SVG node identity, and a refusal to run against a
-  server it did not start — a stale `astro preview` from another checkout produced a full set
-  of plausible, wrong, internally consistent numbers before that guard existed.
+  navigating onto a diagram for the first time goes 214ms -> 75ms. That delay is keyed on a
+  fence having JUST ARRIVED, not on its slot being empty: the first version keyed on emptiness
+  and the maker-checker measured it queueing 8 renders for 8 keystrokes into a diagram that
+  does not parse, because an empty slot is what a parse error leaves too. The bench grew an
+  `edit` scenario, an `edit-broken` one, a held-frames column keyed on SVG node identity, a
+  `mermaid.render` counter, and a refusal to run against a server it did not start — a stale
+  `astro preview` from another checkout produced a full set of plausible, wrong, internally
+  consistent numbers before that guard existed.
 ---
 
 # An edit to a diagram holds the diagram you already have
@@ -108,7 +112,12 @@ Three refusals, each of which would otherwise be a wrong answer rather than a sl
 
 - **a different number of fences** in the outgoing and incoming subtree. Position is the
   only identity available (the source changed — that is the premise), so a slide that
-  gained or lost a diagram would shift every later one by a slot;
+  gained or lost a diagram would shift every later one by a slot. Pairing is **node for
+  node**, not flat across the record, and refuses a record whose added and removed node
+  lists differ in length: `patchSections` has a second branch
+  (`lattice.innerHTML = next.join()`, when a slide is added or removed) whose single record
+  spans the whole deck, and flat pairing there would let a fence inherit ink from a
+  different slide whenever the counts happened to agree;
 - **a different `diagramScopeKey`** — the same key the cache uses. When it differs the
   slide's palette differs (an author typing `_class: dark` onto a diagram slide), and the
   held ink would be the old band's beside freshly repainted chrome;
@@ -125,14 +134,33 @@ before it shows the error. That is what separates this from handing a *cached* S
 scope change (the #1332 step-3 bug): that would have been a final answer, this is a
 placeholder with a render already queued.
 
-## 5. The debounce, for a slot with nothing in it
+## 5. The debounce, for a diagram that has just appeared
 
-The 150ms render debounce buys exactly one thing: not re-rendering a diagram the author is
-in the middle of editing. A fence whose slot is **empty** has no such diagram — there is
-nothing to protect, and the 150ms is simply added to the wait. `scheduleRun` now takes a
-delay, and the observer asks for 0 when any pending fence's target is empty after the
-replay and the adoption. A burst still coalesces (it is still a timeout, re-armed per
-record), and the shorter delay wins within a burst.
+What the 150ms debounce buys is **coalescing**: consecutive keystrokes collapse into one
+`mermaid.render` instead of one per character, on a queue that is strictly serial. That is
+worth 150ms whenever the author is editing a fence, and worth nothing when a fence has only
+just arrived — nobody is typing into a diagram they have not seen yet. `scheduleRun` takes
+a delay; the observer asks for 0 when `burstFirstSight` is true.
+
+**"Just appeared" is not "showing nothing", and the first version got that wrong.** Keying
+the delay on an empty slot alone looked equivalent and was not: an empty slot is *also*
+what an author sees while their in-progress source does not parse, because `attachError`
+clears the target. So the debounce was removed from precisely the case it exists for. The
+maker-checker drove the real bundle over eight keystrokes 120ms apart and measured **8
+`mermaid.render` calls instead of 1** — and the finished diagram arriving *later* than with
+the plain debounce (4413ms against 3435ms) even with a zero-cost render stub, because the
+queue is serial.
+
+`burstFirstSight` asks the question the author's intent actually turns on: did a fence
+arrive in a node whose outgoing counterpart carried **no fence at all**? A re-render of a
+fence that was already there keeps the full debounce however empty its slot is. It is also
+scoped to the burst's own arrivals rather than the document, so one broken diagram on slide
+12 of a Playground filmstrip cannot decide the delay for a keystroke on slide 1.
+
+The bench could not see any of this — every arm it had counts *frames*, and a policy that
+queues eight renders still paints perfectly while the author simply waits longer. It now
+counts `mermaid.render` calls, and has an `edit-broken` arm that types into a fence that
+does not parse. Measured after the fix: **1 render per 8-character burst.**
 
 ## 6. Measured, on the built Studio
 
@@ -141,11 +169,12 @@ runs:
 
 | scenario | before | after |
 |---|---|---|
-| `edit`, x1 (type inside the fence) | 0 source, **11 blank**, 209ms | 0 source, **11 held**, 205ms |
-| `edit`, x4 | 0 source, **9 blank**, ~490ms | 0 source, **9 held**, 460ms |
-| `nav` cold (first sight of a diagram) | **10 blank**, 214ms | **2 blank**, 70ms |
+| `edit`, x1 (type inside the fence) | 0 source, **11 blank**, 209ms | 0 source, **11 held**, 213ms |
+| `edit`, x4 | 0 source, **9 blank**, ~490ms | 0 source, **8 held**, 464ms |
+| `nav` cold (first sight of a diagram) | **10 blank**, 214ms | **2 blank**, 75ms |
 | `type` (heading, cached) | 0/0, 5ms | 0/0, 5ms |
-| layout shift, every arm | 0 | 0 |
+| `edit-broken` (8 keystrokes, unparseable) | 1 render | **1 render** |
+| layout shift, `nav` / `type` / `edit` | 0 | 0 |
 
 `nav` cold keeps 2 blank frames and always will: on the first sight of a diagram there is
 nothing to hold, and `mermaid.render` has to run. What is gone is the 150ms of pure waiting
@@ -163,9 +192,25 @@ in front of it.
   the price of deck-scoping the mermaid flag; it does not reproduce here. Not re-litigated —
   recorded, because the two numbers disagree and the later one is the one that was taken with
   this arm of the bench.
-- **A mid-edit parse error still replaces the held diagram with the error box.**
-  `attachError` clears the target, by design — the author asked to see what failed. Holding
-  the last good diagram *through* an error is a separate question with its own tradeoff.
+- **A mid-edit parse error still replaces the held diagram with the error box, and that is
+  now the loudest thing left on this surface.** `attachError` clears the target and the
+  `error` state un-hides the `<pre>`, so the raw source comes back and the slot collapses.
+  Measured with the new `edit-broken` arm — eight characters that leave the diagram
+  unparseable — **96 frames of raw source, 68 blank, and 0.047 of layout shift**, against 0
+  and 0 in every other arm. Most of the time spent building a diagram from scratch is spent
+  in that state. It is left alone here on purpose: clearing the target is what shows the
+  author what failed, and holding the last good diagram *through* an error is a different
+  decision with a real tradeoff, not a bug in this one.
+- **Two exported artifacts get the new behavior too**, so "the Studio's" is shorthand.
+  `lib/runtime/index.js` is not in `dist/lattice-emulator.js` and PDF/PPTX/PNG bytes are
+  untouched (the emulator strips the runtime `<script>` before rasterizing), but the
+  `--fluid` HTML export inlines `dist/lattice-runtime.min.js` and the export-to-Marp kit
+  copies it. Neither re-renders a fence after load, so what they inherit is the code, not a
+  behavior change a reader would see.
+- **A class the RUNTIME adds that the engine does not emit silently disables both adoption
+  and the cache replay**, through `diagramScopeKey`'s class half. `RUNTIME_MARKER_CLASSES`
+  lists the four known ones. Pre-existing, off the path of this change, and the failure
+  direction is a miss rather than wrong ink — logged here rather than pulled into the diff.
 
 ## 8. The measurement that was wrong first
 

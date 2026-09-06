@@ -268,14 +268,26 @@ rather than a slow one: a different NUMBER of fences either side (position is th
 identity left once the source has changed), a different `diagramScopeKey` (the slide's
 palette changed, so the held ink is the old band's), and a document with no Mermaid (the
 same guard the replay opens with — a held SVG nothing replaces is permanently stale).
+Pairing is node for node, not flat across the record, and a record whose added and removed
+node lists differ in length is refused outright: `patchSections`' other branch rebuilds the
+whole filmstrip in ONE record, where a flat walk would let a fence inherit ink from another
+slide whenever the counts happened to agree.
 
-**A fence with an EMPTY slot does not wait out the debounce.** The 150ms buys exactly one
-thing: not re-rendering a diagram the author is in the middle of editing. Where the slot is
-empty there is no such diagram, so `scheduleRun` takes a delay and the observer asks for 0
-whenever a pending fence's target is still empty after the replay and the adoption.
-Navigating onto a diagram for the first time: 214ms → 70ms, of which the remainder is
-`mermaid.render` itself. A burst still coalesces — it is still a timeout, re-armed per
-record, and the shorter delay wins within a burst.
+**A fence that has JUST APPEARED does not wait out the debounce.** What the 150ms buys is
+coalescing — consecutive keystrokes collapsing into one `mermaid.render` on a strictly
+serial queue — and a fence nobody has seen yet has nothing to coalesce. `scheduleRun` takes
+a delay and the observer asks for 0 when `burstFirstSight(records)` is true. Navigating onto
+a diagram for the first time: 214ms → 75ms, of which the remainder is `mermaid.render`
+itself.
+
+**"Just appeared" is NOT "showing nothing", and keying on the second removes the debounce
+from the one case it exists for.** A slot is also empty while an author's in-progress source
+does not parse — `attachError` clears the target — so an emptiness test made every keystroke
+into a broken diagram queue its own render: 8 for 8, measured, arriving *later* overall than
+the plain debounce. `burstFirstSight` asks whether a fence arrived in a node whose outgoing
+counterpart carried no fence at all, and is scoped to the burst's own arrivals rather than
+the document, so one broken diagram on slide 12 of a filmstrip cannot decide the delay for a
+keystroke on slide 1.
 
 Numbers for all three, the `--scenario edit` arm that measures the case a cache cannot
 answer, and why the previous diagram was never held on any earlier build:
