@@ -595,11 +595,36 @@ describe('scatter — the dense cluster keeps every name reachable', () => {
     }
   });
 
-  test('the four overlapping marks each keep a leader line', () => {
+  test('each of the four overlapping marks keeps its OWN leader line', () => {
     // Without a leader, a name beside a four-dot blob attributes to nothing.
+    // Counting leaders document-wide is not this assertion: the slide carries
+    // leaders outside the cluster too, so a count passes while two of these
+    // four silently lose theirs. Each leader is matched to the dot it springs
+    // from instead.
     const out = html();
-    const leaders = (out.match(/class="[^"]{0,60}leader/g) || []).length;
-    assert.ok(leaders >= 4, `expected at least 4 leader lines, found ${leaders}`);
+    const circles = out.match(/<circle[^<>]{0,400}?\/>/g) || [];
+    const dotOf = (n) => {
+      const tag = circles.find((t) => t.includes(`data-label="${n}"`));
+      return tag && {
+        cx: Number(/\scx="([-\d.]+)"/.exec(tag)[1]),
+        cy: Number(/\scy="([-\d.]+)"/.exec(tag)[1]),
+        r: Number(/\sr="([-\d.]+)"/.exec(tag)[1]),
+      };
+    };
+    const leaders = [...out.matchAll(/<line class="scatter-leader"[^<>]{0,200}?\/>/g)].map((m) => ({
+      x1: Number(/x1="([-\d.]+)"/.exec(m[0])[1]),
+      y1: Number(/y1="([-\d.]+)"/.exec(m[0])[1]),
+    }));
+    for (const name of ['Ironwood', 'Granite', 'Cardinal', 'Halyard']) {
+      const d = dotOf(name);
+      assert.ok(d, `${name} is drawn`);
+      // A leader springs from the rim of its own dot, so its origin sits within
+      // a radius-and-a-bit of that centre. The four are ~2.5 units apart, so
+      // this is deliberately tight enough to tell them apart only vertically —
+      // which is all that is needed to catch a whole leader going missing.
+      const own = leaders.some((l) => Math.hypot(l.x1 - d.cx, l.y1 - d.cy) <= d.r * 2);
+      assert.ok(own, `${name} keeps a leader line springing from its own mark`);
+    }
   });
 
   test('the cluster really is unresolvable — this fixture still earns its name', () => {

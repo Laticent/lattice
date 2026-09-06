@@ -166,61 +166,81 @@ itself.
 Four things the adversarial trio, the visual sweep and the accessibility-tree
 check found that this change records rather than repairs, each with the reason.
 
-**INVESTIGATED AND NOT CHANGED — `scatter`'s tight cluster labels.** An earlier
-draft of this note called it a defect: on the twelve-tool stress slide the four
-entities at 50-54% are labelled Ironwood, CARDINAL, GRANITE, Halyard while their
-marks run Ironwood, Granite, Cardinal, Halyard, because `placeLabels` is greedy
-IN INPUT ORDER and `Cardinal` is authored first. A fix was written — an opt-in
-`preserveOrder` pass that permuted the already-scored placements within a
-cluster — and then **reverted after the adversarial trio, which is the useful
-part of this entry.**
+**INVESTIGATED AND NOT CHANGED — `scatter`'s tight cluster labels.** On the
+twelve-tool stress slide the four entities at 50-54% are labelled Ironwood,
+CARDINAL, GRANITE, Halyard while their marks run Ironwood, Granite, Cardinal,
+Halyard, because `placeLabels` is greedy IN INPUT ORDER and `Cardinal` is
+authored first. **This is real and it is in the shipped artifact** — read out of
+the committed `scatter.gallery.light.pdf` with `pdftotext -bbox`, page 5:
+Ironwood yMin 192.72, Cardinal 216.83, Granite 278.22, Halyard 306.37. A fix was
+written, and then **reverted after the adversarial trio. That is what this entry
+is for.**
 
-**The premise does not hold.** The four marks OVERLAP. Measured off the real
-transform: centre distances of 2.93, 2.54 and 4.58 view units against a summed
-radius of 7.60. There is no perceptible vertical order among overlapping dots,
-so the "a reader pairing name to dot by proximity gets two wrong" story fails at
-its first step — a reader cannot pair by proximity here at all, and must use the
-leader lines, which were correct before and after. The chart is dense, not
-wrong.
+**The inverted pair is a pair a reader cannot separate anyway.** Measured off
+the real transform, the mis-ordering is Cardinal against Granite, whose marks
+sit **2.54 view units apart against a summed radius of 7.60** — the circles
+overlap, so there is no perceptible vertical order between exactly those two.
+Attribution on that slide runs through the leader lines, and those were correct
+before and after. **Be careful how far that argument reaches:** it covers the
+adjacent pairs (Ironwood-Granite 2.93, Granite-Cardinal 2.54, Cardinal-Halyard
+4.58, all overlapping), NOT the cluster's extremes — Ironwood and Halyard are
+9.88 apart and clearly separable. They were already in the right order. So the
+slide is dense rather than misleading; it is not a clean bill of health for the
+placer.
 
 **The implementation was wrong in a way that needed a rewrite, not a patch.**
 Its docblock argued monotonicity from "offsets sorted ascending against marks
-sorted ascending", but the code sorted `centerOf` — an ABSOLUTE y — and a slot
+sorted ascending". The code sorted `centerOf` — an ABSOLUTE y — and a slot
 carried `{anchorKey, ring, reach}`, whose implied offset depends on the
-RECEIVING label's own height and `cy`. So the property it claimed was never the
-property it computed. Three consequences, all measured by the trio: on real
-scatter decks it changed the render and left the cluster exactly as mis-ordered
-in 9 of 1,329 changed renders; at the kernel's wider input space it produced a
-strictly WORSE ordering (1 inversion to 2); and its collision guard declined 87%
-of the clusters it was written for, so it addressed roughly one in eight of the
-case it existed for.
+RECEIVING label's own height and `cy`. The property claimed was never the
+property computed, and the pass had no post-condition that would notice: its
+guard checked bounds and collisions, never order. Independently measured, over
+200,000 randomized layouts: of 4,709 applied repairs, 3,738 improved the
+ordering and **971 (20.6%) moved labels and improved nothing**, with ~5% of
+applied repairs still leaving the cluster non-monotonic. It also **declined
+93-95%** of the clusters it was written for, so it reached about one in fifteen
+of its own target case.
 
 **Its safety net was untested, and that was verified rather than assumed.**
 Replacing the guard with `if (false && !clean) continue;` — deleting the revert
-path entirely — left all 99 arms in `svg-label.test.js` and `scatter.test.js`
-green. An independent mutation run put the kill rate at 4 of 16. A guard nothing
-exercises is not a guard.
+path outright — left all 99 arms green. So did detaching a label to a different
+dot's coordinates, and skipping each of the three re-score checks
+independently. Two separate mutation runs put the kill rate at 4 of 16 and 6 of
+14, and in both, every surviving mutant was one that removed a safety check. A
+guard nothing exercises is not a guard.
+
+**One claim from the attack did NOT reproduce, and is recorded as unverified
+rather than repeated.** The red team reported a kernel-level input where the
+pass made ordering strictly worse (one inversion becoming two). An independent
+run of 400,000 randomized layouts under two different inversion metrics found
+**zero** strictly-worse cases. It may hold in an envelope that run did not
+sample; it is not evidence this record should lean on, and the case against the
+implementation does not need it.
 
 **What survived the attack, for whoever picks this up.** The other callers were
-byte-identical (800 randomized `quadrant`/`slope` renders, SHA-equal), no new
-collisions appeared in 24,000 fuzzed layouts, no label was lost or resurrected,
-it was deterministic, and it had no performance cost. The idea is sound; the
-permutation is the wrong mechanism for it.
+byte-identical — 800 randomized `quadrant`/`slope` renders, SHA-equal — and
+that is the opt-in flag doing the work, not luck: forcing `preserveOrder` on in
+`quadrant` does move its render. No new collisions appeared in 24,000 fuzzed
+layouts, no label was lost or resurrected, the pass was deterministic, and it
+cost nothing measurable. On the one slide it targeted it was correct, with zero
+bounds or collision violations and a blast radius of exactly two labels and two
+leader lines.
 
 **If it is ever taken up, the shape is `slope`'s, not a permutation.**
 `slope.transform.js` already solves this invariant by repacking a crowded run at
 a fixed pitch in value order — monotonic BY CONSTRUCTION, so there is no
 post-condition to hope for and nothing to revert. Lifting that into the kernel
-would serve `scatter`, `slope` and `quadrant` with one mechanism, which is what
-HARD RULE #1 asks for, and it would want the perceptibility question answered
-first: when marks overlap, is a label ranking information or false precision?
-`quadrant` is the caller that would gain most — it has the same greedy placer,
-the same behavior, and NO leader lines at all.
+would serve `scatter`, `slope` and `quadrant` with one mechanism (HARD RULE #1).
+`quadrant` is the caller that would gain most: same greedy placer, same
+behavior, and NO leader lines at all, so it has no second channel to fall back
+on.
 
 What ships instead is a test that pins the contract that actually holds on that
-slide: every one of the twelve is named, no two names overprint, each of the
-four carries a leader line, and the four marks still overlap — so the reasoning
-above stops applying the moment the geometry changes.
+slide: all twelve named, each of the four carrying a leader line **springing
+from its own mark** (a document-wide leader count passed while two of the four
+lost theirs — the arm was tightened until it killed that mutation), and the four
+marks still overlapping, so the reasoning above fails loudly if the geometry
+ever changes.
 
 **The `cards-stack` anti-pattern slide reserves no bottom padding for a second
 line of body copy.** A one-line card has generous air under it; a two-line card
