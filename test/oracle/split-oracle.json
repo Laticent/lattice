@@ -61,8 +61,30 @@
       "perPage": 1,
       "relationship": "hierarchy"
     },
+    "bar": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
     "big-number": {
       "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
+    "bullet": {
+      "treatment": "graphic",
       "axis": null,
       "declaredIn": null,
       "enrolled": false,
@@ -325,6 +347,17 @@
       "perPage": null,
       "relationship": null
     },
+    "line": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
     "list": {
       "treatment": "list-light",
       "axis": "item",
@@ -567,7 +600,29 @@
       "perPage": null,
       "relationship": null
     },
+    "scatter": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
     "scene": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
+    "slope": {
       "treatment": "graphic",
       "axis": null,
       "declaredIn": null,
@@ -598,6 +653,17 @@
       "reshape": "paginator",
       "coverClass": "split-panel-cover",
       "perPage": 1,
+      "relationship": null
+    },
+    "stacked-bar": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
       "relationship": null
     },
     "state-chart": {
@@ -668,6 +734,17 @@
     },
     "video": {
       "treatment": "asset",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
+    "waterfall": {
+      "treatment": "graphic",
       "axis": null,
       "declaredIn": null,
       "enrolled": false,

@@ -1,0 +1,69 @@
+/* bar — the chart family's magnitude comparison (column · row · grouped · diverging).
+ * Contract: lib/components/chart/bar/bar.manifest.json.
+ *
+ * The kernel (bar.transform.js) emits a <div class="bar-figure"> holding one
+ * <svg>: the shared Cartesian chrome (grid, axis rule, ticks, category labels —
+ * all painted by chart-family.css § Cartesian chrome, never restyled here) plus
+ * this component's own marks, the bars.
+ *
+ * COLOR SPLIT. The bar's FILL is the family's canonical rectangular wash, minted
+ * as SVG <defs> gradients by cartesian.js `buildFillDefs` — its stops name
+ * `var(--chart-cat-N-hue)`, so the kernel stays palette-blind (HARD RULE #3) and
+ * a theme that re-tunes --chart-catN re-tunes the bars. A `fill` declaration
+ * here would BEAT that presentation attribute and throw the gradient away, so
+ * this file deliberately sets no fill on a mark; it owns the saturated ink EDGE,
+ * which is the half of the canonical recipe CSS can carry.
+ *
+ * Unlayered, like every component file — @layer is inert in this bundle and a
+ * layered rule silently loses to an unlayered base rule (engineering/cascade.md). */
+
+:is(section.bar, figure.chart-frame) .bar-figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+:is(section.bar, figure.chart-frame) .bar-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The bar's edge. The canonical fill recipe pairs a soft wash with a saturated
+ * ink border; on a chart whose whole claim is LENGTH, that edge is what makes
+ * the end of a short bar unambiguous against the canvas. Hairline weight so it
+ * reads as a boundary, not as a second mark. */
+:is(section.bar, figure.chart-frame) .bar-mark {
+  stroke: var(--chart-cat-1-ink);
+  stroke-width: 0.7;
+}
+
+/* ONE SERIES IS ONE HUE. A single-series bar chart is one <g class="bar-lane">,
+ * so it takes slot 1 and every bar is the same color — the color encodes
+ * nothing that length has not already said, and six hues for six bars is the
+ * classic amateur tell. The rotation below only ever engages on `grouped`,
+ * where a lane IS a series and the hue is doing real work.
+ *
+ * :nth-of-type counts the <g> lanes inside .bar-cat — never :nth-child, and
+ * never the rects themselves, whose document order interleaves series.
+ *
+ * `.bar-cat` and `.bar-signed` below are MUTUALLY EXCLUSIVE containers the
+ * kernel picks between, not two rules racing on specificity. The lane selector
+ * carries one class-unit more than a `.bar-mark.bar-down` would, so written as
+ * a single container these rules silently overrode the diverging pair and a
+ * cuoio negative bar painted a bronze edge around a teal fill. */
+:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(1) .bar-mark { stroke: var(--chart-cat-1-ink); }
+:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(2) .bar-mark { stroke: var(--chart-cat-2-ink); }
+:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(3) .bar-mark { stroke: var(--chart-cat-3-ink); }
+:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(4) .bar-mark { stroke: var(--chart-cat-4-ink); }
+:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(5) .bar-mark { stroke: var(--chart-cat-5-ink); }
+:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(6) .bar-mark { stroke: var(--chart-cat-6-ink); }
+
+/* `diverging` encodes the SIGN, not the category, so it overrides the lane
+ * rotation (higher specificity, and later in the file). Two hues far apart on
+ * the wheel so the side a bar falls on is legible even at a glance — and blue /
+ * rose rather than green / red, because "above plan" is not always good news
+ * and a chart should not decide that for the author. */
+:is(section.bar, figure.chart-frame) .bar-signed .bar-up { stroke: var(--chart-cat-1-ink); }
+:is(section.bar, figure.chart-frame) .bar-signed .bar-down { stroke: var(--chart-cat-2-ink); }

@@ -1,9 +1,12 @@
 # chart-family
 
-Lattice's chart engine. A shared rendering subsystem used by fourteen
+Lattice's chart engine. A shared rendering subsystem used by twenty-one
 chart-class components: `progress`, `timeline-list`, `piechart`,
 `gantt`, `kanban`, `radar`, `quadrant`, `state-chart`, `funnel`, `map`,
-`journey`, `word-cloud`, `roadmap`, and `matrix-grid`.
+`journey`, `word-cloud`, `roadmap`, `matrix-grid`, and the seven CARTESIAN
+members — `bar`, `stacked-bar`, `line`, `waterfall`, `scatter`, `slope`,
+`bullet` — which share a second substrate of their own (see § The Cartesian
+substrate below).
 
 Membership is defined by the engine, not the disk bucket: a chart-family
 member is any layout the dispatcher wraps in the `.chart-frame` skeleton.
@@ -377,6 +380,54 @@ See `engineering/decisions/2026-07-26-svg-chart-labels-motion.md` for why
 placement is a choice of position rather than a nudge.
 
 ---
+
+## The Cartesian substrate
+
+Seven members plot a value against an axis: `bar`, `stacked-bar`, `line`,
+`waterfall`, `scatter`, `slope`, `bullet`. They landed together, and they share
+`_chart-family/cartesian.js` on top of everything above.
+
+**Why a second shared layer.** Until these arrived the family had no Cartesian
+chart at all — every member either drew a bespoke geometry (the funnel's
+trapezoids, the radar's spokes, the pie's wedges) or laid out boxes. The gantt
+is the only one that ever computed an axis, and its tick code is private to it
+and keyed to time. Seven charts added one at a time would have minted seven
+private tick generators, seven gutter conventions and seven gridline weights —
+seven charts that look like seven products. The existing bespoke geometries get
+away with having none of this because none of them shares furniture with
+another; a plot is the opposite case.
+
+**What it owns**
+
+| | |
+|---|---|
+| `parseSeries` | the series DSL — one authoring shape, two depths |
+| `niceTicks` · `niceStep` | the 1 / 2 / 2.5 / 5 / 10 ladder, with `tight` and `target: 'auto'` |
+| `linearScale` · `bandScale` · `pointScale` | the three scales a plot needs |
+| `plotBox` · `viewFor` | one gutter convention, one viewBox per orientation |
+| `buildGrid` · `buildValueTicks` · `buildCategoryLabels` · `buildAxisRule` · `buildAxisTitle` | the painted chrome |
+| `axisFormatter` · `markFormatter` | the axis speaks one magnitude; a mark keeps its own precision |
+| `buildFillDefs` | the canonical rectangular fill, as SVG `<defs>` |
+| `buildSvgRoot` | the one `<svg>` root, so the `role="img"` contract cannot be dropped |
+
+It owns **no color and no marks**. Paint lives in `chart-family.css`
+§ Cartesian chrome (the `.cart-*` classes); the marks are each member's own
+geometry.
+
+**Three things a new Cartesian member must know**
+
+- **Pass `pitch` to `buildCategoryLabels` on a row chart.** Without it the
+  vertical branch culls a colliding name, and a dropped category name is
+  invisible data loss. With it the budget comes from the row height and a long
+  name ellipsizes instead.
+- **`buildAxisRule` draws at the plot EDGE**, which is the zero line only while
+  every value is positive. On a signed chart the reference is the `.cart-zero`
+  rule `buildGrid` already emits; drawing both paints a second, false baseline.
+- **`parseSeries` reads ONE pill per item.** A member whose item carries a
+  value *and* a status (`waterfall`, `bullet`, `scatter`) parses its own list
+  with `stripTrailingPills` + `parseValue` + `affixOf` instead.
+
+Full reasoning: `engineering/decisions/2026-09-06-cartesian-chart-expansion.md`.
 
 ## Kernel contract
 

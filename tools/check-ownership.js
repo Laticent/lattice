@@ -7508,6 +7508,13 @@ const SANCTIONED_DENSITY_EXEMPT = {
   closing: 'bookend — universal budgets cover it',
   // data viz — content is a data series/graph, not prose.
   funnel: 'data viz — series, not prose',
+    bar: 'data viz — series, not prose',
+    bullet: 'data viz — series, not prose',
+    line: 'data viz — series, not prose',
+    scatter: 'data viz — series, not prose',
+    slope: 'data viz — series, not prose',
+    'stacked-bar': 'data viz — series, not prose',
+    waterfall: 'data viz — series, not prose',
   gantt: 'data viz — schedule, not prose',
   journey: 'data viz — stage map, not prose bodies',
   map: 'data viz — geographic series',

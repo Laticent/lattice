@@ -1272,7 +1272,7 @@ function subsetFontFaceCss(css, families) {
 // state-chart/roadmap/timeline/word-cloud) is HTML/CSS or mixed → exported as a
 // high-res PNG, rasterized in-browser by the SAME html-to-image path the
 // one-click PDF/PPTX uses (it renders these charts faithfully).
-const CLEAN_SVG_LAYOUTS = ['piechart', 'radar', 'map', 'quadrant', 'funnel'];
+const CLEAN_SVG_LAYOUTS = ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'piechart', 'radar', 'map', 'quadrant', 'funnel'];
 
 // The cursor's active chart slide (ANY `chart-frame` section), or null — drives
 // the "Export chart" menu visibility.

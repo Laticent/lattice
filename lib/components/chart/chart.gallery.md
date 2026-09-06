@@ -2,10 +2,40 @@
 
 # chart
 
-`14 components`
+`21 components`
 
 Chart — series-substance data visualizations (SVG kernel).
 
+
+---
+
+<!-- _class: bar -->
+<!-- _footer: "bar · chart survey" -->
+
+`Revenue · FY26`
+
+## Growth is concentrated in two regions.
+
+- North America `$4.2M`
+  - Two enterprise renewals landed in Q4
+- EMEA `$3.1M`
+- APAC `$1.8M`
+- LATAM `$0.6M`
+
+---
+
+<!-- _class: bullet -->
+<!-- _footer: "bullet · chart survey" -->
+
+`Q3 2026 · commercial plan`
+
+## Two of five KPIs cleared the plan line.
+
+- New ARR `4.2M` `5.0M`
+- Expansion ARR `3.6M` `3.0M`
+- Gross renewal `2.8M` `2.6M`
+- Services revenue `1.1M` `1.8M`
+- Partner-sourced ARR `0.9M` `1.4M`
 
 ---
 
@@ -79,6 +109,38 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
   - Almost done `S`
 - Done
   - Shipped work `L`
+
+---
+
+<!-- _class: line -->
+<!-- _footer: "line · chart survey" -->
+
+## Services grew into the gap enterprise left.
+
+- Q1 2025
+  - Enterprise `4.1`
+  - Mid-market `2.6`
+  - Services `1.2`
+- Q2 2025
+  - Enterprise `4.4`
+  - Mid-market `2.9`
+  - Services `1.6`
+- Q3 2025
+  - Enterprise `4.2`
+  - Mid-market `3.4`
+  - Services `2.3`
+- Q4 2025
+  - Enterprise `3.8`
+  - Mid-market `3.9`
+  - Services `3.1`
+- Q1 2026
+  - Enterprise `3.6`
+  - Mid-market `4.3`
+  - Services `4.0`
+- Q2 2026
+  - Enterprise `3.5`
+  - Mid-market `4.6`
+  - Services `5.2`
 
 ---
 
@@ -229,6 +291,69 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
+<!-- _class: scatter -->
+<!-- _footer: "scatter · chart survey" -->
+
+`Annual cost` `Teams adopting`
+
+## The tools we pay most for are the ones nobody adopts.
+
+Cost is the renewal we signed; adoption is the share of teams with a weekly active user.
+
+- Atlas `$420k` `18%`
+  - Renewal lands in March
+  - Two teams asked to drop it
+- Borealis `$310k` `24%`
+- Cardinal `$180k` `52%`
+- Dovetail `$95k` `61%`
+- Everline `$240k` `31%`
+- Fathom `$60k` `74%`
+
+---
+
+<!-- _class: slope -->
+<!-- _footer: "slope · chart survey" -->
+
+## Kestrel took the lead; Northwind gave it up.
+
+- Northwind `fail`
+  - 2023 `31%`
+  - 2026 `24%`
+- Kestrel Group `live`
+  - 2023 `22%`
+  - 2026 `29%`
+- Vantage
+  - 2023 `19%`
+  - 2026 `21%`
+- Meridian Partners
+  - 2023 `17%`
+  - 2026 `16%`
+- Everyone else
+  - 2023 `11%`
+  - 2026 `10%`
+
+---
+
+<!-- _class: stacked-bar -->
+<!-- _footer: "stacked-bar · chart survey" -->
+
+## Each bar is a total; the bands inside it are the mix.
+
+- FY23
+  - Licenses `18.4`
+  - Services `6.2`
+  - Support `4.1`
+- FY24
+  - Licenses `19.1`
+  - Services `9.8`
+  - Support `4.6`
+- FY25
+  - Licenses `19.6`
+  - Services `15.4`
+  - Support `5.2`
+
+---
+
 <!-- _class: state-chart lr -->
 <!-- _footer: "state-chart · chart survey" -->
 
@@ -272,6 +397,24 @@ Four milestones show the shape; the date chips carry the when.
    - Sixteen words is each entry's budget.
 4. `Q4` The fourth milestone
    - Four to six entries reads best.
+
+---
+
+<!-- _class: waterfall -->
+<!-- _footer: "waterfall · chart survey" -->
+
+`FY26 plan · actual`
+
+## Price paid for the volume we lost.
+
+- Plan `12.0M`
+- Price `+1.4M`
+  - Two list-price rises, both held
+- Volume `-0.8M`
+- Mix `-0.6M`
+- FX `-0.3M`
+- Cost base `-1.9M`
+- Actual `9.8M`
 
 ---
 

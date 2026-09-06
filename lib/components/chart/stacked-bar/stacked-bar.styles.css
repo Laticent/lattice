@@ -1,0 +1,106 @@
+/* stacked-bar — decomposition across categories (chart-family Cartesian member).
+ * Contract: lib/components/chart/stacked-bar/stacked-bar.manifest.json.
+ *
+ * The kernel (stacked-bar.transform.js) emits a <div class="stacked-bar-figure">
+ * holding ONE <svg>: the plot, the stack, and either the series names set beside
+ * the last bar or the shared key. All shared plot chrome (.cart-grid /
+ * .cart-zero / .cart-axis / .cart-tick / .cart-cat / .cart-value / .cart-series)
+ * is painted once in chart-family.css § Cartesian chrome and is NOT restyled
+ * here — that identity is what makes seven Cartesian members one product. This
+ * file paints this member's OWN marks and nothing else.
+ *
+ * Unlayered, like every component stylesheet: @layer is inert in this bundle and
+ * a layered rule silently loses to an unlayered base rule (cascade.md).
+ * Anchored on :is(section.stacked-bar, figure.chart-frame) so the fills also
+ * resolve in the Read·Article figure re-host, where the SVG is re-parented
+ * outside its section. */
+
+:is(section.stacked-bar, figure.chart-frame) .stacked-bar-figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── THE SEGMENT FILL ───────────────────────────────────────────────────────
+ * SOLID, at the pie's 82 % richness, NOT the family's canonical rectangular
+ * wash — and the reason is the same one the pie gives for its wedges. That wash
+ * (--chart-fill-top-* → --chart-fill-bottom-*) is tuned for a mark read against
+ * the CANVAS: a gantt bar, a progress fill, a kanban card, each floating alone
+ * with slide showing on both sides. A stack has no canvas between its parts.
+ * Its segments are opaque, abutting part-to-whole areas — exactly the pie
+ * wedge's case — and rendered they proved it twice: on light the 20 %/38 % wash
+ * left neighboring hues too pale to separate, and on dark, where the wash ramps
+ * a segment toward black, the bottom of every bar dissolved into the navy
+ * canvas and the bars stopped reading as bars.
+ *
+ * Mixed toward --chart-cat-base (--bg on light, BLACK on dark) rather than --bg
+ * directly: a warm hue mixed into the cool dark canvas neutralizes to brown.
+ * This is also exactly what the shared key paints its swatches with, so a
+ * swatch and the band it names are now the same color — under the wash they
+ * were not.
+ *
+ * Keyed on [data-cat], the family's categorical hook (the same attribute the
+ * shared legend stamps on its swatches), rather than :nth-of-type: a segment's
+ * palette slot is its SERIES, and a bar that skips a series would put the next
+ * one at the wrong ordinal. The attribute carries the slot itself, so it cannot
+ * drift. */
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg {
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--chart-cat-base));
+  /* THE SEPARATOR — the one rule this chart cannot ship without. Two adjacent
+   * parts are two abutting areas, and without a separator a slot-2 segment
+   * sitting on a slot-3 segment reads as one taller block. A hairline in the
+   * CANVAS color is the family idiom (the funnel's bands do the same): it is
+   * not a border in a new color, it is a sliver of the slide showing through,
+   * so it stays right on both canvases and under every theme. */
+  stroke: var(--bg);
+  stroke-width: 0.6;
+  stroke-linejoin: miter;
+}
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="1"] { fill: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--chart-cat-base)); }
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="2"] { fill: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--chart-cat-base)); }
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="3"] { fill: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--chart-cat-base)); }
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="4"] { fill: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--chart-cat-base)); }
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="5"] { fill: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--chart-cat-base)); }
+
+/* ── THE DIRECT LABEL ───────────────────────────────────────────────────────
+ * A series name set beside the last bar's own segment, in that series' own INK
+ * — the saturated end of the same hue the band wears. That shared hue is what
+ * makes it a direct label rather than a caption: the reader never looks
+ * anything up, because the name and the band are visibly the same color.
+ * --chart-cat-N-ink is already tuned for text weight on both canvases (it mixes
+ * toward --text-heading), so this is a token swap, not a new color. */
+:is(section.stacked-bar, figure.chart-frame) .sbar-name { fill: var(--chart-cat-1-ink); }
+:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="1"] { fill: var(--chart-cat-2-ink); }
+:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="2"] { fill: var(--chart-cat-3-ink); }
+:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="3"] { fill: var(--chart-cat-4-ink); }
+:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="4"] { fill: var(--chart-cat-5-ink); }
+:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="5"] { fill: var(--chart-cat-6-ink); }
+
+/* The total, printed on the canvas past the end of the bar — never on a
+ * segment. It takes .cart-value's display face and heading ink from the family
+ * chrome; what this adds is a KNOCKOUT in the canvas color.
+ *
+ * The halo is not decoration. A total sits a fixed distance above its bar, and
+ * a gridline sits wherever the axis put it, so the two collide on some data and
+ * not on others — rendered, `28.7` came down exactly on the 30 rule. Painting
+ * the glyph's own outline in --bg first (paint-order: stroke fill) cuts a
+ * clean gap out of whatever runs behind it, in the canvas color, so it stays
+ * right on both canvases and under every theme. */
+:is(section.stacked-bar, figure.chart-frame) .sbar-total {
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke fill;
+  stroke: var(--bg);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+/* The last bar's part value, right-aligned beside its name. It borrows
+ * .cart-tick's label face and tabular figures — a column of numbers should
+ * align on its digits — but not its muted ink: a tick is chrome a reader
+ * glances at, and this is data they came to read. On the dark canvas the muted
+ * gray read as switched off. */
+:is(section.stacked-bar, figure.chart-frame) .sbar-part {
+  fill: var(--text-body);
+}

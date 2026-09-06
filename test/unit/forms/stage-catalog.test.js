@@ -35,7 +35,7 @@ const EXPECTED_FLOW = [
   'quote', 'redline', 'regulatory-update', 'stats', 'statute-stack', 'verdict-grid',
 ].sort();
 const EXPECTED_CANVAS = [
-  'contact', 'diagram', 'funnel', 'gantt', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',
+  'contact', 'diagram', 'bar', 'bullet', 'funnel', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'gantt', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',
   'progress', 'quadrant', 'radar', 'roadmap', 'state-chart', 'timeline-list',
   'video', 'wifi', 'word-cloud',
 ].sort();

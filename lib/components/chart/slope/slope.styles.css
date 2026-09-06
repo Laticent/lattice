@@ -1,0 +1,206 @@
+/* slope — before/after per entity (chart-family Cartesian member).
+ * Contract: lib/components/chart/slope/slope.manifest.json.
+ *
+ * The kernel (slope.transform.js) emits a <div class="slope-figure"> holding
+ * one <svg class="cart-svg">. The plot chrome — column headers, endpoint names,
+ * endpoint values — is the family's shared `cart-*` vocabulary, painted in
+ * chart-family.css § Cartesian chrome and NOT restyled here; this file paints
+ * this member's own MARKS. Unlayered, like every component file (@layer is
+ * inert in this bundle and a layered rule silently loses to an unlayered base
+ * rule — cascade.md). */
+
+/* The figure fills the chart body — the SVG's own `.cart-svg` rule sizes to
+ * this box, so without it the div shrinks to its content and the plot renders
+ * at a quarter scale in the middle of an empty body. */
+:is(section.slope, figure.chart-frame) .slope-figure {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── The line ─────────────────────────────────────────────────────────────
+ * DEFAULT: every entity the same quiet ink. Direction is in the geometry, and
+ * a slopegraph reads best when the reader's eye follows the crossings rather
+ * than a color key that encodes nothing. */
+:is(section.slope, figure.chart-frame) .slope-line {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 58%, transparent);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:is(section.slope, figure.chart-frame) .slope-svg.slope-slopegraph .slope-dot {
+  fill: color-mix(in oklab, var(--text-body) 70%, transparent);
+  stroke: none;
+}
+
+/* The leader that ties a de-collided name back to its dot. Deliberately the
+ * faintest mark on the plot: it is wayfinding, not data, and it must never be
+ * mistaken for a slope. */
+:is(section.slope, figure.chart-frame) .slope-leader {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-muted) 45%, transparent);
+  stroke-width: 0.4;
+}
+
+/* The endpoint name rides the family's `.cart-series` register; this adds only
+ * what is specific to a slope endpoint. */
+:is(section.slope, figure.chart-frame) .slope-name {
+  fill: var(--text-body);
+}
+
+/* ── `signal` — direction as a semantic register ──────────────────────────
+ * Opt-in, because "up" is not universally good: unit cost rising is bad news
+ * and market share rising is good news, and the chart cannot tell them apart.
+ * Where the author knows up is good, this is the strongest read on the slide.
+ * Grayscale-safe by construction: direction is carried by the GEOMETRY, so
+ * stripping the hue costs nothing (HARD RULE #29's sibling concern). */
+:is(section.slope, figure.chart-frame) .slope-svg.slope-signal .slope-line[data-dir="up"] {
+  stroke: var(--state-pass-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-signal .slope-line[data-dir="down"] {
+  stroke: var(--state-fail-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-signal .slope-line[data-dir="flat"] {
+  stroke: color-mix(in oklab, var(--text-body) 42%, transparent);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"] {
+  fill: var(--state-pass-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"] {
+  fill: var(--state-fail-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"] {
+  fill: color-mix(in oklab, var(--text-body) 55%, transparent);
+}
+
+/* ── `marked` — the author names the line ─────────────────────────────────
+ * Engaged automatically when any entity carries a status pill from the
+ * family's frozen CHART_STATUS vocabulary (`- Northwind \`fail\``). Every
+ * other line recedes so the marked ones carry the slide. This is the register
+ * that survives a metric where UP IS BAD — unit cost, churn, cycle time —
+ * because the direction is never inferred, only declared.
+ *
+ * `--mark-ink` is the local channel: one rule per status re-points it, and the
+ * line, the dot and the name all read from it, so a status can never paint
+ * three different colors. Mapping copied from gantt.styles.css so a `fail` is
+ * the same red on a gantt bar and on a slope line. */
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-line {
+  stroke: color-mix(in oklab, var(--text-body) 38%, transparent);
+  stroke-width: 0.9;
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-slopegraph.slope-marked .slope-dot {
+  fill: color-mix(in oklab, var(--text-body) 40%, transparent);
+}
+/* The receded VALUE has to recede too. Left at full heading ink it is the
+ * loudest thing on a line the register just told the reader to ignore. */
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-value {
+  fill: var(--text-muted);
+  font-weight: 600;
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-value[data-s] {
+  fill: var(--text-heading);
+  font-weight: 700;
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-name {
+  fill: var(--text-muted);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked [data-s] {
+  --mark-ink: var(--state-info-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked [data-s="on-track"],
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked [data-s="done"],
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked [data-s="live"] {
+  --mark-ink: var(--state-pass-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked [data-s="at-risk"],
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked [data-s="warn"] {
+  --mark-ink: var(--state-warn-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked [data-s="blocked"],
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked [data-s="fail"] {
+  --mark-ink: var(--state-fail-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked [data-s="deferred"] {
+  --mark-ink: var(--state-mute-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-line[data-s] {
+  stroke: var(--mark-ink);
+  stroke-width: 1.7;
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-slopegraph.slope-marked .slope-dot[data-s] {
+  fill: var(--mark-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-name[data-s] {
+  fill: var(--text-heading);
+}
+
+/* ── `dumbbell` — the same model as rows ──────────────────────────────────
+ * A bar per entity between two dots on a shared horizontal value axis. The
+ * bar carries the gap; the dots carry before and after. Direction is encoded
+ * by FILL STATE, not by hue — the first dot is hollow and the last is solid —
+ * so before/after survives the a11y grayscale palette and a black-and-white
+ * print with nothing to strip. */
+:is(section.slope, figure.chart-frame) .slope-bar {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 34%, transparent);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+:is(section.slope, figure.chart-frame) .slope-dot-from {
+  fill: var(--bg);
+  stroke: color-mix(in oklab, var(--text-body) 72%, transparent);
+  stroke-width: 0.9;
+}
+:is(section.slope, figure.chart-frame) .slope-dot-to,
+:is(section.slope, figure.chart-frame) .slope-dot-via {
+  fill: color-mix(in oklab, var(--text-body) 80%, transparent);
+  stroke: none;
+}
+
+/* Under `signal` the BAR takes the direction ink and the solid dot follows it;
+ * the hollow dot keeps the canvas fill so the two ends stay distinguishable. */
+:is(section.slope, figure.chart-frame) .slope-svg.slope-signal .slope-bar[data-dir="up"] {
+  stroke: color-mix(in oklab, var(--state-pass-ink) 72%, transparent);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-signal .slope-bar[data-dir="down"] {
+  stroke: color-mix(in oklab, var(--state-fail-ink) 72%, transparent);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-signal .slope-dot-to[data-dir="up"] {
+  fill: var(--state-pass-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-signal .slope-dot-to[data-dir="down"] {
+  fill: var(--state-fail-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-signal .slope-dot-from[data-dir="up"] {
+  stroke: var(--state-pass-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-signal .slope-dot-from[data-dir="down"] {
+  stroke: var(--state-fail-ink);
+}
+
+/* Under `marked` the unmarked rows recede and the marked ones take the status
+ * ink, exactly as the slopegraph's lines do — one register, two shapes. */
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-bar {
+  stroke: color-mix(in oklab, var(--text-body) 20%, transparent);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-dot-to,
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-dot-via {
+  fill: color-mix(in oklab, var(--text-body) 32%, transparent);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-dot-from {
+  stroke: color-mix(in oklab, var(--text-body) 32%, transparent);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-bar[data-s] {
+  stroke: color-mix(in oklab, var(--mark-ink) 78%, transparent);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-dot-to[data-s],
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-dot-via[data-s] {
+  fill: var(--mark-ink);
+}
+:is(section.slope, figure.chart-frame) .slope-svg.slope-marked .slope-dot-from[data-s] {
+  stroke: var(--mark-ink);
+}

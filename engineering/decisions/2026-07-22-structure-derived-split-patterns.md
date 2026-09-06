@@ -343,7 +343,7 @@ one: the map in `split-facts.js` is the source, and
 | Treatment | Components |
 |---|---|
 | **Anchor — never splits** | `closing` · `divider` · `title` |
-| **viewBox graphic — container-responsive + legibility-floor→ring** | `diagram` · `funnel` · `map` · `piechart` · `quadrant` · `radar` · `scene` · `state-chart` *(JS-scaled; no-JS UNVERIFIED)* · `word-cloud` |
+| **viewBox graphic — container-responsive + legibility-floor→ring** | `bar` · `bullet` · `diagram` · `funnel` · `line` · `map` · `piechart` · `quadrant` · `radar` · `scatter` · `scene` · `slope` · `stacked-bar` · `state-chart` *(JS-scaled; no-JS UNVERIFIED)* · `waterfall` · `word-cloud` |
 | **Bitmap asset — responsive, no split** | `image` · `video` |
 | **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `citation-card` · `contact` · `gantt` · `logo-wall` *(by image)* · `math` · `matrix-2x2` · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `obligation-matrix` · `progress` *(CSS bars, not a viewBox graphic — so NOT "scale like a graphic". Slice-clean CSS, but the bars share a baseline and the comparison IS the read, so the slide stays whole)* · `quote` · `timeline-list` *(the spine IS the component — one rail across the set, and a `:nth-child` dot spectrum that collapses to cat-1 when sliced)* · `wifi` |
 | **List → item · light** (1/slide; a light member is one bullet or tile) | `agenda` · `checklist` · `content` · `inventory` · `list` · `list-criteria` |

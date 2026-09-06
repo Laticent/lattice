@@ -105,8 +105,20 @@ Say which method you are asking for when you ask for authorization.
 
 Three top-level decks survive in `examples/` after the docs refactor.
 Per-component prose lives in `lib/components/<name>/<name>.manifest.json`
-and is rendered into `<name>.gallery.pdf` per component. The isolation
-rule below applies to the three top-level decks.
+and is rendered into `<name>.gallery.pdf` per component.
+
+**The isolation rule reaches the two HAND-CURATED decks below, and only
+those.** The third top-level deck, `examples/data-viz-gallery.md`, is
+GENERATED from the live chart + math manifest set by
+`tools/build-showcase-galleries.js`, and
+`test/unit/tools/showcase-galleries.test.js` blocks every PR on it matching
+what the generator composes. So a new chart component **must** land in that
+deck in the same change that adds the component — holding it back for a
+post-review graduation commit turns CI red, which is the opposite of what
+HARD RULE #8 asks for. Regenerate with `npm run build:showcase-galleries`;
+never hand-edit it. This paragraph exists because the section said "three
+decks", listed two, and never said the third was generated — which read as
+a HARD RULE #8 violation in a PR that was correct.
 
 **Regression baseline** — page counts asserted in CI (each test file
 inlines its expected count; the 58 per-component galleries derive

@@ -296,6 +296,80 @@ section.funnel .funnel-band:nth-of-type(6n+3) { fill: url(#latt-a11y-chart-tex-3
 section.funnel .funnel-band:nth-of-type(6n+4) { fill: url(#latt-a11y-chart-tex-4) !important; }
 section.funnel .funnel-band:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
 section.funnel .funnel-band:nth-of-type(6n+6) { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* ── The Cartesian members (bar, stacked-bar, line, waterfall, scatter, slope,
+ * bullet) ──────────────────────────────────────────────────────────────────
+ * Seven charts landed together against one substrate, so unlike the members
+ * above they share ONE attribute convention rather than seven hook shapes:
+ *   · every categorical FILLED mark carries `data-cat="0..5"` — the same 0-based
+ *     slot the shared legend swatch already uses, so a mark and its key entry
+ *     texture identically for free;
+ *   · every STROKED series mark carries `data-series="0..5"`;
+ *   · a semantic mark carries `data-s`.
+ * That is why this block is ten rules instead of seventy.
+ * See engineering/decisions/2026-09-06-cartesian-chart-expansion.md. */
+:is(section.bar, figure.chart-frame) .bar-mark[data-cat="0"],
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="0"],
+:is(section.line, figure.chart-frame) :is(.line-area, .line-band)[data-cat="0"],
+:is(section.scatter, figure.chart-frame) :is(.scatter-dot, .scatter-bubble, .scatter-size-ring)[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+:is(section.bar, figure.chart-frame) .bar-mark[data-cat="1"],
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="1"],
+:is(section.line, figure.chart-frame) :is(.line-area, .line-band)[data-cat="1"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+:is(section.bar, figure.chart-frame) .bar-mark[data-cat="2"],
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="2"],
+:is(section.line, figure.chart-frame) :is(.line-area, .line-band)[data-cat="2"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+:is(section.bar, figure.chart-frame) .bar-mark[data-cat="3"],
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="3"],
+:is(section.line, figure.chart-frame) :is(.line-area, .line-band)[data-cat="3"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+:is(section.bar, figure.chart-frame) .bar-mark[data-cat="4"],
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="4"],
+:is(section.line, figure.chart-frame) :is(.line-area, .line-band)[data-cat="4"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+:is(section.bar, figure.chart-frame) .bar-mark[data-cat="5"],
+:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="5"],
+:is(section.line, figure.chart-frame) :is(.line-area, .line-band)[data-cat="5"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+
+/* The WATERFALL is semantic, not categorical: its three registers are direction
+ * and reference, so they take the first three textures by MEANING. Direction
+ * also rides the geometry and the printed sign, so texture is the third channel
+ * here rather than the only one. */
+:is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="up"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+:is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="down"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+:is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="total"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+
+/* Line-style variation — the STROKED series marks. Grayscale collapses six
+ * overlapping strokes to one gray, so the dash pattern is what carries the
+ * distinction hue cannot. The `line` chart needs its endpoint dot to match its
+ * own line, which is why the dot is in the same rule as the path. */
+:is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="0"],
+:is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="0"],
+:is(section.scatter, figure.chart-frame) .scatter-trend[data-series="0"] { stroke-dasharray: none !important; }
+:is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="1"],
+:is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="1"] { stroke-dasharray: 7 4 !important; }
+:is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="2"],
+:is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="2"] { stroke-dasharray: 1.5 3.5 !important; stroke-linecap: round; }
+:is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="3"],
+:is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="3"] { stroke-dasharray: 9 3 2 3 !important; }
+:is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="4"],
+:is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="4"] { stroke-dasharray: 4 3 !important; }
+:is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="5"],
+:is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="5"] { stroke-dasharray: 11 4 1 4 !important; }
+
+/* The KEY swatches carry the same texture as the marks they name. The Cartesian
+ * members emit `data-cat` on their legend rows (svg-legend.js), so one rule per
+ * slot covers every member that shows a key — and without it the bars carried
+ * six distinct textures while the key carried six flat grays, which on the one
+ * palette whose whole job is the non-color channel makes the key unusable. */
+:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-cat="1"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-cat="2"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-cat="3"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-cat="4"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-cat="5"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+
+/* BULLET is deliberately untextured. Its three layers are separated by VALUE,
+ * not hue — a light band wash, a solid measure bar, a dark target tick — and
+ * value is exactly what survives grayscale. Texturing the band would fight the
+ * measure bar that has to read against it. */
+
 /* Line-style variation — multi-series line charts (radar). Overlapping series
  * are grayscale here, so a distinct stroke-dasharray per series carries the
  * distinction color can't: solid / dashed / dotted / dash-dot / … */

@@ -539,3 +539,330 @@ retuned it 3x tighter until the trio caught it — twice, independently. This sl
 is what watches it now. Kept deliberately short: `timeline-list canvas` at
 portrait is height-tight on `main` too, and this fixture is here to exercise the
 panel token, not to re-litigate that. -->
+
+---
+
+<!-- _class: bar -->
+
+## Eight long business-unit names, the row-flip case.
+
+- Global Transaction Services `$4.2M`
+- Enterprise Platform Licensing `$3.8M`
+- Managed Infrastructure `$3.1M`
+- Professional Services `$2.4M`
+- Partner and Channel `$1.9M`
+- Regulated Markets `$1.2M`
+
+---
+
+<!-- _class: bar grouped -->
+
+## Four categories, four series — the crowded grouped case.
+
+- Q1
+  - Plan `3.2`
+  - Actual `2.9`
+  - Prior year `2.4`
+  - Forecast `3.0`
+- Q2
+  - Plan `3.6`
+  - Actual `3.8`
+  - Prior year `2.8`
+  - Forecast `3.5`
+- Q3
+  - Plan `4.0`
+  - Actual `4.4`
+  - Prior year `3.1`
+  - Forecast `4.2`
+
+---
+
+<!-- _class: bar diverging -->
+
+## Signed values off a centered zero rule.
+
+- Pricing `+1.4`
+- Volume `-0.9`
+- Mix `+0.5`
+- Currency `-1.2`
+- Cost base `-1.9`
+
+---
+
+<!-- _class: stacked-bar -->
+
+## Six periods, six parts — the tail-fold case.
+
+- Q1 FY24
+  - Enterprise `41`
+  - Mid-market `24`
+  - SMB `16`
+  - Channel `11`
+  - Marketplace `6`
+  - Other `2`
+- Q2 FY24
+  - Enterprise `39`
+  - Mid-market `25`
+  - SMB `17`
+  - Channel `12`
+  - Marketplace `5`
+  - Other `2`
+- Q3 FY24
+  - Enterprise `37`
+  - Mid-market `27`
+  - SMB `18`
+  - Channel `12`
+  - Marketplace `4`
+  - Other `2`
+
+---
+
+<!-- _class: stacked-bar share -->
+
+## Normalized to a hundred, where only the mix reads.
+
+- FY23
+  - Licenses `18.4`
+  - Services `6.2`
+  - Support `4.1`
+- FY24
+  - Licenses `19.1`
+  - Services `9.8`
+  - Support `4.6`
+
+---
+
+<!-- _class: line -->
+
+## Twelve periods, six series — the widest line case.
+
+- Q1 24
+  - Enterprise `4.1`
+  - Mid-market `2.6`
+  - Services `1.2`
+  - Public sector `0.9`
+  - Channel `0.7`
+  - Marketplace `0.4`
+- Q2 24
+  - Enterprise `4.4`
+  - Mid-market `2.9`
+  - Services `1.6`
+  - Public sector `1.1`
+  - Channel `0.8`
+  - Marketplace `0.5`
+- Q3 24
+  - Enterprise `4.2`
+  - Mid-market `3.4`
+  - Services `2.3`
+  - Public sector `1.2`
+  - Channel `0.9`
+  - Marketplace `0.6`
+- Q4 24
+  - Enterprise `3.8`
+  - Mid-market `3.9`
+  - Services `3.1`
+  - Public sector `1.4`
+  - Channel `1.0`
+  - Marketplace `0.7`
+
+---
+
+<!-- _class: line stacked-area -->
+
+## Composition over time, stacked to a total.
+
+- FY23
+  - Licenses `18.4`
+  - Services `6.2`
+- FY24
+  - Licenses `19.1`
+  - Services `9.8`
+- FY25
+  - Licenses `19.6`
+  - Services `15.4`
+
+---
+
+<!-- _class: waterfall -->
+
+## Nine steps with long driver names, the crowded bridge.
+
+- Opening cash `12.0M`
+- Price realization `+1.4M`
+- Volume shortfall `-0.8M`
+- Product mix `-0.6M`
+- Currency translation `-0.3M`
+- Cost base inflation `-1.9M`
+- Working capital `+0.4M`
+- One-off receipts `+0.2M`
+- Closing cash `10.4M`
+
+---
+
+<!-- _class: scatter bubble -->
+
+## Ten entities with a size measure — the cluster case.
+
+- Atlas `$420k` `18%` `1200`
+- Borealis `$310k` `24%` `900`
+- Cirrus `$240k` `61%` `640`
+- Delta `$180k` `72%` `520`
+- Ember `$95k` `84%` `410`
+- Fornax `$88k` `79%` `260`
+- Gemini `$82k` `76%` `250`
+- Hydra `$79k` `74%` `240`
+
+---
+
+<!-- _class: slope -->
+
+## Eight entities in a tight band — the de-collision case.
+
+- Northwind `fail`
+  - 2023 `31%`
+  - 2026 `24%`
+- Kestrel Group `live`
+  - 2023 `22%`
+  - 2026 `29%`
+- Vantage
+  - 2023 `19.4%`
+  - 2026 `21.1%`
+- Meridian
+  - 2023 `18.9%`
+  - 2026 `20.4%`
+- Fornax
+  - 2023 `18.2%`
+  - 2026 `19.6%`
+- Halcyon
+  - 2023 `17.8%`
+  - 2026 `18.8%`
+
+---
+
+<!-- _class: slope dumbbell -->
+
+## Ten rows with long names — the row-label case.
+
+- Global Transaction Services
+  - 2023 `31`
+  - 2026 `24`
+- Enterprise Platform Licensing
+  - 2023 `22`
+  - 2026 `29`
+- Managed Infrastructure
+  - 2023 `19`
+  - 2026 `21`
+- Professional Services
+  - 2023 `16`
+  - 2026 `15`
+- Partner and Channel
+  - 2023 `14`
+  - 2026 `18`
+
+---
+
+<!-- _class: bullet -->
+
+## Seven KPI rows at the stated ceiling.
+
+- New ARR `4.2M` `5.0M`
+- Expansion ARR `3.6M` `3.0M`
+- Gross renewal `2.8M` `2.6M`
+- Services revenue `1.1M` `1.8M`
+- Partner-sourced ARR `0.9M` `1.4M`
+- Net revenue retention `1.2M` `1.1M`
+- Committed pipeline `2.1M` `2.4M`
+
+---
+
+<!-- _class: line -->
+
+## Category names long enough to overhang the plot edge.
+
+- Financial Year 2024 (restated) `4.2`
+- Financial Year 2025 (restated) `5.1`
+- Financial Year 2026 (forecast) `6.4`
+
+---
+
+<!-- _class: bullet -->
+
+## A shared axis whose last tick is five characters wide.
+
+- Qualified pipeline `128%` `100%`
+- Win rate `112%` `100%`
+- Ramped reps `96%` `100%`
+
+---
+
+<!-- _class: slope dumbbell -->
+
+## Fourteen dumbbell rows, every one named.
+
+- Enterprise Platform
+  - 2024 `10`
+  - 2026 `14`
+- Commercial Mid-market
+  - 2024 `11`
+  - 2026 `13`
+- Public Sector Frameworks
+  - 2024 `12`
+  - 2026 `16`
+- Payments Core
+  - 2024 `13`
+  - 2026 `15`
+- Data Platform
+  - 2024 `14`
+  - 2026 `19`
+- Developer Relations
+  - 2024 `15`
+  - 2026 `17`
+- Billing Operations
+  - 2024 `16`
+  - 2026 `18`
+- Corporate Security
+  - 2024 `17`
+  - 2026 `21`
+- Field Enablement
+  - 2024 `18`
+  - 2026 `20`
+- Customer Success
+  - 2024 `19`
+  - 2026 `24`
+- Partner and Channel
+  - 2024 `20`
+  - 2026 `22`
+- Professional Services
+  - 2024 `21`
+  - 2026 `26`
+- Managed Operations
+  - 2024 `22`
+  - 2026 `25`
+- Trust and Compliance
+  - 2024 `23`
+  - 2026 `28`
+
+---
+
+<!-- _class: slope -->
+
+## Six entities inside one point of each other.
+
+- Atlas
+  - FY23 `20.0`
+  - FY26 `30.6`
+- Borealis
+  - FY23 `20.3`
+  - FY26 `31.4`
+- Cormorant
+  - FY23 `20.6`
+  - FY26 `32.2`
+- Delphinus
+  - FY23 `20.9`
+  - FY26 `33.0`
+- Equuleus
+  - FY23 `21.2`
+  - FY26 `33.8`
+- Fornax
+  - FY23 `21.5`
+  - FY26 `34.6`
