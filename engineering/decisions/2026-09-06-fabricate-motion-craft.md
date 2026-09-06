@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: >
   Fabricate Motion crafts a MOTION ASSET — a drawing plus a plan for how it reveals — and that is
   what makes it a Fabricate tab rather than a control panel. Its three siblings each bring a named,
@@ -13,7 +13,8 @@ summary: >
   on a `scene` slide is lifted to `data-scene-spec` by the component transform and mounted by the
   live host, so a crafted motion has a real place to land. The old faculty's defect was never the
   idea — it was that it saved to a shelf with no door and never wrote that pair. v1 leads with the
-  BRING on-ramp (paste or drop an SVG, auto-id its parts, choreograph, save, insert) because
+  BRING on-ramp (paste or drop an SVG, auto-id its parts, choreograph, save to the Library, insert
+  from its card) because
   Describe rests on the make-or-break assumption §4.2 itself flagged UNVERIFIED, and Bring proves
   the choreograph surface and the whole Library lifecycle without betting on it. The auto-id pass
   is named as the piece most likely to be underestimated: a pasted flat SVG usually has no
@@ -27,7 +28,7 @@ companion:
 
 # Fabricate Motion — craft a drawing that moves
 
-**Date:** 2026-09-06 · **Status:** proposed — design only, nothing built
+**Date:** 2026-09-06 · **Status:** accepted — §10 answered by the author 2026-09-06; build follows
 
 ---
 
@@ -128,8 +129,8 @@ existing shape finally being filled rather than a new one. The old faculty wrote
 > **UNVERIFIED** until the proof gate shows a real model producing on-brand, choreographable SVG at
 > the bar — this is the make-or-break assumption of the whole pivot.
 
-**v1 leads with Bring.** Paste or drop an SVG → auto-id its parts → choreograph → preview → save →
-insert. It is certain to work, it exercises the choreograph surface and the entire Library
+**v1 leads with Bring.** Paste or drop an SVG → auto-id its parts → choreograph → preview → save to
+the Library → insert from its card (§10.2: those last two are separate acts). It is certain to work, it exercises the choreograph surface and the entire Library
 lifecycle, and it hardens the sanitize boundary — so Describe later lands on a proven surface
 instead of being the thing that has to work first. Describe is v2 and gets its own proof gate.
 Template is v3 and is cheap once the other two exist (a house drawing is just a pre-supplied Bring).
@@ -194,13 +195,64 @@ Stated so it is not implied:
   indices rather than clock settings.
 - **No export bytes change.** A `scene` slide's PDF is its inline poster, exactly as today.
 
-## 10. Open questions for the human
+## 10. The three questions, answered
 
-1. **Does the asset carry the drawing, or reference one?** §4 recommends carrying it, on the §7c
-   dangling-reference argument. This is the one decision that shapes the schema.
-2. **Does Save also INSERT?** The arc "craft → save → place in this deck" is what the old faculty
-   never closed. Insert-on-save is the strongest fix; a separate "Insert" action on the Library card
-   is the more conservative one.
-3. **Does a motion asset get version history?** `VERSIONED_KINDS` is `theme`/`component`/`finish`
-   today, and `asset-store.js` says scenes are excluded only because they have no Library card yet.
-   Giving them a card removes that reason.
+Asked in the first draft of this note, settled by the author the same day. All three ran the same
+way: **the asset is a thing you own, not a pointer into our machinery.**
+
+### 10.1 The asset CARRIES the drawing — it is self-contained and portable
+
+> *"assets are self contained and portable."*
+
+So a motion asset embeds its SVG. It does not reference a file, a URL, or another Library record.
+Three consequences follow and they are not optional:
+
+- **No dangling reference is possible.** This is the §7c failure mode from the other end: a record
+  that points at something which can vanish is a record that can rot. One that carries its own
+  bytes cannot.
+- **A backup round-trips it whole.** `packWorkspace` already zips asset records; an embedded
+  drawing needs nothing new to survive an export/restore, and a restore onto a clean profile
+  yields a *working* asset rather than a broken pointer.
+- **The size cost is real and is accepted.** An inlined SVG is bigger than a reference. The
+  measurement that matters is the one against the alternative's failure mode, not against zero.
+  The faculty should still refuse a drawing large enough to bloat a deck, and say so at paste time
+  rather than at save time.
+
+"Portable" also constrains the *plan*, not just the drawing: a motion asset must not depend on
+deck-level front matter or a theme token that may not exist where it lands. It carries everything
+it needs to render, and it inherits color from the element (#3, #29) rather than freezing it.
+
+### 10.2 Save saves to the LIBRARY — insert is a separate act
+
+> *"save saves to the library."*
+
+Save is not insert. The faculty's Save button puts a named record on the shelf beside your themes,
+components and finishes — and that is all it does. Placing the asset in the current deck is a
+separate, explicit action.
+
+This is the more conservative of the two options §10 offered, and it is the right one for a reason
+the first draft undersold: **crafting and placing are different intents.** You may craft three
+variants and place none; you may place one you crafted last week. Insert-on-save couples them and
+makes the Library a byproduct of deck editing rather than a shelf you keep.
+
+What this does NOT license is the old tab's actual defect. The retired faculty saved to a shelf
+**with no door** — no card, no list, no reopen, no delete, `deleteStudioScene` with zero callers.
+Save-to-Library is only a coherent answer if the Library end is built: a card that shows the
+asset, reopens it for editing, deletes it, and offers Insert. The door is part of v1, not a
+follow-up.
+
+### 10.3 Versioning is wanted, but NOT in v1
+
+> *"whether they are versioned is something we want but not yet."*
+
+So `scene` does not join `VERSIONED_KINDS` now. The requirement on v1 is therefore a *negative*
+one, and it is the whole content of this answer: **do not design anything that makes versioning
+hard to add later.**
+
+Concretely — the record keeps its stable `id` (a version history keys off it), keeps its
+`specVersion` stamp (#2081 added it, and it is what lets a schema change migrate rather than
+drop), and never mutates a saved asset in place from a path that could not later be snapshotted.
+`asset-store.js` excludes scenes today only because they had no Library card; 10.2 gives them one,
+so the exclusion becomes a deliberate deferral rather than an accident. Say so in the code, at the
+`VERSIONED_KINDS` definition, or the next reader will re-derive the wrong reason.
+
