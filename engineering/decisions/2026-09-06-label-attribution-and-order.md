@@ -248,12 +248,20 @@ the lesson §6 of the expansion note paid for.
 ## 8. Found, not caused
 
 Regenerating the two committed artifacts this change moves also picks up
-pre-existing drift, and the numbers say which is which. `examples/adaptive-sweep.pdf`
-was last built at `70d711d` (2026-09-03) and its base render differs from the
-committed file by 42 bytes; `test/integration/baseline-decks/gallery.pdf` was last
-built at `e69d99c` and differs by 14 bytes. Both were stale before this branch —
-measured by rendering each deck against the base engine and comparing — and both
-had to be rebuilt here because this change genuinely moves them. This is the class
+pre-existing drift, and three renders of each say exactly which bytes are whose.
+Rendered against the branch's base with this change's five source files reverted:
+
+| Artifact | committed on `main` | rendered at the base | rendered at this head |
+|---|---|---|---|
+| `examples/adaptive-sweep.pdf` | 1,213,911 | 1,213,869 | 1,214,091 |
+| `test/integration/baseline-decks/gallery.pdf` | 5,760,492 | 5,760,456 | 5,760,575 |
+
+The middle column is the honest render of `main` as it stands, so the gap to the
+first column — 42 bytes and 36 bytes — is drift that was already there:
+`adaptive-sweep.pdf` was last built at `70d711d` (2026-09-03) and the baseline
+gallery at `e69d99c`, both before render-input commits that moved them. Only the
+gap between the middle and last columns is this change. Both had to be rebuilt
+here because this change genuinely moves them, so those bytes ride along. This is the class
 `engineering/decisions/2026-09-06-cartesian-chart-expansion.md` §6 already records:
 per-PR CI structurally cannot see a golden nobody edits, and the nightly
 committed-golden freshness step is its only watcher.
