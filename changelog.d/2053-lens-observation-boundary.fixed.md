@@ -70,3 +70,22 @@
   `.vtt` bytes for decks that never asked for a reader view — said here rather than left for someone
   to find in a diff, because the other bullets frame this work as a projection fix and this part is
   not one.
+- **Fixed: a withheld view's id printed on the recipient's slide, and nothing said so.** A `_lens` tag
+  the author QUOTED — in a ```` ```md ```` fence, an indented block, or backticks — is not a directive:
+  the engine never reads it and the prune deliberately leaves it alone, so it renders as text. Measured
+  on a deck teaching reader-view syntax: `<!-- _lens: project-chimera -->`, naming a view the export
+  does not carry, on the face of the exported PDF, twice, at exit 0. `renderedDirectiveBodies` says it
+  asks "what a READER is shown" and read only the two comment token kinds; a reader is shown a fence
+  too. It now **warns** rather than refusing, and that split is deliberate: every other placement is a
+  directive the author cannot see rendered, while this is prose they wrote and can read on their own
+  slide, and the deck that hits it is usually one teaching reader views — which an existing test
+  already pins as having to export with its example intact (HARD RULE #29: we warn, we coach). A deck
+  quoting a view it DOES carry says nothing.
+- **Fixed: the author-CSS warning was silent about the one format that inverts it.** A `--player`
+  carrier wraps every slide in its own frame, so each `section` is the only one in its parent and
+  every cross-slide selector matches nothing — including the slot-counting ones the warning had just
+  called safe. Measured in real Chrome: a `.secret` span that `section:nth-of-type(3) .secret {
+  display: none }` hides in the PDF and the plain `.html` renders in the carrier. Same unhide
+  direction as the third breaking family, reached through the ONLY format that can hold several
+  views — which is exactly where a multi-view sender ends up. The frame-wrapping predates reader
+  views and is unchanged; what was wrong was claiming the family holds without naming where it does not.

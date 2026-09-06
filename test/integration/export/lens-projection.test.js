@@ -251,6 +251,38 @@ describe('--lens: the projected export', () => {
 
 	});
 
+	test('the auto-glossary says it was not pruned, even under --quiet', { timeout: TIMEOUT }, () => {
+		// The appendix is built from the deck-wide `acronyms:` registry, which the projection does not
+		// prune — so a term named ONLY on a withheld slide still gets its definition printed on the
+		// page that ships. Measured here end to end, not just asserted on stderr.
+		//
+		// The `{ expansion, definition }` form is load-bearing: the bare `ACME: text` form is the
+		// CAPTION spoken-form and appends no glossary page at all. A first draft of this arm used it,
+		// could not make the warning fire, and would have "proved" the disclosure does not exist.
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-gloss-'));
+		const bodies = ['# Cover\n\nOpening.', '# Deal\n\nWe are buying ACME this quarter.', '# Ask\n\nPlease approve.'];
+		const raw = bodies.map((b) => `\n<!-- _class: content -->\n\n${b}\n`);
+		const mem = new Set([0, 2]);
+		const tagged = raw.map((x, i) => applyTag(x, 'brief', mem.has(i), 'none'));
+		const body = `${tagged.join('\n---\n')}\n`;
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
+		const deck = path.join(dir, 'gloss.md');
+		fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\nglossary: auto\nacronyms:\n  ACME: { expansion: Acme Corporation, definition: "GLOSSLEAK the acquisition target." }\n${emitRegistry(reg)}\n---\n${body}`);
+
+		const out = path.join(dir, 'gloss.pdf');
+		const r = run(deck, out, ['--lens', 'brief']);
+		assert.equal(r.status, 0, r.stderr);
+		assert.match(r.stderr, /auto-glossary appendix/, 'the sender is told, under --quiet');
+		assert.match(r.stderr, /projection does not prune/, 'and why it matters');
+		// And the disclosure the warning is about is really there — otherwise this arm would pass on a
+		// deck where nothing leaks, which is how the first draft of it went wrong.
+		const { execFileSync } = require('node:child_process');
+		let text = '';
+		try { text = execFileSync('pdftotext', ['-layout', out, '-'], { encoding: 'utf8' }); } catch { return; }
+		assert.match(text, /GLOSSLEAK/, "the withheld slide's term really does get its definition on the appended page");
+	});
+
 	describe('fails closed', () => {
 		test('an unavailable view exits non-zero, names the reason, and writes nothing', { timeout: TIMEOUT }, () => {
 			const { dir, deck } = setup();

@@ -2120,7 +2120,7 @@ const rawMd = appendAutoGlossary(preGlossaryMd);
 // print color mode, the mermaid bake, and the auto-glossary slide. Nothing is written before this
 // point, so a refusal here still writes nothing.
 if (LENS_PROJECTION) {
-  const { authorCss, authoredIndexDrift, crossSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  const { authorCss, authoredIndexDrift, crossSlideDrift, quotedForeignViews, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
   const asShipped = (src) => appendAutoGlossary(preprocessMermaid(WANT_PRINT ? withPrintColorMode(src) : src, { recordRebakes: false }));
   const renderAsShipped = (src) => require('./lib/engine/index.js').render(asShipped(src)).html;
   // The carrier's map is indexed by AUTHORED slide, so the render has to agree with the projection
@@ -2226,6 +2226,18 @@ if (LENS_PROJECTION) {
   // stay a plain byte match and the tokenizer never needs to exist.
   // UNGATED BY `--quiet`, like the other warnings in this file that a pipeline needs to see. This one
   // is about what leaves the building; a privacy warning `--quiet` hides is a warning nobody reads.
+  // A `_lens` tag the author QUOTED — in a fence, an indented block or backticks — is not a directive
+  // and the prune deliberately leaves it alone, so it PRINTS on the slide. If it names a view this
+  // export does not carry, the recipient reads the id of a view they were not given. Coached rather
+  // than refused (#29): unlike every other placement, this is prose the author wrote and can see on
+  // their own slide, and the deck that hits it is usually one teaching reader views.
+  const quotedForeign = quotedForeignViews(LENS_PROJECTION.source, LENS_IDS);
+  if (quotedForeign.length) {
+    LENS_DISCLOSURES.push(`warning: a slide QUOTES the view id${quotedForeign.length === 1 ? '' : 's'} ${quotedForeign.map((v) => `'${v}'`).join(', ')}, which this export does not carry.`,
+      '         It is inside a code fence or backticks, so it is not a directive and nothing rewrites it — it prints on',
+      '         the slide, and the recipient reads the name of a view they were not given. Rename it in the example if',
+      '         that matters.');
+  }
   for (const line of LENS_DISCLOSURES) console.warn(line);
   if (cssChannel) {
     const moved = LENS_PROJECTION.kept.map((at, i) => (at === i ? null : `${at + 1}→${i + 1}`)).filter(Boolean);
@@ -2245,6 +2257,12 @@ if (LENS_PROJECTION) {
     console.warn('             on); `section:has(blockquote) + section` matched slides 4 and 6 and here matches nothing;');
     console.warn('             and `section:not(:has(blockquote)) + section` matched only kept slide 8 and here matches');
     console.warn('             4, 6 and 8 — it GAINED two slides, so a rule that HID something can UNHIDE it here.');
+    console.warn('           · AND IN A `--player` CARRIER, NONE OF THEM APPLY. The player wraps every slide in its own');
+    console.warn('             frame, so each `section` is the only one in its parent and every cross-slide selector —');
+    console.warn('             including the slot-counting ones above — matches nothing. Measured: a `.secret` span that');
+    console.warn('             `section:nth-of-type(3) .secret { display: none }` HIDES in the PDF and the plain `.html`');
+    console.warn('             renders in the carrier. That is the same unhide direction, reached through the one format');
+    console.warn('             that can hold several views — so it is the format to check by hand before sending.');
     console.warn('         Scope the rule to a class you set on the slide (`<!-- _class: hushed -->` and `section.hushed …`)');
     console.warn('         and it travels with the slide instead. Otherwise, check the exported file.');
   }

@@ -38,13 +38,13 @@ const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 const TIMEOUT = 240000;
 
 /** A 5-slide deck whose `brief` view keeps 1, 3 and 5 — so two holes fall between kept slides. */
-function deck({ extraFm = '', style = '', notes = false, captions = false, inlineCaptions = false, splitFirst = false } = {}) {
+function deck({ extraFm = '', style = '', notes = false, captions = false, inlineCaptions = false, splitFirst = false, quoteView = null } = {}) {
 	// `splitFirst` gives slide 1 a SECOND HEADING, which the default split mode cuts on — so the deck
 	// renders more pages than it has slides, on top of the holes. That is the crossing no fixture
 	// reached until it was measured by hand, and it is where the authored / rendered-section / page
 	// index spaces all differ at once.
 	const raw = Array.from({ length: 5 }, (_, i) =>
-		`\n<!-- _class: content -->\n${inlineCaptions ? `<!-- caption: INLINE for slide ${i + 1}. -->\n` : ''}\n# Slide ${i + 1}\n\nBody of slide ${i + 1}.\n${splitFirst && i === 0 ? `\n## Second heading of slide 1\n\nMore of slide 1.\n` : ''}${notes ? `\n<!-- NOTE FOR SLIDE ${i + 1} -->\n` : ''}`,
+		`\n<!-- _class: content -->\n${inlineCaptions ? `<!-- caption: INLINE for slide ${i + 1}. -->\n` : ''}\n# Slide ${i + 1}\n\nBody of slide ${i + 1}.\n${splitFirst && i === 0 ? `\n## Second heading of slide 1\n\nMore of slide 1.\n` : ''}${quoteView && i === 0 ? `\n\`\`\`md\n<!-- _lens: ${quoteView} -->\n\`\`\`\n` : ''}${notes ? `\n<!-- NOTE FOR SLIDE ${i + 1} -->\n` : ''}`,
 	);
 	const mem = new Set([0, 2, 4]);
 	const tagged = raw.map((s, i) => applyTag(s, 'brief', mem.has(i), 'none'));
@@ -258,6 +258,26 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
 		for (const away of [2, 4]) {
 			assert.ok(!say.join('\n').includes(`INLINE for slide ${away}.`), `slide ${away}'s caption is withheld`);
 		}
+	});
+
+	test('a QUOTED view id is COACHED, not refused — and the sender is told what prints', { timeout: TIMEOUT }, () => {
+		// `renderedDirectiveBodies` says it asks "what a READER is shown", and reads only the two comment
+		// token kinds. A reader is also shown a ```` ```md ```` fence: a deck documenting lens tagging
+		// printed `<!-- _lens: board-only -->` — naming a view the export does not carry — on the face of
+		// the recipient's PDF, silently.
+		//
+		// It WARNS rather than refusing, and that split is the point. Every other placement is a
+		// directive the author cannot see rendered; this is prose they wrote and can read on their own
+		// slide, the deck that hits it is usually one TEACHING reader views, and `lens-export.test.js`
+		// already pins that such a deck must export with its example intact. HARD RULE #29: we coach.
+		const away = run(deck({ quoteView: 'board-only' }), 'quoted.pdf', ['--quiet', '--lens', 'brief']);
+		assert.equal(away.r.status, 0, away.r.stderr);
+		assert.ok(fs.existsSync(away.out), 'the teaching deck still exports');
+		assert.match(away.r.stderr, /QUOTES the view id 'board-only'/, 'and the sender is told, under --quiet');
+		// Quoting a view this export DOES carry is not a disclosure and says nothing.
+		const own = run(deck({ quoteView: 'brief' }), 'quotedown.pdf', ['--quiet', '--lens', 'brief']);
+		assert.equal(own.r.status, 0, own.r.stderr);
+		assert.doesNotMatch(own.r.stderr, /QUOTES the view id/);
 	});
 
 	test('a positional SELECTOR holds across the projection and a CSS COUNTER does not', { timeout: TIMEOUT }, async () => {
