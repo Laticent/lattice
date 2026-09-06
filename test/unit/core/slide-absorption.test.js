@@ -190,7 +190,10 @@ test('the floor is honored even above the ceiling, and a bad share cannot zero t
 	// breaking the invariant this function advertises. Unreachable at today's 1400ms preset; a
 	// slower future preset would reach it.
 	assert.equal(A.spend(1000, { floorMs: 12000 }).arriveMs, 12000);
-	assert.equal(A.spend(8000, { floorMs: 1400, arriveShare: Number.NaN }).arriveMs >= 1400, true);
+	// `arriveShare` no longer exists — the arrival beat comes from the model's `arriveCost`. The
+	// old assertion passed for every value because the option was ignored, pinning nothing.
+	assert.ok(A.spend(8000, { floorMs: 1400, arriveCostMs: Number.NaN }).arriveMs >= 1400);
+	assert.ok(A.spend(8000, { floorMs: 1400, arriveCostMs: -5000 }).arriveMs >= 1400);
 });
 
 test('no model returns NaN on a partial measure, and none is silently zeroed', () => {
@@ -484,4 +487,89 @@ test('the deck pace register scales the model rather than being outgrown by it',
 	assert.ok(brisk.arriveMs < natural.arriveMs, 'brisk is briskER');
 	assert.ok(deliberate.arriveMs > natural.arriveMs, 'and deliberate is slower');
 	assert.ok(brisk.exitMs < deliberate.exitMs, 'the register reaches both beats, not just the floor');
+});
+
+// ── The second trio's findings ────────────────────────────────────────────────────────────
+
+test('a photo painted as a CSS background is an image — IMAGE_MS fired on nothing before', () => {
+	// The `image` component renders onto `.lattice-bg` with no <img> (its docs say so), and `scene`
+	// uses the same panel. So `images` was 0 corpus-wide, a constant documented as "a photo…
+	// charged as one substantial look" never described a photo, and 10 of 41 visual slides were
+	// structurally unable to earn a beat.
+	const bg = A.measureSlide(slide('<div class="lattice-bg lattice-bg-full" style="background-image:url(\'p.jpg\')"></div>', 'image'));
+	assert.equal(bg.images, 1);
+	const empty = A.measureSlide(slide('<div class="lattice-bg"></div>', 'image'));
+	assert.equal(empty.images, 0, 'a panel with nothing painted is a container, not a picture');
+});
+
+test('total silence never exceeds the model own cost — the arrival beat is credited to BOTH channels', () => {
+	// Charging arrive only against the look channel let a 6000/6000 slide bill arrive 2100 + exit
+	// 6000 = 8100 for a cost of 6000, contradicting spend()'s own docstring.
+	for (const [read, look] of [[6000, 6000], [2000, 2000], [9000, 1000], [1000, 9000]]) {
+		const cost = Math.max(read, look);
+		const b = A.spend(cost, { channels: { read, look }, arriveCostMs: look * 0.35, narrationMs: 0, floorMs: 0 });
+		assert.ok(b.arriveMs + b.exitMs <= cost + 1, `read=${read} look=${look}: ${b.arriveMs}+${b.exitMs} > ${cost}`);
+	}
+});
+
+test('a row grammar sees its DATA, not just its statement count', () => {
+	// `stripDiagramText` removes `bar [42, 58, 71]` before the row count, so an xychart measured
+	// identically at 4 bars and at 400, and a 13-point line scored the same as a 2-point bar.
+	const chart = (n) =>
+		`xychart-beta\n  title "t"\n  x-axis [${Array.from({ length: n }, (_, i) => `p${i}`).join(', ')}]\n  bar [${Array.from({ length: n }, (_, i) => i).join(', ')}]`;
+	const small = A.diagramMarksOf(chart(2)).nodes;
+	const mid = A.diagramMarksOf(chart(13)).nodes;
+	const big = A.diagramMarksOf(chart(40)).nodes;
+	assert.ok(mid > small, `13 points (${mid}) must outweigh 2 (${small})`);
+	assert.ok(big > mid, `40 points (${big}) must outweigh 13 (${mid})`);
+});
+
+test('an apostrophe in a label does not eat the arrow beside it', () => {
+	// A single-quote strip paired one label's apostrophe with the next and deleted the link
+	// between them: a chained single-line diagram lost half its edges.
+	assert.equal(A.diagramMarksOf("flowchart LR\n A[Bob's data] --> B[Alice's report]\n B --> C[Done]").edges, 2);
+	assert.equal(A.diagramMarksOf("flowchart LR\n A[a's] --> B[b's] --> C[c's] --> D[d's]").edges, 3);
+});
+
+test('an init directive is config, and a percent inside a label is not a comment', () => {
+	// Order matters: the directive is stripped as its own form (it is full of quotes and braces),
+	// and line comments go LAST so `A[50%% done]` cannot delete its own line's link.
+	assert.equal(A.diagramMarksOf("%%{init: {'theme':'forest'}}%%\nflowchart LR\n A[a] --> B[b]").edges, 1);
+	assert.equal(A.diagramMarksOf('flowchart LR\n A[50%% done] --> B[b]').edges, 1);
+	assert.equal(A.diagramMarksOf('graph TD\n A-->B %% note --> more --> yet').edges, 1);
+});
+
+test('a math slide is weighted as visual, not as prose', () => {
+	// `math` is in VISUAL_BUCKETS, so the metric scored it visual while roleOf returned `body` and
+	// weighted it 1.0 instead of visual's 1.16 — one slide in the corpus disagreed with itself.
+	assert.equal(A.roleOf('theorem', 3, 9, '', () => 'math'), 'visual');
+	assert.equal(A.roleOf('piechart', 3, 9, '', () => 'chart'), 'visual');
+});
+
+test('every chrome test is bounded to the slide — no counter consults the page', () => {
+	// walkSlide was bounded while items, marks and diagrams used a bare closest(), so marking the
+	// section itself hidden left words counted in full and everything else at zero.
+	const dom = new JSDOM(
+		'<!doctype html><body><div class="lattice-notes"><article class="lattice">' +
+			'<section data-class="content"><div class="cell-stage"><ul><li>one</li><li>two</li></ul>' +
+			'<table><tbody><tr><td>a</td></tr></tbody></table></div></section></article></div></body>',
+	);
+	const section = dom.window.document.querySelector('section');
+	const m = A.measureSlide(section);
+	assert.equal(m.items, 2, 'an ancestor OUTSIDE the slide must not blank the slide');
+	assert.equal(m.cells, 1);
+});
+
+test('a component-declared domSelector is counted, and bounded to the slide too', () => {
+	// `countVisible` runs only for the components that declare their own `density.domSelector`, so
+	// the bounded-chrome test above never reached it.
+	const dom = new JSDOM(
+		'<!doctype html><body><div class="lattice-notes"><article class="lattice">' +
+			'<section data-class="roadmap"><div class="cell-stage">' +
+			'<div class="lane">a</div><div class="lane">b</div><div class="lane">c</div>' +
+			'</div></section></article></div></body>',
+	);
+	const section = dom.window.document.querySelector('section');
+	const catalog = { roadmap: { axis: 'item', domSelector: '.lane', soft: 6, hard: 10 } };
+	assert.equal(A.measureSlide(section, { catalog }).items, 3, 'an ancestor outside the slide must not blank it');
 });

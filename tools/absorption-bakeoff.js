@@ -143,7 +143,31 @@ async function main() {
 		// The narration each slide actually gets today — the same projection the export and
 		// live Present both run, timed by the same Cadenza estimate the player uses. This is
 		// the number the residual is charged against, so it has to be the real one.
+		// THE REAL NARRATION, not just the projection. `projectDeckToSpeech` is ONE STAGE of the
+		// pipeline: both the CLI (lattice-emulator.js:5037) and the live Studio run the shared
+		// `narrateChart` on top of it, and for a `diagram` slide that narrator speaks the whole
+		// flowchart node by node. Timing the projection alone measured a diagram slide at 4.3s
+		// where the shipped caption runs 40.6s — every narration figure in the first three
+		// revisions of this bake-off was ~9x too small, on exactly the slides it was about. A
+		// residual charged against a narration that short inflates every exit beat it computes.
 		const speech = projectDeckToSpeech(sections);
+		try {
+			const { narrateChart } = require('../lib/core/chart-narration.js');
+			const { splitSourceToSections } = require('../lib/core/section-source-split.js');
+			const blocks = splitSourceToSections(source);
+			if (blocks.length === speech.length) {
+				for (let i = 0; i < blocks.length; i++) {
+					try {
+						const chart = narrateChart(blocks[i]);
+						if (chart) speech[i] = chart;
+					} catch {
+						/* one pathological slide must not disable narration for the rest */
+					}
+				}
+			}
+		} catch {
+			/* narrator unavailable — fall back to the projection, and say so below */
+		}
 		const narrationMs = speech.map((t) => (t ? buildTrack(t).durationMs : 0));
 
 		const measures = sections.map((s, i) =>

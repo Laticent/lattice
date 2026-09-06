@@ -21,6 +21,70 @@ companion:
 > **Decision (this doc).** Split the complaint into two quantities, fix the one that is countable,
 > and prove the cost function on real decks rather than asserting it.
 
+## 0. THE PREMISE WAS FALSE — read this before anything below
+
+**Measured on the real surface, a `diagram` slide narrates for 40.6 seconds and then advances.**
+It is not starved of time, and it does not "advance the instant the voice stops with nothing said".
+Everything in this record after this section was built on a measurement error.
+
+### The error
+
+`projectDeckToSpeech` is **one stage** of the narration pipeline. Both the CLI
+(`lattice-emulator.js:5037`) and the live Studio run the shared `narrateChart` **on top of it** —
+and for a `diagram` slide that narrator speaks the whole flowchart, node by node. This record timed
+the projection alone:
+
+| slide | this record measured | the shipped caption actually runs |
+|---|---|---|
+| `diagram-narration.md` #2 | 4.3 s | **40.6 s** |
+| `diagram-narration.md` #3 | 4.7 s | **29.9 s** |
+
+Roughly **9x too small, on exactly the slides the work was about.**
+
+### Triangulated on the real surface
+
+Driving the actual Present overlay in Chromium, per-slide dwell matches the caption duration plus
+the 1.4 s arrival beat, to a tenth of a second:
+
+```
+slide   caption ends   observed dwell
+01        20.88s          21.0s     (playback started here — no arrival beat)
+02        40.60s          42.0s     = 40.6 + 1.4
+03        29.92s          31.3s     = 29.9 + 1.4
+```
+
+An A/B with `AudioContext` deleted returns identical dwells (21029/42003/31314 against
+20972/41979/31381), so this is the estimate clock running in real time — not an audio stall, not
+synthesis latency, not a buffering hold. Three independent measurements agree.
+
+### What the instrument says once it is fed correctly
+
+`tools/absorption-bakeoff.js` now applies `narrateChart` like the shipped pipeline does. Every
+measured model collapses:
+
+```
+model              VISUAL EXIT  visual w/ beat  ADDED total
+A · text time      0.0s         0/41            0.9s
+B · density fill   0.0s         0/41            2.3s
+C · role-weighted  0.0s         0/41            0.0s
+D · visual cost    0.2s         3/41           12.4s
+E · hybrid         0.3s         6/41           20.7s
+T · flat control   3.0s        41/41            2.0m
+```
+
+**The residual design works. Its verdict is that no extra time is needed** — the narration already
+provides it. Only the flat control still fires, and it fires precisely by ignoring narration: it
+would add three seconds of silence to a slide that has just spent forty describing itself.
+
+### What that means for this branch
+
+The problem this work set out to solve does not exist in the form stated. Two earlier claims in
+this record are also false and follow from the same error: that `projectDeckToSpeech` "drops
+`.cell-coda`" (the shipped caption speaks it) and that a diagram gets "the shortest narration in the
+deck" (it gets the longest). The sections below are retained as a record of how a measurement error
+survived three fix passes, two adversarial trios, 58 mutation-verified tests and a green pipeline —
+because none of them ever checked the one input everything else was computed from.
+
 ## 1. Two quantities, not one
 
 The request names "weight" once but asks for two different things, and they need different
