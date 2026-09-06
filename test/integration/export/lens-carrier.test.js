@@ -127,6 +127,10 @@ describe('a multi-view player carrier', { skip }, () => {
 		// `0..5`. The gaps in the first are the withheld slides, in plaintext, which is the whole
 		// reason this is asserted rather than left to whatever the implementation found convenient.
 		assert.deepEqual(stamps, UNION.map((_, i) => i), 'the frames are stamped densely — no gap spells out a withheld slot');
+		// AND THE SECTION INSIDE THE FRAME CARRIES NO AUTHORED NUMBER, which is the same disclosure one
+		// element deeper. The dense `data-lp-i` buys nothing while `data-authored-slide` reads `0 2 3 5`
+		// on the sections beside frames stamped `0 1 2 3` — measured on a real carrier, one `grep`.
+		assert.doesNotMatch(html, /data-authored-slide/, 'no authored numbering survives into the carrier');
 		assert.ok(!html.includes('lens-hole'), 'and the withheld slots are gone — the player never carries a hole');
 		// The `lens-hole` check above reads the RAW html, and the envelope is base64, so it cannot
 		// see into it. Decode and look: the projected source legitimately carries the holes (it has

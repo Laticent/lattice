@@ -89,3 +89,12 @@
   direction as the third breaking family, reached through the ONLY format that can hold several
   views — which is exactly where a multi-view sender ends up. The frame-wrapping predates reader
   views and is unchanged; what was wrong was claiming the family holds without naming where it does not.
+- **Fixed: the player's dense frame stamps were undone by the sections inside them.** `data-lp-i` was
+  made a dense rank precisely so a recipient could not count the deck — the record says "measured on
+  an 8-slide deck carrying two views, the frames read `data-lp-i="0,2,6"` in plaintext, the count and
+  the exact withheld slots". The `<section>` inside each frame kept its own `data-authored-slide`, so
+  one `grep` on a real carrier read `0 2 3 5` beside frames stamped `0 1 2 3`: the same disclosure,
+  one element deeper, in a file the same function had carefully scrubbed of holes. The attribute is
+  removed from a REDUCING projection's carrier only — it is not a disclosure when nothing was
+  withheld — and nothing downstream reads it: the dense rank and the article mapping are both derived
+  before the strip, and `lib/runtime` never mentions it.
