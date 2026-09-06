@@ -114,7 +114,7 @@ async function main() {
 
 	const { JSDOM } = require('jsdom');
 	const engine = require('../lib/engine');
-	const { buildTrack } = require('@workwel/cadenza');
+	const { buildTrack } = require('@laticent/cadenza');
 	const { projectDeckToSpeech } = await import('../lib/transformers/prose-projection.mjs');
 	const absorption = await import('../lib/core/slide-absorption.mjs');
 	const { measureSlide, scoreDeck, ABSORPTION_MODELS } = absorption;
