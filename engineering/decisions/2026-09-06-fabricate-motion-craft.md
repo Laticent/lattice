@@ -214,6 +214,44 @@ enough to choose from a list, and **grouped** the way a human would group them (
 one thing to reveal, not five). **v1 should prove this on real exported SVGs before the surface is
 designed around it** — it is the honest analogue of the Describe proof gate.
 
+### 7.1 What the structure actually looks like — measured, and it kills the obvious heuristic
+
+The obvious pass is "one group, one part". Measured over the 353 SVG files in this repo, it does not
+work:
+
+| Signal | Reality |
+|---|---|
+| files with **no** top-level `<g>` at all | **39%** — the drawing is flat, so there are no groups to be parts |
+| top-level `<g>` count, for files that have any | **median 1** — one wrapper around everything, which is not a part boundary, it is the drawing |
+| `<g>` elements carrying an `id` | 13% |
+| `<g>` elements carrying a `<title>` or `aria-label` | **0% and 0%** — there is no human-authored name to borrow |
+
+So there is no structural signal for "part" waiting to be read. A group-based pass returns one part
+("everything") for the median file and zero for four in ten.
+
+**What does work is one rule: unwrap a lone wrapper, then take the paintable children.** Descend
+while the current node has exactly one non-`<defs>` child and that child is a `<g>`; every paintable
+child of where you land is a candidate part. Same corpus:
+
+| Candidate parts | Files | Share |
+|---|---|---|
+| 2–12 — a list a human reads and edits directly | **300** | **84%** |
+| 13–40 — needs grouping help before it is a list | 29 | 8% |
+| 41+ — needs a different strategy entirely | 21 | 5% |
+| 0 or 1 — nothing to choreograph | 3 | 1% |
+
+Median 4, p75 9, p90 20. **So the brief's "3 / 400 / 0" cases are 84% / 5% / 1% of real files**, and
+v1 should be built for the 84% while refusing the tail honestly rather than pretending to handle it.
+
+**Two caveats, because this corpus is not the user's corpus.** These are *our* SVGs — flags, logos,
+component art — not arbitrary pastes, and the 41+ tail is almost entirely country flags, which
+nobody will choreograph. Treat the shape of the distribution as evidence and the exact percentages
+as indicative. And a candidate part is not yet a *named* one: with 0% of groups carrying a title or
+label, every name this pass produces is synthesized from tag and position, which is precisely why
+the surface has to let a human rename, merge and split what it proposes. **The pass proposes; the
+person decides.** Anything that hides the split behind a spinner is guessing on the user's behalf
+with a 16% chance of being obviously wrong.
+
 ## 8. Security — the spine, not an afterthought
 
 A brought SVG is **untrusted third-party markup**, and it reaches a preview frame. HARD RULE #22
