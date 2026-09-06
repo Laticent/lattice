@@ -352,11 +352,25 @@ section.team-profile.sides > .cell-stage {
   display: grid;
   grid-template-columns: 1fr 1fr;
   /* Row 1 is for a lead-in sentence and collapses to nothing without one. */
-  /* Six spare lead-in rows, then the label row, then the roster row. The spares
-   * are `auto` and `row-gap` is 0, so every unused one measures zero — a slide
-   * with no lead-in is laid out exactly as if they were not declared. See the
-   * placement note below for why they exist. */
-  grid-template-rows: repeat(6, auto) auto minmax(0, 1fr);
+  /* Six spare lead-in rows, then the label row, then the roster row. See the
+   * placement note below for why they exist.
+   *
+   * The FIRST spare is `auto` and the other five are `min-content`, which is not a
+   * fussy detail — it is the difference between this grid and a 119px hole.
+   * `align-content: stretch` below hands a share of the stage's free space to every
+   * track whose MAX sizing function is `auto`, so six empty `auto` spares are six
+   * shares of dead space rather than six zeros. This grid nearly survives that (its
+   * last row is `minmax(0, 1fr)`, which eats the free space first); the tall/strip
+   * grid has no flexible track and did not — measured at six 118.9px spares, with
+   * the first label pushed 713.6px down a slide carrying no lead-in at all.
+   *
+   * `min-content` is never stretched, so an empty one is genuinely zero. The first
+   * spare stays `auto` because the grid this replaced had exactly one stretchable
+   * lead-in row, and keeping it means a slide with zero or one lead-in — every
+   * slide anyone has written — measures IDENTICALLY to before this change at all
+   * four sizes. Only the second and later lead-ins, which used to paint on top of
+   * the first, are new. */
+  grid-template-rows: auto repeat(5, min-content) auto minmax(0, 1fr);
   column-gap: 0;
   row-gap: 0;
   align-content: stretch;
@@ -537,7 +551,13 @@ section.team-profile.bench.bench:where([data-family="square"]) > .cell-stage {
  *
  * The same tie was already handled for tall/strip below by doubling the class;
  * square was simply missed. Same fix, and the hero is lifted explicitly rather
- * than left to inherit — that is what made this silent the first time. */
+ * than left to inherit — that is what made this silent the first time.
+ *
+ * ONLY `lead`. `sides` and `bio` lose the same tie to the same rule, but losing it
+ * costs them nothing — they have no hero to invert, they clip at neither size, and
+ * 14cqi is a defensible square portrait. Overriding them too was a taste change
+ * riding along in a defect fix, and it would have moved every square `sides` and
+ * `bio` deck already written. Left alone deliberately. */
 section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage {
   --person-size: 9cqi;
 }
@@ -546,13 +566,6 @@ section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage > ul.
   --person-size: 17cqi;
 }
 
-section.team-profile.sides.sides:where([data-family="square"]) > .cell-stage {
-  --person-size: 9cqi;
-}
-
-section.team-profile.bio.bio:where([data-family="square"]) > .cell-stage {
-  --person-size: 9cqi;
-}
 
 /* The hero stacks in a narrow box — a 20cqi portrait beside a headline leaves the
  * words about eight characters of column. */
@@ -577,8 +590,15 @@ section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip
   grid-template-columns: 1fr;
   /* Same six spare lead-in rows as the wide grid, for the same collision — see the
    * placement note there. Four pinned rows follow instead of two, because the
-   * rosters stack rather than sitting side by side. */
-  grid-template-rows: repeat(6, auto) auto auto auto auto;
+   * rosters stack rather than sitting side by side.
+   *
+   * The `min-content` spares are load-bearing HERE in a way they are not on the wide
+   * grid: every track below is `auto`, so there is no flexible row to absorb the
+   * stage's free space and `align-content: stretch` handed an equal share to each of
+   * the six empty spares. It did: 118.9px apiece, first label at 713.6px, on a strip
+   * slide with no lead-in. The first spare stays `auto` for the reason given there —
+   * it is the one stretchable lead-in row this grid already had. */
+  grid-template-rows: auto repeat(5, min-content) auto auto auto auto;
   --person-size: 9cqi;
 }
 
