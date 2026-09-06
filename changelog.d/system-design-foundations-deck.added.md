@@ -1,5 +1,6 @@
 - **Added: `examples/system-design-foundations.md`, a 232-slide system-design tutorial
-  (233 pages with its generated glossary) for engineers in their first years.** It opens on one engineer's Tuesday told wake-to-sleep with
+  (233 pages with its generated glossary) for engineers in their first
+  years.** It opens on one engineer's Tuesday told wake-to-sleep with
   no vocabulary at all, then names each thing she met — system, purpose, boundary, environment,
   process, model, constraint, invariant, infrastructure, emergence — against the timestamp that
   taught it. A protagonist/antagonist frame turns that vocabulary into a design starting point

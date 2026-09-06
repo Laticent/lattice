@@ -889,7 +889,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 4. Deliver
    - Ship it and watch it. The running system names the field you guessed.
 
-> Every exercise from here asks you to discover and to design. Maya's Tuesday was the other two.
+> Every exercise from here asks you to discover and to design. Maya's Tuesday sat inside a finished design.
 
 ---
 
@@ -953,7 +953,7 @@ flowchart TB
 
 > A cache and a CDN are one idea at two distances: keep the answer nearer than its store.
 
-*Part three's ladder starts at one database and nothing clever. That is still the store in both shapes here; what stands between it and the reader buys distance, not a new answer. A copy that exists to answer a different question starts on the next slide.*
+*Run Part three's removal test on either shape: take the middle box out and the system still answers, slower and from further away. The store alone is a working design. A copy that exists to answer a different question — one you could not simply remove — starts on the next slide.*
 
 ---
 
@@ -1922,7 +1922,7 @@ Add it up, name the one change that buys back the most, and say what that change
 ## Distance is almost all of that page, and only one move touches it.
 
 1. The bill
-   - `3 × 150` is 450 milliseconds of round trips before your code runs, and about 60 more once it does. The budget was 400, so the page is late by more than the work takes.
+   - `3 × 150` is 450 milliseconds of round trips, and about 60 more of your own work in between them. The budget was 400, so the page is late by more than the work takes.
 2. The move
    - End the connection near the reader. A CDN serves the page and the image from the edge; the API call is the one that still has to cross. Three round trips become one.
 3. What it costs
