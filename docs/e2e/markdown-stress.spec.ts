@@ -268,7 +268,7 @@ async function toMarkdown(page: Page): Promise<void> {
  *  it rather than run hollow. */
 let clipboardGranted = false;
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, browserName }) => {
 	// Granted for EVERY test, not per-test: the paste helper writes the clipboard through
 	// `navigator.clipboard`, which REJECTS without the permission — and the catch swallows
 	// it, so an ungranted test does not error, it silently pastes nothing.
@@ -277,6 +277,14 @@ test.beforeEach(async ({ page }) => {
 		.grantPermissions(['clipboard-read', 'clipboard-write'])
 		.then(() => true)
 		.catch(() => false);
+	// AND THE SKIP IT DRIVES IS ASSERTED, NOT TRUSTED. Chromium supports this permission, so
+	// on Chromium the grant failing is a defect in the harness — not a reason to skip. Without
+	// this line a broken grant would send both paste oracles to `test.skip`, and a skip does
+	// not show up in a pass count: `studio-smoke` would go green having quietly stopped
+	// running the BOM oracle, which is the one guarding durable corruption of the deck source.
+	if (browserName === 'chromium') {
+		expect(clipboardGranted, 'Chromium supports the clipboard grant; a failure here would silently skip the paste oracles').toBe(true);
+	}
 	await gotoStudio(page);
 	await revealEditor(page);
 });
@@ -300,6 +308,25 @@ async function railClick(page: Page, index: number): Promise<void> {
 async function revealEditor(page: Page): Promise<void> {
 	const editor = page.locator(EDITOR).first();
 	if (await editor.isVisible().catch(() => false)) return;
+	// NOT-YET-PAINTED IS NOT HIDDEN. This runs after a reload as well as after the first
+	// navigation, and at desktop the pane is briefly absent while the island hydrates — read
+	// too eagerly, that looks exactly like a narrow layout keeping it behind its toggle. Wait
+	// for it before concluding anything; the guard below is about a pane that never arrives.
+	// (Caught by the guard itself, on its first run: two reload-based oracles went red.)
+	if (
+		await editor
+			.waitFor({ state: 'visible', timeout: 5_000 })
+			.then(() => true)
+			.catch(() => false)
+	)
+		return;
+	// A HIDDEN PANE IS ONLY EXPECTED ON A NARROW LAYOUT. Above the Studio's two-pane
+	// threshold the source editor is on screen, so reaching here means something hid it —
+	// and quietly clicking it back would REPAIR a regression and let every oracle in this
+	// file pass over it. That is the hazard this whole helper introduces, so it fails loudly
+	// instead. (The threshold is the one `split.spec.ts` pins its workspace group at.)
+	const width = page.viewportSize()?.width ?? 0;
+	expect(width, 'the deck source is not on screen at a width where the Studio shows two panes').toBeLessThan(1100);
 	const toggle = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
 	if (!(await toggle.count())) return;
 	await toggle.click();
