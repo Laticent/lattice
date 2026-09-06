@@ -57,13 +57,18 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * THE FIVE INVARIANTS, and the rule they are chosen by: no two of them may be able to
  * agree while being jointly WRONG. That is finding 11 in the Compose note — `aria-expanded`
  * and the `cs-collapsed` class both read the same decoration set, so the pair certified
- * itself. Each of these reads a DIFFERENT producer:
+ * itself. Each of these reads a DIFFERENT producer — with ONE honest qualification, on
+ * invariant 2, written out where that oracle lives: §2's fix put a shared directive grammar
+ * under both of its sides, so what it still separates is the application, not the parse.
  *   1. The editor document equals the persisted source. CodeMirror's own `EditorState`
  *      against the shell's React state → debounce → `localStorage`. What survives a reload
  *      is what you typed.
  *   2. The rail's component label equals the class the ENGINE painted on the slide. A
- *      regex in `lint.ts` against markdown-it's directive parse inside the preview iframe.
- *      THIS IS THE ONE THAT FIRED, on a keystroke as ordinary as a stray `.`.
+ *      source-side scan in `lint.ts` against markdown-it's rendered `<section class>` inside
+ *      the preview iframe. THIS IS THE ONE THAT FIRED, on a keystroke as ordinary as a stray
+ *      `.`. Read the note at the rail-names oracle before trusting it too far: the two sides
+ *      shared their directive GRAMMAR the moment §2's fix landed, so this pair is a
+ *      differential over the APPLICATION only.
  *   3. The rail holds at least one slide and its current index is inside it.
  *   4. No page error.
  *   5. The document is canonical: no CR, no leading BOM.
@@ -512,8 +517,25 @@ test('CodeMirror folds CRLF and a lone CR at the same door', async ({ page }) =>
 //
 // This is a DIFFERENTIAL test and that is the point: the expected column is the ENGINE's
 // answer, read off `render()`'s own `<section class>`, so the rail cannot drift away from
-// the render again without this failing. The independence is real — the rail's answer comes
-// from a regex in `docs/src`, the preview's from markdown-it inside the iframe.
+// the render again without this failing.
+//
+// HOW INDEPENDENT THE TWO SIDES ACTUALLY ARE — and this is weaker than an earlier version of
+// this comment claimed, in a way the fix itself caused. It said "the rail's answer comes from a
+// regex in `docs/src`, the preview's from markdown-it inside the iframe". That WAS true, and
+// §2's fix is what ended it: deleting the hand-rolled regex means the rail now reads
+// `lib/core/class-directive-scan.mjs`, which calls `readDirectiveComment` from
+// `comment-directive.mjs` — and `lib/engine/slides.js:35` requires that same grammar through
+// its CJS shim, saying so in its own comment ("a source-side reader … shares the parse instead
+// of re-spelling it"). The two sides now share the GRAMMAR and differ only in the APPLICATION.
+//
+// So be precise about what this still catches. It catches application drift — which directive
+// on a slide wins (row 6, the last, which is defect §3), which slice of the document the rail
+// reads, propagation and container prefixes. It does NOT catch a grammar bug: if
+// `readDirectiveComment` decided `<!-- _class: kpi -->.` were a directive, the rail and the
+// engine would both say `kpi` and every row here would pass. That is HARD RULE #1's trade,
+// taken deliberately — one parse means the rows 2–5 disagreement cannot RECUR rather than
+// being detected — but a differential over a shared producer is the shape the Compose note's
+// finding 11 warns about, and it is better written down here than rediscovered.
 test('@smoke the rail names the component the engine actually renders', async ({ page }) => {
 	const CASES: Array<[what: string, source: string, rail: string, painted: string]> = [
 		['the plain shape', '<!-- _class: kpi -->\n\n# One\n', 'kpi', 'kpi'],

@@ -49,7 +49,7 @@ these reads a different producer:
 
 1. the editor document equals the persisted source (CodeMirror's `EditorState` against the
    shell's React state → debounce → `localStorage`);
-2. the class the ENGINE painted is one the current slide names (a regex in `docs/src` against
+2. the class the ENGINE painted is one the current slide names (a source-side scan in `docs/src` against
    markdown-it's parse, across the preview iframe) — **this is the one that fired**;
 3. the rail holds at least one slide and its current index is inside it;
 4. no page error;
