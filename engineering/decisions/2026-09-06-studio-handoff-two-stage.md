@@ -436,7 +436,7 @@ iPad Air 4 viewport (820x1180 and 1180x820), cold, 1200kbps:
 | shell deck title | **-42.27px** (width), carrying the pill and everything right of it |
 | shell Reader view | -14.38px |
 | shell PREVIEW label | -6.30px |
-| shell deck pill | +3.03px, at Playfair rather than Outfit |
+| shell deck pill | -23.30px at 1440, moving with the title it contains |
 
 **Three changes, and only the third is the cure.**
 
@@ -512,6 +512,121 @@ the comma-quoted form left 8 `Outfit Fallback` references alive, so it was testi
 the metric fallbacks still in place, a regime that genuinely barely shifts. That half-mutant
 produced a green run that read as a bench blind spot and sent this investigation down two
 unnecessary paths. A negative control has to be verified to actually be negative.
+
+## The fix shipped a bigger regression than the one it fixed, for four hours
+
+`font-display: optional` is site-wide. The three font preloads were on `/studio/` alone. Under
+`swap` that asymmetry was an optimization gap — a page without a preload painted the fallback
+and swapped a few hundred ms later, so it still ENDED on the real face. Under `optional` it is
+a cliff: the browser gives the font ~100ms and, if it has not arrived, keeps the fallback for
+the whole document and never swaps. **A page that does not preload never reaches its own
+typeface on a first visit at all.**
+
+Measured on an UNTHROTTLED localhost against the built dist, before the fix:
+
+| route | font preloads | body renders in | heading renders in |
+|---|---|---|---|
+| `/` | 0 | **fallback** | Playfair |
+| `/introduction/` | 0 | **fallback** | **fallback** |
+| `/studio/` | 3 | Outfit | Playfair |
+
+So the landing page and every docs page quietly lost their typography on every first visit —
+not on a throttled link, on localhost — while the one route with a preload kept it. That is a
+worse regression than the 42px shift it was fixing, and it shipped in the same commit that
+claimed the cost was "1-2px on one cold visit". The cost statement was true, and it described
+`/studio/`, which was the only page anyone had measured.
+
+**No gate could see it**, and that is not a gap that can be closed cheaply: `build:check` reads
+artifacts, the e2e specs drive `/studio/`, and `handoff-bench` is a Studio instrument by
+construction. What found it was an independent checker reading the diff and asking what
+`optional` means on a page that does not preload — the maker-checker rung of HARD RULE #25,
+earning its cost exactly as the ladder says it should.
+
+**The fix** is `docs/src/components/site/FontPreloads.astro`: one definition of the three
+links, mounted from BOTH head surfaces the site has — `site/ResourceHints.astro` for the
+standalone routes and `ThemeProvider.astro` for the Starlight docs zone, which is a
+`components:` override and never renders ResourceHints. That split is pre-existing; `PwaHead`
+is mounted the same way for the same reason. After the fix all three routes preload and all
+three render in Outfit.
+
+**The durable lesson, written into that file:** `optional` and the preload are ONE decision. A
+change that moves the links back to a single route has to move `font-display` back to `swap` in
+the same commit, or it re-introduces this on every other page.
+
+## Three more defects in the fallback faces, all found by the same checker
+
+None was visible from reading the file, and each one had a plausible-sounding comment beside it
+asserting the opposite.
+
+**The overrides were multiplied by `size-adjust`.** The file said they are "applied AFTER
+size-adjust, so they are Outfit's numbers verbatim." They are not: `size-adjust` scales the
+face's metrics too, so a declared `ascent-override` reaches the layout engine multiplied by it.
+Measured at 100px against the real faces, the fallback's line box was off by exactly the
+adjustment — Outfit 600 at 121px against 126 (-4.0%), Playfair 400 at 148px against 133
+(+11.3%). Every face now declares `override / size-adjust`, and the check is that the line
+boxes match: **0.00% on all six upright faces** after the correction.
+
+**There was no italic Playfair Fallback, and the landing hero's italic is the site's most
+prominent Playfair.** A family with no italic gets a SYNTHETIC oblique of the upright, measured
+by the upright's ratio: +13.65% wide and +28.70% tall at weight 400. Calibrating it needed the
+real Playfair Display Italic force-loaded through `FontFace.load()`, because `optional` will
+not apply a face the page does not use — so `document.fonts.ready` is not enough to measure
+against. Real advances 1879 (400) and 1992 (700); the shipped italic faces now measure 1877 and
+2003, **-0.11% and +0.55%, with the line box exact.**
+
+**`local('Georgia')` was listed first, with a ratio calibrated against Times.** The comment
+justified it with "Georgia and Times New Roman measured identically on this box" — but this box
+has neither, so both names were answered by the same Liberation Serif and "identically" was the
+aliasing artifact, not a metric fact. Real Georgia is materially wider than Times, so on macOS
+/ Windows / iOS the first name in the list would have taken a ratio it was never measured
+against. The sources are Times-metric only now, which is what 111.248% actually describes.
+
+This is the SECOND time this file's `local()` names have been wrong in the same way — the first
+was the bold faces falling through to a regular Liberation file, a 25px error inside the fix
+for a 42px one. `local()` does not go through fontconfig aliasing while `font-family:` does,
+and a sandbox with neither Arial nor Georgia nor Times makes every wrong guess look right.
+Anything added here is verified name by name through `new FontFace(..., "local('X')").load()`
+before it ships.
+
+**Known and not closed:** on Android none of Arial, Helvetica, Liberation Sans, Courier New,
+Times New Roman or Liberation Serif exists, so every `local()` here fails and the stack falls
+to Roboto / monospace / serif with no metric adjustment. `optional` still guarantees no jank
+there — nothing swaps — but the fallback is not metric-matched, and with the preloads now on
+every page the font usually wins the block period anyway. Not verified on a device.
+
+## `is not replayed in portrait` fails ~80% here, on this branch AND on main
+
+Recorded because two earlier readings of it in this session were wrong in opposite directions,
+and both came from four-run samples of a coin-flip.
+
+The case stores a rect in a landscape cinema session, reloads at 390x844, and asserts the
+shell's slide box agrees with the app's. When it fails, the shell places a FULL-BLEED box
+(`--sb-l: 0px`, `--sb-w: 390px`) where the app draws a padded one (x 17, w 356) — the cinema
+geometry, computed at a portrait viewport. `padX` is 0 only when `cinema` is true, and `cinema`
+is `(orientation: landscape) and (max-height: 500px) and (pointer: coarse)`, which cannot match
+at 390x844. So the seed is reading a viewport the document is no longer in: a race between
+Playwright applying `setViewportSize` and the inline seed running on the reload.
+
+**Measured, ten runs of the scenario per tree, same instrument:**
+
+| tree | failed |
+|---|---|
+| this branch | 8/10 |
+| `docs/src` at `origin/main` | 8/10 |
+
+Identical, so it is not this change. `studio.astro`'s own seed note already names this spec as
+one that "fail[s] intermittently (2 of 38 on one run, 0 on the next)".
+
+**Two earlier claims in this session were drawn from four-run samples and were wrong.** One PR
+body said "6/6 green in isolation, a checker measured it failing on main too"; a later pass got
+4/4 PASS on main and 4/4 PASS with only `fonts.css` reverted, and concluded from that pair that
+the metric fallbacks had caused it. At an 80% failure rate, a 4-run all-pass has probability
+0.0016 — it happened twice, which is the reminder that a rate is not a sample. Nothing was
+changed on the strength of those readings, but a fix was nearly attributed to the wrong file.
+
+**Off-path, so logged rather than fixed** (HARD RULE #18): the cause is in the seed's re-entry
+under a viewport change, this diff does not touch it, and the fix belongs with the
+measure-and-republish rework that `studio.astro`'s note already defers.
 
 ## What now gates this
 

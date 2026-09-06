@@ -65,9 +65,11 @@ const READ_SLOTS = (scope: string) => `(${((sel: string) => {
 /**
  * Wait for the thing this spec measures to stop moving, rather than sleeping on a guess.
  *
- * The signal is the slot's OWN width across two consecutive frames: webfonts swap in under
- * `font-display: swap` and move every content-sized control while they do, and the content
- * transform below writes into the node and needs the next layout before it reads a box back.
+ * The signal is the slot's OWN width across two consecutive frames. It used to have two
+ * causes; under `font-display: optional` (fonts.css) it has one. Webfonts no longer swap in
+ * mid-document, so they no longer move content-sized controls while a measurement is running —
+ * what remains is the content transform below, which writes into the node and needs the next
+ * layout before it reads a box back.
  * Both are "the geometry has settled", so both are polled on the geometry itself.
  */
 async function settle(page: import('@playwright/test').Page) {

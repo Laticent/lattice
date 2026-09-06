@@ -136,10 +136,11 @@
 	src: url('../playground/fonts/jetbrains-mono-600.woff2') format('woff2');
 }
 
-/* ── Metric-adjusted fallbacks — the fix for `font-display: swap` reflow ──────────────
+/* ── Metric-adjusted fallbacks — what the fallback measures while `optional` uses it ──
  *
- * Every face above is `swap`, so the browser paints the FALLBACK first and re-lays out when
- * the woff2 lands. Preloading moves the fetch earlier; it does not remove the swap, and on the
+ * Every face above USED to be `swap`; the header at the top of this file says why they are all
+ * `optional` now. Under `swap` the browser painted the FALLBACK first and re-laid out when
+ * the woff2 landed. Preloading moved the fetch earlier; it did not remove the swap, and on the
  * deployed build (where `hoist-stylesheets.mjs` moves the stylesheet ahead of the fonts) the
  * shell reliably paints before the fonts arrive. Measured on an iPad Air 4 viewport, cold, at
  * 1200kbps: the Studio's deck title moved **-42.27px** when Outfit landed, in both
@@ -166,31 +167,53 @@
  *     600      3823     3988      95.861%
  *     700      3881     3988      97.316%
  *
- * Vertical: Outfit is ascent 1.0em / descent 0.26em; Arial is 0.905 / 0.212. The overrides are
- * a percentage of the used font size and are applied AFTER size-adjust, so they are Outfit's
- * numbers verbatim.
+ * Vertical: Outfit is ascent 1.0em / descent 0.26em; Arial is 0.905 / 0.212.
+ *
+ * THE OVERRIDES ARE DIVIDED BY size-adjust, and an earlier draft of this file asserted the
+ * opposite — that they are "applied AFTER size-adjust, so they are Outfit's numbers verbatim."
+ * They are not. `size-adjust` scales the face's metrics too, so a declared `ascent-override`
+ * reaches the layout engine multiplied by it, and writing Outfit's raw numbers here left the
+ * line box off by exactly the adjustment: measured at 100px against the real faces, Outfit 600
+ * came out 121px against 126 (-4.0%) and Playfair 400 came out 148px against 133 (+11.3%). So
+ * each face declares override / size-adjust, and the check is that the fallback's line box now
+ * equals the real face's. An independent checker found this; nothing in the tree could.
  *
  * This is the docs-site stack only. The engine's own `--font-body` (lib/base/base.tokens.css)
  * is deliberately untouched: it governs slide rendering and the PDF/PPTX export, where the real
  * face is always embedded and a fallback is never reached, so there is nothing to fix and a
  * change there would need export sign-off. */
-@font-face { font-family: 'Outfit Fallback'; src: local('ArialMT'), local('Arial'), local('Helvetica'), local('Liberation Sans'); font-weight: 300; size-adjust: 98.579%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
-@font-face { font-family: 'Outfit Fallback'; src: local('ArialMT'), local('Arial'), local('Helvetica'), local('Liberation Sans'); font-weight: 400; size-adjust: 98.710%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
-@font-face { font-family: 'Outfit Fallback'; src: local('ArialMT'), local('Arial'), local('Helvetica'), local('Liberation Sans'); font-weight: 500; size-adjust: 98.657%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
-@font-face { font-family: 'Outfit Fallback'; src: local('Arial-BoldMT'), local('Arial Bold'), local('Helvetica-Bold'), local('Helvetica Bold'), local('Liberation Sans Bold'); font-weight: 600; size-adjust: 95.861%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
-@font-face { font-family: 'Outfit Fallback'; src: local('Arial-BoldMT'), local('Arial Bold'), local('Helvetica-Bold'), local('Helvetica Bold'), local('Liberation Sans Bold'); font-weight: 700; size-adjust: 97.316%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
+@font-face { font-family: 'Outfit Fallback'; src: local('ArialMT'), local('Arial'), local('Helvetica'), local('Liberation Sans'); font-weight: 300; size-adjust: 98.579%; ascent-override: 101.441%; descent-override: 26.375%; line-gap-override: 0%; }
+@font-face { font-family: 'Outfit Fallback'; src: local('ArialMT'), local('Arial'), local('Helvetica'), local('Liberation Sans'); font-weight: 400; size-adjust: 98.710%; ascent-override: 101.307%; descent-override: 26.340%; line-gap-override: 0%; }
+@font-face { font-family: 'Outfit Fallback'; src: local('ArialMT'), local('Arial'), local('Helvetica'), local('Liberation Sans'); font-weight: 500; size-adjust: 98.657%; ascent-override: 101.361%; descent-override: 26.354%; line-gap-override: 0%; }
+@font-face { font-family: 'Outfit Fallback'; src: local('Arial-BoldMT'), local('Arial Bold'), local('Helvetica-Bold'), local('Helvetica Bold'), local('Liberation Sans Bold'); font-weight: 600; size-adjust: 95.861%; ascent-override: 104.318%; descent-override: 27.123%; line-gap-override: 0%; }
+@font-face { font-family: 'Outfit Fallback'; src: local('Arial-BoldMT'), local('Arial Bold'), local('Helvetica-Bold'), local('Helvetica Bold'), local('Liberation Sans Bold'); font-weight: 700; size-adjust: 97.316%; ascent-override: 102.758%; descent-override: 26.717%; line-gap-override: 0%; }
 
 /* JetBrains Mono against Courier New: 99.983% — the advance widths already agree, because both
  * are monospaced at a near-identical ratio. What does NOT agree is the line box (mono is
  * ascent 1.02 / descent 0.30, Courier 0.833 / 0.30), so the overrides carry this one. */
-@font-face { font-family: 'JetBrains Mono Fallback'; src: local('Courier New'), local('Liberation Mono'), local('DejaVu Sans Mono'); size-adjust: 99.983%; ascent-override: 102%; descent-override: 30%; line-gap-override: 0%; }
+@font-face { font-family: 'JetBrains Mono Fallback'; src: local('Courier New'), local('Liberation Mono'), local('DejaVu Sans Mono'); font-weight: 400; size-adjust: 99.983%; ascent-override: 102.017%; descent-override: 30.005%; line-gap-override: 0%; }
+@font-face { font-family: 'JetBrains Mono Fallback'; src: local('Courier New Bold'), local('CourierNewPS-BoldMT'), local('Liberation Mono Bold'), local('DejaVu Sans Mono Bold'); font-weight: 500 700; size-adjust: 99.983%; ascent-override: 102.017%; descent-override: 30.005%; line-gap-override: 0%; }
 
 /* Playfair Display against a serif fallback. The wordmark is the only Playfair text in the
  * Studio's chrome, so the residual was small (3.03px on the deck title at landscape) — but it
  * is the same defect and the same cure. Playfair is WIDER than Georgia/Times, so size-adjust
  * is above 100 here: 1662 against 1493.95 at weight 400, 1710 against 1618.36 at 700.
- * Georgia and Times New Roman measured identically on this box; both are listed so a platform
- * missing one still lands on a metrically-known face. Vertical: Playfair is 1.082 / 0.251.
+ * GEORGIA IS DELIBERATELY NOT A SOURCE HERE, and an earlier draft got this wrong in a way
+ * worth naming. It listed `local('Georgia')` FIRST and justified it with "Georgia and Times New
+ * Roman measured identically on this box" — but this box has neither, so both names were being
+ * answered by the same Liberation Serif and "identically" was the aliasing artifact, not a
+ * metric fact. Real Georgia is materially wider than Times, so on macOS / Windows / iOS — the
+ * whole real audience — a Georgia-first list would have applied a Times-derived ratio to a
+ * font it was never measured against. The sources are Times-metric only, which is what 111.248%
+ * actually describes. Vertical: Playfair is 1.082 / 0.251.
+ *
+ * ITALIC IS ITS OWN PAIR OF FACES, because a family with no italic gets a SYNTHETIC oblique of
+ * the upright — sheared, and mis-measured by the upright's ratio. The landing hero's italic
+ * word is the site's most prominent Playfair, so this was the largest error in the file:
+ * measured against the real Playfair Display Italic (force-loaded, since `optional` will not
+ * apply a face the page does not use), the fallback ran +13.65% wide and +28.70% tall at 400.
+ * The italic ratios are measured separately — 103.971% at 400, 107.028% at 700, against real
+ * advances of 1879 and 1992 — because the italic's own proportions are not the upright's.
  *
  * THE LOCAL NAMES MATTER AS MUCH AS THE RATIOS, and this is where the first cut of these faces
  * went wrong. The sandbox they were tuned on has no Arial, Helvetica, Georgia or Times at all —
@@ -202,5 +225,7 @@
  * the fix that was supposed to remove a 42px one. Both the PostScript names (`Arial-BoldMT`,
  * which is what iOS answers to) and the human names are listed, and the bold faces name only
  * BOLD sources so they cannot silently land on a regular file again. */
-@font-face { font-family: 'Playfair Fallback'; src: local('Georgia'), local('Times New Roman'), local('Liberation Serif'); font-weight: 400; size-adjust: 111.248%; ascent-override: 108.2%; descent-override: 25.1%; line-gap-override: 0%; }
-@font-face { font-family: 'Playfair Fallback'; src: local('Georgia-Bold'), local('Georgia Bold'), local('TimesNewRomanPS-BoldMT'), local('Liberation Serif Bold'); font-weight: 700; size-adjust: 105.663%; ascent-override: 108.2%; descent-override: 25.1%; line-gap-override: 0%; }
+@font-face { font-family: 'Playfair Fallback'; src: local('TimesNewRomanPSMT'), local('Times New Roman'), local('Liberation Serif'); font-weight: 400; font-style: normal; size-adjust: 111.248%; ascent-override: 97.260%; descent-override: 22.562%; line-gap-override: 0%; }
+@font-face { font-family: 'Playfair Fallback'; src: local('TimesNewRomanPS-BoldMT'), local('Times New Roman Bold'), local('Liberation Serif Bold'); font-weight: 700; font-style: normal; size-adjust: 105.663%; ascent-override: 102.401%; descent-override: 23.755%; line-gap-override: 0%; }
+@font-face { font-family: 'Playfair Fallback'; src: local('TimesNewRomanPS-ItalicMT'), local('Times New Roman Italic'), local('Liberation Serif Italic'); font-weight: 400; font-style: italic; size-adjust: 103.971%; ascent-override: 104.067%; descent-override: 24.141%; line-gap-override: 0%; }
+@font-face { font-family: 'Playfair Fallback'; src: local('TimesNewRomanPS-BoldItalicMT'), local('Times New Roman Bold Italic'), local('Liberation Serif Bold Italic'); font-weight: 700; font-style: italic; size-adjust: 107.028%; ascent-override: 101.095%; descent-override: 23.452%; line-gap-override: 0%; }

@@ -95,8 +95,17 @@ function sampler() {
 		// moved -42.27px at 662ms and this bench printed a clean run, because the box that
 		// moved was the one box not tracked. Two rows, not one: the pill is the container and
 		// catches the row reflowing, the title is the text and catches the advance itself.
+		//
+		// BOTH SELECTORS ARE SINGLE, WITHOUT A COMMA FALLBACK, and that is deliberate after the
+		// first cut shipped `[data-deck-pill], … .ssr-topbar button`. No `data-deck-pill`
+		// attribute exists anywhere in the repo — the real class is `.ssr-deck-pill` — so the
+		// comma arm won and bound the WORKSPACE LAUNCHER instead, a 77px button rather than the
+		// 211px pill. The `neverMatched` arm below cannot catch that by construction: a comma
+		// list matches SOMETHING, so it reports a bound selector while the box is the wrong one,
+		// which is the failure that arm exists to prevent wearing a disguise. A selector here
+		// gets one target, and if it stops matching, `neverMatched` says so.
 		'shell deck title': '#studio-ssr-shell .ssr-deck-title',
-		'shell deck pill': '#studio-ssr-shell .ssr-topbar [data-deck-pill], #studio-ssr-shell .ssr-topbar button',
+		'shell deck pill': '#studio-ssr-shell .ssr-deck-pill',
 		'app header': 'header',
 		'app preview-bar': '[data-studio-root] [data-slot="preview-bar"]',
 		'app Reader view': '[data-studio-root] [data-slot="preview-bar"] [aria-label="Reader view"]',

@@ -263,8 +263,15 @@ for (const c of CASES) {
 			// jump; the seed now re-runs on resize, and this is the only thing that can prove it.
 			await page.setViewportSize({ width: c.rotateTo.w, height: c.rotateTo.h });
 		}
-		// Webfonts swap in with `font-display: swap`, moving the content-sized controls while
-		// they do. Measuring inside that window is the difference between a guard and a flake.
+		// WEBFONTS NO LONGER SWAP IN, so this gate means something different than it used to.
+		// `fonts.css` ships `font-display: optional`: the browser applies a face only if it
+		// arrives inside its ~100ms block period, and otherwise keeps the fallback for the whole
+		// document. Under the old `swap` this wait was for the SECOND of two font states, because
+		// measuring between them moved every content-sized control. There is now one state
+		// per load, and `document.fonts.ready` no longer means "on the final font" — it means the
+		// decision has been made either way, which is what this actually needs. The wait stays:
+		// the metric-adjusted fallbacks are close, not identical, so the two surfaces still have
+		// to be compared in the SAME state.
 		await page.evaluate(() => document.fonts.ready);
 
 		const shell = await page.evaluate(READ_SHELL);

@@ -359,12 +359,16 @@ async function spareAt(page: import('@playwright/test').Page, tolerance: number)
 test('@smoke the Studio header fits — and keeps its words — at every supported width', async ({ page }) => {
 	test.slow(); // 8 widths x 3 dial stops in one page: headroom, not an expectation
 	await gotoStudio(page);
-	// Measure in ONE font state. `docs/src/styles/fonts.css` ships `font-display: swap`,
-	// so the page genuinely renders in system-ui first and reflows when Outfit lands —
-	// and the fallback is 21px wider on the dial alone. Timed on this machine, Outfit
-	// landed 7ms after `gotoStudio`'s readiness gate; a cold cache or a busy runner puts
-	// the measurement on the other side of that. Every number here would then be a
-	// coin-flip between two layouts. `document.fonts.ready` makes the state deterministic.
+	// Measure in ONE font state. `docs/src/styles/fonts.css` ships `font-display: optional`,
+	// so a load has exactly one font state rather than two — the browser applies Outfit only
+	// if it lands inside its ~100ms block period, and otherwise keeps the metric-adjusted
+	// fallback for the whole document without ever swapping. Under the old `swap` the page
+	// rendered in system-ui first and reflowed when Outfit landed (the raw system fallback was
+	// 21px wider on the dial alone, and Outfit landed 7ms after `gotoStudio`'s readiness gate
+	// on this machine, so a cold cache or a busy runner put the measurement on the other side
+	// of it and every number became a coin-flip between two layouts). `optional` removes that
+	// race; the wait stays because the two states still differ across LOADS, and this spec
+	// compares numbers within one.
 	await page.evaluate(() => document.fonts.ready);
 	// EVERY query below is scoped to the Studio header, never to the page. A local
 	// `astro dev` run injects its own dev-toolbar buttons — including one named

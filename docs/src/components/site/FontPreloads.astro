@@ -1,0 +1,53 @@
+---
+// THE THREE WEBFONT PRELOADS, IN ONE PLACE, MOUNTED ON EVERY PAGE.
+//
+// `font-display: optional` (styles/fonts.css) made these load-bearing, and that
+// is a change of KIND, not of degree. Under `swap` a preload was an
+// optimization: without one a page painted in the fallback and swapped a few
+// hundred ms later, so every first visit still ENDED on the real face and the
+// preload only moved *when*. Under `optional` the browser gives the font ~100ms
+// and, if it has not arrived, keeps the fallback for the whole document and
+// never swaps — so a page that does not preload never reaches its own typeface
+// on a first visit at all.
+//
+// That is measured, not theoretical. `optional` was first written with the
+// preloads on `/studio/` alone, and on an UNTHROTTLED localhost against the
+// built dist the landing page and the docs body then rendered the fallback
+// while `/studio/` rendered Outfit and Playfair: the whole site quietly
+// downgraded on every first visit, the one route with a preload excepted. An
+// independent checker caught it; no gate in the tree could.
+//
+// SO `optional` AND THE PRELOAD ARE ONE DECISION. A change that moves these
+// links back to a single route has to move `font-display` back to `swap` in the
+// same commit, or it re-introduces that regression on every other page.
+//
+// TWO MOUNT POINTS, ONE DEFINITION — because the site has two <head> surfaces
+// and neither covers the other: `site/ResourceHints.astro` for the standalone
+// routes (landing, studio, components) and `ThemeProvider.astro` for the
+// Starlight docs zone, which is a `components:` override in astro.config.mjs
+// and never renders ResourceHints. That split is pre-existing (PwaHead is
+// mounted the same way for the same reason); this file exists so the preloads
+// are not forked across it (HARD RULE #15).
+//
+// FILES, NOT FACES — which is why three links cover twelve `@font-face` blocks.
+// Each family's vendored weights are the SAME variable file stored under
+// per-weight names (every Outfit weight is md5 `fdf9c509…`, upright Playfair
+// 400/700 is `ef05b30d…`, mono 400/500/600 is one 31432-byte file), and
+// `fonts.css`'s blocks each pin a different position on that one file's weight
+// axis. Vite content-hashes and dedupes, so importing 600/700/400 here resolves
+// to the three assets the whole site is served from — which is why the built
+// href reads `outfit-300` and `playfair-display-400`, the dedup winner's name.
+//
+// Vite hands back the SAME hashed, base-aware URL that `styles/fonts.css`
+// resolves its own relative `url()` to. That identity is the whole point: a
+// preload whose href does not match the URL the stylesheet requests is not a
+// no-op, it is a second download plus a "preloaded but not used" warning.
+// `font-preload.spec.ts` asserts the match, because nothing else would notice.
+import outfitUrl from '../../playground/fonts/outfit-600.woff2?url';
+import playfairUrl from '../../playground/fonts/playfair-display-700.woff2?url';
+import monoUrl from '../../playground/fonts/jetbrains-mono-400.woff2?url';
+---
+
+<link rel="preload" href={outfitUrl} as="font" type="font/woff2" crossorigin />
+<link rel="preload" href={playfairUrl} as="font" type="font/woff2" crossorigin />
+<link rel="preload" href={monoUrl} as="font" type="font/woff2" crossorigin />

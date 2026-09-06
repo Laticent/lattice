@@ -177,9 +177,15 @@ for (const c of CASES) {
 		});
 		await page.goto('/studio/', { waitUntil: 'commit' });
 		await page.locator('#studio-ssr-shell .ssr-topbar').waitFor({ state: 'attached' });
-		// Webfonts swap in with `font-display: swap` and text metrics move the content-sized
-		// controls ~20-39px while they do. Measuring inside that window is the difference
-		// between a guard and a flake, so wait for BOTH surfaces to be on the final font.
+		// WEBFONTS NO LONGER SWAP IN, so this gate means something different than it used to.
+		// `fonts.css` ships `font-display: optional`: the browser applies a face only if it
+		// arrives inside its ~100ms block period, and otherwise keeps the fallback for the whole
+		// document. Under the old `swap` this wait was for the SECOND of two font states, because
+		// measuring between them moved every content-sized control ~20-39px. There is now one state
+		// per load, and `document.fonts.ready` no longer means "on the final font" — it means the
+		// decision has been made either way, which is what this actually needs. The wait stays:
+		// the metric-adjusted fallbacks are close, not identical, so the two surfaces still have
+		// to be compared in the SAME state.
 		await page.evaluate(() => document.fonts.ready);
 
 		// SCOPE: the topbar, the phone action bar, the desktop-Craft activity rail, and — since
