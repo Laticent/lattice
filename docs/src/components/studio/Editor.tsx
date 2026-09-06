@@ -1,5 +1,5 @@
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap, history, historyField, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
@@ -78,7 +78,120 @@ const oneLintTooltip = ViewPlugin.define((view: EditorView) => {
 	return { destroy: () => view.dom.removeEventListener('mouseover', onMouseOver) };
 });
 
-function makeLinter(known: Set<string>) {
+// THE EDITOR IS AN INGEST — a leading BOM never reaches the deck source.
+//
+// A paste is external text entering the app, which is exactly what
+// `docs/src/lib/normalize-source-text.ts` means by an ingest: Notepad, PowerShell `>` and
+// Visual Studio all emit a U+FEFF at the head of a file, and it defeats the `^---`
+// front-matter anchor. This door was not one of the boundaries. Measured on the built
+// Studio, pasting the SAME deck with and without the BOM:
+//
+//   clean  slide 1 renders `One / body`, with pagination marks
+//   BOM    slide 1 renders `theme: indaco paginate: true` — the front matter itself,
+//          set as the slide, with `theme:`, `size:` and `paginate:` all ignored
+//
+// and it persisted and survived a reload, so the corruption was durable rather than a
+// transient paint. Front matter is not front matter when a BOM precedes it: the block
+// parses as a setext heading instead.
+//
+// ONLY THE BOM HALF of the canonical fold is done here, and that is measured rather than
+// assumed — CodeMirror folds CRLF *and* a lone CR at this same door, through
+// `EditorState.lineSeparator`, so a `\r` cannot reach the document at all. Both halves
+// are pinned by oracles in `docs/e2e/markdown-stress.spec.ts`; if a CodeMirror upgrade
+// ever stopped folding, that spec goes red rather than this comment going quietly stale.
+//
+// A FILTER ALONE IS NOT ENOUGH, and saying so is the point of this paragraph. A
+// `transactionFilter` sees transactions, not the document, and it has two holes a checker
+// pass measured against the real CodeMirror:
+//   · `EditorState.create` is not filtered, so a `value` that ALREADY carries a BOM (a deck
+//     stored before this landed) sits in the document until something edits it;
+//   · `undo`/`redo` dispatch with `filter: false` (`@codemirror/commands`), so one ⌘Z puts
+//     the BOM back — and it then left through `onChange` into `source`, which is what the
+//     preview renders and the autosave persists.
+// So the seed document is canonicalized at construction, and `onChange` is the outward
+// boundary: whatever the document holds, what the shell receives is canonical. The filter
+// stays because it keeps the EDITOR's own text clean on the common paste path, where the
+// author would otherwise see a stray byte they cannot select. Not a call to
+// `normalizeSourceText`: that helper takes a whole string, and re-scanning the document on
+// every keystroke buys nothing CodeMirror has not already done. This asks one character.
+// UNDO SURVIVES A TRIP THROUGH COMPOSE.
+//
+// The Studio mounts EITHER this editor or Compose, never both (StudioShell), so switching
+// panes destroys the `EditorView` and CodeMirror's history goes with it. Measured on the
+// built Studio: type, switch to Compose, switch back, press ⌘Z — nothing happens, and
+// nothing says why. That is not a lost fold or a lost scroll position; it is the author's
+// only route back from a mistake, removed by a two-click detour they took for an unrelated
+// reason.
+//
+// So the state is CARRIED across the unmount and restored, history field included. It is
+// held module-scoped rather than in a ref because the ref dies with the component, and only
+// one deck editor is ever mounted.
+//
+// GUARDED ON THE DECK **AND** THE DOCUMENT, and the deck half is not belt-and-braces — a
+// document-only guard leaks one deck's undo stack into another, and a checker pass
+// reproduced it end to end. `newDeckSource()` is deterministic, so EVERY new deck starts
+// from the same template bytes: type in deck A, undo, switch to Compose, create deck B,
+// switch back to the source pane, and `carried.doc === value` matched across decks. One ⌘⇧Z
+// in deck B then inserted text that was never typed into B — and `onChange` carried it
+// straight into `source`, where the autosave persisted it as deck B's content. Keying on the
+// deck id makes the match mean what the comment always claimed it meant.
+//
+// The DOCUMENT half still earns its place: an edit made in Compose changes the source, and
+// those edits are not in this history, so offering ⌘Z over them would undo the wrong thing.
+// A Compose edit therefore discards the carry, which is the honest answer.
+//
+// Consumed on use, so a stale carry can never be applied twice.
+export type CarriedState = { key: string; doc: string; state: ReturnType<EditorState['toJSON']> };
+let carried: CarriedState | null = null;
+
+/**
+ * May `carried` be restored into the editor now mounting?
+ *
+ * EXPORTED SO IT CAN BE TESTED. Driving the leak end to end needs a REDO to replay deck A's
+ * edit into deck B, and redo DOES fire here — `Ctrl+Shift+Z` restores the edit,
+ * measured on the built Studio (Chromium, WebKit and Firefox alike; `navigator.platform` is
+ * `Linux x86_64`, so `@codemirror/commands`' `linux: "Ctrl-Shift-z"` binding is active). Two
+ * earlier e2e attempts still passed against the broken guard, and WHY IS NOT KNOWN. The first
+ * had a plain cause — it started from the seeded tour deck, whose bytes never match a new
+ * deck's, so the leak could not arise. The second used two new decks, and the explanation
+ * recorded for it ("redo does not fire on this surface") was WRONG, as was the correction that
+ * replaced it ("redo is Ctrl+Y, so Ctrl+Shift+Z is a second undo"). Both were confident, both
+ * were called measured, and a checker refuted each in turn. The explanation that survives is
+ * about FOCUS: after a Compose→Markdown switch `activeElement` is the pane TOGGLE, not the
+ * editor, so a bare redo chord reaches nothing — measured on all three engines. An attempt
+ * that omitted a witnessed `focusEditor` would go green against a broken guard for that reason
+ * alone. So the pin is here, at the predicate, where the rule is
+ * stated directly and cannot be confounded by a keybinding — and the end-to-end oracle is
+ * follow-up work in the deck-history change rather than an impossibility. See the findings
+ * note §6; treat any account of WHY those two attempts passed as unwritten.
+ *
+ * BOTH halves are load-bearing. The DECK half: `newDeckSource()` is deterministic, so every
+ * new deck holds the same template bytes, and a document-only guard matched ACROSS decks —
+ * an independent checker reproduced deck A's history landing in deck B against the real
+ * CodeMirror, where one redo inserted text never typed there and `onChange` carried it into
+ * the autosave. The DOCUMENT half: an edit made in Compose is not in this history, so
+ * offering ⌘Z over it would undo the wrong thing.
+ */
+export function carryApplies(state: CarriedState | null, key: string | undefined, value: string): boolean {
+	return !!state && !!key && state.key === key && state.doc === value;
+}
+
+const BOM = '\uFEFF';
+const stripBom = (text: string) => (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
+const noLeadingBom = EditorState.transactionFilter.of((tr) => {
+	if (!tr.docChanged || tr.newDoc.length === 0) return tr;
+	if (tr.newDoc.sliceString(0, 1) !== BOM) return tr;
+	// `sequential: true` IS LOAD-BEARING. Without it, `resolveTransaction` resolves this
+	// second spec against the doc as it was BEFORE the transaction, so `{from: 0, to: 1}`
+	// deletes the first character of the OLD document and the two changes merge into
+	// nonsense — measured: a paste over a select-all left the document EMPTY. With it, the
+	// range is read against the doc `tr` produces, which is where the BOM actually is.
+	// Merged into the same transaction either way, so one ⌘Z takes the paste back whole
+	// rather than leaving a stripped BOM behind as its own undo step.
+	return [tr, { changes: { from: 0, to: 1 }, sequential: true }];
+});
+
+function makeLinter(known: Set<string>, report?: (findings: Array<{ autofixable?: boolean }>) => void) {
 	return linter((view): Diagnostic[] => {
 		const text = view.state.doc.toString();
 		const out: Diagnostic[] = [];
@@ -106,6 +219,10 @@ function makeLinter(known: Set<string>) {
 				});
 			}
 		}
+		// Every finding this fallback produces carries its own Quick fix, so all of them are
+		// fixable — which is what the pre-existing `unknownComponents` gate assumed too.
+		// Reporting keeps the two lint paths saying the same thing to the shell.
+		report?.(out.map(() => ({ autofixable: true })));
 		return out;
 	});
 }
@@ -165,12 +282,26 @@ export const Editor = React.forwardRef<EditorHandle, {
 	onCursorSlide?: (index: number) => void;
 	/** Fired when the selection emptiness changes — gates the Refine control. */
 	onSelectionChange?: (hasSelection: boolean) => void;
+	/** Identity of the deck this editor is showing. The undo history is carried across the
+	 *  unmount a pane switch causes, and this is what stops it being carried into a DIFFERENT
+	 *  deck that happens to hold the same bytes — which every freshly created deck does. Omit
+	 *  it and nothing is carried at all, which is the pre-carry behavior and the safe default. */
+	carryKey?: string;
+	/** Fired after every lint pass with what that pass actually found: how many findings
+	 *  there are, and how many of them carry a machine fix. `null` when this editor is
+	 *  going away, so a consumer falls back to its own estimate rather than holding a
+	 *  count for a surface that is no longer mounted.
+	 *
+	 *  It exists because the two numbers are DIFFERENT and the shell could not tell them
+	 *  apart: it gated "Fix all issues" on its own `unknownComponents` count, which is
+	 *  neither the set the linter underlines nor the set `applyAllFixes` can repair. */
+	onLintCounts?: (counts: { total: number; fixable: number } | null) => void;
 	/** Fired only on a genuine USER edit (typing/paste/delete) — NOT on the
 	 *  programmatic doc sync when `value` changes. Distinguishes a real edit from
 	 *  an external setSource so callers can react to authoring, not to their own writes. */
 	onUserEdit?: () => void;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], lintVocab, extraComponentNames, onCursorSlide, onSelectionChange, onUserEdit, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], lintVocab, extraComponentNames, onCursorSlide, onSelectionChange, onUserEdit, onLintCounts, carryKey, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -181,6 +312,28 @@ export const Editor = React.forwardRef<EditorHandle, {
 	onSelectionChangeRef.current = onSelectionChange;
 	const onUserEditRef = React.useRef(onUserEdit);
 	onUserEditRef.current = onUserEdit;
+	const onLintCountsRef = React.useRef(onLintCounts);
+	onLintCountsRef.current = onLintCounts;
+	// The file's latest-ref idiom, and here it is load-bearing rather than tidy: the init
+	// effect is keyed on `[known]`, so a deck switch that leaves the editor MOUNTED never
+	// re-runs it. The cleanup would then stamp the deck id from the render that built the
+	// effect onto the document of a DIFFERENT deck — reintroducing the cross-deck leak this
+	// key exists to close, one level up.
+	const carryKeyRef = React.useRef(carryKey);
+	carryKeyRef.current = carryKey;
+	// A finding is FIXABLE exactly when `findingsToDiagnostics` would hang a Quick fix
+	// button on it — `autofixable`, which is lint-core's own answer. Reporting the same
+	// predicate the inline buttons use is what makes "Fix all" and the underlines agree:
+	// the toolbar offers a batch of precisely the fixes the author can already see.
+	// GATED ON THE LIVE VIEW, because `@codemirror/lint`'s `destroy()` clears its timeout and
+	// nothing else: an async source promise already in flight still resolves. The first lint
+	// pass awaits `loadLintCore()`, so switching to Compose mid-load ran the cleanup's
+	// withdrawal FIRST and then let the resolved pass write a non-null count back — gating
+	// "Fix all" on a number belonging to an editor that no longer exists.
+	const reportLint = React.useCallback((findings: Array<{ autofixable?: boolean }>) => {
+		if (!viewRef.current) return;
+		onLintCountsRef.current?.({ total: findings.length, fixable: findings.filter((f) => f?.autofixable).length });
+	}, []);
 	const lastHasSelRef = React.useRef(false);
 	const lastSlideRef = React.useRef(-1);
 	const [failed, setFailed] = React.useState(false);
@@ -232,15 +385,25 @@ export const Editor = React.forwardRef<EditorHandle, {
 			? linter(async (view): Promise<Diagnostic[]> => {
 					// Validation is gated by the Studio's toggle: with it off the editor is
 					// handed an empty known-set, so we stand down too.
-					if (known.size === 0) return [];
+					if (known.size === 0) {
+						reportLint([]);
+						return [];
+					}
 					const core = lintCoreMod || (await loadLintCore());
-					if (!core) return [];
-					let findings: unknown[];
+					if (!core) {
+						onLintCountsRef.current?.(null); // the kernel never arrived — no answer, which is not "clean"
+						return [];
+					}
+					let findings: Array<{ autofixable?: boolean }>;
 					try {
 						findings = core.lintTextWith(view.state.doc.toString(), vocabSets);
 					} catch {
+						// The lint threw, so this pass knows NOTHING. Say so rather than reporting
+						// zero, which would read as "clean" and disable Fix all over a real issue.
+						onLintCountsRef.current?.(null);
 						return [];
 					}
+					reportLint(findings);
 					return findingsToDiagnostics(view.state.doc, findings, {
 						// biome-ignore lint/suspicious/noExplicitAny: lint-core finding + CM view.
 						onFix: (v: any, f: any) => {
@@ -249,7 +412,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 						},
 					}) as Diagnostic[];
 				})
-			: makeLinter(known);
+			: makeLinter(known, reportLint);
 
 	React.useImperativeHandle(ref, () => ({
 		fixAll() {
@@ -353,12 +516,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 	React.useEffect(() => {
 		if (viewRef.current || !hostRef.current) return;
 		try {
-			const view = new EditorView({
-				parent: hostRef.current,
-				state: EditorState.create({
-					doc: value,
+			const seed = {
+					// Canonicalized here because `EditorState.create` runs NO transaction filter — a
+					// deck stored with a BOM before this landed would otherwise keep it on screen.
+					doc: stripBom(value),
 					extensions: [
 						lineNumbers(),
+						noLeadingBom,
 						history(),
 						keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
 						// `yamlFrontmatter` WRAPS the Markdown language rather than sitting beside it, and
@@ -412,7 +576,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 						EditorView.contentAttributes.of({ 'aria-label': 'Deck source' }),
 						EditorView.updateListener.of((u) => {
 							if (u.docChanged) {
-								onChangeRef.current(u.state.doc.toString());
+								// CANONICAL ON THE WAY OUT — see the `noLeadingBom` note above. An undo can put a
+								// leading BOM back in the document (undo bypasses transaction filters), and
+								// `source` is what the preview renders, the export ships and the autosave stores,
+								// so it is this boundary that has to hold rather than the filter alone.
+								onChangeRef.current(stripBom(u.state.doc.toString()));
 								// A genuine authoring edit carries a userEvent annotation; the
 								// external value-sync dispatch (deck switch, AI apply, restore)
 								// does not — so this fires for typing/paste/delete only.
@@ -435,15 +603,32 @@ export const Editor = React.forwardRef<EditorHandle, {
 								}
 						}),
 					],
-				}),
+			};
+			// Consume the carry here, not in the cleanup: a carry that does not match is
+			// dropped rather than kept for some later mount that might match by accident.
+			const restored = carryApplies(carried, carryKey, value) ? carried : null;
+			carried = null;
+			const view = new EditorView({
+				parent: hostRef.current,
+				state: restored
+					? EditorState.fromJSON(restored.state, { extensions: seed.extensions }, { history: historyField })
+					: EditorState.create(seed),
 			});
 			viewRef.current = view;
 		} catch {
 			setFailed(true);
 		}
 		return () => {
-			viewRef.current?.destroy();
+			const v = viewRef.current;
+			// Take the state BEFORE destroying the view — see `carried` above.
+			const key = carryKeyRef.current;
+			if (v && key) carried = { key, doc: v.state.doc.toString(), state: v.state.toJSON({ history: historyField }) };
+			v?.destroy();
 			viewRef.current = null;
+			// This editor's lint answers die with it. Withdraw them, so a consumer holding a
+			// count (the Fix-all gate) falls back to its own estimate rather than gating on a
+			// number for a surface that is no longer on screen — reaching Compose UNMOUNTS this.
+			onLintCountsRef.current?.(null);
 		};
 	}, [known]);
 

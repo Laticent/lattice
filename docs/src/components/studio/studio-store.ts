@@ -302,7 +302,21 @@ function saveIndex(index: IndexEntry[]): void {
 
 /** Edited source for a deck, or null if it has never been edited. */
 export function loadSource(id: string): string | null {
-	return read<string>(SRC_PREFIX + id);
+	// AN INGEST BOUNDARY (the EOL/BOM policy — `docs/src/lib/normalize-source-text.ts`, and
+	// `engineering/decisions/2026-08-04-line-endings-lf-boundaries.md`; it carries no rule number).
+	// A deck's stored bytes are author text arriving from outside the running app: written by
+	// an older build, by a hand-edited `localStorage`, or by any import path that reached the
+	// store without passing the file-open door. A leading U+FEFF there defeats the `^---`
+	// front-matter anchor, so the block renders AS the first slide with `theme:`/`size:`/
+	// `paginate:` ignored — measured on the built Studio.
+	//
+	// IT HAS TO BE HERE rather than in the editor, and that is worth stating because the fix
+	// was attempted there first. The editor canonicalizes its own document, but the rail, the
+	// preview and every export read the SHELL's `source` — and opening a deck is not a document
+	// CHANGE, so nothing flows back out through `onChange`. The editor showed clean text over a
+	// deck that still rendered its front matter as a slide.
+	const raw = read<string>(SRC_PREFIX + id);
+	return raw == null ? raw : normalizeSourceText(raw);
 }
 /** Persist a deck's edited source. */
 export function saveSource(id: string, source: string): void {

@@ -113,6 +113,30 @@ describe('studio-store — per-deck source', () => {
 		expect(loadDeckList().find((d) => d.id === id)?.slides[0]).toContain('# Edited');
 	});
 
+	// AN INGEST BOUNDARY (the EOL/BOM policy — `docs/src/lib/normalize-source-text.ts`). A deck's stored
+	// bytes are author text from outside the running app: an older build, a hand-edited
+	// `localStorage`, an import path that never passed the file-open door. A leading U+FEFF
+	// there defeats the `^---` front-matter anchor, so the block renders AS the first slide
+	// with `theme:`/`size:`/`paginate:` ignored.
+	//
+	// PINNED HERE, not end to end, and the reason is measured. The editor canonicalizes its own
+	// document at construction, so an e2e oracle sees clean text in the pane either way — while
+	// the SHELL's `source` (what the preview renders and every export ships) kept the BOM until
+	// the author happened to type something. This is the seam where that is decidable.
+	it('canonicalizes a deck whose STORED bytes carry a BOM or CRLF', () => {
+		const id = DECKS[0].id;
+		saveSource(id, '\uFEFF---\r\ntheme: indaco\r\n---\r\n\r\n# One\r\n');
+		const out = loadSource(id);
+		expect(out?.startsWith('\uFEFF'), 'a stored BOM reached the app').toBe(false);
+		expect(out).toBe('---\ntheme: indaco\n---\n\n# One\n');
+		// …and the front matter is front matter again, which is the whole point of the byte.
+		expect(metaFor(out ?? '')).toBe('1 slide');
+	});
+
+	it('leaves a missing deck source null rather than inventing an empty one', () => {
+		expect(loadSource('deck-that-does-not-exist')).toBeNull();
+	});
+
 	it('metaFor counts slides — agreeing with the rail splitter on tight separators', () => {
 		expect(metaFor('a\n\n---\n\nb\n\n---\n\nc')).toBe('3 slides');
 		expect(metaFor('only one')).toBe('1 slide');

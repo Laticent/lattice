@@ -6,7 +6,13 @@ import { appendToEditor, CHROME, expect, gotoStudio, openInspector, test } from 
 // state is the reliable outer-DOM oracle (the Coach banner lives in the
 // collapsed-by-default Architect panel).
 
-const UNKNOWN_SLIDE = '\n\n---\n\n<!-- _class: zzznotacomponent -->\n\n# Stray slide\n';
+// A NEAR-MISS TYPO, not `zzznotacomponent`. "Fix all" is gated on the count of FIXABLE
+// findings as of #2064 — the batch the author can already see underlined — and a name too far
+// from any real component gets a finding with no Quick fix, so the button correctly stays
+// disabled over it. This constant used to be `zzznotacomponent`, which pinned the older gate
+// (`unknownComponents`), where the button was offered and then did nothing. `kpii` is one
+// character off `kpi`, so it carries a Quick fix and Fix-all has something to do.
+const UNKNOWN_SLIDE = '\n\n---\n\n<!-- _class: kpii -->\n\n# Stray slide\n';
 const fixAll = (page: import('@playwright/test').Page) => page.getByRole('button', { name: /Fix all/i });
 
 test.beforeEach(async ({ page }) => {

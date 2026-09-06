@@ -178,6 +178,7 @@ export function StudioDrawer({
 	effPane,
 	insertComponents,
 	issues,
+	fixableIssues,
 	onInsert,
 	onFixAll,
 	onVersionHistory,
@@ -211,6 +212,15 @@ export function StudioDrawer({
 	effPane: 'edit' | 'preview';
 	insertComponents: ComponentEntry[];
 	issues: number;
+	/** How many of those issues carry a MACHINE fix — what "Fix all issues" can actually
+	 *  repair, and so what this row BOTH counts and gates on.
+	 *
+	 *  It counts `fixableIssues` rather than `issues` because the row does not dim when
+	 *  disabled (`disabled:opacity-100`, by design), so a row reading "Fix all issues 1" that
+	 *  does nothing when tapped is the exact dead control this pair was introduced to remove,
+	 *  relocated from the toolbar into the drawer. The unresolved-issue total is still
+	 *  surfaced, on the Edit bar's badge, which reads `issues`. */
+	fixableIssues: number;
 	onInsert: () => void;
 	onFixAll: () => void;
 	onVersionHistory: () => void;
@@ -362,7 +372,7 @@ export function StudioDrawer({
 							{effPane === 'edit' && (
 								<Block>
 									{/* The only row that acts in place, so the only leaf with no chevron. */}
-									<Row icon={<ListChecks className="size-[18px]" />} label="Fix all issues" count={issues} done={!issues} disabled={!issues} travels={false} onClick={act(onFixAll)} />
+									<Row icon={<ListChecks className="size-[18px]" />} label="Fix all issues" count={fixableIssues} done={!issues && !fixableIssues} disabled={!fixableIssues} travels={false} onClick={act(onFixAll)} />
 									{insertComponents.length > 0 && <Row icon={<Plus className="size-[18px]" />} label="Add slide" onClick={go(onInsert)} />}
 								</Block>
 							)}

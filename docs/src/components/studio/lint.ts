@@ -3,6 +3,7 @@
 // are property-testable without rendering anything.
 
 import { type LensRegistry, lensPairs } from '@/lib/lente';
+import { slideClassDirectives } from '../../../../lib/core/class-directive-scan.mjs';
 import { separatorRanges } from '../../../../lib/core/slide-boundaries.mjs';
 import { frontMatterBlock } from './front-matter';
 
@@ -45,17 +46,46 @@ export function splitSlides(src: string): string[] {
 	return chunks.map((s) => s.trim()).filter(Boolean);
 }
 
-// First token of a `_class` value — the COMPONENT — tolerating extra modifier
-// tokens (`_class: kpi dark scale-xl`), which the old single-token regex missed
-// (so the rail chip read `text` and the score miscounted a modified slide).
-const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)(?:[ \t][^\n>]*?)?\s*-->/g;
+// WHICH `_class` GOVERNS A SLIDE — asked of the ONE module that already knows.
+//
+// This used to be a regex here, and it was wrong twice in opposite directions. Unanchored,
+// it matched a `_class:` comment anywhere on any line, so a stray character after the `-->`
+// left the rail naming a component the engine ignores. Anchoring it to column 0 then lost
+// every CONTAINER-PREFIXED directive — and `lib/core/class-directive-scan.mjs` had already
+// learned that exact lesson and written it down: markdown-it opens the `html_block` INSIDE
+// the container, so `- <!-- … -->`, `> <!-- … -->` and `1. <!-- … -->` all render the class.
+// Re-verified against `render()` on 2026-09-05: all three emit `kpi form`, as does a running
+// global `<!-- class: kpi -->`, while a TAB-indented directive is an indented code block and
+// emits `content form`.
+//
+// So this delegates (HARD RULE #1, #15). The kernel resolves spot directives, running
+// globals, container prefixes, fences and the engine's own line geometry — none of which a
+// regex here can carry without becoming a fifth copy of a parser that already exists.
 
-/** The `_class` component names used in the source, in document order. */
+/** The COMPONENT of a `_class` payload — its first token, tolerating trailing modifiers
+ *  (`kpi dark scale-xl` → `kpi`). */
+function componentOf(payload: string): string {
+	return String(payload ?? '').trim().split(/\s+/)[0] ?? '';
+}
+
+/**
+ * The `_class` component names used in the source, in document order.
+ *
+ * ONE ENTRY PER DIRECTIVE LINE, not per slide. The kernel answers "what governs this
+ * chunk?", so a running global resolves onto every slide below it — and counting that once
+ * per slide would multiply a single typo into an issue count of five. Deduping on the
+ * winning directive's own line collapses it back to the literal directives an author wrote,
+ * which is what this function has always returned and what `issues` counts.
+ */
 export function usedComponents(src: string): string[] {
+	const seen = new Set<number>();
 	const out: string[] = [];
-	let m: RegExpExecArray | null;
-	CLASS_RE.lastIndex = 0;
-	while ((m = CLASS_RE.exec(String(src ?? '')))) out.push(m[1]);
+	for (const d of slideClassDirectives(String(src ?? ''))) {
+		if (!d?.payload || seen.has(d.line)) continue;
+		seen.add(d.line);
+		const name = componentOf(d.payload);
+		if (name) out.push(name);
+	}
 	return out;
 }
 
@@ -65,11 +95,17 @@ export function unknownComponents(src: string, known: Iterable<string>): string[
 	return usedComponents(src).filter((n) => !set.has(n));
 }
 
-/** The component label for a single slide — its first `_class`, or `text` for a
- *  bare-Markdown slide. Drives the slide-navigator chips. */
+/** The component label for a single slide — the class the ENGINE would apply to it, or
+ *  `text` for a bare-Markdown slide. Drives the slide-navigator chips.
+ *
+ *  THE LAST directive, not the first, because that is what the engine applies — measured:
+ *  `<!-- _class: big-number -->` … `<!-- _class: stats -->` on one slide renders `stats
+ *  form`. Not an exotic input: it is exactly what deleting a `---` to merge two slides
+ *  leaves behind, after which the rail used to name the slide that had just been absorbed.
+ *  The kernel resolves it; this only picks the component out of the payload. */
 export function slideClass(slideSrc: string): string {
-	CLASS_RE.lastIndex = 0;
-	return CLASS_RE.exec(String(slideSrc ?? ''))?.[1] ?? 'text';
+	const found = slideClassDirectives(String(slideSrc ?? '')).filter((d) => d?.payload);
+	return found.length ? componentOf(found[found.length - 1].payload) || 'text' : 'text';
 }
 
 const HEADING_RE = /^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/m;
