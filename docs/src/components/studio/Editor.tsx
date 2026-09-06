@@ -156,7 +156,11 @@ let carried: CarriedState | null = null;
  * deck's, so the leak could not arise. The second used two new decks, and the explanation
  * recorded for it ("redo does not fire on this surface") was WRONG, as was the correction that
  * replaced it ("redo is Ctrl+Y, so Ctrl+Shift+Z is a second undo"). Both were confident, both
- * were called measured, and a checker refuted each in turn. So the pin is here, at the predicate, where the rule is
+ * were called measured, and a checker refuted each in turn. The explanation that survives is
+ * about FOCUS: after a Compose→Markdown switch `activeElement` is the pane TOGGLE, not the
+ * editor, so a bare redo chord reaches nothing — measured on all three engines. An attempt
+ * that omitted a witnessed `focusEditor` would go green against a broken guard for that reason
+ * alone. So the pin is here, at the predicate, where the rule is
  * stated directly and cannot be confounded by a keybinding — and the end-to-end oracle is
  * follow-up work in the deck-history change rather than an impossibility. See the findings
  * note §6; treat any account of WHY those two attempts passed as unwritten.

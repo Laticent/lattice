@@ -555,7 +555,10 @@ test('a Compose edit deliberately drops the carried history', async ({ page }) =
 // and WHY it passed is still unknown: the explanation written down at the time ("redo does not
 // fire on this surface") was wrong, and so was the correction that replaced it ("redo is
 // Ctrl+Y"). Measured on the built Studio, `Ctrl+Shift+Z` redoes — on Chromium, WebKit and
-// Firefox. A test that passes for a reason nobody has established is worse than no test
+// Firefox. The surviving explanation is FOCUS — after a Compose→Markdown switch
+// `activeElement` is the pane toggle, not the editor, so a bare chord reaches nothing unless
+// the test witnesses focus first. A test that passes for a reason nobody has established is
+// worse than no test
 // (`2026-09-02-compose-fuzz-findings.md` §8 moved a security property to its parser on exactly
 // this reasoning), so the pin is at the predicate — `editor-carry.test.ts`, which fails on the
 // document-only guard — and the end-to-end oracle lands with the deck-history change.

@@ -267,12 +267,32 @@ after Ctrl+Shift+Z   1932 chars, marker BACK      ← a redo
 on Chromium, WebKit and Firefox alike. `navigator.platform` reads `Linux x86_64` in headless
 Chromium, so CodeMirror's linux branch IS active. **Redo works, by both chords.**
 
-**Which means the honest state of §6 is: nobody knows why the second e2e attempt passed.** Two
-explanations were recorded, each stated as measured, each refuted in turn — and the second was
-written INTO the section that exists to retract the first. That is the failure this note's §9
-is about, committed inside the retraction itself. The pin stays at the predicate because a unit
-test states the rule directly, and the end-to-end oracle lands with the deck-history change,
-where the question can be re-opened from scratch. **Do not carry either explanation forward.**
+Two explanations were recorded, each stated as measured, each refuted in turn — and the second
+was written INTO the section that exists to retract the first. That is the failure this note's
+§9 is about, committed inside the retraction itself.
+
+**The third explanation is the one that survives contact, and it is about FOCUS, not about
+keys.** A sixth pass found it: after a Compose→Markdown switch, `document.activeElement` is the
+`Markdown source` toggle BUTTON, not the editor — so a bare `Ctrl+Shift+Z` reaches nothing at
+all. Measured on all three engines:
+
+```
+activeElement after toMarkdown   BUTTON.inline-flex …
+doc has the marker, no focus     false      ← the chord went nowhere
+doc has the marker, after focus  true       ← the carried redo stack replays fine
+```
+
+That reconciles both earlier measurements exactly. The standalone redo check typed first, so
+focus was already in the editor and redo worked. A leak scenario ends on a click of the pane
+toggle, so it is not focused — unless the test calls `focusEditor`, which the surviving carry
+oracles do and an attempt that omitted it would not.
+
+**One honest limit: this is the mechanism, not a proof about that particular run.** The deleted
+attempt is unrecoverable (`git fsck --lost-found` has no dangling blob for it), so what can be
+said is that a fully sufficient cause exists, is demonstrated on three engines, and is the same
+unwitnessed-focus trap §7 documents for two other oracles. **What must not be carried forward
+is either of the first two explanations.** The pin stays at the predicate — a unit test states
+the rule directly — and the end-to-end oracle lands with the deck-history change.
 
 So the pin here is `editor-carry.test.ts`, which fails on the document-only guard and states
 the rule directly — worth keeping either way, because it cannot be confounded by a keybinding.
