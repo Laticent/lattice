@@ -951,6 +951,8 @@ flowchart TB
 
 > A cache and a CDN are one idea at two distances: keep the answer nearer than its store.
 
+*Rung one, from Part three, said one database and nothing clever. Both shapes here are still that: one store answering the question it was written for, with something in front of it to shorten the trip. Nothing on this slide has cost you a second copy of the truth yet.*
+
 ---
 
 <!-- _class: diagram compact -->
@@ -1558,6 +1560,8 @@ flowchart TB
 
 > The balancer needs every instance to be interchangeable. The queue needs every worker to be repeatable.
 
+*The data kit closed owing two things it could not supply itself. A derived copy that rebuilds unattended needs something to run the rebuild, and an idempotent consumer needs something to be a consumer. Both are on this slide: the bounded queue and the worker pool that kit kept assuming.*
+
 ---
 
 <!-- _class: diagram compact -->
@@ -1686,6 +1690,8 @@ flowchart TB
 ```
 
 > One of them ends the trip early. The other decides where the rest of it goes.
+
+*Two of the compute kit's invariants quietly assumed a wire. An instance is only killable unnoticed because something in front of it reroutes, and services only retry into each other across a call that can fail. Here is that wire, and its first bill is distance.*
 
 ---
 
@@ -1842,6 +1848,8 @@ flowchart TB
 ```
 
 > Both bills arrive in the same currency: something you are reading is now out of date.
+
+*You have met both of these already, as stores. The cache was a data choice and the replica was a consistency choice; here they are again as scaling moves. The network kit is why: once distance is counted on purpose, the only way to spend less of it is to keep a copy nearer — and the bill is the one the data kit already named.*
 
 ---
 
@@ -2009,6 +2017,8 @@ flowchart TB
 ```
 
 > A wall only works if the two sides do not share the thing that broke.
+
+*The scale kit's third invariant asked for admission control — shed load before the system collapses. That is a reliability pattern doing scale's work, and it is on the next slide. The two kits differ in the question: scale asks what happens when there is more of everything, reliability asks what happens when one part of it stops.*
 
 ---
 
@@ -2194,6 +2204,8 @@ flowchart TB
 ```
 
 > Neither one asks whether the caller is honest. Both are written as if the caller is lying.
+
+*The reliability kit asked whether your copies fail apart. This kit asks the same question about credentials: when one is stolen, does the damage stop somewhere, or does it reach everything the service can reach? A blast radius is a blast radius, whether the cause is a dead zone or a leaked token.*
 
 ---
 
