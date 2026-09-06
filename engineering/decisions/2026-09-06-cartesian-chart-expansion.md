@@ -340,6 +340,12 @@ byte-identical at 90 DPI and differs by **6 channel samples out of 4,002,000 at
 a max delta of 1** at 100 DPI — rasterizer anti-aliasing, not content. The shift
 distances are themselves the proof of the mechanism: 3 slides for the components
 sorting after `line`, 7 for the one sorting after `waterfall`.
+**And the gate's own montage says it outright.** The `before | after | overlay`
+strip golden-diff publishes for "chart light slide 2" shows `funnel . chart
+survey` on the left against `bar . chart survey` on the right. It is not one
+slide that changed; it is two different components compared because they share
+an index. That strip is the cheapest way for the next reader to confirm this
+without re-deriving anything.
 
 **PPTX is not on this list on purpose.** `lib/export/pptx-export.js` is an
 image-per-slide writer that full-bleeds one PNG per slide, rasterized from the
