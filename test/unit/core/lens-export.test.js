@@ -1688,3 +1688,131 @@ require('node:test').describe('pruneAcronyms matches a term, not a substring and
 		assert.equal(survives('GTM', 'go-to-market', 'Our GTM-led motion.'), true, 'a hyphen is a boundary, not part of the term');
 	});
 });
+
+// ── the third narration block, and the spellings we refuse to guess at ────────────────────────
+require('node:test').describe('every term-keyed narration block is pruned, and an unreadable one is refused', () => {
+	const project = (fmBlock, sentence) => {
+		const slides = [
+			`\n<!-- _class: content -->\n\n# One\n\n${sentence}\n`,
+			`\n<!-- _class: content -->\n\n# Two\n\nChimaera is the codename.\n`,
+			`\n<!-- _class: content -->\n\n# Three\n\nEnd.\n`,
+		];
+		const mem = new Set([0, 2]);
+		const tagged = slides.map((x, i) => applyTag(x, 'brief', mem.has(i), 'none'));
+		const body = `${tagged.join('\n---\n')}\n`;
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
+		let head = `---\nmarp: true\ntheme: indaco\n${fmBlock}${emitRegistry(reg)}`;
+		if (!head.endsWith('\n')) head += '\n';
+		return projectForExport(`${head}---\n${body}`, ['brief']);
+	};
+
+	test('`lexicon:` is pruned like `acronyms:` — its KEY is a word off a slide', () => {
+		// The third block `parseNarrationFrontMatter` returns, and the only one the projection did not
+		// touch. A lexicon key is by construction withheld-slide content: it is the word being taught
+		// to the voice. It rode out whole into the envelope, the `--embed-source` attachment and the
+		// manifest `config` echo — no script, no attacker, just a deck with a pronunciation guide.
+		const out = project('lexicon:\n  Chimaera: ky-MEER-uh\n', 'Opening remarks.');
+		assert.equal(out.ok, true, out.reason);
+		assert.doesNotMatch(out.source, /Chimaera/, 'a word named only on a withheld slide takes its spoken form with it');
+		assert.deepEqual(out.prunedLexicon, ['Chimaera'], 'and the run can say what it cut');
+	});
+
+	test('but a lexicon word named on a KEPT slide keeps its spoken form', () => {
+		const out = project('lexicon:\n  Chimaera: ky-MEER-uh\n', 'Chimaera ships this quarter.');
+		assert.equal(out.ok, true, out.reason);
+		assert.match(out.source, /ky-MEER-uh/, 'the reader needs it — the word is on a slide they get');
+		assert.deepEqual(out.prunedLexicon, []);
+	});
+
+	for (const [name, block] of [
+		['a multi-line flow map', 'captions: {\n  2: "LEAKY"\n}\n'],
+		['a flow map with a trailing comment', 'captions: { 1: "One.", 2: "LEAKY" } # vo\n'],
+		['a quoted key', '"captions":\n  2: LEAKY\n'],
+		['a header with a comment after the colon', 'captions: # narration\n  2: LEAKY\n'],
+		['the same, on acronyms', 'acronyms: # registry\n  CHM: { expansion: "Chimaera", definition: "LEAKY" }\n'],
+	]) {
+		test(`${name} is REFUSED rather than shipped unpruned`, () => {
+			// Four legal YAML spellings reached neither prune branch and shipped every entry verbatim.
+			// The fix is not a third parser for the same grammar — two parsers disagreeing about where a
+			// block ends is what produced this class. It fails closed, and the message names the two
+			// forms that work.
+			const out = project(block, 'Opening remarks.');
+			assert.equal(out.ok, false, `expected a refusal, got a projection containing LEAKY=${/LEAKY/.test(out.source || '')}`);
+			assert.equal(out.reason, 'unprunable-narration');
+			assert.match(REFUSAL_REASONS[out.reason], /cannot prune/, 'and the reason tells the author what to do');
+		});
+	}
+
+	test('while the two readable forms still project', () => {
+		// The other half of the guard: a plain header opening a block, and a whole map on one line.
+		// Refusing either would break real decks — 13 in `examples/` carry one of these keys.
+		assert.equal(project('captions:\n  1: One.\n  2: LEAKY\n', 'Opening.').ok, true);
+		assert.equal(project('captions: { 1: "One.", 2: "LEAKY" }\n', 'Opening.').ok, true);
+	});
+});
+
+// ── the registry's BLOCK-OBJECT form, and what the oracle can see ─────────────────────────────
+require('node:test').describe('a term entry is pruned as a whole, and judged on everything a reader gets', () => {
+	const project = (fmBlock, keptBody) => {
+		const slides = [
+			`\n<!-- _class: content -->\n\n# One\n\n${keptBody}\n`,
+			`\n<!-- _class: content -->\n\n# Two\n\nWithheld body mentions ACME.\n`,
+			`\n<!-- _class: content -->\n\n# Three\n\nEnd.\n`,
+		];
+		const mem = new Set([0, 2]);
+		const tagged = slides.map((x, i) => applyTag(x, 'brief', mem.has(i), 'none'));
+		const body = `${tagged.join('\n---\n')}\n`;
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
+		let head = `---\nmarp: true\ntheme: indaco\nglossary: auto\n${fmBlock}${emitRegistry(reg)}`;
+		if (!head.endsWith('\n')) head += '\n';
+		const out = projectForExport(`${head}---\n${body}`, ['brief']);
+		assert.equal(out.ok, true, out.reason);
+		return out;
+	};
+	const BLOCK = 'acronyms:\n  EBITDA:\n    expansion: ee bit dah\n    definition: "Earnings before interest and taxes."\n  ACME:\n    expansion: Acme Corporation\n    definition: "SECRETDEF we expect to lose the suit."\n';
+
+	test('a dropped BLOCK-OBJECT entry takes its children with it', () => {
+		// The re-parenting defect, reproduced in the sibling one commit after it was fixed in
+		// `pruneCaptions`. Dropping only the `ACME:` header orphaned its indented `expansion:` and
+		// `definition:` lines, which then belonged to the PREVIOUS surviving term: the shipped
+		// glossary page read `EBITDA  SECRETDEF we expect to lose the suit.` while the run reported
+		// that it had dropped ACME.
+		// The kept slide names EBITDA and NOT ACME — so one entry has a reason to survive and the
+		// other does not, which is what makes the orphaning visible rather than hidden by both going.
+		const out = project(BLOCK, 'EBITDA was flat this quarter.');
+		assert.doesNotMatch(out.source, /SECRETDEF/, "the withheld term's definition does not ship");
+		assert.doesNotMatch(out.source, /Acme Corporation/, 'nor its expansion');
+		assert.match(out.source, /Earnings before interest and taxes/, 'the surviving entry is untouched');
+		assert.match(out.source, /ee bit dah/, 'including ITS children');
+		assert.deepEqual(out.prunedAcronyms, ['ACME']);
+	});
+
+	test('and a BLOCK-OBJECT entry is rescued by an `expansion:` CHILD naming a kept slide', () => {
+		// The other direction, and the one the first two attempts got wrong. The inline form carries
+		// its expansion on the header line; the block-object form carries it on a child. A version
+		// that stopped reading children as soon as the header looked droppable could not see it, and
+		// dropped an entry the reader needs.
+		const out = project(BLOCK, 'EBITDA was flat. Acme Corporation ships this quarter.');
+		assert.match(out.source, /SECRETDEF/, 'the expansion is on a slide they get, so the row stays');
+		assert.deepEqual(out.prunedAcronyms, [], 'and it is not reported as cut');
+	});
+
+	test('a term named only in a SURVIVING caption keeps its say-as', () => {
+		// The oracle is everything the recipient GETS, not only the slide bodies — a caption is read
+		// aloud over a slide they keep. Pruning on the body alone dropped the expansion for a term the
+		// narration was about to speak.
+		const out = project('captions:\n  1: "ARR grew forty percent."\nacronyms:\n  ARR: { expansion: Annual Recurring Revenue, definition: "DEFMARK." }\n', 'Revenue grew.');
+		assert.match(out.source, /DEFMARK/, 'the caption names it, so the reader meets it');
+		assert.deepEqual(out.prunedAcronyms, []);
+	});
+
+	test('but a term named only in a WITHHELD slide\'s caption is still pruned', () => {
+		// Because `pruneCaptions` has already removed that caption by the time the term block is
+		// judged — the haystack is the projection's own output, not the authored deck.
+		const out = project('captions:\n  2: "ARR grew forty percent."\nacronyms:\n  ARR: { expansion: Annual Recurring Revenue, definition: "DEFMARK." }\n', 'Revenue grew.');
+		assert.doesNotMatch(out.source, /DEFMARK/);
+		assert.deepEqual(out.prunedAcronyms, ['ARR']);
+	});
+});

@@ -2221,7 +2221,9 @@ if (LENS_PROJECTION) {
   LENS_PROJECTION.appended = appendedSlides;
   // AND THE REPORT SAYS SO, because "2 of 3 slides ship" beside a three-slide file is a line that
   // describes neither. The appendix is generated from the deck-wide acronym registry, which the
-  // projection does not prune — so a definition written for a withheld slide's subject rides out on it.
+  // projection DOES prune — see the note below, which replaced the sentence that used to sit here
+  // saying the opposite. Leaving it was the same defect this branch keeps correcting: a comment
+  // describing an older build, fifteen lines above the comment explaining that it had been fixed.
   if (appendedSlides > 0) {
     LENS_REPORT += `\n  plus ${appendedSlides} appended slide${appendedSlides === 1 ? '' : 's'} (auto-glossary)`;
     // UN-GATED, for the same reason as the flag above. THIS MESSAGE USED TO SAY THE OPPOSITE OF
@@ -2241,6 +2243,14 @@ if (LENS_PROJECTION) {
       if (cut.length) {
         LENS_DISCLOSURES.push(`note: the auto-glossary dropped ${cut.length} acronym entr${cut.length === 1 ? 'y' : 'ies'} named only on withheld`,
           `      slides (${cut.join(', ')}) — their definitions are not on the appended page.`);
+      }
+      // The same report for the OTHER term-keyed block. A `lexicon:` key is a word taken off a
+      // slide, so it is withheld-slide content by construction; the entry is dropped and the sender
+      // is told which, because losing a pronunciation silently is its own surprise.
+      const cutLex = LENS_PROJECTION.prunedLexicon ?? [];
+      if (cutLex.length) {
+        LENS_DISCLOSURES.push(`note: the read-aloud lexicon dropped ${cutLex.length} entr${cutLex.length === 1 ? 'y' : 'ies'} for word${cutLex.length === 1 ? '' : 's'} named only on`,
+          `      withheld slides (${cutLex.join(', ')}) — the spoken forms are not in the exported file.`);
       }
       LENS_DISCLOSURES.push('warning: an acronym NAMED on a slide this view keeps still gets its full definition on the',
         '         appended page, whatever that definition discusses. The prune matches the term, not the',
@@ -4185,7 +4195,34 @@ async function renderBody(browser, g, closeBrowser) {
           "       count taken from it would promise the artifact more pages than the view withholds.",
         ]);
       }
-      PROMISED_PAGES = shipped.length;
+      // THE PROMISE COMES OFF THE RENDERED STRING, NOT THE DOM — and that is the correction three
+      // rounds kept circling. Round 10 anchored the withheld SET to the source and counted the
+      // promise on the live DOM. Round 11 added conditions to that count: a section must be
+      // `declared` (carry `data-authored-slide`) and its number must be one the projection kept.
+      // Round 12 walked straight through it with one line, because `declared` is itself read FROM
+      // THE DOM:
+      //
+      //     d.setAttribute('data-authored-slide', '0');   // 0 is kept, so "accounted for"
+      //
+      // A cloned empty section taking each withheld slot then satisfied every arm — `unaccounted`,
+      // the appended cap, `missing`, `shown`, `vanished`, and `holeDrift` — and inflated the promise
+      // to the authored length. Measured: `brief — 3 of 5 slides ship`, a FIVE-page PDF blank at 2
+      // and 4, exit 0, and the same in PNG, PPTX and the image set.
+      //
+      // Adding a further condition would be the fourth iteration of the same mistake. A page script
+      // can forge any DOM property a check can read, so no predicate over `boxes` can be the
+      // promise. `cleanDocHtml` can: it is the engine's render after the auto-split and rails passes
+      // (both finalized above), assembled in NODE, and it is what gets written to disk. Nothing
+      // running in the page can reach it.
+      //
+      // This is also why the `.html` deliverable was the one path that HELD against the forgery —
+      // its count already came from the written file — while the five that read the DOM did not.
+      //
+      // `boxes` keeps its job: the DOM checks above still detect a hole that was un-hidden or a kept
+      // slide that was taken away. What they no longer do is decide how many pages were promised.
+      const shippedInRender = (cleanDocHtml.match(/<section\b[^>]*>/g) ?? [])
+        .filter((tag) => /\sdata-lattice-slide=/.test(tag) && !isHoleOpenTag(tag)).length;
+      PROMISED_PAGES = shippedInRender;
     } else {
       PROMISED_PAGES = boxes.filter((b) => !b.hole).length;
     }
@@ -4946,9 +4983,17 @@ async function renderBody(browser, g, closeBrowser) {
     const zip = new JSZip();
     addPlanToZip(zip, plan);
     const zipBuf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-    // Counted off the ASSEMBLED PACKAGE — the manifest's own slide list, which is what a consumer
-    // reads — rather than off `images`, the array that produced it.
-    assertArtifactPages(Array.isArray(plan?.manifest?.slides) ? plan.manifest.slides.length : images.length, 'image');
+    // Counted off the ZIP'S OWN ENTRIES — the files a consumer actually unpacks — and not off the
+    // manifest's slide list, which was the previous claim and was not true in the way it sounded:
+    // `assembleImageSetPlan` builds `slideEntries` with `images.forEach(...)`, one per image
+    // unconditionally, so `plan.manifest.slides.length === images.length` always. Both branches of
+    // that ternary were the producing array's length wearing a different name — the proxy the
+    // docblock above says it refuses to accept.
+    // The package nests everything under a folder named for the output stem, so the `slides/`
+    // segment is matched wherever it sits — and `thumbnails/`, which has one file per slide too, is
+    // excluded by naming the segment rather than counting images.
+    const zipSlideCount = Object.keys(zip.files ?? {}).filter((n) => /(?:^|\/)slides\/[^/]+\.(?:png|jpe?g|webp|svg)$/i.test(n)).length;
+    assertArtifactPages(zipSlideCount || (Array.isArray(plan?.manifest?.slides) ? plan.manifest.slides.length : images.length), 'image');
     fs.writeFileSync(outFile, zipBuf);
     if (!QUIET) {
       const c = plan.manifest.counts;
@@ -5044,9 +5089,19 @@ async function renderBody(browser, g, closeBrowser) {
       });
       // Counted off the DIRECTORY, not off `pngBuffers`: the buffer list is what produced the files,
       // so asking it how many there are is the artifact certifying itself.
-      const stem = path.basename(base).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const onDisk = fs.readdirSync(path.dirname(base) || '.')
-        .filter((f) => new RegExp(`^${stem}\\.\\d+\\.png$`).test(f)).length;
+      //
+      // MATCHED BY STRING, NOT BY A REGEX BUILT FROM THE OUTPUT PATH. `stem` is the basename the
+      // caller passed on the command line, and interpolating it into a pattern is regex injection
+      // however carefully it is escaped — the escape was doing real work here, since a deck exported
+      // to `report(final).png` would otherwise have `(final)` read as a group. A prefix test, a
+      // suffix test and a digits test say the same thing with no pattern at all.
+      const stem = path.basename(base);
+      const isNumberedPng = (f) => {
+        if (!f.startsWith(`${stem}.`) || !f.endsWith('.png')) return false;
+        const middle = f.slice(stem.length + 1, -'.png'.length);
+        return middle.length > 0 && [...middle].every((c) => c >= '0' && c <= '9');
+      };
+      const onDisk = fs.readdirSync(path.dirname(base) || '.').filter(isNumberedPng).length;
       assertArtifactPages(onDisk, 'image', () => { for (const f of written) fs.unlinkSync(f); });
       if (!QUIET) console.log(`PNG: ${pngBuffers.length} slides → ${base}.NNN.png`);
     } else {

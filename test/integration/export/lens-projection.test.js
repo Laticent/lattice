@@ -312,15 +312,20 @@ describe('--lens: the projected export', () => {
 	});
 
 	test('a NON-reducing view leaves the acronym registry exactly as the author wrote it', { timeout: TIMEOUT }, () => {
-		// The gate that keeps this fix from becoming a behavior change for everyone else. `--lens full`
-		// withholds nothing, so there is no disclosure to prevent — and an author is entitled to define
-		// a term they never spell out in the body and still see it in the glossary. `pruneAcronyms`
-		// therefore no-ops unless the projection actually reduces. Delete the `reducing` guard and this
-		// arm fails: UNUSED is named nowhere in the deck.
+		// The gate that keeps this fix from becoming a behavior change for everyone else. A view that
+		// withholds nothing has no disclosure to prevent — and an author is entitled to define a term
+		// they never spell out in the body and still see it in the glossary. `pruneTermBlock`
+		// therefore no-ops unless the projection actually REDUCES. Delete the `reducing` guard and
+		// this arm fails: UNUSED is named nowhere in the deck.
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-gloss-full-'));
 		const bodies = ['# Cover\n\nOpening.', '# Deal\n\nA deal.', '# Ask\n\nPlease approve.'];
 		const raw = bodies.map((b) => `\n<!-- _class: content -->\n\n${b}\n`);
-		const tagged = raw.map((x, i) => applyTag(x, 'brief', i !== 1, 'none'));
+		// EVERY slide is in `brief`, so the view is NAMED but NON-REDUCING — which is the case the
+		// `reducing` gate actually decides. An earlier version of this arm exported `--lens full`,
+		// and `full` returns from `projectForExport` on the identity path before any prune runs: the
+		// arm could not fail, and the comment claiming "delete the `reducing` guard and this arm
+		// fails" was measured false.
+		const tagged = raw.map((x) => applyTag(x, 'brief', true, 'none'));
 		const body = `${tagged.join('\n---\n')}\n`;
 		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
 		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
@@ -328,7 +333,7 @@ describe('--lens: the projected export', () => {
 		fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\nglossary: auto\nacronyms:\n  UNUSED: { expansion: Never Written Out, definition: "KEEPUNUSED defined but never named." }\n${emitRegistry(reg)}\n---\n${body}`);
 
 		const out = path.join(dir, 'gloss.pdf');
-		const r = run(deck, out, ['--lens', 'full']);
+		const r = run(deck, out, ['--lens', 'brief']);
 		assert.equal(r.status, 0, r.stderr);
 		const { execFileSync } = require('node:child_process');
 		let text = '';

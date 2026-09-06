@@ -42,10 +42,16 @@ const CLI = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
  * Every per-slide deliverable the CLI can write, and the guard that holds it to the promise.
  *
  * `outHtml` is written several times BEFORE navigation (the render sidecar, then rewritten by the
- * auto-split and rails passes). Those are not deliverables — they are the document the browser is
- * about to measure — and guarding them would be measuring the pre-image again, which is the proxy
- * this whole apparatus exists to stop trusting. They are listed here as deliberately UNGUARDED so
- * the distinction is on the record rather than implied by their absence.
+ * auto-split and rails passes). Those are NOT in the list below, and the reason is that they are not
+ * deliverables — they are the document the browser is about to measure, and guarding them would be
+ * measuring the pre-image again, which is the proxy this whole apparatus exists to stop trusting.
+ * (An earlier draft of this paragraph said they were "listed here as deliberately UNGUARDED"; no such
+ * row existed, and adding one would have failed the first arm. The distinction is stated here rather
+ * than carried as data.)
+ *
+ * Also outside the list, and deliberately: the per-slide `.NN.vtt` caption sidecars. They are a
+ * per-slide write, but they carry narration for the slides that ship rather than a count of the
+ * deck, and a `--captions` run writes exactly one per shipped slide by construction.
  */
 const PATHS = [
 	{ what: 'vector PDF', guarded: true, why: 'page count read from the assembled bytes via pdf-lib' },
@@ -66,7 +72,11 @@ const PATHS = [
  */
 const EXPECTED_GUARDS = 7;
 
-test('every per-slide write path is held to the run\'s promise', () => {
+test('the declared write paths each state how their count is taken', () => {
+	// A LINT ON THE LIST, NOT A CERTIFICATION OF THE CODE — and titled that way now, because the
+	// first version was called "every per-slide write path is held to the run's promise" while
+	// asserting only properties of the literal beside it. With every `assertArtifactPages` call
+	// deleted from the CLI it stayed green; the arm below is the one that goes red.
 	const guarded = PATHS.filter((p) => p.guarded);
 	assert.equal(guarded.length, PATHS.length, 'no write path is listed as deliberately unguarded');
 	for (const p of PATHS) assert.ok(p.why && p.why.length > 20, `${p.what} states how its count is taken`);

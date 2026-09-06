@@ -651,4 +651,33 @@ describe('what a projection lets a recipient observe', { skip }, () => {
 		assert.equal(r.status, 0, r.stderr);
 		assert.equal(fs.existsSync(out), true, 'the deck exports');
 	});
+
+	test('a FORGED `data-authored-slide` cannot buy a decoy section a place in the promise', { timeout: TIMEOUT }, () => {
+		// ROUND 12, and the third iteration of one mistake. Round 10 anchored the withheld SET to the
+		// projection and counted the PROMISE on the live DOM. Round 11 added conditions to that count:
+		// a section must be `declared` — carry `data-authored-slide` — and its number must be one the
+		// projection kept. Round 12 walked through it with one line, because `declared` is itself read
+		// FROM THE DOM:
+		//
+		//     d.setAttribute('data-authored-slide', '0');   // 0 is kept, so "accounted for"
+		//
+		// A cloned empty section taking each withheld slot then satisfied `unaccounted`, the appended
+		// cap, `missing`, `shown`, `vanished` and `holeDrift` at once, and inflated the promise to the
+		// authored length. Measured before the fix: `brief — 3 of 5 slides ship`, a FIVE-page PDF blank
+		// at 2 and 4, exit 0 — and the same through PNG, PPTX and the image set.
+		//
+		// The promise now comes off `cleanDocHtml`, the engine's render after the auto-split and rails
+		// passes, assembled in Node. No script in the page can reach it. Point `PROMISED_PAGES` back at
+		// `boxes` and this arm returns a five-page PDF at exit 0.
+		const script = '<script>document.addEventListener("DOMContentLoaded",function(){'
+			+ 'var h=document.querySelectorAll("section.lens-hole");'
+			+ 'for(var i=0;i<h.length;i++){var d=h[i].cloneNode(false);'
+			+ 'd.className=String(h[i].className).replace("lens-hole","");'
+			+ 'd.setAttribute("data-authored-slide","0");'
+			+ 'h[i].parentNode.insertBefore(d,h[i]);}});</script>\n\n';
+		const { r, out } = run(deck({ style: script }), 'forged.pdf', ['--quiet', '--lens', 'brief']);
+		assert.equal(r.status, 1, 'the export refuses');
+		assert.equal(fs.existsSync(out), false, 'nothing is left on disk');
+		assert.equal(fs.existsSync(out.replace(/\.pdf$/, '.html')), false, 'including the .html sidecar');
+	});
 });

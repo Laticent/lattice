@@ -19,9 +19,16 @@ import type { LensBase, SlideTags } from './types';
 // most.
 //
 // It is linear, and that is measured rather than argued: every alternative in the group fails on its
-// first character, so a failed parse dies in O(1) instead of fanning out. Timed on this build,
+// first character, so a failed parse dies in O(1) instead of fanning out. Timed on this build, on
 // `"> ".repeat(n) + "X"` and `"- ".repeat(n) + "X"` — the shapes that make a polynomial regex blow
-// up — run 0.08ms at n=1000 and 1.94ms at n=50000, i.e. linear in n with no backtracking cliff.
+// up — the MEDIAN of nine runs is 0.016 ms at n=1000 and 0.770 ms at n=50000 for `"> "`, and
+// 0.010 ms / 0.505 ms for `"- "`. That is ~48x the time for 50x the input: linear, with no
+// backtracking cliff.
+//
+// The numbers here were wrong once and the reason is worth keeping: the first draft quoted a single
+// unwarmed run (0.08 ms / 1.94 ms), which is JIT warm-up rather than the regex, and it scaled 24x
+// for a 50x input — sub-linear, which should have been the tell that the measurement was of
+// something else. An independent reviewer could not reproduce it. Take the median of several runs.
 // Whether CodeQL's query nonetheless FIRES on the shape is a separate question and is UNVERIFIED
 // here; CodeQL is not runnable from this sandbox.
 
