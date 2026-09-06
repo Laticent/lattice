@@ -536,11 +536,19 @@ worse regression than the 42px shift it was fixing, and it shipped in the same c
 claimed the cost was "1-2px on one cold visit". The cost statement was true, and it described
 `/studio/`, which was the only page anyone had measured.
 
-**No gate could see it**, and that is not a gap that can be closed cheaply: `build:check` reads
-artifacts, the e2e specs drive `/studio/`, and `handoff-bench` is a Studio instrument by
-construction. What found it was an independent checker reading the diff and asking what
-`optional` means on a page that does not preload — the maker-checker rung of HARD RULE #25,
-earning its cost exactly as the ladder says it should.
+**No gate could see it:** `build:check` reads artifacts, the e2e specs drive `/studio/`, and
+`handoff-bench` is a Studio instrument by construction. What found it was an independent checker
+reading the diff and asking what `optional` means on a page that does not preload — the
+maker-checker rung of HARD RULE #25, earning its cost exactly as the ladder says it should.
+
+**There is a gate now, and it is cheap.** `font-preload.spec.ts` gained one case per MOUNT
+POINT — `/` for `site/ResourceHints.astro`, `/introduction/` for the `ThemeProvider` override —
+because those two are the whole failure surface: the site has two `<head>` surfaces, neither
+covers the other, and dropping either is the original defect. Two routes, not a sample.
+Mutation-proved in both directions: deleting `<FontPreloads />` from `ThemeProvider` fails
+`/introduction/` with "preloads 0 fonts, not 3", deleting it from `ResourceHints` fails `/`, and
+each message names the file to check. The earlier spec asserted a count of 3 on `/studio/`
+alone, which is the one route that never broke.
 
 **The fix** is `docs/src/components/site/FontPreloads.astro`: one definition of the three
 links, mounted from BOTH head surfaces the site has — `site/ResourceHints.astro` for the
@@ -640,9 +648,12 @@ the owner's call, not a side effect of a bug fix.
 
 ## What is not covered
 
-- **Real devices.** Everything here is headless Chromium over a modeled network. The
-  ordering it exposes is real and the fix is measured on both ends of a 1000x bandwidth
-  range, but a phone's compositor is not exercised (HARD RULE #23).
+- **Real devices — partly closed.** Everything measured here is headless Chromium over a
+  modeled network, and the ordering it exposes is real. The one claim that mattered most was
+  then checked on the actual hardware: **the owner loaded the branch preview cold on an iPad
+  Air 4 and reported no shift**, which is the surface the whole change is about and the surface
+  that had already contradicted an earlier "fixed". A phone's compositor is still not
+  exercised, and neither is Android (HARD RULE #23).
 - **The 8s backstop still fires on a slow link.** Stage 1 means the visitor now has a
   live, interactive chrome the whole time, so the backstop no longer traps anyone
   behind a dimmed cover — but the Nacre box over the preview outliving the engine's

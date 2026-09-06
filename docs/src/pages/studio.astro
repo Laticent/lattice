@@ -429,15 +429,10 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    CSS below, which would otherwise delay it. */}
 		<ColorSchemeSeed />
 		<ResourceHints />
-		{/* THE FONT PRELOADS MOVED OUT OF THIS ROUTE — see site/FontPreloads.astro,
-		    mounted from <ResourceHints> above (and from ThemeProvider for the docs zone).
-		    They used to live here because the shift they fix was reported here. Then
-		    `fonts.css` moved to `font-display: optional`, which turned a preload from an
-		    optimization into the thing that decides whether a page EVER gets its typeface:
-		    without one the browser keeps the fallback for the whole document. Leaving them
-		    on this route alone downgraded every other page on every first visit — measured
-		    on an unthrottled localhost, and caught by a checker rather than by any gate.
-		    The two are now one decision, and that file is where it is written down. */}
+		{/* The font preloads are NOT here any more: `font-display: optional` made them decide
+		    whether a page gets its typeface at all, not just when, so they moved to
+		    site/FontPreloads.astro and are mounted on every page (via <ResourceHints> above,
+		    and via ThemeProvider for the docs zone). That file owns the rule and the reason. */}
 		{/* The crash sentinel, started as early as a bundled module can run — before
 		    the client:only island hydrates, so a fault during boot is still recorded.
 		    It writes only to this browser; see the module header for why an in-page

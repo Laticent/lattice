@@ -369,12 +369,17 @@ async function main() {
 			// A FRESH context per run, with no storage: the shell's geometry seed replays a
 			// persisted rect for a returning visitor, and a warm profile would measure a
 			// different (easier) path than the one the report is about.
-			// TOUCH IS PART OF THE VIEWPORT HERE, not an extra axis. The Studio's chrome reads
-			// the pointer media query to decide whether the deck pill is CONTENT-SIZED or
-			// truncated into a reserved slot, and only the content-sized form can carry a text
-			// advance change. Measured: against the pre-fix regime this bench reported a clean
-			// run at 820px WITHOUT touch and the -42.27px title shift WITH it, on the same
-			// build and the same selector — so a tablet width alone was not a tablet.
+			// `--touch` exists because a tablet WIDTH is not a tablet: the Studio's chrome reads
+			// the pointer media query, so the emulated pointer changes which layout branch the
+			// shell and the app take. It is off by default because the report is a desktop one.
+			//
+			// IT IS NOT LOAD-BEARING FOR THE SHIFT ARM, and an earlier version of this comment
+			// claimed it was, citing a run where the bench was "clean at 820px without touch and
+			// -42.27px with it". That pair came from a BAD MUTANT — a `sed` that matched only the
+			// comma-quoted form of the fallback family names, leaving 8 of them alive, so it was
+			// measuring `swap` WITH the metric fallbacks still in place, a regime that genuinely
+			// barely shifts. Against the real mutant the bench fails at its DEFAULT 1440px with
+			// touch off. The flag is a capability, not evidence.
 			const ctx = await browser.newContext({ viewport: { width: o.width, height: o.height }, hasTouch: o.touch, serviceWorkers: 'block' });
 			const page = await ctx.newPage();
 			try {

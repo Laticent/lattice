@@ -3,10 +3,14 @@ import { expect, test } from '@playwright/test';
 /**
  * THE PRELOADED FONT URLS MUST BE THE ONES THE STYLESHEET ACTUALLY REQUESTS.
  *
- * `/studio/` preloads the three woff2 files its PRE-PAINT SHELL paints with, so the shell's
- * first paint has the real metrics instead of the fallback's. Measured on a 400kbps/300ms
- * link, the deck title lands 188.4px with the preload and 230.3px without — a 41.9px shift of
- * the pill and everything right of it, at the moment the app takes over.
+ * EVERY page preloads the three woff2 files, and since `fonts.css` moved to
+ * `font-display: optional` that is not an optimization — it is what decides whether a page
+ * gets its typeface at all. `optional` gives the font ~100ms and, if it has not arrived,
+ * keeps the fallback for the whole document and never swaps. Under the old `swap` a page
+ * without a preload still ENDED on the real face a few hundred ms later; under `optional` it
+ * does not. That difference shipped once, with the preloads on `/studio/` alone, and the
+ * landing page and the whole docs zone rendered their fallback on every first visit — on an
+ * unthrottled localhost, not a slow link. This spec is the gate for it.
  *
  * The THIRD file is JetBrains Mono, added once `handoff-bench.mjs` measured what the other two
  * hid: the shell's EDIT and PREVIEW sub-bars (added with the structural bands in #1438) are
@@ -16,7 +20,8 @@ import { expect, test } from '@playwright/test';
  *
  * That whole benefit rests on ONE fragile identity: the preload `href` and the `url()` in
  * `styles/fonts.css` must resolve to the same hashed asset. Vite guarantees it today because
- * `studio.astro` imports the same files with `?url` — but the names disagree on purpose (the
+ * `site/FontPreloads.astro` imports the same files with `?url` — but the names disagree on
+ * purpose (the
  * vendored weights are variable fonts that dedupe to one asset, so `outfit-600.woff2?url`
  * yields `/_astro/outfit-300.<hash>.woff2`), and a re-subset, a rename, or a change to how the
  * fonts are bundled could break the match while every other guard stays green.
@@ -66,3 +71,44 @@ test('@smoke every font the Studio preloads is one its stylesheet actually reque
 	}
 	void baseURL;
 });
+
+/**
+ * THE PRELOADS REACH EVERY PAGE, NOT JUST THE STUDIO — the gate for a regression that shipped.
+ *
+ * `font-display: optional` is declared once in `styles/fonts.css` and applies site-wide; the
+ * preloads are mounted per <head>. When those two disagree, the pages without a preload lose
+ * their typeface on a first visit and NOTHING else notices: the CSS is correct, the fonts are
+ * bundled, every artifact gate is green, and the one route the Studio specs drive is the one
+ * route that still works.
+ *
+ * THE TWO ROUTES BELOW ARE NOT A SAMPLE — they are the two mount points. The site has two
+ * <head> surfaces and neither covers the other: `site/ResourceHints.astro` for the standalone
+ * routes (`/`, `/studio/`, `/components/`) and `ThemeProvider.astro` for the Starlight docs
+ * zone, which is a `components:` override in astro.config.mjs and never renders ResourceHints.
+ * `site/FontPreloads.astro` is mounted from both. Dropping either mount is exactly the shape of
+ * the original defect, so one route per surface is what this asserts.
+ */
+for (const [route, surface] of [
+	['/', 'site/ResourceHints.astro (standalone routes)'],
+	['/introduction/', 'ThemeProvider.astro (the Starlight docs zone)'],
+] as const) {
+	test(`@smoke ${route} preloads its webfonts — ${surface}`, async ({ page }) => {
+		await page.goto(route, { waitUntil: 'domcontentloaded' });
+		const preloaded = await page.evaluate(() =>
+			[...document.querySelectorAll('link[rel="preload"][as="font"]')].map((l) => ({
+				href: (l as HTMLLinkElement).getAttribute('href') ?? '',
+				crossorigin: l.hasAttribute('crossorigin'),
+			})),
+		);
+		expect(
+			preloaded.length,
+			`${route} preloads ${preloaded.length} fonts, not 3. Under \`font-display: optional\` a page without a preload keeps its FALLBACK for the whole first visit and never swaps, so this route has quietly lost its typeface. Check that ${surface} still renders <FontPreloads />.`,
+		).toBe(3);
+		for (const { href, crossorigin } of preloaded) {
+			expect(href, `${route}: a font preload with no href`).toBeTruthy();
+			// Same reason as above: without `crossorigin` the preload and the CSS request use
+			// different CORS modes, never share a cache entry, and the file downloads twice.
+			expect(crossorigin, `${route}: ${href} must carry crossorigin, or it is fetched twice`).toBe(true);
+		}
+	});
+}
