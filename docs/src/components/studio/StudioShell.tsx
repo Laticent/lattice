@@ -86,6 +86,7 @@ import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
+import { listStudioScenes, type StudioScene } from './scene-library';
 
 import { ScrollFade } from './scroll-fade';
 import { importComments } from './slide-comments';
@@ -779,6 +780,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const editTheme = (t: StudioTheme) => openInFabricate({ kind: 'theme', record: t });
 	const editComponent = (c: StudioComponent) => openInFabricate({ kind: 'component', record: c });
 	const editFinish = (f: StudioFinish) => openInFabricate({ kind: 'finish', record: f });
+	const editMotion = (m: StudioScene) => openInFabricate({ kind: 'motion', record: m });
 	// CLEARED ON EVERY EXIT, not just Fabricate's own Close. `view` moves from
 	// 'fabricate' through at least six other paths (the launcher's Decks item, the
 	// mode buttons, a share/present entry), and a seed left standing means the NEXT
@@ -1052,6 +1054,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		listStudioFinishes().then(setSavedFinishes).catch(() => setSavedFinishes([]));
 	}, []);
 	React.useEffect(() => { refreshFinishes(); }, [refreshFinishes]);
+	// Saved motion assets. Read for the Motion faculty's name-clash guard — the same rule the three
+	// siblings use, so re-saving your own record stays legal while taking someone else's name does not.
+	const [savedScenes, setSavedScenes] = React.useState<StudioScene[]>([]);
+	const refreshScenes = React.useCallback(() => {
+		listStudioScenes().then(setSavedScenes).catch(() => setSavedScenes([]));
+	}, []);
+	React.useEffect(() => { refreshScenes(); }, [refreshScenes]);
 	// Every target in the deck the engine can animate, derived from the live source. The deck
 	// Motion tab shows it under Play/Style/Speed: those three state the intent, this states what
 	// the intent actually produces.
@@ -5038,7 +5047,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
@@ -5239,7 +5248,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{libraryOpen && (
-										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
+										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} notify={notify} />
 									)}
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize panel" />
@@ -5429,7 +5438,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					initialFilter={libInitialFilter}
 					onApplyTheme={applyPalette}
 					onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
-					onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))}
+					onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))}
 					onEditTheme={editTheme}
 					onEditComponent={editComponent}
 					onEditFinish={editFinish}
