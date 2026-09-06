@@ -628,7 +628,7 @@ Three things make it behave:
 - **The tested box is inflated past the line box.** Measured over the 22 labels
   of `examples/state-chart-branching.md`, a one-line label's real `getBBox()` is
   14px against the 13px line box and sits 1.48px above it — `dominant-baseline:
-  middle` does not centre the glyph box — and `paint-order: stroke` adds a halo
+  middle` does not center the glyph box — and `paint-order: stroke` adds a halo
   `getBBox` never reports. The first cut tested the bare line box and left two of
   three collisions standing, at ~0.7px.
 - **The fallback is the least-bad candidate, not the midpoint.** Keeping the

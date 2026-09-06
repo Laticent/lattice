@@ -1870,7 +1870,7 @@ describe('dagre re-ranking (fake DOM)', () => {
       // a candidate can be clear of every box and still hang past the edge — where
       // `.chart-body`'s `overflow: clip` cuts it and the engine's own CONTENT
       // CLIPPED gate fires on a shipped PDF. Measured on the deck this spec is
-      // modelled from: the walk slid a back-edge label 97px outside its viewBox and
+      // modeled from: the walk slid a back-edge label 97px outside its viewBox and
       // the slide rendered `escalate back to triage f`, with the defect badge
       // painted in the corner. §9.1's F1, in a new costume.
       test(`${name}: no label is painted outside the canvas`, { skip: !hasDagre }, () => {
@@ -2038,12 +2038,12 @@ describe('dagre re-ranking (fake DOM)', () => {
           seen += seg;
         }
         // FAN is `tb`: the label sits to the RIGHT of the run, `labelOff` (7) across,
-        // vertically centred on the midpoint.
+        // vertically centered on the midpoint.
         assert.ok(Math.abs(+lab[1] - (mid.x + 7)) < 0.2 && Math.abs(+lab[2] - mid.y) < 0.2,
           `an uncrowded label moved: drawn at ${lab[1]},${lab[2]}, midpoint puts it at ${(mid.x + 7).toFixed(1)},${mid.y.toFixed(1)}`);
         checked++;
       }
-      assert.ok(checked >= 3, `expected several straight labelled edges to check, got ${checked}`);
+      assert.ok(checked >= 3, `expected several straight labeled edges to check, got ${checked}`);
     });
   });
 
@@ -2119,7 +2119,7 @@ describe('dagre re-ranking (fake DOM)', () => {
       ['a node count that disagrees with data-states',
         '<div class="state-chart-figure" data-sc-dir="tb" data-states="9" data-sc-transitions="[]">'
         + '<li class="state-node" data-index="1">A</li></div>'],
-      ['no recognisable nodes at all',
+      ['no recognizable nodes at all',
         '<div class="state-chart-figure" data-sc-dir="tb" data-states="2" data-sc-transitions="[]"><ol></ol></div>'],
     ]) {
       test(`${name} ships the engine rather than guessing`, { skip: !hasDagre }, () => {

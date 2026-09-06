@@ -449,7 +449,7 @@ describe('marp bundle — the overflow-marker export setting', () => {
     assert.match(out, /# A/, 'and the deck itself survives');
   });
 
-  // The strip must recognise OUR tags, not any tag: a deck may legitimately carry the
+  // The strip must recognize OUR tags, not any tag: a deck may legitimately carry the
   // author's own script, and eating it would silently delete their content.
   test('an author\'s own script tag survives a re-export', () => {
     const deck = '---\nmarp: true\n---\n\n# A\n\n<script src="my-own-widget.js"></script>\n';
