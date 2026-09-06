@@ -129,12 +129,26 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > dispatcher routes on the character after the brace — cheap, and no author label is ever
 > shadowed.
 >
-> **What this does NOT change: `[x]` stays.** Measured 2026-09-06 across shipped decks —
-> 5 live inline `` `[x]` `` against **1,304** bare `- [x]` markers in 39 decks. Unifying
-> the marker is a 1,304-occurrence migration that also abandons GFM task-list syntax; the
-> brace decision above costs one character on a form nobody has written yet. Brackets are
-> the MARKER vocabulary (bare and inline, one spelling); braces are the DISPATCH grammar.
-> The two are not competing spellings of one idea.
+> **What this does NOT change: `[x]` stays — and the cost argument first written here was
+> wrong.** It read: "5 live inline `` `[x]` `` against **1,304** bare `- [x]` markers in 39
+> decks… a 1,304-occurrence migration that also abandons GFM task-list syntax." Two errors,
+> both found by review:
+>
+> - **1,304 counts the wrong population.** Re-derived over the same shipped decks: 1,306 is
+>   *any* bare bracket marker anywhere, mostly table cells. The leading-bullet `- [x]`
+>   family is **398**; GFM-strict `- [x]` / `- [ ]` is **301**.
+> - **None of them is the migration anyway.** A bare `- [x]` at a bullet is a BLOCK-level
+>   task-list production read by `checklist`, `roadmap`, `obligation-matrix` and
+>   `verdict-grid`; `parseInlineState` never sees it. Respelling the INLINE marker would not
+>   touch one of them — the migration is the **5 inline spans**. And this repo has done a
+>   1,285-occurrence mechanical sweep across 406 files in one pass, so even the wrong number
+>   would not have been decisive.
+>
+> **The decision stands on a better reason.** Respelling inline marks `{x}` gives TWO
+> SPELLINGS OF ONE SEMANTIC — `- [x]` at a bullet, `` `{x}` `` inline — a worse authoring
+> story than two opening characters. Brackets mean "state marker" in both positions; braces
+> are the dispatch grammar. They are not competing spellings of one idea, and THAT is the
+> argument, not the count.
 >
 > **Consequence for #289 / #288:** the acceptance criteria on both should read the braced
 > form. §12.5's table is superseded by this paragraph, and says so there.

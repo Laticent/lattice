@@ -1530,7 +1530,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `frontMatterName` does. So `inline-code: literal  # deck from Acme` reads as ON in
 	// this switch while the engine renders it literal — the Inspector shows a toggle on
 	// over a preview with no pills in it. Fixing it belongs in `getFrontMatter`, where it
-	// fixes all three at once, rather than in one register's read.
+	// fixes all three at once, rather than in one register's read. Tracked: #2087.
 	const inlineCodeRich = !/^literal$/i.test((getFrontMatter(source, 'inline-code') || '').trim());
 	const toggleInlineCode = () => settingsWrite(inlineCodeRich ? 'Inline pills and marks off' : 'Inline pills and marks on', (s) => writeFrontMatterLine(s, 'inline-code', inlineCodeRich ? 'literal' : null));
 	const glossaryOn = /^(auto|on|true|yes)$/i.test((getFrontMatter(source, 'glossary') || '').trim());
