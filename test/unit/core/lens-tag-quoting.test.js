@@ -26,7 +26,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 
-const { parseSlideTags, applyTag, stripExtraLensTags, unknownLensTokens } = require('@workwel/lente');
+const { parseSlideTags, applyTag, stripExtraLensTags, unknownLensTokens } = require('@laticent/lente');
 
 /** Does LENTE see a directive here? Asked through the public reader, not an internal. */
 const lenteSees = (src) => parseSlideTags(src.replace(/_class:/g, '_lens:')).include.size > 0;

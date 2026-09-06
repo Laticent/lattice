@@ -26,7 +26,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
-const { applyTag, approvalHash, emitRegistry } = require('@workwel/lente');
+const { applyTag, approvalHash, emitRegistry } = require('@laticent/lente');
 const { splitSlideChunks } = require('../../../lib/core/slide-boundaries.mjs');
 const { isHoleOpenTag } = require('../../../lib/core/lens-export.mjs');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');

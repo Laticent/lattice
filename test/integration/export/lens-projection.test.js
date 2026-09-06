@@ -32,7 +32,7 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 
 const { pageCount } = require('../../helpers/pdf');
-const { applyTag, approvalHash, emitRegistry, lensSlides, parseLensRegistry } = require('@workwel/lente');
+const { applyTag, approvalHash, emitRegistry, lensSlides, parseLensRegistry } = require('@laticent/lente');
 const { frontMatterBlockOf, splitSlideChunks } = require('../../../lib/core/slide-boundaries.mjs');
 
 describe('--lens: the projected export', () => {

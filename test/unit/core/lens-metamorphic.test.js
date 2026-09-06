@@ -42,7 +42,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { crossSlideDrift, projectForExport } = require('../../../lib/core/lens-export.mjs');
-const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
+const { approvalHash, applyTag, emitRegistry } = require('@laticent/lente');
 const { splitSlideChunks } = require('../../../lib/core/slide-boundaries.mjs');
 const engine = require('../../../lib/engine/index.js');
 

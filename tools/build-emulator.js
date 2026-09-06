@@ -19,11 +19,11 @@
  * highlight.js, function-plot, puppeteer at runtime — those resolve from
  * the consumer's node_modules, exactly as the loose source does.
  *
- * `@workwel/*` IS THE LOCAL GRAPH, so it is inlined too (see WORKSPACE_LIBS
+ * `@laticent/*` IS THE LOCAL GRAPH, so it is inlined too (see WORKSPACE_LIBS
  * below). Those four packages are npm-WORKSPACE members: in this repo they
  * resolve through a node_modules symlink into docs/src/lib/<name>, and in an
- * `npm install @workwel/lattice` they resolve nowhere — they are neither a
- * dependency nor in the published `files`. A bare `require('@workwel/cadenza')`
+ * `npm install @laticent/lattice` they resolve nowhere — they are neither a
+ * dependency nor in the published `files`. A bare `require('@laticent/cadenza')`
  * surviving into the bundle is therefore MODULE_NOT_FOUND for every installed
  * user, which is what `--strip-notes`, read-along, chart narration and `--lens`
  * would each have hit. `packages: 'external'` is the right default for a
@@ -56,7 +56,7 @@ const OUT_FILE = path.join(ROOT, 'dist', 'lattice-emulator.js');
 const MIN_FILE = path.join(ROOT, 'dist', 'lattice-emulator.min.js');
 
 /**
- * Resolve `@workwel/<name>` to its TypeScript SOURCE barrel so esbuild inlines it
+ * Resolve `@laticent/<name>` to its TypeScript SOURCE barrel so esbuild inlines it
  * instead of leaving a `require()` the installed CLI cannot satisfy. An onResolve
  * callback runs ahead of esbuild's own resolver, which is where `packages: 'external'`
  * lives — so this is the one hook that can opt a package back IN.
@@ -81,10 +81,10 @@ const MIN_FILE = path.join(ROOT, 'dist', 'lattice-emulator.min.js');
  * barrel, and the exported `.html` is unchanged with this plugin on or off.
  */
 const inlineWorkspacePackages = {
-  name: 'workwel-workspace-inline',
+  name: 'laticent-workspace-inline',
   setup(build) {
-    build.onResolve({ filter: /^@workwel\/[a-z]+$/ }, (args) => {
-      const name = args.path.slice('@workwel/'.length);
+    build.onResolve({ filter: /^@laticent\/[a-z]+$/ }, (args) => {
+      const name = args.path.slice('@laticent/'.length);
       const entry = path.join(LIB_DIR, name, 'index.ts');
       // Anything not a workspace member falls through to the normal resolver (and
       // stays external) rather than resolving to a path that does not exist.

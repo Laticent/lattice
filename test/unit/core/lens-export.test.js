@@ -21,7 +21,7 @@ const assert = require('node:assert/strict');
 
 const { HOLE_CLASS_NAME, POSITION_NEUTRALIZERS, authorCss, authoredIndexDrift, crossSlideDrift, emptyWithheld, holeDrift, isHoleOpenTag, isHoleSectionHtml, isHoleSourceChunk, projectForExport, exportableViews, REFUSAL_REASONS, SHIPPED_SLIDES_SELECTOR } = require('../../../lib/core/lens-export.mjs');
 const { frontMatterBlockOf, normalizeSourceText, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
-const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
+const { approvalHash, applyTag, emitRegistry } = require('@laticent/lente');
 const engine = require('../../../lib/engine/index.js');
 
 /** How many slides the ENGINE renders from this source — the independent oracle. */
