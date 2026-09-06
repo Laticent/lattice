@@ -551,7 +551,7 @@ slide; G is rejected on 116KB for what CSS does for free.
   every residual is a MISS — the author sees their source, never a wrong picture.
 
   **No deck moves, and that is a differential rather than a spot check.** The pre-branch
-  regex against the shipped walker over all 1387 tracked `.md` files (48 carry a fence):
+  regex against the shipped walker over every tracked `.md` file (48 of them carry a fence):
   identical spans and bodies everywhere except three DOCS that were substituting their own
   teaching examples — `engineering/mermaid.md`,
   `lib/components/diagram/diagram/diagram.docs.md`, `changelog/pre-release-archive.md` — plus
@@ -563,22 +563,31 @@ slide; G is rejected on 116KB for what CSS does for free.
   backtick-only `/^```/`, so a `~~~` fence's body was never fenced as far as speech was
   concerned — its source lines narrated. One `createFenceReader` now, shared by all three.
 
-  Differential against the merge-base over every tracked `.md`, block by block: of **6461
-  narrated blocks, 18 changed, in 17 files. None is a deck** — `examples/`, `exemplars/`, the
-  baseline decks and the six galleries are all unmoved; the only `examples/` entry is this
-  change's own new demo deck.
+  Differential against the merge-base over every tracked `.md`. **State the method or the
+  number means nothing** — an independent checker could not reproduce the first version of this
+  paragraph because it did not say what was being counted. Both narrators (`narrateChart` and
+  `slideToSpeech`), every non-empty block of a `\n---\n` split, the whole tracked tree including
+  the files this branch itself edits:
 
-  **Two things about those 18 that the first version of this paragraph got wrong, and both
-  were caught by an independent checker re-deriving the number.** It said 7 files, which came
-  from reading the file list off a diff printer that stopped after eight lines — the count was
-  never measured, it was miscounted. And it said every change was fenced code no longer read
-  aloud. The real split is **12 longer, 6 shorter**: the dominant effect is prose that had been
+  **6463 blocks · 19 changed · 18 files · 13 longer, 6 shorter · 1 of the 19 contains a `~~~`.**
+
+  **The only DECK among the 18 is this change's own new demo deck**, whose narration moved
+  because the deck gained slides. Every other file is documentation — `README.md`, `design/`,
+  `docs/src/content/docs/`, four component `.docs.md`, two `engineering/` notes. No shipped
+  deck's narration moved: `exemplars/`, the baseline decks and the six galleries are untouched.
+
+  **Two things the first version of this paragraph got wrong, and an independent checker caught
+  both.** It said 7 files, which came from reading the list off a diff printer that stopped
+  after eight lines — the count was never measured, it was miscounted. And it said every change
+  was fenced code no longer read aloud. The dominant effect is the opposite: prose that had been
   wrongly SWALLOWED and is now spoken (`lib/base/base.docs.md` goes from 391 characters of
-  narration to 8875). The cause is not the tildes either — **17 of the 18 changed blocks
-  contain no `~~~` at all.** It is the closer rule: an info-string line such as
-  ```` ```mermaid ```` inside a ```` ````markdown ```` sample used to flip a naive toggle and
-  blank everything after it. Both corrections are the same lesson as the rest of this note —
-  a number nobody re-derives is a claim, not a measurement.
+  narration to 8875). The cause is not the tildes either — 18 of the 19 changed blocks contain
+  none. It is the closer rule: an info-string line such as ```` ```mermaid ```` inside a
+  ```` ````markdown ```` sample used to flip a naive toggle and blank everything after it.
+
+  It also said "none is a deck" in a paragraph whose own script had printed the demo deck's
+  name. That is three corrections to one paragraph, which is the lesson of this note applied to
+  itself: a number nobody re-derives is a claim, not a measurement.
 
   `examples/mermaid-tilde-fences.md` is the demo deck, rendered and eyeballed in light and
   dark.
@@ -645,10 +654,33 @@ slide; G is rejected on 116KB for what CSS does for free.
 
   The lesson is the one the third checker already drew about the CSS gate and the builder's
   stamp — a per-caller invariant that nothing enumerates drifts. `deck-preview.test.js` now
-  carries a CENSUS of every `buildSrcdoc` call site, classified watched-or-exported, so an
-  unlisted caller fails. Mutation-proved twice: once by deleting the new `diagrams: false`
-  (the census went red), and once before that, when deleting it left the census GREEN because
-  the regex was matching the knob's name inside the comment explaining it.
+  carries a CENSUS of every `previewDiagramsAttr` site and every `buildSrcdoc` caller,
+  classified watched-or-exported, so an unlisted one fails.
+
+  **It took three passes to get the census itself right, and the failures are the interesting
+  part.** Mutation-proved ten times in the end:
+
+  - deleting the new `diagrams: false` left it GREEN, because the matcher was reading the
+    knob's name inside the COMMENT explaining the fix;
+  - it enumerated `buildSrcdoc` callers, but the population that matters is
+    `previewDiagramsAttr` sites — and two builders assemble their own document and call it
+    directly, so the two shapes most like the bug it was written for were invisible to it;
+  - a red-team pass got four more past it: a newline before the brace, a variable argument, a
+    renaming import, and an `.astro` file (there are 41 under `docs/src`);
+  - and a string containing an unbalanced `{` — `css: '@media print {'` is real — ran the
+    brace scan off the end of the call and swallowed the NEXT call's opt-out, certifying an
+    export document that had never opted out. A false PASS, demonstrated.
+
+  Fixing that last one by blanking string BODIES made it worse in a way worth recording: with
+  no regex- or template-literal state, one apostrophe in JSX prose opened a string that never
+  closed and blanked the rest of the file. **40 of the files it walks were already partly
+  invisible** — `studio.astro` and `slide-thumb.tsx` among them — and the test was green
+  throughout. It blanks only comments now, and the argument window runs to the next call
+  rather than matching braces, which no string content can corrupt.
+
+  A text matcher has an envelope, so the census states it and FAILS LOUDLY at its edge: a
+  document assembled inside a template literal, a value passed through a variable, or a
+  renaming import each fail the test rather than pass silently.
 
   **The un-tag defect is not fixed here** — it is pre-existing, it predates every part of
   #2073, and it is off the path of this change (HARD RULE #18), so it is logged rather than

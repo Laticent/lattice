@@ -61,6 +61,22 @@ flowchart LR
 
 ---
 
+<!-- _class: diagram -->
+
+## A fence indented under a bullet.
+
+- The flow this deck is about:
+
+  ```mermaid
+  flowchart LR
+    A[Input] --> B[Process]
+    B --> C{Decision}
+    C -->|yes| D[Ship]
+    C -->|no| E[Revise]
+  ```
+
+---
+
 <!-- _class: content -->
 
 ## Checked against what the engine draws

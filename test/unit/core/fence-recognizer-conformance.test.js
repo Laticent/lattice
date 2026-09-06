@@ -93,6 +93,10 @@ const CORPUS = [
 	{ name: 'a directive comment above a real fence', body: `<!-- _footer: "x" -->\n\n\`\`\`mermaid\n${DEF}\`\`\`\n`, engine: true, walker: true },
 	{ name: 'unclosed at end of document', body: `\`\`\`mermaid\n${DEF}`, engine: true, walker: false, why: 'MISS — markdown-it runs an unclosed fence to the end of the document. Substituting there would swallow every slide after it, which is a worse failure than showing the source.' },
 	{ name: 'blockquoted', body: `> \`\`\`mermaid\n> ${DEF.replace(/\n(?=.)/g, '\n> ')}> \`\`\`\n`, engine: true, walker: false, why: 'MISS — the walker does not strip block-quote markers, so it does not see the fence. The author sees their source; substituting a `>`-prefixed definition would hand mmdc a broken one.' },
+	{ name: 'tab-indented — an indented code block', body: `\t\`\`\`mermaid\n\t${DEF}\t\`\`\`\n`, engine: false, walker: false },
+	{ name: 'tab-indented closer', body: `\`\`\`mermaid\n${DEF}\t\`\`\`\n`, engine: true, walker: false, why: 'MISS — a tab is four columns, so the engine does not close here either; it runs the fence on. The walker declines rather than close early and cut the definition in half.' },
+	{ name: "mermaid's own front matter in the body", body: `\`\`\`mermaid\n---\nconfig:\n  theme: base\n---\n${DEF}\`\`\`\n`, engine: true, walker: true },
+	{ name: 'a `<!--` written about in inline code', body: `A note begins with the \`<!--\` marker.\n\n\`\`\`mermaid\n${DEF}\`\`\`\n`, engine: true, walker: true },
 	{ name: 'a fence character inside the definition', body: `\`\`\`mermaid\nflowchart LR\n  A["~~~"] --> B\n\`\`\`\n`, engine: true, walker: true },
 ];
 

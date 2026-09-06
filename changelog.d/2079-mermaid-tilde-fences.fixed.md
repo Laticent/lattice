@@ -6,7 +6,8 @@
   export recognized a fence only at the start of a line, while the preview (and CommonMark)
   accept up to three spaces — so an indented fence drew in the Studio and printed as source.
   An indented CLOSER was worse: the fence stayed open across slide separators and the
-  substitution swallowed them, exporting a three-slide deck as one page.
+  substitution swallowed them, exporting a three-slide deck as one page. A substitution can no
+  longer span a slide boundary at all.
 - **Fixed: ```` ```mermaid js ```` and other multi-word fence tags now render.** Markdown takes
   the first word of a fence's info string as its language, so the preview drew these; the
   export required the tag to be exactly `mermaid` and printed the source.

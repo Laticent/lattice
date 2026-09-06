@@ -138,6 +138,75 @@ describe('mermaid-fences', () => {
 		assert.equal(inBody[0].body, '%% <!-- a note\nflowchart LR\n');
 	});
 
+	// THE SPAN'S OFFSETS, AT EVERY INDENT. This is the arm that was missing, and its absence
+	// shipped a defect that DELETED CHARACTERS FROM THE AUTHOR'S DECK: the span started N
+	// characters before the fence line, so a splice ate the end of the preceding prose —
+	// "42 million." exported as "42 millio". At the head of a file the offset went negative
+	// and `slice(0, -2)` duplicated the whole document. Asserting `length` and `body` at an
+	// indent, as the first version of this file did, cannot see any of that. Assert the SPLICE.
+	test('a splice replaces the fence and nothing else, at every indent', () => {
+		for (const pad of ['', ' ', '  ', '   ']) {
+			const lead = 'Revenue for Q4 was 42 million.\n\n';
+			const src = `${lead}${pad}\`\`\`mermaid\n${pad}flowchart LR\n${pad}\`\`\`\ntail\n`;
+			const [m] = matchMermaidFences(src);
+			assert.ok(m, `${pad.length} spaces: no fence`);
+			assert.equal(src.slice(0, m.start) + '<svg/>' + src.slice(m.end), `${lead}<svg/>\ntail\n`, `${pad.length} spaces: the splice moved text outside the fence`);
+		}
+	});
+
+	test('a fence at the very start of a file splices without going negative', () => {
+		const src = '```mermaid\nflowchart LR\n```\ntail\n';
+		const [m] = matchMermaidFences(src);
+		assert.equal(m.start, 0);
+		assert.equal(src.slice(0, m.start) + '<svg/>' + src.slice(m.end), '<svg/>\ntail\n');
+	});
+
+	// A TAB IS FOUR COLUMNS, so a tab-indented fence is an indented CODE BLOCK and the engine
+	// emits no `language-mermaid` for it. Accepting one was the walker's only OVER-MATCH — a
+	// picture drawn over text the author wrote literally — and it also let a tab-indented
+	// CLOSER close a fence the engine leaves open, destroying a slide.
+	test('a tab-indented fence is a code block, not a fence', () => {
+		assert.equal(matchMermaidFences(`\t\`\`\`mermaid\n\t${BODY}\t\`\`\`\n`).length, 0);
+		assert.equal(matchMermaidFences(`\`\`\`mermaid\n${BODY}\t\`\`\`\n`).length, 0);
+	});
+
+	test('a tab inside the definition survives de-indenting', () => {
+		// `stripIndent` counted a tab as one unit of indent and deleted it, so mmdc was handed
+		// different YAML than the preview parsed.
+		const [m] = matchMermaidFences(' ```mermaid\n ---\n config:\n \ttheme: base\n ---\n flowchart LR\n ```\n');
+		assert.equal(m.body, '---\nconfig:\n\ttheme: base\n---\nflowchart LR\n');
+	});
+
+	// NEVER ACROSS A SLIDE BOUNDARY. The walker cannot model every block context markdown-it
+	// does — a fence left open inside a list item is the one that bit — so instead of trying to
+	// be right about them it refuses to substitute a body containing a bare `---`. Driven on the
+	// real CLI in both directions: a three-slide deck exported as one page, and a substituted
+	// block torn in half leaving an unclosed `<pre>` on one slide and a stray `</pre>` on the next.
+	test('a body containing a slide separator is never substituted', () => {
+		const deck = [
+			'## One.', '', '- The flow:', '', '  ```mermaid', '  flowchart LR', '    A --> B', '',
+			'---', '', '## Prose that must survive.', '', 'The Q4 forecast is 42 million.', '',
+			'```text', 'literal sample', '```', '',
+		].join('\n');
+		assert.equal(matchMermaidFences(deck).length, 0);
+	});
+
+	test("…but mermaid's own front matter is allowed, because the engine never splits inside a fence", () => {
+		const [m] = matchMermaidFences('```mermaid\n---\nconfig:\n  theme: base\n---\nflowchart LR\n```\n');
+		assert.equal(m.body, '---\nconfig:\n  theme: base\n---\nflowchart LR\n');
+		// A `---` AFTER the front-matter block closes is a separator again, and refused.
+		assert.equal(matchMermaidFences('```mermaid\n---\nconfig: {}\n---\nflowchart LR\n\n---\n\nmore\n```\n').length, 0);
+	});
+
+	// One `<!--` an author WRITES ABOUT turned comment state on for the rest of the deck, and
+	// every diagram after it printed as source. Backticked runs are not markup.
+	test('a `<!--` inside inline code does not open a comment', () => {
+		const src = 'Every speaker note begins with the `<!--` marker.\n\n```mermaid\n' + BODY + '```\n';
+		assert.equal(matchMermaidFences(src).length, 1);
+		// A bare `<!--` in prose really does open one, and still suppresses what follows.
+		assert.equal(matchMermaidFences('<!-- open\n\n```mermaid\n' + BODY + '```\n').length, 0);
+	});
+
 	// ── group 3: the opener's shape, which is what decides whether a deck's bytes move ────
 
 	// THE INFO STRING IS THE ENGINE'S RULE, not a guess at it. markdown-it takes the FIRST

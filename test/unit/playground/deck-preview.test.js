@@ -155,22 +155,30 @@ describe('buildSrcdoc', () => {
 			// the computed style into the .pdf/.png/.pptx.
 			'components/studio/export/deck-export.js': ['false'],
 		};
-		// EVERY SCAN BELOW READS CODE, NOT PROSE. This file's own comments discuss
-		// `buildSrcdoc` and `diagrams: false` at length, and a text matcher cannot tell a
-		// mention from a call — the first version of this census reported eight "unclassifiable
-		// references" that were all sentences. Blank the BODIES of comments and string literals,
-		// preserving length so every offset below still indexes the original text. Blanking the
-		// strings also deletes the brace-matching hazard: a call whose CSS argument carries an
-		// unbalanced `{` (`css: '@media print {'` is real) used to run off the end of the call
-		// and swallow the NEXT call's opt-out, certifying an export document that never opted
-		// out. That false PASS was demonstrated by a red-team pass.
+		// COMMENTS BLANKED, STRINGS LEFT ALONE — and the second half is the correction that
+		// matters. An earlier version blanked string BODIES too, to stop a call whose CSS
+		// argument carried an unbalanced `{` from running off the end of the brace scan. It
+		// also had no regex-literal or template-literal state, so one apostrophe in JSX prose
+		// ("Here's the footer") opened a string that never closed and blanked the REST OF THE
+		// FILE: 40 of the files walked here were already partly invisible, `studio.astro` and
+		// `slide-thumb.tsx` among them. A census that cannot see the tree is worse than none.
+		//
+		// So: blank comment bodies only (the reason this exists — this file's own prose
+		// discusses `buildSrcdoc` and `diagrams: false` at length, and a matcher cannot tell a
+		// mention from a call), and drop brace-matching entirely. The argument window runs to
+		// the NEXT `buildSrcdoc(` or end of file, which no string content can corrupt.
+		//
+		// THE ENVELOPE, stated because a text matcher has one: this sees a literal
+		// `buildSrcdoc({…})` or `previewDiagramsAttr(…)` call. It cannot read a document
+		// assembled inside a template literal, and it cannot follow a value passed through a
+		// variable — so both of those, and any renaming import, FAIL LOUDLY below rather than
+		// pass silently.
 		const codeOnly = (text) => {
 			const out = text.split('');
-			let i = 0;
 			const blank = (from, to) => {
 				for (let k = from; k < to && k < out.length; k++) if (out[k] !== '\n') out[k] = ' ';
 			};
-			while (i < text.length) {
+			for (let i = 0; i < text.length; ) {
 				const two = text.slice(i, i + 2);
 				if (two === '//') {
 					const end = text.indexOf('\n', i);
@@ -180,15 +188,6 @@ describe('buildSrcdoc', () => {
 					const end = text.indexOf('*/', i + 2);
 					blank(i, end === -1 ? text.length : end + 2);
 					i = end === -1 ? text.length : end + 2;
-				} else if (text[i] === '"' || text[i] === "'" || text[i] === '`') {
-					const q = text[i];
-					let j = i + 1;
-					for (; j < text.length; j++) {
-						if (text[j] === '\\') j++;
-						else if (text[j] === q) break;
-					}
-					blank(i + 1, j);
-					i = j + 1;
 				} else i++;
 			}
 			return out.join('');
@@ -215,39 +214,24 @@ describe('buildSrcdoc', () => {
 					if (/function\s+$/.test(before) || /import\s*\{[^}]*$/.test(before)) continue;
 					(stamps[rel] ||= []).push(rel.endsWith('deck-preview.js') ? 'gated' : 'watched');
 				}
-				// Callers of the gated builder, and what each passes. `\s*` on both sides of the
-				// paren: a red-team pass got three shapes past an `indexOf('buildSrcdoc({')`
-				// scan, and a line break before the brace was one of them.
-				for (const m of text.matchAll(/buildSrcdoc\s*\(\s*\{/g)) {
-					const i = m.index;
-					if (/function\s+$/.test(text.slice(Math.max(0, i - 20), i))) continue;
-					// STRING-AWARE brace matching. A naive counter walks INTO string literals, and
-					// a call whose CSS argument contains an unbalanced `{` — `css: '@media print {'`
-					// is real — runs off the end of the call and swallows the NEXT call's
-					// `diagrams: false`, certifying an export document that never opted out. That
-					// false PASS was demonstrated; this loop is why it cannot happen again.
-					let depth = 0;
-					let j = i + m[0].length - 1;
-					const from = j;
-					for (; j < text.length; j++) {
-						if (text[j] === '{') depth++;
-						else if (text[j] === '}' && --depth === 0) break;
-					}
-					// The knob, read from code only — every opt-out here carries a paragraph
-					// explaining itself, and those paragraphs name it. A census reading the raw
-					// span is satisfied by the PROSE about the fix and passes with the fix deleted;
-					// that was caught by mutating this test, which stayed green.
-					const args = text.slice(from, j + 1);
-					(knobs[rel] ||= []).push(/\bdiagrams:\s*false\b/.test(args) ? 'false' : 'default');
-				}
+				// Callers of the gated builder, and what each passes. The window runs to the NEXT
+				// call or end of file — no brace matching, so no string content can corrupt it.
+				const calls = [...text.matchAll(/buildSrcdoc\s*\(\s*\{/g)].filter(
+					(m) => !/function\s+$/.test(text.slice(Math.max(0, m.index - 20), m.index)),
+				);
+				calls.forEach((m, k) => {
+					const stop = k + 1 < calls.length ? calls[k + 1].index : text.length;
+					(knobs[rel] ||= []).push(/\bdiagrams:\s*false\b/.test(text.slice(m.index, stop)) ? 'false' : 'default');
+				});
 				// AN INDIRECT REFERENCE THIS SCAN CANNOT CLASSIFY. `buildSrcdoc(opts)`, an alias,
 				// or a value passed on — each is a document this census would silently miss, so it
 				// FAILS rather than certifying a tree it cannot read. This is the honest edge of a
 				// text matcher, and it is the one that has to be loud.
-				for (const m of text.matchAll(/\bbuildSrcdoc\b/g)) {
-					const after = text.slice(m.index + 'buildSrcdoc'.length, m.index + 'buildSrcdoc'.length + 40);
+				for (const m of text.matchAll(/\b(?:buildSrcdoc|previewDiagramsAttr)\b/g)) {
+					const after = text.slice(m.index + m[0].length, m.index + m[0].length + 40);
 					const before = text.slice(Math.max(0, m.index - 40), m.index);
-					const isCall = /^\s*\(\s*\{/.test(after);
+					// `previewDiagramsAttr` takes a plain argument, `buildSrcdoc` an object literal.
+					const isCall = m[0] === 'buildSrcdoc' ? /^\s*\(\s*\{/.test(after) : /^\s*\(/.test(after);
 					const isDefn = /function\s+$/.test(before);
 					// A RENAMING import hides the call behind a name this scan never looks for —
 					// `import { buildSrcdoc as bsd }` then `bsd({…})`. It is the one evasion that
