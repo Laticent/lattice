@@ -37,5 +37,7 @@
   `li:nth-child(n+3)`, plus `li:nth-child(2)` at `tall`/`strip`, where the reflow
   gives the first ledger row a border too. 0.12em is the ceiling a 4-metric slide
   allows: 0.13em shears the 4th status pill at 16:9, which the export's overflow
-  warning does not report. At 1x the lead leaves `École` 1.0px, `Ärlig` 2.0px,
-  `$2.4B` 6.0px and a bare `2.4` 18.0px.
+  warning does not report. Measured at 600dpi the lead leaves `École` 2.24px,
+  `Ålborg` 2.40px, `Ärlig` 3.20px, `$2.4B` 6.24px and a bare `2.4` 18.72px. `Ǻ`
+  (A-with-ring-above) still touches at 0.00px — the stated limit of the rule, since
+  clearing it would cost the 4-metric ceiling.

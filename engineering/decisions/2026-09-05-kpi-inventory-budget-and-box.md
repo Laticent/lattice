@@ -372,14 +372,22 @@ the line box and paints nothing.
   is ruled at tall and strip. The ceiling is measured with the right instrument — the
   stage's bottom edge against the deepest descendant box, not the overflow warning:
   clean at 0.06 through 0.12em, and **0.13em already cuts 1.13px** at 16:9. Painted
-  ink at 1x: `École` 1.0px, `Ärlig`/`Ålborg`/`Ñuñoa` 2.0px, `$2.4B` 6.0px, `£1.1B`
-  10.0px, a bare `2.4` 18.0px.
+  ink at 600dpi, counting the first antialiased pixel: `École` 2.24px, `Ålborg` 2.40,
+  `Ñuñoa` 3.04, `Ärlig` 3.20, `$2.4B` 6.24, `98.6%` 7.04, `£1.1B` 10.56, a bare `2.4`
+  18.72. **`Ǻ` still touches at 0.00px** — the stacked ring sits a pixel above an acute
+  or an umlaut, and clearing it needs lead the 4-metric ceiling cannot pay for. That is
+  the rule's limit, stated rather than papered over.
 
-**One tension this leaves open, and it belongs to the reader.** One pixel of white
-under an accented capital at 1x is thin. It is not a tuning oversight — 0.12em is the
-most the rail carries with 4 metrics still fitting, so more daylight for `É` costs
+**One tension this leaves open, and it belongs to the reader.** Two-and-a-bit pixels
+under an accented capital is thin, and `Ǻ` gets none. Not a tuning oversight — 0.12em
+is the most the rail carries with 4 metrics still fitting, so more daylight costs
 either the documented wide `hard` of 4 or the rail's type size. Both are design
 decisions, and neither is this change's to make.
+
+**And a measurement note worth more than the numbers.** Scanning at 1x reports these
+as whole pixels, which rounded `École` to 1.0 and `Ǻland` to 2.0 — the second of those
+in the wrong direction, hiding a touch. Scan at 600dpi and count the first ANTIALIASED
+pixel, not the first solid one.
 
 **The rule to carry forward: measure ink, not the box, scan the whole column, and
 never size a rule with a gate's warning.** Four drafts, four instrument failures: the

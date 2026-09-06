@@ -805,17 +805,20 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
  * warning has a threshold; a clip does not. Measure the stage's bottom against the
  * deepest box, at 16:9 AND 4K — nothing else in the tree sees this.
  *
- * WHAT IT BUYS, AND THE TENSION IT DOES NOT RESOLVE. Scanned as painted ink over the
- * whole rail column, at 1x: `École` 1.0px, `Ärlig` / `Ålborg` / `Ñuñoa` / `Ǻland`
- * 2.0px, `$2.4B` and `98.6%` 6.0px, `£1.1B` 10.0px, a bare `2.4` 18.0px. Positive
- * everywhere, and thin at the top of that list: an accented capital gets one pixel of
- * white at the resolution the deck is read at.
+ * WHAT IT BUYS, AND WHERE IT STOPS. Scanned as painted ink over the whole rail
+ * column at 600dpi, counting the first antialiased pixel rather than the first solid
+ * one: `École` 2.24px, `Ålborg` 2.40, `Ñuñoa` 3.04, `Ärlig` 3.20, `$2.4B` 6.24,
+ * `98.6%` 7.04, `£1.1B` 10.56, a bare `2.4` 18.72. Measure this at 1x and the small
+ * numbers quantize to 1-2 whole pixels either way — scan at 600 and take the
+ * antialias, or the answer rounds to whatever you hoped for.
  *
- * That thinness is not a tuning oversight, it is the capacity ceiling showing. 0.12em
- * is the most this rail can carry with 4 metrics still fitting, so buying `É` more
- * daylight means spending something else — dropping the documented wide `hard` from 4
- * to 3, or taking the rail's type size down. Both are design decisions rather than
- * fixes, and neither belongs in this change.
+ * `Ǻ` (A-with-ring-above) STILL TOUCHES, at 0.00px. It is the honest limit of this
+ * rule, not an oversight: the stacked ring sits about a pixel higher than an acute or
+ * an umlaut, and covering it needs lead this rail cannot pay for. 0.12em is already
+ * the most it carries with 4 metrics fitting, so buying `Ǻ` daylight costs the
+ * documented wide `hard` of 4 or the rail's type size — design decisions, not fixes,
+ * and neither belongs in this change. The rule clears the common accented capitals
+ * and says so; it does not claim to clear every glyph Unicode composes.
  *
  * MEASURE INK, NOT THE BOX. Four drafts of this rule were wrong, each because of the
  * instrument rather than the design: `Range.getClientRects()` returns the FONT-METRIC
