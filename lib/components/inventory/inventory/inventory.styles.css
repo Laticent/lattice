@@ -63,14 +63,65 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul 
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li + li {
   border-top: 1px solid var(--border);
 }
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li::before {
-  content: counter(r, decimal-leading-zero); position: absolute; left: 0; top: var(--sp-2xs);
+/* THE ORDINAL HANGS OFF THE TITLE IT INDEXES, NOT OFF THE ROW BOX. It is still
+ * absolutely positioned — it must stay out of the flow that stacks a block
+ * <strong> title over its body prose — but its containing block is now the
+ * <strong>, so it is carried by whatever moves the title instead of having to
+ * chase it.
+ * What that fixes: a row ALONE on a split page is page-tall, and the shared
+ * lone-member rule centers its prose. The row-anchored ordinal could not follow,
+ * so it was given `top:50%` to center too — but a centered BOX is not a centered
+ * LINE. Measured on a real portrait render of this gallery, the numeral landed
+ * 199px (render px, 2x) below the title and dead on the BODY's baseline, reading
+ * as a label for the clause rather than an index for the row. Anchored to the
+ * title it is on the title's line at any row height, and that special case is
+ * gone rather than re-tuned.
+ * WHAT THIS DOES NOT FIX — the offset is still a tuned `top`, not a shared
+ * baseline. `--fs-h3` sets both the numeral (--font-label) and the title
+ * (--font-display), so their baselines sit wherever each family's half-leading
+ * falls: measured 0.5px apart landscape, 2.2px portrait, growing with the type
+ * scale. `align-items: baseline` is the exact, font-metric-proof answer and it
+ * needs the numeral and the title to be items in one flex row — which needs the
+ * body prose wrapped in an element. It is not: a row is
+ * `<li><strong>Lead.</strong> bare text</li>`, and that bare text node is why the
+ * gutter has to be the row's `padding-left` and the ordinal has to escape it out
+ * of flow. q-and-a could take the flex route because `slotLabelLift` wraps its
+ * answer; doing the same here changes the authoring contract for every inventory
+ * deck, so it is not folded into an alignment fix.
+ * The offset below therefore reproduces the row-anchored placement EXACTLY
+ * (`--sp-2xs` from the row's padding box, less the `--sp-3xs` the row pads down
+ * to the title), so every non-split page renders as it did.
+ * `strong:first-child` IS THE LEAD, and the two arms below are exact complements of
+ * each other on it. A bare `> strong` is not the lead: `- **Lead.** body with a
+ * **bold** word` puts TWO strongs directly under the row, and matching both printed
+ * the ordinal twice — measured on a probe deck, `01` beside the lead and `01` again
+ * beside the mid-sentence bold. Complementing on the same `:first-child` is what
+ * keeps a row from falling through both arms or landing in neither: a row whose only
+ * strong is mid-sentence has no lead, so it takes the row-anchored arm. */
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child::before,
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li:not(:has(> strong:first-child))::before {
+  content: counter(r, decimal-leading-zero); position: absolute;
   width: var(--inv-ord-w);
   font-family: var(--font-label); font-size: var(--fs-h3); font-weight: 600; color: var(--accent);
+}
+/* The <strong> starts at the row's CONTENT edge, so the ordinal reaches back
+ * across the gutter the row reserved for it — one expression, same two tokens. */
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child::before {
+  top: calc(var(--sp-2xs) - var(--sp-3xs)); left: calc(-1 * (var(--inv-ord-w) + var(--inv-ord-gap)));
+}
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li:not(:has(> strong:first-child))::before {
+  top: var(--sp-2xs); left: 0;
 }
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
+}
+/* `relative` makes the LEAD the ordinal's containing block (see the ordinal rule
+ * above); it adds no offset of its own, so nothing moves. Scoped to the lead rather
+ * than folded into the rule above so a mid-sentence bold, which that rule also
+ * styles, does not become a positioning context it has no use for. */
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child {
+  position: relative;
 }
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > blockquote {
   /* Top gap supplied by the ul's bottom-padding above (band has a background). */
@@ -253,19 +304,12 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
   grid-column: 1; grid-row: auto;
 }
 
-/* ── A LONE ROW ON A SPLIT PAGE keeps its ordinal beside its prose ─────────────────
-   The ordinal is ABSOLUTELY positioned at `top: var(--sp-2xs)` — it has to stay out of the
-   row's flow, which stacks a block <strong> title over its body prose (see the gutter note
-   above). That top offset aligns it with the FIRST LINE of a content-height row, which is
-   where the row's text is.
-   One structural element per page breaks that assumption: the row becomes page-tall, the
-   shared lone-member rule centers its prose (`align-content` is live here — the row is a
-   block container, not a flex box), and the out-of-flow ordinal stayed pinned to the top.
-   Measured on a real portrait render: a 926px row with `01` at the top edge and its text
-   ~370px below it, reading as two unrelated marks.
-   So the ordinal takes the same optical center the prose took. Only ever matches a member
-   alone on its page; a row with siblings keeps the first-line alignment. */
-section.inventory.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ul > li:only-child::before {
-  top: 50%;
-  transform: translateY(-50%);
-}
+/* ── A LONE ROW ON A SPLIT PAGE ────────────────────────────────────────────────────
+   Nothing to correct here any more. A row alone on a split page is page-tall and the
+   shared lone-member rule centers its prose (`align-content` is live — the row is a block
+   container, not a flex box); the ordinal now hangs off the <strong> rather than the row
+   box, so it is carried by the same centering instead of having to chase it.
+   This used to be a `top:50%; translateY(-50%)` override, added when the ordinal was
+   row-anchored and stranded ~370px above its own text. Centering the ordinal's BOX only
+   traded one misplacement for another — it put the numeral on the BODY's baseline, 199px
+   (render px, 2x) below the title it indexes. See the ordinal rule above. */
