@@ -770,6 +770,42 @@ slide; G is rejected on 116KB for what CSS does for free.
   of ours, so it takes the DEADLINE arm rather than the synchronous one: the source comes
   back after ~10s rather than on the first tick. **marp-vscode itself remains UNVERIFIED**
   (HARD RULE #23) — see § "The marp-vscode host" below for the routes tried.
+- **The walker's two remaining misses are DECIDED, not open (2026-09-06).** A fence indented
+  more than three spaces inside a list, and a blockquoted fence: the engine draws both, the
+  CLI prints their source. Both stay misses, and the module docblock carries the reasoning —
+  seeing either one means a CommonMark BLOCK model (list content-indent, or a container whose
+  markers have to be re-applied to a 12KB SVG splice), and getting a container model wrong is
+  an OVER-match, which turns text an author wrote as literal into a picture. The conformance
+  corpus budgets that at zero. The deep-list miss also only bites at the SECOND list level: a
+  top-level bullet's content indent is 2, and a fence at 2 already substitutes.
+
+  **But the standing argument for leaving them — "a miss is safe, the author sees their
+  source" — was INCOMPLETE, and only measuring it said so.** It is true of the export and
+  false of the NARRATOR. `createFenceReader` trimmed whitespace and not quote markers, so
+  `> ```mermaid` read as ordinary prose and the definition under it was spoken:
+  `"mermaid. flowchart LR. A[\"Alpha\"] --> B[\"Beta\"]"` into the `.vtt`, on a slide that
+  showed the picture the engine drew. Three surfaces, three different answers, for a shape
+  logged as a safe miss.
+
+  So the two halves are decided differently and deliberately: the SUBSTITUTION still declines
+  a blockquoted fence, and the READER now takes it, because blanking cannot over-match — its
+  own docblock already says over-blanking is the safe direction. The strip runs only outside a
+  fence, or inside one this reader opened within a blockquote, so a `> ``` ` line in a Mermaid
+  definition's body cannot read as a closer and hand the rest of the slide back as prose. The
+  deep-list shape already narrated cleanly, because the reader accepts any indent.
+
+  **Differential, with its method, because a number nobody can re-derive is a claim.** Both
+  narrator entry points (`slideToSpeech` and `narrateChart`), every non-empty block of a
+  `\n---\n` split, every tracked `.md`: **6656 blocks compared, 0 changed, on both.** That
+  zero is not vacuous — 748 of those blocks carry a blockquote line and 747 still narrate, so
+  the corpus does exercise the strip in the over-blanking direction. It carries no real
+  blockquoted fence; the two blocks that a naive scan reports as one (`spec/LFM-1.0.md` and
+  its docs copy) are FOUR-backtick inline code spans, which both readers correctly decline
+  because a ``` fence's info string may not contain a backtick. That is the nearest miss in
+  the tree, and it stays a miss.
+
+  `lib/core/mermaid-fences.js` itself is unchanged apart from its docblock — the substitution
+  logic this branch did not touch.
 - D's first-mount cost is now MEASURED, and it is not free. Same build, one variable — a
   three-slide deck whose third slide is a diagram, against the same deck with prose in its
   place — timing a reload to the preview's first painted `.lattice`, 5 runs each:

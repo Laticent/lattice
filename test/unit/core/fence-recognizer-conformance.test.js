@@ -39,7 +39,7 @@ const assert = require('node:assert/strict');
 
 const { render } = require('../../../lib/engine/index.js');
 const { matchMermaidFences } = require('../../../lib/core/mermaid-fences');
-const { createFenceReader } = require('../../../lib/core/slide-speech');
+const { createFenceReader, slideToSpeech } = require('../../../lib/core/slide-speech');
 const { scanFences } = require('../../../lib/core/fence-languages');
 
 const FRONT = '---\nmarp: true\ntheme: lattice\n---\n\n<!-- _class: diagram -->\n\n## A heading.\n\n';
@@ -210,5 +210,43 @@ describe('fence recognizers — conformance against the engine', () => {
 		assert.equal(matchMermaidFences(deep).length, 0, 'the walker caps indent at three — a MISS, by design');
 		// The grammar scanner allows arbitrary indent too: a false positive costs one 2KB fetch.
 		assert.equal(scannerSees(deep), true);
+	});
+
+	/**
+	 * A BLOCKQUOTED FENCE, ON ALL THREE SURFACES — the miss that was NOT symmetric.
+	 *
+	 * The corpus above records the walker's blockquote miss as safe, on the standing argument
+	 * that a miss shows the author their source. That argument holds for the export and it was
+	 * wrong about narration, which nobody had measured: `createFenceReader` trims whitespace
+	 * and not quote markers, so `> ```mermaid` read as ordinary prose and the whole definition
+	 * under it was SPOKEN — "mermaid. flowchart LR. A[\"Alpha\"] --> B[\"Beta\"]" into the .vtt,
+	 * while the slide showed the picture the engine drew.
+	 *
+	 * So the two halves of this shape are decided differently, and deliberately:
+	 *   · the SUBSTITUTION still declines it — see the module docblock. Splicing an SVG into a
+	 *     blockquote needs every line of it re-prefixed or the quote ends early, and getting
+	 *     the container model wrong is an OVER-match, which this file budgets at zero.
+	 *   · the READER takes it, because blanking cannot over-match. Its own docblock already
+	 *     says over-blanking is the safe direction here.
+	 */
+	test('a blockquoted fence is silent, and an ordinary blockquote still speaks', () => {
+		const quoted = (text) => text.replace(/^(?=.)/gm, '> ');
+		const deck = `## T\n\n${quoted(`\`\`\`mermaid\n${DEF}\`\`\`\n`)}\nAfter the quote.\n`;
+		// The engine DRAWS this one, which is what makes the divergence real rather than moot.
+		assert.match(render(FRONT_PLAIN + deck).html, /class="[^"]*language-mermaid/);
+		const spoken = slideToSpeech(deck);
+		assert.ok(!/flowchart/.test(spoken), `a blockquoted diagram's source must not be narrated: ${spoken}`);
+		assert.match(spoken, /After the quote/, 'and the prose after the quote must survive');
+		// Over-blanking is the failure mode to watch for: a real pull quote still speaks.
+		assert.match(slideToSpeech('## T\n\n> A real pull quote.\n'), /A real pull quote/);
+		// And the strip must not reach INSIDE an ordinary fence, where Mermaid source is
+		// arbitrary text: a `> \`\`\`` line in a definition is not a closer.
+		const trap = `## T\n\n\`\`\`mermaid\nflowchart LR\n> \`\`\`\n  A --> B\n\`\`\`\n\nAfter.\n`;
+		const trapSpoken = slideToSpeech(trap);
+		assert.ok(!/flowchart|A --> B/.test(trapSpoken), `the fence body stays silent: ${trapSpoken}`);
+		assert.match(trapSpoken, /After/);
+		// The substitution still declines the blockquoted fence — the corpus row, restated here
+		// so the asymmetry is asserted rather than merely described.
+		assert.equal(matchMermaidFences(deck).length, 0);
 	});
 });
