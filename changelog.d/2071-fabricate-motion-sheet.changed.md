@@ -14,3 +14,6 @@
 - **Fixed: `base.docs.md` promised animated charts a playback control they never had.** The chart
   path passes `chrome: false`, so there is no pause / play / replay corner control, and a
   reduced-motion viewer sees the finished chart still rather than a reduced build.
+- **Fixed: restoring a workspace backup could overwrite a working motion scene.** A record the
+  backup could not parse was written back without its id, so it replaced whichever scene held the
+  same name — and scenes carry no version history to recover from.
