@@ -277,7 +277,14 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 :root[data-ssr-chrome] #studio-ssr-shell .ssr-band{display:flex;}
 /* Tablet + desktop: the editor column left of the split. Hidden on the phone (one swappable
    pane) and at the Read stop (the editor track collapses to 0). */
-#studio-ssr-shell .ssr-editpane{left:var(--sh-rail,0px);top:var(--sh-pane-t,54px);width:calc(var(--sh-pane-l,0px) - var(--sh-rail,0px));bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
+/* container-type:inline-size because the EDIT toolbar's labels ride the app's own
+   at-36rem / at-34rem container queries, which resolve against the EDITOR PANE. Without a
+   container here those queries would resolve against the nearest ancestor that is one — a
+   different box — and every label would appear or hide at the wrong pane width. */
+#studio-ssr-shell .ssr-editpane{left:var(--sh-rail,0px);top:var(--sh-pane-t,54px);width:calc(var(--sh-pane-l,0px) - var(--sh-rail,0px));bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));container-type:inline-size;}
+/* Slide settings is compact-only in the app: from 1100 up the activity bar owns it, and a
+   duplicate would also break e2e's strict 'Slide settings' locator. */
+@media (min-width:1100px){#studio-ssr-shell .ssr-slide-settings{display:none;}}
 :root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-editpane,:root[data-ssr-read] #studio-ssr-shell .ssr-editpane{display:none;}
 /* The preview pane's own sub-bar. Absent at Read, where the app renders the preview
    chromeless — so --sh-hdr is 0 and the band is dropped. */

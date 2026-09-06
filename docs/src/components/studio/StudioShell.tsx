@@ -3768,9 +3768,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-collapsed=a]/split:hidden group-data-[split-dragging]/split:select-none"
 		>
 			{/* The EDIT toolbar band — HIDDEN on mobile (its actions move to the ⋯ menu below), so
-			    the phone rests at two bands, not three. Desktop/tablet keep it. */}
+			    the phone rests at two bands, not three. Desktop/tablet keep it.
+			    `data-slot="edit-bar"` is the PARITY ROOT: `studio-shell-parity` enumerates controls
+			    inside a list of roots, and this band was in neither side's list — which is how the
+			    pre-paint shell came to draw ONE control here against this row's twelve without any
+			    spec noticing (reported on an iPad Air 4). */}
 			{!mobile && (
-			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+			<div data-slot="edit-bar" className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Edit
 				<span className="flex-1" />
 				{issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)]"><AlertTriangle className="size-3" />{issues} issue{issues > 1 ? 's' : ''}</span>}
@@ -3816,7 +3820,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    row now has more slack than before, and the accessible name still contains the
 				    visible text (WCAG 2.5.3). */}
 				{insertComponents.length > 0 && <Tip label="Add slide"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Add slide"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Add</span></button></Tip>}
-				{reshapeVariants.length > 0 && <ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} />}
+				{/* ALWAYS RENDERED, inert when the slide's component offers no looks. It used to be
+				    gated on `reshapeVariants.length > 0`, which made this toolbar's control set a
+				    function of the ACTIVE SLIDE — the row's shape changed as you arrowed through the
+				    deck, and the pre-paint shell could not draw the row at all without resolving the
+				    boot slide's component against the catalog. `disabled` is what "Fix all issues"
+				    two lines down already does. */}
+				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} />
 				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
@@ -3871,7 +3881,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    debug footer) so it reads as "just the slides" (M3 red-team). Only the
 			    live deck + the "Edit this slide" overlay remain. */}
 			{!previewChromeless && (
-			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+			<div data-slot="preview-bar" className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				{/* The band's own name. It earns its place only where the pane is ONE OF TWO —
 				    the editor sits beside it and the two headers name which is which. On a phone
 				    (<=699px, the single-pane tier) it is redundant with the Preview tab that is

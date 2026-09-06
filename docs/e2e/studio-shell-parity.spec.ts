@@ -18,6 +18,17 @@ import { CHROME, expect, test } from './studio-fixture';
 // controls. It ENUMERATES every visible control in both chromes, keyed by accessible name,
 // and demands the two sets — and every box in them — agree.
 //
+// "BOTH CHROMES" IS A LIST OF ROOTS, AND THAT LIST IS THE REAL COVERAGE — read it as one.
+// This enumerates everything inside the roots passed to READ_CONTROLS, which is not the same
+// as everything the visitor sees, and the difference is exactly how a sixth divergence hid:
+// the EDIT/PREVIEW sub-bars were in neither list, so the shell drew ONE control where the app
+// drew twelve and this spec stayed green through all of it. Reported on an iPad Air 4, both
+// orientations; `studio-instant-shell` missed it too, because the band's BOX was right (45px
+// in both) and that spec compares bands rather than their contents. The roots now include the
+// editor pane and the preview bar. Before adding a control to a band that is NOT listed there,
+// add the band — an enumeration over a hand-picked subtree is a hand-picked list in better
+// clothes.
+//
 // That makes the guard generalize to the thing that will actually happen: someone adds an
 // icon to the header, or moves one, or gates one on a new breakpoint. A control present in
 // the app and absent from the shell fails here on the first run, without anyone remembering
@@ -179,7 +190,7 @@ for (const c of CASES) {
 		// scoped itself to the two chrome ROWS. Every control the rail draws is fixed chrome (the
 		// panels all boot closed), so it belongs in a SET comparison like any other.
 		const shell = (await page.evaluate(
-			READ_CONTROLS(['#studio-ssr-shell .ssr-topbar', '#studio-ssr-shell .ssr-actionbar', '#studio-ssr-shell .ssr-activityrail']),
+			READ_CONTROLS(['#studio-ssr-shell .ssr-topbar', '#studio-ssr-shell .ssr-actionbar', '#studio-ssr-shell .ssr-activityrail', '#studio-ssr-shell [data-slot="edit-bar"]', '#studio-ssr-shell [data-slot="preview-bar"]']),
 		)) as Control[];
 		// A shell that already dismissed reports nothing and would pass every comparison
 		// vacuously — the whole spec rests on catching it up.
@@ -190,7 +201,7 @@ for (const c of CASES) {
 		await page.evaluate(() => document.fonts.ready);
 
 		const app = (await page.evaluate(
-			READ_CONTROLS(['header', 'fieldset[aria-label="Deck actions"]', 'nav[aria-label="Studio panels"]']),
+			READ_CONTROLS(['header', 'fieldset[aria-label="Deck actions"]', 'nav[aria-label="Studio panels"]', '[data-studio-root] [data-slot="edit-bar"]', '[data-studio-root] [data-slot="preview-bar"]']),
 		)) as Control[];
 		expect(app.length, 'no app chrome found — the selectors have drifted').toBeGreaterThan(0);
 
