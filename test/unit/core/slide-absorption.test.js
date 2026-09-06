@@ -539,11 +539,18 @@ test('an init directive is config, and a percent inside a label is not a comment
 	assert.equal(A.diagramMarksOf('graph TD\n A-->B %% note --> more --> yet').edges, 1);
 });
 
-test('a math slide is weighted as visual, not as prose', () => {
-	// `math` is in VISUAL_BUCKETS, so the metric scored it visual while roleOf returned `body` and
-	// weighted it 1.0 instead of visual's 1.16 — one slide in the corpus disagreed with itself.
-	assert.equal(A.roleOf('theorem', 3, 9, '', () => 'math'), 'visual');
-	assert.equal(A.roleOf('piechart', 3, 9, '', () => 'chart'), 'visual');
+test("roleOf mirrors rehearsal.js's bucket list EXACTLY, math included", async () => {
+	// Compared against the real function, not against literals. The literal-only version of this
+	// pin let me change one copy and not the other: `math` is in VISUAL_BUCKETS, and "fixing" the
+	// apparent mismatch here broke the mirror without a single test going red.
+	const rehearsal = await import('../../../docs/src/components/studio/present/rehearsal.js');
+	for (const bucket of ['imagery', 'chart', 'diagram', 'math', 'evidence', 'statement']) {
+		assert.equal(
+			A.roleOf('widget', 3, 9, '', () => bucket),
+			rehearsal.roleOf('widget', 3, 9, '', () => bucket),
+			`the two copies disagree on bucket "${bucket}"`,
+		);
+	}
 });
 
 test('every chrome test is bounded to the slide — no counter consults the page', () => {

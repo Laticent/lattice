@@ -105,7 +105,9 @@ function snippetOf(chunk, title) {
   return rest.trim().slice(0, 140);
 }
 
-function roleOf(comp, idx, total, chunk, bucketOf) {
+// Exported so the absorption kernel's mirror of this function can be pinned against it BY CALL
+// rather than by literals — a literal-only pin let one copy change without the other (math).
+export function roleOf(comp, idx, total, chunk, bucketOf) {
   if (idx === 0) return 'open';
   const lastish = idx === total - 1;
   if (comp === 'closing' || /\b(thank you|questions|q&a|in summary)\b/i.test(chunk)) return 'close';
