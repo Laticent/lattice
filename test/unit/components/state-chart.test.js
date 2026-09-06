@@ -1293,6 +1293,8 @@ describe('dagre re-ranking (fake DOM)', () => {
   // by .toString() and carries no imports); requiring the module installs it.
   require('../../../lib/core/dagre-layout.js');
   const hasDagre = Boolean(globalThis.__latticeDagre);
+  // The Node-side export gate — the other statement of the adoption predicate.
+  const { machineBranches } = require('../../../lib/components/chart/state-chart/state-chart.adoption.js');
   const NODE_H = 40, ROW_GAP = 48, CX = 400;
 
   function run(spec) {
@@ -1736,6 +1738,87 @@ describe('dagre re-ranking (fake DOM)', () => {
       transitions: FAN.transitions.map((t, i) => (i === 1 ? { ...t, event: 'needs\nreview' } : t)) });
     assert.match(svg, /<text class="state-edge-label"[^>]*>(<tspan[^>]*>[^<]*<\/tspan>){2,}/,
       'a two-line event label must emit one tspan per line');
+  });
+
+  // ── the export gate agrees with the pass, machine for machine ──────────────
+  //
+  // `state-chart.adoption.js` decides in NODE whether an export owes the 63.7 KB
+  // dagre IIFE, and the pass decides in the BROWSER whether to use it. They are
+  // two statements of one predicate — the pass is serialised through
+  // `.toString()`, so it carries no imports and cannot call the module, and the
+  // module cannot reach into the closure. Nothing structural binds them, so this
+  // does: one corpus, both answers, asserted equal.
+  //
+  // The pass's answer is read off its OUTPUT, not off a flag it sets — a node
+  // painted anywhere other than its CSS rect means dagre re-ranked. That is the
+  // §9.1 lesson: a test that asks the code what it did rather than what it drew
+  // passes with the defect present.
+  //
+  // The asymmetry is deliberate and is asserted directionally too: a gate that
+  // over-ships costs 22.4 KB of unused engine, a gate that under-ships silently
+  // returns a branching machine to the numbered column.
+  describe('the Node export gate agrees with the pass', () => {
+    const CORPUS = [
+      ['a fan-out', FAN],
+      ['a fan-out, lr', { ...FAN, dir: 'lr' }],
+      ['a plain chain', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a'), e(2, 3, 'b'), e(3, 4, 'c')] }],
+      ['a chain with a self-loop', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a'), e(2, 2, 'retry'), e(2, 3, 'b'), e(3, 4, 'c')] }],
+      // The case a degree-counting gate gets wrong: the back edge gives state 1 a
+      // second in-edge, but dagre reverses it and the ranks stay strictly
+      // increasing. Every shipped gallery chain has one of these.
+      ['a chain with a back edge', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a'), e(2, 3, 'b'), e(3, 4, 'c'), e(4, 1, 'reopen')] }],
+      ['a chain with a skip edge', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, ''), e(2, 3, ''), e(3, 4, ''), e(1, 4, 'skip')] }],
+      ['a states-only chart', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [] }],
+      ['a chain with one orphan state', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, ''), e(2, 3, '')] }],
+      // A JOIN, not a fan-out: no state has two successors, so an out-degree test
+      // says chain — and dagre puts 1 and 2 in one rank.
+      ['a join', { dir: 'tb', nodes: [1, 2, 3].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 3, 'a'), e(2, 3, 'b')] }],
+      ['two disconnected chains', { dir: 'tb', nodes: [1, 2, 3, 4].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a'), e(3, 4, 'b')] }],
+      ['duplicate transitions between one pair', { dir: 'tb', nodes: [1, 2, 3].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'fast'), e(1, 2, 'slow'), e(1, 3, 'defer')] }],
+      ['a terminal-marked state that still has an exit', { dir: 'tb',
+        nodes: [n(1, 'A', 'start'), n(2, 'B', 'terminal'), n(3, 'C')],
+        transitions: [e(1, 2, 'a'), e(2, 3, 'b')] }],
+      ['a two-state machine', { dir: 'tb', nodes: [1, 2].map((i) => n(i, 'S' + i)),
+        transitions: [e(1, 2, 'a')] }],
+    ];
+
+    // The pass re-ranked iff some painted node left its CSS rect.
+    const passReRanked = (spec) => {
+      const { svg, rects } = run(spec);
+      return shapes(svg).some((v) => !Object.values(rects).some(
+        (r) => Math.abs(r.x - v.x) < 0.6 && Math.abs(r.y - v.y) < 0.6));
+    };
+
+    for (const [name, spec] of CORPUS) {
+      test(name, { skip: !hasDagre }, () => {
+        const gate = machineBranches({
+          nodes: spec.nodes.map((nd) => ({ index: nd.index, isTerminal: nd.kind === 'terminal' })),
+          transitions: spec.transitions,
+          dir: spec.dir,
+        });
+        assert.equal(gate, passReRanked(spec),
+          gate
+            ? 'the gate ships dagre for a machine the pass lays out as a column'
+            : 'THE GATE WITHHOLDS DAGRE FROM A MACHINE THE PASS RE-RANKS — the export '
+              + 'would silently fall back to the numbered column');
+      });
+    }
+
+    // At least one of each, or the loop above could pass by agreeing on nothing.
+    test('the corpus exercises both answers', { skip: !hasDagre }, () => {
+      const answers = CORPUS.map(([, spec]) => passReRanked(spec));
+      assert.ok(answers.some(Boolean), 'no machine in the corpus is re-ranked');
+      assert.ok(answers.some((a) => !a), 'no machine in the corpus keeps the column');
+    });
   });
 });
 

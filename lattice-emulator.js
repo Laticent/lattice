@@ -2729,6 +2729,16 @@ ${ENGINE_SCRIPT_OPEN}
 // is the canonical installStateChartLayout from the kernel, serialised so
 // the emulator and lattice-runtime share one implementation.
 const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure'));
+// Whether any machine on any slide would actually be RE-RANKED. Kept separate
+// from `hasStateChart`, which still gates the player's SVG bake below — a chain
+// is drawn by the pass and has to be baked exactly like a fan-out.
+let needsDagre = false;
+if (hasStateChart) {
+  try {
+    const { htmlNeedsDagre } = require('./lib/components/chart/state-chart/state-chart.adoption.js');
+    needsDagre = htmlNeedsDagre(highlightedSlides);
+  } catch (_e) { needsDagre = true; }   // unreadable gate → ship the engine
+}
 let stateChartScript = '';
 if (hasStateChart) {
   try {
@@ -2742,9 +2752,23 @@ if (hasStateChart) {
     // lattice-runtime.min.js (dagre carried twice: inlined AND as this string)
     // against +28KB for the live library alone. Missing bundle (a clone that
     // never ran `npm install`) → '' → the pass falls back to the numbered column.
+    //
+    // GATED ON THE MACHINE, NOT ON THE COMPONENT. dagre's answer is only ever
+    // USED when it puts two nodes in one rank, and zero of the 13 machines in
+    // the shipped galleries branch — so keying this on `hasStateChart` made every
+    // one of them carry 63.7 KB raw / 22.4 KB gzipped for a layout the pass then
+    // discarded. `htmlNeedsDagre` runs the REAL dagre in Node over the real
+    // topology (rank assignment is topology-only, so unit boxes give the same
+    // partition the browser gets with measured ones) and answers TRUE for
+    // anything it cannot read — a false positive ships an unused engine, a false
+    // negative silently drops a branching machine back to the column.
     let dagreIife = '';
-    try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* column fallback */ }
-    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${STATE_CHART_BROWSER_JS}\n</script>`;
+    if (needsDagre) {
+      try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* column fallback */ }
+    }
+    stateChartScript = dagreIife
+      ? `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${STATE_CHART_BROWSER_JS}\n</script>`
+      : `${ENGINE_SCRIPT_OPEN}\n${STATE_CHART_BROWSER_JS}\n</script>`;
   } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
 }
 
