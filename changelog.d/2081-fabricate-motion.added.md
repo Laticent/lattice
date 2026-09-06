@@ -6,6 +6,8 @@
   model connected the bar says so and offers to connect one; pasting still works untouched. A reply
   that gets cut off mid-drawing says that, rather than sending you back to reword a prompt that was
   fine, and pressing Enter to commit a character in an input method no longer submits half a prompt.
+  A drawing the reader cannot use is refused plainly rather than reported as a success — and the
+  words you typed stay in the box, because they are what you would edit and send again.
 - **Added: Fabricate has a fourth faculty — **Motion**, which crafts a drawing that moves.** Bring an
   SVG (paste it, or drop the file), and it finds the drawing's parts, you give each one a beat, and it
   plays. Name it and **Save** puts it on your Library shelf beside your themes, components and

@@ -439,3 +439,36 @@ Three things about it are deliberate:
   resolve to the first one — and it only ever ran against `gallery.md`. It now sweeps every deck in
   `examples/` (164 of them, ~1.1s, all clean), and it fails on the pre-fix deck with the five ids
   named.
+
+
+---
+
+## 12. Describe, verified on the real surface with a mocked model
+
+*Added with the connected-model e2e (`docs/e2e/motion-describe-connected.spec.ts`).*
+
+§5 recorded that Describe's proof gate was still owed. It no longer is, for everything except the
+one link no test can own.
+
+The built docs site has no model connected, so `motion-faculty.spec.ts` could only ever drive the
+`modelReady === false` half — the bar says so and offers Connect. Everything past it was verified in
+unit tests and jsdom, which is a proxy standing under a load-bearing claim.
+
+The new spec intercepts `https://openrouter.ai/**` with `page.route` and seeds a throwaway key.
+That is the shape HARD RULE #24 names as permitted, and the one
+`library-reopen-generate.spec.ts` established: our `OPEN_ROUTER_KEY` is never read, no request
+leaves the browser, and nothing is spent. It drives the real Studio in real Chromium and asserts:
+
+- a chatty, fenced reply becomes three named parts, a receipt, and a plan on the live stage;
+- a reply `intake()` refuses is **not** announced as a success, and keeps the prompt you typed.
+
+The second one earns its place. It is the defect from §11's checker pass, and it fails on the
+pre-fix build in **both** halves — the false "Drew it" and the wiped prompt — measured by reverting
+the ordering, rebuilding the site, and running it. Catching the toast needs a MutationObserver
+installed before the gesture rather than a locator after it: a toast auto-dismisses, so an assertion
+that runs after the refusal has rendered passes against the very code it exists to catch. That was
+not hypothetical either — the first version of the test did exactly that and let the toast through.
+
+**What is still unverified, and always will be by any test here:** whether a real model, asked in
+earnest, returns SVG at the bar this faculty sets. A mock proves the plumbing, not the drawing. That
+is a question for a human with a key and a prompt.
