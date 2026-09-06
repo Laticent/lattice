@@ -368,9 +368,11 @@ the line box and paints nothing.
   `li:nth-child(2)` a border at tall and strip and does not exclude `.spotlight`, so
   the first ledger row kept 0.00px while the rows under it got 8.4px: the same defect,
   surviving where nobody looked, and now inconsistent inside one ledger.
-- Draft four, which ships. **0.12em**, plus a family-gated companion for the row that
-  is ruled at tall and strip. The ceiling is measured with the right instrument — the
-  stage's bottom edge against the deepest descendant box, not the overflow warning:
+- Draft four. **0.12em** on the ruled rows at **every** family, plus a companion for the
+  extra row the reflow rules at tall and strip. The *number* survives; the *scope* does
+  not — draft five cuts it back to two families. The ceiling is measured with the right
+  instrument — the stage's bottom edge against the deepest descendant box, not the
+  overflow warning:
   clean at 0.06 through 0.12em, and **0.13em already cuts 1.13px** at 16:9. Painted
   ink at 600dpi, counting the first antialiased pixel: `École` 2.24px, `Ålborg` 2.40,
   `Ñuñoa` 3.04, `Ärlig` 3.20, `$2.4B` 6.24, `98.6%` 7.04, `£1.1B` 10.56, a bare `2.4`
@@ -381,13 +383,27 @@ the line box and paints nothing.
   capacity ceiling clears them. An earlier draft called this "`Ǻ` touches at 0.00px" and
   named it A-with-ring-above, which is `Å` — a character the same sentence listed as
   clearing.
-- **And the lead is scoped to `wide` and `square` only.** A draft applied it at every
-  family; at `tall`/`strip` that clipped a dense 4-metric portrait deck at `compact` by
-  13.92px, inside the documented `tall.soft: 4`, where the same deck without the lead is
-  clean. The linearized ledger never needed it — measured 6.72px and 6.56px of white
-  under its ruled rows with no lead, for `École` and `Ärlig` alike — because its rows
-  are proportionally taller than the type. Excluding the family leaves it exactly as
-  main, which is the only way to be certain the fix cannot regress it.
+- **Draft five, which ships: the lead is scoped to `wide` and `square` only** — there is
+  no tall companion, and the sentence above describing one is the shape draft four had.
+  Applying the lead at every family clipped a dense 4-metric portrait deck at `compact`,
+  inside the documented `tall.soft: 4`, where the same deck without it is clean.
+
+  **The reason first given for excluding tall was false, and the correction matters more
+  than the rule.** The draft said the linearized ledger "already clears — 6.72px and
+  6.56px of white". It does not. That number came from a scan window starting at 10% of
+  the slide width when the value starts at 5%, so it measured the letters behind the
+  first glyph — the third time on this branch that a window excluded the glyph it was
+  named for. Scanned across the full width: **0.00px above and below**; at tall the
+  accent is in contact with the rule, because `--fs-emphasis` is 68.04px on a 64.64px
+  line box and the ascender overflows its own line box.
+
+  So the tall exclusion is a **trade**, not a clearance: a crossing, or a clip that costs
+  an author's fourth metric. The crossing is largely pre-existing — isolate the row-2
+  border this branch adds and one ruled row still crosses without it — but the branch
+  adds a second ruled row there, so it extends the defect from one row to two. Measured
+  both ways. Fixing it properly is a type-metrics change, not a padding, and it is
+  bigger than this diff; what is NOT acceptable is the draft's claim that it does not
+  exist.
 
 **One tension this leaves open, and it belongs to the reader.** Two-and-a-bit pixels
 under an accented capital is thin, and `Ǻ` gets none. Not a tuning oversight — 0.12em
@@ -594,11 +610,23 @@ probe.
 unreached surfaces did produce something — the spotlight value sits very close to its
 rule once the rail top-aligns — but the maker measured a font-metric box, called it
 ink, and shipped a padding that clipped the component's documented 4-metric ceiling.
-The sixth checker reproduced the pixel scan that disproves the crossing and the
-overflow that the padding causes, and both reverted. Six passes, six sets of real
-findings, five regressions introduced and removed. The lesson the file keeps teaching:
-on this component every claim that was *reasoned* rather than *rendered* has been
-wrong, and the two that survived a raster are the two that were rastered.
+The sixth checker reproduced the pixel scan and the
+overflow the padding causes, and both reverted.
+
+**Four more passes followed, and each found something the one before had missed.** The
+seventh caught that the sixth's correction had gone too far — removing the lead shipped
+a value in contact with its rule, on a scan whose window excluded the `$`. The eighth
+caught the replacement lead shearing a status pill while the export reported the deck
+clean. The ninth caught that lead breaking at the family boundary its sweep had stopped
+at. The tenth caught two things nobody had looked for: ~19 committed PDFs left stale
+across the corpus by the hero recomposition, and this section's own claim that the tall
+ledger clears — measured with the same excluded-glyph window a third time.
+
+**Ten passes, nine with real findings.** The lesson the file keeps teaching, sharpened
+each round: on this component every claim that was *reasoned* rather than *rendered*
+has been wrong — and several that WERE rendered were wrong too, because the instrument
+was pointed at the wrong pixels. A raster is only as good as its window, its resolution
+and its direction.
 
 **What that sweep DID reach.** All 33 palettes at wide — spotlight ink clearance
 identical geometry in every one and no render failure. The palettes carry essentially

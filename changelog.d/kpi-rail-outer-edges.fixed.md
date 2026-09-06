@@ -30,18 +30,21 @@
   scaling it made ordinary figures like `$12,480,000` print over the rail. The column
   ratio is unchanged too — sweeping it showed the rail wraps at the documented density
   at every ratio worth having, so the split was never the lever.
-- **Fixed: a `kpi spotlight` support's value keeps a lead under the rule that heads
-  it.** Top-aligning the rail packed the value against its hairline: an accented
-  capital measured 0.00px of white between rule and ink, at 400dpi and at 1x, and a
-  `$` merged into the line at 1x. The lead is 0.12em on the ruled rows at `wide` and
-  `square` only. The linearized families are left alone: at `tall`/`strip` the ledger's
-  rows are proportionally taller than the type, so the value already clears by 6.6px
-  with no lead, and adding one there clipped a dense 4-metric portrait deck. 0.12em is
-  the ceiling a 4-metric wide slide allows — 0.13em is the first value that pushes the
-  row past the stage (1.13px at 16:9), and the status pill itself starts losing ink at
-  0.14em. The export's overflow warning reports none of it. Measured at 600dpi the lead leaves `École` 2.24px,
-  `Ålborg` 2.40px, `Ärlig` 3.20px, `$2.4B` 6.24px and a bare `2.4` 18.72px. Doubly-marked
-  capitals are a known miss: `Ǻ` (U+01FA, ring *and* acute — not `Å`, which clears)
-  starts its ink 5.60px above the hairline, and eight more like it cross by 1.9–7.9px.
-  That is further than the whole lead, so no value inside the capacity ceiling reaches
-  them.
+- **Fixed: a `kpi spotlight` support's value keeps a lead under the rule that heads it,
+  at `wide` and `square`.** Top-aligning the rail packed the value against its hairline —
+  an accented capital measured 0.00px of white between rule and ink, at 400dpi and at 1x,
+  and a `$` merged into the line at 1x. The lead is `0.12em` on the ruled rows. That is
+  the ceiling a 4-metric slide allows: 0.13em is the first value that pushes the row past
+  the stage (1.13px at 16:9) and the status pill starts losing ink at 0.14em, none of
+  which the export's overflow warning reports. Measured at 600dpi the lead leaves `École`
+  2.24px, `Ålborg` 2.40px, `Ärlig` 3.20px, `$2.4B` 6.24px and a bare `2.4` 18.72px.
+  Doubly-marked capitals stay a known miss: `Ǻ` (U+01FA, ring *and* acute — not `Å`,
+  which clears) starts its ink 5.60px above the hairline, and eight more cross by
+  1.9–7.9px, further than the whole lead reaches.
+- **Known, not fixed: at `tall` and `strip` the value's accent touches the rule above
+  it.** Measured 0.00px across the full ledger width. No lead is applied there because
+  one clips a dense 4-metric portrait deck inside the documented `tall.soft: 4` — so the
+  choice is a crossing or a clip, and the crossing keeps the author's fourth metric. The
+  crossing is largely pre-existing: one ruled row crosses without the row-2 separator
+  this change adds, and this change takes it from one row to two. Closing it needs a
+  type-metrics change (the value's line box or its size), not a padding.

@@ -833,17 +833,36 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
 section.kpi.spotlight:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:nth-child(n+3) > strong {
   padding-top: 0.12em;
 }
-/* THE LINEARISED FAMILIES GET NO LEAD, AND THEY DO NOT NEED ONE. At tall and strip the
- * rail becomes one ledger whose rows are proportionally taller than the type in them,
- * so the value already clears: measured 6.72px and 6.56px of painted white under the
- * two ruled rows with no lead at all, for `École` and for `Ärlig` alike. Adding the
- * lead there bought nothing and cost a slide: on a dense 4-metric portrait deck at
- * `compact` — inside the documented `tall.soft: 4` — it pushed the ledger 13.92px past
- * the stage and `overflow: clip` sheared the last row's pills, where the same deck
- * without the lead is clean at 0.00px. Every ruled row is led at tall (not just rows
- * 3+) and the type is larger, so the cost there is roughly triple what it is at wide.
- * Excluding the family leaves it byte-for-byte as main, which is the only way to be
- * sure the fix cannot regress it. */
+/* THE LINEARIZED FAMILIES GET NO LEAD, AND IT IS A TRADE, NOT A CLEARANCE.
+ *
+ * A draft of this comment claimed the tall ledger "already clears — measured 6.72px and
+ * 6.56px of painted white". That number was wrong, and wrong the same way twice before
+ * it: the scan window started at 10% of the slide width while the value starts at 5%,
+ * so it measured the letters BEHIND the first glyph. Scanned across the full ledger
+ * width the answer is 0.00px above and below — at tall the accent is IN CONTACT with
+ * the rule. `--fs-emphasis` is 68.04px on a 64.64px line box there, so the ascender
+ * overflows its own line box and any rule above it is crossed.
+ *
+ * WHY NO LEAD ANYWAY. Adding one costs a slide: on a dense 4-metric portrait deck at
+ * `compact`, inside the documented `tall.soft: 4`, it pushes the ledger past the stage
+ * and `overflow: clip` shears the last row's pills, where the same deck without it is
+ * clean. So the choice at tall is a crossing or a clip, and the crossing is the one
+ * that keeps the author's fourth metric.
+ *
+ * WHAT THIS BRANCH OWES, STATED PLAINLY. The crossing is PRE-EXISTING — remove the
+ * row-2 border this file adds below and one ruled row still crosses on main's geometry
+ * — but this branch adds a second ruled row at tall, so it extends the defect by one
+ * row. Isolated and measured both ways: 1 crossing without that border, 2 with it.
+ * Fixing it properly is a type-metrics change (the line box, or the value's size), not
+ * a padding, and it is bigger than this diff.
+ *
+ * Scope note, since a draft got this wrong too: the ruled rows at tall are `n+2` (the
+ * reflow below adds the row-2 separator), while the lead selector is `n+3`. So it is
+ * NOT true that "every ruled row is led at tall"; row 2 would be ruled and unled. The
+ * cost of leading tall measures 1.70x wide, not the "roughly triple" a draft asserted.
+ * And excluding the family does not leave tall "byte-for-byte as main" — this branch
+ * changes tall deliberately (outer edge off the hero, separator onto row 2). It leaves
+ * only the LEAD's contribution at zero there, which is the narrower true claim. */
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li:first-child {
   padding-top: 0.15625cqi;
   font-size: var(--fs-body);
@@ -865,7 +884,7 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
  * Every kpi variant (briefing, ops, spotlight, trajectory) places metric <li>s
  * on an explicit grid — a hero spanning rows + supports in a side column, or a
  * 2×2 matrix. In a TALL-or-narrower box that side-by-side composition is
- * cramped. Switching the metric list to a single flex COLUMN linearises every
+ * cramped. Switching the metric list to a single flex COLUMN linearizes every
  * variant at once: flex ignores the children's grid-column / grid-row, so the
  * hero stacks on top and the supports follow, full width — no per-variant
  * override. Keyed on the deck's `data-family` stamp, so it fires on any tall or strip
@@ -874,7 +893,7 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
  *
  * TALL AND STRIP ONLY — square keeps the hero grid. The rule was authored to
  * include square, but square never matched (#1218) so nobody saw the result:
- * linearising flattens `kpi target` into a uniform ledger where the hero number
+ * linearizing flattens `kpi target` into a uniform ledger where the hero number
  * is barely larger than its supports, which is the one thing the layout exists
  * to do. Square is 1080px wide — the same inline size as portrait — but it does
  * not need the space: the hero card + rail fits with room to spare (rendered and
@@ -909,12 +928,12 @@ section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage
 }
 /* Demote the hero CARD to the lead row of a uniform ledger. The wide-grid
  * briefing hero is a full-width accent box with the supports in its right
- * column; linearised, that box keeps a dead right half AND eats the vertical
+ * column; linearized, that box keeps a dead right half AND eats the vertical
  * room a short square/portrait frame needs — so the 4th metric clipped. As a
  * hairline lead row (bigger number, no box) all four metrics read as one ledger
  * and fit. Scoped away from ops/compliance/trajectory, which are already uniform
  * grids/cards. (0,3,3) ties the briefing hero rules and wins on source order. */
-/* Linearised, the hero is the lead ROW of a ledger rather than a panel, so the
+/* Linearized, the hero is the lead ROW of a ledger rather than a panel, so the
  * centering the wide composition adds has to come back off — a ledger row reads from
  * the left like every row under it. */
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) {
@@ -924,7 +943,7 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
   text-align: left;
   padding: var(--sp-sm) 0;
 }
-/* Linearised, the hero is the LEAD ROW of one ledger rather than a card beside a
+/* Linearized, the hero is the LEAD ROW of one ledger rather than a card beside a
  * rail — so the boundaries move down by one. The demoted hero loses the heavy
  * border-top it used to carry (it was the ledger's outer top edge, the same thing
  * the rail rules above just dropped), and the first support gains the separator
@@ -942,7 +961,7 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
 /* …and the hero's PILL LINE has to come back off center too. The wide composition
  * centers it with `justify-content` (it is a flex line — `text-align` cannot reach
  * it), and resetting `text-align`/`align-items` on the row above does NOT undo that:
- * the declaration is on the sub-bullet, not the row. Without this the linearised
+ * the declaration is on the sub-bullet, not the row. Without this the linearized
  * ledger reads with its lead row's status line centered and every row under it
  * left-aligned — measured 264.2px of left gap against 0 on the next row. The same
  * two-alignments-in-one-ledger defect the wide fix exists to remove, one family over.

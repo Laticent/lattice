@@ -70,19 +70,22 @@ Five defects in one component, found by measuring rather than looking. The suppo
 ---
 
 <!-- _class: kpi spotlight -->
-<!-- _footer: "spotlight — every support sits under the rule that heads it" -->
+<!-- _footer: "spotlight — four metrics, the documented ceiling; rows 3 and 4 carry the lead" -->
 
-## spotlight gives one tile double width.
+## spotlight promotes one number and rails the rest.
 
-1. 1
-   - tile promoted
-   - the headline `Spotlight`
-2. 2
-   - support tiles
-   - beside it `On plan`
-3. 0
-   - competing heroes
-   - one only `Rule`
+1. $2.4B
+   - Total revenue
+   - target $2.2B · +9% `On plan` `Board`
+2. 42%
+   - Gross margin
+   - +2pp QoQ `On plan` `Audit`
+3. $1.1B
+   - Cash & equivalents
+   - +$180M QoQ `On plan` `Investor`
+4. $180M
+   - Free cash flow
+   - +$44M QoQ `On plan` `Treasury`
 
 ---
 
@@ -111,3 +114,14 @@ Five defects in one component, found by measuring rather than looking. The suppo
 - **Spotlight** supports stranded their own hairline 37.3px above the number it introduces. Briefing already fixed this, at one count, explicitly excluding spotlight.
 - **Trajectory** reserved a fourth 270px track, 23% of the stage, that a three-metric slide never fills.
 - **One number was not a defect.** Trajectory's cards center their content 110.2px below a categorical stripe, which is a card edge rather than a rule heading a number — the same composition `ops` uses. Geometry alone could not tell those two apart.
+
+---
+
+<!-- _class: content -->
+
+## The lead is a ceiling, not a taste.
+
+- **`0.12em` is the most the rail carries with four metrics still fitting.** At 0.13em the slide above pushes 1.13px past the stage; at 0.14em the pill loses ink.
+- **The overflow warning reports neither.** `overflow: clip` shears in silence. What sized this was the stage's bottom edge against the deepest descendant box.
+- **`tall` and `strip` get no lead — a trade, not a clearance.** There the accent touches its rule, and a lead clips a dense portrait deck inside `tall.soft: 4`.
+- Family is set once in front matter, so no one deck shows both; `examples/adaptive-sizing.md` renders this rail linearized.
