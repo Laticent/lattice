@@ -24,9 +24,9 @@
 @import './tailwind.css';
 
 :root {
-	--font-display: 'Playfair Display', Georgia, serif;
-	--font-body: 'Outfit', system-ui, sans-serif;
-	--font-mono: 'JetBrains Mono', 'Courier New', monospace;
+	--font-display: 'Playfair Display', 'Playfair Fallback', Georgia, serif;
+	--font-body: 'Outfit', 'Outfit Fallback', system-ui, sans-serif;
+	--font-mono: 'JetBrains Mono', 'JetBrains Mono Fallback', 'Courier New', monospace;
 
 	/* Fallback palette (indaco light) — overridden by the generated blocks
 	 * once data-palette / data-mode are set on <html>. */

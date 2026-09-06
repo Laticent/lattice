@@ -112,8 +112,8 @@
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) + 4px);
 
-	--font-sans: 'Outfit', system-ui, sans-serif;
-	--font-mono: 'JetBrains Mono', 'Courier New', monospace;
+	--font-sans: 'Outfit', 'Outfit Fallback', system-ui, sans-serif;
+	--font-mono: 'JetBrains Mono', 'JetBrains Mono Fallback', 'Courier New', monospace;
 }
 
 /* ── Scoped baseline for shadcn islands (replaces global Preflight) ──────────

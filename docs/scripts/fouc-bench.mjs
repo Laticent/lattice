@@ -32,33 +32,15 @@
 //
 // See engineering/decisions/2026-08-16-studio-fouc-stylesheet-order.md.
 
-import { readFile, stat } from 'node:fs/promises';
-import http from 'node:http';
-import { dirname, extname, join, normalize } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import zlib from 'node:zlib';
+import { serveModeled } from './lib/modeled-host.mjs';
 
 const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..');
 // `--dist` exists so a BEFORE and an AFTER can come from the same instrument: point it
 // at a second build (e.g. one produced from `main`) and the two numbers are comparable
 // by construction rather than by assertion.
 const DEFAULT_DIST = join(DOCS, 'dist');
-
-const TYPES = {
-	'.html': 'text/html',
-	'.css': 'text/css',
-	'.js': 'text/javascript',
-	'.mjs': 'text/javascript',
-	'.json': 'application/json',
-	'.svg': 'image/svg+xml',
-	'.png': 'image/png',
-	'.jpg': 'image/jpeg',
-	'.webp': 'image/webp',
-	'.woff2': 'font/woff2',
-	'.webmanifest': 'application/manifest+json',
-	'.ico': 'image/x-icon',
-};
-const COMPRESSIBLE = /\.(?:html|css|js|mjs|json|svg|webmanifest)$/;
 
 function parseArgs(argv) {
 	const o = { url: '/studio/', runs: 3, latency: 200, kbps: 1200, engine: 'firefox', json: false, dist: DEFAULT_DIST };
@@ -73,46 +55,6 @@ function parseArgs(argv) {
 		else if (a === '--json') o.json = true;
 	}
 	return o;
-}
-
-/** A static host that models a network: per-response latency, a byte-rate cap, and gzip. */
-function serve({ latency, kbps, dist }) {
-	const bps = (kbps * 1000) / 8;
-	const server = http.createServer(async (req, res) => {
-		// `normalize` before joining: a `..` in the request path must not escape DIST.
-		const rel = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^(\.\.[/\\])+/, '');
-		let file = join(dist, rel);
-		try {
-			if ((await stat(file)).isDirectory()) file = join(file, 'index.html');
-		} catch {
-			/* fall through to the read, which reports the 404 */
-		}
-		let body;
-		try {
-			body = await readFile(file);
-		} catch {
-			res.writeHead(404).end('not found');
-			return;
-		}
-		const gzip = COMPRESSIBLE.test(file);
-		const out = gzip ? zlib.gzipSync(body) : body;
-		const headers = { 'content-type': TYPES[extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' };
-		if (gzip) headers['content-encoding'] = 'gzip';
-		setTimeout(() => {
-			res.writeHead(200, headers);
-			const CHUNK = 16384;
-			let i = 0;
-			const tick = () => {
-				if (i >= out.length) return res.end();
-				const slice = out.subarray(i, i + CHUNK);
-				i += CHUNK;
-				res.write(slice);
-				setTimeout(tick, (slice.length / bps) * 1000);
-			};
-			tick();
-		}, latency);
-	});
-	return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port })));
 }
 
 /** One reload, warm cache → { fcp, sheet } in ms, or nulls when the page reported neither. */
@@ -138,7 +80,7 @@ const median = (xs) => xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2
 
 async function main() {
 	const o = parseArgs(process.argv.slice(2));
-	const { server, port } = await serve(o);
+	const { server, port } = await serveModeled(o);
 	// Imported here, not at module scope: the bench is only runnable where Playwright's
 	// browsers are installed, and a missing browser should fail with its own message
 	// rather than at import time.

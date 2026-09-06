@@ -182,7 +182,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					</a>
 					<button type="button" aria-label="Workspace launcher" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 sm:gap-2 sm:px-1.5">
 						{/* The wordmark rides the launcher only at !compact. */}
-						<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] min-[1100px]:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
+						<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] min-[1100px]:inline" style={{ fontFamily: "'Playfair Display', 'Playfair Fallback', Georgia, serif" }}>Lattice</span>
 						<ChevronDown className="size-4 text-muted-foreground" />
 					</button>
 				</div>

@@ -18,9 +18,15 @@
 // Also carries <PwaHead> (manifest + service-worker registration): Starlight
 // renders this override inside <head> on every docs page, making it the docs-
 // zone counterpart of <ResourceHints> on the standalone routes.
+// The webfont preloads ride the same override for the same reason PwaHead does:
+// the docs zone never renders site/ResourceHints.astro, and under
+// `font-display: optional` a page without a preload never reaches its own
+// typeface on a first visit. See site/FontPreloads.astro.
+import FontPreloads from './site/FontPreloads.astro';
 import PwaHead from './site/PwaHead.astro';
 ---
 
+<FontPreloads />
 <PwaHead />
 
 <script is:inline>

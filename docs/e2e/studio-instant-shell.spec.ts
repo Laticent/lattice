@@ -263,8 +263,15 @@ for (const c of CASES) {
 			// jump; the seed now re-runs on resize, and this is the only thing that can prove it.
 			await page.setViewportSize({ width: c.rotateTo.w, height: c.rotateTo.h });
 		}
-		// Webfonts swap in with `font-display: swap`, moving the content-sized controls while
-		// they do. Measuring inside that window is the difference between a guard and a flake.
+		// WEBFONTS NO LONGER SWAP IN, so this gate means something different than it used to.
+		// `fonts.css` ships `font-display: optional`: the browser applies a face only if it
+		// arrives inside its ~100ms block period, and otherwise keeps the fallback for the whole
+		// document. Under the old `swap` this wait was for the SECOND of two font states, because
+		// measuring between them moved every content-sized control. There is now one state
+		// per load, and `document.fonts.ready` no longer means "on the final font" — it means the
+		// decision has been made either way, which is what this actually needs. The wait stays:
+		// the metric-adjusted fallbacks are close, not identical, so the two surfaces still have
+		// to be compared in the SAME state.
 		await page.evaluate(() => document.fonts.ready);
 
 		const shell = await page.evaluate(READ_SHELL);
@@ -746,4 +753,132 @@ test('the app never lays out the default share when a dragged split is stored @s
 		.toBe(expected);
 	const widths = await page.evaluate(() => (window as unknown as { __editorWidths: number[] }).__editorWidths);
 	expect(widths, 'the app laid out a share it then corrected — the split restore is back to a post-paint write').toEqual([expected]);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE TWO-STAGE HAND-OFF (2026-09-06).
+//
+// The shell stands in for two things that become ready at different times — the app's
+// chrome, ready when React commits, and the live preview, ready when the engine renders a
+// slide — and both used to wait on the second. So the app's finished chrome sat under an
+// opaque cover, muted to .62, for 672ms on a fast path and 3463ms at 1200kbps, then
+// cross-faded to 100%: the reported flicker.
+//
+// Neither case below is covered by anything else here. The specs above compare the shell's
+// bands and controls to the app's, at rest, which is a question about GEOMETRY and is
+// deliberately blind to when. A shell that matches the app perfectly and then sits on top of
+// it for half a second passes every one of them. `handoff-bench.mjs` measures the timing, but
+// it is an on-demand bench a human runs by hand, so nothing in CI would notice the reveal
+// regressing.
+test('@smoke stage 1 stops the shell painting once the app has committed, without taking its boxes away', async ({ page }) => {
+	// Hold the engine so the preview never renders: that pins the window this is about — the
+	// app's chrome is up, the live preview is not, and the old code covered both until the
+	// second one arrived.
+	await page.route('**/lattice-playground.js', async (route) => {
+		await new Promise((r) => setTimeout(r, 2500));
+		await route.continue();
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto('/studio/', { waitUntil: 'commit' });
+	const shell = page.locator('#studio-ssr-shell');
+	await shell.locator('.ssr-topbar').waitFor({ state: 'attached', timeout: 45_000 });
+	await expect
+		.poll(async () => shell.evaluate((el: HTMLElement) => el.dataset.handoff ?? null).catch(() => 'gone'), {
+			timeout: 45_000,
+			message: 'the app never handed the chrome over — stage 1 did not run',
+		})
+		.toBe('chrome');
+
+	// THE PIXELS ARE GONE. Both the muted duplicate chrome and the opaque ground it sat on:
+	// either one left behind is the visitor still looking at a stand-in of a UI that is ready.
+	const painting = await shell.evaluate((el: HTMLElement) => {
+		const bg = getComputedStyle(el).backgroundColor;
+		const opaqueGround = bg !== 'transparent' && !/^rgba\(.*,\s*0\)$/.test(bg);
+		const visible = [...el.querySelectorAll('.ssr-chrome, .ssr-band')].filter((n) => {
+			const st = getComputedStyle(n);
+			if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) return false;
+			const r = n.getBoundingClientRect();
+			return r.width > 0 && r.height > 0;
+		}).length;
+		return { opaqueGround, visible };
+	});
+	expect(painting.opaqueGround, 'the shell still has an opaque ground over the live app').toBe(false);
+	expect(painting.visible, 'the shell is still painting chrome over the app that replaced it').toBe(0);
+
+	// THE BOXES ARE NOT. `opacity: 0` rather than `display:none`, removal, or
+	// `visibility:hidden` — because the three specs that read this shell (this one,
+	// studio-shell-parity, studio-reserved-slots) hold the ENGINE and not the island, so a
+	// teardown that removes the nodes leaves them racing hydration. With the woff2 responses
+	// delayed 900ms the parity spec read 14 controls against the app's 25 and reported eleven
+	// missing controls that are in fact drawn. This asserts the property those specs depend on.
+	const boxes = await shell.evaluate(
+		(el: HTMLElement) => [...el.querySelectorAll('.ssr-chrome, .ssr-band')].filter((n) => n.getBoundingClientRect().width > 0).length,
+	);
+	expect(boxes, 'stage 1 took the shell chrome out of layout — the specs that enumerate it are now racing hydration').toBeGreaterThan(0);
+
+	// And the app's own chrome is the thing on screen, at full strength.
+	await expect(page.locator('header').first()).toBeVisible();
+});
+
+// The Nacre box survives stage 1 on purpose — the preview genuinely is not ready — but it is
+// frozen at the rect `seedGeometry()` computed before hydration, and that function re-runs on
+// resize and orientationchange only. A posture change fires neither. So once stage 1 makes the
+// app's chrome VISIBLE and therefore clickable-on-purpose, a visitor who changes the layout
+// used to move the app's preview box out from under a stand-in that stayed put: two Nacre
+// rectangles at two geometries, measured at 683,251,737,415 against the app's 49,75,1343,755.
+test('changing the layout during the hand-off does not strand the shell over the app', async ({ page }) => {
+	// The engine hold has to OUTLAST the assertion, or this spec proves nothing: stage 2
+	// dismisses the shell on the preview's first render, so a hold shorter than the wait below
+	// lets the ordinary path clear the shell and the guard is never exercised. Measured — with
+	// the guard's `dismissSsrShell()` removed and a 9s hold against a 10s wait, this test still
+	// passed, in 13.0s against the guard's 4.8s. It was reading the engine, not the guard.
+	const HOLD = 60_000;
+	await page.route('**/lattice-playground.js', async (route) => {
+		await new Promise((r) => setTimeout(r, HOLD));
+		await route.continue();
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto('/studio/', { waitUntil: 'commit' });
+	const shell = page.locator('#studio-ssr-shell');
+	await shell.locator('.ssr-topbar').waitFor({ state: 'attached', timeout: 45_000 });
+	await expect
+		.poll(async () => shell.evaluate((el: HTMLElement) => el.dataset.handoff ?? null).catch(() => 'gone'), { timeout: 45_000 })
+		.toBe('chrome');
+
+	// Read is the cheapest layout change that moves the preview box the whole way: the editor
+	// track collapses and the preview goes full-bleed.
+	await page.getByRole('button', { name: /^Read/ }).first().click();
+
+	// The stand-in must be GONE, not merely still correct: the app's own Nacre loader lives in
+	// its preview box and follows the layout, so once the layout has moved there is nothing for
+	// the shell's copy to be right about. 4s — comfortably above the guard's own 400ms settle
+	// and far below both the held engine and the 8s dismissal backstop, so neither of those can
+	// satisfy it.
+	await expect(shell).toHaveCount(0, { timeout: 4_000 });
+});
+
+// COLLAPSING THE PREVIEW is the same defect one click further, and it is the one a change
+// detector misses. Read MOVES the app's preview box, which anything watching for a change can
+// see; Collapse preview takes it to 0x0, and a guard that treats a sub-40px box as "no reading"
+// (the same floor that stops it arming on the 40x22.5 placeholder during boot) skips the
+// comparison and calls that agreement. Measured before the fix: the app's box at 0,0,0,0 with
+// the stand-in still painted at 683,251,737,415 over the middle of the editor, held there until
+// the 8s backstop. A collapsed pane is not the absence of a reading — it is the most complete
+// disagreement there is.
+test('collapsing the preview during the hand-off does not strand the shell over the editor', async ({ page }) => {
+	const HOLD = 60_000;
+	await page.route('**/lattice-playground.js', async (route) => {
+		await new Promise((r) => setTimeout(r, HOLD));
+		await route.continue();
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto('/studio/', { waitUntil: 'commit' });
+	const shell = page.locator('#studio-ssr-shell');
+	await shell.locator('.ssr-topbar').waitFor({ state: 'attached', timeout: 45_000 });
+	await expect
+		.poll(async () => shell.evaluate((el: HTMLElement) => el.dataset.handoff ?? null).catch(() => 'gone'), { timeout: 45_000 })
+		.toBe('chrome');
+
+	await page.getByRole('button', { name: /Collapse preview/i }).first().click();
+	await expect(shell).toHaveCount(0, { timeout: 4_000 });
 });

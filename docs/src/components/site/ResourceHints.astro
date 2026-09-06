@@ -1,13 +1,20 @@
 ---
 // Resource hints emitted high in <head> on every page. The webfonts (Playfair
-// Display, Outfit, JetBrains Mono) are now SELF-HOSTED (fonts.css → the vendored
+// Display, Outfit, JetBrains Mono) are SELF-HOSTED (fonts.css → the vendored
 // woff2), so there is no third-party font host to preconnect to and no
-// render-blocking Google-Fonts @import on the critical path. The `@font-face`
-// faces load non-blocking with `font-display: swap`.
+// render-blocking Google-Fonts @import on the critical path.
+//
+// The three webfont preloads are mounted here for the standalone routes; the
+// Starlight docs zone mounts the same component from ThemeProvider.astro. They
+// became load-bearing when fonts.css moved to `font-display: optional` — see
+// site/FontPreloads.astro for why, and for why the two must move together.
+import FontPreloads from './FontPreloads.astro';
 import PerfOverlay from './PerfOverlay.astro';
 import StorageOverlay from './StorageOverlay.astro';
 import PwaHead from './PwaHead.astro';
 ---
+
+<FontPreloads />
 
 {/* Web-app manifest + service-worker registration (docs pages get the same
     via the ThemeProvider override). */}
