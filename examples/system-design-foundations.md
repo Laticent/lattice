@@ -2337,7 +2337,7 @@ For each, say what the page shows and which containment pattern makes it do that
 2. Recommendations
    - Drop the strip and render. A breaker opens after the first few slow calls, so every other page does not pay two seconds to learn the same thing.
 3. Reviews
-   - Serve the last good copy from behind the same breaker. Read paths outlive write paths, and stale is an answer where a timeout is not.
+   - Serve the last good copy from behind a breaker of its own. Read paths outlive write paths, and stale is an answer where a timeout is not.
 
 ---
 
