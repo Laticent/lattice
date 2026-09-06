@@ -348,9 +348,10 @@ one span and the wrong one for ninety.
 escape from, so `` `\[x]` `` renders as `\[x]` rather than being quietly rewritten — the
 register never edits your text.
 
-**Turning it off in a RAW MARP deck** — one Lattice never renders, previewed by the Marp
-extension or `marp-cli` alone — uses Marp's own global `class:` directive, because nothing
-of ours can read front matter there:
+**Turning it off in a MARP-KIT deck** — one the Marp extension previews, with the kit's
+`lattice-runtime.min.js` drawing the pills — uses Marp's own global `class:` directive. The
+extension's webview sandbox blocks the runtime from reading the deck's `.md`, so the class
+is the one signal that always arrives:
 
 ```yaml
 ---
@@ -376,6 +377,16 @@ So on the raw-Marp route, any slide with its own `_class:` must name
 `inline-code-literal` alongside its other tokens. A Lattice deck never hits this: the
 engine appends the register's token to the class list it builds, so a per-slide `_class:`
 composes with it instead of competing.
+
+**One known limit: a PRE-BAKE export served over http(s).** An `.html` sitting beside its
+`.md` with no baked front-matter block has to fetch that file, and the pills are drawn
+before the answer arrives — so the register does not take effect there. Every current path
+is fine: the engine and the CLI read the source directly, the Studio renders through the
+engine first, and every export bakes its front matter into the document. If you hit this,
+re-export. Making the runtime wait instead was tried and reverted: it cost every other deck
+a full extra transform pass (measured 1 to 3 on a 40-slide deck carrying no register at
+all) and needed a wall-clock guess that produced a wrong render at 3.2s, then at 10.2s once
+the guess was enlarged.
 
 **Per slide, on a Lattice deck**, use the token as an ordinary slide modifier —
 `<!-- _class: inline-code-literal -->` turns the grammar off for that slide and leaves the

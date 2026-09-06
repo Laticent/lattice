@@ -108,14 +108,31 @@ const fs = require('node:fs');
 const MarkdownIt = require('markdown-it');
 const RUNTIME_BUNDLE = path.join(ROOT, 'dist', 'lattice-runtime.js');
 
-/** Boot the bundle over marp-shaped markup, with `fetch` answering the deck source. */
-function renderRuntime(deckSource, markup) {
+/** Boot the bundle with the deck's front matter BAKED into the document, as an export does. */
+function renderRuntimeBaked(deckSource, markup) {
+  const { frontMatterBlock } = require(path.join(ROOT, 'lib/core/deck-front-matter.js'));
+  const block = frontMatterBlock(deckSource);
+  assert.ok(block, 'anti-vacuity: the baked block must be non-empty, or this is the fetch path in disguise');
+  return bootRuntime(`${markup}${block}`, () => Promise.reject(new Error('baked: no fetch expected')));
+}
+
+/** Boot the bundle with NO baked block, so it falls back to fetching the sibling `.md`. */
+function renderRuntimeFetched(deckSource, markup) {
+  return bootRuntime(markup, () => Promise.resolve({ ok: true, text: () => Promise.resolve(deckSource) }));
+}
+
+function bootRuntime(body, fetchImpl) {
+  return renderRuntime(body, fetchImpl);
+}
+
+/** Boot the bundle over marp-shaped markup with a supplied `fetch`. */
+function renderRuntime(markup, fetchImpl) {
   const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body>${markup}</body></html>`, {
     url: 'https://example.test/deck.html',
     runScripts: 'dangerously',
     pretendToBeVisual: true,
   });
-  dom.window.fetch = () => Promise.resolve({ ok: true, text: () => Promise.resolve(deckSource) });
+  dom.window.fetch = fetchImpl;
   const el = dom.window.document.createElement('script');
   el.textContent = fs.readFileSync(RUNTIME_BUNDLE, 'utf8');
   dom.window.document.body.appendChild(el);
@@ -124,19 +141,38 @@ function renderRuntime(deckSource, markup) {
 
 const marpShaped = () => `<section class="content">${new MarkdownIt().render(BODY)}</section>`;
 
-test('the RUNTIME honors inline-code: literal, with the engine nowhere in the picture', async () => {
-  const off = counts(await renderRuntime(deck(['inline-code: literal']), marpShaped()));
-  const on = counts(await renderRuntime(deck([]), marpShaped()));
+test('the RUNTIME honors inline-code: literal on the BAKED path, engine nowhere in the picture', async () => {
+  // BAKED, not fetched, and the distinction is the whole design. Every path that carries a
+  // deck today has the front matter here synchronously: the engine reads the source, the
+  // Studio renders through the engine first, and an export BAKES its front matter into the
+  // document (lib/core/marp-bundle.js). This arm is that third one — the runtime as the
+  // only implementation, reading a baked block.
+  const off = counts(await renderRuntimeBaked(deck(['inline-code: literal']), marpShaped()));
+  const on = counts(await renderRuntimeBaked(deck([]), marpShaped()));
 
-  // THE CONTROL FIRST — the same bundle, same markup, register absent. Without this the
-  // arm below passes on a runtime that draws nothing at all.
   assert.equal(on.pills, 1, 'control: the grammar must run when the deck does not turn it off');
   assert.equal(on.marks, 1);
-
   assert.equal(off.pills, 0);
   assert.equal(off.marks, 0);
-  // `\[y]` is not a valid escape target, so it survives with its backslash on both paths.
   assert.deepEqual(off.codes, ['{ALPHA}:c2', '[x]', '\\[y]', 'getUserId()']);
+});
+
+test('the fetch fallback draws first — a KNOWN limit of a pre-bake export, pinned deliberately', async () => {
+  // An `.html` served beside its `.md` with no baked block is the legacy shape this file's
+  // `deckFrontMatterSource` docblock describes: "a deck whose export predates the bake".
+  // There the answer arrives after first paint, and this transform replaces the `<code>`
+  // before it can know — so the register does NOT take effect.
+  //
+  // THIS IS PINNED AS A LIMIT RATHER THAN FIXED, and the measurement is the reason. Making
+  // the runtime wait for that answer cost EVERY other path a full extra transform pass —
+  // 1 pass to 3 on a 40-slide deck with no register in it, 61-170ms to 769-1078ms — and
+  // needed a wall-clock deadline that produced a wrong render at 3.2s, then at 10.2s once
+  // the guess was enlarged. Re-exporting bakes the front matter and the deck is correct.
+  //
+  // If this arm ever goes GREEN, someone has made the fetch path work: delete the arm and
+  // the caveat in base.registers.docs.md rather than "fixing" the test.
+  const off = counts(await renderRuntimeFetched(deck(['inline-code: literal']), marpShaped()));
+  assert.equal(off.pills, 1, 'the pre-bake fetch path draws before the register arrives');
 });
 
 test('the runtime reaches the register through its own deck-register mirror', async () => {
@@ -144,7 +180,7 @@ test('the runtime reaches the register through its own deck-register mirror', as
   // while every gate in the tree stayed green. A sibling register in the same deck is the
   // control: if `eyebrow: dot` lands and `inline-code-literal` does not, the fetch worked
   // and this register specifically is absent — which is precisely how it was diagnosed.
-  const doc = await renderRuntime(deck(['inline-code: literal', 'eyebrow: dot']), marpShaped());
+  const doc = await renderRuntimeBaked(deck(['inline-code: literal', 'eyebrow: dot']), marpShaped());
   const section = doc.querySelector('section');
   assert.ok(section.classList.contains('eyebrow-dot'), 'control: a sibling register must land');
   assert.ok(

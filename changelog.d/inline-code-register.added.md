@@ -5,11 +5,17 @@
   where it rendered text; the per-occurrence backslash escape is the right tool for one
   span and the wrong one for ninety. Default is unchanged (`rich` — the grammar runs), so
   no existing deck moves a pixel.
-- **It works on a raw Marp deck too, through Marp's own `class:` directive.** Lattice
-  cannot read front matter on a preview it never rendered, so the CLASS is the contract
-  rather than the register: `class: inline-code-literal` puts the token on every section
-  by marp-core's own doing, verified against real marp-cli. Through the Lattice engine
-  the register does it for you.
+- **It works on a Marp-kit deck too, through Marp's own `class:` directive.** In the
+  VS Code Marp preview the sandbox blocks the runtime from reading the deck's `.md`, so
+  the CLASS is the contract that always works: `class: inline-code-literal` puts the token
+  on every section by marp-core's own doing, verified against real marp-cli. Through the
+  Lattice engine, and in any export (which bakes its front matter), the register does it
+  for you.
+- **Known limit: a pre-bake export served over http(s) draws first.** An `.html` sitting
+  beside its `.md` with no baked front-matter block has to fetch that file, and the pills
+  are drawn before the answer arrives. Re-export and the block is baked. Making the runtime
+  wait instead cost every other deck a full extra transform pass (1 to 3 on a 40-slide deck
+  carrying no register at all), so the limit is pinned rather than papered over.
 - **An unknown value keeps the grammar RUNNING, and says so.** `inline-code: off` — the
   value most authors will try first — is not a known value, so the deck keeps rendering
   pills and `lint:deck` warns with `unknown-inline-code` naming the two real values. The

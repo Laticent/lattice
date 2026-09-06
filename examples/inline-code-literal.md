@@ -82,7 +82,7 @@ One line of front matter, and every backtick span goes back to being text.
 
 ## On a raw Marp deck, use Marp's own directive.
 
-- Lattice cannot read front matter on a preview it never rendered.
+- In the VS Code Marp preview the sandbox blocks reading the deck's `.md`.
 - So the **class** is the contract, not the register.
 - `class: inline-code-literal` in front matter — marp-core stamps every section.
 - Careful: a slide's own `_class:` replaces the global one, and the grammar returns.

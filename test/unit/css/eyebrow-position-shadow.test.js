@@ -41,6 +41,7 @@ const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { dispatches } = require(path.join(ROOT, 'lib/core/inline-code-directives.js'));
+const { isLiteralFromSource } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
 
 /** The decks we SHIP — the ones a reader sees and the ones we hold to our own bar. */
 function shippedDecks() {
@@ -62,7 +63,13 @@ const PROMOTES_AFTER = /^(#{1,5}\s|[-*+]\s|\d+\.\s|```)/;
 
 /** Every eyebrow-position span in a deck, with the line it sits on. */
 function eyebrowSpans(file) {
-  const lines = fs.readFileSync(path.join(ROOT, file), 'utf8').split('\n');
+  const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  // A deck that turns the grammar OFF has no shadow to warn about — the `<code>` survives
+  // and the kicker promotes normally. Without this the census failed a CORRECT deck and
+  // told its author to escape something that needs no escaping, which is worse than not
+  // checking: both halves shipped in one PR and neither knew about the other.
+  if (isLiteralFromSource(src)) return [];
+  const lines = src.split('\n');
   const found = [];
   let inFence = false;
   for (let i = 0; i < lines.length; i += 1) {
