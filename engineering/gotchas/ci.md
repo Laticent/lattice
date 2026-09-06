@@ -38,14 +38,17 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   with "No suitable browser found. Please ensure one of the following
   browsers is installed: chrome, edge, firefox." A new session might
   conclude no browser is available and skip rendering entirely.
-- **Cause:** The headless-Chromium browser auto-detection (the owned
-  engine's Puppeteer launch, and anything marp-cli-based) looks in the
-  standard system locations
-  (`/usr/bin/google-chrome`, etc.) and doesn't know about the
-  puppeteer-cached chromium binary that the sandbox ships with. The
-  binary IS present at
+- **Cause:** marp-cli's browser auto-detection looks in the standard
+  system locations (`/usr/bin/google-chrome`, etc.) and doesn't know
+  about the puppeteer-cached chromium the sandbox ships with. The binary
+  IS present at
   `/root/.cache/puppeteer/chrome/linux-<version>/chrome-linux64/chrome`
-  — auto-detection just can't find it on its own.
+  — marp-cli just can't find it on its own.
+  **The owned emulator is not in that boat and has not been for a while**:
+  `detectChromeExecutable()` scans that exact cache itself, which is why
+  rendering works in a fresh session whether or not you export anything.
+  This entry used to name the owned engine as a second victim; it was
+  wrong, and it hid a real defect underneath (below).
 - **Mitigation:** Set `CHROME_PATH` in the env before rendering. The
   canonical render is the owned emulator:
 
@@ -64,10 +67,22 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   applies to that `npx marp` invocation.
 - **Triggered by:** Any render (owned emulator, or an ad-hoc marp-cli
   invocation) in a fresh cloud-sandbox session.
-- **Removable when:** The launcher adds puppeteer-cache discovery, or
-  the sandbox ships chromium at one of the canonical system paths.
-- **Commits:** documentation-only — captured here so future sessions
-  don't conclude no browser is available.
+- **The defect this entry hid (fixed, #2088).** `CHROME_PATH` reached
+  the owned renderer through nothing at all: `detectChromeExecutable()`
+  read `PUPPETEER_EXECUTABLE_PATH`, then the cache, then `which` — never
+  `CHROME_PATH`. The command above therefore worked by coincidence, on
+  the cache scan, while the variable it sets did nothing. Measured both
+  ways: `CHROME_PATH=/nonexistent/chrome` rendered a deck fine, and with
+  the cache made undiscoverable a *correct* `CHROME_PATH` still failed
+  while `PUPPETEER_EXECUTABLE_PATH` to the same file rendered. The
+  emulator now reads `CHROME_PATH` (after `PUPPETEER_EXECUTABLE_PATH`,
+  and only if the file exists), so the command above is true for the
+  reason it claims. Pinned by
+  `test/integration/export/chrome-path-resolution.test.js`.
+- **Removable when:** the sandbox ships chromium at one of the canonical
+  system paths, or nothing here uses marp-cli. The puppeteer-cache half
+  of this entry is already obsolete for the owned engine.
+- **Commits:** documentation, then #2088 for the `CHROME_PATH` half.
 
 ## A generated `dist/` artifact goes "stale" after a rebase, and that is not a defect
 
