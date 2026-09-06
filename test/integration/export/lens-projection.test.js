@@ -236,6 +236,21 @@ describe('--lens: the projected export', () => {
 		});
 	});
 
+	describe('says what the file CARRIES, where --quiet cannot hide it', () => {
+		// The two facts a sender most needs, and the two with no coverage at all until now. The
+		// inversion lens named deleting these the single highest-damage change that passes every gate:
+		// both are one `console.warn` each, nothing asserted them, and `--quiet` used to silence both
+		// because they rode on the reader-view report line.
+		test('`--lens-source full` says the envelope carries every slide, even under --quiet', { timeout: TIMEOUT }, () => {
+			const { dir, deck } = setup();
+			const r = run(deck, path.join(dir, 'full.html'), ['--lens', 'brief', '--lens-source', 'full', '--player']);
+			assert.equal(r.status, 0, r.stderr);
+			assert.match(r.stderr, /carries ALL 8 slides/, 'the count it really ships');
+			assert.match(r.stderr, /recipient can read the withheld slides/, 'and what that means for the recipient');
+		});
+
+	});
+
 	describe('fails closed', () => {
 		test('an unavailable view exits non-zero, names the reason, and writes nothing', { timeout: TIMEOUT }, () => {
 			const { dir, deck } = setup();

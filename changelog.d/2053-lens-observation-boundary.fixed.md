@@ -2,9 +2,9 @@
   warning read "Selectors that COUNT SLIDES are safe here". Measured in real Chrome on real exported
   files, an 8-slide deck keeping 1/4/6/8: `:nth-child(3 of .kpi)` landed on slide 6 in the whole deck
   and matched **nothing** in the projection; `section:has(blockquote) + section` matched two kept
-  slides and then none; and `section:not(:has(blockquote)) + section` matched **three kept slides it
-  matched none of in the whole deck** — so a rule that HID something in the deck the sender previewed
-  can UNHIDE it in the file they send. The boundary is not "positional CSS": a hole keeps the withheld
+  slides and then none; and `section:not(:has(blockquote)) + section` matched only kept slide 8 in the
+  whole deck and matches **4, 6 and 8** in the projection — it GAINS two slides, so a rule that HID
+  something in the deck the sender previewed can UNHIDE it in the file they send. The boundary is not "positional CSS": a hole keeps the withheld
   slide's SLOT and carries nothing else — not its class list, not a byte of its content — so counting
   slots holds and asking a question ABOUT a slot does not. Not closable by trying harder, and the
   reason is worth stating: the only hole that could answer these the way the withheld slide did is one
@@ -62,3 +62,11 @@
   comparison can catch it), and a bent render that makes the stand-in disagree with what ships in each
   of the two hop-2 channels. Four of the five comparisons are now killed by this file and the fifth by
   the injected-renderer arm next door; the file carries that table instead of the claim.
+- **Changed: a split slide's inline caption now speaks on every page it became — on decks with no
+  reader view too.** The caption join above is shared, so the per-page fill reaches any deck whose
+  slide paginates, projection or not. Measured on a 5-slide deck with no `--lens`, slide 1 cut in two
+  by its second heading: page 2 used to narrate generated speech and now narrates slide 1's caption.
+  That matches what the front-matter channel has always done with a split, and it changes exported
+  `.vtt` bytes for decks that never asked for a reader view — said here rather than left for someone
+  to find in a diff, because the other bullets frame this work as a projection fix and this part is
+  not one.

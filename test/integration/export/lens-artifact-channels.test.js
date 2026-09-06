@@ -107,6 +107,29 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
 		assert.ok(!fs.existsSync(out.replace(/\.pdf$/, '.html')), 'and the HTML sidecar was removed, not left behind');
 	});
 
+	test('and a PRINT-ONLY un-hiding is refused too — the PDF is rendered in print media', { timeout: TIMEOUT }, () => {
+		// The arm above measures screen media, which is what the first version of this check did — and
+		// `page.pdf()` renders in PRINT. So one line walked straight through it: `brief — 3 of 5 slides
+		// ship`, exit 0, and a FIVE-page PDF blank at positions 2 and 4, verbatim the disclosure the
+		// check had just been written to close. `@media print` is ordinary authoring in this engine
+		// (`lib/base/base.finish.css` flips its own slots under it), not an exotic attack.
+		const style = '<style>\n@media print { section.lens-hole { display: block !important } }\n</style>\n\n';
+		const { r, out } = run(deck({ style }), 'printhole.pdf', ['--quiet', '--lens', 'brief']);
+		assert.notEqual(r.status, 0, 'a print-only un-hiding is a refusal');
+		assert.match(r.stderr, /renders as a page/);
+		assert.match(r.stderr, /Slides 2, 4/);
+		assert.ok(!fs.existsSync(out), 'no PDF');
+		assert.ok(!fs.existsSync(out.replace(/\.pdf$/, '.html')), 'and no sidecar left behind');
+	});
+
+	test('and a PRINT-ONLY rule hiding a KEPT slide is refused — the mirror of the same gap', { timeout: TIMEOUT }, () => {
+		const style = '<style>\n@media print { section[data-authored-slide="2"] { display: none !important } }\n</style>\n\n';
+		const { r, out } = run(deck({ style }), 'printvanish.pdf', ['--quiet', '--lens', 'brief']);
+		assert.notEqual(r.status, 0);
+		assert.match(r.stderr, /renders no page/);
+		assert.ok(!fs.existsSync(out));
+	});
+
 	test('and a KEPT slide the deck hides is refused under a view — the page it promised is missing', { timeout: TIMEOUT }, () => {
 		// The other direction. Under a reader view the run has just printed how many slides ship, so an
 		// artifact with fewer pages than that is the projection's own contract broken. With no `--lens`

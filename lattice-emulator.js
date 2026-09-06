@@ -2240,10 +2240,11 @@ if (LENS_PROJECTION) {
     console.warn(`             This view renumbers ${moved.length} slide${moved.length === 1 ? '' : 's'}${moved.length ? ` (${moved.slice(0, 6).join(', ')}${moved.length > 6 ? ', …' : ''})` : ''}.`);
     console.warn('           · READING THE WITHHELD SLIDE does not, and this is the one that surprises. The slot is empty,');
     console.warn('             so a rule that asks anything ABOUT that slide gets a different answer here than in the full');
-    console.warn('             deck. Measured: `:nth-child(3 of .kpi)` moved from slide 6 to slide 8 (the hole carries');
-    console.warn('             neither the class nor the content it filters on); `section:has(blockquote) + section` matched');
-    console.warn('             nothing; and `section:not(:has(blockquote)) + section` matched three kept slides it matched');
-    console.warn('             none of in the full deck — a rule that HID something can therefore UNHIDE it here.');
+    console.warn('             deck. Measured on an 8-slide deck keeping 1/4/6/8: `:nth-child(3 of .kpi)` landed on slide 6');
+    console.warn('             and here matches NOTHING (the hole carries neither the class nor the content it filters');
+    console.warn('             on); `section:has(blockquote) + section` matched slides 4 and 6 and here matches nothing;');
+    console.warn('             and `section:not(:has(blockquote)) + section` matched only kept slide 8 and here matches');
+    console.warn('             4, 6 and 8 — it GAINED two slides, so a rule that HID something can UNHIDE it here.');
     console.warn('         Scope the rule to a class you set on the slide (`<!-- _class: hushed -->` and `section.hushed …`)');
     console.warn('         and it travels with the slide instead. Otherwise, check the exported file.');
   }
@@ -3862,8 +3863,13 @@ async function renderBody(browser, g, closeBrowser) {
   // blank at positions 2 and 4, one line under the CLI's own "brief — 3 of 5 slides ship". Exit 0.
   // The deck's true length and the exact withheld slots, in the file, from a deck that never names
   // a withheld slide. `holeDrift` was silent because the class was all still there, and
-  // `base.lens-hole.css` cannot win this on specificity — `!important` in author CSS outranks an
-  // `!important` engine rule by origin, and no engine rule can outrank it.
+  // `base.lens-hole.css` cannot reliably win: the engine sheet is INLINED into the exported document
+  // as a `<style>`, so it is author origin too — the same origin as the deck's own CSS. What decides
+  // an `!important` tie at equal specificity is therefore SOURCE ORDER, and a deck's `<style>` can
+  // come after ours. (An earlier draft of this comment, and the refusal below, said author CSS wins
+  // "by origin". Measured false: `section { display: block !important }` — author, `!important`,
+  // LOWER specificity — does not un-hide a hole, because the engine rule's `section.lens-hole` still
+  // outranks it. `base.lens-hole.css`'s own header had this right the whole time.)
   //
   // So the guarantee is not "the engine ships a rule". It is "the rendered document was checked".
   // A box is what a hole must not have: `getClientRects()` is empty exactly when an element
@@ -3882,12 +3888,36 @@ async function renderBody(browser, g, closeBrowser) {
     // sentence the tool is contradicting with a file. Every earlier refusal is pre-render and gets
     // this for free; this one is the first that has to clean up after itself.
     const refuse = (lines) => {
-      try { fs.unlinkSync(outHtml); } catch { /* it may never have been written */ }
+      // A swallowed failure here would make the last line false. `ENOENT` is the ordinary case (the
+      // sidecar may never have been written); anything else is said out loud rather than hidden
+      // under a sentence claiming the disk is clean.
+      let left = null;
+      try { fs.unlinkSync(outHtml); } catch (e) { if (e?.code !== 'ENOENT') left = e; }
       for (const l of lines) console.error(l);
-      console.error('       Nothing was exported.');
+      console.error(left ? `       Nothing was exported, except ${outHtml}, which could not be removed (${left.message}).` : '       Nothing was exported.');
       process.exit(1);
     };
-    const boxes = await g(() => page.evaluate((holeCls) => {
+    // IN BOTH MEDIA, and the second one is the one that mattered. `page.pdf()` emulates PRINT; every
+    // measurement above this line runs in SCREEN. So a first version of this check, which measured
+    // once in the default media, was passed by ONE LINE:
+    //
+    //     <style>@media print { section.lens-hole { display: block !important } }</style>
+    //
+    // — exit 0, `brief — 3 of 5 slides ship`, and a FIVE-page PDF blank at positions 2 and 4. That is
+    // verbatim the disclosure this check was added to close, reopened through the media the artifact
+    // is actually printed in. The mirror passed too: a print-only rule hiding a KEPT slide gave a
+    // 2-page PDF from a 3-slide view with no warning at all.
+    //
+    // `@media print` is not an exotic surface here — `lib/base/base.finish.css` flips its own slots
+    // under it and `engineering/decisions/2026-06-14-deck-print-styling.md` is a whole record about
+    // deck print styling — so a deck reaching for it is ordinary authoring, not an attack.
+    //
+    // A hole has to be hidden in BOTH, because both are shipped: the `.html` deliverable is read in
+    // screen media and the PDF is printed in print media. Either one showing a hole is a disclosure,
+    // so the two readings are UNIONED rather than intersected. The emulation is put back to the
+    // page's own default afterwards, since everything downstream (the raster loops, the player build)
+    // measures the screen document.
+    const measureBoxes = () => g(() => page.evaluate((holeCls) => {
       const secs = [...document.querySelectorAll('#deck > section[data-lattice-slide], body > section[data-lattice-slide]')];
       return secs.map((el, i) => ({
         at: Number(el.getAttribute('data-authored-slide') ?? i),
@@ -3895,16 +3925,41 @@ async function renderBody(browser, g, closeBrowser) {
         boxed: el.getClientRects().length > 0,
       }));
     }, HOLE_CLASS_NAME), 'measure hole visibility');
-    const shown = boxes.filter((b) => b.hole && b.boxed).map((b) => b.at + 1);
-    const vanished = boxes.filter((b) => !b.hole && !b.boxed).map((b) => b.at + 1);
+    const boxes = await measureBoxes();
+    let printBoxes = boxes;
+    try {
+      await page.emulateMediaType('print');
+      printBoxes = await measureBoxes();
+    } finally {
+      await page.emulateMediaType(null);
+    }
+    // ZIPPED BY POSITION, NOT KEYED BY AUTHORED NUMBER — and that distinction is a fail-open bug this
+    // very block shipped for twenty minutes. `data-authored-slide` is NOT UNIQUE: a heading-split
+    // slide renders as several sections all carrying the same number, so
+    // `new Map(printBoxes.map((b) => [b.at, b.boxed]))` kept only the LAST page of that slide and
+    // judged every earlier page by its sibling's answer. Measured: a 3-slide deck whose slide 1
+    // splits, with a print-only rule hiding the FIRST page, went silent — while hiding the
+    // continuation instead warned correctly.
+    //
+    // Both readings come from the same query in the same order, so index correspondence is exact and
+    // needs no key. The guard is there because a differing length would mean the two documents
+    // disagree about how many sections exist, which is not something to paper over with a join.
+    const alignedPrint = printBoxes.length === boxes.length ? printBoxes : boxes;
+    const eitherBoxed = boxes.map((b, i) => b.boxed || alignedPrint[i].boxed);
+    const bothBoxed = boxes.map((b, i) => b.boxed && alignedPrint[i].boxed);
+    // `[...new Set(...)]` because these index SECTIONS and report SLIDES: a split slide has several
+    // sections carrying one authored number, and the message read "slides 1, 1".
+    const shown = [...new Set(boxes.flatMap((b, i) => (b.hole && eitherBoxed[i] ? [b.at + 1] : [])))];
+    const vanished = [...new Set(boxes.flatMap((b, i) => (!b.hole && !bothBoxed[i] ? [b.at + 1] : [])))];
     if (shown.length) {
       refuse([
         'error: a withheld slide renders as a page.',
         `       Slide${shown.length === 1 ? '' : 's'} ${shown.join(', ')} ${shown.length === 1 ? 'is' : 'are'} withheld from this export and still ${shown.length === 1 ? 'takes' : 'take'} space in the rendered deck, so the`,
         "       artifact would carry a blank page at each one — publishing the deck's real length and the exact",
-        '       positions you withheld. Something in the deck overrides the engine rule that hides them; author',
-        '       CSS marked `!important` outranks the engine by origin, so no engine rule can win this.',
-        '       Remove any rule that targets `.lens-hole`.',
+        '       positions you withheld. Something in the deck overrides the engine rule that hides them — the',
+        '       engine sheet is inlined into this document, so a deck rule at equal specificity and `!important`',
+        '       wins on SOURCE ORDER. Remove any rule that targets `.lens-hole`, in any media: a `@media print`',
+        '       rule counts, because that is the media the PDF is printed in.',
       ]);
     }
     if (vanished.length) {
@@ -4233,6 +4288,51 @@ async function renderBody(browser, g, closeBrowser) {
       printBackground: true,
       preferCSSPageSize: true
     }), 'print pdf');
+    // DOES THE ARTIFACT HAVE THE PAGES THE RUN PROMISED? Asked of the PDF ITSELF, because every
+    // check before this one is a measurement of a PROXY for it.
+    //
+    // The hole-visibility check above reads the laid-out DOM, in both media. That closes the CSS
+    // vector and it CANNOT close the class, which is the finding worth keeping: a `beforeprint`
+    // handler runs inside the real print flow, after every measurement and after media emulation,
+    // and it un-hid every hole in a `--lens brief` export — `brief — 3 of 5 slides ship`, exit 0,
+    // and a FIVE-page PDF blank at positions 2 and 4. Emulating print media does not help, because
+    // the event does not fire on emulation. Neither would the next pre-print measurement.
+    //
+    // So this one is not a measurement of the document that will become the artifact — it is the
+    // artifact. Count its pages and compare them with the pages this run said it was writing. That
+    // subsumes every print-time vector at once, including ones nobody has thought of, because it
+    // asks about the only thing that actually ships. HARD RULE #23 is the same argument: a claim
+    // names its surface and carries an artifact from THAT surface.
+    //
+    // `pageCount` is read off the live DOM (non-hole top-level sections, post-split) rather than
+    // from `kept.length`, because auto-split legitimately produces more pages than authored slides.
+    {
+      const want = await g(() => page.evaluate((sel) =>
+        document.querySelectorAll(`#deck > ${sel}, body > ${sel}`).length, SHOOTABLE_SLIDES), 'count shipped pages');
+      const { PDFDocument } = require('pdf-lib');
+      const got = (await PDFDocument.load(pdfBytes)).getPageCount();
+      if (want > 0 && got !== want) {
+        // Same split as the visibility check above, for the same reason. Under a reader view this is
+        // the projection's own contract broken and it refuses. Without one, a deck moving its own
+        // pages around at print time is something a deck could always do and this is not the place to
+        // start refusing it — but the count line must not lie, so it warns, un-gated by `--quiet`.
+        const detail = got > want
+          ? ["       The extra pages are slides this export withheld, rendering at print time — so the file would",
+             "       publish the deck's real length and the exact positions you withheld. Something in the deck",
+             '       reveals them only when the PDF is printed: a `@media print` rule, or a `beforeprint` handler.']
+          : ['       Pages this export promised are missing, so the artifact is short of what this run reported.',
+             '       Something in the deck hides a slide only when the PDF is printed.'];
+        if (LENS_PROJECTION) {
+          await closeBrowser();
+          try { fs.unlinkSync(outHtml); } catch { /* may not exist */ }
+          console.error(`error: the PDF has ${got} page${got === 1 ? '' : 's'} and this export ships ${want} slide${want === 1 ? '' : 's'}.`);
+          for (const line of detail) console.error(line);
+          console.error('       Nothing was exported.');
+          process.exit(1);
+        }
+        console.warn(`  ⚠ the PDF has ${got} page${got === 1 ? '' : 's'} and this deck renders ${want} slide${want === 1 ? '' : 's'} — the deck changes its own page count at print time.`);
+      }
+    }
     await closeBrowser();
     // Bind notes to the RENDERED pages, not the authored slides — a split run has more
     // of the former than the latter, and the length guard inside would otherwise drop
@@ -5763,10 +5863,6 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   // stripping the public channel cannot hand anyone the private one (it used to, and the help
   // text for this flag had to warn you to strip twice). Inline captions come in via the
   // `captions` arg; drop both here.
-  // The inline channel through the SAME join. `captions` is authored-indexed; `mergeNarration`
-  // reads by page. Without `pageOrigin` there is nothing to join through, so it keeps the old
-  // pass-through — which is correct for the deck that neither splits nor projects, and is the only
-  // deck that reaches that branch.
   // THE INLINE CHANNEL, THROUGH `asShippedSlides` — the join this file already owns.
   //
   // `captions` is indexed by RENDERED SECTION: one entry per section the engine emitted, holes
