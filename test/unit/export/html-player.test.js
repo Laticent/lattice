@@ -2003,3 +2003,46 @@ test('narration: the manifest says WHICH mode it is, and names the engine in its
 	);
 	assert.equal(captionsOnly.readAlong.audioMode, 'regenerate', 'no audio rode along, and the artifact says so');
 });
+
+// ── deck-relative <img src> is resolved before inlining ───────────────────────────
+// The inliner matches `file://` URLs ONLY, and the engine deliberately leaves inline
+// srcs relative on the CLI path ("so exported bytes are untouched" — engine/index.js),
+// which is right for the PDF because Chromium renders it with the deck directory as
+// its base. A `--player` export is the opposite: one file, meant to be mailed, where a
+// relative `ada.svg` points at nothing the moment it leaves the deck folder. Measured
+// on the real gallery before the fix: 98 portraits, 98 broken — in the slides view, not
+// just the article. team-profile surfaced it (the only component that emits `<img>`
+// from a transform) but it was never component-specific: a bare `![](photo.jpg)` on an
+// ordinary `content` slide broke identically.
+
+test('player: a deck-relative <img src> is resolved against assetBaseUrl and inlined', async () => {
+	const fs = require('fs');
+	const os = require('os');
+	const path = require('path');
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-player-'));
+	// A real file on disk, because the inliner reads bytes — a fabricated URL would
+	// prove only that the regex matched.
+	fs.writeFileSync(path.join(dir, 'ada.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+	const base = require('url').pathToFileURL(dir + path.sep).href;
+	const doc = docHtml.replace('<p>Intro paragraph.</p>', '<p>Intro paragraph.</p><img src="ada.svg" alt="">');
+
+	const { html: without } = await buildPlayerHtml({ docHtml: doc, source, now: 0 });
+	assert.match(without, /src="ada\.svg"/, 'without a base the relative src survives untouched — the defect');
+
+	const { html: withBase } = await buildPlayerHtml({ docHtml: doc, source, now: 0, assetBaseUrl: base });
+	assert.doesNotMatch(withBase, /src="ada\.svg"/, 'the relative src must not reach the shared file');
+	assert.match(withBase, /src="data:image\/svg\+xml/, 'it is baked in as a data URI');
+	fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('player: assetBaseUrl leaves absolute, data and remote srcs alone', async () => {
+	// `resolveAssetUrl` guards these, and re-resolving an already-absolute src is a
+	// no-op — so passing a base must not disturb anything that was already resolvable.
+	const doc = docHtml.replace(
+		'<p>Intro paragraph.</p>',
+		'<p>Intro paragraph.</p><img src="https://example.test/a.png" alt=""><img src="data:image/gif;base64,R0lGOD" alt="">',
+	);
+	const { html } = await buildPlayerHtml({ docHtml: doc, source, now: 0, assetBaseUrl: 'file:///deck/' });
+	assert.match(html, /src="https:\/\/example\.test\/a\.png"/, 'a remote src is untouched');
+	assert.match(html, /src="data:image\/gif;base64,R0lGOD"/, 'a data: src is untouched');
+});
