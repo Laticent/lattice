@@ -127,10 +127,17 @@ that a deck with nothing to emphasize is untouched — that is a back-compat che
 the silence in the five changed goldens landed correctly; that took the fix below.
 
 **The blast radius is far wider than the diff suggests, and the diff cannot show it.** `speakCoda`
-changes narration TEXT on roughly 280 of ~3400 slides across the committed corpus (an independent
-checker's head-to-head of the old and new projection over 327 decks). Only six `.vtt` files are
-committed, so every other deck's captions change silently at export time with no golden to move.
-That asymmetry is worth knowing before trusting a green diff on this module.
+changes narration TEXT on **284 of 3402 slides, across 72 decks** — measured by rendering every
+committed deck under `examples/`, `test/integration/baseline-decks/` and `lib/components/` (329 decks)
+through `lib/engine`, then running `projectDeckToSpeech` from `origin/main` and from this branch over
+the same sections and counting the slides whose text differs. Only six `.vtt` files are committed, so
+every other deck's captions change silently at export time with no golden to move. That asymmetry is
+worth knowing before trusting a green diff on this module.
+
+The method is stated because the number is the kind this branch keeps getting wrong: an independent
+checker measured "roughly 280 over 327 decks" and the two agree, but only because both name what they
+walked. A corpus figure without its root set is not reproducible — the same mistake as the blockquote
+count above.
 
 ## The defect this design shipped once, and the fix
 
