@@ -20,9 +20,10 @@
 
 import type { ChartAnimaStyle } from '@/lib/chart-anima';
 import { type DeckMotion, MOTION_SPEEDS, MOTION_STYLES, type MotionSpeed, parseDeckMotion, speedToDurationMs } from '@/playground/anima-host-sel';
-import { getFrontMatter, stripFrontMatter } from './front-matter';
+import { SLIDE_SEP } from './deck-ops';
+import { frontMatterBlock, getFrontMatter, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
-import { getClassTokens } from './slide-directives';
+import { getClassTokens, setGroupToken } from './slide-directives';
 
 /** The three axes, as the slide-token groups `setGroupToken` needs to swap one member for another. */
 export const PLAY_TOKENS = ['motion-on', 'motion-off'] as const;
@@ -309,4 +310,23 @@ export function tally(targets: MotionTarget[]) {
 		review: targets.filter((t) => t.verdict === 'review').length,
 		blocked: targets.filter((t) => t.verdict === 'no-roles').length,
 	};
+}
+
+/**
+ * Turn motion OFF for one slide, by its chunk index.
+ *
+ * The single writer both the per-row action and the bulk action go through, so a bulk change is
+ * exactly N applications of the one-row change and cannot diverge from it. It writes the
+ * Inspector's own `motion-off` token through the Inspector's own `setGroupToken`, which is what
+ * keeps this surface from becoming a second source of truth for the register.
+ *
+ * A chunk index that no longer exists returns the source untouched rather than writing to whatever
+ * slide now sits at that position — the deck is live, and a stale index is the worst kind of
+ * bulk-edit bug.
+ */
+export function setSlideMotionOff(source: string, chunk: number): string {
+	const slides = splitSlides(stripFrontMatter(source));
+	if (slides[chunk] == null) return source;
+	slides[chunk] = setGroupToken(slides[chunk], PLAY_TOKENS, 'motion-off');
+	return (frontMatterBlock(source) || '') + slides.join(SLIDE_SEP);
 }

@@ -1,4 +1,4 @@
-import { ArrowUp, Check, ChevronDown, ChevronRight, Cloud, Download, Film, Info, LayoutGrid, Loader2, Moon, Palette, RotateCcw, Search, Sparkles, Sun, Text, TriangleAlert, X } from 'lucide-react';
+import { ArrowUp, Check, ChevronDown, ChevronRight, Cloud, Download, Info, LayoutGrid, Loader2, Moon, Palette, RotateCcw, Search, Sparkles, Sun, Text, TriangleAlert, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
 import { readComponentEffort, writeComponentEffort } from '@/components/studio/ai/spend.js';
@@ -29,7 +29,6 @@ import type { StudioFinish } from './finish-library';
 import { type Finding, LayoutStudio, STARTER_CSS, STARTER_DESCRIPTION, STARTER_META, STARTER_NAME, STARTER_SKELETON } from './LayoutStudio';
 import { REFUSAL_PREFIX } from './library/asset-store.js';
 import { findNameClash } from './library/save-guard.js';
-import { MotionSheet } from './MotionSheet';
 import { manifestJsonCompletion } from './manifest-complete';
 import { useReferenceDoc } from './reference-doc-ui';
 import { type StudioTheme, saveStudioTheme } from './theme-library';
@@ -238,8 +237,8 @@ export type FabricateSeed =
 	| { kind: 'component'; record: StudioComponent }
 	| { kind: 'finish'; record: StudioFinish };
 
-export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], source = '', onEdit, deckTitle = 'This deck', savedSceneCount = 0, onExportScenes, onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; /** The open deck's markdown — the Motion tab reads its targets from it and writes the register back. */ source?: string; onEdit?: (label: string, updater: (s: string) => string) => void; deckTitle?: string; savedSceneCount?: number; onExportScenes?: () => void; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
-	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish' | 'motion'>('theme');
+export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
+	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish'>('theme');
 	// All ten essentials in state, seeded from the first curated starter.
 	const [core, setCore] = React.useState<Record<EssKey, string>>(() => ({ ...(STARTERS[0].essentials as Record<EssKey, string>) }));
 	// First-class naming, IDENTICAL on both tabs (#57): the name IS a lowercase
@@ -923,7 +922,6 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 			{facTab('theme', 'Theme', Palette)}
 			{facTab('layout', 'Component', LayoutGrid)}
 			{facTab('finish', 'Finish', Sparkles)}
-			{facTab('motion', 'Motion', Film)}
 		</div>
 	);
 	if (tab === 'finish') {
@@ -935,19 +933,6 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					<div className="flex-1" />
 				</div>
 				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} savedFinishes={savedFinishes} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
-			</div>
-		);
-	}
-
-	if (tab === 'motion') {
-		return (
-			<div className="flex min-h-0 flex-1 flex-col">
-				<div className="flex h-[44px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:gap-3 sm:px-4">
-					<button type="button" onClick={closeFaculty} className={cn('shrink-0 rounded-md p-1', closeArmed ? 'bg-[var(--fail)] text-[var(--bg)]' : 'text-muted-foreground hover:text-foreground')} aria-label={closeArmed ? 'Leave and discard your CSS edits' : 'Back to Compose'} title={closeArmed ? 'Leave and discard your unsaved CSS edits?' : undefined}><X className="size-4" /></button>
-					{facultyToggle}
-					<div className="flex-1" />
-				</div>
-				<MotionSheet source={source} onEdit={onEdit ?? (() => {})} deckTitle={deckTitle} savedSceneCount={savedSceneCount} onExportScenes={onExportScenes} notify={notify} />
 			</div>
 		);
 	}
@@ -971,7 +956,6 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					<button type="button" onClick={() => setTab('theme')} aria-pressed={tab === 'theme'} aria-label="Theme" className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold sm:px-3', tab === 'theme' ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}><Palette className="size-3.5" /><span className="hidden sm:inline">Theme</span></button>
 					<button type="button" onClick={() => setTab('layout')} aria-pressed={tab === 'layout'} aria-label="Component" className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold sm:px-3', tab === 'layout' ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}><LayoutGrid className="size-3.5" /><span className="hidden sm:inline">Component</span></button>
 					<button type="button" onClick={() => setTab('finish')} aria-pressed={false} aria-label="Finish" className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold text-muted-foreground sm:px-3"><Sparkles className="size-3.5" /><span className="hidden sm:inline">Finish</span></button>
-					<button type="button" onClick={() => setTab('motion')} aria-pressed={false} aria-label="Motion" className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold text-muted-foreground sm:px-3"><Film className="size-3.5" /><span className="hidden sm:inline">Motion</span></button>
 				</div>
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" disabled={!canExport} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportArtifact}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>

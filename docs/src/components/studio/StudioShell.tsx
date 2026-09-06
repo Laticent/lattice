@@ -74,9 +74,11 @@ import { Library } from './Library';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
+import { MotionTargets } from './MotionTargets';
 import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
+import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
@@ -84,7 +86,7 @@ import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
-import { listStoredScenes } from './scene-library';
+
 import { ScrollFade } from './scroll-fade';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
@@ -1050,15 +1052,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		listStudioFinishes().then(setSavedFinishes).catch(() => setSavedFinishes([]));
 	}, []);
 	React.useEffect(() => { refreshFinishes(); }, [refreshFinishes]);
-	// Saved motion scenes — counted, not listed. The Motion tab no longer edits them (the frame
-	// model retired the standalone-scene model, §7b), so all the surface owes them is an honest
-	// count and a way OUT. Counted through the raw reader so a record this version cannot parse is
-	// still counted and still exportable — the §7c fix would be pointless if the UI that offers the
-	// export used the lossy list.
-	const [savedSceneCount, setSavedSceneCount] = React.useState(0);
-	React.useEffect(() => {
-		listStoredScenes().then((rows) => setSavedSceneCount(rows.length)).catch(() => setSavedSceneCount(0));
-	}, []);
+	// Every target in the deck the engine can animate, derived from the live source. The deck
+	// Motion tab shows it under Play/Style/Speed: those three state the intent, this states what
+	// the intent actually produces.
+	const motionTargets = React.useMemo(() => readTargets(source), [source]);
 	// The add-slide gallery = your saved local components (first) + the built-in catalog.
 	// Locals carry their own `css` so the gallery previews them STYLED (per-tile extraCss —
 	// the engine theme doesn't know a local `.name` rule).
@@ -2243,18 +2240,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const notify = React.useCallback((msg: string) => {
 		toast(msg, { duration: 2600 });
 	}, []);
-	const exportSavedScenes = React.useCallback(() => {
-		(async () => {
-			const rows = await listStoredScenes();
-			const valid = rows.filter((r) => r.valid).map((r) => r.scene);
-			const unreadable = rows.filter((r) => !r.valid);
-			const { packBundle } = await import('./asset-bundle');
-			const { downloadBlob } = await import('./download');
-			const zip = await packBundle([], [], [], valid);
-			downloadBlob('lattice-motion-scenes.zip', zip);
-			notify(unreadable.length ? `Downloaded ${valid.length} scene(s). ${unreadable.length} could not be read and stay in your library and backups.` : `Downloaded ${valid.length} scene(s).`);
-		})().catch(() => notify('Could not export your scenes.'));
-	}, [notify]);
 
 	// ── Self-driving demo walkthrough ───────────────────────────────────────
 	// A guided "watch it drive itself" tour: a fake cursor + captions play a
@@ -3910,6 +3895,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Speed" desc="How fast the build runs." help={<><strong>Auto</strong> paces to the chart's size, so a big chart doesn't crawl and a small one doesn't flash past.</>}>
 					<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="w-full" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
 				</Field>
+				{/* The three controls above state the deck's INTENT; this states the CONSEQUENCE —
+				    which slides the engine can actually animate and whether the motion earns its
+				    place. Both halves answer the same question, which is why they share a tab. */}
+				<MotionTargets
+					targets={motionTargets}
+					onGoToSlide={(slide) => setActiveSlide(slide - 1)}
+					onTurnOff={(t) => settingsWrite(`Motion off for slide ${t.slide}`, (src) => setSlideMotionOff(src, t.chunk))}
+					onTurnOffAllFlagged={() => {
+						const flagged = motionTargets.filter((t) => t.verdict === 'review');
+						if (!flagged.length) return;
+						settingsWrite(`Motion off for ${flagged.length} slides`, (src) => flagged.reduce((acc, t) => setSlideMotionOff(acc, t.chunk), src));
+					}}
+				/>
 			</div>
 			)}
 			{deckTab === 'speech' && (
@@ -5040,7 +5038,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} source={source} onEdit={settingsWrite} deckTitle={deckTitle} savedSceneCount={savedSceneCount} onExportScenes={exportSavedScenes} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (

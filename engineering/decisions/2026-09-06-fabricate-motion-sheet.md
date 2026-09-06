@@ -23,9 +23,33 @@ companion:
   - ./2026-09-02-motion-engine-bakeoff.md
 ---
 
-# The Fabricate Motion tab becomes the deck's motion sheet
+# Motion is a property, not a craft — the sheet moves to the Inspector
 
 **Date:** 2026-09-06 · **Status:** shipped (pending merge authorization)
+
+> **CORRECTED 2026-09-06, after review.** An earlier revision of this note argued the sheet should
+> BE the Fabricate Motion tab. That was wrong, and the reason is worth keeping: **Fabricate is for
+> crafting.** Each of its tabs brings a named, reusable asset into existence that did not exist
+> before — a theme, a component, a finish — with a live preview and a Library shelf. The sheet
+> inspects and adjusts things the engine already draws. That is a property editor, and property
+> editors are the Inspector's job. It now lives under the deck Inspector's **Motion** tab, beneath
+> the Play/Style/Speed controls whose consequence it reports; the Fabricate tab strip returns to
+> three. §7b's open question is answered as **retire the tab** — option 2 of the three it listed,
+> not the fourth this note originally proposed.
+>
+> **The crafting faculty is not canceled — it is unblocked, and it is the next piece of work.**
+> `2026-07-19-anima-svg-first-cut-zdog.md` §4 already designed it ("choreograph a drawing": bring
+> or generate an SVG, then choreograph how it reveals) and §4.4a recorded why it could not ship —
+> Vivus drove the whole drawing off ONE progress scalar, so per-element windows were "explicitly
+> not honored", and `reveal`, `highlight` and `slide` had no painting at all. **anime.js closed
+> that gap.** Measured against today's tree: `drawStrokes` seeks each track to its own element's
+> reveal; `svg-paint.ts` paints per-part opacity (`isFade`), a stroke-weight emphasis channel
+> (`hasHighlight`) and a per-part transform (`hasTransform`, `composeTransform`); and
+> `SvgElement.transform` exists. **Five of §4.4's six verbs are live; only `fill`/`level` is still
+> unpainted.** The faculty that note describes is now buildable, and v1 leads with the **Bring**
+> on-ramp — paste or drop an SVG, auto-id its parts, choreograph, save — because Describe rests on
+> the make-or-break assumption §4.2 flagged UNVERIFIED, and Bring proves the choreograph surface
+> and the Library lifecycle without betting on it.
 
 ---
 
@@ -50,13 +74,15 @@ insert path, no reopen seed, and `deleteStudioScene` had **zero callers**. A sav
 be seen, edited, deleted or placed from any UI. It shipped an engine badge reading `zdog` — and
 `vivus` for SVG scenes, a package deleted the week before.
 
-## 2. §7b left this to a human, and this is a fourth option
+## 2. §7b left this to a human — and the answer is option 2, retire the tab
 
 The frame model listed three: leave the tab, retire it keeping the code, or delete it with the
 Zdog excision. It said the call was the human's and should be made before that excision.
 
-**What shipped is a fourth: replace it.** That is a real departure from the note's menu, so the
-argument is recorded rather than implied.
+**The answer is option 2: retire the tab, keep the code.** An earlier revision of this note
+proposed a fourth option — replace it with the sheet — and review rejected it on the grounds above:
+a control panel in a workshop. The sheet moved to the Inspector; Fabricate's slot is held open for
+the crafting faculty §4 of the SVG-first note describes.
 
 - **Leave it** was not available honestly. The tab authored a model with no painter and showed a
   badge naming a deleted package. Leaving it is shipping a known-broken surface.

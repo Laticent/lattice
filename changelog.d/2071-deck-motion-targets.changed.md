@@ -1,10 +1,11 @@
-- **Changed: the Fabricate **Motion** tab is now the deck's motion sheet.** It used to author a
-  standalone animated scene — 3-D primitives, a spin period, an easing curve and a poster slider —
-  none of which survives the frame model, and whose output nothing in the product could place. It
-  now lists every target in the open deck the engine can animate, what Play / Style / Speed resolve
-  to for each, **which scope decided each axis**, and whether the motion carries information a still
-  cannot. It writes the same tokens the Inspector writes, as one undo step, and can set an axis on
-  several slides at once.
+- **Added: the deck's **Motion** settings now show what the deck will actually animate.** Under
+  Play / Style / Speed, the deck Inspector lists every target the engine can reach, what each one
+  resolves to, which scope decided it, and whether the motion carries information a still cannot —
+  with a one-click fix for the ones that do not, and a jump to the slide.
+- **Removed: the Fabricate **Motion** tab.** It authored standalone animated scenes on an engine
+  Lattice no longer uses (3-D primitives, a spin period, an easing curve, a poster slider), and its
+  output could not be placed in a deck. Your saved scenes are **not** deleted — they stay in your
+  library, ride in every backup, and Workspace → Data now offers them as a `.zip`.
 - **Fixed: a saved motion scene whose spec no longer validated was silently deleted.** It vanished
   from the Library *and* from the next workspace backup, so restoring onto a clean profile lost it
   for good. Scenes we cannot read are now kept, reported with the reason, carried through the backup

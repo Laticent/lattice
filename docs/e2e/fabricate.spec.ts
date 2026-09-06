@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, test } from './studio-fixture';
 
 // Fabricate — the Theme / Component studio. Deterministic surfaces: the derived
 // contract + palette audit recompute from the theme colors, the light/dark specimen
@@ -353,101 +353,4 @@ test('the Finish CSS view shows what Save would write, tracks the recipe, and re
 	await cssBox.click();
 	await page.keyboard.type('/* nope */');
 	await expect(cssBox).toHaveText(typed);
-});
-
-/**
- * THE MOTION TAB, ON THE REAL SURFACE (HARD RULE #23).
- *
- * This suite had ZERO Motion coverage before the sheet replaced the scene studio — the old tab
- * shipped a `zdog` engine badge and a mobile layout that clipped its own name field, and nothing
- * here could see either. These four drive the built site.
- *
- * The deck below is deliberately NOT at the built-in defaults: `motion-style: rise` and
- * `motion-speed: slow` differ from `build`/`auto`, which is what makes the deck-default assertion
- * meaningful. An earlier draft of the sheet passed a constant to those two controls, so they
- * displayed `Build`/`Auto` whatever the deck said; a deck at the defaults could not have caught it.
- */
-const MOTION_DECK = [
-	'---',
-	'theme: indaco',
-	'motion: on',
-	'motion-style: rise',
-	'motion-speed: slow',
-	'---',
-	'',
-	'<!-- _class: funnel motion-on -->',
-	'',
-	'## Where deals stall',
-	'',
-	'- Qualified `1240`',
-	'- Proposal `620`',
-	'- Negotiation `310`',
-	'- Closed won `118`',
-	'',
-	'---',
-	'',
-	'<!-- _class: quadrant motion-together -->',
-	'',
-	'## Effort and impact',
-	'',
-	'- Alpha `3` `4`',
-	'- Beta `1` `2`',
-	'',
-	'---',
-	'',
-	'<!-- _class: journey -->',
-	'',
-	'## Customer arc',
-	'',
-	'- Discover `3`',
-	'- Trial `4`',
-].join('\n');
-
-async function openMotionSheet(page: import('@playwright/test').Page) {
-	// `beforeEach` already opened Fabricate, so step back to Compose to reach the editor.
-	await page.getByRole('button', { name: 'Back to Compose' }).click();
-	// The fixture's own helper, not a hand-rolled type(): its docblock names the exact trap here —
-	// per-key typing lets the editor's list auto-continuation rewrite a multi-line deck, and a
-	// chart's marks are bullets, so every one of them would be mangled.
-	await setEditorContent(page, MOTION_DECK);
-	// Wait for the SIGNAL, not a guessed interval: the shell re-derives the slide count from the
-	// source on a debounce, so "3 slides" is the deck actually having landed.
-	await expect(page.getByText(/3\s+slides/).first()).toBeVisible();
-	await page.getByRole('button', { name: 'Workspace launcher' }).click();
-	await page.getByRole('menuitem', { name: 'Fabricate' }).click();
-	await page.getByRole('button', { name: 'Motion', exact: true }).click();
-}
-
-test('the Motion sheet lists every animatable target with its resolved register', async ({ page }) => {
-	await openMotionSheet(page);
-	// One row per animatable component, and nothing else from the deck.
-	await expect(page.getByText('Where deals stall', { exact: true }).last()).toBeVisible();
-	await expect(page.getByText('Effort and impact', { exact: true })).toBeVisible();
-	await expect(page.getByText('Customer arc', { exact: true })).toBeVisible();
-	// The summary counts what will ACTUALLY animate — the journey has Play on from the deck but
-	// emits no roles, so it is not counted as animating.
-	await expect(page.getByText(/3 targets · 2 animating/)).toBeVisible();
-});
-
-test('the deck-default controls read the deck, not the built-in default', async ({ page }) => {
-	await openMotionSheet(page);
-	// The deck says rise/slow. A control showing Build/Auto here is the bug this test exists for.
-	await expect(page.getByRole('combobox', { name: 'Choose motion style' })).toContainText('Rise');
-	await expect(page.getByRole('combobox', { name: 'Choose motion speed' })).toContainText('Slow');
-});
-
-test('the admission test flags motion that carries nothing, and offers the fix', async ({ page }) => {
-	await openMotionSheet(page);
-	// `together` reveals every mark in one window — it arrives, it does not sequence.
-	await expect(page.getByText(/reveals every mark in one window/)).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Turn it off' })).toBeVisible();
-});
-
-test('turning motion off writes the slide token the Inspector writes', async ({ page }) => {
-	await openMotionSheet(page);
-	await page.getByRole('button', { name: 'Turn it off' }).click();
-	await page.getByRole('button', { name: 'Back to Compose' }).click();
-	// The written token is `motion-off` on that slide — the same vocabulary, so the two surfaces
-	// cannot drift. It replaces `motion-together`'s Play, leaving the style token alone.
-	await expect(page.getByLabel('Deck source')).toContainText('motion-off');
 });
