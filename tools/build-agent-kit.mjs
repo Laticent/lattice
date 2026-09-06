@@ -1447,30 +1447,6 @@ function instructionsSolo(cat) {
     '**If nothing above fits, use `content` for prose or `list` for bullets.**',
     'Never invent a layout name.',
     '',
-    // MEASURED: across 60 decks from three model families, EVERY structural error
-    // was this one rule — 16 of 16 — and one family hit it on 9 of 20 decks. The
-    // rule was already stated in the list below; stating it is evidently not
-    // enough, because it is a rule about invisible whitespace and the wrong shape
-    // is the more natural sentence. So show the wrong shape beside the right one,
-    // here, before the skeletons rather than after them.
-    '## The one shape that breaks a deck',
-    '',
-    'On any layout with a title and a body under it, the body goes on its OWN line,',
-    'indented. Do not put the title and body on one line.',
-    '',
-    ...fenced(
-      [
-        'WRONG — the body inherits the title\'s bold and the layout does not build:',
-        '- **Late close.** Books close nine days after month end.',
-        '',
-        'RIGHT — title, then the body indented two spaces beneath it:',
-        '- Late close',
-        '  - Books close nine days after month end.',
-      ].join('\n'),
-    ),
-    '',
-    'Under a numbered `1.` row, indent the body **three** spaces, not two.',
-    '',
     ...skeletons,
     // A WORKED DECK, not another isolated slide. Two files advertised solo as
     // carrying one and it did not: 20 single-slide skeletons and no example of

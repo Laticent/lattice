@@ -172,9 +172,29 @@ single-family eval would have reported ~5% and called the question settled. Ther
 is no confound behind the Gemma number: it accepts a system role, so it received
 identical treatment.
 
-In response, `solo` gained a WRONG/RIGHT contrast for that one shape, placed
-before the skeletons rather than in the rule list. Whether it moves Gemma's number
-is being measured; if it does not, this note will say so and keep the number.
+**Two attempts to fix it in prose were measured, and BOTH FAILED. The second made
+it worse.**
+
+*Attempt one — show the wrong shape beside the right one.* `solo` gained a
+WRONG/RIGHT contrast for that exact form, placed before the skeletons rather than
+buried in the rule list, on the reasoning that stating a whitespace rule once in
+prose is evidently not enough. Re-measured on Gemma, the worst case:
+
+| | errors | decks affected |
+|---|---|---|
+| rule stated once (shipped) | 14 | 11 / 20 |
+| WRONG/RIGHT contrast added | **22** | **13 / 20** |
+
+`split-bodyless-item` alone went from 2 to 9. **Reverted.** The mechanism was
+already in this project's own research and the design note ignored it: warning-
+framed content is learned at rates equivalent to direct exposure, because models
+do not orthogonalize *describing* a form from *performing* it — which is the same
+finding that made `solo` drop the catalog's "not for" lines in the first place.
+Printing `- **Late close.** Books close…` under the word WRONG still prints it.
+The rule is stated positively, once, and the checker catches the rest.
+
+The shipped `paste/lattice-instructions-solo.md` is the 9,211-character text the
+table above was measured against, restored byte for byte after the revert.
 
 **What was tried and did NOT work, recorded as such.** One deck in twenty echoed
 the skeletons' placeholder prose verbatim. A line was added saying the skeletons
