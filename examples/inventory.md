@@ -2,7 +2,7 @@
 marp: true
 theme: cuoio
 paginate: true
-footer: "SlideWright · inventory component"
+footer: "Laticent · inventory component"
 ---
 
 <!-- _class: title silent -->

@@ -12,7 +12,7 @@ companion:
 # Contribution model after the CLA — who owns what, and where money comes from
 
 **Trigger.** Hours after the MIT→AGPL relicense (#700) shipped with a CLA, the
-owner rejected the CLA's premise: its core grant lets SlideWright relicense
+owner rejected the CLA's premise: its core grant lets Laticent relicense
 contributions commercially while contributors are paid nothing — the standard
 asymmetric open-core playbook, and not this project's values. Directive:
 contributors own their work; if their work ships in something we sell, we pay
@@ -45,7 +45,7 @@ standing in CONTRIBUTING.
 
 ## Findings that constrain the choice (all verified in-repo)
 
-1. **The proprietary SlideWright app does not depend on core copyright.**
+1. **The proprietary Laticent app does not depend on core copyright.**
    A closed app can fork/exec the unmodified CLI (`npx lattice deck.md
    out.pdf`) at arm's length — aggregation, not a combined work, per the
    FSF's own FAQ — and display exported HTML in its WebView under the

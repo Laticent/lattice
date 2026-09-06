@@ -289,7 +289,7 @@ anyone hands you the room.
 
 ## Where to go next
 
-- [The design system](https://github.com/slidewright/lattice/blob/main/design/design-system.md) —
+- [The design system](https://github.com/Laticent/lattice/blob/main/design/design-system.md) —
   the full four-layer model, in depth.
 - [Author decks](/guides/authoring/) — the component catalog and
   the authoring contract.

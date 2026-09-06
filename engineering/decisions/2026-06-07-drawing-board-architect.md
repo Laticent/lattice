@@ -276,7 +276,7 @@ tradeoff at the export action.
 ## 7. Where it lives / what ships
 
 - A **`docs/`-site app**, new top-level Astro route, reusing the playground
-  bundle + runtime. **It does not enter the npm tarball** (`@slidewright/lattice`
+  bundle + runtime. **It does not enter the npm tarball** (`@laticent/lattice`
   `files` allowlist stays as-is; the Drawing Board is a documentation-site asset
   like the playground). No bloat to the published engine.
 - Reuses, does not fork: `components.json`, `lib/authoring/lint.js`, the

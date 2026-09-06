@@ -131,7 +131,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   every environment that renders Lattice PDFs:
   - **CI** — `.github/workflows/ci.yml`, the integration job's apt step.
   - **Cloud sessions** — `.claude/hooks/session-start.sh` (step 2b).
-  - **The SlideWright desktop app** — its WebView/packaging must ship or
+  - **The Laticent desktop app** — its WebView/packaging must ship or
     install a color emoji font; the engine alone can't guarantee it.
 - **Triggered by:** Any unicode emoji in a deck rendered through
   `lattice-engine` / `lattice-emulator` on a host without a color

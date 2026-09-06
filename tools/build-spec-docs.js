@@ -41,7 +41,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const OUT_DIR = path.join(ROOT, 'docs', 'src', 'content', 'docs', 'spec');
-const GH_BLOB = 'https://github.com/slidewright/lattice/blob/main';
+const GH_BLOB = 'https://github.com/Laticent/lattice/blob/main';
 
 // Repo-relative spec file → site route, for cross-spec links.
 const SITE_ROUTES = {

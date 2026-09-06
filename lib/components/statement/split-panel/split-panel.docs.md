@@ -241,7 +241,7 @@ Payload bullet becomes a code.
 
 A bare URL auto-resolves; the caption line labels the scan.
 
-- https://slidewright.dev/components/split-panel `qr`
+- https://laticent.io/components/split-panel `qr`
 - Scan for this layout's docs `caption`
 ```
 

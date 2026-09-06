@@ -63,11 +63,11 @@ security-shaped primitive.
 
 Every package (`suono`/`lente`/`cadenza`/`vetrina`) maps `exports["."].import` →
 raw `./index.ts`; only a CJS `dist/index.cjs` is built. A bare-Node ESM consumer
-(`import … from '@slidewright/x'`) hits `ERR_UNKNOWN_FILE_EXTENSION ".ts"`; only
+(`import … from '@laticent/x'`) hits `ERR_UNKNOWN_FILE_EXTENSION ".ts"`; only
 `require()` or a TS-aware bundler works. The `vetrina` README even shows a
 `./vetrina/index.js` that is never emitted, and several READMEs pitch
 "framework-free / buildless / no bundler required." This is a **deliberate,
-already-merged, house-wide** pattern (matches the merged `@slidewright/suono`),
+already-merged, house-wide** pattern (matches the merged `@laticent/suono`),
 so per #18 it is off the storyboard path and NOT this PR's to fix.
 
 - Options: (a) emit real ESM `dist/index.mjs` per package + point `import`/`module`

@@ -31,7 +31,7 @@ summary: >
 ## The report, and why it looked like a flake
 
 One failure, in the per-PR `studio-smoke` check, on
-[a run](https://github.com/SlideWright/lattice/actions/runs/32677209253) whose PR touched no
+[a run](https://github.com/Laticent/lattice/actions/runs/32677209253) whose PR touched no
 file that ships into the Playground:
 
 ```

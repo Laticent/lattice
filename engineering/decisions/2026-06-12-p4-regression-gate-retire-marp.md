@@ -163,7 +163,7 @@ Then Step 3 (delete marp + `engine-parity`, making this the sole gate).
 
 Retire `@marp-team/marp-cli` — the last marp dependency in our tree (Scope 1 of
 `2026-06-10-marp-replacement-proposal.md`). The shipped package becomes
-marp-free: `npm install @slidewright/lattice` stops pulling marp.
+marp-free: `npm install @laticent/lattice` stops pulling marp.
 
 **Out of scope:** marp-vscode (the editor *extension*, Scope 2). The VS Code
 preview rides on marp-vscode + `markdown.marp.themes` + `lattice-runtime.js` +
@@ -336,7 +336,7 @@ the repo already half-runs, and scales from solo (bless = sign-off) to team
   `marpit-svg-polyfill`) — **4 packages**. After dropping `@marp-team/marp-cli`
   from `dependencies`, a clean `npm ci` from the lockfile installs **zero**
   `@marp-team` packages — confirmed `ls node_modules/@marp-team` → absent. The
-  honest install delta is ~42M off a consumer's `npm install @slidewright/lattice`
+  honest install delta is ~42M off a consumer's `npm install @laticent/lattice`
   (puppeteer + markdown-it are shared and stay). marp-core was transitive-only via
   marp-cli, so it left with it; the docs playground (which had used marp-core for
   the now-removed `?engine=marp` A/B) renders solely through the owned engine, and
@@ -525,5 +525,5 @@ an artifact, post a summary comment ("N slides drifted in {decks}"). Keep the ma
   now bring their own marp-cli), `engineering/capabilities.md`, and §A here.
 
 **Done when:** the regression gate is the CI visual gate, `@marp-team/marp-cli` is
-out of `dependencies`, `npm install @slidewright/lattice` is marp-free, every gate
+out of `dependencies`, `npm install @laticent/lattice` is marp-free, every gate
 is green, and §A is filled.

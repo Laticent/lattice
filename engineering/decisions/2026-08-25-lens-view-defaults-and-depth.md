@@ -98,7 +98,7 @@ note exists.
 
 | Register | Word | Surface |
 |---|---|---|
-| **Machine** | `lens` | front matter (`lenses:`, `lens-default:`), the per-slide `_lens` directive, `@workwel/lente`, every type and function name |
+| **Machine** | `lens` | front matter (`lenses:`, `lens-default:`), the per-slide `_lens` directive, `@laticent/lente`, every type and function name |
 | **Human** | **view** | every string a person reads — panel titles, buttons, menu entries, error copy, and prose in the docs |
 
 **Front matter is in the machine register.** It is typed by an author, which is the argument for the

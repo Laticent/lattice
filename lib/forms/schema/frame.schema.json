@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://lattice.slidewright.dev/forms/frame.schema.json",
+  "$id": "https://lattice.laticent.io/forms/frame.schema.json",
   "title": "Lattice Form Frame",
   "description": "A slicer — carves a box into Cells. The root Frame carves the whole slide; a sovereign Frame docked in the stage claims the canvas and suppresses chrome Cells (design/forms.md §5, §8, §9). One folder per Frame: lib/forms/frame/<id>/<id>.manifest.json. Adding a sovereign Frame folder (exemptFromChrome:true) auto-extends the engine's FORM_TOGGLE_SKIP set — see lib/integrations/markdown-it/plugins.js.",
   "type": "object",

@@ -380,7 +380,7 @@ and the root README says so.
 | Branch assembly is correct | ran the workflow's shell locally | **64 files**, both `.vscode` files intact at their levels |
 | The root theme paths resolve | checked `marp/*.min.css` from the branch root | 3/3 present |
 | The skip fires on a quiet run | assembled twice, compared `write-tree` | **identical tree** |
-| npm is not an escape route | `GET registry.npmjs.org/@workwel%2Flattice` | **`{"error":"Not found"}`** — unpublished |
+| npm is not an escape route | `GET registry.npmjs.org/@laticent%2Flattice` | **`{"error":"Not found"}`** — unpublished |
 
 **The workflow was preflighted on real GitHub Actions before merge.** A `push`
 event uses the workflow file from the branch being pushed, so temporarily listing

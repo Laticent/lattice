@@ -831,7 +831,7 @@ function checkThemeRoles(errors, themesDir = THEMES_DIR) {
 // gate is what makes them projections rather than independent copies.
 //
 // Why `@theme` stays in the source CSS at all, when `@size` did not: the source
-// file is itself a published artifact. `@workwel/lattice/themes/<name>.css` is a
+// file is itself a published artifact. `@laticent/lattice/themes/<name>.css` is a
 // package export README.md documents as "a Marp theme file", and Marpit THROWS
 // without the directive — where a missing `@size` merely degraded to the default
 // box. Identity has to travel with the bytes; geometry did not.
@@ -846,7 +846,7 @@ function checkThemeIdentity(errors, themesDir = THEMES_DIR) {
     if (!declared) {
       errors.push(
         `themes/${fileName}.css declares no \`@theme\`. The file is a published export ` +
-        `(\`@workwel/lattice/themes/${fileName}.css\`) that README.md calls a Marp theme file, and ` +
+        `(\`@laticent/lattice/themes/${fileName}.css\`) that README.md calls a Marp theme file, and ` +
         `Marp throws without the directive. Add \`/* @theme ${fileName} */\` as the first line.`,
       );
       continue;
@@ -7287,7 +7287,7 @@ const LENTE_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lente');
  *
  * `tools/manifest-schemas.js` is the only module that may require ajv, and it lives
  * in `tools/`, which `package.json` `files` does not publish. A `require('ajv')` in
- * `lib/` would therefore ship a DEVdependency to consumers — `@workwel/lattice` would
+ * `lib/` would therefore ship a DEVdependency to consumers — `@laticent/lattice` would
  * throw on import for anyone who installed it — and esbuild would inline a validator
  * into the browser bundles that `lib/layout` and `lib/forms` feed.
  *

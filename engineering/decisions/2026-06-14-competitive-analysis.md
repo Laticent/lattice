@@ -87,7 +87,7 @@ CHANGELOG.md, dist/docs/components.json, themes/).
   co-editing.
 - **Font/Chromium edge cases.** Emoji needs an installed font; `mask-image` quirks in PDF;
   custom logo invisible in marp-vscode preview.
-- **Young ecosystem.** v1.0.0; SlideWright desktop app still under development.
+- **Young ecosystem.** v1.0.0; Laticent desktop app still under development.
 - **Not for stage performance.** No animations/transitions/timers (by design — README says
   use Keynote/Slides for that).
 
@@ -353,7 +353,7 @@ they earn the ✅s.
 
 The page ends on roadmap, not triumphalism. Keep a clearly-marked forward section with room
 to drop in the owner's unannounced "killer feature" later **without a redesign**. Known
-in-flight items from the repo: SlideWright desktop app (under dev), Drawing Board phases,
+in-flight items from the repo: Laticent desktop app (under dev), Drawing Board phases,
 plugin/extension system, presentation import, universal chart export (see sibling decision
 docs dated 2026-06-14). Do **not** invent or pre-announce the killer feature.
 

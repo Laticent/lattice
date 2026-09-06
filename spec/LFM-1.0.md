@@ -366,7 +366,7 @@ LFM 1.0 deliberately does **not**:
   spec, with attribution. The Lattice engine's *code* is AGPL-3.0; the spec carries
   its own license because a normative document is a different artifact from the
   reference implementation.
-- **Steward.** The SlideWright project stewards LFM. The spec is the owned
+- **Steward.** The Laticent project stewards LFM. The spec is the owned
   asset; conformant implementations are interchangeable, and a second
   implementation is an explicit adoption goal.
 - **Amendments.** Changes follow the SemVer rules in §7 and land through the

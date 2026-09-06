@@ -294,7 +294,7 @@ player at all**. There was nothing to read.
 
 The beat is therefore resolved by the ASSEMBLER, off the verbatim source, and baked in as a
 number. That forced a second change the proposal did not anticipate: the millisecond presets
-live in `docs/src/lib/cadenza/cadence.ts`, TypeScript inside the `@slidewright/cadenza`
+live in `docs/src/lib/cadenza/cadence.ts`, TypeScript inside the `@laticent/cadenza`
 workspace package, which `lib/core` cannot import — and which cannot import `lib/core` back
 without a relative path escaping its own package boundary. So `lib/core/resolve-pace.mjs`
 gains `PACE_BEATS` + `paceBeatMs`, and `pace-names.test.js` pins the two copies against each

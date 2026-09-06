@@ -89,7 +89,7 @@ divergences — the third ("times") was caught by the maker-checker pass after t
 ## Blast radius / export bytes
 
 **This changes exported bytes.** `cue.endMs` feeds `toVtt` (cue-end timestamp) and the `readAlong`
-export manifest (`lib/core/read-along-build.js` → `@slidewright/cadenza` `buildTrack`), so exported
+export manifest (`lib/core/read-along-build.js` → `@laticent/cadenza` `buildTrack`), so exported
 `.vtt` and `readAlong` **cue-END timestamps shift later** by each cue's clip-trailing silence.
 Word-level inline `<timestamp>`s, every cue **START**, and all caption **TEXT** are byte-identical.
 The number fix also shifts word *durations* for number-bearing captions (fewer syllables → shorter
@@ -125,5 +125,5 @@ a cue span that covers the clip is a cleaner signal than one confounded by punct
 - `docs/src/lib/cadenza/cadence.ts` — `CLIP_TRAILING_FRACTION`, `clipTrailingMs`, `SYLLABLE_OVERRIDES`.
 - `docs/src/lib/cadenza/track.ts` — fold clip-trailing silence into `cueEnd`.
 - Tests: `cadence.test.ts`, `track.test.ts`, `cursor.test.ts`.
-- Regenerated bundles: `@slidewright/cadenza` (`docs/src/lib/cadenza/dist/`) + `read-along-core.generated.js`.
+- Regenerated bundles: `@laticent/cadenza` (`docs/src/lib/cadenza/dist/`) + `read-along-core.generated.js`.
 - `CHANGELOG.md` `## Unreleased`.

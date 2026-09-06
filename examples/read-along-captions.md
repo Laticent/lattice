@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 paginate: true
 color-mode: dark
-footer: "SlideWright · read-along captions"
+footer: "Laticent · read-along captions"
 acronyms:
   ARR: annual recurring revenue
   NDR: net dollar retention

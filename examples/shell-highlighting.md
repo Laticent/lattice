@@ -23,7 +23,7 @@ A command list is the shape a shell block actually takes on a slide. Stock highl
 `bash · package managers, container and cloud CLIs, flags`
 
 ```bash
-npm install @workwel/lattice
+npm install @laticent/lattice
 npx lattice build deck.md --theme indaco
 docker compose up -d --build
 kubectl apply -f k8s/ --namespace prod

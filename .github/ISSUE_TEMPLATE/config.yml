@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Project-management model (ADR)
-    url: https://github.com/SlideWright/lattice/blob/main/engineering/decisions/2026-06-14-github-project-management.md
+    url: https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-06-14-github-project-management.md
     about: How the board, swimlanes, cards, labels, and Definition of Ready fit together.

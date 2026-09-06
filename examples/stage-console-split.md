@@ -2,7 +2,7 @@
 marp: true
 theme: cuoio
 paginate: true
-footer: "SlideWright · Stage & console"
+footer: "Laticent · Stage & console"
 ---
 
 <!-- _class: title -->

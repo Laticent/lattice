@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 paginate: true
 lang: fr
-footer: "SlideWright · guardefou de langue"
+footer: "Laticent · guardefou de langue"
 acronyms:
   CA: chiffre d'affaires
 ---

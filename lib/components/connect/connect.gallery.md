@@ -14,9 +14,9 @@ Connect — cards the room can scan: join the network, save the speaker.
 
 - Ada Slide `name`
 - One scan saves the speaker `title`
-- SlideWright `org`
-- hello@slidewright.dev `email`
-- slidewright.dev `url`
+- Laticent `org`
+- hello@laticent.io `email`
+- laticent.io `url`
 - The QR encodes this card as a vCard `caption`
 
 ---

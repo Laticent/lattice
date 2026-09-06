@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://lattice.slidewright.dev/forms/tile.schema.json",
+  "$id": "https://lattice.laticent.io/forms/tile.schema.json",
   "title": "Lattice Form Tile",
   "description": "A filler — leaf content sized to fill one Cell. One folder per Tile: lib/forms/tile/<id>/<id>.manifest.json. The registry rows of design/forms.md §8 / 2026-06-11-islands.md §2.2. A Tile knows a SOURCE (population), not a position — that binding is what makes it a Tile (design/forms.md §5).",
   "type": "object",

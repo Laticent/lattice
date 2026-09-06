@@ -246,7 +246,7 @@ paragraph of the reply — for external reviewers who don't have the
 `SendUserFile` deliverable in their feed:
 
 ```
-https://raw.githubusercontent.com/slidewright/lattice/<branch>/examples/<slug>.pdf
+https://raw.githubusercontent.com/Laticent/lattice/<branch>/examples/<slug>.pdf
 ```
 
 Use `raw.githubusercontent.com`, never `github.com/.../blob/...`
