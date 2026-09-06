@@ -369,7 +369,27 @@ slide; G is rejected on 116KB for what CSS does for free.
   `visibility: visible`). What is still not driven: a document that stamps the attribute and
   then fails to load the runtime — a CSP that blocks the script, or a 404 on `runtimeUrl`.
   There the source stays hidden.
-- D's cost is still unmeasured: a diagram deck now loads the 3.16MB Mermaid bundle on its
-  FIRST full write, even while the author is on a text slide. It moves that load earlier
-  rather than adding one, and full writes become rare, but the deck's own first mount was
-  not benchmarked.
+- D's first-mount cost is now MEASURED, and it is not free. Same build, one variable — a
+  three-slide deck whose third slide is a diagram, against the same deck with prose in its
+  place — timing a reload to the preview's first painted `.lattice`, 5 runs each:
+
+  | | idle (×1) | loaded (×4) |
+  |---|---|---|
+  | deck with a diagram (Mermaid injected) | 1038ms | 3715ms |
+  | same deck, prose instead | 1022ms | 2715ms |
+  | **cost of the injection** | **+16ms** | **+1000ms** |
+
+  At ×1 the distributions overlap completely (1003–1054 against 1005–1047): noise. At ×4
+  they do not overlap at all (3274–4117 against 2553–2824), so opening ANY deck that
+  contains a diagram anywhere now costs about a second more on a loaded machine, whether or
+  not the author ever visits that slide. Slide-scoped, that load was deferred until they
+  navigated onto the diagram — so D moves roughly a second from "when you reach a diagram"
+  to "when you open the deck", in exchange for 368ms → 20ms on that navigation and 172ms →
+  20ms on every keystroke. The recurring costs shrink; the one-time cost grows.
+
+  **The clean fix decouples the two things D conflates.** The signature needs to be constant
+  across the deck (that is what stops the realm rebuild); the 3.16MB bundle does not need to
+  be in the document from the first byte. Injecting it on first sight of a fence — from the
+  runtime, inside the frame — would keep every measured win and hand back the second. Not
+  attempted here: it changes when a shared dependency loads for every preview surface, which
+  is its own change with its own blast radius. Logged rather than folded in.
