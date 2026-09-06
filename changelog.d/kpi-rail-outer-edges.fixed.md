@@ -7,12 +7,12 @@
   the pixel they already occupied. At `tall` and `strip`, where the rail linearizes
   into one ledger, the demoted hero loses the same outer top edge and the first
   support gains the separator that now divides it from the lead row.
-- **Fixed: the `kpi compliance` status pills reach the right edge of their row, and
-  stay together.** The pill declared `grid-column: 3` but sat one level too deep to
-  be a grid item, so the reserved track resolved to 0px and the pill trailed its
-  meta text — 65-67% of every row empty. The meta line is now a grid whose first
-  track takes the slack, so any number of pills group at the row's edge and the
-  label wraps instead of crushing. A row's ink goes from 274.8px wide to 1026.3px.
+- **Changed: the `kpi compliance` row no longer declares a status column it cannot
+  fill.** The pill declared `grid-column: 3` but sat one level too deep to be a grid
+  item, so the track resolved to 0px and the rule read as working while doing nothing.
+  The phantom track is gone and the row is a truthful two-column grid. The pill still
+  trails its text: right-anchoring it needs a wrapper element around the label, which
+  is a DOM change rather than a CSS one.
 - **Fixed: a third sub-bullet on a `kpi compliance` row no longer prints on top of
   the second.** Every sub-bullet after the first was pinned to the same grid row.
 - **Fixed: `kpi spotlight` supports sit under the rule that heads them,** and a

@@ -295,7 +295,7 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  * a top-right mark orphaned, so the alternative was to keep it as a crown above the
  * value — which pushes ink to y = -4.7 at the documented density, above the panel's
  * own top edge. The variant that keeps the mark costs capacity; retiring it does
- * not. `--fs-hero` is unchanged; only this tile's multiplier is new. */
+ * not. */
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) {
   grid-column: 1; grid-row: 1 / -1;
@@ -505,9 +505,15 @@ section.kpi.compliance > .cell-stage > ol > li:not(:last-child) {
   border-bottom: 1px solid var(--border);
 }
 section.kpi.compliance > .cell-stage > ol > li > strong {
-  /* `1 / -1`, not `1 / 3`: a row with a third sub-bullet grows an implicit row, and
-   * the value stays optically centered against all of them. */
-  grid-column: 1; grid-row: 1 / -1;
+  /* `1 / 3` — the two EXPLICIT rows. An earlier draft wrote `1 / -1` claiming the
+   * value would then center against a third sub-bullet too; it does not. Negative
+   * line numbers count from the last line of the EXPLICIT grid, and
+   * `grid-template-rows: auto auto` makes `-1` identical to `3`. Measured: forcing
+   * `1 / 3` moves the value 0.00px, forcing `1 / 4` moves it 15.96px. The implicit
+   * row a third sub-bullet creates is outside the span either way, so the value
+   * aligns to the label/target pair and a third line hangs below it. Written as the
+   * literal it actually is, rather than a negative that reads like it spans more. */
+  grid-column: 1; grid-row: 1 / 3;
   font-size: var(--fs-h1);
   min-width: 4ch;
   text-align: right;
@@ -518,40 +524,38 @@ section.kpi.compliance > .cell-stage > ol > li > ul > li:first-child {
   grid-column: 2; grid-row: 1;
   padding-top: 0;
 }
-/* The meta line carries the label AND the status pills, and is the row's second grid
- * item. A GRID with one flexible first track, not a flex row with `space-between` —
- * and the difference is a defect this rule already shipped once.
+/* THE META LINE STAYS INLINE, and the status column this file used to declare is
+ * NOT achievable in CSS alone. Two attempts shipped here and both were regressions;
+ * the record matters more than the attempts.
  *
- * The label's text is an ANONYMOUS item (no element wraps it, so no selector can
- * reach it) and each `code` is its own item. `space-between` distributes slack
- * between EVERY pair, so a row with two pills — the shape this file's own worked
- * example at the top uses, `target 99%, +2pp QoQ `On plan` `Board`` — put the first
- * pill in the middle of the row attached to nothing: measured 269px of dead air
- * between the two pills, against 9.9px contiguous before the change. The gallery
- * happens to author one pill per compliance row, which is why looking at it could
- * not catch this.
+ * The goal was a right-anchored status column — the old `grid-column: 3` reached for
+ * it and could never take it, because the row's `<ul>` is `display: contents`, so the
+ * inner `<li>`s are the grid items and a `<code>` sits inside one of THOSE, a
+ * grandchild the grid cannot place. That declaration resolved and did nothing, the
+ * reserved track collapsed to 0px, and the pill trailed its text with 751-777px of
+ * the 1152px row unused.
  *
- * `grid-auto-flow: column` with a single `minmax(0, 1fr)` explicit track puts the
- * label in that track and every pill in an implicit `max-content` column after it,
- * so the pills stay contiguous at the right edge whatever their number. The `0`
- * floor lets the label track shrink and the label WRAP under pressure, which is the
- * other half of the same defect: the flex version was `nowrap` (the sibling rule for
- * every other modifier carries `flex-wrap: wrap` and excludes `.compliance`), the
- * pills are `white-space: nowrap` and will not shrink, so at the tall family all the
- * shrink landed on the label and crushed it to its widest word.
+ * Attempt 1, flex + `space-between`: the label's text is an ANONYMOUS item and each
+ * pill is its own, so slack distributed between EVERY pair and a two-pill row put the
+ * first pill mid-row attached to nothing — 269px of dead air. It was also `nowrap`,
+ * so at tall all the shrink landed on the label and crushed it to its widest word.
  *
- * `column-gap` is the same 0.46875cqi every other kpi pill line uses, rather than
- * the `--sp-md` a first cut invented — one component, one pill gap. */
-section.kpi.compliance > .cell-stage > ol > li > ul > li:nth-child(2) {
-  grid-column: 2; grid-row: 2;
-  padding-top: 0;
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-columns: minmax(0, 1fr);
-  grid-auto-columns: max-content;
-  align-items: baseline;
-  column-gap: 0.46875cqi;
-}
+ * Attempt 2, grid + `grid-auto-flow: column`: same root cause, worse blast radius.
+ * EVERY element child becomes a grid item, not just `<code>` — so ordinary markdown
+ * tore apart. `target **99%**, +2pp QoQ` rendered `target` at x=293 and `99%` at
+ * x=975, 623px of dead air mid-sentence; a leading pill (`` `On plan` since March``)
+ * stretched from 101px to 792.7px in the flexible track. Silent at wide: no probe
+ * sees a horizontal spread. And at tall the `max-content` pill columns never shrink,
+ * so the label wrapped to five lines where main took two.
+ *
+ * THE COMMON CAUSE: any container display makes each text run and each inline
+ * element its own item, and nothing wraps the label, so "everything that is not a
+ * pill" is not addressable. Right-anchoring the pills needs a DOM change — a wrapper
+ * element around the label, emitted by the transform — not a CSS rule. Until that
+ * exists the pill trails its text, as it always has, and the row is honest about it.
+ *
+ * What DOES ship from this pass: the phantom third track is gone (it was 0px and
+ * carried an inert rule), so the row is a truthful two-column grid. */
 /* A THIRD sub-bullet and beyond gets its own row instead of overprinting the second.
  * `li + li` matched every sub-bullet after the first and pinned them all to
  * `grid-row: 2`, so a third rendered exactly on top of the second — identical rects,
@@ -841,11 +845,11 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(2) {
   border-top: 1px solid var(--border);
 }
-/* …and the hero's PILL LINE has to come back off centre too. The wide composition
- * centres it with `justify-content` (it is a flex line — `text-align` cannot reach
+/* …and the hero's PILL LINE has to come back off center too. The wide composition
+ * centers it with `justify-content` (it is a flex line — `text-align` cannot reach
  * it), and resetting `text-align`/`align-items` on the row above does NOT undo that:
  * the declaration is on the sub-bullet, not the row. Without this the linearised
- * ledger reads with its lead row's status line centred and every row under it
+ * ledger reads with its lead row's status line centered and every row under it
  * left-aligned — measured 264.2px of left gap against 0 on the next row. The same
  * two-alignments-in-one-ledger defect the wide fix exists to remove, one family over.
  * Ties that rule at (0,4,5) and wins on source order. */

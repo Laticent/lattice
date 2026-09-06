@@ -293,25 +293,27 @@ Measured: the pill's right edge lands at 438.6-464.5px on a 1152px row, leaving
 **751-777px of empty right column — 65-67% of every compliance row**. The
 reserved status column is never used and the pill trails the meta text instead.
 This is the single largest instance of "pill placement leaves lots of space".
-**Fixed:** the third track is gone and the status column is built where the pill
-actually lives — the meta line is a GRID with one flexible `minmax(0, 1fr)` track and
-`grid-auto-flow: column`, so the label takes the slack and every pill follows in a
-`max-content` column. Measured after: the pill's slack to the row's right edge is
-**0.0px**, and a compliance row's ink goes from 274.8 x 85 to **1026.3 x 85** — fill
-17.6% to **66.4%**.
+**NOT fixed — and three attempts is the finding.** The phantom third track is gone,
+so the row is a truthful two-column grid and the inert rule no longer reads like it
+works. But the pill still trails its text, because right-anchoring it is **not
+achievable in CSS here**. Two rules shipped on this branch trying and both were
+regressions, each caught by a different checker:
 
-**The first cut of that fix was a flex row with `space-between`, and it was wrong in
-two ways an independent checker caught before merge.** Both are worth keeping here,
-because both were invisible on the gallery slide. (a) The label's text is an
-ANONYMOUS flex item and each pill is its own, so `space-between` distributes slack
-between EVERY pair: a row with two pills — the shape this component's own docblock
-example uses — put the first pill in the middle of the row attached to nothing, 269px
-of dead air, against 9.9px contiguous before the change. (b) The flex line was
-`nowrap` (the sibling rule that flexes every other modifier's pill line carries
-`flex-wrap: wrap` and excludes `.compliance`), and pills are `white-space: nowrap`,
-so at the tall family every bit of shrink landed on the label and crushed it to its
-widest word. The grid form fixes both: pills stay contiguous at the edge whatever
-their number, and the `0` floor lets the label wrap instead of crushing.
+- *flex + `space-between`* — the label's text is an ANONYMOUS item and each pill is
+  its own, so slack spread between EVERY pair and a two-pill row put the first pill
+  mid-row attached to nothing (269px of dead air). It was also `nowrap`, so at tall
+  the label crushed to its widest word.
+- *grid + `grid-auto-flow: column`* — same cause, wider blast radius. EVERY element
+  child becomes a grid item, so ordinary markdown tore apart: `target **99%**, +2pp
+  QoQ` rendered `target` at x=293 and `99%` at x=975, **623px of dead air
+  mid-sentence**, and a leading pill stretched from 101px to **792.7px**. Silent at
+  wide — no probe sees a horizontal spread.
+
+The common cause: any container display makes each text run and each inline element
+its own item, and **nothing wraps the label**, so "everything that is not a pill" is
+not addressable. This needs a DOM change — a wrapper element around the label, from
+the transform — not a CSS rule. Logged rather than bodged; the 65-67% of empty row
+stands as a measured defect with a known, larger fix.
 
 **The spotlight supports strand their own rules.** `kpi.styles.css` already
 documents this defect and fixes it — for briefing, at one count only:
@@ -457,12 +459,13 @@ by what they cost.
    above the first support was the same outer edge and went with it, and `compliance`
    carried the identical defect one modifier over. Separators between rows only, on
    all three.
-2. ~~Fix or delete the compliance status column~~ — **done**, and this line's proposed
-   mechanism was wrong twice over. `display: contents` on the inner `<li>` does NOT
+2. ~~Fix or delete the compliance status column~~ — **deleted, not fixed**, and this
+   line's proposed mechanism was wrong three times over. `display: contents` on the inner `<li>` does NOT
    work: it would make the label's text an anonymous grid item that no selector can
-   place. Nor does the flex `space-between` that replaced it — see § 4. What ships is a
-   grid with one flexible track, which puts the pills contiguous at the row's right
-   edge with 0.0px of slack and lets the label wrap.
+   place. Nor does the flex `space-between` that replaced it, nor the grid that replaced
+   THAT — see § 4 for what each broke. What ships is the dead track removed and the
+   pill still trailing its text: right-anchoring it needs a DOM wrapper around the
+   label, which is a transform change, not a CSS one.
 3. ~~Extend the `justify-content: start` fix to `spotlight` and `trajectory`~~ —
    **done for `spotlight`, and deliberately NOT for `trajectory`**: measuring said two
    marks, looking said one defect. See § 4's correction.
@@ -486,9 +489,18 @@ authors one pill per compliance row — plus a stray separator painted across
 `spotlight`'s hero column at five metrics, a false equivalence claim in a comment, and
 a specificity rationale for an override that was not happening. All are fixed above.
 
-Neither pass reached: a real non-clipping preview surface (Studio, Playground,
-export-to-Marp), themes other than `indaco`, the `square` family, or PPTX output.
-Those stay UNVERIFIED (#23) rather than assumed.
+Two further checkers ran on the hero composition and then on the settled diff. The
+third found that scaling the hero value made ordinary figures overprint the rail; the
+fourth found the compliance status-column grid tearing inline markup apart, plus two
+comments asserting measured behavior that does not occur. **Four passes, four sets of
+real findings, including three regressions this branch introduced and then removed.**
+That record is the strongest argument in this note for the checker rung of HARD RULE
+#25: none of the three was visible on the shipped gallery, and every one of them
+passed lint, the unit suite, `build:check` and the overflow probe.
+
+No pass reached: a real non-clipping preview surface (Studio, Playground,
+export-to-Marp), themes other than `indaco`, or PPTX output. Those stay UNVERIFIED
+(#23) rather than assumed.
 
 **The real design question — kpi's split. Move 5 is DONE; the re-cut it proposes is
 measured NOT worth doing.**
@@ -551,7 +563,8 @@ measured NOT worth doing.**
 ```sh
 # The sweeps. --advisory keeps a red CROWDING row from masking the table.
 node tools/check-jank.js kpi --anchors
-node tools/check-jank.js kpi --anchor 'ol > li:nth-child(1)::after'   # the false DRIFT
+# node tools/check-jank.js kpi --anchor 'ol > li:nth-child(1)::after'  # the false
+#   DRIFT — no longer resolves; this branch retires that pseudo (see § 1)
 node tools/check-jank.js kpi --axis count --max 6 --advisory
 node tools/check-jank.js kpi --axis words --count 4 --max 14 --advisory
 node tools/check-jank.js "kpi spotlight" --axis count --max 6 --advisory

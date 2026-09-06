@@ -7,9 +7,9 @@ header: "Lattice · kpi row rules"
 
 <!-- _class: title silent -->
 
-`Feature demo · kpi row rules and the status column`
+`Feature demo · kpi row rules`
 
-# A rule between the rows, never around them — and a status column that is actually a column.
+# A rule between the rows, never around them.
 
 Four defects in one component, found by measuring rather than looking. The support rail bracketed itself with heavy outer edges, `compliance` drew a floor under its last row, its status pill declared a column it could never occupy, `spotlight` stranded the hairline that heads each number, and `trajectory` reserved a track its own recommended count never fills.
 
@@ -43,7 +43,7 @@ Four defects in one component, found by measuring rather than looking. The suppo
 ---
 
 <!-- _class: kpi compliance -->
-<!-- _footer: "compliance — the status column, and two pills that stay together" -->
+<!-- _footer: "compliance — separators between rows only" -->
 
 ## compliance tallies findings per framework.
 
@@ -61,11 +61,11 @@ Four defects in one component, found by measuring rather than looking. The suppo
 
 <!-- _class: content -->
 
-## The pill sat one level too deep to be placed.
+## A rule that read as working, and did nothing.
 
 - The row is a grid; the pill declared `grid-column: 3` and could never take it. The row's list is `display: contents`, so the inner items are the grid items and the pill lives inside one of *those* — a grandchild, which a grid cannot place.
 - The declaration resolved and did nothing. The reserved track collapsed to zero and the pill trailed its label, leaving two-thirds of every row empty.
-- It is now a grid with one flexible track: the label takes the slack, the pills follow in `max-content` columns. Two pills stay contiguous at the edge instead of one stranding mid-row, and the label wraps under pressure rather than crushing.
+- The phantom track is gone, so the row is a truthful two-column grid. The pill still trails its text — right-anchoring it needs a wrapper element around the label, which is a DOM change rather than a CSS one. Two attempts to do it in CSS alone shipped here and were both reverted: each made every text run and inline element its own item, tearing an ordinary sentence apart.
 
 ---
 
@@ -107,7 +107,7 @@ Four defects in one component, found by measuring rather than looking. The suppo
 
 ## What the measurements said, and what they did not.
 
-- **Compliance rows** went from 274.8px of ink to 1026.3px — 17.6% of the row filled to 66.4% — with the pill flush to the row's edge.
+- **Compliance rows** declared a third column that resolved to 0px, so 65–67% of every row sat unused behind a rule that could never apply.
 - **Spotlight** supports stranded their own hairline 37.3px above the number it introduces. Briefing already fixed this, at one count, explicitly excluding spotlight.
 - **Trajectory** reserved a fourth 270px track, 23% of the stage, that a three-metric slide never fills.
 - **One number was not a defect.** Trajectory's cards center their content 110.2px below a categorical stripe, which is a card edge rather than a rule heading a number — the same composition `ops` uses. Geometry alone could not tell those two apart.
