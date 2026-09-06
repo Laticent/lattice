@@ -41,6 +41,7 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 - **Filling the alt text on the portrait.** Write `![](photo.jpg)` with an empty alt. The name is set right beside the face and IS the accessible label, so alt text only makes a screen reader say it twice — the engine drops it either way.
 - **Adding a KEY INSIGHT or a closing note to a full six-person roster.** The coda cell takes its height out of the stage, so the second row clips. Drop to four people, move the line into the headline, or switch to `bench`, whose rows are half the height.
 - **Giving the ranked people under a `lead` hero their own note lines.** The hero's note is the one that earns the room. Five notes do fit under a one-line headline, so nothing warns you — but let the headline wrap to a second line and the stage clips the whole ranked row (measured at 31px on indaco, 1280x720), the engine marks the slide OVERFLOWS, and every lieutenant note vanishes at once. Give the note to the hero and leave the rest at name and role, the way the sample does.
+- **Numbering the roster with an ordered list (`1. Ada Okafor`).** The roster is rebuilt as an unordered list either way, so the numbers are dropped and nothing warns you. If the order is just the order you thought of them in, write `- Ada Okafor` and lose nothing. If the numbers meant RANK, that is what `lead` is for — it gives the first person the hero cell and says the same thing without asking the reader to count.
 
 ## Authoring
 

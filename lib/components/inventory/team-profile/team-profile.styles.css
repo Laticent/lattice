@@ -352,7 +352,11 @@ section.team-profile.sides > .cell-stage {
   display: grid;
   grid-template-columns: 1fr 1fr;
   /* Row 1 is for a lead-in sentence and collapses to nothing without one. */
-  grid-template-rows: auto auto minmax(0, 1fr);
+  /* Six spare lead-in rows, then the label row, then the roster row. The spares
+   * are `auto` and `row-gap` is 0, so every unused one measures zero — a slide
+   * with no lead-in is laid out exactly as if they were not declared. See the
+   * placement note below for why they exist. */
+  grid-template-rows: repeat(6, auto) auto minmax(0, 1fr);
   column-gap: 0;
   row-gap: 0;
   align-content: stretch;
@@ -363,17 +367,29 @@ section.team-profile.sides > .cell-stage {
  * the `##` and the first `###` shifted every item one cell: the labels came apart
  * from their rosters, "OUR TEAM" landed under the first roster, and two spurious
  * rules appeared. Nothing warned the author — `lint:deck` called the slide clean.
- * Naming each cell means an extra element cannot renumber the others. */
+ * Naming each cell means an extra element cannot renumber the others.
+ *
+ * But the labels and rosters are the only children that may be PINNED. Pinning the
+ * lead-in too — every `> p` to one named cell — traded renumbering for COLLISION:
+ * two grid items in one area do not stack, they paint on top of each other, so a
+ * slide with two lead-in sentences rendered them in byte-identical rects and both
+ * were unreadable (measured: two 1152x66 boxes at the same top/left). Nothing
+ * warned the author there either.
+ *
+ * So the lead-in AUTO-PLACES across the full width and the pinned items sit after
+ * the spares. Auto-placement fills the first free row, so paragraphs stack in
+ * document order at rows 1..6 and cannot reach the label row — which is the
+ * property the explicit placement was for, without the collision it caused. */
 section.team-profile.sides > .cell-stage > p {
-  grid-area: 1 / 1 / 2 / 3;
+  grid-column: 1 / -1;
   padding: 0 var(--sp-xl) var(--sp-lg);
   font-size: var(--fs-body);
   color: var(--text-body);
 }
-section.team-profile.sides > .cell-stage > h3:nth-of-type(1) { grid-area: 2 / 1; }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 3 / 1; }
-section.team-profile.sides > .cell-stage > h3:nth-of-type(2) { grid-area: 2 / 2; }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 3 / 2; }
+section.team-profile.sides > .cell-stage > h3:nth-of-type(1) { grid-area: 7 / 1; }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 8 / 1; }
+section.team-profile.sides > .cell-stage > h3:nth-of-type(2) { grid-area: 7 / 2; }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 8 / 2; }
 
 section.team-profile.sides > .cell-stage > h3 {
   padding: 0 var(--sp-xl) var(--sp-md);
@@ -509,6 +525,35 @@ section.team-profile.bench.bench:where([data-family="square"]) > .cell-stage {
   --person-size: 10cqi;
 }
 
+/* `lead`, `sides` and `bio` each need their OWN square size, because the generic
+ * square rule above is not something they can inherit.
+ *
+ * It ties them on specificity — both are (0,3,1), `:where()` contributing zero —
+ * and wins on source order, so its 14cqi silently replaced each variant's stage
+ * size. On `lead` that INVERTED the composition: the hero's 12cqi is set on the
+ * first `li`, which the stage rule cannot reach, so the reports grew to 14cqi and
+ * the hero stayed put — measured at 1280x720, hero 136px against reports 159px.
+ * The one statement `lead` exists to make, made backwards, on every square deck.
+ *
+ * The same tie was already handled for tall/strip below by doubling the class;
+ * square was simply missed. Same fix, and the hero is lifted explicitly rather
+ * than left to inherit — that is what made this silent the first time. */
+section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage {
+  --person-size: 9cqi;
+}
+
+section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage > ul.team-roster > li.person:first-child {
+  --person-size: 17cqi;
+}
+
+section.team-profile.sides.sides:where([data-family="square"]) > .cell-stage {
+  --person-size: 9cqi;
+}
+
+section.team-profile.bio.bio:where([data-family="square"]) > .cell-stage {
+  --person-size: 9cqi;
+}
+
 /* The hero stacks in a narrow box — a 20cqi portrait beside a headline leaves the
  * words about eight characters of column. */
 section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
@@ -530,15 +575,18 @@ section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]
  * rule between them becomes the rule above the second label. */
 section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
   grid-template-columns: 1fr;
-  grid-template-rows: auto auto auto auto auto;
+  /* Same six spare lead-in rows as the wide grid, for the same collision — see the
+   * placement note there. Four pinned rows follow instead of two, because the
+   * rosters stack rather than sitting side by side. */
+  grid-template-rows: repeat(6, auto) auto auto auto auto;
   --person-size: 9cqi;
 }
 
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p { grid-area: 1 / 1; }
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(1) { grid-area: 2 / 1; }
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 3 / 1; }
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2) { grid-area: 4 / 1; }
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 5 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p { grid-column: 1 / -1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(1) { grid-area: 7 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 8 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2) { grid-area: 9 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 10 / 1; }
 
 section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2),
 section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(2) {
