@@ -27,9 +27,9 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 - **default (no modifier).** Three or four pairs read fine as a plain vertical stack — the base look needs no extra structure.
 - **`spine`.** The pairs want a strong visual throughline connecting question to question — threads them down an accent spine.
-- **`rail`.** Questions should be scannable as a left-hand index while answers sit in their own column.
+- **`rail`.** Questions should be scannable as a left-hand index while answers sit in their own column — number, question and answer share one baseline, so a row reads as a single line.
 - **`tab`.** Each question should read as a labeled tab with its answer folding directly beneath it.
-- **`grid`.** Exactly four pairs fit naturally into a two-by-two — an even count, not five or three.
+- **`grid`.** Exactly four pairs fit naturally into a two-by-two — an even count, not five or three. Each cell packs to its own top, so the four questions start on the same line whatever length they run; the answers follow their own question rather than lining up across the row.
 - **`solo`.** One single question is weighty enough to deserve the entire slide.
 
 ### Common mistakes

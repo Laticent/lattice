@@ -41,14 +41,25 @@
  * A bare renderer that skips the kernel (raw VS Code preview) leaves the question unwrapped —
  * rail/grid then fall back to the single-column ledger via `:not(:has(> strong))`. */
 
-section.q-and-a > .cell-stage {
+/* The private tokens are declared on the SECTION, not on `> .cell-stage`. A modifier
+ * class lands on the section, so a stage-scoped declaration WINS over anything
+ * `.solo` or `.compact` sets and their re-bases never reach the counter: measured,
+ * `solo`'s index rendered at 22.4px — the default ledger's size — against a question
+ * at --fs-emphasis, and its own `--qa-index` line was dead. Declaring them one level
+ * up puts the modifier and the default in the same cascade, where specificity decides. */
+section.q-and-a {
   /* Index gutter — proportional to the number's own size, NOT a fixed step. The "01"
    * counter is sized off --fs-message, which grows from landscape to portrait; a fixed
    * gutter cleared the number in landscape but the portrait number overran it (the
    * "01Why" collision). Sizing the gutter off the counter keeps a constant gap in
-   * every orientation without over-widening (which would crush the text column). */
+   * every orientation without over-widening (which would crush the text column).
+   * --qa-gutter is the index COLUMN's width — the flex item the counter occupies —
+   * and the answer indents by the same token, so number, question and answer sit on
+   * one vertical. */
   --qa-index: calc(var(--fs-message) * 0.8); /* the index number reads as a label, not a 2nd headline */
-  --qa-gutter: calc(var(--sp-xs) + var(--qa-index) * 2.1);
+  --qa-index-col: calc(var(--qa-index) * 1.9); /* the numeral's own flex item */
+  --qa-col-gap: var(--sp-2xs);                 /* numeral → question, and the line-break lever below */
+  --qa-gutter: calc(var(--qa-index-col) + var(--qa-col-gap)); /* the full indent: question and answer share it */
   --qa-gap: var(--sp-md); /* vertical gap between pairs */
 }
 
@@ -72,11 +83,31 @@ section.q-and-a > .cell-stage > :is(ul, ol) {
 /* ── default · editorial ledger ───────────────────────────────────────── */
 /* One Q/A pair. The li's own text is the question; the nested list is the
  * answer. A 2px accent rule runs down the left of each pair and the numbered
- * index hangs in the gutter, baseline-aligned with the question. */
+ * index hangs in the gutter, on the question's own baseline.
+ *
+ * The pair is a WRAPPING FLEX ROW so the index can be baseline-aligned rather than
+ * placed: line 1 is [index][question], line 2 is the answer (basis 100%). The counter
+ * used to be `position:absolute; top:0`, which lands its box top on the question's box
+ * top — not its baseline. Two different fonts at two different sizes then put the two
+ * baselines wherever their own half-leading fell: measured −7.2px on the ledger,
+ * −18.6px on `solo`, and on `grid` it varied −7.7 to −42.2 WITHIN one slide as the
+ * questions wrapped differently. `align-items: baseline` is exact and font-metric-proof,
+ * which no `top` offset can be. */
 section.q-and-a > .cell-stage > :is(ul, ol) > li {
   counter-increment: qa;
   position: relative;
-  padding-left: var(--qa-gutter);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  /* `--qa-col-gap` is not only cosmetic: it is what GUARANTEES the answer takes its own
+   * flex line. The answer's `flex-basis: 100%` merely EQUALS the line, so it fits beside a
+   * zero-basis question wherever the numeral is not a flex item — measured on `spine` and
+   * `tab`, where the answer landed to the RIGHT of the question and squeezed it to 0px
+   * wide, one character per line. A non-zero column gap makes the sum exceed the line and
+   * the break is then a fact rather than an accident of the numeral's width. */
+  column-gap: var(--qa-col-gap);
+  row-gap: 0;
+  padding-left: var(--sp-xs);
   border-left: 2px solid var(--accent);
   font-family: var(--font-display);
   font-size: var(--fs-message);
@@ -90,9 +121,10 @@ section.q-and-a > .cell-stage > :is(ul, ol) > li::before {
      `perPage`; one structural element per page plus the `--lat-split-offset` seed drives it
      to 10 on any run that long. Found by the HARD RULE #25 red team on a rendered page. */
   content: counter(qa, decimal-leading-zero);
-  position: absolute;
-  left: var(--sp-xs);
-  top: 0;
+  /* an in-flow flex item, so the row's `align-items: baseline` sits it on the
+     question's first baseline. Fixed-width, so the question column starts at the same
+     x on every pair whatever the numeral is. */
+  flex: 0 0 var(--qa-index-col);
   font-family: var(--font-label);
   font-size: var(--qa-index);
   font-weight: 600;
@@ -106,12 +138,20 @@ section.q-and-a > .cell-stage > :is(ul, ol) > li > strong {
   font: inherit;
   color: inherit;
   letter-spacing: inherit;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 /* Answer — the nested list, reset off the question's weight/size/color. */
 section.q-and-a > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   list-style: none;
-  padding: var(--sp-xs) 0 0;
+  /* basis 100% wraps the answer onto its own flex line under the question; the
+     left padding re-uses the index column so the answer starts on the question's
+     vertical rather than under the number. */
+  box-sizing: border-box;   /* the indent rides INSIDE the 100% basis; content-box would
+                               push the answer a gutter's width past the pair's right edge */
+  flex: 1 1 100%;
+  padding: var(--sp-xs) 0 0 var(--qa-gutter);
 }
 section.q-and-a > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
   font-family: var(--font-body);
@@ -122,10 +162,16 @@ section.q-and-a > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
 }
 
 /* ── spine — sequential walkthrough ───────────────────────────────────── */
-/* Drops the ledger rule and index for a vertical spine with accent nodes; the
- * node halo is the canvas color so it punches cleanly through the line. */
+/* Drops the ledger rule and index for a vertical spine with accent nodes. The line is
+ * drawn per pair, node centre to node centre, and the node paints over both ends. */
+section.q-and-a.spine {
+  --qa-node: 0.95cqi;              /* the accent dot */
+  --qa-thread: 0.16cqi;            /* the hairline between two dots — named for the
+                                      spine, since `rail` is a different look in this file */
+  --qa-node-top: 0.42em;           /* the dot's top, from its pair's top — `em` is the
+                                      question's own size, so the dot rides the type */
+}
 section.q-and-a.spine > .cell-stage > :is(ul, ol) {
-  position: relative;
   /* border-box so the spine's own `padding-left` is absorbed WITHIN the inherited
    * `width:100%` (base ul rule) — `box-sizing` isn't inherited, so a content-box ul
    * would add sp-xl on top of 100% and push the answer column past the stage's right
@@ -134,28 +180,51 @@ section.q-and-a.spine > .cell-stage > :is(ul, ol) {
   padding-left: var(--sp-xl);
   gap: var(--sp-lg);
 }
-section.q-and-a.spine > .cell-stage > :is(ul, ol)::before {
-  content: "";
-  position: absolute;
-  left: 0.4cqi;
-  top: 0.5em;
-  bottom: 0.5em;
-  width: 0.16cqi;
-  background: var(--border);
-}
 section.q-and-a.spine > .cell-stage > :is(ul, ol) > li {
   padding-left: 0;
   border-left: none;
 }
+/* The node. Absolute again — it is a drawn mark at a fixed offset, not a column. */
 section.q-and-a.spine > .cell-stage > :is(ul, ol) > li::before {
   content: "";
+  position: absolute;
   left: calc(-1 * var(--sp-xl));
-  top: 0.42em;
-  width: 0.95cqi;
-  height: 0.95cqi;
+  top: var(--qa-node-top);
+  width: var(--qa-node);
+  height: var(--qa-node);
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 0.3cqi var(--bg);
+  /* No halo. It punched the node through a rail that ran BEHIND it; the rail now stops at
+     the node's own center, so the same white ring only ate the line's last 4px and left a
+     visible break above and below every node. The node caps the segment instead. */
+  z-index: 1;                      /* local 0–9 band: a node over its own rail (forms.md §5.2) */
+}
+/* The rail is drawn PER PAIR, running from this node to the next one, and the last
+ * pair draws none — so the line begins and ends exactly on a node.
+ *
+ * It used to be one `ul::before` spanning `top:0.5em → bottom:0.5em` of the ul. The ul
+ * is `flex:1 1 auto` (it fills the stage) while its pairs are `justify-content:center`,
+ * so that rail spanned the CANVAS and the nodes sat in the middle of it: measured 62px
+ * of line dangling above the first node and 122px below the last, and the two tails
+ * moved independently with the content. A per-pair segment cannot dangle — its length
+ * is the pair's own height plus the one gap below it, both known here. */
+section.q-and-a.spine > .cell-stage > :is(ul, ol) > li::after {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--sp-xl) + (var(--qa-node) - var(--qa-thread)) / 2);
+  /* centre-to-centre: both ends finish UNDER a node, so the join has no seam to show. */
+  top: calc(var(--qa-node-top) + var(--qa-node) / 2);
+  bottom: calc(-1 * (var(--sp-lg) + var(--qa-node-top) + var(--qa-node) / 2));
+  width: var(--qa-thread);
+  background: var(--border);
+}
+section.q-and-a.spine > .cell-stage > :is(ul, ol) > li:last-child::after {
+  display: none;
+}
+/* No index column on the spine — the node replaces it, so the answer keeps the
+   question's own left edge. */
+section.q-and-a.spine > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+  padding-left: 0;
 }
 
 /* ── rail — question / answer columns ─────────────────────────────────── */
@@ -165,12 +234,16 @@ section.q-and-a.rail > .cell-stage > :is(ul, ol) {
   gap: var(--sp-lg);
 }
 /* flex mirror of `grid-template-columns:auto minmax(0,0.46fr) minmax(0,0.54fr)`: the index is
- * a natural-width first item; the question (<strong>) and answer (ul) split the rest 46:54 via
- * matching flex-grow on a zero basis — exactly what the two fr tracks did. */
+ * the ledger's fixed first column; the question (<strong>) and answer (ul) split the rest
+ * 46:54 via matching flex-grow on a zero basis — exactly what the two fr tracks did.
+ *
+ * The row keeps the ledger's `align-items: baseline`. It was `start`, which aligns the three
+ * BOXES — and the three carry three type sizes, so the answer's first line landed 7.9px above
+ * the question's baseline on every row of an exhibit table whose whole promise is that a row
+ * reads as one line. `nowrap` because here the answer is a COLUMN, not a wrapped second line. */
 section.q-and-a.rail > .cell-stage > :is(ul, ol) > li {
-  display: flex;
-  align-items: start;
-  column-gap: var(--sp-2xl);
+  flex-wrap: nowrap;
+  column-gap: var(--sp-lg);
   padding-left: 0;
   padding-bottom: var(--sp-lg);
   border-left: none;
@@ -180,15 +253,17 @@ section.q-and-a.rail > .cell-stage > :is(ul, ol) > li:last-child {
   padding-bottom: 0;
   border-bottom: none;
 }
+/* The numeral keeps the ledger's `decimal-leading-zero`. It was a bare `counter(qa)`, so one
+   component printed `01` in five looks and `1` in the sixth — and a bare counter is also
+   variable-width, which walks the question column right at item ten. */
 section.q-and-a.rail > .cell-stage > :is(ul, ol) > li::before {
-  content: counter(qa);
-  position: static;
-  flex: 0 0 auto;
   font-weight: 700;
 }
 section.q-and-a.rail > .cell-stage > :is(ul, ol) > li > strong {
   flex: 0.46 1 0;
   min-width: 0;
+  padding-right: var(--sp-lg);   /* widens the question↔answer gutter without widening the
+                                    index↔question one — `column-gap` is uniform */
 }
 section.q-and-a.rail > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   flex: 0.54 1 0;
@@ -198,9 +273,16 @@ section.q-and-a.rail > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
 
 /* ── tab — underlined prompts ─────────────────────────────────────────── */
 /* No index; a short accent underline sits tight beneath each question, then
- * the answer drops below it with its own breathing room. */
+ * the answer drops below it with its own breathing room.
+ *
+ * The gap between pairs is what tells a reader where one pair ENDS. It was `--sp-lg`
+ * against an in-pair gap of `--sp-md + --sp-2xs`: measured, 34px of air between a pair's
+ * answer and the next question against 31px between a question and its own answer — a
+ * ratio of 1.1, which is no grouping at all. Tightening the pair and opening the gap
+ * takes it to 2.6 without costing a pair of capacity (a 4th pair overflowed before this
+ * change too — `compact` is the escape, as it is for every look here). */
 section.q-and-a.tab > .cell-stage > :is(ul, ol) {
-  gap: var(--sp-lg);
+  gap: calc(var(--sp-lg) + var(--sp-sm));
 }
 section.q-and-a.tab > .cell-stage > :is(ul, ol) > li {
   padding-left: 0;
@@ -214,7 +296,7 @@ section.q-and-a.tab > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   /* the sp-2xs that separated the question from the underline now rides INSIDE the ul as
      extra top padding, with the underline (::before) dropped by the same sp-2xs so it lands
      where it did — keeps the box measurable (no margin-top above the ul). */
-  padding-top: calc(var(--sp-md) + var(--sp-2xs));
+  padding: calc(var(--sp-sm) + var(--sp-2xs)) 0 0;
 }
 section.q-and-a.tab > .cell-stage > :is(ul, ol) > li > :is(ul, ol)::before {
   content: "";
@@ -227,9 +309,18 @@ section.q-and-a.tab > .cell-stage > :is(ul, ol) > li > :is(ul, ol)::before {
 }
 
 /* ── grid — two-up quadrant density ───────────────────────────────────── */
-/* Four pairs in a 2×2 grid divided by a gradient hairline cross. Each cell's
- * header reserves two lines so question tops and answer baselines align across
- * a row whether or not a question wraps. */
+/* Four pairs in a 2×2 grid divided by a gradient hairline cross. Each cell is a
+ * column: index, question, answer, packed to the cell's TOP — so the four questions
+ * start on the same line as their row-mate whatever length they are.
+ *
+ * The cell used to center its column AND reserve a two-line header (`min-height:3em`
+ * on the question) to make the answers line up across a row. It bought the wrong
+ * thing at the wrong price. The price: a one-line question left 42px of dead air
+ * between it and its answer, in a cell only 195px tall. The thing: the reserve is a
+ * MINIMUM, so a three-line question blew straight through it and the answers went
+ * out of line anyway — measured 21px apart on a row of one- and three-line questions,
+ * with the centering putting the two question tops 21px apart as well. Top-packing
+ * aligns the questions exactly, at any length, and spends nothing. */
 /* flex mirror of a 2×2 grid (flex shop §11.A, the matrix-2x2 recipe): wrap four cells, each
  * a border-box half-minus-half-gap in both axes, so they tile the quadrant. */
 section.q-and-a.grid > .cell-stage > :is(ul, ol) {
@@ -264,20 +355,28 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol) > li {
   box-sizing: border-box;
   width: calc(50% - var(--sp-2xl) / 2);
   height: calc(50% - var(--sp-xl) / 2);
-  /* flex mirror of `grid-template-rows:minmax(3em,auto) auto` + the outer `align-items:center`:
-   * a centered column whose question (<strong>) reserves a 3em row so answer tops baseline-align
-   * across the quadrant whether or not a question wraps. */
-  display: flex;
+  /* a COLUMN, so the ledger's index column becomes a numeral sitting directly over its
+   * own question — it was an absolutely-positioned mark in a gutter the quadrant cell
+   * never uses, stranded up to 42px above the question it belongs to. */
   flex-direction: column;
-  justify-content: center;
-  row-gap: var(--sp-xs);
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  row-gap: var(--sp-2xs);
+  padding-left: 0;
   border-left: none;
 }
+section.q-and-a.grid > .cell-stage > :is(ul, ol) > li::before {
+  flex: 0 0 auto;   /* in a column the ledger's `0 0 <gutter>` would be a HEIGHT */
+  line-height: var(--lh-tight);
+}
 section.q-and-a.grid > .cell-stage > :is(ul, ol) > li > strong {
-  min-height: 3em;
+  flex: 0 0 auto;
+  padding-top: var(--sp-2xs);
 }
 section.q-and-a.grid > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
-  padding: 0;
+  flex: 0 0 auto;
+  padding: var(--sp-sm) 0 0;
 }
 
 /* ── bare-renderer fallback ────────────────────────────────────────────────
@@ -291,9 +390,21 @@ section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > str
   gap: var(--qa-gap);
 }
 section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li {
-  display: block;
+  /* back to the ledger's wrapping row: index beside the question, answer under both. */
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-start;
   width: auto;
   height: auto;
+  padding-left: var(--sp-xs);
+}
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li::before {
+  flex: 0 0 var(--qa-index-col);
+}
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li > :is(ul, ol) {
+  flex: 1 1 100%;
+  padding: var(--sp-xs) 0 0 var(--qa-gutter);
 }
 section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > strong))::before,
 section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > strong))::after {
@@ -303,13 +414,13 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > strong))::after
 /* ── compact — the density escape hatch for five-plus pairs ───────────── */
 /* A pure opt-in on the ledger: the question and its index drop from message to
  * body type, the answer to compact-body, and the gaps close. */
-section.q-and-a.compact > .cell-stage {
+section.q-and-a.compact {
   --qa-gap: var(--sp-sm);
+  /* re-base the token rather than overriding the counter's font-size: the index column
+     is calc'd from it, so a smaller numeral now buys back its own gutter too. */
+  --qa-index: var(--fs-body);
 }
 section.q-and-a.compact > .cell-stage > :is(ul, ol) > li {
-  font-size: var(--fs-body);
-}
-section.q-and-a.compact > .cell-stage > :is(ul, ol) > li::before {
   font-size: var(--fs-body);
 }
 section.q-and-a.compact > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
@@ -322,7 +433,9 @@ section.q-and-a.compact > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
 /* ── solo — one question, one answer, the whole slide ─────────────────── */
 /* Solo sizes the question (and its index) off --fs-emphasis, so it re-bases --qa-index
  * to that scale — the gutter (calc'd from --qa-index) then clears the larger number too,
- * rather than overrunning a gutter sized for the default index. */
+ * rather than overrunning a gutter sized for the default index. This line was inert until
+ * the tokens moved off `> .cell-stage`: the stage's own declaration overrode it and the
+ * numeral rendered at the default ledger's 22.4px beside an --fs-emphasis question. */
 section.q-and-a.solo {
   --qa-index: calc(var(--fs-emphasis) * 0.8);
 }
@@ -355,7 +468,7 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
 /* grid 2×2 → one column; retire the dividing cross. The container is a flex/grid
    descendant (`> ul`) so the container query CAN restyle it: drop to a flex column
    so the pairs pack by content height + gap (the grid's stretched auto-rows left
-   huge gaps), and reset each pair's reserved two-line header to natural height. */
+   huge gaps), and release the quadrant cell's fixed width/height. */
 section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
   display: flex;
   flex-direction: column;
@@ -364,27 +477,24 @@ section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-
   gap: var(--sp-lg);
 }
 /* release the quadrant cell sizing — natural-height pairs in the single column. */
-section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; justify-content: flex-start; }
-section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong { min-height: 0; }
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; }
 section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before,
 section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::after { display: none; }
 /* rail columns → the ledger's hanging-index block so Q and A stack legibly. */
 section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
-  display: block;
-  position: relative; /* self-contained context for the absolute index ::before */
-  padding-left: var(--qa-gutter);
+  flex-wrap: wrap;                /* the answer drops under the question instead of beside it */
+  column-gap: var(--qa-col-gap);
+  padding-left: var(--sp-xs);
   padding-bottom: var(--sp-lg);
   border-left: 2px solid var(--accent);
 }
-section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li::before {
-  /* `decimal-leading-zero`, NOT a literal "0" prefix: the prefix printed `010` at item ten.
-     Unreachable while a page held several members and the counter effectively never passed
-     `perPage`; one structural element per page plus the `--lat-split-offset` seed drives it
-     to 10 on any run that long. Found by the HARD RULE #25 red team on a rendered page. */
-  content: counter(qa, decimal-leading-zero);
-  position: absolute;
-  left: var(--sp-md);
-  top: 0;
+/* The numeral is the ledger's already — the columns are what this arm undoes. */
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong {
+  flex: 1 1 0;
+  padding-right: 0;
 }
-section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) { padding-top: var(--sp-xs); }
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+  flex: 1 1 100%;
+  padding: var(--sp-xs) 0 0 var(--qa-gutter);
+}
 

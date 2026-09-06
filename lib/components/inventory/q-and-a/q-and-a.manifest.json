@@ -192,7 +192,7 @@
     },
     {
       "variant": "rail",
-      "useWhen": "Questions should be scannable as a left-hand index while answers sit in their own column."
+      "useWhen": "Questions should be scannable as a left-hand index while answers sit in their own column — number, question and answer share one baseline, so a row reads as a single line."
     },
     {
       "variant": "tab",
@@ -200,7 +200,7 @@
     },
     {
       "variant": "grid",
-      "useWhen": "Exactly four pairs fit naturally into a two-by-two — an even count, not five or three."
+      "useWhen": "Exactly four pairs fit naturally into a two-by-two — an even count, not five or three. Each cell packs to its own top, so the four questions start on the same line whatever length they run; the answers follow their own question rather than lining up across the row."
     },
     {
       "variant": "solo",
