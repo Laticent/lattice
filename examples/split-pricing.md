@@ -34,15 +34,15 @@ page still renders every tier at once.
 
 - Per record `$0.14 / record`
   - [x] Volume discounts
-  - [/] Savings guarantee
+  - [/] Named reviewer
   - For pilots and low-volume sites.
 - Flat platform `$240K / yr` *Most chosen*
   - [x] Volume discounts
   - [x] Named reviewer
   - For steady, forecastable programs.
 - Outcome-linked `Custom`
+  - [-] Volume discounts
   - [x] Named reviewer
-  - [x] Savings guarantee
   - For systems that will share the measured savings.
 
 ---
@@ -67,7 +67,7 @@ page still renders every tier at once.
 ## Four is the widest row that still holds.
 
 - Pilot `$0`
-  - [x] One site
+  - [/] Quarterly review
   - [/] Named reviewer
   - Ninety days, no commitment.
 - Standard `$96K / yr`
@@ -79,8 +79,8 @@ page still renders every tier at once.
   - [x] Named reviewer
   - Up to eight sites on one contract.
 - Outcome-linked `Custom`
+  - [-] Quarterly review
   - [x] Named reviewer
-  - [x] Savings guarantee
   - For systems sharing the measured savings.
 
 ---

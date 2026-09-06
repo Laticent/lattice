@@ -326,11 +326,17 @@ to police. Nothing warned; two arms of `jank-sweep.test.js` failed and that is t
 reason it was noticed.
 
 The general shape: **for any capacity-bearing component whose real chrome is optional — a
-featured flag, a variant-only badge — `--anchors` under-reports.** Pass `--axis heading`
-when you want the component's shipped vocabulary. Fixing it properly means either teaching
-the builders that vocabulary (they also feed `calibrate-capacity` and `calibrate-density`,
-where a heavier element moves the measured ceilings, so not free) or having discovery read
-the manifest's own `sample` rather than a generated sweep. Neither is done.
+featured flag, a variant-only badge — a count sweep under-reports.** `split-compare` was
+the second instance and lost `div.verdict::before`, the RECOMMENDATION corner tag, which is
+the most position-sensitive mark it has; nothing failed, because it has no arm here.
+
+**Fixed for DISCOVERY (2026-09-06): `--anchors` now defaults to the heading sweep**, which
+reads the component's own sample. Discovery asks what marks a component HAS, and a
+generated deck cannot answer that. The MEASURING modes still default to the count sweep for
+a capacity-bearing component — there, growing the collection and watching what moves is the
+entire point, and the builders also feed `calibrate-capacity` / `calibrate-density`, where a
+heavier element would shift the measured ceilings. So the builders were deliberately NOT
+taught the optional chrome; that remains open if a measuring mode ever needs it.
 
 ## Four decisions, and what would change them
 

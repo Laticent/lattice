@@ -469,7 +469,8 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     // slide were reached 0 times and `--anchors` answered "this component draws no positioned
     // pseudo the walk can place" over marks it places fine. An empty candidate list passed
     // all nine arms above.
-    // `--axis heading` ON PURPOSE, and the reason is a trap worth naming. `check-jank`
+    // `--axis heading` explicitly, though it is now also the DISCOVERY DEFAULT
+    // (check-jank.js), because the reason is a trap worth naming and pinning. `check-jank`
     // picks its sweep axis from the manifest: a component with a `capacity.axis` and an
     // element builder is swept by COUNT, everything else by HEADING. `pricing` gained a
     // capacity when it was enrolled in splitting (2026-09-06), which silently flipped this

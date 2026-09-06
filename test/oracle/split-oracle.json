@@ -585,7 +585,7 @@
       "enrolled": true,
       "strategy": "compare-options",
       "reshape": "paginator",
-      "coverClass": "split-compare-cover",
+      "coverClass": "lat-split-cover",
       "perPage": 1,
       "relationship": "comparison"
     },
