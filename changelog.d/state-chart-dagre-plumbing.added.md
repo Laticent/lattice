@@ -1,0 +1,1 @@
+- `dagre-d3-es` and `lodash-es` are now direct dependencies, self-hosted and inlined into the shipped bundles — nothing is fetched at run time. Their MIT notices travel with the marp kit's `THIRD-PARTY-LICENSES.txt`. The state-chart's browser pass can now reach a graph layout engine on all three render paths.
