@@ -52,8 +52,6 @@ function shippedDecks() {
 /** A line that opens or closes a fenced block — its contents are code, not prose. */
 const FENCE = /^\s*(```|~~~)/;
 
-/** Whole HTML comments, including multi-line ones — the shape a chrome directive comes in. */
-const HTML_COMMENT = /<!--[\s\S]*?-->/g;
 /** The two chrome directives, deck-scoped or slide-scoped. */
 const CHROME_KEYS = new Set(['header', 'footer']);
 
@@ -114,6 +112,7 @@ function inlineSpans(file) {
 /** The spans inside a deck's running header and footer — deck-wide and per slide. */
 function chromeSpans(file, src) {
   const found = [];
+  const body = src.replace(FRONT_MATTER, (m) => m.replace(/[^\n]/g, ''));
 
   const fm = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   if (fm) {
@@ -131,20 +130,39 @@ function chromeSpans(file, src) {
     }
   }
 
-  // ASK THE ENGINE'S OWN PARSER, not a regex of my own. A hand-rolled
-  // `/<!--\s*_(header|footer)\s*:\s*(.*?)-->/` matched one line and required the
-  // underscore, and missed two forms the engine really honors: a BARE `<!-- footer: … -->`
-  // (a global directive that applies to that slide and every one after) and a MULTI-LINE
-  // comment. Both render live pills — measured through the real engine. `readDirectiveComment`
-  // is the same kernel `lib/engine/slides.js` reads directives with, so the walker cannot
-  // disagree with what actually renders (HARD RULE #1).
-  HTML_COMMENT.lastIndex = 0;
-  let m;
-  while ((m = HTML_COMMENT.exec(src))) {
-    const directive = readDirectiveComment(m[0], { known: CHROME_KEYS });
-    if (!directive) continue;
-    const line = src.slice(0, m.index).split('\n').length;
-    for (const t of spansIn(directive.value)) found.push({ file, line, text: t });
+  // ASK THE ENGINE'S OWN PARSER FOR THE GRAMMAR, AND markdown-it FOR WHERE TO LOOK.
+  //
+  // Two mistakes, one after the other. First a hand-rolled
+  // `/<!--\s*_(header|footer)\s*:\s*(.*?)-->/` matched one line and required the underscore,
+  // missing a bare `<!-- footer: … -->` (a global directive the engine applies to that slide
+  // and every one after) and any multi-line comment. `readDirectiveComment` — the same kernel
+  // `lib/engine/slides.js` reads directives with — settles the grammar.
+  //
+  // Then scanning the RAW SOURCE for comments read directives out of fenced and indented
+  // code blocks, where they are quoted examples that render nothing: a deck documenting the
+  // directive syntax with a dispatching label would have failed the census. Taking the
+  // comments from the token stream instead means a fence is a `fence` token and never yields
+  // one, which is the parser answering a question a regex kept getting wrong.
+  let blockLine = 1;
+  for (const token of md.parse(body, {})) {
+    if (Array.isArray(token.map)) blockLine = token.map[0] + 1;
+    const raws =
+      token.type === 'html_block'
+        ? [token.content]
+        : token.type === 'inline' && Array.isArray(token.children)
+          ? token.children.filter((c) => c.type === 'html_inline').map((c) => c.content)
+          : [];
+    for (const raw of raws) {
+      ONE_COMMENT.lastIndex = 0;
+      let c;
+      while ((c = ONE_COMMENT.exec(raw))) {
+        const directive = readDirectiveComment(c[0], { known: CHROME_KEYS });
+        if (!directive) continue;
+        const offset = src.indexOf(c[0]);
+        const line = offset >= 0 ? src.slice(0, offset).split('\n').length : blockLine;
+        for (const t of spansIn(directive.value)) found.push({ file, line, text: t });
+      }
+    }
   }
   return found;
 }
@@ -159,22 +177,24 @@ function spansIn(text) {
 }
 
 /**
- * A LEADING FRONT-MATTER BLOCK, and only that.
+ * A LEADING FRONT-MATTER BLOCK — the ENGINE's pattern, copied verbatim from
+ * `slideIsInlineCodeLiteral` in `lib/engine/slides.js`, and it must stay that way.
  *
- * The inner `[A-Za-z]` guard is not decoration: `/^---\n[\s\S]*?\n---\n/` alone also
- * matches a deck with NO front matter whose first line is a `---` thematic break, and would
- * blank every line up to the next `---` — real slide content. No shipped deck is shaped that
- * way today, which is exactly why the guard is here rather than a comment saying it cannot
- * happen. Requiring a `key:` line inside makes it a front-matter block rather than two rules
- * with prose between them.
+ * A cleverer guard was tried and was wrong in the direction that matters. Requiring a
+ * `key:` line inside (to avoid mistaking a leading `---` thematic break for front matter)
+ * made the walker DISAGREE with the engine: given `---\n# a note with \`{PILL}\`\n---`, the
+ * engine swallows the span as front matter and renders nothing, while the stricter pattern
+ * left it in the body and reported it. A census that flags a span the engine never renders
+ * is the same defect as one that misses a span the engine does — and the fix for both is to
+ * ask what the engine asks, not what seems more correct (HARD RULE #1).
  */
-const FRONT_MATTER = /^---\r?\n(?:[^\n]*\n)*?[ \t]*[A-Za-z][\w-]*:[\s\S]*?\r?\n---\r?\n/;
+const FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
 
 /** One whole HTML comment. A single lazy scan to the first `-->` — no nested quantifier. */
 const ONE_COMMENT = /<!--[\s\S]*?-->/g;
 
 /**
- * Is this `html_block` nothing but comments? It renders no element, so it is not a sibling.
+ * Does this `html_block` render NO ELEMENT? Then it is not a sibling for `p + h1`.
  *
  * WRITTEN AS A STRIP, NOT A MATCH, and the reason is a measured hang. The first cut was
  * `/^(?:\s*<!--[\s\S]*?-->\s*)+$/`, which nests a quantifier inside a repeated group whose
@@ -186,8 +206,12 @@ const ONE_COMMENT = /<!--[\s\S]*?-->/g;
  * `<!-- x --><div>y</div>` correctly does NOT count as comment-only, because a `<div>` really
  * does render an element and really does break the adjacency the CSS needs.
  */
-function isCommentOnlyHtml(content) {
-  return String(content ?? '').replace(ONE_COMMENT, '').trim() === '';
+function rendersNoElement(content) {
+  const withoutComments = String(content ?? '').replace(ONE_COMMENT, '');
+  // Raw TEXT beside a comment is a text node, not an element, so it does not break the
+  // adjacency either — `<!-- x --> trailing` still leaves `p + h1` matching, checked in
+  // real Chrome. Only a tag does.
+  return !/<[A-Za-z!/]/.test(withoutComments);
 }
 
 /**
@@ -211,7 +235,7 @@ function isCommentOnlyHtml(content) {
 function siblingType(tokens, from, step) {
   for (let i = from; i >= 0 && i < tokens.length; i += step) {
     const t = tokens[i];
-    if (t.type === 'html_block' && isCommentOnlyHtml(t.content)) continue;
+    if (t.type === 'html_block' && rendersNoElement(t.content)) continue;
     return t.type;
   }
   return '';
@@ -245,7 +269,14 @@ function codeOnlyParagraphs(file) {
     if (tokens[i].type !== 'paragraph_open') continue;
     const inline = tokens[i + 1];
     if (!inline || inline.type !== 'inline' || !Array.isArray(inline.children)) continue;
-    const kids = inline.children.filter((c) => !(c.type === 'text' && !c.content.trim()));
+    // Whitespace text and INLINE COMMENTS are both invisible to `code:only-child` — neither
+    // is an element. Dropping only the whitespace was a false negative one nesting level
+    // below the one `siblingType` fixes: `` `{LABEL}` <!-- markdownlint-disable-line --> ``
+    // left three children, so the paragraph was rejected and the census stopped looking at a
+    // slide that real Chrome promotes as an eyebrow (checked with the actual selector).
+    const kids = inline.children.filter(
+      (c) => !(c.type === 'text' && !c.content.trim()) && !(c.type === 'html_inline' && rendersNoElement(c.content)),
+    );
     if (kids.length !== 1 || kids[0].type !== 'code_inline') continue;
     found.push({
       file,
