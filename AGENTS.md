@@ -33,7 +33,7 @@ pick list** — the other two are bigger and answer later questions.
 > these, and the SessionStart hook does the same — so in a normal checkout they are
 > simply there. If they are missing, run `npm run build`. Working without a clone?
 > The same files are published on the [`dist-kits`](https://github.com/Laticent/lattice/tree/dist-kits/agent) branch, inside a
-> kit organized by task — start at its `README.md`, which routes you and costs each
+> kit that routes by where you are putting it — start at its `README.md`, which costs each
 > path in tokens. The Studio chat's own authoring primer is `authoring/primer.md`
 > there, and `review/check.mjs` is a runnable, self-contained deck checker.
 
