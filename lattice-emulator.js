@@ -5022,7 +5022,7 @@ async function projectDeckSpeechFromHtml(docHtml) {
     const { JSDOM } = require('jsdom');
     const DOMPurify = require('dompurify');
     const { createSlideSanitizer } = await import('./lib/core/sanitize-slide-html.mjs');
-    const { projectDeckToSpeech } = await import('./lib/transformers/prose-projection.mjs');
+    const { projectDeckToScript } = await import('./lib/transformers/prose-projection.mjs');
     const sanitize = createSlideSanitizer(DOMPurify, new JSDOM('').window);
     const doc = new JSDOM(docHtml).window.document;
     const raw = [...doc.querySelectorAll('section[data-lattice-slide]')];
@@ -5030,7 +5030,7 @@ async function projectDeckSpeechFromHtml(docHtml) {
     const clean = raw
       .map((s) => new JSDOM(sanitize(s.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
       .filter(Boolean);
-    return projectDeckToSpeech(clean);
+    return projectDeckToScript(clean);
   } catch (e) {
     // SURFACE THE FAILURE, and say what actually happens now. This used to read
     // "falling back to speaker notes only" — true of the old ladder, false since the
@@ -5084,7 +5084,11 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   // A caption is generated from the slide's own CONTENT — which is on the slide, in front of
   // the room — so it carries nothing `--strip-notes` is protecting, and emptying it was the
   // last place a note still decided what a caption said.
-  const projected = await projectDeckSpeechFromHtml(docHtml);
+  const script = await projectDeckSpeechFromHtml(docHtml);
+  // `projected` stays a plain string[] so the length check, the narrateChart substitution and
+  // mergeNarration below are all untouched; the emphasis rides alongside, keyed by the same index.
+  const projected = script.map((x) => x.text);
+  const projectedEmphasis = script.map((x) => x.emphasis);
   // A length mismatch (an autosplit deck renders more sections than authored slides)
   // makes the index mapping unsafe, so mergeNarration drops the projection wholesale
   // rather than misalign a caption — surface that here so it isn't silent.
@@ -5194,11 +5198,18 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   if (STRIP_CAPTIONS) fmForMerge = null;
   // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → projection.
   const slideTexts = mergeNarration(slideCount, projected, { captions: inlineForMerge, fmCaptions: fmForMerge });
+  // EMPHASIS APPLIES ONLY WHERE THE FINAL NARRATION IS STILL THE PROJECTED TEXT. The spans are char
+  // offsets into the string the projection built; an inline `<!-- caption: -->`, a front-matter
+  // caption, or narrateChart's full-slide substitution all REPLACE that string, and reusing the old
+  // offsets against a different one would land a beat mid-phrase. Identity is the honest test — the
+  // slide either narrates what was measured, or it gets today's uniform pacing.
+  const emphasis = slideTexts.map((t, i) => (t === projected[i] ? projectedEmphasis[i] : undefined));
   const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
     pace: 'moderate',
     acronyms,
+    emphasis,
     lexicon,
     lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
   });

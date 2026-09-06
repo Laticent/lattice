@@ -233,3 +233,39 @@ describe('buildTrack + emphasis', () => {
     expect(t.durationMs).toBe(plain.durationMs);
   });
 });
+
+
+describe('buildTrack + a MULTI-CUE emphasized passage', () => {
+  // A key-insight coda runs several sentences. Weighting every cue it touches spends a hold inside
+  // the passage it is meant to set apart — measured at 1000 ms dripped through one insight on
+  // examples/radar-narration.md. One beat, after it lands.
+  const PASSAGE = 'Alpha leads. Beta follows. Gamma trails. Then the rest.';
+  const WHOLE = { start: 0, end: 40, weight: 2 }; // covers the first three sentences
+
+  it('holds ONCE, on the cue where the passage ends', () => {
+    const t = buildTrack(PASSAGE, { emphasis: [WHOLE] });
+    expect(t.cues.map((c) => c.weight)).toEqual([undefined, undefined, 2, undefined]);
+  });
+
+  it('still marks every WORD in the passage — the two questions are different', () => {
+    // Word weight answers "is this emphasized" (a caption could style it); cue weight answers
+    // "did a passage finish here" (that is what buys silence). Collapsing them is the bug above.
+    const t = buildTrack(PASSAGE, { emphasis: [WHOLE] });
+    expect(t.cues[0].words.every((w) => w.weight === 2)).toBe(true);
+    expect(t.cues[1].words.every((w) => w.weight === 2)).toBe(true);
+    expect(t.cues[3].words.every((w) => w.weight === undefined)).toBe(true);
+  });
+
+  it('adds exactly ONE hold to the whole passage, not one per sentence', () => {
+    const plain = buildTrack(PASSAGE);
+    const held = buildTrack(PASSAGE, { emphasis: [WHOLE] });
+    expect(held.durationMs - plain.durationMs).toBe(EMPHASIS_HOLD_MS);
+  });
+
+  it('gives two separate passages a beat each', () => {
+    const t = buildTrack(PASSAGE, {
+      emphasis: [{ start: 0, end: 12, weight: 2 }, { start: 26, end: 40, weight: 2 }],
+    });
+    expect(t.cues.map((c) => c.weight)).toEqual([2, undefined, 2, undefined]);
+  });
+});

@@ -1,0 +1,2 @@
+- **The slide's closing beat is now narrated.** A trailing `> …` key insight or below-note is lifted into a `.cell-coda` cell that sits OUTSIDE `.cell-stage`, and every body walker in the speech projection is stage-scoped — so the most prominent editorial line on the slide was silent in captions and read-aloud. It is now spoken last, as its own paragraph beat. 52 of the 156 committed decks carry at least one.
+- Author emphasis now buys time: a `**bold**` phrase or a coda holds a beat after it lands, once per passage rather than once per sentence.

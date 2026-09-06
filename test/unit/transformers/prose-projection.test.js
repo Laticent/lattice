@@ -9,10 +9,14 @@ const { JSDOM } = require('jsdom');
 
 let project;
 let speak;
+let script;
+let spansFor;
 test.before(async () => {
 	const mod = await import('../../../lib/transformers/prose-projection.mjs');
 	project = mod.projectDeckToProse;
 	speak = mod.projectDeckToSpeech;
+	script = mod.projectDeckToScript;
+	spansFor = mod.emphasisSpansFor;
 });
 
 /** Build DOM sections from HTML fragments. */
@@ -582,4 +586,127 @@ test('speech: a plain nested list never invents a state word from a descendant',
 		`<section data-lattice-slide data-class="list" class="list"><div class="cell-stage"><ul><li>Roadmap<ul><li>Q1 launch</li></ul></li></ul></div></section>`,
 	));
 	assert.equal(t, 'Roadmap: Q1 launch.');
+});
+
+
+// ── THE CODA IS SPOKEN ────────────────────────────────────────────────────────────────────────
+// `stageOf` returns `.cell-stage` and the coda is that cell's SIBLING, so every stage-scoped body
+// walker missed it and a slide's closing "so what" was silent. These pin that it is said, said
+// once, and said last.
+const CODA_SLIDE = `<section data-lattice-slide data-class="content">
+  <div class="cell-stage"><ul><li>Coverage sits at 2.9x.</li></ul></div>
+  <div class="cell-coda" data-dock="column"><blockquote><p>The year is made on retention.</p></blockquote></div>
+</section>`;
+
+test('speech: the coda is narrated', () => {
+	const [text] = speak(sections(CODA_SLIDE));
+	assert.match(text, /The year is made on retention\./);
+});
+
+test('speech: the coda is narrated LAST — it is a closing beat', () => {
+	const [text] = speak(sections(CODA_SLIDE));
+	assert.ok(text.indexOf('Coverage sits') < text.indexOf('The year is made'), text);
+	assert.ok(text.trimEnd().endsWith('The year is made on retention.'), text);
+});
+
+test('speech: the coda gets its own PARAGRAPH beat, not a sentence pause', () => {
+	// A blank line is what normalizeProjected turns into the paragraph tier downstream; without it
+	// the insight would run on from the last bullet.
+	const [text] = speak(sections(CODA_SLIDE));
+	assert.match(text, /Coverage sits at 2\.9x\.\n\nThe year is made on retention\./);
+});
+
+test('speech: a coda INSIDE the stage is not spoken twice', () => {
+	// A layout that CLAIMS its trailing block (coda.claims) keeps it in the stage, where the body
+	// walker already says it. `stage.contains` is the guard; without it that slide stutters.
+	const claimed = `<section data-lattice-slide data-class="content">
+	  <div class="cell-stage"><ul><li>Coverage sits at 2.9x.</li></ul>
+	    <div class="cell-coda"><blockquote><p>Retention carries the year.</p></blockquote></div></div>
+	</section>`;
+	const [text] = speak(sections(claimed));
+	assert.equal(text.match(/Retention carries the year/g)?.length, 1, text);
+});
+
+test('speech: both coda blocks are spoken, each its own beat', () => {
+	const two = `<section data-lattice-slide data-class="content">
+	  <div class="cell-stage"><p>Body.</p></div>
+	  <div class="cell-coda"><blockquote><p>The insight.</p></blockquote><p>The footnote.</p></div>
+	</section>`;
+	const [text] = speak(sections(two));
+	assert.match(text, /The insight\.\n\nThe footnote\./, text);
+});
+
+test('speech: a slide with no coda is unchanged', () => {
+	const plain = `<section data-lattice-slide data-class="content"><div class="cell-stage"><p>Only this.</p></div></section>`;
+	assert.equal(speak(sections(plain))[0], 'Only this.');
+});
+
+// ── EMPHASIS SPANS ───────────────────────────────────────────────────────────────────────────
+const BOLD_SLIDE = `<section data-lattice-slide data-class="content">
+  <div class="cell-stage"><p>Retention reached <strong>one hundred and eighteen percent</strong> this year.</p></div>
+</section>`;
+
+test('emphasis: a <strong> becomes a span over exactly its own words', () => {
+	const [s] = script(sections(BOLD_SLIDE));
+	assert.equal(s.emphasis.length, 1);
+	assert.equal(s.text.slice(s.emphasis[0].start, s.emphasis[0].end), 'one hundred and eighteen percent');
+	assert.equal(s.emphasis[0].weight, 2);
+});
+
+test('emphasis: the coda is emphasized as well as spoken', () => {
+	const [s] = script(sections(CODA_SLIDE));
+	const marked = s.emphasis.map((sp) => s.text.slice(sp.start, sp.end));
+	assert.ok(marked.includes('The year is made on retention.'), JSON.stringify(marked));
+});
+
+test('emphasis: a phrase appearing TWICE is skipped rather than guessed', () => {
+	// The unique-substring rule. A missed emphasis paces like today (safe); a misplaced one would
+	// put a beat mid-sentence (a defect). This pins the safe direction.
+	const dupe = `<section data-lattice-slide data-class="content">
+	  <div class="cell-stage"><p>Margin held. <strong>Margin held</strong> again.</p></div>
+	</section>`;
+	const [s] = script(sections(dupe));
+	assert.deepEqual(s.emphasis, []);
+});
+
+test('emphasis: a phrase the projection dropped or rewrote yields no span', () => {
+	const hidden = `<section data-lattice-slide data-class="content">
+	  <div class="cell-stage"><p>Visible.</p></div>
+	  <aside><strong>Never narrated</strong></aside>
+	</section>`;
+	const [s] = script(sections(hidden));
+	assert.deepEqual(s.emphasis, []);
+});
+
+test('emphasis: a very short <strong> is not marked', () => {
+	const tiny = `<section data-lattice-slide data-class="content">
+	  <div class="cell-stage"><p>Grade <strong>A</strong> overall.</p></div>
+	</section>`;
+	const [s] = script(sections(tiny));
+	assert.deepEqual(s.emphasis, []);
+});
+
+test('emphasis: every span indexes real text and stays in bounds', () => {
+	const [s] = script(sections(BOLD_SLIDE, CODA_SLIDE));
+	for (const one of script(sections(BOLD_SLIDE, CODA_SLIDE))) {
+		for (const sp of one.emphasis) {
+			assert.ok(sp.start >= 0 && sp.end <= one.text.length && sp.end > sp.start);
+			assert.equal(one.text.slice(sp.start, sp.end).length, sp.end - sp.start);
+		}
+	}
+	assert.ok(s.text.length > 0);
+});
+
+test('emphasisSpansFor: returns [] for junk input instead of throwing', () => {
+	assert.deepEqual(spansFor(null, 'text'), []);
+	assert.deepEqual(spansFor(sections(BOLD_SLIDE)[0], ''), []);
+	assert.deepEqual(spansFor(sections(BOLD_SLIDE)[0], null), []);
+});
+
+// ── THE TWO PROJECTIONS CANNOT DRIFT ─────────────────────────────────────────────────────────
+test('projectDeckToSpeech is exactly projectDeckToScript mapped to its text', () => {
+	// HARD RULE #1: one source of truth. Speech is a projection of Script, so a caller of either
+	// gets the same string built once.
+	const secs = sections(BOLD_SLIDE, CODA_SLIDE);
+	assert.deepEqual(speak(secs), script(secs).map((s) => s.text));
 });

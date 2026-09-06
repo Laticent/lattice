@@ -118,6 +118,25 @@ function weightOver(spans: readonly EmphasisSpan[], from: number, to: number): n
   return max;
 }
 
+/** The highest weight of a span ENDING inside `(from, to]` — which is what buys the hold, and it is
+ *  a different question from "is this word emphasized".
+ *
+ *  A cue holds a beat because an emphasized passage FINISHED in it, not because it contained part of
+ *  one. Measured on `examples/radar-narration.md`, whose key-insight codas run three and four
+ *  sentences: weighting every cue the passage touches spent four holds inside one insight — 1000 ms
+ *  dripped through the very passage it was supposed to set apart. That is not emphasis, it is just
+ *  slower, and it contradicts the contrast argument `MAX_EMPHASIS_STEPS` is built on. Holding only
+ *  where the passage ENDS gives a long coda one beat after it lands and leaves a short bolded phrase
+ *  behaving exactly as it did — the single-cue case is unchanged, because a span inside one cue both
+ *  starts and ends there. */
+function weightEndingIn(spans: readonly EmphasisSpan[], from: number, to: number): number {
+  let max = 1;
+  for (const sp of spans) {
+    if (sp.end > from && sp.end <= to && sp.weight > max) max = sp.weight;
+  }
+  return max;
+}
+
 export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack {
   const pace = opts.pace ?? 'moderate';
   const rateScale = opts.rateScale ?? 1;
@@ -142,7 +161,6 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
     const words: Word[] = [];
     const cueStart = clock;
     let cueCharOffset = -1;
-    let cueWeight = 1;
 
     for (let i = 0; i < displays.length; i++) {
       const display = displays[i];
@@ -159,7 +177,6 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       const startMs = clock;
       const endMs = startMs + dur;
       const weight = spans.length ? weightOver(spans, charOffset, charOffset + display.length) : 1;
-      if (weight > cueWeight) cueWeight = weight;
       words.push({ display, spoken, startMs, endMs, charOffset, ...(weight > 1 ? { weight } : {}) });
 
       // Advance the clock past this word, plus the pause its punctuation implies
@@ -178,6 +195,10 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
     // clip ÷ (cue.endMs − cue.startMs) — tracked punctuation depth, not the voice's difficulty.
     const lastWord = words[words.length - 1];
     const cueEnd = lastWord.endMs + clipTrailingMs(lastWord.display);
+    // The cue's own char range, used to ask which emphasized passages FINISH here.
+    const cueWeight = spans.length
+      ? weightEndingIn(spans, cueCharOffset < 0 ? 0 : cueCharOffset, lastWord.charOffset + lastWord.display.length)
+      : 1;
 
     // The next cue starts after the inter-cue breath — the boundary pause (the deeper PARAGRAPH tier
     // when a blank line follows this cue, else the sentence pause) minus the clip's own trailing
