@@ -889,7 +889,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 4. Deliver
    - Ship it and watch it. The running system names the field you guessed.
 
-> Every exercise from here asks you to discover and to design. Maya's Tuesday sat inside a finished design.
+> Every exercise from here works discover, design, or both. Maya's Tuesday sat inside somebody else's design.
 
 ---
 
@@ -953,7 +953,7 @@ flowchart TB
 
 > A cache and a CDN are one idea at two distances: keep the answer nearer than its store.
 
-*Run Part three's removal test on either shape: take the middle box out and the system still answers, slower and from further away. The store alone is a working design. A copy that exists to answer a different question — one you could not simply remove — starts on the next slide.*
+*Run Part three's removal test on either shape: take the cache or the CDN out and the system still answers, slower and from further away. The store alone is a working design. A copy that exists to answer a different question — one you could not simply remove — starts on the next slide.*
 
 ---
 
@@ -1849,7 +1849,7 @@ flowchart LR
 
 Nothing changes that. The measured 150 milliseconds is well above the straight-line floor, because packets do not travel in straight lines and every hop queues.
 
-A design that needs three sequential intercontinental round trips has spent half a second before it executes an instruction. Replication, caching and edge delivery all exist to buy that distance back, and none of them makes it free.
+A design that needs three sequential intercontinental round trips has spent half a second on distance alone, whatever else it does in between. Replication, caching and edge delivery all exist to buy that distance back, and none of them makes it free.
 
 ---
 
@@ -2747,7 +2747,7 @@ Do it now, on paper, in under a minute. Cover the next slide until you have one.
 
 `50M × 4 = 200M reads/day ÷ 86,400 ≈ 2.3K reads/s` · `2M ÷ 86,400 ≈ 23 writes/s` · `ratio ≈ 100:1`
 
-A thirtieth of the read traffic, and the ratio went from 60:1 to 100:1. It moved because you changed how often each person posts, not just how many people there are. The ratio is opens per user divided by posts per user: it survives being wrong about population, never about behavior.
+A thirtieth of the read traffic, and the ratio went from 60:1 to 100:1. It moved because you changed both per-person numbers, opens and posts, not how many people there are. The ratio is opens per user divided by posts per user: it survives being wrong about population, never about behavior.
 
 ---
 
