@@ -11,7 +11,7 @@ header: "Lattice · kpi row rules"
 
 # A rule between the rows, never around them.
 
-Four defects in one component, found by measuring rather than looking. The support rail bracketed itself with heavy outer edges, `compliance` drew a floor under its last row, its status pill declared a column it could never occupy, `spotlight` stranded the hairline that heads each number, and `trajectory` reserved a track its own recommended count never fills.
+Five defects in one component, found by measuring rather than looking. The support rail bracketed itself with heavy outer edges, `compliance` drew a floor under its last row, its status pill declared a column it could never occupy, `spotlight` stranded the hairline that heads each number, and `trajectory` reserved a track its own recommended count never fills.
 
 ---
 

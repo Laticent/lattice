@@ -14,8 +14,10 @@ summary: >
   compliance status pill's `grid-column: 3` is inert (65-67% of every row empty), spotlight
   and trajectory strand the rule that heads each number, trajectory reserves a 4th column a
   sweet-count slide never fills, and the briefing rail still draws the closing outer-edge
-  border `2026-09-03-table-outer-edge-rules.md` retired. `check:jank` reports DRIFT on both
-  and both are false leads: the marks hold position and the stage moves under them.
+  border `2026-09-03-table-outer-edge-rules.md` retired. `check:jank` reported DRIFT on both
+  BEFORE this branch and both were false leads: the marks held position and the stage
+  moved under them. kpi's mark has since been retired here, so `--anchors` now reports
+  that the component draws no placeable pseudo at all.
 ---
 
 # kpi and inventory: the budget is only true one number at a time, and the box is not filled
@@ -38,15 +40,19 @@ re-derivation for each is in § How to re-derive.
 
 ## 1. `check:jank` finds no jank here, and that is the finding
 
-Run `--anchors` on either component and it names a mark and says it does not hold
-position. Both are false leads, and it is worth writing down why, because the
-tool warns about exactly this case and someone will hit it again.
+**Everything in this section describes the tree BEFORE this branch.** Run `--anchors`
+on either component there and it names a mark and says it does not hold position.
+Both were false leads, and it is worth writing down why, because the tool warns about
+exactly this case and someone will hit it again. On kpi the reading is now moot for a
+different reason: this branch retires the mark, so `node tools/check-jank.js kpi
+--anchors` reports "none. This component draws no positioned pseudo the walk can
+place". The inventory half still reproduces as written.
 
-**kpi.** The only generated box the walk can place is `li::after`, the hero
-tile's spark. Over a 1-to-3-line heading sweep it moves **89.6px** vertically and
-the run reports `DRIFT ... it does not hold position`.
+**kpi.** The only generated box the walk could place was `li::after`, the hero
+tile's spark. Over a 1-to-3-line heading sweep it moved **89.6px** vertically and
+the run reported `DRIFT ... it does not hold position`.
 
-It does hold position. The spark's offset inside the hero tile is a constant
+It did hold position. The spark's offset inside the hero tile was a constant
 `32px` on every step. What moves is the whole stage: the masthead grows **44.8px
 per heading line**, so the stage top drops 89.6px over three lines and the stage
 loses the same 89.6px of height. The mark rides its host, the host rides the
@@ -334,6 +340,21 @@ spotlight supports top-align under their own rules — unconditional there rathe
 count-aware, because the hero sets the rail's height, so a spotlight support's row is
 always taller than its content.
 
+**And top-aligning it walked straight into the half-leading this paragraph had just
+measured.** `justify-content: start` aligns the LINE BOX; at `line-height: 0.88` the
+value's glyph box runs **0.206em above** that box. So the first cut of the fix put the
+number's ascenders THROUGH the rule instead of 37.3px under it — **-8.0px** of ink
+clearance at wide and **-7.0px** at square, on the gallery this repo ships, with the
+`$` of `$1.1B` visibly crossing the hairline at 200dpi. The rule was reasoned in
+border-box terms and lands in ink terms, which is the same confusion the paragraph
+above warns is not interchangeable. The value now carries `padding-top: 0.4em` — em
+rather than a spacing token, because the overshoot scales with the type and the token
+does not: `--sp-xs` is 8.0px against an 8.2px overshoot at wide and 13.2px against
+14.0px at tall, so a token clears one family by a hair and crosses in the other. The
+number now sits 8.0px (wide) / 9.2px (square) / 13.2px (tall) below its rule, inside
+the band the briefing rail already reads at, and costs no capacity: split-render
+overflow is identical to main in all three families.
+
 **The trajectory grid is fixed at four columns.** `repeat(4, minmax(0, 1fr))`,
 so a 3-metric slide — which is `sweet` — leaves the fourth column, 270px and 23%
 of the stage, completely empty. **Fixed:** the column count follows the metrics
@@ -376,8 +397,14 @@ edges of a boundary are the far sides of a gap rather than the same pixel. Switc
 compliance to a top border moved every separator — +28.2px and +28.7px on the gallery
 slide, and 209.2px on a two-row slide, parking the "separator" flush against the row
 below it. inventory's `li + li` is right in inventory because its rows have no gap
-between them. Keeping compliance's rule on the bottom edge leaves every interior
-separator on the pixel it already had and removes only the floor.
+between them. Keeping compliance's rule on the bottom edge holds every interior
+separator within 1px of where it was. Not zero, and it cannot be zero: removing the
+floor takes 1px of border out of the column and `space-between` redistributes that
+pixel into the two gaps, so the boundaries land +0.50px and +1.00px down. An
+independent pass caught the first version of this sentence claiming zero while the
+same commit had let 8px of padding back into the meta line and moved the boundaries
++8.00px and +4.50px — the padding is restored, and the claim is now the measurement
+rather than the intent.
 
 **A third defect in the same rows, pre-existing and fixed here because this diff
 rewrote its cause.** `li + li` matched every sub-bullet after the first and pinned
@@ -489,18 +516,41 @@ authors one pill per compliance row — plus a stray separator painted across
 `spotlight`'s hero column at five metrics, a false equivalence claim in a comment, and
 a specificity rationale for an override that was not happening. All are fixed above.
 
-Two further checkers ran on the hero composition and then on the settled diff. The
-third found that scaling the hero value made ordinary figures overprint the rail; the
-fourth found the compliance status-column grid tearing inline markup apart, plus two
-comments asserting measured behavior that does not occur. **Four passes, four sets of
-real findings, including three regressions this branch introduced and then removed.**
-That record is the strongest argument in this note for the checker rung of HARD RULE
-#25: none of the three was visible on the shipped gallery, and every one of them
-passed lint, the unit suite, `build:check` and the overflow probe.
+Three further checkers ran: on the hero composition, on the settled diff, and on the
+diff again after the revert. The third found that scaling the hero value made ordinary
+figures overprint the rail. The fourth found the compliance status-column grid tearing
+inline markup apart, plus two comments asserting measured behavior that does not occur.
+The fifth found that the revert had deleted a declaration it meant to keep — main's
+`padding-top: 0` on the meta line — so every compliance row grew 8px and the separators
+moved +8.00px and +4.50px, in the same commit whose comment claimed they had not moved.
+**Five passes, five sets of real findings, including four regressions this branch
+introduced and then removed.** That record is the strongest argument in this note for
+the checker rung of HARD RULE #25: not one of the four was visible on the shipped
+gallery, and every one passed lint, the unit suite, `build:check` and the overflow
+probe.
 
-No pass reached: a real non-clipping preview surface (Studio, Playground,
-export-to-Marp), themes other than `indaco`, or PPTX output. Those stay UNVERIFIED
-(#23) rather than assumed.
+**A sixth defect came from the maker, sweeping the surfaces the checkers had named as
+unreached.** Rendering the square and tall families side by side against main is what
+surfaced the spotlight value crossing its own rule (§ 4). The caveat list was not a
+formality; working it produced a finding the five passes had all walked past.
+
+**What that sweep DID reach.** All 33 palettes at wide — spotlight ink clearance
++8.0px in every one, no negative clearance, no render failure. The square and tall
+families, rule by rule, against main. The PPTX export, unzipped and looked at
+(`ppt/media/image-7-1.png`, 2560x1440). The live docs site at `/components/evidence/kpi/`,
+which renders the component through the browser runtime rather than the export path,
+in `cuoio` rather than `indaco`. And a five-support `spotlight`, which turns out to
+overflow at EVERY size — 4K included, with one-word labels and a single pill — so the
+stray-rule case cannot be photographed on any surface: the slide clips before it draws.
+Its fix is confirmed structurally instead, on a real render: `li5` lands at column 2
+(x=2288) where main auto-placed it under the hero (x=192).
+
+Still not reached: the Studio's own editing surface, `export-to-Marp`'s renderer, and
+the dark palettes beyond `indaco`'s `dark` modifier at every family. The Marp kit ships
+`dist/lattice.min.css` byte-identical, so every rule here reaches that surface verbatim;
+what is unchecked is Marp Core's scaffold around it, and `@marp-team/marp-cli` is not a
+dependency of this repo, so it cannot be driven from here. Those stay UNVERIFIED (#23)
+rather than assumed.
 
 **The real design question — kpi's split. Move 5 is DONE; the re-cut it proposes is
 measured NOT worth doing.**

@@ -472,9 +472,10 @@ section.kpi.compliance > .cell-stage > ol {
  * 751-777px of the 1152px row empty, 65-67% of every compliance row. Measured, then
  * removed rather than left as a rule that reads like it works.
  *
- * The status column is now real, and built where the pill actually lives: the meta
- * line is a flex row that pushes the pill to the far edge (see below). `space-between`
- * rather than `margin-left: auto` — #20, and no allowlist entry needed. */
+ * NO STATUS COLUMN REPLACES IT, and two attempts to build one were reverted. The
+ * pill still trails its meta text. Why that is a DOM problem rather than a CSS one,
+ * and what each attempt broke, is the comment on the meta line below — read that
+ * before reaching for a container display here again. */
 section.kpi.compliance > .cell-stage > ol > li {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
@@ -499,8 +500,14 @@ section.kpi.compliance > .cell-stage > ol > li {
  * on the shipped gallery slide the switch moved both separators +28.2px and +28.7px,
  * and on a two-row slide 209.2px — parking the "separator" flush against the row
  * below it. inventory's `li + li` is right THERE because its rows have no gap
- * between them. Keeping the border on the bottom edge leaves every interior
- * separator on the pixel it already occupied, and removes only the floor. */
+ * between them. Keeping the border on the bottom edge holds every interior separator
+ * within 1px of where it was, against the 28.2px / 209.2px the top-edge form moved
+ * them. It is not zero and cannot be: removing the floor takes 1px of border out of
+ * the column, and `space-between` hands that pixel back to the two gaps — measured
+ * +0.50px on the gallery's first boundary and +1.00px on the second. A floor cannot
+ * be removed from a space-between list without the free space changing; what CAN be
+ * avoided is moving the separators by the height of a row, which is what the other
+ * idiom did. */
 section.kpi.compliance > .cell-stage > ol > li:not(:last-child) {
   border-bottom: 1px solid var(--border);
 }
@@ -522,6 +529,17 @@ section.kpi.compliance > .cell-stage > ol > li > strong {
 section.kpi.compliance > .cell-stage > ol > li > ul { display: contents; }
 section.kpi.compliance > .cell-stage > ol > li > ul > li:first-child {
   grid-column: 2; grid-row: 1;
+  padding-top: 0;
+}
+/* The meta line keeps main's `padding-top: 0`. Deleting the whole rule with the
+ * status-column grid let the shared `li + li` padding (--sp-xs, 8px) back in, which
+ * pushed every compliance row 8px taller and moved the separators this change claims
+ * stay on the pixel they already occupied: +8.00px on the gallery's first boundary
+ * and +4.50px on the second. It also split the row's own rhythm — sub-bullet 2 got
+ * 8px of lead where sub-bullet 3 and beyond still get 0. Auto-placement already puts
+ * this line at column 2 / row 2, so the two placement declarations main carried are
+ * not restored with it; only the padding was load-bearing. */
+section.kpi.compliance > .cell-stage > ol > li > ul > li:nth-child(2) {
   padding-top: 0;
 }
 /* THE META LINE STAYS INLINE, and the status column this file used to declare is
@@ -747,8 +765,21 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) {
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(n+3) {
   border-top: 1px solid var(--border);
 }
+/* THE VALUE PADS ITSELF, IN EM, BECAUSE `start` ALIGNS THE LINE BOX AND THE GLYPHS
+ * OVERFLOW IT. --fs-emphasis sets a 40px value on a 38px line box, so the value's
+ * text box runs 0.206em above the line it is packed against — measured identically
+ * at 40px (wide) and 68px (tall), which is why this is em and not a spacing token:
+ * --sp-xs is 8.0px at wide against an 8.2px overshoot and 13.2px at tall against
+ * 14.0px, so a token clears one family by a hair and crosses in the other. Without
+ * it the support's value prints THROUGH the separator that heads it — -8.0px of
+ * clearance at wide, -7.0px at square, on the shipped gallery, and the `$` of
+ * `$1.1B` visibly crosses the hairline at 200dpi. 0.4em is the overshoot doubled:
+ * the number lands 8.0px (wide) / 9.2 (square) / 13.2 (tall) under its rule, inside
+ * the band the briefing rail already reads at. It costs no capacity — split-render
+ * overflow is identical to main in all three families. */
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
   font-size: var(--fs-emphasis);
+  padding-top: 0.4em;
 }
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li:first-child {
   padding-top: 0.15625cqi;
@@ -855,9 +886,6 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
  * Ties that rule at (0,4,5) and wins on source order. */
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > ul > li {
   justify-content: normal;
-}
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1)::after {
-  content: none;
 }
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-h1);

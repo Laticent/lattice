@@ -3,14 +3,17 @@
   the last — and `compliance` carried the same defect one modifier over, a border
   under every row plus a heavy one under the last. Those are outer edges, not
   separators; `2026-09-03-table-outer-edge-rules.md` retired the same thing across
-  the table family. Interior separators are unchanged at 1px `--border` and stay on
-  the pixel they already occupied. At `tall` and `strip`, where the rail linearizes
+  the table family. Interior separators are unchanged at 1px `--border` and move by
+  at most 1px — removing the floor takes a pixel of border out of the column and
+  `compliance`'s `space-between` list hands it back to the gaps (+0.50px and
+  +1.00px on the gallery). At `tall` and `strip`, where the rail linearizes
   into one ledger, the demoted hero loses the same outer top edge and the first
   support gains the separator that now divides it from the lead row.
 - **Changed: the `kpi compliance` row no longer declares a status column it cannot
   fill.** The pill declared `grid-column: 3` but sat one level too deep to be a grid
   item, so the track resolved to 0px and the rule read as working while doing nothing.
-  The phantom track is gone and the row is a truthful two-column grid. The pill still
+  The phantom track is gone and the row is a truthful two-column grid, which
+  hands its column gap back to the label: 858.9px to 922.9px, 64px reclaimed. The pill still
   trails its text: right-anchoring it needs a wrapper element around the label, which
   is a DOM change rather than a CSS one.
 - **Fixed: a third sub-bullet on a `kpi compliance` row no longer prints on top of
@@ -27,3 +30,8 @@
   scaling it made ordinary figures like `$12,480,000` print over the rail. The column
   ratio is unchanged too — sweeping it showed the rail wraps at the documented density
   at every ratio worth having, so the split was never the lever.
+- **Fixed: a `kpi spotlight` support's number no longer prints through the rule that
+  heads it.** Top-aligning the rail put the value's line box at the row top, and its
+  glyphs overflow that box by 0.206em, so the `$` crossed the hairline — measured at
+  -8.0px of clearance on the gallery this repo ships. The value pads itself by 0.4em,
+  which scales with the type the way the overshoot does, and costs no capacity.
