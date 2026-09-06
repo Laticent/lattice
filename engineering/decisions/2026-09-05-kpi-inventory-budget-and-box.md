@@ -374,9 +374,20 @@ the line box and paints nothing.
   clean at 0.06 through 0.12em, and **0.13em already cuts 1.13px** at 16:9. Painted
   ink at 600dpi, counting the first antialiased pixel: `École` 2.24px, `Ålborg` 2.40,
   `Ñuñoa` 3.04, `Ärlig` 3.20, `$2.4B` 6.24, `98.6%` 7.04, `£1.1B` 10.56, a bare `2.4`
-  18.72. **`Ǻ` still touches at 0.00px** — the stacked ring sits a pixel above an acute
-  or an umlaut, and clearing it needs lead the 4-metric ceiling cannot pay for. That is
-  the rule's limit, stated rather than papered over.
+  18.72. **Doubly-marked capitals cross the rule and this lead cannot
+  reach them**: `Ǻ` (U+01FA, ring *and* acute — not `Å`, which clears at 2.40px) starts
+  its ink **5.60px above** the hairline, and `Ầ Ổ Ḗ Ṏ Ẫ Ẵ Ǟ Ȫ` cross by 1.9–7.9px.
+  5.60px is 0.14em at this type size, more than the entire lead, so no value inside the
+  capacity ceiling clears them. An earlier draft called this "`Ǻ` touches at 0.00px" and
+  named it A-with-ring-above, which is `Å` — a character the same sentence listed as
+  clearing.
+- **And the lead is scoped to `wide` and `square` only.** A draft applied it at every
+  family; at `tall`/`strip` that clipped a dense 4-metric portrait deck at `compact` by
+  13.92px, inside the documented `tall.soft: 4`, where the same deck without the lead is
+  clean. The linearized ledger never needed it — measured 6.72px and 6.56px of white
+  under its ruled rows with no lead, for `École` and `Ärlig` alike — because its rows
+  are proportionally taller than the type. Excluding the family leaves it exactly as
+  main, which is the only way to be certain the fix cannot regress it.
 
 **One tension this leaves open, and it belongs to the reader.** Two-and-a-bit pixels
 under an accented capital is thin, and `Ǻ` gets none. Not a tuning oversight — 0.12em

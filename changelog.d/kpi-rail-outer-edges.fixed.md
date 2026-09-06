@@ -33,11 +33,15 @@
 - **Fixed: a `kpi spotlight` support's value keeps a lead under the rule that heads
   it.** Top-aligning the rail packed the value against its hairline: an accented
   capital measured 0.00px of white between rule and ink, at 400dpi and at 1x, and a
-  `$` merged into the line at 1x. The lead is 0.12em, on the rows that carry a rule —
-  `li:nth-child(n+3)`, plus `li:nth-child(2)` at `tall`/`strip`, where the reflow
-  gives the first ledger row a border too. 0.12em is the ceiling a 4-metric slide
-  allows: 0.13em shears the 4th status pill at 16:9, which the export's overflow
-  warning does not report. Measured at 600dpi the lead leaves `École` 2.24px,
-  `Ålborg` 2.40px, `Ärlig` 3.20px, `$2.4B` 6.24px and a bare `2.4` 18.72px. `Ǻ`
-  (A-with-ring-above) still touches at 0.00px — the stated limit of the rule, since
-  clearing it would cost the 4-metric ceiling.
+  `$` merged into the line at 1x. The lead is 0.12em on the ruled rows at `wide` and
+  `square` only. The linearized families are left alone: at `tall`/`strip` the ledger's
+  rows are proportionally taller than the type, so the value already clears by 6.6px
+  with no lead, and adding one there clipped a dense 4-metric portrait deck. 0.12em is
+  the ceiling a 4-metric wide slide allows — 0.13em is the first value that pushes the
+  row past the stage (1.13px at 16:9), and the status pill itself starts losing ink at
+  0.14em. The export's overflow warning reports none of it. Measured at 600dpi the lead leaves `École` 2.24px,
+  `Ålborg` 2.40px, `Ärlig` 3.20px, `$2.4B` 6.24px and a bare `2.4` 18.72px. Doubly-marked
+  capitals are a known miss: `Ǻ` (U+01FA, ring *and* acute — not `Å`, which clears)
+  starts its ink 5.60px above the hairline, and eight more like it cross by 1.9–7.9px.
+  That is further than the whole lead, so no value inside the capacity ceiling reaches
+  them.

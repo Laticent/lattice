@@ -791,8 +791,8 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
  * it buys nothing and costs a row's worth of height. Two earlier drafts padded
  * every support and CLIPPED the documented ceiling: a 4-metric `spotlight` at wide
  * (`adapt.capacity.wide.hard: 4`) fits with 0.00px of slack, so 0.4em on every row
- * overflowed it by 33.56px. Scoped to the ruled rows, 0.15em fits 4 metrics at
- * 16:9, standard, 4K and square, and 5 at the tall ceiling on portrait.
+ * overflowed it by 33.56px. A later draft scoped the lead to the ruled rows and
+ * claimed 0.15em fit — it does not, see the swept table below.
  *
  * WHY 0.12em, AND HOW THE CEILING IS MEASURED. Swept against a 4-metric slide with
  * the stage's bottom edge against the deepest descendant box: clean at 0.06 through
@@ -812,13 +812,16 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
  * numbers quantize to 1-2 whole pixels either way — scan at 600 and take the
  * antialias, or the answer rounds to whatever you hoped for.
  *
- * `Ǻ` (A-with-ring-above) STILL TOUCHES, at 0.00px. It is the honest limit of this
- * rule, not an oversight: the stacked ring sits about a pixel higher than an acute or
- * an umlaut, and covering it needs lead this rail cannot pay for. 0.12em is already
- * the most it carries with 4 metrics fitting, so buying `Ǻ` daylight costs the
- * documented wide `hard` of 4 or the rail's type size — design decisions, not fixes,
- * and neither belongs in this change. The rule clears the common accented capitals
- * and says so; it does not claim to clear every glyph Unicode composes.
+ * DOUBLE-STACKED DIACRITICS CROSS THE RULE, and this lead cannot reach them. `Ǻ`
+ * (U+01FA, ring AND acute — not `Å`, which clears at 2.40px) starts its ink 5.60px
+ * ABOVE the hairline, so the rule paints through the glyph. It is not one character:
+ * `Ǻ Ầ Ổ Ḗ Ṏ Ẫ Ẵ Ǟ Ȫ` all cross, by 1.9 to 7.9px. 5.60px is 0.14em at
+ * `--fs-emphasis` 40px — more than this entire lead — so no value that fits the
+ * capacity ceiling clears them; it would take the documented wide `hard` of 4 or the
+ * rail's type size, which are design decisions rather than fixes. An earlier draft of
+ * this paragraph said `Ǻ` "touches at 0.00px" and named it A-with-ring-above, which
+ * is `Å` — a character the same paragraph listed as clearing. The rule clears the
+ * common accented capitals; a doubly-marked capital in this rail is a known miss.
  *
  * MEASURE INK, NOT THE BOX. Four drafts of this rule were wrong, each because of the
  * instrument rather than the design: `Range.getClientRects()` returns the FONT-METRIC
@@ -827,20 +830,20 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
  * real glyph needed, on a scan whose window started past x=762.7 and so missed the
  * `$`; the third sized itself with the overflow warning, above. Rasterize, scan the
  * WHOLE column, and check 1x as well as high DPI. */
-section.kpi.spotlight > .cell-stage > ol > li:nth-child(n+3) > strong {
+section.kpi.spotlight:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:nth-child(n+3) > strong {
   padding-top: 0.12em;
 }
-/* …and at tall/strip the FIRST rail row is ruled too, so it needs the same lead.
- * `n+3` is right for wide and square, where the rule above removed the outer edge and
- * only interior boundaries carry a border. The linearised families are different: the
- * reflow block below gives `li:nth-child(2)` a `border-top`, and its selector does not
- * exclude `.spotlight`. Without this companion the first ledger row measured 0.00px
- * while rows 3+ measured 8.4px — the defect this rule exists to close, surviving in
- * the one place it was not looked for, and now inconsistent within a single ledger
- * where main was at least uniformly tight. */
-section.kpi.spotlight:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(2) > strong {
-  padding-top: 0.12em;
-}
+/* THE LINEARISED FAMILIES GET NO LEAD, AND THEY DO NOT NEED ONE. At tall and strip the
+ * rail becomes one ledger whose rows are proportionally taller than the type in them,
+ * so the value already clears: measured 6.72px and 6.56px of painted white under the
+ * two ruled rows with no lead at all, for `École` and for `Ärlig` alike. Adding the
+ * lead there bought nothing and cost a slide: on a dense 4-metric portrait deck at
+ * `compact` — inside the documented `tall.soft: 4` — it pushed the ledger 13.92px past
+ * the stage and `overflow: clip` sheared the last row's pills, where the same deck
+ * without the lead is clean at 0.00px. Every ruled row is led at tall (not just rows
+ * 3+) and the type is larger, so the cost there is roughly triple what it is at wide.
+ * Excluding the family leaves it byte-for-byte as main, which is the only way to be
+ * sure the fix cannot regress it. */
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li:first-child {
   padding-top: 0.15625cqi;
   font-size: var(--fs-body);
