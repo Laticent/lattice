@@ -530,7 +530,10 @@ slide; G is rejected on 116KB for what CSS does for free.
 
   **What the second costs, and why it is CPU rather than scheduling.** The ~1s is the browser
   parsing, compiling and executing a 3.16MB minified bundle inside a FRESH iframe realm. It is
-  not network (Mermaid is self-hosted since #2026-09-03) and it is not script-blocking: an
+  not network — the Studio loads a vendored `mermaid-v11.min.js` same-origin from
+  `<assetBase>export/`, and `test/unit/docs/no-cdn-runtime.test.js` fails on any CDN URL
+  creeping back (`engineering/decisions/2026-09-03-self-hosted-runtime-deps.md`) — and it is
+  not script-blocking: an
   `async` tag measured +1543ms against sync's +1581ms — a wash, so moving WHEN the parse
   happens does not help when the parse IS the cost. (Scratch experiment, not committed:
   indicative, not a pinned number.) Note also that the slide-scoped arrangement was not free
