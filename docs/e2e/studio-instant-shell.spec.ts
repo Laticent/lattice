@@ -844,8 +844,34 @@ test('changing the layout during the hand-off does not strand the shell over the
 
 	// The stand-in must be GONE, not merely still correct: the app's own Nacre loader lives in
 	// its preview box and follows the layout, so once the layout has moved there is nothing for
-	// the shell's copy to be right about. 4s — comfortably above the guard's own latency (it
-	// acts on the next frame) and far below both the held engine and the 8s dismissal backstop,
-	// so neither of those can satisfy it.
+	// the shell's copy to be right about. 4s — comfortably above the guard's own 400ms settle
+	// and far below both the held engine and the 8s dismissal backstop, so neither of those can
+	// satisfy it.
+	await expect(shell).toHaveCount(0, { timeout: 4_000 });
+});
+
+// COLLAPSING THE PREVIEW is the same defect one click further, and it is the one a change
+// detector misses. Read MOVES the app's preview box, which anything watching for a change can
+// see; Collapse preview takes it to 0x0, and a guard that treats a sub-40px box as "no reading"
+// (the same floor that stops it arming on the 40x22.5 placeholder during boot) skips the
+// comparison and calls that agreement. Measured before the fix: the app's box at 0,0,0,0 with
+// the stand-in still painted at 683,251,737,415 over the middle of the editor, held there until
+// the 8s backstop. A collapsed pane is not the absence of a reading — it is the most complete
+// disagreement there is.
+test('collapsing the preview during the hand-off does not strand the shell over the editor', async ({ page }) => {
+	const HOLD = 60_000;
+	await page.route('**/lattice-playground.js', async (route) => {
+		await new Promise((r) => setTimeout(r, HOLD));
+		await route.continue();
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto('/studio/', { waitUntil: 'commit' });
+	const shell = page.locator('#studio-ssr-shell');
+	await shell.locator('.ssr-topbar').waitFor({ state: 'attached', timeout: 45_000 });
+	await expect
+		.poll(async () => shell.evaluate((el: HTMLElement) => el.dataset.handoff ?? null).catch(() => 'gone'), { timeout: 45_000 })
+		.toBe('chrome');
+
+	await page.getByRole('button', { name: /Collapse preview/i }).first().click();
 	await expect(shell).toHaveCount(0, { timeout: 4_000 });
 });

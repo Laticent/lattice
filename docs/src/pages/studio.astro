@@ -231,6 +231,13 @@ const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;poi
    the seed resolved, (b) picking the light/dark brand mark and the moon/sun glyph, and (c)
    muting the whole layer so it never reads as live. */
 #studio-ssr-shell .ssr-chrome{flex:0 0 auto;opacity:.62;}
+/* THE .62 IS A STEP AT HAND-OFF, AND IT STAYS ONE. Resolving it to 1 before the layer steps
+   aside would make the swap invisible, and three forms of that were tried and measured not to
+   run: a transition set beside the value, the transition declared here so it is always in the
+   before-change style, and Element.animate. The last says why - the animation reports itself
+   running while its currentTime stays at 0 for the whole window, because a new animation is
+   pending until the first frame resolves its start time and this is the most main-thread-bound
+   moment of the boot. No frame, no start, no ramp. See revealAppChrome in StudioShell. */
 #studio-ssr-shell .ssr-mark-dark{display:none;}
 #studio-ssr-shell .ssr-mode-to-light{display:none;}
 :root[data-mode="dark"] #studio-ssr-shell .ssr-mark-light{display:none;}

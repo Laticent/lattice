@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The Studio's instant shell stands in for TWO things that become ready at different times - the app's chrome (ready when React commits) and the live preview (ready when the engine renders a slide) - and both waited on the second. Measured with the new docs/scripts/handoff-bench.mjs - the app's finished chrome sat under an opaque cover, muted to opacity .62, for 672ms on a fast local path and 3463ms at 1200kbps, then cross-faded to 100%; that window ending is the reported "flicker", because a 62% stand-in brightening to the identical control at 100% is what it is. The hand-off is now two stages - stage 1 uncovers the chrome from a useLayoutEffect with NO rAF, which lands the reveal in the SAME PAINT as the chrome's first appearance (dead time 0ms on both networks); stage 2 keeps the Nacre box over the preview and fades it on first render, unchanged. Two things were got wrong on the way and are recorded rather than tidied - a display:none teardown rule LOST the cascade to the rule that shows the bands (1,3,0 against 1,2,0), leaving the app's real slide navigator with the shell's skeleton chips ghosting under it, so the teardown removes the nodes instead; and the "Playfair resolves late despite its preload" finding from the prior session was an artifact of the harness serving cache-control no-store, which makes a preload unreusable and double-fetches it. The separate +2.781px shift was JetBrains Mono, un-preloaded because a comment said no top-bar text is mono - true of the top bar, and false since #1438 added the EDIT/PREVIEW sub-bars, which are font-mono.
+summary: The Studio's instant shell stands in for TWO things that become ready at different times - the app's chrome (ready when React commits) and the live preview (ready when the engine renders a slide) - and both waited on the second. Measured with the new docs/scripts/handoff-bench.mjs - the app's finished chrome sat under an opaque cover, muted to opacity .62, for 839ms on a fast local path and 3572ms at 1200kbps, then cross-faded to 100%; that window ending is the reported "flicker", because a 62% stand-in brightening to the identical control at 100% is what it is. The hand-off is now two stages - stage 1 uncovers the chrome from a useLayoutEffect with NO rAF, which lands the reveal in the SAME PAINT as the chrome's first appearance (dead time 0ms on both networks); stage 2 keeps the Nacre box over the preview and fades it on first render, unchanged. Two things were got wrong on the way and are recorded rather than tidied - a display:none teardown rule LOST the cascade to the rule that shows the bands (1,3,0 against 1,2,0), leaving the app's real slide navigator with the shell's skeleton chips ghosting under it, so the teardown sets opacity to 0 instead; and the "Playfair resolves late despite its preload" finding from the prior session was an artifact of the harness serving cache-control no-store, which makes a preload unreusable and double-fetches it. The separate +2.781px shift was JetBrains Mono, un-preloaded because a comment said no top-bar text is mono - true of the top bar, and false since #1438 added the EDIT/PREVIEW sub-bars, which are font-mono.
 ---
 
 # The Studio hand-off is two stages, because the shell stands in for two things
@@ -26,7 +26,7 @@ median of 3, `/studio/` at 1440x900:
 | **app chrome painted** | **537ms** | **4868ms** |
 | shell fade began | 1204ms | 8290ms |
 | shell removed | 1322ms | 8365ms |
-| **dead time** | **672ms** | **3463ms** |
+| **dead time** | **839ms** | **3572ms** |
 
 Dead time is the window where the app's chrome is painted and finished, and the
 shell is still covering it. The shell is opaque and its chrome is muted to `.62`,
@@ -289,26 +289,142 @@ So the preload pulls mono ~400–600ms earlier and roughly **halves** the shift 
 not eliminate them, because it never could: it moves the fetch to parse time and leaves
 `font-display: swap` alone, which `studio.astro`'s own note said all along.
 
+**The rate, on a proper sample, is about one load in six — and this note has now been wrong
+about it in both directions.** An independent checker ran 113 cold loads across both build
+shapes and both networks:
+
+| shape | network | loads | with the shift |
+|---|---|---|---|
+| `build:e2e` | fast | 33 | 8 (24%) |
+| `build:e2e` | modeled | 30 | 1 (3%) |
+| deployed | fast | 30 | 3 (10%) |
+| deployed | modeled | 20 | 6 (30%) |
+| **total** | | **113** | **18 (16%)** |
+
+Draft one said "gone from every run" off 21 loads. Draft two, correcting for the build shape,
+said "essentially every load". Both were reading too much into a handful of runs on one
+configuration; the honest figure is ~16%, ranging 3–30% by configuration, and it is
+load-sensitive on this machine.
+
 Two independent swaps move things, and only one of them is mono:
 
 - **mono** on the shell's PREVIEW label — `+2.781px` wide, which pushes the Reader-view pill
   and everything right of it sideways. This is the reported shift.
 - **Outfit** on the Reader-view pill's own "Full deck" label — `−14.375px` of the pill's width.
+  Outfit was already preloaded before this change, so this one is untouched by it.
 
 The durable cure for both is the metric-adjusted fallback faces `studio.astro` already names
 (`size-adjust` plus ascent/descent overrides against a deterministic fallback), which costs no
 bytes and holds at any speed. That is a site-wide font-stack change and is recorded there as
-the owner's call; this note now carries the evidence that it is worth making, which it did not
-before.
+the owner's call; this note now carries the evidence that it is worth making.
+
+## `perf:handoff` does not exit 0 on this branch, and the doc said it did
+
+An earlier draft claimed the instrument was "mutation-proved both ways: it exits 1 on the
+pre-fix dist and 0 on this one, same flags, both networks." **The second half is false.** The
+bench exits 1 on this branch too, at both networks and both build shapes, because the shift arm
+catches the residual font swap above — the very thing this note documents as unfixed. The
+instrument is right and the claim was wrong.
+
+The first half was also true for the wrong reason. The dead-time arm **could not fail** on the
+pre-fix build: with no stage-1 reveal there is no `chromeRevealed`, and on that build
+`shellFadeStart` is usually null as well (the fade fires inside the engine's first render, a
+long task, so no animation frame lands inside its 260ms), leaving `deads` empty, the median
+null, and `failDead` reduced to `null != null`. The pre-fix dist printed `✓ DEAD TIME n/a` and
+exited 1 only on the shift arm. That is fixed — an unobservable hand-off now fails loudly
+instead of passing quietly — and the before/after is quoted below by a method that survives it.
+
+**The before number is now `shellGone − appChrome`**, the whole window the app's finished chrome
+sat covered, which is measurable on both builds:
+
+| | pre-fix | this branch |
+|---|---|---|
+| covered after ready, modeled 1200kbps | **3572ms** | **0ms** |
+| covered after ready, fast local | **839ms** | **0ms** |
+
+An independent checker measuring the same way got ~3529ms and ~795ms. The earlier figures in
+this note came from `fadeStart − appChrome` on the runs where the fade happened to be sampled,
+which is the same phenomenon read through a milestone that is often missed.
+
+## The step survives, and it cannot be ramped away here
+
+The adversarial pass turned the change's own argument around, correctly. The record defined the
+defect as *"a 62% stand-in cross-fading over 220ms to the identical control at 100%"* — and
+after the fix every clause of that is still true except the duration. The `.62` mute is intact,
+the geometries are still held to 2px, so the swap is still a full-magnitude tone step; only
+*when* it happens (React's commit, not first render) and *how long* it takes (one frame, not
+220ms) changed. Measured: **+4.9 luminance points on a stretch of the top bar carrying no text
+at all**, and about 46% of the viewport's pixels changing in a single paint. In LIGHT mode the
+UI gets **darker** at hand-off, not brighter — the opposite of the mental model the first
+diagnosis was written from.
+
+So the obvious improvement is to resolve the mute *before* the swap: ramp the stand-in .62 → 1
+while the ground is still opaque, and only then step aside, which makes the hand-off zero by
+construction rather than zero by timing. **It was implemented three ways and none of them ran.**
+
+1. `transition` set beside the new value in the layout effect — no transition starts, because a
+   transition needs its property already present in the before-change style.
+2. The transition declared in the stylesheet, so it always is present — also nothing.
+3. `Element.animate()`, which states its own from-value and needs no prior style resolution.
+
+The third one says why. The animation is created and reports `playState: 'running'`, and its
+`currentTime` stays at **0** for the whole window while wall-clock time advances 140ms. A new
+animation is *pending* until the first animation frame resolves its start time — and this
+instant is the most main-thread-bound moment of the boot, the same window where a `longtask`
+observer shows 78ms and 107ms tasks. No frame is produced, the animation never starts, and the
+swap timer cancels it having painted nothing. All three measured on video as a single-frame
+jump with no intermediate frames.
+
+**The moment that makes a same-paint swap correct — no frames needed between the two states —
+is the same moment that makes any timed transition unreliable.** That is not a bug to fix; it
+is the constraint. The step therefore stays, and the only thing that removes it is removing the
+`.62` mute, which is a design decision rather than a defect: the mute earns its place for the
+~0.7–4s the stand-in is inert and would otherwise read as ready while `pointer-events: none`
+swallows nothing. **Left for the owner, with the number attached.**
+
+## The guard watches AGREEMENT, after three ways of getting it wrong
+
+The first guard watched whether the app's preview box had *changed* since it first became real.
+Three defects, all found adversarially, all measured:
+
+- **It was blind to a box that was never in the right place to begin with.** Persist a rect at
+  1440x900 and reload at 390x844: the seed replays `195.9,380.6,178.1,100.2` while the app lays
+  out `16,351.3,358,201.4` — a 178x100 Nacre floating inside a 358x201 one, counter-rotating at
+  different phases, for the whole load. The app's box never *moves*, so a change detector sits
+  quiet. This is the artifact `2026-07-21-studio-preview-one-skeleton.md` calls structurally
+  impossible; it was impossible because the shell was opaque, and stage 1 is what re-opened it.
+- **It died permanently on a breakpoint crossing.** It captured `previewBoxRef.current` once in
+  a `[]`-dep effect, and the preview holder is one of three mutually exclusive JSX branches — a
+  1440→600→1440 resize unmounts it, leaving the guard watching a detached node and reporting no
+  disagreement ever after. This file already documents that exact trap ~1900 lines away, for the
+  same holder.
+- **Its `pointerup` channel could not work.** `pointerup` precedes `click`, and React commits
+  inside the `click` dispatch, so the listener always read a rect identical to its baseline.
+  Every dismissal actually came from the ResizeObserver.
+
+Comparing the two boxes directly subsumes all of it and needs none of the machinery — no
+baseline, no amnesty counter, no capture-phase listeners, no observer. A rotation re-seeds
+*both*, so they agree again on their own.
+
+One more hole survived into the rewrite and is now closed: **a collapsed preview is the most
+complete disagreement there is, not the absence of a reading.** "Collapse preview" is one click
+away in the chrome stage 1 just made visible; the app's box goes to `0,0,0,0` and a 40px "is
+this real" floor applied to the *reading* skipped the comparison and called it agreement,
+stranding the stand-in over the middle of the editor until the 8s backstop. The floor now sits
+on *arming* only. Both cases are pinned by e2e.
+
+Verified after the rewrite: **no misfire on 7 boot configurations** (1440 light and dark, 1024,
+820, 390 touch, 844x390 cinema, and a returning visitor with a persisted rect), and it fires on
+both Read and Collapse preview.
 
 ## What now gates this
 
 Nothing did when the change was first written: `handoff-bench.mjs` is an on-demand bench a
-human runs by hand, and `grep -rn "data-handoff"` matched nothing in `docs/e2e/`. Two cases
+human runs by hand, and `grep -rn "data-handoff"` matched nothing in `docs/e2e/`. Three cases
 in `studio-instant-shell.spec.ts` now cover it — that stage 1 stops the shell painting
 (both the muted chrome and the opaque ground) *without* taking its boxes out of layout, which
-is the property the other three specs depend on; and that a layout change during the window
-does not strand the stand-in. The bench stays on-demand and out of CI: adding a CI step is
+is the property the other three specs depend on; and that neither a layout change nor a collapsed
+preview during the window strands the stand-in. The bench stays on-demand and out of CI: adding a CI step is
 the owner's call, not a side effect of a bug fix.
 
 ## What is not covered
@@ -323,8 +439,8 @@ the owner's call, not a side effect of a bug fix.
   hand-off.
 - **The modeled host paces bytes PER RESPONSE.** `bps` is applied inside each response's
   own tick, so N concurrent responses get N x kbps in aggregate. The Studio fetches HTML,
-  CSS, three fonts, the island and the engine largely in parallel, so the headline 3458ms
-  dead time and 4921ms chrome paint are lower bounds on a real 1200kbps link rather than
+  CSS, three fonts, the island and the engine largely in parallel, so the headline 3572ms
+  dead time and 4550ms chrome paint are lower bounds on a real 1200kbps link rather than
   that link's behavior. Inherited verbatim from `fouc-bench`'s inline `serve()`, so it is
   log-not-fix under HARD RULE #18 — but every number here inherits the optimism, and the
   before/after ratio is what the measurement supports, not the absolute milliseconds.

@@ -93,6 +93,11 @@ function sampler() {
 		// moment stage 1 uncovers the chrome. Tracking the bar's own box catches a control
 		// appearing inside it (the bar is content-sized), and the two named controls catch the
 		// row reflowing around one.
+		// THE APP'S PREVIEW BOX — the counterpart of `shell slidebox`, and the one element the
+		// stranded-stand-in guard actually watches. It was missing while a code comment claimed
+		// this bench would catch the app's layout settling, which it could not: the box that
+		// settles was the one box not tracked.
+		'app preview box': '[data-studio-root] [aria-label="Live deck preview"]',
 		'app edit-bar': '[data-studio-root] [data-slot="edit-bar"]',
 		'app Reshape': '[data-studio-root] [data-slot="edit-bar"] button[aria-label*="Reshape" i]',
 		'app Markdown tab': '[data-studio-root] [data-slot="edit-bar"] button[aria-label*="Markdown" i]',
@@ -279,6 +284,7 @@ const TRACKED_NAMES = [
 	'app header',
 	'app preview-bar',
 	'app Reader view',
+	'app preview box',
 	'app edit-bar',
 	'app Reshape',
 	'app Markdown tab',
@@ -356,8 +362,17 @@ async function main() {
 	// DEAD TIME is measured to the CHROME REVEAL, not to the shell's removal. The Nacre box
 	// staying up over a preview that genuinely has not rendered is honest waiting; the app's
 	// finished chrome sitting under a muted cover is not, and that is the window this budget
-	// is about. A build with no stage-1 reveal has no `chromeRevealed`, so it falls back to
-	// the fade — which is what that build actually makes the visitor wait for.
+	// is about.
+	//
+	// THE FALLBACK MUST NOT BE SILENT, and it was. A build with no stage-1 reveal has no
+	// `chromeRevealed`, so this falls back to the fade — but on that build `shellFadeStart` is
+	// usually null too, because `dismissSsrShell` fires on the engine's first render, which is
+	// a long task, and no rAF lands inside the 260ms fade to observe it. `deads` was then
+	// EMPTY, the median null, and `failDead` reduced to `null != null` — false. So the arm
+	// this bench exists for could not fail on the very build it was meant to indict: the
+	// pre-fix dist printed `✓ DEAD TIME n/a` and exited 1 only because of the shift arm, and
+	// the headline before-numbers were not re-derivable through the shipped tool at all.
+	// An unobservable hand-off is now reported as such and fails, rather than passing quietly.
 	const uncover = (r) => r.shell.chromeRevealed ?? r.shell.fadeStart;
 	// NOT clamped at 0. A build that uncovers BEFORE the app's chrome paints is the opposite
 	// failure — it shows the visitor a bare page for those frames — and `Math.max(0, …)` turned
@@ -409,7 +424,9 @@ async function main() {
 			.filter((n) => !runs.some((r) => r.matched?.[n])),
 	};
 
-	const failDead = dead != null && (dead > o.maxDead || dead < 0);
+	// No usable sample is a FAILURE to measure, not a pass. `runs.length` is always > 0 here.
+	const deadUnobserved = deads.length === 0;
+	const failDead = deadUnobserved || (dead != null && (dead > o.maxDead || dead < 0));
 	const failShift = earlyShifts.length > 0;
 	const failTrack = report.neverMatched.length > 0;
 	if (o.json) {
@@ -425,7 +442,11 @@ async function main() {
 		out.push(`  shell removed            ${ms(report.shellGone)}`);
 		out.push('');
 		out.push(
-			dead != null && dead < 0
+			deadUnobserved
+				? `  ✗ DEAD TIME UNOBSERVABLE — neither a stage-1 reveal nor a fade was sampled in any run.\n` +
+					`      On a build with no stage-1 reveal this is the expected result: the fade fires inside\n` +
+					`      the engine's first render, a long task, so no animation frame lands inside it.`
+				: dead != null && dead < 0
 				? `  ✗ UNCOVERED ${ms(-dead)} EARLY — the shell left before the app's chrome painted`
 				: `  ${failDead ? '✗' : '✓'} DEAD TIME  ${ms(dead)}  (app ready, shell still covering it; budget ${o.maxDead}ms)`,
 		);

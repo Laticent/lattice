@@ -830,37 +830,59 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// and 3463ms at 1200kbps, then cross-faded to 100%. Measured with `scripts/handoff-bench.mjs`.
 	const revealAppChrome = React.useCallback(() => {
 		const el = document.getElementById('studio-ssr-shell');
-		if (!el || el.dataset.handoff === 'chrome') return;
-		// EVERY STAND-IN GOES TO `opacity: 0`, and stays in the DOM at its own size.
+		// Idempotent — StrictMode's dev double-mount lands here a second time.
+		if (!el || el.dataset.handoff) return;
+		// THE STAND-IN GOES TO `opacity: 0` IN ONE PAINT, and a ramp was tried here and does not
+		// work — for a reason worth writing down, because the code for it looks correct.
 		//
-		// What has to end is the shell being SEEN — an opaque ground with the app's chrome
-		// duplicated over it at .62. Nothing has to end about the nodes, and three earlier
-		// attempts at ending them each broke something a gate could not see:
+		// The residual defect this would address is real: the shell's chrome is muted to .62 and
+		// the app's is at 1, and `studio-shell-parity` holds their geometry to 2px, so the swap
+		// is a pure tone step — measured on video at +4.9 luminance points on a stretch of the
+		// bar carrying no text at all, and about 46% of the viewport's pixels changing in a
+		// single paint. Resolving the mute BEFORE the swap would make the hand-off zero by
+		// construction rather than zero by timing.
 		//
-		//   * a `display:none` RULE lost the cascade. The bands are shown by
-		//     `:root[data-ssr-chrome] #studio-ssr-shell .ssr-band`, which is (1,3,0), against a
-		//     teardown selector on the shell's id at (1,2,0) — so the chrome went, the bands
-		//     stayed, and the hand-off showed the app's real slide navigator with the shell's
-		//     skeleton chips ghosting under it.
-		//   * REMOVING the band nodes deletes `.ssr-activityrail`, `.ssr-editpane`,
-		//     `.ssr-panehdr` and `.ssr-paneftr` — which are 3 of the 5 roots
-		//     `studio-shell-parity` enumerates, and what `studio-instant-shell` and
-		//     `studio-reserved-slots` measure. Those specs hold the ENGINE, not the island, so
-		//     they were left racing hydration: they passed here only because fonts resolve
-		//     faster than React on this machine, and with the woff2 responses delayed 900ms the
-		//     parity spec read 14 shell controls against the app's 25 and reported eleven
-		//     missing controls that are in fact drawn.
-		//   * `visibility: hidden` keeps the box but is exactly what Playwright treats as NOT
-		//     visible, so it fails those specs the same way for a different reason.
+		// It cannot be done here. Three forms were tried and each measured as a single-frame
+		// jump with no intermediate frames: `transition` set beside the value (a transition
+		// needs its property already in the before-change style), the transition declared in the
+		// stylesheet so it always is, and `Element.animate`. The last one says why — the
+		// animation is created and reports `playState: 'running'`, and its `currentTime` stays
+		// at **0** for the whole window while wall-clock time advances 140ms. A new animation is
+		// pending until the first animation frame resolves its start time, and this instant is
+		// the most main-thread-saturated moment of the boot: a `longtask` observer shows 78ms
+		// and 107ms tasks in exactly this window, so no frame is produced, the animation never
+		// starts, and the swap timer cancels it having painted nothing.
 		//
-		// `opacity: 0` is the one form that ends the pixels and changes nothing else: the boxes
-		// stay, the flex flow stays (so `.ssr-stage` cannot re-center the Nacre), and Playwright
-		// still counts the controls as visible, because it tests for a non-empty box and
-		// `visibility`, and does not consider opacity. Set INLINE, so there is no specificity
-		// contest to lose — the same reason the background below is inline, since
-		// `:root[data-mode="dark"] #studio-ssr-shell` sets it at (1,2,0) and would otherwise
-		// keep the cover up in dark mode only.
-		for (const n of el.querySelectorAll<HTMLElement>('.ssr-chrome, .ssr-band')) n.style.opacity = '0';
+		// So the moment that makes a same-paint swap correct — no frames needed between the two
+		// states — is the same moment that makes any timed transition unreliable. The step
+		// stays, and the only thing that removes it is removing the .62 mute, which is a design
+		// call (it earns its place for the ~0.7-4s the stand-in is inert and would otherwise
+		// read as ready). Recorded in the decision note; not taken unilaterally.
+		const paint = el.querySelectorAll<HTMLElement>('.ssr-chrome, .ssr-band');
+		// `opacity: 0` rather than display:none or node removal. Both of those were tried and
+		// both broke something no gate could see: a display:none RULE lost the cascade (the
+		// bands are shown by `:root[data-ssr-chrome] #studio-ssr-shell .ssr-band` at (1,3,0)
+		// against a teardown selector on the shell id at (1,2,0), so the chrome went and the
+		// bands stayed, ghosting the app's slide navigator); and REMOVING the bands deletes 3 of
+		// the 5 roots `studio-shell-parity` enumerates, which — since those specs hold the
+		// ENGINE rather than the island — left them racing hydration: with the woff2 delayed
+		// 900ms the parity spec read 14 controls against the app's 25 and reported eleven
+		// missing controls that are in fact drawn. What both have in common is that they take
+		// the box out of layout, and the box is what those specs read.
+		//
+		// `visibility: hidden` would ALSO work, and an earlier version of this comment claimed
+		// otherwise — that Playwright treats it as not visible and so it fails the same specs.
+		// It does not: those specs read `getBoundingClientRect` inside `page.evaluate`, and
+		// `visibility: hidden` preserves the box. A checker built that mutant and the whole set
+		// passed. So this line is a choice between two workable forms rather than the only one
+		// that survives, and what the suite actually pins is the box: the stage-1 spec asserts
+		// the chrome and bands still have one, which is what rules the other two out.
+		//
+		// Both writes in ONE frame. Clearing the ground first would let the app's chrome show
+		// through UNDER the stand-in's, two copies of the same dark ink superimposed.
+		for (const n of paint) n.style.opacity = '0';
+		// Inline, because `:root[data-mode="dark"] #studio-ssr-shell` sets the ground at (1,2,0)
+		// and a rule here would lose to it in dark mode only.
 		el.style.background = 'transparent';
 		el.dataset.handoff = 'chrome';
 	}, []);
@@ -911,85 +933,93 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Dismiss the instant-shell when the editor preview first renders (its own Nacre loader
 	// now covers the preview area) OR at the 8s backstop above. The editor DeckPreview lives
 	// in-flow in `previewBoxRef` and fires `onFirstRender` on its first paint — idempotent.
-	// STRANDED-NACRE GUARD. Stage 1 leaves the app's chrome LIVE and interactive while the
-	// shell's Nacre box still covers the preview, and that box is frozen at the rect
-	// `seedGeometry()` computed before hydration. `seedGeometry` re-runs on resize and
-	// orientationchange only — a posture change, a splitter drag, a pane collapse or a docked
-	// panel fires neither. So a visitor who clicks Read during the window (0.1-3.5s, and up to
-	// the 8s backstop) moves the app's preview box out from under a stand-in that stays put,
-	// and gets two Nacre rectangles at two geometries.
+	// THE STAND-IN MUST AGREE WITH THE APP, OR IT GOES.
 	//
-	// Before stage 1 the shell hid that: the chrome underneath was `pointer-events:none` and
-	// therefore always clickable, but it was not VISIBLE, so the click was blind rather than
-	// invited. Making it visible is what turns a latent oddity into a defect, which makes it
-	// this change's to fix rather than a pre-existing one to log (HARD RULE #18).
+	// Stage 1 makes the shell TRANSPARENT, and that quietly changes its contract. As an opaque
+	// cover, any disagreement between the stand-in and the app was invisible during load and
+	// showed only as a jump at hand-off — which is what `studio-shell-parity` and
+	// `studio-instant-shell` measure, both of them comparing the two surfaces SEQUENTIALLY,
+	// after the shell is gone. As a transparent overlay, a disagreement is visible
+	// SIMULTANEOUSLY, as overlap. Nothing in the suite tested simultaneity.
 	//
-	// The fix is not a list of the controls that relayout — that list is a hand-maintained
-	// mirror, which is the failure mode this file keeps re-learning. It watches the app's own
-	// preview box instead: once that box has been REAL once, any further change to its geometry
-	// means the layout moved under the stand-in, and the stand-in goes immediately. Boot itself
-	// is not a false trigger, because the first transition is the box BECOMING real (it is
-	// 38x20.5 at stage 1 and 735x412.6 ~136ms later) and that one only arms the guard.
+	// Two reachable disagreements, both measured:
+	//   * the app's preview box MOVES under the stand-in — a posture change, a splitter drag, a
+	//     docked panel. `seedGeometry()` re-runs on resize and orientationchange only, so it
+	//     does not follow those. Clicking Read during the window put the app's box at
+	//     49,75,1343,755 with the stand-in still at 683,251,737,415.
+	//   * the two are simply somewhere else from the start. Persist a rect at 1440x900 and
+	//     reload at 390x844: the seed replays 195.9,380.6,178.1,100.2 while the app lays out
+	//     16,351.3,358,201.4 — a 178x100 Nacre floating inside a 358x201 one, counter-rotating
+	//     at different phases, for the whole load. That is the artifact
+	//     `2026-07-21-studio-preview-one-skeleton.md` calls structurally impossible; it was
+	//     impossible because the shell was opaque, and stage 1 is what re-opened it.
+	//
+	// So the invariant is AGREEMENT, not movement. An earlier version watched whether the app's
+	// box had CHANGED since it first became real, which catches the first case and is blind to
+	// the second — there the app's box never moves, it is just never where the stand-in is. It
+	// also needed an `armed` baseline, a `reseeding` amnesty counter and four capture-phase
+	// listeners to avoid firing on a rotation. Comparing the two boxes needs none of that:
+	// a rotation re-seeds BOTH, so they agree again on their own.
 	React.useEffect(() => {
-		const el = previewBoxRef.current;
-		if (!el) return;
-		// The same 40px floor the rect persister above uses for "this box is real".
-		const real = (r: DOMRect) => r.width >= 40 && r.height >= 40;
-		const key = () => {
-			const r = el.getBoundingClientRect();
-			return real(r) ? `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}` : null;
-		};
-		let armed: string | null = null;
-		// RESIZE AND ORIENTATIONCHANGE ARE NOT STRANDING, and excluding them is the whole
-		// difference between a guard and a bug. `seedGeometry()` re-runs on exactly those two
-		// events and re-places the Nacre for the new viewport — that is what makes "rotated
-		// while the engine was still loading" work. A guard that dismissed on them broke it:
-		// `rotating a phone into landscape leaves no chrome behind` went red, because the shell
-		// it reads after the rotation had been torn down. So those two RE-ARM the baseline
-		// instead, on the frame after the re-seed has moved the box.
-		let reseeding = 0;
-		const check = () => {
-			if (!document.getElementById('studio-ssr-shell')) return true;
-			const k = key();
-			if (k === null) return false;
-			if (armed === null || reseeding > 0) {
-				armed = k;
-				return false;
+		// Sub-pixel rounding only, matching `studio-shell-parity`'s TOL. A real disagreement is
+		// tens of pixels; nothing here is trying to catch a half-pixel.
+		const TOL = 2;
+		// A disagreement has to PERSIST, and 400ms is sized off a measurement rather than taste.
+		// The app's box can be legitimately apart from the stand-in for a beat in two places: a
+		// rotation re-seeds the shell synchronously on the event while the app re-lays out over
+		// the following frames, and on a landscape phone the box's FIRST real value is a
+		// transient (76,0,693,390) that settles ~90-180ms later to 97,12,650,366 — which is
+		// where the stand-in already is. At 150ms that second case cleared by a margin thin
+		// enough to be luck; 400ms clears it with room, and costs nothing that matters, because
+		// the case this exists to catch is a visitor changing the layout and then looking at the
+		// result.
+		const SETTLE_MS = 400;
+		// Latched once the app's box has been REAL. Before that it is a placeholder — measured at
+		// 40x22.5 at 1440x900, not the 38x20.5 an earlier comment here claimed — and comparing
+		// against it would dismiss the shell during every boot. Note how close that is: the
+		// placeholder sits EXACTLY on this 40px floor on the width axis, and only the height
+		// keeps it un-real, which the wrong figure hid. The floor is not the only thing holding
+		// the boot together either — measured, stage 1 fires ~170ms AFTER the app's box has
+		// already settled, so on that path there is nothing to arm against in the first place.
+		// On a landscape phone there IS a real-to-real transition (693x389.8 settling to
+		// 650x365.6), and it is SETTLE_MS, not this floor, that covers it.
+		let everReal = false;
+		let apartSince = 0;
+		let raf = 0;
+		const tick = () => {
+			const shell = document.getElementById('studio-ssr-shell');
+			if (!shell) return;
+			// `previewBoxRef.current` is read FRESH every frame, never captured. The holder is
+			// not a stable node: it is one of three mutually exclusive JSX branches, so crossing
+			// a breakpoint unmounts it and mounts another. An earlier version of this guard
+			// captured it once in a `[]`-dep effect and went permanently dead after a 1440->600
+			// ->1440 resize — watching a detached node, reporting no disagreement ever. This
+			// file already documents that exact trap ~1900 lines away, for the same holder.
+			const app = previewBoxRef.current?.getBoundingClientRect();
+			const box = document.getElementById('ssr-slidebox')?.getBoundingClientRect();
+			if (app && box) {
+				const real = app.width >= 40 && app.height >= 40;
+				if (real) everReal = true;
+				// A COLLAPSED PANE IS THE MOST COMPLETE DISAGREEMENT THERE IS, not the absence of
+				// a reading. "Collapse preview" is one click away in the chrome stage 1 just made
+				// visible: the app's box goes to 0,0,0,0 and the stand-in stays painted over the
+				// middle of the editor until the 8s backstop. Treating a sub-40px box as "no
+				// reading" and skipping the comparison is what let that through — the floor
+				// belongs on ARMING, which `everReal` now owns, not on reading.
+				const apart = everReal && (!real || Math.abs(box.x - app.x) > TOL || Math.abs(box.y - app.y) > TOL || Math.abs(box.width - app.width) > TOL || Math.abs(box.height - app.height) > TOL);
+				if (!apart) apartSince = 0;
+				else if (apartSince === 0) apartSince = performance.now();
+				else if (performance.now() - apartSince >= SETTLE_MS) {
+					// Hand over to the app's own Nacre, which lives in that box and therefore
+					// cannot be in the wrong place.
+					dismissSsrShell();
+					return;
+				}
 			}
-			if (k === armed) return false;
-			dismissSsrShell();
-			return true;
+			raf = requestAnimationFrame(tick);
 		};
-		if (check()) return;
-		const stop = () => {
-			ro.disconnect();
-			window.removeEventListener('resize', onReseed, true);
-			window.removeEventListener('orientationchange', onReseed, true);
-			document.removeEventListener('pointerup', onAny, true);
-			document.removeEventListener('keyup', onAny, true);
-		};
-		const onAny = () => { if (check()) stop(); };
-		const onReseed = () => {
-			// Hold past the re-seed AND the re-layout it causes: `seedGeometry` writes the new
-			// `--sb-*` synchronously on the event, and the app's own preview box settles on the
-			// following frames. Two frames of amnesty, then the baseline is whatever it now is.
-			reseeding += 1;
-			requestAnimationFrame(() => requestAnimationFrame(() => {
-				check();
-				reseeding -= 1;
-			}));
-		};
-		// A ResizeObserver sees the box RESIZE; it does not see it MOVE at a constant size,
-		// which a rail or a docked panel opening beside it does. The pointer/key release covers
-		// that — the cheapest honest proxy for "the visitor just did something", re-checking
-		// after the interaction, which is free.
-		const ro = new ResizeObserver(() => { if (check()) stop(); });
-		ro.observe(el);
-		window.addEventListener('resize', onReseed, true);
-		window.addEventListener('orientationchange', onReseed, true);
-		document.addEventListener('pointerup', onAny, true);
-		document.addEventListener('keyup', onAny, true);
-		return stop;
+		raf = requestAnimationFrame(tick);
+		return () => cancelAnimationFrame(raf);
 	}, [dismissSsrShell]);
 	const onPreviewFirstRender = React.useCallback(() => {
 		crashCrumb('render', 'first preview paint');
