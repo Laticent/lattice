@@ -1634,3 +1634,57 @@ require('node:test').describe('the visible page number ranks only the slides tha
 		assert.deepEqual(nums, ['1', '2', '3', '4', '5']);
 	});
 });
+
+// ── the acronym prune's matching rule ────────────────────────────────────────────────────────
+//
+// `pruneAcronyms` decides whether a definition ships by asking whether its TERM or its EXPANSION
+// appears in the projected body. That question is a word-boundary match, and every row below is a
+// way to get it wrong: a term carrying regex metacharacters must not be compiled as a pattern, a
+// short acronym must not be kept alive by a longer word containing it, and the match is
+// case-SENSITIVE because an acronym registry is case-bearing by nature.
+require('node:test').describe('pruneAcronyms matches a term, not a substring and not a pattern', () => {
+	const survives = (term, expansion, sentence) => {
+		const slides = [
+			`\n<!-- _class: content -->\n\n# One\n\n${sentence}\n`,
+			`\n<!-- _class: content -->\n\n# Two\n\nWithheld body.\n`,
+			`\n<!-- _class: content -->\n\n# Three\n\nEnd.\n`,
+		];
+		const mem = new Set([0, 2]);
+		const tagged = slides.map((x, i) => applyTag(x, 'brief', mem.has(i), 'none'));
+		const body = `${tagged.join('\n---\n')}\n`;
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
+		let head = `---\nmarp: true\ntheme: indaco\nglossary: auto\nacronyms:\n  ${term}: { expansion: ${expansion}, definition: "DEFMARK." }\n${emitRegistry(reg)}`;
+		if (!head.endsWith('\n')) head += '\n';
+		const out = projectForExport(`${head}---\n${body}`, ['brief']);
+		assert.equal(out.ok, true, out.reason);
+		return out.source.includes('DEFMARK');
+	};
+
+	test('a term carrying regex metacharacters is matched literally', () => {
+		// `C++` compiled as a pattern is "C" then one-or-more "+", which matches nothing sane — and
+		// worse, `N.A.S.A`'s dots would match ANY character, keeping a definition alive on text that
+		// never named it. Both are escaped.
+		assert.equal(survives('C++', 'C plus plus', 'We ship C++ bindings.'), true);
+		assert.equal(survives('C++', 'C plus plus', 'We ship Rust bindings.'), false);
+		assert.equal(survives('N.A.S.A', 'the agency', 'Working with N.A.S.A now.'), true);
+		assert.equal(survives('N.A.S.A', 'the agency', 'Working with NoAoSoA now.'), false, 'the dots are literal, not wildcards');
+	});
+
+	test('a short acronym is not kept alive by a longer word containing it', () => {
+		assert.equal(survives('ARR', 'Annual Recurring Revenue', 'We carry the barrel onward.'), false, '"barrel" does not name ARR');
+		assert.equal(survives('ARR', 'Annual Recurring Revenue', 'ARR grew.'), true);
+	});
+
+	test('the match is case-sensitive, because an acronym registry is', () => {
+		assert.equal(survives('IT', 'Information Technology', 'it is fine.'), false);
+		assert.equal(survives('IT', 'Information Technology', 'IT approved it.'), true);
+	});
+
+	test('the EXPANSION counts too, so writing the term out in full keeps the row', () => {
+		// Without this half an author who writes "café strategy" and never the acronym loses their
+		// glossary row — a regression in the glossary dressed up as a privacy fix.
+		assert.equal(survives('CAFE', 'café', 'Our café strategy.'), true);
+		assert.equal(survives('GTM', 'go-to-market', 'Our GTM-led motion.'), true, 'a hyphen is a boundary, not part of the term');
+	});
+});
