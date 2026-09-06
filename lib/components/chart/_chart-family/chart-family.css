@@ -1267,3 +1267,119 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > .cell-
 section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-masthead .masthead-bay {
   display: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * CARTESIAN CHROME — the shared plot furniture
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * The paint side of `_chart-family/cartesian.js`. Seven members (bar,
+ * stacked-bar, line, waterfall, scatter, slope, bullet) draw their marks
+ * themselves and get their AXES, GRID, TICKS and CATEGORY LABELS from here — so
+ * a gridline is the same gray at the same weight on a bar slide and on a
+ * scatter slide, and a deck that uses three of them still reads as one deck.
+ * This is the single reason the Cartesian members share a visual language
+ * rather than each inventing one.
+ *
+ * It lives in the FAMILY stylesheet, not in a member, for the same reason
+ * `.chart-frame`, `.chart-status` and the canonical fill recipe do: it is chrome
+ * every member wears, and a per-member copy would drift a half-percent at a
+ * time. A member's own stylesheet owns its MARKS and nothing here.
+ *
+ * Unlayered, like every other component file (@layer is inert in this bundle
+ * and a layered rule silently loses to an unlayered base rule — cascade.md).
+ * Matched on `.chart-frame` so it also resolves in the Read·Article `<figure
+ * class="chart-frame">` re-host, where the chart SVG is re-parented outside its
+ * `section` and a `section.`-anchored rule would drop on the floor.
+ *
+ * The px font sizes are viewBox USER UNITS, not CSS pixels — they scale with
+ * the SVG (check-chart-responsiveness exempts SVG-context rules for exactly
+ * this reason). They MIRROR the `FS` table in cartesian.js, which needs the
+ * same numbers to break lines and cull colliding ticks to the width the glyphs
+ * really occupy; test/unit/components/cartesian.test.js reads this file and
+ * fails when the two drift.
+ */
+
+/* The gridline. Deliberately the quietest mark on the plot: it exists to let a
+ * reader take a value off the chart, not to be seen. Mixed toward transparent
+ * off the border token rather than given its own gray, so it recedes by the
+ * same amount on both canvases and follows a theme that re-tunes its borders. */
+.chart-frame .cart-grid {
+  fill: none;
+  stroke: color-mix(in oklab, var(--border) 62%, transparent);
+  stroke-width: 0.5;
+}
+
+/* The zero rule is NOT a styled gridline, and the distinction is load-bearing:
+ * on a waterfall or a diverging bar it is the reference the marks are read
+ * against. It survives a theme that softens the grid to near-nothing. */
+.chart-frame .cart-zero {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 42%, transparent);
+  stroke-width: 0.7;
+}
+
+/* The axis rule — the line the categories sit on. Between the grid and the
+ * zero rule in weight: it bounds the plot without competing with the data. */
+.chart-frame .cart-axis {
+  fill: none;
+  stroke: color-mix(in oklab, var(--border) 88%, transparent);
+  stroke-width: 0.6;
+}
+
+/* Value-axis tick label. Muted, in the gutter, ON THE CANVAS — never on a mark,
+ * so its contrast is a property of the slide background and not of whichever
+ * fill happens to sit behind it. */
+.chart-frame .cart-tick {
+  fill: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+  dominant-baseline: central;
+}
+
+/* Category label — the reader's entry point into the plot, so it carries body
+ * ink rather than the tick's muted gray. */
+.chart-frame .cart-cat {
+  fill: var(--text-body);
+  font-family: var(--font-body);
+  font-size: 7.5px;
+}
+
+/* A value printed next to a mark: the figure that matters, so it takes the
+ * display face and heading ink, exactly as the funnel's stage value does. */
+.chart-frame .cart-value {
+  fill: var(--text-heading);
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* An inline series name (direct labeling — a line's own name at its end, a
+ * slope's entity name). Direct labels beat a legend whenever they fit, so this
+ * is a first-class register, not a fallback. Colored by the member from the
+ * series' own ink so the name and its line are the same hue. */
+.chart-frame .cart-series {
+  fill: var(--text-body);
+  font-family: var(--font-body);
+  font-size: 7.5px;
+  font-weight: 600;
+}
+
+/* Axis caption — uppercase and tracked, matching the chart eyebrow's register
+ * so the plot's captions belong to the same typographic system as the frame's. */
+.chart-frame .cart-axis-title {
+  fill: var(--text-muted);
+  font-family: var(--font-label);
+  font-size: 6.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* The plot's own <svg> root fills the chart body, like every other member. */
+.chart-frame .cart-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
