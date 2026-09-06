@@ -381,6 +381,56 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
       // Within a rounding step: `pct` is floored to two decimals, and the two scales differ in the
       // last binary place (9 × 1.2 is 10.799999…), which can land either side of a boundary.
       assert.ok(Math.abs(short.pct - tall.pct) <= 0.02, `ratio drifted: ${short.pct} vs ${tall.pct}`);
+      // …and so is the POINT size the author is shown. This is the reason `minPt` exists:
+      // the px differ by 3x across these two presets (3.6 vs 10.8) for one unchanged design,
+      // so a label reporting px reported a different number every time the deck changed size.
+      assert.ok(Math.abs(short.minPt - tall.minPt) <= 0.2, `pt drifted: ${short.minPt} vs ${tall.minPt}`);
+      assert.notEqual(short.minPx, tall.minPx, 'the px genuinely differ — otherwise this proves nothing');
+    });
+  });
+
+  test('minPt / floorPt report the same two sizes on the standard 960x540pt slide page', () => {
+    withStubbedStyle(() => {
+      // 720px slide, 1% floor → 7.2px, which on a 540pt-tall page is exactly 5.4pt. That
+      // constant is what the label and the hint quote, on every preset.
+      const r = probeFigureLegibility(
+        section([svg({ vbW: 300, vbH: 300, boxW: 300, boxH: 300, texts: [text(6.6)] })], 720),
+        FIGURE_TEXT_FLOOR_RATIO,
+      );
+      assert.equal(r.floorPx, 7.2);
+      assert.equal(r.floorPt, 5.4, 'the floor in points is a constant — that is the whole point of it');
+      // 6.6px of 720 → 0.91667% → 4.95pt, floored to 4.9 for the same reason minPx floors:
+      // a flagged figure must never print as EQUAL to the minimum it missed.
+      assert.equal(r.minPt, 4.9);
+      assert.ok(r.minPt < r.floorPt, `${r.minPt}pt must read as below ${r.floorPt}pt`);
+    });
+  });
+
+  test('the floor in points holds across presets, where the floor in px does not', () => {
+    withStubbedStyle(() => {
+      const at = (h) => probeFigureLegibility(
+        section([svg({ vbW: 300, vbH: 300, boxW: 300, boxH: 300, texts: [text(4)] })], h),
+        FIGURE_TEXT_FLOOR_RATIO,
+      );
+      const [hd, square, uhd] = [at(720), at(1080), at(2160)];
+      assert.equal(hd.floorPt, 5.4);
+      assert.equal(square.floorPt, 5.4);
+      assert.equal(uhd.floorPt, 5.4, 'one number an author can carry between decks');
+      assert.deepEqual([hd.floorPx, square.floorPx, uhd.floorPx], [7.2, 10.8, 21.6],
+        'while the px floor is three different numbers for one rule — what the old label printed');
+    });
+  });
+
+  test('the unmeasured branch reports the floor in points too', () => {
+    withStubbedStyle(() => {
+      // A mermaid flowchart: labels are <foreignObject> HTML the probe cannot size. It comes
+      // back "not measured", and the emulator prints the floor beside that — so this branch
+      // owes `floorPt` as much as the measured one does, and returned only `floorPx` when
+      // `minPt` was first added.
+      const r = probeFigureLegibility(section([svg({ texts: [], foreign: 39 })], 720), FIGURE_TEXT_FLOOR_RATIO);
+      assert.equal(r.under, false);
+      assert.equal(r.unmeasured, 1);
+      assert.equal(r.floorPt, 5.4);
     });
   });
 
