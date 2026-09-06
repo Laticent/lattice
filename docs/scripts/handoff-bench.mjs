@@ -39,6 +39,7 @@
 // control moves more than --max-shift (default 1px) after the app's chrome has painted, so
 // this reads as a check and not only as a report.
 
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serveModeled } from './lib/modeled-host.mjs';
@@ -48,7 +49,7 @@ const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..');
 function parseArgs(argv) {
 	// `cache: 'real'` because this bench asks whether a PRELOAD works, and that question is
 	// unanswerable under `no-store` — see `lib/modeled-host.mjs`.
-	const o = { runs: 3, width: 1440, height: 900, latency: 200, kbps: 1200, dist: join(DOCS, 'dist'), json: false, maxDead: 120, maxShift: 1, cache: 'real' };
+	const o = { runs: 3, width: 1440, height: 900, latency: 200, kbps: 1200, dist: join(DOCS, 'dist'), json: false, maxDead: 120, maxShift: 1, cache: 'real', allowUnshaped: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--runs') o.runs = Number(argv[++i]);
@@ -60,6 +61,7 @@ function parseArgs(argv) {
 		else if (a === '--max-dead') o.maxDead = Number(argv[++i]);
 		else if (a === '--max-shift') o.maxShift = Number(argv[++i]);
 		else if (a === '--cache') o.cache = argv[++i];
+		else if (a === '--allow-unshaped') o.allowUnshaped = true;
 		else if (a === '--json') o.json = true;
 	}
 	return o;
@@ -285,8 +287,50 @@ const TRACKED_NAMES = [
 const median = (xs) => (xs.length ? xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2)] : null);
 const ms = (v) => (v == null ? '    n/a' : `${String(Math.round(v)).padStart(5)}ms`);
 
+/**
+ * IS THIS DIST SHAPED LIKE THE ONE WE DEPLOY? — and it is worth failing over.
+ *
+ * `npm run build:e2e` is `astro build` and stops there. `npm run build` — what
+ * `docs-preview.yml` and `docs.yml` actually deploy — then runs
+ * `inject-modulepreload.mjs` and `hoist-stylesheets.mjs`. Both change precisely the two
+ * milestones this bench is made of: when the stylesheet applies (so when the shell paints)
+ * and when the island's JS arrives (so when React commits, so when stage 1 fires).
+ *
+ * That is not a nuance, it is a different answer. Measured on the same commit: against a
+ * `build:e2e` dist the stylesheet applied at 837ms, after every webfont had landed, and the
+ * bench reported ZERO font-swap shifts across 21 loads. Against the deployed shape the
+ * stylesheet applies at ~665ms, *before* the fonts, and the swap is visible on essentially
+ * every load. A whole claim in a PR body rested on the first number.
+ *
+ * So an un-post-processed dist is refused rather than measured. `--allow-unshaped` runs it
+ * anyway, for the case where the difference is the thing being studied.
+ */
+function assertDeployShape(dist, allow) {
+	let html;
+	try {
+		html = readFileSync(join(dist, 'studio', 'index.html'), 'utf8');
+	} catch {
+		return `handoff-bench: no ${join(dist, 'studio', 'index.html')} — is the site built?`;
+	}
+	if (html.includes('<!-- lattice:modulepreload -->')) return null;
+	const msg =
+		'handoff-bench: this dist has no modulepreload block, so it was built with `npm run build:e2e`\n' +
+		'  (astro build only) rather than `npm run build` (what docs-preview.yml deploys, which also\n' +
+		'  hoists the stylesheet and injects modulepreloads). Those two steps move first paint and\n' +
+		'  hydration, which is what this bench measures — the numbers would not describe the site.\n' +
+		'  Run `npm run build`, or pass --allow-unshaped to measure it anyway.\n';
+	if (!allow) return msg;
+	process.stderr.write(msg.replace('handoff-bench:', 'handoff-bench WARNING:'));
+	return null;
+}
+
 async function main() {
 	const o = parseArgs(process.argv.slice(2));
+	const shapeErr = assertDeployShape(o.dist, o.allowUnshaped);
+	if (shapeErr) {
+		process.stderr.write(shapeErr);
+		return 2;
+	}
 	const { server, port } = await serveModeled(o);
 	const { chromium } = await import('@playwright/test');
 	const browser = await chromium.launch();

@@ -234,16 +234,72 @@ and 600 are one variable file, so this covers every mono weight the site uses. A
 three families available together at 73ms (fast) / 859ms (modeled), against 1377ms for
 mono alone before.
 
-**This makes the shift very unlikely, not impossible, and the difference is worth stating
-because an earlier draft of this note did not.** The preload moves the fetch to parse time;
-it does not remove `font-display: swap`, as `studio.astro`'s own note already said. On a
-link slow enough that the file still has not landed when the shell paints, the fallback
-paints first and the 2.781px returns. It did not appear in any of the 21+ loads measured
-here, and the independent checker saw it once in about 21 — so "gone from every run" was
-an overclaim, and `perf:handoff` can go red for that reason rather than for a regression.
-The durable cure is the metric-adjusted fallback faces `studio.astro` already names
-(`size-adjust` plus ascent/descent overrides), which costs no bytes and holds at any speed;
-that is a site-wide font-stack change and remains the owner's call.
+**The shift is REDUCED, not removed, and the first two drafts of this note said otherwise.**
+The preload moves the fetch to parse time; it does not remove `font-display: swap`. Draft one
+said "gone from every run" on 21 loads; draft two softened that to "very unlikely" after an
+independent checker saw it once in about 21. Both were measuring `build:e2e`. On the shape we
+deploy it happens on essentially every load, and the preload's real contribution is halving the
+events and pulling mono ~400–600ms earlier — see the two sections below, which supersede this
+paragraph's optimism.
+
+## The build I measured was not the build we deploy
+
+Found late, by fetching the Cloudflare preview this PR produced and diffing its HTML against
+the local build every number here came from. They are not the same shape:
+
+- `npm run build:e2e` is `sync` + `astro build`, and stops.
+- `npm run build` — what `docs-preview.yml` and `docs.yml` actually deploy — then runs
+  `inject-modulepreload.mjs` and `hoist-stylesheets.mjs`.
+
+Those two steps move **exactly the two milestones this change is made of**: when the
+stylesheet applies, hence when the shell paints, and when the island's JS arrives, hence when
+React commits and stage 1 fires. Measured on the same commit, at 200ms/1200kbps:
+
+| | `build:e2e` | deployed shape |
+|---|---|---|
+| stylesheet applied | 837ms | **665ms** |
+| app chrome painted | 4968ms | **4550ms** |
+| webfonts available | 859–885ms | **714–774ms** |
+| font-swap shifts | **0 in 21 loads** | **on essentially every load** |
+
+The last row is the one that matters. On the unhoisted build the stylesheet lands *after* the
+webfonts, so the shell's first chrome paint already has the real metrics and no swap is
+observable. Hoisting moves the stylesheet ~170ms earlier, ahead of the fonts — so the shell
+paints in the fallback and then swaps, in full view. **The claim "the shift is gone from every
+run" was true of the build I measured and false of the site we ship.**
+
+The dead-time result is unaffected and was re-confirmed on the deployed shape: app chrome
+painted 4550ms, chrome uncovered 4550ms, **dead time 0ms**. Both milestones move together, which
+is why that half survived a wrong-shaped measurement and the font half did not.
+
+`handoff-bench.mjs` now **refuses** a dist with no modulepreload marker and says why
+(`--allow-unshaped` overrides). The next person cannot repeat this by accident.
+
+## What the font preload actually buys
+
+Re-measured on the deployed shape, as a clean A/B — the deployed HTML with and without only the
+JetBrains Mono preload line, 12 cold loads each:
+
+| | mono available | shift events / 12 loads |
+|---|---|---|
+| without the mono preload | 1168–1420ms | **30** |
+| with it | 764–1002ms | **16** |
+
+So the preload pulls mono ~400–600ms earlier and roughly **halves** the shift events. It does
+not eliminate them, because it never could: it moves the fetch to parse time and leaves
+`font-display: swap` alone, which `studio.astro`'s own note said all along.
+
+Two independent swaps move things, and only one of them is mono:
+
+- **mono** on the shell's PREVIEW label — `+2.781px` wide, which pushes the Reader-view pill
+  and everything right of it sideways. This is the reported shift.
+- **Outfit** on the Reader-view pill's own "Full deck" label — `−14.375px` of the pill's width.
+
+The durable cure for both is the metric-adjusted fallback faces `studio.astro` already names
+(`size-adjust` plus ascent/descent overrides against a deterministic fallback), which costs no
+bytes and holds at any speed. That is a site-wide font-stack change and is recorded there as
+the owner's call; this note now carries the evidence that it is worth making, which it did not
+before.
 
 ## What now gates this
 
