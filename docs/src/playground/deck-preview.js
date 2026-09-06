@@ -345,7 +345,7 @@ export function buildSrcdoc({
 	const needsKatex = html.indexOf('katex') !== -1;
 	const needsMermaid = html.indexOf('language-mermaid') !== -1;
 	return (
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewRuntimeAttr(runtimeUrl) + '><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
 		(csp ? previewCspMeta({ katexUrl }) : '') +
@@ -410,24 +410,34 @@ export function buildSrcdoc({
 }
 
 /**
- * The attribute a preview document wears to say "a Lattice runtime is being injected
- * into me". ONE place writes it, because it is a promise about the document rather
- * than a style hook: `mermaid.css` withholds an un-tagged Mermaid fence's ink only
- * under `[data-lattice-runtime]`, on the reasoning that hiding a diagram's source is
- * right only where something is going to replace it.
+ * The attribute a preview document wears to say "a Mermaid renderer is being injected
+ * into me, so something WILL replace a diagram fence". ONE place writes it, because it
+ * is a promise about the document rather than a style hook: `mermaid.css` withholds an
+ * un-tagged Mermaid fence's ink only under `[data-lattice-diagrams]`, on the reasoning
+ * that hiding a diagram's source is right only where something is going to draw it.
  *
- * It is in the MARKUP the builder writes, never set by script at boot, because the
- * window it covers starts at the first paint of a full document write — before any
- * script of ours has run.
+ * KEYED ON THE MERMAID SCRIPT, not on the runtime, and the distinction is the whole
+ * point. The first version of this gate used `data-lattice-runtime` — a name the RUNTIME
+ * ITSELF has always written on `document.documentElement` at boot
+ * (lib/runtime/index.js), which made "only a builder writes it" false in four documents
+ * and, worse, turned the rule on in exactly the hosts it was meant to spare. On a page
+ * with the runtime but no Mermaid (marp-vscode's plain markdown preview and its
+ * render-blocks-only stub, a 404 on the Mermaid URL, a CSP that blocks it) a fence
+ * arriving after boot was hidden permanently: neither guard would tag it, and the CSS hid
+ * it anyway. Driven and confirmed by an independent checker before this shipped.
  *
- * Returns nothing when there is no runtime URL, so a document that ends up without a
- * runtime never claims one: the fence stays readable, which is the old behavior and
- * the safe direction. Every export path and the .html player fall in that half by
- * simply not calling this.
+ * The runtime alone was never the right precondition regardless. A fence is replaced by
+ * MERMAID; a document with the runtime and no Mermaid renders no diagram, so its author
+ * needs the source they can read.
+ *
+ * Returns nothing when the caller is not injecting Mermaid, so a document that will not
+ * draw the diagram never claims it will: the fence stays readable, which is the old
+ * behavior and the safe direction. Every export path, the .html player and any page we
+ * did not assemble fall in that half by simply not calling this.
  * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
  */
-export function previewRuntimeAttr(runtimeUrl) {
-	return runtimeUrl ? ' data-lattice-runtime' : '';
+export function previewDiagramsAttr(mermaidUrl) {
+	return mermaidUrl ? ' data-lattice-diagrams' : '';
 }
 
 // Patch only the <section> nodes whose HTML changed. Returns true on success

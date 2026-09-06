@@ -425,7 +425,7 @@ describe('the scope key survives the runtime stamping the section it keys on', (
   test('the deck-logo placement does not change the key either', () => {
     assert.equal(
       diagramScopeKey(el('diagram form', AUTHORED)),
-      diagramScopeKey(el('diagram form', `${AUTHORED} --logo-scale: 1.2; --logo-x: 4;`)),
+      diagramScopeKey(el('diagram form', `${AUTHORED}--logo-scale: 1.2; --logo-x: 4;`)),
       'applyLogoPlacement stamps every section of a logo deck; it carries no palette',
     );
   });
@@ -452,11 +452,51 @@ describe('the scope key survives the runtime stamping the section it keys on', (
       'the same section either side of the geometry stamp is one scope');
   });
 
-  test('re-serialization alone does not change the key', () => {
+  test('re-spacing alone does not change the key', () => {
     assert.equal(
       diagramScopeKey(el('diagram', '--theme:"cuoio";--class:"diagram";')),
-      diagramScopeKey(el('diagram', '--class: "diagram"; --theme: "cuoio"')),
-      'whitespace and declaration order are the browser\'s to choose, not a cascade difference',
+      diagramScopeKey(el('diagram', '--theme: "cuoio"; --class: "diagram"')),
+      'the space the CSSOM inserts after a colon is not a cascade difference',
+    );
+  });
+
+  // ORDER IS NOT NORMALIZED, deliberately, and this pins the reason. Sorting the
+  // declarations looked like harmless canonicalization and was not: it discards
+  // last-one-wins, so two blocks that resolve to DIFFERENT colors normalized to one key —
+  // which is the one direction that hands a slide another slide's baked ink. Unreachable
+  // through the production caller (`style.cssText` de-duplicates first), but this module
+  // is advertised as usable against a plain object, so the hazard was real for the next
+  // caller. Found by the second independent checker.
+  test('two blocks whose last-wins resolution differs never share a key', () => {
+    assert.notEqual(
+      diagramScopeKey(el('diagram', 'background:red;background-color:blue')),
+      diagramScopeKey(el('diagram', 'background-color:blue;background:red')),
+      'these resolve to different colors; one key for both would be the aliasing bug',
+    );
+  });
+
+  // The cost of giving up the sort, stated so nobody "fixes" it back: a section whose
+  // authored order differs now MISSES the cache. A re-render, which is the safe direction.
+  test('a reordered authored style misses rather than aliases', () => {
+    assert.notEqual(
+      diagramScopeKey(el('diagram', '--theme:"cuoio";--class:"diagram";')),
+      diagramScopeKey(el('diagram', '--class:"diagram";--theme:"cuoio";')),
+      'a miss is the price of never aliasing',
+    );
+  });
+
+  // `--logo-ink` is a COLOR token; only the five placement properties the deck logo
+  // actually stamps may be dropped from the key.
+  test('the logo drop is the placement set, not every --logo- property', () => {
+    assert.equal(
+      diagramScopeKey(el('diagram', '--theme:"cuoio";')),
+      diagramScopeKey(el('diagram', '--theme:"cuoio";--logo-scale:1.2;--logo-x:4;')),
+      'placement carries no palette',
+    );
+    assert.notEqual(
+      diagramScopeKey(el('diagram', '--theme:"cuoio";')),
+      diagramScopeKey(el('diagram', '--theme:"cuoio";--logo-ink:#f00;')),
+      'a color must never be dropped from the key',
     );
   });
 

@@ -70,22 +70,44 @@ Component contract, slots, and the anti-patterns:
 
 ### What the slide shows while the diagram is still coming
 
-Nothing. The fence is a conduit, never a thing to read on a slide, so it paints no
-ink from the moment it enters the DOM:
+Nothing — in a document that has promised to draw it. The fence is a conduit, never a
+thing to read on a slide, so from the moment it enters such a document it paints no ink:
 
 ```css
-:is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"] { visibility:hidden; }
+[data-lattice-diagrams] :is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"] { visibility:hidden; }
 ```
 
 `visibility` on the CODE rather than `display` on the `<pre>`, because the `<pre>` is
-already sized to the rendered diagram's slot — withholding only the ink leaves the
-slot reserved, so nothing on the slide moves when the SVG lands (measured layout
-shift: 0). The three `data-mermaid-state` rules beside it take over the moment the
-runtime tags the fence; this one covers the window before that, which nothing did.
-The one host it costs is a page that takes `lattice.css` WITHOUT the runtime, where
-the source is now invisible rather than readable — no shipped configuration does
-that (`dist/marp-kit` carries the runtime beside the sheet, the CLI substitutes the
-SVG before the selector can match, and the player bakes it).
+already sized to the rendered diagram's slot — withholding only the ink leaves the slot
+reserved, so nothing on the slide moves when the SVG lands (measured layout shift: 0).
+The three `data-mermaid-state` rules beside it take over the moment the runtime tags the
+fence; this one covers the window before that, which nothing did.
+
+**`[data-lattice-diagrams]` is the load-bearing half, and it names the MERMAID SCRIPT,
+not the runtime.** Hiding a diagram's source is right only where something is going to
+draw it, so the attribute is written by the BUILDER that injects Mermaid —
+`previewDiagramsAttr()` in `docs/src/playground/deck-preview.js`, called by the two
+preview frames and the Stage window, and by nothing else. A document we did not assemble
+(a hand-rolled Marp page, marp-vscode's own preview) never gets it and keeps showing the
+source; so does every export path and the `.html` player, which is what keeps a fence the
+CLI could not substitute readable rather than blank. It has to be in the MARKUP, not set
+by script at boot: the window this covers starts at the first paint of a full document
+write.
+
+Two wrong versions of that gate shipped before this one, and both are worth knowing
+because both looked right:
+
+- **Ungated.** The rule matched anywhere the stylesheet did. `preprocessMermaid`
+  (`lattice-emulator.js`) substitutes only ```` ```mermaid ````, so a `~~~mermaid` fence
+  reaches the exported HTML unsubstituted with the runtime stripped — and the author's
+  only signal that the CLI never drew their diagram became an empty slot, in export bytes.
+- **Gated on `data-lattice-runtime`.** That is a name `lib/runtime/index.js` has always
+  written on `document.documentElement` at boot, so the rule switched itself on in every
+  document the runtime booted in — precisely the set it was meant to spare. On a host with
+  the runtime and no Mermaid (the markdown-preview stub, a 404, a CSP block) a fence
+  arriving after boot was hidden permanently.
+
+Both were caught by an independent checker, driven, before merge.
 
 **A diagram the runtime has already rendered comes back in the SAME TASK as the swap
 that brought its slide in.** A host that re-renders a slide — the Studio on every

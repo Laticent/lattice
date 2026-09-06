@@ -42,7 +42,7 @@ import {
 } from '../../../../../lib/core/present-transport.mjs';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
-import { previewRuntimeAttr } from '../../../playground/deck-preview.js';
+import { previewDiagramsAttr } from '../../../playground/deck-preview.js';
 import { slideBox } from '../../../playground/frame-css.js';
 import { previewCspMeta } from '../../../playground/preview-csp.js';
 import { STAGE_CHROME_CSS } from './stage-chrome.js';
@@ -317,7 +317,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 			'</div>'
 		: '';
 	return (
-		'<!doctype html><html' + previewRuntimeAttr(runtimeUrl) + '><head><meta charset="utf-8">' +
+		'<!doctype html><html' + previewDiagramsAttr(mermaidUrl) + '><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
 		previewCspMeta({ katexUrl }) +

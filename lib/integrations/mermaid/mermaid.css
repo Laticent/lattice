@@ -74,9 +74,9 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * its ink leaves the slot reserved and nothing on the slide moves when the SVG lands
  * (measured layout shift: 0). Hiding the box would collapse the slot and reflow twice.
  *
- * `[data-lattice-runtime]` IS THE SAFETY ARGUMENT, and the first version of this rule
- * did not have it. Hiding the source is only right when something is going to replace
- * it; in a document with no runtime nothing will, and the rule blanked the slide —
+ * `[data-lattice-diagrams]` IS THE SAFETY ARGUMENT, and this rule shipped two wrong
+ * versions before it. Hiding the source is only right when something is going to replace
+ * it; in a document that draws no diagram nothing will, and the rule blanked the slide —
  * including in an EXPORT. `preprocessMermaid` (lattice-emulator.js) matches
  * ```` ```mermaid ```` and nothing else, so a `~~~mermaid` fence, or one carrying an
  * info-string, reaches the exported HTML unsubstituted with the runtime stripped.
@@ -84,22 +84,37 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * drew their diagram. Unscoped, this rule turned it into an empty slot — verified on
  * a real export, and an export-bytes regression on an authoring-error surface.
  *
- * So the attribute is stamped by the BUILDER, never by the runtime: a host earns this
- * rule by having already committed to injecting `lattice-runtime.js` into the document
- * it is assembling (the preview frames and the Stage window; `previewRuntimeAttr()` in
- * docs/src/playground/deck-preview.js is the one place that writes it). A builder that
- * does not — every export path, the .html player, a hand-rolled Marp page — keeps the
- * old behavior and shows the source. It must be in the MARKUP the host writes, not set
- * by script at boot: the window this covers STARTS at the first paint of a full
- * document write, which is before any script of ours has run. That is also why the
- * marp-vscode preview does not get this rule; it assembles its own page.
+ * So the attribute is stamped by the BUILDER, and it names the MERMAID SCRIPT rather
+ * than the runtime: a host earns this rule by already having committed to injecting a
+ * Mermaid renderer into the document it is assembling (`previewDiagramsAttr()` in
+ * docs/src/playground/deck-preview.js is the one place that writes it; the two preview
+ * frames and the Stage window are the callers). A document we did not assemble — a
+ * hand-rolled Marp page, marp-vscode's own preview — never gets it and keeps the old
+ * behavior. It must be in the MARKUP the host writes, not set by script at boot: the
+ * window this covers STARTS at the first paint of a full document write, which is before
+ * any script of ours has run.
+ *
+ * THE FIRST ATTEMPT AT THIS GATE USED `data-lattice-runtime`, AND THAT WAS A DEFECT —
+ * a name `lib/runtime/index.js` has always written on `document.documentElement` at boot.
+ * So the rule turned itself ON in every document the runtime booted in, which is exactly
+ * the set it was meant to spare, and on a host with the runtime but NO Mermaid (the
+ * markdown-preview stub, a 404 on the script, a CSP that blocks it) a fence arriving
+ * after boot was hidden permanently. Driven and confirmed by an independent checker
+ * before this shipped. The runtime was never the right precondition anyway: a fence is
+ * replaced by MERMAID, so that is what the document has to promise.
+ *
+ * ONE PATH STAMPS AND STILL WRITES A FILE: the Studio's offscreen EXPORT capture frame
+ * goes through `buildSrcdoc` with a real Mermaid URL, so it carries the attribute. That
+ * is correct — Mermaid renders there — and the artifact it produces is re-assembled by
+ * the player builder, which does not stamp. So the DOWNLOADED file still shows the source
+ * of anything Mermaid failed to draw.
  *
  * Scoped by the LANGUAGE CLASS rather than by `section.diagram`, because an author may
  * put an ordinary ```js block on a diagram slide and it must still read, and a fence
  * outside a slide host has the same window. `[class*=…]` covers both the authored
  * `language-mermaid` and the `language-mermaid-source` the runtime renames it to.
  * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A. */
-[data-lattice-runtime] :is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"] { visibility:hidden; }
+[data-lattice-diagrams] :is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"] { visibility:hidden; }
 
 /* Base (theme-agnostic) styling for the source <pre> in pending/error states.
  * Structural only: layout, sizing, font, whitespace. No background, no

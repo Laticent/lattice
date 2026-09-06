@@ -56,19 +56,23 @@ describe('buildSrcdoc', () => {
 	});
 
 	// A PROMISE ABOUT THE DOCUMENT, not a style hook. `mermaid.css` withholds an un-tagged
-	// Mermaid fence's ink only under `[data-lattice-runtime]`, because hiding a diagram's
-	// source is right only where something is going to replace it. This builder always
-	// injects the runtime, so it always stamps — and a builder that does NOT inject one must
-	// not, which is what keeps an export (runtime stripped) showing the source of a fence the
-	// CLI could not substitute instead of an empty slot.
+	// Mermaid fence's ink only under `[data-lattice-diagrams]`, because hiding a diagram's
+	// source is right only where something is going to DRAW it. So the claim follows the
+	// MERMAID script, not the runtime — a document with the runtime and no Mermaid renders
+	// no diagram and its author needs the source they can read. (The first version of this
+	// gate keyed on `data-lattice-runtime`, which the runtime itself stamps at boot; it
+	// turned the rule on in exactly the hosts it was meant to spare.)
 	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
-	test('claims a runtime on the <html> tag, because it injects one', async () => {
-		const { buildSrcdoc, previewRuntimeAttr } = await load();
-		assert.match(buildSrcdoc({ ...BASE }), /<html[^>]* data-lattice-runtime[ >]/);
-		// The claim follows the runtime, so a caller with no runtime URL makes no claim.
-		assert.equal(previewRuntimeAttr(''), '');
-		assert.equal(previewRuntimeAttr(undefined), '');
-		assert.equal(previewRuntimeAttr('/rt.js'), ' data-lattice-runtime');
+	test('claims diagrams on the <html> tag only when it injects Mermaid', async () => {
+		const { buildSrcdoc, previewDiagramsAttr } = await load();
+		const withFence = { ...BASE, html: '<pre><code class="language-mermaid">graph LR</code></pre>', mermaidUrl: '/m.js' };
+		assert.match(buildSrcdoc(withFence), /<html[^>]* data-lattice-diagrams[ >]/);
+		// No Mermaid injected → no claim, on either half of the condition.
+		assert.doesNotMatch(buildSrcdoc({ ...BASE }), /data-lattice-diagrams/);
+		assert.doesNotMatch(buildSrcdoc({ ...withFence, mermaidUrl: '' }), /data-lattice-diagrams/);
+		assert.equal(previewDiagramsAttr(''), '');
+		assert.equal(previewDiagramsAttr(undefined), '');
+		assert.equal(previewDiagramsAttr('/m.js'), ' data-lattice-diagrams');
 	});
 
 	test('always injects the link guard so an external tap cannot navigate (blank) the frame', async () => {
