@@ -26,7 +26,9 @@
   stretch without the reader producing something drops from 51 slides to 20; deck
   wide it drops from 51 to 45, and the longest run now starts in Part five.
 - **Part seven now closes the loop the deck opened on.** The first eleven slides
-  are a Tuesday that fails — pull request 482 does not merge. The thread runs on
-  through Part one, ends on one slide in Part two, and the deck never came back. A new slide before "What to do on Monday" says what
-  would have made Tuesday different, in the deck's own vocabulary: a bounded pool
-  of one, a deadline nothing inherited, and admission control twenty minutes late.
+  are a Tuesday that fails — pull request 482 does not merge — and the deck used to
+  drop that thread in Part two and never return to it. It comes back twice now: in
+  Part three, where her day supplies a worked example of a ceiling, and on a new
+  slide before "What to do on Monday" that says what would have made Tuesday
+  different, in the deck's own vocabulary: a bounded pool of one, a deadline
+  nothing inherited, and admission control twenty minutes late.

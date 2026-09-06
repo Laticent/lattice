@@ -1726,7 +1726,7 @@ flowchart TB
 
 One: a nightly job that reads the whole orders table and writes one report file — forty minutes, once a day. Two: an API taking three thousand requests a second, deployed six times a day by four teams. Three: a thumbnail made whenever somebody uploads a photo — a few hundred a day, none overnight.
 
-Name the runtime, and the invariant each one fails first if you get it wrong. Then turn the page.
+Name what each should run on, and the invariant it fails first if you get it wrong. Then turn the page.
 
 ---
 
@@ -1734,7 +1734,7 @@ Name the runtime, and the invariant each one fails first if you get it wrong. Th
 
 `One answer`
 
-## The shape of the work decides the first two. The idle decides the last one.
+## Idle decides the last one. Neither of the first two is a cost argument.
 
 1. The nightly report
    - A machine or a container on a schedule; what it is not is a function. Forty minutes outlives most function runtime caps, and one long run is not spiky. The invariant it fails first: capacity is a number somebody owns.
