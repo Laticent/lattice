@@ -325,14 +325,64 @@ count), plus two suites run concurrently, against the reproducible failure befor
 
 ## 8. Three oracles of my own were weaker than they read
 
-Also the checker. `a Compose edit deliberately drops the carried history` went straight to
-Compose as its first action, so no markdown-pane edit existed and the carried history was
-EMPTY — the two ⌘Z presses would have done nothing whether the guard worked or not. It now
-makes an edit first, and asserts that edit survived. The BOM oracle never pressed ⌘Z, which is
-where the leak was. And the walk's invariant 2 has three legitimate escapes, one of which
+Also the checker. `a Compose edit deliberately drops the carried history` had no witness that
+the Compose edit ever reached the source, so a run where the typing went nowhere would have
+asserted `toContain('COMPOSEMARK')` against a document that never had it and failed for the
+wrong reason — or, with the assertion inverted, passed for none. It now witnesses the edit on
+the way back and only then presses ⌘Z twice. The BOM oracle never pressed ⌘Z, which is where
+the leak was. And the walk's invariant 2 has three legitimate escapes, one of which
 (`paintedClasses` catching an unreachable frame to `[]`) would have let all 34 steps pass
 having compared nothing; the walk now counts its own evaluations and asserts the net was in
 the water.
+
+**An earlier revision of this section said something else about the first oracle, and it was
+wrong about the shipped test.** It claimed the oracle "went straight to Compose as its first
+action, so the carried history was EMPTY" and "now makes an edit first". It still goes straight
+to Compose, and it does not make a markdown-pane edit first — but the history is not empty and
+the oracle is not hollow, which a ninth mutation settles rather than an argument: drop the
+document half of `carryApplies` (`state.doc === value`), rebuild, and the oracle fails 3/3 with
+`a stale history must not be replayed over a Compose edit`, the received document being the
+pre-Compose deck with `COMPOSEMARK` wiped. That is the defect it exists to catch, so it catches
+it. The lesson is the one this note keeps re-learning: an argument about whether an oracle is
+hollow is settled by mutating the code under it, and a paragraph asserting a fix that was never
+made is worse than no paragraph.
+
+## 8b. Every oracle is now mutation-proved, and three of them were not
+
+The brief called the mutation check "the single highest-value hour", and the first pass
+mutation-checked the SIX oracles that pin a fix this change made. That left three pinning
+behavior the change did not touch — the CRLF/CR fold, the reload round trip, and the Quick fix —
+untested as oracles: each could have been asserting something that is true no matter what the
+code does. Two of them turned out fine and one had already been silently rewritten, but none of
+that was known until the code under them was broken on purpose.
+
+Twelve mutations, one row per oracle (the first eight are the original pass):
+
+| # | mutation | oracle | it failed with |
+|---|---|---|---|
+| 1 | BOM `transactionFilter` removed | `@smoke a pasted BOM never reaches the deck source` | document differs |
+| 2 | `loadSource` normalization removed | `a deck already STORED with a BOM opens canonical` | the BOM survives |
+| 3 | `CLASS_RE` unanchored + fence-blind | `@smoke the rail names the component…` | `Expected "text", Received "kpi"` |
+| 4 | " | the 34-step walk | `the engine painted a component the slide does not name` |
+| 5 | `slideClass` back to first-wins | `@smoke the rail names the component…` | `Expected "quote", Received "big-number"` |
+| 6 | editor-state carry removed | `@smoke undo still works after a trip through Compose` | `⌘Z did nothing` |
+| 7 | carry guard loses its DECK KEY | `editor-carry.test.ts` | the predicate admits a foreign deck |
+| 8 | Fix-all gated on `unknownComponents` | `Fix all is offered exactly when…` | `a fixable finding must offer Fix all` |
+| 9 | carry guard loses its DOCUMENT check (`state.doc === value`) | `a Compose edit deliberately drops the carried history` | `a stale history must not be replayed over a Compose edit` — the pre-Compose deck came back and wiped `COMPOSEMARK` |
+| 10 | `onFix` computes its repair and drops the dispatch | `the inline Quick fix applies the repair its underline promised` | `the Quick fix did not repair the directive` (`kpii` still there) |
+| 11 | `loadSource` trims one trailing `\n` | `the deck source survives a reload byte for byte` | one character short, byte for byte |
+| 12 | `EditorState.lineSeparator.of('\n')` pinned, so a lone CR stops being a line break | `CodeMirror folds CRLF and a lone CR at the same door` | `CRLF reached the document` |
+
+Rows 9 and 12 are the two worth keeping. **Row 9** settles an argument this note had with itself
+in prose (see §8) with the only thing that can settle it. **Row 12** is the answer to "how do you
+mutation-check an oracle over someone else's code?" — the CRLF fold is CodeMirror's, not ours, so
+there is no fix of ours to revert; what IS ours is the configuration that leaves the fold on, and
+pinning `lineSeparator` turns it off. The oracle catches that, which is exactly the CodeMirror-
+upgrade regression it exists for.
+
+Each mutation was applied alone, the site rebuilt, the oracle run, and the file restored — and
+the four oracles involved were re-run green afterward, because a mutation left in place is a far
+worse outcome than one never run.
 
 ## 9. The reason this note first gave for the unit tier's blind spot was false
 
