@@ -33,7 +33,7 @@ import { matchTheme } from './match-theme';
 import { DEFAULT_PART_PLAN, type Pace, type PartPlan, type Plan, planToScene, sceneToPlan, validatePlan } from './plan';
 import { reconcile, remapPlan } from './reconcile';
 import { slideSkeleton } from './skeleton';
-import { type IntakePart, type IntakeReceipt, intake } from './svg-intake';
+import { type IntakePart, type IntakeReceipt, intake, setPartTitle, splitBand } from './svg-intake';
 
 /** A worked example, so a first-time user with nothing on their clipboard still reaches a playing
  *  asset in one click. Copied from `examples/anima-scene.md`'s own svg slide — a drawing already
@@ -74,11 +74,18 @@ export function MotionStudio({
 	/** `pathRef`s the plan carries that the drawing no longer has. Shown, never dropped — silently
 	 *  losing a user's choreography is the §7c data-loss lesson wearing a different hat. */
 	const [missing, setMissing] = React.useState<{ pathRef: string; label: string }[]>([]);
+	/** Set when Replace sent us back to the paste pane — the next intake RECONCILES instead of resetting. */
+	const [replacing, setReplacing] = React.useState<IntakePart[] | null>(null);
+	/** A saved plan whose windows do not quantize to beats. Shown read-only rather than re-timed. */
+	const [customTiming, setCustomTiming] = React.useState(false);
 
 	// A worked example is the front door for someone with an empty clipboard, so it loads eagerly
 	// rather than waiting for a click that a first-time user has no reason to make.
 	const load = React.useCallback(
-		(raw: string, keepPlan: boolean) => {
+		(raw: string, keepPlanFromParts: IntakePart[] | null | boolean) => {
+			// `Replace` hands back the parts we had, so the diff runs against them rather than against a
+			// `loaded` we have already cleared to show the paste pane.
+			const keepPlanFrom = Array.isArray(keepPlanFromParts) ? keepPlanFromParts : null;
 			setBusy(true);
 			setRefusal('');
 			// Yield once so the spinner paints before a 400-part parse blocks the thread.
@@ -90,10 +97,11 @@ export function MotionStudio({
 					return;
 				}
 				const next: Loaded = { art: r.art, parts: r.parts, viewBox: r.viewBox, receipt: r.receipt };
-				setLoaded((prev) => {
-					if (keepPlan && prev) {
+				const previous = keepPlanFrom;
+				setLoaded(() => {
+					if (previous) {
 						// Replace is a DIFF, not a reset — match the new parts to the plan already in hand.
-						const rec = reconcile(prev.parts, r.parts);
+						const rec = reconcile(previous, r.parts);
 						setPlan((p) => remapPlan(p, rec.remap));
 						setMissing(rec.entries.filter((e) => e.how === 'gone').map((e) => ({ pathRef: e.previous ?? '', label: e.previousLabel ?? 'A part' })));
 						notify(rec.summary);
@@ -106,6 +114,7 @@ export function MotionStudio({
 					return next;
 				});
 				setSelected(r.parts[0]?.pathRef ?? null);
+				setReplacing(null);
 				setBusy(false);
 				setReplay((n) => n + 1);
 			}, 0);
@@ -122,7 +131,8 @@ export function MotionStudio({
 			setRefusal(`This saved asset could not be reopened: ${r.message}`);
 			return;
 		}
-		const { plan: back, pace: seedPace } = sceneToPlan(seed.spec);
+		const { plan: back, pace: seedPace, beatShaped } = sceneToPlan(seed.spec);
+		setCustomTiming(!beatShaped);
 		const known = new Set(r.parts.map((p) => p.pathRef));
 		// A part in the plan with no node in the art is reported, never dropped.
 		setMissing(Array.from(back.keys()).filter((k) => !known.has(k)).map((k) => ({ pathRef: k, label: k })));
@@ -163,6 +173,27 @@ export function MotionStudio({
 		setReplay((n) => n + 1);
 	};
 
+	const splitBandInto = (bandRef: string) => {
+		setLoaded((prev) => {
+			if (!prev) return prev;
+			const out = splitBand(prev.art, bandRef);
+			if (!out) return prev;
+			const at = prev.parts.findIndex((p) => p.pathRef === bandRef);
+			const parts = [...prev.parts.slice(0, at), ...out.members, ...prev.parts.slice(at + 1)];
+			// The members inherit the band's beat, so opening a group never re-times what was already set.
+			setPlan((p) => {
+				const inherited = p.get(bandRef) ?? DEFAULT_PART_PLAN;
+				const next = new Map(p);
+				next.delete(bandRef);
+				for (const m of out.members) next.set(m.pathRef, { ...inherited, role: m.drawable && m.strokeable ? inherited.role : inherited.role === 'draw' ? 'fade' : inherited.role });
+				return next;
+			});
+			setSelected(out.members[0]?.pathRef ?? null);
+			setReplay((n) => n + 1);
+			return { ...prev, art: out.art, parts };
+		});
+	};
+
 	const addBeat = () => {
 		if (!selected) return;
 		const max = Math.max(...Array.from(plan.values()).map((p) => p.beat), 0);
@@ -189,7 +220,7 @@ export function MotionStudio({
 	const inspector = (pathRef: string) => {
 		const part = loaded?.parts.find((p) => p.pathRef === pathRef);
 		if (!part) return null;
-		return <MotionInspector part={part} plan={plan.get(pathRef) ?? DEFAULT_PART_PLAN} onChange={(patch) => setPartPlan(pathRef, patch)} />;
+		return <MotionInspector part={part} plan={plan.get(pathRef) ?? DEFAULT_PART_PLAN} onChange={(patch) => setPartPlan(pathRef, patch)} onSplit={splitBandInto} />;
 	};
 
 	return (
@@ -227,14 +258,27 @@ export function MotionStudio({
 			) : null}
 
 			{!loaded ? (
-				<Empty paste={paste} setPaste={setPaste} busy={busy} onLoad={(raw) => load(raw, false)} onExample={() => load(EXAMPLE_SVG, false)} />
+				<Empty
+					paste={paste}
+					setPaste={setPaste}
+					busy={busy}
+					replacing={!!replacing}
+					onCancel={replacing ? () => { setReplacing(null); setPaste(''); } : undefined}
+					onLoad={(raw) => load(raw, replacing)}
+					onExample={() => load(EXAMPLE_SVG, false)}
+				/>
 			) : (
 				// The grid gates at 1100px, not `lg` (1024): between the two the three-column layout
 				// would render beside an inspector that has not appeared, leaving a dead column.
 				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto [@media(min-width:1100px)]:grid [@media(min-width:1100px)]:overflow-hidden [@media(min-width:1100px)]:[grid-template-columns:300px_1fr_330px]">
 					{/* PARTS */}
 					<div className="flex min-w-0 flex-col gap-3 border-b border-border p-3 [@media(min-width:1100px)]:overflow-y-auto [@media(min-width:1100px)]:border-b-0 [@media(min-width:1100px)]:border-r">
-						<MotionReceipt receipt={loaded.receipt} onReplace={() => { setLoaded(null); setPaste(''); }} />
+						<MotionReceipt receipt={loaded.receipt} onReplace={() => { setReplacing(loaded.parts); setLoaded(null); setPaste(''); }} />
+						{customTiming && (
+							<div role="status" className="rounded-md border border-[color-mix(in_srgb,var(--warn)_45%,var(--border))] p-2 text-[11.5px] leading-snug text-muted-foreground">
+								<strong className="text-[var(--text-heading)]">Custom timing.</strong> This asset's parts do not fall on even beats, so it was written by hand or by an older tool. It is shown as-is and will be saved as-is — editing a beat here would re-time the whole thing, and a motion asset has no version history to undo that from.
+							</div>
+						)}
 						<MotionParts
 							parts={loaded.parts}
 							plan={plan}
@@ -243,8 +287,12 @@ export function MotionStudio({
 							onSelect={setSelected}
 							onMove={(ref, beat) => setPartPlan(ref, { beat })}
 							onRename={(ref, label) => {
-								if (!label.trim()) return;
-								setLoaded((prev) => (prev ? { ...prev, parts: prev.parts.map((p) => (p.pathRef === ref ? { ...p, label: label.trim() } : p)) } : prev));
+								const next = label.trim();
+								if (!next) return;
+								// Into the DRAWING, not just React state. Reopening re-derives every label from the
+								// art — there is no field on the record for them — so a rename kept only in state
+								// degrades back to "Shape · upper left" the moment the tab closes.
+								setLoaded((prev) => (prev ? { ...prev, art: setPartTitle(prev.art, ref, next), parts: prev.parts.map((p) => (p.pathRef === ref ? { ...p, label: next } : p)) } : prev));
 							}}
 							onAddBeat={addBeat}
 							renderInspector={inspector}
@@ -271,7 +319,7 @@ export function MotionStudio({
 						<MotionStage art={loaded.art} spec={validity.ok ? spec : null} replayKey={`${replay}`} className="aspect-video w-full overflow-hidden rounded-lg border border-border bg-[var(--bg)] shadow-[0_6px_18px_rgba(10,22,40,.10)]" />
 						<MotionFrames art={loaded.art} spec={validity.ok ? spec : null} beats={beatCount} selected={frame} onSelect={setFrame} />
 						<p className="text-[12px] leading-relaxed text-muted-foreground">
-							Plays on screen; the PDF freezes the finished drawing. {loaded.receipt.kept.fixedColors > 0 && (
+							Plays on screen; the PDF freezes the finished drawing. Palette colors are approximate here — the deck's own are used on the slide. {loaded.receipt.kept.fixedColors > 0 && (
 								<button type="button" onClick={() => { setLoaded((prev) => (prev ? { ...prev, art: matchTheme(prev.art) } : prev)); setReplay((n) => n + 1); notify('Recolored the drawing with your theme tokens.'); }} className="font-semibold text-[var(--accent)] underline underline-offset-2">
 									Match the theme
 								</button>
@@ -297,7 +345,7 @@ export function MotionStudio({
 
 /** The front door. A real `<textarea>`, not a div with a paste handler, so Cmd-V works, the field is
  *  labeled, and a keyboard or screen-reader user reaches it by Tab. */
-function Empty({ paste, setPaste, busy, onLoad, onExample }: { paste: string; setPaste: (v: string) => void; busy: boolean; onLoad: (raw: string) => void; onExample: () => void }) {
+function Empty({ paste, setPaste, busy, replacing, onCancel, onLoad, onExample }: { paste: string; setPaste: (v: string) => void; busy: boolean; replacing?: boolean; onCancel?: () => void; onLoad: (raw: string) => void; onExample: () => void }) {
 	const [over, setOver] = React.useState(false);
 	return (
 		// A labelled REGION rather than a bare div: dropping a file is a pointer-only affordance that
@@ -317,8 +365,17 @@ function Empty({ paste, setPaste, busy, onLoad, onExample }: { paste: string; se
 		>
 			<div className={cn('flex w-full max-w-[520px] flex-col gap-3 rounded-xl border-2 border-dashed p-5', over ? 'border-[var(--accent)]' : 'border-border')}>
 				<div>
-					<h2 className="text-[15px] font-semibold text-[var(--text-heading)]">Bring a drawing</h2>
-					<p className="text-[12.5px] leading-relaxed text-muted-foreground">Paste SVG markup below, or drop a .svg file anywhere on this panel. We find its parts, you give each one a beat, and it plays.</p>
+					<h2 className="text-[15px] font-semibold text-[var(--text-heading)]">{replacing ? 'Replace the drawing' : 'Bring a drawing'}</h2>
+					<p className="text-[12.5px] leading-relaxed text-muted-foreground">
+						{replacing
+							? 'Paste the edited drawing. We match its parts to the running order you already have and tell you what moved, what is new and what is gone — nothing is thrown away silently.'
+							: 'Paste SVG markup below, or drop a .svg file anywhere on this panel. We find its parts, you give each one a beat, and it plays.'}
+					</p>
+					{!replacing && (
+						<p className="text-[11.5px] leading-relaxed text-muted-foreground">
+							<strong className="text-[var(--text-heading)]">An outlined drawing draws itself.</strong> A filled one can still fade, slide and be ordered — drawing traces an outline, so it needs one.
+						</p>
+					)}
 				</div>
 				<textarea
 					value={paste}
@@ -345,9 +402,15 @@ function Empty({ paste, setPaste, busy, onLoad, onExample }: { paste: string; se
 						<Upload className="size-3.5" /> Choose a file
 						<input type="file" accept=".svg,image/svg+xml" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) f.text().then(onLoad); }} />
 					</label>
-					<button type="button" onClick={onExample} className="text-[12px] font-semibold text-[var(--accent)] underline underline-offset-2">
-						or try an example
-					</button>
+					{onCancel ? (
+						<button type="button" onClick={onCancel} className="text-[12px] font-semibold text-muted-foreground underline underline-offset-2">
+							Cancel — keep the drawing I have
+						</button>
+					) : (
+						<button type="button" onClick={onExample} className="text-[12px] font-semibold text-[var(--accent)] underline underline-offset-2">
+							or try an example
+						</button>
+					)}
 				</div>
 			</div>
 		</section>

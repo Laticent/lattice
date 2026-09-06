@@ -71,6 +71,10 @@ test.describe('Fabricate → Motion', () => {
 		await page.getByRole('listbox', { name: 'Parts, grouped by beat' }).getByRole('option').first().click();
 		// Both breakpoint halves of the inspector are in the DOM; assert on the one a person can SEE.
 		await expect(page.getByText(/no outline to thicken/).filter({ visible: true })).toHaveCount(1);
+		// And Draw is refused on it too, in words — drawing traces an OUTLINE, so a filled shape given
+		// Draw would sit fully painted from frame 0 while the running order said it arrives at a beat.
+		await expect(page.getByText(/filled, not outlined/).filter({ visible: true })).toHaveCount(1);
+		await expect(page.getByRole('button', { name: 'Draws itself' }).filter({ visible: true })).toBeDisabled();
 		// And the control really is refused, not merely captioned — the words explain a real state.
 		await expect(page.locator('input[type=checkbox][id^=emph-]:visible')).toBeDisabled();
 	});
@@ -87,6 +91,43 @@ test.describe('Fabricate → Motion', () => {
 		await expect
 			.poll(async () => strip.locator('svg').count(), { timeout: 15_000 })
 			.toBeGreaterThan(1);
+	});
+
+	test('Replace RECONCILES against the plan you already have — it never silently resets it', async ({ page }) => {
+		await openMotion(page);
+		await page.getByLabel('Paste SVG markup').fill(DRAWING);
+		await page.getByRole('button', { name: 'Use this drawing' }).click();
+		const list = page.getByRole('listbox', { name: 'Parts, grouped by beat' });
+		await expect(list.getByRole('option')).toHaveCount(3);
+
+		await page.getByRole('button', { name: 'Replace the drawing' }).click();
+		// The paste pane says what it is about to do, and offers a way back.
+		await expect(page.getByRole('heading', { name: 'Replace the drawing' })).toBeVisible();
+		await expect(page.getByRole('button', { name: /Cancel — keep the drawing I have/ })).toBeVisible();
+
+		// The same drawing with one path edited: the plan must be MATCHED, not discarded.
+		await page.getByLabel('Paste SVG markup').fill(DRAWING.replace('H176', 'H180'));
+		await page.getByRole('button', { name: 'Use this drawing' }).click();
+		await expect(list.getByRole('option')).toHaveCount(3);
+		// And it reports the outcome rather than saying nothing.
+		await expect(page.getByText(/parts? matched/)).toBeVisible();
+	});
+
+	test('a band opens — an automatic group is never a wall you cannot get past', async ({ page }) => {
+		await openMotion(page);
+		// 30 flat shapes exceed the 24-row cap, so intake bands them.
+		const many = Array.from({ length: 30 }, (_, i) => `<path id="s${i}" d="M${i} ${i} H${i + 4}" stroke="var(--accent)"/>`).join('');
+		await page.getByLabel('Paste SVG markup').fill(`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">${many}</svg>`);
+		await page.getByRole('button', { name: 'Use this drawing' }).click();
+
+		const list = page.getByRole('listbox', { name: 'Parts, grouped by beat' });
+		const banded = await list.getByRole('option').count();
+		expect(banded, '30 shapes must band rather than list').toBeLessThan(30);
+
+		await list.getByRole('option').first().click();
+		await page.getByRole('button', { name: 'Choreograph these separately' }).first().click();
+		// The band is replaced by its members, so the list GREW and a single shape is now addressable.
+		await expect.poll(async () => list.getByRole('option').count()).toBeGreaterThan(banded);
 	});
 
 	test('a drawing with nothing addressable is refused with its OWN reason', async ({ page }) => {

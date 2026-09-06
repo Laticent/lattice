@@ -771,3 +771,85 @@ function bandTheCut(svg: SVGSVGElement, cut: Element[], ns: string, receipt: Int
 	receipt.notes.push(`${cut.length} shapes, grouped into ${bands.length} bands automatically. Open a band to choreograph its parts separately, or re-export with layer groups for better grouping.`);
 	return bands;
 }
+
+// ── After intake: the two edits that have to reach the ART, not just React state ─────────────────
+
+/**
+ * Split a band back into its members.
+ *
+ * A band is a `<g>` this module synthesized (§ `bandTheCut`) purely so an over-long cut stays
+ * readable. It is NOT a wall: without a way back down, the faculty physically cannot choreograph one
+ * specific shape of any drawing over `MAX_ROWS` leaves, which is its whole purpose.
+ *
+ * The wrapper carries no transform and no paint — we authored it — so unwrapping it is lossless.
+ * Members that arrived without an id get one here, because `pathRef` IS the address and a part
+ * without one silently never moves.
+ *
+ * Returns null when `bandRef` is not a band we made, so a caller cannot accidentally dissolve a
+ * group the AUTHOR drew — that group may carry a transform its children depend on.
+ */
+export function splitBand(art: string, bandRef: string): { art: string; members: IntakePart[] } | null {
+	const svg = parseInert(art);
+	if (!svg) return null;
+	const band = svg.querySelector(`[id="${CSS.escape(bandRef)}"]`);
+	if (!band || tag(band) !== 'g' || !/-band-\d+$/.test(bandRef)) return null;
+
+	const view = readViewBox(svg) ?? [0, 0, 100, 100];
+	const members = Array.from(band.children).filter((c) => !NON_PAINTING_CONTAINERS.has(tag(c)));
+	if (members.length === 0) return null;
+
+	const taken = new Set(Array.from(svg.querySelectorAll('[id]')).map((e) => e.getAttribute('id') ?? ''));
+	const ns = bandRef.replace(/-band-\d+$/, '');
+	const rows: IntakePart[] = [];
+	const labels: string[] = [];
+
+	members.forEach((el, i) => {
+		let pathRef = el.getAttribute('id') || '';
+		if (!pathRef) {
+			let n = i + 1;
+			while (taken.has(`${ns}-${bandRef.split('-').pop()}s${n}`)) n++;
+			pathRef = `${ns}-${bandRef.split('-').pop()}s${n}`;
+			taken.add(pathRef);
+			el.setAttribute('id', pathRef);
+		}
+		labels.push(namePart(el, view, new Map(), ''));
+		const t = tag(el);
+		rows.push({ pathRef, label: '', tag: t, drawable: GEOMETRY_TAGS.has(t), strokeable: hasStroke(el, svg), band: false, childCount: t === 'g' ? el.querySelectorAll('*').length : 0 });
+	});
+
+	// Unwrap: move the members up to where the band sat, then drop the wrapper.
+	const parent = band.parentNode;
+	for (const el of members) parent?.insertBefore(el, band);
+	band.remove();
+
+	return { art: svg.outerHTML, members: dedupe(labels).map((label, i) => ({ ...rows[i], label })) };
+}
+
+/**
+ * Write a part's name INTO the drawing, as its `<title>`.
+ *
+ * Renaming has to reach the art or it does not survive a save: reopening re-derives every label from
+ * the art (there is no field on the record for them), so a rename kept only in React state degrades
+ * back to "Shape · upper left" the moment you close the tab. `<title>` is the right home for three
+ * reasons at once — it survives the sanitizer (pinned in `docs/e2e/svg-paste-guard.spec.ts`), it is
+ * already the first rung of the naming cascade, and it is what gives that node its accessible name.
+ *
+ * Any existing `<title>` is REPLACED, not appended to: two of them make the accessible name
+ * ambiguous, and every engine with an opinion reads only the first.
+ */
+export function setPartTitle(art: string, pathRef: string, label: string): string {
+	const svg = parseInert(art);
+	if (!svg) return art;
+	const node = svg.querySelector(`[id="${CSS.escape(pathRef)}"]`);
+	if (!node) return art;
+	for (const t of Array.from(node.children)) {
+		if (tag(t) === 'title') t.remove();
+	}
+	const clean = cleanLabel(label);
+	if (clean) {
+		const title = svg.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'title');
+		title.textContent = clean;
+		node.insertBefore(title, node.firstChild);
+	}
+	return svg.outerHTML;
+}

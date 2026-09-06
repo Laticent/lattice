@@ -30,8 +30,20 @@ const FROMS: { value: SlideFrom; label: string }[] = [
 	{ value: 'below', label: 'Below' },
 ];
 
-export function MotionInspector({ part, plan, onChange }: { part: IntakePart; plan: PartPlan; onChange: (next: Partial<PartPlan>) => void }) {
-	const drawReason = part.band || part.tag === 'g' ? 'groups cannot be drawn — a group flashes on instead. Split it to draw its shapes.' : part.tag === 'text' ? 'text cannot be drawn — it has no outline to trace.' : '';
+export function MotionInspector({ part, plan, onChange, onSplit }: { part: IntakePart; plan: PartPlan; onChange: (next: Partial<PartPlan>) => void; onSplit?: (pathRef: string) => void }) {
+	// THREE reasons Draw can be refused, and the third is the one that matters most in practice.
+	//
+	// A group or a text node cannot be drawn because `createDrawable` stamps `pathLength` and
+	// normalized dash values on the node it is given, so the values are inherited by children whose
+	// real lengths are in user units and the thing FLASHES ON instead of drawing.
+	//
+	// A shape WITH NO STROKE cannot be drawn either, and this is the silent one: `drawable.ts`
+	// animates `stroke-dasharray` and nothing else, so on a filled shape Draw paints the finished
+	// shape at frame 0 and never moves it — while the running order says it arrives at beat 4. It does
+	// not throw, so nothing reports it. Measured over this repo's own non-flag SVGs, 74% of geometry
+	// elements carry no stroke, and that is BEFORE the sanitizer turns a `<style>`-styled Illustrator
+	// export into fill-only art. Refusing it here is the tool telling the truth about what it can do.
+	const drawReason = part.band || part.tag === 'g' ? 'a group cannot be drawn — it would flash on instead. Split it to draw its shapes one by one.' : part.tag === 'text' ? 'text cannot be drawn — it has no outline to trace.' : !part.strokeable ? 'this shape is filled, not outlined, and drawing traces an outline. Fade it in, or give it a stroke in your drawing tool.' : '';
 	const emphasizeReason = part.strokeable ? '' : 'no outline to thicken — this shape is filled, not stroked.';
 
 	return (
@@ -70,6 +82,20 @@ export function MotionInspector({ part, plan, onChange }: { part: IntakePart; pl
 				</div>
 				{drawReason && <p className="text-[11px] leading-snug text-muted-foreground">Draws itself is unavailable: {drawReason}</p>}
 			</fieldset>
+
+			{/* A BAND IS NOT A WALL. It is a wrapper this tool synthesized so an over-long list stayed
+			    readable — so there has to be a way back down to a single shape, or the faculty cannot
+			    choreograph one specific part of any drawing over 24 leaves, which is its whole point. */}
+			{part.band && onSplit && (
+				<div className="rounded-md border border-dashed border-border p-2">
+					<p className="pb-1.5 text-[11px] leading-snug text-muted-foreground">
+						This is an automatic group of {part.childCount} shapes, not one you drew. Open it to give its shapes their own beats.
+					</p>
+					<button type="button" onClick={() => onSplit(part.pathRef)} className="w-full rounded-md border border-border px-2 py-1 text-[12px] font-semibold text-[var(--accent)] hover:border-[var(--accent)]">
+						Choreograph these separately
+					</button>
+				</div>
+			)}
 
 			{plan.role === 'slide' && (
 				<fieldset className="flex flex-col gap-1.5">

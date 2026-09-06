@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { ART_MAX_BYTES, artNamespace, cutOfTree, ensureViewBox, estimateBox, expandUses, harvestHints, intake, MAX_ROWS, namePart, namespaceIds, placeWord } from './svg-intake';
+import { ART_MAX_BYTES, artNamespace, cutOfTree, ensureViewBox, estimateBox, expandUses, harvestHints, intake, MAX_ROWS, namePart, namespaceIds, placeWord, setPartTitle, splitBand } from './svg-intake';
 
 const parse = (m: string) => new DOMParser().parseFromString(m, 'text/html').querySelector('svg') as SVGSVGElement;
 const ok = (r: ReturnType<typeof intake>) => {
@@ -300,5 +300,86 @@ describe('small pure helpers', () => {
 		const inner = Array.from({ length: 60 }, (_, i) => `<path d="M${i} 0 H1"/>`).join('');
 		const uses = Array.from({ length: 200 }, () => '<use href="#big"/>').join('');
 		expect(expandUses(parse(svgOf(`<defs><g id="big">${inner}</g></defs>${uses}`))).aborted).toBe(true);
+	});
+});
+
+describe('a band is not a wall — Split gets back down to one shape', () => {
+	const banded = () => {
+		const r = intake(svgOf(paths(50)));
+		if (!r.ok) throw new Error(r.message);
+		return r;
+	};
+
+	it('unwraps a band into its members, each independently addressable', () => {
+		const r = banded();
+		const band = r.parts.find((p) => p.band);
+		if (!band) throw new Error('expected a band');
+		const out = splitBand(r.art, band.pathRef);
+		expect(out).not.toBeNull();
+		expect(out?.members.length).toBeGreaterThan(1);
+		const art = parse(out?.art ?? '');
+		// The wrapper is gone and every member still resolves — the address is what makes it move.
+		expect(art.querySelector(`[id="${band.pathRef}"]`)).toBeNull();
+		for (const m of out?.members ?? []) expect(art.querySelector(`[id="${m.pathRef}"]`)).not.toBeNull();
+	});
+
+	it('loses no shape when it unwraps', () => {
+		const r = banded();
+		const band = r.parts.find((p) => p.band);
+		const out = splitBand(r.art, band?.pathRef ?? '');
+		expect(parse(out?.art ?? '').querySelectorAll('path')).toHaveLength(50);
+	});
+
+	it('refuses to dissolve a group the AUTHOR drew — that one may carry a transform its children need', () => {
+		const r = intake(svgOf('<g id="mine" transform="translate(4,4)"><path d="M0 0 H5" stroke="var(--accent)"/><path d="M1 1 H6" stroke="var(--accent)"/></g><path id="solo" d="M2 2 H7" stroke="var(--accent)"/>'));
+		if (!r.ok) throw new Error(r.message);
+		const authored = r.parts.find((p) => p.tag === 'g');
+		expect(splitBand(r.art, authored?.pathRef ?? '')).toBeNull();
+	});
+});
+
+describe('a rename reaches the DRAWING, so it survives a save', () => {
+	const one = () => {
+		const r = intake(svgOf(paths(2)));
+		if (!r.ok) throw new Error(r.message);
+		return r;
+	};
+
+	it('writes the label as the part\'s <title>, which is rung one of the naming cascade', () => {
+		const r = one();
+		const ref = r.parts[0].pathRef;
+		const art = setPartTitle(r.art, ref, 'Outer ring');
+		expect(parse(art).querySelector(`[id="${ref}"] > title`)?.textContent).toBe('Outer ring');
+		// And it round-trips: a fresh intake of that art reads the name back.
+		const again = intake(art);
+		expect(again.ok && again.parts.find((p) => p.label === 'Outer ring')).toBeTruthy();
+	});
+
+	it('replaces an existing title rather than leaving two, which makes the name ambiguous', () => {
+		const r = one();
+		const ref = r.parts[0].pathRef;
+		const art = setPartTitle(setPartTitle(r.art, ref, 'First'), ref, 'Second');
+		expect(parse(art).querySelectorAll(`[id="${ref}"] > title`)).toHaveLength(1);
+		expect(parse(art).querySelector(`[id="${ref}"] > title`)?.textContent).toBe('Second');
+	});
+
+	it('a name that is only punctuation clears the title instead of writing an empty one', () => {
+		const r = one();
+		const ref = r.parts[0].pathRef;
+		const art = setPartTitle(setPartTitle(r.art, ref, 'Real name'), ref, '***');
+		expect(parse(art).querySelector(`[id="${ref}"] > title`)).toBeNull();
+	});
+
+	it('does not let a label smuggle markup into the drawing', () => {
+		const r = one();
+		const art = setPartTitle(r.art, r.parts[0].pathRef, '<img src=x onerror=alert(1)>');
+		// The property that matters is that nothing becomes an ELEMENT or an ATTRIBUTE. The words
+		// survive as inert text inside <title>, which is correct — a title is text, and a label reading
+		// "img src x onerror alert 1" is a person's own doing, not an injection.
+		expect(art).not.toMatch(/<img/i);
+		expect(art).not.toMatch(/onerror=/i);
+		const title = parse(art).querySelector('title');
+		expect(title?.children).toHaveLength(0);
+		expect(title?.textContent ?? '').not.toMatch(/[<>]/);
 	});
 });
