@@ -197,6 +197,82 @@ control before. `studio-shell-parity` now censuses both sub-bars
 roots it already had — the guard could not have caught this, because it had never
 been pointed at the band that broke.
 
+## The shift that survived all of it: fitted slot widths
+
+The owner reported, after the two fixes above shipped, that the hand-off still moved. It did,
+and neither of the guards could see it — one because it had been **widened to admit it**.
+
+**What was wrong.** Two things in the chrome are per-deck content the shell cannot know before
+React runs: the deck pill's slide-count meta ("7 slides") and the preview bar's counter
+("Slide 1 / 7"). Each was drawn as a skeleton bar whose pixel width had been FITTED to the
+welcome deck's own string and measured once — `w-[53px]` against "7 slides", `w-12` against
+"Slide 1 / 7", each carrying a comment quoting the app box it was fitted against. A fitted
+width is right for exactly one deck, and neither was right even for that one:
+
+| slot | shell drew | app renders | error |
+|---|---|---|---|
+| deck meta | 53px | 56px | **3px**, and it moves the rule and all three dial buttons |
+| reader-view label | 48px (a bar) | 46px ("Full deck") | 2px, and it moves the `‹` after it |
+
+The 3px is the shift a reader sees: at every width from 1280 up, the posture dial and the whole
+tail slid sideways the moment React took over.
+
+**Why the guards were green.** `studio-shell-parity` *measured* the 3px and conceded it. It
+carried a `PILL_TOL = 6` for the deck pill, plus a second exemption widening the posture dial's
+`left` to the same 6px "as inherited from the pill" — both commented as structural variance owed
+to "the reserved slide-count slot the shell must not draw". That reasoning is wrong in one
+place: the slot must not draw the *count*, but nothing forced its *width* to be a guess. A guard
+widened to fit the defect it is watching reports only that the defect has not grown.
+
+**How it was found: a metamorphic relation, not a bigger checklist.** Every oracle in this area
+compares the shell against a list somebody wrote down — which is why each new defect has been in
+a control nobody listed. The relation needs no list and no expected values:
+
+> for every point in the input space, the geometry the pre-paint shell draws equals the
+> geometry the hydrated app draws.
+
+The app is the oracle; the shell is the system under test. Swept over 22 widths x 3 stops x 2
+device profiles (132 points), pairing controls **by position in the row** rather than by name —
+the app's shadcn primitives carry `data-slot` and tooltip wrappers the shell's copies do not, so
+any attribute-keyed pairing reports dozens of phantom rows and buries the real deltas under
+them. A second, identity-free oracle diffs the chrome band's pixels.
+
+Three of the first four "findings" were the harness, and saying so matters more than the two
+that were real: the 62% skeleton fade dominated the pixel signal until it was neutralised; a
+44% Craft "violation" was the full-height activity rail dragging the editor and preview PANES
+into the clip, whose content is legitimately unknowable; and a 1px red line across every wide
+point was the clip's own height rounding up into the row below the bar. An oracle with no
+expected values still has a frame, and the frame can be wrong.
+
+**The fix.** Neither slot is measured any more. Both take a fixed, content-independent width
+from one shared constant per slot — `DECK_META_SLOT`, `SLIDE_COUNTER_SLOT` in
+`chrome-parts.tsx` — which the app's chrome and the shell's skeleton both spread, so parity
+holds by construction for every deck instead of by re-measurement for one. `min-w` rather than
+`w`, so a deck past the reserved range grows its slot honestly instead of clipping its own
+count. The reader-view label needed no reservation at all: the active lens is not persisted, so
+every load starts on `full`, and the shell now draws the real string from `LENSES[0].label`.
+
+It also fixes a shift that has nothing to do with the shell: the app's own counter used to
+widen as you paged from slide 9 to 10. No shell-vs-app comparison could ever have caught that,
+because both sides were wrong the same way.
+
+**Result across the 132 points: geometry violations 0, worst delta 0px** (from 3px), and 68 of
+132 at exactly 0.00% pixel difference outside the two declared-unknowable regions. The residual
+is confined to widths under 700 in Write and Craft, at most 1.24%, and it is `mobileBarH: 49`
+against a real 49.391px action bar — a frozen constant whose correction is the measure-and-
+republish race that `preview-rect.ts` documents and that produced the intermittent
+`rotation into cinema` failures (#2070). It is sub-pixel and it is deliberately left alone.
+
+**What is now gated.** `PILL_TOL` and the dial exemption are deleted, so `studio-shell-parity`
+compares everything at `TOL = 2`. `studio-reserved-slots.spec.ts` adds the relation itself in
+three arms — the two surfaces agree on the slot width, the reservation holds the real text, and
+**the slot does not resize when its content does**, walked across the digit boundaries the
+reservation exists to absorb. All three were mutation-proved: with the reservation deleted and
+the docs rebuilt, all three fail. The first cut of the third arm survived that mutation, because
+the two shipped decks both have single-digit counts and "7 slides" and "9 slides" are the same
+width in a mono face — which is why it now transforms the content directly instead of trusting
+the decks that happen to ship.
+
 ## The one capability the unification drops
 
 **At desktop Read between 1100 and 1279, the slide count is gone.** The slim

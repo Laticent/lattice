@@ -29,6 +29,35 @@ import type { Posture } from './studio-store';
 // naive `${base}/` yields `//` — which a browser reads as protocol-relative.
 export const HOME_HREF = joinBase(import.meta.env.BASE_URL || '/', '');
 
+/**
+ * The two chrome slots whose CONTENT the pre-paint shell cannot know — the deck pill's
+ * slide-count meta ("7 slides") and the preview bar's slide counter ("Slide 1 / 7"). Both
+ * reserve a FIXED, content-independent width, and the app and the shell take it from here.
+ *
+ * WHY A RESERVATION RATHER THAN A MEASUREMENT. Both slots used to be a skeleton bar whose px
+ * width was fitted to the welcome deck's own string, measured once — `w-[53px]` for "7 slides",
+ * `w-12` for "Slide 1 / 7", each with a comment quoting the app box it was fitted against. A
+ * fitted width is right for exactly one deck. Measured in Chromium against the built site, the
+ * real text is:
+ *
+ *     meta      1 slide 49px · 7 slides 56 · 12 slides 63 · 100 slides 70
+ *     counter   Slide 1 / 7 47px · Slide 9 / 9 51 · Slide 10 / 12 60 · Slide 100 / 999 78
+ *
+ * — so the two fitted numbers were already 3px and 2px out on the very deck they were fitted
+ * to, and any other deck moves them further. What reaches a reader is the posture DIAL and the
+ * whole tail after the pill sliding 3px sideways the moment React takes over.
+ *
+ * A fixed slot takes the count out of the width equation, so parity holds for every deck BY
+ * CONSTRUCTION instead of by re-measurement. It also stops the counter jittering as you page
+ * from slide 9 to 10 WITHIN the app — a shift no shell/app comparison could ever have seen,
+ * because both sides of that comparison were wrong in the same way.
+ *
+ * `min-w`, not `w`: a deck past the reserved range grows its slot honestly rather than clipping
+ * its own count. The ranges cover 999 slides, which is where the growth resumes.
+ */
+export const DECK_META_SLOT = 'min-w-[70px] shrink-0 text-right';
+export const SLIDE_COUNTER_SLOT = 'inline-block min-w-[78px] text-center';
+
 // The top bar's band rule. ONE constant because the app header and the pre-paint
 // skeleton both draw it and `studio-shell-parity.spec.ts` compares their boxes — two
 // copies would drift silently.

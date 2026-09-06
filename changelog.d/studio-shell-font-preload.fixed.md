@@ -12,3 +12,10 @@
   app does at the same width. Measured on an iPad Air 4 in both orientations: 12 of 12
   controls present in portrait and 11 of 11 in landscape, each within 1px of where the
   app puts it, where before the shell drew 1.
+- **Fixed: the Studio's top bar no longer slides sideways when the page finishes loading.** The
+  pre-paint shell reserved space for the deck's slide count using a width measured once against
+  one deck — 53px against a real 56px — so from 1280px up the Read/Write/Craft dial and
+  everything after it jumped 3px when the app took over, and a deck with a different number of
+  slides moved it further. The slot now reserves a fixed width that both the shell and the app
+  take from one shared constant, so it no longer depends on the deck. The same change stops the
+  preview bar's counter widening as you page from slide 9 to slide 10.

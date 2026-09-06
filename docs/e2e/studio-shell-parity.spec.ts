@@ -44,10 +44,18 @@ type Box = [number, number, number, number];
 type Control = { name: string; box: Box };
 
 // Sub-pixel rounding only. Every real divergence found was >= 6px.
+//
+// ONE tolerance now, and the deck pill no longer has its own. `PILL_TOL = 6` used to sit here
+// "because the deck pill reserves a slot for a per-deck slide count the shell must not draw,
+// so a few px there is structural" — and a second exemption widened the posture dial's LEFT to
+// the same 6px as inherited from it. Both were conceding a real, visible defect: the shell's
+// reserved slot was a width FITTED to the welcome deck's own "7 slides", so the pill and every
+// control after it — the rule and all three dial buttons — sat 3px left of the app's at every
+// width from 1280 up, and jumped sideways when React took over. The slot is now taken from one
+// shared constant on both sides (`DECK_META_SLOT`), so the cause is gone and the concession
+// with it. A guard widened to fit the defect it is watching for reports only that the defect
+// has not grown.
 const TOL = 2;
-// The deck pill reserves a slot for a per-deck slide count the shell must not draw, so a few
-// px there is structural. See studio-instant-shell.spec.ts for the full reasoning.
-const PILL_TOL = 6;
 const ENGINE_HOLD_MS = 2500;
 
 /** Widths chosen at tier boundaries — that is where hand-copied gating breaks. */
@@ -174,13 +182,17 @@ for (const c of CASES) {
 		// between a guard and a flake, so wait for BOTH surfaces to be on the final font.
 		await page.evaluate(() => document.fonts.ready);
 
-		// SCOPE: the topbar, the phone action bar and the desktop-Craft activity rail are the
-		// three chrome regions the shell claims to MIRROR control-for-control. It deliberately
-		// does not mirror the editor toolbar, the slide navigator or the status strip — those
-		// carry per-deck content (slide names, counts) the shell must not draw, and it reserves
-		// them as neutral bars instead. Band-level agreement for those regions is asserted by
-		// studio-instant-shell.spec.ts; asserting their CONTROLS here would demand the shell
-		// paint deck content, which is the failure the one-skeleton decision retired.
+		// SCOPE: the topbar, the phone action bar, the desktop-Craft activity rail, and — since
+		// the iPad report — the EDIT and PREVIEW sub-bars. The shell mirrors all five
+		// control-for-control.
+		//
+		// It still does not draw per-deck CONTENT: a slide count, the name of a reader view. But
+		// "the shell must not draw the count" was for years also read as "so its width is a
+		// guess", and that reading is what this spec spent six px of tolerance hiding. The two
+		// unknowable slots now reserve a fixed width from a shared constant (`DECK_META_SLOT`,
+		// `SLIDE_COUNTER_SLOT`), so their BOXES are comparable here like any other control's,
+		// and only the glyphs inside them differ. `studio-reserved-slots.spec.ts` owns that
+		// contract directly.
 		//
 		// The RAIL joined this scope after shipping as an empty 52px <div> from the day the band
 		// was added (2026-08-09): its geometry was right (`--sh-rail`, seeded desktop-Craft-only)
@@ -221,24 +233,11 @@ for (const c of CASES) {
 			expect(shellOnes.length, `control count differs for "${name}"`).toBe(appOnes.length);
 			for (const [i, a] of appOnes.entries()) {
 				const s = shellOnes[i];
-				const isPill = name.toLowerCase().includes('deck');
-				// The dial moved into the identity band, directly downstream of the deck pill
-				// (2026-08-16). Its LEFT is therefore a function of the pill's width, so it
-				// inherits the pill's structural variance — the reserved slide-count slot the
-				// shell must not draw. Measured in a production build: 3px, while a dev build
-				// shows 0.19px, which is exactly the font-metric seam PILL_TOL already exists
-				// for. Widening `left` here is inheritance, not a fudge: the drift has one
-				// cause and it is already conceded one control upstream.
-				// Deliberately NOT widened for width/height — the dial's own size is fixed by
-				// its content, owes nothing to the pill, and a real size divergence must still
-				// fail at TOL.
-				const inheritsPillDrift = (CHROME.postureStops as readonly string[]).includes(name);
 				for (const [axis, k] of (['left', 'top', 'width', 'height'] as const).entries()) {
-					const tol = isPill || (inheritsPillDrift && k === 'left') ? PILL_TOL : TOL;
 					expect(
 						Math.abs(s.box[axis] - a.box[axis]),
 						`${name} ${k} @${c.w}/${c.stop}: shell ${s.box[axis]} vs app ${a.box[axis]}`,
-					).toBeLessThanOrEqual(tol);
+					).toBeLessThanOrEqual(TOL);
 				}
 			}
 		}

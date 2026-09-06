@@ -6,9 +6,10 @@ import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, EditorSkeleton, HOME_HREF, PostureDial } from './chrome-parts';
+import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SLIDE_COUNTER_SLOT } from './chrome-parts';
 import { ChatIcon, FeedbackIcon, PreviewIcon } from './icons';
 import { LatticeMark } from './LatticeMark';
+import { LENSES } from './lens-picker';
 
 /**
  * The Studio's PRE-PAINT chrome (#1438) — the app's own controls, rendered to static HTML
@@ -99,11 +100,17 @@ function DeckPill({ title }: { title: string }) {
 			<span className="hidden size-2 shrink-0 rounded-full bg-[var(--text-body)] min-[1100px]:block" />
 			<span className="ssr-deck-title min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{title}</span>
 			{/* The app shows a slide-count meta here from `xl` up ("7 slides"). The count is deck
-			    content the shell cannot know, so it is NOT drawn — but its WIDTH still has to be
-			    reserved, because the pill is content-sized and omitting the slot made it jump at
-			    hand-off. A neutral bar at the meta's own measured width (52.8px at 1440) keeps the
-			    structure honest without asserting a number. */}
-			<span aria-hidden="true" className="hidden h-2.5 w-[53px] shrink-0 rounded-full bg-current opacity-25 xl:inline-block" />
+			    content the shell cannot know, so it is NOT drawn — the SLOT is reserved instead,
+			    and its width comes from `DECK_META_SLOT`, the same constant the app's meta uses.
+			    This was `w-[53px]`, a width fitted to the welcome deck's own "7 slides" and
+			    measured once; the app's real text is 56px, so the pill and everything after it —
+			    the rule, and all three dial buttons — landed 3px left of the app at every width
+			    from 1280 up. A fitted width is right for exactly one deck; a shared reservation
+			    is right for all of them. The bar inside is narrower than the slot on purpose: it
+			    still reads as a skeleton without the slot's width depending on it. */}
+			<span data-shell-unknowable="deck-meta" className={cn('hidden xl:inline-flex xl:items-center xl:justify-end', DECK_META_SLOT)} aria-hidden="true">
+				<span className="h-2.5 w-10 rounded-full bg-current opacity-25" />
+			</span>
 			<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
 		</button>
 	);
@@ -410,12 +417,14 @@ export function StudioPreviewBarSkeleton() {
 			    `studio-shell-parity`, which enumerates `button, a[href], input, select, [role]`:
 			    the app's control was in the set and the shell's was not, so widening that spec's
 			    roots to this band would have reported a missing control that is in fact drawn. */}
-			<button type="button" aria-label="Reader view" className="inline-flex min-h-[calc(1lh_+_0.25rem_+_2px)] min-w-0 shrink items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal"><FileText className="size-3.5 shrink-0" />{/* The LABEL is per-deck content (it names the reader view in
-			    force), so this reserves its width rather than asserting the text — the deck pill's
-			    meta slot's own contract. 48px puts the pill at 102 against the app's 101.3.
-			    An earlier cut used 65px here and NO chevron below, which matched at >=21rem and was
-			    18px short at 320 — the widened parity roots caught it the first time they ran. */}
-			<ContentBar className="hidden w-12 @[21rem]:inline-flex" />
+			<button type="button" aria-label="Reader view" className="inline-flex min-h-[calc(1lh_+_0.25rem_+_2px)] min-w-0 shrink items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground"><FileText className="size-3.5 shrink-0" />{/* The label is the FULL-DECK lens's own name, and at boot it always is
+			    that one: the active lens is not persisted, so every load starts on `full`. So the
+			    shell draws the real string from `LENSES[0].label` — the same constant the app's
+			    picker renders — rather than reserving a guessed width for it. It was
+			    `ContentBar w-12`, 48px fitted against "the app's 101.3"; the app's real button is
+			    100px, so the shell's was 2px wide and the `‹` after it sat 1px off at every width.
+			    A deck that RENAMES its full lens is the one residual, and `truncate` bounds it. */}
+			<span className="hidden truncate @[21rem]:inline">{LENSES[0].label}</span>
 			{/* The app's trigger carries this at EVERY width (`lens-picker.tsx`, outside the
 			    container queries that hide the label and the count), and it is the whole 18px. */}
 			<ChevronDown className="size-3.5 shrink-0" /></button>
@@ -427,12 +436,16 @@ export function StudioPreviewBarSkeleton() {
 			    here — 20px each plus two 8px gaps, which pushed the counter and the collapse
 			    button left of where the app puts them. */}
 			<button type="button" aria-label="Previous slide" className="shrink-0 rounded px-1.5 text-muted-foreground">‹</button>
-			{/* `w-12`, not `w-14`. The app's counter reads "Slide 1 / 7" and measures 66.8px; a
-			    56px bar inside this pill's 16px padding + 2px border made it 74px, so the `‹`
-			    before it started 7px early and the whole group sat left of the app's. 48px lands
-			    the pill at 66px. The count itself is per-deck content the shell must not draw —
-			    this reserves its MEASURED width, the same contract as the deck pill's meta slot. */}
-			<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal"><ContentBar className="w-12" /></span>
+			{/* The count is per-deck content the shell must not draw, so the SLOT is reserved from
+			    `SLIDE_COUNTER_SLOT` — the constant the app's counter uses too. It was `w-12`, a
+			    width fitted to "Slide 1 / 7" on the welcome deck; the app's real pill measures
+			    65px against the 66px that produced, and any other deck moves it further ("Slide
+			    10 / 12" is 13px wider than "Slide 1 / 7"). Reserving on both sides also stops the
+			    app's own counter jittering as you page from slide 9 to 10, which no shell↔app
+			    comparison could see — both sides were wrong the same way.
+			    `text-[var(--text-heading)]` because the app's counter carries it: the pill matched
+			    on geometry and not on ink. */}
+			<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]"><span data-shell-unknowable="slide-counter" className={SLIDE_COUNTER_SLOT}><ContentBar className="w-12" /></span></span>
 			<button type="button" aria-label="Next slide" className="shrink-0 rounded px-1.5 text-muted-foreground">›</button>
 			{/* "Collapse preview" — the app renders it wherever the split exists (`!mobile`), so
 			    the CSS gate is the app's own 700 boundary, not Tailwind's. It is here for a
