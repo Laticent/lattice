@@ -47,7 +47,15 @@ summary: >
   replaced by MERMAID, so the shipped gate is `[data-lattice-diagrams]`, stamped only when a
   builder injects the Mermaid script. That pass also found a SORT in the scope key that
   discarded last-one-wins (two blocks resolving to different colors normalized to one key)
-  and a `--logo-*` drop that swallowed the `--logo-ink` color token; both fixed.
+  and a `--logo-*` drop that swallowed the `--logo-ink` color token; both fixed. A THIRD
+  checker, spent on the round-2 fixes, found the export exposure surviving in a SECOND
+  export path: the Studio's raster exports (PDF/PNG/PPTX) rasterize the capture frame
+  itself, where the rule was live and `html-to-image` bakes the computed `visibility` into
+  the artifact — so a Mermaid failure there exported an empty slot. That frame no longer
+  stamps. It also found the CSS gate and the builder's stamp joined by nothing a test read
+  (the seam that had been wrong twice), and two more runtime-written families in the scope
+  key: the watcher marker CLASSES, and the FIT agent's `transform`, rewritten on every
+  resize. All fixed, all mutation-proved; §5.
 ---
 
 # The Mermaid fence flashes before the diagram — measured, and seven ways out
@@ -307,10 +315,12 @@ export bytes. Reproduced with one CLI run. The rule was then gated on an
 attribute — and the FIRST gate chosen for it was itself defective; see the second-pass
 section below for what actually shipped (`[data-lattice-diagrams]`, stamped by
 `previewDiagramsAttr` only when a builder injects the Mermaid script) — so the CLI export, the
-`.html` player builder and any page we did not assemble keep the old behavior. NOT "every
-export path": the Studio's offscreen capture frame goes through `buildSrcdoc` with a real
-Mermaid URL, so it stamps — correctly, since Mermaid renders there — and the artifact it
-produces is re-assembled by the player builder, which does not. It is in the
+`.html` player builder and any page we did not assemble keep the old behavior — and so,
+after the third checker, does the Studio's offscreen EXPORT capture frame, which goes
+through `buildSrcdoc` with a real Mermaid URL and would otherwise have stamped. It passes
+`diagrams: false`. Why that matters is in the third-pass section below: the frame is
+rasterized, and `html-to-image` bakes a computed `visibility:hidden` into the .pdf / .png /
+.pptx. Every export path now keeps the pre-rule behavior. It is in the
 markup rather than set by script at boot because the window this rule covers starts at
 first paint of a full document write. The cost is that marp-vscode's own preview, which
 assembles its own page, does not get the rule.
@@ -359,12 +369,59 @@ Three more from that pass, all fixed:
   checker had already refuted — the one place a reader would have picked up the defective
   version.
 
-Two rounds of independent review, six confirmed defects between them — two on the first
-pass, four on the second — every one of them in the BOUNDARY of the change rather than its
-mechanism: which documents the CSS reaches, which
-attribute names are already taken, what a normalization silently discards. The mechanism —
-settle from cache in the microtask — was right the first time and has not been touched
-since.
+**A THIRD checker, on the round-2 fixes, found a sixth boundary defect — in a second
+export path.** The card's own `raise it by:` line, spent.
+
+- **The Studio's RASTER exports (PDF / PNG / PPTX) did change rendering**, and both this
+  note and the PR said the opposite. The `.html` player is re-assembled by a builder that
+  does not stamp, so that half held; the raster paths are rasterized OUT OF THE CAPTURE
+  FRAME ITSELF, where the rule was live. `html-to-image` clones the node and copies the
+  COMPUTED style onto the clone — Chromium returns `''` for a computed `cssText`, so it
+  `setProperty`s every longhand, `visibility` included — and
+  `forceSectionVisibleForCapture` cannot save it, because that forces the SECTION visible
+  against an explicit `visibility:hidden` on a descendant `<code>`. Driven through the real
+  rasterizer: pre-PR root → `visible`, PNG contains `graph LR;A-->B`; post-PR root →
+  `hidden`, PNG contains an empty slot. Fixed by not stamping there at all
+  (`buildSrcdoc({ diagrams: false })`): the frame is offscreen and transient, so the
+  anti-flash rule buys nothing in it and only costs export bytes when Mermaid fails. This
+  is the SAME defect class the first checker fixed for the CLI, surviving in a second
+  export path — and the QUALITY BAR's export stop-and-show had been excused on the strength
+  of the sentence that was wrong.
+- **Nothing in the tree joined the CSS gate to the builder's stamp.** They are coupled by a
+  matching string and by nothing else: renaming either side (or restoring round 1's
+  `[data-lattice-runtime]`) left `npm test`, `build:check` and the docs suite all green,
+  because no test read `mermaid.css`. That is the one seam that has now been wrong twice.
+  Pinned in `deck-preview.test.js`: the attribute the rule keys on must equal the attribute
+  `previewDiagramsAttr` writes.
+- **The scope key's CLASS half had the identical drift the style half was just fixed for,
+  and no filter at all.** The runtime toggles `overflow` / `clip-marked` / `fit-marked` /
+  `illegible` on a section as its watchers measure it, so a reader running while a diagram
+  slide is transiently marked keys the render one way and the reader after the marks clear
+  misses. Reproduced where slow theme CSS let the overflow watcher win its race with
+  `themeSettled`: one slide rendered twice and the replay presented a blank slot. Filtered
+  now — but NOT `finish`, which the runtime also adds and an author can also write, where
+  dropping would alias a finish slide with a plain one.
+- **A third family of runtime-written inline properties: the FIT agent's `transform` /
+  `transform-origin` / `margin-bottom`**, written onto every section of a `buildSrcdoc`
+  document and rewritten on EVERY pane or window resize. Driven in real Chromium: the
+  geometry and logo stamps leave the key byte-identical across six engine-emitted styles;
+  these three moved it in all six. Unfiltered, every resize invalidated the whole
+  document's diagram cache.
+
+Two doc claims it also falsified: `engineering/mermaid.md` still told the next reader the
+key "normalizes … order" (the statement the sort-removal refutes, and the line the round-2
+commit believed it had fixed), and §7 below still carried the pre-re-measurement 20/20
+figures. Both corrected above.
+
+Three rounds of independent review, ten confirmed defects — two, four, then four — every
+one of them in the BOUNDARY of the change rather than its mechanism: which documents the
+CSS reaches, which attribute names are already taken, what a normalization silently
+discards, and which properties and classes the runtime writes. The mechanism — settle from
+cache in the microtask — was right the first time and has not been touched since. The
+third pass also re-verified the round-2 fixes it did NOT overturn: both are
+mutation-proved, `LOGO_PLACEMENT_PROPS` is exactly `deckLogoPlacement`'s output (complete
+and minimal against the repo's twelve `--logo-*` properties), the observer re-entrancy
+terminates, and every document that stamps the attribute injects Mermaid.
 
 Three more findings from the FIRST pass, dispositioned:
 
@@ -424,10 +481,12 @@ slide; G is rejected on 116KB for what CSS does for free.
   fence renders `visibility: visible`) and on the second checker's own late-fence repro.
   What is still not driven: a document that stamps the attribute and then fails to load
   Mermaid — a CSP that blocks the script, or a 404 on `mermaidUrl`. There the source stays
-  hidden. That exposure is NOT preview-only: the Studio's offscreen export capture frame
-  stamps the attribute too (it injects Mermaid), so a Mermaid failure inside it would
-  rasterize an empty slot where the old behavior gave raw source. Reasoned from
-  `deck-export.js`'s capture path, not driven — nobody forced a broken `mermaidUrl` there.
+  hidden. That exposure was ALSO not preview-only until the third checker drove it: the
+  Studio's offscreen export capture frame stamped the attribute too, and a Mermaid failure
+  inside it rasterized an empty slot where the old behavior gave raw source — confirmed
+  through the real rasterizer, and fixed by not stamping in that frame. So the residual is
+  now genuinely preview-only: a WATCHED frame that stamps and then 404s or is CSP-blocked
+  keeps the source hidden. Reasoned, not driven.
 - D's first-mount cost is now MEASURED, and it is not free. Same build, one variable — a
   three-slide deck whose third slide is a diagram, against the same deck with prose in its
   place — timing a reload to the preview's first painted `.lattice`, 5 runs each:
@@ -443,8 +502,10 @@ slide; G is rejected on 116KB for what CSS does for free.
   contains a diagram anywhere now costs about a second more on a loaded machine, whether or
   not the author ever visits that slide. Slide-scoped, that load was deferred until they
   navigated onto the diagram — so D moves roughly a second from "when you reach a diagram"
-  to "when you open the deck", in exchange for 368ms → 20ms on that navigation and 172ms →
-  20ms on every keystroke. The recurring costs shrink; the one-time cost grows.
+  to "when you open the deck", in exchange for 368ms → 28ms on that navigation and 172ms →
+  23ms on every keystroke (§5's re-measured figures; an earlier draft of this paragraph
+  carried the pre-re-measurement 20/20 and survived the pass that corrected them
+  elsewhere in this same section). The recurring costs shrink; the one-time cost grows.
 
   **The clean fix decouples the two things D conflates.** The signature needs to be constant
   across the deck (that is what stops the realm rebuild); the 3.16MB bundle does not need to

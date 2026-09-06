@@ -131,9 +131,13 @@ The key is why this took two attempts, and the trap is worth knowing:
 style (`patchSectionGeometry` stamps `--_sec-1cqi`/`--_sec-1cqh`; a `logo:` deck gets
 `--logo-*`). Touching it also makes the browser re-serialize the rest with a space
 after every colon. So one slide produced two different keys either side of the stamp,
-and the replay missed every time. The key now drops runtime-stamped properties and
-normalizes whitespace and order (`normalizeScopeStyle`), which is also why a
-re-serialized section no longer misses the cache on the ordinary path. Numbers, the
+and the replay missed every time. The key now drops runtime-stamped properties
+— on both halves: the style half (the geometry stamp, the deck-logo placement, the FIT
+agent's scale) and the class half (the overflow / clip / fit / illegible watcher marks)
+— and normalizes whitespace while **preserving declaration order**
+(`normalizeScopeStyle`), which is also why a re-serialized section no longer misses the
+cache on the ordinary path. Order is preserved rather than sorted on purpose: sorting
+discards last-one-wins, so two styles resolving to different colors would share a key. Numbers, the
 instrument (`cd docs && npm run bench:flash`) and the options not taken:
 `engineering/decisions/2026-09-05-diagram-fence-flash.md`.
 
