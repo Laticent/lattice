@@ -1741,7 +1741,7 @@ Name what each should run on, and the invariant it fails first if you get it wro
 2. Three thousand a second, six deploys a day
    - Containers behind a balancer — many teams, frequent deploys, one packaging story. It fails "any instance can be killed" the moment somebody keeps a session in memory.
 3. A few hundred thumbnails
-   - A function on the upload event. Idle is most of the day and costs nothing, and the cold start it charges for is one nobody is waiting on. The invariant it fails first: startup does not depend on startup order — it fires when the event does, not when the rest of your system is ready.
+   - A function on the upload event. Idle is most of the day and costs nothing, and the cold start it charges for is one nobody is waiting on. The invariant it fails first: startup does not depend on startup order — the event fires whenever it fires, so a function that assumes its index is already up breaks at 3am.
 
 ---
 
@@ -2330,14 +2330,14 @@ For each, say what the page shows and which containment pattern makes it do that
 
 `One answer`
 
-## Only one of the three is allowed to fail the page, and all three need their own pool.
+## Only one of the three is allowed to fail the page.
 
 1. Price
    - Fail it. A product page with no price is wrong, not degraded, so it is the top tier: a timeout, then a fast error rather than a spinner.
 2. Recommendations
    - Drop the strip and render. A breaker opens after the first few slow calls, so every other page does not pay two seconds to learn the same thing.
 3. Reviews
-   - Serve the last good copy. Read paths outlive write paths, and stale is an answer where a timeout is not.
+   - Serve the last good copy from behind the same breaker. Read paths outlive write paths, and stale is an answer where a timeout is not.
 
 ---
 
