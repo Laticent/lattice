@@ -38,12 +38,14 @@ Two things this script has to get right, both of which failed silently first:
         empty face — upem 1000, every glyph .notdef, no error. Decompress to
         TTF first, and assert the shaped glyphs are real.
 """
+import hashlib
 import os
 import re
 import sys
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+URL_VERSION = "v38"   # the Google Fonts revision this was drawn from
 CSS = ("https://fonts.googleapis.com/css2"
        "?family=Fraunces:opsz,wght@9..144,600&display=swap")
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -55,6 +57,14 @@ LETTER_SPACING = -1.0
 OPSZ = 70
 
 
+# The exact face this wordmark was drawn from. outline-wordmark.py fetches the
+# CURRENT Fraunces from Google Fonts, so without a pin a future release would
+# silently redraw the brand wordmark — the same class of problem the outlining
+# exists to solve, one layer up. A mismatch is reported, not fatal: the point is
+# that nobody can change the wordmark without seeing that they did.
+PINNED_SHA256 = "170a928c701ef00e4b91105f870dd2c764b9ddb0c725cda6e71de576a8e72a00"
+
+
 def fetch_font():
     req = urllib.request.Request(CSS, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=30) as r:
@@ -64,7 +74,15 @@ def fetch_font():
     if not m:
         sys.exit("could not find the latin subset in the Google Fonts CSS")
     with urllib.request.urlopen(m[0], timeout=30) as r:
-        return r.read()
+        raw = r.read()
+    got = hashlib.sha256(raw).hexdigest()
+    if PINNED_SHA256 != "PLACEHOLDER" and got != PINNED_SHA256:
+        print(f"  !! Fraunces has changed upstream.\n"
+              f"     pinned {PINNED_SHA256}\n"
+              f"     got    {got}\n"
+              f"     The wordmark WILL be redrawn. Diff the render before you\n"
+              f"     commit it, then update PINNED_SHA256.", file=sys.stderr)
+    return raw, got
 
 
 def build():
@@ -77,7 +95,7 @@ def build():
     from fontTools.pens.boundsPen import BoundsPen
     import io
 
-    raw = fetch_font()
+    raw, sha = fetch_font()
     tt = instantiateVariableFont(TTFont(io.BytesIO(raw)), {"opsz": OPSZ},
                                  inplace=False, updateFontNames=False)
     tt.flavor = None
@@ -97,32 +115,50 @@ def build():
 
         gs = tt.getGlyphSet()
         s = FONT_SIZE / face.upem
-        parts, bp, x = [], BoundsPen(gs), 0.0
-        for info, pos in zip(buf.glyph_infos, buf.glyph_positions):
-            gn = order[info.codepoint]
-            sp = SVGPathPen(gs, ntos=lambda v: f"{v:.2f}")
-            t = Transform(s, 0, 0, -s, x + pos.x_offset * s, -pos.y_offset * s)
-            gs[gn].draw(TransformPen(sp, t))
-            gs[gn].draw(TransformPen(bp, t))
-            d = sp.getCommands()
-            if d:
-                parts.append(d)
-            x += pos.x_advance * s + LETTER_SPACING
+
+        def run(dx):
+            """Draw every glyph with `dx` folded into the transform.
+
+            The x-normalization MUST happen here and not by rewriting the
+            serialized path. An earlier version regexed coordinate PAIRS and
+            subtracted x0 — but SVGPathPen also emits single-number `H`
+            (horizontal-lineto) commands, whose values are absolute x. Twelve
+            of them went un-offset, which cut white slits through the `e` and
+            both `t` crossbars and stepped the `L`'s serifs. Worse, the pen
+            drops the command letter on repeats, so two adjacent `V`s serialize
+            as `V-4.31 -10.00` — a pair the regex would have matched, silently
+            corrupting a Y coordinate. A transform cannot get this wrong.
+            """
+            parts, bounds, x = [], BoundsPen(gs), 0.0
+            for info, pos in zip(buf.glyph_infos, buf.glyph_positions):
+                gn = order[info.codepoint]
+                sp = SVGPathPen(gs, ntos=lambda v: f"{v:.2f}")
+                t = Transform(s, 0, 0, -s,
+                              x + pos.x_offset * s + dx, -pos.y_offset * s)
+                gs[gn].draw(TransformPen(sp, t))
+                gs[gn].draw(TransformPen(bounds, t))
+                d = sp.getCommands()
+                if d:
+                    parts.append(d)
+                x += pos.x_advance * s + LETTER_SPACING
+            return "".join(parts), bounds.bounds
+
+        # Two passes: the first only to learn where the ink starts.
+        _, (x0, _, _, _) = run(0.0)
+        d, (bx0, by0, bx1, by1) = run(-x0)
     finally:
         if os.path.exists(ttf):
             os.remove(ttf)
 
-    x0, y0, x1, y1 = bp.bounds
-    # Normalize so the ink's left edge is x=0. The baseline stays y=0: the
-    # lockup puts the mark's foot on it, so it has to be the origin.
-    d = re.sub(r"(-?\d+\.\d+) (-?\d+\.\d+)",
-               lambda m: f"{float(m.group(1)) - x0:.2f} {m.group(2)}",
-               "".join(parts))
-    return d, (x1 - x0), -y0, y1
+    # The ink's left edge is now x=0 by construction. The baseline stays y=0:
+    # the lockup puts the mark's foot on it, so it has to be the origin.
+    if abs(bx0) > 0.005:
+        sys.exit(f"normalization failed: ink starts at x={bx0}, expected 0")
+    return d, bx1, -by0, by1, sha
 
 
 def main():
-    d, ink_w, cap_h, desc = build()
+    d, ink_w, cap_h, desc, sha = build()
     out = os.path.join(HERE, "wordmark.py")
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(
@@ -131,6 +167,8 @@ def main():
             "Baseline is y=0 and the ink's left edge is x=0, so the lockup can\n"
             "sit the mark's foot on the same baseline and butt the two by ink.\n"
             '"""\n'
+            f"# source: Fraunces {URL_VERSION} latin subset, "
+            f"sha256 {sha}\n"
             f"PATH = {d!r}\n"
             f"INK_W = {ink_w:.2f}\n"
             f"CAP_H = {cap_h:.2f}\n"
@@ -139,6 +177,7 @@ def main():
     print(f"wrote {out}")
     print(f"  ink width {ink_w:.2f}   cap height {cap_h:.2f}   descent {desc:.2f}")
     print(f"  path {len(d)} chars")
+    print(f"  source sha256 {sha}")
 
 
 if __name__ == "__main__":

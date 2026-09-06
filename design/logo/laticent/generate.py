@@ -74,6 +74,7 @@ caught failing in review and neither is visible at 128px:
   from the numbers instead of trusting the drawing.
 """
 import os
+import re
 import sys
 
 from wordmark import CAP_H, INK_W, PATH
@@ -84,6 +85,12 @@ OUT = os.path.dirname(os.path.abspath(__file__))
 # The five products each carry one hue plus a shared warm gold. The parent
 # takes no product hue, so it reads as the root rather than a sixth sibling.
 STONE, STONE_DM = "#2C3A43", "#9DB2BE"
+# The groove: a darker value OF THE LETTER, not a second brand colour. It
+# models depth and carries no information, so it is deliberately below the 3:1
+# graphical floor — the LETTER holds 10.6:1 (cream) and 8.5:1 (dark) against
+# the ground, and the mark is fully legible with the groove invisible. Pushing
+# it to 3:1 would make it a stripe again.
+GROOVE, GROOVE_DM = "#16202A", "#5E7684"
 GOLD, GOLD_DM = "#C67A12", "#F6B64A"
 HALO, HALO_DM = "#F6F3EC", "#101314"
 WM, WM_DM = "#241F1B", "#E6E2DD"
@@ -94,6 +101,7 @@ WM, WM_DM = "#241F1B", "#E6E2DD"
 # nothing checked, and the letter had grown past it to 56.4 unnoticed. The
 # five product marks measure 41-61 by the same audit.
 SAFE_R = 58.0
+MASKABLE_R = 51.2        # 0.4 x 128 — the Android adaptive-icon safe circle
 
 # The TILE — the parent's primary symbol.
 #
@@ -133,27 +141,20 @@ TILE_PAD = 11            # picked against a sweep: at 19 the letter floats and
                          # reads timid, at 8 it crowds the corners by 24px.
 TILE_DX = 3              # nudge right. An L's center of MASS sits 13.3 units
                          # left of its bbox center (stem 20x84 at x-center 10,
-                         # arm 48x16 at 44), so a bbox-centerd letter reads as
+                         # arm 48x16 at 44), so a bbox-centered letter reads as
                          # drifting left against the tile's corners. Full mass
                          # centering would be far too much; 3 is the correction
                          # that looked right, and it applies to the TILE only —
                          # the bare mark is the drawing itself and stays
-                         # centerd in its own box.
+                         # centered in its own box.
 
 # ── The drawing ────────────────────────────────────────────────────────
 # FINAL is the mark. MIN keeps the same silhouette and drops the channel —
 # below ~28px it is under 1px and only muddies the stem. It is a reduction of
 # one drawing, never a second one.
-#
-# The channel is drawn at two widths, and that is an optical correction rather
-# than a fudge. In the bare mark it is a VOID — it removes ink, so the ground
-# floods it and it reads wider than its measure. In the tile it is a FILL —
-# brass substitutes for cream and holds its own edge. Swept side by side at a
-# common width, the void hollowed the letter into two rails at exactly the
-# measure where the fill still read as an inlay.
 FINAL = {"sw": 20, "H": 84, "A": 68, "arm": 0.80, "bracket": 0.52,
-         "channel": 2.8, "tile_channel": 3.4, "inset": 15, "tail": 8, "dy": 3}
-MIN = {**FINAL, "sw": 23, "channel": 0, "tile_channel": 0}
+         "channel": 3.4, "inset": 15, "tail": 8, "dy": 3}
+MIN = {**FINAL, "sw": 23, "channel": 0}
 
 
 def _geom(p):
@@ -174,13 +175,28 @@ def letter_d(p):
             f'L{x0:.2f} {base:.2f} Z')
 
 
+def outline_pts(p):
+    """The letter's actual painted vertices.
+
+    NOT the bounding-box corners: an L has no ink at its top-right, so a bbox
+    corner over-reports how far the drawing reaches. Measuring the bbox put the
+    tile's content at 48.2 against audit.py's real 45.3 — a gate disagreeing
+    with the tool it exists to pre-empt is worse than no gate.
+    """
+    x0, base, top, ah = _geom(p)
+    sw, A = p["sw"], p["A"]
+    yk = base - ah
+    return [(x0, top), (x0 + sw, top), (x0 + sw, yk), (x0 + A, yk),
+            (x0 + A, base), (x0, base)]
+
+
 def channel_d(p):
     """The channel's CENTERLINE. It is stroked, never outlined by hand.
 
     The previous seam was a hand-built polygon, and three separate defects came
     out of that one decision: it bulged to 113% at the crook (a round inner
     edge against a mitered outer one), its recess landed asymmetric because a
-    hand-offset outline cannot be centerd, and it needed a taper parameter
+    hand-offset outline cannot be centered, and it needed a taper parameter
     fitted by eye. A stroked centerline with a round linejoin holds a constant
     width around the bend and is symmetric by construction.
     """
@@ -192,41 +208,47 @@ def channel_d(p):
 
 def _stroke(d, w, **attrs):
     # rstrip the trailing underscore FIRST: `class_` is Python's escape for the
-    # reserved word, and replacing every underscore turned it into `class-`, a
-    # attribute nothing reads. The bare mark's channel then inherited no stroke
-    # and was not painted at all — a solid L that looked like a design choice.
+    # reserved word, and replacing every underscore turns it into `class-`,
+    # which nothing reads. That shipped once: the bare mark's channel inherited
+    # no stroke and was never painted, and the solid L it produced was mistaken
+    # for a design choice through a whole review cycle.
     a = "".join(f' {k.rstrip("_").replace("_", "-")}="{v}"'
                 for k, v in attrs.items())
     return (f'<path d="{d}" fill="none" stroke-width="{w:.2f}" '
             f'stroke-linecap="butt" stroke-linejoin="round"{a}/>')
 
 
-def mark(p=None, uid="lc"):
-    """The bare letter, adaptive. The channel is a genuine HOLE, cut with a
-    mask rather than painted in the ground's color.
+def mark(p=None, uid="lat-clip"):
+    """The bare letter, adaptive, with the load path cut into it.
 
-    Painting it was the obvious approach and it is wrong: an SVG dropped on a
-    page has no idea what is behind it. A channel stroked in this repo's own
-    #101314 is a hair off on GitHub dark, visibly darker than zinc-900, and
-    lighter than black — the drawing would only be correct on the one ground it
-    was authored against. A mask shows whatever is actually there.
+    The groove is a DARKER VALUE of the letter, not a hole to the ground, and
+    that is the whole difference between reading as an incision and reading as
+    an outline. A hole shows the same ground as the field around the letter, so
+    the contour has identical value on both sides — which cannot signal depth,
+    only edge. Rendered, the masked version read as a hollow inline L or a
+    corner bracket at every size, and at 48px and below it stayed a spindly
+    hollow bracket instead of settling into a letter. A cut in a surface is
+    darker than the surface; that is what the eye reads as a cut.
+
+    It is CLIPPED to the letter rather than fitted to it, so the groove
+    physically cannot escape the shape it is cut into.
     """
     p = {**FINAL, **(p or {})}
+    d = letter_d(p)
     if not p["channel"]:
-        return f'<path d="{letter_d(p)}" class="sf"/>'
-    return (f'<mask id="{uid}" maskUnits="userSpaceOnUse" x="0" y="0" '
-            f'width="128" height="128">'
-            f'<rect width="128" height="128" fill="#fff"/>'
-            f'{_stroke(channel_d(p), p["channel"], stroke="#000")}</mask>'
-            f'<path d="{letter_d(p)}" class="sf" mask="url(#{uid})"/>')
+        return f'<path d="{d}" class="lat-sf"/>'
+    return (f'<clipPath id="{uid}"><path d="{d}"/></clipPath>'
+            f'<path d="{d}" class="lat-sf"/>'
+            f'<g clip-path="url(#{uid})">'
+            f'{_stroke(channel_d(p), p["channel"], class_="lat-gv")}</g>')
 
 
 def tile(p=None):
     """The letter reversed out of a fixed tile, with the channel in brass."""
     p = {**FINAL, **(p or {})}
     o = [f'<path d="{letter_d(p)}" fill="{TILE_INK}"/>']
-    if p["tile_channel"]:
-        o.append(_stroke(channel_d(p), p["tile_channel"], stroke=TILE_CHANNEL))
+    if p["channel"]:
+        o.append(_stroke(channel_d(p), p["channel"], stroke=TILE_CHANNEL))
     f = (128 - 2 * TILE_PAD) / 128
     return (f'<rect x="0" y="0" width="128" height="128" rx="{TILE_R}" '
             f'fill="{TILE_BG}"/>'
@@ -234,8 +256,17 @@ def tile(p=None):
             f'scale({f:.4f})">{"".join(o)}</g>')
 
 
-STYLE = (f'<style>.sf{{fill:{STONE}}}'
-         f'@media(prefers-color-scheme:dark){{.sf{{fill:{STONE_DM}}}}}</style>')
+# An inline <svg><style> in an HTML document is DOCUMENT-scoped, not
+# SVG-scoped. Two of these assets inlined on one page — a brand page showing
+# the set is exactly that surface — had `laticent-lockup-dark.svg`'s bare
+# `.sf{fill:#9DB2BE}` win on source order over `laticent-mark.svg`'s
+# media-queried rule, painting the light-mode mark at 1.99:1 on cream. Two
+# fixes: the class names are prefixed so a host page's own `.sf` cannot
+# collide, and only the ADAPTIVE assets carry a <style> at all — the
+# single-scheme lockups and the fixed tile paint by attribute.
+STYLE = (f'<style>.lat-sf{{fill:{STONE}}}.lat-gv{{stroke:{GROOVE}}}'
+         f'@media(prefers-color-scheme:dark){{.lat-sf{{fill:{STONE_DM}}}'
+         f'.lat-gv{{stroke:{GROOVE_DM}}}}}</style>')
 
 
 def svg(inner, w=128, h=128, style=STYLE):
@@ -261,10 +292,16 @@ TILE_CAPS = 1.65          # the tile's height in cap heights. At 1.45 the tile
 GAP_CAPS = 0.42           # space to the wordmark, in cap heights
 BASELINE = 88.0
 PAD = 4.0
-MARK_INK = (19.0, 103.0)  # the mark's own ink bbox in y (top, foot)
-MARK_INK_X = 98.0         # ... and its right edge
+# DERIVED, never hand-copied. These were literals — 19.0 / 103.0 / 98.0 — that
+# happened to match _geom(FINAL) at the time. Nothing tied them together, so
+# changing H walked the mark off the wordmark's baseline in silence: at H=60 the
+# foot landed 9.45 units low, which is the same defect (9.2px) the baseline fix
+# was written to cure, returning through the back door.
+_MX0, _MBASE, _MTOP, _ = _geom(FINAL)
+MARK_INK = (_MTOP, _MBASE)   # the mark's own ink bbox in y (top, foot)
+MARK_INK_X = _MX0 + FINAL["A"]
 
-# A tile is not a letter, so it shares no baseline — it is centerd on the
+# A tile is not a letter, so it shares no baseline — it is centered on the
 # wordmark's CAP BAND instead, which puts equal tile above the cap line and
 # below the baseline. Dropping it toward the word's center of mass (measured
 # at 71.2, because "Laticent" is mostly lowercase and the x-height band sits
@@ -285,12 +322,14 @@ def lockup(scheme, form="tile"):
         tx = PAD + MARK_INK_X * sc + GAP_CAPS * CAP_H
         art = mark(uid="laticent-cut-lockup")
     dark = scheme == "dark"
-    st = f'<style>.sf{{fill:{STONE_DM if dark else STONE}}}</style>' 
+    art = (art.replace('class="lat-sf"', f'fill="{STONE_DM if dark else STONE}"')
+              .replace('class="lat-gv"',
+                       f'stroke="{GROOVE_DM if dark else GROOVE}"'))
     return svg(
         f'<g transform="translate({PAD} {ty:.2f}) scale({sc:.4f})">{art}</g>'
         f'<g transform="translate({tx:.2f} {BASELINE})">'
         f'<path d="{PATH}" fill="{WM_DM if dark else WM}"/></g>',
-        w=round(tx + INK_W + PAD), style=st)
+        w=round(tx + INK_W + PAD), style="")
 
 
 def assert_invariants():
@@ -307,7 +346,7 @@ def assert_invariants():
     """
     p = FINAL
     x0, base, top, ah = _geom(p)
-    half = max(p["channel"], p["tile_channel"]) / 2
+    half = p["channel"] / 2
     margins = {
         "left of stem": p["sw"] / 2 - half,
         "right of stem": p["sw"] / 2 - half,
@@ -320,16 +359,59 @@ def assert_invariants():
     if bad:
         raise SystemExit(f"channel breaks out of the letter: {bad}")
 
-    # Every corner of every variant, against the avatar circle.
-    worst = 0.0
-    for variant in (FINAL, MIN):
-        vx0, vbase, vtop, _ = _geom(variant)
-        for x in (vx0, vx0 + variant["A"]):
-            for y in (vtop, vbase):
-                worst = max(worst, ((x - 64) ** 2 + (y - 64) ** 2) ** 0.5)
+    # Every painted vertex of every variant, against the avatar circle.
+    worst = max(((x - 64) ** 2 + (y - 64) ** 2) ** 0.5
+                for variant in (FINAL, MIN) for x, y in outline_pts(variant))
     if worst > SAFE_R:
         raise SystemExit(f"mark paints {worst:.1f} from center, past SAFE_R {SAFE_R}")
-    return margins, worst
+
+    # 3. The bare lockup's mark sits ON the wordmark's baseline, at a height
+    #    inside the 1.2-1.6 cap-height convention.
+    #
+    #    This reads the EMITTED SVG rather than recomputing from MARK_INK.
+    #    Checking the model against itself was the first attempt and it was
+    #    tautological — MARK_INK is derived from _geom, so `BASELINE - foot*sc
+    #    + foot*sc` is algebraically BASELINE and the assertion could not fail
+    #    however badly the lockup was broken. Mutation-testing caught that: six
+    #    arms fired and this one was inert. Parsing the artifact catches a wrong
+    #    transform, a wrong scale, or a wrong MARK_INK, none of which the
+    #    model-side version could see.
+    art = lockup("light", form="bare")
+    g = re.search(r'<g transform="translate\(([\d.-]+) ([\d.-]+)\) '
+                  r'scale\(([\d.]+)\)">', art)
+    if not g:
+        raise SystemExit("could not find the mark's transform in the bare lockup")
+    ty, sc = float(g.group(2)), float(g.group(3))
+    # The letter is the first path inside that <g>. Match it by position, not
+    # by class: the lockup substitutes a fill attribute for the class, so a
+    # class selector silently matches nothing here.
+    letter = re.search(r'<g transform="translate[^>]+>.*?<path d="([^"]+)"',
+                       art, re.S)
+    if not letter:
+        raise SystemExit("could not find the mark's letter path in the bare lockup")
+    ink_bottom = max(float(m) for m in
+                     re.findall(r'[ML][\d.-]+ ([\d.-]+)', letter.group(1)))
+    foot = ty + ink_bottom * sc
+    if abs(foot - BASELINE) > 0.01:
+        raise SystemExit(f"lockup mark's foot lands at {foot:.2f}, "
+                         f"baseline is {BASELINE}")
+    caps = (MARK_INK[1] - MARK_INK[0]) * sc / CAP_H
+    if not 1.2 <= caps <= 1.6:
+        raise SystemExit(f"lockup mark is {caps:.2f} cap heights, "
+                         f"convention is 1.2-1.6")
+
+    # 4. The TILE's content clears the Android maskable safe circle. This is the
+    #    one measurement the tile's justification rests on, and it was produced
+    #    only by audit.py — which is wired to no npm script, no hook and no CI
+    #    job. Asserting it here needs no change to the CI contract.
+    f = (128 - 2 * TILE_PAD) / 128
+    tile_r = max(((TILE_PAD + TILE_DX * f + x * f - 64) ** 2
+                  + (TILE_PAD + y * f - 64) ** 2) ** 0.5
+                 for variant in (FINAL, MIN) for x, y in outline_pts(variant))
+    if tile_r > MASKABLE_R:
+        raise SystemExit(f"tile content reaches {tile_r:.1f}, past the "
+                         f"maskable circle {MASKABLE_R}")
+    return margins, worst, tile_r, caps
 
 
 def write(path, text):
@@ -339,10 +421,10 @@ def write(path, text):
 
 def emit(d=OUT):
     os.makedirs(d, exist_ok=True)
-    margins, worst_r = assert_invariants()
+    margins, worst_r, tile_r, caps = assert_invariants()
     assets = {
-        "laticent-tile.svg": svg(tile()),
-        "laticent-tile-min.svg": svg(tile(MIN)),
+        "laticent-tile.svg": svg(tile(), style=""),
+        "laticent-tile-min.svg": svg(tile(MIN), style=""),
         "laticent-mark.svg": svg(mark(uid="laticent-cut")),
         "laticent-mark-min.svg": svg(mark(MIN)),
         "laticent-lockup.svg": lockup("light"),
@@ -357,6 +439,8 @@ def emit(d=OUT):
           + ", ".join(f"{k} {v:.1f}" for k, v in margins.items()))
     print(f"  furthest paint from center: {worst_r:.1f} "
           f"(SAFE_R {SAFE_R}, avatar circle 64)")
+    print(f"  tile content reaches {tile_r:.1f} of the maskable circle {MASKABLE_R}; "
+          f"lockup mark is {caps:.2f} cap heights, foot on the baseline")
 
 
 if __name__ == "__main__":

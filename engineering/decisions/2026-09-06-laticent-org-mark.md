@@ -81,7 +81,7 @@ raft of `b-keystone` sat 68 units from center against a 64-unit radius. The
 existing family marks all clear it (41–61), so this was a regression against a
 standard the repo already met, not a new constraint.
 
-`SAFE_R = 54` now clamps every horizontal extent, and `audit.py` measures every
+`SAFE_R` now clamps every horizontal extent (it read 54 here and in the generator while the letter measured 56.4; it is 58 now, and asserted rather than claimed), and `audit.py` measures every
 painted point in every asset against both the round-avatar radius (64) and the
 Android maskable safe circle (51.2). It is a script, not a judgment: the marks
 that matter here are the ones nobody looks at in a circle until it is live.
@@ -103,17 +103,18 @@ The monogram's 6.5 had a cause that could be named and therefore fixed: it was
 two plain rectangles and an orange square — no optical correction, no corner
 treatment, no proportional system. Craft, not concept, was the gap.
 
-## What the rebuild added
+## What the first rebuild added — and how much of it is now retired
 
-Each move was chosen against a rendered comparison, not asserted.
+This table is kept because the *reasoning* is still the record, but three of
+its five rows describe a seam that no longer exists. Read it as history.
 
-| Move | Why |
-| --- | --- |
-| arm at 0.80 of the stem | a horizontal of equal measure reads heavier than a vertical |
-| bracketed crook (a quadratic, not a miter) | the single change that makes it read as drawn rather than extruded |
-| seam bends on a radius echoing the bracket | a mitered seam inside a bracketed letter is two drawing languages in one mark |
-| seam tapers to 0.72 along the arm | load concentrates in the stem and diminishes as it spreads |
-| the seam sits in a ground-color recess | real inlay sits in a cut channel — and see below |
+| Move | Why | Status |
+| --- | --- | --- |
+| arm at 0.80 of the stem | a horizontal of equal measure reads heavier than a vertical | **kept** |
+| bracketed crook (a quadratic, not a miter) | the single change that makes it read as drawn rather than extruded | **kept** |
+| seam bends on a radius echoing the bracket | a mitered seam inside a bracketed letter is two drawing languages in one mark | **retired** — the seam is a stroked centerline now, so the bend is free |
+| seam tapers to 0.72 along the arm | load concentrates in the stem and diminishes as it spreads | **retired** — 1.46 units total, 0.2px at 24px, invisible |
+| the seam sits in a ground-color recess | real inlay sits in a cut channel | **retired** — see below; it severed the letter on dark |
 
 Four executions were tried and dropped on the evidence: a seam that **exits
 below the baseline** and one that **runs straight through as a pile** both read
@@ -172,8 +173,10 @@ The container pays for itself three more times:
 - it converts a *letter* into an *object*, so the lockup stops reading as
   "L Laticent" — the Facebook / Pinterest device;
 - its content is the only form here that clears the **Android maskable safe
-  circle** (43.7 against 51.2), which no free-standing mark in this family
-  does, the existing five included;
+  circle** (45.3 against 51.2), which the bare letter does not (56.4) — but
+  NOT, as this note first claimed, the only form in the family that does:
+  `lattice-mark.svg` measures 46.1 and `lente-mark.svg` 41.0. The 43.7 written
+  here was also wrong; `audit.py` says 45.3;
 - a full-bleed tile is what an app icon wants.
 
 Two errors were caught while building it, both by measurement rather than eye:
@@ -201,3 +204,124 @@ no gate.
 - `design/logo/laticent/audit.py` — the crop / bounding-box gate
 - `design/logo/laticent/laticent-*.svg` — the eight master assets
 - `design/logo/laticent/README.md` — palette, rules, regeneration
+
+## The third rebuild — a checker on the second
+
+A second independent checker read the rebuilt mark. It found two shipped
+correctness bugs, refuted the headline design claim, and named the reason the
+central idea was not landing. All of it held up.
+
+### The wordmark path was geometrically corrupt
+
+`outline-wordmark.py` normalized the outline to start at x=0 by regexing the
+serialized path and subtracting `x0` from every coordinate **pair**.
+`SVGPathPen` also emits single-number `H` (horizontal-lineto) commands, whose
+values are absolute x. Twelve of them went un-offset, which cut white slits
+through the `e` and both `t` crossbars and stepped the `L`'s serifs. It shipped
+in all four lockups.
+
+The tell was in the data: the path's largest `H` is 246.58, and `INK_W` is
+244.76 — a difference of exactly the 1.82 that was never subtracted, followed
+by a 2.27-unit backward jump into the next curve.
+
+Worse than the visible damage: `SVGPathPen` drops the command letter on
+repeats, so two adjacent `V`s serialize as `V-4.31 -10.00` — a *pair* the regex
+would have matched, silently corrupting a **y** coordinate. Today's string
+happens to contain no adjacent V pair. A different name, weight or font release
+would.
+
+**The fix is not a better regex.** The offset is folded into the glyph
+transform, in a two-pass run that learns `x0` first. A transform cannot
+misidentify which numbers are x.
+
+### The channel could not read as depth, by construction
+
+The mark was an "incised L" whose channel was a hole cut to the ground. The
+checker's observation is the one that matters:
+
+> identical color on both sides of the contour cannot read as depth; it can
+> only read as outline.
+
+That is exactly right, and it explains every reading it reported — a hollow
+inline L, a corner bracket, a crop mark — and why below 48px it stayed a
+spindly bracket instead of settling into a letter. The cure had reproduced the
+disease: "severed the letter into two floating rails" was written in this very
+file about the *brass recess*, and the hole did the same thing in a different
+color.
+
+**A cut in a surface is darker than the surface.** The groove is now a darker
+value of the letter, clipped to it. Rendered against the hole and against a
+solid letter at 128/48/24 in both schemes, it is the only one of the three that
+reads as a solid letter with a cut in it.
+
+Two consequences worth noting:
+
+- The groove sits at **1.41:1** (light) and **2.17:1** (dark) against the
+  letter, deliberately under the 3:1 graphical floor. It models depth and
+  carries no information — the letter holds 10.6:1 and 8.5:1 against the
+  ground. Every earlier attempt failed by insisting the channel clear 3:1,
+  which is what makes it a stripe.
+- The bare mark and the tile are now both **fills**, so they share one width.
+  The two-width "a void reads wider than a fill" optical correction was true of
+  the hole and is now moot.
+
+### An inline `<style>` is document-scoped
+
+Inlining `laticent-lockup-dark.svg` (bare `.sf{fill:#9DB2BE}`) beside
+`laticent-mark.svg` (media-queried `.sf`) let the lockup win on source order
+and painted the light-mode mark at **1.99:1 on cream**. A brand page showing
+the asset set is precisely that surface. Only the two adaptive marks carry a
+`<style>` now, their rules byte-identical; everything else paints by attribute,
+and the class names are prefixed.
+
+### The invariants had a tautology in them
+
+The baseline assertion recomputed the foot from `MARK_INK`, which is derived
+from `_geom` — so it was algebraically `BASELINE` and could not fail however
+badly the lockup broke. Mutation-testing caught it: six arms fired, that one
+was inert. It now parses the emitted SVG's transform, and fires on a wrong
+`ty` that the model-side version could never see.
+
+Two arms were also measuring **bounding-box corners**. An L has no ink at its
+top-right, so the tile's content reported 48.2 against `audit.py`'s real 45.3.
+A gate that disagrees with the tool it exists to pre-empt is worse than no gate.
+
+## Three false claims, one habit
+
+This is the part worth remembering.
+
+| Claim | Reality |
+| --- | --- |
+| "Alphabet, Meta and P&G all differentiate by containing the parent" | None of them does |
+| "the tile's content is the only form in this family that clears the maskable circle" | `lattice-mark` 46.1 and `lente-mark` 41.0 also clear 51.2 |
+| "a Garamond L is nearer 0.60 of its cap; this mark's 0.81 is broad" | EB Garamond's L measures **0.847** — *wider* than the mark. Every serif measured runs 0.74–0.93 and 0.81 is mid-range |
+
+Each was the load-bearing sentence of a section. Each was composed rather than
+checked. And the second and third were written **into the correction of the
+first** — the note that retired the fabricated precedent introduced the
+maskable claim in the same edit, and `audit.py`, which disproves it, sits in
+the same directory and takes four seconds to run.
+
+The pattern is not carelessness about facts in general: every one of the twelve
+contrast ratios in these documents verified exactly, and so did the whole
+font-advance table. It is specific to **justifications** — the sentence that
+says why a decision is right is the one that gets composed to fit the decision.
+Numbers that merely describe get measured; numbers that argue get invented.
+
+The mitigation in the tree is that the tile's maskable figure and the mark's
+crop radius are now **asserted by the generator**, so the claim and the
+measurement cannot drift apart again. The mitigation in practice is to treat
+any "this is the whole argument" sentence here as unverified until re-run.
+
+## Still unverified
+
+- **No real device.** Every render is headless Chromium. An installed Android
+  icon under a real maskable mask, a live GitHub org avatar, an iOS home
+  screen and a print proof are all UNVERIFIED (HARD RULE #23).
+- **`prefers-color-scheme` tracks the OS, not the surface.** A light-mode user
+  on a dark page gets the mark at 1.62:1 on GitHub dark. This is the family's
+  convention — all five siblings share it — so it is logged, not fixed here.
+- **The sweeps are not committed.** `TILE_PAD`, `bracket`, the groove width and
+  the two lockup constants were each chosen against a rendered comparison that
+  lives only in a scratch directory. The conclusions can be re-run but not
+  re-derived from the tree.
