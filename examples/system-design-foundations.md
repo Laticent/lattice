@@ -694,6 +694,8 @@ The second line is the hard one. If you cannot put a number on W, you have just 
 
 The same words — design a photo sharing app — have five legitimate answers that share almost no architecture. A build that takes a week and a build that takes two years are both correct, for different questions.
 
+Ask for Maya's twelve-minute build to be made faster and you have said three things at three different rungs: rent a bigger runner, profile the slow step, or write a build system that knows this repository. Until somebody says which, nobody does any of them.
+
 Gall's law says it plainly: a complex system that works is invariably found to have evolved from a simple system that worked. You climb this ladder. You do not parachute onto it.
 
 ---
@@ -747,7 +749,7 @@ Its job is to produce a decision, not to last. Every hour spent making it durabl
 
 ## A scaled system survives ten times the load without a rewrite.
 
-You have stopped buying information and started buying headroom. The question moves from "does it work" to "what breaks first, and how do I move that limit."
+You have stopped buying information and started buying headroom. The question moves from "does it work" to "what breaks first, and how do I move that limit." Maya's day had two candidates for that limit — the twelve-minute build and one reviewer — and only one stopped 482.
 
 - The tell
   - Growth is real, and the current design has a ceiling you can point at.
@@ -887,7 +889,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 4. Deliver
    - Ship it and watch it. The running system names the field you guessed.
 
-> Every exercise from here asks you to discover and to design. The last two are yours to run.
+> Every exercise from here works discover, design, or both. Maya's Tuesday sat inside somebody else's design.
 
 ---
 
@@ -950,6 +952,8 @@ flowchart TB
 ```
 
 > A cache and a CDN are one idea at two distances: keep the answer nearer than its store.
+
+*Run Part three's removal test on either shape: take the cache or the CDN out and the system still answers, slower and from further away. The store alone is a working design. A copy that exists to answer a different question — one you could not simply remove — starts on the next slide.*
 
 ---
 
@@ -1082,6 +1086,33 @@ flowchart LR
 ```
 
 > Reaching the last box is not failure. It is what a system with two jobs looks like.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## Three teams want a new store. Say which of them has actually outgrown relational.
+
+One: a payroll system, four thousand employees, thirty tables, and finance asks a new question every quarter. Two: a metrics pipeline writing four hundred thousand samples a second, read back by series and by time range. Three: a startup with nine thousand users whose engineer says the database will not scale.
+
+Answer the tree's first question for each, and say whether the tree stops there. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## For two of the three, the first question is the whole answer.
+
+1. Payroll, four thousand employees
+   - No. Thirty tables and questions nobody has asked yet are the case relational was built for, and four thousand rows is not a size. The tree stops here.
+2. Four hundred thousand samples a second
+   - Yes. No single machine takes four hundred thousand writes a second, so the tree walks on — joins next, then the shape questions decide the store.
+3. Nine thousand users
+   - No, so it stops here too. "Will not scale" is not a measurement — the tree wants a table that outgrew a machine, and you have brought it a feeling.
 
 ---
 
@@ -1366,6 +1397,33 @@ Ask whether coordinating now costs less than reconciling later.
 
 ---
 
+<!-- _class: content -->
+
+`Your turn`
+
+## A link between two regions breaks for ninety seconds. Say what each write does.
+
+One: a like on a post. Two: the last seat on a flight. Three: "you are now following this account", shown back to the person who just tapped it.
+
+For each, say whether you take the write or refuse it while the link is down, and which level of consistency it needs the rest of the time. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Only the seat refuses, for ninety seconds — then pays a round trip on every read for years.
+
+1. A like
+   - Take it. Eventual is correct: two replicas disagreeing about a count for a second costs nothing, and refusing costs you a user.
+2. The last seat
+   - Refuse it. Two sides both selling 14C is the divergence CAP is about, and the price the rest of the time is linearizable — a round trip on every read.
+3. Your own follow
+   - Take it, and read your writes. The person who just tapped will look immediately; nobody else notices for a second.
+
+---
+
 <!-- _class: split-panel proof cat-1 -->
 <!-- _header: "" -->
 
@@ -1558,6 +1616,8 @@ flowchart TB
 
 > The balancer needs every instance to be interchangeable. The queue needs every worker to be repeatable.
 
+*The data kit closed owing two things it could not supply itself. A derived copy that rebuilds unattended needs something to run the rebuild, and an idempotent consumer needs something to be a consumer. Both are on this slide: the bounded queue and the worker pool that kit kept assuming.*
+
 ---
 
 <!-- _class: diagram compact -->
@@ -1658,6 +1718,33 @@ flowchart TB
 
 ---
 
+<!-- _class: content -->
+
+`Your turn`
+
+## Three workloads land on your desk. Say what each one runs on.
+
+One: a nightly job that reads the whole orders table and writes one report file — forty minutes, once a day. Two: an API taking three thousand requests a second, deployed six times a day by four teams. Three: a thumbnail made whenever somebody uploads a photo — a few hundred a day, at no fixed time.
+
+Name what each should run on, and the invariant it fails first if you get it wrong. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Idle decides the last one. Neither of the first two is a cost argument.
+
+1. The nightly report
+   - A machine or a container on a schedule; what it is not is a function. Forty minutes outlives most function runtime caps, and one long run is not spiky. The invariant it fails first: capacity is a number somebody owns.
+2. Three thousand a second, six deploys a day
+   - Containers behind a balancer — many teams, frequent deploys, one packaging story. It fails "any instance can be killed" the moment somebody keeps a session in memory.
+3. A few hundred thumbnails
+   - A function on the upload event. Idle is most of the day and costs nothing, and the cold start it charges for is one nobody is waiting on. The invariant it fails first: startup does not depend on startup order — the event fires whenever it fires, so a function that assumes its index is already up breaks at 3am.
+
+---
+
 <!-- _class: divider -->
 
 `Network`
@@ -1686,6 +1773,8 @@ flowchart TB
 ```
 
 > One of them ends the trip early. The other decides where the rest of it goes.
+
+*Two of the compute kit's invariants quietly assumed a wire. An instance is only killable unnoticed because something in front of it reroutes, and services only retry into each other across a call that can fail. Here is that wire, and its first bill is distance.*
 
 ---
 
@@ -1760,7 +1849,7 @@ flowchart LR
 
 Nothing changes that. The measured 150 milliseconds is well above the straight-line floor, because packets do not travel in straight lines and every hop queues.
 
-A design that needs three sequential intercontinental round trips has spent half a second before it executes an instruction. Replication, caching and edge delivery all exist to buy that distance back, and none of them makes it free.
+A design that needs three sequential intercontinental round trips has spent nearly half a second on distance alone, whatever else it does in between. Replication, caching and edge delivery all exist to buy that distance back, and none of them makes it free.
 
 ---
 
@@ -1814,6 +1903,33 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 ---
 
+<!-- _class: content -->
+
+`Your turn`
+
+## A reader in Frankfurt opens a page served from Virginia. Say where the budget goes.
+
+The page has 400 milliseconds. Loading it costs three sequential cross-continent round trips — the page itself, then an API call it depends on, then an image nothing knew about until the first two came back — plus about 60 milliseconds of work inside your own datacenter.
+
+Add it up, name the one change that buys back the most, and say what that change costs. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Distance is almost all of that page, and only one move touches it.
+
+1. The bill
+   - `3 × 150` is 450 milliseconds of round trips, and about 60 more of your own work in between them. The budget was 400, so the page is late by more than the work takes.
+2. The move
+   - End the connection near the reader. A CDN serves the page and the image from the edge; the API call is the one that still has to cross. Three round trips become one.
+3. What it costs
+   - You now keep the page in two places, and the edge copy is only as fresh as your last purge. The distance did not go away; you stopped paying it three times.
+
+---
+
 <!-- _class: divider -->
 
 `Scale`
@@ -1842,6 +1958,8 @@ flowchart TB
 ```
 
 > Both bills arrive in the same currency: something you are reading is now out of date.
+
+*You have met both of these already, as stores. The cache was a data choice and the replica was a consistency choice; here they are again as scaling moves. The network kit is why: once distance is counted on purpose, the only way to spend less of it is to keep a copy nearer — and the bill is the one the data kit already named.*
 
 ---
 
@@ -1980,6 +2098,33 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 ---
 
+<!-- _class: content -->
+
+`Your turn`
+
+## Your service takes 1,200 requests a second at 40 milliseconds each. Size it.
+
+First: how many requests are in flight at once? Then a dependency slows and each request now spends 160 milliseconds inside, while the same 1,200 keep arriving.
+
+Second: say what happens with an unbounded pool, and what happens with the pool your first answer sized. Do the arithmetic before you turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## One number, then two failures that look nothing alike.
+
+1. In flight at once
+   - `1,200 × 0.04` is 48. Arrivals and service time are both givens here, so 48 is arithmetic, not a setting you can tune down.
+2. Unbounded
+   - `1,200 × 0.16` is 192 in flight. The machine you sized for 48 runs out of memory, and nothing warned you on the way.
+3. Bounded at 48
+   - Concurrency cannot rise, so throughput falls to `48 / 0.16`, about 300 a second against 1,200 still arriving. Nine hundred a second pile up in front, and nothing stops that except shedding them.
+
+---
+
 <!-- _class: divider -->
 
 `Reliability`
@@ -2009,6 +2154,8 @@ flowchart TB
 ```
 
 > A wall only works if the two sides do not share the thing that broke.
+
+*The scale kit's third invariant asked for admission control — shed load before the system collapses. That is a reliability pattern doing scale's work, and it is on the next slide. The two kits differ in the question: scale asks what happens when there is more of everything, reliability asks what happens when one part of it stops.*
 
 ---
 
@@ -2167,6 +2314,33 @@ Under pressure something has to give. Either you decided in advance which featur
 
 ---
 
+<!-- _class: content -->
+
+`Your turn`
+
+## Three dependencies go slow rather than down. Say what the page does.
+
+Your service renders a product page inside a 300-millisecond budget, calling a price service, a recommendations service and a reviews service in parallel. Each in turn starts answering in two seconds instead of forty milliseconds.
+
+For each, say what the page shows and which containment pattern makes it do that. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Only one of the three is allowed to fail the page.
+
+1. Price
+   - Fail it. A product page with no price is wrong, not degraded, so it is the top tier: a timeout, then a fast error rather than a spinner.
+2. Recommendations
+   - Drop the strip and render. A breaker opens after the first few slow calls, so every other page does not pay two seconds to learn the same thing.
+3. Reviews
+   - Serve the last good copy from behind a breaker of its own. Read paths outlive write paths, and stale is an answer where a timeout is not.
+
+---
+
 <!-- _class: divider -->
 
 `Security`
@@ -2194,6 +2368,8 @@ flowchart TB
 ```
 
 > Neither one asks whether the caller is honest. Both are written as if the caller is lying.
+
+*The reliability kit asked whether your copies fail apart. This kit asks the same question about credentials: when one is stolen, does the damage stop somewhere, or does it reach everything the service can reach? A blast radius is a blast radius, whether the cause is a dead zone or a leaked token.*
 
 ---
 
@@ -2571,7 +2747,7 @@ Do it now, on paper, in under a minute. Cover the next slide until you have one.
 
 `50M × 4 = 200M reads/day ÷ 86,400 ≈ 2.3K reads/s` · `2M ÷ 86,400 ≈ 23 writes/s` · `ratio ≈ 100:1`
 
-A thirtieth of the read traffic, and the ratio went from 60:1 to 100:1. It moved because you changed how often each person posts, not just how many people there are. The ratio is opens per user divided by posts per user: it survives being wrong about population, never about behavior.
+A thirtieth of the read traffic, and the ratio went from 60:1 to 100:1. It moved because you changed both per-person numbers, opens and posts, not how many people there are. The ratio is opens per user divided by posts per user: it survives being wrong about population, never about behavior.
 
 ---
 
@@ -2662,7 +2838,7 @@ following                              followers
 - Counts fall, and B does not follow them down
   - Someone unfollows and the count drops. Shrink `B` and every edge in the buckets above it is stranded.
 - A fan-out worker reads B fresh
-  - Never from the cached count a profile page shows. A stale, smaller `B` scans too few buckets and skips the newest followers.
+  - Never the cached count on a profile page. A stale `B` scans too few buckets and skips the newest followers.
 - The low buckets run heavy
   - Edges written while `B` was small crowd the early buckets, until `B` reaches its cap.
 
@@ -3147,7 +3323,7 @@ Solution type MVP. Nobody knows yet whether drivers scan the sticker.
 ## Rung one is one lot, a printed sticker per bay, and the provider's card form.
 
 - What you build
-  - A sticker on every bay carrying a link with the lot and bay in it. The provider's own form takes the card, so the number never touches your server.
+  - A sticker per bay whose link carries the lot and bay. The card goes to the provider's form, not your server.
 - What it buys
   - The only answer you need this month: do drivers scan the sticker, and do they finish paying.
 - What it charges
@@ -3186,6 +3362,8 @@ Two hundred lots of forty bays turning over four times a day is 32,000 rows — 
 ## Traffic breaks nothing here. Two other things break anyway.
 
 Thirty-two thousand rows a day is a rounding error, so scale is not your problem and will not be for a long time. Say that out loud, because it stops a team building for a load that never arrives.
+
+Nothing that broke Maya's Tuesday was load either — a registry, a build and a sleeping reviewer, and not one of them was traffic.
 
 The first break is a double charge. The page hesitates on a weak signal, the driver taps Pay again, and one park costs them twice. That reaches a human the same day.
 
@@ -3325,7 +3503,7 @@ Write down the one question they ask the system, roughly how often it is asked, 
 ## Two hundred lots, and the manual parts give out before the machine does.
 
 - What actually changed
-  - Not the traffic. The manual work. One warden typing bay numbers held at one lot and gave out long before two hundred.
+  - Not the traffic. The manual work. A warden typing bay numbers gave out at ten lots; Maya's team, at one reviewer.
 - Give the warden a list, not a keyboard
   - The point read becomes one range scan per walk: every live session in this lot. Their phone already knows the bays.
 - Move slow work off the path a driver waits on
@@ -3443,7 +3621,7 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ## The most useful entry here is the one we refused.
 
-Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, sixty slides before this design began.
+Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, nearly ninety slides before this design began.
 
 - What the card said
   - Walk away when you have relationships but only ever join two hops.
@@ -3546,6 +3724,21 @@ Answer four of the six without turning back. Then turn the page.
 Design is where the thinking lives, which is why the deck stops here. Building is where you find out whether the thinking held: the boundary you drew turns out to cut through another team, the invariant you wrote needs a lock nobody planned for, the number you estimated is wrong by ten.
 
 So take one design you made in these pages and build the smallest version of it that actually runs. Not to ship it. To find out which of your nine fields was a guess.
+
+---
+
+<!-- _class: list-tabular -->
+
+`Back to Tuesday`
+
+## 482 was not blocked by the build. It was blocked by a queue.
+
+1. The queue had one server
+   - Five pull requests, one reviewer, one waking hour: a bounded pool of one. Throughput is capped, so the queue in front grows, and nothing Maya did after lunch could move any of the three.
+2. Nothing inherited a deadline
+   - The window shut at four, and nothing downstream of it carried a shorter one. The network kit's first invariant says a call inherits its deadline from the caller, and inherits a shorter one. The review never got one, so nothing said it was late until it was.
+3. The one move she had, she made late
+   - At 15:50 she stopped answering and batched the replies — admission control, from the scale kit. The spiral had run since 15:30, and those twenty minutes came out of the one hour that decided the day.
 
 ---
 
