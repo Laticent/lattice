@@ -65,3 +65,63 @@ test('the deck-settings toggle turns the inline grammar off, and the preview obe
 	await expect(preview.locator('.lat-pill')).toHaveCount(1, { timeout: 30_000 });
 	await expect(preview.locator('.lat-state')).toHaveCount(1);
 });
+
+// ── The same field, at the two widths that reach it by a DIFFERENT control ──────────
+//
+// The arm above drives the desktop route, and for a while that was the whole story of
+// this field being "verified". It is not: the Studio exposes deck settings through three
+// different controls depending on width, and `openInspector` in `studio-fixture.ts` knows
+// only the desktop one — so a change that broke the field at 820px or 390px would pass
+// every spec in this file.
+//
+//   1440  the "Deck scope" button in the left rail        (studio-fixture's openInspector)
+//    820  "More controls" → "Settings — deck & slide"     (no Deck-scope button exists)
+//    390  a first-class "Settings" button in the bottom bar
+//
+// The routes are local to this spec rather than folded into the fixture on purpose: the
+// fixture is shared by every Studio spec, and widening its one helper to guess a width is
+// a change to all of them for the benefit of this one.
+for (const [label, width, height] of [
+	['tablet', 820, 1180],
+	['mobile', 390, 844],
+] as const) {
+	test(`the deck-settings field is reachable and correct at ${label} (${width}px)`, async ({ page }) => {
+		await page.setViewportSize({ width, height });
+		await gotoStudio(page);
+
+		// ANTI-VACUITY, and it is the point of the arm: prove we are NOT on the desktop
+		// route. If the Deck-scope button were present here, this test would be a second
+		// copy of the arm above wearing a different viewport, and a break in the tablet or
+		// mobile route would still sail past.
+		await expect(page.getByRole('button', { name: CHROME.deckScope })).toHaveCount(0);
+
+		if (width > 500) {
+			await page.getByRole('button', { name: 'More controls' }).first().click();
+			await page
+				.locator('[role=menuitem],[role=menuitemradio],button,[role=button]')
+				.filter({ hasText: /^Settings — deck & slide$/ })
+				.first()
+				.click();
+		} else {
+			// Opening the Menu first would lay an overlay over this button — the bottom bar
+			// carries it directly.
+			await page.getByRole('button', { name: 'Settings', exact: true }).first().click();
+		}
+
+		const tab = page.getByRole('tab', { name: CHROME.deckTab.general });
+		if (await tab.count()) await tab.first().click();
+
+		const toggle = page.getByRole('switch', { name: 'Inline pills and marks' });
+		await expect(toggle).toBeVisible({ timeout: 15_000 });
+		// ON by default here too — a per-width default would be a register that means
+		// something different depending on the window you opened it in.
+		await expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+		// And it WRITES the canonical value from this route as well, which is the whole
+		// reason the desktop arm exists. A control wired up per breakpoint could easily
+		// write `off` from one of them.
+		await toggle.click();
+		await expect(toggle).toHaveAttribute('aria-checked', 'false');
+		await expect.poll(() => persistedSource(page)).toContain('inline-code: literal');
+	});
+}
