@@ -68,7 +68,11 @@ const ctx = (tokens = []) => ({ cls: ['bar', ...tokens].join(' '), classTokens: 
 function rects(html) {
   return [...html.matchAll(/<rect class="bar-mark[^<>]*>/g)].map((m) => {
     const out = {};
-    for (const a of m[0].matchAll(/([a-z-]+)="([^"]*)"/g)) {
+    // The leading `\s` and the bounded tail are load-bearing: `[a-z-]+` behind
+    // no delimiter backtracks polynomially on a long run of `-` (CodeQL
+    // js/polynomial-redos). A space cannot be matched by the name class, so a
+    // failed attempt cannot restart inside a name it already rejected.
+    for (const a of m[0].matchAll(/\s([a-z][a-z-]{0,30})="([^"]*)"/g)) {
       out[a[1]] = /^(x|y|width|height)$/.test(a[1]) ? Number(a[2]) : a[2];
     }
     return out;
@@ -547,7 +551,12 @@ describe('bar — defects the adversarial trio confirmed', () => {
     const inner = ['a', 'b', 'c'].map((x, i) => `<li>${x} <code>${i + 1}</code></li>`).join('');
     const svg = buildBar(parseBar(`<li>Q1<ul>${inner}</ul></li><li>Q2<ul>${inner}</ul></li>`),
       { classTokens: ['bar'] });
-    assert.ok((svg.match(/chart-key-swatch[^>]*data-cat/g) || []).length >= 3);
+    // Matched as whole tags, then filtered — `chart-key-swatch[^>]*data-cat`
+    // chains an unbounded run into a literal the run can itself match, which
+    // backtracks polynomially (CodeQL js/polynomial-redos). `[^<>]*>` cannot.
+    const swatches = (svg.match(/<rect class="chart-key-swatch[^<>]*>/g) || [])
+      .filter((tag) => tag.includes('data-cat'));
+    assert.ok(swatches.length >= 3);
   });
 
   test('twenty categories keep twenty labels', () => {

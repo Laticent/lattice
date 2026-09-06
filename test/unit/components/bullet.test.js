@@ -451,12 +451,12 @@ describe('bullet kernel', () => {
 
     test('the stress sample sits at the row ceiling the docs state', () => {
       // The ceiling is stated in `dataShapeGuidance`, not in a `capacity` block.
-      // `capacity.axis` is what ENROLS a component in splitting (split-facts.js
+      // `capacity.axis` is what ENROLLS a component in splitting (split-facts.js
       // splitFactsFor), and a chart is a `graphic`: it never paginates, it rings
       // the overflow warning. All twenty-one charts declare none, so the number
       // lives where an author reads it instead.
       const manifest = JSON.parse(fs.readFileSync(path.join(COMPONENT_DIR, 'bullet.manifest.json'), 'utf8'));
-      assert.equal(manifest.capacity, undefined, 'a chart must not enrol in splitting');
+      assert.equal(manifest.capacity, undefined, 'a chart must not enroll in splitting');
       const rows = manifest.stressDoc.sample.split('\n').filter((l) => /^- /.test(l)).length;
       const guidance = (manifest.dataShapeGuidance || []).join(' ');
       const stated = /seven the ceiling/.test(guidance) ? 7 : null;

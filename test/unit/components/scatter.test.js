@@ -28,7 +28,7 @@ const path = require('node:path');
 
 const {
   transformSection, parseScatter, buildScatter, readAxisTitles, domainFor,
-  pearson, relationshipPhrase, leastSquares, bubbleRadius, pickVariant,
+  pearson, trendNote, leastSquares, bubbleRadius, pickVariant,
   clipToPlot, niceFloor,
   FS, GUTTER, DOT_R, BUBBLE, TREND_MIN_POINTS, SCATTER_MODIFIERS,
 } = require('../../../lib/components/chart/scatter/scatter.transform');
@@ -167,9 +167,15 @@ describe('scatter kernel', () => {
       assert.ok(d.min < 10 && d.max > 20);
     });
 
-    test('never pads a non-negative series below zero', () => {
+    test('never prints a NEGATIVE TICK for a non-negative series', () => {
+      // The wall is a TICK rule, not a domain rule. The domain still gets its
+      // air below zero — clamping it pinned a point at 0 to the plot corner,
+      // so a `bubble` mark hung twelve units outside the plot, and it put the
+      // `0` tick exactly on the y axis where the x-tick cull deleted it.
       const d = domainFor([0, 5, 10]);
-      assert.equal(d.min, 0);
+      assert.ok(d.min < 0, `expected air below zero, got ${d.min}`);
+      for (const t of d.ticks) assert.ok(t >= 0, `tick ${t} is negative`);
+      assert.ok(d.ticks.includes(0), 'the origin tick survives');
     });
 
     test('pads below a genuinely negative minimum', () => {
@@ -246,7 +252,7 @@ describe('scatter kernel', () => {
         /viewBox="0 0 320 300"/);
     });
 
-    test('the <desc> carries the numbers AND the relationship the chart is for', () => {
+    test('the <desc> carries every point in the author\'s own units', () => {
       const desc = buildScatter(model, CTX, AXES).match(/<desc>([^<]*)<\/desc>/)[1];
       assert.match(desc, /Annual cost horizontal/);
       assert.match(desc, /Teams adopting vertical/);
@@ -254,8 +260,39 @@ describe('scatter kernel', () => {
         assert.ok(desc.includes(name), `${name} missing from the desc`);
       }
       assert.ok(desc.includes('$420k') && desc.includes('18%'), 'raw values missing from the desc');
-      // A scatter IS the relationship, the way a funnel IS the drop-off.
-      assert.match(desc, /move strongly in opposite directions \(r = -0\.9/);
+    });
+
+    test('the <desc> makes NO statistical claim the slide does not show', () => {
+      // Anscombe's quartet: four datasets with visibly different shapes and one
+      // correlation. The desc used to give all four the same sentence, and told
+      // it only to the reader who cannot see the cloud and check it.
+      const anscombe = [
+        [[10, 8.04], [8, 6.95], [13, 7.58], [9, 8.81], [11, 8.33],
+          [14, 9.96], [6, 7.24], [4, 4.26], [12, 10.84], [7, 4.82], [5, 5.68]],
+        [[10, 9.14], [8, 8.14], [13, 8.74], [9, 8.77], [11, 9.26],
+          [14, 8.10], [6, 6.13], [4, 3.10], [12, 9.13], [7, 7.26], [5, 4.74]],
+      ];
+      for (const set of anscombe) {
+        const m = parseScatter(ul(set.map(([x, y], i) => [`E${i}`, `${x}`, `${y}`])));
+        const desc = buildScatter(m, CTX, AXES).match(/<desc>([^<]*)<\/desc>/)[1];
+        assert.doesNotMatch(desc, /\br = /, 'no correlation coefficient');
+        assert.doesNotMatch(desc, /strongly|moderately|weakly|little relationship/);
+      }
+    });
+
+    test('the <desc> states the trend line only when the trend line is drawn', () => {
+      const rising = Array.from({ length: 6 }, (_, i) => [`E${i}`, `${i + 1}`, `${(i + 1) * 2}`]);
+      const m = parseScatter(ul(rising));
+      const withTrend = buildScatter(m, { ...CTX, classTokens: ['scatter', 'trend'] }, AXES);
+      assert.match(withTrend, /class="scatter-trend"/);
+      assert.match(withTrend.match(/<desc>([^<]*)<\/desc>/)[1], /least-squares fit is drawn over the 6 points/);
+      // Below the floor the line is refused — so the sentence is refused too.
+      const few = parseScatter(ul(rising.slice(0, 3)));
+      const short = buildScatter(few, { ...CTX, classTokens: ['scatter', 'trend'] }, AXES);
+      assert.doesNotMatch(short, /class="scatter-trend"/);
+      assert.doesNotMatch(short.match(/<desc>([^<]*)<\/desc>/)[1], /least-squares/);
+      // And a plain scatter never mentions a fit at all.
+      assert.doesNotMatch(buildScatter(m, CTX, AXES).match(/<desc>([^<]*)<\/desc>/)[1], /least-squares/);
     });
 
     test('emits NO color literal anywhere', () => {
@@ -332,16 +369,26 @@ describe('scatter kernel', () => {
   });
 
   describe('geometry invariants', () => {
-    test('bubble AREA — never radius — is proportional to the magnitude', () => {
-      const r1 = bubbleRadius(100, 400);
-      const r4 = bubbleRadius(400, 400);
-      // Four times the value must be twice the radius, measured from rMin.
-      const a1 = r1 - BUBBLE.rMin;
-      const a4 = r4 - BUBBLE.rMin;
-      assert.ok(Math.abs(a4 / a1 - 2) < 1e-9, `radius ratio ${a4 / a1}, expected 2`);
+    test('bubble INK is proportional to the magnitude, over the floor', () => {
+      // The claim is about AREA, so the assertion is about area. The old arm
+      // measured the EXCESS-RADIUS ratio, which is 2 by construction of any
+      // `rMin + t * (rMax - rMin)` map and says nothing about ink: under that
+      // map a 4x value drew 2.7x the area, a 32% understatement, and this test
+      // was green for it.
+      const ink = (v) => Math.PI * (bubbleRadius(v, 400) ** 2 - BUBBLE.rMin ** 2);
+      assert.ok(Math.abs(ink(400) / ink(100) - 4) < 1e-9,
+        `ink ratio ${ink(400) / ink(100)}, expected 4`);
+      assert.ok(Math.abs(ink(200) / ink(50) - 4) < 1e-9, 'and at any other pair');
       assert.equal(bubbleRadius(400, 400), BUBBLE.rMax);
-      // An absent magnitude falls back to the plain dot rather than to zero.
-      assert.equal(bubbleRadius(NaN, 400), DOT_R);
+      assert.equal(bubbleRadius(0, 400), BUBBLE.rMin, 'zero draws the visibility floor');
+      // An absent magnitude is NOT a small bubble. `DOT_R` sits inside the
+      // bubble range, so an unsized point decoded through the key as a real
+      // magnitude nobody typed. It takes `rMin` and is flagged so the
+      // stylesheet can draw it hollow.
+      assert.equal(bubbleRadius(NaN, 400), BUBBLE.rMin);
+      // Outside a bubble chart there is no scale to be smallest on, so the
+      // plain dot is still the answer.
+      assert.equal(bubbleRadius(NaN, 0), DOT_R);
     });
 
     test('no bubble crosses an axis rule — the domain holds the radius too', () => {
@@ -420,14 +467,18 @@ describe('scatter kernel', () => {
       }
     });
 
-    test('pearson and its phrase describe the relationship, not just the points', () => {
+    test('pearson is exact where it is defined, and NaN where it is not', () => {
       const up = [{ x: 1, y: 2 }, { x: 2, y: 4 }, { x: 3, y: 6 }];
       assert.ok(Math.abs(pearson(up) - 1) < 1e-9);
-      assert.match(relationshipPhrase(pearson(up)), /strongly together/);
-      const down = up.map((p) => ({ x: p.x, y: -p.y }));
-      assert.match(relationshipPhrase(pearson(down)), /strongly in opposite directions/);
-      assert.match(relationshipPhrase(0.05), /little relationship/);
-      assert.equal(relationshipPhrase(pearson([{ x: 1, y: 1 }])), '');
+      assert.ok(Math.abs(pearson(up.map((p) => ({ x: p.x, y: -p.y }))) + 1) < 1e-9);
+      assert.ok(Number.isNaN(pearson([{ x: 1, y: 1 }])), 'one point has no correlation');
+      assert.ok(Number.isNaN(pearson([{ x: 1, y: 1 }, { x: 1, y: 9 }, { x: 1, y: 4 }])),
+        'zero variance in x has no correlation');
+    });
+
+    test('trendNote names the count, so the claim is bounded by the data', () => {
+      assert.match(trendNote(6), /over the 6 points/);
+      assert.match(trendNote(12), /straight-line least-squares/);
     });
 
     test('niceFloor rounds DOWN the ladder, where niceStep rounds up', () => {

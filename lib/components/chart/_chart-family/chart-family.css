@@ -1248,7 +1248,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-b
   border-radius: 0;
   box-shadow: none;
 }
-/* Pagination reads through the band — lifted above it and recoloured. */
+/* Pagination reads through the band — lifted above it and recolored. */
 section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed)::after {
   z-index: 3;
   color: color-mix(in oklab, var(--text-heading) 62%, transparent);

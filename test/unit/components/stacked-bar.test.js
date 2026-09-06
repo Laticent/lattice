@@ -473,3 +473,107 @@ describe('stacked-bar kernel', () => {
     });
   });
 });
+
+// ── Defects the adversarial trio confirmed ─────────────────────────────────
+//
+// Every arm here reproduces a wrong NUMBER on a rendered slide, and every one
+// of them passed a 43-green suite because the old tests exercised the helpers
+// rather than the emitted output. These assert on what the SVG and the <desc>
+// actually say.
+describe('stacked-bar — defects the adversarial trio confirmed', () => {
+  const desc = (svg) => /<desc>([^<]*)<\/desc>/.exec(svg)[1];
+  const build = (rows, tokens = ['stacked-bar']) =>
+    buildStackedBar(parseStackedBar(ul(rows)), { classTokens: tokens });
+
+  test('an author-named `Other` past the cap takes ONE slot, not two', () => {
+    // The docs tell the author to "fold slivers into Other before authoring",
+    // so this is the shape our own guidance produces. Two `Other` entries in
+    // `series` gave the same number two palette slots and overstated the bar
+    // total by 13%.
+    const rows = [['Q1', [
+      ['Enterprise', 40], ['Mid-market', 20], ['Other', 5],
+      ['SMB', 10], ['Channel', 8], ['Partners', 4], ['Resellers', 3],
+    ]]];
+    const model = parseStackedBar(ul(rows));
+    assert.equal(new Set(model.series).size, model.series.length, 'no duplicate series');
+    assert.equal(model.groups[0].sum, 90, 'the true sum, not 102');
+    const other = model.groups[0].segs.find((sg) => sg.series === 'Other');
+    assert.equal(other.num, 12, "the author's 5 plus the folded 4 + 3");
+    assert.match(desc(build(rows)), /Q1 total 90:/);
+  });
+
+  test('the folded names reach the accessible description', () => {
+    // `role="img"` prunes the subtree, so this string is the only route — and
+    // "the folded names are listed in the accessible description" was the one
+    // promise attached to it that did not hold.
+    const d = desc(build([['Q1', [
+      ['Enterprise', 40], ['Mid-market', 20], ['SMB', 10],
+      ['Channel', 8], ['Partners', 4], ['Resellers', 3], ['Direct', 2],
+    ]]]));
+    assert.match(d, /Other folds Resellers, Direct\./);
+  });
+
+  test('`share` prints the apportioned percentages, never three 33s', () => {
+    const rows = [['FY25', [['A', 1], ['B', 1], ['C', 1]]]];
+    const svg = build(rows, ['stacked-bar', 'share']);
+    const printed = [...svg.matchAll(/<tspan[^<>]*>(\d+)%<\/tspan>/g)]
+      .map((m) => Number(m[1]))
+      .filter((v) => v !== 0 && v !== 25 && v !== 50 && v !== 75 && v !== 100);
+    assert.equal(printed.reduce((a, b) => a + b, 0), 100, 'the printed shares sum to 100');
+    const pcts = sharePercents(parseStackedBar(ul(rows)).groups[0].segs);
+    assert.equal(pcts.reduce((a, b) => a + b, 0), 100);
+  });
+
+  test('the chart and its description print the SAME percentage', () => {
+    // -12.5 rounded two ways: `Math.round` gave -12 on the chart and
+    // `toFixed(0)` gave -13 in the desc. One chart, two numbers, and the
+    // reader who could not check them got the other one.
+    const svg = build([['FY25', [['Product', 14], ['Returns', -2]]]], ['stacked-bar', 'share']);
+    const d = desc(svg);
+    const inDesc = [...d.matchAll(/(−?-?\d+)%/g)].map((m) => m[1].replace('−', '-'));
+    const onChart = [...svg.matchAll(/<tspan[^<>]*>(−?-?\d+)%<\/tspan>/g)]
+      .map((m) => m[1].replace('−', '-'));
+    for (const v of inDesc) assert.ok(onChart.includes(v), `${v}% is on the chart too`);
+  });
+
+  test('a negative share prints U+2212, the same minus the axis uses', () => {
+    const svg = build([['FY25', [['Product', 12], ['Returns', -1]]]], ['stacked-bar', 'share']);
+    assert.match(svg, /<tspan[^<>]*>−8%<\/tspan>/);
+    assert.doesNotMatch(svg, /<tspan[^<>]*>-\d+%<\/tspan>/);
+  });
+
+  test('a signed chart draws NO plot-edge rule — the zero rule is the baseline', () => {
+    const signed = build([['FY25', [['Product', 12], ['Returns', -3]]]]);
+    assert.doesNotMatch(signed, /class="cart-axis"/);
+    assert.match(signed, /class="cart-zero"/);
+    const plain = build([['FY25', [['Product', 12], ['Services', 3]]]]);
+    assert.match(plain, /class="cart-axis"/);
+  });
+
+  test('`share` is ignored on a flat list, which has no mix to show', () => {
+    const svg = build([['FY23', 28.7], ['FY24', 31.2]], ['stacked-bar', 'share']);
+    assert.doesNotMatch(desc(svg), /Total 100%/);
+    assert.match(desc(svg), /FY23 total/);
+  });
+
+  test('a mixed-depth group keeps the number the author typed', () => {
+    const d = desc(build([
+      ['FY23', [['A', 10], ['B', 5]]],
+      ['FY24', 25.0],
+      ['FY25', [['A', 12], ['B', 6]]],
+    ]));
+    assert.match(d, /FY24 25(\.0)?, not broken out/);
+    assert.doesNotMatch(d, /FY24 — no data/);
+  });
+
+  test('the 2.5 step is no longer penalized — the formatter it guarded is fixed', () => {
+    // The penalty was written when `decimalsFor` returned 0 for any step >= 1.
+    // It does not, so the penalty only bought headroom nobody needed.
+    const t = cart.niceTicks(0, 10.25, { target: 4, includeZero: true });
+    const fmt = cart.axisFormatter({ ticks: t.ticks, step: t.step, affix: { prefix: '', suffix: '' } });
+    assert.deepEqual(t.ticks.map(fmt), t.ticks.map(fmt), 'sanity');
+    const svg = build([['Q1', [['A', 10.25]]], ['Q2', [['A', 4]]]]);
+    const max = Math.max(...[...svg.matchAll(/<tspan[^<>]*>([\d.]+)<\/tspan>/g)].map((m) => Number(m[1])));
+    assert.ok(max <= 12.5, `axis tops out at ${max}, not 15`);
+  });
+});

@@ -423,7 +423,7 @@ describe('line kernel', () => {
         ['Q3 2025', [['Enterprise', '3.5'], ['Services', '5.2']]],
       ])));
       const desc = html.match(/<desc>([^<]*)<\/desc>/)[1];
-      assert.match(desc, /3 points, Q1 2025 to Q3 2025/);
+      assert.match(desc, /3 points, first Q1 2025, last Q3 2025/);
       assert.match(desc, /Enterprise — 4\.1 at Q1 2025, 3\.5 at Q3 2025, down 15%/);
       assert.match(desc, /peak 4\.4 at Q2 2025/, 'a peak between the ends is named');
       assert.match(desc, /Services — 1\.2 at Q1 2025, 5\.2 at Q3 2025, up 333%/);
@@ -539,5 +539,110 @@ describe('line kernel', () => {
       assert.equal(/nth-child/.test(css), false);
       assert.match(css, /\[data-cat="5"\]/, 'all six categorical slots are painted');
     });
+  });
+});
+
+// ── Defects the adversarial trio confirmed ─────────────────────────────────
+//
+// Each arm reproduces something a reader would have seen on a slide, and each
+// was invisible to a 51-green suite because the old assertions read constants
+// back out of the module or matched a substring that survives the bug.
+describe('line — defects the adversarial trio confirmed', () => {
+  const desc = (html) => html.match(/<desc>([^<]*)<\/desc>/)[1];
+
+  test('a long category label stays inside the viewBox', () => {
+    // The gutters used to GROW to hold the half-width of a centered edge label;
+    // `left` was clamped, so past ~20 characters the first label simply painted
+    // outside the 320-unit viewBox, and `right` was not clamped at all, so an
+    // 80-character label squeezed the plot to a third of the canvas.
+    const long = ['Financial Year 2024 (restated)', 'Financial Year 2025 (restated)',
+      'Financial Year 2026 (forecast)'];
+    const html = build(parseLine(flat(long.map((c, i) => [c, `${4 + i}`]))));
+    const xs = [...html.matchAll(/class="cart-cat"[^>]*><tspan x="([-\d.]+)"/g)]
+      .map((m) => Number(m[1]));
+    assert.ok(xs.length >= 2, 'the edge labels survive the cull');
+    for (const x of xs) assert.ok(x >= 0 && x <= 320, `a category label anchored at ${x}`);
+    // And the plot never inverts, whatever the label length.
+    const huge = build(parseLine(flat([['X'.repeat(140), '4'], ['Y', '5']])));
+    const [, w] = huge.match(/viewBox="0 0 (\d+) (\d+)"/) || [];
+    assert.ok(Number(w) > 0);
+  });
+
+  test('a signed chart draws NO plot-edge rule — the zero rule is the baseline', () => {
+    const signed = build(parseLine(flat([['Q1', '-1.8'], ['Q2', '0.5'], ['Q3', '2.9']])));
+    assert.doesNotMatch(signed, /class="cart-axis"/);
+    assert.match(signed, /class="cart-zero"/);
+    assert.match(build(parseLine(flat([['Q1', '1'], ['Q2', '3']]))), /class="cart-axis"/);
+  });
+
+  test('the seventh series is NAMED in the description, never just dropped', () => {
+    const seven = nested([
+      ['Q1', Array.from({ length: 7 }, (_, i) => [`S${i}`, `${i + 1}`])],
+      ['Q2', Array.from({ length: 7 }, (_, i) => [`S${i}`, `${i + 2}`])],
+    ]);
+    const html = build(parseLine(seven));
+    assert.match(desc(html), /Not shown, past the six-series limit: S6/);
+  });
+
+  test('a duplicate series name does not stretch the axis with a value nothing draws', () => {
+    const m = parseLine(nested([
+      ['Q1', [['EMEA', '2.4'], ['EMEA', '9.9'], ['APAC', '5']]],
+      ['Q2', [['EMEA', '3.0'], ['EMEA', '1.1'], ['APAC', '6']]],
+    ]));
+    assert.equal(m.max, 6, 'the domain is the DRAWN maximum, not the parsed one');
+    assert.equal(m.min, 2.4);
+  });
+
+  test('one real point across several categories is refused, like one category', () => {
+    // The floor counted CATEGORIES, so a half-filled draft rendered the "lone
+    // dot adrift in an empty box" the refusal is written to prevent.
+    assert.equal(parseLine(flat([['Q1', '4.2'], ['Q2', 'tbc'], ['Q3', 'n/a']])), null);
+    assert.ok(parseLine(flat([['Q1', '4.2'], ['Q2', 'tbc'], ['Q3', '5.0']])));
+  });
+
+  test('an isolated reading gets ONE circle, not two at the same point', () => {
+    const html = build(parseLine(nested([
+      ['Q1', [['A', '1'], ['B', '5']]],
+      ['Q2', [['A', '2']]],
+      ['Q3', [['A', '3'], ['B', '7']]],
+    ])));
+    const circles = (html.match(/<circle/g) || []).length;
+    assert.equal(circles, 5, 'five reported points, five dots');
+  });
+
+  test('a series that stops early says WHEN it stopped', () => {
+    const html = build(parseLine(nested([
+      ['Q1', [['Enterprise', '4.1'], ['Pilot', '1.2']]],
+      ['Q2', [['Enterprise', '4.6'], ['Pilot', '1.4']]],
+      ['Q3', [['Enterprise', '5.2']]],
+      ['Q4', [['Enterprise', '6.0']]],
+    ])));
+    // The label is painted in the right gutter whatever the series does, so the
+    // text has to carry the category or it asserts a Q4 value that never was.
+    assert.match(html, /Pilot 1\.4 at Q2/);
+  });
+
+  test('the description names the trough, not only the peak', () => {
+    const d = desc(build(parseLine(flat([
+      ['Jan', '8.2'], ['Feb', '7.4'], ['Mar', '6.9'], ['Apr', '7.8'], ['Jun', '9.6'],
+    ]))));
+    assert.match(d, /low 6\.9 at Mar/);
+  });
+
+  test('the description names first and last, so a repeating axis is unambiguous', () => {
+    const d = desc(build(parseLine(flat([
+      ['Q1', '1200'], ['Q2', '1200'], ['Q3', '1200'],
+      ['Q4', '1450'], ['Q1', '1450'], ['Q2', '1690'],
+    ])), ['line', 'step']));
+    assert.match(d, /first Q1, last Q2/);
+  });
+
+  test('a stacked total is formatted like every other number on the chart', () => {
+    const d = desc(build(parseLine(nested([
+      ['FY24', [['License', '$6.2M'], ['Support', '$2.8M'], ['Services', '$1.4M']]],
+      ['FY25', [['License', '$5.6M'], ['Support', '$3.4M'], ['Services', '$2.0M']]],
+    ])), ['line', 'stacked-area']));
+    assert.doesNotMatch(d, /Total — \d{7}/, 'never eight bare digits');
+    assert.match(d, /Total — \$1[01](\.\d)?M at FY24/);
   });
 });

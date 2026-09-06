@@ -93,8 +93,8 @@
     }
   ],
   "stressDoc": {
-    "summary": "Six series across twelve quarters with long names, a hole in the data, a negative value and a zero — every axis and label rule at once.",
-    "sample": "<!-- _class: line -->\n\n## Six lines, twelve quarters, one hole and one loss.\n\n- Q1 2024\n  - North America `4.2`\n  - EMEA `3.1`\n  - Asia Pacific `2.4`\n  - Latin America `0.9`\n  - Public Sector `1.4`\n  - Channel Partners `0.6`\n- Q2 2024\n  - North America `4.6`\n  - EMEA `3.3`\n  - Asia Pacific `2.7`\n  - Latin America `1.1`\n  - Public Sector `1.2`\n  - Channel Partners `0.8`\n- Q3 2024\n  - North America `4.4`\n  - EMEA `3.6`\n  - Asia Pacific `3.1`\n  - Latin America `1.0`\n  - Public Sector `0`\n  - Channel Partners `0.9`\n- Q4 2024\n  - North America `5.1`\n  - EMEA `3.9`\n  - Asia Pacific `3.4`\n  - Latin America `1.4`\n  - Public Sector `-0.4`\n  - Channel Partners `1.2`\n- Q1 2025\n  - North America `4.8`\n  - EMEA `4.1`\n  - Asia Pacific `3.9`\n  - Latin America `1.3`\n  - Channel Partners `1.5`\n- Q2 2025\n  - North America `5.4`\n  - EMEA `4.4`\n  - Asia Pacific `4.3`\n  - Latin America `1.6`\n  - Public Sector `0.8`\n  - Channel Partners `1.8`\n"
+    "summary": "Six series across six quarters with long names, a hole in the data, a negative value and a zero — every axis and label rule at once.",
+    "sample": "<!-- _class: line -->\n\n## Six lines, six quarters, one hole and one loss.\n\n- Q1 2024\n  - North America `4.2`\n  - EMEA `3.1`\n  - Asia Pacific `2.4`\n  - Latin America `0.9`\n  - Public Sector `1.4`\n  - Channel Partners `0.6`\n- Q2 2024\n  - North America `4.6`\n  - EMEA `3.3`\n  - Asia Pacific `2.7`\n  - Latin America `1.1`\n  - Public Sector `1.2`\n  - Channel Partners `0.8`\n- Q3 2024\n  - North America `4.4`\n  - EMEA `3.6`\n  - Asia Pacific `3.1`\n  - Latin America `1.0`\n  - Public Sector `0`\n  - Channel Partners `0.9`\n- Q4 2024\n  - North America `5.1`\n  - EMEA `3.9`\n  - Asia Pacific `3.4`\n  - Latin America `1.4`\n  - Public Sector `-0.4`\n  - Channel Partners `1.2`\n- Q1 2025\n  - North America `4.8`\n  - EMEA `4.1`\n  - Asia Pacific `3.9`\n  - Latin America `1.3`\n  - Channel Partners `1.5`\n- Q2 2025\n  - North America `5.4`\n  - EMEA `4.4`\n  - Asia Pacific `4.3`\n  - Latin America `1.6`\n  - Public Sector `0.8`\n  - Channel Partners `1.8`\n"
   },
   "whenToUse": [
     {
@@ -103,7 +103,7 @@
     },
     {
       "title": "Two to six series, named at the end of their own lines",
-      "body": "Past six the categorical palette repeats and the lines stop being distinguishable (Wong 2011). Each series is labelled at its right-hand end in its own color, so the chart carries no key to look away to — consolidate a long tail into ‘Other’ rather than adding a seventh line."
+      "body": "Past six the categorical palette repeats and the lines stop being distinguishable (Wong 2011). Each series is labeled at its right-hand end in its own color, so the chart carries no key to look away to — consolidate a long tail into ‘Other’ rather than adding a seventh line."
     },
     {
       "title": "Four to about twenty-four points",
@@ -161,7 +161,7 @@
     },
     {
       "mistake": "Assuming the value axis always starts at zero, as it does for a bar.",
-      "fix": "A plain `line` or `step` axis floats when the data sits well above zero (it starts at zero once the low point comes within a quarter of it), because forcing zero flattens a real trend into a scratch at the top of the box. The tick column always prints where the axis actually starts. `area` and `stacked-area` always reach zero — the filled region is read as quantity."
+      "fix": "A plain `line` or `step` axis floats when the data sits well above zero (it starts at zero once the low point falls inside the bottom sixth of the range), because forcing zero flattens a real trend into a scratch at the top of the box. The tick column always prints where the axis actually starts. `area` and `stacked-area` always reach zero — the filled region is read as quantity."
     },
     {
       "mistake": "Reordering the series under each category to ‘tidy’ a stacked area.",

@@ -105,9 +105,9 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 <!-- _class: line -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · line — Six series across twelve quarters with long names, a hole in the data, a negative value and a zero — every axis and label rule at once." -->
+<!-- _footer: "Stress test · line — Six series across six quarters with long names, a hole in the data, a negative value and a zero — every axis and label rule at once." -->
 
-## Six lines, twelve quarters, one hole and one loss.
+## Six lines, six quarters, one hole and one loss.
 
 - Q1 2024
   - North America `4.2`

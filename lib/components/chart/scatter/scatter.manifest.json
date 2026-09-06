@@ -79,7 +79,7 @@
   "antiPatterns": [
     {
       "title": "A unitless 2x2 score",
-      "body": "If the axes are 1-to-10 judgements with no unit, and the read is which of four named zones an item lands in, use `quadrant`. It paints and names the four regions, groups items editorially and colors the dots by group — all things a scatter deliberately does not do, because a real scale has no quadrants in it."
+      "body": "If the axes are 1-to-10 judgments with no unit, and the read is which of four named zones an item lands in, use `quadrant`. It paints and names the four regions, groups items editorially and colors the dots by group — all things a scatter deliberately does not do, because a real scale has no quadrants in it."
     },
     {
       "title": "A trend line over a handful of points",
@@ -149,11 +149,11 @@
   "commonMistakes": [
     {
       "mistake": "Splitting a point's two numbers into one comma-separated pill, `` `4.2, 8.1` ``, the way `quadrant` takes them.",
-      "fix": "A scatter takes TWO separate pills — `` `4.2` `8.1` `` — because each axis carries its own unit and its own affix (`$420k` on x, `18%` on y), which one shared pill cannot express. A single pill parses as x only and the point plots against a missing y."
+      "fix": "A scatter takes TWO separate pills — `` `4.2` `8.1` `` — because each axis carries its own unit and its own affix (`$420k` on x, `18%` on y), which one shared pill cannot express. An item without two numeric pills is skipped rather than plotted, so the point disappears from the chart and from its description."
     },
     {
       "mistake": "Expecting the axes to start at zero.",
-      "fix": "They do not, and that is deliberate. The domain is the data's own range plus about 8% of air. Two measures with narrow ranges — margin 38-44%, NPS 51-58 — forced to include zero collapse into one corner and the relationship disappears. The padding stops at zero for a non-negative series, so an axis never invents a negative tick."
+      "fix": "They do not, and that is deliberate. The domain is the data's own range plus about 8% of air. Two measures with narrow ranges — margin 38-44%, NPS 51-58 — forced to include zero collapse into one corner and the relationship disappears. A non-negative series still gets its air below zero — a bubble sitting at zero has to fit inside the plot — but its axis never prints a negative tick."
     },
     {
       "mistake": "Writing the axis names as a normal one-pill eyebrow, `` `Cost vs value` ``.",
@@ -165,7 +165,7 @@
     },
     {
       "mistake": "Encoding a third measure in the dot's RADIUS.",
-      "fix": "`bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. It also needs a size key, which is why the third inline-code span on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide."
+      "fix": "`bubble` scales AREA, never radius, because radius-encoding overstates by the square: double the number and a radius-scaled dot looks four times the quantity. The area runs linearly from a minimum visible size, so the smallest value is still a circle you can see, and a point with no third pill is drawn at that floor and flagged rather than given a magnitude nobody typed. It also needs a size key, which is why the third inline-code span on the axis line names the measure. Past about ten bubbles the areas stop being comparable at all — split the slide."
     }
   ],
   "dataShapeGuidance": [

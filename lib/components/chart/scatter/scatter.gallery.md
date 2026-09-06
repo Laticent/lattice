@@ -165,7 +165,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 ## When NOT to reach for scatter.
 
 - A unitless 2x2 score
-  - If the axes are 1-to-10 judgements with no unit, and the read is which of four named zones an item lands in, use `quadrant`. It paints and names the four regions, groups items editorially and colors the dots by group — all things a scatter deliberately does not do, because a real scale has no quadrants in it.
+  - If the axes are 1-to-10 judgments with no unit, and the read is which of four named zones an item lands in, use `quadrant`. It paints and names the four regions, groups items editorially and colors the dots by group — all things a scatter deliberately does not do, because a real scale has no quadrants in it.
 - A trend line over a handful of points
   - `scatter trend` fits a least-squares line, and under five points it refuses to draw one — a line through four dots is nearly interpolation and asserts a rigor the data has not got. Even at eight, the line says 'these move together', not 'this predicts that'. If the audience will read it as a forecast, drop the variant and let the dots speak.
 - Points closer together than the eye can separate

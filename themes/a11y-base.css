@@ -310,7 +310,7 @@ section.funnel .funnel-band:nth-of-type(6n+6) { fill: url(#latt-a11y-chart-tex-6
 :is(section.bar, figure.chart-frame) .bar-mark[data-cat="0"],
 :is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="0"],
 :is(section.line, figure.chart-frame) :is(.line-area, .line-band)[data-cat="0"],
-:is(section.scatter, figure.chart-frame) :is(.scatter-dot, .scatter-bubble)[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+:is(section.scatter, figure.chart-frame) :is(.scatter-dot, .scatter-bubble, .scatter-size-ring)[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
 :is(section.bar, figure.chart-frame) .bar-mark[data-cat="1"],
 :is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="1"],
 :is(section.line, figure.chart-frame) :is(.line-area, .line-band)[data-cat="1"] { fill: url(#latt-a11y-chart-tex-2) !important; }

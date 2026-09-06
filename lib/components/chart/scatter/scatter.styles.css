@@ -55,6 +55,15 @@
   stroke-width: 0.7;
 }
 
+/* A BUBBLE WITH NO MAGNITUDE. `bubble` needs a third pill per point; a point
+ * without one has no area to encode, and drawing it as a filled bubble at the
+ * floor made "unknown" read as "the smallest value on the chart". Hollow says
+ * what it is: the position is real, the area is not data. */
+:is(section.scatter, figure.chart-frame) .scatter-bubble[data-size="none"] {
+  fill: none;
+  stroke-dasharray: 2 1.6;
+}
+
 /* The trend line is deliberately the quietest thing on the plot that is not
  * chrome: dashed, thin, and muted. It is an inference drawn over the data, not
  * data — a solid accent rule would assert more than a least-squares fit over a
