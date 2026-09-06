@@ -4,33 +4,27 @@
   starting cold — the compute kit answers the data kit's "every derived copy
   rebuilds unattended" with the thing that runs the rebuild, the scale kit shows
   the cache and the replica returning as scaling moves, the security kit asks
-  reliability's fail-apart question about credentials. Backward references inside
-  Part four go from one slide to seven; the six kit openings go from zero bridges
-  to six.
+  reliability's fail-apart question about credentials. None of the six referred
+  to an earlier section before; all six do now.
 - **The deck's protagonist comes back for Parts three and six.** Maya, who opens
-  the deck and then disappeared for 179 slides, now carries three load-bearing
-  references in Part three (the twelve-minute build as three requests wearing one
-  sentence; two candidates for a ceiling and only one that stopped PR 482; where
-  her Tuesday sat on the four-movement arc) and two in Part six (nothing that
-  broke her day was load either; the manual part gives out before the machine).
-  Per-part spine coverage: Part three 0/13 → 3/13, Part six 0/20 → 2/20.
-- **Fixed: two `cards-stack` bodies spilled past their card onto the card below**
-  (slides 162 and 192, plus the one on 203 that this change rewrote anyway). A
-  stack card is a fixed height, so a body that wraps to a second line paints
-  over the next card's border — and nothing catches it: the slide does not clip
-  at the frame, so the export's overflow oracle stays green and `lint:deck` only
-  ever warns. Found by looking at the rendered pages.
-- **Six new ask-then-answer exercises break Part four's drought.** The reader
-  used to produce an answer twice in that part's 96 slides, with stretches of 41
-  and 51 slides where they only read. Every kit now closes with one — run the
-  data tree's first question on three teams; take or refuse three writes under a
-  partition; place three workloads on a runtime; spend a Sydney reader's latency
-  budget; size a pool with Little's law, then break it in both directions; say
+  the deck, was last named on slide 159 and not again until the closing slide —
+  a run of 60 slides. She now carries three load-bearing references in Part three
+  (the twelve-minute build as three requests at three rungs; two candidates for a
+  ceiling and only one that stopped PR 482; where her Tuesday sat on the
+  four-movement arc) and two in Part six (nothing that broke her day was load
+  either; the manual part gives out before the machine). Per-part coverage:
+  Part three 0/13 → 3/13, Part six 0/20 → 2/20.
+- **Six new ask-then-answer exercises break Part four's drought.** That part ran
+  96 slides with four `Your turn` slides in it, three of them in the last seven,
+  so the reader read 51 slides between the data kit's exercise and the security
+  kit's. Every kit now closes with one — run the data tree's first question on
+  three teams; take or refuse three writes under a partition; place three
+  workloads on a runtime; spend a latency budget on three cross-continent round
+  trips; size a pool with Little's law, then break it in both directions; say
   what a page does when three dependencies go slow rather than down. The longest
   stretch without the reader producing something drops from 51 slides to 20.
 - **Part seven now closes the loop the deck opened on.** The first eleven slides
-  are a Tuesday that fails — pull request 482 does not merge — and the deck then
-  dropped that thread for 195 slides. A new slide before "What to do on Monday"
-  says what would have made Tuesday different, in the deck's own vocabulary: a
-  bounded pool of one, a deadline nothing inherited, and admission control made
-  twenty minutes too late.
+  are a Tuesday that fails — pull request 482 does not merge — and 482 was then
+  never mentioned again. A new slide before "What to do on Monday" says what
+  would have made Tuesday different, in the deck's own vocabulary: a bounded pool
+  of one, a deadline nothing inherited, and admission control twenty minutes late.

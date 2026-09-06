@@ -694,7 +694,7 @@ The second line is the hard one. If you cannot put a number on W, you have just 
 
 The same words — design a photo sharing app — have five legitimate answers that share almost no architecture. A build that takes a week and a build that takes two years are both correct, for different questions.
 
-Maya's team says the twelve-minute build is too slow. That is three requests wearing one sentence: rent a faster runner, profile the slow step, or write a build system that knows this repository. Nobody said which, so nobody did any of them.
+Ask for Maya's twelve-minute build to be made faster and you have said three things at three different rungs: rent a bigger runner, profile the slow step, or write a build system that knows this repository. Until somebody says which, nobody does any of them.
 
 Gall's law says it plainly: a complex system that works is invariably found to have evolved from a simple system that worked. You climb this ladder. You do not parachute onto it.
 
@@ -889,7 +889,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 4. Deliver
    - Ship it and watch it. The running system names the field you guessed.
 
-> Every exercise here asks you to discover and to design. The other two, where Maya spent Tuesday, are yours.
+> Every exercise from here asks you to discover and to design. Maya's Tuesday was the other two.
 
 ---
 
@@ -1105,14 +1105,14 @@ Answer the tree's first question for each, and only walk further if it says yes.
 
 `One answer`
 
-## The first question sends two of the three home.
+## The first question sends two of the three home, and nobody has named a store yet.
 
 1. Payroll, four thousand employees
    - No. Thirty tables and questions nobody has asked yet are the case relational was built for, and four thousand rows is not a size. The tree stops here.
 2. Four hundred thousand samples a second
-   - Yes. One machine's writes are gone, joins are not needed, and series plus time range is a partition plus a range. Wide-column.
+   - Yes. No single machine takes four hundred thousand writes a second, so the tree walks on — joins next, then the shape questions decide the store.
 3. Nine thousand users
-   - No, and "will not scale" is not a measurement. The tree wants a table that outgrew a machine, not a feeling. Move up a rung on evidence.
+   - No, and "will not scale" is not a measurement. The tree wants a table that outgrew a machine; you have brought it a feeling.
 
 ---
 
@@ -1413,7 +1413,7 @@ For each, say whether you take the write or refuse it while the link is down, an
 
 `One answer`
 
-## Only one of the three may refuse, and only one pays for a round trip.
+## Two of the three take the write. The third refuses, and pays for it every day after.
 
 1. A like
    - Take it. Eventual is correct: two replicas disagreeing about a count for a second costs nothing, and refusing costs you a user.
@@ -1734,14 +1734,14 @@ Name the runtime, and the invariant each one fails first if you get it wrong. Th
 
 `One answer`
 
-## Idle is the whole argument for one of them, and irrelevant to the other two.
+## Two of them are decided by the shape of the work. The third is decided by the idle.
 
 1. The nightly report
    - A machine on a schedule. Forty minutes outlives the runtime cap on most functions, and one long run is not spiky. The invariant it fails first: capacity is a number somebody owns.
 2. Three thousand a second, six deploys a day
    - Containers behind a balancer — many teams, frequent deploys, one packaging story. It fails "any instance can be killed" the moment somebody keeps a session in memory.
 3. A few hundred thumbnails
-   - A function on the upload event. Idle is most of the day and costs nothing, and the cold start it charges you for is one nobody is waiting on.
+   - A function on the upload event. Idle is most of the day and costs nothing, and the cold start it charges for is one nobody is waiting on. The invariant it fails first: startup does not depend on startup order — it fires when the event does, not when the rest of your system is ready.
 
 ---
 
@@ -1907,7 +1907,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 `Your turn`
 
-## A reader in Sydney opens a page served from Virginia. Say where the budget goes.
+## A reader in Frankfurt opens a page served from Virginia. Say where the budget goes.
 
 The page has 400 milliseconds. Loading it costs three sequential cross-continent round trips — the page itself, then an API call it depends on, then an image nothing knew about until the first two came back — plus about 60 milliseconds of work inside your own datacenter.
 
@@ -1926,7 +1926,7 @@ Add it up, name the one change that buys back the most, and say what that change
 2. The move
    - End the connection near the reader. A CDN serves the page and the image from the edge; the API call is the one that still has to cross. Three round trips become one.
 3. What it costs
-   - A second copy with its own staleness, and a purge you have to time. Nothing makes distance free — the CDN only stops you paying for it three times.
+   - You now keep the page in two places, and the edge copy is only as fresh as your last purge. The distance did not go away; you stopped paying it three times.
 
 ---
 
@@ -2117,11 +2117,11 @@ Second: say what happens with an unbounded pool, and what happens with the pool 
 ## One number, then two failures that look nothing alike.
 
 1. In flight at once
-   - `1,200 × 0.04` is 48. That is the floor on concurrency, and no tuning moves it while the other two numbers hold.
+   - `1,200 × 0.04` is 48. Arrivals and service time are both givens here, so 48 is arithmetic, not a setting you can tune down.
 2. Unbounded
    - `1,200 × 0.16` is 192 in flight. The machine you sized for 48 runs out of memory, and nothing warned you on the way.
 3. Bounded at 48
-   - Concurrency cannot rise, so throughput falls to `48 / 0.16`, about 300 a second against 1,200 still arriving. The queue in front grows until something sheds it.
+   - Concurrency cannot rise, so throughput falls to `48 / 0.16`, about 300 a second against 1,200 still arriving. Nine hundred a second pile up in front, and nothing stops that except shedding them.
 
 ---
 
@@ -3734,11 +3734,11 @@ So take one design you made in these pages and build the smallest version of it 
 ## 482 was not blocked by the build. It was blocked by a queue.
 
 1. The queue had one server
-   - Five pull requests, one reviewer, one waking hour: a bounded pool of one. Throughput is capped, so the queue in front grows until something sheds it. That number was set when the team decided one person reviews everything.
+   - Five pull requests, one reviewer, one waking hour: a bounded pool of one. Throughput is capped, so the queue in front grows. Nobody had written that ceiling down anywhere.
 2. Nothing inherited a deadline
-   - The window shut at four, and nothing downstream of it carried a shorter one. The network kit's first invariant is that a call inherits its deadline from the caller and always shorter — the review never got one, so nothing said it was late until it was.
+   - The window shut at four, and nothing downstream of it carried a shorter one. The network kit's first invariant says a call inherits its deadline from the caller, and inherits a shorter one. The review never got one, so nothing said it was late until it was.
 3. The one move she had, she made late
-   - At 15:50 she stopped answering and batched the replies. That is admission control, from the scale kit. The spiral started at 15:30, and those twenty minutes were the twenty she needed at four.
+   - At 15:50 she stopped answering and batched the replies — admission control, from the scale kit. The spiral had run since 15:30, and those twenty minutes came out of the one hour that decided the day.
 
 ---
 
