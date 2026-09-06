@@ -1,3 +1,9 @@
+- **Added: describe a drawing in words, or bring one you already have.** The Motion tab's front door
+  now carries the same command bar as Theme, Component and Finish: say what you want drawn and a
+  model draws it, ready to choreograph. It asks for outlined line art in your palette's colors —
+  which is exactly what draws itself well — and the result goes through the same reading and
+  reporting a pasted drawing does, so you see what was kept and what was removed either way. With no
+  model connected the bar says so and offers to connect one; pasting still works untouched.
 - **Added: Fabricate has a fourth faculty — **Motion**, which crafts a drawing that moves.** Bring an
   SVG (paste it, or drop the file), and it finds the drawing's parts, you give each one a beat, and it
   plays. Name it and **Save** puts it on your Library shelf beside your themes, components and

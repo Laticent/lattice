@@ -16,7 +16,7 @@ async function openMotion(page: import('@playwright/test').Page) {
 	await page.getByRole('menuitem', { name: 'Fabricate' }).click();
 	await expect(page.getByRole('button', { name: 'Back to Compose' })).toBeVisible();
 	await page.getByRole('button', { name: 'Motion', exact: true }).first().click();
-	await expect(page.getByRole('heading', { name: 'Bring a drawing' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Start a drawing' })).toBeVisible();
 }
 
 test.describe('Fabricate → Motion', () => {
@@ -28,6 +28,21 @@ test.describe('Fabricate → Motion', () => {
 		await box.focus();
 		await expect(box).toBeFocused();
 		await expect(page.getByRole('button', { name: /try an example/i })).toBeVisible();
+	});
+
+	test('Describe is offered and degrades honestly with no model connected', async ({ page }) => {
+		await openMotion(page);
+		// The faculty's second on-ramp — the same command bar its three siblings ship.
+		const bar = page.getByLabel('Describe a drawing');
+		await expect(bar).toBeVisible();
+		// No model is connected in a fresh profile, so the field is disabled and the way IN is offered
+		// rather than a dead button: this is the "no dead controls" rule doing its job, not an absence.
+		await expect(bar).toBeDisabled();
+		await expect(page.getByRole('button', { name: 'Connect a model' })).toBeVisible();
+		await expect(page.getByText(/Connect a model to describe a drawing/)).toBeVisible();
+		// And Bring is still right there — Describe is a second door, not a gate in front of the first.
+		await expect(page.getByLabel('Paste SVG markup')).toBeEnabled();
+		await page.screenshot({ path: 'test-results/motion-empty.png' });
 	});
 
 	test('a pasted drawing becomes named parts, a receipt, and a plan that already plays', async ({ page }) => {

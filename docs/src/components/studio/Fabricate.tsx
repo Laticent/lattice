@@ -942,7 +942,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
-				<MotionStudio seed={seed?.kind === 'motion' ? seed.record : null} savedScenes={savedScenes} notify={notify} onSaved={onSaved} onInsert={onInsert} />
+				<MotionStudio seed={seed?.kind === 'motion' ? seed.record : null} savedScenes={savedScenes} notify={notify} onSaved={onSaved} onInsert={onInsert} onOpenWorkspace={onOpenWorkspace} />
 			</div>
 		);
 	}

@@ -633,6 +633,93 @@ export async function generateFinish(prompt: string): Promise<FinishGenOutcome> 
 	return { status: 'ok', recipe: parsed.recipe, name: parsed.name };
 }
 
+// ── Motion faculty: "Describe a drawing" ───────────────────────────────────
+// The Describe on-ramp of `2026-07-19-anima-svg-first-cut-zdog.md` §4.2, which that
+// note flagged UNVERIFIED and the craft ADR deferred to v2.
+//
+// UNLIKE ITS THREE SIBLINGS, THIS ONE RETURNS RAW MARKUP — and that is safe here for a
+// reason the others do not have. Theme and Finish return a structured recipe precisely so
+// model text never reaches a same-origin frame; Motion cannot, because an SVG IS the
+// artifact. What makes it safe is that a model's SVG is untrusted in exactly the way a
+// PASTED one is, and the faculty already has a doorway built for that: the caller hands
+// this straight to `svg-intake`'s `intake()`, which sanitizes (HARD RULE #22), strips
+// every off-origin fetch, namespaces the ids and reports what it did. Describe adds a
+// SOURCE, not a security surface — which is why v1 shipping Bring first was worth doing.
+//
+// THE PROMPT IS THE MEASUREMENT. Measured over this repo's own non-flag SVGs, 74% of
+// geometry carries no stroke — and a filled shape cannot be drawn, because drawing traces
+// an outline. So the engine is best at exactly the thing a model is good at producing on
+// request: open, stroked line art in palette tokens. Asking for that is not a stylistic
+// preference; it is asking for the input the draw channel can actually animate.
+const DRAWING_SYSTEM = [
+	'You draw SVG line art for presentation slides. Return ONE <svg> element and nothing else — no prose, no markdown fence, no <script>, no <style>.',
+	'',
+	'HARD REQUIREMENTS:',
+	'1. STROKED, NOT FILLED. Every shape carries stroke="var(--token)" and fill="none". A filled shape cannot be drawn stroke-by-stroke, which is the whole point of the medium.',
+	'2. COLORS ARE TOKENS ONLY: var(--accent), var(--cat-2-mark) … var(--cat-8-mark), var(--text-muted), var(--text-heading). Never a hex code, never a color name. The deck supplies the palette.',
+	'3. EVERY SHAPE CARRIES A MEANINGFUL id, in kebab-case, naming what it depicts — id="first-stage", id="feedback-arrow". These become the parts a person choreographs, so "path1" is useless to them.',
+	'4. A viewBox on the root, roughly 16:9 or 3:1. No width/height attributes.',
+	'5. Between 3 and 12 shapes. Fewer than 3 has no order to reveal; more than 12 is a diagram nobody can read at the back of a room.',
+	'6. Use <title> as the FIRST child of the root to name the whole drawing in a few words.',
+	'',
+	'Prefer rect, circle, ellipse, line, polyline and path. Keep stroke-width between 2 and 4. Leave generous margins inside the viewBox.',
+].join('\n');
+
+export type DrawingGenOutcome = { status: 'ok'; svg: string } | { status: 'offline' } | { status: 'blocked'; note: string } | { status: 'nochange'; note: string };
+
+/**
+ * Ask a model for a drawing to choreograph. Honest like the rest: `offline` with no model
+ * connected, `blocked` at the spend cap, `nochange` for an empty prompt or a reply with no
+ * usable `<svg>` in it — never a fabricated drawing.
+ *
+ * The markup is returned RAW and un-sanitized on purpose: sanitizing here would be a second
+ * boundary that could drift from the one `intake()` owns, and #22's lesson is that the guard
+ * belongs at ONE chokepoint. The caller is `MotionStudio`, and it has exactly one way in.
+ */
+export async function generateDrawing(prompt: string): Promise<DrawingGenOutcome> {
+	if (!prompt.trim()) return { status: 'nochange', note: 'Describe a drawing to generate one.' };
+	const model = await architectModel();
+	if (!model) return { status: 'offline' };
+	const generation = model.availability().generation;
+	if (generation === 'floor') return { status: 'offline' };
+	if (generation === 'openrouter') {
+		const blk = cloudBudgetBlock(model, prompt);
+		if (blk) return { status: 'blocked', note: blk };
+	}
+	let reply = '';
+	try {
+		reply = await model.complete({
+			messages: [
+				{ role: 'system', content: DRAWING_SYSTEM },
+				{ role: 'user', content: `Draw: ${prompt.trim()}` },
+			],
+			fallback: '',
+			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+		});
+	} catch {
+		return { status: 'offline' };
+	}
+	const svg = extractSvg(reply);
+	if (!svg) return { status: 'nochange', note: 'The model returned no usable drawing.' };
+	return { status: 'ok', svg };
+}
+
+/**
+ * Pull the first complete `<svg>…</svg>` out of a reply that may be fenced or chatty.
+ *
+ * Deliberately dumb: it finds a span and hands it on. It does NOT validate, repair or
+ * sanitize — `intake()` does all three, and a second opinion here would be a second place
+ * for the rules to drift. Exported for unit tests.
+ */
+export function extractSvg(reply: string): string | null {
+	const text = String(reply || '');
+	const open = text.search(/<svg[\s>]/i);
+	if (open < 0) return null;
+	const close = text.toLowerCase().lastIndexOf('</svg>');
+	if (close <= open) return null;
+	return text.slice(open, close + 6);
+}
+
 // Pull the first JSON object out of a (possibly fenced) reply and shape it into a
 // recipe-ish object. Validation/clamping to the closed vocab is the CALLER's job
 // (finish-generate's coerceRecipe) — here we only extract + lightly normalize.

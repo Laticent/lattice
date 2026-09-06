@@ -15,12 +15,14 @@
 //
 // Design: `engineering/decisions/2026-09-06-fabricate-motion-design.md`.
 
-import { Check, Clipboard, Download, Loader2, Upload } from 'lucide-react';
+import { ArrowUp, Check, Clipboard, Cloud, Download, Loader2, Sparkles, Upload } from 'lucide-react';
 import * as React from 'react';
+import { connectOpenRouter, generateDrawing, useArchitectStatus } from '@/components/studio/architect';
 import { REFUSAL_PREFIX } from '@/components/studio/library/asset-store.js';
 import { findNameClash } from '@/components/studio/library/save-guard';
 import { type StudioScene, saveStudioScene, slugify } from '@/components/studio/scene-library';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tip } from '@/components/ui/tooltip';
 import type { Scene } from '@/lib/anima';
 import { cn } from '@/lib/utils';
@@ -49,11 +51,13 @@ export function MotionStudio({
 	notify,
 	onSaved,
 	onInsert,
+	onOpenWorkspace,
 }: {
 	seed?: StudioScene | null;
 	savedScenes?: { id: string; name: string }[];
 	notify: (msg: string) => void;
 	onSaved?: () => void;
+	onOpenWorkspace?: () => void;
 	/** Write the crafted asset into the current deck. Separate from Save on purpose: crafting and
 	 *  placing are different intents, and the Library card carries Insert too. */
 	onInsert?: (markdown: string, name: string) => void;
@@ -78,6 +82,8 @@ export function MotionStudio({
 	/** `pathRef`s the plan carries that the drawing no longer has. Shown, never dropped — silently
 	 *  losing a user's choreography is the §7c data-loss lesson wearing a different hat. */
 	const [missing, setMissing] = React.useState<{ pathRef: string; label: string }[]>([]);
+	const [describe, setDescribe] = React.useState('');
+	const [generating, setGenerating] = React.useState(false);
 	/** Set when Replace sent us back to the paste pane — the next intake RECONCILES instead of resetting. */
 	const [replacing, setReplacing] = React.useState<IntakePart[] | null>(null);
 	/** A saved plan whose windows do not quantize to beats. Shown read-only rather than re-timed. */
@@ -136,6 +142,37 @@ export function MotionStudio({
 			}, 0);
 		},
 		[notify],
+	);
+
+	// DESCRIBE — the second on-ramp, and it needs no second doorway.
+	//
+	// A model's SVG is untrusted in exactly the way a pasted one is, so it goes through the SAME
+	// `load` → `intake()` path: sanitized, stripped of every off-origin fetch, id-namespaced, and
+	// reported in the same receipt. That is why Bring shipped first — it built the door this walks
+	// through, and Describe adds a source rather than a security surface.
+	const runDescribe = React.useCallback(
+		async (text: string) => {
+			if (!text.trim() || generating) return;
+			setGenerating(true);
+			setRefusal('');
+			try {
+				const out = await generateDrawing(text);
+				if (out.status === 'ok') {
+					load(out.svg, replacing);
+					setDescribe('');
+					notify('Drew it — now give its parts their beats.');
+				} else if (out.status === 'offline') {
+					setRefusal('No model is connected. Connect one to describe a drawing — or paste an SVG you already have.');
+				} else {
+					setRefusal(out.note);
+				}
+			} catch {
+				setRefusal('That drawing could not be generated — please try again.');
+			} finally {
+				setGenerating(false);
+			}
+		},
+		[generating, load, notify, replacing],
 	);
 
 	// Reopening a saved asset is a DERIVATION, not a stored blob — `sceneToPlan` inverts the mapping,
@@ -288,6 +325,12 @@ export function MotionStudio({
 					setPaste={setPaste}
 					busy={busy}
 					replacing={!!replacing}
+					describe={describe}
+					setDescribe={setDescribe}
+					generating={generating}
+					onDescribe={runDescribe}
+					onOpenWorkspace={onOpenWorkspace}
+					notify={notify}
 					onCancel={replacing ? () => { setReplacing(null); setPaste(''); } : undefined}
 					onLoad={(raw) => load(raw, replacing)}
 					onExample={() => load(EXAMPLE_SVG, false)}
@@ -375,14 +418,16 @@ export function MotionStudio({
 
 /** The front door. A real `<textarea>`, not a div with a paste handler, so Cmd-V works, the field is
  *  labeled, and a keyboard or screen-reader user reaches it by Tab. */
-function Empty({ paste, setPaste, busy, replacing, onCancel, onLoad, onExample }: { paste: string; setPaste: (v: string) => void; busy: boolean; replacing?: boolean; onCancel?: () => void; onLoad: (raw: string) => void; onExample: () => void }) {
+function Empty({ paste, setPaste, busy, replacing, describe, setDescribe, generating, onDescribe, onOpenWorkspace, notify, onCancel, onLoad, onExample }: { paste: string; setPaste: (v: string) => void; busy: boolean; replacing?: boolean; describe: string; setDescribe: (v: string) => void; generating: boolean; onDescribe: (text: string) => void; onOpenWorkspace?: () => void; notify: (msg: string) => void; onCancel?: () => void; onLoad: (raw: string) => void; onExample: () => void }) {
 	const [over, setOver] = React.useState(false);
+	const status = useArchitectStatus();
+	const modelReady = status.ready;
 	return (
 		// A labelled REGION rather than a bare div: dropping a file is a pointer-only affordance that
 		// duplicates the two keyboard paths inside it — the labelled textarea and the file input — so
 		// the region itself needs no keyboard handler, and naming it keeps it in the a11y tree.
 		<section
-			aria-label="Bring a drawing"
+			aria-label="Start a drawing"
 			onDragOver={(e) => { e.preventDefault(); setOver(true); }}
 			onDragLeave={() => setOver(false)}
 			onDrop={(e) => {
@@ -395,11 +440,11 @@ function Empty({ paste, setPaste, busy, replacing, onCancel, onLoad, onExample }
 		>
 			<div className={cn('flex w-full max-w-[520px] flex-col gap-3 rounded-xl border-2 border-dashed p-5', over ? 'border-[var(--accent)]' : 'border-border')}>
 				<div>
-					<h2 className="text-[15px] font-semibold text-[var(--text-heading)]">{replacing ? 'Replace the drawing' : 'Bring a drawing'}</h2>
+					<h2 className="text-[15px] font-semibold text-[var(--text-heading)]">{replacing ? 'Replace the drawing' : 'Start a drawing'}</h2>
 					<p className="text-[12.5px] leading-relaxed text-muted-foreground">
 						{replacing
 							? 'Paste the edited drawing. We match its parts to the running order you already have and tell you what moved, what is new and what is gone — nothing is thrown away silently.'
-							: 'Paste SVG markup below, or drop a .svg file anywhere on this panel. We find its parts, you give each one a beat, and it plays.'}
+							: 'Describe one in words, or bring one you already have. We find its parts, you give each one a beat, and it plays.'}
 					</p>
 					{!replacing && (
 						<p className="text-[11.5px] leading-relaxed text-muted-foreground">
@@ -407,6 +452,69 @@ function Empty({ paste, setPaste, busy, replacing, onCancel, onLoad, onExample }
 						</p>
 					)}
 				</div>
+				{/* DESCRIBE — the same command bar the three sibling faculties ship, degrading the same
+				    honest way when no model is connected. It asks the model for stroked line art in
+				    palette tokens because that is measurably what this engine draws well, and its reply
+				    goes through the same `intake()` a paste does — so it adds a SOURCE, not a second
+				    security surface. */}
+				{!replacing && (
+					<div className={cn('flex items-center gap-2.5 rounded-[10px] border bg-background px-3 py-2', modelReady ? 'border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]' : 'border-dashed border-border')}>
+						<Sparkles className={cn('size-4 shrink-0', modelReady ? 'text-[var(--accent)]' : 'text-muted-foreground')} />
+						<input
+							value={describe}
+							onChange={(e) => setDescribe(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === 'Enter') onDescribe(describe);
+							}}
+							disabled={generating || !modelReady}
+							placeholder="Describe a drawing — e.g. “a review loop”"
+							aria-label="Describe a drawing"
+							className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-heading)] outline-none placeholder:text-muted-foreground disabled:opacity-60"
+						/>
+						{modelReady ? (
+							<button type="button" onClick={() => onDescribe(describe)} disabled={generating || !describe.trim()} aria-label="Generate drawing" className="grid size-7 shrink-0 place-items-center rounded-md bg-[var(--accent)] text-[var(--on-accent,#fff)] disabled:opacity-40">
+								{generating ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+							</button>
+						) : (
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<button type="button" aria-label="Connect a model" className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[12px] font-semibold text-[var(--on-accent,#fff)]">
+										<Cloud className="size-3.5" />
+										Connect
+									</button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end" className="w-60">
+									<DropdownMenuItem
+										onSelect={() => {
+											connectOpenRouter().catch(() => notify('Could not start the OpenRouter connect flow — try Workspace.'));
+										}}
+									>
+										<Cloud className="size-4" />
+										<div>
+											<div className="font-semibold text-[var(--text-heading)]">Connect cloud</div>
+											<div className="text-[11px] text-muted-foreground">OpenRouter — your own key</div>
+										</div>
+									</DropdownMenuItem>
+									<DropdownMenuItem onSelect={() => onOpenWorkspace?.()}>
+										<Sparkles className="size-4" />
+										<div>
+											<div className="font-semibold text-[var(--text-heading)]">Use on-device</div>
+											<div className="text-[11px] text-muted-foreground">Runs locally, free — via Workspace</div>
+										</div>
+									</DropdownMenuItem>
+									<DropdownMenuSeparator />
+									<DropdownMenuItem onSelect={() => onOpenWorkspace?.()}>Open Workspace…</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						)}
+					</div>
+				)}
+				{!replacing && (
+					<p className="text-[11px] leading-snug text-muted-foreground">
+						{modelReady ? 'Or bring one you already have:' : 'Connect a model to describe a drawing in words — or bring one you already have:'}
+					</p>
+				)}
+
 				<textarea
 					value={paste}
 					onChange={(e) => setPaste(e.target.value)}

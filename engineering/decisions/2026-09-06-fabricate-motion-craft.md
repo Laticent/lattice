@@ -176,7 +176,21 @@ FINAL frame — the finished drawing — because a half-drawn diagram is not a f
 > **UNVERIFIED** until the proof gate shows a real model producing on-brand, choreographable SVG at
 > the bar — this is the make-or-break assumption of the whole pivot.
 
-**v1 leads with Bring.** Paste or drop an SVG → auto-id its parts → choreograph → preview → save to
+**v1 leads with Bring — and DESCRIBE shipped with it.** The sequencing below still holds and is why
+Bring was built first: it is the on-ramp that cannot fail on an unverified assumption, and building
+it built the DOORWAY — the sanitize / strip / namespace / report pass in `svg-intake`. Describe then
+cost almost nothing, because a model's SVG is untrusted in exactly the way a pasted one is and goes
+through that same door. It adds a SOURCE, not a security surface.
+What changed the calculus was a measurement taken after this note was written: 74% of the geometry in
+this repo's own non-flag SVGs carries no stroke, and a filled shape cannot be drawn. So the engine is
+best at precisely the input a model is good at producing on request — open, stroked line art in
+palette tokens — which makes Describe the SUPPLY of the only input Bring is strong on, rather than a
+nice-to-have layered on top. Shipping Bring alone would have shipped the demand side of that pair.
+The proof gate §4.2 asks for is therefore still owed: nothing here verifies that a real model returns
+on-brand choreographable SVG at the bar. What ships is the on-ramp, the prompt that encodes the
+measurement, and honest degradation when no model is connected.
+
+Paste or drop an SVG → auto-id its parts → choreograph → preview → save to
 the Library → insert from its card (§10.2: those last two are separate acts). It is certain to work, it exercises the choreograph surface and the entire Library
 lifecycle, and it hardens the sanitize boundary — so Describe later lands on a proven surface
 instead of being the thing that has to work first. Describe is v2 and gets its own proof gate.
