@@ -336,6 +336,14 @@ run.
   rather than widening this one. That PR also carries the end-to-end oracle §6 says is follow-up
   work.
 
+- **The lint gutter's Quick fix is reachable only by HOVER, so a touch author cannot take it.**
+  Found by running this file at a tablet viewport with `hasTouch` — the walk's `quickFix` op
+  drives `.cm-lint-marker` with `hover()`, which a coarse pointer has no equivalent for, and the
+  action popup never opens. The op now skips on a no-hover context rather than asserting a path
+  a finger cannot take. The affordance itself is pre-existing (#562's inline validation), it is
+  off this change's path, and fixing it means giving the marker a tap target — its own change.
+  Everything else in the pane holds at 820px with touch: 9/9.
+
 - **The Studio's slide list does not model `split: headings`, and that is the largest thing in
   this note.** `split: headings` is the DEFAULT register (`lib/core/resolve-split.js`): "a deck
   divides on its outline with no separators to forget". `lib/core/slide-boundaries.mjs` — which
