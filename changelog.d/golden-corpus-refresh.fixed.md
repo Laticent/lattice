@@ -61,3 +61,11 @@
   that had already been cleaned up. That is the exact pairing a golden refresh performs, and it
   cost a full debugging cycle before the pre-push hook caught it with the filename attached.
   Dotfiles are now excluded; 306 committed decks are still enumerated.
+- **Also blessed: `list-tabular`'s gallery pair, whose drift arrived from #2066 mid-review.** The
+  `{LABEL}` pill work moved the trailing meta column down by exactly 0.75pt and its committed
+  golden predates that. Established as real geometry rather than cross-host rasterization by
+  comparing the PDF TEXT LAYER's bounding boxes: the x-coordinates are byte-identical and every
+  affected value's y shifted by the same 0.75pt — a difference in rasterization cannot move a
+  text-layer coordinate at all. This branch touches no `list-tabular` file, so the drift
+  reproduces on `main`; it is blessed here because this is the PR whose subject is corpus
+  freshness, and merging it while knowingly leaving a stale golden would falsify its own claim.
