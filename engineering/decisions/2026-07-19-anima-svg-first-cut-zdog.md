@@ -34,6 +34,10 @@ summary: >
 companion:
   - ./2026-07-17-anima-animation-library.md
   - ./2026-07-18-anima-motion-faculty-modes.md
+  # §4 ("The Fabricate evolution — choreograph a drawing") is REVIVED by this note: anime.js
+  # closed the §4.4a engine gap that blocked it. The supersession below still stands for the
+  # rest of the document — the 3-D retirement, the verb set, the Director/Rig rebuild.
+  - ./2026-09-06-fabricate-motion-craft.md
 superseded-by: 2026-09-02-frame-model-for-motion.md
 ---
 
