@@ -375,6 +375,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 
 | Name | What it does |
 |---|---|
+| `tools/absorption-bakeoff.js` | absorption-bakeoff — score the five competing slide-absorption cost models over real |
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
 | `tools/audit-capacity-basis.js` | audit-capacity-basis — what words-per-element does each component ACTUALLY get |
 | `tools/audit-diagram-contrast.mjs` | tools/audit-diagram-contrast.mjs — what Mermaid ACTUALLY paints, per palette, |
