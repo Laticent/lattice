@@ -296,7 +296,7 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
   table, n=86). It makes a different
   claim from any sweep — not that a component is clean, but that this rig can still go red.
 
-## Two traps this already paid for
+## Three traps this already paid for
 
 **Measure the anchor's painted edge, not its content box.** A `::after` is `content-box`,
 so `getComputedStyle(el, '::after').height` is the glyph alone — beneath it sit its
@@ -312,6 +312,25 @@ exactly when the block would overflow, so the top edge pins and the growth goes 
 where a slide running long eventually leaves the frame and every existing channel can see
 it. The tool reproduces this: keep the band, drop `safe`, and the collision comes back at
 the same step.
+
+**Declaring a `capacity.axis` silently changes what the tool sweeps — and can WEAKEN
+discovery.** The sweep axis is chosen in `check-jank.js`: a component with a
+`capacity.axis` AND an entry in `calibrate-core.js` BUILDERS is swept by **count**,
+everything else by **heading**. The count sweep builds its slides from that builder, and a
+builder emits one plain repeated element — `BUILDERS.pricing` produces N identical tiers
+with a single `[x]` badge each. So the moment `pricing` gained a capacity (2026-09-06,
+enrolling it in splitting), `--anchors` stopped reporting its `*Most chosen*` corner tag
+and its `[/]` slashed badge: two positioned marks the shipped component really has, and
+the corner tag is *precisely* the fixed-element-that-must-hold-position this tool exists
+to police. Nothing warned; two arms of `jank-sweep.test.js` failed and that is the only
+reason it was noticed.
+
+The general shape: **for any capacity-bearing component whose real chrome is optional — a
+featured flag, a variant-only badge — `--anchors` under-reports.** Pass `--axis heading`
+when you want the component's shipped vocabulary. Fixing it properly means either teaching
+the builders that vocabulary (they also feed `calibrate-capacity` and `calibrate-density`,
+where a heavier element moves the measured ceilings, so not free) or having discovery read
+the manifest's own `sample` rather than a generated sweep. Neither is done.
 
 ## Four decisions, and what would change them
 
