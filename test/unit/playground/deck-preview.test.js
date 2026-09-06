@@ -45,8 +45,10 @@ describe('buildSrcdoc', () => {
 
 	test('stamps <html lang> — default en, and the deck language when given (WCAG 3.1.1)', async () => {
 		const { buildSrcdoc } = await load();
-		// `[ >]` closes each match rather than `>`: the tag also carries
-		// `data-lattice-runtime` now. The assertion is that the lang attribute is present and
+		// `[ >]` closes each match rather than `>`: the tag can also carry
+		// `data-lattice-diagrams` (this builder stamps it when it injects Mermaid; the
+		// runtime's own `data-lattice-runtime` is written at boot on `document.documentElement`,
+		// never here). The assertion is that the lang attribute is present and
 		// well-formed — including that a hostile value cannot break out of it — not that it is
 		// the only attribute on the tag.
 		assert.match(buildSrcdoc({ ...BASE }), /<html lang="en"[ >]/); // default

@@ -432,8 +432,15 @@ export function buildSrcdoc({
  *
  * Returns nothing when the caller is not injecting Mermaid, so a document that will not
  * draw the diagram never claims it will: the fence stays readable, which is the old
- * behavior and the safe direction. Every export path, the .html player and any page we
- * did not assemble fall in that half by simply not calling this.
+ * behavior and the safe direction. The CLI export, the .html player builder and any page
+ * we did not assemble fall in that half by simply not calling this.
+ *
+ * NOT "every export path", and the exception is worth stating where a reader meets it:
+ * the Studio's offscreen capture frame (`deck-export.js` → `createCaptureFrame` →
+ * `buildSrcdoc`) is handed a real Mermaid URL, so it DOES stamp. That is correct — Mermaid
+ * renders in that frame — and the artifact it produces is re-assembled by the player
+ * builder, which does not stamp. The residue is that a Mermaid failure inside the capture
+ * frame would rasterize an empty slot rather than raw source.
  * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
  */
 export function previewDiagramsAttr(mermaidUrl) {

@@ -24,9 +24,9 @@ summary: >
   engine) on price — ~700ms idle and ~1.8s busy before anything appears, paid on the Studio's
   own thread; G (anime.js) on 116KB for what one `::before` already does.
   SHIPPED as A+E+D, re-measured from a real build rather than from injected candidates:
-  typing 10 source frames / 172ms -> 0 source, 0 blank, 20ms; navigate-revisit 4 / 368ms ->
-  0 source, 0 blank, 20ms with 0 of 4 realm rebuilds; a genuinely cold diagram is 0 source
-  frames behind an empty slot at 455ms. Implementing E surfaced a LATENT DEFECT the bake-off
+  typing 10 source frames / 172ms -> 0 source, 0 blank, 23ms; navigate-revisit 4 / 368ms ->
+  0 source, 0 blank, 28ms with 0 of 4 realm rebuilds; a genuinely cold diagram is 0 source
+  frames behind an empty slot at 517ms. Implementing E surfaced a LATENT DEFECT the bake-off
   had not: `diagramScopeKey` keyed the SVG cache on the section's raw inline `style`, which
   the runtime itself stamps (`--_sec-1cqi` from patchSectionGeometry, `--logo-*` from the
   deck logo) — and any `setProperty` makes the browser re-serialize the rest, rewriting
@@ -62,10 +62,13 @@ Instrument: `docs/scripts/diagram-flash-bench.mjs` — drives the built site at
 `/studio/`, types a four-slide deck (text · diagram · text · diagram) into the real
 editor, and samples the preview iframe once per `requestAnimationFrame`. A rAF
 callback runs immediately before the frame it belongs to composites, so the state
-read there *is* what that frame paints. Pictures come from
-`Page.startScreencast` over CDP, which hands over the frames the compositor actually
-produced (a loop of `page.screenshot` would force paints and report a timeline that
-never happened).
+read there *is* what that frame paints — and that sampler, not any
+picture, is where every frame COUNT in this note comes from. `--shots` additionally saves
+three `page.screenshot` stills per diagram arm (0/60/140ms) for eyeballing; they are
+illustrations, not measurements, because a forced screenshot perturbs the timeline it is
+sampling. (An earlier draft of this paragraph credited the pictures to
+`Page.startScreencast` over CDP. That was true of a throwaway capture script used while
+investigating, which was never committed — the instrument in the repo screenshots.)
 
 ---
 
@@ -281,8 +284,8 @@ stamped    --theme: "cuoio"; --class: "diagram"; --_sec-1cqi: 12.800px; --_sec-1
 ```
 
 Any reader on one side of the stamp could never hit a cache filled on the other. The key now
-drops runtime-written properties and normalizes whitespace and declaration order
-(`normalizeScopeStyle`), which also stops the ORDINARY path missing on a re-serialized
+drops runtime-written properties and normalizes whitespace while PRESERVING
+declaration order (`normalizeScopeStyle`), which also stops the ORDINARY path missing on a re-serialized
 section. The failure direction is stated in the code and is why this is safe: an unlisted
 runtime stamp costs a cache miss — a re-render — and can never hand a slide another slide's
 baked ink, because everything surviving normalization is still compared exactly. Pinned in
@@ -303,8 +306,11 @@ only signal that the CLI never drew their diagram became an empty slot, silently
 export bytes. Reproduced with one CLI run. The rule was then gated on an
 attribute — and the FIRST gate chosen for it was itself defective; see the second-pass
 section below for what actually shipped (`[data-lattice-diagrams]`, stamped by
-`previewDiagramsAttr` only when a builder injects the Mermaid script) — so every export
-path, the `.html` player and a hand-rolled Marp page keep the old behavior. It is in the
+`previewDiagramsAttr` only when a builder injects the Mermaid script) — so the CLI export, the
+`.html` player builder and any page we did not assemble keep the old behavior. NOT "every
+export path": the Studio's offscreen capture frame goes through `buildSrcdoc` with a real
+Mermaid URL, so it stamps — correctly, since Mermaid renders there — and the artifact it
+produces is re-assembled by the player builder, which does not. It is in the
 markup rather than set by script at boot because the window this rule covers starts at
 first paint of a full document write. The cost is that marp-vscode's own preview, which
 assembles its own page, does not get the rule.
@@ -353,8 +359,9 @@ Three more from that pass, all fixed:
   checker had already refuted — the one place a reader would have picked up the defective
   version.
 
-Two rounds of independent review, four confirmed defects, every one of them in the
-BOUNDARY of the change rather than its mechanism: which documents the CSS reaches, which
+Two rounds of independent review, six confirmed defects between them — two on the first
+pass, four on the second — every one of them in the BOUNDARY of the change rather than its
+mechanism: which documents the CSS reaches, which
 attribute names are already taken, what a normalization silently discards. The mechanism —
 settle from cache in the microtask — was right the first time and has not been touched
 since.
@@ -376,7 +383,7 @@ Three more findings from the FIRST pass, dispositioned:
 
 One knock-on: extracting `settleFenceFromCache` collapsed what would have been a third
 `target.innerHTML` site into one shared injection, and HARD RULE #22's runtime-markup census
-is a count. The receiver is destructured (`const { target } = job`) rather than written as
+is a count. The receiver is destructured (`const { target, preEl } = job`) rather than written as
 `job.target.innerHTML`, so the census's text matcher still sees the sink it declares; that is
 recorded in `SANCTIONED_RUNTIME_MARKUP_SINKS`.
 
@@ -417,7 +424,10 @@ slide; G is rejected on 116KB for what CSS does for free.
   fence renders `visibility: visible`) and on the second checker's own late-fence repro.
   What is still not driven: a document that stamps the attribute and then fails to load
   Mermaid — a CSP that blocks the script, or a 404 on `mermaidUrl`. There the source stays
-  hidden.
+  hidden. That exposure is NOT preview-only: the Studio's offscreen export capture frame
+  stamps the attribute too (it injects Mermaid), so a Mermaid failure inside it would
+  rasterize an empty slot where the old behavior gave raw source. Reasoned from
+  `deck-export.js`'s capture path, not driven — nobody forced a broken `mermaidUrl` there.
 - D's first-mount cost is now MEASURED, and it is not free. Same build, one variable — a
   three-slide deck whose third slide is a diagram, against the same deck with prose in its
   place — timing a reload to the preview's first painted `.lattice`, 5 runs each:

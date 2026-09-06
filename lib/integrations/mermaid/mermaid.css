@@ -60,8 +60,8 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
 :is(pre, marp-pre)[data-mermaid-state="error"]         + .mermaid        { display:none; }
 :is(pre, marp-pre)[data-mermaid-state="rendered"]      + .mermaid        { display:flex; }
 
-/* …and BEFORE it is tagged, the fence paints nothing either — in a document that has
- * told us a runtime is coming.
+/* …and BEFORE it is tagged, the fence paints nothing either — in a document that is
+ * injecting a Mermaid renderer, and so has promised something will draw it.
  *
  * The three rules above key on `data-mermaid-state`, which exists only once the
  * runtime has run. Nothing covered the window before that, so a diagram slide painted

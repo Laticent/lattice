@@ -87,10 +87,14 @@ fence; this one covers the window before that, which nothing did.
 not the runtime.** Hiding a diagram's source is right only where something is going to
 draw it, so the attribute is written by the BUILDER that injects Mermaid —
 `previewDiagramsAttr()` in `docs/src/playground/deck-preview.js`, called by the two
-preview frames and the Stage window, and by nothing else. A document we did not assemble
+preview frames, the Stage window and the Studio's export capture frame, and by nothing
+else. A document we did not assemble
 (a hand-rolled Marp page, marp-vscode's own preview) never gets it and keeps showing the
-source; so does every export path and the `.html` player, which is what keeps a fence the
-CLI could not substitute readable rather than blank. It has to be in the MARKUP, not set
+source; so do the CLI export and the `.html` player builder, which is what keeps a
+fence the CLI could not substitute readable rather than blank. One export path DOES stamp,
+and it is worth knowing: the Studio's offscreen capture frame is built by `buildSrcdoc`
+with a real Mermaid URL, so the rule is live inside it — correctly, since Mermaid renders
+there, and the file it produces is re-assembled by the player builder, which does not stamp. It has to be in the MARKUP, not set
 by script at boot: the window this covers starts at the first paint of a full document
 write.
 
