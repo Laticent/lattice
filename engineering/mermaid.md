@@ -21,7 +21,14 @@ flowchart LR
 | Path | Who renders | When |
 | --- | --- | --- |
 | PDF / export (`lattice-emulator.js`) | the engine's own Mermaid render worker, one batched child process (it replaced a per-diagram `mmdc` shell-out — `lib/integrations/mermaid/render-worker.js`) | build time, pre-rendered to inline SVG |
-| Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode |
+| Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode¹ |
+
+¹ **marp-vscode only at preview security = Disable.** Its webview carries
+`script-src 'nonce-…'` and the deck's own script tags do not carry that nonce, so at the
+DEFAULT level neither Mermaid nor this runtime executes at all — the fence simply stays as
+the author wrote it. Measured on a real VS Code preview; the whole reading is in
+`engineering/decisions/2026-09-05-diagram-fence-flash.md` § 8, including a live defect on
+that host (at Disable a fence reaches `rendered` with an empty container).
 
 **Both fence characters, on both paths.** markdown-it emits `class="language-mermaid"` for
 a tilde fence exactly as it does for a backtick one, so the preview has always rendered
@@ -113,8 +120,13 @@ not the runtime.** Hiding a diagram's source is right only where something is go
 draw it, so the attribute is written by the BUILDER that injects Mermaid —
 `previewDiagramsAttr()` in `docs/src/playground/deck-preview.js`, called by the two
 preview frames and the Stage window, and by nothing else. A document we did not assemble
-(a hand-rolled Marp page, marp-vscode's own preview) never gets it and keeps showing the
-source; so do the CLI export and the `.html` player builder, which is what keeps a
+(a hand-rolled Marp page, marp-vscode's own preview) never gets it — measured: no
+`data-lattice-diagrams` on `<html>` in a real marp-vscode preview, at either security
+level. **"And therefore keeps showing the source" is a step too far, and driving it is what
+showed that**: this rule is not the only one that can hide a fence, and on that host at
+security = Disable the older `data-mermaid-state` rule hides it anyway (§ 8 of the
+fence-flash note). What the absent stamp buys is that the ANTI-FLASH rule cannot fire
+there; so do the CLI export and the `.html` player builder, which is what keeps a
 fence the CLI could not substitute readable rather than blank. **No document whose bytes
 the author keeps stamps** — two build through this same `buildSrcdoc` with a real Mermaid
 URL and would otherwise, so both pass `diagrams: false`: the offscreen RASTER capture
@@ -1058,6 +1070,6 @@ Some types accept both. The rendered CSS class is determined by diagram type, no
 
 **Never guess class names.** They are inconsistent across diagram types — some use camelCase suffix `TitleText`, some use bespoke names like `radarTitle`, some have no class at all. Always verify from rendered output.
 
-**Marp-vscode preview parser quirk.** One CSS pattern is silently broken in the marp-vscode Chromium build (the preview applies via JS but the rule never matches): `:not(:has(...))` and `:is(:has(...), :has(...))`. Plain `:has()` is fine; nested inside `:not()` / `:is()` it isn't. Use descendant combinators or compound selectors instead. See `engineering/gotchas.md`. (Historical note: when the build path injected CSS via Mermaid's `themeCSS` init parameter, two additional limits applied — no CSS comments, no `>` combinator. That path no longer exists; rules now live in `lattice.css` and reach the SVG via host-page cascade, so both restrictions are gone.)
+**Marp-vscode preview parser quirk — RETIRED, and this line stated a dead rule as live fact.** It used to say `:not(:has(...))` and `:is(:has(...), :has(...))` were silently broken in the marp-vscode Chromium build. That was HARD RULE #12, retired 2026-07-10 after an empirical retest against a real current Chromium found both forms behave per spec, with no corroborating bug report anywhere — `engineering/decisions/2026-07-10-hard-rule-12-retirement.md`. This page kept asserting it. The preview's engine, now that it is reachable, is Chromium 148 / Electron 42.10.0 (§ 8 of the fence-flash note); the selectors were not re-tested there, and per the retirement record they need no special handling. (Historical note: when the build path injected CSS via Mermaid's `themeCSS` init parameter, two additional limits applied — no CSS comments, no `>` combinator. That path no longer exists; rules now live in `lattice.css` and reach the SVG via host-page cascade, so both restrictions are gone.)
 
 ---

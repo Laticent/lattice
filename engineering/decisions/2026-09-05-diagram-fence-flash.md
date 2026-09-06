@@ -766,10 +766,11 @@ slide; G is rejected on 116KB for what CSS does for free.
   The same mechanism answers the marp-vscode half of §7 by construction, and widens it: on
   ANY host where the runtime boots and Mermaid never becomes real — the plain markdown
   preview's render-blocks-only stub, a CSP block, a 404 — a fence present at boot was tagged
-  and hidden, whatever `data-lattice-diagrams` says. That host has no Mermaid `<script src>`
-  of ours, so it takes the DEADLINE arm rather than the synchronous one: the source comes
-  back after ~10s rather than on the first tick. **marp-vscode itself remains UNVERIFIED**
-  (HARD RULE #23) — see § "The marp-vscode host" below for the routes tried.
+  and hidden, whatever `data-lattice-diagrams` says.
+
+  **That prediction was wrong about marp-vscode, and § 8 is the measurement that says so.**
+  The host is no longer unverified: a real VS Code preview was opened and read, and neither
+  of its two configurations is "the runtime boots and Mermaid never becomes real".
 - **The walker's two remaining misses are DECIDED, not open (2026-09-06).** A fence indented
   more than three spaces inside a list, and a blockquoted fence: the engine draws both, the
   CLI prints their source. Both stay misses, and the module docblock carries the reasoning —
@@ -915,3 +916,70 @@ slide; G is rejected on 116KB for what CSS does for free.
   work. Reopen this only with a measurement that separates the two arms by more than the
   instrument's spread — a slower machine, a heavier throttle, or a metric with less of the
   Studio's own boot in it.
+
+
+## 8. The marp-vscode host — no longer unverified
+
+Every previous entry in this note called this host unreachable. It is not, and the earlier
+attempt failed on a detail: it tried **code-server**, whose GitHub release the sandbox's
+egress policy answers with a 403. **VS Code DESKTOP is a different route and it works** —
+the official Linux tarball downloads (354MB, ~3s), runs headless under `xvfb-run` with
+`--no-sandbox --disable-gpu`, and exposes its webviews as CDP `iframe` targets that
+Puppeteer reads. The extension comes from **Open VSX**, not npm (`npm view
+@marp-team/marp-vscode` is a 404 — it is a VSIX, never published to npm).
+
+Measured on VS Code 1.136.1 / marp-vscode 3.6.1 / Chromium 148 / Electron 42.10.0, with
+`dist/marp-kit` as the workspace and its `Sample-Deck.md` in the preview.
+
+**THE CONTROLLING VARIABLE IS THE MARKDOWN PREVIEW SECURITY LEVEL, and no doc in this repo
+named it.** The webview carries `script-src 'nonce-…'`. The extension's own scripts carry
+that nonce; **the deck's do not** — `mermaid-v11.min.js` and `lattice-runtime.min.js` both
+read back with `nonce: null`. So at the default level they sit in the DOM and never run.
+It is not a settings-file key either: it is a per-resource memento reached only through
+**Markdown: Change Preview Security Settings**.
+
+| read out of the live preview | Strict (the default) | Disable |
+|---|---|---|
+| `<html data-lattice-runtime>` | `null` — the runtime never boots | `"loaded"` |
+| `typeof window.mermaid` | `undefined` | `object` (the kit ships Mermaid locally) |
+| the fence's `data-mermaid-state` | *(untagged)* | `rendered` |
+| computed `display` of the `<pre>` | `block` | `none` |
+| the fence's box | **307×167** | 0×0 |
+| SVGs in the sibling `.mermaid` | — | **0** |
+
+**What that settles for this note.** §7 predicted marp-vscode as the host where "the runtime
+boots and Mermaid never becomes real", taking the ~10s deadline arm. Neither configuration
+is that. At Strict nothing of ours executes, so `wrapFences` never runs and the author
+already has their source — the give-up is unreachable. At Disable the runtime boots *and*
+Mermaid is real, because the kit vendors it. #2092's give-up therefore does not fire on this
+host in either state; the case where it would is narrower than the note claimed — a Disable
+preview whose vendored Mermaid is missing or blocked.
+
+**And it exposed a DIFFERENT live defect, which is not this note's and is not #2092's.** At
+Disable the fence reaches `rendered` with an **empty** `.mermaid` container: `display:none`
+on the source, `0×0`, and zero SVGs. The author gets a blank where the diagram belongs — the
+same harm #2092 is about, arriving through the render rather than the give-up. The frame is
+capable: calling `window.mermaid.render()` in it by hand returns an 11.6KB SVG. Reproduced
+independently twice, on two different builds of the runtime. Mechanism not chased; it is
+pre-existing and off #2092's path (HARD RULE #18), so it is logged rather than pulled in.
+One clue worth keeping: with `bierner.markdown-mermaid` also installed, Lattice's own render
+lands (21KB, one SVG, `id="lattice-mermaid-1"`, deck face) — n=2 each way, cause unknown.
+
+**A claim in the runtime's own comments is measurably wrong at 1.32.1.** Three places
+(`lib/runtime/index.js`) describe `bierner.markdown-mermaid` as installing a STUB
+`window.mermaid` "that exposes only `renderMermaidBlocksInElement` and lacks `.initialize` /
+`.render`". At 1.32.1 it exposes **no `window.mermaid` at all**, in either preview host. The
+GUARDS are unaffected — `typeof mermaid.render !== 'function'` is satisfied by `undefined`
+too — so this is a comment correction, not a code one. It may have been true of an older
+version; older ones were not tested.
+
+**Reproducing it.** Download the VS Code Linux tarball, extract, `--install-extension` the
+Open VSX VSIX, launch under `xvfb-run` with `--remote-debugging-port`, then
+`puppeteer.connect({browserURL})` and find the frame whose `document.body.classList`
+contains `marp-vscode` (`browser.targets()` does not surface it; `page.frames()` does). None
+of this is committed: whether it should become a harness or a CI job is a CI-contract
+decision, not one to take on the way past.
+
+**Still unverified on this host:** the preview's behavior on EDIT (`engineering/mermaid.md`
+claims it replaces the `<section>` wholesale — untested), the retired HARD RULE #12
+selectors, and `markdown.marp.enableHtml: false`. All three are now cheap; the route is open.

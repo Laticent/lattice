@@ -262,7 +262,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The VS Code Marp preview runs marp-core directly, without Lattice's markdown-it plugins](gotchas/vscode.md#the-vs-code-marp-preview-runs-marp-core-directly-without-lattices-markdown-it-plugins)
 - [Known preview gaps — transforms shipped without a `lattice-runtime.js` mirror](gotchas/vscode.md#known-preview-gaps--transforms-shipped-without-a-lattice-runtimejs-mirror)
 - [`git worktree` doesn't share `node_modules`](gotchas/vscode.md#git-worktree-doesnt-share-node_modules)
-- [Does the marp-vscode webview execute `<script>`? — UNVERIFIED, and this is the entry that says so](gotchas/vscode.md#does-the-marp-vscode-webview-execute-script--unverified-and-this-is-the-entry-that-says-so)
+- [Does the marp-vscode webview execute `<script>`? — SETTLED: it depends on the preview security level](gotchas/vscode.md#does-the-marp-vscode-webview-execute-script--settled-it-depends-on-the-preview-security-level)
 - [`enableHtml` / `html: true` is required or the runtime `<script>` tags print as TEXT](gotchas/vscode.md#enablehtml--html-true-is-required-or-the-runtime-script-tags-print-as-text)
 - [A rule that LEADS with `:is(section…)` is dead in every Marp render](gotchas/vscode.md#a-rule-that-leads-with-issection-is-dead-in-every-marp-render)
 - [Custom `logo:` front-matter directive shows nothing in marp-vscode preview](gotchas/vscode.md#custom-logo-front-matter-directive-shows-nothing-in-marp-vscode-preview)
