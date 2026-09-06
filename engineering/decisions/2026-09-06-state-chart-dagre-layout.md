@@ -328,15 +328,24 @@ sat ~20px above its box on a machine whose column had wrapped a label.
 | distributable `.html` export | dagre inlined, global installed, machine re-ranked in a real browser |
 | PPTX / PNG export | render clean |
 | docs site preview iframe (real dev server) | renders `viewBox 0 0 970.4 253.4` — identical to the CLI — nothing at negative coordinates, no page errors |
+| docs **Playground**, branching deck typed in | re-ranked: the three fan-out targets land at one rank (x ≈ 421/426/430) across three rows (y 5/112/219); dagre reachable in the frame; nothing at negative coordinates; no page errors |
 | six shipped galleries | byte-identical node geometry |
 
-**UNVERIFIED, and named rather than glossed:** the docs **Playground** with a
-BRANCHING deck. The component page exercises the preview frame on a chain, and
-the branching path is the same code in the same runtime bundle, but the editor
-could not be seeded from a headless driver (no reachable CodeMirror view), so a
-fan-out was never typed into the real Studio. The **Drawing Board tilt** path is
-also unexercised: `draw()`'s `getComputedStyle(fig).transform !== 'none'` early
-return now leaves the size pin in place, which reads correctly but was not driven.
+The Playground row was UNVERIFIED for a while and is worth recording HOW it was
+closed, because two attempts failed for reasons that were not the code's. Typing
+the deck let the editor's auto-indent and list-continuation mangle the markdown
+(`1. A` became `1. A2.`), and `?c=<component>&view=edit` only loads a component's
+gallery deck — every one of which is a chain. What worked is CDP `Input.insertText`,
+which inserts verbatim and bypasses key handling.
+
+**A false alarm on the way, recorded because the next person will hit it:** the
+first reading said the Studio did NOT re-rank. It does. dagre CENTRES nodes in a
+rank, so their left edges differ by node width — comparing the `x` ATTRIBUTE finds
+no two equal and reports a column. Compare rank coordinates, not box origins.
+
+**Still UNVERIFIED:** the **Drawing Board tilt** path. `draw()`'s
+`getComputedStyle(fig).transform !== 'none'` early return now leaves the size pin
+in place, which reads correctly but was not driven.
 
 ## 8. Open
 
