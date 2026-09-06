@@ -4944,7 +4944,12 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'again on the mermaidSvgCache replay of the same string. Contained by securityLevel:\'strict\', ' +
       'pinned behaviorally in docs/e2e/mermaid-post-sanitize.spec.ts, NOT by a sanitizer: DOMPurify ' +
       'strips <foreignObject> and <style>, i.e. every node label and all diagram styling. The third is ' +
-      'the empty-string clear before a re-render, which parses no markup.',
+      'the empty-string clear before a re-render, which parses no markup. ' +
+      'STILL THREE after the same-task replay (2026-09-05-diagram-fence-flash.md), and that is the ' +
+      'fact worth pinning: the replay now runs from a MutationObserver microtask as well as from the ' +
+      'debounced walk, but both call ONE `settleFenceFromCache`, so a second caller added no second ' +
+      'place that parses the string. A future caller must reuse that helper for this count to hold — ' +
+      'writing `job.target.innerHTML` inline would read to this text matcher as a new, undeclared sink.',
   },
   {
     file: 'lib/runtime/index.js',

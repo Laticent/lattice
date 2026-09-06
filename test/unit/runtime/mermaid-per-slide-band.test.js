@@ -397,3 +397,175 @@ describe('the one-shot global config is gone', () => {
     assert.match(RUNTIME_SRC, /endDiagramRuns\(\);/);
   });
 });
+
+// ── The scope key must not move when the RUNTIME writes to the section ───────
+// The key is read at two points in the pass now: the same-task replay reads it in a
+// MutationObserver microtask, right after a host swaps a slide in, and the debounced
+// walk reads it after `patchSectionGeometry` has stamped the slide's own 1% onto the
+// same element. While the key was the raw `style` attribute those two reads produced
+// different strings for one slide — the stamp adds two declarations AND makes the
+// browser re-serialize the rest with a space after every colon — so a lookup on one
+// side could never hit a cache filled on the other, and the replay missed 100% of the
+// time (measured; engineering/decisions/2026-09-05-diagram-fence-flash.md §4E).
+//
+// These are the real strings, copied out of the running Studio.
+describe('the scope key survives the runtime stamping the section it keys on', () => {
+  const AUTHORED = '--theme:"cuoio";--class:"diagram";';
+  const STAMPED = '--theme: "cuoio"; --class: "diagram"; --_sec-1cqi: 12.800px; --_sec-1cqh: 7.200px;';
+  const el = (cls, style) => ({ className: cls, getAttribute: () => style ?? null });
+
+  test('patchSectionGeometry stamping --_sec-* does not change the key', () => {
+    assert.equal(
+      diagramScopeKey(el('diagram form', AUTHORED)),
+      diagramScopeKey(el('diagram form', STAMPED)),
+      'a replay reading the key before the geometry stamp must compute what the render did after it',
+    );
+  });
+
+  test('the deck-logo placement does not change the key either', () => {
+    assert.equal(
+      diagramScopeKey(el('diagram form', AUTHORED)),
+      diagramScopeKey(el('diagram form', `${AUTHORED}--logo-scale: 1.2; --logo-x: 4;`)),
+      'applyLogoPlacement stamps every section of a logo deck; it carries no palette',
+    );
+  });
+
+  // The FIT agent (deck-preview.js, injected into every buildSrcdoc document) writes
+  // these three onto every section — and rewrites `transform` on EVERY pane or window
+  // resize. Unfiltered, that moved the key on every resize and re-rendered every diagram
+  // in the document once per resize. Plain properties, not `--_`-prefixed, so nothing
+  // else in the predicate would have caught them.
+  test('the FIT agent scaling the section does not change the key', () => {
+    assert.equal(
+      diagramScopeKey(el('diagram form', AUTHORED)),
+      diagramScopeKey(
+        el('diagram form', `${AUTHORED}transform-origin: left top; transform: scale(0.7); margin-bottom: -216px;`),
+      ),
+      'a cached diagram is SVG markup; scaling the section it sits in does not change it',
+    );
+    // And a resize, which is the case that actually bit: same section, two scales.
+    assert.equal(
+      diagramScopeKey(el('diagram form', `${AUTHORED}transform: scale(0.7);`)),
+      diagramScopeKey(el('diagram form', `${AUTHORED}transform: scale(0.42);`)),
+    );
+  });
+
+  // The CLASS half of the key had NO filter at all while the style half was being
+  // carefully fixed. These four are watcher OUTPUT — written and cleared as content
+  // settles — so a reader that runs while a diagram slide is transiently marked keys the
+  // render one way and the reader after the marks clear misses.
+  test("the runtime's measurement markers do not change the key", () => {
+    assert.equal(
+      diagramScopeKey(el('diagram form', AUTHORED)),
+      diagramScopeKey(el('diagram form overflow clip-marked fit-marked illegible', AUTHORED)),
+      'overflow/clip/fit/illegible are watcher output, not palette',
+    );
+  });
+
+  // The deliberate NON-drop, and the reason is the dangerous direction: an author can
+  // write `_class: finish` on its own, so filtering it would alias a finish slide with a
+  // plain one — and a finish is palette. The four markers above cannot be a stable author
+  // signal because the watcher that owns each one sweeps it; `finish` has no watcher.
+  test('`finish` is NOT dropped — it can be authored, and it is palette', () => {
+    assert.notEqual(
+      diagramScopeKey(el('diagram form', AUTHORED)),
+      diagramScopeKey(el('diagram form finish', AUTHORED)),
+    );
+  });
+
+  // The MECHANISM, not a paraphrase of it: the key reads the CSSOM's serialization
+  // (`style.cssText`), which both readers see identically, rather than the `style`
+  // ATTRIBUTE, which is the author's text until the first `setProperty` replaces it
+  // with a re-serialization that rewrites VALUES too — `background-position:center`
+  // comes back `center center`, `url(x)` comes back `url("x")`. Node has no CSSOM, so
+  // this drives the divergence directly; the real-browser check is in §5 of
+  // engineering/decisions/2026-09-05-diagram-fence-flash.md (five styles, all stable).
+  test('the key reads style.cssText, not the raw attribute', () => {
+    const withCssom = {
+      className: 'diagram',
+      style: { cssText: 'background-position: center center;' },
+      getAttribute: () => 'background-position:center;',
+    };
+    const stampedTwin = {
+      className: 'diagram',
+      style: { cssText: 'background-position: center center; --_sec-1cqi: 12.800px;' },
+      getAttribute: () => 'background-position: center center; --_sec-1cqi: 12.800px;',
+    };
+    assert.equal(diagramScopeKey(withCssom), diagramScopeKey(stampedTwin),
+      'the same section either side of the geometry stamp is one scope');
+  });
+
+  test('re-spacing alone does not change the key', () => {
+    assert.equal(
+      diagramScopeKey(el('diagram', '--theme:"cuoio";--class:"diagram";')),
+      diagramScopeKey(el('diagram', '--theme: "cuoio"; --class: "diagram"')),
+      'the space the CSSOM inserts after a colon is not a cascade difference',
+    );
+  });
+
+  // ORDER IS NOT NORMALIZED, deliberately, and this pins the reason. Sorting the
+  // declarations looked like harmless canonicalization and was not: it discards
+  // last-one-wins, so two blocks that resolve to DIFFERENT colors normalized to one key —
+  // which is the one direction that hands a slide another slide's baked ink. Unreachable
+  // through the production caller (`style.cssText` de-duplicates first), but this module
+  // is advertised as usable against a plain object, so the hazard was real for the next
+  // caller. Found by the second independent checker.
+  test('two blocks whose last-wins resolution differs never share a key', () => {
+    assert.notEqual(
+      diagramScopeKey(el('diagram', 'background:red;background-color:blue')),
+      diagramScopeKey(el('diagram', 'background-color:blue;background:red')),
+      'these resolve to different colors; one key for both would be the aliasing bug',
+    );
+  });
+
+  // The cost of giving up the sort, stated so nobody "fixes" it back: a section whose
+  // authored order differs now MISSES the cache. A re-render, which is the safe direction.
+  test('a reordered authored style misses rather than aliases', () => {
+    assert.notEqual(
+      diagramScopeKey(el('diagram', '--theme:"cuoio";--class:"diagram";')),
+      diagramScopeKey(el('diagram', '--class:"diagram";--theme:"cuoio";')),
+      'a miss is the price of never aliasing',
+    );
+  });
+
+  // `--logo-ink` is a COLOR token; only the five placement properties the deck logo
+  // actually stamps may be dropped from the key.
+  test('the logo drop is the placement set, not every --logo- property', () => {
+    assert.equal(
+      diagramScopeKey(el('diagram', '--theme:"cuoio";')),
+      diagramScopeKey(el('diagram', '--theme:"cuoio";--logo-scale:1.2;--logo-x:4;')),
+      'placement carries no palette',
+    );
+    assert.notEqual(
+      diagramScopeKey(el('diagram', '--theme:"cuoio";')),
+      diagramScopeKey(el('diagram', '--theme:"cuoio";--logo-ink:#f00;')),
+      'a color must never be dropped from the key',
+    );
+  });
+
+  // The normalization must not buy that stability by collapsing slides that really do
+  // resolve different palettes — which would hand one slide another's baked ink, the
+  // #1332 step-3 bug arriving through the key instead of through the config.
+  test('an authored per-slide difference still splits the key', () => {
+    assert.notEqual(
+      diagramScopeKey(el('diagram', AUTHORED)),
+      diagramScopeKey(el('diagram', '--theme:"indaco";--class:"diagram";')),
+      'two palettes must never share a cache entry',
+    );
+    assert.notEqual(
+      diagramScopeKey(el('diagram', AUTHORED)),
+      diagramScopeKey(el('diagram dark', AUTHORED)),
+      'a `_class: dark` slide must still be its own scope',
+    );
+  });
+
+  // A chunk with no colon cannot be classified, so it is KEPT — dropping it is the one
+  // direction that could alias two sections onto one key.
+  test('an unparseable declaration is kept rather than dropped', () => {
+    assert.notEqual(
+      diagramScopeKey(el('diagram', 'garbage')),
+      diagramScopeKey(el('diagram', '')),
+      'a difference this cannot parse is still a difference',
+    );
+  });
+});

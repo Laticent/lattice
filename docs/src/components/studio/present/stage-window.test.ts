@@ -27,6 +27,19 @@ describe('stage-window — buildStageDoc', () => {
 		expect(both).toContain('/k.css');
 		expect(both).toContain('/m.js');
 	});
+	// The Stage is the third builder that can stamp `data-lattice-diagrams`, and it was the
+	// one with nothing pinning it. `mermaid.css` withholds an un-tagged Mermaid fence's ink
+	// only under that attribute, so the promise has to follow the Mermaid script: a Stage
+	// document that injects no renderer must not claim it will draw a diagram, or a fence it
+	// cannot render goes invisible in front of an audience.
+	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
+	it('claims diagrams only when it injects Mermaid', () => {
+		const base = { html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js' } as const;
+		expect(buildStageDoc({ ...base, mermaidUrl: '/m.js' })).toMatch(/<html[^>]* data-lattice-diagrams[ >]/);
+		// The runtime alone is not the precondition — a fence is replaced by Mermaid.
+		expect(buildStageDoc({ ...base })).not.toContain('data-lattice-diagrams');
+	});
+
 	it('binds the inlined fit kernel to the names its call sites use (the stage-crop guard)', () => {
 		// The fit inlines fitScale/padInset via Function.toString(); the bundler renames the
 		// imports, so a BARE `${fn.toString()}` printed a renamed/anonymous body while the call

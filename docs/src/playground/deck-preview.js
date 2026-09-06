@@ -310,6 +310,18 @@ export function buildSrcdoc({
 	// remote subresources is a real question, but it is one decision covering both export
 	// paths — see the decision record's "What this does not do".
 	csp = true,
+	// Stamp `data-lattice-diagrams`, the gate rule A is keyed on (see previewDiagramsAttr).
+	// Defaults ON — every frame a human WATCHES wants the fence's ink withheld until
+	// something draws it. The one caller that passes `false` is the same one that passes
+	// `csp: false` above, for the mirror-image reason: the offscreen EXPORT capture frame
+	// is never watched, so the anti-flash rule buys nothing there, and it is rasterized —
+	// `html-to-image` copies the COMPUTED style onto its clone, so a `visibility:hidden`
+	// the rule applied is baked into the .pdf/.png/.pptx. If Mermaid fails inside that
+	// frame (a 404, a CSP block), stamping would turn the author's only signal that the
+	// diagram never drew into an empty slot, in downloaded bytes. Not stamping leaves that
+	// path exactly as it was before rule A existed. Found by the third independent checker,
+	// driven through the real rasterizer.
+	diagrams = true,
 }) {
 	// Strip script-bearing content before it reaches this same-origin srcdoc
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
@@ -345,7 +357,7 @@ export function buildSrcdoc({
 	const needsKatex = html.indexOf('katex') !== -1;
 	const needsMermaid = html.indexOf('language-mermaid') !== -1;
 	return (
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(diagrams && needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
 		(csp ? previewCspMeta({ katexUrl }) : '') +
@@ -407,6 +419,46 @@ export function buildSrcdoc({
 		(sync ? '<scr' + 'ipt>' + syncAgent(gap) + '</scr' + 'ipt>' : '') +
 		'</body></html>'
 	);
+}
+
+/**
+ * The attribute a preview document wears to say "a Mermaid renderer is being injected
+ * into me, so something WILL replace a diagram fence". ONE place writes it, because it
+ * is a promise about the document rather than a style hook: `mermaid.css` withholds an
+ * un-tagged Mermaid fence's ink only under `[data-lattice-diagrams]`, on the reasoning
+ * that hiding a diagram's source is right only where something is going to draw it.
+ *
+ * KEYED ON THE MERMAID SCRIPT, not on the runtime, and the distinction is the whole
+ * point. The first version of this gate used `data-lattice-runtime` — a name the RUNTIME
+ * ITSELF has always written on `document.documentElement` at boot
+ * (lib/runtime/index.js), which made "only a builder writes it" false in four documents
+ * and, worse, turned the rule on in exactly the hosts it was meant to spare. On a page
+ * with the runtime but no Mermaid (marp-vscode's plain markdown preview and its
+ * render-blocks-only stub, a 404 on the Mermaid URL, a CSP that blocks it) a fence
+ * arriving after boot was hidden permanently: neither guard would tag it, and the CSS hid
+ * it anyway. Driven and confirmed by an independent checker before this shipped.
+ *
+ * The runtime alone was never the right precondition regardless. A fence is replaced by
+ * MERMAID; a document with the runtime and no Mermaid renders no diagram, so its author
+ * needs the source they can read.
+ *
+ * Returns nothing when the caller is not injecting Mermaid, so a document that will not
+ * draw the diagram never claims it will: the fence stays readable, which is the old
+ * behavior and the safe direction. The CLI export, the .html player builder and any page
+ * we did not assemble fall in that half by simply not calling this.
+ *
+ * The Studio's offscreen EXPORT capture frame is handed a real Mermaid URL and would
+ * otherwise stamp through this same builder — it does not, because `buildSrcdoc`'s
+ * `diagrams` knob is `false` there. It is not watched by anyone, so the anti-flash rule
+ * buys nothing, and it IS rasterized: `html-to-image` copies the computed style onto its
+ * clone, so a `visibility:hidden` this rule applied would be baked into the .pdf / .png /
+ * .pptx whenever Mermaid failed inside that frame. Every export path therefore keeps the
+ * pre-rule behavior — the .html player because its builder re-assembles the document
+ * without stamping, the raster paths because the capture frame does not stamp at all.
+ * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
+ */
+export function previewDiagramsAttr(mermaidUrl) {
+	return mermaidUrl ? ' data-lattice-diagrams' : '';
 }
 
 // Patch only the <section> nodes whose HTML changed. Returns true on success

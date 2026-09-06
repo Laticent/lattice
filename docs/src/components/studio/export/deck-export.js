@@ -362,6 +362,16 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		const srcdoc = buildSrcdoc({ html, css, mode, geom: { w: gw, h: gh }, runtimeUrl, fontCss,
 			...(mermaidUrl ? { mermaidUrl } : {}),
 			csp: false,
+			// `diagrams: false` — do NOT stamp `data-lattice-diagrams` here. Rule A hides an
+			// un-tagged mermaid fence, which is right for a frame a human watches and wrong for
+			// this one: nobody sees it, and rasterizeSection runs it through `html-to-image`,
+			// which copies the COMPUTED style onto its clone. If Mermaid 404s or is CSP-blocked
+			// inside this frame, nothing tags the fence, the rule hides it, and the export bakes
+			// an empty slot where the author's unrendered source used to be — an EXPORT-BYTES
+			// regression on an authoring-error surface, the same class the CLI export hit.
+			// `forceSectionVisibleForCapture` cannot save it: that forces the SECTION visible,
+			// and this is an explicit `visibility:hidden` on a descendant <code>.
+			diagrams: false,
 			contentVisibility: false, cursor: false, sync: false, printRules: false });
 		// Every settle await below is BOUNDED — an unbounded wait could hang the
 		// export forever (a srcdoc whose load never fires, or a `fonts.ready` that

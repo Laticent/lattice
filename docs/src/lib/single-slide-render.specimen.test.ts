@@ -162,7 +162,10 @@ async function srcdocFor(specimen?: boolean): Promise<string> {
 describe('the specimen flag on the rendered frame (#1463)', () => {
 	it('stamps <html data-lattice-specimen> when the host renders catalog specimens', async () => {
 		const doc = await srcdocFor(true);
-		expect(doc).toMatch(/^<!doctype html><html data-lattice-specimen>/);
+		// `[ >]`, not `>`: the tag can also carry `data-lattice-diagrams` when the render
+		// injects Mermaid. The assertion is about the specimen flag being FIRST and
+		// well-formed, not about it being alone.
+		expect(doc).toMatch(/^<!doctype html><html data-lattice-specimen[ >]/);
 	});
 
 	it('leaves the tag bare for a full-size host — every other preview keeps its watcher', async () => {
@@ -176,6 +179,17 @@ describe('the specimen flag on the rendered frame (#1463)', () => {
 
 	it('an explicit false is the same as omitting it', async () => {
 		expect(await srcdocFor(false)).not.toContain('data-lattice-specimen');
+	});
+
+	// The other flag this tag can carry: `mermaid.css` hides an un-tagged Mermaid fence's
+	// ink ONLY under `[data-lattice-diagrams]`, because hiding a diagram's source is right
+	// only where something is going to DRAW it. These renders inject no Mermaid, so they
+	// must make no such claim — which is the same property that keeps an export, whose
+	// runtime is stripped, showing the source of a fence the CLI could not substitute.
+	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
+	it('claims no diagrams when it injects no Mermaid', async () => {
+		expect(await srcdocFor(undefined)).not.toContain('data-lattice-diagrams');
+		expect(await srcdocFor(true)).not.toContain('data-lattice-diagrams');
 	});
 
 	it('does not disturb the rest of the document head — the theme style still carries its id', async () => {
