@@ -57,3 +57,15 @@ describe('narration() builder — a config pass-through over buildTrack/makeRead
 		expect(seen[0]).toBe(track.cues[0]?.words[0]?.display);
 	});
 });
+
+
+it('emphasis() writes the option and chains like every other verb', () => {
+  // The compile-time _NarrationSetterMap gate proves the verb EXISTS; it cannot prove it writes
+  // `opts.emphasis` or returns the builder. Both were wrong once: it returned `this` where the
+  // other six return `b`, so a detached method would have broken the chain.
+  const spans = [{ start: 0, end: 5, weight: 2 }];
+  const chained = narration(TEXT).emphasis(spans).pace('slow');
+  expect(chained.toTrack()).toEqual(buildTrack(TEXT, { emphasis: spans, pace: 'slow' }));
+  const detached = narration(TEXT).emphasis;
+  expect(detached(spans).pace('slow').toTrack()).toEqual(buildTrack(TEXT, { emphasis: spans, pace: 'slow' }));
+});

@@ -98,7 +98,11 @@ is its **sibling**, and every body walker is stage-scoped — so the most promin
 editorial line on the slide was silent in captions and read-aloud. Nothing recorded
 it as a choice: neither the projection nor the speech contract
 (`2026-07-11-manifest-speech-contract.md`) mentions the coda, and the coda kernel
-postdates both. 52 of 156 committed decks carry at least one blockquote, 180 in total.
+postdates both. Over `examples/*.md` + `test/integration/baseline-decks/*.md`, **53 of 161 decks
+carry at least one blockquote (186 lines)**. Quote the root set with the number: it moves with HEAD
+and with which directories are walked — an earlier draft said "52 of 156 / 180" from the same command
+before this branch's own demo deck existed, and a checker measuring a wider set got 52 of 160 / 176.
+The load-bearing fact is the ratio, about a third of decks; the denominator is not a constant.
 
 It is now spoken last, as its own paragraph block so the beat before it is the
 paragraph tier. A layout that CLAIMS its trailing block keeps it inside the stage
@@ -117,8 +121,47 @@ a coda closes the slide. So emphasis buys silence exactly where more narration s
 follows on the same slide, and the coda's win is that it is spoken at all.
 
 On the five committed caption goldens carrying codas: ~1 s of added silence per
-4-minute deck. The three without codas are byte-identical, which is the causality
-check.
+4-minute deck. The three unchanged goldens carry **no coda and no `<strong>`**, so they show only
+that a deck with nothing to emphasize is untouched — that is a back-compat check, and calling it a
+"causality check" (as an earlier draft did) claimed more than it proves. It does not establish that
+the silence in the five changed goldens landed correctly; that took the fix below.
+
+**The blast radius is far wider than the diff suggests, and the diff cannot show it.** `speakCoda`
+changes narration TEXT on roughly 280 of ~3400 slides across the committed corpus (an independent
+checker's head-to-head of the old and new projection over 327 decks). Only six `.vtt` files are
+committed, so every other deck's captions change silently at export time with no golden to move.
+That asymmetry is worth knowing before trusting a green diff on this module.
+
+## The defect this design shipped once, and the fix
+
+**The identity rule was written out four times and one copy was wrong.** The emulator mutates its
+projection array in place when `narrateChart` fires (`projected[i] = chart`), so the guard 65 lines
+later compared the resolved narration against the *already-substituted* string. It passed trivially
+on exactly the slides it exists to reject and handed char offsets measured against the figure
+projection to a different string: **83 stale spans over 77 slides in 15 committed decks**, and 29 of
+the 34 spans in the first cut of the five changed goldens were misplaced. The bake and Present were
+correct, because `applyChartNarration` returns a copy.
+
+The rule now lives in ONE place — `emphasisForResolved` in `lib/core/read-along-build.js` — and every
+producer calls it with a pre-substitution snapshot. Writing an invariant out per-caller is how three
+right copies and one wrong one ship together, which is the case HARD RULE #1 is about.
+
+**There were four producers, not three.** `shareCaptions` (the Studio's "Captions (.vtt)" download)
+was missed on the first pass while its sibling `shareHtmlPlayer` was wired, so the same deck exported
+seven holds from the CLI and none from the Studio.
+
+**Neither was reachable by any test**, and that is the more useful finding. A checker mutated each
+consumer to drop its `weight` argument and the whole suite stayed green: a dropped third argument
+silently defaults, and it only shows as a 250 ms drift against audio CI never synthesizes. There is
+no cheap behavioral oracle for that; there is a structural one, so
+`test/unit/core/narration-gap-census.test.js` pins every call site of the shared formula and fails
+when one stops passing the weight.
+
+**One coda guard was correct by accident.** `stage.contains(coda)` answers "is this inside the walked
+stage", which is equivalent to "was it already spoken" only while the component's walker is
+`speakGeneric` — `speakStats`, `speakBigNumber` and `speakQuote` do not walk the coda, so a
+stage-less slide of those four would have gone silent again with the guard appearing to work. It now
+asks the question directly: is this text already in the body.
 
 ## What is NOT verified
 

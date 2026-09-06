@@ -95,7 +95,7 @@ export function narration(text: string): Narration {
 		},
 		emphasis(spans) {
 			opts.emphasis = spans;
-			return this;
+			return b; // `b`, not `this` — every sibling verb does, so a detached method still chains
 		},
 		lexicon(map) {
 			opts.lexicon = map;

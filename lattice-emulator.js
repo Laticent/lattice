@@ -5059,7 +5059,7 @@ async function projectDeckSpeechFromHtml(docHtml) {
 // `--strip-notes` does not touch this path — it scrubs the note channel, and captions
 // narrate content, so the two flags are independent.
 async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = []) {
-  const { buildReadAlong, mergeNarration } = require('./lib/core/read-along-build.js');
+  const { buildReadAlong, emphasisForResolved, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
   const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
   // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
@@ -5089,6 +5089,14 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   // mergeNarration below are all untouched; the emphasis rides alongside, keyed by the same index.
   const projected = script.map((x) => x.text);
   const projectedEmphasis = script.map((x) => x.emphasis);
+  // THE PRE-SUBSTITUTION SNAPSHOT, and it is what the emphasis guard must compare against.
+  // `projected` is mutated IN PLACE below (`projected[i] = chart`) when narrateChart fires, so by
+  // the time the guard runs, `projected[i]` IS the chart narration — the test passes trivially on
+  // exactly the slides it exists to reject, and char offsets measured against the figure projection
+  // get applied to a different string. Measured before this line existed: 83 stale spans across 77
+  // slides in 15 committed decks. The bake and Present are unaffected because `applyChartNarration`
+  // returns a COPY; this producer is the one that mutates.
+  const projectedForEmphasis = projected.slice();
   // A length mismatch (an autosplit deck renders more sections than authored slides)
   // makes the index mapping unsafe, so mergeNarration drops the projection wholesale
   // rather than misalign a caption — surface that here so it isn't silent.
@@ -5198,12 +5206,10 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   if (STRIP_CAPTIONS) fmForMerge = null;
   // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → projection.
   const slideTexts = mergeNarration(slideCount, projected, { captions: inlineForMerge, fmCaptions: fmForMerge });
-  // EMPHASIS APPLIES ONLY WHERE THE FINAL NARRATION IS STILL THE PROJECTED TEXT. The spans are char
-  // offsets into the string the projection built; an inline `<!-- caption: -->`, a front-matter
-  // caption, or narrateChart's full-slide substitution all REPLACE that string, and reusing the old
-  // offsets against a different one would land a beat mid-phrase. Identity is the honest test — the
-  // slide either narrates what was measured, or it gets today's uniform pacing.
-  const emphasis = slideTexts.map((t, i) => (t === projected[i] ? projectedEmphasis[i] : undefined));
+  // Emphasis survives only where the resolved narration is still the projected text — the ONE
+  // shared rule (read-along-build.js), fed the PRE-substitution snapshot because `projected` was
+  // mutated in place above.
+  const emphasis = emphasisForResolved(slideTexts, projectedForEmphasis, projectedEmphasis);
   const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },

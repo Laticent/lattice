@@ -905,8 +905,16 @@ type ReadAlongCore = {
 			acronyms?: ReadonlyMap<string, string>;
 			lexicon?: ReadonlyMap<string, string>;
 			lang?: string;
+			/** Per-slide emphasis spans, parallel to `texts` — see lib/core/read-along-build.js. */
+			emphasis?: readonly (readonly { start: number; end: number; weight: number }[] | undefined)[];
 		},
 	) => { slides: { index: number }[] };
+	/** The ONE identity rule shared by all four narration producers — see read-along-build.js. */
+	emphasisForResolved: (
+		slideTexts: readonly string[],
+		projectedBefore: readonly string[],
+		spans: readonly (readonly { start: number; end: number; weight: number }[] | undefined)[],
+	) => (readonly { start: number; end: number; weight: number }[] | undefined)[];
 	// The SAME merge the CLI export uses (HARD RULE #1): caption → front-matter caption →
 	// projection, with the alignment guard that drops the projection wholesale on a
 	// section/slide count mismatch. Re-exported from the read-along-core bundle.
@@ -969,9 +977,9 @@ export async function shareCaptions(
 		.filter((p) => p.type === 'section')
 		.map((p) => `${p.openTag}${p.inner}</section>`);
 
-	// The FULL narration chain, identical to the CLI export's writeCaptionsSidecar
+	// The FULL narration chain, matching the CLI export's writeCaptionsSidecar
 	// (HARD RULE #1): a slide's inline `<!-- caption: -->` → its front-matter `captions:`
-	// entry → the component-aware DOM projection. A speaker note is not a rung. So a deck
+	// entry → the component-aware DOM projection, and the emphasis spans that ride with it. A speaker note is not a rung. So a deck
 	// exported from the docs site now produces the SAME projected captions the CLI does —
 	// closing the gap where the client `.vtt` was silently empty (the CLI already projected).
 	const notes = notesCore.extractSlideNotes(sections);
@@ -991,11 +999,19 @@ export async function shareCaptions(
 	// (lattice-emulator.js projectDeckSpeechFromHtml) — there is no notes fallback behind it,
 	// so a deck whose projection fails exports only its authored caption overrides.
 	let projected: string[] = [];
+	// Parallel to `projected`, and the guard below compares against THIS array rather than the
+	// post-substitution one: `applyChartNarration` returns a copy, so `projected` is rebound below
+	// and the pre-substitution text is what the spans were measured against.
+	let projectedEmphasis: readonly (readonly { start: number; end: number; weight: number }[] | undefined)[] = [];
 	try {
-		projected = await projectionMod.projectSectionsToSpeech(sections);
+		const scripts = await projectionMod.projectSectionsToScript(sections);
+		projected = scripts.map((x) => x.text);
+		projectedEmphasis = scripts.map((x) => x.emphasis);
 	} catch {
 		projected = []; // projection unavailable → note/caption text still narrates
+		projectedEmphasis = [];
 	}
+	const projectedForEmphasis = projected.slice();
 	// Chart-narration parity. A recognized chart slide narrates COMPUTED facts — a funnel's
 	// conversion rate, the auto-fit scale an unlabeled axis is plotted against — that exist
 	// only in the render, never in the figure projection's heading-only caption. The CLI
@@ -1004,9 +1020,15 @@ export async function shareCaptions(
 	// substitution, shared rather than copied (narration-resolve.ts).
 	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected);
 	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { captions, fmCaptions });
+	// Emphasis only where the resolved text is still the text the spans were measured against —
+	// the ONE shared rule, so all four producers spend the same beats. This sibling was missed on
+	// the first pass: `shareHtmlPlayer` was wired and this was not, so the Studio's
+	// "Captions (.vtt)" download carried no holds while the CLI's carried seven on the same deck.
+	const emphasis = readAlongCore.emphasisForResolved(slideTexts, projectedForEmphasis, projectedEmphasis);
 
 	onStatus?.('Building captions…');
 	const readAlong = readAlongCore.buildReadAlong(slideTexts, {
+		emphasis,
 		// Voice is metadata only — captions time off `pace`, not the voice (regenerate
 		// mode has no audio). Mirrors the CLI's default; the deck acronym registry expands.
 		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },

@@ -44,7 +44,7 @@ const ENTRY_CONTENTS = `
 export {
   assemblePlayer, playerCss, playerJs, buildArticle, minifyCss, escapeText, escapeAttr,
 } from './player-core.mjs';
-export { emphasisSpansFor, projectDeckToProse, projectDeckToScript, projectDeckToSpeech } from '../transformers/prose-projection.mjs';
+export { projectDeckToProse, projectDeckToScript, projectDeckToSpeech } from '../transformers/prose-projection.mjs';
 `;
 
 const BUILD_OPTIONS = {

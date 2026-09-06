@@ -1,1 +1,1 @@
-- The live Studio and the exported player now spend the same emphasis beats the CLI export bakes. Present, the baked deck and `--captions` resolve narration through the same ladder and apply spans under the same identity rule, so a deck sounds the same wherever it is played.
+- All four narration producers now spend the same emphasis beats: the CLI captions sidecar, the Studio's "Captions (.vtt)" download, the exported player's baked track, and live Present. They share one identity rule, so a deck sounds the same wherever it is played.

@@ -678,6 +678,45 @@ test('emphasis: a phrase the projection dropped or rewrote yields no span', () =
 	assert.deepEqual(s.emphasis, []);
 });
 
+test('emphasis: a <strong> inside a SKIPPED region is not an emphasis source', () => {
+	// The discriminating case for the SKIP_SELECTOR guard, which the test above does NOT reach:
+	// there the phrase was absent from the narration, so it passed for the wrong reason. Here the
+	// words ARE narrated (from the visible body) while the only <strong> sits in the speaker-note
+	// channel — chrome, not the author emphasizing the line the room hears. Deleting the guard
+	// marks this; keeping it does not.
+	const noteOnly = `<section data-lattice-slide data-class="content">
+	  <div class="cell-stage"><p>Margin held through the quarter.</p></div>
+	  <div class="lattice-notes"><strong>Margin held through the quarter</strong></div>
+	</section>`;
+	const [s] = script(sections(noteOnly));
+	assert.deepEqual(s.emphasis, [], JSON.stringify(s));
+});
+
+test('speech: a coda block the component walker ALREADY spoke is not repeated', () => {
+	// The guard is "is this already in the body", not "where does this sit in the DOM". The first
+	// version asked `stage.contains(coda)`, which is equivalent only while the walker happens to be
+	// speakGeneric — kpi/stats/big-number/quote do not walk the coda, so a stage-less slide of those
+	// would have gone silent while the guard looked like it worked.
+	const stageless = `<section data-lattice-slide data-class="content">
+	  <p>Coverage sits at 2.9x.</p>
+	  <div class="cell-coda"><blockquote><p>Retention carries the year.</p></blockquote></div>
+	</section>`;
+	const [text] = speak(sections(stageless));
+	assert.equal(text.match(/Retention carries the year/g)?.length, 1, text);
+});
+
+test('speech: chrome nested INSIDE a coda block is not narrated', () => {
+	// speechText reads textContent, so a docked chrome node inside a coda block would otherwise be
+	// spoken. Every other walker in the module strips SKIP_SELECTOR descendants; this one now does.
+	const withChrome = `<section data-lattice-slide data-class="content">
+	  <div class="cell-stage"><p>Body.</p></div>
+	  <div class="cell-coda"><blockquote><p>The insight.<span class="lattice-description">SLIDE 4 OF 9</span></p></blockquote></div>
+	</section>`;
+	const [text] = speak(sections(withChrome));
+	assert.match(text, /The insight\./);
+	assert.doesNotMatch(text, /SLIDE 4 OF 9/, text);
+});
+
 test('emphasis: a very short <strong> is not marked', () => {
 	const tiny = `<section data-lattice-slide data-class="content">
 	  <div class="cell-stage"><p>Grade <strong>A</strong> overall.</p></div>
@@ -686,15 +725,18 @@ test('emphasis: a very short <strong> is not marked', () => {
 	assert.deepEqual(s.emphasis, []);
 });
 
-test('emphasis: every span indexes real text and stays in bounds', () => {
-	const [s] = script(sections(BOLD_SLIDE, CODA_SLIDE));
+test('emphasis: every span indexes the phrase its source element actually carries', () => {
+	// NOT `slice(a,b).length === b - a`, which is true of any in-bounds pair and cannot fail. The
+	// claim worth pinning is that the span lands on the SOURCE ELEMENT'S OWN WORDS — an off-by-one
+	// or a stale offset survives a bounds check and is exactly the defect that shipped once.
 	for (const one of script(sections(BOLD_SLIDE, CODA_SLIDE))) {
+		const sourceEl = one.text.includes('one hundred') ? 'one hundred and eighteen percent' : 'The year is made on retention.';
+		assert.ok(one.emphasis.length > 0, one.text);
 		for (const sp of one.emphasis) {
 			assert.ok(sp.start >= 0 && sp.end <= one.text.length && sp.end > sp.start);
-			assert.equal(one.text.slice(sp.start, sp.end).length, sp.end - sp.start);
+			assert.equal(one.text.slice(sp.start, sp.end), sourceEl, `span landed on ${JSON.stringify(one.text.slice(sp.start, sp.end))}`);
 		}
 	}
-	assert.ok(s.text.length > 0);
 });
 
 test('emphasisSpansFor: returns [] for junk input instead of throwing', () => {
