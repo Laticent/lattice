@@ -841,6 +841,17 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(2) {
   border-top: 1px solid var(--border);
 }
+/* …and the hero's PILL LINE has to come back off centre too. The wide composition
+ * centres it with `justify-content` (it is a flex line — `text-align` cannot reach
+ * it), and resetting `text-align`/`align-items` on the row above does NOT undo that:
+ * the declaration is on the sub-bullet, not the row. Without this the linearised
+ * ledger reads with its lead row's status line centred and every row under it
+ * left-aligned — measured 264.2px of left gap against 0 on the next row. The same
+ * two-alignments-in-one-ledger defect the wide fix exists to remove, one family over.
+ * Ties that rule at (0,4,5) and wins on source order. */
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > ul > li {
+  justify-content: normal;
+}
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1)::after {
   content: none;
 }
