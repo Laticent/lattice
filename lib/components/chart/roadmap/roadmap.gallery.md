@@ -167,7 +167,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 - One workstream
   - A single row of phases is a `timeline` or `list-steps`, not a roadmap. Roadmap earns its grid only when at least two workstreams move in parallel.
 - No state markers
-  - A grid of bare deliverables loses half its value. Add `[x]`/`[-]`/`[ ]`/`[/]` so the audience reads progress alongside scope.
+  - A grid of bare deliverables loses half its value. Add `\[x]`/`\[-]`/`\[ ]`/`\[/]` so the audience reads progress alongside scope.
 - Past five workstreams
   - More than five rows compresses cell text and the lane stripes lose their categorical read. Group adjacent workstreams or split by phase.
 

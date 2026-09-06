@@ -135,7 +135,7 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 - Pass/fail or delivery status
   - If cells mean shipped/at-risk/blocked, use `obligation-matrix` or `roadmap` — their semantic state palette (pass/warn/fail) is built for exactly that read, and matrix-grid's categorical row colors would mislead.
 - More than one filled cell per row
-  - Each row names one position — one `[x]`. Multiple filled cells in a row breaks the "this is where you are" read; use `[-]` for the cells the row can still reach.
+  - Each row names one position — one `\[x]`. Multiple filled cells in a row breaks the "this is where you are" read; use `\[-]` for the cells the row can still reach.
 - Unordered axes
   - The grid earns its shape when both axes have a real order (shallow to deep, narrow to wide). Two free categorical labels belong in `matrix-2x2`.
 

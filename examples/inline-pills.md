@@ -19,7 +19,7 @@ Shape and color travel with the thing they describe, not with the slide.
 
 ## What changed.
 
-- `{LABEL}` inside inline code becomes a pill; `[x]` becomes a mark.
+- `\{LABEL}` inside inline code becomes a pill; `\[x]` becomes a mark.
 - `:tag` `:chip` `:circle` `:chevron-right` name the shape.
 - `:c1`–`:c12` name a categorical slot, never a color.
 - Plain inline code is untouched, so nothing existing moves.
@@ -145,5 +145,5 @@ Shape and color travel with the thing they describe, not with the slide.
 `Related`
 
 - `list-tabular` — the ledger these examples are set in
-- `checklist` — bare `[x]` state markers, a different vocabulary
+- `checklist` — bare `\[x]` state markers, a different vocabulary
 - `base.docs.md` — the cross-cutting authoring reference
