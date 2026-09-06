@@ -293,6 +293,12 @@ Measured: the pill's right edge lands at 438.6-464.5px on a 1152px row, leaving
 **751-777px of empty right column — 65-67% of every compliance row**. The
 reserved status column is never used and the pill trails the meta text instead.
 This is the single largest instance of "pill placement leaves lots of space".
+**Fixed:** the third track is gone and the status column is built where the pill
+actually lives — the meta line is a flex row with `space-between`, so the label holds
+the left and the pill takes the row's right edge (`space-between`, not
+`margin-left: auto`, so #20 needs no allowlist entry). Measured after: the pill's
+slack to the row's right edge is **0.0px**, and a compliance row's ink goes from
+274.8 x 85 to **1026.3 x 85** — fill 17.6% to **66.4%**.
 
 **The spotlight supports strand their own rules.** `kpi.styles.css` already
 documents this defect and fixes it — for briefing, at one count only:
@@ -304,12 +310,25 @@ The fix is `ol:not(:has(> li:nth-child(3))) > li:not(:first-child) {
 justify-content: start }`, scoped to briefing and explicitly excluding
 `.spotlight`. `spotlight` centers its supports at every count and has no
 equivalent, so on a 3-metric spotlight slide each support's ink sits **37.3px**
-below the rule that heads it, in a 187.1px row at 21-23% fill. `trajectory` has
-the same shape at **110.2px** below its categorical stripe.
+below the rule that heads it, in a 187.1px row at 21-23% fill. **Fixed:** the
+spotlight supports top-align under their own rules — unconditional there rather than
+count-aware, because the hero sets the rail's height, so a spotlight support's row is
+always taller than its content.
 
 **The trajectory grid is fixed at four columns.** `repeat(4, minmax(0, 1fr))`,
 so a 3-metric slide — which is `sweet` — leaves the fourth column, 270px and 23%
-of the stage, completely empty.
+of the stage, completely empty. **Fixed:** the column count follows the metrics
+authored, the way the briefing grid's ROW count already did. The gallery's 3-metric
+slide now lays out `368px 368px 368px` and fills the stage.
+
+**What is NOT a defect, corrected from an earlier draft.** This section used to add
+`trajectory`'s **110.2px** alongside spotlight's 37.3px as a second stranded rule. It
+is not one. Spotlight's border-top is a hairline heading the number directly beneath
+it, so a gap leaves a rule heading nothing. Trajectory's is a 4px categorical stripe
+along the top EDGE of a filled card whose content is centered — the same composition
+`ops` uses, and deliberate. That 110.2px is a tall card holding short content, which
+is § 3's fill question, not § 4's. Nothing was changed there. The geometry number
+alone could not tell the two cases apart; only looking at what the mark IS could.
 
 **And the closing rule on the rail is one the repo already retired elsewhere.**
 The briefing rail brackets itself: row 1 takes a 1.5px `--text-heading`
@@ -321,9 +340,11 @@ citing #2055 and `2026-09-03-table-outer-edge-rules.md`:
 > It used to ride `border-bottom` on every row, which put one under the LAST row
 > too — where it stops separating anything and becomes the ledger's floor.
 
-kpi never got that pass. The rail reads as a closed table frame rather than a set
-of separated rows, which is what makes it feel heavier than the three numbers in
-it justify.
+kpi never got that pass. The rail read as a closed table frame rather than a set
+of separated rows, which is what made it feel heavier than the three numbers in it
+justify. **Fixed**, on the briefing rail, on `spotlight`'s rail, and on
+`compliance`'s rows — which carried the identical defect one modifier over, a bottom
+border under every row and a heavy one under the last.
 
 ---
 
@@ -389,17 +410,27 @@ wasting 77.6% of its own sidebar.
 
 ## 6. Candidate moves
 
-Nothing below is implemented. Grouped by what they cost.
+**Moves 1-4 are DONE, in this note's own branch.** The rest are not, and are grouped
+by what they cost.
 
-**Cheap and self-contained.**
-1. Delete the closing `border-bottom` on the briefing and spotlight rails, per
-   `2026-09-03-table-outer-edge-rules.md`. One declaration each.
-2. Fix or delete the compliance status column. `display: contents` on the inner
-   `<li>` makes the existing `grid-column: 3` work and reclaims 65% of every row.
-3. Extend the briefing `justify-content: start` count fix to `spotlight` and
-   `trajectory`, so a rule always heads the number it introduces.
-4. Size the trajectory grid to the metrics authored, the way briefing's row count
-   already is.
+**Cheap and self-contained — all shipped.**
+1. ~~Delete the closing `border-bottom` on the briefing and spotlight rails~~ —
+   **done**, and it went further than the line proposed: the rail's heavy border-TOP
+   above the first support was the same outer edge and went with it, and `compliance`
+   carried the identical defect one modifier over. Separators between rows only, on
+   all three.
+2. ~~Fix or delete the compliance status column~~ — **done**, though not the way this
+   line proposed. `display: contents` on the inner `<li>` does NOT work: it would make
+   the label's text an anonymous grid item that no selector can place. The third track
+   is gone and the meta line is a flex row with `space-between` instead, which puts the
+   pill on the row's right edge with 0.0px of slack.
+3. ~~Extend the `justify-content: start` fix to `spotlight` and `trajectory`~~ —
+   **done for `spotlight`, and deliberately NOT for `trajectory`**: measuring said two
+   marks, looking said one defect. See § 4's correction.
+4. ~~Size the trajectory grid to the metrics authored~~ — **done**.
+
+Two of those four shipped in a different shape than this list proposed, which is the
+argument for writing the mechanism down rather than only the intent.
 
 **The real design question — kpi's split.**
 5. Center the hero's content on both axes and let the value scale with the box,
