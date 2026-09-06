@@ -255,9 +255,9 @@ injected into the preview frame, so these are the numbers that count:
 
 | scenario | before | after |
 |---|---|---|
-| typing on a diagram slide | 10 source frames · 172ms | **0 source · 0 blank · 20ms** |
-| navigate on, revisit | 4 source frames · 368ms · 4/4 rebuilds | **0 source · 0 blank · 20ms · 0/4** |
-| navigate on, first visit | 4 source frames · 448ms | **0 source** · 10 frames empty · 455ms |
+| typing on a diagram slide | 10 source frames · 172ms | **0 source · 0 blank · 23ms** |
+| navigate on, revisit | 4 source frames · 368ms · 4/4 rebuilds | **0 source · 0 blank · 28ms · 0/4** |
+| navigate on, first visit | 4 source frames · 448ms | **0 source** · 10 frames empty · 517ms |
 
 Layout shift stayed 0 in every arm.
 
@@ -311,7 +311,47 @@ stamp ADDS. Driven in real Chromium across five engine-emitted styles — plain,
 background, data-URI background, color, and a value containing `;` — all five now stable,
 with palette, `_class: dark` and a genuinely different background still splitting the key.
 
-Three more findings, dispositioned:
+**A SECOND checker, on the shipping diff, found the first checker's fix was itself
+defective — and that is the finding worth carrying forward.** The gate added in response
+to the export regression required `[data-lattice-runtime]`, on the stated reasoning that
+"only a builder that injects the runtime writes it". That was false:
+`lib/runtime/index.js` has always written exactly that attribute on
+`document.documentElement` at boot. So the rule switched itself ON in every document the
+runtime booted in — precisely the set it was written to spare — and on a host with the
+runtime but NO Mermaid (marp-vscode's markdown preview and its render-blocks-only stub, a
+404 on the script, a CSP that blocks it) a fence arriving after boot was hidden
+permanently: neither guard tags it, and the CSS hid it anyway. Driven on a hand-rolled
+page, and the false claim appeared in four documents.
+
+The lesson is not "check the attribute name". **The runtime was never the right
+precondition.** A fence is replaced by MERMAID, so that is what a document has to promise,
+and the gate is now `[data-lattice-diagrams]`, written by `previewDiagramsAttr()` exactly
+when a builder injects the Mermaid script. Both halves re-driven: a CLI export carries
+`data-lattice-runtime` (the runtime boots during the render) and NOT
+`data-lattice-diagrams`, so the unsubstituted `~~~mermaid` fence still reads; the
+late-fence repro now reports `visibility: visible`.
+
+Three more from that pass, all fixed:
+
+- **`normalizeScopeStyle` sorted its declarations**, which discards last-one-wins:
+  `background:red;background-color:blue` and its reverse resolve to different colors and
+  normalized to ONE key — the aliasing direction this key exists to prevent. Unreachable
+  through the production caller (`style.cssText` de-duplicates first), but live for the
+  plain-object caller the module's own header advertises. Order is preserved now; a
+  reordered authored style misses instead, which is the safe direction.
+- **The `--logo-*` drop also covered `--logo-ink`**, a color token. Narrowed to the five
+  placement properties `deckLogoPlacement` actually emits.
+- **`engineering/mermaid.md` still printed the un-gated rule** and the argument the first
+  checker had already refuted — the one place a reader would have picked up the defective
+  version.
+
+Two rounds of independent review, four confirmed defects, every one of them in the
+BOUNDARY of the change rather than its mechanism: which documents the CSS reaches, which
+attribute names are already taken, what a normalization silently discards. The mechanism —
+settle from cache in the microtask — was right the first time and has not been touched
+since.
+
+Three more findings from the FIRST pass, dispositioned:
 
 - **The replay tagged fences with no Mermaid to render them.** `initAndRun` returns before
   `wrapFences()` when `window.mermaid` is a stub or absent; the replay had no such guard,
