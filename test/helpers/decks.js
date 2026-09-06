@@ -97,7 +97,7 @@ function inlineSpans(file) {
   // was reported TWICE (once as a paragraph, once as chrome), and a span in a value that
   // renders nowhere — a `title:`, a `description:` — was reported as if it were on a slide.
   // Blanked rather than removed so every line number below still matches the source file.
-  const body = src.replace(FRONT_MATTER, (m) => m.replace(/[^\n]/g, ''));
+  const body = deckBody(src);
   let blockLine = 1;
   for (const token of md.parse(body, {})) {
     if (Array.isArray(token.map)) blockLine = token.map[0] + 1;
@@ -112,7 +112,7 @@ function inlineSpans(file) {
 /** The spans inside a deck's running header and footer — deck-wide and per slide. */
 function chromeSpans(file, src) {
   const found = [];
-  const body = src.replace(FRONT_MATTER, (m) => m.replace(/[^\n]/g, ''));
+  const body = deckBody(src);
 
   const fm = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   if (fm) {
@@ -189,6 +189,20 @@ function spansIn(text) {
  * ask what the engine asks, not what seems more correct (HARD RULE #1).
  */
 const FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
+
+/**
+ * A deck's body with its front matter blanked out — never removed.
+ *
+ * Blanking keeps every `\n`, so a line number from the parsed body still points at the same
+ * line of the real file. Removing the block would shift every span's line by the height of
+ * the front matter, and the census reports line numbers to authors.
+ *
+ * ONE definition, called by all three walkers. It was written out three times, and three
+ * copies of a rule is how the two censuses drifted apart in the first place.
+ */
+function deckBody(src) {
+  return String(src).replace(FRONT_MATTER, (m) => m.replace(/[^\n]/g, ''));
+}
 
 /** One whole HTML comment. A single lazy scan to the first `-->` — no nested quantifier. */
 const ONE_COMMENT = /<!--[\s\S]*?-->/g;
@@ -279,7 +293,7 @@ function siblingType(tokens, from, step) {
  */
 function codeOnlyParagraphs(file) {
   const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
-  const body = src.replace(FRONT_MATTER, (m) => m.replace(/[^\n]/g, ''));
+  const body = deckBody(src);
   const tokens = md.parse(body, {});
   const found = [];
   for (let i = 0; i < tokens.length; i += 1) {
