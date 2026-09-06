@@ -156,6 +156,15 @@ cannot be centered, and it needed a taper fitted by eye. A stroked centerline
 with a round linejoin holds constant width around the bend and is symmetric by
 construction.
 
+**Both ends run OUT of the letter**, and the clipPath cuts them at the contour.
+Stopping them inside left two free ends floating in the plane at two different
+lengths, which is what a line *drawn on* a surface looks like — cut material
+either reaches an edge or terminates deliberately. Side by side, stopping short
+reads as a typographic inline; running out reads as a channel through material.
+The cost is small and worth naming: at the two exits the brass meets the tile
+at **1.61:1**, so the terminations are soft rather than crisp. For a channel
+that runs off an edge, that is arguably correct.
+
 **It is a darker value of the letter, not a hole to the ground.** This is the
 difference between reading as an incision and reading as an outline, and it was
 got wrong twice:
@@ -205,9 +214,11 @@ asset set is exactly that surface. The single-scheme lockups and the
 fixed-color tiles now paint by attribute, and the two remaining class names are
 prefixed `lat-` so a host page's own `.sf` cannot collide.
 
-**The groove is clipped, not fitted, in BOTH forms.** `clipPath` means a
-mis-set inset or tail cannot paint outside the letter, whatever the numbers
-say. This line claimed both forms while only `mark()` did it — backwards, since
+**The groove is clipped, not fitted, in BOTH forms**, and the clip is now
+load-bearing rather than belt-and-braces: the groove deliberately overruns the
+contour at both ends, so the clip is what terminates it. `assert_invariants()`
+checks only the LENGTHWISE margins now — a head/tail arm would assert the
+opposite of the design. This line claimed both forms while only `mark()` did it — backwards, since
 the tile is where escape actually hurts (brass on the tile ground is 1.61:1, so
 the groove reads only while cream surrounds it). `assert_invariants()` catches a
 bad inset or tail on its own, but a claimed second layer that does not exist is

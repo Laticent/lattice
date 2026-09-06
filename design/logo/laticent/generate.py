@@ -165,8 +165,11 @@ TILE_DX = 3              # nudge right. An L's center of MASS sits 13.3 units
 # ("~28px" stood here and in the README for two revisions and was arithmetic
 # nobody did.) The ~46 is a judgment on top of the 38, not a derivation, and it
 # is DPR-blind — at 2x the groove survives smaller than this rule allows.
+# `inset` and `tail` are OVERHANGS, not insets: the groove starts above the
+# stem's top edge and ends past the arm's right edge, so it RUNS OUT of the
+# letter at both. The clipPath cuts it exactly at the contour.
 FINAL = {"sw": 20, "H": 84, "A": 68, "arm": 0.80, "bracket": 0.52,
-         "channel": 3.4, "inset": 15, "tail": 8, "dy": 3}
+         "channel": 3.4, "inset": -4, "tail": -4, "dy": 3}
 # MIN differs from FINAL by the groove and NOTHING else. It carried sw: 23 —
 # a 15% heavier stem, which also widened the arm and the bracket — left over
 # from the retired hole design, where a channel that REMOVED ink needed
@@ -211,14 +214,20 @@ def outline_pts(p):
 
 
 def channel_d(p):
-    """The channel's CENTERLINE. It is stroked, never outlined by hand.
+    """The groove's CENTERLINE, running OUT of the letter at both ends.
 
-    The previous seam was a hand-built polygon, and three separate defects came
-    out of that one decision: it bulged to 113% at the crook (a round inner
-    edge against a mitered outer one), its recess landed asymmetric because a
-    hand-offset outline cannot be centered, and it needed a taper parameter
-    fitted by eye. A stroked centerline with a round linejoin holds a constant
-    width around the bend and is symmetric by construction.
+    It is stroked, never outlined by hand: the original seam was a hand-built
+    polygon and three defects came out of that one decision — a 113% bulge at
+    the crook (round inner edge against a mitered outer one), a recess that
+    could not land symmetric, and a taper fitted by eye.
+
+    Both ends overrun the contour on purpose. Stopping them inside the letter
+    left two free ends floating in the plane, at two different lengths, and
+    that is what a line DRAWN ON a surface looks like — cut material either
+    reaches an edge or terminates deliberately. Rendered side by side, stopping
+    short read as a typographic inline; running out reads as a channel through
+    material. The clipPath cuts both ends exactly at the contour, so the
+    overhang costs nothing and cannot escape.
     """
     x0, base, top, ah = _geom(p)
     return (f'M{x0 + p["sw"] / 2:.2f} {top + p["inset"]:.2f} '
@@ -419,13 +428,17 @@ def assert_invariants():
     p = FINAL
     x0, base, top, ah = _geom(p)
     half = p["channel"] / 2
+    # Only the LENGTHWISE margins are checked now. The two ends deliberately
+    # overrun the contour and the clipPath cuts them there, so an "inset" or
+    # "tail" arm would be asserting the opposite of the design. What still
+    # matters is that the groove never reaches the letter's long edges: brass
+    # on the tile ground is 1.61:1, under the graphical floor, so the groove
+    # reads only while cream flanks it.
     margins = {
         "left of stem": p["sw"] / 2 - half,
         "right of stem": p["sw"] / 2 - half,
         "above arm": ah / 2 - half,
         "below arm": ah / 2 - half,
-        "channel head below stem top": p["inset"] - half,
-        "channel tail short of arm end": p["tail"] - half,
     }
     bad = {k: round(v, 2) for k, v in margins.items() if v < 1.0}
     if bad:

@@ -417,3 +417,31 @@ That is a direction question, not a defect, and it is the owner's:
   suggestion, and it risks the bevel reading it already reports on dark.
 - **Move the idea out of the detail** and into the silhouette, which is a
   genuine redesign rather than another sweep.
+
+### Testing the checker's own suggestions before putting the fork to the owner
+
+The checker offered two fixes for the inline reading: give the groove a value
+*pair*, or run one end out through the arm's terminal. Both were rendered
+against the current groove and against a solid letter before asking anything.
+
+| | Result |
+| --- | --- |
+| **value pair** (dark wall + light wall) | Reads as bevel-and-emboss. It is the cheap-3D look the checker already reports for the dark scheme, made worse. Rejected |
+| **one end runs out** | Better — but the head still floats, so the letter keeps one unexplained stop |
+| **BOTH ends run out** | The one that works. A continuous channel from the stem's top edge, down, and out through the arm's right edge. No free ends, and it reads as cut material at 128 and 48, closing into a solid letter at 24 |
+| **solid** | Clean and confident, and still the baseline this has to beat |
+
+Both ends now overrun the contour and the `clipPath` terminates them, which
+makes the clip load-bearing rather than defensive. `assert_invariants()`
+therefore checks only the **lengthwise** margins — a head/tail arm would be
+asserting the opposite of the design — and all six arms were re-mutation-tested
+against the new geometry.
+
+The cost is worth stating: at the two exits the brass meets the tile at
+**1.61:1**, so the terminations are soft rather than crisp. For a channel that
+runs off an edge that is arguably correct, but it is a tradeoff, not a free win.
+
+This does not settle the direction question in the section above. It removes
+the *specific* structural objection the checker raised — two free ends floating
+in a plane — and it leaves the deeper one intact: a 3.4-unit feature is about
+1.3 device pixels at 48px, and the solid letter is still the thing to beat.
