@@ -68,8 +68,16 @@ Both were caught failing in review, and neither is visible at 128px.
 - **Dark mode:** ship the adaptive SVG. Never hand-recolor — the file carries
   its own `prefers-color-scheme` block, as the rest of the family does.
 - **Wordmark:** Fraunces / Cormorant Garamond (Georgia fallback), 600,
-  letter-spacing −1, on the family's lockup geometry (mark at `scale 0.9375`,
-  text at `x=150`, `font-size 70`).
+  `font-size 70`, letter-spacing −1.
+- **The lockup shares one baseline.** The mark IS a letter, so its foot sits on
+  the wordmark's baseline — flat foot to flat foot, no overshoot (that is for
+  curves). It is drawn at **1.35 cap heights**; the convention is 1.2–1.6.
+  The text is set on its ALPHABETIC baseline, not with
+  `dominant-baseline="central"`: centering the em box makes the alignment
+  font-dependent, and "Laticent" has no descenders, so its mass rides high in
+  that box and a symbol centered on it drops visibly low. The first version of
+  this file did exactly that — the mark hung **9.2px below the baseline** at
+  2.1× cap height.
 - **Don't:** put a product hue in it, remove the recess, lay the seam directly
   on the slate, add gradients or shadows, or squash the aspect ratio.
 

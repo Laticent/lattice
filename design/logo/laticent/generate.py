@@ -113,20 +113,45 @@ def svg(inner):
             f'fill="none">{STYLE}{inner}</svg>\n')
 
 
-def lockup(style, width=470):
-    """Mark plus wordmark, on the family's lockup geometry. Fixed-scheme:
-    the family ships one file per surface rather than one adaptive lockup."""
+# The lockup's vertical rule. The mark IS a letter, so it shares the
+# wordmark's baseline exactly — flat foot to flat foot, no overshoot (that is
+# for curves). Two L's side by side that do NOT share a baseline is the thing
+# the eye catches without being able to name it, and the first version of this
+# file got it wrong: the mark hung 9.2px below the baseline and was drawn at
+# 2.1x cap height where the convention is 1.2-1.6x.
+#
+# The text is set on its ALPHABETIC baseline at BASELINE rather than with
+# dominant-baseline="central". Centering the em box makes the alignment
+# font-dependent, and "Laticent" has no descenders, so its mass rides high in
+# that box and any symbol centered on it drops visibly low. Pinning the
+# baseline is exact in whatever font actually resolves.
+FONT_SIZE = 70
+CAP_RATIO = 0.70          # cap height as a fraction of em, Fraunces/Georgia
+MARK_CAPS = 1.35          # the mark's height in cap heights (convention 1.2-1.6)
+BASELINE = 92.0
+MARK_INK = (19.0, 102.8)  # the mark's own ink bbox in y, measured
+MARK_INK_X = 100.8        # ... and its right edge
+GAP_CAPS = 0.42           # space to the wordmark, in cap heights
+
+
+def lockup(style, width=None):
+    """Mark + wordmark, sharing one baseline."""
+    cap = CAP_RATIO * FONT_SIZE
+    sc = (MARK_CAPS * cap) / (MARK_INK[1] - MARK_INK[0])
+    ty = BASELINE - MARK_INK[1] * sc            # the mark's foot ON the baseline
+    tx = 4 + MARK_INK_X * sc + GAP_CAPS * cap
     stone = STONE if style == "light" else STONE_DM
     gold = GOLD if style == "light" else GOLD_DM
     halo = HALO if style == "light" else HALO_DM
     txt = WM if style == "light" else WM_DM
     st = f'<style>.sf{{fill:{stone}}}.gf{{fill:{gold}}}.hs{{stroke:{halo}}}</style>'
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} 128" '
+    w = width or int(tx + 300)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} 128" '
             f'fill="none">{st}'
-            f'<g transform="translate(4 4) scale(0.9375)">{mark()}</g>'
-            f'<text x="150" y="67" dominant-baseline="central" '
-            f'font-family="{WMFONT}" font-size="70" font-weight="600" '
-            f'letter-spacing="-1" fill="{txt}">Laticent</text></svg>\n')
+            f'<g transform="translate(4 {ty:.2f}) scale({sc:.4f})">{mark()}</g>'
+            f'<text x="{tx:.1f}" y="{BASELINE}" font-family="{WMFONT}" '
+            f'font-size="{FONT_SIZE}" font-weight="600" letter-spacing="-1" '
+            f'fill="{txt}">Laticent</text></svg>\n')
 
 
 def write(path, text):
