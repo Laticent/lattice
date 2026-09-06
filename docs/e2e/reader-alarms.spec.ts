@@ -9,7 +9,7 @@ import { expect, test } from './studio-fixture';
  * The runtime's overflow watcher self-boots there in AUTHOR mode, so both engine alarms can paint
  * on a page someone is merely browsing:
  *   · the red `.overflow` ring + "Overflows" tab, and
- *   · the amber `.illegible` ring + a "Type Npx · floor Npx" tab (§8 rule 8's type floor).
+ *   · the amber `.illegible` ring + a "Text too small · Npt" tab (§8 rule 8's type floor).
  *
  * Author mode is the right default for the surfaces where the reader can ACT — the Specimen has an
  * Edit face, the Studio is an editor — so this is deliberately NOT a behavior change. It is a

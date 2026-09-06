@@ -1078,6 +1078,7 @@ const { pinPdfTimestamps, pinPdfLibDates } = require('./lib/core/pdf-timestamps'
 const {
   OVERFLOW_TAB_TEXT_SRC,
   LEGIBILITY_TAB_TEXT_SRC,
+  LEGIBILITY_TAB_HINT_SRC,
 } = require('./lib/runtime/fluid-view-policy');
 const fitBerth = require('./lib/core/fit-berth');
 const { BERTH_SRC } = fitBerth;
@@ -3485,6 +3486,7 @@ ${ENGINE_SCRIPT_OPEN}
   // re-typed here — the two watchers stamp the same class and must not drift in what they
   // call the same measurement (HARD RULE #15).
   var legibilityTabText = ${LEGIBILITY_TAB_TEXT_SRC};
+  var legibilityTabHint = ${LEGIBILITY_TAB_HINT_SRC};
   // The marker's chrome is emitted WITH the slide, so this watcher only ever fills
   // it -- same element the browser runtime fills, injected from the same kernel so
   // the two cannot drift (HARD RULE #1). It mints on a miss rather than returning
@@ -3566,8 +3568,8 @@ ${ENGINE_SCRIPT_OPEN}
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.
       // AUTHOR-ONLY, matching the overflow branch above and the runtime's own gate
-      // (lib/runtime/index.js). A reader cannot resize a figure, so "Type 3px ·
-      // floor 8.4px" is a QA diagnostic in front of an audience. Ungated, it rode
+      // (lib/runtime/index.js). A reader cannot resize a figure, so "Text too
+      // small · 3pt" is a QA diagnostic in front of an audience. Ungated, it rode
       // into the exported .html -- which is written BEFORE the level-aware strip
       // runs, so nothing cleaned it up there.
       var leg = MARKER_LEVEL === 'author' ? probeFigureLegibility(s, ${FIGURE_TEXT_FLOOR_RATIO}) : null;
@@ -3579,6 +3581,19 @@ ${ENGINE_SCRIPT_OPEN}
       var tab = berth(s, 'illegible-tab');
       var legWord = under ? legibilityTabText(leg) : '';
       if (tab && tab.textContent !== legWord) tab.textContent = legWord;
+      // The hint the label has no room for, in the title attribute -- same carrier the
+      // runtime uses, filled from the same kernel. Cleared when the slide stops being
+      // illegible, so a re-measure never leaves a passing slide holding stale advice.
+      // (No backticks in here: this comment lives INSIDE the injected template literal,
+      // so one would close the string and take the rest of the watcher with it.)
+      if (tab) {
+        var legHint = under ? legibilityTabHint(leg) : '';
+        if (legHint) {
+          if (tab.getAttribute('title') !== legHint) tab.setAttribute('title', legHint);
+        } else if (tab.hasAttribute('title')) {
+          tab.removeAttribute('title');
+        }
+      }
     });
   }
   // Force every declared @font-face to load before the FIRST measurement —
@@ -4288,9 +4303,14 @@ async function renderBody(browser, g, closeBrowser) {
     const n = illegible.length;
     // "scaled figure", not "viewBox figure": the probe judges a CSS-letterboxed box
     // (`data-fit-k`) on the same axis now, and that box may carry no `<svg>` at all.
+    // POINTS lead and px follows, matching the tab (lib/runtime/fluid-view-policy.js
+    // `legibilityTabText`) — the pt is preset-invariant and comparable to the deck's own
+    // type roles, the px is what this particular render measured. Both, because this is
+    // the channel an author debugs from and dropping the px would cost the tie back to
+    // the ratio on the same line.
     console.warn(`  ⚠ TYPE FLOOR — ${n} scaled figure${n > 1 ? 's' : ''} render${n > 1 ? '' : 's'} text below the ` +
-      `legibility floor (${(FIGURE_TEXT_FLOOR_RATIO * 100).toFixed(2)}% of slide height = ${illegible[0].illegible.floorPx}px here): ` +
-      illegible.map((o) => `page ${o.slide} at ${o.illegible.minPx}px (${o.illegible.pct}%)`).join(', ') + '.');
+      `legibility floor (${illegible[0].illegible.floorPt}pt = ${(FIGURE_TEXT_FLOOR_RATIO * 100).toFixed(2)}% of slide height, ${illegible[0].illegible.floorPx}px here): ` +
+      illegible.map((o) => `page ${o.slide} at ${o.illegible.minPt}pt (${o.illegible.minPx}px, ${o.illegible.pct}%)`).join(', ') + '.');
     console.warn('    A container-responsive figure never overflows — it scales its own labels instead, so the');
     console.warn('    overflow check cannot see this. Simplify the figure (fewer labels, shorter text), give it a');
     // Level-aware, like the OVERFLOW line below. `author` keeps the amber ring in
@@ -4386,8 +4406,8 @@ async function renderBody(browser, g, closeBrowser) {
       for (const t of document.querySelectorAll('.overflow-tab')) t.remove();
     }
     // The §8 rule 8 TYPE-FLOOR marker is AUTHOR-ONLY at every level below `author`:
-    // a reader cannot resize a figure, so an amber alarm reading "Type 3px · floor
-    // 8.4px" is a QA diagnostic in front of a boardroom. The stderr warning is the
+    // a reader cannot resize a figure, so an amber alarm reading "Text too small ·
+    // 3pt" is a QA diagnostic in front of a boardroom. The stderr warning is the
     // author's channel for it.
     if (lvl !== 'author') {
       for (const s of document.querySelectorAll('section.illegible')) s.classList.remove('illegible');

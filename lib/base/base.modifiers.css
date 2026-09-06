@@ -1983,7 +1983,46 @@ section.illegible > .illegible-tab {
   line-height: 1;
   padding: var(--sp-2xs) var(--sp-sm);
   border-bottom-left-radius: var(--radius-md);
-  pointer-events: none;
+  /* HOVERABLE, unlike the two tabs beside it — this is the one that carries a `title`.
+   * The watcher writes the fix into it ("Simplify the figure or give it a bigger box"),
+   * and `pointer-events: none` makes a native tooltip unreachable, so the hint would sit
+   * in the DOM and never reach a person. The Fix-Me tab has carried a dead `title` on
+   * exactly that mismatch since it was written; left alone here rather than swept in,
+   * because that is a different register and HARD RULE #18 keeps a found defect off the
+   * path of the change that found it — logged, not fixed in passing.
+   *
+   * WHAT IT COSTS, measured rather than estimated. The tab's box is 269x23px at hd (not the
+   * "~20x190" an earlier draft of this comment guessed — 42% wider, and 21% of the slide
+   * width), and inside it clicks no longer pass through.
+   *
+   * THE BOUND IS THE MARKER LEVEL, NOT "NEVER EXPORTED", and the distinction is one this
+   * comment got wrong first time round. The tab is gated on `overflow-marker: author` — but
+   * `author` is a level an EXPORT can be run at (`--overflow-marker=author`), and at that
+   * level lattice-emulator.js deliberately keeps it: its strip is `lvl !== 'author'`, and its
+   * own stderr line says "The export carries the amber ring and its tag." So an author-level
+   * PDF / --html / --player carries this strip, by design. What is actually true is narrower
+   * and still enough: nothing a READER receives has it, because `reader` and `off` — the
+   * export default and every delivered path — remove the node outright.
+   *
+   * THE ONE CONSEQUENCE WORTH CHECKING, and it is MEASURED rather than reasoned.
+   * docs/src/playground/chart-interact.js resolves a pointer to a chart slice with
+   * `elementFromPoint(...).closest(MARK_SEL)`; over a hit-testable tab that returns the tab, so
+   * `sliceAt` would answer -1 and a mark under this corner would stop revealing on hover.
+   *
+   * It does not happen, and that is the measurement rather than the placement note's word for
+   * it: every shipped chart gallery that emits `[data-mark]` (funnel · gantt · map · piechart ·
+   * quadrant · radar), rendered through the real emulator at hd with `.illegible` forced onto
+   * every slide so the tab paints at full size — 66 slides, 461 interactive marks, ZERO under
+   * the tab by rect intersection AND by `elementFromPoint`. The closest any mark came was 162px
+   * BELOW the tab's bottom edge. The corner really is reserved, and that is now a number rather
+   * than a claim. (Re-derive with the probe in the decision note; a component that starts
+   * drawing marks into the top chrome band is what would change it.)
+   *
+   * NOT THE WHOLE CHANNEL. A tooltip needs a pointer, so on a touch preview — the surface this
+   * change was reported from — the hint is unreachable and the LABEL has to stand alone. That
+   * is why the label states the condition in words and carries the size, instead of deferring
+   * both to the hover. */
+  pointer-events: auto;
 }
 /* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
    stays correct at any type scale or preset. */
