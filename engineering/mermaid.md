@@ -20,7 +20,7 @@ flowchart LR
 
 | Path | Who renders | When |
 | --- | --- | --- |
-| PDF / export (`lattice-emulator.js`) | `mmdc` (Mermaid's CLI, one process per diagram) | build time, pre-rendered to inline SVG |
+| PDF / export (`lattice-emulator.js`) | the engine's own Mermaid render worker, one batched child process (it replaced a per-diagram `mmdc` shell-out — `lib/integrations/mermaid/render-worker.js`) | build time, pre-rendered to inline SVG |
 | Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode |
 
 **Both fence characters, on both paths.** markdown-it emits `class="language-mermaid"` for
@@ -40,11 +40,12 @@ speaker notes. All five driven on the real CLI. What the walker recognizes is ch
 what the engine ACTUALLY emits: up to three spaces of indent is a fence, four is an indented
 code block, and an HTML comment is not markdown.
 
-What no deck sees is any change at all: measured against the pattern it replaces over every
-tracked markdown file, the only spans that move are three DOCS that were substituting their
-own teaching examples. That proves no regression and nothing more — no deck in this repo
-indents a Mermaid fence or writes one with tildes, so there was nothing for it to find. The
-hazard arrives with the decks written after this, which is what the unit arms are for.
+What no SHIPPED deck sees is any change at all: measured against the pattern it replaces over
+every tracked markdown file, four files move — three DOCS that were substituting their own
+teaching examples, and the demo deck this change adds, whose tilde and indented fences are the
+point. That proves no regression and nothing more: apart from that deck, nothing here indents
+a Mermaid fence or writes one with tildes, so there was nothing for it to find. The hazard
+arrives with the decks written after this, which is what the unit arms are for.
 
 **The `.html` player takes a third step past either path: it BAKES the diagram.**
 The player sanitizes its slide DOM (`sanitizeSlideHtml`), and that sanitizer bars

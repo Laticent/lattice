@@ -510,6 +510,25 @@ slide; G is rejected on 116KB for what CSS does for free.
   | a fence indented at all — a diagram written under a bullet | **raw Mermaid source in the PDF**, where the preview drew a diagram |
   | a fence whose CLOSER is indented two spaces | the fence never closed: the substitution ate two `---` separators, and a **three-slide deck exported as one page** with both diagrams and a slide of prose gone |
   | a fence commented out inside `<!-- … -->` | **12KB of SVG in the `.notes` sidecar**, where the author had a commented-out draft |
+  | ```` ```mermaid js ```` | source — the walker demanded the tag be EXACTLY `mermaid`, while markdown takes the first token |
+
+  **Five review passes ran, and each one found a real defect in the previous one's fixes.**
+  That is the fact to carry forward from this note, more than any individual bug. Two of the
+  six rows above were introduced BY THE FIX for the others, and the worst of them never reached
+  a reviewer only because a fourth pass ran: the span started N characters before the fence
+  line, so every indented fence spliced over the end of the preceding prose — "42 million."
+  exported as "42 millio" — and at offset 0 it went negative and duplicated the document. A
+  fifth pass then found that the guard added for the slide-boundary case tested `/^---$/` and
+  closed one spelling of a thematic break out of five, so this note's own unit-test deck still
+  lost a slide with the separator changed by one character; and that the same commit's comment
+  rule, justified as "a bare `<!--` in prose really does open a comment", was wrong about the
+  engine — CommonMark opens an HTML block only at the head of a line, so a mid-line `<!--` in
+  prose silently switched off every diagram after it.
+
+  The pattern is worth naming: every one of those was a boundary, not a mechanism — which
+  spelling, which column, which line position — and every one passed lint, `build:check` and
+  8000+ unit tests. What eventually held them was not review at all but the conformance corpus
+  below, which asks the ENGINE rather than the author of the change.
 
   The indented pair is the one worth dwelling on. This module exists to stop a fence the
   PREVIEW draws from printing as source, and its first version reintroduced exactly that for
@@ -569,7 +588,10 @@ slide; G is rejected on 116KB for what CSS does for free.
   `slideToSpeech`), every non-empty block of a `\n---\n` split, the whole tracked tree including
   the files this branch itself edits:
 
-  **6463 blocks · 19 changed · 18 files · 13 longer, 6 shorter · 1 of the 19 contains a `~~~`.**
+  **19 changed · 18 files · 13 longer, 6 shorter · exactly one of the 19 carries a `~~~` FENCE
+  line.** (An earlier draft also quoted a denominator — "6463 blocks" — which did not reproduce
+  for an independent re-derivation. Every figure above did, exactly. A count nobody can
+  reproduce is the thing this paragraph is about, so it is gone rather than guessed at again.)
 
   **The only DECK among the 18 is this change's own new demo deck**, whose narration moved
   because the deck gained slides. Every other file is documentation — `README.md`, `design/`,

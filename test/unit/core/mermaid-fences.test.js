@@ -182,6 +182,23 @@ describe('mermaid-fences', () => {
 	// be right about them it refuses to substitute a body containing a bare `---`. Driven on the
 	// real CLI in both directions: a three-slide deck exported as one page, and a substituted
 	// block torn in half leaving an unclosed `<pre>` on one slide and a stray `</pre>` on the next.
+	// EVERY THEMATIC BREAK, not just `---`. The engine splits on markdown-it's `hr` token, and
+	// CommonMark makes all of these one — driven through the real render, each produces two
+	// sections. The first version of this guard tested `/^---\s*$/`, so THIS TEST'S OWN DECK
+	// still lost a slide with the separator changed by one character. A fifth review pass found
+	// it by doing exactly that.
+	test('every spelling of a thematic break refuses the substitution', () => {
+		const deck = (sep) => [
+			'## One.', '', '- The flow:', '', '  ```mermaid', '  flowchart LR', '    A --> B', '',
+			sep, '', '## Prose that must survive.', '', 'The Q4 forecast is 42 million.', '',
+		].join('\n');
+		for (const sep of ['---', '***', '___', '- - -', '* * *', '  ***', '   ---', '-  -  -']) {
+			assert.equal(matchMermaidFences(deck(sep)).length, 0, `${JSON.stringify(sep)} did not refuse`);
+		}
+		// …and something that only looks like one does not refuse a legitimate fence.
+		assert.equal(matchMermaidFences('```mermaid\nflowchart LR\n  A["--"] --> B\n```\n').length, 1);
+	});
+
 	test('a body containing a slide separator is never substituted', () => {
 		const deck = [
 			'## One.', '', '- The flow:', '', '  ```mermaid', '  flowchart LR', '    A --> B', '',
@@ -200,11 +217,19 @@ describe('mermaid-fences', () => {
 
 	// One `<!--` an author WRITES ABOUT turned comment state on for the rest of the deck, and
 	// every diagram after it printed as source. Backticked runs are not markup.
-	test('a `<!--` inside inline code does not open a comment', () => {
-		const src = 'Every speaker note begins with the `<!--` marker.\n\n```mermaid\n' + BODY + '```\n';
-		assert.equal(matchMermaidFences(src).length, 1);
-		// A bare `<!--` in prose really does open one, and still suppresses what follows.
-		assert.equal(matchMermaidFences('<!-- open\n\n```mermaid\n' + BODY + '```\n').length, 0);
+	// A COMMENT OPENS AT THE HEAD OF A LINE, which is what CommonMark's HTML block type 2 says
+	// and what the engine does. An earlier version scanned anywhere on the line, on the stated
+	// reasoning that "a bare `<!--` in prose really does open a comment" — driven through the
+	// real render, it does not, and treating it that way silently switched off every diagram in
+	// the rest of the deck.
+	test('a `<!--` that is not at the head of a line does not open a comment', () => {
+		// Prose ABOUT the marker, in inline code or bare, mid-line.
+		assert.equal(matchMermaidFences('Notes begin with the `<!--` marker.\n\n```mermaid\n' + BODY + '```\n').length, 1);
+		assert.equal(matchMermaidFences('A note opens with <!-- on its own line.\n\n```mermaid\n' + BODY + '```\n').length, 1);
+		// A real comment block still suppresses what is inside it…
+		assert.equal(matchMermaidFences('<!--\ndraft:\n```mermaid\n' + BODY + '```\n-->\n').length, 0);
+		// …and a one-line directive comment does not leave the walker inside one.
+		assert.equal(matchMermaidFences('<!-- _class: diagram -->\n\n```mermaid\n' + BODY + '```\n').length, 1);
 	});
 
 	// ── group 3: the opener's shape, which is what decides whether a deck's bytes move ────

@@ -17,5 +17,6 @@
 - **Changed: fenced code is no longer read aloud, and prose that was wrongly swallowed now
   is.** The three fence trackers behind narration were backtick-only and closed on any
   fence-looking line, so a `~~~` block's source narrated while authored prose after a nested
-  code sample was silently dropped. They share one reader now. No deck's narration changes;
-  17 documentation files do, 12 of them by speaking prose that had been swallowed.
+  code sample was silently dropped. They share one reader now. Across every tracked file 19
+  blocks change in 18 files — all documentation but this change's own demo deck, and 13 of them
+  by speaking prose that had been swallowed.

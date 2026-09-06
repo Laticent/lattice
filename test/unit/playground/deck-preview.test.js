@@ -221,7 +221,19 @@ describe('buildSrcdoc', () => {
 				);
 				calls.forEach((m, k) => {
 					const stop = k + 1 < calls.length ? calls[k + 1].index : text.length;
-					(knobs[rel] ||= []).push(/\bdiagrams:\s*false\b/.test(text.slice(m.index, stop)) ? 'false' : 'default');
+					// THE KNOB MUST BE A PROPERTY, not a mention. Blanking string bodies is what
+					// made 40 files invisible, so strings are left alone — which means a literal
+					// `diagrams: false` inside one would satisfy a bare substring test. It did:
+					// deleting the real opt-out from the export capture frame and leaving
+					// `"set diagrams: false to opt out"` behind it kept this test GREEN. Two
+					// cheap discriminators close it. Same-line quoted runs are blanked (a
+					// single-line blank cannot run away the way an unterminated one did), and the
+					// match must follow a `{` or `,` — an object property does, English prose
+					// does not.
+					const window = text
+						.slice(m.index, stop)
+						.replace(/(['"`])(?:\\.|(?!\1)[^\\\n])*\1/g, (q) => q[0] + ' '.repeat(Math.max(0, q.length - 2)) + q[0]);
+					(knobs[rel] ||= []).push(/[{,]\s*diagrams:\s*false\b/.test(window) ? 'false' : 'default');
 				});
 				// AN INDIRECT REFERENCE THIS SCAN CANNOT CLASSIFY. `buildSrcdoc(opts)`, an alias,
 				// or a value passed on — each is a document this census would silently miss, so it
