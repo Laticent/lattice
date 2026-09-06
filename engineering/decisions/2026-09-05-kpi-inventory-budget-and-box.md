@@ -340,32 +340,38 @@ spotlight supports top-align under their own rules — unconditional there rathe
 count-aware, because the hero sets the rail's height, so a spotlight support's row is
 always taller than its content.
 
-**Top-aligning it leaves the value close to its rule, and a commit that tried to buy
-that back was reverted — the near-miss is the more useful record.** `justify-content:
-start` packs the value against the rule: measured on a rendered deck, main left 37.3px
-of ink between rule and glyph, `start` leaves **6.7px** on a probe deck and about
-**1.5px** on the worst realistic value (`$1.1B`, whose `$` ascends past the digits'
-cap height). Tight, and it clears.
+**Top-aligning it puts the value ON its rule for ordinary values, and getting that
+right took three tries — the sequence is the most useful thing in this note.**
+`justify-content: start` packs the value against the hairline heading it. Measured as
+painted ink, at 400dpi and again at 1x (the resolution the deck is read and printed
+at): an **accented capital** — `Ärlig`, an ordinary Nordic label — leaves **0.00px**
+of white at both resolutions; the umlaut sits on the line. A `$` value leads by
+**1.2px** at 400dpi and merges into the rule at 1x. Neither is exotic; `$` is the
+value style the component's own docs use.
 
-**A `padding-top: 0.4em` shipped for one commit on the claim that it did NOT clear,
-and both halves of that claim were wrong.** The measurement said "-8.0px of ink
-clearance"; it was not ink. `Range.getClientRects()` on the value returns the
-FONT-METRIC box, which stands about 0.2em above the line box and paints nothing — so
-the reported crossing was of a box, and a 400dpi pixel scan of the same render shows
-the rule at rows 1787-1791, pure white through 1818, and the first glyph ink at 1819.
-This section had already named that trap one paragraph earlier ("that 37.3px is an INK
-measurement… they are not interchangeable"), and the next fix walked into it anyway.
-The second half was worse: the padding was said to cost no capacity, having been swept
-only against decks that already overflowed. It costs the documented ceiling. A
-4-metric `spotlight` at wide — `adapt.capacity.wide.hard: 4`, authored the way the
-manifest prescribes — fits on main with **0.00px** of slack and CLIPS with the
-padding, by **33.56px**. Zero slack at the ceiling means any lead in that rail is paid
-for out of an author's fourth metric.
+**Three drafts, and the first two were wrong in opposite directions, for one reason.**
+`Range.getClientRects()` returns the FONT-METRIC box, which stands about 0.2em above
+the line box and paints nothing.
+- Draft one read that box as ink, reported a "-8.0px crossing" that was not one, and
+  padded **every** support by 0.4em. That clipped the documented ceiling: a 4-metric
+  `spotlight` at wide — `adapt.capacity.wide.hard: 4` — fits with **0.00px** of slack
+  and overflowed by **33.56px**.
+- Draft two took the correction as proof the rail was fine, removed the lead
+  entirely, and shipped the 0.00px case above. Its pixel scan looked sound and was
+  not: the scan window started past x=762.7, so it missed the `$` and reported the
+  clearance of the digits behind it.
+- Draft three scopes the lead to the rows that actually carry a rule,
+  `li:nth-child(n+3) > strong`. The first rail row has no border — removing that outer
+  edge is what this change is for — so padding it buys nothing and costs a row of
+  height. Scoped that way, **0.15em** fits 4 metrics at 16:9, standard, 4K and square
+  and 5 at the tall ceiling, and buys the `Ä` case 4.08px at 400dpi and 3.0px at 1x.
+  0.20em was measured too: it clips the 4-metric slide at 4K.
 
-**So no padding ships, and the lever is named instead of taken.** If the tightness is
-judged a design problem later, it is the rail's row height or the value's size, not a
-pad — and whatever is tried has to be re-measured against that 4-metric wide slide,
-which has nothing to give.
+**The rule to carry forward: measure ink, not the box, and scan the whole column.**
+This section had already written the distinction down ("that 37.3px is an INK
+measurement… they are not interchangeable") — and 37.3 is itself the font-metric
+figure, so even the sentence naming the trap was standing in it. The border-box gap on
+main is 45.3px and the painted-ink gap 41-57px depending on the value.
 
 **The trajectory grid is fixed at four columns.** `repeat(4, minmax(0, 1fr))`,
 so a 3-metric slide — which is `sweet` — leaves the fourth column, 270px and 23%
@@ -412,7 +418,10 @@ below it. inventory's `li + li` is right in inventory because its rows have no g
 between them. Keeping compliance's rule on the bottom edge holds every interior
 separator within 1px of where it was. Not zero, and it cannot be zero: removing the
 floor takes 1px of border out of the column and `space-between` redistributes that
-pixel into the two gaps, so the boundaries land +0.50px and +1.00px down. An
+pixel into the two gaps, so the boundaries land +0.00px and +0.50px down, measured
+at the PAINTED edge — each row's bottom border, which is where this rule puts the
+line. A draft of this sentence quoted +0.50 / +1.00, which are the row TOPS; the top
+of row 3 carries no border, so that edge paints nothing. An
 independent pass caught the first version of this sentence claiming zero while the
 same commit had let 8px of padding back into the meta line and moved the boundaries
 +8.00px and +4.50px — the padding is restored, and the claim is now the measurement
@@ -422,7 +431,10 @@ rather than the intent.
 rewrote its cause.** `li + li` matched every sub-bullet after the first and pinned
 them all to `grid-row: 2`, so a THIRD sub-bullet rendered exactly on top of the
 second — identical rects, text over text, silent, and reproducible on main. Extra
-sub-bullets now take implicit rows and the value spans `1 / -1` to stay centered
+sub-bullets now take implicit rows and the value spans `1 / 3` — written as the
+literal it computes to, because `1 / -1` is identical here (negative line numbers
+count from the last EXPLICIT line) and the comment claiming it would center against
+a third sub-bullet was false. It stays centered
 against them.
 
 ---
@@ -552,7 +564,10 @@ on this component every claim that was *reasoned* rather than *rendered* has bee
 wrong, and the two that survived a raster are the two that were rastered.
 
 **What that sweep DID reach.** All 33 palettes at wide — spotlight ink clearance
-+8.0px in every one, no negative clearance, no render failure. The square and tall
+identical geometry in every one and no render failure — the palettes carry no font
+tokens at all, so they cannot move ink relative to a rule. (A draft of this line
+quoted "+8.0px clearance in every one"; that was the padding-era number, and it was
+a font-metric figure besides.) The square and tall
 families, rule by rule, against main. The PPTX export, unzipped and looked at
 (`ppt/media/image-7-1.png`, 2560x1440). The live docs site at `/components/evidence/kpi/`,
 which renders the component through the browser runtime rather than the export path,

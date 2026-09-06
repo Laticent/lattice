@@ -776,31 +776,38 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) {
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(n+3) {
   border-top: 1px solid var(--border);
 }
-/* NO TOP PADDING ON THE SUPPORT VALUE, AND THE NEAR-MISS IS WORTH THE COMMENT.
- *
- * Top-aligning the rail above pulls each value up against the rule that heads it.
- * Measured on a rendered deck with the widest realistic value (`$1.1B`, whose `$`
- * ascends past the digits' cap height): main left 37.3px between rule and glyph;
- * with `start` it is 6.7px on a probe deck and ~1.5px on the worst case built to
- * break it. Tight, and it CLEARS — a 400dpi pixel scan of the pre-padding render
- * reads the rule at rows 1787-1791 and pure white through 1818, with the first
- * glyph ink at 1819.
- *
- * A `padding-top: 0.4em` shipped here for one commit and was reverted, because the
- * measurement behind it was of the wrong box. `Range.getClientRects()` on the value
- * returns the FONT-METRIC box, which extends about 0.2em above the line box and
- * paints nothing; reading that as ink turned a 6.7px clearance into a reported
- * "-8.0px crossing". The padding then cost real capacity: a 4-metric spotlight at
- * wide — `adapt.capacity.wide.hard: 4`, authored the way the manifest prescribes —
- * fits on main with 0.00px of slack and CLIPS with the padding, by 33.56px. Zero
- * slack at the documented ceiling means any lead here is paid for by an author's
- * fourth metric.
- *
- * So if the tightness is ever judged a design problem, the lever is the rail's row
- * height or the value's size, not padding — and whatever is tried has to be
- * re-measured against that 4-metric wide slide, which has none to give. */
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
   font-size: var(--fs-emphasis);
+}
+/* THE LEAD GOES ON THE ROWS THAT CARRY A RULE, AND ONLY THOSE. `start` above packs
+ * each value against the hairline heading it, and at `--fs-emphasis` an ACCENTED
+ * CAPITAL touches it: an `Ä` value measures 0.00px of white between rule and ink,
+ * at 400dpi AND at 1x, which is the resolution the deck is read and printed at. A
+ * `$` leads by 1.2px at 400dpi and merges into the line at 1x. Ordinary board
+ * values, both of them.
+ *
+ * WHY THE SCOPE IS `n+3` AND NOT `:not(:first-child)`. The first rail row carries no
+ * border — the outer edge above it is exactly what this change removed — so padding
+ * it buys nothing and costs a row's worth of height. Two earlier drafts padded
+ * every support and CLIPPED the documented ceiling: a 4-metric `spotlight` at wide
+ * (`adapt.capacity.wide.hard: 4`) fits with 0.00px of slack, so 0.4em on every row
+ * overflowed it by 33.56px. Scoped to the ruled rows, 0.15em fits 4 metrics at
+ * 16:9, standard, 4K and square, and 5 at the tall ceiling on portrait.
+ *
+ * WHY 0.15em. It is the largest value that clears every one of those, measured:
+ * 0.20em clips the 4-metric slide at 4K. It buys the `Ä` case 4.08px at 400dpi and
+ * 3.0px at 1x, against 0.00px with no lead. em, not a spacing token, because the
+ * ascent it clears scales with the type.
+ *
+ * MEASURE INK, NOT THE BOX. Three drafts of this rule were wrong because
+ * `Range.getClientRects()` returns the FONT-METRIC box, which stands ~0.2em above
+ * the line box and paints nothing: one draft read that as a crossing and padded a
+ * gap that already existed, the next read the correction as proof of clearance and
+ * removed the lead a real glyph needed. Rasterize and scan the pixels — and scan
+ * the WHOLE rail column, because a window starting past x=762.7 misses the `$`
+ * entirely and reports the clearance of the digits behind it. */
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(n+3) > strong {
+  padding-top: 0.15em;
 }
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li:first-child {
   padding-top: 0.15625cqi;

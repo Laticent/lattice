@@ -30,3 +30,11 @@
   scaling it made ordinary figures like `$12,480,000` print over the rail. The column
   ratio is unchanged too — sweeping it showed the rail wraps at the documented density
   at every ratio worth having, so the split was never the lever.
+- **Fixed: a `kpi spotlight` support's value keeps a lead under the rule that heads
+  it.** Top-aligning the rail packs the value against its hairline, and at that type
+  size an accented capital (`Ä`) measured 0.00px of white between rule and ink — at
+  400dpi and at 1x — while a `$` merged into the line at 1x. The lead is 0.15em, on
+  the ruled rows only (`li:nth-child(n+3)`): the first rail row carries no border, so
+  padding it would spend height for nothing. Measured against both documented
+  ceilings — 4 metrics at 16:9/standard/4K/square and 5 at tall all still fit, and
+  0.20em does not.
