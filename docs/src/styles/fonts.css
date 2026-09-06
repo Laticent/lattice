@@ -1,3 +1,31 @@
+/* WHY `optional` AND NOT `swap` — this is the fix for the reported shift.
+ *
+ * `swap` paints the fallback and then RE-LAYS OUT when the woff2 lands. Preloading moves the
+ * fetch earlier; it does not remove the swap, and on the deployed build the stylesheet is
+ * hoisted ahead of the fonts, so the chrome reliably paints before they arrive. Measured on an
+ * iPad Air 4 viewport, cold, 1200kbps: the Studio's deck title moved -42.27px, carrying the
+ * deck pill and everything right of it.
+ *
+ * The metric-adjusted fallbacks below were the first attempt, and they are kept because they
+ * make the fallback LOOK and measure close. They cannot finish the job: `size-adjust` is a
+ * single scalar per face while two typefaces differ per GLYPH, so the correction that fixes one
+ * string breaks another — calibrated against the real chrome, weight 600 wanted x1.05 for the
+ * deck title and under x1.00 for four other strings in the same weight — and at 12-14px the
+ * widths quantize to whole pixels on top of that. Best case they took the title from 42px to
+ * about 9px, not to zero.
+ *
+ * `optional` removes the reflow by construction: the browser gives the font ~100ms, and if it
+ * is not ready it uses the fallback FOR THAT LOAD and never swaps. The font still downloads and
+ * is cached, so the next navigation gets the real face immediately, with no shift either way.
+ * There is no third state where the layout moves.
+ *
+ * THE COST, stated plainly and MEASURED rather than asserted (scratch probe against the built
+ * dist, 1180x820, cold, `serveModeled` at 300ms latency): at 1200kbps the deck title still gets
+ * real Outfit and only the Playfair wordmark falls back; at 400kbps and 150kbps both fall back
+ * for that visit. What "falls back" is worth is the whole point of the faces below — the deck
+ * title measures 47px against Outfit's 49px, the wordmark 57.69px against Playfair's 56.69px.
+ * So the trade is a 1-2px difference in the WEIGHT AND SHAPE of the type on one cold visit,
+ * against a 42.27px jump on every cold visit. It is reversible in one line. */
 /* Self-hosted site-chrome webfonts.
  * ────────────────────────────────────────────────────────────────────────
  * The docs-site type pairing — Playfair Display (display), Outfit (body),
@@ -7,8 +35,9 @@
  * landing.css / lattice.css used to carry: a remote CSS `@import` blocks first
  * paint until it resolves, so a slow/flaky Google Fonts response (mobile, cold
  * cache) left the whole app — Studio preview included — blank for many seconds.
- * A local `@font-face` is never render-blocking, and `font-display: swap` paints
- * text in the fallback immediately, then swaps when the woff2 lands.
+ * A local `@font-face` is never render-blocking. These faces used to carry
+ * `font-display: swap`; they now carry `optional`, for the reason at the top
+ * of this file.
  *
  * Vite rewrites each relative `url()` to the hashed, base-aware bundled asset,
  * so this works under any deploy base without a manual public/ copy. Weights
@@ -22,28 +51,28 @@
 	font-family: 'Playfair Display';
 	font-style: normal;
 	font-weight: 400;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/playfair-display-400.woff2') format('woff2');
 }
 @font-face {
 	font-family: 'Playfair Display';
 	font-style: normal;
 	font-weight: 700;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/playfair-display-700.woff2') format('woff2');
 }
 @font-face {
 	font-family: 'Playfair Display';
 	font-style: italic;
 	font-weight: 400;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/playfair-display-400-italic.woff2') format('woff2');
 }
 @font-face {
 	font-family: 'Playfair Display';
 	font-style: italic;
 	font-weight: 700;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/playfair-display-700-italic.woff2') format('woff2');
 }
 
@@ -52,35 +81,35 @@
 	font-family: 'Outfit';
 	font-style: normal;
 	font-weight: 300;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/outfit-300.woff2') format('woff2');
 }
 @font-face {
 	font-family: 'Outfit';
 	font-style: normal;
 	font-weight: 400;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/outfit-400.woff2') format('woff2');
 }
 @font-face {
 	font-family: 'Outfit';
 	font-style: normal;
 	font-weight: 500;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/outfit-500.woff2') format('woff2');
 }
 @font-face {
 	font-family: 'Outfit';
 	font-style: normal;
 	font-weight: 600;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/outfit-600.woff2') format('woff2');
 }
 @font-face {
 	font-family: 'Outfit';
 	font-style: normal;
 	font-weight: 700;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/outfit-700.woff2') format('woff2');
 }
 
@@ -89,20 +118,89 @@
 	font-family: 'JetBrains Mono';
 	font-style: normal;
 	font-weight: 400;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/jetbrains-mono-400.woff2') format('woff2');
 }
 @font-face {
 	font-family: 'JetBrains Mono';
 	font-style: normal;
 	font-weight: 500;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/jetbrains-mono-500.woff2') format('woff2');
 }
 @font-face {
 	font-family: 'JetBrains Mono';
 	font-style: normal;
 	font-weight: 600;
-	font-display: swap;
+	font-display: optional;
 	src: url('../playground/fonts/jetbrains-mono-600.woff2') format('woff2');
 }
+
+/* ── Metric-adjusted fallbacks — the fix for `font-display: swap` reflow ──────────────
+ *
+ * Every face above is `swap`, so the browser paints the FALLBACK first and re-lays out when
+ * the woff2 lands. Preloading moves the fetch earlier; it does not remove the swap, and on the
+ * deployed build (where `hoist-stylesheets.mjs` moves the stylesheet ahead of the fonts) the
+ * shell reliably paints before the fonts arrive. Measured on an iPad Air 4 viewport, cold, at
+ * 1200kbps: the Studio's deck title moved **-42.27px** when Outfit landed, in both
+ * orientations, on every run — carrying the deck pill and everything right of it with it.
+ *
+ * The cause is the fallback's metrics, not its arrival time. `system-ui` is a poor match for
+ * Outfit and a moving target across platforms — measured against a representative Studio
+ * string at 100px, it lays out 4204 where Outfit lays out 3760 at weight 400, and 4743 against
+ * 3823 at weight 600. That is the 42px.
+ *
+ * These faces wrap a DETERMINISTIC local font (Arial and Helvetica are metrically compatible,
+ * and Liberation Sans is metrically compatible with Arial by design) and scale it to Outfit's
+ * own advance width with `size-adjust`, then pin the line box with ascent/descent overrides so
+ * the vertical rhythm matches too. `size-adjust` is per WEIGHT because the ratio is: Outfit's
+ * 600 is much narrower relative to a bold fallback than its 400 is to a regular one.
+ *
+ * Ratios measured in-browser (real advance width, not font-table arithmetic), because the
+ * number that matters is the one the layout engine uses:
+ *
+ *   weight   Outfit    Arial   size-adjust
+ *     300      3755     3809      98.579%
+ *     400      3760     3809      98.710%
+ *     500      3758     3809      98.657%
+ *     600      3823     3988      95.861%
+ *     700      3881     3988      97.316%
+ *
+ * Vertical: Outfit is ascent 1.0em / descent 0.26em; Arial is 0.905 / 0.212. The overrides are
+ * a percentage of the used font size and are applied AFTER size-adjust, so they are Outfit's
+ * numbers verbatim.
+ *
+ * This is the docs-site stack only. The engine's own `--font-body` (lib/base/base.tokens.css)
+ * is deliberately untouched: it governs slide rendering and the PDF/PPTX export, where the real
+ * face is always embedded and a fallback is never reached, so there is nothing to fix and a
+ * change there would need export sign-off. */
+@font-face { font-family: 'Outfit Fallback'; src: local('ArialMT'), local('Arial'), local('Helvetica'), local('Liberation Sans'); font-weight: 300; size-adjust: 98.579%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
+@font-face { font-family: 'Outfit Fallback'; src: local('ArialMT'), local('Arial'), local('Helvetica'), local('Liberation Sans'); font-weight: 400; size-adjust: 98.710%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
+@font-face { font-family: 'Outfit Fallback'; src: local('ArialMT'), local('Arial'), local('Helvetica'), local('Liberation Sans'); font-weight: 500; size-adjust: 98.657%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
+@font-face { font-family: 'Outfit Fallback'; src: local('Arial-BoldMT'), local('Arial Bold'), local('Helvetica-Bold'), local('Helvetica Bold'), local('Liberation Sans Bold'); font-weight: 600; size-adjust: 95.861%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
+@font-face { font-family: 'Outfit Fallback'; src: local('Arial-BoldMT'), local('Arial Bold'), local('Helvetica-Bold'), local('Helvetica Bold'), local('Liberation Sans Bold'); font-weight: 700; size-adjust: 97.316%; ascent-override: 100%; descent-override: 26%; line-gap-override: 0%; }
+
+/* JetBrains Mono against Courier New: 99.983% — the advance widths already agree, because both
+ * are monospaced at a near-identical ratio. What does NOT agree is the line box (mono is
+ * ascent 1.02 / descent 0.30, Courier 0.833 / 0.30), so the overrides carry this one. */
+@font-face { font-family: 'JetBrains Mono Fallback'; src: local('Courier New'), local('Liberation Mono'), local('DejaVu Sans Mono'); size-adjust: 99.983%; ascent-override: 102%; descent-override: 30%; line-gap-override: 0%; }
+
+/* Playfair Display against a serif fallback. The wordmark is the only Playfair text in the
+ * Studio's chrome, so the residual was small (3.03px on the deck title at landscape) — but it
+ * is the same defect and the same cure. Playfair is WIDER than Georgia/Times, so size-adjust
+ * is above 100 here: 1662 against 1493.95 at weight 400, 1710 against 1618.36 at 700.
+ * Georgia and Times New Roman measured identically on this box; both are listed so a platform
+ * missing one still lands on a metrically-known face. Vertical: Playfair is 1.082 / 0.251.
+ *
+ * THE LOCAL NAMES MATTER AS MUCH AS THE RATIOS, and this is where the first cut of these faces
+ * went wrong. The sandbox they were tuned on has no Arial, Helvetica, Georgia or Times at all —
+ * only Liberation and DejaVu. Asking for `font-family: Arial` there is silently answered by
+ * fontconfig with Liberation Sans (metrically Arial-compatible, so the RATIOS transfer), but
+ * `local('Arial')` inside an @font-face does not go through that aliasing: it simply fails.
+ * The bold faces then fell through to `local('Liberation Sans')`, matched the REGULAR file, and
+ * rendered regular weight where the webfont is semibold — a 25px error on the deck title, in
+ * the fix that was supposed to remove a 42px one. Both the PostScript names (`Arial-BoldMT`,
+ * which is what iOS answers to) and the human names are listed, and the bold faces name only
+ * BOLD sources so they cannot silently land on a regular file again. */
+@font-face { font-family: 'Playfair Fallback'; src: local('Georgia'), local('Times New Roman'), local('Liberation Serif'); font-weight: 400; size-adjust: 111.248%; ascent-override: 108.2%; descent-override: 25.1%; line-gap-override: 0%; }
+@font-face { font-family: 'Playfair Fallback'; src: local('Georgia-Bold'), local('Georgia Bold'), local('TimesNewRomanPS-BoldMT'), local('Liberation Serif Bold'); font-weight: 700; size-adjust: 105.663%; ascent-override: 108.2%; descent-override: 25.1%; line-gap-override: 0%; }

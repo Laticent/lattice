@@ -213,7 +213,13 @@ const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => 
 // near-black. A hardcoded `#0c0c0c` made the pre-hydration letterbox flash BLACK around the navy
 // Nacre card, then jump to the app's navy `--bg` on hydration (reported on iPhone reload). Using
 // `var(--bg)` makes the letterbox, the Nacre card, and the hydrated pane one continuous ground.
-// FONT: the shell inherits the app's own `--font-body`, NOT a system stack. The system stack
+// FONT: the shell paints with `--font-sans`, the SAME token the app's own chrome resolves
+// through, falling back to `--font-body` and then a system stack. It used to take
+// `--font-body` (the ENGINE's token), which is one indirection away from what the app beside
+// it actually uses and — more to the point — does not carry the metric-adjusted fallback family
+// that keeps the pre-webfont chrome measuring like the real one (styles/fonts.css). The 42.27px
+// deck-title jump itself is stopped by `font-display: optional`, not by the fallback: the
+// fallback narrows the gap, `optional` removes the swap that opens it. The system stack
 // was correct for the old hand-drawn shell (which believed the app's stylesheet was absent
 // pre-hydration); with the REAL chrome rendered here it made every label render in different
 // metrics from the app's. Invisible on a phone, where the deck pill is width-constrained and
@@ -221,7 +227,45 @@ const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => 
 // jumping 164.5px -> 185px at hand-off (reported as "slight shift when the real things are
 // hydrated", measured at 820px). The fallback stays in the var() default, so a palette that
 // somehow lacks the token still gets a sane stack.
-const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:var(--font-body,system-ui,-apple-system,"Segoe UI",sans-serif);-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;--sk:color-mix(in srgb,currentColor 11%,transparent);--sk-band:color-mix(in srgb,currentColor 3%,transparent);}
+// STAGE 1 OF THE HAND-OFF — the chrome goes, the slide box stays.
+//    ───────────────────────────────────────────────────────────────
+//    The shell does TWO jobs and they finish at different times. It stands in for the app's
+//    CHROME, which is ready the moment React commits, and it stands in for the live PREVIEW,
+//    which is ready only when the engine has rendered a slide. Until now both waited on the
+//    second one, so the app's finished chrome sat under an opaque cover, muted to .62, for the
+//    whole engine load — measured at 672ms on a fast local path and 3463ms at 1200kbps
+//    (scripts/handoff-bench.mjs). That window ending is the pulse the owner reported: a 62%
+//    stand-in cross-fading to the identical control at 100% reads as the UI getting brighter,
+//    because that is exactly what it is.
+//    THERE IS NO RULE HERE FOR IT, and that is the point of this note. The teardown is one INLINE
+//    declaration per element - opacity 0 on .ssr-chrome and every .ssr-band, plus a transparent
+//    ground on the shell (revealAppChrome in StudioShell) - and three other ways of doing it were
+//    each tried and each broke something no gate could see:
+//      1. a display:none RULE lost the cascade. The bands are shown by
+//         :root[data-ssr-chrome] #studio-ssr-shell .ssr-band, which is (1,3,0), against a teardown
+//         selector on the shell id at (1,2,0). The chrome vanished, the bands did not, and a
+//         screenshot of the hand-off showed the app's real slide navigator with the shell's
+//         skeleton chips ghosting underneath.
+//      2. REMOVING the band nodes deletes .ssr-activityrail, .ssr-editpane, .ssr-panehdr and
+//         .ssr-paneftr - 3 of the 5 roots studio-shell-parity enumerates, and what
+//         studio-instant-shell and studio-reserved-slots measure. Those specs hold the ENGINE and
+//         not the island, so removal left them racing hydration: they passed only because fonts
+//         resolve faster than React here, and with the woff2 responses delayed 900ms the parity
+//         spec read 14 shell controls against the app's 25 and reported eleven missing controls
+//         that are in fact drawn.
+//      3. visibility:hidden keeps the box but is exactly what Playwright treats as NOT visible, so
+//         it fails those same specs for a different reason.
+//    opacity 0 is the one form that ends the pixels and changes nothing else: the boxes stay, the
+//    flex flow stays (so .ssr-stage cannot re-center the Nacre), and Playwright still counts the
+//    controls, because it tests a non-empty box and visibility and does not consider opacity.
+//    Inline, so there is no specificity contest to lose - the same reason the ground is set inline,
+//    since :root[data-mode="dark"] #studio-ssr-shell is (1,2,0) and would otherwise keep the cover
+//    up in dark mode only.
+//    Only data-handoff="chrome" is set here, as a STATE MARKER the bench and the e2e specs read.
+//    What is left on screen is the Nacre slide box alone, over the live app, still covering the
+//    one region that genuinely is not ready. Stage 2 (the dismissSsrShell call in StudioShell)
+//    fades THAT out when the preview first renders, where a fade is right: the images differ.
+const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:var(--font-sans,var(--font-body,system-ui,-apple-system,"Segoe UI",sans-serif));-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;--sk:color-mix(in srgb,currentColor 11%,transparent);--sk-band:color-mix(in srgb,currentColor 3%,transparent);}
 :root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:var(--text-body,#e8e8e8);--mark-bond:#4fa8da;--mark-halo:#15110d;}
 /* TOPBAR + BAND CHROME — the app's REAL controls, rendered to static HTML at build time by
    <StudioChromeSkeleton> (no client directive = zero JS). This block therefore holds NO box
@@ -266,44 +310,8 @@ const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;poi
    geometry reimplementation here, so it can't drift from the app's split/stop/ratio layout. */
 :root[data-ssr-rect] #studio-ssr-shell .ssr-stage{display:block;padding:0;container-type:normal;}
 :root[data-ssr-rect] #studio-ssr-shell .ssr-slidebox{position:absolute;left:var(--sb-l);top:var(--sb-t);width:var(--sb-w);height:var(--sb-h);max-width:none;max-height:none;aspect-ratio:auto;}
-/* STAGE 1 OF THE HAND-OFF — the chrome goes, the slide box stays.
-   ───────────────────────────────────────────────────────────────
-   The shell does TWO jobs and they finish at different times. It stands in for the app's
-   CHROME, which is ready the moment React commits, and it stands in for the live PREVIEW,
-   which is ready only when the engine has rendered a slide. Until now both waited on the
-   second one, so the app's finished chrome sat under an opaque cover, muted to .62, for the
-   whole engine load — measured at 672ms on a fast local path and 3463ms at 1200kbps
-   (scripts/handoff-bench.mjs). That window ending is the pulse the owner reported: a 62%
-   stand-in cross-fading to the identical control at 100% reads as the UI getting brighter,
-   because that is exactly what it is.
-   THERE IS NO RULE HERE FOR IT, and that is the point of this note. The teardown is one INLINE
-   declaration per element - opacity 0 on .ssr-chrome and every .ssr-band, plus a transparent
-   ground on the shell (revealAppChrome in StudioShell) - and three other ways of doing it were
-   each tried and each broke something no gate could see:
-     1. a display:none RULE lost the cascade. The bands are shown by
-        :root[data-ssr-chrome] #studio-ssr-shell .ssr-band, which is (1,3,0), against a teardown
-        selector on the shell id at (1,2,0). The chrome vanished, the bands did not, and a
-        screenshot of the hand-off showed the app's real slide navigator with the shell's
-        skeleton chips ghosting underneath.
-     2. REMOVING the band nodes deletes .ssr-activityrail, .ssr-editpane, .ssr-panehdr and
-        .ssr-paneftr - 3 of the 5 roots studio-shell-parity enumerates, and what
-        studio-instant-shell and studio-reserved-slots measure. Those specs hold the ENGINE and
-        not the island, so removal left them racing hydration: they passed only because fonts
-        resolve faster than React here, and with the woff2 responses delayed 900ms the parity
-        spec read 14 shell controls against the app's 25 and reported eleven missing controls
-        that are in fact drawn.
-     3. visibility:hidden keeps the box but is exactly what Playwright treats as NOT visible, so
-        it fails those same specs for a different reason.
-   opacity 0 is the one form that ends the pixels and changes nothing else: the boxes stay, the
-   flex flow stays (so .ssr-stage cannot re-center the Nacre), and Playwright still counts the
-   controls, because it tests a non-empty box and visibility and does not consider opacity.
-   Inline, so there is no specificity contest to lose - the same reason the ground is set inline,
-   since :root[data-mode="dark"] #studio-ssr-shell is (1,2,0) and would otherwise keep the cover
-   up in dark mode only.
-   Only data-handoff="chrome" is set here, as a STATE MARKER the bench and the e2e specs read.
-   What is left on screen is the Nacre slide box alone, over the live app, still covering the
-   one region that genuinely is not ready. Stage 2 (the dismissSsrShell call in StudioShell)
-   fades THAT out when the preview first renders, where a fade is right: the images differ. */`;
+/* Stage 1 of the hand-off is done from JS, not from a rule here. See revealAppChrome in
+   StudioShell, and the note above this constant. */`;
 
 // STRUCTURAL CHROME BANDS (#1438). Before this, the shell drew exactly two things — a topbar
 // and the slide box — so a reload showed those floating in an otherwise EMPTY page, and

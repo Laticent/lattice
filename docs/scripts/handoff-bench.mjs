@@ -30,7 +30,7 @@
 //
 // Usage (from docs/):
 //   npm run build:e2e && node scripts/handoff-bench.mjs [--runs 3] [--width 1440]
-//                       [--latency 200] [--kbps 1200] [--dist ./dist] [--json]
+//                       [--latency 200] [--kbps 1200] [--dist ./dist] [--touch] [--json]
 //
 // `--dist` points at a second build (e.g. one made from `main`), so a BEFORE and an AFTER come
 // off one instrument rather than two.
@@ -49,11 +49,12 @@ const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..');
 function parseArgs(argv) {
 	// `cache: 'real'` because this bench asks whether a PRELOAD works, and that question is
 	// unanswerable under `no-store` — see `lib/modeled-host.mjs`.
-	const o = { runs: 3, width: 1440, height: 900, latency: 200, kbps: 1200, dist: join(DOCS, 'dist'), json: false, maxDead: 120, maxShift: 1, cache: 'real', allowUnshaped: false };
+	const o = { runs: 3, width: 1440, height: 900, latency: 200, kbps: 1200, dist: join(DOCS, 'dist'), json: false, maxDead: 120, maxShift: 1, cache: 'real', allowUnshaped: false, touch: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--runs') o.runs = Number(argv[++i]);
 		else if (a === '--width') o.width = Number(argv[++i]);
+		else if (a === '--touch') o.touch = true;
 		else if (a === '--height') o.height = Number(argv[++i]);
 		else if (a === '--latency') o.latency = Number(argv[++i]);
 		else if (a === '--kbps') o.kbps = Number(argv[++i]);
@@ -85,6 +86,17 @@ function sampler() {
 		// first draft of the fix (which REMOVED the shell's chrome, handing the stage the top
 		// bar's 54px) would have reported a perfectly clean run.
 		'shell slidebox': '#ssr-slidebox',
+		// THE DECK TITLE AND ITS PILL — the widest CONTENT-SIZED string in the chrome, and the
+		// blind spot that let this bench certify the very defect it was written for. The
+		// reported shift is a font swap re-solving text advance, so it lands hardest on the
+		// longest string set in the swapping face; every other row here is a BAND or a fixed
+		// icon button, whose box a 42px text change does not move. Measured against the
+		// pre-fix regime (`swap`, no metric fallback) at an iPad Air 4 viewport, the title
+		// moved -42.27px at 662ms and this bench printed a clean run, because the box that
+		// moved was the one box not tracked. Two rows, not one: the pill is the container and
+		// catches the row reflowing, the title is the text and catches the advance itself.
+		'shell deck title': '#studio-ssr-shell .ssr-deck-title',
+		'shell deck pill': '#studio-ssr-shell .ssr-topbar [data-deck-pill], #studio-ssr-shell .ssr-topbar button',
 		'app header': 'header',
 		'app preview-bar': '[data-studio-root] [data-slot="preview-bar"]',
 		'app Reader view': '[data-studio-root] [data-slot="preview-bar"] [aria-label="Reader view"]',
@@ -281,6 +293,8 @@ const TRACKED_NAMES = [
 	'shell Reader view',
 	'shell Preview label',
 	'shell slidebox',
+	'shell deck title',
+	'shell deck pill',
 	'app header',
 	'app preview-bar',
 	'app Reader view',
@@ -346,7 +360,13 @@ async function main() {
 			// A FRESH context per run, with no storage: the shell's geometry seed replays a
 			// persisted rect for a returning visitor, and a warm profile would measure a
 			// different (easier) path than the one the report is about.
-			const ctx = await browser.newContext({ viewport: { width: o.width, height: o.height }, serviceWorkers: 'block' });
+			// TOUCH IS PART OF THE VIEWPORT HERE, not an extra axis. The Studio's chrome reads
+			// the pointer media query to decide whether the deck pill is CONTENT-SIZED or
+			// truncated into a reserved slot, and only the content-sized form can carry a text
+			// advance change. Measured: against the pre-fix regime this bench reported a clean
+			// run at 820px WITHOUT touch and the -42.27px title shift WITH it, on the same
+			// build and the same selector — so a tablet width alone was not a tablet.
+			const ctx = await browser.newContext({ viewport: { width: o.width, height: o.height }, hasTouch: o.touch, serviceWorkers: 'block' });
 			const page = await ctx.newPage();
 			try {
 				runs.push(await sample(page, `http://127.0.0.1:${port}/studio/`));
@@ -383,9 +403,6 @@ async function main() {
 	// Shifts that a human can attribute to the hand-off: a tracked control moving AFTER the
 	// app's chrome is up. Movement before that is the shell laying itself out, which is not
 	// a shift — nothing was on screen to move.
-	const shifts = runs.flatMap((r, run) =>
-		r.events.filter((e) => e.kind === 'move' && r.app.chromeAt != null && e.t >= r.app.chromeAt && e.worst > o.maxShift).map((e) => ({ run, ...e })),
-	);
 	// THE FAILING SET IS THIS ONE, not `shifts` above. A control that moves once the shell has
 	// PAINTED is visible to a human, whether or not React has mounted yet — the shell's chrome
 	// is on screen from ~70ms and the JetBrains Mono swap that moved the Reader-view pill
@@ -394,8 +411,53 @@ async function main() {
 	// against the pre-fix build it printed all six shift events and still reported that arm
 	// clean, and would have gone on doing so if someone dropped the mono preload while stage 1
 	// stayed healthy. Movement BEFORE the shell paints is genuinely invisible and stays out.
+	//
+	// COVERED IS NOT VISIBLE, and the two-stage hand-off is exactly why. Stage 1 uncovers the
+	// app's CHROME at React's commit but deliberately leaves the Nacre slide box standing over
+	// the preview region until the engine has a slide (stage 2). So a control in that region
+	// can move all it likes in between and no human sees it — which is not a nicety, it is the
+	// normal case: the app's preview pane grows from its 38x20.5 placeholder to 735x412.6 at
+	// ~4.4s on the shipped build, four seconds before stage 2 lifts the cover. Counted as a
+	// visible shift, that ONE box printed a permanent `✗ 697px` on a healthy build and would
+	// have taught the next reader to ignore this arm.
+	//
+	// The window is per-control, not global: `app preview box` is the region the Nacre stands
+	// in for, so it becomes visible at the stage-2 fade; everything else is chrome, which
+	// stage 1 hands over and which the shell was drawing a stand-in for from first paint.
+	// Naming the one control rather than computing overlap is deliberate — the same explicit
+	// style as TRACK, and an intersection test would quietly re-classify a control the day
+	// someone moves the Nacre. The exclusion cannot mask either defect this bench was built
+	// for: the dead-time arm does not read shifts at all, and the JetBrains Mono swap moved
+	// the Reader-view PILL, which is chrome and keeps the earlier window.
+	const COVERED_UNTIL_STAGE_2 = new Set(['app preview box']);
+	// `fadeStart` is sampled per animation frame and is intermittently missed when the fade
+	// completes inside one frame, so it falls back to `gone` — the cover is provably up until
+	// the node leaves, and a missed sample must not widen the window back to first paint.
+	const coverUp = (r) => r.shell.fadeStart ?? r.shell.gone;
+	const visibleFrom = (r, what) => (COVERED_UNTIL_STAGE_2.has(what) ? coverUp(r) : r.shell.firstSeen);
+	const isMove = (e) => e.kind === 'move' && e.worst > o.maxShift;
 	const earlyShifts = runs.flatMap((r, run) =>
-		r.events.filter((e) => e.kind === 'move' && r.shell.firstSeen != null && e.t >= r.shell.firstSeen && e.worst > o.maxShift).map((e) => ({ run, ...e })),
+		r.events
+			.filter((e) => {
+				if (!isMove(e)) return false;
+				const from = visibleFrom(r, e.what);
+				return from != null && e.t >= from;
+			})
+			.map((e) => ({ run, ...e })),
+	);
+	// The report calls this set "of those", so it MUST be a subset of `earlyShifts` — it was
+	// computed independently and stopped being one the moment the covered window landed, which
+	// printed `✓ nothing moved` and `✗ 3 of those` in the same paragraph.
+	const shifts = earlyShifts.filter((e) => {
+		const r = runs[e.run];
+		return r.app.chromeAt != null && e.t >= r.app.chromeAt;
+	});
+	// Reported, never silently dropped — a count that vanishes is indistinguishable from a
+	// check that stopped running.
+	const coveredShifts = runs.flatMap((r, run) =>
+		r.events
+			.filter((e) => isMove(e) && COVERED_UNTIL_STAGE_2.has(e.what) && r.shell.firstSeen != null && e.t >= r.shell.firstSeen && (coverUp(r) == null || e.t < coverUp(r)))
+			.map((e) => ({ run, ...e })),
 	);
 
 	const report = {
@@ -466,6 +528,10 @@ async function main() {
 		}
 		out.push('');
 		out.push(shifts.length ? `  ✗ ${shifts.length} of those landed after the app's chrome painted — the app's own layout is still settling` : `  ✓ nothing moved after the app's chrome painted`);
+		if (coveredShifts.length) {
+			const worst = coveredShifts.reduce((a, x) => (x.worst > a.worst ? x : a));
+			out.push(`  · ${coveredShifts.length} move(s) under the shell's slide box, not counted — largest ${worst.what} ${Math.round(worst.worst)}px at ${Math.round(worst.t)}ms (the cover lifts at ${ms(report.shellFadeStart ?? report.shellGone).trim()})`);
+		}
 		if (failTrack) out.push(`  ✗ NEVER MATCHED (a quiet result from these is not evidence): ${report.neverMatched.join(', ')}`);
 		else out.push(`  ✓ all ${TRACKED_NAMES.length} tracked selectors bound to a real element`);
 		process.stdout.write(`${out.join('\n')}\n`);

@@ -4392,7 +4392,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    paid the feedback button's 44px straight out of the deck title (at
 						    1024 the title fell from `Markdo…` to `M…`). Same source of truth as
 						    every other gate in this header is what keeps that from recurring. */}
-						{!compact && <span className="font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>}
+						{!compact && <span className="font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)]" style={{ fontFamily: "'Playfair Display', 'Playfair Fallback', Georgia, serif" }}>Lattice</span>}
 						<ChevronDown className="size-4 text-muted-foreground" />
 					</button>
 				</DropdownMenuTrigger>

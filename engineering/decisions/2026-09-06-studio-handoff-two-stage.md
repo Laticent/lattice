@@ -313,18 +313,20 @@ Two independent swaps move things, and only one of them is mono:
 - **Outfit** on the Reader-view pill's own "Full deck" label — `−14.375px` of the pill's width.
   Outfit was already preloaded before this change, so this one is untouched by it.
 
-The durable cure for both is the metric-adjusted fallback faces `studio.astro` already names
-(`size-adjust` plus ascent/descent overrides against a deterministic fallback), which costs no
-bytes and holds at any speed. That is a site-wide font-stack change and is recorded there as
-the owner's call; this note now carries the evidence that it is worth making.
+The preload was never the cure, and treating it as one is what left the owner testing an
+iPad Air 4 and reporting that it still shifts. **See "The shift, actually fixed" below** — that
+section supersedes this one's closing advice. What this section still records correctly is what
+the preload alone is worth: ~400-600ms earlier, about half the events, and a defect still
+present on one load in six.
 
-## `perf:handoff` does not exit 0 on this branch, and the doc said it did
+## `perf:handoff` did not exit 0 on this branch, and an earlier draft said it did
 
 An earlier draft claimed the instrument was "mutation-proved both ways: it exits 1 on the
-pre-fix dist and 0 on this one, same flags, both networks." **The second half is false.** The
-bench exits 1 on this branch too, at both networks and both build shapes, because the shift arm
-catches the residual font swap above — the very thing this note documents as unfixed. The
-instrument is right and the claim was wrong.
+pre-fix dist and 0 on this one, same flags, both networks." **The second half was false when it
+was written.** The bench exited 1 on this branch too, at both networks and both build shapes,
+because the shift arm caught the residual font swap — the very thing that draft documented as
+unfixed. The instrument was right and the claim was wrong. It exits 0 now, because the defect
+is fixed rather than because the arm was loosened; the mutation proof is in the next section.
 
 The first half was also true for the wrong reason. The dead-time arm **could not fail** on the
 pre-fix build: with no stage-1 reveal there is no `chromeRevealed`, and on that build
@@ -417,6 +419,100 @@ Verified after the rewrite: **no misfire on 7 boot configurations** (1440 light 
 820, 390 touch, 844x390 cinema, and a returning visitor with a persisted rect), and it fires on
 both Read and Collapse preview.
 
+## The shift, actually fixed
+
+The owner tested an iPad Air 4 and reported that it still shifts. It did. This section is what
+was wrong and what closed it.
+
+**The root cause was never the preload.** `system-ui` is a poor metric match for Outfit — 24%
+wider at weight 600 — and the deployed build hoists the stylesheet ahead of the fonts, so the
+shell reliably paints in `system-ui` and `font-display: swap` then re-lays the text out when
+the woff2 lands. The Outfit preload does not prevent that, contrary to the comment that
+justified it: a preload moves the fetch earlier, it does not remove the swap. Measured at an
+iPad Air 4 viewport (820x1180 and 1180x820), cold, 1200kbps:
+
+| control | movement when the webfont lands |
+|---|---|
+| shell deck title | **-42.27px** (width), carrying the pill and everything right of it |
+| shell Reader view | -14.38px |
+| shell PREVIEW label | -6.30px |
+| shell deck pill | +3.03px, at Playfair rather than Outfit |
+
+**Three changes, and only the third is the cure.**
+
+1. **JetBrains Mono is preloaded** (the previous section: ~400-600ms earlier, about half the
+   events). Necessary, not sufficient.
+2. **Metric-adjusted fallback faces** — `Outfit Fallback`, `JetBrains Mono Fallback`,
+   `Playfair Fallback`, each a `local()` system face carrying `size-adjust` plus the three
+   metric overrides — joined every site-chrome stack. This took the title from 42px to about
+   9px and mono to 0.00px. **It cannot reach zero and the reason is structural:** `size-adjust`
+   is one scalar per face while two typefaces differ per GLYPH, so the correction that fixes
+   one string breaks another. Calibrated against the real chrome, weight 600 wanted x1.05 for
+   the deck title and under x1.00 for four other strings in the same weight.
+3. **All twelve faces moved from `font-display: swap` to `optional`.** This is what removes the
+   reflow, by construction rather than by calibration: the browser gives the font ~100ms and,
+   if it is not ready, uses the fallback for that load and never swaps. There is no third state
+   in which the layout moves. The font still downloads and caches, so the next navigation gets
+   the real face with no shift either way.
+
+**Result, measured on the deployed build shape** (`npm run build`, not `build:e2e`): **0
+movement above 0.01px** — both orientations, cold and warm, at 1200, 400 and 150kbps. The
+negative control fires: reverting the built CSS to `swap` with the fallback families stripped
+reproduces the -42.27px title move at 662ms.
+
+**The cost, measured rather than asserted.** At 1200kbps the deck title still gets real Outfit
+and only the Playfair wordmark falls back; at 400 and 150kbps both fall back for that visit.
+What "falls back" is worth is the whole point of change 2 — the title measures 47px against
+Outfit's 49px, the wordmark 57.69px against Playfair's 56.69px. So the trade is a 1-2px
+difference in the weight and shape of the type on one cold visit, against a 42.27px jump on
+every cold visit. It is reversible in one line.
+
+**Four site-chrome stacks bypassed the token and had to be found by probing, not grepping.**
+`--font-sans` and `--font-mono` in `tailwind.css` are the tokens everything is supposed to go
+through, but `landing.css`'s `--font-body` / `--font-mono` and `lattice.css`'s `--sl-font` /
+`--sl-font-mono` declare the stack again, and a live element in the Studio header resolved to
+`Outfit, system-ui, sans-serif` with no fallback family in it. A grep for `'Outfit'` finds
+them; a grep for the token does not. Two inline `style={{ fontFamily }}` Playfair stacks in
+`StudioChromeSkeleton.tsx` and `StudioShell.tsx` were the same shape. The engine's own
+`--font-body` (`lib/base/base.tokens.css`) is deliberately untouched: it governs slide
+rendering and the PDF/PPTX export, which is a sign-off surface.
+
+## The bench certified the defect it was written for, twice
+
+Both gaps were found by mutation testing the instrument, and both are worth recording because
+neither is visible from reading it.
+
+**It did not track the control that moves.** `TRACK` held bands and fixed icon buttons. The
+reported shift is a font swap re-solving text advance, so it lands hardest on the longest
+content-sized string in the chrome — the deck title — which was the one box not tracked.
+`shell deck title` and `shell deck pill` are now rows, so the bench names the control the
+owner actually sees move.
+
+**It counted a move nobody can see, and printed a permanent red.** Stage 1 uncovers the chrome
+but deliberately leaves the Nacre box over the preview region until stage 2. The app's preview
+pane grows from its 38x20.5 placeholder to 735x412.6 at ~4.4s, four seconds before the cover
+lifts — and the bench called that a 697px shift on a healthy build. A permanent red teaches the
+next reader to ignore the arm. The visibility window is now per-control: `app preview box`
+becomes visible at the stage-2 fade (falling back to the shell's removal, since the fade sample
+is intermittently missed inside one frame), everything else at first paint. The moves are
+reported on their own line rather than dropped, because a count that vanishes cannot be told
+from a check that stopped running. The exclusion cannot mask either defect the bench exists
+for: the dead-time arm does not read shifts at all, and the mono swap moved the Reader-view
+pill, which is chrome and keeps the earlier window.
+
+`--touch` was added along the way. It turned out not to be needed for the exit code — on the
+full mutant the bench fails at its default 1440px — but the Studio's chrome reads the pointer
+media query to decide whether the deck pill is content-sized, and only the content-sized form
+can carry a text-advance change, so a tablet width alone was not a tablet.
+
+**Mutation-proved, in the direction that matters.** `perf:handoff` exits **1** against the full
+mutant (`swap`, fallback families stripped from the built CSS) and **0** against the shipped
+build. An earlier attempt at this proof used an incomplete mutant — a `sed` that matched only
+the comma-quoted form left 8 `Outfit Fallback` references alive, so it was testing `swap` WITH
+the metric fallbacks still in place, a regime that genuinely barely shifts. That half-mutant
+produced a green run that read as a bench blind spot and sent this investigation down two
+unnecessary paths. A negative control has to be verified to actually be negative.
+
 ## What now gates this
 
 Nothing did when the change was first written: `handoff-bench.mjs` is an on-demand bench a
@@ -466,9 +562,9 @@ the owner's call, not a side effect of a bug fix.
   broke three specs). It does not belong in a change that is otherwise finished. The fix is a
   ground band ordered before the other bands with the slide box lifted above it, and it helps
   whichever hand-off design ships.
-- **`handoff-bench` cannot reach the phone.** It defaults to `--width 1440` and sets no touch
-  emulation, so it never enters the `landscapePhone` / cinema branch, and it never interacts —
-  so it cannot see any of the stranding cases either. Those are covered by e2e and by the
+- **`handoff-bench` still cannot reach the phone by default.** It defaults to `--width 1440`
+  and `--touch` off, so it never enters the `landscapePhone` / cinema branch unless asked, and
+  it never interacts — so it cannot see any of the stranding cases either. Those are covered by e2e and by the
   ad-hoc guard sweep, not by the bench, and the bench should not be read as covering them.
 - **`fouc-bench` still serves `no-store`.** Its committed numbers are on that footing
   and it measures paint-versus-stylesheet, which the caching model does not distort;

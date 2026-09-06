@@ -31,8 +31,8 @@
 @import './tailwind.css';
 
 :root {
-	--sl-font: 'Outfit', system-ui, sans-serif;
-	--sl-font-mono: 'JetBrains Mono', 'Courier New', monospace;
+	--sl-font: 'Outfit', 'Outfit Fallback', system-ui, sans-serif;
+	--sl-font-mono: 'JetBrains Mono', 'JetBrains Mono Fallback', 'Courier New', monospace;
 
 	/* Fallback palette (indaco light) for the SSR/no-JS first paint, before
 	 * ThemeProvider sets data-palette/-mode. Overridden by the generated blocks
@@ -95,7 +95,7 @@
 .sl-markdown-content h2,
 .hero h1,
 h1#_top {
-	font-family: 'Playfair Display', Georgia, serif;
+	font-family: 'Playfair Display', 'Playfair Fallback', Georgia, serif;
 	letter-spacing: -0.015em;
 }
 .hero h1 {
