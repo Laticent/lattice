@@ -116,8 +116,26 @@ outward guard too, because the paste path was already closed by the merge.
 **Only the BOM half, and that is measured rather than assumed.** CodeMirror folds CRLF *and* a
 lone classic-Mac CR at this same door through `EditorState.lineSeparator`, so a `\r` cannot
 reach the document. That is a claim about a DEPENDENCY, so it is pinned by its own oracle
-rather than by a comment: if an upgrade ever stopped folding, a CR would reach the source and
-the slide separator would stop matching, collapsing a deck to one slide.
+rather than by a comment, and mutation 12 in §8b shows the oracle can fail.
+
+**What that oracle would catch is narrower than this note first said**, and the correction is
+worth more than the original claim. It said a CR reaching the source would make "the slide
+separator stop matching, collapsing a deck to one slide". It would not. `splitSlides` runs
+through `lib/core/slide-boundaries.mjs`, whose `separatorRanges` folds `\r\n|\r|\n` itself —
+deliberately, with a comment saying so — and it strips a leading BOM for its own offsets.
+Checked directly:
+
+```
+separatorRanges('# One\r\r---\r\r# Two\r')  →  [{index:7,length:4}]
+separatorRanges('# One\n\n---\n\n# Two\n')  →  [{index:7,length:4}]
+```
+
+The rail would show two slides either way. What actually breaks is that the document and the
+persisted source stop being canonical — invariant 5, and the class
+`docs/src/lib/normalize-source-text.ts` exists to keep out, where the mis-split happens
+downstream in readers that anchor on `\r?\n`. Two of this note's own paragraphs asserted a
+downstream consequence that the module in question had already handled; checking took one
+`node -e`.
 
 **The fix was wrong first, in a way worth keeping.** The filter originally returned
 `[tr, { changes: { from: 0, to: 1 } }]`. `resolveTransaction` resolves a following spec against

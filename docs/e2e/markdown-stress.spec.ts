@@ -477,10 +477,21 @@ test('a deck already STORED with a BOM opens canonical', async ({ page }) => {
 // The other half of the same canonicalization contract, and it is a claim about a
 // DEPENDENCY rather than about our code: CodeMirror folds CRLF *and* a lone classic-Mac CR
 // at this same door, through `EditorState.lineSeparator`, so `Editor.tsx` does not repeat
-// that half. Measured, not assumed — which is exactly why it is pinned here. If a
-// CodeMirror upgrade ever stopped folding, a CR would reach the deck source and the slide
-// separator `\n-{3,}\n` would stop matching, collapsing a deck to one slide; this goes red
-// rather than the comment in `Editor.tsx` going quietly stale.
+// that half. Measured, not assumed — which is exactly why it is pinned here, and mutation 12
+// in the findings note shows it can fail: pin `EditorState.lineSeparator.of('\n')` and this
+// oracle goes red on its first arm with `CRLF reached the document`.
+//
+// WHAT BREAKS IF THE FOLD EVER STOPS is narrower than an earlier version of this comment
+// claimed, and the difference is measured. It said a CR would make "the slide separator
+// `\n-{3,}\n` stop matching, collapsing a deck to one slide". Neither half is true: this path
+// has no such regex — `splitSlides` goes through `lib/core/slide-boundaries.mjs`, a markdown-it
+// `hr` scan — and that scanner folds `\r\n|\r|\n` ITSELF, deliberately. Checked directly:
+// `separatorRanges('# One\r\r---\r\r# Two\r')` and the LF spelling both return
+// `[{index:7,length:4}]`, so the rail would still show two slides. The real damage is that the
+// DOCUMENT and the persisted source stop being canonical — invariant 5, and the class
+// `docs/src/lib/normalize-source-text.ts` exists to keep out, where a lone-CR deck does mis-split
+// downstream through readers that anchor on `\r?\n`. So the `toHaveCount(2)` arm below witnesses
+// that the deck is well formed; it is the `toBe(DECK)` arm that witnesses the fold.
 test('CodeMirror folds CRLF and a lone CR at the same door', async ({ page }) => {
 	const DECK = '# One\n\n---\n\n# Two\n';
 	for (const [what, text] of [
