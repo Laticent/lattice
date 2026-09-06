@@ -27,14 +27,24 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * this input"; reach for that one for anything you can ask a component and the engine
  * directly. See the findings note §9.
  *
- * WHAT THE WALK DID. Twelve op families, of which NINE act unconditionally and three are
- * OPPORTUNISTIC — `quickFix` needs a lint marker rendered when it is drawn (and lint is
- * asynchronous), `dropSeparator` needs a `---` in CodeMirror's viewport, and `railPick` needs a
- * non-empty rail. Their coverage varies run to run and is reported rather than asserted. Three
- * more (`type`, `paste`, `cutOrCopy`) inherit an escape from `caretIntoLine`, which returns
- * silently when no line is rendered. An earlier revision of this line claimed eleven
- * unconditional families, which was the same overstated-coverage mistake one paragraph away
- * from the note about it. It drove those families against the shipped Studio in random
+ * WHAT THE WALK DID. Eleven op families, and FIVE of them can decline to act: `dropSeparator`
+ * needs a `---` in CodeMirror's viewport and `railPick` a non-empty rail, while `type`, `paste`
+ * and `cutOrCopy` inherit the same shape from `caretIntoLine`, which returns silently when the
+ * editor has rendered no line. The other six — `keys`, `undoRedo`, `selectAllReplace`,
+ * `frontMatter`, `paneSwitch`, `scroll` — always act. A declining op still burns a step, so the
+ * walk COUNTS how many times invariant 2 actually compared a source against a painted slide and
+ * fails below 10: a run that only ever took its escapes would otherwise pass certifying nothing.
+ *
+ * A TWELFTH OP WAS REMOVED RATHER THAN FIXED, and the reason is the useful part. The lint
+ * gutter's Quick fix was an op here through three revisions and, measured across seven seeds,
+ * applied a fix ZERO times — the walk types into the middle of a line (`caretIntoLine` clicks
+ * the line's centre), and a `_class` directive anywhere but column 0 produces no finding at
+ * all, so the op almost never saw a marker to hover. Rather than keep adjusting a walk step to
+ * make it reachable, the path it was supposed to cover — `findingsToDiagnostics`'s `onFix` —
+ * now has a DETERMINISTIC oracle of its own below, which is what it needed all along. Counting
+ * an op that never fires as coverage is the mistake this file made three times.
+ *
+ * It drove those families against the shipped Studio in random
  * order — type, paste (CRLF / BOM / a 900-column line / a whole slide / a table / math /
  * block HTML / `* * *`), cut, copy, undo, redo, select-all-and-replace, front-matter edits,
  * directive edits, deleting a `---` separator to merge two slides, the lint gutter's Quick
@@ -253,15 +263,21 @@ async function pasteDeck(page: Page, text: string): Promise<void> {
 	await focusEditor(page);
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('Delete');
+	await expect.poll(() => editorDoc(page), { message: 'the document never emptied before the paste' }).toBe('');
+	// THE CLIPBOARD IS CLEARED FIRST, and that is not ceremony. A caller that pastes two
+	// payloads in a row — the CRLF oracle does, and both of its payloads normalize to the SAME
+	// 19 characters — would otherwise re-paste iteration 1's text on iteration 2 if the second
+	// `writeText` silently failed, satisfying both the delivery check below and the oracle's own
+	// `toBe(DECK)`. The lone-CR arm would then pass having never pasted a lone CR. Clearing
+	// makes a failed write leave an EMPTY clipboard, which the check below catches.
+	await page.evaluate(() => navigator.clipboard.writeText('').catch(() => {}));
 	await page.evaluate((v) => navigator.clipboard.writeText(v).catch(() => {}), text);
 	await page.keyboard.press('ControlOrMeta+v');
 	// ASSERT THE PASTE DELIVERED, which is what makes a silent clipboard failure a RED test
-	// rather than a hollow green one. The document was just emptied, so a no-op paste leaves it
-	// empty and this poll fails — and comparing the LENGTH catches a partial delivery too. This
-	// assertion is why the paste oracles need no engine skip: an earlier revision skipped them
-	// on WebKit and Firefox on the theory that `writeText` rejects there and a paste would
-	// silently do nothing. It does not reject — measured on both — and the skip cost the BOM
-	// oracle, the one guarding durable source corruption, two of its three engines.
+	// rather than a hollow green one, and is why the paste oracles need no engine skip. An
+	// earlier revision skipped them on WebKit and Firefox on the theory that `writeText` rejects
+	// there. It does not — measured on both — and the skip cost the BOM oracle, the one guarding
+	// durable source corruption, two of its three engines.
 	await expect
 		.poll(() => editorDoc(page).then((d) => d.length), { message: 'the paste never reached the document' })
 		.toBeGreaterThanOrEqual(text.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '').length);
@@ -291,9 +307,8 @@ async function toMarkdown(page: Page): Promise<void> {
 }
 
 test.beforeEach(async ({ page }) => {
-	// Granted for EVERY test, not per-test: the paste helper writes the clipboard through
-	// `navigator.clipboard`, which REJECTS without the permission — and the catch swallows
-	// it, so an ungranted test does not error, it silently pastes nothing.
+	// Attempted for EVERY test, not per-test, because the paste helper writes through
+	// `navigator.clipboard`.
 	// BEST EFFORT, and deliberately not a gate. Chromium accepts these names; WebKit rejects
 	// `clipboard-write` by name and Firefox rejects `clipboard-read`, and on BOTH of those
 	// `navigator.clipboard.writeText` resolves anyway — measured, with the BOM oracle's own body
@@ -565,6 +580,32 @@ test('a Compose edit deliberately drops the carried history', async ({ page }) =
 // this reasoning), so the pin is at the predicate — `editor-carry.test.ts`, which fails on the
 // document-only guard — and the end-to-end oracle lands with the deck-history change.
 
+// ── The inline Quick fix repairs the directive it underlines ───────────────
+// DETERMINISTIC, and it exists because the fuzz walk could not cover this. The Quick fix was a
+// walk op through three revisions and applied a fix zero times across seven seeds; the path it
+// was meant to exercise — `findingsToDiagnostics`'s `onFix`, the button hanging off the inline
+// diagnostic — therefore had no oracle at all while reading as though it had one.
+//
+// TWO THINGS THIS PINS THAT NOTHING ELSE DOES. The popup opens on a TIMER (`@codemirror/lint`
+// carries `hoverTime: 300`), so a test that reads the action straight after hovering finds
+// nothing — measured: 0 actions at the hover and at +200ms, 1 from +400ms. And the fix that
+// lands has to be the one the underline promised, which is the same `suggestFor` agreement
+// `Fix all` is gated on below.
+test('the inline Quick fix applies the repair its underline promised', async ({ page }) => {
+	await setDeck(page, '<!-- _class: kpii -->\n\n# One\n');
+	const marker = page.locator('.cm-lint-marker').first();
+	await marker.waitFor();
+	await marker.hover();
+	const action = page.locator('.cm-diagnosticAction').first();
+	await action.waitFor();
+	expect(await action.textContent(), 'the action must name the component it will write').toContain('kpi');
+	await action.click();
+	await expect
+		.poll(() => editorDoc(page), { message: 'the Quick fix did not repair the directive' })
+		.toContain('<!-- _class: kpi -->');
+	expect(await editorDoc(page), 'the typo must be gone, not merely joined by the fix').not.toContain('kpii');
+});
+
 // ── "Fix all issues" is offered exactly when something can be fixed ─────────
 // The shell gated the button on its own `unknownComponents` count while the button runs
 // lint-core's `applyAllFixes`, which repairs a DIFFERENT set. Wrong in both directions, and
@@ -624,8 +665,7 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	// Counted at the hover and at the click — the points of ACTION — because a count taken at
 	// the top of the op would be a constant of the seed and could never move for a product
 	// reason. Reported rather than asserted; the reasoning is at the report below.
-	let quickFixHovered = 0;
-	let quickFixApplied = 0;
+
 
 	// Payloads an author really pastes, plus the two that carry the ingest hazards.
 	const PAYLOADS = [
@@ -718,29 +758,6 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 			await page.keyboard.press('Home');
 			await page.keyboard.press('Shift+End');
 			await page.keyboard.press('Delete');
-		},
-		async quickFix() {
-			const marker = page.locator('.cm-lint-marker').first();
-			if (!(await marker.count())) return;
-			// THE QUICK FIX IS REACHED BY HOVER, so this op has nothing to drive on a touch
-			// context — `hover()` there resolves to a no-op and the action never opens. Skipped
-			// rather than forced, because forcing it would assert a path a finger cannot take.
-			// That the affordance is hover-only is a real gap for touch authors; it is
-			// pre-existing (#562's inline validation), off this change's path, and recorded in
-			// the findings note rather than fixed here.
-			if (!(await page.evaluate(() => matchMedia('(hover: hover)').matches))) return;
-			await marker.hover();
-			quickFixHovered++;
-			// AND THE POPUP TAKES 300ms TO OPEN. `@codemirror/lint`'s gutter tooltip carries
-			// `hoverTime: 300`, so reading `.cm-diagnosticAction` straight after the hover finds
-			// NOTHING — measured on the built Studio: 0 actions at the hover and at +200ms, then
-			// 1 from +400ms on. Without this wait the op hovered and never once looked at an
-			// open popup, which is how it spent its whole life never applying anything.
-			const action = page.locator('.cm-diagnosticAction').first();
-			await action.waitFor({ timeout: 1_000 }).catch(() => {});
-			if (!(await action.count())) return;
-			await action.click();
-			quickFixApplied++;
 		},
 		async railPick() {
 			// DRAWN BEFORE THE GUARD, like every other op. The walk's replayability depends on
@@ -849,25 +866,6 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	// A hovering pointer means the Quick-fix op had a path to take, so it must have taken one.
 	// Where it does not (a touch context, and headless Firefox), the op is legitimately inert
 	// and this says so rather than pretending the walk covered it.
-	// REPORTED, NOT ASSERTED, and the reason is worth the paragraph. Three attempts at asserting
-	// this op's coverage all failed for different reasons, and the third is the honest one:
-	//   · counting draws made it a constant of the seed — it could not fail for a product reason;
-	//   · counting APPLICATIONS never fires, because whether the walk draws a FIXABLE finding is
-	//     a property of the seed rather than of the product;
-	//   · counting HOVERS is flaky, because lint is ASYNCHRONOUS — whether a marker has rendered
-	//     by the moment this op is drawn is a race, and run 2 of 2 went red on it.
-	// So this op is OPPORTUNISTIC: it exercises the Quick fix when a marker happens to be up,
-	// and nothing more can truthfully be claimed for it. The counts go into the report so a
-	// reader can see what a given run actually covered, instead of an assertion that reads like
-	// a guarantee and is not one. `dropSeparator` and `railPick` are opportunistic in the same
-	// way and for the same reason; the other nine op families act unconditionally.
-	const canHover = await page.evaluate(() => matchMedia('(hover: hover)').matches);
-	test.info().annotations.push({
-		type: 'quickfix-coverage',
-		description: canHover
-			? `hovered ${quickFixHovered}, applied ${quickFixApplied} (opportunistic — see the note at this assertion)`
-			: 'inert: no hovering pointer on this surface',
-	});
 });
 
 // ── The persisted source is what a reload reads back ────────────────────────
