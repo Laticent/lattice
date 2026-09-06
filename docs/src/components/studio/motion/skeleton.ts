@@ -18,7 +18,7 @@
 //    saying "Value chain, five stages" and saying nothing at all.
 
 import type { Scene } from '@/lib/anima';
-import { ART_MAX_BYTES } from './svg-intake';
+import { ART_MAX_BYTES } from './limits';
 
 /** Strip newlines out of serialized markup so it can sit on one markdown line. Attribute values are
  *  left alone — a newline inside one would be unusual and collapsing it is still safe here, because

@@ -59,6 +59,7 @@
 
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
+import { ART_MAX_BYTES, ART_WARN_BYTES } from './limits';
 
 /** Tags anime.js can actually stroke. `drawable.ts` calls `createDrawable(node)`, which stamps
  *  `pathLength="1000"` and writes normalized `stroke-dasharray` on THAT node — so on a `<g>` or
@@ -94,11 +95,9 @@ const EXTERNAL_HREF_RE = /^\s*(?:[a-z][a-z0-9+.-]*:)?\/\//i;
 /** Attributes that can carry a `url(#id)` reference we must rewrite when we namespace. */
 const REF_ATTRS = ['fill', 'stroke', 'clip-path', 'mask', 'filter', 'marker', 'marker-start', 'marker-mid', 'marker-end', 'style'];
 
-/** The measured ceilings (craft ADR §10.1). Across this repo's 82 non-flag SVGs — the kind of asset
- *  someone would actually choreograph — the median is 1.3 KB, p90 2.7 KB, and the largest 28.7 KB.
- *  So the warning sits past the p99 of genuine design assets and the refusal at double the largest. */
-export const ART_WARN_BYTES = 24 * 1024;
-export const ART_MAX_BYTES = 64 * 1024;
+// The ceilings live in `limits.ts` so a caller can take a number without taking this kernel — see
+// that file's header for why that matters to the Studio route's size budget.
+export { ART_MAX_BYTES, ART_WARN_BYTES } from './limits';
 
 /** Presentation cap AND binning trigger — deliberately the same number, so band count grows with the
  *  drawing instead of flattening it (an earlier draft binned above 12 and capped at 24, which made a

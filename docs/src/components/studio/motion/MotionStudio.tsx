@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Tip } from '@/components/ui/tooltip';
 import type { Scene } from '@/lib/anima';
 import { cn } from '@/lib/utils';
+import { ART_MAX_BYTES } from './limits';
 import { MotionFrames } from './MotionFrames';
 import { MotionInspector } from './MotionInspector';
 import { MotionParts } from './MotionParts';
@@ -33,7 +34,7 @@ import { matchTheme } from './match-theme';
 import { DEFAULT_PART_PLAN, type Pace, type PartPlan, type Plan, planToScene, sceneToPlan, validatePlan } from './plan';
 import { reconcile, remapPlan } from './reconcile';
 import { posterBytes, slideSkeleton } from './skeleton';
-import { ART_MAX_BYTES, type IntakePart, type IntakeReceipt, intake, setPartTitle, splitBand } from './svg-intake';
+import { type IntakePart, type IntakeReceipt, intake, setPartTitle, splitBand } from './svg-intake';
 
 /** A worked example, so a first-time user with nothing on their clipboard still reaches a playing
  *  asset in one click. Copied from `examples/anima-scene.md`'s own svg slide — a drawing already
