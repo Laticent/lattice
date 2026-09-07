@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit? Measured on the real engine in three real browsers — yes for prose in an HTML text block, no for anything else. An adaptive pure-CSS clamp turns out to exist in WebKit alone (Chromium and Firefox drop the declaration), so the CSS-only route is a portability trap rather than an option; a measured pass fixed 4 of the 6 clipping slides in the shipped corpus at 4-6ms per deck, identically in Chromium, Firefox and WebKit. Stressed across the whole component gallery it fixed 43 of 81 overflowing slides and never broke a layout — but on 19 of them it cut content whose ellipsis lands off-screen, so the decline path is the second-most common outcome and not a polish item. The existing `probeContentClipped` still reports every trimmed slide, so the honest alarm survives the guard rather than being silenced by it. Coverage is bounded: 14 chart components carry their labels in SVG where CSS ellipsis is a no-op, a box that does not fit cannot be fixed by trimming text, and a naive cut hid two paragraphs with no mark at all. Proposes TRIM as a fifth Fit-Ladder move, gated by a per-slot trim class whose default is never-trim. The owner ruled on all three forks on 2026-09-07: admit TRIM selectively and default-off, compute the budget with a measured pass, and carry it as a deck front-matter register — see the Ruling section.
+summary: Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit? Measured on the real engine in three real browsers — yes for prose in an HTML text block, no for anything else. An adaptive pure-CSS clamp turns out to exist in WebKit alone (Chromium and Firefox drop the declaration), so the CSS-only route is a portability trap rather than an option; a measured pass fixed 4 of the 6 clipping slides in the shipped corpus at 4-6ms per deck, identically in Chromium, Firefox and WebKit. Stressed across the whole component gallery it fixed 43 of 81 overflowing slides and never broke a layout — but on 19 of them it cut content whose ellipsis lands off-screen — the dominant defect, which a 20-line reach-back rule then takes to 2 while raising the fix rate to 65%. The existing `probeContentClipped` still reports every trimmed slide, so the honest alarm survives the guard rather than being silenced by it. Coverage is bounded: 14 chart components carry their labels in SVG where CSS ellipsis is a no-op, a box that does not fit cannot be fixed by trimming text, and a naive cut hid two paragraphs with no mark at all. Proposes TRIM as a fifth Fit-Ladder move, gated by a per-slot trim class whose default is never-trim. The owner ruled on all three forks on 2026-09-07: admit TRIM selectively and default-off, compute the budget with a measured pass, and carry it as a deck front-matter register — see the Ruling section.
 ---
 
 # Guards — can an ellipsis prevent overflow?
@@ -163,39 +163,54 @@ overflowed. 116 slides: 29 carry no prose leaf to trim, 6 would not overflow eve
 at 6 doublings, leaving **81 slides stressed into genuine overflow across the
 component catalog**.
 
-| Outcome | Slides | |
-|---|---|---|
-| Guard made the slide fit | 43 | 53% |
-| Guard declined (nothing textual left to cut) | 38 | 47% |
-| **Trims whose mark is INVISIBLE** | **19** | **23%** |
-| Layouts broken (failure mode 4a) | 0 | — |
+Two prototype versions were run over the same 81 slides. The second adds one
+rule — described below — and the difference between them is the whole argument
+about whether this is buildable.
 
-Two results, and the second is the one that matters.
+| Outcome | v2 (trim the crossing block) | v3 (+ reach-back rule) |
+|---|---|---|
+| Guard made the slide fit | 43 (53%) | **53 (65%)** |
+| Guard declined | 38 | 28 |
+| **Trims whose mark is INVISIBLE** | **19 (23%)** | **2** |
+| Layouts broken (failure mode 4a) | 0 | 0 |
 
 **The 4a rule holds.** Across 81 stressed slides and every component in the
-catalog, the guard never once turned a grid or flex layout into a `-webkit-box`.
-The "only trim a text block" rule is doing its job.
+catalog, neither version turned a grid or flex layout into a `-webkit-box`. The
+"only trim a text block" rule does its job.
 
-**Failure mode 4d is not an anecdote — it is the dominant defect.** The first
-draft found it once, on `examples/README.md`, and treated it as an edge case. It
-occurs on **19 of the 81 stressed slides**, across 18 different components —
-quote, cards-grid, list-criteria, list-tabular, list-steps, split-panel, kpi,
-content, piechart, quadrant, state-chart, split-compare, obligation-matrix,
+**Failure mode 4d was the dominant defect, and it is fixable.** The first draft
+found it once, on `examples/README.md`, and treated it as an edge case. In v2 it
+occurs on **19 of 81 stressed slides**, across 18 different components — quote,
+cards-grid, list-criteria, list-tabular, list-steps, split-panel, kpi, content,
+piechart, quadrant, state-chart, split-compare, obligation-matrix,
 regulatory-update, q-and-a, logo-wall, wifi. In each, the guard clamped an element
-that sits wholly below the visible box: the content is cut, the ellipsis exists in
+sitting wholly below the visible box: the content is cut, the ellipsis exists in
 the DOM, and no reader can see either. The slide renders looking finished.
 
-Note the measurement itself had to be corrected. The first detector asked whether a
-clamped element's content exceeds its box, which is true of every trim and reported
-zero failures. The right question is whether the clamped element's last line lands
-INSIDE the box that clips it. Same run, same DOM, 0 became 19.
+v3 adds the **reach-back rule**: when the crossing element is entirely below the
+edge, do not clamp it — walk back to the last element still partly visible, cut
+that one so its ellipsis lands on a visible line, and hide what follows. The mark
+on the last visible block then stands for everything dropped. That takes 19 down
+to 2 (`list-criteria`, `obligation-matrix`) and *raises* the fix rate from 53% to
+65%, because reaching back also recovers the height of everything it hides.
+
+**Both measurements had to be corrected mid-run, in opposite directions.** The
+first 4d detector asked whether a clamped element's content exceeds its box —
+true of every trim — and reported 0 failures where there were 19. The first 4a
+detector counted an `inline-flex` chip inside a paragraph as a layout child and
+reported a break on `regulatory-update` that the render cleared; it is 0, not 1.
+Recorded because a number from a detector nobody checked is not evidence, and both
+of these were wrong on the first pass.
 
 **What this changes.** Not the ruling — 4d was already named as the acceptance
-test. What it changes is the weight: an implementation that treats "decline when
-the mark would be invisible" as a polish item will ship this defect on roughly a
-quarter of the slides that need the guard at all. The decline path is not an edge
-case to handle later; it is the second-most common outcome after success, and it
-has to exist before the happy path is worth shipping.
+test. It changes the weight and the confidence. The weight: an implementation
+that treats "the mark must be visible" as polish ships a silent-loss defect on
+roughly a quarter of the slides that need the guard at all, so the reach-back and
+decline paths are not edge cases to handle later. The confidence: the note no
+longer just asserts that an implementation must solve 4d — a 20-line rule solves
+most of it, measured, which is the difference between a named risk and an unknown
+one. The residual 2 are the honest remainder, and `obligation-matrix` being one of
+them is a hint that table cells will need their own answer.
 
 ---
 
@@ -269,8 +284,8 @@ its sibling kept one.
 
 ### 4d. The worst one — a trim can hide content and mark nothing
 
-**Measured at 19 of 81 stressed slides — see §2b.** This is the dominant defect,
-not an edge case. On `examples/README.md` the guard clamped two paragraphs that
+**Measured at 19 of 81 stressed slides, and reduced to 2 by the reach-back rule
+— see §2b.** This is the dominant defect, not an edge case. On `examples/README.md` the guard clamped two paragraphs that
 were already entirely below the frame edge. Both vanished from the render with no ellipsis
 anywhere on the slide, because the "…" was drawn on a line that is itself
 outside the visible box. The slide now looks perfect and is missing two
@@ -278,11 +293,12 @@ paragraphs. **That is strictly worse than the clip it replaced** — a sheared
 paragraph at least looks wrong.
 
 > **Rule, and it is the load-bearing one.** The cut must land INSIDE the last
-> visible text block. Find the block that straddles the frame edge, trim THAT
-> one so its ellipsis is visible, and hide what follows. When the edge falls in
-> a gap between blocks, pull the last fully visible block back by one line to
-> force a visible mark. **A guard that cannot place a visible ellipsis must
-> decline and leave the honest clip.**
+> visible text block. When the block that crosses the edge is still partly
+> visible, trim THAT one. When it sits wholly below the edge, **reach back** to
+> the last block that is still partly visible, trim that one instead, and hide
+> what follows — its ellipsis then stands for everything dropped. **A guard that
+> cannot place a visible ellipsis must decline and leave the honest clip.**
+> Measured, that rule takes the defect from 19 slides in 81 to 2 (§2b).
 
 ### 4e. And the one that is not fixable
 
