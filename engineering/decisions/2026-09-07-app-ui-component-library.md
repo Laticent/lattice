@@ -111,25 +111,39 @@ token system, let alone checked.
 
 ## The four surfaces you named, measured
 
-### Top navbar proportions — four bar heights, one of them a triple copy-paste
+### Top navbar proportions — 23 bars, 11 distinct height specifications
 
-| Bar | Height | Where |
-|---|---|---|
-| Studio app header | `h-[54px]` | `StudioShell.tsx:4778`, `StudioChromeSkeleton.tsx:173` |
-| Drawer nav + every `PanelHeader` | `h-14` (56px) | `StudioDrawer.tsx:328`, `panel.tsx:592` |
-| Fabricate / FinishStudio / MotionStudio toolbars | `h-[50px]` | byte-identical string in all three |
-| Docs site header | bespoke `.sh-*` CSS | `SiteHeader.astro` — not Tailwind, not shadcn |
+| Bar | Height | Padding | Gap |
+|---|---|---|---|
+| Studio app header (`StudioShell.tsx:4778`) + its SSR mirror (`StudioChromeSkeleton.tsx:173`) | `h-[54px]` | `px-2.5` | `gap-1.5` |
+| Docs site header (`SiteHeader.astro:262`, bespoke `.sh-*` CSS) | `3.75rem` = **60px** | `0 24px` | `0.75rem` |
+| Every `PanelHeader` (`panel.tsx:595`) + drawer nav (`StudioDrawer.tsx:328`) | `h-14` = **56px** | `px-3.5` / `px-2` | `gap-3` / `gap-2` |
+| Fabricate / FinishStudio / MotionStudio pane bars | `h-[50px]` | `px-3` | `gap-2` |
+| Two more Fabricate pane bars | `h-[44px]` | `px-3` | `gap-2` |
+| Playground toolbar (`playground.css:30`) | auto, `8px 16px` | `16px` | `8px` |
+| Edit / preview bars, overlay bars, in-panel bars | `py-1.5` · `py-2` · `py-2.5` · `py-3` | `px-2`…`px-4` | — |
+
+**Across 23 bars: 11 distinct height specifications, 7 distinct horizontal paddings, 6
+distinct gaps.** The `h-[50px]` string is byte-identical in all three files that use it. Only
+two pairs are deliberately pinned to each other — the app header and its SSR mirror (a parity
+spec), and `PanelHeader` with the drawer nav.
 
 `panel.tsx:592` says its `h-14` is "the SAME 56px the StudioDrawer's own nav bar uses, so the
 two agree" — and they do agree, with each other, while disagreeing with the app header two
-pixels away. The 54px number itself is written four ways: `h-[54px]` in two files,
-`3.375rem` in `panel.tsx:178`, and prose in `panel.tsx:88,142` and `CommandPalette.tsx:380`.
+pixels away and the site header six. The 54px number itself is written four ways: `h-[54px]`
+in two files, `3.375rem` in `panel.tsx:178`, and prose in `panel.tsx:88,142` and
+`CommandPalette.tsx:380`.
 
 ### Close cross button — 12 hand-rolls, targets from ~16px to ~48px
 
-Twelve files render `<X />` directly; only `StudioShell` and `panel.tsx` route through
-`PanelHeader`. Icon sizes run `size-3` to `size-6` (12–24px), padding `p-0.5` to `p-3`. Many
-land under the 44px touch floor — the floor `2026-07-27` describes as having "held inside the
+Five primitive definitions cover 35 instances; **18 more close/dismiss affordances are
+hand-rolled**. Across all of them there are **11 distinct hit-target specifications** —
+`size-[30px]`, `h-11`, `size-6`, `size-6`+`pointer-coarse:size-11`, `size-8`, `p-1`, `p-1.5`,
+`p-0.5`, `px-1 py-0.5`, `px-3.5`, and none at all (`StudioShell.tsx:3527` is a bare
+`<button>`). Placement is not settled either: three Fabricate bars put the X **leading**, as
+does `PresentOverlay.tsx:1773`, while every `PanelHeader` puts it trailing. Two sites still
+render a raw glyph rather than the icon — `✕` at `PlaygroundApp.tsx:1647` and `×` injected via
+`textContent` at `vetrina.astro:239`. Many targets — the floor `2026-07-27` describes as having "held inside the
 drawer and nowhere else. That floor is the stated reason the whole mobile toolbar was
 redesigned. Every destination broke it." The one automated 44px assertion
 (`docs/e2e/responsive.spec.ts:63`) covers **only the eight mobile bar cells**, not one panel
@@ -142,22 +156,50 @@ close button.
 `PanelSearch` (`studio/Library`, `studio/SlidePicker`) · **raw `<input>`**
 (`Fabricate:1066`, `ModelPicker:92`, `TtsModelPicker:85`, `VoicePicker:187`).
 
+Counted by mount point that is **12 fields, 5 implementations, 8 distinct visual variants**
+once per-call-site overrides are included. A leading search icon appears on 8 of 11; a clear
+button on 2; a debounce on 1. Font sizes run 15px / 13.5px / 13px / 12.5px / cmdk default.
+
 The three picker comboboxes have **zero `onKeyDown` between them** — no arrow keys, no
 type-ahead. The documented iOS ban on Radix Popover inside a modal Sheet (§10) justifies not
 using `popover`; it does not cover the missing keyboard handling, and `PanelSearch` is
 exported for exactly this.
 
-### Inputs inside panels on mobile — the behavior is right, and it lives in the wrong place
+### Inputs inside panels on mobile — 51 of 53 declare a size that never applies
 
-The iOS 16px focus-zoom fix is a global element-selector net at **`landing.css:213`** — a
-`@media (pointer: coarse)` block matching every `input` in the app, from a stylesheet named
-for the landing page — plus a per-CodeMirror-theme bump. It works, and `docs/e2e/ios-zoom.spec.ts`
-guards it. But it is a *global patch standing in for a primitive that owns its own behavior*,
-which is the same shape as `PanelBody`: the touch-scroll contract `2026-07-17` put on
-`PanelBody` so it would fix "every panel at once" is **copy-pasted inline in 10 places across
-8 files** (`GalleriesSheet:62`, `DeckSetupSheet:97`, `SlideContext:549`, `Library:670`,
-`ReshapePicker:69`, `StudioShell:3633,3661,4026`, `SlidePicker:342,615`), each with different
-padding. The next fix to that contract reaches 1 site of 11.
+53 text/textarea/select/number fields render inside the app's 8 sheet and drawer hosts, from
+6 different implementations (`Input`, `Textarea`, `SelectTrigger`, `PanelSearch`,
+`CommandInput`, native). **Only 2 declare 16px** — `FeedbackSheet`'s pair, and only below
+`md`. The other 51 declare 14px, 13.5px, 13.12px, 13px, 12.5px, 12.48px or 11.5px.
+
+They do not actually zoom iOS, and the reason is worth stating precisely, because two places
+in the tree give different accounts of it and one of them is wrong.
+
+What saves them is the **unlayered** coarse-pointer net at `landing.css:213` — it matches
+`input`, `textarea` and `select`, sets `font-size: max(16px, 1em)`, and beats Tailwind's
+layered `text-[Npx]` utilities *because* it is unlayered. Its own comment says so, and
+`landing.css` is imported by every page including `studio.astro`. `docs/e2e/ios-zoom.spec.ts`
+guards it.
+
+`command.tsx:92-95` credits a different mechanism: *"`.lx-ui input { font: inherit }`
+(tailwind.css) outranks it, so every input in this app already renders at the inherited
+16px."* That reset is at `tailwind.css:137`, inside `@layer base` (opened at `:123`), and the
+layer order at `:22` puts `utilities` last — so the utility wins, not the reset. The comment's
+conclusion also fails on a fine pointer, where the net does not apply and `text-[12.5px]`
+renders at 12.5px.
+
+So the state of this surface is: **51 field declarations state a size that is overridden on
+the device the size was picked for, held up by a global net in a stylesheet named for the
+landing page, with a comment elsewhere in the tree attributing the save to the wrong rule.**
+The behavior is correct today. Nothing about it is legible, and no primitive owns it.
+
+The same shape shows up without the safety net in `PanelBody`: the touch-scroll contract
+`2026-07-17` put there so it would fix "every panel at once" is copy-pasted inline in **10
+places across 8 files** (`GalleriesSheet:62`, `DeckSetupSheet:97`, `SlideContext:549`,
+`Library:670`, `ReshapePicker:69`, `StudioShell:3633,3661,4026`, `SlidePicker:342,615`), each
+with different padding. The next fix to that contract reaches 1 site of 11. And the two
+Playground sheets, which use a raw `Sheet` rather than `PanelSheet`, get **none** of
+`useKeyboardInset`, `MOBILE_HEIGHT` or `PanelDock` for their six fields.
 
 ### And the one you did not name, which is the clearest of all
 
@@ -324,6 +366,10 @@ escape both `ui/` and npm (`panel.tsx:10-11`).
   (FeedbackSheet)… not yet repo-wide" after the 07-27 migration and nine renderers.
 - **`ui-proof/` should have been deleted.** Its own docblock says "Deleted once Phase 1 lands
   the first real island." Phase 1 landed in June.
+- **`command.tsx:92-95` gives the wrong reason for a correct behavior** — it credits a
+  `@layer base` reset that loses to layered utilities, when the actual guarantee is the
+  unlayered coarse-pointer net in `landing.css`. Its claim that "every input in this app
+  already renders at the inherited 16px" is false on a fine pointer.
 - **Three comboboxes have no keyboard navigation at all** (`VoicePicker`, `ModelPicker`,
   `TtsModelPicker`) — an a11y defect, not a cohesion one.
 - **Six near-dead primitives** with one consumer each: `collapsible`, `checkbox`,
