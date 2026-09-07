@@ -859,28 +859,36 @@ section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[displa
  * hero estimate → blockquote → interpretation) to the vertical middle so
  * the boardroom number lands at eye-level instead of orphaning an empty
  * lower half. */
-section.math.stats {
-  display: flex;
-  flex-direction: column;
+/* SOVEREIGN ARM DELETED. The scaffold is the same — hero estimate, uncertainty
+ * line, interpretation, vertically centered — but the stage owns the centering now
+ * and the frame owns the title.
+ *
+ * ONE THING A READER WILL SEE CHANGE: the title is LEFT-aligned. The sovereign arm
+ * centered the h2 to match the number under it. Under Form the h2 lifts into
+ * `.cell-masthead`, which has one alignment for every slide in the deck, and there is
+ * no centered-masthead facility to reach for. That is the trade this migration is
+ * making everywhere and it is worth naming here, because `stats` is the one variant
+ * where the old centering was a considered choice rather than an accident: a boardroom
+ * number reads as the subject of the slide, and a centered title framed it. What
+ * replaces it is a title that lands in the same place as every other title in the
+ * deck, with the number still centered under it. The structure is the point (see
+ * design/forms.md §9) — a component that keeps its own title placement is how a deck
+ * stops having a design language. */
+section.math.form.stats > .cell-stage {
   justify-content: center;
   align-items: center;
-  padding-bottom: var(--sp-xl);
   gap: var(--sp-sm);
 }
-section.math.stats > h2 {
-  text-align: center;
-  padding: 0 0 var(--sp-md) 0;
-}
-section.math.stats > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type {
+section.math.form.stats > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type {
   text-align: center;
   margin: 0;
 }
-section.math.stats > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.stats > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 2.6em;
   color: var(--accent);
   font-weight: 700;
 }
-section.math.stats > blockquote {
+section.math.form.stats > .cell-stage > blockquote {
   border-left: none;
   background: none;
   padding: 0 0 var(--sp-md) 0;
@@ -891,17 +899,30 @@ section.math.stats > blockquote {
   font-size: var(--fs-meta);
   letter-spacing: 0.12em;
 }
-section.math.stats > blockquote p {
+section.math.form.stats > .cell-stage > blockquote p {
   padding: 0 0 0.15em 0;
 }
-section.math.stats > blockquote::before { content: none; }
-section.math.stats > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
+section.math.form.stats > .cell-stage > blockquote::before { content: none; }
+section.math.form.stats > .cell-stage > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
   text-align: center;
   max-width: 60cqi;
   margin: 0;
   color: var(--text-body);
   font-size: var(--fs-body);
   line-height: var(--lh-base);
+}
+/* FAMILY REFLOW — tall/strip. `max-width: 60cqi` is a MEASURE cap: on a 1920-wide
+ * slide it stops the interpretation line running the full canvas. In a tall box it
+ * does the opposite of its job. The stage is 972px there, the cap holds the paragraph
+ * to 583px, and the result is a ~25-character line — well under the comfortable
+ * measure the cap exists to protect — set 504px tall, which is what put the committed
+ * sample 12px over the stage.
+ *
+ * Released, the same paragraph runs the stage width at ~41 characters: inside the
+ * measure band, several lines shorter, and the number above it keeps its full 2.6em.
+ * The cap is not tightened here, it is removed, because a narrow box supplies its own. */
+section.math.math.form.stats:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
+  max-width: none;
 }
 
 /* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
