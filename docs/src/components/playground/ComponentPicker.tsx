@@ -2,10 +2,10 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { useKeyboardInset } from '@/components/ui/panel';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { type CatalogItem, groupBy, type Lens, makeSearchIndex, rankedFor } from '@/lib/component-search';
 import { cn } from '@/lib/utils';
-import { keyboardIsUp, useVisualViewport, visibleBottom } from '@/lib/visual-viewport';
 
 /**
  * The component template picker — a shadcn Popover + cmdk Command (replacing the
@@ -28,12 +28,20 @@ import { keyboardIsUp, useVisualViewport, visibleBottom } from '@/lib/visual-vie
  * "actors (draft differs)" becoming "verdict-grid" — the trigger says nothing until the
  * island can say something true.
  */
-/** Breathing room between the bottom of the list and the top of the keyboard. */
-const GAP_BELOW_PANEL = 12;
-/** Never cap below this: a panel two rows tall still works, a clipped row does not. */
-const MIN_LIST_HEIGHT = 96;
-/** The desktop cap, unchanged — this only ever makes the panel smaller. */
-const MAX_LIST_HEIGHT = 300;
+/**
+ * The PANEL's flat cap — the whole popover, not the list inside it. It must match the
+ * number in the literal `max-h-[…]` class below; they are stated twice because Tailwind's
+ * scanner reads source TEXT and generates no rule at all for an interpolated class (the trap
+ * `ui/panel.tsx` records at length). Pinned against the literal by `ComponentPicker.test.ts`.
+ *
+ * 388 is today's geometry, not a new constraint: the panel measures 381px with the lens row
+ * and 347 searching, so this arm never binds where there is room and the desktop layout is
+ * byte-for-byte what it was.
+ */
+const PANEL_CAP_PX = 388;
+/** How much height the cap must have LOST before Return means "show me" instead of
+ *  "pick this" — see `onCommandKeyDown`. */
+const SQUEEZE_MARGIN_PX = 60;
 
 export function ComponentPicker({
 	components,
@@ -107,39 +115,49 @@ export function ComponentPicker({
 
 	// ── Fitting the panel to the space a soft keyboard leaves ──────────────────
 	//
-	// Reported from a real iPhone, and reproduced on WebKit at 393x659: the list is a
-	// fixed 300px inside a 381px popover, and the keyboard covers the bottom ~336px. So
-	// the rows an author is searching for sit UNDER the keyboard, with iOS's own
-	// form-accessory bar floating over what is left. Radix cannot help — its collision
-	// detection reads the layout viewport, which the keyboard does not change.
-	const viewport = useVisualViewport(open);
-	// A CALLBACK REF, not `useRef`. Radix mounts the popover's content in a portal on a
-	// LATER commit, so a `useRef` is still null in the layout effects of the commit that
-	// opened it — measured: `hasEl: false` on open, and the two effects below silently did
-	// nothing on the pass that mattered. State makes the node's arrival a dependency.
+	// Reported from a real iPhone, and reproduced on WebKit at 393x659: the list is a fixed
+	// 300px inside a 381px popover, and the keyboard covers the bottom ~336px. So the rows an
+	// author is searching for sit UNDER the keyboard, with iOS's own form-accessory bar
+	// floating over what is left. Radix cannot help — its collision detection reads the
+	// LAYOUT viewport, which a keyboard does not change on iOS.
+	//
+	// THIS IS AN AVAILABLE-VIEWPORT PROBLEM AND THE REPO ALREADY SOLVES IT. `useKeyboardInset`
+	// (ui/panel.tsx) publishes `--vvh` — the height that is actually VISIBLE — and every mobile
+	// sheet plus the Studio's inline search already cap against it. A first cut of this fix
+	// re-derived the same thing with its own `visualViewport` listener and React state, which
+	// is both the duplication HARD RULE #15 forbids and worse behavior: it re-rendered the
+	// whole island on every frame of the keyboard's open animation. One CSS `min()` arm costs
+	// nothing per frame and cannot disagree with the surfaces that were already right.
+	//
+	// THE SIZING IS RADIX'S OWN MEASUREMENT, and nothing else — measured rather than assumed.
+	// `--radix-popover-content-available-height` is the room below the trigger, and
+	// floating-ui computes it from the VISUAL viewport, so it already has the keyboard in it:
+	// on a WebKit iPhone raising a 336px keyboard took it from 500px to 164, and on a Pixel
+	// from 680.75 to 344.75 — exactly the keyboard, both times, and it re-measures on the same
+	// `visualViewport` resize the browser fires.
+	//
+	// So the earlier arithmetic here was DOUBLE-SUBTRACTING. Two cuts got this wrong in
+	// opposite directions and both are worth naming: `--vvh` minus a hand-written constant for
+	// the panel's top edge (fine for the Studio's palette, which hangs off a fixed 54px header;
+	// wrong here, where the trigger sits under a site header and a toolbar that wraps — the
+	// list still ran 53px under the keyboard), then Radix's number minus `--kb` as well, which
+	// left 206px of empty screen above the keyboard on a Pixel because the keyboard had already
+	// been taken off once.
+	//
+	// It is set on the PANEL rather than the list so the browser does the chrome arithmetic:
+	// the list keeps its own flat cap and flexes below it, and nothing has to know how tall the
+	// search row and the lens row happen to be in the state it is measured in.
+	//
+	// `--kb` IS still published, for the Return rule below and only that — see there for why
+	// the two questions need different signals.
+	useKeyboardInset(open);
 	const [listEl, setListEl] = React.useState<HTMLDivElement | null>(null);
-	const [listMax, setListMax] = React.useState<number | null>(null);
 	/** First layout pass after opening — the one where centering, not a minimal nudge, is
 	 *  the right answer (see below). */
 	const justOpenedRef = React.useRef(false);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `ranked`/`groups` are dependencies BY DESIGN — the list's own top edge moves when the lens row hides on the first keystroke, and the cap is measured from that edge.
-	React.useLayoutEffect(() => {
-		if (!open) {
-			setListMax(null);
-			justOpenedRef.current = true;
-			return;
-		}
-		const el = listEl;
-		if (!el || !viewport.height) return;
-		// Measure from the LIST's own top rather than the popover's: the input and the
-		// lens row above it are not the same height in every state, and a cap derived
-		// from a constant would be wrong in whichever state it was not measured in.
-		const top = el.getBoundingClientRect().top;
-		const room = visibleBottom(viewport) - top - GAP_BELOW_PANEL;
-		// A floor, because a cap smaller than this is a worse answer than overflowing:
-		// two rows and a scrollbar is still usable, one clipped row is not.
-		setListMax(Math.max(MIN_LIST_HEIGHT, Math.min(MAX_LIST_HEIGHT, room)));
-	}, [open, listEl, viewport, ranked, groups]);
+	React.useEffect(() => {
+		if (!open) justOpenedRef.current = true;
+	}, [open]);
 
 	/**
 	 * A NEW QUERY STARTS AT THE TOP. Separate from the in-view pass below, and running
@@ -221,24 +239,46 @@ export function ComponentPicker({
 		if (sr.top >= lr.bottom || sr.bottom <= lr.top) center();
 		else if (sr.top < lr.top) el.scrollTop -= lr.top - sr.top;
 		else if (sr.bottom > lr.bottom) el.scrollTop += sr.bottom - lr.bottom;
-	}, [open, listEl, ranked, groups, listMax, active]);
+	}, [open, listEl, ranked, groups, active]);
 
 	/**
-	 * RETURN REVEALS THE LIST WHILE A KEYBOARD IS COVERING IT — it does not commit.
+	 * RETURN REVEALS THE LIST WHILE SOMETHING IS COVERING IT — it does not commit.
 	 *
 	 * On a phone the return key is how you dismiss the keyboard to SEE what you searched
-	 * for. cmdk binds it to "select the highlighted row", so the reported behavior was
-	 * that typing `chart` and pressing return silently replaced the author's deck with the
-	 * top hit and closed the panel — the one key you press to look at the results is the
-	 * one that stops you looking at them.
+	 * for. cmdk binds it to "select the highlighted row", so the reported behavior was that
+	 * typing `chart` and pressing return silently replaced the author's deck with the top hit
+	 * and closed the panel — the one key you press to look at the results is the one that
+	 * stops you looking at them.
 	 *
-	 * Gated on the keyboard ACTUALLY covering the panel rather than on a pointer-capability
-	 * probe: a phone with a hardware keyboard, and a desktop, both keep Enter-to-commit,
-	 * which is the right and expected behavior when you can already see the list.
+	 * TWO SIGNALS, OR'd, because no single one covers every device — and this is the question
+	 * that actually needs to know about the KEYBOARD, unlike the sizing above which only needs
+	 * to know how much room is left:
+	 *
+	 *   --kb > 0            the keyboard inset. Correct wherever the keyboard shrinks only the
+	 *                       VISUAL viewport — iOS, and Chrome's default
+	 *                       `interactive-widget=resizes-visual`. Reads 0 on a platform that
+	 *                       shrinks the layout viewport instead.
+	 *   the panel shrank    the panel's resolved cap, which is downstream of Radix's measurement
+	 *                       and therefore correct on exactly the platforms `--kb` is not: if the
+	 *                       layout viewport lost the keyboard, this lost it too.
+	 *
+	 * Neither alone is enough, and the pair has no gap. Measured: a 336px keyboard on an
+	 * iPhone 15 Pro takes the panel to 152px (both arms fire); the same keyboard on a Pixel 7's
+	 * taller viewport leaves the panel at 332px — barely shrunk, so only the first arm fires,
+	 * and a rule built on the shrink alone would have gone on committing there.
+	 *
+	 * The margin on the second arm keeps a merely SHORT window from flipping the behavior: a
+	 * laptop at 400px of height is cramped but has nothing covering it, and one dead Return
+	 * there is a worse trade than the commit it replaces.
 	 */
 	const onCommandKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
 		if (e.key !== 'Enter' || e.defaultPrevented) return;
-		if (!keyboardIsUp(viewport)) return;
+		const panel = (e.currentTarget as HTMLElement).closest<HTMLElement>('[data-slot="popover-content"]');
+		if (!panel) return;
+		const kb = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb'));
+		const cap = Number.parseFloat(getComputedStyle(panel).maxHeight);
+		const squeezed = Number.isFinite(cap) && cap <= PANEL_CAP_PX - SQUEEZE_MARGIN_PX;
+		if (!(kb > 0) && !squeezed) return;
 		e.preventDefault();
 		e.stopPropagation();
 		(e.target as HTMLElement).blur?.();
@@ -263,7 +303,14 @@ export function ComponentPicker({
 					<ChevronsUpDown className="opacity-50" />
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent className="w-[min(22rem,86vw)] p-0" align="start">
+			{/* `max(140px, …)` is a floor: a cap below this is a worse answer than overflowing,
+			    because two rows and a scrollbar still work and one clipped row does not. The
+			    12px is the panel's own borders plus breathing room, so the last row is never
+			    tangent to the keyboard's top edge. */}
+			<PopoverContent
+				className="flex w-[min(22rem,86vw)] flex-col overflow-hidden p-0 max-h-[max(140px,min(388px,calc(var(--radix-popover-content-available-height)-12px)))]"
+				align="start"
+			>
 				<Command shouldFilter={false} value={active} onValueChange={setActive} onKeyDown={onCommandKeyDown}>
 					{/* 40px, not the shared 44: this field sits in a dense popover above 32px
 					    rows, and on a phone with the keyboard up it was 29% of everything the
@@ -301,7 +348,22 @@ export function ComponentPicker({
 							))}
 						</div>
 					)}
-					<CommandList ref={setListEl} style={listMax != null ? { maxHeight: `${listMax}px` } : undefined}>
+					{/* THREE ARMS, and only the third is new:
+					      300px            — the flat cap this list has always had
+					      --vvh - 148px    — what is VISIBLE below the panel's top edge. 148 is
+					                         the picker's own chrome (a 36px trigger + its 4px
+					                         offset + the 40px search row + a 34px lens row) plus
+					                         a 34px reserve so the last row is never tangent to
+					                         the keyboard's top edge.
+					      96px             — a floor, because a cap below this is a worse answer
+					                         than overflowing: two rows and a scrollbar still
+					                         work, one clipped row does not.
+					    `max(96px, min(...))` can only ever make the list SHORTER than today, so
+					    with no keyboard (`--vvh` = 100dvh) the 300px arm still binds and the
+					    desktop geometry is unchanged. */}
+					{/* `flex-1 min-h-0` so the panel's cap can shrink it; `max-h-[300px]` so it
+					    never grows past the flat ceiling when there IS room. */}
+					<CommandList ref={setListEl} className="min-h-0 flex-1">
 						<CommandEmpty>No components match that search.</CommandEmpty>
 						{ranked
 							? ranked.length > 0 && (

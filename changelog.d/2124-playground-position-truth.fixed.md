@@ -23,8 +23,10 @@
   phone the panel was a fixed 381px with a 300px list, and the keyboard covered the bottom
   ~336px of it — so the rows you were searching for sat under the keyboard, with iOS's own
   accessory bar floating over what was left. Reported from a real iPhone. The panel now
-  measures the visual viewport, the lens row hides while a search is active (it controls
-  nothing in that state), and the search field is 40px rather than 44.
+  sizes itself from the room the browser reports below the trigger — which already has the
+  keyboard subtracted — the lens row hides while a search is active (it controls nothing in
+  that state), and the search field is 40px rather than 44. Verified on real WebKit at
+  iPhone, iPad and Pixel profiles.
 - **Fixed: Return in the picker's search box reveals the list instead of replacing your
   deck.** On a phone the return key is how you dismiss the keyboard to see your results;
   it was bound to "select the highlighted row", so searching and pressing return silently
@@ -34,3 +36,7 @@
   previous one was, so a search from far down a 69-row catalog showed the last three
   results with the best match 634px above the window. The picker also opens centered on the
   component you are already using, rather than at the top of the list.
+- **Fixed: resizing the window no longer moves the reader off their slide.** A rescale moves
+  every slide while the scroll offset stays put, so the next scroll event described the new
+  layout at the old position — and the Playground read a slide index out of it, landing the
+  reader one slide from where they asked to be. A rescale now re-lands them instead.

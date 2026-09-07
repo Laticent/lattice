@@ -64,6 +64,7 @@ const kb = () => document.documentElement.style.getPropertyValue('--kb');
 
 afterEach(() => {
 	document.documentElement.style.removeProperty('--kb');
+	document.documentElement.style.removeProperty('--vvh');
 	vi.unstubAllGlobals();
 });
 
@@ -160,5 +161,49 @@ describe('PINNED_FIELD_ROW', () => {
 		// asserting the arbitrary variants survive verbatim.
 		expect(PINNED_FIELD_ROW).toMatch(/max-\[699px\]:\[&:has\(input:focus\)\]:fixed/);
 		expect(PINNED_FIELD_ROW).not.toMatch(/\$\{|undefined|NaN/);
+	});
+});
+
+// ── The refcount, which the hook's own note said a third caller would need ──────────
+//
+// The Playground's component picker is that third caller. Before the count, whichever
+// consumer unmounted FIRST removed `--kb`/`--vvh` outright, dropping any still-open
+// surface back to the `100dvh` fallback with a keyboard still up.
+describe('useKeyboardInset — refcounted across concurrent callers', () => {
+	const vvh = () => document.documentElement.style.getPropertyValue('--vvh');
+
+	it('a second caller unmounting leaves the first one still published', () => {
+		const vv = fakeViewport(400);
+		const a = render(<Probe active={true} />);
+		const b = render(<Probe active={true} />);
+		expect(vvh()).toBe('400px');
+		b.unmount();
+		expect(vvh(), 'the surviving caller lost its measurement when the other one closed').toBe('400px');
+		a.unmount();
+		expect(vvh()).toBe('');
+		expect(vv.listenerCount).toBe(0);
+	});
+
+	it('the listener is installed once, not once per caller', () => {
+		const vv = fakeViewport(400);
+		const a = render(<Probe active={true} />);
+		const one = vv.listenerCount;
+		const b = render(<Probe active={true} />);
+		expect(vv.listenerCount, 'each caller added its own resize/scroll pair').toBe(one);
+		a.unmount();
+		b.unmount();
+		expect(vv.listenerCount).toBe(0);
+	});
+
+	it('a keyboard raised while two are open updates both, once', () => {
+		const vv = fakeViewport(800);
+		const a = render(<Probe active={true} />);
+		const b = render(<Probe active={true} />);
+		vv.set(460);
+		expect(vvh()).toBe('460px');
+		a.unmount();
+		vv.set(800);
+		expect(vvh(), 'the remaining caller stopped tracking when the other closed').toBe('800px');
+		b.unmount();
 	});
 });

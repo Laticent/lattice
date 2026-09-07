@@ -281,12 +281,22 @@ test('a pane resize keeps the reader on their slide', async ({ page }) => {
 	await gotoExplore(page);
 	for (let i = 0; i < 3; i++) await nextSlide(page).click();
 	await settle(page);
-	expect(await dominantSlide(page)).toBe(4);
-	await page.setViewportSize({ width: 980, height: 720 });
-	await expect.poll(() => dominantSlide(page), { timeout: 8_000 }).toBe(4);
-	await page.setViewportSize({ width: 1440, height: 900 });
-	await expect.poll(() => dominantSlide(page), { timeout: 8_000 }).toBe(4);
-	await expectPositionIsTruthful(page, 'a resize');
+	expect((await claimed(page)).index).toBe(4);
+	// SETTLE BETWEEN THEM, and assert the INDEX. `expect.poll` was the wrong instrument
+	// twice over here: its first check runs before the resize has propagated, so it passed
+	// instantly and fired the second resize in the same frame as the first — and what it
+	// polled was DOMINANCE, which at 980px is genuinely ambiguous because more than one
+	// slide shares the pane. The invariant is that the reader keeps the slide they were on
+	// and the chrome still names something they can see.
+	for (const size of [
+		{ width: 980, height: 720 },
+		{ width: 1440, height: 900 },
+	]) {
+		await page.setViewportSize(size);
+		await settle(page);
+		expect((await claimed(page)).index, `resized to ${size.width}px`).toBe(4);
+		await expectPositionIsTruthful(page, `a resize to ${size.width}px`);
+	}
 });
 
 // ── The three input verbs (engineering/decisions/2026-08-10-input-verb-parity.md) ──

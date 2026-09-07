@@ -245,6 +245,71 @@ cells it contains**, and "the viewport is smaller than the page thinks" was not 
 any of them — the same lesson `2026-08-10-input-verb-parity.md` records about the pinch
 gesture it could not see.
 
+## The keyboard fix, corrected: it is an available-viewport problem, and it was solved
+
+The first cut of the keyboard work added `docs/src/lib/visual-viewport.ts` — its own
+`visualViewport` listener, its own React state, its own arithmetic. That was a HARD RULE
+#15 violation with a shipped answer sitting next to it: **`useKeyboardInset`**
+(`ui/panel.tsx`) already publishes `--kb` and `--vvh`, already backs every mobile sheet,
+and already had a second caller in the Studio's inline search — a combobox whose dropdown
+had this exact problem on an iPad. The module is deleted; the picker uses the kernel.
+
+Three things came out of doing it the reusing way, and all three are the point.
+
+**The picker is the third caller the hook's own note predicted.** It says: *"if a third
+caller appears … this has to become refcounted rather than last-writer-wins."* It is now
+refcounted. The failure it removes is silent and one-directional — whichever surface
+unmounts first used to remove `--kb`/`--vvh` outright, dropping any still-open surface back
+to the `100dvh` fallback with a keyboard still up.
+
+**Radix already subtracts the keyboard, and the first two cuts both got this wrong.**
+`--radix-popover-content-available-height` is computed by floating-ui from the VISUAL
+viewport, so it has the keyboard in it already: measured, a 336px keyboard took it from
+500px to 164 on a WebKit iPhone and from 680.75 to 344.75 on a Pixel — exactly the keyboard,
+both times. Cut one sized from `--vvh` minus a hand-written constant for the panel's top
+edge, which is right for the Studio's palette (a fixed 54px header) and wrong here, where
+the trigger sits under a site header and a toolbar that wraps: the list still ran 53px under
+the keyboard. Cut two subtracted `--kb` on top of Radix's number and double-counted, leaving
+206px of dead screen above the keyboard on a Pixel. **The cap is Radix's measurement alone**,
+set on the panel rather than the list so the browser does the chrome arithmetic.
+
+**"Is a keyboard up" and "how much room is left" are different questions and need different
+signals.** The Return rule does need the first, and no single signal answers it everywhere:
+`--kb` is correct where a keyboard shrinks only the visual viewport (iOS, and Chrome's
+default `interactive-widget=resizes-visual`) and reads 0 where it shrinks the layout viewport
+instead; the panel's own shrink is correct on exactly the platforms `--kb` is not. Measured:
+a 336px keyboard takes the panel to 152px on an iPhone 15 Pro (both signals fire) and leaves
+it at 332px on a Pixel 7's taller viewport (only `--kb` fires). Return reveals on the OR.
+
+Verified on real WebKit at three device profiles x keyboard up/down — iPhone 15 Pro, iPad
+Pro 11, Pixel 7 — with the panel clearing the keyboard in every case (13-743px of daylight)
+and Return committing only where nothing covers the list.
+
+## A geometry change is not a reader action
+
+Chasing the keyboard work surfaced the last and subtlest defect in the position loop, and
+it is the one worth carrying forward.
+
+**A scroll event says where the frame is; it does not say whether the frame moved or the
+deck did.** When the fit agent rescales, every band moves while `scrollY` stays put — so the
+next scroll event reports the NEW geometry at the OLD offset. Reading an index out of that
+renames the reader's slide from a position they never chose. Measured: resizing ~0.6s after
+a step logged `onDeckScroll 3->4`, one slide past where the reader had asked to be,
+deterministically; and two resizes 500ms apart logged `reconcile 3->2` from the first
+resize's guard timer firing during the second.
+
+The fix is one rule stated once: **the index is only ever re-read from a scroll measured in
+the same geometry it was placed against.** `bandSig` fingerprints the filmstrip, `scrollWalk`
+records it when it places a position, and both readers — the scroll observer and the shared
+reconcile — refuse a mismatch. A rescale therefore triggers a re-land (which waits for two
+stable frames and verifies), never a rename.
+
+Three weaker versions were measured and discarded first, which is why the rule is stated
+this flatly: gating the expiry timer on `landPendingRef` (moved the failure window rather
+than closing it), having the geometry observer scroll immediately (aims at geometry the fit
+agent has not finished settling, and records that transient as the geometry to read back
+from), and having it rename instead of re-land (the original defect).
+
 ## Three oracles that were themselves wrong
 
 Worth recording, because two of them are traps any future measurement of this surface will

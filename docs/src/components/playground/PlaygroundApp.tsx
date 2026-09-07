@@ -160,6 +160,13 @@ const REVEAL_CAP_MS = LAND_SETTLE_MS * (1 + LAND_ATTEMPTS) + 500;
  *  lone CR at all, and the two cost the same (2026-08-04-line-endings-lf-boundaries.md). */
 const lf = (t: string) => t.replace(/\r\n?/g, '\n');
 
+/** A cheap fingerprint of the filmstrip's geometry — enough to tell "the fit agent has
+ *  rescaled the deck" from "the reader scrolled it". */
+function bandSig(bands: SlideBand[]): string {
+	if (!bands.length) return '';
+	return `${bands.length}:${Math.round(bands[0].height)}:${Math.round(bands[bands.length - 1].top)}`;
+}
+
 function frameBands(frame: HTMLIFrameElement): SlideBand[] {
 	let secs: NodeListOf<HTMLElement> | undefined;
 	try {
@@ -379,6 +386,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  reconciled first it would rename the reader's slide from the post-resize scroll a beat
 	 *  before the re-land put them back on it — the two would fight over one event. */
 	const landScheduledRef = React.useRef(false);
+	/**
+	 * The geometry the current index was PLACED against.
+	 *
+	 * A scroll event only says where the frame is; it does not say whether the frame moved or
+	 * the deck did. When the fit agent rescales, every band moves while `scrollY` stays put —
+	 * so the very next scroll event reports the NEW geometry at the OLD offset, and reading an
+	 * index out of that renames the reader's slide from a position they never chose. Measured:
+	 * resizing ~0.6s after a step logged `onDeckScroll 3->4 sy=2024`, one slide past where they
+	 * had asked to be, deterministically.
+	 *
+	 * So the index is only ever re-read from a scroll measured in the SAME geometry it was
+	 * placed in. A mismatch means a rescale is in flight, and the re-land owns the position.
+	 */
+	const bandSigRef = React.useRef('');
 	/** The frame DOCUMENT the deck listeners are currently bound to. Keyed on the document
 	 *  and NOT on `contentWindow`, which is a WindowProxy whose identity survives a
 	 *  navigation: a srcdoc write drops every listener registered on the old global while
@@ -1147,6 +1168,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 		const animated = smooth && !reduce;
 		const now = Date.now();
+		// This scroll PLACES the index, so it also defines the geometry the observer may read
+		// it back from.
+		bandSigRef.current = bandSig(frameBands(frame));
 		const window_ms = animated ? 1200 : 400;
 		walkScrollRef.current = { index: w.index, until: now + window_ms, armedAt: now };
 		// ARM A TIMER TOO, not just a deadline other code checks when it happens to run. The
@@ -1160,6 +1184,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			guardTimerRef.current = null;
 			if (!walkScrollRef.current) return; // released normally
 			walkScrollRef.current = null;
+			// NOT WHILE A LAND OWNS THE POSITION. This timer exists to un-strand a scroll that
+			// no later event will correct; a land in flight IS that later correction, and it is
+			// about to place the reader deliberately. Reconciling underneath it reads a frame
+			// caught mid-refit and renames the slide from wherever it happens to be — measured
+			// on a resize landing 400ms into a step's smooth scroll, which ended one slide past
+			// what the reader asked for.
+			if (landPendingRef.current) return;
 			reconcileRef.current();
 		}, window_ms + 40);
 		win.scrollTo({ top: Math.max(0, target.offsetTop - 16), behavior: animated ? 'smooth' : 'auto' });
@@ -1232,8 +1263,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const done = () => {
 				if (superseded()) return; // a newer land owns the gates now
 				const frame = frameRef.current;
-				const w = walkRef.current;
-				const win = frame?.contentWindow;
 				// …EXCEPT while a scroll of OURS is still traveling to a position the reader
 				// asked for after this land began. Reconciling then reads a scroll that has not
 				// arrived and quietly throws their step away: a PageDown during a fresh
@@ -1249,14 +1278,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// the step away. The safety net lives on the guard's expiry timer instead,
 				// which reconciles unconditionally once the scroll has had its window.
 				const oursInFlight = !!pending && pending.armedAt >= userInputAtRef.current;
-				if (frame && w && win && viewRef.current === 'read' && !oursInFlight) {
-					const idx = readingSlideIndex(frameBands(frame), win.scrollY, win.innerHeight, w.index);
-					if (idx !== w.index) {
-						const moved: Walk = { ...w, index: idx };
-						setWalk(moved);
-						walkRef.current = moved;
-					}
-				}
+				// Through the SHARED reconcile, so the geometry check above applies here too — a
+				// land that ends while another rescale is already in flight must not read the
+				// index out of the geometry it is about to lose.
+				if (!oursInFlight) reconcileRef.current();
+				if (frame) bandSigRef.current = bandSig(frameBands(frame));
 				observeReadyRef.current = true;
 				landPendingRef.current = false;
 			};
@@ -1819,27 +1845,41 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const frame = frameRef.current;
 		const w = walkRef.current;
 		if (!frame || !w || viewRef.current !== 'read' || previewCollapsedRef.current) return;
-		if (landScheduledRef.current) return; // the pane resized; the re-land owns the position
-		if (walkScrollRef.current) {
-			scrollWalk(false);
-			return;
-		}
-		const win = frame.contentWindow;
-		if (!win || !observeReadyRef.current) return; // landWalk owns the position until it lands
-		const idx = readingSlideIndex(frameBands(frame), win.scrollY, win.innerHeight, w.index);
-		if (idx === w.index) return;
-		const moved: Walk = { ...w, index: idx };
-		setWalk(moved);
-		walkRef.current = moved;
-	}, [scrollWalk]);
+		if (landScheduledRef.current) return; // the pane resized; that re-land owns the position
+		// RE-LAND, never rename, and never scroll straight away. A rescale is not something
+		// the reader did — it is the fit agent moving the deck underneath them — so the right
+		// response is to put them back on the slide the index already names. Two weaker
+		// versions were measured and both moved the reader a slide: RENAMING reads a frame
+		// caught mid-refit and reports whatever happens to sit under the old offset, and
+		// scrolling IMMEDIATELY aims at geometry the fit agent has not finished settling and
+		// records that transient as the geometry the observer may read back from.
+		// `landWalk` already waits for two stable frames and verifies the result, which is
+		// exactly what this needs; it is idempotent and epoch-guarded, so a burst of resize
+		// ticks collapses into one landing.
+		landWalkRef.current();
+	}, []);
 
-	/** THE reconcile. Sets the walk index to whatever the frame is actually showing. */
+	/**
+	 * THE reconcile. Sets the walk index to whatever the frame is actually showing — and it
+	 * is the ONE place that re-reads the index from the frame, which is why the geometry
+	 * check lives here rather than at each caller.
+	 *
+	 * Every caller can fire at a moment the deck has been rescaled but not yet re-landed: the
+	 * guard's expiry timer most of all, since it is armed on a delay and knows nothing about
+	 * what happened in between. Measured on two resizes 500ms apart, the timer from the first
+	 * fired during the second and logged `reconcile 3->2` — reading the first resize's correct
+	 * scroll offset against the second's already-rescaled bands.
+	 */
 	const reconcile = React.useCallback(() => {
 		const frame = frameRef.current;
 		const w = walkRef.current;
 		const win = frame?.contentWindow;
 		if (!frame || !w || !win || viewRef.current !== 'read') return;
-		const idx = readingSlideIndex(frameBands(frame), win.scrollY, win.innerHeight, w.index);
+		const bands = frameBands(frame);
+		// Not the geometry this index was placed against — a re-land is what this needs, and
+		// `onDeckGeometry` has already asked for one.
+		if (bandSig(bands) !== bandSigRef.current) return;
+		const idx = readingSlideIndex(bands, win.scrollY, win.innerHeight, w.index);
 		if (idx === w.index) return;
 		const moved: Walk = { ...w, index: idx };
 		setWalk(moved);
@@ -1867,7 +1907,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// `w.index` is passed so the rule can KEEP it while its slide is still on screen —
 			// see the hysteresis clause. Without it the counter fights the stepper wherever the
 			// pane shows more than one slide, which on a phone is everywhere.
-			const idx = readingSlideIndex(frameBands(frame), win.scrollY, win.innerHeight, w.index);
+			const bands = frameBands(frame);
+			// THE DECK RESCALED UNDER THIS SCROLL — see `bandSigRef`. Not the reader's doing,
+			// so not the reader's position; `onDeckGeometry` re-aims and re-records.
+			if (bandSig(bands) !== bandSigRef.current) return;
+			const idx = readingSlideIndex(bands, win.scrollY, win.innerHeight, w.index);
 			// Defer to a programmatic scroll still in flight — a smooth `scrollTo` crosses
 			// every slide between here and there — but let it end the moment it ARRIVES,
 			// so a reader who scrolls straight out of a step is not ignored for a second.
