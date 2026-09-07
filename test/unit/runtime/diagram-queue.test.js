@@ -87,7 +87,10 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
   const factory = eval(
     `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, scheduleRun) {
        let renderCounter = 0;
-       let diagramRunActive = false;
+       // A COUNTER, matching the shipped declaration: one pass opens one run per consecutive
+       // scope-key change, so a boolean let the first tail clear it while later runs were
+       // still queued.
+       let diagramRuns = 0;
        let rerunRequested = false;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
@@ -117,8 +120,17 @@ ${block}
 }
 
 /** A fence, with a fake `<pre>` whose dataset the queue writes. */
-function fence(name) {
-  return { preEl: { dataset: { mermaidState: 'rendering' }, name }, target: { innerHTML: '' }, source: name };
+function fence(name, ink = null) {
+  return {
+    preEl: { dataset: { mermaidState: 'rendering' }, name },
+    // `querySelector` is part of the shape, not decoration: the parse gate asks the slot
+    // whether it is holding a drawing before it defers, because a fence with an empty slot
+    // has nothing to hold and gating it would only cost the author their error box. These
+    // cells are about the CHAIN advancing, so they model an empty slot and go straight to
+    // the renderer.
+    target: { innerHTML: '', querySelector: () => ink },
+    source: name,
+  };
 }
 
 /** Two bands, so a run boundary exists. */

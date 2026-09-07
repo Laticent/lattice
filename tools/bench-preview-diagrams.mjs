@@ -140,7 +140,8 @@ async function settle(expected) {
       const st = await f
         .evaluate(() => ({
           svgs: document.querySelectorAll('.mermaid svg').length,
-          busy: document.querySelectorAll('[data-mermaid-state="pending"],[data-mermaid-state="rendering"]').length,
+          // `deferred` is busy too — the parse gate is holding it until the author pauses.
+          busy: document.querySelectorAll('[data-mermaid-state="pending"],[data-mermaid-state="rendering"],[data-mermaid-state="deferred"]').length,
         }))
         .catch(() => null);
       if (st && st.svgs >= expected && st.busy === 0) return f;

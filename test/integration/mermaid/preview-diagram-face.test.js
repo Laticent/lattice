@@ -135,7 +135,9 @@ async function previewFaces(deckSource, theme) {
         // grows a themed sibling. Either alone is a degraded diagram.
         errors: document.querySelectorAll('[data-mermaid-state="error"], .mermaid-error').length,
         // Fences the runtime never got to at all — still queued, or never claimed.
-        unrendered: document.querySelectorAll('pre[data-mermaid-state="pending"], marp-pre[data-mermaid-state="pending"]').length,
+        // `deferred` counts too: it is the parse gate holding a fence whose source does not
+        // parse yet, which is un-drawn for this probe's purposes exactly as `pending` is.
+        unrendered: document.querySelectorAll('pre[data-mermaid-state="pending"], marp-pre[data-mermaid-state="pending"], pre[data-mermaid-state="deferred"], marp-pre[data-mermaid-state="deferred"]').length,
       };
     });
   } finally {

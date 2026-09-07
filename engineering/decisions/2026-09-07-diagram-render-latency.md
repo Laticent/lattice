@@ -14,7 +14,8 @@ summary: >
   made things worse in one place, and the two halves ship together: a diagram that does not
   parse WHILE THE AUTHOR IS TYPING is a half-written diagram, not an error, and clearing the
   slot for it on every keystroke painted 155 frames of raw source where the timer painted 97.
-  So `mermaid.parse` gates the render — ~9ms to reject against 22-239ms to draw — and a fence
+  So `mermaid.parse` gates the render — ~1.8ms to reject against 22-239ms to draw, at a flat
+  ~14% tax on every SUCCESSFUL render because Mermaid re-parses inside `render` — and a fence
   that fails it keeps its previous drawing until 450ms of quiet, when the error surfaces for
   real. The gate needed a FOURTH `data-mermaid-state`, and that is the whole mechanism rather
   than a detail: its first version parked deferred fences in `pending`, which is the state the
@@ -87,9 +88,16 @@ diagram from scratch is spent in a state that does not parse, `attachError` clea
 and un-hides the `<pre>`, and without a timer that happens on every keystroke. The author
 gets their raw source strobing at them.
 
-So `mermaid.parse` gates the render. It rejects a broken source in ~9ms against 22-239ms to
-draw, so the gate pays for itself the first time somebody types half a node label, and it
-grows more valuable with diagram size.
+So `mermaid.parse` gates the render. It rejects a broken source in **~1.8ms** against
+22-239ms to draw — the "~9ms" an earlier draft of this note quoted was a cold first call, and
+a checker measured the warm figure.
+
+**IT IS NOT FREE ON THE HAPPY PATH, and that belongs here rather than in the win column.**
+Mermaid re-parses inside `render`, so a fence that parses cleanly pays the parse twice.
+Measured, medians of 7 in real Chromium: 3.0ms against 21.5ms at 4 nodes, 11.5 against 82.3
+at 32, 50.8 against 390.6 at 128 — **a flat ~14% on every successful render**. The trade is
+14% of a render against not buying a whole doomed one, and against the strobe in §3's table;
+it is worth it, but it is a tax and it is paid on the common case.
 
 **The first version of the gate was inert**, and the reason is worth recording: it answered
 synchronously, and Mermaid v11's `parse` returns a PROMISE. It saw a thenable, could not
@@ -121,10 +129,19 @@ never once appearing. Three build-and-probe cycles at ~9 minutes each went on gu
 went on measurement. That ratio is the lesson.
 
 A state the walk does not select ends the loop, the document goes quiet, and the timer
-fires. It needs no CSS of its own: the sheet hides the `<pre>` for every state except
-`error`/`unavailable` and collapses the `.mermaid` slot only for those two, so a `deferred`
-fence keeps showing the SVG it already has — which is precisely the hold the gate exists to
-provide.
+fires. It inherits almost all of its appearance: the sheet hides the `<pre>` for every state
+except `error`/`unavailable` and collapses the `.mermaid` slot only for those two, so a
+`deferred` fence keeps showing the SVG it already has — which is precisely the hold the gate
+exists to provide.
+
+**One rule of its own was needed, and only measurement found it.** `display:flex` on the
+slot comes from the `rendered` arm or from `section.diagram > .cell-stage > .mermaid`; on a
+fence NOT on a diagram slide, a `deferred` slot fell back to `display:block` and the held
+drawing jumped 473x186px the moment the gate engaged. The `pending` hold had the same gap for
+the length of one render, which is why nobody had seen it; stretching it across a whole
+typing pause is what made it visible. `deferred` now takes the `rendered` arm's `display:flex`.
+The bench could not have caught this — every one of its arms puts `_class: diagram` on the
+slide, where the more specific rule wins for all states.
 
 ## 5. Measured, on the built Studio
 
@@ -143,7 +160,52 @@ The error path is driven directly rather than inferred, because it is the half t
 broken: during typing the probe reads `fence=deferred, svg visible, no error box`; ~450ms
 after the last keystroke it reads `fence=error, source visible, error box up`.
 
-## 6. What this does not do
+## 6. What the independent pass found, and what changed
+
+A tier-1 checker (HARD RULE #25 — `lib/runtime` reaches both preview hosts and two exported
+artifacts) drove the shipped bundle in real Chromium and found one blocking defect plus a
+set of real ones. All are fixed here; the two worth reading are the first and the last.
+
+**The coalescing froze the whole preview, not just diagrams.** `scheduleRun` early-returned
+while a diagram run was in flight — but that callback also runs every content transform and
+every `contentSettledListener`, so the Form composition, the masthead, the charts, the fit
+berth and section numbering stopped updating too. A `mermaid.render` that STALLS rather than
+rejects (the case `RENDER_SETTLE_CAP_MS` exists for) froze the preview for the whole 20s cap,
+and `parsesCleanly` awaited a third-party promise with **no cap at all**, so a hung parse
+froze it indefinitely. Coalescing now happens at the DISPATCH point inside `initAndRun`,
+after the transforms have run, and the parse carries its own `PARSE_CAP_MS` — an
+unanswerable parse resolves `true` and lets the already-capped render own the failure.
+The lesson generalizes past this change: *a flag named for one subsystem gated a function
+that serves several.*
+
+**Three of the five mechanisms could be deleted with the whole suite green** — the parse
+gate made inert, the completion re-run removed (which silently LOST the last keystroke), and
+the `forceRender` bypass removed (which reinstated the stranding defect this branch already
+fixed once). The new arms lift `renderDiagramJob` itself rather than only the helpers, and
+all three mutants now die.
+
+Also fixed: `parseDeferred`/`forceRender` were strong `Set`s of `<pre>` nodes, and both
+preview hosts replace the `<pre>` on every keystroke — measured retaining one detached
+subtree per character of every broken-diagram episode, permanently. The deferred set is gone
+entirely (which fences are waiting is written on the fences, so the timer asks the document)
+and `forceRender` is a `WeakSet`. `diagramRuns` is a counter rather than a boolean, because
+one pass opens a run per consecutive scope-key change and the first tail was clearing the
+flag while later runs were still queued. And a `deferred` fence now gets the `rendered` arm's
+`display:flex`, because the held drawing was jumping 473x186px on a fence outside
+`section.diagram`.
+
+**One finding was fixed and then un-fixed, on measurement.** The checker showed that a
+diagram broken at FIRST PAINT blanks for the quiet window instead of showing its error at
+once, and the obvious guard is to gate only fences that currently hold ink. That guard was
+written, measured, and reverted: once an error surfaces the slot is empty, so every further
+keystroke skipped the gate and bought a doomed render — `edit-broken` went to **146 frames
+of raw source and 8 renders**, against 97 and 1 before any of this work. The unconditional
+gate costs a first-paint break its error for one quiet window; the ink guard costs a strobe
+on the state an author spends most of their time in. The strobe is worse, so the gate is
+unconditional and the first-paint delay is the accepted price. `edit-broken` now measures
+**76 source frames, 1 render**.
+
+## 7. What this does not do
 
 - **The render itself is untouched.** 22-239ms is Mermaid's own layout and measurement, and
   no worker can take it — it needs the DOM to measure text. What is gone is the waiting.

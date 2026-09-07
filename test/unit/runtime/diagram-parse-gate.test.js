@@ -1,20 +1,22 @@
 /**
- * THE LOOP THAT EVERY SUITE MISSED.
+ * THE LOOP THAT EVERY SUITE MISSED, AND THE GATE THAT COULD BE DELETED WITHOUT ONE FAILING.
  *
  * The parse gate holds the last good diagram while an author types a source that does not
- * parse yet, and surfaces the error once they stop. Its first version never surfaced
- * anything: `deferUntilQuiet` handed the fence back to `pending`, which is the state the
- * walk SELECTS, so the next pass took it, failed the gate, deferred again and RE-ARMED the
- * quiet timer — about every 16ms. The timer measures "has the author stopped typing", and
- * the deferral itself was what stopped it elapsing. Driven on the built Studio the fence
- * sat `pending` with stale ink four seconds after typing stopped, and `npm test` was green
- * the whole time.
+ * parse yet, and surfaces the error once they stop. Two defects shipped through a green
+ * suite before these arms existed:
  *
- * These arms lift the shipped gate between its sentinels — the same idiom
- * diagram-adoption.test.js uses — and pin the two facts that make it terminate:
- *   1. a deferral leaves the walk's selector, so a pass cannot re-take the same fence;
- *   2. the quiet timer puts it back and forces the render, so the error is not swallowed.
- * Arm 1 fails if `deferred` is changed back to `pending`, which is the exact regression.
+ *   1. `deferUntilQuiet` handed the fence back to `pending` — the state the walk SELECTS —
+ *      so every pass re-took it, failed the gate, deferred again and re-armed the quiet
+ *      timer roughly every 16ms. The timer measures "has the author stopped typing", and
+ *      the deferral itself was what stopped it elapsing. On the built Studio the fence sat
+ *      showing stale ink four seconds after typing stopped, with 9,158 tests green.
+ *   2. `parsesCleanly` answered synchronously while Mermaid v11's `parse` returns a
+ *      PROMISE, so it saw a thenable, could not decide, and passed everything through. A
+ *      checker later deleted the gate outright — made it `return true` — and all 9,179
+ *      tests stayed green.
+ *
+ * So these arms pin TERMINATION and the VERDICT, not the individual steps: every step of
+ * the loop was correct on its own, which is exactly why nothing caught it.
  */
 
 import assert from 'node:assert/strict';
@@ -26,33 +28,40 @@ const RUNTIME_SRC = readFileSync(new URL('../../../lib/runtime/index.js', import
 const BEGIN = '  // ── BEGIN PARSE-GATE PORT';
 const END = '  // ── END PARSE-GATE PORT';
 
-/** The state the walk selects. Read out of the shipped selector so the test cannot drift. */
+/** The state the walk selects, read out of the shipped selector so this cannot drift. */
 function shippedPendingState() {
 	const m = RUNTIME_SRC.match(/'pre\[data-mermaid-state="(\w+)"\]/);
 	assert.ok(m, 'lib/runtime/index.js must declare the pending-fence selector as a literal');
 	return m[1];
 }
 
-/** Lift the real gate and bind it to one jsdom document plus a fake timer. */
-function liftGate() {
+/** Lift the real gate, bound to one jsdom document and a controllable clock. */
+function liftGate(html = '') {
 	const start = RUNTIME_SRC.indexOf(BEGIN);
 	const end = RUNTIME_SRC.indexOf(END);
 	assert.notEqual(start, -1, 'the gate must be bracketed with BEGIN PARSE-GATE PORT');
 	assert.notEqual(end, -1, 'the gate must be bracketed with END PARSE-GATE PORT');
 	const src = RUNTIME_SRC.slice(start, end);
-	assert.match(src, /function deferUntilQuiet\(preEl\)/, 'the port must hold deferUntilQuiet');
-	assert.match(src, /function armErrorSurface\(\)/, 'the port must hold armErrorSurface');
+	for (const fn of ['function deferUntilQuiet(preEl)', 'function armErrorSurface()', 'function parsesCleanly(mermaid, source)', 'function renderDiagramJob(mermaid, scopeKey, job)']) {
+		assert.ok(src.includes(fn), `the port must hold ${fn}`);
+	}
 
+	const dom = new JSDOM(`<body>${html}</body>`);
 	const timers = [];
 	const scheduled = [];
+	const rendered = [];
 	// eslint-disable-next-line no-new-func
 	const make = new Function(
+		'document',
 		'setTimeout',
 		'clearTimeout',
 		'scheduleRun',
-		`${src}\nreturn { deferUntilQuiet, armErrorSurface, parseDeferred, forceRender, ERROR_QUIET_MS };`,
+		'PARSE_CAP_MS',
+		'renderDiagramNow',
+		`${src}\nreturn { deferUntilQuiet, armErrorSurface, parsesCleanly, renderDiagramJob, forceRender, ERROR_QUIET_MS, DEFERRED_FENCE_SELECTOR };`,
 	);
 	const api = make(
+		dom.window.document,
 		(fn, ms) => {
 			timers.push({ fn, ms });
 			return timers.length;
@@ -61,6 +70,11 @@ function liftGate() {
 			if (timers[id - 1]) timers[id - 1].cancelled = true;
 		},
 		() => scheduled.push(true),
+		50,
+		(_mermaid, _scopeKey, job) => {
+			rendered.push(job.preEl);
+			return Promise.resolve();
+		},
 	);
 	/** Fire the newest live timer, the way a quiet window elapsing would. */
 	const elapse = () => {
@@ -68,21 +82,17 @@ function liftGate() {
 		assert.ok(live.length, 'a quiet timer must have been armed');
 		live[live.length - 1].fn();
 	};
-	return { ...api, timers, scheduled, elapse };
+	return { ...api, doc: dom.window.document, timers, scheduled, rendered, elapse };
 }
 
-const fenceIn = (state) => {
-	const dom = new JSDOM(`<pre data-mermaid-state="${state}"><code>flowchart LR</code></pre>`);
-	return dom.window.document.querySelector('pre');
-};
+const FENCE = (state) => `<pre data-mermaid-state="${state}"><code>flowchart LR</code></pre>`;
 
 describe('the parse gate terminates', () => {
 	test('a deferral leaves the walk selector — this is the loop fix', () => {
 		// The walk selects `pending`. If a deferral parks the fence there, the next pass
-		// re-takes it, defers again and re-arms the timer, forever. Nothing else in the
-		// suite notices, because every individual step is correct.
-		const gate = liftGate();
-		const preEl = fenceIn('rendering');
+		// re-takes it, defers again and re-arms the timer, forever.
+		const gate = liftGate(FENCE('rendering'));
+		const preEl = gate.doc.querySelector('pre');
 		gate.deferUntilQuiet(preEl);
 		assert.notEqual(
 			preEl.dataset.mermaidState,
@@ -94,33 +104,42 @@ describe('the parse gate terminates', () => {
 
 	test('a deferral keeps the fence tagged, so CSS still hides the source', () => {
 		// Any tagged state except error/unavailable hides the <pre> and leaves the .mermaid
-		// slot alone — which is what keeps the previous SVG on screen. Clearing the attribute
-		// entirely would show the author raw Mermaid source instead.
-		const gate = liftGate();
-		const preEl = fenceIn('rendering');
+		// slot alone, which is what keeps the previous SVG on screen. Clearing the attribute
+		// would show the author raw Mermaid source instead.
+		const gate = liftGate(FENCE('rendering'));
+		const preEl = gate.doc.querySelector('pre');
 		gate.deferUntilQuiet(preEl);
 		assert.ok(preEl.dataset.mermaidState, 'the fence must stay tagged');
 		assert.notEqual(preEl.dataset.mermaidState, 'error');
 		assert.notEqual(preEl.dataset.mermaidState, 'unavailable');
 	});
 
-	test('the quiet timer hands the fence back and forces the render', () => {
-		const gate = liftGate();
-		const preEl = fenceIn('rendering');
-		gate.deferUntilQuiet(preEl);
-		assert.equal(gate.parseDeferred.size, 1);
+	test('the quiet timer hands every waiting fence back and forces the render', () => {
+		const gate = liftGate(`${FENCE('rendering')}${FENCE('rendered')}`);
+		const [first, second] = gate.doc.querySelectorAll('pre');
+		gate.deferUntilQuiet(first);
 		gate.elapse();
-		assert.equal(preEl.dataset.mermaidState, shippedPendingState(), 'back into the walk selector');
-		assert.ok(gate.forceRender.has(preEl), 'and released past the gate, so the error surfaces');
-		assert.equal(gate.parseDeferred.size, 0);
+		assert.equal(first.dataset.mermaidState, shippedPendingState(), 'back into the walk selector');
+		assert.ok(gate.forceRender.has(first), 'and released past the gate, so the error surfaces');
+		assert.equal(second.dataset.mermaidState, 'rendered', 'a fence that never deferred is untouched');
 		assert.equal(gate.scheduled.length, 1, 'a pass must be scheduled to do the rendering');
 	});
 
+	test('the timer finds waiting fences from the DOM, holding no node references', () => {
+		// The deferred set used to be a strong Set of <pre> elements, and both preview hosts
+		// replace the <pre> on every keystroke — so a broken-diagram episode retained one
+		// detached subtree per character, permanently. Which fences are waiting is already
+		// written on the fences, so the timer asks the document.
+		assert.doesNotMatch(RUNTIME_SRC, /parseDeferred/, 'no standing collection of deferred fences');
+		const gate = liftGate(FENCE('deferred'));
+		gate.armErrorSurface();
+		gate.elapse();
+		assert.equal(gate.doc.querySelector('pre').dataset.mermaidState, shippedPendingState());
+	});
+
 	test('typing again re-arms rather than stacking timers', () => {
-		// Each deferral cancels the previous window: the timer is measuring the gap since the
-		// LAST keystroke, not since the first.
-		const gate = liftGate();
-		const preEl = fenceIn('rendering');
+		const gate = liftGate(FENCE('rendering'));
+		const preEl = gate.doc.querySelector('pre');
 		gate.deferUntilQuiet(preEl);
 		gate.deferUntilQuiet(preEl);
 		gate.deferUntilQuiet(preEl);
@@ -132,10 +151,105 @@ describe('the parse gate terminates', () => {
 		assert.ok(gate.ERROR_QUIET_MS >= 250, `a quiet window of ${gate.ERROR_QUIET_MS}ms would fire mid-word`);
 	});
 
-	test('an empty deferral set does not schedule a pass', () => {
-		const gate = liftGate();
+	test('nothing waiting means no pass is scheduled', () => {
+		const gate = liftGate(FENCE('rendered'));
 		gate.armErrorSurface();
 		gate.elapse();
 		assert.equal(gate.scheduled.length, 0, 'nothing deferred means nothing to surface');
+	});
+});
+
+describe('renderDiagramJob routes each fence', () => {
+	const withParse = (parse) => ({ parse, render() {}, initialize() {} });
+	const slotted = (state, ink) =>
+		`<pre data-mermaid-state="${state}"><code>flowchart LR</code></pre><div class="mermaid">${ink ? '<svg></svg>' : ''}</div>`;
+	const jobFor = (gate) => {
+		const preEl = gate.doc.querySelector('pre');
+		return { preEl, target: preEl.nextElementSibling, source: 'flowchart LR\n A --> ' };
+	};
+
+	test('a RELEASED fence renders even though it will fail — this is the error path', async () => {
+		// Without the bypass a released fence goes straight back through the gate, fails it
+		// again and re-defers: stuck at `deferred` forever, stale ink, no error box. The
+		// checker deleted this line and 121 runtime tests stayed green.
+		const gate = liftGate(slotted('pending', true));
+		const job = jobFor(gate);
+		gate.forceRender.add(job.preEl);
+		await gate.renderDiagramJob(withParse(async () => false), 'k', job);
+		assert.deepEqual(gate.rendered, [job.preEl], 'a released fence must reach the renderer');
+		assert.notEqual(job.preEl.dataset.mermaidState, 'deferred');
+	});
+
+	test('a fence holding ink and failing to parse is deferred, not rendered', async () => {
+		const gate = liftGate(slotted('pending', true));
+		const job = jobFor(gate);
+		await gate.renderDiagramJob(withParse(async () => false), 'k', job);
+		assert.deepEqual(gate.rendered, [], 'a doomed render must not be bought');
+		assert.equal(job.preEl.dataset.mermaidState, 'deferred');
+	});
+
+	test('an EMPTY slot is deferred too — the gate does not key on ink', async () => {
+		// Gating only fences that hold ink was measured and rejected: after an error the slot
+		// is empty, so every further keystroke skipped the gate and bought a doomed render —
+		// 146 frames of raw source and 8 renders on `edit-broken`, against 97 and 1 before
+		// this work. Unconditional costs a first-paint break its error for one quiet window;
+		// keying on ink costs a strobe on the state authors spend the most time in.
+		const gate = liftGate(slotted('pending', false));
+		const job = jobFor(gate);
+		await gate.renderDiagramJob(withParse(async () => false), 'k', job);
+		assert.deepEqual(gate.rendered, [], 'a doomed render must not be bought for an empty slot either');
+		assert.equal(job.preEl.dataset.mermaidState, 'deferred');
+	});
+
+	test('a fence that parses cleanly renders', async () => {
+		const gate = liftGate(slotted('pending', true));
+		const job = jobFor(gate);
+		await gate.renderDiagramJob(withParse(async () => true), 'k', job);
+		assert.deepEqual(gate.rendered, [job.preEl]);
+	});
+});
+
+describe('the parse gate decides', () => {
+	const withParse = (parse) => ({ parse, render() {}, initialize() {} });
+
+	test('a rejecting parse is a NO — deleting this verdict is what made the gate inert once', async () => {
+		const gate = liftGate();
+		assert.equal(await gate.parsesCleanly(withParse(async () => false), 'flowchart LR\n A --> '), false);
+	});
+
+	test('a THROWING parse is a no too — older builds throw instead of returning false', async () => {
+		const gate = liftGate();
+		assert.equal(await gate.parsesCleanly(withParse(() => { throw new Error('nope'); }), 'x'), false);
+	});
+
+	test('an ASYNC parse is awaited, not mistaken for a truthy verdict', async () => {
+		// v11 returns a promise. A synchronous reading saw a thenable, could not decide, and
+		// passed everything through — the gate was inert and every suite stayed green.
+		const gate = liftGate();
+		assert.equal(await gate.parsesCleanly(withParse(async () => true), 'flowchart LR\n A --> B'), true);
+		assert.equal(await gate.parsesCleanly(withParse(() => Promise.resolve(false)), 'broken'), false);
+	});
+
+	test('a mermaid with no parse stands aside rather than blocking', async () => {
+		const gate = liftGate();
+		assert.equal(await gate.parsesCleanly({ render() {}, initialize() {} }, 'anything'), true);
+	});
+
+	test('a HUNG parse is capped, so a third-party promise cannot wedge the queue', async () => {
+		// The render owns failure and is itself capped; a gate in front of it that can hang
+		// forever just moves the hazard one call earlier.
+		const gate = liftGate();
+		const verdict = gate.parsesCleanly(withParse(() => new Promise(() => {})), 'x');
+		// The clock here is ours, so fire the cap the way PARSE_CAP_MS elapsing would.
+		gate.elapse();
+		assert.equal(await verdict, true, 'an unanswerable parse must let the capped render decide');
+	});
+
+	test('the cap is armed on EVERY parse, so the race cannot be optimized away', async () => {
+		const gate = liftGate();
+		const before = gate.timers.length;
+		const verdict = gate.parsesCleanly(withParse(async () => true), 'flowchart LR\n A --> B');
+		assert.equal(gate.timers.length, before + 1, 'a parse with no cap can hang the queue forever');
+		assert.equal(await verdict, true);
 	});
 });

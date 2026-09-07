@@ -353,14 +353,26 @@ describe('the observer wiring', () => {
   test('scheduleRun coalesces on COMPLETION, not on a clock', () => {
     // The fixed 150ms timer is gone: it was larger than a full render for every diagram up
     // to ~64 nodes, and a timer larger than the work it defers is waiting, not coalescing.
-    // What replaces it must have both halves — a frame-level floor that collapses one
-    // write's mutation records, and an in-flight check so a burst never queues a render per
-    // keystroke behind a strictly serial queue.
     const src = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function scheduleRun('), RUNTIME_SRC.indexOf('function wrapFences('));
     assert.match(src, /clearTimeout\(scheduledRunHandle\)/, 'a re-arm must cancel the pending run');
     assert.match(src, /\}, COALESCE_MS\);/, 'the floor is one frame, not a fixed debounce');
-    assert.match(src, /if \(diagramRunActive\)/, 'a run in flight must defer to the completion hook');
-    assert.match(src, /rerunRequested = true/, 'and record that the source moved while it ran');
+  });
+
+  test('the CONTENT pass is never gated on a diagram — only the dispatch is', () => {
+    // The first version of the coalescing early-returned from `scheduleRun` while a render
+    // was in flight. That callback also runs every content transform and every
+    // contentSettledListener, so a `mermaid.render` that STALLED rather than rejected froze
+    // the Form composition, the masthead, the charts and the fit berth for the whole 20s
+    // settle cap — and an uncapped parse froze them indefinitely. Coalescing belongs at the
+    // dispatch point, after the transforms have run.
+    const sched = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function scheduleRun('), RUNTIME_SRC.indexOf('function wrapFences('));
+    assert.doesNotMatch(sched, /diagramRuns/, 'the content pass must not wait on a diagram render');
+    const init = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function initAndRun('), RUNTIME_SRC.indexOf('function initAndRun(') + 1200);
+    const transformsAt = init.indexOf('runAllContentTransforms()');
+    const gateAt = init.indexOf('if (diagramRuns > 0)');
+    assert.ok(transformsAt !== -1 && gateAt !== -1, 'initAndRun must run the transforms and then gate the dispatch');
+    assert.ok(transformsAt < gateAt, 'the transforms must run BEFORE the dispatch gate, not behind it');
+    assert.match(init.slice(gateAt), /rerunRequested = true/, 'and record that the source moved while a run was in flight');
   });
 });
 
