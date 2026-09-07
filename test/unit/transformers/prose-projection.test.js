@@ -880,6 +880,46 @@ test('team-profile: the aria-hidden monogram is never spoken', () => {
 	assert.match(t, /Ada Okafor, Executive Sponsor\./);
 });
 
+test('team-profile: a span-less li.person keeps its own words on both surfaces (#2118)', () => {
+	// Hand-written HTML only — the markdown transform builds the three spans whenever it
+	// marks the class, and its idempotency guard is what lets an already-marked roster
+	// reach the projection untouched. The row fell between two filters that are each
+	// individually right: `others` excludes anything `.person`, and the person branches
+	// read only `.person-name` / `.person-role` / `.person-note`, so a plain-text row
+	// composed to '' and was filtered out. Nothing emitted it, on either surface.
+	const secs = sections(
+		`<section data-lattice-slide class="team-profile" data-class="team-profile"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Team</h2></div>
+			<ul class="team-roster">
+				<li class="person"><span class="person-name">Ada Okafor</span></li>
+				<li class="person">Bare text that has no person spans at all</li>
+			</ul>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /Bare text that has no person spans at all/, 'the article keeps the row');
+	assert.match(articleHtml, /<strong>Ada Okafor<\/strong>/, 'the composed person is unchanged');
+	const [spoken] = speak(secs);
+	assert.match(spoken, /Ada Okafor\. Bare text that has no person spans at all\./);
+});
+
+test('team-profile: the span-less fallback does not double a row that DOES compose', () => {
+	// The fallback must fire only when nothing else did. A person with a name and a note
+	// must read once, not once composed and once as raw text.
+	const secs = sections(
+		`<section data-lattice-slide class="team-profile" data-class="team-profile"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Team</h2></div>
+			<ul class="team-roster">
+				<li class="person"><span class="person-name">Ada Okafor</span><span class="person-note">Clears blockers.</span></li>
+			</ul>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.equal(spoken.match(/Ada Okafor/g).length, 1, 'the name is spoken exactly once');
+	const { articleHtml } = project(secs);
+	assert.equal(articleHtml.match(/Ada Okafor/g).length, 1, 'and appears once in the article');
+});
+
 test('team-profile sides: each roster keeps its own label', () => {
 	// Two rosters under two `###` labels. Querying the rosters alone would drop the
 	// labels and read six people as one undifferentiated list, so blocks are walked
