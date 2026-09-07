@@ -53,9 +53,7 @@
 //                         place — and the shown slide is prose in both, so the difference
 //                         between the two runs IS what containing a diagram costs at mount
 //   --order 1,2,4,3       the navigation cycle (default). `--order 2,4` stays inside the
-//                         diagram slides: it is what tells a realm rewrite from a patch, AND
-//                         the only arm measured to catch one slide's ink landing in another
-//                         slide's box — the default does not, on the same build
+//                         diagram slides, which is what tells a realm rewrite from a patch
 //   --cpu N               throttle the CPU N× through CDP (default 1)
 //   --runs N              cycles (default 5) · --variant NAME · --json · --shots
 //   --css FILE            inject a candidate stylesheet into the preview frame
@@ -89,12 +87,12 @@ function parseArgs(argv) {
 		// The navigation cycle, 1-based slide numbers. The default `1,2,4,3` walks
 		// text→diagram, diagram→diagram, diagram→text and text→text in four steps.
 		//
-		// FOR CROSS-SLIDE INK, RUN `--order 2,4`. That is the arm that reproduces one slide's
-		// diagram landing in another slide's box: measured on a build with the revision guard
-		// removed, `--order 2,4` reports 9 wrong-ink frames and the default reports 0, on the
-		// same build and the same deck. Why the default misses it is NOT understood — both
-		// contain the same 2→4 hop — so treat the default as timing coverage and `--order 2,4`
-		// as the correctness arm, rather than assuming one subsumes the other.
+		// CROSS-SLIDE INK needs a COLD arriving diagram and a rendered outgoing one in the SAME
+		// swap. Adoption never sees a warm arrival: `replayCachedFences` settles it to
+		// `rendered` first and adoption's `pending` check skips it (measured directly, as
+		// `SKIP not-pending:rendered`). The deck above now ends on prose so neither diagram is
+		// warmed by the caret at mount, which is what makes that pairing reachable from the
+		// default order rather than from `--order 2,4` alone.
 		else if (a === '--order') o.order = argv[++i].split(',').map(Number);
 		// A CANDIDATE, injected into the preview frame at document-start so it applies to
 		// the first paint — the same moment a rule shipped in `lattice.css` would. It is a
@@ -164,6 +162,21 @@ flowchart TB
   Q --> R[Measure]
   R --> P
 \`\`\`
+
+---
+
+## A trailing plain slide
+
+THE CURSOR HAS TO LAND ON PROSE, and this slide exists for no other reason.
+
+Typing a deck in leaves the caret at the END of the source, so the Studio shows the
+LAST slide — and shows it long enough to render and CACHE its diagram. With a diagram
+last, every later navigation onto it is a cache HIT: \`replayCachedFences\` settles the
+fence to \`rendered\` before \`adoptOutgoingDiagrams\` runs, and adoption's \`pending\` check
+skips it. Measured directly (\`SKIP not-pending:rendered\`), and it is why the arm that
+can see one slide's ink land in another slide's box only fired for some \`--order\`
+values: the transplant needs a COLD arriving diagram AND a rendered outgoing one in the
+same swap, and a warm last slide removes half of that pairing by accident.
 `;
 
 // THE MOUNT PAIR. One variable: the third slide is a diagram, or prose in its place.

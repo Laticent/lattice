@@ -284,9 +284,10 @@ slide whenever the counts happened to agree.
 **A fence that has JUST APPEARED does not wait out the debounce.** What the 150ms buys is
 coalescing — consecutive keystrokes collapsing into one `mermaid.render` on a strictly
 serial queue — and a fence nobody has seen yet has nothing to coalesce. `scheduleRun` takes
-a delay and the observer asks for 0 when `burstFirstSight(records)` is true. Navigating onto
-a diagram for the first time: 200ms → 57ms, of which the remainder is `mermaid.render`
-itself.
+a delay and the observer asks for 0 when `burstFirstSight(records)` is true — which means
+arriving at a diagram from a slide that had NONE. Arriving from another diagram slide is not
+first sight and keeps the full 150ms. Measured on a deck where both diagrams are genuinely
+cold: 236ms → 207ms.
 
 **"Just appeared" is NOT "showing nothing", and keying on the second removes the debounce
 from the one case it exists for.** A slot is also empty while an author's in-progress source

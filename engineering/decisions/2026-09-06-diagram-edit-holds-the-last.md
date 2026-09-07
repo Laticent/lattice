@@ -176,15 +176,15 @@ whole line added 0.66; two `flowchart LR`s of the same shape 0.42 (their shared
 `flowchart LR\n  ` is the whole of it), a flowchart replaced by a `pie` or a `sequenceDiagram`
 0.00. The threshold sits between the clusters with 0.42 below and 0.66 above.
 
-**Driven on the built Studio, `--scenario nav --order 2,4`:**
+**Driven on the built Studio, `--scenario nav`, default order, prose-last deck:**
 
-| | wrong-ink frames | blank | time to the right diagram |
-|---|---|---|---|
-| adoption without the revision guard | **9** | 0 | 209ms |
-| with it | **0** | 9 | 206ms |
+| | wrong-ink frames |
+|---|---|
+| adoption without the revision guard | **11** |
+| with it | **0** |
 
-The nine frames of another slide's diagram become nine frames of empty slot, which is the
-correct answer when there is nothing legitimate to hold.
+The frames of another slide's diagram become frames of empty slot, which is the correct
+answer when there is nothing legitimate to hold.
 
 **The instrument could not see this either, and that is the second lesson in the same
 place.** `held` was scored from an SVG's node identity, so a transplanted diagram — the same
@@ -195,10 +195,19 @@ is aggregated as a MAX, not a median: a median over two cold visits reported 0 f
 that painted 9 wrong frames on one of them, because discarding the outlier is what a median is
 for and here the outlier is the finding.
 
-**What is still not understood, and is therefore not claimed.** `--order 2,4` reports those 9
-frames; the default `1,2,4,3` reports 0 on the same build, though it contains the same 2→4
-hop. Both were measured; the difference has no explanation yet. The bench header says so and
-names `--order 2,4` as the correctness arm rather than pretending the default subsumes it.
+**Why one `--order` saw it and another did not — the answer, and the deck bug it exposed.**
+`--order 2,4` reported those frames while the default `1,2,4,3` reported 0 on the same build.
+Traced by logging every adoption decision in the live Studio: the default order's hop hit
+`SKIP not-pending:rendered`. Adoption never sees a WARM arrival, because `replayCachedFences`
+runs first and settles a cached fence to `rendered`, and adoption's `pending` check skips it.
+
+So the transplant needs a COLD arriving diagram AND a rendered outgoing one in the same swap
+— and the bench's own deck was removing half of that pairing by accident. Typing a deck in
+leaves the caret at the END of the source, so the Studio shows the LAST slide long enough to
+render and cache its diagram; with a diagram last, every later navigation onto it was a cache
+hit. The deck now ends on prose. Measured on the guard-removed build: the DEFAULT order went
+from 0 wrong-ink frames to **11**, and reports 0 with the guard. The correctness arm is no
+longer a flag you have to know to type.
 
 ## 5. The debounce, for a diagram that has just appeared
 
@@ -223,6 +232,15 @@ fence that was already there keeps the full debounce however empty its slot is. 
 scoped to the burst's own arrivals rather than the document, so one broken diagram on slide
 12 of a Playground filmstrip cannot decide the delay for a keystroke on slide 1.
 
+**That "no fence at all" is a real limit on the win, and the first numbers here overstated
+it.** Arriving at a diagram FROM ANOTHER DIAGRAM SLIDE is not first sight — the outgoing node
+carries a fence — so it keeps the full 150ms. Only arriving from a slide with no diagram
+skips it. An earlier draft of this note claimed 200ms → 57ms for "first sight of a diagram";
+that pair was measured on a deck whose last slide was a diagram, so the caret warmed it at
+mount and the 57ms was a WARM REVISIT, not a first sight. Measured again on a deck that ends
+on prose, so both diagrams are genuinely cold: **236ms → 207ms**, same 10 blank frames. The
+debounce is skipped on one of the two cold arrivals, not both.
+
 The bench could not see any of this — every arm it had counts *frames*, and a policy that
 queues eight renders still paints perfectly while the author simply waits longer. It now
 counts `mermaid.render` calls, and has an `edit-broken` arm that types into a fence that
@@ -239,18 +257,24 @@ draft of this table compared against a build from before #2108, which had moved 
 file underneath it; a before/after whose two arms differ by more than the diff is not a
 before/after.
 
-| scenario | base `6016a3f1` | + this change |
+| scenario | base `ae795b11` | + this change |
 |---|---|---|
-| `edit`, x1 (type inside the fence) | **11 blank**, 196ms, 1 render | **11 held**, 201ms, 1 render |
-| `edit`, x4 CPU | **10 blank**, 392ms, 1 render | **9 held**, 378ms, 1 render |
-| `nav` cold (first sight of a diagram) | **10 blank**, 200ms | **1 blank**, 57ms |
-| `type` (heading, cached) | 0/0, 4ms | 0/0, 4ms |
-| `edit-broken` (8 keystrokes, unparseable) | 96 source, 66 blank, 1 render | 96 source, 65 blank, **1 render** |
+| `edit`, x1 (type inside the fence) | **11 blank**, 199ms, 1 render | **11 held**, 209ms, 1 render |
+| `edit`, warm | **10 blank**, 200ms | **10 held**, 201ms |
+| `nav` cold (genuine first sight, both diagrams cold) | **10 blank**, 236ms | **10 blank**, 207ms |
+| `nav` warm | 0/0, 4ms | 0/0, 4ms |
+| `nav`, wrong-ink frames (guard removed / present) | — | **11 → 0** |
+| `edit-broken` (8 keystrokes, unparseable) | 96 source, 1 render | 97 source, **1 render** |
 | layout shift, every arm | 0 | 0 |
 
-The wait itself does not move on `edit` — 196ms to 201ms is the same render, and it was
+Re-measured on the prose-last deck after it turned out the old one warmed a diagram at mount
+(§4a). The `edit` arm is unchanged by that correction; the `nav` cold row is not, and the
+earlier 200 → 57ms in this section was comparing a cold render against a warm revisit.
+
+The wait itself does not move on `edit` — 199ms to 209ms is the same render, and it was
 never the thing to fix. What changes is that the author is looking at their diagram for
-it rather than at nothing.
+it rather than at nothing. `nav` cold moves 236 → 207ms, which is the debounce skipped on
+the one cold arrival that qualifies as first sight, not on both.
 
 `nav` cold keeps 2 blank frames and always will: on the first sight of a diagram there is
 nothing to hold, and `mermaid.render` has to run. What is gone is the 150ms of pure waiting
