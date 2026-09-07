@@ -947,6 +947,27 @@ test('team-profile: a mixed roster keeps its non-person items on both surfaces',
 	assert.match(articleHtml, /PLAIN ITEM/, 'and it reaches Read·Article too');
 });
 
+test('team-profile: a roster row wraps its words, so nested note markup lays out', () => {
+	// The row is a flex box (portrait, then the line). A note re-emits the author's own
+	// markup, so a list nested under a person was a SIBLING of the text and therefore a
+	// flex ITEM of the row — it rendered beside the sentence rather than under it. Scoping
+	// the CSS to direct children brought its markers back but left it in that position;
+	// the wrapper is what makes the row exactly two items. Driving the real exported player
+	// is what separated those two halves, so this pins the emitted SHAPE, not the styling.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns three things:\n    - staffing\n    - budget\n';
+	const { html } = engine.render(md, 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	const doc = new JSDOM(`<body>${articleHtml}</body>`).window.document;
+	const row = doc.querySelector('ul.lp-roster > li');
+	assert.ok(row, 'the roster row is emitted');
+	const kids = [...row.children].map((el) => el.tagName);
+	assert.ok(kids.includes('DIV'), `the words are wrapped, got children ${JSON.stringify(kids)}`);
+	assert.equal(row.querySelectorAll(':scope > div').length, 1, 'exactly one wrapper');
+	assert.equal(row.querySelectorAll(':scope > strong, :scope > em').length, 0,
+		'the name and role live INSIDE the wrapper, never as bare flex items of the row');
+});
+
 test('team-profile: an image-only name still ships into Read·Article', () => {
 	// The `<strong>` wrap is gated on the name having TEXT, so an image does not end up
 	// inside a `<strong>`. Gating the whole name on that dropped an author's

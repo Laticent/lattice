@@ -1170,13 +1170,19 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// size. team-profile is the first component to emit `<img>` from a transform, so the
 	// article had no rule for one. Bytes move for EVERY deck because this is the shared
 	// stylesheet — that is what this golden is for, and it is the only reason it moved.
-	// RE-BLESSED 2026-09-07: the same three roster rules, rescoped from DESCENDANT to CHILD
-	// combinators (`.lp-roster>li`, `.lp-roster>li>img`). A roster row re-emits the author's
-	// own note markup, so the descendant form reached INTO it: a nested list written under a
-	// person became flex items in Read·Article — markers gone, the sub-list floated beside
-	// the sentence. Two characters of selector, no declaration changed; the comment block
-	// above still describes what the rules DO.
-	assert.equal(sha, 'bc8de74ec59288569181e71799ece0f7e33340dabb454526970ec997a0fbdee4', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED 2026-09-07: the roster rules, rescoped from DESCENDANT to CHILD combinators
+	// AND given a content wrapper. A roster row re-emits the author's own note markup, so the
+	// descendant form reached INTO it: a nested list written under a person became flex items
+	// in Read·Article — markers gone, the sub-list floated beside the sentence.
+	//
+	// The child combinators alone were only HALF the fix, and driving the real exported player
+	// is what showed it. Markers came back (`list-item`, `circle`) but the sub-list was STILL a
+	// flex item of the row, so it stayed beside the sentence: measured at x=991 y=190 w=105
+	// against a row at x=475 y=190 — the same position the defect report recorded. The row's
+	// words now go in their own `<div>`, making the row exactly two flex items (portrait, then
+	// everything else), and the sub-list lands at x=520 y=226 w=695: indented, below, full
+	// width. Two rules added for that wrapper; the earlier rescoping stands.
+	assert.equal(sha, 'b8bc00214f62ecc9db28072b7d3f873eb703225d09dabbe8bec43209909c4aa3', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -2057,6 +2063,11 @@ test('article roster rules style only their OWN rows, never an author\'s nested 
 	assert.match(css, /#lp-article \.lp-roster>li\{display:flex/, 'the row rule is a child combinator');
 	assert.match(css, /#lp-article \.lp-roster>li>img\{/, 'the portrait rule is a child combinator');
 	assert.doesNotMatch(css, /#lp-article \.lp-roster (li|img)\{/, 'the descendant form must not return');
+	// The wrapper is the other half, and scoping alone did not fix the layout: the row is
+	// flex, so a list nested in a note was a flex ITEM of the row and stayed beside the
+	// sentence even once its markers came back. `flex:1` on the words' own div makes the
+	// row exactly two items and lets block markup inside a note lay out normally.
+	assert.match(css, /#lp-article \.lp-roster>li>div\{flex:1/, 'the words get their own flex child');
 });
 
 test('player: assetBaseUrl leaves absolute, data and remote srcs alone', async () => {
