@@ -1170,7 +1170,13 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// size. team-profile is the first component to emit `<img>` from a transform, so the
 	// article had no rule for one. Bytes move for EVERY deck because this is the shared
 	// stylesheet — that is what this golden is for, and it is the only reason it moved.
-	assert.equal(sha, '706f218d8cbabc5609ffce36bb36f637dc7d8ffb3759ed2ebb3cd153ee9c1ecd', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED 2026-09-07: the same three roster rules, rescoped from DESCENDANT to CHILD
+	// combinators (`.lp-roster>li`, `.lp-roster>li>img`). A roster row re-emits the author's
+	// own note markup, so the descendant form reached INTO it: a nested list written under a
+	// person became flex items in Read·Article — markers gone, the sub-list floated beside
+	// the sentence. Two characters of selector, no declaration changed; the comment block
+	// above still describes what the rules DO.
+	assert.equal(sha, 'bc8de74ec59288569181e71799ece0f7e33340dabb454526970ec997a0fbdee4', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -2033,6 +2039,24 @@ test('player: a deck-relative <img src> is resolved against assetBaseUrl and inl
 	assert.doesNotMatch(withBase, /src="ada\.svg"/, 'the relative src must not reach the shared file');
 	assert.match(withBase, /src="data:image\/svg\+xml/, 'it is baked in as a data URI');
 	fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('article roster rules style only their OWN rows, never an author\'s nested markup', () => {
+	// `#lp-article .lp-roster li` was a DESCENDANT selector. A roster row re-emits the
+	// author's own note markup verbatim (prose-projection.mjs's projectTeamProfile), so
+	// a nested list written under a person became flex items in Read·Article: markers
+	// gone, the sub-list floated beside the sentence instead of indented under it. The
+	// `img` rule squashed an inline image in a note into a 34px circle the same way.
+	// Reachable from plain, lint-clean markdown — a third-level bullet under a person.
+	//
+	// Pinned as SELECTOR TEXT because that is where the defect lives: both forms parse,
+	// both apply to the roster's own rows, and only the scope differs — so a rendering
+	// assertion on a correct row cannot tell them apart. Guards the reintroduction, not
+	// the styling.
+	const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'export', 'player-core.mjs'), 'utf8');
+	assert.match(css, /#lp-article \.lp-roster>li\{display:flex/, 'the row rule is a child combinator');
+	assert.match(css, /#lp-article \.lp-roster>li>img\{/, 'the portrait rule is a child combinator');
+	assert.doesNotMatch(css, /#lp-article \.lp-roster (li|img)\{/, 'the descendant form must not return');
 });
 
 test('player: assetBaseUrl leaves absolute, data and remote srcs alone', async () => {

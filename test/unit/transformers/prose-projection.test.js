@@ -932,6 +932,44 @@ test('team-profile: Read·Article keeps the portrait', () => {
 	assert.match(articleHtml, /<strong>Ada Okafor<\/strong>/);
 });
 
+test('team-profile: a mixed roster keeps its non-person items on both surfaces', () => {
+	// `withRostersSwapped` decided WHETHER to swap on "does this ul hold a person",
+	// but then handed `make` only the people — so every plain <li> beside them was
+	// dropped with the <ul> it lived in. That is the same content-loss the roster-with-
+	// no-person case above pins, with its boundary moved rather than closed.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Ada</span></span></li><li>PLAIN ITEM</li></ul>\n';
+	const [t] = renderSpeech(md);
+	assert.match(t, /Ada/);
+	assert.match(t, /PLAIN ITEM/, 'a non-person item is read, not discarded');
+	const { html } = engine.render(md, 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /PLAIN ITEM/, 'and it reaches Read·Article too');
+});
+
+test('team-profile: an image-only name still ships into Read·Article', () => {
+	// The `<strong>` wrap is gated on the name having TEXT, so an image does not end up
+	// inside a `<strong>`. Gating the whole name on that dropped an author's
+	// `- ![Acme](logo.svg)` lead outright — the generic path had kept it. The image now
+	// rides unwrapped: ugly is a design call, absent is a content loss.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n- ![Acme Logo](logo.svg)\n  - `Sponsor`\n';
+	const { html } = engine.render(md, 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /logo\.svg/, 'the image survives');
+	assert.doesNotMatch(articleHtml, /<strong>\s*<img/, 'but never inside a <strong>');
+});
+
+test('team-profile: a roster that composes to nothing degrades to the generic reading', () => {
+	// When every person yielded no sentence the roster was REMOVED, the clone came back
+	// empty, and the caller re-ran the generic walker on the ORIGINAL stage — bringing
+	// back both defects this path exists to fix. Leaving the roster in place means the
+	// clone degrades to exactly what generic would have produced anyway.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-figure person-figure--monogram" aria-hidden="true"><span class="person-initials">XX</span></span></li></ul>\n';
+	const [t] = renderSpeech(md);
+	assert.doesNotMatch(t, /XX/, 'the aria-hidden monogram must not leak back in via the fallback');
+});
+
 test('team-profile: a <pre> block survives into Read·Article', () => {
 	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n```\nrun the thing\n```\n', 'indaco', {});
 	const dom = new JSDOM(`<body>${html}</body>`);
