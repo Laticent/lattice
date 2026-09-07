@@ -1170,32 +1170,28 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// size. team-profile is the first component to emit `<img>` from a transform, so the
 	// article had no rule for one. Bytes move for EVERY deck because this is the shared
 	// stylesheet — that is what this golden is for, and it is the only reason it moved.
-	// RE-BLESSED 2026-09-07: the roster rules, twice in one day, and the second pass is the
-	// instructive one. First the row and portrait rules were rescoped from DESCENDANT to CHILD
-	// combinators, because a roster row re-emits the author's own note markup and the descendant
-	// form reached into it — a nested list under a person became flex items, markers gone.
+	// RE-BLESSED 2026-09-07. The roster rules, over four rounds. What they do now:
+	//   .lp-roster>li            flex row — portrait, then the words
+	//   .lp-roster>li>img        the portrait: 1.9em circle, align-self:flex-start
+	//   .lp-roster>li>div        the words, flex:1 min-width:0
+	//   .lp-roster>li>div img    DESCENDANT — caps any image the author put in the row
+	//   .lp-roster>li>div :is(ul,ol)  DESCENDANT — a nested list at any depth
 	//
-	// That was half a fix, and driving the real exported player is what showed it: markers came
-	// back but the sub-list was STILL a flex item of the row, so it stayed beside the sentence.
-	// The row's words now go in their own <div>. On the deck in
-	// `.scratch`-style shape `- Ada Okafor / - \`Sponsor\` / - Owns three things: / - staffing /
-	// - budget` (named here because an unnamed coordinate does not reproduce — an independent
-	// checker rebuilt it and got different x/w from a deck that carried no portrait): the row is
-	// x=475 y=190, the sub-list moves from y=190 (same baseline, floated right, narrow) to y=226
-	// (below, full width). The y values are the claim; x/w depend on whether the row has a photo.
+	// The COORDINATES below are measured on a NAMED deck, and the naming is the point: an
+	// earlier version of this note carried numbers from a deck it did not identify, a
+	// checker rebuilt the shape and got different x/w, and a later version carried a y
+	// value forward across a change that had moved it. Both were caught by review, not by
+	// this test — a sha pins bytes, never geometry.
 	//
-	// Then a checker found the wrapper had created one regression and sat on two adjacent
-	// defects, so four more declarations landed:
-	//   - `>li>div img{max-width:100%;height:auto}` — an image that is the person's NAME moved
-	//     out of reach of the portrait rule and rendered at natural size: a 900x600 source ran
-	//     542px past a 390px column. DESCENDANT on purpose; inside the wrapper we want reach.
-	//   - `>li>div :is(ul,ol)` is descendant too — as a child combinator a list nested one level
-	//     deeper fell back to the generic article margin and left 19.8px of dead space in the row.
-	//   - `align-self:flex-start` on the portrait — the wrapper makes rows as tall as their
-	//     content, and a centered portrait drifted 64px below the name it captions.
-	//   - the list rule is `margin:0;padding-top:.3em`, not a margin shorthand: it must zero the
-	//     generic article margin, but the SPACE is padding (HARD RULE #20).
-	assert.equal(sha, '04b6b0a6e37e6433ad092c24ae8727f3f0f98fb33ac8d872b7e3c1450055ba2e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Deck: `## T` then `- Ada Okafor / - \`Sponsor\` / - Owns three things: / - staffing /
+	// - budget`. NO portrait, which is why the row is full width. Chromium, 1440px viewport,
+	// Read·Article opened by clicking the real control. Measured on the rules above:
+	//   row       x=475   y=190.1  w=740  h=109
+	//   sub-list  x=475   y=226.5  w=740  h=67.3   margin 5.4px 0 0
+	// Before the wrapper the sub-list sat at y=190.1 — the row's own baseline, floated to
+	// its right at w=105 — because it was a flex ITEM of the row. y is the claim; x and w
+	// move with whether the row carries a photo.
+	assert.equal(sha, '3485037ac2fcb4b1893aa19bd6efd9d3be47c033ab672f2851e4328111a4d700', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -2075,7 +2071,15 @@ test('article roster rules style only their OWN rows, never an author\'s nested 
 	const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'export', 'player-core.mjs'), 'utf8');
 	assert.match(css, /#lp-article \.lp-roster>li\{display:flex/, 'the row rule is a child combinator');
 	assert.match(css, /#lp-article \.lp-roster>li>img\{/, 'the portrait rule is a child combinator');
-	assert.doesNotMatch(css, /#lp-article \.lp-roster (li|img)\{/, 'the descendant form must not return');
+	// The forbidden forms are ENUMERATED, not sniffed. The first cut of this guard read
+	// `.lp-roster (li|img){` — which does not match `.lp-roster>li img{`, i.e. the exact
+	// defect it exists to prevent (the portrait rule reaching an author's inline note image
+	// and squashing it to a 34px circle) could return in that spelling and the guard would
+	// stay silent. Two legitimate descendant selectors now live in this block, so the
+	// pattern cannot simply be widened.
+	for (const forbidden of [/#lp-article \.lp-roster li\{/, /#lp-article \.lp-roster img\{/, /#lp-article \.lp-roster>li img\{/, /#lp-article \.lp-roster li img\{/]) {
+		assert.doesNotMatch(css, forbidden, `a descendant form of the row/portrait rules must not return: ${forbidden}`);
+	}
 	// The wrapper is the other half, and scoping alone did not fix the layout: the row is
 	// flex, so a list nested in a note was a flex ITEM of the row and stayed beside the
 	// sentence even once its markers came back. `flex:1` on the words' own div makes the
@@ -2086,8 +2090,12 @@ test('article roster rules style only their OWN rows, never an author\'s nested 
 	// image rule let a name-as-image escape every cap and run 542px past a 390px column; a
 	// child combinator on the list rule left a depth-2 list on the generic article margin.
 	assert.match(css, /#lp-article \.lp-roster>li>div img\{max-width:100%/, 'any image inside the wrapper is capped');
-	assert.match(css, /#lp-article \.lp-roster>li>div :is\(ul,ol\)\{margin:0;padding-top:/, 'the list rule reaches any depth, and spaces with padding (#20)');
-	assert.match(css, /#lp-article \.lp-roster>li>img\{[^}]*align-self:flex-start/, 'the portrait tracks the name, not the row centre');
+	// A MARGIN on purpose: it collapses with the first list item's own .3em, which padding
+	// does not. Respelling it as margin:0 + padding-top to look like HARD RULE #20 doubled
+	// the gap above the first sub-bullet (5.4px -> 10.8px) and grew every row with a nested
+	// list by 5.4px, for a rule whose substance is about layouts that MEASURE.
+	assert.match(css, /#lp-article \.lp-roster>li>div :is\(ul,ol\)\{margin:\.3em 0 0\}/, 'the list rule reaches any depth and spaces with a collapsing margin');
+	assert.match(css, /#lp-article \.lp-roster>li>img\{[^}]*align-self:flex-start/, 'the portrait tracks the name, not the row center');
 });
 
 test('player: assetBaseUrl leaves absolute, data and remote srcs alone', async () => {
