@@ -519,6 +519,39 @@ always). And the focus half is real too: the probe shows `activeElement` is `BUT
 the markdown pane comes back. Two independent traps, either of which is enough to make a redo
 oracle pass for nothing, which is why every oracle here witnesses focus AND presses once.
 
+### 11c. The desktop tier on this branch, and a comparison that was wrong the first time
+
+The deck-history change alters WHEN the editor is rebuilt, so the tier that exercises Studio
+mounting is the one worth running rather than caveating. Full `--project=desktop` on the branch:
+**3 failed, 6 skipped, 432 passed** of 441.
+
+| failing test | is it ours? | how that was established |
+|---|---|---|
+| `studio-reserved-slots:122` | no | fails on current `main` — 2 failed / 31 passed running its two specs there |
+| `studio-reserved-slots:144` | no | same run |
+| `studio-instant-shell:539` | no | flaky on BOTH, and `main` flakes MORE — see below |
+
+**The third one is the useful part, because the first comparison said the opposite.** Running the
+whole `studio-instant-shell.spec.ts` file three times per tree gave `main` 0 failures in 180
+test-runs and the branch 3 (`:455` once, `:539` twice), which reads as a regression this change
+introduced — and `:539` fails on a shell-vs-app geometry check (`shell 0 vs app 16`, tolerance 2)
+that an extra mount/unmount cycle could plausibly perturb.
+
+**That comparison was unsound: it compared unequal exposure.** A whole-file run at
+`--repeat-each=3` runs ~30 tests three times, so `:539` itself ran only a handful of times per
+tree — the "180" was the file's total, not that test's. Re-run FOCUSED, twelve repeats of that
+one test on each tree:
+
+```
+main    2 failed / 10 passed   (12 runs)
+branch  1 failed / 11 passed   (12 runs)
+```
+
+`main` flakes more. The test is unstable on both trees and this change is not implicated. The
+lesson is the one this note keeps paying for: a number that looks like a signal has to be
+measured at the same exposure on both sides before it is one, and the cheap fix — point the
+repeat count at the single test rather than its file — took ninety seconds.
+
 ## Found, NOT fixed here (off the path of this change — HARD RULE #18)
 
 - **A deck switch leaks the previous deck's whole document, and it is worse than §6.** Found
