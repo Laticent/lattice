@@ -171,100 +171,107 @@ renders differently under different `%%{init}%%` lines — score **0.68 to 0.82*
 Studio with the wrong drawing under the right heading. The threshold had been fitted to the one
 pair in the bench deck.
 
-**The fix is to stop guessing and ask the host.** Whether a swap is an edit or a navigation is
-not derivable from inside the frame — that is the whole content of §4a — but it is a fact the
-caller already has. Both preview hosts now stamp `.lattice` with
-`data-lattice-swap="in-place" | "reflow"` immediately before they write, and adoption holds ink
-only on `in-place`. `patchSlideBody` (`single-slide-render.ts`) compares the shown slide index
-against the last one it rendered; `patchSections` (`deck-preview.js`) reads it off the branch it
-takes — replacing `cur[i]` with `next[i]` keeps every slide at its own index, while rebuilding
-the body because a slide was added or removed shifts them.
+**The fix is to stop guessing and ask the host.** Whether a swap is an edit or a navigation
+is not derivable from inside the frame — that is the whole content of this section — but it
+is a fact the host knows for certain. So the host stamps `data-lattice-swap` on `.lattice`
+immediately before it writes, and `adoptOutgoingDiagrams` holds ink only on `in-place`.
 
-Three properties make this the right shape where the heuristic was not:
+## 4b. Asking the host is right; asking it about POSITION was not
 
-- **It is exact.** No threshold, no fitted constant, no class of diagram it is blind to.
-- **Silence is safe.** A host that has not been taught the contract — marp-vscode, any
-  embedder — stamps nothing, and no stamp means no hold: an empty slot for the length of a
-  render, which is the pre-2026-09-06 behavior.
-- **It gets the wholesale-replacement case RIGHT, where the heuristic got it wrong in the
-  expensive direction.** An author who replaces a diagram on the slide they are watching should
-  see the old drawing until the new one lands; the similarity test refused that (0.00) while
-  accepting two different slides at 0.82.
+The adversarial trio (HARD RULE #25) was run on the host-stamp design, and all three lenses
+independently found the same thing: **the hosts were answering a positional question, and
+position is not identity.**
 
-`isDiagramRevision`, `sharedEnds` and `REVISION_MIN_SHARED` are deleted from
-`lib/core/diagram-scope.js` rather than kept as a second belt: an extra refusal that fires on a
-legitimate large edit is a feature regression, and keeping a disproved test around invites
-someone to trust it.
+| Operation | Index | Slide count | Old answer | Truth |
+|---|---|---|---|---|
+| Delete slide | unchanged | changed | `in-place` | a different slide arrives |
+| Open another deck | unchanged | may be equal | `in-place` | a different deck |
+| Reorder | unchanged | unchanged | `in-place` | two slides moved |
+| Checkpoint restore | unchanged | may be equal | `in-place` | possibly a different deck |
+| Edit the shown slide | unchanged | unchanged | `in-place` | correct |
 
-**Driven on the built Studio, `--scenario nav`, default order, prose-last deck:**
+`deleteSlide` returns `clampIndex(i, slides.length - 1)` (`docs/src/components/studio/deck-ops.ts`),
+so deleting any slide but the last two keeps the active index — and the Studio's own
+**Delete slide** button was therefore stamped `in-place`. Reproduced on the built Studio: the
+deleted slide's diagram painted over its replacement for **136ms, 10 frames**, `AlphaOne →
+AlphaTwo` under a heading reading "Diagram Zulu". The control — Move slide earlier, which
+does change the index — stamped `reflow` and held 0 frames, so the stamp was load-bearing and
+simply being answered wrong. `origin/main` shows a blank there, which makes this a window the
+branch created (HARD RULE #18) rather than one it found.
 
-| | wrong-ink frames |
-|---|---|
-| adoption without the revision guard | **11** |
-| with it | **0** |
+**What an edit actually is, stated exactly: everything except the slide on screen is
+byte-identical to what it was on the last render.** Not similar — equality. That is decidable,
+needs no threshold to fit, and fails in the safe direction, because anything it cannot prove
+is an edit comes back `reflow`, which costs a held diagram and never risks a wrong one. It
+lives in `lib/core/swap-kind.mjs` because both hosts owe the same answer (HARD RULE #1):
+`deckContextKey` + `swapKindForSlide` for the single-slide host, `sectionSwapKind` — exactly
+one section's HTML changed — for the filmstrip.
 
-The frames of another slide's diagram become frames of empty slot, which is the correct
-answer when there is nothing legitimate to hold.
+Two smaller holes in the same contract closed with it. `__latticeShownSlide` was written only
+on the patch and restyle paths, so a **full write** left it describing a slide the frame was
+no longer showing and the next patch compared against it; it is now stamped wherever the host
+writes. And the attribute was a **latch nobody cleared**, so it stayed `in-place` between
+writes and any later mutation burst read an answer that was never about it; the observer now
+reads it once and removes it.
 
-**The instrument could not see this either, and that is the second lesson in the same
-place.** `held` was scored from an SVG's node identity, so a transplanted diagram — the same
-element, the same generation — read as the feature working. Frames now carry WHICH diagram is
-on screen (a per-diagram node label, tested against the whole `textContent`; Mermaid emits its
-stylesheet inside the SVG, so a prefix matched nothing), and wrong ink is its own column. It
-is aggregated as a MAX, not a median: a median over two cold visits reported 0 for a build
-that painted 9 wrong frames on one of them, because discarding the outlier is what a median is
-for and here the outlier is the finding.
+### The guard the tests could not see
 
-**Why one `--order` saw it and another did not — the answer, and the deck bug it exposed.**
-`--order 2,4` reported those frames while the default `1,2,4,3` reported 0 on the same build.
-Traced by logging every adoption decision in the live Studio: the default order's hop hit
-`SKIP not-pending:rendered`. Adoption never sees a WARM arrival, because `replayCachedFences`
-runs first and settles a cached fence to `rendered`, and adoption's `pending` check skips it.
+The trio's checker deleted the host-side answer outright — an unconditional `'in-place'` in
+both hosts, the entire fix removed — and ran everything: **9134 root tests, 3889 docs tests
+and `check:ownership` all stayed green.** Every one of the runtime's 26 arms *feeds* the
+runtime a stamp; nothing asserted that a host *produces* the right one. Three checker passes
+had audited this design without that gap being visible, which is how a positional answer
+survived to a screenshot. `test/unit/core/swap-kind.test.js` now pins the decision and
+`*.swap-stamp.test.ts` pins each host's wiring; re-running that same mutation kills 4 of 5
+arms in each.
 
-So the transplant needs a COLD arriving diagram AND a rendered outgoing one in the same swap
-— and the bench's own deck was removing half of that pairing by accident. Typing a deck in
-leaves the caret at the END of the source, so the Studio shows the LAST slide long enough to
-render and cache its diagram; with a diagram last, every later navigation onto it was a cache
-hit. The deck now ends on prose. Measured on the guard-removed build: the DEFAULT order went
-from 0 wrong-ink frames to **11**, and reports 0 with the guard. The correctness arm is no
-longer a flag you have to know to type.
+## 4c. Holding through a burst, which is what typing is
 
-## 5. The debounce, for a diagram that has just appeared
+The donor rule was `rendered`-only, justified on cross-slide travel: a `pending` fence whose
+slot holds an SVG is a placeholder a previous adoption left, and donating it forward carried
+one slide's diagram across every slide a fast rail-clicker touched.
 
-What the 150ms debounce buys is **coalescing**: consecutive keystrokes collapse into one
-`mermaid.render` instead of one per character, on a queue that is strictly serial. That is
-worth 150ms whenever the author is editing a fence, and worth nothing when a fence has only
-just arrived — nobody is typing into a diagram they have not seen yet. `scheduleRun` takes
-a delay; the observer asks for 0 when `burstFirstSight` is true.
+That justification did not survive the host stamp, and it was never re-derived. A rail click
+is a `reflow` and `adoptOutgoingDiagrams` has already returned; chaining under an `in-place`
+stamp stays on one slide by construction. Meanwhile the rule was costing the primary use
+case, because **after a hold the fence is left `pending` on purpose** — so from the second
+keystroke of any burst the donor was a placeholder, and the hold covered exactly one
+character. Measured on the built Studio, typing 8 characters into a fence that keeps parsing:
 
-**"Just appeared" is not "showing nothing", and the first version got that wrong.** Keying
-the delay on an empty slot alone looked equivalent and was not: an empty slot is *also*
-what an author sees while their in-progress source does not parse, because `attachError`
-clears the target. So the debounce was removed from precisely the case it exists for. The
-maker-checker drove the real bundle over eight keystrokes 120ms apart and measured **8
-`mermaid.render` calls instead of 1** — and the finished diagram arriving *later* than with
-the plain debounce (4413ms against 3435ms) even with a zero-cost render stub, because the
-queue is serial.
+| Cadence | Painted frames | Showing the diagram | Empty | `mermaid.render` |
+|---|---|---|---|---|
+| 120ms/char (a normal typist) | 71 | 9 | **62** | 1 |
+| 250ms/char (slower than the debounce) | 127 | **127** | 0 | 8 |
 
-`burstFirstSight` asks the question the author's intent actually turns on: did a fence
-arrive in a node whose outgoing counterpart carried **no fence at all**? A re-render of a
-fence that was already there keeps the full debounce however empty its slot is. It is also
-scoped to the burst's own arrivals rather than the document, so one broken diagram on slide
-12 of a Playground filmstrip cannot decide the delay for a keystroke on slide 1.
+87% of the burst was empty — the symptom this whole change was opened for. The single-keystroke
+`edit` arm could not see it, because it types one character and waits 1600ms, which is slower
+than the debounce and therefore the easiest case there is. `bench:flash` grew an `edit-burst`
+arm so the number describes the interaction it is named for. A donor is now any fence whose
+slot holds ink.
 
-**That "no fence at all" is a real limit on the win, and the first numbers here overstated
-it.** Arriving at a diagram FROM ANOTHER DIAGRAM SLIDE is not first sight — the outgoing node
-carries a fence — so it keeps the full 150ms. Only arriving from a slide with no diagram
-skips it. An earlier draft of this note claimed 200ms → 57ms for "first sight of a diagram";
-that pair was measured on a deck whose last slide was a diagram, so the caret warmed it at
-mount and the 57ms was a WARM REVISIT, not a first sight. Measured again on a deck that ends
-on prose, so both diagrams are genuinely cold: **236ms → 207ms**, same 10 blank frames. The
-debounce is skipped on one of the two cold arrivals, not both.
+## 5. The second delay, and why it is gone
 
-The bench could not see any of this — every arm it had counts *frames*, and a policy that
-queues eight renders still paints perfectly while the author simply waits longer. It now
-counts `mermaid.render` calls, and has an `edit-broken` arm that types into a fence that
-does not parse. Measured after the fix: **1 render per 8-character burst.**
+The 150ms debounce buys **coalescing**: consecutive keystrokes collapse into one
+`mermaid.render` instead of one per character, on a strictly serial queue. A second, shorter
+delay for a diagram that had "just appeared" was added here on the reasoning that nobody is
+typing into a diagram they have not seen yet, so the debounce buys nothing in front of its
+first render.
+
+**It is cut.** Two of the trio's three lenses reached the same verdict from opposite
+directions, and the numbers decide it. What it bought: `nav` cold 236ms → 207ms, **with the
+blank-frame count unchanged at 10** — nothing a viewer can see. What it cost: the trigger was
+never gated on the swap kind, so it fired on NAVIGATION. Walking a rail through a mixed deck,
+every diagram slide reached from a non-diagram slide dispatched its own render immediately,
+most of them into nodes the next patch had already detached, and the render for the slide the
+author actually landed on queued behind them. That is the same failure the first version of
+this policy shipped — 8 keystrokes, 8 renders, finishing later than a plain debounce — coming
+back through the navigation door.
+
+Neither the delay nor its reset had a test: setting `COLD_MS = 150`, or dropping the
+`scheduledRunDelay` reset (which latches every later burst at 0 for the document's lifetime),
+both left 9134 tests green. A mechanism with no gate, an unmeasured regression and 29
+imperceptible milliseconds of upside is not worth its own risk. One delay now; two arms pin
+that a second one is not quietly re-added.
 
 ## 6. Measured, on the built Studio
 

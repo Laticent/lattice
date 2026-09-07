@@ -42,8 +42,11 @@
 // Usage (from docs/), against a built docs/dist:
 //   npm run build:e2e && npm run bench:flash -- [flags]
 //
-//   --scenario nav|type|edit|mount  click between slides (default), type on a diagram slide's
-//                         HEADING, type INSIDE its fence, or reload the Studio and time the
+//   --scenario nav|type|edit|edit-burst|edit-broken|mount
+//                         click between slides (default), type on a diagram slide's HEADING,
+//                         type one character INSIDE its fence, type a RUN of eight at
+//                         120ms/char inside it (what authoring looks like), type a run that
+//                         leaves the fence unparseable, or reload the Studio and time the
 //                         preview's first paint. `type` and `edit` differ in the one way that
 //                         decides the whole race: `type` leaves the fence source alone, so the
 //                         rendered SVG is in cache and comes back in one microtask, while `edit`
@@ -109,7 +112,7 @@ function parseArgs(argv) {
 		else if (a === '--deck') o.deck = argv[++i];
 		else throw new Error(`unknown arg: ${a}`);
 	}
-	if (!['nav', 'type', 'edit', 'edit-broken', 'mount'].includes(o.scenario)) throw new Error(`unknown --scenario: ${o.scenario} (nav|type|edit|edit-broken|mount)`);
+	if (!['nav', 'type', 'edit', 'edit-burst', 'edit-broken', 'mount'].includes(o.scenario)) throw new Error(`unknown --scenario: ${o.scenario} (nav|type|edit|edit-burst|edit-broken|mount)`);
 	if (!['diagram', 'prose'].includes(o.deck)) throw new Error(`unknown --deck: ${o.deck} (diagram|prose)`);
 	// `--deck` only means anything to `mount`; accepting it silently elsewhere let a run be
 	// LABELLED `--deck prose` while measuring the diagram deck.
@@ -657,7 +660,15 @@ async function main() {
 	// edits the heading, leaves the fence byte-identical, and the rendered SVG comes
 	// back from `mermaidSvgCache` in a microtask. Measuring only `type` is how a
 	// per-keystroke 200ms wait scored as 20ms.
-	if (opts.scenario === 'edit') {
+	// `edit-burst` is `edit`'s caret with a RUN of keystrokes instead of one, and it is the
+	// arm that describes authoring. `edit` types a single character and then waits 1600ms,
+	// which is slower than the debounce, so every keystroke finds a fully rendered donor —
+	// the easiest case there is. Nobody types like that. At 120ms/char the donor is the
+	// placeholder the previous adoption left, and holding through the burst depends on
+	// chaining those forward; the adversarial trio measured 62 of 71 painted frames EMPTY
+	// on a build whose single-keystroke arm reported a clean sweep. An arm that cannot fail
+	// on the interaction it is named for is not a measurement.
+	if (opts.scenario === 'edit' || opts.scenario === 'edit-burst') {
 		await rail.nth(1).click();
 		await page.waitForTimeout(2500);
 		await page.getByText('A[Input] --> B[Process]').first().click();
@@ -678,7 +689,7 @@ async function main() {
 		await page.waitForTimeout(600);
 	}
 	for (let i = 0; i < order.length; i++) {
-		const typing = opts.scenario === 'type' || opts.scenario === 'edit' || opts.scenario === 'edit-broken';
+		const typing = opts.scenario === 'type' || opts.scenario === 'edit' || opts.scenario === 'edit-burst' || opts.scenario === 'edit-broken';
 		const target = typing ? 2 : order[i];
 		// Clear the sampler window, then act.
 		await page
@@ -711,7 +722,7 @@ async function main() {
 		// needs consecutive characters — eight at 120ms is a slow author, and still well
 		// inside 150ms apart. One pass should render once; one render per character is the
 		// debounce gone.
-		if (opts.scenario === 'edit-broken') await page.keyboard.type('xxxxxxxx', { delay: 120 });
+		if (opts.scenario === 'edit-broken' || opts.scenario === 'edit-burst') await page.keyboard.type('xxxxxxxx', { delay: 120 });
 		else if (typing) await page.keyboard.type('x');
 		else if (railCount >= target) await rail.nth(target - 1).click();
 		await page.waitForTimeout(1600);

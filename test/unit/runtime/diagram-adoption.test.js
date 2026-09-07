@@ -55,14 +55,13 @@ function liftAdoption(dom, { mermaid = { render() {}, initialize() {} } } = {}) 
   assert.notEqual(end, -1, 'lib/runtime/index.js must bracket the adoption port with END ADOPTION PORT');
   const src = RUNTIME_SRC.slice(start, end);
   assert.match(src, /function adoptOutgoingDiagrams\(records\)/, 'the port must hold adoptOutgoingDiagrams');
-  assert.match(src, /function burstFirstSight\(records\)/, 'the port must hold burstFirstSight');
   // eslint-disable-next-line no-new-func
   const make = new Function(
     'document',
     'globalScope',
     'diagramScopeKey',
     'FENCE_CODE_SELECTOR',
-    `${src}\nreturn { adoptOutgoingDiagrams, burstFirstSight };`,
+    `${src}\nreturn { adoptOutgoingDiagrams };`,
   );
   return make(dom.window.document, { mermaid }, diagramScopeKey, shippedFenceSelector());
 }
@@ -211,18 +210,49 @@ describe('adoptOutgoingDiagrams', () => {
     assert.equal(dom.window.document.querySelector('.mermaid > svg')?.id, 'old-svg');
   });
 
-  test('never donates ink it is only holding — a placeholder must not travel', () => {
-    // The chaining half. A `pending` fence whose slot holds an SVG was filled by THIS walk;
-    // its ink is not that source's answer. Donating it forward carries one slide's diagram
-    // across every slide the author touches.
+  test('CHAINS a held placeholder forward, so the hold survives a typing burst', () => {
+    // The inverse of what this arm used to assert, and the reason is the whole of #2113's
+    // fourth pass. A `pending` fence whose slot holds an SVG is one a previous adoption
+    // filled — during a burst that is EVERY keystroke after the first, so refusing it made
+    // the hold cover one character and blank the other 87% of the burst. Refusing it was
+    // needed when the gate could not tell an edit from a navigation; the `in-place` stamp
+    // now can, so what chains here is this fence's own last ink, on this slide.
     const outgoing =
       `<section class="diagram">` +
       `<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR\n  A --> B</code></pre>` +
-      `<div class="mermaid" aria-hidden="true"><svg id="held-not-mine"></svg></div></section>`;
+      `<div class="mermaid" aria-hidden="true"><svg id="held-earlier"></svg></div></section>`;
     const incoming = `<section class="diagram">${pending('flowchart LR\n  A --> Bx')}</section>`;
     const dom = new JSDOM(deck(outgoing));
     liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
-    assert.equal(dom.window.document.querySelector('.mermaid > svg'), null);
+    assert.equal(dom.window.document.querySelector('.mermaid > svg')?.id, 'held-earlier');
+  });
+
+  test('holds through five consecutive keystrokes, not just the first', () => {
+    // The burst, end to end. Before the donor rule was re-derived this went
+    // held → blank → blank → blank → blank, which is what an author actually saw.
+    const dom = new JSDOM(deck(`<section class="diagram">${rendered('flowchart LR\n  A --> B', 'ink-0')}</section>`));
+    const { adoptOutgoingDiagrams } = liftAdoption(dom);
+    const seen = [];
+    for (let k = 1; k <= 5; k++) {
+      const incoming = `<section class="diagram">${pending(`flowchart LR\n  A --> B${'x'.repeat(k)}`)}</section>`;
+      // Every keystroke re-stamps: the host sets the attribute before each write, and the
+      // observer now clears it after reading, so the chain is five separate declarations.
+      dom.window.document.querySelector('.lattice').setAttribute('data-lattice-swap', 'in-place');
+      adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
+      seen.push(dom.window.document.querySelector('.mermaid > svg')?.id ?? null);
+    }
+    assert.deepEqual(seen, ['ink-0', 'ink-0', 'ink-0', 'ink-0', 'ink-0']);
+  });
+
+  test('reads the stamp once and clears it, so a later unstamped burst cannot hold', () => {
+    const dom = new JSDOM(deck(`<section class="diagram">${rendered('flowchart LR\n  A --> B', 'ink-0')}</section>`));
+    const { adoptOutgoingDiagrams } = liftAdoption(dom);
+    const doc = dom.window.document;
+    adoptOutgoingDiagrams(swap(dom, '.lattice', `<section class="diagram">${pending('flowchart LR\n  A --> Bx')}</section>`));
+    assert.equal(doc.querySelector('.lattice').hasAttribute('data-lattice-swap'), false, 'the stamp must not outlive the burst it described');
+    // A second burst nobody stamped: the ink from the first must not travel again.
+    adoptOutgoingDiagrams(swap(dom, '.lattice', `<section class="diagram">${pending('flowchart LR\n  A --> By')}</section>`));
+    assert.equal(doc.querySelector('.mermaid > svg'), null);
   });
 
   test('refuses when the next element sibling is not the SVG target', () => {
@@ -312,81 +342,21 @@ describe('the observer wiring', () => {
     );
   });
 
-  test('the run delay is chosen by burstFirstSight, not by a document-wide empty-slot probe', () => {
-    assert.match(
-      RUNTIME_SRC,
-      /scheduleRun\(\{ delay: burstFirstSight\(records\) \? COLD_MS : DEBOUNCE_MS \}\)/,
-      'keying the delay on emptiness alone drops the debounce for an author mid-edit of a diagram that does not parse',
-    );
+  test('the burst schedules one plain-debounce run — no second, shorter delay', () => {
+    // The cut mechanism (COLD_MS / burstFirstSight) had no test at all, so deleting it or
+    // pinning it at 150 left 9134 tests green. These two arms are the pin: the call takes
+    // no delay argument, and nothing reintroduces a second timer constant.
+    assert.match(observerCallbackSrc() || '', /scheduleRun\(\);/, 'the observer must schedule a plain debounced run');
+    assert.doesNotMatch(RUNTIME_SRC, /COLD_MS|burstFirstSight|scheduledRunDelay/, 'the second-delay policy is cut; re-adding one needs its own tests and a measurement');
+  });
+
+  test('scheduleRun re-arms from the full debounce, so a burst coalesces', () => {
+    const src = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function scheduleRun('), RUNTIME_SRC.indexOf('function wrapFences('));
+    assert.match(src, /clearTimeout\(scheduledRunHandle\)/, 'a re-arm must cancel the pending run');
+    assert.match(src, /\}, DEBOUNCE_MS\);/, 'the re-armed run must wait the full debounce, not a latched shorter one');
   });
 });
 
-describe('burstFirstSight', () => {
-  test('true for a diagram that arrived where the outgoing slide had none', () => {
-    const outgoing = '<section><h2>prose</h2></section>';
-    const incoming = `<section class="diagram">${pending('flowchart LR\n A-->B')}</section>`;
-    const dom = new JSDOM(deck(outgoing));
-    const { burstFirstSight } = liftAdoption(dom);
-    assert.equal(burstFirstSight(swap(dom, '.lattice', incoming)), true);
-  });
-
-  test('FALSE when the outgoing slide carried a fence — an author mid-edit sees an empty slot too', () => {
-    // `attachError` clears the target, so a diagram whose in-progress source does not parse
-    // is `pending` + empty exactly like a cold one. Keying the delay on emptiness alone
-    // therefore removed the debounce from the one case it exists for: measured at 8
-    // `mermaid.render` calls for 8 keystrokes, on a strictly serial queue.
-    const outgoing = `<section class="diagram">${pending('flowchart LR\n A--')}</section>`;
-    const incoming = `<section class="diagram">${pending('flowchart LR\n A--x')}</section>`;
-    const dom = new JSDOM(deck(outgoing));
-    const { burstFirstSight } = liftAdoption(dom);
-    assert.equal(burstFirstSight(swap(dom, '.lattice', incoming)), false);
-  });
-
-  test('false for a fence that is not pending — an errored one arriving in a new container', () => {
-    // `attachError` clears the target, so an `error` fence is empty exactly like a cold one.
-    // A transform that MOVES it into a new container produces a pure insertion, which this
-    // treats as first sight by node shape — and without the state check the 0ms path would
-    // open for a fence the author is mid-edit of, which is the regression burstFirstSight
-    // exists to prevent.
-    const outgoing = '<section><h2>prose</h2></section>';
-    const incoming =
-      `<section class="diagram">` +
-      `<pre data-mermaid-state="error"><code class="language-mermaid-source">flowchart LR\n  A --</code></pre>` +
-      `<div class="mermaid" aria-hidden="true"></div></section>`;
-    const dom = new JSDOM(deck(outgoing));
-    assert.equal(liftAdoption(dom).burstFirstSight(swap(dom, '.lattice', incoming)), false);
-  });
-
-  test('false for a pending fence whose slot is already filled', () => {
-    // Defensive: the shipped paths do not produce "pending, filled, and nothing outgoing"
-    // today — a filled pending slot is what adoption leaves behind, and adoption needs an
-    // outgoing fence. Asserted directly because the guard's whole job is that a slot with
-    // something in it keeps the debounce, however it came to be filled.
-    const outgoing = '<section><h2>prose</h2></section>';
-    const incoming =
-      `<section class="diagram">` +
-      `<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR\n A-->B</code></pre>` +
-      `<div class="mermaid" aria-hidden="true"><svg id="held"></svg></div></section>`;
-    const dom = new JSDOM(deck(outgoing));
-    assert.equal(liftAdoption(dom).burstFirstSight(swap(dom, '.lattice', incoming)), false);
-  });
-
-  test('false once the slot has been filled — by the cache or by a held diagram', () => {
-    const outgoing = '<section><h2>prose</h2></section>';
-    const incoming = `<section class="diagram">${rendered('flowchart LR\n A-->B', 'svg-1')}</section>`;
-    const dom = new JSDOM(deck(outgoing));
-    const { burstFirstSight } = liftAdoption(dom);
-    assert.equal(burstFirstSight(swap(dom, '.lattice', incoming)), false);
-  });
-});
-
-/**
- * `resetFenceAfterFailure` — the third guard this change ships, and the one a checker found
- * had no coverage at all: deleting the clear left every suite in the tree green.
- *
- * Lifted by name rather than through the ADOPTION PORT sentinels, because it lives with
- * #2108's release/reclaim machinery, not with adoption.
- */
 function liftReset(reclaimedHas = false) {
   const m = RUNTIME_SRC.match(/ {2}function resetFenceAfterFailure\(preEl\) \{[\s\S]*?\n {2}\}/);
   assert.ok(m, 'lib/runtime/index.js must declare resetFenceAfterFailure');

@@ -24,6 +24,7 @@
 
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
+import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
 import {
 	alignmentFailure,
 	classifyDivergence,
@@ -179,7 +180,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: number | 'alone'; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -1469,19 +1470,22 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// runtime re-renders the swapped fence. KaTeX needs no flag either: single
 				// -slide never injects a katex <link>; math rides the patch as static HTML.
 				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}`;
-				// IS THIS PATCH THE SAME SLIDE AS THE LAST ONE? The one fact the frame cannot work
-				// out for itself, and the one `patchSlideBody` hands the runtime (see there).
-				// `'alone'` is the narrowing fallback: when the deck's authored-slide count
-				// disagrees with the engine's section count, every slide renders on its own and
-				// they are indistinguishable from each other — so that case is never `in-place`,
-				// which costs a held diagram and never risks the wrong one. Reading it also
-				// STAMPS it, so the next render compares against this one.
-				const shownSlide: number | 'alone' = opts?.slideIndex === undefined ? 'alone' : opts.slideIndex;
-				const sameShownSlide = () => {
-					const prev = (host as LiveHost).__latticeShownSlide;
-					(host as LiveHost).__latticeShownSlide = shownSlide;
-					return shownSlide !== 'alone' && prev === shownSlide;
-				};
+				// IS THIS RENDER THE SAME SLIDE AS THE LAST ONE, EDITED? The one fact the frame
+				// cannot work out for itself, and the one `patchSlideBody` hands the runtime.
+				// The answer is derived in the kernel, shared with the Playground's filmstrip
+				// host — see lib/core/swap-kind.mjs for why POSITION is not identity, and for
+				// the four ways comparing `slideIndex` alone said `in-place` for a navigation.
+				//
+				// A caller with no `slideIndex` (LayoutStudio, Fabricate, FieldCardsLive — they
+				// render one specimen, not a deck) gets a `null` key, which is an unknown, which
+				// is a reflow. That is the same conservative answer the old `'alone'` sentinel
+				// gave those callers; what it never gave was a correct answer for the deck ones.
+				const shownSlide = { index: opts?.slideIndex ?? -1, key: deckContextKey(markdown, opts?.slideIndex) };
+				// Reading and STAMPING are separate on purpose. The old closure did both, so a
+				// second call in the same render (the patch path falling through to the restyle
+				// path) compared the identity against itself and always said `in-place`.
+				const stampShownSlide = () => { (host as LiveHost).__latticeShownSlide = shownSlide; };
+				const swapKind = () => swapKindForSlide((host as LiveHost).__latticeShownSlide, shownSlide) === SWAP_IN_PLACE;
 				// The same hash-is-a-filter argument the render caches make (see KeyInputs), applied to
 				// the one other djb2 key in this file. Here a collision is not another deck's content —
 				// it is the author's live CSS edit landing on the PATCH path, which reuses the resident
@@ -1512,7 +1516,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const safe = sanitizeOnce(out.html);
 					const patchSanitizeMs = performance.now() - tSan;
 					const tFrame = performance.now();
-					if (patchSlideBody(live, safe, sameShownSlide())) {
+					const inPlace = swapKind();
+					stampShownSlide();
+					if (patchSlideBody(live, safe, inPlace)) {
 						const tFit = performance.now();
 						scaleFrame(host);
 						const patchFitMs = performance.now() - tFit;
@@ -1570,7 +1576,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// atomically with the new section, so a viewer never sees the old theme on the new
 					// body (or vice-versa) for a frame.
 					themeStyleEl.textContent = styleElementText(out.css, mode, geom, extraCss);
-					if (patchSlideBody(live, safe, sameShownSlide())) {
+					const inPlace = swapKind();
+					stampShownSlide();
+					if (patchSlideBody(live, safe, inPlace)) {
 						(host as LiveHost).__latticeFrameSig = sig;
 						(host as LiveHost).__latticeFrameCss = frameCss;
 						(host as LiveHost).__latticeRestyleSig = restyleSig;
@@ -1749,6 +1757,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Mark the navigation in flight BEFORE assigning srcdoc: until onload (or the poll's
 				// paint detection) clears it, the patch guard above must not touch the outgoing document.
 				(host as LiveHost).__latticePendingLoad = true;
+				// STAMP HERE TOO. A full write changes the shown slide just as a patch does, and
+				// leaving the identity behind describing a slide the frame is no longer showing
+				// made the NEXT patch compare against it: navigate away on a full write, navigate
+				// back, and the return trip was stamped `in-place` (found by the trio's checker).
+				// The identity has to track the document, not the code path that wrote it.
+				stampShownSlide();
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
