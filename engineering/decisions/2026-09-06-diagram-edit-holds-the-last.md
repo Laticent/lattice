@@ -190,6 +190,22 @@ position is not identity.**
 | Checkpoint restore | unchanged | may be equal | `in-place` | possibly a different deck |
 | Edit the shown slide | unchanged | unchanged | `in-place` | correct |
 
+### A one-slide deck has no context, and that is the shape every deck starts as
+
+A fifth checker pass found the residual: the key compares everything EXCEPT the shown slide,
+so a deck of ONE slide compares nothing. Every one-slide deck sharing front matter produced
+the identical key — literally `0:/1/-` with no front matter — and a switch between two of
+them was stamped `in-place` again. `newDeckSource()` emits exactly one slide and no front
+matter, so that is the shape every Studio deck starts life as.
+
+The source cannot answer this one: nothing distinguishes "I edited my only slide" from "I
+opened a different deck whose only slide is different" without knowing which DECK is on
+screen. So the host supplies `deckId` — the Studio's existing `deck.id`, threaded through
+`DeckPreview` — and the key carries it. Without an id, a one-slide deck keys `null`, which is
+an unknown, which is a reflow: a lost hold on single-slide previews, never a wrong one. The
+id never replaces the content half — a delete inside one deck keeps the id and is still
+caught, and a host that reused an id could not mask a deck switch.
+
 `deleteSlide` returns `clampIndex(i, slides.length - 1)` (`docs/src/components/studio/deck-ops.ts`),
 so deleting any slide but the last two keeps the active index — and the Studio's own
 **Delete slide** button was therefore stamped `in-place`. Reproduced on the built Studio: the
@@ -224,6 +240,15 @@ had audited this design without that gap being visible, which is how a positiona
 survived to a screenshot. `test/unit/core/swap-kind.test.js` now pins the decision and
 `*.swap-stamp.test.ts` pins each host's wiring; re-running that same mutation kills 4 of 5
 arms in each.
+
+**And the pinning was incomplete the first time it was called complete — again.** A fifth
+checker mutation-tested the fixes themselves and found three survivors: the full-write stamp
+could be deleted outright with all 112 of that module's tests still green; the arm claiming
+to prove the key's length-prefix encoding used inputs that stayed distinct under a plain
+join, so it pinned nothing; and the runtime's own contract docblock still asserted the
+`rendered`-only donor rule that §4c deletes. Each has a real arm now — the boundary-collision
+pair (`a\n\nb`/`c` against `a`/`b\n\nc`, which concatenate identically) is the one that
+actually kills the plain-join mutant.
 
 ## 4c. Holding through a burst, which is what typing is
 
@@ -286,14 +311,19 @@ so there is now one set of numbers and every other surface quotes it.
 | scenario | `main` @ `9d06a30a` | + this change |
 |---|---|---|
 | `edit` ×1, cold (type inside the fence) | **11 blank**, 0 held, 211ms | **0 blank**, **11 held**, 209ms |
-| `edit` ×1, warm | **10 blank**, 0 held, 198ms | **0 blank**, **10 held**, 202ms |
-| `edit-burst` cold (8 chars @120ms, still parsing) | **68 blank**, 0 held, 1176ms | **0 blank**, **67 held**, 1141ms |
-| `edit-burst` warm | **67 blank**, 0 held, 1144ms | **0 blank**, **66 held**, 1132ms |
-| `nav` cold (both diagrams genuinely cold) | 10 blank, 240ms | 10 blank, 239ms |
-| `nav` warm | 0/0, 4ms | 0/0, 4ms |
-| `edit-broken` (8 chars, unparseable) | 97 source, **1 render** | 96 source, **1 render** |
+| `edit` ×1, warm | **10 blank**, 0 held, 198ms | **0 blank**, **10 held**, 204ms |
+| `edit-burst` cold (8 chars @120ms, still parsing) | **68 blank**, 0 held, 1176ms | **0 blank**, **67 held**, 1181ms |
+| `edit-burst` warm | **67 blank**, 0 held, 1144ms | **0 blank**, **68 held**, 1168ms |
+| `nav` cold (both diagrams genuinely cold) | 10 blank, 240ms | 11 blank, 254ms |
+| `nav` warm | 0/0, 4ms | 0/0, 5ms |
+| `edit-broken` (8 chars, unparseable) | 97 source, **1 render** | 97 source, **1 render** |
 | WRONG ink, every arm | 0 | **0** |
 | layout shift, every arm | 0 | 0 |
+
+Timings carry run-to-run variance of roughly ±15ms on this machine — `nav` cold read 239ms,
+240ms and 254ms across three builds of the same code — so read the FRAME COUNTS, which are
+stable and are what the change is about. The branch column was re-measured on the final code
+after the deck-id fix; every row is from one build.
 
 **The wait does not move, and never was the thing to fix.** 211ms → 209ms on `edit` is the
 same `mermaid.render`. What changes is what the author is looking at while it runs: their
@@ -361,6 +391,12 @@ of the delay policy (§5), and cutting that policy is what keeps it at 1 without
   9134 root tests, 3889 docs tests and `check:ownership` green (§4b). A mutation score is only
   as honest as the mutant list, and a list drawn from the file you were editing misses the
   file you were not.
+- **Under continuous typing the held ink is as old as the burst.** `scheduleRun` re-arms the
+  full debounce on every keystroke, so a long burst renders once at the end and the author
+  looks at pre-burst ink the whole way — 68 frames on one render in the `edit-burst` arm, and
+  proportionally longer for a longer burst. That is the design working as intended (the
+  alternative is the blank it replaced), but there is no staleness signal, and a reader
+  should know the picture can lag the source by the length of the typing run.
 - **A hold is still one render behind, and a hung `mermaid.render` is the one place that
   bites.** The held SVG is a placeholder with a render already queued, so it is replaced
   within ~200ms in every normal case. If a render hangs, the 20s cap is 20s of a diagram the

@@ -4254,7 +4254,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused onCorner={setDeckCorner} options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
+						<DeckPreview focused onCorner={setDeckCorner} options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} deckId={deck.id} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
 					</ErrorBoundary>
 				</div>
 			</div>

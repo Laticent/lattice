@@ -1060,6 +1060,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// Existing callers omit all of it → the whole render is shown, unchanged.
 		opts?: {
 			slideIndex?: number;
+			/** Stable identity for the DECK, not its text. The one fact the source cannot
+			 *  supply for a single-slide deck — see lib/core/swap-kind.mjs. */
+			deckId?: string;
 			slideCount?: number;
 			slideMarkdown?: string;
 			/** Marks THE preview the author is looking at — the one the fidelity overlay may describe.
@@ -1480,7 +1483,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// render one specimen, not a deck) gets a `null` key, which is an unknown, which
 				// is a reflow. That is the same conservative answer the old `'alone'` sentinel
 				// gave those callers; what it never gave was a correct answer for the deck ones.
-				const shownSlide = { index: opts?.slideIndex ?? -1, key: deckContextKey(markdown, opts?.slideIndex) };
+				const shownSlide = { index: opts?.slideIndex ?? -1, key: deckContextKey(markdown, opts?.slideIndex, opts?.deckId) };
 				// Reading and STAMPING are separate on purpose. The old closure did both, so a
 				// second call in the same render (the patch path falling through to the restyle
 				// path) compared the identity against itself and always said `in-place`.
@@ -1517,8 +1520,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const patchSanitizeMs = performance.now() - tSan;
 					const tFrame = performance.now();
 					const inPlace = swapKind();
-					stampShownSlide();
 					if (patchSlideBody(live, safe, inPlace)) {
+						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
+						// through to the restyle path, which asks again — against an identity it had
+						// just overwritten, so the second answer was always `in-place`.
+						stampShownSlide();
 						const tFit = performance.now();
 						scaleFrame(host);
 						const patchFitMs = performance.now() - tFit;
@@ -1577,8 +1583,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// body (or vice-versa) for a frame.
 					themeStyleEl.textContent = styleElementText(out.css, mode, geom, extraCss);
 					const inPlace = swapKind();
-					stampShownSlide();
 					if (patchSlideBody(live, safe, inPlace)) {
+						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
+						// through to the restyle path, which asks again — against an identity it had
+						// just overwritten, so the second answer was always `in-place`.
+						stampShownSlide();
 						(host as LiveHost).__latticeFrameSig = sig;
 						(host as LiveHost).__latticeFrameCss = frameCss;
 						(host as LiveHost).__latticeRestyleSig = restyleSig;

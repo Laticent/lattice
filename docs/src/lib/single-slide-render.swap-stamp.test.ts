@@ -69,9 +69,9 @@ function fakeLiveDocument(host: HTMLElement): Document {
 	return doc;
 }
 
-async function show(r: ReturnType<typeof createSingleSlideRenderer>, host: HTMLElement, deck: string, i: number) {
+async function show(r: ReturnType<typeof createSingleSlideRenderer>, host: HTMLElement, deck: string, i: number, mermaid = false) {
 	const parts = deck.split(/\n-{3,}\n/);
-	return r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, {
+	return r.renderInto(host, deck, mermaid, undefined, undefined, undefined, undefined, {
 		slideIndex: i,
 		slideCount: parts.length,
 		slideMarkdown: parts[i],
@@ -129,6 +129,35 @@ describe('patchSlideBody stamps the swap kind the runtime acts on', () => {
 		fakeLiveDocument(host);
 		await show(r, host, DECK, 0);
 		await show(r, host, deckOf(slide('zulu', 1), slide('yankee', 2), slide('xray', 3)), 0);
+		expect(stamp(host)).toBe('reflow');
+	});
+
+	it('a FULL WRITE re-stamps the identity, so a return trip is not mistaken for an edit', async () => {
+		// The mutant that survived every suite: `stampShownSlide()` was called only on the
+		// patch and restyle paths, so a full write left the identity describing a slide the
+		// frame was no longer showing — and navigating back to it read `in-place`.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		await show(r, host, DECK, 1);
+		fakeLiveDocument(host);
+		await show(r, host, DECK, 1); // settle onto the patch path, identity = slide 1
+		// Force a full write by flipping the mermaid flag, which is part of the frame `sig`.
+		await show(r, host, DECK, 0, true);
+		fakeLiveDocument(host);
+		// Back to slide 1, with the flag now MATCHING the resident frame so this one patches.
+		await show(r, host, DECK, 1, true); // a navigation, not an edit
+		expect(stamp(host)).toBe('reflow');
+	});
+
+	it('a ONE-SLIDE deck without a deckId stamps reflow — two of them are indistinguishable', async () => {
+		// `newDeckSource()` emits one slide, so this is the shape every Studio deck starts as.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const A1 = slide('alpha', 1);
+		await show(r, host, A1, 0);
+		fakeLiveDocument(host);
+		await show(r, host, A1, 0);
+		await show(r, host, slide('zulu', 1), 0);
 		expect(stamp(host)).toBe('reflow');
 	});
 

@@ -540,18 +540,28 @@ export function patchSections(frame, next, prev) {
 	// the stamp exists to stop. `sectionSwapKind` asks what an edit actually is: exactly
 	// one section's HTML changed. See lib/core/swap-kind.mjs.
 	const kind = next.length !== cur.length ? SWAP_REFLOW : sectionSwapKind(prev || [], next);
-	lattice.setAttribute('data-lattice-swap', kind);
 	if (next.length !== cur.length) {
+		lattice.setAttribute('data-lattice-swap', kind);
 		// Slide added/removed: rebuild the filmstrip body only — no script re-eval;
 		// the runtime/Mermaid/FIT/SYNC agents persist and re-process.
 		lattice.innerHTML = next.join('\n');
 	} else {
 		const p = prev || [];
+		// STAMP ONLY WHEN A WRITE WILL FOLLOW. The runtime reads this once and clears it, so
+		// a stamp with no mutation behind it is never consumed — it just stands there for
+		// whatever burst comes next to read. Set it on the first section that will actually
+		// be replaced rather than before the loop, where a section whose HTML parses to no
+		// element child would leave `in-place` latched having written nothing.
+		let stamped = false;
 		for (let i = 0; i < next.length; i++) {
 			if (p[i] === next[i]) continue;
 			const holder = doc.createElement('div');
 			holder.innerHTML = next[i];
 			const fresh = holder.firstElementChild;
+			if (fresh && cur[i] && !stamped) {
+				lattice.setAttribute('data-lattice-swap', kind);
+				stamped = true;
+			}
 			if (fresh && cur[i]) lattice.replaceChild(fresh, cur[i]);
 		}
 	}

@@ -280,8 +280,10 @@ length. The Studio's own Delete-slide button painted the deleted slide's diagram
 replacement for 136ms. `lib/core/swap-kind.mjs` is the shared answer both hosts now ask —
 `deckContextKey` + `swapKindForSlide` for the single-slide host, `sectionSwapKind` for the
 filmstrip — and it asks what an edit actually is: **everything except the slide on screen is
-byte-identical to the last render.** Anything that cannot be proved an edit is a reflow,
-which costs a held diagram and never risks a wrong one.
+byte-identical to the last render.** A deck of ONE slide compares nothing that way, since the
+shown slide is the one excluded, so the host also supplies a `deckId`; without one, a
+one-slide deck is an unknown. Anything that cannot be proved an edit is a reflow, which costs
+a held diagram and never risks a wrong one.
 A TEXT-SIMILARITY TEST WAS TRIED HERE AND IS WRONG: it scores shared BOILERPLATE, so all
 twelve ordered pairs of `examples/mermaid-init-merge.md` — four slides whose whole point is
 that one graph renders differently under different `%%{init}%%` lines — score 0.68–0.82 and
