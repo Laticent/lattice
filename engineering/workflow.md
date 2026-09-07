@@ -521,11 +521,34 @@ expensive for anything scheduled to pass it:
 | flag | tier | cost | blessed rows |
 |---|---|---|---|
 | *(none)* | render — markdown → HTML+CSS | ~10s | `datasets` |
+| *(none)* | edit — warm re-render per keystroke, single char and 12-char burst | ~2s | `editDatasets` |
 | `--export` | rasterize — screenshot every slide | ~3 min | `exportDatasets` |
 | `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
 | `--sweep` | fit-sweep — overflow/legibility probes over laid-out DOM | ~30s | `sweepDatasets` |
 | `--diagrams` | Mermaid render worker, 1 fence vs N | ~30s | *(report-only, by design)* |
 | `--cli` | whole `lattice-emulator.js` render — node boot, browser launch, `page.goto`, PDF encode | ~25s | `cliDatasets` |
+
+The **edit tier** runs unflagged beside the render tier, and the pair is deliberate:
+the render tier clears every cache to measure a COLD one-shot (what a CLI export
+pays), while the edit tier measures the WARM re-render an author pays per keystroke.
+The same deck can improve in one and regress in the other, and before this tier
+existed only the cold half was visible.
+
+It is the one tier that **gates on work rather than time**. `typesets` counts real
+`katex.renderToString` calls per keystroke: an integer, identical on every machine,
+compared exactly, and it answers the question that actually matters — does a
+keystroke re-typeset math that did not change? Its two `ms` columns are printed for
+a human reading a bless diff and are never compared, because an edit-loop wall clock
+is exactly the flaky band HARD RULE #19 keeps out of the merge train. That is the
+shape `docs/src/lib/preview-work-budget.test.ts` argues for: *"the regression is not
+fundamentally a TIME — it is an amount of WORK"*. A tree with no math memo (an older
+base commit, which the nightly runs this harness against) reports `n/a` rather than a
+plausible `0`.
+
+The BURST case is measured nowhere else in the repo. Every other typing harness
+(`docs/scripts/frame-bench.mjs`, `docs/e2e/studio-preview-perf.spec.ts`) inserts a
+700ms settle between keystrokes, which is precisely the case the frame scheduler's
+coalescing already handles.
 
 `--cli` is the only tier that spawns the CLI, so it is the only one that can see the
 export path: a change to its navigation strategy moves no other number in the file

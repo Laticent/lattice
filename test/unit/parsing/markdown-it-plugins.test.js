@@ -543,9 +543,31 @@ describe('markdown-it-plugins', () => {
     assert.equal(plugins.formToggleClass('content', 'standard'), 'content form');
     assert.equal(plugins.formToggleClass('cards-grid compact', 'standard'), 'cards-grid compact form');
     assert.equal(plugins.formToggleClass('', 'standard'), 'form'); // bare slide
-    for (const skip of ['title', 'divider', 'closing', 'math', 'compare-code', 'split-panel', 'image']) {
+    for (const skip of ['title', 'divider', 'closing', 'compare-code', 'split-panel', 'image']) {
       assert.equal(plugins.formToggleClass(skip, 'standard'), skip, `should skip ${skip}`);
     }
+    // `math` is MID-MIGRATION off its sovereign frame, one variant per commit
+    // (lib/core/math-stage-migration.js), so it is asserted per variant rather than
+    // as a single skipped token. Both arms are asserted from the lever's own set,
+    // NOT hardcoded — a hardcoded list would have to be edited in lockstep with
+    // every migration commit, and the version that drifts is the one that stops
+    // testing anything. When the set holds every variant, this whole block and the
+    // lever are deleted together, and `math` simply stops being in the skip list.
+    const { MATH_VARIANTS, MIGRATED } = require('../../../lib/core/math-stage-migration.js');
+    for (const variant of MATH_VARIANTS) {
+      // `decompose` is authored as the compound `math matrix decompose`.
+      const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
+      const expected = MIGRATED.has(variant) ? `${cls} form` : cls;
+      assert.equal(plugins.formToggleClass(cls, 'standard'), expected,
+        `math ${variant} should ${MIGRATED.has(variant) ? 'take form (migrated)' : 'be skipped (sovereign)'}`);
+    }
+    // A BARE `math` slide follows `feature` — math.docs.md: "the bare layout
+    // defaults to it" — so it must never diverge from the variant above.
+    assert.equal(
+      plugins.formToggleClass('math', 'standard'),
+      MIGRATED.has('feature') ? 'math form' : 'math',
+      'bare math must track the feature variant',
+    );
   });
 
   test('formToggleClass: `off` is a no-op; retired `minimal` no longer stamps no-progress', () => {

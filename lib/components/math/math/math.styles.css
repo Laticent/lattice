@@ -225,6 +225,98 @@ section.math.feature > :is(ul, ol)::before {
   padding-bottom: var(--sp-sm);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE FORM ARM — `feature` and bare `math`, migrated off the sovereign frame.
+ *
+ * Read `lib/core/math-stage-migration.js` first: math is leaving its sovereign
+ * frame ONE VARIANT AT A TIME, so this file carries two shapes at once and will
+ * until the last variant lands.
+ *
+ *   · UNMIGRATED (every rule above and below this block) — `section.math > …`.
+ *     The section IS the grid; eyebrow and heading are its own rows. Untouched,
+ *     byte for byte, for the six variants that have not moved and for any slide
+ *     that opts out with `no-form`.
+ *   · MIGRATED (this block) — `section.math.form > .cell-stage > …`. The frame
+ *     owns the chrome: eyebrow, heading and the hairline live in `.cell-masthead`,
+ *     the running header/footer in `.cell-footer`, and `meta:` finally resolves
+ *     (it never did on a sovereign math slide). Only the BODY is ours.
+ *
+ * WHY THE GRID MOVES RATHER THAN BEING RE-PREFIXED. `stage.css` sets
+ * `section.form:has(> .cell-stage) { display: flex; flex-direction: column }`, so
+ * the section stops being a grid the moment it wraps and every `grid-row` above
+ * goes inert. Re-declaring the grid on `.cell-stage` is the whole migration; the
+ * body's two-column split then works exactly as it did, one box further in.
+ *
+ * NO ROW ASSIGNMENTS HERE, and that is the simplification the wrap buys. The
+ * unmigrated arm needs `grid-row: 3` on every body child to keep it out of the
+ * eyebrow and title rows — and a `:not(header):not(footer)` carve-out so the
+ * absolutely-positioned running chrome does not get a grid area for a containing
+ * block. Inside `.cell-stage` there is no chrome to dodge and no title rows to
+ * miss, so the equation and the legend simply auto-place into columns 1 and 2.
+ *
+ * SPECIFICITY: `section.math.form > .cell-stage` is (0,3,1) against `stage.css`'s
+ * `section.form > .cell-stage` at (0,2,1), so `display: grid` wins without
+ * `!important`. It is stated here because the pair is easy to break by scoping a
+ * future rule one class looser.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage,
+section.math.form.feature > .cell-stage {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: var(--sp-md) var(--sp-lg);
+  /* Centered in the stage, matching the sovereign layout's `align-self: center`
+   * on the body row. The stage is the body's whole box now, so one declaration
+   * on the container replaces the per-child one. */
+  align-content: center;
+}
+/* The hero equation — left column, centered, with the rule that separates it
+ * from the legend. `border-right` rather than a `column-rule`: this is a grid,
+ * not a multicol, and the border is on the box that owns the gap beside it. */
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])),
+section.math.form.feature > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+  grid-column: 1;
+  align-self: center;
+  text-align: center;
+  padding-right: var(--sp-lg);
+  border-right: 1px solid var(--border);
+}
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg),
+section.math.form.feature > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+  font-size: 1.9em;
+}
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol),
+section.math.form.feature > .cell-stage > :is(ul, ol) {
+  grid-column: 2;
+  align-self: center;
+}
+/* The hanging indent and the `where` label, carried over verbatim from the
+ * sovereign arm — same rules, one box further in. The scope note above the
+ * unmigrated copy applies unchanged: this is the LEGEND list only, because an
+ * absolutely-positioned marker breaks inside `.compare`'s multicol and orphans
+ * itself under `.matrix.decompose`'s centered text. */
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol) > li,
+section.math.form.feature > .cell-stage > :is(ul, ol) > li {
+  padding-left: var(--sp-sm);
+  position: relative;
+}
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol) > li::before,
+section.math.form.feature > .cell-stage > :is(ul, ol) > li::before {
+  position: absolute;
+  left: 0;
+  padding-right: 0;
+}
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol)::before,
+section.math.form.feature > .cell-stage > :is(ul, ol)::before {
+  content: 'where';
+  display: block;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding-bottom: var(--sp-sm);
+}
+
 /* ── math.derivation ──
  * Authoring:
  *   ## Title

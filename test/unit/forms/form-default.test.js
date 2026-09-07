@@ -38,13 +38,42 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
 
   test('skips every sovereign frame (the render-time skip set)', () => {
     // Mirrors FORM_TOGGLE_SKIP_FALLBACK — the engine and this path must agree.
-    for (const cls of ['title', 'divider', 'closing', 'image', 'math', 'compare-code', 'split-panel', 'split-compare']) {
+    // `math` is handled in its own test below: it is mid-migration off the
+    // sovereign frame one variant at a time, so the bare token is no longer a
+    // straight skip.
+    for (const cls of ['title', 'divider', 'closing', 'image', 'compare-code', 'split-panel', 'split-compare']) {
       const d = doc(`<section class="${cls}"><h2>T</h2></section>`);
       applyFormDefaultToDom(d);
       const sec = d.querySelector('section');
       assert.equal(sec.className, cls, `${cls} must not gain form`);
       // still marked as a slide, so slide-scoped features can see it
       assert.equal(sec.getAttribute('data-lattice-slide'), '1');
+    }
+  });
+
+  test('the DOM path agrees with the engine on every math variant, mid-migration', () => {
+    // THE SEAM THIS GUARDS is a Node-vs-browser split. The engine derives its skip
+    // set from the frame manifests at Node load; this DOM path is what the browser
+    // runtime uses. If the two disagreed about which math variants have migrated, a
+    // deck would compose one way in the CLI/PDF export and another in the live
+    // Playground — the exact divergence HARD RULE #1 exists to prevent, and the
+    // failure would be visual, so no other gate would see it.
+    const { MATH_VARIANTS, MIGRATED } = require('../../../lib/core/math-stage-migration.js');
+    const plugins = require('../../../lib/integrations/markdown-it/plugins');
+    for (const variant of MATH_VARIANTS) {
+      const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
+      const d = doc(`<section class="${cls}"><h2>T</h2></section>`);
+      applyFormDefaultToDom(d);
+      const domClass = d.querySelector('section').className;
+      assert.equal(
+        domClass,
+        MIGRATED.has(variant) ? `${cls} form` : cls,
+        `math ${variant}: DOM path should ${MIGRATED.has(variant) ? 'add form' : 'skip'}`,
+      );
+      // and it must match what the engine's own toggle produces for the same class
+      assert.equal(domClass, plugins.formToggleClass(cls, 'standard'),
+        `math ${variant}: the DOM path and the engine disagree`);
+      assert.equal(d.querySelector('section').getAttribute('data-lattice-slide'), '1');
     }
   });
 
