@@ -342,77 +342,86 @@ section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .
  *   | $\frac{f(x+h)-f(x)}{h} = f'(x)+O(h)$ | divide by $h$          |
  *   | $\lim_{h\to 0} = f'(x)$              | take limit             |
  *
- * Two-column table: math left, plain-text right. */
-section.math.derivation {
-  display: flex;
-  flex-direction: column;
+ * Two-column table: math left, plain-text right.
+ *
+ * SOVEREIGN ARM DELETED. What went with it is the clearest case in this migration
+ * for why the frame was never math's to own:
+ *
+ *   section.math.derivation > h2 { position: absolute; top: calc(var(--sp-2xl) + var(--sp-md)); }
+ *
+ * That is the masthead band's geometry, copied by arithmetic, so the proof chain
+ * could center in the well beneath a title that was taken out of flow to get out of
+ * its way. The Form frame puts the h2 in `.cell-masthead` and hands the stage the
+ * remaining height, so centering is `justify-content` on a box that already knows
+ * where it ends — no absolute positioning, no reproduced constant, and one fewer
+ * number that silently rots when the masthead is re-tuned. */
+/* THE FORM ARM. The stage is already `display: flex; flex-direction: column`
+ * (stage.css), so the whole container rule is the centering. The table's own
+ * `--sp-xl` bottom padding is gone too: the frame reserves the footer band with
+ * `--footer-reserve`, derived from the real footer Cell height rather than guessed. */
+section.math.form.derivation > .cell-stage {
   justify-content: center;
-  padding-bottom: var(--sp-xl);
-  position: relative;
 }
-/* Heading taken out of flow (absolute, pinned top) so the proof-chain table
- * centers in the well below it — margin-free equivalent of the table's former
- * auto block-axis margins. */
-section.math.derivation > h2,
-section.math.derivation > h3 {
-  /* left/right:auto keeps the heading at its in-flow (section-padded) horizontal
-   * position; only the vertical is pinned so the table centers beneath it. top clears
-   * the absolute header by the base section's header-clearance (6.875cqi = --sp-2xl +
-   * --sp-md), so the title sits the same distance below the eyebrow as on Form slides. */
-  position: absolute;
-  top: calc(var(--sp-2xl) + var(--sp-md));
-  padding: 0;
-}
-/* The proof chain centers vertically via the parent's
- * `justify-content: center` (replacing the table's former auto block-axis
- * centering, which is now measurable). The table keeps its intrinsic height. */
-section.math.derivation table {
+/* The proof chain keeps its intrinsic height and centers via the stage above. */
+section.math.form.derivation table {
   width: 100%;
   border-collapse: collapse;
   border-spacing: 0;
 }
-section.math.derivation thead {
+section.math.form.derivation thead {
   display: none; /* headers don't earn their place; column meaning is clear */
 }
-section.math.derivation tbody tr {
+section.math.form.derivation tbody tr {
   border-bottom: 1px solid var(--border);
 }
-section.math.derivation tbody tr:last-child {
+section.math.form.derivation tbody tr:last-child {
   border-bottom: none;
 }
-section.math.derivation td {
+section.math.form.derivation td {
   padding: var(--sp-sm) var(--sp-md);
   vertical-align: middle;
   font-size: var(--fs-body);
 }
-section.math.derivation td:first-child {
+section.math.form.derivation td:first-child {
   width: 62%;
   color: var(--text-heading);
 }
-section.math.derivation td:last-child {
+section.math.form.derivation td:last-child {
   color: var(--text-secondary);
   font-style: italic;
   border-left: 2px solid var(--border);
 }
-section.math.derivation tbody tr:last-child td {
+section.math.form.derivation tbody tr:last-child td {
   font-weight: 600;
   color: var(--text-heading);
 }
-section.math.derivation tbody tr:last-child td:last-child {
+section.math.form.derivation tbody tr:last-child td:last-child {
   font-style: normal;
   color: var(--accent);
 }
 /* Display math used as a row entry stays inline-block so it doesn't break
  * the row height. Override the default centered display behavior. */
-section.math.derivation td :is(.katex-display, mjx-container[display="true"]) {
+section.math.form.derivation td :is(.katex-display, mjx-container[display="true"]) {
   display: inline-block;
   margin: 0;
   text-align: left;
 }
-section.math.derivation td :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.derivation td :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.15em;
   display: inline-block;
   text-align: left;
+}
+/* FAMILY REFLOW — tall/strip. The migration costs real height here and the number
+ * is worth stating: the sovereign arm's h2 was absolutely positioned, so the title
+ * overlapped nothing and the proof chain had the whole well. The Form masthead is an
+ * in-flow band, and at portrait a wrapped title takes 271px of it — which put the
+ * committed sample 33px over the stage.
+ *
+ * The chain gives that back where it costs least. Row rhythm is the generous part of
+ * this layout, not the substance: the steps still read as separate rows because each
+ * carries a hairline. Nothing is collapsed and no type shrinks. */
+section.math.math.form.derivation:where([data-family="tall"], [data-family="strip"]) > .cell-stage td {
+  padding: var(--sp-xs) var(--sp-sm);
 }
 
 /* ── math.theorem ──
