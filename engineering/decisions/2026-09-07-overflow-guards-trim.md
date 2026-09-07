@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit? Measured on the real engine in Chromium 131 — yes for prose in an HTML text block, no for anything else. CSS alone cannot do it (no adaptive clamp exists); a measured pass fixed 4 of the 6 clipping slides in the shipped corpus at 6ms per deck; and the existing `probeContentClipped` still reports every trimmed slide, so the honest alarm survives the guard rather than being silenced by it. The blockers are not implementation: 14 chart components carry their labels in SVG where CSS ellipsis is a no-op, a box that does not fit cannot be fixed by trimming text, and a naive cut hid two paragraphs with no mark at all. Proposes TRIM as a fifth Fit-Ladder move, gated by a per-slot trim class whose default is never-trim. The owner ruled on all three forks on 2026-09-07: admit TRIM selectively and default-off, compute the budget with a measured pass, and carry it as a deck front-matter register — see the Ruling section.
+summary: Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit? Measured on the real engine in three real browsers — yes for prose in an HTML text block, no for anything else. An adaptive pure-CSS clamp turns out to exist in WebKit alone (Chromium and Firefox drop the declaration), so the CSS-only route is a portability trap rather than an option; a measured pass fixed 4 of the 6 clipping slides in the shipped corpus at 4-6ms per deck, identically in Chromium, Firefox and WebKit. Stressed across the whole component gallery it fixed 43 of 81 overflowing slides and never broke a layout — but on 19 of them it cut content whose ellipsis lands off-screen, so the decline path is the second-most common outcome and not a polish item. The existing `probeContentClipped` still reports every trimmed slide, so the honest alarm survives the guard rather than being silenced by it. Coverage is bounded: 14 chart components carry their labels in SVG where CSS ellipsis is a no-op, a box that does not fit cannot be fixed by trimming text, and a naive cut hid two paragraphs with no mark at all. Proposes TRIM as a fifth Fit-Ladder move, gated by a per-slot trim class whose default is never-trim. The owner ruled on all three forks on 2026-09-07: admit TRIM selectively and default-off, compute the budget with a measured pass, and carry it as a deck front-matter register — see the Ruling section.
 ---
 
 # Guards — can an ellipsis prevent overflow?
@@ -18,38 +18,100 @@ occupying, in an HTML box, where losing the tail does not change what the slide
 asserts. That is most prose and almost nothing else.
 
 Everything below was measured on this tree at `9522374`, with the real emulator
-and Chromium 131.0.6778.204, not reasoned from the spec.
+and three real browser engines — Chromium 131.0.6778.204 (what the export pipeline
+runs), Firefox 155.0, and WebKit 26.6 (Safari) — not reasoned from the spec. One
+claim in the first draft did not survive that second look; §1 says which and what
+it changed.
 
 ---
 
-## 1. CSS alone cannot do it
+## 1. An adaptive pure-CSS clamp exists — in one engine of three
+
+**This section was wrong in the first draft and is corrected here.** It said flatly
+that CSS cannot clamp to available height. Measured across three real engines, that
+holds in Chromium and Firefox and is **false in WebKit**, which accepts a line count
+derived from a length ratio and draws the ellipsis correctly.
 
 The first hope is that this is a stylesheet change: give every text box
 `overflow: hidden` and a clamp, ship it in `lattice.css`, and be done — no
 measurement, no JS, and it works on every render path including export-to-Marp.
+The blocker is that `-webkit-line-clamp` takes an integer line COUNT, and the
+question is whether that count can be derived from the height the box has.
 
-It does not exist. `-webkit-line-clamp` needs an integer line COUNT, and there is
-no way in CSS to derive that count from the height the box actually has. Seven
-forms were tried:
+Seven forms, three engines, each row read as a computed value AND as a render:
 
-| What was tried | Result in Chromium 131 |
-|---|---|
-| `-webkit-line-clamp: 3` (a literal count) | works — clamps and draws the ellipsis |
-| `-webkit-line-clamp: calc(120px / var(--lh))` | **computes to `none`** — a length ratio is not accepted as an integer |
-| `-webkit-line-clamp: calc(100cqh / 24px)` (container-relative) | **`none`** — same reason |
-| `-webkit-line-clamp: round(down, 120 / 1)` (a pure number) | `120` — arithmetic is fine, so the barrier is specifically lengths |
-| `line-clamp: 3` (the CSS Overflow 4 standalone property) | **unsupported** |
-| `block-ellipsis: auto` (clamp to available height — exactly what we want) | **unsupported**, and unimplemented anywhere |
-| `-webkit-box` + `max-height` with no count | no clamp, no ellipsis — a hard clip |
+| Form | Chromium 131 | Firefox 155 | WebKit 26.6 |
+|---|---|---|---|
+| a. `-webkit-line-clamp: 3` (literal) | clamp + ellipsis | clamp + ellipsis | clamp + ellipsis |
+| b. `calc(120px / var(--lh))` | **dropped** (`none`) | **dropped** (`none`) | **`5` — clamp + ellipsis** |
+| c. `calc(100cqh / 24px)`, real size container | **dropped** | **dropped** | **`5` — clamp + ellipsis** |
+| d. `round(down, 5.9)` (pure number) | `5` — clamp + ellipsis | `5` — clamp + ellipsis | `5` — clamp + ellipsis |
+| e. `line-clamp: 3` (CSS Overflow 4) | unsupported | unsupported | unsupported |
+| f. `block-ellipsis: auto` | unsupported | unsupported | unsupported |
+| g. `-webkit-box` + `max-height`, no count | clip, **no ellipsis** | clip, no ellipsis | clip, no ellipsis |
 
-`block-ellipsis: auto` is the feature this proposal wants and no engine ships it.
-So the count has to come from somewhere else: either a **measured** pass that
-computes it per box, or a **declared** budget per component slot. Section 8
-puts that fork to the owner.
+`CSS.supports()` agrees with the renders: `line-clamp` and `block-ellipsis` are
+false in all three; `-webkit-line-clamp` is true in all three. So the difference in
+rows b and c is not feature support, it is whether the engine accepts a **length
+ratio** where an `<integer>` is required. WebKit does; Chromium and Firefox drop
+the whole declaration. Row d shows the barrier is specifically lengths — pure
+numeric arithmetic is accepted everywhere.
 
-*(The probe was a throwaway in `.scratch/` and is not committed. The table IS
-the reproduction: seven declarations on a fixed-height box and one
-`getComputedStyle` read per row.)*
+**Row c is the one that matters, and it is why the correction does not change the
+ruling.** With `container-type: size` on the parent, `calc(100cqh / 24px)` is a
+genuinely adaptive, JS-free clamp: the box tells the text how many lines it may
+have. It is exactly the mechanism this proposal wanted — and shipping it would
+mean an ellipsis in Safari and a hard mid-line clip in Chrome and Firefox. **The
+same deck would render three ways**, which is the precise failure the engine
+exists to prevent, and the export pipeline runs on the engine that drops it. So
+the cross-engine result **strengthens** the case for a measured pass rather than
+weakening it: the CSS-only route is not merely unavailable, it is a portability
+trap that would look like it worked for whoever tested it on a Mac.
+
+`block-ellipsis: auto` is the feature that would settle this properly, and no
+engine ships it.
+
+### Re-deriving this table
+
+No dependency and no checkout needed — save this as an `.html` file and open it in
+any browser. Each row's verdict is its computed `-webkit-line-clamp` plus whether
+the last visible line ends in an ellipsis.
+
+```html
+<!doctype html><meta charset=utf-8>
+<style>
+  body{font:16px/24px sans-serif}
+  .frame{width:300px;height:120px;border:2px solid #333;overflow:hidden;margin:8px 0}
+  .t{--lh:24px;line-height:var(--lh)}
+  #a .t{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+  #b .t{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:calc(120px / var(--lh));overflow:hidden}
+  #c .frame{container-type:size}
+  #c .t{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:calc(100cqh / 24px);overflow:hidden}
+  #d .t{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:round(down, 5.9);overflow:hidden}
+  #e .t{line-clamp:3;overflow:hidden}
+  #f .t{max-height:120px;overflow:hidden;block-ellipsis:auto}
+  #g .t{display:-webkit-box;-webkit-box-orient:vertical;max-height:120px;overflow:hidden}
+</style>
+<div id=a><b>a literal 3</b><div class=frame><div class=t>PARA</div></div></div>
+<div id=b><b>b calc(120px/var(--lh))</b><div class=frame><div class=t>PARA</div></div></div>
+<div id=c><b>c calc(100cqh/24px)</b><div class=frame><div class=t>PARA</div></div></div>
+<div id=d><b>d round(down,5.9)</b><div class=frame><div class=t>PARA</div></div></div>
+<div id=e><b>e line-clamp:3</b><div class=frame><div class=t>PARA</div></div></div>
+<div id=f><b>f block-ellipsis:auto</b><div class=frame><div class=t>PARA</div></div></div>
+<div id=g><b>g -webkit-box+max-height</b><div class=frame><div class=t>PARA</div></div></div>
+<script>
+  // PARA must be long enough to overflow a 5-line box, or a "no clamp" row proves nothing.
+  const para = 'Lorem ipsum dolor sit amet '.repeat(12);
+  for (const t of document.querySelectorAll('.t')) t.textContent = para;
+  console.table(Object.fromEntries([...'abcdefg'].map(id => {
+    const el = document.querySelector('#' + id + ' .t');
+    return [id, { clamp: getComputedStyle(el).webkitLineClamp,
+                  boxH: Math.round(el.getBoundingClientRect().height),
+                  clipped: el.scrollHeight > el.getBoundingClientRect().height + 1 }];
+  })));
+  console.log(CSS.supports('line-clamp','3'), CSS.supports('block-ellipsis','auto'));
+</script>
+```
 
 ---
 
@@ -75,7 +137,65 @@ question. And the look is the point: the over-stuffed comparison panel ends
 an intact card, and the four-up card grid keeps its 2×2 shape with the oversized
 card ending "…A reviewer looking at four cards should…".
 
-The two that did not fit are the interesting half, and they are section 4.
+**The same pass, run in all three engines on the same deck, does the same thing:**
+
+| Engine | Clipping before | Clipping after | Blocks trimmed | Cut signal after |
+|---|---|---|---|---|
+| Chromium 131 | 2, 3, 5 | 2 | 4 | 2, 3, 5 |
+| Firefox 155 | 2, 3, 5 | 2 | 4 | 2, 3, 5 |
+| WebKit 26.6 | 2, 3, 5 | 2 | 4 | 2, 3, 5 |
+
+Byte-for-byte the same verdict, and the trimmed card grid renders identically in
+all three. That matters because the chosen mechanism is the row-a form — a
+**literal** integer clamp, which every engine supports — while the tempting CSS-only
+mechanism is the row-c form, which only one supports. The measured pass is portable
+precisely because the number is computed outside CSS and handed in.
+
+The two slides that did not fit are the interesting half, and they are section 4.
+
+---
+
+## 2b. Stressed across the whole component gallery
+
+Four decks is a small sample, and the corpus is curated clean, so the guard was
+run against the full component gallery with every slide's prose inflated until it
+overflowed. 116 slides: 29 carry no prose leaf to trim, 6 would not overflow even
+at 6 doublings, leaving **81 slides stressed into genuine overflow across the
+component catalog**.
+
+| Outcome | Slides | |
+|---|---|---|
+| Guard made the slide fit | 43 | 53% |
+| Guard declined (nothing textual left to cut) | 38 | 47% |
+| **Trims whose mark is INVISIBLE** | **19** | **23%** |
+| Layouts broken (failure mode 4a) | 0 | — |
+
+Two results, and the second is the one that matters.
+
+**The 4a rule holds.** Across 81 stressed slides and every component in the
+catalog, the guard never once turned a grid or flex layout into a `-webkit-box`.
+The "only trim a text block" rule is doing its job.
+
+**Failure mode 4d is not an anecdote — it is the dominant defect.** The first
+draft found it once, on `examples/README.md`, and treated it as an edge case. It
+occurs on **19 of the 81 stressed slides**, across 18 different components —
+quote, cards-grid, list-criteria, list-tabular, list-steps, split-panel, kpi,
+content, piechart, quadrant, state-chart, split-compare, obligation-matrix,
+regulatory-update, q-and-a, logo-wall, wifi. In each, the guard clamped an element
+that sits wholly below the visible box: the content is cut, the ellipsis exists in
+the DOM, and no reader can see either. The slide renders looking finished.
+
+Note the measurement itself had to be corrected. The first detector asked whether a
+clamped element's content exceeds its box, which is true of every trim and reported
+zero failures. The right question is whether the clamped element's last line lands
+INSIDE the box that clips it. Same run, same DOM, 0 became 19.
+
+**What this changes.** Not the ruling — 4d was already named as the acceptance
+test. What it changes is the weight: an implementation that treats "decline when
+the mark would be invisible" as a polish item will ship this defect on roughly a
+quarter of the slides that need the guard at all. The decline path is not an edge
+case to handle later; it is the second-most common outcome after success, and it
+has to exist before the happy path is worth shipping.
 
 ---
 
@@ -149,8 +269,9 @@ its sibling kept one.
 
 ### 4d. The worst one — a trim can hide content and mark nothing
 
-On `examples/README.md` the guard clamped two paragraphs that were already
-entirely below the frame edge. Both vanished from the render with no ellipsis
+**Measured at 19 of 81 stressed slides — see §2b.** This is the dominant defect,
+not an edge case. On `examples/README.md` the guard clamped two paragraphs that
+were already entirely below the frame edge. Both vanished from the render with no ellipsis
 anywhere on the slide, because the "…" was drawn on a line that is itself
 outside the visible box. The slide now looks perfect and is missing two
 paragraphs. **That is strictly worse than the clip it replaced** — a sheared
@@ -181,9 +302,15 @@ From a full census of all 69 components (`lib/components/*/*/*.styles.css`):
 - **14 chart components carry their labels in SVG `<text>`** — bar, bullet,
   funnel, gantt, line, map, piechart, quadrant, radar, scatter, slope,
   stacked-bar, waterfall, word-cloud. CSS `text-overflow` and `line-clamp` do
-  not apply to SVG text. A guard is a **no-op on a fifth of the catalog**.
-  Those components fit by their own scaling and their type floor, which is the
-  right answer for a chart.
+  not apply to SVG text, so **no guard can reach a chart's own labels**. Those
+  components fit by their own scaling and their type floor, which is the right
+  answer for a chart.
+  **This is a claim about labels, not about chart slides.** A chart slide still
+  has HTML around the figure — a heading, a lede, a caption, a narration block —
+  and the guard trims those happily: the stress run trimmed ten elements on one
+  piechart slide. So "a fifth of the catalog is unreachable" is true of the
+  figures and false of the slides they sit on, which is a distinction an
+  implementation has to encode rather than assume.
 - **51 of 69 carry at least one multi-line prose slot** — so the single-line
   `text-overflow: ellipsis` idiom would be the wrong tool for nearly all of them.
 - **4 components are single-line labels only** (contact, logo-wall,
@@ -284,7 +411,8 @@ answers are defensible; they cannot both be the house rule.
      N chosen for the box at design time. Pure CSS, deterministic, works on every
      path with no measurement — but only engages where the box height does not
      grow with its content, which the census puts at 30 components cleanly and 11
-     partly.
+     partly. Note the *adaptive* variant of this (§1 row c) is not on the table at
+     all: it renders an ellipsis in Safari and a hard clip in Chrome and Firefox.
    - *Both*: declared budgets carry the fixed-geometry cases; the measured pass
      covers the rest. Two mechanisms for one concern is a HARD RULE #1 smell and
      needs an answer before, not after.
@@ -331,6 +459,16 @@ gets edited in the same change that ships the code, never after:
 that cannot place a visible ellipsis at the cut must decline and leave the
 honest clip. A slide that looks finished and is missing two paragraphs is the
 one outcome that is worse than the clip this replaces.
+
+**One claim was corrected after the ruling, and it did not move it.** The first
+draft asserted that CSS cannot clamp to available height at all. Re-measured in
+Firefox 155 and WebKit 26.6 before merge, that is false in WebKit: a length-ratio
+line count parses and renders there, with the ellipsis in the right place. The
+ruling stands, and for a better reason than the one first given — a CSS-only clamp
+would ellipsize in Safari and hard-clip in Chrome and Firefox, so it is a
+portability trap, not a missing feature. Recorded rather than quietly fixed,
+because the pattern is the point: the flat claim survived a first pass and one
+browser, and died on the second engine it met.
 
 **Not built.** This note records the investigation and the ruling. The
 implementation — the register, the trim classes, the measured pass on each
