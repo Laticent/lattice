@@ -9,6 +9,7 @@ the second round answers.
 | 1 | What IS the language? | `candidates/` (6 tracks) | `judgement.md` | Three Registers + R0 — **settled** |
 | 2 | Three colour-forward finishes | `candidates-colour/` (4 tracks) | `judgement-colour.md` | `pigment` / `etching` / `ground` — **`finishes.spec.js`** |
 | — | Do the three actually differ? | the rendered gallery | **`scoring.md`** | **5/10** — they reach 5 of 21 members; a slot contract is upstream of all three |
+| — | Where is colour spent, and what does a finish own? | the review of `scoring.md` | **`spend-rules.md`** | colour goes to the join once; finish owns the mark, `frame:` becomes its own register |
 
 `finishes.superseded.spec.js` is round one's four-finish attempt, kept as the
 record of a failure worth not repeating: it varied furniture opacity and corner
