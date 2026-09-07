@@ -628,7 +628,16 @@ async function main() {
 
 	const results = [];
 	const shots = [];
-	let lastDoc = null;
+	// Seeded from the document that is ALREADY resident, not from null: `rewrite` is
+	// `sample.doc !== lastDoc`, so a null seed makes the first surviving sample report a
+	// rewrite that did not happen, and the cold aggregate then says `1/2` for a run that
+	// patched twice.
+	let lastDoc = await page
+		.frameLocator('[aria-label="Live deck preview"] iframe.live')
+		.locator('.lattice')
+		.first()
+		.evaluate(() => window.__flash?.doc ?? null)
+		.catch(() => null);
 	// Slide indices are 1-based in the rail; our deck is [text, diagram, text, diagram].
 	const order = [];
 	for (let r = 0; r < opts.runs; r++) order.push(...opts.order);
@@ -792,9 +801,13 @@ async function main() {
 	} else {
 		console.log(`\nvariant: ${opts.variant}   cpu×${opts.cpu}   runs: ${opts.runs}\n`);
 		console.log('                 raw-source frames   (ink-weighted)   blank frames   held frames   WRONG ink   time-to-diagram   layout shift   renders');
+		// `cold` is the FIRST pass through `--order` and nothing else (see the `cold:` field),
+		// so it holds at most one row per diagram slide however many `--runs` are asked for.
+		// `n=` says how many, because "medians of 5 runs" is true of the warm rows and false
+		// of these, and `wrong` is a MAX over them rather than a median.
 		for (const [label, a] of [['cold (first visit)', out.cold], ['warm (cached)', out.warm]]) {
 			if (!a) continue;
-			console.log(`  ${label.padEnd(18)} ${String(a.sourceFrames).padStart(8)}       ${String(a.sourceInk).padStart(10)}      ${String(a.blankFrames).padStart(9)}   ${String(a.heldFrames).padStart(9)}   ${String(a.wrongFrames).padStart(7)}    ${String(a.diagramMs === null ? 'never' : `${a.diagramMs}ms`).padStart(12)}   ${String(a.shift).padStart(10)}   ${String(a.renders).padStart(6)}`);
+			console.log(`  ${(label + ' n=' + a.n).padEnd(18)} ${String(a.sourceFrames).padStart(8)}       ${String(a.sourceInk).padStart(10)}      ${String(a.blankFrames).padStart(9)}   ${String(a.heldFrames).padStart(9)}   ${String(a.wrongFrames).padStart(7)}    ${String(a.diagramMs === null ? 'never' : `${a.diagramMs}ms`).padStart(12)}   ${String(a.shift).padStart(10)}   ${String(a.renders).padStart(6)}`);
 		}
 		console.log('\n  phases, from the frame document\'s own `.lattice` (ms):   full rewrites / visits');
 		for (const [label, a] of [['cold (first visit)', out.cold], ['warm (cached)', out.warm]]) {

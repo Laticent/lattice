@@ -263,14 +263,18 @@ observer callback, and takes the outgoing `<svg>` out of the `MutationRecord`'s
 `removedNodes` — the DOM the host just threw away is still reachable there — and MOVES it
 into the fence that replaced it. The `<pre>` is left `pending`, so the debounced pass still
 renders the new source over the top: the held SVG is a placeholder with a render already
-queued, never an answer. It refuses three cases, because each would be a wrong diagram
-rather than a slow one. The load-bearing one is `isDiagramRevision`: hold only when the
-ARRIVING SOURCE IS A REVISION of the ink on screen, scored as the shared head and tail of
-the two sources (what a single-point edit leaves behind) over the longer one, above 0.5.
-Slide identity is not the test and would not work — the Studio's editor preview replaces the
-whole `.lattice` body in one mutation, so navigating between two diagram slides is shaped
-exactly like an edit, and a deck whose authored-slide count disagrees with the engine's
-renders every slide alone as `id="1"`. Beside it: never donate from a fence that is not
+queued, never an answer. It refuses five cases, because each would be a wrong diagram
+rather than a slow one. The load-bearing one is THE HOST'S WORD: hold only on a swap the
+host stamped `data-lattice-swap="in-place"` on `.lattice` before writing. Both preview hosts
+replace slide DOM in ONE mutation, so from inside the frame an edit and a navigation to
+another slide are identical — same node count, same fence count, same scope key — and only
+the caller knows which happened (`patchSlideBody` in `single-slide-render.ts` compares the
+shown slide index; `patchSections` in `deck-preview.js` reads it off the branch it took). No
+stamp means no hold, so an untaught host gets an empty slot rather than a wrong diagram.
+A TEXT-SIMILARITY TEST WAS TRIED HERE AND IS WRONG: it scores shared BOILERPLATE, so all
+twelve ordered pairs of `examples/mermaid-init-merge.md` — four slides whose whole point is
+that one graph renders differently under different `%%{init}%%` lines — score 0.68–0.82 and
+would each have held the others' ink. Beside the host gate: never donate from a fence that is not
 `rendered` (a `pending` fence holding an SVG is a placeholder, and donating it forward
 carries one slide's diagram across every slide the author clicks through), a different
 NUMBER of fences either side, a different `diagramScopeKey` (the slide's palette changed, so

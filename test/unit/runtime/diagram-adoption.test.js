@@ -32,7 +32,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
-const { diagramScopeKey, isDiagramRevision } = require('../../../lib/core/diagram-scope');
+const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
@@ -61,11 +61,10 @@ function liftAdoption(dom, { mermaid = { render() {}, initialize() {} } } = {}) 
     'document',
     'globalScope',
     'diagramScopeKey',
-    'isDiagramRevision',
     'FENCE_CODE_SELECTOR',
     `${src}\nreturn { adoptOutgoingDiagrams, burstFirstSight };`,
   );
-  return make(dom.window.document, { mermaid }, diagramScopeKey, isDiagramRevision, shippedFenceSelector());
+  return make(dom.window.document, { mermaid }, diagramScopeKey, shippedFenceSelector());
 }
 
 /**
@@ -106,7 +105,9 @@ function swap(dom, latticeSel, incomingHtml) {
   return [{ addedNodes: [fresh], removedNodes: [old] }];
 }
 
-const deck = (sectionHtml) => `<div class="lattice">${sectionHtml}</div>`;
+// The host stamps `.lattice` before every patch; `in-place` is what licenses a hold.
+// `swap` overrides it for the arms that check the gate itself.
+const deck = (sectionHtml, swap = 'in-place') => `<div class="lattice" data-lattice-swap="${swap}">${sectionHtml}</div>`;
 
 describe('adoptOutgoingDiagrams', () => {
   test('holds the outgoing SVG in the fence that replaced it, and keeps it pending', () => {
@@ -170,22 +171,44 @@ describe('adoptOutgoingDiagrams', () => {
     assert.equal(dom.window.document.querySelector('.mermaid > svg'), null);
   });
 
-  test('refuses a DIFFERENT diagram arriving in the same slot — the navigation case', () => {
-    // THE DEFECT THIS PINS. The Studio's editor preview replaces the whole `.lattice` body
-    // in ONE mutation (`patchSlideBody`), so clicking from one diagram slide to another
-    // arrives in exactly the shape an edit does: one node out, one node in, same fence
-    // count, same scope key. Every structural guard passes, and without a revision test the
-    // author saw the PREVIOUS slide's diagram in the new slide's box until the render
-    // landed — chaining across every slide they clicked through faster than the debounce.
+  test('refuses a swap the host did not call in-place — the navigation case', () => {
+    // THE DEFECT THIS PINS. Both preview hosts replace slide DOM in ONE mutation, so
+    // clicking from one diagram slide to another arrives in exactly the shape an edit does:
+    // same node count, same fence count, same scope key. Every structural guard passes, and
+    // without the host's word the author saw the PREVIOUS slide's diagram in the new slide's
+    // box until the render landed.
     const outgoing = `<section class="diagram">${rendered('flowchart LR\n  A[Input] --> B[Process]', 'slide-2-ink')}</section>`;
     const incoming = `<section class="diagram">${pending('flowchart LR\n  P[Plan] --> Q[Build]')}</section>`;
-    const dom = new JSDOM(deck(outgoing));
+    const dom = new JSDOM(deck(outgoing, 'reflow'));
     liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
     assert.equal(
       dom.window.document.querySelector('.mermaid > svg'),
       null,
-      'a different diagram must not inherit the previous slide’s ink',
+      'a slide the host did not call in-place must not inherit the previous slide’s ink',
     );
+  });
+
+  test('refuses when the host said nothing at all', () => {
+    // marp-vscode, or any embedder that has not been taught the contract. No stamp, no hold:
+    // the pre-2026-09-06 behavior, an empty slot for the length of a render.
+    const outgoing = `<section class="diagram">${rendered('flowchart LR\n  A --> B', 'old-svg')}</section>`;
+    const incoming = `<section class="diagram">${pending('flowchart LR\n  A --> Bx')}</section>`;
+    const dom = new JSDOM(`<div class="lattice">${outgoing}</div>`);
+    liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
+    assert.equal(dom.window.document.querySelector('.mermaid > svg'), null);
+  });
+
+  test('HOLDS a wholesale replacement on the SAME slide — the author is watching that slide', () => {
+    // A text-similarity guard refused this, and refusing it was wrong: the author is on the
+    // slide, the old drawing was there a moment ago, and the render replaces it. What made
+    // that guard untenable is the other direction — two DIFFERENT diagrams sharing a header
+    // score above any workable threshold (all twelve ordered pairs of
+    // examples/mermaid-init-merge.md score 0.68–0.82).
+    const outgoing = `<section class="diagram">${rendered('flowchart LR\n  A[Input] --> B[Process]', 'old-svg')}</section>`;
+    const incoming = `<section class="diagram">${pending('pie title Share\n  "a" : 40\n  "b" : 60')}</section>`;
+    const dom = new JSDOM(deck(outgoing));
+    liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
+    assert.equal(dom.window.document.querySelector('.mermaid > svg')?.id, 'old-svg');
   });
 
   test('never donates ink it is only holding — a placeholder must not travel', () => {
@@ -197,16 +220,6 @@ describe('adoptOutgoingDiagrams', () => {
       `<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR\n  A --> B</code></pre>` +
       `<div class="mermaid" aria-hidden="true"><svg id="held-not-mine"></svg></div></section>`;
     const incoming = `<section class="diagram">${pending('flowchart LR\n  A --> Bx')}</section>`;
-    const dom = new JSDOM(deck(outgoing));
-    liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
-    assert.equal(dom.window.document.querySelector('.mermaid > svg'), null);
-  });
-
-  test('refuses a wholesale replacement on the SAME slide', () => {
-    // Slide identity would say yes here and be wrong: the author threw the diagram away, so
-    // the old ink is not a preview of what is coming. The revision test says no.
-    const outgoing = `<section class="diagram">${rendered('flowchart LR\n  A[Input] --> B[Process]', 'old-svg')}</section>`;
-    const incoming = `<section class="diagram">${pending('pie title Share\n  "a" : 40\n  "b" : 60')}</section>`;
     const dom = new JSDOM(deck(outgoing));
     liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
     assert.equal(dom.window.document.querySelector('.mermaid > svg'), null);
@@ -364,5 +377,65 @@ describe('burstFirstSight', () => {
     const dom = new JSDOM(deck(outgoing));
     const { burstFirstSight } = liftAdoption(dom);
     assert.equal(burstFirstSight(swap(dom, '.lattice', incoming)), false);
+  });
+});
+
+/**
+ * `resetFenceAfterFailure` — the third guard this change ships, and the one a checker found
+ * had no coverage at all: deleting the clear left every suite in the tree green.
+ *
+ * Lifted by name rather than through the ADOPTION PORT sentinels, because it lives with
+ * #2108's release/reclaim machinery, not with adoption.
+ */
+function liftReset(reclaimedHas = false) {
+  const m = RUNTIME_SRC.match(/ {2}function resetFenceAfterFailure\(preEl\) \{[\s\S]*?\n {2}\}/);
+  assert.ok(m, 'lib/runtime/index.js must declare resetFenceAfterFailure');
+  assert.match(m[0], /innerHTML = ''/, 'the reset must clear the slot on its way back');
+  // eslint-disable-next-line no-new-func
+  return new Function('reclaimed', `${m[0]}\nreturn resetFenceAfterFailure;`)({ has: () => reclaimedHas });
+}
+
+describe('resetFenceAfterFailure', () => {
+  const inFlight = (svgId) =>
+    `<section class="diagram">` +
+    `<pre data-mermaid-state="rendering"><code class="language-mermaid-source">flowchart LR\n  A --> B</code></pre>` +
+    `<div class="mermaid" aria-hidden="true">${svgId ? `<svg id="${svgId}"></svg>` : ''}</div></section>`;
+
+  test('drops HELD ink on the way back to pending', () => {
+    // The two throw paths that land here — a mid-walk throw, and a `mermaid.initialize` that
+    // throws inside a run — never pass through `attachError`, which is the only other thing
+    // that clears. Left in place, an intermittently-throwing Mermaid retries forever while the
+    // slide keeps displaying a diagram built from source the author already changed, because
+    // `mermaid.css` shows `.mermaid` for `pending` on a `section.diagram`.
+    const dom = new JSDOM(`<div class="lattice">${inFlight('held')}</div>`);
+    const preEl = dom.window.document.querySelector('pre');
+    liftReset()(preEl);
+    assert.equal(preEl.dataset.mermaidState, 'pending');
+    assert.equal(dom.window.document.querySelector('.mermaid > svg'), null, 'the held SVG must not survive the reset');
+  });
+
+  test('is a no-op for a fence that never held anything', () => {
+    const dom = new JSDOM(`<div class="lattice">${inFlight(null)}</div>`);
+    const preEl = dom.window.document.querySelector('pre');
+    liftReset()(preEl);
+    assert.equal(preEl.dataset.mermaidState, 'pending');
+    assert.equal(dom.window.document.querySelector('.mermaid').innerHTML, '');
+  });
+
+  test('returns a RECLAIMED fence to unavailable, not pending — #2108 semantics intact', () => {
+    // A reclaim took this fence from the author; a failed pass must give it back, or they get
+    // a blank where they had their source.
+    const dom = new JSDOM(`<div class="lattice">${inFlight('held')}</div>`);
+    const preEl = dom.window.document.querySelector('pre');
+    liftReset(true)(preEl);
+    assert.equal(preEl.dataset.mermaidState, 'unavailable');
+  });
+
+  test('leaves a fence that is not `rendering` alone', () => {
+    const dom = new JSDOM(`<div class="lattice">${rendered('flowchart LR\n  A --> B', 'done')}</div>`);
+    const preEl = dom.window.document.querySelector('pre');
+    liftReset()(preEl);
+    assert.equal(preEl.dataset.mermaidState, 'rendered');
+    assert.equal(dom.window.document.querySelector('.mermaid > svg')?.id, 'done', 'a rendered diagram is never cleared');
   });
 });

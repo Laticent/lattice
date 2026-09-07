@@ -179,7 +179,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: number | 'alone'; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -199,13 +199,22 @@ function frameHasPainted(fr: HTMLIFrameElement): boolean {
 // executed, so the runtime's body observer re-processes the swapped section for
 // free. Returns false if the live document is gone (caller falls back to a full
 // srcdoc write). The single-slide twin of deck-preview.js's patchSections.
-function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
+function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolean): boolean {
 	const doc = fr.contentDocument;
 	const lattice = doc?.querySelector('.lattice');
 	if (!doc || !lattice) return false;
 	const holder = doc.createElement('div');
 	holder.innerHTML = safeHtml;
 	const fresh = holder.querySelector('.lattice');
+	// SAY WHICH SLIDE THIS IS, BEFORE THE WRITE. The runtime holds a rendered diagram on
+	// screen while an edited fence re-renders, and that is only correct when the arriving
+	// fence is the SAME fence. From inside the frame the two cases are indistinguishable —
+	// this path replaces the whole `.lattice` body in one mutation, so an edit and a
+	// navigation to another slide produce identical MutationRecords (same node count, same
+	// fence count, same scope key). Only the caller knows which happened, so the caller says
+	// so. Stamped BEFORE the write, because the runtime reads it from the observer callback
+	// that write triggers. See adoptOutgoingDiagrams in lib/runtime/index.js.
+	lattice.setAttribute('data-lattice-swap', inPlace ? 'in-place' : 'reflow');
 	lattice.innerHTML = (fresh || holder).innerHTML;
 	return true;
 }
@@ -1460,6 +1469,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// runtime re-renders the swapped fence. KaTeX needs no flag either: single
 				// -slide never injects a katex <link>; math rides the patch as static HTML.
 				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}`;
+				// IS THIS PATCH THE SAME SLIDE AS THE LAST ONE? The one fact the frame cannot work
+				// out for itself, and the one `patchSlideBody` hands the runtime (see there).
+				// `'alone'` is the narrowing fallback: when the deck's authored-slide count
+				// disagrees with the engine's section count, every slide renders on its own and
+				// they are indistinguishable from each other — so that case is never `in-place`,
+				// which costs a held diagram and never risks the wrong one. Reading it also
+				// STAMPS it, so the next render compares against this one.
+				const shownSlide: number | 'alone' = opts?.slideIndex === undefined ? 'alone' : opts.slideIndex;
+				const sameShownSlide = () => {
+					const prev = (host as LiveHost).__latticeShownSlide;
+					(host as LiveHost).__latticeShownSlide = shownSlide;
+					return shownSlide !== 'alone' && prev === shownSlide;
+				};
 				// The same hash-is-a-filter argument the render caches make (see KeyInputs), applied to
 				// the one other djb2 key in this file. Here a collision is not another deck's content —
 				// it is the author's live CSS edit landing on the PATCH path, which reuses the resident
@@ -1490,7 +1512,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const safe = sanitizeOnce(out.html);
 					const patchSanitizeMs = performance.now() - tSan;
 					const tFrame = performance.now();
-					if (patchSlideBody(live, safe)) {
+					if (patchSlideBody(live, safe, sameShownSlide())) {
 						const tFit = performance.now();
 						scaleFrame(host);
 						const patchFitMs = performance.now() - tFit;
@@ -1548,7 +1570,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// atomically with the new section, so a viewer never sees the old theme on the new
 					// body (or vice-versa) for a frame.
 					themeStyleEl.textContent = styleElementText(out.css, mode, geom, extraCss);
-					if (patchSlideBody(live, safe)) {
+					if (patchSlideBody(live, safe, sameShownSlide())) {
 						(host as LiveHost).__latticeFrameSig = sig;
 						(host as LiveHost).__latticeFrameCss = frameCss;
 						(host as LiveHost).__latticeRestyleSig = restyleSig;

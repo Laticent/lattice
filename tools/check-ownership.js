@@ -5022,11 +5022,12 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'there by adoptOutgoingDiagrams) on the two failure paths that return a fence to `pending` without ' +
       'passing through attachError. Both write the literal \'\', so neither can carry a payload; they are ' +
       'counted because this arm matches the receiver expression, not the value. ' +
-      'STILL THREE after the same-task replay (2026-09-05-diagram-fence-flash.md), and that is the ' +
-      'fact worth pinning: the replay now runs from a MutationObserver microtask as well as from the ' +
-      'debounced walk, but both call ONE `settleFenceFromCache`, so a second caller added no second ' +
-      'place that parses the string. A future caller must reuse that helper for this count to hold — ' +
-      'writing `job.target.innerHTML` inline would read to this text matcher as a new, undeclared sink.',
+      'The SVG pair stayed at TWO through the same-task replay (2026-09-05-diagram-fence-flash.md), ' +
+      'and that is the fact worth pinning: the replay runs from a MutationObserver microtask as well ' +
+      'as from the debounced walk, but both call ONE `settleFenceFromCache`, so a second caller added ' +
+      'no second place that parses the string. A future caller must reuse that helper for this count ' +
+      'to hold — writing `job.target.innerHTML` inline would read to this text matcher as a new, ' +
+      'undeclared sink.',
   },
   {
     file: 'lib/runtime/index.js',

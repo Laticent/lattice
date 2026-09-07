@@ -110,12 +110,11 @@ source, adoption produces the previous one.
 
 Three refusals, each of which would otherwise be a wrong answer rather than a slow one:
 
-- **ink that is not a REVISION of what is arriving** — `isDiagramRevision`
-  (`lib/core/diagram-scope.js`), and it is the guard the first version was missing. See §4a;
 - **a donor that is not itself `rendered`.** A `pending` fence whose slot holds an SVG is one
   this walk filled a moment ago. Donating a placeholder forward carries one slide's diagram
   across every slide an author clicks through faster than the debounce — driven across three
   slides by the maker-checker;
+- **a swap the host did not call `in-place`.** See §4a — it is the load-bearing one;
 - **a different number of fences** in the outgoing and incoming subtree. Position is the
   only identity available (the source changed — that is the premise), so a slide that
   gained or lost a diagram would shift every later one by a slot. Pairing is **node for
@@ -160,21 +159,42 @@ removedFences: [0,1,0]}`. So a NAVIGATION arrives in exactly the shape an EDIT d
 node count, same fence count, same scope key — and "node for node, and the counts must agree"
 refuses nothing.
 
-**Slide identity would not have fixed it either**, which is why the fix does not use it. The
-obvious guard, "is this the same `<section id>`?", fails in both directions: it says yes to an
-author who replaced a diagram wholesale on one slide, where the old ink is not a preview of
-the new; and when a deck's authored-slide count disagrees with the engine's section count
-(`_focusSteps`, `split: headings`) the shown slide is rendered ALONE, where every slide's `id`
-is `1`. A guard built on it would have passed the case it was written for.
+**A TEXT-SIMILARITY GUARD WAS SHIPPED HERE FIRST, AND IT DID NOT WORK.** It scored the shared
+head and tail of the two sources over the longer one — what a single-point edit leaves behind
+— and held above 0.5, justified on a two-sample gap: 0.42 for two `flowchart LR`s of the same
+shape, 0.66 for a whole line added. A third checker took it apart, and the refutation is not
+subtle: **the score measures shared BOILERPLATE, not sameness of drawing.** All twelve ordered
+pairs of `examples/mermaid-init-merge.md` — four slides whose entire point is that ONE graph
+renders differently under different `%%{init}%%` lines — score **0.68 to 0.82**. Two
+`sequenceDiagram`s sharing participants score 0.76; two `classDiagram`s sharing classes, 0.75;
+`graph TD` against `graph LR`, 0.75. A deck this repo ships hit it, reproduced on the real
+Studio with the wrong drawing under the right heading. The threshold had been fitted to the one
+pair in the bench deck.
 
-**So ask the question directly: is the arriving source a REVISION of the ink on screen?** That
-is the only property that makes holding correct, and it is measurable without asking the host
-anything. `isDiagramRevision` scores the shared head and tail as a fraction of the longer
-source — which is exactly what a single-point text edit leaves behind — and holds only above
-0.5. Measured on real sources: one character typed 0.98, an eight-character burst 0.88, a
-whole line added 0.66; two `flowchart LR`s of the same shape 0.42 (their shared
-`flowchart LR\n  ` is the whole of it), a flowchart replaced by a `pie` or a `sequenceDiagram`
-0.00. The threshold sits between the clusters with 0.42 below and 0.66 above.
+**The fix is to stop guessing and ask the host.** Whether a swap is an edit or a navigation is
+not derivable from inside the frame — that is the whole content of §4a — but it is a fact the
+caller already has. Both preview hosts now stamp `.lattice` with
+`data-lattice-swap="in-place" | "reflow"` immediately before they write, and adoption holds ink
+only on `in-place`. `patchSlideBody` (`single-slide-render.ts`) compares the shown slide index
+against the last one it rendered; `patchSections` (`deck-preview.js`) reads it off the branch it
+takes — replacing `cur[i]` with `next[i]` keeps every slide at its own index, while rebuilding
+the body because a slide was added or removed shifts them.
+
+Three properties make this the right shape where the heuristic was not:
+
+- **It is exact.** No threshold, no fitted constant, no class of diagram it is blind to.
+- **Silence is safe.** A host that has not been taught the contract — marp-vscode, any
+  embedder — stamps nothing, and no stamp means no hold: an empty slot for the length of a
+  render, which is the pre-2026-09-06 behavior.
+- **It gets the wholesale-replacement case RIGHT, where the heuristic got it wrong in the
+  expensive direction.** An author who replaces a diagram on the slide they are watching should
+  see the old drawing until the new one lands; the similarity test refused that (0.00) while
+  accepting two different slides at 0.82.
+
+`isDiagramRevision`, `sharedEnds` and `REVISION_MIN_SHARED` are deleted from
+`lib/core/diagram-scope.js` rather than kept as a second belt: an extra refusal that fires on a
+legitimate large edit is a feature regression, and keeping a disproved test around invites
+someone to trust it.
 
 **Driven on the built Studio, `--scenario nav`, default order, prose-last deck:**
 

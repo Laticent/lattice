@@ -526,11 +526,22 @@ export function patchSections(frame, next, prev) {
 	const lattice = doc?.querySelector('.lattice');
 	if (!lattice) return false;
 	const cur = lattice.querySelectorAll(':scope>section');
+	// SAY WHICH KIND OF SWAP THIS IS, BEFORE THE WRITE — the same contract
+	// `patchSlideBody` carries in single-slide-render.ts, and for the same reason: the
+	// runtime holds a rendered diagram while an edited fence re-renders, and only the
+	// caller knows whether a replaced section is the SAME slide edited or a different one
+	// arriving. Here the answer is structural. Replacing `cur[i]` with `next[i]` keeps
+	// every slide at its own index, so each replacement is that slide edited in place;
+	// rebuilding the body because a slide was added or removed shifts them, so it is not.
+	// Stamped before the write, because the runtime reads it from the observer callback
+	// that write triggers. See adoptOutgoingDiagrams in lib/runtime/index.js.
 	if (next.length !== cur.length) {
+		lattice.setAttribute('data-lattice-swap', 'reflow');
 		// Slide added/removed: rebuild the filmstrip body only — no script re-eval;
 		// the runtime/Mermaid/FIT/SYNC agents persist and re-process.
 		lattice.innerHTML = next.join('\n');
 	} else {
+		lattice.setAttribute('data-lattice-swap', 'in-place');
 		const p = prev || [];
 		for (let i = 0; i < next.length; i++) {
 			if (p[i] === next[i]) continue;
