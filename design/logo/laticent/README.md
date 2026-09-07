@@ -90,6 +90,7 @@ until you have re-run it.
 | `laticent-lockup-on-light.svg` / `-on-dark.svg` | Tile + wordmark | Formal use, at 260px wide or more |
 | `laticent-lockup-bare-on-light.svg` / `-on-dark.svg` | Letter + wordmark | Where a container is wrong, at 240px wide or more |
 | `generate.py` | Source of truth — regenerates all eight, asserts four invariants | `python3 generate.py` |
+| `minsize.js` | The minimum-size table above | `node minsize.js` (needs `CHROME_PATH`) |
 | `wordmark.py` | **Generated.** The wordmark as a path | — |
 | `outline-wordmark.py` | Re-outlines the wordmark from Fraunces | On demand; needs network |
 | `audit.py` | Crop gate, transform-aware | `python3 audit.py .` |
@@ -249,38 +250,57 @@ pre-empt is worse than no gate.
 ## Rules
 
 - **Clear space:** one stem-width on all sides.
-- **Minimum size**, per asset:
+- **Minimum size**, per asset. Re-derive with
+  `node design/logo/laticent/minsize.js` (needs `CHROME_PATH`):
 
   | Asset | Minimum | What fails just below it |
   |---|---|---|
   | `laticent-lockup-on-*` | **260px wide** | 10 ink components down to 255; 11 at 250 — a wordmark stroke splits |
   | `laticent-lockup-bare-on-*` | **240px wide** | 10 down to 240; 12 at 230 |
-  | `laticent-tile` | **48px** | the groove's value spread holds at 112 down to 48, falls to 75 at 44 |
-  | `laticent-mark` | **40px** | spread holds at 25 down to 40, falls to 19 at 38 |
+  | `laticent-tile` | **48px** | the groove renders at its full nominal 3.06:1 down to 48, then 1.73:1 at 44 |
+  | `laticent-mark` | **40px** | full nominal 1.41:1 down to 40, then 1.31:1 at 38 |
   | `laticent-mark-min` | **32px** | erosion 40% at 32, 51% at 28 — the stroke goes hairline |
   | `laticent-tile-min` | **16px** | the favicon floor; at 16 the letter is one pixel thin throughout, and it holds only because it is solid ink on a solid ground |
 
   There is no `-min` lockup, so below 240px the answer is the wordmark alone or
   the symbol — never a shrunken lockup.
 
-  These are measured on three arms: the count of connected ink components (a
-  rise means a stroke split, a fall means two merged, either is a failure), the
-  share of ink lost to a one-pixel erosion, and the value spread inside the
-  letter. **An earlier version of this file gave ~46px for both symbols** on a
-  solid-ink-against-mean-alpha ratio, which cannot see a tile at all — a
+  Four arms, because no single one covers both a bare letter and a full-bleed
+  tile: **connected ink components** (a rise means a stroke split, a fall means
+  two merged, either is a failure), **one-pixel erosion**, the groove's raw
+  **luminance gap**, and the groove's rendered **contrast ratio** against the
+  nominal the design specifies. The floors are set on the ratio, because that is
+  the quantity §the groove section states.
+
+  **Two earlier numbers in this file were wrong, in different ways.**
+
+  The first said `~46px` for both symbols and rested on a groove reading of
+  *"1.26:1 in light mode at 48px"*. That does not reproduce: at 48px the mark's
+  groove renders at its full nominal **1.41:1**, and does not move until 38px.
+  Whatever produced 1.26 is not recorded and cannot be re-run.
+
+  The second — a draft of the brand kit, never in this file — also said ~46px,
+  from a solid-ink-against-mean-alpha ratio. That arm is blind to a tile (a
   full-bleed rounded rect reads 99% at every size whatever happens to the letter
-  inside it — and cannot see a stroke splitting. Before that it said 28px, which
-  was arithmetic nobody did.
+  inside it) and blind to a stroke splitting.
+
+  The common cause is that neither had a committed harness, so neither could be
+  checked. `minsize.js` is now in this directory for exactly that reason. Before
+  both, the file said 28px, which was arithmetic nobody did.
 
   The arithmetic floor still holds as a lower bound: the groove is 3.4 units in
-  a 128 viewBox, so it drops under one device pixel at **128 / 3.4 ≈ 38px**. All
-  of this is **DPR-blind** — at 2x the groove survives smaller, and in print or
-  on a 1x projector it does not.
+  a 128 viewBox, so it drops under one device pixel at **128 / 3.4 ≈ 38px** —
+  which is where the mark's measured ratio does in fact start to go. All of this
+  is **DPR-blind**: at 2x the groove survives smaller, and in print or on a 1x
+  projector it does not.
+
 - **Dark mode:** ship the adaptive SVG. Never hand-recolor.
 - **Names say the ground, not the scheme.** `-on-light` / `-on-dark` are fixed
   color and name the surface you put them on; a bare name means the file adapts.
-  `laticent-tile.svg` is the one bare-and-fixed asset, because it brings its own
-  ground and goes on any. Family-wide rule: `../README.md` "Naming".
+  **Both tiles** — `laticent-tile.svg` and `laticent-tile-min.svg` — are the
+  bare-and-fixed exceptions, because a tile brings its own ground and goes on
+  any, so naming one would be a lie about a file with no such constraint.
+  Family-wide rule: `../README.md` "Naming".
 - **The lockup shares one baseline.** In the bare form the mark IS a letter, so
   its foot sits on the wordmark's baseline — flat foot to flat foot, no
   overshoot (that is for curves), at 1.35 cap heights. The first version hung

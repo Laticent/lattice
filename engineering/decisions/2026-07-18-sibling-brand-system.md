@@ -19,10 +19,10 @@ companion:
 
 # The sibling brand system — one family, five voices (2026-07-18)
 
-> **Naming amended 2026-09-07.** The two fixed lockups this doc names as
-> `lattice-lockup.svg` / `-dark.svg` are now `lattice-lockup-on-light.svg` and
-> `lattice-lockup-on-dark.svg`: the suffix names the ground, and a bare name is
-> reserved for a file that adapts. Nothing else here changes — "never a second
+> **Naming amended 2026-09-07.** `lattice-lockup.svg`, named below, and its
+> dark-ground twin (which this doc does not name) are now
+> `lattice-lockup-on-light.svg` and `lattice-lockup-on-dark.svg`: the suffix
+> names the ground, and a bare name is reserved for a file that adapts. Nothing else here changes — "never a second
 > file for dark" still binds every *mark*, and all six marks still adapt. See
 > `2026-09-07-ground-named-brand-assets.md` and `design/logo/README.md`.
 

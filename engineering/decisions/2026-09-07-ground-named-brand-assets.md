@@ -1,12 +1,12 @@
 ---
 status: shipped
 summary: >
-  Brand asset filenames now name the GROUND an asset goes on, not a colour scheme, and a BARE NAME
+  Brand asset filenames now name the GROUND an asset goes on, not a color scheme, and a BARE NAME
   is reserved for a file that adapts. `lattice-lockup.svg` / `-dark.svg` become
   `lattice-lockup-on-light.svg` / `-on-dark.svg`, and the four Laticent lockups follow. The old
   `-dark` suffix was doing two jobs at once: naming a scheme on a file that responds to no scheme,
   and implying its bare twin was the adaptive one — which it was not. `lattice-lockup.svg` was
-  fixed light-only and read 1.14:1 on the brand's own dark ground. Four of the six family marks
+  fixed light-only and reads 1.086:1 on Lattice's own dark ground. Four of the six family marks
   already conformed (their lockups adapt, so they keep a bare name); only lattice and laticent
   carried the old pair. Rename only — no artwork changed, and both generators reproduce every file
   byte-identically. The alternative, making the two lockups adaptive so the `-dark` files could be
@@ -29,9 +29,17 @@ kind of ground.
 
 `-dark` named the first thing on a file that was the second. And by implication
 it made the bare name — `lattice-lockup.svg` — look like the default, the
-adaptive one, the safe pick. It was neither: it was light-only. Put it on the
-brand's own near-black and you get `#1E1A15` ink at **1.14:1**, which is not a
-low-contrast logo, it is an invisible one.
+adaptive one, the safe pick. It was neither: it was light-only. Put it on Lattice's own
+near-black `#15110D` and you get `#1E1A15` ink at **1.086:1**, which is not a
+low-contrast logo, it is an invisible one. Laticent's equivalent — `#241F1B` on
+`#101314` — is **1.144:1**.
+
+An earlier revision of this record, of the changelog fragment and of the commit
+message gave the lattice figure as 1.14:1. That was Laticent's number wearing
+Lattice's hex: 1.14 is not reachable by `#1E1A15` on any ground, since even on
+pure black it tops out at 1.214:1. The conclusion is unchanged and slightly
+stronger — 1.086 is worse than 1.14 — but the measurement named the wrong file,
+which is the one thing a record like this must not do.
 
 The trap was found while auditing the Laticent brand kit, where the same pattern
 had been copied wholesale from lattice: three of the kit's assets were light-only
@@ -40,8 +48,10 @@ opposite before the SVGs were actually read.
 
 ## The measurement that decided the shape
 
-Every family asset, audited for whether it carries a `prefers-color-scheme`
-block:
+Every family **mark and lockup**, audited for whether it carries a
+`prefers-color-scheme` block. Laticent's two tiles and `docs/public/favicon.svg`
+have no column here — the tiles because they are the rule's exceptions, discussed
+below, and the favicon because it adapts and is not part of any product's trio:
 
 | Product | mark | mark-min | lockup |
 |---|---|---|---|
@@ -73,10 +83,10 @@ adapts.**
 | `<name>-mark.svg`, `<name>-mark-min.svg` | adapts |
 | `<name>-lockup-on-light.svg` | fixed color, for a light ground |
 | `<name>-lockup-on-dark.svg` | fixed color, for a dark ground |
-| `laticent-tile.svg` | bare **and** fixed — the one exception |
+| `laticent-tile.svg`, `laticent-tile-min.svg` | bare **and** fixed — the two exceptions |
 
-The tile is the exception on purpose and the reason is in the asset, not the
-name: it carries its own ground, so it is not *for* a light or a dark surface,
+The tiles are the exception on purpose and the reason is in the asset, not the
+name: a tile carries its own ground, so it is not *for* a light or a dark surface,
 it goes on any. A `-on-*` suffix would be a lie about a file that has no such
 constraint. It is also fixed by design — an app-icon tile is a brand constant,
 the way Facebook's `f` stays blue — which is `design/logo/laticent/README.md`
@@ -98,9 +108,10 @@ design/logo/laticent/laticent-lockup-bare-dark.svg -> -bare-on-dark.svg
 
 Both generators were updated and re-run; every SVG is byte-identical to the file
 git moved, which is the check that this is a rename and not a redraw. No `.astro`,
-`.tsx` or JS references a lockup — the site header, the favicon and the PWA icon
-tool all use `*-mark-min.svg` and `favicon.svg`, which keep their bare names
-because they really do adapt. The only code-adjacent reference was the repository
+`.tsx` or JS references a lockup. The site header and the offline page use
+`lattice-mark-min.svg`, the docs config uses `favicon.svg`, and
+`tools/make-pwa-icons.js` uses `lattice-mark.svg` — three different bare names,
+all of them correct, because all three files genuinely adapt. The only code-adjacent reference was the repository
 `README.md`'s `<picture>` element, which now points at both new names.
 
 ## What was NOT done, and why it stays open
@@ -123,10 +134,23 @@ with no third meaning to unwind.
 
 ## Ledger
 
+- **The renders prove less than the first draft of this record claimed.** It said
+  the six renamed files were checked "under both emulated schemes". They carry no
+  `<style>` and no `prefers-color-scheme` block — that is the property the rename
+  asserts about them — so they render identically under either scheme and that arm
+  cannot fail. What the render actually establishes is that each file reads on the
+  ground its new name promises, which is the useful half; the assertion that each
+  carries its ground's ink and not the other's is the arm that could have caught a
+  swap, and it is a string comparison, not a render.
 - Nothing here has been checked in a browser against the live docs site; the
   claim is that no site code references a lockup, which is a grep, and that the
   generators reproduce the renamed files, which is a byte comparison. Both are
   in the PR. **A rendered docs-site page is UNVERIFIED** (HARD RULE #23).
+- **The repository README's `<picture>` uses repo-relative paths**, which npm
+  rewrites against the default branch when it renders a package page. Already-published
+  versions' README may therefore show a broken logo between this landing on `main`
+  and the next publish. Not confirmed against npm's current rewrite behavior from
+  here — flagged, not measured.
 - The two older decision records that cite `lattice-lockup.svg`
   (`2026-07-18-sibling-brand-system.md`, `2026-09-02-motion-engine-bakeoff.md`)
   are dated archives of what was true when they were written. The sibling doc

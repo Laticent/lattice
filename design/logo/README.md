@@ -29,14 +29,14 @@ adapts.**
 | `<name>-mark.svg` | adapts via an inline `@media (prefers-color-scheme: dark)` |
 | `<name>-lockup-on-light.svg` | fixed color, for a light ground |
 | `<name>-lockup-on-dark.svg` | fixed color, for a dark ground |
-| `laticent-tile.svg` | bare **and** fixed — the one exception, because the tile brings its own ground and goes on any (see `laticent/README.md` 1.1) |
+| `laticent-tile.svg`, `laticent-tile-min.svg` | bare **and** fixed — the two exceptions, because a tile brings its own ground and goes on any (see `laticent/README.md` 1.1) |
 
 This holds across all six marks — lattice, laticent, cadenza, lente, suono,
 vetrina. Four of the six already conformed: their lockups adapt and so keep a
 bare name. Lattice and Laticent are the two whose lockups are fixed, and until
 2026-09-07 they carried the old `-dark` suffix beside a bare name that promised
 the default and delivered light-only. Put `lattice-lockup.svg` on a dark page
-and you got `#1E1A15` ink on near-black.
+and you got `#1E1A15` ink on near-black `#15110D` — **1.086:1**.
 
 `-dark` was doing two jobs at once — naming a *scheme* on a file that responds
 to no scheme, and implying its bare twin was the adaptive one. `-on-dark` names
@@ -74,10 +74,10 @@ and unable to theme — was retired.)
 - **Clear space:** keep padding of at least one node-diameter on all sides.
 - **Minimum size:** full mark to ~28px; below that use `lattice-mark-min.svg`.
 - **Dark mode:** the SVGs handle it via `@media (prefers-color-scheme: dark)` —
-  bonds brighten, halos darken. Don't hand-recolour; ship the adaptive file.
+  bonds brighten, halos darken. Don't hand-recolor; ship the adaptive file.
 - **Wordmark font:** Fraunces / Cormorant Garamond (Georgia fallback), 600,
   letter-spacing −1. Matches the deck display serif.
-- **Don't:** recolour the nodes off-spectrum, put color on the bonds, squish
+- **Don't:** recolor the nodes off-spectrum, put color on the bonds, squish
   the aspect ratio, or add effects (shadows/gradients on the nodes).
 
 Regenerate after any change: `python3 design/logo/generate.py`.
