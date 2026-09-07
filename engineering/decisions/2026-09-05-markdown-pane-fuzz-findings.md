@@ -641,6 +641,36 @@ The lesson is the one this note keeps paying for: a number that looks like a sig
 measured at the same exposure on both sides before it is one — and then it has to be big enough
 to BE one.
 
+### 11d. The seven new oracles, measured across all seven surfaces
+
+#2064 measured its ten oracles across seven width/engine surfaces; the deck-history change added
+seven more and, as first written, left them on the shipped `desktop` project only — with one of
+them (`@smoke a new deck does not inherit the previous deck's undo history`) running on every PR.
+That gap was the named raise path on this change's pre-merge card, and it costs eleven minutes,
+so it was closed rather than caveated.
+
+All seventeen, all seven surfaces — 119 runs, **101 passed, 18 failed**:
+
+```
+1440 Chromium          17/17     the shipped tier
+820  Chromium          17/17
+820  Chromium + touch  17/17
+1440 WebKit            17/17
+820  WebKit            17/17
+1440 Firefox           17/17
+390  Chromium ± touch   8/17     9 failures, twice (both mobile variants)
+```
+
+**Every failure is at 390 and nowhere else**, so all seven new oracles hold cross-engine and at
+tablet width, and the new `@smoke` one holds at 390 too. Of the nine that fail there, four are
+new: the three `Refine` oracles and the caret→rail one, all failing for the reason the original
+five do — at 390 the Studio shows one pane at a time, and each of them has to act in the editor
+and read the rail. That is the same structural answer §1's table gave, not a new defect.
+
+One incidental fix: the throwaway config could not start its web server from `.scratch/` (no
+`package.json` there), so it now pins `webServer.cwd` to `docs/`. The recipe in the spec header
+says so.
+
 ## Found, NOT fixed here (off the path of this change — HARD RULE #18)
 
 - **A deck switch leaks the previous deck's whole document, and it is worse than §6.** Found

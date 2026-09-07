@@ -95,21 +95,13 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * WHERE THESE HOLD, measured rather than assumed — the file is routed to the `desktop`
  * project, and "desktop-only by design" was a claim nobody had run:
  *
- *   1440 Chromium            10/10    the shipped tier
- *   820  Chromium            10/10    pane and rail both on screen; nothing is width-coupled
- *   820  Chromium + touch    10/10    the Quick-fix oracle hovers, and hovers fine under touch
- *   1440 WebKit              10/10    no skips — see the note on the clipboard below
- *   1440 Firefox             10/10    same
- *   820  WebKit              10/10    same
- *   390  Chromium (± touch)   5/10    structural, and not a defect: see below
- *
- * SCOPE, AND IT IS NOW NARROWER THAN THE FILE. These rows measure the TEN oracles this file had
- * when #2064 shipped. The deck-history change added seven more (six deck/selection oracles and
- * the caret→rail one), and they have NOT been driven at 820, 390, WebKit or Firefox — they were
- * run on the shipped `desktop` project only. So the table is a true statement about ten of the
- * seventeen tests here, not about the file; treat the rest as UNMEASURED on those surfaces
- * rather than covered by it. Re-measuring is the recipe below, and one of the seven now runs on
- * the PR gate, which makes it the first worth doing.
+ *   1440 Chromium            17/17    the shipped tier
+ *   820  Chromium            17/17    pane and rail both on screen; nothing is width-coupled
+ *   820  Chromium + touch    17/17    the Quick-fix oracle hovers, and hovers fine under touch
+ *   1440 WebKit              17/17    no skips — see the note on the clipboard below
+ *   1440 Firefox             17/17    same
+ *   820  WebKit              17/17    same
+ *   390  Chromium (± touch)   8/17    structural, and not a defect: see below
  *
  * The table quotes PASS COUNTS, so adding an oracle makes it stale in a way nothing checks.
  * This row set is a re-measure of all ten AFTER the Quick-fix oracle below landed — not the
@@ -119,17 +111,21 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * declares one project per row above (820 and 390 Chromium with and without `hasTouch`,
  * `Desktop Safari` at 1440 and 820, `Desktop Firefox` at 1440). Keep it in `.scratch/`; if
  * you put it there, symlink `docs/node_modules` beside it or `@playwright/test` will not
- * resolve. The 1440 Chromium row is just the shipped `desktop` project.
+ * resolve, and pin `webServer.cwd` to `docs/` — Playwright starts the web server from the
+ * CONFIG's directory, and `.scratch/` has no `package.json`. The 1440 Chromium row is just the shipped `desktop` project.
  *
  * THE PHONE IS A DIFFERENT SURFACE, and this is the measurement rather than a guess. At 390
  * the Studio shows ONE PANE AT A TIME — probed directly: by default the rail is visible and
  * the editor is not; reveal the editor through its `Markdown source` toggle and the rail goes.
- * Of the TEN oracles measured there (see the scope note above — the seven added by the
- * deck-history change were not), five pass — CR/CRLF folding, undo across Compose, the Compose
- * carry, the Quick fix (it never leaves the editor) and the reload round trip. The five that do
- * not are blocked by three different things, which is worth
+ * Eight of the seventeen pass — CR/CRLF folding, undo across Compose, the Compose carry, the
+ * Quick fix (it never leaves the editor), the reload round trip, both cross-deck history oracles
+ * and the Compose-detour one. The nine that do not are blocked by three different things, which is worth
  * stating precisely because an earlier draft of this paragraph said "must type in the editor
  * and then read the rail" for all of them and that is not what the failures say:
+ *
+ * (four of those nine arrived with the deck-history change — the three `Refine` oracles and the
+ * caret→rail one — and they fail for the reason the four below do: at 390 the rail and the
+ * editor are never on screen together, and each needs to act in one and read the other.)
  *
  *   · the two BOM oracles      the RAIL — `railClick` times out, the rail being toggled away
  *   · the rail-names oracle    the PREVIEW IS STALE — not unreachable. `paintedClasses` reads
