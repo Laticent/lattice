@@ -142,10 +142,19 @@ with no third meaning to unwind.
   ground its new name promises, which is the useful half; the assertion that each
   carries its ground's ink and not the other's is the arm that could have caught a
   swap, and it is a string comparison, not a render.
-- Nothing here has been checked in a browser against the live docs site; the
-  claim is that no site code references a lockup, which is a grep, and that the
-  generators reproduce the renamed files, which is a byte comparison. Both are
-  in the PR. **A rendered docs-site page is UNVERIFIED** (HARD RULE #23).
+- **Checked against the deployed docs preview**, not just a local build —
+  Cloudflare Pages built `dc862d2` at `783a9e4f.lattice-docs-5ji.pages.dev`.
+  Every brand asset the live home page references returns 200
+  (`/favicon.svg`, `/lattice-mark-min.svg`, `/icons/apple-touch-icon.png`), both
+  renamed lockups are live at their new paths, the two old paths return 404 —
+  which is the useful half, since it proves nothing is silently falling back to
+  them — and none of `/`, `/comparison`, `/features`, `/cadenza`, `/lente`,
+  `/suono`, `/vetrina` carries a stale lockup reference.
+  **What this does NOT establish:** that the logo looks right on the rendered
+  page. Headless Chromium cannot reach the preview host through this sandbox's
+  egress proxy, so the check is HTTP status plus HTML inspection. Every asset
+  resolves and no page points at a dead path; **a visual read of the live site
+  is UNVERIFIED** (HARD RULE #23).
 - **The repository README's `<picture>` uses repo-relative paths**, which npm
   rewrites against the default branch when it renders a package page. Already-published
   versions' README may therefore show a broken logo between this landing on `main`
