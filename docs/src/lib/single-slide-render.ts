@@ -24,6 +24,7 @@
 
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
+import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
 import {
 	alignmentFailure,
 	classifyDivergence,
@@ -179,7 +180,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -199,13 +200,22 @@ function frameHasPainted(fr: HTMLIFrameElement): boolean {
 // executed, so the runtime's body observer re-processes the swapped section for
 // free. Returns false if the live document is gone (caller falls back to a full
 // srcdoc write). The single-slide twin of deck-preview.js's patchSections.
-function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
+function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolean): boolean {
 	const doc = fr.contentDocument;
 	const lattice = doc?.querySelector('.lattice');
 	if (!doc || !lattice) return false;
 	const holder = doc.createElement('div');
 	holder.innerHTML = safeHtml;
 	const fresh = holder.querySelector('.lattice');
+	// SAY WHICH SLIDE THIS IS, BEFORE THE WRITE. The runtime holds a rendered diagram on
+	// screen while an edited fence re-renders, and that is only correct when the arriving
+	// fence is the SAME fence. From inside the frame the two cases are indistinguishable —
+	// this path replaces the whole `.lattice` body in one mutation, so an edit and a
+	// navigation to another slide produce identical MutationRecords (same node count, same
+	// fence count, same scope key). Only the caller knows which happened, so the caller says
+	// so. Stamped BEFORE the write, because the runtime reads it from the observer callback
+	// that write triggers. See adoptOutgoingDiagrams in lib/runtime/index.js.
+	lattice.setAttribute('data-lattice-swap', inPlace ? 'in-place' : 'reflow');
 	lattice.innerHTML = (fresh || holder).innerHTML;
 	return true;
 }
@@ -1050,6 +1060,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// Existing callers omit all of it → the whole render is shown, unchanged.
 		opts?: {
 			slideIndex?: number;
+			/** Stable identity for the DECK, not its text. The one fact the source cannot
+			 *  supply for a single-slide deck — see lib/core/swap-kind.mjs. */
+			deckId?: string;
 			slideCount?: number;
 			slideMarkdown?: string;
 			/** Marks THE preview the author is looking at — the one the fidelity overlay may describe.
@@ -1460,6 +1473,22 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// runtime re-renders the swapped fence. KaTeX needs no flag either: single
 				// -slide never injects a katex <link>; math rides the patch as static HTML.
 				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}`;
+				// IS THIS RENDER THE SAME SLIDE AS THE LAST ONE, EDITED? The one fact the frame
+				// cannot work out for itself, and the one `patchSlideBody` hands the runtime.
+				// The answer is derived in the kernel, shared with the Playground's filmstrip
+				// host — see lib/core/swap-kind.mjs for why POSITION is not identity, and for
+				// the four ways comparing `slideIndex` alone said `in-place` for a navigation.
+				//
+				// A caller with no `slideIndex` (LayoutStudio, Fabricate, FieldCardsLive — they
+				// render one specimen, not a deck) gets a `null` key, which is an unknown, which
+				// is a reflow. That is the same conservative answer the old `'alone'` sentinel
+				// gave those callers; what it never gave was a correct answer for the deck ones.
+				const shownSlide = { index: opts?.slideIndex ?? -1, key: deckContextKey(markdown, opts?.slideIndex, opts?.deckId) };
+				// Reading and STAMPING are separate on purpose. The old closure did both, so a
+				// second call in the same render (the patch path falling through to the restyle
+				// path) compared the identity against itself and always said `in-place`.
+				const stampShownSlide = () => { (host as LiveHost).__latticeShownSlide = shownSlide; };
+				const swapKind = () => swapKindForSlide((host as LiveHost).__latticeShownSlide, shownSlide) === SWAP_IN_PLACE;
 				// The same hash-is-a-filter argument the render caches make (see KeyInputs), applied to
 				// the one other djb2 key in this file. Here a collision is not another deck's content —
 				// it is the author's live CSS edit landing on the PATCH path, which reuses the resident
@@ -1490,7 +1519,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const safe = sanitizeOnce(out.html);
 					const patchSanitizeMs = performance.now() - tSan;
 					const tFrame = performance.now();
-					if (patchSlideBody(live, safe)) {
+					const inPlace = swapKind();
+					if (patchSlideBody(live, safe, inPlace)) {
+						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
+						// through to the restyle path, which asks again — against an identity it had
+						// just overwritten, so the second answer was always `in-place`.
+						stampShownSlide();
 						const tFit = performance.now();
 						scaleFrame(host);
 						const patchFitMs = performance.now() - tFit;
@@ -1548,7 +1582,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// atomically with the new section, so a viewer never sees the old theme on the new
 					// body (or vice-versa) for a frame.
 					themeStyleEl.textContent = styleElementText(out.css, mode, geom, extraCss);
-					if (patchSlideBody(live, safe)) {
+					const inPlace = swapKind();
+					if (patchSlideBody(live, safe, inPlace)) {
+						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
+						// through to the restyle path, which asks again — against an identity it had
+						// just overwritten, so the second answer was always `in-place`.
+						stampShownSlide();
 						(host as LiveHost).__latticeFrameSig = sig;
 						(host as LiveHost).__latticeFrameCss = frameCss;
 						(host as LiveHost).__latticeRestyleSig = restyleSig;
@@ -1727,6 +1766,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Mark the navigation in flight BEFORE assigning srcdoc: until onload (or the poll's
 				// paint detection) clears it, the patch guard above must not touch the outgoing document.
 				(host as LiveHost).__latticePendingLoad = true;
+				// STAMP HERE TOO. A full write changes the shown slide just as a patch does, and
+				// leaving the identity behind describing a slide the frame is no longer showing
+				// made the NEXT patch compare against it: navigate away on a full write, navigate
+				// back, and the return trip was stamped `in-place` (found by the trio's checker).
+				// The identity has to track the document, not the code path that wrote it.
+				stampShownSlide();
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.

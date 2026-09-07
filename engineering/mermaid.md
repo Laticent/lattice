@@ -254,6 +254,70 @@ returns any SVG already held. Everything it cannot settle stays pending for the
 debounced pass. It reuses the runtime's own cache and key, so a slide whose palette
 differs misses here exactly as it misses there.
 
+**And when the SOURCE changed, it holds the diagram already on screen.** A cached SVG can
+only answer a fence whose source is byte-identical — which is every keystroke EXCEPT the
+ones an author types into the diagram itself. For those the cache misses by definition, and
+the slot used to show the raw source and then (after the rule above) nothing, for the ~200ms
+the render takes. `adoptOutgoingDiagrams` runs straight after the replay, in the same
+observer callback, and takes the outgoing `<svg>` out of the `MutationRecord`'s
+`removedNodes` — the DOM the host just threw away is still reachable there — and MOVES it
+into the fence that replaced it. The `<pre>` is left `pending`, so the debounced pass still
+renders the new source over the top: the held SVG is a placeholder with a render already
+queued, never an answer. It refuses five cases, because each would be a wrong diagram
+rather than a slow one. The load-bearing one is THE HOST'S WORD: hold only on a swap the
+host stamped `data-lattice-swap="in-place"` on `.lattice` before writing. Both preview hosts
+replace slide DOM in ONE mutation, so from inside the frame an edit and a navigation to
+another slide are identical — same node count, same fence count, same scope key — and only
+the caller knows which happened. No stamp means no hold, so an untaught host (marp-vscode,
+any embedder) gets an empty slot rather than a wrong diagram. The runtime reads the stamp
+once and REMOVES it, so it can never describe a burst it was not written for.
+
+**What the host has to prove is that the slide is the same, not that its POSITION is.** Both
+hosts compared position first, and every operation that keeps a slide's index while changing
+which slide is there was licensed to hold: deleting a slide (the active index is clamped, so
+it does not move), reordering, restoring a checkpoint, opening a different deck of the same
+length. The Studio's own Delete-slide button painted the deleted slide's diagram over its
+replacement for 136ms. `lib/core/swap-kind.mjs` is the shared answer both hosts now ask —
+`deckContextKey` + `swapKindForSlide` for the single-slide host, `sectionSwapKind` for the
+filmstrip — and it asks what an edit actually is: **everything except the slide on screen is
+byte-identical to the last render.** A deck of ONE slide compares nothing that way, since the
+shown slide is the one excluded, so the host also supplies a `deckId`; without one, a
+one-slide deck is an unknown. Anything that cannot be proved an edit is a reflow, which costs
+a held diagram and never risks a wrong one.
+A TEXT-SIMILARITY TEST WAS TRIED HERE AND IS WRONG: it scores shared BOILERPLATE, so all
+twelve ordered pairs of `examples/mermaid-init-merge.md` — four slides whose whole point is
+that one graph renders differently under different `%%{init}%%` lines — score 0.68–0.82 and
+would each have held the others' ink.
+Beside the host gate: a different NUMBER of fences either side, a different `diagramScopeKey`
+(the slide's palette changed, so the held ink is the old band's), an arrival that is not
+`pending` or whose slot already holds ink, and a document with no Mermaid (the same guard the
+replay opens with — a held SVG nothing replaces is permanently stale).
+Pairing is node for node, not flat across the record, and a record whose added and removed
+node lists differ in length is refused outright: `patchSections`' other branch rebuilds the
+whole filmstrip in ONE record, where a flat walk would let a fence inherit ink from another
+slide whenever the counts happened to agree.
+
+**A DONOR IS ANY FENCE WHOSE SLOT HOLDS INK, including one a previous hold filled.** That
+chaining is what makes the feature work while somebody types. A hold leaves the `<pre>`
+`pending` on purpose, so during a burst every keystroke after the first finds a placeholder
+rather than a `rendered` fence — and while the rule was `rendered`-only, the hold covered
+exactly one character and the slot was empty for the other 87% of the burst (62 of 71 painted
+frames, typing 8 characters at 120ms on the built Studio). The rule existed to stop ink
+travelling ACROSS slides, which the host stamp now prevents outright: a rail click is a
+reflow and adoption has already returned, so chaining under `in-place` stays on one slide by
+construction.
+
+**One debounce, not two.** The 150ms buys coalescing — consecutive keystrokes collapsing into
+one `mermaid.render` on a strictly serial queue. A second, shorter delay for a fence nobody
+had seen yet was tried and cut: it was never gated on the swap kind, so it fired on
+NAVIGATION and dispatched an eager render for every diagram slide reached from a non-diagram
+one, leaving the slide the author landed on queued behind them. It bought 236ms → 207ms with
+the blank-frame count unchanged at 10, which is nothing a viewer can see.
+
+Numbers for all of it, the `--scenario edit` / `edit-burst` arms that measure the case a
+cache cannot answer, and why the previous diagram was never held on any earlier build:
+`engineering/decisions/2026-09-06-diagram-edit-holds-the-last.md`.
+
 The key is why this took two attempts, and the trap is worth knowing:
 `diagramScopeKey` reads the section's inline style, and the RUNTIME writes to that
 style (`patchSectionGeometry` stamps `--_sec-1cqi`/`--_sec-1cqh`; a `logo:` deck gets

@@ -61,6 +61,10 @@ export type DeckPreviewProps = {
 	/** The shown slide alone (front matter + that slide), rendered as the fallback when the
 	 *  counts disagree. Required with `slideIndex`. */
 	slideMarkdown?: string;
+	/** Stable identity for the DECK, not its text. Without it a single-slide deck cannot be
+	 *  told from another single-slide deck, and a switch between two of them is stamped as an
+	 *  edit — see lib/core/swap-kind.mjs. */
+	deckId?: string;
 	/**
 	 * THE preview the author is looking at — the only one the Preview-fidelity overlay may describe.
 	 *
@@ -171,6 +175,7 @@ export function DeckPreview({
 	slideIndex,
 	slideCount,
 	slideMarkdown,
+	deckId,
 	focused,
 	mermaid,
 	paletteOverride,
@@ -414,7 +419,7 @@ export function DeckPreview({
 		if (!host || !activeRef.current) return;
 		// The deck-context opts travel as one object, passed only when `slideIndex` is set, so an
 		// omitting host hands the renderer no opts at all — byte-identical to the pre-deck-context call.
-		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? undefined : { slideIndex, slideCount, slideMarkdown, focused });
+		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? undefined : { slideIndex, slideCount, slideMarkdown, deckId, focused });
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
 		// when the live frame is actually made visible (== genuinely good). Keying it on the
@@ -424,7 +429,7 @@ export function DeckPreview({
 		// Return the render promise so the frame scheduler can await it for
 		// backpressure — never overlap two renders on the same host.
 		return done;
-	}, [sample, slideIndex, slideCount, slideMarkdown, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
+	}, [sample, slideIndex, slideCount, slideMarkdown, deckId, focused, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
 
 	// Always hold the LATEST render closure in a ref, so the frame scheduler and the
 	// active rising-edge effect can reach the current render WITHOUT listing it as a

@@ -4,9 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import StudioShell from './StudioShell';
 
 // Stub the live preview (its engine poller leaks a post-teardown timer in jsdom).
+// The stub also SURFACES `deckId`, because that string is what the preview's diagram-hold
+// decides on and nothing else in the tree asserts what the Studio puts in it.
 vi.mock('@/components/DeckPreview', () => ({
-	default: ({ 'aria-label': label }: { 'aria-label'?: string }) => <div data-testid="deck-preview">{label}</div>,
+	default: ({ 'aria-label': label, deckId }: { 'aria-label'?: string; deckId?: string }) => (
+		<div data-testid="deck-preview" data-deck-id={deckId}>
+			{label}
+		</div>
+	),
 }));
+
+/** The live editor preview's deck identity, as the renderer would receive it. */
+const liveDeckId = () =>
+	Array.from(document.querySelectorAll('[data-testid="deck-preview"]'))
+		.map((n) => n.getAttribute('data-deck-id'))
+		.find((v) => v != null) ?? null;
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
@@ -618,6 +630,38 @@ describe('Studio — Inspector controls respond', () => {
 		await user.click(await screen.findByRole('button', { name: 'Restore' }));
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/TOTALLY DIFFERENT/);
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/Q3 Board Review/);
+	});
+
+	it('a checkpoint restore changes the preview deck identity; typing does not', async () => {
+		// A ONE-SLIDE deck's key carries no content — the shown slide is the one it blanks —
+		// so a wholesale replacement that keeps the deck and the lens is indistinguishable
+		// from an edit, and the preview held the OUTGOING diagram over the restored slide
+		// (reproduced on the real Studio, ~150-300ms). The source epoch is what separates
+		// them, and it bumps by default so a replacement path added later fails safe.
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Version history' }));
+		await user.click(await screen.findByRole('button', { name: /Save a version/ }));
+		await screen.findByText('Saved version');
+		await user.keyboard('{Escape}');
+
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.keyboard('{Control>}a{/Control}');
+		await user.paste('<!-- _class: title -->\n\n# TOTALLY DIFFERENT\n');
+		const afterTyping = liveDeckId();
+		expect(afterTyping, 'the stub must actually receive a deckId').not.toBeNull();
+
+		await user.click(screen.getByRole('button', { name: 'Version history' }));
+		await user.click(await screen.findByRole('button', { name: 'Restore' }));
+		await waitFor(() => expect(liveDeckId()).not.toBe(afterTyping));
+	});
+
+	it('the preview deck identity carries the reader lens', async () => {
+		// Two lenses whose sets differ only at the shown position key identically without it.
+		const user = await setup();
+		const id = liveDeckId();
+		expect(id).toMatch(/^[^:]+:full:/);
+		void user;
 	});
 
 	it('the Page-numbers switch writes paginate front-matter to the source', async () => {

@@ -55,6 +55,7 @@ import {
 	resolvePrintSheet,
 } from '../../../lib/core/print-sheet.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
+import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { texturePatternDefs } from './a11y-textures.generated.js';
 import { slideBox } from './frame-css.js';
@@ -526,17 +527,41 @@ export function patchSections(frame, next, prev) {
 	const lattice = doc?.querySelector('.lattice');
 	if (!lattice) return false;
 	const cur = lattice.querySelectorAll(':scope>section');
+	// SAY WHICH KIND OF SWAP THIS IS, BEFORE THE WRITE — the same contract
+	// `patchSlideBody` carries in single-slide-render.ts, and for the same reason: the
+	// runtime holds a rendered diagram while an edited fence re-renders, and only the
+	// caller knows whether a replaced section is the SAME slide edited or a different one
+	// arriving. Stamped before the write, because the runtime reads it from the observer
+	// callback that write triggers. See adoptOutgoingDiagrams in lib/runtime/index.js.
+	//
+	// This used to answer "did the slide COUNT change?", which is not the question. Equal
+	// counts are what a reorder and a same-length deck paste both have, and both were
+	// stamped `in-place` — one slide's diagram into another slide's box, the exact defect
+	// the stamp exists to stop. `sectionSwapKind` asks what an edit actually is: exactly
+	// one section's HTML changed. See lib/core/swap-kind.mjs.
+	const kind = next.length !== cur.length ? SWAP_REFLOW : sectionSwapKind(prev || [], next);
 	if (next.length !== cur.length) {
+		lattice.setAttribute('data-lattice-swap', kind);
 		// Slide added/removed: rebuild the filmstrip body only — no script re-eval;
 		// the runtime/Mermaid/FIT/SYNC agents persist and re-process.
 		lattice.innerHTML = next.join('\n');
 	} else {
 		const p = prev || [];
+		// STAMP ONLY WHEN A WRITE WILL FOLLOW. The runtime reads this once and clears it, so
+		// a stamp with no mutation behind it is never consumed — it just stands there for
+		// whatever burst comes next to read. Set it on the first section that will actually
+		// be replaced rather than before the loop, where a section whose HTML parses to no
+		// element child would leave `in-place` latched having written nothing.
+		let stamped = false;
 		for (let i = 0; i < next.length; i++) {
 			if (p[i] === next[i]) continue;
 			const holder = doc.createElement('div');
 			holder.innerHTML = next[i];
 			const fresh = holder.firstElementChild;
+			if (fresh && cur[i] && !stamped) {
+				lattice.setAttribute('data-lattice-swap', kind);
+				stamped = true;
+			}
 			if (fresh && cur[i]) lattice.replaceChild(fresh, cur[i]);
 		}
 	}

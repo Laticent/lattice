@@ -5011,18 +5011,23 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   {
     file: 'lib/runtime/index.js',
     sink: 'target.innerHTML',
-    count: 3,
+    count: 4,
     provenance:
-      'THIRD PARTY (2 of 3) — the SVG mermaid.render() returns, injected on the fresh-render path and ' +
+      'THIRD PARTY (2 of 4) — the SVG mermaid.render() returns, injected on the fresh-render path and ' +
       'again on the mermaidSvgCache replay of the same string. Contained by securityLevel:\'strict\', ' +
       'pinned behaviorally in docs/e2e/mermaid-post-sanitize.spec.ts, NOT by a sanitizer: DOMPurify ' +
-      'strips <foreignObject> and <style>, i.e. every node label and all diagram styling. The third is ' +
-      'the empty-string clear before a re-render, which parses no markup. ' +
-      'STILL THREE after the same-task replay (2026-09-05-diagram-fence-flash.md), and that is the ' +
-      'fact worth pinning: the replay now runs from a MutationObserver microtask as well as from the ' +
-      'debounced walk, but both call ONE `settleFenceFromCache`, so a second caller added no second ' +
-      'place that parses the string. A future caller must reuse that helper for this count to hold — ' +
-      'writing `job.target.innerHTML` inline would read to this text matcher as a new, undeclared sink.',
+      'strips <foreignObject> and <style>, i.e. every node label and all diagram styling. The other TWO ' +
+      'are empty-string CLEARS, which parse no markup: attachError\'s, before it rebuilds the block from ' +
+      'text nodes, and resetFenceAfterFailure\'s, which drops a HELD SVG (the previous source\'s ink, put ' +
+      'there by adoptOutgoingDiagrams) on the two failure paths that return a fence to `pending` without ' +
+      'passing through attachError. Both write the literal \'\', so neither can carry a payload; they are ' +
+      'counted because this arm matches the receiver expression, not the value. ' +
+      'The SVG pair stayed at TWO through the same-task replay (2026-09-05-diagram-fence-flash.md), ' +
+      'and that is the fact worth pinning: the replay runs from a MutationObserver microtask as well ' +
+      'as from the debounced walk, but both call ONE `settleFenceFromCache`, so a second caller added ' +
+      'no second place that parses the string. A future caller must reuse that helper for this count ' +
+      'to hold — writing `job.target.innerHTML` inline would read to this text matcher as a new, ' +
+      'undeclared sink.',
   },
   {
     file: 'lib/runtime/index.js',

@@ -337,10 +337,27 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// (the snapshot's deckId never matches). engineering/decisions/2026-07-11-preview-
 	// performance-diagnosis.md § A (returning-visitor shell).
 	const [deck, setDeck] = React.useState<StudioDeck>(() => loadBootDeck());
-	const [source, setSource] = React.useState(() => {
+	const [source, setSourceRaw] = React.useState(() => {
 		const first = loadBootDeck();
 		return loadSource(first.id) ?? deckSource(first);
 	});
+	// THE SOURCE EPOCH — "this text is a different document, not an edit of the last one."
+	//
+	// The preview holds a rendered diagram across a swap it believes is an edit, and it
+	// decides that by comparing every slide EXCEPT the one on screen. A deck of ONE slide
+	// therefore compares nothing, so wholesale replacements of a one-slide deck — restoring
+	// a checkpoint, applying an AI edit — read as an edit of that slide and painted the
+	// OUTGOING diagram over the incoming one (reproduced on the real Studio, ~150-300ms).
+	//
+	// The direction of the default is the whole point: `setSource` BUMPS, and only the
+	// editor's own typing path opts out. A replacement path added later that forgets about
+	// this gets a reflow — a lost hold, which is invisible — instead of the wrong diagram.
+	// Getting it backwards (bump only on the paths we remember) makes every future omission
+	// a wrong-ink defect. See lib/core/swap-kind.mjs.
+	const [sourceEpoch, setSourceEpoch] = React.useState(0);
+	const setSource: typeof setSourceRaw = React.useCallback((next) => { setSourceEpoch((e) => e + 1); setSourceRaw(next); }, []);
+	/** The editor's own `onChange` — the ONE path that is an edit of the text already shown. */
+	const setSourceFromEditor = setSourceRaw;
 	// Always-current mirror of `source`, so a settings write can snapshot the exact
 	// pre-change text for one-click Undo without threading it through every setter.
 	const sourceRef = React.useRef(source);
@@ -1140,7 +1157,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			action: { label: 'Undo', onClick: () => { if (sourceRef.current === next) setSource(prev); } },
 		});
 		setUndo({ next, id });
-	}, []);
+	}, [setSource]);
 	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
 		const prev = sourceRef.current;
 		const next = updater(prev); // updaters are pure string→string; compute once
@@ -1149,7 +1166,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// only if an editor flush landed between snapshot and commit.
 		setSource((s) => (s === prev ? next : updater(s)));
 		showUndo(label, prev, next);
-	}, [showUndo]);
+	}, [showUndo, setSource]);
 	// Auto-dismiss the Undo toast the instant the source moves on its own — the user
 	// typed, switched decks, restored a checkpoint — so Undo only ever reverts the
 	// single last settings change, never edits made after it.
@@ -2733,7 +2750,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			notify('Fix applied — ⌘Z or restore from History to undo.');
 			return true;
 		},
-		[fixStates, source, deck.id, notify, discardFix],
+		[fixStates, source, deck.id, notify, discardFix, setSource],
 	);
 	// Draft fixes for EVERY draftable finding (idle OR previously-stale), serialized against
 	// one source snapshot so slide numbers stay coherent — each lands as its own reviewable
@@ -2796,7 +2813,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (applied) setSource(next);
 		if (stale.length) setFixStates((m) => { const n = { ...m }; for (const { key, slide } of stale) if (n[key]) n[key] = { phase: 'stale', slide }; return n; });
 		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${stale.length ? ` · ${stale.length} need a re-draft (slide changed)` : ''} — undo from History.` : 'None applied — those slides changed since they were drafted. Re-draft them.');
-	}, [fixStates, source, deck.id, notify, discardFix]);
+	}, [fixStates, source, deck.id, notify, discardFix, setSource]);
 
 	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
 	// popovers/sheets/dialogs handle Escape first and stop its propagation, so `Esc`
@@ -3144,6 +3161,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// deck, where one authored slide becomes several sections and an index cannot name the shown
 	// slide. Then the preview renders this instead: the right slide, honestly numbered 1 of 1.
 	const editorSlideAlone = React.useMemo(() => previewFm + slide, [previewFm, slide]);
+	// THE DECK IDENTITY THE PREVIEW COMPARES, which is the deck AND the reader lens.
+	// `viewSlides` is the lens's set, so the lens is part of what "this deck" means here: two
+	// lenses whose sets differ only AT the shown position would key identically, because the
+	// key compares every slide except that one — a different slide under the same index, i.e.
+	// the wrong-ink shape the stamp exists to stop. Folding the lens in makes a lens switch a
+	// reflow outright. See lib/core/swap-kind.mjs.
+	const previewDeckId = `${deck.id}:${composeLens}:${sourceEpoch}`;
 	// DECK-scoped, not slide-scoped, and that is a frame-signature decision rather than
 	// a question about this slide. `mermaid` is folded into the srcdoc signature
 	// (single-slide-render.ts), so keying it on the SHOWN slide meant a text slide and a
@@ -3255,7 +3279,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const chunk = splitSlides(stripFrontMatter(s))[activeFullIndex];
 			return chunk == null ? s : replaceSlide(s, activeFullIndex, fn(chunk)).source;
 		});
-	}, [activeFullIndex]);
+	}, [activeFullIndex, setSource]);
 	mutateSlideRef.current = mutateActiveSlide;
 	// The panel's slide-scope writes route through the Undo funnel (a user tuning a
 	// slide); the demo keeps the plain `mutateActiveSlide` so it never spawns toasts.
@@ -4103,11 +4127,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
+				<ComposeView ref={composeRef} source={source} onChange={setSourceFromEditor} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={setSourceFromEditor} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} carryKey={deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>
@@ -4254,7 +4278,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused onCorner={setDeckCorner} options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
+						<DeckPreview focused onCorner={setDeckCorner} options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} deckId={previewDeckId} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
 					</ErrorBoundary>
 				</div>
 			</div>
