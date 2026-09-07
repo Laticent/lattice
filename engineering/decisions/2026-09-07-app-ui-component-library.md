@@ -560,6 +560,94 @@ both correctly handled), accessible names on icon-only controls (12 apparent hit
 positives — labeling discipline is genuinely strong), TODO/FIXME debt (effectively zero
 outside generated files), button label capitalization, and live-region usage.
 
+## Bundle size — the library is not the lever, but the hunt was worth it
+
+The owner hoped this work would also reduce bundle size. **It will not, and that should be
+said plainly before anything else.** The ten duplicated row/field implementations total ~13 KB
+of *unminified source*, much of it comments — single-digit KB gzipped. Tailwind dedupes
+utilities, so 2,888 duplicated class strings cost essentially nothing; only *distinct*
+arbitrary values cost a rule each. A component library buys cohesion and extensibility. It
+does not buy bytes.
+
+**But going looking found ~200 KB gzipped of real duplication that has nothing to do with the
+component library.** Measured against a full `npm run build` (exit 0, 121 pages), gzip level 6
+to match the repo's own `check-route-budget.mjs`:
+
+| Route | eager JS (gz) | CSS (gz) |
+|---|---|---|
+| `/studio/` | 656 KB across 82 chunks | 31 KB |
+| `/playground/` | 582 KB across 48 chunks | 37 KB |
+| `/` (landing) | 78 KB across 9 chunks | 32 KB |
+
+Plus the engine assets the route-budget gate deliberately does not watch: a `/playground/`
+visit that renders one slide pulls a further ~592 KB gz of engine plus 87 KB gz of theme CSS —
+about **1.26 MB gz** in total against the 569 KB the ledger tracks. That gap is documented in
+the gate's own header, so it is consistent, not new.
+
+### Four real double-ships
+
+1. **The map component's basemaps ship THREE times** — 284,766 raw / ~98,200 gz. One copy is
+   **eager on `/playground/`**, inside the `editor` chunk, where it is 54% of that chunk's raw
+   bytes — and it exists only to feed a CodeMirror autocomplete. `playground/map-complete.js`
+   reads `r.name` and `g.label`, **1,945 bytes of names**, and statically imports 100 KB of SVG
+   `d` path geometry to get them. The engine's two copies are load-bearing (main-page render
+   and in-iframe render); the autocomplete copy is not.
+2. **markdown-it ships twice, both copies eager on `/studio/`** — ~44 KB gz, 6.7% of that
+   route's entire eager budget. This is **a regression against a documented intent**:
+   `tools/build-authoring-core.js` sets `external: ['markdown-it']` with a comment explaining
+   that inlining "also ships a second copy to the browser." The bare import is emitted
+   correctly; rolldown's chunker then gave `slide-boundaries` and `authoring-core.generated`
+   each a private copy anyway.
+3. **The whole PDF stack is built twice** — jsPDF, html2canvas, canvg and DOMPurify exist in
+   both a main-thread and an ES-worker branch (`vite.worker.format: 'es'` forces a separate
+   rollup build). Both are lazy, so a normal export pulls one. But `deck-export`'s handout/n-up
+   path reaches for the main-thread `jspdf.es.min` *unconditionally*, so a worker-capable
+   browser exporting a handout downloads **both** copies (~256 KB gz). The main-thread branch
+   is a documented `OffscreenCanvas` fallback and must stay; only the unconditional reach is
+   waste.
+4. **`landing.css` and `common.css` are 83.8% byte-identical** — 1,709 of 1,775 rules verbatim
+   in both, under two separately-hashed URLs, so an app→docs navigation downloads ~26 KB gz
+   twice.
+
+### Two things I told the owner that were wrong
+
+- **The lucide barrel is not a problem.** I flagged 131 icons imported from `'lucide-react'`
+  across 68 files as a possible lever. Measured: 135 distinct icons in the build, **zero
+  defined in more than one chunk**, 29,816 raw bytes of path data total. Tree-shaking and chunk
+  assignment are both clean. There is nothing to win here.
+- **The icons registry is not an under-adopted primitive.** I read `studio/icons.ts` at 9 of 68
+  consumers as the same optional-adoption pattern. It is not: it is 670 bytes re-exporting
+  **five** semantic aliases for glyphs that have collided before, and its own header says to
+  import the meaning "at any of these five call sites." It is deliberately narrow, and it costs
+  nothing that it is.
+
+Also corrected: the arbitrary-value utility count is **728 distinct class names → 817 rules →
+69,283 raw bytes, 36.7% of the shipped CSS file** (10 KB gz in isolation), not the ~475 an
+earlier pass estimated — variant-prefixed forms (`data-[…]`, `group-data-[…]`, `hover:bg-[…]`)
+make up the difference. Move 1's token set reduces that as a **side effect**, not as its point.
+
+### Clean, with numbers
+
+react-dom: exactly one copy. Radix: 17 primitives actually reach the bundle, ~48.8 KB gz total,
+nothing pulling the whole set. Tailwind's own pruning: only 5.8 KB of 188.5 KB unreachable
+site-wide. And `docs/src/playground/*.generated.js` does **not** re-ship the engine — shingle
+overlap against `lattice-playground.js` is 0.0%.
+
+### The ranked list, if bundle work is ever its own line
+
+1. Strip the geometry from the autocomplete's basemap import — **~33 KB gz off `/playground/`'s
+   eager path**, low risk.
+2. Pin markdown-it to one shared chunk — **~44 KB gz off `/studio/`'s eager budget**, low-medium
+   risk (chunking config is global; needs a before/after route-budget reading on all five routes).
+3. Deduplicate `landing.css` / `common.css` — **~26 KB gz** on the first cross-zone navigation,
+   low-medium risk (Starlight cascade ordering; wants a screenshot pass at three widths).
+4. Route the handout path through the worker — up to **~128 KB gz** on that one export, medium risk.
+5. Split the Tailwind bundle per zone — 14 KB gz off the landing page, medium risk and partly
+   self-defeating, since the single shared file is deliberately one cached artifact.
+
+**None of this is component-library work.** It is a separate line with its own targets, and it
+should not be folded into the layer's justification.
+
 ## What I found that is broken independent of this decision
 
 - **Two decision docs claim closed threads that are open.**
