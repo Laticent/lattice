@@ -56,34 +56,67 @@ here; run it again after the work to see what moved.
 node tools/chart-language-census.js --json /tmp/census.json
 ```
 
-### Type — largely coherent, two real splits
+### Type — coherent in seven roles, split in two
 
 This is the axis that *looks* broken and mostly is not, which is why it needed
-measuring. The five semantic text roles resolve to one face each across every
-member that prints them:
+measuring — and why the first measurement of it was wrong. **Two of the three
+splits originally reported here were bugs in the census, not defects in the
+family**; correcting them surfaced a different split that had been missed, and a
+seventh role nobody had named.
+
+The corrected picture. Seven roles, each resolving to ONE face across every
+member that prints it:
 
 | Role | Face | Members |
 |---|---|---|
-| `value` | Playfair (display) | bar, bullet, funnel, slope, stacked-bar, word-cloud |
-| `category` | Outfit (body) | 11 members |
-| `series` | Outfit (body) | line, slope, stacked-bar |
-| `legend` | JetBrains (label/mono) | map, piechart, radar |
-| `tick` | JetBrains (label/mono) | bullet, line, quadrant, radar, scatter, stacked-bar, waterfall |
+| `value` — the primary figure | Playfair (display) | bar, bullet, funnel, slope, stacked-bar, waterfall, word-cloud |
+| `value-2nd` — a rate / target / part | JetBrains (label) | bullet, funnel, stacked-bar |
+| `category` | Outfit (body) | 16 members |
+| `tick` | JetBrains (label) | bullet, gantt, line, quadrant, radar, scatter, stacked-bar, waterfall |
+| `series` | Outfit (body) | line |
+| `heading` | Outfit (body) | roadmap |
 
-A bar chart printing a serif `$4.2M` beside a scatter printing mono `80%` is not
-two type systems — it is two *different roles*, each painted correctly. What is
-genuinely wrong is narrow:
+**`value-2nd` is a role the family already uses and had never named.** funnel's
+conversion rate, bullet's plan marker and stacked-bar's segment part are all the
+label face at 6.5px against the primary's display face at 9px — three members
+that arrived at the same convention independently. A census that lumps it with
+`value` reports a deliberate distinction as a split; the language should ratify
+it as the sixth role rather than flatten it.
 
-1. **`axis-title` is split.** quadrant paints Outfit; scatter, slope and
-   stacked-bar paint JetBrains uppercase-tracked. One of the two is wrong.
-2. **`tick` is split inside a single chart.** radar carries both JetBrains and
-   Outfit ticks in one figure.
+Two splits are real:
 
-**Consequence for the brief:** the type system is close to right. The language
-should *ratify* the five roles, fix the two splits, and then say the harder
-thing the current system does not — **which roles a member is obliged to print**,
-because "which subset each chart happened to use" is the actual source of the
-mixed impression.
+1. **`axis-title`.** quadrant paints `.quadrant-axis-name` in Outfit bold;
+   scatter, slope and stacked-bar paint `.cart-axis-title` in JetBrains,
+   uppercase and tracked. One of the two is wrong.
+2. **`legend`.** gantt, journey, roadmap and state-chart paint Outfit; map,
+   piechart, radar and word-cloud paint JetBrains. **The split tracks the
+   SUBSTRATE, not the design** — the SVG-native legend builder
+   (`_chart-family/svg-legend.js`) sets the label face, while the HTML members
+   each style their own key. That makes it the most visible incoherence in the
+   family, because the legend is its most repeated element, and the most clearly
+   accidental: nobody chose it.
+
+**Three defects reported in the first draft of this note do not exist.** They
+were artifacts of the census, and they are recorded here because two of them were
+load-bearing evidence and "fixing" them would have been a regression chasing a
+tool bug:
+
+- **The radar `tick` split.** The census matched class names as SUBSTRINGS, so
+  `<g class="radar-ticks">` — a container, which carries no font rule and
+  reports whatever it inherited — matched the `radar-tick` role. Every painted
+  radar tick is one face.
+- **"`bar` draws neither a gridline nor an axis."** `bar` draws a zero rule
+  (`.cart-zero`), deliberately: `buildAxisRule` draws at the plot EDGE, which is
+  only zero while every value is positive. The census had no pattern for it.
+- **"quadrant draws no furniture."** It emits `.quadrant-bounds` and
+  `.quadrant-split`; neither matched the detector's patterns.
+
+The family is **more** coherent than the first census said, and three members
+already implement data-keyed furniture rules it could not see (`bar.wantsValueAxis`,
+`bar.referenceLines`, line's `ax.lo === 0 ? buildAxisRule(…) : ''`). **The
+language's job is to generalize rules the tree already has, not to impose new
+ones.** Credit: the visual-designer track found all three by reading the source
+against the census output.
 
 ### Fill — genuinely incoherent, on two incompatible axes
 
