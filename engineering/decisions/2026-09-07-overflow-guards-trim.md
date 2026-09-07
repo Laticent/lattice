@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit? Measured on the real engine in three real browsers — yes for prose in an HTML text block, no for anything else. An adaptive pure-CSS clamp turns out to exist in WebKit alone (Chromium and Firefox drop the declaration), so the CSS-only route is a portability trap rather than an option; a measured pass fixed 4 of the 6 clipping slides in the shipped corpus at 4-6ms per deck, identically in Chromium, Firefox and WebKit. Stressed across the whole component gallery it fixed 43 of 81 overflowing slides and never broke a layout — but on 19 of them it cut content whose ellipsis lands off-screen — the dominant defect, which a 20-line reach-back rule then takes to 2 while raising the fix rate to 65%. The existing `probeContentClipped` still reports every trimmed slide, so the honest alarm survives the guard rather than being silenced by it. Coverage is bounded: 14 chart components carry their labels in SVG where CSS ellipsis is a no-op, a box that does not fit cannot be fixed by trimming text, and a naive cut hid two paragraphs with no mark at all. Proposes TRIM as a fifth Fit-Ladder move, gated by a per-slot trim class whose default is never-trim. The owner ruled on all three forks on 2026-09-07: admit TRIM selectively and default-off, compute the budget with a measured pass, and carry it as a deck front-matter register — see the Ruling section.
+summary: Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit? Measured on the real engine in Chromium, Firefox and WebKit — yes for prose in an HTML text block, no for anything else, and the hard part is not the trimming. An adaptive pure-CSS clamp exists in WebKit alone, so the CSS-only route is a portability trap; a measured pass fits every clipping slide in the corpus at 1-9ms per deck. But the note's original strongest claim was wrong: the existing `probeContentClipped` sees a CLAMP (the lines still lay out) and is blind to a DROP (`display: none` generates no client rects), so a TRIM must emit its own signal instead of inheriting the alarm. Stressed across the whole component gallery, the prototype that fixed the most slides did it by silently deleting 82 elements and left 13 slides losing content with no mark and no alarm. Three of the author's own detectors reported the flattering answer before an independent pass caught them. The ruling stands — TRIM as a fifth Fit-Ladder move, selective, default-off, measured, carried by a `guards:` front-matter register — but the alarm and the decline path are open problems, not details.
 ---
 
 # Guards — can an ellipsis prevent overflow?
@@ -121,21 +121,22 @@ The experiment is about 100 lines that run after fonts settle: find the boxes
 that overflow, walk their text blocks, find the block that crosses the frame
 edge, and set `-webkit-line-clamp` to the number of lines that fit above it.
 
-Run over every deck in the corpus that clips today:
+Run over every deck in the corpus that clips today. **Two prototypes, and the
+difference between them is the subject of §2b and §3** — v2 clamps the block that
+crosses the frame edge; v3 adds a rule that also hides what follows.
 
-| Deck | Slides | Clipping before | Clipping after | Blocks trimmed | Alarm still firing | Pass cost |
+| Deck | Slides | Clipping before | v2: after | v3: after | v3 trims | v3 alarm |
 |---|---|---|---|---|---|---|
-| `examples/overflow-fix-me.md` | 7 | 2, 3, 5 | **2** | 4 | 2, 3, 5 | 6ms |
-| `examples/marker-corner.md` | 7 | 3, 4 | none | 2 | 3, 4 | 6ms |
-| `examples/README.md` | 1 | 1 | 1 | 2 | 1 | 4ms |
-| `premise.gallery.md` | 8 | none (it trims already) | none | 0 | 3 | 2ms |
+| `examples/overflow-fix-me.md` | 7 | 2, 3, 5 | 2 | none | 8 | 3 |
+| `examples/marker-corner.md` | 7 | 3, 4 | none | none | 2 | 3, 4 |
+| `examples/README.md` | 1 | 1 | 1 | none | 1 | **none** |
+| `premise.gallery.md` | 8 | none (it trims already) | none | none | 0 | 3 |
 
-**Four of the six geometrically clipping slides fit afterward.** The cost is
-single-digit milliseconds for a whole deck, so this is not a performance
-question. And the look is the point: the over-stuffed comparison panel ends
-"…folds the migration tooling into the base license rather than billin…" inside
-an intact card, and the four-up card grid keeps its 2×2 shape with the oversized
-card ending "…A reviewer looking at four cards should…".
+v2 fixed four of the six geometrically clipping slides; v3 fixes all six, at 1-9ms
+per deck. **Read the last column before reading the others.** On
+`examples/README.md`, v3 makes the slide fit and leaves *both* alarm channels
+silent — the outcome §9 calls the one thing worse than the clip it replaces. §3
+explains the mechanism.
 
 **The same pass, run in all three engines on the same deck, does the same thing:**
 
@@ -163,91 +164,100 @@ overflowed. 116 slides: 29 carry no prose leaf to trim, 6 would not overflow eve
 at 6 doublings, leaving **81 slides stressed into genuine overflow across the
 component catalog**.
 
-Two prototype versions were run over the same 81 slides. The second adds one
-rule — described below — and the difference between them is the whole argument
-about whether this is buildable.
+Two prototype versions were run over the same 81 slides. **The second was built to
+fix the first's worst defect and made it worse**, which is the most useful thing in
+this note.
 
-| Outcome | v2 (trim the crossing block) | v3 (+ reach-back rule) |
+| Outcome | v2 (clamp the crossing block) | v3 (+ reach back and hide what follows) |
 |---|---|---|
-| Guard made the slide fit | 43 (53%) | **53 (65%)** |
+| Guard made the slide fit | 43 (53%) | 53 (65%) |
 | Guard declined | 38 | 28 |
-| **Trims whose mark is INVISIBLE** | **19 (23%)** | **2** |
+| Clamps whose ellipsis is off-screen | **19 (23%)** | 2 |
+| Elements silently DROPPED (`display: none`) | 0 | **82** |
+| **Slides that lose content with NO mark at all** | 19 | **13** |
 | Layouts broken (failure mode 4a) | 0 | 0 |
 
 **The 4a rule holds.** Across 81 stressed slides and every component in the
 catalog, neither version turned a grid or flex layout into a `-webkit-box`. The
-"only trim a text block" rule does its job.
+"only trim a text block" rule does its job, and it is the only rule here that
+survived contact.
 
-**Failure mode 4d was the dominant defect, and it is fixable.** The first draft
-found it once, on `examples/README.md`, and treated it as an edge case. In v2 it
-occurs on **19 of 81 stressed slides**, across 17 different components — quote,
-cards-grid, list-criteria, list-tabular, list-steps, split-panel, kpi, content,
-piechart, quadrant, state-chart, split-compare, obligation-matrix,
-regulatory-update, q-and-a, logo-wall, wifi. In each, the guard clamped an element
-sitting wholly below the visible box: the content is cut, the ellipsis exists in
-the DOM, and no reader can see either. The slide renders looking finished.
+**v2's defect: the mark exists and nobody can see it.** Failure mode 4d occurs on
+**19 of 81** slides, across 17 components. The guard clamps an element sitting
+wholly below the visible box: content cut, ellipsis in the DOM, nothing on screen.
 
-v3 adds the **reach-back rule**: when the crossing element is entirely below the
-edge, do not clamp it — walk back to the last element still partly visible, cut
-that one so its ellipsis lands on a visible line, and hide what follows. The mark
-on the last visible block then stands for everything dropped. That takes 19 down
-to 2 (`list-criteria`, `obligation-matrix`) and *raises* the fix rate from 53% to
-65%, because reaching back also recovers the height of everything it hides.
+**v3's defect is worse, and it is the one I introduced.** The reach-back rule —
+when the crossing block sits below the edge, walk back to the last visible block,
+cut that one, and hide what follows — takes the off-screen-ellipsis count from 19
+to 2 and raises the fix rate to 65%. It does that by setting `display: none` on
+**82 elements** across the gallery, and on **13 slides** the result is content
+removed with no ellipsis anywhere and, per §3, no alarm either. Among them
+`statute-stack` (8 elements) and `authority-chain` — the legal components whose
+text §6 classes `never`.
 
-**Both measurements had to be corrected mid-run, in opposite directions.** The
-first 4d detector asked whether a clamped element's content exceeds its box —
-true of every trim — and reported 0 failures where there were 19. The first 4a
-detector counted an `inline-flex` chip inside a paragraph as a layout child and
-reported a break on `regulatory-update` that the render cleared; it is 0, not 1.
-Recorded because a number from a detector nobody checked is not evidence, and both
-of these were wrong on the first pass.
+**Three of my own detectors were wrong, each in the direction that flattered the
+result.** The first 4d detector asked whether a clamped element's content exceeds
+its box — true of every trim — and reported 0 where there were 19. The 4a detector
+counted an `inline-flex` chip as a layout child and reported a break the render
+cleared. And the corrected 4d detector still only looked at *clamped* elements, so
+it scored v3 as a large improvement while v3 was deleting 82 elements outright;
+that is how "19 → 2" got written down as a fix. Each number looked plausible, each
+was checked only by the person who wanted it to be true, and the third survived
+into a committed draft of this note.
 
-**What this changes.** Not the ruling — 4d was already named as the acceptance
-test. It changes the weight and the confidence. The weight: an implementation
-that treats "the mark must be visible" as polish ships a silent-loss defect on
-roughly a quarter of the slides that need the guard at all, so the reach-back and
-decline paths are not edge cases to handle later. The confidence: the note no
-longer just asserts that an implementation must solve 4d — a 20-line rule solves
-most of it, measured, which is the difference between a named risk and an unknown
-one. The residual 2 are the honest remainder, and `obligation-matrix` being one of
-them is a hint that table cells will need their own answer.
+**What this changes.** The ruling stands — TRIM, selective, default-off — but the
+note can no longer claim the hard part is done. The decline path is not a polish
+item and the reach-back shortcut is not available: hiding content to make room is
+the failure, not the fix. An implementation must either place a visible mark or
+leave the honest clip, and it must emit its own signal (§3) because the existing
+probe cannot see what it removed.
 
----
+## 3. The alarm survives a CLAMP and is blind to a DROP
 
-## 3. The property that makes this viable: the alarm survives
+**The first draft got this wrong, and it was the note's strongest claim.** It said
+the existing alarm cannot be disarmed by a guard, and called that "the single
+strongest argument that the idea is buildable here." That holds for one of the two
+things a guard does and fails for the other.
 
-The obvious objection is that a guard which makes overflow invisible also makes
-it undetectable — the ring stops firing, the export goes quiet, and an author
-ships a truncated deck believing it fit. That objection is answered by machinery
-this repo already built.
+`probeContentClipped` (`lib/core/overflow-probe.js:876`) exists to catch text lost
+with **no geometric spill to see** — its own header names an ellipsis and a
+line-clamp as the cases it is for. It works by walking text nodes and measuring
+their **Range client rects** against clipping ancestors.
 
-`probeContentClipped` (`lib/core/overflow-probe.js:876`) exists specifically to
-catch text lost with **no geometric spill to see** — its own header names an
-ellipsis and a line-clamp as the cases it is for. Running both probes before and
-after the guard, on the same DOM:
+That mechanism decides everything:
 
-| Slide | `over` before | `over` after | `cut` after |
-|---|---|---|---|
-| fix-me p3 | true | **false** | **true** |
-| fix-me p5 | true | **false** | **true** |
-| marker-corner p3, p4 | true | **false** | **true** |
+| What the guard does to the text | Does it still generate boxes? | Does the alarm see it? |
+|---|---|---|
+| **Clamp** (`-webkit-line-clamp`) — lines laid out, painted away | yes, `scrollHeight` still exceeds the box | **yes** — measured on fix-me p3/p5 and marker-corner p3/p4 |
+| **Drop** (`display: none`) — the element generates nothing | **no: zero client rects** | **no. Nothing to measure, so nothing to report.** |
 
-The geometry channel goes quiet — that is the guard working — and the
-content-cut channel keeps reporting on every trimmed slide. The emulator's
-existing stderr line already says the right thing without a word changed:
+Measured on `examples/README.md` with the v3 prototype, which does both:
 
-> An ellipsis, a line-clamp or a sheared panel head loses text with no box
-> overflow to see, so the frame check above cannot report it. Shorten the copy
-> or give that box more room.
+```
+clamped:  LI  lines=2  h=64  scrollH=64   <- budget equals content: nothing cut, no ellipsis
+dropped:  P   display:none  rects=0       "To render one by hand: node lattice-emul..."
+dropped:  P   display:none  rects=0       "Note for tooling: this file is prose, no..."
+over: false   cut: false
+```
 
-So the guard does not need a new alarm, and it cannot accidentally disarm the
-old one. This is the single strongest argument that the idea is buildable here
-and not somewhere else.
+Two whole paragraphs gone, both channels silent, and the slide renders looking
+finished. This is not a bug in one prototype. **Any TRIM that drops rather than
+clamps is invisible to the existing probe by construction**, and a guard that only
+ever clamps cannot recover the height of content that does not fit at all — which
+is exactly why the drop path exists.
 
-**One consequence, and it is not small.** Every strict slide would light the
-content-cut channel, `overflow:check`'s corpus ratchet would move, and
-`lint:deck:all --strict` gates CI on warnings. Turning `guards: strict` on for
-our own decks is therefore a corpus-wide event, not a per-deck one.
+**So the property this note leaned on has to be built, not inherited.** A TRIM
+implementation owes a signal of its own: the guard knows precisely what it removed,
+so it should record that on the section and the marker should read it, rather than
+hoping a geometric probe re-discovers a loss the guard was careful to erase.
+
+**And the consequence for the ratchet reverses.** The first draft warned that every
+strict slide would light the content-cut channel and move `overflow:check`'s
+baseline upward. Measured, the risk runs the other way: `examples/README.md` is in
+`test/integration/overflow-baseline.json` today and reports clean after the guard,
+so the ratchet would be blessed *downward* on a deck that now loses content in
+silence. A ratchet that counts a silenced alarm as an improvement is worse than no
+ratchet.
 
 ---
 
@@ -293,18 +303,32 @@ paragraphs. **That is strictly worse than the clip it replaced** — a sheared
 paragraph at least looks wrong.
 
 > **Rule, and it is the load-bearing one.** The cut must land INSIDE the last
-> visible text block. When the block that crosses the edge is still partly
-> visible, trim THAT one. When it sits wholly below the edge, **reach back** to
-> the last block that is still partly visible, trim that one instead, and hide
-> what follows — its ellipsis then stands for everything dropped. **A guard that
-> cannot place a visible ellipsis must decline and leave the honest clip.**
-> Measured, that rule takes the defect from 19 slides in 81 to 2 (§2b).
+> visible text block, and the rule needs a POST-CONDITION, not just a placement
+> heuristic: after clamping, confirm the ellipsis's line box is actually painted
+> inside the visible region, and revert if it is not. Without that, an
+> implementation can follow every step, believe it complied, and paint a
+> mid-glyph shear — measured on `marker-corner` p3, where the clamped `h2` is
+> capped by its own layout parent well above the line the budget was computed
+> for. **A guard that cannot place a visible ellipsis must decline and leave the
+> honest clip.**
+> **Reaching back and hiding what follows is NOT the escape**, though it looks
+> like one: it trades an unseen ellipsis for silent deletion, and §2b measures
+> the cost at 82 dropped elements and 13 unmarked slides.
+> One more thing 4d does not cover even with the post-condition: an ellipsis is a
+> mark about a SENTENCE. When a whole bullet or card is dropped, a "…" on the
+> previous item reads as "this sentence continues" while the truth is "an item is
+> gone". Proportionate, correctly attributed marking is unsolved here.
 
 ### 4e. And the one that is not fixable
 
 `examples/overflow-fix-me.md` p2 stayed over by 25px after trimming, because
 what does not fit is a callout BOX — its padding, its label chip, its border.
 Trimming its text to a single line still leaves the box too tall.
+**This observation is v2-only and does not reproduce under v3**, which fits p2 by
+dropping elements. The rule below still holds on its own terms — an ellipsis
+cannot recover non-text height — but the corpus no longer demonstrates it, and a
+rule whose only evidence has evaporated is a rule to re-derive before relying on
+it.
 
 > **Rule.** Trimming recovers only the height that text occupies. Box-driven
 > overflow is out of scope and keeps the ring.
@@ -459,13 +483,18 @@ answers are defensible; they cannot both be the house rule.
 ## 9. Recommendation
 
 Admit TRIM, measured, selective, default-off, with `never` as the default trim
-class — and treat section 4d as the acceptance test rather than a detail. The
-argument is that the alarm already survives the guard for free, which is the
-property that usually has to be invented and here does not.
+class — and treat section 4d as the acceptance test rather than a detail.
+
+**The original recommendation rested on a claim that did not survive review**: that
+the alarm already survives the guard for free. It survives a clamp and is blind to
+a drop (§3), so the signal is work, not a gift. That does not sink the proposal —
+the guard knows exactly what it removed and can say so — but it moves the cheapest
+part of the design into the build.
 
 The thing worth NOT doing is shipping a universal `strict` that trims whatever it
-finds. The measured runs show what that produces: a slide that looks correct and
-has lost two paragraphs with nothing on it to say so.
+finds, and the second thing worth not doing is hiding content to make room. Both
+were measured here, and both produce the same artifact: a slide that looks correct,
+has lost content, and has nothing on it to say so.
 
 ---
 
@@ -514,6 +543,32 @@ would ellipsize in Safari and hard-clip in Chrome and Firefox, so it is a
 portability trap, not a missing feature. Recorded rather than quietly fixed,
 because the pattern is the point: the flat claim survived a first pass and one
 browser, and died on the second engine it met.
+
+**Open before implementation — surfaced by an independent review of this note,
+after the ruling.** None of these changes the ruling; all of them are load-bearing
+for building it, and the note previously implied the first was already solved:
+
+1. **The signal.** The existing probe cannot see dropped content (§3). TRIM emits
+   its own record of what it removed, and the marker and `overflow:check` read
+   that. Until then the ratchet can be blessed downward on a silenced deck.
+2. **The post-condition on the mark** (§4d), and what the guard does when it
+   fails — which is decline, not reach back.
+3. **Column selection.** In a multi-column layout "the block that crosses the
+   edge" is ambiguous; the prototype picks by document order and cut an innocent
+   caption while the real offender stayed whole (`overflow-fix-me` p5). None of
+   the four rules mentions this.
+4. **Determinism.** The pass must state when it runs relative to font settle. The
+   corpus numbers moved between prototype versions and the note carried the stale
+   set into a committed draft.
+5. **Slot classification ownership** — who assigns a trim class, and what catches
+   a wrong one. A slot wrongly marked `never` is inert; one wrongly marked `trim`
+   is the silent-wrong-number failure §6 exists to prevent, and nothing proposed
+   here detects it.
+6. **Export-to-Marp**, which has no measure pass. Degrading to no guard is a
+   defensible answer; it has to be the written one.
+7. **`kanban` already ships a declared 2-line clamp on a title** — a live instance
+   of the option §8 calls untried, on a slot §6 classes `never`. `guards:` owes it
+   a ruling.
 
 **Not built.** This note records the investigation and the ruling. The
 implementation — the register, the trim classes, the measured pass on each
