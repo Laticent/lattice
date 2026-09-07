@@ -216,7 +216,23 @@ data shape*, not a per-member accident.
 |---|---|
 | mark-detail popover wired | 14 of 21 |
 | **no popover** | journey, kanban, matrix-grid, progress, roadmap, timeline-list, word-cloud |
-| **cannot animate — no `<svg>` at all** | kanban, matrix-grid, progress, roadmap, timeline-list |
+| **cannot animate** | journey, kanban, matrix-grid, progress, roadmap, timeline-list |
+
+**Six cannot animate, by two different mechanisms** — which matters, because the
+fix differs. Five (kanban, matrix-grid, progress, roadmap, timeline-list) emit no
+`<svg>` at all. **journey** emits eight, and still gets no scene: `chartToScene`
+reads only the FIRST `<svg>` in the section, and journey's first carries neither
+an anima role nor a `<text>`. Restructuring to SVG would fix the five and do
+nothing for journey, which needs its animatable content moved into the first
+`<svg>` — or the kernel taught to look past it.
+
+**A measurement note that cost a wrong number.** Reading the exported HTML source
+and reading the live DOM disagree, and only one of them is right. `state-chart`
+carries no `data-anima-role` in the emitted markup and twenty in the live
+document, because its measuring pass paints the overlay in the browser. Counting
+roles by grepping the export therefore reports state-chart as unanimatable, which
+it is not. Every number in this section comes from the live DOM
+(`chart-language-census.js`); a grep over the HTML is not a substitute.
 
 `chart-motion` (`docs/src/lib/chart-anima.ts` `chartToScene`) animates the first
 `<svg>` in the section, so **a member with no SVG is not "mostly supported", it
