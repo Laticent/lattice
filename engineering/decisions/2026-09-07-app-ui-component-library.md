@@ -430,6 +430,136 @@ being copied.
    themselves without it; then adopt-and-delete (`PanelBody` ×10, docked `PanelHeader` ×4,
    `PanelSection`), then build (`SettingRow`, `IconButton`, `SearchField`, `AppBar`).
 
+**Amended after the second sweep (see § Beyond the four named surfaces).** Two preconditions
+join Move 1, because adopting the layer without them spreads defects rather than fixing them:
+
+- **0a — reconcile the `ui/` primitives with each other** before asking anyone to adopt them.
+  Focus geometry (six treatments, three of them primitive-vs-primitive) and disabled opacity
+  (`button` 50 vs `switch` 40) have to agree first.
+- **0b — settle the breakpoint numbers in Move 1**, not later. Four systems disagree, with two
+  live contradiction bands (640–699 and 1024–1099). A component library that ships `sm:`-based
+  components into an app whose hook says 699 *entrenches* the split.
+
+Move 1's token set therefore covers three axes, not one: **dimension** (bar height, touch
+floor, control and icon sizes, panel widths), **breakpoint** (one set of numbers, one
+authority), and **fallback** (a token-defaults module, retiring 58 divergent `var(--fail,#…)`
+reds and nine `--accent` guesses).
+
+## Beyond the four named surfaces
+
+A second sweep went looking for what nobody named. It changes the plan in two structural
+ways, so those come first.
+
+### Precondition A — the `ui/` primitives disagree with each other
+
+Adopting a layer that is not internally consistent spreads its inconsistency. Two measured
+cases, both inside vendored `ui/`:
+
+- **Focus geometry, six treatments.** `ring-[3px] ring-ring/50` (button, input, select,
+  textarea, badge, tabs, scroll-area) · `ring-2 ring-ring ring-offset-2` (checkbox, switch) ·
+  `ring-2 ring-inset` (toggle-group, radio-group) · `outline-2 outline-offset-1`
+  (`panel.tsx:431,522`, `help-tip.tsx:49` without the offset) · `ring-2 ring-[var(--accent)]`
+  across ~10 studio sites · `focus-visible:underline` on landing links. All resolve to the
+  same hue, so this is six *shapes* for one signal — and rows 1–3 are primitives contradicting
+  primitives.
+- **Disabled state.** `button.tsx:8` says `opacity-50`; `switch.tsx:22` says `opacity-40`.
+  Six opacities and three cursor treatments follow them downstream.
+
+**So reconciliation is step zero, not a consequence of adoption.**
+
+### Precondition B — a library would ENTRENCH the breakpoint disagreement
+
+Four systems, and their numbers do not agree:
+
+| System | Numbers |
+|---|---|
+| `useBreakpoint()` (`lib/use-breakpoint.ts:14-15`) | mobile ≤ **699** · tablet ≤ **1099** · desktop ≥ **1100** |
+| Tailwind defaults (**not** overridden — no `--breakpoint-*` in `tailwind.css`) | sm **640** · md **768** · lg **1024** · xl **1280** |
+| Playground | **820**, **560** |
+| hand-written `@media` | 420, 520, 560, 600, 620, 640, 680, 720, 760, 820, 880, 900, 64rem, 88rem, 90rem |
+
+Two live contradiction bands: at **640–699px** Tailwind's `sm:` has fired while
+`useBreakpoint()` still returns `'mobile'`; at **1024–1099px** `lg:` has fired while it still
+returns `'tablet'`. Both bands are active inside files that mix the two — `StudioShell.tsx`,
+`Fabricate.tsx`, `SlidePicker.tsx`, and `ui/panel.tsx` itself (5 hook calls, 6 `sm:`, 10
+`min-[1100px]`/`max-[699px]`).
+
+Shipping components that use `sm:` into an app whose hook says 699 makes this worse, not
+better. **The breakpoint numbers must be settled in Move 1 alongside the dimensional tokens.**
+
+### A real accessibility failure the sweep found — WCAG 2.4.7 (AA)
+
+**Four AI prompt rows have no focus indicator at all.** The wrapper carries no `focus-within:`
+and the input inside carries `outline-none` with nothing replacing it, so tabbing in paints
+nothing: `Fabricate.tsx:999/1008`, `Fabricate.tsx:1207/1216`,
+`motion/MotionStudio.tsx:478/491`, `FinishStudio.tsx:411/420`.
+
+Verified by reading all four: `outline-none` and no focus treatment of any kind. The proof
+that it is an adoption gap rather than an oversight is sitting next to them — the *name* rows
+in the same files (`Fabricate.tsx:970`, `FinishStudio.tsx:376`, `MotionStudio.tsx:310`) carry
+`focus-within:border-[var(--accent)]`, and the shared `PANEL_SEARCH_BOX` (`panel.tsx:735`)
+carries `focus-within:border` **plus** `focus-within:ring-2`. The rows that went through the
+shared path are correct; the four that did not are not.
+
+Roughly 20 further hand-rolled fields use `outline-none` + `focus:border-[var(--accent)]` —
+`focus:`, not `focus-visible:` — a 1px hue change standing in for the primitives' 3px ring.
+
+### Token FALLBACKS are a second, unpoliced hex channel
+
+HARD RULE #3 holds engine layout CSS to a hex budget of zero, and **explicitly exempts
+`var(--t,#fallback)` defaults**. That exemption, meant for the engine's token files, has let
+the app layer accumulate a parallel palette of guesses:
+
+- `var(--fail, …)` — **four** different reds across 58 sites: `#b3261e` ×33, `#c0392b` ×16,
+  `#c20000` ×7, `#9e2222` ×2. The real token is `#550014`. **None of them match it.**
+- `var(--accent, …)` — **nine** distinct values. Sixteen use `#006fa8`, which matches one
+  theme; **fourteen are Tailwind's default indigo** (`#4338ca` ×12, `#6366f1` ×2) — leftover
+  shadcn defaults sitting in a 33-theme ochre-and-blue system.
+- `--radius-sm` is given as `8px` in three files and `6px` in two; it computes to 4px.
+
+A hardcoded fallback for a *themeable* token is wrong by construction here — it can match at
+most one of 33 themes. These paint only in the pre-resolve window, but that window is real,
+and `SkipLink.astro:46` would flash indigo on an ochre site.
+
+### The rest of the sweep
+
+**A library fixes these** — destructive confirmation (five patterns; `SlideComments.tsx:114`
+and `LensesPanel.tsx:445` delete with *no* confirmation, while `Library.tsx:857`'s `DeleteBtn`
+is a good arm-and-confirm control stranded in a feature file); empty states (six grammars —
+`PanelEmpty` has 3 consumers, and `VoicePicker.tsx:109` uses a permanently-disabled
+`<input placeholder="No published voices">`, which a screen reader announces as a textbox);
+thirteen hand-rolled sheet-reset effects that are **not** equivalent (some `if (open)`, some
+`if (!open)`, so which direction leaves stale state varies by sheet); icon naming
+(`TriangleAlert` and `AlertTriangle` are the same glyph under a deprecated alias, four files
+each — so grepping either finds half the warning sites); and `IntentTag.tsx:12`, where one of
+four status colors is a hardcoded hex while its three siblings are tokens.
+
+**A library does NOT fix these** — and saying so matters, because the library should not be
+sold as covering them: elevation, z-index and motion have no scale at all (23 shadows,
+16 z-indexes including `z-[2147483647]` and `z-[2147483646]` — INT_MAX and INT_MAX−1 —
+and ~13 motion durations with two hand-written curves for the same intent); six full pages
+(`cadenza`, `suono`, `vetrina`, `lente`, and two vetrina sub-pages, ~2,165 lines) ship with
+**zero** responsive treatment, **zero** axe coverage and **zero** inbound links, running a
+fifth button system (`class="btn primary"`); five date formats, six byte formats and three
+currency formats, with **no `Intl.*` formatter anywhere in the tree** (the same 5 MB file
+reads as `5.0 MB`, `~5.0 MB`, or `5120.0 KB` depending on the panel); typed shape glyphs
+(`✓ ⚠ ✕ ● ▸`) on rendered docs-site surfaces, which HARD RULE #29's gate does not reach
+because it covers engine CSS and shipped decks, not `docs/src`; and 25 sites of alpha-diluted
+`text-muted-foreground/25…/80` that `axe-site.spec.ts:50-53` names as the site's outstanding
+contrast risk and cannot scan, because it drives no route and opens no panel.
+
+**Dead code worth deleting**: `PG_SPLIT_DEFAULTS` (`playground/pg-split.ts:41`) has zero
+readers while its own docblock claims it prevents a drift that is currently present —
+`PlaygroundApp.tsx:1676/1719` and `playground.astro:210` hardcode the numbers;
+`BoundingBoxToggle.tsx` is a complete component with no consumers; `useNarrowDesktop`
+(`lib/use-breakpoint.ts:95`) is an entire unused hook carrying a fifth breakpoint band; and
+twelve `*_BY_NAME` catalog maps have no readers.
+
+The sweep also checked and found **clean**: non-semantic interactive elements (2 candidates,
+both correctly handled), accessible names on icon-only controls (12 apparent hits, all false
+positives — labeling discipline is genuinely strong), TODO/FIXME debt (effectively zero
+outside generated files), button label capitalization, and live-region usage.
+
 ## What I found that is broken independent of this decision
 
 - **Two decision docs claim closed threads that are open.**
