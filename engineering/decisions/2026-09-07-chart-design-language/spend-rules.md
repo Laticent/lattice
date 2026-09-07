@@ -7,30 +7,65 @@ where it applies.
 
 ---
 
-## 1. A finish retreats a fill only where the fill is not the sole carrier
+## 1. What a fill ENCODES decides whether a finish may retreat it
 
 `etching` hollows a scatter dot and leaves a quadrant dot solid. That looked
-inconsistent. It is not — but it was an accident, and the accident hid a rule
-worth having.
+inconsistent, and **it was** — the instinct behind the question was right and my
+first answer was wrong.
 
-The accident: `.quadrant-dot` carries `data-cell`, not `data-cat`, so the rule
-missed it (`scoring.md`). The rule it should have obeyed anyway:
+The accident is real: `.quadrant-dot` carries `data-cell`, not `data-cat`, so the
+rule missed it (`scoring.md`). But the answer I gave — that a quadrant dot's fill
+is the sole carrier of its cell, so it must stay solid — does not survive being
+looked at. **The cell IS the position.** A dot inside the top-right quadrant is
+in the top-right quadrant whether it is filled or hollow, and an ink ring keeps
+its hue besides. Scatter and quadrant carry the same thing in their fill —
+nothing the reader cannot already see — so they behave the same way, and the
+prototype now shows them doing it.
 
-| | what the fill carries | may a finish retreat it? |
+The axis that actually decides is **what the fill encodes**, not what shape the
+mark is:
+
+| encoding | may a finish retreat the body? | members |
 |---|---|---|
-| `.scatter-dot` | nothing — every dot is `data-cat="0"`, and the transform says why: *"a scatter's encoding is position, not hue"* | **yes** |
-| `.quadrant-dot` | `fill: var(--cell-ink)` — WHICH QUADRANT the item landed in. Its label is `--quadrant-label-ink`, a neutral, so no other element carries the cell | **no** |
+| **hue** — identity is *which* colour, and an ink edge preserves it | **yes, all the way to a whisper** | bar, stacked-bar, piechart, funnel, scatter, quadrant, gantt, waterfall, bullet, line, slope, state-chart, timeline-list, roadmap, kanban, progress |
+| **ramp** — fill *strength* is the magnitude | **scaled, never flattened** | map (`--mix` per region), journey |
+| **presence** — filled-versus-not *is* the datum | **against a floor; never to zero** | matrix-grid |
+| **layered** — translucent, composited with its neighbours | **no: settled, radar keeps its alpha.** The finish reaches its edge and its ground | radar |
 
-> **A finish may move a mark's identity out of its body only when the body is
-> not the sole carrier of a channel.** Where the fill *is* the channel, the
-> body holds at full strength under every finish, and the finish expresses
-> itself on that member through its edge and its ground instead.
+The two that hold are measured, not asserted. `map` sets `--mix` per region and
+mixes the hue into `--map-base`, so flattening the fill deletes the magnitude.
+`matrix-grid`'s `.cell-filled` is `background: var(--row-fill)` and its
+`.cell-outlined` is `background: none` **with the same 2px border** — a body
+taken to nothing turns one cell into the other. Quiet is safe there; gone is not.
 
-This is one rule, checkable per member, and it generalises: `progress` and
-`gantt` colour by status, `map` by magnitude. None of those may go hollow
-either. It also means the three finishes are *not* required to differ on every
-member — they are required to differ **wherever the fill is free**, and to say
-which members those are.
+This is the judge's magnitude clause, generalised, and it replaces the "sole
+carrier" framing above it. It is also computable per member rather than
+per-member taste, which is what lets a new chart adopt a finish with no new rule.
+
+## 1b. A textured mark keeps its texture
+
+Found by building the prototype, and it would have shipped: **a finish that sets
+`fill` with `!important` deletes the a11y texture channel.**
+
+On the a11y palettes a mark's fill is a `<pattern>` — `fill: url(#latt-a11y-chart-tex-N)`
+— and that pattern is the substitution that carries category for a reader who
+cannot receive hue. Every finish rule here is `!important` (it has to outrank the
+inline `style="fill:url(…)"` the pie and quadrant emit), so every finish silently
+repainted the one channel those palettes depend on.
+
+> **A finish reaches a textured mark through SHADE and its edge, never by
+> repainting it.** `fill-opacity` under each finish; the pattern is untouched.
+
+Two things this needs, and both are in the prototype:
+
+- **Detect a texture, not a `url()`.** Most members already paint through a
+  `<linearGradient>` — the vertical wash — so treating every `url()` fill as a
+  texture excludes them from every finish, silently, in the other direction.
+  Resolve the reference and look at the node: only a `<pattern>` is the a11y
+  channel. Measured on the eleven-chart prototype: **0 textured marks on indaco,
+  29 on achromatopsia**, out of 102.
+- **Read the paint before the finish applies.** The slot has to be stamped after
+  the read, or the finish's own rules are already matching.
 
 ## 2. Singular does not mean "own hue" — it means "may own one, if hue carries"
 
@@ -173,8 +208,11 @@ the edge is derived rather than exposed.
    that is the join, and three of the four already did it correctly.
 3. `etching` drops `.cart-value` / `.cart-cat` recolouring entirely, which also
    retires the F4 emitter-contract dependency that was blocking it.
-4. `etching` gains a fill-carries-a-channel exclusion list, derived from the
-   slot contract rather than hand-written per member.
+4. `etching` retreats a body only where the fill encodes **hue**; `ramp` scales,
+   `presence` floors, `layered` is edge-only — read off the slot contract, not
+   hand-written per member.
+4b. Every finish declares a `fill-opacity` for a textured mark and repaints none
+   of them.
 5. `ground` loses `.chart-body` to the new `frame:` register and gains its
    per-group track, which is the part that was never built.
 6. Every finish declares, per element it repaints, whether that element is text
@@ -183,3 +221,34 @@ the edge is derived rather than exposed.
 
 All six sit downstream of the slot contract in `scoring.md`. None is buildable
 until a mark can be addressed on every member.
+
+---
+
+## The prototype, and what it measured
+
+`scratchpad`-built, published as an interactive page: eleven members spanning the
+taxonomy (hue / ramp / presence / layered; legend-rail / direct-label / no-key;
+SVG and HTML marks), four palettes, live finish and frame controls, every chart a
+real engine render. The slot contract is applied in the browser from the
+attributes members already emit — the mapping is the contract, the JS is
+scaffolding for an emitter change.
+
+**11 of 11 members show all three finishes as distinct**, on indaco, onyx and
+achromatopsia alike, against 5 of 21 for the CSS in `finishes.spec.js`.
+
+Divergence is measured over **the union box of the marks a finish may touch**,
+not the whole slide. That correction matters more than it sounds: a scatter's
+dots are a fraction of one percent of a 1280x720 slide, so a whole-slide diff
+reports 0.2% for a change that alters every mark on the chart. Scatter and
+quadrant still read lowest (1.3% and 1.7% pigment>etching) because a dot is a
+small object inside a large plot — the honest floor of an area metric, not a
+finish failing to land.
+
+Three collisions worth remembering for any future viewer built this way: the
+engine styles `.badge`, `.card`, `.grid`, `.seg`, `.stage` and `.top`, and it
+styles bare `section`, `h2`, `ol` and `dl` as slide content — so viewer chrome
+needs its own namespace and its own resets, or the page quietly inherits deck
+typography. And a theme cannot be swapped by appending a second theme file to a
+render that already baked one: an a11y variant redeclares almost none of the
+first theme's tokens, so the palette stays put. Compose the engine sheet with one
+theme, the way `lattice-emulator` does.
