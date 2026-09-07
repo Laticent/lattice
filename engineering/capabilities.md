@@ -406,6 +406,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-split-treatments.js` | build-split-treatments.js — regenerate §0c's treatment table in |
 | `tools/build-stage-catalog.js` | Generates lib/forms/cell/masthead/stage-catalog.generated.js — a plain CJS |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
+| `tools/build-stress-deck.js` | build-stress-deck — assemble one bucket's CEILING cases into a single deck. |
 | `tools/build-suono-lib.js` | Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type |
 | `tools/build-theme-catalog.js` | Generates docs/src/components/studio/palettes.generated.ts — the palette picker's |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
