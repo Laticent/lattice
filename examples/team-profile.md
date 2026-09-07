@@ -111,6 +111,69 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ---
 
+<!-- _class: team-profile lead -->
+
+`Program leadership`
+
+## A sixth name does not fall off the bottom of the slide.
+
+- Ada Okafor
+  - ![](../lib/components/inventory/team-profile/ada.svg)
+  - `Executive Sponsor`
+  - Signs the scope and owns the outcome.
+- Marcus Vale
+  - ![](../lib/components/inventory/team-profile/marcus.svg)
+  - `Program Director`
+- Priya Raman
+  - ![](../lib/components/inventory/team-profile/priya.svg)
+  - `Head of Delivery`
+- Tomas Lindqvist
+  - ![](../lib/components/inventory/team-profile/tomas.svg)
+  - `Solutions Architect`
+- Nia Bello
+  - ![](../lib/components/inventory/team-profile/nia.svg)
+  - `Data Lead`
+- Jonah Reyes
+  - ![](../lib/components/inventory/team-profile/jonah.svg)
+  - `Customer Success`
+
+---
+
+<!-- _class: team-profile -->
+
+`The whole team`
+
+## Add a closing line and the cards turn on their side.
+
+- Ada Okafor
+  - ![](../lib/components/inventory/team-profile/ada.svg)
+  - `Executive Sponsor`
+  - Clears blockers above the program.
+- Marcus Vale
+  - ![](../lib/components/inventory/team-profile/marcus.svg)
+  - `Program Director`
+  - Runs the weekly cadence.
+- Priya Raman
+  - ![](../lib/components/inventory/team-profile/priya.svg)
+  - `Head of Delivery`
+  - Staffs the pods; holds the dates.
+- Tomas Lindqvist
+  - ![](../lib/components/inventory/team-profile/tomas.svg)
+  - `Solutions Architect`
+  - Reviews every schema change.
+- Nia Bello
+  - ![](../lib/components/inventory/team-profile/nia.svg)
+  - `Data Lead`
+  - Owns the migration cutover.
+- Jonah Reyes
+  - ![](../lib/components/inventory/team-profile/jonah.svg)
+  - `Customer Success`
+  - Your standing contact between reviews.
+
+> One team, one runbook, one number — and nobody on it is a stranger to you.
+
+---
+
 <!-- _class: team-profile sides -->
 
 `Q3 business review`

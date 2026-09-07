@@ -265,6 +265,88 @@ section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio)
   --person-size: 6.5cqi;
 }
 
+/* ── The card turns on its side when a CODA takes the stage's height.
+ * Measured on a real render, one `> quote` coda takes a 16:9 stage from 512px to
+ * 391px — 121px, almost a quarter of it. The portrait-over-words card is
+ * TALL by construction (a circle, then three lines under it), so two rows of six
+ * people no longer fit and the bottom row's notes were cut off mid-sentence.
+ *
+ * Turning the card on its side is what buys the height back, and it costs nothing
+ * that matters: the portrait and the words sit at the same height instead of
+ * stacking, so a row is `max(portrait, words)` rather than their sum. The words go
+ * left-aligned beside the face, which is the shape `sides` and `bio` already use —
+ * so this is the family's own row card, borrowed for a short stage, not a fourth
+ * card shape to learn.
+ *
+ * KEYED ON THE CODA CELL ALONE, and the FOOTER is deliberately not in this
+ * selector even though it is the same kind of chrome. It costs the stage NOTHING:
+ * measured at 512px with a footer and 512px without, because the footer is its own
+ * frame row and the stage never pays for it. Including it on the assumption that
+ * chrome is chrome turned every footered slide — which is most of them, the
+ * component's own gallery included — into the two-column row card, so the gallery
+ * rendered a face BESIDE a name under a headline reading "seats each face OVER a
+ * name". A coda an author folds into the stage instead does not shorten the stage
+ * either, and correctly does not match here.
+ * THREE columns, the same as the unreflowed card, and the count was measured rather
+ * than reasoned. Two looked right — a row card wants width for the words beside the
+ * face — but two columns means THREE ROWS for six people, and a row card is ~100px
+ * tall on its text alone, so 300px of cards could not fit a 349px stage however
+ * small the portrait got: shrinking it from 6cqi to 5.5cqi moved the overflow by
+ * zero, because the portrait had stopped being the tallest thing in the row. Three
+ * columns is TWO rows, which fits with room to spare even where the cells are narrow
+ * enough to wrap a note to a fourth line. Fewer rows beat wider cells. */
+section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-coda)
+  > .cell-stage {
+  --person-cols: 3;
+  --person-size: 5.5cqi;
+  /* The row gap comes down with the card. A column card stacks a portrait ON a block
+   * of words, so its rows need a tall gap to read as separate people; a row card is
+   * already one horizontal band and separates itself. Left at the column card's gap
+   * the reflow measured 96px between rows — three rows of 100px cards plus that gap
+   * still cleared a 349px stage by 25px, i.e. the gap alone was costing more than the
+   * overflow it was supposed to have fixed. */
+  --person-row-gap: var(--sp-md);
+}
+
+section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-coda)
+  > .cell-stage > ul.team-roster > li.person {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-md);
+}
+
+section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-coda)
+  > .cell-stage > ul.team-roster > li.person > .person-text {
+  align-items: start;
+  text-align: left;
+}
+
+/* `lead` gives the same height back, but NOT by turning its band on its side — the
+ * band is the one place the row card is wrong. Its cells are already narrow (five
+ * or more across), so a row card leaves the words a ~130px column and they wrap
+ * hard: measured, the reflowed band cards ran 122-193px against a 191px hero, i.e.
+ * the "saving" made the band TALLER than the thing it sits under. The row card
+ * wants width, and the band has none to give.
+ *
+ * So `lead` pays out of its three genuinely slack allowances instead — the band
+ * gap, the hero's rule padding, and the hero note's type — which together cover
+ * the coda's bill without touching the hierarchy the design is about. */
+section.team-profile.lead:has(> .cell-coda)
+  > .cell-stage > ul.team-roster {
+  row-gap: var(--sp-md);
+}
+
+section.team-profile.lead:has(> .cell-coda)
+  > .cell-stage > ul.team-roster > li.person:first-child {
+  padding-bottom: var(--sp-xs);
+}
+
+section.team-profile.lead:has(> .cell-coda)
+  > .cell-stage > ul.team-roster > li.person:first-child .person-note {
+  padding-top: var(--sp-xs);
+  font-size: var(--fs-body-compact);
+}
+
 /* ── lead — one hero, the rest ranked beneath.
  * The roster becomes a single column of two bands: the first person alone in a
  * row-shaped hero, then everyone else tiled small. `flex-wrap: wrap` on the list
@@ -280,6 +362,57 @@ section.team-profile.lead > .cell-stage {
 section.team-profile.lead > .cell-stage > ul.team-roster {
   align-content: center;
   row-gap: var(--sp-xl);
+}
+
+/* THE RANKED BAND IS ONE ROW, and holding it to one is what makes `lead` seat the
+ * roster the manifest promises. The band tiles at `--person-cols`, so a fixed 4
+ * meant a hero plus FIVE reports wrapped to a second row — and that row landed
+ * 184px below the stage, taking a name off the slide entirely at SIX people, the
+ * declared sweet spot, with no coda and nothing else on the slide. Measured, not
+ * reasoned: 6, 7 and 8 people all overflowed by exactly 184px, which is the
+ * signature of one whole row sitting outside the box rather than a gradual
+ * squeeze.
+ *
+ * So the column count tracks the roster, the same quantity-query idiom the
+ * default composition already uses for its seven-person reflow: one more column
+ * per extra report, with the portrait giving back the width each new column
+ * costs. NINE is where it stops, measured both ways: nine hold on a bare stage and
+ * on a stage a coda has shortened, and a tenth wraps the band to a second row that
+ * lands off the slide. Past nine the answer is `bench`, which drops the notes on
+ * purpose rather than shrinking them into decoration.
+ *
+ * Those nine assume the shape the component's own `commonMistakes` advises — the
+ * HERO carries the note, the reports carry name and role. Give every report a note
+ * as well and the band's cells, seven across, wrap the notes until the cards run
+ * TALLER than the hero: measured at 218px against a 172px hero, so the portrait
+ * has stopped being what to shrink. That slide degrades (notes clipped, no name
+ * lost) rather than being tuned for here — a rule that half-rescues a shape the
+ * docs steer away from is a rule nobody can explain later. */
+section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) {
+  --person-cols: 5;
+  --person-size: 6cqi;
+}
+section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(7)) {
+  --person-cols: 6;
+  --person-size: 5.5cqi;
+}
+section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(8)) {
+  --person-cols: 7;
+  --person-size: 5cqi;
+}
+section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(9)) {
+  --person-cols: 8;
+  --person-size: 4.5cqi;
+}
+
+/* With a coda the ladder above arrives one rung late, the same way `bio`'s does, and
+ * the measurement is what says so rather than the symmetry: on a shortened stage the
+ * EIGHT-person band clipped by 6px while the NINE-person band was clean — nine had
+ * already stepped down to 4.5cqi and eight was still at 5cqi, so the larger roster
+ * fit and the smaller one did not. That is a mistuned rung, not a capacity wall. */
+section.team-profile.lead:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(8)) {
+  --person-size: 4.5cqi;
 }
 
 section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child {
@@ -435,6 +568,15 @@ section.team-profile.sides > .cell-stage > ul.team-roster > li.person {
 
 section.team-profile.sides .person-text { align-items: start; text-align: left; }
 
+/* The same 121px coda bill, paid out of the column's own gap. `sides` is already
+ * row-shaped, so there is no card to turn — and it was only 7px over, which the
+ * tighter gap covers three times without the rows reading as crowded. (A footer is
+ * not in this selector, or any of the ones above: it costs the stage nothing.) */
+section.team-profile.sides:has(> .cell-coda)
+  > .cell-stage > ul.team-roster {
+  gap: var(--sp-sm);
+}
+
 /* The dividing rule: the second column's two children carry a shared start edge.
  * Keyed on WHICH ELEMENTS they are, not on their position among the stage's
  * children, for the same reason the placement above is explicit. */
@@ -471,6 +613,68 @@ section.team-profile.bio > .cell-stage > ul.team-roster > li.person {
 
 section.team-profile.bio > .cell-stage > ul.team-roster > li.person:last-child {
   border-bottom: 0;
+}
+
+/* A LONG bio roster tightens its rows rather than running off the slide. A bio row
+ * is deliberately tall — portrait, a name-and-role line, and a full sentence under
+ * them — and four of those fill a 16:9 stage. Measured on a real render: each row
+ * costs 104px against a 512px stage, so the FIFTH row cleared the bottom edge by
+ * 7px and the sixth took a name off the slide, at a count the manifest calls the
+ * sweet spot.
+ *
+ * The portrait is what gives the height back, because it is the only part of the
+ * row that carries no words: shrinking it costs presence, shrinking the sentence
+ * costs the thing `bio` exists for. Past eight people the sentence is no longer
+ * readable at any row height and the answer is `bench`, which drops the notes as a
+ * stated content decision — the manifest's capacity note says so. */
+section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-child(5)) {
+  --person-size: 5.5cqi;
+}
+section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-child(5)) > li.person {
+  padding: var(--sp-3xs) 0;
+}
+section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-child(7)) {
+  --person-size: 4.5cqi;
+}
+
+/* With a coda the stage is 121px shorter (a footer, measured, costs nothing), so
+ * every threshold above arrives one person earlier — and the counts prove it rather than a rule of thumb: on a
+ * shortened stage `bio` overflowed by 24px at FOUR people (below the tightening)
+ * yet by only 7px at five (inside it), which is the signature of a threshold set
+ * one notch too late, not of a design that cannot hold the roster. The tiers
+ * therefore shift down by one, and the last one buys the rest of the coda's bill
+ * out of the portrait — the only part of a bio row carrying no words. */
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(4)) {
+  --person-size: 5.5cqi;
+}
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(4)) > li.person {
+  padding: var(--sp-3xs) 0;
+}
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(5)) {
+  --person-size: 5cqi;
+}
+/* FIVE is where `bio` stops on a shortened stage, and the measurement says why
+ * rather than the design's intent alone. At six the rows are 72px each and
+ * uniform, with the portrait down to 49px — so the portrait has stopped being the
+ * driver and the two text lines are, which means the only cut left is the sentence
+ * itself. `bio` exists to give each person a real line; a composition that keeps
+ * six people by shrinking their sentences into captions is `bench` wearing another
+ * name. The manifest's capacity note carries the number, so a deck hits a warning
+ * before it hits the slide. */
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) {
+  --person-size: 4.25cqi;
+}
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) > li.person {
+  padding: 0;
+}
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) .person-note {
+  padding-top: 0;
 }
 
 /* Name and role share the top line (the role tucked in beside the name, not under

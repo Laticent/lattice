@@ -36,7 +36,7 @@
       "list-tabular",
       "split across slides"
     ],
-    "note": "twelve is the ceiling in any composition, and only `bench` holds them — the default three-up seats six (a seventh reflows it to four columns; a ninth wants `bench`, which drops the notes)"
+    "note": "twelve is the ceiling and only `bench` reaches it — the ceiling is PER COMPOSITION, and every number here is measured on a real render rather than inferred from the layout. On a 16:9 stage: `bench` holds twelve; the default three-up holds eight, reflowing to four columns at a seventh; `lead` holds nine, its ranked band widening a column per extra person so it stays ONE row; `sides` holds six a side; `bio` holds six, and that is a floor rather than a tuning gap — at six its rows are already down to 72px with the portrait at 49px, so the only cut left is the sentence `bio` exists to give each person. A coda takes 121px out of the stage (512px to 391px); a footer takes nothing. Every composition absorbs the coda at those counts EXCEPT `bio`, which drops to five. `lead`'s nine assume the shape `commonMistakes` advises — the hero carries the note, the reports carry name and role; give all nine a note and the band's narrow cells wrap them until the cards run taller than the hero."
   },
   "density": {
     "axis": "item",
@@ -119,12 +119,12 @@
       "fix": "Write `![](photo.jpg)` with an empty alt. The name is set right beside the face and IS the accessible label, so alt text only makes a screen reader say it twice — the engine drops it either way."
     },
     {
-      "mistake": "Adding a KEY INSIGHT or a closing note to a full six-person roster.",
-      "fix": "The coda cell takes its height out of the stage, so the second row clips. Drop to four people, move the line into the headline, or switch to `bench`, whose rows are half the height."
+      "mistake": "Adding a KEY INSIGHT or a closing note to a full `bio` roster.",
+      "fix": "A coda takes 121px out of the stage, and `bio` is the one composition that cannot absorb it: its rows are already at their floor, so a sixth person clips. Every other composition reflows and is fine — the default turns its cards on their side, `lead` tightens its band, `sides` closes its gap. So keep a `bio` roster to five when the slide carries a coda or a footer, or move the line into the headline."
     },
     {
-      "mistake": "Giving the ranked people under a `lead` hero their own note lines.",
-      "fix": "The hero's note is the one that earns the room. Five notes do fit under a one-line headline, so nothing warns you — but let the headline wrap to a second line and the stage clips the whole ranked row (measured at 31px on indaco, 1280x720), the engine marks the slide OVERFLOWS, and every lieutenant note vanishes at once. Give the note to the hero and leave the rest at name and role, the way the sample does."
+      "mistake": "Expecting a `lead` hero to hold a long note when the roster is also long.",
+      "fix": "The hero's note is the one that earns the room, and the ranked band widens a column per extra person to stay one row — so nine people fit, but each ranked cell is narrower than the last. Past six, give the note to the hero and leave the rest at name and role, the way the sample does; past nine the notes are what stop being readable and that is `bench`."
     },
     {
       "mistake": "Numbering the roster with an ordered list (`1. Ada Okafor`).",
