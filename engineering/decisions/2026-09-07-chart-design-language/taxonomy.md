@@ -346,14 +346,17 @@ categories apart is not a look — and that asymmetry is measured, not asserted.
 
 ### The presets
 
-Three, because three cover the real range and a fourth would start combining
-things that fight. Named `charts:` for consistency with `cards:` and `lift:`.
+Four, named for printing and drafting rather than for adjectives, so a name says
+what the thing IS. Selected with `charts:`, for consistency with `cards:` and
+`lift:`. Rendered across seven members chosen to sit in different taxonomy cells:
+<https://claude.ai/code/artifact/4221feb6-efb8-4104-b7b2-8bcceaae70cc>
 
 | `charts:` | Marks | Figure | Furniture | For |
 |---|---|---|---|---|
-| **`editorial`** *(default)* | flat | no ground, no edge | minimal — a rule only where a magnitude must be compared | The boardroom default. What FT, the Economist and Datawrapper do. |
-| `panel` | flat | subtle ground + hairline edge | as editorial | A chart among dense prose, a chart over a background image, a board pack where the figure must read as a separate object. |
-| `material` | cross-axis shading kept | no ground, no edge | as editorial | Closest to what ships today; for decks that want the material feel. |
+| **`folio`** | flat | no ground, no edge | half presence — a rule only where a magnitude must be compared | **Folio**, the newspaper page. The boardroom default: what the FT, the Economist and Datawrapper do. |
+| `plate` | flat | ground + hairline edge, small radius | half presence | **Plate**, the bounded illustration plate. A chart among dense prose, a chart over a background image, a board pack where the figure must read as a separate object — and the finish whose ground an export bakes. |
+| `relief` | cross-axis shading kept | no ground, no edge, small radius | half presence | **Relief**, material with depth across the mark and never along it. Closest to what ships today; the shading is measured harmless. |
+| `survey` | flat | no ground; the grid frames | **full** presence — every gridline, bound and split line | **Survey**, the surveyor's sheet. Dense analytical decks where the reader takes values off the chart rather than reading a shape. The one finish that spends ink on reference instead of removing it. |
 
 **What every preset holds constant, by construction:** the palette, the contrast
 floors, the redundancy rung each member owes, the texture width, and the rule
@@ -379,12 +382,10 @@ measured extent is caught by a gate that exists rather than by review.
 - **Where the classification lives.** Six of these seven properties are derivable
   from the rendered output, which argues for a gate over a manifest field. The
   seventh (what colour encodes) is a design intent and has to be declared.
-- **Which preset is the default?** `editorial` is proposed on reference practice.
-  `material` is closest to what ships, so defaulting to `editorial` restyles every
-  existing deck while defaulting to `material` ships the new language to nobody.
-- **Three presets or four?** A fourth (`technical` — full grid, every tick, mono
-  forward) would serve dense analytical decks, at the risk of being the preset
-  that quietly re-admits clutter.
+- **Which finish is the default?** `folio` on reference practice — but `relief` is
+  closest to what ships, so defaulting to `folio` restyles every existing deck
+  while defaulting to `relief` ships the new language to nobody. The only open
+  input before implementation.
 - Verify the winner's ratification of the legend split: it argues the four Outfit
   legends name `--pill-font` status pills, but `gantt` and `journey` use that token
   zero times.
