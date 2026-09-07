@@ -168,10 +168,29 @@ to prove the system survives without chroma. The dome spans three times more
 value than the step between two of its categories, so on the one theme built to
 rely on the value channel, the dome is the thing that destroys it.
 
-The two gradient axes are therefore not equivalent and must not be decided
-together on aesthetics: the **radial dome measurably breaks a channel the palette
-depends on**, while the vertical wash on the bar/tile family has not been shown
-to. That is an argument about mechanism, not taste.
+**The vertical wash was tested for the same defect and does not have it.**
+On the dark canvas the washed marks sit far below the WCAG 1.4.11 3:1 floor
+against their own background — bar 1.28:1 at the top stop, 1.93:1 at the
+bottom — which looks damning until the edge is measured:
+
+| member (indaco, dark) | fill vs canvas | EDGE vs canvas |
+|---|---|---|
+| bar | 1.28 – 1.93 : 1 | **5.34 : 1** |
+| gantt | 1.67 – 2.85 : 1 | **10.06 : 1** |
+| waterfall | 1.67 – 2.85 : 1 | **11.93 : 1** |
+
+The mark is identified by its edge, not its fill, and every edge clears the
+floor with margin. That is not an accident to be discovered — it is the recipe
+`chart-family.css` states outright: *"Color rides the edge; the wash only tints,
+so `--text-heading` labels clear it on both canvases."* The wash is a deliberate
+low-contrast tint inside a high-contrast boundary, and it works.
+
+The two gradient axes are therefore not equivalent, and the asymmetry is
+measured in both directions rather than assumed in one: the **radial dome breaks
+a channel the palette depends on**, and the **vertical wash, tested for the same
+failure, passes**. Any proposal that retires both is spending a working
+mechanism to buy consistency; any proposal that keeps both has to answer the
+onyx row. That is an argument about mechanism, not taste.
 
 **The quadrant is the sharpest case.** Its four zone tints are the loudest thing
 on the slide while carrying the least information — the zones are *reference
