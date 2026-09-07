@@ -6125,6 +6125,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'render(), so nothing downstream could rescue it.',
   },
   {
+    file: 'tools/chart-finish-divergence.js',
+    why: 'reads an author-supplied deck to map slide index to member name, anchoring on `^---`. '
+       + 'It also re-emits that text with a <style> prefix for the emulator, so a CRLF deck '
+       + 'would be measured with its front matter parsed as body and every variant compared in '
+       + 'the default palette — a silently wrong divergence table rather than an error.',
+  },
+  {
     file: 'tools/lint-deck.js',
     why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
