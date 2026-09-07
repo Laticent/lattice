@@ -3,11 +3,11 @@ import { type CarriedState, carryApplies } from './Editor';
 import { newDeckSource } from './studio-store';
 
 // The editor's undo history is CARRIED across the unmount a Markdown↔Compose switch causes.
-// This is the guard that decides when that carry may be applied. It is pinned here rather
-// than end to end because two e2e attempts PASSED against the broken guard and the reason the
-// second one did is still unknown — two different confident explanations were recorded and a
-// checker refuted both (findings note §6). A unit pin states the rule directly and cannot be
-// confounded by a keybinding, which is worth having whatever the e2e answer turns out to be.
+// This is the guard that decides when that carry may be applied. It is pinned end to end too
+// (`the carried history does not cross decks either`, in markdown-stress.spec.ts); this unit pin
+// states the rule directly, which is cheaper to read and cannot be confounded by focus or by
+// which key the platform binds redo to — the two things that made three earlier accounts of the
+// e2e behavior wrong in a row.
 describe('carryApplies — the editor history never crosses decks', () => {
 	const state = (key: string, doc: string): CarriedState => ({ key, doc, state: {} as CarriedState['state'] });
 

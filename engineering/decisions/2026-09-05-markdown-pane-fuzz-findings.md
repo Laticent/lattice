@@ -436,6 +436,241 @@ run.
 **What is true.** Most of this is reachable at the seam. What is not is a real clipboard
 `paste` event and invariant 2 as an in-page assertion against the preview iframe.
 
+## 10. Clearing the undo stack in place is a trap — why the fix rebuilds the view
+
+Cited by `Editor.tsx` and by `markdown-stress.spec.ts`, and **for a while cited by both while not
+existing**: a checker grepped for it and found §8b, §9, §11 and no §10. A measured claim whose
+record is a section nobody wrote is the failure #23 names, so here is the record.
+
+**The smaller-looking fix does not work.** Instead of rebuilding the `EditorView` on a deck
+switch, keep the view and empty its history: `history()` in a `Compartment`, reconfigured to `[]`
+and back. That is the documented way — a plain `reconfigure(history())` preserves the field value
+— but it needs TWO dispatches, and two synchronous `dispatch` calls do not reliably apply in
+sequence. One made while the view is mid-update is queued and built against the state as it stood
+before the earlier one landed, so the re-add can carry the old configuration, old stack included,
+straight back.
+
+Measured on the built Studio at two workers: `undoDepth` read **1** immediately after emptying
+the stack, and one ⌘Z produced the previous deck's document. Failure rate **~1 in 10** full-file
+runs and **0 in isolation**, which is what made it survive two rounds of "fixes" — each was
+declared green on a single passing run. A `queueMicrotask` between the dispatches made it worse
+(4 failures in 15).
+
+**Provenance, stated plainly:** those numbers come from the development session that produced
+#2064, not from a committed harness — there is no artifact in the tree to re-run. What IS
+re-runnable is the conclusion's replacement: the rebuild, which §11b's mutations 13 and 14 pin.
+Anyone re-opening the Compartment approach should expect to re-derive the numbers themselves
+rather than cite these.
+
+## 11. One editor per deck (the deck-history change)
+
+Supersedes the first entry under "Found, NOT fixed here": that entry recorded the deck-switch
+leak as pre-existing, structural and deferred. This is the deferred change.
+
+**The fix is one line of dependency array, and everything else here is the blast radius.** The
+init effect was keyed on `[known]`; it is now keyed on `[known, carryKey]`, so changing decks
+REBUILDS the view instead of swapping the document inside a live one. A whole-document swap
+inside a live view is just another history entry, which is why one ⌘Z pulled deck A's entire
+1,933-character document into deck B and `onChange` carried it into B's saved source.
+
+**Three defects came out of that rebuild, and none was in the fix itself.** They are all the
+same shape — a channel that belonged to the COMPONENT rather than to the view, left holding the
+old view's answer after a rebuild:
+
+1. **The carry stamped the wrong deck id.** The teardown read `carryKeyRef.current`, which by
+   teardown time is the deck being switched TO. Key half satisfied by construction, document
+   half satisfied because two fresh decks hold byte-identical template bytes — so deck A's
+   history restored into deck B and one redo put A's text into B's saved source, surviving a
+   reload. Fixed by taking the key from the effect's own closure and deleting the ref. Found by
+   a checker; pinned by `an undo history does not cross decks WITHOUT a Compose detour`, which
+   the other two deck oracles cannot see (the tour deck's bytes never match a template, and a
+   Compose detour makes the two ids agree again).
+2. **`Refine` was stranded after a deck switch** — offered over a deck with nothing selected,
+   and answering "Select some text in the editor to refine first" when pressed. Exactly the dead
+   control #2064 §4 had just removed from the toolbar, walking back in through this fix.
+3. **Then the fix for (2) INVERTED it** — `Refine` hidden while a selection existed, after a
+   Compose round trip restored one through the carry. The two legs are asserted together
+   (`a deck switch withdraws…` and `coming back from Compose restores…`) because a fix for
+   either silently becomes the other.
+
+**The selection channel is re-stated on every build; the cursor-slide channel only on a
+REBUILD**, and the split matters: `builtForRef` records `{key, known}` rather than a boolean,
+because StrictMode's repeat mount would otherwise read as a rebuild and reset the caret.
+
+**The end-to-end oracle #2064 §6 deferred is here, and so is the reason it was deferred.** Two
+earlier attempts passed against the broken guard. The account of why has now been wrong three
+times — "redo does not fire here", then "redo is `Ctrl+Y`, so `Ctrl+Shift+Z` is a second undo",
+both refuted by a checker. Measured on the built Studio across Chromium, WebKit and Firefox:
+`Ctrl+Shift+Z` redoes on all three. What makes a chord go nowhere is FOCUS — after a
+Compose→Markdown switch `activeElement` is the `Markdown source` toggle button. Every deck
+oracle here witnesses focus first, which is why they can be trusted where the earlier attempts
+could not.
+
+### 11b. Eight more mutations — and two of the new oracles were VACUOUS
+
+Same discipline as §8b, and it earned its keep twice: of the SEVEN oracles the deck-history
+change adds, two could not tell the fixed code from the broken code — and the second was found
+by an independent checker after this section had already been written as though it were complete.
+
+| # | mutation | oracle it killed |
+|---|---|---|
+| 13 | the init effect keyed back to `[known]` | `@smoke a new deck does not inherit the previous deck's undo history` |
+| 14 | " | `an undo history does not cross decks WITHOUT a Compose detour` |
+| 15 | the post-build selection re-statement removed | `coming back from Compose restores the control its selection gates` |
+| 16 | the teardown's selection withdrawal removed | `leaving the markdown pane withdraws the control its selection was gating` |
+| 17 | the carry stamps a component-level live ref (`carryKeyRef`, the shape this diff deletes) instead of the effect's closure | `an undo history does not cross decks WITHOUT a Compose detour` |
+| 18 | `carryApplies` loses its deck key | that one **and** `the carried history does not cross decks either` |
+| 19 | BOTH selection channels removed together | `a deck switch withdraws a control that pointed at the deck you left` |
+| 20 | the cursor-slide re-statement removed | `the caret still drives the rail after a deck switch` |
+
+**The checker also found the FIRST vacuous oracle of this batch, and it was a different shape
+from row 18's.** `an undo history does not cross decks WITHOUT a Compose detour` ends by asserting
+that the leak "did not reach the autosave either — the durable half of the harm". That assertion
+could not fail, for two independent reasons:
+
+- `expect.poll(…).not.toContain(x)` is satisfied by its FIRST sample, which lands ~0ms after the
+  keypress — before the 400ms autosave debounce has written anything. It asserted that a write
+  which had not happened yet had not happened.
+- `persistedDeck` reads whichever `lattice-studio-src-*` key `Object.keys` yields first, and that
+  test has two decks. The fixture's own docblock warns that it is "sound while a test edits only
+  the active deck; a deck-switching test would need the deck id" — these were its first
+  deck-switching callers. Measured, it read the OTHER deck's row on 3 of 6 runs.
+
+Probed on a build with mutation 18 applied, four runs, comparing the old assertion against the
+repaired one on the same page:
+
+```
+docLeaked=true   oldAssertionPassed=true   newAssertionPassed=false   (x4)
+```
+
+The repair is `persistedActiveDeck` (resolve the deck id through `lattice-studio-active`) plus
+`persistedAfterAutosave`, which polls until the store AGREES with the document rather than
+sleeping — a fixed wait is barred here by `checkE2ESleeps`, and polling the real signal is the
+better answer anyway: on a leaking build the leaked text is in the document, so waiting for the
+store to match it is waiting for the leak to be written, and the assertion then fails on what was
+really stored.
+
+**Row 20 did not exist until a checker asked for it, and the code it covers had NO oracle at
+all.** The third channel this change adds — re-stating `lastSlideRef` on a rebuild — could be
+deleted with the entire repo staying green: 2010 studio unit tests, all sixteen oracles in this
+file. Unproven code reads exactly like proven code from a test report, and §11b as first written
+presented seven mutations as a complete census while leaving that channel out of it.
+
+**Writing its oracle took three attempts, and the two failures are the useful part** — both
+passed against the deleted code, which is the same vacuity this section is about:
+
+1. The first created a new deck and typed a document into it. Writing the document re-derives the
+   slide index through the ordinary edit path, which hides the stale ref.
+2. The second switched to an existing deck without editing (right) but drove the caret to slide 1
+   and then the last slide (wrong). The defect is `idx === lastSlideRef` swallowing a real move,
+   so the ONLY caret position that exposes it is the index the ref is stuck on — here, 1.
+3. The third parks the caret in slide 2 of the boot deck (`revealSlide` sets the ref to 1
+   directly), switches to `Q3 Board Review` without typing, and moves the caret into slide 2.
+   `loadDeck` resets the shell's `activeSlide` but never calls `revealSlide`, so nothing but the
+   code under test clears the ref. Deleted, the rail stays on slide 1 while the caret sits in
+   slide 2 — 3/3.
+
+**Row 18 is the one that mattered on the first pass, because it did not kill its oracle at first.**
+`the carried history does not cross decks either` — the oracle whose entire subject is that
+guard — passed against a build with the guard deleted. It pressed redo TWICE. Probed on that
+build:
+
+```
+deckA after undo    len 82   activeElement DIV
+deckB mounted       len 82   activeElement BUTTON   (same bytes as deckA)
+after redo #1       len 91   the leaked text is IN the document
+after redo #2       len 82   …and back out again
+```
+
+`Ctrl+Shift+Z` redoes while there is something to redo; with the redo stack EMPTY the same chord
+falls through to the base `Mod-z` binding and UNDOES. So the second press put back exactly what
+the first replayed, and the final assertion read a clean document. One press, and the oracle
+fails against the broken guard as it always should have.
+
+**That also settles the §6 keybinding argument properly, and neither earlier account was right.**
+The `Mod-Shift-z` → `Mod-z` fallthrough IS real — the second refuted explanation had hold of a
+real mechanism and drew the wrong conclusion from it (it fires on an EMPTY redo stack, not
+always). And the focus half is real too: the probe shows `activeElement` is `BUTTON` the moment
+the markdown pane comes back. Two independent traps, either of which is enough to make a redo
+oracle pass for nothing, which is why every oracle here witnesses focus AND presses once.
+
+### 11c. The desktop tier on this branch, and a comparison that was wrong the first time
+
+The deck-history change alters WHEN the editor is rebuilt, so the tier that exercises Studio
+mounting is the one worth running rather than caveating. Full `--project=desktop` on the branch:
+**3 failed, 6 skipped, 432 passed** of 441.
+
+| failing test | is it ours? | how that was established |
+|---|---|---|
+| `studio-reserved-slots:122` | no | fails on current `main` — 2 failed / 31 passed running its two specs there |
+| `studio-reserved-slots:144` | no | same run |
+| `studio-instant-shell:539` | no | flaky on BOTH, and `main` flakes MORE — see below |
+
+**The third one is the useful part, because the first comparison said the opposite.** Running the
+whole `studio-instant-shell.spec.ts` file three times per tree gave `main` 0 failures in 180
+test-runs and the branch 3 (`:455` once, `:539` twice), which reads as a regression this change
+introduced — and `:539` fails on a shell-vs-app geometry check (`shell 0 vs app 16`, tolerance 2)
+that an extra mount/unmount cycle could plausibly perturb.
+
+**That comparison was unsound: it compared unequal exposure.** A whole-file run at
+`--repeat-each=3` runs ~30 tests three times, so `:539` itself ran only a handful of times per
+tree — the "180" was the file's total, not that test's. Re-run FOCUSED, twelve repeats of that
+one test on each tree:
+
+```
+main    2 failed / 10 passed   (12 runs)
+branch  1 failed / 11 passed   (12 runs)
+```
+
+**The conclusion that survives is "unstable on both trees, this change is not implicated". The
+comparative does not, and an earlier version of this paragraph made it anyway** — it read "`main`
+flakes more", which is a one-run difference at n=12 and therefore exactly the error the paragraph
+above it exists to correct, committed two paragraphs later. An independent checker re-measured
+the same test at the same exposure on the same machine, swapping only `Editor.tsx`, and got
+**2 failed / 10 passed on BOTH** trees.
+
+Two further rows in the table above are one sample of a flaky set rather than a determinate
+result, and should be read that way: the checker's own full-tier run reproduced the headline
+(3 failed / 6 skipped / 432 passed of 441) but its third failure was
+`studio-instant-shell:455`, not `:539`; and `studio-reserved-slots:144` passed for them on a
+main-`Editor.tsx` run, then at 6 repeats each came out 8/18 failing on the branch and 6/18 on
+main — flaky on both, difference inside noise. "Not ours" holds for all three; the evidence for
+the individual rows is weaker than the table's shape implies.
+
+The lesson is the one this note keeps paying for: a number that looks like a signal has to be
+measured at the same exposure on both sides before it is one — and then it has to be big enough
+to BE one.
+
+### 11d. The seven new oracles, measured across all seven surfaces
+
+#2064 measured its ten oracles across seven width/engine surfaces; the deck-history change added
+seven more and, as first written, left them on the shipped `desktop` project only — with one of
+them (`@smoke a new deck does not inherit the previous deck's undo history`) running on every PR.
+That gap was the named raise path on this change's pre-merge card, and it costs eleven minutes,
+so it was closed rather than caveated.
+
+All seventeen, all seven surfaces — 119 runs, **101 passed, 18 failed**:
+
+```
+1440 Chromium          17/17     the shipped tier
+820  Chromium          17/17
+820  Chromium + touch  17/17
+1440 WebKit            17/17
+820  WebKit            17/17
+1440 Firefox           17/17
+390  Chromium ± touch   8/17     9 failures, twice (both mobile variants)
+```
+
+**Every failure is at 390 and nowhere else**, so all seven new oracles hold cross-engine and at
+tablet width, and the new `@smoke` one holds at 390 too. Of the nine that fail there, four are
+new: the three `Refine` oracles and the caret→rail one, all failing for the reason the original
+five do — at 390 the Studio shows one pane at a time, and each of them has to act in the editor
+and read the rail. That is the same structural answer §1's table gave, not a new defect.
+
+One incidental fix: the throwaway config could not start its web server from `.scratch/` (no
+`package.json` there), so it now pins `webServer.cwd` to `docs/`. The recipe in the spec header
+says so.
+
 ## Found, NOT fixed here (off the path of this change — HARD RULE #18)
 
 - **A deck switch leaks the previous deck's whole document, and it is worse than §6.** Found
@@ -448,7 +683,7 @@ run.
   same harm. **Entirely pre-existing**, and its fix is structural — a different editor per deck,
   with consequences across every Studio surface that mounts one — so it goes in its own PR
   rather than widening this one. That PR also carries the end-to-end oracle §6 says is follow-up
-  work.
+  work. **FIXED in the deck-history change — see §11**, which supersedes this entry.
 
 - **`Editor.tsx` still carries its own `CLASS_RE`, so §2's delegation removed one copy of the
   parse and not the other.** It drives the FALLBACK linter and the fallback `fixAll()`, and §4's
