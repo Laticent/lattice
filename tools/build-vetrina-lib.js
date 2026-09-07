@@ -156,6 +156,85 @@ function diffTrees(want, have) {
   return drift;
 }
 
+// The staging directory is HIDDEN (leading dot) so a half-written tree is invisible to the
+// repo's source walkers while it exists. `tools/check-ownership.js`'s `listSourceFiles`
+// skips dot-prefixed entries, `listFilesByExt` already did, and git ignores the pattern —
+// without that, a gate running alongside a build walked into the staging tree and died on a
+// `.d.ts` that was being written (#2117). The pid suffix is what makes concurrent builds
+// safe; see the staging comment in `main`.
+const STAGING_PREFIX = '.dist.tmp-';
+
+/**
+ * Remove staging directories left behind by a builder that died before its `finally` —
+ * Ctrl-C (SIGINT terminates without unwinding), a SIGKILL, a container teardown.
+ *
+ * A directory is removed ONLY when the pid in its name is gone, so a CONCURRENT build's
+ * working directory is never touched. That is the whole reason the staging path is
+ * pid-named rather than randomly named: a random name is equally collision-free and
+ * completely unsweepable, because nothing can tell an abandoned one from a live one.
+ *
+ * EPERM means the pid exists but belongs to someone else — alive, so leave it.
+ */
+function sweepStaleStaging() {
+  const parent = path.dirname(DIST_DIR);
+  const prefix = STAGING_PREFIX;
+  let entries;
+  try {
+    entries = fs.readdirSync(parent);
+  } catch {
+    return; // no parent yet — nothing to sweep
+  }
+  for (const name of entries) {
+    if (!name.startsWith(prefix)) continue;
+    const pid = Number(name.slice(prefix.length));
+    if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) continue;
+    try {
+      process.kill(pid, 0);
+      continue; // still running
+    } catch (e) {
+      if (e.code === 'EPERM') continue; // exists, not ours
+    }
+    fs.rmSync(path.join(parent, name), { recursive: true, force: true });
+  }
+}
+
+/**
+ * Swap a finished staging tree into place, tolerating a CONCURRENT run of this same
+ * builder installing first.
+ *
+ * The swap is `rm` then `rename`, and those two calls are not one step: with pid-unique
+ * staging the two runs no longer corrupt each other's WORK, but they still both aim at
+ * one destination, and a run that removed `dist/` and then found it repopulated died on
+ * `ENOTEMPTY: rmdir dist`. Measured at 1 failure in 24 runs of a 12-round concurrent
+ * pair — better than the 3 in 16 the fixed staging path gave, and still a flake.
+ *
+ * The resolution is that a LOSS here is not a failure. This build is deterministic, so
+ * the tree the winner installed is byte-for-byte the tree we staged; if what is on disk
+ * matches what we built, the job is done and whose rename landed it is not interesting.
+ * Anything else rethrows, so a real failure (a full disk, a permission change) still
+ * reports. Bounded retries rather than a lock: a lockfile needs a stale-lock policy, and
+ * this needs none.
+ */
+function installStaging(staging) {
+  const want = readTree(staging);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.rmSync(DIST_DIR, { recursive: true, force: true });
+      fs.renameSync(staging, DIST_DIR);
+      return;
+    } catch (e) {
+      let installed;
+      try {
+        installed = readTree(DIST_DIR);
+      } catch {
+        installed = null; // mid-swap by the other run — not equal, so retry
+      }
+      if (installed && !diffTrees(want, installed).length && !diffTrees(installed, want).length) return;
+      if (attempt >= 4 || !fs.existsSync(staging)) throw e;
+    }
+  }
+}
+
 async function main() {
   if (check) {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vetrina-lib-'));
@@ -178,12 +257,26 @@ async function main() {
 
   // Build into a sibling temp dir and swap in only on success — a failed build must
   // never leave the committed dist/ deleted. Sibling keeps the rename on one filesystem.
-  const staging = `${DIST_DIR}.tmp`;
-  fs.rmSync(staging, { recursive: true, force: true });
+  //
+  // The pid SUFFIX is what makes two concurrent runs of this builder safe (#2117). The
+  // path used to be a fixed `dist.tmp`, so a second run's opening `rmSync` — or the
+  // first's `finally` — deleted the tree the other was mid-write into, and the loser
+  // died on `ENOENT: …/dist.tmp/builder.d.ts`. It reads as a genuine failure and it is
+  // green on a re-run, which is the worst shape a flake can have. `npm run build` runs
+  // the four library builders in the background, so a build overlapping a test run is
+  // enough to hit it.
+  //
+  // A pid is unique among LIVE processes, which is the property this needs, and unlike
+  // `mkdtempSync` it stays sweepable: `sweepStaleStaging` can tell a dead run's leftovers
+  // from a live run's working directory. That matters because a `finally` does not run on
+  // SIGINT — Ctrl-C during a build used to leak a staging dir that the next run's fixed-path
+  // `rmSync` happened to clean, and a unique random name would have dropped that property.
+  const staging = path.join(path.dirname(DIST_DIR), `${STAGING_PREFIX}${process.pid}`);
+  sweepStaleStaging();
+  fs.rmSync(staging, { recursive: true, force: true }); // a REUSED pid's leftovers
   try {
     await buildInto(staging);
-    fs.rmSync(DIST_DIR, { recursive: true, force: true });
-    fs.renameSync(staging, DIST_DIR);
+    installStaging(staging);
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }

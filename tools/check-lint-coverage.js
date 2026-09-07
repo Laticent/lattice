@@ -144,7 +144,16 @@ const CONFIG_REL = 'biome.jsonc';
  * works. That is a deliberate, visible config edit rather than an accident, and accidents
  * are what this gate is for. Stated again in the header's residual list.
  */
-const PROBE_PREFIX = 'lint-teeth-probe-';
+// The LEADING UNDERSCORE is load-bearing, not decoration. A probe is a syntactically valid
+// but semantically nonsense file dropped into a real source directory, and some of those
+// directories have readers with schemas: `lib/components/index.js` ingests every flat `.json`
+// under `lib/components/` as a component manifest, so a `.json` probe there made the engine's
+// registry load THROW while the probe existed — reached by anything that loads components
+// concurrently with a build (#2117). That loader already skips `_`-prefixed entries, which is
+// the repo's existing "this is not a component" convention, so the prefix buys the fix for
+// free. It changes nothing about coverage: Biome's config excludes no `_` path, so a probe is
+// still linted, and a survivor still fails `npm run lint` on its own `debugger;`.
+const PROBE_PREFIX = '_lint-teeth-probe-';
 
 /**
  * One probe body per language, because a probe is only evidence for the language it is

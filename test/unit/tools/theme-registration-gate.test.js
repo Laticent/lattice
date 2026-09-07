@@ -16,21 +16,33 @@
 const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const { checkThemeRegistrationCallSites } = require('../../../tools/check-ownership.js');
 
-// The gate walks fixed roots under the repo, so a probe has to live inside one of
-// them. `tools/` is the cheapest: a single throwaway file, removed after the run.
-const ROOT = path.join(__dirname, '..', '..', '..');
-const PROBE = path.join(ROOT, 'tools', `__gate-probe-${process.pid}.mjs`);
+// THE PROBE LIVES OUTSIDE THE REPO. It used to be written to
+// `tools/__gate-probe-<pid>.mjs` in the real tree, because the gate walked fixed roots
+// under `ROOT` and a probe had to be inside one of them. Two things went wrong with that
+// and both were observed (#2117): `node --test` runs files concurrently, so a probe
+// present for this suite is walked by every other check scanning `tools/`; and a `finally`
+// does not run on SIGINT, so a Ctrl-C left one behind — one survived long enough for the
+// docs generator to pick it up and commit it into `engineering/capabilities.md` as a real
+// tool row. The gate now accepts a root, the way `checkPreviewHtmlSinks` already did, so
+// the scratch tree this file's header always claimed is now real.
+const SCRATCH = fs.mkdtempSync(path.join(os.tmpdir(), 'theme-reg-gate-'));
+const SCRATCH_ROOTS = ['tools'];
+fs.mkdirSync(path.join(SCRATCH, 'tools'), { recursive: true });
+const PROBE = path.join(SCRATCH, 'tools', '__gate-probe.mjs');
 
 /** Run the real gate with `src` as a probe file; return the errors naming it. */
 function gate(src) {
   fs.writeFileSync(PROBE, src);
   try {
     const errors = [];
-    checkThemeRegistrationCallSites(errors);
+    // No sanctions: the scratch tree contains only the probe, so the gate's stale-entry
+    // arm would otherwise report every real sanction as stale.
+    checkThemeRegistrationCallSites(errors, SCRATCH, SCRATCH_ROOTS, []);
     return errors.filter((e) => e.includes(path.basename(PROBE)));
   } finally {
     fs.rmSync(PROBE, { force: true });
@@ -120,4 +132,4 @@ describe('the gate reads code, not prose', () => {
   });
 });
 
-after(() => fs.rmSync(PROBE, { force: true }));
+after(() => fs.rmSync(SCRATCH, { recursive: true, force: true }));

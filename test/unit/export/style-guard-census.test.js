@@ -134,6 +134,34 @@ for (const [rel, expected] of Object.entries(CENSUS)) {
 	});
 }
 
+// A WORKING TREE IS NOT A FROZEN TREE, and this walk reads one. `tools/check-lint-coverage.js`
+// writes real probe files into every directory Biome checks — `docs/src/components/studio`
+// among them — and removes them within the same run, deliberately: a probe outside the
+// directory it is probing proves nothing about that directory's coverage. So a
+// `npm run build` overlapping this suite is enough for a file to exist at `readdirSync`
+// and be gone at `readFileSync`, and this test failed exactly that way on
+// `docs/src/components/studio/lint-teeth-probe-20d718e66ed4.ts` (#2117).
+//
+// Only ENOENT is swallowed, and only for a path the walk itself just listed. The census
+// keeps every tooth: a file that EXISTS and is unreadable still throws, and a file that
+// disappeared cannot be a call site anyone needs to census.
+const statOrNull = (p) => {
+	try {
+		return fs.statSync(p);
+	} catch (e) {
+		if (e.code === 'ENOENT') return null;
+		throw e;
+	}
+};
+const readOrNull = (p) => {
+	try {
+		return fs.readFileSync(p, 'utf8');
+	} catch (e) {
+		if (e.code === 'ENOENT') return null;
+		throw e;
+	}
+};
+
 test('the census covers every file that calls the guard outside docs/src preview builders', () => {
 	// Anti-vacuity: if a new export-surface file starts calling sanitizeStyleText and is not in
 	// the census, the census stops describing the surface it claims to describe.
@@ -145,7 +173,7 @@ test('the census covers every file that calls the guard outside docs/src preview
 	const found = [];
 	const walk = (abs) => {
 		if (!fs.existsSync(abs)) return;
-		if (fs.statSync(abs).isFile()) return void check(abs);
+		if (statOrNull(abs)?.isFile()) return void check(abs);
 		for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
 			if (e.name === 'node_modules' || e.name === 'dist') continue;
 			const p = path.join(abs, e.name);
@@ -160,7 +188,8 @@ test('the census covers every file that calls the guard outside docs/src preview
 	const check = (p) => {
 		const rel = path.relative(ROOT, p).split(path.sep).join('/');
 		if (/\.test\.(?:ts|js)$/.test(rel)) return;
-		if (/sanitizeStyleText\s*\(/.test(fs.readFileSync(p, 'utf8'))) found.push(rel);
+		const src = readOrNull(p);
+		if (src !== null && /sanitizeStyleText\s*\(/.test(src)) found.push(rel);
 	};
 	for (const r of roots) walk(path.join(ROOT, r));
 	const uncensused = found.filter((f) => !CENSUS[f]);

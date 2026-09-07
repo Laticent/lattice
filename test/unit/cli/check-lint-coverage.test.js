@@ -97,7 +97,7 @@ test('probePaths gives every run its own filenames', () => {
 	const targets = [{ dir: 'lib', ext: 'ts' }, { dir: '.', ext: 'js' }];
 	const a = gate.probePaths(targets, 'aaaa');
 	const b = gate.probePaths(targets, 'bbbb');
-	assert.deepStrictEqual(a.map((p) => p.path), ['lib/lint-teeth-probe-aaaa.ts', 'lint-teeth-probe-aaaa.js']);
+	assert.deepStrictEqual(a.map((p) => p.path), ['lib/_lint-teeth-probe-aaaa.ts', '_lint-teeth-probe-aaaa.js']);
 	assert.strictEqual(a.filter((p) => b.some((q) => q.path === p.path)).length, 0);
 });
 
