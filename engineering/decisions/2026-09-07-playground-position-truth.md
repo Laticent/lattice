@@ -120,11 +120,19 @@ at every width for a correct surface, and it is what the e2e oracle asserts.
 
 **`offsetHeight` is not the slide's height.** The in-iframe FIT agent gives every
 section a fixed 720px layout box and scales it with a transform, so at 390px
-`offsetHeight` reads **720** where the slide is really **179**. `offsetTop` is
-unaffected — the transform has a top-left origin, so layout positions already
-carry the scale — which is exactly why the discrepancy is easy to miss: half your
-geometry is right. Both `frameBands` and the e2e oracle read height from
-`getBoundingClientRect()`.
+`offsetHeight` reads **720** where the slide is really **179**. Both `frameBands`
+and the e2e oracle read height from `getBoundingClientRect()`.
+
+`offsetTop` *is* right, and the reason matters more than the fact. A transform
+never affects `offsetTop`. What carries the scale into the layout positions is a
+second thing the same agent does — `s.style.marginBottom = (SH*sc - SH + GAP)`
+in `deck-preview.js`, a negative margin pulling each following section's layout
+box up by exactly the scale difference. So the pairing "position from `offsetTop`,
+size from the rect" is valid **only while that margin line exists**. This note's
+first draft credited the transform's origin instead, which would have read as
+reassurance that the margin was safe to touch; an independent checker caught it.
+That is the more useful shape of the trap: half your geometry is right, and the
+explanation for why can be wrong in a way that survives review.
 
 **`iframe.contentWindow` identity survives a navigation.** It is a `WindowProxy`.
 A rebind guard written as `if (frame.contentWindow === bound) return` binds once
@@ -195,6 +203,47 @@ landed two slides past its target, permanently. A `ResizeObserver` inside the fr
 a scroll still in flight and reconciles the index otherwise. It has to stand down while a
 pane resize has already scheduled a re-land, or the two observers fight over one rescale —
 which they did, and the resize regression test caught it.
+
+## What a real phone found that no headless run could
+
+The fixes above were verified across five Playwright projects and ten fuzz runs. A single
+screenshot from an actual iPhone then produced three more, and the reason is worth stating
+plainly: **a headless browser has no soft keyboard.** Every run above had the full viewport.
+
+- **The panel did not fit.** The picker opens a 381px popover with a fixed 300px list; the
+  keyboard covers ~336px of a 659px screen. Measured on real WebKit at 393x659, 182px of
+  the list — and the row being searched for — sat under the keyboard. Radix cannot help:
+  its collision detection reads the LAYOUT viewport, which iOS does not shrink for a
+  keyboard. Only `window.visualViewport` does, which is why `docs/src/lib/visual-viewport.ts`
+  exists as a module rather than a one-off.
+- **Return committed instead of revealing.** On a phone the return key is how you dismiss
+  the keyboard to look at your results. cmdk binds it to "select the highlighted row", so
+  typing `chart` and pressing return replaced the author's deck with the top hit and closed
+  the panel. It is now gated on whether a keyboard is ACTUALLY covering the panel, not on a
+  pointer-capability probe — a phone with a hardware keyboard, and a desktop, both keep
+  Enter-to-commit, which is right when you can already see the list.
+- **90px of a 265px budget was chrome.** A 45px search row and a 45px GROUP lens row before
+  a single result. The lens row is now hidden while a query is active, which is honest and
+  not merely thrifty: a query renders one flat ranked list, so the lens controls nothing at
+  all in that state.
+
+**Two more defects fell out of fixing those**, and both were present on every width:
+
+- **A search kept the previous list's scroll.** cmdk scrolls on a VALUE change, and
+  re-ranking is not one — searching `chart` from `word-cloud` left the list at 444 of 744
+  with the top hit off screen. Capping the list to the space above a keyboard turned that
+  into a 106px window showing nothing the author asked for.
+- **cmdk pushes its selection back.** When its previous highlight survives into the new
+  result set it keeps that row and reports it through `onValueChange`, overwriting the
+  top-hit choice made here. And its `data-selected` attribute lags this component's state
+  by a render, so an effect that reads the DOM to find "the highlighted row" finds the
+  wrong one and no later pass ever comes. Both are why the picker now re-asserts the top
+  hit a frame later and locates rows by `data-value` from its own state.
+
+The transferable part is not any of the three. It is that **a verified matrix proves the
+cells it contains**, and "the viewport is smaller than the page thinks" was not a cell in
+any of them — the same lesson `2026-08-10-input-verb-parity.md` records about the pinch
+gesture it could not see.
 
 ## Three oracles that were themselves wrong
 

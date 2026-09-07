@@ -19,3 +19,18 @@
 - **Fixed: the Playground's component picker opens on the component you are on.** It
   opened at the top of a 69-row list with the first row highlighted, so your own
   component was off screen and pressing Enter to dismiss the picker replaced your deck.
+- **Fixed: the Playground's component picker fits the space a soft keyboard leaves.** On a
+  phone the panel was a fixed 381px with a 300px list, and the keyboard covered the bottom
+  ~336px of it — so the rows you were searching for sat under the keyboard, with iOS's own
+  accessory bar floating over what was left. Reported from a real iPhone. The panel now
+  measures the visual viewport, the lens row hides while a search is active (it controls
+  nothing in that state), and the search field is 40px rather than 44.
+- **Fixed: Return in the picker's search box reveals the list instead of replacing your
+  deck.** On a phone the return key is how you dismiss the keyboard to see your results;
+  it was bound to "select the highlighted row", so searching and pressing return silently
+  swapped the deck for the top hit. It now dismisses the keyboard when one is covering the
+  panel, and still commits when you can already see the list.
+- **Fixed: a search shows its top hit.** Re-ranking left the list scrolled wherever the
+  previous one was, so a search from far down a 69-row catalog showed the last three
+  results with the best match 634px above the window. The picker also opens centered on the
+  component you are already using, rather than at the top of the list.

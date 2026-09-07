@@ -339,10 +339,12 @@ export function sanitizePalette(palette: string, valid: string[]): string {
 }
 
 /** One slide's vertical band inside the preview filmstrip, in the frame document's own
- *  coordinates. The height is the VISUAL one — `getBoundingClientRect()`, not
+ *  coordinates. The height must be the VISUAL one — `getBoundingClientRect()`, not
  *  `offsetHeight`, which reports the unscaled 720px layout box the in-iframe FIT agent
  *  then `transform: scale()`s down (measured at 390px: offsetHeight 720, real height 179).
- *  Feeding this the layout height overstates every slide by 4x on a phone. */
+ *  Feeding this the layout height overstates every slide by 4x on a phone. The `top` may
+ *  come from `offsetTop`, which the same agent keeps honest with a negative
+ *  `marginBottom` — see `frameBands` in PlaygroundApp.tsx for why that is load-bearing. */
 export type SlideBand = { top: number; height: number };
 
 /**

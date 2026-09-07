@@ -500,6 +500,153 @@ test('the status line stops claiming the editor is collapsed once it is not', as
 	await expect(page.locator('.pg-status')).toContainText('Rendered');
 });
 
+// ── The picker on a phone, with the soft keyboard up ──────────────────────────
+//
+// Reported from a real iPhone with a screenshot. A headless browser has no keyboard, so
+// the SHRINK is emulated the way iOS produces it — `visualViewport.height` reports less
+// than `innerHeight` and fires `resize`, which is the only signal a page ever gets. The
+// layout, the measurement and the reaction are real; the keyboard is not. Stated plainly
+// rather than dressed up as an on-device pass (HARD RULE #23).
+const KEYBOARD_PX = 336; // an iPhone 15 Pro's, measured from the reported screenshot
+
+async function raiseSoftKeyboard(page: Page) {
+	await page.evaluate((kb) => {
+		const vv = window.visualViewport;
+		if (!vv) return;
+		Object.defineProperty(vv, 'height', { get: () => window.innerHeight - kb, configurable: true });
+		vv.dispatchEvent(new Event('resize'));
+	}, KEYBOARD_PX);
+	// Wait for the page to have SEEN it, not for a guessed interval: the picker re-measures
+	// on the `resize` this dispatches, and the list's cap is the observable proof it did.
+	await expect.poll(() => page.evaluate(() => (window.visualViewport?.height ?? 0) < window.innerHeight)).toBe(true);
+	await expect
+		.poll(() => page.locator('[cmdk-list]').evaluate((el) => Math.round(el.getBoundingClientRect().bottom)))
+		.toBeLessThanOrEqual(await visibleBottomOf(page));
+}
+
+/** Where the keyboard's top edge sits, in the same coordinates as a bounding rect. */
+const visibleBottomOf = (page: Page) => page.evaluate(() => window.innerHeight - (window.innerHeight - (window.visualViewport?.height ?? window.innerHeight)));
+
+test('@mobile the picker panel stays above the soft keyboard', async ({ page }) => {
+	await page.goto(`/playground/?c=${DECK}&view=read`, { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+	await page.locator('#pg-template-trigger').click();
+	await expect(page.locator('[cmdk-list]')).toBeVisible();
+	await raiseSoftKeyboard(page);
+	await page.locator('[cmdk-input]').fill('chart');
+	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69); // the search has re-ranked
+	const bottom = await page.locator('[cmdk-list]').evaluate((el) => Math.round(el.getBoundingClientRect().bottom));
+	const visible = await visibleBottomOf(page);
+	// Before: the list was a fixed 300px and ran 182px under the keyboard, with iOS's own
+	// accessory bar floating over what was left.
+	expect(bottom, `the list runs ${bottom - visible}px under the keyboard`).toBeLessThanOrEqual(visible);
+	// …and it did not collapse to nothing to achieve that.
+	const h = await page.locator('[cmdk-list]').evaluate((el) => el.getBoundingClientRect().height);
+	expect(h).toBeGreaterThanOrEqual(90);
+});
+
+test('@mobile Return reveals the list instead of replacing the deck', async ({ page }) => {
+	await page.goto('/playground/?c=piechart&view=read', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+	await page.locator('#pg-template-trigger').click();
+	await raiseSoftKeyboard(page);
+	await page.locator('[cmdk-input]').fill('chart');
+	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69);
+	await page.locator('[cmdk-input]').press('Enter');
+	// An absence assertion needs a settled surface, and `settle` is a bounded poll: if
+	// Return HAD committed, the popover would be gone and the trigger renamed by now.
+	await settle(page);
+	// The panel is still open and still showing results — the one key a phone user presses
+	// to LOOK at the list must not be the key that closes it over a deck they did not pick.
+	await expect(page.locator('[cmdk-list]')).toBeVisible();
+	await expect(page.locator('#pg-template-trigger')).toHaveText('piechart');
+});
+
+test('a search shows its top hit, not wherever the previous list was scrolled to', async ({ page }) => {
+	// cmdk scrolls on a VALUE change, and re-ranking is not one: typing a query re-rendered
+	// 23 rows where there were 69 while `scrollTop` stayed put, leaving the top hit 634px
+	// above the window and the last three results on screen.
+	await gotoExplore(page, '?c=word-cloud&view=read');
+	await page.locator('#pg-template-trigger').click();
+	await expect(page.locator('[cmdk-list]')).toBeVisible();
+	await page.locator('[cmdk-input]').fill('chart');
+	await expect(page.locator('[cmdk-item]')).not.toHaveCount(69);
+	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(/piechart/);
+	const seen = await page.evaluate(() => {
+		const list = document.querySelector('[cmdk-list]');
+		const sel = document.querySelector('[cmdk-item][data-selected="true"]');
+		if (!list || !sel) return null;
+		const lr = list.getBoundingClientRect();
+		const sr = sel.getBoundingClientRect();
+		return { label: sel.textContent?.trim(), inView: sr.top >= lr.top - 1 && sr.bottom <= lr.bottom + 1 };
+	});
+	expect(seen?.inView, `the highlighted row (${seen?.label}) is not in view`).toBe(true);
+});
+
+// ── What an independent checker found in the first cut of the fixes above ──────
+//
+// Both were REGRESSIONS THIS CHANGE INTRODUCED, and both lived in ops the committed walk
+// did not have: it ran 24 steps, on `desktop` only, with no component pick, no gallery
+// load and no width change. The walk below now carries all three and runs on a touch
+// project too, which is the durable half of the lesson.
+
+test('@mobile the Edit tab brings the editor back after a pick has flipped the pane', async ({ page }) => {
+	// `applyDeck(..., {toPreview:true})` sets `data-pane=preview` while the view stays
+	// `edit` — and below 820px the inactive pane is `display:none`. Guarding the WHOLE of
+	// `setViewMode` on "the view is unchanged" skipped the pane sync with it, so the Edit
+	// tab became a no-op and the only route back to the editor was gone.
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.cm-content')).toBeVisible();
+	await page.locator('#pg-template-trigger').click();
+	await page.keyboard.type('funnel');
+	await page.locator('[cmdk-item]').first().click();
+	await settle(page);
+	await expect(page.locator('body')).toHaveAttribute('data-pane', 'preview');
+	await page.getByRole('tab', { name: 'Edit' }).click();
+	await expect(page.locator('body')).toHaveAttribute('data-pane', 'edit');
+	await expect(page.locator('.cm-content'), 'the Edit tab did not bring the editor back').toBeVisible();
+});
+
+test('Shift+Arrow inside the search box extends the selection and does not swap the deck', async ({ page }) => {
+	// Putting the shifted chord ahead of `shellKeyAction` took it out from under that
+	// function's `isTypingTarget` guard, so one text-editing keystroke replaced the deck.
+	await gotoExplore(page);
+	await page.locator('#pg-template-trigger').click();
+	await page.keyboard.type('kpi');
+	await page.keyboard.press('Shift+ArrowLeft');
+	await expect
+		.poll(() => page.evaluate(() => { const i = document.querySelector('[cmdk-input]') as HTMLInputElement | null; return (i?.selectionEnd ?? 0) - (i?.selectionStart ?? 0); }))
+		.toBe(1);
+	const sel = await page.evaluate(() => {
+		const i = document.querySelector('[cmdk-input]') as HTMLInputElement | null;
+		return { start: i?.selectionStart, end: i?.selectionEnd, value: i?.value };
+	});
+	expect(sel.value).toBe('kpi');
+	expect(sel.end! - sel.start!, 'the keystroke did not extend the selection').toBe(1);
+	await page.keyboard.press('Escape');
+	await expect(page.locator('#pg-template-trigger')).toHaveText(DECK);
+	await expect(page).toHaveURL(new RegExp(`c=${DECK}`));
+});
+
+test('a single jumping scroll inside the step guard is not stranded', async ({ page }) => {
+	// The guard released only when a LATER scroll arrived, so one jump that lands inside
+	// the window and is never followed by another left the bar naming the slide the step
+	// had aimed at while a different one filled the pane.
+	await gotoExplore(page);
+	await nextSlide(page).click(); // arms the guard for the smooth scroll to slide 2
+	// Jump WHILE the guard is armed — the whole point — so this cannot wait for the step to
+	// finish. The signal is the walk index having moved, which happens synchronously with
+	// the click and strictly before the smooth scroll it started has arrived.
+	await expect.poll(async () => (await claimed(page)).index).toBe(2);
+	await page.evaluate(() => {
+		const f = document.getElementById('preview') as HTMLIFrameElement | null;
+		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
+		if (f?.contentWindow && secs?.[9]) f.contentWindow.scrollTo({ top: secs[9].offsetTop - 16, behavior: 'auto' });
+	});
+	await settle(page);
+	await expectPositionIsTruthful(page, 'a single jumping scroll inside the guard window');
+});
+
 // ── The randomized walk itself ─────────────────────────────────────────────────
 
 /** Deterministic PRNG: a fuzz failure has to be replayable from its seed alone. */
@@ -523,9 +670,15 @@ test('structural invariants hold across a randomized walk', async ({ page }) => 
 	const chrome = async () =>
 		page.evaluate(() => {
 			const h = (sel: string) => Math.round(document.querySelector(sel)?.getBoundingClientRect().height ?? -1);
-			return { bar: h('.pg-bar'), walk: h('#pg-walk') };
+			return { bar: h('.pg-bar'), walk: h('#pg-walk'), width: window.innerWidth };
 		});
-	const baseline = await chrome();
+	// PER WIDTH, because the walk now includes a resize op: the toolbar legitimately wraps
+	// to a second row below ~1000px, and comparing a narrow layout against a wide baseline
+	// reports that as jank. The invariant is that a band does not change height WITHOUT the
+	// layout changing under it.
+	const baselines = new Map<number, { bar: number; walk: number }>();
+	const first = await chrome();
+	baselines.set(first.width, { bar: first.bar, walk: first.walk });
 
 	const ops: Array<[string, () => Promise<void>]> = [
 		['next', async () => void (await nextSlide(page).click())],
@@ -556,18 +709,52 @@ test('structural invariants hold across a randomized walk', async ({ page }) => 
 		[
 			'round trip through Edit',
 			async () => {
-				await page.getByRole('tab', { name: 'Edit' }).click();
+				// The mode tabs live in the toolbar, which focus mode hides — so this op
+				// declines there too, like the pick, the gallery and the step list.
+				const edit = page.getByRole('tab', { name: 'Edit' });
+				if (!(await edit.isVisible())) return;
+				await edit.click({ timeout: 5_000 });
 				await expect(page.locator('body')).toHaveAttribute('data-view', 'edit');
-				await page.getByRole('tab', { name: 'Explore' }).click();
+				await page.getByRole('tab', { name: 'Explore' }).click({ timeout: 5_000 });
 			},
 		],
 		['focus mode', async () => void (await page.getByRole('button', { name: 'Focus' }).click().catch(() => {}))],
 		['leave focus mode', async () => void (await page.locator('.pg-focus-restore').click().catch(() => {}))],
+		// THE THREE THE FIRST CUT OF THIS WALK DID NOT HAVE, and the two regressions an
+		// independent checker found both lived in them: a pick (which flips the pane out
+		// from under the view), a gallery load (a fresh deck with no plan), and a width
+		// change (which re-fits the deck under a settled scroll).
+		[
+			'pick a component',
+			async () => {
+				// DECLINES when focus mode has hidden the toolbar, like `jump via the step
+				// list` above. An op that cannot run is not a failure; the invariants still hold.
+				const trigger = page.locator('#pg-template-trigger');
+				if (!(await trigger.isVisible())) return;
+				await trigger.click({ timeout: 5_000 });
+				const items = page.locator('[cmdk-item]');
+				if (await items.count()) await items.nth(3).click({ timeout: 5_000 }).catch(() => {});
+				await page.keyboard.press('Escape');
+			},
+		],
+		[
+			'load a gallery',
+			async () => {
+				const trigger = page.locator('#pg-galleries-trigger');
+				if (!(await trigger.isVisible())) return;
+				await trigger.click({ timeout: 5_000 });
+				const items = page.locator('[role="dialog"] button');
+				if ((await items.count()) > 2) await items.nth(2).click({ timeout: 5_000 }).catch(() => {});
+				await page.keyboard.press('Escape');
+			},
+		],
+		['narrow the window', async () => void (await page.setViewportSize({ width: 900, height: 780 }))],
+		['widen the window', async () => void (await page.setViewportSize({ width: 1440, height: 900 }))],
 	];
 
 	const next = rng(0x5eed);
 	const trail: string[] = [];
-	for (let step = 0; step < 24; step++) {
+	for (let step = 0; step < 32; step++) {
 		const [name, run] = ops[Math.floor(next() * ops.length)];
 		trail.push(name);
 		await run();
@@ -588,9 +775,14 @@ test('structural invariants hold across a randomized walk', async ({ page }) => 
 		//    arrival and which no test held to afterwards. Focus mode hides the toolbar
 		//    by design, so that band is only held while it is on screen.
 		const now = await chrome();
-		expect(now.walk, where).toBe(baseline.walk);
-		// Focus mode HIDES the toolbar on purpose, which reads here as height 0. Hold the
-		// band only while it is on screen — a bar that is present must not have changed size.
-		if (now.bar > 0) expect(now.bar, where).toBe(baseline.bar);
+		const base = baselines.get(now.width);
+		if (!base) {
+			baselines.set(now.width, { bar: now.bar, walk: now.walk });
+		} else {
+			expect(now.walk, where).toBe(base.walk);
+			// Focus mode HIDES the toolbar on purpose, which reads here as height 0. Hold the
+			// band only while it is on screen — a bar that is present must not have changed size.
+			if (now.bar > 0 && base.bar > 0) expect(now.bar, where).toBe(base.bar);
+		}
 	}
 });
