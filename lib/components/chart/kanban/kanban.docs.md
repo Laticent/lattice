@@ -12,7 +12,7 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 
 ## Agent contract
 
-**Capacity** ~3 items (crowds past 5, overflows past 6) — past that, split across slides.
+**Capacity** ~3 items (crowds past 5, overflows past 6) — past that, split across slides. Past five lanes the cards compress.
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a terse card title.
 

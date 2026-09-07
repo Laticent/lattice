@@ -51,7 +51,7 @@
  *     the probe, because the probe beside it still reports. Closing it needs a probe per
  *     FILE — mutating every tracked source file on every push. Directory × language is
  *     where the cost curve turns.
- *   • A config pattern written against `lint-teeth-probe-*` defeats arm 3. Randomizing the
+ *   • A config pattern written against `_lint-teeth-probe-*` defeats arm 3. Randomizing the
  *     rest of the name stops the ACCIDENTS (`"!**\/*.tmp.js"` is ordinary-looking tempfile
  *     hygiene, and it used to silence the whole repo while every probe reported); it does
  *     not stop someone who reads this file and writes a pattern against the prefix.
@@ -144,7 +144,16 @@ const CONFIG_REL = 'biome.jsonc';
  * works. That is a deliberate, visible config edit rather than an accident, and accidents
  * are what this gate is for. Stated again in the header's residual list.
  */
-const PROBE_PREFIX = 'lint-teeth-probe-';
+// The LEADING UNDERSCORE is load-bearing, not decoration. A probe is a syntactically valid
+// but semantically nonsense file dropped into a real source directory, and some of those
+// directories have readers with schemas: `lib/components/index.js` ingests every flat `.json`
+// under `lib/components/` as a component manifest, so a `.json` probe there made the engine's
+// registry load THROW while the probe existed — reached by anything that loads components
+// concurrently with a build (#2117). That loader already skips `_`-prefixed entries, which is
+// the repo's existing "this is not a component" convention, so the prefix buys the fix for
+// free. It changes nothing about coverage: Biome's config excludes no `_` path, so a probe is
+// still linted, and a survivor still fails `npm run lint` on its own `debugger;`.
+const PROBE_PREFIX = '_lint-teeth-probe-';
 
 /**
  * One probe body per language, because a probe is only evidence for the language it is

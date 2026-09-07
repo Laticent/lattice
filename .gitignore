@@ -136,3 +136,8 @@ docs/src/playground/*.generated.js
 # `npm publish` both have it. See tools/build-dagre-bundle.js.
 lib/core/dagre-bundle.generated.js
 docs/src/lib/*/dist/
+# The hidden staging tree a library builder writes and renames into place. Named per pid so
+# two concurrent builds cannot corrupt each other, and swept on the next run when its pid is
+# gone — but a SIGINT between the two leaves one, and an untracked directory in `git status`
+# is noise nobody should have to explain. See tools/build-lente-lib.js § STAGING_PREFIX.
+docs/src/lib/*/.dist.tmp-*/

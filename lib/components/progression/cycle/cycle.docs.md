@@ -10,7 +10,7 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-steps / split across slides.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-steps / split across slides. Under three there is no loop to read; past six the ring crowds; a split run paces ONE stage per page and closes with a derived “↻ back to {stage 1}” signal (§0b connected members).
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — a stage is a name plus one clause, not a paragraph.
 

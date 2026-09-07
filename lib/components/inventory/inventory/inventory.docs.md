@@ -10,7 +10,7 @@ Use for a small register of related items where each carries similar weight. Aut
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-tabular / split across slides.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-tabular / split across slides. The ledger/editorial looks take a couple more rows than the cards or timeline looks; past six entries, escalate.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause of body per part.
 

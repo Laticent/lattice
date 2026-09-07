@@ -10,7 +10,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic) / statute-stack.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic) / statute-stack. Past six tiers the chain overflows a portrait box; a split run carries a derived “governs ↓ / under ↑” signal — a hierarchy, never a temporal “next” (§0b connected members). Pacing stays the authored split.perPage: the signal reads across pages whatever the pacing.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per tier.
 

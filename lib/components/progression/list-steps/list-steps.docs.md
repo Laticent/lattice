@@ -10,7 +10,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ## Agent contract
 
-**Capacity** ~4 items (over 5 overflows) — past that, timeline-list / split across slides.
+**Capacity** ~4 items (over 5 overflows) — past that, timeline-list / split across slides. Past five steps the row crowds and a split paces one step per page; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members).
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one sentence per step, not a paragraph. The strip gives every card the tallest card's height, so one long step tightens the whole row, and a body that outgrows the card spills past its bottom edge and is clipped at the stage.
 

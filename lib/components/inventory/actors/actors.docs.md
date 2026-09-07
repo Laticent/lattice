@@ -10,7 +10,7 @@ Use to show 'who owns what' across a process, scoring policy, or org chart. Two-
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 6, overflows past 7) — past that, list-tabular / split across slides.
+**Capacity** ~4 items (crowds past 6, overflows past 7) — past that, list-tabular / split across slides. The ledger reads cleanly up to about six rows.
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — one short responsibility per row, not a job description.
 

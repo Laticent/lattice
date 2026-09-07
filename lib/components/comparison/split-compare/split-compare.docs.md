@@ -10,7 +10,7 @@ Use when a decision frames a binary choice and the recommendation must be unambi
 
 ## Agent contract
 
-**Capacity** ~2 items (over 2 overflows) — past that, decision / compare-table.
+**Capacity** ~2 items (over 2 overflows) — past that, decision / compare-table. Exactly two by contract — the form IS a two-way choice, so there is no band to grow into. A split run paces ONE option per page and lands the verdict on its own closing page, carrying a derived “Option N of 2 · comparing …” signal.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — a terse point per line.
 

@@ -260,6 +260,127 @@ test('a component whose PRIMARY chart SVG is aria-hidden (funnel) still re-hosts
 	);
 });
 
+test('speech drops aria-hidden decoration nested inside a narrated block (#2115)', () => {
+	// The real journey legend, copied off a rendered deck: a one-letter dot marked
+	// aria-hidden, then the actor's visible name, both inside one <li>. The walker must
+	// read the <li> (the name is only there) while dropping the dot, so `closest()` on
+	// SKIP_SELECTOR cannot do it — the exclusion has to happen where the text is
+	// collected. Before this, shipped `.vtt` sidecars for six decks said "Pprospect".
+	const secs = sections(
+		`<section data-lattice-slide class="journey"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Onboarding</h2></div>
+			<ul class="journey-actors">
+				<li class="journey-actor"><span class="journey-actor-dot" aria-hidden="true">P</span><span class="journey-actor-name">prospect</span></li>
+				<li class="journey-actor"><span class="journey-actor-dot" aria-hidden="true">S</span><span class="journey-actor-name">sales</span></li>
+			</ul>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.doesNotMatch(spoken, /Pprospect|Ssales/, 'the dot must not run into the label');
+	assert.match(spoken, /prospect/, 'the label itself is the only carrier and must survive');
+	assert.match(spoken, /sales/);
+});
+
+test('speech skips a block that is itself aria-hidden, and keeps its visible sibling', () => {
+	// The other half: whole-block decoration (a split rail, a watermark) reaches the
+	// walker as a block of its own. SKIP_SELECTOR covers this one; the assertion pins
+	// that covering it did not also swallow the paragraph beside it.
+	const secs = sections(
+		`<section data-lattice-slide class="content form"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Progress</h2></div>
+			<p aria-hidden="true">3 / 7</p>
+			<p>Three of seven workstreams are complete.</p>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.doesNotMatch(spoken, /3 \/ 7/, 'the decorative counter is not narration');
+	assert.match(spoken, /Three of seven workstreams are complete\./);
+});
+
+test('the ARTICLE keeps a block NESTED under an aria-hidden wrapper', () => {
+	// The first cut of #2115 put `[aria-hidden="true"]` in the SHARED selector. `closest()`
+	// matches self-or-ancestor, so that did not merely stop a hidden block from re-hosting —
+	// it dropped everything nested under a hidden wrapper from the article too. Two shipped
+	// shapes hit it and neither was in the fifteen decks measured: `lib/runtime/index.js`
+	// renders Mermaid INTO a `<div class="mermaid" aria-hidden="true">`, and `plugins.js`
+	// emits the deck logo as an aria-hidden `<img>` that is the section's first child on a
+	// slide with no `.cell-stage`. Found by an independent checker, not by the corpus.
+	const secs = sections(
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Flow</h2></div>
+			<div class="mermaid" aria-hidden="true"><svg id="m1"><g><text>A</text></g></svg></div>
+		</div></section>`,
+		'<section data-lattice-slide class="title" data-class="title"><img class="deck-logo" src="l.svg" alt="" aria-hidden="true"><h1>Cover</h1><p>Sub</p></section>',
+	);
+	const { articleHtml } = project(secs);
+	// `reidClone` suffixes ids so a re-hosted SVG cannot collide with the slide's own,
+	// so match the element rather than the exact id.
+	assert.match(articleHtml, /<figure class="lp-figure"><svg id="m1/, 'the mermaid SVG still re-hosts');
+	assert.match(articleHtml, /class="deck-logo"/, 'the deck logo still re-hosts');
+});
+
+test('speech drops a whole subtree under an aria-hidden wrapper, article and speech disagreeing on purpose', () => {
+	// The other half of the split: `aria-hidden` governs what is ANNOUNCED, not what is
+	// DRAWN, so the same wrapper is silent in speech and visible in the article.
+	const secs = sections(
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>H</h2></div>
+			<div aria-hidden="true"><p>DECORATIVE</p></div>
+			<p>Spoken.</p>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.doesNotMatch(spoken, /DECORATIVE/);
+	assert.match(spoken, /Spoken\./);
+	assert.match(project(secs).articleHtml, /DECORATIVE/, 'the article still draws it');
+});
+
+test('aria-hidden is matched case-insensitively, as ARIA defines it', () => {
+	// A browser hides `aria-hidden="TRUE"`, so a reader that still spoke it would disagree
+	// with what the viewer sees. No engine emitter writes it that way; hand-authored HTML
+	// reaches this projection untouched and can.
+	const secs = sections(
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>U</h2></div>
+			<p><span aria-hidden="TRUE">X</span>visible</p>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.doesNotMatch(spoken, /Xvisible/);
+	assert.match(spoken, /visible\./);
+});
+
+test('honoring aria-hidden in speech leaves the ARTICLE markup alone', () => {
+	// The article re-hosts a block's whole outerHTML, so decoration inside a paragraph
+	// rides along as markup and stays VISIBLE — which is right: aria-hidden is about
+	// what is announced, not about what is drawn. Measured across fifteen rendered
+	// decks, the article projection is byte-identical across this change; this pins the
+	// mechanism so a later "tidy-up" cannot start stripping the visual copy.
+	const secs = sections(
+		`<section data-lattice-slide class="content form"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Formula</h2></div>
+			<p><span class="katex"><span class="katex-mathml">x=1</span><span class="katex-html" aria-hidden="true">x=1</span></span></p>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /class="katex-html" aria-hidden="true"/, 'the visual copy still renders');
+});
+
+test('speechText does not mutate the DOM it is handed when it strips decoration', () => {
+	// The Studio Present path re-projects the caller's own nodes on every slide change,
+	// so a strip that removed the decoration in place would blank the monogram on screen
+	// the first time a slide was narrated.
+	const secs = sections(
+		`<section data-lattice-slide class="content form"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Roster</h2></div>
+			<ul><li><span aria-hidden="true">AO</span><span>Ada Okafor</span></li></ul>
+		</div></section>`,
+	);
+	const before = secs[0].outerHTML;
+	speak(secs);
+	assert.equal(secs[0].outerHTML, before, 'the caller\'s DOM is untouched');
+});
+
 test('nesting is preserved (no flatten-to-textContent) and chrome is skipped', () => {
 	const secs = sections(
 		`<section data-lattice-slide class="inventory form"><div class="cell-stage">
@@ -810,6 +931,46 @@ test('team-profile: the aria-hidden monogram is never spoken', () => {
 	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n  - `Program Director`\n');
 	assert.doesNotMatch(t, /\bAO\b|\bMV\b/, 'initials are decoration, not narration');
 	assert.match(t, /Ada Okafor, Executive Sponsor\./);
+});
+
+test('team-profile: a span-less li.person keeps its own words on both surfaces (#2118)', () => {
+	// Hand-written HTML only — the markdown transform builds the three spans whenever it
+	// marks the class, and its idempotency guard is what lets an already-marked roster
+	// reach the projection untouched. The row fell between two filters that are each
+	// individually right: `others` excludes anything `.person`, and the person branches
+	// read only `.person-name` / `.person-role` / `.person-note`, so a plain-text row
+	// composed to '' and was filtered out. Nothing emitted it, on either surface.
+	const secs = sections(
+		`<section data-lattice-slide class="team-profile" data-class="team-profile"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Team</h2></div>
+			<ul class="team-roster">
+				<li class="person"><span class="person-name">Ada Okafor</span></li>
+				<li class="person">Bare text that has no person spans at all</li>
+			</ul>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /Bare text that has no person spans at all/, 'the article keeps the row');
+	assert.match(articleHtml, /<strong>Ada Okafor<\/strong>/, 'the composed person is unchanged');
+	const [spoken] = speak(secs);
+	assert.match(spoken, /Ada Okafor\. Bare text that has no person spans at all\./);
+});
+
+test('team-profile: the span-less fallback does not double a row that DOES compose', () => {
+	// The fallback must fire only when nothing else did. A person with a name and a note
+	// must read once, not once composed and once as raw text.
+	const secs = sections(
+		`<section data-lattice-slide class="team-profile" data-class="team-profile"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Team</h2></div>
+			<ul class="team-roster">
+				<li class="person"><span class="person-name">Ada Okafor</span><span class="person-note">Clears blockers.</span></li>
+			</ul>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.equal(spoken.match(/Ada Okafor/g).length, 1, 'the name is spoken exactly once');
+	const { articleHtml } = project(secs);
+	assert.equal(articleHtml.match(/Ada Okafor/g).length, 1, 'and appears once in the article');
 });
 
 test('team-profile sides: each roster keeps its own label', () => {

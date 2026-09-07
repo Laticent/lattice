@@ -53,6 +53,59 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+
+// ── A WORKING TREE IS NOT A FROZEN TREE ───────────────────────────────────────
+//
+// Every gate below walks the repo while other processes are writing to it. The one
+// that provably does is `tools/check-lint-coverage.js`: it writes a real probe file
+// into every directory Biome checks and removes it within the same run, deliberately —
+// a probe outside the directory it is probing proves nothing about that directory's
+// coverage, and gitignoring the name would make Biome skip it and every directory then
+// read as silent. So during a `npm run build` there are transient `.js`/`.ts`/`.mjs`
+// files in `lib/`, `docs/src/` and `tools/`, and a walk that `readdirSync`s one and then
+// `statSync`s it can lose the race. Measured: a build running alongside `npm test` took
+// out seven arms of `check-ownership.test.js`, all of them arms that call `run()` (#2117).
+//
+// These two are the tolerant primitives for that. They swallow ENOENT and NOTHING else,
+// and only for a path the walk itself just listed: a file that EXISTS and cannot be read
+// still throws, so no gate loses a tooth. A file that vanished mid-walk was not part of
+// the tree the gate is describing.
+function statOrNull(p) {
+  try {
+    return fs.statSync(p);
+  } catch (e) {
+    if (e.code === 'ENOENT') return null;
+    throw e;
+  }
+}
+function readFileOrNull(p) {
+  try {
+    return fs.readFileSync(p, 'utf8');
+  } catch (e) {
+    if (e.code === 'ENOENT') return null;
+    throw e;
+  }
+}
+function readdirOrNull(p) {
+  try {
+    return fs.readdirSync(p);
+  } catch (e) {
+    if (e.code === 'ENOENT') return null;
+    throw e;
+  }
+}
+
+// The probe files themselves, excluded from every listing this file walks. Skipping them
+// removes the race BY CONSTRUCTION for the one writer we know about, rather than leaving
+// thirteen read sites each hoping to lose it gracefully. The prefix is imported, not
+// retyped, so renaming it in the lint-coverage gate cannot silently reopen the hole.
+//
+// They are not hidden from anyone who needs to see them: a leaked probe still fails
+// `npm run lint` on its own `debugger;`, which is the self-announcing property
+// check-lint-coverage.js documents and relies on. This only stops a gate from describing
+// a file that is being deleted as it reads it.
+const { PROBE_PREFIX: LINT_PROBE_PREFIX } = require('./check-lint-coverage.js');
+const isTransientProbe = (name) => name.startsWith(LINT_PROBE_PREFIX);
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { EXTRA_NAMES, EXTRA_GALLERIES } = require('./build-bucket-galleries');
@@ -1034,7 +1087,19 @@ function producesNamedEntryArray(node, ts) {
  * The text pre-filter is a cost optimization only: a file that never mentions the
  * method cannot contain a call to it, so skipping it cannot cause a miss.
  */
-function checkThemeRegistrationCallSites(errors) {
+// `root`/`roots`/`sanctions` are injected ONLY so the gate's own test can drive it over a
+// scratch tree. That test used to write `tools/__gate-probe-<pid>.mjs` into the REAL tree,
+// which is the same self-inflicted hazard `checkPreviewHtmlSinks` documents below: `node
+// --test` runs files concurrently, so a probe present for one test is walked by every other
+// check scanning the same roots, and a `finally` that a SIGINT skips leaves a file behind.
+// Both happened — a leaked probe was picked up by the docs generator and committed into
+// `engineering/capabilities.md` as a real tool row (#2117).
+function checkThemeRegistrationCallSites(
+  errors,
+  root = ROOT,
+  roots = THEME_REG_ROOTS,
+  sanctions = SANCTIONED_UNNAMED_THEME_REGISTRATIONS,
+) {
   let ts;
   try {
     ts = require('typescript');
@@ -1054,7 +1119,8 @@ function checkThemeRegistrationCallSites(errors) {
   };
 
   const scanFile = (rel, abs) => {
-    const raw = fs.readFileSync(abs, 'utf8');
+    const raw = readFileOrNull(abs);
+    if (raw === null) return; // vanished between the walk and the read
     if (!raw.includes('addThemes') && !raw.includes('.add(')) return; // cannot contain a call
     const src = ts.createSourceFile(abs, raw, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const report = (node, why) => {
@@ -1110,8 +1176,8 @@ function checkThemeRegistrationCallSites(errors) {
     visit(src);
   };
 
-  for (const r of THEME_REG_ROOTS) {
-    const p = path.join(ROOT, r);
+  for (const r of roots) {
+    const p = path.join(root, r);
     if (!fs.existsSync(p)) {
       errors.push(
         `theme-registration gate root "${r}" does not exist (tools/check-ownership.js THEME_REG_ROOTS). ` +
@@ -1120,21 +1186,25 @@ function checkThemeRegistrationCallSites(errors) {
       continue;
     }
     const walk = (f) => {
-      const st = fs.statSync(f);
+      const st = statOrNull(f);
+      if (!st) return; // vanished mid-walk — see statOrNull
       if (st.isDirectory()) {
-        for (const e of fs.readdirSync(f).sort()) {
+        const entries = readdirOrNull(f);
+        if (!entries) return; // the directory went too, between the stat and the read
+        for (const e of entries.sort()) {
           if (e === 'node_modules' || e === 'public') continue;
           walk(path.join(f, e));
         }
         return;
       }
       if (!THEME_REG_EXTS.has(path.extname(f)) || f.includes('.generated.')) return;
-      scanFile(path.relative(ROOT, f), f);
+      if (isTransientProbe(path.basename(f))) return;
+      scanFile(path.relative(root, f), f);
     };
     walk(p);
   }
 
-  const stale = [...SANCTIONED_UNNAMED_THEME_REGISTRATIONS];
+  const stale = [...sanctions];
   for (const f of found) {
     const i = stale.findIndex((s) => s.file === f.file);
     if (i !== -1) { stale.splice(i, 1); continue; }
@@ -1324,6 +1394,7 @@ function checkComponentCss(manifests, errors) {
 // Recursively list every .css file under a directory.
 function listCssFiles(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listCssFiles(p, out);
     else if (e.name.endsWith('.css')) out.push(p);
@@ -3401,6 +3472,7 @@ const US_SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', '.scra
 // generated/vendor trees and the dated engineering/decisions/ records.
 function listRepoTextFiles(dir = ROOT, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     const rel = path.relative(ROOT, p);
     // The emulator writes an .html sibling beside every PDF it renders
@@ -3639,6 +3711,7 @@ function listEngineGlyphSurfaces() {
   const out = [];
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
       const p = path.join(dir, e.name);
       if (e.isDirectory()) { walk(p); continue; }
       if (e.name.endsWith('.css') && !/\.(min|generated)\./.test(e.name)) out.push(p);
@@ -4982,7 +5055,14 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
 function listSourceFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.astro') continue;
+    if (e.name === 'node_modules' || e.name === 'dist') continue;
+    // Any DOT-prefixed entry, generalizing the `.astro` special case this replaces. Hidden
+    // directories in a source tree are caches and staging areas, never source: `.astro`,
+    // and the `.dist.tmp-<pid>` a library builder writes while it works. A gate that walked
+    // into the latter died on a `.d.ts` mid-write (#2117), which is not a defect in the tree
+    // it is describing.
+    if (e.name.startsWith('.')) continue;
+    if (isTransientProbe(e.name)) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listSourceFiles(p, out);
     else if (/\.(?:js|ts|tsx|mjs|cjs)$/.test(e.name)) out.push(p);
@@ -5380,6 +5460,7 @@ const E2E_EXTS = /\.(?:[cm]?[jt]sx?)$/;
 function listE2EFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     if (e.name === 'node_modules') continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listE2EFiles(p, out);
@@ -5667,6 +5748,7 @@ function diagramTokenClosure() {
   const collect = (dir) => {
     if (!fs.existsSync(dir)) return;
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
       if (e.name === 'node_modules' || e.name === 'dist') continue;
       const p = path.join(dir, e.name);
       if (e.isDirectory()) collect(p);
@@ -6350,7 +6432,8 @@ const CLASS_ATTR_EXTS = /\.(?:js|ts|tsx|mjs|cjs|astro)$/;
 function listClassAttrFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.astro') continue;
+    if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
+    if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue; // hidden = cache/staging, never source
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listClassAttrFiles(p, out);
     else if (CLASS_ATTR_EXTS.test(e.name)) out.push(p);
@@ -6834,7 +6917,8 @@ function referencesSnapshot(src) {
 function listSnapshotFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.astro') continue;
+    if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
+    if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue; // hidden = cache/staging, never source
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listSnapshotFiles(p, out);
     else if (/\.(?:js|ts|tsx|mjs|cjs|astro)$/.test(e.name)) out.push(p); // NOTE: includes .astro
@@ -6922,9 +7006,10 @@ const DOCS_CODE_EXT = /\.(?:astro|ts|tsx|js|mjs|cjs)$/;
 function listDocsCodeFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     // Skip generated/vendor trees AND `e2e/` (Playwright specs are test code, not compiled
     // into the shipped bundle) — invariant 1 guards the SITE BUILD, not tests.
-    if (['node_modules', 'dist', '.astro', 'e2e'].includes(e.name)) continue;
+    if (['node_modules', 'dist', 'e2e'].includes(e.name) || e.name.startsWith('.')) continue; // hidden = cache/staging, never source
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listDocsCodeFiles(p, out);
     // `.spec`/`.test` files don't ship either — exclude them from the site-exposure scan.
@@ -7415,7 +7500,8 @@ const SANCTIONED_LEGACY_AUDIO = [];
 function collectAudioSourceFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.astro') continue;
+    if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
+    if (e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue; // hidden = cache/staging, never source
     const p = path.join(dir, e.name);
     if (e.isDirectory()) collectAudioSourceFiles(p, out);
     else if (/\.(?:js|ts|tsx|mjs|cjs|astro)$/.test(e.name)) out.push(p); // include .astro (cadenza's inline script)
@@ -7952,6 +8038,7 @@ function checkCatInkFallback(errors, libDir = LIB_DIR) {
   const offenders = [];
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
       const p = path.join(dir, e.name);
       if (e.isDirectory()) { walk(p); continue; }
       if (!/\.(css|js|mjs)$/.test(e.name)) continue;
@@ -8564,6 +8651,7 @@ function agentCallPins(src) {
 function listWorkflowFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listWorkflowFiles(p, out);
     else if (/\.(?:js|mjs|cjs)$/.test(e.name)) out.push(p);
@@ -8581,6 +8669,7 @@ function listWorkflowFiles(dir, out = []) {
 // missing pin.
 function listAgentFiles(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listAgentFiles(p, out);
     else if (e.name.endsWith('.md') && e.name !== 'README.md') out.push(p);
@@ -9638,6 +9727,7 @@ function fallbackHops(libDir = LIB_DIR) {
   const into = new Map();
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (isTransientProbe(e.name)) continue; // transient lint probe (see isTransientProbe)
       const p = path.join(dir, e.name);
       if (e.isDirectory()) { walk(p); continue; }
       if (!/\.(css|js|mjs)$/.test(e.name)) continue;
@@ -10876,6 +10966,7 @@ function listFilesByExt(dir, exts, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+    if (isTransientProbe(e.name)) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listFilesByExt(p, exts, out);
     else if (exts.some((x) => e.name.endsWith(x))) out.push(p);

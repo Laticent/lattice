@@ -656,6 +656,33 @@ export function DeckPreview({
 			} catch (err) {
 				console.error('[DeckPreview] renderer teardown failed', err);
 			}
+			// Drop every MOUNT-SCOPED ref this teardown just invalidated, so a REMOUNT of the
+			// same instance builds fresh state instead of reusing torn-down state. React only
+			// reuses an instance's refs across mount→unmount→remount under StrictMode's
+			// double-invoke (a real remount gets fresh refs), so in production this is inert —
+			// and StrictMode is exactly where the bug showed. `engineRef` is created once in the
+			// render body (`if (engineRef.current === null)`), so without this the second mount
+			// reuses the DISPOSED renderer: it never renders, the Nacre loader spins forever, and
+			// Present is stuck on its skeleton on the whole dev server. `animaRef` is the same
+			// shape one level down — `syncAnima` short-circuits to `rebind()` on a destroyed
+			// scene host. `paintedRef` / `firstRenderFiredRef` are first-paint guards: a fresh
+			// mount's first paint must flush immediately and must be allowed to dismiss the SSG
+			// shell again.
+			//
+			// `animaBoundRef` is DELIBERATELY NOT RESET, and an earlier cut of this reset it on
+			// the theory that the listener was bound to an iframe the remount no longer has.
+			// That is backwards. `dispose()` explicitly leaves the iframe in the DOM (the caller
+			// owns the host node), and `renderInto` REUSES an existing `iframe.live` rather than
+			// creating one — so under StrictMode the remount gets the SAME frame, with the same
+			// `load` listener still attached, and nothing here ever removes one. Resetting the
+			// flag made `bindAnima` add a SECOND listener to that frame, so every later srcdoc
+			// rewrite ran `syncAnima` twice and the count grew by one per cycle.
+			engineRef.current = null;
+			animaRef.current = null;
+			animaLoadingRef.current = false;
+			animaBackstopRef.current = undefined;
+			paintedRef.current = false;
+			firstRenderFiredRef.current = false;
 		},
 		[],
 	);

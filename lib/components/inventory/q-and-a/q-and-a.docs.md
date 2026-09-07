@@ -10,7 +10,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic).
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic). Past six Q/A pairs the column overflows a portrait box.
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a one-line question and a short answer.
 

@@ -10,7 +10,7 @@ Use when the items want vertical reading order — sequential exploration rather
 
 ## Agent contract
 
-**Capacity** ~3 items (over 4 overflows) — past that, list-tabular / split across slides.
+**Capacity** ~3 items (over 4 overflows) — past that, list-tabular / split across slides. Past four rows the stack overflows.
 
 **Density** aim ~16 words per item; past ~26 it reads as a wall of text — a stacked card is a short paragraph at most.
 
