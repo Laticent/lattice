@@ -61,3 +61,9 @@
   Library, Add-a-slide and the Studio's command palette use, and its height comes from the type
   rather than a fixed number: 16px text (the size below which iOS zooms the page on focus) in a
   ~44px box, instead of 16px text crammed into 40.
+- **Fixed: replacing the deck no longer leaves the walk counting the old one.** Picking a
+  component while in Edit loads that component's one-slide sample — but the position kept the
+  previous gallery's count, so the surface briefly held a twelve-slide position over a
+  one-slide deck. The rule that catches this already existed; it just lived on the
+  Explore→Edit→Explore transition rather than at the point every deck replacement passes
+  through, so it corrected itself on the next flip instead of straight away.

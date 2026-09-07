@@ -769,6 +769,43 @@ test('@parity a swipe that turns the slide is not counted as the reader scrollin
 	expect(browserName).toBeTruthy();
 });
 
+test('@mobile replacing the deck in Edit does not leave the walk counting the plan', async ({ page }) => {
+	// Reported from a real iPhone: "only a single slide being shown" with the Step list dead.
+	// Reproduced on the deployed preview — picking a component in EDIT loads that component's
+	// ONE-SLIDE SAMPLE, and `toPreview` flips the phone's single pane to the deck, so the
+	// surface showed one slide while the walk still held the 12-slide PLAN. The Step list being
+	// dead is correct in that state (a sample has no gallery steps to jump to); the walk still
+	// counting 12 is not.
+	//
+	// `setViewMode` already re-pointed on the Explore→Edit→Explore transition, so the state
+	// corrected itself on the next flip and every test that flipped views missed it. The rule
+	// now lives at `applyDeck` — the choke point EVERY deck replacement passes through (a pick,
+	// a reset, an undo, a handoff) — rather than on one transition out of several.
+	await page.goto('/playground/?c=kpi&view=read', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toContainText('/');
+	await settle(page);
+	const planned = await claimed(page);
+	expect(planned.count, 'the plan walk did not load').toBeGreaterThan(2);
+
+	await page.getByRole('tab', { name: 'Edit' }).click();
+	await page.locator('#pg-template-trigger').click();
+	await page.keyboard.type('q-and-a');
+	await page.locator('[cmdk-item]').first().click();
+	await expect(page.locator('body')).toHaveAttribute('data-pane', 'preview');
+	await settle(page);
+
+	const slides = await page.evaluate(() => {
+		const frame = document.getElementById('preview') as HTMLIFrameElement | null;
+		return frame?.contentDocument?.querySelectorAll('.lattice > section').length ?? -1;
+	});
+	const after = await claimed(page);
+	// The invariant is the one this whole file is about: the chrome never claims a count the
+	// deck does not have. A `deck` walk reports 0 until the render tells it otherwise, which is
+	// honest; what it must never do is keep the previous plan's count.
+	expect(after.count, `the walk claims ${after.count} slides over a ${slides}-slide deck`).not.toBe(planned.count);
+	if (after.count > 0) expect(after.count).toBe(slides);
+});
+
 // ── The touch floor ────────────────────────────────────────────────────────────
 
 /**

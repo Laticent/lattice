@@ -1027,6 +1027,30 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// ── Deck swaps (pick / variant / gallery / scaffold) ────────────────────────
 	const applyDeck = React.useCallback(
 		(md: string, opts?: { toPreview?: boolean }) => {
+			// RE-POINT THE WALK FIRST, because this deck is not the plan's any more.
+			//
+			// A plan walk counts a component GALLERY's slides and names them by kind. Every
+			// route into this function replaces the deck with something else — a component's
+			// one-slide sample, a reset, an undo, a handoff — so the moment it runs, a plan
+			// walk is describing a deck nobody is looking at. `setViewMode` already re-points
+			// on the Explore→Edit→Explore transition; this is the SAME rule at the choke point
+			// every replacement passes through, which is where it should have been.
+			//
+			// Reported from a real iPhone, and reproduced on the deployed preview: pick a
+			// component in EDIT, where `toPreview` flips the phone's single pane to the deck,
+			// and the surface showed ONE slide under a bar reading "1 / 12" with a dead Step
+			// list. The `setViewMode` copy could not catch it — nothing had changed view. Same
+			// defect this branch exists to remove, one path further out (#2124).
+			//
+			// `label: 'draft'` and `count: 0` are the `deck` shape: it learns its count from
+			// the render, the Step list correctly has nothing to offer, and the URL sync drops
+			// `?c=`/`?s=` because they no longer describe the screen.
+			if (walkRef.current?.kind === 'plan') {
+				const w: Walk = { kind: 'deck', label: 'draft', index: 0, count: 0 };
+				setWalk(w);
+				walkRef.current = w;
+				setWalkNotice(null);
+			}
 			setSource(md);
 			saveSource();
 			setSourceVersion((v) => v + 1);
