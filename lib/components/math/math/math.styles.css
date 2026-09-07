@@ -438,32 +438,22 @@ section.math.math.form.derivation:where([data-family="tall"], [data-family="stri
  * The blockquotes render as stacked color-coded cards. Markdown wraps
  * each `>`-prefixed block in a single `<blockquote>`; theorem-card stripes
  * are colored by position (first/middle/last) using the deck spectrum. */
-section.math.theorem {
-  display: flex;
-  flex-direction: column;
-  /* Card stack centers in the well via justify-content; the heading is taken
-   * out of flow (absolute, below) so it stays pinned to the top while only the
-   * cards center — the margin-free equivalent of the old first/last-card
-   * `margin:auto`. (section::after is the pagination marker, so a flex
-   * pseudo-spacer pair isn't available on this non-Form component.) The
-   * transparent inter-card gap is a measurable `gap` of var(--sp-sm) — padding
-   * would extend each card's --bg-alt fill. */
+/* SOVEREIGN ARM DELETED. It carried the same absolutely-positioned title as
+ * `derivation` — `top: calc(var(--sp-2xl) + var(--sp-md))`, the masthead band's
+ * geometry copied by arithmetic — so the card stack could center beneath a heading
+ * taken out of flow. The Form frame owns the title, so the stage centers the stack
+ * with `justify-content` against a box whose height is already correct.
+ *
+ * The stage is a flex column by default (stage.css), so the container rule is two
+ * declarations: the centering, and the card gap. The gap is `gap` rather than card
+ * padding because padding would extend each card's `--bg-alt` fill. The sovereign
+ * arm's `padding-bottom: var(--sp-lg)` is gone — the frame reserves the footer band
+ * from the real footer Cell height instead of guessing at it. */
+section.math.form.theorem > .cell-stage {
   justify-content: center;
   gap: var(--sp-sm);
-  padding-bottom: var(--sp-lg);
-  position: relative;
 }
-section.math.theorem > h2,
-section.math.theorem > h3 {
-  /* left/right:auto keeps the heading at its in-flow (section-padded) horizontal
-   * position; only the vertical is pinned so the cards center beneath it. top clears
-   * the absolute header by the base section's header-clearance (6.875cqi = --sp-2xl +
-   * --sp-md), so the title sits the same distance below the eyebrow as on Form slides. */
-  position: absolute;
-  top: calc(var(--sp-2xl) + var(--sp-md));
-  padding: 0;
-}
-section.math.theorem blockquote {
+section.math.form.theorem blockquote {
   background: var(--bg-alt);
   border-left: 4px solid var(--accent);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
@@ -474,14 +464,14 @@ section.math.theorem blockquote {
 /* Suppress the default "KEY INSIGHT" eyebrow that lattice.css emits on every
  * blockquote outside .quote — the bold inline label (Definition.,
  * Theorem., Proof.) carries the type, and a second label clutters the card. */
-section.math.theorem blockquote::before { content: none; }
-section.math.theorem blockquote p {
+section.math.form.theorem blockquote::before { content: none; }
+section.math.form.theorem blockquote p {
   margin: 0;
 }
-section.math.theorem blockquote p + p {
+section.math.form.theorem blockquote p + p {
   padding-top: var(--sp-xs);
 }
-section.math.theorem blockquote strong:first-child {
+section.math.form.theorem blockquote strong:first-child {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   letter-spacing: 0.18em;
@@ -505,32 +495,40 @@ section.math.theorem blockquote strong:first-child {
  * same hue and chroma as the stripe beside it, lightness solved per palette until
  * it clears the floor. On a palette whose mark already cleared, the two are the
  * same color. Gated on every palette, all three canvases, by checkCatContrast.
- * (#1263)
- *
- * Both fall back to --accent if a future palette ever drops the cycle. */
-section.math.theorem blockquote:nth-of-type(3n+1) {
+ * (#1263) */
+/* Both fall back to --accent if a future palette ever drops the cycle. */
+section.math.form.theorem blockquote:nth-of-type(3n+1) {
   border-left-color: var(--cat-4-mark, var(--accent));
 }
-section.math.theorem blockquote:nth-of-type(3n+1) strong:first-child {
+section.math.form.theorem blockquote:nth-of-type(3n+1) strong:first-child {
   color: var(--cat-4-ink, var(--cat-4-mark, var(--accent)));
 }
-section.math.theorem blockquote:nth-of-type(3n+2) {
+section.math.form.theorem blockquote:nth-of-type(3n+2) {
   border-left-color: var(--cat-7-mark, var(--accent));
 }
-section.math.theorem blockquote:nth-of-type(3n+2) strong:first-child {
+section.math.form.theorem blockquote:nth-of-type(3n+2) strong:first-child {
   color: var(--cat-7-ink, var(--cat-7-mark, var(--accent)));
 }
-section.math.theorem blockquote:nth-of-type(3n) {
+section.math.form.theorem blockquote:nth-of-type(3n) {
   border-left-color: var(--muted-mark);
 }
-section.math.theorem blockquote:nth-of-type(3n) strong:first-child {
+section.math.form.theorem blockquote:nth-of-type(3n) strong:first-child {
   color: var(--text-secondary);
 }
-section.math.theorem blockquote :is(.katex-display, mjx-container[display="true"]) {
+section.math.form.theorem blockquote :is(.katex-display, mjx-container[display="true"]) {
   padding: var(--sp-xs) 0;
 }
-section.math.theorem blockquote :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.theorem blockquote :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.25em;
+}
+/* FAMILY REFLOW — tall/strip. Same cost as `derivation`, same shape of answer: the
+ * Form masthead is an in-flow band where the sovereign title was absolutely
+ * positioned, and at portrait a wrapped title takes 271px of it — 26px more than the
+ * committed three-card stack had. The cards give it back from their own vertical
+ * padding, not from the gap between them: the gap is what makes them read as separate
+ * cards, and it is the cheaper thing to keep. Nothing collapses and no type shrinks. */
+section.math.math.form.theorem:where([data-family="tall"], [data-family="strip"]) > .cell-stage blockquote {
+  padding: var(--sp-xs) var(--sp-md);
 }
 
 /* ── `compare`: SOVEREIGN ARM DELETED ──
