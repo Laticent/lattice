@@ -260,6 +260,74 @@ test('a component whose PRIMARY chart SVG is aria-hidden (funnel) still re-hosts
 	);
 });
 
+test('speech drops aria-hidden decoration nested inside a narrated block (#2115)', () => {
+	// The real journey legend, copied off a rendered deck: a one-letter dot marked
+	// aria-hidden, then the actor's visible name, both inside one <li>. The walker must
+	// read the <li> (the name is only there) while dropping the dot, so `closest()` on
+	// SKIP_SELECTOR cannot do it — the exclusion has to happen where the text is
+	// collected. Before this, shipped `.vtt` sidecars for six decks said "Pprospect".
+	const secs = sections(
+		`<section data-lattice-slide class="journey"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Onboarding</h2></div>
+			<ul class="journey-actors">
+				<li class="journey-actor"><span class="journey-actor-dot" aria-hidden="true">P</span><span class="journey-actor-name">prospect</span></li>
+				<li class="journey-actor"><span class="journey-actor-dot" aria-hidden="true">S</span><span class="journey-actor-name">sales</span></li>
+			</ul>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.doesNotMatch(spoken, /Pprospect|Ssales/, 'the dot must not run into the label');
+	assert.match(spoken, /prospect/, 'the label itself is the only carrier and must survive');
+	assert.match(spoken, /sales/);
+});
+
+test('speech skips a block that is itself aria-hidden, and keeps its visible sibling', () => {
+	// The other half: whole-block decoration (a split rail, a watermark) reaches the
+	// walker as a block of its own. SKIP_SELECTOR covers this one; the assertion pins
+	// that covering it did not also swallow the paragraph beside it.
+	const secs = sections(
+		`<section data-lattice-slide class="content form"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Progress</h2></div>
+			<p aria-hidden="true">3 / 7</p>
+			<p>Three of seven workstreams are complete.</p>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.doesNotMatch(spoken, /3 \/ 7/, 'the decorative counter is not narration');
+	assert.match(spoken, /Three of seven workstreams are complete\./);
+});
+
+test('honoring aria-hidden in speech leaves the ARTICLE markup alone', () => {
+	// The article re-hosts a block's whole outerHTML, so decoration inside a paragraph
+	// rides along as markup and stays VISIBLE — which is right: aria-hidden is about
+	// what is announced, not about what is drawn. Measured across fifteen rendered
+	// decks, the article projection is byte-identical across this change; this pins the
+	// mechanism so a later "tidy-up" cannot start stripping the visual copy.
+	const secs = sections(
+		`<section data-lattice-slide class="content form"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Formula</h2></div>
+			<p><span class="katex"><span class="katex-mathml">x=1</span><span class="katex-html" aria-hidden="true">x=1</span></span></p>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /class="katex-html" aria-hidden="true"/, 'the visual copy still renders');
+});
+
+test('speechText does not mutate the DOM it is handed when it strips decoration', () => {
+	// The Studio Present path re-projects the caller's own nodes on every slide change,
+	// so a strip that removed the decoration in place would blank the monogram on screen
+	// the first time a slide was narrated.
+	const secs = sections(
+		`<section data-lattice-slide class="content form"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Roster</h2></div>
+			<ul><li><span aria-hidden="true">AO</span><span>Ada Okafor</span></li></ul>
+		</div></section>`,
+	);
+	const before = secs[0].outerHTML;
+	speak(secs);
+	assert.equal(secs[0].outerHTML, before, 'the caller\'s DOM is untouched');
+});
+
 test('nesting is preserved (no flatten-to-textContent) and chrome is skipped', () => {
 	const secs = sections(
 		`<section data-lattice-slide class="inventory form"><div class="cell-stage">
