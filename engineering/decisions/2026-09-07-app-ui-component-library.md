@@ -138,7 +138,12 @@ in two files, `3.375rem` in `panel.tsx:178`, and prose in `panel.tsx:88,142` and
 ### Close cross button — 12 hand-rolls, targets from ~16px to ~48px
 
 Five primitive definitions cover 35 instances; **18 more close/dismiss affordances are
-hand-rolled**. Across all of them there are **11 distinct hit-target specifications** —
+hand-rolled**. *(Source-read. Driving the live app did not reproduce a sub-44px close target:
+on a phone `PanelHeader` correctly renders a back chevron and no Close at all, and the
+dismiss-ish controls reachable at 1440 are 32px pointer-only controls, where the touch floor
+does not apply. The small hand-rolled targets sit in states — a dismissible hint, the crash
+card — that this pass could not reach. Treat the hit-target spread as a source finding
+awaiting a real-surface check, not as a confirmed defect.)* Across all of them there are **11 distinct hit-target specifications** —
 `size-[30px]`, `h-11`, `size-6`, `size-6`+`pointer-coarse:size-11`, `size-8`, `p-1`, `p-1.5`,
 `p-0.5`, `px-1 py-0.5`, `px-3.5`, and none at all (`StudioShell.tsx:3527` is a bare
 `<button>`). Icon sizes run `size-3` to `size-5` plus `size-[18px]`; paddings run `p-0.5` to `p-1.5`.
@@ -205,9 +210,23 @@ with different padding. The next fix to that contract reaches 1 site of 11. And 
 Playground sheets, which use a raw `Sheet` rather than `PanelSheet`, get **none** of
 `useKeyboardInset`, `MOBILE_HEIGHT` or `PanelDock` for their six fields.
 
-### And the one you did not name, which is the clearest of all
+### And the one you did not name, which is the clearest of all — now measured on the real app
 
-**The same panel wears two different header voices depending on viewport width.**
+**The same panel wears two different header voices depending on viewport width.** This one is
+**observed, not inferred**: the docs site was built and driven at both widths, and the
+computed styles read off the live Coach panel are:
+
+| | docked, 1440 | compact, 390 |
+|---|---|---|
+| element | `div` | `h2` |
+| font family | **JetBrains Mono** | **Playfair Display** |
+| size / weight | 11px / 700 | 15px / 600 |
+| case | `uppercase` | sentence |
+| tracking | +1.1px | −0.3px |
+| header band | 35px tall | 16px tall |
+
+It is not a drift of a few pixels — it is a **different typeface**, which is more than the
+source read suggested. Screenshots of both states are in this branch's working notes.
 
 Coach, Chat and Reader views render `PanelSheet` + `PanelHeader` on compact
 (`StudioShell.tsx:5356,5366,5384`) — the house voice, **15px semibold** (`panel.tsx:603`).
@@ -438,9 +457,12 @@ first PR of this work, since that PR is about exactly those claims.
 
 ## What I did not verify
 
-- **Nothing here is visually verified** (HARD RULE #23). Every claim is source-read and
-  counted. Whether a given bypass *looks* wrong on screen is unmeasured; a visual sweep at
-  1440/820/390 in both modes is owed before any migration ships.
+- **One claim is now visually verified; the rest are not** (HARD RULE #23). The two-header-voices
+  finding was driven on the built docs site at 1440 and 390 and is reported above from computed
+  styles. Everything else is source-read and counted. In particular the **sub-44px close target
+  claim did NOT reproduce** in the states reachable from here — see the note under "Close cross
+  button". A full visual sweep at 1440/820/390 in both modes is still owed before any migration
+  ships.
 - **Counts are text-matched, not AST-derived.** A class string built by concatenation or held
   in a variable is invisible to the scan. "55 Button look-alikes" is a heuristic floor; 272
   is the raw ceiling. My own first pass at the raw-button count said 212 and was wrong —
