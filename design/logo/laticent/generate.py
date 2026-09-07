@@ -90,7 +90,7 @@ OUT = os.path.dirname(os.path.abspath(__file__))
 # The five products each carry one hue plus a shared warm gold. The parent
 # takes no product hue, so it reads as the root rather than a sixth sibling.
 STONE, STONE_DM = "#2C3A43", "#9DB2BE"
-# The groove: a darker value OF THE LETTER, not a second brand colour. It
+# The groove: a darker value OF THE LETTER, not a second brand color. It
 # models depth and carries no information, so it is deliberately below the 3:1
 # graphical floor — the LETTER holds 10.6:1 (cream) and 8.5:1 (dark) against
 # the ground, and the mark is fully legible with the groove invisible. Pushing
@@ -369,7 +369,7 @@ def lockup(scheme, form="tile"):
     high, and it broke this file's own one-stem-width clear-space rule.
 
     Everything below is therefore computed from the ink box, and the height
-    stays at the family's 128 with the content centred in it.
+    stays at the family's 128 with the content centered in it.
     """
     if form == "tile":
         th = TILE_CAPS * CAP_H
@@ -389,14 +389,14 @@ def lockup(scheme, form="tile"):
     width = round(tx + INK_W + PAD)
 
     # Vertical: the wordmark's baseline is what the mark aligns to, so solve for
-    # the baseline that centres the whole ink box in 128 rather than fixing it.
+    # the baseline that centers the whole ink box in 128 rather than fixing it.
     word_top, word_bot = -CAP_H, DESCENT
     if form == "tile":
         top, bot = min(ink_top - th / 2, word_top), max(ink_bot - th / 2, word_bot)
     else:
         top, bot = min(ink_top - ink_bot, word_top), max(0.0, word_bot)
     baseline = (128 - (bot - top)) / 2 - top
-    # The tile is centred on the baseline; the bare mark's FOOT sits on it, so
+    # The tile is centered on the baseline; the bare mark's FOOT sits on it, so
     # its offset is the ink's bottom COORDINATE in the 128 box, not the mark's
     # height. Using the height put the foot 14.95 units low — caught by the
     # invariant that reads the emitted SVG, which is what it is for.
