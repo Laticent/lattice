@@ -367,12 +367,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  `playground-first-paint.spec.ts` measuring the Explore reload at two geometries,
 	 *  20px apart, after this change first landed the scroll a beat too late. */
 	const landPendingRef = React.useRef(false);
-	/** When the reader last drove the deck themselves (a wheel, a drag, a nav key). An
-	 *  in-flight `landWalk` ABORTS on anything newer than its own start: the alternative is
-	 *  that the lander either scrolls the reader back to where the render wanted them, or —
-	 *  because the observer is gated shut for the whole settle — silently swallows the scroll
-	 *  they just made. A resize followed straight away by a wheel produced exactly the second
-	 *  of those: the bar held "1 / 22" at a scroll of 3033px (#2124). */
+	/** When the reader last acted AT ALL — a wheel, a drag, a step, a nav key, a Step-list row.
+	 *  It answers "has the reader expressed an intent since X", which is what the two SCROLL
+	 *  GUARD sites need: `done()`'s `oursInFlight` and `onDeckScroll`'s guard release both ask
+	 *  whether a programmatic scroll still in flight is newer than the reader's last intent,
+	 *  and a step counts there (it stamps, then arms, so its own guard survives). It is NOT
+	 *  what the lander asks — see `driveAtRef` — and that split is the whole of the fix below.
+	 *  The case this clock exists for: a resize followed straight away by a wheel, where the
+	 *  observer is gated shut for the settle and would otherwise swallow the scroll the reader
+	 *  just made — the bar held "1 / 22" at a scroll of 3033px (#2124). */
 	const userInputAtRef = React.useRef(0);
 	/**
 	 * When the reader last MOVED THE DECK, as opposed to naming a slide.
@@ -1426,8 +1429,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (!w) return;
 			// A PRESS OF PREV/NEXT IS THE READER, and this is where every route into a step
 			// converges — the walk bar, the keyboard, a swipe. Stamping only in `onDeckKey`
-			// left the two most obvious controls on the surface counting as machinery, so an
-			// in-flight land would not stand down for them. Found by an independent checker.
+			// left the two most obvious controls on the surface invisible to the SCROLL GUARDS,
+			// which is what this clock feeds. Found by an independent checker.
+			//
+			// IT NO LONGER MAKES A LAND STAND DOWN, and that reversal is deliberate: the land
+			// scrolls to `walkRef.current.index`, which by the time it runs is the stepped one,
+			// so standing down for a step threw the step away instead of honoring it. The
+			// lander reads `driveAtRef`. Do not "restore" this stamp's old reach by pointing
+			// `preempted()` back at this clock — that is the cold-load lost step.
 			userInputAtRef.current = Date.now();
 			const count = w.kind === 'plan' ? w.plan.slides.length : w.count;
 			const ni = w.index + dir;
@@ -1811,7 +1820,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	/** One-finger horizontal flick → a step, via the kernel's rule. A gesture that ever
 	 *  held two fingers is a PINCH and never a swipe (the trap `swipeAction`'s own note
 	 *  records), so it is dropped for as long as it lives. */
-	const touchRef = React.useRef<{ x: number; y: number; multi: boolean } | null>(null);
+	const touchRef = React.useRef<{ x: number; y: number; multi: boolean; driveWas: number } | null>(null);
 	const onDeckTouchStart = React.useCallback((e: TouchEvent) => {
 		if (viewRef.current !== 'read') return;
 		if (e.touches.length > 1) {
@@ -1819,7 +1828,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			return;
 		}
 		const t = e.touches[0];
-		if (t) touchRef.current = { x: t.clientX, y: t.clientY, multi: false };
+		// `driveWas` is the drive clock BEFORE this gesture, kept so `touchend` can put it back
+		// if the gesture turns out to have been a step. See `onDeckTouchEnd`.
+		if (t) touchRef.current = { x: t.clientX, y: t.clientY, multi: false, driveWas: driveAtRef.current };
 	}, []);
 	/** A wheel or a finger actually moving the deck. Separate from the swipe rule above: a
 	 *  drag that never clears the swipe threshold is still the reader scrolling. */
@@ -1838,6 +1849,27 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const t = e.changedTouches[0];
 			if (!t) return;
 			const action = swipeAction({ dx: t.clientX - from.x, dy: t.clientY - from.y });
+			// A SWIPE IS A STEP, BUT IT ARRIVES AS A DRIVE. The finger emits `touchmove` all the
+			// way across — eight of them for a 160px flick, measured — and each one stamps the
+			// drive clock; only `touchend` can know the gesture was horizontal enough to be a
+			// step. So by the time we get here the land has already been told the reader moved
+			// the deck, and the step/drive split this file documents was false for one of the
+			// five inputs it lists — on touch, which is the surface it was written for.
+			// Rewinding the clock to what it was before the gesture is the honest correction:
+			// the moves belonged to a gesture that turned out to name a slide, so they were
+			// never a drive. A gesture that does NOT resolve to a step keeps its stamps, which
+			// is right — an unresolved drag is the reader scrolling. Found by an independent
+			// checker.
+			//
+			// NO SYMPTOM WAS DEMONSTRATED FOR THIS ONE, and that is worth saying rather than
+			// implying: a touch has to reach the frame, and the frame existing is what closes
+			// the cold window where a lost step is observable — 8 cold-window swipes at 6x
+			// throttle all landed correctly, with and without this line. What was wrong was the
+			// MODEL: three places in the tree, this file included, listed a swipe among the
+			// inputs that do not preempt, and it was the one that did. The line is here because
+			// a documented rule the code does not follow is the thing that gets reasoned from
+			// next time, not because it fixed a bug anyone hit.
+			if (action === 'next' || action === 'prev') driveAtRef.current = from.driveWas;
 			if (action === 'next') stepWalk(1);
 			else if (action === 'prev') stepWalk(-1);
 		},
@@ -1901,6 +1933,21 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const win = frame?.contentWindow;
 		if (!frame || !w || !win || viewRef.current !== 'read') return;
 		const bands = frameBands(frame);
+		// A FRAME WITH NO SLIDES CARRIES NO POSITION, and reading one out of it is fabricating
+		// one. `readingSlideIndex` returns 0 for an empty deck by contract, so a caller that
+		// does not check writes the title slide over whatever the reader asked for — and the
+		// `bandSig` guard below does NOT catch it, because `bandSig([])` is `''` and that is
+		// also `bandSigRef`'s initial value, so an empty frame matches on a cold load.
+		//
+		// This is the hole the cold-load lost step actually came through, and splitting the
+		// preemption clock only closed one route into it. The other route is still open
+		// without this line: press Next before the deck exists (nothing to scroll to, so
+		// `scrollWalk` arms no guard), then nudge the wheel — the drive preempts the land, the
+		// land reconciles, and the step is gone. Measured on the shipped build at 6x CPU
+		// throttle, 7 runs in 8: the bar back at `1 / 13` with the deck re-landed on slide 1
+		// at scrollY 20. An empty frame is the one state where the honest answer is to leave
+		// the index alone and let the next land place it.
+		if (!bands.length) return;
 		// Not the geometry this index was placed against — a re-land is what this needs, and
 		// `onDeckGeometry` has already asked for one.
 		if (bandSig(bands) !== bandSigRef.current) return;
@@ -1933,6 +1980,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// see the hysteresis clause. Without it the counter fights the stepper wherever the
 			// pane shows more than one slide, which on a phone is everywhere.
 			const bands = frameBands(frame);
+			// An empty frame carries no position — the same refusal `reconcile` makes, for the
+			// same reason: `bandSig([])` is `''`, which matches the initial `bandSigRef`.
+			if (!bands.length) return;
 			// THE DECK RESCALED UNDER THIS SCROLL — see `bandSigRef`. Not the reader's doing,
 			// so not the reader's position; `onDeckGeometry` re-aims and re-records.
 			if (bandSig(bands) !== bandSigRef.current) return;
@@ -1953,7 +2003,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}
 			if (walkScrollRef.current) {
 				const p2 = walkScrollRef.current;
-				// THE READER OUTRANKS THE GUARD, exactly as they outrank the lander. A wheel or
+				// THE READER OUTRANKS THE GUARD — on ANY input, which is broader than the rule
+				// for the lander (a drive only, see `driveAtRef`). The two differ because they
+				// ask different questions: the lander asks "should I still place you", where a
+				// step is an instruction to place rather than a reason to stop; the guard asks
+				// "is this scroll event mine or yours", where a step means the guard's own
+				// scroll is the stale one. A wheel or
 				// a drag after this guard was armed means the scroll being reported is theirs,
 				// not the tail of ours — and dropping it strands the index for good, because no
 				// further scroll event is coming to correct it. Measured under parallel load:

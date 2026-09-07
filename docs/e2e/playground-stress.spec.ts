@@ -694,6 +694,81 @@ test('Next on a COLD load steps, instead of being reconciled back to the title',
 	await expectPositionIsTruthful(page, 'a step taken before the deck had any slides');
 });
 
+test('a wheel right after a COLD step does not take the step back', async ({ page }) => {
+	// The cold-step fix above removed one ROUTE into the hole, not the hole. `scrollWalk`
+	// returns without arming its guard when the frame has no sections, so a step in that
+	// window leaves no record that a step happened — and everything downstream then cannot
+	// tell "a step that has not arrived" from "no step at all". One nudge of the wheel
+	// preempts the land, the land reconciles, and `readingSlideIndex` hands back 0 for the
+	// empty deck by contract. The `bandSig` guard does not catch it either: `bandSig([])` is
+	// `''`, which is also `bandSigRef`'s initial value, so an empty frame MATCHES on a cold
+	// load. Measured on the shipped build at 6x throttle, 7 runs in 8 back at `1 / 13` with
+	// the deck re-landed on slide 1 at scrollY 20. Found by an independent checker.
+	//
+	// The fix is a refusal, not another clock: an empty frame carries no position, so both
+	// readers leave the index alone and let the next land place it.
+	// THE STEP AND THE WHEEL GO IN ONE PAGE-SIDE TASK, which is what makes this arm
+	// DETERMINISTIC where the bare cold-step arm above is 2-in-8. Driven from the test side
+	// the two are separate round trips and the deck renders in between — `page.mouse.wheel`
+	// after an awaited `click()` reproduced 0 times in 8 on a build with the fix removed. Sent
+	// together, with the deck's own section count asserted empty at the moment of the step,
+	// it reproduced 8 times in 8: the bar back at `1 / 13` with the deck re-landed on slide 1
+	// at scrollY 20, which is `bands[0].top - 16`. Synthesized events rather than real input
+	// is the price, and it is the right one here: the target is the drive CLOCK, not the
+	// browser's wheel plumbing, which `@parity a horizontal swipe…` already drives for real.
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+	await page.goto(`/playground/?c=${DECK}&view=read`, { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toContainText('1 / ');
+	const sectionsAtStep = await page.evaluate(() => {
+		const frame = document.getElementById('preview') as HTMLIFrameElement | null;
+		const n = frame?.contentDocument?.querySelectorAll('.lattice > section').length ?? -1;
+		(document.querySelector('.pg-walk-step.next') as HTMLButtonElement | null)?.click();
+		document.querySelector('.pg-preview-wrap')?.dispatchEvent(new WheelEvent('wheel', { deltaY: 40, bubbles: true }));
+		return n;
+	});
+	expect(sectionsAtStep, 'the deck had already rendered — this run did not open the window').toBe(0);
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+	await settle(page);
+	await expect(page.locator('#pg-walk .pg-walk-pos'), 'a wheel took the cold step back').toContainText('2 / ');
+	await expectPositionIsTruthful(page, 'a wheel immediately after a step on a cold deck');
+});
+
+test('@parity a swipe that turns the slide is not counted as the reader scrolling', async ({ page, browserName }, testInfo) => {
+	// A swipe reaches the page as `touchmove` — eight of them for a 160px flick, measured —
+	// and every one stamps the DRIVE clock, because only `touchend` can know the gesture was
+	// horizontal enough to be a step. So the step/drive split was false for one of the five
+	// inputs it enumerates, on the surface it was written for. `onDeckTouchEnd` now rewinds
+	// the clock to what it was before the gesture when the gesture resolves to a step.
+	// Found by an independent checker.
+	//
+	// THIS ARM DOES NOT DISCRIMINATE THAT REWIND — it passes with the line removed, and
+	// saying so is the honest form of it. A touch has to reach the frame, and the frame
+	// existing is exactly what closes the window where a swallowed step is observable; 8 cold
+	// swipes at 6x throttle landed correctly either way. What it does pin is the pair the
+	// rewind exists to keep true: the swipe turns the slide AND the deck actually travels to
+	// it, on every touch project. The rewind's justification is the model, not a symptom.
+	test.skip(!testInfo.project.use.hasTouch, 'a swipe needs a touchscreen project');
+	await gotoExplore(page);
+	const scrollY = () =>
+		page.evaluate(() => {
+			const f = document.getElementById('preview') as HTMLIFrameElement | null;
+			return f?.contentWindow?.scrollY ?? -1;
+		});
+	const before = await scrollY();
+	const box = (await page.locator('#preview').boundingBox())!;
+	const y = box.y + box.height / 2;
+	await swipe(page, { x: box.x + box.width * 0.8, y }, { x: box.x + box.width * 0.2, y });
+	await settle(page);
+	await expect(page.locator('#pg-walk .pg-walk-pos'), 'the swipe did not turn the slide').toContainText('2 / ');
+	// The point of the rewind: the land that follows must still place the deck on the slide
+	// the swipe named, rather than standing down as if the reader had scrolled there.
+	expect(await scrollY(), 'the deck never moved to the slide the swipe asked for').toBeGreaterThan(before);
+	await expectPositionIsTruthful(page, 'a swipe-driven step');
+	expect(browserName).toBeTruthy();
+});
+
 // ── The touch floor ────────────────────────────────────────────────────────────
 
 /**

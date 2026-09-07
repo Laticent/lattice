@@ -51,3 +51,7 @@
   focus mode was the smallest at 34x34. The rule keys on a touch pointer rather than a narrow
   window, so an iPad Pro in portrait — 834px wide, and previously above the cutoff — gets it
   too. It costs 18px of deck on a phone and 36 on a tablet.
+- **Fixed: a scroll immediately after pressing Next on a cold load no longer takes the step
+  back.** The position readers were willing to read a slide number out of a frame that had no
+  slides in it yet, which meant "the reader is on slide 1" when the honest answer was "there
+  is nothing here to be on". They now decline, and let the next render place the reader.

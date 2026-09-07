@@ -363,6 +363,43 @@ real cold interaction under 6x CPU throttling and catches the regression 2 runs 
 `playground-explore.spec.ts`'s existing `stepping walks the plan` arm caught it 1 in 4. The
 proof is the before/after pair above, not either single run.
 
+### The clock split closed one route in; the hole was elsewhere
+
+An independent checker took the fix above apart and found that it removed a *trigger*, not
+the *cause*. `scrollWalk` returns before arming its guard when the frame has no sections, so
+a cold-window step leaves no record that a step happened — and everything downstream cannot
+then tell "a step that has not arrived" from "no step at all". Press Next before the deck
+exists, then nudge the wheel: the drive preempts the land, the land reconciles, and the step
+is gone with the identical symptom.
+
+The reconcile could do that because **`readingSlideIndex` returns 0 for an empty deck by
+contract**, and the geometry guard that should have caught it does not: `bandSig([])` is
+`''`, which is also `bandSigRef`'s initial value, so an empty frame *matches* on a cold
+load. Both facts are documented, and together they made a fabricated position look like a
+verified one.
+
+The fix is a refusal rather than another clock — an empty frame carries no position, so both
+readers leave the index alone and let the next land place it. Reproduced deterministically
+on a build with the refusals removed, 8 runs in 8, at scrollY 20 (`bands[0].top - 16`, the
+title slide); 0 in 8 with them. The committed arm sends the step and the wheel in one
+page-side task, which is what makes it deterministic: driven as two round trips from the
+test side the deck renders in between and it reproduced 0 times in 8.
+
+### A swipe was documented as a step and behaved as a drive
+
+The same checker found that three places — this record's own table among them — list a swipe
+among the inputs that do not preempt a land, and it was the one that did. A swipe arrives as
+`touchmove` (eight of them for a 160px flick, measured), each stamping the drive clock; only
+`touchend` can know the gesture was horizontal enough to be a step. `onDeckTouchEnd` now
+rewinds the clock to its pre-gesture value when the gesture resolves to a step.
+
+**No symptom was demonstrated for this one.** A touch has to reach the frame, and the frame
+existing is what closes the cold window where a swallowed step is observable — 8 cold-window
+swipes at 6x throttle landed correctly with and without the rewind. It is in because a
+documented rule the code does not follow is what the next session reasons from, not because
+anyone hit it. The committed arm pins the observable pair (the swipe turns the slide, and
+the deck travels to it) and says out loud that it does not discriminate the rewind.
+
 ## The 44px touch floor, and why a width query could not hold it
 
 `ui/panel.tsx` calls 44px "the touch floor every phone control in this app holds".
@@ -391,10 +428,20 @@ Measured cost, before → after, nine controls under the floor → zero on all t
 | iPhone 15 Pro 393x659 | 103.0 → 115.0 | 100.7 → 106.7 | 394.3 → 376.3 |
 | Pixel 7 412x839 | 102.3 → 114.3 | 99.9 → 106.4 | 576.1 → 557.6 |
 | iPad Pro 11 834x1194 | 93.0 → 115.0 | 92.7 → 106.7 | 947.3 → 911.3 |
+| coarse pointer at 1440x900 | 53.0 → 63.0 | 93.5 → 106.7 | 692.5 → 669.3 |
 
-**The block sits last in the file and must stay there.** Every rule in it sets a property an
-earlier rule already set at the same specificity, so placed where it reads best — beside
-`.pg-mode-btn`, halfway up — it loses to the declarations it exists to override. Measured:
+The last row is the population this change actually *adds*, and the first draft of this
+table left it out — the three above it were already inside the width arm or one breakpoint
+from it, so they measured a floor that mostly already applied. A touchscreen laptop, an iPad
+in landscape, an iPad with a keyboard: those are the machines that had the 32px chrome and
+now do not, and they pay the most (23.2px). Found by an independent checker.
+
+**Two of the block's five rules need it to sit last in the file.** `.pg-mode-btn` and
+`.pg-focus-restore` set `width`/`height` that earlier rules set at the same `(0,1,0)`
+specificity, so placed where they read best — beside their own base rules, halfway up — they
+lose to the declarations they exist to override. The other three set `min-height`/`min-width`
+at `(0,2,0)`/`(0,2,1)`, which nothing else in the file sets; they would win from anywhere,
+and a first draft claimed otherwise for all five. Measured:
 `.pg-focus-restore` stayed 34x34 on a real WebKit iPhone until the block moved to the end,
 because its own `width`/`height` are declared thirty lines further down. The first
 measurement missed this entirely, because the button is `display:none` until focus mode is
