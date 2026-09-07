@@ -4,8 +4,8 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 2.73,
-    "rmePct": 1.32
+    "ms": 2.99,
+    "rmePct": 1.12
   },
   "blessedOn": {
     "node": "v22",
@@ -16,24 +16,31 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 16.54,
-      "ms": 45.14,
-      "slidesPerSec": 1285,
-      "rmePct": 2.23
+      "index": 19.45,
+      "ms": 58.12,
+      "slidesPerSec": 998,
+      "rmePct": 4.79
     },
     "charts": {
-      "slides": 15,
-      "index": 13.14,
-      "ms": 35.87,
-      "slidesPerSec": 418,
-      "rmePct": 1.63
+      "slides": 22,
+      "index": 20.21,
+      "ms": 60.39,
+      "slidesPerSec": 364,
+      "rmePct": 6.74
+    },
+    "math": {
+      "slides": 16,
+      "index": 21.45,
+      "ms": 64.11,
+      "slidesPerSec": 250,
+      "rmePct": 5.02
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 51.31,
-      "ms": 140.04,
-      "slidesPerSec": 2485,
-      "rmePct": 4.62
+      "index": 57.3,
+      "ms": 171.24,
+      "slidesPerSec": 2032,
+      "rmePct": 2.71
     }
   },
   "printDatasets": {
@@ -116,6 +123,29 @@
       "slides": 15,
       "ms": 4158.13,
       "rmePct": 2.3
+    }
+  },
+  "editDatasets": {
+    "edit · normal (jargon)": {
+      "slides": 58,
+      "typesets": 0,
+      "burstTypesets": 0,
+      "ms": 21.59,
+      "burstMs": 271.4
+    },
+    "edit · charts": {
+      "slides": 22,
+      "typesets": 0,
+      "burstTypesets": 0,
+      "ms": 21.3,
+      "burstMs": 259.67
+    },
+    "edit · math": {
+      "slides": 16,
+      "typesets": 0,
+      "burstTypesets": 0,
+      "ms": 16.45,
+      "burstMs": 216.24
     }
   }
 }
