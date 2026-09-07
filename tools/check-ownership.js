@@ -3177,13 +3177,19 @@ const CANONICAL_LAYER_ORDER = [
 const SANCTIONED_KATEX_ONLY = [
   {
     file: 'lib/components/math/math/math.styles.css',
-    selector: 'section.math.compare .katex .katex-mathml',
+    selector: 'section.math.form.compare > .cell-stage .katex .katex-mathml',
     why:
       'KaTeX-only by design. This pins KaTeX\'s hidden MathML alternative out of the '
       + 'multicol fragmentation flow. marp-core\'s MathJax emits a bare <mjx-container> '
       + 'around an inline <svg> and NO assistive MathML at all, so there is no '
       + 'counterpart node to pin — a mjx- half would match nothing. The absence is an '
-      + 'accessibility gap recorded in lib/core/marp-fidelity.js, not a layout one.',
+      + 'accessibility gap recorded in lib/core/marp-fidelity.js, not a layout one. '
+      + 'Re-scoped from `section.math.compare` when compare moved onto the Form frame: '
+      + 'the multicol is `.cell-stage` now, not the section, so the pin follows it. It '
+      + 'survives the migration because it has nothing to do with the `column-span` '
+      + 'spanner that migration removed — ANY multicol counts an absolutely-positioned '
+      + 'descendant as fragmentable content, and still grows the spurious empty column '
+      + '(1280 -> 1872 scrollWidth, measured).',
   },
 ];
 

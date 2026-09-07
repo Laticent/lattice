@@ -181,6 +181,53 @@ test('NO_FAMILY_REFLOW names only real variants, with a reason', () => {
   }
 });
 
+test('a migrated compare keeps its eyebrow and heading OUT of the column flow', () => {
+  // THIS REPLACES A GUARD THE MIGRATION RETIRED, and the replacement is the point.
+  //
+  // #1554: on a `math compare` slide real WebKit paints the first h3 twice — a ghost
+  // above the `column-span: all` headline. `2026-08-10-compare-column-atoms.md`
+  // measured which box actually fragments, and it is NOT the h3: it is the EYEBROW
+  // paragraph, the in-flow content PRECEDING the spanner. `break-inside: avoid` on
+  // the h3 alone left 12/32 shapes clean; the eyebrow arm alone made it 32/32.
+  //
+  // Migrated, the eyebrow and the h2 lift into `.cell-masthead` — out of the multicol
+  // — and there is no spanner at all, so the ghost has nothing to fragment. That is a
+  // structural fix, which is exactly why the old guard needs replacing rather than
+  // trusting: `docs/e2e/math-compare-webkit.spec.ts` says "a fixture without one
+  // cannot fail", so post-migration it passes without guarding anything.
+  //
+  // A spec that cannot fail is worse than no spec, because it reads as coverage. This
+  // asserts the STRUCTURE the fix now rests on, runs on every PR rather than nightly,
+  // and fails loudly if anyone puts either box back into the column flow.
+  //
+  // NOT a claim about WebKit. No WebKit is installed in this environment, so whether
+  // the ghost is actually gone on the real surface is UNVERIFIED (HARD RULE #23); the
+  // raster spec remains the only oracle for that and still runs in the nightly.
+  if (!MIGRATED.has('compare')) return;
+  const html = renderHtml(MANIFEST.variantDocs.compare.sample.replace(
+    '<!-- _class: math compare -->',
+    '<!-- _class: math compare -->\n\n`Estimators \u00b7 asymptotics`',
+  ));
+  // Slice BACKWARDS to the section's own opening tag: the first occurrence of
+  // `math compare` is inside that tag's own `data-class`, so searching FORWARD for
+  // `<section` from there finds the next section (or nothing) rather than this one.
+  const at = html.indexOf('math compare');
+  const section = html.slice(html.lastIndexOf('<section', at), html.indexOf('</section>', at));
+  const stageAt = section.indexOf('cell-stage');
+  const mastheadAt = section.indexOf('masthead-lede');
+  assert.ok(mastheadAt !== -1, 'a migrated compare must build a masthead');
+  assert.ok(stageAt !== -1, 'a migrated compare must build a stage');
+
+  const lede = section.slice(mastheadAt, stageAt);
+  const stage = section.slice(stageAt);
+  // The heading and the eyebrow belong to the masthead, ahead of the column flow.
+  assert.ok(/<h2\b/.test(lede), 'the h2 must sit in .masthead-lede, not the column flow');
+  assert.ok(/<code>/.test(lede), 'the eyebrow must sit in .masthead-lede — it is the box #1554 fragments');
+  // And they must NOT also appear inside the stage, which is the multicol now.
+  assert.ok(!/<h2\b/.test(stage), 'the h2 must not be inside .cell-stage — that would restore the spanner');
+  assert.ok(/<h3\b/.test(stage), 'the column labels DO belong in the stage');
+});
+
 test('the two call sites agree — form class and wrap are decided by one predicate', () => {
   // A section that takes `form` but does not wrap builds chrome cells around a
   // body still sitting loose in the section. Assert they move together.

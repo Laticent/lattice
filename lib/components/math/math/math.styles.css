@@ -524,130 +524,132 @@ section.math.theorem blockquote :is(.katex-display > .katex, mjx-container[displ
   font-size: 1.25em;
 }
 
-/* ── math.compare ──
- * Authoring: alternating h3 + content groups become columns.
- *   ## Title
- *   ### Naïve
- *   $$ E = mc^2 $$
- *   Classical kinetic-energy approximation.
- *   ### Relativistic
- *   $$ E^2 = (mc^2)^2 + (pc)^2 $$
- *   Full Einstein relation; reduces to the naïve form for $p \ll mc$.
+/* ── `compare`: SOVEREIGN ARM DELETED ──
  *
- * Renders as 2-column (or 3-column if three h3s are present) via CSS
- * multi-columns. The markdown emits a flat sibling sequence — no wrapper
- * divs — so we use `column-span:all` on h2 to keep the title full-width
- * and `break-before:column` on each subsequent h3 to start a new column. */
-section.math.compare {
+ * No `section.math.compare > …` arm remains. The Form arm below is the only shape
+ * this variant has — `form` is not optional, and the sovereign copy would be dead
+ * CSS reachable only through an opt-out that is going away.
+ *
+ * What went with it, and why none of it is needed once the stage is the multicol:
+ *   · `column-span: all` on the h2 — the h2 is in `.cell-masthead` now, outside the
+ *     column flow, so there is nothing to span.
+ *   · `break-inside: avoid` on the eyebrow — the fix for #1554, whose fragmenting
+ *     box was the in-flow content PRECEDING the spanner. Both the eyebrow and the
+ *     spanner are gone from the flow, so the ghost has nothing to fragment.
+ * The `.katex-mathml` pin is NOT in that list: it is unrelated to the spanner and is
+ * re-scoped to the stage below, because the stage is still a multicol. */
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE FORM ARM — `compare`, migrated off the sovereign frame.
+ *
+ * THE STAGE BECOMES THE MULTICOL. On the sovereign arm the SECTION was the
+ * multi-column container, which is what forced `column-span: all` on the `h2`:
+ * a spanner has to be a direct child of the fragmented box. Migrated, the h2 and
+ * the eyebrow lift into `.cell-masthead` — out of the column flow entirely — so
+ * `.cell-stage` carries `column-count` and there is no spanner at all.
+ *
+ * THAT REMOVES #1554's ROOT CAUSE STRUCTURALLY, and the removal is the reason the
+ * old guard needs replacing rather than deleting. `2026-08-10-compare-column-atoms.md`
+ * measured which box actually fragments: the EYEBROW paragraph, i.e. the in-flow
+ * content PRECEDING the spanner — `break-inside: avoid` on the h3 alone fixed
+ * nothing (12/32 clean), the eyebrow arm alone fixed everything (32/32). With the
+ * eyebrow in the masthead there is no preceding in-flow content and no spanner, so
+ * the WebKit ghost has nothing to fragment. `docs/e2e/math-compare-webkit.spec.ts`
+ * says so itself: "a fixture without one cannot fail."
+ *
+ * `.katex-mathml { position: fixed }` STAYS, and is re-scoped rather than dropped.
+ * It has nothing to do with the spanner: an absolutely-positioned descendant is
+ * still counted as fragmentable content inside a multicol, and it still grows a
+ * spurious empty column (1280 -> 1872 scrollWidth, measured). The stage is a
+ * multicol now, so the rule follows it there.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+section.math.form.compare > .cell-stage {
+  /* `block`, overriding `stage.css`'s flex column, because multi-column layout is
+   * a block-container property. (0,3,1) beats `section.form > .cell-stage` at
+   * (0,2,1), so no `!important`. */
   display: block;
   column-count: 2;
   column-gap: var(--sp-lg);
   column-rule: 1px solid var(--border);
   column-fill: balance;
-  /* Chromium ≥122 honors `align-content` on block layout — use it to pull
-   * the columns to the vertical middle of the slide so a short comparison
-   * doesn't leave the bottom half empty. */
-  align-content: center;
-  padding-bottom: var(--sp-lg);
+  /* `safe`, per the stage contract — a bare `center` on a clipped box pushes
+   * content off the block-start edge where no probe can see it. */
+  align-content: safe center;
 }
-section.math.compare:has(h3:nth-of-type(3)) {
+section.math.form.compare:has(h3:nth-of-type(3)) > .cell-stage {
   column-count: 3;
 }
-
-/* KaTeX's MathML half must not fragment into a column of its own.
- *
- * `.katex-mathml` is the accessible alternative KaTeX pairs with its `aria-hidden`
- * visual rendering — clipped to 1px and painting nothing. It is `position:absolute`,
- * and inside a MULTI-COLUMN container Chrome still counts an absolutely-positioned
- * descendant as fragmentable content: with several formulas the block gains an extra,
- * EMPTY column, which paints a spurious `column-rule` hairline at the slide's right
- * edge and inflates `scrollWidth` (1280 → 1872 on the gallery's compare slide).
- *
- * This is the one place enabling MathML is NOT pixel-free — it is invisible everywhere
- * that isn't a multicol, which is why the first measurement missed it (the baseline
- * gallery has a `math` slide but no `math compare`). Found by the red team.
- *
- * `position:fixed` takes the node out of the multicol's fragmentation flow entirely
- * while leaving it clipped, invisible and fully present in the accessibility tree.
- * Nothing else worked: `contain` (strict / size / layout / paint), `overflow:hidden`
- * and `column-fill:auto` all left the phantom column in place — verified in Chromium.
- * Under the slide's fit-scale `transform` the transformed ancestor is the containing
- * block, so this stays local rather than escaping to the viewport.
- *
- * KaTeX-only by design. marp-core's MathJax emits a bare `<mjx-container>` wrapping an
- * inline `<svg>` and NO assistive MathML at all, so there is no absolutely-positioned
- * descendant to fragment — and nothing for this rule to match. (That absence is an
- * accessibility gap on the Marp surface, not a layout one; it is recorded in
- * lib/core/marp-fidelity.js rather than papered over here.) */
-section.math.compare .katex .katex-mathml {
+section.math.form.compare > .cell-stage .katex .katex-mathml {
   position: fixed;
 }
-section.math.compare > h2 {
-  column-span: all;
-  padding: 0 0 var(--sp-md) 0;
-}
-section.math.compare > h3 {
+section.math.form.compare > .cell-stage > h3 {
   break-before: column;
   break-after: avoid;
+  break-inside: avoid;
   padding-bottom: var(--sp-xs);
   border-bottom: 2px solid var(--accent);
   color: var(--text-heading);
   font-size: var(--fs-meta);
 }
-/* The gap below the h3 underline (formerly the h3's `margin-bottom`) lives as
- * the following element's top padding so the rule keeps drawing tight to the
- * label text — measurable, and outside the border just as the margin was. */
-section.math.compare > h3 + * { padding-top: var(--sp-sm); }
-section.math.compare > h3:first-of-type { break-before: avoid; }
-
-/* THE MASTHEAD BAND AND THE COLUMN LABELS ARE ATOMS — they may not split across
- * a column boundary. Captions deliberately still may.
- *
- * WHICH BOX ACTUALLY FRAGMENTS: the EYEBROW paragraph, not the h3. #1554 reads
- * as "WebKit paints the first h3 twice", and that is the visible symptom, but
- * the ghost is a paint copy — the box WebKit fragments across the
- * `column-span: all` spanner is the in-flow content that PRECEDES the spanner.
- * Measured on 8 compare shapes x light/dark x 1180x820 and 1180x703:
- *
- *   no rule at all …………………………………… 12/32 clean
- *   `> h3 { break-inside: avoid }` … 12/32 clean   ← the "obvious" fix does NOTHING
- *   eyebrow paragraph only ………………… 32/32 clean
- *   this rule ……………………………………………… 32/32 clean
- *
- * and a compare slide with NO eyebrow never had the bug. So the eyebrow arm
- * below is load-bearing and must not be dropped; h2 and h3 are belt-and-braces
- * on boxes that never wanted to split anyway. Do not "simplify" this to `> h3`.
- *
- * WHY NOT `> *`: it also makes the CAPTION prose an atom, and that is a real
- * regression on a slide whose caption is taller than its column — the caption
- * relocates whole instead of flowing, leaving a gap and pushing the next h3
- * group off the slide entirely. Verified against the export path: with the
- * arms below, an overflowing compare slide renders byte-identically to the
- * unfixed engine, while `> *` does not.
- *
- * WHY IT WAS INVISIBLE: the BOXES stay correct. `getBoundingClientRect` and
- * `getClientRects` alike report only the second fragment, `section.overflow` is
- * 0, and `scrollHeight == clientHeight`, so every gate this repo owns — all of
- * which measure boxes — passes. Only a rasterized WebKit view sees it, which is
- * why the guard is a pixel spec (`docs/e2e/math-compare-webkit.spec.ts`, tagged
- * `@webkit-tablet`) rather than a measurement.
- *
- * See engineering/decisions/2026-08-10-compare-column-atoms.md. */
-section.math.compare > :is(h2, h3, p:has(> code:only-child):has(+ h2)) {
-  break-inside: avoid;
-}
-
-section.math.compare > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+section.math.form.compare > .cell-stage > h3:first-of-type { break-before: avoid; }
+section.math.form.compare > .cell-stage > h3 + * { padding-top: var(--sp-sm); }
+section.math.form.compare > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   break-inside: avoid;
   padding-bottom: var(--sp-sm);
   text-align: center;
 }
-section.math.compare > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.4em;
+section.math.form.compare > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+  /* 1.25em, down from the sovereign arm's 1.4em, and the reason is a MEASURED
+   * capacity change rather than taste.
+   *
+   * The Form stage is the frame's content box: 1152px wide against the section's
+   * 1280px (the frame inset), and ~54px shorter (the footer reserve). Every other
+   * Form component already pays that; math was getting full bleed by being
+   * sovereign. Measured on a three-column comparison, 1.4em put the widest
+   * estimator past the column edge and `overflow: clip` sheared its
+   * `\lVert\theta\rVert^2`. 1.25em fits the same content in the narrower column.
+   *
+   * This is a real reduction in how much a compare slide can hold, not just better
+   * detection — unlike `feature`'s tall hero, which was ALREADY clipping unnoticed.
+   * The committed gallery's compare slides fit either way, with no overflow warning
+   * before or after. A slide that only fitted by using the footer band now overflows
+   * and is flagged, which is the frame's contract doing its job. */
+  font-size: 1.25em;
 }
-section.math.compare > p:not(:has(:is(.katex-display, mjx-container[display="true"]))) {
+section.math.form.compare > .cell-stage > p:not(:has(:is(.katex-display, mjx-container[display="true"]))) {
   color: var(--text-secondary);
   padding-bottom: var(--sp-xs);
+}
+
+/* FAMILY REFLOW — newly POSSIBLE, and that is a capability the migration unlocks
+ * rather than a rule carried across.
+ *
+ * The sovereign arm had none, and the stylesheet's own reason was structural: the
+ * multicol lived on the SECTION, and `@container` cannot style its own container
+ * element, so `column-count` was unreachable from a container query and compare
+ * "stayed landscape" at every size. Now the multicol is on `.cell-stage`, a
+ * DESCENDANT, which a container query reaches like any other — so a tall box can
+ * collapse the comparison to one column instead of squeezing two into 1080px. */
+/* SPECIFICITY, and it is load-bearing — the first cut of this rule never fired.
+ * The 3-column rule is `…compare:has(h3:nth-of-type(3))`, and `:has()` contributes
+ * its ARGUMENT's specificity, so that selector is (0,4,2). A `:where([data-family])`
+ * arm contributes ZERO, leaving it at (0,3,1) — beaten, so a three-column comparison
+ * kept all three columns in a 1080px portrait box and rendered as overlapping text.
+ * The doubled `.math.math` is the same idiom the sovereign family block used against
+ * variant rules; with the attribute selector it reaches (0,6,1) and wins cleanly. */
+section.math.math.form.compare[data-family="tall"] > .cell-stage,
+section.math.math.form.compare[data-family="strip"] > .cell-stage {
+  column-count: 1;
+  column-rule: none;
+  /* `safe center`: a two-comparison slide stacked into one column leaves the lower
+   * third of a 1920px canvas empty at `start`, and centering reads as composed
+   * rather than top-heavy. `safe` keeps the overflow behaviour — it falls back to
+   * start the moment the content is taller than the stage, so a dense comparison
+   * never gets pushed off the block-start edge where no probe can see it. */
+  align-content: safe center;
+}
+section.math.math.form.compare[data-family="tall"] > .cell-stage > h3,
+section.math.math.form.compare[data-family="strip"] > .cell-stage > h3 {
+  break-before: auto;
 }
 
 /* ── math.canvas ──

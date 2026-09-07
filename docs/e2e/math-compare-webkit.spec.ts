@@ -2,6 +2,26 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 
 // `math compare` in REAL WebKit: every `<h3>` must paint exactly ONCE.
 //
+// READ THIS FIRST — WHAT A PASS MEANS CHANGED. `math compare` moved onto the Form
+// frame, and that removed this bug's root cause STRUCTURALLY: the eyebrow and the
+// `<h2>` now live in `.cell-masthead`, outside the column flow, and there is no
+// `column-span: all` spanner at all — `.cell-stage` is the multicol. Since the box
+// that fragments is the in-flow content PRECEDING the spanner (see below), and this
+// spec's own fixtures depend on an eyebrow being there, THESE FIXTURES CAN NO LONGER
+// REPRODUCE THE GHOST. A green run here is therefore no longer evidence that the fix
+// holds; it is evidence that nothing NEW paints twice.
+//
+// The structural fact the fix now rests on is asserted per-PR instead, in
+// `test/unit/components/math-stage-migration.test.js` ("a migrated compare keeps its
+// eyebrow and heading OUT of the column flow"), which fails if either box is ever put
+// back into the multicol. That test is mutation-proved; this spec is kept as
+// defence-in-depth on the one surface no measurement can substitute for, because the
+// h3s are still in a multicol and a NEW paint duplication would still show here.
+//
+// UNVERIFIED at the time of the migration: no WebKit is installed in the sandbox the
+// migration was done in, so whether the ghost is actually gone on the real surface was
+// not observed (HARD RULE #23). The nightly is the first run that will say.
+//
 // #1554, reported from an iPad: on a `math compare` slide WebKit paints the
 // first `<h3>` twice — the real one in its column, and a ghost copy above the
 // `column-span: all` headline. Chromium renders the same DOM correctly.
