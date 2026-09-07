@@ -221,6 +221,97 @@ variation is not the data and bar is not layered), so the wash question stays a
 genuine decision rather than being quietly resolved by a rule that never considered
 it. That decision is the human's, and the rendered A/B is at the prototype.
 
+## The two layers above the mark
+
+Everything above classifies a **mark**. Two layers sit above it and neither is
+governed today: the CHROME that surrounds a mark, and the FIGURE the whole thing
+is. Both were found by asking what a chart looks like when it leaves the slide.
+
+### Layer 1 · The chrome ladder — measured, and incoherent
+
+The census measured type FACES and found seven roles each resolving to one face.
+It never measured type COLOUR, and colour is where the same roles come apart.
+Measured on indaco light:
+
+| Role | Distinct values in use | Values |
+|---|---|---|
+| axis / baseline / bounds / polar web | **5** | `#898e94`, `#898d94`, `#1d395f`, `#6b7e99`, `#697d9b` |
+| category label | **3** | `#1e3a5f`, `#0a1628`, `#0c466e` |
+| tick | **2** | `#5c6f8a`, and gantt's `#006fa8` |
+| axis title | **2** | `#5c6f8a`, and quadrant's `#0a1628` |
+| value | 1 | `#0a1628` |
+
+Only `value` is coherent. Two findings are worth naming because they are not
+near-misses of one token — they are different tokens:
+
+- **`bar` paints its zero rule in `--text-body`** (`#1d395f`) while every other
+  member's axis is border-gray. A reference line drawn in body ink out-ranks the
+  labels it is supposed to sit behind.
+- **`gantt` paints its ticks in `--accent`** (`#006fa8`), the one colour in the
+  theme reserved for emphasis, on the quietest text in the figure.
+
+The fix is not new colour — every value above is already a theme token. It is an
+ORDER, declared once and spent by role rather than by member:
+
+> **Rule C1 — chrome is one ladder, weakest to strongest, and a member picks a
+> rung rather than a colour:**
+> `grid` → `rule` (axis, baseline, bounds, web) → `tick` → `label` → `title` →
+> `value`. **No chrome rung may be louder than the data mark it frames**, and no
+> rung may use `--accent`, which belongs to emphasis and not to furniture.
+
+### Layer 2 · The figure frame — missing entirely
+
+`section.chart-frame` sets `background: var(--bg)` and `border-top: none`. So a
+chart has **no ground and no boundary of its own** — it is a transparent region
+that happens to sit on the slide. That is invisible on a plain slide and matters
+in three places:
+
+**1. Export — the strongest reason, and a live defect.** The Studio has two
+standalone-SVG paths and they disagree:
+
+```
+"Download this chart as SVG"   finalizeStandaloneSvg(markup, { fontFaceCss })
+image-set / zip export         finalizeStandaloneSvg(markup, { fontFaceCss, background: svgBg })
+```
+
+The one **a human clicks** is the one with no background. And `flattenSvgStyles`
+inlines COMPUTED colour, so that file carries near-black text literals with no
+ground under them: opened on a dark surface — Slack, Notion, a dark deck — it is
+illegible. The chart cannot state what it needs to be read on, because nothing in
+the chart declares a ground.
+
+**2. A slide whose canvas is not flat.** A deck can set a background image
+(`lib/engine/background-image.js`). A chart with no ground sits directly on the
+photograph.
+
+**3. The BACKDROP register needs something to be quiet AGAINST.** The
+classification demotes quadrant zones to reference regions — but "quiet" is
+relative to a ground, and the figure currently has none of its own.
+
+> **Rule F1 — a figure declares its own ground, always; it draws its own edge,
+> rarely.** The ground (`--chart-frame-bg`) defaults to the canvas, so nothing
+> changes on a plain slide — but it is DECLARED, which means the export path can
+> bake it and a chart on a background image can opt to sit on it. The edge
+> (`--chart-frame-edge`) is **off by default**: our reference set (FT, Economist,
+> Datawrapper) sets charts frameless on the page, and boxing every figure would
+> be a bigger visual change than anything else in this language. It becomes a
+> modifier for the cases that need "this is a separate object" — a chart among
+> dense prose, a chart over an image, a chart exported to an unknown surface.
+
+> **Rule F2 — an exported figure is self-sufficient.** Both export paths bake the
+> ground. A file whose legibility depends on where it lands is not an export; it
+> is a fragment. This is the one place the frame is not optional.
+
+**The smallest token set this needs** — four, and three of them alias what
+already exists:
+
+| Token | Default | Why it exists |
+|---|---|---|
+| `--chart-frame-bg` | `var(--bg)` | so export can bake it; invisible on-slide |
+| `--chart-frame-edge` | `transparent` | opt-in boundary, off by default |
+| `--chart-frame-radius` | `0` | corner radius tracks the register (Rule F2 of the winner) |
+| `--chart-chrome-*` | the ladder above | one rung per role, replacing five rule colours |
+
 ## Open
 
 - **N2 and `bar`.** Does the rule get a third clause — *a finish may run across an
@@ -229,6 +320,10 @@ it. That decision is the human's, and the rendered A/B is at the prototype.
 - **Where the classification lives.** Six of these seven properties are derivable
   from the rendered output, which argues for a gate over a manifest field. The
   seventh (what colour encodes) is a design intent and has to be declared.
+- **Does the frame edge ever default ON?** Rule F1 says no, on reference practice.
+  The counter-argument is that Lattice charts are read in board packs where a
+  figure competing with dense prose benefits from a boundary. This is a
+  house-style call, not a measurement.
 - Verify the winner's ratification of the legend split: it argues the four Outfit
   legends name `--pill-font` status pills, but `gantt` and `journey` use that token
   zero times.
