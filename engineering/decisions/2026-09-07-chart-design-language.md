@@ -158,6 +158,47 @@ mark must out-rank its own backdrop.
 A **bar chart that draws neither a gridline nor an axis** sits beside a bullet
 chart that draws both. Nothing in the current system says which a member owes.
 
+### What the census cannot see — found by looking
+
+A census reads properties it was told to look for. These came from rendering the
+gallery and examining every member, and each is a coherence defect the numbers
+above do not name.
+
+**`bar` and `stacked-bar` are the exhibit.** They sit adjacent in the gallery,
+share the `cartesian.js` kernel, and disagree on every axis at once:
+
+| | `bar` | `stacked-bar` |
+|---|---|---|
+| mark fill | pale vertical wash | fully saturated flat |
+| mark edge | 1px dark outline | none |
+| gridlines | none | five |
+| key | none | direct labels at right |
+
+The same categorical token renders as a pale tint in one and a saturated block in
+the other. If the language fixes nothing else, it has to fix this pair.
+
+**Legend placement is a fifth divergence the census scored as one.** "Legend
+rail" covers at least three physically different treatments: a right rail with a
+vertical hairline (piechart, radar, map), a centered row *below* the plot
+(gantt), and an inline bottom-left caption in mono italic (matrix-grid). Add
+direct labels and "nothing" and the family has five ways to name a category.
+
+**Corner radius is unowned.** Gantt bars and kanban cards are pill-rounded; bar
+and stacked-bar bars and quadrant zones are square. No token governs it.
+
+**`matrix-grid` repeats a mistake this repo already fixed.** It spends six
+categorical hues on its ROW LABELS and cell outlines — the axis a reader decides
+least from. That is precisely the defect
+`2026-06-22-kanban-chart-redesign.md` records fixing for the kanban: *"colour was
+spent decoratively on CATEGORY, the card's least decision-relevant axis."* One
+member learned it; a later member re-introduced it. A design language is what
+stops that recurrence — the principle existed and nothing held the new member to
+it.
+
+**`kanban` has a vertical composition defect.** Its board top-aligns in the
+stage, leaving roughly half the slide empty below. That is a layout bug, not a
+palette one, and no color decision reaches it.
+
 ### Key — three models, no rule
 
 - **legend rail** (8): gantt, journey, map, matrix-grid, piechart, radar, roadmap, state-chart
