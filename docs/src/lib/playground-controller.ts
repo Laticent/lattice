@@ -354,14 +354,14 @@ export type SlideBand = { top: number; height: number };
  * scroll, so every one of them was written on a step and never corrected: scrolling to
  * slide 7 left the bar reading "1 / 13", and the next press of Next then yanked the
  * reader back to slide 2. The chrome lied, and the primary control fought the primary
- * gesture (#2103).
+ * gesture (#2124).
  *
  * TWO RULES, and the second one is what makes this safe to run as a live observer.
  *
  * 1. GREATEST OVERLAP, ties to the lower index — the slide filling most of the pane is
  *    the slide you are reading. An anchor line (`last top <= scrollY + k`) is exact for
  *    the scroll the stepper performs and arbitrary everywhere else, since `k` has to be
- *    guessed against a slide height that changes with the pane width; the viewport CENTRE
+ *    guessed against a slide height that changes with the pane width; the viewport CENTER
  *    (deck-preview.js's `rootMargin: -45%`) is stable only while a slide is about as tall
  *    as the pane, and silently reports i+1 for a jump to i when one is shorter.
  *

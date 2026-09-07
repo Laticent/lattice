@@ -57,7 +57,7 @@ export function ComponentPicker({
 	// whole catalog, and this component re-renders with its parent — which, now that the
 	// walk index follows the reader's scroll, is once per animation frame while they are
 	// scrolling the deck. Unmemoized that is a full search per frame for as long as a
-	// query is in the box, on the same thread as the scroll (#2103).
+	// query is in the box, on the same thread as the scroll (#2124).
 	const ranked = React.useMemo(() => rankedFor(components, index, query), [components, index, query]);
 	const lens = lenses.find((l) => l.id === lensId) ?? lenses[0];
 	const groups = React.useMemo(() => (ranked ? null : groupBy(components, lens)), [ranked, components, lens]);
@@ -66,7 +66,7 @@ export function ComponentPicker({
 	// on a 69-component catalog in a 300px window meant opening the picker on `wifi` put
 	// the highlight on `closing` — 2376px above the checked row, with the reader's own
 	// component nowhere on screen. Pressing Enter to dismiss then REPLACED their deck with
-	// whatever happened to sort first (measured: wifi → closing, #2103). Controlled here so
+	// whatever happened to sort first (measured: wifi → closing, #2124). Controlled here so
 	// it starts on the current component and cmdk scrolls that row into view.
 	const firstRanked = ranked?.[0]?.name ?? '';
 	const [active, setActive] = React.useState(current);

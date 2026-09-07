@@ -320,7 +320,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// startWalk — the pick/variant handlers are defined above it.
 	const scrollWalkRef = React.useRef<(smooth: boolean) => void>(() => {});
 	const landWalkRef = React.useRef<(attempt?: number) => void>(() => {});
-	/** The in-flight programmatic scroll: the index it is travelling to, and when the
+	/** The in-flight programmatic scroll: the index it is traveling to, and when the
 	 *  observer stops deferring to it. Cleared the moment the frame actually arrives. */
 	const walkScrollRef = React.useRef<{ index: number; until: number; armedAt: number } | null>(null);
 	/** The observer stays silent until the first walk position has been landed. Without
@@ -338,7 +338,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  that the lander either scrolls the reader back to where the render wanted them, or —
 	 *  because the observer is gated shut for the whole settle — silently swallows the scroll
 	 *  they just made. A resize followed straight away by a wheel produced exactly the second
-	 *  of those: the bar held "1 / 22" at a scroll of 3033px (#2103). */
+	 *  of those: the bar held "1 / 22" at a scroll of 3033px (#2124). */
 	const userInputAtRef = React.useRef(0);
 	const landStartedAtRef = React.useRef(0);
 	/** A re-land is already scheduled (the pane changed size). `onDeckGeometry` stands down
@@ -484,6 +484,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		}
 	}, [getSource]);
 
+	/** The last thing the RENDER said, so a transient chrome message ("Editor collapsed.")
+	 *  can hand the line back rather than sitting there being wrong. */
+	const lastRenderStatusRef = React.useRef('');
 	const setStatusLine = React.useCallback((msg: string, err = false) => {
 		setStatus(msg);
 		setIsError(err);
@@ -599,7 +602,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// Record the source THIS frame renders, so a capture stamps the snapshot's
 				// identity from the bytes actually on screen (see lastRenderedEditSrcRef).
 				if (viewRef.current === 'edit') lastRenderedEditSrcRef.current = src;
-				setStatusLine(`Rendered ${r.count} slide(s).`);
+				lastRenderStatusRef.current = `Rendered ${r.count} slide(s).`;
+				setStatusLine(lastRenderStatusRef.current);
 				// A full-deck walk learns its slide count from the render itself
 				// (no plan exists for authored gallery decks — slide-index positions).
 				const w = walkRef.current;
@@ -608,7 +612,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				}
 				// Land the walk position ONCE THE FRAME'S GEOMETRY HAS SETTLED, not here: at
 				// this point the in-iframe FIT agent has not rescaled the deck, and a scroll
-				// written against pre-FIT offsets is thrown away when it does (#2103).
+				// written against pre-FIT offsets is thrown away when it does (#2124).
 				bindDeckInputRef.current();
 				if (viewRef.current === 'read') landWalkRef.current();
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
@@ -790,7 +794,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onExpand: (side) => {
-			if (side === 'b') onPreviewExpand();
+			if (side === 'b') {
+				onPreviewExpand(); // its render writes a fresh status on the way through
+			} else if (lastRenderStatusRef.current) {
+				// The editor side renders nothing on expand, so without this the line goes on
+				// reading "Editor collapsed." over an open editor — a small lie, but this whole
+				// change is about the chrome not making them.
+				setStatusLine(lastRenderStatusRef.current);
+			}
 		},
 		onSettle: () => frameRef.current?.contentWindow?.__latticeFit?.(),
 		onDragStart: () => frameRef.current?.contentWindow?.__latticeFitSuspend?.(),
@@ -1118,7 +1129,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 * in-iframe FIT agent had rescaled the deck to 8739 / 3376 and put the scroll back at 0.
 	 * So EVERY shared `?s=` link, and every reload, opened on the title slide while the walk
 	 * bar, the caption and the Step dropdown all named a slide six further in — and so did
-	 * Explore→Edit→Explore, which runs the same path (#2103).
+	 * Explore→Edit→Explore, which runs the same path (#2124).
 	 *
 	 * IT VERIFIES THE OUTCOME rather than predicting when FIT is done, and that distinction
 	 * is the whole reliability of this function. Waiting for "the geometry stopped changing"
@@ -1162,7 +1173,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				const frame = frameRef.current;
 				const w = walkRef.current;
 				const win = frame?.contentWindow;
-				// …EXCEPT while a scroll of OURS is still travelling to a position the reader
+				// …EXCEPT while a scroll of OURS is still traveling to a position the reader
 				// asked for after this land began. Reconciling then reads a scroll that has not
 				// arrived and quietly throws their step away: a PageDown during a fresh
 				// gallery's fit window set the index to 2, and the reconcile — running one
@@ -1334,7 +1345,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// with the explore deck and pushing a backup nobody asked for. A `role="tab"` that
 			// destroys the deck when you click the tab you are on is not a defensible control,
 			// and `onLoadGallery` already had to route AROUND this function for the same
-			// reason. Both tabs call this unconditionally, so the guard lives here (#2103).
+			// reason. Both tabs call this unconditionally, so the guard lives here (#2124).
 			if (v === viewRef.current) return;
 			viewRef.current = v;
 			setView(v);
@@ -1354,7 +1365,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// the author touches it — picking a component in Edit loads that component's
 				// one-slide sample, so the bar went on reading "1 / 13" over a single slide,
 				// Next stepped to a slide that did not exist, and `?c=kpi` still named a deck
-				// nobody was looking at: three readouts, three different answers (#2103). A
+				// nobody was looking at: three readouts, three different answers (#2124). A
 				// `deck` walk is the shape for this — it learns its count from the render, the
 				// Step list correctly has nothing to offer, and the URL sync drops params that
 				// no longer describe the screen.
@@ -1599,7 +1610,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// that shows a slide accepts keyboard, wheel and touch, at every breakpoint, with no
 	// gating on device class. That note reconciled the STUDIO's surfaces; the Playground
 	// — the one surface a non-technical visitor actually lands on — was never brought
-	// with it, and measured on the real page it was short on all three (#2103):
+	// with it, and measured on the real page it was short on all three (#2124):
 	//
 	//   keyboard  a hand-written two-key map (←/→) on `window` only. Clicking the deck
 	//             moves focus to the <iframe>, after which every keystroke is delivered
@@ -1687,7 +1698,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 * — the wheel, a trackpad, a finger, the scrollbar — was told they were still on the
 	 * slide they had left. Measured at 1440x900 on `?c=kpi`: a wheel to slide 7 left the
 	 * bar reading "1 / 13", and the next press of Next then scrolled them BACKWARDS to
-	 * slide 2 (#2103). Every one of those readouts now derives from `readingSlideIndex`.
+	 * slide 2 (#2124). Every one of those readouts now derives from `readingSlideIndex`.
 	 */
 	/**
 	 * THE DECK'S OWN GEOMETRY CHANGED under a settled scroll — and there is no scroll event
@@ -1697,7 +1708,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 * 2160px tall to 652 with the scroll left at 2180, so a step taken in the meantime had
 	 * aimed at slide 2 and landed on slide 4 with the bar still reading "1 / 58" — and
 	 * nothing was ever going to correct it, because the document's height did not clamp the
-	 * scroll and no event fired (#2103).
+	 * scroll and no event fired (#2124).
 	 *
 	 * Two cases, and the split is the same one the rest of this loop makes: a programmatic
 	 * scroll still in flight was AIMED at the old geometry, so re-aim it; otherwise the
@@ -1822,7 +1833,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	// A pane that changed SIZE has re-scaled the deck under a scroll position measured
 	// against the old geometry, so the reader silently drifts off their slide — measured
-	// at 1440→900px mid-walk: the bar still said 3/8 with slide 4 on screen (#2103). One
+	// at 1440→900px mid-walk: the bar still said 3/8 with slide 4 on screen (#2124). One
 	// observer covers the window, the split drag, a collapse and an orientation change.
 	React.useEffect(() => {
 		const wrap = frameRef.current?.parentElement;

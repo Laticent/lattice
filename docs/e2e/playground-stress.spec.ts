@@ -9,7 +9,7 @@ import { expect, test } from './studio-fixture';
  * visitor who has never written a line of Markdown lands, and its Explore mode is the only
  * part of Lattice most of them will ever drive. Every `test` below started as a
  * REPRODUCTION found by a randomized metamorphic walk over the real built site, not as a
- * guess about what might break (#2103).
+ * guess about what might break (#2124).
  *
  * WHAT THE WALK FOUND, and it is one defect wearing nine faces. Explore is a filmstrip the
  * reader scrolls freely, with a stepper bolted on that never observed the scroll — so the
@@ -298,7 +298,7 @@ test('@parity the arrow keys still turn the deck after the reader clicks the sli
 	expect((await claimed(page)).index).toBe(2);
 	// Clicking the deck moves focus INTO the same-origin iframe. Before the fix the
 	// parent's window listener stopped seeing keys here and the arrows died for good.
-	await page.locator('#preview').click(); // centred — 390px wide on the phone project
+	await page.locator('#preview').click(); // centered — 390px wide on the phone project
 	// The point of the click is that focus is now INSIDE the iframe. Wait for that, not for
 	// a guessed interval — it is also the precondition the rest of this test depends on.
 	await expect.poll(() => page.evaluate(() => document.activeElement?.id ?? '')).toBe('preview');
@@ -487,6 +487,17 @@ test('typing a query moves the highlight to the top hit, so Enter picks what you
 	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(/compare-table/);
 	await page.keyboard.press('Enter');
 	await expect(page.locator('#pg-template-trigger')).toHaveText('compare-table');
+});
+
+test('the status line stops claiming the editor is collapsed once it is not', async ({ page }) => {
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.cm-content')).toBeVisible();
+	await expect(page.locator('.pg-status')).toContainText('Rendered');
+	await page.getByRole('button', { name: 'Collapse editor' }).click();
+	await expect(page.locator('.pg-status')).toContainText('Editor collapsed');
+	await page.getByRole('button', { name: 'Expand editor' }).click();
+	// The editor side renders nothing on expand, so the line used to sit there being wrong.
+	await expect(page.locator('.pg-status')).toContainText('Rendered');
 });
 
 // ── The randomized walk itself ─────────────────────────────────────────────────

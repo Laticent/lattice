@@ -1,11 +1,11 @@
 ---
 status: shipped
-summary: The Playground's Explore mode is a free-scrolling filmstrip with a stepper bolted on that never observed the scroll, so the walk index was write-only and the chrome routinely named a slide the reader was not looking at. A randomized metamorphic walk over the real built site found nine defects with three root causes - no scroll-to-index observer at all; the walk position landed during the in-iframe FIT window and thrown away when FIT rescaled the deck (so every shared ?s= link, every reload and every Explore-Edit-Explore opened on the title slide while naming another); and input verbs owned per surface instead of read from lib/core/present-transport.mjs, which is the #1294 root cause repeated in the one surface the #1294 fix never reached. Fix - readingSlideIndex (greatest visible overlap plus hysteresis) drives the bar, caption, Step list and URL from the reader's own scroll; landWalk polls for the FIT reveal before scrolling; the keymap comes from shellKeyAction and the swipe rule from swipeAction, both bound to the frame document as well as the page; and the component picker opens on the current component instead of silently replacing the deck on Enter. Guarded by docs/e2e/playground-stress.spec.ts.
+summary: The Playground's Explore mode is a free-scrolling filmstrip with a stepper bolted on that never observed the scroll, so the walk index was write-only and the chrome routinely named a slide the reader was not looking at. A randomized metamorphic walk over the real built site found fourteen defects with four root causes - no scroll-to-index observer at all; the walk position landed during the in-iframe FIT window and thrown away when FIT rescaled the deck (so every shared ?s= link, every reload and every Explore-Edit-Explore opened on the title slide while naming another); input verbs owned per surface instead of read from lib/core/present-transport.mjs, which is the #1294 root cause repeated in the one surface the #1294 fix never reached; and a set of races where the machinery outranked the reader - a wheel during the landing was swallowed or undone, a scroll inside the programmatic guard's own window was dropped for good, and a fit rescale changed the deck's geometry under a settled scroll with no event to announce it. Also: clicking the tab you were already on destroyed the deck, because both branches of setViewMode copy one source over the other and neither checked whether the mode was changing. Fix - readingSlideIndex (greatest visible overlap plus hysteresis) drives the bar, caption, Step list and URL from the reader's own scroll; landWalk polls for the reveal, verifies the target slide is on screen and retries, and the frame's reveal waits on it; the keymap comes from shellKeyAction and the swipe rule from swipeAction, both bound to the frame document as well as the page; a ResizeObserver inside the frame re-aims a scroll aimed at geometry that has since changed; and the component picker opens on the current component instead of silently replacing the deck on Enter. Three of the oracles used to find all this were themselves wrong - offsetHeight is the unscaled layout box, a settle that watches only the index and the scroll returns inside the fit window, and dominance is too strong an invariant where three slides share a pane. Guarded by docs/e2e/playground-stress.spec.ts.
 ---
 
 # Position truth in the Playground: the chrome must never name a slide you cannot see
 
-**Date:** 2026-09-07 · **Issue:** #2103 · **Status:** shipped
+**Date:** 2026-09-07 · **Issue:** #2124 · **Status:** shipped
 
 ## The surface, and why it is worth this much attention
 
@@ -99,7 +99,7 @@ to satisfy the letter of a rule against its purpose.
 the pane is the slide you are reading. Two cheaper rules were tried and rejected:
 an **anchor line** (`last top <= scrollY + k`) is exact for the scroll the stepper
 performs and arbitrary everywhere else, since `k` must be guessed against a slide
-height that changes with the pane width; the **viewport centre** (the
+height that changes with the pane width; the **viewport center** (the
 `rootMargin: -45%` rule `deck-preview.js` uses) is stable only while a slide is
 about as tall as the pane, and reports i+1 for a jump to i when one is shorter.
 
@@ -160,14 +160,74 @@ object per navigation.
   every parent render, which with the new observer would have meant one per
   animation frame while scrolling; now memoized.
 
+## What the wider walk found afterwards
+
+The first fix passed its own six reproductions and a 24-step walk. Widening that walk to
+sixty ops across three widths found **five more**, and they are worth naming because every
+one was **invisible in isolation and deterministic under load** — the shape of thing a demo
+never shows you and a fuzz walk finds on the third seed.
+
+**Clicking the tab you are already on destroyed the deck.** Both branches of `setViewMode`
+copy one source over the other, and neither checked whether the mode was changing. The
+Explore tab replaced the 13-slide walk deck with the editor's untouched one-slide draft
+while the bar still read `3 / 13`; the Edit tab is the mirror image, overwriting the
+author's draft and pushing an undo backup nobody asked for. `onLoadGallery` had already had
+to route *around* this function for exactly this reason, with a comment saying so — the
+workaround was there and the guard was not.
+
+**The walk kept a plan the deck no longer was.** Entering Explore adopts the editor's draft
+as the deck (the unified view/source model), but the walk stayed the old component's plan,
+so the bar counted thirteen slides over a deck with one and Next stepped to slides that did
+not exist. It re-points to a `deck` walk, which learns its count from the render.
+
+**The reader did not outrank the machinery.** Two separate gates swallowed real input: a
+wheel during the post-render landing (the observer is shut for the whole settle, so the bar
+held `1 / 22` at a scroll of 3033px), and a scroll arriving inside the programmatic guard's
+own 400ms window — stranded for good, because no further event was coming. Both now yield
+to a `userInputAt` stamp, and `landWalk` aborts outright rather than scrolling the reader
+back off a position they chose.
+
+**The deck's geometry changes under a settled scroll, with nothing to announce it.** The fit
+agent rescales a fresh deck a few hundred milliseconds after it is parsed — 2160px sections
+become 652 — and because the document does not shrink enough to clamp the scroll, **no
+scroll event fires at all.** A step taken in that window aimed at the old geometry and
+landed two slides past its target, permanently. A `ResizeObserver` inside the frame re-aims
+a scroll still in flight and reconciles the index otherwise. It has to stand down while a
+pane resize has already scheduled a re-land, or the two observers fight over one rescale —
+which they did, and the resize regression test caught it.
+
+## Three oracles that were themselves wrong
+
+Worth recording, because two of them are traps any future measurement of this surface will
+walk into.
+
+1. **`offsetHeight` is the unscaled layout box** (720px) and not the height a phone shows
+   (179px). Both the shipped code and the first e2e oracle read it.
+2. **A settle that watches the index and the scroll returns inside the fit window**, where
+   both are perfectly stable and neither is final — which is how a gallery load briefly
+   looked like a deck rendered at 3x. The settle now includes the slide's height and the
+   filmstrip's visibility.
+3. **"The named slide is the dominant slide" is too strong an invariant.** At 390px three
+   slides share the pane and the shipped rule deliberately keeps the reader's current slide
+   under hysteresis, so a flick resting between two of them names one at ~40% of the pane,
+   correctly. The oracle asserts the honest property instead — the named slide is
+   substantially on screen — and every defect above measured 0%.
+
 ## Verification
 
-`docs/e2e/playground-stress.spec.ts`, on the real built site (HARD RULE #23): six
-named reproductions, four selection/keymap oracles, three `@parity` verbs across
-`desktop-touch` / `tablet-touch` / `mobile-touch`, and a seeded 24-step randomized
-walk over thirteen op families asserting, after **every** op, that the named slide
-is on screen, that the index is inside the deck, that nothing threw, and that the
-toolbar and walk bands never change height.
+`docs/e2e/playground-stress.spec.ts`, on the real built site (HARD RULE #23): eleven
+named reproductions, three `@parity` verbs across `desktop-touch` / `tablet-touch` /
+`mobile-touch`, and a seeded randomized walk over thirteen op families asserting,
+after **every** op, that the named slide is on screen, that the index is inside the
+deck, that nothing threw, and that the toolbar and walk bands never change height.
+
+The exploratory harness that found all of this is not committed (it is a throwaway in
+`.scratch/`), and the honest statement of its result is the one that matters: after the
+fixes, **ten runs of fifty randomized ops across 1440x900 and 390x844 report zero
+findings**, against 9 findings across the same seeds before. Cumulative layout shift over
+those runs is 0.0000-0.0052, with the single 0.04 outlier attributed to CodeMirror's own
+line-number gutter re-laying out when the author loads a different deck — inside the editor
+pane, on an action they asked for.
 
 `readingSlideIndex` additionally carries 12 unit cases over the two real measured
 geometries, including the phone-clamp case and a sweep asserting that every step

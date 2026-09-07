@@ -246,8 +246,8 @@ describe('slideTranscript — comment stripping reaches a fixed point', () => {
 	});
 });
 
-// The inverse of the walk's scroll (#2103). These cases are the ones the rejected rules
-// (an anchor line, the viewport centre) each get wrong, plus the narrow-width case that
+// The inverse of the walk's scroll (#2124). These cases are the ones the rejected rules
+// (an anchor line, the viewport center) each get wrong, plus the narrow-width case that
 // forced the hysteresis clause — see the docblock on `readingSlideIndex`.
 describe('readingSlideIndex — the slide the reader is actually on', () => {
 	/** REAL geometry, measured on `?c=kpi` at 1440x900: 13 slides, 668px apart, each 652px
@@ -293,8 +293,8 @@ describe('readingSlideIndex — the slide the reader is actually on', () => {
 	});
 
 	test('a slide SHORTER than the pane still reads back from its own landing', () => {
-		// The case that breaks a centre-line rule: at 200px tall in a 693px pane the pane's
-		// centre after a step to slide i sits inside slide i+1, so a centre rule reports
+		// The case that breaks a center-line rule: at 200px tall in a 693px pane the pane's
+		// center after a step to slide i sits inside slide i+1, so a center rule reports
 		// i+1 for a jump to i. Overlap does not.
 		const short = Array.from({ length: 8 }, (_, i) => ({ top: 20 + i * 200, height: 184 }));
 		for (let i = 0; i < 6; i++) expect(readingSlideIndex(short, stepTo(short, i), 693)).toBe(i);

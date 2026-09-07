@@ -85,7 +85,7 @@ async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) 
 				// on an Explore reload: `.lattice` reveals at t=1116 with the frame still
 				// hidden, the walk position lands at t=1131 moving the slide 20px, and `is-live`
 				// arrives at t=1165 — every frame the reader can see is at the landed position,
-				// and only this clause tells the two apart (#2103).
+				// and only this clause tells the two apart (#2124).
 				if (getComputedStyle(f).visibility === 'hidden') return null;
 				const fr = f.getBoundingClientRect();
 				const sr = sec.getBoundingClientRect();
