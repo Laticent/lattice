@@ -1,0 +1,1 @@
+- `tools/chart-colour-reach.js` asks whether a chart's text wears the colour of the thing it names, rather than whether it is merely coloured — the distinction that matters, since a navy label beside a green line clears any chroma floor and still tells a reader nothing. Reports per member which marks, text and rules carry a category's colour.
