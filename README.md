@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/public/lattice-lockup-dark.svg">
-    <img alt="Lattice" src="docs/public/lattice-lockup.svg" width="440">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/lattice-lockup-on-dark.svg">
+    <img alt="Lattice" src="docs/public/lattice-lockup-on-light.svg" width="440">
   </picture>
 </p>
 

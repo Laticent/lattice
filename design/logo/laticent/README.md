@@ -74,21 +74,21 @@ until you have re-run it.
 
 | Surface | Use |
 | --- | --- |
-| App icon, favicon, avatar, any square or round crop | `laticent-tile.svg` (`-min` below ~46px) |
-| Beside the product marks; monochrome, engraving, small print | `laticent-mark.svg` (`-min` below ~46px) |
+| App icon, favicon, avatar, any square or round crop | `laticent-tile.svg` (`-min` below 48px) |
+| Beside the product marks; monochrome, engraving, small print | `laticent-mark.svg` (`-min` below 40px) |
 | Site header, documents, letterhead | the wordmark alone |
-| Formal first-impression use | `laticent-lockup.svg` |
+| Formal first-impression use | `laticent-lockup-on-light.svg` / `-on-dark.svg` |
 
 ## Files
 
 | File | What | Use |
 | --- | --- | --- |
 | `laticent-tile.svg` | Cream letter on a fixed bluestone tile, brass groove | App icon, favicon, avatar |
-| `laticent-tile-min.svg` | Reduced tile — solid letter, no groove | below ~46px |
+| `laticent-tile-min.svg` | Reduced tile — solid letter, no groove | below 48px, down to 16 |
 | `laticent-mark.svg` | The bare letter, light+dark adaptive, groove cut in | Family row, monochrome |
-| `laticent-mark-min.svg` | Reduced bare letter — solid, adaptive | below ~46px |
-| `laticent-lockup.svg` / `-dark.svg` | Tile + wordmark | Formal use |
-| `laticent-lockup-bare.svg` / `-dark.svg` | Letter + wordmark | Where a container is wrong |
+| `laticent-mark-min.svg` | Reduced bare letter — solid, adaptive | below 40px, down to 32 |
+| `laticent-lockup-on-light.svg` / `-on-dark.svg` | Tile + wordmark | Formal use, at 260px wide or more |
+| `laticent-lockup-bare-on-light.svg` / `-on-dark.svg` | Letter + wordmark | Where a container is wrong, at 240px wide or more |
 | `generate.py` | Source of truth — regenerates all eight, asserts four invariants | `python3 generate.py` |
 | `wordmark.py` | **Generated.** The wordmark as a path | — |
 | `outline-wordmark.py` | Re-outlines the wordmark from Fraunces | On demand; needs network |
@@ -207,7 +207,7 @@ Changing them is a shared-asset decision, not one this mark can take alone.
 
 **Only the adaptive assets carry a `<style>`.** An inline `<svg><style>` in an
 HTML document is **document-scoped**, not SVG-scoped. Inlining
-`laticent-lockup-dark.svg` (a bare `.sf{fill:#9DB2BE}`) alongside
+`laticent-lockup-on-dark.svg` (a bare `.sf{fill:#9DB2BE}`) alongside
 `laticent-mark.svg` (media-queried) let the lockup win on source order and
 painted the light-mode mark at **1.99:1 on cream** — a brand page showing the
 asset set is exactly that surface. The single-scheme lockups and the
@@ -249,15 +249,38 @@ pre-empt is worse than no gate.
 ## Rules
 
 - **Clear space:** one stem-width on all sides.
-- **Minimum size:** the groove is 3.4 units in a 128 viewBox, so it falls under
-  one device pixel at **128 / 3.4 ≈ 38px**. Use the `-min` variants below
-  ~46px. Be clear about what that number is: 38 is derived, **46 is a judgment
-  on top of it** — measured off the raster, the groove delivers only 1.26:1 in
-  light mode at 48px, so it has stopped doing anything well above the
-  arithmetic floor. An earlier version said 28px, which was arithmetic nobody
-  did. The rule is also **DPR-blind**: at 2x the groove survives smaller than
-  this allows, and in print or on a 1x projector it does not.
+- **Minimum size**, per asset:
+
+  | Asset | Minimum | What fails just below it |
+  |---|---|---|
+  | `laticent-lockup-on-*` | **260px wide** | 10 ink components down to 255; 11 at 250 — a wordmark stroke splits |
+  | `laticent-lockup-bare-on-*` | **240px wide** | 10 down to 240; 12 at 230 |
+  | `laticent-tile` | **48px** | the groove's value spread holds at 112 down to 48, falls to 75 at 44 |
+  | `laticent-mark` | **40px** | spread holds at 25 down to 40, falls to 19 at 38 |
+  | `laticent-mark-min` | **32px** | erosion 40% at 32, 51% at 28 — the stroke goes hairline |
+  | `laticent-tile-min` | **16px** | the favicon floor; at 16 the letter is one pixel thin throughout, and it holds only because it is solid ink on a solid ground |
+
+  There is no `-min` lockup, so below 240px the answer is the wordmark alone or
+  the symbol — never a shrunken lockup.
+
+  These are measured on three arms: the count of connected ink components (a
+  rise means a stroke split, a fall means two merged, either is a failure), the
+  share of ink lost to a one-pixel erosion, and the value spread inside the
+  letter. **An earlier version of this file gave ~46px for both symbols** on a
+  solid-ink-against-mean-alpha ratio, which cannot see a tile at all — a
+  full-bleed rounded rect reads 99% at every size whatever happens to the letter
+  inside it — and cannot see a stroke splitting. Before that it said 28px, which
+  was arithmetic nobody did.
+
+  The arithmetic floor still holds as a lower bound: the groove is 3.4 units in
+  a 128 viewBox, so it drops under one device pixel at **128 / 3.4 ≈ 38px**. All
+  of this is **DPR-blind** — at 2x the groove survives smaller, and in print or
+  on a 1x projector it does not.
 - **Dark mode:** ship the adaptive SVG. Never hand-recolor.
+- **Names say the ground, not the scheme.** `-on-light` / `-on-dark` are fixed
+  color and name the surface you put them on; a bare name means the file adapts.
+  `laticent-tile.svg` is the one bare-and-fixed asset, because it brings its own
+  ground and goes on any. Family-wide rule: `../README.md` "Naming".
 - **The lockup shares one baseline.** In the bare form the mark IS a letter, so
   its foot sits on the wordmark's baseline — flat foot to flat foot, no
   overshoot (that is for curves), at 1.35 cap heights. The first version hung
@@ -286,8 +309,9 @@ pre-empt is worse than no gate.
   replaced. It is the same root cause as the line above and has the same
   status: logged, not fixed here.
 - **The groove's rendered strength is not monotonic in size.** Because it is a
-  sub-pixel feature, it strengthens and weakens with pixel phase — 46px
-  measures stronger than 48px. Nothing in the design controls that.
+  sub-pixel feature, it strengthens and weakens with pixel phase. Nothing in the
+  design controls that, and it is why the floors above are set where a measure
+  *stays* good rather than at the last size that happens to measure well.
 - **Nothing here has been seen on a real device.** Every render is headless
   Chromium. An installed Android icon under a real maskable mask, a live GitHub
   org avatar, an iOS home screen and a print proof are all **UNVERIFIED**.

@@ -4,6 +4,11 @@
 An L with the load path cut into it, running down the stem and turning out
 along the arm.
 
+Names follow the family rule (../README.md "Naming"): the suffix is the GROUND
+the asset goes on, and a bare name means the file adapts. So `laticent-mark.svg`
+adapts, `laticent-lockup-on-dark.svg` does not, and `laticent-tile.svg` is bare
+without adapting because it brings its own ground and goes on any.
+
   latus  (broad, expansive)   NOT expressed. An earlier version of this
                               docstring claimed the arm carried it — "a
                               Garamond L is nearer 0.60 of its cap; this is
@@ -297,7 +302,7 @@ def tile(p=None, uid="laticent-tile-cut"):
 
 # An inline <svg><style> in an HTML document is DOCUMENT-scoped, not
 # SVG-scoped. Two of these assets inlined on one page — a brand page showing
-# the set is exactly that surface — had `laticent-lockup-dark.svg`'s bare
+# the set is exactly that surface — had `laticent-lockup-on-dark.svg`'s bare
 # `.sf{fill:#9DB2BE}` win on source order over `laticent-mark.svg`'s
 # media-queried rule, painting the light-mode mark at 1.99:1 on cream. Three
 # consequences, all handled here: the class names are prefixed so a host page's
@@ -518,10 +523,10 @@ def emit(d=OUT):
                                  style=style_for(FINAL)),
         "laticent-mark-min.svg": svg(mark(MIN, uid="laticent-mark-min-cut"),
                                      style=style_for(MIN)),
-        "laticent-lockup.svg": lockup("light"),
-        "laticent-lockup-dark.svg": lockup("dark"),
-        "laticent-lockup-bare.svg": lockup("light", form="bare"),
-        "laticent-lockup-bare-dark.svg": lockup("dark", form="bare"),
+        "laticent-lockup-on-light.svg": lockup("light"),
+        "laticent-lockup-on-dark.svg": lockup("dark"),
+        "laticent-lockup-bare-on-light.svg": lockup("light", form="bare"),
+        "laticent-lockup-bare-on-dark.svg": lockup("dark", form="bare"),
     }
     for name, text in assets.items():
         write(os.path.join(d, name), text)
