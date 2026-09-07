@@ -501,5 +501,28 @@ rule), with the measurement that explains it: `body[data-view]` lands at ~1105ms
 Galleries trigger becomes visible 174ms after a `domcontentloaded` navigation resolves —
 module scripts block DCL, so the test's window now closes before it starts looking.
 
-**Not verified here, and stated as such:** real iOS/Android Safari. The swipes are
-genuine CDP touch sequences in headless Chromium, which is not a physical phone.
+### Driven on the DEPLOYED bundle, not only a local build
+
+The PR's own Cloudflare preview is the artifact that will actually ship, so the
+load-bearing claims were re-measured against it with real WebKit rather than against
+`dist/` on this machine. Same numbers, one proxy layer fewer:
+
+| on the deployed preview | iPhone 15 Pro | iPad Pro 11 |
+|---|---|---|
+| controls under the 44px floor | 0 | 0 |
+| toolbar / walk / deck | 115.0 / 106.7 / 376.3 | 115.0 / 106.7 / 911.3 |
+| Next: frame scroll → bar | 20 → 217, `2 / 13` | 20 → 465, `2 / 13` |
+| picker panel bottom vs keyboard top | 311 vs 323 — clears | 495 vs 858 — clears |
+| search field height | 40px | 40px |
+| lens row while a search is active | hidden | hidden |
+| picker trigger, before → after Return | `kpi` → `kpi` | `kpi` → `kpi` |
+
+The last row is the reported defect stated as a measurement: Return no longer replaces
+the deck with the top hit. The keyboard rows use a **synthesized** 336px visual-viewport
+inset, sized from the reported screenshot — which is the part that is still a proxy.
+
+**Not verified here, and stated as such:** a physical phone. Real WebKit at an iPhone
+profile is a real engine, but iOS resizes the visual viewport on its own schedule and
+floats an accessory bar over the result, and neither is modeled by an inset this code
+installs itself. The swipes are genuine CDP touch sequences in headless engines, which is
+not a finger. The one thing that closes this is opening the preview on a real device.
