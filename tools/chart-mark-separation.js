@@ -227,9 +227,25 @@ async function main() {
           if (!def) return { kind: 'unresolved', colors: [], ref: id };
           const tag = def.tagName.toLowerCase();
           if (tag === 'pattern') return { kind: 'pattern', colors: [], ref: id, dash: 'none' };
+          // A gradient stop carries TWO channels and this read only one of them.
+          // radar's three stops are ONE colour at three opacities (0.10 / 0.14 /
+          // 0.20) — an ALPHA ramp — so reading stop-color alone returned three
+          // identical values and forced a 0.000 self-range arithmetically. That
+          // is not a measurement of radar; it is a measurement of the wrong
+          // channel. Composite each stop over the section's own background so a
+          // pigment ramp (quadrant: 42→58→82% hue-mix) and an alpha ramp
+          // (radar) are both scored as what the reader actually sees.
+          const over = toRgb(getComputedStyle(el.closest('section') || document.body).backgroundColor)
+            || 'rgb(255, 255, 255)';
+          const [br, bgc, bb] = (/rgba?\(([^)]*)\)/.exec(over)[1]).split(',').map((x) => parseFloat(x));
           const stops = [...def.querySelectorAll('stop')].map((s) => {
             const scs = getComputedStyle(s);
-            return toRgb(scs.stopColor || s.getAttribute('stop-color'));
+            const raw = toRgb(scs.stopColor || s.getAttribute('stop-color'));
+            if (!raw) return null;
+            const a = parseFloat(scs.stopOpacity ?? s.getAttribute('stop-opacity') ?? '1');
+            if (!(a >= 0) || a >= 1) return raw;
+            const [r, g, b] = (/rgba?\(([^)]*)\)/.exec(raw)[1]).split(',').map((x) => parseFloat(x));
+            return `rgb(${Math.round(r * a + br * (1 - a))}, ${Math.round(g * a + bgc * (1 - a))}, ${Math.round(b * a + bb * (1 - a))})`;
           }).filter(Boolean);
           return { kind: tag === 'radialgradient' ? 'radial' : 'linear', colors: stops, ref: id, dash: cs.strokeDasharray || 'none' };
         }
