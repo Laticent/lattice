@@ -1,20 +1,20 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Yes, build a shared app-UI layer on shadcn — but the folder of components is not the
   deliverable and never was. The repo already HAS an unusually good shared layer
   (`ui/panel.tsx`, 855 lines, ~60% commentary, every comment a measured defect). It fails
   for two reasons this investigation can measure. First, it shares CLASS STRINGS instead of
-  COMPONENTS: `panel.tsx` exports 11 class constants against 2,722 inline class-string
-  occurrences, so a consumer imports the geometry and re-invents the typography — which is
+  COMPONENTS: the tree holds 13 shared class constants against 2,888 `className` literals, so
+  a consumer imports the geometry and re-invents the typography — which is
   how `SlideContext.Row` and `StudioShell.Field` became the same component differing by
   `my-1.5` vs `my-2`, and how `PanelBody`'s scroll+touch contract came to be copy-pasted
   inline in 10 places. Second, adoption is by convention, which this repo has now falsified
   ten times: across 18 cohesion passes, every repair that DELETED the alternative held, and
   every repair that shipped "primitive + standing rule" decayed within days. Under it sits
   the structural cause — the shadcn token bridge carries color, radius and font and NOTHING
-  dimensional, so the app has 26 distinct `text-[Npx]` sizes over 1,037 occurrences and four
-  bar heights, while the slide side is held to a gated 12-token `--fs-*` scale and a
+  dimensional, so the app has 24 distinct `text-[Npx]` sizes over 1,058 occurrences and eleven
+  bar-height specifications, while the slide side is held to a gated 12-token `--fs-*` scale and a
   hex-literal budget of zero. Lattice tokenized the artifact and left the app untokenized.
   Recommends: add the missing dimensional tokens, promote the seven measured reinventions
   (most are ADOPT-and-delete, not build), write the app-UI spec that does not exist, and land
@@ -25,7 +25,8 @@ summary: >
 # The app-UI component library
 
 **Date:** 2026-09-07
-**Status:** Proposed — investigation complete, four decisions open for the owner (§11).
+**Status:** In progress — investigation complete; the owner's four decisions are recorded in
+§"The decisions". Implementation follows in its own branches.
 
 ## The ask
 
@@ -52,8 +53,8 @@ The layer fails for two measurable reasons, and both have the same fix.
 `SETTING_LABEL_COL`, `SETTING_CONTROL_COL`, `PINNED_FIELD_ROW`, `PANEL_SEARCH_BOX`. A
 consumer imports the string and rebuilds the JSX around it, so it inherits the geometry and
 re-invents everything the string does not cover — margins, label type, help placement,
-description styling. Eleven shared class constants stand against **2,722 inline class-string
-occurrences**.
+description styling. Thirteen shared class constants stand against **2,888 `className="…"` literals** in non-test
+`docs/src`.
 
 **Failure 2 — adoption is optional, and this repo has falsified that approach ten times.**
 
@@ -73,8 +74,8 @@ instead of per surface. These are prevention because nothing is left to diverge 
 `panel.tsx` (07-17) → four entry edges, five heights, three close sizes eleven days later.
 `ui/switch` (07-13) → a hand-rolled holdout two days later, sitting *between two adopters*.
 `PillTabs`, declared "the ONE pill-tab implementation" → forked twice by 07-28.
-`PanelSection`, whose own docblock called it "the one subhead grammar" → one consumer, and
-the subhead now ships in four voices. `icons.ts` (07-26) → two files importing raw icons in
+`PanelSection`, whose own docblock called it "the one subhead grammar" → one consumer at the
+time (3 files / 10 sites today), and the subhead still ships in four voices. `icons.ts` (07-26) → two files importing raw icons in
 the same PR.
 
 Ten of the eighteen passes shipped exactly that second kind. The team wrote the law down
@@ -92,18 +93,18 @@ consumer" landings. That pattern is 0-for-10 here.
 
 ## The structural cause: a token system with no dimensions
 
-`docs/src/styles/tailwind.css`'s `@theme inline` block maps 33 aliases. Every one is a
-**color**, plus `--radius` and two font families. There is not one token for height,
-spacing, control size, or touch target.
+`docs/src/styles/tailwind.css`'s `@theme inline` block maps **38 aliases: 32 colors, 4 radius
+steps and 2 font families** (`--radius` itself sits in `:root`, outside the block). There is
+not one token for height, spacing, control size, or touch target.
 
 The consequence, measured over `docs/src`:
 
 | | app UI (docs/src) | slide engine |
 |---|---|---|
-| Type scale | **26 distinct `text-[Npx]` values, 1,037 occurrences** — 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16, 16.5, 17, 18, 19, 20, 24, 26 | a 12-token `--fs-*` role scale, **gated** (HARD RULE #4, `checkTypographyTokens`) |
+| Type scale | **24 distinct `text-[Npx]` values, 1,058 occurrences** — 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16, 16.5, 17, 18, 19, 20, 24, 26 | a 12-token `--fs-*` role scale, **gated** (HARD RULE #4, `checkTypographyTokens`) |
 | Color literals | 1,329 `var(--token)` occurrences — good | hex literal budget **0**, allowlisted, **gated** (HARD RULE #3) |
 | Dimensions | **1,812 arbitrary size/spacing occurrences, 273 distinct** | `--space-*` / layout tokens, `margin` budget **0**, **gated** (HARD RULE #20) |
-| Adoption gate | **none** — `tools/check-ownership.js` has 78 checks and not one looks at `docs/src/components/ui/` | 78 checks |
+| Adoption gate | **none** — `tools/check-ownership.js` defines 77 checks and not one is about `docs/src/components/ui/` | 77 checks |
 
 That is the whole story in one table. **Lattice tokenized the artifact and left the app
 untokenized.** The four inconsistencies you named cannot currently even be *stated* in the
@@ -140,14 +141,17 @@ Five primitive definitions cover 35 instances; **18 more close/dismiss affordanc
 hand-rolled**. Across all of them there are **11 distinct hit-target specifications** —
 `size-[30px]`, `h-11`, `size-6`, `size-6`+`pointer-coarse:size-11`, `size-8`, `p-1`, `p-1.5`,
 `p-0.5`, `px-1 py-0.5`, `px-3.5`, and none at all (`StudioShell.tsx:3527` is a bare
-`<button>`). Placement is not settled either: three Fabricate bars put the X **leading**, as
+`<button>`). Icon sizes run `size-3` to `size-5` plus `size-[18px]`; paddings run `p-0.5` to `p-1.5`.
+Placement is not settled either: three Fabricate bars put the X **leading**, as
 does `PresentOverlay.tsx:1773`, while every `PanelHeader` puts it trailing. Two sites still
 render a raw glyph rather than the icon — `✕` at `PlaygroundApp.tsx:1647` and `×` injected via
-`textContent` at `vetrina.astro:239`. Many targets — the floor `2026-07-27` describes as having "held inside the
+`textContent` at `vetrina.astro:239`. The smallest targets land near 16px, well under the
+44px touch floor — the floor `2026-07-27` describes as having "held inside the
 drawer and nowhere else. That floor is the stated reason the whole mobile toolbar was
-redesigned. Every destination broke it." The one automated 44px assertion
-(`docs/e2e/responsive.spec.ts:63`) covers **only the eight mobile bar cells**, not one panel
-close button.
+redesigned. Every destination broke it." Two automated 44px assertions exist — `docs/e2e/responsive.spec.ts:63` covers **only the
+eight mobile bar cells**, and `docs/e2e/back-gesture.spec.ts:236` covers a `PanelHeader`
+*action* button. Neither covers a close button, and the second asserts the phone header has
+no Close at all.
 
 ### Search inputs — 11 fields, 4 implementations, 3 with no keyboard support
 
@@ -206,12 +210,18 @@ Playground sheets, which use a raw `Sheet` rather than `PanelSheet`, get **none*
 **The same panel wears two different header voices depending on viewport width.**
 
 Coach, Chat and Reader views render `PanelSheet` + `PanelHeader` on compact
-(`StudioShell.tsx:5356,5366,5384`) — the correct 13px semibold sentence case. Docked, the
+(`StudioShell.tsx:5356,5366,5384`) — the house voice, **15px semibold** (`panel.tsx:603`).
+Docked, the
 same three panels hand-roll `font-mono text-[11px] font-bold uppercase tracking-widest`
 (`StudioShell.tsx:5279,5286`, `ArchitectChat.tsx:394`) — the voice `PanelSection`'s own
 docblock retired, quoting the drawer's rule 4: *"At 10px on a phone it is the least legible
-combination available."* The docked Inspector has no header at all. `Library` is the only
-assistant-slot panel that gets it right in both transports.
+combination available."* The docked Inspector has a header (`StudioShell.tsx:4002-4023` — bordered, 13px bold title,
+scope chip, lede, close) but not a `PanelHeader`, so it is a fourth voice again. `Library` is
+the only assistant-slot panel that gets it right in both transports.
+
+(The 13px semibold sentence case that `PanelSection`'s docblock argues for is the **subhead**
+voice, `panel.tsx:845` — a different rank from the 15px header. Both numbers belong in the
+spec Move 3 proposes; conflating them is how a fifth voice would get authored.)
 
 ## The scale of the duplication
 
@@ -219,7 +229,7 @@ assistant-slot panel that gets it right in both transports.
 |---|---|
 | Surfaces that are a sheet / drawer / docked panel | 34 |
 | — using `PanelSheet` | **12 (35%)** |
-| — using `PanelHeader` | 13 (38%) |
+| — using `PanelHeader` | **12 (35%)**, across 8 files |
 | — owning their own `SheetContent` | 5 (1 documented, 4 not) |
 | — docked columns with a hand-rolled header | 4 |
 | Raw `<button>` in Studio (non-test) | **272**, against **12 files** importing `ui/button` |
@@ -231,7 +241,7 @@ assistant-slot panel that gets it right in both transports.
 | Near-duplicate families (differ by 1–2 classes) | **186; 120 span ≥2 files; 781 occurrences** |
 | Application components using `cva` | **0** (all 3 cva files are vendored shadcn) |
 | Ad-hoc ternary class strings instead | **157 across 30 files** |
-| Shared class constants | 11 |
+| Shared class constants | **13** |
 
 Nine files **import `Button` and hand-roll anyway** — `Fabricate` (25 raw), `Library` (21),
 `StudioChromeSkeleton` (13), `WorkspaceSheet` (12), `FinishStudio` (10), `StudioShell` (41).
@@ -324,35 +334,82 @@ You asked for this explicitly, and the repo has already paid for most of these l
   layered, so a primitive **cannot** turn off the global focus ring with
   `focus-visible:outline-none` — it must use the `[data-focus-ring='container']` opt-out.
   This is the HARD RULE #26 trap in a different coat.
-- **Do not absorb the bespoke CSS in this line of work.** ~3,300 lines across five files
-  (`playground.css` 978, `landing.css` 434, `components.css` 363) are *unlayered*, so they
-  beat Tailwind utilities, and the 06-09 rule requires a migrated surface to delete its
-  bespoke CSS in the same change. That is a separate, larger call — see decision 2.
+- **Do not absorb the bespoke CSS in this line of work.** `docs/src/styles/` is 3,297 lines
+  across 13 files, of which **2,314 sit in the five largest** (`playground.css` 978,
+  `landing.css` 434, `components.css` 363, `fonts.css` 231, `tailwind.css` 229 — the last two
+  are not bespoke surface CSS, and `lattice-tokens.generated.css` is generated). The bespoke
+  ones are *unlayered*, so they beat Tailwind utilities, and the 06-09 rule requires a
+  migrated surface to delete its bespoke CSS in the same change. Confirmed out of scope by
+  decision 2.
 
-## Packaging: in-repo, not a package
+## Packaging: a workspace package inside `docs/src`, on the Vetrina topology
 
-**Recommend against `packages/ui`,** on four grounds:
+**This section reverses my own first recommendation.** I initially recommended a plain
+in-repo layer and called a package blocked. The owner's answer and one precedent in this repo
+both say otherwise, and the precedent is decisive.
 
-1. **One consumer.** No `apps/`, no `packages/`, no Tauri artifacts anywhere in the tree. The
-   desktop wrapper is a separate repo, described by `2026-08-09-org-rehost-playbook.md:112`
-   as "the only external consumer this repo has… it lives elsewhere," and by
-   `2026-06-14-read-aloud-kokoro.md:201` as having **no code yet**.
-2. **You already ruled on this.** `2026-06-09-shadcn-migration.md` §0.2 planned `packages/ui`
-   + `apps/desktop` and you overrode it: *"Website-only, inside `docs/`. NO monorepo,"* on
-   exactly the ground that the second consumer had not materialized — while leaving the door
-   open: *"extractable to a shared package later if a desktop app ever materializes."*
-3. **Three hard technical blockers.** Tailwind v4 generates utilities by scanning **the
-   consumer's** source, so a package outside the docs `@source` scan emits no CSS at all.
-   `docs/` is not a root workspace member and installs from its own lockfile in its own
-   working directory, so a root-workspace UI package and its only consumer would resolve from
-   different trees. And the co-located-`package.json` toolchain split (Vite loads `dist/`,
-   tsc loads source — "non-deterministic by disk state") is already a recorded falsified
-   claim in `2026-07-08-library-shape-cadenza-vetrina.md:44-62`.
-4. **The in-tree precedent that works is not a package.** `components/diagnostics/` is a
-   shared UI layer with six consumers across site and studio, and it lives in `components/`.
+**On consumers, the owner's ruling (2026-09-07):** *"I consider the Playground and Studio
+separate users. More capabilities outside the Lattice will be introduced now that Laticent is
+born."* So the "second consumer has not materialized" premise that carried the 2026-06-09
+`NO monorepo` call no longer holds — not because the desktop app shipped, but because the
+count was wrong at the time and is getting wronger. The Playground and the Studio are two
+apps sharing a folder.
 
-The extraction cost stays low if you ever want it: only **two** imports in all 36 `ui/` files
-escape both `ui/` and npm (`panel.tsx:10-11`).
+**On the technical blockers — I was wrong, and the repo already disproves me.** I argued a
+package could not work because Tailwind v4 generates utilities by scanning *the consumer's*
+source, and because `docs/` is not a root workspace member so a package and its consumer
+would resolve from different trees. Both dissolve under the topology already running here:
+
+> Root `workspaces` is `["docs/src/lib/cadenza", "docs/src/lib/lente", "docs/src/lib/suono",
+> "docs/src/lib/vetrina"]` — four real npm workspace packages, each with its own
+> `package.json`, dual CJS/ESM exports, emitted `.d.ts`, and an import-boundary gate — **living
+> inside `docs/src`** and consumed by the docs app through the ordinary `@/lib/*` path alias.
+
+Because the package sits inside `docs/src`, Tailwind's automatic content detection scans it
+like any other docs source (there is no `@source` directive in `docs/` at all), so utilities
+generate normally. Because it is consumed by path alias, there is no cross-tree resolution.
+And because it is *also* a workspace member, root CJS can require it by name the day
+something outside `docs/` needs it — which is exactly the seam Cadenza was extracted to open.
+
+**So: build the layer as a fifth workspace package under `docs/src/lib/`, with the boundary
+gate.** `checkVetrinaBoundary` (`tools/check-ownership.js:7215-7236`) is the template: it
+fails any import that is not relative, `node:*`, or an explicitly sanctioned dependency. For
+a UI package the sanctioned set is `react`, `react-dom`, `radix-ui`, `lucide-react`, `clsx`,
+`tailwind-merge`, `class-variance-authority`. That gate is what keeps the layer extractable
+by construction rather than aspirationally — the same phrase the 2026-06-09 ruling used
+("authored cleanly enough to be extractable") and did not enforce.
+
+Three things it must carry that Vetrina did not have to:
+
+- **`cn` moves with it.** `@/lib/utils` is a 7-line wrapper over `clsx` + `tailwind-merge`
+  imported by 27 of the 36 `ui/` files. It belongs inside the package, re-exported.
+- **`@/lib/overlay-back` and `@/lib/use-breakpoint`** (`panel.tsx:10-11`, one file each) either
+  move in or become injected. They are the only other host escapes.
+- **The token bridge stays in the consumer.** `tailwind.css`'s `@theme inline` maps shadcn
+  semantics onto live Lattice palette tokens on `<html>`; it is a stylesheet the app owns, not
+  a package artifact. Move 1's dimensional tokens join it there. The package consumes tokens;
+  it does not define the palette.
+
+**What this does not authorize:** publishing to npm, or a `packages/` monorepo move at the
+root. Both remain non-goals (`2026-07-08-library-shape-cadenza-vetrina.md:19`). The four
+existing libraries are workspace-internal with publish-ready shape, and that is the shape
+being copied.
+
+## The decisions (owner, 2026-09-07)
+
+1. **Packaging** — the Playground and Studio count as separate consumers and more are coming,
+   so the layer is built extraction-ready as a workspace package inside `docs/src/lib/`, per
+   the section above. This supersedes `2026-06-09-shadcn-migration.md` §0.2 on the consumer
+   count, not on the `packages/`-at-root or npm-publish non-goals.
+2. **Mandate — all React surfaces.** Studio, Playground, site, landing, components-ref, craft.
+   The ~2,300 lines of bespoke surface CSS stay out of scope for this line of work.
+3. **Enforcement — gate plus land-by-deletion.** A `checkAppUiCohesion` arm in
+   `tools/check-ownership.js` with a `SANCTIONED_*` allowlist that fails on stale entries (the
+   pattern rules #3, #20, #22, #26 and #29 already use; no new CI step, `build:check` runs it),
+   *and* the shipping rule that a primitive lands in the PR that deletes its alternatives.
+4. **Sequence — tokens, then primitives.** Move 1 first because the primitives cannot express
+   themselves without it; then adopt-and-delete (`PanelBody` ×10, docked `PanelHeader` ×4,
+   `PanelSection`), then build (`SettingRow`, `IconButton`, `SearchField`, `AppBar`).
 
 ## What I found that is broken independent of this decision
 
@@ -393,3 +450,37 @@ first PR of this work, since that PR is about exactly those claims.
   sweep that declared no holdouts.
 - **Whether the Tauri repo now has code** is the one input I cannot get from here, and it is
   the input decision 1 turns on.
+
+## Corrections applied after fact-check
+
+An independent pass re-derived every count against the tree: 63 claims confirmed, 14 refuted,
+13 unreproducible from the method as stated. The refutations are corrected in place above. The
+three that mattered, recorded because each would have shipped into Move 1 or Move 3:
+
+- **The header voice is 15px semibold (`panel.tsx:603`), not 13px.** 13px semibold is
+  `PanelSection`'s subhead (`:845`) — a different rank. Move 3 would have written one voice
+  into the spec under the other's number, authoring a fifth voice while retiring four.
+- **`@theme inline` maps 38 aliases, not 33; the type scale is 24 distinct sizes, not 26.**
+  Move 1 sizes the new token set against both.
+- **`docs/src/styles/` is 3,297 lines across 13 files, not ~3,300 across five** — and two of
+  the 13 are not bespoke surface CSS. Decision 2's scope line is stated against the corrected
+  footprint.
+
+Cheap corrections that did not move the argument: 77 checks defined in `check-ownership.js`
+(not 78); 12 `PanelHeader` render sites across 8 files (not 13, and not "only StudioShell and
+panel.tsx"); three host escapes from `ui/` (not two — `@/lib/utils` is the third, with 27
+importers); `PanelSection` has 3 consumers today (the "one consumer" is the docblock's
+historical claim); two 44px e2e assertions exist (neither covers a close button); the docked
+Inspector has a header, just not a `PanelHeader`; X icons run `size-3`–`size-5`, not to
+`size-6`.
+
+Counts the fact-check could not reproduce from the method as stated are now given with their
+method inline (`className="…"` literals in non-test `docs/src`) or dropped. The qualitative
+groupings — subhead voices, segmented-control shapes, the 34-surface panel census — are hand
+censuses and are labeled as such; their checkable components (12 `PanelSheet`, 5 non-`ui/`
+`SheetContent` owners, 10 `PanelBody` copies) all verified exactly.
+
+One live contradiction found in passing and not fixed here, since it is off this note's path
+(HARD RULE #18): `panel.tsx:684-687` still asserts that `focus-visible:` "scores (0,2,0) and
+takes it back" from the global focus ring, while `native-widgets.css:64-73` records that as
+measured false — unlayered beats layered at any specificity. Both comments ship today.
