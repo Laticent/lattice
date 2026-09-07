@@ -169,6 +169,20 @@ describe('deckContextKey — a one-slide deck, and the deck id', () => {
 		assert.equal(kind(before, after), SWAP_REFLOW);
 	});
 
+	test('a composite id distinguishes two views of the SAME deck', () => {
+		// The Studio passes `${deck.id}:${composeLens}`, because the reader lens decides WHICH
+		// slides the preview is showing. Two lenses whose sets differ only at the shown
+		// position compare every OTHER slide as equal — a different slide under the same
+		// index, which is the wrong-ink shape. The lens is part of the identity, so the
+		// switch is a reflow before the content half is even consulted.
+		const a = { index: 0, key: deckContextKey(deck(A, B, C), 0, 'd1:full') };
+		const b = { index: 0, key: deckContextKey(deck(B, B, C), 0, 'd1:exec') };
+		assert.equal(kind(a, b), SWAP_REFLOW);
+		// …and the same lens on the same deck still holds, so the fix costs no hold.
+		const c = { index: 0, key: deckContextKey(deck(A.replace('Input', 'Intake'), B, C), 0, 'd1:full') };
+		assert.equal(kind(a, c), SWAP_IN_PLACE);
+	});
+
 	test('the same deck id on a multi-slide deck does not mask a deck switch', () => {
 		// A stale id (a host that reuses one) must not defeat the content half.
 		const a = { index: 1, key: deckContextKey(deck(A, B, C), 1, 'same') };

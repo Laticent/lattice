@@ -3144,6 +3144,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// deck, where one authored slide becomes several sections and an index cannot name the shown
 	// slide. Then the preview renders this instead: the right slide, honestly numbered 1 of 1.
 	const editorSlideAlone = React.useMemo(() => previewFm + slide, [previewFm, slide]);
+	// THE DECK IDENTITY THE PREVIEW COMPARES, which is the deck AND the reader lens.
+	// `viewSlides` is the lens's set, so the lens is part of what "this deck" means here: two
+	// lenses whose sets differ only AT the shown position would key identically, because the
+	// key compares every slide except that one — a different slide under the same index, i.e.
+	// the wrong-ink shape the stamp exists to stop. Folding the lens in makes a lens switch a
+	// reflow outright. See lib/core/swap-kind.mjs.
+	const previewDeckId = `${deck.id}:${composeLens}`;
 	// DECK-scoped, not slide-scoped, and that is a frame-signature decision rather than
 	// a question about this slide. `mermaid` is folded into the srcdoc signature
 	// (single-slide-render.ts), so keying it on the SHOWN slide meant a text slide and a
@@ -4254,7 +4261,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<DeckPreview focused onCorner={setDeckCorner} options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} deckId={deck.id} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
+						<DeckPreview focused onCorner={setDeckCorner} options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} deckId={previewDeckId} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
 					</ErrorBoundary>
 				</div>
 			</div>
