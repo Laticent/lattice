@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit? Measured on the real engine in Chromium 131 — yes for prose in an HTML text block, no for anything else. CSS alone cannot do it (no adaptive clamp exists); a measured pass fixed 4 of the 6 clipping slides in the shipped corpus at 6ms per deck; and the existing `probeContentClipped` still reports every trimmed slide, so the honest alarm survives the guard rather than being silenced by it. The blockers are not implementation: 14 chart components carry their labels in SVG where CSS ellipsis is a no-op, a box that does not fit cannot be fixed by trimming text, and a naive cut hid two paragraphs with no mark at all. Proposes TRIM as a fifth Fit-Ladder move, gated by a per-slot trim class whose default is never-trim, and puts three forks to the owner.
+status: in-progress
+summary: Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit? Measured on the real engine in Chromium 131 — yes for prose in an HTML text block, no for anything else. CSS alone cannot do it (no adaptive clamp exists); a measured pass fixed 4 of the 6 clipping slides in the shipped corpus at 6ms per deck; and the existing `probeContentClipped` still reports every trimmed slide, so the honest alarm survives the guard rather than being silenced by it. The blockers are not implementation: 14 chart components carry their labels in SVG where CSS ellipsis is a no-op, a box that does not fit cannot be fixed by trimming text, and a naive cut hid two paragraphs with no mark at all. Proposes TRIM as a fifth Fit-Ladder move, gated by a per-slot trim class whose default is never-trim. The owner ruled on all three forks on 2026-09-07: admit TRIM selectively and default-off, compute the budget with a measured pass, and carry it as a deck front-matter register — see the Ruling section.
 ---
 
 # Guards — can an ellipsis prevent overflow?
@@ -300,3 +300,38 @@ property that usually has to be invented and here does not.
 The thing worth NOT doing is shipping a universal `strict` that trims whatever it
 finds. The measured runs show what that produces: a slide that looks correct and
 has lost two paragraphs with nothing on it to say so.
+
+---
+
+## 10. Ruling (2026-09-07)
+
+The owner settled all three forks in one round. Recorded here so a future
+session does not re-open them.
+
+| Fork | Ruling |
+|---|---|
+| Is TRIM admitted? | **Yes — selective, default-off.** A fifth Fit-Ladder move between SPLIT and FLOOR. It fires only on slots declared trimmable; an undeclared slot never trims. |
+| Where does the line budget come from? | **A measured pass**, the one tested here. Declared per-slot CSS budgets were considered and not taken: the census puts their reach at 30 components cleanly and 28 not at all. |
+| Deck register or export setting? | **A deck front-matter register**, `guards:`. This overrides the 2026-07-30 ruling that overflow presentation belongs to the render target, for this key. That note needs amending in the change that ships `guards:`, not working around. |
+
+**What the ruling commits us to, beyond the register itself.** Three canonical
+statements now say something different from what the engine will do, and each
+gets edited in the same change that ships the code, never after:
+
+- `design/forms.md` §6 — "the honest pair for a fixed page is clip + ring" gains
+  a third member, and the fade rejection stays (its PDF-transparency ground still
+  holds and an ellipsis does not share it).
+- `2026-06-22-the-fit-spine.md` axiom 4 — "delivered content is never silently
+  lost" becomes explicit that a TRIM is not silent: the mark is on the slide and
+  `probeContentClipped` still reports it.
+- `2026-07-22-structure-derived-split-patterns.md:315` — "never '…'" becomes
+  "never '…' without an author asking for it".
+
+**The acceptance test is section 4d**, not the happy path. An implementation
+that cannot place a visible ellipsis at the cut must decline and leave the
+honest clip. A slide that looks finished and is missing two paragraphs is the
+one outcome that is worse than the clip this replaces.
+
+**Not built.** This note records the investigation and the ruling. The
+implementation — the register, the trim classes, the measured pass on each
+render path, the demo deck and the tests — is separate work.
