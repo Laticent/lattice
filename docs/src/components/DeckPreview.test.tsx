@@ -14,6 +14,10 @@ const { renderInto, dispose } = vi.hoisted(() => ({
 			_extra?: { name: string; css: string },
 			_modeOverride?: 'light' | 'dark',
 			_extraCss?: string,
+			// The slide-context bag — `slideIndex`/`slideCount`/`slideMarkdown`/`deckId`/`focused`.
+			// Declared here because the arms below assert what the component puts in it; without
+			// it the tuple has no index 7 and the assertions do not typecheck.
+			_slide?: { slideIndex?: number; slideCount?: number; slideMarkdown?: string; deckId?: string; focused?: boolean },
 		) => Promise.resolve({ ok: true, slides: 1, error: null as string | null }),
 	),
 	dispose: vi.fn(),
