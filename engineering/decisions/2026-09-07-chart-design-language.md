@@ -1,0 +1,236 @@
+---
+status: in-progress
+summary: The chart family shares tokens, kernels and a frame and still reads as several authors — because the shared layer stops at COLOR. Census of what all 21 members actually paint (type register, fill finish, axis furniture, key model, interaction handles), and the brief for a single chart design language covering all 21 across cuoio / indaco / onyx / an a11y theme, light and dark, screen and print.
+last-updated: 2026-09-07
+companion:
+  - ../../lib/components/chart/_chart-family/chart-family.style.md
+  - ../../lib/components/chart/_chart-family/chart-family.docs.md
+  - 2026-08-09-color-theme-ownership.md
+  - 2026-07-16-universal-texture-channel.md
+---
+
+# A single design language for the chart family
+
+**Date:** 2026-09-07 · **Status:** census settled; design brief open.
+
+## Question
+
+The chart bucket ships 21 members. They share a token layer (`--chart-cat*`,
+`--state-*`), two render kernels (`cartesian.js`, the SVG builders), one frame
+(`.chart-frame`) and one legend builder — and they still do not read as one
+system. Charts.js, Datawrapper, Highcharts and the FT's chart doctrine all have
+something Lattice does not: **a design language above the palette** that says how
+a mark is filled, what furniture a plot draws, how a category is named, and how
+the whole thing behaves when you touch it.
+
+**What is the language, and what does every member owe it?**
+
+This is the engine's self-owned diagramming feature. It is not a styling pass.
+
+## What is already settled, and is NOT in scope
+
+Three things are mature, gated, and must be *reused* rather than redesigned. A
+track that proposes replacing any of them is answering a different question.
+
+- **The categorical + semantic palette.** `--chart-cat1..8` and
+  `--chart-state-{pass,warn,fail,info,mute}`, each a `light-dark()` pair, curated
+  per theme against a documented recipe (`chart-family.style.md`), gated by
+  `test/unit/palette/chart-contrast.test.js` and graded by `npm run scorecard`.
+  All 13 themes are curated to standard. **The tokens are not the problem.**
+- **Who owns color.** `2026-08-09-color-theme-ownership.md` settles engine vs.
+  theme vs. deck. The language is palette-blind; it spends `var(--token)` only
+  (HARD RULE #3).
+- **The texture channel.** `--cat-N-texture` already exists as the non-color
+  channel for themes that cannot separate by hue (`2026-07-16`). The gap is
+  coverage, not mechanism — see below.
+
+## The census — what each member actually paints
+
+Measured, not read off the source: `tools/chart-language-census.js` opens the
+rendered gallery in a real browser and reads `getComputedStyle` on every text
+node and every data mark inside each `section.chart-frame`, after the cascade,
+after `light-dark()`, after `color-mix()`. Re-run it to reproduce any number
+here; run it again after the work to see what moved.
+
+```
+node tools/chart-language-census.js --json /tmp/census.json
+```
+
+### Type — largely coherent, two real splits
+
+This is the axis that *looks* broken and mostly is not, which is why it needed
+measuring. The five semantic text roles resolve to one face each across every
+member that prints them:
+
+| Role | Face | Members |
+|---|---|---|
+| `value` | Playfair (display) | bar, bullet, funnel, slope, stacked-bar, word-cloud |
+| `category` | Outfit (body) | 11 members |
+| `series` | Outfit (body) | line, slope, stacked-bar |
+| `legend` | JetBrains (label/mono) | map, piechart, radar |
+| `tick` | JetBrains (label/mono) | bullet, line, quadrant, radar, scatter, stacked-bar, waterfall |
+
+A bar chart printing a serif `$4.2M` beside a scatter printing mono `80%` is not
+two type systems — it is two *different roles*, each painted correctly. What is
+genuinely wrong is narrow:
+
+1. **`axis-title` is split.** quadrant paints Outfit; scatter, slope and
+   stacked-bar paint JetBrains uppercase-tracked. One of the two is wrong.
+2. **`tick` is split inside a single chart.** radar carries both JetBrains and
+   Outfit ticks in one figure.
+
+**Consequence for the brief:** the type system is close to right. The language
+should *ratify* the five roles, fix the two splits, and then say the harder
+thing the current system does not — **which roles a member is obliged to print**,
+because "which subset each chart happened to use" is the actual source of the
+mixed impression.
+
+### Fill — genuinely incoherent, on two incompatible axes
+
+| Paint shape | Members |
+|---|---|
+| flat | 17 |
+| linear-gradient (vertical wash) | bar, gantt, progress, state-chart, timeline-list, waterfall |
+| **radial-gradient (dome)** | **piechart, quadrant, radar** |
+| none (unfilled mark) | journey, line, slope |
+
+Nine members carry a gradient, against a flat majority of 17 — and the nine are
+split across two axes that cannot be reconciled by eye: a **vertical wash** on
+the bar/tile family and a **radial dome** on the solid-area family. Eight members
+mix two shapes *within one chart* (gantt, state-chart, waterfall, piechart,
+quadrant, radar, line, slope).
+
+`chart-family.style.md` § Fill finish already documents this as deliberate — the
+dome is "the base: charts that radiate from a center take a center-out fade" —
+**and already records the counter-proposal as prototyped and held**:
+
+> A flatter top→bottom wash for the solid-area pair (matching the bar family)
+> was prototyped — it reads cleaner / more uniform, at the cost of the
+> dimensional read. It is held as a future opt-in variant, not shipped: when
+> built it should apply family-wide to the pie *and* quadrant together.
+
+So "kill the gradient on pie and quadrant" is not a new idea in this repo; it is
+a shelved one. The brief's job is to decide it on the merits, family-wide, rather
+than per member — and to decide it for the **vertical wash too**, which the held
+variant never questioned.
+
+**The quadrant is the sharpest case.** Its four zone tints are the loudest thing
+on the slide while carrying the least information — the zones are *reference
+regions*, the dots are the data. Whatever the language says about gradients, a
+mark must out-rank its own backdrop.
+
+### Furniture — incoherent
+
+| Member | gridlines | axis line | polar web |
+|---|---|---|---|
+| bullet, scatter, stacked-bar, waterfall | ✓ | ✓ | |
+| line, matrix-grid | ✓ | | |
+| radar | | | ✓ |
+| **bar** | | | |
+| quadrant, funnel, gantt, map, piechart, slope, … | | | |
+
+A **bar chart that draws neither a gridline nor an axis** sits beside a bullet
+chart that draws both. Nothing in the current system says which a member owes.
+
+### Key — three models, no rule
+
+- **legend rail** (8): gantt, journey, map, matrix-grid, piechart, radar, roadmap, state-chart
+- **direct labels** (4): line, scatter, slope, stacked-bar
+- **nothing** (9): bar, bullet, funnel, kanban, progress, quadrant, timeline-list, waterfall, word-cloud
+
+`chart-family.css` already states the principle — "Direct labels beat a legend
+whenever they fit, so this is a first-class register, not a fallback" — but no
+member is held to it. The language should make the choice a *rule keyed on the
+data shape*, not a per-member accident.
+
+### Interaction handles — uneven, and the contract doc is stale
+
+| | Members |
+|---|---|
+| mark-detail popover wired | 14 of 21 |
+| **no popover** | journey, kanban, matrix-grid, progress, roadmap, timeline-list, word-cloud |
+| **cannot animate — no `<svg>` at all** | kanban, matrix-grid, progress, roadmap, timeline-list |
+
+`chart-motion` (`docs/src/lib/chart-anima.ts` `chartToScene`) animates the first
+`<svg>` in the section, so **a member with no SVG is not "mostly supported", it
+is silently skipped** — the chart looks right and never moves.
+`chart-family.docs.md` § "Motion + mark-detail support, by member" documents this
+correctly but **lists none of the eight cartesian members added since**, so the
+one table an author would consult is stale.
+
+### Accessibility + print — 9 of 21 covered
+
+`themes/a11y-base.css` and `lib/base/base.print-textures.css` texture the same
+nine members: bar, funnel, line, piechart, radar, scatter, slope, stacked-bar,
+waterfall. The two surfaces agree with each other — the gap is that **twelve
+members have no non-color channel at all**.
+
+Some of the twelve are defensible: gantt, progress, state-chart and timeline-list
+encode *status*, and onyx's curation argues meaning there is carried by value
+plus the pill's text label rather than by hue. **Six are not defensible** —
+quadrant, map, matrix-grid, kanban, word-cloud and bullet all encode
+**categories** in large color areas with nothing behind the color. On
+`a11y-achromatopsia` or a monochrome board printout, those charts lose their
+categorical read entirely.
+
+## The brief
+
+Design **one chart design language** — a spec layer above the existing palette —
+that all 21 members implement, and that holds up across cuoio, indaco, onyx and
+an a11y theme, on light and dark canvases, on screen and in print.
+
+It must answer, as *rules keyed on data shape*, not per-member preferences:
+
+1. **Mark & fill.** One fill finish system. Does a gradient survive at all; if
+   so on which axis, at what strength, and why is it not decoration? How does a
+   mark stay louder than its own backdrop (the quadrant test)?
+2. **Type.** Ratify the five roles; fix the `axis-title` and radar `tick` splits;
+   state which roles each member is *obliged* to print.
+3. **Furniture.** Which members owe gridlines, an axis line, a baseline, tick
+   marks — keyed on whether the reader must compare magnitudes, read a level, or
+   only rank.
+4. **Key.** When direct labels, when a rail, when nothing.
+5. **Motion.** One vocabulary of build behaviors keyed on chart archetype
+   (a pie reveals whole, a funnel staggers top-down, a line draws along its
+   path), plus what the five non-SVG members do — restructure to SVG, or get a
+   declared, documented CSS build.
+6. **Detail reveal.** Which members owe a popover, on what authored grammar, and
+   what the print fallback is for members that gain one.
+7. **The non-color channel.** How texture, value and shape carry category for
+   the six uncovered categorical members, on a11y themes and in print.
+8. **The token question.** The palette layer exists. Does the language need
+   *new* primitives (mark weight, grid weight, fill strength, elevation, motion
+   timing) aliased over what ships — and if so, what is the smallest set that
+   makes every rule above expressible in `var(--token)` (HARD RULE #3)?
+
+### Constraints a proposal must respect
+
+- **HARD RULE #1** — transforms land in the shared kernel, never one render path.
+- **HARD RULE #3** — no hex literals in layout CSS; every color via `var(--token)`.
+- **HARD RULE #4** — typography is the 12-token `--fs-*` role scale; the chart
+  family's `--chart-text-min` floor is a minimum, not a new role.
+- **HARD RULE #20** — no `margin` in engine layout CSS; `padding` / `gap` only.
+- **HARD RULE #29** — no typed shape glyphs on a rendered surface; the
+  `--mark-*` / `--shape-*` SVG mask tokens carry shapes.
+- **Print renders the final frame**, always. No motion design may change the
+  PDF/PPTX bytes of an existing deck.
+- **The palette is not up for redesign** (see "already settled" above).
+
+### How a proposal is judged
+
+- Does it read as **one system** across all 21 members, or only across the
+  members it chose to discuss?
+- Does every rule key on **data shape** rather than on a member's name?
+- Does it survive **onyx** (value, not hue) and **a11y-achromatopsia** (no hue at
+  all), not just cuoio and indaco?
+- Does it survive **print** (no motion, no hover, possibly no color)?
+- Is every rule expressible in existing or proposed **tokens**, so a theme can
+  still curate?
+- What does it **cost** — how many members change, how much of the gallery
+  churns, what breaks?
+
+## Status
+
+Census complete and reproducible (`tools/chart-language-census.js`). Design
+brief open; candidate languages to be generated, judged and picked before any
+implementation.
