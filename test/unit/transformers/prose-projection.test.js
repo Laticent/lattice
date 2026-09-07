@@ -968,6 +968,30 @@ test('team-profile: a roster row wraps its words, so nested note markup lays out
 		'the name and role live INSIDE the wrapper, never as bare flex items of the row');
 });
 
+test('team-profile: EVERY roster row gets the wrapper, non-person rows included', () => {
+	// The row is a flex box, so an unwrapped row blockifies its inline markup into flex
+	// items: a sentence with `<strong>` and `<em>` was torn into three boxes with 0.6em
+	// gutters, measured as "PLAIN  bold  and  ital  text". The person rows were wrapped
+	// first and the non-person ones were not, which is exactly the asymmetry a reviewer
+	// asked about — one shape for every row in the list is the answer.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Ada</span></span></li><li id="keep">PLAIN <strong>bold</strong> text</li></ul>\n';
+	const { html } = engine.render(md, 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	const doc = new JSDOM(`<body>${articleHtml}</body>`).window.document;
+	const rows = [...doc.querySelectorAll('ul.lp-roster > li')];
+	assert.equal(rows.length, 2, 'both rows survive');
+	for (const [i, li] of rows.entries()) {
+		assert.equal(li.querySelectorAll(':scope > div').length, 1, `row ${i} carries exactly one wrapper`);
+		assert.equal(li.querySelectorAll(':scope > strong, :scope > em').length, 0,
+			`row ${i} has no bare inline flex children`);
+	}
+	assert.match(articleHtml, /PLAIN/, 'the non-person text survives');
+	assert.match(articleHtml, /<strong>bold<\/strong>/, 'and keeps its inline markup');
+	// The author's own attributes ride along — the wrapper goes INSIDE the li, not around it.
+	assert.match(articleHtml, /<li id="keep">/, "the non-person row keeps its own attributes");
+});
+
 test('team-profile: an image-only name still ships into Read·Article', () => {
 	// The `<strong>` wrap is gated on the name having TEXT, so an image does not end up
 	// inside a `<strong>`. Gating the whole name on that dropped an author's
