@@ -2,10 +2,18 @@
  * pigment · etching · ground — the three finishes, per the winning design
  * (Track 3, "Reach and Retreat"), rendered on today's members.
  *
- * THE SEPARATION LEVER IS MARK BODY DEPTH — 82 / 30 / 50 — which is present on
- * 20 of 21 members and needs no gradient, no furniture and no frame. That is
- * what makes the three tellable apart on a scatter plot and a funnel, the test
- * the previous four-finish attempt failed.
+ * STATUS: MEASURED AND FOUND SHORT. Read `scoring.md` before using this. As
+ * written these three reach FIVE of twenty-one members, because every selector
+ * here names `[data-cat]` and only bar, bullet, line, scatter and stacked-bar
+ * emit it. `pigment` and `etching` render pixel-identical on 19 of 22 gallery
+ * slides. The looks are not the problem; the substrate is. Kept as the record
+ * of what the three are meant to be, and re-measurable in one command
+ * (`tools/chart-finish-divergence.js`) once a slot contract exists.
+ *
+ * THE SEPARATION LEVER IS MARK BODY DEPTH — 82 / 30 / 50. It was claimed here
+ * to be "present on 20 of 21 members"; measured, it is present on five. The
+ * claim came from reading the mark CLASSES off a census that did not report
+ * which ATTRIBUTE each mark keys its slot on — the arm that now exists.
  *
  * THE FLOOR — applies under every finish, because it is the correction, not a
  * style: every element that NAMES a mark wears that mark's hue, and every mark

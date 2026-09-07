@@ -413,6 +413,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/calibrate-capacity.js` | calibrate-capacity — find the ELEMENT COUNT a layout overflows at, per box |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/chart-colour-reach.js` | chart-colour-reach — how far does colour actually travel into a chart? |
+| `tools/chart-finish-divergence.js` | chart-finish-divergence — do two chart finishes actually LOOK different, and |
 | `tools/chart-language-census.js` | chart-language-census — measure what each chart-family member ACTUALLY paints. |
 | `tools/chart-mark-separation.js` | chart-mark-separation — can a reader still tell one category from another, |
 | `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |

@@ -24,6 +24,14 @@
  *             in-figure titles, or nothing
  *   marks     how many marks carry data-mark (popover) and data-anima-role
  *             (motion), the two interaction handles
+ *   keying    WHICH ATTRIBUTE a mark carries its slot on — data-cat, data-mark,
+ *             data-cell, data-s, or nothing. This is the arm that decides
+ *             whether a rule written against one attribute reaches a member at
+ *             all, and it is the one the first census did not have: a finish
+ *             spec written entirely against [data-cat] measured as a no-op on
+ *             most of the family, silently, because every selector simply
+ *             missed. A member with `none` cannot be reached by ANY attribute
+ *             selector; it needs an emitter change first.
  *
  * A census, not a gate. It fails on nothing and asserts nothing about what the
  * right answer is — it exists so a design argument starts from the same numbers
@@ -203,7 +211,17 @@ async function main() {
           '.scatter-bubble', '.kanban-card', '.gantt-bar', '.progress-fill', '.state-node',
           '.cell-state', '.cell-filled', '.cell-outlined', '.journey-face', '.wc-word',
           '.timeline-marker', '.bullet-measure', '.slope-bar', '.line-band', '.line-area',
+          // line, slope and timeline-list draw their marks with none of the
+          // classes above; without these three they reported no mark at all,
+          // which reads as "nothing to style" rather than "not looked for".
+          '.line-path', '.line-dot', '.slope-line', '.slope-dot', '.chart-status',
         ].join(', ');
+        // The class half of markSel, for grouping a mark by what a rule could
+        // actually name it: the attribute half selects marks that carry a slot,
+        // which is the very thing the keying arm below is measuring.
+        const MARK_CLASSES = new Set(
+          markSel.split(', ').filter((x) => x.startsWith('.')).map((x) => x.slice(1)),
+        );
         for (const el of sec.querySelectorAll(markSel)) {
           const cs = getComputedStyle(el);
           const svgFill = el.getAttribute('fill') || cs.fill;
@@ -321,6 +339,23 @@ async function main() {
           : overlaps >= pairs * 0.5 ? 'layered'
           : 'partial';
 
+        // ── keying: which attribute a mark carries its slot on ─────────────
+        // A finish is a stylesheet, so its whole reach is decided here. Group
+        // by mark CLASS rather than by element: what a rule can select is a
+        // class plus an attribute, and a member whose bars carry data-s but
+        // not data-cat is invisible to a categorical rule no matter how many
+        // of them there are.
+        const SLOT_ATTRS = ['data-cat', 'data-mark', 'data-cell', 'data-series', 'data-s'];
+        const keying = {};
+        for (const el of sec.querySelectorAll(markSel)) {
+          const cls = [...el.classList].find((c) => MARK_CLASSES.has(c));
+          if (!cls) continue;
+          const attrs = SLOT_ATTRS.filter((a) => el.hasAttribute(a));
+          const k = attrs.join(',') || 'none';
+          ((keying[cls] ||= {})[k] ||= 0);
+          keying[cls][k] += 1;
+        }
+
         // ── key: how categories are named ──────────────────────────────────
         const key = [];
         if (has('[class*="chart-key"], .chart-legend, [class*="legend"]')) key.push('legend-rail');
@@ -339,6 +374,7 @@ async function main() {
           markCount: occMarks,
           type: Object.fromEntries(Object.entries(type).map(([k, v]) => [k, [...v].sort()])),
           fills: [...fills].sort(),
+          keying,
           grid,
           key,
           marks,
@@ -395,6 +431,30 @@ async function main() {
     const occ = `${m.occlusion || '?'}${m.markCount ? ' (' + m.markCount + ')' : ''}`;
     console.log(`  ${m.name.padEnd(14)} ${occ.padEnd(11)} ${(m.grid.join(' ') || '—').padEnd(28)} ${(m.key.join(' ') || '—').padEnd(24)} ${handles}`);
   }
+
+  // 4. Keying — what a stylesheet can actually reach.
+  console.log('\n\n── KEYING — which attribute a mark carries its slot on ' + '─'.repeat(26));
+  console.log('  A finish is CSS. Its reach stops at the attribute its selectors name.\n');
+  console.log(`  ${'member'.padEnd(14)} ${'mark class'.padEnd(20)}   n   slot attributes`);
+  const unreachable = [];
+  const noCat = [];
+  for (const m of [...report].sort((a, b) => a.name.localeCompare(b.name))) {
+    const entries = Object.entries(m.keying || {});
+    if (!entries.length) { console.log(`  ${m.name.padEnd(14)} ${'—'.padEnd(20)}   —`); continue; }
+    let first = true;
+    for (const [cls, byAttr] of entries) {
+      for (const [attrs, n] of Object.entries(byAttr)) {
+        const cat = attrs.split(',').includes('data-cat');
+        if (attrs === 'none') unreachable.push(`${m.name}/${cls}`);
+        else if (!cat) noCat.push(`${m.name}/${cls} (${attrs})`);
+        console.log(`  ${(first ? m.name : '').padEnd(14)} ${cls.padEnd(20)} ${String(n).padStart(3)}   ${attrs}${cat ? '' : attrs === 'none' ? '   ⟵ NO attribute selector can reach this' : '   ⟵ not data-cat'}`);
+        first = false;
+      }
+    }
+  }
+  const reach = report.filter((m) => Object.values(m.keying || {}).some((b) => Object.keys(b).some((k) => k.split(',').includes('data-cat'))));
+  console.log(`\n  ${reach.length} of ${report.length} members key a mark on data-cat: ${reach.map((m) => m.name).sort().join(', ') || '—'}`);
+  console.log(`  ${new Set(noCat.map((x) => x.split('/')[0])).size} members key on something else, ${new Set(unreachable.map((x) => x.split('/')[0])).size} on nothing at all.`);
 
   console.log('');
   if (args.json) {
