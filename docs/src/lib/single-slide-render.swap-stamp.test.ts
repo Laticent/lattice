@@ -161,6 +161,39 @@ describe('patchSlideBody stamps the swap kind the runtime acts on', () => {
 		expect(stamp(host)).toBe('reflow');
 	});
 
+	it('a ONE-SLIDE deck WITH a deckId holds an edit and refuses a switch — the whole host thread', async () => {
+		// Kills the mutant that drops `opts?.deckId` from the deckContextKey call: without
+		// the id threaded, both halves below stamp `reflow` and the first assertion fails.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const one = (t: string) => `# ${t}\n\nOnly slide.\n`;
+		const show1 = (deck: string, deckId: string) =>
+			r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 1, slideMarkdown: deck, deckId, focused: true });
+		await show1(one('alpha'), 'deck-1');
+		fakeLiveDocument(host);
+		await show1(one('alpha'), 'deck-1');
+		await show1(one('alpha edited'), 'deck-1');
+		expect(stamp(host), 'an edit of the only slide, same deck').toBe('in-place');
+		await show1(one('zulu'), 'deck-2');
+		expect(stamp(host), 'a switch to a different one-slide deck').toBe('reflow');
+	});
+
+	it('a CHANGED deckId alone forces a reflow, even with identical text', async () => {
+		// This is what the Studio's source epoch rides on: restoring a checkpoint on a
+		// one-slide deck keeps the deck and the lens, so the id's third component is the
+		// only thing that can say "different document". Identical text isolates it.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const deck = '# same text\n\nIdentical either side.\n';
+		const show1 = (deckId: string) =>
+			r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 1, slideMarkdown: deck, deckId, focused: true });
+		await show1('deck-1:full:7');
+		fakeLiveDocument(host);
+		await show1('deck-1:full:7');
+		await show1('deck-1:full:8');
+		expect(stamp(host)).toBe('reflow');
+	});
+
 	it('a render with no slideIndex stamps reflow — a specimen has no deck to compare', async () => {
 		// LayoutStudio, Fabricate and FieldCardsLive render one specimen without deck context.
 		const r = createSingleSlideRenderer(opts);

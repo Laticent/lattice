@@ -124,6 +124,18 @@ describe('deckContextKey', () => {
 		assert.notEqual(deckContextKey(deck(A, B, C), 0), deckContextKey(deck(B, C, A), 2));
 	});
 
+	test('the blank token is position-bearing — two IDENTICAL slides do not key equal', () => {
+		// The `-` is what makes the key encode WHERE the shown slide sits, and it is the
+		// reason `swapKindForSlide`'s index check can be called redundant. Replace it with
+		// '' and a deck of two identical slides keys the same at index 0 and index 1, so
+		// navigating between them would read as an edit. Unpinned until a checker mutated it.
+		// Slides 1 and 2 are BYTE-IDENTICAL chunks ("\ntwin\n" both), which the outer two
+		// slides make possible — a first or last chunk carries a different edge newline, so
+		// a two-slide fixture does not actually collide and pins nothing.
+		const twins = deck('head', 'twin', 'twin', 'tail');
+		assert.notEqual(deckContextKey(twins, 1, 'd1'), deckContextKey(twins, 2, 'd1'));
+	});
+
 	test('the encoding is injective — a moved separator cannot key equal', () => {
 		// Length-prefixed, not joined on a delimiter. THIS is the case that kills a plain
 		// join: two decks whose non-shown slides differ only in where a boundary falls

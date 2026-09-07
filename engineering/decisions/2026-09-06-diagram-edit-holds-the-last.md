@@ -187,7 +187,7 @@ position is not identity.**
 | Delete slide | unchanged | changed | `in-place` | a different slide arrives |
 | Open another deck | unchanged | may be equal | `in-place` | a different deck |
 | Reorder | unchanged | unchanged | `in-place` | two slides moved |
-| Checkpoint restore | unchanged | may be equal | `in-place` | possibly a different deck |
+| Checkpoint restore | unchanged | may be equal | `in-place` | possibly different content |
 | Edit the shown slide | unchanged | unchanged | `in-place` | correct |
 
 ### A one-slide deck has no context, and that is the shape every deck starts as
@@ -205,6 +205,21 @@ screen. So the host supplies `deckId` — the Studio's existing `deck.id`, threa
 an unknown, which is a reflow: a lost hold on single-slide previews, never a wrong one. The
 id never replaces the content half — a delete inside one deck keeps the id and is still
 caught, and a host that reused an id could not mask a deck switch.
+
+**A deck id is not enough on its own, and the sixth pass proved it on the real Studio.**
+Restoring a checkpoint keeps the same deck and the same lens, so on a ONE-SLIDE deck both
+keys read `${id}/${fm}/1/-` and the restore was stamped `in-place` — the outgoing diagram
+painted over the restored slide for ~150-300ms. Nothing in the *source* separates that from
+an edit; only the host knows a wholesale replacement happened. So the Studio's identity
+carries a **source epoch**, and the direction of its default is the whole design:
+`setSource` BUMPS the epoch, and only the editor's own `onChange` opts out. A replacement
+path somebody adds later and forgets about therefore produces a reflow — a lost hold, which
+is invisible — rather than the wrong diagram. Bumping only on the paths we remembered would
+have made every future omission a wrong-ink defect.
+
+The identity the live preview passes is `deck.id : lens : epoch`, and each of the three
+earns its place: the id separates decks, the lens separates two views of one deck whose sets
+differ only at the shown position, and the epoch separates a replacement from an edit.
 
 `deleteSlide` returns `clampIndex(i, slides.length - 1)` (`docs/src/components/studio/deck-ops.ts`),
 so deleting any slide but the last two keeps the active index — and the Studio's own
@@ -241,7 +256,7 @@ survived to a screenshot. `test/unit/core/swap-kind.test.js` now pins the decisi
 `*.swap-stamp.test.ts` pins each host's wiring; re-running that same mutation kills 4 of 5
 arms in each.
 
-**And the pinning was incomplete the first time it was called complete — again.** A fifth
+**And the pinning was incomplete every time it was called complete — three times now.** A fifth
 checker mutation-tested the fixes themselves and found three survivors: the full-write stamp
 could be deleted outright with all 112 of that module's tests still green; the arm claiming
 to prove the key's length-prefix encoding used inputs that stayed distinct under a plain
@@ -249,6 +264,16 @@ join, so it pinned nothing; and the runtime's own contract docblock still assert
 `rendered`-only donor rule that §4c deletes. Each has a real arm now — the boundary-collision
 pair (`a\n\nb`/`c` against `a`/`b\n\nc`, which concatenate identically) is the one that
 actually kills the plain-join mutant.
+
+A SIXTH pass then mutated the *host thread* rather than the kernel and found the same shape
+one level out: the whole `deckId` path — `StudioShell` composing it, `DeckPreview`
+forwarding it, `renderInto` consuming it — could be deleted with 9157 root and 3901 docs
+tests green, because every arm hand-wrote the id string instead of asserting a host produces
+it. The pattern is now explicit enough to name: **arms that FEED a component its input
+cannot pin the code that PRODUCES that input**, and each round of this change has rediscovered
+that at the next level out. The arms added for it drive the real hosts — `DeckPreview` under
+React with a `renderInto` spy, and the Studio itself through a preview stub that surfaces the
+id — so the thread is pinned end to end rather than at its far end.
 
 ## 4c. Holding through a burst, which is what typing is
 

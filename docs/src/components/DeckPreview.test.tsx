@@ -65,6 +65,28 @@ describe('DeckPreview — theme threading', () => {
 		expect(renderInto.mock.calls.length).toBe(before);
 	});
 
+	it('forwards deckId to the renderer, inside the slide-context opts', async () => {
+		// The host thread the preview's diagram-hold decides on: without this the id never
+		// reaches `deckContextKey`, and two different one-slide decks compare equal — one
+		// deck's diagram painted over the other's. Nothing asserted this until the sixth
+		// review pass showed the whole thread was deletable with every suite green.
+		render(<DeckPreview options={opts} sample="# A" mermaid={false} slideIndex={0} slideCount={1} slideMarkdown="# A" deckId="deck-7:full:3" aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		expect(renderInto.mock.calls.at(-1)?.[7]).toMatchObject({ slideIndex: 0, deckId: 'deck-7:full:3' });
+	});
+
+	it('re-renders when only the deckId changes — identical text, different document', async () => {
+		// A checkpoint restore on a one-slide deck changes nothing else, so if `deckId` is
+		// missing from the effect's dependency list the renderer is never re-invoked and the
+		// stale identity decides the swap.
+		const { rerender } = render(<DeckPreview options={opts} sample="# A" mermaid={false} slideIndex={0} slideCount={1} slideMarkdown="# A" deckId="deck-7:full:3" aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		const before = renderInto.mock.calls.length;
+		rerender(<DeckPreview options={opts} sample="# A" mermaid={false} slideIndex={0} slideCount={1} slideMarkdown="# A" deckId="deck-7:full:4" aria-label="p" />);
+		await waitFor(() => expect(renderInto.mock.calls.length).toBeGreaterThan(before));
+		expect(renderInto.mock.calls.at(-1)?.[7]).toMatchObject({ deckId: 'deck-7:full:4' });
+	});
+
 	it('forwards the modeOverride to the renderer', async () => {
 		render(<DeckPreview options={opts} sample="# A" mermaid={false} modeOverride="dark" aria-label="p" />);
 		await waitFor(() => expect(renderInto).toHaveBeenCalled());
