@@ -76,12 +76,18 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * WHERE THESE RUN. The whole file runs in the nightly tier (`studio-e2e-nightly.yml`,
  * 04:41 UTC, which greps out only `@perf`) — a new spec is nightly from the day it lands,
  * with no workflow change. But a net that only fires at 04:41 lets a regression sit on
- * `main` for a day, so three oracles also carry `@smoke` and run on the PR gate
- * (`studio-smoke` → `--project=desktop --grep @smoke`). They are the three whose defect is
+ * `main` for a day, so FOUR oracles also carry `@smoke` and run on the PR gate
+ * (`studio-smoke` → `--project=desktop --grep @smoke`). They are the ones whose defect is
  * SILENT — nothing on screen says it happened:
  *   · the BOM, which corrupts the deck source durably and survives a reload;
  *   · undo, whose loss removes the author's only route back from a mistake;
- *   · the rail label, which is the map the author steers the deck by.
+ *   · the rail label, which is the map the author steers the deck by;
+ *   · a new deck inheriting the previous deck's undo history — one ⌘Z and another deck's
+ *     document is in this one, on its way into this one's autosave.
+ * That fourth one arrived with the deck-history change, and this paragraph said "three" for a
+ * while after it landed: a count in prose beside a tag the CI job greps for is a claim about
+ * what runs on every PR, so it is worth re-counting when a tag is added
+ * (`grep -c "^test('@smoke" docs/e2e/markdown-stress.spec.ts`).
  * The rest stay nightly: the Fix-all gate fails in front of you (you press a button and
  * watch nothing happen), and the 34-step walk's value is breadth over time rather than
  * per-PR latency.
@@ -97,6 +103,14 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  *   820  WebKit              10/10    same
  *   390  Chromium (± touch)   5/10    structural, and not a defect: see below
  *
+ * SCOPE, AND IT IS NOW NARROWER THAN THE FILE. These rows measure the TEN oracles this file had
+ * when #2064 shipped. The deck-history change added seven more (six deck/selection oracles and
+ * the caret→rail one), and they have NOT been driven at 820, 390, WebKit or Firefox — they were
+ * run on the shipped `desktop` project only. So the table is a true statement about ten of the
+ * seventeen tests here, not about the file; treat the rest as UNMEASURED on those surfaces
+ * rather than covered by it. Re-measuring is the recipe below, and one of the seven now runs on
+ * the PR gate, which makes it the first worth doing.
+ *
  * The table quotes PASS COUNTS, so adding an oracle makes it stale in a way nothing checks.
  * This row set is a re-measure of all ten AFTER the Quick-fix oracle below landed — not the
  * earlier nine-oracle run with a number patched. Re-measuring costs about seven minutes and
@@ -110,9 +124,10 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * THE PHONE IS A DIFFERENT SURFACE, and this is the measurement rather than a guess. At 390
  * the Studio shows ONE PANE AT A TIME — probed directly: by default the rail is visible and
  * the editor is not; reveal the editor through its `Markdown source` toggle and the rail goes.
- * Five oracles pass there — CR/CRLF folding, undo across Compose, the Compose carry, the Quick
- * fix (it never leaves the editor) and the reload round trip. The five that do not are blocked
- * by three different things, which is worth
+ * Of the TEN oracles measured there (see the scope note above — the seven added by the
+ * deck-history change were not), five pass — CR/CRLF folding, undo across Compose, the Compose
+ * carry, the Quick fix (it never leaves the editor) and the reload round trip. The five that do
+ * not are blocked by three different things, which is worth
  * stating precisely because an earlier draft of this paragraph said "must type in the editor
  * and then read the rail" for all of them and that is not what the failures say:
  *
@@ -327,6 +342,77 @@ function deckIds(page: Page): Promise<string[]> {
 			return [];
 		}
 	});
+}
+
+/** The persisted source of the deck the Studio is CURRENTLY showing, decoded.
+ *
+ *  `persistedDeck` (and the fixture's `persistedSource` under it) reads the FIRST
+ *  `lattice-studio-src-*` key `Object.keys` happens to yield, which is fine while a test edits
+ *  one deck and wrong the moment it has two — the fixture says so in its own docblock, and the
+ *  deck oracles below are its first deck-switching callers. A checker measured the consequence:
+ *  the autosave assertion in the deck-leak oracle passed 6/6 against a build where the leak HAD
+ *  reached the autosave, because the key it read belonged to the other deck half the time.
+ *
+ *  `lattice-studio-active` carries `{deckId}`, so this reads the right row every time. */
+async function persistedActiveDeck(page: Page): Promise<string> {
+	const raw = await page.evaluate(() => {
+		try {
+			const active = JSON.parse(window.localStorage.getItem('lattice-studio-active') ?? 'null');
+			const id = active && typeof active === 'object' ? String((active as { deckId?: unknown }).deckId ?? '') : '';
+			return id ? window.localStorage.getItem(`lattice-studio-src-${id}`) : null;
+		} catch {
+			return null;
+		}
+	});
+	if (!raw) return '';
+	try {
+		const v = JSON.parse(raw);
+		return typeof v === 'string' ? v : raw;
+	} catch {
+		return raw;
+	}
+}
+
+/** Wait until the autosave has CAUGHT UP with the editor, then hand back what it stored.
+ *
+ *  Asserting "the leak never reached the store" needs the store to have been written at all:
+ *  `StudioShell` persists on a 400ms debounce, and `expect.poll(...).not.toContain(x)` is
+ *  satisfied by its FIRST sample — which lands before the write it is meant to rule out, so it
+ *  asserts that something which has not happened yet did not happen. A fixed sleep would cover
+ *  that and is barred here for good reason (a guessed interval on a loaded box), so this polls
+ *  the real signal instead: persisted === document means the debounce fired and this is its
+ *  output. Under a build that leaks, the leaked text is in the document, so this waits for the
+ *  store to receive it and the caller's assertion then fails on what was really written. */
+async function persistedAfterAutosave(page: Page): Promise<string> {
+	await expect
+		.poll(async () => (await persistedActiveDeck(page)) === (await editorDoc(page)), { message: 'the autosave never caught up with the editor' })
+		.toBe(true);
+	return persistedActiveDeck(page);
+}
+
+/** Open an EXISTING deck by title through ⌘K. `newDeck` makes a fresh one; this one switches to
+ *  a deck that already has content, which is what a test needs when it must not edit after the
+ *  switch. Witnessed through the editor's document changing, because the palette closes before
+ *  the new deck's source has reached the view. */
+async function openDeck(page: Page, title: string): Promise<void> {
+	const before = await editorDoc(page);
+	await page.keyboard.press('ControlOrMeta+k');
+	await page.getByRole('option', { name: title }).first().click();
+	await expect.poll(() => editorDoc(page), { message: `the deck "${title}" never opened` }).not.toBe(before);
+}
+
+/** The 1-based editor line on which slide `n` starts, read from the live document. Computed
+ *  rather than hardcoded: the built-in decks are content that changes, and a hardcoded line
+ *  number would rot into a test that clicks the wrong slide and still passes. */
+async function slideStartLine(page: Page, n: number): Promise<number> {
+	const doc = await editorDoc(page);
+	const body = stripFrontMatter(doc);
+	const offset = doc.length - body.length;
+	const chunks = splitSlides(body);
+	expect(chunks.length, `the deck has no slide ${n + 1}`).toBeGreaterThan(n);
+	const at = body.indexOf(chunks[n]);
+	expect(at, `slide ${n + 1} was not locatable in the document`).toBeGreaterThanOrEqual(0);
+	return doc.slice(0, offset + at).split('\n').length;
 }
 
 async function toCompose(page: Page): Promise<void> {
@@ -961,7 +1047,7 @@ test('the deck source survives a reload byte for byte', async ({ page }) => {
 //
 // THIS ORACLE FAILED ~1 RUN IN 10, and only in the full file at two workers — never in
 // isolation. Two earlier fixes were declared green on that nothing. If it goes red again, the
-// failure is the product's and the load is what exposed it: re-read the deck-history section of
+// failure is the product's and the load is what exposed it: re-read §10 and §11 of
 // `2026-09-05-markdown-pane-fuzz-findings.md` before touching the test.
 //
 // REDO IS `Ctrl+Shift+Z`, and the two wrong answers that came before it are why every oracle
@@ -1124,10 +1210,58 @@ test('an undo history does not cross decks WITHOUT a Compose detour', async ({ p
 	// account had it, the reason a redo "does not fire" (see the block above the deck oracles).
 	await page.keyboard.press('ControlOrMeta+Shift+z');
 	expect(await editorDoc(page), 'a redo replayed another deck’s edit into this one').not.toContain('CARRYLEAK');
-	// …and it did not reach the autosave either, which is the durable half of the harm.
+	// …and it did not reach the autosave either, which is the durable half of the harm — and this
+	// assertion was VACUOUS in two independent ways until a checker measured it against a broken
+	// build, where it passed 6/6 while the leak really was reaching the store. Both are fixed
+	// here and both are worth naming, because either alone is enough to certify nothing:
+	//   · a `.poll(...).not.toContain()` is satisfied by its FIRST sample, which lands ~0ms after
+	//     the keypress — before the 400ms autosave debounce has written anything at all. So it
+	//     asserted "the write that has not happened yet did not happen". `persistedAfterAutosave`
+	//     waits for the store to agree with the document, which is the write actually landing.
+	//   · `persistedDeck` reads whichever `lattice-studio-src-*` key `Object.keys` yields first,
+	//     and this test has two decks. Measured, it read the OTHER deck's row on 3 of 6 runs.
+	//     `persistedActiveDeck` resolves the id through `lattice-studio-active` instead.
+	const stored = await persistedAfterAutosave(page);
+	expect(stored, 'another deck’s edit reached this deck’s saved source').not.toContain('CARRYLEAK');
+	expect(stored, 'witness: this deck really has a saved source to read').not.toBe('');
+});
+
+// ── THE CARET→RAIL CHANNEL SURVIVES A DECK SWITCH ──────────────────────────
+// The THIRD channel the per-deck rebuild disturbs, and a checker found it had no oracle at all:
+// delete the re-statement in `Editor.tsx` and the whole repo stays green — 2010 studio unit
+// tests, all 16 oracles in this file, the lot. Unproven code reads exactly like proven code
+// from a test report, which is the failure this file exists to stop.
+//
+// THE MECHANISM. `lastSlideRef` is the editor's memory of which slide the caret was in, and it
+// lives on the COMPONENT, so a rebuild does not clear it. Park the caret in slide 2 of deck A
+// and it holds 1. Switch decks: the shell resets its own `activeSlide` to 0, but the ref still
+// says 1 — so moving the caret into slide 2 of the NEW deck reads `idx === lastSlideRef` and is
+// swallowed as "no change". The rail and preview sit on slide 1 while the caret is in slide 2.
+// On `main` this could not happen: the wholesale-replace branch set the ref to 0 itself. The
+// rebuild is what removed that, so it is this change's window to close (#18), not a pre-existing
+// one to log.
+test('the caret still drives the rail after a deck switch', async ({ page }) => {
+	// Park the caret in slide 2 of the boot deck. `revealSlide` sets `lastSlideRef` to 1 directly.
+	await railClick(page, 1);
+	await expect.poll(() => railState(page).then((r) => r.index), { message: 'witness: the rail followed the click to slide 2' }).toBe(1);
+
+	// Switch to another EXISTING multi-slide deck and do not type into it. `loadDeck` resets the
+	// shell's `activeSlide` but never calls `revealSlide`, so nothing but the re-statement under
+	// test clears the ref.
+	await openDeck(page, 'Q3 Board Review');
+	await expect.poll(() => railState(page).then((r) => r.count), { message: 'witness: the deck that opened has slides to move between' }).toBeGreaterThan(1);
+	await expect.poll(() => railState(page).then((r) => r.index), { message: 'witness: the new deck starts on its first slide' }).toBe(0);
+
+	// INTO SLIDE 2 SPECIFICALLY, because 1 is the value the stale ref holds. Two earlier versions
+	// of this test drove the caret to slide 1 and to the last slide and passed against a build
+	// with the re-statement DELETED — neither index collides with the stale one, so neither emit
+	// was swallowed. The defect is `idx === lastSlideRef` eating a real move; the only caret
+	// position that exposes it is the one the ref is stuck on.
+	const line = await slideStartLine(page, 1);
+	await caretIntoLine(page, line);
 	await expect
-		.poll(() => persistedDeck(page), { message: 'another deck’s edit reached this deck’s saved source' })
-		.not.toContain('CARRYLEAK');
+		.poll(() => railState(page).then((r) => r.index), { message: 'the caret moved into slide 2 and the rail stayed behind' })
+		.toBe(1);
 });
 
 // The same invariant across the OTHER route — the Compose round trip, where the editor
