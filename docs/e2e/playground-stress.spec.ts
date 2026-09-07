@@ -657,6 +657,113 @@ test('a single jumping scroll inside the step guard is not stranded', async ({ p
 	await expectPositionIsTruthful(page, 'a single jumping scroll inside the guard window');
 });
 
+test('Next on a COLD load steps, instead of being reconciled back to the title', async ({ page }) => {
+	// The plainest interaction on the surface, and the position-truth machinery ate it. The
+	// walk bar mounts long before the deck does; a click in that window reaches `scrollWalk`
+	// while the frame still has ZERO sections, so it returns without scrolling and without
+	// arming its guard — and the land in flight read "the reader took over", stood down, and
+	// reconciled the index back to the slide the deck had never left. Measured 3 runs in 8 at
+	// 1440x900: the bar went "1 / 13" -> "2 / 13" -> "1 / 13" in 11ms.
+	//
+	// It waits for the WALK BAR, not for the deck — deliberately. `gotoExplore` settles first,
+	// which closes the very window this is about.
+	//
+	// THROTTLED, because the window is narrow — and this arm is HONESTLY PROBABILISTIC, which
+	// is worth stating rather than dressing up. Reproducing needs two things true at once: the
+	// frame must still have zero sections (so `scrollWalk` finds no target) AND a land must
+	// already be in flight (so there is something to stand down). Nothing in the page exposes
+	// the second, and every attempt to synchronize on a proxy for it closed the first: once
+	// the frame's `.lattice` root exists, all 13 sections exist with it, and `scrollWalk`
+	// works. So the arm runs the real cold interaction under 6x CPU throttling and catches the
+	// regression 2 runs in 8; the fix is proved by the pair of measurements in the decision
+	// record (3 in 8 hand-driven before, 0 in 10 after), not by this one run.
+	//
+	// The SECOND arm is not in this file: `playground-explore.spec.ts`'s
+	// "@crosswidth stepping walks the plan and the URL carries the position" does the same
+	// cold Next unthrottled and went red 1 run in 4 while this was broken. Two independent
+	// arms at ~25% each is what this defect gets; a third would not change the merge decision.
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+	await page.goto(`/playground/?c=${DECK}&view=read`, { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toContainText('1 / ');
+	await nextSlide(page).click();
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+	await settle(page);
+	await expect(page.locator('#pg-walk .pg-walk-pos'), 'the step was reconciled away').toContainText('2 / ');
+	await expectPositionIsTruthful(page, 'a step taken before the deck had any slides');
+});
+
+// ── The touch floor ────────────────────────────────────────────────────────────
+
+/**
+ * Every control on the Playground's chrome, with its measured box — one query, so a new
+ * control that forgets the floor is caught by the same assertion as the existing ones.
+ * `.pg-page`-scoped on purpose: the shared site header's icons are 32x32 across every page
+ * on the site, which is a separate decision with a much wider blast radius than this file.
+ */
+async function chromeTargets(page: Page) {
+	return page.evaluate(() => {
+		const sel = 'button, [role="combobox"], [role="tab"], a[href]';
+		const out: { label: string; w: number; h: number }[] = [];
+		for (const el of document.querySelectorAll<HTMLElement>(`.pg-page ${sel}`)) {
+			if (el.closest('header')) continue;
+			const r = el.getBoundingClientRect();
+			if (r.width === 0 && r.height === 0) continue;
+			const cs = getComputedStyle(el);
+			if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+			out.push({ label: (el.getAttribute('aria-label') || el.textContent || el.className || '?').trim().slice(0, 40), w: +r.width.toFixed(1), h: +r.height.toFixed(1) });
+		}
+		return out;
+	});
+}
+
+const under44 = (t: { label: string; w: number; h: number }[]) => t.filter((c) => c.w < 44 || c.h < 44).map((c) => `${c.label} ${c.w}x${c.h}`);
+
+test('@parity every Playground control clears the 44px touch floor on a coarse pointer', async ({ page }) => {
+	// The floor was keyed on WIDTH (<=820px) and stopped at 40px, so nine controls sat under
+	// it on a phone and a tablet got none of the rule at all — an iPad Pro 11 in portrait is
+	// 834 CSS px. A finger is the same size at 834 as at 393, so the rule is keyed on
+	// `(pointer: coarse)` now, exactly as `ui/dialog.tsx`, `ui/sheet.tsx` and
+	// `studio/editor-theme.ts` already key theirs.
+	//
+	// THIS ARM IS THE POINTER ONE. On `desktop-touch` the viewport is 1440 wide, so the
+	// surviving width arm cannot be what satisfies it — only the coarse-pointer query can.
+	await gotoExplore(page);
+	// `@parity` also runs on the fine-pointer `desktop` project, where the compact 32px chrome
+	// is correct and there is nothing here to assert.
+	const coarse = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
+	test.skip(!coarse, 'fine pointer — the compact chrome is the right answer here');
+	expect(under44(await chromeTargets(page)), 'controls under the 44px floor').toEqual([]);
+});
+
+test('@mobile the touch floor survives at a phone width with a fine pointer', async ({ page }) => {
+	// The width arm is the second half of the OR and it is load-bearing: a desktop browser
+	// narrowed under 820px gets the same tabbed single-pane form, and dropping the arm would
+	// have shrunk the mode toggle 48x40 -> 36x32 there.
+	await gotoExplore(page);
+	expect(under44(await chromeTargets(page)), 'controls under the 44px floor').toEqual([]);
+});
+
+test('@webkit-phone every Playground control clears the touch floor on a real iPhone', async ({ page }) => {
+	// The claim is about a real phone, so one arm has to be a real phone (#23). WebKit
+	// resolves `min-height` against a flex item's content box differently enough from Blink
+	// that a Chromium-only pass is not evidence for the surface a visitor actually holds.
+	await gotoExplore(page);
+	expect(under44(await chromeTargets(page)), 'controls under the 44px floor').toEqual([]);
+});
+
+test('@webkit-phone focus mode leaves a 44px way back', async ({ page }) => {
+	// `.pg-focus-restore` was 34x34 and it is the ONLY route back: focus mode hides the whole
+	// toolbar, so missing this target leaves a visitor with no chrome and no way to get it.
+	await gotoExplore(page);
+	await page.getByRole('button', { name: /focus/i }).click();
+	const restore = page.locator('.pg-focus-restore');
+	await expect(restore).toBeVisible();
+	const box = (await restore.boundingBox())!;
+	expect(Math.min(box.width, box.height), 'the only way out of focus mode is under the floor').toBeGreaterThanOrEqual(44);
+});
+
 // ── The randomized walk itself ─────────────────────────────────────────────────
 
 /** Deterministic PRNG: a fuzz failure has to be replayable from its seed alone. */

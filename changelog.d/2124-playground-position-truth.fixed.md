@@ -40,3 +40,14 @@
   every slide while the scroll offset stays put, so the next scroll event described the new
   layout at the old position — and the Playground read a slide index out of it, landing the
   reader one slide from where they asked to be. A rescale now re-lands them instead.
+- **Fixed: pressing Next on a cold Playground load steps.** The walk bar mounts long before
+  the deck does, and a press in that window reached the scroller while the frame still had no
+  slides — so nothing scrolled, and the landing pass then read the deck's position back and
+  put the index straight where it started. Measured 3 runs in 8 on a desktop: the bar went
+  `1 / 13` → `2 / 13` → `1 / 13` in 11ms and Next did nothing.
+- **Fixed: every Playground control now clears the 44px touch floor, on tablets as well as
+  phones.** Nine of them were under it — the mode tabs, both pickers, Focus / Deck settings /
+  Galleries, and Prev / Next, the surface's primary navigation, at 63x38. The way back out of
+  focus mode was the smallest at 34x34. The rule keys on a touch pointer rather than a narrow
+  window, so an iPad Pro in portrait — 834px wide, and previously above the cutoff — gets it
+  too. It costs 18px of deck on a phone and 36 on a tablet.

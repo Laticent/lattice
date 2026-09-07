@@ -636,8 +636,11 @@ test('a snapshot survives a COLLAPSED capture and still replays exactly when the
 // island's `view` state, which defaults to Edit, so an Explore boot server-rendered the
 // pencil lit. The seed knows the answer before paint and the stylesheet paints from it.
 test('the mode toggle lights the boot mode before the island hydrates', async ({ page }) => {
-	// A pristine profile boots Explore, so this is the branch that used to be wrong.
-	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	// A pristine profile boots Explore, so this is the branch that used to be wrong. Cleared
+	// from the HOME page, not from `/playground/?view=edit`: the Playground island re-persists
+	// `view: "edit"` within 250ms of a clear, so seeding from it raced the very state this
+	// asserts (see the boot-view table below for the measurement).
+	await page.goto('/', { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => localStorage.clear());
 
 	// "Lit" is the accent fill; the inactive button's background is `transparent`, which
@@ -767,8 +770,17 @@ for (const c of [
 	{ name: 'a dirty draft', url: '/playground/', setup: { 'lattice-docs-pg-source': '# a draft the visitor typed\n' }, expected: 'edit' },
 ] as const) {
 	test(`the pre-paint boot view matches the app's: ${c.name}`, async ({ page }) => {
-		// Reach the origin first so localStorage is writable, then set up and reload.
-		await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+		// Reach the origin first so localStorage is writable — on a page WITHOUT the Playground
+		// island, and that is the whole point. Seeding from `/playground/?view=edit` booted the
+		// app, and the app persists as it mounts: measured here, `lattice-docs-pg-view: "edit"`
+		// (plus component, inserted-hash and focus) is back in storage within 250ms of the
+		// `clear()`, on every run. So "a pristine profile" was a profile the fixture had just
+		// re-poisoned with `edit`, and whether the poison beat the reload was a race — which is
+		// exactly the shape of the failures: only the four cases expecting `read` ever failed,
+		// 8 in 30 on `main`, never one expecting `edit`. The home page boots no island that
+		// writes these keys (verified: storage stays empty for 2.5s after a clear), so the
+		// setup is deterministic from a page that has no opinion about the Playground.
+		await page.goto('/', { waitUntil: 'domcontentloaded' });
 		await page.evaluate((entries) => {
 			localStorage.clear();
 			for (const [k, v] of Object.entries(entries ?? {})) localStorage.setItem(k, v);

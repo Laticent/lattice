@@ -327,6 +327,97 @@ walk into.
    correctly. The oracle asserts the honest property instead — the named slide is
    substantially on screen — and every defect above measured 0%.
 
+## A step is not a scroll, and the lander could not tell them apart
+
+The land stands down when the reader takes over — anything else would scroll them off a
+position they chose. It read "the reader took over" from ONE clock, `userInputAtRef`,
+stamped by every input the surface has. That clock conflates two opposite intents:
+
+| The reader… | says | so the… |
+|---|---|---|
+| wheels, drags, flicks without crossing the swipe threshold | "I am here now" | index must follow the **deck** |
+| presses Prev/Next, an arrow, Home/End, a Step-list row, swipes | "put me on slide N" | deck must follow the **index** |
+
+Preempting on both threw the second one away, on the plainest interaction the surface
+has: **press Next on a cold load.** The walk bar mounts as soon as the plan resolves, well
+before the frame has a deck in it, so a click in that window reaches `scrollWalk` with zero
+`.lattice > section` elements — it finds no target for the stepped index, returns without
+scrolling, and without arming its guard. The land already in flight then saw a newer
+`userInputAtRef` than its own start, concluded the reader had taken over, and `done()`
+reconciled the index back to the slide the deck had never left.
+
+Measured at 1440x900, 3 runs in 8, traced from the walk bar's own text: `1 / 13` at 396ms,
+`2 / 13` at 783ms (the click), `1 / 13` at 794ms. Eleven milliseconds, and Next did nothing.
+
+The fix is one more clock, not one more guard. `driveAtRef` is stamped at the single site
+that is a drive — `onDeckDrive`, the wheel/touchmove handler — and preemption reads that
+instead. A step during a land now needs no special case at all: the land scrolls to
+whatever `walkRef.current.index` says by the time it runs, which is the stepped one. After
+the change, 10 runs in 10 step correctly.
+
+**The arm for it is honestly probabilistic and the record says so.** Reproducing needs the
+frame to have zero sections AND a land to be in flight, and nothing in the page exposes the
+second — every attempt to synchronize on a proxy closed the first, because once the frame's
+`.lattice` root exists all thirteen sections exist with it. So the committed test drives the
+real cold interaction under 6x CPU throttling and catches the regression 2 runs in 8;
+`playground-explore.spec.ts`'s existing `stepping walks the plan` arm caught it 1 in 4. The
+proof is the before/after pair above, not either single run.
+
+## The 44px touch floor, and why a width query could not hold it
+
+`ui/panel.tsx` calls 44px "the touch floor every phone control in this app holds".
+`playground.css` said "bigger touch targets on the phone" and stopped at 40, under a
+`max-width: 820px` query. Measured on a real WebKit iPhone 15 Pro, **nine controls on the
+Playground's own chrome were under the floor**: the mode tabs 48x40, the component trigger
+217x36, the step list 136x32, Focus / Deck settings / Galleries 38x32, and Prev / Next —
+the primary navigation of a touch surface — 63x38. `.pg-focus-restore` was the smallest at
+34x34, and it is the only way back from focus mode: miss it and the toolbar is gone.
+
+**A finger is the same size at 834px as at 393px.** An iPad Pro 11 in portrait is 834 CSS
+px, above the cutoff, so a tablet got the desktop's 32px chrome and none of the rule. The
+floor is keyed on `(pointer: coarse)` now, which is the line the repo already draws
+elsewhere — `ui/dialog.tsx`, `ui/sheet.tsx` and `ui/resizable.tsx` size their targets with
+Tailwind's `pointer-coarse:` variant, and `studio/editor-theme.ts` carries an
+`@media (pointer: coarse)` block. Width still decides the *layout shell*;
+`use-visual-viewport.ts` is explicit that a desktop-width coarse iPad keeps the desktop
+layout. Size of target follows the pointer; shape of page follows the width. The width arm
+survives as the second half of the OR, because a desktop browser narrowed under 820px gets
+the same tabbed single-pane form and dropping it would have shrunk the mode toggle.
+
+Measured cost, before → after, nine controls under the floor → zero on all three:
+
+| device | toolbar | walk bar | deck pane |
+|---|---|---|---|
+| iPhone 15 Pro 393x659 | 103.0 → 115.0 | 100.7 → 106.7 | 394.3 → 376.3 |
+| Pixel 7 412x839 | 102.3 → 114.3 | 99.9 → 106.4 | 576.1 → 557.6 |
+| iPad Pro 11 834x1194 | 93.0 → 115.0 | 92.7 → 106.7 | 947.3 → 911.3 |
+
+**The block sits last in the file and must stay there.** Every rule in it sets a property an
+earlier rule already set at the same specificity, so placed where it reads best — beside
+`.pg-mode-btn`, halfway up — it loses to the declarations it exists to override. Measured:
+`.pg-focus-restore` stayed 34x34 on a real WebKit iPhone until the block moved to the end,
+because its own `width`/`height` are declared thirty lines further down. The first
+measurement missed this entirely, because the button is `display:none` until focus mode is
+on and a sweep of visible controls never sees it — the regression spec turns focus mode on.
+
+**Still under the floor, and deliberately not changed here:** the shared site header's
+Search / Color mode / Menu icons at 32x32 and the brand link at 106x30. They are the same on
+every page of the site, so raising them is a decision with a far wider blast radius than one
+surface's chrome.
+
+## A fixture that re-poisoned the profile it was clearing
+
+Found while running the neighboring suites, and fixed here because this PR's evidence rests
+on their signal. `playground-first-paint.spec.ts` seeded its cases by navigating to
+`/playground/?view=edit` and calling `localStorage.clear()` — which boots the Playground
+island, and **the island persists as it mounts**: measured, `lattice-docs-pg-view: "edit"`
+(with component, inserted-hash and focus) is back in storage within 250ms of the clear, on
+every run. So "a pristine profile" was a profile the fixture had just re-poisoned with
+`edit`, and whether the poison beat the reload was a race. The shape of the failures says the
+same thing: only the four cases expecting `read` ever failed — 8 in 30 on `main`, never one
+expecting `edit`. Seeding from the home page, which boots no island that writes these keys,
+makes it deterministic: 57 of 57 across three repeats.
+
 ## Verification
 
 `docs/e2e/playground-stress.spec.ts`, on the real built site (HARD RULE #23): eleven
@@ -346,6 +437,22 @@ pane, on an action they asked for.
 `readingSlideIndex` additionally carries 12 unit cases over the two real measured
 geometries, including the phone-clamp case and a sweep asserting that every step
 at 390px lands on a slide the reader can see.
+
+The touch floor is pinned by four arms across five projects: `@parity` on
+`desktop-touch` (1440px wide, so only the coarse-pointer query can satisfy it — the width
+arm cannot), `tablet-touch` and `mobile-touch`; `@mobile` at a phone width with a fine
+pointer, for the width arm; and two `@webkit-phone` arms on real WebKit, one sweeping every
+visible control and one turning focus mode on to reach `.pg-focus-restore`. All six green;
+the whole Playground e2e set is 83 passed across every project.
+
+**One neighboring test is red and it is not this change's:** `playground-paint.spec.ts`'s
+"a Galleries click waits for hydration" needs a window between DOMContentLoaded and the
+island's hydration, and the window has closed — the assertion that *proves the test proves
+something* is the one that fails. Verified on `main` at 674e4d1 with a clean build: 3 runs
+in 3 fail there too. Logged as #2125 rather than fixed here (HARD RULE #18's off-path
+rule), with the measurement that explains it: `body[data-view]` lands at ~1105ms, and the
+Galleries trigger becomes visible 174ms after a `domcontentloaded` navigation resolves —
+module scripts block DCL, so the test's window now closes before it starts looking.
 
 **Not verified here, and stated as such:** real iOS/Android Safari. The swipes are
 genuine CDP touch sequences in headless Chromium, which is not a physical phone.

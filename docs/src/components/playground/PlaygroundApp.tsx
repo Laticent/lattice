@@ -374,6 +374,25 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  they just made. A resize followed straight away by a wheel produced exactly the second
 	 *  of those: the bar held "1 / 22" at a scroll of 3033px (#2124). */
 	const userInputAtRef = React.useRef(0);
+	/**
+	 * When the reader last MOVED THE DECK, as opposed to naming a slide.
+	 *
+	 * `userInputAtRef` above conflates two opposite intents, and a land has to tell them
+	 * apart. A wheel or a drag says "I am here now" — the index must follow the deck, and a
+	 * land that finishes would scroll the reader off the position they chose. A step (Prev /
+	 * Next, an arrow key, Home / End, the Step list, a swipe) says the opposite: "put me on
+	 * slide N" — the deck must follow the index, and the land is the thing that will do it.
+	 *
+	 * Preempting on BOTH threw the second one away, and did it on the plainest interaction
+	 * this surface has: press Next on a cold load. Measured, 3 runs in 8 at 1440x900 — the
+	 * click landed at ~789ms, when the frame still had 0 sections, so `scrollWalk` found no
+	 * target and returned without scrolling or arming its guard; the in-flight land then saw
+	 * "the reader took over", stood down, and `done()` reconciled the index back to the slide
+	 * the deck was still sitting on. The bar went 1 -> 2 -> 1 in 11ms and Next did nothing.
+	 * A step during a land needs no guard at all — the land already scrolls to whatever
+	 * `walkRef.current.index` says by the time it runs, which is the stepped one.
+	 */
+	const driveAtRef = React.useRef(0);
 	const landStartedAtRef = React.useRef(0);
 	/** Which land is current. `landWalk` can only cancel its own polling rAF; once a land
 	 *  reaches `verify` its rAF pair is untracked and will fire regardless — and `done()`
@@ -1286,9 +1305,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				observeReadyRef.current = true;
 				landPendingRef.current = false;
 			};
-			/** THE READER OUTRANKS THE LANDER. A wheel, a drag or a nav key since this land
-			 *  began means they have chosen a position; finishing would scroll them off it. */
-			const preempted = () => userInputAtRef.current > startedAt;
+			/** THE READER OUTRANKS THE LANDER — when they moved the DECK. A wheel or a drag
+			 *  since this land began means they have chosen a position; finishing would scroll
+			 *  them off it. A STEP is not that (see `driveAtRef`): it names a slide, and this
+			 *  land is what will put them on it. */
+			const preempted = () => driveAtRef.current > startedAt;
 			const verify = () => {
 				// Two frames after the scroll, so the frame has laid out and composited.
 				requestAnimationFrame(() =>
@@ -1803,7 +1824,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	/** A wheel or a finger actually moving the deck. Separate from the swipe rule above: a
 	 *  drag that never clears the swipe threshold is still the reader scrolling. */
 	const onDeckDrive = React.useCallback(() => {
-		userInputAtRef.current = Date.now();
+		const now = Date.now();
+		userInputAtRef.current = now;
+		// The ONE site that is a drive rather than a step, which is why the split costs one
+		// line here and nothing anywhere else.
+		driveAtRef.current = now;
 	}, []);
 	const onDeckTouchEnd = React.useCallback(
 		(e: TouchEvent) => {
