@@ -253,6 +253,74 @@ async function main() {
         if (has('.quadrant-split')) grid.push('split-lines');
         if (has('.radar-web, .radar-ring, .radar-spoke')) grid.push('polar-web');
 
+        // ── occlusion: do this member's marks OVERLAP each other? ──────────
+        // The axis that tells radar apart from quadrant, which no other reading
+        // does — both paint a <radialGradient>, so a census that reads the
+        // element name buckets them together. They are opposites: quadrant's
+        // four zones TILE (abut, never overlap) and its ramp travels 40
+        // hue-mix points; radar's polygons LAYER (three series over one web)
+        // and its ramp is one colour at three opacities. Only a LAYERED member
+        // has any reason to be translucent — for a TILED or SEPARATE one,
+        // transparency buys nothing and costs contrast.
+        //
+        // Measured off real geometry (getBBox on the painted marks), not
+        // declared: whether marks overlap is a property of the drawing.
+        const MARK_SEL = [
+          '.wedge', '.funnel-band', '.radar-poly', '.bar-mark', '.waterfall-bar',
+          '.sbar-seg', '.quadrant-tint', '.quadrant-dot', '.map-region',
+          '.scatter-dot', '.scatter-bubble', '.gantt-bar', '.line-area', '.line-band',
+        ].join(', ');
+        // Same-class only, and shape-accurate. Two things make a bounding-box
+        // test lie here. A pie wedge's bbox is a rectangle over its arc, so
+        // adjacent wedges' boxes overlap heavily while the SHAPES only abut —
+        // bbox alone calls the pie "layered", which is exactly backwards. And
+        // comparing a quadrant DOT against a quadrant ZONE finds an overlap
+        // that means nothing: a dot is supposed to sit on its field. So group
+        // by class, and test real fill containment with isPointInFill.
+        const byClass = new Map();
+        for (const m of sec.querySelectorAll(MARK_SEL)) {
+          if (m.namespaceURI !== 'http://www.w3.org/2000/svg') continue;
+          if (typeof m.isPointInFill !== 'function' || typeof m.getBBox !== 'function') continue;
+          const k = (m.getAttribute('class') || '').split(/\s+/)[0];
+          if (!byClass.has(k)) byClass.set(k, []);
+          byClass.get(k).push(m);
+        }
+        const svg = sec.querySelector('svg');
+        let overlaps = 0;
+        let pairs = 0;
+        let occMarks = 0;
+        if (svg) {
+          for (const group of byClass.values()) {
+            occMarks += group.length;
+            for (let i = 0; i < group.length; i++) {
+              for (let j = i + 1; j < group.length; j++) {
+                pairs++;
+                const a = group[i]; const b = group[j];
+                let box;
+                try { box = a.getBBox(); } catch { continue; }
+                if (!(box.width > 0 && box.height > 0)) continue;
+                let hit = false;
+                // Sample a 7x7 lattice inside A's box; a point counts only if it
+                // is inside BOTH fills, which is true overlap rather than
+                // bounding-box proximity.
+                for (let px = 1; px < 8 && !hit; px++) {
+                  for (let py = 1; py < 8 && !hit; py++) {
+                    const pt = svg.createSVGPoint();
+                    pt.x = box.x + (box.width * px) / 8;
+                    pt.y = box.y + (box.height * py) / 8;
+                    try { if (a.isPointInFill(pt) && b.isPointInFill(pt)) hit = true; } catch { /* non-geometry */ }
+                  }
+                }
+                if (hit) overlaps++;
+              }
+            }
+          }
+        }
+        const occlusion = !pairs ? 'n/a'
+          : overlaps === 0 ? 'tiled/separate'
+          : overlaps >= pairs * 0.5 ? 'layered'
+          : 'partial';
+
         // ── key: how categories are named ──────────────────────────────────
         const key = [];
         if (has('[class*="chart-key"], .chart-legend, [class*="legend"]')) key.push('legend-rail');
@@ -267,6 +335,8 @@ async function main() {
 
         members.push({
           name,
+          occlusion,
+          markCount: occMarks,
           type: Object.fromEntries(Object.entries(type).map(([k, v]) => [k, [...v].sort()])),
           fills: [...fills].sort(),
           grid,
@@ -319,10 +389,11 @@ async function main() {
 
   // 3. Axis furniture + key, per member.
   console.log('\n\n── FURNITURE + KEY + HANDLES, per member ' + '─'.repeat(30));
-  console.log(`  ${'member'.padEnd(14)} ${'grid'.padEnd(30)} ${'key'.padEnd(26)} mark/anima/detail`);
+  console.log(`  ${'member'.padEnd(14)} ${'occlusion'.padEnd(11)} ${'grid'.padEnd(28)} ${'key'.padEnd(24)} mark/anima/detail`);
   for (const m of [...report].sort((a, b) => a.name.localeCompare(b.name))) {
     const handles = `${m.marks}/${m.anima}/${m.details}${m.svgs ? '' : '  (no svg → no motion)'}`;
-    console.log(`  ${m.name.padEnd(14)} ${(m.grid.join(' ') || '—').padEnd(30)} ${(m.key.join(' ') || '—').padEnd(26)} ${handles}`);
+    const occ = `${m.occlusion || '?'}${m.markCount ? ' (' + m.markCount + ')' : ''}`;
+    console.log(`  ${m.name.padEnd(14)} ${occ.padEnd(11)} ${(m.grid.join(' ') || '—').padEnd(28)} ${(m.key.join(' ') || '—').padEnd(24)} ${handles}`);
   }
 
   console.log('');
