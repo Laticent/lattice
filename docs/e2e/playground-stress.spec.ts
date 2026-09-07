@@ -64,12 +64,25 @@ async function settle(page: Page, timeout = 10_000) {
 		page.evaluate(() => {
 			const f = document.getElementById('preview') as HTMLIFrameElement | null;
 			let sy = -1;
+			let h = -1;
+			let vis = '-';
 			try {
-				sy = f?.contentWindow?.scrollY ?? -1;
+				const win = f?.contentWindow;
+				const doc = f?.contentDocument;
+				const sec = doc?.querySelector('.lattice > section');
+				sy = win?.scrollY ?? -1;
+				h = sec ? Math.round(sec.getBoundingClientRect().height) : -1;
+				// THE FIT WINDOW. A fresh deck is written unscaled and `.lattice` stays hidden
+				// until the in-iframe fit agent has scaled it — a state in which the position,
+				// the scroll and the slide count are all perfectly stable and none of the
+				// geometry is final. Reading it is what made a gallery load look like a deck
+				// rendered at 3x; including both here is what stops this helper returning inside it.
+				vis = sec && win ? win.getComputedStyle(sec.parentElement as Element).visibility : '-';
 			} catch {
-				sy = -1;
+				/* mid-navigation */
 			}
-			return `${document.querySelector('#pg-walk .pg-walk-pos')?.textContent?.trim()}|${Math.round(sy)}`;
+			const pos = document.querySelector('#pg-walk .pg-walk-pos')?.textContent?.trim();
+			return `${pos}|${Math.round(sy)}|${h}|${vis}`;
 		});
 	let last = '';
 	let quiet = 0;
@@ -100,18 +113,20 @@ async function settle(page: Page, timeout = 10_000) {
  * every slide by 4x and reports nonsense at exactly the narrow widths that matter. This is
  * a deliberate SECOND implementation of what `readingSlideIndex` ships, not a re-run of it.
  */
-async function visibleFractions(page: Page): Promise<number[]> {
+async function visibleFractions(page: Page): Promise<{ ofItself: number; ofPane: number }[]> {
 	return page.evaluate(() => {
 		const f = document.getElementById('preview') as HTMLIFrameElement | null;
 		const win = f?.contentWindow;
 		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
 		if (!win || !secs?.length) return [];
 		const top = win.scrollY;
-		const bottom = top + win.innerHeight;
+		const pane = win.innerHeight;
+		const bottom = top + pane;
 		return Array.from(secs, (el) => {
 			const h = el.getBoundingClientRect().height;
-			if (h <= 0) return 0;
-			return Math.max(0, Math.min(bottom, el.offsetTop + h) - Math.max(top, el.offsetTop)) / h;
+			if (h <= 0 || pane <= 0) return { ofItself: 0, ofPane: 0 };
+			const seen = Math.max(0, Math.min(bottom, el.offsetTop + h) - Math.max(top, el.offsetTop));
+			return { ofItself: seen / h, ofPane: seen / pane };
 		});
 	});
 }
@@ -121,7 +136,7 @@ async function dominantSlide(page: Page): Promise<number> {
 	const v = await visibleFractions(page);
 	if (!v.length) return 0;
 	let best = 0;
-	for (let i = 1; i < v.length; i++) if (v[i] > v[best]) best = i;
+	for (let i = 1; i < v.length; i++) if (v[i].ofPane > v[best].ofPane) best = i;
 	return best + 1;
 }
 
@@ -154,8 +169,25 @@ async function expectPositionIsTruthful(page: Page, note: string) {
 				const { index } = await claimed(page);
 				const seen = await visibleFractions(page);
 				if (!seen.length) return 'no deck on screen';
-				const share = seen[index - 1] ?? 0;
-				return share > 0.5 ? 'on screen' : `walk bar says slide ${index}, of which ${(share * 100).toFixed(0)}% is visible`;
+				const s = seen[index - 1];
+				if (!s) return `walk bar says slide ${index}, which is not in the deck`;
+				// EITHER measure passes, because a slide can fail one honestly. A slide TALLER
+				// than the pane can only ever show a fraction of itself even while it is the
+				// only thing on screen; a slide SHORTER than the pane can be wholly visible and
+				// still be a small part of it. What both exclude is the case this file is
+				// about — a named slide that is nowhere.
+				//
+				// THE PANE BAR IS A QUARTER, not a half, and that is not slack: the shipped
+				// rule deliberately KEEPS the reader's current slide while it is at least half
+				// as visible as the winner, so that the counter does not twitch under a nudge
+				// of the wheel and does not fight the stepper where a phone shows three slides
+				// to a pane. A flick that rests halfway between two slides therefore names one
+				// of them at ~40% of the pane, correctly. Every defect this file was written
+				// for measured 0%.
+				const ok = s.ofItself > 0.5 || s.ofPane > 0.25;
+				return ok
+					? 'on screen'
+					: `walk bar says slide ${index} — ${(s.ofItself * 100).toFixed(0)}% of it visible, ${(s.ofPane * 100).toFixed(0)}% of the pane`;
 			},
 			{ message: `the walk bar names a slide the reader cannot see after ${note}`, timeout: 6_000 },
 		)
@@ -322,6 +354,110 @@ test('@parity a horizontal swipe turns the slide; a vertical one scrolls the fil
 	await swipe(page, { x: box.x + box.width / 2, y: box.y + box.height * 0.8 }, { x: box.x + box.width / 2, y: box.y + box.height * 0.15 });
 	await expectPositionIsTruthful(page, 'a vertical swipe');
 	expect(browserName).toBeTruthy();
+});
+
+test('clicking the tab you are already on does not destroy the deck', async ({ page }) => {
+	// Both branches of `setViewMode` copy one source over the other, so re-entering a mode
+	// overwrites work. The Explore tab replaced the 13-slide walk deck with the editor's
+	// untouched one-slide draft while the bar went on reading "3 / 13"; the Edit tab is the
+	// mirror image, replacing the author's draft with the explore deck.
+	await gotoExplore(page);
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('ArrowRight');
+	await settle(page);
+	const before = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0);
+	expect(before).toBe(13);
+	await page.getByRole('tab', { name: 'Explore' }).click();
+	await settle(page);
+	expect(
+		await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0),
+		'the deck was replaced by re-entering the mode it was already in',
+	).toBe(before);
+	expect((await claimed(page)).index).toBe(3);
+	await expectPositionIsTruthful(page, 're-entering Explore');
+
+	// …and the same on the Edit side: the draft the author is holding survives.
+	await page.getByRole('tab', { name: 'Edit' }).click();
+	await expect(page.locator('body')).toHaveAttribute('data-view', 'edit');
+	await settle(page);
+	const draft = await page.evaluate(() => document.querySelector('.cm-content')?.textContent ?? '');
+	await page.getByRole('tab', { name: 'Edit' }).click();
+	await settle(page);
+	expect(await page.evaluate(() => document.querySelector('.cm-content')?.textContent ?? '')).toBe(draft);
+});
+
+test('a wheel during the post-render landing is obeyed, not swallowed or undone', async ({ page }) => {
+	// The observer is gated shut while `landWalk` places a freshly rendered deck. A reader
+	// who scrolls inside that window used to be either ignored — the bar held "1 / 22" at a
+	// scroll of 3033px — or scrolled back to where the render wanted them.
+	await gotoExplore(page);
+	// A resize re-fits and re-lands; wheel immediately, before that can finish.
+	await page.setViewportSize({ width: 1000, height: 780 });
+	await page.locator('#preview').hover();
+	await page.mouse.wheel(0, 2600);
+	await settle(page);
+	const on = await dominantSlide(page);
+	expect(on, 'the wheel was undone by the landing').toBeGreaterThan(2);
+	await expectPositionIsTruthful(page, 'a wheel during the landing');
+});
+
+test('editing the deck in Edit re-points the walk instead of counting slides that are gone', async ({ page }) => {
+	// Explore renders whatever the editor holds, but the WALK was a component plan and
+	// stayed one — so picking a component in Edit (which loads its one-slide sample) left
+	// the bar reading "1 / 13" over a single slide, Next stepping to a slide that did not
+	// exist, and `?c=kpi` naming a deck nobody was looking at.
+	await gotoExplore(page);
+	await page.getByRole('tab', { name: 'Edit' }).click();
+	await expect(page.locator('body')).toHaveAttribute('data-view', 'edit');
+	await settle(page);
+	await page.locator('#pg-template-trigger').click();
+	await page.keyboard.type('funnel');
+	await page.locator('[cmdk-item]').first().click();
+	await settle(page);
+
+	await page.getByRole('tab', { name: 'Explore' }).click();
+	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');
+	await settle(page);
+	const slides = await page.evaluate(
+		() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section').length ?? 0,
+	);
+	expect(slides).toBeGreaterThan(0);
+	expect((await claimed(page)).count, 'the bar counted the old plan, not the deck on screen').toBe(slides);
+	await expectPositionIsTruthful(page, 'entering Explore over an edited deck');
+	// The URL must not go on naming a component this deck is not.
+	await expect(page).not.toHaveURL(/c=kpi/);
+	// Next cannot step past the end of a deck it is actually counting. It DISABLES at the
+	// end of a `deck` walk (there is no adjacent component to cross into), so the loop stops
+	// on that rather than waiting on a control that will never be clickable.
+	for (let i = 0; i < slides + 3; i++) {
+		if (await nextSlide(page).isDisabled()) break;
+		await nextSlide(page).click({ timeout: 4_000 });
+		await settle(page);
+	}
+	const { index, count } = await claimed(page);
+	expect(index).toBeLessThanOrEqual(count);
+	await expectPositionIsTruthful(page, 'stepping to the end of an edited deck');
+});
+
+test('a step taken while a fresh deck is still being fit lands on the slide it asked for', async ({ page }) => {
+	// The in-iframe fit agent rescales a newly written deck a few hundred ms after it is
+	// parsed — measured on this gallery, sections go from 2160px tall to 652. A step taken
+	// in that window used to aim at the OLD geometry and land two slides past its target
+	// with the bar still reading "1 / 58", and nothing would ever correct it: the document
+	// did not clamp the scroll, so no scroll event fired.
+	await gotoExplore(page);
+	await page.locator('#pg-galleries-trigger').click();
+	await page.getByRole('button', { name: /Jargon/ }).click();
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toContainText('/');
+	// Deliberately WITHOUT settling: the point is to step inside the fit window.
+	await page.keyboard.press('PageDown');
+	await settle(page);
+	expect((await claimed(page)).index, 'the step was lost or overshot during the fit').toBe(2);
+	await expectPositionIsTruthful(page, 'a step during a fresh deck fit');
+	await page.keyboard.press('PageDown');
+	await settle(page);
+	expect((await claimed(page)).index).toBe(3);
+	await expectPositionIsTruthful(page, 'a second step after the fit');
 });
 
 // ── Selecting ──────────────────────────────────────────────────────────────────

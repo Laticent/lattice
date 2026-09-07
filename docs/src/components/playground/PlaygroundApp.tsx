@@ -322,7 +322,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const landWalkRef = React.useRef<(attempt?: number) => void>(() => {});
 	/** The in-flight programmatic scroll: the index it is travelling to, and when the
 	 *  observer stops deferring to it. Cleared the moment the frame actually arrives. */
-	const walkScrollRef = React.useRef<{ index: number; until: number } | null>(null);
+	const walkScrollRef = React.useRef<{ index: number; until: number; armedAt: number } | null>(null);
 	/** The observer stays silent until the first walk position has been landed. Without
 	 *  this a fresh frame — which starts at scrollY 0 — would report slide 1 and overwrite
 	 *  the deep-linked index before `landWalk` ever got to honor it. */
@@ -333,6 +333,19 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  `playground-first-paint.spec.ts` measuring the Explore reload at two geometries,
 	 *  20px apart, after this change first landed the scroll a beat too late. */
 	const landPendingRef = React.useRef(false);
+	/** When the reader last drove the deck themselves (a wheel, a drag, a nav key). An
+	 *  in-flight `landWalk` ABORTS on anything newer than its own start: the alternative is
+	 *  that the lander either scrolls the reader back to where the render wanted them, or —
+	 *  because the observer is gated shut for the whole settle — silently swallows the scroll
+	 *  they just made. A resize followed straight away by a wheel produced exactly the second
+	 *  of those: the bar held "1 / 22" at a scroll of 3033px (#2103). */
+	const userInputAtRef = React.useRef(0);
+	const landStartedAtRef = React.useRef(0);
+	/** A re-land is already scheduled (the pane changed size). `onDeckGeometry` stands down
+	 *  while it is set: both observers see the same rescale, and if the in-frame one
+	 *  reconciled first it would rename the reader's slide from the post-resize scroll a beat
+	 *  before the re-land put them back on it — the two would fight over one event. */
+	const landScheduledRef = React.useRef(false);
 	/** The frame DOCUMENT the deck listeners are currently bound to. Keyed on the document
 	 *  and NOT on `contentWindow`, which is a WindowProxy whose identity survives a
 	 *  navigation: a srcdoc write drops every listener registered on the old global while
@@ -1089,7 +1102,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (!win || !target) return;
 		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 		const animated = smooth && !reduce;
-		walkScrollRef.current = { index: w.index, until: Date.now() + (animated ? 1200 : 400) };
+		const now = Date.now();
+		walkScrollRef.current = { index: w.index, until: now + (animated ? 1200 : 400), armedAt: now };
 		win.scrollTo({ top: Math.max(0, target.offsetTop - 16), behavior: animated ? 'smooth' : 'auto' });
 	}, []);
 	scrollWalkRef.current = scrollWalk;
@@ -1129,13 +1143,48 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			observeReadyRef.current = false;
 			landPendingRef.current = true;
 			const start = Date.now();
+			// The retry re-enters this function, so the "has the reader taken over?" clock is
+			// the FIRST attempt's start, not this one's — otherwise a retry would forget the
+			// scroll that made it necessary.
+			if (attempt === 0) landStartedAtRef.current = start;
+			const startedAt = landStartedAtRef.current;
 			let lastKey = '';
 			let stable = 0;
-			/** Open both gates and stop; the position is as good as it will get. */
+			/**
+			 * Open both gates and stop — but RECONCILE the index against the frame first.
+			 * The observer has been shut for the whole settle, so anything that moved the
+			 * deck in that window (the reader taking over, a fallback scroll that clamped)
+			 * left the walk index describing a position the frame is not at, and no further
+			 * scroll event is coming to correct it. This is the one place that can restore
+			 * the invariant, so it does.
+			 */
 			const done = () => {
+				const frame = frameRef.current;
+				const w = walkRef.current;
+				const win = frame?.contentWindow;
+				// …EXCEPT while a scroll of OURS is still travelling to a position the reader
+				// asked for after this land began. Reconciling then reads a scroll that has not
+				// arrived and quietly throws their step away: a PageDown during a fresh
+				// gallery's fit window set the index to 2, and the reconcile — running one
+				// frame later at the old scroll — put it straight back to 1 and re-aimed the
+				// scroll at the slide they had just left. `armedAt >= userInputAtRef` is what
+				// tells "our scroll, still in flight" from "our scroll, already overtaken".
+				const pending = walkScrollRef.current;
+				const oursInFlight = !!pending && pending.armedAt >= userInputAtRef.current;
+				if (frame && w && win && viewRef.current === 'read' && !oursInFlight) {
+					const idx = readingSlideIndex(frameBands(frame), win.scrollY, win.innerHeight, w.index);
+					if (idx !== w.index) {
+						const moved: Walk = { ...w, index: idx };
+						setWalk(moved);
+						walkRef.current = moved;
+					}
+				}
 				observeReadyRef.current = true;
 				landPendingRef.current = false;
 			};
+			/** THE READER OUTRANKS THE LANDER. A wheel, a drag or a nav key since this land
+			 *  began means they have chosen a position; finishing would scroll them off it. */
+			const preempted = () => userInputAtRef.current > startedAt;
 			const targetShare = () => {
 				const frame = frameRef.current;
 				const w = walkRef.current;
@@ -1150,7 +1199,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// Two frames after the scroll, so the frame has laid out and composited.
 				requestAnimationFrame(() =>
 					requestAnimationFrame(() => {
-						if (viewRef.current !== 'read') return done();
+						if (viewRef.current !== 'read' || preempted()) return done();
 						if (targetShare() > 0.5) return done();
 						if (attempt < LAND_ATTEMPTS) return landWalkRef.current(attempt + 1); // re-sets landPending
 						done();
@@ -1160,7 +1209,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const tick = () => {
 				landRafRef.current = null;
 				const frame = frameRef.current;
-				if (!frame || !walkRef.current || viewRef.current !== 'read') return done();
+				if (!frame || !walkRef.current || viewRef.current !== 'read' || preempted()) return done();
 				const bands = frameBands(frame);
 				const win = frame.contentWindow;
 				const lat = frame.contentDocument?.querySelector('.lattice') as HTMLElement | null;
@@ -1276,6 +1325,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 * re-renders the untouched draft. Read mode never wrote it (invariant). */
 	const setViewMode = React.useCallback(
 		(v: 'read' | 'edit') => {
+			// RE-ENTERING THE MODE YOU ARE ALREADY IN IS A NO-OP, and it has to be said here
+			// rather than at each call site: both branches below COPY ONE SOURCE OVER THE
+			// OTHER, so re-entering destroys work. Clicking the already-active Explore tab
+			// overwrote the walk deck with the editor's untouched draft — measured, 13 slides
+			// became 1 while the bar still read "3 / 13" and the picker still said `kpi` — and
+			// clicking the active Edit tab is the mirror image, replacing the author's draft
+			// with the explore deck and pushing a backup nobody asked for. A `role="tab"` that
+			// destroys the deck when you click the tab you are on is not a defensible control,
+			// and `onLoadGallery` already had to route AROUND this function for the same
+			// reason. Both tabs call this unconditionally, so the guard lives here (#2103).
+			if (v === viewRef.current) return;
 			viewRef.current = v;
 			setView(v);
 			try {
@@ -1287,7 +1347,27 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (v === 'read') {
 				// Leaving Edit: save the edited deck back so Explore renders the edits
 				// (the unified view/source model — 2026-07-06 simplification).
-				if (exploreSourceRef.current != null) exploreSourceRef.current = getSource();
+				//
+				// …AND RE-POINT THE WALK WHEN THAT DECK IS NO LONGER THE PLAN'S. A plan walk
+				// counts a COMPONENT GALLERY's slides and names them by kind; the deck Explore
+				// actually renders is whatever the editor holds, and the two diverge the moment
+				// the author touches it — picking a component in Edit loads that component's
+				// one-slide sample, so the bar went on reading "1 / 13" over a single slide,
+				// Next stepped to a slide that did not exist, and `?c=kpi` still named a deck
+				// nobody was looking at: three readouts, three different answers (#2103). A
+				// `deck` walk is the shape for this — it learns its count from the render, the
+				// Step list correctly has nothing to offer, and the URL sync drops params that
+				// no longer describe the screen.
+				if (exploreSourceRef.current != null) {
+					const edited = getSource();
+					if (edited !== exploreSourceRef.current) {
+						exploreSourceRef.current = edited;
+						const w: Walk = { kind: 'deck', label: 'draft', index: 0, count: 0 };
+						setWalk(w);
+						walkRef.current = w;
+						setWalkNotice(null);
+					}
+				}
 				// Reveal the preview pane SYNCHRONOUSLY before the render measures the
 				// iframe (the mobile 0-width FIT trap — same ordering as applyDeck).
 				setPane('preview');
@@ -1560,6 +1640,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const action = shellKeyAction(e, e.target as Element | null);
 			if (!action) return;
 			e.preventDefault();
+			userInputAtRef.current = Date.now();
 			if (action === 'next') stepWalk(1);
 			else if (action === 'prev') stepWalk(-1);
 			else if (action === 'first') gotoIndex(0);
@@ -1580,6 +1661,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		}
 		const t = e.touches[0];
 		if (t) touchRef.current = { x: t.clientX, y: t.clientY, multi: false };
+	}, []);
+	/** A wheel or a finger actually moving the deck. Separate from the swipe rule above: a
+	 *  drag that never clears the swipe threshold is still the reader scrolling. */
+	const onDeckDrive = React.useCallback(() => {
+		userInputAtRef.current = Date.now();
 	}, []);
 	const onDeckTouchEnd = React.useCallback(
 		(e: TouchEvent) => {
@@ -1603,6 +1689,38 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 * bar reading "1 / 13", and the next press of Next then scrolled them BACKWARDS to
 	 * slide 2 (#2103). Every one of those readouts now derives from `readingSlideIndex`.
 	 */
+	/**
+	 * THE DECK'S OWN GEOMETRY CHANGED under a settled scroll — and there is no scroll event
+	 * to notice it, which is why this needs its own observer rather than another branch of
+	 * `onDeckScroll`. The in-iframe fit agent rescales a freshly written deck a few hundred
+	 * milliseconds after it is parsed: measured on a 58-slide gallery, sections went from
+	 * 2160px tall to 652 with the scroll left at 2180, so a step taken in the meantime had
+	 * aimed at slide 2 and landed on slide 4 with the bar still reading "1 / 58" — and
+	 * nothing was ever going to correct it, because the document's height did not clamp the
+	 * scroll and no event fired (#2103).
+	 *
+	 * Two cases, and the split is the same one the rest of this loop makes: a programmatic
+	 * scroll still in flight was AIMED at the old geometry, so re-aim it; otherwise the
+	 * reader chose this position, so keep it and rename it.
+	 */
+	const onDeckGeometry = React.useCallback(() => {
+		const frame = frameRef.current;
+		const w = walkRef.current;
+		if (!frame || !w || viewRef.current !== 'read' || previewCollapsedRef.current) return;
+		if (landScheduledRef.current) return; // the pane resized; the re-land owns the position
+		if (walkScrollRef.current) {
+			scrollWalk(false);
+			return;
+		}
+		const win = frame.contentWindow;
+		if (!win || !observeReadyRef.current) return; // landWalk owns the position until it lands
+		const idx = readingSlideIndex(frameBands(frame), win.scrollY, win.innerHeight, w.index);
+		if (idx === w.index) return;
+		const moved: Walk = { ...w, index: idx };
+		setWalk(moved);
+		walkRef.current = moved;
+	}, [scrollWalk]);
+
 	const scrollRafRef = React.useRef<number | null>(null);
 	const onDeckScroll = React.useCallback(() => {
 		if (scrollRafRef.current != null) return; // one read per frame
@@ -1623,7 +1741,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// so a reader who scrolls straight out of a step is not ignored for a second.
 			const pending = walkScrollRef.current;
 			if (pending) {
-				if (idx === pending.index) walkScrollRef.current = null;
+				// THE READER OUTRANKS THE GUARD, exactly as they outrank the lander. A wheel or
+				// a drag after this guard was armed means the scroll being reported is theirs,
+				// not the tail of ours — and dropping it strands the index for good, because no
+				// further scroll event is coming to correct it. Measured under parallel load:
+				// a wheel landing inside the 400ms window held the bar at "1 / 13" with the
+				// deck five slides away, deterministically on a slow box and never in
+				// isolation, which is the shape of race a fuzz walk finds and a demo does not.
+				if (userInputAtRef.current > pending.armedAt) walkScrollRef.current = null;
+				else if (idx === pending.index) walkScrollRef.current = null;
 				else if (Date.now() < pending.until) return;
 				else walkScrollRef.current = null;
 			}
@@ -1658,12 +1784,21 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (!doc || !win || boundFrameDocRef.current === doc) return;
 		boundFrameDocRef.current = doc;
 		win.addEventListener('scroll', onDeckScroll, { passive: true });
+		win.addEventListener('wheel', onDeckDrive, { passive: true });
+		// The frame's OWN ResizeObserver, on the filmstrip the fit agent rescales. Created
+		// from the frame's window so it belongs to that document and dies with it — there is
+		// nothing to disconnect on rebind, which is the same reason none of the listeners
+		// above are torn down here.
+		const lattice = doc.querySelector('.lattice');
+		const RO = (win as Window & { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+		if (lattice && RO) new RO(() => onDeckGeometry()).observe(lattice);
 		doc.addEventListener('keydown', onDeckKey as EventListener);
 		doc.addEventListener('touchstart', onDeckTouchStart as EventListener, { passive: true });
+		doc.addEventListener('touchmove', onDeckDrive, { passive: true });
 		doc.addEventListener('touchend', onDeckTouchEnd as EventListener, { passive: true });
 		// No teardown: the listeners die with the document they are on. The parent-side
 		// copies below are the ones with a lifetime worth managing.
-	}, [onDeckScroll, onDeckKey, onDeckTouchStart, onDeckTouchEnd]);
+	}, [onDeckScroll, onDeckKey, onDeckTouchStart, onDeckTouchEnd, onDeckDrive, onDeckGeometry]);
 	bindDeckInputRef.current = bindDeckInput;
 
 	// The parent-side half of the same three verbs: a reader who has not touched the deck
@@ -1672,14 +1807,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	React.useEffect(() => {
 		const wrap = frameRef.current?.parentElement;
 		window.addEventListener('keydown', onDeckKey);
+		wrap?.addEventListener('wheel', onDeckDrive, { passive: true });
 		wrap?.addEventListener('touchstart', onDeckTouchStart, { passive: true });
+		wrap?.addEventListener('touchmove', onDeckDrive, { passive: true });
 		wrap?.addEventListener('touchend', onDeckTouchEnd, { passive: true });
 		return () => {
 			window.removeEventListener('keydown', onDeckKey);
+			wrap?.removeEventListener('wheel', onDeckDrive);
 			wrap?.removeEventListener('touchstart', onDeckTouchStart);
+			wrap?.removeEventListener('touchmove', onDeckDrive);
 			wrap?.removeEventListener('touchend', onDeckTouchEnd);
 		};
-	}, [onDeckKey, onDeckTouchStart, onDeckTouchEnd]);
+	}, [onDeckKey, onDeckTouchStart, onDeckTouchEnd, onDeckDrive]);
 
 	// A pane that changed SIZE has re-scaled the deck under a scroll position measured
 	// against the old geometry, so the reader silently drifts off their slide — measured
@@ -1690,9 +1829,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (!wrap || typeof ResizeObserver === 'undefined') return;
 		let t: ReturnType<typeof setTimeout> | null = null;
 		const ro = new ResizeObserver(() => {
+			// Claimed SYNCHRONOUSLY, before the debounce: the frame's own rescale lands inside
+			// that window, and `onDeckGeometry` must already know a re-land is coming.
+			landScheduledRef.current = true;
 			if (t) clearTimeout(t);
 			t = setTimeout(() => {
 				t = null;
+				landScheduledRef.current = false;
 				if (viewRef.current !== 'read' || previewCollapsedRef.current) return;
 				frameRef.current?.contentWindow?.__latticeFit?.();
 				landWalkRef.current();
@@ -1701,6 +1844,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		ro.observe(wrap);
 		return () => {
 			if (t) clearTimeout(t);
+			landScheduledRef.current = false;
 			ro.disconnect();
 		};
 	}, []);
