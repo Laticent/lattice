@@ -568,8 +568,27 @@ sixteen languages while its own UI renders `9/7/2026` to every locale.
 Two counts came back slightly different from the sweep's: `PG_SPLIT_MIN` has seven references,
 not two (the contrast still holds — one constant of the pair is used, the other is not), and
 `z-[2147483647]` appears twice in `MetricDetail.tsx`, not once. The remaining findings are
-source-read; two of them — whether the typed shape glyphs actually fall back, and whether the
-`/25`-diluted ink fails AA — are rendering claims that need a browser to settle.
+source-read.
+
+**The two rendering claims were taken to a browser, and NEITHER was confirmed.** Both are
+downgraded here rather than left standing as implied defects:
+
+- **Typed shape glyphs falling back — UNVERIFIABLE from here, and probably from anywhere.**
+  A `document.fonts.check()` pass returned `true` for every glyph, which is not trustworthy —
+  that API reports font availability, not glyph coverage. A canvas advance-width comparison
+  against a deliberately-nonexistent family was then run, and **its control case failed**:
+  `'A'`, which Outfit certainly supplies, measured identical to the fallback, so canvas was not
+  resolving the webfont at all and every row of that table was meaningless. Worth stating
+  plainly because HARD RULE #29's actual concern is *cross-machine* variation — one deck
+  rendering three ways on three machines — and a single headless Linux container cannot
+  observe that no matter which technique it uses. The glyph inventory in the sweep stands as a
+  source finding; the rendering risk is unmeasured.
+- **Alpha-diluted ink failing AA — NOT reproduced.** Driving the live Studio with Craft posture
+  and the Coach panel open surfaced only **2** of the ~25 diluted sites, both at `/70`, and
+  both pass comfortably: **7.94:1** against a 4.5 floor. The `/25` site — the one most likely
+  to fail — was not mounted in any state reached. So the concern is neither confirmed nor
+  cleared; what it needs is the panel-open axe arm `axe-site.spec.ts:50-53` already says is
+  missing, not another guess.
 
 The sweep also checked and found **clean**: non-semantic interactive elements (2 candidates,
 both correctly handled), accessible names on icon-only controls (12 apparent hits, all false
