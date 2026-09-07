@@ -110,6 +110,12 @@ source, adoption produces the previous one.
 
 Three refusals, each of which would otherwise be a wrong answer rather than a slow one:
 
+- **ink that is not a REVISION of what is arriving** — `isDiagramRevision`
+  (`lib/core/diagram-scope.js`), and it is the guard the first version was missing. See §4a;
+- **a donor that is not itself `rendered`.** A `pending` fence whose slot holds an SVG is one
+  this walk filled a moment ago. Donating a placeholder forward carries one slide's diagram
+  across every slide an author clicks through faster than the debounce — driven across three
+  slides by the maker-checker;
 - **a different number of fences** in the outgoing and incoming subtree. Position is the
   only identity available (the source changed — that is the premise), so a slide that
   gained or lost a diagram would shift every later one by a slot. Pairing is **node for
@@ -129,10 +135,70 @@ the two lists stay aligned by position: one un-rendered diagram on a multi-diagr
 costs only its own hold.
 
 **The held SVG is transient by construction.** The fence stays `pending`, so the only way
-it outlives the next pass is a render that fails — and `attachError` clears the target
-before it shows the error. That is what separates this from handing a *cached* SVG across a
+it outlives the next pass is a render that fails — and every path that gives up clears the
+target first. That was not true when it was first written: `attachError` clears, but the two
+paths that reset a fence to `pending` after a THROW (mid-walk, and a `mermaid.initialize` that
+throws inside a run) did not, so an intermittently-throwing Mermaid would retry forever while
+the slide kept displaying a diagram built from source the author had already changed.
+`resetFenceAfterFailure` now clears the slot on the way back, which costs a fence that never
+held anything nothing (its target is already empty). That is what separates this from handing a *cached* SVG across a
 scope change (the #1332 step-3 bug): that would have been a final answer, this is a
 placeholder with a render already queued.
+
+## 4a. The guard the structure could not supply
+
+A second checker pass, run on the REBASED code, found that navigating between two diagram
+slides in the Studio transplanted the previous slide's diagram into the new slide's box.
+Every structural guard passed, and the reason is worth stating plainly because it invalidated
+the reasoning the first version was built on.
+
+**The Studio's editor preview is not `patchSections`.** That is the Playground and Drawing
+Board path. The Studio goes through `patchSlideBody`
+(`docs/src/lib/single-slide-render.ts`), which replaces the whole `.lattice` body in ONE
+mutation. Measured on the real Studio: `{added: 3, removed: 3, addedFences: [0,1,0],
+removedFences: [0,1,0]}`. So a NAVIGATION arrives in exactly the shape an EDIT does — same
+node count, same fence count, same scope key — and "node for node, and the counts must agree"
+refuses nothing.
+
+**Slide identity would not have fixed it either**, which is why the fix does not use it. The
+obvious guard, "is this the same `<section id>`?", fails in both directions: it says yes to an
+author who replaced a diagram wholesale on one slide, where the old ink is not a preview of
+the new; and when a deck's authored-slide count disagrees with the engine's section count
+(`_focusSteps`, `split: headings`) the shown slide is rendered ALONE, where every slide's `id`
+is `1`. A guard built on it would have passed the case it was written for.
+
+**So ask the question directly: is the arriving source a REVISION of the ink on screen?** That
+is the only property that makes holding correct, and it is measurable without asking the host
+anything. `isDiagramRevision` scores the shared head and tail as a fraction of the longer
+source — which is exactly what a single-point text edit leaves behind — and holds only above
+0.5. Measured on real sources: one character typed 0.98, an eight-character burst 0.88, a
+whole line added 0.66; two `flowchart LR`s of the same shape 0.42 (their shared
+`flowchart LR\n  ` is the whole of it), a flowchart replaced by a `pie` or a `sequenceDiagram`
+0.00. The threshold sits between the clusters with 0.42 below and 0.66 above.
+
+**Driven on the built Studio, `--scenario nav --order 2,4`:**
+
+| | wrong-ink frames | blank | time to the right diagram |
+|---|---|---|---|
+| adoption without the revision guard | **9** | 0 | 209ms |
+| with it | **0** | 9 | 206ms |
+
+The nine frames of another slide's diagram become nine frames of empty slot, which is the
+correct answer when there is nothing legitimate to hold.
+
+**The instrument could not see this either, and that is the second lesson in the same
+place.** `held` was scored from an SVG's node identity, so a transplanted diagram — the same
+element, the same generation — read as the feature working. Frames now carry WHICH diagram is
+on screen (a per-diagram node label, tested against the whole `textContent`; Mermaid emits its
+stylesheet inside the SVG, so a prefix matched nothing), and wrong ink is its own column. It
+is aggregated as a MAX, not a median: a median over two cold visits reported 0 for a build
+that painted 9 wrong frames on one of them, because discarding the outlier is what a median is
+for and here the outlier is the finding.
+
+**What is still not understood, and is therefore not claimed.** `--order 2,4` reports those 9
+frames; the default `1,2,4,3` reports 0 on the same build, though it contains the same 2→4
+hop. Both were measured; the difference has no explanation yet. The bench header says so and
+names `--order 2,4` as the correctness arm rather than pretending the default subsumes it.
 
 ## 5. The debounce, for a diagram that has just appeared
 
@@ -217,15 +283,21 @@ in front of it.
   guarded on a real `mermaid` and keys on `pending`, so a released fence is invisible to
   both. A held SVG in a fence that is later released stays hidden — `mermaid.css` collapses
   `.mermaid` for `unavailable` exactly as it does for `error` — and the author gets their
-  source, which is the right answer. Re-verified on the rebased base rather than reasoned
-  about: 9056 unit tests, the `edit-broken`/`nav`/`edit` arms above, and every guard's
-  mutant still failing.
+  source, which is the right answer. A second checker drove every transition on the rebased
+  code and found this half clean; what it found instead is §4a.
 - **Two exported artifacts get the new behavior too**, so "the Studio's" is shorthand.
   `lib/runtime/index.js` is not in `dist/lattice-emulator.js` and PDF/PPTX/PNG bytes are
   untouched (the emulator strips the runtime `<script>` before rasterizing), but the
   `--fluid` HTML export inlines `dist/lattice-runtime.min.js` and the export-to-Marp kit
   copies it. Neither re-renders a fence after load, so what they inherit is the code, not a
   behavior change a reader would see.
+- **The mutation set was not complete the first time it was called complete.** "Every guard's
+  mutant fails" was written after running the mutants that existed; the second checker then
+  found two real guards with no coverage at all — the `.mermaid` half of the target check
+  (masked by the already-holds-an-SVG half, because one test satisfied either) and
+  `burstFirstSight`'s `pending` check. Both have their own arm now, as do the two guards §4a
+  added. A mutation score is only as honest as the mutant list, and a list you wrote yourself
+  misses what you did not think to break.
 - **A class the RUNTIME adds that the engine does not emit silently disables both adoption
   and the cache replay**, through `diagramScopeKey`'s class half. `RUNTIME_MARKER_CLASSES`
   lists the four known ones. Pre-existing, off the path of this change, and the failure

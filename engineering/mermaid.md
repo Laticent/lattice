@@ -264,10 +264,18 @@ observer callback, and takes the outgoing `<svg>` out of the `MutationRecord`'s
 into the fence that replaced it. The `<pre>` is left `pending`, so the debounced pass still
 renders the new source over the top: the held SVG is a placeholder with a render already
 queued, never an answer. It refuses three cases, because each would be a wrong diagram
-rather than a slow one: a different NUMBER of fences either side (position is the only
-identity left once the source has changed), a different `diagramScopeKey` (the slide's
-palette changed, so the held ink is the old band's), and a document with no Mermaid (the
-same guard the replay opens with — a held SVG nothing replaces is permanently stale).
+rather than a slow one. The load-bearing one is `isDiagramRevision`: hold only when the
+ARRIVING SOURCE IS A REVISION of the ink on screen, scored as the shared head and tail of
+the two sources (what a single-point edit leaves behind) over the longer one, above 0.5.
+Slide identity is not the test and would not work — the Studio's editor preview replaces the
+whole `.lattice` body in one mutation, so navigating between two diagram slides is shaped
+exactly like an edit, and a deck whose authored-slide count disagrees with the engine's
+renders every slide alone as `id="1"`. Beside it: never donate from a fence that is not
+`rendered` (a `pending` fence holding an SVG is a placeholder, and donating it forward
+carries one slide's diagram across every slide the author clicks through), a different
+NUMBER of fences either side, a different `diagramScopeKey` (the slide's palette changed, so
+the held ink is the old band's), and a document with no Mermaid (the same guard the replay
+opens with — a held SVG nothing replaces is permanently stale).
 Pairing is node for node, not flat across the record, and a record whose added and removed
 node lists differ in length is refused outright: `patchSections`' other branch rebuilds the
 whole filmstrip in ONE record, where a flat walk would let a fence inherit ink from another

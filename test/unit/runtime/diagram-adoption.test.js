@@ -32,7 +32,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
-const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
+const { diagramScopeKey, isDiagramRevision } = require('../../../lib/core/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
@@ -61,10 +61,11 @@ function liftAdoption(dom, { mermaid = { render() {}, initialize() {} } } = {}) 
     'document',
     'globalScope',
     'diagramScopeKey',
+    'isDiagramRevision',
     'FENCE_CODE_SELECTOR',
     `${src}\nreturn { adoptOutgoingDiagrams, burstFirstSight };`,
   );
-  return make(dom.window.document, { mermaid }, diagramScopeKey, shippedFenceSelector());
+  return make(dom.window.document, { mermaid }, diagramScopeKey, isDiagramRevision, shippedFenceSelector());
 }
 
 /**
@@ -169,6 +170,61 @@ describe('adoptOutgoingDiagrams', () => {
     assert.equal(dom.window.document.querySelector('.mermaid > svg'), null);
   });
 
+  test('refuses a DIFFERENT diagram arriving in the same slot — the navigation case', () => {
+    // THE DEFECT THIS PINS. The Studio's editor preview replaces the whole `.lattice` body
+    // in ONE mutation (`patchSlideBody`), so clicking from one diagram slide to another
+    // arrives in exactly the shape an edit does: one node out, one node in, same fence
+    // count, same scope key. Every structural guard passes, and without a revision test the
+    // author saw the PREVIOUS slide's diagram in the new slide's box until the render
+    // landed — chaining across every slide they clicked through faster than the debounce.
+    const outgoing = `<section class="diagram">${rendered('flowchart LR\n  A[Input] --> B[Process]', 'slide-2-ink')}</section>`;
+    const incoming = `<section class="diagram">${pending('flowchart LR\n  P[Plan] --> Q[Build]')}</section>`;
+    const dom = new JSDOM(deck(outgoing));
+    liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
+    assert.equal(
+      dom.window.document.querySelector('.mermaid > svg'),
+      null,
+      'a different diagram must not inherit the previous slide’s ink',
+    );
+  });
+
+  test('never donates ink it is only holding — a placeholder must not travel', () => {
+    // The chaining half. A `pending` fence whose slot holds an SVG was filled by THIS walk;
+    // its ink is not that source's answer. Donating it forward carries one slide's diagram
+    // across every slide the author touches.
+    const outgoing =
+      `<section class="diagram">` +
+      `<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR\n  A --> B</code></pre>` +
+      `<div class="mermaid" aria-hidden="true"><svg id="held-not-mine"></svg></div></section>`;
+    const incoming = `<section class="diagram">${pending('flowchart LR\n  A --> Bx')}</section>`;
+    const dom = new JSDOM(deck(outgoing));
+    liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
+    assert.equal(dom.window.document.querySelector('.mermaid > svg'), null);
+  });
+
+  test('refuses a wholesale replacement on the SAME slide', () => {
+    // Slide identity would say yes here and be wrong: the author threw the diagram away, so
+    // the old ink is not a preview of what is coming. The revision test says no.
+    const outgoing = `<section class="diagram">${rendered('flowchart LR\n  A[Input] --> B[Process]', 'old-svg')}</section>`;
+    const incoming = `<section class="diagram">${pending('pie title Share\n  "a" : 40\n  "b" : 60')}</section>`;
+    const dom = new JSDOM(deck(outgoing));
+    liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
+    assert.equal(dom.window.document.querySelector('.mermaid > svg'), null);
+  });
+
+  test('refuses when the next element sibling is not the SVG target', () => {
+    // The `.mermaid` half of that guard, which the "already holds an SVG" half used to mask:
+    // here the sibling is a different element entirely, and its emptiness is not the point.
+    const outgoing = `<section class="diagram">${rendered('flowchart LR\n  A --> B', 'old-svg')}</section>`;
+    const incoming =
+      `<section class="diagram">` +
+      `<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR\n  A --> Bx</code></pre>` +
+      `<div class="mermaid-error" role="status"></div></section>`;
+    const dom = new JSDOM(deck(outgoing));
+    liftAdoption(dom).adoptOutgoingDiagrams(swap(dom, '.lattice', incoming));
+    assert.equal(dom.window.document.querySelector('svg'), null, 'nothing may be written beside a non-target sibling');
+  });
+
   test('refuses a shrinking filmstrip — a deleted slide shifts every later one by a slot', () => {
     // Two diagram slides out, one in: `addedNodes[0]` is the slide that was SECOND, so
     // pairing it against `removedNodes[0]` would hand it the first slide's ink.
@@ -271,6 +327,21 @@ describe('burstFirstSight', () => {
     const dom = new JSDOM(deck(outgoing));
     const { burstFirstSight } = liftAdoption(dom);
     assert.equal(burstFirstSight(swap(dom, '.lattice', incoming)), false);
+  });
+
+  test('false for a fence that is not pending — an errored one arriving in a new container', () => {
+    // `attachError` clears the target, so an `error` fence is empty exactly like a cold one.
+    // A transform that MOVES it into a new container produces a pure insertion, which this
+    // treats as first sight by node shape — and without the state check the 0ms path would
+    // open for a fence the author is mid-edit of, which is the regression burstFirstSight
+    // exists to prevent.
+    const outgoing = '<section><h2>prose</h2></section>';
+    const incoming =
+      `<section class="diagram">` +
+      `<pre data-mermaid-state="error"><code class="language-mermaid-source">flowchart LR\n  A --</code></pre>` +
+      `<div class="mermaid" aria-hidden="true"></div></section>`;
+    const dom = new JSDOM(deck(outgoing));
+    assert.equal(liftAdoption(dom).burstFirstSight(swap(dom, '.lattice', incoming)), false);
   });
 
   test('false for a pending fence whose slot is already filled', () => {

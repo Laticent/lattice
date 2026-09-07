@@ -52,8 +52,10 @@
 //                         differ in ONE slide — the third is a diagram, or prose in its
 //                         place — and the shown slide is prose in both, so the difference
 //                         between the two runs IS what containing a diagram costs at mount
-//   --order 1,2,3,4       the navigation cycle; `--order 2,4` stays inside the diagram
-//                         slides, which is what tells a realm rewrite from a patch
+//   --order 1,2,4,3       the navigation cycle (default). `--order 2,4` stays inside the
+//                         diagram slides: it is what tells a realm rewrite from a patch, AND
+//                         the only arm measured to catch one slide's ink landing in another
+//                         slide's box — the default does not, on the same build
 //   --cpu N               throttle the CPU N× through CDP (default 1)
 //   --runs N              cycles (default 5) · --variant NAME · --json · --shots
 //   --css FILE            inject a candidate stylesheet into the preview frame
@@ -76,7 +78,7 @@ const PORT = 4321;
 const BASE = `http://localhost:${PORT}`;
 
 function parseArgs(argv) {
-	const o = { runs: 5, json: false, variant: 'baseline', cpu: 1, shots: false, order: [1, 2, 3, 4], css: '', js: '', scenario: 'nav', deck: 'diagram' };
+	const o = { runs: 5, json: false, variant: 'baseline', cpu: 1, shots: false, order: [1, 2, 4, 3], css: '', js: '', scenario: 'nav', deck: 'diagram' };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--runs') o.runs = Number(argv[++i]);
@@ -84,9 +86,15 @@ function parseArgs(argv) {
 		else if (a === '--variant') o.variant = argv[++i];
 		else if (a === '--cpu') o.cpu = Number(argv[++i]);
 		else if (a === '--shots') o.shots = true;
-		// The navigation cycle, 1-based slide numbers. The default crosses the
-		// text↔diagram boundary every step; `--order 2,4` stays inside the diagram
-		// slides, which is the case that tells a realm rewrite from a patch.
+		// The navigation cycle, 1-based slide numbers. The default `1,2,4,3` walks
+		// text→diagram, diagram→diagram, diagram→text and text→text in four steps.
+		//
+		// FOR CROSS-SLIDE INK, RUN `--order 2,4`. That is the arm that reproduces one slide's
+		// diagram landing in another slide's box: measured on a build with the revision guard
+		// removed, `--order 2,4` reports 9 wrong-ink frames and the default reports 0, on the
+		// same build and the same deck. Why the default misses it is NOT understood — both
+		// contain the same 2→4 hop — so treat the default as timing coverage and `--order 2,4`
+		// as the correctness arm, rather than assuming one subsumes the other.
 		else if (a === '--order') o.order = argv[++i].split(',').map(Number);
 		// A CANDIDATE, injected into the preview frame at document-start so it applies to
 		// the first paint — the same moment a rule shipped in `lattice.css` would. It is a
@@ -213,6 +221,10 @@ Input, then process, then a decision — which either ships or goes back for rev
 // `addInitScript` runs on each new document.
 function sampler() {
 	if (window.top === window) return;
+	// One label per diagram in DECK, in slide order: slide 2 draws `Input`, slide 4 draws
+	// `Plan`. Kept beside the sampler rather than passed in because `addInitScript` serializes
+	// this function on its own.
+	const INK_TOKENS = ['Input', 'Plan'];
 	const SRC = 'pre > code[class*="language-mermaid"], marp-pre > code[class*="language-mermaid"]';
 	// A NEW document means the parent did a full srcdoc rewrite rather than a patch —
 	// the single most expensive fact about a navigation, and invisible from the outside.
@@ -257,6 +269,25 @@ function sampler() {
 			// holding the outgoing diagram MOVES the element that was already there (same
 			// generation). Without this the two are indistinguishable from outside.
 			if (svgEl && !svgEl.__flashGen) svgEl.__flashGen = ++state.gen;
+			// WHICH diagram, not just whether one is there. A generation tells a held SVG from a
+			// fresh one; it cannot tell THIS slide's held ink from ANOTHER slide's, and that is a
+			// bug this bench scored as a win — adoption transplanting the previous slide's diagram
+			// into the one you navigated to reads as `held`, the column the change is sold on.
+			//
+			// MEMBERSHIP, not a prefix. Each diagram in DECK carries a node label the other does
+			// not, so one token identifies the drawing. It is tested against the WHOLE
+			// `textContent`: Mermaid emits its stylesheet as a `<style>` inside the SVG, so the
+			// first 40 characters of that text are CSS on every frame and a prefix matched nothing.
+			let svgInk = 0;
+			if (svgEl) {
+				const text = svgEl.textContent || '';
+				for (let k = 0; k < INK_TOKENS.length; k++) {
+					if (text.indexOf(INK_TOKENS[k]) !== -1) {
+						svgInk = k + 1;
+						break;
+					}
+				}
+			}
 			// A frame the PARENT is hiding was never seen. The Studio reveals the preview
 			// iframe by fading `opacity` from 0, so a frame painted behind that fade is not
 			// a flash — counting it would credit the flash to a window nobody looked at.
@@ -269,7 +300,7 @@ function sampler() {
 					shown = fcs.display !== 'none' && fcs.visibility !== 'hidden' && Number(fcs.opacity) > 0.01;
 				}
 			} catch (_e) {}
-			state.frames.push([Math.round(performance.now() * 10) / 10, shown ? Math.round(srcAlpha * 100) / 100 : 0, svgEl ? (inkVisible(svgEl) > 0 ? 1 : 0) : 0, slotPresent ? 1 : 0, shown ? 1 : 0, svgEl ? svgEl.__flashGen || 0 : 0]);
+			state.frames.push([Math.round(performance.now() * 10) / 10, shown ? Math.round(srcAlpha * 100) / 100 : 0, svgEl ? (inkVisible(svgEl) > 0 ? 1 : 0) : 0, slotPresent ? 1 : 0, shown ? 1 : 0, svgEl ? svgEl.__flashGen || 0 : 0, svgInk]);
 			if (state.frames.length > 4000) state.frames.splice(0, 2000);
 		} catch (_e) {
 			/* one bad frame must not end the sampling */
@@ -363,14 +394,23 @@ function sampler() {
  * until the held state existed) reports a held frame as an arrival, and every candidate
  * that holds the outgoing ink measures as instant no matter how slow its render is.
  */
-function scoreWindow(frames, from, baseGen = 0) {
+function scoreWindow(frames, from, baseGen = 0, expectInk = 0) {
 	const win = frames.filter((f) => f[0] >= from);
 	let source = 0;
 	let sourceInk = 0;
 	let blank = 0;
 	let held = 0;
+	let wrong = 0;
 	let diagramAt = null;
-	for (const [t, src, svg, slot, , gen] of win) {
+	for (const [t, src, svg, slot, , gen, ink] of win) {
+		// WRONG INK IS NOT `held`, and separating them is the whole point of this column. A
+		// frame showing a diagram that belongs to a DIFFERENT slide is a defect; a frame
+		// showing this slide's previous render is the feature. Both are "an SVG at the old
+		// generation", so a generation alone cannot tell them apart.
+		if (expectInk && svg && ink && ink !== expectInk) {
+			wrong++;
+			continue;
+		}
 		if (svg && gen > baseGen) {
 			diagramAt = t;
 			break;
@@ -383,7 +423,7 @@ function scoreWindow(frames, from, baseGen = 0) {
 	}
 	// `sourceInk` is frames weighted by how opaque the source was — a cross-fade's
 	// half-visible frames count as half a frame of insult, not a whole one.
-	return { source, sourceInk: Math.round(sourceInk * 10) / 10, blank, held, diagramMs: diagramAt === null ? null : Math.round(diagramAt - from) };
+	return { source, sourceInk: Math.round(sourceInk * 10) / 10, blank, held, wrong, diagramMs: diagramAt === null ? null : Math.round(diagramAt - from) };
 }
 
 async function main() {
@@ -678,7 +718,11 @@ async function main() {
 			continue;
 		}
 		const from = sample.swaps.length ? sample.swaps[0] : sample.frames[0][0];
-		const score = scoreWindow(sample.frames, from, sample.baseGen || 0);
+		// The ink this slide's diagram must show. Unique node labels per diagram in DECK, so a
+		// substring is enough; a frame showing anything else is another slide's diagram.
+		// 1 = slide 2's diagram, 2 = slide 4's — the INK_TOKENS index the sampler records.
+		const expectInk = target === 2 ? 1 : target === 4 ? 2 : 0;
+		const score = scoreWindow(sample.frames, from, sample.baseGen || 0, expectInk);
 		const isDiagram = typing ? true : target % 2 === 0;
 		const rewrite = sample.doc !== lastDoc;
 		lastDoc = sample.doc;
@@ -707,13 +751,22 @@ async function main() {
 			const v = rows.map((r) => r[k]).filter((x) => x !== null).sort((a, b) => a - b);
 			return v.length ? v[Math.floor(v.length / 2)] : null;
 		};
+		// WRONG INK IS A MAX, NOT A MEDIAN, and the difference is not cosmetic. Timing columns
+		// want the typical run; a frame showing another slide's diagram is a DEFECT, and one is
+		// as damning as ten. A median over the two cold diagram visits reported 0 for a build
+		// that painted 9 wrong frames on one of them — the median's job is to discard the
+		// outlier, and here the outlier is the finding.
+		const worst = (k) => {
+			const v = rows.map((r) => r[k]).filter((x) => x !== null);
+			return v.length ? Math.max(...v) : null;
+		};
 		const medPhase = (k) => {
 			// Only a REWRITE has document phases; on a patch the marks belong to the
 			// document the patch landed in, which was set up navigations ago.
 			const v = rows.filter((r) => r.rewrite).map((r) => r.phases?.[k]).filter((x) => x !== null && x !== undefined).sort((a, b) => a - b);
 			return v.length ? v[Math.floor(v.length / 2)] : null;
 		};
-		return { n: rows.length, sourceFrames: med('source'), sourceInk: med('sourceInk'), blankFrames: med('blank'), heldFrames: med('held'), renders: med('renders'), diagramMs: med('diagramMs'), shift: med('shift'), rewrites: rows.filter((r) => r.rewrite).length, phaseShown: medPhase('shown'), phaseTagged: medPhase('tagged'), phaseSvg: medPhase('svg') };
+		return { n: rows.length, sourceFrames: med('source'), sourceInk: med('sourceInk'), blankFrames: med('blank'), heldFrames: med('held'), wrongFrames: worst('wrong'), renders: med('renders'), diagramMs: med('diagramMs'), shift: med('shift'), rewrites: rows.filter((r) => r.rewrite).length, phaseShown: medPhase('shown'), phaseTagged: medPhase('tagged'), phaseSvg: medPhase('svg') };
 	};
 	const out = { variant: opts.variant, cpu: opts.cpu, runs: opts.runs, cold: agg(cold), warm: agg(warm), all: agg(diagrams), samples: results };
 	if (opts.shots) {
@@ -725,10 +778,10 @@ async function main() {
 		console.log(JSON.stringify(out, null, 2));
 	} else {
 		console.log(`\nvariant: ${opts.variant}   cpu×${opts.cpu}   runs: ${opts.runs}\n`);
-		console.log('                 raw-source frames   (ink-weighted)   blank frames   held frames   time-to-diagram   layout shift   renders');
+		console.log('                 raw-source frames   (ink-weighted)   blank frames   held frames   WRONG ink   time-to-diagram   layout shift   renders');
 		for (const [label, a] of [['cold (first visit)', out.cold], ['warm (cached)', out.warm]]) {
 			if (!a) continue;
-			console.log(`  ${label.padEnd(18)} ${String(a.sourceFrames).padStart(8)}       ${String(a.sourceInk).padStart(10)}      ${String(a.blankFrames).padStart(9)}   ${String(a.heldFrames).padStart(9)}    ${String(a.diagramMs === null ? 'never' : `${a.diagramMs}ms`).padStart(12)}   ${String(a.shift).padStart(10)}   ${String(a.renders).padStart(6)}`);
+			console.log(`  ${label.padEnd(18)} ${String(a.sourceFrames).padStart(8)}       ${String(a.sourceInk).padStart(10)}      ${String(a.blankFrames).padStart(9)}   ${String(a.heldFrames).padStart(9)}   ${String(a.wrongFrames).padStart(7)}    ${String(a.diagramMs === null ? 'never' : `${a.diagramMs}ms`).padStart(12)}   ${String(a.shift).padStart(10)}   ${String(a.renders).padStart(6)}`);
 		}
 		console.log('\n  phases, from the frame document\'s own `.lattice` (ms):   full rewrites / visits');
 		for (const [label, a] of [['cold (first visit)', out.cold], ['warm (cached)', out.warm]]) {
