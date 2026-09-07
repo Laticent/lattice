@@ -312,6 +312,65 @@ already exists:
 | `--chart-frame-radius` | `0` | corner radius tracks the register (Rule F2 of the winner) |
 | `--chart-chrome-*` | the ladder above | one rung per role, replacing five rule colours |
 
+## Who decides — the author, inside a rail
+
+Several decisions surfaced here are matters of taste, not correctness: whether a
+bar keeps its shading, whether a figure draws a box. Those belong to the author,
+and the engine already has the mechanism — **fourteen front-matter registers**
+(`mode:` `finish:` `lift:` `rule:` `corners:` `cards:` …), each a closed set of
+named values with a default when the key is omitted, a typo caught by name, a
+per-slide override, a ~70-line resolver in `lib/core/resolve-*.js`, and a Studio
+control. A chart register is the fifteenth, not a new mechanism.
+
+**The line that keeps flexibility from becoming incoherence:**
+
+> **A preset may change how a chart LOOKS. It may never change whether it can be
+> READ.**
+
+That is not a slogan — the measurements decide which side of it a decision falls
+on, and they have already sorted the ones on the table:
+
+| Decision | Measured | Side of the line |
+|---|---|---|
+| bar's cross-axis shading | edge carries contrast at 5.34–11.93:1; the ramp never crosses the measured axis | **a look** — presetable |
+| a figure's ground and edge | invisible on-slide; the export defect is about a MISSING declaration, not a visible one | **a look** — presetable (the export bake is not) |
+| the radial dome on pie/quadrant | self-range 0.214 against 0.071 separation; defeats onyx's value channel at 2.9× | **a defect** — never a preset |
+| texture width vs palette width | 6 wired against 8 slots and an 11-slice ceiling | **a defect** — never a preset |
+| contrast floors, the redundancy rung | 117/224 for text on a mark | **a defect** — never a preset |
+
+So the bar-shading question stops being a question the human has to settle once
+and for all. It becomes an axis of the register: one preset flattens it, another
+keeps it, and the author picks per deck. **The dome does not get the same
+treatment**, because a preset that removes a reader's ability to tell two
+categories apart is not a look — and that asymmetry is measured, not asserted.
+
+### The presets
+
+Three, because three cover the real range and a fourth would start combining
+things that fight. Named `charts:` for consistency with `cards:` and `lift:`.
+
+| `charts:` | Marks | Figure | Furniture | For |
+|---|---|---|---|---|
+| **`editorial`** *(default)* | flat | no ground, no edge | minimal — a rule only where a magnitude must be compared | The boardroom default. What FT, the Economist and Datawrapper do. |
+| `panel` | flat | subtle ground + hairline edge | as editorial | A chart among dense prose, a chart over a background image, a board pack where the figure must read as a separate object. |
+| `material` | cross-axis shading kept | no ground, no edge | as editorial | Closest to what ships today; for decks that want the material feel. |
+
+**What every preset holds constant, by construction:** the palette, the contrast
+floors, the redundancy rung each member owes, the texture width, and the rule
+that a mark out-ranks its own backdrop. A preset selects a *finish*; it cannot
+reach the channels a reader depends on.
+
+**Why a preset and not knobs.** Exposing `chart-bar-shading:`,
+`chart-frame-edge:`, `chart-grid-density:` separately would let an author combine
+a heavy frame with dense furniture and shaded marks — three quiet decisions that
+are individually defensible and collectively loud. The preset is what makes the
+combinations someone else already checked the only reachable ones.
+
+**Jank.** `npm run check:jank` already measures the failure that matters here —
+whether a fixed element holds position as content grows. A new preset is a new
+row for it, so a frame that reflows the plot or shading that changes a mark's
+measured extent is caught by a gate that exists rather than by review.
+
 ## Open
 
 - **N2 and `bar`.** Does the rule get a third clause — *a finish may run across an
@@ -320,10 +379,12 @@ already exists:
 - **Where the classification lives.** Six of these seven properties are derivable
   from the rendered output, which argues for a gate over a manifest field. The
   seventh (what colour encodes) is a design intent and has to be declared.
-- **Does the frame edge ever default ON?** Rule F1 says no, on reference practice.
-  The counter-argument is that Lattice charts are read in board packs where a
-  figure competing with dense prose benefits from a boundary. This is a
-  house-style call, not a measurement.
+- **Which preset is the default?** `editorial` is proposed on reference practice.
+  `material` is closest to what ships, so defaulting to `editorial` restyles every
+  existing deck while defaulting to `material` ships the new language to nobody.
+- **Three presets or four?** A fourth (`technical` — full grid, every tick, mono
+  forward) would serve dense analytical decks, at the risk of being the preset
+  that quietly re-admits clutter.
 - Verify the winner's ratification of the legend split: it argues the four Outfit
   legends name `--pill-font` status pills, but `gantt` and `journey` use that token
   zero times.
