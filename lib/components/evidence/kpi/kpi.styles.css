@@ -26,7 +26,6 @@
  *   · Number (strong)— Playfair display, tabular figures
  *   · Pill (code)    — trailing inline `code` becomes a status / audience
  *                       pill; first pill carries the status color
- *   · Flagship (✦)   — four-point star on critical / hero card
  *
  * The bare `kpi` class resolves to briefing styling — when authors don't
  * pick a modifier, they get the power-play default.
@@ -264,28 +263,55 @@ section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(4)),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(4)) {
   grid-template-rows: repeat(3, minmax(min-content, 1fr));
 }
+/* THE HERO IS THE FOCUS, so it is composed like one: centered on BOTH axes.
+ *
+ * It used to center on the block axis only and sit left-aligned, so its content
+ * parked in the upper left of a 748 x 438 panel and filled 15.2% of it — the
+ * emptiest tile on the slide, holding 2.2x the width of the rail beside it. That is
+ * the measurement that inverts the obvious fix: the rail is not stealing the hero's
+ * room, the hero is failing to use it, and narrowing the rail would take room from
+ * the tile that is actually running out (66-81% full at word weight, and wrapping).
+ *
+ * THE VALUE IS NOT SCALED, and that half of this idea died on measurement. Two
+ * drafts shipped a multiplier on `--fs-hero` here — x1.45, then x1.25 after a sweep
+ * against the documented label density said x1.45 overflowed it. Both were wrong,
+ * because the sweep measured the wrong axis: it read the slack around the LABEL and
+ * never measured the VALUE, whose width is author-controlled and unbounded.
+ *
+ * At x1.25 an ordinary board figure bursts the panel. `$12,480,000` runs 72.4px past
+ * the hero's own right edge and 8.4px into the rail column, printing over the rail's
+ * metric — text on text. Of thirteen realistic values, 0 escaped the panel at x1.0
+ * and 5 did at x1.25, two of them onto the rail. Nothing catches it: the spill is
+ * HORIZONTAL and inside the frame, so the overflow probe reads clean and the export
+ * ships it silently. The value gets ~18% less runway (5.93 em-widths of panel down
+ * to 4.86), and CSS has no fit-to-width for a string an author chooses, so a bigger
+ * hero number is unsafe by construction rather than by tuning. `square` inherits the
+ * hero grid and made it worse still: 87.1px of spill became 215.1px.
+ *
+ * What survives is the composition, which is what the complaint was actually about:
+ * the block sits centered in its panel instead of parked in the upper left.
+ *
+ * THE CORNER SPARK RETIRES, and the reason is measured too. Centered content leaves
+ * a top-right mark orphaned, so the alternative was to keep it as a crown above the
+ * value — which pushes ink to y = -4.7 at the documented density, above the panel's
+ * own top edge. The variant that keeps the mark costs capacity; retiring it does
+ * not. */
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) {
   grid-column: 1; grid-row: 1 / -1;
   background: var(--accent-soft);
-  padding: var(--sp-xl) var(--sp-2xl);
+  padding: var(--sp-lg) var(--sp-xl);
   position: relative;
   display: flex; flex-direction: column;
   justify-content: center;
+  align-items: safe center;
+  text-align: center;
   border-left: 4px solid var(--accent);
 }
+/* Retired with the hero's recomposition — see the note above. */
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1)::after,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1)::after {
-  /* DRAWN, not typed (HARD RULE #29) — `font-size` is the `em` basis for the box. */
-  content: '';
-  position: absolute;
-  top: var(--sp-lg); right: var(--sp-lg);
-  font-size: var(--fs-h2);
-  line-height: 1;
-  width: 1em; height: 1em;
-  background-color: var(--accent);
-  -webkit-mask: var(--shape-spark) var(--shape-paint);
-          mask: var(--shape-spark) var(--shape-paint);
+  content: none;
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > strong,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > strong {
@@ -319,21 +345,40 @@ section.kpi.briefing > .cell-stage > ol:not(:has(> li:nth-child(3))) > li:not(:f
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:not(:has(> li:nth-child(3))) > li:not(:first-child) {
   justify-content: start;
 }
+/* THE RULE IS A SEPARATOR, SO IT ONLY EXISTS BETWEEN TWO RAIL ROWS.
+ *
+ * The rail used to BRACKET itself: a 1.5px --text-heading border-top on the first
+ * support, 1px --border between the interior ones, and a 1.5px --text-heading
+ * border-bottom under the last. The two heavy ones are not separators — they are the
+ * ledger's outer edges, and they turned three numbers into a closed table frame that
+ * reads heavier than the content in it. Same defect #2055 cleared across the table
+ * family (engineering/decisions/2026-09-03-table-outer-edge-rules.md), and the same
+ * one inventory.styles.css already removed from its own ledger, citing that record.
+ *
+ * The rail is rows 2..n of the list — the hero is nth-child(1), in the other column —
+ * so the interior boundaries are `nth-child(n+3)`: the second rail row onward. That
+ * is the positional equivalent of inventory's `li + li`, which cannot be used here
+ * because the adjacent sibling of the FIRST rail row is the hero, not another rail
+ * row. Like `li + li` it can only ever match an interior boundary, so there is no
+ * outer edge to suppress and nothing to keep in sync.
+ *
+ * The surviving separators are all 1px --border. The 1.5px --text-heading weight
+ * existed only on the two edges being removed. */
 section.kpi.briefing > .cell-stage > ol > li:nth-child(2),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(2) {
   grid-row: 1;
-  border-top: 1.5px solid var(--text-heading);
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(3),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(3) {
   grid-row: 2;
-  border-top: 1px solid var(--border);
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(4),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(4) {
   grid-row: 3;
+}
+section.kpi.briefing > .cell-stage > ol > li:nth-child(n+3),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(n+3) {
   border-top: 1px solid var(--border);
-  border-bottom: 1.5px solid var(--text-heading);
 }
 /* Briefing supports: 3.9583cqi (= 38pt) sits between --fs-h2 (28pt, reads
  * as a heading, too quiet next to the hero) and --fs-h1 (48pt, which makes
@@ -360,9 +405,11 @@ section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   border-left-color: var(--warn);
 }
-section.kpi.attention > .cell-stage > ol > li:nth-child(1)::after {
-  color: var(--warn);
-}
+/* The hero's flagship mark is retired (see the hero note above) and the rule that
+ * tinted it for `attention` goes with it. It never worked in any case: the shape was
+ * painted from `background-color` through a mask, so `color` on that pseudo was inert
+ * long before it was removed — measured on the parent build, computed
+ * `color: rgb(138, 93, 0)` while the mark still painted accent blue. */
 
 /* ─ MODIFIER · OPS (SLO/SLA review) ─────────────────────────────────── */
 section.kpi.ops > .cell-stage > ol {
@@ -416,20 +463,66 @@ section.kpi.compliance > .cell-stage > ol {
    * rule deliberately does NOT take this (see the note there). */
   min-height: 0;
 }
+/* TWO columns, not three. The third was declared for a right-hand status column
+ * that never existed: the rule placing the pill there could not apply, because the
+ * pill is a GRANDCHILD of this grid. The row's `<ul>` is `display: contents`, so the
+ * inner `<li>`s become the grid items — and the `<code>` sits inside one of THOSE,
+ * one level too deep to be placed. The declaration computed (`grid-column: 3`) and
+ * did nothing; the track resolved to 0px and the pill trailed its meta text, leaving
+ * 751-777px of the 1152px row empty, 65-67% of every compliance row. Measured, then
+ * removed rather than left as a rule that reads like it works.
+ *
+ * NO STATUS COLUMN REPLACES IT, and two attempts to build one were reverted. The
+ * pill still trails its meta text. Why that is a DOM problem rather than a CSS one,
+ * and what each attempt broke, is the comment on the meta line below — read that
+ * before reaching for a container display here again. */
 section.kpi.compliance > .cell-stage > ol > li {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  grid-template-columns: max-content minmax(0, 1fr);
   grid-template-rows: auto auto;
   column-gap: var(--sp-2xl);
   row-gap: var(--sp-xs);
   padding: var(--sp-md) 0;
-  border-bottom: 1px solid var(--border);
   align-items: baseline;
 }
-section.kpi.compliance > .cell-stage > ol > li:last-child {
-  border-bottom: 1.5px solid var(--text-heading);
+/* THE RULE IS A SEPARATOR, so it exists only BETWEEN two rows — the same outer-edge
+ * defect the briefing rail carried above, and the same one #2055 cleared across the
+ * table family (2026-09-03-table-outer-edge-rules.md). Every row drew a bottom
+ * border, and the LAST row drew a heavy one: a floor under the ledger, separating
+ * nothing.
+ *
+ * `:not(:last-child)` on the BOTTOM border, not inventory's `li + li` on the top.
+ * Both express "interior boundaries only" and neither has an outer edge to suppress,
+ * but they are NOT interchangeable here, and a first cut of this rule used `li + li`
+ * and moved every separator. This `ol` is a flex column with `justify-content:
+ * space-between`, so the free space sits BETWEEN the rows: the bottom of row N and
+ * the top of row N+1 are the two far sides of that gap, not the same pixel. Measured
+ * on the shipped gallery slide the switch moved both separators +28.2px and +28.7px,
+ * and on a two-row slide 209.2px — parking the "separator" flush against the row
+ * below it. inventory's `li + li` is right THERE because its rows have no gap
+ * between them. Keeping the border on the bottom edge holds every interior separator
+ * within half a pixel of where it was, against the 28.2px / 209.2px the top-edge
+ * form moved them. Measured on the gallery AT THE PAINTED EDGE — the bottom border
+ * of each row, which is where this rule puts the line: boundary 1 3209.56 to
+ * 3209.56 (+0.00px), boundary 2 3352.28 to 3352.78 (+0.50px), and the last row's
+ * border gone, which is the floor. It is not exactly zero and cannot be: removing
+ * the floor takes 1px of border out of the column and `space-between` hands that
+ * pixel back to the gaps. Measure the ROW TOPS instead and you get +0.50 / +1.00 —
+ * a shipped draft of this comment quoted those, but the top of row 3 carries no
+ * border, so that edge paints nothing and the number describes a boundary the
+ * reader cannot see. */
+section.kpi.compliance > .cell-stage > ol > li:not(:last-child) {
+  border-bottom: 1px solid var(--border);
 }
 section.kpi.compliance > .cell-stage > ol > li > strong {
+  /* `1 / 3` — the two EXPLICIT rows. An earlier draft wrote `1 / -1` claiming the
+   * value would then center against a third sub-bullet too; it does not. Negative
+   * line numbers count from the last line of the EXPLICIT grid, and
+   * `grid-template-rows: auto auto` makes `-1` identical to `3`. Measured: forcing
+   * `1 / 3` moves the value 0.00px, forcing `1 / 4` moves it 15.96px. The implicit
+   * row a third sub-bullet creates is outside the span either way, so the value
+   * aligns to the label/target pair and a third line hangs below it. Written as the
+   * literal it actually is, rather than a negative that reads like it spans more. */
   grid-column: 1; grid-row: 1 / 3;
   font-size: var(--fs-h1);
   min-width: 4ch;
@@ -441,13 +534,66 @@ section.kpi.compliance > .cell-stage > ol > li > ul > li:first-child {
   grid-column: 2; grid-row: 1;
   padding-top: 0;
 }
-section.kpi.compliance > .cell-stage > ol > li > ul > li + li {
+/* The meta line keeps main's three declarations, ALL THREE. Deleting the rule with
+ * the status-column grid let the shared `li + li` padding (--sp-xs, 8px) back in,
+ * which pushed every compliance row 8px taller and moved both separators, +8.00px
+ * and +4.50px on the gallery; it also split the row's rhythm, 8px of lead on
+ * sub-bullet 2 against 0 on sub-bullet 3 and beyond.
+ *
+ * A first repair restored only the padding, on the reasoning that auto-placement
+ * lands this line at column 2 / row 2 anyway. It does — while the row HAS a value.
+ * `lib/core/slot-label-lift.js` returns the `li` untouched when the lead is empty,
+ * so a row authored as a bare `1.` with two sub-bullets has no `strong` spanning
+ * column 1, the cursor finds row 1 / column 1 free, and the meta line places itself
+ * to the LEFT of the label on the same line — reading order reversed. Measured:
+ * label left=392.1 with the meta at left=64 on the branch, against 128 / 128 and
+ * stacked on main. `lint:deck` says nothing about it. Narrow shape, real regression,
+ * and one declaration prevents it. */
+section.kpi.compliance > .cell-stage > ol > li > ul > li:nth-child(2) {
   grid-column: 2; grid-row: 2;
   padding-top: 0;
 }
-section.kpi.compliance > .cell-stage > ol > li > ul > li code:first-of-type {
-  grid-column: 3; grid-row: 1 / 3;
-  align-self: center;
+/* THE META LINE STAYS INLINE, and the status column this file used to declare is
+ * NOT achievable in CSS alone. Two attempts shipped here and both were regressions;
+ * the record matters more than the attempts.
+ *
+ * The goal was a right-anchored status column — the old `grid-column: 3` reached for
+ * it and could never take it, because the row's `<ul>` is `display: contents`, so the
+ * inner `<li>`s are the grid items and a `<code>` sits inside one of THOSE, a
+ * grandchild the grid cannot place. That declaration resolved and did nothing, the
+ * reserved track collapsed to 0px, and the pill trailed its text with 751-777px of
+ * the 1152px row unused.
+ *
+ * Attempt 1, flex + `space-between`: the label's text is an ANONYMOUS item and each
+ * pill is its own, so slack distributed between EVERY pair and a two-pill row put the
+ * first pill mid-row attached to nothing — 269px of dead air. It was also `nowrap`,
+ * so at tall all the shrink landed on the label and crushed it to its widest word.
+ *
+ * Attempt 2, grid + `grid-auto-flow: column`: same root cause, worse blast radius.
+ * EVERY element child becomes a grid item, not just `<code>` — so ordinary markdown
+ * tore apart. `target **99%**, +2pp QoQ` rendered `target` at x=293 and `99%` at
+ * x=975, 623px of dead air mid-sentence; a leading pill (`` `On plan` since March``)
+ * stretched from 101px to 792.7px in the flexible track. Silent at wide: no probe
+ * sees a horizontal spread. And at tall the `max-content` pill columns never shrink,
+ * so the label wrapped to five lines where main took two.
+ *
+ * THE COMMON CAUSE: any container display makes each text run and each inline
+ * element its own item, and nothing wraps the label, so "everything that is not a
+ * pill" is not addressable. Right-anchoring the pills needs a DOM change — a wrapper
+ * element around the label, emitted by the transform — not a CSS rule. Until that
+ * exists the pill trails its text, as it always has, and the row is honest about it.
+ *
+ * What DOES ship from this pass: the phantom third track is gone (it was 0px and
+ * carried an inert rule), so the row is a truthful two-column grid. */
+/* A THIRD sub-bullet and beyond gets its own row instead of overprinting the second.
+ * `li + li` matched every sub-bullet after the first and pinned them all to
+ * `grid-row: 2`, so a third rendered exactly on top of the second — identical rects,
+ * text over text, silent. Pre-existing (it reproduces on main) and beyond the
+ * documented row shape of value/label/target, but this diff rewrites the very rule
+ * that caused it, so it is fixed here rather than left behind. */
+section.kpi.compliance > .cell-stage > ol > li > ul > li:nth-child(n+3) {
+  grid-column: 2;
+  padding-top: 0;
 }
 section.kpi.compliance > .cell-stage > ol > li:nth-child(1),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(2),
@@ -472,6 +618,13 @@ section.kpi.compliance > .cell-stage > p:last-of-type {
 }
 
 /* ─ MODIFIER · TRAJECTORY (investor / period-over-period) ───────────── */
+/* Column count = metric count, the same treatment the briefing grid's ROW count
+ * already gets above. Hard-coding four left a 3-metric slide — which is `sweet`, the
+ * count the docs recommend — with an empty 270px track, 23% of the stage, beside
+ * three cards. The declarations below are ordered widest-first: each is
+ * `:not(:has(nth-child(N)))`, all at equal specificity, so the last one that matches
+ * wins and a shorter list lands on a narrower template. A 5th metric still
+ * auto-places on `grid-auto-rows`, as before. */
 section.kpi.trajectory > .cell-stage > ol {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -496,6 +649,15 @@ section.kpi.trajectory > .cell-stage > ol > li {
   border-top: 4px solid var(--accent);
   /* Struck elevation composed under the categorical top stripe (base.tokens.css). */
   box-shadow: var(--elevation-card);
+}
+section.kpi.trajectory > .cell-stage > ol:not(:has(> li:nth-child(4))) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+section.kpi.trajectory > .cell-stage > ol:not(:has(> li:nth-child(3))) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+section.kpi.trajectory > .cell-stage > ol:not(:has(> li:nth-child(2))) {
+  grid-template-columns: minmax(0, 1fr);
 }
 section.kpi.trajectory > .cell-stage > ol > li:nth-child(1) { border-top-color: var(--cat-1-mark); }
 section.kpi.trajectory > .cell-stage > ol > li:nth-child(2) { border-top-color: var(--cat-2-mark); }
@@ -530,6 +692,28 @@ section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nt
 section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(4)) {
   grid-template-rows: repeat(3, minmax(min-content, 1fr));
 }
+/* THE PILL LINE IS A FLEX CONTAINER, so `text-align` does not reach it.
+ *
+ * Any sub-bullet carrying a pill becomes `display: flex` (the shared rule far above),
+ * and flex items are positioned by `justify-content`, not `text-align`. The first
+ * draft of this composition therefore centered the value and the label and left the
+ * target/status line packed hard against the left edge underneath them — measured
+ * 403.3px of empty to its right on a short line, and 243.1px at the very density the
+ * change claimed to have swept. Two adjacent lines in one tile, two alignments.
+ *
+ * The gallery could not show it: its status lines are the widest child of the block,
+ * so they fill and the asymmetry reads exactly 0. It appears once the line is SHORTER
+ * than the label above it, which is the ordinary case.
+ *
+ * Scoped to the HERO. The rail's own pill lines stay left-aligned — they sit in a
+ * ledger, not a centered panel. */
+section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > ul > li,
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > ul > li,
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li {
+  justify-content: center;
+}
+
+/* Same composition as the briefing hero above, for the same measured reasons. */
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   grid-column: 1; grid-row: 1 / -1;
   background: var(--accent-soft);
@@ -537,20 +721,11 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   position: relative;
   display: flex; flex-direction: column;
   justify-content: center;
+  align-items: safe center;
+  text-align: center;
   border-left: 4px solid var(--accent);
 }
-section.kpi.spotlight > .cell-stage > ol > li:nth-child(1)::after {
-  /* DRAWN, not typed (HARD RULE #29) — `font-size` is the `em` basis for the box. */
-  content: '';
-  position: absolute;
-  top: var(--sp-xl); right: var(--sp-xl);
-  font-size: var(--fs-h1);
-  line-height: 1;
-  width: 1em; height: 1em;
-  background-color: var(--accent);
-  -webkit-mask: var(--shape-spark) var(--shape-paint);
-          mask: var(--shape-spark) var(--shape-paint);
-}
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1)::after { content: none; }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-hero);
   line-height: 0.88;
@@ -575,23 +750,155 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   --pill-bg: var(--kpi-pass-pill-bg);
   --pill-fg: var(--pass);
 }
+/* Every support belongs in the rail column. Only children 2-4 were placed, so a 5th
+ * metric auto-placed into COLUMN 1 — under the hero card — and the separator rule
+ * below then drew a 634.7px hairline across it. Briefing has carried the equivalent
+ * `grid-column: 2` on `li:not(:first-child)` all along; spotlight never did. */
+section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) { grid-column: 2; }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(2) { grid-column: 2; grid-row: 1; }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(3) { grid-column: 2; grid-row: 2; }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(4) { grid-column: 2; grid-row: 3; }
+/* TOP-ALIGN the supports under their own rules. Each support's border-top is a
+ * hairline heading the number below it, and centering the content in a row taller
+ * than the content strands that hairline — measured 37.3px of gap on a 187.1px row,
+ * a rule heading nothing and a number belonging to nothing. This is the defect the
+ * briefing rail note above already describes and fixes; briefing scoped its fix to
+ * the one-support case and excluded `.spotlight` by name, so spotlight kept it at
+ * every count. The spotlight rail's rows are always taller than a support's content
+ * (the hero sets the height), so this is unconditional here rather than count-aware.
+ *
+ * WHAT IT COSTS, because `start` MOVES the slack rather than removing it. The row is
+ * 187.1px and a support's content is ~103px, so ~84px of slack exists either way. Main's
+ * `center` split it — 44.25px above the ink, 44.27px below — and the half above is the
+ * strand. All of it now sits below, so the rule-to-ink gap is 0.00px and the LAST row's
+ * trailing band goes 44.27px -> 83.72px. Total whitespace is conserved; only its
+ * distribution moves. Interior rows are unaffected in the read (their slack simply sits
+ * before the next rule instead of after it) — the visible cost is the band under the last
+ * support.
+ *
+ * TWO CANDIDATES THAT ZERO THE BAND WERE BUILT, MEASURED AND REJECTED BY LOOKING.
+ * `justify-content: space-between` measures 0.00px and pushes each row's label and meta
+ * to the bottom of the track, tearing the number away from its own label — the same
+ * stranded-element defect this rule exists to fix, one element over. Content-sized rows
+ * (`grid-auto-rows: min-content` + `align-content: center`) also measure 0.00px and stop
+ * the hero stretching, so the panel ends partway down the stage. A correct number and a
+ * wrong composition, twice. Closing it properly is a decision about the rail's vertical
+ * composition, not a padding.
+ *
+ * AND NOT AN EMPTY GRID TRACK, which a draft of this comment claimed. `grid-auto-rows`
+ * above already sizes the rail to the supports authored — a 3-metric slide computes
+ * `187.109px 187.109px`, two tracks — so there is no phantom third row. The dead space is
+ * unfilled slack INSIDE the last row. */
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) {
   display: flex; flex-direction: column;
-  justify-content: center;
+  justify-content: start;
   padding: 0;
 }
-section.kpi.spotlight > .cell-stage > ol > li:nth-child(2) { border-top: 1.5px solid var(--text-heading); }
-section.kpi.spotlight > .cell-stage > ol > li:nth-child(3) { border-top: 1px solid var(--border); }
-section.kpi.spotlight > .cell-stage > ol > li:nth-child(4) {
+/* Separators only, exactly as the briefing rail above — same rail, same two outer
+ * edges removed. */
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(n+3) {
   border-top: 1px solid var(--border);
-  border-bottom: 1.5px solid var(--text-heading);
 }
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
   font-size: var(--fs-emphasis);
 }
+/* THE LEAD GOES ON THE ROWS THAT CARRY A RULE, AND ONLY THOSE. `start` above packs
+ * each value against the hairline heading it, and at `--fs-emphasis` an ACCENTED
+ * CAPITAL touches it: an `Ä` value measures 0.00px of white between rule and ink,
+ * at 400dpi AND at 1x, which is the resolution the deck is read and printed at. A
+ * `$` leads by 1.2px at 400dpi and merges into the line at 1x. Ordinary board
+ * values, both of them.
+ *
+ * WHY THE SCOPE IS `n+3` AND NOT `:not(:first-child)`. The first rail row carries no
+ * border — the outer edge above it is exactly what this change removed — so padding
+ * it buys nothing and costs a row's worth of height. Two earlier drafts padded
+ * every support and CLIPPED the documented ceiling: a 4-metric `spotlight` at wide
+ * (`adapt.capacity.wide.hard: 4`) fits with 0.00px of slack, so 0.4em on every row
+ * overflowed it by 33.56px. A later draft scoped the lead to the ruled rows and
+ * claimed 0.15em fit — it does not, see the swept table below.
+ *
+ * WHY 0.12em, AND HOW THE CEILING IS MEASURED. Swept against a 4-metric slide with
+ * the stage's bottom edge against the deepest descendant box: clean at 0.06 through
+ * 0.12em, and 0.13em already cuts 1.13px at 16:9 (0.15em cuts 3.56px there and
+ * 2.92px at 4K). 0.12em is the ceiling, one step under the first value that fails.
+ *
+ * DO NOT SIZE THIS RULE WITH THE EXPORT'S OVERFLOW WARNING. A draft did, picked
+ * 0.15em, and shipped a slide whose 4th status pill was sheared 2.39px by
+ * `.cell-stage { overflow: clip }` while the emulator reported the deck CLEAN. The
+ * warning has a threshold; a clip does not. Measure the stage's bottom against the
+ * deepest box, at 16:9 AND 4K — nothing else in the tree sees this.
+ *
+ * WHAT IT BUYS, AND WHERE IT STOPS. Scanned as painted ink over the whole rail
+ * column at 600dpi, counting the first antialiased pixel rather than the first solid
+ * one: `École` 2.24px, `Ålborg` 2.40, `Ñuñoa` 3.04, `Ärlig` 3.20, `$2.4B` 6.24,
+ * `98.6%` 7.04, `£1.1B` 10.56, a bare `2.4` 18.72. Measure this at 1x and the small
+ * numbers quantize to 1-2 whole pixels either way — scan at 600 and take the
+ * antialias, or the answer rounds to whatever you hoped for.
+ *
+ * DOUBLE-STACKED DIACRITICS CROSS THE RULE, and this lead cannot reach them. `Ǻ`
+ * (U+01FA, ring AND acute — not `Å`, which clears at 2.40px) starts its ink 5.60px
+ * ABOVE the hairline, so the rule paints through the glyph. It is not one character:
+ * `Ǻ Ầ Ổ Ḗ Ṏ Ẫ Ẵ Ǟ Ȫ` all cross, by 1.9 to 7.9px. 5.60px is 0.14em at
+ * `--fs-emphasis` 40px — more than this entire lead — so no value that fits the
+ * capacity ceiling clears them; it would take the documented wide `hard` of 4 or the
+ * rail's type size, which are design decisions rather than fixes. An earlier draft of
+ * this paragraph said `Ǻ` "touches at 0.00px" and named it A-with-ring-above, which
+ * is `Å` — a character the same paragraph listed as clearing. The rule clears the
+ * common accented capitals; a doubly-marked capital in this rail is a known miss.
+ *
+ * MEASURE INK, NOT THE BOX. Four drafts of this rule were wrong, each because of the
+ * instrument rather than the design: `Range.getClientRects()` returns the FONT-METRIC
+ * box (~0.2em above the line box, paints nothing) and one draft read that as a
+ * crossing; the next read the correction as proof of clearance and removed a lead a
+ * real glyph needed, on a scan whose window started past x=762.7 and so missed the
+ * `$`; the third sized itself with the overflow warning, above. Rasterize, scan the
+ * WHOLE column, and check 1x as well as high DPI.
+ *
+ * TWO SCOPE FACTS A READER WILL WANT, both measured rather than assumed. The published
+ * figures are rail ROW 3; row 4 runs about 1.1px tighter at the same value (`École` 2.36px
+ * in row 3, 1.24px in row 4), so 1.24px is the floor a 4-metric slide actually ships, not
+ * 2.24px. And the `square` arm does no work in a PDF: `kpi spotlight` at `size: square`
+ * auto-splits to one element per page at 2, 3 and 4 metrics, so `nth-child(n+3)` never
+ * matches there and every split page computes `padding-top: 0px`. Like the tall/strip
+ * separator below, that arm reaches only surfaces that do not re-paginate — the runtime
+ * preview, the Studio, export-to-Marp. It is kept for those. */
+section.kpi.spotlight:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:nth-child(n+3) > strong {
+  padding-top: 0.12em;
+}
+/* THE LINEARIZED FAMILIES GET NO LEAD, AND THE REASON IS CAPACITY — NOT CLEARANCE.
+ *
+ * Two drafts of this comment justified the exclusion with a measurement of the tall
+ * ledger's rules. Both were wrong, and the second was wrong in a way worth writing down.
+ *
+ * Draft one said the ledger "already clears — 6.72px and 6.56px of painted white". That
+ * number came from a scan window starting at 10% of the slide width while the value
+ * starts at 5%, so it measured the letters BEHIND the first glyph.
+ *
+ * Draft two corrected the number to a CROSSING and called it a known miss this branch
+ * extends by one row. That is wrong too, for a bigger reason: THE EXPORT NEVER RENDERS
+ * THAT LEDGER. kpi's metric list overflows the portrait box at as few as TWO metrics, so
+ * the Fit Spine splits it to one element per page (lib/core/auto-split.js — split fires
+ * on fit, and the cut is one structural element per page). Measured on main and here
+ * alike: a 2-metric `kpi` at `size: story` emits one metric per page on both. On those
+ * pages there is no separator to cross — main paints a 1px top rule on each single row,
+ * this branch paints none.
+ *
+ * The crossing reproduces ONLY under `--no-split` (École 4.20px, Ärlig 2.44px), and the
+ * emulator documents that flag as INSTRUMENTATION rather than an authoring mode: it exists
+ * so measuring rigs can keep page N equal to slide N. Measuring ink on a page the engine
+ * would never emit is the same class of error as the two above — a control that is not the
+ * thing it is named for.
+ *
+ * SO WHAT ACTUALLY JUSTIFIES THE EXCLUSION IS CAPACITY, AND ONLY CAPACITY. Applying the
+ * lead at every family pushed a dense 4-metric portrait deck at `compact` past the stage —
+ * inside the documented `tall.soft: 4` — where the same deck without it is clean. That
+ * cost is real and reproducible on the shipped path. No clearance claim is needed, and
+ * none should be made: at tall there is no rendered rule for a lead to clear.
+ *
+ * The row-2 separator this file adds below at tall/strip is subject to the same limit. It
+ * needs `li:nth-child(2)` to exist, which a one-element-per-page split never produces, so
+ * it reaches only surfaces that do NOT split — the runtime preview and the Studio, which
+ * render the authored slide whole. It is kept for those; it is not doing work in a PDF. */
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li:first-child {
   padding-top: 0.15625cqi;
   font-size: var(--fs-body);
@@ -613,7 +920,7 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
  * Every kpi variant (briefing, ops, spotlight, trajectory) places metric <li>s
  * on an explicit grid — a hero spanning rows + supports in a side column, or a
  * 2×2 matrix. In a TALL-or-narrower box that side-by-side composition is
- * cramped. Switching the metric list to a single flex COLUMN linearises every
+ * cramped. Switching the metric list to a single flex COLUMN linearizes every
  * variant at once: flex ignores the children's grid-column / grid-row, so the
  * hero stacks on top and the supports follow, full width — no per-variant
  * override. Keyed on the deck's `data-family` stamp, so it fires on any tall or strip
@@ -622,7 +929,7 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
  *
  * TALL AND STRIP ONLY — square keeps the hero grid. The rule was authored to
  * include square, but square never matched (#1218) so nobody saw the result:
- * linearising flattens `kpi target` into a uniform ledger where the hero number
+ * linearizing flattens `kpi target` into a uniform ledger where the hero number
  * is barely larger than its supports, which is the one thing the layout exists
  * to do. Square is 1080px wide — the same inline size as portrait — but it does
  * not need the space: the hero card + rail fits with room to spare (rendered and
@@ -657,19 +964,46 @@ section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage
 }
 /* Demote the hero CARD to the lead row of a uniform ledger. The wide-grid
  * briefing hero is a full-width accent box with the supports in its right
- * column; linearised, that box keeps a dead right half AND eats the vertical
+ * column; linearized, that box keeps a dead right half AND eats the vertical
  * room a short square/portrait frame needs — so the 4th metric clipped. As a
  * hairline lead row (bigger number, no box) all four metrics read as one ledger
  * and fit. Scoped away from ops/compliance/trajectory, which are already uniform
  * grids/cards. (0,3,3) ties the briefing hero rules and wins on source order. */
+/* Linearized, the hero is the lead ROW of a ledger rather than a panel, so the
+ * centering the wide composition adds has to come back off — a ledger row reads from
+ * the left like every row under it. */
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) {
   background: none;
   border-left: none;
-  border-top: 1.5px solid var(--text-heading);
+  align-items: stretch;
+  text-align: left;
   padding: var(--sp-sm) 0;
 }
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1)::after {
-  content: none;
+/* Linearized, the hero is the LEAD ROW of one ledger rather than a card beside a
+ * rail — so the boundaries move down by one. The demoted hero loses the heavy
+ * border-top it used to carry (it was the ledger's outer top edge, the same thing
+ * the rail rules above just dropped), and the first support gains the separator
+ * that now divides it from the lead row. Rows 3+ already carry theirs from the
+ * briefing rules, which are not family-gated.
+ *
+ * This rule OVERRIDES NOTHING, and an earlier draft of this comment claimed it tied
+ * the briefing rail rule at (0,4,3) and won on source order. The arithmetic was
+ * right and the point was moot: the same change deleted `border-top` from the
+ * briefing `li:nth-child(2)` block, and `nth-child(n+3)` cannot match child 2, so
+ * this is the only declaration of a top border on that element. */
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(2) {
+  border-top: 1px solid var(--border);
+}
+/* …and the hero's PILL LINE has to come back off center too. The wide composition
+ * centers it with `justify-content` (it is a flex line — `text-align` cannot reach
+ * it), and resetting `text-align`/`align-items` on the row above does NOT undo that:
+ * the declaration is on the sub-bullet, not the row. Without this the linearized
+ * ledger reads with its lead row's status line centered and every row under it
+ * left-aligned — measured 264.2px of left gap against 0 on the next row. The same
+ * two-alignments-in-one-ledger defect the wide fix exists to remove, one family over.
+ * Ties that rule at (0,4,5) and wins on source order. */
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > ul > li {
+  justify-content: normal;
 }
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-h1);
