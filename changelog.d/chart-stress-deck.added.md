@@ -1,0 +1,1 @@
+- `tools/build-stress-deck.js` assembles a bucket's per-component `stressDoc` ceiling cases into one deck, so the census, the separation audit and any render check can be pointed at a bucket where it actually breaks rather than at the gallery's tidy samples. It reports which components have no stressDoc, so an incomplete corpus cannot look complete.
