@@ -275,37 +275,46 @@ that a second one is not quietly re-added.
 
 ## 6. Measured, on the built Studio
 
-`cd docs && npm run build:e2e && npm run bench:flash -- --scenario <s>`, medians of 5–6
-runs:
+`cd docs && npm run build:e2e && npm run bench:flash -- --scenario <s>`, medians of 5 runs.
 
-ONE VARIABLE. Both columns are the same machine, the same bench, and the same base
-commit — `6016a3f1`, built twice, once with this change and once without. An earlier
-draft of this table compared against a build from before #2108, which had moved this
-file underneath it; a before/after whose two arms differ by more than the diff is not a
-before/after.
+ONE VARIABLE, and ONE TABLE. Both columns are the same machine, the same instrument and the
+same afternoon: `main` at `9d06a30a` and this branch, each built from scratch in the same
+tree, benched back to back. Two earlier drafts of this section disagreed with the PR body on
+four of five cells — in a change whose own §8 is about a measurement that was wrong first —
+so there is now one set of numbers and every other surface quotes it.
 
-| scenario | base `ae795b11` | + this change |
+| scenario | `main` @ `9d06a30a` | + this change |
 |---|---|---|
-| `edit`, x1 (type inside the fence) | **11 blank**, 199ms, 1 render | **11 held**, 209ms, 1 render |
-| `edit`, warm | **10 blank**, 200ms | **10 held**, 201ms |
-| `nav` cold (genuine first sight, both diagrams cold) | **10 blank**, 236ms | **10 blank**, 207ms |
+| `edit` ×1, cold (type inside the fence) | **11 blank**, 0 held, 211ms | **0 blank**, **11 held**, 209ms |
+| `edit` ×1, warm | **10 blank**, 0 held, 198ms | **0 blank**, **10 held**, 202ms |
+| `edit-burst` cold (8 chars @120ms, still parsing) | **68 blank**, 0 held, 1176ms | **0 blank**, **67 held**, 1141ms |
+| `edit-burst` warm | **67 blank**, 0 held, 1144ms | **0 blank**, **66 held**, 1132ms |
+| `nav` cold (both diagrams genuinely cold) | 10 blank, 240ms | 10 blank, 239ms |
 | `nav` warm | 0/0, 4ms | 0/0, 4ms |
-| `nav`, wrong-ink frames (guard removed / present) | — | **11 → 0** |
-| `edit-broken` (8 keystrokes, unparseable) | 96 source, 1 render | 97 source, **1 render** |
+| `edit-broken` (8 chars, unparseable) | 97 source, **1 render** | 96 source, **1 render** |
+| WRONG ink, every arm | 0 | **0** |
 | layout shift, every arm | 0 | 0 |
 
-Re-measured on the prose-last deck after it turned out the old one warmed a diagram at mount
-(§4a). The `edit` arm is unchanged by that correction; the `nav` cold row is not, and the
-earlier 200 → 57ms in this section was comparing a cold render against a warm revisit.
+**The wait does not move, and never was the thing to fix.** 211ms → 209ms on `edit` is the
+same `mermaid.render`. What changes is what the author is looking at while it runs: their
+diagram instead of nothing. §3 established that this window is not a regression — it is
+present on every historical build measured.
 
-The wait itself does not move on `edit` — 199ms to 209ms is the same render, and it was
-never the thing to fix. What changes is that the author is looking at their diagram for
-it rather than at nothing. `nav` cold moves 236 → 207ms, which is the debounce skipped on
-the one cold arrival that qualifies as first sight, not on both.
+**`edit-burst` is the row that matters**, because it is the row that describes typing. On
+`main` a burst is blank for its whole length; here it is never blank. The single-keystroke
+`edit` arm cannot tell those two builds apart as sharply, because it waits 1600ms between
+characters — slower than the debounce, so every keystroke finds a fully rendered donor. An
+instrument that only ever measures the easiest case is how a design that covered exactly one
+character reported a clean sweep (§4c).
 
-`nav` cold keeps 2 blank frames and always will: on the first sight of a diagram there is
-nothing to hold, and `mermaid.render` has to run. What is gone is the 150ms of pure waiting
-in front of it.
+**`nav` is deliberately unchanged.** 236 → 207ms was the second delay's whole contribution
+and it is gone with it (§5); 240 → 239ms is the same measurement without it. The blank-frame
+count was 10 either way, which is what made the trade a bad one: nothing a viewer could see,
+against an un-coalesced render on every rail click through a mixed deck.
+
+**`edit-broken` holds at 1 render.** That is the coalescing arm — 8 keystrokes into a diagram
+that does not parse must not queue 8 renders on a serial queue. It was 8 in the first version
+of the delay policy (§5), and cutting that policy is what keeps it at 1 without a special case.
 
 ## 7. What this does not do
 
@@ -342,13 +351,23 @@ in front of it.
   `--fluid` HTML export inlines `dist/lattice-runtime.min.js` and the export-to-Marp kit
   copies it. Neither re-renders a fence after load, so what they inherit is the code, not a
   behavior change a reader would see.
-- **The mutation set was not complete the first time it was called complete.** "Every guard's
-  mutant fails" was written after running the mutants that existed; the second checker then
-  found two real guards with no coverage at all — the `.mermaid` half of the target check
-  (masked by the already-holds-an-SVG half, because one test satisfied either) and
-  `burstFirstSight`'s `pending` check. Both have their own arm now, as do the two guards §4a
-  added. A mutation score is only as honest as the mutant list, and a list you wrote yourself
-  misses what you did not think to break.
+- **The mutation set was not complete the first time it was called complete, and it was the
+  SECOND thing wrong with it.** "Every guard's mutant fails" was written after running the
+  mutants that existed; a later checker found two real guards with no coverage at all — the
+  `.mermaid` half of the target check (masked by the already-holds-an-SVG half, because one
+  test satisfied either) and the arrival `pending` check. But the deeper miss was one no
+  mutant in that list could have caught: **every mutant was aimed at the runtime, and the
+  guard that decides everything is in the HOST.** Deleting the host-side answer entirely left
+  9134 root tests, 3889 docs tests and `check:ownership` green (§4b). A mutation score is only
+  as honest as the mutant list, and a list drawn from the file you were editing misses the
+  file you were not.
+- **A hold is still one render behind, and a hung `mermaid.render` is the one place that
+  bites.** The held SVG is a placeholder with a render already queued, so it is replaced
+  within ~200ms in every normal case. If a render hangs, the 20s cap is 20s of a diagram the
+  author's source no longer describes — where the old behavior showed an obviously-unfinished
+  blank. Bounded, rare, and the trio's inversion lens judged it not worth holding the change
+  for; recorded because it is the one case where this converts "visibly broken" into "quietly
+  out of date".
 - **A class the RUNTIME adds that the engine does not emit silently disables both adoption
   and the cache replay**, through `diagramScopeKey`'s class half. `RUNTIME_MARKER_CLASSES`
   lists the four known ones. Pre-existing, off the path of this change, and the failure
@@ -365,3 +384,19 @@ other precisely because they were the same build.
 The bench now refuses to start when something is already answering on its port. A silent
 fallback onto someone else's server is not a degraded measurement, it is a confident wrong
 one, which is the expensive direction.
+
+**It happened a second time, through a different door, while measuring §4c.** The Studio does
+not load `dist/lattice-runtime.js`; it loads a content-hashed copy under
+`docs/public/playground/v/<hash>/`, written by `docs/scripts/sync-playground-assets.mjs` — a
+step that belongs to the DOCS `build:e2e`, not the root build. `npm run build:e2e` run from
+the wrong directory rebuilt the site around a stale runtime, and two full bench runs measured
+a bundle that predated the change under test. Both were internally consistent and both were
+wrong, in the flattering-then-damning order: the burst arm reported the OLD behavior for a
+build that had the fix.
+
+The tell was cheap and should have been the first move rather than the fourth: `grep` the
+served bundle for a string only one of the two versions contains. Identifiers are mangled by
+esbuild, but **string literals survive minification**, so `mermaidState!=="rendered"` — a
+guard this change deletes — reads the answer straight off the artifact. A measurement of a
+build you have not identified is not a measurement of your change. Verify the artifact, then
+believe the number.
