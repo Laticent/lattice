@@ -555,6 +555,22 @@ readers while its own docblock claims it prevents a drift that is currently pres
 (`lib/use-breakpoint.ts:95`) is an entire unused hook carrying a fifth breakpoint band; and
 twelve `*_BY_NAME` catalog maps have no readers.
 
+**Verification status of the sweep.** It is static analysis. Nine findings have now been
+re-checked first-hand and all nine hold: the four focus-less prompt rows; the token-fallback
+divergence; `button` `disabled:opacity-50` vs `switch` `disabled:opacity-40`; three distinct
+focus geometries inside the vendored primitives alone (`ring-[3px]` x7, `ring-2` +
+`ring-offset-2` x4, `outline-2` x3); `PG_SPLIT_DEFAULTS` at zero readers while `PG_SPLIT_MIN`
+has seven; `BoundingBoxToggle` and `useNarrowDesktop` at zero consumers; the INT_MAX z-indexes;
+and **zero `Intl.NumberFormat` / `DateTimeFormat` / `RelativeTimeFormat` anywhere in the tree**
+— which is worth pausing on, because the product ships a deck-level Language register across
+sixteen languages while its own UI renders `9/7/2026` to every locale.
+
+Two counts came back slightly different from the sweep's: `PG_SPLIT_MIN` has seven references,
+not two (the contrast still holds — one constant of the pair is used, the other is not), and
+`z-[2147483647]` appears twice in `MetricDetail.tsx`, not once. The remaining findings are
+source-read; two of them — whether the typed shape glyphs actually fall back, and whether the
+`/25`-diluted ink fails AA — are rendering claims that need a browser to settle.
+
 The sweep also checked and found **clean**: non-semantic interactive elements (2 candidates,
 both correctly handled), accessible names on icon-only controls (12 apparent hits, all false
 positives — labeling discipline is genuinely strong), TODO/FIXME debt (effectively zero
