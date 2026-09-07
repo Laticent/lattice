@@ -19,25 +19,41 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { JSDOM } from 'jsdom';
 
 const RUNTIME_SRC = readFileSync(new URL('../../../lib/runtime/index.js', import.meta.url), 'utf8');
 const BEGIN = '  // ── BEGIN BACK-OFF PORT';
 const END = '  // ── END BACK-OFF PORT';
 
 /** Lift the shipped policy, with the render cost under our control. */
-function liftPolicy() {
+function liftPolicy(html = '') {
 	const start = RUNTIME_SRC.indexOf(BEGIN);
 	const end = RUNTIME_SRC.indexOf(END);
 	assert.notEqual(start, -1, 'the back-off must stay bracketed with BEGIN BACK-OFF PORT');
 	assert.notEqual(end, -1, 'the back-off must stay bracketed with END BACK-OFF PORT');
 	const src = RUNTIME_SRC.slice(start, end);
-	for (const fn of ['function diagramBackoffMs()', 'function diagramIdleMs()']) {
+	for (const fn of ['function diagramBackoffMs()', 'function anyFenceWithoutInk()', 'function medianRenderCostMs()']) {
 		assert.ok(src.includes(fn), `the port must hold ${fn}`);
 	}
+	const dom = new JSDOM(`<body>${html}</body>`);
 	// eslint-disable-next-line no-new-func
-	const make = new Function(`${src}\nreturn { diagramBackoffMs, diagramIdleMs, setCost(ms) { lastRenderCostMs = ms; }, RENDER_COST_FLOOR_MS, RENDER_COST_CAP_MS };`);
-	return make();
+	const make = new Function(
+		'document',
+		'PENDING_FENCE_SELECTOR',
+		`${src}\nreturn {
+			diagramBackoffMs, anyFenceWithoutInk, medianRenderCostMs,
+			// Feed the policy the way the runtime does: one sample per render, one per source
+			// change. Poking a single variable would test a policy this no longer has.
+			setCost(ms) { for (let i = 0; i < 3; i++) recordRenderCost(ms); },
+			render(ms) { recordRenderCost(ms); },
+			RENDER_COST_FLOOR_MS, RENDER_COST_CAP_MS, DIAGRAM_MAX_WAIT_MS,
+		};`,
+	);
+	return make(dom.window.document, 'pre[data-mermaid-state="pending"],marp-pre[data-mermaid-state="pending"]');
 }
+
+/** A pending fence whose slot either holds a drawing or does not. */
+const FENCE = (hasInk) => `<pre data-mermaid-state="pending"><code>flowchart LR</code></pre><div class="mermaid">${hasInk ? '<svg></svg>' : ''}</div>`;
 
 describe('the diagram dispatch back-off', () => {
 	test('a CHEAP render is never delayed — the live per-keystroke redraw is the feature', () => {
@@ -48,7 +64,6 @@ describe('the diagram dispatch back-off', () => {
 		for (const cost of [0, 5, 22, 30, 36, p.RENDER_COST_FLOOR_MS]) {
 			p.setCost(cost);
 			assert.equal(p.diagramBackoffMs(), 0, `${cost}ms must not be throttled`);
-			assert.equal(p.diagramIdleMs(), 0, `${cost}ms must not gate the leading edge either`);
 		}
 	});
 
@@ -56,42 +71,69 @@ describe('the diagram dispatch back-off', () => {
 		// Rendering for `c` out of every `c + 2c` is one third, whatever the diagram costs.
 		// That is the point of doubling rather than picking a number.
 		const p = liftPolicy();
-		p.setCost(70); // 16 nodes
-		assert.equal(p.diagramBackoffMs(), 140);
-		p.setCost(86);
-		assert.equal(p.diagramBackoffMs(), 172);
+		p.setCost(60);
+		assert.equal(p.diagramBackoffMs(), 120);
+		p.setCost(70);
+		assert.equal(p.diagramBackoffMs(), 140, 'still under the cap');
 	});
 
-	test('the wait is CAPPED, so a pathological diagram cannot add half a second to a keystroke', () => {
+	test('the wait never exceeds the fixed debounce this work removed', () => {
+		// A fence that already holds a drawing ALWAYS waits now, so a wait above 150 would
+		// make a single keystroke on a large diagram slower than the build we replaced —
+		// 150 + the render, either way. Being slower than what came before is the one
+		// outcome this is not allowed to have.
 		const p = liftPolicy();
+		assert.equal(p.RENDER_COST_CAP_MS, 150, 'the cap IS the old debounce, deliberately');
 		p.setCost(248); // 64 nodes
-		assert.equal(p.diagramBackoffMs(), p.RENDER_COST_CAP_MS);
+		assert.equal(p.diagramBackoffMs(), 150);
 		p.setCost(4000);
-		assert.equal(p.diagramBackoffMs(), p.RENDER_COST_CAP_MS, 'the cap binds however costly the render');
+		assert.equal(p.diagramBackoffMs(), 150, 'the cap binds however costly the render');
 	});
 
-	test('IDLE IS NOT THE WAIT, and conflating them leaked the whole throttle', () => {
-		// "Has this person paused?" and "how long may we make them wait?" are different
-		// questions. Using the capped wait for both: at 64 nodes the cap holds the wait at
-		// 200ms while a render costs ~248ms, so a 240ms gap measured from the end of a render
-		// read as idle and fired a render — every ~240ms, 4 across an 8-character burst.
-		const p = liftPolicy();
+	test('a fence with NOTHING on screen is never made to wait — that is arrival, not editing', () => {
+		// The leading edge. Waiting buys the reader nothing when the slot is empty and costs
+		// them the whole wait, so first paint and navigating onto a slide go straight through
+		// however expensive the diagram is.
+		const p = liftPolicy(FENCE(false));
 		p.setCost(248);
-		assert.equal(p.diagramBackoffMs(), 200, 'the wait is capped');
-		assert.equal(p.diagramIdleMs(), 496, 'idle is NOT');
-		assert.ok(p.diagramIdleMs() > p.diagramBackoffMs(), 'a gap between two keystrokes must not read as a pause');
-		// The concrete regression: a 240ms inter-keystroke gap on a 64-node fence.
-		assert.ok(240 < p.diagramIdleMs(), 'a 240ms typing gap is still typing, not a pause');
+		assert.ok(p.diagramBackoffMs() > 0, 'the diagram is expensive enough to be throttled');
+		assert.equal(p.anyFenceWithoutInk(), true, 'and yet it must not be, because the slot is empty');
 	});
 
-	test('idle and wait agree wherever the cap does not bind', () => {
-		// Below the cap there is one number and no distinction to get wrong; the split exists
-		// only because the cap creates a range where the two answers differ.
+	test('a fence ALREADY SHOWING a drawing waits — blocking a keystroke to redraw it is never worth it', () => {
+		const p = liftPolicy(FENCE(true));
+		assert.equal(p.anyFenceWithoutInk(), false);
+	});
+
+	test('ONE empty slot among several is enough to go now', () => {
+		// The question is whether anybody is looking at nothing, not whether everybody is.
+		const p = liftPolicy(`${FENCE(true)}${FENCE(false)}${FENCE(true)}`);
+		assert.equal(p.anyFenceWithoutInk(), true);
+	});
+
+	test('the leading edge asks about INK, not about a clock — the regression that cost', () => {
+		// The clock version asked "has the author been idle?", which is TRUE at the first
+		// keystroke of a burst exactly as it is on a click. So it fired a 248ms blocking
+		// render as someone started typing: 3 renders and 1508ms for an 8-character burst on
+		// a 64-node fence, against 1 and 1101ms on the build before this branch. An edit is
+		// distinguishable from an arrival by what is on screen, and by nothing about timing.
+		const editing = liftPolicy(FENCE(true));
+		const arriving = liftPolicy(FENCE(false));
+		assert.notEqual(editing.anyFenceWithoutInk(), arriving.anyFenceWithoutInk(), 'the two cases must not read the same');
+		assert.doesNotMatch(RUNTIME_SRC, /diagramIdleMs/, 'the clock-based leading edge is gone, not merely bypassed');
+	});
+
+	test('a COLD first render does not throttle the burst that follows it', () => {
+		// The first `mermaid.render` of a session also pays Mermaid's initialization, so a
+		// 4-node fence that costs ~36ms every other time measured 200ms+ once. Reading only
+		// the latest sample, that one number threw away the live per-keystroke redraw for the
+		// whole burst after it — measured as 1 render where 8 were wanted.
 		const p = liftPolicy();
-		for (const cost of [60, 70, 99]) {
-			p.setCost(cost);
-			assert.equal(p.diagramIdleMs(), p.diagramBackoffMs(), `${cost}ms: no cap, no split`);
-		}
+		p.render(210); // the cold one
+		p.render(36);
+		p.render(34);
+		assert.equal(p.medianRenderCostMs(), 36, 'the median ignores the outlier');
+		assert.equal(p.diagramBackoffMs(), 0, 'so a cheap diagram still streams');
 	});
 
 	test('the floor sits between the two measurements that bracket it', () => {

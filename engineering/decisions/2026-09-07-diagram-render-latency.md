@@ -299,3 +299,98 @@ uniformly better; this one is better where the author types faster than the debo
 worse in one band where they type just slower than it.
 
 That band is real and it is a regression, so it is named here rather than filed.
+
+## 9. Never worse than the build before it — the ledger that decides
+
+§8 shipped a back-off that was still behind `main` in one cell, and recorded it rather than
+fixing it. That was the wrong call and the instruction back was blunt: we do not ship a build
+that is slower than the one it replaces. This section is the full comparison that answers it,
+because the earlier ones were not full — three claims in §8 rested on cells nobody had
+measured.
+
+### What the leading edge was asking, and what it should have asked
+
+The regression had one cause. The leading edge dispatched immediately when the author had
+been IDLE — and idle is true at the first keystroke of a burst exactly as it is on a click,
+so a 248ms blocking render started the moment somebody began typing.
+
+An edit and an arrival are not told apart by timing. They are told apart by **what is on the
+screen**: an empty slot means the reader has nothing, so waiting costs them everything and
+buys nothing; a slot already holding a drawing means they have something valid to look at, and
+blocking a keystroke to refresh it is never worth it. `anyFenceWithoutInk()` asks that
+directly, and the whole 64-node/120ms cell moved from 3 renders and 1508ms to 1 and 1092ms.
+
+### The cadence term, and why a fixed wait is always wrong somewhere
+
+A wait only helps if it EXCEEDS the gap between two keystrokes: longer and the trailing timer
+is re-armed while somebody types, shorter and it fires in every gap and buys a blocking render
+per character. So any fixed number is good at one cadence and bad at another — including
+`main`'s. Its 150ms debounce collapses an 8-character burst to 1 render at a 120ms cadence and
+to 8 renders at 200ms, on the same diagram. It was never the better policy; it exceeded the
+gap it happened to be measured at, and §8's comparison at a single cadence is what made this
+branch look uniformly behind.
+
+So the wait also beats the author's own measured rhythm. Two details are load-bearing, both
+found by instrumenting rather than reasoning:
+
+- **One keystroke is about four mutation batches.** The runtime cannot tell its own DOM writes
+  from the host's, so the author's pause arrives split: `36, 1, 185, 263` at a 350ms cadence.
+  Samples under 100ms are the echo and are ignored — and a cadence under 100ms is already
+  beaten by the cost cap, so dropping them cannot change the answer.
+- **A gap that spans a render is blocked time, not idle time.** 350ms of typing plus a 260ms
+  render reads as ~610ms and looked like a pause, which cleared the rhythm on every render.
+  Subtracting the render was tried and measured WORSE (8 renders / 4107ms against 3 / 2445ms),
+  because the discount was consumed by the first tiny batch and `36 - 260` is negative, which
+  read as no gap at all. Scaling the pause threshold by the render cost needs no bookkeeping
+  about which sample owns the render and cannot go negative.
+
+### The ledger
+
+8 characters into one fence, medians on one machine, `main` = `95223749`. Renders / burst wall
+time; the burst should take `8 x cadence`.
+
+| nodes | cadence | `main` | this branch |
+|---|---|---|---|
+| 4 | 120ms | 1 / 1086ms | 1 / 1082ms |
+| 4 | 200ms | 8 / 1731ms | 8 / 1726ms |
+| 4 | 350ms | 8 / 2929ms | 8 / 2923ms |
+| 16 | 120ms | 1 / 1087ms | 1 / 1084ms |
+| 16 | 200ms | 8 / 2135ms | **3 / 1882ms** |
+| 16 | 350ms | 8 / 2918ms | *7 / 3091ms* |
+| 64 | 120ms | 1 / 1101ms | 1 / 1078ms |
+| 64 | 200ms | 8 / 3442ms | **3 / 2194ms** |
+| 64 | 350ms | 8 / 3773ms | **5 / 3702ms** |
+
+Latency, `bench:flash`, medians of 5:
+
+| arm | `main` | this branch |
+|---|---|---|
+| `edit` warm | 194ms | **62ms** |
+| `edit` cold | 198ms | 185ms |
+| `edit-burst` warm | 1117ms | **61ms** |
+| `edit-burst` cold | 1146ms | 1169ms |
+| `nav` cold | 240ms | **98ms** |
+| `edit-broken` raw-source frames | 97 | **75** |
+
+Two of those rows are worth reading twice. `edit-burst` **warm** is 61ms against 1117ms —
+that is the case an author is in constantly, and it is the whole point of the work. And
+`edit-burst` **cold** at ~1.1s is not a regression and was very nearly recorded as one: it is
+cold-start cost, and `main` pays 1146ms for it. Three separate fixes were attempted against
+that number before anyone measured the baseline.
+
+### What is still behind, and it is one cell
+
+**16 nodes at a 350ms cadence: 7 renders / 3091ms against 8 / 2918ms** — 173ms across eight
+characters, about 22ms per keystroke, while doing one fewer render. It is reproducible, not
+noise: three runs each, 3084-3097 against 2913-2925.
+
+The cause is known and is the same one that made every other cell hard: **the runtime cannot
+distinguish its own DOM writes from the author's**, so the cadence is systematically
+under-reported (~227ms observed for a real 350ms) and the wait lands under the gap. Widening
+the margin to cover the bias was tried and reverted — it fixed this cell and cost `edit-burst`
+cold, trading the case an author is in constantly for one they are in occasionally.
+
+The real fix is to stop counting our own writes as source changes, and there is precedent for
+it a few lines away: `burstIsMarkerChromeOnly` already drops mutation bursts that are entirely
+the marker watcher's. Extending that to the transform pass would make the cadence exact and
+this cell would follow. It is a separate piece of work and it is named here, not filed as done.

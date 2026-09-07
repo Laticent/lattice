@@ -97,6 +97,9 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
        // about the chain always advancing, so they stand in rather than lift.
        let lastRenderCostMs = 0;
        const nowMs = () => Date.now();
+       // The cost sampler the dispatch back-off reads. It lives outside this block and these
+       // cells are about the chain always advancing, so it stands in rather than lifts.
+       const recordRenderCost = () => {};
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
