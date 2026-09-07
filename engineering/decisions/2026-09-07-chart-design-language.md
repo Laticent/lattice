@@ -290,7 +290,10 @@ it is not. Every number in this section comes from the live DOM
 `<svg>` in the section, so **a member with no SVG is not "mostly supported", it
 is silently skipped** — the chart looks right and never moves.
 `chart-family.docs.md` § "Motion + mark-detail support, by member" documents this
-correctly but **lists none of the eight cartesian members added since**, so the
+correctly but **lists none of the seven cartesian members added since** (bar,
+bullet, line, scatter, slope, stacked-bar, waterfall — count them off the
+`cartesian.js` requires, not off memory; this note said eight until the
+visual-designer track counted), so the
 one table an author would consult is stale.
 
 ### Accessibility + print — 9 of 21 covered
