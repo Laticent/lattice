@@ -244,17 +244,36 @@ function capacityBlock(m) {
  */
 function trailingNote(note) {
   const t = cleanNote(note);
-  return t ? ` — ${t}` : '';
+  return t ? ` — ${terminated(t)}` : '.';
 }
 
 function noteSentence(note) {
   const t = cleanNote(note);
-  if (!t) return '';
-  return `. ${/^[a-z]/.test(t) ? t[0].toUpperCase() + t.slice(1) : t}`;
+  if (!t) return '.';
+  return `. ${terminated(/^\p{Ll}/u.test(t) ? t[0].toUpperCase() + t.slice(1) : t)}`;
 }
 
+/**
+ * `bulletLine` is the collapse both other Agent-contract prose fields already use, and it is
+ * load-bearing here for the same reason: a manifest string carrying a blank line and a `##`
+ * would otherwise inject a real heading into the middle of the generated doc. The capacity
+ * and density notes were the only Agent-contract strings reaching the page without it.
+ */
 function cleanNote(note) {
-  return String(note ?? '').trim().replace(/\.+$/, '');
+  return bulletLine(String(note ?? ''));
+}
+
+/**
+ * A terminator, unless the text supplies its own.
+ *
+ * The first cut stripped a trailing period and let the caller append one, which was wrong at
+ * both edges: it ate the period of an abbreviation ("…split, etc." → "…split, etc") and it
+ * doubled up after a question or an ellipsis ("Is a fourth really a KPI?."). Asking instead
+ * whether the text already ends a sentence handles every case, and leaves all 53 notes that
+ * ship today byte-identical — not one of them ends in a terminator.
+ */
+function terminated(t) {
+  return /[.!?…]$/.test(t) ? t : `${t}.`;
 }
 
 function emitAgentContract(m, lines) {
@@ -282,13 +301,13 @@ function emitAgentContract(m, lines) {
     // components ship this configuration today, so this is a shared correction, not
     // a kpi special case.
     const band = c.soft === c.hard ? `over ${c.hard} overflows` : `crowds past ${c.soft}, overflows past ${c.hard}`;
-    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)}${at} (${band})${esc}${noteSentence(c.note)}.`);
+    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)}${at} (${band})${esc}${noteSentence(c.note)}`);
     lines.push('');
   }
   if (hasDensity) {
     const d = m.density;
     const axis = d.axis || capacity?.c.axis || 'item';
-    lines.push(`**Density** aim ~${d.soft} words per ${axisNoun(axis, 1)}; past ~${d.hard} it reads as a wall of text${trailingNote(d.note)}.`);
+    lines.push(`**Density** aim ~${d.soft} words per ${axisNoun(axis, 1)}; past ~${d.hard} it reads as a wall of text${trailingNote(d.note)}`);
     lines.push('');
   }
 

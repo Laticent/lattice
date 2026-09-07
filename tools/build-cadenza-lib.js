@@ -171,6 +171,13 @@ const STAGING_PREFIX = '.dist.tmp-';
  * completely unsweepable, because nothing can tell an abandoned one from a live one.
  *
  * EPERM means the pid exists but belongs to someone else — alive, so leave it.
+ *
+ * THE LIVENESS TEST IS SCOPED TO ONE PID NAMESPACE, which is the assumption to check if this
+ * ever runs somewhere unusual. Two containers sharing a bind-mounted checkout have separate
+ * pid spaces, so both can hold `.dist.tmp-1234` and each would read the other's as dead. The
+ * repo's own workflows — a local checkout, a CI runner, one dev container — all build inside
+ * a single namespace, where the test is exact. A suffix that is not a positive integer is
+ * never swept, which is the safe direction: it is left, not deleted.
  */
 function sweepStaleStaging() {
   const parent = path.dirname(DIST_DIR);
@@ -226,7 +233,9 @@ function installStaging(staging) {
       } catch {
         installed = null; // mid-swap by the other run — not equal, so retry
       }
-      if (installed && !diffTrees(want, installed).length && !diffTrees(installed, want).length) return;
+      // ONE comparison, not two: `diffTrees` already reports `extra:` for a key present in
+      // `have` and missing from `want`, so it is symmetric by construction.
+      if (installed && !diffTrees(want, installed).length) return;
       if (attempt >= 4 || !fs.existsSync(staging)) throw e;
     }
   }

@@ -51,7 +51,7 @@
  *     the probe, because the probe beside it still reports. Closing it needs a probe per
  *     FILE — mutating every tracked source file on every push. Directory × language is
  *     where the cost curve turns.
- *   • A config pattern written against `lint-teeth-probe-*` defeats arm 3. Randomizing the
+ *   • A config pattern written against `_lint-teeth-probe-*` defeats arm 3. Randomizing the
  *     rest of the name stops the ACCIDENTS (`"!**\/*.tmp.js"` is ordinary-looking tempfile
  *     hygiene, and it used to silence the whole repo while every probe reported); it does
  *     not stop someone who reads this file and writes a pattern against the prefix.

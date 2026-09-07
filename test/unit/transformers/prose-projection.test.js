@@ -297,6 +297,59 @@ test('speech skips a block that is itself aria-hidden, and keeps its visible sib
 	assert.match(spoken, /Three of seven workstreams are complete\./);
 });
 
+test('the ARTICLE keeps a block NESTED under an aria-hidden wrapper', () => {
+	// The first cut of #2115 put `[aria-hidden="true"]` in the SHARED selector. `closest()`
+	// matches self-or-ancestor, so that did not merely stop a hidden block from re-hosting —
+	// it dropped everything nested under a hidden wrapper from the article too. Two shipped
+	// shapes hit it and neither was in the fifteen decks measured: `lib/runtime/index.js`
+	// renders Mermaid INTO a `<div class="mermaid" aria-hidden="true">`, and `plugins.js`
+	// emits the deck logo as an aria-hidden `<img>` that is the section's first child on a
+	// slide with no `.cell-stage`. Found by an independent checker, not by the corpus.
+	const secs = sections(
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Flow</h2></div>
+			<div class="mermaid" aria-hidden="true"><svg id="m1"><g><text>A</text></g></svg></div>
+		</div></section>`,
+		'<section data-lattice-slide class="title" data-class="title"><img class="deck-logo" src="l.svg" alt="" aria-hidden="true"><h1>Cover</h1><p>Sub</p></section>',
+	);
+	const { articleHtml } = project(secs);
+	// `reidClone` suffixes ids so a re-hosted SVG cannot collide with the slide's own,
+	// so match the element rather than the exact id.
+	assert.match(articleHtml, /<figure class="lp-figure"><svg id="m1/, 'the mermaid SVG still re-hosts');
+	assert.match(articleHtml, /class="deck-logo"/, 'the deck logo still re-hosts');
+});
+
+test('speech drops a whole subtree under an aria-hidden wrapper, article and speech disagreeing on purpose', () => {
+	// The other half of the split: `aria-hidden` governs what is ANNOUNCED, not what is
+	// DRAWN, so the same wrapper is silent in speech and visible in the article.
+	const secs = sections(
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>H</h2></div>
+			<div aria-hidden="true"><p>DECORATIVE</p></div>
+			<p>Spoken.</p>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.doesNotMatch(spoken, /DECORATIVE/);
+	assert.match(spoken, /Spoken\./);
+	assert.match(project(secs).articleHtml, /DECORATIVE/, 'the article still draws it');
+});
+
+test('aria-hidden is matched case-insensitively, as ARIA defines it', () => {
+	// A browser hides `aria-hidden="TRUE"`, so a reader that still spoke it would disagree
+	// with what the viewer sees. No engine emitter writes it that way; hand-authored HTML
+	// reaches this projection untouched and can.
+	const secs = sections(
+		`<section data-lattice-slide class="content" data-class="content"><div class="cell-stage">
+			<div class="masthead-lede"><h2>U</h2></div>
+			<p><span aria-hidden="TRUE">X</span>visible</p>
+		</div></section>`,
+	);
+	const [spoken] = speak(secs);
+	assert.doesNotMatch(spoken, /Xvisible/);
+	assert.match(spoken, /visible\./);
+});
+
 test('honoring aria-hidden in speech leaves the ARTICLE markup alone', () => {
 	// The article re-hosts a block's whole outerHTML, so decoration inside a paragraph
 	// rides along as markup and stays VISIBLE — which is right: aria-hidden is about

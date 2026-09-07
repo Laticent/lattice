@@ -25,6 +25,57 @@ const BASE = Object.freeze({
   },
 });
 
+describe('renderDocs — capacity / density notes', () => {
+  const withCapacity = (note, extra = {}) =>
+    renderDocs({ ...BASE, capacity: { axis: 'item', soft: 4, hard: 5, note }, ...extra });
+
+  test('the capacity note renders — 23 of 23 components author one and none reached the page', () => {
+    // It printed only into `dist/docs/components.json`, the machine record, and never the
+    // `.docs.md` that HARD RULE #6 tells an agent to open (#2116).
+    assert.match(withCapacity('past five lanes the cards compress'), /Past five lanes the cards compress\./);
+  });
+
+  test('a note carrying a blank line and a `##` cannot inject a heading', () => {
+    // The same guard `commonMistakes` / `variantDecisionRule` / `dataShapeGuidance` already
+    // had. The two notes were the last Agent-contract strings reaching the page without it.
+    const docs = renderDocs({
+      ...BASE,
+      capacity: { axis: 'item', soft: 4, hard: 5, note: 'first\n\n## INJECTED CAPACITY' },
+      density: { axis: 'item', soft: 8, hard: 14, note: 'first\n\n## INJECTED DENSITY' },
+    });
+    for (const h of docs.match(/^#{1,6} .+$/gm) || []) {
+      assert.ok(!/INJECTED/i.test(h), `an injected heading leaked through: ${h}`);
+    }
+    assert.match(docs, /First ## INJECTED CAPACITY\./);
+    assert.match(docs, /— first ## INJECTED DENSITY\./);
+  });
+
+  test('a note supplying its own terminator is not doubled, and an abbreviation keeps its period', () => {
+    // An earlier cut stripped a trailing period and let the caller append one, which ate the
+    // period of "etc." and produced "…KPI?." after a question.
+    assert.match(withCapacity('past that use stats, split, etc.'), /split, etc\.(?!\.)/);
+    assert.match(withCapacity('is a fourth really a KPI?'), /really a KPI\?(?!\.)/);
+    assert.match(withCapacity('and so on…'), /\. And so on…(?!\.)/);
+  });
+
+  test('the capacity note is a SENTENCE, so an escalation clause does not chain a second dash', () => {
+    const docs = withCapacity('past four rows the stack overflows', { capacityEscalateTo: undefined, escalateTo: undefined });
+    assert.doesNotMatch(docs, /—[^\n]*—[^\n]*—/, 'no line chains three em-dashes');
+  });
+
+  test('a note opening on a code span keeps its lower case; the density note keeps its dash', () => {
+    assert.match(withCapacity('`bench` holds twelve'), /\. `bench` holds twelve\./);
+    const docs = renderDocs({ ...BASE, density: { axis: 'item', soft: 8, hard: 14, note: 'a metric label, not a sentence' } });
+    assert.match(docs, /wall of text — a metric label, not a sentence\./);
+  });
+
+  test('a component with no note reads exactly as it did before the note was rendered', () => {
+    const docs = renderDocs({ ...BASE, capacity: { axis: 'item', soft: 4, hard: 5 }, density: { axis: 'item', soft: 8, hard: 14 } });
+    assert.match(docs, /^\*\*Capacity\*\* ~4 items \(crowds past 4, overflows past 5\)\.$/m);
+    assert.match(docs, /^\*\*Density\*\* aim ~8 words per item; past ~14 it reads as a wall of text\.$/m);
+  });
+});
+
 describe('renderDocs — Agent contract', () => {
   test('purpose sits above the Agent contract heading, not dangling under its last subsection', () => {
     const docs = renderDocs({

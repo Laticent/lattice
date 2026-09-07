@@ -86,6 +86,14 @@ function readFileOrNull(p) {
     throw e;
   }
 }
+function readdirOrNull(p) {
+  try {
+    return fs.readdirSync(p);
+  } catch (e) {
+    if (e.code === 'ENOENT') return null;
+    throw e;
+  }
+}
 
 // The probe files themselves, excluded from every listing this file walks. Skipping them
 // removes the race BY CONSTRUCTION for the one writer we know about, rather than leaving
@@ -1181,7 +1189,9 @@ function checkThemeRegistrationCallSites(
       const st = statOrNull(f);
       if (!st) return; // vanished mid-walk — see statOrNull
       if (st.isDirectory()) {
-        for (const e of fs.readdirSync(f).sort()) {
+        const entries = readdirOrNull(f);
+        if (!entries) return; // the directory went too, between the stat and the read
+        for (const e of entries.sort()) {
           if (e === 'node_modules' || e === 'public') continue;
           walk(path.join(f, e));
         }

@@ -665,13 +665,20 @@ export function DeckPreview({
 			// reuses the DISPOSED renderer: it never renders, the Nacre loader spins forever, and
 			// Present is stuck on its skeleton on the whole dev server. `animaRef` is the same
 			// shape one level down — `syncAnima` short-circuits to `rebind()` on a destroyed
-			// scene host — and `animaBoundRef` would keep the `load` listener "bound" to an
-			// iframe the remount no longer has. `paintedRef` / `firstRenderFiredRef` are
-			// first-paint guards: a fresh mount's first paint must flush immediately and must be
-			// allowed to dismiss the SSG shell again.
+			// scene host. `paintedRef` / `firstRenderFiredRef` are first-paint guards: a fresh
+			// mount's first paint must flush immediately and must be allowed to dismiss the SSG
+			// shell again.
+			//
+			// `animaBoundRef` is DELIBERATELY NOT RESET, and an earlier cut of this reset it on
+			// the theory that the listener was bound to an iframe the remount no longer has.
+			// That is backwards. `dispose()` explicitly leaves the iframe in the DOM (the caller
+			// owns the host node), and `renderInto` REUSES an existing `iframe.live` rather than
+			// creating one — so under StrictMode the remount gets the SAME frame, with the same
+			// `load` listener still attached, and nothing here ever removes one. Resetting the
+			// flag made `bindAnima` add a SECOND listener to that frame, so every later srcdoc
+			// rewrite ran `syncAnima` twice and the count grew by one per cycle.
 			engineRef.current = null;
 			animaRef.current = null;
-			animaBoundRef.current = false;
 			animaLoadingRef.current = false;
 			animaBackstopRef.current = undefined;
 			paintedRef.current = false;

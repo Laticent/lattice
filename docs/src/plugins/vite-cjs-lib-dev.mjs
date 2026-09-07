@@ -27,13 +27,16 @@ import path from 'node:path';
  * so it cannot mask a build-time interop problem.
  */
 export default function viteCjsLibDev(repoRoot) {
-	const libDir = path.join(repoRoot, 'lib') + path.sep;
+	// Vite ids use POSIX separators on every platform, so compare in that shape rather than
+	// with `path.sep` — on Windows the raw comparison silently never matches and the plugin
+	// would be inert exactly where it is needed.
+	const libDir = `${path.join(repoRoot, 'lib').split(path.sep).join('/')}/`;
 	return {
 		name: 'lattice:cjs-lib-dev',
 		apply: 'serve',
 		enforce: 'pre',
 		load(id) {
-			const file = id.split('?')[0];
+			const file = id.split('?')[0].split(path.sep).join('/');
 			if (!file.startsWith(libDir) || !file.endsWith('.js')) return null;
 			let src;
 			try {
@@ -43,6 +46,13 @@ export default function viteCjsLibDev(repoRoot) {
 			}
 			if (!/^\s*module\.exports\s*=/m.test(src)) return null;
 			if (/\brequire\s*\(/.test(src)) return null;
+			// REFUSE anything that already speaks ESM. The `module.exports` match is a regex,
+			// so it can fire on a template literal or a block comment inside a module that is
+			// really ESM — and wrapping one of those would append a SECOND `export default`
+			// and fail to parse. No file under `lib/` trips this today; the guard is here so
+			// that if one ever does, it fails the way it fails now (loudly, at the import
+			// site) instead of in the parser.
+			if (/^\s*(?:export|import)\s/m.test(src)) return null;
 			// The CJS preamble a browser has no globals for, then the module body
 			// verbatim, then the interop export shape Rollup and Node both produce:
 			// `default` is `module.exports`. Named exports are deliberately NOT

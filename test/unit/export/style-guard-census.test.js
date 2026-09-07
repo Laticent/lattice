@@ -153,6 +153,14 @@ const statOrNull = (p) => {
 		throw e;
 	}
 };
+const readdirOrNull = (p) => {
+	try {
+		return fs.readdirSync(p, { withFileTypes: true });
+	} catch (e) {
+		if (e.code === 'ENOENT') return null;
+		throw e;
+	}
+};
 const readOrNull = (p) => {
 	try {
 		return fs.readFileSync(p, 'utf8');
@@ -172,9 +180,15 @@ test('the census covers every file that calls the guard outside docs/src preview
 	const roots = ['lattice-emulator.js', 'lib/export', 'lib/layout', 'docs/src/components/studio', 'docs/src/playground'];
 	const found = [];
 	const walk = (abs) => {
-		if (!fs.existsSync(abs)) return;
-		if (statOrNull(abs)?.isFile()) return void check(abs);
-		for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
+		// Every step is vanish-tolerant, not just the read: an optional chain on the stat
+		// alone falls straight through into `readdirSync`, which then throws the ENOENT the
+		// guard was there to absorb.
+		const st = statOrNull(abs);
+		if (!st) return;
+		if (st.isFile()) return void check(abs);
+		const entries = readdirOrNull(abs);
+		if (!entries) return;
+		for (const e of entries) {
 			if (e.name === 'node_modules' || e.name === 'dist') continue;
 			const p = path.join(abs, e.name);
 			if (e.isDirectory()) walk(p);
