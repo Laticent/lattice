@@ -2,7 +2,7 @@
 
 # inventory
 
-`11 components`
+`12 components`
 
 Inventory — parallel sets of related items.
 
@@ -190,3 +190,37 @@ Inventory — parallel sets of related items.
   - Five; six is the ceiling.
 - What if answers run long?
   - Use solo, one per slide.
+
+---
+
+<!-- _class: team-profile -->
+<!-- _footer: "team-profile · inventory survey" -->
+
+`inventory · team-profile`
+
+## The team profile seats each face over a name, a role, and one line.
+
+- Ada Okafor
+  - ![](team-profile/ada.svg)
+  - `Executive Sponsor`
+  - Clears blockers above the program.
+- Marcus Vale
+  - ![](team-profile/marcus.svg)
+  - `Program Director`
+  - Runs the weekly cadence.
+- Priya Raman
+  - ![](team-profile/priya.svg)
+  - `Head of Delivery`
+  - Staffs the pods; holds the dates.
+- Tomas Lindqvist
+  - ![](team-profile/tomas.svg)
+  - `Solutions Architect`
+  - Reviews every schema change.
+- Nia Bello
+  - ![](team-profile/nia.svg)
+  - `Data Lead`
+  - Owns the migration cutover.
+- Jonah Reyes
+  - ![](team-profile/jonah.svg)
+  - `Customer Success`
+  - Your standing contact between reviews.

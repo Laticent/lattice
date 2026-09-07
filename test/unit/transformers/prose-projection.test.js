@@ -786,3 +786,248 @@ test('speech: a coda already spoken as its own SENTENCE mid-block is not repeate
 	const [text] = speak(sections(claimed));
 	assert.equal(text.match(/Retention carries the year/g)?.length, 1, text);
 });
+// ── team-profile: a roster of PEOPLE, not a run of concatenated spans ────────────
+// Both defects below were live on a shipped surface (read-along, Read·Article, the
+// self-contained `.html` player) and no gate could see either, because the generic
+// walker's `speechText` is bare `textContent`. They render through the REAL engine
+// for the same reason the state-marker tests above do: a class rename in the
+// component's transform must fail a test rather than silently mute or mangle speech.
+
+test('team-profile: the card\'s spans are separated, not concatenated', () => {
+	// `.person-name` / `.person-role` / `.person-note` are adjacent SPANS with no
+	// whitespace between them — they are spaced by flex, not by markup. textContent
+	// therefore ran them together: "Ada OkaforExecutive SponsorClears blockers".
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - ![](a.svg)\n  - `Executive Sponsor`\n  - Clears blockers above the program.\n');
+	assert.match(t, /Ada Okafor, Executive Sponsor: Clears blockers above the program\./);
+	assert.doesNotMatch(t, /OkaforExecutive|SponsorClears/, 'no two spans may run together');
+});
+
+test('team-profile: the aria-hidden monogram is never spoken', () => {
+	// A person with no headshot gets initials in the portrait cell, marked
+	// `aria-hidden="true"` because the name is read beside it. `textContent` does not
+	// honor aria-hidden, so the roster used to narrate "AOAda Okafor…". The speaker
+	// reads the three named spans directly, which skips the monogram structurally.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n  - `Program Director`\n');
+	assert.doesNotMatch(t, /\bAO\b|\bMV\b/, 'initials are decoration, not narration');
+	assert.match(t, /Ada Okafor, Executive Sponsor\./);
+});
+
+test('team-profile sides: each roster keeps its own label', () => {
+	// Two rosters under two `###` labels. Querying the rosters alone would drop the
+	// labels and read six people as one undifferentiated list, so blocks are walked
+	// in document order.
+	const [t] = renderSpeech('<!-- _class: team-profile sides -->\n\n## Two teams\n\n### Your team\n\n- Ada Okafor\n  - `VP Operations`\n\n### Our team\n\n- Marcus Vale\n  - `Account Director`\n');
+	assert.match(t, /Your team\.[\s\S]*Ada Okafor, VP Operations\./);
+	assert.match(t, /Our team\.[\s\S]*Marcus Vale, Account Director\./);
+	assert.ok(t.indexOf('Your team') < t.indexOf('Our team'), 'labels keep document order');
+});
+
+test('team-profile: a person with no role or no note reads without an empty clause', () => {
+	// An author may give only a name. That must not produce a stray colon or a
+	// dangling comma. NOTE: `bench` hides the note with `display: none` in CSS, which
+	// is a PAINT decision — the note is still in the DOM and is still narrated, on
+	// `main` as well as here. A checker flagged an earlier version of this comment
+	// for claiming `bench` "drops the note", which is true of the stylesheet and
+	// false of the speaker.
+	const [t] = renderSpeech('<!-- _class: team-profile bench -->\n\n## Bench\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n');
+	assert.match(t, /Ada Okafor, Executive Sponsor\./);
+	assert.match(t, /Marcus Vale\./);
+	assert.doesNotMatch(t, /:\s*\.|,\s*\./, 'no empty clause, no dangling separator');
+});
+
+// ── the two surfaces are DIFFERENT functions, and only one was fixed the first time ──
+// `projectDeckToSpeech` drives captions and Studio Present; `projectDeckToProse`
+// drives Read·Article in the self-contained player. The first fix touched only the
+// former while its commit claimed both, so Read·Article kept rendering the raw span
+// run. These pin each surface separately, because that is how they broke.
+
+test('team-profile: EVERY note line is spoken, not just the first', () => {
+	// One `.person-note` span per note line. An author who writes the role as plain
+	// text instead of backticks gets two — the component's own commonMistakes list
+	// names that shape — and reading only the first silently dropped an authored
+	// line. That is worse than the concatenation it replaced: ugly but complete
+	// became quiet and lossy, against a deck `lint:deck` calls clean.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## The team\n\n- Ada Okafor\n  - Executive Sponsor\n  - Clears blockers above the program.\n');
+	assert.match(t, /Executive Sponsor/);
+	assert.match(t, /Clears blockers above the program/, 'the second note line must survive');
+});
+
+test('team-profile: Read·Article renders people, not the raw span run', () => {
+	const { html } = engine.render('<!-- _class: team-profile -->\n\n## The team\n\n- Ada Okafor\n  - `Executive Sponsor`\n  - Clears blockers.\n', 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /<strong>Ada Okafor<\/strong>/, 'the name leads the entry');
+	assert.match(articleHtml, /Clears blockers/);
+	assert.doesNotMatch(articleHtml, /AOAda|person-initials/, 'no monogram, no raw span run');
+});
+
+test('team-profile: a roster behind a wrapper still gets the people treatment', () => {
+	// Walking only `stage.children` returned null whenever anything sat between the
+	// stage and the roster — a second component class puts a wrapper there — and the
+	// `|| speakGeneric` fallback then re-ran the very bug this speaker fixes.
+	const [t] = renderSpeech('<!-- _class: team-profile image -->\n\n## Team\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns it.\n');
+	assert.doesNotMatch(t, /OkaforSponsor/, 'the fallback must not re-introduce the concatenation');
+	assert.match(t, /Ada Okafor, Sponsor: Owns it\./);
+});
+
+test('team-profile: a mid-stage blockquote is not swallowed by the roster walk', () => {
+	// `speakGeneric` speaks blockquote/table; an earlier version of this speaker
+	// listed only rosters, h3, h4 and p, so a quote between two rosters vanished.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - `Sponsor`\n\n> A quoted line in the middle.\n\n- Marcus Vale\n  - `Director`\n');
+	assert.match(t, /A quoted line in the middle/);
+	assert.match(t, /Ada Okafor, Sponsor\./);
+	assert.match(t, /Marcus Vale, Director\./);
+});
+
+// ── team-profile: the person card is special; EVERYTHING else is delegated ────────
+// Two earlier versions re-implemented the block walk with a hand-copied subset of the
+// generic walkers' selectors and none of their per-tag walkers. Four content-loss
+// defects came out of that one decision, and the two below are the sharpest: a `<dl>`
+// matched the selector, found no handler, fell through to `textContent` and
+// RE-CREATED the concatenation bug the function exists to remove — in exported .vtt
+// captions. These pin the delegation itself, so a future selector list cannot drift
+// out of sync with the generic walker again.
+
+test('team-profile: a <dl> beside a roster keeps its term/definition reading', () => {
+	// Was "NetworkACME-GuestRoom4B." in a shipped caption sidecar.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n<dl><dt>Network</dt><dd>ACME-Guest</dd><dt>Room</dt><dd>4B</dd></dl>\n');
+	assert.match(t, /Network: ACME-Guest\./);
+	assert.match(t, /Room: 4B\./);
+	assert.doesNotMatch(t, /NetworkACME|GuestRoom/, 'the concatenation bug must not return on another element');
+});
+
+test('team-profile: a plain <ul> beside a roster is not swallowed', () => {
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n<div class="x"><ul><li>MUST SURVIVE</li></ul></div>\n');
+	assert.match(t, /MUST SURVIVE/);
+});
+
+test('team-profile: a ul.team-roster carrying no person flows on as an ordinary list', () => {
+	// The transform's idempotency guard lets an author-written `ul.team-roster` reach
+	// the projection untouched. Treating it as a roster emitted nothing AND suppressed
+	// the fallback, so its content vanished — but only when another block on the slide
+	// had already produced output, which is the worst way for it to fail.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## T\n\nAn intro paragraph.\n\n<ul class="team-roster"><li>MUST SURVIVE</li></ul>\n');
+	assert.match(t, /An intro paragraph\./);
+	assert.match(t, /MUST SURVIVE/);
+});
+
+test('team-profile: body blocks keep the sentence seam, not a paragraph beat', () => {
+	// Joining blocks with "\n\n" reversed 2026-07-14-paragraph-level-pauses.md, whose
+	// fix was "beat only lead->body, not every block": a paragraph seam widens to
+	// PARAGRAPH_PAUSE_MS, and a `sides` slide gained four of them.
+	const [t] = renderSpeech('<!-- _class: team-profile sides -->\n\n## T\n\n### Your team\n\n- Ada Okafor\n  - `VP Ops`\n\n### Our team\n\n- Marcus Vale\n  - `Director`\n');
+	const [lead, ...body] = t.split('\n\n');
+	assert.match(lead, /^T\./, 'the lead is its own paragraph');
+	assert.equal(body.length, 1, `body must be ONE block, got ${body.length}: ${JSON.stringify(t)}`);
+	assert.match(body[0], /Your team\.[\s\S]*Our team\./, 'both labels still read, in order');
+});
+
+test('team-profile: Read·Article keeps the portrait', () => {
+	// The component's first line is "a roster of named people, each under a portrait";
+	// an earlier version read only the three text spans and dropped every headshot.
+	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Sponsor`\n', 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /<img class="person-photo"[^>]*src="ada\.svg"/, 'the portrait rides into the article');
+	assert.match(articleHtml, /<strong>Ada Okafor<\/strong>/);
+});
+
+test('team-profile: a mixed roster keeps its non-person items on both surfaces', () => {
+	// `withRostersSwapped` decided WHETHER to swap on "does this ul hold a person",
+	// but then handed `make` only the people — so every plain <li> beside them was
+	// dropped with the <ul> it lived in. That is the same content-loss the roster-with-
+	// no-person case above pins, with its boundary moved rather than closed.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Ada</span></span></li><li>PLAIN ITEM</li></ul>\n';
+	const [t] = renderSpeech(md);
+	assert.match(t, /Ada/);
+	assert.match(t, /PLAIN ITEM/, 'a non-person item is read, not discarded');
+	const { html } = engine.render(md, 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /PLAIN ITEM/, 'and it reaches Read·Article too');
+});
+
+test('team-profile: a roster row wraps its words, so nested note markup lays out', () => {
+	// The row is a flex box (portrait, then the line). A note re-emits the author's own
+	// markup, so a list nested under a person was a SIBLING of the text and therefore a
+	// flex ITEM of the row — it rendered beside the sentence rather than under it. Scoping
+	// the CSS to direct children brought its markers back but left it in that position;
+	// the wrapper is what makes the row exactly two items. Driving the real exported player
+	// is what separated those two halves, so this pins the emitted SHAPE, not the styling.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns three things:\n    - staffing\n    - budget\n';
+	const { html } = engine.render(md, 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	const doc = new JSDOM(`<body>${articleHtml}</body>`).window.document;
+	const row = doc.querySelector('ul.lp-roster > li');
+	assert.ok(row, 'the roster row is emitted');
+	const kids = [...row.children].map((el) => el.tagName);
+	assert.ok(kids.includes('DIV'), `the words are wrapped, got children ${JSON.stringify(kids)}`);
+	assert.equal(row.querySelectorAll(':scope > div').length, 1, 'exactly one wrapper');
+	assert.equal(row.querySelectorAll(':scope > strong, :scope > em').length, 0,
+		'the name and role live INSIDE the wrapper, never as bare flex items of the row');
+});
+
+test('team-profile: EVERY roster row gets the wrapper, non-person rows included', () => {
+	// The row is a flex box, so an unwrapped row blockifies its inline markup into flex
+	// items: a sentence with `<strong>` and `<em>` was torn into three boxes with 0.6em
+	// gutters, measured as "PLAIN  bold  and  ital  text". The person rows were wrapped
+	// first and the non-person ones were not, which is exactly the asymmetry a reviewer
+	// asked about — one shape for every row in the list is the answer.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Ada</span></span></li><li id="keep">PLAIN <strong>bold</strong> text</li></ul>\n';
+	const { html } = engine.render(md, 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	const doc = new JSDOM(`<body>${articleHtml}</body>`).window.document;
+	const rows = [...doc.querySelectorAll('ul.lp-roster > li')];
+	assert.equal(rows.length, 2, 'both rows survive');
+	for (const [i, li] of rows.entries()) {
+		assert.equal(li.querySelectorAll(':scope > div').length, 1, `row ${i} carries exactly one wrapper`);
+		assert.equal(li.querySelectorAll(':scope > strong, :scope > em').length, 0,
+			`row ${i} has no bare inline flex children`);
+	}
+	assert.match(articleHtml, /PLAIN/, 'the non-person text survives');
+	assert.match(articleHtml, /<strong>bold<\/strong>/, 'and keeps its inline markup');
+	// The author's own attributes ride along — the wrapper goes INSIDE the li, not around it.
+	assert.match(articleHtml, /<li id="keep">/, "the non-person row keeps its own attributes");
+});
+
+test('team-profile: an image-only name still ships into Read·Article', () => {
+	// The `<strong>` wrap is gated on the name having TEXT, so an image does not end up
+	// inside a `<strong>`. Gating the whole name on that dropped an author's
+	// `- ![Acme](logo.svg)` lead outright — the generic path had kept it. The image now
+	// rides unwrapped: ugly is a design call, absent is a content loss.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n- ![Acme Logo](logo.svg)\n  - `Sponsor`\n';
+	const { html } = engine.render(md, 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /logo\.svg/, 'the image survives');
+	assert.doesNotMatch(articleHtml, /<strong>\s*<img/, 'but never inside a <strong>');
+});
+
+test('team-profile: a roster that composes to nothing degrades to the generic reading', () => {
+	// When every person yielded no sentence the roster was REMOVED, the clone came back
+	// empty, and the caller re-ran the generic walker on the ORIGINAL stage — bringing
+	// back both defects this path exists to fix. Leaving the roster in place means the
+	// clone degrades to exactly what generic would have produced anyway.
+	const md = '<!-- _class: team-profile -->\n\n## T\n\n<ul class="team-roster"><li class="person"><span class="person-figure person-figure--monogram" aria-hidden="true"><span class="person-initials">XX</span></span></li></ul>\n';
+	const [t] = renderSpeech(md);
+	assert.doesNotMatch(t, /XX/, 'the aria-hidden monogram must not leak back in via the fallback');
+});
+
+test('team-profile: a <pre> block survives into Read·Article', () => {
+	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n\n```\nrun the thing\n```\n', 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /<pre>[\s\S]*run the thing/);
+});
+
+test('team-profile: neither projection mutates the DOM it is handed', () => {
+	// The live Studio Present path re-projects the same nodes on every slide change.
+	const { html } = engine.render('<!-- _class: team-profile -->\n\n## T\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns it.\n', 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const secs = [...dom.window.document.querySelectorAll('section[data-class]')];
+	const before = dom.window.document.body.innerHTML;
+	speak(secs); project(secs); speak(secs);
+	assert.equal(dom.window.document.body.innerHTML, before, 'projection must be read-only');
+});

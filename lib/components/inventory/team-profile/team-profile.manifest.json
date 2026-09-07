@@ -1,0 +1,179 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "team-profile",
+  "function": "inventory",
+  "form": "grid",
+  "substance": "structure",
+  "stage": "flow",
+  "adapt": {
+    "mode": "reflow",
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
+    ],
+    "priority": [
+      "title",
+      "people"
+    ],
+    "droppable": [
+      "note"
+    ],
+    "keepTogether": [
+      "person"
+    ]
+  },
+  "capacity": {
+    "axis": "item",
+    "min": 3,
+    "sweet": 6,
+    "perPage": 1,
+    "soft": 12,
+    "hard": 12,
+    "escalateTo": [
+      "actors",
+      "list-tabular",
+      "split across slides"
+    ],
+    "note": "twelve is the ceiling and only `bench` reaches it — the ceiling is PER COMPOSITION, and every number here is measured on a real render rather than inferred from the layout. On a 16:9 stage: `bench` holds twelve; the default three-up holds eight, reflowing to four columns at a seventh; `lead` holds nine, its ranked band widening a column per extra person so it stays ONE row; `sides` holds six a side; `bio` holds six, and that is a floor rather than a tuning gap — at six its rows are already down to 72px with the portrait at 49px, so the only cut left is the sentence `bio` exists to give each person. A coda takes 121px out of the stage (512px to 391px); a footer takes nothing. Every composition absorbs the coda at those counts EXCEPT `bio`, which drops to five. `lead`'s nine assume the shape `commonMistakes` advises — the hero carries the note, the reports carry name and role; give all nine a note and the band's narrow cells wrap them until the cards run taller than the hero."
+  },
+  "density": {
+    "axis": "item",
+    "soft": 12,
+    "hard": 14,
+    "note": "one clause on what this person owns, not a paragraph — and the count includes the name and the image reference beside it, so about four of the allowance is fixed cost before a word of prose"
+  },
+  "focusAxes": [
+    "item"
+  ],
+  "tags": [
+    "org-chart",
+    "onboarding",
+    "kickoff",
+    "pitch"
+  ],
+  "description": "A roster of named people, each under a portrait, with the role they own.",
+  "purpose": "Use for the people slide — 'meet the leaders', 'your account team', the QBR roll-call. Each person is a portrait, a name, a role and one line. Anyone with no photo gets a monogram of their initials instead, so a half-photographed roster still reads as one designed wall rather than a set of holes: the monogram stays quiet beside real faces, and takes a categorical hue only when nobody in the roster has a photo.",
+  "variants": [
+    "lead",
+    "bench",
+    "sides",
+    "bio"
+  ],
+  "slots": {
+    "eyebrow": {
+      "selector": "p > code:only-child",
+      "required": false,
+      "description": "Optional kicker above the headline — a short label in backticks, e.g. `Your account team`."
+    },
+    "title": {
+      "selector": "h2",
+      "required": false,
+      "description": "Optional headline above the roster. A claim earns its place ('Six people own this program end to end'); a bare label ('The team') does not."
+    },
+    "people": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One top-level bullet per person, and the bullet IS their name. Everything about them nests under it."
+    },
+    "portrait": {
+      "selector": "ul > li > ul > li > img",
+      "required": false,
+      "description": "The person's photo, nested under their name as `- ![](photo.jpg)`. Leave the alt empty — the name beside it is the accessible label. Omit it entirely and the engine draws a monogram from the initials instead."
+    },
+    "role": {
+      "selector": "ul > li > ul > li > code",
+      "required": false,
+      "description": "The one backticked nested line is the role, set as a small tracked label under the name — `` `Head of Delivery` ``. Deliberately not a pill: a boxed chip under every one of twelve faces competes with the portraits it is meant to caption."
+    },
+    "note": {
+      "selector": "ul > li > ul > li",
+      "required": false,
+      "description": "Any remaining plain nested line is the note: one short line on what this person owns."
+    },
+    "side": {
+      "selector": "h3",
+      "required": false,
+      "description": "`sides` only. Two `### ` subheadings, each followed by its own list, label the two rosters ('Your team' / 'Our team')."
+    }
+  },
+  "skeleton": "<!-- _class: team-profile -->\n\n`Your account team`\n\n## The claim the roster backs up.\n\n- First person\n  - ![](portrait.jpg)\n  - `Their role`\n  - One line on what they own.\n- Second person\n  - ![](portrait-2.jpg)\n  - `Their role`\n  - One line on what they own.\n- Third person\n  - `Their role`\n  - One line on what they own.\n",
+  "anatomyBlock": "team-profile",
+  "sample": "<!-- _class: team-profile -->\n\n`inventory · team-profile`\n\n## The team profile seats each face over a name, a role, and one line.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n  - Clears blockers above the program.\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n  - Runs the weekly cadence.\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n  - Staffs the pods; holds the dates.\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n  - Reviews every schema change.\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Lead`\n  - Owns the migration cutover.\n- Jonah Reyes\n  - ![](jonah.svg)\n  - `Customer Success`\n  - Your standing contact between reviews.\n",
+  "stressDoc": {
+    "summary": "Twelve people with a note each — the hard ceiling, where the grid spends the last of its breathing room.",
+    "sample": "<!-- _class: team-profile bench -->\n\n`team-profile at the ceiling`\n\n## Twelve is the ceiling, and bench is the only composition that seats them.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Chief Financial Officer`\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Global Delivery`\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Principal Solutions Architect`\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Platform Lead`\n- Jonah Reyes\n  - ![](jonah.svg)\n  - `Customer Success Director`\n- Sofia Marchetti\n  - ![](sofia.svg)\n  - `Information Security Lead`\n- Kenji Sato\n  - ![](kenji.svg)\n  - `Support Escalation Manager`\n- Hana Suzuki\n  - `Field Reliability Engineer`\n- Owen Adeyemi\n  - `Revenue Operations`\n- Clara Nunes\n  - `Quality Assurance Lead`\n- Idris Khan\n  - `Release Train Manager`\n"
+  },
+  "commonMistakes": [
+    {
+      "mistake": "Leading with the portrait instead of the name.",
+      "fix": "The top-level bullet is the person's NAME (`- Ada Okafor`); the portrait, role and note all nest under it. Writing `- ![](ada.jpg)` at the top level makes the photo the person and leaves the card with no name."
+    },
+    {
+      "mistake": "Writing the role as plain nested text instead of backticks.",
+      "fix": "The one backticked nested line is the role, set as the label under the name. Written plain it becomes a second note line, so the card shows two body lines and no role."
+    },
+    {
+      "mistake": "Filling the alt text on the portrait.",
+      "fix": "Write `![](photo.jpg)` with an empty alt. The name is set right beside the face and IS the accessible label, so alt text only makes a screen reader say it twice — the engine drops it either way."
+    },
+    {
+      "mistake": "Adding a KEY INSIGHT or a closing note to a full `bio` roster.",
+      "fix": "A coda takes 121px out of the stage, and `bio` is the one composition that cannot absorb it: its rows are already at their floor, so a sixth person clips. Every other composition reflows and is fine — the default turns its cards on their side, `lead` tightens its band, `sides` closes its gap. So keep a `bio` roster to five when the slide carries a coda or a footer, or move the line into the headline."
+    },
+    {
+      "mistake": "Expecting a `lead` hero to hold a long note when the roster is also long.",
+      "fix": "The hero's note is the one that earns the room, and the ranked band widens a column per extra person to stay one row — so nine people fit, but each ranked cell is narrower than the last. Past six, give the note to the hero and leave the rest at name and role, the way the sample does; past nine the notes are what stop being readable and that is `bench`."
+    },
+    {
+      "mistake": "Numbering the roster with an ordered list (`1. Ada Okafor`).",
+      "fix": "The roster is rebuilt as an unordered list either way, so the numbers are dropped and nothing warns you. If the order is just the order you thought of them in, write `- Ada Okafor` and lose nothing. If the numbers meant RANK, that is what `lead` is for — it gives the first person the hero cell and says the same thing without asking the reader to count."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Three to six people who each need a face, a role and one line — the workhorse 'meet the team' roster."
+    },
+    {
+      "variant": "lead",
+      "useWhen": "One person is accountable and the rest report into the work: the hero cell and the rule beneath it say so without a sentence."
+    },
+    {
+      "variant": "bench",
+      "useWhen": "The roster runs past eight and the notes matter less than the breadth — six up, face and role only."
+    },
+    {
+      "variant": "sides",
+      "useWhen": "Two teams meet: the QBR roll-call, a joint steering group, a vendor and a client side that need labelling."
+    },
+    {
+      "variant": "bio",
+      "useWhen": "Four or fewer leaders who each need a real line, and the roles read better scanned down a column than centered under a face."
+    }
+  ],
+  "specimenVoice": true,
+  "variantDocs": {
+    "lead": {
+      "label": "lead",
+      "summary": "The first person takes a hero cell; the rest rank beneath.",
+      "sample": "<!-- _class: team-profile lead -->\n\n`team-profile lead`\n\n## lead gives the first person the hero cell and ranks the rest beneath.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n  - Signs the scope and owns the outcome.\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Lead`\n"
+    },
+    "bench": {
+      "label": "bench",
+      "summary": "The long roster, packed to a face, a name and a role.",
+      "sample": "<!-- _class: team-profile bench -->\n\n`team-profile bench`\n\n## bench packs the long roster down to a face, a name, and a role.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n- Hana Suzuki\n  - `Field Engineer`\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n- Owen Adeyemi\n  - `Revenue Ops`\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Lead`\n- Jonah Reyes\n  - ![](jonah.svg)\n  - `Customer Success`\n- Clara Nunes\n  - `Quality Lead`\n- Sofia Marchetti\n  - ![](sofia.svg)\n  - `Security Lead`\n- Kenji Sato\n  - ![](kenji.svg)\n  - `Support Manager`\n- Idris Khan\n  - `Release Manager`\n"
+    },
+    "sides": {
+      "label": "sides",
+      "summary": "Two labeled rosters facing each other across the slide.",
+      "sample": "<!-- _class: team-profile sides -->\n\n`team-profile sides`\n\n## sides faces two rosters across the table, each under its own label.\n\n### Your team\n\n- Ada Okafor\n  - `VP Operations`\n- Priya Raman\n  - `Head of Delivery`\n- Nia Bello\n  - `Data Lead`\n\n### Our team\n\n- Marcus Vale\n  - `Account Director`\n- Tomas Lindqvist\n  - `Solutions Architect`\n- Jonah Reyes\n  - `Customer Success`\n"
+    },
+    "bio": {
+      "label": "bio",
+      "summary": "One person per row, with room for a real sentence.",
+      "sample": "<!-- _class: team-profile bio -->\n\n`team-profile bio`\n\n## bio turns the grid on its side and gives the note a line of its own.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n  - Fifteen years running operations across forty sites.\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n  - Landed this migration twice under a regulator.\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n  - Owns the pods and the board date.\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n  - Wrote the spec the plan hangs from.\n"
+    }
+  }
+}

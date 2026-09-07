@@ -32,6 +32,7 @@
     "state-chart",
     "stats",
     "statute-stack",
+    "team-profile",
     "timeline-list",
     "verdict-grid",
     "video"
@@ -47,7 +48,8 @@
       "list",
       "list-tabular",
       "split-compare",
-      "statute-stack"
+      "statute-stack",
+      "team-profile"
     ],
     "portrait": [
       "actors",
@@ -74,6 +76,7 @@
       "split-compare",
       "stats",
       "statute-stack",
+      "team-profile",
       "verdict-grid"
     ],
     "story": [
@@ -90,7 +93,8 @@
       "regulatory-update",
       "split-compare",
       "stats",
-      "statute-stack"
+      "statute-stack",
+      "team-profile"
     ],
     "mobile": [
       "cards-grid",

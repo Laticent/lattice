@@ -1165,7 +1165,33 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// from the script text and so is forced by them. No markup, attribute or block order moved —
 	// this fixture's `aside.lattice-notes` means `hasNotes` is true here, so the gated branches
 	// contribute bytes, not behavior, to the golden.
-	assert.equal(sha, 'a1e08602fc36ee666ac23137e82f3c04e5c057aa28df65c2a379e05b3c4a3409', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED 2026-09-06: `playerCss` gained three `#lp-article .lp-roster` rules so a
+	// team-profile roster's portraits render at 1.9em in Read·Article instead of natural
+	// size. team-profile is the first component to emit `<img>` from a transform, so the
+	// article had no rule for one. Bytes move for EVERY deck because this is the shared
+	// stylesheet — that is what this golden is for, and it is the only reason it moved.
+	// RE-BLESSED 2026-09-07. The roster rules, over four rounds. What they do now:
+	//   .lp-roster>li            flex row — portrait, then the words
+	//   .lp-roster>li>img        the portrait: 1.9em circle, align-self:flex-start
+	//   .lp-roster>li>div        the words, flex:1 min-width:0
+	//   .lp-roster>li>div img    DESCENDANT — caps any image the author put in the row
+	//   .lp-roster>li>div :is(ul,ol)  DESCENDANT — a nested list at any depth
+	//
+	// The COORDINATES below are measured on a NAMED deck, and the naming is the point: an
+	// earlier version of this note carried numbers from a deck it did not identify, a
+	// checker rebuilt the shape and got different x/w, and a later version carried a y
+	// value forward across a change that had moved it. Both were caught by review, not by
+	// this test — a sha pins bytes, never geometry.
+	//
+	// Deck: `## T` then `- Ada Okafor / - \`Sponsor\` / - Owns three things: / - staffing /
+	// - budget`. NO portrait, which is why the row is full width. Chromium, 1440px viewport,
+	// Read·Article opened by clicking the real control. Measured on the rules above:
+	//   row       x=475   y=190.1  w=740  h=109
+	//   sub-list  x=475   y=226.5  w=740  h=67.3   margin 5.4px 0 0
+	// Before the wrapper the sub-list sat at y=190.1 — the row's own baseline, floated to
+	// its right at w=105 — because it was a flex ITEM of the row. y is the claim; x and w
+	// move with whether the row carries a photo.
+	assert.equal(sha, '3485037ac2fcb4b1893aa19bd6efd9d3be47c033ab672f2851e4328111a4d700', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -1997,4 +2023,89 @@ test('narration: the manifest says WHICH mode it is, and names the engine in its
 		(await narratedPlayer({ narration: NARRATION_NO_AUDIO, readAlong: { voice: { rung: 'openrouter', model: 'm', voice: 'v', speed: 1 } } })).html,
 	);
 	assert.equal(captionsOnly.readAlong.audioMode, 'regenerate', 'no audio rode along, and the artifact says so');
+});
+
+// ── deck-relative <img src> is resolved before inlining ───────────────────────────
+// The inliner matches `file://` URLs ONLY, and the engine deliberately leaves inline
+// srcs relative on the CLI path ("so exported bytes are untouched" — engine/index.js),
+// which is right for the PDF because Chromium renders it with the deck directory as
+// its base. A `--player` export is the opposite: one file, meant to be mailed, where a
+// relative `ada.svg` points at nothing the moment it leaves the deck folder. Measured
+// on the real gallery before the fix: 98 portraits, 98 broken — in the slides view, not
+// just the article. team-profile surfaced it (the only component that emits `<img>`
+// from a transform) but it was never component-specific: a bare `![](photo.jpg)` on an
+// ordinary `content` slide broke identically.
+
+test('player: a deck-relative <img src> is resolved against assetBaseUrl and inlined', async () => {
+	const fs = require('fs');
+	const os = require('os');
+	const path = require('path');
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-player-'));
+	// A real file on disk, because the inliner reads bytes — a fabricated URL would
+	// prove only that the regex matched.
+	fs.writeFileSync(path.join(dir, 'ada.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+	const base = require('url').pathToFileURL(dir + path.sep).href;
+	const doc = docHtml.replace('<p>Intro paragraph.</p>', '<p>Intro paragraph.</p><img src="ada.svg" alt="">');
+
+	const { html: without } = await buildPlayerHtml({ docHtml: doc, source, now: 0 });
+	assert.match(without, /src="ada\.svg"/, 'without a base the relative src survives untouched — the defect');
+
+	const { html: withBase } = await buildPlayerHtml({ docHtml: doc, source, now: 0, assetBaseUrl: base });
+	assert.doesNotMatch(withBase, /src="ada\.svg"/, 'the relative src must not reach the shared file');
+	assert.match(withBase, /src="data:image\/svg\+xml/, 'it is baked in as a data URI');
+	fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('article roster rules style only their OWN rows, never an author\'s nested markup', () => {
+	// `#lp-article .lp-roster li` was a DESCENDANT selector. A roster row re-emits the
+	// author's own note markup verbatim (prose-projection.mjs's projectTeamProfile), so
+	// a nested list written under a person became flex items in Read·Article: markers
+	// gone, the sub-list floated beside the sentence instead of indented under it. The
+	// `img` rule squashed an inline image in a note into a 34px circle the same way.
+	// Reachable from plain, lint-clean markdown — a third-level bullet under a person.
+	//
+	// Pinned as SELECTOR TEXT because that is where the defect lives: both forms parse,
+	// both apply to the roster's own rows, and only the scope differs — so a rendering
+	// assertion on a correct row cannot tell them apart. Guards the reintroduction, not
+	// the styling.
+	const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'export', 'player-core.mjs'), 'utf8');
+	assert.match(css, /#lp-article \.lp-roster>li\{display:flex/, 'the row rule is a child combinator');
+	assert.match(css, /#lp-article \.lp-roster>li>img\{/, 'the portrait rule is a child combinator');
+	// The forbidden forms are ENUMERATED, not sniffed. The first cut of this guard read
+	// `.lp-roster (li|img){` — which does not match `.lp-roster>li img{`, i.e. the exact
+	// defect it exists to prevent (the portrait rule reaching an author's inline note image
+	// and squashing it to a 34px circle) could return in that spelling and the guard would
+	// stay silent. Two legitimate descendant selectors now live in this block, so the
+	// pattern cannot simply be widened.
+	for (const forbidden of [/#lp-article \.lp-roster li\{/, /#lp-article \.lp-roster img\{/, /#lp-article \.lp-roster>li img\{/, /#lp-article \.lp-roster li img\{/]) {
+		assert.doesNotMatch(css, forbidden, `a descendant form of the row/portrait rules must not return: ${forbidden}`);
+	}
+	// The wrapper is the other half, and scoping alone did not fix the layout: the row is
+	// flex, so a list nested in a note was a flex ITEM of the row and stayed beside the
+	// sentence even once its markers came back. `flex:1` on the words' own div makes the
+	// row exactly two items and lets block markup inside a note lay out normally.
+	assert.match(css, /#lp-article \.lp-roster>li>div\{flex:1/, 'the words get their own flex child');
+	// Inside the wrapper the combinators are DESCENDANT on purpose — that is where the
+	// author's own markup lives and where these two must reach. A child combinator on the
+	// image rule let a name-as-image escape every cap and run 542px past a 390px column; a
+	// child combinator on the list rule left a depth-2 list on the generic article margin.
+	assert.match(css, /#lp-article \.lp-roster>li>div img\{max-width:100%/, 'any image inside the wrapper is capped');
+	// A MARGIN on purpose: it collapses with the first list item's own .3em, which padding
+	// does not. Respelling it as margin:0 + padding-top to look like HARD RULE #20 doubled
+	// the gap above the first sub-bullet (5.4px -> 10.8px) and grew every row with a nested
+	// list by 5.4px, for a rule whose substance is about layouts that MEASURE.
+	assert.match(css, /#lp-article \.lp-roster>li>div :is\(ul,ol\)\{margin:\.3em 0 0\}/, 'the list rule reaches any depth and spaces with a collapsing margin');
+	assert.match(css, /#lp-article \.lp-roster>li>img\{[^}]*align-self:flex-start/, 'the portrait tracks the name, not the row center');
+});
+
+test('player: assetBaseUrl leaves absolute, data and remote srcs alone', async () => {
+	// `resolveAssetUrl` guards these, and re-resolving an already-absolute src is a
+	// no-op — so passing a base must not disturb anything that was already resolvable.
+	const doc = docHtml.replace(
+		'<p>Intro paragraph.</p>',
+		'<p>Intro paragraph.</p><img src="https://example.test/a.png" alt=""><img src="data:image/gif;base64,R0lGOD" alt="">',
+	);
+	const { html } = await buildPlayerHtml({ docHtml: doc, source, now: 0, assetBaseUrl: 'file:///deck/' });
+	assert.match(html, /src="https:\/\/example\.test\/a\.png"/, 'a remote src is untouched');
+	assert.match(html, /src="data:image\/gif;base64,R0lGOD"/, 'a data: src is untouched');
 });

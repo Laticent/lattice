@@ -527,6 +527,20 @@ def demo_blocks() -> dict[str, str]:
         ('split', 'footer', '1/19'),
     ])
 
+    blocks['team-profile'] = frame([
+        ('left', 'header'),
+        ('left', 'YOUR ACCOUNT TEAM'),
+        ('left', 'Six people own this program.'),
+        ('blank',),
+        ('left', '    ( o )       ( o )       ( o )   '),
+        ('left', '     Ada        Marcus      Priya   '),
+        ('left', '  (Sponsor)   (Director)  (Delivery)'),
+        ('left', '    Clears     Runs the     Staffs  '),
+        ('left', '  blockers.    cadence.   the pods. '),
+        ('blank',),
+        ('split', 'footer', '1/19'),
+    ])
+
     blocks['q-and-a'] = frame([
         ('left', 'header'),
         ('center', 'What we expect to be asked.'),

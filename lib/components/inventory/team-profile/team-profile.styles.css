@@ -1,0 +1,832 @@
+/* team-profile — a roster of named people, each under a portrait.
+ * See lib/components/inventory/team-profile/team-profile.manifest.json for the contract.
+ *
+ * Substance: structure. The author writes the house card shape (`- Name` with the
+ * portrait / role / note nested under it); team-profile.transform.js rebuilds each
+ * item into a flat, named card:
+ *
+ *   li.person > .person-figure          the portrait — an <img>, or a monogram
+ *             > .person-text            > .person-name / .person-role / .person-note
+ *
+ * Five compositions off that one DOM, and the split between them is entirely
+ * `.person`'s flex-direction plus what `.person-figure` measures:
+ *   team-profile          3-up cards, portrait over the words        (the roster)
+ *   team-profile lead     one hero row, the rest ranked beneath      (leader + reports)
+ *   team-profile bench    6-up, portrait + name + role only          (the long roster)
+ *   team-profile sides    two labeled rosters facing each other     (the QBR roll-call)
+ *   team-profile bio      one person per row, room for a sentence    (meet the leaders)
+ *
+ * Every size is `cqi` (1% of the stage's inline size), so a portrait holds its
+ * proportion of the slide at every deck size, instead of being a pixel guess
+ * that only looks right at 16:9.
+ *
+ * Rules are UNLAYERED (no `@layer components` wrapper) to match every other
+ * component file — broad @layer activation is blocked (engineering/cascade.md),
+ * so a wrapped file would lose to unlayered base rules regardless of specificity.
+ */
+
+section.team-profile > .cell-stage {
+  /* The four knobs every design re-tunes. `--person-col-gap` feeds the per-cell
+   * width below, so the tiling stays exact even when a reflow uses an asymmetric
+   * gap (the same arrangement logo-wall uses). */
+  --person-cols: 3;
+  --person-size: 7cqi;
+  --person-gap: var(--sp-xl);
+  /* Rows are the scarce axis — two rows of portrait + three text lines is what a
+   * 16:9 stage holds — so the row gap runs tighter than the column gap rather
+   * than one `gap` splitting the difference badly in both directions. */
+  --person-row-gap: var(--sp-lg);
+  --person-col-gap: var(--person-gap);
+}
+
+/* The headline block keeps its natural height at the top; the roster takes the
+ * rest of the canvas and centers its rows as one cluster, so a two-row grid sits
+ * in the middle of the frame rather than hanging off the heading. */
+section.team-profile > .cell-stage > ul.team-roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  /* flex mirror of `repeat(N, 1fr)` — N cards per row, rows centered as a cluster. */
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--person-col-gap);
+  row-gap: var(--person-row-gap);
+  align-content: center;
+  justify-content: center;
+  align-items: start;
+}
+
+section.team-profile > .cell-stage > ul.team-roster > li.person {
+  /* `width` (not a flex-basis calc, which renders unreliably) tiles N per row. */
+  width: calc((100% - (var(--person-cols) - 1) * var(--person-col-gap)) / var(--person-cols));
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-xs);
+  min-width: 0;
+}
+
+/* ── The portrait cell.
+ * A circle at `--person-size`, with a hairline ring so a light photo on a light
+ * ground still has an edge. `overflow: hidden` + `object-fit: cover` is what makes
+ * a roster of mismatched crops read as one wall: every face is centered in the
+ * same circle whatever the source aspect. `flex: 0 0 auto` keeps the circle from
+ * being squeezed by a long name beside it in the row-shaped designs. */
+section.team-profile .person-figure {
+  width: var(--person-size);
+  height: var(--person-size);
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+}
+
+section.team-profile .person-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* The monogram — the same circle, filled and carrying the person's initials,
+ * sized as a fraction of the circle so it tracks `--person-size` through every
+ * design and every deck size.
+ *
+ * TWO treatments, and which one applies is decided by the ROSTER, not the person.
+ * A monogram does one of two different jobs:
+ *
+ *   - Beside real photographs it STANDS IN for one that has not arrived, so it
+ *     must be quiet. Measured on a dark canvas, the categorical treatment below
+ *     turned four photo-less people into saturated discs shouting next to eight
+ *     soft portraits — `--cat-N-fill` is a pale tint on a light ground but a
+ *     vivid color on a dark one, which is right for a chart wedge and wrong for a
+ *     missing face. The default is therefore neutral: the card's own surface, the
+ *     same hairline ring a photo gets, secondary ink.
+ *
+ *   - When NOBODY has a photo — the QBR roll-call, where one side of the room is
+ *     never photographed — the monograms ARE the roster, and a column of six
+ *     identical gray discs is not a design. There they carry the categorical
+ *     identity: `--cat-N-fill` with `--cat-N-ink`, the three-layer contrast
+ *     contract's own pair, so the ink is AA on the fill in both color modes
+ *     without a per-mode override.
+ *
+ * `:has()` reads that distinction off the rendered roster, so an author gets the
+ * right answer without a modifier to remember. (HARD RULE #12 banned `:has()` in
+ * theme CSS until it was retired in 2026-07 — retested against a current
+ * Chromium, both forms behave per spec.) */
+section.team-profile .person-figure--monogram {
+  background: var(--bg-alt);
+  border-color: var(--border);
+}
+
+section.team-profile .person-initials {
+  font-family: var(--font-label);
+  font-size: calc(var(--person-size) * 0.33);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+/* An all-monogram roster takes the categorical cycle — and it carries the hue in
+ * the INITIALS and the RING, on the same neutral disc the standing-in monogram
+ * uses. That is the only pairing the theme actually guarantees, and getting here
+ * took two measured wrong turns worth recording, because both looked right:
+ *
+ *   `--cat-N-fill` + `--cat-N-ink`. Looks like a matched pair and is not. The theme
+ *   documents the fill as a band tint "NOT suitable as foreground/stroke", and the
+ *   ink is solved against `--bg` / `--bg-alt` — the SLIDE surface — never against
+ *   the fill. The cycles are hued independently too, so at one index they need not
+ *   be the same color: light `--cat-2-fill` is khaki while `--cat-2-ink` is crimson.
+ *   Measured on the rendered slide, four of eight light slots fell under AA, two at
+ *   3.05:1 — maroon initials on a khaki disc, reading as a bug, not a palette.
+ *
+ *   Then `color-mix(… var(--cat-N-ink) 14%, var(--bg))`, reasoning that a ground
+ *   mixed out of the canvas keeps the ink's guarantee. It does the opposite: mixing
+ *   the ink INTO the ground moves the ground toward the ink. Re-measured, 2.52:1 —
+ *   worse than the defect it replaced.
+ *
+ * `--cat-N-ink` on `--bg-alt` is AA by construction: `--bg-alt` is one of the two
+ * surfaces the ink generator solves against, and `checkCatContrast` gates it. The
+ * ring takes `--cat-N-mark`, the 3:1 graphical token, which is what a border wants.
+ * So the disc stays quiet, the person still has a color, and the contrast is the
+ * theme's to keep rather than this file's to assert. */
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-1-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-2-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-3-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-4-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-5-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-6-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-7-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-8-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
+
+
+/* `sides` offsets its SECOND roster's cycle. Both lists restart at `nth-child(1)`,
+ * so left and right took the same hues in the same order — which reads as a claim
+ * that row 1 faces row 1, row 2 faces row 2. Nothing in the data says that; a QBR
+ * roll-call is two teams, not a set of counterparts. Shifting the right-hand list
+ * by three breaks the mirror while keeping every person a stable color. */
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-4-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-5-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-6-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-7-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-8-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-1-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-2-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-3-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
+
+/* ── The words.
+ * A column by default, centered under the portrait. The three lines are a
+ * hierarchy — name, then role, then note — and their spacing says so: the role
+ * sits tight under the name it belongs to, the note further off. Rhythm is
+ * padding, not gap, so each step is tuned separately (and never margin — #20). */
+section.team-profile .person-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+section.team-profile .person-name {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: var(--lh-snug);
+  color: var(--text-heading);
+  text-wrap: balance;
+}
+
+/* The role is a LABEL, not a pill. A pill under every one of twelve faces is
+ * twelve boxes competing with the portraits; the label register (mono-ish caps,
+ * tracked, secondary ink) says "metadata" just as clearly and disappears into the
+ * card the way a caption should. */
+section.team-profile .person-role {
+  padding-top: var(--sp-3xs);
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  color: var(--text-secondary);
+  text-wrap: balance;
+}
+
+section.team-profile .person-note {
+  padding-top: var(--sp-2xs);
+  font-size: var(--fs-body-compact);
+  font-weight: 400;
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+/* ── Roster-size reflow.
+ * The three-up composition holds six: two rows of portrait-plus-three-lines is
+ * what a 16:9 stage measures out at (tools/calibrate-capacity.js reads a ceiling
+ * of 6, and a seventh starts a third row that does not fit). Rather than let a
+ * seven-person roster ring, the grid goes to four columns and takes the portrait
+ * down to match — 4+4 or 4+3 in the same two rows. A quantity query
+ * (`:has(> li:nth-child(7))` — "is there a seventh?") reads the roster's own size,
+ * so the author gets the right column count without a modifier to remember.
+ * Past eight the notes are what stop being readable, and dropping them is a
+ * CONTENT decision, so that is where `bench` takes over rather than this rule
+ * silently hiding what someone wrote. */
+section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(7)) {
+  --person-cols: 4;
+  --person-size: 6.5cqi;
+}
+
+/* ── The card turns on its side when a CODA takes the stage's height.
+ * Measured on a real render, one `> quote` coda takes a 16:9 stage from 512px to
+ * 391px — 121px, almost a quarter of it. The portrait-over-words card is
+ * TALL by construction (a circle, then three lines under it), so two rows of six
+ * people no longer fit and the bottom row's notes were cut off mid-sentence.
+ *
+ * Turning the card on its side is what buys the height back, and it costs nothing
+ * that matters: the portrait and the words sit at the same height instead of
+ * stacking, so a row is `max(portrait, words)` rather than their sum. The words go
+ * left-aligned beside the face, which is the shape `sides` and `bio` already use —
+ * so this is the family's own row card, borrowed for a short stage, not a fourth
+ * card shape to learn.
+ *
+ * KEYED ON THE CODA CELL ALONE, and the FOOTER is deliberately not in this
+ * selector even though it is the same kind of chrome. It costs the stage NOTHING:
+ * measured at 512px with a footer and 512px without, because the footer is its own
+ * frame row and the stage never pays for it. Including it on the assumption that
+ * chrome is chrome turned every footered slide — which is most of them, the
+ * component's own gallery included — into the two-column row card, so the gallery
+ * rendered a face BESIDE a name under a headline reading "seats each face OVER a
+ * name". A coda an author folds into the stage instead does not shorten the stage
+ * either, and correctly does not match here.
+ * THREE columns, the same as the unreflowed card, and the count was measured rather
+ * than reasoned. Two looked right — a row card wants width for the words beside the
+ * face — but two columns means THREE ROWS for six people, and a row card is ~100px
+ * tall on its text alone, so 300px of cards could not fit a 349px stage however
+ * small the portrait got: shrinking it from 6cqi to 5.5cqi moved the overflow by
+ * zero, because the portrait had stopped being the tallest thing in the row. Three
+ * columns is TWO rows, which fits with room to spare even where the cells are narrow
+ * enough to wrap a note to a fourth line. Fewer rows beat wider cells. */
+section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-coda)
+  > .cell-stage {
+  --person-cols: 3;
+  --person-size: 5.5cqi;
+  /* The row gap comes down with the card. A column card stacks a portrait ON a block
+   * of words, so its rows need a tall gap to read as separate people; a row card is
+   * already one horizontal band and separates itself. Left at the column card's gap
+   * the reflow measured 96px between rows — three rows of 100px cards plus that gap
+   * still cleared a 349px stage by 25px, i.e. the gap alone was costing more than the
+   * overflow it was supposed to have fixed. */
+  --person-row-gap: var(--sp-md);
+}
+
+section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-coda)
+  > .cell-stage > ul.team-roster > li.person {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-md);
+}
+
+section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-coda)
+  > .cell-stage > ul.team-roster > li.person > .person-text {
+  align-items: start;
+  text-align: left;
+}
+
+/* `lead` gives the same height back, but NOT by turning its band on its side — the
+ * band is the one place the row card is wrong. Its cells are already narrow (five
+ * or more across), so a row card leaves the words a ~130px column and they wrap
+ * hard: measured, the reflowed band cards ran 122-193px against a 191px hero, i.e.
+ * the "saving" made the band TALLER than the thing it sits under. The row card
+ * wants width, and the band has none to give.
+ *
+ * So `lead` pays out of its three genuinely slack allowances instead — the band
+ * gap, the hero's rule padding, and the hero note's type — which together cover
+ * the coda's bill without touching the hierarchy the design is about. */
+section.team-profile.lead:has(> .cell-coda)
+  > .cell-stage > ul.team-roster {
+  row-gap: var(--sp-md);
+}
+
+section.team-profile.lead:has(> .cell-coda)
+  > .cell-stage > ul.team-roster > li.person:first-child {
+  padding-bottom: var(--sp-xs);
+}
+
+section.team-profile.lead:has(> .cell-coda)
+  > .cell-stage > ul.team-roster > li.person:first-child .person-note {
+  padding-top: var(--sp-xs);
+  font-size: var(--fs-body-compact);
+}
+
+/* ── lead — one hero, the rest ranked beneath.
+ * The roster becomes a single column of two bands: the first person alone in a
+ * row-shaped hero, then everyone else tiled small. `flex-wrap: wrap` on the list
+ * with a full-width first child is what splits the bands — no wrapper element,
+ * so the same DOM serves this and the default. */
+section.team-profile.lead > .cell-stage {
+  --person-cols: 4;
+  --person-size: 6.5cqi;
+  --person-gap: var(--sp-lg);
+  --person-row-gap: var(--sp-md);
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster {
+  align-content: center;
+  row-gap: var(--sp-xl);
+}
+
+/* THE RANKED BAND IS ONE ROW, and holding it to one is what makes `lead` seat the
+ * roster the manifest promises. The band tiles at `--person-cols`, so a fixed 4
+ * meant a hero plus FIVE reports wrapped to a second row — and that row landed
+ * 184px below the stage, taking a name off the slide entirely at SIX people, the
+ * declared sweet spot, with no coda and nothing else on the slide. Measured, not
+ * reasoned: 6, 7 and 8 people all overflowed by exactly 184px, which is the
+ * signature of one whole row sitting outside the box rather than a gradual
+ * squeeze.
+ *
+ * So the column count tracks the roster, the same quantity-query idiom the
+ * default composition already uses for its seven-person reflow: one more column
+ * per extra report, with the portrait giving back the width each new column
+ * costs. NINE is where it stops, measured both ways: nine hold on a bare stage and
+ * on a stage a coda has shortened, and a tenth wraps the band to a second row that
+ * lands off the slide. Past nine the answer is `bench`, which drops the notes on
+ * purpose rather than shrinking them into decoration.
+ *
+ * Those nine assume the shape the component's own `commonMistakes` advises — the
+ * HERO carries the note, the reports carry name and role. Give every report a note
+ * as well and the band's cells, seven across, wrap the notes until the cards run
+ * TALLER than the hero: measured at 218px against a 172px hero, so the portrait
+ * has stopped being what to shrink. That slide degrades (notes clipped, no name
+ * lost) rather than being tuned for here — a rule that half-rescues a shape the
+ * docs steer away from is a rule nobody can explain later. */
+section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) {
+  --person-cols: 5;
+  --person-size: 6cqi;
+}
+section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(7)) {
+  --person-cols: 6;
+  --person-size: 5.5cqi;
+}
+section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(8)) {
+  --person-cols: 7;
+  --person-size: 5cqi;
+}
+section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(9)) {
+  --person-cols: 8;
+  --person-size: 4.5cqi;
+}
+
+/* With a coda the ladder above arrives one rung late, the same way `bio`'s does, and
+ * the measurement is what says so rather than the symmetry: on a shortened stage the
+ * EIGHT-person band clipped by 6px while the NINE-person band was clean — nine had
+ * already stepped down to 4.5cqi and eight was still at 5cqi, so the larger roster
+ * fit and the smaller one did not. That is a mistuned rung, not a capacity wall. */
+section.team-profile.lead:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(8)) {
+  --person-size: 4.5cqi;
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-xl);
+  padding-bottom: var(--sp-md);
+  /* The rule under the hero is the whole hierarchy statement: one person above
+   * the line, the team below it. */
+  border-bottom: 1px solid var(--border);
+  --person-size: 12cqi;
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child > .person-text {
+  align-items: start;
+  text-align: left;
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child .person-name {
+  font-size: var(--fs-h3);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child .person-role {
+  padding-top: var(--sp-2xs);
+  font-size: var(--fs-body-compact);
+  color: var(--accent);
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child .person-note {
+  padding-top: var(--sp-sm);
+  font-size: var(--fs-body);
+  color: var(--text-body);
+  max-width: var(--measure-body);
+}
+
+/* ── bench — the long roster.
+ * Six up, portraits small, and the note suppressed: past a dozen people the note
+ * is the first thing that stops being readable, so `bench` drops it rather than
+ * shrinking it into decoration. */
+section.team-profile.bench > .cell-stage {
+  --person-cols: 6;
+  /* Sized against the WORST case, not the sample: a six-column cell is narrow, so
+   * a long role ("Principal Solutions Architect") wraps to three lines, and the
+   * stress slide carries twelve of them under a specimen caption that takes 44px
+   * out of the stage. Putting the name and role back on the type ladder (they were
+   * below it) grew every card, so the portrait gives the height back. */
+  --person-size: 6.5cqi;
+  --person-gap: var(--sp-lg);
+  --person-row-gap: var(--sp-sm);
+}
+
+section.team-profile.bench .person-note { display: none; }
+section.team-profile.bench .person-name { font-size: var(--fs-body-compact); }
+section.team-profile.bench .person-role { font-size: var(--fs-meta); letter-spacing: 0.06em; }
+section.team-profile.bench > .cell-stage > ul.team-roster > li.person { gap: var(--sp-xs); }
+
+/* ── sides — two labeled rosters facing each other.
+ * The author writes two `### ` headings, each followed by its own list; the stage
+ * puts them in two columns with `grid-auto-flow: column`, so heading 1 / list 1
+ * fill the first column and heading 2 / list 2 the second. A hairline between them
+ * is what makes it a MEETING rather than two unrelated lists — it is drawn on the
+ * second column's items (both of them, with `row-gap: 0`) so the two segments meet
+ * as one unbroken rule. */
+section.team-profile.sides > .cell-stage {
+  --person-cols: 1;
+  --person-size: 7cqi;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  /* Row 1 is for a lead-in sentence and collapses to nothing without one. */
+  /* Six spare lead-in rows, then the label row, then the roster row. See the
+   * placement note below for why they exist.
+   *
+   * The FIRST spare is `auto` and the other five are `min-content`, which is not a
+   * fussy detail — it is the difference between this grid and a 119px hole.
+   * `align-content: stretch` below hands a share of the stage's free space to every
+   * track whose MAX sizing function is `auto`, so six empty `auto` spares are six
+   * shares of dead space rather than six zeros. This grid nearly survives that (its
+   * last row is `minmax(0, 1fr)`, which eats the free space first); the tall/strip
+   * grid has no flexible track and did not — measured at six 118.9px spares, with
+   * the first label pushed 713.6px down a slide carrying no lead-in at all.
+   *
+   * `min-content` is never stretched, so an empty one is genuinely zero. The first
+   * spare stays `auto` because the grid this replaced had exactly one stretchable
+   * lead-in row, and keeping it means a slide with zero or one lead-in — every
+   * slide anyone has written — measures IDENTICALLY to before this change at all
+   * four sizes. Only the second and later lead-ins, which used to paint on top of
+   * the first, are new. */
+  grid-template-rows: auto repeat(5, min-content) auto minmax(0, 1fr);
+  column-gap: 0;
+  row-gap: 0;
+  align-content: stretch;
+}
+
+/* Placed EXPLICITLY, not by auto-flow. `grid-auto-flow: column` assumed the stage
+ * held exactly four children in one order, so an ordinary lead-in sentence between
+ * the `##` and the first `###` shifted every item one cell: the labels came apart
+ * from their rosters, "OUR TEAM" landed under the first roster, and two spurious
+ * rules appeared. Nothing warned the author — `lint:deck` called the slide clean.
+ * Naming each cell means an extra element cannot renumber the others.
+ *
+ * But the labels and rosters are the only children that may be PINNED. Pinning the
+ * lead-in too — every `> p` to one named cell — traded renumbering for COLLISION:
+ * two grid items in one area do not stack, they paint on top of each other, so a
+ * slide with two lead-in sentences rendered them in byte-identical rects and both
+ * were unreadable (measured: two 1152x66 boxes at the same top/left). Nothing
+ * warned the author there either.
+ *
+ * So the lead-in AUTO-PLACES across the full width and the pinned items sit after
+ * the spares. Auto-placement fills the first free row, so paragraphs stack in
+ * document order at rows 1..6 and cannot reach the label row — which is the
+ * property the explicit placement was for, without the collision it caused. */
+section.team-profile.sides > .cell-stage > p {
+  grid-column: 1 / -1;
+  padding: 0 var(--sp-xl) var(--sp-lg);
+  font-size: var(--fs-body);
+  color: var(--text-body);
+}
+section.team-profile.sides > .cell-stage > h3:nth-of-type(1) { grid-area: 7 / 1; }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 8 / 1; }
+section.team-profile.sides > .cell-stage > h3:nth-of-type(2) { grid-area: 7 / 2; }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 8 / 2; }
+
+section.team-profile.sides > .cell-stage > h3 {
+  padding: 0 var(--sp-xl) var(--sp-md);
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: var(--text-label, var(--text-secondary));
+}
+
+section.team-profile.sides > .cell-stage > ul.team-roster {
+  padding: 0 var(--sp-xl);
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: start;
+  justify-content: center;
+  gap: var(--sp-md);
+}
+
+/* Each person is a row inside the column — portrait, then name over role. */
+section.team-profile.sides > .cell-stage > ul.team-roster > li.person {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-md);
+}
+
+section.team-profile.sides .person-text { align-items: start; text-align: left; }
+
+/* The same 121px coda bill, paid out of the column's own gap. `sides` is already
+ * row-shaped, so there is no card to turn — and it was only 7px over, which the
+ * tighter gap covers three times without the rows reading as crowded. (A footer is
+ * not in this selector, or any of the ones above: it costs the stage nothing.) */
+section.team-profile.sides:has(> .cell-coda)
+  > .cell-stage > ul.team-roster {
+  gap: var(--sp-sm);
+}
+
+/* The dividing rule: the second column's two children carry a shared start edge.
+ * Keyed on WHICH ELEMENTS they are, not on their position among the stage's
+ * children, for the same reason the placement above is explicit. */
+section.team-profile.sides > .cell-stage > h3:nth-of-type(2),
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2) {
+  border-inline-start: 1px solid var(--border);
+}
+
+/* ── bio — one person per row, with room for a sentence.
+ * The grid turns on its side: full-width rows separated by hairlines, the name
+ * and role sharing a baseline and the note running under them. This is the
+ * "meet the leaders" shape — four people who each need a real line, not twelve
+ * who need a label. */
+section.team-profile.bio > .cell-stage {
+  --person-cols: 1;
+  --person-size: 6.25cqi;
+}
+
+section.team-profile.bio > .cell-stage > ul.team-roster {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+  justify-content: center;
+}
+
+section.team-profile.bio > .cell-stage > ul.team-roster > li.person {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-lg);
+  padding: var(--sp-xs) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+section.team-profile.bio > .cell-stage > ul.team-roster > li.person:last-child {
+  border-bottom: 0;
+}
+
+/* A LONG bio roster tightens its rows rather than running off the slide. A bio row
+ * is deliberately tall — portrait, a name-and-role line, and a full sentence under
+ * them — and four of those fill a 16:9 stage. Measured on a real render: each row
+ * costs 104px against a 512px stage, so the FIFTH row cleared the bottom edge by
+ * 7px and the sixth took a name off the slide, at a count the manifest calls the
+ * sweet spot.
+ *
+ * The portrait is what gives the height back, because it is the only part of the
+ * row that carries no words: shrinking it costs presence, shrinking the sentence
+ * costs the thing `bio` exists for. Past eight people the sentence is no longer
+ * readable at any row height and the answer is `bench`, which drops the notes as a
+ * stated content decision — the manifest's capacity note says so. */
+section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-child(5)) {
+  --person-size: 5.5cqi;
+}
+section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-child(5)) > li.person {
+  padding: var(--sp-3xs) 0;
+}
+section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-child(7)) {
+  --person-size: 4.5cqi;
+}
+
+/* With a coda the stage is 121px shorter (a footer, measured, costs nothing), so
+ * every threshold above arrives one person earlier — and the counts prove it rather than a rule of thumb: on a
+ * shortened stage `bio` overflowed by 24px at FOUR people (below the tightening)
+ * yet by only 7px at five (inside it), which is the signature of a threshold set
+ * one notch too late, not of a design that cannot hold the roster. The tiers
+ * therefore shift down by one, and the last one buys the rest of the coda's bill
+ * out of the portrait — the only part of a bio row carrying no words. */
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(4)) {
+  --person-size: 5.5cqi;
+}
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(4)) > li.person {
+  padding: var(--sp-3xs) 0;
+}
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(5)) {
+  --person-size: 5cqi;
+}
+/* FIVE is where `bio` stops on a shortened stage, and the measurement says why
+ * rather than the design's intent alone. At six the rows are 72px each and
+ * uniform, with the portrait down to 49px — so the portrait has stopped being the
+ * driver and the two text lines are, which means the only cut left is the sentence
+ * itself. `bio` exists to give each person a real line; a composition that keeps
+ * six people by shrinking their sentences into captions is `bench` wearing another
+ * name. The manifest's capacity note carries the number, so a deck hits a warning
+ * before it hits the slide. */
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) {
+  --person-size: 4.25cqi;
+}
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) > li.person {
+  padding: 0;
+}
+section.team-profile.bio:has(> .cell-coda)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) .person-note {
+  padding-top: 0;
+}
+
+/* Name and role share the top line (the role tucked in beside the name, not under
+ * it), and the note claims the full width below — the shape a printed bio has. */
+/* The bio row's words are a GRID, not a wrapped flex line, and the reason is
+ * measured rather than stylistic. The shape wanted is: name at the row's left,
+ * role anchored at its right, note on its own line spanning both. Flex could not
+ * hold it. `flex-basis: 100%` on the note did not break the line at all — the
+ * three items stayed on one line, the note sitting at its 645px content width
+ * inside a 1057px box — and `min-width: 100%`, which did break it, made the note
+ * unshrinkable, so on a split portrait page it ran up to 191px past the stage's
+ * right edge and lost its last word. A two-track grid states the same intent
+ * directly: `1fr auto` puts the role at the right end, `1 / -1` gives the note its
+ * own row, and neither track can exceed the row, so there is nothing to overflow.
+ * `min-width: 0` because a grid item's automatic minimum is its content, which is
+ * what would otherwise push a long name past the role. */
+section.team-profile.bio .person-text {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  align-content: center;
+  column-gap: var(--sp-lg);
+  text-align: left;
+}
+
+section.team-profile.bio .person-name { grid-column: 1; min-width: 0; }
+section.team-profile.bio .person-role { grid-column: 2; }
+section.team-profile.bio .person-note { grid-column: 1 / -1; min-width: 0; }
+
+section.team-profile.bio .person-name { font-size: var(--fs-body); }
+section.team-profile.bio .person-role { padding-top: 0; }
+section.team-profile.bio .person-note {
+  padding-top: var(--sp-3xs);
+  font-size: var(--fs-body-compact);
+  color: var(--text-body);
+  max-width: var(--measure-body);
+}
+
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+ * A wide roster letterboxes into a short band in a tall box — every portrait
+ * shrinks and the canvas reads empty. Halve the columns so each face keeps
+ * presence and the rows fill down the frame. Keyed on the deck's `data-family`
+ * stamp (never `@container … aspect-ratio`, retired in #1218), attached to the
+ * `section.team-profile` compound — a LEADING `:where([data-family=…])` would be a
+ * descendant combinator and match nothing. The class is doubled because
+ * `:where()` is zero-specificity and these must outrank the base rules above. */
+section.team-profile.team-profile:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  --person-cols: 2;
+  --person-size: 18cqi;
+  --person-gap: var(--sp-lg);
+}
+
+section.team-profile.bench.bench:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  --person-cols: 3;
+  --person-size: 13cqi;
+}
+
+/* A square box is wide enough to keep three across, but the portraits want the
+ * extra height back. */
+section.team-profile.team-profile:where([data-family="square"]) > .cell-stage {
+  --person-size: 14cqi;
+}
+
+section.team-profile.bench.bench:where([data-family="square"]) > .cell-stage {
+  --person-cols: 4;
+  --person-size: 10cqi;
+}
+
+/* `lead`, `sides` and `bio` each need their OWN square size, because the generic
+ * square rule above is not something they can inherit.
+ *
+ * It ties them on specificity — both are (0,3,1), `:where()` contributing zero —
+ * and wins on source order, so its 14cqi silently replaced each variant's stage
+ * size. On `lead` that INVERTED the composition: the hero's 12cqi is set on the
+ * first `li`, which the stage rule cannot reach, so the reports grew to 14cqi and
+ * the hero stayed put — measured at 1280x720, hero 136px against reports 159px.
+ * The one statement `lead` exists to make, made backwards, on every square deck.
+ *
+ * The same tie was already handled for tall/strip below by doubling the class;
+ * square was simply missed. Same fix, and the hero is lifted explicitly rather
+ * than left to inherit — that is what made this silent the first time.
+ *
+ * ONLY `lead`. `sides` and `bio` lose the same tie to the same rule, but losing it
+ * costs them nothing — they have no hero to invert, they clip at neither size, and
+ * 14cqi is a defensible square portrait. Overriding them too was a taste change
+ * riding along in a defect fix, and it would have moved every square `sides` and
+ * `bio` deck already written. Left alone deliberately. */
+section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage {
+  --person-size: 9cqi;
+}
+
+section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage > ul.team-roster > li.person:first-child {
+  --person-size: 17cqi;
+}
+
+
+/* The hero stacks in a narrow box — a 20cqi portrait beside a headline leaves the
+ * words about eight characters of column. */
+section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  --person-cols: 3;
+  --person-size: 11cqi;
+}
+
+section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster > li.person:first-child {
+  flex-direction: column;
+  --person-size: 26cqi;
+}
+
+section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster > li.person:first-child > .person-text {
+  align-items: center;
+  text-align: center;
+}
+
+/* Two columns of people do not survive a portrait box — the rosters stack, and the
+ * rule between them becomes the rule above the second label. */
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  grid-template-columns: 1fr;
+  /* Same six spare lead-in rows as the wide grid, for the same collision — see the
+   * placement note there. Four pinned rows follow instead of two, because the
+   * rosters stack rather than sitting side by side.
+   *
+   * The `min-content` spares are load-bearing HERE in a way they are not on the wide
+   * grid: every track below is `auto`, so there is no flexible row to absorb the
+   * stage's free space and `align-content: stretch` handed an equal share to each of
+   * the six empty spares. It did: 118.9px apiece, first label at 713.6px, on a strip
+   * slide with no lead-in. The first spare stays `auto` for the reason given there —
+   * it is the one stretchable lead-in row this grid already had. */
+  grid-template-rows: auto repeat(5, min-content) auto auto auto auto;
+  --person-size: 9cqi;
+}
+
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p { grid-column: 1 / -1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(1) { grid-area: 7 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 8 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2) { grid-area: 9 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 10 / 1; }
+
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2),
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(2) {
+  border-inline-start: 0;
+}
+
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2) {
+  padding-top: var(--sp-xl);
+  border-top: 1px solid var(--border);
+}
+
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3,
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster {
+  padding-inline: 0;
+}
+
+section.team-profile.bio.bio:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  --person-size: 13cqi;
+}

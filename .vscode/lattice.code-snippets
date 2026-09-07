@@ -1089,6 +1089,29 @@
     ],
     "description": "Citation hierarchy — federal / state / local rows with citation, headline obligation, and status."
   },
+  "lattice: team-profile": {
+    "prefix": "lattice-team-profile",
+    "body": [
+      "<!-- _class: team-profile -->",
+      "",
+      "`Your account team`",
+      "",
+      "## The claim the roster backs up.",
+      "",
+      "- First person",
+      "  - ![](portrait.jpg)",
+      "  - `Their role`",
+      "  - One line on what they own.",
+      "- Second person",
+      "  - ![](portrait-2.jpg)",
+      "  - `Their role`",
+      "  - One line on what they own.",
+      "- Third person",
+      "  - `Their role`",
+      "  - One line on what they own."
+    ],
+    "description": "A roster of named people, each under a portrait, with the role they own."
+  },
   "lattice: timeline-list": {
     "prefix": "lattice-timeline-list",
     "body": [

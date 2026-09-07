@@ -4311,6 +4311,10 @@ async function renderBody(browser, g, closeBrowser) {
                 : csDeclares(/color-scheme\s*:\s*dark\b/) || classTokens(frontMatterValue(fm, 'class')).includes('dark') ? 'dark'
                   : 'light';
       const { html: playerHtml, report } = await buildPlayerHtml({
+        // The deck directory, so a deck-relative `<img src>` becomes a `file://` URL the
+        // asset inliner can bake in. Without it every prose image in a shared player is a
+        // dangling relative path (see the note in html-player.js).
+        assetBaseUrl: pathToFileURL(path.dirname(path.resolve(mdFile)) + path.sep).href,
         // The browser-baked DOM (captured after the overflow-marker level was applied,
         // with state-chart / function-plot inflated to static SVG). Falls back to the
         // clean static render only if that capture failed — which also means no marker,

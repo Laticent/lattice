@@ -120,22 +120,33 @@ if (existsSync(hljsDir)) {
   }
 }
 
-// Component sample images referenced by manifest `sample` decks — e.g. the image
-// component's `![bg](sample-image-landscape.svg)`. Staged under samples/ so the
-// playground preview can load them; the component render passes this base as
-// `{ baseUrl }` to the engine, which resolves the deck-relative path against it.
-const imageSamplesDir = join(repoRoot, 'lib', 'components', 'imagery', 'image');
-for (const file of readdirSync(imageSamplesDir)) {
-  if (file.endsWith('.svg')) assets.push([`samples/${file}`, join(imageSamplesDir, file)]);
-}
-// logo-wall's manifest sample references the brand marks by bare filename
-// (`![Acme](acme.svg)`), resolved against the same samples/ base. Stage them
-// flat so the component studio renders real marks instead of broken images.
-// (The bucket gallery refs them as `logo-wall/acme.svg`; that nested copy is
-// staged via collectGalleryAssets below — both paths resolve.)
-const logoWallDir = join(repoRoot, 'lib', 'components', 'inventory', 'logo-wall');
-for (const file of readdirSync(logoWallDir)) {
-  if (file.endsWith('.svg')) assets.push([`samples/${file}`, join(logoWallDir, file)]);
+// Component sample images referenced by manifest `sample` decks — the image
+// component's `![bg](sample-image-landscape.svg)`, logo-wall's `![Acme](acme.svg)`,
+// team-profile's `![](ada.svg)`. Every one is a BARE FILENAME in the manifest, so
+// the preview resolves it against this samples/ base: the component render passes
+// the base as `{ baseUrl }` and the engine resolves the deck-relative path against
+// it. Staged FLAT for that reason. (The bucket galleries ref the same files
+// nested, e.g. `logo-wall/acme.svg`; those copies come from collectGalleryAssets
+// below, and both paths resolve.)
+//
+// DERIVED from the component tree rather than hand-listed. This was two hard-coded
+// directories, and the third component to ship sample art (team-profile) had its
+// portraits silently missing from the staged set — its docs page rendered a grid of
+// broken-image icons while every gate stayed green, because no gate looks at that
+// page. The filesystem already knows which components ship art; asking it removes
+// the whole class. Additive only: an SVG staged for a component whose sample never
+// references it is an inert file.
+for (const bucket of readdirSync(join(repoRoot, 'lib', 'components'), { withFileTypes: true })) {
+  if (!bucket.isDirectory()) continue;
+  const bucketDir = join(repoRoot, 'lib', 'components', bucket.name);
+  for (const component of readdirSync(bucketDir, { withFileTypes: true })) {
+    // `_`-prefixed folders are bucket-scoped shared infrastructure, not components.
+    if (!component.isDirectory() || component.name.startsWith('_')) continue;
+    const componentDir = join(bucketDir, component.name);
+    for (const file of readdirSync(componentDir)) {
+      if (/\.svg$/i.test(file)) assets.push([`samples/${file}`, join(componentDir, file)]);
+    }
+  }
 }
 // Images the "Load a deck" gallery decks reference (e.g. the imagery survey's
 // `![bg](image/sample-photo-wide.svg)`, the inventory logo-wall). Staged under
@@ -219,6 +230,39 @@ const generated = loadAll().map((m) => [
   `plans/${m.name}.json`,
   JSON.stringify({ name: m.name, slides: galleryPlan(m) }),
 ]);
+
+// `samples/` is a FLAT namespace and the copy below is last-wins, so two files
+// with the same basename would silently leave one image standing in for another —
+// and the content hash would still change, so the symptom is a wrong picture, not
+// a failed build. That was a two-directory risk when this list was hand-written;
+// it is a 69-directory risk now that it walks the component tree, which is exactly
+// the trade the derivation makes. Naming the collision is the cheap half.
+//
+// Runs BEFORE the hash and the `rmSync` below, not after. Throwing after the
+// delete left the developer with a Playground that had no runtime, no engine CSS
+// and no themes until the collision was fixed and the script re-run — a build
+// failure that also broke the tree it failed on. The check is a pure property of
+// `assets`, so nothing forces it to wait.
+//
+// Keyed CASE-INSENSITIVELY, because the failure it exists to name is a filesystem
+// one: `Acme.svg` and `acme.svg` are two dests to this Map and ONE file to macOS
+// or Windows, so a case-sensitive key would pass the guard and let `copyFileSync`
+// silently last-wins exactly as if the guard were not here.
+const seen = new Map();
+for (const [rel, src] of assets) {
+  const key = rel.toLowerCase();
+  const prior = seen.get(key);
+  if (prior && prior[1] !== src) {
+    throw new Error(
+      `sync-playground-assets: two sources stage to the same dest "${rel}"\n` +
+      `  ${prior[0]} <- ${prior[1]}\n  ${rel} <- ${src}\n` +
+      'The staged namespace is flat and the copy is last-wins, so one would silently ' +
+      'replace the other. Rename one of the files, or stage it under a subdirectory.' +
+      (prior[0] === rel ? '' : '\n(These differ only in case, which collides on a case-insensitive filesystem.)'),
+    );
+  }
+  seen.set(key, [rel, src]);
+}
 
 // Content hash over (relPath + bytes) for every asset, in a stable order, so
 // the directory name changes iff any asset's content (or set) changes.

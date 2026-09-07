@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="Illustrated stand-in portrait">
+  <rect width="100" height="100" fill="#E6DBD9"/>
+  <path d="M50 66c16 0 29 11 31 26v8H19v-8c2-15 15-26 31-26z" fill="#7A4A46"/>
+  <rect x="43" y="55" width="14" height="16" rx="7" fill="#6B4432"/>
+  <circle cx="28" cy="43" r="8" fill="#2B2119"/><circle cx="30" cy="36" r="8" fill="#2B2119"/><circle cx="35" cy="30" r="8" fill="#2B2119"/><circle cx="41" cy="26" r="8" fill="#2B2119"/><circle cx="48" cy="24" r="8" fill="#2B2119"/><circle cx="56" cy="25" r="8" fill="#2B2119"/><circle cx="63" cy="28" r="8" fill="#2B2119"/><circle cx="68" cy="33" r="8" fill="#2B2119"/><circle cx="71" cy="40" r="8" fill="#2B2119"/>
+  <ellipse cx="50" cy="46" rx="16" ry="18" fill="#6B4432"/>
+</svg>
