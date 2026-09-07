@@ -147,23 +147,18 @@ let carried: CarriedState | null = null;
 /**
  * May `carried` be restored into the editor now mounting?
  *
- * EXPORTED SO IT CAN BE TESTED. Driving the leak end to end needs a REDO to replay deck A's
- * edit into deck B, and redo DOES fire here — `Ctrl+Shift+Z` restores the edit,
- * measured on the built Studio (Chromium, WebKit and Firefox alike; `navigator.platform` is
- * `Linux x86_64`, so `@codemirror/commands`' `linux: "Ctrl-Shift-z"` binding is active). Two
- * earlier e2e attempts still passed against the broken guard, and WHY IS NOT KNOWN. The first
- * had a plain cause — it started from the seeded tour deck, whose bytes never match a new
- * deck's, so the leak could not arise. The second used two new decks, and the explanation
- * recorded for it ("redo does not fire on this surface") was WRONG, as was the correction that
- * replaced it ("redo is Ctrl+Y, so Ctrl+Shift+Z is a second undo"). Both were confident, both
- * were called measured, and a checker refuted each in turn. The explanation that survives is
- * about FOCUS: after a Compose→Markdown switch `activeElement` is the pane TOGGLE, not the
- * editor, so a bare redo chord reaches nothing — measured on all three engines. An attempt
- * that omitted a witnessed `focusEditor` would go green against a broken guard for that reason
- * alone. So the pin is here, at the predicate, where the rule is
- * stated directly and cannot be confounded by a keybinding — and the end-to-end oracle is
- * follow-up work in the deck-history change rather than an impossibility. See the findings
- * note §6; treat any account of WHY those two attempts passed as unwritten.
+ * EXPORTED SO IT CAN BE TESTED at the seam as well as end to end. Both pins exist because the
+ * e2e one was hard-won, and the record of WHY is worth more than the test: two earlier attempts
+ * PASSED against the broken guard, and two confident explanations for the second were written
+ * down and refuted in turn. The first said redo does not fire on this surface. The second said
+ * redo is `Ctrl+Y`, so `Ctrl+Shift+Z` performs a SECOND UNDO. Both were called measured; a
+ * checker killed each. What is actually true, measured on the built Studio across Chromium,
+ * WebKit and Firefox: `Ctrl+Shift+Z` REDOES on all three (`navigator.platform` reads
+ * `Linux x86_64`, so `@codemirror/commands`' `linux: "Ctrl-Shift-z"` binding is live), and the
+ * thing that made an attempt pass was FOCUS — after a Compose→Markdown switch `activeElement`
+ * is the pane toggle BUTTON, so a bare chord reaches nothing at all. Every e2e oracle below
+ * therefore witnesses focus before it presses anything. Do not resurrect either dead
+ * explanation; findings note §6 keeps them, refuted, so they cannot come back a third time.
  *
  * BOTH halves are load-bearing. The DECK half: `newDeckSource()` is deterministic, so every
  * new deck holds the same template bytes, and a document-only guard matched ACROSS decks —
@@ -191,7 +186,7 @@ const noLeadingBom = EditorState.transactionFilter.of((tr) => {
 	return [tr, { changes: { from: 0, to: 1 }, sequential: true }];
 });
 
-function makeLinter(known: Set<string>, report?: (findings: Array<{ autofixable?: boolean }>) => void) {
+function makeLinter(known: Set<string>, report?: (view: EditorView, findings: Array<{ autofixable?: boolean }>) => void) {
 	return linter((view): Diagnostic[] => {
 		const text = view.state.doc.toString();
 		const out: Diagnostic[] = [];
@@ -222,7 +217,7 @@ function makeLinter(known: Set<string>, report?: (findings: Array<{ autofixable?
 		// Every finding this fallback produces carries its own Quick fix, so all of them are
 		// fixable — which is what the pre-existing `unknownComponents` gate assumed too.
 		// Reporting keeps the two lint paths saying the same thing to the shell.
-		report?.(out.map(() => ({ autofixable: true })));
+		report?.(view, out.map(() => ({ autofixable: true })));
 		return out;
 	});
 }
@@ -314,13 +309,6 @@ export const Editor = React.forwardRef<EditorHandle, {
 	onUserEditRef.current = onUserEdit;
 	const onLintCountsRef = React.useRef(onLintCounts);
 	onLintCountsRef.current = onLintCounts;
-	// The file's latest-ref idiom, and here it is load-bearing rather than tidy: the init
-	// effect is keyed on `[known]`, so a deck switch that leaves the editor MOUNTED never
-	// re-runs it. The cleanup would then stamp the deck id from the render that built the
-	// effect onto the document of a DIFFERENT deck — reintroducing the cross-deck leak this
-	// key exists to close, one level up.
-	const carryKeyRef = React.useRef(carryKey);
-	carryKeyRef.current = carryKey;
 	// A finding is FIXABLE exactly when `findingsToDiagnostics` would hang a Quick fix
 	// button on it — `autofixable`, which is lint-core's own answer. Reporting the same
 	// predicate the inline buttons use is what makes "Fix all" and the underlines agree:
@@ -330,12 +318,25 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// pass awaits `loadLintCore()`, so switching to Compose mid-load ran the cleanup's
 	// withdrawal FIRST and then let the resolved pass write a non-null count back — gating
 	// "Fix all" on a number belonging to an editor that no longer exists.
-	const reportLint = React.useCallback((findings: Array<{ autofixable?: boolean }>) => {
-		if (!viewRef.current) return;
-		onLintCountsRef.current?.({ total: findings.length, fixable: findings.filter((f) => f?.autofixable).length });
+	//
+	// GATED ON THE VIEW THAT ASKED, by identity — not merely on "a view exists". A deck switch
+	// rebuilds the view inside the same synchronous effect, so `viewRef.current` is truthy again
+	// immediately and a pass belonging to the PREVIOUS deck would sail through the old guard and
+	// gate "Fix all" on the wrong deck's answer.
+	const reportLint = React.useCallback((view: EditorView, findings: Array<{ autofixable?: boolean }> | null) => {
+		if (viewRef.current !== view) return;
+		onLintCountsRef.current?.(findings && { total: findings.length, fixable: findings.filter((f) => f?.autofixable).length });
 	}, []);
 	const lastHasSelRef = React.useRef(false);
 	const lastSlideRef = React.useRef(-1);
+	// WHAT THE LAST BUILT VIEW WAS BUILT FOR. Distinguishes a genuine REBUILD (the deck changed,
+	// or the known-component set did) from a first mount — and, just as importantly, from
+	// StrictMode's dev-only mount/unmount/mount, where both are identical. A plain
+	// "have I built before?" boolean gets StrictMode wrong: the second invocation looks like a
+	// rebuild, re-states the refs, and reintroduces in dev exactly the swallowed-first-caret-move
+	// defect the guard exists to prevent. `StudioIsland` really does wrap the shell in
+	// `StrictMode`, so that is a live path, not a hypothetical.
+	const builtForRef = React.useRef<{ key: string | undefined; known: unknown } | null>(null);
 	const [failed, setFailed] = React.useState(false);
 	const known = React.useMemo(() => new Set(knownComponents), [knownComponents]);
 	// Real grammar lint when a vocabulary is supplied; otherwise the unknown-
@@ -386,12 +387,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 					// Validation is gated by the Studio's toggle: with it off the editor is
 					// handed an empty known-set, so we stand down too.
 					if (known.size === 0) {
-						reportLint([]);
+						reportLint(view, []);
 						return [];
 					}
 					const core = lintCoreMod || (await loadLintCore());
 					if (!core) {
-						onLintCountsRef.current?.(null); // the kernel never arrived — no answer, which is not "clean"
+						reportLint(view, null); // the kernel never arrived — no answer, which is not "clean"
 						return [];
 					}
 					let findings: Array<{ autofixable?: boolean }>;
@@ -400,10 +401,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 					} catch {
 						// The lint threw, so this pass knows NOTHING. Say so rather than reporting
 						// zero, which would read as "clean" and disable Fix all over a real issue.
-						onLintCountsRef.current?.(null);
+						reportLint(view, null);
 						return [];
 					}
-					reportLint(findings);
+					reportLint(view, findings);
 					return findingsToDiagnostics(view.state.doc, findings, {
 						// biome-ignore lint/suspicious/noExplicitAny: lint-core finding + CM view.
 						onFix: (v: any, f: any) => {
@@ -512,7 +513,29 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// Single init (StrictMode-safe): construct once, never on every render. `value`
 	// is the seed doc only — later changes flow through the effect below, not a
 	// re-init — so it is deliberately absent from the dep array.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once editor; value seeds the doc and is synced separately.
+	//
+	// ONE EDITOR PER DECK — `carryKey` (the deck id) is in the dep array, so opening a
+	// different deck builds a new `EditorView` rather than replacing the text inside the old
+	// one. That is the fix for a pre-existing leak that cost a whole evening: the editor used
+	// to survive a deck switch, so the whole-document swap from deck A's text to deck B's was
+	// just another entry in CodeMirror's undo history, and ONE ⌘Z put deck A's entire document
+	// in front of you — from where `onChange` carried it into deck B's saved source. A fresh
+	// `EditorState` has a fresh history, so the leak has no place to live.
+	//
+	// TRYING TO CLEAR THE STACK INSTEAD IS A TRAP, recorded because it looks like the smaller
+	// change and is not. `history()` in a `Compartment`, reconfigured to `[]` and back, is the
+	// documented way to empty it — a plain `reconfigure(history())` preserves the field value —
+	// but it needs TWO dispatches, and two synchronous `dispatch` calls do not reliably apply
+	// in sequence: one made while the view is mid-update is queued and built against the state
+	// as it stood before the earlier one landed, so the re-add can carry the old configuration,
+	// old stack included, straight back. Measured on the built Studio at two workers:
+	// `undoDepth` was 1 immediately after emptying it, and one ⌘Z produced the previous deck.
+	// Failure rate ~1 in 10 full-file runs, 0 in isolation — through two rounds of "fixes".
+	// See `engineering/decisions/2026-09-05-markdown-pane-fuzz-findings.md` §10.
+	//
+	// The Compose carry below is unaffected: a deck-switch rebuild stores a `carried` whose doc
+	// is the OLD deck's, so `carryApplies` rejects it on the document half.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `known`/`carryKey`; `value` seeds the doc and is synced separately.
 	React.useEffect(() => {
 		if (viewRef.current || !hostRef.current) return;
 		try {
@@ -615,13 +638,64 @@ export const Editor = React.forwardRef<EditorHandle, {
 					: EditorState.create(seed),
 			});
 			viewRef.current = view;
+			// THE LATEST-REFS BELONG TO THE COMPONENT, NOT THE VIEW, so a new view leaves them holding
+			// the OLD one's answers — and the update listener above only emits on a CHANGE, so
+			// nothing corrects them. Both channels are re-stated here, but under DIFFERENT rules,
+			// and each rule is a defect a checker caught after the other one was "fixed".
+			//
+			// SELECTION — ALWAYS, on every build. It gates a control ("Refine"), so it has to match
+			// the view that is actually on screen, and the emit-on-change comparison is what keeps
+			// that quiet: a first mount with an empty selection says nothing, because `false` is
+			// already what the ref holds. Guarding it to rebuilds instead inverted the very defect
+			// it was added for — a Compose round trip REMOUNTS this component, so `builtForRef` is
+			// empty, and the restored carry brings a live selection back with no announcement:
+			// measured on the built Studio, selection 0–1924 and no Refine button. The teardown
+			// withdrew it on the way out and nothing put it back.
+			//
+			// CURSOR-SLIDE — ONLY ON A REBUILD, never on a first mount, and never on StrictMode's
+			// repeat of one. `lastSlideRef` starts at -1 precisely so the author's FIRST caret move
+			// always emits; seeding it at mount from a document whose caret is at offset 0 swallows
+			// that move, and the shell keeps whatever slide `loadBootSlide()` restored. Measured:
+			// reload parked on slide 3, click into slide 1, and the rail stayed on 3 until you
+			// clicked a THIRD slide. It cannot simply be announced on every build either — that
+			// moves the preview off slide 1 whenever a carried state returns with its caret
+			// elsewhere, which put 19 shell tests red. So: re-stated silently, and only when the
+			// view was rebuilt for a different deck or a different known-set.
+			//
+			// `builtForRef` records what the last view was BUILT FOR rather than "have I built
+			// before", because `StudioIsland` wraps the Studio in `StrictMode` and its dev-only
+			// repeat mount matches on both halves — a boolean would read it as a rebuild.
+			const prevBuild = builtForRef.current;
+			builtForRef.current = { key: carryKey, known };
+			const hasSel0 = !view.state.selection.main.empty;
+			if (hasSel0 !== lastHasSelRef.current) {
+				lastHasSelRef.current = hasSel0;
+				onSelectionChangeRef.current?.(hasSel0);
+			}
+			if (prevBuild && (prevBuild.key !== carryKey || prevBuild.known !== known)) {
+				lastSlideRef.current = slideIndexAt(view.state.doc.toString(), view.state.selection.main.head);
+			}
 		} catch {
 			setFailed(true);
 		}
 		return () => {
 			const v = viewRef.current;
 			// Take the state BEFORE destroying the view — see `carried` above.
-			const key = carryKeyRef.current;
+			//
+			// THE KEY COMES FROM THIS EFFECT'S OWN CLOSURE, which is the deck the view being torn
+			// down was BUILT for — never `carryKeyRef.current`, which by now holds the deck we are
+			// switching TO. A checker caught that exact mis-pairing: stamping the new deck's id
+			// onto the old deck's document satisfies the key half of `carryApplies` by
+			// construction, leaving only the document half — and two fresh decks hold byte-
+			// identical template bytes, so deck A's history was restored into deck B and one redo
+			// put text typed in A into B's saved source, surviving a reload. It re-opened §6's
+			// leak through a door §6's own oracle does not walk. Pinned now by `an undo history
+			// does not cross decks WITHOUT a Compose detour` in `markdown-stress.spec.ts`.
+			//
+			// The ref was right while this effect was keyed on `[known]` alone (the closure would
+			// then hold whichever render happened to build it). It depends on `carryKey` now, so
+			// the closure is exactly the deck in question and the ref is the wrong answer.
+			const key = carryKey;
 			if (v && key) carried = { key, doc: v.state.doc.toString(), state: v.state.toJSON({ history: historyField }) };
 			v?.destroy();
 			viewRef.current = null;
@@ -629,8 +703,17 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// count (the Fix-all gate) falls back to its own estimate rather than gating on a
 			// number for a surface that is no longer on screen — reaching Compose UNMOUNTS this.
 			onLintCountsRef.current?.(null);
+			// AND SO DOES ITS SELECTION. `hasSelection` gates "Refine", which lives in the toolbar
+			// band ABOVE both editors — so it stays on screen after this one is gone. Select text,
+			// switch to Compose, and Refine was still offered over an editor that no longer
+			// exists; pressing it answered "Select some text in the editor to refine first."
+			// Pre-existing rather than introduced here, but it is the same control, the same
+			// channel and the same dead-button symptom as the rebuild case above, so it is fixed
+			// with it rather than filed (#18, on-path).
+			lastHasSelRef.current = false;
+			onSelectionChangeRef.current?.(false);
 		};
-	}, [known]);
+	}, [known, carryKey]);
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.
@@ -646,18 +729,19 @@ export const Editor = React.forwardRef<EditorHandle, {
 		viewRef.current?.dispatch({ effects: lintComp.current.reconfigure(buildLint()) });
 	}, [vocabSets, known]);
 
-	// External value changes → replace the doc without losing the editor. Two shapes:
-	//  • a pure APPEND (the self-driving demo types a growing prefix) → keep the caret
-	//    at the tail and scroll to follow it, so the growing text never runs off-screen
-	//    and the preview tracks each slide as it's typed;
-	//  • anything else (deck switch, restore, AI apply) → reset the cursor to the top so
-	//    the doc-replace can't map the caret to the end and fire a spurious cursor→preview
-	//    jump to the last slide.
-	// External value changes (deck switch / restore / AI apply) → replace the doc
-	// without losing the editor. Reset the cursor to the top so the doc-replace can't
-	// map the caret to the end and fire a spurious cursor→preview jump to the last
-	// slide. (The demo types through the `typeTail` handle, a native insert — NOT this
-	// path — so a growing deck never round-trips as a full replace here.)
+	// External value changes — a version restore, an AI apply, a surgical slide-settings or
+	// note write — replace the doc without losing the editor. Two shapes:
+	//  • a LOCALIZED change dispatches only the changed span, so CodeMirror maps the caret
+	//    through it and the author's cursor stays where it was;
+	//  • a WHOLESALE replace resets the cursor to the top, because the old caret is
+	//    meaningless in the new document and mapping it to the end fires a spurious
+	//    cursor→preview jump to the last slide.
+	// (The demo types through the `typeTail` handle, a native insert — NOT this path — so a
+	// growing deck never round-trips as a full replace here.)
+	//
+	// A DECK SWITCH NO LONGER REACHES THE REPLACE. It rebuilds the view instead (see the init
+	// effect), and React runs that effect first, so by the time this one runs the new view is
+	// already seeded with the new deck's text and it returns at the guard below.
 	React.useEffect(() => {
 		const v = viewRef.current;
 		if (!v || value === v.state.doc.toString()) return;

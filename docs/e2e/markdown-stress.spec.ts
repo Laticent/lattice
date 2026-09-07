@@ -301,6 +301,34 @@ async function pasteDeck(page: Page, text: string): Promise<void> {
 }
 
 
+/** Create a new deck through ⌘K. Not the header switcher: that trigger is labelled by the
+ *  DECK TITLE and carries no stable hook. Witnessed through the deck INDEX rather than the
+ *  document, because this is called from both panes — and in Compose the editor is unmounted,
+ *  so a document-based wait can never be satisfied. */
+async function newDeck(page: Page): Promise<void> {
+	const before = new Set(await deckIds(page));
+	await page.keyboard.press('ControlOrMeta+k');
+	await page.getByRole('option', { name: 'New deck' }).click();
+	// A NEW ID, not a bigger count: the index is empty until the first deck op and then
+	// materializes with the built-ins too, so the first call sees 0 -> 4 and a count-based
+	// wait would be satisfied by that alone.
+	await expect
+		.poll(async () => (await deckIds(page)).some((id) => !before.has(id)), { message: 'the deck index never gained a new deck' })
+		.toBe(true);
+}
+
+/** The ids in the persisted deck index. */
+function deckIds(page: Page): Promise<string[]> {
+	return page.evaluate(() => {
+		try {
+			const v = JSON.parse(window.localStorage.getItem('lattice-studio-deck-index') ?? '[]');
+			return Array.isArray(v) ? v.map((d) => String((d as { id?: unknown })?.id ?? '')) : [];
+		} catch {
+			return [];
+		}
+	});
+}
+
 async function toCompose(page: Page): Promise<void> {
 	await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
 	await page.locator('.cs-host .ProseMirror').waitFor();
@@ -611,19 +639,11 @@ test('a Compose edit deliberately drops the carried history', async ({ page }) =
 // alone, and every new deck holds byte-identical template bytes, so deck A's history could
 // be restored into deck B. An independent checker reproduced it against the real CodeMirror.
 //
-// THERE IS NO ORACLE FOR IT HERE, and the honest reason is not the one first recorded. Two e2e
-// attempts PASSED against the broken guard. The first started from the seeded tour deck, whose
-// bytes never match a new deck's, so the leak could not arise. The second used two new decks,
-// and WHY it passed is still unknown: the explanation written down at the time ("redo does not
-// fire on this surface") was wrong, and so was the correction that replaced it ("redo is
-// Ctrl+Y"). Measured on the built Studio, `Ctrl+Shift+Z` redoes — on Chromium, WebKit and
-// Firefox. The surviving explanation is FOCUS — after a Compose→Markdown switch
-// `activeElement` is the pane toggle, not the editor, so a bare chord reaches nothing unless
-// the test witnesses focus first. A test that passes for a reason nobody has established is
-// worse than no test
-// (`2026-09-02-compose-fuzz-findings.md` §8 moved a security property to its parser on exactly
-// this reasoning), so the pin is at the predicate — `editor-carry.test.ts`, which fails on the
-// document-only guard — and the end-to-end oracle lands with the deck-history change.
+// THE ORACLES FOR IT ARE BELOW, and an earlier revision of this comment said there were none.
+// That was true when #2064 shipped: two e2e attempts had PASSED against the broken guard and
+// nobody could say why, so the pin stayed at the predicate (`editor-carry.test.ts`) rather than
+// resting on a test that passed for an unestablished reason. The reason is established now —
+// focus, not keys; see the block above the deck oracles — so the end-to-end pins land here.
 
 // ── The inline Quick fix repairs the directive it underlines ───────────────
 // DETERMINISTIC, and it exists because the fuzz walk could not cover this. The Quick fix was a
@@ -929,4 +949,217 @@ test('the deck source survives a reload byte for byte', async ({ page }) => {
 	await page.locator(EDITOR).waitFor();
 	await expect.poll(() => editorDoc(page)).toBe(DECK);
 	await expect(railButtons(page)).toHaveCount(2);
+});
+
+// ── The undo history belongs to ONE deck ───────────────────────────────────
+// The worst defect in this file's subject area, PRE-EXISTING, and reachable in one keystroke
+// with no Compose detour: the editor used to survive a deck switch (its init effect was keyed
+// on `[known]` alone), so the whole-document replace that swaps deck A's text for deck B's was
+// just another history event. Measured before the fix — create a new deck, press ⌘Z once, and
+// deck A's entire 1,933-character document is sitting in deck B, and `onChange` carries it
+// into deck B's source from there. Each deck now gets its own editor, so its history is empty.
+//
+// THIS ORACLE FAILED ~1 RUN IN 10, and only in the full file at two workers — never in
+// isolation. Two earlier fixes were declared green on that nothing. If it goes red again, the
+// failure is the product's and the load is what exposed it: re-read the deck-history section of
+// `2026-09-05-markdown-pane-fuzz-findings.md` before touching the test.
+//
+// REDO IS `Ctrl+Shift+Z`, and the two wrong answers that came before it are why every oracle
+// below witnesses FOCUS before it presses anything. An earlier revision of this comment said
+// redo is `Ctrl+Y` and that `Ctrl+Shift+Z` therefore performs a second UNDO, because the
+// `linux: "Ctrl-Shift-z"` binding is "not active in a headless context". Measured, that is
+// false: `navigator.platform` reads `Linux x86_64` in headless Chromium, the linux branch IS
+// live, and typing then `Ctrl+Z` then `Ctrl+Shift+Z` restores the edit on Chromium, WebKit and
+// Firefox alike. The revision before THAT said redo does not fire here at all. What actually
+// makes a redo go nowhere is focus: after a Compose→Markdown switch `activeElement` is the
+// `Markdown source` toggle BUTTON, so a bare chord reaches no editor. `focusEditor` is the fix
+// and it is not optional — an oracle that omits it goes green against a broken guard.
+test('@smoke a new deck does not inherit the previous deck’s undo history', async ({ page }) => {
+	await focusEditor(page);
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('DECKALEAK');
+	await expect.poll(() => editorDoc(page)).toContain('DECKALEAK');
+	const deckA = await editorDoc(page);
+
+	await newDeck(page);
+	const deckB = await editorDoc(page);
+	expect(deckB, 'witness: a different deck really opened').not.toBe(deckA);
+	expect(deckB).not.toContain('DECKALEAK');
+
+	// Undo repeatedly. Deck B's own history is empty, so every one of these is a no-op — and
+	// before the fix the FIRST of them replaced deck B's document with deck A's.
+	await focusEditor(page);
+	for (let i = 0; i < 3; i++) await page.keyboard.press('ControlOrMeta+z');
+	const after = await editorDoc(page);
+	expect(after, 'an undo pulled the previous deck’s edit into this deck').not.toContain('DECKALEAK');
+	expect(after, 'an undo replaced this deck’s document with the previous deck’s').toBe(deckB);
+
+	// …and redo (the real binding) cannot bring it back either.
+	// ONE press, not two, and this cost a vacuous oracle to learn. `Ctrl+Shift+Z` redoes while
+	// there is something to redo; with the redo stack EMPTY the same chord falls through to the
+	// base `Mod-z` and UNDOES. So a second press puts back exactly what the first replayed, and
+	// the assertion below then reads a clean document and passes — measured against a build with
+	// the guard removed: redo #1 took the document 82 → 91 chars with the leaked text in it,
+	// redo #2 took it straight back to 82. That fallthrough is real; it is NOT, as an earlier
+	// account had it, the reason a redo "does not fire" (see the block above the deck oracles).
+	await page.keyboard.press('ControlOrMeta+Shift+z');
+	expect(await editorDoc(page), 'a redo replayed the previous deck’s edit into this deck').not.toContain('DECKALEAK');
+});
+
+// ── A DECK SWITCH LEAVES NO CONTROL POINTING AT THE DECK YOU LEFT ──────────
+// The second defect the per-deck rebuild introduced, and the first one's twin: the editor's
+// latest-refs belong to the COMPONENT, not the view, so a rebuild left them holding the OLD
+// view's answers — and the update listener only emits on a CHANGE, so nothing corrected them.
+// Select text in one deck, create another, and "Refine" is still offered over a deck with
+// nothing selected; pressing it answers "Select some text in the editor to refine first."
+// Exactly the shape of the Fix-all gate this same PR fixed, so shipping it would have been
+// the same defect walking back in through the fix for another one.
+test('a deck switch withdraws a control that pointed at the deck you left', async ({ page }) => {
+	await focusEditor(page);
+	await page.keyboard.press('ControlOrMeta+a');
+	const refine = page.getByRole('button', { name: /Refine/i });
+	await expect(refine, 'witness: Refine is offered when there IS a selection').toBeVisible();
+
+	await newDeck(page);
+	expect(
+		await page.evaluate(() => {
+			// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
+			return ((document.querySelector('.cm-content') as any)?.cmTile?.root?.view?.state?.selection?.main?.empty ?? null);
+		}),
+		'witness: the new deck really has an empty selection',
+	).toBe(true);
+	await expect(refine, 'Refine is offered over a deck with nothing selected').toBeHidden();
+});
+
+// AND BACK AGAIN — the return leg, which is where withdrawing on the way out inverted the
+// defect it was fixing. A Compose round trip REMOUNTS the editor and the carry restores its
+// state, selection included; the teardown had just told the shell there was none, and nothing
+// put it back. Measured on the built Studio before this pair was separated: the view held
+// selection 0–1924 and the toolbar had no Refine button at all — the same dead control as the
+// case above, wearing the opposite sign. The two legs have to be asserted together or a fix for
+// one silently becomes the other.
+test('coming back from Compose restores the control its selection gates', async ({ page }) => {
+	await focusEditor(page);
+	await page.keyboard.press('ControlOrMeta+a');
+	const refine = page.getByRole('button', { name: /Refine/i });
+	await expect(refine, 'witness: Refine is offered when there IS a selection').toBeVisible();
+
+	await toCompose(page);
+	await toMarkdown(page);
+
+	const restored = await page.evaluate(() => {
+		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
+		const v = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+		return v ? v.state.selection.main.empty : null;
+	});
+	expect(restored, 'witness: the carry really brought a live selection back').toBe(false);
+	await expect(refine, 'the editor holds a selection and its control is gone').toBeVisible();
+});
+
+// The same control through the OTHER door. `Refine` lives in the toolbar band ABOVE both
+// editors, so it stays on screen when the markdown pane is swapped for Compose — and the shell's
+// `hasSelection` is fed only by the editor that just went away. Pre-existing rather than caused
+// by this PR, but it is the same control, the same channel and the same dead-button symptom as
+// the case above, so it is fixed here rather than filed (#18, on-path). The teardown now
+// withdraws the selection the way it already withdrew the lint counts.
+test('leaving the markdown pane withdraws the control its selection was gating', async ({ page }) => {
+	await focusEditor(page);
+	await page.keyboard.press('ControlOrMeta+a');
+	const refine = page.getByRole('button', { name: /Refine/i });
+	await expect(refine, 'witness: Refine is offered when there IS a selection').toBeVisible();
+
+	await toCompose(page);
+	expect(await page.locator(EDITOR).count(), 'witness: the markdown editor really is gone').toBe(0);
+	await expect(refine, 'Refine is offered over an editor that no longer exists').toBeHidden();
+});
+
+// THE SAME INVARIANT WITH NO COMPOSE DETOUR, and this one exists because the fix above had a
+// defect of its own that neither of the other two deck oracles could see. Making a deck switch
+// rebuild the view also makes it run the teardown that saves the editor state for a Compose
+// round trip — and that teardown used to stamp the deck id from the CURRENT render, which by
+// then is the deck being switched TO. Key half satisfied by construction, document half
+// satisfied because two fresh decks hold byte-identical template bytes, so deck A's whole
+// history was restored into deck B and one redo put text typed in A into B's saved source,
+// surviving a reload. A checker found it; the `@smoke` oracle above misses it because the tour
+// deck's bytes never match a template, and the Compose oracle below misses it because going
+// through Compose is what makes the two ids agree again.
+test('an undo history does not cross decks WITHOUT a Compose detour', async ({ page }) => {
+	await newDeck(page); // deck A, holding the new-deck template
+	const template = await editorDoc(page);
+
+	await focusEditor(page);
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('CARRYLEAK');
+	await expect.poll(() => editorDoc(page)).toContain('CARRYLEAK');
+	await page.keyboard.press('ControlOrMeta+z');
+	// Witness: the edit sits in the REDO branch and the document is back to the template, which
+	// is what makes deck A's bytes match deck B's and any document-only guard fire.
+	await expect.poll(() => editorDoc(page)).toBe(template);
+
+	await newDeck(page); // deck B — same bytes, different deck, and NO Compose in between
+	// TWO witnesses, because the bytes alone cannot tell deck B apart from deck A undone back to
+	// the template — which is the whole premise of this case. The deck INDEX says a new deck
+	// exists (`newDeck` polls for that); the caret says the editor has caught up. Note what the
+	// second one does and does not prove: a caret at 0 does NOT distinguish "rebuilt" from
+	// "value-synced" — the pre-fix path also dispatched `selection: { anchor: 0 }` — but it does
+	// exclude the state this case would otherwise pass in for the wrong reason, deck A's own view
+	// still sitting at the document end after the ⌘End / type / undo above.
+	expect(await editorDoc(page), 'witness: deck B holds the same bytes deck A did').toBe(template);
+	expect(
+		await page.evaluate(() => {
+			// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
+			const v = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+			return v ? v.state.selection.main.head : -1;
+		}),
+		'witness: a rebuilt editor, its caret at the top of the new deck',
+	).toBe(0);
+
+	await focusEditor(page);
+	// ONE press, not two, and this cost a vacuous oracle to learn. `Ctrl+Shift+Z` redoes while
+	// there is something to redo; with the redo stack EMPTY the same chord falls through to the
+	// base `Mod-z` and UNDOES. So a second press puts back exactly what the first replayed, and
+	// the assertion below then reads a clean document and passes — measured against a build with
+	// the guard removed: redo #1 took the document 82 → 91 chars with the leaked text in it,
+	// redo #2 took it straight back to 82. That fallthrough is real; it is NOT, as an earlier
+	// account had it, the reason a redo "does not fire" (see the block above the deck oracles).
+	await page.keyboard.press('ControlOrMeta+Shift+z');
+	expect(await editorDoc(page), 'a redo replayed another deck’s edit into this one').not.toContain('CARRYLEAK');
+	// …and it did not reach the autosave either, which is the durable half of the harm.
+	await expect
+		.poll(() => persistedDeck(page), { message: 'another deck’s edit reached this deck’s saved source' })
+		.not.toContain('CARRYLEAK');
+});
+
+// The same invariant across the OTHER route — the Compose round trip, where the editor
+// unmounts and its state is carried by hand. Two new decks, because the carry is guarded on
+// the document and `newDeckSource()` is deterministic, so this is the one shape where two
+// different decks hold identical bytes.
+test('the carried history does not cross decks either', async ({ page }) => {
+	await newDeck(page); // deck A, holding the new-deck template
+	const template = await editorDoc(page);
+
+	await focusEditor(page);
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('CARRYLEAK');
+	await expect.poll(() => editorDoc(page)).toContain('CARRYLEAK');
+	await page.keyboard.press('ControlOrMeta+z');
+	// Witness: the edit is in the REDO branch, and the document is back to the template —
+	// which is what makes deck A's bytes match deck B's and the carry's guard fire.
+	await expect.poll(() => editorDoc(page)).toBe(template);
+
+	await toCompose(page); // unmounts the editor; the carry is taken here
+	await newDeck(page); // deck B — same bytes, different deck
+	await toMarkdown(page);
+	expect(await editorDoc(page), 'witness: deck B holds the same bytes deck A did').toBe(template);
+
+	await focusEditor(page);
+	// ONE press, not two, and this cost a vacuous oracle to learn. `Ctrl+Shift+Z` redoes while
+	// there is something to redo; with the redo stack EMPTY the same chord falls through to the
+	// base `Mod-z` and UNDOES. So a second press puts back exactly what the first replayed, and
+	// the assertion below then reads a clean document and passes — measured against a build with
+	// the guard removed: redo #1 took the document 82 → 91 chars with the leaked text in it,
+	// redo #2 took it straight back to 82. That fallthrough is real; it is NOT, as an earlier
+	// account had it, the reason a redo "does not fire" (see the block above the deck oracles).
+	await page.keyboard.press('ControlOrMeta+Shift+z');
+	expect(await editorDoc(page), 'a redo replayed another deck’s edit into this one').not.toContain('CARRYLEAK');
 });

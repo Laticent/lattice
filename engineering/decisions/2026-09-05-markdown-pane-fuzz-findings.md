@@ -436,6 +436,89 @@ run.
 **What is true.** Most of this is reachable at the seam. What is not is a real clipboard
 `paste` event and invariant 2 as an in-page assertion against the preview iframe.
 
+## 11. One editor per deck (the deck-history change)
+
+Supersedes the first entry under "Found, NOT fixed here": that entry recorded the deck-switch
+leak as pre-existing, structural and deferred. This is the deferred change.
+
+**The fix is one line of dependency array, and everything else here is the blast radius.** The
+init effect was keyed on `[known]`; it is now keyed on `[known, carryKey]`, so changing decks
+REBUILDS the view instead of swapping the document inside a live one. A whole-document swap
+inside a live view is just another history entry, which is why one ⌘Z pulled deck A's entire
+1,933-character document into deck B and `onChange` carried it into B's saved source.
+
+**Three defects came out of that rebuild, and none was in the fix itself.** They are all the
+same shape — a channel that belonged to the COMPONENT rather than to the view, left holding the
+old view's answer after a rebuild:
+
+1. **The carry stamped the wrong deck id.** The teardown read `carryKeyRef.current`, which by
+   teardown time is the deck being switched TO. Key half satisfied by construction, document
+   half satisfied because two fresh decks hold byte-identical template bytes — so deck A's
+   history restored into deck B and one redo put A's text into B's saved source, surviving a
+   reload. Fixed by taking the key from the effect's own closure and deleting the ref. Found by
+   a checker; pinned by `an undo history does not cross decks WITHOUT a Compose detour`, which
+   the other two deck oracles cannot see (the tour deck's bytes never match a template, and a
+   Compose detour makes the two ids agree again).
+2. **`Refine` was stranded after a deck switch** — offered over a deck with nothing selected,
+   and answering "Select some text in the editor to refine first" when pressed. Exactly the dead
+   control #2064 §4 had just removed from the toolbar, walking back in through this fix.
+3. **Then the fix for (2) INVERTED it** — `Refine` hidden while a selection existed, after a
+   Compose round trip restored one through the carry. The two legs are asserted together
+   (`a deck switch withdraws…` and `coming back from Compose restores…`) because a fix for
+   either silently becomes the other.
+
+**The selection channel is re-stated on every build; the cursor-slide channel only on a
+REBUILD**, and the split matters: `builtForRef` records `{key, known}` rather than a boolean,
+because StrictMode's repeat mount would otherwise read as a rebuild and reset the caret.
+
+**The end-to-end oracle #2064 §6 deferred is here, and so is the reason it was deferred.** Two
+earlier attempts passed against the broken guard. The account of why has now been wrong three
+times — "redo does not fire here", then "redo is `Ctrl+Y`, so `Ctrl+Shift+Z` is a second undo",
+both refuted by a checker. Measured on the built Studio across Chromium, WebKit and Firefox:
+`Ctrl+Shift+Z` redoes on all three. What makes a chord go nowhere is FOCUS — after a
+Compose→Markdown switch `activeElement` is the `Markdown source` toggle button. Every deck
+oracle here witnesses focus first, which is why they can be trusted where the earlier attempts
+could not.
+
+### 11b. Seven more mutations — and one of the new oracles was VACUOUS
+
+Same discipline as §8b, and it earned its keep immediately: of the six oracles the
+deck-history change adds, one could not tell the fixed code from the broken code.
+
+| # | mutation | oracle it killed |
+|---|---|---|
+| 13 | the init effect keyed back to `[known]` | `@smoke a new deck does not inherit the previous deck's undo history` |
+| 14 | " | `an undo history does not cross decks WITHOUT a Compose detour` |
+| 15 | the post-build selection re-statement removed | `coming back from Compose restores the control its selection gates` |
+| 16 | the teardown's selection withdrawal removed | `leaving the markdown pane withdraws the control its selection was gating` |
+| 17 | the carry stamps `carryKeyLive.current` instead of the effect's closure | `an undo history does not cross decks WITHOUT a Compose detour` |
+| 18 | `carryApplies` loses its deck key | that one **and** `the carried history does not cross decks either` |
+| 19 | BOTH selection channels removed together | `a deck switch withdraws a control that pointed at the deck you left` |
+
+**Row 18 is the one that mattered, because it did not kill its oracle at first.**
+`the carried history does not cross decks either` — the oracle whose entire subject is that
+guard — passed against a build with the guard deleted. It pressed redo TWICE. Probed on that
+build:
+
+```
+deckA after undo    len 82   activeElement DIV
+deckB mounted       len 82   activeElement BUTTON   (same bytes as deckA)
+after redo #1       len 91   the leaked text is IN the document
+after redo #2       len 82   …and back out again
+```
+
+`Ctrl+Shift+Z` redoes while there is something to redo; with the redo stack EMPTY the same chord
+falls through to the base `Mod-z` binding and UNDOES. So the second press put back exactly what
+the first replayed, and the final assertion read a clean document. One press, and the oracle
+fails against the broken guard as it always should have.
+
+**That also settles the §6 keybinding argument properly, and neither earlier account was right.**
+The `Mod-Shift-z` → `Mod-z` fallthrough IS real — the second refuted explanation had hold of a
+real mechanism and drew the wrong conclusion from it (it fires on an EMPTY redo stack, not
+always). And the focus half is real too: the probe shows `activeElement` is `BUTTON` the moment
+the markdown pane comes back. Two independent traps, either of which is enough to make a redo
+oracle pass for nothing, which is why every oracle here witnesses focus AND presses once.
+
 ## Found, NOT fixed here (off the path of this change — HARD RULE #18)
 
 - **A deck switch leaks the previous deck's whole document, and it is worse than §6.** Found
@@ -448,7 +531,7 @@ run.
   same harm. **Entirely pre-existing**, and its fix is structural — a different editor per deck,
   with consequences across every Studio surface that mounts one — so it goes in its own PR
   rather than widening this one. That PR also carries the end-to-end oracle §6 says is follow-up
-  work.
+  work. **FIXED in the deck-history change — see §11**, which supersedes this entry.
 
 - **`Editor.tsx` still carries its own `CLASS_RE`, so §2's delegation removed one copy of the
   parse and not the other.** It drives the FALLBACK linter and the fallback `fixAll()`, and §4's
