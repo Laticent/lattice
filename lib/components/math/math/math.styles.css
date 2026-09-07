@@ -220,7 +220,7 @@ section.math.form.feature > .cell-stage > p:has(> :is(.katex-display, mjx-contai
 }
 section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg),
 section.math.form.feature > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.9em;
+  font-size: 1.75em;
 }
 section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol),
 section.math.form.feature > .cell-stage > :is(ul, ol) {
@@ -598,21 +598,26 @@ section.math.form.compare > .cell-stage > p:has(> :is(.katex-display, mjx-contai
   text-align: center;
 }
 section.math.form.compare > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  /* 1.25em, down from the sovereign arm's 1.4em, and the reason is a MEASURED
-   * capacity change rather than taste.
+  /* 1.25em, down from the sovereign arm's 1.4em. THE FIRST VERSION OF THIS COMMENT
+   * GOT THE REASON WRONG IN TWO WAYS, both caught by an independent checker, and the
+   * corrections matter more than the change.
    *
-   * The Form stage is the frame's content box: 1152px wide against the section's
-   * 1280px (the frame inset), and ~54px shorter (the footer reserve). Every other
-   * Form component already pays that; math was getting full bleed by being
-   * sovereign. Measured on a three-column comparison, 1.4em put the widest
-   * estimator past the column edge and `overflow: clip` sheared its
-   * `\lVert\theta\rVert^2`. 1.25em fits the same content in the narrower column.
+   * IT IS NOT A WIDTH LOSS. The claim was "1152px wide against the section's 1280px
+   * (the frame inset)". False: the sovereign section carried 64px of horizontal
+   * padding, so its multicol content box was ALREADY 1152px. Measured, the column
+   * boxes are identical across the migration — 2-up `560, 560` at x=`64, 656`; 3-up
+   * `362.66` each. The frame inset costs zero width. What the migration costs is
+   * HEIGHT, and only height.
    *
-   * This is a real reduction in how much a compare slide can hold, not just better
-   * detection — unlike `feature`'s tall hero, which was ALREADY clipping unnoticed.
-   * The committed gallery's compare slides fit either way, with no overflow warning
-   * before or after. A slide that only fitted by using the footer band now overflows
-   * and is flagged, which is the frame's contract doing its job. */
+   * AND 1.4em WAS ALREADY OVERFLOWING. The shear this reduction was said to fix
+   * predates the migration: at 1.4em the widest estimator's ink ran 48.78px past the
+   * same 362.66px column on the SOVEREIGN arm too. The migration did not cause it; it
+   * changed the consequence from painting into the section's padding to being cut by
+   * `overflow: clip`. 1.25em narrows the overrun to ~4.8px on that equation — better,
+   * but "fits" was too strong: a longer estimator still shears, and this buys margin
+   * rather than correctness. There is no shrink-to-fit in this system
+   * (`2026-06-22-the-fit-spine.md` axiom 3), so an equation wider than its column is
+   * an authoring-side overflow that the watcher flags. */
   font-size: 1.25em;
 }
 section.math.form.compare > .cell-stage > p:not(:has(:is(.katex-display, mjx-container[display="true"]))) {
@@ -916,14 +921,20 @@ section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > :i
 }
 
 
-/* `compare` (CSS multi-`column-count`) and `canvas` (`grid-template-areas`) put their
-   layout on the SECTION. Under the retired `@container` form those were unreachable
-   (§11 — a query can't style its own container), so both key on the deck-wide
-   `data-orientation` stamp; cf. split-compare. #1218 lifted that constraint, but
-   these rules are correct as written and stay: on a portrait deck `compare` reads as
-   one column and `canvas` stacks the equation over the plot. */
-section.math.compare[data-orientation="portrait"] { column-count: 1; }
-section.math.compare[data-orientation="portrait"] > h3 { break-before: avoid; }
+/* `canvas` (`grid-template-areas`) puts its layout on the SECTION. Under the retired
+   `@container` form that was unreachable (§11 — a query can't style its own
+   container), so it keys on the deck-wide `data-orientation` stamp; cf. split-compare.
+   #1218 lifted that constraint, but the rule is correct as written and stays: on a
+   portrait deck `canvas` stacks the equation over the plot.
+
+   `compare` USED to be here too, and its removal is worth recording. Once compare
+   migrated, its multicol moved to `.cell-stage`, the section became a flex column, and
+   `section.math.compare[data-orientation="portrait"] { column-count: 1 }` went inert —
+   dead CSS that still matched. Its replacement is the `[data-family]` arm on the stage,
+   which is also per-SLIDE rather than deck-wide. Deleted here rather than left to rot;
+   found by an independent checker, along with the fact that this comment's own claim
+   ("#1218 lifted that constraint") already contradicted the migration commit's story
+   that compare's reflow had been impossible. It had not been impossible. */
 section.math.canvas[data-orientation="portrait"] {
   grid-template-columns: 1fr;
   grid-template-rows: auto auto auto auto 1fr;

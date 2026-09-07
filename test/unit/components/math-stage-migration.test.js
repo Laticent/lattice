@@ -153,7 +153,21 @@ test('a migrated variant keeps its FAMILY reflow, or declares why it needs none'
   );
   // Split on rule blocks rather than one regex: a math selector legitimately contains
   // commas inside `:where(…)`, and a `[^,{]*` pattern fails on its own passing CSS.
-  const selectors = css.split('}')
+  //
+  // NEGATIONS ARE STRIPPED, for the same reason the gate above strips them — and
+  // this gate SHIPPED WITHOUT IT. `sel.includes('.compare')` matches `:not(.compare)`
+  // inside the bare/feature selector chain, so four feature rules satisfied the
+  // compare check before any compare CSS was consulted. Verified by mutation: with
+  // both of compare's family rules renamed so they cannot match, this file was still
+  // 12/12 green. That is precisely the "certifies exactly the flip it was written to
+  // catch" defect the sibling gate's comment describes, left in the tree by a commit
+  // whose message claimed both gates were mutation-proved. Only one was.
+  //
+  // It matters beyond compare: the `:not()` chain names derivation, theorem, canvas,
+  // matrix and stats too, so the next variant this would have silently certified is
+  // `matrix` — the widest content, the one most likely to need a reflow.
+  const positive = css.replace(/:not\([^()]*\)/g, '');
+  const selectors = positive.split('}')
     .map((block) => (block.includes('{') ? block.slice(0, block.indexOf('{')) : ''))
     .map((sel) => sel.slice(sel.lastIndexOf('*/') + 2))
     .filter((sel) => sel.includes('section.math'));

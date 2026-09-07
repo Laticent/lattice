@@ -18,9 +18,26 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 // defence-in-depth on the one surface no measurement can substitute for, because the
 // h3s are still in a multicol and a NEW paint duplication would still show here.
 //
-// UNVERIFIED at the time of the migration: no WebKit is installed in the sandbox the
-// migration was done in, so whether the ghost is actually gone on the real surface was
-// not observed (HARD RULE #23). The nightly is the first run that will say.
+// WHAT WAS ACTUALLY OBSERVED AT MIGRATION TIME, corrected from a first draft that
+// said "no WebKit is installed … the nightly is the first run that will say". The
+// first half was true of the sandbox as found; the second was wrong, and wrong in the
+// direction that avoids work — `npx playwright install webkit` is two commands, and
+// the migration author should have run them before declaring the surface unreachable.
+//
+// Three things were then observed, and they are deliberately not merged into one
+// claim:
+//   · Real WebKit (desktop Linux, WebKit 26.0) renders a migrated `compare` with the
+//     right column count and no overflow. This says NOTHING about the ghost:
+//     `getClientRects()` returns a single rect even on a FAILING slide, as the note
+//     above records, so no box measurement can see the fragment.
+//   · An independent checker ran the raster oracle below on the same WebKit, against
+//     the sovereign arm with the #1554 fix neutralized (ghost reproduced, score
+//     1.000), the fixed sovereign arm (clean), and the migrated arm (clean, scores
+//     identical to the fixed baseline). That is positive evidence with an oracle
+//     demonstrably able to fire.
+//   · It is still NOT the reported surface. #1554 came from an iPad, and this spec
+//     drives the Studio preview frame. Desktop-Linux WebKit against the raw emulator
+//     sidecar is neither. iPadOS Safari and the Studio frame remain UNVERIFIED.
 //
 // #1554, reported from an iPad: on a `math compare` slide WebKit paints the
 // first `<h3>` twice — the real one in its column, and a ghost copy above the
