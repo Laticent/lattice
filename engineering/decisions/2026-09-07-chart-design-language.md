@@ -114,6 +114,32 @@ a shelved one. The brief's job is to decide it on the merits, family-wide, rathe
 than per member — and to decide it for the **vertical wash too**, which the held
 variant never questioned.
 
+**Measured, the dome defeats the value channel on every theme.**
+`tools/chart-mark-separation.js` scores each rendered mark twice: its SEPARATION
+from the nearest other category, and its SELF-RANGE — how much perceptual ground
+the mark's own shading covers. A mark whose self-range exceeds its separation has
+painted over its own categorical read, and no palette work can fix it.
+
+| Theme (seen as achromatopsia) | member | self-range | nearest separation | ratio |
+|---|---|---|---|---|
+| a11y-achromatopsia | quadrant | 0.278 | 0.030 | **9.3×** |
+| cuoio | piechart | 0.255 | 0.027 | **9.4×** |
+| cuoio | quadrant | 0.161 | 0.003 | **54×** |
+| indaco | piechart | 0.210 | 0.000 | ∞ |
+| onyx | piechart | 0.286 | 0.097 | **2.9×** |
+| onyx | quadrant | 0.286 | 0.097 | **2.9×** |
+
+The onyx row is the one that settles it. Onyx's whole identity is that categories
+differ by **value, not hue** — it is the counter-example the palette recipe cites
+to prove the system survives without chroma. The dome spans three times more
+value than the step between two of its categories, so on the one theme built to
+rely on the value channel, the dome is the thing that destroys it.
+
+The two gradient axes are therefore not equivalent and must not be decided
+together on aesthetics: the **radial dome measurably breaks a channel the palette
+depends on**, while the vertical wash on the bar/tile family has not been shown
+to. That is an argument about mechanism, not taste.
+
 **The quadrant is the sharpest case.** Its four zone tints are the loudest thing
 on the slide while carrying the least information — the zones are *reference
 regions*, the dots are the data. Whatever the language says about gradients, a
