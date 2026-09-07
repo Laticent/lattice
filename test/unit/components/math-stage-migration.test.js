@@ -15,7 +15,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { MATH_VARIANTS, MIGRATED, mathVariantOf, mathSectionMigrated } = require('../../../lib/core/math-stage-migration.js');
+const { MATH_VARIANTS, MIGRATED, NO_FAMILY_REFLOW, mathVariantOf, mathSectionMigrated } = require('../../../lib/core/math-stage-migration.js');
 const { render } = require('../../../lib/engine');
 
 const MANIFEST = JSON.parse(fs.readFileSync(
@@ -100,6 +100,85 @@ test('an UNmigrated math variant keeps its own grid and gets no chrome cells', (
   const html = renderHtml(MANIFEST.variantDocs[unmigrated].sample);
   assert.ok(!html.includes('cell-stage'), `${unmigrated} must not wrap until it migrates`);
   assert.ok(!html.includes('cell-masthead'), `${unmigrated} must keep suppressing the masthead`);
+});
+
+test('a migrated variant MUST have Form-arm CSS — the lever cannot certify a bare flip', () => {
+  // THE HOLE THIS CLOSES, found by a red team and reproduced: adding a variant to
+  // MIGRATED with no matching stylesheet arm passed every other test in this file
+  // and rendered `compare` as a SINGLE COLUMN — the entire point of the variant
+  // gone. Every other assertion here derives its expectation from MIGRATED itself
+  // and asks only "did it wrap?", so none of them can see a variant that wraps into
+  // a stage with no layout waiting for it.
+  //
+  // This is the one assertion that reaches OUTSIDE the lever, to the stylesheet, and
+  // it is what makes the other seven migration commits safe to review.
+  const css = fs.readFileSync(
+    path.join(__dirname, '../../../lib/components/math/math/math.styles.css'), 'utf8',
+  );
+  // NEGATIONS ARE STRIPPED FIRST, and the gate was vacuous without it. The bare/feature
+  // Form selector is
+  //   `section.math.form:where(:not(.derivation):not(.theorem):not(.compare)…) > .cell-stage`
+  // so a naive scan for `.compare` finds it INSIDE `:not(.compare)` — the negation that
+  // explicitly excludes compare — and reads the exclusion as a declaration. Flipping
+  // `compare` into MIGRATED with no CSS at all then passed this gate, which a mutation
+  // test caught. Everything inside a `:not(…)` is removed before matching.
+  const positive = css.replace(/:not\([^()]*\)/g, '');
+  for (const variant of MIGRATED) {
+    // The bare/feature pair share one selector chain; every other variant names itself.
+    const needle = variant === 'feature'
+      ? /section\.math\.form[^,{]*>\s*\.cell-stage/
+      : new RegExp(`section\\.math\\.form[^,{]*\\.${variant}\\b[^,{]*>\\s*\\.cell-stage`);
+    assert.ok(
+      needle.test(positive),
+      `${variant} is in MIGRATED but math.styles.css has no `
+      + `\`section.math.form…${variant === 'feature' ? '' : `.${variant}`} > .cell-stage\` rule — `
+      + 'it would wrap into a stage with no layout',
+    );
+  }
+});
+
+test('a migrated variant keeps its FAMILY reflow, or declares why it needs none', () => {
+  // THE REGRESSION THIS MIGRATION ALREADY SHIPPED ONCE. `[data-family]` rules were
+  // scoped to direct children of the section, so the wrap made every one of them
+  // inert and a portrait math slide ran 64px off the slide edge. Measured, not
+  // theorised.
+  //
+  // The check is POSITIVE, not comparative, and that matters: the migration deletes
+  // each variant's sovereign arm as it lands, so "this variant had a family reflow"
+  // stops being observable from the stylesheet. Absence would read identically to a
+  // reflow someone forgot to carry across. So a migrated variant must either declare
+  // a Form-arm family rule or name itself in NO_FAMILY_REFLOW with a reason.
+  const css = fs.readFileSync(
+    path.join(__dirname, '../../../lib/components/math/math/math.styles.css'), 'utf8',
+  );
+  // Split on rule blocks rather than one regex: a math selector legitimately contains
+  // commas inside `:where(…)`, and a `[^,{]*` pattern fails on its own passing CSS.
+  const selectors = css.split('}')
+    .map((block) => (block.includes('{') ? block.slice(0, block.indexOf('{')) : ''))
+    .map((sel) => sel.slice(sel.lastIndexOf('*/') + 2))
+    .filter((sel) => sel.includes('section.math'));
+  const formFamily = selectors.filter((sel) => sel.includes('data-family') && sel.includes('.cell-stage'));
+
+  for (const variant of MIGRATED) {
+    if (NO_FAMILY_REFLOW[variant]) continue;
+    const declares = formFamily.some((sel) => (variant === 'feature'
+      ? /section\.math\.form(?![\w-])/.test(sel)
+      : sel.includes(`.${variant}`)));
+    assert.ok(
+      declares,
+      `${variant} is migrated, is not in NO_FAMILY_REFLOW, and has no `
+      + '`section.math.form … [data-family] … > .cell-stage` rule. The wrap moves the body '
+      + 'into .cell-stage, so a sovereign-arm reflow would be inert — that is the 64px '
+      + 'portrait overflow this migration shipped once already.',
+    );
+  }
+});
+
+test('NO_FAMILY_REFLOW names only real variants, with a reason', () => {
+  for (const [variant, reason] of Object.entries(NO_FAMILY_REFLOW)) {
+    assert.ok(MATH_VARIANTS.includes(variant), `${variant} is not a math variant`);
+    assert.ok(reason && reason.length > 20, `${variant} needs a real reason, got ${JSON.stringify(reason)}`);
+  }
 });
 
 test('the two call sites agree — form class and wrap are decided by one predicate', () => {

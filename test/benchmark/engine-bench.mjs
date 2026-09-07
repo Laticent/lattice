@@ -1114,7 +1114,11 @@ function blessBaseline(summary, render, opts = {}) {
   // and `burstTypesets` are integers a machine cannot change, so they gate exactly;
   // the two `ms` fields are what a human reads in the diff to see the size of the
   // win, and `checkBaseline` never compares them.
-  const editOut = tierRows(editSummary, 'editDatasets', (s) => ({
+  // A run with no math memo produces `typesets: null`, which must never be BLESSED —
+  // a null in the baseline reads as "no work per keystroke" and permanently disarms
+  // the ratchet this tier exists for. Such a run preserves the prior rows instead.
+  const editMeasured = editSummary?.length && editSummary.every((s) => s.typesets !== null);
+  const editOut = tierRows(editMeasured ? editSummary : null, 'editDatasets', (s) => ({
     slides: s.slides,
     typesets: s.typesets,
     burstTypesets: s.burstTypesets,
@@ -1407,8 +1411,21 @@ function checkBaseline(summary, render, opts = {}) {
     const unblessed = neverBlessed('editDatasets');
     if (unblessed) console.log('  no `editDatasets` in the baseline — REPORTING ONLY; run `npm run bench:bless` to start gating.');
     console.log(`${'dataset'.padEnd(28)}${'base tps'.padStart(10)}${'now tps'.padStart(10)}${'base burst'.padStart(12)}${'now burst'.padStart(11)}  verdict`);
+    // A TREE WITH NO MATH MEMO CANNOT BE COMPARED, and it must say so rather than
+    // crash or invent a verdict. `typesets` is `null` exactly when `HAS_MATH_MEMO` is
+    // false — an older base worktree, which is a tree this harness is DESIGNED to run
+    // in (perf-nightly copies it there). The first cut of F1's fix taught the PRINT
+    // path about null and left the COMPARISON path alone, so `bench:check` died with
+    // `Cannot read properties of null (reading 'toFixed')`, and the verdict it would
+    // have computed was `fewer typesets — re-bless to ratchet`, i.e. a tree with no
+    // memo at all reporting a perf WIN. Both are worse than reporting nothing.
+    const tps = (v) => (v === null || v === undefined ? '  n/a' : v.toFixed(1));
     for (const s2 of editSummary) {
       const b = base.editDatasets?.[s2.dataset];
+      if (s2.typesets === null || s2.burstTypesets === null) {
+        console.log(`${s2.dataset.padEnd(28)}${tps(b?.typesets).padStart(10)}${'n/a'.padStart(10)}${String(b?.burstTypesets ?? '—').padStart(12)}${'n/a'.padStart(11)}  NOT COMPARABLE (no math memo in this tree)`);
+        continue;
+      }
       if (!b) {
         if (!unblessed) drift = true;
         console.log(`${s2.dataset.padEnd(28)}${'—'.padStart(10)}${s2.typesets.toFixed(1).padStart(10)}${'—'.padStart(12)}${String(s2.burstTypesets).padStart(11)}  ${unblessed ? 'NOT BLESSED' : 'NEW (re-bless)'}`);
