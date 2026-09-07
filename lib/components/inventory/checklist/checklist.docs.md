@@ -10,7 +10,7 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 
 ## Agent contract
 
-**Capacity** ~6 items (crowds past 8, overflows past 9) — past that, split across slides.
+**Capacity** ~6 items (crowds past 8, overflows past 9) — past that, split across slides. Past eight items the checklist overflows.
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short readiness line.
 

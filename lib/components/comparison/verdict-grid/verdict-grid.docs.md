@@ -10,7 +10,7 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 
 ## Agent contract
 
-**Capacity** ~3 items (crowds past 4, overflows past 5) — past that, compare-table / split across slides.
+**Capacity** ~3 items (crowds past 4, overflows past 5) — past that, compare-table / split across slides. The cards crowd and badges lose legibility past four; a split run spotlights ONE option per page and carries a derived “Option N of M · comparing …” signal so the atomized tiers still read as a compared set (§0b connected members).
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — a verdict card is a label plus its criteria, not prose.
 

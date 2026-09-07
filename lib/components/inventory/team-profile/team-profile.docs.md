@@ -10,7 +10,7 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 
 ## Agent contract
 
-**Capacity** ~6 items (over 12 overflows) — past that, actors / list-tabular / split across slides.
+**Capacity** ~6 items (over 12 overflows) — past that, actors / list-tabular / split across slides. Twelve is the ceiling and only `bench` reaches it — the ceiling is PER COMPOSITION, and every number here is measured on a real render rather than inferred from the layout. On a 16:9 stage: `bench` holds twelve; the default three-up holds eight, reflowing to four columns at a seventh; `lead` holds nine, its ranked band widening a column per extra person so it stays ONE row; `sides` holds six a side; `bio` holds six, and that is a floor rather than a tuning gap — at six its rows are already down to 72px with the portrait at 49px, so the only cut left is the sentence `bio` exists to give each person. A coda takes 121px out of the stage (512px to 391px); a footer takes nothing. Every composition absorbs the coda at those counts EXCEPT `bio`, which drops to five. `lead`'s nine assume the shape `commonMistakes` advises — the hero carries the note, the reports carry name and role; give all nine a note and the band's narrow cells wrap them until the cards run taller than the hero.
 
 **Density** aim ~12 words per item; past ~14 it reads as a wall of text — one clause on what this person owns, not a paragraph — and the count includes the name and the image reference beside it, so about four of the allowance is fixed cost before a word of prose.
 

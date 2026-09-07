@@ -10,7 +10,7 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, kpi / split across slides.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, kpi / split across slides. The row compresses and numbers shrink past five tiles.
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a metric label, not a sentence.
 

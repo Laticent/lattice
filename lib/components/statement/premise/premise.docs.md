@@ -10,7 +10,7 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 6, overflows past 8) — past that, split across slides (automatic) / list-tabular.
+**Capacity** ~4 items (crowds past 6, overflows past 8) — past that, split across slides (automatic) / list-tabular. Re-derivable, not an ad-hoc render: a premise element builder lives in tools/lib/calibrate-core.js, so `node tools/calibrate-capacity.js premise --family <f>` reproduces these. At the tool basis (this component density.soft, 14 words a row) landscape, SQUARE and mobile all fit 9+, and PORTRAIT is the only family that binds, at 6. The basis is part of the number — a denser row lowers every ceiling — which is why the flat block stays the landscape budget and adapt.capacity tightens only the family that measured lower. These numbers moved once during review: an earlier cut of the reflow stacked each row into a three-line card, which cut the portrait ceiling to 4; keeping the row a row (term auto-sized rather than pinned to a fixed track) restored it to 6 and removed four gallery clips. premise shipped with no capacity block at all, so an over-long ledger could neither warn nor split; it just clipped.
 
 **Density** aim ~14 words per item; past ~18 it reads as a wall of text — the description clause plus the trailing question, combined — not a sentence each.
 

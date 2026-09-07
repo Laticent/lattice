@@ -12,7 +12,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 ## Agent contract
 
-**Capacity** ~4 columns (over 5 overflows) — past that, split across slides.
+**Capacity** ~4 columns (over 5 overflows) — past that, split across slides. Columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (one card per page since #2016 — the four-page budget it used to name is gone).
 
 ### Slots
 

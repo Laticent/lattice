@@ -219,6 +219,44 @@ function capacityBlock(m) {
   return { c: { axis: fam.axis, ...fam.wide }, family: 'wide' };
 }
 
+/**
+ * A manifest note, cleaned for a sentence the caller finishes with its own period.
+ *
+ * WHY BOTH SHAPES. The capacity branch used to drop `capacity.note` entirely while the
+ * density branch printed its own, and all 23 components that declare a capacity block
+ * author a note — so the shape of every limit reached `dist/docs/components.json` and never
+ * the `.docs.md` a human (and HARD RULE #6) actually opens. The bare numbers are frequently
+ * the smaller half of the truth: `team-profile` reads "~6 items (over 12 overflows)" flat
+ * while its real ceiling is per composition, and an author who trusted the flat number would
+ * put twelve people on a `bio` slide and lose six (#2116).
+ *
+ * Density keeps the DASH: its line has one clause, so " — a metric label, not a sentence"
+ * attaches cleanly and no committed doc moves. Capacity has already spent its dash on the
+ * escalation clause, and appending a second one chained three dashes in a single sentence
+ * ("— past that, list-criteria / split across slides — past three reasons the panel reads as
+ * a memo, not a recommendation — move the evidence…"), so its note becomes a SENTENCE.
+ *
+ * A trailing period is stripped because the caller supplies one; several notes are written
+ * as whole sentences, having had no reader that needed them otherwise. The first letter is
+ * raised only when it is a plain lowercase letter, which leaves a note opening on a code
+ * span (`` `bench` holds twelve ``) or an already-capitalized word alone. All 23 were read
+ * in the rendered output; none needed an edit to the manifest.
+ */
+function trailingNote(note) {
+  const t = cleanNote(note);
+  return t ? ` — ${t}` : '';
+}
+
+function noteSentence(note) {
+  const t = cleanNote(note);
+  if (!t) return '';
+  return `. ${/^[a-z]/.test(t) ? t[0].toUpperCase() + t.slice(1) : t}`;
+}
+
+function cleanNote(note) {
+  return String(note ?? '').trim().replace(/\.+$/, '');
+}
+
 function emitAgentContract(m, lines) {
   const capacity = capacityBlock(m);
   const hasCapacity = Boolean(capacity);
@@ -244,14 +282,13 @@ function emitAgentContract(m, lines) {
     // components ship this configuration today, so this is a shared correction, not
     // a kpi special case.
     const band = c.soft === c.hard ? `over ${c.hard} overflows` : `crowds past ${c.soft}, overflows past ${c.hard}`;
-    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)}${at} (${band})${esc}.`);
+    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)}${at} (${band})${esc}${noteSentence(c.note)}.`);
     lines.push('');
   }
   if (hasDensity) {
     const d = m.density;
     const axis = d.axis || capacity?.c.axis || 'item';
-    const note = d.note ? ` — ${d.note}` : '';
-    lines.push(`**Density** aim ~${d.soft} words per ${axisNoun(axis, 1)}; past ~${d.hard} it reads as a wall of text${note}.`);
+    lines.push(`**Density** aim ~${d.soft} words per ${axisNoun(axis, 1)}; past ~${d.hard} it reads as a wall of text${trailingNote(d.note)}.`);
     lines.push('');
   }
 

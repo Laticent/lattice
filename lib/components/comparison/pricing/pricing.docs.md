@@ -10,7 +10,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 
 ## Agent contract
 
-**Capacity** ~3 items (over 4 overflows) — past that, compare-table / split across slides.
+**Capacity** ~3 items (over 4 overflows) — past that, compare-table / split across slides. Two tiers read as a binary and four is the widest row that holds; past four the tiers narrow until a feature label wraps to three lines. A split run paces ONE tier per page and carries a derived “Option N of M · comparing …” signal, so the pages still read as one comparison (§0b connected members).
 
 ### Slots
 

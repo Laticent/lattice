@@ -10,7 +10,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 ## Agent contract
 
-**Capacity** ~3 items at a wide @size (over 4 overflows) — past that, stats / split across slides.
+**Capacity** ~3 items at a wide @size (over 4 overflows) — past that, stats / split across slides. A 4th metric needs one pill, no eyebrow, and a one-line title.
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a metric label, not a sentence.
 
