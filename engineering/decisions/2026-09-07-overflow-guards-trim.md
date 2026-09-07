@@ -180,7 +180,7 @@ catalog, neither version turned a grid or flex layout into a `-webkit-box`. The
 
 **Failure mode 4d was the dominant defect, and it is fixable.** The first draft
 found it once, on `examples/README.md`, and treated it as an edge case. In v2 it
-occurs on **19 of 81 stressed slides**, across 18 different components — quote,
+occurs on **19 of 81 stressed slides**, across 17 different components — quote,
 cards-grid, list-criteria, list-tabular, list-steps, split-panel, kpi, content,
 piechart, quadrant, state-chart, split-compare, obligation-matrix,
 regulatory-update, q-and-a, logo-wall, wifi. In each, the guard clamped an element
@@ -329,12 +329,22 @@ From a full census of all 69 components (`lib/components/*/*/*.styles.css`):
   implementation has to encode rather than assume.
 - **51 of 69 carry at least one multi-line prose slot** — so the single-line
   `text-overflow: ellipsis` idiom would be the wrong tool for nearly all of them.
-- **4 components are single-line labels only** (contact, logo-wall,
-  obligation-matrix, progress) where plain ellipsis would just work.
+- **One component is single-line labels only** — `contact`. The first draft said
+  four, adding `logo-wall`, `obligation-matrix` and `progress`; all three in fact
+  carry a multi-line prose slot (`progress` has a subtitle and its own stylesheet
+  reasons about "two-line rows", `obligation-matrix` a trailing legend paragraph,
+  `logo-wall` an optional caption). The doc contradicted itself on this: two of
+  those three appear in §2b's list of components where the guard trimmed a block
+  sitting wholly below the frame edge, which cannot happen to a component that is
+  single-line labels only.
 - **30 components already give their children determinate heights** (a flex
   child with `flex: 1` and `min-height: 0` in the bounded stage, or a chart
   figure pinned to 100%), 11 do so only in named variants, and 28 size to
-  content. A declared per-slot clamp (section 8, option B) only engages where
+  content. **These three and the 51 above come from one reading of 69
+  stylesheets, not from a committed script**, so treat them as a survey rather
+  than a gated count — an independent proxy (stylesheets carrying both `flex: 1`
+  and `min-height: 0`) lands at 31 against the stated 30, which corroborates
+  without verifying. The load-bearing number is the total reach, not the split. A declared per-slot clamp (section 8, option B) only engages where
   the box height does not grow with its content — so it would reach the 30
   cleanly, the 11 partly, and the 28 not at all.
 
@@ -373,9 +383,11 @@ The three headline questions, answered directly:
 
 - **Can it be universal?** No. Universal over prose; a no-op over SVG charts;
   refused over numbers, law, code and math; powerless against box overflow.
-- **Does it survive on all components?** Only under the four rules in section 4.
-  The naive version broke a card grid, dropped a bullet marker, and hid two
-  paragraphs with no mark.
+- **Does it survive on all components?** Only under the rules in section 4, and
+  the measurement is in §2b: stressed across the whole gallery, the rule-abiding
+  prototype fits 65% of overflowing slides and breaks no layout, but the naive
+  one hid content with no visible mark on 19 slides in 81. It survives the
+  catalog; it does not survive being written carelessly.
 - **Everything or selectively?** Selectively, by declared slot role, defaulting
   to no.
 
@@ -383,17 +395,26 @@ The three headline questions, answered directly:
 
 ## 7. What this contradicts, stated plainly
 
-Three written rulings point the other way, and a fourth precedent points here.
+Four written rulings point the other way, and a fifth precedent points here.
 
 - `design/forms.md:477` rejects a fade at the cut on three grounds and concludes
   "the honest pair for a fixed page is **clip** + **ring**". An ellipsis shares
   the second ground (it hides authored content) and escapes the third (no alpha
   gradient in the PDF).
+- `2026-06-22-the-fit-spine.md:131` §3, the sharpest of the four: the Fit Ladder
+  is "the only four moves", "there is no fifth move", restated at `:396` as "a
+  closed four-move list". TRIM is a fifth move. There is no reading in which the
+  proposal and that sentence both stand.
 - `2026-06-22-the-fit-spine.md:61` axiom 4: "Delivered content is never silently
   lost." A trim is not silent — the mark is on the slide and both probes still
   report — but it is lost.
-- `2026-07-22-structure-derived-split-patterns.md:315`: overflow is "always more
-  slides, or the honest ring … never '…'".
+- `2026-07-22-structure-derived-split-patterns.md:315` (the `never "…"` is at
+  `:317`): overflow is "always more slides, or the honest ring … never '…'".
+  **That note qualifies its own guarantee two lines later** — ":317-319" says it
+  "holds only once the author sets `autosplit: on`", off by default. So it opposes
+  TRIM less than the sentence alone suggests: it is a promise about what the
+  splitter does when asked, not a blanket ban on a mark. The first draft quoted
+  the flat half and left the condition out.
 - Against those: `2026-07-27-footer-band-allocation.md:193` records the owner
   signing off on exactly this trade for the footer, with the survival numbers
   measured, and the note says explicitly that a future reader will assume it was
@@ -403,8 +424,9 @@ Three written rulings point the other way, and a fourth precedent points here.
 So the proposal is not novel in kind. What is new is making it a **deck-wide
 author-selectable policy** rather than five local judgments — which is precisely
 why it is the owner's call and not a routine change. Adopting it means adding a
-fifth move to the Fit Ladder, TRIM, sitting between SPLIT and FLOOR, and editing
-axiom 4 to say what it now means.
+fifth move to the Fit Ladder, TRIM, sitting between SPLIT and FLOOR — which means
+editing the ladder's own "there is no fifth move" and axiom 4, not just noting
+that they disagree.
 
 One more altitude question comes with it. `overflow-marker:` shipped as front
 matter for exactly one commit and was moved out
@@ -465,6 +487,13 @@ gets edited in the same change that ships the code, never after:
 - `design/forms.md` §6 — "the honest pair for a fixed page is clip + ring" gains
   a third member, and the fade rejection stays (its PDF-transparency ground still
   holds and an ellipsis does not share it).
+- `2026-06-22-the-fit-spine.md` §3 — **the most directly contradicted text in the
+  tree, and missing from the first draft of this list.** `:131` heads it "the only
+  four moves"; `:133-135` says "exactly four … there is no fifth move"; `:396-397`
+  restates it as an invariant, "a closed four-move list". Admitting TRIM edits
+  that heading, that sentence and that invariant, and
+  `2026-06-25-retire-landscape-locks-portrait-everything.md:36,101` reads the
+  ladder as four moves too. Whoever ships the code owns all of it.
 - `2026-06-22-the-fit-spine.md` axiom 4 — "delivered content is never silently
   lost" becomes explicit that a TRIM is not silent: the mark is on the slide and
   `probeContentClipped` still reports it.
