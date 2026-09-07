@@ -55,3 +55,9 @@
   back.** The position readers were willing to read a slide number out of a frame that had no
   slides in it yet, which meant "the reader is on slide 1" when the honest answer was "there
   is nothing here to be on". They now decline, and let the next render place the reader.
+- **Fixed: the component picker's search field is a proper field again.** It was a bare input
+  whose only focus affordance was the site-wide focus ring — which draws 4px outside the box,
+  so the popover clipped it along the top edge. The field now wears the same bordered box the
+  Library, Add-a-slide and the Studio's command palette use, and its height comes from the type
+  rather than a fixed number: 16px text (the size below which iOS zooms the page on focus) in a
+  ~44px box, instead of 16px text crammed into 40.

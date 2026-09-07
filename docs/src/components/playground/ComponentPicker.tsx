@@ -311,15 +311,54 @@ export function ComponentPicker({
 				className="flex w-[min(22rem,86vw)] flex-col overflow-hidden p-0 max-h-[max(140px,min(388px,calc(var(--radix-popover-content-available-height)-12px)))]"
 				align="start"
 			>
-				<Command shouldFilter={false} value={active} onValueChange={setActive} onKeyDown={onCommandKeyDown}>
-					{/* 40px, not the shared 44: this field sits in a dense popover above 32px
-					    rows, and on a phone with the keyboard up it was 29% of everything the
-					    author could see. The 16px text is NOT negotiable — it is what stops iOS
-					    zooming the viewport on focus (see CommandInput) — so the height is the
-					    only lever, and 40 keeps a comfortable target while matching the 36px
-					    trigger that opened it more closely than 44 did. */}
+				<Command
+					shouldFilter={false}
+					value={active}
+					onValueChange={setActive}
+					onKeyDown={onCommandKeyDown}
+					className={cn(
+						// THE FIELD WEARS `PANEL_SEARCH_BOX`, exactly as the Studio's palette does, and
+						// this picker skipping that convention is the whole defect. Reported from a real
+						// iPhone: the field's focus affordance was clipped along its top edge.
+						//
+						// The glow is site-wide — `native-widgets.css` draws
+						// `:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }` on
+						// every control — so it lands 4px OUTSIDE the input's border box. Measured here
+						// with the keyboard up: the input spans y=172..212, so its ring wants y=168..216,
+						// and the popover clips at y=171 with `overflow-hidden`. Three pixels of ring,
+						// gone, on the one control a phone author is looking straight at.
+						//
+						// `data-focus-ring="container"` (on the input, below) is the opt-out that rule
+						// ships for precisely this: the BOX paints the affordance and the input paints
+						// none. `PanelSearch` and the Studio palette both already use it — the palette's
+						// own comment records the identical bug reported from a real Android phone, a
+						// second rounded box drawn inside the first, 44 inside 46. Same rule, same
+						// symptom, third surface.
+						//
+						// SPELLED OUT, NOT INTERPOLATED from `PANEL_SEARCH_BOX`. Tailwind's scanner reads
+						// source text, so `cn(PANEL_SEARCH_BOX)` inside a variant prefix generates no rule
+						// at all. `panel-search.test.tsx` pins the palette's copy against the constant;
+						// `ComponentPicker.test.ts` now pins this one the same way.
+						'[&_[data-slot=command-input-wrapper]]:flex [&_[data-slot=command-input-wrapper]]:min-w-0 [&_[data-slot=command-input-wrapper]]:items-center [&_[data-slot=command-input-wrapper]]:gap-2',
+						'[&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border [&_[data-slot=command-input-wrapper]]:bg-background',
+						'[&_[data-slot=command-input-wrapper]]:px-3 [&_[data-slot=command-input-wrapper]]:py-2',
+						'[&_[data-slot=command-input-wrapper]]:focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] [&_[data-slot=command-input-wrapper]]:focus-within:ring-2 [&_[data-slot=command-input-wrapper]]:focus-within:ring-[var(--accent-soft)]',
+						// The height comes from the LINE BOX plus that `py-2`, not from a fixed `h-*`.
+						// 16px text at the inherited 1.6 gives a 25.6px line box, so the field settles at
+						// ~44px — the same touch floor the rest of this surface now holds, arrived at by
+						// letting the type set it rather than by picking a number and hoping the text
+						// fits. An earlier cut forced `h-10`; 40px around a 25.6px line box leaves 7.2px
+						// of slack top and bottom, which is what reads as cramped on a phone.
+						'[&_[data-slot=command-input]]:h-auto [&_[data-slot=command-input]]:rounded-none [&_[data-slot=command-input]]:outline-none',
+						'[&_[data-slot=command-input-wrapper]>svg]:size-4 [&_[data-slot=command-input-wrapper]>svg]:opacity-100 [&_[data-slot=command-input-wrapper]>svg]:text-muted-foreground',
+						// ROOM FOR THE RING inside a panel that clips. `focus-within:ring-2` paints 2px
+						// beyond the wrapper, so the wrapper cannot sit flush against an
+						// `overflow-hidden` edge or the fix reproduces the bug it fixes.
+						'p-1.5',
+					)}
+				>
 					<CommandInput
-						className="h-10"
+						data-focus-ring="container"
 						placeholder="Search components…"
 						value={query}
 						onValueChange={onQueryChange}
