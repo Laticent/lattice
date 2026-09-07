@@ -57,19 +57,62 @@ function parseArgs(argv) {
 }
 
 /**
- * The semantic roles a chart prints text in. Keyed by the class the kernels
- * emit; the point of the census is to show that the same role is painted
- * differently across members, so the role has to be named independently of
- * whatever the member happened to call it.
+ * The semantic roles a chart prints text in — the job the text does, named
+ * independently of whatever the member called its class. That independence is
+ * the whole point: the census asks whether two members painting the SAME job
+ * paint it the same way.
+ *
+ * EVERY NAME BELOW IS ONE THE ENGINE ACTUALLY EMITS. An earlier revision of
+ * this list was written from memory and was wrong in both directions — it
+ * invented `map-label`, `map-tick`, `kanban-title`, `radar-axis-title` and
+ * `sbar-value`, none of which exist, and it missed `quadrant-axis-name`,
+ * `line-series`, `gantt-lane-label` and `waterfall-delta`, which do. Matching
+ * was also by SUBSTRING, so `radar-ticks` (a <g> CONTAINER) matched the
+ * `radar-tick` role and reported the group's inherited body face as a second
+ * tick face — a "split" no rendered text has. Regenerate this list from a real
+ * render rather than editing it by hand:
+ *
+ *   grep -o '<text[^>]*class="[^"]*"' <rendered.html> | sort -u
+ *
+ * HTML members (kanban, progress, roadmap, timeline-list, matrix-grid, journey,
+ * state-chart) emit no <text> at all; their labels are HTML elements, listed
+ * here too so the type arm covers all 21 rather than only the SVG ones.
  */
 const TEXT_ROLES = [
-  ['value', ['cart-value', 'funnel-value', 'wc-word', 'bullet-value', 'gantt-value', 'progress-readout', 'sbar-value', 'waterfall-value', 'slope-value']],
-  ['tick', ['cart-tick', 'radar-tick', 'quadrant-tick', 'axis-tick', 'map-tick']],
-  ['category', ['cart-cat', 'funnel-label', 'radar-axis', 'quadrant-label', 'map-label', 'scatter-label', 'kanban-title', 'gantt-lane']],
-  ['series', ['cart-series', 'slope-name', 'line-label']],
-  ['axis-title', ['cart-axis-title', 'quadrant-axis', 'radar-axis-title']],
-  ['legend', ['chart-key-label', 'chart-key-value', 'chart-key']],
-  ['zone', ['quadrant-zone-label', 'quadrant-title']],
+  // The PRIMARY figure — the number the slide is about. Display face, large.
+  ['value', [
+    'cart-value', 'funnel-value', 'bullet-value', 'slope-value', 'sbar-total',
+    'waterfall-delta', 'waterfall-total-value', 'wc-word', 'progress-pct',
+  ]],
+  // The SECONDARY figure — a rate, a target, a component of the primary. The
+  // family already distinguishes these two and does it consistently: funnel's
+  // conversion, bullet's plan marker and stacked-bar's part are all the label
+  // face at 6.5px against the primary's display face at 9px, in three members
+  // that arrived there independently. Naming it as its own role is what stops a
+  // census reporting a deliberate convention as a "split".
+  ['value-2nd', ['funnel-conv', 'bullet-plan', 'sbar-part']],
+  // A tick in the gutter, on the canvas, never on a mark.
+  ['tick', ['cart-tick', 'radar-tick', 'quadrant-tick', 'gantt-tick']],
+  // What a mark IS — the reader's entry point into the plot.
+  ['category', [
+    'cart-cat', 'funnel-label', 'radar-axis-label', 'quadrant-label',
+    'quadrant-dot-label', 'scatter-label', 'gantt-lane-label', 'gantt-bar-label',
+    'gantt-mlabel', 'bullet-name', 'sbar-name', 'slope-name', 'progress-label',
+    'kanban-card-title', 'timeline-title', 'state-label', 'journey-lane-label',
+    'journey-actor-name', 'cell-state-text',
+  ]],
+  // An inline series name — direct labeling, a first-class register.
+  ['series', ['cart-series', 'line-series']],
+  // The axis caption.
+  ['axis-title', ['cart-axis-title', 'quadrant-axis-name']],
+  // A key entry naming a category away from the mark.
+  ['legend', [
+    'chart-key-label', 'chart-key-value', 'gantt-legend-label',
+    'roadmap-legend-label', 'state-legend-label', 'wc-key-label',
+    'journey-mood-key-label',
+  ]],
+  // A column / lane / state heading — a bin's name, not a mark's.
+  ['heading', ['kanban-column-header', 'cell-state-label']],
 ];
 
 async function main() {
@@ -102,9 +145,15 @@ async function main() {
 
     report = await page.evaluate((TEXT_ROLES_SERIAL) => {
       const TEXT_ROLES = TEXT_ROLES_SERIAL;
+      // Whole-token match, never substring. `radar-ticks` (the <g> CONTAINER)
+      // contains `radar-tick` (the painted label), so a substring test filed the
+      // group under the tick role — and a <g> carries no font rule, so it
+      // reported the inherited body face and manufactured a "split" that no
+      // rendered text has.
       const roleOf = (classList) => {
+        const tokens = (classList || '').split(/\s+/).filter(Boolean);
         for (const [role, classes] of TEXT_ROLES) {
-          for (const c of classes) if (classList.includes(c)) return role;
+          for (const c of classes) if (tokens.includes(c)) return role;
         }
         return null;
       };
@@ -126,6 +175,11 @@ async function main() {
         for (const el of sec.querySelectorAll('text, tspan, .chart-key-label, .chart-key-value, [class*="label"], [class*="value"], [class*="tick"], [class*="name"], [class*="title"]')) {
           const txt = (el.textContent || '').trim();
           if (!txt) continue;
+          // Only elements that PAINT text. An SVG <g>/<svg> holds text without
+          // drawing any, and carries no font rule of its own — measuring one
+          // reports an inherited face that appears nowhere on the slide.
+          const tag = el.tagName.toLowerCase();
+          if (tag === 'g' || tag === 'svg' || tag === 'defs') continue;
           const cs = getComputedStyle(el);
           // A tspan inherits its face from the <text>; only record where the
           // element itself carries the paint, so one label is not counted twice.
@@ -189,9 +243,14 @@ async function main() {
         const has = (sel) => sec.querySelector(sel) !== null;
         if (has('.cart-grid, .grid-line, [class*="gridline"], [class*="grid-"]')) grid.push('gridlines');
         if (has('.cart-axis, .axis-line, [class*="axis-line"]')) grid.push('axis-line');
-        if (has('.cart-baseline, [class*="baseline"]')) grid.push('baseline');
+        // `bar` draws a zero rule rather than an axis — deliberately, since
+        // buildAxisRule draws at the plot EDGE, which is only zero while every
+        // value is positive. Without this pattern bar reported no furniture at
+        // all, which the rendered page plainly contradicts.
+        if (has('.cart-baseline, .cart-zero, [class*="baseline"]')) grid.push('baseline');
         if (has('.cart-tickmark, [class*="tick-mark"], [class*="tickmark"]')) grid.push('tick-marks');
-        if (has('.cart-plotbox, [class*="plot-box"], [class*="plotbox"], [class*="frame-box"]')) grid.push('plot-box');
+        if (has('.cart-plotbox, .quadrant-bounds, [class*="plot-box"], [class*="plotbox"], [class*="frame-box"]')) grid.push('plot-box');
+        if (has('.quadrant-split')) grid.push('split-lines');
         if (has('.radar-web, .radar-ring, .radar-spoke')) grid.push('polar-web');
 
         // ── key: how categories are named ──────────────────────────────────
