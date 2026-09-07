@@ -82,13 +82,22 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code [
  * produced), hiding the bug; at 4K the container would be stuck at 1152px
  * instead of 3456px. The slide rule is `width: 100%` since #1598 — the same
  * specificity story, and the coincidence at HD is unchanged. */
-:where(:is(pre, marp-pre)[data-mermaid-state="rendered"] + .mermaid) {
+:where(:is(pre, marp-pre):is([data-mermaid-state="rendered"], [data-mermaid-state="deferred"]) + .mermaid) {
   align-items:center; justify-content:center;
   width:1152px; height:480px;
   max-width:100%;
   box-sizing:border-box;
 }
-:is(pre, marp-pre)[data-mermaid-state="rendered"] + .mermaid > svg {
+/* `deferred` joins both rules above, and the state matcher is written as a two-arm `:is()`
+ * so specificity is unchanged (0,1,1) and the whole story in the comment above still holds.
+ * A deferred fence is DISPLAYING A RENDERED SVG — the previous one, held while the author
+ * types — so it owes the same box and the same clamp. mermaid.css gave it `display:flex`
+ * and stopped there; the box and the clamp are here, and without them the held drawing grew
+ * from 480px to 2774px tall and overflowed a 720px slide the moment the gate engaged, then
+ * snapped back when the render landed (measured in real Chromium on a fence NOT on a
+ * `_class: diagram` slide, which is the case `section.diagram > .cell-stage > .mermaid`
+ * covers and these rules do not). */
+:is(pre, marp-pre):is([data-mermaid-state="rendered"], [data-mermaid-state="deferred"]) + .mermaid > svg {
   max-width:100%; max-height:100%; display:block;
 }
 

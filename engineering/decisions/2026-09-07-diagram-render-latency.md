@@ -225,3 +225,77 @@ unconditional and the first-paint delay is the accepted price. `edit-broken` now
   held frames in the burst arm went from 67 to 2. It still earns its place on slower
   diagrams and on the residual gap, but its headline number was measured against a wait
   this change removes.
+
+## 8. Coalescing on completion does not coalesce, and what replaced it
+
+§2 argued that completion-coalescing "adapts to the diagram instead of guessing at it: a
+small graph streams at render speed, a large one throttles itself to one render per render
+rather than queueing eight behind a burst." The first half is true. **The second half is
+false, and it is false for a reason that was available before any of this was written:**
+coalescing can only happen if a keystroke ARRIVES while a run is in flight, and
+`mermaid.render` occupies the main thread. The author's next keystroke is blocked behind the
+render and lands after it — finding `diagramRuns === 0`, and dispatching. The
+`diagramRuns > 0` branch is close to unreachable on the typing path.
+
+Two independent measurements found this, from opposite directions, after the PR was opened
+and green. A driven burst on the built Studio (`docs/.scratch/burst-render-count.mjs`, a
+throwaway probe, and the numbers below), and an independent checker driving the shipped
+bundle with an in-page `setInterval`. They agree, including on the control that rules out a
+harness artifact: at 4 nodes the burst takes exactly its nominal duration on both branches.
+
+**8 characters at 120ms into one fence, medians on one machine:**
+
+| nodes | `main` renders / burst wall | before §8 | with the back-off |
+|---|---|---|---|
+| 4 | 1 / 1086ms | 8 / 1126ms | 8 / 1089ms |
+| 16 | 1 / 1087ms | — | 5 / 1099ms |
+| 64 | 1 / 1101ms | **8 / 2726ms** | 3 / 1508ms |
+
+The 64-node column is the finding: the burst should take 8 × 120 = 960ms, and this branch
+stretched it to 2726ms because every keystroke was waiting on the render the previous one
+started. **The jank had not been removed. It had been moved from the diagram into the
+editor**, which is the one place an author cannot ignore it.
+
+### The back-off, and the three numbers it needs
+
+The dispatch now waits for the source to settle, sized by what a render of this diagram LAST
+COST — the same argument that retired `DEBOUNCE_MS`, applied to a number we measure instead
+of guess. Three quantities, and they are deliberately different numbers:
+
+- **The floor (50ms).** Below it there is no back-off at all. A burst on a ~30ms fence
+  stretched 1086ms → 1130ms with a render on every keystroke — 44ms across eight, which
+  nobody can feel — and the live per-keystroke redraw is what makes a small diagram feel
+  instant. The same burst on a ~70ms fence stretched to 1493ms. The boundary is between
+  them; 50ms is also about half a typing gap.
+- **The wait (2× the last cost, capped at 200ms).** Twice, so the share of the author's
+  typing time spent re-rendering is bounded by construction rather than tuned: rendering for
+  `c` out of every `c + 2c` is one third. The cap bounds what this can ADD after the last
+  keystroke.
+- **The idle threshold (2× the last cost, UNCAPPED).** "Has this person paused?" and "how
+  long may we make them wait?" are different questions, and using the capped wait for both
+  leaked the whole throttle: at 64 nodes the cap holds the wait at 200ms while a render costs
+  ~248ms, so a 240ms gap measured from the end of a render read as idle and fired. Every
+  ~240ms, which is 4 renders across an 8-character burst.
+
+A **leading edge** sits in front of all three: the first change after a pause dispatches at
+once, because a back-off is for a burst and a click onto a cold diagram slide is not one.
+Charging it one put `nav` cold back to 195ms from 94ms. Idleness is measured from when the
+last render FINISHED, not when it was dispatched — measured from dispatch the interval
+includes the render itself, which is longer than the cap, so the pause question answered YES
+on every keystroke.
+
+### What is still short, stated plainly
+
+**At 64 nodes and a 120ms cadence this is still 3 renders and 1508ms against `main`'s 1 and
+1101ms.** That is ~50ms per keystroke of input lag that `main` does not have, and it is not
+yet understood: the fire-time idle re-check that should have closed it moved the number by
+40ms, so the remaining renders are not coming from the timer this section describes.
+
+**`main`'s "1 render" is not a general property**, and the comparison is unfair in the other
+direction at any other cadence. Its 150ms debounce simply exceeds a 120ms typing gap, so it
+never fires mid-burst *at that cadence*. At 200ms gaps `main` renders 8 times and stretches
+the same burst to 3442ms, where this branch renders 4 and takes 2045ms. Neither build is
+uniformly better; this one is better where the author types faster than the debounce and
+worse in one band where they type just slower than it.
+
+That band is real and it is a regression, so it is named here rather than filed.

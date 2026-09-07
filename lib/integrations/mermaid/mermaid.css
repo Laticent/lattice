@@ -89,7 +89,13 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * `section.diagram`, and the held drawing jumped 473x186px the moment the gate engaged
  * (measured in real Chromium on a fence not on a diagram slide). The `pending` hold had the
  * same gap for one render; the parse gate stretches it across a whole typing pause, which
- * is what makes it worth closing rather than noting. */
+ * is what makes it worth closing rather than noting.
+ *
+ * THIS RULE IS ONLY ONE THIRD OF THAT, and an earlier revision shipped it alone while this
+ * comment claimed the slot then laid out "exactly as a rendered one". It did not: the BOX
+ * (`width:1152px; height:480px`) and the SVG clamp (`max-width/max-height:100%`) are keyed
+ * on `rendered` in highlight-js.css, so the held drawing still grew to 2774px tall and
+ * overflowed the slide. Both now carry `deferred` too — see the note there. */
 :is(pre, marp-pre)[data-mermaid-state="deferred"]      + .mermaid        { display:flex; }
 /* …AND THE SAME COLLAPSE ON A FORM-WRAPPED DIAGRAM SLIDE, which the two rules above
  * could not reach. `section.diagram > .cell-stage > .mermaid { display:flex; flex:1 }`

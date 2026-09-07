@@ -314,16 +314,37 @@ twice over: it was **72% of the wait** an author felt on a keystroke (209ms end 
 which ~22ms was the render of a four-node flowchart), and it was **larger than a full
 render** for every diagram up to about 64 nodes — 22ms at 4 nodes, 43 at 16, 72 at 32, 130
 at 64, 239 at 128. A timer larger than the work it defers is waiting, not coalescing.
-Completion-coalescing adapts to the diagram instead of guessing at it: a small graph streams
-at render speed, a large one self-throttles to one render per render rather than queueing
-eight behind a burst. The floor is one frame, which collapses a single host write's mutation
-records and the runtime's own re-entrant transforms. Measured: a keystroke 209ms → ~60ms,
-arriving at a cold diagram slide 240ms → ~99ms.
+The floor is one frame, which collapses a single host write's mutation records and the
+runtime's own re-entrant transforms. Measured: a keystroke 209ms → ~60ms, arriving at a cold
+diagram slide 240ms → ~94ms.
+
+**COMPLETION-COALESCING ALONE DOES NOT THROTTLE A BURST, AND AN EARLIER DRAFT OF THIS
+SECTION CLAIMED IT DID.** It can only coalesce if a keystroke ARRIVES while a run is in
+flight, and `mermaid.render` occupies the main thread, so the author's next keystroke is
+blocked behind it and lands after — finding no run in flight, and dispatching. The queue is
+therefore one render per keystroke at every typing speed. On a 64-node fence an 8-character
+burst bought 8 renders and 1899ms of render against 1 and 252ms before the change, and the
+burst itself stretched from 1101ms to 2726ms because the keystrokes were waiting on the
+renders. The jank had moved from the diagram into the editor.
+
+**SO THE DISPATCH BACKS OFF BY WHAT A RENDER OF THIS DIAGRAM LAST COST** — the same argument
+that retired the fixed timer, applied to a number we measure instead of guess. Below ~50ms
+of render there is no back-off at all: the live per-keystroke redraw is what makes an edit
+feel instant, and it is free (a burst on a ~30ms fence stretched 1086ms → 1130ms, which
+nobody can feel). Above it the wait is twice the last cost, so the share of the author's
+typing time spent re-rendering is bounded at about a third by construction, capped at 200ms
+so a pathological diagram cannot add half a second to a keystroke. Measured, 8 characters at
+120ms: 4 nodes 7 renders and 22% of the burst busy; 16 nodes 1 render, 8%; 64 nodes 1
+render, 25% — against 8 / 8 / 8 renders and 79% busy without it, and matching the burst wall
+time of the build before this work at every size.
 
 **A SOURCE THAT DOES NOT PARSE WHILE YOU TYPE IS NOT AN ERROR.** `mermaid.parse` gates the
-render (~9ms to reject, against 22–239ms to draw), and a fence that fails it goes to a
-fourth state, `deferred`: the previous drawing stays up, and a quiet timer surfaces the real
-error ~450ms after the last keystroke. Without it, removing the debounce made a broken
+render (~1.8ms to reject, against 22–239ms to draw; the ~9ms an earlier draft quoted was a
+cold first call), and a fence that fails it goes to a fourth state, `deferred`: the previous
+drawing stays up, and a quiet timer surfaces the real error ~450ms after the last keystroke.
+That window is **per fence, keyed on the fence's own text** — one document-global timer let
+typing in one fence starve another's error indefinitely, and a per-element deadline does not
+fix it either, because both preview hosts replace the `<pre>` on every keystroke. Without it, removing the debounce made a broken
 diagram flash its raw source *more* than before — the two halves are a package.
 
 **`deferred` IS NOT `pending`, AND THAT IS THE WHOLE MECHANISM.** `pending` is what the walk
@@ -332,8 +353,15 @@ the fence, failed the gate, deferred again and re-armed the quiet timer — roug
 16ms. The timer measures "has the author stopped typing"; the deferral itself was what kept
 it from ever elapsing, and the fence sat showing stale ink indefinitely with every suite
 green. A state the walk does not select is what makes the document go quiet so the timer can
-fire. It needs no CSS of its own: the sheet hides the `<pre>` for every state except
-`error`/`unavailable` and collapses the slot only for those two.
+fire.
+
+It **does** need CSS of its own, and only measurement found it. The sheet hides the `<pre>`
+for every state except `error`/`unavailable` and collapses the slot only for those two — but
+the slot's `display:flex`, its box (`1152x480`) and the SVG clamp were all keyed on
+`rendered` alone. A deferred fence is DISPLAYING A RENDERED SVG, the previous one, so it
+owes all three: without them the held drawing grew from 480px to 2774px tall and overflowed
+the slide the moment the gate engaged, then snapped back when the render landed. Only on a
+fence outside `section.diagram`, which is why a bench deck cannot see it.
 
 Numbers for all of it, the `--scenario edit` / `edit-burst` arms that measure the case a
 cache cannot answer, and why the previous diagram was never held on any earlier build:

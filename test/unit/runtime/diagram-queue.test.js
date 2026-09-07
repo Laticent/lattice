@@ -92,6 +92,11 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
        // still queued.
        let diagramRuns = 0;
        let rerunRequested = false;
+       // The render records what it COST, so the dispatch back-off can size itself to the
+       // diagram instead of a constant. Both live outside this block; the cells here are
+       // about the chain always advancing, so they stand in rather than lift.
+       let lastRenderCostMs = 0;
+       const nowMs = () => Date.now();
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
@@ -120,15 +125,17 @@ ${block}
 }
 
 /** A fence, with a fake `<pre>` whose dataset the queue writes. */
-function fence(name, ink = null) {
+function fence(name) {
   return {
     preEl: { dataset: { mermaidState: 'rendering' }, name },
-    // `querySelector` is part of the shape, not decoration: the parse gate asks the slot
-    // whether it is holding a drawing before it defers, because a fence with an empty slot
-    // has nothing to hold and gating it would only cost the author their error box. These
-    // cells are about the CHAIN advancing, so they model an empty slot and go straight to
-    // the renderer.
-    target: { innerHTML: '', querySelector: () => ink },
+    // `querySelector` is shape a real slot has, and the queue's own paths may reach for it;
+    // it carries no ink because these cells are about the CHAIN advancing, not about what is
+    // drawn. It once fed a version of the parse gate that asked whether the slot held a
+    // drawing before deferring — that design was measured and reverted (`edit-broken` went
+    // to 146 source frames and 8 renders, because once an error surfaces the slot is empty
+    // and every later keystroke skipped the gate), so the gate is unconditional and the
+    // parameter that fed it is gone.
+    target: { innerHTML: '', querySelector: () => null },
     source: name,
   };
 }

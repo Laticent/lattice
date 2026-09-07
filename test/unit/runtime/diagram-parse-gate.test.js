@@ -47,6 +47,7 @@ function liftGate(html = '') {
 	}
 
 	const dom = new JSDOM(`<body>${html}</body>`);
+	const clock = { t: 1000 };
 	const timers = [];
 	const scheduled = [];
 	const rendered = [];
@@ -58,7 +59,8 @@ function liftGate(html = '') {
 		'scheduleRun',
 		'PARSE_CAP_MS',
 		'renderDiagramNow',
-		`${src}\nreturn { deferUntilQuiet, armErrorSurface, parsesCleanly, renderDiagramJob, forceRender, ERROR_QUIET_MS, DEFERRED_FENCE_SELECTOR };`,
+		'nowMs',
+		`${src}\nreturn { deferUntilQuiet, armErrorSurface, sweepDeferredFences, parsesCleanly, renderDiagramJob, forceRender, deferredSince, ERROR_QUIET_MS, DEFERRED_FENCE_SELECTOR };`,
 	);
 	const api = make(
 		dom.window.document,
@@ -75,6 +77,9 @@ function liftGate(html = '') {
 			rendered.push(job.preEl);
 			return Promise.resolve();
 		},
+		// A CONTROLLABLE CLOCK, because the per-fence quiet windows are the thing under test
+		// and wall time cannot be asserted on. `advance` moves it; nothing moves it on its own.
+		() => clock.t,
 	);
 	/** Fire the newest live timer, the way a quiet window elapsing would. */
 	const elapse = () => {
@@ -82,7 +87,11 @@ function liftGate(html = '') {
 		assert.ok(live.length, 'a quiet timer must have been armed');
 		live[live.length - 1].fn();
 	};
-	return { ...api, doc: dom.window.document, timers, scheduled, rendered, elapse };
+	/** Move the clock without firing anything, so a deadline can be reasoned about. */
+	const advance = (ms) => {
+		clock.t += ms;
+	};
+	return { ...api, doc: dom.window.document, timers, scheduled, rendered, elapse, advance, clock };
 }
 
 const FENCE = (state) => `<pre data-mermaid-state="${state}"><code>flowchart LR</code></pre>`;
@@ -118,11 +127,58 @@ describe('the parse gate terminates', () => {
 		const gate = liftGate(`${FENCE('rendering')}${FENCE('rendered')}`);
 		const [first, second] = gate.doc.querySelectorAll('pre');
 		gate.deferUntilQuiet(first);
+		// The fence's OWN window has to have passed — the timer firing is no longer enough.
+		gate.advance(gate.ERROR_QUIET_MS);
 		gate.elapse();
 		assert.equal(first.dataset.mermaidState, shippedPendingState(), 'back into the walk selector');
 		assert.ok(gate.forceRender.has(first), 'and released past the gate, so the error surfaces');
 		assert.equal(second.dataset.mermaidState, 'rendered', 'a fence that never deferred is untouched');
 		assert.equal(gate.scheduled.length, 1, 'a pass must be scheduled to do the rendering');
+	});
+
+	test('typing in ONE fence cannot starve another fence\'s error — the window is per source', () => {
+		// The timer used to be a single document-global handle that EVERY deferral cleared and
+		// re-armed, so a fence broken at first paint waited on the author stopping typing
+		// anywhere in the deck: driven on the real Studio with a second fence edited every
+		// 150ms, the broken one sat on an empty slot — no drawing, no error box, no source —
+		// for 6.25s, and the wait is unbounded. Before the parse gate it errored immediately.
+		//
+		// Keying on the FENCE TEXT rather than the element is what fixes it, and the element
+		// is the obvious wrong key: both preview hosts replace the <pre> on every keystroke,
+		// so a per-node deadline would reset for every fence on every keystroke.
+		const gate = liftGate(`${FENCE('rendering')}${FENCE('rendering')}`);
+		const [broken, edited] = gate.doc.querySelectorAll('pre');
+		broken.querySelector('code').textContent = 'flowchart LR\n  A --';
+		gate.deferUntilQuiet(broken);
+		// The other fence is retyped repeatedly, each keystroke a new source and a new
+		// deferral, while the broken one's text never changes.
+		for (let i = 0; i < 6; i++) {
+			gate.advance(150);
+			edited.querySelector('code').textContent = `flowchart LR\n  B${'x'.repeat(i)} --`;
+			gate.deferUntilQuiet(edited);
+		}
+		// 900ms have passed, twice the broken fence's window.
+		gate.elapse();
+		assert.equal(broken.dataset.mermaidState, shippedPendingState(), 'the untouched fence is released on ITS deadline');
+		assert.ok(gate.forceRender.has(broken), 'and forced past the gate, so its error surfaces');
+		assert.equal(edited.dataset.mermaidState, 'deferred', 'the fence still being typed keeps waiting');
+	});
+
+	test('the deadline map holds one entry per DEFERRED FENCE, not one per keystroke', () => {
+		// Keyed by source text, so a burst mints a key per character. The sweep prunes to what
+		// is actually deferred right now; without that the map grows for the life of the page.
+		const gate = liftGate(FENCE('rendering'));
+		const [preEl] = gate.doc.querySelectorAll('pre');
+		for (let i = 0; i < 20; i++) {
+			preEl.querySelector('code').textContent = `flowchart LR\n  A${'x'.repeat(i)} --`;
+			gate.deferUntilQuiet(preEl);
+			gate.advance(10);
+		}
+		assert.equal(gate.deferredSince.size, 20, 'every keystroke minted a key');
+		gate.advance(gate.ERROR_QUIET_MS);
+		gate.elapse();
+		assert.equal(preEl.dataset.mermaidState, shippedPendingState(), 'the fence is released');
+		assert.equal(gate.deferredSince.size, 0, 'and the sweep prunes every key, including the released one');
 	});
 
 	test('the timer finds waiting fences from the DOM, holding no node references', () => {
