@@ -8,6 +8,7 @@ import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 import rehypeScrollableTables from './src/plugins/rehype-scrollable-tables.mjs';
+import viteCjsLibDev from './src/plugins/vite-cjs-lib-dev.mjs';
 
 // Emits dist/chunk-graph.json: for every CLIENT-environment JS chunk, its
 // facadeModuleId (source entry, if any), moduleIds (bundled sources), static
@@ -103,6 +104,13 @@ export default defineConfig({
 	// through committed esbuild bundles (authoring-core / theme-core /
 	// layout-core .generated.js) that load in dev AND ship in the build; no
 	// CJS→ESM build nudge is needed. See tools/build-authoring-core.js.
+	//
+	// One CJS leaf is NOT reached through a generated bundle: `lib/core/front-matter-key.js`,
+	// which the ESM `lib/core/resolve-motion.mjs` default-imports and the Studio's
+	// WebpageOptionsPanel pulls in over /@fs. Rollup interops that fine, the dev server does
+	// not, and the failure takes the whole Studio island down (#2119). `viteCjsLibDev` is the
+	// dev-only shim for exactly that shape — see its header for why `optimizeDeps.include`
+	// does not do the job.
 	vite: {
 		server: { fs: { allow: ['..'] } },
 		// Module (ESM) workers, not the default IIFE: the PDF export worker
@@ -116,7 +124,7 @@ export default defineConfig({
 		// (src/styles/tailwind.css) imports only the theme + utilities layers —
 		// Preflight is OFF on purpose (see that file's header + the migration
 		// decision doc §0). It carries the shadcn ↔ Lattice token bridge.
-		plugins: [tailwindcss(), chunkGraphPlugin()],
+		plugins: [tailwindcss(), chunkGraphPlugin(), viteCjsLibDev(path.resolve(import.meta.dirname, '..'))],
 	},
 	// Markdown-wide rehype: give every content table a tab stop so its horizontal
 	// scroll is reachable without a pointer (WCAG 2.1.1). See the plugin's header for
