@@ -16,6 +16,7 @@ import {
 import { Toaster } from '@/components/ui/sonner';
 import { useResizableSplit } from '@/components/ui/use-resizable-split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
+import { shellKeyAction } from '@/lib/deck-nav';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	adjacentComponent,
@@ -34,11 +35,13 @@ import {
 	parsePlaygroundUrl,
 	playgroundQuery,
 	readHandoff,
+	readingSlideIndex,
 	readPlan,
 	resolveComponent,
 	resolvePlanStep,
 	resolveStartupView,
 	SEARCH_KEY,
+	type SlideBand,
 	SOURCE_KEY,
 	sanitizePalette,
 	VIEW_KEY,
@@ -53,6 +56,7 @@ import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-pref
 import { readFrontMatter } from '@/playground/deck-config.js';
 import { captureFirstSectionFromFrame, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';
 import { createVideoOverlay } from '@/playground/video-overlay.js';
+import { swipeAction } from '../../../../lib/core/present-transport.mjs';
 import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
@@ -115,6 +119,38 @@ type Walk =
  *  `playground-first-paint.spec.ts` measures the hand-off itself, so a drift shows up as
  *  the defect rather than as a mismatched constant. */
 const SHELL_FADE_MS = 200;
+/** How long `landWalk` waits for the in-iframe FIT agent to settle the deck's geometry
+ *  before scrolling anyway. Generous: the measured settle on a cold load is ~200ms, and a
+ *  bounded fallback that lands on roughly the right slide beats one that never lands. */
+const LAND_SETTLE_MS = 2500;
+/** rAF-coalescing window for the scroll→index observer. One read per frame is plenty for
+ *  a counter the eye is watching, and it keeps a momentum scroll off the layout path. */
+const SCROLL_IDLE_MS = 120;
+/** How many times `landWalk` starts over when the scroll it performed did not put the
+ *  target slide on screen. Each attempt re-waits for the geometry, so this is a budget in
+ *  settle windows, not in frames; two is enough for the late-FIT case that forced it. */
+const LAND_ATTEMPTS = 2;
+
+/** The filmstrip's slide bands in the frame document's own coordinates. One reader, used
+ *  by BOTH directions of the walk↔scroll loop, so the index the observer reports and the
+ *  scroll the stepper writes can never be computed from different geometry.
+ *
+ *  The height comes from `getBoundingClientRect()`, NOT `offsetHeight`: the in-iframe FIT
+ *  agent sizes every section to a fixed 720px layout box and then `transform: scale()`s it
+ *  to the pane, so `offsetHeight` reports 720 on a phone where the slide is really 179px
+ *  tall. `offsetTop` is unaffected (the transform has a top-left origin, so the layout
+ *  positions already carry the scale) and stays — it is what `scrollWalk` scrolls to, and
+ *  reading the two directions off one source is the point of this function. */
+function frameBands(frame: HTMLIFrameElement): SlideBand[] {
+	let secs: NodeListOf<HTMLElement> | undefined;
+	try {
+		secs = frame.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section');
+	} catch {
+		return []; // a frame mid-navigation; the next poll gets it
+	}
+	if (!secs) return [];
+	return Array.from(secs, (el) => ({ top: el.offsetTop, height: el.getBoundingClientRect().height }));
+}
 
 /**
  * The boot view the pre-paint script resolved and published on `<html data-pg-view>`
@@ -283,6 +319,27 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// position after each paint; the real scroller is assigned below. Same for
 	// startWalk — the pick/variant handlers are defined above it.
 	const scrollWalkRef = React.useRef<(smooth: boolean) => void>(() => {});
+	const landWalkRef = React.useRef<(attempt?: number) => void>(() => {});
+	/** The in-flight programmatic scroll: the index it is travelling to, and when the
+	 *  observer stops deferring to it. Cleared the moment the frame actually arrives. */
+	const walkScrollRef = React.useRef<{ index: number; until: number } | null>(null);
+	/** The observer stays silent until the first walk position has been landed. Without
+	 *  this a fresh frame — which starts at scrollY 0 — would report slide 1 and overwrite
+	 *  the deep-linked index before `landWalk` ever got to honor it. */
+	const observeReadyRef = React.useRef(false);
+	/** True while `landWalk` is still placing the deck on the walk's slide. The REVEAL waits
+	 *  on it: a frame that fades in and then scrolls is a slide moving under the reader's
+	 *  eye, which is the #1588 defect in a different costume — caught by
+	 *  `playground-first-paint.spec.ts` measuring the Explore reload at two geometries,
+	 *  20px apart, after this change first landed the scroll a beat too late. */
+	const landPendingRef = React.useRef(false);
+	/** The frame DOCUMENT the deck listeners are currently bound to. Keyed on the document
+	 *  and NOT on `contentWindow`, which is a WindowProxy whose identity survives a
+	 *  navigation: a srcdoc write drops every listener registered on the old global while
+	 *  `frame.contentWindow === bound` still reads true, so a window-keyed guard binds once
+	 *  to about:blank and then silently declines to rebind for the rest of the session. */
+	const boundFrameDocRef = React.useRef<Document | null>(null);
+	const bindDeckInputRef = React.useRef<() => void>(() => {});
 	const startWalkRef = React.useRef<(name: string, step: string | null) => Promise<boolean>>(async () => false);
 	// Mobile error reveal: ≤560px hides .pg-status, so the badge expands it inline.
 	const [errorOpen, setErrorOpen] = React.useState(false);
@@ -394,7 +451,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} catch {
 				ready = true; // a same-origin srcdoc shouldn't throw; if it does, don't get stuck
 			}
-			if (ready || Date.now() - start > 4000) goLive();
+			// …and the deck is on the slide the chrome names. Both halves are capped (this
+			// timeout, and `landWalk`'s own settle + retry budget), so neither can wedge the
+			// reveal shut on a frame whose FIT never settles.
+			if ((ready && !landPendingRef.current) || Date.now() - start > 4000) goLive();
 			else requestAnimationFrame(check);
 		};
 		check();
@@ -450,6 +510,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// runs before the new document has loaded (setting the hook on the old window),
 	// so re-install the parent-hosted bridges here against the now-live document.
 	const onFrameLoad = React.useCallback(() => {
+		// A full srcdoc write replaced the frame's document: rebind the deck's keyboard,
+		// touch and scroll listeners to the new one.
+		bindDeckInputRef.current();
 		applyDebug(frameRef.current, { force: forceRef.current });
 		videoOverlayRef.current?.rebind();
 		animaScenesRef.current?.rebind();
@@ -530,8 +593,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (viewRef.current === 'read' && w?.kind === 'deck' && w.count !== r.count) {
 					setWalk({ ...w, index: Math.min(w.index, Math.max(0, r.count - 1)), count: r.count });
 				}
-				// Land the walk position after a fresh paint (instant; stepping smooths).
-				if (viewRef.current === 'read') scrollWalkRef.current(false);
+				// Land the walk position ONCE THE FRAME'S GEOMETRY HAS SETTLED, not here: at
+				// this point the in-iframe FIT agent has not rescaled the deck, and a scroll
+				// written against pre-FIT offsets is thrown away when it does (#2103).
+				bindDeckInputRef.current();
+				if (viewRef.current === 'read') landWalkRef.current();
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
 				// so the skeleton / instant-shell covers the FIT window instead of the iframe
 				// flashing its opaque black body. This adds `is-live` (CSS reveals #preview +
@@ -1007,6 +1073,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Scroll the preview filmstrip to the walk position — instant by default,
 	// smooth as an enhancement on stepping (prefers-reduced-motion honored).
 	// Same-origin srcdoc + the FIT agent's own `.lattice > section` geometry.
+	//
+	// It also ARMS the scroll observer's guard, because the two are the same loop run
+	// in opposite directions: this writes a scroll from an index, `onDeckScroll` reads
+	// an index back from a scroll. A smooth scroll emits a scroll event per frame all
+	// the way there, so without the guard a step from slide 2 to 9 would report — and
+	// address-bar — every slide in between.
 	const scrollWalk = React.useCallback((smooth: boolean) => {
 		const frame = frameRef.current;
 		const w = walkRef.current;
@@ -1016,9 +1088,124 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const target = secs?.[w.index] as HTMLElement | undefined;
 		if (!win || !target) return;
 		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-		win.scrollTo({ top: Math.max(0, target.offsetTop - 16), behavior: smooth && !reduce ? 'smooth' : 'auto' });
+		const animated = smooth && !reduce;
+		walkScrollRef.current = { index: w.index, until: Date.now() + (animated ? 1200 : 400) };
+		win.scrollTo({ top: Math.max(0, target.offsetTop - 16), behavior: animated ? 'smooth' : 'auto' });
 	}, []);
 	scrollWalkRef.current = scrollWalk;
+
+	/**
+	 * LAND the walk position once the frame's geometry is the geometry the reader will
+	 * see — not the moment `renderInto` resolves.
+	 *
+	 * The render loop used to call `scrollWalk` directly there, and the scroll was simply
+	 * lost: traced on a cold `?c=kpi&s=variant:trajectory`, at t=908ms the frame was still
+	 * `visibility:hidden` with `scrollHeight` 9432 and slide 5 at 3636, and by t=1114ms the
+	 * in-iframe FIT agent had rescaled the deck to 8739 / 3376 and put the scroll back at 0.
+	 * So EVERY shared `?s=` link, and every reload, opened on the title slide while the walk
+	 * bar, the caption and the Step dropdown all named a slide six further in — and so did
+	 * Explore→Edit→Explore, which runs the same path (#2103).
+	 *
+	 * IT VERIFIES THE OUTCOME rather than predicting when FIT is done, and that distinction
+	 * is the whole reliability of this function. Waiting for "the geometry stopped changing"
+	 * is a guess: on a phone, FIT can run late enough that two consecutive frames of the
+	 * PRE-scale layout look settled, the scroll goes to a stale offset, and the surface ends
+	 * up naming a slide with 0% of it on screen — measured, intermittently, at 390x844 on a
+	 * cross-component step. So after scrolling it checks whether the target slide is
+	 * actually visible and, if not, starts over. The bounded retry and the settle timeout
+	 * together mean a frame whose FIT never settles still lands somewhere honest rather than
+	 * silently on the first slide.
+	 *
+	 * Always INSTANT: this lands a freshly rendered deck, where there is no previous
+	 * position to animate away from. Stepping inside a live deck smooths, via `scrollWalk`.
+	 */
+	const landRafRef = React.useRef<number | null>(null);
+	const landWalk = React.useCallback(
+		(attempt = 0) => {
+			if (landRafRef.current != null) cancelAnimationFrame(landRafRef.current);
+			// The observer stays shut for the whole settle: a fresh frame starts at scrollY
+			// 0, and reporting that would overwrite the index we are about to honor. Owned
+			// here rather than in `onFrameLoad` so the two callbacks' order cannot matter.
+			observeReadyRef.current = false;
+			landPendingRef.current = true;
+			const start = Date.now();
+			let lastKey = '';
+			let stable = 0;
+			/** Open both gates and stop; the position is as good as it will get. */
+			const done = () => {
+				observeReadyRef.current = true;
+				landPendingRef.current = false;
+			};
+			const targetShare = () => {
+				const frame = frameRef.current;
+				const w = walkRef.current;
+				const win = frame?.contentWindow;
+				if (!frame || !w || !win) return 0;
+				const b = frameBands(frame)[w.index];
+				if (!b || b.height <= 0) return 0;
+				const seen = Math.min(win.scrollY + win.innerHeight, b.top + b.height) - Math.max(win.scrollY, b.top);
+				return Math.max(0, seen) / b.height;
+			};
+			const verify = () => {
+				// Two frames after the scroll, so the frame has laid out and composited.
+				requestAnimationFrame(() =>
+					requestAnimationFrame(() => {
+						if (viewRef.current !== 'read') return done();
+						if (targetShare() > 0.5) return done();
+						if (attempt < LAND_ATTEMPTS) return landWalkRef.current(attempt + 1); // re-sets landPending
+						done();
+					}),
+				);
+			};
+			const tick = () => {
+				landRafRef.current = null;
+				const frame = frameRef.current;
+				if (!frame || !walkRef.current || viewRef.current !== 'read') return done();
+				const bands = frameBands(frame);
+				const win = frame.contentWindow;
+				const lat = frame.contentDocument?.querySelector('.lattice') as HTMLElement | null;
+				const revealed = !!(lat && win && win.getComputedStyle(lat).visibility === 'visible');
+				const key = bands.length ? `${bands.length}:${bands[0].height}:${bands[bands.length - 1].top}` : '';
+				stable = key !== '' && key === lastKey ? stable + 1 : 0;
+				lastKey = key;
+				if (revealed && stable >= 2) {
+					scrollWalk(false);
+					verify();
+					return;
+				}
+				if (Date.now() - start > LAND_SETTLE_MS) {
+					if (bands.length) scrollWalk(false);
+					return done();
+				}
+				landRafRef.current = requestAnimationFrame(tick);
+			};
+			landRafRef.current = requestAnimationFrame(tick);
+		},
+		[scrollWalk],
+	);
+	landWalkRef.current = landWalk;
+	React.useEffect(
+		() => () => {
+			if (landRafRef.current != null) cancelAnimationFrame(landRafRef.current);
+		},
+		[],
+	);
+
+	/** Move the walk to an absolute index (Home / End / the step list) and land it. */
+	const gotoIndex = React.useCallback(
+		(i: number) => {
+			const w = walkRef.current;
+			if (!w) return;
+			const count = w.kind === 'plan' ? w.plan.slides.length : w.count;
+			const ni = Math.max(0, Math.min(count - 1, i));
+			if (ni === w.index) return;
+			const moved: Walk = { ...w, index: ni };
+			setWalk(moved);
+			walkRef.current = moved;
+			scrollWalk(true);
+		},
+		[scrollWalk],
+	);
 	/** Enter (or move) the component walk. `step` is a stable plan kind (or null →
 	 * title; 'LAST' → the closing slide, for walking backwards across components). */
 	const startWalk = React.useCallback(
@@ -1296,15 +1483,23 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	// Walking writes the address bar (replaceState — shareable position, no
 	// history spam); leaving Explore strips our params.
+	// TRAILING-EDGE, and that is load-bearing now that the walk index follows the reader's
+	// own scroll: a flick through six slides used to be six `replaceState` calls in a
+	// couple of frames, which Safari rate-limits outright (100 per 30s) and which writes
+	// an address bar nobody can read mid-gesture. One call once the scroll rests.
 	React.useEffect(() => {
 		if (!urlSyncReadyRef.current) return;
-		const { pathname, hash, search } = window.location;
-		if (view === 'read' && walk?.kind === 'plan') {
-			const s = walk.plan.slides[walk.index]?.kind ?? null;
-			window.history.replaceState(null, '', pathname + playgroundQuery({ c: walk.plan.name, view: 'read', s }) + hash);
-		} else if (search) {
-			window.history.replaceState(null, '', pathname + hash);
-		}
+		const write = () => {
+			const { pathname, hash, search } = window.location;
+			if (view === 'read' && walk?.kind === 'plan') {
+				const s = walk.plan.slides[walk.index]?.kind ?? null;
+				window.history.replaceState(null, '', pathname + playgroundQuery({ c: walk.plan.name, view: 'read', s }) + hash);
+			} else if (search) {
+				window.history.replaceState(null, '', pathname + hash);
+			}
+		};
+		const t = setTimeout(write, SCROLL_IDLE_MS);
+		return () => clearTimeout(t);
 	}, [view, walk]);
 
 	// The tour's mode hook: guided-tour steps declare the mode their target
@@ -1318,27 +1513,197 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		return () => document.removeEventListener('pg-set-view', onSetView);
 	}, [setViewMode]);
 
-	// Keyboard walk: ← / → step, Shift+← / → jump components. Explore only, and
-	// never while typing in a field.
-	React.useEffect(() => {
-		if (view !== 'read') return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
-			const t = e.target as HTMLElement | null;
-			if (t?.closest('input, textarea, select, [contenteditable], .cm-content')) return;
-			if (e.key === 'ArrowRight') {
+	// ── The deck's three input verbs, and the scroll that reads them back ───────
+	//
+	// THE RULE (engineering/decisions/2026-08-10-input-verb-parity.md): every surface
+	// that shows a slide accepts keyboard, wheel and touch, at every breakpoint, with no
+	// gating on device class. That note reconciled the STUDIO's surfaces; the Playground
+	// — the one surface a non-technical visitor actually lands on — was never brought
+	// with it, and measured on the real page it was short on all three (#2103):
+	//
+	//   keyboard  a hand-written two-key map (←/→) on `window` only. Clicking the deck
+	//             moves focus to the <iframe>, after which every keystroke is delivered
+	//             INSIDE the frame and the parent listener never sees it — so the arrows
+	//             died the first time the reader touched the thing they were reading, with
+	//             nothing on screen to say why. PageUp/PageDown (what a presentation
+	//             clicker emits) and Home/End were never wired at all.
+	//   touch     a horizontal swipe did nothing. On a phone that IS the gesture.
+	//   wheel     scrolled the filmstrip, which is right — but nothing read the position
+	//             back, so the chrome went on naming the slide you had scrolled away from.
+	//
+	// The keymap now comes from the kernel (`shellKeyAction` → `SHELL_KEYMAP`) rather than
+	// a third hand-written list, and the swipe rule from `swipeAction`, so the Playground
+	// turns a deck by the same rules as Present and the Studio shell. Every listener is
+	// installed on BOTH the page and the frame document, which is what makes a click on
+	// the slide harmless.
+	//
+	// WHEEL IS DELIBERATELY NOT GATED into discrete steps here, and that is the one place
+	// this surface parts company with Present. The Playground preview is a FILMSTRIP the
+	// reader skims, sharing its iframe with the editor's live preview; `createWheelGate`
+	// would take the vertical wheel away from free scrolling to turn slides with it. The
+	// verb is served by making the scroll HONEST instead — `onDeckScroll` below reports
+	// what the wheel actually reached — which is the parity the rule is about: no reader
+	// finds an input that the surface ignores.
+	const onDeckKey = React.useCallback(
+		(e: KeyboardEvent) => {
+			if (viewRef.current !== 'read' || e.defaultPrevented) return;
+			// Shift+Arrow jumps a whole component. Checked ahead of the kernel because the
+			// shell rule refuses every modified chord — correctly, since it cannot know
+			// which chords this surface has claimed.
+			if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
+				const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+				if (!dir) return;
 				e.preventDefault();
-				if (e.shiftKey) jumpComponent(1);
-				else stepWalk(1);
-			} else if (e.key === 'ArrowLeft') {
-				e.preventDefault();
-				if (e.shiftKey) jumpComponent(-1);
-				else stepWalk(-1);
+				jumpComponent(dir as 1 | -1);
+				return;
 			}
+			const action = shellKeyAction(e, e.target as Element | null);
+			if (!action) return;
+			e.preventDefault();
+			if (action === 'next') stepWalk(1);
+			else if (action === 'prev') stepWalk(-1);
+			else if (action === 'first') gotoIndex(0);
+			else if (action === 'last') gotoIndex(Number.MAX_SAFE_INTEGER);
+		},
+		[stepWalk, jumpComponent, gotoIndex],
+	);
+
+	/** One-finger horizontal flick → a step, via the kernel's rule. A gesture that ever
+	 *  held two fingers is a PINCH and never a swipe (the trap `swipeAction`'s own note
+	 *  records), so it is dropped for as long as it lives. */
+	const touchRef = React.useRef<{ x: number; y: number; multi: boolean } | null>(null);
+	const onDeckTouchStart = React.useCallback((e: TouchEvent) => {
+		if (viewRef.current !== 'read') return;
+		if (e.touches.length > 1) {
+			if (touchRef.current) touchRef.current.multi = true;
+			return;
+		}
+		const t = e.touches[0];
+		if (t) touchRef.current = { x: t.clientX, y: t.clientY, multi: false };
+	}, []);
+	const onDeckTouchEnd = React.useCallback(
+		(e: TouchEvent) => {
+			const from = touchRef.current;
+			if (e.touches.length === 0) touchRef.current = null;
+			if (!from || from.multi || viewRef.current !== 'read') return;
+			const t = e.changedTouches[0];
+			if (!t) return;
+			const action = swipeAction({ dx: t.clientX - from.x, dy: t.clientY - from.y });
+			if (action === 'next') stepWalk(1);
+			else if (action === 'prev') stepWalk(-1);
+		},
+		[stepWalk],
+	);
+
+	/**
+	 * THE SCROLL, READ BACK. The walk index was write-only: the bar, the caption, the Step
+	 * dropdown and `?s=` were set by a step and never corrected, so a reader who scrolled
+	 * — the wheel, a trackpad, a finger, the scrollbar — was told they were still on the
+	 * slide they had left. Measured at 1440x900 on `?c=kpi`: a wheel to slide 7 left the
+	 * bar reading "1 / 13", and the next press of Next then scrolled them BACKWARDS to
+	 * slide 2 (#2103). Every one of those readouts now derives from `readingSlideIndex`.
+	 */
+	const scrollRafRef = React.useRef<number | null>(null);
+	const onDeckScroll = React.useCallback(() => {
+		if (scrollRafRef.current != null) return; // one read per frame
+		scrollRafRef.current = requestAnimationFrame(() => {
+			scrollRafRef.current = null;
+			const frame = frameRef.current;
+			const w = walkRef.current;
+			if (!frame || !w || viewRef.current !== 'read' || !observeReadyRef.current) return;
+			if (previewCollapsedRef.current) return;
+			const win = frame.contentWindow;
+			if (!win) return;
+			// `w.index` is passed so the rule can KEEP it while its slide is still on screen —
+			// see the hysteresis clause. Without it the counter fights the stepper wherever the
+			// pane shows more than one slide, which on a phone is everywhere.
+			const idx = readingSlideIndex(frameBands(frame), win.scrollY, win.innerHeight, w.index);
+			// Defer to a programmatic scroll still in flight — a smooth `scrollTo` crosses
+			// every slide between here and there — but let it end the moment it ARRIVES,
+			// so a reader who scrolls straight out of a step is not ignored for a second.
+			const pending = walkScrollRef.current;
+			if (pending) {
+				if (idx === pending.index) walkScrollRef.current = null;
+				else if (Date.now() < pending.until) return;
+				else walkScrollRef.current = null;
+			}
+			if (idx === w.index) return;
+			const moved: Walk = { ...w, index: idx };
+			setWalk(moved);
+			walkRef.current = moved;
+		});
+	}, []);
+	React.useEffect(
+		() => () => {
+			if (scrollRafRef.current != null) cancelAnimationFrame(scrollRafRef.current);
+		},
+		[],
+	);
+
+	/**
+	 * Bind all of the above to the CURRENT frame document, and rebind when a full srcdoc
+	 * write replaces it. Called from `onFrameLoad` and after every render, and keyed on the
+	 * DOCUMENT's identity rather than a flag — a patch render keeps the same document and
+	 * must not re-add a second copy of every listener.
+	 */
+	const bindDeckInput = React.useCallback(() => {
+		const frame = frameRef.current;
+		let doc: Document | null = null;
+		try {
+			doc = frame?.contentDocument ?? null;
+		} catch {
+			return; // mid-navigation
+		}
+		const win = doc?.defaultView;
+		if (!doc || !win || boundFrameDocRef.current === doc) return;
+		boundFrameDocRef.current = doc;
+		win.addEventListener('scroll', onDeckScroll, { passive: true });
+		doc.addEventListener('keydown', onDeckKey as EventListener);
+		doc.addEventListener('touchstart', onDeckTouchStart as EventListener, { passive: true });
+		doc.addEventListener('touchend', onDeckTouchEnd as EventListener, { passive: true });
+		// No teardown: the listeners die with the document they are on. The parent-side
+		// copies below are the ones with a lifetime worth managing.
+	}, [onDeckScroll, onDeckKey, onDeckTouchStart, onDeckTouchEnd]);
+	bindDeckInputRef.current = bindDeckInput;
+
+	// The parent-side half of the same three verbs: a reader who has not touched the deck
+	// still has focus on <body>, and a swipe that starts on the letterbox around the slide
+	// never reaches the frame at all.
+	React.useEffect(() => {
+		const wrap = frameRef.current?.parentElement;
+		window.addEventListener('keydown', onDeckKey);
+		wrap?.addEventListener('touchstart', onDeckTouchStart, { passive: true });
+		wrap?.addEventListener('touchend', onDeckTouchEnd, { passive: true });
+		return () => {
+			window.removeEventListener('keydown', onDeckKey);
+			wrap?.removeEventListener('touchstart', onDeckTouchStart);
+			wrap?.removeEventListener('touchend', onDeckTouchEnd);
 		};
-		window.addEventListener('keydown', onKey);
-		return () => window.removeEventListener('keydown', onKey);
-	}, [view, stepWalk, jumpComponent]);
+	}, [onDeckKey, onDeckTouchStart, onDeckTouchEnd]);
+
+	// A pane that changed SIZE has re-scaled the deck under a scroll position measured
+	// against the old geometry, so the reader silently drifts off their slide — measured
+	// at 1440→900px mid-walk: the bar still said 3/8 with slide 4 on screen (#2103). One
+	// observer covers the window, the split drag, a collapse and an orientation change.
+	React.useEffect(() => {
+		const wrap = frameRef.current?.parentElement;
+		if (!wrap || typeof ResizeObserver === 'undefined') return;
+		let t: ReturnType<typeof setTimeout> | null = null;
+		const ro = new ResizeObserver(() => {
+			if (t) clearTimeout(t);
+			t = setTimeout(() => {
+				t = null;
+				if (viewRef.current !== 'read' || previewCollapsedRef.current) return;
+				frameRef.current?.contentWindow?.__latticeFit?.();
+				landWalkRef.current();
+			}, SCROLL_IDLE_MS);
+		});
+		ro.observe(wrap);
+		return () => {
+			if (t) clearTimeout(t);
+			ro.disconnect();
+		};
+	}, []);
 
 	// Deck setup operates on whatever deck the reader is walking (§0 amendment):
 	// in Explore it reads/writes the walk deck (ephemeral — regenerated on the

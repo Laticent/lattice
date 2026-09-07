@@ -53,9 +53,31 @@ export function ComponentPicker({
 	const [open, setOpen] = React.useState(false);
 	const index = React.useMemo(() => makeSearchIndex(components), [components]);
 
-	const ranked = rankedFor(components, index, query); // flat ranked list while searching
+	// MEMOIZED, not recomputed per render. `rankedFor` runs Fuse and a BM25 pass over the
+	// whole catalog, and this component re-renders with its parent — which, now that the
+	// walk index follows the reader's scroll, is once per animation frame while they are
+	// scrolling the deck. Unmemoized that is a full search per frame for as long as a
+	// query is in the box, on the same thread as the scroll (#2103).
+	const ranked = React.useMemo(() => rankedFor(components, index, query), [components, index, query]);
 	const lens = lenses.find((l) => l.id === lensId) ?? lenses[0];
-	const groups = ranked ? null : groupBy(components, lens);
+	const groups = React.useMemo(() => (ranked ? null : groupBy(components, lens)), [ranked, components, lens]);
+
+	// WHICH ROW THE KEYBOARD IS ON. cmdk defaults it to the first item in the list, which
+	// on a 69-component catalog in a 300px window meant opening the picker on `wifi` put
+	// the highlight on `closing` — 2376px above the checked row, with the reader's own
+	// component nowhere on screen. Pressing Enter to dismiss then REPLACED their deck with
+	// whatever happened to sort first (measured: wifi → closing, #2103). Controlled here so
+	// it starts on the current component and cmdk scrolls that row into view.
+	const firstRanked = ranked?.[0]?.name ?? '';
+	const [active, setActive] = React.useState(current);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `current` is deliberately not a dep — re-pointing the highlight at it while the picker is OPEN would yank the list out from under a reader who is browsing.
+	React.useEffect(() => {
+		if (!open) return;
+		// A query re-ranks the list, so the highlight belongs on the top hit — that is the
+		// row Enter should take. With no query the reader is browsing, and the row that
+		// matters is the one they are already on.
+		setActive(ranked ? firstRanked : current);
+	}, [open, ranked, firstRanked]);
 
 	const select = (name: string) => {
 		onPick(name);
@@ -83,7 +105,7 @@ export function ComponentPicker({
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent className="w-[min(22rem,86vw)] p-0" align="start">
-				<Command shouldFilter={false}>
+				<Command shouldFilter={false} value={active} onValueChange={setActive}>
 					<CommandInput
 						placeholder="Search components — name, tag, or description…"
 						value={query}

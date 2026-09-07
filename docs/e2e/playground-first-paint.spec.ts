@@ -78,6 +78,15 @@ async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) 
 				// un-scaled 1280px section is not something a person ever sees.
 				if (!f || !sec || !doc?.defaultView) return null;
 				if (doc.defaultView.getComputedStyle(sec.parentElement as Element).visibility === 'hidden') return null;
+				// …and NEITHER IS A FRAME THE PARENT IS STILL HIDING. `#preview` is
+				// `visibility:hidden; opacity:0` until the render loop adds `.is-live`, with the
+				// instant-shell painting in front of it — so the inner check alone counted
+				// geometries behind a hidden element as things "a person watches move". Traced
+				// on an Explore reload: `.lattice` reveals at t=1116 with the frame still
+				// hidden, the walk position lands at t=1131 moving the slide 20px, and `is-live`
+				// arrives at t=1165 — every frame the reader can see is at the landed position,
+				// and only this clause tells the two apart (#2103).
+				if (getComputedStyle(f).visibility === 'hidden') return null;
 				const fr = f.getBoundingClientRect();
 				const sr = sec.getBoundingClientRect();
 				if (sr.width < 1 || sr.height < 1) return null;

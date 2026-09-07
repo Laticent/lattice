@@ -15,6 +15,7 @@ import {
 	parsePlaygroundUrl,
 	playgroundQuery,
 	readHandoff,
+	readingSlideIndex,
 	readPlan,
 	resolveComponent,
 	resolvePlanStep,
@@ -242,5 +243,118 @@ describe('slideTranscript — comment stripping reaches a fixed point', () => {
 		expect(t).not.toContain('<!--');
 		expect(t).not.toContain('script');
 		expect(t).toContain('Real heading');
+	});
+});
+
+// The inverse of the walk's scroll (#2103). These cases are the ones the rejected rules
+// (an anchor line, the viewport centre) each get wrong, plus the narrow-width case that
+// forced the hysteresis clause — see the docblock on `readingSlideIndex`.
+describe('readingSlideIndex — the slide the reader is actually on', () => {
+	/** REAL geometry, measured on `?c=kpi` at 1440x900: 13 slides, 668px apart, each 652px
+	 *  of VISUAL height in a 693px pane. The stepper scrolls to `top - 16`. */
+	const KPI = Array.from({ length: 13 }, (_, i) => ({ top: 36 + i * 668, height: 652 }));
+	const VH = 693;
+	/** …and on the phone, 390x844, where the same deck lays out three slides to a pane and
+	 *  the filmstrip's scroll clamps 365px short of putting the last one at the top. */
+	const PHONE = Array.from({ length: 13 }, (_, i) => ({ top: 36 + i * 195, height: 179 }));
+	const PHONE_VH = 579;
+	const PHONE_MAX_SCROLL = 2010;
+	const stepTo = (bands: { top: number }[], i: number) => Math.max(0, bands[i].top - 16);
+
+	test('an empty deck reads as slide 0 rather than throwing', () => {
+		expect(readingSlideIndex([], 0, VH)).toBe(0);
+		expect(readingSlideIndex([], 4000, VH, 3)).toBe(0);
+	});
+
+	test('every slide the stepper lands on reads back as that slide', () => {
+		for (let i = 0; i < KPI.length; i++) {
+			expect(readingSlideIndex(KPI, stepTo(KPI, i), VH)).toBe(i);
+		}
+	});
+
+	test('the top and the bottom of the filmstrip read as the first and last slides', () => {
+		expect(readingSlideIndex(KPI, 0, VH)).toBe(0);
+		expect(readingSlideIndex(KPI, KPI[12].top + KPI[12].height - VH, VH)).toBe(12);
+	});
+
+	test('a free scroll between two slides reads as whichever fills more of the pane', () => {
+		expect(readingSlideIndex(KPI, stepTo(KPI, 5) + 100, VH)).toBe(5);
+		expect(readingSlideIndex(KPI, stepTo(KPI, 5) + 500, VH)).toBe(6);
+	});
+
+	test('the index rises monotonically as the reader scrolls down', () => {
+		let prev = 0;
+		for (let y = 0; y <= KPI[12].top + KPI[12].height; y += 37) {
+			const i = readingSlideIndex(KPI, y, VH);
+			expect(i).toBeGreaterThanOrEqual(prev);
+			prev = i;
+		}
+		expect(prev).toBe(12);
+	});
+
+	test('a slide SHORTER than the pane still reads back from its own landing', () => {
+		// The case that breaks a centre-line rule: at 200px tall in a 693px pane the pane's
+		// centre after a step to slide i sits inside slide i+1, so a centre rule reports
+		// i+1 for a jump to i. Overlap does not.
+		const short = Array.from({ length: 8 }, (_, i) => ({ top: 20 + i * 200, height: 184 }));
+		for (let i = 0; i < 6; i++) expect(readingSlideIndex(short, stepTo(short, i), 693)).toBe(i);
+	});
+
+	test('a slide TALLER than the pane reads as itself the whole way down', () => {
+		const tall = Array.from({ length: 4 }, (_, i) => ({ top: i * 1600, height: 1560 }));
+		for (const y of [0, 400, 900, 1200]) expect(readingSlideIndex(tall, y, VH)).toBe(0);
+		// The handover is where the gap between two tall slides tips the pane over, not at
+		// the next slide's top: by 1400 the reader sees 160px of slide 0 and 493 of slide 1.
+		expect(readingSlideIndex(tall, 1400, VH)).toBe(1);
+	});
+
+	test('a tie splits to the LOWER index — the counter never runs ahead of the reader', () => {
+		const two = [
+			{ top: 0, height: 400 },
+			{ top: 400, height: 400 },
+		];
+		expect(readingSlideIndex(two, 200, 400)).toBe(0);
+	});
+
+	// ── The hysteresis clause ──────────────────────────────────────────────────
+
+	test('the END of a phone filmstrip keeps the last slide, which pure overlap cannot', () => {
+		// Three slides fully on screen and the scroll clamped: slides 11, 12 and 13 each
+		// show ~179px, so the unbiased winner is the LOWEST of them. The reader who just
+		// pressed End is looking at the end of the deck, and the bar must say so.
+		expect(readingSlideIndex(PHONE, PHONE_MAX_SCROLL, PHONE_VH)).toBe(11);
+		expect(readingSlideIndex(PHONE, PHONE_MAX_SCROLL, PHONE_VH, 12)).toBe(12);
+	});
+
+	test('a small nudge of the wheel does not twitch the counter off the current slide', () => {
+		const at = stepTo(PHONE, 5);
+		expect(readingSlideIndex(PHONE, at + 50, PHONE_VH, 5)).toBe(5);
+		expect(readingSlideIndex(PHONE, at + 90, PHONE_VH, 5)).toBe(5);
+	});
+
+	test('but a real scroll off the slide DOES move the counter', () => {
+		// Once the current slide is gone from the pane there is nothing left to keep.
+		expect(readingSlideIndex(PHONE, stepTo(PHONE, 5) + 195, PHONE_VH, 5)).toBe(6);
+		expect(readingSlideIndex(KPI, stepTo(KPI, 5) + 2000, VH, 5)).toBe(8);
+		// The defect this whole function exists for: a wheel from the title to slide 6 with
+		// the chrome still claiming slide 1.
+		expect(readingSlideIndex(KPI, 3620, VH, 0)).toBe(5);
+	});
+
+	test('hysteresis cannot resurrect an index the deck no longer has', () => {
+		expect(readingSlideIndex(KPI, 0, VH, 99)).toBe(0);
+		expect(readingSlideIndex(KPI, 3620, VH, -1)).toBe(5);
+	});
+
+	test('every phone step lands on a slide the reader can actually see', () => {
+		// The honest invariant, asserted directly: whatever index comes back, that slide is
+		// on screen. Held across the whole deck at the width where three share the pane.
+		for (let i = 0; i < PHONE.length; i++) {
+			const y = Math.min(stepTo(PHONE, i), PHONE_MAX_SCROLL);
+			const got = readingSlideIndex(PHONE, y, PHONE_VH, i);
+			const b = PHONE[got];
+			const visible = Math.min(y + PHONE_VH, b.top + b.height) - Math.max(y, b.top);
+			expect(visible, `slide ${got + 1} is off screen at scroll ${y}`).toBeGreaterThan(b.height * 0.5);
+		}
 	});
 });
