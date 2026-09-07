@@ -308,6 +308,48 @@ quadrant, map, matrix-grid, kanban, word-cloud and bullet all encode
 `a11y-achromatopsia` or a monochrome board printout, those charts lose their
 categorical read entirely.
 
+### At the ceiling — the non-color channel is narrower than the color channel
+
+The gallery samples three to five categories. Every manifest also carries a
+`stressDoc`: a curated worst case at the documented ceiling — the pie at eleven
+slices, the kanban at six lanes, the scatter with four points inside four units
+of each other. Those were rendered one per docs page and never assembled, so
+nothing had measured the bucket at its ceiling in one pass.
+`tools/build-stress-deck.js` assembles them; both instruments run against it
+exactly as against the gallery:
+
+```
+node tools/build-stress-deck.js --bucket chart
+node tools/chart-mark-separation.js .scratch/chart.stress.md --theme a11y-achromatopsia
+```
+
+**The first run found a defect no gallery slide can show, because every gallery
+slide fits inside six categories:**
+
+| | width |
+|---|---|
+| categorical palette (`--chart-cat1..8`) | **8** |
+| chart textures the engine emits per render (`latt-a11y-chart-tex-1..8`) | **8** |
+| chart textures the a11y themes actually WIRE (`nth-of-type(6n+…)`) | **6** |
+| the piechart's own documented ceiling | **11 slices** |
+
+So on every a11y theme, **categories 7 and 8 silently wear the textures of 1 and
+2** — while the textures built for them sit in the document, emitted and unused.
+At the pie's documented eleven-slice ceiling, slices 7–11 repeat 1–5: same gray
+under achromatopsia, same hatch, no channel left to tell them apart.
+
+The rule this implies is more general than the fix: **a redundant channel that is
+narrower than the channel it backs up is not redundancy — it is a silent merge.**
+Whatever the language says about texture, shape or value, its width has to be
+declared against the categorical cycle's width and gated, not left to a hand-
+written `6n` cycle in a stylesheet that no test compares to `--chart-cat1..8`.
+
+Two things this is NOT. `bar` painting eight bars one texture is correct — they
+are one series, one category. `stacked-bar` cycling six textures across
+thirty-six segments is correct — six parts repeated across six bars, and a part
+must keep its texture from bar to bar. Only distinct CATEGORIES sharing a
+channel is the defect.
+
 ## The brief
 
 Design **one chart design language** — a spec layer above the existing palette —
