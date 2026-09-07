@@ -1,0 +1,2 @@
+- Chart design language: what a mark's fill ENCODES — hue, ramp, presence or layered — now decides whether a finish may retreat it, replacing a "sole carrier" rule that got `quadrant` wrong.
+- A finish reaches a textured mark through shade and its edge, never by repainting it: on the a11y palettes the fill is the pattern that carries category when hue cannot.
