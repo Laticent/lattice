@@ -656,6 +656,26 @@ export function DeckPreview({
 			} catch (err) {
 				console.error('[DeckPreview] renderer teardown failed', err);
 			}
+			// Drop every MOUNT-SCOPED ref this teardown just invalidated, so a REMOUNT of the
+			// same instance builds fresh state instead of reusing torn-down state. React only
+			// reuses an instance's refs across mount→unmount→remount under StrictMode's
+			// double-invoke (a real remount gets fresh refs), so in production this is inert —
+			// and StrictMode is exactly where the bug showed. `engineRef` is created once in the
+			// render body (`if (engineRef.current === null)`), so without this the second mount
+			// reuses the DISPOSED renderer: it never renders, the Nacre loader spins forever, and
+			// Present is stuck on its skeleton on the whole dev server. `animaRef` is the same
+			// shape one level down — `syncAnima` short-circuits to `rebind()` on a destroyed
+			// scene host — and `animaBoundRef` would keep the `load` listener "bound" to an
+			// iframe the remount no longer has. `paintedRef` / `firstRenderFiredRef` are
+			// first-paint guards: a fresh mount's first paint must flush immediately and must be
+			// allowed to dismiss the SSG shell again.
+			engineRef.current = null;
+			animaRef.current = null;
+			animaBoundRef.current = false;
+			animaLoadingRef.current = false;
+			animaBackstopRef.current = undefined;
+			paintedRef.current = false;
+			firstRenderFiredRef.current = false;
 		},
 		[],
 	);
