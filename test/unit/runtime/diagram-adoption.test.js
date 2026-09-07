@@ -350,10 +350,17 @@ describe('the observer wiring', () => {
     assert.doesNotMatch(RUNTIME_SRC, /COLD_MS|burstFirstSight|scheduledRunDelay/, 'the second-delay policy is cut; re-adding one needs its own tests and a measurement');
   });
 
-  test('scheduleRun re-arms from the full debounce, so a burst coalesces', () => {
+  test('scheduleRun coalesces on COMPLETION, not on a clock', () => {
+    // The fixed 150ms timer is gone: it was larger than a full render for every diagram up
+    // to ~64 nodes, and a timer larger than the work it defers is waiting, not coalescing.
+    // What replaces it must have both halves — a frame-level floor that collapses one
+    // write's mutation records, and an in-flight check so a burst never queues a render per
+    // keystroke behind a strictly serial queue.
     const src = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function scheduleRun('), RUNTIME_SRC.indexOf('function wrapFences('));
     assert.match(src, /clearTimeout\(scheduledRunHandle\)/, 'a re-arm must cancel the pending run');
-    assert.match(src, /\}, DEBOUNCE_MS\);/, 'the re-armed run must wait the full debounce, not a latched shorter one');
+    assert.match(src, /\}, COALESCE_MS\);/, 'the floor is one frame, not a fixed debounce');
+    assert.match(src, /if \(diagramRunActive\)/, 'a run in flight must defer to the completion hook');
+    assert.match(src, /rerunRequested = true/, 'and record that the source moved while it ran');
   });
 });
 

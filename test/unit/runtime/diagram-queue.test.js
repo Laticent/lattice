@@ -76,16 +76,24 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
       if (preEl.dataset.mermaidState === 'rendering') preEl.dataset.mermaidState = 'pending';
     },
     markFenceDrawn: () => {},
+    // THE SCHEDULER, which the queue now touches at exactly two points: it marks a run in
+    // flight so a burst of keystrokes cannot queue a render per character behind a strictly
+    // serial chain, and it asks for one more pass if the source moved while it ran. Injected
+    // rather than lifted because the scheduler lives outside this block and none of these
+    // cells are about it — they are about the chain always advancing.
+    scheduleRun: () => {},
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn) {
+    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, scheduleRun) {
        let renderCounter = 0;
+       let diagramRunActive = false;
+       let rerunRequested = false;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
   );
-  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn);
+  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.scheduleRun);
 
   /** Drive the real kernel over a deck, exactly as the runtime does. */
   const tagOf = new WeakMap();
