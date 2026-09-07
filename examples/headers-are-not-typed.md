@@ -17,7 +17,7 @@ acronyms:
 
 # A header is bold because the layout says so
 
-Four components used to make their item header out of markup the author typed. Drop the asterisks and the header vanished — emphasis meant as decoration was holding up the structure. All four now supply their own label, and the asterisks buy nothing.
+`inventory` made its entry name out of markup the author typed: drop the asterisks and the name rendered as body prose. `redline` had the opposite problem — its label ate the sentence after it. Both now take a plain lead. And on `matrix-2x2`, typing the bold made the label *lighter*.
 
 ---
 
@@ -27,7 +27,7 @@ Four components used to make their item header out of markup the author typed. D
 
 ## Typing the bold was never optional.
 
-The same slides rendered twice, once with the asterisks and once without, then the HTML compared: `inventory`, `matrix-2x2` and `verdict-grid` came back with zero `<strong>` elements. `redline` kept one, and it had swallowed the sentence after it.
+Counting `<strong>` elements said four components depended on typed bold. Measuring the rendered weight said one did. On `matrix-2x2` and `verdict-grid` the card `li` is already `font-weight:700`, so the label was bold from the layout all along — the element was inert on one and, on the other, one step lighter than no element at all.
 
 ---
 
@@ -56,7 +56,7 @@ The same slides rendered twice, once with the asterisks and once without, then t
 
 ## The retired shape still renders, so nothing had to be rewritten to keep working.
 
-Every path skips a row whose lead is already a `<strong>`, so a deck still written the old way — `- **Signal Intake.** Weekly collection…` — produces the same markup it always did. `lint:deck` warns and offers the autofix; it does not refuse the deck. Our own 86 rows moved because the reference decks should model the shape we mean, not because they would otherwise have broken.
+Every path skips a row whose lead is already a `<strong>`, so a deck still written the old way — `- **Signal Intake.** Weekly collection…` — produces the same markup it always did. `lint:deck` warns and offers the autofix; it does not refuse the deck. Our own 86 rows moved because `inventory` and `redline` need the nested shape to bound the label, not as a style sweep.
 
 ---
 
@@ -75,7 +75,7 @@ Every path skips a row whose lead is already a `<strong>`, so a deck still writt
 ---
 
 <!-- _class: matrix-2x2 -->
-<!-- _footer: "matrix-2x2 · quadrant labels, unbolded" -->
+<!-- _footer: "matrix-2x2 · the card li sets the weight; a typed label now inherits it" -->
 
 ## Where each option lives.
 
@@ -92,7 +92,7 @@ Every path skips a row whose lead is already a `<strong>`, so a deck still writt
 ---
 
 <!-- _class: verdict-grid -->
-<!-- _footer: "verdict-grid · option names, unbolded" -->
+<!-- _footer: "verdict-grid · already correct — it neutralised the typed label all along" -->
 
 ## Which option meets the criteria.
 

@@ -94,6 +94,18 @@ section.matrix-2x2 li > ol > li {
   line-height:var(--lh-base);
 }
 
+/* A typed `**Quadrant label.**` must render exactly like the plain lead beside it.
+ * The card li above is `font-weight:700`, but a <strong> inside it has no rule here,
+ * so it fell through to base.elements.css's `section strong { font-weight:600 }` and
+ * came out one step LIGHTER than an unbolded label — measured 700 vs 600 in Chrome
+ * on the shipped bundle. Emphasis the author added to a header therefore took weight
+ * AWAY from it, silently, which is the opposite of what typing it asks for.
+ * `verdict-grid.styles.css` has carried this exact rule for the same shape; this is
+ * that rule, not a new idea. See engineering/decisions/2026-09-06-header-weight-is-
+ * the-layout-s.md and HARD RULE #5. */
+section.matrix-2x2 > .cell-stage > ul > li > strong,
+section.matrix-2x2 > .cell-stage > ol > li > strong { font-weight:inherit; color:inherit; }
+
 /* Hardening: element siblings of <strong> in a card li don't inherit
  * the parent's font-weight:700. Covers cases like `<strong>Title.</strong>
  * <em>italic body</em>`. Text-node siblings still inherit (CSS can't

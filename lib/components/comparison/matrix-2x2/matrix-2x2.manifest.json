@@ -129,8 +129,8 @@
   ],
   "commonMistakes": [
     {
-      "mistake": "Quadrant title names only one axis, e.g. `- **Priorities.**` instead of both poles.",
-      "fix": "Lead each quadrant with both axis poles: `- **High impact · Low effort.**`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes."
+      "mistake": "Quadrant title names only one axis, e.g. `- Priorities` instead of both poles.",
+      "fix": "Lead each quadrant with both axis poles: `- High impact · Low effort`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes."
     },
     {
       "mistake": "The four outer list items authored in an arbitrary order.",

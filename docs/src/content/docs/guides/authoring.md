@@ -66,8 +66,8 @@ any Lattice palette. The same content is also available as a single
 
 Some components offer several interchangeable looks over one authored content
 shape — you change one class and the same Markdown re-renders a different way,
-no re-authoring. The **`inventory`** component (an eyebrow, a title, a bulleted
-list with bold leads, and a closing insight) is the clearest example: its
+no re-authoring. The **`inventory`** component (an eyebrow, a title, a list of
+name-over-detail entries, and a closing insight) is the clearest example: its
 default is a numbered **ledger**, and three variants restyle the identical
 content:
 
@@ -84,19 +84,28 @@ for one deck that renders the same content all four ways.
 
 ## The card-style nesting rule
 
-Card-style components (`cards-grid`, `cards-stack`,
-`decision`, `verdict-grid`, and others) expect **nested** list items,
-not inline bold titles:
+Card-style components (`cards-grid`, `cards-stack`, `decision`,
+`verdict-grid`, `inventory`, `redline`, and others) expect **nested** list
+items, not inline bold titles:
 
 ```markdown
 - Title
   - body text continues here
 ```
 
-Not `- **Title.** body text` — the autobold rule on those components would
-make the body inherit the title's weight. The component reference flags
-this per component, and the repo's commit-time validator catches it across
-every deck.
+Not `- **Title.** body text`, for two reasons. On most of these the body
+would inherit the title's weight. And on the ones whose label the layout
+lifts for you — `inventory` and `redline` among them — the lift takes the
+whole lead up to the first nested list, so an inline body has nothing
+delimiting it and gets pulled into the label.
+
+**You never type the bold.** The title is a header, and a header is bold
+because the layout says so — write `- Title` and you get it. Typing
+`**Title**` is a no-op where the layout lifts the label, and on the
+card-style components it is either inert or, until recently on `matrix-2x2`,
+actively lighter than the plain lead. The component reference states the
+shape per component; the repo's commit-time validator catches the inline
+form across every deck.
 
 ## Modifiers
 

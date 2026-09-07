@@ -227,7 +227,7 @@ describe('slot-label-lift · registered layouts', () => {
   const NESTED = (cls) => `<!-- _class: ${cls} -->\n\n## Heading.\n\n- First label\n  - First body.\n- Second label\n  - Second body.\n`;
   const BOLDED = (cls) => `<!-- _class: ${cls} -->\n\n## Heading.\n\n- **First label**\n  - First body.\n- **Second label**\n  - Second body.\n`;
 
-  for (const cls of ['inventory', 'matrix-2x2', 'verdict-grid', 'redline']) {
+  for (const cls of ['inventory', 'redline']) {
     test(`${cls}: a plain lead becomes the label`, () => {
       assert.deepEqual(strongs(render(NESTED(cls))), ['First label', 'Second label']);
     });
@@ -249,8 +249,53 @@ describe('slot-label-lift · registered layouts', () => {
     // Guards the direction of the change: a future edit that drops one of these
     // from the registry would silently take its header away, and the component's
     // own docs would still be telling authors not to type it.
-    for (const cls of ['inventory', 'matrix-2x2', 'verdict-grid', 'redline']) {
+    for (const cls of ['inventory', 'redline']) {
       assert.ok(SLOT_LAYOUTS.includes(cls), `${cls} must stay on SLOT_LAYOUTS`);
     }
   });
+
+  test('matrix-2x2 and verdict-grid stay OFF the registry', () => {
+    // Both were registered in a first cut of #2113 on the strength of a <strong>
+    // COUNT, and the count was a red herring: their weight comes from the card li,
+    // not from the element. Registering them was inert at best and, on matrix-2x2,
+    // actively lighter. This arm is the note-to-self, not a style preference.
+    for (const cls of ['matrix-2x2', 'verdict-grid']) {
+      assert.ok(!SLOT_LAYOUTS.includes(cls),
+        `${cls} gets its label weight from the card li — see the SLOT_LAYOUTS docblock`);
+    }
+  });
+});
+
+/**
+ * The CSS half of the same promise, for the two card layouts that are NOT on the
+ * registry. Their label is bold because the li is bold, so "typing the bold is a
+ * no-op" is a CASCADE property, not a markup one — and a markup test cannot see it.
+ * What can break it is a <strong> inside the card picking up a DIFFERENT weight
+ * than the li: `base.elements.css` sets `section strong { font-weight:600 }`, so a
+ * card li at 700 with no `strong` rule renders a typed label one step LIGHTER than
+ * an untyped one. That is exactly what matrix-2x2 did until #2113. Both files must
+ * therefore carry the same two declarations.
+ */
+describe('card-label weight · matrix-2x2 and verdict-grid', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const ROOT = path.resolve(__dirname, '../../..');
+
+  for (const [cls, file] of [
+    ['matrix-2x2', 'lib/components/comparison/matrix-2x2/matrix-2x2.styles.css'],
+    ['verdict-grid', 'lib/components/comparison/verdict-grid/verdict-grid.styles.css'],
+  ]) {
+    const css = fs.readFileSync(path.join(ROOT, file), 'utf8');
+
+    test(`${cls}: the card li carries the label weight`, () => {
+      assert.match(css, /font-weight:\s*700/, `${file} must set the card li bold`);
+    });
+
+    test(`${cls}: a typed <strong> inherits it instead of dropping to 600`, () => {
+      assert.match(
+        css, /li\s*>\s*strong[^{]*\{[^}]*font-weight:\s*inherit/,
+        `${file} must neutralise a typed label, or base.elements.css's ` +
+        'section strong { font-weight:600 } makes it lighter than a plain lead');
+    });
+  }
 });

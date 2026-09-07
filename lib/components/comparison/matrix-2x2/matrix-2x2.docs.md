@@ -21,7 +21,7 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 
 ### Common mistakes
 
-- **Quadrant title names only one axis, e.g. `- **Priorities.**` instead of both poles.** Lead each quadrant with both axis poles: `- **High impact · Low effort.**`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes.
+- **Quadrant title names only one axis, e.g. `- Priorities` instead of both poles.** Lead each quadrant with both axis poles: `- High impact · Low effort`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes.
 - **The four outer list items authored in an arbitrary order.** Declaration order IS grid position: 1st item → top-left, 2nd → top-right, 3rd → bottom-left, 4th → bottom-right (a flex-wrap layout, not a labeled grid). Reordering the source list visibly reorders the quadrants.
 
 ### Data shape
