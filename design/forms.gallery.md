@@ -6,6 +6,7 @@ header: "Lattice · Form"
 footer: "Laticent · The composition model"
 meta: "Composition Model · 2026-06-15 | Owner · S. Aden"
 form: standard
+logo: ../lib/base/_logo/lattice-mark-min.svg
 ---
 
 <!-- _class: title silent -->
@@ -31,7 +32,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 ## Every slide resolves to the same three Cells.
 
 - **Masthead**
-  - The band across the top. Its lede holds the kicker and title Tiles; its bay holds the meta, logo, and status Tiles. This slide's bay carries the deck's `meta:` line.
+  - The band across the top. Its lede holds the kicker and title Tiles; its bay holds the meta and status Tiles. This slide's bay carries the deck's `meta:` line — the mark above it sits in no band at all.
 - **Stage**
   - The deterministic content region between the bands — the box a component fills. It computes to pixels before its content lays out, which is why a chart finally has somewhere to live.
 - **Footer**
@@ -41,14 +42,16 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 <!-- _class: cards-grid -->
 
-## Nine Tiles fill those Cells — sourced, not placed.
+## Ten Tiles fill those Cells — sourced, not placed.
 
 - Masthead Tiles
-  - Kicker, title, meta, logo, and a status chip. A Tile knows where its content comes from: the title from your `## heading`, the meta from front matter, the status from a class.
+  - Kicker, title, meta, and a status chip. Each knows its own source: the title from your `## heading`, the meta from front matter, the status from a class.
 - Stage Tile
   - The single `content` Tile — your component, which owns its own internal layout inside that Cell.
 - Footer Tiles
   - Footer text, the progress rail, and pagination — all derived. Dividers become sections; `paginate` becomes the page number.
+- Frame-anchored Tiles
+  - The logo and the watermark dock in no band. Each holds its own Cell, pinned to the slide — which is why the mark rides the corner above the bay.
 
 ---
 

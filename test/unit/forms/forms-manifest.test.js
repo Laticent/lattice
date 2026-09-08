@@ -202,3 +202,215 @@ test('(e) formsSlicingCss emits SECTION-scoped rules (so footer Cells inherit th
   // …and NOT scoped to a `.cell-` element (which would miss the wrapper-less footer Cells).
   assert.doesNotMatch(css, /\[data-family="[^"]*"\]\s+\.cell-/);
 });
+
+// (f) The Cell `region` vocabulary lives in TWO places — the JSON schema's enum
+// (read by editors and by anyone validating a manifest by hand) and CELL_REGIONS
+// in lib/forms/index.js (read by the loader, which is what actually rejects a bad
+// manifest). Adding `slide` in 2026-09 hit exactly that split: the schema accepted
+// the new region and the loader threw. They are not derived from one another, so
+// nothing but this test stops them drifting again.
+test('(f) the region vocabulary is identical in all THREE places that carry it', () => {
+  const { CELL_REGIONS } = require('../../../lib/forms');
+  const cellSchema = require('../../../lib/forms/schema/cell.schema.json');
+  const frameSchema = require('../../../lib/forms/schema/frame.schema.json');
+
+  const fromCell = cellSchema.properties.region.enum;
+  // The third copy: a slicing block may RELOCATE a Cell to another region, and
+  // frame.schema.json enumerates the legal targets. The first cut of this test
+  // compared only the two above and missed it — which is how adding `slide`
+  // landed in two copies and not the third, widening the very split it closed.
+  const slicing = frameSchema.properties.slicing.patternProperties['^(square|tall|strip)$']
+    .patternProperties['^[a-z][a-z0-9-]*$'].properties.region.enum;
+  const fromFrame = slicing.filter((v) => v !== null); // null = "drop this Cell"
+
+  assert.ok(Array.isArray(fromCell) && fromCell.length > 0, 'the cell schema enumerates regions');
+  assert.ok(fromFrame.length > 0, 'the frame schema enumerates relocation targets');
+  const sorted = (a) => [...a].sort();
+  assert.deepEqual(sorted(CELL_REGIONS), sorted(fromCell),
+    'CELL_REGIONS (lib/forms/index.js) and schema/cell.schema.json must match');
+  assert.deepEqual(sorted(CELL_REGIONS), sorted(fromFrame),
+    'CELL_REGIONS and schema/frame.schema.json slicing region enum must match');
+});
+
+// (g) The two frame-anchored Tiles must keep saying so, and must NOT share a Cell.
+// `logo` and `watermark` are positioned against the SECTION by their own
+// CSS/transform, and both manifests claimed a band Cell until 2026-09-08
+// (`masthead-bay` / `stage`) — a divergence invisible for as long as one Frame
+// existed. See engineering/decisions/2026-09-08-frame-catalog.md §4.2.
+//
+// They get a Cell EACH rather than one shared slide-box Cell. They have exactly
+// one thing in common — neither docks in a band — and that is a negative property;
+// every other Cell in the catalog names a position. Sharing one Cell forced a
+// single `z`, `accepts` and `capacity` onto two Tiles that agree on none of them,
+// and made per-Tile suppression unexpressible: a Frame suppresses by CELL id, so
+// no Frame could ever drop the watermark while keeping the logo.
+test('(g) logo and watermark each get their own frame-anchored Cell', () => {
+  const { loadCatalog } = require('../../../lib/forms');
+  const { tiles, cells } = loadCatalog();
+  const byId = new Map(cells.map((c) => [c.id, c]));
+
+  assert.ok(!byId.has('slide'), 'the shared catch-all slide Cell is gone');
+  for (const id of ['logo', 'watermark']) {
+    const t = tiles.find((x) => x.id === id);
+    const c = byId.get(id);
+    assert.ok(t, `${id} tile exists`);
+    assert.ok(c, `${id} Cell exists`);
+    assert.deepEqual(t.fits, [id], `${id} fits its own Cell, not a band and not a shared one`);
+    // Each Cell holds exactly one Tile, so — unlike `stage`, which spans three
+    // planes — its z CAN match its occupant's, and must.
+    assert.equal(c.z, t.z, `${id} Cell sits on its Tile's plane`);
+    assert.deepEqual(c.accepts, [t.kind], `${id} Cell accepts exactly its Tile's kind`);
+    assert.equal(c.capacity, 'one', `${id} Cell holds one Tile`);
+    assert.equal(c.fill, 'anchor', `${id} Cell is anchored, not docked`);
+  }
+  // NOT asserted: that the two Cells differ from EACH OTHER in z or accepts. They
+  // do today, and that difference is what motivated the split — but it is a
+  // coincidence of today's values, not the property this arm is about. The logo
+  // has been re-planed three times already (base.modifiers.css records two
+  // removals and a restoration); a legitimate re-plane must not redden this test.
+  // What is load-bearing is the per-Cell agreement asserted in the loop above.
+});
+
+// (h) `admits` is the FRAME side of the containment contract (design/forms.md §7).
+// The component side has shipped since 2026-07-14 as each manifest's `stage`
+// field, generated into stage-catalog.generated.js; the frame side did not exist
+// until 2026-09-08, so a Frame could not say what it accepts. These arms prove
+// the field is checked rather than decorative — each shape below fails.
+test('(h) frame admits rejects every malformed shape', () => {
+  const { validateFrame } = require('../../../lib/forms');
+  const base = { id: 'x', form: 'bookend', kind: 'root', exemptFromChrome: false,
+    description: 'd', admits: ['flow'], cells: [], suppresses: [] };
+  // SHAPE-valid only. checkIntegrity rejects this exact frame — a chrome-hosting
+  // frame must admit every non-sovereign kind, so admits:['flow'] under-claims (see
+  // arm (j)). The validate/integrity split is deliberate: validateFrame judges one
+  // manifest in isolation, the integrity arm needs the generated stage catalog.
+  assert.equal(validateFrame(base, 't').length, 0, 'the SHAPE is valid in isolation');
+  const bad = [
+    [{ ...base, kind: 'sovereign', exemptFromChrome: true, admits: ['flow', 'canvas'] }, /exactly \["sovereign"\]/],
+    [{ ...base, admits: ['sovereign'] }, /admits "sovereign" but exemptFromChrome is false/],
+    [{ ...base, admits: ['poster'] }, /must be one of flow, canvas, sovereign/],
+    [{ ...base, admits: [] }, /must be a non-empty array/],
+  ];
+  for (const [frame, re] of bad) {
+    const errs = validateFrame(frame, 't');
+    assert.ok(errs.some((e) => re.test(e)), `rejected ${JSON.stringify(frame.admits)}: ${errs.join(' | ')}`);
+  }
+});
+
+// (i) …and it is tied to the components that actually ship, both ways: a Frame
+// may not claim a stage kind nothing declares, and no declared kind may be left
+// with nowhere to compose.
+test('(i) frame admits is checked against the generated stage catalog', () => {
+  const { checkAdmitsCensus, loadCatalog } = require('../../../lib/forms');
+  const catalog = require('../../../lib/forms/cell/masthead/stage-catalog.generated.js');
+  const declared = new Set(Object.values(catalog));
+
+  const { frames } = loadCatalog();
+  const admitted = new Set(frames.flatMap((f) => f.admits));
+  assert.deepEqual([...declared].sort(), [...admitted].sort(),
+    'every shipped stage kind is admitted by a Frame, and no Frame invents one');
+
+  // the census arm fires when a kind loses its only Frame. It is deliberately
+  // NOT in checkIntegrity: that runs over caller-supplied subsets, where an
+  // absent kind is not an orphaned one.
+  const onlyFlow = [{ id: 'y', form: 'bookend', kind: 'root', exemptFromChrome: false,
+    description: 'd', admits: ['flow'], cells: [], suppresses: [] }];
+  const errs = checkAdmitsCensus(onlyFlow);
+  assert.ok(errs.length >= 2, `orphaned kinds reported: ${errs.join(' | ')}`);
+});
+
+// (j) A CHROME-HOSTING Frame may not UNDER-claim. (i) proves a Frame cannot invent
+// a stage kind; this proves the other direction where it is derivable. Such a Frame
+// is the fallback host for every component that is not its own sovereign, so its
+// correct `admits` IS the set of non-sovereign kinds the catalog declares — and
+// `admits` never feeds that catalog back in any direction, which is what makes this
+// a check rather than a restatement. (It is NOT independent of the frame catalog as
+// a whole: build() starts from frameToggleSkip() to decide which components get
+// "sovereign" instead of their own stage. Independent of `admits` is the true and
+// sufficient claim; an earlier revision overstated it.) Without this arm a frame
+// could declare admits:["flow"] and pass every gate while `canvas` components still
+// composed into it, which is exactly what a checker demonstrated on the first cut.
+//
+// A SOVEREIGN Frame's under-claim is deliberately NOT asserted here: the
+// catalog's `sovereign` values are built FROM the frame manifests' own
+// exemptFromChrome, so a check would compare the frame catalog to itself.
+test('(j) a root frame that under-claims a declared stage kind is rejected', () => {
+  const { checkIntegrity, loadCatalog } = require('../../../lib/forms');
+  const catalog = require('../../../lib/forms/cell/masthead/stage-catalog.generated.js');
+  const hostable = [...new Set(Object.values(catalog))].filter((k) => k !== 'sovereign').sort();
+  assert.ok(hostable.length >= 2, `more than one non-sovereign kind ships: ${hostable.join(', ')}`);
+
+  const { cells, frames, tiles } = loadCatalog();
+  assert.equal(checkIntegrity({ cells, frames, tiles }).length, 0, 'the shipped catalog passes');
+
+  for (const dropped of hostable) {
+    const mutated = frames.map((f) =>
+      f.kind === 'root' ? { ...f, admits: f.admits.filter((k) => k !== dropped) } : f);
+    const errs = checkIntegrity({ cells, frames: mutated, tiles });
+    assert.ok(errs.some((e) => e.includes('does not admit') && e.includes(`"${dropped}"`)),
+      `dropping "${dropped}" from every root frame is reported: ${errs.join(' | ')}`);
+  }
+});
+
+// (k) `kind` and `exemptFromChrome` encode the same fact, so they must agree — and
+// the admits under-claim arm keys on exemptFromChrome (what frameToggleSkip actually
+// reads), NOT on the self-declared `kind` label. Both guards exist because a checker
+// probe built a frame declaring kind:"sovereign" with exemptFromChrome:false and
+// admits:["flow"]: chrome-hosting in fact, sovereign by label, and it loaded clean —
+// the label alone let it opt out of arm (j). These two arms are INDEPENDENT: each
+// probe below trips exactly one of them.
+test('(k) a frame cannot escape the admits arm by mislabeling its kind', () => {
+  const { validateFrame, checkIntegrity, loadCatalog } = require('../../../lib/forms');
+  const { cells, frames, tiles } = loadCatalog();
+
+  for (const f of frames) {
+    assert.equal(f.kind === 'sovereign', f.exemptFromChrome,
+      `shipped frame "${f.id}" agrees with itself (kind=${f.kind}, exemptFromChrome=${f.exemptFromChrome})`);
+  }
+
+  const base = { id: 'sneaky', form: 'bookend', description: 'd',
+    cells: ['stage'], suppresses: [] };
+
+  // guard 1 — the label contradicts the operative property.
+  const mislabeled = { ...base, kind: 'sovereign', exemptFromChrome: false, admits: ['flow'] };
+  assert.ok(validateFrame(mislabeled, 't').some((e) => /contradicts exemptFromChrome/.test(e)),
+    'a chrome-hosting frame calling itself sovereign is rejected');
+  // …and the reverse mislabel too.
+  const mislabeled2 = { ...base, kind: 'root', exemptFromChrome: true, admits: ['sovereign'] };
+  assert.ok(validateFrame(mislabeled2, 't').some((e) => /contradicts exemptFromChrome/.test(e)),
+    'a chrome-exempt frame calling itself root is rejected');
+
+  // guard 2 — honestly labeled, still under-claims. validateFrame passes it; the
+  // integrity arm is what catches it, which is what makes the two independent.
+  const underclaims = { ...base, kind: 'root', exemptFromChrome: false, admits: ['flow'] };
+  assert.deepEqual(validateFrame(underclaims, 't'), [], 'shape is valid — nothing contradicts');
+  const errs = checkIntegrity({ cells, frames: [...frames, underclaims], tiles });
+  assert.ok(errs.some((e) => /does not admit "canvas"/.test(e)),
+    `the under-claim is caught on its own: ${errs.join(' | ')}`);
+});
+// (l) `region` is 1:1 with Cell `id`, and must stay so. This is the invariant the
+// logo/watermark split's own reasoning rests on: checkSlicingIntegrity builds a
+// region → Cell map with `if (!cellByRegion.has(c.region))`, so the FIRST Cell
+// claiming a region wins and a second one silently loses. Nothing enforced it —
+// it held by convention across all 12 Cells — which made the split's argument
+// ("a many-to-one region would make a relocation target arbitrary") true but
+// unguarded. An independent checker demonstrated the gap by adding a second Cell
+// with an existing region: validateCell and checkIntegrity both passed it clean.
+test('(l) every Cell region is 1:1 with its id, so a relocation target is never ambiguous', () => {
+  const { loadCatalog, CELL_REGIONS } = require('../../../lib/forms');
+  const { cells } = loadCatalog();
+
+  const mismatched = cells.filter((c) => c.region !== c.id).map((c) => `${c.id} → ${c.region}`);
+  assert.deepEqual(mismatched, [], 'no Cell names a region other than its own id');
+
+  const seen = new Map();
+  for (const c of cells) {
+    assert.ok(!seen.has(c.region),
+      `region "${c.region}" is claimed by both "${seen.get(c.region)}" and "${c.id}" — ` +
+      'checkSlicingIntegrity would bind a relocation to whichever loaded first');
+    seen.set(c.region, c.id);
+  }
+  // and the vocabulary carries no region without a Cell to be.
+  const orphans = CELL_REGIONS.filter((r) => !seen.has(r));
+  assert.deepEqual(orphans, [], 'every declared region has a Cell');
+});

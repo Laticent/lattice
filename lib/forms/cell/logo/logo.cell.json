@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schema/cell.schema.json",
+  "id": "logo",
+  "region": "logo",
+  "z": 2,
+  "accepts": ["chrome"],
+  "capacity": "one",
+  "fill": "anchor",
+  "clip": false,
+  "css": false
+}

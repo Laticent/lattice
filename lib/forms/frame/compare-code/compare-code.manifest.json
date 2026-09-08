@@ -5,6 +5,7 @@
   "kind": "sovereign",
   "exemptFromChrome": true,
   "description": "Side-by-side code comparison Frame — drives its own `> h2` title grid, so the root masthead does not apply (design/forms.md §8; FORM_TOGGLE_SKIP). Suppresses the masthead; keeps the footer.",
+  "admits": ["sovereign"],
   "cells": ["stage"],
   "suppresses": ["masthead", "masthead-lede", "masthead-bay"]
 }

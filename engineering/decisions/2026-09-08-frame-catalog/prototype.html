@@ -1,0 +1,702 @@
+<title>The Frame Catalog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+<style>
+/* ── Specimen catalog. Two-color letterpress: ink + a single red pass. ────── */
+:root{
+  --paper:#F1F3F0; --plate:#FBFCFA; --ink:#15191A; --ink-2:#4E5956;
+  --ink-3:#7C8783; --rule:#CBD2CE; --rule-2:#E1E6E2;
+  --red:#B0322A; --red-soft:#E8D4D1;
+  --tint:#DFE5E1; --tint-2:#E9EEEA; --shadow:rgba(21,25,26,.13);
+  --poster-bg:#15191A; --poster-fg:#F1F3F0;
+  --sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F1312; --plate:#181D1C; --ink:#E6EAE6; --ink-2:#A3AEAA;
+    --ink-3:#79837F; --rule:#2E3634; --rule-2:#242B29;
+    --red:#E0685C; --red-soft:#3A2422;
+    --tint:#242B29; --tint-2:#1D2322; --shadow:rgba(0,0,0,.5);
+  --poster-bg:#070A0A; --poster-fg:#DDE3DF;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F1312; --plate:#181D1C; --ink:#E6EAE6; --ink-2:#A3AEAA;
+  --ink-3:#79837F; --rule:#2E3634; --rule-2:#242B29;
+  --red:#E0685C; --red-soft:#3A2422;
+  --tint:#242B29; --tint-2:#1D2322; --shadow:rgba(0,0,0,.5);
+  --poster-bg:#070A0A; --poster-fg:#DDE3DF;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--serif);
+  font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px 96px}
+h1,h2,h3,h4{font-family:var(--sans);text-wrap:balance;margin:0}
+p{margin:0}
+a{color:var(--red)}
+.lede{font-size:19px;line-height:1.58;color:var(--ink-2);max-width:64ch}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--red);font-weight:500}
+.small{font-size:14px;color:var(--ink-2)}
+hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
+
+/* ── masthead ───────────────────────────────────────────────────────────── */
+header.top{padding:56px 0 30px;display:flex;flex-direction:column;gap:20px}
+header.top h1{font-size:clamp(40px,7vw,76px);font-weight:800;letter-spacing:-.028em;
+  line-height:.96}
+.reg{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.specstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
+  border-top:2px solid var(--ink);border-bottom:1px solid var(--rule)}
+.specstrip div{padding:12px 14px 13px;border-right:1px solid var(--rule-2)}
+.specstrip div:last-child{border-right:0}
+.specstrip b{display:block;font-family:var(--sans);font-size:26px;font-weight:600;
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.specstrip span{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3)}
+
+/* ── sections ───────────────────────────────────────────────────────────── */
+section.blk{padding:52px 0 0;display:flex;flex-direction:column;gap:22px}
+section.blk>h2{font-size:30px;font-weight:600;letter-spacing:-.02em}
+.secno{font-family:var(--mono);font-size:12px;color:var(--red);font-weight:500}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:34px}
+@media(max-width:820px){.cols2{grid-template-columns:1fr}}
+
+table.dat{width:100%;border-collapse:collapse;font-family:var(--sans);font-size:14px}
+table.dat th{text-align:left;font-family:var(--mono);font-size:10.5px;font-weight:500;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);
+  padding:0 12px 8px 0;border-bottom:1px solid var(--ink)}
+table.dat td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule-2);
+  vertical-align:top;color:var(--ink-2)}
+table.dat td:first-child{color:var(--ink);font-weight:500}
+table.dat td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;
+  text-align:right;padding-right:16px;color:var(--ink)}
+.scroller{overflow-x:auto}
+
+ol.laws{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:18px}
+ol.laws li{display:grid;grid-template-columns:44px 1fr;gap:16px;
+  padding-bottom:18px;border-bottom:1px solid var(--rule-2)}
+ol.laws li:last-child{border-bottom:0}
+ol.laws .n{font-family:var(--mono);font-size:12px;color:var(--red);padding-top:5px}
+ol.laws h3{font-size:17px;font-weight:600;margin-bottom:5px}
+ol.laws p{font-size:15px;color:var(--ink-2)}
+
+/* ── filter bar ─────────────────────────────────────────────────────────── */
+.bar{position:sticky;top:0;z-index:20;background:var(--paper);
+  border-bottom:1px solid var(--rule);padding:12px 0;display:flex;gap:8px;
+  flex-wrap:wrap;align-items:center;margin-bottom:26px}
+.bar button{font-family:var(--mono);font-size:11px;letter-spacing:.07em;
+  text-transform:uppercase;padding:6px 11px;background:transparent;
+  border:1px solid var(--rule);color:var(--ink-2);cursor:pointer;border-radius:0}
+.bar button:hover{border-color:var(--ink-3);color:var(--ink)}
+.bar button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);
+  color:var(--paper)}
+.bar .sp{flex:1}
+.bar .count{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+/* ── specimen plates ────────────────────────────────────────────────────── */
+.plates{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+  gap:30px}
+article.spec{background:var(--plate);border:1px solid var(--rule);
+  display:flex;flex-direction:column}
+article.spec.new{border-top:2px solid var(--red)}
+article.spec.ships{border-top:2px solid var(--ink)}
+.spec .hd{display:flex;justify-content:space-between;align-items:baseline;
+  gap:10px;padding:11px 14px 9px;border-bottom:1px solid var(--rule-2)}
+.spec .hd h3{font-size:19px;font-weight:600;letter-spacing:-.015em}
+.spec .id{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.spec .tagrow{display:flex;gap:6px;align-items:center;padding:0 14px 10px;
+  flex-wrap:wrap}
+.tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;padding:2.5px 6px;border:1px solid var(--rule);
+  color:var(--ink-3)}
+.tag.red{color:var(--red);border-color:var(--red)}
+.tag.solid{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tag.md-reframe{color:var(--red);border-color:var(--red-soft);background:var(--red-soft)}
+
+/* the 16:9 schematic */
+.slidewrap{padding:14px;background:var(--tint-2);border-block:1px solid var(--rule-2)}
+.slide{position:relative;aspect-ratio:16/9;background:var(--plate);
+  border:1px solid var(--rule);overflow:hidden}
+.slide .p{position:absolute}
+.p-title{background:var(--ink)}
+.p-eyebrow{background:var(--red)}
+.p-lede,.p-note{background:var(--ink-3);opacity:.55}
+.p-meta{border:1px solid var(--ink-3);opacity:.75}
+.p-logo{background:var(--ink-2);opacity:.5}
+.p-rule,.p-vrule{background:var(--rule);min-width:1px;min-height:1px}
+.p-rule.hair,.p-vrule.hair{background:var(--ink-3);opacity:.45}
+.p-stage{border:1px dashed var(--ink-3);background:var(--tint);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--ink-3)}
+.p-plate{background:var(--plate);border:1px solid var(--rule);
+  box-shadow:0 4px 14px var(--shadow)}
+.p-field{background:var(--tint);
+  background-image:repeating-linear-gradient(-45deg,transparent 0 5px,var(--rule) 5px 6px)}
+.p-panel{background:var(--ink)}
+.p-panel.red{background:var(--red)}
+.p-foot,.p-page{background:var(--ink-3);opacity:.5}
+.p-rail{background-image:repeating-linear-gradient(90deg,var(--ink-3) 0 4px,transparent 4px 11px);
+  opacity:.55}
+.p-coda{background:var(--ink-2);opacity:.45}
+.p-numeral{background:var(--red);opacity:.16}
+.p-scrim{background:linear-gradient(to top,var(--poster-bg) 34%,transparent);opacity:.92}
+.p-dark{background:var(--poster-bg)}
+.p-lines{background-image:repeating-linear-gradient(180deg,var(--rule) 0 1px,transparent 1px 12.5%)}
+.p-grid{background-image:repeating-linear-gradient(180deg,var(--rule-2) 0 1px,transparent 1px 5.6%)}
+.p-block{border:1px solid var(--ink-3);
+  background-image:repeating-linear-gradient(180deg,transparent 0 32%,var(--ink-3) 32% 33%)}
+.p-tick{background:var(--ink-3)}
+.p-onink{background:var(--poster-fg);opacity:.92}
+.p-onink-2{background:var(--paper);opacity:.4}
+.p.ghost{opacity:.16;filter:grayscale(1)}
+.p.ghost.p-stage{border-style:dotted}
+
+/* data block under each plate */
+.spec dl{margin:0;padding:12px 14px 4px;display:grid;
+  grid-template-columns:70px 1fr;gap:4px 12px;font-size:13.5px}
+.spec dt{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3);padding-top:4px}
+.spec dd{margin:0;color:var(--ink-2);font-family:var(--sans);font-size:13px;
+  line-height:1.5}
+.spec dd.ex{color:var(--ink-3)}
+.chips{display:flex;flex-wrap:wrap;gap:3px}
+.chip{font-family:var(--mono);font-size:10px;padding:1.5px 5px;
+  background:var(--tint-2);color:var(--ink-2);border:1px solid var(--rule-2)}
+.spec .why{padding:2px 14px 12px;font-family:var(--serif);font-size:14.5px;
+  color:var(--ink-2);line-height:1.55}
+.scores{margin-top:auto;border-top:1px solid var(--rule-2);padding:11px 14px 13px;
+  display:flex;flex-direction:column;gap:7px}
+.srow{display:grid;grid-template-columns:74px 1fr 26px;gap:9px;align-items:center}
+.srow span{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3)}
+.srow b{font-family:var(--mono);font-size:12px;text-align:right;
+  font-variant-numeric:tabular-nums;font-weight:500}
+.meter{display:flex;gap:2px}
+.meter i{flex:1;height:8px;background:var(--rule-2)}
+.meter i.on{background:var(--ink)}
+.meter.red i.on{background:var(--red)}
+
+.foot{padding-top:48px;color:var(--ink-3);font-size:14px}
+.foot code{font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+code{font-family:var(--mono);font-size:.88em;background:var(--tint-2);padding:1px 4px}
+@media (prefers-reduced-motion:no-preference){
+  article.spec{transition:border-color .15s}
+}
+</style>
+
+<style>
+.p-onink2{background:var(--poster-fg);opacity:.44}
+.p-panelred{background:var(--red)}
+.p-scrimtop{background:linear-gradient(to bottom,var(--poster-bg) 4%,transparent);opacity:.8}
+.p-railink{background-image:repeating-linear-gradient(90deg,var(--poster-fg) 0 4px,transparent 4px 11px);opacity:.5}
+.p-stamp{background:var(--red);opacity:.85}
+.p-label{display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--ink-3)}
+.p-grid{opacity:.85}
+.p-matground{background:var(--tint-2)}
+</style>
+<style>
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.note{border-left:2px solid var(--red);padding:2px 0 2px 14px;font-size:15px;color:var(--ink-2)}
+.chan{display:grid;grid-template-columns:24px 128px 1fr;gap:6px 14px;align-items:start;
+  padding:13px 0;border-bottom:1px solid var(--rule-2)}
+.chan:last-child{border-bottom:0}
+.chan .n{font-family:var(--mono);font-size:11px;color:var(--red);padding-top:3px}
+.chan h4{font-family:var(--sans);font-size:15px;font-weight:600;margin:0;padding-top:1px}
+.chan p{font-size:14px;color:var(--ink-2);line-height:1.5}
+.chan code{font-size:12px}
+.post{border:1px solid var(--rule);background:var(--plate);padding:14px 16px;
+  display:flex;flex-direction:column;gap:7px}
+.post h4{font-family:var(--sans);font-size:16px;font-weight:600}
+.post .q{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--ink)}
+.post .who{font-family:var(--mono);font-size:10px;letter-spacing:.07em;color:var(--ink-3);
+  text-transform:uppercase;line-height:1.65}
+.post .st{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.st.ships{color:var(--red)}
+</style>
+<div style="background:var(--red-soft);border-top:3px solid var(--red);
+  border-bottom:1px solid var(--red);padding:18px 0;margin-bottom:8px">
+  <div style="max-width:1180px;margin:0 auto;padding:0 28px">
+    <p style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+      text-transform:uppercase;color:var(--red);font-weight:500;margin-bottom:8px">Retracted &middot; 2026-09-08</p>
+    <p style="font-family:var(--sans);font-size:17px;font-weight:600;color:var(--ink);
+      margin-bottom:8px;letter-spacing:-.01em">This catalog failed adversarial review. It is kept as a sketch, not as a proposal.</p>
+    <p style="font-size:15px;color:var(--ink-2);max-width:70ch;line-height:1.55">Its foundation was
+      false: the binding it set out to fix is already declared data, derived from each frame
+      manifest&rsquo;s <code>exemptFromChrome</code>, and the three hand-maintained Sets it promised to
+      replace were retired on 2026-07-14. The counts are wrong (11 frames, not 12; 9 sovereign, not 10),
+      the axis derivation lands on 22 rather than nine, and the degeneracy rule that reclassified
+      <code>math</code> also merges <code>quiet</code> into <code>bookend</code>. Four findings survived
+      &mdash; read <code>engineering/decisions/2026-09-08-frame-catalog.md</code> instead.</p>
+  </div>
+</div>
+<div class="wrap">
+<header class="top">
+  <div class="reg">
+    <span class="kicker">Lattice · Form &amp; Finish · Specimen sheet 02</span>
+    <span class="kicker" style="color:var(--ink-3)">2026 · 09 · 08</span>
+  </div>
+  <h1>The Frame&nbsp;Catalog</h1>
+  <p class="lede">Sheet 01 drew twenty-eight Frames. Its own derivation then showed
+  that <strong>eleven of the sixteen new ones were not Frames at all</strong> —
+  they changed how a slide looks, not what it argues, which is the
+  <em>Finish</em> axis Lattice has shipped since 2026-06-11. Corrected: <strong>nine
+  Frames</strong>, and a contract for the axis the other eleven belong to.</p>
+  <div class="specstrip">
+    <div><b>9</b><span>Frames</span></div>
+    <div><b>6</b><span>Arity-1 Frames</span></div>
+    <div><b>11</b><span>Misfiled → Finish</span></div>
+    <div><b>1</b><span>Mode value ships</span></div>
+    <div><b>9</b><span>Backdrops ship</span></div>
+    <div><b>6</b><span>Postures proposed</span></div>
+  </div>
+</header>
+
+<section class="blk">
+  <h2><span class="secno">01 /</span> The correction</h2>
+  <div class="cols2">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <p>Sheet 01 derived a Frame's reframe set from three atoms — <code>order</code>,
+      <code>rank</code>, <code>arity</code> — and reported, as a side result, that
+      <code>atelier</code>, <code>ruled</code>, <code>mount</code>,
+      <code>column</code>, <code>overline</code> and <code>bleed</code> all read
+      <code>before/thesis/1</code>: the same reading as <code>standard</code>.</p>
+      <p>That result was the answer and I filed it as a footnote. A Frame that does
+      not change the reading is not a Frame — it is a <strong>treatment</strong>,
+      and Lattice already owns an axis for treatments.</p>
+      <p class="note">Lattice's model is <strong>Function · Form · Substance ·
+      Finish</strong>, four axes, since <code>design/design-system.md</code>. Finish
+      answers &ldquo;what should it feel like?&rdquo; and is surfaced through three
+      registers: <code>theme:</code> (color), <code>mode:</code> (the typographic
+      and geometric hand), <code>finish:</code> (the backdrop). Eleven of my
+      sixteen were <code>mode:</code> values wearing a Frame's clothes.</p>
+      <p>Two were near-exact duplicates of shipped code. <code>ruled</code> is
+      <code>finish: ledger</code> — &ldquo;fine horizontal ruled lines + a bold left
+      margin bar + a top-right corner fold.&rdquo; <code>mat</code> is
+      <code>finish: gallery</code> — &ldquo;a museum inset keyline frame + a
+      spotlight.&rdquo; That is HARD RULE #15, and I broke it.</p>
+    </div>
+    <div class="scroller">
+      <table class="dat">
+        <thead><tr><th>Sheet 01 entry</th><th>Actually</th><th>Where it belongs</th></tr></thead>
+        <tbody>
+          <tr><td><code>ruled</code></td><td>Treatment</td><td>ships as <code>finish: ledger</code></td></tr>
+          <tr><td><code>mat</code></td><td>Treatment</td><td>ships as <code>finish: gallery</code></td></tr>
+          <tr><td><code>atelier</code></td><td>Treatment</td><td>overlaps <code>finish: savile</code> / <code>atrium</code></td></tr>
+          <tr><td><code>drafting</code></td><td>Treatment</td><td>a <code>mode:</code> value; the title block is genuinely new</td></tr>
+          <tr><td><code>manuscript</code></td><td>Treatment</td><td>a <code>mode:</code> value — measure and rhythm</td></tr>
+          <tr><td><code>colophon</code></td><td>Treatment</td><td>a <code>mode:</code> value on <code>bookend</code></td></tr>
+          <tr><td><code>mount</code></td><td>Treatment</td><td>a <code>mode:</code> value — box geometry</td></tr>
+          <tr><td><code>overline</code></td><td>Carve variant</td><td>a variant of <code>standard</code>, not a Frame</td></tr>
+          <tr><td><code>column</code></td><td>Carve variant</td><td>a variant of <code>standard</code></td></tr>
+          <tr><td><code>bleed</code></td><td>Carve variant</td><td>a variant of <code>standard</code></td></tr>
+          <tr><td><code>recto</code></td><td>Carve variant</td><td>a variant of <code>panel</code> — a canvas well, not a tinted panel</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="margin-top:12px">Five survive as Frames:
+      <code>margin</code>, <code>plinth</code>, <code>foot</code>,
+      <code>quiet</code>, <code>triptych</code> — the five that change the reading.</p>
+    </div>
+  </div>
+</section>
+
+<section class="blk">
+  <h2><span class="secno">02 /</span> The boundary, stated once</h2>
+  <p class="lede">The two axes were colliding because nothing said where one stops.
+  The three atoms give a test that is not a matter of taste.</p>
+  <div class="grid2">
+    <div class="post"><h4>Form owns the reading</h4>
+      <p style="font-size:14.5px;color:var(--ink-2)"><code>order</code> — is the
+      thesis met before the evidence, after it, or not at all.<br>
+      <code>rank</code> — what holds the reserved position.<br>
+      <code>arity</code> — how many things the slide asserts.</p>
+      <p style="font-size:14.5px;color:var(--ink-2)">Change any one and you have
+      changed the argument. That is a Frame.</p></div>
+    <div class="post"><h4>Finish owns everything else</h4>
+      <p style="font-size:14.5px;color:var(--ink-2)">Type, line, box, mark, measure,
+      ornament. A treatment may make the same argument look austere, drawn, ruled or
+      engineered.</p>
+      <p style="font-size:14.5px;color:var(--ink-2)">It renders the same reading in a
+      different hand. That is a Mode.</p></div>
+  </div>
+  <p class="lede" style="margin-top:6px"><strong>The test: does it change
+  <code>order</code>, <code>rank</code> or <code>arity</code>? If no, it is not a
+  Frame.</strong> Nine Frames pass it. Everything else in sheet 01 failed it,
+  including four entries that are simply different <em>carves</em> of the same
+  reading — a compressed masthead, a side column, a bled stage, a canvas well —
+  which are Frame variants the way a component has variants.</p>
+</section>
+
+<section class="blk">
+  <h2><span class="secno">03 /</span> The nine Frames</h2>
+  <p class="lede">One plate per reading. Each carries the carve variants that render
+  it, which is where sheet 01's fit entries went. Drawn to true 16:9 at Lattice's
+  real Form geometry.</p>
+</section>
+<div class="plates" id="plates"></div>
+
+<section class="blk">
+  <h3 style="font-size:21px;font-weight:600">Where all twelve shipped entries go</h3>
+  <p class="lede">The first cut of this mapping was written as prose and silently
+  accounted for only nine of the twelve — <code>image</code>, <code>scene</code> and
+  <code>math</code> were never placed. A table is the fix: every shipped Frame gets a
+  row, so a missing one is visible.</p>
+  <div class="scroller"><table class="dat">
+    <thead><tr><th>Shipped</th><th>Goes to</th><th>Because</th></tr></thead>
+    <tbody>
+      <tr><td><code>standard</code></td><td><code>standard</code></td><td>—</td></tr>
+      <tr><td><code>minimal</code></td><td><code>standard</code></td><td>a chrome control (<code>no-progress</code>), not a Frame</td></tr>
+      <tr><td><code>split-panel</code></td><td><code>panel</code></td><td><code>before/thesis/2</code></td></tr>
+      <tr><td><code>premise</code></td><td><code>panel</code></td><td>same reading, plain carve — no tinted divide</td></tr>
+      <tr><td><code>compare-code</code></td><td><code>compare</code></td><td><code>before/none/2</code>, titled carve</td></tr>
+      <tr><td><code>split-compare</code></td><td><code>compare</code></td><td><code>before/none/2</code>, symmetric carve</td></tr>
+      <tr><td><code>title</code> · <code>divider</code> · <code>closing</code></td><td><code>bookend</code></td><td>all <code>none/thesis/1</code></td></tr>
+      <tr><td><strong><code>image</code></strong></td><td><strong><code>foot</code></strong></td><td><code>after/thesis/1</code> — the photograph is met first, the words conclude it. The full-bleed poster was <code>foot</code> all along, in a <strong>bleed</strong> carve</td></tr>
+      <tr><td><strong><code>scene</code></strong></td><td><strong><code>foot</code></strong></td><td>same reading as <code>image</code></td></tr>
+      <tr><td><strong><code>math</code></strong></td><td><strong><code>standard</code></strong></td><td>its sheet-01 reading was mis-derived — see below</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="font-size:21px;font-weight:600;margin-top:16px"><code>math</code>, and why the unary readings are five, not six</h3>
+  <p>Sheet 01 gave <code>math</code> the reading <code>before/none/1</code>, which is
+  <strong>not among the nine</strong> — so the collapse had nowhere to put it. The
+  reading was wrong, and the reason generalizes.</p>
+  <p class="note"><strong><code>rank: none</code> is degenerate at arity 1.</strong>
+  With one content cell, &ldquo;no cell is privileged&rdquo; and &ldquo;the one cell is
+  privileged&rdquo; describe the same slide — there is nothing to withhold emphasis
+  <em>from</em>. <code>rank: none</code> only carries meaning at arity ≥ 2, which is
+  exactly where it works: <code>compare</code> is <code>before/none/2</code>, and there
+  the <code>none</code> is a real stance — <em>neither of these two is the answer, you
+  weigh them.</em></p>
+  <p>So the unary readings are five and the asymmetry in the reading table is derived
+  rather than arbitrary. What made <code>math</code> look sovereign is two things that
+  are not the reading: it drives its own <code>&gt; h2</code> title grid, which is a
+  <strong>carve</strong>; and it centers a display equation in the stage, which is the
+  component owning its stage, as Law I grants. A frame-reserved position is a band the
+  <em>Frame</em> holds beyond the stage — <code>plinth</code>&rsquo;s takeaway,
+  <code>margin</code>&rsquo;s rail. Math&rsquo;s equation is inside its own stage, so no
+  rank is reserved. It is <code>standard</code> with a title-grid carve.</p>
+  <h3 style="font-size:21px;font-weight:600;margin-top:22px">What the Frames do with logo, meta and the rest of the chrome</h3>
+  <p class="lede">Law II says chrome is relocated, never dropped — a rule with no content
+  until each Frame declares a home for each Tile. Working it through turns up something
+  the model does not say: <strong>chrome is not one thing. It is four families, and only
+  one of them actually follows the Frame.</strong></p>
+  <div class="scroller"><table class="dat">
+    <thead><tr><th>Family</th><th>Tiles</th><th>When the Frame changes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>A · Cell-docked</strong></td><td>kicker · title · lede · meta · status</td><td>Lives in the masthead Cell. Moves wherever the Frame puts it.</td></tr>
+      <tr><td><strong>B · Band-docked</strong></td><td>footer · progress · pagination</td><td>Lives in the footer Cell. Every Frame keeps a footer band; only <code>bookend</code> silences it by default.</td></tr>
+      <tr><td><strong>C · Frame-anchored</strong></td><td><strong>logo</strong> · watermark</td><td>Pinned to the <em>slide</em>, not to a Cell. Does <strong>not</strong> move with the masthead.</td></tr>
+      <tr><td><strong>D · Rank-assigned</strong></td><td>coda</td><td>The <code>rank</code> atom already decides it — no new field needed.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note"><strong><code>rank</code> is the coda&rsquo;s address.</strong>
+  <code>takeaway</code> puts it in <code>plinth</code>&rsquo;s reserved band;
+  <code>margin</code> puts it in the rail; <code>thesis</code> leaves it at content
+  height above the footer; <code>none</code> means the component places it. The atom that
+  defines the reading already answers &ldquo;where does the Key Insight go&rdquo;.</p>
+
+  <h4 style="font-family:var(--sans);font-size:16px;font-weight:600;margin-top:14px">The logo does not do what the model says it does</h4>
+  <p><code>logo.manifest.json</code> declares <code>fits: ["masthead-bay"]</code> and
+  <code>forms.md</code> §5.1 lists it as docked there. <strong>The render does something
+  else</strong> — <code>base.modifiers.css</code> pins it at
+  <code>top: var(--frame-inset-y)</code> / <code>right: var(--frame-inset-x)</code> as an
+  absolutely positioned child of the section, and <code>logo-x</code> / <code>logo-y</code>
+  set its center as a percentage of the whole slide. It sits on the <em>content</em> plane
+  deliberately: on chrome an off-corner brand plate erased four words of a pull-quote; on
+  atmosphere it vanished under a split panel.</p>
+  <p>Under one Frame that divergence is invisible. Under nine it generates bugs:
+  <strong><code>logo-y: 82</code> means one thing when the masthead is on top and another
+  when <code>foot</code> puts it at the bottom.</strong> The Tile has form here —
+  <code>2026-08-04-finish-stacking-displaces-frame-chrome.md</code> measured those
+  coordinates silently ceasing to mean anything, rendering at 92.2% x on every logo slide
+  in the corpus with y drifting 84 / 87.1 / 88 / 100 across four slides that all declared 82.</p>
+
+  <h4 style="font-family:var(--sans);font-size:16px;font-weight:600;margin-top:14px">The contested corner</h4>
+  <p>Top-right is the busiest 80&times;50px on the slide: the <strong>logo</strong>, the
+  <strong>status stamp</strong> and (where a bay survives) the <strong>meta</strong> line
+  all want it. The engine already arbitrates — <code>--corner-logo-reserve</code> stacks
+  the state tabs to the logo&rsquo;s <em>left</em>, because clearing it vertically needs
+  ~80px of drop and would put a transient marker a third of the way into the body. That
+  was a real defect: <code>logo:</code> plus <code>confidential</code> sliced the top off
+  the mark. So each Frame owes a <strong>corner order</strong>, not just a list of homes.</p>
+
+  <div class="scroller"><table class="dat">
+    <thead><tr><th>Frame</th><th>kicker · title · lede</th><th>meta</th><th>logo</th><th>status</th><th>footer · rail · page</th><th>coda</th></tr></thead>
+    <tbody>
+      <tr><td><code>standard</code></td><td>masthead-lede, top-left</td><td>bay, top-right</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>content height</td></tr>
+      <tr><td><code>margin</code></td><td>masthead-lede</td><td><strong>rail head</strong> — frees the bay</td><td>slide corner TR; rail starts below its reserve</td><td>rail foot</td><td>footer band</td><td><strong>the rail</strong></td></tr>
+      <tr><td><code>plinth</code></td><td>masthead-lede</td><td>bay</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td><strong>reserved band</strong></td></tr>
+      <tr><td><code>foot</code></td><td>masthead-lede, <strong>at the bottom</strong></td><td><strong>bay stays at the top</strong></td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>between stage and title band</td></tr>
+      <tr><td><code>quiet</code></td><td><strong>silent</strong></td><td><strong>top-left</strong>, the lede&rsquo;s vacated space</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>content height</td></tr>
+      <tr><td><code>panel</code></td><td>the privileged cell</td><td>bay of the support cell</td><td>slide corner TR, inverting on a dark panel</td><td>left of the logo</td><td>footer band</td><td>support cell foot</td></tr>
+      <tr><td><code>compare</code></td><td>spanning both</td><td>bay</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>full width beneath (<code>row</code> dock)</td></tr>
+      <tr><td><code>triptych</code></td><td>spanning three</td><td>bay</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>spans all three (<code>grid</code> dock)</td></tr>
+      <tr><td><code>bookend</code></td><td>the whole slide</td><td>silent, declared</td><td><strong>the point</strong> — <code>logo-on: title</code></td><td><strong>the open gap</strong></td><td>silent, declared</td><td>silent</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong><code>foot</code> splits the masthead, and that is the interesting row.</strong>
+  The lede Cell moves to the bottom; the bay does not. A bay at the bottom would collide
+  with pagination, and <code>masthead-lede</code> and <code>masthead-bay</code> are already
+  two Cells in <code>lib/forms/cell/</code>, so moving one without the other costs nothing.
+  It reads better too — the deck&rsquo;s identity stays where the eye rests first, and only
+  the argument moves.</p>
+  <p class="note"><strong><code>bookend</code>&rsquo;s status is the open hole.</strong> A WIP
+  or CONFIDENTIAL stamp on a title slide has nowhere to go — the frame silences the corner
+  stack, and it is the slide in a deck most likely to need the marker. Third time this
+  catalog has flagged it, which is a fair argument for making it the first Law II fix.</p>
+
+  <p class="small" style="margin-top:18px">The same test confirms the pair it might have collapsed:
+  <code>bookend</code> reserves the position and fills it with the thesis
+  (<code>none/thesis/1</code>); <code>quiet</code> reserves nothing at all
+  (<code>none/none/1</code>). Both coherent, genuinely distinct.</p>
+</section>
+
+<section class="blk">
+  <h2><span class="secno">04 /</span> The Mode contract</h2>
+  <p class="lede">A Mode is a deck-wide hand every component honors. Lattice ships
+  one real value — <code>sketch</code> — and its governing rule generalizes:
+  <em>roughen the lines the deck draws, never invent a box.</em> Below is that rule
+  written as a contract, so a second, third and sixth value stay cohesive instead of
+  each becoming a bespoke skin.</p>
+
+  <h3 style="font-size:19px;font-weight:600;margin-top:6px">Six channels — a Mode value must set every one</h3>
+  <div>
+    <div class="chan"><span class="n">1</span><div><h4>Type</h4></div>
+      <p>Display and body families, weight, tracking. The single strongest carrier of
+      a hand. <code>sketch</code> sets Caveat for headings and Shantell Sans for prose;
+      a Mode that leaves type alone will read as the baseline with decoration on it.</p></div>
+    <div class="chan"><span class="n">2</span><div><h4>Line</h4></div>
+      <p>How a drawn rule renders — weight, and its <em>mechanism</em>. This is not
+      cosmetic: <code>sketch</code> replaces CSS borders with real rough.js strokes on
+      table frames, row rules, the <code>list.principles</code> rules, the
+      <code>&lt;hr&gt;</code> and the masthead↔stage divider. A ruled Mode would want
+      hairlines at a fixed rhythm; an engineered one, a two-weight stroke system.</p></div>
+    <div class="chan"><span class="n">3</span><div><h4>Box</h4></div>
+      <p>Corner geometry, fill posture (filled · outlined · none) and elevation, for
+      every card-style layout. Nine components draw cards; they must all change
+      together or the deck reads as two decks.</p></div>
+    <div class="chan"><span class="n">4</span><div><h4>Mark</h4></div>
+      <p>Bullets, ticks, numerals and the <code>--mark-*</code> / <code>--shape-*</code>
+      SVG masks. HARD RULE #29 already forbids typing a shape glyph, so a Mode changes
+      the mask, never the character.</p></div>
+    <div class="chan"><span class="n">5</span><div><h4>Measure &amp; rhythm</h4></div>
+      <p>Text measure and vertical rhythm — how much air the deck keeps. This is the
+      channel sheet 01's <code>manuscript</code> entry was really about, and the one
+      most often forgotten, which is why a new hand can look right on a title slide
+      and wrong on a fourteen-row table.</p></div>
+    <div class="chan"><span class="n">6</span><div><h4>Ornament</h4></div>
+      <p>Furniture the Mode may add — a folio, corner ticks, a title block, a
+      registration mark — <strong>to frame chrome only, never to the stage.</strong>
+      This is the clause that keeps ornament from becoming layout.</p></div>
+  </div>
+
+  <h3 style="font-size:19px;font-weight:600;margin-top:22px">Seven clauses</h3>
+  <div class="scroller"><table class="dat">
+    <thead><tr><th>Clause</th><th>Rule</th><th>Why, and what it protects</th></tr></thead>
+    <tbody>
+      <tr><td><strong>M1</strong> Restyle, never restructure</td><td>May change how an existing surface renders. May not add or remove a box, Cell or slot.</td><td><code>sketch</code>'s own rule, generalized. The moment a Mode adds a box it is deciding layout, and layout is Form.</td></tr>
+      <tr><td><strong>M2</strong> Reading-preserving</td><td>May not change <code>order</code>, <code>rank</code> or <code>arity</code>.</td><td><strong>The load-bearing clause.</strong> It is what makes Frame × Mode compose instead of collide, and it is testable rather than a matter of taste.</td></tr>
+      <tr><td><strong>M3</strong> Palette-blind</td><td>Names no color. Where a structure carries meaning-bearing color — an actor hue, redline's add/remove spine — the Mode changes its geometry and never its hue.</td><td>HARD RULE #3. Color is Theme. <code>sketch</code> already obeys this exactly: it wobbles a border's corners and leaves its color alone.</td></tr>
+      <tr><td><strong>M4</strong> Total coverage</td><td>Defines every channel for every component that paints in it. No component silently falls back to the baseline hand.</td><td>The cohesion the axis exists for. <strong><code>sketch</code> itself fails this today</strong>, by its own docs — boxed blockquotes and bordered rows &ldquo;still bend a <code>border-radius</code>; they convert next.&rdquo;</td></tr>
+      <tr><td><strong>M5</strong> Content-blind</td><td>Never changes what a component contains, nor its capacity budget.</td><td>Otherwise it is Substance. A Mode that made a list hold four items instead of six would silently re-author decks.</td></tr>
+      <tr><td><strong>M6</strong> Export-safe</td><td>Survives the PDF and PPTX paths at full fidelity.</td><td>The Finish layer already carries this scar: every gradient fades opaque-to-opaque, never to transparent, because Chromium's print path turns an alpha fade into a gray cloud the browser hides.</td></tr>
+      <tr><td><strong>M7</strong> Escapable</td><td>One slide returns to baseline.</td><td>Already works — <code>&lt;!-- _class: boardroom --&gt;</code> opts a slide out of <code>mode: sketch</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note" style="margin-top:14px"><strong>M4 is the only clause a machine can
+  cheaply check, and it is the one that decides whether the axis is worth having.</strong>
+  Render all 69 components under a Mode and assert none falls back to the baseline
+  hand. Without that gate, a Mode ships at 40% coverage and every deck using it is
+  visibly two decks — which is exactly the state <code>sketch</code> is in today.</p>
+</section>
+
+<section class="blk">
+  <h2><span class="secno">05 /</span> How many Modes — and why personas are the wrong unit</h2>
+  <p class="lede">Fourteen teams do not need fourteen hands. <strong>A persona is not
+  a style; a deliverable is.</strong> One security team ships an audit report that must
+  read as checked and an architecture review that must read as engineered — two
+  different Modes from one team, in the same quarter. Index the posture, not the
+  org chart, and the space collapses.</p>
+  <p>The question a Mode answers is <em>what must the audience believe about these
+  claims?</em> Six answers cover the listed teams. This is a hypothesis the contract
+  above lets you test, not a committed catalog — the values come after the contract,
+  and each one costs a full pass over 69 components.</p>
+  <div class="grid2" style="margin-top:6px">
+    <div class="post"><span class="st ships">Ships · mode: boardroom</span><h4>Restraint</h4>
+      <p class="q">&ldquo;This is finished and considered.&rdquo;</p>
+      <p class="who">Executive · consulting · corporate comms · board · the default for everyone else</p></div>
+    <div class="post"><span class="st">Proposed</span><h4>Rigor</h4>
+      <p class="q">&ldquo;These numbers were checked.&rdquo;</p>
+      <p class="who">Finance · legal · audit · compliance · government · procurement · security reporting</p>
+      <p style="font-size:13px;color:var(--ink-3)">Rules over fills, tabular rhythm, hairlines, no elevation. Backdrop half ships as <code>finish: ledger</code>.</p></div>
+    <div class="post"><span class="st">Proposed</span><h4>Precision</h4>
+      <p class="q">&ldquo;This was engineered.&rdquo;</p>
+      <p class="who">Engineering · product · data · platform · security architecture · operations</p>
+      <p style="font-size:13px;color:var(--ink-3)">Two-weight strokes, mono accents, corner ticks, a title block holding meta, revision and stamp.</p></div>
+    <div class="post"><span class="st">Proposed</span><h4>Narrative</h4>
+      <p class="q">&ldquo;This is worth reading.&rdquo;</p>
+      <p class="who">Communications · marketing · policy · research · NGO storytelling · executive narrative</p>
+      <p style="font-size:13px;color:var(--ink-3)">Serif measure, real margins, marginal notes. Sheet 01's <code>manuscript</code> and half of <code>atelier</code>.</p></div>
+    <div class="post"><span class="st ships">Ships · mode: sketch</span><h4>Hand</h4>
+      <p class="q">&ldquo;We are working this out together.&rdquo;</p>
+      <p class="who">Education · workshops · HR · ideation · early product · NGO field work</p></div>
+    <div class="post"><span class="st">Proposed</span><h4>Display</h4>
+      <p class="q">&ldquo;Look at this.&rdquo;</p>
+      <p class="who">Brand · sales showcase · design · launch · recruiting · marketing events</p>
+      <p style="font-size:13px;color:var(--ink-3)">Scale, asymmetry, generous void, mounted plates. Backdrop half ships as <code>finish: gallery</code>.</p></div>
+  </div>
+  <p style="margin-top:8px"><strong>Six is near the ceiling, and the cost argument is
+  why.</strong> Modes multiply: nine Frames × six Modes × eighteen palettes is 972
+  combinations to keep coherent, and M4 prices each Mode at a full pass over all 69
+  components. Beyond six, the marginal hand is one nobody can tell from its neighbor
+  and nobody can afford to keep complete.</p>
+  <p class="note"><strong>The gap, stated plainly: nine backdrops ship and one hand
+  does.</strong> <code>finish:</code> carries <code>atrium · meridian · strata · halo ·
+  ledger · nimbus · loom · savile · gallery</code> — atmosphere painted <em>behind</em>
+  content, which touches no component's geometry. <code>mode:</code> carries
+  <code>sketch</code> alone. Lattice has the weather for eight styles and the grammar
+  for one.</p>
+</section>
+
+<section class="blk">
+  <h2><span class="secno">06 /</span> One naming collision to settle first</h2>
+  <p><code>ledger</code> already means two things: a <code>finish:</code> backdrop, and
+  a component <strong>Form</strong> value (the shape <code>actors</code>,
+  <code>glossary</code>, <code>inventory</code> and <code>kpi</code> take). A
+  <code>mode: ledger</code> would be its third sense, across three different axes —
+  which <code>design-system.md</code> §2.5 bans outright: one system word per concept,
+  no third synonym. The posture is named <strong>Rigor</strong> above for that reason;
+  the register value needs a word that is not already spent.</p>
+</section>
+
+<div class="foot">
+  <hr class="rule" style="margin-bottom:20px">
+  <p>Schematics use Lattice's real Form geometry at 1280&times;720:
+  <code>--frame-x</code> 64px · <code>--frame-y</code> 88px ·
+  <code>--footer-reserve</code> 104px · <code>--frame-inset-x</code> 30px.
+  Component stage kinds (<code>flow</code> 34 · <code>canvas</code> 25 · sovereign 10)
+  are read from the 69 shipped manifests. The four-axis model, the three Finish
+  registers and the nine backdrops are quoted from
+  <code>design/design-system.md</code> and <code>lib/base/base.registers.docs.md</code>.
+  Nothing here is implemented.</p>
+</div>
+</div>
+<script>
+const P=(k,x,y,w,h,t)=>({k,x,y,w,h,t});
+const mast=(tw)=>[P('eyebrow',5,12,13,2.2),P('title',5,16.4,tw,6.4),
+  P('lede',5,25.6,tw-10,2.3),P('meta',75,12.2,20,3.4),P('rule',5,32.6,90,.6)];
+const footF=[P('foot',2.4,90.4,19,2.3),P('rail',40,90.4,20,2.6),P('page',93.4,90.4,4.2,2.3)];
+
+const F=[
+{id:'standard',n:'Standard',ord:'before',rk:'thesis',ar:1,st:'ships',
+ intent:'Thesis first, evidence below. The default, and the right answer most of the time.',
+ carves:['band (default)','overline — one-line masthead, stage +96px','column — masthead as a left column, stage full height','bleed — stage to trim, chrome on a scrim','title-grid — the component drives its own heading row (math)'],
+ admits:'flow + canvas',suits:['content','list','cards-grid','compare-table','bar','line','kpi','checklist','gantt','map'],
+ why:'The four carves are the same argument in different boxes — which is exactly why sheet 01 was wrong to call them Frames. <code>overline</code> buys a quarter of the stage height; <code>column</code> is the only carve that gives a component a tall box.',
+ sc:9,bd:10,parts:[...mast(52),P('stage',5,35,90,50.5,'STAGE'),...footF]},
+
+{id:'margin',n:'Margin',ord:'before',rk:'margin',ar:1,st:'new',
+ intent:'Thesis first, with a frame-owned editorial rail down the full height for meta, the coda and the stamp.',
+ carves:['rail right (default)','rail left — mirrored for a right-to-left deck'],
+ admits:'flow + canvas',suits:['content','list-criteria','compare-table','statute-stack','citation-card','policy-recommendation','kpi','waterfall'],
+ why:'The coda stops being a note under the body and becomes an ongoing qualification beside it. A caveat in the margin reads differently from the same words at the end — that is a rank change, so it is a Frame.',
+ sc:9,bd:9,parts:[P('eyebrow',5,12,12,2.2),P('title',5,16.4,44,6.4),P('lede',5,25.6,36,2.3),
+  P('rule',5,32.6,63,.6),P('stage',5,35,63,50.5,'STAGE'),P('vrule',70.5,12,.5,73.5),
+  P('meta',74,12.2,21,3.4),P('rule',74,19.5,21,.6),P('coda',74,22.5,21,2.4),
+  P('coda',74,26.5,16,2.4),P('note',74,33,20,1.8),P('note',74,36.5,15,1.8),
+  P('stamp',74,74,12,3),...footF]},
+
+{id:'plinth',n:'Plinth',ord:'before',rk:'takeaway',ar:1,st:'new',
+ intent:'Thesis first, evidence in a shortened stage, and the takeaway in a reserved band the eye learns by slide three.',
+ carves:['band (default)','wide — the takeaway spans, stage loses a further 24px'],
+ admits:'flow + canvas',suits:['bar','line','waterfall','slope','compare-table','matrix-2x2','decision','verdict-grid','kpi','stats'],
+ why:'The shape of every chart page in every strategy deck ever printed. Promoting the coda from content height to a reserved position is a rank change — and it is the cheapest Frame here to build, since the coda Cell already exists.',
+ sc:9,bd:10,parts:[...mast(48),P('stage',5,35,90,37,'STAGE'),P('rule',5,74.5,90,.6),
+  P('coda',5,77.5,58,3),P('note',5,83,40,2),...footF]},
+
+{id:'foot',n:'Foot',ord:'after',rk:'thesis',ar:1,st:'new',
+ intent:'Evidence first, thesis beneath it — so the words read as the conclusion drawn from the picture.',
+ carves:['band (default)','plate — the stage mounted, the band engraved below it','bleed — the image to trim, the words on a scrim (image, scene)'],
+ admits:'canvas + flow',suits:['image','scene','video','big-number','piechart','bar','line','diagram','map','quote'],
+ why:'The clean reframe. Same chart, same words, no edit to the markdown: under <code>standard</code> the title is a label read before the evidence; here it is a conclusion read after it. Assertion-first becomes evidence-first.',
+ sc:8,bd:7,parts:[P('stage',5,9,90,54,'STAGE'),P('rule',5,66.5,90,.6),P('eyebrow',5,69,11,2.2),
+  P('title',5,73,48,5.8),P('meta',77,69,18,2.2),P('lede',5,81,36,2.1),...footF]},
+
+{id:'quiet',n:'Quiet',ord:'none',rk:'none',ar:1,st:'new',
+ intent:'No stated thesis. The stage claims from the top inset to the footer reserve and the component argues for itself.',
+ carves:['open (default)','sheet — a hairline border inset from trim, title demoted to a corner block'],
+ admits:'flow + canvas',suits:['quote','big-number','diagram','image','math','logo-wall','contact','wifi','state-chart','map'],
+ why:'Distinct from <code>silent</code> (hides the running header and page, keeps the band) and from the legacy <code>form: off</code> (drops the Form). This keeps the stage Cell and its clip contract; it just stops reserving a title. The <code>sheet</code> carve is sheet 01’s <code>drafting</code>, correctly filed.',
+ sc:7,bd:8,parts:[P('stage',5,12,90,73.5,'STAGE'),...footF]},
+
+{id:'panel',n:'Panel',ord:'before',rk:'thesis',ar:2,st:'ships',
+ intent:'Two cells, one privileged and met first, the other supporting it.',
+ carves:['tinted — a colored panel (ships as split-panel)','plain — one continuous canvas (ships as premise)','well — the privileged cell is a canvas figure, not a tinted panel (sheet 01’s recto)'],
+ admits:'a two-cell component',suits:['split-panel','premise','image + content','piechart + list','diagram + list-steps','contact','team-profile'],
+ why:'Three shipped-or-proposed entries collapse here: <code>split-panel</code>, <code>premise</code> and <code>recto</code> all read <code>before/thesis/2</code>. The derivation falsified my claim that <code>recto</code> reframed <code>split-panel</code> — its value is that the privileged cell is a canvas well, which is a carve, not rhetoric.',
+ sc:9,bd:10,parts:[...mast(44),P('panel',5,35,33,50.5),P('onink',9,44,24,2.4),
+  P('onink',9,49,25,6),P('onink2',9,59,18,2.2),P('stage',42,35,53,50.5,'SUPPORT'),...footF]},
+
+{id:'compare',n:'Compare',ord:'before',rk:'none',ar:2,st:'ships',
+ intent:'Two cells, neither privileged — the slide weighs rather than asserts.',
+ carves:['symmetric (ships as split-compare)','titled — each cell carries its own heading (ships as compare-code)'],
+ admits:'a two-cell component',suits:['split-compare','compare-code','compare-prose','decision','redline','pricing'],
+ why:'The rank is <code>none</code>, and that is the whole difference from <code>panel</code>: nothing is promoted, so the audience does the weighing. <code>compare-code</code> is the one shipped sovereign that already keeps its footer.',
+ sc:8,bd:9,parts:[P('eyebrow',5,12,12,2.2),P('title',5,16.4,54,6.2),P('stage',5,32,42,53,'A'),
+  P('vrule',49.8,32,.5,53),P('stage',53,32,42,53,'B'),...footF]},
+
+{id:'triptych',n:'Triptych',ord:'before',rk:'thesis',ar:3,st:'new',
+ intent:'Three frame-owned cells under one title — and they may hold three different components.',
+ carves:['equal (default)','weighted — a wider first cell'],
+ admits:'a three-cell composition',suits:['cards-grid @3','verdict-grid @3','pricing @3','team-profile @3','big-number + bar + list'],
+ why:'<code>cards-grid</code> already lays three cards inside one stage. What it cannot do is put a chart, a quote and a list side by side. Because the cells belong to the Frame, the components stay independent — the flat split the frame-recursion ADR blesses.',
+ sc:8,bd:8,parts:[...mast(52),P('stage',5,35,28,50.5,'I'),P('vrule',34.6,35,.5,50.5),
+  P('stage',36,35,28,50.5,'II'),P('vrule',65.6,35,.5,50.5),
+  P('stage',67,35,28,50.5,'III'),...footF]},
+
+{id:'bookend',n:'Bookend',ord:'none',rk:'thesis',ar:1,st:'ships',
+ intent:'The slide announces rather than argues: a title, a section boundary, a close.',
+ carves:['opening (ships as title)','section (ships as divider)','closing (ships as closing)','colophon — bottom-anchored column under a deep void'],
+ admits:'a bookend component',suits:['title','divider','closing'],
+ why:'All four read <code>none/thesis/1</code>, so they are each other’s treatments and nobody’s reframe — a bookend has no alternative reading, and zero is the correct answer. Law II still owes it a silent home for the stamp: a WIP marker on a title slide is a real need with nowhere to go.',
+ sc:9,bd:10,parts:[P('dark',0,0,100,100),P('onink2',6,12,9,5.5),P('eyebrow',6,52,13,2.4),
+  P('onink',6,57,64,8.5),P('onink2',6,71,46,2.3),P('onink2',6,75.5,38,2.3)]},
+];
+
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const slide=f=>'<div class="slide">'+f.parts.map(p=>
+  '<div class="p p-'+p.k+'" style="left:'+p.x+'%;top:'+p.y+'%;width:'+p.w+
+  '%;height:'+p.h+'%">'+(p.t?esc(p.t):'')+'</div>').join('')+'</div>';
+const meter=(v,red)=>'<div class="meter'+(red?' red':'')+'">'+
+  Array.from({length:10},(_,i)=>'<i class="'+(i<v?'on':'')+'"></i>').join('')+'</div>';
+
+document.getElementById('plates').innerHTML=F.map(f=>
+  '<article class="spec '+(f.st==='new'?'new':'ships')+'">'+
+  '<div class="hd"><h3>'+f.n+'</h3><span class="id">'+f.id+'</span></div>'+
+  '<div class="tagrow"><span class="tag'+(f.st==='new'?' red':' solid')+'">'+
+    (f.st==='new'?'Proposed':'Ships')+'</span>'+
+    '<span class="tag md-reframe">'+f.ord+'/'+f.rk+'/'+f.ar+'</span></div>'+
+  '<div class="slidewrap">'+slide(f)+'</div>'+
+  '<p class="why" style="padding-top:12px">'+f.intent+'</p>'+
+  '<dl>'+
+    '<dt>Reading</dt><dd>thesis <strong>'+f.ord+'</strong> the stage · reserved rank <strong>'+
+      f.rk+'</strong> · '+f.ar+' content cell'+(f.ar>1?'s':'')+'</dd>'+
+    '<dt>Carves</dt><dd><div class="chips">'+f.carves.map(c=>'<span class="chip">'+esc(c)+'</span>').join('')+'</div></dd>'+
+    '<dt>Admits</dt><dd>'+f.admits+'</dd>'+
+    '<dt>Suits</dt><dd><div class="chips">'+f.suits.map(c=>'<span class="chip">'+esc(c)+'</span>').join('')+'</div></dd>'+
+  '</dl>'+
+  '<p class="why">'+f.why+'</p>'+
+  '<div class="scores">'+
+    '<div class="srow"><span>Design</span>'+meter(f.sc)+'<b>'+f.sc+'</b></div>'+
+    '<div class="srow"><span>Boardroom</span>'+meter(f.bd,1)+'<b>'+f.bd+'</b></div>'+
+  '</div></article>').join('');
+
+// The nine readings must be distinct — assert it rather than trust the table.
+const keys=new Set(F.map(f=>f.ord+'/'+f.rk+'/'+f.ar));
+if(keys.size!==F.length)console.error('duplicate reading',keys.size,F.length);
+</script>

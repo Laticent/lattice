@@ -223,13 +223,49 @@ authored by a *designer*; a **Tile** binds a *source*.
   reads as "distinct from everything else": it *replaces* the frame). (A `framed`
   kind — a Frame nested in a content Cell — was considered and rejected; see
   `engineering/decisions/2026-06-18-frame-recursion-cells.md`.)
+- **`admits`** — the stage kinds this Frame can host: `flow` · `canvas` ·
+  `sovereign`. The **frame side** of the `accepts`/`fits` contract (§7). The
+  component side has shipped since 2026-07-14 as each manifest's `stage` field
+  (generated into `lib/forms/cell/masthead/stage-catalog.generated.js`); the frame
+  side did not exist until 2026-09-08, so a Frame could not state what it accepts.
+  A sovereign Frame admits exactly `["sovereign"]` — it hosts the one component
+  carrying its name, which is what `exemptFromChrome` has always meant in practice.
+  Three checks tie it to the generated catalog. `checkFrameAdmits` rejects a kind
+  no component declares (**over**-claiming, every Frame) and a **chrome-hosting**
+  Frame that leaves out a non-sovereign kind (**under**-claiming); `checkAdmitsCensus`
+  (from `loadCatalog`) rejects a kind no Frame hosts. **For a chrome-hosting Frame
+  `admits` is a verified contract, not a declaration**: such a Frame is the fallback
+  host for every component that is not its own sovereign, so its correct value IS the
+  set of non-sovereign kinds the catalog declares — and `admits` never feeds that
+  catalog back in any direction. The under-claim arm keys on **`exemptFromChrome`** —
+  the property `frameToggleSkip()` actually reads — not on the `kind` label a frame
+  declares about itself, and `validateFrame` separately pins the two to agree
+  (`kind: "sovereign"` ⇔ `exemptFromChrome: true`). Both guards exist because a
+  checker probe declared `kind: "sovereign"` with `exemptFromChrome: false` and
+  `admits: ["flow"]` — chrome-hosting in fact, sovereign by label — and the label
+  alone let it opt out of the check.
+
+  **Four limits, enumerated rather than summarized.** An earlier revision of this
+  bullet said "one limit remains" when there were more, which is the same defect the
+  paragraph exists to prevent, one level up. The full statement lives in the
+  `checkFrameAdmits` docblock; in short: (1) a *sovereign* Frame's under-claim is
+  structurally unreachable, since the catalog's `sovereign` values are built from the
+  frame manifests' own `exemptFromChrome`; (2) for a chrome-hosting Frame `admits`
+  now carries no information — the only valid value is the constant
+  `["canvas","flow"]`, so the arm catches a hand-edit of a manifest, never a genuine
+  disagreement; (3) the derived set depends on **both** manifest sets, so it is
+  independent of `admits` but not of the frame catalog as a whole; (4) the arm also
+  fires on a partially-specified synthetic frame handed to `checkIntegrity`, so test
+  fixtures must assert with `.some()` rather than `deepEqual`.
 - **`subGrid`** — the internal grid template + ratios.
 - **`cells`** — the Cells it produces (each a full Cell definition).
 - **`suppresses`** — chrome Cells a sovereign Frame hides.
 
 ### Cell — the typed slot
 - **`id` / `region`** — name and band position (masthead · stage · **coda** ·
-  footer · left/center/right).
+  footer · left/center/right), plus **`logo`** and **`watermark`** — the two
+  frame-anchored Cells, positioned against the section box rather than docked in a
+  band. They are two Cells, not one shared "slide" Cell: see §5.1.
 - **`geometry`** — `position` + `size` in **relative units** (resolves to px at
   render — see §6), `shape` (rectangular today).
 - **`z`** — z-plane (0 canvas → 1 atmosphere → 2 content → 3 chrome → 4
@@ -277,9 +313,40 @@ special cases. It reconciles with the component model's slot vocabulary
 | annotation (italic-only trailing `p`) | `coda` | harvested into the `coda` Cell, in the note's slot — it IS a below-note, styled differently because it is italic-only. **Not** the `overlay` Cell: this row read `overlay` / `tile/annotation` until 2026-09-01, which described a corner-overlay Tile no render path has ever emitted (see §7) |
 | caption (image / chart figure line) | `stage` | **component-owned**, placed by the component's own CSS *inside its stage Cell* — never hoisted. The `footer` Cell holds only footer + progress + pagination. |
 | footer (`_footer:`) | `footer` / `footer-left` | hoisted |
-| logo · meta · status | `masthead-bay` tiles | docked |
+| meta · status | `masthead-bay` tiles | docked |
+| logo | `logo` | **frame-anchored, not docked** — `base.modifiers.css` pins the mark to the section at `top: var(--logo-y, var(--frame-inset-y))` / `right: var(--logo-anchor-right, var(--frame-inset-x))`, and `logo-x`/`logo-y` set its CENTER as a percent of the slide. Content plane (z2), `accepts: ["chrome"]`. This row read `masthead-bay` until 2026-09-08; nothing ever docked it there |
 | pagination · progress | `pagination-right` · `progress-center` | docked |
-| watermark | `stage` | per the `watermark` Tile's `fits: ["stage"]` |
+| watermark | `watermark` | **frame-anchored** — `watermark.transform.js` appends the ghost to the SECTION and `watermark.css` pins it at `right: -2cqi; bottom: -9cqi`, only on `section.form`. Atmosphere plane (z1), `accepts: ["surface"]`. This row read `stage` until 2026-09-08 |
+
+**Two frame-anchored Cells, not one.** An earlier cut of this work gave `logo` and
+`watermark` a single shared Cell called `slide` — "the whole section box". It was the
+only Cell in the catalog defined by where its occupants *aren't*: every other one names
+a position (`masthead-lede`, `footer-left`, `pagination-right`, `progress-center`).
+These two share exactly one property — neither docks in a band — and that is a negative
+one. They differ in every positive respect: `chrome` vs `surface`, content plane vs
+atmosphere plane, a mark the author can move anywhere with `logo-x`/`logo-y` vs a fixed
+overscan ghost, `logo-on` on any slide vs `section.form` only.
+
+Three things follow, and the third is the one that decided it. A shared Cell forces one
+`z`, one `accepts` and one `capacity` onto two Tiles that agree on none of them — so it
+declared `z: 2` (right for the logo, wrong for the watermark), `accepts: ["chrome",
+"surface"]` (the union of two unrelated kinds) and `capacity: "stack"` (neither stacks).
+Split, each Cell states its occupant's own plane and kind, and `capacity: "one"`. Second,
+a Cell holding many Tiles genuinely *may* span planes — `stage` is z2 and holds Tiles at
+z0, z1 and z2 — but that is a property of a slot with several occupants, and neither of
+these has one. Third: **a Frame suppresses by Cell id**, so one shared Cell made per-Tile
+suppression unexpressible — no Frame could ever drop the watermark while keeping the
+logo. That payoff is **latent, not shipped**: both Cells are non-materializing and no
+Frame declares either, so suppressing one is inert at render today. What the split buys
+is that the statement can now be *written*; nothing can hide either Tile that could not
+hide it before. The rest of the catalog works hard to keep exactly that granularity: `masthead` is
+split into `-lede`/`-bay` and the footer into three zones precisely so frames can address
+them separately, and `closing` suppresses seven Cells individually.
+
+The two Cells keep a shared **region** name in spirit but not in data: `region` is 1:1
+with Cell id across the catalog, and `checkSlicingIntegrity` builds a `region → Cell` map
+where the first entry wins, so a many-to-one region would make a slicing relocation
+target arbitrary. Each Cell therefore carries its own region.
 
 **The `coda` Cell — the trailing editorial band.** Both trailing beats used to be
 listed as living *in* the stage Cell, which was true of where they ended up and said
@@ -330,8 +397,10 @@ See `engineering/decisions/2026-08-24-universal-coda-cell.md`.
 **Two rules the map obeys:**
 
 1. **Not everything hoists.** Only the chrome parts (eyebrow · title · lede;
-   footer + the logo / meta / status / progress / pagination tiles) hoist into
-   named Cells. A component's OWN non-hoisted parts — caption, figure furniture,
+   footer + the meta / status / progress / pagination tiles) hoist into
+   named Cells. The **logo and watermark hoist nowhere** — they are
+   frame-anchored, positioned against the section itself, and each holds its own
+   Cell (`logo`, `watermark`). A component's OWN non-hoisted parts — caption, figure furniture,
    any per-component structure — live *inside its stage Cell*, placed by the
    component's own CSS. The component owns its semantics; the Frame owns the Cells.
 2. **Universal authoring concepts are stage content.** Key Insight
@@ -701,7 +770,9 @@ trailing paragraph, which docks in the `coda` Cell (§5.1).
 
 ```
 SLIDE  ──is a──▶  one Frame (the root chrome frame, or a sovereign frame)
-  └─ divides into Cells ─┬─ Cell (masthead) ─▶ holds chrome Tiles (kicker, title, logo, meta…)
+  └─ divides into Cells ─┬─ Cell (masthead) ─▶ holds chrome Tiles (kicker, title, meta, status)
+                         ├─ Cell (logo)      ─▶ the deck logo, anchored to the section box (content plane)
+                         ├─ Cell (watermark) ─▶ the section-number ghost (atmosphere plane)
                          ├─ Cell (stage)    ─▶ holds the content Tile (the author's Component)
                          └─ Cell (footer)   ─▶ holds chrome Tiles (footer, progress, pagination)
 ```

@@ -41,13 +41,13 @@ const { fig } = Astro.props;
 )}
 
 {fig === "cell-tile" && (
-  <div class="fm fm-split" role="img" aria-label="Cells are typed slots; Tiles fill them on z-planes. Title and kicker fill the masthead-lede, meta the masthead-bay, content the stage, and footer/progress/pagination the footer-row cells.">
+  <div class="fm fm-split" role="img" aria-label="Cells are typed slots; Tiles fill them on z-planes. Title and kicker fill the masthead-lede, meta the masthead-bay, content the stage, and footer/progress/pagination the footer-row cells. The watermark ghost paints over the stage but fills its own frame-anchored cell.">
     <div class="slide">
       <div class="band">
         <div class="cell"><span class="lbl">masthead-lede</span><span class="chips"><span class="tile chrome">kicker</span><span class="tile chrome">title</span></span></div>
         <div class="cell"><span class="lbl">masthead-bay</span><span class="chips"><span class="tile chrome">meta</span></span></div>
       </div>
-      <div class="cell stage tall"><span class="lbl">stage</span><span class="chips wide"><span class="tile content big">content</span><span class="tile surface ghost">watermark</span></span></div>
+      <div class="cell stage tall"><span class="lbl">stage</span><span class="chips wide"><span class="tile content big">content</span><span class="tile surface ghost">watermark <small>own cell, not stage</small></span></span></div>
       <div class="footrow">
         <div class="cell"><span class="lbl">footer-left</span><span class="chips"><span class="tile chrome">footer</span></span></div>
         <div class="cell"><span class="lbl">progress-center</span><span class="chips"><span class="tile chrome">progress</span></span></div>
