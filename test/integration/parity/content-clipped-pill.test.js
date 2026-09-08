@@ -319,9 +319,17 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     await page.evaluate(() => document.fonts.ready);
     await new Promise((r) => setTimeout(r, 1200));
     const v = await page.$eval('section', (s) => {
+      // NULL for a box that does not PAINT, not a zero-rect. `getBoundingClientRect()`
+      // on a `display: none` element is all zeros, and an object of zeros is TRUTHY — so
+      // `assert.ok(v.clip)` passed for a tab that was not drawn, `disjoint()` called two
+      // zero-rects disjoint (`0 <= 0`), and `deepEqual` called two of them equal. Every
+      // independence row in this file would then have proved nothing about the thing it
+      // names. Returning null makes a missing tab fail the `assert.ok` that is already
+      // written, rather than satisfying it.
       const box = (e) => {
         if (!e) return null;
         const r = e.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return null;
         return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) };
       };
       const stampTop = getComputedStyle(s, '::before').content !== 'none'
@@ -331,6 +339,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
         stamp: stampTop !== null,
         clip: box(s.querySelector(':scope > .overflow-tab')),
         leg: box(s.querySelector(':scope > .illegible-tab')),
+        fixme: box(s.querySelector(':scope > .fixme-tab')),
         logo: box(s.querySelector(':scope > img.deck-logo')),
       };
     });
@@ -351,6 +360,8 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     // invalid stack term would drop the centering with it. Hence the berth assertions
     // further down, which are absolute rather than relative.
     const v = await corners('content', 'corner-plain');
+    // `box()` returns null for a box that does not paint, so this is a liveness check and
+    // not a formality — two absent tabs would otherwise satisfy `disjoint` below.
     assert.ok(v.clip && v.leg, `both tabs must be drawn — got ${JSON.stringify(v)}`);
     assert.ok(
       disjoint(v.clip, v.leg),
@@ -380,13 +391,21 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     // tall off-axis shapes that used to need a 200% reserve. None of the three reaches
     // the middle of the top edge, so none of them may displace the marker by a pixel.
     const plain = await corners('content', 'band-ref');
-    for (const [cls, key] of [
-      ['content confidential', 'band-stamp-default'],
-      ['content confidential stamp-flag', 'band-stamp-flag'],
-      ['content confidential stamp-pin', 'band-stamp-pin'],
-      ['content stamp-tab', 'band-shape-only'],
+    assert.ok(plain.clip && plain.leg, 'the reference render must draw both tabs');
+    for (const [cls, key, painted] of [
+      ['content confidential', 'band-stamp-default', true],
+      ['content confidential stamp-flag', 'band-stamp-flag', true],
+      ['content confidential stamp-pin', 'band-stamp-pin', true],
+      // A shape class with no semantic class paints NOTHING — `--stamp-label` comes from
+      // the semantic class alone — so this row's subject is that a bare shape reserves
+      // nothing, and it must not assert a stamp it does not have.
+      ['content stamp-tab', 'band-shape-only', false],
     ]) {
       const v = await corners(cls, key);
+      // Liveness first, or every comparison below is satisfiable by two absent boxes.
+      assert.ok(v.clip && v.leg, `both tabs must be DRAWN on "${cls}" — got ${JSON.stringify(v)}`);
+      assert.equal(v.stamp, painted,
+        `the "${cls}" fixture must ${painted ? 'actually paint' : 'not paint'} a stamp, or the row proves nothing`);
       assert.deepEqual(
         v.clip, plain.clip,
         `REGRESSION: "${cls}" displaced the clip tab. A stamp anchored to the RIGHT edge `
@@ -485,6 +504,77 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
       }
     });
   }
+
+  // ── The FIX-ME berth is now the SOLE consumer of the typed `--slide-radius` ──────
+  //
+  // This assertion is inherited, not new, and inheriting it was the point. The two
+  // berths above used to inset by `calc(var(--slide-radius, 0px) * 0.45)` so they cleared
+  // a rounded deck's arc, and #1649 shipped a UNITLESS `--slide-radius: 0`: a unitless
+  // zero is a <number> inside calc(), so the length was invalid at computed-value time,
+  // `top`/`right` fell back to `auto`, and both markers dropped out of the corner and
+  // printed across the headline on EVERY square deck — while thirteen relative assertions
+  // in this file passed.
+  //
+  // Centering those two deleted their insets, which would have deleted the gate with
+  // them. `.fixme-tab` still insets (bottom-right is a corner, and an alarm must not be
+  // sliced by a shape the deck chose), so the trap is still live on exactly one berth and
+  // needs exactly one absolute measurement. `resolve-corners.test.js` does not cover it —
+  // its `/--slide-radius:\s*0/` matches `0px` and a bare `0` identically.
+  //
+  // SQUARE is the case under test, deliberately: it is the default, every deck that
+  // predates the corners register, and the one a rounded-deck check cannot see.
+  const CORNER_SQUARE_TOL = 12; // the berth insets 0 on square; allow the tab's own padding
+  test('the Fix-Me berth stays on the frame\'s bottom-right corner on a square deck', async () => {
+    // `.fit-marked` is FORCED here rather than earned, and that is deliberate. The Fix-Me
+    // register is drawn by the live-preview watcher only (`drawFitLabel`, gated on
+    // `policy.authorTags` in lib/runtime/index.js); the export's inline watcher never
+    // calls it and only STRIPS the class — verified against a real export of
+    // `examples/overflow-fix-me.md`, where no slide carries `.fit-marked` and no tab
+    // paints. So no deck, however over-stuffed, can earn this register on the surface
+    // this file drives.
+    //
+    // That does not make the assertion synthetic in the sense HARD RULE #23 warns about.
+    // The defect under test is a COMPUTED-VALUE trap in CSS — a unitless `--slide-radius`
+    // making `calc(var(--slide-radius) * 0.45)` invalid, so `bottom`/`right` fall back to
+    // `auto` and the berth drops into flow. The class is precisely and only what reveals
+    // the tab, so forcing it exercises the same cascade the preview does, in the same real
+    // Chromium, on a real export document. What it does NOT cover is whether the watcher
+    // stamps the class, which is a different register's concern and has its own tests.
+    const html = renderAt(deck(CORNER('content')), 'berth-square-fixme', 'author');
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+    await page.evaluate(() => document.fonts.ready);
+    await new Promise((r) => setTimeout(r, 1200));
+    const v = await page.$eval('section', (s) => {
+      s.classList.add('fit-marked');
+      const e = s.querySelector(':scope > .fixme-tab');
+      if (!e) return {};
+      e.textContent = 'Fix Me';
+      const r = e.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return {};
+      return {
+        position: getComputedStyle(e).position,
+        fixme: { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) },
+      };
+    });
+    await page.close();
+    assert.ok(v.fixme, 'expected the Fix-Me tab to paint once `.fit-marked` is on the section');
+    assert.equal(v.position, 'absolute',
+      'REGRESSION: an in-flow Fix-Me tab takes height from the very cell it reports on');
+    const fromRight = 1280 - v.fixme.right;
+    const fromBottom = 720 - v.fixme.bottom;
+    assert.ok(
+      fromRight <= CORNER_SQUARE_TOL,
+      `Fix-Me tab is ${fromRight}px in from the frame's right edge on a SQUARE deck — it should `
+      + 'be on it. A berth inset that resolves to an invalid length falls back to `auto` and '
+      + 'drops the marker into flow. Check that `--slide-radius` is declared `0px`, not `0`.',
+    );
+    assert.ok(
+      fromBottom <= CORNER_SQUARE_TOL,
+      `Fix-Me tab is ${fromBottom}px above the frame's bottom edge on a SQUARE deck — same cause.`,
+    );
+  });
 
 
 });

@@ -68,12 +68,15 @@ the cheaper answer, and it is the one that stops the arithmetic rather than re-d
 
 ## 2. Why top-center, and why flush
 
-**Empty by construction.** `section` pads `6.875cqi` at the block start
-(`base.elements.css`), so no in-flow content — masthead band, eyebrow, heading, chart
-mark — can paint above y ≈ 88px at hd. The tab's own box is ~23px. Nothing else is
-absolutely positioned into the middle of the top band: every stamp shape is anchored to
-the right (or lower), the logo sits at the right frame inset, and the paginator and footer
-sit at the bottom.
+**Empty of IN-FLOW content by construction.** `section` pads `6.875cqi` at the block start
+(`base.elements.css`), so no masthead band, eyebrow, heading or chart mark can paint above
+y ≈ 88px at hd. The tab's own box is ~23px. Every stamp shape is anchored to the right (or
+lower), the logo sits at the right frame inset, and the paginator and footer sit at the
+bottom.
+
+**One absolutely-positioned occupant is NOT cleared, and it is the running header.** See §5
+— it is a known, measured limitation of this berth, not an oversight, and the first draft of
+this note claimed the opposite.
 
 **Flush costs nothing to keep flush.** `top: 0` resolves against the PADDING box, and the
 spectrum is the section's `border-top`. So `0` *is* the underside of the bar, with no token
@@ -100,8 +103,10 @@ Three mechanisms existed only to survive the corner, and all three are gone:
   moved there generalizes past the reserve that prompted it.
 - **Two of the three `--corner-stack` grouping rules.** The reserve is now `--stamp-stack`
   and exactly one shape declares it: `stamp-notch`, the full-width hairline band at
-  `top: 0` (1.58cqi tall against the tab's ~1.8cqi, so one row clears it). Every other shape
-  reserves nothing.
+  `top: 0`. Measured in-page against a `1cqi` probe at hd (1cqi = 11.5156px): the notch is
+  17.83px = **1.548cqi** and the tab 22.97px = **1.995cqi**, so one row clears it with room.
+  Every other shape reserves nothing — ten are anchored to the right edge, and the two
+  full-bleed washes cover the marker from the plane above, deliberately.
 
 The failure direction inverts, and that is the part worth keeping. Under the old scheme a
 new corner-sitting shape that forgot to join a list **silently reserved nothing and the tab
@@ -167,6 +172,38 @@ in flow. What would change it is a component that draws interactive marks into t
 chrome band.
 
 ## 5. What this leaves open
+
+- **THE RUNNING HEADER SHARES THE BAND, and row 2 sits on it.** `section header`
+  (`base.modifiers.css`) is `position: absolute` at `top: var(--frame-inset-y)`, spanning
+  the full width between the frame insets — measured `y 28 → 75.9` at hd for a header long
+  enough to wrap. Row 1 clears it (`y 4 → 27` against a header starting at 28), so **the
+  register that ships — the delivered reader pill — is unaffected**. Row 2 does not: the
+  author-only legibility tab at `y 27 → 49.9`, and the clip tab when `stamp-notch` pushes
+  it down.
+
+  **This is older than the berth and was made worse by it, which is why it is written down
+  rather than filed quietly.** The top-right corner sat in the same band and covered the
+  header's TAIL; centering moved the overlap to the middle of the line — **27 characters
+  covered against 21**, measured on the same render with each berth injected in turn.
+
+  **The exposure, measured rather than assumed.** Across the 40 shipped `examples/` decks
+  carrying `header:` — 283 header-bearing slides — **111 (39%)** have header ink reaching
+  this band's x-window and **104 wrap to two lines**. It only bites when such a slide also
+  draws a marker, which is by definition a broken slide. Re-derive with the probe in
+  `.scratch/probe/hdr-ink.mjs` (a `Range` over each `> header`, max `getClientRects().right`
+  against the band's 505–775 window at hd).
+
+  **Three fixes were costed and all cost more than this berth is worth:**
+
+  | option | what it buys | what it costs |
+  |---|---|---|
+  | ellipse the running header to one line, as the footer already is, then reserve its known height | both rows clear, permanently | changes DELIVERED content on 104 shipped slides — a deck-wide behavior change |
+  | wrap the three berths in a flex rail so both markers share the single 24px strip above the header | both rows clear with no header change | rewrites the berth contract markup (`lib/core/fit-berth.js`, both adapters), every `section.x > .y` reveal selector, both watchers, and the `off` sweep derivation |
+  | push `section header` down one tab-height on every slide, reserving the strip permanently | simple, robust | spends 23px of top chrome on every deck whether or not a marker is ever drawn, and moves a fixed element on every existing deck |
+
+  Anchor positioning (`top: anchor(--header bottom)`) would express it exactly and is the
+  thing to revisit; it is unproven across this repo's three render paths and the header's
+  height is content-dependent, so it is not a drop-in.
 
 - **A logo parked at top-center.** `logo-x: 50` with `logo-y: 3` puts the author's mark
   under the bar in the middle, where it would collide. The old machinery did not handle

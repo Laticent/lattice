@@ -39,7 +39,7 @@ the cause is a bounded content cell (`.cell-stage` / `.panel-right` /
 grid card that merely grew and pushed a neighbor past the frame, which is a
 different, unsafe-to-pinpoint case — `lattice-runtime.js` draws a yellow
 outline with a "Fix Me" corner tag at the culprit's bottom-right (offset from
-the ring's own top-right "Overflows" tag so the two never collide).
+the ring's own top-center "Overflows" tag so the two never collide).
 
 **It narrows further than "the whole cell" when it can.** A cell often holds
 a repeated-item collection (cards-grid's cards, split-compare's two options)

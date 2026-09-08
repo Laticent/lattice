@@ -760,9 +760,11 @@ square deck: a unitless zero inside `calc()` is a `<number>`, which makes the wh
 declaration invalid and drops the marker into flow.
 
 The overflow and type-floor flags need no inset: they berth **centered under the spectrum
-bar** (2026-09-08), and the middle of an edge is never inside a corner arc. Both berths are
-gated by absolute-position assertions in
-`test/integration/parity/content-clipped-pill.test.js`.
+bar** (2026-09-08), and the middle of an edge is never inside a corner arc. All three berths
+carry absolute-position assertions in
+`test/integration/parity/content-clipped-pill.test.js` — centering and flushness for the two
+under the bar, and the square-deck corner measurement for Fix-Me, which is the only berth
+still exposed to the unitless-`calc()` trap.
 
 **In an EXPORT the corner is a capability of the FORMAT, and a format that cannot hold it
 renders square.** A rounded corner is a hole — the slide stops painting and whatever is

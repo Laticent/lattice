@@ -596,7 +596,7 @@ describe('check-ownership', () => {
       // below chrome without any isolation to hold them.
       assert.ok(v['--z-chrome'] >= 10, 'the local 0-9 band fits between content and chrome');
       // MARK OVER ALARM. This pair was briefly inverted, on the reasoning that an authoring
-      // tab should beat a stamp and that --corner-stack separates them geometrically anyway.
+      // tab should beat a stamp and that the corner stack separated them geometrically anyway.
       // Both were wrong: the full-bleed shapes (stamp-veil, stamp-mark) are `inset: 0` and
       // clear nothing, and the marker that SHIPS is the reader-mode pill, not the authoring
       // tabs — so the inversion punched an engine marker through a redaction wash in the

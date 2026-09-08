@@ -107,7 +107,7 @@ There are **two** implementations, and the emulator is not one of them: it rende
 through `lib/engine`, which runs the engine's pass, so only the runtime is a genuine
 mirror and only it can drift. (The emulator used to re-run the engine's pass a second
 time, post-stamp; that call is gone — see below.) A change to `deckLogoVars` or
-`deckLogoInCorner` must land in the runtime's `applyLogoPlacement` in the same commit
+`deckLogoPlacement` must land in the runtime's `applyLogoPlacement` in the same commit
 (HARD RULE #1).
 
 **Until 2026-08-16 the engine row of that table was a claim, not a behavior** (#1652).

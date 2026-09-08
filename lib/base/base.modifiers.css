@@ -1804,17 +1804,45 @@ section.clip-marked > .overflow-tab {
      because the corner's occupants have geometry the engine does not own. The marker is
      the TRANSIENT thing in that corner: it should move, not the branding.
 
-     Top-center is empty by construction. `section` pads 6.875cqi at the block start, so
-     no in-flow content — masthead band, eyebrow, heading, chart mark — can paint above
-     y ≈ 88px at hd; the tab's own box is ~23px. Nothing else is absolutely positioned
-     into the middle of the top band: the stamp shapes sit right (or below), the logo
-     sits right, the paginator and footer sit at the bottom.
+     Top-center is empty of IN-FLOW content by construction. `section` pads 6.875cqi at
+     the block start, so no masthead band, eyebrow, heading or chart mark can paint above
+     y ≈ 88px at hd; the tab's own box is ~23px, and measured across the six shipped chart
+     galleries not one of 461 interactive marks comes within 139px of it.
+
+     ONE ABSOLUTELY-POSITIONED OCCUPANT IS NOT CLEARED, and saying so is the point of this
+     paragraph. `section header` (this file, ~350 lines up) is `position: absolute` at
+     `top: var(--frame-inset-y)`, spanning `--frame-inset-x` to `--frame-inset-x` — the
+     WHOLE width. Measured at hd: `y 28 → 75.9` for a header long enough to wrap. So:
+
+       · ROW 1 CLEARS IT. The clip tab — and therefore the delivered reader pill — is
+         `y 4 → 27` against a header starting at 28. This is the row that ships.
+       · ROW 2 DOES NOT. The legibility tab at `y 27 → 49.9` lands on the header, as does
+         the clip tab when `stamp-notch` pushes it down.
+
+     That collision is OLDER than this berth — the top-right corner sat in the same band
+     and covered the header's TAIL — but centering made it worse where it happens: 27
+     characters covered instead of 21, mid-line instead of at the end. The exposure is
+     measured, not guessed: across 40 shipped example decks carrying `header:`, 283
+     header-bearing slides, 111 of them (39%) have header ink reaching this band's
+     x-window and 104 wrap to two lines. It only bites when such a slide ALSO draws a
+     marker, and row 2 is the author-only register.
+
+     Accepted deliberately rather than overlooked, and the alternatives are costed in
+     `engineering/decisions/2026-09-08-marker-berth-top-center.md` §5 — all three cost
+     more than this berth is worth (a deck-wide header ellipsis, a flex rail replacing the
+     berth contract markup, or 23px of top chrome reserved on every deck forever).
+
+     Nothing else is absolutely positioned into the middle of the top band: the stamp
+     shapes sit right (or below), the logo sits right, the paginator and footer sit at the
+     bottom.
 
      `top: 0` resolves against the PADDING box, and the spectrum is the section's
      `border-top` (base.elements.css) — so `0` is flush against the underside of the bar
      with no token to keep in step, and it stays flush on a deck that moves the bar to
      another edge or turns it off (`spectrum-edge:`), where the padding box simply starts
-     at the frame top.
+     at the frame top. The ONE exception is a sovereign split frame, which takes the bar
+     off the section and repaints it inside its own panels; it declares `--marker-band-top`
+     so the berth still lands under the ribbon rather than on it (see that token below).
 
      TWO THINGS THE OLD BERTH NEEDED AND THIS ONE DOES NOT. The `--slide-radius` inset is
      gone: a rounded deck cuts its arc at the CORNERS, and the center of the top edge is
@@ -1825,8 +1853,21 @@ section.clip-marked > .overflow-tab {
      WHAT STILL STACKS: `stamp-notch`, the one stamp shape that paints a FULL-WIDTH band
      across the top edge, and the legibility tab below this one. The arithmetic is at
      `--stamp-stack` / `--clip-stack` below. */
-  top: 0;
+  top: var(--marker-band-top, 0px);
   left: 50%;   /* centered by the `translate(-50%, …)` at the stack rules below */
+  /* `max-content`, NOT the `auto` shrink-to-fit this box would otherwise take, and the
+     reason is `left: 50%` itself. For an absolutely positioned box with `left` set and
+     `right: auto`, the AVAILABLE width runs from `left` to the right padding edge — so
+     centering the berth halved it. Shrink-to-fit is `min(max(min-content, available),
+     max-content)`, so the label starts WRAPPING at half the slide width, and a wrapped
+     tab is twice as tall and reaches into the content it is reporting on. Measured at
+     `size: mobile` (1080 wide, cap 540): `Text too small · 0.2pt` — today's widest real
+     label — comes to 537.3px, i.e. **2.7px** of headroom, and one more character wraps.
+     `max-content` is an intrinsic size and ignores available space, so the box is as wide
+     as its text whatever the berth's origin; `max-width` then caps it against the FULL
+     padding box rather than the half. */
+  width: max-content;
+  max-width: 96%;
   z-index: var(--z-alarm);
   background: #d4351c;
   color: #fff;
@@ -1867,15 +1908,17 @@ section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !import
 
 /* ── The READER variant of the same marker ────────────────────────────────────
  * Everything above is the AUTHORING signal: a loud red danger ring and an
- * "OVERFLOWS" corner flag. Right for the person fixing the deck, alarming in
+ * "OVERFLOWS" tag under the bar. Right for the person fixing the deck, alarming in
  * front of a board — a red QA box on a delivered slide is the "debug information"
  * a recipient should never be handed.
  *
  * So the export's `overflow-marker` setting decides who the marker talks to
  * (lib/core/resolve-overflow-marker.js), the runtime stamps the resolved level on
  * each SLIDE SECTION, and this block is the `reader` treatment: restyle the SAME
- * text-labeled tab (WCAG 1.4.1 — never color alone) into a calm bottom-center
- * "Content clipped" pill. The red ring is not overridden here — it is EXCLUDED at
+ * text-labeled tab (WCAG 1.4.1 — never color alone) into a calm "Content clipped"
+ * pill in the same berth. (It read "bottom-center" here for two placements after that
+ * stopped being true — the pill was in the corner, and is now centered under the bar.
+ * Bottom-center is the running footer's band and the one this pill may never take.) The red ring is not overridden here — it is EXCLUDED at
  * its own rule above, so the finish frame that yields to it survives. Content that
  * clips is still visibly clipped; only the tone changes.
  *
@@ -1998,8 +2041,12 @@ section.illegible > .illegible-tab {
      its note for why the marker left the corner. This one stacks one tab-height below it
      (`--clip-stack`), so a slide that trips both registers reads as two rungs of one
      signal rather than two boxes fighting for a square inch. */
-  top: 0;
+  top: var(--marker-band-top, 0px);
   left: 50%;
+  /* Same two, same reasons as `.overflow-tab` above — and this is the berth the width
+     cliff was measured on, because it carries the longest label in the register. */
+  width: max-content;
+  max-width: 96%;
   z-index: var(--z-alarm);
   background: #b8730a;
   color: #fff;
@@ -2106,7 +2153,29 @@ section.illegible > .illegible-tab {
    The `-50%` that centers each tab travels in the SAME transform, so an invalid stack
    term would now also drop the centering — which is why the canary asserts the berth's
    absolute position and not only that the two tabs are disjoint. */
-section { --stamp-stack: 0%; --clip-stack: 0%; }
+/* ── WHERE THE BAND STARTS, when the section is not the one painting the bar ──────
+   `top: 0` resolves against the PADDING box, and the spectrum is normally the section's
+   own `border-top` — so `0` is the underside of the bar for free, on every deck, with no
+   token to keep in step. That is the whole argument for the berth, and it has one class
+   of exception: a SOVEREIGN SPLIT FRAME owns its own top edge. `split-panel` and
+   `split-compare` set `border-top: none` on the section and rebuild the ribbon inside
+   their own panels (`.panel-left::after` at `top: 0`, `.panel-right`'s background), for
+   reasons that have nothing to do with markers —
+   engineering/decisions/2026-08-18-split-frame-edge-ownership.md. They also zero the
+   section's padding, so the padding box starts at the FRAME top and `top: 0` puts the
+   opaque tab ON the ribbon: measured on `examples/marker-corner.md` p3, a 176px notch
+   punched out of the middle of the deck's own spectrum, on the one slide the deck exists
+   to show off.
+
+   So a frame that takes the bar off the section says where the bar's underside is, in the
+   bar's own expression — the same `calc(--_sec-1cqi * 0.3125)` the segments are drawn
+   with, three files apart but derived from one number, so they cannot drift. The default
+   is `0px` and TYPED, for the reason the whole file keeps repeating: a unitless `0` in
+   `calc()` is a <number> and invalidates the declaration. */
+section { --stamp-stack: 0%; --clip-stack: 0%; --marker-band-top: 0px; }
+section:is(.split-panel, .split-compare) {
+  --marker-band-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125);
+}
 section.clip-marked { --clip-stack: 100%; }
 /* `translate(-50%, …)`, not two declarations: `transform` is one property, so the
    centering and the stack term have to share it. Both halves are percentages of the
