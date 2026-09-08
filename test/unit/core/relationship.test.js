@@ -12,7 +12,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { RELATIONSHIPS, relationshipSignals, membersIn, labelOf, criteriaOf, textOf, RELATION } = require('../../../lib/core/relationship');
+const { RELATIONSHIPS, relationshipSignals, membersIn, labelOf, criteriaOf, textOf, RELATION, stripTags } = require('../../../lib/core/relationship');
 const { applyRelationshipSignals } = require('../../../lib/core/auto-split');
 
 // Reads a signal as { mark, label } rather than matching its markup.
@@ -62,14 +62,10 @@ describe('core: relationship — textOf leaves no tag behind', () => {
   });
 });
 
-/** An `<mo>`'s character content — KaTeX nests `<mi>` inside `<mo>` for some macros. Looped to a
- *  fixed point for the same reason `stripTags` is: a one-shot `<[^>]*>` strip is the shape CodeQL
- *  flags, and it can manufacture a tag out of text that was not one. */
-const stripInner = (html) => {
-  let out = String(html);
-  for (let prev = null; prev !== out; ) { prev = out; out = out.replace(/<[^>]*>/g, ''); }
-  return out.trim();
-};
+/** An `<mo>`'s character content — KaTeX nests `<mi>` inside `<mo>` for some macros. The kernel's
+ *  own `stripTags`, not a local copy: this file had grown a fourth hand-rolled tag strip, and
+ *  `relationship.js` records that three CodeQL alerts came from exactly that accumulation. */
+const stripInner = (html) => stripTags(html, '').trim();
 
 const signalOf = (html) => {
   const m = /<div class="lat-split-rel" data-mark="([a-z]+)"[^>]*>([\s\S]*?)<\/div>/.exec(html);
@@ -643,49 +639,47 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
       if (/^\\[a-zA-Z]+$/.test(name)) macros.add(name);
     }
     assert.ok(macros.size > 200, `expected KaTeX's macro table, found ${macros.size} entries`);
-    // THE FIRST CUT OF THIS SWEEP WAS VACUOUS, in two independent ways, and a fifth checker caught
-    // it after it had been shipped as the fix for a hand-written list:
+    // THE FIRST CUT OF THIS SWEEP WAS VACUOUS, in two independent ways, and it shipped as the fix
+    // for a hand-written list:
     //   · it rendered with `output: 'mathml'` and then looked for `mrel` INSIDE the `<math>` row.
     //     `mrel` is a `katex-html` class — that half is not even emitted under `output: 'mathml'` —
     //     so the gate was always false and every character was skipped;
     //   · `<mo[^>]*>([^<]*)</mo>` cannot see `∹`, because KaTeX writes `\eqcolon` as
     //     `<mo><mi mathvariant="normal">∹</mi></mo>` and `[^<]*` captures the empty string.
-    // Either alone made `uncovered` unconditionally empty. Both are fixed here, and the arm is
-    // mutation-checked below rather than trusted: drop `\u2239` from RELATION and it reports.
-    const uncovered = new Set();
-    for (const name of macros) {
-      let html;
-      try { html = katex.renderToString(`a ${name} b`, { throwOnError: true }); } catch { continue; }
-      // `mrel` on the WHOLE render — the html half is where KaTeX stamps the atom class.
-      if (!/mrel/.test(html)) continue;
-      const row = /<math[\s\S]*?<\/math>/.exec(html);
-      if (!row) continue;
-      const body = row[0].replace(/<annotation[\s\S]*?<\/annotation>/, '');
-      for (const mo of body.matchAll(/<mo[^>]*>([\s\S]*?)<\/mo>/g)) {
-        const ch = stripInner(mo[1]);
-        if ([...ch].length !== 1 || ch.codePointAt(0) < 0x2000) continue;
-        if (!RELATION.test(ch)) uncovered.add(`${ch} (${name})`);
+    // Either alone made the result unconditionally empty.
+    //
+    // SO THE SWEEP IS A FUNCTION, CALLED TWICE. The first cut of the self-test re-implemented the
+    // loop instead of re-running it, which guarded the copy and not the original: all three ways of
+    // making the real sweep vacuous again left the suite green. Calling one function with the real
+    // set and with a blinded one is the difference between checking the sweep and checking a
+    // paraphrase of it. (HARD RULE #25 checker, sixth pass.)
+    const sweep = (relationRe) => {
+      const found = new Set();
+      for (const name of macros) {
+        let html;
+        try { html = katex.renderToString(`a ${name} b`, { throwOnError: true }); } catch { continue; }
+        // `mrel` on the WHOLE render — the html half is where KaTeX stamps the atom class.
+        if (!/mrel/.test(html)) continue;
+        const row = /<math[\s\S]*?<\/math>/.exec(html);
+        if (!row) continue;
+        const body = row[0].replace(/<annotation[\s\S]*?<\/annotation>/, '');
+        for (const mo of body.matchAll(/<mo[^>]*>([\s\S]*?)<\/mo>/g)) {
+          const ch = stripInner(mo[1]);
+          if ([...ch].length !== 1 || ch.codePointAt(0) < 0x2000) continue;
+          if (!relationRe.test(ch)) found.add(`${ch} (${name})`);
+        }
       }
-    }
-    assert.deepEqual([...uncovered], [], 'a KaTeX macro renders a relation RELATION does not carry');
-    // The sweep must be able to SPEAK. Re-run it against a RELATION with `∹` removed and require
-    // it to report — otherwise "zero uncovered" is indistinguishable from "looked at nothing",
-    // which is exactly what the first cut was.
-    // The constant's SOURCE spells its ranges as literal `\\uXXXX` text, so blind it by that text —
-    // replacing the character itself is a no-op and would leave this self-test unable to fail,
-    // which is the defect it exists to catch.
+      return [...found];
+    };
+    assert.deepEqual(sweep(RELATION), [], 'a KaTeX macro renders a relation RELATION does not carry');
+    // The SAME sweep against a set with `∹` blinded out must report it — otherwise "zero uncovered"
+    // and "looked at nothing" are the same reading, which is what the first cut was. The constant's
+    // SOURCE spells its ranges as literal `\uXXXX` text, so blind it by that text; replacing the
+    // character itself is a no-op and would leave this self-test unable to fail in its turn.
     const blinded = new RegExp(RELATION.source.replace('\\u2239', ''));
     assert.notEqual(blinded.source, RELATION.source, 'blinding the census did nothing');
-    let spoke = false;
-    for (const name of ['\\eqcolon', '\\minuscolon']) {
-      const html = katex.renderToString(`a ${name} b`, { throwOnError: true });
-      const body = /<math[\s\S]*?<\/math>/.exec(html)[0].replace(/<annotation[\s\S]*?<\/annotation>/, '');
-      for (const mo of body.matchAll(/<mo[^>]*>([\s\S]*?)<\/mo>/g)) {
-        const ch = stripInner(mo[1]);
-        if ([...ch].length === 1 && /mrel/.test(html) && !blinded.test(ch)) spoke = true;
-      }
-    }
-    assert.ok(spoke, 'the macro sweep cannot report a missing relation — it is not looking at anything');
+    assert.deepEqual(sweep(blinded), ['∹ (\\eqcolon)', '∹ (\\minuscolon)'],
+      'the macro sweep cannot report a missing relation — it is not looking at anything');
 
     for (const [cmd, want] of NAMED_MACROS) {
       // The annotation goes (it carries the author's TeX, not the rendered character); NO tag strip
@@ -820,27 +814,59 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.ok(big / small < 8, `4x the input cost ${(big / small).toFixed(1)}x the time — superlinear`);
   });
 
+  test('a span TAG is bounded by parsing it, quotes and all', () => {
+    // `tagEnd` decides where every span tag ends and had NO arm at all: gutting it to a naive
+    // `indexOf('>')` left all 79 tests green, which reverted two commits' fixes unnoticed. Both
+    // shapes below come from checkers that found the code wrong in opposite directions.
+    const mirror = '<span class="katex-mathml">'
+      + '<math><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></math></span>';
+    // A `<` inside a QUOTED VALUE. Legal HTML — Chromium parses this as one SPAN with both
+    // attributes — and a `indexOf('>')`/`lastIndexOf('<')` bound walks straight past the span.
+    assert.equal(textOf(`<span class="katex" title="a<b">${mirror}</span> tail`), 'Q tail');
+    // A quote OUTSIDE value position, which is what "track quote state" has to mean. An `alt`
+    // holding `<span` and an odd quote count sent the whole scan to -1, so `stripMathMirror`
+    // no-opped and every one of KaTeX's three copies printed: `X ⊤ X X^\top X X ⊤ X` on a slide.
+    // The mirror has to sit inside a real `.katex` span here, as KaTeX emits it — a bare mirror is
+    // STRIPPED (that is the second loop's job), so `Q` would vanish for the right reason and the
+    // arm would pass without exercising anything.
+    assert.equal(textOf(`<li><img alt="<span q" src="x.png"> <span class="katex">${mirror}</span> tail</li>`),
+      'Q tail');
+    // An unquoted value containing a quote, the mirror case: the tag still ends at its own `>`.
+    assert.equal(textOf(`<span class="katex" data-x=a"b>${mirror}</span> tail`), 'Q tail');
+    // A `>` INSIDE a quoted value, with the class AFTER it — the one shape that separates parsing
+    // the tag from `indexOf('>')`. Naive bounding stops at the inner `>`, sees no class, and walks
+    // past the span; the three cases above all pass under it, which is how `tagEnd` shipped with no
+    // arm that could fail. Class-first would pass too: the class has to sit beyond the trap.
+    assert.equal(textOf(`<span title="a>b" class="katex">${mirror}</span> tail`), 'Q tail');
+  });
+
   test('the katex scan reads a real span, and a `<spanfoo>` does not become one', () => {
     // The regex `findKatexSpan` replaced (`<span[^>]*\\sclass="…`) matched `<spanfoo class="katex">`
     // because `[^>]*` swallowed the `foo`. The scan bounds the tag and tests `^<span[\\s>]`, so it
-    // does not. This is the ONLY behavioural difference between the two over eleven tag shapes.
+    // does not. This is the ONLY behavioral difference between the two over eleven tag shapes.
     // It does NOT on its own catch a revert to that regex — measured: the tag strip downstream
     // flattens both readings to the same text, so only the cost arm above kills that mutation.
     // It is here to pin the scan's contract, not as a second guard.
-    // AND A GAP THIS ARM DOES NOT CLOSE, stated rather than papered over. `spanTagHasClass` tests
-    // `/^<span[\s>]/`, so `<spanfoo class="katex">` is not a span. Deleting that `[\s>]` changes
-    // NOTHING observable: `findMatchingClose` will not pair `<spanfoo` with a `</span>`, so the
-    // loose reading breaks out of the loop and the mirror strip produces the same text. A fifth
-    // checker found the first cut of this arm mutation-dead and named the guard; the honest finding
-    // is that the guard is defense in depth and no arm can pin it through the public surface. What
-    // IS pinned below is the behavior: a prefix does not gain a real span's reading, and a real
-    // span keeps it.
+    // THIS ARM SAID "NO TEST CAN PIN THE `[\s>]` GUARD" FOR ONE COMMIT, AND THAT WAS FALSE.
+    // The reasoning was that `findMatchingClose` will not pair `<spanfoo` with a `</span>` — but it
+    // prefix-matches `'<' + tagName`, so it pairs them happily. The claim generalized from the one
+    // input this arm used, where the close tag was `</spanfoo>` and the pairing genuinely failed.
+    // A sixth checker found two inputs that distinguish the guard in opposite directions, and both
+    // are below. "A stated gap beats a test that pretends" was the right principle applied to a
+    // premise that did not hold.
     const mirror = '<span class="katex-mathml">'
       + '<math><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></math></span>';
     assert.equal(textOf(`<spanfoo class="katex">${mirror}</spanfoo> tail`), 'tail',
       'a prefix of `span` was read as a span');
     assert.equal(textOf(`<span class="katex">${mirror}</span> tail`), 'Q tail',
       'a real katex span is still read');
+    // The two that DISCRIMINATE. Drop the `[\s>]` and the first reads `Q tail` (the prefix is
+    // treated as a katex span and its mirror is read) while the second reads `tail` (the prefix is
+    // treated as the katex-mathml span and stripped).
+    assert.equal(textOf(`<spanfoo class="katex">${mirror}</span> tail`), 'tail',
+      'a `<spanfoo>` gained a real span reading');
+    assert.equal(textOf(`<spanfoo class="katex-mathml"><math><mi>Q</mi></math></span> tail`), 'Q tail',
+      'a `<spanfoo>` was stripped as if it were the mirror');
   });
 
   test('an unbalanced author span returns the input rather than looping', () => {
