@@ -465,6 +465,86 @@ same thing: only the four cases expecting `read` ever failed — 8 in 30 on `mai
 expecting `edit`. Seeding from the home page, which boots no island that writes these keys,
 makes it deterministic: 57 of 57 across three repeats.
 
+## A slide with no edge, in every dark palette
+
+Reported from a real iPhone against the deployed preview: "there is no border on the
+slides so the slide blends into the background." True, and not a cuoio quirk.
+
+The preview letterboxes the filmstrip in the pane's own `--bg-alt`, deliberately —
+`playground-engine.ts` says why: matching the iframe body to the pane means the fade-in
+has no background color shift. A slide's only separation from that surround is the
+engine's drop shadow, `0 8px 30px rgba(0,0,0,.22)` — **black**, which reads on a light
+ground and vanishes on a dark one. So in any palette where a slide's own background sits
+near `--bg-alt`, the two are simply the same color with nothing between them.
+
+Measured on the built site, WebKit at an iPhone 15 Pro profile, slide-vs-surround
+contrast across all fourteen palettes:
+
+| mode | range | verdict |
+|---|---|---|
+| dark | **1.00 – 1.49** | no edge, every palette |
+| light | 10.34 – 19.26 | fine |
+
+`cuoio` and `crepuscolo` measured exactly **1.00** — the slide and its surround are the
+same color to the byte. This was never a one-theme problem.
+
+**The fix is the slide's own hairline, not a different background** — changing the
+surround would reintroduce the flicker the letterbox exists to prevent. `buildSrcdoc`
+gains an opt-in `slideEdge` color that prepends `0 0 0 1px <color>` to the section
+shadow, and the Playground passes `var(--border, …)`, which resolves *inside* the srcdoc
+against the deck's own theme — so the ring tracks palette and mode without the preview
+code knowing either. After: **3.01 – 3.07** in every dark palette.
+
+Two things are deliberate and worth keeping:
+
+- **Opt-in, defaulting off.** `buildSrcdoc` also assembles the print document and the
+  export capture frame (`deck-export.js`), so editing the shared `sectionRule` would have
+  altered exported bytes and owed a sign-off. Off by default, every existing caller is
+  byte-identical, and `deck-preview.test.ts` pins that.
+- **A color, and the fallback is load-bearing.** An undefined custom property invalidates
+  the whole `box-shadow` at computed-value time, which would drop the drop shadow too and
+  leave the slide worse off than with no ring.
+
+The two weakest rings are `concrete`/light at 2.62 and `onyx`/light at 1.09 — and in both
+the slide already separates on its own at 11.85 and 19.26. The ring is strongest exactly
+where it is needed.
+
+## One control, two meanings
+
+The same report: "the second drop down with the variants and stresses not being enabled
+and with only a single slide being shown". Reproduced, and it was two things.
+
+The visible half was BY DESIGN and still surprising. Picking a component in Explore walks
+its twelve-slide **gallery**; picking the same component in Edit loaded its one-slide
+**sample**. Both flip the phone's single pane to the deck, so the two are
+indistinguishable until you count slides — one with a live Step list, one with a dead one,
+decided by a mode the phone barely surfaces.
+
+Underneath it was a real defect: the walk kept the plan's count over the sample's deck.
+That is the section above — fixed at `applyDeck`.
+
+**A pick is a browse action now, in both modes.** From Edit it switches the surface to
+Explore and walks the same gallery. The route back is the one the surface already
+documents: the pencil opens whatever deck is on screen, so pick-then-pencil edits the
+gallery you just chose.
+
+**Loading the gallery into the EDITOR was tried first and abandoned**, and the reason is
+worth recording because it looks like the obvious fix. `draftComponent` is DERIVED by
+detecting the component from the draft's source, and detection reads the first slide —
+which on a gallery is the gallery's own title slide. So the picker renamed itself `title`
+straight after a pick of `q-and-a`. Applying the explicit pick last fixed the label until a
+reload re-derived it from the stored draft, which
+`playground-state.spec.ts`'s "search and lens survive reopening the picker AND a reload"
+caught. The picker label, the Reset target and the pristine-draft check all assume the
+draft is ONE component's markdown; switching the surface keeps that assumption true
+instead of patching each consequence.
+
+**Stated precisely, because the tempting claim is false:** the pick no longer writes the
+draft itself, but the pencil back into Edit still loads the deck on screen over it. The
+replacement happens one control later, by a control that says it opens the deck. That is a
+legibility win, not a preservation guarantee, and the e2e arm says so where an earlier
+draft of it asserted the stronger claim and failed.
+
 ## Verification
 
 `docs/e2e/playground-stress.spec.ts`, on the real built site (HARD RULE #23): eleven

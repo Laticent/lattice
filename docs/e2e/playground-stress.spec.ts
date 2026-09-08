@@ -806,6 +806,54 @@ test('@mobile replacing the deck in Edit does not leave the walk counting the pl
 	if (after.count > 0) expect(after.count).toBe(slides);
 });
 
+test('@mobile picking a component gives the same deck in Edit as in Explore', async ({ page }) => {
+	// Least astonishment, reported from a real iPhone. The same tap used to mean two things:
+	// in Explore it walked the component's twelve-slide GALLERY, in Edit it loaded its
+	// one-slide SAMPLE. Both flip the phone's single pane to the deck, so the two were
+	// indistinguishable until you counted slides — one with a live Step list, one with a dead
+	// one.
+	//
+	// A pick is a BROWSE action now, in both modes: from Edit it switches to Explore and walks
+	// the same gallery, so this arm pins the slide count AND the view change.
+	//
+	// It does NOT pin "the draft survives", and that assertion was written and removed rather
+	// than quietly dropped: the pick itself no longer writes the draft, but the pencil back
+	// into Edit loads whatever deck is on screen — by design, and stated in `setViewMode`. So
+	// the draft is replaced one control later, by one that says so, instead of by a pick that
+	// does not. That is a legibility win, not a preservation guarantee, and the difference is
+	// worth not overstating.
+	const deckSlides = () =>
+		page.evaluate(() => {
+			const frame = document.getElementById('preview') as HTMLIFrameElement | null;
+			return frame?.contentDocument?.querySelectorAll('.lattice > section').length ?? -1;
+		});
+	const pick = async (name: string) => {
+		await page.locator('#pg-template-trigger').click();
+		await page.keyboard.type(name);
+		await page.locator('[cmdk-item]').first().click();
+		await settle(page);
+	};
+
+	await page.goto('/playground/?c=kpi&view=read', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toContainText('/');
+	await settle(page);
+	await pick('q-and-a');
+	const inExplore = await deckSlides();
+	expect(inExplore, 'the Explore pick did not load a gallery').toBeGreaterThan(1);
+	await expect(page.locator('#pg-template-trigger')).toHaveText('q-and-a');
+
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.cm-content')).toBeVisible();
+	await pick('q-and-a');
+	await expect(page.locator('body'), 'a pick from Edit did not switch to Explore').toHaveAttribute('data-view', 'read');
+	expect(await deckSlides(), 'the same pick gave a different deck in Edit').toBe(inExplore);
+	// …and it still names what you picked. `applyDeck`'s `syncPickers` DETECTS the component
+	// from the source, and detection reads the first slide — which on a gallery is the
+	// gallery's own title slide, so the picker labeled itself "title" until the explicit pick
+	// was applied last.
+	await expect(page.locator('#pg-template-trigger'), 'the picker renamed itself after the pick').toHaveText('q-and-a');
+});
+
 // ── The touch floor ────────────────────────────────────────────────────────────
 
 /**

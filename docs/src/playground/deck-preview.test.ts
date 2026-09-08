@@ -13,6 +13,40 @@ const base = {
 	mermaidUrl: 'https://cdn.example/mermaid.js',
 };
 
+describe('buildSrcdoc — the slide edge', () => {
+	// A slide's only separation from its surround is a BLACK drop shadow, which works on a
+	// light ground and vanishes on a dark one. The Playground letterboxes the filmstrip in
+	// the pane's `--bg-alt` on purpose (no color shift across the reveal), so in a palette
+	// where a slide's background sits near that token the two are literally the same color.
+	// Measured across all 14 palettes: in DARK mode slide-vs-surround contrast was 1.00-1.49
+	// — every palette, not one — against 10.3-19.3 in light. Reported from a real iPhone.
+	const html = '<section id="1"><h1>Hi</h1></section>';
+
+	it('is OFF by default, so the print and export documents are byte-identical', () => {
+		// The whole reason this is a parameter and not an edit to the shared `sectionRule`:
+		// this builder also assembles the print document and the export capture frame
+		// (`deck-export.js`), where a changed rule would alter exported bytes.
+		const doc = buildSrcdoc({ ...base, html });
+		expect(doc).toContain('box-shadow:0 8px 30px rgba(0,0,0,.22)');
+		expect(doc).not.toContain('0 0 0 1px');
+	});
+
+	it('draws a hairline ring in front of the drop shadow when asked', () => {
+		const doc = buildSrcdoc({ ...base, html, slideEdge: 'var(--border, red)' });
+		expect(doc).toContain('box-shadow:0 0 0 1px var(--border, red),0 8px 30px rgba(0,0,0,.22)');
+	});
+
+	it('takes a COLOR, so the ring resolves against the deck theme rather than this file', () => {
+		// Passing a color rather than a boolean is what lets the ring track palette AND mode
+		// without this module knowing either — `var(--border)` resolves inside the srcdoc.
+		// The fallback in the caller's value is load-bearing: an undefined custom property
+		// invalidates the WHOLE `box-shadow` at computed-value time, which would drop the
+		// drop shadow too and leave the slide worse off than with no ring at all.
+		const doc = buildSrcdoc({ ...base, html, slideEdge: 'rgb(1,2,3)' });
+		expect(doc).toContain('0 0 0 1px rgb(1,2,3),');
+	});
+});
+
 describe('buildSrcdoc — asset gating', () => {
 	it('a plain deck injects NEITHER KaTeX nor Mermaid', () => {
 		const doc = buildSrcdoc({ ...base, html: '<section id="1"><h1>Hello</h1></section>' });

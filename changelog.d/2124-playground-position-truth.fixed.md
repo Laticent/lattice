@@ -67,3 +67,16 @@
   one-slide deck. The rule that catches this already existed; it just lived on the
   Explore→Edit→Explore transition rather than at the point every deck replacement passes
   through, so it corrected itself on the next flip instead of straight away.
+- **Fixed: a slide in the Playground preview has an edge again.** Its only separation from the
+  surround was a black drop shadow, which reads on a light background and disappears on a dark
+  one — and the preview deliberately paints the surround in the pane's own background color, so
+  in dark mode the slide and its surround were the same color. Measured across all fourteen
+  palettes: contrast between a slide and its surround was 1.00–1.49 in dark mode, every palette,
+  against 10.3–19.3 in light. Slides now carry a hairline in the deck's own border color, so it
+  tracks whatever palette and mode you are in. Exports are untouched — the preview asks for the
+  edge, the print and export documents do not.
+- **Changed: picking a component means the same thing in both modes.** It walked the component's
+  twelve-slide gallery in Explore and loaded its one-slide sample in Edit — and on a phone both
+  show you the deck, so the two were indistinguishable until you counted the slides. A pick is a
+  browse action now: from Edit it switches to Explore and walks the same gallery. The pencil
+  still opens whatever deck you are looking at, so pick-then-pencil edits the gallery you chose.

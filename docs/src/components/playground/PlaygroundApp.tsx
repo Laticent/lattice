@@ -1089,23 +1089,50 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const onPickComponent = React.useCallback(
 		(name: string) => {
 			if (!catalog[name]) return;
-			// Exploring: a pick walks that component's gallery — no draft writes.
-			if (viewRef.current === 'read') {
-				void startWalkRef.current(name, null);
-				return;
+			// A PICK IS A BROWSE ACTION, IN BOTH MODES — it shows you that component. Reported
+			// from a real iPhone as the surprise it was: the same tap walked the component's
+			// twelve-slide GALLERY in Explore and loaded its one-slide SAMPLE in Edit, and on a
+			// phone both flip the single pane to the deck, so the two were indistinguishable
+			// until you counted slides. One control, two meanings, chosen by a mode the phone
+			// barely surfaces.
+			//
+			// SO EDIT SWITCHES TO EXPLORE. The route back is the one the surface already
+			// documents: the pencil opens whatever deck you are looking at, so pick-then-pencil
+			// edits the gallery you just chose.
+			//
+			// STATED PRECISELY, because the tempting claim is slightly false: the pick no longer
+			// WRITES THE DRAFT ITSELF, but the pencil back into Edit still loads the deck on
+			// screen over it (see `setViewMode`). So the replacement happens one control later,
+			// by a control that says it opens the deck — instead of by a control that says
+			// "pick a component". That is a legibility win, not a preservation guarantee.
+			//
+			// WHY NOT LOAD THE GALLERY INTO THE EDITOR INSTEAD — that was tried first, and it
+			// fights the model rather than fitting it. `draftComponent` is DERIVED by detecting
+			// the component from the source, and detection reads the first slide, which on a
+			// gallery is the gallery's own title slide. So the picker renamed itself "title",
+			// and applying the explicit pick last fixed it only until a reload re-derived the
+			// label from the stored draft — `playground-state.spec.ts` caught exactly that.
+			// The label, the Reset target and the pristine-draft check all assume the draft is
+			// ONE component's markdown. Switching the surface keeps that assumption true.
+			//
+			// SWITCHED INLINE, not through `setViewMode`, for the reason `onLoadGallery` gives
+			// three lines further down: its Edit→read save-back would render the editor's
+			// content first and then the gallery over it — a flash of the wrong deck.
+			if (viewRef.current !== 'read') {
+				viewRef.current = 'read';
+				setView('read');
+				try {
+					localStorage.setItem(VIEW_KEY, 'read');
+				} catch {
+					/* private mode */
+				}
+				document.body.setAttribute('data-view', 'read');
+				setPane('preview');
+				document.body.setAttribute('data-pane', 'preview');
 			}
-			backupDraft(`Loaded ${name}`);
-			setReaderComponent(name);
-			try {
-				localStorage.setItem(COMPONENT_KEY, name);
-			} catch {
-				/* private mode */
-			}
-			setDraftComponent(name);
-			recordInsert(catalog[name].sample);
-			applyDeck(catalog[name].sample, { toPreview: true });
+			void startWalkRef.current(name, null);
 		},
-		[catalog, applyDeck, backupDraft, recordInsert],
+		[catalog],
 	);
 
 	const onLoadGallery = React.useCallback(
