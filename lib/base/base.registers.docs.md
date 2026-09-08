@@ -38,6 +38,7 @@ model, see `design/concepts.md`.
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
+| [`guards:`](#the-guards-front-matter-register-overflow-trimming) | Whether TRIM may cut text that does not fit | `loose` |
 
 ## The `mode:` front-matter register (rendering mode)
 
@@ -57,6 +58,50 @@ and a typo is caught by the deck linter (`unknown-mode`).
 | `boardroom` | *(no class)* | The baseline — clean type, square boxes. The default when `mode:` is omitted. |
 | `sketch` | `sketch` | Full handwriting (headings **and** body) + drawn boxes. |
 | `sketch-clean` | `sketch sketch-clean-body` | Keep hand headings + boxes; return prose to the clean `--font-body` for text-dense slides. |
+
+## The `guards:` front-matter register (overflow trimming)
+
+`guards:` is the **deck-wide overflow-guard selector** — whether TRIM, the fifth
+Fit-Ladder move, may cut text that does not fit and leave a visible ellipsis
+rather than letting the slide clip.
+
+| `guards:` value | Resolves to | Effect |
+|---|---|---|
+| `loose` | *(no class)* | The baseline — overflow clips and rings, exactly as before. The default when `guards:` is omitted. |
+| `strict` | `guards-strict` | TRIM may cut a trimmable text block so the slide fits, and records what it removed. |
+
+Take one slide out of a deck-wide `guards: strict` with `<!-- _class: guards-loose -->`;
+the per-slide token **evicts** the deck token rather than stacking on it, because
+both rules land at the same specificity and side-by-side would let CSS source
+order decide whether that slide keeps its text.
+
+**`strict` does far less than the name suggests, on purpose.** Three limits, each
+measured rather than assumed:
+
+- **It only cuts prose.** A slot's trim class is a property of what the text
+  MEANS, not of the component. Body copy, list items, captions and notes may be
+  trimmed; headings, KPI values, code, math, citations, legal text and footers may
+  not, and **anything unclassified defaults to never**. An ellipsis on a sentence
+  says "there is more"; on `$1,234,567` it states a different number.
+- **It declines rather than cut invisibly.** If the ellipsis would land outside the
+  visible box, the guard does nothing and leaves the honest clip. A slide that
+  looks finished and is missing two paragraphs is worse than one that visibly
+  clips.
+- **It is all-or-nothing per box.** A plan that cannot make the box fit is
+  discarded whole, so `strict` never destroys content AND leaves the slide
+  overflowing.
+
+Measured on the shipped corpus, `strict` resolves **one of the six** slides that
+clip today. The rest are blocked by a heading, a callout's own chrome, or a shell
+command — which is the honest shape of the feature: the blocks that most often
+cause overflow are largely the ones it refuses to touch. See
+`engineering/decisions/2026-09-07-overflow-guards-trim.md`.
+
+**The overflow signals stay on.** `strict` does not silence the ring, the "Content
+clipped" tag or the type-floor warning, and a trim records itself
+(`data-lattice-trim`) because the existing content-clipped probe can see a clamp
+but not a removal. A typo (`guards: strictt`) resolves to the baseline and is
+caught by `npm run lint:deck` as `unknown-guards`.
 
 ## The `finish:` front-matter register (backdrop)
 
