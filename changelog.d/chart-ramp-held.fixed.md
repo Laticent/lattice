@@ -1,0 +1,1 @@
+- Chart design language: a ramp's fill is no longer scaled by a finish. What a reader uses is the gap between neighbouring steps, not the span, and a choropleth's own steps already sit at the discrimination floor — so a finish works the region boundary and the basemap field instead.
