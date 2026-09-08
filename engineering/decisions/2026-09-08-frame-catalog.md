@@ -1,6 +1,6 @@
 ---
 status: superseded
-summary: RETRACTED, and one of its four surviving findings has since been withdrawn too (§4.3 — the status stamp does paint on a bookend; measured). A proposal for a nine-Frame catalog defined by three atoms (order/rank/arity), three laws and a Mode contract. An adversarial trio plus a fact-checker falsified its foundation: §1 diagnosed a defect that had already been fixed — `FORM_TOGGLE_SKIP` IS declared data, derived from each frame manifest's `exemptFromChrome`, and the three hand-maintained Sets it promised to replace were retired on 2026-07-14 with a drift test. The counts were wrong (11 frames not 12, 9 sovereign not 10, stage 34/26/9 not 34/25/10), the axis derivation lands on 22 rather than the nine it claims, the degeneracy rule that killed `math` also merges `quiet` into `bookend`, Law II's motivating defect does not reproduce (an `image` slide renders as page 2 of 3), and both Mode clauses are refuted by shipped values. Three things survived and are shipped or shippable: the Form/Finish axis separation, the logo and watermark manifest-vs-render divergence (fixed — a `slide` Cell), and the absent `admits` field on the Frame schema (fixed). A fourth, `bookend`'s supposedly homeless status stamp, was withdrawn after rendering it.
+summary: RETRACTED, and one of its four surviving findings has since been withdrawn too (§4.3 — the status stamp does paint on a bookend; measured). A proposal for a nine-Frame catalog defined by three atoms (order/rank/arity), three laws and a Mode contract. An adversarial trio plus a fact-checker falsified its foundation: §1 diagnosed a defect that had already been fixed — `FORM_TOGGLE_SKIP` IS declared data, derived from each frame manifest's `exemptFromChrome`, and the three hand-maintained Sets it promised to replace were retired on 2026-07-14 with a drift test. The counts were wrong (11 frames not 12, 9 sovereign not 10, stage 34/26/9 not 34/25/10), the axis derivation lands on 22 rather than the nine it claims, the degeneracy rule that killed `math` also merges `quiet` into `bookend`, Law II's motivating defect does not reproduce (an `image` slide renders as page 2 of 3), and both Mode clauses are refuted by shipped values. Two of the four survived and are shipped: the logo and watermark manifest-vs-render divergence (fixed — a `slide` Cell) and the absent `admits` field on the Frame schema (fixed); the Form/Finish axis separation survives as a recorded finding with nothing to build. The other two — `bookend`'s supposedly homeless status stamp and `plinth`'s moving coda band — were withdrawn after rendering them; both premises were false.
 ---
 
 # The Frame catalog — what it got wrong, and the four things that survived
@@ -208,16 +208,44 @@ In this order. Each stands alone; none needs the others.
 2. ~~Give `bookend` a declared home for the status stamp.~~ **Withdrawn** — the
    stamp already paints there (§4.3).
 3. **Add `admits` to `frame.schema.json`**, populated from the shipped stage catalog.
-4. **`plinth` as a single layout** with a demo deck (HARD RULE #9) — a reserved
-   takeaway band under the stage. The coda Cell already exists
-   (`2026-08-24-universal-coda-cell.md`), so this is that Cell given a band and a
-   hairline. If authors use it, consider one more; if not, that was one PR to learn it.
+4. ~~`plinth` as a single layout~~ — **withdrawn, measured 2026-09-08.** See §4.5.
 
 **Do not build:** the nine-name Frame vocabulary as a canonical rename, `carve` as a
 system noun, "the Mode axis" as a phrase (Mode is a *register* of the Finish axis —
 the proposal committed the same third-sense error it correctly caught for `ledger`),
 M2 as a numbered clause, or any new `mode:` value before `sketch` reaches its own
 coverage bar.
+
+## 5.1 ~~`plinth`~~ — the premise was false too
+
+`plinth` was justified by "the coda lands at content height and moves per slide,
+so promoting it to a reserved band is a rank change". **It does not move.**
+Emulator render, HTML sidecar in Chromium at 1920×1080, section 720px, the same
+deck twice with one line of body and with five bullets:
+
+| | one line | five bullets |
+|---|---|---|
+| coda top, from the section top | 528.6px | **528.6px** |
+| coda bottom, above the section floor | 104.0px | **104.0px** |
+| stage height | 334.8px | **334.8px** |
+
+Identical. 104px is exactly `--footer-reserve`. The band is already pinned.
+
+**`design/forms.md` says so, in the sentence this proposal quoted from:** the stage
+is `flex: 1 1 auto` and the coda `flex: 0 0 auto`, "so the stage absorbs all the
+slack and the band lands at content height above the footer — **bottom-aligned with
+no positioning and no margin**". "At content height" describes the band's own
+height, not a floating position; it was read as the latter.
+
+What might survive is a *treatment* — a hairline above the band, more typographic
+weight — which is a Finish concern (§4.1), not a Frame, and is not what item 4
+claimed. It is not being substituted in.
+
+**Two of the four build items were false, and identically so.** §4.3 and this one
+were both inferred from a manifest field or a doc sentence and contradicted by a
+render that took two minutes. The two that were real — the `logo`/`watermark`
+divergence and the missing `admits` field — are the two that were found by reading
+code against code rather than by reasoning about behavior.
 
 ## 6. The process failure worth keeping
 
