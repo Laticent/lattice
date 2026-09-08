@@ -634,6 +634,18 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.equal(textOf('a paragraph mentioning katex-mathml in prose'), 'a paragraph mentioning katex-mathml in prose');
   });
 
+  test('a tag that never closes costs LINEAR time, not quadratic', () => {
+    // `<[a-zA-Z][\w-]*[^>]*>` has two overlapping quantifiers, so a tag with no `>` made the engine
+    // re-split the name at every position — twice over, because the `<strong>` path repeats the run
+    // `{1,3}` times. Measured through `labelOf`: 6.0s for a 40,000-character unclosed tag before,
+    // 1ms after. The bound is deliberately loose (a wall clock in a merge train is not a stopwatch)
+    // and still leaves a 3x margin UNDER the old cost, which is what makes it a regression guard
+    // rather than a benchmark.
+    const started = Date.now();
+    labelOf(`<${'a'.repeat(40000)}`);
+    assert.ok(Date.now() - started < 2000, 'labelOf went superlinear on an unclosed tag');
+  });
+
   test('an unbalanced author span returns the input rather than looping', () => {
     assert.equal(textOf('<span class="katex">unclosed'), 'unclosed');
   });
