@@ -767,6 +767,33 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.equal(labelOf(tr(typeset('a = b'), `divide by ${typeset('h \\neq 0')}`)), '');
   });
 
+  test('one untypeable character deep in the description does not cost the whole name', () => {
+    // `- $X^\\top X$ — Gram matrix, $p \\times p$, must be invertible` is a real legend member on
+    // `examples/adaptive-sweep.md`. The lead drops (untypeable), leaving `Gram matrix, p × p, must
+    // be invertible` — and then the `×`, four words in, declined ALL of it, so the chip read
+    // `continues` where `Gram matrix` was sitting right there. Found on the golden-diff montage CI
+    // produced for this branch, not by a test: the rule was right and its granularity was wrong.
+    const gram = `<li>${typeset('X^\\top X')} — Gram matrix, ${typeset('p \\times p')}, must be invertible</li>`;
+    assert.equal(labelOf(gram), 'Gram matrix');
+
+    // A REAL CLAUSE BOUNDARY, not a word break. `divide by h≠0` has no comma, dash or colon before
+    // the `≠`, and cutting at the space would ship `divide by h` — which reads as a complete
+    // instruction and is a DIFFERENT one, because the condition is the whole point of the step.
+    assert.equal(labelOf(tr(typeset('a = b'), `divide by ${typeset('h \\neq 0')}`)), '');
+    // Same shape with a comma in front of the math: now there is a thought that ended.
+    assert.equal(labelOf(tr(typeset('a = b'), `divide through, given ${typeset('h \\neq 0')}`)),
+      'divide through');
+    // A boundary AFTER the character does not rescue it — the cut is what precedes the offender.
+    assert.equal(labelOf(`<li>maps ${typeset('\\alpha')}, onto the unit interval</li>`), '');
+    // …and `\\mathbb{R}` is worth an arm of its own, because it looks like a counter-example and is
+    // not: KaTeX's MathML mirror writes it as a plain ASCII `R` with a `mathvariant`, so it is
+    // typeable and the label survives whole. A first draft of this arm asserted the opposite.
+    // …and the comma sits against the `R`, not a space away from it: `stripMathMirror` pads every
+    // extracted span on both sides, so this read `maps R , onto …` and the chip printed the gap.
+    assert.equal(labelOf(`<li>maps ${typeset('\\mathbb{R}')}, onto the unit interval</li>`),
+      'maps R, onto the unit interval');
+  });
+
   test('the type-face decline reads the characters MATH produced, not the whole label', () => {
     // Two shortcuts were tried in one revision and both are wrong the same way. `src.includes('katex')`
     // is the scope error `mathSafe` had already been taught (arm above). And testing the WHOLE label
