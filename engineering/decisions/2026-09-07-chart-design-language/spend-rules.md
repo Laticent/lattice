@@ -153,12 +153,12 @@ that is the ordinary case, so `highlight` as a default would ship a key that lie
 most of the time. Six is a perceptual cap rather than a token shortage, and it is
 the same width as the a11y texture channel.
 
-## 2. What a singular is — G0, G1, and the rule the tracks already wrote
+## 2. What a singular is — the two jobs, G1, and one system per figure
 
-**The direct label LICENSES the hue. It does not obviate it.** The draft this
-section replaces had it backwards: it argued that because a scatter's points are
-named in place, adjacency already joins them and hue carries nothing. Two of the
-four colour tracks state the opposite, and they are right.
+**The direct label LICENSES the hue. It does not obviate it.** An earlier draft
+argued the reverse — that because a scatter's points are named in place,
+adjacency already joins them and hue carries nothing. Two of the four colour
+tracks state the opposite, and they are right about the licence.
 
 > A group shares one hue. A singular may own one. **A singular takes a hue only
 > when it is directly labelled** — that clause is what keeps a 40-point scatter
@@ -166,12 +166,14 @@ four colour tracks state the opposite, and they are right.
 > — `candidates-colour/1-colourist.md`
 
 Without a name per mark, N hues is confetti: colours with nothing to bind to.
-The label is the safety condition that makes per-mark hue affordable.
+The label is the safety condition that makes per-mark hue affordable — but a
+licence is not a reason, and the tracks' test for when to USE it does not hold.
+That is the next section.
 
-### G0 — the test
+### G0 was a proxy, and it broke — the two-jobs test replaces it
 
-Editorial derived the test and recorded rejecting the framing this section had
-been reaching for, which is the more useful half of the record:
+Editorial derived a test, and recorded rejecting the framing that came before
+it, which is the more useful half of the record:
 
 > The earlier phrasing (*"does this mark's KIND recur?"*) gave the wrong answer
 > on pie, funnel and scatter — a slice's kind is "a share", which recurs — so the
@@ -179,18 +181,69 @@ been reaching for, which is the more useful half of the record:
 >
 > **G0 — does this mark carry its own name, or does it share a label axis with
 > its siblings?**
-> Shares an axis, or is named only by a shared series key → it is one of a
-> **group**, and the group shares one hue.
-> Carries its own name on or beside itself → it is a **singular**, and it may
-> own a hue, subject to G1.
 > — `candidates-colour/2-editorial.md`
 
-A bar is named by a category axis its siblings share → group. A pie slice carries
-its label at its own wedge → singular. A funnel stage names itself in its band →
-singular. A scatter point → singular when named, group when not.
+**G0 reads well and it does not survive a `bar row` beside a `funnel`.** Rendered
+with the same data, both put the stage name in a left gutter and the value in a
+right one; one spends a single hue and the other five, and no clause in G0 says
+why. Four candidate distinctions were tried against that pair and all four fail:
 
-**All four tracks put `bar` in the group column independently**, by different
-routes. That convergence is the reason to trust it.
+| candidate | verdict |
+|---|---|
+| G0's label position | falsified — both name the mark in a gutter |
+| the marks touch | falsified — the census reads funnel as `tiled/separate (5)`; its bands have gaps carrying the conversion % |
+| ordered vs unordered | cuts AGAINST the funnel: its stages are monotonically non-increasing by construction, and hue cannot rank |
+| slivers need hue to stay countable | post-hoc — the bar's 670 stub is the same size and reads in one hue |
+
+So the funnel's five hues and a rainbow bar chart were, under the rules as
+written, equally justified. That is the inconsistency, and it is in the tree.
+
+### The test that survives — hue has exactly two jobs
+
+> **BIND** — the mark and its name are separated, so hue is what joins them: a
+> detached legend rail, a leader line the layout engine had to draw, or an open
+> path labelled at one end and read along its length.
+>
+> **SEPARATE** — the marks touch, overlap or interleave, so position does not
+> tell them apart and hue does.
+>
+> **A mark with an adjacent label and clear space around it needs neither, and a
+> hue spent there is decoration.**
+
+This is `spend-rules.md` §3 one level up: §3 says which ELEMENT wears the hue at
+a join; this says whether the figure has a join at all.
+
+**It is measured, not asserted** — `tools/chart-hue-jobs.js` reads the rendered
+gallery and reports both jobs per member beside what that member actually
+spends. A legend rail is a gap by construction. A leader line is the layout
+engine ADMITTING it could not place a name beside its mark (quadrant's own docs:
+*"on a crowded plot 'beside' stops meaning 'nearest'"*). "Touching" is the median
+nearest-neighbour gap between same-class marks in units of the median mark size,
+so a pie wedge and a matrix cell are comparable.
+
+**17 of 21 members agree with the test** on indaco and on cuoio alike. The four
+that do not are the finding:
+
+| member | key | leaders | gap | bind | separate | spends | reading |
+|---|---|---|---|---|---|---|---|
+| `funnel` | none | 0 | 0.44 | no | no | **5 hues** | no job, spends anyway |
+| `timeline-list` | none | 0 | 6.62 | no | no | **4 hues** | no job, spends anyway |
+| `roadmap` | legend-rail | 0 | 0.00 | yes | yes | 1 | a job, and under-uses it |
+| `state-chart` | legend-rail | 0 | 0.65 | yes | no | 1 | a job, and under-uses it |
+
+The two disagreements point in opposite directions, which is the reason to
+believe the instrument rather than a rule that only ever confirms itself.
+
+**State-keyed members are not judged by it.** `gantt`, `progress` and
+`waterfall` paint from `--chart-state-*`: their hue encodes a nominal variable
+(rise / fall / total; done / at-risk / blocked) that no other channel carries.
+That is a THIRD job the test does not model, and holding `waterfall` to a
+categorical standard flagged it as decoration until the split was added.
+
+**Neither `funnel` nor `timeline-list` is changed by this note.** They are
+recorded as flagged; collapsing either one changes a shipped member and every
+deck that uses it, which is a decision for the repo's owner and not a
+consequence of a doc.
 
 ### G1 — the cap, and what to do past it
 
@@ -227,20 +280,17 @@ Eight slots cannot carry two meanings at once. This is what resolves
 `word-cloud`'s slot 7, and it is what will resolve the deck-wide entity palette
 in §2b.
 
-### Commentary — why G0 works, and where the commentary stops
+### What the earlier commentary got half right
 
-G0 is the rule. This paragraph is an explanation of it and is not load-bearing:
-**hue separates what position does not.** Pie wedges, funnel bands, stacked
-segments, quadrant dots, scatter clusters, slope crossings and word-cloud packing
-all touch or overlap; bars and bullet rows are separated by whitespace on a shared
-axis, so position has already done the work and a hue difference reads as a
-saliency claim ("this one matters more") the data is not making — working against
-the length comparison that is the chart's whole point.
+An earlier draft of this section offered "hue separates what position does not"
+as commentary under G0, and noted it under-predicted on `timeline-list`. It was
+half of the surviving test — the SEPARATE job — and the half it was missing is
+BIND, which is what carries pie, map, radar and the legend-rail members. Adding
+it turns the commentary into the rule and retires G0's label clause.
 
-It under-predicts on `timeline-list`, whose items are cleanly separated by
-position and which nonetheless cycles six hues on its dots. G0 gets that one
-right (each item carries its own title) and the commentary does not, which is the
-order to trust them in.
+`timeline-list` is no longer the exception that embarrassed the commentary. With
+both jobs stated it is a FINDING: a 6.62 nearest-neighbour gap, no key, no
+leaders, and four categorical hues on its dots.
 
 ## 2b. When a bar chart DOES need colour
 
@@ -433,7 +483,7 @@ that orange now means two things on one slide.
 
 ---
 
-## 7. What applying G0, G1 and the register changed
+## 7. What applying the grouping rule, G1 and the register changed
 
 Four findings from making the prototype the final language rather than the
 current tree plus finishes. Each is implementation-shaping.
@@ -468,9 +518,18 @@ a second one. Where the denominator is the unmarked part of the field —
 Only the EMPTY state: `.cell-outlined` is a state of its own, and raising it
 would blur the presence distinction the register exists to protect.
 
-**And G0/G1 applied moves two members off today's tree**, both the rule biting
+**And G1 applied moves two members off today's tree**, both the rule biting
 rather than an exception: `scatter`'s six named entities gain a hue each, and
 `quadrant`'s eight named dots collapse to one. Same rule, opposite outcomes.
+
+**§2's two-jobs test now questions the first of those.** Measured on the gallery
+deck, `scatter` draws NO leaders and its dots sit 5.06 mark-widths apart — so on
+an uncrowded scatter neither job applies and the per-entity hue the prototype
+adds is not earned. `quadrant`, on the same deck, draws two leaders. The verdict
+is therefore DECK-DEPENDENT for those two members, which is a real result and
+not a defect in the test: a sparse scatter needs no hue and a crowded one does.
+Whether the emitter can decide that at render time, from the leaders it actually
+had to draw, is an open question for the implementation.
 
 Measured after all of it: **11 of 11 members show all three finishes as
 distinct**, on indaco, indaco dark and achromatopsia alike.
