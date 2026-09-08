@@ -493,3 +493,32 @@ residue is the parse gate and the settle floor being paid on top of the same 150
 `main` already paid. It buys not strobing raw source at the author while they type (75 frames
 against 97) and holding the previous drawing instead of blanking. It is a deliberate trade,
 and it is the one thing in this work that is worse than the build it replaces.
+
+## 11. Verified on a real iPad, which is the surface none of this could reach
+
+Every number in §8-§10 comes from headless Chromium on a developer machine driven by
+synthetic keystrokes. That is a proxy twice over: the CPU is not a tablet's, and Playwright
+delivers each keystroke fully processed before the next, so it never produces the queued
+input a real finger does. HARD RULE #23 says a claim names its surface, and the surface these
+measurements name is not the one an author uses.
+
+**A human drove the branch on an iPad Air 4 — real Safari, real typing — and reported the
+performance excellent.** That closes the caveat this work carried from the beginning: iOS and
+touch were marked UNVERIFIED in every report, because they cannot be reached from the
+sandbox. It is the strongest single piece of evidence the change has, and it is worth more
+than the nine-cell table, because a tablet's main thread is far weaker than the machine those
+cells were measured on — the regime where a blocking render hurts most.
+
+**What it does NOT close, stated so nobody reads it as more than it is:**
+
+- It is one device, one session, and a subjective judgement. No number came back with it.
+- It exercises the **Studio** path, which stamps `data-lattice-swap`, so adoption chains and
+  the back-off engages. It says nothing about a host that does NOT stamp — marp-vscode, a
+  third-party embedder, the `marp --html` bundle — where a checker reasoned the back-off is
+  bypassed entirely and every keystroke buys a blocking render. That remains open.
+- A touch keyboard is slower than the 120ms cadence where the post-keystroke redraw sits
+  behind `main`, so the one cell that is worse is probably not reachable by hand on a tablet.
+  Not being able to reach a regression is not the same as not having one.
+
+Recorded here rather than left in a chat transcript, because the next person to touch this
+will find "iOS: UNVERIFIED" in three other places and should know it was answered.
