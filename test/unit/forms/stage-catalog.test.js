@@ -47,8 +47,14 @@ const EXPECTED_CANVAS = [
 const EXPECTED_SOVEREIGN = [
   // `math` was here until 2026-09. Its claim on a sovereign frame was "drives its own
   // `> h2` title grid" — a heading-placement preference, not the "this slide has no room
-  // for chrome" the rest of this list rests on. `compare-code` is the last entry making
-  // the same weak claim.
+  // for chrome" the rest of this list rests on. In practice math's title grid was
+  // `position: absolute; top: calc(var(--sp-2xl) + var(--sp-md))`, the masthead band's
+  // geometry copied by arithmetic.
+  //
+  // `compare-code` carries the SAME WORDING in its manifest and NOT the same substance:
+  // it builds a real four-row explicit grid and places `> h2` at
+  // `grid-column: 1 / -1; grid-row: 1`. Do not read math's migration as a precedent for
+  // it without opening the CSS.
   'closing', 'compare-code', 'divider', 'image', 'premise', 'scene', 'split-compare',
   'split-panel', 'title',
 ].sort();

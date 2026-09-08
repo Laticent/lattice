@@ -88,6 +88,9 @@ const KNOWN_COLLISIONS = {
     status: 'guarded',
     guardedFile: 'lib/components/evidence/stats/stats.styles.css',
     guard: ':where(:not(.math))',
+    // How many selectors the guard check must see. A filter that starts matching FEWER
+    // is the failure this number exists to catch; see the two bugs recorded at the check.
+    selectorsChecked: 25,
     // Measured: 4 rules from evidence/stats matched a `math stats` slide before the
     // guard — the masthead lede centering, the stage flex, `section.stats h2`, and
     // `section.stats > .cell-stage > p` (italic + --sp-lg bottom padding on both the
@@ -162,12 +165,48 @@ test('the guarded component sheet carries its guard on EVERY section selector', 
     const css = fs.readFileSync(path.join(ROOT, k.guardedFile), 'utf8');
     // Strip comments — a selector quoted in prose is not a rule.
     const code = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    // TWO WAYS THIS FILTER WAS WRONG, and both let a guarded-looking sheet hide an
+    // unguarded rule. Found by an inversion pass, not by the gate.
+    //
+    //   · `startsWith('section.stats')` misses `section.form.stats …`, because the
+    //     component token does not have to come first. Measured against the sheet this
+    //     gate exists for, the old filter checked 24 of 25 top-level selectors, and the
+    //     ONE it never saw was
+    //     `section.form.stats:where(:not(.math)) .cell-masthead .masthead-lede` — one of
+    //     the exact four rules measured leaking onto a math slide, and the visible half
+    //     of that bug. It carries the guard today, so the gate was green while blind to
+    //     it; anything written that way in future — the NATURAL shape now that
+    //     everything is Form — would have escaped silently.
+    //   · Splitting the selector list on a bare comma also fragments `:where(a, b)`,
+    //     so five more selectors reached the filter cut in half and were dropped for
+    //     starting with `[data-family=…` instead.
+    //
+    // Split on top-level commas only, and match the token anywhere in the compound.
+    const splitTop = (sel) => {
+      const out = []; let depth = 0; let cur = '';
+      for (const ch of sel) {
+        if (ch === '(' || ch === '[') depth++;
+        else if (ch === ')' || ch === ']') depth--;
+        else if (ch === ',' && depth === 0) { out.push(cur); cur = ''; continue; }
+        cur += ch;
+      }
+      out.push(cur);
+      return out;
+    };
+    const owns = new RegExp(`(^|[\\s>+~])section[\\w.:()\\[\\]="'^~$*|-]*\\.${k.componentOwner}(?![\\w-])`);
     const selectors = code.split('}')
       .map((b) => (b.includes('{') ? b.slice(0, b.indexOf('{')) : ''))
-      .flatMap((s) => s.split(','))
+      .flatMap(splitTop)
       .map((s) => s.trim())
-      .filter((s) => s.startsWith(`section.${k.componentOwner}`));
-    assert.ok(selectors.length > 0, `${k.guardedFile}: found no section.${k.componentOwner} selectors to check`);
+      .filter((s) => owns.test(s));
+    assert.ok(selectors.length > 0, `${k.guardedFile}: found no section selectors owning .${k.componentOwner} to check`);
+    // The count is pinned so a future refactor that stops MATCHING is as loud as one
+    // that stops guarding — the failure mode above was a filter quietly matching less.
+    assert.ok(
+      selectors.length >= k.selectorsChecked,
+      `${k.guardedFile}: the guard check now sees only ${selectors.length} selectors, was ${k.selectorsChecked}. `
+      + 'A filter that matches fewer rules reports a clean sheet by looking away.',
+    );
     const unguarded = selectors.filter((s) => !s.includes(k.guard));
     assert.deepEqual(
       unguarded, [],

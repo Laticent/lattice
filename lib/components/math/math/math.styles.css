@@ -132,10 +132,25 @@ section.math .math-error {
  * math slide) — and only the BODY is ours.
  *
  * `diagram`'s convention keeps both arms so a `no-form` slide still styles; math does not
- * follow it, deliberately. CONSEQUENCE, stated so nobody has to rediscover it:
- * `<!-- _class: math no-form -->` renders unstyled prose. That combination never behaved
- * differently from a plain `math` slide — math was already chrome-exempt, so `no-form`
- * was a no-op on it — and no committed deck uses it.
+ * follow it, deliberately. THE CONSEQUENCE HAS TWO HALVES and the first draft of this
+ * note only stated the harmless one:
+ *
+ *   · `<!-- _class: math no-form -->` renders unstyled prose. Harmless, and no committed
+ *     deck uses it: math was already chrome-exempt, so `no-form` was a no-op on a math
+ *     slide and that combination never behaved differently from a plain one.
+ *   · `form: off` — the DECK-LEVEL, first-class, documented opt-out (`plugins.js`:
+ *     "Authors opt OUT explicitly with `form: off`") — renders every math slide in the
+ *     deck as unstyled prose. That WAS a working configuration for math and is not any
+ *     more. Rendered and confirmed, not inferred.
+ *
+ * Stated flatly rather than argued away, but it is worth knowing what it is NOT: math is
+ * not newly special here. Rendered on the same branch, `form: off` gives `stats` a plain
+ * ordered list with no tiles and `diagram` a Mermaid graph in Mermaid's stock palette.
+ * `form: off` is already a degraded mode across the migrated catalog; math has joined it
+ * rather than being singled out. It also means the marp-vscode preview at DEFAULT
+ * security — which never runs the markdown-it plugin pass and never executes the deck's
+ * scripts (engineering/gotchas/vscode.md) — shows math unstyled, exactly as it already
+ * shows every other migrated component.
  *
  * Deleting rather than keeping the old arm also cleared a red nightly gate instead of
  * papering over one. Merely UNREACHABLE, `check:family-conformance` reported math

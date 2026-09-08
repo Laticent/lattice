@@ -40,7 +40,7 @@ section {
    * rules creating a slide stacking context were `section.form { isolation: isolate }`
    * (lib/forms/cell/stage/stage.css) plus the two layouts that declared it for
    * themselves, `section.image` and `section.scene` — so a SOVEREIGN frame outside that
-   * set — `title`, `math`, `divider`, most frames with `exemptFromChrome: true` — got none at
+   * set — `title`, `divider`, `premise`, most frames with `exemptFromChrome: true` — got none at
    * all, and its z values escaped to the page root, where they were ordered against
    * OTHER SLIDES and against viewer chrome. Measured, before this rule: `isolation`
    * computed `isolate` on a `content` section and `auto` on a `title` section of the

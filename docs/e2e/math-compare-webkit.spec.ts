@@ -11,8 +11,16 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 // REPRODUCE THE GHOST. A green run here is therefore no longer evidence that the fix
 // holds; it is evidence that nothing NEW paints twice.
 //
+// THE SELECTORS IN THIS FILE MOVED WITH THE DOM, and the first cut of this docblock
+// did not move them. `section.math.compare > h3` is now ZERO — the column labels are
+// `> .cell-stage > h3` — so all four assertions below were unrunnable while this note
+// above them explained why the DOM had changed. The spec is tagged `@webkit-tablet`,
+// which `docs/playwright.config.ts` runs only from the nightly, so no per-PR gate saw
+// it. Repointed. If you move math's body again, these are the four lines to move with
+// it, and nothing in the PR-time green line will remind you.
+//
 // The structural fact the fix now rests on is asserted per-PR instead, in
-// `test/unit/components/math-stage-migration.test.js` ("a migrated compare keeps its
+// `test/unit/components/math-form-arms.test.js` ("a compare slide keeps its
 // eyebrow and heading OUT of the column flow"), which fails if either box is ever put
 // back into the multicol. That test is mutation-proved; this spec is kept as
 // defence-in-depth on the one surface no measurement can substitute for, because the
@@ -280,8 +288,8 @@ test('every math compare h3 paints exactly once in WebKit (#1554) @webkit-tablet
 		// asynchronously, and the h3 boxes have to be final before they are used as
 		// templates — this retries until they are.
 		const expectedColumns = i === 0 ? 2 : 3;
-		await expect(frame.locator('section.math.compare > h3')).toHaveCount(expectedColumns);
-		await expect(frame.locator('section.math.compare > h3').last()).toBeVisible();
+		await expect(frame.locator('section.math.compare > .cell-stage > h3')).toHaveCount(expectedColumns);
+		await expect(frame.locator('section.math.compare > .cell-stage > h3').last()).toBeVisible();
 
 		// Re-host the presented document at TOP LEVEL to read it.
 		//
@@ -317,7 +325,7 @@ test('every math compare h3 paints exactly once in WebKit (#1554) @webkit-tablet
 
 		const h3s: H3Box[] = await section.evaluate((el) => {
 			const o = el.getBoundingClientRect();
-			return [...el.querySelectorAll(':scope > h3')].map((h) => {
+			return [...el.querySelectorAll(':scope > .cell-stage > h3')].map((h) => {
 				const r = document.createRange();
 				r.selectNodeContents(h);
 				const g = r.getBoundingClientRect();

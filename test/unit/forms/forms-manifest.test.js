@@ -29,8 +29,10 @@ const { renderJson, JSON_FILE } = require('../../../tools/build-forms');
 // slide has no room for chrome" that every other entry rests on. Eight variants moved
 // onto the shared Form frame one commit at a time and none lost anything; what they
 // gained was `meta:`, the progress rail and the watermark tile, none of which a
-// chrome-exempt section can render. `compare-code` is the last frame making the same
-// weak claim. See the math variant assertions in test (c) below.
+// chrome-exempt section can render. `compare-code` carries the same WORDING in its
+// manifest and not the same substance — it builds a real explicit title grid where
+// math's was absolutely-positioned arithmetic — so math is not a precedent for it.
+// See the math variant assertions in test (c) below.
 const HISTORICAL_SKIP = [
   'title', 'divider', 'closing',
   'compare-code',
