@@ -75,10 +75,13 @@ async function breakMermaid(page: import('@playwright/test').Page): Promise<void
  * author downloaded a BLANK REGION where the diagram belonged.
  *
  * So the delay goes on `mermaid.render` itself, installed through the same
- * `Object.defineProperty` hook the runtime's own load path trips. 15s outlasts both export
- * budgets (4s in the capture frame, 12s in the bake) and stays under the runtime's own 20s
- * per-render cap — so the fence is still `rendering` when the export gives up, which is exactly
- * the state this fix has to handle rather than one the runtime has already resolved.
+ * `Object.defineProperty` hook the runtime's own load path trips. It NEVER RESOLVES, and that
+ * is deliberate rather than lazy: the bake's two waits are SEQUENTIAL on one document (4000 in
+ * the capture frame, which no longer releases, then 12000 in the bake), so the give-up is at
+ * 16000 and any finite stall has to thread a 16000-20000 window against the runtime's own 20s
+ * per-render cap. A held promise leaves the fence `rendering` when the export gives up — which
+ * is exactly the state this fix has to handle — with no margin to lose on a slow CI box. The
+ * export finishes at its own budget and the held promise simply dies with the page.
  */
 async function stallMermaidRender(page: import('@playwright/test').Page): Promise<void> {
 	await page.addInitScript(() => {
@@ -91,7 +94,7 @@ async function stallMermaidRender(page: import('@playwright/test').Page): Promis
 				if (!v || v.__stalled || typeof v.render !== 'function') return;
 				const orig = v.render as (...a: unknown[]) => unknown;
 				v.render = async function (this: unknown, ...args: unknown[]) {
-					await new Promise((r) => setTimeout(r, 15_000));
+					await new Promise(() => {});
 					return orig.apply(this, args);
 				};
 				v.__stalled = true;

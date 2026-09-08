@@ -175,6 +175,57 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		expect(doc.querySelector('pre')?.getAttribute('data-mermaid-state')).toBe('unavailable');
 	});
 
+	it('does NOT release when the caller will wait AGAIN — the release belongs to the LAST wait', async () => {
+		// THE DOUBLE-WAIT REGRESSION. `bakeDeckSections` builds a capture frame (which waits
+		// 4000) and then waits 12000 more on the same document. The release is TERMINAL —
+		// `unavailable` + `data-mermaid-final` closes every route the runtime has back to the
+		// fence — so releasing at the first wait silently caps the bake at the frame's budget
+		// and strands a diagram that was still going to draw. Waiting is idempotent; releasing
+		// is not, so only the last wait before the capture may release.
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const stranded = await waitForDiagrams(doc, BUDGET, { release: false });
+		const pre = doc.querySelector('pre');
+		// It still REPORTS what is blanking — the caller needs the count — but it has changed
+		// nothing, so a later wait can still catch the fence.
+		expect(stranded).toBe(1);
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('pending');
+		expect(pre?.hasAttribute('data-mermaid-final')).toBe(false);
+	});
+
+	it('a fence that draws AFTER a non-releasing wait still bakes as a drawing', async () => {
+		// The user-visible half of the same regression: the diagram lands between the two
+		// budgets. With the frame releasing, this fence shipped as source text; it must ship
+		// as the drawing it became.
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const pre = doc.querySelector('pre');
+		await waitForDiagrams(doc, BUDGET, { release: false });
+		pre?.setAttribute('data-mermaid-state', 'rendered');
+		const box = pre?.nextElementSibling as HTMLElement | null;
+		if (box) box.innerHTML = '<svg></svg>';
+		// The second, longer wait sees a settled fence and releases nothing.
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('rendered');
+		expect(pre?.hasAttribute('data-mermaid-final')).toBe(false);
+	});
+
+	it('re-reads at the give-up point — a fence that drew mid-poll is not released', async () => {
+		// The give-up must re-read rather than reuse the last poll's list, which is up to one
+		// poll interval stale. Reusing it stamps a SUCCESSFULLY DRAWN fence `unavailable`, and
+		// `mermaid.css` then hides the box — so the export ships source over a diagram that is
+		// sitting right there in the DOM. The draw lands in the final poll gap (after the last
+		// poll at 480 of a 600 budget), which is the only window where the two lists differ.
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const pre = doc.querySelector('pre');
+		setTimeout(() => {
+			pre?.setAttribute('data-mermaid-state', 'rendered');
+			const box = pre?.nextElementSibling as HTMLElement | null;
+			if (box) box.innerHTML = '<svg></svg>';
+		}, BUDGET - 50);
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('rendered');
+		expect(pre?.hasAttribute('data-mermaid-final')).toBe(false);
+	});
+
 	it('does NOT release a fence the runtime has not tagged — it already shows its source', async () => {
 		// The hide is keyed on `data-mermaid-state`, so an untagged fence paints its own source
 		// already. Tagging it here would take nothing away from the blank and would misreport a
