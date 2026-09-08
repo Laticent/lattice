@@ -7,9 +7,18 @@ import { defineConfig, devices } from '@playwright/test';
 // 504 "Outdated Optimize Dep" on the Studio island's lazy imports (the engine +
 // heavy lint/chat bundles), which makes the preview flaky. `astro preview` on a
 // production build has no Vite optimizer — deterministic and prod-like. So the
-// webServer builds (without the slow `showcase:check` rasterization, irrelevant
-// to E2E) then previews. Locally, `reuseExistingServer` picks up a preview you
-// already have running so you don't rebuild every run.
+// webServer builds then previews. Locally, `reuseExistingServer` picks up a
+// preview you already have running so you don't rebuild every run.
+//
+// IT IS NOT THE SITE WE SHIP, and this note used to say the only difference was
+// the slow `showcase:check` rasterization. `build:e2e` also skips
+// `inject-modulepreload.mjs` and `hoist-stylesheets.mjs`, both of which REWRITE
+// the head of every page: measured, `/playground/index.html` carries 41
+// `<link rel="modulepreload">` from `npm run build` and 0 from `npm run build:e2e`.
+// That moves hydration on the Playground by ~2.3s and is what hid #2125 from the
+// nightly for as long as it did. Tracked in #2134 — until it is closed, a spec
+// whose subject is resource ordering, first paint or a pre-hydration window has
+// to say WHICH build produced the `dist` it was measured against.
 //
 // Browser: Chromium from the sandbox at PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
 // (build 1194 ↔ @playwright/test 1.56.1). In CI, provision the pinned browser

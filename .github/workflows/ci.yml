@@ -697,9 +697,11 @@ jobs:
       - name: Install Playwright browser (pinned to @playwright/test)
         run: npx playwright install --with-deps chromium
         working-directory: docs
-      # playwright.config.ts's webServer builds (without the slow showcase:check)
-      # then previews the production site; test:e2e:smoke runs the desktop @smoke
-      # subset against it.
+      # playwright.config.ts's webServer builds then previews; test:e2e:smoke runs
+      # the desktop @smoke subset against it. NOT the production document —
+      # `build:e2e` skips the two post-build steps that rewrite every page's head
+      # (modulepreload injection, stylesheet hoisting). See that config's webServer
+      # note and #2134.
       - name: Run Studio E2E @smoke subset
         run: npm run test:e2e:smoke -- --retries=0
         working-directory: docs

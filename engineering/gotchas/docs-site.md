@@ -440,5 +440,40 @@ owe nothing here. See
   `page.waitForLoadState`, to `networkidle`, and to any assertion about the element
   itself — they are all true throughout it. Reproduce it deterministically by
   delaying the island's module (`page.route(/\/_astro\/.*\.js/, …)` with a sleep),
-  which does to hydration what a contended worker does.
+  which does to hydration what a contended worker does — but sample the answer per
+  frame from **inside** the page. `waitUntil: 'domcontentloaded'` is not inside the
+  window: `<script type="module">` is deferred, so DCL waits for the whole static
+  graph you just delayed, and on a production-shaped build hydration follows it
+  within milliseconds. That is #2125, and the entry below is the rest of it.
 - **Triggered by:** #1815.
+
+## A spec is green after `npm run build:e2e` and red after `npm run build`
+
+- **Symptom:** An e2e spec passes locally, then fails deterministically for the
+  next person — or the reverse — with nothing about the spec, the app or the
+  commit having changed. Most often a spec whose subject is timing: first paint,
+  a pre-hydration window, resource ordering, a FOUC.
+- **Cause:** the two builds do not produce the same document. `build:e2e` (what
+  `playwright.config.ts`'s `webServer` runs, and what CI runs) is
+  `sync:portal → sync:playground → astro build` and stops there. `build` adds
+  four post-build steps, and **two of them rewrite the head of every page**:
+  `inject-modulepreload.mjs` and `hoist-stylesheets.mjs`. Measured on the same
+  commit: `/playground/index.html` carries **41** `<link rel="modulepreload">`
+  after `npm run build` and **0** after `npm run build:e2e` (`/studio/` 74 vs 0);
+  hoisting reports "117/125 page(s) rewritten".
+- **What that changes:** the preload hints put chunks an island reaches by
+  *dynamic* import in flight with the static graph rather than one round trip
+  after it. On `/playground/`, with every `/_astro/*.js` delayed 800ms, hydration
+  lands at **~1.3–1.5s** on a `build` dist and **~3.6–3.8s** on a `build:e2e` one
+  — a 2.3s swing, and it crosses DOMContentLoaded. #2125 is that in full: the same
+  spec, 3 runs in 3 green against one dist and 6 in 6 red against the other.
+- **Fix:** say which build produced the `dist` before believing a timing result,
+  and re-run against the other shape before calling anything fixed —
+  `node scripts/inject-modulepreload.mjs && node scripts/hoist-stylesheets.mjs`
+  turns a `build:e2e` dist into a production-shaped one in a couple of seconds
+  (`astro build` leaves the `dist/chunk-graph.json` the injector needs, and
+  deletes it on the way out, so it is a one-shot). Better, don't let a spec depend
+  on it: measure a pre-hydration window from **inside** the page, per the entry
+  above.
+- **Triggered by:** #2125. **Removable when:** #2134 makes the two builds agree
+  on the served document.
