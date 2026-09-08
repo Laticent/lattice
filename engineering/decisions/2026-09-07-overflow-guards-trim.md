@@ -138,6 +138,37 @@ per deck. **Read the last column before reading the others.** On
 silent — the outcome §9 calls the one thing worse than the clip it replaces. §3
 explains the mechanism.
 
+### 2a. Neither of those numbers is the ruling's number
+
+**Both prototypes above are permissive in ways §6 and §4d forbid.** Their
+`isTextBlock` accepts any block with inline children, so they trim headings, KPI
+values, code and legal text — the classes §6 rules `never` — and v3's fix rate
+comes from `display: none` drops that §4d's rule prohibits. **The note recommended
+one design and reported the score of another.**
+
+Re-run with the ruling's own constraints applied — never-trim enforced by role,
+and decline instead of drop when the mark cannot be visible:
+
+| Deck | Clipping before | AS RULED: after | Why |
+|---|---|---|---|
+| `overflow-fix-me.md` | 2, 3, 5 | **2, 5** | p3 fixed by trimming one over-long card body |
+| `marker-corner.md` | 3, 4 | **3, 4** | the only partly-visible crossing block is a heading — never-trim |
+| `examples/README.md` | 1 | **1** | the crossing block is a shell command one line-height from the edge |
+| `premise.gallery.md` | none | none | — |
+
+**One of six.** Not four, not all six. The gallery stress in §2b tells the same
+story more gently — 38 of 80 as ruled against 51 of 80 permissive — but the stress
+harness inflates `p` and `li` prose specifically, which is the one class the guard
+is allowed to trim, so it measures the guard against overflow built to its own
+specification. **The corpus is the honest sample, and there the ruled mechanism is
+a one-in-six mechanism.**
+
+Look at what actually causes overflow in real authored decks: a heading, a
+callout box's chrome, a command line, a mid-column timeline entry. **§6's
+`never` list and the actual causes of overflow are nearly the same list.** That
+is the finding that should have priced the mechanism fork in §8, and it did not,
+because the fork was decided against a fix rate that the ruling forbids.
+
 **The same pass, run in all three engines on the same deck, does the same thing:**
 
 | Engine | Clipping before | Clipping after | Blocks trimmed | Cut signal after |
@@ -152,7 +183,8 @@ all three. That matters because the chosen mechanism is the row-a form — a
 mechanism is the row-c form, which only one supports. The measured pass is portable
 precisely because the number is computed outside CSS and handed in.
 
-The two slides that did not fit are the interesting half, and they are section 4.
+The two slides that did not fit under v2 are the interesting half, and they are
+section 4. Under the ruled guard, five of six are that half.
 
 ---
 
@@ -419,7 +451,7 @@ The three headline questions, answered directly:
 
 ## 7. What this contradicts, stated plainly
 
-Four written rulings point the other way, and a fifth precedent points here.
+Five written rulings point the other way, and a sixth precedent points here.
 
 - `design/forms.md:477` rejects a fade at the cut on three grounds and concludes
   "the honest pair for a fixed page is **clip** + **ring**". An ellipsis shares
@@ -432,6 +464,18 @@ Four written rulings point the other way, and a fifth precedent points here.
 - `2026-06-22-the-fit-spine.md:61` axiom 4: "Delivered content is never silently
   lost." A trim is not silent — the mark is on the slide and both probes still
   report — but it is lost.
+- `2026-09-01-autosplit-splits-on-structure.md` — **the most recent and most
+  directly analogous, and it was missing from this list until the trio found it.**
+  Six days before this note ruled *for* a measured pass, that one removed
+  autosplit's measured trigger, on grounds that transfer intact: ":44" the page
+  count "became a property of the renderer"; ":55" "Only a browser could answer
+  the question. `lint:deck`, the authoring surface, the agent kit and the Studio
+  could not say what a deck would become." A measured trim is worse on the first
+  count, not better: it makes **the words on the slide** a property of the
+  renderer, and `lint:deck` cannot tell an author which sentence a reader will
+  see. §10's open problem 4 reduces this to a timing detail. It is not a timing
+  detail; it is the same argument this repo accepted a week ago, and the
+  measured-versus-declared fork was not argued against it.
 - `2026-07-22-structure-derived-split-patterns.md:315` (the `never "…"` is at
   `:317`): overflow is "always more slides, or the honest ring … never '…'".
   **That note qualifies its own guarantee two lines later** — ":317-319" says it
@@ -564,11 +608,38 @@ for building it, and the note previously implied the first was already solved:
    a wrong one. A slot wrongly marked `never` is inert; one wrongly marked `trim`
    is the silent-wrong-number failure §6 exists to prevent, and nothing proposed
    here detects it.
-6. **Export-to-Marp**, which has no measure pass. Degrading to no guard is a
-   defensible answer; it has to be the written one.
+6. **Export-to-Marp, and the harm inverts.** An earlier draft of this list said
+   the path "has no measure pass" and that degrading to no guard was the
+   defensible answer. **That was false.** `lib/core/marp-bundle.js:50,177` copies
+   and script-tags `dist/lattice-runtime.min.js`, and `lib/runtime/index.js`
+   re-measures on font settle and on every resize — so a bundle carries the
+   runtime and would carry the guard with it. The problem is not adding the guard
+   to that path; it is that the trim would run **in the recipient's browser, at
+   their window size, with no author present and no record of what was removed**.
+   The question to answer is how to suppress it there, not how to add it. This is
+   the same class of accident `2026-07-30-overflow-marker-register.md` already had
+   to fix once, when the bundle inherited the runtime's authoring default by
+   accident.
 7. **`kanban` already ships a declared 2-line clamp on a title** — a live instance
    of the option §8 calls untried, on a slot §6 classes `never`. `guards:` owes it
    a ruling.
+8. **The trim mutates the DOM that every export serializes, and it leaks into
+   surfaces with no fit constraint.** `lib/export/player-core.mjs` projects the
+   baked section DOM through `projectDeckToProse`, and `projectGeneric`
+   (`lib/transformers/prose-projection.mjs:137,284`) emits `el.outerHTML` with
+   inline styles preserved. So a clamp computed for a 1280x720 slide box rides
+   into the player's **Read / Article** view — a scrolling prose column with
+   unlimited height and no fit problem at all — and a dropped element rides in as
+   `display: none`. The reader who switches to article view precisely to read the
+   full text gets the truncated text. Name every surface that must strip the trim
+   before it ships.
+9. **The propagation problem the register inherits.**
+   `2026-07-30-overflow-marker-register.md` did not rule on taste; it gave
+   reasons, and its second one applies harder here: a re-export carries the
+   baked front matter forward, so `guards: strict` set once for one board meeting
+   becomes a permanent property of every deck derived from that bundle — and
+   unlike `overflow-marker:`, this key removes text. §10's third row overrides
+   that note in one line without answering it.
 
 **Not built.** This note records the investigation and the ruling. The
 implementation — the register, the trim classes, the measured pass on each
