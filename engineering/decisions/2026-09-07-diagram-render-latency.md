@@ -394,3 +394,102 @@ The real fix is to stop counting our own writes as source changes, and there is 
 it a few lines away: `burstIsMarkerChromeOnly` already drops mutation bursts that are entirely
 the marker watcher's. Extending that to the transform pass would make the cadence exact and
 this cell would follow. It is a separate piece of work and it is named here, not filed as done.
+
+## 10. What an independent pass found in §9's own design, and the metric §9 did not measure
+
+§9 declared the work done bar one cell. A checker reading `756ac707` cold found two defects
+that invalidate that claim, and a third that explains why neither was caught.
+
+### The ceiling was dead, and a diagram froze for 14 seconds
+
+`DIAGRAM_MAX_WAIT_MS` existed because a trailing debounce with no ceiling is only as reliable
+as the quietest moment in the document, and steady typing never provides one. It was tested
+**only inside the timer callback** — while every pass that re-arms cancels that callback
+first. The runtime's own transform writes echo back through the observer about four times per
+keystroke, so the timer was reset faster than it could fire and the ceiling was never reached.
+
+Measured on the built Studio, 64-node fence, typing at a 350ms cadence: the diagram showed 3
+typed characters and **did not change again for 14166ms**, against a nominal 1200ms ceiling.
+It scaled with how long the author kept typing (20 characters → 6816ms; 40 → 14166ms). The
+build before this work redrew on every keystroke. §9's own docblock named this exact failure
+as the thing the ceiling prevents.
+
+**The fix is where the question is asked**, not what it asks: `backoffExpired()` is now
+consulted at the arm site, which every pass reaches, so no amount of re-arming outruns it.
+The same 40-character burst now redraws on every keystroke with a 102ms post-keystroke
+redraw, against `main`'s 97ms.
+
+### §9 measured renders and burst wall time; the author feels neither
+
+The number somebody actually experiences is **last keystroke → the diagram showing what they
+typed**. The probe §9 was built on never recorded it. On that metric the cadence term put the
+branch behind `main` in every cell the checker measured — 610ms against 281, 696 against 522,
+899 against 525, 1111 against 903 — while §9's table, measuring renders and burst wall time,
+reported the branch ahead in eight cells of nine. Both sets of numbers were real. Only one of
+them was about the author.
+
+The cause was arithmetic: `RENDER_COST_CAP_MS` capped only the cost term, and the cadence term
+was applied with `Math.max` *outside* the cap, so any observed gap over ~120ms put the wait
+past 150ms. The docblock's claim that the cap "bounds what this can ADD to the wait" was false
+as shipped.
+
+**The cadence term is retired.** Beating the author's own typing gap is the right idea, but
+the runtime cannot attribute mutations — it counts its own DOM writes as the author's — so the
+estimate is structurally low, and buying it cost both the slower redraw and the freeze above.
+Doing it properly means teaching the runtime to ignore its own writes; `burstIsMarkerChromeOnly`
+is the precedent, and that is separate work.
+
+### The tests were theater, and the mutation record proves it
+
+Eight mutations to the shipped policy survived all 9179 tests, including inverting the leading
+edge (which restores the regression the policy exists to remove) and dropping `backoffElapsed`
+from the timer's re-entry (after which **the diagram never redraws at all**). The arms tested
+pure arithmetic while the behavior lived in the scheduling, and the cadence half was never
+exercised because no arm called `recordSourceGap`.
+
+The decision, the arm, the ceiling and the re-entry now live inside the lifted block together,
+and the arms drive them against a controllable clock and timer. All eight mutations are killed,
+each by 1-4 arms:
+
+| mutation | arms failing |
+|---|---|
+| invert the leading edge | 4 |
+| drop `backoffElapsed` from the re-entry | 1 |
+| delete the ceiling | 2 |
+| ceiling 1200 → 120000 | 3 |
+| cap 150 → 400 | 3 |
+| median takes the upper of two | 1 |
+| reset the ceiling budget on every re-arm | 3 |
+| drop the slot's class guard | 1 |
+
+### Where this actually lands, on the right metric
+
+Post-burst redraw — last keystroke to the diagram showing it — against `95223749`:
+
+| nodes | cadence | `main` | this branch |
+|---|---|---|---|
+| 16 | 120ms | 169ms | *297ms* |
+| 16 | 200ms | 57ms | 60ms |
+| 16 | 350ms | 40ms | *62ms* |
+| 64 | 120ms | 489ms | *575ms* |
+| 64 | 200ms | 113ms | **109ms** |
+| 64 | 350ms | 112ms | **104ms** |
+| 64 | 40 chars @350ms | 97ms | 102ms |
+
+Latency, `bench:flash`, medians of 5:
+
+| arm | `main` | this branch |
+|---|---|---|
+| `edit` warm | 194ms | **78ms** |
+| `edit` cold | 198ms | 194ms |
+| `edit-burst` warm | 1117ms | **77ms** |
+| `edit-burst` cold | 1146ms | **208ms** |
+| `nav` cold | 240ms | **119ms** |
+| `edit-broken` raw-source frames | 97 | **75** |
+
+**The honest summary: small diagrams are far faster, large diagrams are at parity once you
+stop typing at a 200-350ms cadence and about 90-130ms slower at a brisk 120ms one.** That
+residue is the parse gate and the settle floor being paid on top of the same 150ms wait
+`main` already paid. It buys not strobing raw source at the author while they type (75 frames
+against 97) and holding the previous drawing instead of blanking. It is a deliberate trade,
+and it is the one thing in this work that is worse than the build it replaces.
