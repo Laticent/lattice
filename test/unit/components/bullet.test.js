@@ -257,7 +257,10 @@ describe('bullet kernel', () => {
       const html = buildBullet(parseBullet(ul([['A', '4.2M', '5.0M'], ['B', '0', '1.4M']])), {});
       assert.doesNotMatch(html, /#[0-9a-fA-F]{3,8}\b/, 'no hex literal');
       assert.doesNotMatch(html, /\b(?:rgb|rgba|hsl|hsla|oklch|oklab|color-mix)\s*\(/, 'no color function');
-      assert.doesNotMatch(html, /\b(?:fill|stroke)="(?!none)[a-z#]/, 'no named color on a paint attribute');
+      // (?<![\w-]) not \b: a word boundary does not exclude a preceding hyphen, so
+      // this matched `fill="hue"` inside the mark contract's own `data-encodes`
+      // attribute and reported a colour literal that was never there.
+      assert.doesNotMatch(html, /(?<![\w-])(?:fill|stroke)="(?!none)[a-z#]/, 'no named color on a paint attribute');
     });
 
     test('marks carry the a11y/print texture hooks, and they do not paint', () => {
