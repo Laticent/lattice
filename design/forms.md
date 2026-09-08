@@ -229,7 +229,9 @@ authored by a *designer*; a **Tile** binds a *source*.
 
 ### Cell — the typed slot
 - **`id` / `region`** — name and band position (masthead · stage · **coda** ·
-  footer · left/center/right).
+  footer · left/center/right), plus **`slide`** — the whole section box, the home
+  of the frame-anchored Tiles (`logo`, `watermark`) that position against the slide
+  rather than docking in a band.
 - **`geometry`** — `position` + `size` in **relative units** (resolves to px at
   render — see §6), `shape` (rectangular today).
 - **`z`** — z-plane (0 canvas → 1 atmosphere → 2 content → 3 chrome → 4
@@ -277,9 +279,10 @@ special cases. It reconciles with the component model's slot vocabulary
 | annotation (italic-only trailing `p`) | `coda` | harvested into the `coda` Cell, in the note's slot — it IS a below-note, styled differently because it is italic-only. **Not** the `overlay` Cell: this row read `overlay` / `tile/annotation` until 2026-09-01, which described a corner-overlay Tile no render path has ever emitted (see §7) |
 | caption (image / chart figure line) | `stage` | **component-owned**, placed by the component's own CSS *inside its stage Cell* — never hoisted. The `footer` Cell holds only footer + progress + pagination. |
 | footer (`_footer:`) | `footer` / `footer-left` | hoisted |
-| logo · meta · status | `masthead-bay` tiles | docked |
+| meta · status | `masthead-bay` tiles | docked |
+| logo | `slide` | **frame-anchored, not docked** — `base.modifiers.css` pins the mark to the section at `top: var(--logo-y, var(--frame-inset-y))` / `right: var(--logo-anchor-right, var(--frame-inset-x))`, and `logo-x`/`logo-y` set its CENTER as a percent of the slide. This row read `masthead-bay` until 2026-09-08; nothing ever docked it there |
 | pagination · progress | `pagination-right` · `progress-center` | docked |
-| watermark | `stage` | per the `watermark` Tile's `fits: ["stage"]` |
+| watermark | `slide` | **frame-anchored** — `watermark.transform.js` appends the ghost to the SECTION and its CSS positions against the section box. This row read `stage` until 2026-09-08 |
 
 **The `coda` Cell — the trailing editorial band.** Both trailing beats used to be
 listed as living *in* the stage Cell, which was true of where they ended up and said

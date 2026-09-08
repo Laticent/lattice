@@ -2,9 +2,11 @@
   "$schema": "../../schema/tile.schema.json",
   "id": "logo",
   "kind": "chrome",
-  "fits": ["masthead-bay"],
+  "fits": [
+    "slide"
+  ],
   "z": 2,
-  "population": "front-matter `logo:` key (the `logo-on` class ENABLES it — an opt-in show token, so the logo Tile has no true hide token; the islands §2.2 registry lists `logo-on` under 'Hide token' but it is a show token)",
+  "population": "front-matter `logo:` key (the `logo-on` class ENABLES it \u2014 an opt-in show token, so the logo Tile has no true hide token; the islands \u00a72.2 registry lists `logo-on` under 'Hide token' but it is a show token) \u2014 Positioned against the SLIDE, not docked in a band: base.modifiers.css pins it at top: var(--logo-y, var(--frame-inset-y)) / right: var(--logo-anchor-right, var(--frame-inset-x)) as an absolutely positioned direct child of the section, and logo-x/logo-y set the mark CENTER as a percent of the slide. It read fits:[\"masthead-bay\"] until 2026-09-08; nothing ever docked it there.",
   "hideToken": null,
   "status": "shipped"
 }

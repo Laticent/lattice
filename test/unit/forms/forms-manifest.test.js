@@ -202,3 +202,37 @@ test('(e) formsSlicingCss emits SECTION-scoped rules (so footer Cells inherit th
   // …and NOT scoped to a `.cell-` element (which would miss the wrapper-less footer Cells).
   assert.doesNotMatch(css, /\[data-family="[^"]*"\]\s+\.cell-/);
 });
+
+// (f) The Cell `region` vocabulary lives in TWO places — the JSON schema's enum
+// (read by editors and by anyone validating a manifest by hand) and CELL_REGIONS
+// in lib/forms/index.js (read by the loader, which is what actually rejects a bad
+// manifest). Adding `slide` in 2026-09 hit exactly that split: the schema accepted
+// the new region and the loader threw. They are not derived from one another, so
+// nothing but this test stops them drifting again.
+test('(f) the region vocabulary is identical in the schema and the loader', () => {
+  const { CELL_REGIONS } = require('../../../lib/forms');
+  const schema = require('../../../lib/forms/schema/cell.schema.json');
+  const fromSchema = schema.properties.region.enum;
+  assert.ok(Array.isArray(fromSchema) && fromSchema.length > 0, 'schema enumerates regions');
+  assert.deepEqual(
+    [...CELL_REGIONS].sort(),
+    [...fromSchema].sort(),
+    'lib/forms/index.js CELL_REGIONS and schema/cell.schema.json region enum must match',
+  );
+});
+
+// (g) The two frame-anchored Tiles must keep saying so. `logo` and `watermark`
+// are positioned against the SECTION by their own CSS/transform, and both
+// manifests claimed a band Cell until 2026-09-08 (`masthead-bay` / `stage`) —
+// a divergence invisible for as long as one Frame existed. See
+// engineering/decisions/2026-09-08-frame-catalog.md §4.2.
+test('(g) logo and watermark dock in the slide Cell, matching where they render', () => {
+  const { loadCatalog } = require('../../../lib/forms');
+  const { tiles, cells } = loadCatalog();
+  assert.ok(cells.some((c) => c.id === 'slide'), 'the slide Cell exists');
+  for (const id of ['logo', 'watermark']) {
+    const t = tiles.find((x) => x.id === id);
+    assert.ok(t, `${id} tile exists`);
+    assert.deepEqual(t.fits, ['slide'], `${id} fits the slide Cell, not a band`);
+  }
+});
