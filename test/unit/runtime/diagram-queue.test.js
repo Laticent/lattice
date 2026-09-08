@@ -42,7 +42,7 @@ const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'
  * `renderCounter` and `pinMermaidTooltip` — all injected here so the queue itself is the
  * only thing under test.
  */
-function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
+function liftQueue({ mermaid, log, capMs, attachErrorThrows = false, costs = [] }) {
   const BEGIN = '  // ── THE RENDER QUEUE';
   const END = '  // Mermaid appends `<div class="mermaidTooltip">`';
   const start = RUNTIME_SRC.indexOf(BEGIN);
@@ -99,11 +99,18 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
        const nowMs = () => Date.now();
        // The cost sampler the dispatch back-off reads. It lives outside this block and these
        // cells are about the chain always advancing, so it stands in rather than lifts.
-       const recordRenderCost = () => {};
+       const recordRenderCost = (ms) => { costs.push(ms); };
        // The cheap/costly answer. It lives with the back-off outside this block, and it now
        // gates the parse as well as the wait — these cells are about the chain advancing, so
        // it stands in with the arm that keeps the gate ON, which is the busier path.
        const diagramIsCheap = () => true;
+       // The scope-drew ledger lives with the policy outside this block; these cells are
+       // about the chain advancing, so it stands in.
+       const noteScopeDrew = () => {};
+       // TRUE, so these cells keep the path they were written against: the parse gate runs.
+       // The precondition it guards (has this scope ever drawn) is the policy's question, not
+       // the chain's, and it is exercised where it lives.
+       const scopeHasDrawn = () => true;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
@@ -128,7 +135,9 @@ ${block}
     }
     return q.queue;
   };
-  return { run, queue: () => q.queue };
+  // `costs` is read inside the eval'd factory below, which no static pass can see — returning
+  // it keeps that use visible and lets a cell assert on the samples directly.
+  return { run, queue: () => q.queue, costs };
 }
 
 /** A fence, with a fake `<pre>` whose dataset the queue writes. */
@@ -253,6 +262,51 @@ describe('the diagram queue always advances', () => {
     assert.match(RUNTIME_SRC, /function resetFenceAfterFailure\(preEl\) \{\s*\n\s*if \(preEl\.dataset\.mermaidState !== 'rendering'\) return;/,
       'and the reset must still act only on a fence that was actually in flight');
     assert.equal(good.preEl.dataset.mermaidState, 'rendered');
+  });
+
+  test('a render that FAILS still records what it cost — the empty-record trap', async () => {
+    // THE DEFECT THIS KILLS, measured on the built Studio before it was fixed. The cost was
+    // recorded inside the SUCCESS handler only, so a render that rejected recorded nothing.
+    // A fence that has never once rendered successfully therefore kept an EMPTY cost record
+    // for ever — and an empty record reads CHEAP, so the policy handed the frame-level floor
+    // AND the parse gate to the one case that must never have them.
+    //
+    // That case is an author building a large diagram from scratch, where the source does not
+    // parse yet and nothing has drawn. On a 64-node fence with an unparseable tail, 24 chars
+    // at 120ms: 2-3 renders against the old build's 1, main thread 14-15% against 1-2%, and
+    // the harness's own fixed-delay typing 3763-3915ms against 3404-3428ms. A failed render
+    // costs the same main thread as a successful one, which is the only thing the number
+    // measures.
+    const log = [];
+    const costs = [];
+    const mermaid = {
+      initialize: () => {},
+      render: (_id, source) => {
+        log.push(`render:${source}`);
+        return source === 'broken' ? Promise.reject(new Error('Parse error')) : Promise.resolve({ svg: '<svg/>' });
+      },
+    };
+    const broken = fence('broken');
+    const q = liftQueue({ mermaid, log, capMs: 5000, costs });
+    await q.run(twoBandDeck([broken], []));
+    assert.equal(broken.preEl.dataset.mermaidState, 'error', 'the fence still reports its failure');
+    assert.equal(costs.length, 1, 'a rejected render must record its cost, not nothing');
+    assert.ok(typeof costs[0] === 'number' && costs[0] >= 0, `recorded ${costs[0]}`);
+  });
+
+  test('a render that SUCCEEDS records exactly once, not twice', async () => {
+    // The other half of moving the call into the shared tail: it must not now run on both the
+    // success path and the tail, which would feed the median two samples per render and let a
+    // costly diagram look cheaper the more it is drawn.
+    const log = [];
+    const costs = [];
+    const mermaid = {
+      initialize: () => {},
+      render: (_id, source) => { log.push(`render:${source}`); return Promise.resolve({ svg: '<svg/>' }); },
+    };
+    const q = liftQueue({ mermaid, log, capMs: 5000, costs });
+    await q.run(twoBandDeck([fence('a1')], []));
+    assert.equal(costs.length, 1, 'one render, one sample');
   });
 
   test('bands are configured in document order, one configure per band', async () => {

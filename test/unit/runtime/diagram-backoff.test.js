@@ -33,7 +33,7 @@ function liftPolicy() {
 	assert.notEqual(start, -1, 'the policy must stay bracketed with BEGIN BACK-OFF PORT');
 	assert.notEqual(end, -1, 'the policy must stay bracketed with END BACK-OFF PORT');
 	const src = RUNTIME_SRC.slice(start, end);
-	for (const fn of ['function medianRenderCostMs()', 'function recordRenderCost(', 'function diagramIsCheap()', 'function contentFloorMs()']) {
+	for (const fn of ['function medianRenderCostMs()', 'function recordRenderCost(', 'function diagramIsCheap()', 'function contentFloorMs(', 'function scopeHasDrawn(']) {
 		assert.ok(src.includes(fn), `the port must hold ${fn} — the scheduling is the behavior`);
 	}
 	// NO TIMER LIVES HERE ANY MORE, and that is an assertion rather than an observation: the
@@ -47,6 +47,7 @@ function liftPolicy() {
 		`${src}
 		return {
 			medianRenderCostMs, diagramIsCheap, contentFloorMs, CHEAP_RENDER_MS, RENDER_COST_SAMPLES,
+			scopeHasDrawn, noteScopeDrew,
 			render(ms) { recordRenderCost(ms); },
 			settle(ms) { for (let i = 0; i < 3; i++) recordRenderCost(ms); },
 			get costs() { return [...renderCosts]; },
@@ -78,6 +79,45 @@ describe('the diagram dispatch policy', () => {
 			assert.equal(p.diagramIsCheap(), false, `${cost}ms must count as costly`);
 			assert.equal(p.contentFloorMs(), 150, `${cost}ms must wait the old debounce`);
 		}
+	});
+
+	test('NOTHING DRAWN YET means nothing to keep live, so the floor is the old debounce', () => {
+		// A live redraw keeps an EXISTING picture up to date. A fence that has never once
+		// rendered has no picture, so the frame-level floor and the parse gate buy it nothing
+		// while charging a parse per keystroke. Measured on a 64-node fence with a half-written
+		// tail, 24 chars at 120ms: 25-27% of the main thread against the old build's 1%, for
+		// 115-122 frames of raw source against its 117-122 — identical output, ~800ms more work
+		// per burst. This is the author building a large diagram from scratch, which the
+		// decision doc calls the main case and the ledger only ever measured at 4-5 nodes.
+		const p = liftPolicy();
+		p.settle(22);
+		assert.equal(p.diagramIsCheap(), true, 'cheap by cost');
+		assert.equal(p.contentFloorMs(false), 150, 'but with nothing to keep live, it waits');
+		assert.equal(p.contentFloorMs(true), 16, 'and with something to keep live, it does not');
+	});
+
+	test('a scope becomes live-worthy once something in it has DRAWN', () => {
+		const p = liftPolicy();
+		assert.equal(p.scopeHasDrawn('slide-2'), false, 'nothing has drawn yet');
+		p.noteScopeDrew('slide-2');
+		assert.equal(p.scopeHasDrawn('slide-2'), true);
+		assert.equal(p.scopeHasDrawn('slide-3'), false, 'and it does not leak across scopes');
+	});
+
+	test('an empty scope key never marks anything drawn', () => {
+		// The same empty-key hazard the text-keyed collections carry: a scope we cannot read
+		// must not make every unreadable scope look live-worthy.
+		const p = liftPolicy();
+		p.noteScopeDrew('');
+		assert.equal(p.scopeHasDrawn(''), false);
+	});
+
+	test('a COSTLY diagram waits the debounce whether or not anything has drawn', () => {
+		// The precondition may only ever take the live floor AWAY, never grant it.
+		const p = liftPolicy();
+		p.settle(248);
+		assert.equal(p.contentFloorMs(true), 150);
+		assert.equal(p.contentFloorMs(false), 150);
 	});
 
 	test('the floor sits between the two measurements that bracket it', () => {

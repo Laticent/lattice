@@ -359,7 +359,7 @@ describe('the observer wiring', () => {
     // that is cheap to draw and the old DEBOUNCE_MS for one that is not. It is the ONLY timer
     // in the dispatch path: a second one, carried by the back-off, could not be made to sum
     // with this one in either direction (see the policy port's own note).
-    assert.match(src, /\}, contentFloorMs\(\)\);/, 'the floor is sized to the diagram, not a fixed debounce');
+    assert.match(src, /\}, contentFloorMs\(anyPendingFenceIsLiveWorthy\(\)\)\);/, 'the floor is sized to the diagram AND asks whether anything can be kept live');
   });
 
   test('the CONTENT pass is never gated on a diagram — only the dispatch is', () => {

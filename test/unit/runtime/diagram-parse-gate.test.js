@@ -36,7 +36,7 @@ function shippedPendingState() {
 }
 
 /** Lift the real gate, bound to one jsdom document and a controllable clock. */
-function liftGate(html = '', { cheap = true } = {}) {
+function liftGate(html = '', { cheap = true, drawn = true } = {}) {
 	const start = RUNTIME_SRC.indexOf(BEGIN);
 	const end = RUNTIME_SRC.indexOf(END);
 	assert.notEqual(start, -1, 'the gate must be bracketed with BEGIN PARSE-GATE PORT');
@@ -66,6 +66,7 @@ function liftGate(html = '', { cheap = true } = {}) {
 		'erroredSources',
 		'attachErrorSafely',
 		'diagramIsCheap',
+		'scopeHasDrawn',
 		`${src}\nreturn { deferUntilQuiet, armErrorSurface, sweepDeferredFences, parsesCleanly, renderDiagramJob, forceRender, deferredSince, fenceSourceOf, ERROR_QUIET_MS, DEFERRED_FENCE_SELECTOR };`,
 	);
 	const api = make(
@@ -99,6 +100,11 @@ function liftGate(html = '', { cheap = true } = {}) {
 		},
 		// The cheap/costly answer, which now gates the parse as well as the wait.
 		() => cheap,
+		// Has anything in this scope ever DRAWN? The gate holds an existing picture while the
+		// source is mid-word, so a scope that has never drawn has nothing to hold. Defaults
+		// true here: every arm written before this precondition existed is about a fence that
+		// already has a drawing to protect.
+		() => drawn,
 	);
 	/** Fire the newest live timer, the way a quiet window elapsing would. */
 	const elapse = () => {
@@ -411,6 +417,18 @@ describe('the parse gate is the CHEAP arm, and remembering is a claim about the 
 		await p.renderDiagramJob(failsToParse, 's', job(p.doc));
 		assert.equal(p.rendered.length, 0, 'a half-written cheap fence is held, not drawn');
 		assert.equal(p.doc.querySelector('pre').dataset.mermaidState, 'deferred');
+	});
+
+	test('a scope that has never DRAWN skips the gate — there is no picture to hold', async () => {
+		// The gate's own precondition. It exists to hold a fence's existing drawing while the
+		// source is mid-word; with no drawing it is pure cost, measured at ~800ms per burst on
+		// a 64-node fence for byte-identical output (115-122 raw-source frames against the old
+		// build's 117-122).
+		let parses = 0;
+		const p = liftGate(FENCE('pending'), { cheap: true, drawn: false });
+		await p.renderDiagramJob({ parse: () => { parses++; return Promise.reject(new Error('nope')); } }, 's', job(p.doc));
+		assert.equal(parses, 0, 'nothing drawn in this scope, so nothing to parse for');
+		assert.equal(p.rendered.length, 1, 'it renders and is allowed to fail, like the old build');
 	});
 
 	test('a render this pass did not FORCE is never remembered', async () => {
