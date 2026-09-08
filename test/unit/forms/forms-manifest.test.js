@@ -257,7 +257,11 @@ test('(h) frame admits rejects every malformed shape', () => {
   const { validateFrame } = require('../../../lib/forms');
   const base = { id: 'x', form: 'bookend', kind: 'root', exemptFromChrome: false,
     description: 'd', admits: ['flow'], cells: [], suppresses: [] };
-  assert.equal(validateFrame(base, 't').length, 0, 'a valid root frame passes');
+  // SHAPE-valid only. checkIntegrity rejects this exact frame — a chrome-hosting
+  // frame must admit every non-sovereign kind, so admits:['flow'] under-claims (see
+  // arm (j)). The validate/integrity split is deliberate: validateFrame judges one
+  // manifest in isolation, the integrity arm needs the generated stage catalog.
+  assert.equal(validateFrame(base, 't').length, 0, 'the SHAPE is valid in isolation');
   const bad = [
     [{ ...base, kind: 'sovereign', exemptFromChrome: true, admits: ['flow', 'canvas'] }, /exactly \["sovereign"\]/],
     [{ ...base, admits: ['sovereign'] }, /admits "sovereign" but exemptFromChrome is false/],
@@ -292,14 +296,17 @@ test('(i) frame admits is checked against the generated stage catalog', () => {
   assert.ok(errs.length >= 2, `orphaned kinds reported: ${errs.join(' | ')}`);
 });
 
-// (j) A ROOT Frame may not UNDER-claim. (i) proves a Frame cannot invent a stage
-// kind; this proves the other direction where it is derivable. A root Frame is the
-// fallback host for every component that is not its own sovereign, so its correct
-// `admits` IS the set of non-sovereign kinds the catalog declares — and those
-// flow/canvas values come from each component manifest's own `stage` field, a
-// source independent of any frame. Without this arm a root Frame could declare
-// admits:["flow"] and pass every gate while `canvas` components still composed
-// into it, which is exactly what a checker demonstrated on the first cut.
+// (j) A CHROME-HOSTING Frame may not UNDER-claim. (i) proves a Frame cannot invent
+// a stage kind; this proves the other direction where it is derivable. Such a Frame
+// is the fallback host for every component that is not its own sovereign, so its
+// correct `admits` IS the set of non-sovereign kinds the catalog declares — and
+// `admits` never feeds that catalog back in any direction, which is what makes this
+// a check rather than a restatement. (It is NOT independent of the frame catalog as
+// a whole: build() starts from frameToggleSkip() to decide which components get
+// "sovereign" instead of their own stage. Independent of `admits` is the true and
+// sufficient claim; an earlier revision overstated it.) Without this arm a frame
+// could declare admits:["flow"] and pass every gate while `canvas` components still
+// composed into it, which is exactly what a checker demonstrated on the first cut.
 //
 // A SOVEREIGN Frame's under-claim is deliberately NOT asserted here: the
 // catalog's `sovereign` values are built FROM the frame manifests' own

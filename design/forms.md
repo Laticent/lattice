@@ -231,25 +231,32 @@ authored by a *designer*; a **Tile** binds a *source*.
   A sovereign Frame admits exactly `["sovereign"]` — it hosts the one component
   carrying its name, which is what `exemptFromChrome` has always meant in practice.
   Three checks tie it to the generated catalog. `checkFrameAdmits` rejects a kind
-  no component declares (**over**-claiming, every Frame) and a **root** Frame that
-  leaves out a non-sovereign kind (**under**-claiming); `checkAdmitsCensus` (from
-  `loadCatalog`) rejects a kind no Frame hosts. The under-claim arm keys on
-  **`exemptFromChrome`** — the property `frameToggleSkip()` actually reads — not on
-  the `kind` label a frame declares about itself, and `validateFrame` separately
-  pins the two to agree (`kind: "sovereign"` ⇔ `exemptFromChrome: true`). Both
-  guards exist because a checker probe declared `kind: "sovereign"` with
-  `exemptFromChrome: false` and `admits: ["flow"]` — chrome-hosting in fact,
-  sovereign by label — and the label alone let it opt out of the check. **For a root Frame `admits` is a
-  verified contract, not a declaration**: a root Frame is the fallback host for
-  every component that is not its own sovereign, so its correct value IS the set of
-  non-sovereign kinds the catalog declares — and those `flow`/`canvas` values come
-  from each component manifest's own `stage` field, a source independent of any
-  frame. **One limit remains, and it is structural.** A *sovereign* Frame's
-  under-claim is unreachable from here: the catalog's `sovereign` values are built
-  FROM `frameToggleSkip()`, i.e. from the frame manifests' own `exemptFromChrome`,
-  so a check would compare the frame catalog to itself. `validateFrame` pins the
-  shape instead (`exemptFromChrome` ⇔ `admits === ["sovereign"]`), which is as far
-  as a same-source check can go.
+  no component declares (**over**-claiming, every Frame) and a **chrome-hosting**
+  Frame that leaves out a non-sovereign kind (**under**-claiming); `checkAdmitsCensus`
+  (from `loadCatalog`) rejects a kind no Frame hosts. **For a chrome-hosting Frame
+  `admits` is a verified contract, not a declaration**: such a Frame is the fallback
+  host for every component that is not its own sovereign, so its correct value IS the
+  set of non-sovereign kinds the catalog declares — and `admits` never feeds that
+  catalog back in any direction. The under-claim arm keys on **`exemptFromChrome`** —
+  the property `frameToggleSkip()` actually reads — not on the `kind` label a frame
+  declares about itself, and `validateFrame` separately pins the two to agree
+  (`kind: "sovereign"` ⇔ `exemptFromChrome: true`). Both guards exist because a
+  checker probe declared `kind: "sovereign"` with `exemptFromChrome: false` and
+  `admits: ["flow"]` — chrome-hosting in fact, sovereign by label — and the label
+  alone let it opt out of the check.
+
+  **Four limits, enumerated rather than summarized.** An earlier revision of this
+  bullet said "one limit remains" when there were more, which is the same defect the
+  paragraph exists to prevent, one level up. The full statement lives in the
+  `checkFrameAdmits` docblock; in short: (1) a *sovereign* Frame's under-claim is
+  structurally unreachable, since the catalog's `sovereign` values are built from the
+  frame manifests' own `exemptFromChrome`; (2) for a chrome-hosting Frame `admits`
+  now carries no information — the only valid value is the constant
+  `["canvas","flow"]`, so the arm catches a hand-edit of a manifest, never a genuine
+  disagreement; (3) the derived set depends on **both** manifest sets, so it is
+  independent of `admits` but not of the frame catalog as a whole; (4) the arm also
+  fires on a partially-specified synthetic frame handed to `checkIntegrity`, so test
+  fixtures must assert with `.some()` rather than `deepEqual`.
 - **`subGrid`** — the internal grid template + ratios.
 - **`cells`** — the Cells it produces (each a full Cell definition).
 - **`suppresses`** — chrome Cells a sovereign Frame hides.
