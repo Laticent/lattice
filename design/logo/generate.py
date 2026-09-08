@@ -6,10 +6,15 @@ brand spectrum ribbon swept left->right (the color), anchored by a single
 gold core. Structure is ink, color is signal.
 
 Emits four master assets into this directory:
-  lattice-mark.svg        full mark, light+dark adaptive (one file)
-  lattice-mark-min.svg    simplified mark for <=24px (favicon / app icon)
-  lattice-lockup.svg      horizontal lockup, dark text (for light surfaces)
-  lattice-lockup-dark.svg horizontal lockup, light text (for dark surfaces)
+  lattice-mark.svg             full mark, light+dark adaptive (one file)
+  lattice-mark-min.svg         simplified mark for <=24px (favicon / app icon)
+  lattice-lockup-on-light.svg  horizontal lockup, dark text
+  lattice-lockup-on-dark.svg   horizontal lockup, light text
+
+The suffix names the GROUND the asset goes on, not the viewer's scheme, and a
+BARE NAME MEANS ADAPTIVE. Both lockups are fixed-color, so neither takes the
+bare name; the two marks carry a `prefers-color-scheme` block, so they do.
+The rule is family-wide -- see README.md "Naming".
 
 Palette is the Lattice brand axis: indaco navy (themes/indaco.css) + cuoio
 gold (themes/cuoio.css) + the cuoio spectrum ribbon. Run: python3 generate.py
@@ -99,6 +104,6 @@ def _w(name, s): open(os.path.join(OUT, name), "w").write(s)
 if __name__ == "__main__":
     _w("lattice-mark.svg", build("adaptive"))
     _w("lattice-mark-min.svg", build("adaptive", minimal=True))
-    _w("lattice-lockup.svg", lockup("light"))
-    _w("lattice-lockup-dark.svg", lockup("dark"))
+    _w("lattice-lockup-on-light.svg", lockup("light"))
+    _w("lattice-lockup-on-dark.svg", lockup("dark"))
     print("wrote 4 master assets to", OUT)

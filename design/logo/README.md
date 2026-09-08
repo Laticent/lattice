@@ -15,12 +15,44 @@ core. The rule the whole mark obeys: **structure is ink, color is signal.**
 | --- | --- | --- |
 | `lattice-mark.svg` | Full mark, **light+dark adaptive** (one file) | Anywhere ≥28px |
 | `lattice-mark-min.svg` | Simplified mark (diamond + 5 nodes), adaptive | Favicon / app icon, ≤24px |
-| `lattice-lockup.svg` | Mark + wordmark, dark text | On light surfaces |
-| `lattice-lockup-dark.svg` | Mark + wordmark, light text | On dark surfaces |
+| `lattice-lockup-on-light.svg` | Mark + wordmark, dark text | On light surfaces |
+| `lattice-lockup-on-dark.svg` | Mark + wordmark, light text | On dark surfaces |
 | `generate.py` | Source of truth — regenerates all four | `python3 generate.py` |
 
+## Naming — the family rule
+
+**The suffix names the GROUND the asset goes on. A bare name means the file
+adapts.**
+
+| Name | Means |
+|---|---|
+| `<name>-mark.svg` | adapts via an inline `@media (prefers-color-scheme: dark)` |
+| `<name>-lockup-on-light.svg` | fixed color, for a light ground |
+| `<name>-lockup-on-dark.svg` | fixed color, for a dark ground |
+| `laticent-tile.svg`, `laticent-tile-min.svg` | bare **and** fixed — the two exceptions, because a tile brings its own ground and goes on any (see `laticent/README.md` 1.1) |
+
+This holds across all six marks — lattice, laticent, cadenza, lente, suono,
+vetrina. Four of the six already conformed: their lockups adapt and so keep a
+bare name. Lattice and Laticent are the two whose lockups are fixed, and until
+2026-09-07 they carried the old `-dark` suffix beside a bare name that promised
+the default and delivered light-only. Put `lattice-lockup.svg` on a dark page
+and you got `#1E1A15` ink on near-black `#15110D` — **1.086:1**.
+
+`-dark` was doing two jobs at once — naming a *scheme* on a file that responds
+to no scheme, and implying its bare twin was the adaptive one. `-on-dark` names
+the only thing the file actually knows: the ground it belongs on.
+
+The sibling brand system (`engineering/decisions/2026-07-18-sibling-brand-system.md`)
+says "never a second file for dark", and for a *mark* that still stands — all
+six marks adapt. It was written without the lockups in scope; this rule covers
+them. Making the two fixed lockups adaptive instead would also have worked and
+would ship two fewer files; it was not taken because the rename needs no
+artwork change. See `engineering/decisions/2026-09-07-ground-named-brand-assets.md`.
+
+## Web copies
+
 Web copies live in `docs/public/` (`favicon.svg`, `lattice-mark*.svg`,
-`lattice-lockup*.svg`). The site uses the adaptive SVGs everywhere: the
+`lattice-lockup-on-*.svg`). The site uses the adaptive SVGs everywhere: the
 browser-tab favicon is `favicon.svg` and the in-page header/footer logo is an
 `<img>` pointing at `lattice-mark-min.svg`. Both adapt to light/dark via
 `@media (prefers-color-scheme: dark)`. (The former `docs/public/lattice-logo.png`
@@ -42,10 +74,10 @@ and unable to theme — was retired.)
 - **Clear space:** keep padding of at least one node-diameter on all sides.
 - **Minimum size:** full mark to ~28px; below that use `lattice-mark-min.svg`.
 - **Dark mode:** the SVGs handle it via `@media (prefers-color-scheme: dark)` —
-  bonds brighten, halos darken. Don't hand-recolour; ship the adaptive file.
+  bonds brighten, halos darken. Don't hand-recolor; ship the adaptive file.
 - **Wordmark font:** Fraunces / Cormorant Garamond (Georgia fallback), 600,
   letter-spacing −1. Matches the deck display serif.
-- **Don't:** recolour the nodes off-spectrum, put color on the bonds, squish
+- **Don't:** recolor the nodes off-spectrum, put color on the bonds, squish
   the aspect ratio, or add effects (shadows/gradients on the nodes).
 
 Regenerate after any change: `python3 design/logo/generate.py`.
