@@ -160,4 +160,4 @@
  * addressed by `data-s` on `.waterfall-bar`, with values `up` · `down` ·
  * `flat` · `total`. They are deliberately NOT from the family's frozen `CHART_STATUS`
  * vocabulary: this chart encodes DIRECTION, not project status. There is no
- * `data-cat` on any mark here — nothing on a waterfall is categorical. */
+ * `data-hue` on any mark here — nothing on a waterfall is categorical. */

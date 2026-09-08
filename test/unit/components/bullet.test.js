@@ -262,7 +262,7 @@ describe('bullet kernel', () => {
 
     test('marks carry the a11y/print texture hooks, and they do not paint', () => {
       const html = buildBullet(model, {});
-      assert.match(html, /class="bullet-measure"[^<>]*data-cat="0"/, 'categorical slot, as the legend swatches use');
+      assert.match(html, /class="bullet-measure"[^<>]*data-hue="1"/, 'categorical slot, as the legend swatches use');
       assert.match(html, /class="bullet-target"[^<>]*data-marker="target"/);
       assert.match(html, /class="bullet-band bullet-zone-0"[^<>]*data-zone="0"/);
       assert.match(html, /class="bullet-measure"[^<>]*data-anima-role="bar"/);

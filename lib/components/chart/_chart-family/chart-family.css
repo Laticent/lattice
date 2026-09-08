@@ -368,6 +368,86 @@ section.word-cloud,
   --chart-cat-base: light-dark(var(--bg), black);
 }
 
+/* ── THE MARK CONTRACT — one slot table for the whole family ──────────────
+ * `data-hue="1".."8"` says which of the eight categorical hues a mark takes;
+ * this resolves it to the three role tokens the mark then paints from, so a
+ * member writes ONE rule instead of six and a finish can mix from --mark-hue
+ * without knowing which member it is looking at.
+ *
+ * `--mark-ink` is not a new name: slope.styles.css already carries it, meaning
+ * exactly this ("the local channel: one rule per status re-points it, and the
+ * mark reads it"). This generalises it, and retires four more local synonyms
+ * for the same idea — gantt/progress's --fill-*, matrix-grid's --row-*,
+ * quadrant's --cell-*, kanban's --col-hue.
+ *
+ * THE LEADING `:is(section…, figure…)` IS LOAD-BEARING, not house style.
+ * packSelector (lib/engine/css.js) treats any leftmost compound that is not a
+ * literal `section` as a slide DESCENDANT, so `.chart-frame [data-hue="1"]`
+ * packs to `article.lattice > section .chart-frame …` — and `chart-frame` is a
+ * class ON the section, so it matches nothing and every mark reading
+ * var(--mark-ink) falls to SVG's black initial value. That failure is invisible
+ * to a reviewer: the UNPACKED path (the emulator, so `npm run preview`, the
+ * committed gallery PDFs and every demo deck) renders correctly while the live
+ * Playground, Studio and --player render black. The same bug is already on the
+ * record for --map-base at lib/engine/css.js:370-379. packSelector step 0
+ * distributes a leading `:is()` so each arm scopes by its own combinator, which
+ * is why this shape works and the bare class does not.
+ *
+ * A mark whose colour is NOT one of the eight — a status bar, a state node —
+ * carries no `data-hue` at all and sets --mark-ink from its own member rule.
+ * Absence is the honest signal, not a gap. Every consumer therefore reads
+ * `var(--mark-ink, <its own default>)`: an unset custom property is
+ * invalid-at-computed-value-time, which is black again.
+ *
+ * `--mark-retreat` is how far a finish may pull this body back, 0..1. It is set
+ * per mark class (not per slot) further down by the generated block, and it is
+ * one number because both reasons a body is held reach the same answer: a ramp
+ * is held because scaling it deletes the magnitude (spend-rules.md 1d), and a
+ * text-bearing mark is held because --cat-on-mark was solved against a
+ * full-strength mark (5). The reasons live in each manifest's `kernel.marks`.
+ * engineering/decisions/2026-09-07-chart-design-language/slot-contract.md */
+
+:is(section.chart-frame, figure.chart-frame) [data-hue="1"] {
+  --mark-hue:  var(--chart-cat-1-hue);
+  --mark-ink:  var(--chart-cat-1-ink);
+  --mark-fill: var(--chart-cat-1-fill);
+}
+:is(section.chart-frame, figure.chart-frame) [data-hue="2"] {
+  --mark-hue:  var(--chart-cat-2-hue);
+  --mark-ink:  var(--chart-cat-2-ink);
+  --mark-fill: var(--chart-cat-2-fill);
+}
+:is(section.chart-frame, figure.chart-frame) [data-hue="3"] {
+  --mark-hue:  var(--chart-cat-3-hue);
+  --mark-ink:  var(--chart-cat-3-ink);
+  --mark-fill: var(--chart-cat-3-fill);
+}
+:is(section.chart-frame, figure.chart-frame) [data-hue="4"] {
+  --mark-hue:  var(--chart-cat-4-hue);
+  --mark-ink:  var(--chart-cat-4-ink);
+  --mark-fill: var(--chart-cat-4-fill);
+}
+:is(section.chart-frame, figure.chart-frame) [data-hue="5"] {
+  --mark-hue:  var(--chart-cat-5-hue);
+  --mark-ink:  var(--chart-cat-5-ink);
+  --mark-fill: var(--chart-cat-5-fill);
+}
+:is(section.chart-frame, figure.chart-frame) [data-hue="6"] {
+  --mark-hue:  var(--chart-cat-6-hue);
+  --mark-ink:  var(--chart-cat-6-ink);
+  --mark-fill: var(--chart-cat-6-fill);
+}
+:is(section.chart-frame, figure.chart-frame) [data-hue="7"] {
+  --mark-hue:  var(--chart-cat-7-hue);
+  --mark-ink:  var(--chart-cat-7-ink);
+  --mark-fill: var(--chart-cat-7-fill);
+}
+:is(section.chart-frame, figure.chart-frame) [data-hue="8"] {
+  --mark-hue:  var(--chart-cat-8-hue);
+  --mark-ink:  var(--chart-cat-8-ink);
+  --mark-fill: var(--chart-cat-8-fill);
+}
+
 /* ── Chart SEMANTIC / status color model ─────────────────────────────────
  * The status counterpart to the catN categorical spectrum. Charts that
  * encode MEANING (gantt bars, progress fills, status pills, state-chart,
@@ -1393,10 +1473,24 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 
 /* An inline series name (direct labeling — a line's own name at its end, a
  * slope's entity name). Direct labels beat a legend whenever they fit, so this
- * is a first-class register, not a fallback. Colored by the member from the
- * series' own ink so the name and its line are the same hue. */
+ * is a first-class register, not a fallback.
+ *
+ * THE INK IS THE CONTRACT'S, not the member's. A direct label IS the join
+ * (spend-rules.md 3): the name and its mark are the same hue, and that is the
+ * whole reason the label works without a legend. So a label carrying `data-hue`
+ * takes --mark-ink from the family slot table, and one without falls to
+ * --text-body.
+ *
+ * This rule used to say `fill: var(--text-body)` flat, and each member restored
+ * the ink with a per-slot `[data-cat="N"]` rule. That worked only by accident of
+ * specificity: this rule is (0,2,1) and lands at the END of the bundle
+ * (build-css.js orders chart-family last), so the member's (0,3,1) beat it. The
+ * moment a member collapsed its five rules to one, it dropped a class-unit, lost
+ * the race, and every direct label on line, stacked-bar, slope and scatter went
+ * flat --text-body — measured across 21 theme x mode combinations. Reading
+ * --mark-ink HERE is what makes the collapse safe for all four. */
 :is(section.chart-frame, figure.chart-frame) .cart-series {
-  fill: var(--text-body);
+  fill: var(--mark-ink, var(--text-body));
   font-family: var(--font-body);
   font-size: 7.5px;
   font-weight: 600;

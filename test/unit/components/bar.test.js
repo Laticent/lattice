@@ -359,19 +359,18 @@ describe('bar kernel', () => {
     test('every mark carries the family texture hooks', () => {
       const plain = rects(buildBar(parseBar(ul(REGIONS)), ctx()));
       for (const r of plain) {
-        assert.equal(r['data-cat'], '0', 'a single series is one categorical slot');
-        assert.equal(r.style, '--i:0');
+        assert.equal(r['data-hue'], '1', 'a single series is one categorical slot');
         assert.equal(r['data-anima-role'], 'bar');
         assert.ok(r['data-label']);
       }
       const grouped = rects(buildBar(parseBar(nested([
         ['A', [['x', '1'], ['y', '2'], ['z', '3']]],
       ])), ctx()));
-      assert.deepEqual(grouped.map((r) => r['data-cat']), ['0', '1', '2']);
+      assert.deepEqual(grouped.map((r) => r['data-hue']), ['1', '2', '3']);
 
       const signed = rects(buildBar(parseBar(ul(SIGNED)), ctx(['diverging'])));
       assert.deepEqual(signed.map((r) => r['data-s']), ['up', 'up', 'down', 'down']);
-      assert.deepEqual(signed.map((r) => r['data-cat']), ['0', '0', '1', '1']);
+      assert.deepEqual(signed.map((r) => r['data-hue']), ['1', '1', '2', '2']);
     });
 
     test('detail rides the shared mark-detail substrate, and is absent when unused', () => {
@@ -471,11 +470,17 @@ describe('bar kernel', () => {
       }
     });
 
-    test('the categorical rotation cycles with nth-of-type, never nth-child', () => {
+    // The six `.bar-cat > g:nth-of-type(N)` lane rules are gone. Each bar carries
+    // its own `data-hue` and the family's slot table resolves --mark-ink from it,
+    // so the slot travels ON THE MARK rather than being re-derived from the lane's
+    // document position — which also means a lane that skips a series can no
+    // longer put the next one at the wrong ordinal. slot-contract.md
+    test('the edge paints from the mark contract, not from lane position', () => {
       assert.doesNotMatch(RULES, /nth-child/);
-      for (let i = 1; i <= 6; i++) {
-        assert.ok(RULES.includes(`.bar-cat > g:nth-of-type(${i})`), `slot ${i} is painted`);
-      }
+      assert.doesNotMatch(RULES, /nth-of-type\(\d\) \.bar-mark/, 'no lane-position rule survives');
+      assert.doesNotMatch(RULES, /\[data-cat=/, 'data-cat is retired, not renamed in place');
+      assert.ok(RULES.includes('.bar-cat .bar-mark { stroke: var(--mark-ink, var(--chart-cat-1-ink)); }'),
+        'one declaration, with the fallback an unset custom property needs');
     });
 
     test('no hex literal and no @layer wrapper in the stylesheet', () => {
@@ -547,15 +552,15 @@ describe('bar — defects the adversarial trio confirmed', () => {
     assert.match(desc, /Highest Q1 F 60/);
   });
 
-  test('the legend swatch carries data-cat so the a11y texture can pair it', () => {
+  test('the legend swatch carries data-hue so the a11y texture can pair it', () => {
     const inner = ['a', 'b', 'c'].map((x, i) => `<li>${x} <code>${i + 1}</code></li>`).join('');
     const svg = buildBar(parseBar(`<li>Q1<ul>${inner}</ul></li><li>Q2<ul>${inner}</ul></li>`),
       { classTokens: ['bar'] });
-    // Matched as whole tags, then filtered — `chart-key-swatch[^>]*data-cat`
+    // Matched as whole tags, then filtered — `chart-key-swatch[^>]*data-hue`
     // chains an unbounded run into a literal the run can itself match, which
     // backtracks polynomially (CodeQL js/polynomial-redos). `[^<>]*>` cannot.
     const swatches = (svg.match(/<rect class="chart-key-swatch[^<>]*>/g) || [])
-      .filter((tag) => tag.includes('data-cat'));
+      .filter((tag) => tag.includes('data-hue'));
     assert.ok(swatches.length >= 3);
   });
 

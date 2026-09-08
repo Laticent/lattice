@@ -186,7 +186,7 @@ async function main() {
       // on purpose: status is meaning, and every status surface in this family
       // also carries a text label, so it is not separated by colour alone.
       const CAT_SEL = [
-        '[data-cat]', '[data-cell]', '[data-series]',
+        '[data-hue]', '[data-cell]', '[data-series]',
         '.wedge', '.funnel-band', '.quadrant-tint',
         '.sbar-seg', '.radar-poly', '.cell-filled', '.kanban-card', '.wc-word',
       ].join(', ');
@@ -277,7 +277,7 @@ async function main() {
         [...sec.querySelectorAll(CAT_SEL)].filter(paintsItself).forEach((el, i) => {
           // One entry per categorical SLOT, not per element: a legend swatch and
           // its wedge are the same category and must not count as two.
-          const slot = el.getAttribute('data-cat') ?? el.getAttribute('data-cell')
+          const slot = el.getAttribute('data-hue') ?? el.getAttribute('data-cell')
             ?? el.getAttribute('data-series') ?? `pos${i}`;
           const isKey = el.closest('.chart-key, [class*="chart-key"]') !== null
             || (el.getAttribute('class') || '').includes('chart-key');
