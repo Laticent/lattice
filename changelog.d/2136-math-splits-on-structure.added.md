@@ -1,0 +1,14 @@
+- **Added: `math` slides split on their STRUCTURE at square, portrait, story and mobile.** Eight
+  variants render four structures, so there are four preprocessors, not eight: equation+legend
+  (bare, `feature`, `matrix`, `decompose`) and the `derivation` step table paginate through the
+  shared cover kernel with the equation and the table header repeating on every page, while
+  `theorem`'s Definition/Theorem/Proof cards and `compare`'s labeled columns get one member per
+  page. `stats` and `canvas` are fixed scaffolds with no repeating collection and keep the whole
+  slide. 16:9 renders are unchanged — the split has never applied there.
+- **Added: a display equation too long for the slide is now BROKEN ACROSS LINES before it is
+  typeset.** `$$…$$` past a length budget is re-emitted as an `aligned` block, split at its
+  top-level relation and, where the operators live inside a bracket, inside that bracket. The
+  logistic log-likelihood on `math feature` measured 2587px of ink against a 972px portrait
+  stage; broken and set at the new multi-line display scale it measures 925px. An author's own
+  `\\` or any `\begin{…}` environment is left exactly as written, and a rewrite KaTeX cannot
+  parse falls back to the source.

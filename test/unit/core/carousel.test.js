@@ -679,6 +679,23 @@ const jnSection = (orientation) =>
 const jnInner = jnSection('portrait');
 const jnLandscapeInner = jnSection('landscape');
 
+// `math-structures` — the THEOREM card stack, i.e. the bespoke arm.
+//
+// Two of the strategy's four arms delegate to `cover-paginate`, which the row above already
+// drives; the card stack and the columns are the code this change actually adds, and the card
+// stack is the riskier of the two — its members are sibling `<blockquote>`s, which is also the
+// shape the trailing-material scan reads as a coda. Shaped as the engine renders it: the
+// masthead band OUTSIDE `.cell-stage`, the cards inside it, each titled by a leading `<strong>`
+// with no class of its own (`> blockquote > p > strong`, styled positionally).
+const mtTag = '<section data-lattice-slide="1" id="s1" class="math theorem form">';
+const mtInner = '<div class="cell-masthead"><div class="masthead-lede">' +
+  '<p><code>Continuity · IVT</code></p><h2>The intermediate value theorem</h2></div></div>' +
+  '<div class="cell-stage">' +
+  '<blockquote><p><strong>Definition.</strong> A continuous function on a closed interval.</p></blockquote>' +
+  '<blockquote><p><strong>Theorem.</strong> Every intermediate value is attained.</p></blockquote>' +
+  '<blockquote><p><strong>Proof.</strong> Take the supremum of the sublevel set.</p></blockquote>' +
+  '</div><div class="cell-footer"><footer>math</footer></div>';
+
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
   ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
@@ -692,6 +709,7 @@ const STRATEGY_CASES = [
   ['roadmap-horizons', rmTag,           rmInner,         { strategy: 'roadmap-horizons' }],
   ['journey-stages', jnTag,             jnInner,         { strategy: 'journey-stages' }],
   ['compare-options', scSection.openTag, scSection.inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }],
+  ['math-structures', mtTag,             mtInner,         { strategy: 'math-structures' }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to
@@ -930,10 +948,22 @@ describe('core: carousel — the run closes on ONE page carrying both beats (202
     || !MEMBER_CLAIM_STRATEGIES.has(name)
     || rendersBeat(clsOf(tag), beat));
   // …and the expectation must not be able to go vacuous: most cases must still carry both.
+  //
+  // THE FLOOR IS DERIVED, not a constant. It read `STRATEGY_CASES.length - 1`, which encoded
+  // "there is exactly one member-claim strategy" — a fact about the roster on the day it was
+  // written, not about what this guard is for. `math-structures` is a second one (its theorem
+  // cards ARE the claimed blockquotes, measured), so the constant failed on a legitimate entry
+  // and the only ways forward were to weaken it to `- 2` or to derive it.
+  //
+  // Only a MEMBER_CLAIM strategy can decline a beat, so that set IS the exemption budget: every
+  // other strategy must expect both, and a claim-honoring one may or may not (it declines only
+  // where its layout actually claims the bare shape). The guard therefore stays exactly as tight
+  // as it was and cannot rot as the roster grows.
   test('the closing-page expectation is not vacuous — most strategies hoist both beats', () => {
     const both = STRATEGY_CASES.filter(([n, t]) => hoists(n, t, 'key-insight') && hoists(n, t, 'below-note'));
-    assert.ok(both.length >= STRATEGY_CASES.length - 1,
-      `only ${both.length}/${STRATEGY_CASES.length} cases expect both beats — the arm below is weakening`);
+    assert.ok(both.length >= STRATEGY_CASES.length - MEMBER_CLAIM_STRATEGIES.size,
+      `only ${both.length}/${STRATEGY_CASES.length} cases expect both beats, against a budget of ` +
+      `${MEMBER_CLAIM_STRATEGIES.size} member-claim strategies — the arm below is weakening`);
   });
 
   for (const [name, tag, inner, rec] of STRATEGY_CASES) {
