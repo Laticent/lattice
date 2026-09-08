@@ -38,9 +38,9 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
 
   test('skips every sovereign frame (the render-time skip set)', () => {
     // Mirrors FORM_TOGGLE_SKIP_FALLBACK — the engine and this path must agree.
-    // `math` is handled in its own test below: it is mid-migration off the
-    // sovereign frame one variant at a time, so the bare token is no longer a
-    // straight skip.
+    // `math` is NOT in this list any more: it left its sovereign frame in 2026-09 and
+    // takes `form` like any other component. Its own test below asserts that, per
+    // variant, and is the thing that would fail if the frame were ever put back.
     for (const cls of ['title', 'divider', 'closing', 'image', 'compare-code', 'split-panel', 'split-compare']) {
       const d = doc(`<section class="${cls}"><h2>T</h2></section>`);
       applyFormDefaultToDom(d);
@@ -51,30 +51,37 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
     }
   });
 
-  test('the DOM path agrees with the engine on every math variant, mid-migration', () => {
+  test('the DOM path agrees with the engine on every math variant', () => {
     // THE SEAM THIS GUARDS is a Node-vs-browser split. The engine derives its skip
     // set from the frame manifests at Node load; this DOM path is what the browser
-    // runtime uses. If the two disagreed about which math variants have migrated, a
-    // deck would compose one way in the CLI/PDF export and another in the live
-    // Playground — the exact divergence HARD RULE #1 exists to prevent, and the
-    // failure would be visual, so no other gate would see it.
-    const { MATH_VARIANTS, MIGRATED } = require('../../../lib/core/math-stage-migration.js');
+    // runtime uses. If the two disagreed about math, a deck would compose one way in
+    // the CLI/PDF export and another in the live Playground — the exact divergence
+    // HARD RULE #1 exists to prevent, and the failure would be visual, so no other
+    // gate would see it.
+    //
+    // Math left its sovereign frame in 2026-09, one variant per commit behind a
+    // temporary lever. The lever is gone; the variant list comes from the COMPONENT
+    // MANIFEST, which is where it actually lives, so a ninth variant is covered the
+    // day it is declared rather than the day someone remembers this file.
+    const MANIFEST = require('../../../lib/components/math/math/math.manifest.json');
     const plugins = require('../../../lib/integrations/markdown-it/plugins');
-    for (const variant of MATH_VARIANTS) {
+    for (const variant of MANIFEST.variants) {
+      // `decompose` is authored as the compound `math matrix decompose`.
       const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
       const d = doc(`<section class="${cls}"><h2>T</h2></section>`);
       applyFormDefaultToDom(d);
       const domClass = d.querySelector('section').className;
-      assert.equal(
-        domClass,
-        MIGRATED.has(variant) ? `${cls} form` : cls,
-        `math ${variant}: DOM path should ${MIGRATED.has(variant) ? 'add form' : 'skip'}`,
-      );
+      assert.equal(domClass, `${cls} form`, `math ${variant}: every variant takes the form class`);
       // and it must match what the engine's own toggle produces for the same class
       assert.equal(domClass, plugins.formToggleClass(cls, 'standard'),
         `math ${variant}: the DOM path and the engine disagree`);
       assert.equal(d.querySelector('section').getAttribute('data-lattice-slide'), '1');
     }
+    // A BARE `math` slide follows `feature` — math.docs.md: "the bare layout
+    // defaults to it" — so it must never diverge from the variants above.
+    const bare = doc('<section class="math"><h2>T</h2></section>');
+    applyFormDefaultToDom(bare);
+    assert.equal(bare.querySelector('section').className, 'math form');
   });
 
   test('respects an explicit `no-form` opt-out (unchanged)', () => {

@@ -33,7 +33,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 ---
 
 <!-- _class: math feature -->
-<!-- _footer: "feature · math feature — Alias for the base layout — eyebrow, headline, hero equation, legend.…" -->
+<!-- _footer: "feature · math feature — Alias for the base layout — eyebrow, headline, hero equation, legend. A bare `math` slide resolves to it." -->
 
 `Logistic regression · MLE`
 
@@ -50,7 +50,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 ---
 
 <!-- _class: math derivation -->
-<!-- _footer: "derivation · math derivation — Two-column table: derivation steps on the left, the justification for…" -->
+<!-- _footer: "derivation · math derivation — Two-column table: the derivation step on the left, the justification for it on the right, one row per step." -->
 
 ## derivation walks the steps line by line.
 
@@ -65,7 +65,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 ---
 
 <!-- _class: math theorem -->
-<!-- _footer: "theorem · math theorem — Stacked color-coded blockquote cards in the formal-statement vocabul…" -->
+<!-- _footer: "theorem · math theorem — Stacked color-coded blockquote cards in the formal-statement vocabulary — Definition, Theorem, Proof." -->
 
 ## theorem boxes the statement and its proof.
 
@@ -79,7 +79,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 ---
 
 <!-- _class: math compare -->
-<!-- _footer: "compare · math compare — Side-by-side equation comparison. Each column has its own h3 label, d…" -->
+<!-- _footer: "compare · math compare — Side-by-side equation comparison. Each column has its own h3 label, and two or three columns are supported." -->
 
 ## compare sets two formulations side by side.
 
@@ -99,7 +99,7 @@ Maximizes the posterior — conditions on the prior $p(\theta)$. Uncertainty is 
 ---
 
 <!-- _class: math canvas -->
-<!-- _footer: "canvas · math canvas — Pairs a hero equation with a `functionplot` graph (rendered by the fu…" -->
+<!-- _footer: "canvas · math canvas — Pairs a hero equation with a `functionplot` graph, so the closed form and its shape are read together." -->
 
 ## canvas gives a long derivation the room.
 
@@ -123,7 +123,7 @@ Maps $\mathbb{R} \to (0,1)$. $S$-shaped, $\sigma(0) = 0.5$, steepest slope at th
 ---
 
 <!-- _class: math matrix -->
-<!-- _footer: "matrix · math matrix — Hero matrix with a properties / dimensions / interpretation legend. B…" -->
+<!-- _footer: "matrix · math matrix — Hero matrix beside a legend of its properties — shape, rank, what the rows and columns mean." -->
 
 ## matrix typesets the block structures.
 
@@ -146,7 +146,7 @@ $$
 ---
 
 <!-- _class: math stats -->
-<!-- _footer: "stats · math stats — Point estimate with uncertainty (CI, $p$-value, $n$) followed by plai…" -->
+<!-- _footer: "stats · math stats — Point estimate with uncertainty (CI, $p$-value, $n$) followed by a plain-language reading of the effect." -->
 
 ## stats pairs the estimator with its variance.
 
@@ -161,7 +161,7 @@ For every additional unit of exposure, the outcome rises by 0.42 SD — roughly 
 ---
 
 <!-- _class: math matrix decompose -->
-<!-- _footer: "decompose · math decompose — A compound of `matrix`: lays a factorisation out as a sequence of mat…" -->
+<!-- _footer: "decompose · math decompose — A compound of `matrix`: lays a factorization out as a sequence of matrices, with a legend naming each term." -->
 
 ## decompose colors the terms it names.
 

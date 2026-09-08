@@ -50,42 +50,22 @@
  * Variants override only `grid-template-columns` so they all share the same
  * vertical rhythm. align-self: center on body children centers them inside
  * the 1fr body row. */
-section.math {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto auto 1fr;
-  gap: var(--sp-md) var(--sp-lg);
-  align-content: start;
-}
-/* Eyebrow — an inline-code paragraph above the heading. The central eyebrow
- * rule (base.modifiers.css) supplies the mono/uppercase chrome; this rule only
- * places it in the top grid row. Authored as `code`, never an h3, so it never
- * trips a heading-order lint. */
-section.math > p:has(> code:only-child):has(+ h2) {
-  grid-row: 1;
-  grid-column: 1 / -1;
-  margin: 0;
-}
-section.math > h2 {
-  grid-row: 2;
-  grid-column: 1 / -1;
-  font-family: var(--font-display);
-  font-size: var(--fs-h2);
-  color: var(--text-heading);
-  margin: 0;
-}
-/* Default body row — without this, a body item auto-places into row 1 when
- * no eyebrow is present, displacing the title. Variants that need a
- * multi-row body (canvas: equation+caption stacked, stats: vertical scaffold)
- * override grid-row on the specific items.
- * Exclude the absolutely-positioned chrome (header/footer): giving an abs-positioned
- * grid item an explicit grid-row makes that grid AREA its containing block, so the
- * running header's `top:var(--frame-inset-y)` resolved against row 3 and dropped the
- * eyebrow-line "LATTICE · MATH" down beside the body. Excluded, the header/footer
- * resolve against the section box and sit at the top/bottom berths like every slide. */
-section.math > :not(h2):not(h3):not(header):not(footer) {
-  grid-row: 3;
-}
+/* NO SECTION GRID. Every math slide is a Form slide now — `section.form:has(> .cell-stage)`
+ * makes it a flex column at (0,2,1), so a `display: grid` here at (0,1,1) would lose the
+ * cascade anyway — and the body lives one box further in, on `.cell-stage`. The three
+ * things this block used to do are all the frame's now:
+ *
+ *   · the eyebrow row and the `> h2` row — `.cell-masthead` and `.masthead-lede`;
+ *   · `grid-row: 3` on every body child, to keep it out of those two rows — there is no
+ *     chrome to dodge inside the stage, so children simply auto-place;
+ *   · the `:not(header):not(footer)` carve-out inside that rule, which existed because
+ *     giving an absolutely-positioned grid item an explicit row makes the grid AREA its
+ *     containing block, and the running header's `top: var(--frame-inset-y)` then
+ *     resolved against row 3 and dropped "LATTICE · MATH" down beside the body. The
+ *     running chrome is a Cell now and never was a grid item.
+ *
+ * What is left below is what is genuinely SHARED: type, color and the KaTeX/MathJax
+ * scale pairs, all of which apply wherever the math is. */
 section.math h3 {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
@@ -141,39 +121,26 @@ section.math .math-error {
   border-radius: var(--radius-sm);
 }
 
-/* ── `feature` and bare `math`: SOVEREIGN ARM DELETED ──
- *
- * There is no `section.math > …` arm for this variant any more. The Form arm below
- * is the only shape it has, which is the point: `form` is not optional, and a
- * component carrying two layouts forever is the thing this migration exists to end.
- * `diagram`'s convention keeps both arms so a `no-form` slide still styles; math
- * does not follow it, deliberately — see the changelog entry for this commit.
- *
- * CONSEQUENCE, stated so nobody has to rediscover it: `<!-- _class: math no-form -->`
- * now renders unstyled prose. That combination has never behaved differently from a
- * plain `math` slide (math was already chrome-exempt via FORM_TOGGLE_SKIP, so
- * `no-form` was a no-op on it), and no committed deck uses it.
- *
- * It also clears a red nightly gate rather than papering over one. With the rules
- * merely UNREACHABLE, `check:family-conformance` reported math `7/10 unexercised:3`
- * at portrait/story/mobile — three sovereign family rules that no render could reach
- * any more. Deleting them is the honest fix; blessing the record would have recorded
- * dead CSS as covered. */
 /* ══════════════════════════════════════════════════════════════════════════
- * THE FORM ARM — `feature` and bare `math`, migrated off the sovereign frame.
+ * `feature` and bare `math`.
  *
- * Read `lib/core/math-stage-migration.js` first: math is leaving its sovereign
- * frame ONE VARIANT AT A TIME, so this file carries two shapes at once and will
- * until the last variant lands.
+ * MATH HAS ONE SHAPE, and that is the point of the whole migration. Every rule from
+ * here down is scoped `section.math.form … > .cell-stage`; there is no `section.math > …`
+ * arm for any variant any more, and `lib/forms/frame/math/` is deleted. The frame owns
+ * the chrome — eyebrow, heading and hairline in `.cell-masthead`, the running header and
+ * footer in their Cells, `meta:` in its Tile (it never resolved at all on a sovereign
+ * math slide) — and only the BODY is ours.
  *
- *   · UNMIGRATED (every rule above and below this block) — `section.math > …`.
- *     The section IS the grid; eyebrow and heading are its own rows. Untouched,
- *     byte for byte, for the six variants that have not moved and for any slide
- *     that opts out with `no-form`.
- *   · MIGRATED (this block) — `section.math.form > .cell-stage > …`. The frame
- *     owns the chrome: eyebrow, heading and the hairline live in `.cell-masthead`,
- *     the running header/footer in `.cell-footer`, and `meta:` finally resolves
- *     (it never did on a sovereign math slide). Only the BODY is ours.
+ * `diagram`'s convention keeps both arms so a `no-form` slide still styles; math does not
+ * follow it, deliberately. CONSEQUENCE, stated so nobody has to rediscover it:
+ * `<!-- _class: math no-form -->` renders unstyled prose. That combination never behaved
+ * differently from a plain `math` slide — math was already chrome-exempt, so `no-form`
+ * was a no-op on it — and no committed deck uses it.
+ *
+ * Deleting rather than keeping the old arm also cleared a red nightly gate instead of
+ * papering over one. Merely UNREACHABLE, `check:family-conformance` reported math
+ * `7/10 unexercised:3` at portrait/story/mobile — sovereign family rules no render could
+ * reach. Blessing that record would have recorded dead CSS as covered.
  *
  * WHY THE GRID MOVES RATHER THAN BEING RE-PREFIXED. `stage.css` sets
  * `section.form:has(> .cell-stage) { display: flex; flex-direction: column }`, so

@@ -22,9 +22,18 @@ const plugins = require('../../../lib/integrations/markdown-it/plugins');
 const { renderJson, JSON_FILE } = require('../../../tools/build-forms');
 
 // The historical hardcoded skip list (the behavior the manifests must preserve).
+//
+// `math` LEFT THIS LIST in 2026-09 and it is the only entry ever to have done so, which
+// is worth stating rather than quietly deleting: its claim on a sovereign frame was
+// "drives its own `> h2` title grid" — a heading-placement preference, not the "this
+// slide has no room for chrome" that every other entry rests on. Eight variants moved
+// onto the shared Form frame one commit at a time and none lost anything; what they
+// gained was `meta:`, the progress rail and the watermark tile, none of which a
+// chrome-exempt section can render. `compare-code` is the last frame making the same
+// weak claim. See the math variant assertions in test (c) below.
 const HISTORICAL_SKIP = [
   'title', 'divider', 'closing',
-  'math', 'compare-code',
+  'compare-code',
   'split-panel', 'split-compare',
   'image', 'scene', 'premise',
 ];
@@ -93,34 +102,20 @@ test('(c) the browser-baked FORM_TOGGLE_SKIP_FALLBACK matches the manifest-deriv
 });
 
 test('(c) plugins.formToggleClass skips every historical sovereign Frame', () => {
-  // `math` is MID-MIGRATION off its sovereign frame, one variant at a time
-  // (lib/core/math-stage-migration.js). It stays in HISTORICAL_SKIP because that
-  // list is the RECORD of what was sovereign, and the frame manifest still says so
-  // for every variant that has not moved — but the bare token can no longer be
-  // asserted as skipped once a variant migrates. Asserted per variant below,
-  // against the lever's own set rather than a second hardcoded list, so this test
-  // stays correct across all eight migration commits without being edited.
-  for (const skip of HISTORICAL_SKIP.filter((f) => f !== 'math')) {
+  for (const skip of HISTORICAL_SKIP) {
     assert.equal(plugins.formToggleClass(skip, 'standard'), skip, `should skip ${skip}`);
   }
-  const { MATH_VARIANTS, MIGRATED } = require('../../../lib/core/math-stage-migration.js');
-  for (const variant of MATH_VARIANTS) {
+  // AND MATH IS NOT ONE OF THEM, at any variant. Asserted from the COMPONENT manifest
+  // rather than a second hardcoded list, so a ninth variant is covered the day it is
+  // declared. This is the arm that fails if the sovereign frame is ever put back.
+  const MATH = require('../../../lib/components/math/math/math.manifest.json');
+  for (const variant of MATH.variants) {
     const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
-    assert.equal(
-      plugins.formToggleClass(cls, 'standard'),
-      MIGRATED.has(variant) ? `${cls} form` : cls,
-      `math ${variant}: ${MIGRATED.has(variant) ? 'migrated, should take form' : 'sovereign, should be skipped'}`,
-    );
+    assert.equal(plugins.formToggleClass(cls, 'standard'), `${cls} form`,
+      `math ${variant} must take the form class`);
   }
-  // When the migration finishes, `math` leaves HISTORICAL_SKIP and this arm goes
-  // with the lever. Until then, guard that it has not been half-removed: the frame
-  // folder must still exist for every variant that has not migrated.
-  if (MATH_VARIANTS.some((v) => !MIGRATED.has(v))) {
-    assert.ok(
-      forms.frameToggleSkip().includes('math'),
-      'math still has unmigrated variants, so its sovereign frame must still exist',
-    );
-  }
+  assert.ok(!forms.frameToggleSkip().includes('math'),
+    'lib/forms/frame/math/ is deleted — math must not be in the derived skip set');
   // and still tags ordinary content
   assert.equal(plugins.formToggleClass('content', 'standard'), 'content form');
 });

@@ -83,7 +83,7 @@ $$ y = f(x) $$
 
 ### `feature` — feature
 
-Alias for the base layout — eyebrow, headline, hero equation, legend.…
+Alias for the base layout — eyebrow, headline, hero equation, legend. A bare `math` slide resolves to it.
 
 ```markdown
 <!-- _class: math feature -->
@@ -102,7 +102,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 
 ### `derivation` — derivation
 
-Two-column table: derivation steps on the left, the justification for…
+Two-column table: the derivation step on the left, the justification for it on the right, one row per step.
 
 ```markdown
 <!-- _class: math derivation -->
@@ -119,7 +119,7 @@ Two-column table: derivation steps on the left, the justification for…
 
 ### `theorem` — theorem
 
-Stacked color-coded blockquote cards in the formal-statement vocabul…
+Stacked color-coded blockquote cards in the formal-statement vocabulary — Definition, Theorem, Proof.
 
 ```markdown
 <!-- _class: math theorem -->
@@ -135,7 +135,7 @@ Stacked color-coded blockquote cards in the formal-statement vocabul…
 
 ### `compare` — compare
 
-Side-by-side equation comparison. Each column has its own h3 label, d…
+Side-by-side equation comparison. Each column has its own h3 label, and two or three columns are supported.
 
 ```markdown
 <!-- _class: math compare -->
@@ -157,7 +157,7 @@ Maximizes the posterior — conditions on the prior $p(\theta)$. Uncertainty is 
 
 ### `canvas` — canvas
 
-Pairs a hero equation with a `functionplot` graph (rendered by the fu…
+Pairs a hero equation with a `functionplot` graph, so the closed form and its shape are read together.
 
 ```markdown
 <!-- _class: math canvas -->
@@ -183,7 +183,7 @@ Maps $\mathbb{R} \to (0,1)$. $S$-shaped, $\sigma(0) = 0.5$, steepest slope at th
 
 ### `matrix` — matrix
 
-Hero matrix with a properties / dimensions / interpretation legend. B…
+Hero matrix beside a legend of its properties — shape, rank, what the rows and columns mean.
 
 ```markdown
 <!-- _class: math matrix -->
@@ -208,7 +208,7 @@ $$
 
 ### `stats` — stats
 
-Point estimate with uncertainty (CI, $p$-value, $n$) followed by plai…
+Point estimate with uncertainty (CI, $p$-value, $n$) followed by a plain-language reading of the effect.
 
 ```markdown
 <!-- _class: math stats -->
@@ -225,7 +225,7 @@ For every additional unit of exposure, the outcome rises by 0.42 SD — roughly 
 
 ### `decompose` — decompose
 
-A compound of `matrix`: lays a factorisation out as a sequence of mat…
+A compound of `matrix`: lays a factorization out as a sequence of matrices, with a legend naming each term.
 
 ```markdown
 <!-- _class: math matrix decompose -->

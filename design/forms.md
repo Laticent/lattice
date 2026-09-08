@@ -816,9 +816,16 @@ sit unclassified):
   nothing — and an over-large canvas is still caught at the section level by the
   overflow probe.
 - **chrome-exempt sovereign frames** (`FORM_TOGGLE_SKIP`) — `title`, `closing`,
-  `divider`, `image`, `split-panel`, `split-compare`, `math`, `compare-code` get **no**
-  band at all (they own their whole frame, incl. split frames' own bounded
+  `divider`, `image`, `premise`, `scene`, `split-panel`, `split-compare`, `compare-code`
+  get **no** band at all (they own their whole frame, incl. split frames' own bounded
   `.panel-right` / `.compare-right` clip cells).
+
+  `math` was on that list until 2026-09 and is the only component ever to leave it. Its
+  claim was "drives its own `> h2` title grid" — a heading-placement preference, not the
+  "this slide has no room for chrome" the rest of the list rests on. All eight variants
+  moved onto the shared frame and none lost anything; what they gained was `meta:`, the
+  progress rail and the watermark tile, none of which a chrome-exempt section can render.
+  `compare-code` is the last frame making the same weak claim.
 
 So `.cell-stage` is **not** a retired idea — it is the live bounded-body cell, reached
 via **flex, not grid**. (Mechanism B — Cells as pure in-flow bands with bodies as

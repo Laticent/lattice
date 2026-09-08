@@ -156,7 +156,7 @@ describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
     }
   });
 
-  test('the strict set is exactly the migrated components — contact + diagram + wifi', () => {
+  test('the strict set is exactly the migrated components — contact + diagram + math + wifi', () => {
     // Opt-in, one component (or one same-kernel family) per PR (§2). PR 1
     // migrated the first canvas — `contact` — with the render-side wiring proven
     // byte-identical AND probe-verdict-identical (§5). PR 2 added `wifi`, the
@@ -178,7 +178,19 @@ describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
     // dark+light sign-off. Extend this list, with rationale, as
     // each subsequent flag flips; a flip WITHOUT the render wiring landing in the
     // same change would leave the render gate red.
-    const EXPECTED_STRICT = ['contact', 'diagram', 'wifi'];
+    // PR 4 added `math`, and it is the first component to reach `strict` by LEAVING a
+    // sovereign frame rather than by opting a canvas in. All eight variants moved onto the
+    // shared Form frame one commit at a time, each with its own rendered evidence at all
+    // five registered sizes read through the engine's own overflow probe; the sovereign
+    // arms and `lib/forms/frame/math/` are deleted, so there is no second shape left for
+    // the flag to disagree with. Unlike `diagram`'s Mermaid SVG, a KaTeX equation does NOT
+    // self-scale — it clips — so fit was re-proved per variant rather than assumed, and
+    // four pre-existing overflows were fixed on the way (matrix and decompose at three
+    // sizes each, canvas's slide-relative plot sizing, and the bare hero's leftover title
+    // clearance). One variant, `feature`, still overflows at four sizes on a sample whose
+    // equation is wider than a portrait slide; it overflows further on `main`, and no
+    // reflow can fix it under the Fit Spine's no-scale axiom.
+    const EXPECTED_STRICT = ['contact', 'diagram', 'math', 'wifi'];
     assert.deepEqual(
       strict.map((m) => m.name).sort(),
       EXPECTED_STRICT,

@@ -546,28 +546,22 @@ describe('markdown-it-plugins', () => {
     for (const skip of ['title', 'divider', 'closing', 'compare-code', 'split-panel', 'image']) {
       assert.equal(plugins.formToggleClass(skip, 'standard'), skip, `should skip ${skip}`);
     }
-    // `math` is MID-MIGRATION off its sovereign frame, one variant per commit
-    // (lib/core/math-stage-migration.js), so it is asserted per variant rather than
-    // as a single skipped token. Both arms are asserted from the lever's own set,
-    // NOT hardcoded — a hardcoded list would have to be edited in lockstep with
-    // every migration commit, and the version that drifts is the one that stops
-    // testing anything. When the set holds every variant, this whole block and the
-    // lever are deleted together, and `math` simply stops being in the skip list.
-    const { MATH_VARIANTS, MIGRATED } = require('../../../lib/core/math-stage-migration.js');
-    for (const variant of MATH_VARIANTS) {
+    // `math` IS NOT IN THAT SKIP LIST. It left its sovereign frame in 2026-09 —
+    // every variant takes `form` and renders with the masthead, the footer, the rail
+    // and `meta:` like any other component. Asserted per variant, from the COMPONENT
+    // MANIFEST rather than a hardcoded list, so a ninth variant is covered the day it
+    // is declared rather than the day someone remembers this file.
+    const MANIFEST = require('../../../lib/components/math/math/math.manifest.json');
+    for (const variant of MANIFEST.variants) {
       // `decompose` is authored as the compound `math matrix decompose`.
       const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
-      const expected = MIGRATED.has(variant) ? `${cls} form` : cls;
-      assert.equal(plugins.formToggleClass(cls, 'standard'), expected,
-        `math ${variant} should ${MIGRATED.has(variant) ? 'take form (migrated)' : 'be skipped (sovereign)'}`);
+      assert.equal(plugins.formToggleClass(cls, 'standard'), `${cls} form`,
+        `math ${variant} must take the form class — math has no sovereign frame`);
     }
     // A BARE `math` slide follows `feature` — math.docs.md: "the bare layout
-    // defaults to it" — so it must never diverge from the variant above.
-    assert.equal(
-      plugins.formToggleClass('math', 'standard'),
-      MIGRATED.has('feature') ? 'math form' : 'math',
-      'bare math must track the feature variant',
-    );
+    // defaults to it" — so it must never diverge from the variants above.
+    assert.equal(plugins.formToggleClass('math', 'standard'), 'math form',
+      'bare math must track the feature variant');
   });
 
   test('formToggleClass: `off` is a no-op; retired `minimal` no longer stamps no-progress', () => {
