@@ -67,6 +67,25 @@ Two things this needs, and both are in the prototype:
 - **Read the paint before the finish applies.** The slot has to be stamped after
   the read, or the finish's own rules are already matching.
 
+## 1c. The hue count IS the texture count, so a rainbow costs more in monochrome
+
+A corollary of the grouping rule that is easy to miss, and it bites hardest on
+the audience the design is trying to protect.
+
+On the a11y palettes the mark's fill is a `<pattern>` keyed off the same
+categorical slot the hue uses, so **however many hues a chart spends, that is how
+many textures a monochrome reader gets.** Measured on the achromatopsia render of
+the prototype deck: `.bar-mark` resolves to one pattern (`latt-a11y-chart-tex-1`),
+`.sbar-seg` to three, `.wedge` and `.funnel-band` to five each — exactly the
+number of groups each chart has.
+
+So giving a single-series bar chart four hues does not merely spend colour on
+nothing. It hands a reader who cannot receive hue four different hatch patterns
+for four measurements of one measure — and a texture reads as a *harder*
+categorical boundary than a colour does, so the misinformation is worse in the
+substituted channel than in the original. A rainbow single series is a
+readability bug on the a11y palettes and in print, not only a taste failure.
+
 ## 1d. A ramp's fill is not the finish's to touch
 
 "Scaled, never flattened" protected the wrong quantity, and the prototype caught
@@ -134,41 +153,135 @@ that is the ordinary case, so `highlight` as a default would ship a key that lie
 most of the time. Six is a perceptual cap rather than a token shortage, and it is
 the same width as the a11y texture channel.
 
-## 1c. The hue count IS the texture count, so a rainbow costs more in monochrome
+## 2. What a singular is — G0, G1, and the rule the tracks already wrote
 
-A corollary of the grouping rule that is easy to miss, and it bites hardest on
-the audience the design is trying to protect.
+**The direct label LICENSES the hue. It does not obviate it.** The draft this
+section replaces had it backwards: it argued that because a scatter's points are
+named in place, adjacency already joins them and hue carries nothing. Two of the
+four colour tracks state the opposite, and they are right.
 
-On the a11y palettes the mark's fill is a `<pattern>` keyed off the same
-categorical slot the hue uses, so **however many hues a chart spends, that is how
-many textures a monochrome reader gets.** Measured on the achromatopsia render of
-the prototype deck: `.bar-mark` resolves to one pattern (`latt-a11y-chart-tex-1`),
-`.sbar-seg` to three, `.wedge` and `.funnel-band` to five each — exactly the
-number of groups each chart has.
+> A group shares one hue. A singular may own one. **A singular takes a hue only
+> when it is directly labelled** — that clause is what keeps a 40-point scatter
+> from becoming confetti, and it is a rule, not a member exception.
+> — `candidates-colour/1-colourist.md`
 
-So giving a single-series bar chart four hues does not merely spend colour on
-nothing. It hands a reader who cannot receive hue four different hatch patterns
-for four measurements of one measure — and a texture reads as a *harder*
-categorical boundary than a colour does, so the misinformation is worse in the
-substituted channel than in the original. A rainbow single series is a
-readability bug on the a11y palettes and in print, not only a taste failure.
+Without a name per mark, N hues is confetti: colours with nothing to bind to.
+The label is the safety condition that makes per-mark hue affordable.
 
-## 2. Singular does not mean "own hue" — it means "may own one, if hue carries"
+### G0 — the test
 
-A scatter's points are singulars and they do not get six colours.
+Editorial derived the test and recorded rejecting the framing this section had
+been reaching for, which is the more useful half of the record:
 
-`colour-brief.md` says *a group shares one hue; a singular may own one*. **May**
-is doing the work, and the qualifier is: **only when hue is the channel that
-distinguishes them.** In a scatter it is not — position distinguishes them, and
-a direct label names them (census: `scatter → direct-labels`). Six hues would
-spend the palette on a channel carrying nothing, and would assert a grouping
-the data does not have.
+> The earlier phrasing (*"does this mark's KIND recur?"*) gave the wrong answer
+> on pie, funnel and scatter — a slice's kind is "a share", which recurs — so the
+> test is restated on something the mark actually carries:
+>
+> **G0 — does this mark carry its own name, or does it share a label axis with
+> its siblings?**
+> Shares an axis, or is named only by a shared series key → it is one of a
+> **group**, and the group shares one hue.
+> Carries its own name on or beside itself → it is a **singular**, and it may
+> own a hue, subject to G1.
+> — `candidates-colour/2-editorial.md`
 
-What a scatter's one hue *should* do is reach its direct labels, so the label
-and its dot read as one object. That is rule 3.
+A bar is named by a category axis its siblings share → group. A pie slice carries
+its label at its own wedge → singular. A funnel stage names itself in its band →
+singular. A scatter point → singular when named, group when not.
 
-If a scatter ever gains a series dimension, hue becomes the group channel and
-the rule flips itself — no per-member exception needed.
+**All four tracks put `bar` in the group column independently**, by different
+routes. That convergence is the reason to trust it.
+
+### G1 — the cap, and what to do past it
+
+> Above six singulars a member does **not** cycle: the marks become **one group
+> at one hue**, and identity moves entirely to the direct label. Where a member
+> has a natural ranking, the top six take slots and the tail takes a single
+> neutral.
+> — `candidates-colour/2-editorial.md`
+
+This is the missing rule behind §1e's finding. `map.transform.js` sets
+`CAT_SLOTS = 6` and assigns `(i % CAT_SLOTS) + 1`, so a seventh named region
+takes the first one's hue while the key still lists it as its own row. G1 says
+the cap is right and the *wrap* is the defect: **past six, stop pretending.**
+
+Two members were checked against G1 rather than taken on the track's word:
+
+- **`timeline-list` already obeys it** — `nth-child(6n+1..6)` cycles
+  `--chart-cat-1-ink` … `-6-ink` on the dot. It cycles at six, as G1 requires.
+- **`word-cloud` is NOT the 7-slot cycle editorial reported.** Its
+  `WORD_PALETTE` is six slots, and slot 7 is a *magnitude tier* —
+  `weight >= 2.5` takes `--chart-cat-7-ink` (`word-cloud.transform.js:284`). So
+  G1's categorical cap is respected. The real issue there is a different one:
+  slot 7 means "big" on this member and "the seventh category" everywhere else,
+  which is two categorical systems in one figure — RULE G below, not G1.
+
+### RULE G — one categorical system per figure
+
+> Where two candidates exist, the system **nearer the datum** keeps hue; the
+> other keeps its identity in **value** — a neutral light-to-dark ramp — never in
+> a second hue set.
+> — `candidates-colour/3-systems.md`
+
+Eight slots cannot carry two meanings at once. This is what resolves
+`word-cloud`'s slot 7, and it is what will resolve the deck-wide entity palette
+in §2b.
+
+### Commentary — why G0 works, and where the commentary stops
+
+G0 is the rule. This paragraph is an explanation of it and is not load-bearing:
+**hue separates what position does not.** Pie wedges, funnel bands, stacked
+segments, quadrant dots, scatter clusters, slope crossings and word-cloud packing
+all touch or overlap; bars and bullet rows are separated by whitespace on a shared
+axis, so position has already done the work and a hue difference reads as a
+saliency claim ("this one matters more") the data is not making — working against
+the length comparison that is the chart's whole point.
+
+It under-predicts on `timeline-list`, whose items are cleanly separated by
+position and which nonetheless cycles six hues on its dots. G0 gets that one
+right (each item carries its own title) and the commentary does not, which is the
+order to trust them in.
+
+## 2b. When a bar chart DOES need colour
+
+Five cases. Two ship; three do not, and all three are author decisions the
+component cannot make for itself.
+
+**Shipping**
+
+1. **`grouped`** — bars inside a group touch, so position stops separating them
+   from each other. One hue per series, repeated across categories.
+2. **`diverging`** — two hues by sign. `slotFor()` returns slot 2 for a negative
+   and slot 1 for a positive, and sign is a channel length alone does not isolate
+   at a glance.
+
+**Not shipping — costed**
+
+3. **A second categorical dimension over the bars.** Ranked by value, coloured by
+   segment or by above/below plan. Note this is *not* per-bar confetti: it is a
+   group encoding, and it obeys the same rule — a group shares one hue. Cost: a
+   transform change to accept a per-category group token and stamp the slot, plus
+   a key. Governed by RULE G: if the bar chart is already grouped, the series
+   system is nearer the datum and this one goes to a value ramp.
+4. **Emphasis — one bar lifted** because it is the subject of the slide. This is
+   contrast doing argumentative work, not categorical colour, and today there is
+   no per-bar hook for it: `accent` is a slide-level universal variant and
+   `data-s` is emitted only under `diverging`. Cost: one attribute on the marked
+   category, one rule per finish. The finish interaction is the interesting part —
+   under `etching` the emphasis is the one bar that keeps its body.
+5. **Deck-wide entity identity.** Four business units that recur on six slides:
+   hue joins them *across* slides, a join position cannot make because position
+   changes from chart to chart. The reader learns "EMEA is orange" once and reads
+   three charts faster.
+
+**Case 5 is the one the component structurally cannot decide** — a chart cannot
+see its deck — so it belongs in the author register layer, not in a component
+default. It is also the case RULE G exists for: if EMEA is always orange
+deck-wide, then on a stacked-bar-by-region slide orange *also* means "Services".
+Two categorical systems, eight slots. The system nearer the datum keeps hue; the
+other goes to a neutral value ramp. So a deck-wide entity palette is not a
+free-for-all — it yields wherever an in-chart categorical system already exists,
+and that yielding has to be automatic rather than the author's problem.
 
 ## 3. Colour goes to the join, once
 
@@ -305,8 +418,18 @@ the edge is derived rather than exposed.
    (4.5) or graphical (3), so a finish is checkable by the existing contrast
    tooling.
 
-All six sit downstream of the slot contract in `scoring.md`. None is buildable
+7. G1 replaces the silent wrap: past six singulars a member collapses to one
+   group at one hue (or top-six-plus-neutral where it has a natural ranking)
+   rather than cycling. `map highlight` is the live instance.
+
+All seven sit downstream of the slot contract in `scoring.md`. None is buildable
 until a mark can be addressed on every member.
+
+The three bar cases in §2b are separate work, and only case 3 touches a
+transform's data model. Case 4 (per-bar emphasis) and case 5 (a deck-wide entity
+palette) are author-register work — case 5 needs RULE G implemented as an
+automatic yield, not as a warning, because an author cannot be expected to notice
+that orange now means two things on one slide.
 
 ---
 
