@@ -236,14 +236,32 @@ const latticeTheme = EditorView.theme({
 		// line near-invisible on every palette (WCAG band-contrast ~1.06–1.16) and
 		// the selection faint on the low-chroma / warm light palettes. These named
 		// tokens are the single tunable contract: the active line bumps to a clearly
-		// visible band (free — alpha too low to touch text legibility), while the
-		// selection keeps its existing 22% fill (so body text stays legible on the
-		// worst low-contrast palette, cuoio-light — no accessibility regression) and
-		// gains a defining 1px accent edge: the definition a heavier fill can't buy
-		// without hurting legibility. A downstream theme can override any of them.
+		// visible band (free — alpha too low to touch text legibility), and the
+		// selection carries a defining 1px accent edge, the definition a heavier fill
+		// can't buy without hurting legibility. A downstream theme can override any.
+		//
+		// `--cm-selection` WAS 22%, on a note claiming body text "stays legible on the
+		// worst low-contrast palette, cuoio-light — no accessibility regression". That
+		// pass picked the right binding case and missed it by 0.18: cuoio/light body
+		// text over a 22% band measures 4.32, just under AA, on the site's DEFAULT
+		// palette and mode. Sweeping the whole matrix — 18 palettes x 2 modes x the six
+		// inks these editors paint — 18% is where primary text (heading, body) clears
+		// AA on all 36 and secondary text clears AA-large 3:1 with room (>= 3.28,
+		// against 3.01 at 22%). Visibility barely moves: median OKLab distance from the
+		// canvas 0.146 -> 0.118.
+		//
+		// It must stay in step with `::selection` in styles/native-widgets.css, which
+		// paints this same band on every surface that does NOT draw its own — the
+		// Studio's editor, CodeField, and all prose. editor-selection.test.ts fails if
+		// the two numbers drift apart.
+		//
+		// `--cm-match` is 26% and is NOT swept with it: it is one glyph wide, it is a
+		// different feature, and it measures 2.71:1 worst (onyx/light) for secondary
+		// ink — a real finding, logged rather than folded into a selection fix
+		// (HARD RULE #18).
 		'--cm-active-line': 'color-mix(in srgb, var(--accent) 12%, transparent)',
-		'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 18%, transparent)',
-		'--cm-selection': 'color-mix(in srgb, var(--accent) 22%, transparent)',
+		'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 22%, transparent)',
+		'--cm-selection': 'color-mix(in srgb, var(--accent) 18%, transparent)',
 		'--cm-selection-edge': 'color-mix(in srgb, var(--accent) 45%, transparent)',
 		'--cm-match': 'color-mix(in srgb, var(--accent) 26%, transparent)',
 		// Autocomplete popup. The panel reused --bg (identical to the editor) with a

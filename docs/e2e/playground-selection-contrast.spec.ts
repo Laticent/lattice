@@ -90,21 +90,24 @@ for (const scheme of ['dark', 'light'] as const) {
 			expect(fill.rgb[i], `the band tracks --accent (${measured.accent})`).toBeGreaterThanOrEqual(ch - 1);
 			expect(fill.rgb[i], `the band tracks --accent (${measured.accent})`).toBeLessThanOrEqual(ch + 1);
 		}
-		expect(fill.alpha, 'the selection band keeps its alpha (--cm-selection is a 22% mix)').toBeLessThan(1);
+		expect(fill.alpha, 'the selection band keeps its alpha (--cm-selection is an 18% mix)').toBeLessThan(1);
 		// The defining hairline is the theme's too — it was the only half that ever
 		// applied, so losing it means the whole rule stopped matching.
 		expect(measured.edge, 'the themed inset edge is still painted').toContain('inset');
 
-		// What the reader actually gets: body text over the composited band. The floor is
-		// 4.3, not AA's 4.5, and the 0.2 is not slack — it is a MEASURED, pre-existing,
-		// site-wide number. `--cm-selection` is the same 22% accent mix that
-		// styles/native-widgets.css gives `::selection`, so prose, the Studio's editor and
-		// this band all land on the same value: 7.52 on cuoio-dark, 4.34 on cuoio-light,
-		// where the palette pairs a dark accent with low-contrast body ink. Raising it is a
-		// change to that shared token across every surface, not to this rule (HARD RULE #18:
-		// pre-existing and off this change's path — logged, not folded in). What this floor
-		// still catches is the defect it was written for: the base-theme slab measured 1.21.
+		// What the reader actually gets: body text over the composited band, at full AA.
+		// The floor is 4.5 because the wash is 18%, and that is the whole reason it is 18%.
+		// At the 22% this replaced, the same measurement on cuoio/light — the site's DEFAULT
+		// palette and mode — read 4.32, so this floor had to be written as 4.3 and explained
+		// away. Swept over 18 palettes x 2 modes, 18% puts primary text at 4.61 or better on
+		// all 36 while secondary text (comments, punctuation, the syntax inks) clears
+		// AA-large 3:1 with margin. This spec drives two of those 36 for real; the full sweep
+		// is a static measurement over the emitted per-palette token sheet, not something a
+		// browser test can claim.
+		//
+		// It also still catches the defect it was first written for: when CodeMirror's base
+		// theme won this rule, the band measured 1.21.
 		const over = composite(fill.rgb, hexToRgb(measured.bg), fill.alpha);
-		expect(ratio(hexToRgb(measured.textBody), over), `${scheme}: body text over the selection band`).toBeGreaterThanOrEqual(4.3);
+		expect(ratio(hexToRgb(measured.textBody), over), `${scheme}: body text over the selection band`).toBeGreaterThanOrEqual(4.5);
 	});
 }

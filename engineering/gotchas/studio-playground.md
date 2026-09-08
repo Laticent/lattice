@@ -984,6 +984,30 @@ never turn "passed in headless" into "works on iOS."
   `&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`.
   Pinned by `docs/e2e/playground-selection-contrast.spec.ts` (both color modes),
   which asserts the band's rgb tracks `--accent` and names the four base literals.
+- **Winning the cascade is not the same as being right, and this one wasn't.** With
+  the base theme beaten, the recipe it restored — `--accent` at 22%, ink left alone —
+  was itself measured across all 18 palettes in both modes against the six inks these
+  editors paint. Primary text (heading, body) cleared AA on 35 of 36 palette-modes and
+  secondary text (comments, punctuation, the syntax inks) cleared AA-large 3:1 on all
+  36 — but only just: worst 3.01, and the one primary failure was `--text-body` at
+  **4.32 on cuoio/light, the site's default palette and mode**. An earlier pass had
+  tuned that same wash and named cuoio-light as the binding case in its own comment;
+  it landed 0.18 short. The wash is now **18%**, where primary text clears 4.61
+  everywhere and secondary sits at 3.28 or better, and it barely changes how the band
+  looks (median OKLab distance from the canvas 0.146 → 0.118).
+  **Two lessons worth more than the number.** First, a contrast claim about a themed
+  surface means nothing until it is swept over every palette AND every ink that lands
+  on it — checking one ink on one palette is what produced the 0.18 miss. Second, the
+  bar has to be stated: at full AA for *every* ink, including comments, 35 of 36
+  palette-modes fail and no wash of any alpha can pass, because `--text-muted` is
+  designed to sit close to the canvas and lifting it was already tried and rejected on
+  measurements (the `--syntax-*-ink` tier in `tools/build-docs-portal.js` removed its
+  `muted` role — the repair collapsed comment-to-body separation on 26 of 36
+  palette-modes). The bar here is AA for primary text, AA-large for secondary.
+- **The number lives in two files** — `::selection` in `docs/src/styles/native-widgets.css`
+  for every surface that uses the native highlight, and `--cm-selection` in
+  `docs/src/playground/editor.js` for the one that draws its own. Nothing in the cascade
+  makes them agree; `docs/src/playground/editor-selection.test.ts` fails when they drift.
 - **The general trap:** any `EditorView.theme()` key that only names the element
   can be out-specified by the base theme's `&light`/`&dark` compound selectors.
   Before assuming your theme lost to stylesheet ORDER, read the base theme's
