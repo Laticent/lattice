@@ -105,19 +105,22 @@ const RUNTIME_BUNDLE = path.join(ROOT, 'dist', 'lattice-runtime.js');
 const { frontMatterBlock } = require(path.join(ROOT, 'lib/core/deck-front-matter.js'));
 
 /**
- * The bundle is a BUILD ARTIFACT, so this arm silently tests stale code whenever
- * `lib/runtime/index.js` is newer than `dist/lattice-runtime.js`. That is not
- * hypothetical — it produced one confusing intermittent failure while this test
- * was being written, where the source had the register and the bundle did not.
- * Fail loudly and say the fix instead.
+ * The bundle is a BUILD ARTIFACT, so this arm silently tests stale code when
+ * `dist/lattice-runtime.js` predates the register. That is not hypothetical — it
+ * produced one confusing failure while this test was being written, where the
+ * source had the register and the bundle did not. Fail loudly and name the fix.
+ *
+ * CONTENT, NOT MTIME. The first version of this guard compared modification
+ * times, and a rebase rewrites a source file's mtime without changing a byte of
+ * it — so it went red on a tree whose bundle was perfectly current. A timestamp
+ * is not the claim; "does the built bundle actually contain this register?" is,
+ * and it is immune to checkout order, rebases and clock skew alike.
  */
 function assertBundleFresh() {
-  const src = path.join(ROOT, 'lib', 'runtime', 'index.js');
-  const bundleAt = fs.statSync(RUNTIME_BUNDLE).mtimeMs;
-  const srcAt = fs.statSync(src).mtimeMs;
-  assert.ok(bundleAt >= srcAt,
-    `dist/lattice-runtime.js is older than lib/runtime/index.js — this arm would test ` +
-    `stale code. Run \`npm run runtime:build\` (or \`npm run build\`) and re-run.`);
+  const bundle = fs.readFileSync(RUNTIME_BUNDLE, 'utf8');
+  assert.ok(bundle.includes('guards-strict'),
+    `dist/lattice-runtime.js does not carry the guards register, so this arm would ` +
+    `test stale code. Run \`npm run runtime:build\` (or \`npm run build\`) and re-run.`);
 }
 
 function renderRuntimeBaked(deckSource, markup) {

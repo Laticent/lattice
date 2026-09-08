@@ -689,9 +689,27 @@ browser, and died on the second engine it met.
 after the ruling.** None of these changes the ruling; all of them are load-bearing
 for building it, and the note previously implied the first was already solved:
 
-1. **The signal.** The existing probe cannot see dropped content (§3). TRIM emits
-   its own record of what it removed, and the marker and `overflow:check` read
-   that. Until then the ratchet can be blessed downward on a silenced deck.
+1. **The signal — CLOSED BY CONSTRUCTION, and the reasoning is worth keeping.**
+   The worry was that a guard which makes overflow invisible would let
+   `overflow:check` be blessed downward on a deck that lost content. That risk
+   lived entirely in the DROP path: `display: none` generates no client rects, so
+   `probeContentClipped` cannot see it. **The implementation has no drop path** —
+   it clamps or declines, never removes — and a clamp leaves its lines laid out,
+   which is exactly what that probe reads.
+   Measured on both trimming decks: every trimmed page is reported by the existing
+   content-cut channel (`overflow-guards.md` p2, `overflow-fix-me + strict` p3),
+   and the corpus ratchet counts a trimmed slide as clipping. A trim is never
+   silent. TRIM also stamps `data-lattice-trim` and the export prints a
+   `✂ TRIMMED` line naming the pages, so the record exists independently.
+   **It reopens the instant anything removes an element from layout.** If a future
+   change reintroduces a drop — a shed, a collapse, a `display: none` — the alarm
+   goes blind again and the record becomes load-bearing rather than corroborating.
+   That is the invariant to defend, not the current green.
+   *(The first measurement of this claim was vacuous: the harness read stdout while
+   the emulator writes these warnings to stderr, so every channel came back empty
+   and the check "passed" having seen nothing. It now carries an anti-vacuity guard.
+   Recorded because it is the same defect shape as the three detectors above, found
+   for the fourth time.)*
    **The record has a hard mechanical constraint:** `lib/core/overflow-probe.js`
    is `.toString()`-injected into `page.evaluate` and the emulator's inline
    watcher, so everything it needs must travel inside its own source. The trim
