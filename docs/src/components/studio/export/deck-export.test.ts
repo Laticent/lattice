@@ -141,6 +141,85 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		return Date.now() - started < BUDGET * 0.5 ? 'early' : 'at-budget';
 	}
 
+	it('a deck that keeps FINISHING diagrams is not cut off at the budget', async () => {
+		// The regression this exists to stop: the budget used to be wall-clock, so a deck
+		// slower than the constant was abandoned mid-render and the capture baked a BLANK
+		// region — `mermaid.css` hides the source `<pre>` for every state but error and
+		// unavailable. Adding a parse in front of every render raised settle time 19-47% and
+		// took an 8-slide deck past 4000ms, so this stopped being latent.
+		const doc = frag(
+			'<pre data-mermaid-state="pending"></pre>' +
+				'<pre data-mermaid-state="pending"></pre>' +
+				'<pre data-mermaid-state="pending"></pre>',
+		);
+		const pres = [...doc.querySelectorAll('pre')];
+		// One finishes every 400ms — slower than BUDGET in total, but never STUCK.
+		let n = 0;
+		const tick = setInterval(() => {
+			const pre = pres[n++];
+			if (!pre) return;
+			pre.setAttribute('data-mermaid-state', 'rendered');
+			const box = doc.createElement('div');
+			box.innerHTML = '<svg></svg>';
+			pre.after(box);
+		}, 400);
+		const started = Date.now();
+		await waitForDiagrams(doc, BUDGET);
+		clearInterval(tick);
+		const waited = Date.now() - started;
+		expect(pres.every((p) => p.getAttribute('data-mermaid-state') === 'rendered')).toBe(true);
+		expect(waited).toBeGreaterThan(BUDGET);
+	});
+
+	it('the ceiling is reachable, and it cuts a deck that is still finishing', async () => {
+		// THE ONLY BOUND ON THE LOOP, and it had zero coverage: mutating
+		// `while (Date.now() - start < hardCapMs)` to `while (true)` left all fifteen cells
+		// green. The first replacement written for it did not kill that mutant either, and the
+		// reason is worth keeping: progress is a NEW LOW in the pending count, so a fence set
+		// that oscillates UPWARD never resets the deadline and exits by the budget instead. The
+		// ceiling is reached only by a deck that keeps genuinely finishing diagrams for longer
+		// than the ceiling allows — which is also the case where cutting it off costs a blank
+		// region in the PDF. Both halves are the point.
+		const doc = frag('');
+		for (let i = 0; i < 12; i++) {
+			const pre = doc.createElement('pre');
+			pre.setAttribute('data-mermaid-state', 'pending');
+			doc.body.appendChild(pre);
+		}
+		// One finishes every 400ms: real progress, every time, for 4800ms — past the 3000ms
+		// ceiling (5 x BUDGET) that this deck's steady progress would otherwise outrun.
+		const tick = setInterval(() => {
+			const pre = doc.querySelector('pre[data-mermaid-state="pending"]');
+			if (!pre) return;
+			pre.setAttribute('data-mermaid-state', 'rendered');
+			const box = doc.createElement('div');
+			box.innerHTML = '<svg></svg>';
+			pre.after(box);
+		}, 400);
+		const started = Date.now();
+		await waitForDiagrams(doc, BUDGET);
+		const waited = Date.now() - started;
+		clearInterval(tick);
+		expect(doc.querySelectorAll('pre[data-mermaid-state="pending"]').length).toBeGreaterThan(0);
+		expect(waited).toBeGreaterThanOrEqual(BUDGET * 5);
+		expect(waited).toBeLessThan(BUDGET * 5 + 400);
+	});
+
+	it('gives up on a diagram that is STUCK, not merely slow', async () => {
+		// The other half: progress-based must not mean unbounded. Nothing ever settles here.
+		const doc = frag('<pre data-mermaid-state="pending"></pre>');
+		const started = Date.now();
+		await waitForDiagrams(doc, BUDGET);
+		expect(Date.now() - started).toBeLessThan(BUDGET * 4);
+	});
+
+	it('treats the `deferred` state as un-settled — a held diagram is not a drawn one', async () => {
+		// `deferred` is the fourth state, added with the parse gate. It is not in the settled
+		// set, and nothing asserted that until now.
+		const doc = frag('<pre data-mermaid-state="deferred"></pre>');
+		expect(await returned(doc)).toBe('at-budget');
+	});
+
 	it('returns immediately when the deck has no diagram at all', async () => {
 		expect(await returned(frag('<p>no diagrams here</p>'))).toBe('early');
 	});

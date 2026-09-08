@@ -42,7 +42,7 @@ const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'
  * `renderCounter` and `pinMermaidTooltip` — all injected here so the queue itself is the
  * only thing under test.
  */
-function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
+function liftQueue({ mermaid, log, capMs, attachErrorThrows = false, costs = [] }) {
   const BEGIN = '  // ── THE RENDER QUEUE';
   const END = '  // Mermaid appends `<div class="mermaidTooltip">`';
   const start = RUNTIME_SRC.indexOf(BEGIN);
@@ -76,16 +76,50 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
       if (preEl.dataset.mermaidState === 'rendering') preEl.dataset.mermaidState = 'pending';
     },
     markFenceDrawn: () => {},
+    // THE SCHEDULER, which the queue now touches at exactly two points: it marks a run in
+    // flight so a burst of keystrokes cannot queue a render per character behind a strictly
+    // serial chain, and it asks for one more pass if the source moved while it ran. Injected
+    // rather than lifted because the scheduler lives outside this block and none of these
+    // cells are about it — they are about the chain always advancing.
+    scheduleRun: () => { log.push('scheduleRun'); },
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn) {
+    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, scheduleRun) {
        let renderCounter = 0;
+       // A COUNTER, matching the shipped declaration: one pass opens one run per consecutive
+       // scope-key change, so a boolean let the first tail clear it while later runs were
+       // still queued.
+       let diagramRuns = 0;
+       let rerunRequested = false;
+       // The render records what it COST, so the dispatch back-off can size itself to the
+       // diagram instead of a constant. Both live outside this block; the cells here are
+       // about the chain always advancing, so they stand in rather than lift.
+       let lastRenderCostMs = 0;
+       const nowMs = () => Date.now();
+       // The cost sampler the dispatch back-off reads. It lives outside this block and these
+       // cells are about the chain always advancing, so it stands in rather than lifts.
+       const recordRenderCost = (ms) => { costs.push(ms); };
+       // The cheap/costly answer. It lives with the back-off outside this block, and it now
+       // gates the parse as well as the wait — these cells are about the chain advancing, so
+       // it stands in with the arm that keeps the gate ON, which is the busier path.
+       // The scope-drew ledger lives with the policy outside this block; these cells are
+       // about the chain advancing, so it stands in.
+       const noteScopeDrew = () => {};
+       // TRUE, so these cells keep the path they were written against: the parse gate runs.
+       // The condition itself is the policy's question, not the chain's, and it is exercised
+       // where it lives.
+       const parseGateApplies = () => true;
 ${block}
-       return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
+       return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; },
+                // The keystroke half of the coalescing: initAndRun sets this when the source
+                // moved while a run was in flight, and the run tail is what acts on it.
+                // NO BACKTICKS IN THIS BLOCK: it lives inside a template literal, and one
+                // would close it.
+                requestRerun() { rerunRequested = true; } };
      })`,
   );
-  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn);
+  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.scheduleRun);
 
   /** Drive the real kernel over a deck, exactly as the runtime does. */
   const tagOf = new WeakMap();
@@ -105,12 +139,25 @@ ${block}
     }
     return q.queue;
   };
-  return { run, queue: () => q.queue };
+  // `costs` is read inside the eval'd factory below, which no static pass can see — returning
+  // it keeps that use visible and lets a cell assert on the samples directly.
+  return { run, queue: () => q.queue, costs, requestRerun: () => q.requestRerun() };
 }
 
 /** A fence, with a fake `<pre>` whose dataset the queue writes. */
 function fence(name) {
-  return { preEl: { dataset: { mermaidState: 'rendering' }, name }, target: { innerHTML: '' }, source: name };
+  return {
+    preEl: { dataset: { mermaidState: 'rendering' }, name },
+    // `querySelector` is shape a real slot has, and the queue's own paths may reach for it;
+    // it carries no ink because these cells are about the CHAIN advancing, not about what is
+    // drawn. It once fed a version of the parse gate that asked whether the slot held a
+    // drawing before deferring — that design was measured and reverted (`edit-broken` went
+    // to 146 source frames and 8 renders, because once an error surfaces the slot is empty
+    // and every later keystroke skipped the gate), so the gate is unconditional and the
+    // parameter that fed it is gone.
+    target: { innerHTML: '', querySelector: () => null },
+    source: name,
+  };
 }
 
 /** Two bands, so a run boundary exists. */
@@ -219,6 +266,83 @@ describe('the diagram queue always advances', () => {
     assert.match(RUNTIME_SRC, /function resetFenceAfterFailure\(preEl\) \{\s*\n\s*if \(preEl\.dataset\.mermaidState !== 'rendering'\) return;/,
       'and the reset must still act only on a fence that was actually in flight');
     assert.equal(good.preEl.dataset.mermaidState, 'rendered');
+  });
+
+  test('a render that FAILS still records what it cost — the empty-record trap', async () => {
+    // THE DEFECT THIS KILLS, measured on the built Studio before it was fixed. The cost was
+    // recorded inside the SUCCESS handler only, so a render that rejected recorded nothing.
+    // A fence that has never once rendered successfully therefore kept an EMPTY cost record
+    // for ever — and an empty record reads CHEAP, so the policy handed the frame-level floor
+    // AND the parse gate to the one case that must never have them.
+    //
+    // That case is an author building a large diagram from scratch, where the source does not
+    // parse yet and nothing has drawn. On a 64-node fence with an unparseable tail, 24 chars
+    // at 120ms: 2-3 renders against the old build's 1, main thread 14-15% against 1-2%, and
+    // the harness's own fixed-delay typing 3763-3915ms against 3404-3428ms. A failed render
+    // costs the same main thread as a successful one, which is the only thing the number
+    // measures.
+    const log = [];
+    const costs = [];
+    const mermaid = {
+      initialize: () => {},
+      render: (_id, source) => {
+        log.push(`render:${source}`);
+        return source === 'broken' ? Promise.reject(new Error('Parse error')) : Promise.resolve({ svg: '<svg/>' });
+      },
+    };
+    const broken = fence('broken');
+    const q = liftQueue({ mermaid, log, capMs: 5000, costs });
+    await q.run(twoBandDeck([broken], []));
+    assert.equal(broken.preEl.dataset.mermaidState, 'error', 'the fence still reports its failure');
+    assert.equal(costs.length, 1, 'a rejected render must record its cost, not nothing');
+    assert.ok(typeof costs[0] === 'number' && costs[0] >= 0, `recorded ${costs[0]}`);
+  });
+
+  test('a render that SUCCEEDS records exactly once, not twice', async () => {
+    // The other half of moving the call into the shared tail: it must not now run on both the
+    // success path and the tail, which would feed the median two samples per render and let a
+    // costly diagram look cheaper the more it is drawn.
+    const log = [];
+    const costs = [];
+    const mermaid = {
+      initialize: () => {},
+      render: (_id, source) => { log.push(`render:${source}`); return Promise.resolve({ svg: '<svg/>' }); },
+    };
+    const q = liftQueue({ mermaid, log, capMs: 5000, costs });
+    await q.run(twoBandDeck([fence('a1')], []));
+    assert.equal(costs.length, 1, 'one render, one sample');
+  });
+
+  test('a rerun waits for EVERY run to land, not just the one that finished', async () => {
+    // KILLS the mutant that drops the `diagramRuns > 0` half of the guard. One pass opens one
+    // run per consecutive scope-key change, so a two-band deck has two runs in flight; if the
+    // first band's tail is allowed to fire the rerun on its own, the next pass starts while
+    // band B is still rendering — which is the strictly-serial-queue pile-up the counter was
+    // made a COUNTER rather than a boolean to prevent.
+    const log = [];
+    let releaseB;
+    const mermaid = {
+      initialize: () => {},
+      render: (_id, source) => {
+        log.push(`render:${source}`);
+        if (source !== 'b1') return Promise.resolve({ svg: '<svg/>' });
+        return new Promise((res) => { releaseB = () => res({ svg: '<svg/>' }); });
+      },
+    };
+    const q = liftQueue({ mermaid, log, capMs: 5000 });
+    // THE REQUEST COMES FIRST, and the ordering is the whole cell. Both runs are opened
+    // synchronously as the kernel walks the deck, so band A's tail fires while band B is still
+    // in flight — which is the only window where the two halves of the guard disagree. Asking
+    // afterwards misses it: by then A's tail has already run, and both variants then behave
+    // identically once the counter reaches zero.
+    q.requestRerun();
+    const running = q.run(twoBandDeck([fence('a1')], [fence('b1')]));
+    await new Promise((r) => setTimeout(r, 30));
+    assert.ok(!log.includes('scheduleRun'), `a rerun must not start while a run is in flight: ${log.join(' ')}`);
+    releaseB();
+    await running;
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(log.includes('scheduleRun'), 'and it must start once the last run lands');
   });
 
   test('bands are configured in document order, one configure per band', async () => {

@@ -350,10 +350,92 @@ describe('the observer wiring', () => {
     assert.doesNotMatch(RUNTIME_SRC, /COLD_MS|burstFirstSight|scheduledRunDelay/, 'the second-delay policy is cut; re-adding one needs its own tests and a measurement');
   });
 
-  test('scheduleRun re-arms from the full debounce, so a burst coalesces', () => {
+  test('scheduleRun coalesces on COMPLETION, not on a clock', () => {
+    // The fixed 150ms timer is gone: it was larger than a full render for every diagram up
+    // to ~64 nodes, and a timer larger than the work it defers is waiting, not coalescing.
     const src = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function scheduleRun('), RUNTIME_SRC.indexOf('function wrapFences('));
     assert.match(src, /clearTimeout\(scheduledRunHandle\)/, 'a re-arm must cancel the pending run');
-    assert.match(src, /\}, DEBOUNCE_MS\);/, 'the re-armed run must wait the full debounce, not a latched shorter one');
+    // THE FLOOR IS SIZED, not fixed — `contentFloorMs()` answers COALESCE_MS for a diagram
+    // that is cheap to draw and the old DEBOUNCE_MS for one that is not. It is the ONLY timer
+    // in the dispatch path: a second one, carried by the back-off, could not be made to sum
+    // with this one in either direction (see the policy port's own note).
+    assert.match(src, /\}, contentFloorMs\(anyPendingFenceIsLiveWorthy\(\)\)\);/, 'the floor is sized to the diagram AND asks whether anything can be kept live');
+  });
+
+  test('the CONTENT pass is never gated on a diagram — only the dispatch is', () => {
+    // The first version of the coalescing early-returned from `scheduleRun` while a render
+    // was in flight. That callback also runs every content transform and every
+    // contentSettledListener, so a `mermaid.render` that STALLED rather than rejected froze
+    // the Form composition, the masthead, the charts and the fit berth for the whole 20s
+    // settle cap — and an uncapped parse froze them indefinitely. Coalescing belongs at the
+    // dispatch point, after the transforms have run.
+    const sched = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function scheduleRun('), RUNTIME_SRC.indexOf('function wrapFences('));
+    assert.doesNotMatch(sched, /diagramRuns/, 'the content pass must not wait on a diagram render');
+    const init = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function initAndRun('), RUNTIME_SRC.indexOf('function initAndRun(') + 2000);
+    const transformsAt = init.indexOf('runAllContentTransforms()');
+    const gateAt = init.indexOf('if (diagramRuns > 0)');
+    assert.ok(transformsAt !== -1 && gateAt !== -1, 'initAndRun must run the transforms and then gate the dispatch');
+    assert.ok(transformsAt < gateAt, 'the transforms must run BEFORE the dispatch gate, not behind it');
+    // UNCONDITIONALLY, which is worth pinning because it briefly was not. A second entry point
+    // (the deleted back-off timer's re-entry) made this call conditional to skip a duplicate
+    // pass; with one entry point there is nothing to skip, and any condition reappearing here
+    // is the frozen-transforms defect above coming back.
+    assert.match(init, /\n {4}runAllContentTransforms\(\);/, 'the content pass is not conditional');
+    assert.match(init.slice(gateAt), /rerunRequested = true/, 'and record that the source moved while a run was in flight');
+  });
+});
+
+/**
+ * A CACHE HIT MUST CONSUME THE QUIET TIMER'S RELEASE, and nothing gated that until now.
+ *
+ * `armErrorSurface` marks a released fence for a forced, un-gated render so the author finally
+ * gets their error box. `settleFenceFromCache` serves that same fence from the SVG cache
+ * instead and never reaches `renderDiagramJob`, so the marker outlives its errand on that
+ * node — and a cache hit also proves the force is moot, because this source has rendered
+ * before. Leave the marker behind and the next unparseable text on that fence bypasses the
+ * gate once: a doomed render plus an error box flashing mid-word, which is the exact strobe
+ * the gate exists to stop.
+ *
+ * An independent pass deleted that one line and the whole 274-cell suite stayed green.
+ */
+describe('a cache hit consumes the force marker', () => {
+  const liftSettle = (forceRender, cachedSvg) => {
+    const m = RUNTIME_SRC.match(/ {2}function settleFenceFromCache\(job\) \{[\s\S]*?\n {2}\}/);
+    assert.ok(m, 'lib/runtime/index.js must declare settleFenceFromCache');
+    // eslint-disable-next-line no-new-func
+    return new Function(
+      'mermaidSvgCache', 'diagramCacheKey', 'diagramScopeKey', 'markFenceDrawn', 'forceRender', 'fenceSourceOf',
+      `${m[0]}\nreturn settleFenceFromCache;`,
+    )(
+      { get: () => cachedSvg },
+      (a, b) => `${a}|${b}`,
+      () => 'scope',
+      () => {},
+      forceRender,
+      (preEl) => preEl.__src,
+    );
+  };
+  const job = (src) => ({
+    preEl: { dataset: {}, __src: src },
+    target: { innerHTML: '' },
+    sectionEl: {},
+    source: src,
+  });
+
+  test('the release is cleared when the SVG comes from cache', () => {
+    const forceRender = new Set(['flowchart LR']);
+    const settle = liftSettle(forceRender, '<svg/>');
+    const j = job('flowchart LR');
+    assert.equal(settle(j), true, 'a cache hit settles the fence');
+    assert.equal(j.preEl.dataset.mermaidState, 'rendered');
+    assert.equal(forceRender.has('flowchart LR'), false, 'and consumes the release it made moot');
+  });
+
+  test('a cache MISS leaves the release alone — it still has an errand', () => {
+    const forceRender = new Set(['flowchart LR']);
+    const settle = liftSettle(forceRender, undefined);
+    assert.equal(settle(job('flowchart LR')), false, 'a miss is a re-render, not a near-enough SVG');
+    assert.equal(forceRender.has('flowchart LR'), true);
   });
 });
 

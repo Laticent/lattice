@@ -54,6 +54,15 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * empty flex container; when rendered it holds the SVG; for "error" and
  * "unavailable" it is collapsed so the source <pre> has full room.
  *
+ * "deferred" is a FOURTH tagged state and it needs no rule of its own, which is the
+ * point of spelling it out here. It means "this source does not parse YET — the author
+ * is mid-word" (see the parse gate in lib/runtime/index.js), and what it wants is
+ * exactly what the rules below already give an untagged-but-pending fence: the <pre>
+ * hidden, the .mermaid slot NOT collapsed, so the previously rendered SVG stays on
+ * screen instead of the slot blanking on every keystroke. It differs from "pending"
+ * only in that the runtime's walk does not select it — that is what stops a deferral
+ * from re-triggering itself, and it is a runtime concern, not a visual one.
+ *
  * TWO STATES SHOW THE SOURCE, not one, and the second is why this rule is a
  * chain of :not() rather than a single one. "error" is Mermaid rejecting the
  * DIAGRAM; "unavailable" is the runtime giving up on MERMAID ITSELF — the
@@ -74,6 +83,20 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
 :is(pre, marp-pre)[data-mermaid-state="error"]         + .mermaid        { display:none; }
 :is(pre, marp-pre)[data-mermaid-state="unavailable"]   + .mermaid        { display:none; }
 :is(pre, marp-pre)[data-mermaid-state="rendered"]      + .mermaid        { display:flex; }
+/* …and a `deferred` fence lays its slot out exactly as a rendered one, because it IS
+ * showing a rendered SVG — the previous one, held while the author types a source that does
+ * not parse yet. Without this the slot fell back to `display:block` outside
+ * `section.diagram`, and the held drawing jumped 473x186px the moment the gate engaged
+ * (measured in real Chromium on a fence not on a diagram slide). The `pending` hold had the
+ * same gap for one render; the parse gate stretches it across a whole typing pause, which
+ * is what makes it worth closing rather than noting.
+ *
+ * THIS RULE IS ONLY ONE THIRD OF THAT, and an earlier revision shipped it alone while this
+ * comment claimed the slot then laid out "exactly as a rendered one". It did not: the BOX
+ * (`width:1152px; height:480px`) and the SVG clamp (`max-width/max-height:100%`) are keyed
+ * on `rendered` in highlight-js.css, so the held drawing still grew to 2774px tall and
+ * overflowed the slide. Both now carry `deferred` too — see the note there. */
+:is(pre, marp-pre)[data-mermaid-state="deferred"]      + .mermaid        { display:flex; }
 /* …AND THE SAME COLLAPSE ON A FORM-WRAPPED DIAGRAM SLIDE, which the two rules above
  * could not reach. `section.diagram > .cell-stage > .mermaid { display:flex; flex:1 }`
  * (line 39) is (0,3,1); `[data-mermaid-state="error"] + .mermaid` is (0,2,1). So on every
