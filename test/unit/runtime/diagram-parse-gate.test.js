@@ -52,6 +52,7 @@ function liftGate(html = '', { cheap = true, drawn = true } = {}) {
 		// green — the harness had been injecting its own re-implementation, so the shipped one
 		// was executed by no arm.
 		'function attachErrorSafely(preEl, target, err, remember = false)',
+		'if (!parseGateApplies(scopeKey))',
 	]) {
 		assert.ok(src.includes(fn), `the port must hold ${fn}`);
 	}
@@ -75,8 +76,7 @@ function liftGate(html = '', { cheap = true, drawn = true } = {}) {
 		'renderDiagramNow',
 		'nowMs',
 		'attachError',
-		'diagramIsCheap',
-		'scopeHasDrawn',
+		'parseGateApplies',
 		`${src}\nreturn { deferUntilQuiet, armErrorSurface, sweepDeferredFences, parsesCleanly, renderDiagramJob, attachErrorSafely, erroredSources, forceRender, deferredSince, fenceSourceOf, ERROR_QUIET_MS, DEFERRED_FENCE_SELECTOR };`,
 	);
 	const api = make(
@@ -106,13 +106,11 @@ function liftGate(html = '', { cheap = true, drawn = true } = {}) {
 			attached.push(err);
 			preEl.dataset.mermaidState = 'error';
 		},
-		// The cheap/costly answer, which now gates the parse as well as the wait.
-		() => cheap,
-		// Has anything in this scope ever DRAWN? The gate holds an existing picture while the
-		// source is mid-word, so a scope that has never drawn has nothing to hold. Defaults
-		// true here: every arm written before this precondition existed is about a fence that
-		// already has a drawing to protect.
-		() => drawn,
+		// THE WHOLE GATE CONDITION, as one shipped function: cheap enough to redraw live AND
+		// something already drawn in this scope to protect. Both halves default true, because
+		// every arm written before either precondition existed is about a fence that has a
+		// picture and is cheap to redraw.
+		() => cheap && drawn,
 	);
 	/** Fire the newest live timer, the way a quiet window elapsing would. */
 	const elapse = () => {

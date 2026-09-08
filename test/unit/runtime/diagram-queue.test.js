@@ -103,14 +103,13 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false, costs = [] 
        // The cheap/costly answer. It lives with the back-off outside this block, and it now
        // gates the parse as well as the wait — these cells are about the chain advancing, so
        // it stands in with the arm that keeps the gate ON, which is the busier path.
-       const diagramIsCheap = () => true;
        // The scope-drew ledger lives with the policy outside this block; these cells are
        // about the chain advancing, so it stands in.
        const noteScopeDrew = () => {};
        // TRUE, so these cells keep the path they were written against: the parse gate runs.
-       // The precondition it guards (has this scope ever drawn) is the policy's question, not
-       // the chain's, and it is exercised where it lives.
-       const scopeHasDrawn = () => true;
+       // The condition itself is the policy's question, not the chain's, and it is exercised
+       // where it lives.
+       const parseGateApplies = () => true;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; },
                 // The keystroke half of the coalescing: initAndRun sets this when the source
