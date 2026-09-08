@@ -1019,6 +1019,50 @@ largely the ones §6 refuses to touch. That is the feature working as designed, 
 underperforming, and any future claim that TRIM "fixes overflow" should be read
 against this number.
 
+**THE LAYOUT-SHAPE CORPUS — built because the deck corpus is structurally blind.**
+The 169-deck sweep is clean and *cannot* catch the class of bug this feature keeps
+producing: every one of the three reviews' findings lived in a layout shape the
+shipped decks do not contain. So a second corpus was built from the shapes
+themselves — 27 decks across the families where the bugs actually were — and each
+was rendered at `strict` and at `loose` and checked against three invariants: no
+crash, no page both TRIMMED and named in the OVERFLOW warning, and byte-identity
+with `loose` wherever TRIM did not fire.
+
+Shapes: two-up flex with chrome on the left / right / both columns, three-up, flex
+`justify-content: center` and `space-between`, grid with stretched row-mates, grid
+with fixed rows, an absolutely positioned bottom decoration, `position: sticky`, an
+author `id`, an author `id` containing `"]`, ids chosen to collide with the
+synthetic namespace (`tb0`, `tb1`), nested clip cells, `line-height: normal`, a 24px
+bottom border, a float container, an inline-`code` tail, an ordered list, table
+cells, `transform: scale`, an image-driven height, and deep nesting.
+
+**All 27 pass all three invariants. Zero crashes, zero contradictions, zero no-op
+violations.** Ten of the first batch trimmed, five declined and changed nothing, and
+`author-id-quote-bracket` — which aborted the export outright before the third
+review — now renders and trims.
+
+**One result needed a second look rather than a victory lap.** Three two-up shapes
+REVERTED, which would mean the guard going inert on exactly the split layouts it
+exists for. It is an artifact of the test, not the feature: those shapes join lines
+with `<br>` inside one `<p>`, and `-webkit-line-clamp` shrinks the BOX without
+removing descendant boxes from layout — so the `<br>`s keep reporting rects past the
+frame and `probeSectionOverflow` correctly still sees them. Rebuilt as real wrapping
+prose, **all five multi-column shapes trim cleanly**, including the grid-stretch case
+that produced the 393px-chrome bug and a three-up. Rendered and inspected: the card
+is whole — full border, both rounded corners, an ellipsis — where `loose` shears it
+mid-sentence.
+
+That `<br>` interaction is worth keeping: a clamp is a VISUAL truncation, so any
+probe that walks descendant rects still sees clamped-away children. Nothing in the
+shipped decks writes paragraphs that way, and the failure direction is safe (the
+guard reverts and clips honestly), but a deck that does will find `guards: strict`
+inert on that slide.
+
+**A cosmetic blemish, recorded not fixed:** a clamped paragraph whose last visible
+line ends in a full stop renders as `limit....` — the sentence's own period plus the
+ellipsis glyph. Stripping it would mean editing the author's text rather than
+clamping it, which this design refuses to do.
+
 **Mutation, re-run after the repair — and two of the fixes were themselves
 unpinned.** `chrome += 0` in the measurer and the removal of the id-collision guard
 both survived the whole suite on the first pass: the model tier never runs the
