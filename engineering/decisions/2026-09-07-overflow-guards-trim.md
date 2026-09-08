@@ -992,6 +992,33 @@ revert to undo. The reverted `strict` render of that deck is now **byte-identica
 to its `guards: loose` baseline, which is rule 5 stated as an artifact rather than
 an intention.
 
+**THE WHOLE-CORPUS SWEEP — the first evidence in this line of work that is not the
+author marking their own homework.** Every shipped deck (169) was forced into
+`guards: strict` and rendered, then rendered again at `guards: loose` and compared
+byte for byte:
+
+| | result |
+|---|---|
+| decks rendered | 169, **zero crashes**, zero non-zero exits |
+| decks where TRIM fired | **3** — `overflow-fix-me` p3, `overflow-guards` p2, `q-and-a` p7 |
+| trims reverted | **0** |
+| pages both trimmed AND named in the OVERFLOW warning | **0** — the self-contradiction the third review reproduced does not occur anywhere in the corpus |
+| `strict` output identical to `loose` | **166 of 169**; the three that differ are exactly the three where TRIM fired |
+
+Two things are worth separating there. The byte-identity result is a strong safety
+statement — `strict` changes nothing it does not deliberately change, at artifact
+level, across the whole corpus — and it is the artifact-level form of MR4, which
+until now was only asserted over a model. The zero-crash result matters more than it
+looks: the third review found an author `id` containing `"]` could abort an export
+outright, and a corpus sweep is the cheapest instrument that would have caught a
+survivor of that class.
+
+The fire rate is the other half and it is not new: **3 of 169 decks**, consistent
+with §2a's 1-of-6-clipping-slides. The blocks that most often cause overflow are
+largely the ones §6 refuses to touch. That is the feature working as designed, not
+underperforming, and any future claim that TRIM "fixes overflow" should be read
+against this number.
+
 **Mutation, re-run after the repair — and two of the fixes were themselves
 unpinned.** `chrome += 0` in the measurer and the removal of the id-collision guard
 both survived the whole suite on the first pass: the model tier never runs the
