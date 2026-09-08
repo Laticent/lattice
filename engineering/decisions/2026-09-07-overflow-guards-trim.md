@@ -742,6 +742,36 @@ for building it, and the note previously implied the first was already solved:
    unlike `overflow-marker:`, this key removes text. §10's third row overrides
    that note in one line without answering it.
 
-**Not built.** This note records the investigation and the ruling. The
-implementation — the register, the trim classes, the measured pass on each
-render path, the demo deck and the tests — is separate work.
+10. **The `.html` deliverable does not carry the trim, and the PDF does.**
+    `lattice-emulator.js` writes `outHtml` from `cleanDocHtml`, a Node-side string,
+    BEFORE the page is ever loaded; every browser pass — including this one —
+    mutates the live DOM instead. So a `guards: strict` deck exports a PDF whose
+    page ends in an ellipsis and an `.html` sidecar beside it that still clips. The
+    two disagree, which is the class of defect `engineering/gotchas/overflow.md`
+    already catalogues for the marker. Re-serializing the export HTML from the live
+    DOM would fix it and would change exported bytes for every deck, which is an
+    owner sign-off under the Quality Bar rather than a fix to slip in here.
+
+**BUILT, as of this branch.** The kernel (`lib/core/guards-trim.js`), the register
+(`lib/core/resolve-guards.js`), both render-path call sites, the `unknown-guards`
+lint rule, the register docs and `examples/overflow-guards.md` have landed. What
+the implementation added to this note's findings, both from real renders:
+
+- **The model is a prediction, not a measurement, and it was wrong on a real
+  slide.** `planTrim` guarantees fit-or-nothing over its model; applied to the
+  page, `examples/overflow-guards.md` p4 came back trimmed AND still overflowing —
+  precisely the outcome rule 5 exists to prevent. Both call sites now APPLY, then
+  RE-MEASURE, then REVERT a cut that did not buy the fit, and report it as
+  `TRIM REVERTED`. The metamorphic relations could not have caught this: they test
+  the policy, and this was the gap between the policy and the DOM.
+- **The measured corpus result, from shipped code:** one of six clipping slides.
+  The other five are blocked by a heading, a callout's chrome, or a shell command.
+- **`overflow:check` is NOT re-blessed by this branch, deliberately.** The new demo
+  deck legitimately clips two pages, so the ratchet reports it — but a full sweep
+  found **nine** decks clipping more than the baseline, and stashing this branch's
+  changes reproduced all nine unchanged. The drift is pre-existing and on `main`,
+  not caused by TRIM. `--bless` re-records the WHOLE corpus by design and refuses a
+  per-deck bless, so blessing here would bury nine decks of unrelated drift under
+  this change (HARD RULE #18: a pre-existing defect found off the path is logged,
+  not swept into the diff). `overflow:check` is on-demand rather than a CI gate, so
+  nothing is red; the baseline needs its own pass.

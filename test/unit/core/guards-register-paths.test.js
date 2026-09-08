@@ -104,7 +104,24 @@ const fs = require('node:fs');
 const RUNTIME_BUNDLE = path.join(ROOT, 'dist', 'lattice-runtime.js');
 const { frontMatterBlock } = require(path.join(ROOT, 'lib/core/deck-front-matter.js'));
 
+/**
+ * The bundle is a BUILD ARTIFACT, so this arm silently tests stale code whenever
+ * `lib/runtime/index.js` is newer than `dist/lattice-runtime.js`. That is not
+ * hypothetical — it produced one confusing intermittent failure while this test
+ * was being written, where the source had the register and the bundle did not.
+ * Fail loudly and say the fix instead.
+ */
+function assertBundleFresh() {
+  const src = path.join(ROOT, 'lib', 'runtime', 'index.js');
+  const bundleAt = fs.statSync(RUNTIME_BUNDLE).mtimeMs;
+  const srcAt = fs.statSync(src).mtimeMs;
+  assert.ok(bundleAt >= srcAt,
+    `dist/lattice-runtime.js is older than lib/runtime/index.js — this arm would test ` +
+    `stale code. Run \`npm run runtime:build\` (or \`npm run build\`) and re-run.`);
+}
+
 function renderRuntimeBaked(deckSource, markup) {
+  assertBundleFresh();
   const block = frontMatterBlock(deckSource);
   assert.ok(block, 'anti-vacuity: the baked block must be non-empty, or this is not the baked path');
   const dom = new JSDOM(
