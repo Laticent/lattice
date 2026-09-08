@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schema/cell.schema.json",
+  "id": "watermark",
+  "region": "watermark",
+  "z": 1,
+  "accepts": ["surface"],
+  "capacity": "one",
+  "fill": "anchor",
+  "clip": false,
+  "css": false
+}

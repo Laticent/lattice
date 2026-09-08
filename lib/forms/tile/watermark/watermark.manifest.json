@@ -2,7 +2,7 @@
   "$schema": "../../schema/tile.schema.json",
   "id": "watermark",
   "kind": "surface",
-  "fits": ["slide"],
+  "fits": ["watermark"],
   "z": 1,
   "population": "front-matter / class (the section-number watermark) — Positioned against the SLIDE, not the stage: watermark.transform.js appends the ghost to the SECTION and watermark.css positions it against the section box. It read fits:[\"stage\"] until 2026-09-08.",
   "hideToken": null,

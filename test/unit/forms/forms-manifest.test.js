@@ -232,20 +232,40 @@ test('(f) the region vocabulary is identical in all THREE places that carry it',
     'CELL_REGIONS and schema/frame.schema.json slicing region enum must match');
 });
 
-// (g) The two frame-anchored Tiles must keep saying so. `logo` and `watermark`
-// are positioned against the SECTION by their own CSS/transform, and both
-// manifests claimed a band Cell until 2026-09-08 (`masthead-bay` / `stage`) —
-// a divergence invisible for as long as one Frame existed. See
-// engineering/decisions/2026-09-08-frame-catalog.md §4.2.
-test('(g) logo and watermark dock in the slide Cell, matching where they render', () => {
+// (g) The two frame-anchored Tiles must keep saying so, and must NOT share a Cell.
+// `logo` and `watermark` are positioned against the SECTION by their own
+// CSS/transform, and both manifests claimed a band Cell until 2026-09-08
+// (`masthead-bay` / `stage`) — a divergence invisible for as long as one Frame
+// existed. See engineering/decisions/2026-09-08-frame-catalog.md §4.2.
+//
+// They get a Cell EACH rather than one shared slide-box Cell. They have exactly
+// one thing in common — neither docks in a band — and that is a negative property;
+// every other Cell in the catalog names a position. Sharing one Cell forced a
+// single `z`, `accepts` and `capacity` onto two Tiles that agree on none of them,
+// and made per-Tile suppression unexpressible: a Frame suppresses by CELL id, so
+// no Frame could ever drop the watermark while keeping the logo.
+test('(g) logo and watermark each get their own frame-anchored Cell', () => {
   const { loadCatalog } = require('../../../lib/forms');
   const { tiles, cells } = loadCatalog();
-  assert.ok(cells.some((c) => c.id === 'slide'), 'the slide Cell exists');
+  const byId = new Map(cells.map((c) => [c.id, c]));
+
+  assert.ok(!byId.has('slide'), 'the shared catch-all slide Cell is gone');
   for (const id of ['logo', 'watermark']) {
     const t = tiles.find((x) => x.id === id);
+    const c = byId.get(id);
     assert.ok(t, `${id} tile exists`);
-    assert.deepEqual(t.fits, ['slide'], `${id} fits the slide Cell, not a band`);
+    assert.ok(c, `${id} Cell exists`);
+    assert.deepEqual(t.fits, [id], `${id} fits its own Cell, not a band and not a shared one`);
+    // Each Cell holds exactly one Tile, so — unlike `stage`, which spans three
+    // planes — its z CAN match its occupant's, and must.
+    assert.equal(c.z, t.z, `${id} Cell sits on its Tile's plane`);
+    assert.deepEqual(c.accepts, [t.kind], `${id} Cell accepts exactly its Tile's kind`);
+    assert.equal(c.capacity, 'one', `${id} Cell holds one Tile`);
+    assert.equal(c.fill, 'anchor', `${id} Cell is anchored, not docked`);
   }
+  // the distinction the shared Cell erased: different kinds, different planes.
+  assert.notEqual(byId.get('logo').z, byId.get('watermark').z, 'they are on different planes');
+  assert.notDeepEqual(byId.get('logo').accepts, byId.get('watermark').accepts, 'and hold different kinds');
 });
 
 // (h) `admits` is the FRAME side of the containment contract (design/forms.md §7).

@@ -1,10 +1,10 @@
 {
   "$schema": "../../schema/cell.schema.json",
-  "id": "slide",
-  "region": "slide",
+  "id": "logo",
+  "region": "logo",
   "z": 2,
-  "accepts": ["chrome", "surface"],
-  "capacity": "stack",
+  "accepts": ["chrome"],
+  "capacity": "one",
   "fill": "anchor",
   "clip": false,
   "css": false
