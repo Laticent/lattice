@@ -4,16 +4,16 @@ theme: indaco
 paginate: true
 logo: ../lib/base/_logo/acme-logo.svg
 header: "Lattice · the marker corner"
-meta: Marker corner · four occupants
+meta: Marker corner · who stays, who moves
 ---
 
 <!-- _class: title -->
 
-# The corner holds four things.
+# The corner held four things. Now it holds two.
 
-`Marker corner · stamp, clip tab, legibility tab, logo`
+`Marker corner · stamp, logo, and the band below the bar`
 
-Every one of them wants the slide's top-right. This deck renders the collision, because the arithmetic that keeps them apart has been wrong four times and every version of it passed CI.
+Four absolutely-positioned boxes wanted the slide's top-right, and the arithmetic that kept them apart was wrong four times. This deck renders the answer: the two that were transient moved out.
 
 ---
 
@@ -21,43 +21,43 @@ Every one of them wants the slide's top-right. This deck renders the collision, 
 
 `The occupants`
 
-## Three are engine chrome. The fourth is yours.
+## Two are permanent. Two were passing through.
 
 - The status stamp
-  - `confidential` and its shape variants paint on the section's own `::before`, flush to the corner.
-- The clip tab
-  - The overflow marker, reserving a row below whichever stamp is present.
-- The legibility tab
-  - The type-floor alarm, one row below the clip tab. Authoring only.
+  - Paints on the section's own `::before`, flush to the corner. It ships in the export.
 - The deck logo
-  - The author's mark, at the frame inset — inside the tabs' band.
+  - The author's mark, at the frame inset. Its geometry belongs to them.
+- The clip tab
+  - Drawn because a slide is broken. It leaves when the slide is fixed.
+- The legibility tab
+  - The type-floor alarm, one row below the clip tab.
 
-The first three have engine-owned geometry. The fourth does not.
-
----
-
-<!-- _class: split-panel -->
-
-`One marker, one logo`
-
-## Quarterly program review for the regional distribution network and its downstream partners across four operating territories, with a trailing clause that pushes this heading well past what the panel can hold
-
-The panel below can no longer contain the copy it has been handed, so the export tags the slide and the clip tab is drawn. It stacks to the **left** of the mark rather than under it.
-
-- Throughput
-  - Median order-to-dock time fell from 41 hours to 26 hours.
-- Cost
-  - Unit handling cost is down 12% year over year.
+The first two stay. The last two berth under the bar.
 
 ---
 
 <!-- _class: split-panel confidential -->
 
-`The reported defect`
+`One marker, one stamp, one logo`
 
 ## Quarterly program review for the regional distribution network and its downstream partners across four operating territories, with a trailing clause that pushes this heading well past what the panel can hold
 
-The stamp reserves a row, which used to land the clip tab at y 23–46 — inside a mark occupying y 24–75. The tab is opaque, so it cut the top off the logo.
+The panel below can no longer contain the copy it has been handed, so the export tags the slide. The pill hangs from the middle of the bar; the stamp and the mark keep the corner, and neither displaces it by a pixel.
+
+- Throughput
+  - Median order-to-dock time fell from 41 hours to 26 hours.
+- Cost
+  - Unit handling cost is down 12% year over year.
+
+---
+
+<!-- _class: split-panel confidential stamp-notch -->
+
+`The one shape that still reserves`
+
+## Quarterly program review for the regional distribution network and its downstream partners across four operating territories, with a trailing clause that pushes this heading well past what the panel can hold
+
+`stamp-notch` is the one shape that paints across the middle of the top edge, so it is the one shape the pill still has to clear. It drops a single row, measured against the tab's own height rather than a magic number.
 
 - Throughput
   - Median order-to-dock time fell from 41 hours to 26 hours.
@@ -68,35 +68,37 @@ The stamp reserves a row, which used to land the clip tab at y 23–46 — insid
 
 <!-- _class: content -->
 
-`Why sideways`
+`Why the marker moved instead`
 
-## Clearing the mark downward would put chrome in the body.
+## The corner had four claimants and the engine owned three.
 
-Stacking the tab below the logo needs about eighty pixels of drop, which lands a marker a third of the way into the slide — where no component expects it. Horizontal keeps every occupant inside the top band, so nothing has to rule on whether a transient marker outranks permanent branding.
+Every earlier fix asked how far the marker should drop to clear whatever was above it. That question was answered wrong four times — once by pushing 21 class names a fixed row when the shapes sat at three different heights, once by a unitless `calc()` that discarded the whole transform, once by a reserve that landed the tab inside the mark it was written to clear.
 
-`logo:` plus `confidential` is close to the modal delivered board deck, and this is the reader register: the one the whole marker feature exists to serve.
+Two of the four claimants are transient by definition. Moving those two stops the arithmetic instead of re-deriving it.
 
 ---
 
-<!-- _class: content -->
+<!-- _class: content confidential stamp-notch -->
 
-`Releasing the corner`
+`The whole stamp vocabulary`
 
-## A repositioned logo gives the space back.
+## Fourteen shapes, and one of them still has to be cleared.
 
-- `logo-x` and `logo-y` together
-  - Move the mark and switch it to left-anchoring. The corner is free, so the tabs reclaim the full width.
-- `logo-scale`
-  - Multiplies the mark's box. The reserve is written from the same tokens, so the two cannot drift.
+- Anchored right
+  - `tab`, `flag` and `pin` at the corner; six more sit lower. None reaches the middle.
+- Full width
+  - `notch` is a hairline band across the top edge — the one reserve left, shown on page 4.
+- Full bleed
+  - `mark` and `veil` cover the tab on purpose, from the plane above.
 
-Every logo injector stamps `data-logo-corner`, and only when the mark is left where it lands by default.
+Forgetting a reserve is now safe for every shape that does not cross the middle.
 
 ---
 
 <!-- _class: closing -->
 
-## The corner is a stack, and the geometry owns the arithmetic.
+## The band under the bar is empty by construction, and that is why it was chosen.
 
-`Four occupants · one reserve each`
+`Two occupants · one reserve`
 
-A fifth occupant needs one edit, in the block that already holds the arithmetic.
+The stamp used to reserve a row, which landed the clip tab at y 23–46 inside a mark occupying y 24–75, opaque, cutting the top off the logo. A slide pads `6.875cqi` at the block start, so nothing in flow can paint in the band below the bar — and `top: 0` resolves against the padding box, so flush stays flush with no token to keep in step.

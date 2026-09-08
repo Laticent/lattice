@@ -140,7 +140,7 @@ Exports are unchanged, measured rather than argued: all five committed logo deck
 
 Each path emits two things: the `<img class="deck-logo">` as the section's first
 child, and — **on the `<section>`, not on the img** — the `--logo-*` placement
-properties plus `data-logo-corner` when the mark has not been repositioned.
+properties.
 
 CSS lives at `lib/base/base.modifiers.css` — the `img.deck-logo` selector plus the
 dark-canvas brightness flip.
@@ -151,14 +151,15 @@ dark-canvas brightness flip.
   run the engine's plugins, so the `logo:` directive
   is invisible there. The PDF build and the desktop preview both work.
   See `engineering/gotchas.md`.
-- **The placement properties live on the SECTION, and moving them back would be a
-  silent regression.** Custom properties inherit downward only. While `--logo-scale`
-  and friends sat in the img's own `style` attribute, no sibling and no section-level
-  rule could read them — so the overflow/legibility marker stack had no way to know a
-  logo was in the corner, and a `confidential` slide's clip tab landed on top of the
-  mark and sliced it (#1404). The tabs now reserve the logo's width through
-  `--corner-logo-reserve`, which reads `--logo-scale` off the section. Putting these
-  back on the img would compute the reserve as if every logo were unscaled.
+- **The placement properties live on the SECTION, not on the img.** Custom properties
+  inherit downward only, so a value in the img's own `style` attribute is invisible to
+  every sibling and every section-level rule. That invisibility was a real defect once
+  (#1404: the overflow/legibility marker stack could not tell a logo was in the corner,
+  and a `confidential` slide's clip tab sliced the mark). Those tabs berth centered under
+  the spectrum bar now and reserve nothing for the logo (2026-09-08), so nothing reads
+  these properties today except the img itself, by inheritance — but the reason to keep
+  them addressable outlives the reserve that prompted it, and moving them back is a
+  one-way door.
 - **A relative `logo:` resolves against the OUTPUT directory, not the deck** (#1406).
   Rendering `examples/x.md` to `examples/x.pdf` works; rendering it anywhere else
   silently leaves a broken `<img>` with only a stderr warning. Use an absolute path in

@@ -996,3 +996,25 @@ version of round 5's proposal — a `.slide-corner` column over **the two tabs a
 only**, leaving the stamp on `::before` — was never priced, and the argument recorded above
 answers the expensive version of it. That is the ticket to open before a fifth occupant
 arrives, not this PR.
+
+---
+
+## Follow-up (2026-09-08) — the berth left the corner
+
+Everything above about the corner is **history now**. The overflow and type-floor tabs sit
+CENTERED under the spectrum bar, flush against its underside; the reader pill takes the same
+berth, because it has always been "the SAME text-labeled tab restyled" and that is unchanged.
+
+The corner had four claimants and the engine owned the geometry of three, so four rounds of
+de-collision arithmetic all shipped broken. Two of the four claimants — the two marker tabs —
+are transient by definition, so they moved and the arithmetic went with them:
+`--slide-radius` berth insets, `--corner-logo-reserve` / `data-logo-corner`, and two of the
+three `--corner-stack` grouping rules are all deleted. One reserve is left, renamed
+`--stamp-stack`, declared by the one shape that paints across the middle of the top edge
+(`stamp-notch`).
+
+The `#1404` section above is retained as the record of why the corner could not be made to
+work, not as a description of the code. Same for the bottom-center footer collision earlier
+in this file — that band is still the footer's and the pill still may not take it.
+
+`engineering/decisions/2026-09-08-marker-berth-top-center.md`.
