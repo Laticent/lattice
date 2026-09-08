@@ -759,8 +759,9 @@ token is typed `0px` rather than `0` precisely so that inset resolves to a lengt
 square deck: a unitless zero inside `calc()` is a `<number>`, which makes the whole
 declaration invalid and drops the marker into flow.
 
-The overflow and type-floor flags need no inset: they berth **centered under the spectrum
-bar** (2026-09-08), and the middle of an edge is never inside a corner arc. All three berths
+The overflow and type-floor flags need no inset: the authoring tags berth **centered under
+the spectrum bar** and the delivered "Content clipped" pill **centered against the bottom
+edge** (2026-09-08), and the middle of an edge is never inside a corner arc. All three berths
 carry absolute-position assertions in
 `test/integration/parity/content-clipped-pill.test.js` — centering and flushness for the two
 under the bar, and the square-deck corner measurement for Fix-Me, which is the only berth

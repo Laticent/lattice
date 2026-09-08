@@ -12,6 +12,10 @@ summary: >
   grouping rules; one reserve is left, renamed `--stamp-stack`, declared by the one shape
   that paints across the middle of the top edge (`stamp-notch`). The failure direction
   inverts: forgetting a reserve is now safe for every shape that does not cross the middle.
+  The reader's pill then took a DIFFERENT berth from the author's tags — bottom-center,
+  flush, in the margin below the running footer — because the two registers have different
+  neighbors and different populations: a reader receives exactly one marker, so it has no
+  second row to place and can take a berth the stacking author tags could not.
   Verified on real emulator exports by computed geometry, and the `elementFromPoint` chart
   measurement was re-derived against the new berth — still 0 of 461 marks under a tab.
 ---
@@ -87,6 +91,48 @@ turns it off (`spectrum-edge:`), where the padding box simply starts at the fram
 pill shipped there once: an opaque capsule across the confidentiality line on every page of
 any deck carrying an ordinary `footer:`. That history is in
 `2026-07-30-overflow-marker-register.md` and is not revisited here.
+
+### The reader's pill takes its own berth — bottom-center
+
+The first cut moved BOTH registers to the top band, on the register doc's line that `reader`
+is "the SAME text-labeled tab restyled". Rendered, that was the wrong reading of a sentence
+about TONE. The two registers have different neighbors and, decisively, different
+populations:
+
+| | author | reader |
+|---|---|---|
+| markers drawn | up to three (`clip`, `illegible`, `fixme`) | exactly one — the pill |
+| rows needed | two in the top band, stacked | **one** |
+| what shares its band | `section header`, `y 28 → 75.9` when it wraps | `section footer`, `y 672 → 696` |
+| where the berth lands | `y 4 → 27` and `y 27 → 50` | **`y 697 → 720`** — below the footer |
+
+`.illegible-tab` and `.fixme-tab` are author-only (`policy.authorTags`), so at `reader`
+there is nothing to stack. **The stacking problem that makes the top band awkward does not
+exist for the pill** — which is why the pill can take a berth the author tags could not:
+the strip below the running footer, which is frame margin no component writes into.
+
+That also confines §5's header collision to an authoring surface. Nothing a recipient
+receives goes near the running header or the footer.
+
+**This is not the placement that was pulled in #1300, and the difference is the whole
+argument.** That pill sat INSIDE the footer band and painted an opaque capsule across the
+confidentiality line on every page. The footer sits at `bottom: var(--frame-inset-y)`;
+`bottom: 0` is below it. Asserted geometrically rather than trusted to this paragraph —
+`content-clipped-pill.test.js` renders a deck with a 211-character `footer:` plus a
+body-content cut and fails on any intersection, on the pill being above the footer, on it
+not being flush, and on it not being centered. Confirmed non-vacuous against the previous
+CSS.
+
+Two mechanics that are load-bearing and easy to undo by accident:
+
+- **`top: auto` releases the author berth.** The author rule sets `top`; a box with both
+  `top` and `bottom` resolved is over-constrained, `bottom` is ignored, and the pill stays
+  at the top.
+- **The pill restates its own `transform`.** The author stack declares
+  `translate(-50%, var(--stamp-stack, 0%))` on `section > .overflow-tab`, and
+  `--stamp-stack` reserves a row for `stamp-notch` — a band across the TOP edge, nothing to
+  do with the bottom of the slide. The pill's rule is (0,3,1) against that rule's (0,1,1),
+  so specificity decides it rather than source order.
 
 ## 3. What this deletes
 
@@ -173,13 +219,15 @@ chrome band.
 
 ## 5. What this leaves open
 
-- **THE RUNNING HEADER SHARES THE BAND, and row 2 sits on it.** `section header`
+- **THE RUNNING HEADER SHARES THE AUTHOR BAND, and row 2 sits on it. AUTHOR-ONLY** — the
+  delivered pill berths at the other end of the slide and never meets a header. `section header`
   (`base.modifiers.css`) is `position: absolute` at `top: var(--frame-inset-y)`, spanning
   the full width between the frame insets — measured `y 28 → 75.9` at hd for a header long
-  enough to wrap. Row 1 clears it (`y 4 → 27` against a header starting at 28), so **the
-  register that ships — the delivered reader pill — is unaffected**. Row 2 does not: the
-  author-only legibility tab at `y 27 → 49.9`, and the clip tab when `stamp-notch` pushes
-  it down.
+  enough to wrap. Row 1 clears it (`y 4 → 27` against a header starting at 28). Row 2 does
+  not: the legibility tab at `y 27 → 49.9`, and the clip tag when `stamp-notch` pushes it
+  down. Both of those are `author`-level registers, and the delivered pill is at the
+  opposite end of the slide, so **nothing a recipient receives is affected** — which is
+  what downgrades this from a shipping defect to an authoring annoyance.
 
   **This is older than the berth and was made worse by it, which is why it is written down
   rather than filed quietly.** The top-right corner sat in the same band and covered the
@@ -189,11 +237,13 @@ chrome band.
   **The exposure, measured rather than assumed.** Across the 40 shipped `examples/` decks
   carrying `header:` — 283 header-bearing slides — **111 (39%)** have header ink reaching
   this band's x-window and **104 wrap to two lines**. It only bites when such a slide also
-  draws a marker, which is by definition a broken slide. Re-derive with the probe in
+  draws a marker, which is by definition a broken slide, and only at `author` level. Re-derive with the probe in
   `.scratch/probe/hdr-ink.mjs` (a `Range` over each `> header`, max `getClientRects().right`
   against the band's 505–775 window at hd).
 
-  **Three fixes were costed and all cost more than this berth is worth:**
+  **Three fixes were costed and all cost more than an author-only annoyance is worth** —
+  and the audience split above is why the bar moved: these were priced against a defect
+  that reached delivered slides, and it no longer does.
 
   | option | what it buys | what it costs |
   |---|---|---|

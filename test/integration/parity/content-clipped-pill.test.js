@@ -171,6 +171,8 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
         clipMarked: s.classList.contains('clip-marked'),
         hasFooter: !!ft,
         tabVisible: !!(tab && getComputedStyle(tab).display !== 'none' && tr && tr.width > 0),
+        tabBox: tr?.width ? { top: Math.round(tr.top), bottom: Math.round(tr.bottom), left: Math.round(tr.left), right: Math.round(tr.right) } : null,
+        footerBox: fr?.width ? { top: Math.round(fr.top), bottom: Math.round(fr.bottom) } : null,
         // Do the two boxes intersect? That is the regression, stated geometrically.
         overlaps: !!(tr && fr && tr.left < fr.right && tr.right > fr.left
           && tr.top < fr.bottom && tr.bottom > fr.top),
@@ -205,6 +207,51 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     assert.equal(v.footerClipped, true);
     assert.equal(v.tabVisible, true, 'the author must still hear about a deleted confidentiality line');
     assert.equal(v.overlaps, false, 'but the tab must never sit on top of the text it reports');
+  });
+
+  test('READER BERTH — the delivered pill sits bottom-center, BELOW the running footer', async () => {
+    // THE ONE ASSERTION THIS PLACEMENT NEEDS, because the pill has been here before and it
+    // was a defect. The original bottom-center pill sat INSIDE the footer band and painted
+    // an opaque capsule across the confidentiality line on every page of any deck carrying
+    // an ordinary `footer:` — found by rasterizing a committed golden, not by a gate.
+    //
+    // `bottom: 0` is a different berth from that one, and the difference is the entire
+    // safety argument: the footer sits at `bottom: var(--frame-inset-y)`, so the strip
+    // below it is frame margin no component writes into. That is a GEOMETRIC claim about
+    // two boxes, so it is asserted geometrically rather than trusted to a comment.
+    //
+    // The fixture cuts content in the BODY (an ellipsed `<strong>`) as well as carrying an
+    // over-long footer — the footer-only case is deliberately not pilled at all (the test
+    // above), so it could not detect a pill landing in the wrong place.
+    const v = await inspectFooter(ELLIPSIS, 'reader-berth-footer');
+    assert.equal(v.hasFooter, true, 'the fixture must actually carry a running footer');
+    assert.equal(v.tabVisible, true, 'a body-content cut must still be told to the reader');
+    assert.ok(v.tabBox && v.footerBox, `both boxes must be measurable — got ${JSON.stringify(v)}`);
+    assert.equal(
+      v.overlaps, false,
+      'REGRESSION: the reader pill is back on the running footer. This is the #1300 defect '
+      + 'verbatim — an opaque capsule across the confidentiality line on every delivered page.',
+    );
+    assert.ok(
+      v.tabBox.top >= v.footerBox.bottom,
+      `the pill must sit BELOW the footer, not above or across it. pill=${JSON.stringify(v.tabBox)} `
+      + `footer=${JSON.stringify(v.footerBox)}. Above the footer is the body copy on a full slide, `
+      + 'which is where two earlier fixes put it.',
+    );
+    // Flush against the bottom edge, and centered. A 720px-tall frame at hd.
+    assert.ok(
+      720 - v.tabBox.bottom <= 12,
+      `the pill is ${720 - v.tabBox.bottom}px above the frame's bottom edge — it should be flush. `
+      + '`top: auto` must release the author berth, or the box is over-constrained and `bottom` '
+      + 'is ignored, leaving the pill at the top.',
+    );
+    const center = (v.tabBox.left + v.tabBox.right) / 2;
+    assert.ok(
+      Math.abs(center - 640) <= 2,
+      `the pill is centered on x=${center}, not on the frame's own center (640). The centering `
+      + 'travels in `transform`, which this rule restates so the author stack\'s --stamp-stack '
+      + '(a reserve for a band across the TOP edge) cannot reach it.',
+    );
   });
 
   test('ELLIPSIS — cut content with no frame overflow is told to the reader', async () => {

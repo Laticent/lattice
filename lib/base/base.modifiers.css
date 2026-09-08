@@ -1946,9 +1946,36 @@ section.clip-marked[data-lattice-overflow-marker="reader"] > .overflow-tab {
    * reintroduce a measure→mutate→measure loop. */
   position: absolute !important;
 
-  /* THE PILL INHERITS THE TAB'S BERTH AND CHANGES ONLY ITS TONE, and getting to that
-   * took three wrong answers worth recording, because each one was a smaller version of
-   * the same mistake.
+  /* THE PILL TAKES ITS OWN BERTH — BOTTOM-CENTER, FLUSH — AND THE SPLIT IS BY AUDIENCE.
+   *
+   * Everything above is the AUTHORING band: top-center, under the spectrum, where an
+   * author looking for diagnostics finds them and where the stamp and the deck logo are
+   * not. This rule is the one register a READER receives, and it gets the quietest berth
+   * on the slide instead: the strip below the running footer, which is frame margin no
+   * component writes into.
+   *
+   * WHY NOT THE SAME BERTH. Two reasons, and the second is the one that decides it.
+   *
+   *   · WHAT ELSE IS IN EACH BAND DIFFERS BY AUDIENCE. The top band holds `section
+   *     header` — absolutely positioned across the full width, measured y 28 → 75.9 at hd
+   *     when it wraps — so a second row up there lands on the deck's own running title.
+   *     The bottom band holds `section footer` at y 672 → 696, and `bottom: 0` puts the
+   *     pill at y 697 → 720: BELOW it, clear by a pixel, in margin. Measured on a real
+   *     export carrying both.
+   *   · THE READER ONLY EVER GETS ONE MARKER. `.illegible-tab` and `.fixme-tab` are
+   *     author-only (`policy.authorTags`), so at `reader` there is nothing to stack and
+   *     no second row to place. The stacking problem that makes the top band awkward
+   *     simply does not exist here — which is why the pill can take a berth the author
+   *     tabs could not.
+   *
+   * BOTTOM-CENTER IS WHERE THIS PILL STARTED, AND THE OLD DEFECT IS NOT THIS PLACEMENT.
+   * Read the history below carefully before moving it: the original sat INSIDE the footer
+   * band and painted an opaque capsule across the confidentiality line. `bottom: 0` is
+   * not that. The distinction is the whole reason this is safe, and it is asserted rather
+   * than trusted — `content-clipped-pill.test.js` renders a deck with a 211-character
+   * `footer:` and fails on any intersection of the two boxes.
+   *
+   * The history, kept because each wrong answer was a smaller version of the same mistake:
    *
    * The pill is OPAQUE (`var(--text-body)` at `opacity: .9`, on the ALARM plane). It shipped
    * bottom-center, which is the running-footer band, so once detection widened to cuts
@@ -1968,21 +1995,37 @@ section.clip-marked[data-lattice-overflow-marker="reader"] > .overflow-tab {
    * test/integration/export/export-formats.test.js.
    *
    * The lesson the third time: an opaque overlay on a full slide overlaps SOMETHING
-   * wherever you put it, so the question is not "which gap" but "whose territory". The
-   * answer is the TOP BAND, CENTERED — the block-start padding keeps content out of it by
-   * construction, and unlike the top-right corner the marker is the only thing there.
-   * (BOTTOM-center is where this started and is the one band it may not take: that is the
-   * footer's.) `2026-07-30-overflow-marker-register.md` describes `reader` as "the SAME
-   * text-labeled tab restyled", not as a differently-placed one, so the pill takes the
-   * author tab's berth verbatim. Nothing about position is overridden here; that is the
-   * point, and it is why moving the berth moved both registers at once. */
+   * wherever you put it, so the question is not "which gap" but "whose territory". Fix 4
+   * moved BOTH registers to the top band, which answered it for the author and left the
+   * reader's pill sharing a band with the running header for no benefit — the reader has
+   * no second row to de-collide from.
+   *
+   * So the answer is per-audience, and `2026-07-30-overflow-marker-register.md`'s "the
+   * SAME text-labeled tab restyled" is now true of the LABEL and the tone rather than the
+   * berth. That is a deliberate narrowing of that sentence, not an oversight: the two
+   * registers have different neighbors and different populations, and pretending
+   * otherwise is what put a QA marker on a confidentiality line in the first place. */
+
+  /* `top: auto` RELEASES the author berth, and it is not optional: the rule above sets
+     `top`, and an absolutely positioned box with both `top` and `bottom` resolved is
+     over-constrained — `bottom` is ignored and the pill stays at the top. */
+  top: auto;
+  bottom: 0;
+  /* The centering travels in `transform`, and the author stack rule below declares
+     `translate(-50%, var(--stamp-stack, 0%))` on `section > .overflow-tab`. That rule
+     must NOT reach this pill: `--stamp-stack` reserves a row for `stamp-notch`, which is
+     a band across the TOP edge and nothing to do with the bottom of the slide. Restated
+     here at (0,3,1) against its (0,1,1), so specificity decides it rather than source
+     order — this block sits ABOVE that one in the file. */
+  transform: translate(-50%, 0%) !important;
 
   background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */
   color: var(--bg) !important;
-  border-bottom-left-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+  /* The pill RISES from the bottom edge, so the top corners are the ones that round. */
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
   letter-spacing: 0.04em;
   text-transform: none;
   font-weight: 600;

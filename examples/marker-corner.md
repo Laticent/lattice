@@ -38,11 +38,11 @@ The first two stay. The last two berth under the bar.
 
 <!-- _class: split-panel confidential -->
 
-`One marker, one stamp, one logo`
+`What a reader receives`
 
 ## Quarterly program review for the regional distribution network and its downstream partners across four operating territories, with a trailing clause that pushes this heading well past what the panel can hold
 
-The panel below can no longer contain the copy it has been handed, so the export tags the slide. The pill hangs from the middle of the bar; the stamp and the mark keep the corner, and neither displaces it by a pixel.
+The panel below can no longer contain the copy it has been handed, so the export tags the slide. This is a delivered export, so the pill sits against the bottom edge, in the margin under the running footer. The stamp and the mark keep the corner and neither displaces it by a pixel.
 
 - Throughput
   - Median order-to-dock time fell from 41 hours to 26 hours.
@@ -53,11 +53,11 @@ The panel below can no longer contain the copy it has been handed, so the export
 
 <!-- _class: split-panel confidential stamp-notch -->
 
-`The one shape that still reserves`
+`Two ends, two audiences`
 
 ## Quarterly program review for the regional distribution network and its downstream partners across four operating territories, with a trailing clause that pushes this heading well past what the panel can hold
 
-`stamp-notch` is the one shape that paints across the middle of the top edge, so it is the one shape the pill still has to clear. It drops a single row, measured against the tab's own height rather than a magic number.
+`stamp-notch` paints a band across the top edge, and the pill is at the other end of the frame, so the two never meet. A reader gets exactly one marker — the type-floor and Fix-Me tags are authoring registers — so the pill has no second row to place and can take a berth the stacking author tags could not.
 
 - Throughput
   - Median order-to-dock time fell from 41 hours to 26 hours.
@@ -97,8 +97,8 @@ Forgetting a reserve is now safe for every shape that does not cross the middle.
 
 <!-- _class: closing -->
 
-## The band under the bar is empty by construction, and that is why it was chosen.
+## The berth follows the audience, because the neighbors differ at each end.
 
-`Two occupants · one reserve`
+`Author: under the bar · Reader: above the bottom edge`
 
-The stamp used to reserve a row, which landed the clip tab at y 23–46 inside a mark occupying y 24–75, opaque, cutting the top off the logo. A slide pads `6.875cqi` at the block start, so nothing in flow can paint in the band below the bar — and `top: 0` resolves against the padding box, so flush stays flush with no token to keep in step.
+The stamp used to reserve a row, which landed the clip tag at y 23–46 inside a mark occupying y 24–75, opaque, cutting the top off the logo. Now the authoring tags take the band under the spectrum, where an author looks for diagnostics, and the one marker a reader receives takes the strip below the running footer — frame margin no component writes into.
