@@ -729,6 +729,112 @@ test('core: carousel — STRATEGY_CASES covers every registered strategy', () =>
 
 const roleOf = (sec) => (sec.match(/\sdata-split-role="([^"]*)"/) || [])[1] || null;
 
+// ── math-structures: the DISPATCH ORDER, which is the whole strategy ──────────────
+//
+// `math-structures` picks an arm by the shape it finds in the stage, and the first cut got the
+// ORDER wrong in a way no committed sample could show. It asked `cover-paginate` first, and that
+// function's only question is "is there a list or a table with two or more members anywhere in
+// the stage" — `firstList` is deliberately nesting-tolerant. So any math slide carrying a list
+// ANYWHERE won the paginate arm before the structural arms were consulted, and the manifest's own
+// promise ("`stats` and `canvas` keep the whole slide") held only for the two committed samples.
+//
+// One authoring keystroke broke it, and the keystroke is the one this repo's house style teaches:
+// write the `stats` reading as a list instead of a paragraph and the slide came out as four pages
+// with the CI panel on a cover and the estimate it qualifies on the next page. Measured on real
+// renders at `size: portrait`, all three cases below.
+//
+// These fixtures are therefore not "more coverage" — they are the three shapes that distinguish a
+// correct dispatch from an incorrect one, and STRATEGY_CASES cannot: its one fixture per strategy
+// exercises whichever arm that fixture happens to hit.
+describe('core: carousel — math-structures dispatches on the STRUCTURE, not on the first list it finds', () => {
+  const mathTag = (variant) => `<section data-lattice-slide="1" id="s1" class="math ${variant} form">`;
+  const mathInner = (stage) => '<div class="cell-masthead"><div class="masthead-lede">'
+    + '<h2>The heading</h2></div></div>'
+    + `<div class="cell-stage">${stage}</div><div class="cell-footer"><footer>math</footer></div>`;
+  const recipe = { strategy: 'math-structures' };
+  const split = (tag, inner) => carouselize(tag, inner, recipe, 2, 'math');
+
+  test('`stats` refuses BY NAME, even when its reading is authored as a list', () => {
+    // The three-part scaffold — estimate, interval, reading — is one statement. Its indivisibility
+    // is a fact about the VARIANT, so it is asserted in code rather than left to fall out of a
+    // member count that an author's markup can change.
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">b</span></span></p>'
+      + '<blockquote><p>95% CI</p></blockquote>'
+      + '<ul><li>Effect size is the headline</li><li>The p-value rules out chance</li>'
+      + '<li>The interval is the honest range</li></ul>',
+    );
+    assert.equal(split(mathTag('stats'), inner), null,
+      'a `math stats` slide must keep the whole slide whatever its reading is authored as');
+  });
+
+  test('`canvas` refuses BY NAME, even when its reading is authored as a list', () => {
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">s</span></span></p>'
+      + '<ul><li>Maps R to (0,1)</li><li>S-shaped</li><li>Steepest at the origin</li></ul>'
+      + '<div class="functionplot"><svg viewBox="0 0 10 10"></svg></div>',
+    );
+    assert.equal(split(mathTag('canvas'), inner), null,
+      'a `math canvas` slide must keep the whole slide — the plot is not a collection');
+  });
+
+  test('a `theorem` card that CONTAINS a list still splits by CARD, and loses no card', () => {
+    // Run paginate-first this emitted three pages that had dropped the Definition and Theorem
+    // cards entirely and repeated one list item across two of them.
+    const card = (label, body) => `<blockquote><p><strong>${label}</strong> ${body}</p></blockquote>`;
+    const inner = mathInner(
+      card('Definition.', 'A function is continuous.')
+      + card('Theorem.', 'Every intermediate value is attained.')
+      + '<blockquote><p><strong>Proof.</strong> Three moves:</p>'
+      + '<ul><li>take the supremum</li><li>continuity forces equality</li><li>conclude</li></ul></blockquote>',
+    );
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.length, 4, `cover + one card per page, got ${parts?.length}`);
+    for (const label of ['Definition.', 'Theorem.', 'Proof.']) {
+      const on = parts.filter((p) => p.includes(label)).length;
+      assert.equal(on, 1, `${label} must appear on exactly one page, appeared on ${on}`);
+    }
+  });
+
+  test('a `compare` column that CONTAINS bullets still splits by COLUMN, and keeps its own bullets', () => {
+    // Run paginate-first this put BOTH columns on every page and sliced only the first column's
+    // list, scattering its items out of order.
+    const col = (name, bullets) => `<h3>${name}</h3>`
+      + '<p><span class="katex-display"><span class="katex">e</span></span></p>'
+      + `<ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul>`;
+    const inner = mathInner(col('Frequentist', ['no prior', 'sampling distribution'])
+      + col('Bayesian', ['conditions on the prior', 'posterior is the uncertainty']));
+    const parts = split(mathTag('compare'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.length, 3, `cover + one column per page, got ${parts?.length}`);
+    const freq = parts.find((p) => p.includes('Frequentist') && !roleOf(p).includes('cover'));
+    assert.ok(freq && !freq.includes('Bayesian'), 'a column page must not carry the other column');
+    assert.ok(freq.includes('sampling distribution'), "…and must keep its own column's bullets");
+  });
+
+  test('the equation+legend arm still fires — the guard is on NESTING, not on lists', () => {
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">b</span></span></p>'
+      + '<ul><li>one</li><li>two</li><li>three</li></ul>',
+    );
+    const parts = split(mathTag(''), inner);
+    assert.ok(Array.isArray(parts) && parts.length >= 3,
+      `a direct-child legend must still paginate, got ${parts?.length}`);
+  });
+
+  test('a legend nested BELOW the stage is not a seam — the slide rings', () => {
+    // `firstList` would find this list; the stage has no collection of its own, so there is no
+    // structure to cut and the honest answer is the ring.
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">b</span></span></p>'
+      + '<div class="wrap"><ul><li>one</li><li>two</li><li>three</li></ul></div>',
+    );
+    assert.equal(split(mathTag(''), inner), null);
+  });
+});
+
+
 describe('core: carousel — every strategy emits a role-stamped envelope (§8 rule 9)', () => {
   for (const [name, tag, inner, rec] of STRATEGY_CASES) {
     test(`${name}: every emitted page carries a valid role, cover first, closing last`, () => {

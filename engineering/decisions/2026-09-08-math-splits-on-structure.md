@@ -5,7 +5,8 @@ summary: >-
   structures, so `math-structures` dispatches over four arms — equation+legend and the derivation
   step table delegate to the shared `cover-paginate` kernel (the equation and the `<thead>` repeat
   on every body page), while theorem's card stack and compare's columns slice one member per page
-  by removing spans; `stats` and `canvas` are fixed scaffolds and keep the whole slide. Moves
+  by removing spans; `stats` and `canvas` are fixed scaffolds that refuse BY NAME, and the two
+  paginated arms run last and only on a direct-child collection. Moves
   `math` from `atomic` to `read-across`, the treatment that requires a strategy rather than
   permitting a bare axis. Adds the Fit Spine's missing COLLAPSE move for equations:
   `lib/core/tex-linebreak.js` breaks a display equation too long for the slide onto `aligned`
@@ -54,11 +55,23 @@ Measured off the committed manifest samples, rendered at `hd`:
 
 `math-structures` (`lib/core/carousel.js`) dispatches on that shape.
 
-**Two arms are the shared kernel, not new code.** equation+legend is a `<ul>` under a `<p>` and
-the step table is a `<table>` — exactly what `cover-paginate` paginates, with the equation and the
-`<thead>` repeating on every body page because they sit outside the collection. A legend page
-without its equation is unreadable, which is the same argument the `journey` oracle entry makes
-about repeating its mood key.
+**Two arms are the shared kernel, not new code — and they run LAST.** equation+legend is a `<ul>`
+under a `<p>` and the step table is a `<table>` — exactly what `cover-paginate` paginates, with the
+equation and the `<thead>` repeating on every body page because they sit outside the collection. A
+legend page without its equation is unreadable, which is the same argument the `journey` oracle
+entry makes about repeating its mood key.
+
+The ORDER is load-bearing and the first cut had it backwards. `cover-paginate` asks one question —
+is there a list or a table with two or more members anywhere in the stage — because `firstList` is
+deliberately nesting-tolerant. Run first, it outranked the two structural arms whenever a card or a
+column happened to contain a list of its own: a `theorem` whose Proof card carried a three-step
+list came out having dropped the Definition and Theorem cards entirely and repeating one step
+across two pages; a `compare` with bullets under each `###` put BOTH columns on every page and
+sliced only the first column's list, out of order. Both measured on real renders. The structural
+arms go first now, and the paginated arms additionally require the collection to be a DIRECT child
+of the stage — which also means `stageMembers` had to stop using `directChildren` (it tracks
+nesting of ONE tag, so a `<ul>` inside a `<div>` reads as a child of the string) and use a real
+top-level walk.
 
 **Two arms have no collection, which is why they need a preprocessor.** Markdown renders theorem's
 cards as sibling `<blockquote>`s and compare's columns as a flat `h3, p, p, h3, p, p` run. Both
@@ -67,9 +80,20 @@ slice by REMOVING SPANS rather than re-authoring the body — the plain envelope
 stamp `data-split-label`, because `membersIn` resolves a page's members as its first list and
 neither structure has one, so the forward pointer would otherwise be silent.
 
-**`stats` and `canvas` fall out rather than being special-cased.** `stats` has one blockquote,
-below the two-member floor; `canvas` has a plot and no repeating collection. The strategy returns
-null and both keep ringing.
+**`stats` and `canvas` REFUSE BY NAME, and the first cut of this was wrong about that.** It let
+them "fall out of the rules" — `stats` has one blockquote, below the two-member floor, and `canvas`
+has a plot rather than a collection — and was pleased with itself for not special-casing them. That
+is a claim about the two COMMITTED SAMPLES, not about the variants, and one authoring keystroke
+breaks it: write the stats reading as a list instead of a paragraph, which is what this repo's
+house style trains an author to do, and `cover-paginate` claims the slide. Measured at portrait:
+four pages, the cover carrying the CI and p-value stripped of their panel while the estimate they
+qualify sits on the next page — verbatim the failure the demo deck's own slide text says the design
+avoids.
+
+Being indivisible is a fact about the VARIANT. The manifest already asserted it in prose; it is
+asserted in code now, where the engine can act on it — the same argument that placed math
+`read-across` so a bare axis could never paginate these two, which the dispatch was quietly undoing
+on its own first line. Found by the HARD RULE #25 inversion.
 
 ## Placement: read-across, for roadmap's and journey's reason
 
@@ -110,6 +134,14 @@ of them is one they composed. Every 16:9 render in the repo is byte-identical ac
 emits. A single-line hero keeps its 2.4em, so no slide that fits today moves. This is not the
 shrink-to-fit axiom 3 bans: a one-line hero and a three-line derivation are different shapes, and
 setting the multi-line one at the single-line size is what made it unreadable.
+
+**The pass reaches every layout; the compensating scale does not, and that is measured rather than
+overlooked.** `installMath` is in the shared markdown pipeline, so a display equation on a
+`content` slide is reflowed too, while `math.styles.css`'s scale is scoped to `section.math`. It
+does not need to be wider: outside math's scaled-up hero the base display size is much smaller —
+the logistic log-likelihood on a `content` slide at portrait renders 932px of ink in a 932px box
+after the break alone, with no overflow warning. An equation that still does not fit rings, which
+is what the watcher is for. Recorded so the next reader knows the asymmetry was priced.
 
 The 2.4em itself is left alone, and #2129's CSS comment explains why one rule cannot serve both
 samples: bare's hero renders 914px inside a 972px box at 2.4em, so dropping the declaration to fit

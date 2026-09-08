@@ -60,13 +60,31 @@ describe('engine: the display-equation reflow seam', () => {
 
   test('a rewrite KaTeX cannot parse falls back to the author\'s source, not to an error box', () => {
     // Force the failure at the seam rather than simulating it: a stub `reflowDisplayTex` cannot
-    // be injected, so this drives the real guard by checking that NO input produces `katex-error`
-    // where the unreflowed render does not. An unbalanced `\left` is the shape most likely to
-    // survive the rule and fail the typesetter.
+    // be injected, so this drives the real guard by checking that NO input produces an error
+    // render where the unreflowed source does not. An unbalanced `\left` is the shape most likely
+    // to survive the rule and fail the typesetter.
     const nasty = '\\left( a + b + \\mathrm{' + 'q'.repeat(70) + '} + c \\right] + d + e';
     const on = render(nasty, { reflow: true });
     const off = render(nasty, {});
     assert.equal(/katex-error/.test(on), /katex-error/.test(off),
       'the reflow introduced a typeset error the author\'s own source does not have');
+  });
+
+  test('BOTH of KaTeX\'s failure renderings are caught — only one of them carries a class', () => {
+    // A ParseError becomes `<span class="katex-error">`; an UNDEFINED CONTROL SEQUENCE becomes
+    // `<span class="mord text" style="color:#cc0000">` with no error class anywhere. The seam
+    // tested `katex-error` alone and so adopted a render carrying a red literal `\Bigra` mid-
+    // equation with the group's closing bracket gone. Both signals are asserted here, over the
+    // whole surface: no equation may gain an error render it did not already have.
+    const shapes = [
+      'z = \\left( \\alpha + \\beta + \\gamma + \\delta + \\epsilon + \\zeta + \\eta \\right)\\rightarrow w',
+      '\\left[ \\alpha\\beta + \\gamma\\delta + \\epsilon\\zeta + \\eta\\theta + \\iota\\kappa + \\lambda\\mu \\right]',
+      '\\text{ARR} = \\text{New} + \\text{Expansion} - \\text{Churn} - \\text{Contraction} - \\text{Downgrade}',
+    ];
+    const bad = (html) => /katex-error/.test(html) || /color:#cc0000/.test(html);
+    for (const tex of shapes) {
+      assert.equal(bad(render(tex, { reflow: true })), bad(render(tex, {})),
+        `the reflow of \`${tex.slice(0, 40)}…\` renders an error the source does not`);
+    }
   });
 });

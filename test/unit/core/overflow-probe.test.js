@@ -975,7 +975,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
   // Mount real nodes and stub only the geometry jsdom does not compute. `clipBoxes`
   // names the boxes whose computed overflow is non-visible; `scroll` supplies
   // scrollHeight/clientHeight for boxes that need them.
-  function mount(html, rects, { clipBoxes = [], scroll = {}, pseudo = {}, textRects = {}, truncate = [] } = {}) {
+  function mount(html, rects, { clipBoxes = [], scroll = {}, pseudo = {}, textRects = {}, truncate = [], flex = [] } = {}) {
     const dom = new JSDOM('<!doctype html><body>' + html + '</body>');
     const { window } = dom;
     const doc = window.document;
@@ -1017,6 +1017,9 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     // `clipSet` as well: modelling only the `text-overflow` declaration would describe
     // a box CSS treats as non-truncating, and the probe reads all three properties.
     const truncSet = new Set(truncate.flatMap((sel) => [...doc.querySelectorAll(sel)]));
+    // A box laid out as a FLEX container — `text-overflow` is inert on one, so the probe must
+    // not exempt it however the three text properties read.
+    const flexSet = new Set(flex.flatMap((sel) => [...doc.querySelectorAll(sel)]));
     const prev = global.getComputedStyle;
     global.getComputedStyle = (el, pe) => {
       if (pe) return { content: pseudo[el.id] && pe === '::after' ? `"${pseudo[el.id]}"` : 'none' };
@@ -1027,7 +1030,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
         textOverflow: trunc ? 'ellipsis' : 'clip',
         whiteSpace: trunc ? 'nowrap' : 'normal',
         position: el.dataset?.pos || 'static',
-        display: 'block',
+        display: flexSet.has(el) ? 'flex' : 'block',
         visibility: 'visible',
       };
     };
@@ -1181,6 +1184,25 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
       (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
     assert.equal(r.over, true, 'vertical spill out of a truncating box is not the ellipsis working');
     assert.equal(r.vOver, true);
+  });
+
+  test('#2138 — a FLEX container is not exempt: `text-overflow` does nothing there', () => {
+    // `text-overflow` acts on a block container's own inline formatting context, so it is inert on
+    // a flex or grid container — this repo's own CSS says so twice. Measured in Chrome 131: a
+    // block container ellipsises, a flex container hard-clips mid-glyph with no ellipsis at all.
+    // Exempting those from `over` would trade a false positive for a silent content loss.
+    const html = '<section class="form"><div class="cell-footer">'
+      + '<footer id="ft"><span id="a">one</span></footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),
+      '#a': rect(650, 690, 900, 1400),           // 760px past the box's right edge
+    };
+    const scroll = { section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 } };
+    const r = withDom(html, rects, { scroll, truncate: ['#ft'], flex: ['#ft'] },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, true, 'a flex container cannot ellipsise, so its spill is real loss');
   });
 
   test('#2138 — a NON-truncating clip box still contributes its horizontal spill', () => {

@@ -126,6 +126,70 @@ describe('core: tex-linebreak — what it refuses, which is most things', () => 
     assert.equal(r.lines, 1);
   });
 
+  test('a `%` COMMENT is refused — the pass is unsound in both directions across one', () => {
+    // Two measured breaks, both on real renders. (a) `emit` joins with a literal ` \\`, and a `%`
+    // earlier on that line comments the terminator out, so the next line merges in as a third
+    // alignment column. (b) The break scan reads straight through a comment, so an operator
+    // INSIDE one becomes a break point and everything the author commented OUT is put back on the
+    // slide — nine terms restored, and a slide that fitted came back tagged "Content clipped".
+    const eaten = '\\mathcal{L}(\\theta) = \\alpha + \\beta % the prior term\n + \\gamma + \\delta + \\epsilon + \\zeta';
+    const revealed = 'E_{\\text{tot}} = mc^2 % + \\lambda + \\mu + \\nu + \\xi + \\omicron + \\pi + \\rho + \\sigma + \\tau';
+    for (const src of [eaten, revealed]) {
+      const r = reflowDisplayTex(src);
+      assert.equal(r.lines, 1);
+      assert.equal(r.tex, src, 'a commented equation must come back byte-identical');
+    }
+    // …but an ESCAPED percent is a literal glyph, not a comment, and must not block the break.
+    const literal = 'r = \\alpha\\%_{1} + \\beta\\%_{2} + \\gamma\\%_{3} + \\delta\\%_{4} '
+      + '+ \\epsilon\\%_{5} + \\zeta\\%_{6} + \\eta\\%_{7}';
+    assert.ok(literal.length > REFLOW_BUDGET);
+    assert.ok(reflowDisplayTex(literal).lines > 1, 'an escaped `\\%` is not a comment');
+  });
+
+  test('`\\cr` and `\\newline` are the author\'s layout too, not just `\\\\`', () => {
+    for (const brk of ['\\cr', '\\newline']) {
+      const src = `y = \\alpha + \\beta ${brk} + \\gamma + \\delta + \\epsilon + \\zeta + \\eta + \\theta + \\iota`;
+      const r = reflowDisplayTex(src);
+      assert.equal(r.lines, 1, `${brk} must be refused`);
+      assert.equal(r.tex, src);
+    }
+  });
+
+  test('a `\\right`-PREFIXED token after the group does not steal the closing delimiter', () => {
+    // `closerOf` searched with `lastIndexOf('\\right', g.end)`, and `lastIndexOf` accepts a match
+    // starting AT `from` — so `\\rightarrow` immediately after `\\right)` won, the closer came out
+    // as `a`, and the emitted `\\Bigra` was an undefined control sequence with the group's `)` gone.
+    const src = 'z = \\left( \\alpha + \\beta + \\gamma + \\delta + \\epsilon + \\zeta + \\eta \\right)\\rightarrow w';
+    const r = reflowDisplayTex(src);
+    assert.ok(r.lines > 1, 'expected a break');
+    assert.match(r.tex, /\\Bigr\)/, 'the closing delimiter must survive the descent');
+    assert.doesNotMatch(r.tex, /\\Bigra/);
+    assert.ok(renders(r.tex));
+    // …and the trailing `\rightarrow w` still rides the last line.
+    assert.match(r.tex, /\\rightarrow w/);
+  });
+
+  test('with NO relation, the descent does not fabricate a leading `+`', () => {
+    // A sign is meaning. This emitted `{op: null, text: ''}` then a hard-coded `'+'`, so the
+    // expression came out with a `+` in front of its opening bracket under an empty `aligned` row.
+    const src = '\\left[ \\alpha\\beta + \\gamma\\delta + \\epsilon\\zeta + \\eta\\theta + \\iota\\kappa + \\lambda\\mu \\right]';
+    const r = reflowDisplayTex(src);
+    assert.ok(r.lines > 1, 'expected a break');
+    const first = r.tex.split('\\\\')[0].replace('\\begin{aligned}', '').trim();
+    assert.doesNotMatch(first, /^&\s*\+/, `a fabricated leading sign: ${first}`);
+    assert.match(first, /^&\s*\\Bigl\[/);
+    assert.ok(renders(r.tex));
+  });
+
+  test('`lines === 1` always means UNCHANGED — a one-row aligned is not a break', () => {
+    // A two-segment relation split emits a single `lhs ={}& rhs` row, so `lines` was 1 while `tex`
+    // had been rewritten — contradicting this module's own return contract.
+    const src = '\\alpha\\beta\\gamma\\delta\\epsilon\\zeta\\eta\\theta\\iota = \\kappa\\lambda\\mu\\nu\\xi\\omicron\\pi\\rho\\sigma';
+    const r = reflowDisplayTex(src);
+    assert.equal(r.lines, 1);
+    assert.equal(r.tex, src, '`lines === 1` promises the input back, identically');
+  });
+
   test('a non-string input is returned as-is rather than thrown on', () => {
     for (const bad of [null, undefined, 42, {}]) {
       assert.equal(reflowDisplayTex(bad).lines, 1);
