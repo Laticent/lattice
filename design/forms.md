@@ -230,7 +230,13 @@ authored by a *designer*; a **Tile** binds a *source*.
   side did not exist until 2026-09-08, so a Frame could not state what it accepts.
   A sovereign Frame admits exactly `["sovereign"]` — it hosts the one component
   carrying its name, which is what `exemptFromChrome` has always meant in practice.
-  `checkFrameAdmits` ties the field to the generated catalog in both directions.
+  Two checks tie it to the generated catalog: `checkFrameAdmits` rejects a kind
+  no component declares, and `checkAdmitsCensus` (from `loadCatalog`) rejects a
+  kind no Frame hosts. **Know their limits.** The catalog's `sovereign` values are
+  themselves derived from `exemptFromChrome`, so that arm is self-referential; and
+  a root Frame that UNDER-claims — omitting `canvas` it really hosts — passes
+  every gate today. This is a declaration with a consistency check, not a
+  verified contract.
 - **`subGrid`** — the internal grid template + ratios.
 - **`cells`** — the Cells it produces (each a full Cell definition).
 - **`suppresses`** — chrome Cells a sovereign Frame hides.
@@ -341,8 +347,10 @@ See `engineering/decisions/2026-08-24-universal-coda-cell.md`.
 **Two rules the map obeys:**
 
 1. **Not everything hoists.** Only the chrome parts (eyebrow · title · lede;
-   footer + the logo / meta / status / progress / pagination tiles) hoist into
-   named Cells. A component's OWN non-hoisted parts — caption, figure furniture,
+   footer + the meta / status / progress / pagination tiles) hoist into
+   named Cells. The **logo and watermark hoist nowhere** — they are
+   frame-anchored, positioned against the section itself, and dock in the
+   `slide` Cell. A component's OWN non-hoisted parts — caption, figure furniture,
    any per-component structure — live *inside its stage Cell*, placed by the
    component's own CSS. The component owns its semantics; the Frame owns the Cells.
 2. **Universal authoring concepts are stage content.** Key Insight
@@ -712,7 +720,8 @@ trailing paragraph, which docks in the `coda` Cell (§5.1).
 
 ```
 SLIDE  ──is a──▶  one Frame (the root chrome frame, or a sovereign frame)
-  └─ divides into Cells ─┬─ Cell (masthead) ─▶ holds chrome Tiles (kicker, title, logo, meta…)
+  └─ divides into Cells ─┬─ Cell (masthead) ─▶ holds chrome Tiles (kicker, title, meta, status)
+                         ├─ Cell (slide)    ─▶ frame-anchored Tiles (logo, watermark) — the section box
                          ├─ Cell (stage)    ─▶ holds the content Tile (the author's Component)
                          └─ Cell (footer)   ─▶ holds chrome Tiles (footer, progress, pagination)
 ```

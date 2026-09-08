@@ -2,16 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lattice.laticent.io/forms/cell.schema.json",
   "title": "Lattice Form Cell",
-  "description": "A typed slot \u2014 an empty, sized, positioned box \u2014 produced by a Frame and occupied by a Tile. The connective tissue of the Form composition model (design/forms.md \u00a73, \u00a75, \u00a76). Cells are RESOLUTION-BLIND: geometry references CSS token names (e.g. --masthead-h, --frame-x) defined in lib/base, never px literals. See design/forms.md \u00a76.",
+  "description": "A typed slot — an empty, sized, positioned box — produced by a Frame and occupied by a Tile. The connective tissue of the Form composition model (design/forms.md §3, §5, §6). Cells are RESOLUTION-BLIND: geometry references CSS token names (e.g. --masthead-h, --frame-x) defined in lib/base, never px literals. See design/forms.md §6.",
   "type": "object",
-  "required": [
-    "id",
-    "region",
-    "z",
-    "accepts",
-    "capacity",
-    "fill"
-  ],
+  "required": ["id", "region", "z", "accepts", "capacity", "fill"],
   "additionalProperties": false,
   "properties": {
     "$schema": {
@@ -36,71 +29,48 @@
         "overlay",
         "slide"
       ],
-      "description": "Band position on the slide (design/forms.md \u00a75/\u00a76). masthead carries the sub-cells masthead-lede (kicker+title) and masthead-bay (meta\u00b7logo\u00b7status); coda is the trailing editorial band beneath the stage (key insight, below-note \u2014 lib/core/coda.js); footer carries the three zones footer-left \u00b7 progress-center \u00b7 pagination-right; overlay is the z4 annotation plane. slide is the whole section box \u2014 the home of frame-anchored Tiles (logo, watermark) that are positioned against the slide rather than docked in a band."
+      "description": "Band position on the slide (design/forms.md §5/§6). `slide` is the whole section box — the home of frame-anchored Tiles (logo, watermark) that position against the slide rather than docking in a band. masthead carries the sub-cells masthead-lede (kicker+title) and masthead-bay (meta·logo·status); coda is the trailing editorial band beneath the stage (key insight, below-note — lib/core/coda.js); footer carries the three zones footer-left · progress-center · pagination-right; overlay is the z4 annotation plane."
     },
     "z": {
       "type": "integer",
       "minimum": 0,
       "maximum": 4,
-      "description": "The Cell's content plane: 0 canvas \u00b7 1 atmosphere \u00b7 2 content \u00b7 3 chrome \u00b7 4 annotation (design/forms.md \u00a75). For a `capacity: stack` Cell (e.g. stage), occupants may span lower planes \u2014 a surface Tile (z0/z1) stacks below the content Tile (z2) in the same Cell \u2014 so `z` is the Cell's principal plane, not a ceiling on every occupant."
+      "description": "The Cell's content plane: 0 canvas · 1 atmosphere · 2 content · 3 chrome · 4 annotation (design/forms.md §5). For a `capacity: stack` Cell (e.g. stage), occupants may span lower planes — a surface Tile (z0/z1) stacks below the content Tile (z2) in the same Cell — so `z` is the Cell's principal plane, not a ceiling on every occupant."
     },
     "accepts": {
       "type": "array",
       "minItems": 1,
-      "items": {
-        "enum": [
-          "surface",
-          "chrome",
-          "content",
-          "review",
-          "frame"
-        ]
-      },
-      "description": "Tile kinds that may dock in this Cell (the containment contract, design/forms.md \u00a77). A Cell accepts by KIND, never by name (Open/Closed). NOTE: 'frame' is NOT general recursion \u2014 it marks a chrome band whose interior is a FIXED sub-layout of cells (masthead\u2192lede/bay, footer\u2192zones); content cells never hold nested Frames. Recursive frames-in-cells were considered and rejected \u2014 see engineering/decisions/2026-06-18-frame-recursion-cells.md."
+      "items": { "enum": ["surface", "chrome", "content", "review", "frame"] },
+      "description": "Tile kinds that may dock in this Cell (the containment contract, design/forms.md §7). A Cell accepts by KIND, never by name (Open/Closed). NOTE: 'frame' is NOT general recursion — it marks a chrome band whose interior is a FIXED sub-layout of cells (masthead→lede/bay, footer→zones); content cells never hold nested Frames. Recursive frames-in-cells were considered and rejected — see engineering/decisions/2026-06-18-frame-recursion-cells.md."
     },
     "capacity": {
-      "enum": [
-        "one",
-        "stack"
-      ],
+      "enum": ["one", "stack"],
       "description": "Whether the Cell holds a single occupant ('one') or a z-stack of them ('stack')."
     },
     "fill": {
-      "enum": [
-        "start",
-        "center",
-        "optical-center",
-        "anchor",
-        "end"
-      ],
-      "description": "How an underfilling occupant distributes (design/forms.md \u00a75). The difference between a 'grid of boxes' and a board deck."
+      "enum": ["start", "center", "optical-center", "anchor", "end"],
+      "description": "How an underfilling occupant distributes (design/forms.md §5). The difference between a 'grid of boxes' and a board deck."
     },
     "gap": {
       "type": "string",
-      "description": "Guaranteed gap to neighbors, as a CSS token NAME (e.g. --frame-gap) defined in lib/base \u2014 referenced, never redefined here. See design/forms.md \u00a76."
+      "description": "Guaranteed gap to neighbors, as a CSS token NAME (e.g. --frame-gap) defined in lib/base — referenced, never redefined here. See design/forms.md §6."
     },
     "geometry": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Resolution-blind geometry \u2014 references CSS token NAMES defined in lib/base/base.tokens.css / base.variants.css (e.g. --masthead-h, --frame-x). Never px literals (design/forms.md \u00a76).",
+      "description": "Resolution-blind geometry — references CSS token NAMES defined in lib/base/base.tokens.css / base.variants.css (e.g. --masthead-h, --frame-x). Never px literals (design/forms.md §6).",
       "properties": {
-        "size": {
-          "type": "string",
-          "description": "Token name(s) for the Cell's size (e.g. --masthead-h)."
-        },
-        "inset": {
-          "type": "string",
-          "description": "Token name(s) for the Cell's inset from the frame edge (e.g. --frame-x)."
-        }
+        "size": { "type": "string", "description": "Token name(s) for the Cell's size (e.g. --masthead-h)." },
+        "inset": { "type": "string", "description": "Token name(s) for the Cell's inset from the frame edge (e.g. --frame-x)." }
       }
     },
     "clip": {
       "type": "boolean",
-      "description": "overflow:hidden \u2014 content is cut at the Cell, never bled across a neighbor (design/forms.md \u00a76 clip guarantee)."
+      "description": "overflow:hidden — content is cut at the Cell, never bled across a neighbor (design/forms.md §6 clip guarantee)."
     },
     "css": {
       "type": "boolean",
-      "description": "Whether this Cell ships a co-located 2D stylesheet lib/forms/cell/<id>/<id>.css (the build asserts presence/absence \u2014 manifest\u2194CSS gate \u00a74.1). Default true; set FALSE for a pure token/coordinate-contract Cell with no CSS of its own (footer-left, pagination-right, progress-center, overlay)."
+      "description": "Whether this Cell ships a co-located 2D stylesheet lib/forms/cell/<id>/<id>.css (the build asserts presence/absence — manifest↔CSS gate §4.1). Default true; set FALSE for a pure token/coordinate-contract Cell with no CSS of its own (footer-left, pagination-right, progress-center, overlay)."
     }
   }
 }

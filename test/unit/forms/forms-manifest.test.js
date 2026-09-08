@@ -209,16 +209,27 @@ test('(e) formsSlicingCss emits SECTION-scoped rules (so footer Cells inherit th
 // manifest). Adding `slide` in 2026-09 hit exactly that split: the schema accepted
 // the new region and the loader threw. They are not derived from one another, so
 // nothing but this test stops them drifting again.
-test('(f) the region vocabulary is identical in the schema and the loader', () => {
+test('(f) the region vocabulary is identical in all THREE places that carry it', () => {
   const { CELL_REGIONS } = require('../../../lib/forms');
-  const schema = require('../../../lib/forms/schema/cell.schema.json');
-  const fromSchema = schema.properties.region.enum;
-  assert.ok(Array.isArray(fromSchema) && fromSchema.length > 0, 'schema enumerates regions');
-  assert.deepEqual(
-    [...CELL_REGIONS].sort(),
-    [...fromSchema].sort(),
-    'lib/forms/index.js CELL_REGIONS and schema/cell.schema.json region enum must match',
-  );
+  const cellSchema = require('../../../lib/forms/schema/cell.schema.json');
+  const frameSchema = require('../../../lib/forms/schema/frame.schema.json');
+
+  const fromCell = cellSchema.properties.region.enum;
+  // The third copy: a slicing block may RELOCATE a Cell to another region, and
+  // frame.schema.json enumerates the legal targets. The first cut of this test
+  // compared only the two above and missed it — which is how adding `slide`
+  // landed in two copies and not the third, widening the very split it closed.
+  const slicing = frameSchema.properties.slicing.patternProperties['^(square|tall|strip)$']
+    .patternProperties['^[a-z][a-z0-9-]*$'].properties.region.enum;
+  const fromFrame = slicing.filter((v) => v !== null); // null = "drop this Cell"
+
+  assert.ok(Array.isArray(fromCell) && fromCell.length > 0, 'the cell schema enumerates regions');
+  assert.ok(fromFrame.length > 0, 'the frame schema enumerates relocation targets');
+  const sorted = (a) => [...a].sort();
+  assert.deepEqual(sorted(CELL_REGIONS), sorted(fromCell),
+    'CELL_REGIONS (lib/forms/index.js) and schema/cell.schema.json must match');
+  assert.deepEqual(sorted(CELL_REGIONS), sorted(fromFrame),
+    'CELL_REGIONS and schema/frame.schema.json slicing region enum must match');
 });
 
 // (g) The two frame-anchored Tiles must keep saying so. `logo` and `watermark`

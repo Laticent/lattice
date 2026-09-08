@@ -3,15 +3,9 @@
   "id": "slide",
   "region": "slide",
   "z": 2,
-  "accepts": [
-    "chrome",
-    "surface"
-  ],
+  "accepts": ["chrome", "surface"],
   "capacity": "stack",
   "fill": "anchor",
-  "geometry": {
-    "inset": "--frame-inset-x"
-  },
   "clip": false,
   "css": false
 }

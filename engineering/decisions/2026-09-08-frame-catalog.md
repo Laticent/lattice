@@ -199,6 +199,17 @@ side ships (`stage: flow|canvas`, in a generated catalog with a drift test), the
 side does not. This is the real gap Law III was reaching for, and it needs motivating
 from this fact rather than from the retired-Sets story.
 
+### 4.5 One pre-existing gap found on the way (logged, not fixed — HARD RULE #18)
+
+**Nothing checks that a Tile's `kind` is accepted by the Cell it `fits`.**
+`checkTileFits` (`lib/forms/index.js`) verifies only that the named Cell exists;
+`checkCellKindsSatisfied` verifies the converse direction (every `accepts` kind has
+*some* Tile). So a `chrome` Tile can declare `fits` on a Cell whose `accepts` is
+`["surface"]` and the catalog loads clean — demonstrated by mutation during the
+review of this branch. The `slide` Cell's `accepts: ["chrome", "surface"]` is
+therefore correct by authorship, not by gate. Off the path of this change; not
+pulled into the diff.
+
 ## 5. What to build, unbundled
 
 In this order. Each stands alone; none needs the others.
