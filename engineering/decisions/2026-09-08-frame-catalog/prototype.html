@@ -324,6 +324,53 @@ code{font-family:var(--mono);font-size:.88em;background:var(--tint-2);padding:1p
 <div class="plates" id="plates"></div>
 
 <section class="blk">
+  <h3 style="font-size:21px;font-weight:600">Where all twelve shipped entries go</h3>
+  <p class="lede">The first cut of this mapping was written as prose and silently
+  accounted for only nine of the twelve — <code>image</code>, <code>scene</code> and
+  <code>math</code> were never placed. A table is the fix: every shipped Frame gets a
+  row, so a missing one is visible.</p>
+  <div class="scroller"><table class="dat">
+    <thead><tr><th>Shipped</th><th>Goes to</th><th>Because</th></tr></thead>
+    <tbody>
+      <tr><td><code>standard</code></td><td><code>standard</code></td><td>—</td></tr>
+      <tr><td><code>minimal</code></td><td><code>standard</code></td><td>a chrome control (<code>no-progress</code>), not a Frame</td></tr>
+      <tr><td><code>split-panel</code></td><td><code>panel</code></td><td><code>before/thesis/2</code></td></tr>
+      <tr><td><code>premise</code></td><td><code>panel</code></td><td>same reading, plain carve — no tinted divide</td></tr>
+      <tr><td><code>compare-code</code></td><td><code>compare</code></td><td><code>before/none/2</code>, titled carve</td></tr>
+      <tr><td><code>split-compare</code></td><td><code>compare</code></td><td><code>before/none/2</code>, symmetric carve</td></tr>
+      <tr><td><code>title</code> · <code>divider</code> · <code>closing</code></td><td><code>bookend</code></td><td>all <code>none/thesis/1</code></td></tr>
+      <tr><td><strong><code>image</code></strong></td><td><strong><code>foot</code></strong></td><td><code>after/thesis/1</code> — the photograph is met first, the words conclude it. The full-bleed poster was <code>foot</code> all along, in a <strong>bleed</strong> carve</td></tr>
+      <tr><td><strong><code>scene</code></strong></td><td><strong><code>foot</code></strong></td><td>same reading as <code>image</code></td></tr>
+      <tr><td><strong><code>math</code></strong></td><td><strong><code>standard</code></strong></td><td>its sheet-01 reading was mis-derived — see below</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="font-size:21px;font-weight:600;margin-top:16px"><code>math</code>, and why the unary readings are five, not six</h3>
+  <p>Sheet 01 gave <code>math</code> the reading <code>before/none/1</code>, which is
+  <strong>not among the nine</strong> — so the collapse had nowhere to put it. The
+  reading was wrong, and the reason generalizes.</p>
+  <p class="note"><strong><code>rank: none</code> is degenerate at arity 1.</strong>
+  With one content cell, &ldquo;no cell is privileged&rdquo; and &ldquo;the one cell is
+  privileged&rdquo; describe the same slide — there is nothing to withhold emphasis
+  <em>from</em>. <code>rank: none</code> only carries meaning at arity ≥ 2, which is
+  exactly where it works: <code>compare</code> is <code>before/none/2</code>, and there
+  the <code>none</code> is a real stance — <em>neither of these two is the answer, you
+  weigh them.</em></p>
+  <p>So the unary readings are five and the asymmetry in the reading table is derived
+  rather than arbitrary. What made <code>math</code> look sovereign is two things that
+  are not the reading: it drives its own <code>&gt; h2</code> title grid, which is a
+  <strong>carve</strong>; and it centers a display equation in the stage, which is the
+  component owning its stage, as Law I grants. A frame-reserved position is a band the
+  <em>Frame</em> holds beyond the stage — <code>plinth</code>&rsquo;s takeaway,
+  <code>margin</code>&rsquo;s rail. Math&rsquo;s equation is inside its own stage, so no
+  rank is reserved. It is <code>standard</code> with a title-grid carve.</p>
+  <p class="small">The same test confirms the pair it might have collapsed:
+  <code>bookend</code> reserves the position and fills it with the thesis
+  (<code>none/thesis/1</code>); <code>quiet</code> reserves nothing at all
+  (<code>none/none/1</code>). Both coherent, genuinely distinct.</p>
+</section>
+
+<section class="blk">
   <h2><span class="secno">04 /</span> The Mode contract</h2>
   <p class="lede">A Mode is a deck-wide hand every component honors. Lattice ships
   one real value — <code>sketch</code> — and its governing rule generalizes:
@@ -462,7 +509,7 @@ const footF=[P('foot',2.4,90.4,19,2.3),P('rail',40,90.4,20,2.6),P('page',93.4,90
 const F=[
 {id:'standard',n:'Standard',ord:'before',rk:'thesis',ar:1,st:'ships',
  intent:'Thesis first, evidence below. The default, and the right answer most of the time.',
- carves:['band (default)','overline — one-line masthead, stage +96px','column — masthead as a left column, stage full height','bleed — stage to trim, chrome on a scrim'],
+ carves:['band (default)','overline — one-line masthead, stage +96px','column — masthead as a left column, stage full height','bleed — stage to trim, chrome on a scrim','title-grid — the component drives its own heading row (math)'],
  admits:'flow + canvas',suits:['content','list','cards-grid','compare-table','bar','line','kpi','checklist','gantt','map'],
  why:'The four carves are the same argument in different boxes — which is exactly why sheet 01 was wrong to call them Frames. <code>overline</code> buys a quarter of the stage height; <code>column</code> is the only carve that gives a component a tall box.',
  sc:9,bd:10,parts:[...mast(52),P('stage',5,35,90,50.5,'STAGE'),...footF]},
@@ -488,8 +535,8 @@ const F=[
 
 {id:'foot',n:'Foot',ord:'after',rk:'thesis',ar:1,st:'new',
  intent:'Evidence first, thesis beneath it — so the words read as the conclusion drawn from the picture.',
- carves:['band (default)','plate — the stage mounted, the band engraved below it'],
- admits:'canvas + flow',suits:['image','scene','video','big-number','piechart','bar','line','diagram','map','quote'],
+ carves:['band (default)','plate — the stage mounted, the band engraved below it','bleed — the image to trim, the words on a scrim (image, scene)'],
+ admits:'canvas + flow',suits:['image','scene','video','big-number','piechart','bar','line','diagram','map','quote','image','scene'],
  why:'The clean reframe. Same chart, same words, no edit to the markdown: under <code>standard</code> the title is a label read before the evidence; here it is a conclusion read after it. Assertion-first becomes evidence-first.',
  sc:8,bd:7,parts:[P('stage',5,9,90,54,'STAGE'),P('rule',5,66.5,90,.6),P('eyebrow',5,69,11,2.2),
   P('title',5,73,48,5.8),P('meta',77,69,18,2.2),P('lede',5,81,36,2.1),...footF]},

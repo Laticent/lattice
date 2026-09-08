@@ -164,19 +164,62 @@ axes compose instead of collide.
 
 | Frame | Reading | Carves | Design | Board |
 |---|---|---|---|---|
-| `standard` | `before/thesis/1` | band · overline · column · bleed | 9 | 10 |
+| `standard` | `before/thesis/1` | band · overline · column · bleed · **title-grid** | 9 | 10 |
 | `margin` | `before/margin/1` | rail right · rail left | 9 | 9 |
 | `plinth` | `before/takeaway/1` | band · wide | 9 | 10 |
-| `foot` | `after/thesis/1` | band · plate | 8 | 7 |
+| `foot` | `after/thesis/1` | band · plate · **bleed** | 8 | 7 |
 | `quiet` | `none/none/1` | open · sheet | 7 | 8 |
 | `panel` | `before/thesis/2` | tinted · plain · well | 9 | 10 |
 | `compare` | `before/none/2` | symmetric · titled | 8 | 9 |
 | `triptych` | `before/thesis/3` | equal · weighted | 8 | 8 |
 | `bookend` | `none/thesis/1` | opening · section · closing · colophon | 9 | 10 |
 
-Twelve shipped entries collapse into four of these: `split-panel` + `premise` +
-`recto` are all `panel`; `split-compare` + `compare-code` are `compare`; `title` +
-`divider` + `closing` are `bookend`; `minimal` is `standard` with a chrome control.
+### 5.4 Where all twelve shipped entries go
+
+An earlier cut of this section wrote the mapping as prose and silently accounted for
+only nine of the twelve. The table is the fix — every shipped Frame has a row, so a
+missing one is visible:
+
+| Shipped | Goes to | Because |
+|---|---|---|
+| `standard` | `standard` | — |
+| `minimal` | `standard` | a chrome control (`no-progress`), not a Frame |
+| `split-panel` | `panel` | `before/thesis/2` |
+| `premise` | `panel` | same reading, plain carve — no tinted divide |
+| `compare-code` | `compare` | `before/none/2`, titled carve |
+| `split-compare` | `compare` | `before/none/2`, symmetric carve |
+| `title` · `divider` · `closing` | `bookend` | all `none/thesis/1` |
+| **`image`** | **`foot`** | `after/thesis/1` — the photograph is met first, the words conclude it. The full-bleed poster was `foot` all along, in a **bleed** carve |
+| **`scene`** | **`foot`** | same reading as `image` |
+| **`math`** | **`standard`** | see below — its sheet-01 reading was mis-derived |
+
+### 5.5 `math`, and why the unary readings are five and not six
+
+Sheet 01 gave `math` the reading `before/none/1`, which **is not among the nine** — so
+the collapse had nowhere to put it. The reading was wrong, and the reason generalizes.
+
+**`rank: none` is degenerate at arity 1.** With one content cell, "no cell is
+privileged" and "the one cell is privileged" describe the same slide — there is
+nothing to withhold emphasis *from*. `rank: none` only carries meaning at arity ≥ 2,
+which is exactly where it does work: `compare` is `before/none/2`, and there the
+`none` is a real stance — *neither of these two is the answer, you weigh them*.
+
+So the unary readings are five, not six, and the asymmetry in the reading table is
+derived rather than arbitrary.
+
+What made `math` look sovereign is two things that are not the reading:
+
+1. **It drives its own `> h2` title grid.** That is a **carve** — where the title
+   sits — not a rank change. The title is still the thesis and still met first.
+2. **It centers a display equation in the stage.** That is the component owning its
+   stage, which Law I explicitly grants. A frame-reserved position is a band the
+   *Frame* holds beyond the stage — `plinth`'s takeaway, `margin`'s rail. Math's
+   equation is inside its own stage, so no rank is reserved.
+
+`math` is therefore `standard` with a title-grid carve, and it needs no Frame of its
+own. The same test distinguishes `bookend` from `quiet` and confirms both: a bookend
+reserves the position and fills it with the thesis (`none/thesis/1`); `quiet` reserves
+nothing at all (`none/none/1`).
 
 `plinth` remains the one to build first — the coda Cell already exists, so it is
 that Cell given a reserved band and a hairline.
