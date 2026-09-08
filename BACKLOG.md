@@ -7,11 +7,11 @@
 
 The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
 grouped by board column. Design lives in `engineering/decisions/`; this tracks
-only *status*. **294 open** items.
+only *status*. **296 open** items.
 
-> ⚠️ **20 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2004](https://github.com/Laticent/lattice/issues/2004), [#2010](https://github.com/Laticent/lattice/issues/2010), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2105](https://github.com/Laticent/lattice/issues/2105), [#2115](https://github.com/Laticent/lattice/issues/2115), [#2116](https://github.com/Laticent/lattice/issues/2116), [#2117](https://github.com/Laticent/lattice/issues/2117), [#2118](https://github.com/Laticent/lattice/issues/2118), [#2119](https://github.com/Laticent/lattice/issues/2119), [#2121](https://github.com/Laticent/lattice/issues/2121).
+> ⚠️ **19 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2004](https://github.com/Laticent/lattice/issues/2004), [#2010](https://github.com/Laticent/lattice/issues/2010), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2105](https://github.com/Laticent/lattice/issues/2105), [#2121](https://github.com/Laticent/lattice/issues/2121), [#2132](https://github.com/Laticent/lattice/issues/2132), [#2133](https://github.com/Laticent/lattice/issues/2133), [#2136](https://github.com/Laticent/lattice/issues/2136), [#2137](https://github.com/Laticent/lattice/issues/2137).
 
-## Backlog (285)
+## Backlog (287)
 
 - [#515](https://github.com/Laticent/lattice/issues/515) feat(playground): Google Drive bring-your-own-storage — Connect / Save / Open — high · website
 - [#617](https://github.com/Laticent/lattice/issues/617) Harden .lattice-*.zip import against zip-slip / path traversal on filesystem-backed (desktop/CLI) imports — high · engine
@@ -199,6 +199,9 @@ only *status*. **294 open** items.
 - [#2070](https://github.com/Laticent/lattice/issues/2070) studio-instant-shell: "a rect from another orientation is not replayed in portrait" fails ~75% of runs on main — medium · website
 - [#2072](https://github.com/Laticent/lattice/issues/2072) studio-header-fit: MIN_SPARE_AT_FLOOR is inert — spareAt reads 246px at the 700px floor, ~230px above the 16px it is checked against — medium · website
 - [#2082](https://github.com/Laticent/lattice/issues/2082) kit(marp): rework the Marp kit once @laticent/lattice is on npm — medium · infra
+- [#2126](https://github.com/Laticent/lattice/issues/2126) test/oracle/family-conformance.json is stale on main: 22 drifts across 8 components, two of them never recorded at all — medium · infra
+- [#2134](https://github.com/Laticent/lattice/issues/2134) The E2E suite runs against a site `npm run build` would not ship — `build:e2e` skips two head-rewriting post-build steps — medium · website
+- [#2138](https://github.com/Laticent/lattice/issues/2138) overflow probe: an ellipsised footer with an inline element reports the whole slide `over` — medium · engine
 - [#180](https://github.com/Laticent/lattice/issues/180) epic(chart): resolution-independent charts — cqi-first, kill fixed-px, for any-format / 10K export — low · chart
 - [#279](https://github.com/Laticent/lattice/issues/279) docs: reconcile Mermaid diagram-type count (README "25" vs gallery "26") — low · diagram
 - [#280](https://github.com/Laticent/lattice/issues/280) docs: fix phantom `--hljs-name`/`--hljs-meta` token rows in highlight-js.docs.md — low · docs
@@ -292,12 +295,11 @@ only *status*. **294 open** items.
 - [#2098](https://github.com/Laticent/lattice/issues/2098) A `list`-layout bullet loses the space around any inline element — `the **class** is` renders as `theclassis`
 - [#2099](https://github.com/Laticent/lattice/issues/2099) A 3.1 MB `mermaid-v11.min.js` is committed at the repository root
 - [#2105](https://github.com/Laticent/lattice/issues/2105) Flaky: `state-chart parsing stays linear` — one arm's ratio floor always engages, making it an absolute timing assertion on CI hardware
-- [#2115](https://github.com/Laticent/lattice/issues/2115) Narration reads `aria-hidden="true"` content — `speechText` and `SKIP_SELECTOR` ignore the attribute
-- [#2116](https://github.com/Laticent/lattice/issues/2116) `capacity.note` never reaches a component's `.docs.md` — 23 of 23 authored notes are invisible
-- [#2117](https://github.com/Laticent/lattice/issues/2117) Intermittent `ENOENT: …/dist.tmp/builder.d.ts` — the four library builders stage into a fixed path and race each other
-- [#2118](https://github.com/Laticent/lattice/issues/2118) `team-profile`: a `li.person` carrying no `.person-*` spans is dropped from Read·Article and from narration
-- [#2119](https://github.com/Laticent/lattice/issues/2119) Studio island does not hydrate on the docs DEV server — Vite CJS interop on `lib/core/front-matter-key.js`
 - [#2121](https://github.com/Laticent/lattice/issues/2121) A math slide narrates its MathML token run and its raw TeX source
+- [#2132](https://github.com/Laticent/lattice/issues/2132) Three component-id / variant-token collisions leak styles across components
+- [#2133](https://github.com/Laticent/lattice/issues/2133) The overflow-corpus baseline is stale: 8 decks clip on main that it records as clean
+- [#2136](https://github.com/Laticent/lattice/issues/2136) math: split on structure — four split preprocessors, plus a TeX line-break pass for over-wide equations
+- [#2137](https://github.com/Laticent/lattice/issues/2137) positionIsTrustworthy refuses any deck whose display math has a lone `=` or `-` continuation line
 
 ## Ready (6)
 
