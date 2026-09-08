@@ -449,10 +449,28 @@ const LABEL={line:['0.5px','0.75px','1px','Mode','1.5px','2px','3px'],
   scale:['0.78×','0.86×','0.93×','Mode','1.12×','1.25×','1.42×']};
 
 const el=id=>document.getElementById(id);
-const read=()=>({comp:el('lv-comp').value,frame:el('lv-frame').value,
-  line:+el('lv-line').value,radius:+el('lv-radius').value,fill:el('lv-fill').value,
-  air:+el('lv-air').value,measure:+el('lv-measure').value,scale:+el('lv-scale').value,
-  mark:el('lv-mark').value,orn:el('lv-orn').value});
+
+/* Every lever value is DOM text, and three of them reach markup — `mark` is
+   substituted into the body template, `orn` and `frame` become class names. A
+   <select> can only yield one of its options TODAY, but nothing in the code says
+   so, and the day this page gains a text field or a URL-driven preset that
+   assumption injects. Read them through a whitelist instead of trusting the
+   element, so the guarantee lives in the code rather than in the markup.
+   (CodeQL "DOM text reinterpreted as HTML", PR #2142.) */
+const COMPS = ['table', 'cards', 'figs', 'steps', 'quote'];
+const FRAMES = ['standard', 'plinth', 'margin', 'foot', 'quiet'];
+const FILLS = ['base', 'filled', 'outlined', 'none'];
+const MARKS = ['base', 'square', 'dot', 'dash', 'rule', 'tick', 'cross'];
+const ORNS = ['base', 'none', 'folio', 'ticks', 'block', 'rule'];
+const oneOf = (v, allowed) => (allowed.includes(v) ? v : allowed[0]);
+// The numeric levers index fixed 7-entry scales; an out-of-range index would
+// read `undefined` into a spec line rather than inject, but clamp anyway.
+const step = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(6, Math.max(0, n)) : 3; };
+
+const read=()=>({comp:oneOf(el('lv-comp').value,COMPS),frame:oneOf(el('lv-frame').value,FRAMES),
+  line:step(el('lv-line').value),radius:step(el('lv-radius').value),fill:oneOf(el('lv-fill').value,FILLS),
+  air:step(el('lv-air').value),measure:step(el('lv-measure').value),scale:step(el('lv-scale').value),
+  mark:oneOf(el('lv-mark').value,MARKS),orn:oneOf(el('lv-orn').value,ORNS)});
 const DEFAULTS={comp:'table',frame:'standard',line:3,radius:3,fill:'base',air:3,
   measure:3,scale:3,mark:'base',orn:'base'};
 
