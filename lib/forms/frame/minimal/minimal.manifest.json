@@ -4,7 +4,11 @@
   "form": "bookend",
   "kind": "root",
   "exemptFromChrome": false,
-  "description": "The quieter root chrome Frame: masthead band (lede + bay), stage, and footer — but the progress rail is suppressed. Reached by dropping the rail with the `no-progress` chrome control (per-slide, or deck-wide via `class: no-progress`). For a less busy deck (design/forms.md §9). (The old `form: minimal` toggle that stamped this was retired 2026-07-03.)",
+  "description": "The quieter root chrome Frame: masthead band (lede + bay), stage, and footer \u2014 but the progress rail is suppressed. Reached by dropping the rail with the `no-progress` chrome control (per-slide, or deck-wide via `class: no-progress`). For a less busy deck (design/forms.md \u00a79). (The old `form: minimal` toggle that stamped this was retired 2026-07-03.)",
+  "admits": [
+    "flow",
+    "canvas"
+  ],
   "cells": [
     "masthead",
     "masthead-lede",
@@ -15,5 +19,7 @@
     "pagination-right",
     "overlay"
   ],
-  "suppresses": ["progress-center"]
+  "suppresses": [
+    "progress-center"
+  ]
 }

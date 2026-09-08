@@ -2,65 +2,115 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lattice.laticent.io/forms/frame.schema.json",
   "title": "Lattice Form Frame",
-  "description": "A slicer — carves a box into Cells. The root Frame carves the whole slide; a sovereign Frame docked in the stage claims the canvas and suppresses chrome Cells (design/forms.md §5, §8, §9). One folder per Frame: lib/forms/frame/<id>/<id>.manifest.json. Adding a sovereign Frame folder (exemptFromChrome:true) auto-extends the engine's FORM_TOGGLE_SKIP set — see lib/integrations/markdown-it/plugins.js.",
+  "description": "A slicer \u2014 carves a box into Cells. The root Frame carves the whole slide; a sovereign Frame docked in the stage claims the canvas and suppresses chrome Cells (design/forms.md \u00a75, \u00a78, \u00a79). One folder per Frame: lib/forms/frame/<id>/<id>.manifest.json. Adding a sovereign Frame folder (exemptFromChrome:true) auto-extends the engine's FORM_TOGGLE_SKIP set \u2014 see lib/integrations/markdown-it/plugins.js.",
   "type": "object",
-  "required": ["id", "form", "kind", "exemptFromChrome", "description", "cells", "suppresses"],
+  "required": [
+    "id",
+    "form",
+    "kind",
+    "exemptFromChrome",
+    "description",
+    "cells",
+    "suppresses",
+    "admits"
+  ],
   "additionalProperties": false,
   "properties": {
-    "$schema": { "type": "string" },
+    "$schema": {
+      "type": "string"
+    },
     "id": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
       "description": "Frame identifier, kebab-case. For a sovereign Frame this is the `_class` value the toggle skips."
     },
     "form": {
-      "enum": ["bookend", "divider", "canvas", "grid", "stack", "ledger", "panel", "matrix", "scatter", "spatial", "timeline", "split"],
-      "description": "The Form value this Frame realizes (one of the twelve Frame types, design/design-system.md §4 / design/forms.md §8)."
+      "enum": [
+        "bookend",
+        "divider",
+        "canvas",
+        "grid",
+        "stack",
+        "ledger",
+        "panel",
+        "matrix",
+        "scatter",
+        "spatial",
+        "timeline",
+        "split"
+      ],
+      "description": "The Form value this Frame realizes (one of the twelve Frame types, design/design-system.md \u00a74 / design/forms.md \u00a78)."
     },
     "kind": {
-      "enum": ["root", "sovereign"],
-      "description": "root carves the slide keeping the chrome; sovereign claims the whole canvas and suppresses chrome Cells (design/forms.md §5). (A 'framed' kind — a Frame nested inside a content Cell — was considered and rejected: engineering/decisions/2026-06-18-frame-recursion-cells.md.)"
+      "enum": [
+        "root",
+        "sovereign"
+      ],
+      "description": "root carves the slide keeping the chrome; sovereign claims the whole canvas and suppresses chrome Cells (design/forms.md \u00a75). (A 'framed' kind \u2014 a Frame nested inside a content Cell \u2014 was considered and rejected: engineering/decisions/2026-06-18-frame-recursion-cells.md.)"
     },
     "exemptFromChrome": {
       "type": "boolean",
       "description": "True for sovereign / chrome-skipped Frames. The set of Frames with exemptFromChrome:true IS the engine's FORM_TOGGLE_SKIP set (derived in lib/integrations/markdown-it/plugins.js)."
     },
-    "description": { "type": "string", "minLength": 1, "description": "One-sentence human description." },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-sentence human description."
+    },
     "cells": {
       "type": "array",
-      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
       "description": "The Cell ids this Frame produces. Each MUST resolve to a real Cell definition (lib/forms/cell/)."
     },
     "suppresses": {
       "type": "array",
-      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
       "description": "Chrome Cell ids a sovereign Frame hides. Each MUST resolve to a real Cell definition."
     },
     "slicing": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Per-family cell-PLACEMENT — how this Frame re-slices the box for each aspect family (lib/adaptive/families.js). An absent family = the default ('wide'/authored) slicing, so a runtime-less render is byte-unchanged. The runtime stamps data-family; same-band entries (tokens) generate [data-family]-keyed CSS, cross-band entries (a region differing from the Cell's default) generate the relocation table the runtime applies. See engineering/decisions/2026-06-21-reflow-as-form-capability.md §7.",
+      "description": "Per-family cell-PLACEMENT \u2014 how this Frame re-slices the box for each aspect family (lib/adaptive/families.js). An absent family = the default ('wide'/authored) slicing, so a runtime-less render is byte-unchanged. The runtime stamps data-family; same-band entries (tokens) generate [data-family]-keyed CSS, cross-band entries (a region differing from the Cell's default) generate the relocation table the runtime applies. See engineering/decisions/2026-06-21-reflow-as-form-capability.md \u00a77.",
       "patternProperties": {
         "^(square|tall|strip)$": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Cell id → its placement at this aspect family. Cells not listed keep their default placement.",
+          "description": "Cell id \u2192 its placement at this aspect family. Cells not listed keep their default placement.",
           "patternProperties": {
             "^[a-z][a-z0-9-]*$": {
               "type": "object",
               "additionalProperties": false,
-              "description": "A Cell's placement override at this family. Bounded by the kind-contract (forms.md §7): a relocation target region must accept the Cell's Tile kind.",
+              "description": "A Cell's placement override at this family. Bounded by the kind-contract (forms.md \u00a77): a relocation target region must accept the Cell's Tile kind.",
               "properties": {
                 "region": {
-                  "enum": ["masthead", "masthead-lede", "masthead-bay", "stage", "footer", "footer-left", "progress-center", "pagination-right", "overlay", null],
-                  "description": "The band this Cell occupies at this family. Differs from the Cell's default region → a CROSS-BAND relocation, applied by the runtime (content moves, never vanishes). null = drop — reserved for genuinely redundant content, NOT the default (dropping authored content silently is the fade decision forms.md §6 rejects)."
+                  "enum": [
+                    "masthead",
+                    "masthead-lede",
+                    "masthead-bay",
+                    "stage",
+                    "footer",
+                    "footer-left",
+                    "progress-center",
+                    "pagination-right",
+                    "overlay",
+                    null
+                  ],
+                  "description": "The band this Cell occupies at this family. Differs from the Cell's default region \u2192 a CROSS-BAND relocation, applied by the runtime (content moves, never vanishes). null = drop \u2014 reserved for genuinely redundant content, NOT the default (dropping authored content silently is the fade decision forms.md \u00a76 rejects)."
                 },
                 "tokens": {
                   "type": "object",
                   "additionalProperties": false,
-                  "description": "Per-family CSS token overrides (same-band). The build GENERATES the [data-family] rule that sets these; each token NAME must be referenced via var() in the Cell's co-located CSS (gated). WARNING: if the Cell's grid places children on NAMED lines (e.g. masthead-lede/-bay), an override of the track template MUST re-declare those names on its track, or the children orphan into implicit tracks — so the single-column masthead value is { \"--masthead-cols\": \"[masthead-lede masthead-bay] 1fr\" }, NOT a bare \"1fr\".",
+                  "description": "Per-family CSS token overrides (same-band). The build GENERATES the [data-family] rule that sets these; each token NAME must be referenced via var() in the Cell's co-located CSS (gated). WARNING: if the Cell's grid places children on NAMED lines (e.g. masthead-lede/-bay), an override of the track template MUST re-declare those names on its track, or the children orphan into implicit tracks \u2014 so the single-column masthead value is { \"--masthead-cols\": \"[masthead-lede masthead-bay] 1fr\" }, NOT a bare \"1fr\".",
                   "patternProperties": {
-                    "^--[a-z][a-z0-9-]*$": { "type": "string" }
+                    "^--[a-z][a-z0-9-]*$": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -68,6 +118,20 @@
           }
         }
       }
+    },
+    "admits": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "flow",
+          "canvas",
+          "sovereign"
+        ]
+      },
+      "description": "The stage kinds this Frame can host \u2014 the FRAME side of the containment contract (design/forms.md \u00a77). The component side already ships as each manifest's `stage` field, generated into lib/forms/cell/masthead/stage-catalog.generated.js; this is its dual, and until 2026-09-08 it did not exist, so a Frame could not say what it accepts. A root Frame admits `flow` and/or `canvas`. A sovereign Frame admits exactly [\"sovereign\"]: it hosts the one component that carries its name and no other, which is what `exemptFromChrome` has always meant in practice. Checked against the generated catalog by checkFrameAdmits \u2014 a Frame cannot claim a kind no component declares, and every kind in the catalog must be admitted by at least one Frame."
     }
   }
 }

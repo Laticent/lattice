@@ -4,7 +4,11 @@
   "form": "bookend",
   "kind": "root",
   "exemptFromChrome": false,
-  "description": "The full root chrome Frame: masthead band (lede + bay), stage, and footer with the progress rail. The default Form deck composition (design/forms.md §9; the `form: standard` toggle).",
+  "description": "The full root chrome Frame: masthead band (lede + bay), stage, and footer with the progress rail. The default Form deck composition (design/forms.md \u00a79; the `form: standard` toggle).",
+  "admits": [
+    "flow",
+    "canvas"
+  ],
   "cells": [
     "masthead",
     "masthead-lede",
@@ -19,10 +23,18 @@
   "suppresses": [],
   "slicing": {
     "tall": {
-      "masthead": { "tokens": { "--masthead-cols": "[masthead-lede masthead-bay] 1fr" } }
+      "masthead": {
+        "tokens": {
+          "--masthead-cols": "[masthead-lede masthead-bay] 1fr"
+        }
+      }
     },
     "strip": {
-      "masthead": { "tokens": { "--masthead-cols": "[masthead-lede masthead-bay] 1fr" } }
+      "masthead": {
+        "tokens": {
+          "--masthead-cols": "[masthead-lede masthead-bay] 1fr"
+        }
+      }
     }
   }
 }

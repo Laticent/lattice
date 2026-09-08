@@ -236,3 +236,47 @@ test('(g) logo and watermark dock in the slide Cell, matching where they render'
     assert.deepEqual(t.fits, ['slide'], `${id} fits the slide Cell, not a band`);
   }
 });
+
+// (h) `admits` is the FRAME side of the containment contract (design/forms.md §7).
+// The component side has shipped since 2026-07-14 as each manifest's `stage`
+// field, generated into stage-catalog.generated.js; the frame side did not exist
+// until 2026-09-08, so a Frame could not say what it accepts. These arms prove
+// the field is checked rather than decorative — each shape below fails.
+test('(h) frame admits rejects every malformed shape', () => {
+  const { validateFrame } = require('../../../lib/forms');
+  const base = { id: 'x', form: 'bookend', kind: 'root', exemptFromChrome: false,
+    description: 'd', admits: ['flow'], cells: [], suppresses: [] };
+  assert.equal(validateFrame(base, 't').length, 0, 'a valid root frame passes');
+  const bad = [
+    [{ ...base, kind: 'sovereign', exemptFromChrome: true, admits: ['flow', 'canvas'] }, /exactly \["sovereign"\]/],
+    [{ ...base, admits: ['sovereign'] }, /admits "sovereign" but exemptFromChrome is false/],
+    [{ ...base, admits: ['poster'] }, /must be one of flow, canvas, sovereign/],
+    [{ ...base, admits: [] }, /must be a non-empty array/],
+  ];
+  for (const [frame, re] of bad) {
+    const errs = validateFrame(frame, 't');
+    assert.ok(errs.some((e) => re.test(e)), `rejected ${JSON.stringify(frame.admits)}: ${errs.join(' | ')}`);
+  }
+});
+
+// (i) …and it is tied to the components that actually ship, both ways: a Frame
+// may not claim a stage kind nothing declares, and no declared kind may be left
+// with nowhere to compose.
+test('(i) frame admits is checked against the generated stage catalog', () => {
+  const { checkAdmitsCensus, loadCatalog } = require('../../../lib/forms');
+  const catalog = require('../../../lib/forms/cell/masthead/stage-catalog.generated.js');
+  const declared = new Set(Object.values(catalog));
+
+  const { frames } = loadCatalog();
+  const admitted = new Set(frames.flatMap((f) => f.admits));
+  assert.deepEqual([...declared].sort(), [...admitted].sort(),
+    'every shipped stage kind is admitted by a Frame, and no Frame invents one');
+
+  // the census arm fires when a kind loses its only Frame. It is deliberately
+  // NOT in checkIntegrity: that runs over caller-supplied subsets, where an
+  // absent kind is not an orphaned one.
+  const onlyFlow = [{ id: 'y', form: 'bookend', kind: 'root', exemptFromChrome: false,
+    description: 'd', admits: ['flow'], cells: [], suppresses: [] }];
+  const errs = checkAdmitsCensus(onlyFlow);
+  assert.ok(errs.length >= 2, `orphaned kinds reported: ${errs.join(' | ')}`);
+});

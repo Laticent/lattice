@@ -223,6 +223,14 @@ authored by a *designer*; a **Tile** binds a *source*.
   reads as "distinct from everything else": it *replaces* the frame). (A `framed`
   kind — a Frame nested in a content Cell — was considered and rejected; see
   `engineering/decisions/2026-06-18-frame-recursion-cells.md`.)
+- **`admits`** — the stage kinds this Frame can host: `flow` · `canvas` ·
+  `sovereign`. The **frame side** of the `accepts`/`fits` contract (§7). The
+  component side has shipped since 2026-07-14 as each manifest's `stage` field
+  (generated into `lib/forms/cell/masthead/stage-catalog.generated.js`); the frame
+  side did not exist until 2026-09-08, so a Frame could not state what it accepts.
+  A sovereign Frame admits exactly `["sovereign"]` — it hosts the one component
+  carrying its name, which is what `exemptFromChrome` has always meant in practice.
+  `checkFrameAdmits` ties the field to the generated catalog in both directions.
 - **`subGrid`** — the internal grid template + ratios.
 - **`cells`** — the Cells it produces (each a full Cell definition).
 - **`suppresses`** — chrome Cells a sovereign Frame hides.
