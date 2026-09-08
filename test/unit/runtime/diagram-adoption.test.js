@@ -385,6 +385,60 @@ describe('the observer wiring', () => {
   });
 });
 
+/**
+ * A CACHE HIT MUST CONSUME THE QUIET TIMER'S RELEASE, and nothing gated that until now.
+ *
+ * `armErrorSurface` marks a released fence for a forced, un-gated render so the author finally
+ * gets their error box. `settleFenceFromCache` serves that same fence from the SVG cache
+ * instead and never reaches `renderDiagramJob`, so the marker outlives its errand on that
+ * node — and a cache hit also proves the force is moot, because this source has rendered
+ * before. Leave the marker behind and the next unparseable text on that fence bypasses the
+ * gate once: a doomed render plus an error box flashing mid-word, which is the exact strobe
+ * the gate exists to stop.
+ *
+ * An independent pass deleted that one line and the whole 274-cell suite stayed green.
+ */
+describe('a cache hit consumes the force marker', () => {
+  const liftSettle = (forceRender, cachedSvg) => {
+    const m = RUNTIME_SRC.match(/ {2}function settleFenceFromCache\(job\) \{[\s\S]*?\n {2}\}/);
+    assert.ok(m, 'lib/runtime/index.js must declare settleFenceFromCache');
+    // eslint-disable-next-line no-new-func
+    return new Function(
+      'mermaidSvgCache', 'diagramCacheKey', 'diagramScopeKey', 'markFenceDrawn', 'forceRender', 'fenceSourceOf',
+      `${m[0]}\nreturn settleFenceFromCache;`,
+    )(
+      { get: () => cachedSvg },
+      (a, b) => `${a}|${b}`,
+      () => 'scope',
+      () => {},
+      forceRender,
+      (preEl) => preEl.__src,
+    );
+  };
+  const job = (src) => ({
+    preEl: { dataset: {}, __src: src },
+    target: { innerHTML: '' },
+    sectionEl: {},
+    source: src,
+  });
+
+  test('the release is cleared when the SVG comes from cache', () => {
+    const forceRender = new Set(['flowchart LR']);
+    const settle = liftSettle(forceRender, '<svg/>');
+    const j = job('flowchart LR');
+    assert.equal(settle(j), true, 'a cache hit settles the fence');
+    assert.equal(j.preEl.dataset.mermaidState, 'rendered');
+    assert.equal(forceRender.has('flowchart LR'), false, 'and consumes the release it made moot');
+  });
+
+  test('a cache MISS leaves the release alone — it still has an errand', () => {
+    const forceRender = new Set(['flowchart LR']);
+    const settle = liftSettle(forceRender, undefined);
+    assert.equal(settle(job('flowchart LR')), false, 'a miss is a re-render, not a near-enough SVG');
+    assert.equal(forceRender.has('flowchart LR'), true);
+  });
+});
+
 function liftReset(reclaimedHas = false) {
   const m = RUNTIME_SRC.match(/ {2}function resetFenceAfterFailure\(preEl\) \{[\s\S]*?\n {2}\}/);
   assert.ok(m, 'lib/runtime/index.js must declare resetFenceAfterFailure');

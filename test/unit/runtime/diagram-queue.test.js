@@ -81,7 +81,7 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false, costs = [] 
     // serial chain, and it asks for one more pass if the source moved while it ran. Injected
     // rather than lifted because the scheduler lives outside this block and none of these
     // cells are about it — they are about the chain always advancing.
-    scheduleRun: () => {},
+    scheduleRun: () => { log.push('scheduleRun'); },
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(
@@ -112,7 +112,12 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false, costs = [] 
        // the chain's, and it is exercised where it lives.
        const scopeHasDrawn = () => true;
 ${block}
-       return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
+       return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; },
+                // The keystroke half of the coalescing: initAndRun sets this when the source
+                // moved while a run was in flight, and the run tail is what acts on it.
+                // NO BACKTICKS IN THIS BLOCK: it lives inside a template literal, and one
+                // would close it.
+                requestRerun() { rerunRequested = true; } };
      })`,
   );
   const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.scheduleRun);
@@ -137,7 +142,7 @@ ${block}
   };
   // `costs` is read inside the eval'd factory below, which no static pass can see — returning
   // it keeps that use visible and lets a cell assert on the samples directly.
-  return { run, queue: () => q.queue, costs };
+  return { run, queue: () => q.queue, costs, requestRerun: () => q.requestRerun() };
 }
 
 /** A fence, with a fake `<pre>` whose dataset the queue writes. */
@@ -307,6 +312,38 @@ describe('the diagram queue always advances', () => {
     const q = liftQueue({ mermaid, log, capMs: 5000, costs });
     await q.run(twoBandDeck([fence('a1')], []));
     assert.equal(costs.length, 1, 'one render, one sample');
+  });
+
+  test('a rerun waits for EVERY run to land, not just the one that finished', async () => {
+    // KILLS the mutant that drops the `diagramRuns > 0` half of the guard. One pass opens one
+    // run per consecutive scope-key change, so a two-band deck has two runs in flight; if the
+    // first band's tail is allowed to fire the rerun on its own, the next pass starts while
+    // band B is still rendering — which is the strictly-serial-queue pile-up the counter was
+    // made a COUNTER rather than a boolean to prevent.
+    const log = [];
+    let releaseB;
+    const mermaid = {
+      initialize: () => {},
+      render: (_id, source) => {
+        log.push(`render:${source}`);
+        if (source !== 'b1') return Promise.resolve({ svg: '<svg/>' });
+        return new Promise((res) => { releaseB = () => res({ svg: '<svg/>' }); });
+      },
+    };
+    const q = liftQueue({ mermaid, log, capMs: 5000 });
+    // THE REQUEST COMES FIRST, and the ordering is the whole cell. Both runs are opened
+    // synchronously as the kernel walks the deck, so band A's tail fires while band B is still
+    // in flight — which is the only window where the two halves of the guard disagree. Asking
+    // afterwards misses it: by then A's tail has already run, and both variants then behave
+    // identically once the counter reaches zero.
+    q.requestRerun();
+    const running = q.run(twoBandDeck([fence('a1')], [fence('b1')]));
+    await new Promise((r) => setTimeout(r, 30));
+    assert.ok(!log.includes('scheduleRun'), `a rerun must not start while a run is in flight: ${log.join(' ')}`);
+    releaseB();
+    await running;
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(log.includes('scheduleRun'), 'and it must start once the last run lands');
   });
 
   test('bands are configured in document order, one configure per band', async () => {

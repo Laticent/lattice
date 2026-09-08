@@ -42,13 +42,24 @@ function liftGate(html = '', { cheap = true, drawn = true } = {}) {
 	assert.notEqual(start, -1, 'the gate must be bracketed with BEGIN PARSE-GATE PORT');
 	assert.notEqual(end, -1, 'the gate must be bracketed with END PARSE-GATE PORT');
 	const src = RUNTIME_SRC.slice(start, end);
-	for (const fn of ['function deferUntilQuiet(preEl)', 'function armErrorSurface()', 'function parsesCleanly(mermaid, source)', 'function renderDiagramJob(mermaid, scopeKey, job)']) {
+	for (const fn of [
+		'function deferUntilQuiet(preEl)',
+		'function armErrorSurface()',
+		'function parsesCleanly(mermaid, source)',
+		'function renderDiagramJob(mermaid, scopeKey, job)',
+		// THE REAL GUARD, not a stub of it. The bracket was widened to reach this after an
+		// independent pass removed the `remember` condition outright and all 274 cells stayed
+		// green — the harness had been injecting its own re-implementation, so the shipped one
+		// was executed by no arm.
+		'function attachErrorSafely(preEl, target, err, remember = false)',
+	]) {
 		assert.ok(src.includes(fn), `the port must hold ${fn}`);
 	}
 
 	const dom = new JSDOM(`<body>${html}</body>`);
 	const clock = { t: 1000 };
-	const errored = new Map();
+	/** Every error the real `attachErrorSafely` handed to the DOM sink. */
+	const attached = [];
 	const timers = [];
 	const scheduled = [];
 	const rendered = [];
@@ -63,11 +74,10 @@ function liftGate(html = '', { cheap = true, drawn = true } = {}) {
 		'PARSE_CAP_MS',
 		'renderDiagramNow',
 		'nowMs',
-		'erroredSources',
-		'attachErrorSafely',
+		'attachError',
 		'diagramIsCheap',
 		'scopeHasDrawn',
-		`${src}\nreturn { deferUntilQuiet, armErrorSurface, sweepDeferredFences, parsesCleanly, renderDiagramJob, forceRender, deferredSince, fenceSourceOf, ERROR_QUIET_MS, DEFERRED_FENCE_SELECTOR };`,
+		`${src}\nreturn { deferUntilQuiet, armErrorSurface, sweepDeferredFences, parsesCleanly, renderDiagramJob, attachErrorSafely, erroredSources, forceRender, deferredSince, fenceSourceOf, ERROR_QUIET_MS, DEFERRED_FENCE_SELECTOR };`,
 	);
 	const api = make(
 		dom.window.document,
@@ -88,14 +98,12 @@ function liftGate(html = '', { cheap = true, drawn = true } = {}) {
 		// A CONTROLLABLE CLOCK, because the per-fence quiet windows are the thing under test
 		// and wall time cannot be asserted on. `advance` moves it; nothing moves it on its own.
 		() => clock.t,
-		// The remembered-failure map and the attach that feeds it live beside the ERROR path,
-		// outside this port, so they are injected — which is also what makes the gate's replay
-		// branch reachable from here.
-		errored,
-		// Honors `remember` exactly as the real one does. A stub that always remembered was
-		// what let the permanent-error defect through: every failure looked deliberate.
-		(preEl, _target, err, remember = false) => {
-			if (remember) errored.set((preEl.querySelector('code') || preEl).textContent || '', err);
+		// ONLY THE DOM WRITER IS STUBBED NOW. `erroredSources` and `attachErrorSafely` are the
+		// REAL ones, lifted with the port, so the `remember` guard is executed rather than
+		// re-implemented here; `attachError` is the sink that paints the box, which is a DOM
+		// concern these cells are not about.
+		(preEl, _target, err) => {
+			attached.push(err);
 			preEl.dataset.mermaidState = 'error';
 		},
 		// The cheap/costly answer, which now gates the parse as well as the wait.
@@ -116,7 +124,7 @@ function liftGate(html = '', { cheap = true, drawn = true } = {}) {
 	const advance = (ms) => {
 		clock.t += ms;
 	};
-	return { ...api, doc: dom.window.document, timers, scheduled, rendered, remembered, elapse, advance, clock, errored };
+	return { ...api, doc: dom.window.document, timers, scheduled, rendered, remembered, elapse, advance, clock, attached, errored: api.erroredSources };
 }
 
 const FENCE = (state) => `<pre data-mermaid-state="${state}"><code>flowchart LR</code></pre>`;
@@ -446,12 +454,78 @@ describe('the parse gate is the CHEAP arm, and remembering is a claim about the 
 		assert.deepEqual(q.remembered, [false], 'and neither does the costly arm');
 	});
 
-	test('only a fence RELEASED by the quiet timer may remember its failure', async () => {
-		// The one path that has earned it: this fence failed `mermaid.parse` and then sat out a
-		// full quiet window, so the text is known bad rather than unlucky.
+	test('a forced fence is not remembered on the FIRST strike, only the second', async () => {
+		// `parsesCleanly` ends in `.catch(() => false)`, so a parse that rejects because Mermaid
+		// could not LOAD — it awaits dynamic imports, and an icon-pack fetch for architecture and
+		// C4 — is indistinguishable from a syntax error. Remembering the first failure therefore
+		// pins an error box for the life of the document on a fence whose text may be perfectly
+		// good, and Present, a read-only embed and an export capture frame offer no way to edit
+		// it back out. Asking twice separates the two without guessing at error messages.
 		const p = liftGate(FENCE('pending'), { cheap: true });
 		p.forceRender.add('flowchart LR');
 		await p.renderDiagramJob(parsesFine, 's', job(p.doc));
-		assert.deepEqual(p.remembered, [true], 'a forced render is the deliberate one');
+		assert.deepEqual(p.remembered, [false], 'first strike: drawn, shown, NOT remembered');
+
+		await p.renderDiagramJob(parsesFine, 's', job(p.doc));
+		assert.deepEqual(p.remembered, [false, true], 'second strike on the same text: remembered');
+	});
+
+	test('the second strike is keyed on the TEXT, so an edit starts the count over', async () => {
+		const p = liftGate(FENCE('pending'), { cheap: true });
+		p.forceRender.add('flowchart LR');
+		await p.renderDiagramJob(parsesFine, 's', job(p.doc));
+		// A different source: a fresh question, not a second strike against the old one.
+		p.forceRender.add('flowchart TB');
+		const other = { preEl: p.doc.querySelector('pre'), target: p.doc.createElement('div'), source: 'x' };
+		other.preEl.querySelector('code').textContent = 'flowchart TB';
+		await p.renderDiagramJob(parsesFine, 's', other);
+		assert.deepEqual(p.remembered, [false, false], 'each source gets its own two strikes');
+	});
+});
+
+describe('the remember guard, exercised rather than re-implemented', () => {
+	const fenceOf = (doc) => doc.querySelector('pre');
+
+	test('a failure NOT permitted to be remembered leaves the ledger empty', async () => {
+		// KILLS the mutant that drops the `remember` condition — `const errKey =
+		// fenceSourceOf(preEl)` — which is the whole permanent-error defect restored. An
+		// independent pass applied exactly that edit and all 274 cells stayed green, because
+		// the harness injected its own copy of the guard instead of running this one.
+		//
+		// What it protects: the 20-second settle cap and any `mermaid.render` rejection reach
+		// this function too. Remembering those pins an error box for the life of the document,
+		// and Present, a read-only embed and an export capture frame offer no way to edit the
+		// fence back out of it.
+		const p = liftGate(FENCE('pending'));
+		const pre = fenceOf(p.doc);
+		p.attachErrorSafely(pre, p.doc.createElement('div'), new Error('a stalled icon-pack fetch'));
+		assert.equal(p.errored.size, 0, 'an unattributed failure must not be remembered');
+		assert.equal(p.attached.length, 1, 'but the author is still shown the error');
+		assert.equal(pre.dataset.mermaidState, 'error');
+	});
+
+	test('a failure the forced path permits IS remembered, keyed on the fence text', async () => {
+		const p = liftGate(FENCE('pending'));
+		const pre = fenceOf(p.doc);
+		p.attachErrorSafely(pre, p.doc.createElement('div'), new Error('Parse error'), true);
+		assert.equal(p.errored.size, 1, 'a proven-bad source is remembered');
+		assert.ok(p.errored.has('flowchart LR'), `keyed on the text, got ${[...p.errored.keys()]}`);
+	});
+
+	test('a remembered fence REPLAYS its error box, not just its silence', async () => {
+		// KILLS the mutant that deletes the attach from the replay branch. Without it a
+		// remembered fence settles with no render AND no box: the author sees an empty slot
+		// for a diagram that is broken, which is worse than either the error or the strobe.
+		const p = liftGate(FENCE('pending'));
+		const pre = fenceOf(p.doc);
+		p.errored.set('flowchart LR', new Error('Parse error'));
+		await p.renderDiagramJob({ parse: () => Promise.resolve(true) }, 's', {
+			preEl: pre,
+			target: p.doc.createElement('div'),
+			source: 'flowchart LR',
+		});
+		assert.equal(p.rendered.length, 0, 'no render — that is the point of remembering');
+		assert.equal(p.attached.length, 1, 'but the error box IS put back');
+		assert.equal(pre.dataset.mermaidState, 'error');
 	});
 });
