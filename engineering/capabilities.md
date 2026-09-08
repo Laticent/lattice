@@ -413,6 +413,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/calibrate-capacity.js` | calibrate-capacity — find the ELEMENT COUNT a layout overflows at, per box |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/chart-colour-reach.js` | chart-colour-reach — how far does colour actually travel into a chart? |
+| `tools/chart-finish-coherence.mjs` | chart-finish-coherence — does every chart member actually CHANGE when the |
 | `tools/chart-finish-divergence.js` | chart-finish-divergence — do two chart finishes actually LOOK different, and |
 | `tools/chart-hue-jobs.js` | chart-hue-jobs — does this member's categorical hue do a job, or is it decoration? |
 | `tools/chart-language-census.js` | chart-language-census — measure what each chart-family member ACTUALLY paints. |
@@ -441,6 +442,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/export-marp.js` | export-marp — produce a portable, self-contained bundle of a Lattice deck for |
 | `tools/fetch-emoji-font.js` | Vendor Noto Color Emoji for the opt-in FULL-OFFLINE tier. |
 | `tools/fetch-video-oembed.js` | fetch-video-oembed.js — the BUILD-TIME (authoring-time) half of the `video` |
+| `tools/gen-chart-finish-css.py` | Generates the prototype's finish rule block: every ENCODING and every REGISTER |
 | `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
 | `tools/manifest-schemas.js` | The ONE declaration of which manifest families exist, which schema governs |
