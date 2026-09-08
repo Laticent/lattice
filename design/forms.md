@@ -336,7 +336,10 @@ a Cell holding many Tiles genuinely *may* span planes — `stage` is z2 and hold
 z0, z1 and z2 — but that is a property of a slot with several occupants, and neither of
 these has one. Third: **a Frame suppresses by Cell id**, so one shared Cell made per-Tile
 suppression unexpressible — no Frame could ever drop the watermark while keeping the
-logo. The rest of the catalog works hard to keep exactly that granularity: `masthead` is
+logo. That payoff is **latent, not shipped**: both Cells are non-materializing and no
+Frame declares either, so suppressing one is inert at render today. What the split buys
+is that the statement can now be *written*; nothing can hide either Tile that could not
+hide it before. The rest of the catalog works hard to keep exactly that granularity: `masthead` is
 split into `-lede`/`-bay` and the footer into three zones precisely so frames can address
 them separately, and `closing` suppresses seven Cells individually.
 

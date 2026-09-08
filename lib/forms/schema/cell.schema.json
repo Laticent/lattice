@@ -30,7 +30,7 @@
         "logo",
         "watermark"
       ],
-      "description": "Band position on the slide (design/forms.md §5/§6). `slide` is the whole section box — the home of frame-anchored Tiles (logo, watermark) that position against the slide rather than docking in a band. masthead carries the sub-cells masthead-lede (kicker+title) and masthead-bay (meta·logo·status); coda is the trailing editorial band beneath the stage (key insight, below-note — lib/core/coda.js); footer carries the three zones footer-left · progress-center · pagination-right; overlay is the z4 annotation plane."
+      "description": "Band position on the slide (design/forms.md §5/§6). `logo` and `watermark` are the two FRAME-ANCHORED regions — each holds one Tile positioned against the section box rather than docked in a band. They are two regions rather than one shared \"slide\" region because the two Tiles agree on nothing but that: different kind, different z-plane, different anchor (design/forms.md §5.1). masthead carries the sub-cells masthead-lede (kicker+title) and masthead-bay (meta·status — the bay RESERVES width for the logo mark but does not hold the logo Tile; that Tile is frame-anchored). coda is the trailing editorial band beneath the stage (key insight, below-note — lib/core/coda.js); footer carries the three zones footer-left · progress-center · pagination-right; overlay is the z4 annotation plane. `region` is 1:1 with Cell `id` across the catalog and MUST stay so: checkSlicingIntegrity builds a region → Cell map where the FIRST entry wins, so a second Cell claiming an existing region would make a slicing relocation target arbitrary. Test arm (l) enforces it."
     },
     "z": {
       "type": "integer",

@@ -263,9 +263,12 @@ test('(g) logo and watermark each get their own frame-anchored Cell', () => {
     assert.equal(c.capacity, 'one', `${id} Cell holds one Tile`);
     assert.equal(c.fill, 'anchor', `${id} Cell is anchored, not docked`);
   }
-  // the distinction the shared Cell erased: different kinds, different planes.
-  assert.notEqual(byId.get('logo').z, byId.get('watermark').z, 'they are on different planes');
-  assert.notDeepEqual(byId.get('logo').accepts, byId.get('watermark').accepts, 'and hold different kinds');
+  // NOT asserted: that the two Cells differ from EACH OTHER in z or accepts. They
+  // do today, and that difference is what motivated the split — but it is a
+  // coincidence of today's values, not the property this arm is about. The logo
+  // has been re-planed three times already (base.modifiers.css records two
+  // removals and a restoration); a legitimate re-plane must not redden this test.
+  // What is load-bearing is the per-Cell agreement asserted in the loop above.
 });
 
 // (h) `admits` is the FRAME side of the containment contract (design/forms.md §7).
@@ -384,4 +387,30 @@ test('(k) a frame cannot escape the admits arm by mislabeling its kind', () => {
   const errs = checkIntegrity({ cells, frames: [...frames, underclaims], tiles });
   assert.ok(errs.some((e) => /does not admit "canvas"/.test(e)),
     `the under-claim is caught on its own: ${errs.join(' | ')}`);
+});
+// (l) `region` is 1:1 with Cell `id`, and must stay so. This is the invariant the
+// logo/watermark split's own reasoning rests on: checkSlicingIntegrity builds a
+// region → Cell map with `if (!cellByRegion.has(c.region))`, so the FIRST Cell
+// claiming a region wins and a second one silently loses. Nothing enforced it —
+// it held by convention across all 12 Cells — which made the split's argument
+// ("a many-to-one region would make a relocation target arbitrary") true but
+// unguarded. An independent checker demonstrated the gap by adding a second Cell
+// with an existing region: validateCell and checkIntegrity both passed it clean.
+test('(l) every Cell region is 1:1 with its id, so a relocation target is never ambiguous', () => {
+  const { loadCatalog, CELL_REGIONS } = require('../../../lib/forms');
+  const { cells } = loadCatalog();
+
+  const mismatched = cells.filter((c) => c.region !== c.id).map((c) => `${c.id} → ${c.region}`);
+  assert.deepEqual(mismatched, [], 'no Cell names a region other than its own id');
+
+  const seen = new Map();
+  for (const c of cells) {
+    assert.ok(!seen.has(c.region),
+      `region "${c.region}" is claimed by both "${seen.get(c.region)}" and "${c.id}" — ` +
+      'checkSlicingIntegrity would bind a relocation to whichever loaded first');
+    seen.set(c.region, c.id);
+  }
+  // and the vocabulary carries no region without a Cell to be.
+  const orphans = CELL_REGIONS.filter((r) => !seen.has(r));
+  assert.deepEqual(orphans, [], 'every declared region has a Cell');
 });
