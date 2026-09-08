@@ -62,6 +62,15 @@ describe('core: relationship — textOf leaves no tag behind', () => {
   });
 });
 
+/** An `<mo>`'s character content — KaTeX nests `<mi>` inside `<mo>` for some macros. Looped to a
+ *  fixed point for the same reason `stripTags` is: a one-shot `<[^>]*>` strip is the shape CodeQL
+ *  flags, and it can manufacture a tag out of text that was not one. */
+const stripInner = (html) => {
+  let out = String(html);
+  for (let prev = null; prev !== out; ) { prev = out; out = out.replace(/<[^>]*>/g, ''); }
+  return out.trim();
+};
+
 const signalOf = (html) => {
   const m = /<div class="lat-split-rel" data-mark="([a-z]+)"[^>]*>([\s\S]*?)<\/div>/.exec(html);
   return m && { mark: m[1], label: textOf(m[2]) };
@@ -591,6 +600,10 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // A third hand-built set would have been wrong a third time, so the constant is mechanical and
     // this re-derives it from the SAME installed KaTeX. A version bump that adds a relation fails
     // here instead of shipping a chip full of operators.
+    // NAMED, so neither sweep's silence is the only evidence. `\eqcolon` is here because the
+    // hand-written supplement it replaced missed it.
+    const NAMED_MACROS = [['\\ne', '≠'], ['\\notin', '∉'], ['\\notni', '∌'],
+      ['\\coloneqq', '≔'], ['\\eqqcolon', '≕'], ['\\Coloneqq', '∷'], ['\\eqcolon', '∹']];
     const src = fs.readFileSync(require.resolve('katex/dist/katex.mjs'), 'utf8');
     const declared = new Set();
     // The symbol strings in katex.mjs are `"\\u2260"` shaped — no embedded quotes — so a plain
@@ -605,7 +618,13 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.deepEqual(missing, [], 'RELATION no longer covers every `rel` atom KaTeX declares');
     // AND THE REVERSE. A one-directional census certifies a set that has quietly grown — a stray
     // range, an operator slipping in — and `n×p` stops being a name without a test saying so.
-    const supplement = new Set(['≠', '∉', '∌', '≔', '≕', '∷', '∹', '=', '<', '>', ':']);
+    // Derived from the same NAMED_MACROS the forward half asserts, so the two cannot drift, plus
+    // nothing else. The first cut listed eleven characters by hand and four of them (`= < > :`) are
+    // declared `rel` atoms — inert entries with no stale check, which is the shape every
+    // `SANCTIONED_*` allowlist in tools/check-ownership.js is careful to reject.
+    const supplement = new Set(NAMED_MACROS.map(([, ch]) => ch));
+    const inert = [...supplement].filter((ch) => declared.has(ch));
+    assert.deepEqual(inert, [], 'a macro supplement entry is now a declared rel atom — drop it');
     const extra = [];
     for (let c = 0; c < 0x10000; c += 1) {
       const ch = String.fromCharCode(c);
@@ -624,28 +643,50 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
       if (/^\\[a-zA-Z]+$/.test(name)) macros.add(name);
     }
     assert.ok(macros.size > 200, `expected KaTeX's macro table, found ${macros.size} entries`);
+    // THE FIRST CUT OF THIS SWEEP WAS VACUOUS, in two independent ways, and a fifth checker caught
+    // it after it had been shipped as the fix for a hand-written list:
+    //   · it rendered with `output: 'mathml'` and then looked for `mrel` INSIDE the `<math>` row.
+    //     `mrel` is a `katex-html` class — that half is not even emitted under `output: 'mathml'` —
+    //     so the gate was always false and every character was skipped;
+    //   · `<mo[^>]*>([^<]*)</mo>` cannot see `∹`, because KaTeX writes `\eqcolon` as
+    //     `<mo><mi mathvariant="normal">∹</mi></mo>` and `[^<]*` captures the empty string.
+    // Either alone made `uncovered` unconditionally empty. Both are fixed here, and the arm is
+    // mutation-checked below rather than trusted: drop `\u2239` from RELATION and it reports.
     const uncovered = new Set();
     for (const name of macros) {
       let html;
-      try { html = katex.renderToString(`a ${name} b`, { throwOnError: true, output: 'mathml' }); } catch { continue; }
+      try { html = katex.renderToString(`a ${name} b`, { throwOnError: true }); } catch { continue; }
+      // `mrel` on the WHOLE render — the html half is where KaTeX stamps the atom class.
+      if (!/mrel/.test(html)) continue;
       const row = /<math[\s\S]*?<\/math>/.exec(html);
       if (!row) continue;
       const body = row[0].replace(/<annotation[\s\S]*?<\/annotation>/, '');
-      for (const mo of body.matchAll(/<mo[^>]*>([^<]*)<\/mo>/g)) {
-        const ch = mo[1].trim();
-        // One character, above ASCII, and not an OPERATOR KaTeX would set as `mbin`/`mop` —
-        // `mrel` is the class KaTeX stamps on a relation's row.
+      for (const mo of body.matchAll(/<mo[^>]*>([\s\S]*?)<\/mo>/g)) {
+        const ch = stripInner(mo[1]);
         if ([...ch].length !== 1 || ch.codePointAt(0) < 0x2000) continue;
-        if (!/mrel/.test(body)) continue;
         if (!RELATION.test(ch)) uncovered.add(`${ch} (${name})`);
       }
     }
     assert.deepEqual([...uncovered], [], 'a KaTeX macro renders a relation RELATION does not carry');
+    // The sweep must be able to SPEAK. Re-run it against a RELATION with `∹` removed and require
+    // it to report — otherwise "zero uncovered" is indistinguishable from "looked at nothing",
+    // which is exactly what the first cut was.
+    // The constant's SOURCE spells its ranges as literal `\\uXXXX` text, so blind it by that text —
+    // replacing the character itself is a no-op and would leave this self-test unable to fail,
+    // which is the defect it exists to catch.
+    const blinded = new RegExp(RELATION.source.replace('\\u2239', ''));
+    assert.notEqual(blinded.source, RELATION.source, 'blinding the census did nothing');
+    let spoke = false;
+    for (const name of ['\\eqcolon', '\\minuscolon']) {
+      const html = katex.renderToString(`a ${name} b`, { throwOnError: true });
+      const body = /<math[\s\S]*?<\/math>/.exec(html)[0].replace(/<annotation[\s\S]*?<\/annotation>/, '');
+      for (const mo of body.matchAll(/<mo[^>]*>([\s\S]*?)<\/mo>/g)) {
+        const ch = stripInner(mo[1]);
+        if ([...ch].length === 1 && /mrel/.test(html) && !blinded.test(ch)) spoke = true;
+      }
+    }
+    assert.ok(spoke, 'the macro sweep cannot report a missing relation — it is not looking at anything');
 
-    // NAMED, so the sweep's silence is not the only evidence. `\eqcolon` is here because the
-    // hand-written supplement missed it.
-    const NAMED_MACROS = [['\\ne', '≠'], ['\\notin', '∉'], ['\\notni', '∌'],
-      ['\\coloneqq', '≔'], ['\\eqqcolon', '≕'], ['\\Coloneqq', '∷'], ['\\eqcolon', '∹']];
     for (const [cmd, want] of NAMED_MACROS) {
       // The annotation goes (it carries the author's TeX, not the rendered character); NO tag strip
       // follows it. Markup here is ASCII, so a relation character cannot hide inside a tag — and a
@@ -779,18 +820,27 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.ok(big / small < 8, `4x the input cost ${(big / small).toFixed(1)}x the time — superlinear`);
   });
 
-  test('the katex scan matches a span TAG, not a prefix of one', () => {
+  test('the katex scan reads a real span, and a `<spanfoo>` does not become one', () => {
     // The regex `findKatexSpan` replaced (`<span[^>]*\\sclass="…`) matched `<spanfoo class="katex">`
     // because `[^>]*` swallowed the `foo`. The scan bounds the tag and tests `^<span[\\s>]`, so it
     // does not. This is the ONLY behavioural difference between the two over eleven tag shapes.
     // It does NOT on its own catch a revert to that regex — measured: the tag strip downstream
     // flattens both readings to the same text, so only the cost arm above kills that mutation.
     // It is here to pin the scan's contract, not as a second guard.
-    const inner = '<span class="katex"><span class="katex-mathml">'
-      + '<math><mi>x</mi><annotation encoding="application/x-tex">x</annotation></math></span></span>';
-    assert.equal(textOf(`<spanfoo class="katex">y</spanfoo> tail`), '<spanfoo class="katex">y</spanfoo> tail'
-      .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), 'a prefix of `span` is not a span');
-    assert.equal(textOf(`${inner} tail`), 'x tail', 'a real katex span is still read');
+    // AND A GAP THIS ARM DOES NOT CLOSE, stated rather than papered over. `spanTagHasClass` tests
+    // `/^<span[\s>]/`, so `<spanfoo class="katex">` is not a span. Deleting that `[\s>]` changes
+    // NOTHING observable: `findMatchingClose` will not pair `<spanfoo` with a `</span>`, so the
+    // loose reading breaks out of the loop and the mirror strip produces the same text. A fifth
+    // checker found the first cut of this arm mutation-dead and named the guard; the honest finding
+    // is that the guard is defense in depth and no arm can pin it through the public surface. What
+    // IS pinned below is the behavior: a prefix does not gain a real span's reading, and a real
+    // span keeps it.
+    const mirror = '<span class="katex-mathml">'
+      + '<math><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></math></span>';
+    assert.equal(textOf(`<spanfoo class="katex">${mirror}</spanfoo> tail`), 'tail',
+      'a prefix of `span` was read as a span');
+    assert.equal(textOf(`<span class="katex">${mirror}</span> tail`), 'Q tail',
+      'a real katex span is still read');
   });
 
   test('an unbalanced author span returns the input rather than looping', () => {
