@@ -518,6 +518,16 @@ a second one. Where the denominator is the unmarked part of the field —
 Only the EMPTY state: `.cell-outlined` is a state of its own, and raising it
 would blur the presence distinction the register exists to protect.
 
+**The register pins the wash LEVEL, not which hue is mixed into it.** Found by a
+bug rather than by reasoning: the prototype's two-jobs control did nothing to the
+funnel, because its bands carry their stage name, so they are BACKDROP and a
+finish is forbidden from repainting them — which silently swallowed the collapse
+to one hue. The distinction that fixes it is real and worth stating flatly:
+**collapsing a member to one hue is a CORRECTION, not a finish**, so it reaches a
+text-bearing mark, at that member's own wash recipe (the family's 82%), leaving
+the contrast the text was tuned against untouched. A finish may not move the
+level; a correction may change the hue mixed into it.
+
 **And G1 applied moves two members off today's tree**, both the rule biting
 rather than an exception: `scatter`'s six named entities gain a hue each, and
 `quadrant`'s eight named dots collapse to one. Same rule, opposite outcomes.
