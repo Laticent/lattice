@@ -450,6 +450,26 @@ describe('auto-split: data-split-label names the page, over the first-list heuri
       'a declined label must not be replaced by the first list inside the card');
   });
 
+  test('a DECLINED member is still a member — it is only unnameable', () => {
+    // THE ARM ABOVE PINS THE CASE THAT WORKS AND CANNOT SEE EITHER FAILING ONE, which is how the
+    // fix it was written for shipped a wrong number on a slide. Returning `[]` for a declined
+    // stamp looked right — the chip degrades — but `relationshipSignals` COUNTS members.
+    //
+    // ONE declined page out of several MISCOUNTS the run. This is `decision`'s `Option N of M`,
+    // and the failure is the exact class the kernel's own `total === 0` guard exists to prevent:
+    // two options, and the deck told the reader there was one.
+    const kinds = { cards: { axis: 'item', hard: 4, relationship: 'comparison' } };
+    const two = applyRelationshipSignals(doc('Q1', ''), kinds);
+    assert.match(two, /of 2/, 'a declined title must not be subtracted from the member count');
+    assert.doesNotMatch(two, /of 1\b/);
+
+    // ALL of them declining silences the whole run: `total === 0` emits no chip ELEMENT at all,
+    // and §0b's argument is that an atomized run without the adornment cannot be read.
+    const none = applyRelationshipSignals(doc('', '', ''), cap);
+    assert.deepEqual(sigsOf(none), ['continues', 'continues'],
+      'every page declining must degrade to the un-labeled form, not to silence');
+  });
+
   test('a stamp is TEXT — an escaped quote reaches the READER as a quote, not as markup', () => {
     // The label under test is on page TWO, because page one's pointer names page two.
     //

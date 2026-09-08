@@ -794,6 +794,56 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
       'maps R, onto the unit interval');
   });
 
+  test('an UNDEFINED CONTROL SEQUENCE is not a symbol — the error mirror is refused', () => {
+    // KaTeX renders `\\dfracc{a}{b}` as `<mstyle mathcolor="#cc0000"><mtext>\\dfracc</mtext></mstyle>` —
+    // the author's SOURCE, in red, with no error CLASS anywhere — and reading that as "the same
+    // symbols as Unicode" put a literal `\\dfraccab` in a chip, which is precisely the defect the
+    // MathML read exists to remove. The refusal shipped with no arm: mutating it to
+    // `const errored = false` passed 2,251 core+engine tests. (HARD RULE #25 checker, on this fold.)
+    const bad = typeset('\\dfracc{a}{b}');
+    assert.match(bad, /mathcolor="#cc0000"/, 'the fixture must actually render the error form');
+    assert.doesNotMatch(bad, /katex-error/, '…and carry no error class, or it pins nothing');
+    const label = labelOf(`<li>${bad} — a description of it</li>`);
+    assert.doesNotMatch(label, /dfracc/, "the author's broken SOURCE reached the chip");
+    assert.doesNotMatch(label, /\\\\/, 'no backslash command may reach a rendered label');
+    // A WELL-FORMED sibling still reads its symbols, so the refusal is scoped to the ERROR render
+    // rather than to "math with a `\\dfrac` in it" — and what it reads is `ab`, which is worth
+    // asserting rather than hiding. The mirror is symbols, not structure, so a fraction loses its
+    // bar exactly as an accent is written base-then-mark (`\\hat\\beta` → `β^`) and a subscript
+    // loses its level (`y_i` → `yi`). Same known family, pinned so a future change has to say so.
+    assert.equal(labelOf(`<li>${typeset('\\dfrac{a}{b}')} — a description of it</li>`), 'ab');
+  });
+
+  test('the 42-character budget counts what a READER sees, not what the escape costs', () => {
+    // The label travels entity-ESCAPED — it is written into the signal's markup raw and the
+    // browser decodes it there — so `&amp;` is five characters in this string and one in the pill.
+    // `Research & development & ops & tools` is 36 characters to a reader and 48 here, and it
+    // declined. The stamp path used to decode before measuring; that decode was an XSS sink and
+    // removing it was right, but the budget accounting went with it.
+    const amp = '<li><strong>Research &amp; development &amp; ops &amp; tools</strong> body</li>';
+    assert.equal(labelOf(amp), 'Research &amp; development &amp; ops &amp; tools');
+    // …and the budget still BITES on a genuinely long name, so this is an accounting fix and not
+    // a hole: 44 visible characters, no entities, declines.
+    const long = `<li><strong>${'x'.repeat(44)}</strong> body</li>`;
+    assert.equal(labelOf(long), '');
+  });
+
+  test('a character the author typed as PROSE is not judged by math elsewhere in the member', () => {
+    // `labelOf` wrapped its answer in a SECOND `typeSafe` with the whole member as the math
+    // source, after `safeName` had already run it with the correctly-scoped one. So an `α` typed
+    // in the title declined whenever an `\alpha` happened to appear in the body — the identical
+    // member with `alpha` spelled out kept its name. That is a guard deciding on markup the label
+    // does not contain, which is the defect `safeName`'s own docblock says it removed.
+    const gate = (tail) => `<li><strong>α-release gate</strong> the cutover, where ${tail}</li>`;
+    assert.equal(labelOf(gate(`${typeset('\\alpha')} is the shrink factor`)), 'α-release gate');
+    assert.equal(labelOf(gate('alpha is the shrink factor')), 'α-release gate');
+    assert.equal(labelOf(`<li><strong>Cost × volume</strong> the driver, see ${typeset('c \\times v')}</li>`),
+      'Cost × volume');
+    // The rule it must NOT weaken: a character that came out of THIS label's own math still
+    // declines, because that is the one the chip cannot set.
+    assert.equal(labelOf(`<li>${typeset('F: A \\to B')}</li>`), '');
+  });
+
   test('the type-face decline reads the characters MATH produced, not the whole label', () => {
     // Two shortcuts were tried in one revision and both are wrong the same way. `src.includes('katex')`
     // is the scope error `mathSafe` had already been taught (arm above). And testing the WHOLE label
@@ -882,7 +932,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
 
   test('the <strong> and <h3> label paths get the rule too', () => {
     // "An equation is not a name" was scoped to the flat run at first, so a card-shaped or
-    // subheading-shaped math member still labelled its neighbor page with an equation.
+    // subheading-shaped math member still labeled its neighbor page with an equation.
     assert.equal(labelOf(`<li><h3>${typeset('a = b')} the identity</h3></li>`), 'the identity');
     // Only an equation and nothing else still keeps the equation, on this path as on the flat one.
     assert.equal(labelOf(`<li><strong>${typeset('a = b')}</strong> body</li>`), 'a=b');

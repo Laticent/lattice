@@ -269,7 +269,7 @@ through — which is the more useful fact about them.
 ## What the gates could not have caught, and what now pins it
 
 Four of this branch's own claimed fixes had **no test that could fail**, and one of them sat behind
-an arm that was vacuous in exactly the way this document criticises elsewhere. Found by mutation,
+an arm that was vacuous in exactly the way this document criticizes elsewhere. Found by mutation,
 not by reading:
 
 | claim | mutation that SURVIVED | pinned now by |
@@ -278,7 +278,7 @@ not by reading:
 | a broken reflow falls back to the author's source | drop the `#cc0000` half; `if (true)` | `math-reflow.test.js`, on `\Bigra` — which errors with NO error class |
 | the #29 decline on the named label paths | delete `mathSafe` from `named()` | structural: one `safeName`, so every label arm reaches it |
 | an author's own `\\` is left as written | delete the guard | `tex-linebreak.test.js`, on a fixture that DOES reflow (39 lines) |
-| an ellipsising box must not also wrap | delete the `nowrap`/`pre` test | `overflow-probe.test.js`, a `wrap` arm the harness could not express |
+| an ellipsizing box must not also wrap | delete the `nowrap`/`pre` test | `overflow-probe.test.js`, a `wrap` arm the harness could not express |
 
 The `math-reflow` case is worth stating plainly because it is the trap this branch keeps walking
 into: the arm asserted `bad(reflowed) === bad(original)` over three equations that all render

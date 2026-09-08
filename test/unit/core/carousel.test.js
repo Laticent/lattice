@@ -299,7 +299,7 @@ describe('core: carousel — cover-paginate (dense lists / legal batch)', () => 
   // shape masthead-lift builds (lib/forms/cell/masthead/masthead.transform.js), which is
   // what the shared cover reader keys on. (The old fixture put the eyebrow after the
   // heading, where a real render puts the SUBTITLE; the cover grabbed the first <code>
-  // anywhere and so mislabelled a subtitle as the mono-caps kicker.)
+  // anywhere and so mislabeled a subtitle as the mono-caps kicker.)
   const inner = `<header>H</header><p><code>Scope eyebrow</code></p><h2>Heading</h2><p><code>Seven jurisdictions</code></p><ul>${item('A')}${item('B')}${item('C')}${item('D')}</ul><footer>F</footer>`;
   const recipe = { strategy: 'cover-paginate', axis: 'item', perPage: 2, intro: 'Item by item' };
 
@@ -873,6 +873,35 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     assert.ok(parts.at(-1).includes('SENTINELNOTE'));
   });
 
+  test('a beat BETWEEN two members is not trailing — the floor is the last member\'s end', () => {
+    // `mathBeats`' floor (`b.start >= max(member.end)`) was added for a real defect and shipped
+    // with NO arm: removing the filter survived 4,772 unit tests across every scope that touches
+    // this file. `trailingBeatsOf` is class-blind, so once the cards are filtered out as members a
+    // paragraph sitting BETWEEN two of them was still read as a beat — and the closing page then
+    // printed it after the Proof, so an authored "that definition is the only one we need for what
+    // follows below" followed nothing. Token conservation reports 0 lost, which is why no gate saw
+    // it: the material is REORDERED, not dropped. (HARD RULE #25 checker, on the fold that fixed it.)
+    const card = (label) => `<blockquote><p><strong>${label}</strong> body of the card.</p></blockquote>`;
+    const inner = mathInner(`${card('Definition.')}<p>MIDBEAT that definition is the only one we need.</p>`
+      + `${card('Theorem.')}${card('Proof.')}<p>TAILBEAT and that closes the argument.</p>`);
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    const closing = parts.filter((p) => roleOf(p) === 'closing');
+    assert.equal(closing.length, 1);
+    // The TRAILING beat closes the run…
+    assert.match(closing[0], /TAILBEAT/);
+    // …and the one between two cards does not. It belongs to the member it sits with.
+    assert.doesNotMatch(closing[0], /MIDBEAT/, 'a beat between two members was hoisted to the coda');
+    // WHAT THE FLOOR DOES NOT BUY, asserted rather than left to be discovered. A block that is
+    // neither a member nor a trailing beat stays in the trunk, and `removeSpans` keeps the trunk
+    // on every page — so this paragraph repeats across all three. That is a real cost and it is
+    // the LESSER one: hoisted, it printed after the Proof as a closing statement that followed
+    // nothing, which reads as a rendering fault rather than as repetition. Deciding what an
+    // interstitial non-member block should do is a rule this branch does not have, so the arm
+    // states the behavior instead of implying the floor settled it.
+    assert.equal(parts.filter((p) => p.includes('MIDBEAT')).length, 3);
+  });
+
   test('a trailing note lands ONCE, on a closing page — on the card-stack arm too', () => {
     // …and the three CARDS must not be mistaken for that note: they are a contiguous trailing run
     // of blockquotes, which is exactly what a class-blind trailing scan reads as a coda.
@@ -935,9 +964,9 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     assert.ok(stamps.includes('Proof'), 'the nameable card must still be named');
   });
 
-  test('a card is labelled by its LEADING strong, not by a bold word in its body', () => {
+  test('a card is labeled by its LEADING strong, not by a bold word in its body', () => {
     // An unanchored `tag:strong` took the first `<strong>` anywhere in the member, so a card
-    // written `> A theorem about **compactness**.` labelled its page — and the previous page's
+    // written `> A theorem about **compactness**.` labeled its page — and the previous page's
     // forward pointer — "compactness".
     const inner = mathInner(
       '<blockquote><p><strong>Definition.</strong> A function is continuous.</p></blockquote>'
