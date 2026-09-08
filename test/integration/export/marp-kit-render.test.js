@@ -456,7 +456,7 @@ for (const fixture of FIXTURES) {
 		 * Cross-renderer math. Lattice typesets with KaTeX; marp-core uses MathJax.
 		 * The layouts style both, and this is the only place that claim is tested
 		 * against a real MathJax render — that the display equation exists, has a real
-		 * box, and sits INSIDE its slide's grid rather than overflowing it.
+		 * box, and sits INSIDE its slide rather than overflowing it.
 		 */
 		test('the display equation is typeset by MathJax and laid out inside the math slide', { timeout: TIMEOUT }, async (t) => {
 			if (skipReason) return t.skip(skipReason);
@@ -465,11 +465,15 @@ for (const fixture of FIXTURES) {
 				const el = document.querySelector('mjx-container[display="true"]');
 				if (!el) return null;
 				const sec = el.closest('section');
+				const stage = sec.querySelector(':scope > .cell-stage');
 				const m = el.getBoundingClientRect();
 				const s = sec.getBoundingClientRect();
 				return {
 					sectionClass: sec.className,
 					sectionDisplay: getComputedStyle(sec).display,
+					hasStage: !!stage,
+					stageDisplay: stage ? getComputedStyle(stage).display : null,
+					stageColumns: stage ? getComputedStyle(stage).gridTemplateColumns : null,
 					box: { w: m.width, h: m.height, top: m.top, bottom: m.bottom, left: m.left, right: m.right },
 					slide: { top: s.top, bottom: s.bottom, left: s.left, right: s.right },
 				};
@@ -480,10 +484,38 @@ for (const fixture of FIXTURES) {
 			// Not styling-in-general (the token test below covers that) — this is the
 			// COMPONENT-level rule reaching a Marp render, which is the #1256 defect
 			// class: Marpit's scoper cannot resolve a leading `:is(section…)`, and ~835
-			// rules matched nothing until `distributeLeadingIs` ran at build time. If
-			// the math layout is ever legitimately re-authored off grid, update this —
-			// but check the scoper first.
-			assert.equal(math.sectionDisplay, 'grid', 'the math component rule reached the slide (Marpit scoped it)');
+			// rules matched nothing until `distributeLeadingIs` ran at build time.
+			//
+			// THE ANCHOR MOVED FROM THE SECTION TO THE STAGE, and the reason matters more
+			// than the value. This used to read `getComputedStyle(section).display === 'grid'`,
+			// because math drove its own section grid from a sovereign frame. Math is a Form
+			// component now: `stage.css` makes the section a flex column the moment it wraps
+			// (`section.form:has(> .cell-stage)`), and math's two-column split moved one box
+			// further in, onto `.cell-stage`. So the section reads `flex` on every Form
+			// slide in the tree and says nothing about math.
+			//
+			// `grid-template-columns` on the math stage is what the old assertion was
+			// reaching for, and it is a stricter test than `display` ever was: `3fr 2fr`
+			// is set by exactly one rule in the bundle — math's own hero/legend split at
+			// `section.math.form:where(:not(.derivation)…) > .cell-stage`. A generic Form
+			// rule cannot produce it, so this cannot pass while the scoper is broken. The
+			// computed value is resolved pixels, not the authored `3fr 2fr`, so it is
+			// asserted as two positive tracks in a 3:2 ratio rather than by string.
+			//
+			// If the math layout is re-authored off this split, update this — but check
+			// the scoper first, and keep the anchor on a declaration only math writes.
+			assert.ok(math.hasStage, 'the Form frame materialized .cell-stage on the Marp render');
+			assert.equal(math.stageDisplay, 'grid', 'the math component rule reached the stage (Marpit scoped it)');
+			// `parseFloat`, not `Number`: the computed value is `672px 448px`, and
+			// `Number('672px')` is NaN — which fails the `> 0` guard below while the
+			// ratio check passes, so the failure reads as a layout change rather than
+			// as a parse bug. Measured on the real marp-cli render.
+			const tracks = String(math.stageColumns).trim().split(/\s+/).map(parseFloat);
+			assert.equal(tracks.length, 2, `math's hero/legend split is two tracks (got: ${math.stageColumns})`);
+			assert.ok(
+				tracks.every((t) => t > 0) && Math.abs(tracks[0] / tracks[1] - 1.5) < 0.02,
+				`and they are math's own 3fr 2fr (got: ${math.stageColumns})`,
+			);
 			assert.ok(math.box.w > 0 && math.box.h > 0, 'the equation has a real box, not a collapsed one');
 			assert.ok(
 				math.box.top >= math.slide.top && math.box.bottom <= math.slide.bottom,
