@@ -240,10 +240,36 @@ believe the instrument rather than a rule that only ever confirms itself.
 That is a THIRD job the test does not model, and holding `waterfall` to a
 categorical standard flagged it as decoration until the split was added.
 
-**Neither `funnel` nor `timeline-list` is changed by this note.** They are
-recorded as flagged; collapsing either one changes a shipped member and every
-deck that uses it, which is a decision for the repo's owner and not a
-consequence of a doc.
+**Both `funnel` and `timeline-list` are now collapsed to one hue.** The note
+originally recorded them as flagged and left them alone — collapsing a shipped
+member changes every deck that uses it, which was the repo owner's decision to
+make, not a doc's. That decision came back **collapse both**, and the tree now
+matches the test:
+
+| member | was | is | where |
+|---|---|---|---|
+| `funnel` | 6 `--chart-cat-N-hue` on `.funnel-band:nth-of-type(6n+N)` | one, slot 1 | `funnel.styles.css` |
+| `funnel` (a11y / print) | 6 `latt-a11y-chart-tex-N` | one, tex-1 | `a11y-base.css`, `base.print-textures.css` |
+| `timeline-list` | 6 `--chart-cat-N-ink` on `.timeline-item:nth-child(6n+N)` | one, slot 1 | `timeline-list.styles.css` |
+
+Slot 1 is the family's single-series slot — the one a one-series bar takes, and
+the default both components already declared. Not `--accent`: on onyx the accent
+is pure black/white, which would strip a timeline dot of chart color entirely.
+
+The texture half is §1c biting, not a second decision. A funnel keeping six
+patterns while its fills say one hue would claim six categories in grayscale and
+one in color — the hue count IS the texture count, so both go to one.
+
+Re-measured after the change, `tools/chart-hue-jobs.js` reports `funnel`
+key=none / leaders=0 / gap=0.44 / **1 hue** and `timeline-list` key=none /
+leaders=0 / gap=6.62 / **1 hue**. Agreement went **17 of 21 → 19 of 21**, and
+the two remaining disagreements are the under-spenders (`roadmap`,
+`state-chart`), which are the opposite question and still open.
+
+Neither member can grow a job later: their manifests carry no variant, and both
+place a name beside every mark by construction — funnel's stage label in the left
+gutter, timeline-list's title under its dot. So there is no escape hatch to add,
+and none was.
 
 ### G1 — the cap, and what to do past it
 
