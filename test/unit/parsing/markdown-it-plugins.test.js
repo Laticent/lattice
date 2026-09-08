@@ -543,9 +543,25 @@ describe('markdown-it-plugins', () => {
     assert.equal(plugins.formToggleClass('content', 'standard'), 'content form');
     assert.equal(plugins.formToggleClass('cards-grid compact', 'standard'), 'cards-grid compact form');
     assert.equal(plugins.formToggleClass('', 'standard'), 'form'); // bare slide
-    for (const skip of ['title', 'divider', 'closing', 'math', 'compare-code', 'split-panel', 'image']) {
+    for (const skip of ['title', 'divider', 'closing', 'compare-code', 'split-panel', 'image']) {
       assert.equal(plugins.formToggleClass(skip, 'standard'), skip, `should skip ${skip}`);
     }
+    // `math` IS NOT IN THAT SKIP LIST. It left its sovereign frame in 2026-09 —
+    // every variant takes `form` and renders with the masthead, the footer, the rail
+    // and `meta:` like any other component. Asserted per variant, from the COMPONENT
+    // MANIFEST rather than a hardcoded list, so a ninth variant is covered the day it
+    // is declared rather than the day someone remembers this file.
+    const MANIFEST = require('../../../lib/components/math/math/math.manifest.json');
+    for (const variant of MANIFEST.variants) {
+      // `decompose` is authored as the compound `math matrix decompose`.
+      const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
+      assert.equal(plugins.formToggleClass(cls, 'standard'), `${cls} form`,
+        `math ${variant} must take the form class — math has no sovereign frame`);
+    }
+    // A BARE `math` slide follows `feature` — math.docs.md: "the bare layout
+    // defaults to it" — so it must never diverge from the variants above.
+    assert.equal(plugins.formToggleClass('math', 'standard'), 'math form',
+      'bare math must track the feature variant');
   });
 
   test('formToggleClass: `off` is a no-op; retired `minimal` no longer stamps no-progress', () => {

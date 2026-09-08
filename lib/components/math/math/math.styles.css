@@ -50,42 +50,22 @@
  * Variants override only `grid-template-columns` so they all share the same
  * vertical rhythm. align-self: center on body children centers them inside
  * the 1fr body row. */
-section.math {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto auto 1fr;
-  gap: var(--sp-md) var(--sp-lg);
-  align-content: start;
-}
-/* Eyebrow — an inline-code paragraph above the heading. The central eyebrow
- * rule (base.modifiers.css) supplies the mono/uppercase chrome; this rule only
- * places it in the top grid row. Authored as `code`, never an h3, so it never
- * trips a heading-order lint. */
-section.math > p:has(> code:only-child):has(+ h2) {
-  grid-row: 1;
-  grid-column: 1 / -1;
-  margin: 0;
-}
-section.math > h2 {
-  grid-row: 2;
-  grid-column: 1 / -1;
-  font-family: var(--font-display);
-  font-size: var(--fs-h2);
-  color: var(--text-heading);
-  margin: 0;
-}
-/* Default body row — without this, a body item auto-places into row 1 when
- * no eyebrow is present, displacing the title. Variants that need a
- * multi-row body (canvas: equation+caption stacked, stats: vertical scaffold)
- * override grid-row on the specific items.
- * Exclude the absolutely-positioned chrome (header/footer): giving an abs-positioned
- * grid item an explicit grid-row makes that grid AREA its containing block, so the
- * running header's `top:var(--frame-inset-y)` resolved against row 3 and dropped the
- * eyebrow-line "LATTICE · MATH" down beside the body. Excluded, the header/footer
- * resolve against the section box and sit at the top/bottom berths like every slide. */
-section.math > :not(h2):not(h3):not(header):not(footer) {
-  grid-row: 3;
-}
+/* NO SECTION GRID. Every math slide is a Form slide now — `section.form:has(> .cell-stage)`
+ * makes it a flex column at (0,2,1), so a `display: grid` here at (0,1,1) would lose the
+ * cascade anyway — and the body lives one box further in, on `.cell-stage`. The three
+ * things this block used to do are all the frame's now:
+ *
+ *   · the eyebrow row and the `> h2` row — `.cell-masthead` and `.masthead-lede`;
+ *   · `grid-row: 3` on every body child, to keep it out of those two rows — there is no
+ *     chrome to dodge inside the stage, so children simply auto-place;
+ *   · the `:not(header):not(footer)` carve-out inside that rule, which existed because
+ *     giving an absolutely-positioned grid item an explicit row makes the grid AREA its
+ *     containing block, and the running header's `top: var(--frame-inset-y)` then
+ *     resolved against row 3 and dropped "LATTICE · MATH" down beside the body. The
+ *     running chrome is a Cell now and never was a grid item.
+ *
+ * What is left below is what is genuinely SHARED: type, color and the KaTeX/MathJax
+ * scale pairs, all of which apply wherever the math is. */
 section.math h3 {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
@@ -141,80 +121,112 @@ section.math .math-error {
   border-radius: var(--radius-sm);
 }
 
-/* ── math.feature (and bare .math) ──
- * Authoring:
- *   ## Title
- *   $$ \hat\beta = (X^TX)^{-1}X^Ty $$
- *   **where**
- *   - $\hat\beta$ — OLS estimator
- *   - $X$ — design matrix, $n \times p$
- *   - $y$ — response vector
+/* ══════════════════════════════════════════════════════════════════════════
+ * `feature` and bare `math`.
  *
- * Hero equation occupies the left 60% with the display-math block blown up;
- * the trailing `**where**` paragraph + list anchor on the right. */
-/* Authoring convention: the body is a single `<ul>` (the variable legend);
- * the "where" label is a CSS pseudo-element on the list, so the markdown
- * stays clean and the grid stays simple — equation in col 1, list in col 2,
- * both in row 3 of the body. */
-section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)),
-section.math.feature {
+ * MATH HAS ONE SHAPE, and that is the point of the whole migration. Every rule from
+ * here down is scoped `section.math.form … > .cell-stage`; there is no `section.math > …`
+ * arm for any variant any more, and `lib/forms/frame/math/` is deleted. The frame owns
+ * the chrome — eyebrow, heading and hairline in `.cell-masthead`, the running header and
+ * footer in their Cells, `meta:` in its Tile (it never resolved at all on a sovereign
+ * math slide) — and only the BODY is ours.
+ *
+ * `diagram`'s convention keeps both arms so a `no-form` slide still styles; math does not
+ * follow it, deliberately. THE CONSEQUENCE HAS TWO HALVES and the first draft of this
+ * note only stated the harmless one:
+ *
+ *   · `<!-- _class: math no-form -->` renders unstyled prose. Harmless, and no committed
+ *     deck uses it: math was already chrome-exempt, so `no-form` was a no-op on a math
+ *     slide and that combination never behaved differently from a plain one.
+ *   · `form: off` — the DECK-LEVEL, first-class, documented opt-out (`plugins.js`:
+ *     "Authors opt OUT explicitly with `form: off`") — renders every math slide in the
+ *     deck as unstyled prose. That WAS a working configuration for math and is not any
+ *     more. Rendered and confirmed, not inferred.
+ *
+ * Stated flatly rather than argued away, but it is worth knowing what it is NOT: math is
+ * not newly special here. Rendered on the same branch, `form: off` gives `stats` a plain
+ * ordered list with no tiles and `diagram` a Mermaid graph in Mermaid's stock palette.
+ * `form: off` is already a degraded mode across the migrated catalog; math has joined it
+ * rather than being singled out. It also means the marp-vscode preview at DEFAULT
+ * security — which never runs the markdown-it plugin pass and never executes the deck's
+ * scripts (engineering/gotchas/vscode.md) — shows math unstyled, exactly as it already
+ * shows every other migrated component.
+ *
+ * Deleting rather than keeping the old arm also cleared a red nightly gate instead of
+ * papering over one. Merely UNREACHABLE, `check:family-conformance` reported math
+ * `7/10 unexercised:3` at portrait/story/mobile — sovereign family rules no render could
+ * reach. Blessing that record would have recorded dead CSS as covered.
+ *
+ * WHY THE GRID MOVES RATHER THAN BEING RE-PREFIXED. `stage.css` sets
+ * `section.form:has(> .cell-stage) { display: flex; flex-direction: column }`, so
+ * the section stops being a grid the moment it wraps and every `grid-row` above
+ * goes inert. Re-declaring the grid on `.cell-stage` is the whole migration; the
+ * body's two-column split then works exactly as it did, one box further in.
+ *
+ * NO ROW ASSIGNMENTS HERE, and that is the simplification the wrap buys. The
+ * unmigrated arm needs `grid-row: 3` on every body child to keep it out of the
+ * eyebrow and title rows — and a `:not(header):not(footer)` carve-out so the
+ * absolutely-positioned running chrome does not get a grid area for a containing
+ * block. Inside `.cell-stage` there is no chrome to dodge and no title rows to
+ * miss, so the equation and the legend simply auto-place into columns 1 and 2.
+ *
+ * SPECIFICITY: `section.math.form > .cell-stage` is (0,3,1) against `stage.css`'s
+ * `section.form > .cell-stage` at (0,2,1), so `display: grid` wins without
+ * `!important`. It is stated here because the pair is easy to break by scoping a
+ * future rule one class looser.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage,
+section.math.form.feature > .cell-stage {
+  display: grid;
   grid-template-columns: 3fr 2fr;
-  padding-bottom: var(--sp-xl);
+  gap: var(--sp-md) var(--sp-lg);
+  /* SAFE center, not bare `center`. `stage.css` states the contract: every
+   * alignment that can push content off the BLOCK-START edge must be `safe`,
+   * because block-start overflow does not grow `scrollHeight` and no probe in the
+   * repo can see it. `2026-09-02-stage-clip-shear-sweep.md` swept exactly this
+   * class across the tree and found 103.5px, 53.5px and 30.1px of real text above
+   * the stage edge with every gate reading clean. A bare `center` here would have
+   * reintroduced it, and been copy-pasted into seven more variant arms. */
+  align-content: safe center;
 }
-section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> :is(.katex-display, mjx-container[display="true"])),
-section.math.feature > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+/* The hero equation — left column, centered, with the rule that separates it
+ * from the legend. `border-right` rather than a `column-rule`: this is a grid,
+ * not a multicol, and the border is on the box that owns the gap beside it. */
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])),
+section.math.form.feature > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   grid-column: 1;
-  grid-row: 3;
   align-self: center;
   text-align: center;
   padding-right: var(--sp-lg);
   border-right: 1px solid var(--border);
 }
-section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg),
-section.math.feature > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.9em;
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg),
+section.math.form.feature > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+  font-size: 1.75em;
 }
-section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol),
-section.math.feature > :is(ul, ol) {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol),
+section.math.form.feature > .cell-stage > :is(ul, ol) {
   grid-column: 2;
-  grid-row: 3;
   align-self: center;
 }
-/* HANGING INDENT (#680) — LEGEND LIST ONLY, and the scope is the whole point.
- *
- * The defect: the `·` is an INLINE ::before with `padding-right`, so a WRAPPED
- * line starts under the marker instead of under the first line's text, and the
- * legend loses its left edge ("… must be / invertible", math.gallery p2).
- *
- * The fix takes the marker out of flow and reserves its gutter with padding —
- * the blockquote-bullet idiom from base.modifiers.css. That is safe HERE and
- * unsafe generally, which is why it is not on `section.math ul > li`:
- *
- *   · `.compare` is a MULTI-COLUMN container. An absolutely-positioned marker
- *     inside a fragmented `li` resolves against the fragmentainer, not the
- *     fragment — column 1's bullets paint at the top of column 2 and column 2's
- *     paint past the right column rule, outside the frame. Observed on both the
- *     PDF and the live DOM; the `li` boxes stay correct, so no gate sees it.
- *   · `.matrix.decompose` centers its text. `left: 0` pins the marker to the
- *     full-width row while the text is centered ~570px away, orphaning it.
- *
- * The legend selector below already excludes derivation/theorem/compare/canvas/
- * matrix/stats, so scoping to it dodges both. A future variant that wants the
- * hanging indent must opt IN here, not inherit it. Padding, not margin (#20). */
-section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol) > li,
-section.math.feature > :is(ul, ol) > li {
+/* The hanging indent and the `where` label, carried over verbatim from the
+ * sovereign arm — same rules, one box further in. The scope note above the
+ * unmigrated copy applies unchanged: this is the LEGEND list only, because an
+ * absolutely-positioned marker breaks inside `.compare`'s multicol and orphans
+ * itself under `.matrix.decompose`'s centered text. */
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol) > li,
+section.math.form.feature > .cell-stage > :is(ul, ol) > li {
   padding-left: var(--sp-sm);
   position: relative;
 }
-section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol) > li::before,
-section.math.feature > :is(ul, ol) > li::before {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol) > li::before,
+section.math.form.feature > .cell-stage > :is(ul, ol) > li::before {
   position: absolute;
   left: 0;
   padding-right: 0;
 }
-
-section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol)::before,
-section.math.feature > :is(ul, ol)::before {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol)::before,
+section.math.form.feature > .cell-stage > :is(ul, ol)::before {
   content: 'where';
   display: block;
   font-family: var(--font-label);
@@ -223,6 +235,125 @@ section.math.feature > :is(ul, ol)::before {
   text-transform: uppercase;
   color: var(--text-secondary);
   padding-bottom: var(--sp-sm);
+}
+
+/* ── the Form arm's FAMILY REFLOW — the rules the wrap silently switched off ──
+ *
+ * THIS BLOCK IS THE FIX FOR A REGRESSION THIS MIGRATION SHIPPED, and it is worth
+ * stating plainly because the next seven variants will hit it identically.
+ *
+ * The sovereign family rules below (`§ family / orientation reflow`) are scoped
+ * `section.math … > p` and `> :is(ul, ol)` — DIRECT children of the section. The
+ * Form wrap moves the body one box further in, into `.cell-stage`, so every one of
+ * them went inert for the variant that just migrated. Nothing failed: the section
+ * still had two columns from the Form arm's `grid-template-columns: 3fr 2fr`, and a
+ * 2fr legend column inside a 1080px portrait box overflows the slide.
+ *
+ * Measured on a `size: story` deck (1080x1920) before this block existed: the
+ * legend's right edge landed at 1144px on a 1080px slide — 64px of content off the
+ * canvas — and the engine stamped the section `overflow clip-marked`. The per-variant
+ * evidence protocol did not catch it because the before/after render was taken at
+ * the default 16:9, where the two shapes ARE identical.
+ *
+ * `test/oracle/family-conformance.json` records `math` as `fires` at portrait, story
+ * and mobile, and `family-overflow.json` lists math in no size's `clipped` set. Both
+ * are nightly (`check:family-tiers`, `check:family-conformance`), so neither is in
+ * the per-PR green line. They are the oracle for this block.
+ *
+ * Same collapse as the sovereign arm: span both children full-width and stack the
+ * legend beneath the equation, then scale the hero up because a tall frame is room
+ * rather than a constraint.
+ *
+ * THE EQUATION'S TOP PADDING CAME DOWN FROM `--sp-xl` TO `--sp-sm`, and that is the last
+ * of the sovereign arm's title-clearance leaking into the Form arm. On the sovereign frame
+ * the equation had to hold itself off a heading pinned above it; here the masthead band and
+ * its rule already do that, so `--sp-xl` was dead space at the top of the stage — and it
+ * was the whole overrun: the bare hero came to 267 + 39 + 503 = 809 against a 796px
+ * portrait stage, 13px over and stamped `.overflow`, where the sovereign frame was clean.
+ * A regression this migration introduced, and small enough to have shipped unnoticed. */
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > .cell-stage,
+section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  grid-template-columns: 1fr;
+  align-content: safe start;
+}
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])),
+section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+  grid-column: 1 / -1;
+  align-self: start;
+  /* `max()` WITH AN EM FLOOR, because this padding does two jobs and only one of them
+   * scales with the deck's spacing. The `--sp-sm` half is rhythm. The `0.3em` half is a
+   * RESERVE for the line box: a KaTeX display is built from negative-offset `vlist`
+   * struts, so its line box carries the font's full ascent above the tallest glyph and
+   * pokes out of the content box — harmless in open flow, a cut when the box sits on the
+   * stage's top edge, which it does here.
+   *
+   * `--sp-sm` alone was enough until `compact` was measured. That modifier shrinks the
+   * spacing tokens and the reserve went with them, while the equation's own `em` did not:
+   * on the gallery's `math compact` slide at portrait the ascent cleared the stage and the
+   * content probe read a cut. The ink itself was never the problem — measured 29px of
+   * clearance on both sides, against 3px of real overrun on the sovereign arm. An `em`
+   * floor ties the reserve to the thing it is reserving for. */
+  padding-top: max(var(--sp-sm), 0.3em);
+  border-right: none;
+  padding-right: 0;
+  padding-bottom: var(--sp-md);
+  /* `min-width: 0` is load-bearing, and its absence is a SECOND regression this
+   * wrap introduced. A grid item defaults to `min-width: auto`, so it refuses to
+   * shrink below its content — and a KaTeX display block does not reflow, so the
+   * track grew to the equation's natural width and pushed 57px past the stage.
+   * Measured: the equation renders 972px (exactly the content box) on the sovereign
+   * arm and 1029px here without this line. The sovereign arm never needed it because
+   * the SECTION is the grid there, and a section is not itself a grid item. */
+  min-width: 0;
+}
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol),
+section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
+  grid-column: 1 / -1;
+  align-self: start;
+  min-width: 0;
+}
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg),
+section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+  /* 2.4em, NOT the sovereign arm's 2.7em, and the difference is a measured
+   * pre-existing defect this migration exposed rather than caused.
+   *
+   * At `size: story` (1080x1920) the reference OLS equation renders 1029px wide at
+   * 2.7em against a 972px content box — 57px CLIPPED. That is true on the sovereign
+   * arm too, measured identically (`dScroll: [57, 0]` on `.katex-display` in both),
+   * so the content has always been cut; the sovereign frame merely HID it. Math had
+   * no clip cell, so the overflow watcher took the section-spill arm and never
+   * looked; `.cell-stage` is in `CLIP_CELL_SELECTOR`, so the Form arm reports what
+   * was already happening and stamps the section `overflow clip-marked`.
+   *
+   * 2.4em renders 914px, inside the box with headroom. This is a real fix to a real
+   * defect, and it is worth naming what surfaced it: moving math into the shared
+   * frame made a latent content-loss bug visible. There is no shrink-to-fit anywhere
+   * in this system (`2026-06-22-the-fit-spine.md` axiom 3 — collapse, shed, split,
+   * never scale), so a size that fits the representative hero is the fix; an equation
+   * longer than the reference still overflows and is still flagged, which is what the
+   * watcher is for.
+   *
+   * THE `feature` SAMPLE IS SUCH AN EQUATION, AND THE REASON IT IS NOT FIXED HERE IS
+   * NARROWER THAN IT WAS FIRST STATED. The migration's record claimed no reflow could
+   * fit it, on the Fit Spine's no-scale axiom. That claim is FALSE and a red team
+   * measured it: at portrait the logistic log-likelihood renders 2587px against a 972px
+   * stage at this 2.4em, and 1078px at 1em — it fits at 0.9em (42.28px), which is
+   * larger than the 37.41px the same equation is set at on a 16:9 slide. A scale that
+   * fits it plainly exists.
+   *
+   * WHAT IS ACTUALLY TRUE is that ONE RULE CANNOT SERVE BOTH SAMPLES. This selector
+   * chain covers bare `math` and `feature` together, because `math.docs.md` says they
+   * are the same layout. Measured at portrait: bare's hero renders 914px of ink inside
+   * a 972px box at 2.4em — 29px of clearance on each side. Dropping this declaration to
+   * 0.9em to fit `feature` would take bare's hero from 112.75px to 42.28px, a 62% cut on
+   * a slide that fits with room. That is trading one defect for a different one, not
+   * fixing anything.
+   *
+   * The lever that serves both is not a third number here. It is breaking the long
+   * expression across lines before KaTeX sees it — measured worth ~35% on this equation
+   * (2587px to 1694px) — together with re-testing this scale-up itself. Both are owner-
+   * ruled and tracked in #2136; neither belongs in a frame migration. */
+  font-size: 2.4em;
 }
 
 /* ── math.derivation ──
@@ -235,77 +366,86 @@ section.math.feature > :is(ul, ol)::before {
  *   | $\frac{f(x+h)-f(x)}{h} = f'(x)+O(h)$ | divide by $h$          |
  *   | $\lim_{h\to 0} = f'(x)$              | take limit             |
  *
- * Two-column table: math left, plain-text right. */
-section.math.derivation {
-  display: flex;
-  flex-direction: column;
+ * Two-column table: math left, plain-text right.
+ *
+ * SOVEREIGN ARM DELETED. What went with it is the clearest case in this migration
+ * for why the frame was never math's to own:
+ *
+ *   section.math.derivation > h2 { position: absolute; top: calc(var(--sp-2xl) + var(--sp-md)); }
+ *
+ * That is the masthead band's geometry, copied by arithmetic, so the proof chain
+ * could center in the well beneath a title that was taken out of flow to get out of
+ * its way. The Form frame puts the h2 in `.cell-masthead` and hands the stage the
+ * remaining height, so centering is `justify-content` on a box that already knows
+ * where it ends — no absolute positioning, no reproduced constant, and one fewer
+ * number that silently rots when the masthead is re-tuned. */
+/* THE FORM ARM. The stage is already `display: flex; flex-direction: column`
+ * (stage.css), so the whole container rule is the centering. The table's own
+ * `--sp-xl` bottom padding is gone too: the frame reserves the footer band with
+ * `--footer-reserve`, derived from the real footer Cell height rather than guessed. */
+section.math.form.derivation > .cell-stage {
   justify-content: center;
-  padding-bottom: var(--sp-xl);
-  position: relative;
 }
-/* Heading taken out of flow (absolute, pinned top) so the proof-chain table
- * centers in the well below it — margin-free equivalent of the table's former
- * auto block-axis margins. */
-section.math.derivation > h2,
-section.math.derivation > h3 {
-  /* left/right:auto keeps the heading at its in-flow (section-padded) horizontal
-   * position; only the vertical is pinned so the table centers beneath it. top clears
-   * the absolute header by the base section's header-clearance (6.875cqi = --sp-2xl +
-   * --sp-md), so the title sits the same distance below the eyebrow as on Form slides. */
-  position: absolute;
-  top: calc(var(--sp-2xl) + var(--sp-md));
-  padding: 0;
-}
-/* The proof chain centers vertically via the parent's
- * `justify-content: center` (replacing the table's former auto block-axis
- * centering, which is now measurable). The table keeps its intrinsic height. */
-section.math.derivation table {
+/* The proof chain keeps its intrinsic height and centers via the stage above. */
+section.math.form.derivation table {
   width: 100%;
   border-collapse: collapse;
   border-spacing: 0;
 }
-section.math.derivation thead {
+section.math.form.derivation thead {
   display: none; /* headers don't earn their place; column meaning is clear */
 }
-section.math.derivation tbody tr {
+section.math.form.derivation tbody tr {
   border-bottom: 1px solid var(--border);
 }
-section.math.derivation tbody tr:last-child {
+section.math.form.derivation tbody tr:last-child {
   border-bottom: none;
 }
-section.math.derivation td {
+section.math.form.derivation td {
   padding: var(--sp-sm) var(--sp-md);
   vertical-align: middle;
   font-size: var(--fs-body);
 }
-section.math.derivation td:first-child {
+section.math.form.derivation td:first-child {
   width: 62%;
   color: var(--text-heading);
 }
-section.math.derivation td:last-child {
+section.math.form.derivation td:last-child {
   color: var(--text-secondary);
   font-style: italic;
   border-left: 2px solid var(--border);
 }
-section.math.derivation tbody tr:last-child td {
+section.math.form.derivation tbody tr:last-child td {
   font-weight: 600;
   color: var(--text-heading);
 }
-section.math.derivation tbody tr:last-child td:last-child {
+section.math.form.derivation tbody tr:last-child td:last-child {
   font-style: normal;
   color: var(--accent);
 }
 /* Display math used as a row entry stays inline-block so it doesn't break
  * the row height. Override the default centered display behavior. */
-section.math.derivation td :is(.katex-display, mjx-container[display="true"]) {
+section.math.form.derivation td :is(.katex-display, mjx-container[display="true"]) {
   display: inline-block;
   margin: 0;
   text-align: left;
 }
-section.math.derivation td :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.derivation td :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.15em;
   display: inline-block;
   text-align: left;
+}
+/* FAMILY REFLOW — tall/strip. The migration costs real height here and the number
+ * is worth stating: the sovereign arm's h2 was absolutely positioned, so the title
+ * overlapped nothing and the proof chain had the whole well. The Form masthead is an
+ * in-flow band, and at portrait a wrapped title takes 271px of it — which put the
+ * committed sample 33px over the stage.
+ *
+ * The chain gives that back where it costs least. Row rhythm is the generous part of
+ * this layout, not the substance: the steps still read as separate rows because each
+ * carries a hairline. Nothing is collapsed and no type shrinks. */
+section.math.math.form.derivation:where([data-family="tall"], [data-family="strip"]) > .cell-stage td {
+  padding: var(--sp-xs) var(--sp-sm);
 }
 
 /* ── math.theorem ──
@@ -322,50 +462,47 @@ section.math.derivation td :is(.katex-display > .katex, mjx-container[display="t
  * The blockquotes render as stacked color-coded cards. Markdown wraps
  * each `>`-prefixed block in a single `<blockquote>`; theorem-card stripes
  * are colored by position (first/middle/last) using the deck spectrum. */
-section.math.theorem {
-  display: flex;
-  flex-direction: column;
-  /* Card stack centers in the well via justify-content; the heading is taken
-   * out of flow (absolute, below) so it stays pinned to the top while only the
-   * cards center — the margin-free equivalent of the old first/last-card
-   * `margin:auto`. (section::after is the pagination marker, so a flex
-   * pseudo-spacer pair isn't available on this non-Form component.) The
-   * transparent inter-card gap is a measurable `gap` of var(--sp-sm) — padding
-   * would extend each card's --bg-alt fill. */
+/* SOVEREIGN ARM DELETED. It carried the same absolutely-positioned title as
+ * `derivation` — `top: calc(var(--sp-2xl) + var(--sp-md))`, the masthead band's
+ * geometry copied by arithmetic — so the card stack could center beneath a heading
+ * taken out of flow. The Form frame owns the title, so the stage centers the stack
+ * with `justify-content` against a box whose height is already correct.
+ *
+ * The stage is a flex column by default (stage.css), so the container rule is two
+ * declarations: the centering, and the card gap. The gap is `gap` rather than card
+ * padding because padding would extend each card's `--bg-alt` fill. The sovereign
+ * arm's `padding-bottom: var(--sp-lg)` is gone — the frame reserves the footer band
+ * from the real footer Cell height instead of guessing at it. */
+section.math.form.theorem > .cell-stage {
   justify-content: center;
-  gap: var(--sp-sm);
-  padding-bottom: var(--sp-lg);
-  position: relative;
+  gap: var(--sp-xs);
 }
-section.math.theorem > h2,
-section.math.theorem > h3 {
-  /* left/right:auto keeps the heading at its in-flow (section-padded) horizontal
-   * position; only the vertical is pinned so the cards center beneath it. top clears
-   * the absolute header by the base section's header-clearance (6.875cqi = --sp-2xl +
-   * --sp-md), so the title sits the same distance below the eyebrow as on Form slides. */
-  position: absolute;
-  top: calc(var(--sp-2xl) + var(--sp-md));
-  padding: 0;
-}
-section.math.theorem blockquote {
+section.math.form.theorem blockquote {
   background: var(--bg-alt);
   border-left: 4px solid var(--accent);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
-  padding: var(--sp-sm) var(--sp-md);
+  /* THE CARD RHYTHM IS TUNED FOR THE STAGE, not for the canvas. `--sp-sm` vertical was
+   * right when the sovereign frame gave this stack the whole slide and an absolutely-
+   * positioned title that cost nothing. The Form stage is smaller by the masthead band —
+   * 356px on `examples/cat-ink-tier.md`, whose title wraps to two lines in `atelier` — and
+   * at `--sp-sm` that deck's three cards plus its closing paragraph came to 415px and
+   * shipped 60px cut. Re-tuned once, here, rather than per family: the box changed at
+   * every size, so the rhythm should too. */
+  padding: var(--sp-xs) var(--sp-md);
   font-style: normal;
   color: var(--text-body);
 }
 /* Suppress the default "KEY INSIGHT" eyebrow that lattice.css emits on every
  * blockquote outside .quote — the bold inline label (Definition.,
  * Theorem., Proof.) carries the type, and a second label clutters the card. */
-section.math.theorem blockquote::before { content: none; }
-section.math.theorem blockquote p {
+section.math.form.theorem blockquote::before { content: none; }
+section.math.form.theorem blockquote p {
   margin: 0;
 }
-section.math.theorem blockquote p + p {
+section.math.form.theorem blockquote p + p {
   padding-top: var(--sp-xs);
 }
-section.math.theorem blockquote strong:first-child {
+section.math.form.theorem blockquote strong:first-child {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   letter-spacing: 0.18em;
@@ -389,158 +526,164 @@ section.math.theorem blockquote strong:first-child {
  * same hue and chroma as the stripe beside it, lightness solved per palette until
  * it clears the floor. On a palette whose mark already cleared, the two are the
  * same color. Gated on every palette, all three canvases, by checkCatContrast.
- * (#1263)
- *
- * Both fall back to --accent if a future palette ever drops the cycle. */
-section.math.theorem blockquote:nth-of-type(3n+1) {
+ * (#1263) */
+/* Both fall back to --accent if a future palette ever drops the cycle. */
+section.math.form.theorem blockquote:nth-of-type(3n+1) {
   border-left-color: var(--cat-4-mark, var(--accent));
 }
-section.math.theorem blockquote:nth-of-type(3n+1) strong:first-child {
+section.math.form.theorem blockquote:nth-of-type(3n+1) strong:first-child {
   color: var(--cat-4-ink, var(--cat-4-mark, var(--accent)));
 }
-section.math.theorem blockquote:nth-of-type(3n+2) {
+section.math.form.theorem blockquote:nth-of-type(3n+2) {
   border-left-color: var(--cat-7-mark, var(--accent));
 }
-section.math.theorem blockquote:nth-of-type(3n+2) strong:first-child {
+section.math.form.theorem blockquote:nth-of-type(3n+2) strong:first-child {
   color: var(--cat-7-ink, var(--cat-7-mark, var(--accent)));
 }
-section.math.theorem blockquote:nth-of-type(3n) {
+section.math.form.theorem blockquote:nth-of-type(3n) {
   border-left-color: var(--muted-mark);
 }
-section.math.theorem blockquote:nth-of-type(3n) strong:first-child {
+section.math.form.theorem blockquote:nth-of-type(3n) strong:first-child {
   color: var(--text-secondary);
 }
-section.math.theorem blockquote :is(.katex-display, mjx-container[display="true"]) {
+section.math.form.theorem blockquote :is(.katex-display, mjx-container[display="true"]) {
   padding: var(--sp-xs) 0;
 }
-section.math.theorem blockquote :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.theorem blockquote :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.25em;
 }
 
-/* ── math.compare ──
- * Authoring: alternating h3 + content groups become columns.
- *   ## Title
- *   ### Naïve
- *   $$ E = mc^2 $$
- *   Classical kinetic-energy approximation.
- *   ### Relativistic
- *   $$ E^2 = (mc^2)^2 + (pc)^2 $$
- *   Full Einstein relation; reduces to the naïve form for $p \ll mc$.
+/* ── `compare`: SOVEREIGN ARM DELETED ──
  *
- * Renders as 2-column (or 3-column if three h3s are present) via CSS
- * multi-columns. The markdown emits a flat sibling sequence — no wrapper
- * divs — so we use `column-span:all` on h2 to keep the title full-width
- * and `break-before:column` on each subsequent h3 to start a new column. */
-section.math.compare {
+ * No `section.math.compare > …` arm remains. The Form arm below is the only shape
+ * this variant has — `form` is not optional, and the sovereign copy would be dead
+ * CSS reachable only through an opt-out that is going away.
+ *
+ * What went with it, and why none of it is needed once the stage is the multicol:
+ *   · `column-span: all` on the h2 — the h2 is in `.cell-masthead` now, outside the
+ *     column flow, so there is nothing to span.
+ *   · `break-inside: avoid` on the eyebrow — the fix for #1554, whose fragmenting
+ *     box was the in-flow content PRECEDING the spanner. Both the eyebrow and the
+ *     spanner are gone from the flow, so the ghost has nothing to fragment.
+ * The `.katex-mathml` pin is NOT in that list: it is unrelated to the spanner and is
+ * re-scoped to the stage below, because the stage is still a multicol. */
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE FORM ARM — `compare`, migrated off the sovereign frame.
+ *
+ * THE STAGE BECOMES THE MULTICOL. On the sovereign arm the SECTION was the
+ * multi-column container, which is what forced `column-span: all` on the `h2`:
+ * a spanner has to be a direct child of the fragmented box. Migrated, the h2 and
+ * the eyebrow lift into `.cell-masthead` — out of the column flow entirely — so
+ * `.cell-stage` carries `column-count` and there is no spanner at all.
+ *
+ * THAT REMOVES #1554's ROOT CAUSE STRUCTURALLY, and the removal is the reason the
+ * old guard needs replacing rather than deleting. `2026-08-10-compare-column-atoms.md`
+ * measured which box actually fragments: the EYEBROW paragraph, i.e. the in-flow
+ * content PRECEDING the spanner — `break-inside: avoid` on the h3 alone fixed
+ * nothing (12/32 clean), the eyebrow arm alone fixed everything (32/32). With the
+ * eyebrow in the masthead there is no preceding in-flow content and no spanner, so
+ * the WebKit ghost has nothing to fragment. `docs/e2e/math-compare-webkit.spec.ts`
+ * says so itself: "a fixture without one cannot fail."
+ *
+ * `.katex-mathml { position: fixed }` STAYS, and is re-scoped rather than dropped.
+ * It has nothing to do with the spanner: an absolutely-positioned descendant is
+ * still counted as fragmentable content inside a multicol, and it still grows a
+ * spurious empty column (1280 -> 1872 scrollWidth, measured). The stage is a
+ * multicol now, so the rule follows it there.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+section.math.form.compare > .cell-stage {
+  /* `block`, overriding `stage.css`'s flex column, because multi-column layout is
+   * a block-container property. (0,3,1) beats `section.form > .cell-stage` at
+   * (0,2,1), so no `!important`. */
   display: block;
   column-count: 2;
   column-gap: var(--sp-lg);
   column-rule: 1px solid var(--border);
   column-fill: balance;
-  /* Chromium ≥122 honors `align-content` on block layout — use it to pull
-   * the columns to the vertical middle of the slide so a short comparison
-   * doesn't leave the bottom half empty. */
-  align-content: center;
-  padding-bottom: var(--sp-lg);
+  /* `safe`, per the stage contract — a bare `center` on a clipped box pushes
+   * content off the block-start edge where no probe can see it. */
+  align-content: safe center;
 }
-section.math.compare:has(h3:nth-of-type(3)) {
+section.math.form.compare:has(h3:nth-of-type(3)) > .cell-stage {
   column-count: 3;
 }
-
-/* KaTeX's MathML half must not fragment into a column of its own.
- *
- * `.katex-mathml` is the accessible alternative KaTeX pairs with its `aria-hidden`
- * visual rendering — clipped to 1px and painting nothing. It is `position:absolute`,
- * and inside a MULTI-COLUMN container Chrome still counts an absolutely-positioned
- * descendant as fragmentable content: with several formulas the block gains an extra,
- * EMPTY column, which paints a spurious `column-rule` hairline at the slide's right
- * edge and inflates `scrollWidth` (1280 → 1872 on the gallery's compare slide).
- *
- * This is the one place enabling MathML is NOT pixel-free — it is invisible everywhere
- * that isn't a multicol, which is why the first measurement missed it (the baseline
- * gallery has a `math` slide but no `math compare`). Found by the red team.
- *
- * `position:fixed` takes the node out of the multicol's fragmentation flow entirely
- * while leaving it clipped, invisible and fully present in the accessibility tree.
- * Nothing else worked: `contain` (strict / size / layout / paint), `overflow:hidden`
- * and `column-fill:auto` all left the phantom column in place — verified in Chromium.
- * Under the slide's fit-scale `transform` the transformed ancestor is the containing
- * block, so this stays local rather than escaping to the viewport.
- *
- * KaTeX-only by design. marp-core's MathJax emits a bare `<mjx-container>` wrapping an
- * inline `<svg>` and NO assistive MathML at all, so there is no absolutely-positioned
- * descendant to fragment — and nothing for this rule to match. (That absence is an
- * accessibility gap on the Marp surface, not a layout one; it is recorded in
- * lib/core/marp-fidelity.js rather than papered over here.) */
-section.math.compare .katex .katex-mathml {
+section.math.form.compare > .cell-stage .katex .katex-mathml {
   position: fixed;
 }
-section.math.compare > h2 {
-  column-span: all;
-  padding: 0 0 var(--sp-md) 0;
-}
-section.math.compare > h3 {
+section.math.form.compare > .cell-stage > h3 {
   break-before: column;
   break-after: avoid;
+  break-inside: avoid;
   padding-bottom: var(--sp-xs);
   border-bottom: 2px solid var(--accent);
   color: var(--text-heading);
   font-size: var(--fs-meta);
 }
-/* The gap below the h3 underline (formerly the h3's `margin-bottom`) lives as
- * the following element's top padding so the rule keeps drawing tight to the
- * label text — measurable, and outside the border just as the margin was. */
-section.math.compare > h3 + * { padding-top: var(--sp-sm); }
-section.math.compare > h3:first-of-type { break-before: avoid; }
-
-/* THE MASTHEAD BAND AND THE COLUMN LABELS ARE ATOMS — they may not split across
- * a column boundary. Captions deliberately still may.
- *
- * WHICH BOX ACTUALLY FRAGMENTS: the EYEBROW paragraph, not the h3. #1554 reads
- * as "WebKit paints the first h3 twice", and that is the visible symptom, but
- * the ghost is a paint copy — the box WebKit fragments across the
- * `column-span: all` spanner is the in-flow content that PRECEDES the spanner.
- * Measured on 8 compare shapes x light/dark x 1180x820 and 1180x703:
- *
- *   no rule at all …………………………………… 12/32 clean
- *   `> h3 { break-inside: avoid }` … 12/32 clean   ← the "obvious" fix does NOTHING
- *   eyebrow paragraph only ………………… 32/32 clean
- *   this rule ……………………………………………… 32/32 clean
- *
- * and a compare slide with NO eyebrow never had the bug. So the eyebrow arm
- * below is load-bearing and must not be dropped; h2 and h3 are belt-and-braces
- * on boxes that never wanted to split anyway. Do not "simplify" this to `> h3`.
- *
- * WHY NOT `> *`: it also makes the CAPTION prose an atom, and that is a real
- * regression on a slide whose caption is taller than its column — the caption
- * relocates whole instead of flowing, leaving a gap and pushing the next h3
- * group off the slide entirely. Verified against the export path: with the
- * arms below, an overflowing compare slide renders byte-identically to the
- * unfixed engine, while `> *` does not.
- *
- * WHY IT WAS INVISIBLE: the BOXES stay correct. `getBoundingClientRect` and
- * `getClientRects` alike report only the second fragment, `section.overflow` is
- * 0, and `scrollHeight == clientHeight`, so every gate this repo owns — all of
- * which measure boxes — passes. Only a rasterized WebKit view sees it, which is
- * why the guard is a pixel spec (`docs/e2e/math-compare-webkit.spec.ts`, tagged
- * `@webkit-tablet`) rather than a measurement.
- *
- * See engineering/decisions/2026-08-10-compare-column-atoms.md. */
-section.math.compare > :is(h2, h3, p:has(> code:only-child):has(+ h2)) {
-  break-inside: avoid;
-}
-
-section.math.compare > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+section.math.form.compare > .cell-stage > h3:first-of-type { break-before: avoid; }
+section.math.form.compare > .cell-stage > h3 + * { padding-top: var(--sp-sm); }
+section.math.form.compare > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   break-inside: avoid;
   padding-bottom: var(--sp-sm);
   text-align: center;
 }
-section.math.compare > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.4em;
+section.math.form.compare > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+  /* 1.25em, down from the sovereign arm's 1.4em. THE FIRST VERSION OF THIS COMMENT
+   * GOT THE REASON WRONG IN TWO WAYS, both caught by an independent checker, and the
+   * corrections matter more than the change.
+   *
+   * IT IS NOT A WIDTH LOSS. The claim was "1152px wide against the section's 1280px
+   * (the frame inset)". False: the sovereign section carried 64px of horizontal
+   * padding, so its multicol content box was ALREADY 1152px. Measured, the column
+   * boxes are identical across the migration — 2-up `560, 560` at x=`64, 656`; 3-up
+   * `362.66` each. The frame inset costs zero width. What the migration costs is
+   * HEIGHT, and only height.
+   *
+   * AND 1.4em WAS ALREADY OVERFLOWING. The shear this reduction was said to fix
+   * predates the migration: at 1.4em the widest estimator's ink ran 48.78px past the
+   * same 362.66px column on the SOVEREIGN arm too. The migration did not cause it; it
+   * changed the consequence from painting into the section's padding to being cut by
+   * `overflow: clip`. 1.25em narrows the overrun to ~4.8px on that equation — better,
+   * but "fits" was too strong: a longer estimator still shears, and this buys margin
+   * rather than correctness. There is no shrink-to-fit in this system
+   * (`2026-06-22-the-fit-spine.md` axiom 3), so an equation wider than its column is
+   * an authoring-side overflow that the watcher flags. */
+  font-size: 1.25em;
 }
-section.math.compare > p:not(:has(:is(.katex-display, mjx-container[display="true"]))) {
+section.math.form.compare > .cell-stage > p:not(:has(:is(.katex-display, mjx-container[display="true"]))) {
   color: var(--text-secondary);
   padding-bottom: var(--sp-xs);
+}
+
+/* FAMILY REFLOW — newly POSSIBLE, and that is a capability the migration unlocks
+ * rather than a rule carried across.
+ *
+ * The sovereign arm had none, and the stylesheet's own reason was structural: the
+ * multicol lived on the SECTION, and `@container` cannot style its own container
+ * element, so `column-count` was unreachable from a container query and compare
+ * "stayed landscape" at every size. Now the multicol is on `.cell-stage`, a
+ * DESCENDANT, which a container query reaches like any other — so a tall box can
+ * collapse the comparison to one column instead of squeezing two into 1080px. */
+/* SPECIFICITY, and it is load-bearing — the first cut of this rule never fired.
+ * The 3-column rule is `…compare:has(h3:nth-of-type(3))`, and `:has()` contributes
+ * its ARGUMENT's specificity, so that selector is (0,4,2). A `:where([data-family])`
+ * arm contributes ZERO, leaving it at (0,3,1) — beaten, so a three-column comparison
+ * kept all three columns in a 1080px portrait box and rendered as overlapping text.
+ * The doubled `.math.math` is the same idiom the sovereign family block used against
+ * variant rules; with the attribute selector it reaches (0,6,1) and wins cleanly. */
+section.math.math.form.compare[data-family="tall"] > .cell-stage,
+section.math.math.form.compare[data-family="strip"] > .cell-stage {
+  column-count: 1;
+  column-rule: none;
+  /* `safe center`: a two-comparison slide stacked into one column leaves the lower
+   * third of a 1920px canvas empty at `start`, and centering reads as composed
+   * rather than top-heavy. `safe` keeps the overflow behaviour — it falls back to
+   * start the moment the content is taller than the stage, so a dense comparison
+   * never gets pushed off the block-start edge where no probe can see it. */
+  align-content: safe center;
+}
+section.math.math.form.compare[data-family="tall"] > .cell-stage > h3,
+section.math.math.form.compare[data-family="strip"] > .cell-stage > h3 {
+  break-before: auto;
 }
 
 /* ── math.canvas ──
@@ -561,66 +704,105 @@ section.math.compare > p:not(:has(:is(.katex-display, mjx-container[display="tru
  * (auto, sized to text), plot spans both rows on the right. The plot's
  * intrinsic height no longer inflates the eq row because eq is bounded
  * by 1fr (which only takes remaining space). */
-section.math.canvas {
-  grid-template-columns: 2fr 3fr;
-  grid-template-rows: auto auto 1fr auto;
+/* SOVEREIGN ARM DELETED. The grid moves to the stage, and it loses two of its four rows
+ * doing so: the eyebrow and the title are the masthead's now, so the stage carries only
+ * `eq` over `cap` on the left and `plot` spanning both on the right.
+ *
+ * THAT DELETES A SPECIFICITY TRAP ALONG WITH THEM. The sovereign arm had to say which
+ * paragraph was the CAPTION by excluding the other two — not the equation, not an image,
+ * and not the eyebrow — and that last exclusion was load-bearing by accident for a while:
+ * the eyebrow rule out-specified this one by a single unit until widening
+ * `.katex-display` to `:is(.katex-display, mjx-container[display="true"])` for MathJax
+ * added an attribute selector, tied the two, and let source order hand the eyebrow to the
+ * caption slot, stacking both in one grid cell. Inside the stage there is no eyebrow to
+ * exclude, so the caption is simply "the paragraph that is neither the equation nor an
+ * image" and the tie cannot recur. */
+section.math.form.canvas > .cell-stage {
+  display: grid;
+  /* `minmax(0, …)` for the same reason as `matrix`: a bare `fr` track will not shrink
+   * below its min-content, so a wide plot or a long caption pushes the grid past the
+   * stage instead of being bounded by it. */
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   grid-template-areas:
-    "eyebrow eyebrow"
-    "title   title"
-    "eq      plot"
-    "cap     plot";
-  padding-bottom: var(--sp-xl);
+    "eq   plot"
+    "cap  plot";
+  gap: var(--sp-md) var(--sp-lg);
 }
-section.math.canvas > p:has(> code:only-child):has(+ h2) { grid-area: eyebrow; }
-section.math.canvas > h2              { grid-area: title; }
-section.math.canvas > p:has(:is(.katex-display, mjx-container[display="true"])) {
+section.math.form.canvas > .cell-stage > p:has(:is(.katex-display, mjx-container[display="true"])) {
   grid-area: eq;
   align-self: center;
   text-align: center;
   margin: 0;
+  /* RESERVE FOR THE LINE BOX, WHICH IS TALLER THAN THE CONTENT BOX. A KaTeX display is
+   * built from `vlist` struts, so the line box carries the font's full ascent above the
+   * tallest glyph and the `.katex-display` span reports ~10px of inner overflow at hd
+   * without anything being visible up there. That is harmless until the box sits against a
+   * clip edge: at portrait this equation's first row is the stage's first row, the
+   * numerator's line box started 19.2px above the stage top, and the content probe called
+   * it a cut. Nothing IS cut — the glyph renders whole — but a marginally taller equation
+   * would be, and the honest answer to "the box is 19px short of what it lays out" is to
+   * reserve the 19px rather than to teach the probe to look away. Scoped to `canvas`
+   * because it is the only variant whose equation is the stage's first row. */
+  padding-block: 0.3em;
 }
-section.math.canvas > p:has(:is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.canvas > .cell-stage > p:has(:is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.7em;
 }
-/* The caption is "a paragraph that is neither the equation nor an image" — and
- * NOT the eyebrow, which is its own slot above the title (rule ~10 lines up).
- *
- * That last exclusion used to be implicit, and it was load-bearing by accident:
- * the eyebrow rule out-specified this one by a single unit, so the eyebrow simply
- * won. Widening `.katex-display` to `:is(.katex-display, mjx-container[display="true"])`
- * for MathJax added an attribute selector, `:is()` takes its most specific
- * argument, and this rule went (0,3,3) → (0,3,4). That TIES the eyebrow rule, and
- * this one is later in source order — so the eyebrow silently became a caption
- * and the two stacked in one grid cell, rendering on top of each other.
- *
- * Stated explicitly now, so the separation is semantic instead of a specificity
- * coincidence one selector edit away from flipping. Neither gallery nor docs
- * skeleton gives `canvas` an eyebrow, so no committed render moved and two
- * pixel-diff sweeps across 47 pages missed it; it was caught by an independent
- * cascade check. */
-section.math.canvas > p:not(:has(:is(.katex-display, mjx-container[display="true"]))):not(:has(img)):not(:has(> code:only-child)) {
+section.math.form.canvas > .cell-stage > p:not(:has(:is(.katex-display, mjx-container[display="true"]))):not(:has(img)) {
   grid-area: cap;
   color: var(--text-secondary);
   text-align: center;
   padding: var(--sp-sm) 0 0 0;
 }
-section.math.canvas > p:has(img),
-section.math.canvas > :is(svg, figure, .functionplot) {
+section.math.form.canvas > .cell-stage > p:has(img),
+section.math.form.canvas > .cell-stage > :is(svg, figure, .functionplot) {
   grid-area: plot;
   align-self: center;
   justify-self: center;
 }
-section.math.canvas > .functionplot {
-  width: 55cqi;
-  height: 38cqi;
+/* THE PLOT IS SIZED AGAINST ITS CELL, NOT AGAINST THE SLIDE — and that is the migration's
+ * one substantive change here. The sovereign arm asked for `55cqi x 38cqi`, which resolves
+ * against the SECTION: 38cqi is 486px of a 720px-tall slide, against a stage that is 438px
+ * at `hd`. On the sovereign frame the section WAS the box, so it fitted; inside a stage
+ * that the frame has already taken a masthead and a footer reserve out of, a slide-relative
+ * height is a number that no longer describes anything the plot sits in.
+ *
+ * `100%` of the plot cell with the same 55:38 aspect ratio keeps the shape the sovereign
+ * arm chose while letting the cell decide the size. `max-height: 100%` is the guard for a
+ * short stage, where honouring the ratio would otherwise overflow the row. */
+section.math.form.canvas > .cell-stage > .functionplot {
+  /* AXIS LABELS DRAW OUTSIDE THE PLOT AREA, so the plot asks for less than the whole cell.
+   * function-plot anchors its y-tick text at `text-anchor: end`, so the digits extend LEFT
+   * of the axis and out of the `<svg>`'s own box; the x-axis's last tick does the same on
+   * the right. Measured at `story` with the plot spanning the stage: 15px of tick ink past
+   * the stage's left edge, clipped, so `0.8` rendered as `).8` all the way down the axis.
+   * It did not show on the sovereign arm because `55cqi` left the column's own slack around
+   * the plot; taking the whole cell spends that slack, so the gutter has to be asked for.
+   *
+   * WIDTH, NOT PADDING. function-plot sizes its `<svg>` from the container's BORDER box, so
+   * `padding-inline` narrowed the content box and left the svg at its old width — 62px of
+   * horizontal overflow at mobile, worse than the 15px it was meant to fix. Shrinking the
+   * element is the only lever it reads.
+   *
+   * SIDE BY SIDE the plot fills its column and needs no gutter of its own: the column gap
+   * and the frame inset already put 491px between the plot's ink and the stage's left edge
+   * at hd. The gutter is only owed in the STACKED case, where the plot would otherwise span
+   * the whole stage — and it is taken there as a plain percentage in the family arm below,
+   * not as a `calc(100% − …)`, which the ownership gate rightly reads as a second outer
+   * inset on top of the frame's own. */
+  width: 100%;
+  justify-self: center;
+  aspect-ratio: 55 / 38;
+  max-height: 100%;
 }
-section.math.canvas > p:has(img) {
+section.math.form.canvas > .cell-stage > p:has(img) {
   margin: 0;
   text-align: center;
 }
-section.math.canvas > p > img {
+section.math.form.canvas > .cell-stage > p > img {
   max-width: 100%;
-  max-height: 55cqi;
+  max-height: 100%;
   width: auto;
   height: auto;
   display: inline-block;
@@ -642,30 +824,62 @@ section.math.canvas > p > img {
  *   $$ U \in \mathbb{R}^{m\times m} $$
  *   $$ \Sigma \in \mathbb{R}^{m\times n} $$
  *   $$ V \in \mathbb{R}^{n\times n} $$ */
-section.math.matrix {
-  grid-template-columns: 3fr 2fr;
+/* SOVEREIGN ARM DELETED. The two-column split moves to the stage; the grid is
+ * re-declared there because `section.form:has(> .cell-stage)` turns the section into a
+ * flex column and every `grid-column` above it would go inert.
+ *
+ * NO `grid-column` ASSIGNMENTS. On the sovereign arm the section grid also carried the
+ * eyebrow and title rows, so the equation and the legend had to name their column and
+ * every body child needed `grid-row: 3` to stay out of them. Inside the stage there is
+ * no chrome to dodge: two children, two tracks, auto-placement puts them where they
+ * belong. */
+section.math.form.matrix > .cell-stage {
+  display: grid;
+  /* `minmax(0, …)`, not a bare `fr`. A grid track's default minimum is `auto`, i.e. its
+   * MIN-CONTENT width, so a track never shrinks below the widest unbreakable thing in it
+   * and simply pushes the grid past its container instead. Measured at `square`: the
+   * legend's 4em label reservation plus its hanging indent gave it a 358px min-content
+   * against a 333px track, and the stage ran 25px wide — with the `<ul>` itself reporting
+   * no overflow at all, because the overflow was the TRACK's, not the list's. Zeroed, both
+   * tracks shrink to their share and content that still does not fit is clipped at the
+   * track edge, which keeps the other column readable. */
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   align-content: center;
-  padding-bottom: var(--sp-lg);
+  gap: var(--sp-md) var(--sp-lg);
 }
-section.math.matrix > p:has(> :is(.katex-display, mjx-container[display="true"])) {
-  grid-column: 1;
+section.math.form.matrix > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   align-self: center;
   text-align: center;
 }
-section.math.matrix > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.matrix > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.7em;
 }
-section.math.matrix > :is(ul, ol) {
-  grid-column: 2;
+section.math.form.matrix > .cell-stage > :is(ul, ol) {
   align-self: center;
   padding-left: var(--sp-md);
   border-left: 1px solid var(--border);
 }
-section.math.matrix > :is(ul, ol) > li {
+/* THE LABEL COLUMN IS A REAL COLUMN NOW. `min-width: 4em` on an inline-block label
+ * reserved the width but not the INDENT: a property whose value wrapped — "rank —
+ * full-rank for OLS to have a unique solution", in the committed sample — returned to the
+ * list item's left edge on its second line, under the label instead of beside it, and the
+ * two-column reading of the legend broke on exactly the rows long enough to need it.
+ * Pre-existing (identical on the sovereign arm, at every size), fixed here because this
+ * commit rewrites these rules. A flex row gives the value its own block, so a wrap stays
+ * in the value column. The bullet pseudo becomes the first flex item and keeps its place. */
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li {
+  /* Hanging indent, not flex. A flex row was tried first and traded one defect for a
+   * worse one: the property VALUE is a bare text node, so it becomes an anonymous flex
+   * item that cannot be given `min-width: 0`, and at `square` the legend column could no
+   * longer shrink — 119px of horizontal overflow where there had been none. Padding plus
+   * a negative first-line indent needs no box around the value at all. 5em is the label's
+   * 4em reservation plus the bullet and its gap. */
+  padding-left: 5em;
   padding-bottom: var(--sp-sm);
+  text-indent: -5em;
   color: var(--text-body);
 }
-section.math.matrix > :is(ul, ol) > li > strong {
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong {
   display: inline-block;
   min-width: 4em;
   font-family: var(--font-mono);
@@ -675,51 +889,158 @@ section.math.matrix > :is(ul, ol) > li > strong {
   color: var(--text-secondary);
   font-weight: 600;
   padding-right: 0.5em;
+  text-indent: 0;
+}
+/* A LABEL THAT IS A SYMBOL IS SET AS A SYMBOL. The chrome above — uppercase mono at
+ * `--fs-meta` — is right for a word (`shape`, `rank`, `cols`). It is wrong for `$A$`,
+ * which `decompose`'s own docs use for every label: uppercasing does nothing to rendered
+ * math, and `--fs-meta` shrank the symbol to 70% of the body text defining it (measured:
+ * 14.98px inside a 21.38px list item on the shipped gallery). The symbol is the subject of
+ * the row and should be at least as large as its definition.
+ *
+ * THE SCALE GOES ON THE MATH, NOT ON THE `<strong>`, and that distinction is the whole
+ * rule. Enlarging the element enlarges its `min-width: 4em` with it, because `em` resolves
+ * against the element's OWN font-size — so a slide mixing symbol labels with word labels
+ * got two different label columns and its em-dashes no longer lined up. Measured: the
+ * `--fs-body`/`--fs-meta` ratio is not even constant across families (1.37 at square,
+ * 1.43 at hd, 1.56 at tall), so no single multiplier would have fixed it either. The box
+ * keeps its `--fs-meta` reservation; only what is drawn inside it takes `--fs-body`. */
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong:has(:is(.katex, mjx-container)) {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-heading);
+}
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong :is(.katex, mjx-container) {
+  font-size: var(--fs-body);
 }
 
-/* `.decompose` overrides the grid to a block layout so the secondary
- * equations can sit inline-block in a row. The lead equation + h3 are
- * full-width block; the remaining `<p>` siblings flow horizontally as
- * a 3-up row (text-align: center on the parent centers them as a group). */
-/* Block layout with align-content:center centers the whole group
- * (title → lead eq → divider → subhead → component row) vertically.
- * The 3 component equations need block display to flow inline-block in a
- * row; flex column would stack them. Modern Chromium (≥122) supports
- * `align-content` on block — older preview Chromium falls back to
- * top-anchored content, which is still readable. */
-section.math.matrix.decompose {
+/* FAMILY REFLOW — tall/strip. The equation goes full-width above its properties and
+ * the legend's left rule becomes a top rule.
+ *
+ * TWO THINGS ARE SIMPLER HERE THAN THEY WERE, AND NEITHER IS A NEW CAPABILITY. The
+ * sovereign arm spanned each child `grid-column: 1 / -1` and pinned `grid-row` on both,
+ * because it could not restyle the section's own `grid-template-columns` — a leftover
+ * from the RETIRED `@container` form of these rules, where a query genuinely cannot
+ * style its own container. These are plain `[data-family]` attribute rules and always
+ * could have set the tracks directly; the workaround simply outlived its reason. The
+ * stage makes that obvious rather than possible. Recorded because the compare commit
+ * claimed a false capability here and the lever's note asks the next variant not to.
+ *
+ * WHAT IS NEW IS THE FIX. The sovereign arm scaled the equation UP at tall — 1.7em to
+ * 2.4em — on the theory that a full-width row has room for it. A 4x4 `pmatrix` does
+ * not: measured on the committed sample, portrait ran 279px wide and 206px tall past
+ * the section, already `clip-marked`. That was survivable while the overrun painted
+ * into the section's padding; `.cell-stage` is `overflow: clip`, so after the wrap it
+ * would be CUT — a latent fragility this change would have tipped into a visible one
+ * (HARD RULE #18). The scale-up is gone. The equation keeps 1.7em at every size, which
+ * is what actually fits, and the width it gains from the full row is the whole point of
+ * the reflow. */
+section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--sp-sm);
+}
+section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
+  padding-left: 0;
+  border-left: none;
+  padding-top: var(--sp-sm);
+  border-top: 1px solid var(--border);
+}
+/* …and the stacked pair has to FIT, which the sovereign arm never checked. Measured on
+ * the committed 4x4 `pmatrix` at portrait: equation 449px over legend 623px against an
+ * 875px stage — 237px over, `cut`. It was 206px over on the sovereign frame too, so this
+ * is an old defect the migration inherits rather than causes; it is fixed here because
+ * this is the commit that owns these rules.
+ *
+ * The equation gives back the most, because a matrix is READ as a block and survives a
+ * smaller setting better than a legend line does. The legend's row rhythm gives the rest. */
+section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+  font-size: 1.15em;
+}
+section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
+  padding-bottom: var(--sp-xs);
+}
+
+/* ── math.matrix.decompose ──
+ *
+ * SOVEREIGN ARM DELETED. The stage becomes the block container.
+ *
+ * THIS VARIANT SHIPPED WITH ITS CONTRACT AND ITS STYLESHEET DESCRIBING DIFFERENT
+ * SLIDES, and the migration is where that stops. The docs and the manifest sample both
+ * author it as ONE combined equation plus a legend list naming the terms:
+ *
+ *   $$ \begin{pmatrix}…\end{pmatrix} = \begin{pmatrix}…\end{pmatrix}\begin{pmatrix}…\end{pmatrix} $$
+ *   - **$A$** — the original matrix being factorized
+ *   - **$L$** — lower-triangular, unit diagonal
+ *
+ * The CSS was written for a different shape — a lead equation, an `### h3`, and THREE
+ * separate `$$` blocks flowing as a 3-up row — and every rule below the lead equation
+ * addressed boxes the committed sample does not contain. What the sample got instead was
+ * the leftovers: the section's `text-align: center` landed on the legend (so its lines
+ * ragged around a center while `matrix`'s left rule still ran down its side), and
+ * `matrix`'s label chrome set each `$A$` in uppercase mono at `--fs-meta`, shrinking the
+ * symbol it names to 70% of the body text beside it. Both are visible on the shipped
+ * gallery.
+ *
+ * BOTH SHAPES ARE SUPPORTED NOW, because both are legitimate: the 3-up row is a real
+ * factorization layout and the legend is what the docs teach. The rules are split by the
+ * box they address rather than by which shape the author picked, so a slide with one, the
+ * other, or both renders correctly. */
+section.math.form.matrix.decompose > .cell-stage {
+  /* Block, not grid or flex: the 3-up component row is `inline-block` flow, which a flex
+   * column would stack. `align-content` on a block container centers the group; Chromium
+   * ≥122 honours it and older engines fall back to top-anchored, which still reads. */
   display: block;
   align-content: center;
-  padding-bottom: var(--sp-lg);
   text-align: center;
 }
-section.math.matrix.decompose > h2 {
-  padding: 0 0 var(--sp-md) 0;
-  text-align: left;
-}
-section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type {
+/* THE LEAD EQUATION — the factorization itself, and the one box both shapes share. */
+section.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type {
   padding-bottom: var(--sp-md);
   border-bottom: 1px solid var(--border);
 }
-section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 2.1em;
 }
-section.math.matrix.decompose > h3 {
+/* THE 3-UP ROW — a lead equation, an optional `### h3`, then one `$$` per factor. */
+section.math.form.matrix.decompose > .cell-stage > h3 {
   text-align: center;
-  /* Top padding carries the gap below the lead equation's divider (formerly
-   * the equation's `margin-bottom`), keeping the rule tight to the equation;
-   * bottom padding replaces the h3's own `margin-bottom`. */
+  /* Top padding carries the gap below the lead equation's divider, keeping the rule tight
+   * to the equation; bottom padding replaces the h3's own margin. */
   padding-top: var(--sp-md);
   padding-bottom: var(--sp-sm);
 }
-section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[display="true"])):not(:first-of-type) {
+section.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):not(:first-of-type) {
   display: inline-block;
   width: calc((100% - 2 * var(--sp-lg)) / 3);
   padding: 0 var(--sp-xs);
   vertical-align: middle;
 }
-section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[display="true"])):not(:first-of-type) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):not(:first-of-type) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.3em;
+}
+/* THE LEGEND — the shape the docs actually teach, and the one the stylesheet had no rule
+ * for. It is a `matrix` legend, so it inherits `matrix`'s hanging indent and label column
+ * from the rules above; what it must NOT inherit is this variant's centring (a legend
+ * reads as a list, not as a caption) or `matrix`'s side rule, which belongs beside a
+ * column and here sits under a full-width divider that already separates the two. */
+section.math.form.matrix.decompose > .cell-stage > :is(ul, ol) {
+  text-align: start;
+  padding-left: 0;
+  border-left: none;
+  padding-top: var(--sp-md);
+}
+/* FAMILY REFLOW — tall/strip. The lead equation is the whole factorization on one line,
+ * so it is the widest thing math ships, and 2.1em of it does not fit a 972px stage:
+ * measured 204px past the edge at portrait, story and mobile, `cut`. It was over on the
+ * sovereign frame too (the overrun painted into the section's padding instead of being
+ * clipped), so this is an old defect the migration inherits and fixes rather than causes.
+ *
+ * There is no reflow available other than scale: a factorization is one expression and
+ * KaTeX will not break or shrink it. 1.55em is the measured fit for the committed sample
+ * with headroom; the 3-up row and the legend are unchanged, because neither was over. */
+section.math.math.form.matrix.decompose:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+  font-size: 1.55em;
 }
 
 /* ── math.stats ──
@@ -738,28 +1059,36 @@ section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[displa
  * hero estimate → blockquote → interpretation) to the vertical middle so
  * the boardroom number lands at eye-level instead of orphaning an empty
  * lower half. */
-section.math.stats {
-  display: flex;
-  flex-direction: column;
+/* SOVEREIGN ARM DELETED. The scaffold is the same — hero estimate, uncertainty
+ * line, interpretation, vertically centered — but the stage owns the centering now
+ * and the frame owns the title.
+ *
+ * ONE THING A READER WILL SEE CHANGE: the title is LEFT-aligned. The sovereign arm
+ * centered the h2 to match the number under it. Under Form the h2 lifts into
+ * `.cell-masthead`, which has one alignment for every slide in the deck, and there is
+ * no centered-masthead facility to reach for. That is the trade this migration is
+ * making everywhere and it is worth naming here, because `stats` is the one variant
+ * where the old centering was a considered choice rather than an accident: a boardroom
+ * number reads as the subject of the slide, and a centered title framed it. What
+ * replaces it is a title that lands in the same place as every other title in the
+ * deck, with the number still centered under it. The structure is the point (see
+ * design/forms.md §9) — a component that keeps its own title placement is how a deck
+ * stops having a design language. */
+section.math.form.stats > .cell-stage {
   justify-content: center;
   align-items: center;
-  padding-bottom: var(--sp-xl);
   gap: var(--sp-sm);
 }
-section.math.stats > h2 {
-  text-align: center;
-  padding: 0 0 var(--sp-md) 0;
-}
-section.math.stats > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type {
+section.math.form.stats > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type {
   text-align: center;
   margin: 0;
 }
-section.math.stats > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+section.math.form.stats > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 2.6em;
   color: var(--accent);
   font-weight: 700;
 }
-section.math.stats > blockquote {
+section.math.form.stats > .cell-stage > blockquote {
   border-left: none;
   background: none;
   padding: 0 0 var(--sp-md) 0;
@@ -770,17 +1099,30 @@ section.math.stats > blockquote {
   font-size: var(--fs-meta);
   letter-spacing: 0.12em;
 }
-section.math.stats > blockquote p {
+section.math.form.stats > .cell-stage > blockquote p {
   padding: 0 0 0.15em 0;
 }
-section.math.stats > blockquote::before { content: none; }
-section.math.stats > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
+section.math.form.stats > .cell-stage > blockquote::before { content: none; }
+section.math.form.stats > .cell-stage > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
   text-align: center;
   max-width: 60cqi;
   margin: 0;
   color: var(--text-body);
   font-size: var(--fs-body);
   line-height: var(--lh-base);
+}
+/* FAMILY REFLOW — tall/strip. `max-width: 60cqi` is a MEASURE cap: on a 1920-wide
+ * slide it stops the interpretation line running the full canvas. In a tall box it
+ * does the opposite of its job. The stage is 972px there, the cap holds the paragraph
+ * to 583px, and the result is a ~25-character line — well under the comfortable
+ * measure the cap exists to protect — set 504px tall, which is what put the committed
+ * sample 12px over the stage.
+ *
+ * Released, the same paragraph runs the stage width at ~41 characters: inside the
+ * measure band, several lines shorter, and the number above it keeps its full 2.6em.
+ * The cap is not tightened here, it is removed, because a narrow box supplies its own. */
+section.math.math.form.stats:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
+  max-width: none;
 }
 
 /* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
@@ -797,45 +1139,57 @@ section.math.stats > p:not(:has(> :is(.katex-display, mjx-container[display="tru
    manifest `adapt.families` note.) Keyed on the deck's `data-family` stamp;
    the doubled class `.math.math` matches the variant rules' weight (and beats the
    zero-specificity `:where()` bare-math selector). */
-/* feature (+ bare): equation full-width, legend full-width beneath it. */
-section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])),
-section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) {
-  grid-column: 1 / -1; grid-row: 3;
-  align-self: start; padding-top: var(--sp-xl);
-  border-right: none; padding-right: 0; padding-bottom: var(--sp-md);
+/* FAMILY REFLOW — tall/strip. The equation stacks over the plot, with the caption between
+ * them, and the whole thing keys on the PER-SLIDE `[data-family]` stamp.
+ *
+ * WHAT REPLACED WHAT. The sovereign arm did this with
+ * `section.math.canvas[data-orientation="portrait"]`, the DECK-WIDE stamp, and it was
+ * written that way because these properties sat on the SECTION — the element a
+ * `@container` query cannot style, back when the reflow was expressed as one. #1218 lifted
+ * that constraint and the rule stayed as it was.
+ *
+ * SO THIS IS NOT A NEW CAPABILITY, and the lever's note asks each variant not to claim one:
+ * the deck-wide rule worked. What changes is the KEY. `data-orientation` is a property of
+ * the deck, so a portrait deck reflowed every canvas slide and a landscape deck reflowed
+ * none, whatever an individual slide's box actually was; `[data-family]` is a property of
+ * the slide, and it covers `strip` as well, which the orientation rule never did. */
+section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  grid-template-columns: minmax(0, 1fr);
+  /* THE SLACK GOES TO THE EQUATION, NOT TO THE PLOT. `1fr` on the plot row was the
+   * landscape shape's habit, and stacked it read as a fault: the plot keeps its 55:38
+   * ratio, so a `1fr` row simply grew taller than the plot and centered it, opening ~340px
+   * of blank canvas between the caption and the chart at `story`. Giving the equation the
+   * `1fr` puts the space where the subject of the slide is, and lands the plot under its
+   * caption. Stretching the plot to fill instead was rejected: a function plot read at the
+   * wrong aspect ratio misreports the steepness of its own curve. */
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "eq"
+    "cap"
+    "plot";
+  /* Stacked, the row gap is paid three times where the landscape shape paid it once, and
+   * at portrait that was the last 11px: equation 195 + caption 177 + plot 436 came to 886
+   * against an 875px stage, so the `1fr` equation row was squeezed and the numerator's line
+   * box pushed 19px past the clip edge. The caption already reads as attached to the
+   * equation above it, so a tighter step between them is the right thing to spend. */
+  gap: var(--sp-sm);
 }
-section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > :is(ul, ol),
-section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > :is(ul, ol) {
-  grid-column: 1 / -1; grid-row: 4; align-self: start;
-}
-/* Tall frame = room for a monumental hero equation; scale it up so it owns the
-   canvas instead of floating small in a void. */
-section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg),
-section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 2.7em;
-}
-/* matrix: equation full-width over properties; left rule → top rule. */
-section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) { grid-column: 1 / -1; grid-row: 3; align-self: start; padding-top: var(--sp-xl); }
-section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) { font-size: 2.4em; }
-section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > :is(ul, ol) {
-  grid-column: 1 / -1; grid-row: 4; align-self: start;
-  padding-left: 0; border-left: none;
-  padding-top: var(--sp-md); border-top: 1px solid var(--border);
-}
-
-
-/* `compare` (CSS multi-`column-count`) and `canvas` (`grid-template-areas`) put their
-   layout on the SECTION. Under the retired `@container` form those were unreachable
-   (§11 — a query can't style its own container), so both key on the deck-wide
-   `data-orientation` stamp; cf. split-compare. #1218 lifted that constraint, but
-   these rules are correct as written and stay: on a portrait deck `compare` reads as
-   one column and `canvas` stacks the equation over the plot. */
-section.math.compare[data-orientation="portrait"] { column-count: 1; }
-section.math.compare[data-orientation="portrait"] > h3 { break-before: avoid; }
-section.math.canvas[data-orientation="portrait"] {
-  grid-template-columns: 1fr;
-  grid-template-rows: auto auto auto auto 1fr;
-  grid-template-areas: "eyebrow" "title" "eq" "cap" "plot";
+/* THE PLOT IS SIZED FROM THE INLINE AXIS AT EVERY FAMILY, and stacked that means asking
+ * for a FRACTION of the stage rather than all of it. Spanning the full width, the 55:38
+ * ratio makes the plot 629px tall against an 875px portrait stage that already owes rows
+ * to the equation and its caption — 108px over, measured. 58% is the sovereign arm's own
+ * proportion re-based, with clearance: it asked for `55cqi` of a 1080px section (594px)
+ * and that fitted; 58% of a 972px stage is 564px, the same plot in the same place.
+ *
+ * THE CLEARANCE IS NOT SPARE — it is the axis labels. function-plot draws its x-tick row
+ * BELOW the plot area and outside the `<svg>`'s own box, so a plot sized to end exactly at
+ * the stage's bottom edge spills that row past it. At 62% the gallery's canvas slide came
+ * out flush at portrait (plot bottom 923 against a 923px stage) and the section-level
+ * probe read the overhang as overflow — with `overCells: []`, i.e. no cell was over, which
+ * is the tell that the spill was the section's and not the body's. Sized from the same
+ * measurement as the horizontal gutter above. */
+section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"]) > .cell-stage > .functionplot {
+  width: 58%;
 }
 
 /* ── function-plot SVG styling ──

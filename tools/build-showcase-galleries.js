@@ -5,8 +5,24 @@
  * showcase spans a SET of buckets in one deck — for the moments a single
  * consolidated walk reads better than N family decks. Today there is one:
  *
- *   data-viz — every chart component + math in one consolidated deck, a
- *              Playground demonstration of the whole data-visualization surface.
+ *   data-viz — every chart component in one consolidated deck, a Playground
+ *              demonstration of the whole charting surface.
+ *
+ * MATH USED TO BE PART OF `data-viz` AND IS NOT ANY MORE (2026-09). It was there
+ * because it is rendered evidence, which is true and is not the same as being a
+ * chart: a chart plots a dataset and a math slide typesets an expression, they
+ * share no transform, no dataset shape and no reflow behavior, and a reader
+ * walking "the data-visualization surface" to compare bar against waterfall does
+ * not want an equation in the middle of it. Owner's framing: math is its own
+ * extension, like mermaid — a component with variants, and therefore its own
+ * gallery rather than a passenger in someone else's.
+ *
+ * IT DID NOT GAIN A SHOWCASE OF ITS OWN, and that was tried first. A showcase composes
+ * one `manifest.sample` per component, so a single-component bucket makes a two-slide
+ * deck — a cover and one equation — duplicating the bucket gallery that already exists
+ * and earning nothing. The eight-variant survey is the COMPONENT gallery
+ * (`lib/components/math/math/math.gallery.md`), which is where a variant walk belongs;
+ * the hand-authored `examples/` deck is a demo, not a survey.
  *
  * Like the bucket galleries it is COMPOSED FROM THE LIVE MANIFEST SET (each
  * component's `manifest.sample`), so it CANNOT go stale: add a chart or math
@@ -45,8 +61,8 @@ const SHOWCASES = Object.freeze([
   {
     id: 'data-viz',
     title: 'Data visualization',
-    blurb: 'Every chart and math component in one deck — the full data-visualization surface.',
-    buckets: ['chart', 'math'],
+    blurb: 'Every chart component in one deck — the full charting surface.',
+    buckets: ['chart'],
   },
 ]);
 

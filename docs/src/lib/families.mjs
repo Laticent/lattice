@@ -9,9 +9,16 @@
 // same orders are shipped to the client (component-browser.js) so the "Group
 // by" switch can re-group without a round trip.
 
-// Ordered families. Each component appears in exactly one; every one of the 52
-// components is covered (see test below in the page build). Keep split-* whole
-// and let "Charts & diagrams" be the broad data-viz family.
+// Ordered families. Each component appears in at most one. Keep split-* whole and
+// let "Charts & diagrams" be the broad data-viz family.
+//
+// COVERAGE IS NOT GATED, and the comment here used to say otherwise — it claimed
+// "every one of the 52 components is covered (see test below in the page build)".
+// Both halves were wrong: the count had drifted (the list carries more than that
+// now), and no test enforces coverage. `familyOf()` below falls back to `'other'`
+// for anything unmapped, so a new component silently lands in a bucket nobody named
+// rather than failing a build. Stated plainly instead of restating a number that
+// rots: if you add a component and want it browsable by shape, add it here.
 export const FAMILY_DEFS = [
 	{ key: 'titles', label: 'Titles & breaks', members: ['title', 'divider', 'closing'] },
 	{ key: 'statements', label: 'Statements', members: ['big-number', 'content', 'quote'] },
@@ -22,7 +29,15 @@ export const FAMILY_DEFS = [
 	{ key: 'timelines', label: 'Timelines & roadmaps', members: ['timeline-list', 'roadmap'] },
 	{ key: 'charts', label: 'Charts & diagrams', members: ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'journey', 'gantt', 'kanban', 'piechart', 'progress', 'quadrant', 'radar', 'state-chart', 'word-cloud', 'diagram', 'funnel', 'map'] },
 	{ key: 'splits', label: 'Split layouts', members: ['split-panel', 'split-compare'] },
-	{ key: 'codemath', label: 'Code & math', members: ['code', 'compare-code', 'math'] },
+	{ key: 'code', label: 'Code', members: ['code', 'compare-code'] },
+	// Math is its OWN family, not a lodger in "Code & math". It is a distinct
+	// substance — `substance: prose` with a typeset equation as the argument, against
+	// code's `snippet` — it is its own engine bucket, its own URL space
+	// (/components/math/math) and its own gallery, and it is the only component whose
+	// body is rendered by a third-party typesetter (KaTeX; MathJax on the Marp
+	// surface). Sharing a heading with code made it the smaller half of someone
+	// else's family on the one surface where a reader browses by shape.
+	{ key: 'math', label: 'Math', members: ['math'] },
 	{ key: 'legal', label: 'Legal', members: ['authority-chain', 'citation-card', 'obligation-matrix', 'regulatory-update', 'statute-stack'] },
 	{ key: 'images', label: 'Images', members: ['image'] },
 ];

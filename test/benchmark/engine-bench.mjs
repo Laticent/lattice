@@ -35,7 +35,26 @@ import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
 import latticeEngine from '../../lib/engine/index.js';
+// DEFAULT IMPORT, THEN DESTRUCTURE WITH FALLBACKS — deliberately, not laziness.
+//
+// `perf-nightly.yml` copies THIS FILE into a worktree of the BASE commit and runs it
+// there (`cp test/benchmark/engine-bench.mjs /tmp/base/…`), so the harness must link
+// against a tree whose `lib/engine/math.js` predates these seams. A named ESM import
+// of a CJS export that does not exist fails at LINK time — before any tier runs — so
+// the base arm dies, `base-bench.json` is left empty, and the comparator reports
+// "NOTHING WAS COMPARED" and files a spurious priority:high perf issue. Found by an
+// independent checker; it would have gone red on the first nightly after merge.
+//
+// The stats fallback returns `null` typesets rather than 0. A plausible-looking zero
+// would read as "this tree re-typesets nothing" — the exact claim the tier exists to
+// make — when the truth is that this tree has no memo to ask. The tier prints `n/a`
+// for that case instead.
+import mathModule from '../../lib/engine/math.js';
 import api from '../../lib/playground/index.js';
+
+const resetMathMemo = mathModule._resetMathMemo ?? (() => {});
+const mathMemoStats = mathModule._mathMemoStats ?? (() => ({ entries: 0, bytes: 0, typesets: null }));
+const HAS_MATH_MEMO = typeof mathModule._mathMemoStats === 'function';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 // TWO TIERS, TWO FLAGS — because they differ by ~6x in cost and used to ride one flag.
@@ -96,8 +115,37 @@ function stressDeck(times) {
 const datasets = [
   { name: 'normal (jargon)', src: jargon, theme: 'crepuscolo' },
   { name: 'charts', src: readFileSync(join(ROOT, 'lib/components/chart/chart.gallery.md'), 'utf8'), theme: 'indaco' },
+  // The COMPONENT gallery (16 sections, all 8 variants), not the bucket survey
+  // (2 sections) — the bucket holds one component, so the survey carries almost
+  // no math. Math is the engine's most render-expensive substance by a wide
+  // margin: measured on this deck, KaTeX accounts for ~90% of the render, and
+  // ~60% of THAT is not typesetting but carrying the emitted markup through the
+  // pipeline's whole-document passes (one matrix expands to ~13KB of HTML).
+  // Without this row the two dominant costs of a math deck are invisible.
+  { name: 'math', src: readFileSync(join(ROOT, 'lib/components/math/math/math.gallery.md'), 'utf8'), theme: 'indaco' },
   { name: 'stress (jargon x6)', src: stressDeck(6), theme: 'crepuscolo' },
 ];
+// The datasets the BROWSER tiers (export, print) skip.
+//
+// `stress` because it is the same body six times — 348 slides of rasterize tells
+// you nothing 58 slides did not, at six times the wall clock.
+//
+// `math` because those two tiers measure what CHROMIUM costs — a screenshot cycle
+// and a PDF re-place — and math is not the differentiator there: its cost is
+// engine-side typesetting and the markup that typesetting emits, which the render
+// and edit tiers above measure directly and far more cheaply. Including it would
+// add ~11 minutes to a `--print` bless to re-measure a number dominated by the
+// rasterizer. If a math-specific EXPORT regression is ever suspected, deleting its
+// name from this set is the whole change.
+const EXCLUDED_FROM_BROWSER_TIERS = new Set(['stress (jargon x6)', 'math']);
+
+// The edit tier's own exclusion, NAMED rather than a second `startsWith('stress')`
+// scan. Two different mechanisms answering "which datasets does this tier skip?" in
+// one file is how they drift: a future stress-shaped dataset would have been skipped
+// by one and not the other, silently. `math` is deliberately NOT here — it is the
+// dataset this tier exists for.
+const EXCLUDED_FROM_EDIT_TIER = new Set(['stress (jargon x6)']);
+
 for (const d of datasets) {
   registerTheme(d.theme);
   d.slides = (rawEngine.render(d.src, d.theme).html.match(/<\/section>/g) || []).length;
@@ -241,6 +289,12 @@ async function renderTier() {
     // would otherwise report cache-hit speed and hide any cold-compose regression.
     main.add(d.name, () => {
       rawEngine.themes._cssCache.clear();
+      // The math typeset memo (lib/engine/math.js) is cleared for the SAME reason
+      // and it matters most on the `math` row: leaving it warm would report
+      // cache-hit speed on ~90% of that deck's cost and hide any cold regression
+      // in KaTeX or in the markup the pipeline carries. Its warm win is the
+      // subject of the EDIT tier below, which is where it belongs.
+      resetMathMemo();
       return rawEngine.render(d.src, d.theme);
     });
   }
@@ -272,6 +326,91 @@ async function renderTier() {
     });
   }
   return { main: main.table(), summary, calibration, calibrationRmePct: main.getTask(CALIBRATION).result.latency.rme };
+}
+
+// ── edit tier ─────────────────────────────────────────────────────────────────
+//
+// WHAT AN AUTHOR PAYS PER KEYSTROKE, which the render tier deliberately cannot
+// say. That tier clears every cache to measure a cold one-shot (a CLI export);
+// this one measures the opposite regime — the warm re-render the Studio runs on
+// every character typed — because they are different costs with different fixes
+// and the same deck can improve in one while regressing in the other.
+//
+// IT GATES ON WORK, NOT ON TIME. `typesets` counts real `katex.renderToString`
+// calls per keystroke; it is an integer, identical on every machine, and it
+// answers the question that actually matters ("does a keystroke re-typeset math
+// that did not change?") without a wall-clock band that would be flaky in the
+// merge train. `ms` rides along for the human reading the diff, and is REPORTED
+// rather than gated for the same reason the browser tiers' timings are. That is
+// the shape `docs/src/lib/preview-work-budget.test.ts` argues for: "the
+// regression is not fundamentally a TIME — it is an amount of WORK".
+//
+// TWO INTERACTIONS, because they fail differently. A SINGLE character is the
+// steady state and should re-typeset nothing. A BURST is the case the frame
+// scheduler exists to coalesce and the one no harness in this repo measured —
+// every existing typing bench (`docs/scripts/frame-bench.mjs`,
+// `docs/e2e/studio-preview-perf.spec.ts`) inserts a 700ms settle between keys,
+// which is precisely the case coalescing already handles.
+//
+// `stress` is excluded (it is the same body six times, so its edit behavior is
+// `normal`'s), and `normal (jargon)` is kept as the CONTRAST row: a deck with no
+// math should show `typesets: 0` and is what makes the math row legible.
+const EDIT_BURST = 12;
+async function editTier() {
+  const summary = [];
+  for (const d of datasets.filter((x) => !EXCLUDED_FROM_EDIT_TIER.has(x.name))) {
+    // Prime exactly as an author's session is primed: the deck has been rendered
+    // once, so the CSS memo and the math memo hold this deck's entries. Measuring
+    // from cold here would re-measure the render tier under another name.
+    rawEngine.render(d.src, d.theme);
+
+    // A distinct trailing character per iteration, so no whole-document memo
+    // anywhere can hit and every iteration is a genuine re-parse. The edit is an
+    // append rather than a mid-document splice because it must be deterministic;
+    // the engine re-parses and re-renders the whole document either way, so the
+    // work measured is the same.
+    const single = [];
+    let singleTypesets = 0;
+    for (let i = 0; i < 15; i++) {
+      const src = `${d.src}\n<!-- ${'e'.repeat(i + 1)} -->`;
+      const before = mathMemoStats().typesets;
+      const t = process.hrtime.bigint();
+      rawEngine.render(src, d.theme);
+      single.push(Number(process.hrtime.bigint() - t) / 1e6);
+      if (i >= 5 && HAS_MATH_MEMO) singleTypesets += mathMemoStats().typesets - before; // skip warmup
+    }
+    single.sort((a, b) => a - b);
+    const singleMs = single[Math.floor(single.length / 2)];
+    const typesetsPerKey = HAS_MATH_MEMO ? singleTypesets / 10 : null;
+
+    // A burst: EDIT_BURST successive edits with no settle between them, the way a
+    // fast typist arrives. Reported as a total, because that is the stall.
+    const burstBefore = mathMemoStats().typesets;
+    const tb = process.hrtime.bigint();
+    for (let i = 0; i < EDIT_BURST; i++) rawEngine.render(`${d.src}\n<!-- b${'x'.repeat(i + 1)} -->`, d.theme);
+    const burstMs = Number(process.hrtime.bigint() - tb) / 1e6;
+    const burstTypesets = HAS_MATH_MEMO ? mathMemoStats().typesets - burstBefore : null;
+
+    summary.push({
+      dataset: `edit \u00b7 ${d.name}`,
+      slides: d.slides,
+      typesets: typesetsPerKey === null ? null : round2(typesetsPerKey),
+      ms: singleMs,
+      burstMs,
+      burstTypesets,
+    });
+  }
+
+  console.log('\n=== EDIT \u00b7 warm re-render per keystroke ===');
+  console.log(`${'dataset'.padEnd(28)}${'ms/key'.padStart(9)}${'typesets/key'.padStart(14)}${`burst ${EDIT_BURST} ms`.padStart(13)}${'burst typesets'.padStart(16)}`);
+  for (const r of summary) {
+    const tps = r.typesets === null ? 'n/a' : r.typesets.toFixed(1);
+    const burst = r.burstTypesets === null ? 'n/a' : String(r.burstTypesets);
+    console.log(
+      `${r.dataset.padEnd(28)}${r.ms.toFixed(2).padStart(9)}${tps.padStart(14)}${r.burstMs.toFixed(1).padStart(13)}${burst.padStart(16)}`,
+    );
+  }
+  return { summary };
 }
 
 // ── export / rasterize tier (lazy puppeteer) ──────────────────────────────────
@@ -320,7 +459,7 @@ async function exportTier() {
     }
     // Skip the 481-slide stress deck here — thousands of screenshots would dominate
     // runtime without adding signal; the render tier already covers stress scaling.
-    const decks = datasets.filter((x) => !x.name.startsWith('stress'));
+    const decks = datasets.filter((x) => !EXCLUDED_FROM_BROWSER_TIERS.has(x.name));
 
     // One UNTIMED cycle per deck, to record the workload signal and to fail loudly BEFORE the
     // timed loop — the same guard shape the CLI tier uses, for the same reason. The count also
@@ -610,7 +749,7 @@ async function printTier() {
     return images;
   }
 
-  const decks = datasets.filter((x) => !x.name.startsWith('stress'));
+  const decks = datasets.filter((x) => !EXCLUDED_FROM_BROWSER_TIERS.has(x.name));
   // Pre-rasterize each deck ONCE — the cached images a re-place reuses. (Setup, not timed.)
   const cached = new Map();
   for (const d of decks) cached.set(d.name, await rasterize(d));
@@ -907,7 +1046,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null } = opts;
   if (!summary.length) {
     console.error('\nRefusing to bless an empty baseline — the run produced no datasets.');
     process.exitCode = 1;
@@ -971,6 +1110,21 @@ function blessBaseline(summary, render, opts = {}) {
   // with a 14-day retention is not that. `slides` here is the number of slides actually
   // screenshotted (see the tier), so it is a workload signal this tier can vouch for.
   const exportOut = tierRows(exportSummary, 'exportDatasets', (s) => ({ slides: s.slides, ms: round2(s.ms), rmePct: round2(s.rmePct) }));
+  // THE EDIT TIER BLESSES ITS WORK COUNTS, and `ms` only as commentary. `typesets`
+  // and `burstTypesets` are integers a machine cannot change, so they gate exactly;
+  // the two `ms` fields are what a human reads in the diff to see the size of the
+  // win, and `checkBaseline` never compares them.
+  // A run with no math memo produces `typesets: null`, which must never be BLESSED —
+  // a null in the baseline reads as "no work per keystroke" and permanently disarms
+  // the ratchet this tier exists for. Such a run preserves the prior rows instead.
+  const editMeasured = editSummary?.length && editSummary.every((s) => s.typesets !== null);
+  const editOut = tierRows(editMeasured ? editSummary : null, 'editDatasets', (s) => ({
+    slides: s.slides,
+    typesets: s.typesets,
+    burstTypesets: s.burstTypesets,
+    ms: round2(s.ms),
+    burstMs: round2(s.burstMs),
+  }));
   // A BLESS THAT ONLY MEASURED ONE TIER MUST NOT RESTAMP THE OTHERS' MACHINE.
   //
   // `blessedOn` and `calibration` are what `comparableMachine()` matches on, and
@@ -1029,6 +1183,7 @@ function blessBaseline(summary, render, opts = {}) {
     // so a row that stopped doing its work fails as a WORKLOAD change before any timing is
     // compared. Blessed via `bench:bless -- --export`.
     ...(exportOut ? { exportDatasets: exportOut } : {}),
+    ...(editOut ? { editDatasets: editOut } : {}),
   };
   writeFileSync(BASELINE, JSON.stringify(payload, null, 2) + '\n');
   const wrote = [`${summary.length} render`];
@@ -1036,6 +1191,7 @@ function blessBaseline(summary, render, opts = {}) {
   if (sweepSummary?.length) wrote.push(`${sweepSummary.length} sweep`);
   if (cliSummary?.length) wrote.push(`${cliSummary.length} cli`);
   if (exportSummary?.length) wrote.push(`${exportSummary.length} export`);
+  if (editSummary?.length) wrote.push(`${editSummary.length} edit`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
 }
 
@@ -1052,6 +1208,7 @@ function checkBaseline(summary, render, opts = {}) {
   const sweepSummary = opts.sweepSummary ?? null;
   const cliSummary = opts.cliSummary ?? null;
   const exportSummary = opts.exportSummary ?? null;
+  const editSummary = opts.editSummary ?? null;
   const confirming = opts.confirming ?? null;
   const empty = { regressedDatasets: [], drift: false, won: false };
   if (!existsSync(BASELINE)) {
@@ -1234,6 +1391,69 @@ function checkBaseline(summary, render, opts = {}) {
   // a tier that has never been blessed, and remove it in the same change that first blesses it.
   const TIERS_NOT_YET_BLESSED = new Set([]);
   const neverBlessed = (key) => TIERS_NOT_YET_BLESSED.has(key) && !Object.keys(base[key] ?? {}).length;
+
+  // THE EDIT TIER. Gates on WORK, never on wall clock.
+  //
+  // `typesets` (real `katex.renderToString` calls per keystroke) and `burstTypesets`
+  // are integers produced by the same code path on every machine, so they are
+  // compared EXACTLY and gate everywhere — `comparable` is irrelevant to them, which
+  // is the point of choosing a work count over a time. The two `ms` columns are
+  // printed for the human reading a bless diff and are never compared; an edit-loop
+  // wall clock would be exactly the flaky band HARD RULE #19 keeps out of the merge
+  // train.
+  //
+  // A rise in `typesets` is the specific regression this exists to catch: a change
+  // that makes a keystroke re-typeset math it did not need to. Note the direction —
+  // a FALL is a win and still reports as a re-bless, because a blessed number that
+  // no longer describes the code is stale whichever way it moved.
+  if (editSummary?.length) {
+    console.log('\n=== EDIT CHECK \u00b7 work per keystroke vs committed baseline ===');
+    const unblessed = neverBlessed('editDatasets');
+    if (unblessed) console.log('  no `editDatasets` in the baseline — REPORTING ONLY; run `npm run bench:bless` to start gating.');
+    console.log(`${'dataset'.padEnd(28)}${'base tps'.padStart(10)}${'now tps'.padStart(10)}${'base burst'.padStart(12)}${'now burst'.padStart(11)}  verdict`);
+    // A TREE WITH NO MATH MEMO CANNOT BE COMPARED, and it must say so rather than
+    // crash or invent a verdict. `typesets` is `null` exactly when `HAS_MATH_MEMO` is
+    // false — an older base worktree, which is a tree this harness is DESIGNED to run
+    // in (perf-nightly copies it there). The first cut of F1's fix taught the PRINT
+    // path about null and left the COMPARISON path alone, so `bench:check` died with
+    // `Cannot read properties of null (reading 'toFixed')`, and the verdict it would
+    // have computed was `fewer typesets — re-bless to ratchet`, i.e. a tree with no
+    // memo at all reporting a perf WIN. Both are worse than reporting nothing.
+    const tps = (v) => (v === null || v === undefined ? '  n/a' : v.toFixed(1));
+    for (const s2 of editSummary) {
+      const b = base.editDatasets?.[s2.dataset];
+      if (s2.typesets === null || s2.burstTypesets === null) {
+        console.log(`${s2.dataset.padEnd(28)}${tps(b?.typesets).padStart(10)}${'n/a'.padStart(10)}${String(b?.burstTypesets ?? '—').padStart(12)}${'n/a'.padStart(11)}  NOT COMPARABLE (no math memo in this tree)`);
+        continue;
+      }
+      if (!b) {
+        if (!unblessed) drift = true;
+        console.log(`${s2.dataset.padEnd(28)}${'—'.padStart(10)}${s2.typesets.toFixed(1).padStart(10)}${'—'.padStart(12)}${String(s2.burstTypesets).padStart(11)}  ${unblessed ? 'NOT BLESSED' : 'NEW (re-bless)'}`);
+        continue;
+      }
+      if (b.slides !== s2.slides) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(28)}${String(b.slides).padStart(10)}${String(s2.slides).padStart(10)}${'—'.padStart(12)}${'—'.padStart(11)}  SLIDE COUNT CHANGED (re-bless)`);
+        continue;
+      }
+      const tpsMoved = Math.abs((b.typesets ?? 0) - s2.typesets) > 0.005;
+      const burstMoved = (b.burstTypesets ?? 0) !== s2.burstTypesets;
+      const worse = s2.typesets > (b.typesets ?? 0) + 0.005 || s2.burstTypesets > (b.burstTypesets ?? 0);
+      const verdict = worse ? 'REGRESSION (more typesets)'
+        : (tpsMoved || burstMoved) ? 'fewer typesets — re-bless to ratchet' : 'ok';
+      if (worse) regressedDatasets.push(s2.dataset);
+      if (verdict.startsWith('fewer')) won = true;
+      console.log(
+        `${s2.dataset.padEnd(28)}${(b.typesets ?? 0).toFixed(1).padStart(10)}${s2.typesets.toFixed(1).padStart(10)}${String(b.burstTypesets ?? 0).padStart(12)}${String(s2.burstTypesets).padStart(11)}  ${verdict}`,
+      );
+    }
+    for (const name of Object.keys(base.editDatasets ?? {})) {
+      if (!editSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(28)}${'—'.padStart(10)}${'absent'.padStart(10)}${'—'.padStart(12)}${'—'.padStart(11)}  MISSING (re-bless)`);
+      }
+    }
+  }
 
   // THE RASTERIZE TIER. Only compared when THIS run produced it (`--export`), so a plain
   // `bench:check` is unchanged. Same-machine-only and no calibration index, for the print
@@ -1456,6 +1676,10 @@ function checkBaseline(summary, render, opts = {}) {
 
 async function main() {
   const render = await renderTier();
+  // In-process and cheap (~2s), so it runs unconditionally like the render tier
+  // rather than hiding behind a flag — a warm-path regression should be visible
+  // on a plain `npm run bench`.
+  const edit = await editTier();
   const exp = wantExport ? await exportTier() : null;
   const sweep = wantSweep ? await sweepTier() : null;
   const print = wantPrint ? await printTier() : null;
@@ -1463,7 +1687,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary,
     });
   }
   if (wantCheck && wantBless) {
@@ -1487,7 +1711,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
@@ -1531,7 +1755,17 @@ async function main() {
         // sentence was untrue.
         const parts = [];
         if (confirmedRender.length) parts.push(`${confirmedRender.join(', ')} — confirmed on two passes`);
-        if (browserTierRegressed.length) parts.push(`${browserTierRegressed.join(', ')} — one pass, the browser tiers are not re-measured`);
+        // The non-render regressions split again, because they stand on one pass for
+        // OPPOSITE reasons and saying "browser tier" about both is simply untrue. A
+        // browser tier is not re-measured because it is expensive (print is ~11
+        // minutes). The EDIT tier is in-process and costs ~2s — it is not re-measured
+        // because it gates on `typesets`, a deterministic integer that cannot vary
+        // between two passes on the same tree. Reporting the cheap deterministic one
+        // as "a browser tier" misattributes both the cost and the reason.
+        const editRegressed = browserTierRegressed.filter((n) => n.startsWith('edit \u00b7 '));
+        const trueBrowserRegressed = browserTierRegressed.filter((n) => !n.startsWith('edit \u00b7 '));
+        if (trueBrowserRegressed.length) parts.push(`${trueBrowserRegressed.join(', ')} — one pass, the browser tiers are not re-measured`);
+        if (editRegressed.length) parts.push(`${editRegressed.join(', ')} — one pass; \`typesets\` is deterministic, so a second pass cannot differ`);
         console.error(`\nPerf regression beyond the variance band: ${parts.join('; ')}. `
           + 'Investigate, or re-bless if the change is intentional and justified in the PR.');
         process.exitCode = 1;
@@ -1545,7 +1779,13 @@ async function main() {
   // tools/perf-nightly-compare.mjs has arms for render/export/print only, and
   // perf-nightly.yml invokes `--json --export`, never `--cli`. Wiring it there is a
   // separate change — this line only makes the data available.
-  if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print, diagrams, cli }, null, 2));
+  // `edit` joins the dump for the same reason `cli` does — symmetry, and so the
+  // nightly (`tools/perf-nightly-compare.mjs`, via `--json`) can see it at all.
+  // Without it the nightly paid the tier's ~2s on BOTH arms and discarded the
+  // result, leaving the memo's regression guard reachable only when a human typed
+  // `npm run bench:check`. The comparator does not read it yet; shipping the data
+  // is the half that belongs to this file.
+  if (asJson) console.log('\n' + JSON.stringify({ render, edit, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',

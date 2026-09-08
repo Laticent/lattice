@@ -14,26 +14,54 @@
  * engineering/decisions/2026-06-07-slot-header-auto-lift.md.)
  *
  * See lib/components/evidence/stats/stats.manifest.json for the contract.
+ *
+ * WHY EVERY SELECTOR CARRIES `:where(:not(.math))`. Two components claim the class
+ * token `stats`: this one (`_class: stats`) and the `math` component's variant
+ * (`_class: math stats`). The collision was LATENT while math had a sovereign frame —
+ * this sheet's rules are almost all scoped to `> .cell-stage`, and a sovereign math
+ * slide had no stage — so the only rules that ever reached one were `section.stats h2`
+ * and `section.stats h3`, and math declared the same title centering itself, so nothing
+ * looked wrong.
+ *
+ * Math's move onto the Form frame gave every math slide a `.cell-stage` and a `.form`
+ * class, and the collision became real and visible: the masthead lede centered
+ * (`section.form.stats … .masthead-lede`), and the hero estimate and the interpretation
+ * line took this sheet's `font-style: italic` and `padding-bottom: var(--sp-lg)` —
+ * properties math's own rules do not declare, so specificity could not settle it.
+ *
+ * `:where()` rather than a bare `:not()` because the guard must cost ZERO specificity:
+ * 24 selectors each gaining (0,1,0) would re-rank this sheet against base and against
+ * the registers it reads (`--headline-align`), which is a much larger change than the
+ * one being made. The rule this states is narrow and worth stating plainly: THIS SHEET
+ * STYLES `_class: stats`, NEVER `_class: math stats`.
+ *
+ * The general problem it exposes is NOT fixed here: math's variant tokens are
+ * unnamespaced, so any of them can collide with a component id. `stats` is the only one
+ * that does today — `feature`, `derivation`, `theorem`, `canvas` and `decompose` have no
+ * other owner in the tree, and `compare`/`matrix` are only ever prefixed
+ * (`compare-code`, `compare-prose`, `compare-table`, `split-compare`, `matrix-grid`,
+ * `matrix-2x2`). Renaming a math variant is an authoring break and is not this
+ * migration's call to make.
  */
 
-section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
+section.stats:where(:not(.math)) > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 /* The heading + subtitle are framing text — they follow the headline-alignment seam
  * (`headline:`) via their OWN align-self, so the centered stat strip below is untouched (its
  * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a
  * default stats slide is byte-identical. */
-section.stats h2 { padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
+section.stats:where(:not(.math)) h2 { padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 /* CONSISTENT-DEFAULTS: stats centers its heading + tiles, so its WHOLE masthead framing centers to
  * match. The lede is a flex column (masthead-lede.css); override its fallbacks to `center` here so
  * the eyebrow, heading, and heading-rule <hr> all center as one cluster by default. Per-selector
  * fallback → `headline: left` still overrides (the register SETS the seam; a set value beats a
  * fallback). The rule <hr> follows the cluster automatically (it's a flex child) — no per-component
  * rule handling, no bay-drift. */
-section.form.stats .cell-masthead .masthead-lede { text-align:var(--headline-align, center); align-items:var(--headline-justify, center); }
-section.stats h3 { padding-bottom:0.3125cqi; }
-section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
+section.form.stats:where(:not(.math)) .cell-masthead .masthead-lede { text-align:var(--headline-align, center); align-items:var(--headline-justify, center); }
+section.stats:where(:not(.math)) h3 { padding-bottom:0.3125cqi; }
+section.stats:where(:not(.math)) > .cell-stage > p, section.stats:where(:not(.math)) > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 
 /* The stat strip: the top-level list laid out as a centered flex row. */
-section.stats > .cell-stage > ol {
+section.stats:where(:not(.math)) > .cell-stage > ol {
   display:flex; justify-content:center; gap:var(--sp-md);
   list-style:none; margin:0;
   /* Berth ONLY on the vertical axis: the tile shadow extends downward (all layers
@@ -46,23 +74,23 @@ section.stats > .cell-stage > ol {
  * the stage in both canvases. Fill unchanged across themes (light-dark() token).
  * Horizontal padding stays tight (--sp-sm) so five tiles + gaps fit the stage
  * within the pre-tile width budget; vertical padding carries the tile height. */
-section.stats > .cell-stage > ol > li {
+section.stats:where(:not(.math)) > .cell-stage > ol > li {
   display:flex; flex-direction:column; align-items:center; gap:0.46875cqi; text-align:center;
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-lg) var(--sp-sm);
   box-shadow:var(--elevation-card);
 }
 /* The number — the lifted parent-li lead. */
-section.stats > .cell-stage > ol > li > strong {
+section.stats:where(:not(.math)) > .cell-stage > ol > li > strong {
   font-family:var(--font-display); font-size:var(--fs-h1); font-weight:700;
   color:var(--accent); line-height:1; display:block;
   letter-spacing:0; text-transform:none; font-variant-numeric:tabular-nums;
 }
 /* The label — the nested sublist. */
-section.stats > .cell-stage > ol > li > ul {
+section.stats:where(:not(.math)) > .cell-stage > ol > li > ul {
   list-style:none; padding:0; margin:0;
 }
-section.stats > .cell-stage > ol > li > ul > li {
+section.stats:where(:not(.math)) > .cell-stage > ol > li > ul > li {
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600;
   letter-spacing:0.18em; text-transform:uppercase; color:var(--text-label);
 }
@@ -77,16 +105,16 @@ section.stats > .cell-stage > ol > li > ul > li {
    to fit instead of clipping — a big floor (was --sp-2xl) overflowed 4 numbers +
    a 2-line title at the shortest portrait (4:5). Keyed on data-orientation, so
    landscape is untouched. */
-section.stats[data-orientation='portrait'] > .cell-stage > ol,
-section.stats[data-orientation='square'] > .cell-stage > ol { display:flex; flex-direction:column;
+section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol,
+section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol { display:flex; flex-direction:column;
   flex-direction: column; gap: var(--sp-sm); width: 100%; justify-content: space-evenly; flex: 1;
 }
-section.stats[data-orientation='portrait'] > .cell-stage > ol > li > strong,
-section.stats[data-orientation='square'] > .cell-stage > ol > li > strong {
+section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol > li > strong,
+section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol > li > strong {
   font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
 }
-section.stats[data-orientation='portrait'] > .cell-stage > ol > li > ul > li,
-section.stats[data-orientation='square'] > .cell-stage > ol > li > ul > li {
+section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol > li > ul > li,
+section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol > li > ul > li {
   font-size: var(--fs-body); /* label legible under the big number (was --fs-meta) */
 }
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): square, tall and strip
@@ -102,7 +130,7 @@ section.stats[data-orientation='square'] > .cell-stage > ol > li > ul > li {
  * examples/social-square.md by 75px — stage 750, content 825). A 2-up wrap uses
  * both axes, which is exactly what `square` means in lib/adaptive/families.js:
  * "balanced — 2x2 grids, 2-up". Measured with tools/calibrate-capacity.js. */
-section.stats.stats:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+section.stats.stats:where(:not(.math)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
   display: flex; flex-direction: column; gap: var(--sp-sm); width: 100%;
   justify-content: space-evenly; flex: 1;
 }
@@ -110,7 +138,7 @@ section.stats.stats:where([data-family="tall"], [data-family="strip"]) > .cell-s
  * split minus its share of the gap (the same calc idiom cards-grid uses); wrap
  * puts the overflow on the next row, and `align-content: space-evenly` spreads
  * the rows down the frame instead of stretching each tile to fill it. */
-section.stats.stats:where([data-family="square"]) > .cell-stage > ol {
+section.stats.stats:where(:not(.math)):where([data-family="square"]) > .cell-stage > ol {
   display: flex; flex-wrap: wrap; width: 100%; flex: 1;
   /* `row` is stated, not inherited: the older `[data-orientation="square"]` rule
    * above sets `column` at the same specificity, and without this the 50%
@@ -118,14 +146,14 @@ section.stats.stats:where([data-family="square"]) > .cell-stage > ol {
   flex-direction: row;
   gap: var(--sp-sm); justify-content: center; align-content: space-evenly;
 }
-section.stats.stats:where([data-family="square"]) > .cell-stage > ol > li {
+section.stats.stats:where(:not(.math)):where([data-family="square"]) > .cell-stage > ol > li {
   flex: 0 1 calc(50% - var(--sp-sm) / 2);
   box-sizing: border-box;
 }
-section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > strong {
+section.stats.stats:where(:not(.math)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > strong {
   font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
 }
-section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > ul > li {
+section.stats.stats:where(:not(.math)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > ul > li {
   font-size: var(--fs-body);
 }
 
@@ -179,11 +207,11 @@ section.stats.stats:where([data-family="square"], [data-family="tall"], [data-fa
    deliberately repeats `.lat-split-native` twice for the natural-height rules and
    FOUR times for the lone-member fill, and documents why; the lone-member rules
    sit at (0,7,3) and an override has to clear that to be seen at all. */
-section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol:has(> li:only-child) {
+section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol:has(> li:only-child) {
   justify-content: safe center;
 }
 /* tall · strip — the ol is a column, so its MAIN axis is the vertical one. */
-section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:only-child {
+section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:only-child {
   flex: 0 1 auto;
 }
 /* wide · square — the ol is a row, so the tile's height is the CROSS axis.
@@ -199,6 +227,6 @@ section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-
    Confirmed unreachable by construction, not merely untested: two fixtures that
    overflow at wide horizontally (10 and 6 tiles) and one that overflows
    vertically (4 tall-captioned tiles) all clip rather than split. */
-section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:only-child {
+section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:only-child {
   align-self: center;
 }

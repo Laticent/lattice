@@ -35,12 +35,27 @@ const EXPECTED_FLOW = [
   'quote', 'redline', 'regulatory-update', 'stats', 'statute-stack', 'team-profile', 'verdict-grid',
 ].sort();
 const EXPECTED_CANVAS = [
+  // `math` joined this list in 2026-09, moving from EXPECTED_SOVEREIGN below — the only
+  // component ever to change partition. Its stage is a `canvas` (a self-sizing body: a
+  // typeset equation does not reflow) and it is `conformance: "strict"`, so the masthead
+  // kernel materializes its declared `.cell-stage` rather than letting it hand-draw one.
+  'math',
   'contact', 'diagram', 'bar', 'bullet', 'funnel', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'gantt', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',
   'progress', 'quadrant', 'radar', 'roadmap', 'state-chart', 'timeline-list',
   'video', 'wifi', 'word-cloud',
 ].sort();
 const EXPECTED_SOVEREIGN = [
-  'closing', 'compare-code', 'divider', 'image', 'math', 'premise', 'scene', 'split-compare',
+  // `math` was here until 2026-09. Its claim on a sovereign frame was "drives its own
+  // `> h2` title grid" — a heading-placement preference, not the "this slide has no room
+  // for chrome" the rest of this list rests on. In practice math's title grid was
+  // `position: absolute; top: calc(var(--sp-2xl) + var(--sp-md))`, the masthead band's
+  // geometry copied by arithmetic.
+  //
+  // `compare-code` carries the SAME WORDING in its manifest and NOT the same substance:
+  // it builds a real four-row explicit grid and places `> h2` at
+  // `grid-column: 1 / -1; grid-row: 1`. Do not read math's migration as a precedent for
+  // it without opening the CSS.
+  'closing', 'compare-code', 'divider', 'image', 'premise', 'scene', 'split-compare',
   'split-panel', 'title',
 ].sort();
 
@@ -76,7 +91,13 @@ describe('stage-catalog — the single stage-cell classification', () => {
     // contact (PR 1), wifi (PR 2), diagram (PR 3 — the first strict VIZ canvas)
     // are the strict canvas migrations; the rest opt in one component per PR.
     // Update this list — with rationale — as each flag flips.
-    const EXPECTED_STRICT = ['contact', 'diagram', 'wifi'];
+    //
+    // math (PR 4) is the first to reach `strict` by LEAVING a sovereign frame rather
+    // than by opting an existing canvas in. Eight variants moved onto the shared Form
+    // frame one commit at a time, each with rendered evidence at all five registered
+    // sizes; the sovereign arms and `lib/forms/frame/math/` are deleted, so there is no
+    // second shape left for the flag to disagree with.
+    const EXPECTED_STRICT = ['contact', 'diagram', 'math', 'wifi'];
     assert.deepEqual([...conformanceCatalog].sort(), EXPECTED_STRICT, 'conformance-catalog drifted from EXPECTED_STRICT');
     // The baked array must equal the manifest source of truth.
     const fromManifests = loadAll().filter((m) => m.conformance === 'strict').map((m) => m.name).sort();

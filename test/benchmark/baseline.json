@@ -4,8 +4,8 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 2.73,
-    "rmePct": 1.32
+    "ms": 3.22,
+    "rmePct": 1.41
   },
   "blessedOn": {
     "node": "v22",
@@ -16,71 +16,78 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 16.54,
-      "ms": 45.14,
-      "slidesPerSec": 1285,
-      "rmePct": 2.23
+      "index": 18.68,
+      "ms": 60.21,
+      "slidesPerSec": 963,
+      "rmePct": 2.86
     },
     "charts": {
-      "slides": 15,
-      "index": 13.14,
-      "ms": 35.87,
-      "slidesPerSec": 418,
-      "rmePct": 1.63
+      "slides": 22,
+      "index": 17.59,
+      "ms": 56.69,
+      "slidesPerSec": 388,
+      "rmePct": 1.43
+    },
+    "math": {
+      "slides": 16,
+      "index": 19.01,
+      "ms": 61.27,
+      "slidesPerSec": 261,
+      "rmePct": 2.95
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 51.31,
-      "ms": 140.04,
-      "slidesPerSec": 2485,
-      "rmePct": 4.62
+      "index": 54.04,
+      "ms": 174.2,
+      "slidesPerSec": 1998,
+      "rmePct": 3.62
     }
   },
   "printDatasets": {
     "print full · normal (jargon)": {
       "slides": 58,
-      "ms": 96424.09,
-      "rmePct": 6.18
+      "ms": 109998.32,
+      "rmePct": 1.18
     },
     "print re-place · normal (jargon)": {
       "slides": 58,
-      "ms": 64628,
-      "rmePct": 1.45
+      "ms": 75567.69,
+      "rmePct": 1.76
     },
     "print full · charts": {
-      "slides": 15,
-      "ms": 6432.03,
-      "rmePct": 4.82
+      "slides": 22,
+      "ms": 10480.54,
+      "rmePct": 2.8
     },
     "print re-place · charts": {
-      "slides": 15,
-      "ms": 2557.05,
-      "rmePct": 5.18
+      "slides": 22,
+      "ms": 4011.39,
+      "rmePct": 3.98
     }
   },
   "sweepDatasets": {
     "normal (jargon)": {
       "slides": 58,
       "overflowing": 1,
-      "scopedMs": 0.1,
-      "unscopedMs": 4.9,
-      "ratio": 49,
-      "backstopMs": 0.1
+      "scopedMs": 0.2,
+      "unscopedMs": 5.9,
+      "ratio": 29.5,
+      "backstopMs": 0.2
     },
     "charts": {
-      "slides": 15,
+      "slides": 22,
       "overflowing": 0,
-      "scopedMs": 0.3,
-      "unscopedMs": 2,
-      "ratio": 6.67,
-      "backstopMs": 0
+      "scopedMs": 0.4,
+      "unscopedMs": 3.1,
+      "ratio": 7.75,
+      "backstopMs": 0.1
     },
     "overflowing (x40)": {
       "slides": 40,
       "overflowing": 40,
-      "scopedMs": 1.4,
-      "unscopedMs": 12.2,
-      "ratio": 8.71,
+      "scopedMs": 1.7,
+      "unscopedMs": 16,
+      "ratio": 9.41,
       "backstopMs": 0.1
     }
   },
@@ -109,13 +116,36 @@
   "exportDatasets": {
     "export · normal (jargon)": {
       "slides": 58,
-      "ms": 34018.97,
-      "rmePct": 7.4
+      "ms": 35650.88,
+      "rmePct": 1.77
     },
     "export · charts": {
-      "slides": 15,
-      "ms": 4158.13,
-      "rmePct": 2.3
+      "slides": 22,
+      "ms": 6365.15,
+      "rmePct": 2.19
+    }
+  },
+  "editDatasets": {
+    "edit · normal (jargon)": {
+      "slides": 58,
+      "typesets": 0,
+      "burstTypesets": 0,
+      "ms": 23.17,
+      "burstMs": 268.96
+    },
+    "edit · charts": {
+      "slides": 22,
+      "typesets": 0,
+      "burstTypesets": 0,
+      "ms": 20.46,
+      "burstMs": 246.16
+    },
+    "edit · math": {
+      "slides": 16,
+      "typesets": 0,
+      "burstTypesets": 0,
+      "ms": 17,
+      "burstMs": 207.41
     }
   }
 }

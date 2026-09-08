@@ -22,9 +22,20 @@ const plugins = require('../../../lib/integrations/markdown-it/plugins');
 const { renderJson, JSON_FILE } = require('../../../tools/build-forms');
 
 // The historical hardcoded skip list (the behavior the manifests must preserve).
+//
+// `math` LEFT THIS LIST in 2026-09 and it is the only entry ever to have done so, which
+// is worth stating rather than quietly deleting: its claim on a sovereign frame was
+// "drives its own `> h2` title grid" — a heading-placement preference, not the "this
+// slide has no room for chrome" that every other entry rests on. Eight variants moved
+// onto the shared Form frame one commit at a time and none lost anything; what they
+// gained was `meta:`, the progress rail and the watermark tile, none of which a
+// chrome-exempt section can render. `compare-code` carries the same WORDING in its
+// manifest and not the same substance — it builds a real explicit title grid where
+// math's was absolutely-positioned arithmetic — so math is not a precedent for it.
+// See the math variant assertions in test (c) below.
 const HISTORICAL_SKIP = [
   'title', 'divider', 'closing',
-  'math', 'compare-code',
+  'compare-code',
   'split-panel', 'split-compare',
   'image', 'scene', 'premise',
 ];
@@ -96,6 +107,17 @@ test('(c) plugins.formToggleClass skips every historical sovereign Frame', () =>
   for (const skip of HISTORICAL_SKIP) {
     assert.equal(plugins.formToggleClass(skip, 'standard'), skip, `should skip ${skip}`);
   }
+  // AND MATH IS NOT ONE OF THEM, at any variant. Asserted from the COMPONENT manifest
+  // rather than a second hardcoded list, so a ninth variant is covered the day it is
+  // declared. This is the arm that fails if the sovereign frame is ever put back.
+  const MATH = require('../../../lib/components/math/math/math.manifest.json');
+  for (const variant of MATH.variants) {
+    const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
+    assert.equal(plugins.formToggleClass(cls, 'standard'), `${cls} form`,
+      `math ${variant} must take the form class`);
+  }
+  assert.ok(!forms.frameToggleSkip().includes('math'),
+    'lib/forms/frame/math/ is deleted — math must not be in the derived skip set');
   // and still tags ordinary content
   assert.equal(plugins.formToggleClass('content', 'standard'), 'content form');
 });

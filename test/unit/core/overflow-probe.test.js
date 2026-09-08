@@ -518,6 +518,167 @@ describe('overflow-probe: the SQUEEZED child (a flex cell that reports it fits)'
     assert.equal(r.over, true, '250px of rows painting over the next block is overflow, cell edge or not');
   });
 
+  test('a sibling BESIDE this child is not a line it can cover — the limit falls back to the cell', () => {
+    // THE FALSE POSITIVE THE SIBLING LIMIT CREATES IN A MULTI-COLUMN CELL, measured on
+    // `math matrix` after it moved onto the Form frame. The stage is a two-track grid:
+    // a 672x206 equation at y=294..500 and a 448x319 legend at y=237..556, side by side,
+    // both comfortably inside a 438px cell. Nothing overlaps and nothing is clipped.
+    //
+    // The equation's `<p>` reports 2px of inner overflow, which is not a squeeze — it is
+    // KaTeX. Display math is built from negative-offset `vlist` struts, so every box
+    // around it reports phantom hidden pixels (the `.katex-display` span reports 10; an
+    // inner `<span>` reports 280 at clientHeight 0). Measured against the LEGEND's top,
+    // 2px of phantom became dy=265, `over: true`, and a "Content clipped" badge on a
+    // slide with nothing clipped.
+    //
+    // Multi-column clip cells are not exotic — `citation-card` (split / margin / triptych),
+    // `inventory` (editorial), `math` (feature, matrix), `redline` (split / three-col),
+    // `split-panel` and `team-profile` (sides) all build one — so a child that reports
+    // phantom inner overflow is all this ever needed. (`kpi` is NOT one, and "the legal
+    // components" is `citation-card` alone: every other legal stage is `flex-direction:
+    // column`. An earlier draft of this note named both and was wrong.)
+    const equation = {
+      scrollHeight: 208, clientHeight: 206, scrollWidth: 672, clientWidth: 672,
+      getBoundingClientRect: () => ({ top: 294, bottom: 500, left: 0, right: 672, width: 672, height: 206 }),
+    };
+    const legend = {
+      scrollHeight: 319, clientHeight: 319, scrollWidth: 448, clientWidth: 448,
+      getBoundingClientRect: () => ({ top: 237, bottom: 556, left: 704, right: 1152, width: 448, height: 319 }),
+    };
+    const cell = {
+      scrollHeight: 616, clientHeight: 616, scrollWidth: 1152, clientWidth: 1152,
+      getBoundingClientRect: () => ({ top: 178, bottom: 616, left: 0, right: 1152 }),
+      children: [equation, legend],
+    };
+    const r = withStyles(() => probeSectionOverflow(section(cell), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(r.over, false, 'the legend is beside the equation, not below it — its top is not a limit');
+  });
+
+  test('a crushed child in a multi-column cell is still caught at the CELL edge', () => {
+    // The conservative half survives: dropping the sibling limit must not make a
+    // multi-column cell blind. Same two-column shape, but the left child is genuinely
+    // crushed — 200px of box holding 700px of content, which clears the cell's bottom.
+    const crushed = {
+      scrollHeight: 700, clientHeight: 200, scrollWidth: 672, clientWidth: 672,
+      getBoundingClientRect: () => ({ top: 300, bottom: 500, left: 0, right: 672, width: 672, height: 200 }),
+    };
+    const beside = {
+      scrollHeight: 319, clientHeight: 319, scrollWidth: 448, clientWidth: 448,
+      getBoundingClientRect: () => ({ top: 237, bottom: 556, left: 704, right: 1152, width: 448, height: 319 }),
+    };
+    const cell = {
+      scrollHeight: 616, clientHeight: 616, scrollWidth: 1152, clientWidth: 1152,
+      getBoundingClientRect: () => ({ top: 178, bottom: 616, left: 0, right: 1152 }),
+      children: [crushed, beside],
+    };
+    const r = withStyles(() => probeSectionOverflow(section(cell), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(r.over, true, '500+500=1000 is 384px past the cell bottom — still overflow');
+  });
+
+  test('a crushed child that overprints a LATER same-column sibling is still caught', () => {
+    // THE UNDER-REPORT THE BESIDE-GUARD CREATES IF IT BREAKS ON THE FIRST SIBLING, found by
+    // an independent checker and reproduced. A 2x2 auto-placed grid in one clip cell: `A`
+    // crushed in column 1 row 1, `B` beside it in column 2, `C` directly under `A` in
+    // column 1 row 2. `A`'s next DOM sibling is `B`, which the guard correctly refuses —
+    // and if the loop stops there it never reaches `C`, the box `A` is actually painting
+    // over. `A`'s content runs to 288+290=578 and `C` begins at 408, so 170px of overprint
+    // is reported as zero — measured against the cell's own bottom at 616, `past` comes out
+    // negative and the whole squeeze disappears. That is the direction the note in the
+    // probe calls "worse". The scan must continue past a sibling it rejects.
+    const crushed = {
+      scrollHeight: 400, clientHeight: 110, scrollWidth: 576, clientWidth: 576,
+      getBoundingClientRect: () => ({ top: 178, bottom: 288, left: 64, right: 640, width: 576, height: 110 }),
+    };
+    const beside = {
+      scrollHeight: 300, clientHeight: 300, scrollWidth: 576, clientWidth: 576,
+      getBoundingClientRect: () => ({ top: 178, bottom: 478, left: 640, right: 1216, width: 576, height: 300 }),
+    };
+    const below = {
+      scrollHeight: 200, clientHeight: 200, scrollWidth: 576, clientWidth: 576,
+      getBoundingClientRect: () => ({ top: 408, bottom: 608, left: 64, right: 640, width: 576, height: 200 }),
+    };
+    const cell = {
+      scrollHeight: 438, clientHeight: 438, scrollWidth: 1152, clientWidth: 1152,
+      getBoundingClientRect: () => ({ top: 178, bottom: 616, left: 64, right: 1216 }),
+      children: [crushed, beside, below],
+    };
+    const r = withStyles(() => probeSectionOverflow(section(cell), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(r.over, true, '170px painting over the box below it is overflow, whatever sits beside it');
+    // The section fake reports clientHeight 1000; `scrollH` is that plus the cell's `dy`.
+    assert.equal(r.scrollH, 1000 + 170, 'measured against `below` (408), not against `beside` and not against the cell (616)');
+  });
+
+  test('a sibling in ANOTHER COLUMN that merely starts lower is not a limit either', () => {
+    // The mirror of the test above, and the reason the guard tests BOTH axes. Measured on
+    // `citation-card margin`: a column-1 citation paragraph, a column-2 quote whose top is
+    // ABOVE it (correctly rejected on the vertical test alone), and a column-3 margin list
+    // 640px to the right whose top is BELOW it. With only a vertical test, continuing the
+    // scan past the quote reaches that list and takes its top — a limit for a box the
+    // child cannot reach in any direction.
+    // The citation is genuinely CRUSHED — 72px of box holding 222px of content — so its
+    // content bottom (3288) sits BELOW the margin list's top (3230). Without that, the
+    // subtraction is negative whichever limit is taken and the fixture cannot tell the two
+    // implementations apart: an earlier cut of this test gave the citation 2px of hidden
+    // content and passed with the horizontal test deleted, which is exactly the vacuous
+    // shape this file has been caught shipping before.
+    const citation = {
+      scrollHeight: 222, clientHeight: 72, scrollWidth: 230, clientWidth: 230,
+      getBoundingClientRect: () => ({ top: 3066, bottom: 3138, left: 64, right: 294, width: 230, height: 72 }),
+    };
+    const quote = {
+      scrollHeight: 442, clientHeight: 442, scrollWidth: 576, clientWidth: 576,
+      getBoundingClientRect: () => ({ top: 3060, bottom: 3502, left: 326, right: 902, width: 576, height: 442 }),
+    };
+    const marginNote = {
+      scrollHeight: 102, clientHeight: 102, scrollWidth: 282, clientWidth: 282,
+      getBoundingClientRect: () => ({ top: 3230, bottom: 3332, left: 934, right: 1216, width: 282, height: 102 }),
+    };
+    const cell = {
+      scrollHeight: 600, clientHeight: 600, scrollWidth: 1152, clientWidth: 1152,
+      getBoundingClientRect: () => ({ top: 3040, bottom: 3640, left: 64, right: 1216 }),
+      children: [citation, quote, marginNote],
+    };
+    const r = withStyles(() => probeSectionOverflow(section(cell), CLIP_CELL_SELECTOR, TOL));
+    // 3138 + 150 = 3288, well inside the cell's 3640 bottom. Measured against the margin
+    // list's top at 3230 it would read 58px of overflow; measured against the column it is
+    // actually in, there is none.
+    assert.equal(r.over, false, 'neither sibling shares the citation\'s column — the limit is the cell');
+  });
+
+  test('the beside-guard answers the same at scale 1 and at scale 1.5', () => {
+    // THE TOLERANCE MUST BE IN LAYOUT PX. `r`/`nr` are visual px; `hidden` and `TOL` are
+    // layout px. A bare `- 1` is `1/K` layout px, so the same slide answered `over: true`
+    // at K=1 and `over: false` at K=1.5 for a successor sitting 0.8 layout px above the
+    // crushed child's bottom — contradicting the scale-independence asserted above.
+    const build = (K) => {
+      const v = (n) => n * K; // layout px → visual px
+      const crushed = {
+        scrollHeight: 400, clientHeight: 100, scrollWidth: 1152, clientWidth: 1152,
+        getBoundingClientRect: () => ({ top: v(0), bottom: v(100), left: v(0), right: v(1152), width: v(1152), height: v(100) }),
+      };
+      // 0.8 LAYOUT px above the crushed child's bottom — still the box below it.
+      const after = {
+        scrollHeight: 200, clientHeight: 200, scrollWidth: 1152, clientWidth: 1152,
+        getBoundingClientRect: () => ({ top: v(99.2), bottom: v(299.2), left: v(0), right: v(1152), width: v(1152), height: v(200) }),
+      };
+      const cell = {
+        scrollHeight: 1000, clientHeight: 1000, scrollWidth: 1152, clientWidth: 1152,
+        getBoundingClientRect: () => ({ top: v(0), bottom: v(1000), left: v(0), right: v(1152) }),
+        children: [crushed, after],
+      };
+      return {
+        scrollHeight: 1000, clientHeight: 1000, scrollWidth: 1152, clientWidth: 1152,
+        offsetHeight: 1000, // rect.height / offsetHeight === K
+        getBoundingClientRect: () => ({ top: 0, bottom: v(1000), left: 0, right: v(1152), height: v(1000) }),
+        querySelectorAll: () => [cell],
+      };
+    };
+    const at1 = withStyles(() => probeSectionOverflow(build(1), CLIP_CELL_SELECTOR, TOL));
+    const at15 = withStyles(() => probeSectionOverflow(build(1.5), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(at1.over, at15.over, 'the verdict must not depend on the host scale');
+    assert.equal(at1.scrollH, at15.scrollH, 'and neither must the magnitude');
+  });
+
   test('a child hiding pixels into EMPTY space inside the cell is NOT overflow', () => {
     // The gallery `cycle` page: a `<ul>` hiding 43px in a cell with a third of its height free.
     // The content lands in blank space; nothing is lost. Summing hidden pixels called this an

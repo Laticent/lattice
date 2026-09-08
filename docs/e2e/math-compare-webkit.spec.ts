@@ -2,6 +2,51 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 
 // `math compare` in REAL WebKit: every `<h3>` must paint exactly ONCE.
 //
+// READ THIS FIRST — WHAT A PASS MEANS CHANGED. `math compare` moved onto the Form
+// frame, and that removed this bug's root cause STRUCTURALLY: the eyebrow and the
+// `<h2>` now live in `.cell-masthead`, outside the column flow, and there is no
+// `column-span: all` spanner at all — `.cell-stage` is the multicol. Since the box
+// that fragments is the in-flow content PRECEDING the spanner (see below), and this
+// spec's own fixtures depend on an eyebrow being there, THESE FIXTURES CAN NO LONGER
+// REPRODUCE THE GHOST. A green run here is therefore no longer evidence that the fix
+// holds; it is evidence that nothing NEW paints twice.
+//
+// THE SELECTORS IN THIS FILE MOVED WITH THE DOM, and the first cut of this docblock
+// did not move them. `section.math.compare > h3` is now ZERO — the column labels are
+// `> .cell-stage > h3` — so all four assertions below were unrunnable while this note
+// above them explained why the DOM had changed. The spec is tagged `@webkit-tablet`,
+// which `docs/playwright.config.ts` runs only from the nightly, so no per-PR gate saw
+// it. Repointed. If you move math's body again, these are the four lines to move with
+// it, and nothing in the PR-time green line will remind you.
+//
+// The structural fact the fix now rests on is asserted per-PR instead, in
+// `test/unit/components/math-form-arms.test.js` ("a compare slide keeps its
+// eyebrow and heading OUT of the column flow"), which fails if either box is ever put
+// back into the multicol. That test is mutation-proved; this spec is kept as
+// defence-in-depth on the one surface no measurement can substitute for, because the
+// h3s are still in a multicol and a NEW paint duplication would still show here.
+//
+// WHAT WAS ACTUALLY OBSERVED AT MIGRATION TIME, corrected from a first draft that
+// said "no WebKit is installed … the nightly is the first run that will say". The
+// first half was true of the sandbox as found; the second was wrong, and wrong in the
+// direction that avoids work — `npx playwright install webkit` is two commands, and
+// the migration author should have run them before declaring the surface unreachable.
+//
+// Three things were then observed, and they are deliberately not merged into one
+// claim:
+//   · Real WebKit (desktop Linux, WebKit 26.0) renders a migrated `compare` with the
+//     right column count and no overflow. This says NOTHING about the ghost:
+//     `getClientRects()` returns a single rect even on a FAILING slide, as the note
+//     above records, so no box measurement can see the fragment.
+//   · An independent checker ran the raster oracle below on the same WebKit, against
+//     the sovereign arm with the #1554 fix neutralized (ghost reproduced, score
+//     1.000), the fixed sovereign arm (clean), and the migrated arm (clean, scores
+//     identical to the fixed baseline). That is positive evidence with an oracle
+//     demonstrably able to fire.
+//   · It is still NOT the reported surface. #1554 came from an iPad, and this spec
+//     drives the Studio preview frame. Desktop-Linux WebKit against the raw emulator
+//     sidecar is neither. iPadOS Safari and the Studio frame remain UNVERIFIED.
+//
 // #1554, reported from an iPad: on a `math compare` slide WebKit paints the
 // first `<h3>` twice — the real one in its column, and a ghost copy above the
 // `column-span: all` headline. Chromium renders the same DOM correctly.
@@ -243,8 +288,8 @@ test('every math compare h3 paints exactly once in WebKit (#1554) @webkit-tablet
 		// asynchronously, and the h3 boxes have to be final before they are used as
 		// templates — this retries until they are.
 		const expectedColumns = i === 0 ? 2 : 3;
-		await expect(frame.locator('section.math.compare > h3')).toHaveCount(expectedColumns);
-		await expect(frame.locator('section.math.compare > h3').last()).toBeVisible();
+		await expect(frame.locator('section.math.compare > .cell-stage > h3')).toHaveCount(expectedColumns);
+		await expect(frame.locator('section.math.compare > .cell-stage > h3').last()).toBeVisible();
 
 		// Re-host the presented document at TOP LEVEL to read it.
 		//
@@ -280,7 +325,7 @@ test('every math compare h3 paints exactly once in WebKit (#1554) @webkit-tablet
 
 		const h3s: H3Box[] = await section.evaluate((el) => {
 			const o = el.getBoundingClientRect();
-			return [...el.querySelectorAll(':scope > h3')].map((h) => {
+			return [...el.querySelectorAll(':scope > .cell-stage > h3')].map((h) => {
 				const r = document.createRange();
 				r.selectNodeContents(h);
 				const g = r.getBoundingClientRect();

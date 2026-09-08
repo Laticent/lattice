@@ -29,8 +29,11 @@
  * consume them by name (they cascade from this root). Canonical model:
  * design/forms.md.
  *
- * `form` is incompatible with `math` / `compare-code` (they drive their own title
- * grid via `> h2`); they're chrome-exempt in the toggle's skip set.
+ * `form` is incompatible with `compare-code` (it drives its own title grid via
+ * `> h2`); it is chrome-exempt in the toggle's skip set. `math` used to be listed
+ * beside it on the same claim and is not any more: it moved onto this frame in 2026-09,
+ * variant by variant, and the `> h2` grid it was said to need turned out to be the
+ * masthead's geometry copied by arithmetic.
  *
  * Cell gap + clip contract (design/forms.md §6). Cells must never touch or bleed
  * into one another: each Cell keeps a DEFINED gap to its neighbors, and content
@@ -101,8 +104,8 @@ section.form {
    * height-reserve — the in-flow band supplies its own height. */
   padding: var(--frame-y) var(--frame-x) var(--footer-reserve);
   /* `isolation: isolate` USED to live here, and it was the only rule in the engine
-   * creating a slide stacking context — so a sovereign frame (`title`, `math`,
-   * `divider`, …) never got one and its z values escaped to the page root. It is now
+   * creating a slide stacking context — so a sovereign frame (`title`, `divider`,
+   * `image`, …) never got one and its z values escaped to the page root. It is now
    * unconditional on the bare `section` (base.elements.css), which every Form section
    * is, so declaring it again here would be a no-op that reads like a local guarantee.
    * engineering/decisions/2026-08-12-slide-plane-model.md. */

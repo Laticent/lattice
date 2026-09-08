@@ -40,7 +40,7 @@ section {
    * rules creating a slide stacking context were `section.form { isolation: isolate }`
    * (lib/forms/cell/stage/stage.css) plus the two layouts that declared it for
    * themselves, `section.image` and `section.scene` — so a SOVEREIGN frame outside that
-   * set — `title`, `math`, `divider`, most frames with `exemptFromChrome: true` — got none at
+   * set — `title`, `divider`, `premise`, most frames with `exemptFromChrome: true` — got none at
    * all, and its z values escaped to the page root, where they were ordered against
    * OTHER SLIDES and against viewer chrome. Measured, before this rule: `isolation`
    * computed `isolate` on a `content` section and `auto` on a `title` section of the
@@ -234,6 +234,14 @@ section blockquote { margin:0; padding:0; border:none; }
  *    slides, the exact raw-browser-defaults defect this block exists to close.
  *    Ownership is at the granularity the owning CSS actually claims.
  *
+ *    `math.derivation` also carries `.form`, and that third class is not decoration.
+ *    Since derivation moved onto the Form frame its table rules are written
+ *    `section.math.form.derivation …` and exist at no looser granularity, so a
+ *    `.math.derivation` entry would be over-broad by exactly one class: it would
+ *    withhold the default from a `math derivation` section that did NOT take the
+ *    form class, and hand it raw browser defaults. The gate rejects that entry by
+ *    name rather than trusting anyone to notice.
+ *
  * The guard is gated — `checkUniversalTableGuard` in tools/check-ownership.js —
  * against a missing entry, a stale entry, an over-BROAD entry, and a rule in this
  * block that drops an entry the others carry. It is not proof against every
@@ -250,8 +258,8 @@ section blockquote { margin:0; padding:0; border:none; }
  * spends: the threshold is 12 rows, one better than before this block existed.
  * Re-measure with the same rig if you touch either value.
  * See engineering/decisions/2026-08-02-default-slide-layout.md §4. */
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
   width:100%; table-layout:auto; border-collapse:collapse;
   font-size:var(--fs-body-compact); line-height:var(--lh-snug);
   /* Vertical fill is a TOGGLE, off by default (`flex:0 1 auto` is a flex item's
@@ -260,12 +268,12 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
    * compare-table's behavior, now available to a plain table. */
   flex:var(--table-grow, 0) 1 auto;
 }
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead tr,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead tr {
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead tr,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead tr {
   background:var(--spectrum-structure) bottom / 100% 2px no-repeat;
 }
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead th,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead th {
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead th,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead th {
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600;
   letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label);
   padding:var(--sp-xs) var(--sp-sm); text-align:left;
@@ -276,12 +284,12 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
  * The wash is a TOKEN, not a literal, so it is switchable from CSS at any level a
  * custom property reaches: a theme's `:root`, a deck's `style:` block, a slide.
  * `table-plain` sets it transparent; see base.variants.css. */
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table tbody tr:nth-child(odd),
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table tbody tr:nth-child(odd) {
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table tbody tr:nth-child(odd),
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table tbody tr:nth-child(odd) {
   background:var(--table-zebra, color-mix(in srgb, var(--accent) 4%, transparent));
 }
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table td,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td {
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td {
   padding:calc(var(--sp-xs) * 0.5) var(--sp-sm); border-bottom:1px solid var(--border);
   color:var(--text-body); vertical-align:var(--table-valign, top);
   word-wrap:break-word; overflow-wrap:break-word;
@@ -328,10 +336,10 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
  * Carries the full deny guard like every rule in this block — a rule that drops an entry
  * is unguarded for the property it sets (`checkUniversalTableGuard`).
  * See engineering/decisions/2026-09-03-table-outer-edge-rules.md. */
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table > tfoot > tr:last-child > td,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table > tfoot > tr:last-child > td {
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table > tfoot > tr:last-child > td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table > tfoot > tr:last-child > td {
   border-bottom:none;
 }
 /* COLUMN ALIGNMENT IS THE AUTHOR'S, ALWAYS. markdown-it compiles `:---` / `:---:` /
