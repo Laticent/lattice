@@ -278,7 +278,30 @@ const latticeTheme = EditorView.theme({
 	// The fill stays moderate (legibility-safe); the inset edge gives the band the
 	// crisp definition a heavier fill would cost in text contrast. ::selection (the
 	// native fallback before drawSelection paints) keeps the plain fill.
-	'.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
+	//
+	// SPECIFICITY decides this rule, not stylesheet order, and the plain
+	// `&.cm-focused .cm-selectionBackground` key it used to carry LOST. This editor
+	// runs `drawSelection()`, so the selection is DOM (`.cm-selectionBackground`
+	// divs) rather than the native highlight — and @codemirror/view's base theme
+	// paints those divs through a five-class selector,
+	// `&light.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`
+	// (`#d7d4f0`), while `EditorView.theme()` compiled our key to three. Select-all
+	// therefore slabbed light lavender across every palette: measured on the built
+	// playground at cuoio-dark, computed `rgb(215, 212, 240)` under `--text-body`
+	// #D6C4A8 — about 1.3:1, unreadable. Only the FILL lost; the inset edge below
+	// has no base rule to fight, which is why the slab still carried an accent
+	// hairline — the tell that this rule was live but outgunned.
+	//
+	// `&light` applies because nothing marks this theme dark, but that is not the
+	// bug and marking it dark is not the fix: the dark arm is the same five-class
+	// selector and would slab `#233` instead. Matching the base's SHAPE, plus one
+	// extra class (`&` compiles to the theme's own class, so `&.cm-editor…` is six),
+	// wins on specificity in both arms and does not depend on injection order.
+	//
+	// The Studio's editor (components/studio/editor-theme.ts) never had this: with
+	// no `drawSelection()` it keeps the NATIVE highlight, which `::selection` in
+	// styles/native-widgets.css owns — no base-theme rule to lose to.
+	'&.cm-editor .cm-selectionBackground, &.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
 		backgroundColor: 'var(--cm-selection)',
 		boxShadow: 'inset 0 0 0 1px var(--cm-selection-edge)',
 	},
@@ -611,19 +634,12 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 			],
 		}),
 	});
-	// iOS Safari can paint the native selection highlight before it applies
-	// CodeMirror's injected theme — so the FIRST text selection shows the system
-	// (lavender) tint instead of the themed `--cm-selection`, and only corrects
-	// after a style recalc (e.g. a palette/mode toggle). Force one reflow on the
-	// next frame so the theme is applied up front, not only after a manual toggle.
-	if (typeof requestAnimationFrame === 'function') {
-		requestAnimationFrame(() => {
-			try {
-				view.requestMeasure();
-				void view.scrollDOM.offsetHeight; // force a style/layout flush
-			} catch {}
-		});
-	}
+	// (A `requestAnimationFrame` reflow used to sit here, on the belief that iOS
+	// Safari painted a "system lavender" selection tint before CodeMirror's theme
+	// landed. The lavender was `#d7d4f0` — @codemirror/view's own base-theme
+	// selection color, not the system's — so the cause was CSS specificity, not
+	// injection timing, and the reflow never fixed anything. It is removed with the
+	// real fix, in the `.cm-selectionBackground` rule above.)
 	return {
 		getValue: () => view.state.doc.toString(),
 		setValue: (text) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }),

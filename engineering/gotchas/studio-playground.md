@@ -959,6 +959,45 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by:** the lint-popup redesign,
   `engineering/decisions/2026-08-16-lint-popup-finding-card.md`.
 
+## Select-all in the Playground editor paints a light lavender slab
+
+- **Symptom:** Select-all in the Playground's markdown editor covers the text in
+  a pale lavender band that ignores the palette — body text over it measured
+  **1.21:1** on cuoio-dark. The SAME action in the Studio's editor is fine. The
+  band still carries a correct accent hairline, which is what makes the symptom
+  read as "the theme half-applied".
+- **Cause:** CSS **specificity**, and the hairline is the tell. The Playground
+  editor runs `drawSelection()`, so the selection is DOM (`.cm-selectionBackground`
+  divs in a `.cm-selectionLayer`) rather than the native highlight — and
+  `@codemirror/view`'s **base theme** paints those divs through a five-class
+  selector, `&light.cm-focused > .cm-scroller > .cm-selectionLayer
+  .cm-selectionBackground` (`#d7d4f0`; the dark arm is `#233`). A plain
+  `&.cm-focused .cm-selectionBackground` key in your own `EditorView.theme()`
+  compiles to **three** classes and loses. Only the `background` lost — the theme's
+  `box-shadow` edge had no base rule to fight, so it kept painting.
+- **`&light` is not the bug.** `EditorView.theme(spec)` marks an editor dark only
+  when passed `{ dark: true }`, so a palette-driven editor is classed `light` on
+  every mode — but the dark arm is the same five-class selector, so marking it dark
+  just swaps which slab you get.
+- **Fix:** Match the base theme's selector SHAPE and add one class, so the win is
+  specificity rather than stylesheet order:
+  `&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`.
+  Pinned by `docs/e2e/playground-selection-contrast.spec.ts` (both color modes),
+  which asserts the band's rgb tracks `--accent` and names the four base literals.
+- **The general trap:** any `EditorView.theme()` key that only names the element
+  can be out-specified by the base theme's `&light`/`&dark` compound selectors.
+  Before assuming your theme lost to stylesheet ORDER, read the base theme's
+  selector for that class in `@codemirror/view/dist/index.js` and count classes.
+- **Beware the misdiagnosis this one already caused:** a `requestAnimationFrame`
+  reflow sat in `createEditor()` for months, on the belief that iOS Safari painted
+  a "system lavender" tint before CodeMirror's theme landed. The lavender was
+  `#d7d4f0` — CodeMirror's own base color — so no reflow could ever have fixed it,
+  and the workaround was removed with the real fix. A color you can't place is
+  worth grepping for in `node_modules` before it becomes a platform story.
+- **Not the Studio's problem:** `components/studio/editor-theme.ts` has no
+  `drawSelection()`, so its selection is the NATIVE highlight, owned by
+  `::selection` in `styles/native-widgets.css` — no base-theme rule to lose to.
+
 ## A chat panel's state lands on whichever deck is on screen when the turn ends
 
 - **Symptom:** In the Studio's Architect panel, a turn started on deck-1 that
