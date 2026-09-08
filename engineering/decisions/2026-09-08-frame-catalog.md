@@ -8,8 +8,10 @@ summary: Lattice ships 12 Frames and 10 are sovereign, each welded by name to on
 **Date:** 2026-09-08
 **Status:** proposed — design only. Nothing here is implemented.
 **Extends:** `design/forms.md` (the canonical Form model — the vocabulary authority).
-**Prototype:** `2026-09-08-frame-catalog/prototype.html` — the nine drawn to true
-16:9 at Lattice's real Form geometry, with carves, component fits and two scores.
+**Prototypes:** `2026-09-08-frame-catalog/prototype.html` — the nine Frames drawn to
+true 16:9 at Lattice's real Form geometry, with carves, component fits and two scores.
+`2026-09-08-frame-catalog/mode-specimens.html` — the six Modes rendering identical
+content, with a lever per contract channel and a Frame lever that exercises M2.
 
 ---
 
@@ -229,6 +231,24 @@ full pass over 69 components.
 | **Narrative** | "This is worth reading." | comms · marketing · policy · research · NGO storytelling · exec narrative | proposed |
 | **Hand** | "We are working this out together." | education · workshops · HR · ideation · early product · NGO field | ships (`sketch`) |
 | **Display** | "Look at this." | brand · sales showcase · design · launch · recruiting | backdrop half ships (`finish: gallery`) |
+
+### 7.1 The specimen bench
+
+`mode-specimens.html` renders all six hands over one body of content — the only
+variable is the Mode — with a lever for each channel the contract names, plus two
+that test it rather than tune it:
+
+- **The Frame lever** cycles `standard · plinth · margin · foot · quiet`. Every Mode
+  must survive all five without redefining itself; that is clause M2, and it is the
+  reason Frame and Mode compose. A hand that only works under `standard` is not a Mode.
+- **The component lever** cycles table, cards, figures, steps and quote. Switching it
+  is how an M4 failure becomes visible: watch for a shape that snaps back to the
+  baseline hand while everything around it is drawn.
+
+The levers deliberately offset each Mode's own defaults rather than replacing them, so
+"every Mode at its own default" is a state you can return to and compare against. Each
+tile can also emit its six-channel spec, which is the contract's payload — a tuned
+experiment becomes a candidate value rather than a screenshot.
 
 **Six is near the ceiling, and cost is why.** Nine Frames × six Modes × eighteen
 palettes is 972 combinations to keep coherent, and M4 prices each Mode at a full pass

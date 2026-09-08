@@ -1,0 +1,539 @@
+<title>Mode Specimens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=Caveat:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Shantell+Sans:wght@400;600&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* ── page chrome: the same two-color specimen sheet as the Frame catalog ─── */
+:root{
+  --paper:#F1F3F0; --plate:#FBFCFA; --ink:#15191A; --ink-2:#4E5956;
+  --ink-3:#7C8783; --rule:#CBD2CE; --rule-2:#E1E6E2;
+  --red:#B0322A; --red-soft:#E8D4D1; --tint:#DFE5E1; --tint-2:#E9EEEA;
+  --shadow:rgba(21,25,26,.13);
+  --sans:"Archivo",system-ui,-apple-system,sans-serif;
+  --serif:"Newsreader",Georgia,serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  /* slide-local palette (the specimen's own ground — theme-blind, per HARD RULE #3) */
+  --s-bg:#FBFCFA; --s-ink:#15191A; --s-ink-2:#5A6360; --s-ink-3:#98A19D;
+  --s-rule:#C9D0CC; --s-tint:#EBEFEC; --s-accent:#B0322A;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0F1312; --plate:#181D1C; --ink:#E6EAE6; --ink-2:#A3AEAA;
+  --ink-3:#79837F; --rule:#2E3634; --rule-2:#242B29;
+  --red:#E0685C; --red-soft:#3A2422; --tint:#242B29; --tint-2:#1D2322;
+  --shadow:rgba(0,0,0,.5);
+  --s-bg:#121716; --s-ink:#E8ECE8; --s-ink-2:#A8B2AE; --s-ink-3:#6E7975;
+  --s-rule:#333B39; --s-tint:#1C2221; --s-accent:#E0685C;
+}}
+:root[data-theme="dark"]{
+  --paper:#0F1312; --plate:#181D1C; --ink:#E6EAE6; --ink-2:#A3AEAA;
+  --ink-3:#79837F; --rule:#2E3634; --rule-2:#242B29;
+  --red:#E0685C; --red-soft:#3A2422; --tint:#242B29; --tint-2:#1D2322;
+  --shadow:rgba(0,0,0,.5);
+  --s-bg:#121716; --s-ink:#E8ECE8; --s-ink-2:#A8B2AE; --s-ink-3:#6E7975;
+  --s-rule:#333B39; --s-tint:#1C2221; --s-accent:#E0685C;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--serif);
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1280px;margin:0 auto;padding:0 26px 88px}
+h1,h2,h3{font-family:var(--sans);text-wrap:balance;margin:0}
+p{margin:0}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--red);font-weight:500}
+.lede{font-size:18px;line-height:1.56;color:var(--ink-2);max-width:66ch}
+.small{font-size:13.5px;color:var(--ink-3)}
+header.top{padding:50px 0 26px;display:flex;flex-direction:column;gap:17px}
+header.top h1{font-size:clamp(38px,6.5vw,68px);font-weight:800;letter-spacing:-.028em;line-height:.97}
+section.blk{padding:44px 0 0;display:flex;flex-direction:column;gap:18px}
+section.blk>h2{font-size:27px;font-weight:600;letter-spacing:-.02em}
+.secno{font-family:var(--mono);font-size:12px;color:var(--red)}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+/* ── lever console ──────────────────────────────────────────────────────── */
+.console{position:sticky;top:0;z-index:30;background:var(--paper);
+  border-top:2px solid var(--ink);border-bottom:1px solid var(--rule);
+  padding:13px 0 14px;margin:22px 0 26px}
+.levers{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px 20px}
+.lever{display:flex;flex-direction:column;gap:5px}
+.lever label{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:8px}
+.lever label b{color:var(--red);font-weight:500}
+.lever select,.lever input[type=range]{width:100%;font-family:var(--sans);font-size:13px}
+.lever select{padding:5px 7px;background:var(--plate);color:var(--ink);
+  border:1px solid var(--rule);border-radius:0}
+.lever input[type=range]{accent-color:var(--red);height:18px}
+.crow{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.crow button{font-family:var(--mono);font-size:11px;letter-spacing:.07em;
+  text-transform:uppercase;padding:6px 11px;background:transparent;
+  border:1px solid var(--rule);color:var(--ink-2);cursor:pointer}
+.crow button:hover{border-color:var(--ink-3);color:var(--ink)}
+.crow button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.crow .sp{flex:1}
+
+/* ── specimen tiles ─────────────────────────────────────────────────────── */
+.bench{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:26px}
+.bench.large{grid-template-columns:1fr}
+figure.spec{margin:0;background:var(--plate);border:1px solid var(--rule);
+  display:flex;flex-direction:column}
+figure.spec figcaption{display:flex;justify-content:space-between;align-items:baseline;
+  gap:10px;padding:10px 13px 9px;border-bottom:1px solid var(--rule-2)}
+figcaption h3{font-size:17px;font-weight:600;letter-spacing:-.015em}
+figcaption .q{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ink-2)}
+figcaption .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;padding:2px 6px;border:1px solid var(--rule);color:var(--ink-3);
+  white-space:nowrap}
+figcaption .tag.on{color:var(--red);border-color:var(--red)}
+.holder{padding:13px;background:var(--tint-2)}
+.who{padding:8px 13px 11px;font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-3);line-height:1.7;border-top:1px solid var(--rule-2)}
+
+/* ── THE SLIDE. Sized in cqi so a tile is a true 1280x720 miniature. ────── */
+.slide{container-type:inline-size;aspect-ratio:16/9;background:var(--s-bg);
+  color:var(--s-ink);position:relative;overflow:hidden;
+  border:1px solid var(--s-rule);
+  /* channel props — a Mode sets these; the levers offset them */
+  --m-disp:var(--sans); --m-body:var(--sans); --m-mono:var(--mono);
+  --m-disp-w:600; --m-body-w:400; --m-track:-.01em; --m-disp-scale:1;
+  --m-line:1px; --m-line-strong:2px;
+  --m-radius:2px; --m-fill:var(--s-tint); --m-elev:none; --m-border:1px solid var(--s-rule);
+  --m-mark:square; --m-measure:62ch; --m-lead:1.5; --m-air:1;
+  --m-tilt:0deg;
+}
+.sl{position:absolute;inset:0;padding:6.9cqi 5cqi 8.1cqi;display:flex;flex-direction:column}
+.sl *{font-family:var(--m-body);font-weight:var(--m-body-w)}
+.eyebrow{font-family:var(--m-mono)!important;font-size:1.35cqi;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--s-accent);font-weight:500}
+h4.stitle{font-family:var(--m-disp)!important;font-weight:var(--m-disp-w);
+  font-size:calc(3.5cqi * var(--m-disp-scale));letter-spacing:var(--m-track);
+  line-height:1.14;margin:.9cqi 0 0;color:var(--s-ink);text-wrap:balance}
+.slede{font-size:1.75cqi;line-height:var(--m-lead);color:var(--s-ink-2);
+  margin-top:.8cqi;max-width:var(--m-measure)}
+.mhr{height:var(--m-line);background:var(--s-rule);margin-top:calc(1.9cqi * var(--m-air))}
+.stage{flex:1;min-height:0;display:flex;flex-direction:column;
+  justify-content:center;padding-top:calc(2cqi * var(--m-air))}
+.stage>*:not(.ledger-lines){position:relative;z-index:1}
+.sfoot{position:absolute;left:2.35cqi;right:2.35cqi;bottom:1.9cqi;
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--m-mono)!important;font-size:1.15cqi;color:var(--s-ink-3);
+  letter-spacing:.06em}
+.sfoot .rail{flex:0 0 26cqi;height:.3cqi;background:var(--s-rule);position:relative}
+.sfoot .rail i{position:absolute;inset:0 62% 0 0;background:var(--s-accent)}
+
+/* content shapes */
+.tbl{width:100%;border-collapse:collapse;font-size:1.7cqi}
+.tbl th{font-family:var(--m-mono)!important;font-size:1.25cqi;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--s-ink-3);text-align:left;font-weight:500;
+  padding:0 1.4cqi calc(.9cqi * var(--m-air)) 0;
+  border-bottom:var(--m-line-strong) solid var(--s-ink)}
+.tbl td{padding:calc(1.05cqi * var(--m-air)) 1.4cqi calc(1.05cqi * var(--m-air)) 0;
+  border-bottom:var(--m-line) solid var(--s-rule);color:var(--s-ink-2)}
+.tbl td:first-child{color:var(--s-ink)}
+.tbl td.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--m-mono)!important}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(1.9cqi * var(--m-air))}
+.card{background:var(--m-fill);border:var(--m-border);border-radius:var(--m-radius);
+  box-shadow:var(--m-elev);padding:calc(1.9cqi * var(--m-air)) 1.7cqi;
+  transform:rotate(var(--m-tilt));display:flex;flex-direction:column;gap:.7cqi}
+.card:nth-child(2){transform:rotate(calc(var(--m-tilt) * -.7))}
+.card:nth-child(3){transform:rotate(calc(var(--m-tilt) * .45))}
+.card b{font-family:var(--m-disp)!important;font-weight:var(--m-disp-w);
+  font-size:2cqi;letter-spacing:var(--m-track);color:var(--s-ink)}
+.card span{font-size:1.5cqi;line-height:var(--m-lead);color:var(--s-ink-2)}
+.figs{display:grid;grid-template-columns:repeat(3,1fr);gap:2cqi;align-items:end}
+.fig{display:flex;flex-direction:column;gap:.5cqi;padding-left:1.4cqi;
+  border-left:var(--m-line-strong) solid var(--s-accent)}
+.fig b{font-family:var(--m-disp)!important;font-weight:var(--m-disp-w);
+  font-size:calc(6cqi * var(--m-disp-scale));line-height:.94;letter-spacing:var(--m-track);
+  font-variant-numeric:tabular-nums;color:var(--s-ink)}
+.fig span{font-size:1.4cqi;color:var(--s-ink-2);line-height:1.35}
+ol.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;
+  gap:calc(1.5cqi * var(--m-air))}
+ol.steps li{display:grid;grid-template-columns:3.4cqi 1fr;gap:1.5cqi;align-items:start;
+  font-size:1.7cqi;line-height:var(--m-lead);color:var(--s-ink-2)}
+ol.steps li b{font-family:var(--m-disp)!important;font-weight:var(--m-disp-w);
+  color:var(--s-ink);display:block;font-size:1.85cqi}
+.mk{width:3.4cqi;height:1.9cqi;display:flex;align-items:center;justify-content:center;
+  margin-top:.35cqi}
+.mk i{background:var(--s-accent);display:block}
+.mk[data-m="square"] i{width:1.1cqi;height:1.1cqi}
+.mk[data-m="dot"] i{width:1.1cqi;height:1.1cqi;border-radius:50%}
+.mk[data-m="dash"] i{width:2.4cqi;height:.34cqi}
+.mk[data-m="rule"] i{width:3.2cqi;height:var(--m-line)}
+.mk[data-m="tick"] i{width:1.4cqi;height:1.4cqi;background:var(--s-accent);
+  clip-path:polygon(14% 52%,38% 76%,88% 20%,98% 32%,38% 96%,4% 62%)}
+.mk[data-m="cross"] i{width:1.5cqi;height:1.5cqi;background:var(--s-accent);
+  clip-path:polygon(44% 0,56% 0,56% 44%,100% 44%,100% 56%,56% 56%,56% 100%,44% 100%,44% 56%,0 56%,0 44%,44% 44%)}
+blockquote.pq{margin:0;font-family:var(--m-disp)!important;font-weight:var(--m-disp-w);
+  font-size:calc(3.1cqi * var(--m-disp-scale));line-height:1.24;letter-spacing:var(--m-track);
+  max-width:var(--m-measure);color:var(--s-ink);text-wrap:balance}
+blockquote.pq footer{margin-top:1.6cqi;font-family:var(--m-mono)!important;font-size:1.3cqi;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--s-ink-3);font-weight:400}
+
+/* ornament channel */
+.orn-ticks::before,.orn-ticks::after{content:"";position:absolute;width:3cqi;
+  height:var(--m-line);background:var(--s-ink-3)}
+.orn-ticks::before{top:2.6cqi;left:2.6cqi}
+.orn-ticks::after{bottom:2.6cqi;right:2.6cqi}
+.orn-block .sl{padding-bottom:13.5cqi}
+.orn-block .sfoot .rail,.orn-block .sfoot span:last-child{display:none}
+.orn-block .tblock{position:absolute;right:2.6cqi;bottom:2.4cqi;width:27cqi;
+  background:var(--s-bg);
+  border:var(--m-line) solid var(--s-ink-3);font-family:var(--m-mono);font-size:1.05cqi;
+  color:var(--s-ink-3);letter-spacing:.06em}
+.orn-block .tblock div{padding:.55cqi .8cqi;display:flex;justify-content:space-between;
+  border-bottom:var(--m-line) solid var(--s-ink-3)}
+.orn-block .tblock div:last-child{border-bottom:0}
+.orn-folio .folio{position:absolute;right:2.6cqi;top:50%;transform:translateY(-50%);
+  font-family:var(--m-mono);font-size:1.25cqi;color:var(--s-ink-3)}
+.orn-rule .vr{position:absolute;left:3.1cqi;top:6.9cqi;bottom:8.1cqi;
+  width:var(--m-line-strong);background:var(--s-accent);opacity:.5}
+.stage{position:relative}
+.ledger-lines{position:absolute;inset:0;pointer-events:none;z-index:0;
+  background-image:repeating-linear-gradient(180deg,var(--s-rule) 0 var(--m-line),transparent var(--m-line) 4.2cqi);
+  opacity:.5}
+
+/* frame lever — the reading, not the hand */
+.fr-plinth .stage{flex:0 1 auto;padding-bottom:1cqi}
+.fr-plinth .plinth{margin-top:auto;padding-top:1.6cqi;border-top:var(--m-line-strong) solid var(--s-rule)}
+.fr-plinth .plinth p{font-family:var(--m-disp);font-weight:var(--m-disp-w);
+  font-size:2.1cqi;letter-spacing:var(--m-track);color:var(--s-ink);max-width:var(--m-measure)}
+.fr-margin .sl{padding-right:29cqi}
+.fr-margin .rail-cell{position:absolute;right:5cqi;top:6.9cqi;bottom:8.1cqi;width:20cqi;
+  border-left:var(--m-line) solid var(--s-rule);padding-left:1.9cqi;
+  display:flex;flex-direction:column;gap:1.1cqi}
+.fr-margin .rail-cell p{font-size:1.35cqi;line-height:1.45;color:var(--s-ink-2)}
+.fr-margin .rail-cell .lbl{font-family:var(--m-mono);font-size:1.05cqi;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--s-ink-3)}
+.fr-foot .sl{flex-direction:column}
+.fr-foot .head{order:2;padding-top:1.9cqi;border-top:var(--m-line) solid var(--s-rule);margin-top:1.9cqi}
+.fr-foot .stage{order:1;padding-top:0}
+.fr-foot .mhr{display:none}
+.fr-quiet .head{display:none}
+.fr-quiet .stage{padding-top:0}
+.hidden{display:none!important}
+.codeout{font-family:var(--mono);font-size:12px;line-height:1.65;background:var(--plate);
+  border:1px solid var(--rule);padding:14px 16px;white-space:pre;overflow-x:auto;color:var(--ink-2)}
+.foot{padding-top:44px;color:var(--ink-3);font-size:13.5px}
+code{font-family:var(--mono);font-size:.88em;background:var(--tint-2);padding:1px 4px}
+</style>
+<div class="wrap">
+<header class="top">
+  <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:baseline">
+    <span class="kicker">Lattice · Finish · Specimen sheet 03</span>
+    <span class="kicker" style="color:var(--ink-3)">mode: — the deck-wide hand</span>
+  </div>
+  <h1>Mode&nbsp;Specimens</h1>
+  <p class="lede">Six postures, rendering the <strong>same content</strong> so the
+  only variable is the hand. Every lever below moves one of the contract's six
+  channels across all six at once — and the <em>Frame</em> lever changes the reading,
+  which no Mode is allowed to touch. If a hand survives every lever and every frame,
+  it is a Mode; if it only works at one setting, it is a look.</p>
+</header>
+
+<div class="console">
+  <div class="levers">
+    <div class="lever"><label for="lv-comp">Component</label>
+      <select id="lv-comp">
+        <option value="table">compare-table</option>
+        <option value="cards">cards-grid</option>
+        <option value="figs">kpi — figures</option>
+        <option value="steps">list-steps</option>
+        <option value="quote">quote</option>
+      </select></div>
+    <div class="lever"><label for="lv-frame">Frame <b>the reading</b></label>
+      <select id="lv-frame">
+        <option value="standard">standard — before/thesis</option>
+        <option value="plinth">plinth — before/takeaway</option>
+        <option value="margin">margin — before/margin</option>
+        <option value="foot">foot — after/thesis</option>
+        <option value="quiet">quiet — none/none</option>
+      </select></div>
+    <div class="lever"><label for="lv-line">Line weight <b id="o-line">—</b></label>
+      <input type="range" id="lv-line" min="0" max="6" step="1" value="3"></div>
+    <div class="lever"><label for="lv-radius">Corner <b id="o-radius">—</b></label>
+      <input type="range" id="lv-radius" min="0" max="6" step="1" value="3"></div>
+    <div class="lever"><label for="lv-fill">Box fill</label>
+      <select id="lv-fill">
+        <option value="base">as the Mode sets it</option>
+        <option value="filled">filled</option>
+        <option value="outlined">outlined</option>
+        <option value="none">none</option>
+      </select></div>
+    <div class="lever"><label for="lv-air">Air <b id="o-air">—</b></label>
+      <input type="range" id="lv-air" min="0" max="6" step="1" value="3"></div>
+    <div class="lever"><label for="lv-measure">Measure <b id="o-measure">—</b></label>
+      <input type="range" id="lv-measure" min="0" max="6" step="1" value="3"></div>
+    <div class="lever"><label for="lv-scale">Display scale <b id="o-scale">—</b></label>
+      <input type="range" id="lv-scale" min="0" max="6" step="1" value="3"></div>
+    <div class="lever"><label for="lv-mark">Mark</label>
+      <select id="lv-mark">
+        <option value="base">as the Mode sets it</option>
+        <option value="square">square</option><option value="dot">dot</option>
+        <option value="dash">dash</option><option value="rule">rule</option>
+        <option value="tick">tick</option><option value="cross">cross</option>
+      </select></div>
+    <div class="lever"><label for="lv-orn">Ornament</label>
+      <select id="lv-orn">
+        <option value="base">as the Mode sets it</option>
+        <option value="none">none</option><option value="folio">folio</option>
+        <option value="ticks">corner ticks</option><option value="block">title block</option>
+        <option value="rule">margin rule</option>
+      </select></div>
+  </div>
+  <div class="crow">
+    <button id="b-reset">Reset levers</button>
+    <button id="b-large" aria-pressed="false">One per row</button>
+    <button id="b-spec" aria-pressed="false">Show specs</button>
+    <span class="sp"></span>
+    <span class="small" id="drift"></span>
+    <button id="b-theme" aria-pressed="false">Invert</button>
+  </div>
+</div>
+
+<div class="bench" id="bench"></div>
+
+<section class="blk">
+  <h2><span class="secno">01 /</span> How to read the bench</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:26px">
+    <div><h3 style="font-size:17px;font-weight:600;margin-bottom:7px">The levers are the contract</h3>
+      <p class="small" style="font-size:14px;color:var(--ink-2)">Each control is one of
+      the six channels a Mode value must set — type is fixed per Mode (it is the
+      strongest carrier of a hand and not worth randomizing), and line, box, mark,
+      measure and ornament are yours to move. A Mode that only reads correctly at its
+      own default is not robust enough to ship.</p></div>
+    <div><h3 style="font-size:17px;font-weight:600;margin-bottom:7px">The Frame lever proves M2</h3>
+      <p class="small" style="font-size:14px;color:var(--ink-2)">Changing Frame changes
+      the <em>reading</em> — where the thesis sits, what holds the reserved position.
+      Every Mode must survive all five without redefining itself. That is clause M2,
+      and it is the reason Frame and Mode compose instead of collide.</p></div>
+    <div><h3 style="font-size:17px;font-weight:600;margin-bottom:7px">Watch for M4 failures</h3>
+      <p class="small" style="font-size:14px;color:var(--ink-2)">Switch components and
+      look for a shape that snaps back to the baseline hand. That is total-coverage
+      failing, and it is the state <code>sketch</code> is in today — boxed blockquotes
+      and bordered rows still bend a CSS radius while everything around them is drawn.</p></div>
+  </div>
+</section>
+
+<section class="blk">
+  <h2><span class="secno">02 /</span> What is real and what is a stand-in</h2>
+  <p class="lede">Two of these six ship. The rest are drawn here for the first time and
+  nothing below is implemented in the engine.</p>
+  <div class="codeout" id="shipnote">restraint   ships as  mode: boardroom   — the baseline, byte-for-byte today
+hand        ships as  mode: sketch      — Caveat + Shantell Sans, rough.js strokes
+rigor       proposed  — backdrop half ships as finish: ledger
+precision   proposed  — the title block is the only genuinely new ornament
+narrative   proposed  — the measure channel is the point
+display     proposed  — backdrop half ships as finish: gallery</div>
+  <p class="small">The type pairings here are real Google faces so the hands are
+  honest, but a shipped Mode would route them through Lattice's own font tokens.
+  <code>hand</code> uses Caveat + Shantell Sans because that is literally what
+  <code>mode: sketch</code> sets. Color comes from one slide-local palette for all
+  six — a Mode names no color (clause M3), so nothing here varies by hue.</p>
+</section>
+
+<div class="foot">
+  <hr style="border:0;border-top:1px solid var(--rule);margin-bottom:18px">
+  <p>Tiles are true 1280&times;720 miniatures — every size is set in <code>cqi</code>
+  against a container query, the way Lattice sizes a real slide, so the proportions
+  hold at any tile width. Frame geometry uses the engine's real insets. Contract,
+  channels and clauses: <code>engineering/decisions/2026-09-08-frame-catalog.md</code> §6.</p>
+</div>
+</div>
+<script>
+/* ── the six Modes, as the contract's channels ──────────────────────────── */
+const MODES=[
+ {id:'restraint',n:'Restraint',reg:'mode: boardroom',ships:1,
+  q:'This is finished and considered.',
+  who:'Executive · consulting · corporate comms · board · everyone else’s default',
+  v:{'--m-disp':'"Archivo",sans-serif','--m-body':'"Archivo",sans-serif','--m-mono':'"IBM Plex Mono",monospace',
+     '--m-disp-w':'600','--m-body-w':'400','--m-track':'-.018em','--m-disp-scale':'1',
+     '--m-line':'1px','--m-line-strong':'2px','--m-radius':'2px','--m-fill':'var(--s-tint)',
+     '--m-elev':'none','--m-border':'1px solid var(--s-rule)','--m-measure':'62ch',
+     '--m-lead':'1.5','--m-air':'1','--m-tilt':'0deg'},
+  mark:'square',orn:'none'},
+
+ {id:'rigor',n:'Rigor',reg:'proposed',ships:0,
+  q:'These numbers were checked.',
+  who:'Finance · legal · audit · compliance · government · procurement · security reporting',
+  v:{'--m-disp':'"Newsreader",Georgia,serif','--m-body':'"Newsreader",Georgia,serif','--m-mono':'"IBM Plex Mono",monospace',
+     '--m-disp-w':'600','--m-body-w':'400','--m-track':'-.006em','--m-disp-scale':'.92',
+     '--m-line':'1px','--m-line-strong':'2px','--m-radius':'0px','--m-fill':'transparent',
+     '--m-elev':'none','--m-border':'1px solid var(--s-rule)','--m-measure':'66ch',
+     '--m-lead':'1.44','--m-air':'.82','--m-tilt':'0deg'},
+  mark:'rule',orn:'folio',lines:1},
+
+ {id:'precision',n:'Precision',reg:'proposed',ships:0,
+  q:'This was engineered.',
+  who:'Engineering · product · data · platform · security architecture · operations',
+  v:{'--m-disp':'"IBM Plex Sans",sans-serif','--m-body':'"IBM Plex Sans",sans-serif','--m-mono':'"IBM Plex Mono",monospace',
+     '--m-disp-w':'600','--m-body-w':'400','--m-track':'-.012em','--m-disp-scale':'.94',
+     '--m-line':'1px','--m-line-strong':'3px','--m-radius':'0px','--m-fill':'transparent',
+     '--m-elev':'none','--m-border':'1px solid var(--s-ink-3)','--m-measure':'70ch',
+     '--m-lead':'1.48','--m-air':'.9','--m-tilt':'0deg'},
+  mark:'cross',orn:'block'},
+
+ {id:'narrative',n:'Narrative',reg:'proposed',ships:0,
+  q:'This is worth reading.',
+  who:'Communications · marketing · policy · research · NGO storytelling · executive narrative',
+  v:{'--m-disp':'"Bodoni Moda",Didot,serif','--m-body':'"Spectral",Georgia,serif','--m-mono':'"IBM Plex Mono",monospace',
+     '--m-disp-w':'700','--m-body-w':'400','--m-track':'-.004em','--m-disp-scale':'1.06',
+     '--m-line':'1px','--m-line-strong':'1px','--m-radius':'0px','--m-fill':'transparent',
+     '--m-elev':'none','--m-border':'0','--m-measure':'48ch',
+     '--m-lead':'1.66','--m-air':'1.25','--m-tilt':'0deg'},
+  mark:'dot',orn:'rule'},
+
+ {id:'hand',n:'Hand',reg:'mode: sketch',ships:1,
+  q:'We are working this out together.',
+  who:'Education · workshops · HR · ideation · early product · NGO field work',
+  v:{'--m-disp':'"Caveat",cursive','--m-body':'"Shantell Sans",cursive','--m-mono':'"Shantell Sans",cursive',
+     '--m-disp-w':'700','--m-body-w':'400','--m-track':'0em','--m-disp-scale':'1.26',
+     '--m-line':'2px','--m-line-strong':'3px','--m-radius':'14px 5px 12px 6px',
+     '--m-fill':'var(--s-tint)','--m-elev':'none','--m-border':'2px solid var(--s-ink-3)',
+     '--m-measure':'56ch','--m-lead':'1.5','--m-air':'1.05','--m-tilt':'-.5deg'},
+  mark:'tick',orn:'none'},
+
+ {id:'display',n:'Display',reg:'proposed',ships:0,
+  q:'Look at this.',
+  who:'Brand · sales showcase · design · launch · recruiting · marketing events',
+  v:{'--m-disp':'"Archivo",sans-serif','--m-body':'"Archivo",sans-serif','--m-mono':'"IBM Plex Mono",monospace',
+     '--m-disp-w':'800','--m-body-w':'400','--m-track':'-.042em','--m-disp-scale':'1.34',
+     '--m-line':'3px','--m-line-strong':'5px','--m-radius':'0px','--m-fill':'var(--s-ink)',
+     '--m-elev':'none','--m-border':'0','--m-measure':'42ch',
+     '--m-lead':'1.42','--m-air':'1.3','--m-tilt':'0deg'},
+  mark:'square',orn:'none',invertCard:1},
+];
+
+/* ── one body of content, rendered by every hand ────────────────────────── */
+const HEAD={eyebrow:'Q3 review',title:'Renewals held the quarter together.',
+  lede:'Net revenue retention rose for the third consecutive quarter while new logo growth stayed flat.'};
+const CODA='Renewals, not new logos, are what to fund in Q4.';
+const RAIL=[['Source','Finance close, 14 Oct. Unaudited.'],['Note','EMEA excludes the Nordics reorg.']];
+const CONTENT={
+ table:`<table class="tbl"><thead><tr><th>Region</th><th>FY24</th><th>FY25</th><th>Change</th></tr></thead>
+  <tbody>
+  <tr><td>North America</td><td class="n">41.2</td><td class="n">48.9</td><td class="n">+18.7%</td></tr>
+  <tr><td>EMEA</td><td class="n">27.6</td><td class="n">29.1</td><td class="n">+5.4%</td></tr>
+  <tr><td>APAC</td><td class="n">13.9</td><td class="n">18.4</td><td class="n">+32.4%</td></tr>
+  <tr><td>Latin America</td><td class="n">6.1</td><td class="n">5.8</td><td class="n">−4.9%</td></tr>
+  </tbody></table>`,
+ cards:`<div class="cards">
+  <div class="card"><b>Renewals</b><span>Retention carried the number. 112% net, up from 104%.</span></div>
+  <div class="card"><b>New logos</b><span>Flat on last year. Pipeline is healthy; conversion is not.</span></div>
+  <div class="card"><b>Expansion</b><span>Seat growth in existing accounts did the work.</span></div>
+  </div>`,
+ figs:`<div class="figs">
+  <div class="fig"><b>112%</b><span>Net revenue retention</span></div>
+  <div class="fig"><b>48.9</b><span>North America, $M</span></div>
+  <div class="fig"><b>−4.9%</b><span>Latin America, year on year</span></div>
+  </div>`,
+ steps:`<ol class="steps">
+  <li><span class="mk" data-m="MARK"><i></i></span><div><b>Hold the renewal motion</b>Fund the team that produced 112%, before anything else.</div></li>
+  <li><span class="mk" data-m="MARK"><i></i></span><div><b>Fix conversion, not pipeline</b>Volume is sufficient. The loss is at the close.</div></li>
+  <li><span class="mk" data-m="MARK"><i></i></span><div><b>Reforecast Latin America</b>The only region down; the plan still assumes growth.</div></li>
+  </ol>`,
+ quote:`<blockquote class="pq">We did not win the quarter. We kept it.<footer>CFO, Q3 close call</footer></blockquote>`,
+};
+
+/* ── lever scales ───────────────────────────────────────────────────────── */
+const S={line:[.5,.75,1,'base',1.5,2,3],radius:[0,1,'base','base',6,12,20],
+  air:[.6,.75,.9,'base',1.15,1.35,1.6],measure:[36,42,48,'base',66,78,92],
+  scale:[.78,.86,.93,'base',1.12,1.25,1.42]};
+const LABEL={line:['0.5px','0.75px','1px','Mode','1.5px','2px','3px'],
+  radius:['0','1px','Mode','Mode','6px','12px','20px'],
+  air:['tight','−','−','Mode','+','++','airy'],
+  measure:['36ch','42ch','48ch','Mode','66ch','78ch','92ch'],
+  scale:['0.78×','0.86×','0.93×','Mode','1.12×','1.25×','1.42×']};
+
+const el=id=>document.getElementById(id);
+const read=()=>({comp:el('lv-comp').value,frame:el('lv-frame').value,
+  line:+el('lv-line').value,radius:+el('lv-radius').value,fill:el('lv-fill').value,
+  air:+el('lv-air').value,measure:+el('lv-measure').value,scale:+el('lv-scale').value,
+  mark:el('lv-mark').value,orn:el('lv-orn').value});
+const DEFAULTS={comp:'table',frame:'standard',line:3,radius:3,fill:'base',air:3,
+  measure:3,scale:3,mark:'base',orn:'base'};
+
+function slideHtml(m,L){
+  const mark=L.mark==='base'?m.mark:L.mark;
+  const orn=L.orn==='base'?m.orn:L.orn;
+  const body=CONTENT[L.comp].replace(/MARK/g,mark);
+  const head=`<div class="head"><p class="eyebrow">${HEAD.eyebrow}</p>
+    <h4 class="stitle">${HEAD.title}</h4>
+    <p class="slede">${HEAD.lede}</p><div class="mhr"></div></div>`;
+  const plinth=L.frame==='plinth'?`<div class="plinth"><p>${CODA}</p></div>`:'';
+  const rail=L.frame==='margin'?`<div class="rail-cell">${
+    RAIL.map(r=>`<div><p class="lbl">${r[0]}</p><p>${r[1]}</p></div>`).join('')}
+    <div style="margin-top:auto"><p class="lbl">${CODA}</p></div></div>`:'';
+  const ornHtml=orn==='block'
+      ? `<div class="tblock"><div><span>Q3 REVIEW</span><span>REV C</span></div>
+         <div><span>FINANCE</span><span>14 OCT</span></div>
+         <div><span>SHEET</span><span>04 / 12</span></div></div>`
+    : orn==='folio'?'<div class="folio">04</div>'
+    : orn==='rule'?'<div class="vr"></div>':'';
+  return `<div class="slide mode-${m.id} fr-${L.frame} orn-${orn}">
+    <div class="sl">${head}<div class="stage">${m.lines?'<div class="ledger-lines"></div>':''}${body}</div>${plinth}</div>
+    ${rail}${ornHtml}
+    <div class="sfoot"><span>Laticent · Q3 review</span>
+      <span class="rail"><i></i></span><span>04</span></div>
+  </div>`;
+}
+
+function applyMode(node,m,L){
+  const v={...m.v};
+  if(S.line[L.line]!=='base'){const k=S.line[L.line];
+    v['--m-line']=k+'px'; v['--m-line-strong']=(k*2)+'px';}
+  if(S.radius[L.radius]!=='base')v['--m-radius']=S.radius[L.radius]+'px';
+  if(S.air[L.air]!=='base')v['--m-air']=S.air[L.air];
+  if(S.measure[L.measure]!=='base')v['--m-measure']=S.measure[L.measure]+'ch';
+  if(S.scale[L.scale]!=='base')v['--m-disp-scale']=S.scale[L.scale];
+  if(L.fill==='filled'){v['--m-fill']='var(--s-tint)';v['--m-border']='0';}
+  if(L.fill==='outlined'){v['--m-fill']='transparent';v['--m-border']=(v['--m-line']||'1px')+' solid var(--s-rule)';}
+  if(L.fill==='none'){v['--m-fill']='transparent';v['--m-border']='0';}
+  for(const k in v)node.style.setProperty(k,v[k]);
+  if(m.invertCard&&(L.fill==='base'||L.fill==='filled')){
+    node.querySelectorAll('.card').forEach(c=>{c.style.color='var(--s-bg)';
+      c.querySelectorAll('b,span').forEach(x=>x.style.color='var(--s-bg)');});
+  }
+}
+
+function specOf(m,L){
+  const mark=L.mark==='base'?m.mark:L.mark, orn=L.orn==='base'?m.orn:L.orn;
+  const g=k=>getComputedStyle(document.querySelector('.mode-'+m.id)).getPropertyValue(k).trim();
+  return `mode: ${m.id}
+  type      display ${m.v['--m-disp'].split(',')[0]} ${m.v['--m-disp-w']} · body ${m.v['--m-body'].split(',')[0]} ${m.v['--m-body-w']} · track ${g('--m-track')}
+  line      ${g('--m-line')} hairline · ${g('--m-line-strong')} strong
+  box       radius ${g('--m-radius')} · fill ${L.fill==='base'?'mode':L.fill} · elevation ${m.v['--m-elev']}
+  mark      ${mark}
+  measure   ${g('--m-measure')} · lead ${g('--m-lead')} · air ${g('--m-air')}
+  ornament  ${orn}`;
+}
+
+const bench=el('bench');
+function render(){
+  const L=read();
+  bench.innerHTML=MODES.map(m=>`<figure class="spec">
+    <figcaption><h3>${m.n}</h3><span class="q">“${m.q}”</span>
+      <span class="tag${m.ships?' on':''}">${m.reg}</span></figcaption>
+    <div class="holder">${slideHtml(m,L)}</div>
+    <pre class="codeout spec-out hidden" style="margin:0;border:0;border-top:1px solid var(--rule-2)"></pre>
+    <p class="who">${m.who}</p></figure>`).join('');
+  MODES.forEach(m=>applyMode(bench.querySelector('.mode-'+m.id),m,L));
+  MODES.forEach((m,i)=>{bench.querySelectorAll('.spec-out')[i].textContent=specOf(m,L);});
+  if(el('b-spec').getAttribute('aria-pressed')==='true')
+    bench.querySelectorAll('.spec-out').forEach(n=>n.classList.remove('hidden'));
+  for(const k of ['line','radius','air','measure','scale'])el('o-'+k).textContent=LABEL[k][L[k]];
+  const moved=Object.keys(DEFAULTS).filter(k=>String(L[k])!==String(DEFAULTS[k])&&k!=='comp'&&k!=='frame');
+  el('drift').textContent=moved.length?moved.length+' lever'+(moved.length>1?'s':'')+' off the Mode default':'every Mode at its own default';
+}
+
+document.querySelectorAll('.lever select,.lever input').forEach(n=>n.addEventListener('input',render));
+el('b-reset').addEventListener('click',()=>{for(const k in DEFAULTS)el('lv-'+k).value=DEFAULTS[k];render();});
+el('b-large').addEventListener('click',e=>{const on=e.target.getAttribute('aria-pressed')==='true';
+  e.target.setAttribute('aria-pressed',String(!on));bench.classList.toggle('large',!on);});
+el('b-spec').addEventListener('click',e=>{const on=e.target.getAttribute('aria-pressed')==='true';
+  e.target.setAttribute('aria-pressed',String(!on));
+  bench.querySelectorAll('.spec-out').forEach(n=>n.classList.toggle('hidden',on));});
+el('b-theme').addEventListener('click',e=>{
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+  e.target.setAttribute('aria-pressed',String(!dark));});
+render();
+</script>
