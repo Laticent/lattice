@@ -233,7 +233,13 @@ authored by a *designer*; a **Tile** binds a *source*.
   Three checks tie it to the generated catalog. `checkFrameAdmits` rejects a kind
   no component declares (**over**-claiming, every Frame) and a **root** Frame that
   leaves out a non-sovereign kind (**under**-claiming); `checkAdmitsCensus` (from
-  `loadCatalog`) rejects a kind no Frame hosts. **For a root Frame `admits` is a
+  `loadCatalog`) rejects a kind no Frame hosts. The under-claim arm keys on
+  **`exemptFromChrome`** — the property `frameToggleSkip()` actually reads — not on
+  the `kind` label a frame declares about itself, and `validateFrame` separately
+  pins the two to agree (`kind: "sovereign"` ⇔ `exemptFromChrome: true`). Both
+  guards exist because a checker probe declared `kind: "sovereign"` with
+  `exemptFromChrome: false` and `admits: ["flow"]` — chrome-hosting in fact,
+  sovereign by label — and the label alone let it opt out of the check. **For a root Frame `admits` is a
   verified contract, not a declaration**: a root Frame is the fallback host for
   every component that is not its own sovereign, so its correct value IS the set of
   non-sovereign kinds the catalog declares — and those `flow`/`canvas` values come

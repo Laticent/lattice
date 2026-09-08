@@ -321,3 +321,40 @@ test('(j) a root frame that under-claims a declared stage kind is rejected', () 
       `dropping "${dropped}" from every root frame is reported: ${errs.join(' | ')}`);
   }
 });
+
+// (k) `kind` and `exemptFromChrome` encode the same fact, so they must agree — and
+// the admits under-claim arm keys on exemptFromChrome (what frameToggleSkip actually
+// reads), NOT on the self-declared `kind` label. Both guards exist because a checker
+// probe built a frame declaring kind:"sovereign" with exemptFromChrome:false and
+// admits:["flow"]: chrome-hosting in fact, sovereign by label, and it loaded clean —
+// the label alone let it opt out of arm (j). These two arms are INDEPENDENT: each
+// probe below trips exactly one of them.
+test('(k) a frame cannot escape the admits arm by mislabeling its kind', () => {
+  const { validateFrame, checkIntegrity, loadCatalog } = require('../../../lib/forms');
+  const { cells, frames, tiles } = loadCatalog();
+
+  for (const f of frames) {
+    assert.equal(f.kind === 'sovereign', f.exemptFromChrome,
+      `shipped frame "${f.id}" agrees with itself (kind=${f.kind}, exemptFromChrome=${f.exemptFromChrome})`);
+  }
+
+  const base = { id: 'sneaky', form: 'bookend', description: 'd',
+    cells: ['stage'], suppresses: [] };
+
+  // guard 1 — the label contradicts the operative property.
+  const mislabeled = { ...base, kind: 'sovereign', exemptFromChrome: false, admits: ['flow'] };
+  assert.ok(validateFrame(mislabeled, 't').some((e) => /contradicts exemptFromChrome/.test(e)),
+    'a chrome-hosting frame calling itself sovereign is rejected');
+  // …and the reverse mislabel too.
+  const mislabeled2 = { ...base, kind: 'root', exemptFromChrome: true, admits: ['sovereign'] };
+  assert.ok(validateFrame(mislabeled2, 't').some((e) => /contradicts exemptFromChrome/.test(e)),
+    'a chrome-exempt frame calling itself root is rejected');
+
+  // guard 2 — honestly labeled, still under-claims. validateFrame passes it; the
+  // integrity arm is what catches it, which is what makes the two independent.
+  const underclaims = { ...base, kind: 'root', exemptFromChrome: false, admits: ['flow'] };
+  assert.deepEqual(validateFrame(underclaims, 't'), [], 'shape is valid — nothing contradicts');
+  const errs = checkIntegrity({ cells, frames: [...frames, underclaims], tiles });
+  assert.ok(errs.some((e) => /does not admit "canvas"/.test(e)),
+    `the under-claim is caught on its own: ${errs.join(' | ')}`);
+});
