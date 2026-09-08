@@ -8,7 +8,7 @@ summary: >
   owned the geometry of only three, so five rounds of de-collision arithmetic all shipped
   broken and all passed every machine gate. Moving the two transient claimants deleted three
   mechanisms; merging them deleted the rest, because two segments in one flex row cannot
-  collide with each other and a single centered box has one neighbour set to clear instead of
+  collide with each other and a single centered box has one neighbor set to clear instead of
   four. Gone: `--corner-stack` / `--stamp-stack` / `--clip-stack` / `--marker-band-top`, the
   `--corner-logo-reserve` / `data-logo-corner` machinery with `deckLogoInCorner` and its
   runtime mirror, and the `--slide-radius` inset on these berths. No stamp shape reserves
@@ -21,8 +21,10 @@ summary: >
 
 # The marker berth moves out of the corner, then becomes one capsule (2026-09-08)
 
-**The overflow and type-floor tabs now sit CENTERED under the spectrum bar, flush against
-its underside.** They lived in the slide's top-right for the life of the register, which
+**The overflow and type-floor markers are now ONE capsule berthed against the slide's
+bottom edge** — see the follow-up at the end of this note for the shipping design; this
+lede's original claim (centered under the spectrum bar) describes the first of three
+moves, and §§2–4 below are the record of that step rather than of what ships.** They lived in the slide's top-right for the life of the register, which
 is the busiest square inch of a Lattice slide: the status stamp paints there, the author's
 `logo:` mark sits there, and the two tabs stacked under both. Four rounds of de-collision
 arithmetic came out of sharing that corner and every one shipped broken. The berth moved
@@ -41,7 +43,7 @@ Four absolutely-positioned boxes wanted `top: 0; right: 0`:
 
 | occupant | who owns its geometry | permanent? |
 |---|---|---|
-| status stamp (`section::before`, 14 shapes) | the engine | yes — it ships in the export |
+| status stamp (`section::before`, 13 shapes) | the engine | yes — it ships in the export |
 | `img.deck-logo` | **the author** | yes — it is their brand mark |
 | `.overflow-tab` | the engine | no — it appears because a slide is broken |
 | `.illegible-tab` | the engine | no — same |
@@ -54,7 +56,7 @@ has been answered wrong four times, each time silently:
    not see a base modifier — `stamp-notch` then swallowed it whole, a SILENT CLIP, the one
    outcome the register exists to prevent;
 2. the first de-collision pushed all 21 stamp CLASS NAMES by a fixed row, measured wrong on
-   8 of the 14 SHAPES (six sit ~43px lower and were pushed *into*);
+   8 of the 13 SHAPES (six sit ~43px lower and were pushed *into*);
 3. the rewrite that fixed that used unitless `calc()` fallbacks, so the whole `transform`
    was invalid and discarded and both tabs landed in the same band again;
 4. the logo reserve (#1404) landed the tab at y 23→46 inside a mark occupying y 24→75 —
@@ -211,7 +213,7 @@ on hover.
 
 **This number has been re-derived twice, and the second time is the one that counts.**
 `2026-09-06-type-floor-tab-plain-words.md` measured it for the top-RIGHT corner. An earlier
-draft of this note re-measured it for the top-CENTRE band and reported 0/461 with a 139px
+draft of this note re-measured it for the top-CENTER band and reported 0/461 with a 139px
 closest gap — and then the berth moved to the bottom edge, which silently made that table a
 measurement of a placement that no longer exists. It is restated here rather than quietly
 edited, because carrying a number across a layout change is exactly the failure this note
@@ -233,13 +235,13 @@ paints at full width, gap taken from each mark's BOTTOM to the capsule's TOP:
 
 Zero by rect intersection *and* by `elementFromPoint` at the overlap centroid. The closest any
 mark comes is **92px** above the capsule's top edge, in `map` — tighter than the 139px the
-top-centre berth had, and still clear by a wide margin.
+top-center berth had, and still clear by a wide margin.
 
 **The structural argument is symmetric, which is why the tighter number is not a worry.**
 `section` pads `6.875cqi` at BOTH block edges (`base.elements.css`), so no in-flow content can
 paint below y ≈ 632 at hd any more than it can paint above y ≈ 88; the capsule occupies
 697 → 720. What would change it is a component that draws interactive marks into the bottom
-chrome band — the running footer's neighbourhood — which nothing in the catalog does today.
+chrome band — the running footer's neighborhood — which nothing in the catalog does today.
 Re-derive with `.scratch/probe/mark-probe.mjs` (kept in the PR body, not the tree).
 
 ## 5. What this leaves open
@@ -332,7 +334,7 @@ bottom-right corner.
 **What merging bought that moving could not.** Every fix from the first corner de-collision
 onward answered the same question — *how far must this marker drop to clear what is above
 it?* — and answered it wrong five times, silently, past every machine gate. Two segments in
-one flex row cannot collide with each other, and a single centered box has one neighbour set
+one flex row cannot collide with each other, and a single centered box has one neighbor set
 to clear instead of four. So the question stops being asked. `--corner-stack`,
 `--stamp-stack`, `--clip-stack`, `--marker-band-top`, `--corner-logo-reserve` and
 `data-logo-corner` are all gone; no stamp shape reserves anything, because none of them

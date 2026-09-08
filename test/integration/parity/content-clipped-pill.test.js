@@ -253,8 +253,8 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     assert.ok(
       Math.abs(center - 640) <= 2,
       `the pill is centered on x=${center}, not on the frame's own center (640). The centering `
-      + 'travels in `transform`, which this rule restates so the author stack\'s --stamp-stack '
-      + '(a reserve for a band across the TOP edge) cannot reach it.',
+      + 'travels in the rail\'s own `transform`, declared once. The per-stamp reserve tokens '
+      + 'that used to share that declaration are deleted — no stamp shares the capsule\'s band.',
     );
   });
 
@@ -329,7 +329,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   //      status stamp, and `stamp-notch` swallowed it whole — a SILENT CLIP, the one
   //      outcome this register exists to prevent;
   //   2. the first de-collision pushed all 21 stamp CLASS NAMES by a fixed row, measured
-  //      wrong on 8 of the 14 SHAPES (six sit ~43px lower and were pushed INTO);
+  //      wrong on 8 of the 13 SHAPES (six sit ~43px lower and were pushed INTO);
   //   3. the rewrite that fixed that used UNITLESS `calc()` fallbacks — `calc(100% + 0)`
   //      mixes <percentage> with <number>, which is invalid, so the whole `transform` was
   //      discarded and both pills landed in the same band again;
@@ -340,7 +340,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   // on a real export answers this, so that is what this asserts.
   //
   // The capsule ended the whole class: two segments in one container cannot collide with
-  // each other, and one centered box has one neighbour set to clear instead of four.
+  // each other, and one centered box has one neighbor set to clear instead of four.
   const CORNER = (cls) => `<!-- _class: ${cls} -->
 
 ## A slide that cuts content and shrinks its figure.
@@ -497,6 +497,84 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     }
   });
 
+
+  // ── THE PRESET SWEEP — the gate this file did not have, and the one that mattered ──
+  //
+  // EVERY fixture above renders at 1280×720 and never sets `size:`. That is how three
+  // defects shipped past 14 green tests: on the four non-landscape presets the delivered
+  // pill printed an opaque capsule ACROSS the running footer's confidentiality line —
+  // by 13.1px at square, 22.9 portrait, 24.5 story, 25.2 mobile — and the Fix-Me tag
+  // landed on the type-floor segment. Landscape passed by 0.8–3.1px, which read as a
+  // margin and was a coincidence.
+  //
+  // The mechanism is worth stating because it is not obvious from the CSS: `--fs-meta`
+  // carries a per-preset multiplier (1.17 at hd, 2.78 at portrait) so body text stays
+  // legible on a phone, while `--frame-inset-y` — the strip the footer reserves — tracks
+  // the frame. The marker inherited the phone bump and outgrew the strip.
+  //
+  // Four presets, not seven: `square`/`portrait`/`story`/`mobile` share one
+  // `--frame-inset-y` (20.3px), so `portrait` and `mobile` stand for that class, and
+  // `hd` + `standard` cover landscape's two scales including the tightest.
+  const FOOTER_PRESETS = [
+    ['hd', undefined, 1280, 720],
+    ['standard', 'standard', 960, 720],
+    ['portrait', 'portrait', 1080, 1350],
+    ['mobile', 'mobile', 1080, 2340],
+  ];
+  for (const [name, size, vw, vh] of FOOTER_PRESETS) {
+    test(`PRESET ${name} — the delivered pill never crosses the running footer`, { timeout: 180000 }, async () => {
+      const fm = `---\nmarp: true\ntheme: indaco\n${size ? `size: ${size}\n` : ''}footer: "${FOOTER_TEXT}"\n---\n\n`;
+      const html = renderAt(fm + ELLIPSIS.trim() + '\n', `preset-${name}`);
+      const page = await browser.newPage();
+      await page.setViewport({ width: vw, height: vh });
+      await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+      await page.evaluate(() => document.fonts.ready);
+      await new Promise((r) => setTimeout(r, 1200));
+      const v = await page.$eval('section', (s) => {
+        const R = (e) => {
+          if (!e) return null;
+          const r = e.getBoundingClientRect();
+          return r.width ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null;
+        };
+        const ft = s.querySelector('.cell-footer > footer, :scope > footer');
+        return {
+          footer: R(ft),
+          rail: R(s.querySelector(':scope > .marker-rail')),
+          // The SEGMENT's computed size, not the rail's. The rail is where the cap is
+          // declared today, but a test that reads the declaring element measures whatever
+          // happens to declare it — on a build where the rail declares nothing it silently
+          // reads the inherited BODY size and reports a defect at a preset that has none.
+          // The label's own box is the thing under test, on any build.
+          fontPx: parseFloat(getComputedStyle(s.querySelector(':scope > .marker-rail > .overflow-tab')).fontSize),
+        };
+      });
+      await page.close();
+
+      assert.ok(v.footer, `${name}: the fixture must render a running footer`);
+      assert.ok(v.rail, `${name}: the pill must be drawn — a body-content cut is told to the reader`);
+      // THE INVARIANT: the capsule occupies the strip the footer reserves and no more, so
+      // its top edge may MEET the footer's bottom edge and may never pass it.
+      assert.ok(
+        v.rail.top >= v.footer.bottom - 0.5,
+        `${name}: REGRESSION — the delivered pill overlaps the running footer by `
+        + `${(v.footer.bottom - v.rail.top).toFixed(1)}px. footer=${JSON.stringify(v.footer)} `
+        + `rail=${JSON.stringify(v.rail)}. This is #1300 verbatim: an opaque capsule across the `
+        + 'confidentiality line of every delivered page. The capsule must be bounded by '
+        + '`height: var(--frame-inset-y)`, and its font capped as a fraction of that strip — '
+        + 'NOT sized from `--fs-meta`, which carries a per-preset phone-reading multiplier.',
+      );
+      // …and it must still be READABLE. A marker shrunk to nothing fails the same way a
+      // hidden one does, and the first fix for the overlap did exactly that (7px on a
+      // 1080-wide frame) by subtracting a bumped `--sp-2xs` from the strip.
+      const pct = (v.fontPx / vw) * 100;
+      assert.ok(
+        pct >= 0.9 && pct <= 1.6,
+        `${name}: the pill's label is ${v.fontPx.toFixed(2)}px = ${pct.toFixed(2)}% of frame `
+        + 'width; every preset should land near hd\'s 1.17%. Too small is an unreadable marker, '
+        + 'too large is the overlap coming back.',
+      );
+    });
+  }
 
   // ── The capsule sits CENTERED and FLUSH against the bottom edge ──────────────────
   //

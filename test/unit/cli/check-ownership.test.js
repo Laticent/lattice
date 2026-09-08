@@ -663,10 +663,32 @@ describe('check-ownership', () => {
       // this test guards is unchanged across both moves.
       assert.match(css, /section > \.marker-rail \{[\s\S]{0,900}?position: absolute !important;/,
         'the capsule must defend its own position, or it lands in flow and takes height from the cell');
-      // And the segments must NOT position themselves any more: two positioned boxes inside
-      // a positioned rail is the two-pills shape the capsule replaced.
-      assert.doesNotMatch(css, /section\.clip-marked > \.marker-rail > \.overflow-tab \{[^}]*position:/,
-        'the clip segment is a flex child now — the rail owns position');
+      // And NO segment may position itself: two positioned boxes inside a positioned rail
+      // is the two-pills shape the capsule replaced.
+      //
+      // ENUMERATED, NOT PATTERN-MATCHED ON ONE SELECTOR. The first cut of this was
+      // `doesNotMatch(css, /section\.clip-marked > \.marker-rail > \.overflow-tab \{[^}]*position:/)`,
+      // which pins ONE literal selector — so positioning the segment from any other rule
+      // sailed straight through it. Mutation-tested: adding `position` under a different
+      // prelude passed. A gate that only catches the spelling you thought of is the same
+      // shape of hole this file's own comments keep recording, so this walks every rule
+      // that reaches a segment and asks the question of all of them.
+      const segmentRules = css
+        .replace(/\/\*[\s\S]*?\*\//g, '')          // comments quote `position:` constantly
+        .split('}')
+        .map((chunk) => {
+          const i = chunk.indexOf('{');
+          return i < 0 ? null : { selector: chunk.slice(0, i).trim(), body: chunk.slice(i + 1) };
+        })
+        .filter((r) => r && /\.(overflow|illegible)-tab\b/.test(r.selector)
+          && !/\.marker-rail\s*\{/.test(r.selector));
+      assert.ok(segmentRules.length >= 3, 'the segment rules must actually be found, or this proves nothing');
+      assert.deepEqual(
+        segmentRules.filter((r) => /(^|[;\s])position\s*:/.test(r.body)).map((r) => r.selector),
+        [],
+        'a capsule segment declared `position` — the rail owns it; a positioned segment '
+        + 'escapes the capsule and re-creates the two-pills layout',
+      );
     });
   });
 

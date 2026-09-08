@@ -293,7 +293,7 @@ section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accen
  * The markers lived in the slide's TOP-RIGHT, which is where these stamps paint and where
  * the author's `logo:` mark sits. Four rounds of de-collision arithmetic came out of that
  * shared corner and every one shipped broken past every machine gate — 21 class names
- * pushed a fixed row when the 14 shapes sat at three different heights, a unitless
+ * pushed a fixed row when the 13 shapes sat at three different heights, a unitless
  * `calc()` that invalidated the whole transform, a logo reserve that landed a marker
  * inside the mark. The markers then moved to the top-center band, which left exactly one
  * shape reserving anything (`stamp-notch`, the full-width hairline). They have since
@@ -326,8 +326,8 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
    * author must be able to see the overflow tab even on a stamped slide. It broke delivered
    * PDFs: `stamp-veil` is a redaction wash at `inset: 0`, and with the alarm above it the
    * reader-mode overflow pill punched straight through the redaction — 10,136 differing
-   * pixels. The counter-argument also fails on its own terms: full-bleed stamps clear
-   * nothing via --stamp-stack, and the marker that ships in a delivered export is the
+   * pixels. The counter-argument also fails on its own terms: full-bleed stamps reserve
+   * nothing (no reserve token survives), and the marker that ships in a delivered export is the
    * reader pill, not the authoring tabs, which never reach one. Do not re-invert.
    * base.tokens.css § depth axis carries the full record. */
   z-index: var(--z-mark);

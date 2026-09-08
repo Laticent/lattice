@@ -1811,9 +1811,62 @@ section > .marker-rail {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  align-items: stretch;
   width: max-content;
   max-width: 96%;
+  /* THE CAPSULE FITS THE STRIP THE FOOTER RESERVES FOR IT, AND THIS IS A CORRECTNESS
+     BOUND, NOT A STYLE CHOICE.
+
+     `section footer` is anchored `bottom: var(--frame-inset-y)`, so its box grows UPWARD
+     from that line and the strip from the frame's bottom edge up to `--frame-inset-y` is
+     free by construction. `bottom: 0` puts the capsule in that strip — which is only
+     safe while the capsule is no TALLER than the strip.
+
+     It was not. `--fs-meta` is bumped on the vertical presets so body text stays legible
+     on a phone, while `--frame-inset-y` tracks the frame — so the capsule outgrew the
+     strip and printed across the running footer on four of the seven sizes. Measured, at
+     `--overflow-marker=reader`, i.e. on the artifact a RECIPIENT receives:
+
+       preset     strip    capsule   gap
+       hd          24px     23.0px   +1.0
+       standard    18px     17.2px   +0.8
+       4K          72px     68.9px   +3.1
+       square     20.3px    33.3px   −13.1   ← opaque capsule across the footer
+       portrait   20.3px    43.2px   −22.9   ←
+       story      20.3px    44.8px   −24.5   ←
+       mobile     20.3px    45.5px   −25.2   ←
+
+     This is the register's own founding defect returning through a new door: the pill
+     shipped bottom-center once before and was pulled for painting across a
+     confidentiality line. The three passing presets clear by 0.8–3.1px, so landscape was
+     never a margin — it was a coincidence.
+
+     `min()` makes the bound STRUCTURAL rather than tuned. The capsule's height is
+     `font-size + 2 × --sp-2xs`, so capping the font at `--frame-inset-y - 2 × --sp-2xs`
+     guarantees height ≤ the strip at every preset, present and future, with no table to
+     keep in step. On every landscape preset `--fs-meta` is already under the cap, so this
+     is a no-op there and the marker looks exactly as it did. On the vertical presets the
+     label shrinks to the fraction of frame width it has at hd — it does not need the
+     phone-reading bump, and honoring that bump is what broke it.
+
+     THE CAPSULE OCCUPIES THE STRIP EXACTLY: its box IS `--frame-inset-y`, so its top edge
+     meets the footer's bottom edge and the two abut without ever overlapping. That is a
+     statable invariant rather than a tuned clearance, which is what the old `bottom: 0`
+     plus an auto height was — and what made landscape's 0.8–3.1px look like a margin.
+
+     THE FONT IS CAPPED AS A FRACTION OF THE STRIP, not by subtracting the padding from it.
+     Subtracting was the first fix and it was wrong in the other direction: `--sp-2xs` is
+     bumped on the vertical presets too (≈6.6px at portrait against 4px at hd), so the
+     padding ate the strip and left 7px of text on a 1080-wide frame — an unreadable
+     marker, which fails the same way a hidden one does. Fixing the box and centering the
+     label inside it gives the text the whole strip to share. 0.65 lands every LANDSCAPE
+     preset back on its own `--fs-meta` unchanged (hd 14.976 < 15.6, standard 11.23 <
+     11.7, 4K 44.93 < 46.8), and binds only where the phone-reading bump would have
+     overflowed — where it yields 13.2px on 1080, i.e. 1.22% of frame width against hd's
+     1.17%. The marker reads the same size relative to the slide on every preset, which is
+     what it always should have done. */
+  height: var(--frame-inset-y);
+  align-items: center;
+  font-size: min(var(--fs-meta), calc(var(--frame-inset-y) * 0.65));
   z-index: var(--z-alarm);
   /* The capsule rises from the bottom edge, so the TOP corners round. */
   border-top-left-radius: var(--radius-md);
@@ -1836,14 +1889,19 @@ section.clip-marked > .marker-rail > .overflow-tab {
   background: #d4351c;
   color: #fff;
   font-family: var(--font-mono);
-  font-size: var(--fs-meta);
+  /* INHERITED from the rail, which caps it against the reserved strip — see there.
+     Re-declaring `--fs-meta` here would restore the overlap the cap exists to prevent. */
+  font-size: inherit;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
-  padding: var(--sp-2xs) var(--sp-sm);
+  /* Horizontal only — the rail's fixed height and `align-items: center` own the
+     vertical, so a bumped `--sp-2xs` can no longer push the capsule past the strip. */
+  padding: 0 var(--sp-sm);
   display: flex;
   align-items: center;
+  align-self: stretch;
 }
 /* Only visible on an overflowing section — hidden if the element lingers after
  * the slide is fixed (the runtime watcher also removes it). */
@@ -1915,11 +1973,14 @@ section.clip-marked[data-lattice-overflow-marker="reader"] > .marker-rail > .ove
    * pill shipped bottom-center once and was pulled: it sat INSIDE the running-footer band
    * and painted an opaque capsule across the confidentiality line on every page of any
    * deck carrying an ordinary `footer:` — found by rasterizing a committed golden, not by
-   * a gate. `bottom: 0` is a different berth. The footer sits at
-   * `bottom: var(--frame-inset-y)`, so the strip beneath it is frame margin no component
-   * writes into: measured on a real export, footer y 672 → 696 and the pill y 697 → 720.
+   * a gate. This berth is different, and the difference is EXACTLY that the capsule is
+   * bounded by the strip the footer reserves — see the `height` note on the rail above.
+   * That bound is the whole safety argument, and it was missing at first: `bottom: 0` with
+   * an auto height cleared the footer at hd by 1px and OVERLAPPED it by up to 25px on the
+   * four non-landscape presets, i.e. the founding defect returning on the delivered
+   * artifact. Do not restore an auto height here.
    * That is a geometric claim about two boxes, so it is ASSERTED geometrically —
-   * `content-clipped-pill.test.js` renders a deck with a 211-character `footer:` and
+   * `content-clipped-pill.test.js` sweeps FOUR PRESETS with a 211-character `footer:` and
    * fails on any intersection. Do not move this without reading that test. */
   background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */
   color: var(--bg) !important;
@@ -1959,20 +2020,23 @@ section.clip-marked[data-lattice-overflow-marker="reader"] > .marker-rail > .ove
 section.illegible {
   box-shadow: inset 0 0 0 4px #b8730a;
 }
-/* Top-CENTER, matching the overflow tab — not top-left, which is exactly where
-   `section.form > header` begins, so the tab printed over the deck header on every ringed
-   slide (caught by the trio in a real preview), and no longer top-right, which is the
-   stamp's and the logo's. When a slide earns BOTH signals the legibility tab drops by its
-   own height rather than a magic number, so the two stack instead of overlapping. Both
-   tabs are position:absolute, so neither can perturb the
+/* THE SECOND SEGMENT of the capsule — not a tab of its own any more, and not stacked.
+   It positions nothing itself: `.marker-rail` owns the position, and this segment is a static flex
+   child beside the clip segment. The berth has been top-right (shared with the stamp and
+   the logo), top-center (shared with the running header) and is now the bottom strip; the
+   sentence that used to live here described the middle one. The rail is
+   position:absolute, so neither segment can perturb the
    height math the watcher itself is measuring — but that held for `.overflow-tab` alone
    until 2026-08-04, because it asserts `!important` and this rule does not. This one ties
    `section.finish > *:not(.backdrop)` at (0,2,1) and LOST on source order (base.finish.css
    is bundled after this file), so on a `finish:` deck it was dragged into flow and did
    perturb exactly the height math above. That blanket rule NO LONGER EXISTS — the plane
    model deleted it along with its `:where()` exclusion list, because a sunk backdrop needs
-   nothing pushed off it. The invariant is still gated by
-   test/integration/invariants/frame-chrome-out-of-flow.test.js.
+   nothing pushed off it. The invariant is gated by the plane arm of test/unit/cli/check-ownership.test.js, which
+   asserts the RAIL declares `position: absolute !important` and that no segment declares
+   `position` at all. (It is NOT gated by frame-chrome-out-of-flow.test.js — that suite's
+   chrome list is `header`, `footer` and `img.deck-logo`, and never covered this element;
+   the claim sat here unchecked until a maker-checker pass read the suite.)
    engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md and
    2026-08-12-slide-plane-model.md */
 section.illegible > .marker-rail > .illegible-tab {
@@ -1984,14 +2048,23 @@ section.illegible > .marker-rail > .illegible-tab {
   background: #b8730a;
   color: #fff;
   font-family: var(--font-mono);
-  font-size: var(--fs-meta);
+  /* INHERITED from the rail, which caps it against the reserved strip — see there.
+     Re-declaring `--fs-meta` here would restore the overlap the cap exists to prevent. */
+  font-size: inherit;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
-  padding: var(--sp-2xs) var(--sp-sm);
+  /* Horizontal only, and `align-self: stretch` — IDENTICAL to the clip segment above, and
+     the sameness is the point: the rail's fixed height and `align-items: center` own the
+     vertical for BOTH segments, so a bumped `--sp-2xs` cannot push either one past the
+     strip or make the two different heights. This rule kept the old padding for one
+     revision and the capsule's two halves sized differently by a pixel — caught by the
+     suite's own adjacency assertion, which is exactly what it is for. */
+  padding: 0 var(--sp-sm);
   display: flex;
   align-items: center;
+  align-self: stretch;
   /* HOVERABLE, unlike the two tabs beside it — this is the one that carries a `title`.
    * The watcher writes the fix into it ("Simplify the figure or give it a bigger box"),
    * and `pointer-events: none` makes a native tooltip unreachable, so the hint would sit
@@ -2090,7 +2163,7 @@ section:not(.illegible) > .marker-rail > .illegible-tab { display: none; }
  * tabs position against, so the berth costs nothing and risks nothing.
  *
  * BOTTOM-right, not the top band: the overflow and type-floor tabs berth centered
- * under the spectrum bar, and a slide earning the Fix-Me signal has by definition
+ * as one capsule at the slide's bottom edge, and a slide earning the Fix-Me signal has by definition
  * already earned at least one of them. Keeping the third register on its own edge
  * means three simultaneous signals never queue behind each other — and the
  * bottom-right corner is free of the stamp and the deck logo alike.

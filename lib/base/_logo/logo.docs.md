@@ -155,8 +155,8 @@ dark-canvas brightness flip.
   inherit downward only, so a value in the img's own `style` attribute is invisible to
   every sibling and every section-level rule. That invisibility was a real defect once
   (#1404: the overflow/legibility marker stack could not tell a logo was in the corner,
-  and a `confidential` slide's clip tab sliced the mark). Those tabs berth centered under
-  the spectrum bar now and reserve nothing for the logo (2026-09-08), so nothing reads
+  and a `confidential` slide's clip tab sliced the mark). Those markers are one capsule
+  berthed at the slide's bottom edge now, reserving nothing for the logo (2026-09-08), so nothing reads
   these properties today except the img itself, by inheritance — but the reason to keep
   them addressable outlives the reserve that prompted it, and moving them back is a
   one-way door.

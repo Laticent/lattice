@@ -16,7 +16,7 @@
   `--corner-logo-reserve` / `data-logo-corner` machinery that stacked the markers to the left
   of the deck logo, and the `--slide-radius` corner inset on these two berths. Two segments
   in one container cannot collide with each other, and a single centered box has one
-  neighbour set to clear instead of four — so the arithmetic that kept them apart is gone
+  neighbor set to clear instead of four — so the arithmetic that kept them apart is gone
   rather than re-derived. The Fix-Me marker is unaffected: it keeps its bottom-right corner
   and its inset.
 - **New contract markup:** `.marker-rail` wraps the two markers as the last children of every

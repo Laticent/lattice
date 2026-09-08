@@ -664,9 +664,9 @@ describe('markdown-it-plugins', () => {
 
   test('applyDeckLogoToHtml: nothing marks the corner — the marker berths do not reserve for it', () => {
     // `data-logo-corner` used to be stamped here, and `--corner-logo-reserve` read it to
-    // push the overflow / legibility tabs left of the mark. Both are gone: the tabs berth
-    // CENTERED under the spectrum bar, where a mark at the right frame inset cannot reach
-    // them, so there is no reserve to compute and nothing to keep in step with the logo's
+    // push the overflow / legibility tabs left of the mark. Both are gone: the markers are one
+    // capsule berthed at the slide's BOTTOM edge, where a mark at the top-right frame inset
+    // cannot reach them, so there is no reserve to compute and nothing to keep in step with the logo's
     // own tokens. Pinned as an absence, because reintroducing the attribute without the
     // reserve (or the reserve without the attribute) is the shape of a silent half-revert.
     const html = '<section id="1" data-lattice-slide="1"></section>';
