@@ -433,12 +433,33 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 // immediately, on the very deck it exists to wait for. (It escaped notice because the
 // ~700ms of font + rAF settling ahead of it usually covered the gap; a cold mermaid
 // script fetch, or a big multi-diagram deck, is where it loses the race.)
-export async function waitForDiagrams(doc, budgetMs = 4000) {
+/**
+ * THE BUDGET IS NOW "NO PROGRESS FOR budgetMs", NOT "budgetMs TOTAL", and the difference is
+ * an exported file that is right rather than one that is fast.
+ *
+ * A wall-clock budget prices the whole deck against a constant, so it fails on exactly the
+ * decks that need it most: many fences, or big ones, or a machine slower than the one the
+ * number was picked on. It went from a latent hazard to a live one when a `mermaid.parse`
+ * gate was added in front of every render — settle time rose 19-47% across fence counts, and
+ * a deck of 8 diagram slides with one broken fence stopped settling inside 4000ms at all. The
+ * capture then proceeds anyway, and `mermaid.css` hides the source `<pre>` for every state
+ * except `error`/`unavailable`, so what lands in the PDF is a BLANK REGION — permanently, in
+ * a file the author already downloaded. That is the #2092 regression, which the stylesheet's
+ * own comment exists to warn about.
+ *
+ * Waiting on progress instead makes the budget mean what a reader assumes it means: give up
+ * on a diagram that is STUCK, never on one that is merely slow. A hard ceiling still bounds
+ * the worst case, because a fence that oscillates without settling would otherwise wait for
+ * ever.
+ */
+export async function waitForDiagrams(doc, budgetMs = 4000, hardCapMs = budgetMs * 5) {
 	const UNTAGGED = ':is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"]:not(.language-mermaid-source)';
 	const TAGGED = ':is(pre, marp-pre)[data-mermaid-state]';
 	if (!doc.querySelector(`${UNTAGGED}, ${TAGGED}, .mermaid`)) return;
 	const start = Date.now();
-	while (Date.now() - start < budgetMs) {
+	let fewestPending = Number.POSITIVE_INFINITY;
+	let lastProgressAt = Date.now();
+	while (Date.now() - start < hardCapMs) {
 		let pending = doc.querySelectorAll(UNTAGGED).length;
 		for (const pre of doc.querySelectorAll(TAGGED)) {
 			const state = pre.getAttribute('data-mermaid-state');
@@ -452,6 +473,13 @@ export async function waitForDiagrams(doc, budgetMs = 4000) {
 			else if (state === 'rendered' && !pre.nextElementSibling?.querySelector?.('svg')) pending++;
 		}
 		if (!pending) return;
+		// Progress is the count going DOWN. A deck that keeps finishing diagrams keeps its
+		// deadline; one that stops finishing them spends it.
+		if (pending < fewestPending) {
+			fewestPending = pending;
+			lastProgressAt = Date.now();
+		}
+		if (Date.now() - lastProgressAt >= budgetMs) return;
 		await new Promise((r) => setTimeout(r, 120));
 	}
 }

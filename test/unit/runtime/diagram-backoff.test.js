@@ -38,7 +38,6 @@ function liftPolicy(html = '') {
 	const src = RUNTIME_SRC.slice(start, end);
 	for (const fn of [
 		'function diagramBackoffMs()',
-		'function anyFenceWithoutInk()',
 		'function shouldDispatchDiagrams()',
 		'function armDiagramBackoff()',
 		'function backoffExpired()',
@@ -61,16 +60,12 @@ function liftPolicy(html = '') {
 		'initAndRun',
 		`${src}
 		return {
-			diagramBackoffMs, anyFenceWithoutInk, shouldDispatchDiagrams, armDiagramBackoff,
+			diagramBackoffMs, shouldDispatchDiagrams, armDiagramBackoff,
 			clearDiagramBackoff, backoffExpired, medianRenderCostMs, admitDiagramPass,
-			// Most arms describe a host that hands the previous drawing forward (the Studio and
-			// the Playground). stamps(false) describes marp-vscode and every embedder.
-			// No backticks in here: this comment lives inside a template literal.
-			stamps(v) { hostStampsSwaps = v; },
 			render(ms) { recordRenderCost(ms); },
 			settle(ms) { for (let i = 0; i < 3; i++) recordRenderCost(ms); },
 			get handle() { return diagramBackoffHandle; },
-			RENDER_COST_FLOOR_MS, RENDER_COST_CAP_MS, DIAGRAM_MAX_WAIT_MS,
+			CHEAP_RENDER_MS, DIAGRAM_DEBOUNCE_MS, DIAGRAM_MAX_WAIT_MS,
 		};`,
 	);
 	const api = make(
@@ -98,7 +93,6 @@ function liftPolicy(html = '') {
 		live[live.length - 1].fn();
 	};
 	const live = () => timers.filter((t) => !t.cancelled);
-	api.stamps(true);
 	return { ...api, doc: dom.window.document, timers, runs, advance, fire, live };
 }
 
@@ -107,72 +101,35 @@ describe('the diagram dispatch policy', () => {
 		// An 8-character burst on a ~30ms fence stretched 1086ms -> 1130ms redrawing on every
 		// keystroke: 44ms across eight, which nobody can feel.
 		const p = liftPolicy(FENCE(true));
-		for (const cost of [0, 22, 30, 36, p.RENDER_COST_FLOOR_MS]) {
+		for (const cost of [0, 22, 30, 36, p.CHEAP_RENDER_MS]) {
 			p.settle(cost);
 			assert.equal(p.diagramBackoffMs(), 0, `${cost}ms must not be throttled`);
 			assert.equal(p.shouldDispatchDiagrams(), true, `${cost}ms must dispatch at once`);
 		}
 	});
 
-	test('an EXPENSIVE render waits twice its cost, so re-rendering is a third of the time', () => {
-		const p = liftPolicy(FENCE(true));
-		p.settle(60);
-		assert.equal(p.diagramBackoffMs(), 120);
-		p.settle(70);
-		assert.equal(p.diagramBackoffMs(), 140);
-	});
-
-	test('THE WAIT NEVER EXCEEDS 150ms — the debounce this work removed', () => {
-		// A fence already holding a drawing always waits, so this IS what the author feels
-		// after their last keystroke. A revision that applied a second term with `Math.max`
-		// outside this cap put the post-keystroke redraw behind the old build in every cell
-		// measured: 610ms against 281, 696 against 522, 899 against 525, 1111 against 903.
-		const p = liftPolicy(FENCE(true));
-		assert.equal(p.RENDER_COST_CAP_MS, 150, 'the cap IS the old debounce, deliberately');
-		for (const cost of [248, 500, 4000]) {
-			p.settle(cost);
-			assert.equal(p.diagramBackoffMs(), 150, `${cost}ms render must still wait only 150ms`);
+	test('the policy has exactly TWO answers: draw now, or wait the old debounce', () => {
+		// A curve was tried and was never operative. Twice-the-median-capped-at-150-floored-at-50
+		// returns anything other than 0 or 150 only while a render costs 50-75ms — diagrams of
+		// roughly 20 to 33 nodes against the measured size table. Everywhere else it was already
+		// a step function with arithmetic dressing it up as adaptive.
+		const p = liftPolicy();
+		for (const cheap of [0, 22, 36, p.CHEAP_RENDER_MS]) {
+			p.settle(cheap);
+			assert.equal(p.diagramBackoffMs(), 0, `${cheap}ms is cheap: draw on every keystroke`);
+		}
+		for (const costly of [60, 75, 130, 248, 4000]) {
+			p.settle(costly);
+			assert.equal(p.diagramBackoffMs(), p.DIAGRAM_DEBOUNCE_MS, `${costly}ms waits the debounce`);
 		}
 	});
 
-	test('an EMPTY slot dispatches at once — that is arrival, not editing', () => {
-		const p = liftPolicy(FENCE(false));
-		p.settle(248);
-		assert.ok(p.diagramBackoffMs() > 0, 'expensive enough to be throttled');
-		assert.equal(p.shouldDispatchDiagrams(), true, 'and yet dispatched, because nothing is on screen');
-	});
-
-	test('a slot ALREADY SHOWING a drawing waits', () => {
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		assert.equal(p.shouldDispatchDiagrams(), false);
-	});
-
-	test('the leading edge is not inverted — the mutation that survived 9179 tests', () => {
-		// Inverting it delays every arrival and dispatches every edit immediately, which is
-		// exactly the regression this policy exists to remove. Both halves asserted together,
-		// because either alone is satisfied by a constant.
-		const editing = liftPolicy(FENCE(true));
-		const arriving = liftPolicy(FENCE(false));
-		editing.settle(248);
-		arriving.settle(248);
-		assert.equal(editing.shouldDispatchDiagrams(), false, 'an edit waits');
-		assert.equal(arriving.shouldDispatchDiagrams(), true, 'an arrival does not');
-	});
-
-	test('a sibling that is not the SLOT counts as no ink', () => {
-		// `adoptWithinNode` guards this question with a `.mermaid` class check; this one used
-		// to guard only on finding an `<svg>` anywhere in the sibling. Two derivations of one
-		// question must not disagree — a false "has ink" delays an arrival forever.
-		const p = liftPolicy('<pre data-mermaid-state="pending"><code>x</code></pre><figure><svg></svg></figure>');
-		p.settle(248);
-		assert.equal(p.anyFenceWithoutInk(), true, 'an <svg> in a non-slot sibling is not this fence’s ink');
-	});
-
-	test('ONE empty slot among several is enough to go now', () => {
-		const p = liftPolicy(`${FENCE(true)}${FENCE(false)}${FENCE(true)}`);
-		p.settle(248);
-		assert.equal(p.anyFenceWithoutInk(), true);
+	test('the costly arm IS the old debounce, so a large diagram cannot regress', () => {
+		// 150 is inherited, not tuned: it is what a costly diagram waited before any of this.
+		// Four rewrites were spent discovering that every cleverer answer regressed the large
+		// case in some cadence, on some host, or with some second fence on the slide.
+		const p = liftPolicy();
+		assert.equal(p.DIAGRAM_DEBOUNCE_MS, 150);
 	});
 
 	test('THE CEILING HOLDS AGAINST CONTINUOUS RE-ARMING — the 14-second freeze', () => {
@@ -257,24 +214,31 @@ describe('the diagram dispatch policy', () => {
 		const p = liftPolicy(FENCE(true));
 		p.settle(60);
 		p.armDiagramBackoff();
-		assert.equal(p.live()[0].ms, 120, 'twice a 60ms render');
+		assert.equal(p.live()[0].ms, p.DIAGRAM_DEBOUNCE_MS, 'a costly render waits the debounce');
 		const q = liftPolicy(FENCE(true));
-		q.settle(248);
-		q.armDiagramBackoff();
-		assert.equal(q.live()[0].ms, 150, 'capped for an expensive one');
+		q.settle(22);
+		assert.equal(q.diagramBackoffMs(), 0, 'and a cheap one waits nothing at all');
 	});
 
-	test('a COLD first render does not throttle the burst that follows it', () => {
-		// The first `mermaid.render` of a session also pays Mermaid's initialization: a 4-node
-		// fence that costs ~36ms measured 210ms once. The median must take the LOWER of two,
-		// or that cold sample answers for the diagram across two more renders.
+	test('a COLD first render is outvoted by the two after it', () => {
+		// It pays Mermaid's one-time initialization as well as the diagram: a 4-node fence that
+		// costs ~36ms every other time measured 210ms once. The median takes the LOWER of two,
+		// so that figure stops deciding the policy as soon as a real sample arrives.
 		const p = liftPolicy(FENCE(true));
 		p.render(210);
 		p.render(36);
-		assert.equal(p.medianRenderCostMs(), 36, 'two samples: the lower one, not the cold one');
+		assert.equal(p.medianRenderCostMs(), 36, 'two samples: the lower, not the cold one');
 		p.render(34);
 		assert.equal(p.medianRenderCostMs(), 36);
-		assert.equal(p.diagramBackoffMs(), 0, 'so a cheap diagram still streams');
+		assert.equal(p.diagramBackoffMs(), 0, 'so a cheap diagram streams again quickly');
+	});
+
+	test('a genuinely expensive diagram is still throttled', () => {
+		const p = liftPolicy(FENCE(true));
+		p.render(900);
+		p.render(350);
+		p.render(340);
+		assert.equal(p.diagramBackoffMs(), p.DIAGRAM_DEBOUNCE_MS);
 	});
 
 	test('arriving from a BIG diagram at a small one stops paying for the big one', () => {
@@ -284,35 +248,6 @@ describe('the diagram dispatch policy', () => {
 		p.render(22);
 		p.render(22);
 		assert.equal(p.diagramBackoffMs(), 0, 'two renders of the small one is enough');
-	});
-
-	test('A HOST THAT DOES NOT STAMP still gets the back-off — marp-vscode and embedders', () => {
-		// The leading edge asks whether a fence has a drawing on screen. On a stamping host
-		// that is answerable, because adoption transplants the outgoing SVG. On a host that
-		// does NOT stamp, adoption returns early and the slot is ALWAYS empty, so the question
-		// answered "arrival" on every keystroke and the back-off never engaged. Driven against
-		// the DOM contract of such a host: an 8-character burst on a 64-node fence cost 8
-		// renders and 2603ms, against 1 render and 357ms on the build being replaced, and
-		// stretched the typing from 1006ms to 3333ms. The same page WITH the stamp cost 1
-		// render — the attribute was the only difference.
-		const p = liftPolicy(FENCE(false));
-		p.stamps(false);
-		p.settle(248);
-		assert.equal(p.shouldDispatchDiagrams(), false, 'an empty slot must not disable the back-off here');
-		// And the stamping host is unaffected: the same empty slot still means arrival.
-		const q = liftPolicy(FENCE(false));
-		q.stamps(true);
-		q.settle(248);
-		assert.equal(q.shouldDispatchDiagrams(), true, 'where the question is answerable, it is still asked');
-	});
-
-	test('a non-stamping host still paints its FIRST diagram immediately', () => {
-		// The back-off is never worse than the old fixed debounce for these hosts, and first
-		// paint is better: no render has been timed yet, so there is no wait to serve.
-		const p = liftPolicy(FENCE(false));
-		p.stamps(false);
-		assert.equal(p.diagramBackoffMs(), 0, 'nothing measured yet');
-		assert.equal(p.shouldDispatchDiagrams(), true, 'so the first paint is not held');
 	});
 
 	test('a HELD pass arms the timer and is not admitted', () => {
@@ -347,23 +282,9 @@ describe('the diagram dispatch policy', () => {
 		assert.equal(p.live().length, 0, 'and cancels the pending timer');
 	});
 
-	test('the stamp flag is WIRED to the stamp read — a census, because the wiring is outside the port', () => {
-		// `hostStampsSwaps` is set in `adoptOutgoingDiagrams`, which no arm can lift: it needs a
-		// live host, a real swap and adoption. So this pins the wiring by text, the way the
-		// runtime-markup census does. It is deliberately the weakest arm in the file, and it
-		// exists because without it a mutation that never sets the flag survives everything:
-		// the Studio would silently fall back to non-stamping behavior and start paying a
-		// back-off on every navigation, with no test anywhere going red.
-		assert.match(
-			RUNTIME_SRC,
-			/const kind = lattice\?\.getAttribute\('data-lattice-swap'\);[\s\S]{0,400}?if \(kind\) hostStampsSwaps = true;/,
-			'the stamp read must still set hostStampsSwaps',
-		);
-	});
-
 	test('the floor sits between the two measurements that bracket it', () => {
 		const p = liftPolicy();
-		assert.ok(p.RENDER_COST_FLOOR_MS > 36, 'a ~30ms render must stay un-throttled');
-		assert.ok(p.RENDER_COST_FLOOR_MS < 70, 'a ~70ms render must be throttled');
+		assert.ok(p.CHEAP_RENDER_MS > 36, 'a ~30ms render must stay un-throttled');
+		assert.ok(p.CHEAP_RENDER_MS < 70, 'a ~70ms render must be throttled');
 	});
 });

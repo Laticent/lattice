@@ -141,6 +141,51 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		return Date.now() - started < BUDGET * 0.5 ? 'early' : 'at-budget';
 	}
 
+	it('a deck that keeps FINISHING diagrams is not cut off at the budget', async () => {
+		// The regression this exists to stop: the budget used to be wall-clock, so a deck
+		// slower than the constant was abandoned mid-render and the capture baked a BLANK
+		// region — `mermaid.css` hides the source `<pre>` for every state but error and
+		// unavailable. Adding a parse in front of every render raised settle time 19-47% and
+		// took an 8-slide deck past 4000ms, so this stopped being latent.
+		const doc = frag(
+			'<pre data-mermaid-state="pending"></pre>' +
+				'<pre data-mermaid-state="pending"></pre>' +
+				'<pre data-mermaid-state="pending"></pre>',
+		);
+		const pres = [...doc.querySelectorAll('pre')];
+		// One finishes every 400ms — slower than BUDGET in total, but never STUCK.
+		let n = 0;
+		const tick = setInterval(() => {
+			const pre = pres[n++];
+			if (!pre) return;
+			pre.setAttribute('data-mermaid-state', 'rendered');
+			const box = doc.createElement('div');
+			box.innerHTML = '<svg></svg>';
+			pre.after(box);
+		}, 400);
+		const started = Date.now();
+		await waitForDiagrams(doc, BUDGET);
+		clearInterval(tick);
+		const waited = Date.now() - started;
+		expect(pres.every((p) => p.getAttribute('data-mermaid-state') === 'rendered')).toBe(true);
+		expect(waited).toBeGreaterThan(BUDGET);
+	});
+
+	it('gives up on a diagram that is STUCK, not merely slow', async () => {
+		// The other half: progress-based must not mean unbounded. Nothing ever settles here.
+		const doc = frag('<pre data-mermaid-state="pending"></pre>');
+		const started = Date.now();
+		await waitForDiagrams(doc, BUDGET);
+		expect(Date.now() - started).toBeLessThan(BUDGET * 4);
+	});
+
+	it('treats the `deferred` state as un-settled — a held diagram is not a drawn one', async () => {
+		// `deferred` is the fourth state, added with the parse gate. It is not in the settled
+		// set, and nothing asserted that until now.
+		const doc = frag('<pre data-mermaid-state="deferred"></pre>');
+		expect(await returned(doc)).toBe('at-budget');
+	});
+
 	it('returns immediately when the deck has no diagram at all', async () => {
 		expect(await returned(frag('<p>no diagrams here</p>'))).toBe('early');
 	});

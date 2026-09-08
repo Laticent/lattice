@@ -596,3 +596,87 @@ trivial slide). That buys text edits appearing ~134ms sooner, which is most of t
 for non-diagram editing, so it is a trade rather than a defect; but it scales with deck
 complexity and inversely with CPU, it is unmeasured on a tablet, and nothing in the ledger
 priced it until now.
+
+## 13. The adversarial trio, and cutting the design down to what it actually bought
+
+§12 ended with the work looking done. The trio — red team, Munger inversion, independent
+checker — found three more blockers and one argument that changed the design rather than
+patching it. That argument is the important part.
+
+### The machinery was only ever operative for diagrams of 20 to 33 nodes
+
+`2 * cost` capped at 150 and floored at 50 returns something other than 0 or 150 **only while
+a render costs between 50 and 75ms**. Against this note's own size table (22ms at 4 nodes, 43
+at 16, 72 at 32, 130 at 64, 239 at 128) that is a band of roughly 20 to 33 nodes. Everywhere
+else the "adaptive" back-off was already a step function, and the arithmetic dressed it up.
+
+Worse, the headline came from outside the band entirely. `bench:flash`'s deck is a
+**five-node** flowchart at ~22ms — under the floor — so `edit warm 194ms -> 78ms` and `nav
+cold 240ms -> 119ms` were measured where `diagramBackoffMs()` returns 0, the leading edge is
+never called, the latch is never read, the timer never arms and the ceiling never engages.
+**The flagship number was the deleted debounce and nothing else.**
+
+### So the policy is now two answers
+
+    cheap render (<= 50ms)  ->  draw on every keystroke
+    costly render           ->  wait 150ms — the exact debounce this work removed
+
+The second arm is deliberately byte-for-byte the old behavior, which is what makes the large
+diagram unable to regress. Everything else went: the doubling, the cap-versus-floor
+arithmetic, the ink query and the host latch. What remains that is genuinely NEW is the
+ceiling — the old debounce had none, so steady typing starved the redraw entirely.
+
+### Three blockers, and why two of them were the same mistake
+
+**One broken fence disabled the back-off for the whole slide.** `attachError` clears the
+`.mermaid` slot, so a fence in `error` has no ink — and `anyFenceWithoutInk()` was
+DOCUMENT-scoped, so any inkless fence made every fence on that slide dispatch immediately: 9
+renders and 4320ms of blocked typing against the old build's 2 and 1244ms. That is the same
+error as §12's, one layer along: **asking about the document to decide something per-fence.**
+Both are gone with the query itself.
+
+**An export could bake a blank slot.** A deck of 8 diagram slides with one broken fence
+stopped settling inside `waitForDiagrams`' 4000ms, and the capture proceeds anyway;
+`mermaid.css` hides the source `<pre>` for every state but `error`/`unavailable`, so what
+lands in the PDF is an empty region — the #2092 regression its own comment warns about.
+Settle time was up 19-47% from the parse tax. The budget now means **"no progress for
+4000ms"** rather than "4000ms total": give up on a diagram that is stuck, never on one that is
+merely slow.
+
+**The error box strobed.** With a broken fence beside the one being edited it blinked roughly
+every 600ms. The release marker was a WeakSet keyed on the `<pre>` NODE, and both hosts
+replace that node every keystroke, so each release survived one pass. Keying it on the fence
+TEXT was necessary but not sufficient — consuming it on use let the next keystroke re-defer
+the same unchanged broken source. The fix is to remember the FAILURE the way `mermaidSvgCache`
+remembers a success: replay it, no render, no deferral. Measured on the same probe, branch
+**18-19 of 24** samples showing the box against `main`'s **5 of 24** — better than the build
+being replaced, not merely restored.
+
+### The measurement that stopped a fix from shipping
+
+Discarding the cold first render sample (Mermaid's one-time init is in it) makes `nav` cold
+~126ms instead of ~225ms. It was reverted: with no sample on record the first EDIT render is
+also unthrottled, so an extra ~370ms render lands mid-burst and the typing wall goes from
+~1145ms to ~1515ms against the old build's ~1157ms. A once-per-visit gain on arrival paid for
+by a once-per-visit regression while typing — and only one of those is worse than what we
+replace.
+
+### Where it lands
+
+| | `main` | this branch |
+|---|---|---|
+| keystroke -> diagram (warm) | 194ms | **80ms** |
+| burst -> diagram (warm) | 1117ms | **78ms** |
+| navigate to a cold diagram slide | 240ms | **223ms** |
+| 64-node burst, 8 chars @120ms | 1 render / 1157ms / 585ms redraw | 1 / ~1136 / ~594 |
+| 64-node + a broken sibling fence | 2 / 1140 / 562 | **1** / 1159 / 659 |
+| raw-source frames while typing a broken fence | 97 | **76** |
+| error box steady while editing a sibling | 5 / 24 | **18 / 24** |
+| stamping vs non-stamping host | — | **identical** |
+
+Host-uniformity is the property four rewrites kept failing to have, and it is now a
+consequence of the design rather than a patch: nothing in the policy asks the host anything.
+
+**What is still not verified:** real marp-vscode, real touch beyond one iPad report, and the
+export finding one step short of a downloaded file — the capture-proceeds-un-settled half is
+measured, the human-opens-a-blank-PDF half is inferred from `mermaid.css`.

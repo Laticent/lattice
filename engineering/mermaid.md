@@ -327,52 +327,42 @@ burst bought 8 renders and 1899ms of render against 1 and 252ms before the chang
 burst itself stretched from 1101ms to 2726ms because the keystrokes were waiting on the
 renders. The jank had moved from the diagram into the editor.
 
-**SO THE DISPATCH BACKS OFF BY WHAT A RENDER OF THIS DIAGRAM LAST COST** — the same
-argument that retired the fixed timer, applied to a number we measure instead of guess.
-Below ~50ms of render there is no back-off at all: the live per-keystroke redraw is what
-makes an edit feel instant, and it is free (a burst on a ~30ms fence stretched 1086ms →
-1130ms). Above it the wait is twice the median of the last three renders, **capped at 150ms
-— exactly the debounce this work removed**, because a fence already holding a drawing always
-waits, so that wait is what the author feels after their last keystroke and anything above
-150 is worse than the build we replaced.
+**SO THE DISPATCH HAS TWO ANSWERS, NOT A CURVE.** A render at or under ~50ms is redrawn on
+every keystroke — that is free (a burst on a ~30ms fence stretched 1086ms → 1130ms) and it is
+what makes editing a small diagram feel live. Anything costlier waits **150ms: the exact
+debounce this work removed**, so a large diagram cannot regress against the build being
+replaced, because there it is byte-for-byte that build.
 
-**THE LEADING EDGE ASKS WHAT IS ON SCREEN, NOT WHAT TIME IT IS.** An empty slot means the
-reader has nothing, so arriving at a slide and first paint go straight through however
-expensive the diagram is; a slot already showing a drawing means they have something valid,
-and blocking a keystroke to refresh it is never worth it. Asking instead whether the author
-had been *idle* is true at the first keystroke of a burst exactly as it is on a click, and
-started a 248ms blocking render the moment somebody began typing.
+**AN EARLIER "ADAPTIVE" WAIT WAS RETIRED FOR BEING ARITHMETIC RATHER THAN ADAPTATION.** Twice
+the median render, capped at 150 and floored at 50, returns something other than 0 or 150 only
+while a render costs 50-75ms — diagrams of roughly 20 to 33 nodes. Outside that band it was
+already a step function. The headline it was credited with (`edit warm 194ms → 78ms`) was
+measured on a five-node bench deck, under the floor, where none of it ran: that number is the
+deleted debounce and nothing else.
 
 **THE CEILING IS ASKED WHERE EVERY PASS PASSES**, not inside the timer. A trailing debounce
-needs a ceiling or steady typing starves the redraw — and testing it inside the timer
-callback does nothing, because every pass that re-arms cancels that callback first. The
-runtime's own transform writes echo through the observer about four times per keystroke, so
-the timer was reset faster than it could fire: a 64-node diagram sat frozen for **14166ms**
-against a nominal 1200ms ceiling, scaling with how long the author kept typing, where the
-build before this work redrew on every keystroke. Asked at the arm site, no amount of
-re-arming outruns it.
+needs a ceiling or steady typing starves the redraw — and testing it inside the timer callback
+does nothing, because every pass that re-arms cancels that callback first. A 64-node diagram
+sat frozen for **14166ms** against a nominal 1200ms. This is the one place the new behavior is
+better than the old rather than equal to it: the debounce it restores had no ceiling at all.
 
-**A CADENCE TERM WAS TRIED AND RETIRED.** Beating the author's own measured typing gap is
-the right idea — a wait shorter than the gap fires between keystrokes — but the runtime
-cannot attribute mutations, so it counts its own DOM writes as the author's and the estimate
-is structurally low. Worse, it was applied with `Math.max` *outside* the 150ms cap, which put
-the post-keystroke redraw behind the old build in every cell measured (610ms against 281,
-696 against 522, 899 against 525, 1111 against 903) and produced the freeze above. Doing it
-properly needs the runtime to stop counting its own writes — `burstIsMarkerChromeOnly` is
-the precedent — and until then there is no cadence term.
-
-**WHAT THIS COSTS, STATED PLAINLY.** Editing a small diagram is far faster than before (a
-keystroke reaches the redrawn diagram in ~62ms against ~194ms). Editing a LARGE one after
-you stop typing is at parity at a 200-350ms cadence (109ms against 113, 104 against 112) and
-about 90-130ms slower at a brisk 120ms cadence, because the parse gate and the settle floor
-are paid on top of the same 150ms wait. That is the price of not strobing raw source at you
-while you type, and it is a deliberate trade rather than an oversight.
+**NOTHING IN THE POLICY ASKS THE HOST ANYTHING**, and that is load-bearing. Two designs tried
+to make arrival faster by asking the DOM "does any fence lack a drawing?" — and it is
+unanswerable on every host but the Studio and Playground (marp-vscode, embedders, the marp
+bundle), where it disabled the back-off outright: 8 renders per burst against the old build's
+1. It is also document-scoped, so one fence left in `error` — which clears its slot — turned
+the back-off off for every other fence on the slide, at 9 renders and 4320ms of blocked typing.
+Both were the same mistake: asking about the document to decide something per fence. The
+runtime now behaves identically wherever it ships.
 
 **A SOURCE THAT DOES NOT PARSE WHILE YOU TYPE IS NOT AN ERROR.** `mermaid.parse` gates the
 render (~1.8ms to reject, against 22–239ms to draw; the ~9ms an earlier draft quoted was a
 cold first call), and a fence that fails it goes to a fourth state, `deferred`: the previous
 drawing stays up, and a quiet timer surfaces the real error ~450ms after the last keystroke.
-That window is **per fence, keyed on the fence's own text** — one document-global timer let
+A source that has ALREADY failed is remembered and its error replayed — no render, no
+deferral — the way `mermaidSvgCache` remembers a success; without that the box blinked off for
+a whole quiet window on every keystroke in a sibling fence. That window is **per fence, keyed
+on the fence's own text** — one document-global timer let
 typing in one fence starve another's error indefinitely, and a per-element deadline does not
 fix it either, because both preview hosts replace the `<pre>` on every keystroke. Without it, removing the debounce made a broken
 diagram flash its raw source *more* than before — the two halves are a package.
