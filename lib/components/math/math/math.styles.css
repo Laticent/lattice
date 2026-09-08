@@ -977,7 +977,7 @@ section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"])
  * separate `$$` blocks flowing as a 3-up row — and every rule below the lead equation
  * addressed boxes the committed sample does not contain. What the sample got instead was
  * the leftovers: the section's `text-align: center` landed on the legend (so its lines
- * ragged around a centre while `matrix`'s left rule still ran down its side), and
+ * ragged around a center while `matrix`'s left rule still ran down its side), and
  * `matrix`'s label chrome set each `$A$` in uppercase mono at `--fs-meta`, shrinking the
  * symbol it names to 70% of the body text beside it. Both are visible on the shipped
  * gallery.
@@ -988,7 +988,7 @@ section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"])
  * other, or both renders correctly. */
 section.math.form.matrix.decompose > .cell-stage {
   /* Block, not grid or flex: the 3-up component row is `inline-block` flow, which a flex
-   * column would stack. `align-content` on a block container centres the group; Chromium
+   * column would stack. `align-content` on a block container centers the group; Chromium
    * ≥122 honours it and older engines fall back to top-anchored, which still reads. */
   display: block;
   align-content: center;
@@ -1157,7 +1157,7 @@ section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"])
   grid-template-columns: minmax(0, 1fr);
   /* THE SLACK GOES TO THE EQUATION, NOT TO THE PLOT. `1fr` on the plot row was the
    * landscape shape's habit, and stacked it read as a fault: the plot keeps its 55:38
-   * ratio, so a `1fr` row simply grew taller than the plot and centred it, opening ~340px
+   * ratio, so a `1fr` row simply grew taller than the plot and centered it, opening ~340px
    * of blank canvas between the caption and the chart at `story`. Giving the equation the
    * `1fr` puts the space where the subject of the slide is, and lands the plot under its
    * caption. Stretching the plot to fill instead was rejected: a function plot read at the

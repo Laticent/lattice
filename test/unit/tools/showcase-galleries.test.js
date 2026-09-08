@@ -36,11 +36,30 @@ describe('showcase galleries', () => {
     });
   }
 
-  test('data-viz covers the full chart+math component set', () => {
+  test('math is NOT in the data-viz showcase', () => {
+    // Math was a member until 2026-09 and is its own showcase now. It is rendered
+    // EVIDENCE, which is not the same as being a chart: a chart plots a dataset and a
+    // math slide typesets an expression — no shared transform, no shared dataset shape,
+    // no shared reflow — and a reader comparing bar against waterfall does not want an
+    // equation in the middle of the walk. Asserted rather than left to the roster,
+    // because the roster is one line and this is the reasoning behind it.
+    const dv = SHOWCASES.find((s) => s.id === 'data-viz');
+    assert.ok(dv, 'the data-viz showcase must exist');
+    assert.deepEqual(dv.buckets, ['chart'], 'data-viz surveys charts only');
+    // AND IT DID NOT GET A SHOWCASE OF ITS OWN. A showcase composes one
+    // `manifest.sample` per component, so a single-component bucket makes a two-slide
+    // deck that duplicates the bucket gallery. The eight-variant survey is the COMPONENT
+    // gallery; asserted here so nobody adds the redundant one back.
+    assert.equal(SHOWCASES.find((s) => s.id === 'math'), undefined,
+      'a single-component showcase duplicates the bucket gallery — math has none');
+  });
+
+  test('data-viz covers the full chart component set', () => {
     // The showcase must walk every chart component plus math — the same surfaces
     // the per-bucket family galleries cover, in one consolidated deck.
     const inDeck = new Set(showcaseComponentNames('data-viz', groups));
-    assert.ok(inDeck.size >= 13, `expected the full chart+math set, got ${inDeck.size}`);
+    assert.ok(inDeck.size >= 13, `expected the full chart set, got ${inDeck.size}`);
+    assert.ok(!inDeck.has('math'), 'math has its own showcase — it must not be in data-viz');
   });
 
   test('every chart+math component actually has a sample (no silent omission)', () => {

@@ -2,9 +2,9 @@
 
 # Data visualization
 
-`22 components`
+`21 components`
 
-Every chart and math component in one deck — the full data-visualization surface.
+Every chart component in one deck — the full charting surface.
 
 
 ---
@@ -432,19 +432,3 @@ Four milestones show the shape; the date chips carry the when.
 - roadmap `2`
 - contracts `1`
 - residency `1`
-
----
-
-<!-- _class: math -->
-<!-- _footer: "math · data-viz gallery" -->
-
-`Linear regression · OLS`
-
-## One equation, displayed; its symbols named below.
-
-$$ \hat\beta = (X^\top X)^{-1} X^\top y $$
-
-- $\hat\beta$ — OLS coefficient vector
-- $X$ — design matrix, $n \times p$
-- $y$ — response vector, length $n$
-- $X^\top X$ — Gram matrix, $p \times p$, must be invertible
