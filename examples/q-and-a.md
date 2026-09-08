@@ -94,9 +94,9 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
 
 ## When you have a fourth.
 
-- Why not extend the current vendor one more year?
-  - The renewal locks us in through 2028; after renewal it costs three quarters.
-- What happens to the team mid-migration?
+- Why not extend the vendor?
+  - Renewal locks us in through 2028; switching after it costs three quarters instead of one.
+- What happens to the team?
   - No headcount change. Four engineers run both stacks through the eight-week overlap.
 - How confident are we in the savings?
   - The $1.2M is contracted, not projected — the signed rate differential.
