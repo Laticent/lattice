@@ -461,7 +461,7 @@ describe('stacked-bar kernel', () => {
       // BY DESIGN and a floor would just re-pin the duplication. What still has
       // to hold is that every fill reaches a token — never a literal.
       assert.ok(fills.length >= 2, 'the sheet still paints something');
-      for (const f of fills) assert.match(f, /var\(--mark-(?:hue|ink)[,)]|var\(--chart-cat-\d-(?:hue|ink)\)|var\(--text-body\)/);
+      for (const f of fills) assert.match(f, /var\(--mark-(?:hue|ink|body)[,)]|var\(--chart-cat-\d-(?:hue|ink|body)\)|var\(--text-body\)/);
     });
 
     // The five per-slot rules are GONE — the mark contract resolves --mark-hue
@@ -471,7 +471,7 @@ describe('stacked-bar kernel', () => {
     // which paints the segment black. slot-contract.md
     test('the segment paints from the mark contract, with a fallback', () => {
       assert.doesNotMatch(css, /\[data-cat=/, 'data-cat is retired, not renamed in place');
-      assert.match(css, /\.sbar-seg \{[^}]*var\(--mark-hue, var\(--chart-cat-1-hue\)\)/s);
+      assert.match(css, /\.sbar-seg \{[^}]*var\(--mark-body, var\(--chart-cat-1-body\)\)/s);
       assert.doesNotMatch(css, /\.sbar-seg\[data-hue=/, 'no per-slot rule survives — the family table owns the cycle');
     });
 

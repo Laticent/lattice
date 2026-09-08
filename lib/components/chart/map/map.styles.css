@@ -81,7 +81,7 @@
  * three categorical charts read as one family. The kernel sets --region-hue
  * to the slot's var reference. */
 :is(section.map, figure.chart-frame) .map-region--hl {
-  fill: color-mix(in oklab, var(--region-hue) 82%, var(--bg));
+  fill: color-mix(in oklab, var(--region-hue) 82%, var(--chart-cat-base));
 }
 
 /* ── Legend ───────────────────────────────────────────────────────────────

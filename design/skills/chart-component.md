@@ -91,13 +91,20 @@ dispatcher + the categorical/semantic color token model in `chart-family.css`),
 Charts own **their own two spectrums**, decoupled from the engine-wide `--cat-*`
 palette:
 
-- **Categorical — `--chart-cat1..8` (8 slots, cap 6 in practice).** Each slot has a
-  fill/ink pair derived from one hue: `--chart-cat-N-fill` is a restrained tint
-  (`color-mix` of the hue toward the canvas on light, toward black on dark — never
-  into `--bg`, which muddies warm hues to brown); `--chart-cat-N-ink` is the
-  saturated mark/border. **Fill and ink always share the hue.** A theme overrides
-  by setting `--chart-catN` at `:root`; untuned themes inherit the Apple-inspired
-  master set.
+- **Categorical — `--chart-cat1..8` (8 slots, cap 6 in practice).** Each slot has
+  THREE levels derived from one hue, and a kernel consumes a level rather than
+  building one: `--chart-cat-N-fill` is a restrained tint, `--chart-cat-N-body`
+  the vivid 82% solid most marks paint, `--chart-cat-N-ink` the saturated
+  mark/border. All three `color-mix` the hue toward the canvas on light and
+  toward black on dark — **never into `--bg`, which muddies warm hues to brown.**
+  **Every level shares the hue.** A theme overrides by setting `--chart-catN` at
+  `:root`; untuned themes inherit the Apple-inspired master set.
+  **`-body` exists because this rule was already written here and five of ten
+  call sites broke it anyway.** The 82% level had no token, so the recipe was
+  retyped per site and drifted onto `var(--bg)` — invisible on light, where the
+  two spellings agree, and on dark it painted a pie's legend swatch a different
+  colour from the wedge it labelled. A rule with nothing to point at is a rule
+  that gets retyped wrong.
 - **Semantic / status — `--chart-state-{pass,warn,fail,info,mute}`.** Same
   construction, but encodes meaning: green=good, amber=caution, red=stop,
   blue=info/pilot, gray=deferred. Used by gantt bars, progress fills, status pills.
@@ -105,8 +112,10 @@ palette:
   percentage on one hue mixed into a neutral base (so the ramp stays monotonic
   above the neutral in both canvases). **No diverging set ships.**
 
-Your kernel consumes **only** `--chart-cat-N-fill` / `-ink` (or `--chart-state-*`)
-and stays palette-blind. Cycle categorical marks with `nth-of-type(<path>)` — the
+Your kernel consumes **only** `--chart-cat-N-fill` / `-body` / `-ink` (or
+`--chart-state-*`) and stays palette-blind. If you find yourself writing
+`color-mix(… var(--chart-cat-N-hue) …)` in a kernel, you are rebuilding a level
+that already exists — take the token. Cycle categorical marks with `nth-of-type(<path>)` — the
 first SVG child is `<defs>`, so `nth-child` is off by one.
 
 **Contrast targets** (authoring goal / gated floor): text-on-fill AA (≥4.5:1);

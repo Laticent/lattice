@@ -41,7 +41,7 @@
  * fill never affects text contrast. A hairline canvas-colored stroke keeps
  * adjacent bands crisp. */
 :is(section.funnel, figure.chart-frame) .funnel-band {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg));
+  fill: var(--chart-cat-1-body);
   stroke: var(--bg);
   stroke-width: 0.75;
 }
