@@ -84,7 +84,7 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
     await page.goto('file://' + file, { waitUntil: 'networkidle0' });
     await new Promise((r) => setTimeout(r, 2500));
     const out = await page.evaluate(() => [...document.querySelectorAll('section')].map((s) => {
-      const tab = s.querySelector(':scope > .illegible-tab');
+      const tab = s.querySelector(':scope > .marker-rail > .illegible-tab');
       return {
         illegible: s.classList.contains('illegible'),
         tab: tab?.textContent || null,
@@ -93,6 +93,12 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
         // cannot reach carries advice nobody can read. Asserted from COMPUTED style on the
         // real bundle, because the declaration lives in base.modifiers.css and a later rule
         // could take it back without any of the JS above noticing.
+        //
+        // AND THE CAPSULE AROUND IT SETS `pointer-events: none`. That is the documented
+        // escape — a child may re-enable what its parent switched off — but it means this
+        // segment's `auto` is now load-bearing against a PARENT as well as a later rule, so
+        // reading it from computed style rather than from the stylesheet matters more, not
+        // less, than when the segment stood alone.
         hoverable: tab ? getComputedStyle(tab).pointerEvents : null,
       };
     }));

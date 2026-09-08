@@ -21,7 +21,7 @@
  * WHAT COUNTS AS PAINTED, and why it is not just "has text": these run in a real
  * browser, so they can ask the browser. A tab is only a signal if it BOTH says
  * something and is rendered — `display: none` under
- * `section:not(.clip-marked) > .overflow-tab`, or suppressed outright at
+ * `section:not(.clip-marked) > .marker-rail > .overflow-tab`, or suppressed outright at
  * `[data-lattice-overflow-marker="off"]`, is not something a reader sees no
  * matter what its text says. Both halves are required, because each alone has a
  * hole: text-only would flag a tab the level suppressed, and painted-only would
