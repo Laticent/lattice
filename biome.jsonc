@@ -134,6 +134,15 @@
         "useNodejsImportProtocol": "off"
       },
       "correctness": {
+        // A BARE ASSIGNMENT TO AN UNDECLARED NAME is an implicit global in sloppy mode and a
+        // ReferenceError in a strict or module one, and the runtime bundle is loaded both
+        // ways by different consumers. That is not theoretical here: a refactor moved the
+        // block holding `let lastRenderCostMs` and left the assignment behind, so
+        // `lib/runtime/index.js` shipped a bare write that every local gate — lint, 9211
+        // tests, build:check — passed, and which would have lost every Mermaid diagram on any
+        // host loading the bundle strictly. A review bot caught it; nothing in the tree did.
+        // The rule costs nothing to keep: zero violations across all 1934 files when added.
+        "noUndeclaredVariables": "error",
         // Teach the dependency check about our ONE hook alias. `useIsomorphicLayoutEffect`
         // (docs/src/components/ui/use-resizable-split.ts) is `useLayoutEffect` on the client
         // and `useEffect` on the server — a plain rename, so its dependency array deserves
