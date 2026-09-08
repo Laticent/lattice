@@ -364,7 +364,77 @@ code{font-family:var(--mono);font-size:.88em;background:var(--tint-2);padding:1p
   <em>Frame</em> holds beyond the stage — <code>plinth</code>&rsquo;s takeaway,
   <code>margin</code>&rsquo;s rail. Math&rsquo;s equation is inside its own stage, so no
   rank is reserved. It is <code>standard</code> with a title-grid carve.</p>
-  <p class="small">The same test confirms the pair it might have collapsed:
+  <h3 style="font-size:21px;font-weight:600;margin-top:22px">What the Frames do with logo, meta and the rest of the chrome</h3>
+  <p class="lede">Law II says chrome is relocated, never dropped — a rule with no content
+  until each Frame declares a home for each Tile. Working it through turns up something
+  the model does not say: <strong>chrome is not one thing. It is four families, and only
+  one of them actually follows the Frame.</strong></p>
+  <div class="scroller"><table class="dat">
+    <thead><tr><th>Family</th><th>Tiles</th><th>When the Frame changes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>A · Cell-docked</strong></td><td>kicker · title · lede · meta · status</td><td>Lives in the masthead Cell. Moves wherever the Frame puts it.</td></tr>
+      <tr><td><strong>B · Band-docked</strong></td><td>footer · progress · pagination</td><td>Lives in the footer Cell. Every Frame keeps a footer band; only <code>bookend</code> silences it by default.</td></tr>
+      <tr><td><strong>C · Frame-anchored</strong></td><td><strong>logo</strong> · watermark</td><td>Pinned to the <em>slide</em>, not to a Cell. Does <strong>not</strong> move with the masthead.</td></tr>
+      <tr><td><strong>D · Rank-assigned</strong></td><td>coda</td><td>The <code>rank</code> atom already decides it — no new field needed.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note"><strong><code>rank</code> is the coda&rsquo;s address.</strong>
+  <code>takeaway</code> puts it in <code>plinth</code>&rsquo;s reserved band;
+  <code>margin</code> puts it in the rail; <code>thesis</code> leaves it at content
+  height above the footer; <code>none</code> means the component places it. The atom that
+  defines the reading already answers &ldquo;where does the Key Insight go&rdquo;.</p>
+
+  <h4 style="font-family:var(--sans);font-size:16px;font-weight:600;margin-top:14px">The logo does not do what the model says it does</h4>
+  <p><code>logo.manifest.json</code> declares <code>fits: ["masthead-bay"]</code> and
+  <code>forms.md</code> §5.1 lists it as docked there. <strong>The render does something
+  else</strong> — <code>base.modifiers.css</code> pins it at
+  <code>top: var(--frame-inset-y)</code> / <code>right: var(--frame-inset-x)</code> as an
+  absolutely positioned child of the section, and <code>logo-x</code> / <code>logo-y</code>
+  set its center as a percentage of the whole slide. It sits on the <em>content</em> plane
+  deliberately: on chrome an off-corner brand plate erased four words of a pull-quote; on
+  atmosphere it vanished under a split panel.</p>
+  <p>Under one Frame that divergence is invisible. Under nine it generates bugs:
+  <strong><code>logo-y: 82</code> means one thing when the masthead is on top and another
+  when <code>foot</code> puts it at the bottom.</strong> The Tile has form here —
+  <code>2026-08-04-finish-stacking-displaces-frame-chrome.md</code> measured those
+  coordinates silently ceasing to mean anything, rendering at 92.2% x on every logo slide
+  in the corpus with y drifting 84 / 87.1 / 88 / 100 across four slides that all declared 82.</p>
+
+  <h4 style="font-family:var(--sans);font-size:16px;font-weight:600;margin-top:14px">The contested corner</h4>
+  <p>Top-right is the busiest 80&times;50px on the slide: the <strong>logo</strong>, the
+  <strong>status stamp</strong> and (where a bay survives) the <strong>meta</strong> line
+  all want it. The engine already arbitrates — <code>--corner-logo-reserve</code> stacks
+  the state tabs to the logo&rsquo;s <em>left</em>, because clearing it vertically needs
+  ~80px of drop and would put a transient marker a third of the way into the body. That
+  was a real defect: <code>logo:</code> plus <code>confidential</code> sliced the top off
+  the mark. So each Frame owes a <strong>corner order</strong>, not just a list of homes.</p>
+
+  <div class="scroller"><table class="dat">
+    <thead><tr><th>Frame</th><th>kicker · title · lede</th><th>meta</th><th>logo</th><th>status</th><th>footer · rail · page</th><th>coda</th></tr></thead>
+    <tbody>
+      <tr><td><code>standard</code></td><td>masthead-lede, top-left</td><td>bay, top-right</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>content height</td></tr>
+      <tr><td><code>margin</code></td><td>masthead-lede</td><td><strong>rail head</strong> — frees the bay</td><td>slide corner TR; rail starts below its reserve</td><td>rail foot</td><td>footer band</td><td><strong>the rail</strong></td></tr>
+      <tr><td><code>plinth</code></td><td>masthead-lede</td><td>bay</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td><strong>reserved band</strong></td></tr>
+      <tr><td><code>foot</code></td><td>masthead-lede, <strong>at the bottom</strong></td><td><strong>bay stays at the top</strong></td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>between stage and title band</td></tr>
+      <tr><td><code>quiet</code></td><td><strong>silent</strong></td><td><strong>top-left</strong>, the lede&rsquo;s vacated space</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>content height</td></tr>
+      <tr><td><code>panel</code></td><td>the privileged cell</td><td>bay of the support cell</td><td>slide corner TR, inverting on a dark panel</td><td>left of the logo</td><td>footer band</td><td>support cell foot</td></tr>
+      <tr><td><code>compare</code></td><td>spanning both</td><td>bay</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>full width beneath (<code>row</code> dock)</td></tr>
+      <tr><td><code>triptych</code></td><td>spanning three</td><td>bay</td><td>slide corner TR</td><td>left of the logo</td><td>footer band</td><td>spans all three (<code>grid</code> dock)</td></tr>
+      <tr><td><code>bookend</code></td><td>the whole slide</td><td>silent, declared</td><td><strong>the point</strong> — <code>logo-on: title</code></td><td><strong>the open gap</strong></td><td>silent, declared</td><td>silent</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong><code>foot</code> splits the masthead, and that is the interesting row.</strong>
+  The lede Cell moves to the bottom; the bay does not. A bay at the bottom would collide
+  with pagination, and <code>masthead-lede</code> and <code>masthead-bay</code> are already
+  two Cells in <code>lib/forms/cell/</code>, so moving one without the other costs nothing.
+  It reads better too — the deck&rsquo;s identity stays where the eye rests first, and only
+  the argument moves.</p>
+  <p class="note"><strong><code>bookend</code>&rsquo;s status is the open hole.</strong> A WIP
+  or CONFIDENTIAL stamp on a title slide has nowhere to go — the frame silences the corner
+  stack, and it is the slide in a deck most likely to need the marker. Third time this
+  catalog has flagged it, which is a fair argument for making it the first Law II fix.</p>
+
+  <p class="small" style="margin-top:18px">The same test confirms the pair it might have collapsed:
   <code>bookend</code> reserves the position and fills it with the thesis
   (<code>none/thesis/1</code>); <code>quiet</code> reserves nothing at all
   (<code>none/none/1</code>). Both coherent, genuinely distinct.</p>

@@ -224,6 +224,91 @@ nothing at all (`none/none/1`).
 `plinth` remains the one to build first — the coda Cell already exists, so it is
 that Cell given a reserved band and a hairline.
 
+### 5.6 What the Frames do with logo, meta and the rest of the chrome
+
+Law II says chrome is relocated, never dropped. That is a rule with no content until
+each Frame declares a home for each Tile. Working it through turns up something the
+model does not say: **chrome is not one thing. It is four families, and only one of
+them actually follows the Frame.**
+
+| Family | Tiles | Behavior when the Frame changes |
+|---|---|---|
+| **A · Cell-docked** | kicker · title · lede · meta · status | Lives in the masthead Cell. Moves wherever the Frame puts that Cell. |
+| **B · Band-docked** | footer · progress · pagination | Lives in the footer Cell. Every Frame keeps a footer band; only `bookend` silences it by default. |
+| **C · Frame-anchored** | **logo** · watermark | Pinned to the *slide*, not to a Cell. Does **not** move with the masthead. |
+| **D · Rank-assigned** | coda (key-insight + below-note) | The `rank` atom already decides it — see below. |
+
+**Family D is the tidy part: `rank` is the coda's address.** `rank: takeaway` puts it
+in `plinth`'s reserved band; `rank: margin` puts it in `margin`'s rail; `rank: thesis`
+leaves it at content height above the footer; `rank: none` means the component places
+it. No new field — the atom that defines the reading already answers "where does the
+Key Insight go".
+
+#### The logo does not do what the model says it does
+
+`lib/forms/tile/logo/logo.manifest.json` declares `"fits": ["masthead-bay"]`, and
+`design/forms.md` §5.1 lists "logo · meta · status → `masthead-bay` tiles, docked".
+**The render does something else.** `base.modifiers.css` pins it at
+`top: var(--frame-inset-y)` / `right: var(--frame-inset-x)`, 4cqi tall, as an absolutely
+positioned direct child of the section — and the author can move it anywhere with
+`logo-x` / `logo-y`, which set the logo's *center* as a percentage of the whole slide.
+It sits on the **content** plane (z 2), deliberately: forms.md §5.2 records that on the
+chrome plane an off-corner brand plate erased four words of a pull-quote, and on
+atmosphere it vanished under a split panel.
+
+So the logo is anchored to the sheet, not to a Cell. Under one Frame that divergence is
+invisible. Under nine it is a bug generator: **`logo-y: 82` means one thing when the
+masthead is on top and another when `foot` puts it at the bottom.** The Tile has form
+in this file already — `2026-08-04-finish-stacking-displaces-frame-chrome.md` measured
+`logo-x`/`logo-y` silently ceasing to mean anything, rendering at 92.2% x on every logo
+slide in the corpus with y drifting 84 / 87.1 / 88 / 100 across four slides that all
+declared 82.
+
+**Two ways to close it, and they are not equivalent.** Either the manifest is corrected
+to say what ships (`fits: ["slide"]`, a frame-anchored Tile) — cheap, honest, and leaves
+author coordinates meaning "percent of the sheet" forever. Or the logo becomes genuinely
+Cell-docked and `logo-x`/`logo-y` are reinterpreted as offsets *within* its Cell, which
+makes them survive a Frame change and breaks every deck that set them. The first is
+right for now; the second is right eventually. Either way the current state — a manifest
+that says one thing and a stylesheet that does another — is the one option that should
+not survive this catalog.
+
+#### The contested corner
+
+Top-right is the busiest 80×50px on the slide. Three occupants want it — the **logo**,
+the **status stamp**, and (on frames that keep a bay) the **meta** line — and the engine
+already arbitrates: `--corner-logo-reserve` makes the state tabs stack to the logo's
+**left**, not below it, because clearing it vertically needs ~80px of drop and would put
+a transient marker a third of the way into the body. That was a real defect: `logo:` plus
+`confidential` sliced the top off the mark, on close to the modal delivered board deck.
+
+Each Frame therefore owes a **corner order**, not just a list of homes.
+
+#### The matrix
+
+| Frame | kicker · title · lede | meta | logo | status | footer · rail · page | coda |
+|---|---|---|---|---|---|---|
+| `standard` | masthead-lede, top-left | bay, top-right | slide corner TR | stacks left of the logo | footer band | content height above the footer |
+| `margin` | masthead-lede | **the rail head** — frees the bay | slide corner TR; the rail starts below its reserve | rail foot | footer band | **the rail** (`rank: margin`) |
+| `plinth` | masthead-lede | bay | slide corner TR | left of the logo | footer band | **the reserved band** (`rank: takeaway`) |
+| `foot` | masthead-lede, **at the bottom** | **bay stays at the top** — see below | slide corner TR | left of the logo | footer band | between the stage and the title band |
+| `quiet` | **silent** — the Frame reserves no title | **top-left**, the lede's vacated space | slide corner TR | left of the logo | footer band | content height above the footer |
+| `panel` | the privileged cell | bay of the support cell | slide corner TR, inverting on a dark panel | left of the logo | footer band | support cell's foot |
+| `compare` | masthead spanning both | bay | slide corner TR | left of the logo | footer band | full width beneath both (`row` dock) |
+| `triptych` | masthead spanning three | bay | slide corner TR | left of the logo | footer band | spans all three (`grid` dock) |
+| `bookend` | the whole slide | silent by default, declared | **the point** — `logo-on: title` exists for this | **the open gap** | silent by default, declared | silent |
+
+**`foot` splits the masthead, and that is the interesting row.** The lede Cell moves to
+the bottom; the **bay does not**. Two reasons: the bay at the bottom would collide with
+pagination, and `masthead-lede` and `masthead-bay` are already two Cells in
+`lib/forms/cell/`, so moving one without the other costs nothing. It also reads better —
+the deck's identity stays where a reader's eye rests first, and only the argument moves.
+
+**`bookend`'s status is still the open hole.** A WIP or CONFIDENTIAL stamp on a title
+slide has nowhere to go: the frame silences the corner stack, and it is the one slide in
+a deck most likely to need the marker. This is the third time this note has flagged it,
+which is a fair argument for making it the first Law II fix rather than a footnote.
+
 ## 6. The Mode contract
 
 A Mode is a deck-wide hand every component honors. Lattice ships **one** real value,
