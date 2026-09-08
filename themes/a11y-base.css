@@ -388,12 +388,17 @@ section.funnel .funnel-band { fill: url(#latt-a11y-chart-tex-1) !important; }
  * slot covers every member that shows a key — and without it the bars carried
  * six distinct textures while the key carried six flat grays, which on the one
  * palette whose whole job is the non-color channel makes the key unusable. */
-:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }
-:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-hue="2"] { fill: url(#latt-a11y-chart-tex-2) !important; }
-:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-hue="3"] { fill: url(#latt-a11y-chart-tex-3) !important; }
-:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
-:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
-:is(section.bar, section.stacked-bar, section.line, section.scatter, section.slope, figure.chart-frame) .chart-key-swatch[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* WHY scatter AND slope ARE NOT ON THIS LIST. Neither builds a keyed legend, so
+ * a `.chart-key-swatch` arm for them matches nothing: scatter never calls
+ * buildSvgLegend, and slope's only mention of it is a comment saying it draws
+ * its two-entry key in its own coordinate system instead. Both arms were carried
+ * here for years, dead. */
+:is(section.bar, section.stacked-bar, section.line, figure.chart-frame) .chart-key-swatch[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+:is(section.bar, section.stacked-bar, section.line, figure.chart-frame) .chart-key-swatch[data-hue="2"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+:is(section.bar, section.stacked-bar, section.line, figure.chart-frame) .chart-key-swatch[data-hue="3"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+:is(section.bar, section.stacked-bar, section.line, figure.chart-frame) .chart-key-swatch[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+:is(section.bar, section.stacked-bar, section.line, figure.chart-frame) .chart-key-swatch[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+:is(section.bar, section.stacked-bar, section.line, figure.chart-frame) .chart-key-swatch[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
 
 /* BULLET is deliberately untextured. Its three layers are separated by VALUE,
  * not hue — a light band wash, a solid measure bar, a dark target tick — and
