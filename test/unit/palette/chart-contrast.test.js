@@ -32,6 +32,22 @@ const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
 // Scope from the manifests — this array had 13 names and omitted `carta`.
 const CURATED = baseThemeNames();
 
+// The four accessibility palettes, which `baseThemeNames()` does NOT return.
+//
+// Only rule 1 applies to them, and the split is the whole point. Rule 2
+// (adjacent slots >= 0.15 OKLab) is DELIBERATELY waived here — a11y-base says it
+// outright, and `cvd-palette.test.js` gates the consequence: "the categorical
+// cycle CANNOT be separated by color under CVD (~1-2 distinct — that's what the
+// texture patterns carry)". Rule 3 (the status trio) is that file's subject too.
+//
+// Rule 1 is different in kind and was never waived anywhere: a mark you cannot
+// SEE against the canvas is a defect on any palette, and it has nothing to do
+// with whether hue tells two marks apart. Leaving these four outside the only
+// gate that asserts it is what let `--cat-N-mark` ship at 1.55:1 on a
+// `_class: dark` slide — the exact ratio, on the exact seam, that a11y-base's
+// own `--cat-on-mark` comment records having fixed ONE TIER UP.
+const A11Y = ['a11y-achromatopsia', 'a11y-deuteranopia', 'a11y-protanopia', 'a11y-tritanopia'];
+
 // Collect every `--name: value` custom-property declaration in the file,
 // regardless of selector — the palette tokens live in `:root` (theme) but the
 // chart recipe (`--catN-hue`, `--catN-fill`, `--state-*-fill`) lives on
@@ -51,6 +67,21 @@ function parseVars(content) {
 
 // Load a theme plus the tokens it @imports from lattice (the engine fallback
 // spectrum lives there). Theme declarations win (parsed last).
+// Follow `@import` so a derived variant is scored with the base it extends.
+// Without this the four a11y variants resolve to the ENGINE defaults — every
+// slot identical across all four palettes and both modes, which is how a first
+// attempt at this arm reported a clean 0 of 64.
+function importChain(name, seen = new Set()) {
+  if (seen.has(name)) return [];
+  seen.add(name);
+  let css = '';
+  try { css = fs.readFileSync(path.join(THEMES_DIR, `${name}.css`), 'utf8'); } catch { return []; }
+  const out = [];
+  for (const m of css.matchAll(/@import\s+['"]([a-z0-9-]+)['"]/gi)) out.push(...importChain(m[1], seen));
+  out.push(name);
+  return out;
+}
+
 function loadTheme(name) {
   const order = ['../dist/lattice.css', `themes/${name}.css`];
   let vars = {};
@@ -59,6 +90,15 @@ function loadTheme(name) {
       ? path.join(THEMES_DIR, `${name}.css`)
       : path.join(THEMES_DIR, '..', 'dist', 'lattice.css');
     try { vars = { ...vars, ...parseVars(fs.readFileSync(p, 'utf8')) }; } catch { /* skip */ }
+  }
+  return vars;
+}
+
+/** A theme plus every theme it @imports, base first so the variant wins. */
+function loadThemeChain(name) {
+  let vars = parseVars(fs.readFileSync(path.join(THEMES_DIR, '..', 'dist', 'lattice.css'), 'utf8'));
+  for (const t of importChain(name)) {
+    try { vars = { ...vars, ...parseVars(fs.readFileSync(path.join(THEMES_DIR, `${t}.css`), 'utf8')) }; } catch { /* skip */ }
   }
   return vars;
 }
@@ -246,4 +286,46 @@ describe('chart palette — curated theme assessment', () => {
     // 70% #006398 + 30% white, mixed in OKLab → a lighter blue (all channels up).
     assert.ok(darkHue.r > 0 && darkHue.g > 99 && darkHue.b > 152, `dark hue should lighten: ${JSON.stringify(darkHue)}`);
   });
+});
+
+// ── The accessibility palettes — rule 1 only ────────────────────────────────
+//
+// A `_class: dark` slide is the seam these have to survive: a11y-base pins
+// `color-scheme: light` at `:root` and `:root:root`, and that pin cannot reach a
+// section, so one darkened slide in an a11y deck flips the canvas to the palette's
+// dark arm while the ramp stays put. The status trio is PAIRED for exactly this
+// reason and says so; the categorical ramp has to hold the same seam.
+describe('chart palette — accessibility palettes clear their canvas', () => {
+  for (const theme of A11Y) {
+    const vars = loadThemeChain(theme);
+    for (const mode of ['light', 'dark']) {
+      const bg = resolve(vars.bg, vars, mode);
+      test(`${theme}/${mode}: marks clear the canvas (≥${MARK_VS_CANVAS}:1)`, () => {
+        assert.ok(bg, `${theme}/${mode}: --bg must resolve`);
+        for (let i = 1; i <= 8; i++) {
+          const rgb = resolve(vars[`chart-cat${i}`], vars, mode);
+          assert.ok(rgb, `${theme}/${mode}: --chart-cat${i} must resolve`);
+          const r = contrast(rgb, bg);
+          assert.ok(r >= MARK_VS_CANVAS, `${theme}/${mode}: --chart-cat${i} vs --bg = ${r.toFixed(2)}:1 (< ${MARK_VS_CANVAS})`);
+        }
+      });
+
+      // The tier a11y-base already fixed for this seam, pinned so it stays fixed.
+      // `--cat-on-mark` is ink for `--cat-N-mark` — `base.tokens.css` says so in
+      // as many words ("text on a --cat-N-mark (the saturated STROKE tier)") —
+      // and NOT for `--chart-catN`, which is a separate, wider ramp. A first
+      // draft of this arm paired it with `--chart-catN` and "found" a 3.79:1
+      // failure that is not a pairing anything paints.
+      test(`${theme}/${mode}: --cat-on-mark clears every chip (AA, ≥${TEXT_ON_FILL}:1)`, () => {
+        const onMark = resolve(vars['cat-on-mark'], vars, mode);
+        assert.ok(onMark, `${theme}/${mode}: --cat-on-mark must resolve`);
+        for (let i = 1; i <= 12; i++) {
+          const rgb = resolve(vars[`cat-${i}-mark`], vars, mode);
+          if (!rgb) continue;
+          const r = contrast(onMark, rgb);
+          assert.ok(r >= TEXT_ON_FILL, `${theme}/${mode}: --cat-on-mark on --cat-${i}-mark = ${r.toFixed(2)}:1 (< ${TEXT_ON_FILL})`);
+        }
+      });
+    }
+  }
 });
