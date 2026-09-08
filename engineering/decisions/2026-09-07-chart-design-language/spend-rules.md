@@ -28,7 +28,7 @@ mark is:
 | encoding | may a finish retreat the body? | members |
 |---|---|---|
 | **hue** — identity is *which* colour, and an ink edge preserves it | **yes, all the way to a whisper** | bar, stacked-bar, piechart, funnel, scatter, quadrant, gantt, waterfall, bullet, line, slope, state-chart, timeline-list, roadmap, kanban, progress |
-| **ramp** — fill *strength* is the magnitude | **scaled, never flattened** | map (`--mix` per region), journey |
+| **ramp** — fill *strength* is the magnitude | **held — see 1d.** The finish works the boundary and the field instead | map (`--mix` per region), journey |
 | **presence** — filled-versus-not *is* the datum | **against a floor; never to zero** | matrix-grid |
 | **layered** — translucent, composited with its neighbours | **no: settled, radar keeps its alpha.** The finish reaches its edge and its ground | radar |
 
@@ -66,6 +66,73 @@ Two things this needs, and both are in the prototype:
   29 on achromatopsia**, out of 102.
 - **Read the paint before the finish applies.** The slot has to be stamped after
   the read, or the finish's own rules are already matching.
+
+## 1d. A ramp's fill is not the finish's to touch
+
+"Scaled, never flattened" protected the wrong quantity, and the prototype caught
+it. **A reader does not read a ramp's span. They read one region against its
+neighbour.**
+
+Measured on the eight-region choropleth, indaco light:
+
+| | span ΔL | smallest gap between neighbours ΔL |
+|---|---|---|
+| `pigment` (full strength) | 0.292 | **0.0136** |
+| `etching` at the drafted ramp × 0.45 | 0.131 | **0.0066** |
+
+About 0.01 ΔL is the smallest step a reader separates *side by side*, and map
+regions are scattered across a basemap rather than adjacent, so a choropleth
+needs more than that, not less. 0.131 is obviously "not flattened" and the chart
+was still broken.
+
+Worse, the ramp has **no headroom to give**: at full strength its own smallest
+step is 0.0136, barely over the floor, with eight regions. `map.docs.md` already
+warns that "a choropleth past a dozen distinct values asks the eye to rank
+colors it can't separate" — that limit is nearer than a dozen, and it is reached
+before any finish touches it.
+
+So the rule is not a gentler scale factor:
+
+> **A ramp's fill is not the finish's to touch.** The finish works the two
+> channels beside it — the **boundary** of a named region, and the **field** of
+> the unnamed ones.
+
+- `pigment` — hairline boundary, field as it ships.
+- `etching` — every named region gains an inked boundary. On a choropleth that
+  does real work rather than merely differing: it is how a named region becomes
+  findable among a hundred unnamed ones, and it is what etching means anyway.
+- `ground` — the **field** is raised. The basemap IS a choropleth's denominator,
+  so this is ground's own story told in the one place a map has for it.
+
+Measured after: neighbour gaps of 0.0136 / 0.0136 / 0.0137, and the map still
+separates across the three (3.2% / 28.4% / 30.7% of the mark region moved).
+
+**One implementation trap.** `--map-base` is declared on `.map-figure` and
+`.map-svg`, not on the section, so an override on `section.map` is shadowed by
+the descendant's own declaration and silently does nothing. The first attempt at
+ground's field read 0.0% divergence for exactly that reason.
+
+## 1e. Why the coloured map variant is not the default
+
+`map highlight` gives each named region its own `--cat-N` hue. It is not the
+default, and the reason is the grouping rule one level along rather than a
+shortage of tokens.
+
+**Hue cannot rank.** A choropleth's regions carry numbers, so they are one group
+measured once — one hue, and its *strength* carries the magnitude. Make India red
+and Nigeria blue and the reader learns nothing about which is larger; they go to
+the legend and read digits, at which point the map is decoration and a `progress`
+ranking would read faster. `highlight` is for a SET — the eight pilot states, the
+four regions served — where each region is a singular that may own a hue because
+there is no magnitude to rank. `map.docs.md` states it already: "Choropleth for
+magnitude, highlight for membership."
+
+**And the cap is real, at six rather than eight.** `map.transform.js` sets
+`CAT_SLOTS = 6` and assigns `(i % CAT_SLOTS) + 1`, so a seventh named region
+takes the first one's hue while the key still lists it separately. On a world map
+that is the ordinary case, so `highlight` as a default would ship a key that lies
+most of the time. Six is a perceptual cap rather than a token shortage, and it is
+the same width as the a11y texture channel.
 
 ## 1c. The hue count IS the texture count, so a rainbow costs more in monochrome
 
