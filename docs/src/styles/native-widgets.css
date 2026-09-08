@@ -42,9 +42,34 @@
 }
 
 /* Text selection — the native highlight we can tint cross-browser, matched to
- * the code-block selection so prose and code highlight the same. */
+ * the code-block selection so prose and code highlight the same, and to
+ * `--cm-selection` in docs/src/playground/editor.js, which paints the one surface
+ * that draws its own band. The two literals are pinned in step by
+ * docs/src/playground/editor-selection.test.ts.
+ *
+ * WHY 18% AND NOT 22%. The wash is a backdrop, so what matters is the ink left on
+ * top of it. Measured across all 18 palettes in both modes against the six inks the
+ * editors paint (`--text-heading`, `--text-body`, `--text-muted` and the three
+ * `--syntax-*-ink`), the 22% this replaces sat exactly on the line: primary text
+ * (heading, body) cleared AA on 35 of 36 palette-modes and secondary text cleared
+ * AA-large 3:1 on all 36 — but only just, worst 3.01, and the one primary failure
+ * was `--text-body` at 4.32 on cuoio/light, the site's DEFAULT palette and mode.
+ *
+ * That was not a fluke: an earlier pass tuned this wash and named cuoio-light as the
+ * binding case in its own comment, landing 0.18 of a ratio point short. 18% is that
+ * pass finished — primary text >= 4.61 everywhere, secondary >= 3.28 — and it costs
+ * almost nothing to look at: median OKLab distance from the canvas moves 0.146 ->
+ * 0.118, still far above anything an AA-safe solve could reach by another route.
+ *
+ * The BAR is deliberate and worth stating, because picking a stricter one turns this
+ * into a different change: AA for primary text, AA-large for secondary. Holding
+ * comments and punctuation to full AA on a selection band cannot be met by any wash
+ * — `--text-muted` is designed to sit close to the canvas, and lifting it was already
+ * tried and rejected on measurements (the `--syntax-*-ink` tier in
+ * tools/build-docs-portal.js, which removed its `muted` role because the repair
+ * collapsed comment-to-body separation on 26 of 36 palette-modes). */
 ::selection {
-	background: color-mix(in srgb, var(--accent) 22%, transparent);
+	background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 /* Placeholder text in native inputs/textareas — the palette's muted ink, not
@@ -84,8 +109,9 @@
 
 /* Text-fragment highlight (deep links, `#:~:text=`) — tinted to the accent
  * instead of the UA yellow, matched to ::selection so an arrived-at passage
- * reads in-brand. */
+ * reads in-brand. It moves with that rule's alpha for the same reason and by the
+ * same measurement; it also pins its own ink, so only the ground is shared. */
 ::target-text {
-	background: color-mix(in srgb, var(--accent) 22%, transparent);
+	background: color-mix(in srgb, var(--accent) 18%, transparent);
 	color: var(--text-heading);
 }

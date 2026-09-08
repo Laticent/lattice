@@ -236,14 +236,32 @@ const latticeTheme = EditorView.theme({
 		// line near-invisible on every palette (WCAG band-contrast ~1.06–1.16) and
 		// the selection faint on the low-chroma / warm light palettes. These named
 		// tokens are the single tunable contract: the active line bumps to a clearly
-		// visible band (free — alpha too low to touch text legibility), while the
-		// selection keeps its existing 22% fill (so body text stays legible on the
-		// worst low-contrast palette, cuoio-light — no accessibility regression) and
-		// gains a defining 1px accent edge: the definition a heavier fill can't buy
-		// without hurting legibility. A downstream theme can override any of them.
+		// visible band (free — alpha too low to touch text legibility), and the
+		// selection carries a defining 1px accent edge, the definition a heavier fill
+		// can't buy without hurting legibility. A downstream theme can override any.
+		//
+		// `--cm-selection` WAS 22%, on a note claiming body text "stays legible on the
+		// worst low-contrast palette, cuoio-light — no accessibility regression". That
+		// pass picked the right binding case and missed it by 0.18: cuoio/light body
+		// text over a 22% band measures 4.32, just under AA, on the site's DEFAULT
+		// palette and mode. Sweeping the whole matrix — 18 palettes x 2 modes x the six
+		// inks these editors paint — 18% is where primary text (heading, body) clears
+		// AA on all 36 and secondary text clears AA-large 3:1 with room (>= 3.28,
+		// against 3.01 at 22%). Visibility barely moves: median OKLab distance from the
+		// canvas 0.146 -> 0.118.
+		//
+		// It must stay in step with `::selection` in styles/native-widgets.css, which
+		// paints this same band on every surface that does NOT draw its own — the
+		// Studio's editor, CodeField, and all prose. editor-selection.test.ts fails if
+		// the two numbers drift apart.
+		//
+		// `--cm-match` is 26% and is NOT swept with it: it is one glyph wide, it is a
+		// different feature, and it measures 2.71:1 worst (onyx/light) for secondary
+		// ink — a real finding, logged rather than folded into a selection fix
+		// (HARD RULE #18).
 		'--cm-active-line': 'color-mix(in srgb, var(--accent) 12%, transparent)',
-		'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 18%, transparent)',
-		'--cm-selection': 'color-mix(in srgb, var(--accent) 22%, transparent)',
+		'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 22%, transparent)',
+		'--cm-selection': 'color-mix(in srgb, var(--accent) 18%, transparent)',
 		'--cm-selection-edge': 'color-mix(in srgb, var(--accent) 45%, transparent)',
 		'--cm-match': 'color-mix(in srgb, var(--accent) 26%, transparent)',
 		// Autocomplete popup. The panel reused --bg (identical to the editor) with a
@@ -278,7 +296,30 @@ const latticeTheme = EditorView.theme({
 	// The fill stays moderate (legibility-safe); the inset edge gives the band the
 	// crisp definition a heavier fill would cost in text contrast. ::selection (the
 	// native fallback before drawSelection paints) keeps the plain fill.
-	'.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
+	//
+	// SPECIFICITY decides this rule, not stylesheet order, and the plain
+	// `&.cm-focused .cm-selectionBackground` key it used to carry LOST. This editor
+	// runs `drawSelection()`, so the selection is DOM (`.cm-selectionBackground`
+	// divs) rather than the native highlight — and @codemirror/view's base theme
+	// paints those divs through a five-class selector,
+	// `&light.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`
+	// (`#d7d4f0`), while `EditorView.theme()` compiled our key to three. Select-all
+	// therefore slabbed light lavender across every palette: measured on the built
+	// playground at cuoio-dark, computed `rgb(215, 212, 240)` under `--text-body`
+	// #D6C4A8 — about 1.3:1, unreadable. Only the FILL lost; the inset edge below
+	// has no base rule to fight, which is why the slab still carried an accent
+	// hairline — the tell that this rule was live but outgunned.
+	//
+	// `&light` applies because nothing marks this theme dark, but that is not the
+	// bug and marking it dark is not the fix: the dark arm is the same five-class
+	// selector and would slab `#233` instead. Matching the base's SHAPE, plus one
+	// extra class (`&` compiles to the theme's own class, so `&.cm-editor…` is six),
+	// wins on specificity in both arms and does not depend on injection order.
+	//
+	// The Studio's editor (components/studio/editor-theme.ts) never had this: with
+	// no `drawSelection()` it keeps the NATIVE highlight, which `::selection` in
+	// styles/native-widgets.css owns — no base-theme rule to lose to.
+	'&.cm-editor .cm-selectionBackground, &.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
 		backgroundColor: 'var(--cm-selection)',
 		boxShadow: 'inset 0 0 0 1px var(--cm-selection-edge)',
 	},
@@ -611,19 +652,12 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 			],
 		}),
 	});
-	// iOS Safari can paint the native selection highlight before it applies
-	// CodeMirror's injected theme — so the FIRST text selection shows the system
-	// (lavender) tint instead of the themed `--cm-selection`, and only corrects
-	// after a style recalc (e.g. a palette/mode toggle). Force one reflow on the
-	// next frame so the theme is applied up front, not only after a manual toggle.
-	if (typeof requestAnimationFrame === 'function') {
-		requestAnimationFrame(() => {
-			try {
-				view.requestMeasure();
-				void view.scrollDOM.offsetHeight; // force a style/layout flush
-			} catch {}
-		});
-	}
+	// (A `requestAnimationFrame` reflow used to sit here, on the belief that iOS
+	// Safari painted a "system lavender" selection tint before CodeMirror's theme
+	// landed. The lavender was `#d7d4f0` — @codemirror/view's own base-theme
+	// selection color, not the system's — so the cause was CSS specificity, not
+	// injection timing, and the reflow never fixed anything. It is removed with the
+	// real fix, in the `.cm-selectionBackground` rule above.)
 	return {
 		getValue: () => view.state.doc.toString(),
 		setValue: (text) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }),

@@ -255,6 +255,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A DOM census over the chrome agrees with itself, but it is reading the wrong elements](gotchas/studio-playground.md#a-dom-census-over-the-chrome-agrees-with-itself-but-it-is-reading-the-wrong-elements)
 - [A control's own icon renders sliced/outside its button, and every overflow guard is green](gotchas/studio-playground.md#a-controls-own-icon-renders-slicedoutside-its-button-and-every-overflow-guard-is-green)
 - [A CodeMirror `@media (pointer: coarse)` block has no effect on a real touch device](gotchas/studio-playground.md#a-codemirror-media-pointer-coarse-block-has-no-effect-on-a-real-touch-device)
+- [Select-all in the Playground editor paints a light lavender slab](gotchas/studio-playground.md#select-all-in-the-playground-editor-paints-a-light-lavender-slab)
 - [A chat panel's state lands on whichever deck is on screen when the turn ends](gotchas/studio-playground.md#a-chat-panels-state-lands-on-whichever-deck-is-on-screen-when-the-turn-ends)
 - [A 4K deck renders oversized and cropped in docs-site preview and export](gotchas/studio-playground.md#a-4k-deck-renders-oversized-and-cropped-in-docs-site-preview-and-export)
 
