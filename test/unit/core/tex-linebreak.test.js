@@ -65,8 +65,20 @@ describe('core: tex-linebreak — what it refuses, which is most things', () => 
   });
 
   test("an author's own `\\\\` is a layout decision already made", () => {
-    const src = `${'x'.repeat(REFLOW_BUDGET)} = a + b \\\\ = c + d`;
-    assert.equal(reflowDisplayTex(src).lines, 1);
+    // THE FIXTURE HAS TO BE ONE THE PASS WOULD OTHERWISE REWRITE. The first cut was
+    // `'x'.repeat(REFLOW_BUDGET) = a + b \\\\ = c + d`, which has no break the gain check accepts —
+    // so it returns `lines: 1` with the guard AND without it, and deleting the guard survived.
+    // A two-line sum does get rewritten: 39 lines, an author's deliberate layout replaced by the
+    // pass's own. (HARD RULE #25 checker, final pass — the arm passed for the wrong reason.)
+    const sum = (p) => Array.from({ length: 20 }, (_, i) => `${p}_{${i}}`).join(' + ');
+    const src = `S = ${sum('a')} \\\\ T = ${sum('b')}`;
+    assert.ok(src.length > REFLOW_BUDGET, 'the fixture must be past the budget to reach the guard');
+    const r = reflowDisplayTex(src);
+    assert.equal(r.lines, 1);
+    assert.equal(r.tex, src);
+    // The SAME sum with no `\\\\` in it does break, which is what proves the refusal is the guard
+    // rather than the equation being unbreakable.
+    assert.ok(reflowDisplayTex(`S = ${sum('a')} + ${sum('b')}`).lines > 1);
   });
 
   test('any environment is left alone — this is what keeps every `pmatrix` in the corpus byte-identical', () => {

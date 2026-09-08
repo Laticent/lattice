@@ -569,11 +569,19 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.equal(labelOf(row), 'take the limit');
   });
 
-  test('a leading SYMBOL is kept — a symbol names a thing, an equation makes a claim', () => {
-    // The legend member `$\sigma$ — the logistic link` must still point at `σ`; dropping every
-    // piece of leading math would have retitled the whole symbols run after its descriptions.
-    for (const [tex, want] of [['\\sigma', 'σ'], ['X^\\top X', 'X⊤X'], ['n', 'n']]) {
+  test('a leading SYMBOL is kept — if the deck can SET it', () => {
+    // A symbol names a thing and an equation makes a claim, so `- $n$ — the sample size` still
+    // points at `n`. But that only holds for a symbol the chip can print: the pill is `--fs-meta`
+    // in the deck's TEXT face, and `σ` / `X⊤X` are not in it. The committed demo PDF proved it —
+    // pages 10, 13 and 18 embed `DejaVuSans-Bold` and no other page does, and page 10's chip reads
+    // `XTX` at 300dpi, a DIFFERENT EXPRESSION from the equation above it. An untypeable symbol is
+    // a wrong name, and the description beside it is a right one, so it hands the name over.
+    for (const [tex, want] of [['n', 'n'], ['a + b', 'a+b'], ['\\log x', 'logx']]) {
       assert.equal(labelOf(`<li>${typeset(tex)} — a description of it</li>`), want);
+    }
+    for (const tex of ['\\sigma', 'X^\\top X', 'n \\times p', '\\beta']) {
+      assert.equal(labelOf(`<li>${typeset(tex)} — a description of it</li>`), 'a description of it',
+        `\`${tex}\` kept a name the deck's text face cannot set`);
     }
   });
 
@@ -708,11 +716,23 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // 22A2–22AF turnstile block takes U+22A4, which is how this repo writes transpose, and the
     // whole 2A00–2AFF block takes the n-ary operators.
     // `\\top` is the one that matters: KaTeX classifies it `ord`, so taking KaTeX's word keeps
-    // `X^\\top X` a name for free — a hand-cut turnstile range had to be patched after it did not.
-    for (const [tex, want] of [['n \\times p', 'n×p'], ['X^\\top X', 'X⊤X'], ['a + b', 'a+b'],
-      ['\\bigoplus_i V', '⨁iV'], ['a \\oplus b', 'a⊕b'], ['\\sum_i x_i', '∑ixi']]) {
-      assert.equal(labelOf(`<li>${typeset(tex)} — a description</li>`), want,
-        `\`${tex}\` was read as a claim rather than a name`);
+    // `X^\\top X` out of the relation set for free — a hand-cut turnstile range had to be patched
+    // after it did not.
+    //
+    // ASSERTED ON `RELATION` DIRECTLY, not through `labelOf`, and the indirection is why: five of
+    // these six are untypeable, so the type-face rule above now drops them for a reason that has
+    // nothing to do with relations. Reading the classification off the label would have made this
+    // arm pass for the wrong reason the moment that rule landed — which is exactly what happened
+    // to its first cut.
+    for (const [tex, glyphs] of [['n \\times p', '×'], ['X^\\top X', '⊤'], ['a + b', '+'],
+      ['\\bigoplus_i V', '⨁'], ['a \\oplus b', '⊕'], ['\\sum_i x_i', '∑']]) {
+      for (const c of glyphs) {
+        assert.ok(!RELATION.test(c), `${c} (\`${tex}\`) is an OPERATOR and RELATION claims it`);
+      }
+      // …and the drop is not firing on a relation it does not have: a member whose leading math is
+      // an operator keeps its own name whenever the face can set it.
+      assert.equal(labelOf(`<li>${typeset(tex)} — a description</li>`),
+        /[^\x20-\x7E]/.test(glyphs) ? 'a description' : 'a+b');
     }
   });
 
@@ -740,8 +760,82 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // Scoped to MATH: an author's typed arrow in prose is #29's `lint:deck` warning, which
     // coaches rather than refuses, and silently dropping their wayfinding would coach nothing.
     assert.equal(labelOf('<li>Ship → launch — the plan</li>'), 'Ship → launch');
-    // `≠` is in NOT_SHAPES, so the derivation step keeps its name.
-    assert.equal(labelOf(tr(typeset('a = b'), `divide by ${typeset('h \\neq 0')}`)), 'divide by h≠0');
+    // `≠` is in NOT_SHAPES, so `mathSafe` lets it through — and then the TYPE-FACE rule declines it
+    // anyway, on the separate ground that the chip cannot set it. That is the same page-18
+    // `DejaVuSans-Bold` chip. Dropping the math is not on the table here: it is mid-sentence, and
+    // `divide by 0` would be a lie. So the chip degrades to the un-labeled `continues →`.
+    assert.equal(labelOf(tr(typeset('a = b'), `divide by ${typeset('h \\neq 0')}`)), '');
+  });
+
+  test('the type-face decline reads the characters MATH produced, not the whole label', () => {
+    // Two shortcuts were tried in one revision and both are wrong the same way. `src.includes('katex')`
+    // is the scope error `mathSafe` had already been taught (arm above). And testing the WHOLE label
+    // for non-ASCII declines prose the text face sets perfectly well — a legend member is allowed an
+    // accent. The mirror reader hands back what it took out of each span, so the test is membership.
+    assert.equal(labelOf(`<li>${typeset('a = b')} — Café results</li>`), 'Café results');
+    assert.equal(labelOf('<li>Café results — the katex run</li>'), 'Café results');
+    // And it still declines when the character DID come out of the math.
+    assert.equal(labelOf(tr(typeset('a = b'), `bound by ${typeset('\\varepsilon')}`)), '');
+  });
+
+  // ── the four label paths are ONE path ────────────────────────────────────────────────
+  //
+  // Four readers (carousel slot title, leading `<strong>`, `<h3>`+, flat run) fed two copies of
+  // the same four steps, and the copies disagreed. `safeName` is the single definition now
+  // (HARD RULE #1); these arms are what says so. All from the HARD RULE #25 checker's final pass.
+
+  test('the NAMED and FLAT paths agree — identical content, identical chip', () => {
+    // The only difference was what `mathSafe` was handed as its source: the named path bounded it
+    // to the title element, the flat path to the whole leading run. So `- **Recency** — decays
+    // toward $A \to B$` kept its name and `- Recency — decays toward $A \to B$` declined, for
+    // content that renders the same chip either way.
+    const tail = `— decays toward ${typeset('A \\to B')}`;
+    assert.equal(labelOf(`<li><strong>Recency</strong> ${tail}</li>`), 'Recency');
+    assert.equal(labelOf(`<li>Recency ${tail}</li>`), 'Recency');
+    assert.equal(labelOf(`<li><h3>Recency</h3> ${tail}</li>`), 'Recency');
+  });
+
+  test('a glyph in the DISCARDED half does not decline the label', () => {
+    // `mathSafe` ran before the clause break, so an arrow in the description — which the chip
+    // never carries — killed a perfectly good name. Zero corpus members hit it, which is exactly
+    // why it needed a reader rather than a render.
+    assert.equal(labelOf(`<li><strong>Recency — decays ${typeset('A \\to B')}</strong></li>`), 'Recency');
+    assert.equal(labelOf(`<li>Recency: maps ${typeset('A \\to B')} onto the unit interval</li>`), 'Recency');
+  });
+
+  test('a DROPPED equation does not poison the prose that survives it', () => {
+    // `dropLeadEquations` and `mathSafe`'s span-scoped source were each right alone. Together they
+    // made the #29 decline depend on markup the label no longer contains: two derivation rows with
+    // identical prose disagreed, one because it happened to lead with an equation.
+    assert.equal(labelOf(tr(typeset('a = b'), 'then A → B')), 'then A → B');
+    assert.equal(labelOf(tr('plain', 'then A → B')), 'plain then A → B');
+  });
+
+  test('the carousel SLOT TITLE is read depth-aware, like everything else in this file', () => {
+    // `/<span class="split-pt-t">([\s\S]*?)<\/span>/` was here, on the read that is checked FIRST,
+    // in a file that bans that lazy pair twice over. KaTeX nests `<span>`s, so a slot title
+    // carrying math captured up to the first inner close, left unbalanced spans behind, and both
+    // of `stripMathMirror`'s loops bailed: the chip shipped `X ⊤ X X^\top X` — the visual half AND
+    // the raw TeX — on a rendered slide. Pre-existing on `origin/main`; on-path here (#18).
+    const slot = (t, b) => `<div class="split-pt"><span class="split-pt-t">${t}</span><span class="split-pt-b">${b}</span></div>`;
+    assert.equal(labelOf(slot('Recency', 'Time-decay against a configurable half-life.')), 'Recency');
+    // The math title declines (its characters are untypeable) — what it must NEVER do is print
+    // KaTeX's internals, so assert the shape rather than only the value.
+    const math = labelOf(slot(typeset('X^\\top X'), 'the Gram matrix'));
+    assert.doesNotMatch(math, /\\top|span|katex/);
+    // A TYPEABLE math title still names its page, which is what proves the read itself works.
+    assert.equal(labelOf(slot(typeset('R'), 'the reals')), 'R');
+  });
+
+  test('a `>` inside a quoted attribute value is not the end of the tag', () => {
+    // Chromium parses `<td title="a>b">x</td>` as one TD with both attributes; `<[^>]*>` stops at
+    // the first `>` and leaves `b">` behind, so a chip read `b"> f(x)=y the limit step` — raw
+    // attribute text plus the un-dropped equation, on a slide. `tagEnd` is the bound this file
+    // already worked out; three readers use it now (the strip, the drop walk, the outer-tag slice).
+    const step = `${typeset('f(x) = y')} the limit step`;
+    assert.equal(labelOf(`<td>${step}</td>`), 'the limit step');
+    assert.equal(labelOf(`<td title="a>b">${step}</td>`), 'the limit step');
+    assert.equal(stripTags('<td title="a>b">x</td>', ' ').trim(), 'x');
   });
 
   test('EVERY leading equation is dropped, not just the first', () => {

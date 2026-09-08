@@ -12,9 +12,10 @@ summary: >-
   `lib/core/tex-linebreak.js` breaks a display equation too long for the slide onto `aligned`
   lines, descending into the delimiter group that dominates the long side, and gates on the same
   non-`wide` family test autosplit uses, which is the same gate the split and the pointer label sit
-  behind, so nothing here can reach a 16:9 render. Measured on
+  behind, so nothing in the MATH work can reach a 16:9 render (the #2132 stylesheet guards below
+  do, by design). Measured on
   `math feature`'s sample at portrait: 2587px of ink against a 972px stage, 1850px broken, 925px
-  at the multi-line display scale keyed on the marker the pass emits. Fixes five kernel defects
+  at the multi-line display scale keyed on the marker the pass emits. Fixes nine kernel defects
   the enrollment surfaced — a display equation hoisted to the cover as a lede and lost from every
   body page, a forward pointer that read "X X X" off KaTeX's a11y mirror and then a literal
   `\sigma` off its TeX annotation before it settled on the MathML symbols, a `derivation` step
@@ -129,9 +130,17 @@ stopped one break short and concluded line-breaking hits a floor at 1694px; it d
 `lib/core/tex-linebreak.js` is the rule, `displayBlock` in `lib/engine/math.js` is the seam, and
 the pass runs **only for a non-`wide` family** — the same gate `AUTOSPLIT_APPLIES` uses, for the
 same reason: a deck is authored at 16:9, so an equation that fits the box the author had in front
-of them is one they composed. Nothing on this branch can change a 16:9 render: the reflow, the split
-and the forward-pointer label all gate on the same non-`wide` family test. That is a claim about
-the GATES, not a byte-comparison of every deck — one was not run.
+of them is one they composed.
+
+**"Nothing on this branch can change a 16:9 render" is what this said, and it is false as written.**
+Three of the branch's own stylesheet guards (#2132, the component-id / variant-token collisions)
+change 16:9 renders BY DESIGN — the PR body says so in its own section. What is true is the scoped
+claim: **the MATH work** cannot reach one, because the reflow, the split and the forward-pointer
+label all gate on the same non-`wide` family test (`installMath(… reflow: family !== 'wide')`,
+`AUTOSPLIT_APPLIES`, and both new `math.styles.css` blocks keyed on `[data-math-reflow]` /
+`.lat-split-native`). That is a claim about the GATES, not a byte-comparison of every deck — one
+was not run. (HARD RULE #25 checker; the sentence read as a blanket claim about the branch and was
+quoted as one.)
 
 ### The second lever is scoped to what the first one broke
 
@@ -152,10 +161,18 @@ The 2.4em itself is left alone, and #2129's CSS comment explains why one rule ca
 samples: bare's hero renders 914px inside a 972px box at 2.4em, so dropping the declaration to fit
 `feature` would take it from 112.75px to 42.28px — trading one defect for another.
 
-## Three kernel defects this surfaced, all fixed here
+## Nine kernel defects this surfaced, all fixed here
 
-Each was found by rendering `examples/math-split-structure.md` at portrait and reading the pages,
-not by any gate.
+**The heading said "Three" while the list below it held five, and the PR body said eight.** Nobody
+re-counted; the number was written when the list was short and never moved with it. That is the
+same failure this branch's own subject is about, in the document making the argument — so the
+count is stated here as a count of the numbered entries below, and a reader who adds one is
+expected to change this word.
+
+The first five were found by rendering `examples/math-split-structure.md` at portrait and reading
+the pages, not by any gate. The last four were found by an independent checker reading the final
+integrated state (HARD RULE #25), and three of them are in code the earlier five had already been
+through — which is the more useful fact about them.
 
 1. **The equation was hoisted to the cover as a LEDE and lost from every body page.**
    `ledeSpansIn` treats a `<p>` between the masthead and the collection as framing prose, and a
@@ -207,6 +224,59 @@ not by any gate.
 5. **All three theorem cards were cut from every page and dumped on a closing page.** `math`
    claims `blockquote` and `trailing-paragraph`, and on three of its four structures the claimed
    element IS a member. `math-structures` joins `MEMBER_CLAIM_STRATEGIES`.
+6. **The SPLITTER's own stamp bypassed both label rules.** `withMemberLabel` (carousel.js) stamps
+   `data-split-label` with a member's title, and `applyRelationshipSignals` reads that back as an
+   already-FLATTENED plain string — so `dropLeadEquations` found no `.katex` span in it and
+   `mathSafe`'s span-scoped test returned −1. Both guards no-opped, and a theorem card titled
+   `**$A \to B$ Theorem.**` shipped the chip `A→B Theorem`: a typed arrow two characters from the
+   engine-drawn `--shape-arrow-right`, which is the exact input defect 4 above says was removed.
+   `math` was `atomic` on `origin/main`, so no math member could reach a chip at all — this branch
+   opened the path, which makes it a window this branch created (HARD RULE #18). Fixed by exporting
+   the label kernel as `safeName` and having the stamp call it, so there is ONE definition of what a
+   name is (HARD RULE #1) rather than a copy per caller.
+7. **The four label paths were two copies of the same four rules, and the copies disagreed.**
+   `- **Recency** — decays toward $A \to B$` kept its name; `- Recency — decays toward $A \to B$`
+   declined, for content that renders the same chip either way. Two more ordering defects fell out
+   of the same read: `mathSafe` ran BEFORE the clause break, so a glyph in the description half —
+   which is thrown away — declined the whole label; and it was handed the PRE-drop source, so a
+   dropped equation still poisoned the prose that survived it. All three are gone with the copy.
+8. **The carousel slot title was read with the lazy `</span>` pair this file bans twice over.**
+   `/<span class="split-pt-t">([\s\S]*?)<\/span>/`, on the read that is checked FIRST, in the file
+   whose headline fix is that KaTeX nests `<span>`s. A slot title carrying `$X^\top X$` captured up
+   to the first inner close, left unbalanced spans behind, and both of `stripMathMirror`'s loops
+   bailed: the chip read `X ⊤ X X^\top X` — the visual half AND raw TeX — on a rendered slide.
+   Byte-identical on `origin/main`, so not this branch's regression; the same function, the same
+   defect class and this branch's headline subject, which is what #18 means by ON THE PATH.
+9. **A chip could print a character the deck's type face cannot set.** `mathSafe` refuses the
+   curated #29 shape glyphs and knows nothing about `⊤ σ ≠ ℓ β λ`. The committed demo PDF proves
+   what that costs: pages 10, 13 and 18 embed `DejaVuSans-Bold` and no other page does, and those
+   three are exactly the chips reading `X⊤X`, `σ` and `divide by h≠0`. At 300dpi page 10's reads
+   `XTX` — DejaVu's `⊤` at pill tracking is a capital T — so a math-literate reader sees a
+   DIFFERENT EXPRESSION from the equation directly above it. Where the untypeable math LEADS the
+   member the equation is now dropped and the description beside it becomes the name (`- $\sigma$
+   — the logistic link` reads `the logistic link`); where it cannot be spared, the chip degrades to
+   the un-labeled `continues →`.
+
+## What the gates could not have caught, and what now pins it
+
+Four of this branch's own claimed fixes had **no test that could fail**, and one of them sat behind
+an arm that was vacuous in exactly the way this document criticises elsewhere. Found by mutation,
+not by reading:
+
+| claim | mutation that SURVIVED | pinned now by |
+|---|---|---|
+| a display equation is not a lede (defect 1) | `isDisplayMathP = () => false` | `split-envelope.test.js`, both renderers' display wrappers |
+| a broken reflow falls back to the author's source | drop the `#cc0000` half; `if (true)` | `math-reflow.test.js`, on `\Bigra` — which errors with NO error class |
+| the #29 decline on the named label paths | delete `mathSafe` from `named()` | structural: one `safeName`, so every label arm reaches it |
+| an author's own `\\` is left as written | delete the guard | `tex-linebreak.test.js`, on a fixture that DOES reflow (39 lines) |
+| an ellipsising box must not also wrap | delete the `nowrap`/`pre` test | `overflow-probe.test.js`, a `wrap` arm the harness could not express |
+
+The `math-reflow` case is worth stating plainly because it is the trap this branch keeps walking
+into: the arm asserted `bad(reflowed) === bad(original)` over three equations that all render
+CLEAN, so it was `false === false` whatever the seam did. Getting a fixture that can fail took a
+hunt — the pass is sound enough that a fuzz over the corpus's real display equations found zero
+reflows that introduce an error — and the one that works errors in BOTH renders, so what the guard
+actually owes is not a clean render but the refusal to CLAIM one: no `data-math-reflow`.
 
 ## What this costs, stated plainly
 

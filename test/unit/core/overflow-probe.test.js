@@ -975,7 +975,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
   // Mount real nodes and stub only the geometry jsdom does not compute. `clipBoxes`
   // names the boxes whose computed overflow is non-visible; `scroll` supplies
   // scrollHeight/clientHeight for boxes that need them.
-  function mount(html, rects, { clipBoxes = [], scroll = {}, pseudo = {}, textRects = {}, truncate = [], flex = [] } = {}) {
+  function mount(html, rects, { clipBoxes = [], scroll = {}, pseudo = {}, textRects = {}, truncate = [], flex = [], wrap = [] } = {}) {
     const dom = new JSDOM('<!doctype html><body>' + html + '</body>');
     const { window } = dom;
     const doc = window.document;
@@ -1020,6 +1020,11 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     // A box laid out as a FLEX container — `text-overflow` is inert on one, so the probe must
     // not exempt it however the three text properties read.
     const flexSet = new Set(flex.flatMap((sel) => [...doc.querySelectorAll(sel)]));
+    // A box that DECLARES `text-overflow: ellipsis` but WRAPS. `white-space` was tied to
+    // `truncate` here, so no fixture could reach the probe's `nowrap`/`pre` test and deleting it
+    // survived the suite — a wrapping ellipsis box would then have been exempted from horizontal
+    // `over` while really losing text. (HARD RULE #25 checker, final pass.)
+    const wrapSet = new Set(wrap.flatMap((sel) => [...doc.querySelectorAll(sel)]));
     const prev = global.getComputedStyle;
     global.getComputedStyle = (el, pe) => {
       if (pe) return { content: pseudo[el.id] && pe === '::after' ? `"${pseudo[el.id]}"` : 'none' };
@@ -1028,7 +1033,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
         overflowY: clipSet.has(el) || trunc ? 'clip' : 'visible',
         overflowX: trunc ? 'hidden' : 'visible',
         textOverflow: trunc ? 'ellipsis' : 'clip',
-        whiteSpace: trunc ? 'nowrap' : 'normal',
+        whiteSpace: trunc && !wrapSet.has(el) ? 'nowrap' : 'normal',
         position: el.dataset?.pos || 'static',
         display: flexSet.has(el) ? 'flex' : 'block',
         visibility: 'visible',
@@ -1203,6 +1208,32 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     const r = withDom(html, rects, { scroll, truncate: ['#ft'], flex: ['#ft'] },
       (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
     assert.equal(r.over, true, 'a flex container cannot ellipsise, so its spill is real loss');
+  });
+
+  test('#2138 — a WRAPPING box is not exempt: `text-overflow` is inert without `nowrap`', () => {
+    // `text-overflow` acts at a line box's inline END, and a wrapping box never reaches one — it
+    // starts a new line instead, and what runs past the box's bottom is hard-clipped with no
+    // ellipsis. So the declaration alone is not the exemption; the probe reads `white-space` too.
+    // Nothing pinned that: the harness tied `whiteSpace` to the truncate set, so no fixture could
+    // ever reach the test, and deleting `if (ws !== 'nowrap' && ws !== 'pre') return false;`
+    // passed the whole suite. Same box, same three-property shape, one value different.
+    const html = '<section class="form"><div class="cell-footer">'
+      + '<footer id="ft"><span id="a">one</span></footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),
+      '#a': rect(650, 690, 900, 1400),           // 760px past the box's right edge
+    };
+    const scroll = { section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 } };
+    const r = withDom(html, rects, { scroll, truncate: ['#ft'], wrap: ['#ft'] },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, true, 'a wrapping box cannot ellipsise, so its spill is real loss');
+    // …and the identical box at `nowrap` IS exempt, so the arm pins the property rather than
+    // the fixture.
+    const ok = withDom(html, rects, { scroll, truncate: ['#ft'] },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(ok.over, false, 'the nowrap control must still be exempt');
   });
 
   test('#2138 — a NON-truncating clip box still contributes its horizontal spill', () => {

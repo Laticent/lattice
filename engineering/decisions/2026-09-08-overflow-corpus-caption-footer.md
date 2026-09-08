@@ -46,7 +46,16 @@ chrome (`white-space: nowrap; overflow: hidden; text-overflow: ellipsis`).
 Measured on `bar.gallery.md` at hd: the band is **1187px** and the text runs **~9.88px per
 character**, so it holds about 120 characters. The three cut footers lay out at 1344px, 1294px and
 1225px; the two that fit are 13 and 100 characters. Across the tree, **29 generated footers on 8
-components** are past that budget, the longest 396 characters.
+components** are past that budget, the longest 396 characters (`zoom · waterfall zoom`).
+
+*(Re-derived 2026-09-08 after an independent checker reported 23 across 7. The count holds: walk
+every `*.manifest.json` with `specimenVoice === true`, build each footer the way `galleryPlan` does
+— `` `${label} · ${name} ${key}` `` for a `variantDocs` entry and `` `Stress test · ${name}` `` for
+the stress slide, then `— ${summary}` — and count the ones past 120 characters. 262 specimen
+footers, 29 over, on 8 components; the number is stable from a 110- to a 120-character budget. A
+count off `m.variants` rather than `m.variantDocs`, or one that skips the stress slide, comes in
+low. Recorded because the disagreement will otherwise be re-litigated, and because a checker being
+wrong is not the same as a claim being right — this one was re-run, not defended.)*
 
 `probeContentClipped` classifies every one of them `chromeOnly: true` — the ellipsis is the
 DESIGNED answer and no author body content is lost. `check-overflow-corpus.js` counts them anyway,

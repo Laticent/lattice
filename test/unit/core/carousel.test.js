@@ -13,6 +13,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const katex = require('katex');
 const { carouselize, readSubjects, readFeature, readRows, CAROUSEL_STRATEGIES, MEMBER_CLAIM_STRATEGIES } = require('../../../lib/core/carousel');
 const { splitSections } = require('../../../lib/core/split-sections');
 // The content-cell reader + depth-aware top-level walk the engine itself uses to place
@@ -813,6 +814,47 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     assert.ok(freq.includes('sampling distribution'), "…and must keep its own column's bullets");
   });
 
+  test("a `compare` column's OWN paragraphs are not the section's coda", () => {
+    // `compare` renders a FLAT `h3, p, p, h3, p, p` run, so nothing in the markup separates the
+    // last column's last paragraph from a closing one. `trailingSlotMaterialOf`'s
+    // `bareParagraphIsNote` reads a `<p>` after a structural element as a note, and it claimed BOTH
+    // of the Ridge column's `<p>`s — its display equation and its explanation. The last column ran
+    // to the first of them and `examples/math-split-structure.md` went from 28 pages to 29: page
+    // 7.3 read "Ridge" and nothing else, with the equation dumped on a closing page.
+    // A regression THIS BRANCH introduced while fixing the blockquote case below (HARD RULE #18).
+    const col = (name, tail) => `<h3>${name}</h3>`
+      + '<p><span class="katex-display"><span class="katex">e</span></span></p>'
+      + `<p>${tail}</p>`;
+    const inner = mathInner(col('Ordinary least squares', 'OLSTAIL unbiased under exogeneity.')
+      + col('Ridge', 'RIDGETAIL biased, lower variance.'));
+    const parts = split(mathTag('compare'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.filter((p) => roleOf(p) === 'closing').length, 0,
+      `a column's own prose was hoisted to a closing page (roles: ${parts.map(roleOf).join(',')})`);
+    assert.equal(parts.length, 3, `cover + one column per page, got ${parts.length}`);
+    const ridge = parts.find((p) => p.includes('Ridge') && roleOf(p) !== 'cover');
+    assert.match(ridge, /RIDGETAIL/, "the last column lost its own explanation");
+    assert.match(ridge, /katex-display/, "…and its own equation");
+    assert.doesNotMatch(ridge, /OLSTAIL/, 'a column page must not carry the other column');
+  });
+
+  test('…but a key insight AFTER the columns still closes the run', () => {
+    // The finding the rule above exists for, kept beside the regression it caused. A `blockquote`
+    // ANNOUNCES itself as a coda where a bare paragraph cannot, which is the whole discriminator.
+    const col = (name) => `<h3>${name}</h3>`
+      + '<p><span class="katex-display"><span class="katex">e</span></span></p><p>body.</p>';
+    const inner = mathInner(`${col('Frequentist')}${col('Bayesian')}`
+      + '<blockquote><p>SENTINELQ the run takeaway.</p></blockquote>');
+    const parts = split(mathTag('compare'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.filter((p) => p.includes('SENTINELQ')).length, 1);
+    assert.equal(roleOf(parts.at(-1)), 'closing', 'the insight must close the run, not ride a column');
+    assert.ok(parts.at(-1).includes('SENTINELQ'));
+    // …and neither column lost anything to it.
+    const bayes = parts.find((p) => p.includes('Bayesian') && roleOf(p) === 'body');
+    assert.match(bayes, /katex-display/);
+  });
+
   test('a trailing note lands ONCE, on a closing page — on the paginated arm', () => {
     // `math` claims `blockquote` AND `trailing-paragraph`, so `splitEnvelope`'s own region scan
     // (which asks with the layout class) returned nothing and the note stayed in the trunk —
@@ -846,6 +888,53 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     }
   });
 
+  test('the STAMP owes the label rules — an equation and a shape glyph are not names', () => {
+    // `data-split-label` reaches `applyRelationshipSignals` as an already-FLATTENED plain string:
+    // `dropLeadEquations` finds no `.katex` span in it and `mathSafe`'s span-scoped test returns
+    // −1, so both content guards no-op. A theorem card titled `**$A \to B$ Theorem.**` shipped the
+    // chip `A→B Theorem` — a typed arrow two characters from the engine-drawn shape — and one
+    // titled `**$f(x) = y$ Theorem.**` shipped `f(x)=y Theorem`. Both are the exact inputs this
+    // branch's own docblocks say it removed, through the arm this branch created: `math` was
+    // `atomic` on `origin/main`, so no math member could reach a chip at all (HARD RULE #18).
+    // Verified on a real portrait render, not only here.
+    const K = (tex) => katex.renderToString(tex, { output: 'htmlAndMathml', throwOnError: false });
+    const inner = mathInner(
+      `<blockquote><p><strong>Definition.</strong> A map from A to B, at some length.</p></blockquote>`
+      + `<blockquote><p><strong>${K('A \\to B')} Theorem.</strong> For every continuous f the image is closed.</p></blockquote>`
+      + `<blockquote><p><strong>${K('f(x) = y')} Theorem.</strong> The intermediate value theorem, restated.</p></blockquote>`,
+    );
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts) && parts.length >= 3);
+    const labels = parts.map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1] ?? null);
+    for (const l of labels) {
+      if (l === null) continue;
+      assert.doesNotMatch(l, /→|=|katex|top/, `the stamp printed ${JSON.stringify(l)}`);
+    }
+    // The leading math is DROPPED and the prose beside it becomes the name — the same answer
+    // `labelOf` gives, which is the point of sharing `safeName` rather than copying the rules.
+    assert.deepEqual(labels.filter(Boolean), ['Definition', 'Theorem', 'Theorem']);
+  });
+
+  test('a DECLINED label stamps blank — it does not fall back to the heuristic', () => {
+    // Two different answers, and the reader tells them apart. No attribute means "this strategy
+    // names nothing, use your heuristic". An EMPTY one means "I found the title element and the
+    // label rules declined it" — and falling through there would re-enable the heuristic the stamp
+    // exists to override, which on these strategies is known to be wrong (a `kanban` card names
+    // the first row inside it, not the card). A title that is only untypeable math is the case.
+    const K = (tex) => katex.renderToString(tex, { output: 'htmlAndMathml', throwOnError: false });
+    const inner = mathInner(
+      `<blockquote><p><strong>${K('F: A \\to B')}</strong> A card whose whole title is math.</p></blockquote>`
+      + `<blockquote><p><strong>${K('\\sigma')}</strong> And another, at some length to match.</p></blockquote>`
+      + `<blockquote><p><strong>Proof.</strong> A third card so the run has three members.</p></blockquote>`,
+    );
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts) && parts.length >= 3);
+    const stamps = parts.map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1]);
+    // Present, and empty — not absent.
+    assert.ok(stamps.some((v) => v === ''), `expected a blank stamp, got ${JSON.stringify(stamps)}`);
+    assert.ok(stamps.includes('Proof'), 'the nameable card must still be named');
+  });
+
   test('a card is labelled by its LEADING strong, not by a bold word in its body', () => {
     // An unanchored `tag:strong` took the first `<strong>` anywhere in the member, so a card
     // written `> A theorem about **compactness**.` labelled its page — and the previous page's
@@ -857,7 +946,10 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     const parts = split(mathTag('theorem'), inner);
     assert.ok(Array.isArray(parts) && parts.length >= 3);
     const labels = parts.map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1] ?? null);
-    assert.ok(labels.includes('Definition.'), `expected the leading strong, got ${JSON.stringify(labels)}`);
+    // `Definition`, not `Definition.` — the stamp goes through `safeName` now, which trims the
+    // sentence punctuation a card title is authored with. The CHIP always read `Definition →`
+    // (`labelOf` trimmed it on the way out); the attribute now says the same thing.
+    assert.ok(labels.includes('Definition'), `expected the leading strong, got ${JSON.stringify(labels)}`);
     assert.ok(!labels.includes('compactness'), 'a mid-sentence bold word is not a title');
   });
 
