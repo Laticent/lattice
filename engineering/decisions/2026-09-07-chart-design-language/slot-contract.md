@@ -264,39 +264,36 @@ manifests' `kernel` block, already emits `LAYOUTS` / `FIGURE_CLASSES` /
 `build-stage-catalog.js` and proposed a parallel generator; that was the wrong
 precedent.
 
-## 6. Three forks — the repo owner's call
+## 6. The three forks, decided
 
-**Fork A — commit order.** Revision 1 killed `data-cat` last, which leaves two
-attributes for one fact across three commits and is the drift this repo hates.
-Two better orders:
+Answered by the repo owner, 2026-09-08.
 
-- **A1 (recommended)** — migrate the consumers to accept EITHER
-  (`[data-cat="0"], [data-hue="1"]`), then stamp per cohort, then delete
-  `data-cat` as a pure deletion. Each stamping commit ships independently
-  correct and nothing is ever half-consumed.
-- **A2** — delete `data-cat` in commit 1 on the five members that already carry
-  a slot. Shorter, but `svg-legend.js:161` emits `data-cat` for every
-  legend-bearing member from one shared file, so commit 1 would have to touch
-  all of them at once.
+**A — commit order: a clean cut.** Lattice is pre-GA, so no back-compatibility
+is owed. `data-cat` is DELETED and replaced by `data-hue`; there is no
+accept-either phase and no window where two attributes name one fact.
 
-**Fork B — do text labels carry `data-hue`?** `data-cat` is stamped today on
-`line-series` and `sbar-name` so a label wears its series ink. `marks` declares
-MARK classes. Either labels also get the attribute, or they lose their
-per-series ink, or `data-cat` survives for them and two conventions persist.
-**Recommendation: labels get `data-hue` and a `bearsText: true` entry** — the
-label IS the join (`spend-rules.md` §3), so it belongs in the contract.
+**B — text labels carry `data-hue`.** `line-series` and `sbar-name` wear their
+series ink today via `data-cat`; they keep it via `data-hue` and declare
+`bearsText: true`. The label IS the join (`spend-rules.md` §3).
 
-**Fork C — is this still worth building?** The honest case against, from the
-inversion pass: the three finishes have never shipped, so nothing a reader sees
-regresses if the contract never lands. The day-one payoff is real but small —
-about 50 rules across 6 members, roughly 1% of chart CSS. And §3d says the
-contract is necessary but not sufficient for the finishes, which additionally
-need the `frame:` register (a whole new front-matter register, unbuilt) and
-per-group track emission on ~13 transforms before `ground` is distinguishable
-at all. The repo has a two-day-old precedent for stamping something no consumer
-reads: `--i`, emitted by six transforms, read by **zero** CSS rules.
-**Recommendation: build it, but sequence the `frame:` register decision first**,
-so the contract is not stamped for a consumer that never arrives.
+**C — build all of it.**
+
+**And a fourth requirement, which shapes the verification more than the
+design: print and the four a11y themes must come out with HIGH CONFIDENCE.**
+
+That reopens §4 in a specific way. Deleting `data-cat` FORCES the texture
+blocks off it — they cannot stay as they are. But §4's finding stands: a
+family-wide `[data-hue="1"]` texture rule hatches `bullet-measure`, radar, map,
+matrix-grid and two text labels. So the migration is **rule-for-rule, not a
+collapse**: every existing rule keeps its member-and-class scoping and changes
+only the attribute name and the 0→1 renumber. Every deliberate exclusion
+survives by construction, and the diff is mechanical enough to read.
+
+The confidence bar is measured, not asserted (HARD RULE #23): every mark on
+every member rendered across **indaco, cuoio, onyx and the four a11y palettes,
+light and dark, plus the print canvas**, with the resolved paint compared
+against the pre-change render. A member whose marks move colour anywhere they
+should not is a break, and the comparison is the evidence.
 
 ## 7. Banked while this was being checked
 
