@@ -42,6 +42,7 @@ function liftPolicy(html = '') {
 		'function shouldDispatchDiagrams()',
 		'function armDiagramBackoff()',
 		'function backoffExpired()',
+		'function admitDiagramPass(',
 	]) {
 		assert.ok(src.includes(fn), `the port must hold ${fn} — the scheduling is the behavior`);
 	}
@@ -61,7 +62,11 @@ function liftPolicy(html = '') {
 		`${src}
 		return {
 			diagramBackoffMs, anyFenceWithoutInk, shouldDispatchDiagrams, armDiagramBackoff,
-			clearDiagramBackoff, backoffExpired, medianRenderCostMs,
+			clearDiagramBackoff, backoffExpired, medianRenderCostMs, admitDiagramPass,
+			// Most arms describe a host that hands the previous drawing forward (the Studio and
+			// the Playground). stamps(false) describes marp-vscode and every embedder.
+			// No backticks in here: this comment lives inside a template literal.
+			stamps(v) { hostStampsSwaps = v; },
 			render(ms) { recordRenderCost(ms); },
 			settle(ms) { for (let i = 0; i < 3; i++) recordRenderCost(ms); },
 			get handle() { return diagramBackoffHandle; },
@@ -93,6 +98,7 @@ function liftPolicy(html = '') {
 		live[live.length - 1].fn();
 	};
 	const live = () => timers.filter((t) => !t.cancelled);
+	api.stamps(true);
 	return { ...api, doc: dom.window.document, timers, runs, advance, fire, live };
 }
 
@@ -278,6 +284,81 @@ describe('the diagram dispatch policy', () => {
 		p.render(22);
 		p.render(22);
 		assert.equal(p.diagramBackoffMs(), 0, 'two renders of the small one is enough');
+	});
+
+	test('A HOST THAT DOES NOT STAMP still gets the back-off — marp-vscode and embedders', () => {
+		// The leading edge asks whether a fence has a drawing on screen. On a stamping host
+		// that is answerable, because adoption transplants the outgoing SVG. On a host that
+		// does NOT stamp, adoption returns early and the slot is ALWAYS empty, so the question
+		// answered "arrival" on every keystroke and the back-off never engaged. Driven against
+		// the DOM contract of such a host: an 8-character burst on a 64-node fence cost 8
+		// renders and 2603ms, against 1 render and 357ms on the build being replaced, and
+		// stretched the typing from 1006ms to 3333ms. The same page WITH the stamp cost 1
+		// render — the attribute was the only difference.
+		const p = liftPolicy(FENCE(false));
+		p.stamps(false);
+		p.settle(248);
+		assert.equal(p.shouldDispatchDiagrams(), false, 'an empty slot must not disable the back-off here');
+		// And the stamping host is unaffected: the same empty slot still means arrival.
+		const q = liftPolicy(FENCE(false));
+		q.stamps(true);
+		q.settle(248);
+		assert.equal(q.shouldDispatchDiagrams(), true, 'where the question is answerable, it is still asked');
+	});
+
+	test('a non-stamping host still paints its FIRST diagram immediately', () => {
+		// The back-off is never worse than the old fixed debounce for these hosts, and first
+		// paint is better: no render has been timed yet, so there is no wait to serve.
+		const p = liftPolicy(FENCE(false));
+		p.stamps(false);
+		assert.equal(p.diagramBackoffMs(), 0, 'nothing measured yet');
+		assert.equal(p.shouldDispatchDiagrams(), true, 'so the first paint is not held');
+	});
+
+	test('a HELD pass arms the timer and is not admitted', () => {
+		// `admitDiagramPass` is the gate itself, and it lives inside the port because when the
+		// two lines that USE the policy sat outside it, a checker found eight mutations that
+		// survived all 9211 tests — including the two below.
+		const p = liftPolicy(FENCE(true));
+		p.settle(248);
+		assert.equal(p.admitDiagramPass(false), false, 'an edit on an expensive diagram is held');
+		assert.equal(p.live().length, 1, 'and a timer is armed to come back');
+	});
+
+	test('backoffElapsed ADMITS the pass — dropping it holds the render forever', () => {
+		// The mutation: `admitDiagramPass(backoffElapsed)` ignoring its argument. The timer
+		// then re-enters, is held again, arms another timer, and the diagram never draws.
+		const p = liftPolicy(FENCE(true));
+		p.settle(248);
+		assert.equal(p.admitDiagramPass(true), true, 'the timer’s own re-entry must get through');
+		assert.equal(p.live().length, 0, 'and must not leave a timer behind');
+	});
+
+	test('an ADMITTED pass clears the hold, so the ceiling measures one stretch', () => {
+		// The mutation: deleting `clearDiagramBackoff()`. The ceiling then keeps measuring a
+		// stretch that already ended, and expires early on the next one.
+		const p = liftPolicy(FENCE(true));
+		p.settle(248);
+		p.admitDiagramPass(false);
+		p.advance(1300);
+		assert.equal(p.backoffExpired(), true, 'held long enough to expire');
+		p.admitDiagramPass(true);
+		assert.equal(p.backoffExpired(), false, 'admitting resets the budget');
+		assert.equal(p.live().length, 0, 'and cancels the pending timer');
+	});
+
+	test('the stamp flag is WIRED to the stamp read — a census, because the wiring is outside the port', () => {
+		// `hostStampsSwaps` is set in `adoptOutgoingDiagrams`, which no arm can lift: it needs a
+		// live host, a real swap and adoption. So this pins the wiring by text, the way the
+		// runtime-markup census does. It is deliberately the weakest arm in the file, and it
+		// exists because without it a mutation that never sets the flag survives everything:
+		// the Studio would silently fall back to non-stamping behavior and start paying a
+		// back-off on every navigation, with no test anywhere going red.
+		assert.match(
+			RUNTIME_SRC,
+			/const kind = lattice\?\.getAttribute\('data-lattice-swap'\);[\s\S]{0,400}?if \(kind\) hostStampsSwaps = true;/,
+			'the stamp read must still set hostStampsSwaps',
+		);
 	});
 
 	test('the floor sits between the two measurements that bracket it', () => {

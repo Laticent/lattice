@@ -3,27 +3,33 @@ status: shipped
 summary: >
   Editing a Mermaid fence took 209ms to redraw, and 150ms of that was a timer. The fixed
   debounce in front of every diagram render was larger than a FULL RENDER for any diagram up
-  to about 64 nodes — measured 22ms at 4 nodes, 43 at 16, 72 at 32, 130 at 64, 239 at 128 —
-  so it was waiting, not coalescing. It is replaced by coalescing on COMPLETION: at most one
-  diagram run in flight, and if the source moved while it ran, another starts immediately
-  with the latest text. That adapts to the diagram instead of guessing at it, which no
-  constant can do: a small graph streams at render speed while a 128-node one self-throttles
-  to one render per render rather than queueing one per keystroke. A keystroke inside a fence
-  goes 209ms -> ~60ms and arriving at a cold diagram slide 240ms -> ~99ms, with 0 blank
-  frames, 0 layout shift and 0 wrong ink on every arm. Removing the timer alone would have
-  made things worse in one place, and the two halves ship together: a diagram that does not
-  parse WHILE THE AUTHOR IS TYPING is a half-written diagram, not an error, and clearing the
-  slot for it on every keystroke painted 155 frames of raw source where the timer painted 97.
-  So `mermaid.parse` gates the render — ~1.8ms to reject against 22-239ms to draw, at a flat
-  ~14% tax on every SUCCESSFUL render because Mermaid re-parses inside `render` — and a fence
-  that fails it keeps its previous drawing until 450ms of quiet, when the error surfaces for
-  real. The gate needed a FOURTH `data-mermaid-state`, and that is the whole mechanism rather
-  than a detail: its first version parked deferred fences in `pending`, which is the state the
-  walk SELECTS, so every pass re-took the fence, failed the gate, deferred again and re-armed
-  the quiet timer roughly every 16ms. The timer measures whether the author has stopped
-  typing; the deferral itself was what stopped it elapsing, and the fence showed stale ink
-  indefinitely with all 9,158 tests green. Three hypotheses missed it and an instrumented
-  trace found it in one run.
+  to about 64 nodes — 22ms at 4 nodes, 43 at 16, 72 at 32, 130 at 64, 239 at 128 — so it was
+  waiting, not coalescing. It is replaced by a back-off sized by what a render of this
+  diagram actually COST: nothing below ~50ms of render, where the live per-keystroke redraw
+  is free and is what makes editing a small diagram feel instant; above it, twice the median
+  of the last three renders, capped at 150ms — exactly the debounce removed, because a fence
+  already holding a drawing always waits, so that wait IS what the author feels after their
+  last keystroke. A keystroke goes ~194ms -> ~78ms, a burst ~1117ms -> ~77ms, arriving at a
+  cold diagram slide 240ms -> ~119ms, with 0 blank frames, 0 layout shift and 0 wrong ink on
+  every arm; a real iPad Air 4 confirms it (§11). THREE DESIGNS WERE REFUTED FIRST and the
+  detail matters, because each shipped green: coalescing on COMPLETION cannot fire at all,
+  since `mermaid.render` occupies the main thread so a keystroke never arrives mid-run (§9);
+  a time-based leading edge fires at the first keystroke of a burst exactly as on a click
+  (§10); and a cadence term estimated from mutation timing put the redraw behind the old
+  build everywhere and froze a diagram for 14 seconds, because its ceiling was tested only
+  inside a timer every pass cancelled (§10). Removing the timer alone would also have made
+  things worse in one place, so the two halves ship together: a diagram that does not parse
+  WHILE THE AUTHOR IS TYPING is half-written, not broken, and clearing the slot for it on
+  every keystroke painted 155 frames of raw source where the timer painted 97. So
+  `mermaid.parse` gates the render — ~1.8ms to reject against 22-239ms to draw, at a flat
+  ~14% tax on every SUCCESSFUL render — and a fence that fails it keeps its previous drawing
+  until 450ms of quiet. That needed a FOURTH `data-mermaid-state`, and it is the mechanism
+  rather than a detail: its first version parked deferred fences in `pending`, the state the
+  walk SELECTS, so every pass re-took the fence and re-armed the quiet timer roughly every
+  16ms, and the fence showed stale ink indefinitely with all 9,158 tests green. The leading
+  edge is asked only where a host stamps `data-lattice-swap` (§12): on hosts that do not —
+  marp-vscode, embedders, the marp bundle — the slot is always empty, which disabled the
+  back-off entirely and cost 8 renders per burst against the old build's 1.
 ---
 
 # The 150ms in front of every diagram was the wait
@@ -522,3 +528,71 @@ cells were measured on — the regime where a blocking render hurts most.
 
 Recorded here rather than left in a chat transcript, because the next person to touch this
 will find "iOS: UNVERIFIED" in three other places and should know it was answered.
+
+## 12. The leading edge only works where the host speaks, and most hosts do not
+
+A third independent pass drove the one surface the previous two could only reason about, and
+it was a regression this branch caused.
+
+**Only two things in the tree stamp `data-lattice-swap`** — `single-slide-render.ts` (the
+Studio) and `deck-preview.js` (the Playground). Everything else the runtime ships to does
+not: marp-vscode, third-party embedders, the `marp --html` bundle. There
+`adoptOutgoingDiagrams` returns early, so the arriving fence's slot is empty, so
+`anyFenceWithoutInk()` answers "arrival" on **every keystroke**, so the back-off never
+engaged.
+
+Measured against the DOM contract of a non-stamping host, 64 nodes, 8 characters at 120ms:
+
+| host | build | renders | typing took |
+|---|---|---|---|
+| no stamp | before this work | 1 | 1006ms |
+| no stamp | this branch, before the fix | **8** | **3333ms** |
+| **stamped** (control) | this branch, before the fix | 1 | 1129ms |
+
+The control is what makes it airtight: one attribute is the only difference, and it flips 8
+renders to 1. Deleting the policy outright produced numerically identical results to the
+un-stamped arm — an un-stamped host disabled the back-off exactly as removing it does.
+
+**The fix is to ask the question only where it can be answered.** `hostStampsSwaps` records
+the first time any host stamps; the ink leading edge is consulted only then. Where no host
+speaks, the cost back-off applies unconditionally — which is what the build before this work
+did for every host, so those consumers are no worse off, and first paint stays immediate
+regardless because the back-off is 0 until a render has been timed.
+
+After the fix, same harness: **1 render, 997ms** against a 960ms nominal. The Studio is
+unaffected — 1 render at 120ms on 64 nodes, `nav` cold 129ms.
+
+**Why the ink signal is kept at all**, rather than always backing off: dropping it makes
+arrival pay the wait, and `nav` cold goes from ~119ms to ~270ms, which is worse than the
+240ms this work started from. It earns its place where it is answerable.
+
+**One honest limit.** A synthetic *stamped* arm in my own probe showed 8 renders, because a
+hand-built section does not satisfy adoption, so no SVG is transplanted and the slot reads
+empty. That is the probe being unfaithful, not the product — the real Studio measures 1
+render — but it does show the shape of the dependency: **if adoption ever fails on a stamping
+host, the back-off silently disables itself there too.** That dependency predates this work
+(it is what #2113's hold rests on), and nothing here makes it worse, but it is the failure
+mode to look for if the Studio ever starts rendering per keystroke again.
+
+### What the same pass found in the tests, and what is still uncovered
+
+Eight mutations survived all 9211 tests — the hole had **moved one line outside** the lifted
+block when the policy moved inside it. The two lines that USE the policy were still
+unreachable by any arm, so dropping the `backoffElapsed` argument (which holds the render
+forever) and deleting `clearDiagramBackoff()` (which leaves the ceiling measuring a stretch
+that ended) both passed. `admitDiagramPass()` now owns the whole gate inside the sentinels
+and all four are killed.
+
+The wiring that SETS `hostStampsSwaps` lives in `adoptOutgoingDiagrams`, which no unit arm
+can lift — it needs a live host, a real swap and adoption. It is pinned by a text census
+instead, which is deliberately the weakest arm in the file and is named as such: without it,
+a mutation that never sets the flag survives everything, and the Studio would quietly fall
+back to a back-off on every navigation with nothing going red.
+
+Still uncovered, and named rather than fixed: `COALESCE_MS` 150 -> 16 makes the whole content
+pass — Form composition, masthead, charts, fit berth, section numbering — run **16 times per
+burst instead of 2**, on every deck including ones with no diagram at all (9ms -> 27ms on a
+trivial slide). That buys text edits appearing ~134ms sooner, which is most of the felt win
+for non-diagram editing, so it is a trade rather than a defect; but it scales with deck
+complexity and inversely with CPU, it is unmeasured on a tablet, and nothing in the ledger
+priced it until now.
