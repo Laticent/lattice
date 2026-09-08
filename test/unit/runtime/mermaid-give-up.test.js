@@ -107,6 +107,26 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
     assert.deepEqual(stateOf(doc), ['unavailable'], 'a refused reclaim changes nothing');
   });
 
+  test('a fence an EXPORT finalized is never reclaimed', () => {
+    // The reclaim exists for a Mermaid that turns up late in a LIVE document, where taking a
+    // fence back and drawing it is strictly better for the reader. An export is the opposite
+    // situation: it released the fence precisely because it is about to capture, so the
+    // author's source is the final answer and re-hiding it puts a blank in a downloaded file.
+    //
+    // The gap is real rather than theoretical. `bakeDeckSections` releases, then awaits a
+    // dynamic import before it reads `outerHTML`, and the capture frame shares this thread —
+    // so a pass scheduled during the wait lands inside that await. Without the mark it
+    // reclaims, re-hides, and the capture takes the blank the release exists to prevent,
+    // intermittently.
+    const doc = deck(['unavailable', 'unavailable']);
+    const pres = [...doc.querySelectorAll('pre')];
+    pres[0].setAttribute('data-mermaid-final', '');
+    const { reclaimReleasedFences } = liftFenceState(doc);
+    reclaimReleasedFences(() => true);
+    assert.deepEqual(stateOf(doc), ['unavailable', 'pending'],
+      'the finalized fence holds its source; the ordinary one is taken back as before');
+  });
+
   test('leaves the sibling .mermaid box in place, because the reclaim needs it', () => {
     // `fenceJob` requires `preEl.nextElementSibling` to be the `.mermaid` target. Removing
     // the empty box on give-up would look tidier and would make a late Mermaid unrenderable;
