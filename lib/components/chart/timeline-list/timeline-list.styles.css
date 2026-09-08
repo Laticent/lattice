@@ -96,7 +96,7 @@ figure.timeline-list.chart-frame .chart-body {
   aspect-ratio: 1;
   box-sizing: content-box;
   padding-bottom: var(--sp-sm);   /* was margin-bottom: var(--sp-sm) — dot→pill gap */
-  --timeline-dot-ink: var(--chart-cat-1-ink); /* per-stage color, cycled below */
+  --timeline-dot-ink: var(--chart-cat-1-ink); /* one hue for every dot — see the note below */
   flex: 0 0 auto;
 }
 :is(section.timeline-list, figure.timeline-list) .timeline-dot::before {
@@ -110,16 +110,22 @@ figure.timeline-list.chart-frame .chart-body {
   border: 3px solid var(--timeline-dot-ink);
   box-shadow: 0 0 0 4px var(--bg);
 }
-/* Each stage's dot rides the vivid catN spectrum (hollow ring, stroke only),
- * matching pie / kanban / word-cloud — categorical color for sequential
- * stages. Six-rotation, like the other categorical members. The spine and
- * date pills stay accent so the row still reads as one timeline. */
-:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+1) .timeline-dot { --timeline-dot-ink: var(--chart-cat-1-ink); }
-:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+2) .timeline-dot { --timeline-dot-ink: var(--chart-cat-2-ink); }
-:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+3) .timeline-dot { --timeline-dot-ink: var(--chart-cat-3-ink); }
-:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+4) .timeline-dot { --timeline-dot-ink: var(--chart-cat-4-ink); }
-:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+5) .timeline-dot { --timeline-dot-ink: var(--chart-cat-5-ink); }
-:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n)   .timeline-dot { --timeline-dot-ink: var(--chart-cat-6-ink); }
+/* ONE TIMELINE IS ONE HUE. Every dot has its title directly under it and 6.62
+ * mark-widths of clear space to its neighbor, so hue has neither job to do:
+ * nothing to BIND (no legend rail, no leader line) and nothing to SEPARATE (the
+ * dots do not touch, and the spine already orders them). Cycling six catN inks
+ * across the dots was decoration, and it put a seventh color on a row whose
+ * spine and date pills are all accent.
+ *
+ * Measured, not asserted: tools/chart-hue-jobs.js reads the rendered gallery and
+ * reports both jobs per member. timeline-list came back key=none, leaders=0,
+ * gap=6.62 — no job — while spending four hues. See
+ * engineering/decisions/2026-09-07-chart-design-language/spend-rules.md §2.
+ *
+ * The single hue is slot 1, the family's single-series slot (the same one a
+ * one-series bar takes) and the default already declared on .timeline-dot
+ * above. Not --accent: on onyx the accent is pure black/white, which would
+ * strip the dot of chart color entirely. */
 :is(section.timeline-list, figure.timeline-list) .timeline-pill {
   display: inline-flex;
   align-items: center;

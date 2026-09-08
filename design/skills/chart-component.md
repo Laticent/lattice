@@ -279,8 +279,11 @@ re-parents the chart SVG outside its `section`. Consumes tokens, cycles by hue:
 
 ```css
 /* UNLAYERED — bare selectors, no @layer wrapper (cascade.md). This is the general
-   CATEGORICAL idiom (as piechart's wedges do it): cycle distinct hues by index. A
-   single-hue chart like funnel instead ramps ONE `--chart-cat-N-hue` by `--i`. */
+   CATEGORICAL idiom (as piechart's wedges do it): cycle distinct hues by index.
+   Cycle only where hue has a JOB — a legend rail or leader line to BIND a mark to
+   its name, or marks that touch and need SEPARATING. A member whose marks are
+   directly labelled with clear space takes ONE hue, slot 1, and nothing else:
+   funnel and timeline-list both do. See spend-rules.md §2 for the test. */
 :is(section.<name>, figure.chart-frame) .mark:nth-of-type(1) { fill: var(--chart-cat-1-fill); stroke: var(--chart-cat-1-ink); }
 :is(section.<name>, figure.chart-frame) .mark:nth-of-type(2) { fill: var(--chart-cat-2-fill); stroke: var(--chart-cat-2-ink); }
 /* … label text sits on the canvas, not on the mark … */

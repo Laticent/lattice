@@ -321,12 +321,11 @@ section.piechart .chart-key-swatch[data-cat="2"] { fill: url(#latt-a11y-chart-te
 section.piechart .chart-key-swatch[data-cat="3"] { fill: url(#latt-a11y-chart-tex-4) !important; }
 section.piechart .chart-key-swatch[data-cat="4"] { fill: url(#latt-a11y-chart-tex-5) !important; }
 section.piechart .chart-key-swatch[data-cat="5"] { fill: url(#latt-a11y-chart-tex-6) !important; }
-section.funnel .funnel-band:nth-of-type(6n+1) { fill: url(#latt-a11y-chart-tex-1) !important; }
-section.funnel .funnel-band:nth-of-type(6n+2) { fill: url(#latt-a11y-chart-tex-2) !important; }
-section.funnel .funnel-band:nth-of-type(6n+3) { fill: url(#latt-a11y-chart-tex-3) !important; }
-section.funnel .funnel-band:nth-of-type(6n+4) { fill: url(#latt-a11y-chart-tex-4) !important; }
-section.funnel .funnel-band:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
-section.funnel .funnel-band:nth-of-type(6n+6) { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* funnel is ONE hue, so it is one texture. The hue count IS the texture count
+ * (engineering/decisions/2026-09-07-chart-design-language/spend-rules.md §1c):
+ * six patterns across the bands would claim six categories in grayscale while
+ * the color channel says one. Slot 1, matching a single-series bar. */
+section.funnel .funnel-band { fill: url(#latt-a11y-chart-tex-1) !important; }
 /* ── The Cartesian members (bar, stacked-bar, line, waterfall, scatter, slope,
  * bullet) ──────────────────────────────────────────────────────────────────
  * Seven charts landed together against one substrate, so unlike the members
