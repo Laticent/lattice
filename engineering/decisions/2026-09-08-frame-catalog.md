@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Lattice ships 12 Frames and 10 are sovereign, each welded by name to one component, so 59 of 69 components get one carve (standard, rail on or off). Three laws — one stage per component, chrome relocated never dropped, a published stage aspect band — turn the Frame into a vocabulary a component picks from, and the axis product bounds the catalog at ~30 distinguishable Frames. 28 are drawn.
+summary: Lattice ships 12 Frames and 10 are sovereign, each welded by name to one component, so 59 of 69 components get one carve (standard, rail on or off). Three laws — one stage per component, chrome relocated never dropped, a published stage aspect band — turn the Frame into a vocabulary a component picks from, and the axis product bounds the catalog at ~30 distinguishable Frames. 28 are drawn; 6 of the 16 new ones change the argument rather than the shape.
 ---
 
 # The Frame catalog — 28 Frames, and why the ceiling is about 30
@@ -177,6 +177,41 @@ stamp sit together and read as intentional rather than as clutter — it is the
 answer to "where does the stamp go". **`ruled`** is the artisan Frame a bank will
 approve: a ruled register reads as rigor, and it makes a fourteen-row table look
 deliberate instead of crowded.
+
+## 5.5 Not every Frame reframes
+
+Twenty-eight shapes is not twenty-eight arguments. Measured against `standard`
+holding the same content, each Frame changes exactly one of three things, and only
+one of the three is a reframe.
+
+| Changes | n | What moves | Frames |
+|---|---|---|---|
+| Fit | 3 | The box the body gets. The argument is identical. | `overline` `column` `bleed` |
+| Register | 7 | Tone and craft. A table on a plate says what a table on a flat stage says. | `mount` + the six artisan |
+| **Reframe** | 10 | **Reading order and rank** — what the audience meets first, what reads as claim and what reads as consequence. | `foot` `plinth` `margin` `quiet` `recto` `triptych` + the four shipped dual Frames |
+| Punctuation | 6 | Structure in the deck, not argument on a slide. | the six posters |
+
+**Six of the sixteen new Frames reframe, and a component can freely select all
+six.** The clearest case is `foot`: same chart, same words, but in `standard` the
+title is a label read *before* the evidence and in `foot` it is a conclusion read
+*after* it. Assertion-first becomes evidence-first with no edit to the markdown.
+`plinth` promotes the coda from a trailing note to a reserved structural
+commitment; `margin` turns it from a concession at the end into an ongoing
+qualification beside the body; `quiet` removes the stated thesis entirely and makes
+the component argue for itself.
+
+**Reframing is Law II's dividend.** Moving the title under the stage is a reframe
+rather than a mutilation only because every chrome part still has a declared home —
+the same authored parts, re-ranked. A Frame allowed to drop chrome would simply
+lose the title, which is what the ten shipped sovereigns do today.
+
+**Two limits worth stating.** First, the reframe is per-slide: the Frame is
+selected by class, so "make this whole deck evidence-first" has no expression.
+That wants a front-matter register beside `finish:` and `stamp:`, with per-slide
+override — it is not in this catalog, and it is the obvious next question.
+Second, reframing is an instrument, not a default. A deck that changes Frame every
+slide makes the audience re-learn the grammar each time; the catalog's value is
+that a deck can pick two or three deliberately, not that it can use twelve.
 
 ## 6. What it buys
 

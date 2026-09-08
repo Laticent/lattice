@@ -115,6 +115,7 @@ article.spec.ships{border-top:2px solid var(--ink)}
   color:var(--ink-3)}
 .tag.red{color:var(--red);border-color:var(--red)}
 .tag.solid{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tag.md-reframe{color:var(--red);border-color:var(--red-soft);background:var(--red-soft)}
 
 /* the 16:9 schematic */
 .slidewrap{padding:14px;background:var(--tint-2);border-block:1px solid var(--rule-2)}
@@ -323,6 +324,32 @@ code{font-family:var(--mono);font-size:.88em;background:var(--tint-2);padding:1p
   chrome the Frame throws away today with nowhere to put it.</span></p>
 </section>
 
+<section class="blk" style="padding-top:36px">
+  <h3 style="font-size:22px;font-weight:600;letter-spacing:-.015em">Not every Frame reframes</h3>
+  <p class="lede">Twenty-eight shapes is not twenty-eight arguments. Measured
+  against <code>standard</code> holding the same content, each Frame changes one of
+  three things — and only one of the three is a reframe.</p>
+  <div class="scroller"><table class="dat">
+    <thead><tr><th>Changes</th><th class="num">n</th><th>What moves</th><th>Frames</th></tr></thead>
+    <tbody>
+      <tr><td>Fit</td><td class="num">3</td><td>The box the body gets. The argument is identical.</td><td><code>overline</code> <code>column</code> <code>bleed</code></td></tr>
+      <tr><td>Register</td><td class="num">7</td><td>Tone and craft. A table on a plate says what a table on a flat stage says.</td><td><code>mount</code> and the six artisan Frames</td></tr>
+      <tr><td style="color:var(--red)"><strong>Reframe</strong></td><td class="num">10</td><td><strong>Reading order and rank.</strong> What the audience meets first, what reads as claim and what reads as consequence.</td><td><code>foot</code> <code>plinth</code> <code>margin</code> <code>quiet</code> <code>recto</code> <code>triptych</code> + the four shipped dual Frames</td></tr>
+      <tr><td>Punctuation</td><td class="num">6</td><td>Structure in the deck, not argument on a slide.</td><td>the six posters</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Six of the sixteen new Frames reframe, and a component can freely
+  select all six.</strong> The clearest case is <code>foot</code>: the same chart
+  and the same words, but in <code>standard</code> the title is a label read
+  <em>before</em> the evidence, and in <code>foot</code> it is a conclusion read
+  <em>after</em> it. Assertion-first becomes evidence-first with no edit to the
+  markdown.</p>
+  <p><strong>Reframing is Law II's dividend.</strong> Moving the title under the
+  stage is a reframe rather than a mutilation only because every chrome part still
+  has a declared home — the same authored parts, re-ranked. A Frame that could drop
+  chrome would just lose the title.</p>
+</section>
+
 <div class="bar" role="group" aria-label="Filter frames">
   <button data-f="all" aria-pressed="true">All 28</button>
   <button data-f="root" aria-pressed="false">Root · one stage</button>
@@ -330,6 +357,7 @@ code{font-family:var(--mono);font-size:.88em;background:var(--tint-2);padding:1p
   <button data-f="poster" aria-pressed="false">Poster</button>
   <button data-f="artisan" aria-pressed="false">Artisan</button>
   <button data-f="new" aria-pressed="false">Proposed only</button>
+  <button data-f="reframe" aria-pressed="false" style="border-color:var(--red);color:var(--red)">Reframes the argument</button>
   <span class="sp"></span>
   <span class="count" id="cnt"></span>
   <button id="theme" aria-pressed="false">Invert</button>
@@ -411,7 +439,7 @@ const lines=(x,y,w,n,step,len)=>{const o=[];for(let i=0;i<n;i++)
 
 const F=[
 /* ── I. ROOT — one contiguous stage ─────────────────────────────────────── */
-{id:'standard',n:'Standard',fam:'root',st:'ships',admits:['flow','canvas'],
+{md:'baseline',id:'standard',n:'Standard',fam:'root',st:'ships',admits:['flow','canvas'],
  asp:'2.5 : 1',geo:'Masthead band · stage · footer band',
  intent:'The default. A content-height title band, a bounded stage, three footer marks.',
  why:'It is the right answer most of the time, and that is the problem — it is currently the <em>only</em> answer for 59 components.',
@@ -419,7 +447,7 @@ const F=[
  excl:[],exclT:'None. Every stage kind fits.',sc:9,bd:10,
  parts:[...mast(52),P('stage',5,35,90,50.5,'STAGE'),...footF]},
 
-{id:'minimal',n:'Minimal',fam:'root',st:'ships',admits:['flow','canvas'],
+{md:'baseline',id:'minimal',n:'Minimal',fam:'root',st:'ships',admits:['flow','canvas'],
  asp:'2.5 : 1',geo:'Standard, progress rail suppressed',
  intent:'Standard with the section rail dropped, for a deck that is not a walkthrough.',
  why:'Reached by the <code>no-progress</code> chrome control rather than by name, which is the correct shape — posture is a control, not a Frame.',
@@ -427,7 +455,7 @@ const F=[
  excl:[],exclT:'None.',sc:8,bd:9,
  parts:[...mast(52),P('stage',5,35,90,50.5,'STAGE'),...footNR]},
 
-{id:'overline',n:'Overline',fam:'root',st:'new',admits:['flow','canvas'],
+{md:'fit',id:'overline',n:'Overline',fam:'root',st:'new',admits:['flow','canvas'],
  asp:'3.2 : 1',geo:'Single-line masthead (44px) · stage +96px',
  intent:'The masthead collapses to one ruled line — eyebrow, title, meta on a shared baseline — and the stage takes the 96px back.',
  why:'The highest-value new root Frame. A gantt or a wide table gains a quarter of its height for the cost of a one-line title. Falls back to <code>standard</code> when the title will not set on one line.',
@@ -438,7 +466,7 @@ const F=[
  parts:[P('eyebrow',5,12.4,9,2.2),P('title',16,11.3,42,4.4),P('meta',77,12.4,18,2.2),
   P('rule',5,18.8,90,.6),P('stage',5,21.5,90,64,'STAGE'),...footF]},
 
-{id:'column',n:'Column',fam:'root',st:'new',admits:['flow','canvas'],
+{md:'fit',id:'column',n:'Column',fam:'root',st:'new',admits:['flow','canvas'],
  asp:'1.6 : 1',geo:'Masthead as a 28% left column · stage full height right',
  intent:'The title block turns ninety degrees. Eyebrow, title, lede, meta stack down a left column; the stage takes the right 72% at full height.',
  why:'The one Frame that gives a component a <em>tall</em> box. A pie chart, a radar, a state diagram and a cards-stack all want squarer than 2.5:1 and have never had it.',
@@ -450,7 +478,7 @@ const F=[
   P('lede',5,43.5,19,2.1),P('lede',5,47,15,2.1),P('meta',5,58,17,3),
   P('vrule',28.5,12,.5,73.5),P('stage',32,12,63,73.5,'STAGE'),...footF]},
 
-{id:'mount',n:'Mount',fam:'root',st:'new',admits:['flow','canvas'],
+{md:'register',id:'mount',n:'Mount',fam:'root',st:'new',admits:['flow','canvas'],
  asp:'2.7 : 1',geo:'Standard chrome · stage raised on a plate',
  intent:'The stage becomes a lifted plate on a tinted ground — its own surface, a hairline, and the deck’s <code>lift:</code> shadow.',
  why:'Turns a table or a board into an object rather than a region. Composes with the existing <code>lift:</code> register instead of inventing a shadow scale.',
@@ -459,7 +487,7 @@ const F=[
  exclT:'Bodies that already paint their own full-bleed surface.',sc:8,bd:9,
  parts:[...mast(52),P('plate',6,35,88,50.5),P('stage',9,38.5,82,43.5,'STAGE'),...footF]},
 
-{id:'bleed',n:'Bleed',fam:'root',st:'new',admits:['canvas'],
+{md:'fit',id:'bleed',n:'Bleed',fam:'root',st:'new',admits:['canvas'],
  asp:'1.78 : 1',geo:'Stage edge-to-edge · chrome overlaid on a scrim',
  intent:'The stage claims the trim. The masthead and footer float over it on the chrome plane, each on its own scrim.',
  why:'<code>claim-bleed</code> already lets a body bleed, but the chrome stays where it was and the title floats over nothing. This is the Frame half of that modifier.',
@@ -471,7 +499,7 @@ const F=[
   P('onink2',5,23.5,38,2.2),P('scrim',0,76,100,24),P('onink2',2.4,90.4,19,2.3),
   P('railink',40,90.4,20,2.6),P('onink2',93.4,90.4,4.2,2.3)]},
 
-{id:'margin',n:'Margin',fam:'root',st:'new',admits:['flow','canvas'],
+{md:'reframe',id:'margin',n:'Margin',fam:'root',st:'new',admits:['flow','canvas'],
  asp:'2.1 : 1',geo:'Stage 63% · frame-owned right rail 24%, full height',
  intent:'A persistent editorial rail down the right edge, owned by the Frame: meta at the top, the Key Insight and below-note in the middle, the state stamp at the foot.',
  why:'The coda stops being a band under the body and becomes a margin note — which is where a source, a caveat and a "so what" actually belong in a legal or diligence deck. Requires a coda or meta, or the rail reads empty.',
@@ -484,7 +512,7 @@ const F=[
   P('coda',74,26.5,16,2.4),P('note',74,33,20,1.8),P('note',74,36.5,15,1.8),
   P('stamp',74,74,12,3),...footF]},
 
-{id:'plinth',n:'Plinth',fam:'root',st:'new',admits:['flow','canvas'],
+{md:'reframe',id:'plinth',n:'Plinth',fam:'root',st:'new',admits:['flow','canvas'],
  asp:'3.4 : 1',geo:'Stage 37% height · reserved 96px takeaway band below',
  intent:'A full-width band under the stage, above the footer, reserved for the takeaway: the Key Insight set large with a hairline above it.',
  why:'The shape of every chart page in every strategy deck ever printed — exhibit above, conclusion below, in a fixed position the eye learns by slide three. Today the coda lands at content height and moves per slide.',
@@ -495,7 +523,7 @@ const F=[
  parts:[...mast(48),P('stage',5,35,90,37,'STAGE'),P('rule',5,74.5,90,.6),
   P('coda',5,77.5,58,3),P('note',5,83,40,2),...footF]},
 
-{id:'foot',n:'Foot',fam:'root',st:'new',admits:['canvas','flow'],
+{md:'reframe',id:'foot',n:'Foot',fam:'root',st:'new',admits:['canvas','flow'],
  asp:'3.0 : 1',geo:'Stage on top · masthead band at the bottom',
  intent:'Inverted. The stage claims the upper two thirds and the title band sits beneath it, so the words read as the conclusion drawn from the picture.',
  why:'A real rhetorical move, not a novelty: the audience sees the evidence, then is told what it means. Wasted on anything with a long lede.',
@@ -505,7 +533,7 @@ const F=[
  parts:[P('stage',5,9,90,54,'STAGE'),P('rule',5,66.5,90,.6),P('eyebrow',5,69,11,2.2),
   P('title',5,73,48,5.8),P('meta',77,69,18,2.2),P('lede',5,81,36,2.1),...footF]},
 
-{id:'quiet',n:'Quiet',fam:'root',st:'new',admits:['flow','canvas'],
+{md:'reframe',id:'quiet',n:'Quiet',fam:'root',st:'new',admits:['flow','canvas'],
  asp:'1.6 : 1',geo:'No masthead band · stage from top inset to footer reserve',
  intent:'The Frame drops the title band entirely and gives the height to the stage. The footer marks stay. The component owns its own headline, or there is none.',
  why:'Distinct from <code>silent</code> (which hides the running header and page but keeps the band) and from the legacy <code>form: off</code> (which drops the Form). This one keeps the stage Cell and its clip contract — it just stops reserving a title.',
@@ -515,7 +543,7 @@ const F=[
  parts:[P('stage',5,12,90,73.5,'STAGE'),...footF]},
 
 /* ── II. DUAL STAGE — two content cells ─────────────────────────────────── */
-{id:'split-panel',n:'Split Panel',fam:'dual',st:'ships',admits:[],
+{md:'reframe',id:'split-panel',n:'Split Panel',fam:'dual',st:'ships',admits:[],
  asp:'panel 38% · support 57%',geo:'Tinted panel + supporting zone',
  intent:'One prominent element on a colored panel, the supporting points beside it.',
  why:'Suppresses seven chrome Cells with nowhere to re-home them. Law II would give the page number and stamp a home on the panel.',
@@ -523,7 +551,7 @@ const F=[
  parts:[P('panel',0,0,38,100),P('onink',6,30,20,2.2),P('onink',6,35,26,7),
   P('onink2',6,47,20,2.2),P('stage',44,20,51,58,'SUPPORT'),...G(footF)]},
 
-{id:'split-compare',n:'Split Compare',fam:'dual',st:'ships',admits:[],
+{md:'reframe',id:'split-compare',n:'Split Compare',fam:'dual',st:'ships',admits:[],
  asp:'2 × 1.1 : 1',geo:'Two symmetric cells, centered divider',
  intent:'Two options weighed against each other on one canvas.',
  why:'Same defect: sovereign, name-bound, all chrome suppressed.',
@@ -531,7 +559,7 @@ const F=[
  parts:[P('eyebrow',5,12,12,2.2),P('title',5,16.4,54,6.2),P('stage',5,32,42,53,'A'),
   P('vrule',49.8,32,.5,53),P('stage',53,32,42,53,'B'),...G(footF)]},
 
-{id:'premise',n:'Premise',fam:'dual',st:'ships',admits:[],
+{md:'reframe',id:'premise',n:'Premise',fam:'dual',st:'ships',admits:[],
  asp:'claim 40% · ledger 55%',geo:'Framing claim beside a ledger, one canvas',
  intent:'A framing claim on the left, a vertically centered ledger of parallel rows on the right, no panel divide.',
  why:'The best-composed sovereign in the set, and still reachable by exactly one component.',
@@ -539,7 +567,7 @@ const F=[
  parts:[P('eyebrow',5,25,11,2.2),P('title',5,29.5,32,6),P('title',5,37,24,6),
   P('lede',5,47.5,26,2.1),...rows(48,25,47,4,15),...G(footF)]},
 
-{id:'compare-code',n:'Compare Code',fam:'dual',st:'ships',admits:[],
+{md:'reframe',id:'compare-code',n:'Compare Code',fam:'dual',st:'ships',admits:[],
  asp:'2 × 0.9 : 1',geo:'Two code cells with their own titles',
  intent:'Before and after, side by side, each with its own heading.',
  why:'Keeps the footer, suppresses the masthead. The only shipped sovereign that partially obeys Law II.',
@@ -547,7 +575,7 @@ const F=[
  parts:[P('title',5,12,38,4.2),P('title',53,12,38,4.2),P('stage',5,19,42,66,'CODE A'),
   P('stage',53,19,42,66,'CODE B'),...G([P('meta',75,12.2,20,3.4)]),...footF]},
 
-{id:'recto',n:'Recto',fam:'dual',st:'new',admits:[],
+{md:'reframe',id:'recto',n:'Recto',fam:'dual',st:'new',admits:[],
  asp:'well 1 : 1.6 · prose 1.1 : 1',geo:'Figure well 32% · prose column 54%',
  intent:'A figure well beside a prose column — the well takes a <code>canvas</code> body, the column takes a <code>flow</code> one, and the masthead spans both.',
  why:'The largest gap in the catalog. "A picture beside words" today means either <code>image</code> (which claims the slide) or <code>split-panel</code> (which is a tinted panel, not a figure). This is the one Frame where two <em>different</em> components share a slide, which is exactly what the rejected frame-recursion branch was reaching for — flat, which the ADR blesses.',
@@ -557,7 +585,7 @@ const F=[
  parts:[...mast(52),P('field',5,35,32,50.5),P('label',5,35,32,50.5,'WELL'),
   P('stage',41,35,54,50.5,'STAGE'),...footF]},
 
-{id:'triptych',n:'Triptych',fam:'dual',st:'new',admits:[],
+{md:'reframe',id:'triptych',n:'Triptych',fam:'dual',st:'new',admits:[],
  asp:'3 × 0.55 : 1',geo:'Three equal cells, two hairline dividers, shared masthead',
  intent:'Three frame-owned cells under one title — and they may hold three different components.',
  why:'<code>cards-grid</code> already lays three cards inside one stage. What it cannot do is put a chart, a quote and a list side by side. Because the cells are the Frame’s, the components stay independent.',
@@ -568,7 +596,7 @@ const F=[
   P('stage',67,35,28,50.5,'III'),...footF]},
 
 /* ── III. POSTER — the stage is the canvas ──────────────────────────────── */
-{id:'title',n:'Title',fam:'poster',st:'ships',admits:[],asp:'full canvas',
+{md:'punctuation',id:'title',n:'Title',fam:'poster',st:'ships',admits:[],asp:'full canvas',
  geo:'Dark canvas · lower-left title block · logo top-left',
  intent:'The first slide of every deck.',
  why:'Correct as it stands. Law II would still give it a silent home for the stamp — a WIP marker on a title slide is a real need.',
@@ -576,7 +604,7 @@ const F=[
  parts:[P('dark',0,0,100,100),P('onink2',6,12,9,5.5),P('eyebrow',6,52,13,2.4),
   P('onink',6,57,64,8.5),P('onink2',6,71,46,2.3),P('onink2',6,75.5,38,2.3),...G(footF)]},
 
-{id:'divider',n:'Divider',fam:'poster',st:'ships',admits:[],asp:'full canvas',
+{md:'punctuation',id:'divider',n:'Divider',fam:'poster',st:'ships',admits:[],asp:'full canvas',
  geo:'Dark canvas · accent left rail · ghost numeral',
  intent:'Marks the start of a major section, and drives the progress rail.',
  why:'Correct as it stands.',fits:['divider'],excl:[],
@@ -584,7 +612,7 @@ const F=[
  parts:[P('dark',0,0,100,100),P('panelred',0,0,1.6,100),P('numeral',70,24,22,32),
   P('eyebrow',6,44,11,2.4),P('onink',6,49,52,8),...G(footF)]},
 
-{id:'closing',n:'Closing',fam:'poster',st:'ships',admits:[],asp:'full canvas',
+{md:'punctuation',id:'closing',n:'Closing',fam:'poster',st:'ships',admits:[],asp:'full canvas',
  geo:'Dark canvas · centered block · mark below',
  intent:'The last slide of every deck.',
  why:'Correct as it stands. <code>colophon</code> below is the artisan alternative.',
@@ -592,7 +620,7 @@ const F=[
  parts:[P('dark',0,0,100,100),P('onink',20,40,60,8),P('onink2',26,54,48,2.3),
   P('onink2',46,70,8,4.5),...G(footF)]},
 
-{id:'image',n:'Image Full',fam:'poster',st:'ships',admits:[],asp:'full canvas',
+{md:'punctuation',id:'image',n:'Image Full',fam:'poster',st:'ships',admits:[],asp:'full canvas',
  geo:'Photo to trim · bottom scrim · caption block',
  intent:'A photograph claims the slide; the words sit on a scrim over it.',
  why:'The scrim is the honest move — but it suppresses the page number, so a full-bleed photo page silently leaves the pagination sequence.',
@@ -600,7 +628,7 @@ const F=[
  parts:[P('field',0,0,100,100),P('scrim',0,56,100,44),P('eyebrow',6,65,12,2.2),
   P('onink',6,70,56,6.5),P('onink2',6,80,42,2.2),...G(footF)]},
 
-{id:'scene',n:'Scene',fam:'poster',st:'ships',admits:[],asp:'full canvas',
+{md:'punctuation',id:'scene',n:'Scene',fam:'poster',st:'ships',admits:[],asp:'full canvas',
  geo:'Motion poster still · scrim · stamp berth',
  intent:'An Anima motion still claims the slide, mirroring the image Frame.',
  why:'Correct as it stands; it already carries a stamp berth, which the other posters do not.',
@@ -608,7 +636,7 @@ const F=[
  parts:[P('field',0,0,100,100),P('scrim',0,56,100,44),P('onink',6,70,50,6.5),
   P('onink2',6,80,36,2.2),P('stamp',87,8,8,3),...G(footF)]},
 
-{id:'math',n:'Math',fam:'poster',st:'ships',admits:[],asp:'equation band',
+{md:'punctuation',id:'math',n:'Math',fam:'poster',st:'ships',admits:[],asp:'equation band',
  geo:'Own title grid · centered display equation · footer kept',
  intent:'A typeset equation given the whole canvas, with its own title treatment.',
  why:'Suppresses only the masthead, keeps the footer — the shape Law II asks for.',
@@ -617,7 +645,7 @@ const F=[
   P('note',30,62,40,2),...G([P('meta',75,12.2,20,3.4)]),...footF]},
 
 /* ── IV. ARTISAN ────────────────────────────────────────────────────────── */
-{id:'atelier',n:'Atelier',fam:'artisan',st:'new',admits:['flow'],
+{md:'register',id:'atelier',n:'Atelier',fam:'artisan',st:'new',admits:['flow'],
  asp:'1 : 1',geo:'Stage on the golden section · title in the left void · folio in the outer margin',
  intent:'The stage sits off-center on a visible baseline grid. The title is set small in the wide left void with a rule under it, and the folio moves out to the right margin where a book would put it.',
  why:'The strongest craft signal in the set is the asymmetry — the void is not empty space, it is the composition. Charts cannot use it; that is the trade.',
@@ -629,7 +657,7 @@ const F=[
   P('note',6,57.5,11,1.8),P('stage',30,17,58,60,'STAGE'),P('page',92.5,50,3.6,2.3),
   P('foot',2.4,90.4,14,2.3)]},
 
-{id:'mat',n:'Mat',fam:'artisan',st:'new',admits:['canvas'],
+{md:'register',id:'mat',n:'Mat',fam:'artisan',st:'new',admits:['canvas'],
  asp:'1.38 : 1',geo:'Mounted plate with a weighted mat · engraved caption below',
  intent:'The stage is a mounted plate inside an unequal mat — equal at the top and sides, a quarter deeper at the bottom, the way a picture framer weights one. The title is engraved beneath the plate as a caption, with the meta on a second line.',
  why:'The bottom-weighted mat is the detail that separates a framed print from a box with a border, and it costs one token. Every component that paints a picture wants this.',
@@ -639,7 +667,7 @@ const F=[
   P('label',17,13,66,48,'PLATE'),P('title',30,74,40,4),P('note',35,80.5,30,2),
   P('page',93.4,90.4,4.2,2.3)]},
 
-{id:'manuscript',n:'Manuscript',fam:'artisan',st:'new',admits:['flow'],
+{md:'register',id:'manuscript',n:'Manuscript',fam:'artisan',st:'new',admits:['flow'],
  asp:'0.6 : 1',geo:'Single 54-character measure · wide right margin for notes',
  intent:'One narrow column of text set at the golden section, with the coda and below-note moved out into a genuinely wide right margin, set small and italic.',
  why:'The only Frame in the catalog that optimizes for <em>reading</em> rather than for presenting. A legal memo, a long quotation or a statute stack read properly here and nowhere else in Lattice.',
@@ -650,7 +678,7 @@ const F=[
   P('vrule',68,17,.5,62),P('note',71,24,20,1.8),P('note',71,27.5,15,1.8),
   P('note',71,45,20,1.8),P('note',71,48.5,13,1.8),...footF]},
 
-{id:'ruled',n:'Ruled',fam:'artisan',st:'new',admits:['flow'],
+{md:'register',id:'ruled',n:'Ruled',fam:'artisan',st:'new',admits:['flow'],
  asp:'2.4 : 1',geo:'Double-ruled masthead · ledger rules through the stage · ruled folio cell',
  intent:'The stage carries visible horizontal rules on the baseline rhythm, the masthead closes with a double rule, and the page number sits in its own ruled cell.',
  why:'The artisan Frame that a bank will actually approve. A ruled register reads as rigor, not as craft — it is the shape of an audit schedule, and it makes a fourteen-row table look deliberate instead of crowded.',
@@ -661,7 +689,7 @@ const F=[
   P('label',5,36.5,90,48,'LEDGER STAGE'),P('rule',5,88,90,.6),
   P('foot',2.4,91.2,19,2.3),P('rail',40,91.2,20,2.6),P('page',93.4,91.2,4.2,2.3)]},
 
-{id:'drafting',n:'Drafting',fam:'artisan',st:'new',admits:['canvas'],
+{md:'register',id:'drafting',n:'Drafting',fam:'artisan',st:'new',admits:['canvas'],
  asp:'2.2 : 1',geo:'Hairline border inset from trim · corner ticks · title block bottom-right',
  intent:'A technical drawing sheet. The stage is the drawing field; a ruled title block in the bottom-right corner holds the title, the meta, the state stamp and the page — exactly as an engineering drawing does.',
  why:'The title block is the answer to a real problem, not a costume: it is the only place in the catalog where meta, a revision marker and a WIP stamp sit together and read as intentional rather than as clutter.',
@@ -672,7 +700,7 @@ const F=[
   P('tick',3,88,3,.5),P('tick',94,88,3,.5),P('stage',7,8,86,60,'DRAWING FIELD'),
   P('block',59,72,35,21),P('eyebrow',60.5,74,8,1.8)]},
 
-{id:'colophon',n:'Colophon',fam:'artisan',st:'new',admits:['flow'],
+{md:'register',id:'colophon',n:'Colophon',fam:'artisan',st:'new',admits:['flow'],
  asp:'0.8 : 1',geo:'Bottom-anchored left column · deep void above · mark top-right',
  intent:'A bookend for the creative deck: a tall narrow column anchored at the bottom left under a deep void, with the deck mark in the top-right corner where a printer would set it.',
  why:'The artisan answer to <code>closing</code>. The void does the work — it is what makes a credits block read as a colophon rather than as a slide that ran out of content.',
@@ -715,17 +743,21 @@ const slide=f=>'<div class="slide">'+f.parts.map(p=>
   '%;width:'+p.w+'%;height:'+p.h+'%">'+(p.t?esc(p.t):'')+'</div>').join('')+'</div>';
 const meter=(v,red)=>'<div class="meter'+(red?' red':'')+'">'+
   Array.from({length:10},(_,i)=>'<i class="'+(i<v?'on':'')+'"></i>').join('')+'</div>';
+const MODELABEL={baseline:'Baseline',fit:'Fit',register:'Register',
+  reframe:'Reframe',punctuation:'Punctuation'};
+const MODES=['fit','register','reframe','punctuation'];
 const FAMLABEL={root:'Root · one stage',dual:'Dual stage',poster:'Poster',artisan:'Artisan'};
 
 const plate=f=>{
   const adm=f.admits.length?f.admits.map(a=>'<code>'+a+'</code>').join(' + '):'named components only';
   return '<article class="spec '+(f.st==='new'?'new':'ships')+'" data-fam="'+f.fam+
-  '" data-st="'+f.st+'">'+
+  '" data-st="'+f.st+'" data-md="'+f.md+'">'+
   '<div class="hd"><h3>'+f.n+'</h3><span class="id">'+f.id+'</span></div>'+
   '<div class="tagrow"><span class="tag'+(f.st==='new'?' red':' solid')+'">'+
     (f.st==='new'?'Proposed':'Ships')+'</span>'+
     '<span class="tag">'+FAMLABEL[f.fam]+'</span>'+
-    '<span class="tag">stage '+f.asp+'</span></div>'+
+    '<span class="tag">stage '+f.asp+'</span>'+
+    '<span class="tag md-'+f.md+'">'+MODELABEL[f.md]+'</span></div>'+
   '<div class="slidewrap">'+slide(f)+'</div>'+
   '<p class="why" style="padding-top:12px">'+f.intent+'</p>'+
   '<dl>'+
@@ -746,7 +778,8 @@ document.getElementById('plates').innerHTML=F.map(plate).join('');
 const cards=[...document.querySelectorAll('article.spec')];
 const cnt=document.getElementById('cnt');
 const apply=key=>{let n=0;
-  cards.forEach(c=>{const show=key==='all'||(key==='new'?c.dataset.st==='new':c.dataset.fam===key);
+  cards.forEach(c=>{const show=key==='all'||(key==='new'?c.dataset.st==='new':
+      (MODES.includes(key)?c.dataset.md===key:c.dataset.fam===key));
     c.hidden=!show;if(show)n++;});
   cnt.textContent=n+' of '+cards.length+' shown';};
 document.querySelectorAll('.bar button[data-f]').forEach(b=>b.addEventListener('click',()=>{
