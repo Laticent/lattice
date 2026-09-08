@@ -147,7 +147,7 @@ async function main() {
           if (c) row.ink.push(c);
         }
         // MARKS — a data mark's own paint.
-        const MARK = '[data-cat],[data-cell],[data-series],.wedge,.funnel-band,.radar-poly,.bar-mark,.waterfall-bar,.sbar-seg,.quadrant-tint,.quadrant-dot,.map-region,.scatter-dot,.gantt-bar,.cell-filled,.kanban-card,.wc-word';
+        const MARK = '[data-hue],[data-cell],[data-series],.wedge,.funnel-band,.radar-poly,.bar-mark,.waterfall-bar,.sbar-seg,.quadrant-tint,.quadrant-dot,.map-region,.scatter-dot,.gantt-bar,.cell-filled,.kanban-card,.wc-word';
         for (const m of sec.querySelectorAll(MARK)) {
           const cs = getComputedStyle(m);
           const isSvg = m.namespaceURI === 'http://www.w3.org/2000/svg';

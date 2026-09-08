@@ -183,7 +183,7 @@ async function main() {
             // counts as categorical, because that is the cycle a positional
             // nth-child rule reaches for — which is exactly what funnel and
             // timeline-list do.
-            if (el.hasAttribute('data-s') && !el.hasAttribute('data-cat')) stateEl.push(paints);
+            if (el.hasAttribute('data-s') && !el.hasAttribute('data-hue')) stateEl.push(paints);
           }
           // A paint every mark in the class carries distinguishes nothing —
           // drop it, then count what is left.

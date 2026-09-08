@@ -293,7 +293,7 @@ describe('line kernel', () => {
         ['Q1', [['Product', '2.4'], ['Services', '1.8']]],
         ['Q2', [['Product', '3.0'], ['Services', '2.2']]],
       ])));
-      assert.match(html, /class="cart-series line-series"[^<>]*data-cat="0"/);
+      assert.match(html, /class="cart-series line-series"[^<>]*data-hue="1"/);
       assert.match(html, /<tspan[^<>]*>Product 3\.0<\/tspan>/);
       assert.match(html, /<tspan[^<>]*>Services 2.2<\/tspan>/);
       assert.equal(html.includes('chart-key'), false, 'no legend when direct labeling fits');
@@ -388,12 +388,15 @@ describe('line kernel', () => {
 
     test('every mark carries the slot attributes the texture rules key on', () => {
       const stacked = build(m, ['line', 'stacked-area']);
-      assert.match(stacked, /<path class="line-band" data-cat="1"/, 'filled marks carry data-cat');
-      assert.match(stacked, /class="line-path line-edge" data-cat="1" data-series="1"/);
+      assert.match(stacked, /<path class="line-band" data-hue="2"/, 'filled marks carry data-hue');
+      assert.match(stacked, /class="line-path line-edge" data-hue="2" data-series="1"/);
       const plain = build(m);
-      assert.match(plain, /<path class="line-path" data-cat="0" data-series="0"/, 'stroked marks carry data-series');
-      assert.match(plain, /<circle class="line-dot" data-cat="0"/);
-      assert.match(plain, /style="--i:1"/, 'and the family --i index');
+      assert.match(plain, /<path class="line-path" data-hue="1" data-series="0"/, 'stroked marks carry data-series');
+      assert.match(plain, /<circle class="line-dot" data-hue="1"/);
+      // `--i` went with data-cat. It was emitted by six transforms and read by
+      // zero CSS rules repo-wide — a cycling hook for an idiom the mark contract
+      // replaced. slot-contract.md
+      assert.doesNotMatch(plain, /--i:/, 'the dead --i index is gone');
     });
 
     test('detail rides the category band and folds into the speaker note', () => {
@@ -535,9 +538,16 @@ describe('line kernel', () => {
       assert.equal(/@layer/.test(css), false);
     });
 
-    test('marks cycle by data-cat, never by nth-child', () => {
+    // Line used to carry fifteen per-slot rules — five each on the path, the dot
+    // and the series name. All fifteen are gone: each mark carries `data-hue`
+    // and the family's slot table resolves --mark-hue/--mark-ink from it. The
+    // fallback is load-bearing, not decoration (unset -> black).
+    test('marks paint from the mark contract, never by nth-child', () => {
       assert.equal(/nth-child/.test(css), false);
-      assert.match(css, /\[data-cat="5"\]/, 'all six categorical slots are painted');
+      assert.doesNotMatch(css, /\[data-cat=/, 'data-cat is retired, not renamed in place');
+      assert.doesNotMatch(css, /\[data-hue=/, 'no per-slot rule survives — the family table owns the cycle');
+      assert.match(css, /\.line-path \{[^}]*stroke: var\(--mark-hue, var\(--chart-cat-1-hue\)\)/s);
+      assert.match(css, /\.line-dot \{[^}]*fill: var\(--mark-hue, var\(--chart-cat-1-hue\)\)/s);
     });
   });
 });

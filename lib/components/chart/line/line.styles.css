@@ -7,10 +7,10 @@
  * end of its line.
  *
  * All color lives here so the kernel stays palette-blind (HARD RULE #3): every
- * mark carries `data-cat` (its 0-based series slot) and `--i`, and this file
+ * mark carries `data-hue` (its 1-based series slot), and this file
  * maps the slot onto the chart-family categorical spectrum.
  *
- * WHY `data-cat` AND NOT `nth-of-type`. The family's usual idiom cycles marks
+ * WHY `data-hue` AND NOT `nth-of-type`. The family's usual idiom cycles marks
  * by position, which works where every mark is the same element in one flat
  * run. A line chart's marks are not: a broken series emits several <path>s, an
  * area emits a fill path AND a stroke path, and a stacked area emits a band per
@@ -47,16 +47,11 @@
  * a line. The direct label below takes `-ink` for exactly the opposite reason. */
 :is(section.line, figure.chart-frame) .line-path {
   fill: none;
-  stroke: var(--chart-cat-1-hue);
+  stroke: var(--mark-hue, var(--chart-cat-1-hue));
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-:is(section.line, figure.chart-frame) .line-path[data-cat="1"] { stroke: var(--chart-cat-2-hue); }
-:is(section.line, figure.chart-frame) .line-path[data-cat="2"] { stroke: var(--chart-cat-3-hue); }
-:is(section.line, figure.chart-frame) .line-path[data-cat="3"] { stroke: var(--chart-cat-4-hue); }
-:is(section.line, figure.chart-frame) .line-path[data-cat="4"] { stroke: var(--chart-cat-5-hue); }
-:is(section.line, figure.chart-frame) .line-path[data-cat="5"] { stroke: var(--chart-cat-6-hue); }
 
 /* The upper edge of a stacked band. Lighter than a free-standing line: the band
  * below it already carries the magnitude, so the edge only has to separate one
@@ -83,15 +78,10 @@
  * §DOT_MIN_SPACING). The canvas-colored halo is what keeps a dot legible where
  * two lines cross — without it, the crossing paints a four-way ambiguity. */
 :is(section.line, figure.chart-frame) .line-dot {
-  fill: var(--chart-cat-1-hue);
+  fill: var(--mark-hue, var(--chart-cat-1-hue));
   stroke: var(--bg);
   stroke-width: 0.9;
 }
-:is(section.line, figure.chart-frame) .line-dot[data-cat="1"] { fill: var(--chart-cat-2-hue); }
-:is(section.line, figure.chart-frame) .line-dot[data-cat="2"] { fill: var(--chart-cat-3-hue); }
-:is(section.line, figure.chart-frame) .line-dot[data-cat="3"] { fill: var(--chart-cat-4-hue); }
-:is(section.line, figure.chart-frame) .line-dot[data-cat="4"] { fill: var(--chart-cat-5-hue); }
-:is(section.line, figure.chart-frame) .line-dot[data-cat="5"] { fill: var(--chart-cat-6-hue); }
 
 /* THE DIRECT LABEL — the series' own name at the end of its own line.
  *
@@ -103,14 +93,6 @@
  * exist: `-ink` is the text-safe arm of the same hue, solved to clear AA
  * against the canvas. A name set in the raw graphical hue would sit at the 3:1
  * stroke floor, which is legal for a line and not for a word. */
-:is(section.line, figure.chart-frame) .line-series {
-  fill: var(--chart-cat-1-ink);
-}
-:is(section.line, figure.chart-frame) .line-series[data-cat="1"] { fill: var(--chart-cat-2-ink); }
-:is(section.line, figure.chart-frame) .line-series[data-cat="2"] { fill: var(--chart-cat-3-ink); }
-:is(section.line, figure.chart-frame) .line-series[data-cat="3"] { fill: var(--chart-cat-4-ink); }
-:is(section.line, figure.chart-frame) .line-series[data-cat="4"] { fill: var(--chart-cat-5-ink); }
-:is(section.line, figure.chart-frame) .line-series[data-cat="5"] { fill: var(--chart-cat-6-ink); }
 
 /* The per-category reveal target. Paints nothing — it exists so the
  * Present-mode popover has a band to sit on — and is emitted ONLY for a

@@ -205,7 +205,7 @@ async function main() {
         // which is a property of the referenced <defs> node, not of the class.
         const fills = new Set();
         const markSel = [
-          '[data-cat]', '[data-s]', '[data-series]', '[data-cell]',
+          '[data-hue]', '[data-s]', '[data-series]', '[data-cell]',
           '.wedge', '.funnel-band', '.radar-poly', '.bar-mark', '.waterfall-bar',
           '.sbar-seg', '.quadrant-tint', '.quadrant-dot', '.map-region', '.scatter-dot',
           '.scatter-bubble', '.kanban-card', '.gantt-bar', '.progress-fill', '.state-node',
@@ -345,7 +345,7 @@ async function main() {
         // class plus an attribute, and a member whose bars carry data-s but
         // not data-cat is invisible to a categorical rule no matter how many
         // of them there are.
-        const SLOT_ATTRS = ['data-cat', 'data-mark', 'data-cell', 'data-series', 'data-s'];
+        const SLOT_ATTRS = ['data-hue', 'data-mark', 'data-cell', 'data-series', 'data-s'];
         const keying = {};
         for (const el of sec.querySelectorAll(markSel)) {
           const cls = [...el.classList].find((c) => MARK_CLASSES.has(c));
@@ -444,16 +444,16 @@ async function main() {
     let first = true;
     for (const [cls, byAttr] of entries) {
       for (const [attrs, n] of Object.entries(byAttr)) {
-        const cat = attrs.split(',').includes('data-cat');
+        const cat = attrs.split(',').includes('data-hue');
         if (attrs === 'none') unreachable.push(`${m.name}/${cls}`);
         else if (!cat) noCat.push(`${m.name}/${cls} (${attrs})`);
-        console.log(`  ${(first ? m.name : '').padEnd(14)} ${cls.padEnd(20)} ${String(n).padStart(3)}   ${attrs}${cat ? '' : attrs === 'none' ? '   ⟵ NO attribute selector can reach this' : '   ⟵ not data-cat'}`);
+        console.log(`  ${(first ? m.name : '').padEnd(14)} ${cls.padEnd(20)} ${String(n).padStart(3)}   ${attrs}${cat ? '' : attrs === 'none' ? '   ⟵ NO attribute selector can reach this' : '   ⟵ not data-hue'}`);
         first = false;
       }
     }
   }
-  const reach = report.filter((m) => Object.values(m.keying || {}).some((b) => Object.keys(b).some((k) => k.split(',').includes('data-cat'))));
-  console.log(`\n  ${reach.length} of ${report.length} members key a mark on data-cat: ${reach.map((m) => m.name).sort().join(', ') || '—'}`);
+  const reach = report.filter((m) => Object.values(m.keying || {}).some((b) => Object.keys(b).some((k) => k.split(',').includes('data-hue'))));
+  console.log(`\n  ${reach.length} of ${report.length} members key a mark on data-hue: ${reach.map((m) => m.name).sort().join(', ') || '—'}`);
   console.log(`  ${new Set(noCat.map((x) => x.split('/')[0])).size} members key on something else, ${new Set(unreachable.map((x) => x.split('/')[0])).size} on nothing at all.`);
 
   console.log('');
