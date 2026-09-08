@@ -210,7 +210,7 @@ async function main() {
           '.sbar-seg', '.quadrant-tint', '.quadrant-dot', '.map-region', '.scatter-dot',
           '.scatter-bubble', '.kanban-card', '.gantt-bar', '.progress-fill', '.state-node',
           '.cell-state', '.cell-filled', '.cell-outlined', '.journey-face', '.wc-word',
-          '.timeline-marker', '.bullet-measure', '.slope-bar', '.line-band', '.line-area',
+          '.bullet-measure', '.slope-bar', '.line-band', '.line-area',
           // line, slope and timeline-list draw their marks with none of the
           // classes above; without these three they reported no mark at all,
           // which reads as "nothing to style" rather than "not looked for".
