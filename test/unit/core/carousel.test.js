@@ -813,6 +813,54 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     assert.ok(freq.includes('sampling distribution'), "…and must keep its own column's bullets");
   });
 
+  test('a trailing note lands ONCE, on a closing page — on the paginated arm', () => {
+    // `math` claims `blockquote` AND `trailing-paragraph`, so `splitEnvelope`'s own region scan
+    // (which asks with the layout class) returned nothing and the note stayed in the trunk —
+    // `partitionAxis` then copied it onto every body page. Measured at portrait: four copies on a
+    // four-symbol legend. The strategy owns its beats now and builds the closing page itself.
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">b</span></span></p>'
+      + '<ul><li>one</li><li>two</li><li>three</li></ul>'
+      + '<p>SENTINELNOTE the note the author wrote last.</p>',
+    );
+    const parts = split(mathTag(''), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    const copies = parts.filter((p) => p.includes('SENTINELNOTE')).length;
+    assert.equal(copies, 1, `the note printed on ${copies} pages`);
+    assert.equal(roleOf(parts.at(-1)), 'closing', 'the note must close the run, not ride a body page');
+    assert.ok(parts.at(-1).includes('SENTINELNOTE'));
+  });
+
+  test('a trailing note lands ONCE, on a closing page — on the card-stack arm too', () => {
+    // …and the three CARDS must not be mistaken for that note: they are a contiguous trailing run
+    // of blockquotes, which is exactly what a class-blind trailing scan reads as a coda.
+    const card = (label) => `<blockquote><p><strong>${label}</strong> body.</p></blockquote>`;
+    const inner = mathInner(card('Definition.') + card('Theorem.') + card('Proof.')
+      + '<p>SENTINELNOTE the note the author wrote last.</p>');
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.filter((p) => p.includes('SENTINELNOTE')).length, 1);
+    assert.equal(roleOf(parts.at(-1)), 'closing');
+    for (const label of ['Definition.', 'Theorem.', 'Proof.']) {
+      assert.equal(parts.filter((p) => p.includes(label)).length, 1, `${label} must ride one page`);
+    }
+  });
+
+  test('a card is labelled by its LEADING strong, not by a bold word in its body', () => {
+    // An unanchored `tag:strong` took the first `<strong>` anywhere in the member, so a card
+    // written `> A theorem about **compactness**.` labelled its page — and the previous page's
+    // forward pointer — "compactness".
+    const inner = mathInner(
+      '<blockquote><p><strong>Definition.</strong> A function is continuous.</p></blockquote>'
+      + '<blockquote><p>A theorem about <strong>compactness</strong>.</p></blockquote>',
+    );
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts) && parts.length >= 3);
+    const labels = parts.map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1] ?? null);
+    assert.ok(labels.includes('Definition.'), `expected the leading strong, got ${JSON.stringify(labels)}`);
+    assert.ok(!labels.includes('compactness'), 'a mid-sentence bold word is not a title');
+  });
+
   test('the equation+legend arm still fires — the guard is on NESTING, not on lists', () => {
     const inner = mathInner(
       '<p><span class="katex-display"><span class="katex">b</span></span></p>'
@@ -1067,9 +1115,13 @@ describe('core: carousel — the run closes on ONE page carrying both beats (202
   // as it was and cannot rot as the roster grows.
   test('the closing-page expectation is not vacuous — most strategies hoist both beats', () => {
     const both = STRATEGY_CASES.filter(([n, t]) => hoists(n, t, 'key-insight') && hoists(n, t, 'below-note'));
-    assert.ok(both.length >= STRATEGY_CASES.length - MEMBER_CLAIM_STRATEGIES.size,
+    // The budget counts member-claim strategies PRESENT IN THIS TABLE, not globally: a third one
+    // added to the set but never given a case here would otherwise widen the guard by one without
+    // covering anything. Exact today — both are in the table.
+    const budget = STRATEGY_CASES.filter(([n]) => MEMBER_CLAIM_STRATEGIES.has(n)).length;
+    assert.ok(both.length >= STRATEGY_CASES.length - budget,
       `only ${both.length}/${STRATEGY_CASES.length} cases expect both beats, against a budget of ` +
-      `${MEMBER_CLAIM_STRATEGIES.size} member-claim strategies — the arm below is weakening`);
+      `${budget} member-claim strategies in this table — the arm below is weakening`);
   });
 
   for (const [name, tag, inner, rec] of STRATEGY_CASES) {

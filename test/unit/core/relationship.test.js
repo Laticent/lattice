@@ -462,3 +462,46 @@ describe('core: the signal resolves its axis from the PAGE, not the manifest (§
     assert.match(out, /comparing Residency/, 'the criteria still read off the first member');
   });
 });
+
+// ── textOf over TYPESET MATH — a pointer must read the author's source ────────────────
+//
+// KaTeX writes its content THREE times: a MathML `<mi>`, an `<annotation encoding=
+// "application/x-tex">` holding the TeX the author typed, and a visual half built from one
+// `<span>` per glyph box padded with a zero-width space. A tag strip over all of it read
+// `$X$` as "X X X"; removing only the MathML mirror left the per-glyph boxes, so `$y_i$`
+// read "y i ␀". Both shipped in the forward pointer of a `math` legend page.
+//
+// Real KaTeX output, not a hand-built fixture: the whole point is that the markup shape is
+// the library's, not ours.
+describe('core: relationship — textOf reads typeset math as the author wrote it', () => {
+  const katex = require('katex');
+  const typeset = (tex, opts = {}) => katex.renderToString(tex, { throwOnError: false, ...opts });
+
+  for (const tex of ['y_i', 'X^\\top X', '\\hat\\beta', '\\sigma(x)']) {
+    test(`inline $${tex}$ reads back as its own TeX`, () => {
+      assert.equal(textOf(`${typeset(tex)} — a legend line`), `${tex} — a legend line`);
+    });
+  }
+
+  test('a DISPLAY equation reads the same way', () => {
+    assert.equal(textOf(typeset('a = b + c', { displayMode: true })), 'a = b + c');
+  });
+
+  test('math with the MathML mirror suppressed still degrades to the visual half, not to nothing', () => {
+    // `output: 'html'` is what the emulator's PDF path passes, and it emits no annotation at all.
+    // There is no source to recover then, so the glyph boxes are all there is — the contract is
+    // that the text survives, not that it is pretty.
+    const out = textOf(typeset('ab', { output: 'html' }));
+    assert.match(out, /a/);
+    assert.match(out, /b/);
+  });
+
+  test('prose with no math is untouched', () => {
+    assert.equal(textOf('<li><strong>Plain</strong> body</li>'), 'Plain body');
+    assert.equal(textOf('a paragraph mentioning katex-mathml in prose'), 'a paragraph mentioning katex-mathml in prose');
+  });
+
+  test('an unbalanced author span returns the input rather than looping', () => {
+    assert.equal(textOf('<span class="katex">unclosed'), 'unclosed');
+  });
+});
