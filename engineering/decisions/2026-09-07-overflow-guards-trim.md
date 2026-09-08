@@ -169,7 +169,11 @@ callout box's chrome, a command line, a mid-column timeline entry. **§6's
 is the finding that should have priced the mechanism fork in §8, and it did not,
 because the fork was decided against a fix rate that the ruling forbids.
 
-**The same pass, run in all three engines on the same deck, does the same thing:**
+**Cross-engine parity holds — but read the numbers as v2's, which they are.**
+The table below was measured on v2 and its "cut signal after" column reads like
+the claim §3 exists to retract. Under v3 the same deck fits on all three engines
+and the alarm survives on ONE slide of three, not all three. Parity itself
+reproduces for both prototypes; only the printed figures are v2's.
 
 | Engine | Clipping before | Clipping after | Blocks trimmed | Cut signal after |
 |---|---|---|---|---|
@@ -200,14 +204,40 @@ Two prototype versions were run over the same 81 slides. **The second was built 
 fix the first's worst defect and made it worse**, which is the most useful thing in
 this note.
 
+**Read every figure below with its reproducibility in mind.** The harness is
+`.scratch/guards/{guard,stress}.mjs` against a rendered `gallery.html`, and
+`.scratch/` is gitignored with a 14-day sweep (`npm run clean:scratch`), so unlike
+§1 — which inlines its own probe — **none of these numbers can be re-derived from
+this branch, and they will not survive a fortnight.** Two rows were already wrong
+in earlier drafts (the v2/v3 comparison mixed two different formulas, and the
+"no alarm" figure was extrapolated rather than measured); both are corrected here
+by an independent re-run. A third prototype, v2 itself, no longer exists in any
+form, so its column is unreproducible even in principle — an independent
+reconstruction from this note's own definition lands at 44/37/21 against the
+43/38/19 printed. **Treat the whole table as one session's measurement, not as a
+repository fact.**
+
 | Outcome | v2 (clamp the crossing block) | v3 (+ reach back and hide what follows) |
 |---|---|---|
 | Guard made the slide fit | 43 (53%) | 53 (65%) |
 | Guard declined | 38 | 28 |
-| Clamps whose ellipsis is off-screen | **19 (23%)** | 2 |
+| Slides with a clamp whose ellipsis is off-screen | **19 (23%)** | 2 |
 | Elements silently DROPPED (`display: none`) | 0 | **82** |
-| **Slides that lose content with NO mark at all** | 19 | **13** |
+| Slides that lose content at all | 19 | **21** |
+| **Slides that lose content with NO visible mark** | 19 | **15** |
+| — of those, slides with NO alarm either | not measured | **9** |
 | Layouts broken (failure mode 4a) | 0 | 0 |
+| `<li>` bullets lost (failure mode 4c) | 74 | 74 |
+| SVG `<text>` / `<svg>` figures deleted | 0 | 16 / 3 |
+| running `<footer>` bands deleted | 0 | 7 |
+
+**Rule 4c does NOT hold, 74 times over.** `guard.mjs`'s text-block test rejects
+only `grid` and `flex`, so `display: list-item` passes it: measured, **all 74
+clamped `<li>` elements lost their bullet**, the exact defect §4c names. The
+prototype also clamps `<strong>`, a `<td>` and SVG `<text>`. An earlier draft of
+this section told the reader 4a was "the only rule here that survived contact"
+without mentioning that another rule is broken on every list item the guard
+touches.
 
 **The 4a rule holds.** Across 81 stressed slides and every component in the
 catalog, neither version turned a grid or flex layout into a `-webkit-box`. The
@@ -374,7 +404,17 @@ From a full census of all 69 components (`lib/components/*/*/*.styles.css`):
 - **14 chart components carry their labels in SVG `<text>`** — bar, bullet,
   funnel, gantt, line, map, piechart, quadrant, radar, scatter, slope,
   stacked-bar, waterfall, word-cloud. CSS `text-overflow` and `line-clamp` do
-  not apply to SVG text, so **no guard can reach a chart's own labels**. Those
+  not apply to SVG text, so no CLAMP can reach a chart's own labels. **A DROP
+  can, and the prototype does: measured, it deleted 16 SVG `<text>` nodes and 3
+  whole `<svg>` figures — including a pie chart's every slice label and its "46%",
+  "22%", "18%" percentages, which §6 classes `never`.** An earlier draft of this
+  bullet said "no guard can reach a chart's own labels" full stop. That sentence
+  was false, and it was the most dangerous one in the note: it is exactly what
+  would let an implementer scope charts out of the guard. `display: none` is not
+  `text-overflow`. Worse, those slides counted as *fixed* in §2b — the harness's
+  only defect tests are invisible-clamp, layout-break and drop-without-mark, and a
+  slide whose chart was deleted still carries a visible ellipsis on its prose, so
+  it scored clean. Those
   components fit by their own scaling and their type floor, which is the right
   answer for a chart.
   **This is a claim about labels, not about chart slides.** A chart slide still
@@ -439,11 +479,12 @@ The three headline questions, answered directly:
 
 - **Can it be universal?** No. Universal over prose; a no-op over SVG charts;
   refused over numbers, law, code and math; powerless against box overflow.
-- **Does it survive on all components?** Only under the rules in section 4, and
-  the measurement is in §2b: stressed across the whole gallery, the rule-abiding
-  prototype fits 65% of overflowing slides and breaks no layout, but the naive
-  one hid content with no visible mark on 19 slides in 81. It survives the
-  catalog; it does not survive being written carelessly.
+- **Does it survive on all components?** Not yet demonstrated, and this answer
+  has been wrong twice. The 65% figure an earlier draft quoted here belongs to
+  the prototype §2b and §4d **disavow** — the one that deletes charts, bullets and
+  footer bands. The rule-abiding rate is the §2a corpus number, **1 of 6**, and
+  the gallery's ~54% under v2 comes with an invisible mark on 19-21 slides in 81.
+  It survives the catalog only in the sense that it does not break layouts.
 - **Everything or selectively?** Selectively, by declared slot role, defaulting
   to no.
 
@@ -478,11 +519,14 @@ Five written rulings point the other way, and a sixth precedent points here.
   measured-versus-declared fork was not argued against it.
 - `2026-07-22-structure-derived-split-patterns.md:315` (the `never "…"` is at
   `:317`): overflow is "always more slides, or the honest ring … never '…'".
-  **That note qualifies its own guarantee two lines later** — ":317-319" says it
-  "holds only once the author sets `autosplit: on`", off by default. So it opposes
-  TRIM less than the sentence alone suggests: it is a promise about what the
-  splitter does when asked, not a blanket ban on a mark. The first draft quoted
-  the flat half and left the condition out.
+  A prior review round weakened this citation by noting that ":317-319" makes the
+  guarantee conditional on `autosplit: on`. **That weakening is stale and is
+  withdrawn here.** `autosplit:` was RETIRED on 2026-07-29
+  (`2026-07-29-autosplit-is-not-a-toggle.md`, shipped; `lib/authoring/lint-core.js:257`
+  emits `autosplit-retired`), and splitting now fires unconditionally at
+  `square`/`tall`/`strip`. So the "never '…'" ruling is **less** conditional than
+  the note claimed, not more — it opposes TRIM harder. A review round made this
+  note less accurate, and the correction is recorded rather than silently applied.
 - Against those: `2026-07-27-footer-band-allocation.md:193` records the owner
   signing off on exactly this trade for the footer, with the survival numbers
   measured, and the note says explicitly that a future reader will assume it was
@@ -553,9 +597,15 @@ session does not re-open them.
 | Where does the line budget come from? | **A measured pass**, the one tested here. Declared per-slot CSS budgets were considered and not taken: the census puts their reach at 30 components cleanly and 28 not at all. |
 | Deck register or export setting? | **A deck front-matter register**, `guards:`. This overrides the 2026-07-30 ruling that overflow presentation belongs to the render target, for this key. That note needs amending in the change that ships `guards:`, not working around. |
 
-**What the ruling commits us to, beyond the register itself.** Three canonical
+**What the ruling commits us to, beyond the register itself.** Five canonical
 statements now say something different from what the engine will do, and each
-gets edited in the same change that ships the code, never after:
+gets edited in the same change that ships the code, never after. **A fifth move
+is already spoken for:** `2026-06-25-retire-landscape-locks-portrait-everything.md`
+proposes RESHAPE between SHED and SPLIT and is partly implemented
+(`test/unit/core/carousel.test.js:342`), so TRIM at "between SPLIT and FLOOR" would
+be the **sixth** move, and whoever edits "there is no fifth move" collides with a
+pending amendment inserting a different one. An earlier draft of this list cited
+that note as reading the ladder as four moves. It does not.
 
 - `design/forms.md` §6 — "the honest pair for a fixed page is clip + ring" gains
   a third member, and the fade rejection stays (its PDF-transparency ground still
@@ -595,6 +645,10 @@ for building it, and the note previously implied the first was already solved:
 1. **The signal.** The existing probe cannot see dropped content (§3). TRIM emits
    its own record of what it removed, and the marker and `overflow:check` read
    that. Until then the ratchet can be blessed downward on a silenced deck.
+   **The record has a hard mechanical constraint:** `lib/core/overflow-probe.js`
+   is `.toString()`-injected into `page.evaluate` and the emulator's inline
+   watcher, so everything it needs must travel inside its own source. The trim
+   record cannot be a closure or a module import.
 2. **The post-condition on the mark** (§4d), and what the guard does when it
    fails — which is decline, not reach back.
 3. **Column selection.** In a multi-column layout "the block that crosses the
