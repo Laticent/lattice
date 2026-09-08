@@ -4,6 +4,7 @@ size: 4K
 theme: crepuscolo
 paginate: true
 header: "Lattice · Decision Framework Gallery"
+logo: ../lib/base/_logo/lattice-mark-min.svg
 ---
 
 <!-- _class: title -->
