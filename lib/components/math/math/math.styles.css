@@ -280,7 +280,20 @@ section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canva
 section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   grid-column: 1 / -1;
   align-self: start;
-  padding-top: var(--sp-sm);
+  /* `max()` WITH AN EM FLOOR, because this padding does two jobs and only one of them
+   * scales with the deck's spacing. The `--sp-sm` half is rhythm. The `0.3em` half is a
+   * RESERVE for the line box: a KaTeX display is built from negative-offset `vlist`
+   * struts, so its line box carries the font's full ascent above the tallest glyph and
+   * pokes out of the content box — harmless in open flow, a cut when the box sits on the
+   * stage's top edge, which it does here.
+   *
+   * `--sp-sm` alone was enough until `compact` was measured. That modifier shrinks the
+   * spacing tokens and the reserve went with them, while the equation's own `em` did not:
+   * on the gallery's `math compact` slide at portrait the ascent cleared the stage and the
+   * content probe read a cut. The ink itself was never the problem — measured 29px of
+   * clearance on both sides, against 3px of real overrun on the sovereign arm. An `em`
+   * floor ties the reserve to the thing it is reserving for. */
+  padding-top: max(var(--sp-sm), 0.3em);
   border-right: none;
   padding-right: 0;
   padding-bottom: var(--sp-md);
@@ -318,7 +331,28 @@ section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .
    * in this system (`2026-06-22-the-fit-spine.md` axiom 3 — collapse, shed, split,
    * never scale), so a size that fits the representative hero is the fix; an equation
    * longer than the reference still overflows and is still flagged, which is what the
-   * watcher is for. */
+   * watcher is for.
+   *
+   * THE `feature` SAMPLE IS SUCH AN EQUATION, AND THE REASON IT IS NOT FIXED HERE IS
+   * NARROWER THAN IT WAS FIRST STATED. The migration's record claimed no reflow could
+   * fit it, on the Fit Spine's no-scale axiom. That claim is FALSE and a red team
+   * measured it: at portrait the logistic log-likelihood renders 2587px against a 972px
+   * stage at this 2.4em, and 1078px at 1em — it fits at 0.9em (42.28px), which is
+   * larger than the 37.41px the same equation is set at on a 16:9 slide. A scale that
+   * fits it plainly exists.
+   *
+   * WHAT IS ACTUALLY TRUE is that ONE RULE CANNOT SERVE BOTH SAMPLES. This selector
+   * chain covers bare `math` and `feature` together, because `math.docs.md` says they
+   * are the same layout. Measured at portrait: bare's hero renders 914px of ink inside
+   * a 972px box at 2.4em — 29px of clearance on each side. Dropping this declaration to
+   * 0.9em to fit `feature` would take bare's hero from 112.75px to 42.28px, a 62% cut on
+   * a slide that fits with room. That is trading one defect for a different one, not
+   * fixing anything.
+   *
+   * The lever that serves both is not a third number here. It is breaking the long
+   * expression across lines before KaTeX sees it — measured worth ~35% on this equation
+   * (2587px to 1694px) — together with re-testing this scale-up itself. Both are owner-
+   * ruled and tracked in #2136; neither belongs in a frame migration. */
   font-size: 2.4em;
 }
 
@@ -1143,11 +1177,19 @@ section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"])
 /* THE PLOT IS SIZED FROM THE INLINE AXIS AT EVERY FAMILY, and stacked that means asking
  * for a FRACTION of the stage rather than all of it. Spanning the full width, the 55:38
  * ratio makes the plot 629px tall against an 875px portrait stage that already owes rows
- * to the equation and its caption — 108px over, measured. 62% is the sovereign arm's own
- * proportion re-based: it asked for `55cqi` of a 1080px section (594px) and that fitted;
- * 62% of a 972px stage is 603px, the same plot in the same place. */
+ * to the equation and its caption — 108px over, measured. 58% is the sovereign arm's own
+ * proportion re-based, with clearance: it asked for `55cqi` of a 1080px section (594px)
+ * and that fitted; 58% of a 972px stage is 564px, the same plot in the same place.
+ *
+ * THE CLEARANCE IS NOT SPARE — it is the axis labels. function-plot draws its x-tick row
+ * BELOW the plot area and outside the `<svg>`'s own box, so a plot sized to end exactly at
+ * the stage's bottom edge spills that row past it. At 62% the gallery's canvas slide came
+ * out flush at portrait (plot bottom 923 against a 923px stage) and the section-level
+ * probe read the overhang as overflow — with `overCells: []`, i.e. no cell was over, which
+ * is the tell that the spill was the section's and not the body's. Sized from the same
+ * measurement as the horizontal gutter above. */
 section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"]) > .cell-stage > .functionplot {
-  width: 62%;
+  width: 58%;
 }
 
 /* ── function-plot SVG styling ──

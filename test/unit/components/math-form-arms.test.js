@@ -68,7 +68,14 @@ test('every math variant keeps a FAMILY reflow, or declares why it needs none', 
     .map((block) => (block.includes('{') ? block.slice(0, block.indexOf('{')) : ''))
     .map((sel) => sel.slice(sel.lastIndexOf('*/') + 2))
     .filter((sel) => sel.includes('section.math'));
-  const formFamily = selectors.filter((sel) => sel.includes('data-family') && sel.includes('.cell-stage'));
+  // AND IT MUST KEY THE FAMILIES THE REGRESSION LIVES IN. `sel.includes('data-family')`
+  // alone is satisfied by a rule keyed `[data-family="wide"]` — the 16:9 default, where
+  // nothing needs to give — so the gate would certify a reflow aimed at the one family
+  // that never needed one. Found by a red team reading the matcher. `square` counts too:
+  // `feature` measures 242px over there, so a variant may legitimately reflow at square
+  // and not at tall, but a rule that keys ONLY `wide` is not a reflow.
+  const formFamily = selectors.filter((sel) => sel.includes('.cell-stage')
+    && /\[data-family=["'](tall|strip|square)["']\]/.test(sel));
 
   // WHICH VARIANT DOES A SELECTOR ACTUALLY DECLARE? Not "every variant token it
   // mentions" — `decompose` is authored as the COMPOUND `math matrix decompose`, so its
