@@ -892,3 +892,56 @@ nightly counts-based Playwright pair — is NOT ported, because it describes a p
 longer exists. The shape is worth rebuilding if diagram scheduling is ever revisited: assert on
 integer COUNTS rather than milliseconds, because counts survive a change of machine and the
 numbers in this document did not.
+
+## 16. What the checker found in the shipping fix, after the trio had gone
+
+The trio killed the *ceiling* design (§13). The give-up design that replaced it went through one
+more independent pass, and that pass found a regression the trio never saw because it did not
+exist yet — worth recording, because it is the same failure shape as the one §13 describes and it
+survived a session that believed it was done.
+
+**The export waits TWICE on one document, and the first release ended the second wait.**
+`bakeDeckSections` builds a capture frame — `createCaptureFrame` waits 4000 on the frame's
+document — and then waits 12000 more on that same document. Before the fix the first wait was
+side-effect-free, so the effective budget was the sum. The give-up release made the first wait
+*terminal*: `unavailable` plus `data-mermaid-final` closes every route the runtime has back to a
+fence, so the second wait saw nothing un-settled and returned on its first poll. A diagram landing
+between 4s and 12s — a multi-band deck serializing through `enqueueDiagramJob`, or an
+`architecture` fence doing the icon-pack fetch that `RENDER_SETTLE_CAP_MS = 20000` exists for —
+used to export as a drawing and would have exported as source text.
+
+The blast radius was all seven `createCaptureFrame` lanes, not just the bake: `rasterizeDeckImages`
+builds ONE frame and rasterizes N slides off it, so a diagram that finished at t=5s used to appear
+on every slide captured after that point.
+
+**The fix is that only the LAST wait before a capture may release.** `waitForDiagrams` takes
+`{ release }`, defaulting to true because most lanes rasterize straight off the frame; the bake
+opts out and owns the give-up itself at 16000. The asymmetry is the thing to remember: **waiting is
+idempotent, releasing is not.**
+
+**The default direction was chosen for how it fails.** A raster lane that forgot to release would
+ship the original blank; a bake that forgot to opt out ships source text over a drawing. Source
+text is the more informative artifact, so the default releases and the exception opts out.
+
+**Two coverage holes came with it, and one is not closed.** The give-up's re-read (rather than
+reusing the last poll's list, which is up to a poll interval stale) had no cell that killed a
+mutant of it — the stale list would stamp a *successfully drawn* fence `unavailable` and
+`mermaid.css` would then hide the SVG sitting in the DOM. That cell now exists. The one still open
+is `bakeDeckSections` itself: nothing at any tier calls it, so its budget and its
+`releaseDiagrams: false` are free parameters that no PR gate can pin. `waitForDiagrams` is pinned;
+the call site supplying its arguments is not. That is the same lesson §13 records — the predecessor's
+suite pinned the shape of the loop and never the number that decided it — landing one level up.
+
+**And the real-surface arm does not run on a PR.** `docs/e2e/mermaid-unavailable-export.spec.ts`
+carries no `@smoke` tag, and CI runs `test:e2e:smoke` only, so the export e2e runs nightly — after
+merge. The artifact behind this fix's "verified on the real surface" claim is real and was produced
+by hand; it is not re-derivable from a PR-gate run.
+
+### Off-path, logged not fixed (HARD RULE #18)
+
+`lib/integrations/mermaid/mermaid.css` asserts in a comment that "the Studio's offscreen EXPORT
+capture frame goes through `buildSrcdoc` with a real Mermaid URL, so it carries the attribute"
+(`data-lattice-diagrams`). It does not: `deck-export.js` passes `diagrams: false` explicitly. The
+comment predates this work and contradicts the code, which happens not to matter — it is *why* an
+untagged fence still paints its source in the capture frame, which the fix relies on — but a reader
+trusting the comment would conclude the opposite. Not pulled into this PR.

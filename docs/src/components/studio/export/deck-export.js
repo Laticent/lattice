@@ -344,7 +344,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl, dagreUrl }) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl, dagreUrl }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	const host = document.createElement('div');
@@ -410,7 +410,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			requestAnimationFrame(() => requestAnimationFrame(finish));
 			setTimeout(finish, 500);
 		});
-		await waitForDiagrams(doc);
+		// Release by default: most lanes rasterize straight off this frame, so this wait IS the
+		// last one and a fence still un-settled here would bake as a blank. `bakeDeckSections`
+		// opts out — it waits again, longer, and owns the give-up itself.
+		await waitForDiagrams(doc, 4000, { release: releaseDiagrams });
 		if (win?.__latticeFit) win.__latticeFit();
 	} catch (e) {
 		dispose();
@@ -477,7 +480,7 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
  *
  * @returns the number of fences released as source rather than drawn — 0 when everything drew.
  */
-export async function waitForDiagrams(doc, budgetMs = 4000) {
+export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } = {}) {
 	const UNTAGGED = ':is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"]:not(.language-mermaid-source)';
 	const TAGGED = ':is(pre, marp-pre)[data-mermaid-state]';
 	if (!doc.querySelector(`${UNTAGGED}, ${TAGGED}, .mermaid`)) return 0;
@@ -514,6 +517,14 @@ export async function waitForDiagrams(doc, budgetMs = 4000) {
 	// THE BUDGET EXPIRED. Re-read rather than reusing the last poll's list, which is up to one
 	// poll interval stale and may name a fence that has since drawn.
 	const stranded = blanking();
+	// A CALLER THAT WAITS AGAIN MUST NOT RELEASE HERE. The release is terminal — `unavailable`
+	// plus `data-mermaid-final` closes every route the runtime has back to this fence (see the
+	// mark below) — so releasing at anything but the LAST wait before the capture silently
+	// shortens the budget to that wait's. `bakeDeckSections` is exactly that case: it builds a
+	// capture frame (which waits) and then waits 12000 more on the same document, so a release
+	// in the frame would cap the bake at the frame's 4000 and strand a diagram that was still
+	// going to draw. Waiting is idempotent; releasing is not.
+	if (!release) return stranded.length;
 	for (const pre of stranded) {
 		// `unavailable` rather than `error`: nothing about this fence is known to be wrong. It
 		// ran out of time, which is what the state means everywhere else it is set.
@@ -583,13 +594,15 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  * @returns {Promise<{ sections: string[], diagrams: number, failed: number } | null>}
  */
 export async function bakeDeckSections(render) {
-	const { frame, dispose } = await createCaptureFrame(render);
+	const { frame, dispose } = await createCaptureFrame(render, { releaseDiagrams: false });
 	try {
 		const doc = frame.contentDocument;
 		if (!doc) return null;
 		// A longer budget than the rasterizers': this is a one-shot export step whose whole
 		// job is the diagram, and shipping the fence is a permanent defect in a frozen file
-		// (a raster that lands a frame early is merely a stale pixel).
+		// (a raster that lands a frame early is merely a stale pixel). The frame above already
+		// waited 4000 WITHOUT releasing, so a diagram has 16000 in total here and the give-up
+		// below is the first and only one.
 		//
 		// The wait is unchanged; what changed is what happens when it expires. Anything still
 		// un-settled is released to `unavailable`, so the slide carries the author's source
