@@ -3,7 +3,7 @@ status: in-progress
 summary: >-
   The overflow-corpus ratchet's 8 stale decks have ONE cause and it is not the decks. 19 of the 20
   clipped slides are the SPECIMEN-VOICE CAPTION FOOTER — the `— <summary>` suffix
-  `galleryPlan()` appends for a `specimenVoice` manifest — ellipsised by the standard frame's
+  `galleryPlan()` appends for a `specimenVoice` manifest — ellipsized by the standard frame's
   single-line footer band, `chromeOnly: true`, no author body content lost. Measured: the band is
   1187px at hd and a `bar row` footer lays out at 1344px; 29 generated footers across 8 components
   exceed it. The 20th slide, `examples/q-and-a.md` p7, was a real 59px vertical overflow and is

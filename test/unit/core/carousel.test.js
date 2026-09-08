@@ -838,6 +838,30 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     assert.doesNotMatch(ridge, /OLSTAIL/, 'a column page must not carry the other column');
   });
 
+  test('the coda is the EARLIEST trailing block, not the first one in the array', () => {
+    // `trailingBeatsOf` returns `[...insight, ...note]`, so picking with `find` took the first
+    // INSIGHT rather than the earliest beat: with a `.below-note` div ahead of a blockquote, the
+    // note was stranded on the last column's page while the blockquote started the coda —
+    // contradicting the rule two hundred lines up that names BOTH as announcing themselves.
+    // Latent through the `math` transform, which claims `trailing-paragraph` and never emits the
+    // below-note wrapper; reachable here because the fixture is rendered HTML, which is what the
+    // reader actually sees. Pinned rather than left, because the sort is otherwise unfalsifiable.
+    const col = (name) => `<h3>${name}</h3>`
+      + '<p><span class="katex-display"><span class="katex">e</span></span></p><p>body.</p>';
+    const inner = mathInner(`${col('Frequentist')}${col('Bayesian')}`
+      + '<div class="below-note"><p>SENTINELN the footnote.</p></div>'
+      + '<blockquote><p>SENTINELQ the run takeaway.</p></blockquote>');
+    const parts = split(mathTag('compare'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    const closing = parts.filter((p) => roleOf(p) === 'closing');
+    assert.equal(closing.length, 1);
+    // BOTH trailing blocks close the run — neither is stranded on a column page.
+    assert.match(closing[0], /SENTINELN/, 'the below-note was stranded on the last column');
+    assert.match(closing[0], /SENTINELQ/);
+    const bayes = parts.find((p) => p.includes('Bayesian') && roleOf(p) === 'body');
+    assert.doesNotMatch(bayes, /SENTINELN|SENTINELQ/);
+  });
+
   test('…but a key insight AFTER the columns still closes the run', () => {
     // The finding the rule above exists for, kept beside the regression it caused. A `blockquote`
     // ANNOUNCES itself as a coda where a bare paragraph cannot, which is the whole discriminator.
@@ -892,14 +916,17 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     assert.match(closing[0], /TAILBEAT/);
     // …and the one between two cards does not. It belongs to the member it sits with.
     assert.doesNotMatch(closing[0], /MIDBEAT/, 'a beat between two members was hoisted to the coda');
-    // WHAT THE FLOOR DOES NOT BUY, asserted rather than left to be discovered. A block that is
-    // neither a member nor a trailing beat stays in the trunk, and `removeSpans` keeps the trunk
-    // on every page — so this paragraph repeats across all three. That is a real cost and it is
-    // the LESSER one: hoisted, it printed after the Proof as a closing statement that followed
-    // nothing, which reads as a rendering fault rather than as repetition. Deciding what an
-    // interstitial non-member block should do is a rule this branch does not have, so the arm
-    // states the behavior instead of implying the floor settled it.
-    assert.equal(parts.filter((p) => p.includes('MIDBEAT')).length, 3);
+    // AND IT RIDES ONE PAGE — the member it follows. This arm PINNED THREE COPIES for one commit,
+    // on the reasoning that deciding an interstitial block's placement was "a rule this branch
+    // does not have". That was wrong twice over: #18 does not let a branch ship a window it
+    // opened (`math` did not split at all on `origin/main`), and the rule WAS already written,
+    // two hundred lines up in the same file — a bare paragraph "belongs to the column above it".
+    // Freezing a branch-created regression as a certified invariant is the worse failure of the
+    // two, because the next reader takes the arm as the specification.
+    const on = parts.filter((p) => p.includes('MIDBEAT'));
+    assert.equal(on.length, 1, 'an interstitial block must ride exactly one page');
+    assert.match(on[0], /Definition\./, '…and it is the page of the member it follows');
+    assert.doesNotMatch(on[0], /Theorem\./);
   });
 
   test('a trailing note lands ONCE, on a closing page — on the card-stack arm too', () => {

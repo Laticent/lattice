@@ -1132,7 +1132,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     assert.equal(r.clipSuspect, true, '…but it IS worth a content walk to find out');
   });
 
-  test('#2138 — an ellipsised footer carrying an inline element does not make the SLIDE `over`', () => {
+  test('#2138 — an ellipsized footer carrying an inline element does not make the SLIDE `over`', () => {
     // The shipped defect, in its measured shape. `.cell-footer > footer` is single-line
     // chrome (`white-space: nowrap; overflow: hidden; text-overflow: ellipsis`). With a
     // plain text footer discovery never sees it — no element children, nothing for
@@ -1194,7 +1194,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
   test('#2138 — a FLEX container is not exempt: `text-overflow` does nothing there', () => {
     // `text-overflow` acts on a block container's own inline formatting context, so it is inert on
     // a flex or grid container — this repo's own CSS says so twice. Measured in Chrome 131: a
-    // block container ellipsises, a flex container hard-clips mid-glyph with no ellipsis at all.
+    // block container ellipsizes, a flex container hard-clips mid-glyph with no ellipsis at all.
     // Exempting those from `over` would trade a false positive for a silent content loss.
     const html = '<section class="form"><div class="cell-footer">'
       + '<footer id="ft"><span id="a">one</span></footer></div></section>';
@@ -1207,7 +1207,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     const scroll = { section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 } };
     const r = withDom(html, rects, { scroll, truncate: ['#ft'], flex: ['#ft'] },
       (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
-    assert.equal(r.over, true, 'a flex container cannot ellipsise, so its spill is real loss');
+    assert.equal(r.over, true, 'a flex container cannot ellipsize, so its spill is real loss');
   });
 
   test('#2138 — a WRAPPING box is not exempt: `text-overflow` is inert without `nowrap`', () => {
@@ -1228,7 +1228,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     const scroll = { section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 } };
     const r = withDom(html, rects, { scroll, truncate: ['#ft'], wrap: ['#ft'] },
       (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
-    assert.equal(r.over, true, 'a wrapping box cannot ellipsise, so its spill is real loss');
+    assert.equal(r.over, true, 'a wrapping box cannot ellipsize, so its spill is real loss');
     // …and the identical box at `nowrap` IS exempt, so the arm pins the property rather than
     // the fixture.
     const ok = withDom(html, rects, { scroll, truncate: ['#ft'] },
@@ -1238,7 +1238,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
 
   test('#2138 — a NON-truncating clip box still contributes its horizontal spill', () => {
     // The exemption keys on the three properties that make `text-overflow` actually
-    // fire, not on "is this a footer". A box that clips horizontally WITHOUT ellipsising
+    // fire, not on "is this a footer". A box that clips horizontally WITHOUT ellipsizing
     // is silently cutting text off, and must still raise `over` — the same box shape,
     // one declaration different, the opposite verdict.
     const html = '<section class="form"><div class="cell-footer">'

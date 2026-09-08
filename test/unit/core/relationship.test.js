@@ -803,6 +803,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     const bad = typeset('\\dfracc{a}{b}');
     assert.match(bad, /mathcolor="#cc0000"/, 'the fixture must actually render the error form');
     assert.doesNotMatch(bad, /katex-error/, '…and carry no error class, or it pins nothing');
+    assert.doesNotMatch(labelOf(`<li>${bad}</li>`), /dfracc/, 'and with nothing beside it, decline');
     const label = labelOf(`<li>${bad} — a description of it</li>`);
     assert.doesNotMatch(label, /dfracc/, "the author's broken SOURCE reached the chip");
     assert.doesNotMatch(label, /\\\\/, 'no backslash command may reach a rendered label');
@@ -902,6 +903,44 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.doesNotMatch(math, /\\top|span|katex/);
     // A TYPEABLE math title still names its page, which is what proves the read itself works.
     assert.equal(labelOf(slot(typeset('R'), 'the reals')), 'R');
+  });
+
+  test('KaTeX has TWO failure renderings and the CLASSED one has no `.katex` wrapper', () => {
+    // A ParseError renders as `<span class="katex-error" style="color:#cc0000">\\frac{a</span>` —
+    // no `.katex` wrapper and no MathML anywhere — so a scan for `katex` alone walked past it,
+    // `stripMathMirror` never touched it, and `stripTags` flattened the author's raw TeX into the
+    // chip: a rendered slide read `\\frac{a →`. `mathSafe` keys on the same scan, so the #29
+    // shape-glyph guard was off for these members too.
+    //
+    // `lib/engine/math.js` had ALREADY learned this — its docblock says so and it tests both. This
+    // file learned half of it twice: first by reading the error mirror as symbols, then by
+    // refusing that mirror while leaving the classed rendering invisible.
+    for (const tex of ['\\frac{a', '\\left( a', '\\begin{foo}x\\end{foo}']) {
+      const err = typeset(tex);
+      assert.match(err, /katex-error/, `${tex} must render the CLASSED failure`);
+      const label = labelOf(`<li>${err} — a description of it</li>`);
+      assert.equal(label, 'a description of it', `\`${tex}\` reached the chip`);
+      assert.doesNotMatch(label, /\\\\/, 'no backslash command may reach a rendered label');
+    }
+    // AND THE SEPARATOR GOES WITH IT. `decoded` is '' for a failed render, and returning early
+    // there left the em dash leading: the chip shipped `— a description of it`, which is
+    // character-for-character the defect this file records as fixed for `L \\dashv R`.
+    for (const sep of ['—', '–', ',', ':']) {
+      assert.equal(labelOf(`<li>${typeset('\\frac{a')} ${sep} a description of it</li>`),
+        'a description of it', `the \`${sep}\` separator survived the drop`);
+    }
+  });
+
+  test('the EMPTINESS test bounds a tag the same way the rest of the file does', () => {
+    // `hasVisibleText` is the cheap "would dropping this leave nothing" check, and it was the last
+    // reader in the file still using `indexOf('>')` — added by the same fold that converted every
+    // other one. A quoted attribute carrying a `>` made it answer "yes" on attribute text, so
+    // `dropLeadEquation` dropped a lead it should have kept and the chip was lost silently.
+    const eq = typeset('f(x) = y');
+    assert.equal(labelOf(`<li>${eq}<span title="a>b"></span></li>`), 'f(x)=y');
+    // The control: the same member without the attribute already worked, so the arm pins the
+    // BOUND rather than the emptiness rule.
+    assert.equal(labelOf(`<li>${eq}<span></span></li>`), 'f(x)=y');
   });
 
   test('a `>` inside a quoted attribute value is not the end of the tag', () => {
