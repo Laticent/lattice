@@ -27,6 +27,16 @@ const assert = require('node:assert/strict');
 
 const { planTrim, trimClassOf, trimRecord, TRIM_TOLERANCE, FIT_EPSILON } = require('../../../lib/core/guards-trim');
 
+// A LITERAL, not the module's own constant.
+//
+// MR3 and MR13 asserted against the imported `FIT_EPSILON`, so widening the
+// constant widened the assertions in lock-step: setting it back to 12 — which
+// restores the exact defect that shipped a sheared card — left all 16 relations
+// green. A test that imports its own tolerance from the code under test certifies
+// whatever that code currently believes. Measured: at 12, four boxes are claimed
+// FIT while still over by up to 11px; at 0.5, none are.
+const FIT_PX = 0.5;
+
 const { makeModel, applyToModel, SEEDS, rng } = require('./fixtures/guards-trim-model');
 
 // ── MR1 · determinism ────────────────────────────────────────────────────────
@@ -75,7 +85,7 @@ test('MR3 fit-or-nothing — every planned box fits after, and a declined box is
       // shear the card's bottom border, and because 8px is also under the probe's
       // slack the guard then silenced the overflow warning about it. A relation that
       // tolerates the bug cannot catch the bug.
-      assert.ok(box.contentBottom - box.limit <= FIT_EPSILON,
+      assert.ok(box.contentBottom - box.limit <= FIT_PX,
         `seed ${seed}: box ${boxId} was planned as fitting but still overflows by ` +
         `${box.contentBottom - box.limit}px`);
     }
@@ -247,7 +257,11 @@ test('MR10 translation invariance — offsetting every coordinate changes nothin
       ...box,
       limit: box.limit + D,
       contentBottom: box.contentBottom + D,
-      blocks: box.blocks.map((b) => ({ ...b, top: b.top + D, bottom: b.bottom + D })),
+      // EVERY coordinate, `outerBottom` included. Missing one is not a translation,
+      // and the relation caught exactly that when chrome was added to the corpus.
+      blocks: box.blocks.map((b) => ({
+        ...b, top: b.top + D, bottom: b.bottom + D, outerBottom: b.outerBottom + D,
+      })),
     })) };
     const a = planTrim(model);
     const b = planTrim(moved);
@@ -288,6 +302,19 @@ test('MR12 all-never box — declines with no actions, whatever the overflow', (
   }
 });
 
+// ── MR0 · the fit target is pinned, and it is not the alarm's slack ──────────
+// The one assertion that cannot be satisfied by moving the goalposts. Everything
+// else here compares geometry to a number; this compares the number to a literal,
+// so widening `FIT_EPSILON` is a deliberate edit to this file rather than a silent
+// loosening of four relations at once.
+test('MR0 the fit target is a sub-pixel constant, distinct from the overflow slack', () => {
+  assert.equal(FIT_EPSILON, FIT_PX,
+    'FIT_EPSILON moved — if deliberate, change FIT_PX here and say why in the same commit');
+  assert.ok(FIT_EPSILON < 1, 'the fit target must be sub-pixel: a visible row is not a fit');
+  assert.ok(TRIM_TOLERANCE > FIT_EPSILON,
+    'entry tolerance and exit target must stay distinct — conflating them shipped the shear');
+});
+
 // ── MR14 · the planner must still DO something ───────────────────────────────
 // THE ARM EVERY OTHER RELATION IS BLIND TO, and a second independent review is why
 // it exists. Twelve of the thirteen relations above only constrain what the planner
@@ -314,15 +341,15 @@ test('MR14 effectiveness — the planner keeps trimming what it can trim', () =>
     fits += plan.fits.length;
     declines += plan.declines.length;
   }
-  assert.ok(actions >= 60,
+  assert.ok(actions >= 55,
     `the planner produced only ${actions} clamps across ${SEEDS.length} seeds ` +
-    `(measured baseline: 85) — it has become conservative enough to be inert`);
-  assert.ok(fits >= 50,
-    `only ${fits} boxes were made to fit (measured baseline: 80)`);
+    `(measured baseline: 77) — it has become conservative enough to be inert`);
+  assert.ok(fits >= 45,
+    `only ${fits} boxes were made to fit (measured baseline: 74)`);
   // And the other direction: declines must not vanish either, or the corpus has
   // stopped exercising rule 5's refusals and MR12/MR5 are riding on nothing.
   assert.ok(declines >= 100,
-    `only ${declines} boxes declined (measured baseline: 253) — the corpus no longer ` +
+    `only ${declines} boxes declined (measured baseline: 276) — the corpus no longer ` +
     `exercises the refusal path`);
 });
 
@@ -355,7 +382,7 @@ test('MR13 tight clamp — a clamped block\'s text ends at or above the box limi
       // the 8px shear that shipped. A block's padding and bottom border sit below its
       // last line and are part of what must fit.
       const blockBottom = textTop + a.lines * b.lineHeight + (b.padBottom || 0);
-      assert.ok(blockBottom <= box.limit + FIT_EPSILON,
+      assert.ok(blockBottom <= box.limit + FIT_PX,
         `seed ${seed}: ${a.blockId} clamped to ${a.lines} lines ends at ${blockBottom} ` +
         `but the box limit is ${box.limit} — the clamp does not fit its own box`);
       checked++;

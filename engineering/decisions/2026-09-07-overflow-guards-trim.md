@@ -933,6 +933,93 @@ decline with a named reason, and as defense in depth if the exit ever loosens. N
 test was manufactured for it; a relation that cannot fail is worse than an honest
 gap.
 
+**A THIRD INDEPENDENT REVIEW REFUTED THE FIX ABOVE.** The record is now three
+passes and three crops of shipping bugs, each found in code the previous pass had
+already corrected, and that pattern is the most useful thing in this note.
+
+1. **The sheared card and the false FIT both reproduced, on a two-up layout.** Two
+   causes, both introduced by the repair. The `tail` was ONE GLOBAL SCALAR taken
+   from the deepest text block, so chrome belonging to any other vertical stack in
+   the same clip cell was invisible to it — the comment claiming it "over-reserves…
+   the safe direction" was simply false for that shape. And the post-apply VERIFIER
+   still read `TRIM_TOLERANCE`: `planBox`'s exit was tightened to `FIT_EPSILON`
+   while the one gate that catches model error went on certifying any residual under
+   12px as a fit. The defect was not fixed, it was moved one function along. The
+   export printed "Those slides FIT… the frame check below reports them clean" with
+   the frame check on the NEXT LINE naming that same page, and destroyed 22 lines of
+   copy doing it.
+2. **A `data-trim-id` collision reopened, one level up.** `idSeq` restarts at 0 on
+   every `measureTrim` call while a stamped element keeps its id across sweeps and
+   `clearTrim` does not remove it — so on the runtime's next incremental sweep a new
+   paragraph was minted at index 0 onto an id an existing element already held.
+   Reproduced: a plan naming a `prose` block clamped a `value` block. That is the
+   first review's bug in a new door, and the deferred stamping widened the window.
+3. **The Read-view rule broke list markers.** `list-item` is a trimmable role, so
+   `#lp-article [data-lattice-trimmed]{display:block}` demoted a clamped `<li>` out
+   of `display:list-item`: the bullet vanished and an `<ol>` stopped incrementing, so
+   a three-item list read 1, blank, 2. Reproduced on this feature's own demo deck.
+4. **`mixed` was shadowed by `caption` and `note`**, both of which return earlier, so
+   the role added to stop an ellipsis landing on code protected neither of two of the
+   four trimmable roles. The `attribution` regex accepted an ASCII hyphen, so
+   `-40% year over year` inside a blockquote classified as `attribution` — `never` —
+   and under rule 5 one misfire declines the whole box, making `guards: strict`
+   silently inert on any quote or figure slide whose prose opens with a dash.
+5. **Two claims written in the previous commit were false at that commit.** `mixed`
+   changed the demo deck's p4 decline from `mark-would-be-invisible` to
+   `blocked-by-mixed` — because that slide's own paragraphs quote the reason as
+   inline code — so both this note and the slide's body text described behavior the
+   tree no longer had. The slide is now written without inline code and demonstrates
+   rule 4 genuinely again.
+
+**What replaced the global tail.** Chrome is measured PER BLOCK, as accumulated
+`paddingBottom + borderBottomWidth` over the ancestors between the block and the
+box, stopping where a sibling holds a container open. Two readings were tried and
+both were wrong in ways worth recording: a raw `ancestor.bottom - block.bottom`
+sweeps up GRID STRETCH (a short row-mate reported 393px of chrome that collapses the
+moment its tall neighbor is clamped, so the planner refused a cut that works), and
+an unconditional climb to the box sweeps up a SIBLING's height (the two-up left card
+credited 531px it does not own). Padding and border are neither: they are what this
+block's own containers reserve below it, they move when it moves, and they are what
+actually shears.
+
+**And the verdict now uses the warning's own oracle.** `measureTrim` asks whether a
+box's scroll extent exceeds its client height; `probeSectionOverflow` asks whether
+the slide exceeds its frame, and it is what prints the OVERFLOW line. A trim must
+satisfy BOTH or every clamp comes off — rule 5 at the slide, distinct from the
+per-box revert, and it is what the two-up case needed: every clip cell measured
+clean while the frame still overflowed, so nothing was "still over" for the per-box
+revert to undo. The reverted `strict` render of that deck is now **byte-identical**
+to its `guards: loose` baseline, which is rule 5 stated as an artifact rather than
+an intention.
+
+**Mutation, re-run after the repair — and two of the fixes were themselves
+unpinned.** `chrome += 0` in the measurer and the removal of the id-collision guard
+both survived the whole suite on the first pass: the model tier never runs the
+measurer, and no test replayed two sweeps. Both are now covered by adapter arms, and
+the corpus generator emits per-block chrome so the PLANNER's half is caught by MR3
+(deleting `chromeOf` turns it red). Every mutant below now dies:
+
+| mutation | killed by |
+|---|---|
+| `FIT_EPSILON` 0.5 -> 12 (the shipped bug) | MR3 + MR0 |
+| planner ignores per-block chrome | MR3 |
+| measurer computes no chrome | adapter |
+| id-collision guard removed | adapter |
+| `idPrefix` argument ignored | adapter |
+| `padBottom` loses its bottom border | adapter |
+| deck header band dropped from `isChrome` | adapter |
+| `trimRoleOf` returns `'prose'` for everything | adapter |
+| `Math.floor` -> `Math.ceil` on the line budget | both tiers |
+| plan against the deepest block, ignoring chrome | MR3 |
+
+**Four mutants that survived the whole suite are now covered**: `FIT_EPSILON`
+restored to 12 (MR3 and MR13 imported the constant from the module under test, so
+widening it widened the assertions in lock-step — they use a literal now, and MR0
+pins the constant itself), the `idPrefix` argument ignored, `padBottom` losing its
+bottom border, and the deck header band dropped from `isChrome`. Writing that test
+also surfaced a latent kernel bug nothing had hit: `querySelectorAll('')` throws, so
+`measureTrim` with no clip selector died before measuring anything.
+
 **BUILT, as of this branch.** The kernel (`lib/core/guards-trim.js`), the register
 (`lib/core/resolve-guards.js`), both render-path call sites, the `unknown-guards`
 lint rule, the register docs and `examples/overflow-guards.md` have landed. What

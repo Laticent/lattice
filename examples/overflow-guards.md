@@ -51,9 +51,9 @@ If the block that crosses the frame edge sits wholly below it, clamping that blo
 
 So the guard declines and leaves the honest clip. A slide that looks complete and is missing two paragraphs is worse than one that visibly overflows, because only the second one tells you to fix it.
 
-This slide is that case, live. It overflows, and the guard declines: the block crossing the frame edge starts below it, so any ellipsis placed there would be drawn where you cannot see it. The plan reports `mark-would-be-invisible` and nothing is cut, which is why you are reading a slide that clips rather than one quietly missing its tail.
+This slide is that case, live. It overflows, and the guard declines: the block crossing the frame edge starts below it, so any ellipsis placed there would be drawn where you cannot see it. The plan refuses to put a mark nobody can see, nothing is cut, and that is why you are reading a slide that clips rather than one quietly missing its tail.
 
-There is a second refusal behind this one. The policy guarantees fit-or-nothing over its measurement model — a prediction about the page, not a reading of it — so after any cut is applied the box is measured again, and a cut that did not buy the fit is undone and reported as `TRIM REVERTED`. Verifying the outcome instead of trusting the plan is the difference between a guard and a hope.
+There is a second refusal behind this one. The policy guarantees fit-or-nothing over its measurement model — a prediction about the page, not a reading of it — so after any cut is applied the slide is measured again, and a cut that did not buy the fit is undone and reported as reverted. Verifying the outcome instead of trusting the plan is the difference between a guard and a hope.
 
 ---
 

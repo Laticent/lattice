@@ -73,6 +73,11 @@ function makeBox(rand, id, opts = {}) {
     // test that catches it, by applying a plan and re-measuring the real box.
     const padTop = opts.padTop ?? Math.round(rand() * lineHeight * 3);
     const height = padTop + lines * lineHeight + padBottom;
+    // CHROME below the block — the padding and borders of its own containers, which
+    // shrink with it. Every generated block had none, so `outerBottom` was absent
+    // from the whole corpus and deleting the planner's chrome term (the fix that
+    // ends the sheared card) changed nothing any relation could see.
+    const chrome = opts.chrome ?? (rand() < 0.5 ? Math.round(rand() * 40) : 0);
     const col = columns > 1 ? i % columns : 0;
     const top = columns > 1 && col > 0 ? colTop : y;
     blocks.push({
@@ -80,14 +85,15 @@ function makeBox(rand, id, opts = {}) {
       role: opts.role ?? TRIM_WEIGHTED[Math.floor(rand() * TRIM_WEIGHTED.length)],
       top,
       bottom: top + height,
+      outerBottom: top + height + chrome,
       lineHeight,
       padTop,
       padBottom,
       chars: 20 + Math.floor(rand() * 400),
     });
-    if (col === 0) y = top + height + Math.round(rand() * 10);
+    if (col === 0) y = top + height + chrome + Math.round(rand() * 10);
   }
-  y = blocks.reduce((m, b) => Math.max(m, b.bottom), colTop);
+  y = blocks.reduce((m, b) => Math.max(m, b.outerBottom), colTop);
   // THE LIMIT IS DERIVED FROM THE CONTENT, not drawn independently.
   //
   // An independent draw put the limit anywhere in [200, 700] while the content ran
@@ -158,18 +164,20 @@ function applyToModel(model, plan) {
         recovered.set(b.id, Math.max(0, (before - a.lines) * b.lineHeight));
       }
       const shiftOf = (b) => box.blocks.reduce((sum, o) =>
-        (o.bottom <= b.top ? sum + (recovered.get(o.id) || 0) : sum), 0);
+        (o.outerBottom <= b.top ? sum + (recovered.get(o.id) || 0) : sum), 0);
       const blocks = box.blocks.map((b) => {
         const top = b.top - shiftOf(b);
         const height = (b.bottom - b.top) - (recovered.get(b.id) || 0);
-        return { ...b, top, bottom: top + height };
+        // The block's own chrome travels with it — that is what makes it the block's.
+        const chrome = (b.outerBottom ?? b.bottom) - b.bottom;
+        return { ...b, top, bottom: top + height, outerBottom: top + height + chrome };
       });
       // The tail travels with the deepest block — it is that block's container's own
       // chrome — so it is re-added after the reflow rather than dropped. Measured
       // from the ORIGINAL box, which is the only place it is observable.
-      const deepest = box.blocks.reduce((m, b) => Math.max(m, b.bottom), -Infinity);
+      const deepest = box.blocks.reduce((m, b) => Math.max(m, b.outerBottom), -Infinity);
       const tail = box.blocks.length ? Math.max(0, box.contentBottom - deepest) : 0;
-      const contentBottom = blocks.reduce((m, b) => Math.max(m, b.bottom + tail), box.limit);
+      const contentBottom = blocks.reduce((m, b) => Math.max(m, b.outerBottom + tail), box.limit);
       return { ...box, blocks, contentBottom };
     }),
   };

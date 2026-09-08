@@ -554,6 +554,124 @@ describe('the TRIM DOM adapter, in real Chromium', () => {
     assert.equal(out.record, '1', 'and the record counts what is still trimmed, not zero');
   });
 
+  test('the measured geometry carries what a mutation would drop', async () => {
+    // THREE MUTANTS A THIRD REVIEW APPLIED AND THE WHOLE SUITE SURVIVED. Each is a
+    // term this feature's own history put there, and none had a test:
+    //   * `idPrefix` ignored (`var PRE = 'tb'`) — the per-slide id namespace deleted;
+    //   * `padBottom` back to `paddingBottom` alone, dropping the bottom BORDER, which
+    //     is half of the shear fix and asymmetric with `padTop` (which includes its);
+    //   * the deck header band dropped from `isChrome`.
+    // A term nothing asserts is a term the next refactor deletes for free.
+    const out = await onPage((page) => page.evaluate(`(() => {
+      ${INJECT}
+      const host = document.createElement('div');
+      host.style.cssText = 'position:absolute;top:0;left:0;width:300px;height:60px;overflow:hidden';
+      host.innerHTML = '<header>Deck header band</header>'
+        + '<div style="padding-bottom:18px;border-bottom:7px solid blue">'
+        + '<p style="line-height:20px;margin:0;padding-bottom:5px;border-bottom:9px solid red">'
+        + 'word word word word word word word word word word word word word word word word '
+        + 'word word word word word word word word word word word word word word word word</p></div>';
+      document.body.appendChild(host);
+      const m = measureTrim(host, '', 12, 'NS');
+      const blk = m.boxes[0] && m.boxes[0].blocks[0];
+      return {
+        boxes: m.boxes.length,
+        blocks: m.boxes[0] ? m.boxes[0].blocks.length : 0,
+        id: blk && blk.id,
+        padBottom: blk && blk.padBottom,
+        // The block's OWN chrome: the padding + border its containers reserve below
+        // it. Deleting this term is what shipped the sheared card, and no model-tier
+        // relation can see it — the measurer is the only thing that computes it.
+        outerBottom: blk && blk.outerBottom,
+        bottom: blk && blk.bottom,
+        headerStamped: host.querySelector('header').hasAttribute('data-trim-id'),
+      };
+    })()`));
+    assert.equal(out.boxes, 1, 'anti-vacuity: the host box must overflow');
+    assert.equal(out.blocks, 1, 'the header band is chrome and is never a candidate');
+    assert.equal(out.headerStamped, false, 'and chrome is not even stamped');
+    assert.ok(out.id.startsWith('NS'), `the id prefix must be honored, got ${out.id}`);
+    assert.equal(out.padBottom, 14,
+      'padBottom must carry paddingBottom + borderBottomWidth (5 + 9), symmetric with padTop');
+    assert.equal(Math.round(out.outerBottom - out.bottom), 25,
+      'outerBottom must carry the ANCESTOR chrome below the block: the wrapper card\'s ' +
+      '18px padding-bottom + 7px border-bottom. Without it the planner budgets that ' +
+      'space to text and the card ships sheared.');
+  });
+
+  test('a second sweep never mints an id an element already holds', async () => {
+    // REVIEW 1's BUG, THROUGH A NEW DOOR — found by review 3. `idSeq` restarts at 0
+    // on every `measureTrim` call, while a stamped element deliberately KEEPS its id
+    // across sweeps (re-minting would orphan the `data-trim-prior` an earlier apply
+    // saved) and `clearTrim` does not remove it either. So on the runtime's next
+    // incremental sweep — an author edits a slide, one paragraph is replaced — the
+    // new block was minted at index 0 onto an id an existing element already held,
+    // and `trimBlockEl` returns the first match in document order. Reproduced: a plan
+    // naming a `prose` block clamped a `value` block, which the role table marks
+    // `never`. Rule 3 violated in the DOM without `planTrim` ever proposing it.
+    //
+    // This replays the runtime's exact sequence: clear, measure, edit, measure again.
+    const out = await onPage((page) => page.evaluate(`(() => {
+      ${INJECT}
+      const host = document.createElement('div');
+      host.style.cssText = 'position:absolute;top:0;left:0;width:300px;height:70px;overflow:hidden';
+      const LONG = 'word word word word word word word word word word word word word word ';
+      host.innerHTML = '<h2 style="line-height:20px;margin:0">Heading</h2>'
+        + '<p id="BIG" style="line-height:20px;margin:0">' + LONG + LONG + '</p>'
+        + '<p class="kpi" style="line-height:20px;margin:0">$1,234,567</p>';
+      document.body.appendChild(host);
+      const idsOf = () => [...host.querySelectorAll('[data-trim-id]')]
+        .map((e) => e.tagName + (e.className ? '.' + e.className : '') + '=' + e.getAttribute('data-trim-id'));
+      clearTrim(host);
+      measureTrim(host, '', 12, 'tb');
+      const sweep1 = idsOf();
+      // The author edits: the long paragraph is replaced by a different one.
+      host.querySelector('#BIG').remove();
+      const fresh = document.createElement('p');
+      fresh.style.cssText = 'line-height:20px;margin:0';
+      fresh.textContent = LONG + LONG;
+      host.appendChild(fresh);
+      clearTrim(host);
+      measureTrim(host, '', 12, 'tb');
+      const sweep2 = idsOf();
+      const ids = sweep2.map((x) => x.split('=')[1]);
+      return { sweep1, sweep2, unique: new Set(ids).size === ids.length, count: ids.length };
+    })()`));
+    assert.ok(out.sweep1.length >= 2, `anti-vacuity: the first sweep must stamp, got ${out.sweep1}`);
+    assert.ok(out.count >= 2, `anti-vacuity: the second sweep must stamp too, got ${out.sweep2}`);
+    assert.equal(out.unique, true,
+      `two elements share a data-trim-id after an incremental sweep: ${out.sweep2}`);
+  });
+
+  test('a clamped list item keeps its marker in the player Read view', async () => {
+    // `list-item` is one of the four trimmable roles, so the Read view's un-trim rule
+    // lands on `<li>`. Written as `display:block` it demoted the item out of
+    // `display:list-item`: the bullet vanished and an `<ol>` stopped incrementing, so
+    // a three-item list read 1, blank, 2 — reproduced by a third review on this
+    // feature's own demo deck. `display:revert` un-clamps without that.
+    const out = await onPage((page) => page.evaluate(`(() => {
+      ${INJECT}
+      const host = document.createElement('div');
+      host.id = 'lp-article';
+      host.innerHTML = '<ol><li id="A">one</li><li id="B">two</li><li id="C">three</li></ol>';
+      document.body.appendChild(host);
+      const st = document.createElement('style');
+      st.textContent = '#lp-article [data-lattice-trimmed]{display:revert!important;'
+        + '-webkit-line-clamp:none!important;overflow:visible!important}';
+      document.head.appendChild(st);
+      applyTrim(host, { actions: [{ boxId: 'b', blockId: 'B', lines: 1, linesBefore: 4,
+                                    recovered: 60, role: 'list-item', chars: 3 }] });
+      const cs = (id) => getComputedStyle(document.getElementById(id));
+      return { marked: host.querySelectorAll('[data-lattice-trimmed]').length,
+               display: cs('B').display, clamp: cs('B').webkitLineClamp,
+               sibling: cs('A').display };
+    })()`));
+    assert.equal(out.marked, 1, 'anti-vacuity: the list item must have been clamped');
+    assert.equal(out.display, 'list-item', 'a clamped <li> must keep its marker in Read view');
+    assert.equal(out.clamp, 'none', 'and must show its full text there');
+    assert.equal(out.sibling, 'list-item', 'its untouched sibling is unaffected');
+  });
+
   test('a fitting slide is not stamped, and finalizeTrim removes the scaffolding', async () => {
     // `measureTrim` used to stamp `data-trim-id` on every text block it walked,
     // BEFORE deciding whether the box overflowed — so a slide that fits, and that

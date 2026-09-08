@@ -1197,9 +1197,12 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// `-webkit-line-clamp`, and a reader who opened Read view precisely to get the
 	// full text was handed the slide's seven-line truncation instead. Un-clamping is
 	// lossless: `-webkit-line-clamp` truncates visually and removes nothing, so the
-	// whole paragraph is already in this DOM. Found by an independent review; see
+	// whole paragraph is already in this DOM. The rule uses `display:revert`, not
+	// `display:block`: `list-item` is a trimmable role, so it lands on `<li>`, and
+	// `block` demotes the item out of `display:list-item` — the bullet vanishes and an
+	// `<ol>` stops incrementing. Found by two independent reviews; see
 	// `engineering/decisions/2026-09-07-overflow-guards-trim.md`.
-	assert.equal(sha, 'ca14cc8b304c0644a926571847585f0694946bc8d4ebd9d07aef2c1fe83fd1a4', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, 'd84d18b6c4bcf68977a406b46c034d15c178388c07cf7f2cafd4925a0dd23143', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

@@ -87,13 +87,14 @@ measured rather than assumed:
   visible box, the guard does nothing and leaves the honest clip. A slide that
   looks finished and is missing two paragraphs is worse than one that visibly
   clips.
-- **It is all-or-nothing per box.** A plan that cannot make the box fit is
-  discarded whole, so `strict` never destroys content AND leaves the slide
-  overflowing. "Fit" means the box's MEASURED content bottom, which includes the
-  card padding, borders and gaps that are not text and so are invisible to the
-  block walk. Planning against the text alone shipped a card sheared by 8px with
-  the overflow warning switched off, because 8px is inside the warning's own
-  slack — the guard sold a fix it had not delivered.
+- **It is all-or-nothing.** A plan that cannot make the slide fit is discarded
+  whole, so `strict` never destroys content AND leaves the slide overflowing.
+  "Fit" is judged twice: each block counts its own padding and borders (planning
+  against the text alone shipped a card sheared by 8px with the overflow warning
+  switched off, because 8px is inside the warning's own slack), and the result is
+  then re-checked with the same overflow probe that prints the warning. If the
+  slide would still clip, every clamp comes off and the render is byte-identical
+  to `guards: loose`.
 
 Measured on the shipped corpus, `strict` resolves **one of the six** slides that
 clip today. The rest are blocked by a heading, a callout's own chrome, or a shell
@@ -110,7 +111,15 @@ trailing `#` comment.
 
 **The Read view is not trimmed.** A `--player` export's Read/Article column scrolls
 and has no fit problem, so the clamp is lifted there and the reader gets the whole
-paragraph. Trimming is a device for a slide's FIXED cell, and nothing else.
+paragraph, list markers intact. Trimming is a device for a slide's FIXED cell, and
+nothing else.
+
+**Inline code, a citation or math makes a paragraph untrimmable.** The argument
+against an ellipsis on a line of code is an argument about the TAIL that gets cut,
+so a `<p>` ending in `--with-a-long-flag` is the same case wearing a prose tag.
+This is deliberately over-broad: a paragraph with one inline `code` span early on
+becomes untrimmable and the slide rings instead, which is the direction the
+asymmetry above already commits us to.
 
 ## The `finish:` front-matter register (backdrop)
 
