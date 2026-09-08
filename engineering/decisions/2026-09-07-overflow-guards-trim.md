@@ -160,7 +160,14 @@ and decline instead of drop when the mark cannot be visible:
 | `examples/README.md` | 1 | **1** | the crossing block is a shell command one line-height from the edge |
 | `premise.gallery.md` | none | none | — |
 
-**One of six.** Not four, not all six. The gallery stress in §2b tells the same
+**One of six.** Not four, not all six. **This number is now produced by committed
+code**, not by a scratch script: `lib/core/guards-trim.js` measures, plans and
+applies, and re-running it over the same four decks gives the same 1 of 6 while
+agreeing with `probeSectionOverflow` about which six slides clip. The earlier
+disagreement was the measurer's fault and is recorded in that file — a first cut
+counted the footer band and the marker berth as content, which made the footer
+"the block crossing the edge" on half the corpus and reported twelve overflowing
+boxes where the probe reports six. The gallery stress in §2b tells the same
 story more gently — 38 of 80 as ruled against 51 of 80 permissive — but the stress
 harness inflates `p` and `li` prose specifically, which is the one class the guard
 is allowed to trim, so it measures the guard against overflow built to its own
