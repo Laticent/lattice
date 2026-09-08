@@ -121,6 +121,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Docs build dies at config load: "does not provide an export named `unified`"](gotchas/docs-site.md#docs-build-dies-at-config-load-does-not-provide-an-export-named-unified)
 - [`pkill -f astro` kills the shell that's launching astro](gotchas/docs-site.md#pkill--f-astro-kills-the-shell-thats-launching-astro)
 - [An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish](gotchas/docs-site.md#an-astro-island-without-ssr-is-mounted-not-yet-wired--clicks-still-vanish)
+- [A spec is green after `npm run build:e2e` and red after `npm run build`](gotchas/docs-site.md#a-spec-is-green-after-npm-run-builde2e-and-red-after-npm-run-build)
 
 ### [Export (PDF, PPTX, the HTML player)](gotchas/export.md)
 
