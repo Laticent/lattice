@@ -230,13 +230,20 @@ authored by a *designer*; a **Tile** binds a *source*.
   side did not exist until 2026-09-08, so a Frame could not state what it accepts.
   A sovereign Frame admits exactly `["sovereign"]` — it hosts the one component
   carrying its name, which is what `exemptFromChrome` has always meant in practice.
-  Two checks tie it to the generated catalog: `checkFrameAdmits` rejects a kind
-  no component declares, and `checkAdmitsCensus` (from `loadCatalog`) rejects a
-  kind no Frame hosts. **Know their limits.** The catalog's `sovereign` values are
-  themselves derived from `exemptFromChrome`, so that arm is self-referential; and
-  a root Frame that UNDER-claims — omitting `canvas` it really hosts — passes
-  every gate today. This is a declaration with a consistency check, not a
-  verified contract.
+  Three checks tie it to the generated catalog. `checkFrameAdmits` rejects a kind
+  no component declares (**over**-claiming, every Frame) and a **root** Frame that
+  leaves out a non-sovereign kind (**under**-claiming); `checkAdmitsCensus` (from
+  `loadCatalog`) rejects a kind no Frame hosts. **For a root Frame `admits` is a
+  verified contract, not a declaration**: a root Frame is the fallback host for
+  every component that is not its own sovereign, so its correct value IS the set of
+  non-sovereign kinds the catalog declares — and those `flow`/`canvas` values come
+  from each component manifest's own `stage` field, a source independent of any
+  frame. **One limit remains, and it is structural.** A *sovereign* Frame's
+  under-claim is unreachable from here: the catalog's `sovereign` values are built
+  FROM `frameToggleSkip()`, i.e. from the frame manifests' own `exemptFromChrome`,
+  so a check would compare the frame catalog to itself. `validateFrame` pins the
+  shape instead (`exemptFromChrome` ⇔ `admits === ["sovereign"]`), which is as far
+  as a same-source check can go.
 - **`subGrid`** — the internal grid template + ratios.
 - **`cells`** — the Cells it produces (each a full Cell definition).
 - **`suppresses`** — chrome Cells a sovereign Frame hides.

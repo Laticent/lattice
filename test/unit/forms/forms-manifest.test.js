@@ -291,3 +291,33 @@ test('(i) frame admits is checked against the generated stage catalog', () => {
   const errs = checkAdmitsCensus(onlyFlow);
   assert.ok(errs.length >= 2, `orphaned kinds reported: ${errs.join(' | ')}`);
 });
+
+// (j) A ROOT Frame may not UNDER-claim. (i) proves a Frame cannot invent a stage
+// kind; this proves the other direction where it is derivable. A root Frame is the
+// fallback host for every component that is not its own sovereign, so its correct
+// `admits` IS the set of non-sovereign kinds the catalog declares — and those
+// flow/canvas values come from each component manifest's own `stage` field, a
+// source independent of any frame. Without this arm a root Frame could declare
+// admits:["flow"] and pass every gate while `canvas` components still composed
+// into it, which is exactly what a checker demonstrated on the first cut.
+//
+// A SOVEREIGN Frame's under-claim is deliberately NOT asserted here: the
+// catalog's `sovereign` values are built FROM the frame manifests' own
+// exemptFromChrome, so a check would compare the frame catalog to itself.
+test('(j) a root frame that under-claims a declared stage kind is rejected', () => {
+  const { checkIntegrity, loadCatalog } = require('../../../lib/forms');
+  const catalog = require('../../../lib/forms/cell/masthead/stage-catalog.generated.js');
+  const hostable = [...new Set(Object.values(catalog))].filter((k) => k !== 'sovereign').sort();
+  assert.ok(hostable.length >= 2, `more than one non-sovereign kind ships: ${hostable.join(', ')}`);
+
+  const { cells, frames, tiles } = loadCatalog();
+  assert.equal(checkIntegrity({ cells, frames, tiles }).length, 0, 'the shipped catalog passes');
+
+  for (const dropped of hostable) {
+    const mutated = frames.map((f) =>
+      f.kind === 'root' ? { ...f, admits: f.admits.filter((k) => k !== dropped) } : f);
+    const errs = checkIntegrity({ cells, frames: mutated, tiles });
+    assert.ok(errs.some((e) => e.includes('does not admit') && e.includes(`"${dropped}"`)),
+      `dropping "${dropped}" from every root frame is reported: ${errs.join(' | ')}`);
+  }
+});
