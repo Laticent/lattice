@@ -153,6 +153,20 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		expect(doc.querySelector('pre')?.getAttribute('data-mermaid-state')).toBe('unavailable');
 	});
 
+	it('marks the release FINAL, so the runtime cannot take it back before the capture', async () => {
+		// `reclaimReleasedFences` returns any `unavailable` fence to `pending` — re-hiding it —
+		// as soon as a content pass runs with Mermaid present. `bakeDeckSections` releases, then
+		// awaits a dynamic import before reading `outerHTML`, and the capture frame shares this
+		// thread, so a pass scheduled during the wait lands in that await. Without the mark the
+		// capture takes the blank this release exists to prevent, and it does it intermittently
+		// — which is the worst shape for a defect in a downloaded file.
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		await waitForDiagrams(doc, BUDGET);
+		const pre = doc.querySelector('pre');
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('unavailable');
+		expect(pre?.hasAttribute('data-mermaid-final')).toBe(true);
+	});
+
 	it('releases a `rendered` fence whose box never received an SVG', async () => {
 		// The subtler blank: the runtime says `rendered`, so the <pre> is hidden, but nothing
 		// landed in the box. Both halves of the un-settled test have to reach the release.

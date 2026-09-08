@@ -518,6 +518,14 @@ export async function waitForDiagrams(doc, budgetMs = 4000) {
 		// `unavailable` rather than `error`: nothing about this fence is known to be wrong. It
 		// ran out of time, which is what the state means everywhere else it is set.
 		pre.setAttribute('data-mermaid-state', 'unavailable');
+		// AND FINAL, or the runtime takes it straight back. `reclaimReleasedFences` returns any
+		// `unavailable` fence to `pending` — re-hiding it — as soon as a content pass runs with
+		// Mermaid present, which is exactly the situation here. The gap is not theoretical:
+		// `bakeDeckSections` releases, then awaits a dynamic import before reading `outerHTML`,
+		// and the capture frame shares this thread, so a pass scheduled during the wait lands in
+		// that await. The capture would then take the blank this release exists to prevent, and
+		// it would do it intermittently.
+		pre.setAttribute('data-mermaid-final', '');
 	}
 	return stranded.length;
 }
