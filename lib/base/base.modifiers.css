@@ -1780,48 +1780,128 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
  * as an unstyled IN-FLOW block and took 50px out of the very `.cell-stage` being probed
  * (measured: stage 438 → 388), letting the marker manufacture the clip it was reporting.
  * That is structurally impossible now. */
-section.clip-marked > .overflow-tab {
-  /* `!important` is HISTORICAL, and kept deliberately. base.finish.css used to carry a
-   * blanket `section.finish > *:not(.backdrop)` setting `position: relative` at the same
-   * specificity (0,2,1) from a later file, and it won — so on a `finish:` deck this
-   * "corner flag" rendered as a full-width in-flow red BAND that pushed content down and
-   * cost a line of copy (measured `x:64 y:593 w:1152 h:23 position:relative`). That rule
-   * is GONE — the plane model deleted it, because sinking the backdrop means nothing has
-   * to be pushed off it. So this `!important` no longer defends against anything today.
-   * It stays because the property it asserts is an invariant in its own right (an overflow
-   * marker must never take flow space it is reporting on), not because the old rule is
-   * still there. */
+/* ── THE MARKER RAIL — one capsule, up to two facts ───────────────────────────
+ * `.marker-rail` (lib/core/fit-berth.js) wraps the clip tab and the type-floor tab so a
+ * slide that trips BOTH registers shows ONE object with two segments rather than two
+ * pills stacked in a column. It is the positioned box; the segments inside are static.
+ *
+ * WHY THE CONTAINER IS THE POSITIONED ONE. The berth is centered on the slide, and two
+ * absolutely-positioned siblings of unknown width cannot be centered AS A GROUP — each
+ * centers on itself, so the pair reads as two pills near each other and the seam lands
+ * wherever the widths put it. Centering the capsule's own width is only expressible when
+ * the capsule is one box.
+ *
+ * `overflow: hidden` is what makes the two segments share one silhouette: the rail carries
+ * the radius and CLIPS its children, so neither segment needs to know whether it is first,
+ * last or alone. That is the whole degradation story — hide either segment and the survivor
+ * is a correctly-rounded pill with no rule to change.
+ *
+ * `width: max-content` for the reason the berth note below gives: with `left: 50%` and no
+ * `right`, shrink-to-fit clamps to HALF the slide, and a wrapped marker is twice as tall
+ * and reaches the content it reports on. `max-content` is intrinsic and ignores available
+ * space; `max-width` then caps against the full padding box rather than the half.
+ *
+ * THE RAIL IS EXCLUDED FROM BOTH PROBES BY NAME (`MARKER_CHROME_SELECTOR`,
+ * lib/core/overflow-probe.js). It has to be: it is an engine-drawn box inside the section,
+ * so a probe that walked it would measure the marker as author content and let the marker
+ * manufacture the overflow it reports. */
+section > .marker-rail {
   position: absolute !important;
-  /* Inset by a fraction of the slide's own corner, so the flag clears the arc on a
-     `corners: rounded` deck instead of being sliced by it — an author alarm must not go
-     quiet because a deck chose a shape (the #1181 shape, HARD RULE #18). On a square deck
-     `--slide-radius` is `0px`, so this resolves to `0px` and nothing moves.
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  width: max-content;
+  max-width: 96%;
+  /* THE CAPSULE FITS THE STRIP THE FOOTER RESERVES FOR IT, AND THIS IS A CORRECTNESS
+     BOUND, NOT A STYLE CHOICE.
 
-     THE TOKEN'S UNIT IS LOAD-BEARING, and this rule is why. A unitless `0` is a <number>
-     inside `calc()`, so `calc(0 * 0.45)` is not a length — the declaration is invalid at
-     computed-value time and `top`/`right` fall back to `auto`, dropping the marker out of
-     the corner and into flow on EVERY square deck. That shipped once. `--slide-radius` is
-     declared `0px` for exactly this, and the guard is now an absolute-distance assertion
-     in test/integration/parity/content-clipped-pill.test.js rather than a comment — the
-     same typed-fallback trap is recorded below for `--corner-stack`, and this rule fell
-     into it anyway.
+     `section footer` is anchored `bottom: var(--frame-inset-y)`, so its box grows UPWARD
+     from that line and the strip from the frame's bottom edge up to `--frame-inset-y` is
+     free by construction. `bottom: 0` puts the capsule in that strip — which is only
+     safe while the capsule is no TALLER than the strip.
 
-     0.45 has margin over the geometric touch point (a corner marker meets the arc at
-     ~0.29 x radius along the diagonal); a warning surface errs toward clearance. */
-  top: calc(var(--slide-radius, 0px) * 0.45);
-  right: calc(var(--slide-radius, 0px) * 0.45);
+     It was not. `--fs-meta` is bumped on the vertical presets so body text stays legible
+     on a phone, while `--frame-inset-y` tracks the frame — so the capsule outgrew the
+     strip and printed across the running footer on four of the seven sizes. Measured, at
+     `--overflow-marker=reader`, i.e. on the artifact a RECIPIENT receives:
+
+       preset     strip    capsule   gap
+       hd          24px     23.0px   +1.0
+       standard    18px     17.2px   +0.8
+       4K          72px     68.9px   +3.1
+       square     20.3px    33.3px   −13.1   ← opaque capsule across the footer
+       portrait   20.3px    43.2px   −22.9   ←
+       story      20.3px    44.8px   −24.5   ←
+       mobile     20.3px    45.5px   −25.2   ←
+
+     This is the register's own founding defect returning through a new door: the pill
+     shipped bottom-center once before and was pulled for painting across a
+     confidentiality line. The three passing presets clear by 0.8–3.1px, so landscape was
+     never a margin — it was a coincidence.
+
+     `min()` makes the bound STRUCTURAL rather than tuned. The capsule's height is
+     `font-size + 2 × --sp-2xs`, so capping the font at `--frame-inset-y - 2 × --sp-2xs`
+     guarantees height ≤ the strip at every preset, present and future, with no table to
+     keep in step. On every landscape preset `--fs-meta` is already under the cap, so this
+     is a no-op there and the marker looks exactly as it did. On the vertical presets the
+     label shrinks to the fraction of frame width it has at hd — it does not need the
+     phone-reading bump, and honoring that bump is what broke it.
+
+     THE CAPSULE OCCUPIES THE STRIP EXACTLY: its box IS `--frame-inset-y`, so its top edge
+     meets the footer's bottom edge and the two abut without ever overlapping. That is a
+     statable invariant rather than a tuned clearance, which is what the old `bottom: 0`
+     plus an auto height was — and what made landscape's 0.8–3.1px look like a margin.
+
+     THE FONT IS CAPPED AS A FRACTION OF THE STRIP, not by subtracting the padding from it.
+     Subtracting was the first fix and it was wrong in the other direction: `--sp-2xs` is
+     bumped on the vertical presets too (≈6.6px at portrait against 4px at hd), so the
+     padding ate the strip and left 7px of text on a 1080-wide frame — an unreadable
+     marker, which fails the same way a hidden one does. Fixing the box and centering the
+     label inside it gives the text the whole strip to share. 0.65 lands every LANDSCAPE
+     preset back on its own `--fs-meta` unchanged (hd 14.976 < 15.6, standard 11.23 <
+     11.7, 4K 44.93 < 46.8), and binds only where the phone-reading bump would have
+     overflowed — where it yields 13.2px on 1080, i.e. 1.22% of frame width against hd's
+     1.17%. The marker reads the same size relative to the slide on every preset, which is
+     what it always should have done. */
+  height: var(--frame-inset-y);
+  align-items: center;
+  font-size: min(var(--fs-meta), calc(var(--frame-inset-y) * 0.65));
   z-index: var(--z-alarm);
+  /* The capsule rises from the bottom edge, so the TOP corners round. */
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+  overflow: hidden;
+  pointer-events: none;
+}
+/* Nothing to say → no capsule. Belt to the segments' own `display: none`: an empty rail
+   paints nothing (the segments carry the ground), but a zero-size positioned box at the
+   frame's bottom edge is still a box, and `off` promises to leave NOTHING. */
+section:not(.clip-marked):not(.illegible) > .marker-rail,
+section[data-lattice-overflow-marker="off"] > .marker-rail { display: none !important; }
+
+section.clip-marked > .marker-rail > .overflow-tab {
+  /* A SEGMENT NOW, not a positioned box. The rail above owns `position`, the berth, the
+     centering and the radius; this rule owns the segment's ink.
+     The out-of-flow invariant that the `!important` here used to assert has moved UP to
+     the rail with the positioning — an overflow marker must never take flow space in the
+     box it is reporting on, and it is the rail that could now do that. */
   background: #d4351c;
   color: #fff;
   font-family: var(--font-mono);
-  font-size: var(--fs-meta);
+  /* INHERITED from the rail, which caps it against the reserved strip — see there.
+     Re-declaring `--fs-meta` here would restore the overlap the cap exists to prevent. */
+  font-size: inherit;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
-  padding: var(--sp-2xs) var(--sp-sm);
-  border-bottom-left-radius: var(--radius-md);
-  pointer-events: none;
+  /* Horizontal only — the rail's fixed height and `align-items: center` own the
+     vertical, so a bumped `--sp-2xs` can no longer push the capsule past the strip. */
+  padding: 0 var(--sp-sm);
+  display: flex;
+  align-items: center;
+  align-self: stretch;
 }
 /* Only visible on an overflowing section — hidden if the element lingers after
  * the slide is fixed (the runtime watcher also removes it). */
@@ -1830,7 +1910,7 @@ section.clip-marked > .overflow-tab {
  * that overflows without cutting anything simply has no `.clip-marked`, so it is hidden
  * by the same rule that hides a clean slide. No `!important` needed, because there is no
  * longer a more-specific rule to beat. */
-section:not(.clip-marked) > .overflow-tab { display: none; }
+section:not(.clip-marked) > .marker-rail > .overflow-tab { display: none; }
 
 /* `overflow-marker: off` — the CSS half of "no marker". The JS half sweeps once at
  * boot, which is not enough on a `--fluid` export: the emulator embeds its own
@@ -1838,23 +1918,25 @@ section:not(.clip-marked) > .overflow-tab { display: none; }
  * later) and on every resize. Suppressing here means a deck that asked for silence
  * stays silent no matter who stamps what afterwards. The ring itself is excluded at
  * its own rule above, so this only has the tabs left to handle. */
-section[data-lattice-overflow-marker="off"] > .overflow-tab,
-section[data-lattice-overflow-marker="off"] > .illegible-tab { display: none !important; }
+section[data-lattice-overflow-marker="off"] > .marker-rail > .overflow-tab,
+section[data-lattice-overflow-marker="off"] > .marker-rail > .illegible-tab { display: none !important; }
 /* (`.clip-marked` needs no entry of its own here: the attribute selector above is
  * class-agnostic and already matches every section carrying `off`.) */
 section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !important; }
 
 /* ── The READER variant of the same marker ────────────────────────────────────
  * Everything above is the AUTHORING signal: a loud red danger ring and an
- * "OVERFLOWS" corner flag. Right for the person fixing the deck, alarming in
+ * "OVERFLOWS" tag under the bar. Right for the person fixing the deck, alarming in
  * front of a board — a red QA box on a delivered slide is the "debug information"
  * a recipient should never be handed.
  *
  * So the export's `overflow-marker` setting decides who the marker talks to
  * (lib/core/resolve-overflow-marker.js), the runtime stamps the resolved level on
  * each SLIDE SECTION, and this block is the `reader` treatment: restyle the SAME
- * text-labeled tab (WCAG 1.4.1 — never color alone) into a calm bottom-center
- * "Content clipped" pill. The red ring is not overridden here — it is EXCLUDED at
+ * text-labeled tab (WCAG 1.4.1 — never color alone) into a calm "Content clipped"
+ * pill in the same berth. (It read "bottom-center" here for two placements after that
+ * stopped being true — the pill was in the corner, and is now centered under the bar.
+ * Bottom-center is the running footer's band and the one this pill may never take.) The red ring is not overridden here — it is EXCLUDED at
  * its own rule above, so the finish frame that yields to it survives. Content that
  * clips is still visibly clipped; only the tone changes.
  *
@@ -1875,46 +1957,33 @@ section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !import
  * slide section instead.
  * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1,
  * engineering/decisions/2026-07-30-overflow-marker-register.md. */
-section.clip-marked[data-lattice-overflow-marker="reader"] > .overflow-tab {
-  /* Self-contained (not inherited from the author rule above): the settle
-   * guarantee relies on the tab being out of flow so it can't change the measured
-   * height — assert it here so a future edit to the author rule can't silently
-   * reintroduce a measure→mutate→measure loop. */
-  position: absolute !important;
-
-  /* THE TAB'S OWN CORNER, and getting here took three wrong answers worth recording,
-   * because each one was a smaller version of the same mistake.
+section.clip-marked[data-lattice-overflow-marker="reader"] > .marker-rail > .overflow-tab {
+  /* TONE ONLY. Position, berth, centering and radius all belong to `.marker-rail` above —
+   * this rule restyles the SEGMENT'S INK and nothing else, which is what
+   * `2026-07-30-overflow-marker-register.md` meant by "the SAME text-labeled tab
+   * restyled" and is now literally true of the code.
    *
-   * The pill is OPAQUE (`var(--text-body)` at `opacity: .9`, on the ALARM plane). It shipped
-   * bottom-center, which is the running-footer band, so once detection widened to cuts
-   * with no overflow every deck carrying one ordinary `footer:` got a capsule painted
-   * across its confidentiality line on EVERY page. Both HARD RULE #25 lenses found that
-   * independently by rasterizing a committed golden — `premise.gallery.light.pdf` p3 read
-   * "…the categorical p [Content clipped] e." The marker was destroying readable content
-   * in order to report that content was destroyed.
+   * WHY THE READER SEES ONE SEGMENT AND NEVER TWO. `.illegible-tab` and `.fixme-tab` are
+   * author-only (`policy.legibility`/`authorTags` in lib/runtime/fluid-view-policy.js):
+   * the type floor has no reader answer, because a reader cannot resize a figure. So at
+   * `reader` the rail holds exactly one segment and the capsule IS the pill — the
+   * combined-capsule design is an AUTHORING affordance that a delivered deck never shows.
    *
-   * Fix 1 raised it by `--footer-reserve`. That token is declared on `section.form` only,
-   * and the fallback assumed "no Form band" meant "no footer" — false, a SOVEREIGN frame
-   * still renders `section footer`, it just wraps instead of ellipsing. Fix 2 added a
-   * `max()` over both shapes. Both cleared the footer and both were still wrong, and the
-   * export text layer said so: on an overflowing slide the stage is FULL by definition, so
-   * the raised pill landed on the body copy instead — extracted PDF text came out
-   * "…engineered / toclipped / push this slide's", caught by
-   * test/integration/export/export-formats.test.js.
-   *
-   * The lesson the third time: an opaque overlay on a full slide overlaps SOMETHING
-   * wherever you put it, so the question is not "which gap" but "whose territory". The
-   * marker's own territory is the top-right corner — `.overflow-tab` and `.illegible-tab`
-   * have both lived there for the life of the register, no component puts content in it,
-   * and `2026-07-30-overflow-marker-register.md` describes `reader` as "the SAME
-   * text-labeled tab restyled", not as a differently-placed one. So the reader pill
-   * inherits the author tab's placement and changes only its TONE. Nothing about position
-   * is overridden here any more; that is the point. */
-
+   * THE BERTH IS THE BOTTOM EDGE, AND THE HISTORY MATTERS BEFORE ANYONE MOVES IT. This
+   * pill shipped bottom-center once and was pulled: it sat INSIDE the running-footer band
+   * and painted an opaque capsule across the confidentiality line on every page of any
+   * deck carrying an ordinary `footer:` — found by rasterizing a committed golden, not by
+   * a gate. This berth is different, and the difference is EXACTLY that the capsule is
+   * bounded by the strip the footer reserves — see the `height` note on the rail above.
+   * That bound is the whole safety argument, and it was missing at first: `bottom: 0` with
+   * an auto height cleared the footer at hd by 1px and OVERLAPPED it by up to 25px on the
+   * four non-landscape presets, i.e. the founding defect returning on the delivered
+   * artifact. Do not restore an auto height here.
+   * That is a geometric claim about two boxes, so it is ASSERTED geometrically —
+   * `content-clipped-pill.test.js` sweeps FOUR PRESETS with a 211-character `footer:` and
+   * fails on any intersection. Do not move this without reading that test. */
   background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */
   color: var(--bg) !important;
-  border-bottom-left-radius: var(--radius-md);
-  border-top-right-radius: 0;
   letter-spacing: 0.04em;
   text-transform: none;
   font-weight: 600;
@@ -1951,38 +2020,51 @@ section.clip-marked[data-lattice-overflow-marker="reader"] > .overflow-tab {
 section.illegible {
   box-shadow: inset 0 0 0 4px #b8730a;
 }
-/* Top-RIGHT, matching the overflow tab — not top-left, which is exactly where
-   `section.form > header` begins, so the tab printed over the deck header on every ringed
-   slide (caught by the trio in a real preview). When a slide earns BOTH signals the
-   legibility tab drops by its own height rather than a magic number, so the two stack
-   instead of overlapping. Both tabs are position:absolute, so neither can perturb the
+/* THE SECOND SEGMENT of the capsule — not a tab of its own any more, and not stacked.
+   It positions nothing itself: `.marker-rail` owns the position, and this segment is a static flex
+   child beside the clip segment. The berth has been top-right (shared with the stamp and
+   the logo), top-center (shared with the running header) and is now the bottom strip; the
+   sentence that used to live here described the middle one. The rail is
+   position:absolute, so neither segment can perturb the
    height math the watcher itself is measuring — but that held for `.overflow-tab` alone
    until 2026-08-04, because it asserts `!important` and this rule does not. This one ties
    `section.finish > *:not(.backdrop)` at (0,2,1) and LOST on source order (base.finish.css
    is bundled after this file), so on a `finish:` deck it was dragged into flow and did
    perturb exactly the height math above. That blanket rule NO LONGER EXISTS — the plane
    model deleted it along with its `:where()` exclusion list, because a sunk backdrop needs
-   nothing pushed off it. The invariant is still gated by
-   test/integration/invariants/frame-chrome-out-of-flow.test.js.
+   nothing pushed off it. The invariant is gated by the plane arm of test/unit/cli/check-ownership.test.js, which
+   asserts the RAIL declares `position: absolute !important` and that no segment declares
+   `position` at all. (It is NOT gated by frame-chrome-out-of-flow.test.js — that suite's
+   chrome list is `header`, `footer` and `img.deck-logo`, and never covered this element;
+   the claim sat here unchecked until a maker-checker pass read the suite.)
    engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md and
    2026-08-12-slide-plane-model.md */
-section.illegible > .illegible-tab {
-  position: absolute;
-  /* Same corner, same reason as `.overflow-tab` above — see its note, including why the
-     token is typed `0px`. This berth stacks one tab-height below that one. */
-  top: calc(var(--slide-radius, 0px) * 0.45);
-  right: calc(var(--slide-radius, 0px) * 0.45);
-  z-index: var(--z-alarm);
+section.illegible > .marker-rail > .illegible-tab {
+  /* The SECOND segment of the same capsule. Amber against the clip segment's red: the two
+     registers have always been distinguishable by color as well as by wording (WCAG 1.4.1 —
+     both carry text, so color is never the only channel), and putting them in one object is
+     not a reason to collapse that. Red first, amber second — clip is the more severe fact
+     and reads first in both LTR order and severity order. */
   background: #b8730a;
   color: #fff;
   font-family: var(--font-mono);
-  font-size: var(--fs-meta);
+  /* INHERITED from the rail, which caps it against the reserved strip — see there.
+     Re-declaring `--fs-meta` here would restore the overlap the cap exists to prevent. */
+  font-size: inherit;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
-  padding: var(--sp-2xs) var(--sp-sm);
-  border-bottom-left-radius: var(--radius-md);
+  /* Horizontal only, and `align-self: stretch` — IDENTICAL to the clip segment above, and
+     the sameness is the point: the rail's fixed height and `align-items: center` own the
+     vertical for BOTH segments, so a bumped `--sp-2xs` cannot push either one past the
+     strip or make the two different heights. This rule kept the old padding for one
+     revision and the capsule's two halves sized differently by a pixel — caught by the
+     suite's own adjacency assertion, which is exactly what it is for. */
+  padding: 0 var(--sp-sm);
+  display: flex;
+  align-items: center;
+  align-self: stretch;
   /* HOVERABLE, unlike the two tabs beside it — this is the one that carries a `title`.
    * The watcher writes the fix into it ("Simplify the figure or give it a bigger box"),
    * and `pointer-events: none` makes a native tooltip unreachable, so the hint would sit
@@ -2024,101 +2106,30 @@ section.illegible > .illegible-tab {
    * both to the hover. */
   pointer-events: auto;
 }
-/* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
-   stays correct at any type scale or preset. */
-/* ── THE CORNER IS A STACK, AND THE GEOMETRY OWNS THE ARITHMETIC ──────────────
-   FOUR things want this corner. Three want `top: 0; right: 0`: the STATUS STAMP
-   (`base.variants.css`,
-   painted on `section::before`, on the MARK plane), the clip tab, and the legibility
-   tab. Until the HARD RULE #25 round-4 pass only the latter two knew about each other,
-   and the pill was moved into the corner on a survey of `lib/components/**` that could
-   not see a base modifier. Rendered, `stamp-notch` swallowed the pill entirely — a
-   SILENT CLIP, the one outcome this register exists to prevent.
+/* ── WHAT THE RAIL REPLACED, and why none of it survives ──────────────────────
+   Both signals on one slide used to STACK: two centered pills, the second translated
+   down by its own height, with a per-stamp-shape reserve so the pair cleared whatever
+   the top band held. That machinery — `--stamp-stack`, `--clip-stack`, `--marker-band-top`
+   and the three grouped stamp rules in `base.variants.css` — is gone, because the rail
+   answers the same question structurally: one flex row, laid out left to right, needs no
+   arithmetic to keep two boxes apart and no reserve to keep them clear of a third.
 
-   The first fix enumerated all 21 stamp class names here and pushed every one by a
-   fixed row. Round 5 measured all 14 shapes and it was wrong on 8: three sit at the
-   corner (pushed correctly), SIX sit ~43px lower and were pushed INTO, and two are
-   full-bleed. `stamp-pin` and `stamp-flag` still ate the label. That is fixing an
-   instance rather than the class — the error `2026-07-30`'s footer note argues against
-   at length, committed in the file that argues it.
+   THE HISTORY IS WORTH ONE PARAGRAPH, because five separate fixes died on this and the
+   sixth is a deletion. Four boxes wanted the slide's top-right corner — the status stamp,
+   the author's logo, and these two markers — and every fix asked "how far must the marker
+   drop to clear what is above it". That question was answered wrong four times, silently,
+   past every machine gate: 21 stamp class names pushed a fixed row when the shapes sat at
+   three different heights; a unitless `calc()` that discarded the whole transform and put
+   both pills back in one band; a logo reserve that landed a pill inside the mark it was
+   written to clear. Moving the berth out of the corner deleted three of those mechanisms.
+   Merging the two markers into one capsule deletes the rest, because two boxes that share
+   a container cannot collide with each other and a single centered box has one neighbor
+   set to clear rather than two.
 
-   So the arithmetic lives with the geometry: each stamp shape declares `--corner-stack`
-   in `base.variants.css`, in the rule its author is already writing, and the tabs read
-   it. A 15th shape needs one edit, in the obvious place, or it reserves nothing and
-   nothing moves. The legibility tab adds its own row on top, which also closes the
-   missing truth-table row (stamp + illegible + no clip tab got no offset at all). */
-/* THE FALLBACKS ARE TYPED (`0%`, not `0`) AND THAT IS LOAD-BEARING. `calc()` is
-   type-checked at computed-value time: `calc(100% + 0)` mixes <percentage> with <number>,
-   which is invalid, and an invalid `transform` is DISCARDED ENTIRELY. With unitless
-   fallbacks the offset therefore survived only when BOTH custom properties were set —
-   so the commonest case on this branch (a clip tab and a legibility tab, no stamp)
-   computed `transform: none` and the two tabs overprinted in the same 4-27px band, which
-   is round 4's finding re-created by the fix for round 5's. Caught by the HARD RULE #25
-   red team on a real export before it reached a reviewer; the truth table below is what
-   the canary asserts. */
-/* ── THE FOURTH OCCUPANT: `img.deck-logo` ────────────────────────────────────
-   The three above are engine chrome with engine-owned geometry, so the stack can
-   reason about them. The logo is not: it is the AUTHOR's mark, at
-   `top: var(--frame-inset-y)` / `right: var(--frame-inset-x)`, `4cqi` tall — a box of
-   roughly y 24→75, x 1170→1250 at hd. A bare tab (y 0→23) clears it by one pixel,
-   which is why this went unnoticed; add a status stamp and the 100% reserve lands the
-   tab at y 23→46, INSIDE the mark, and the tab is opaque, so it slices the logo's top
-   off. `logo:` + `confidential` is close to the modal delivered board deck (#1404).
+   `stamp-notch`, the one shape that reserved anything after the move, reserves nothing
+   now: it is a band across the TOP edge and the capsule berths at the BOTTOM. */
 
-   THE TABS STACK TO ITS LEFT, NOT BELOW IT. Clearing the logo vertically needs ~80px
-   of drop, which would put a marker a third of the way into the slide body — where the
-   note above this block promises no component puts content. Horizontal keeps every
-   occupant inside the top chrome band and leaves the mark untouched, so nothing has to
-   decide whether a transient marker outranks permanent branding: they do not overlap.
-
-   The reserve is the logo's own box, written with the logo's own tokens, so the two
-   cannot drift. It needs `--logo-scale`, which is why that property is now declared on
-   the SECTION rather than in the img's inline style — custom properties inherit
-   downward only, so for as long as it lived on the img no sibling and no section rule
-   could read it, and that invisibility IS the bug. `data-logo-corner` is stamped by the
-   same injectors (one per render path) and only when the author has NOT repositioned
-   the logo with `logo-x`/`logo-y`: a moved logo leaves the corner free, and reserving
-   for a mark that is no longer there would push the marker left for nothing. */
-section { --corner-stack: 0%; --clip-stack: 0%; --corner-logo-reserve: 0px; }
-/* `:has(> img.deck-logo)` as well as the attribute, because the two can disagree. The
-   attribute is stamped on the section's OPEN TAG, and auto-split clones that tag onto the
-   generated cover pages — where the injected `<img>` (a child) does not follow. A cover
-   therefore carried `data-logo-corner` with no mark to reserve for, and pushed the tab
-   ~118px in from the frame edge for nothing: the exact case the comment above says must not
-   happen. Requiring the element makes the reserve follow the LOGO rather than the intent to
-   have one. (HARD RULE #25 red team.) */
-section[data-logo-corner]:has(> img.deck-logo) {
-  --corner-logo-reserve: calc(
-    var(--frame-inset-x) + 6.25cqi * var(--logo-scale, 1) + var(--sp-xs)
-  );
-}
-/* `logo-style: brand` puts the mark on a plate: `padding: 0.4cqi` with
-   `box-sizing: content-box`, so the box grows by 0.8cqi that the reserve above does not
-   count — and `--sp-xs` (0.625cqi) is smaller than that overhang, so the tab overlapped the
-   plate's left edge by ~1px. A hairline, but it falsified the claim beside the reserve that
-   it is "written with the logo's own tokens, so the two cannot drift". Now it is. */
-section[data-logo-corner]:has(> img.deck-logo.deck-logo-brand) {
-  --corner-logo-reserve: calc(
-    var(--frame-inset-x) + 6.25cqi * var(--logo-scale, 1) + 0.8cqi + var(--sp-xs)
-  );
-}
-section.clip-marked { --clip-stack: 100%; }
-section > .overflow-tab { transform: translateY(var(--corner-stack, 0%)); }
-section > .illegible-tab {
-  transform: translateY(calc(var(--corner-stack, 0%) + var(--clip-stack, 0%)));
-}
-/* The `[data-logo-corner]` compound is what makes these BITE, not decoration: the
-   rules that anchor each tab (`section.clip-marked > .overflow-tab`,
-   `section.illegible > .illegible-tab`) both declare `right: 0` at (0,2,1), so a plain
-   `section > .overflow-tab` here loses on specificity and the reserve computes but
-   never applies — measured, the tab stayed flush at the frame edge. Equal specificity
-   plus later source order is what wins, and it keeps the arithmetic in this block
-   beside the geometry it belongs to rather than smuggled into the anchor rules. */
-section[data-logo-corner] > .overflow-tab,
-section[data-logo-corner] > .illegible-tab {
-  right: var(--corner-logo-reserve, 0px);
-}
-section:not(.illegible) > .illegible-tab { display: none; }
+section:not(.illegible) > .marker-rail > .illegible-tab { display: none; }
 
 /* ── THE FIX-ME SIGNAL — WHICH box to fix, drawn INSIDE the slide ─────────────
  *
@@ -2151,9 +2162,14 @@ section:not(.illegible) > .illegible-tab { display: none; }
  * marker was drawn. The section is already the containing block the other two
  * tabs position against, so the berth costs nothing and risks nothing.
  *
- * BOTTOM-right, not top-right: the top-right corner is the overflow/type-floor
- * stack's territory (and the deck logo's), and a slide earning the Fix-Me signal
- * has by definition already earned the overflow tab above it. */
+ * BOTTOM-right, not the top band: the overflow and type-floor tabs berth centered
+ * as one capsule at the slide's bottom edge, and a slide earning the Fix-Me signal has by definition
+ * already earned at least one of them. Keeping the third register on its own edge
+ * means three simultaneous signals never queue behind each other — and the
+ * bottom-right corner is free of the stamp and the deck logo alike.
+ *
+ * This one DID NOT move with the other two, and it did not need to: the reason they
+ * left the top-right was the stamp and the author's mark, and neither reaches here. */
 section.fit-marked > .fixme-tab {
   /* `!important` for the same reason the overflow tab asserts it:
    * `base.finish.css` used to carry a blanket `section.finish > *:not(.backdrop)` setting
@@ -2253,11 +2269,13 @@ section.lattice-exporting .fit-culprit,
  * which lattice-emulator.js `require`s rather than re-implementing — this note used
  * to claim an "inline copy" there and there has not been one; plus
  * applyDeckLogoFromFrontMatter (lattice-runtime.js), the one genuine second
- * implementation, which must mirror deckLogoVars / deckLogoInCorner.
+ * implementation, which must mirror deckLogoVars.
  *
- * The `--logo-*` placement properties are declared on the SECTION, not on this img.
- * That is what lets the marker stack read them (see --corner-logo-reserve above);
- * the img picks them up by inheritance, so its own rules are unchanged.
+ * The `--logo-*` placement properties are declared on the SECTION, not on this img,
+ * so a section-level rule can read them; the img picks them up by inheritance, so its
+ * own rules are unchanged. (They were put there for a marker-stack reserve that is
+ * gone — the tabs berth top-center now and clear the mark outright — but the reason
+ * generalizes and a custom property on the img is invisible to everything above it.)
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
   /* CONTENT plane. The deck mark's KIND is chrome — frame furniture, not author content,

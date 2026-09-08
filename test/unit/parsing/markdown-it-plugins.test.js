@@ -22,7 +22,11 @@ const plugins = require('../../../lib/integrations/markdown-it/plugins');
 const fitBerth = require('../../../lib/core/fit-berth');
 
 /** Marker berths the engine emits per slide (overflow / illegible / fixme). */
-const BERTHS_PER_SLIDE = 3;
+// `data-lattice-berth` attributes per berthed slide: the three berths PLUS `.marker-rail`,
+// the container the clip and type-floor markers share. The rail carries the attribute
+// because `berth()` requires it at every level of its lookup — see lib/core/fit-berth.js.
+// Derived, not typed, so a fourth berth or a second rail cannot silently pass this.
+const BERTHS_PER_SLIDE = fitBerth.BERTHS.length + 1;
 
 describe('markdown-it-plugins', () => {
   // Apply ONE plugin in isolation on the owned slide pipeline (markdown-it +
@@ -627,17 +631,15 @@ describe('markdown-it-plugins', () => {
     const html = '<section id="1" data-lattice-slide="1"><h1>Title</h1></section>';
     const md = '---\nlogo: ./acme.svg\n---\n';
     const out = plugins.applyDeckLogoToHtml(html, md);
-    // Deliberately NOT pinned to the section's exact attribute list — the injector also
-    // stamps `data-logo-corner` now, and a whole-tag regex here made an unrelated
-    // attribute addition look like a positioning regression. What matters is that the
-    // img is the FIRST thing after the section's open tag.
+    // Deliberately NOT pinned to the section's exact attribute list — an unrelated
+    // attribute addition on the open tag would otherwise look like a positioning
+    // regression. What matters is that the img is the FIRST thing after the open tag.
     assert.match(out, /<section [^>]*data-lattice-slide="1"[^>]*><img[^>]*class="deck-logo[^>]*><h1>Title<\/h1><\/section>/);
   });
 
   test('applyDeckLogoToHtml: the --logo-* props land on the SECTION, not on the img', () => {
     // Custom properties inherit downward only. While these sat in the img's own style
-    // attribute, no sibling and no section-level rule could read them — which is why
-    // the marker stack could not see the logo it was colliding with (#1404). The img
+    // attribute, no sibling and no section-level rule could read them (#1404). The img
     // still reads them by inheritance, so placement is unchanged.
     const html = '<section id="1" data-lattice-slide="1"></section>';
     const md = '---\nlogo: ./acme.svg\nlogo-scale: 1.5\n---\n';
@@ -660,17 +662,21 @@ describe('markdown-it-plugins', () => {
     assert.equal((out.match(/style="/g) || []).length, 1, 'exactly one style attribute — a duplicate is silently dropped');
   });
 
-  test('applyDeckLogoToHtml: `data-logo-corner` marks a logo that is actually IN the corner', () => {
+  test('applyDeckLogoToHtml: nothing marks the corner — the marker berths do not reserve for it', () => {
+    // `data-logo-corner` used to be stamped here, and `--corner-logo-reserve` read it to
+    // push the overflow / legibility tabs left of the mark. Both are gone: the markers are one
+    // capsule berthed at the slide's BOTTOM edge, where a mark at the top-right frame inset
+    // cannot reach them, so there is no reserve to compute and nothing to keep in step with the logo's
+    // own tokens. Pinned as an absence, because reintroducing the attribute without the
+    // reserve (or the reserve without the attribute) is the shape of a silent half-revert.
     const html = '<section id="1" data-lattice-slide="1"></section>';
-    const corner = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\n---\n');
-    assert.match(corner, /data-logo-corner=""/, 'a default logo sits in the corner the marker tabs share');
-    // Repositioned with BOTH axes: the corner is free again, so the tabs must not
-    // reserve width for a mark that is no longer there.
-    const moved = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\nlogo-x: 50\nlogo-y: 84\n---\n');
-    assert.doesNotMatch(moved, /data-logo-corner/, 'a repositioned logo must NOT claim the corner');
-    // A LONE axis is ignored by the placement code, so the logo stays in the corner.
-    const halfMoved = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\nlogo-x: 50\n---\n');
-    assert.match(halfMoved, /data-logo-corner=""/, 'a lone axis does not move the logo, so the corner is still claimed');
+    for (const fm of [
+      '---\nlogo: ./acme.svg\n---\n',
+      '---\nlogo: ./acme.svg\nlogo-x: 50\nlogo-y: 84\n---\n',
+      '---\nlogo: ./acme.svg\nlogo-style: brand\n---\n',
+    ]) {
+      assert.doesNotMatch(plugins.applyDeckLogoToHtml(html, fm), /data-logo-corner/);
+    }
   });
 
   test('applyDeckLogoToHtml: ignores literal <section> text inside code blocks', () => {
@@ -731,7 +737,6 @@ describe('markdown-it-plugins', () => {
       const out = plugins.applyDeckLogoToHtml(engineHtml, `---\nlogo: ${src}\nlogo-on: all\n---\n`);
       assert.equal((out.match(/class="deck-logo"/g) || []).length, 2, `both slides get a logo for ${src}`);
       assert.match(out, /<section[^>]*><img class="deck-logo"/, 'the logo is the FIRST child, as the CSS corner rules require');
-      assert.equal((out.match(/data-logo-corner=""/g) || []).length, 2, 'and both claim the corner the marker tabs share');
     }
     // The author's existing inline style survives — it is prepended to, not replaced.
     const moved = plugins.applyDeckLogoToHtml(engineHtml, '---\nlogo: ./a.svg\nlogo-scale: 2\n---\n');

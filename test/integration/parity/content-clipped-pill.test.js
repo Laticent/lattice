@@ -135,7 +135,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     await page.evaluate(() => document.fonts.ready);
     await new Promise((r) => setTimeout(r, 1200));
     const v = await page.$eval('section', (s) => {
-      const tab = s.querySelector(':scope > .overflow-tab');
+      const tab = s.querySelector(':scope > .marker-rail > .overflow-tab');
       return {
         over: s.classList.contains('overflow'),
         clipMarked: s.classList.contains('clip-marked'),
@@ -146,8 +146,12 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
         visible: tab ? getComputedStyle(tab).display !== 'none' && tab.getBoundingClientRect().width > 0 : false,
         // The AUTHOR bug was never about display — the tab was visible. It was
         // `position: static`, so it sat IN FLOW and took height from the cell being
-        // probed. Assert the property that actually matters.
-        position: tab ? getComputedStyle(tab).position : null,
+        // probed. Assert the property that actually matters — on the RAIL, which is the
+        // positioned box now that the two markers share one capsule.
+        position: (() => {
+          const rail = s.querySelector(':scope > .marker-rail');
+          return rail ? getComputedStyle(rail).position : null;
+        })(),
       };
     });
     await page.close();
@@ -163,7 +167,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     await page.evaluate(() => document.fonts.ready);
     await new Promise((r) => setTimeout(r, 1200));
     const v = await page.$eval('section', (s) => {
-      const tab = s.querySelector(':scope > .overflow-tab');
+      const tab = s.querySelector(':scope > .marker-rail > .overflow-tab');
       const ft = s.querySelector('.cell-footer > footer, :scope > footer');
       const tr = tab ? tab.getBoundingClientRect() : null;
       const fr = ft ? ft.getBoundingClientRect() : null;
@@ -171,6 +175,8 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
         clipMarked: s.classList.contains('clip-marked'),
         hasFooter: !!ft,
         tabVisible: !!(tab && getComputedStyle(tab).display !== 'none' && tr && tr.width > 0),
+        tabBox: tr?.width ? { top: Math.round(tr.top), bottom: Math.round(tr.bottom), left: Math.round(tr.left), right: Math.round(tr.right) } : null,
+        footerBox: fr?.width ? { top: Math.round(fr.top), bottom: Math.round(fr.bottom) } : null,
         // Do the two boxes intersect? That is the regression, stated geometrically.
         overlaps: !!(tr && fr && tr.left < fr.right && tr.right > fr.left
           && tr.top < fr.bottom && tr.bottom > fr.top),
@@ -207,6 +213,51 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     assert.equal(v.overlaps, false, 'but the tab must never sit on top of the text it reports');
   });
 
+  test('READER BERTH — the delivered pill sits bottom-center, BELOW the running footer', async () => {
+    // THE ONE ASSERTION THIS PLACEMENT NEEDS, because the pill has been here before and it
+    // was a defect. The original bottom-center pill sat INSIDE the footer band and painted
+    // an opaque capsule across the confidentiality line on every page of any deck carrying
+    // an ordinary `footer:` — found by rasterizing a committed golden, not by a gate.
+    //
+    // `bottom: 0` is a different berth from that one, and the difference is the entire
+    // safety argument: the footer sits at `bottom: var(--frame-inset-y)`, so the strip
+    // below it is frame margin no component writes into. That is a GEOMETRIC claim about
+    // two boxes, so it is asserted geometrically rather than trusted to a comment.
+    //
+    // The fixture cuts content in the BODY (an ellipsed `<strong>`) as well as carrying an
+    // over-long footer — the footer-only case is deliberately not pilled at all (the test
+    // above), so it could not detect a pill landing in the wrong place.
+    const v = await inspectFooter(ELLIPSIS, 'reader-berth-footer');
+    assert.equal(v.hasFooter, true, 'the fixture must actually carry a running footer');
+    assert.equal(v.tabVisible, true, 'a body-content cut must still be told to the reader');
+    assert.ok(v.tabBox && v.footerBox, `both boxes must be measurable — got ${JSON.stringify(v)}`);
+    assert.equal(
+      v.overlaps, false,
+      'REGRESSION: the reader pill is back on the running footer. This is the #1300 defect '
+      + 'verbatim — an opaque capsule across the confidentiality line on every delivered page.',
+    );
+    assert.ok(
+      v.tabBox.top >= v.footerBox.bottom,
+      `the pill must sit BELOW the footer, not above or across it. pill=${JSON.stringify(v.tabBox)} `
+      + `footer=${JSON.stringify(v.footerBox)}. Above the footer is the body copy on a full slide, `
+      + 'which is where two earlier fixes put it.',
+    );
+    // Flush against the bottom edge, and centered. A 720px-tall frame at hd.
+    assert.ok(
+      720 - v.tabBox.bottom <= 12,
+      `the pill is ${720 - v.tabBox.bottom}px above the frame's bottom edge — it should be flush. `
+      + '`top: auto` must release the author berth, or the box is over-constrained and `bottom` '
+      + 'is ignored, leaving the pill at the top.',
+    );
+    const center = (v.tabBox.left + v.tabBox.right) / 2;
+    assert.ok(
+      Math.abs(center - 640) <= 2,
+      `the pill is centered on x=${center}, not on the frame's own center (640). The centering `
+      + 'travels in the rail\'s own `transform`, declared once. The per-stamp reserve tokens '
+      + 'that used to share that declaration are deleted — no stamp shares the capsule\'s band.',
+    );
+  });
+
   test('ELLIPSIS — cut content with no frame overflow is told to the reader', async () => {
     const v = await inspect(ELLIPSIS, 'pill-ellipsis');
     assert.equal(v.over, false, 'a formatter truncation crosses no box edge — `over` stays geometric');
@@ -228,17 +279,21 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     assert.equal(v.text, 'Content clipped');
   });
 
-  test('AUTHOR — the tab is ABSOLUTE, so the marker cannot take height from the cell', async () => {
+  test('AUTHOR — the capsule is ABSOLUTE, so the marker cannot take height from the cell', async () => {
     // `author` is the DEFAULT on every live surface (preview, Studio, Playground), and it
-    // was the level this suite did not test — which is how a tab that rendered IN FLOW,
+    // was the level this suite did not test — which is how a marker that rendered IN FLOW,
     // stealing 50px of the very `.cell-stage` being probed, survived a green suite. The
     // marker manufacturing the clip it reports is the failure the probe's own header
     // names; assert the property, at the level where it broke.
+    //
+    // The property is asserted on `.marker-rail` now: the two markers are static segments
+    // of one capsule and the rail is what is positioned, so the rail is what could fall
+    // into flow. Same invariant, one element up.
     const v = await inspect(ELLIPSIS, 'pill-author', 'author');
     assert.equal(v.clipMarked, true);
     assert.equal(v.visible, true);
     assert.equal(v.position, 'absolute',
-      'REGRESSION: a static tab sits in flow and takes height from the cell it reports on');
+      'REGRESSION: a static capsule sits in flow and takes height from the cell it reports on');
   });
 
   test('OFF — nothing is drawn and no class survives the strip', async () => {
@@ -254,25 +309,38 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     assert.equal(v.visible, false, 'a fitting slide must not be marked — the control for the two above');
   });
 
-  // ── THE CORNER TRUTH TABLE ───────────────────────────────────────────────────
-  // Three absolutely-positioned boxes want `top: 0; right: 0`: the status stamp
-  // (base.variants.css, on `section::before`), the clip tab, and the legibility tab.
-  // They de-collide by stacking, and the arithmetic lives in `--corner-stack` /
-  // `--clip-stack`.
+  // ── THE CAPSULE TRUTH TABLE ──────────────────────────────────────────────────
+  // The clip marker and the type-floor marker are ONE object now: `.marker-rail`, a
+  // centered flex row at the slide's bottom edge holding up to two segments
+  // (lib/core/fit-berth.js). The rail is the positioned box; the segments are static
+  // children of it.
   //
-  // THIS SUITE EXISTS BECAUSE THAT RULE SHIPPED BROKEN THREE TIMES AND NO GATE SAW IT:
-  //   1. the reader pill was moved into the corner on a survey that missed the stamp;
-  //   2. the first de-collision pushed all 21 stamp CLASS NAMES by a fixed row, which
-  //      was measured wrong on 8 of the 14 SHAPES (six sit ~43px lower and were pushed
-  //      INTO);
+  // WHAT THAT CHANGED ABOUT THIS SUITE, because two assertions inverted rather than moved.
+  // These markers used to STACK — two centered pills, the second translated down by its
+  // own height — so the canary asserted they never shared a row. Sharing a row is now the
+  // design, and the thing that must not happen is that they OVERLAP or come apart. Same
+  // defect, opposite predicate; a straight port of the old assertion would have passed on
+  // a broken capsule.
+  //
+  // THIS SUITE EXISTS BECAUSE THE PLACEMENT SHIPPED BROKEN FIVE TIMES AND NO GATE SAW IT.
+  // All five were the same shape — boxes competing for one corner of the slide, with
+  // arithmetic to keep them apart:
+  //   1. the reader pill was moved into the top-right corner on a survey that missed the
+  //      status stamp, and `stamp-notch` swallowed it whole — a SILENT CLIP, the one
+  //      outcome this register exists to prevent;
+  //   2. the first de-collision pushed all 21 stamp CLASS NAMES by a fixed row, measured
+  //      wrong on 8 of the 13 SHAPES (six sit ~43px lower and were pushed INTO);
   //   3. the rewrite that fixed that used UNITLESS `calc()` fallbacks — `calc(100% + 0)`
-  //      mixes <percentage> with <number>, which is invalid, so the whole `transform`
-  //      was discarded and both tabs landed in the same band again.
+  //      mixes <percentage> with <number>, which is invalid, so the whole `transform` was
+  //      discarded and both pills landed in the same band again;
+  //   4. the logo reserve then landed a pill INSIDE the mark it existed to clear;
+  //   5. moving to the top band left the second row sitting on the running header.
+  // Every one passed `npm test`, `build:check`, the pixel gate and CI, because the machine
+  // gates verify INTERNAL CONSISTENCY and none of these violated it. Only computed style
+  // on a real export answers this, so that is what this asserts.
   //
-  // Every one of those passed `npm test`, `build:check`, the pixel gate and CI, because
-  // no committed golden carries a stamp AND a marker tab — the machine gates verify
-  // INTERNAL CONSISTENCY, which none of these violated. Only computed style on a real
-  // export can answer this, so that is what this asserts.
+  // The capsule ended the whole class: two segments in one container cannot collide with
+  // each other, and one centered box has one neighbor set to clear instead of four.
   const CORNER = (cls) => `<!-- _class: ${cls} -->
 
 ## A slide that cuts content and shrinks its figure.
@@ -282,25 +350,18 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
 <svg viewBox="0 0 400 40" width="40" height="4"><text x="4" y="30" font-size="12">tiny</text></svg>
 `;
 
-  // The corner's FOURTH occupant is the author's logo, and it is the one the engine
-  // does not own the geometry of (#1404). Rendered with a stamp, the reserve used to
-  // land the clip tab at y 23→46 on top of a mark occupying y 24→75 — and the tab is
-  // opaque, so it sliced the mark's top off. `logo:` + `confidential` is close to the
-  // modal delivered board deck.
+  // The author's `logo:` mark was the corner's fourth occupant and the one the engine does
+  // not own the geometry of (#1404). It stays a fixture: the capsule berths at the bottom
+  // and the mark sits at the top-right frame inset, so they must clear each other outright,
+  // with no reserve to compute and nothing to keep in step.
   //
   // The logo src is ABSOLUTE on purpose: renderAt writes the deck into
-  // `.scratch/pill-levels/`, and a relative `logo:` resolves against the OUTPUT
-  // directory rather than the deck (#1406), so a relative path here would silently
-  // render no logo at all and the assertion below would pass for the wrong reason.
+  // `.scratch/pill-levels/`, and a relative `logo:` resolves against the OUTPUT directory
+  // rather than the deck (#1406), so a relative path would render no logo at all and the
+  // assertion would pass for the wrong reason.
   const LOGO_SRC = path.join(ROOT, 'test', 'fixtures', 'acme-logo.svg');
   const deckWithLogo = (body) =>
     `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\n---\n\n${body.trim()}\n`;
-  // `logo-style: brand` puts the mark on a plate — `padding: 0.4cqi` at
-  // `box-sizing: content-box`, so the BOX is 0.8cqi wider than the reserve's
-  // `6.25cqi * scale` term, and the gap token absorbing it is only 0.625cqi. Measured, the
-  // tab overlapped the plate by 1px: the same one-pixel near-miss that hid the original
-  // defect through five adversarial rounds, in the one variant the first canary did not
-  // cover. (HARD RULE #25 checker + red team, independently.)
   const deckWithBrandLogo = (body) =>
     `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\nlogo-style: brand\n---\n\n${body.trim()}\n`;
 
@@ -312,18 +373,28 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     await page.evaluate(() => document.fonts.ready);
     await new Promise((r) => setTimeout(r, 1200));
     const v = await page.$eval('section', (s) => {
+      // NULL for a box that does not PAINT, not a zero-rect. `getBoundingClientRect()` on
+      // a `display: none` element is all zeros, and an object of zeros is TRUTHY — so
+      // `assert.ok(v.clip)` passed for a segment that was not drawn, and `deepEqual` called
+      // two absent boxes equal. Every independence row below would then have proved
+      // nothing about the thing it names.
       const box = (e) => {
         if (!e) return null;
         const r = e.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return null;
         return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) };
       };
-      const stampTop = getComputedStyle(s, '::before').content !== 'none'
-        ? 0 : null;   // the stamp paints at top:0 when a semantic class is present
+      const stampTop = getComputedStyle(s, '::before').content !== 'none' ? 0 : null;
       return {
         cls: s.className,
         stamp: stampTop !== null,
-        clip: box(s.querySelector(':scope > .overflow-tab')),
-        leg: box(s.querySelector(':scope > .illegible-tab')),
+        rail: box(s.querySelector(':scope > .marker-rail')),
+        railPosition: (() => {
+          const r = s.querySelector(':scope > .marker-rail');
+          return r ? getComputedStyle(r).position : null;
+        })(),
+        clip: box(s.querySelector(':scope > .marker-rail > .overflow-tab')),
+        leg: box(s.querySelector(':scope > .marker-rail > .illegible-tab')),
         logo: box(s.querySelector(':scope > img.deck-logo')),
       };
     });
@@ -331,151 +402,283 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     return v;
   }
 
-  const disjoint = (a, b) => !a || !b || a.bottom <= b.top || b.bottom <= a.top;
-  // The logo case needs BOTH axes: the tabs clear it horizontally (they stack to its
-  // left), so a y-only test would call an exact overlap disjoint.
   const disjoint2d = (a, b) =>
     !a || !b || a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left;
 
-  test('CORNER — the clip tab and the legibility tab never share a band', async () => {
-    // The row the unitless-calc bug broke: no stamp, both tabs drawn. Before the fix
-    // the legibility tab computed `transform: none` and sat on top of the clip tab.
-    const v = await corners('content', 'corner-plain');
-    assert.ok(v.clip && v.leg, `both tabs must be drawn — got ${JSON.stringify(v)}`);
-    assert.ok(
-      disjoint(v.clip, v.leg),
-      `REGRESSION: the two marker tabs overlap. clip=${JSON.stringify(v.clip)} `
-      + `leg=${JSON.stringify(v.leg)}. An invalid calc() drops the whole transform, so `
-      + 'check that the --corner-stack / --clip-stack fallbacks are TYPED (0%, not 0).',
+  test('CAPSULE — the two segments are ADJACENT: one row, touching, not overlapping', async () => {
+    // The inversion. These used to be two pills that had to stay in different rows; they
+    // are two segments of one capsule that have to stay in the SAME row and meet exactly.
+    // A gap reads as two pills again; an overlap is the old defect wearing a new shape.
+    const v = await corners('content', 'capsule-plain');
+    assert.ok(v.clip && v.leg, `both segments must be drawn — got ${JSON.stringify(v)}`);
+    assert.equal(v.clip.top, v.leg.top, 'same row: tops must agree');
+    assert.equal(v.clip.bottom, v.leg.bottom, 'same row: bottoms must agree');
+    assert.equal(
+      v.clip.right, v.leg.left,
+      `the segments must MEET exactly — clip ends at ${v.clip.right}, type-floor starts at `
+      + `${v.leg.left}. A gap means the rail stopped being a flex row; an overlap means a `
+      + 'segment is positioning itself again.',
     );
+    // Clip first, type-floor second — severity order, and nothing else pins it.
+    assert.ok(v.clip.left < v.leg.left, 'the clip fact reads first');
+    // And the capsule is exactly its two segments, no slack.
+    assert.equal(v.rail.left, v.clip.left, 'the rail starts at the first segment');
+    assert.equal(v.rail.right, v.leg.right, 'and ends at the last');
   });
 
-  test('CORNER — a status stamp pushes both tabs clear of itself', async () => {
-    // The row round 4 found: `confidential` paints at top:0/right:0 at z-index 100,
-    // over the tabs' 50, and swallowed the pill whole on `stamp-notch`.
-    const v = await corners('content confidential', 'corner-stamp');
-    assert.equal(v.stamp, true, 'the fixture must actually paint a stamp');
-    assert.ok(v.clip && v.leg, `both tabs must be drawn — got ${JSON.stringify(v)}`);
-    assert.ok(v.clip.top > 0, 'REGRESSION: the clip tab did not clear the status stamp');
-    assert.ok(
-      disjoint(v.clip, v.leg),
-      `REGRESSION: tabs overlap under a stamp. clip=${JSON.stringify(v.clip)} leg=${JSON.stringify(v.leg)}`,
-    );
+  test('CAPSULE — the RAIL is absolute, so the marker cannot take height from the cell', async () => {
+    // The invariant moved up one element with the positioning. An in-flow marker takes
+    // space in the very box it is reporting on — that once cost 50px of the `.cell-stage`
+    // being probed, letting the marker manufacture the clip it reported.
+    const v = await corners('content', 'capsule-abs');
+    assert.equal(v.railPosition, 'absolute',
+      'REGRESSION: a static rail sits in flow and takes height from the cell it reports on');
   });
 
-  test('CORNER — a shape that does NOT sit in the corner reserves nothing', async () => {
-    // The row round 5 found: six stamp shapes sit ~43px below the corner, and pushing
-    // the tab for them moved it INTO the stamp instead of clear of it. `stamp-seal` is
-    // one; with no semantic class it paints nothing at all, so it must reserve nothing.
-    const plain = await corners('content', 'corner-ref');
-    // `stamp-tab` is the DEFAULT register and the one `stamp:` front matter appends to
-    // every section in the deck, so it is the shape that actually reserved a row for a
-    // stamp that paints nothing. (An earlier version of this test used `stamp-seal`,
-    // which was explicitly zeroed and so passed for the wrong reason.)
-    const shape = await corners('content stamp-tab', 'corner-shape');
-    assert.deepEqual(
-      shape.clip, plain.clip,
-      'REGRESSION: a non-corner stamp shape displaced the clip tab. The shape class must '
-      + 'MODIFY the reserve, never create one — the semantic class is what paints.',
-    );
-  });
-
-  test('CORNER — the deck logo and the marker tabs never overlap, stamp or no stamp', async () => {
-    for (const [cls, key] of [['content', 'corner-logo-plain'], ['content confidential', 'corner-logo-stamp']]) {
-      const v = await corners(cls, key, deckWithLogo);
-      assert.ok(v.logo, `the ${key} fixture must actually render a logo — an absolute src is required here (#1406)`);
-      assert.ok(v.clip && v.leg, `both tabs must be drawn — got ${JSON.stringify(v)}`);
-      assert.ok(
-        disjoint2d(v.logo, v.clip),
-        `REGRESSION: the clip tab overlaps the deck logo on "${cls}". logo=${JSON.stringify(v.logo)} `
-        + `clip=${JSON.stringify(v.clip)}. The tab is opaque, so an overlap SLICES the author's mark. `
-        + 'The tabs clear it horizontally via --corner-logo-reserve, which needs BOTH the '
-        + '`data-logo-corner` attribute (stamped by every logo injector) and `--logo-scale` declared '
-        + 'on the SECTION — a custom property on the img itself is invisible to these rules (#1404).',
+  test('CAPSULE — no stamp shape displaces the marker, notch included', async () => {
+    // The whole reason the berth moved, and then merged. `confidential` with no shape class
+    // is the default corner tab; `stamp-flag` and `stamp-pin` are the tall off-axis shapes
+    // that once needed a 200% reserve; `stamp-notch` is the full-width top band that was
+    // the LAST shape still reserving anything. The capsule berths at the bottom edge, so a
+    // stamp painted along the top shares no band with it and must move it by nothing.
+    const plain = await corners('content', 'capsule-ref');
+    assert.ok(plain.rail, 'the reference render must draw the capsule');
+    for (const [cls, key, painted] of [
+      ['content confidential', 'capsule-stamp-default', true],
+      ['content confidential stamp-flag', 'capsule-stamp-flag', true],
+      ['content confidential stamp-pin', 'capsule-stamp-pin', true],
+      ['content confidential stamp-notch', 'capsule-stamp-notch', true],
+      // A shape class with no semantic class paints NOTHING — `--stamp-label` comes from
+      // the semantic class alone — so this row must not assert a stamp it does not have.
+      ['content stamp-notch', 'capsule-shape-only', false],
+    ]) {
+      const v = await corners(cls, key);
+      assert.ok(v.rail && v.clip && v.leg, `the capsule must be DRAWN on "${cls}" — got ${JSON.stringify(v)}`);
+      assert.equal(v.stamp, painted,
+        `the "${cls}" fixture must ${painted ? 'actually paint' : 'not paint'} a stamp, or the row proves nothing`);
+      assert.deepEqual(
+        v.rail, plain.rail,
+        `REGRESSION: "${cls}" displaced the marker capsule. No stamp shares the capsule's `
+        + 'band, so none may reserve anything — reserving for one is how four rounds of '
+        + 'corner arithmetic went wrong, and the reserve tokens are deliberately gone.',
       );
-      assert.ok(
-        disjoint2d(v.logo, v.leg),
-        `REGRESSION: the legibility tab overlaps the deck logo on "${cls}". logo=${JSON.stringify(v.logo)} `
-        + `leg=${JSON.stringify(v.leg)}`,
-      );
-      assert.ok(disjoint(v.clip, v.leg), `the two tabs must still not overlap each other on "${cls}"`);
     }
   });
 
-  test('CORNER — a BRAND-plated logo is cleared too, plate and all', async () => {
-    const v = await corners('content confidential', 'corner-logo-brand', deckWithBrandLogo);
-    assert.ok(v.logo, 'the fixture must render a logo');
-    assert.ok(v.clip, 'the clip tab must be drawn');
-    assert.ok(
-      disjoint2d(v.logo, v.clip),
-      `REGRESSION: the clip tab overlaps the BRAND plate. logo=${JSON.stringify(v.logo)} `
-      + `clip=${JSON.stringify(v.clip)}. \`logo-style: brand\` grows the mark's box by 0.8cqi `
-      + '(content-box padding) which --corner-logo-reserve must add — the plain reserve is short by '
-      + 'more than the gap token can absorb.',
-    );
-  });
-
-  test('CORNER — a repositioned logo releases the corner, so the tabs reclaim the full width', async () => {
-    // `logo-x`/`logo-y` move the mark anywhere on the slide and flip it to left-anchoring.
-    // The corner is free again, so reserving width for it would push the marker left for
-    // nothing — and a reserve that never releases is how chrome creeps into the body.
+  test('CAPSULE — the deck logo never overlaps the marker, and never moves it', async () => {
+    // Two claims. CLEARANCE: the mark sits at the top-right frame inset and the capsule at
+    // the bottom edge, so they cannot meet — asserted on both axes, because a y-only test
+    // would call an exact overlap disjoint. INDEPENDENCE: with no reserve to compute, the
+    // capsule lands in the same place whether the deck has a corner mark, a brand-plated
+    // one, a repositioned one, or none. That is what replaced `--corner-logo-reserve`.
+    const ref = await corners('content', 'capsule-logo-none');
     const moved = (body) =>
       `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\nlogo-x: 50\nlogo-y: 84\n---\n\n${body.trim()}\n`;
-    const v = await corners('content', 'corner-logo-moved', moved);
-    const ref = await corners('content', 'corner-logo-none');
-    assert.ok(v.logo, 'the fixture must still render a logo, just not in the corner');
-    assert.deepEqual(
-      v.clip, ref.clip,
-      'REGRESSION: a repositioned logo still reserved corner width. `data-logo-corner` must be '
-      + 'withheld when BOTH placement axes are set (plugins.js deckLogoInCorner / the runtime mirror).',
+    for (const [cls, key, build] of [
+      ['content', 'capsule-logo-plain', deckWithLogo],
+      ['content confidential', 'capsule-logo-stamp', deckWithLogo],
+      ['content confidential', 'capsule-logo-brand', deckWithBrandLogo],
+      ['content', 'capsule-logo-moved', moved],
+    ]) {
+      const v = await corners(cls, key, build);
+      assert.ok(v.logo, `the ${key} fixture must actually render a logo — an absolute src is required here (#1406)`);
+      assert.ok(v.rail, `the capsule must be drawn — got ${JSON.stringify(v)}`);
+      assert.ok(
+        disjoint2d(v.logo, v.rail),
+        `REGRESSION: the marker capsule overlaps the deck logo on "${key}". `
+        + `logo=${JSON.stringify(v.logo)} rail=${JSON.stringify(v.rail)}. The capsule is opaque, `
+        + "so an overlap SLICES the author's mark.",
+      );
+      assert.deepEqual(
+        v.rail, ref.rail,
+        `REGRESSION: the logo displaced the capsule on "${key}". The centered bottom berth `
+        + 'reserves nothing for the mark — if this moved, something reintroduced a reserve.',
+      );
+    }
+  });
+
+
+  // ── THE PRESET SWEEP — the gate this file did not have, and the one that mattered ──
+  //
+  // EVERY fixture above renders at 1280×720 and never sets `size:`. That is how three
+  // defects shipped past 14 green tests: on the four non-landscape presets the delivered
+  // pill printed an opaque capsule ACROSS the running footer's confidentiality line —
+  // by 13.1px at square, 22.9 portrait, 24.5 story, 25.2 mobile — and the Fix-Me tag
+  // landed on the type-floor segment. Landscape passed by 0.8–3.1px, which read as a
+  // margin and was a coincidence.
+  //
+  // The mechanism is worth stating because it is not obvious from the CSS: `--fs-meta`
+  // carries a per-preset multiplier (1.17 at hd, 2.78 at portrait) so body text stays
+  // legible on a phone, while `--frame-inset-y` — the strip the footer reserves — tracks
+  // the frame. The marker inherited the phone bump and outgrew the strip.
+  //
+  // Four presets, not seven: `square`/`portrait`/`story`/`mobile` share one
+  // `--frame-inset-y` (20.3px), so `portrait` and `mobile` stand for that class, and
+  // `hd` + `standard` cover landscape's two scales including the tightest.
+  const FOOTER_PRESETS = [
+    ['hd', undefined, 1280, 720],
+    ['standard', 'standard', 960, 720],
+    ['portrait', 'portrait', 1080, 1350],
+    ['mobile', 'mobile', 1080, 2340],
+  ];
+  for (const [name, size, vw, vh] of FOOTER_PRESETS) {
+    test(`PRESET ${name} — the delivered pill never crosses the running footer`, { timeout: 180000 }, async () => {
+      const fm = `---\nmarp: true\ntheme: indaco\n${size ? `size: ${size}\n` : ''}footer: "${FOOTER_TEXT}"\n---\n\n`;
+      const html = renderAt(fm + ELLIPSIS.trim() + '\n', `preset-${name}`);
+      const page = await browser.newPage();
+      await page.setViewport({ width: vw, height: vh });
+      await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+      await page.evaluate(() => document.fonts.ready);
+      await new Promise((r) => setTimeout(r, 1200));
+      const v = await page.$eval('section', (s) => {
+        const R = (e) => {
+          if (!e) return null;
+          const r = e.getBoundingClientRect();
+          return r.width ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null;
+        };
+        const ft = s.querySelector('.cell-footer > footer, :scope > footer');
+        return {
+          footer: R(ft),
+          rail: R(s.querySelector(':scope > .marker-rail')),
+          // The SEGMENT's computed size, not the rail's. The rail is where the cap is
+          // declared today, but a test that reads the declaring element measures whatever
+          // happens to declare it — on a build where the rail declares nothing it silently
+          // reads the inherited BODY size and reports a defect at a preset that has none.
+          // The label's own box is the thing under test, on any build.
+          fontPx: parseFloat(getComputedStyle(s.querySelector(':scope > .marker-rail > .overflow-tab')).fontSize),
+        };
+      });
+      await page.close();
+
+      assert.ok(v.footer, `${name}: the fixture must render a running footer`);
+      assert.ok(v.rail, `${name}: the pill must be drawn — a body-content cut is told to the reader`);
+      // THE INVARIANT: the capsule occupies the strip the footer reserves and no more, so
+      // its top edge may MEET the footer's bottom edge and may never pass it.
+      assert.ok(
+        v.rail.top >= v.footer.bottom - 0.5,
+        `${name}: REGRESSION — the delivered pill overlaps the running footer by `
+        + `${(v.footer.bottom - v.rail.top).toFixed(1)}px. footer=${JSON.stringify(v.footer)} `
+        + `rail=${JSON.stringify(v.rail)}. This is #1300 verbatim: an opaque capsule across the `
+        + 'confidentiality line of every delivered page. The capsule must be bounded by '
+        + '`height: var(--frame-inset-y)`, and its font capped as a fraction of that strip — '
+        + 'NOT sized from `--fs-meta`, which carries a per-preset phone-reading multiplier.',
+      );
+      // …and it must still be READABLE. A marker shrunk to nothing fails the same way a
+      // hidden one does, and the first fix for the overlap did exactly that (7px on a
+      // 1080-wide frame) by subtracting a bumped `--sp-2xs` from the strip.
+      const pct = (v.fontPx / vw) * 100;
+      assert.ok(
+        pct >= 0.9 && pct <= 1.6,
+        `${name}: the pill's label is ${v.fontPx.toFixed(2)}px = ${pct.toFixed(2)}% of frame `
+        + 'width; every preset should land near hd\'s 1.17%. Too small is an unreadable marker, '
+        + 'too large is the overlap coming back.',
+      );
+    });
+  }
+
+  // ── The capsule sits CENTERED and FLUSH against the bottom edge ──────────────────
+  //
+  // The gate this file needed and did not have. Every relative assertion above — segments
+  // adjacent, clear of the logo, undisplaced by a stamp — once passed while both markers
+  // had fallen out of their berth entirely and were printing across the headline, 92px
+  // down and 1040px in from the right. The cause was a unitless `--slide-radius: 0`
+  // reaching `calc()` (#1649): a unitless zero is a <number> there, so the length was
+  // invalid at computed-value time and the offsets fell back to `auto`.
+  //
+  // That inset is gone from this berth, but the rail still resolves its centering through
+  // `transform: translateX(-50%)` against `left: 50%` — one invalid value away from the
+  // same failure. So the guard is an absolute measurement, not a comment.
+  //
+  // A section renders at the viewport origin here, so the frame's center is 640 and its
+  // bottom is 720.
+  const EDGE_TOL = 12;
+  const CENTER_TOL = 2;
+  test('the marker capsule sits centered on the frame, flush to its bottom edge', async () => {
+    const v = await corners('content', 'capsule-berth');
+    assert.ok(v.rail, 'expected the capsule to render');
+    const center = (v.rail.left + v.rail.right) / 2;
+    assert.ok(
+      Math.abs(center - 640) <= CENTER_TOL,
+      `the capsule is centered on x=${center}, not on the frame's own center (640). The berth `
+      + 'is `left: 50%` plus `translateX(-50%)`; an invalid transform discards the centering.',
+    );
+    assert.ok(
+      720 - v.rail.bottom <= EDGE_TOL,
+      `the capsule is ${720 - v.rail.bottom}px above the frame's bottom edge — it should be flush.`,
     );
   });
 
 
-  // ── The corner berths sit ON the corner, on a SQUARE deck ────────────────────────
+  // ── The FIX-ME berth is now the SOLE consumer of the typed `--slide-radius` ──────
   //
-  // The gate this file needed and did not have. Every assertion above is RELATIVE —
-  // tabs disjoint from each other, clear of the logo, stacked in order — so all 13
-  // passed while both tabs had fallen out of the corner entirely and were printing
-  // across the headline, 92px down and 1040px in from the right.
+  // This assertion is inherited, not new, and inheriting it was the point. The two
+  // berths above used to inset by `calc(var(--slide-radius, 0px) * 0.45)` so they cleared
+  // a rounded deck's arc, and #1649 shipped a UNITLESS `--slide-radius: 0`: a unitless
+  // zero is a <number> inside calc(), so the length was invalid at computed-value time,
+  // `top`/`right` fell back to `auto`, and both markers dropped out of the corner and
+  // printed across the headline on EVERY square deck — while thirteen relative assertions
+  // in this file passed.
   //
-  // The cause was a unitless `--slide-radius: 0` reaching `calc(var(--slide-radius) *
-  // 0.45)` in the berth insets (#1649): a unitless zero is a <number> inside calc(),
-  // so the length was invalid at computed-value time and `top`/`right` fell back to
-  // `auto`. That is the SAME typed-fallback trap this file's own `--corner-stack` note
-  // records, re-created in the rule block below it — which is why the guard has to be
-  // an absolute measurement and not another comment.
+  // Centering those two deleted their insets, which would have deleted the gate with
+  // them. `.fixme-tab` still insets (bottom-right is a corner, and an alarm must not be
+  // sliced by a shape the deck chose), so the trap is still live on exactly one berth and
+  // needs exactly one absolute measurement. `resolve-corners.test.js` does not cover it —
+  // its `/--slide-radius:\s*0/` matches `0px` and a bare `0` identically.
   //
   // SQUARE is the case under test, deliberately: it is the default, every deck that
   // predates the corners register, and the one a rounded-deck check cannot see.
-  // The RIGHT edge is the assertion that carries both markers, because both are pinned to
-  // it: the defect drove them to `right: 1040px`, a fifth of the way across the slide.
-  // Only the FIRST berth is also pinned to the top — the illegible tab deliberately stacks
-  // one tab-height below it (`--clip-stack`), which the ordering tests above already cover.
-  const CORNER_SQUARE_TOL = 12; // the berths inset 0 on square; allow the tab's own padding
-  for (const [name, cls, pinnedToTop] of [
-    ['overflow', 'clip', true],
-    ['illegible', 'leg', false],
-  ]) {
-    test(`the ${name} berth stays on the frame's right edge on a square deck`, async () => {
-      const v = await corners('', `berth-square-${cls}`);
-      const tab = v[cls];
-      assert.ok(tab, `expected the ${name} tab to render`);
-      // A section renders at the viewport origin here, so the frame's right edge is the
-      // viewport width.
-      const fromRight = 1280 - tab.right;
-      assert.ok(
-        fromRight <= CORNER_SQUARE_TOL,
-        `${name} tab is ${fromRight}px in from the frame's right edge on a SQUARE deck — it should be on it. ` +
-          'A berth inset that resolves to an invalid length falls back to `auto` and drops the marker into flow.',
-      );
-      if (pinnedToTop) {
-        assert.ok(
-          tab.top <= CORNER_SQUARE_TOL,
-          `${name} tab is ${tab.top}px below the frame top on a SQUARE deck — it should be on the corner.`,
-        );
-      }
+  const CORNER_SQUARE_TOL = 12; // the berth insets 0 on square; allow the tab's own padding
+  test('the Fix-Me berth stays on the frame\'s bottom-right corner on a square deck', async () => {
+    // `.fit-marked` is FORCED here rather than earned, and that is deliberate. The Fix-Me
+    // register is drawn by the live-preview watcher only (`drawFitLabel`, gated on
+    // `policy.authorTags` in lib/runtime/index.js); the export's inline watcher never
+    // calls it and only STRIPS the class — verified against a real export of
+    // `examples/overflow-fix-me.md`, where no slide carries `.fit-marked` and no tab
+    // paints. So no deck, however over-stuffed, can earn this register on the surface
+    // this file drives.
+    //
+    // That does not make the assertion synthetic in the sense HARD RULE #23 warns about.
+    // The defect under test is a COMPUTED-VALUE trap in CSS — a unitless `--slide-radius`
+    // making `calc(var(--slide-radius) * 0.45)` invalid, so `bottom`/`right` fall back to
+    // `auto` and the berth drops into flow. The class is precisely and only what reveals
+    // the tab, so forcing it exercises the same cascade the preview does, in the same real
+    // Chromium, on a real export document. What it does NOT cover is whether the watcher
+    // stamps the class, which is a different register's concern and has its own tests.
+    const html = renderAt(deck(CORNER('content')), 'berth-square-fixme', 'author');
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+    await page.evaluate(() => document.fonts.ready);
+    await new Promise((r) => setTimeout(r, 1200));
+    const v = await page.$eval('section', (s) => {
+      s.classList.add('fit-marked');
+      const e = s.querySelector(':scope > .fixme-tab');
+      if (!e) return {};
+      e.textContent = 'Fix Me';
+      const r = e.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return {};
+      return {
+        position: getComputedStyle(e).position,
+        fixme: { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) },
+      };
     });
-  }
+    await page.close();
+    assert.ok(v.fixme, 'expected the Fix-Me tab to paint once `.fit-marked` is on the section');
+    assert.equal(v.position, 'absolute',
+      'REGRESSION: an in-flow Fix-Me tab takes height from the very cell it reports on');
+    const fromRight = 1280 - v.fixme.right;
+    const fromBottom = 720 - v.fixme.bottom;
+    assert.ok(
+      fromRight <= CORNER_SQUARE_TOL,
+      `Fix-Me tab is ${fromRight}px in from the frame's right edge on a SQUARE deck — it should `
+      + 'be on it. A berth inset that resolves to an invalid length falls back to `auto` and '
+      + 'drops the marker into flow. Check that `--slide-radius` is declared `0px`, not `0`.',
+    );
+    assert.ok(
+      fromBottom <= CORNER_SQUARE_TOL,
+      `Fix-Me tab is ${fromBottom}px above the frame's bottom edge on a SQUARE deck — same cause.`,
+    );
+  });
+
 
 });

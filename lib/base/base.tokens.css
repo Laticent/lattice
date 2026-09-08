@@ -245,10 +245,10 @@
    * CSS — it can redeclare `--slide-radius` under `section.corners-rounded` without a
    * dedicated token existing to be discovered. One token, declared here, resolved there. */
   /* `0px`, NOT `0`, and that is load-bearing rather than pedantic. A unitless zero is a
-   * <number> inside `calc()`, so `calc(var(--slide-radius) * 0.45)` — how the corner
-   * berths inset the author-warning tabs — is INVALID at computed-value time and the
+   * <number> inside `calc()`, so `calc(var(--slide-radius) * 0.45)` — how the Fix-Me
+   * berth insets from the bottom-right corner — is INVALID at computed-value time and the
    * property falls back to `auto`. Typed here, that multiply is a length on every deck.
-   * The same trap is recorded a few hundred lines down for `--corner-stack` / `--clip-stack`
+   * The same trap is recorded a few hundred lines down for `--stamp-stack` / `--clip-stack`
    * ("THE FALLBACKS ARE TYPED (0%, not 0) AND THAT IS LOAD-BEARING"); this declaration
    * fell into it anyway, which is why the guard is now a test and not a comment. */
   --slide-radius:0px;
@@ -1323,7 +1323,7 @@
                           * MARK OVER ALARM, and the order is load-bearing — this pair was
                           * briefly inverted on the reasoning that "an author must be able to
                           * see the overflow tab even on a stamped slide", with the claim that
-                          * `--corner-stack` already separates them geometrically. Both halves
+                          * the corner stack already separated them geometrically. Both halves
                           * were wrong. The FULL-BLEED shapes (`stamp-veil`, `stamp-mark`) are
                           * `inset: 0` and clear nothing, and the marker that actually SHIPS is
                           * the reader-mode pill, not the authoring tabs — so the inversion

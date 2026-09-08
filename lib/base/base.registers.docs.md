@@ -752,13 +752,22 @@ which is the Studio previewing a deck whose theme differs from the app's — tha
 foreign palette one layer down. It is invisible while the host box and the slide clip to
 the same shape, and it is why they are kept in step rather than left to coincide.
 
-**The corner berths move with it.** The overflow / illegible / fix-me author-warning flags
-sit in the slide's corners, inside the arc a rounded deck cuts, so they inset by a fraction
-of `--slide-radius` — an alarm surface must not go quiet because a deck chose a shape. The
+**The Fix-Me berth moves with it.** That author-warning flag sits in the slide's
+bottom-right corner, inside the arc a rounded deck cuts, so it insets by a fraction of
+`--slide-radius` — an alarm surface must not go quiet because a deck chose a shape. The
 token is typed `0px` rather than `0` precisely so that inset resolves to a length on a
 square deck: a unitless zero inside `calc()` is a `<number>`, which makes the whole
-declaration invalid and drops the marker into flow. Gated by an absolute-distance
-assertion in `test/integration/parity/content-clipped-pill.test.js`.
+declaration invalid and drops the marker into flow.
+
+The overflow and type-floor flags need no inset: they are **one capsule** (`.marker-rail`)
+berthed **centered against the slide's bottom edge** (2026-09-08), and the middle of an edge
+is never inside a corner arc. A slide that trips both registers shows one object with two
+segments — the clip fact, then the type floor — rather than two pills; a slide that trips one
+shows a single correctly-rounded pill, because the rail clips its children. A reader only
+ever sees one segment: the type floor is author-only. Both berths carry absolute-position
+assertions in `test/integration/parity/content-clipped-pill.test.js` — centering and
+flushness for the capsule, and the square-deck corner measurement for Fix-Me, which is the
+only berth still exposed to the unitless-`calc()` trap.
 
 **In an EXPORT the corner is a capability of the FORMAT, and a format that cannot hold it
 renders square.** A rounded corner is a hole — the slide stops painting and whatever is

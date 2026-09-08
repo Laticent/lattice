@@ -182,6 +182,12 @@ and the second one was contradicted by this change's own evidence.
   `pointer-events` change costs nothing on the shipped catalog. What would change it is a
   component that starts drawing interactive marks into the top chrome band.
 
+  **(2026-09-08 — the tab is no longer in the corner.** It berths centered under the
+  spectrum bar, which invalidates the measurement above rather than the conclusion. Re-run
+  against the new berth: same 66 slides, same 461 marks, still **0** under a tab, closest gap
+  **139px** — and the clearance is now structural, since the block-start padding keeps
+  in-flow content out of the band. `2026-09-08-marker-capsule-berth.md` §4.)
+
 **`.fixme-tab` has the same mismatch and is NOT fixed here — deliberately, and the call is
 close enough to write down.** It has carried a `title` (`base.modifiers.css` sets
 `pointer-events: none`; `lib/runtime/index.js` sets the title on that same tab) since it was
