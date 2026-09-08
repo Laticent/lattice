@@ -1063,6 +1063,26 @@ line ends in a full stop renders as `limit....` — the sentence's own period pl
 ellipsis glyph. Stripping it would mean editing the author's text rather than
 clamping it, which this design refuses to do.
 
+**THE LIVE-PREVIEW PATH IS NOW DRIVEN ON THE REAL SURFACE.** `guards: strict` ships
+on two render paths, and until this point every piece of evidence in this note came
+from the export. The runtime was only ever exercised by injecting
+`dist/lattice-runtime.js` into an already-exported page in headless Chromium — a
+proxy for the Studio, not the Studio (HARD RULE #23), and the last load-bearing claim
+resting on one.
+
+`docs/e2e/guards-trim-live.spec.ts` closes it: the real built site, the real Studio,
+the real editor, the real preview frame. It pins the PAIR rather than the pixel — a
+strict deck whose body overflows gets clamped in the live preview, and the same deck
+at `guards: loose` does not. The second arm is what makes the first mean anything; a
+single-arm test would pass just as well if the register were ignored on both sides.
+
+**Mutation-proved, because a passing e2e test proves nothing until it can fail.**
+Disabling the register in the runtime (`if (false && guardsEnabled(...))`), rebuilding
+the engine and the site, and re-running turns it red; restoring turns it green with
+the runtime byte-identical to HEAD. The overflow ring is deliberately not asserted
+there — whether a trimmed slide still rings is the export's policy, and pinning it in
+a live-preview spec would couple this test to a decision that lives elsewhere.
+
 **Mutation, re-run after the repair — and two of the fixes were themselves
 unpinned.** `chrome += 0` in the measurer and the removal of the id-collision guard
 both survived the whole suite on the first pass: the model tier never runs the
