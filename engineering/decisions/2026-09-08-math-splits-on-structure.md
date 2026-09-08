@@ -187,9 +187,15 @@ not by any gate.
    already in `labelOf`: a symbol names a thing and stays (`σ →`), but leading math carrying a
    RELATION makes a claim, so it is dropped and the member's prose becomes the label
    (`take the limit →`). A member that is only an equation keeps the equation, and the length
-   budget still judges what is left. The relation test is by Unicode BLOCK — an enumeration missed
-   `\equiv`, `\simeq`, `\supset`, `\longrightarrow` and `\implies` on the first cut — with three
-   deliberate holes: the operators, U+22A4 `\top` (this repo's transpose) and U+22A5 `\perp`.
+   budget still judges what is left. The relation test is KaTeX'S OWN CLASSIFICATION, not our
+   reading of the Unicode charts: 219 characters it declares `rel`, plus 7 it builds with a macro so
+   no `rel` line mentions them. The set has been hand-built twice and wrong twice — an enumeration
+   missed `\equiv` `\simeq` `\supset` `\longrightarrow` `\implies`, and the Unicode ranges that
+   replaced it missed 69 of the 219 — so a census re-derives both halves from the installed KaTeX and
+   fails in both directions. Operators are absent by construction, which is what keeps `n×p` a name.
+   `\top` falls out for free (KaTeX calls it `ord`), which is what keeps `X^\top X` a name; `\perp`
+   is IN, because KaTeX calls it `rel`, and taking its word costs at most a `⊥`-led member preferring
+   its prose.
 4. **A curated HARD RULE #29 shape glyph reached the chip.** Reading the MathML puts an author's
    `\to` in as U+2192, set in the deck's TEXT face beside the engine-drawn `--shape-arrow-right`:
    one pill, two arrows, two faces. A math-derived label carrying one now DECLINES rather than

@@ -18,3 +18,9 @@
   those are `σ →` and `X⊤X →`. A member that LEADS with an equation — a `derivation` row is
   `| equation | what you did |` — is labeled by its prose instead, so the step pages point at
   `take the limit →` rather than at 24 characters of run-together operators.
+- **Fixed: a `cycle` or `hierarchy` run whose member has no readable name now still carries its
+  wayfinding chip.** Both kinds returned nothing at all when they could not name the member, and
+  nothing renders as no element — so a cycle could lose its closing `back to …` mark entirely,
+  which is the one thing that tells a reader the run loops. They now name the direction instead of
+  the member: `back to the start`, `governs the tier below`, `under the tier above`. `sequence` has
+  always said `continues` in the same situation.
