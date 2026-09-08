@@ -1,6 +1,6 @@
 ---
 status: superseded
-summary: RETRACTED. A proposal for a nine-Frame catalog defined by three atoms (order/rank/arity), three laws and a Mode contract. An adversarial trio plus a fact-checker falsified its foundation: §1 diagnosed a defect that had already been fixed — `FORM_TOGGLE_SKIP` IS declared data, derived from each frame manifest's `exemptFromChrome`, and the three hand-maintained Sets it promised to replace were retired on 2026-07-14 with a drift test. The counts were wrong (11 frames not 12, 9 sovereign not 10, stage 34/26/9 not 34/25/10), the axis derivation lands on 22 rather than the nine it claims, the degeneracy rule that killed `math` also merges `quiet` into `bookend`, Law II's motivating defect does not reproduce (an `image` slide renders as page 2 of 3), and both Mode clauses are refuted by shipped values. Four things survived and are independently shippable: the Form/Finish axis separation, the logo and watermark manifest-vs-render divergence, `bookend`'s homeless status stamp, and the absent `admits` field on the Frame schema.
+summary: RETRACTED, and one of its four surviving findings has since been withdrawn too (§4.3 — the status stamp does paint on a bookend; measured). A proposal for a nine-Frame catalog defined by three atoms (order/rank/arity), three laws and a Mode contract. An adversarial trio plus a fact-checker falsified its foundation: §1 diagnosed a defect that had already been fixed — `FORM_TOGGLE_SKIP` IS declared data, derived from each frame manifest's `exemptFromChrome`, and the three hand-maintained Sets it promised to replace were retired on 2026-07-14 with a drift test. The counts were wrong (11 frames not 12, 9 sovereign not 10, stage 34/26/9 not 34/25/10), the axis derivation lands on 22 rather than the nine it claims, the degeneracy rule that killed `math` also merges `quiet` into `bookend`, Law II's motivating defect does not reproduce (an `image` slide renders as page 2 of 3), and both Mode clauses are refuted by shipped values. Three things survived and are shipped or shippable: the Form/Finish axis separation, the logo and watermark manifest-vs-render divergence (fixed — a `slide` Cell), and the absent `admits` field on the Frame schema (fixed). A fourth, `bookend`'s supposedly homeless status stamp, was withdrawn after rendering it.
 ---
 
 # The Frame catalog — what it got wrong, and the four things that survived
@@ -161,11 +161,35 @@ Two Tiles, same shape of defect. The cheap, correct fix is to make the manifests
 what ships. *(One correction to the proposal's own text: the Tile's `"z": 2` is the
 plane ordinal, not a `z-index` — the computed `--z-content` is `0`.)*
 
-### 4.3 `bookend` slides have no home for the status stamp
+### 4.3 ~~`bookend` slides have no home for the status stamp~~ — FALSE, measured 2026-09-08
 
-A WIP or CONFIDENTIAL marker on a title slide has nowhere to go: those frames silence
-the corner stack, and a title slide is the one most likely to need the marker. This is
-the only user-visible harm the whole exercise turned up.
+**This finding was wrong and is withdrawn.** It was flagged three times in the
+original proposal, survived the retraction as "the only user-visible harm the whole
+exercise turned up", and is refuted by a render. Computed `::before` on the real
+engine CSS at 1280×720:
+
+| slide | `content` | box | background |
+|---|---|---|---|
+| `title silent confidential` (`spectrum: on`) | `"Confidential"` | 84.3 × 9.8px | `rgb(237,104,104)` |
+| `divider confidential` | `"Confidential"` | 80.1 × 9.3px | `rgb(237,104,104)` |
+| `closing silent wip` | `"WIP"` | 21.1 × 9.8px | `rgb(247,166,79)` |
+
+The stamp paints on all three bookends, under `silent`, with the spectrum bar
+present, for two different state markers.
+
+**Why it was believed:** the claim was inferred from the bookend frames'
+`suppresses` lists, which name chrome *Cells* — masthead, footer, pagination. The
+state marker is a `section::before` and is not a Cell at all, so nothing in those
+lists touches it. Reasoning from a manifest field to a rendered outcome, without
+rendering, is the same error that produced the retraction; it survived the review
+because all four agents were pointed at the proposal's internal logic and its
+citations, and none was asked to render a bookend.
+
+The genuine constraint nearby, which is documented and not a defect: `section::before`
+is a *contested* single pseudo — state markers, bands, watermarks and the `mark-*`
+decorations all want it — which is why `tone` was moved off it onto an inset
+box-shadow (`base.variants.css`). A fourth claimant would collide. Nothing needs
+building here.
 
 ### 4.4 `frame.schema.json` has no `admits` field (**verified**)
 
@@ -181,7 +205,8 @@ In this order. Each stands alone; none needs the others.
 
 1. **Correct the logo and watermark manifests** to `fits: ["slide"]`, plus the matching
    line in `forms.md` §5.1. One commit, real defect, no design debt.
-2. **Give `bookend` a declared home for the status stamp.**
+2. ~~Give `bookend` a declared home for the status stamp.~~ **Withdrawn** — the
+   stamp already paints there (§4.3).
 3. **Add `admits` to `frame.schema.json`**, populated from the shipped stage catalog.
 4. **`plinth` as a single layout** with a demo deck (HARD RULE #9) — a reserved
    takeaway band under the stage. The coda Cell already exists
