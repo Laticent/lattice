@@ -67,6 +67,25 @@ Two things this needs, and both are in the prototype:
 - **Read the paint before the finish applies.** The slot has to be stamped after
   the read, or the finish's own rules are already matching.
 
+## 1c. The hue count IS the texture count, so a rainbow costs more in monochrome
+
+A corollary of the grouping rule that is easy to miss, and it bites hardest on
+the audience the design is trying to protect.
+
+On the a11y palettes the mark's fill is a `<pattern>` keyed off the same
+categorical slot the hue uses, so **however many hues a chart spends, that is how
+many textures a monochrome reader gets.** Measured on the achromatopsia render of
+the prototype deck: `.bar-mark` resolves to one pattern (`latt-a11y-chart-tex-1`),
+`.sbar-seg` to three, `.wedge` and `.funnel-band` to five each — exactly the
+number of groups each chart has.
+
+So giving a single-series bar chart four hues does not merely spend colour on
+nothing. It hands a reader who cannot receive hue four different hatch patterns
+for four measurements of one measure — and a texture reads as a *harder*
+categorical boundary than a colour does, so the misinformation is worse in the
+substituted channel than in the original. A rainbow single series is a
+readability bug on the a11y palettes and in print, not only a taste failure.
+
 ## 2. Singular does not mean "own hue" — it means "may own one, if hue carries"
 
 A scatter's points are singulars and they do not get six colours.
