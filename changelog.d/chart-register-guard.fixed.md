@@ -1,0 +1,1 @@
+- Chart design language: a mark that carries text keeps its wash under every finish — the register is the guard, verified pinned on all four text-bearing mark classes rather than promised. A state-keyed mark now carries its own resolved ink on the element, so a finish needs no second status-to-slot mapping.

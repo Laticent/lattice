@@ -433,6 +433,48 @@ that orange now means two things on one slide.
 
 ---
 
+## 7. What applying G0, G1 and the register changed
+
+Four findings from making the prototype the final language rather than the
+current tree plus finishes. Each is implementation-shaping.
+
+**The slot contract carries the mark's OWN resolved ink, not a slot index.**
+`gantt`, `progress` and `waterfall` colour by state, and the member has already
+mapped `data-s` to an ink in its own stylesheet (`--fill-ink`). An earlier draft
+mapped every status onto slot 1 and silently flattened three gantt statuses to
+one hue. So a state-keyed mark stamps `--slot-hue: var(--fill-ink)` and the
+finish mixes from that: **one rule, and no second status-to-slot mapping to keep
+in sync.** A finish never needs to know whether a member is categorical or
+semantic.
+
+**The register guards a text-bearing mark, and the guard is now verified rather
+than promised.** §5 says mark depth and on-mark ink are coupled and the register
+is the guard; the prototype was violating it — `gantt`'s bars carry their task
+name and were being pushed to an 82% body, the level measured to fail AA in
+117 of 224 combinations. A BACKDROP mark now keeps its wash under every finish
+and takes the finish on its edge, the same answer `layered` gets and for the same
+reason. `register-check.js` reports **4 of 4 text-bearing mark classes pinned**
+across the three finishes (`funnel-band`, `gantt-bar`, `progress-fill`, `cell`).
+
+**The presence FLOOR is subsumed by the register.** `matrix-grid`'s filled cell
+carries text, so it is a BACKDROP mark, so its wash is pinned and "never to zero"
+holds by construction. The floor stays in the rule for a presence mark that is
+not text-bearing; none ships today.
+
+**Ground raises what is already there.** Where a member draws its own denominator
+— `progress`'s track, `bullet`'s range — ground raises THAT rather than inserting
+a second one. Where the denominator is the unmarked part of the field —
+`matrix-grid`'s empty cells, the map's unnamed regions — it raises that instead.
+Only the EMPTY state: `.cell-outlined` is a state of its own, and raising it
+would blur the presence distinction the register exists to protect.
+
+**And G0/G1 applied moves two members off today's tree**, both the rule biting
+rather than an exception: `scatter`'s six named entities gain a hue each, and
+`quadrant`'s eight named dots collapse to one. Same rule, opposite outcomes.
+
+Measured after all of it: **11 of 11 members show all three finishes as
+distinct**, on indaco, indaco dark and achromatopsia alike.
+
 ## The prototype, and what it measured
 
 `scratchpad`-built, published as an interactive page: eleven members spanning the
