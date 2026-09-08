@@ -141,76 +141,69 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		return Date.now() - started < BUDGET * 0.5 ? 'early' : 'at-budget';
 	}
 
-	it('a deck that keeps FINISHING diagrams is not cut off at the budget', async () => {
-		// The regression this exists to stop: the budget used to be wall-clock, so a deck
-		// slower than the constant was abandoned mid-render and the capture baked a BLANK
-		// region — `mermaid.css` hides the source `<pre>` for every state but error and
-		// unavailable. Adding a parse in front of every render raised settle time 19-47% and
-		// took an 8-slide deck past 4000ms, so this stopped being latent.
+	it('RELEASES a fence still un-settled at the budget, so it bakes as source not as a blank', async () => {
+		// THE WHOLE FIX. `mermaid.css` hides the source <pre> for every state but `error` and
+		// `unavailable`, so when this budget expires with a fence un-settled the capture bakes a
+		// BLANK REGION into a downloaded file. Releasing it to `unavailable` hands the author
+		// their own source instead — the same mechanism `releaseUnrenderableFences` uses when
+		// Mermaid never arrives, applied at the export's own give-up point.
+		const doc = frag('<pre data-mermaid-state="pending"><code>flowchart LR</code></pre><div class="mermaid"></div>');
+		const released = await waitForDiagrams(doc, BUDGET);
+		expect(released).toBe(1);
+		expect(doc.querySelector('pre')?.getAttribute('data-mermaid-state')).toBe('unavailable');
+	});
+
+	it('releases a `rendered` fence whose box never received an SVG', async () => {
+		// The subtler blank: the runtime says `rendered`, so the <pre> is hidden, but nothing
+		// landed in the box. Both halves of the un-settled test have to reach the release.
+		const doc = frag('<pre data-mermaid-state="rendered"><code>x</code></pre><div class="mermaid"></div>');
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(1);
+		expect(doc.querySelector('pre')?.getAttribute('data-mermaid-state')).toBe('unavailable');
+	});
+
+	it('does NOT release a fence the runtime has not tagged — it already shows its source', async () => {
+		// The hide is keyed on `data-mermaid-state`, so an untagged fence paints its own source
+		// already. Tagging it here would take nothing away from the blank and would misreport a
+		// fence that was never the runtime's to lose.
+		const doc = frag('<pre><code class="language-mermaid">flowchart LR\n A --> B</code></pre>');
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(doc.querySelector('pre')?.hasAttribute('data-mermaid-state')).toBe(false);
+	});
+
+	it('releases NOTHING when every fence drew in time', async () => {
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const pre = doc.querySelector('pre');
+		setTimeout(() => {
+			pre?.setAttribute('data-mermaid-state', 'rendered');
+			const box = pre?.nextElementSibling as HTMLElement | null;
+			if (box) box.innerHTML = '<svg></svg>';
+		}, 150);
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('rendered');
+	});
+
+	it('releases only the fences still blanking, not the ones that drew', async () => {
 		const doc = frag(
-			'<pre data-mermaid-state="pending"></pre>' +
-				'<pre data-mermaid-state="pending"></pre>' +
-				'<pre data-mermaid-state="pending"></pre>',
+			'<pre id="a" data-mermaid-state="rendered"><code>x</code></pre><div class="mermaid"><svg></svg></div>' +
+				'<pre id="b" data-mermaid-state="pending"><code>y</code></pre><div class="mermaid"></div>' +
+				'<pre id="c" data-mermaid-state="error"><code>z</code></pre><div class="mermaid"></div>',
 		);
-		const pres = [...doc.querySelectorAll('pre')];
-		// One finishes every 400ms — slower than BUDGET in total, but never STUCK.
-		let n = 0;
-		const tick = setInterval(() => {
-			const pre = pres[n++];
-			if (!pre) return;
-			pre.setAttribute('data-mermaid-state', 'rendered');
-			const box = doc.createElement('div');
-			box.innerHTML = '<svg></svg>';
-			pre.after(box);
-		}, 400);
-		const started = Date.now();
-		await waitForDiagrams(doc, BUDGET);
-		clearInterval(tick);
-		const waited = Date.now() - started;
-		expect(pres.every((p) => p.getAttribute('data-mermaid-state') === 'rendered')).toBe(true);
-		expect(waited).toBeGreaterThan(BUDGET);
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(1);
+		expect(doc.querySelector('#a')?.getAttribute('data-mermaid-state')).toBe('rendered');
+		expect(doc.querySelector('#b')?.getAttribute('data-mermaid-state')).toBe('unavailable');
+		expect(doc.querySelector('#c')?.getAttribute('data-mermaid-state')).toBe('error');
 	});
 
-	it('the ceiling is reachable, and it cuts a deck that is still finishing', async () => {
-		// THE ONLY BOUND ON THE LOOP, and it had zero coverage: mutating
-		// `while (Date.now() - start < hardCapMs)` to `while (true)` left all fifteen cells
-		// green. The first replacement written for it did not kill that mutant either, and the
-		// reason is worth keeping: progress is a NEW LOW in the pending count, so a fence set
-		// that oscillates UPWARD never resets the deadline and exits by the budget instead. The
-		// ceiling is reached only by a deck that keeps genuinely finishing diagrams for longer
-		// than the ceiling allows — which is also the case where cutting it off costs a blank
-		// region in the PDF. Both halves are the point.
-		const doc = frag('');
-		for (let i = 0; i < 12; i++) {
-			const pre = doc.createElement('pre');
-			pre.setAttribute('data-mermaid-state', 'pending');
-			doc.body.appendChild(pre);
-		}
-		// One finishes every 400ms: real progress, every time, for 4800ms — past the 3000ms
-		// ceiling (5 x BUDGET) that this deck's steady progress would otherwise outrun.
-		const tick = setInterval(() => {
-			const pre = doc.querySelector('pre[data-mermaid-state="pending"]');
-			if (!pre) return;
-			pre.setAttribute('data-mermaid-state', 'rendered');
-			const box = doc.createElement('div');
-			box.innerHTML = '<svg></svg>';
-			pre.after(box);
-		}, 400);
-		const started = Date.now();
-		await waitForDiagrams(doc, BUDGET);
-		const waited = Date.now() - started;
-		clearInterval(tick);
-		expect(doc.querySelectorAll('pre[data-mermaid-state="pending"]').length).toBeGreaterThan(0);
-		expect(waited).toBeGreaterThanOrEqual(BUDGET * 5);
-		expect(waited).toBeLessThan(BUDGET * 5 + 400);
-	});
-
-	it('gives up on a diagram that is STUCK, not merely slow', async () => {
-		// The other half: progress-based must not mean unbounded. Nothing ever settles here.
+	it('gives up AT the budget, not at some multiple of it', async () => {
+		// The number this function is about. An earlier design let the give-up threshold be
+		// tripled — 4000 to 12000 in the capture frame — with every cell in this file green,
+		// because the only timing assertion had 3.3x of slack. This one has 0.5x.
 		const doc = frag('<pre data-mermaid-state="pending"></pre>');
 		const started = Date.now();
 		await waitForDiagrams(doc, BUDGET);
-		expect(Date.now() - started).toBeLessThan(BUDGET * 4);
+		const waited = Date.now() - started;
+		expect(waited).toBeGreaterThanOrEqual(BUDGET);
+		expect(waited).toBeLessThan(BUDGET * 1.5);
 	});
 
 	it('treats an UNRECOGNIZED state as un-settled, not as done', async () => {

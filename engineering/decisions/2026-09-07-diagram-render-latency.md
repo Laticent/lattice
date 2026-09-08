@@ -475,9 +475,9 @@ Latency, `bench:flash`, medians of 5:
 
 | arm | `main` | this branch |
 |---|---|---|
-| `edit` warm | 194ms | **78ms** |
+| `edit` warm | 194ms | ~~78ms~~ RETRACTED, see §15 |
 | `edit` cold | 198ms | 194ms |
-| `edit-burst` warm | 1117ms | **77ms** |
+| `edit-burst` warm | 1117ms | ~~77ms~~ RETRACTED, see §15 |
 | `edit-burst` cold | 1146ms | **208ms** |
 | `nav` cold | 240ms | **119ms** |
 | `edit-broken` raw-source frames | 97 | **75** |
@@ -592,7 +592,7 @@ priced it until now.
 checker — found three more blockers and one argument that changed the design rather than
 patching it. That argument is the important part.
 
-### The machinery was only ever operative for diagrams of 20 to 33 nodes
+### The machinery was only ever operative for diagrams of 20 to 33 nodes — RETRACTED, see §15
 
 `2 * cost` capped at 150 and floored at 50 returns something other than 0 or 150 **only while
 a render costs between 50 and 75ms**. Against this note's own size table (22ms at 4 nodes, 43
@@ -600,7 +600,7 @@ at 16, 72 at 32, 130 at 64, 239 at 128) that is a band of roughly 20 to 33 nodes
 else the "adaptive" back-off was already a step function, and the arithmetic dressed it up.
 
 Worse, the headline came from outside the band entirely. `bench:flash`'s deck is a
-**five-node** flowchart at ~22ms — under the floor — so `edit warm 194ms -> 78ms` and `nav
+**five-node** flowchart at ~22ms — under the floor — so `edit warm 194ms -> 78ms` (RETRACTED, see §15) and `nav
 cold 240ms -> 119ms` were measured where `diagramBackoffMs()` returns 0, the leading edge is
 never called, the latch is never read, the timer never arms and the ceiling never engages.
 **The flagship number was the deleted debounce and nothing else.**
@@ -654,13 +654,13 @@ replace.
 
 | | `main` | this branch |
 |---|---|---|
-| keystroke -> diagram (warm) | 194ms | **80ms** |
-| burst -> diagram (warm) | 1117ms | **78ms** |
+| keystroke -> diagram (warm) | 194ms | ~~80ms~~ RETRACTED, see §15 |
+| burst -> diagram (warm) | 1117ms | ~~78ms~~ RETRACTED, see §15 |
 | navigate to a cold diagram slide | 240ms | **223ms** |
 | 64-node burst, 8 chars @120ms | 1 render / 1157ms / 585ms redraw | 1 / ~1136 / ~594 |
 | 64-node + a broken sibling fence | 2 / 1140 / 562 | **1** / 1159 / 659 |
 | raw-source frames while typing a broken fence | 97 | **76** |
-| error box steady while editing a sibling | 5 / 24 | **18 / 24** |
+| error box steady while editing a sibling | 5 / 24 | ~~18 / 24~~ RETRACTED, see §15 |
 | stamping vs non-stamping host | — | **identical** |
 
 Host-uniformity is the property four rewrites kept failing to have, and it is now a
@@ -828,7 +828,27 @@ left standing there with this correction rather than quietly edited:
   added in §14 to stop a transient failure being remembered for ever almost certainly undid it.
 - **the anti-flash win** — a fence broken mid-word shows raw source on 5/24 samples in the
   shipped build and 4/24 on the branch, inside run-to-run noise. The parse gate buys about one
-  frame, and only on a warm cost record.
+  frame, and only on a warm cost record. (§10 and §13 state this in FRAMES — 97 against 75/76 —
+  and §15 in samples; they are the same claim measured two ways, and neither survives.)
+- **§13's "operative for diagrams of 20 to 33 nodes"** — derived from a 50-75ms window against
+  the size table. §14 and §15 both measure a 4-node fence at 38-57ms on a slower host, which
+  puts that window at roughly 4 to 20 nodes. The band is a property of the machine, not of the
+  policy, which is the same lesson as the paragraph above it.
+
+### One finding that is NOT about latency, logged rather than lost
+
+`biome.jsonc` gained `"noUndeclaredVariables": "error"` on the abandoned branch, and the reason
+is worth keeping even though the rule went with it. A refactor moved the block holding
+`let lastRenderCostMs` and left the assignment behind, so `lib/runtime/index.js` shipped a bare
+write that lint, the full unit suite and `build:check` all passed — and that would have thrown
+`ReferenceError` and lost every diagram on any host loading the bundle as a module. An external
+review bot caught it; nothing in this tree did. The rule reported zero violations across all
+1934 files when it was added.
+
+That is a measured hole in the gate contract, independent of everything else here. Adding the
+rule is a lint-config change rather than a CI-job one, but it is still a gate decision worth
+making deliberately rather than as a side effect of an abandoned branch — so it is recorded
+here under HARD RULE #18's rule for an off-path defect you find: log it, do not walk past it.
 
 ### The structural finding worth keeping
 
@@ -838,14 +858,34 @@ arm engaged on roughly one burst in five; on a faster one it engaged 6 of 6; a 1
 already too costly on the slower box. Any design keyed on a fixed millisecond threshold inherits
 this, and no amount of care in the policy removes it.
 
-### What survived
+### What survived, and the second thing that did not
 
-One thing, and it is unrelated to latency: **`waitForDiagrams` waits on progress rather than a
-wall clock.** A fixed 4000ms budget prices a whole deck against a constant, and when it loses
-the capture proceeds anyway — baking a blank region into a downloaded PDF, permanently. The
-latency work is what exposed it (a parse gate in front of every render pushed an 8-slide deck
-past the constant every time), but the hazard is in the constant and a big enough deck on a slow
-enough machine reaches it unaided. That fix ships on its own branch.
+One fix ships, and it is unrelated to latency: **when the export's diagram wait expires, the
+un-settled fences are released to `unavailable` instead of being captured hidden.** The
+stylesheet hides a fence's source while it is on its way to being drawn, so a capture that
+proceeds early bakes a BLANK REGION into a downloaded file. Releasing the fence hands the author
+their own source text instead — the mechanism `releaseUnrenderableFences` already uses when
+Mermaid never arrives, applied at the export's own give-up point.
+
+**The first attempt at that fix was also wrong, and the trio killed it.** It replaced the wall
+clock with a "no progress for budgetMs" rule under a 5x ceiling, reasoning that a big enough
+deck on a slow enough machine outruns a fixed constant. Three measurements ended it:
+
+- **The budget is never reached.** Real Chrome at 20x CPU throttle, 40 slides each holding a
+  64-node flowchart: 190ms after the function is entered, against 4000. Everything expensive —
+  the Mermaid fetch and parse — is already paid by `frame.load` and `fonts.ready`, which run
+  ahead of the wait on the same main thread.
+- **The rule cannot fire on a real deck.** A band dispatches through one `Promise.allSettled`,
+  and almost every deck is one band, so pending goes N -> 0 inside a single 20ms window. From a
+  120ms poll there is no intermediate low to see, and the function returned at exactly the same
+  millisecond as the wall clock it replaced.
+- **It did not fix the blank anyway.** When the ceiling fired on a still-finishing deck, the
+  capture baked the same blank — five times later, and uncancellably.
+
+The lesson is the one this whole document keeps re-learning: the fix was aimed at the axis that
+was easy to reason about (wait longer) rather than the one that was wrong (give up blind). And
+its test suite could not tell it from a no-op — tripling the give-up threshold left every cell
+green, because the cells pinned the shape of the loop and never the number that decided it.
 
 The two-tier regression guard built for this work — metamorphic relations over the policy plus a
 nightly counts-based Playwright pair — is NOT ported, because it describes a policy that no
