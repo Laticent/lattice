@@ -14,7 +14,7 @@ summary: >-
   non-`wide` family test autosplit uses, which is the same gate the split and the pointer label sit
   behind, so nothing here can reach a 16:9 render. Measured on
   `math feature`'s sample at portrait: 2587px of ink against a 972px stage, 1850px broken, 925px
-  at the multi-line display scale keyed on the marker the pass emits. Fixes four kernel defects
+  at the multi-line display scale keyed on the marker the pass emits. Fixes five kernel defects
   the enrollment surfaced — a display equation hoisted to the cover as a lede and lost from every
   body page, a forward pointer that read "X X X" off KaTeX's a11y mirror and then a literal
   `\sigma` off its TeX annotation before it settled on the MathML symbols, a `derivation` step
@@ -168,19 +168,34 @@ not by any gate.
    left the visual half, so `$y_i$` read `y i ␀`. Reading the annotation instead put the author's
    SOURCE on the slide: `\sigma →` on p4.2 and `X^\top X →` on p3.4 of the shipped PDF. The
    MathML mirror is the copy that is neither duplicated nor source — joined without a separator it
-   reads `σ`, `X⊤X`, `n×p` — so that is what `textOf` reads, with the annotation as the fallback
-   for the `output: 'html'` path that emits no MathML. Two shapes stay honestly imperfect and are
+   reads `σ`, `X⊤X`, `n×p` — so that is what `textOf` reads. The annotation stays behind it as a
+   GUARD, not a live fallback: the annotation lives INSIDE the MathML, so a render with no `<math>`
+   has neither source, and no shipping path asks for one (`lattice-emulator.js` sets
+   `htmlAndMathml`; `'html'` was removed there for accessibility). The real no-MathML degradation
+   is the mirror-strip, which returns the visual half. Two shapes stay honestly imperfect and are
    pinned as such: an accent is written base-then-mark (`\hat\beta` → `β^`) and a subscript loses
-   its level (`y_i` → `yi`).
-3. **A `derivation` step page pointed at its own equation.** The row is
-   `| equation | what you did |` and the flat label path took the whole row, so p5.3 read
-   `limh→0f(x+h)−f(x)h=f′(x) take the limit →` — under the 42-character budget, so nothing
-   declined it. AN EQUATION IS NOT A NAME, the math twin of the "a figure is not a name" rule
+   its level (`y_i` → `yi`); KaTeX's four invisible math operators are stripped, because a label
+   carrying one looks right and is not.
+3. **A `derivation` step page pointed at its own equation — a defect the FIX ABOVE created.**
+   Worth stating precisely, because an earlier draft of this note said the string was read off the
+   shipped PDF and it was not. On `beec5d8` those chips read `continues`: the annotation-sourced
+   label ran past `LABEL_MAX` and `labelOf` declined. Reading the MathML instead made the same
+   label FIT — `limh→0f(x+h)−f(x)h=f′(x) take the limit` is 40 characters against a budget of 42 —
+   so the row's own equation started printing where a name belongs. The row is
+   `| equation | what you did |` and the flat label path took the whole row. AN EQUATION IS NOT A NAME, the math twin of the "a figure is not a name" rule
    already in `labelOf`: a symbol names a thing and stays (`σ →`), but leading math carrying a
    RELATION makes a claim, so it is dropped and the member's prose becomes the label
    (`take the limit →`). A member that is only an equation keeps the equation, and the length
-   budget still judges what is left.
-4. **All three theorem cards were cut from every page and dumped on a closing page.** `math`
+   budget still judges what is left. The relation test is by Unicode BLOCK — an enumeration missed
+   `\equiv`, `\simeq`, `\supset`, `\longrightarrow` and `\implies` on the first cut — with three
+   deliberate holes: the operators, U+22A4 `\top` (this repo's transpose) and U+22A5 `\perp`.
+4. **A curated HARD RULE #29 shape glyph reached the chip.** Reading the MathML puts an author's
+   `\to` in as U+2192, set in the deck's TEXT face beside the engine-drawn `--shape-arrow-right`:
+   one pill, two arrows, two faces. A math-derived label carrying one now DECLINES rather than
+   printing it or deleting it — `F:A→B` is not `F:AB`, and '' degrades to the un-labeled pointer,
+   which still points. Scoped to math: an author's typed arrow in prose stays #29's coaching
+   warning.
+5. **All three theorem cards were cut from every page and dumped on a closing page.** `math`
    claims `blockquote` and `trailing-paragraph`, and on three of its four structures the claimed
    element IS a member. `math-structures` joins `MEMBER_CLAIM_STRATEGIES`.
 

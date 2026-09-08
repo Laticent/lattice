@@ -108,10 +108,13 @@ total: 28 · baseline: 9 · regressions: 7 decks / 19 slides · improvements: 0 
 clips** — not the math demo, not `adaptive-sweep`, not the three components whose stylesheets were
 guarded. 28 = the 19 caption-footer slides + the 9 now in the baseline.
 
-The diagnosis sweep read 26 against a baseline of 7; both numbers moved for bookkeeping reasons,
-not because anything got worse. Baseline 7 → 9 is `overflow-guards.md`'s two intentional pages
-being recorded; 26 → 28 is those same two pages arriving in the corpus from `main` while
-`q-and-a` p7 left it.
+**The diagnosis sweep's 26/11 does not reconcile arithmetically with this one, and it is not worth
+forcing.** 26 + 2 − 1 is 27, not 28, and the table above sums to 20 above-baseline slides rather
+than 19 — that sweep was taken on an intermediate tree that no longer exists as a commit, and its
+totals were read off a terminal rather than a JSON record. The numbers to trust are the ones in the
+block above, which are a saved `--json` run on the branch tip and were independently re-derived by
+a second full sweep. The diagnosis figures are kept because the CAUSE analysis rests on them, not
+the count. (The off-by-one was found by the HARD RULE #25 checker.)
 
 ## What IS fixed here
 

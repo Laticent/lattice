@@ -515,9 +515,13 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
   });
 
   test('math with the MathML mirror suppressed still degrades to the visual half, not to nothing', () => {
-    // `output: 'html'` is what the emulator's PDF path passes, and it emits no annotation at all.
-    // There is no source to recover then, so the glyph boxes are all there is — the contract is
-    // that the text survives, not that it is pretty.
+    // NOT what any shipping path passes — this comment used to claim it was. `lattice-emulator.js`
+    // sets `htmlAndMathml`, and `'html'` was removed there for accessibility. It is asserted
+    // anyway because it is the shape a differently-configured caller would produce, and because
+    // the annotation cannot rescue it: the annotation lives INSIDE the MathML, so a render with no
+    // `<math>` has neither source. The glyph boxes are all there is, and the contract is that the
+    // text SURVIVES, not that it is pretty. (The claim was corrected by the HARD RULE #25
+    // checker, which measured both halves of it.)
     const out = textOf(typeset('ab', { output: 'html' }));
     assert.match(out, /a/);
     assert.match(out, /b/);
@@ -555,6 +559,69 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // signal writes it into markup raw and the browser decodes it there. The DETECTION has to
     // decode or `$f(x) < y$` looks like a symbol run and keeps its equation.
     assert.equal(labelOf(tr(typeset('f(x) < y'), 'strictly below')), 'strictly below');
+  });
+
+  test('a RELATION is recognized by BLOCK, not by a hand-listed character', () => {
+    // The first cut enumerated the characters and missed five commands an author reaches for on
+    // an ordinary slide. Each of these rows keeps its equation if the enumeration comes back.
+    for (const tex of ['c \\equiv d', 'c \\implies d', 'c \\longrightarrow d', 'c \\simeq d',
+      'c \\supset d', 'c \\coloneqq d', 'c \\le d', 'c \\mapsto d', 'c \\in D']) {
+      assert.equal(labelOf(tr(typeset(tex), 'the step')), 'the step', `\`${tex}\` was not read as a relation`);
+    }
+  });
+
+  test('an OPERATOR is not a relation — three deliberate holes in the range', () => {
+    // `n×p` and `X⊤X` are NAMES, and a range wide enough to be tidy swallowed both: the whole
+    // 22A2–22AF turnstile block takes U+22A4, which is how this repo writes transpose, and the
+    // whole 2A00–2AFF block takes the n-ary operators.
+    for (const [tex, want] of [['n \\times p', 'n×p'], ['X^\\top X', 'X⊤X'], ['a + b', 'a+b'],
+      ['\\bigoplus_i V', '⨁iV']]) {
+      assert.equal(labelOf(`<li>${typeset(tex)} — a description</li>`), want,
+        `\`${tex}\` was read as a claim rather than a name`);
+    }
+  });
+
+  test('the clause separator goes with the equation it separated', () => {
+    // `- $<math>$ — <description>` is the legend authoring form. Removing the span alone leaves
+    // the dash leading and `CLAUSE_BREAK` cannot fire on a dash with nothing before it, so the
+    // chip shipped reading `— its right adjoint →`.
+    assert.equal(labelOf(`<li>${typeset('L \\dashv R')} — its right adjoint</li>`), 'its right adjoint');
+    assert.equal(labelOf(`<li>${typeset('a = b')}, so it holds — the reason</li>`), 'so it holds');
+  });
+
+  test('a math label carrying a CURATED SHAPE GLYPH declines (HARD RULE #29)', () => {
+    // The chip is set in the deck's TEXT face, so an author's `\to` read out of the MathML lands
+    // beside the engine-drawn `--shape-arrow-right` in a different face. Declining degrades to the
+    // un-labeled pointer, which still points.
+    assert.equal(labelOf(`<li>${typeset('F: A \\to B')}</li>`), '');
+    // Scoped to MATH: an author's typed arrow in prose is #29's `lint:deck` warning, which
+    // coaches rather than refuses, and silently dropping their wayfinding would coach nothing.
+    assert.equal(labelOf('<li>Ship → launch — the plan</li>'), 'Ship → launch');
+    // `≠` is in NOT_SHAPES, so the derivation step keeps its name.
+    assert.equal(labelOf(tr(typeset('a = b'), `divide by ${typeset('h \\neq 0')}`)), 'divide by h≠0');
+  });
+
+  test('EVERY leading equation is dropped, not just the first', () => {
+    assert.equal(labelOf(tr(`${typeset('a = b')} ${typeset('c = d')}`, 'combine')), 'combine');
+    // The limit, asserted rather than left to be discovered: an equation that is not LEADING
+    // stays, because removing it would mean deleting math from the middle of a sentence.
+    assert.equal(labelOf(tr(`${typeset('a = b')} and ${typeset('c = d')}`, 'combine')), 'and c=d combine');
+  });
+
+  test('KaTeX\'s INVISIBLE math operators never ride into the label', () => {
+    // `\log x` is `log⁡x` with a U+2061 FUNCTION APPLICATION between. A label carrying one looks
+    // right and is not — and it would be written into the signal's markup raw.
+    const log = labelOf(`<li>${typeset('\\log x')} — the log</li>`);
+    assert.equal(log, 'logx');
+    assert.doesNotMatch(log, /[\u200B\u2061-\u2064]/);
+  });
+
+  test('the <strong> and <h3> label paths get the rule too', () => {
+    // "An equation is not a name" was scoped to the flat run at first, so a card-shaped or
+    // subheading-shaped math member still labelled its neighbor page with an equation.
+    assert.equal(labelOf(`<li><h3>${typeset('a = b')} the identity</h3></li>`), 'the identity');
+    // Only an equation and nothing else still keeps the equation, on this path as on the flat one.
+    assert.equal(labelOf(`<li><strong>${typeset('a = b')}</strong> body</li>`), 'a=b');
   });
 
   test('dropping the equation does not exempt the prose from the budget', () => {
