@@ -22,7 +22,11 @@ const plugins = require('../../../lib/integrations/markdown-it/plugins');
 const fitBerth = require('../../../lib/core/fit-berth');
 
 /** Marker berths the engine emits per slide (overflow / illegible / fixme). */
-const BERTHS_PER_SLIDE = 3;
+// `data-lattice-berth` attributes per berthed slide: the three berths PLUS `.marker-rail`,
+// the container the clip and type-floor markers share. The rail carries the attribute
+// because `berth()` requires it at every level of its lookup — see lib/core/fit-berth.js.
+// Derived, not typed, so a fourth berth or a second rail cannot silently pass this.
+const BERTHS_PER_SLIDE = fitBerth.BERTHS.length + 1;
 
 describe('markdown-it-plugins', () => {
   // Apply ONE plugin in isolation on the owned slide pipeline (markdown-it +

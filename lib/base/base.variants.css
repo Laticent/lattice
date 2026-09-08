@@ -284,42 +284,27 @@ section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-
 section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); }
 section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); }
 
-/* ── `--stamp-stack`: how much room this stamp takes in the TOP-CENTER band ────
+/* ── NO STAMP RESERVES ANYTHING FOR THE MARKER ANY MORE ───────────────────────
  *
- * The overflow and legibility tabs berth centered under the spectrum bar
- * (base.modifiers.css), and need to know how far to drop to clear the stamp. The offset
- * is declared HERE, beside the geometry it describes, because that is the only place it
- * can be kept true — and on the SECTION, not on `::before`, because a custom property
- * set on a pseudo-element does not reach its siblings.
+ * There used to be a `--corner-stack` here — later `--stamp-stack` — declaring how much
+ * room each stamp shape took in the band the overflow and type-floor markers berthed in.
+ * It is gone, and the deletion is the record worth keeping.
  *
- * ONE SHAPE RESERVES ANYTHING, and that is the point of the berth. `stamp-notch` is the
- * only one that paints across the MIDDLE of the top edge — a full-width hairline band at
- * `top: 0`, measured 1.58cqi tall against the tab's ~1.8cqi, so one row clears it. Every
- * other shape is anchored to the RIGHT (tab, flag, pin at the corner; pill, bracket,
- * seal, underline, dot, bar, ribbon lower down) and is simply not in the tabs' way. The
- * two full-bleed washes, `stamp-mark` and `stamp-veil`, cover the tab by design and
- * reserve nothing: they sit on the MARK plane above the ALARM plane, deliberately — see
- * the z-index note below, and do not re-invert it.
+ * The markers lived in the slide's TOP-RIGHT, which is where these stamps paint and where
+ * the author's `logo:` mark sits. Four rounds of de-collision arithmetic came out of that
+ * shared corner and every one shipped broken past every machine gate — 21 class names
+ * pushed a fixed row when the 14 shapes sat at three different heights, a unitless
+ * `calc()` that invalidated the whole transform, a logo reserve that landed a marker
+ * inside the mark. The markers then moved to the top-center band, which left exactly one
+ * shape reserving anything (`stamp-notch`, the full-width hairline). They have since
+ * merged into ONE capsule berthed at the slide's BOTTOM edge (`.marker-rail`,
+ * base.modifiers.css), and a stamp painted along the top edge shares no band with it.
  *
- * THIS USED TO BE `--corner-stack`, three grouped rules and 21 class names, because the
- * tabs lived in the top-right corner and every stamp shape was a potential collision.
- * Two of those three rules were wrong when first written (measured shape by shape by the
- * HARD RULE #25 inversion), and the corner still had a fourth occupant the engine does
- * not own the geometry of — the author's `logo:` mark. Moving the berth deleted the
- * problem rather than re-deriving the arithmetic a fifth time.
- *
- * A NEW SHAPE that paints across the top-center band joins the rule below. One that does
- * not needs no edit — which is the safe direction to fail, and the opposite of the old
- * scheme, where a 15th corner-sitting shape silently reserved nothing and the tab landed
- * inside it. */
-/* THE SEMANTIC CLASS IS THE GATE, and the shape only MODIFIES the reserve. `content:
-   var(--stamp-label)` above is what actually paints, and `--stamp-label` comes from the
-   semantic class alone — so a shape class on its own paints nothing. `stamp:` front
-   matter appends `stamp-<shape>` to EVERY section in the deck (lib/core/resolve-stamp.js),
-   so keying the reserve on the shape alone would push the marker tab down on every slide
-   of a `stamp: notch` deck to clear a stamp that does not exist. Measured on a real
-   export, back when the default shape carried the reserve. (HARD RULE #25 red team.) */
-section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised).stamp-notch { --stamp-stack: 100%; }
+ * So a new stamp shape needs no entry here, and adding one back would be a regression
+ * rather than a nicety: the reserve only ever existed to keep two things apart that are
+ * no longer in the same place. The full-bleed washes (`stamp-mark`, `stamp-veil`) still
+ * cover the capsule, deliberately — they sit on `--z-mark` above `--z-alarm`, and
+ * inverting that once punched a reader pill through a redaction in a delivered PDF. */
 
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised) {
   position: relative;

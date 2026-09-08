@@ -1017,4 +1017,4 @@ The `#1404` section above is retained as the record of why the corner could not 
 work, not as a description of the code. Same for the bottom-center footer collision earlier
 in this file — that band is still the footer's and the pill still may not take it.
 
-`engineering/decisions/2026-09-08-marker-berth-top-center.md`.
+`engineering/decisions/2026-09-08-marker-capsule-berth.md`.

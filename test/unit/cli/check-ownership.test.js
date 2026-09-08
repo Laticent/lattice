@@ -636,26 +636,37 @@ describe('check-ownership', () => {
       assert.deepEqual([...defined].filter((t) => !read.has(t)), [], 'every token defined is read');
     });
 
-    test('.overflow-tab still defends its own position with !important', () => {
+    test('.marker-rail still defends its own position with !important', () => {
       // Kept from the retired frame-chrome exclusion gate, because the PROPERTY it guards
-      // outlived the rule it was written against. The tab asserts
-      // `position: absolute !important` at its own rule (base.modifiers.css) so nothing can
-      // drag it into flow — originally a defense against base.finish.css's blanket
-      // `position: relative`, which the plane model has since deleted. It stays because being
-      // out of flow is load-bearing for the tab ITSELF: the overflow watcher measures the
-      // cell this tab reports on, so an in-flow tab consumes the height it is measuring and
+      // outlived the rule it was written against — and it has now outlived the ELEMENT too.
+      // The marker asserts `position: absolute !important` so nothing can drag it into flow
+      // — originally a defense against base.finish.css's blanket `position: relative`, which
+      // the plane model has since deleted. It stays because being out of flow is
+      // load-bearing for the marker itself: the overflow watcher measures the cell the
+      // marker reports on, so an in-flow marker consumes the height it is measuring and
       // corrupts its own verdict. No plane rule sets `position`, so nothing in the engine
       // threatens it today — which is exactly when a guard quietly stops being true.
+      //
+      // IT MOVED UP ONE ELEMENT WITH THE POSITIONING. The clip and type-floor markers are
+      // now two static segments inside `.marker-rail`, the centered capsule that holds them
+      // (lib/core/fit-berth.js); the rail is what is positioned, so the rail is what has to
+      // defend it. Asserting the old selector would have kept passing right up until
+      // someone deleted the rule — the tab no longer positions itself at all.
       const css = require('node:fs').readFileSync(
         require('node:path').join(__dirname, '..', '..', '..', 'lib', 'base', 'base.modifiers.css'), 'utf8');
-      // ONE selector now, `section.clip-marked`, because one class answers the whole
-      // marker question. It was briefly TWO rules over two conjunction classes, and the
-      // population reachable by only one of them had no `position` rule at all: the tab
-      // rendered IN FLOW and took 50px out of the very cell it was reporting on —
-      // precisely the defect this exemption records as already fixed once. The PROPERTY
-      // this test guards is unchanged.
-      assert.match(css, /section\.clip-marked > \.overflow-tab[\s\S]{0,900}?position: absolute !important;/,
-        'the tab must defend its own position, or it lands in flow and takes height from the cell');
+      // UNCONDITIONAL on the rail — `section > .marker-rail`, no state class. The capsule
+      // is emitted on every slide and revealed by its segments, so its position must hold
+      // whether or not a marker is drawn; gating it on a state class is how a population
+      // reachable by only one class ended up with no `position` rule at all, rendering the
+      // marker IN FLOW and taking 50px out of the very cell it was reporting on. That is
+      // precisely the defect this exemption records as already fixed once, and the PROPERTY
+      // this test guards is unchanged across both moves.
+      assert.match(css, /section > \.marker-rail \{[\s\S]{0,900}?position: absolute !important;/,
+        'the capsule must defend its own position, or it lands in flow and takes height from the cell');
+      // And the segments must NOT position themselves any more: two positioned boxes inside
+      // a positioned rail is the two-pills shape the capsule replaced.
+      assert.doesNotMatch(css, /section\.clip-marked > \.marker-rail > \.overflow-tab \{[^}]*position:/,
+        'the clip segment is a flex child now — the rail owns position');
     });
   });
 

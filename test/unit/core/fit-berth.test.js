@@ -12,7 +12,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const { BERTHS, applyToHtml, applyToDocHtml, applyToDom, berth, BERTH_SRC } = require('../../../lib/core/fit-berth');
+const { BERTHS, RAIL_CLASS, RAILED, applyToHtml, applyToDocHtml, applyToDom, berth, BERTH_SRC } = require('../../../lib/core/fit-berth');
 
 const SLIDE = '<article class="lattice"><section class="content" data-lattice-slide><h2>A</h2></section></article>';
 const docOf = (html) => new JSDOM(html).window.document;
@@ -20,7 +20,12 @@ const docOf = (html) => new JSDOM(html).window.document;
 // alone would count an author's own `<div class="overflow-tab">` as a berth —
 // exactly the conflation `data-lattice-berth` exists to end, so a helper that made
 // it would quietly weaken every assertion built on it.
+// Two levels, because the two markers that share a capsule live inside `.marker-rail`
+// and the third does not. Flattened to one list so every assertion below still reads as
+// "which berths does this slide have", which is the question that matters — the rail is
+// an implementation of HOW they are grouped, not a fourth berth.
 const berthsIn = (section) => [...section.children]
+  .flatMap((el) => (el.className === RAIL_CLASS ? [...el.children] : [el]))
   .filter((el) => BERTHS.includes(el.className) && el.hasAttribute('data-lattice-berth'))
   .map((el) => el.className);
 
@@ -31,16 +36,30 @@ describe('applyToHtml — the engine path', () => {
     assert.deepEqual(berthsIn(s), BERTHS);
   });
 
-  test('the berth is a DIRECT CHILD of the section, and LAST', () => {
-    // Both halves are load-bearing. Every reveal rule is `section.x > .y`, so a
-    // berth one level down is invisible; and a berth that is not last would be
-    // swept into `.cell-stage` by the Form composition — inside the very box it
-    // reports on.
+  test('the berth block is LAST, and each berth is exactly where its CSS looks for it', () => {
+    // Both halves are load-bearing. A berth that is not last would be swept into
+    // `.cell-stage` by the Form composition — inside the very box it reports on. And the
+    // DEPTH is exact rather than "somewhere below": every reveal rule names the path
+    // (`section.x > .marker-rail > .y` for the railed pair, `section.x > .y` for the
+    // third), so a berth one level off is invisible and the register goes silent.
     const s = docOf(applyToHtml(SLIDE)).querySelector('section');
-    assert.equal(s.lastElementChild.className, BERTHS[BERTHS.length - 1]);
+    assert.equal(s.lastElementChild.className, BERTHS[BERTHS.length - 1],
+      'the un-railed berth is the last child');
     for (const cls of BERTHS) {
-      assert.equal(s.querySelectorAll(`:scope > .${cls}`).length, 1, `${cls} is a direct child`);
+      const path = RAILED.includes(cls) ? `:scope > .${RAIL_CLASS} > .${cls}` : `:scope > .${cls}`;
+      assert.equal(s.querySelectorAll(path).length, 1, `${cls} sits at ${path}`);
     }
+    // And the rail itself is a direct child, or the path above is unreachable.
+    assert.equal(s.querySelectorAll(`:scope > .${RAIL_CLASS}[data-lattice-berth]`).length, 1);
+  });
+
+  test('the two capsule segments are SIBLINGS in the rail, in severity order', () => {
+    // The rail is a flex row and the source order IS the visual order: the clip fact
+    // reads first because it is the more severe one. Nothing else pins that order, and
+    // a swap would be invisible to every other assertion in this file.
+    const s = docOf(applyToHtml(SLIDE)).querySelector('section');
+    const rail = s.querySelector(`:scope > .${RAIL_CLASS}`);
+    assert.deepEqual([...rail.children].map((el) => el.className), RAILED);
   });
 
   test('every berth is EMPTY — a berth is not a marker', () => {
@@ -114,7 +133,28 @@ describe('berth() — reaching a berth the watcher no longer owns', () => {
     const t = berth(s, 'overflow-tab');
     assert.ok(t, 'minted');
     assert.equal(t.className, 'overflow-tab');
-    assert.equal(s.querySelector(':scope > .overflow-tab'), t, 'and it is a direct child');
+    // MINTED INTO THE RAIL, minting the rail first. A segment appended to the section
+    // instead would sit outside the capsule with no positioning of its own — the reveal
+    // rule would not match it and the marker would be silent, which is the exact failure
+    // this branch exists to prevent.
+    assert.equal(s.querySelector(`:scope > .${RAIL_CLASS}[data-lattice-berth] > .overflow-tab`), t);
+  });
+
+  test('MINTS the rail only ONCE for the second segment', () => {
+    const s = docOf(SLIDE).querySelector('section');
+    const a = berth(s, 'overflow-tab');
+    const b = berth(s, 'illegible-tab');
+    assert.equal(s.querySelectorAll(`:scope > .${RAIL_CLASS}`).length, 1, 'one rail, not two');
+    assert.equal(a.parentElement, b.parentElement, 'both segments land in the same capsule');
+  });
+
+  test('an un-railed berth still mints onto the SECTION', () => {
+    // `fixme-tab` is a third register on its own edge and must not be swept into the
+    // capsule — a bottom-right corner tag inside a bottom-center flex row would be
+    // neither.
+    const s = docOf(SLIDE).querySelector('section');
+    const t = berth(s, 'fixme-tab');
+    assert.equal(s.querySelector(':scope > .fixme-tab'), t);
   });
 
   test('mints AT MOST once — a second call returns the same element', () => {
@@ -208,9 +248,14 @@ describe('an author cannot collide with the berth, in either direction', () => {
 
   test('every emitted berth carries the attribute — it is what makes it identifiable', () => {
     const s = docOf(applyToHtml(SLIDE)).querySelector('section');
-    for (const cls of BERTHS) {
-      assert.ok(s.querySelector(`:scope > .${cls}`).hasAttribute('data-lattice-berth'), cls);
+    for (const cls of [...BERTHS, RAIL_CLASS]) {
+      const path = RAILED.includes(cls) ? `:scope > .${RAIL_CLASS} > .${cls}` : `:scope > .${cls}`;
+      assert.ok(s.querySelector(path).hasAttribute('data-lattice-berth'), cls);
     }
+    // THE RAIL CARRIES IT TOO, and that is not decoration: `berth()`'s lookup requires the
+    // attribute at BOTH levels, so an author's own `<div class="marker-rail">` can never
+    // become the capsule the watcher writes into.
+    assert.ok(s.querySelector(`:scope > .${RAIL_CLASS}`).hasAttribute('data-lattice-berth'));
   });
 
   test('the idempotency test is anchored to the END, not a substring anywhere', () => {

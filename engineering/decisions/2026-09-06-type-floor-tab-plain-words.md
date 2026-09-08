@@ -186,7 +186,7 @@ and the second one was contradicted by this change's own evidence.
   spectrum bar, which invalidates the measurement above rather than the conclusion. Re-run
   against the new berth: same 66 slides, same 461 marks, still **0** under a tab, closest gap
   **139px** — and the clearance is now structural, since the block-start padding keeps
-  in-flow content out of the band. `2026-09-08-marker-berth-top-center.md` §4.)
+  in-flow content out of the band. `2026-09-08-marker-capsule-berth.md` §4.)
 
 **`.fixme-tab` has the same mismatch and is NOT fixed here — deliberately, and the call is
 close enough to write down.** It has carried a `title` (`base.modifiers.css` sets

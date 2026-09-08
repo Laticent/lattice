@@ -1,26 +1,25 @@
 ---
 status: shipped
 summary: >
-  The overflow and type-floor markers moved out of the slide's top-right corner and now
-  berth centered under the spectrum bar, flush against its underside. The corner had four
-  absolutely-positioned claimants — the status stamp, the author's `logo:` mark, and the
-  two marker tabs — and the engine owned the geometry of only three, so four rounds of
-  de-collision arithmetic all shipped broken and all passed every machine gate. Two of the
-  four claimants are transient by definition, so they moved instead. That deletes the
-  `--slide-radius` berth inset, the `--corner-logo-reserve` / `data-logo-corner` machinery
-  with `deckLogoInCorner` and its runtime mirror, and two of the three `--corner-stack`
-  grouping rules; one reserve is left, renamed `--stamp-stack`, declared by the one shape
-  that paints across the middle of the top edge (`stamp-notch`). The failure direction
-  inverts: forgetting a reserve is now safe for every shape that does not cross the middle.
-  The reader's pill then took a DIFFERENT berth from the author's tags — bottom-center,
-  flush, in the margin below the running footer — because the two registers have different
-  neighbors and different populations: a reader receives exactly one marker, so it has no
-  second row to place and can take a berth the stacking author tags could not.
-  Verified on real emulator exports by computed geometry, and the `elementFromPoint` chart
-  measurement was re-derived against the new berth — still 0 of 461 marks under a tab.
+  The overflow and type-floor markers left the slide's top-right corner and are now ONE
+  capsule — `.marker-rail`, a centered flex row against the bottom edge holding the clip
+  fact in red and the type-floor fact in amber. The corner had four absolutely-positioned
+  claimants (status stamp, the author's `logo:` mark, and the two markers) and the engine
+  owned the geometry of only three, so five rounds of de-collision arithmetic all shipped
+  broken and all passed every machine gate. Moving the two transient claimants deleted three
+  mechanisms; merging them deleted the rest, because two segments in one flex row cannot
+  collide with each other and a single centered box has one neighbour set to clear instead of
+  four. Gone: `--corner-stack` / `--stamp-stack` / `--clip-stack` / `--marker-band-top`, the
+  `--corner-logo-reserve` / `data-logo-corner` machinery with `deckLogoInCorner` and its
+  runtime mirror, and the `--slide-radius` inset on these berths. No stamp shape reserves
+  anything now. A reader still sees exactly one segment: the type floor is author-only, so
+  the combined capsule is an authoring affordance a delivered deck never renders. New
+  contract markup (`.marker-rail`) is excluded from both overflow probes by name, and
+  `berth()` — shared by both watchers via `BERTH_SRC` — looks two levels deep and no further.
+  Verified on real emulator exports by computed geometry.
 ---
 
-# The marker berth moves out of the corner (2026-09-08)
+# The marker berth moves out of the corner, then becomes one capsule (2026-09-08)
 
 **The overflow and type-floor tabs now sit CENTERED under the spectrum bar, flush against
 its underside.** They lived in the slide's top-right for the life of the register, which
@@ -281,3 +280,62 @@ chrome band.
   bisect. Re-derive with
   `node tools/check-overflow-corpus.js <deck.md> …` — the gate takes deck paths, so one
   deck answers in a minute where the full 316-deck sweep takes twenty.
+
+---
+
+## Follow-up (same day) — the two markers became ONE capsule at the foot
+
+Everything above describes an intermediate design. The berth moved twice more in the same
+session, and the second move retired the last of the arithmetic.
+
+**Where it ended.** `.marker-rail` — a centered flex row against the slide's **bottom
+edge** — holds the clip marker and the type-floor marker as two segments of one capsule.
+Red first (the more severe fact), amber second. `.fixme-tab` is unchanged, on its own
+bottom-right corner.
+
+**Why the two intermediate designs were not enough.**
+
+- *Top-center, both markers.* The band holds `section header`, absolutely positioned across
+  the full width at y 28 → 75.9 when it wraps, so the second row sat on the deck's running
+  title. Measured exposure: of 283 header-bearing slides across the 40 shipped `examples/`
+  decks, 111 (39%) have header ink reaching the band.
+- *Split by audience* — authoring tags up top, delivered pill at the foot. Correct as far as
+  it went, and it left the authoring surface with the header problem.
+
+**What merging bought that moving could not.** Every fix from the first corner de-collision
+onward answered the same question — *how far must this marker drop to clear what is above
+it?* — and answered it wrong five times, silently, past every machine gate. Two segments in
+one flex row cannot collide with each other, and a single centered box has one neighbour set
+to clear instead of four. So the question stops being asked. `--corner-stack`,
+`--stamp-stack`, `--clip-stack`, `--marker-band-top`, `--corner-logo-reserve` and
+`data-logo-corner` are all gone; no stamp shape reserves anything, because none of them
+shares a band with the capsule.
+
+**What a reader sees is unchanged in kind.** The type floor is author-only
+(`policy.legibility`) — a reader cannot resize a figure — so a delivered deck still shows
+exactly one calm "Content clipped" pill. The combined capsule is an authoring affordance
+that a delivered artifact never renders.
+
+**The markup is new, and it is contract markup.** `lib/core/fit-berth.js` emits the rail as
+the two markers' parent. Three consequences worth naming:
+
+- `berth()` looks **two levels deep and no further**, requiring `data-lattice-berth` at both,
+  so an author's own `<div class="marker-rail">` can never become the capsule the watcher
+  writes into. Both watchers get this function from the same kernel (the emulator injects
+  `BERTH_SRC`), so one change covered both producers — which is why the rail was cheaper than
+  composing one label in JS, where two watchers would have had to agree (HARD RULE #1).
+- The rail is **excluded from both overflow probes by name**. It is an engine-drawn box
+  inside the section, so a probe that walked it would measure the marker as author content
+  and let the marker manufacture the overflow it reports — the failure
+  `lib/core/overflow-probe.js`'s own header names, one element up from where it was fixed
+  last time.
+- `overflow: hidden` on the rail is what makes degradation free: the rail carries the radius
+  and clips its children, so hiding either segment leaves a correctly-rounded pill with no
+  rule to change.
+
+**Two assertions inverted rather than moved**, and a straight port would have passed on a
+broken capsule. The canary used to assert the two markers never share a row; sharing a row is
+now the design, and what must hold is that they *meet exactly* — same top, same bottom,
+`clip.right === leg.left`. Likewise the `position: absolute !important` gate in
+`check-ownership.test.js` now names the rail: the segments do not position themselves at all,
+so asserting the old selector would have kept passing until someone deleted the rule.

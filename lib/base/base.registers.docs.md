@@ -759,13 +759,15 @@ token is typed `0px` rather than `0` precisely so that inset resolves to a lengt
 square deck: a unitless zero inside `calc()` is a `<number>`, which makes the whole
 declaration invalid and drops the marker into flow.
 
-The overflow and type-floor flags need no inset: the authoring tags berth **centered under
-the spectrum bar** and the delivered "Content clipped" pill **centered against the bottom
-edge** (2026-09-08), and the middle of an edge is never inside a corner arc. All three berths
-carry absolute-position assertions in
-`test/integration/parity/content-clipped-pill.test.js` — centering and flushness for the two
-under the bar, and the square-deck corner measurement for Fix-Me, which is the only berth
-still exposed to the unitless-`calc()` trap.
+The overflow and type-floor flags need no inset: they are **one capsule** (`.marker-rail`)
+berthed **centered against the slide's bottom edge** (2026-09-08), and the middle of an edge
+is never inside a corner arc. A slide that trips both registers shows one object with two
+segments — the clip fact, then the type floor — rather than two pills; a slide that trips one
+shows a single correctly-rounded pill, because the rail clips its children. A reader only
+ever sees one segment: the type floor is author-only. Both berths carry absolute-position
+assertions in `test/integration/parity/content-clipped-pill.test.js` — centering and
+flushness for the capsule, and the square-deck corner measurement for Fix-Me, which is the
+only berth still exposed to the unitless-`calc()` trap.
 
 **In an EXPORT the corner is a capability of the FORMAT, and a format that cannot hold it
 renders square.** A rounded corner is a hole — the slide stops painting and whatever is
