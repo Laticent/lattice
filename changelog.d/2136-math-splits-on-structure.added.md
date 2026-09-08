@@ -12,3 +12,9 @@
   stage; broken and set at the new multi-line display scale it measures 925px. An author's own
   `\\` or any `\begin{…}` environment is left exactly as written, and a rewrite KaTeX cannot
   parse falls back to the source.
+- **Fixed: the forward pointer on a split page reads a math member as SYMBOLS, not as TeX source
+  or as an equation.** KaTeX writes its content three times, and reading the wrong copy put a
+  literal `\sigma →` and `X^\top X →` on a slide. The pointer now reads KaTeX's MathML mirror, so
+  those are `σ →` and `X⊤X →`. A member that LEADS with an equation — a `derivation` row is
+  `| equation | what you did |` — is labeled by its prose instead, so the step pages point at
+  `take the limit →` rather than at 24 characters of run-together operators.

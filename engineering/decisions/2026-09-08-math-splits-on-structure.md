@@ -11,12 +11,15 @@ summary: >-
   permitting a bare axis. Adds the Fit Spine's missing COLLAPSE move for equations:
   `lib/core/tex-linebreak.js` breaks a display equation too long for the slide onto `aligned`
   lines, descending into the delimiter group that dominates the long side, and gates on the same
-  non-`wide` family test autosplit uses — so every 16:9 render is byte-identical. Measured on
+  non-`wide` family test autosplit uses, which is the same gate the split and the pointer label sit
+  behind, so nothing here can reach a 16:9 render. Measured on
   `math feature`'s sample at portrait: 2587px of ink against a 972px stage, 1850px broken, 925px
-  at the multi-line display scale keyed on the marker the pass emits. Fixes three kernel defects
+  at the multi-line display scale keyed on the marker the pass emits. Fixes four kernel defects
   the enrollment surfaced — a display equation hoisted to the cover as a lede and lost from every
-  body page, a forward pointer reading "X X X" off KaTeX's a11y mirror, and a claimed blockquote
-  set cut from every page onto a closing page.
+  body page, a forward pointer that read "X X X" off KaTeX's a11y mirror and then a literal
+  `\sigma` off its TeX annotation before it settled on the MathML symbols, a `derivation` step
+  page labeled with its own equation instead of the step, and a claimed blockquote set cut from
+  every page onto a closing page.
 builds-on: 2026-09-01-autosplit-splits-on-structure.md, 2026-07-22-structure-derived-split-patterns.md, 2026-06-22-the-fit-spine.md
 ---
 
@@ -126,7 +129,9 @@ stopped one break short and concluded line-breaking hits a floor at 1694px; it d
 `lib/core/tex-linebreak.js` is the rule, `displayBlock` in `lib/engine/math.js` is the seam, and
 the pass runs **only for a non-`wide` family** — the same gate `AUTOSPLIT_APPLIES` uses, for the
 same reason: a deck is authored at 16:9, so an equation that fits the box the author had in front
-of them is one they composed. Every 16:9 render in the repo is byte-identical across this change.
+of them is one they composed. Nothing on this branch can change a 16:9 render: the reflow, the split
+and the forward-pointer label all gate on the same non-`wide` family test. That is a claim about
+the GATES, not a byte-comparison of every deck — one was not run.
 
 ### The second lever is scoped to what the first one broke
 
@@ -157,10 +162,25 @@ not by any gate.
    `$$…$$` renders as exactly that. The cover then set a display equation inside
    `.split-feat-lede`, which takes inline content. Fixed in `split-envelope.js`: a `<p>` carrying
    a display equation is the slide's subject, never its framing.
-2. **The forward pointer read "→ X X X".** KaTeX prints its content three times — `<mi>`, the
-   `x-tex` annotation, and the visual span — and `textOf` flattened all three. Fixed in
-   `relationship.js` by removing the a11y mirror before the tag strip.
-3. **All three theorem cards were cut from every page and dumped on a closing page.** `math`
+2. **The forward pointer read "→ X X X", and took three tries to set right.** KaTeX prints its
+   content three times — a MathML `<mi>` mirror, an `x-tex` annotation, and a visual half built
+   from one `<span>` per glyph box — and `textOf` flattened all three. Removing the a11y mirror
+   left the visual half, so `$y_i$` read `y i ␀`. Reading the annotation instead put the author's
+   SOURCE on the slide: `\sigma →` on p4.2 and `X^\top X →` on p3.4 of the shipped PDF. The
+   MathML mirror is the copy that is neither duplicated nor source — joined without a separator it
+   reads `σ`, `X⊤X`, `n×p` — so that is what `textOf` reads, with the annotation as the fallback
+   for the `output: 'html'` path that emits no MathML. Two shapes stay honestly imperfect and are
+   pinned as such: an accent is written base-then-mark (`\hat\beta` → `β^`) and a subscript loses
+   its level (`y_i` → `yi`).
+3. **A `derivation` step page pointed at its own equation.** The row is
+   `| equation | what you did |` and the flat label path took the whole row, so p5.3 read
+   `limh→0f(x+h)−f(x)h=f′(x) take the limit →` — under the 42-character budget, so nothing
+   declined it. AN EQUATION IS NOT A NAME, the math twin of the "a figure is not a name" rule
+   already in `labelOf`: a symbol names a thing and stays (`σ →`), but leading math carrying a
+   RELATION makes a claim, so it is dropped and the member's prose becomes the label
+   (`take the limit →`). A member that is only an equation keeps the equation, and the length
+   budget still judges what is left.
+4. **All three theorem cards were cut from every page and dumped on a closing page.** `math`
    claims `blockquote` and `trailing-paragraph`, and on three of its four structures the claimed
    element IS a member. `math-structures` joins `MEMBER_CLAIM_STRATEGIES`.
 
@@ -174,7 +194,8 @@ was a math-only exception to a rule every other enrolled component follows.
 ## Verified
 
 `examples/math-split-structure.md` at `size: portrait`, indaco — 8 slides out to 28 pages, nothing
-clipped, rasterized and read page by page. `math feature` reads clean through
+clipped, rasterized and read page by page (all 28, which is how items 2 and 3 above were found:
+the first pass read 8 and both defects sat outside them). `math feature` reads clean through
 `probeSectionOverflow` at all five registered sizes (hd, square, portrait, story, mobile), against
 four of five over before this change. The `verified.math` entry in `test/oracle/split-oracle.json`
 carries the per-structure detail.

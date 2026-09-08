@@ -463,28 +463,55 @@ describe('core: the signal resolves its axis from the PAGE, not the manifest (§
   });
 });
 
-// ── textOf over TYPESET MATH — a pointer must read the author's source ────────────────
+// ── textOf over TYPESET MATH — a pointer must read SYMBOLS, not source ────────────────
 //
-// KaTeX writes its content THREE times: a MathML `<mi>`, an `<annotation encoding=
+// KaTeX writes its content THREE times: a MathML `<mi>` mirror, an `<annotation encoding=
 // "application/x-tex">` holding the TeX the author typed, and a visual half built from one
-// `<span>` per glyph box padded with a zero-width space. A tag strip over all of it read
-// `$X$` as "X X X"; removing only the MathML mirror left the per-glyph boxes, so `$y_i$`
-// read "y i ␀". Both shipped in the forward pointer of a `math` legend page.
+// `<span>` per glyph box padded with a zero-width space. Each of the three has shipped in the
+// forward pointer of a `math` legend page and each was wrong in its own way: all three together
+// read `$X$` as "X X X"; the visual half alone read `$y_i$` as "y i ␀"; the annotation alone put
+// a literal `\\sigma →` on the slide.
+//
+// The MathML mirror is the one that is neither duplicated nor source, so it wins. Its tokens are
+// character-level and are joined WITHOUT a separator, which is what keeps `X^\\top X` from
+// re-acquiring the "X ⊤ X" spacing.
 //
 // Real KaTeX output, not a hand-built fixture: the whole point is that the markup shape is
 // the library's, not ours.
-describe('core: relationship — textOf reads typeset math as the author wrote it', () => {
+describe('core: relationship — textOf reads typeset math as rendered symbols', () => {
   const katex = require('katex');
   const typeset = (tex, opts = {}) => katex.renderToString(tex, { throwOnError: false, ...opts });
 
-  for (const tex of ['y_i', 'X^\\top X', '\\hat\\beta', '\\sigma(x)']) {
-    test(`inline $${tex}$ reads back as its own TeX`, () => {
-      assert.equal(textOf(`${typeset(tex)} — a legend line`), `${tex} — a legend line`);
+  // [ TeX the author typed, what the pointer must read ]
+  const SYMBOLS = [
+    ['\\sigma', 'σ'],
+    ['\\ell', 'ℓ'],
+    ['X^\\top X', 'X⊤X'],
+    ['n \\times p', 'n×p'],
+    ['\\text{ARR}', 'ARR'],
+    // Honestly imperfect and deliberately not special-cased: an accent is written base-then-mark
+    // and a subscript loses its level. Both are the right GLYPHS, which is the bar for a chrome
+    // chip — and pinning them here means a future change to the join has to say so.
+    ['\\hat\\beta', 'β^'],
+    ['y_i', 'yi'],
+  ];
+
+  for (const [tex, want] of SYMBOLS) {
+    test(`inline $${tex}$ reads back as \`${want}\``, () => {
+      assert.equal(textOf(`${typeset(tex)} — a legend line`), `${want} — a legend line`);
     });
   }
 
+  test('NO backslash command reaches the text — that is the defect this replaced', () => {
+    // The regression that put `\sigma →` and `X^\top X →` on examples/math-split-structure.md
+    // was a passing test away from shipping again: reading the annotation is a plausible fix.
+    for (const [tex] of SYMBOLS) {
+      assert.doesNotMatch(textOf(typeset(tex)), /\\/, `TeX source leaked for ${tex}`);
+    }
+  });
+
   test('a DISPLAY equation reads the same way', () => {
-    assert.equal(textOf(typeset('a = b + c', { displayMode: true })), 'a = b + c');
+    assert.equal(textOf(typeset('a = b + c', { displayMode: true })), 'a=b+c');
   });
 
   test('math with the MathML mirror suppressed still degrades to the visual half, not to nothing', () => {
@@ -494,6 +521,45 @@ describe('core: relationship — textOf reads typeset math as the author wrote i
     const out = textOf(typeset('ab', { output: 'html' }));
     assert.match(out, /a/);
     assert.match(out, /b/);
+  });
+
+  // ── labelOf: an EQUATION is not a name ──────────────────────────────────────────────
+  //
+  // A `derivation` row is `| equation | what you did |`, and the flat path took the whole row:
+  // the pointer on examples/math-split-structure.md p5.3 read
+  // `limh→0f(x+h)−f(x)h=f′(x) take the limit →`. It fits the 42-character budget, so nothing
+  // declined it — which is why the rule is about SHAPE, not length.
+  const tr = (...cells) => `<tr>${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`;
+
+  test('a leading equation is dropped and the member prose becomes the name', () => {
+    const row = tr(typeset('\\lim_{h\\to 0} \\frac{f(x+h)-f(x)}{h} = f\'(x)'), 'take the limit');
+    assert.equal(labelOf(row), 'take the limit');
+  });
+
+  test('a leading SYMBOL is kept — a symbol names a thing, an equation makes a claim', () => {
+    // The legend member `$\sigma$ — the logistic link` must still point at `σ`; dropping every
+    // piece of leading math would have retitled the whole symbols run after its descriptions.
+    for (const [tex, want] of [['\\sigma', 'σ'], ['X^\\top X', 'X⊤X'], ['n', 'n']]) {
+      assert.equal(labelOf(`<li>${typeset(tex)} — a description of it</li>`), want);
+    }
+  });
+
+  test('a member that is ONLY an equation keeps the equation', () => {
+    // Same shape as "a figure with NOTHING after it keeps the figure": dropping the lead would
+    // leave no label at all, which is strictly worse than a terse one.
+    assert.equal(labelOf(`<li>${typeset('a = b')}</li>`), 'a=b');
+  });
+
+  test('a relation written as `<` is still a relation — the escape does not hide it', () => {
+    // markdown-it escapes `<` to `&lt;` and nothing decodes on the way to the label, because the
+    // signal writes it into markup raw and the browser decodes it there. The DETECTION has to
+    // decode or `$f(x) < y$` looks like a symbol run and keeps its equation.
+    assert.equal(labelOf(tr(typeset('f(x) < y'), 'strictly below')), 'strictly below');
+  });
+
+  test('dropping the equation does not exempt the prose from the budget', () => {
+    const row = tr(typeset('a = b'), 'a step whose authored description runs on well past the budget');
+    assert.equal(labelOf(row), '', 'a sentence still declines to the un-labeled pointer');
   });
 
   test('prose with no math is untouched', () => {
