@@ -1,8 +1,18 @@
 # The style catalog — what each chart actually paints today
 
-**There is exactly one finish, and it is not named.** `pigment` / `etching` /
-`tone` are a proposal in this folder; `grep -rn "chart-finish" lib/ themes/
-docs/src` returns **0**. No register selects a chart treatment, so every chart
+**Three finishes are designed; zero are implemented.** The record settles
+`pigment` / `etching` / `ground` (`judgement-colour.md`, round 2), and
+`spend-rules.md` §6 then found that `ground` **was not really a finish**: it
+owned the figure frame, which is why it measured as distinguishable on 21 of 21
+members while changing nothing about how a chart is *drawn* (`scoring.md`). The
+frame moved out to its own `frame:` register (`none` · `ground` · `ruled`),
+orthogonal and available under all three; `ground`-the-finish keeps its name and
+is re-grounded on the thing that IS a statement about the mark — a **per-group
+track** (a bar's headroom, a funnel's intake, the denominator made visible),
+which `bullet`, `progress` and `quadrant` already draw and `ground` generalizes.
+
+**In code, none of that exists yet.** `grep -rn "chart-finish" lib/ themes/
+docs/src` returns **0** — no register selects a chart treatment, so every chart
 paints one style: whatever its own file says.
 
 Not to be confused with the `finish:` register that DOES ship
@@ -10,9 +20,9 @@ Not to be confused with the `finish:` register that DOES ship
 `meridian`, `strata`, `halo`, `ledger`, `nimbus`, `loom`, `savile`, `gallery`,
 plus `none`). That paints behind content and never touches a chart mark.
 
-So this catalog has one column. It is the baseline any finish work has to
-start from, because a finish varies a style and there is currently no style to
-vary — there are twenty-one.
+So this catalog has one column, and it is the SHIPPED one. It is the baseline
+any finish work has to start from, because a finish varies a style and there is
+currently no style to vary — there are twenty-one.
 
 ## Measured
 
