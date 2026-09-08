@@ -6223,6 +6223,18 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + '`.gitattributes`, folded for tolerance rather than to make author text canonical.',
   },
   {
+    file: 'docs/src/components/playground/PlaygroundApp.tsx',
+    why: 'a COMPARISON fold, not an ingest — the same shape as notes-core.js below. The '
+       + 'Playground asks ONE question with it: has the author edited the deck since Explore '
+       + 'handed it to the editor? CodeMirror stores a document with its own line separator, '
+       + 'so a source that arrived CRLF comes back LF and raw equality reports an edit nobody '
+       + 'made, silently dropping a plan walk and stripping the ?c=/?s= params. Neither string '
+       + 'is written back and nothing downstream of the answer decides a palette or a slide '
+       + 'count. It strips no BOM for the reason notes-core does not: there is no document '
+       + 'here whose front matter a BOM could defeat — the deck that IS ingested goes through '
+       + 'the editor and the engine, both already boundaries.',
+  },
+  {
     file: 'lib/authoring/notes-core.js',
     why: 'a COMPARISON fold, not an ingest. stripNotesFromSource matches note bodies that came '
        + 'back from RENDERED slide HTML (where markdown-it already normalized) against raw '

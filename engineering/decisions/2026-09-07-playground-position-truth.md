@@ -1,0 +1,608 @@
+---
+status: shipped
+summary: The Playground's Explore mode is a free-scrolling filmstrip with a stepper bolted on that never observed the scroll, so the walk index was write-only and the chrome routinely named a slide the reader was not looking at. A randomized metamorphic walk over the real built site found fourteen defects with four root causes - no scroll-to-index observer at all; the walk position landed during the in-iframe FIT window and thrown away when FIT rescaled the deck (so every shared ?s= link, every reload and every Explore-Edit-Explore opened on the title slide while naming another); input verbs owned per surface instead of read from lib/core/present-transport.mjs, which is the #1294 root cause repeated in the one surface the #1294 fix never reached; and a set of races where the machinery outranked the reader - a wheel during the landing was swallowed or undone, a scroll inside the programmatic guard's own window was dropped for good, and a fit rescale changed the deck's geometry under a settled scroll with no event to announce it. Also: clicking the tab you were already on destroyed the deck, because both branches of setViewMode copy one source over the other and neither checked whether the mode was changing. Fix - readingSlideIndex (greatest visible overlap plus hysteresis) drives the bar, caption, Step list and URL from the reader's own scroll; landWalk polls for the reveal, verifies the target slide is on screen and retries, and the frame's reveal waits on it; the keymap comes from shellKeyAction and the swipe rule from swipeAction, both bound to the frame document as well as the page; a ResizeObserver inside the frame re-aims a scroll aimed at geometry that has since changed; and the component picker opens on the current component instead of silently replacing the deck on Enter. Three of the oracles used to find all this were themselves wrong - offsetHeight is the unscaled layout box, a settle that watches only the index and the scroll returns inside the fit window, and dominance is too strong an invariant where three slides share a pane. Guarded by docs/e2e/playground-stress.spec.ts.
+---
+
+# Position truth in the Playground: the chrome must never name a slide you cannot see
+
+**Date:** 2026-09-07 · **Issue:** #2124 · **Status:** shipped
+
+## The surface, and why it is worth this much attention
+
+`/playground/` is the front door for a visitor who has never written a line of
+Markdown. Explore mode — a deck, a `‹ Prev · N / M · Next ›` bar, a caption — is
+the only part of Lattice most of them will ever drive. It is also the surface no
+stress tier had ever been pointed at.
+
+## What was actually wrong
+
+**One defect wearing nine faces.** Explore is a **filmstrip the reader scrolls
+freely**, with a **stepper bolted on that never observed the scroll**. The walk
+index was write-only: the bar, the caption, the Step dropdown and the `?s=` URL
+were all set by a step and never corrected. Everything below follows from that.
+
+Measured on the real built site at 1440×900 unless noted.
+
+| # | What the reader does | What the chrome said |
+|---|---|---|
+| 1 | wheel from the title to slide 7 | `1 / 13`, slide 1's caption, `s=` unset |
+| 2 | presses Next after that scroll | jumps **backwards** to slide 2 |
+| 3 | clicks the slide, then presses → | nothing, ever again |
+| 4 | presses PageDown / PageUp / Home / End | nothing |
+| 5 | swipes left on a phone | nothing |
+| 6 | opens a shared `?s=variant:trajectory` link | `6 / 13` over the **title slide** |
+| 7 | reloads mid-walk | `7 / 13` over the title slide |
+| 8 | Explore → Edit → Explore | `6 / 13` over the title slide |
+| 9 | resizes the window mid-walk | `3 / 8` with slide 4 on screen |
+
+Face 1 is the one to hold on to. On a phone, one flick puts three unrelated
+slides on screen while the bar reads `1 / 13` and the caption describes a slide
+that scrolled past several seconds ago — and then the only obvious control on the
+surface throws the reader backwards. Every readout the surface has is wrong at
+once, which is why it reads as "jank" rather than as a bug with a name.
+
+## Three root causes
+
+**A. Nothing read the scroll back.** There was no observer, at all. The index
+only ever moved when the stepper moved it.
+
+**B. The position was landed during the FIT window.** `render()` called
+`scrollWalk` the moment `renderInto` resolved. Traced on a cold
+`?c=kpi&s=variant:trajectory`: at t=908ms the frame was still
+`visibility:hidden`, `scrollHeight` 9432, slide 5 at 3636; by t=1114ms the
+in-iframe FIT agent had rescaled the deck to 8739 / 3376 **and the scroll was back
+at 0**. The one scroll the surface performed was thrown away every time. That is
+faces 6, 7 and 8 — every path that renders a fresh deck.
+
+**C. Input verbs were owned per surface.** This is the
+[#1294 root cause](./2026-08-10-input-verb-parity.md) exactly, in the one surface
+that note never reached. The keyboard was a hand-written two-key map (`←`/`→`) on
+`window` only, so PageUp/PageDown — what a presentation clicker emits — and
+Home/End were never wired (face 4), and **clicking the deck moved focus into the
+`<iframe>`, after which the parent listener never saw another keystroke** (face
+3). Touch had no horizontal rule at all (face 5).
+
+## Why the existing tests were green throughout
+
+`playground-explore.spec.ts` covers this surface and asserts the walk bar's text,
+the Step dropdown's label and the URL — **the three readouts that were lying.** A
+test written against the chrome cannot see the chrome disagree with the deck.
+
+That is the transferable lesson, and it is not "write more tests". It is: when a
+surface has a *position*, the oracle has to come from the thing being positioned.
+`docs/e2e/playground-stress.spec.ts` derives the geometry from the frame itself
+and holds the chrome to it.
+
+## The model: scroll is the source of truth
+
+Two coherent resolutions existed and the choice matters, so it is recorded rather
+than assumed.
+
+**(A) The stepper is truth** — lock Explore to one slide at a time like Present,
+and route wheel and swipe through `createWheelGate`. Rejected: it deletes free
+scrolling from a filmstrip the reader skims, and that iframe is shared with the
+editor's live preview, where scrolling is the whole point.
+
+**(B) The scroll is truth, and the chrome follows it.** Taken. It removes no
+behavior — it makes the readouts honest — and it is what the surface already was.
+
+So the wheel is deliberately **not** gated into discrete steps here, which is this
+surface's one departure from Present. The parity rule asks that no reader find an
+input the surface ignores; a vertical wheel that scrolls the filmstrip *and moves
+the counter with it* satisfies that, and gating it would take free scrolling away
+to satisfy the letter of a rule against its purpose.
+
+## The rule, and the clause that a phone forced
+
+`readingSlideIndex` (`docs/src/lib/playground-controller.ts`) is
+**greatest visible overlap, ties to the lower index** — the slide filling most of
+the pane is the slide you are reading. Two cheaper rules were tried and rejected:
+an **anchor line** (`last top <= scrollY + k`) is exact for the scroll the stepper
+performs and arbitrary everywhere else, since `k` must be guessed against a slide
+height that changes with the pane width; the **viewport center** (the
+`rootMargin: -45%` rule `deck-preview.js` uses) is stable only while a slide is
+about as tall as the pane, and reports i+1 for a jump to i when one is shorter.
+
+Then **hysteresis**, which the phone forced and which is the more interesting
+half: *while the slide the caller is already on is at least half as visible as the
+winner, it keeps the position.* At 390×844 this deck lays out **three slides to a
+pane**, and the filmstrip cannot scroll far enough to put the last one at the top
+— so pressing End clamps the scroll with slides 11, 12 and 13 all fully on screen
+and pure overlap names **11**. Hysteresis also stops the counter twitching under a
+small nudge of the wheel, which is the same defect one frame wide.
+
+**The invariant both clauses serve is not "the index equals the dominant slide".**
+At three-to-a-pane that question has no single right answer. It is: **the chrome
+never names a slide the reader cannot see** — false for all nine faces above, true
+at every width for a correct surface, and it is what the e2e oracle asserts.
+
+## Two measurement traps, both paid for
+
+**`offsetHeight` is not the slide's height.** The in-iframe FIT agent gives every
+section a fixed 720px layout box and scales it with a transform, so at 390px
+`offsetHeight` reads **720** where the slide is really **179**. Both `frameBands`
+and the e2e oracle read height from `getBoundingClientRect()`.
+
+`offsetTop` *is* right, and the reason matters more than the fact. A transform
+never affects `offsetTop`. What carries the scale into the layout positions is a
+second thing the same agent does — `s.style.marginBottom = (SH*sc - SH + GAP)`
+in `deck-preview.js`, a negative margin pulling each following section's layout
+box up by exactly the scale difference. So the pairing "position from `offsetTop`,
+size from the rect" is valid **only while that margin line exists**. This note's
+first draft credited the transform's origin instead, which would have read as
+reassurance that the margin was safe to touch; an independent checker caught it.
+That is the more useful shape of the trap: half your geometry is right, and the
+explanation for why can be wrong in a way that survives review.
+
+**`iframe.contentWindow` identity survives a navigation.** It is a `WindowProxy`.
+A rebind guard written as `if (frame.contentWindow === bound) return` binds once
+to `about:blank`, loses every listener to the first srcdoc write, and then
+**declines to rebind for the rest of the session** — silently, with the guard
+reading true the whole time. The first cut of this change shipped exactly that and
+looked correct in the diff. Key the guard on `contentDocument`, which is a fresh
+object per navigation.
+
+## What changed
+
+- **`readingSlideIndex`** — the pure rule above, in the DOM-free controller kernel
+  with the phone and desktop geometries as unit fixtures.
+- **`onDeckScroll`** — an rAF-coalesced observer on the frame window driving the
+  walk index, gated shut until `landWalk` has placed the first position and
+  deferring to an in-flight programmatic scroll until it *arrives* (a smooth
+  `scrollTo` crosses every slide on the way).
+- **`landWalk`** — polls for the FIT reveal plus two frames of identical geometry
+  before scrolling, with a bounded fallback so a frame whose FIT never settles
+  still lands somewhere honest.
+- **A `ResizeObserver` on the preview wrap** re-fits and re-lands, covering the
+  window, the split drag, a collapse and an orientation change in one place.
+- **The keymap comes from `shellKeyAction`** (`SHELL_KEYMAP`) and the swipe rule
+  from `swipeAction` — not a fourth hand-written list — and every listener is
+  installed on **both** the page and the frame document.
+- **The URL sync went trailing-edge.** With the index following the reader's
+  scroll, a flick was six `replaceState` calls in two frames; Safari rate-limits
+  that outright at 100 per 30s.
+- **The component picker opens on the current component.** It fed cmdk no `value`,
+  so on a 69-row catalog in a 300px window it opened on the first row with the
+  reader's own component 2376px out of view — and **Enter replaced their deck**
+  (measured: `wifi` → `closing`). It also recomputed a full Fuse + BM25 search on
+  every parent render, which with the new observer would have meant one per
+  animation frame while scrolling; now memoized.
+
+## What the wider walk found afterwards
+
+The first fix passed its own six reproductions and a 24-step walk. Widening that walk to
+sixty ops across three widths found **five more**, and they are worth naming because every
+one was **invisible in isolation and deterministic under load** — the shape of thing a demo
+never shows you and a fuzz walk finds on the third seed.
+
+**Clicking the tab you are already on destroyed the deck.** Both branches of `setViewMode`
+copy one source over the other, and neither checked whether the mode was changing. The
+Explore tab replaced the 13-slide walk deck with the editor's untouched one-slide draft
+while the bar still read `3 / 13`; the Edit tab is the mirror image, overwriting the
+author's draft and pushing an undo backup nobody asked for. `onLoadGallery` had already had
+to route *around* this function for exactly this reason, with a comment saying so — the
+workaround was there and the guard was not.
+
+**The walk kept a plan the deck no longer was.** Entering Explore adopts the editor's draft
+as the deck (the unified view/source model), but the walk stayed the old component's plan,
+so the bar counted thirteen slides over a deck with one and Next stepped to slides that did
+not exist. It re-points to a `deck` walk, which learns its count from the render.
+
+**The reader did not outrank the machinery.** Two separate gates swallowed real input: a
+wheel during the post-render landing (the observer is shut for the whole settle, so the bar
+held `1 / 22` at a scroll of 3033px), and a scroll arriving inside the programmatic guard's
+own 400ms window — stranded for good, because no further event was coming. Both now yield
+to a `userInputAt` stamp, and `landWalk` aborts outright rather than scrolling the reader
+back off a position they chose.
+
+**The deck's geometry changes under a settled scroll, with nothing to announce it.** The fit
+agent rescales a fresh deck a few hundred milliseconds after it is parsed — 2160px sections
+become 652 — and because the document does not shrink enough to clamp the scroll, **no
+scroll event fires at all.** A step taken in that window aimed at the old geometry and
+landed two slides past its target, permanently. A `ResizeObserver` inside the frame re-aims
+a scroll still in flight and reconciles the index otherwise. It has to stand down while a
+pane resize has already scheduled a re-land, or the two observers fight over one rescale —
+which they did, and the resize regression test caught it.
+
+## What a real phone found that no headless run could
+
+The fixes above were verified across five Playwright projects and ten fuzz runs. A single
+screenshot from an actual iPhone then produced three more, and the reason is worth stating
+plainly: **a headless browser has no soft keyboard.** Every run above had the full viewport.
+
+- **The panel did not fit.** The picker opens a 381px popover with a fixed 300px list; the
+  keyboard covers ~336px of a 659px screen. Measured on real WebKit at 393x659, 182px of
+  the list — and the row being searched for — sat under the keyboard. Radix cannot help:
+  its collision detection reads the LAYOUT viewport, which iOS does not shrink for a
+  keyboard. Only `window.visualViewport` does, which is why `docs/src/lib/visual-viewport.ts`
+  exists as a module rather than a one-off.
+- **Return committed instead of revealing.** On a phone the return key is how you dismiss
+  the keyboard to look at your results. cmdk binds it to "select the highlighted row", so
+  typing `chart` and pressing return replaced the author's deck with the top hit and closed
+  the panel. It is now gated on whether a keyboard is ACTUALLY covering the panel, not on a
+  pointer-capability probe — a phone with a hardware keyboard, and a desktop, both keep
+  Enter-to-commit, which is right when you can already see the list.
+- **90px of a 265px budget was chrome.** A 45px search row and a 45px GROUP lens row before
+  a single result. The lens row is now hidden while a query is active, which is honest and
+  not merely thrifty: a query renders one flat ranked list, so the lens controls nothing at
+  all in that state.
+
+**Two more defects fell out of fixing those**, and both were present on every width:
+
+- **A search kept the previous list's scroll.** cmdk scrolls on a VALUE change, and
+  re-ranking is not one — searching `chart` from `word-cloud` left the list at 444 of 744
+  with the top hit off screen. Capping the list to the space above a keyboard turned that
+  into a 106px window showing nothing the author asked for.
+- **cmdk pushes its selection back.** When its previous highlight survives into the new
+  result set it keeps that row and reports it through `onValueChange`, overwriting the
+  top-hit choice made here. And its `data-selected` attribute lags this component's state
+  by a render, so an effect that reads the DOM to find "the highlighted row" finds the
+  wrong one and no later pass ever comes. Both are why the picker now re-asserts the top
+  hit a frame later and locates rows by `data-value` from its own state.
+
+The transferable part is not any of the three. It is that **a verified matrix proves the
+cells it contains**, and "the viewport is smaller than the page thinks" was not a cell in
+any of them — the same lesson `2026-08-10-input-verb-parity.md` records about the pinch
+gesture it could not see.
+
+## The keyboard fix, corrected: it is an available-viewport problem, and it was solved
+
+The first cut of the keyboard work added `docs/src/lib/visual-viewport.ts` — its own
+`visualViewport` listener, its own React state, its own arithmetic. That was a HARD RULE
+#15 violation with a shipped answer sitting next to it: **`useKeyboardInset`**
+(`ui/panel.tsx`) already publishes `--kb` and `--vvh`, already backs every mobile sheet,
+and already had a second caller in the Studio's inline search — a combobox whose dropdown
+had this exact problem on an iPad. The module is deleted; the picker uses the kernel.
+
+Three things came out of doing it the reusing way, and all three are the point.
+
+**The picker is the third caller the hook's own note predicted.** It says: *"if a third
+caller appears … this has to become refcounted rather than last-writer-wins."* It is now
+refcounted. The failure it removes is silent and one-directional — whichever surface
+unmounts first used to remove `--kb`/`--vvh` outright, dropping any still-open surface back
+to the `100dvh` fallback with a keyboard still up.
+
+**Radix already subtracts the keyboard, and the first two cuts both got this wrong.**
+`--radix-popover-content-available-height` is computed by floating-ui from the VISUAL
+viewport, so it has the keyboard in it already: measured, a 336px keyboard took it from
+500px to 164 on a WebKit iPhone and from 680.75 to 344.75 on a Pixel — exactly the keyboard,
+both times. Cut one sized from `--vvh` minus a hand-written constant for the panel's top
+edge, which is right for the Studio's palette (a fixed 54px header) and wrong here, where
+the trigger sits under a site header and a toolbar that wraps: the list still ran 53px under
+the keyboard. Cut two subtracted `--kb` on top of Radix's number and double-counted, leaving
+206px of dead screen above the keyboard on a Pixel. **The cap is Radix's measurement alone**,
+set on the panel rather than the list so the browser does the chrome arithmetic.
+
+**"Is a keyboard up" and "how much room is left" are different questions and need different
+signals.** The Return rule does need the first, and no single signal answers it everywhere:
+`--kb` is correct where a keyboard shrinks only the visual viewport (iOS, and Chrome's
+default `interactive-widget=resizes-visual`) and reads 0 where it shrinks the layout viewport
+instead; the panel's own shrink is correct on exactly the platforms `--kb` is not. Measured:
+a 336px keyboard takes the panel to 152px on an iPhone 15 Pro (both signals fire) and leaves
+it at 332px on a Pixel 7's taller viewport (only `--kb` fires). Return reveals on the OR.
+
+Verified on real WebKit at three device profiles x keyboard up/down — iPhone 15 Pro, iPad
+Pro 11, Pixel 7 — with the panel clearing the keyboard in every case (13-743px of daylight)
+and Return committing only where nothing covers the list.
+
+## A geometry change is not a reader action
+
+Chasing the keyboard work surfaced the last and subtlest defect in the position loop, and
+it is the one worth carrying forward.
+
+**A scroll event says where the frame is; it does not say whether the frame moved or the
+deck did.** When the fit agent rescales, every band moves while `scrollY` stays put — so the
+next scroll event reports the NEW geometry at the OLD offset. Reading an index out of that
+renames the reader's slide from a position they never chose. Measured: resizing ~0.6s after
+a step logged `onDeckScroll 3->4`, one slide past where the reader had asked to be,
+deterministically; and two resizes 500ms apart logged `reconcile 3->2` from the first
+resize's guard timer firing during the second.
+
+The fix is one rule stated once: **the index is only ever re-read from a scroll measured in
+the same geometry it was placed against.** `bandSig` fingerprints the filmstrip, `scrollWalk`
+records it when it places a position, and both readers — the scroll observer and the shared
+reconcile — refuse a mismatch. A rescale therefore triggers a re-land (which waits for two
+stable frames and verifies), never a rename.
+
+Three weaker versions were measured and discarded first, which is why the rule is stated
+this flatly: gating the expiry timer on `landPendingRef` (moved the failure window rather
+than closing it), having the geometry observer scroll immediately (aims at geometry the fit
+agent has not finished settling, and records that transient as the geometry to read back
+from), and having it rename instead of re-land (the original defect).
+
+## Three oracles that were themselves wrong
+
+Worth recording, because two of them are traps any future measurement of this surface will
+walk into.
+
+1. **`offsetHeight` is the unscaled layout box** (720px) and not the height a phone shows
+   (179px). Both the shipped code and the first e2e oracle read it.
+2. **A settle that watches the index and the scroll returns inside the fit window**, where
+   both are perfectly stable and neither is final — which is how a gallery load briefly
+   looked like a deck rendered at 3x. The settle now includes the slide's height and the
+   filmstrip's visibility.
+3. **"The named slide is the dominant slide" is too strong an invariant.** At 390px three
+   slides share the pane and the shipped rule deliberately keeps the reader's current slide
+   under hysteresis, so a flick resting between two of them names one at ~40% of the pane,
+   correctly. The oracle asserts the honest property instead — the named slide is
+   substantially on screen — and every defect above measured 0%.
+
+## A step is not a scroll, and the lander could not tell them apart
+
+The land stands down when the reader takes over — anything else would scroll them off a
+position they chose. It read "the reader took over" from ONE clock, `userInputAtRef`,
+stamped by every input the surface has. That clock conflates two opposite intents:
+
+| The reader… | says | so the… |
+|---|---|---|
+| wheels, drags, flicks without crossing the swipe threshold | "I am here now" | index must follow the **deck** |
+| presses Prev/Next, an arrow, Home/End, a Step-list row, swipes | "put me on slide N" | deck must follow the **index** |
+
+Preempting on both threw the second one away, on the plainest interaction the surface
+has: **press Next on a cold load.** The walk bar mounts as soon as the plan resolves, well
+before the frame has a deck in it, so a click in that window reaches `scrollWalk` with zero
+`.lattice > section` elements — it finds no target for the stepped index, returns without
+scrolling, and without arming its guard. The land already in flight then saw a newer
+`userInputAtRef` than its own start, concluded the reader had taken over, and `done()`
+reconciled the index back to the slide the deck had never left.
+
+Measured at 1440x900, 3 runs in 8, traced from the walk bar's own text: `1 / 13` at 396ms,
+`2 / 13` at 783ms (the click), `1 / 13` at 794ms. Eleven milliseconds, and Next did nothing.
+
+The fix is one more clock, not one more guard. `driveAtRef` is stamped at the single site
+that is a drive — `onDeckDrive`, the wheel/touchmove handler — and preemption reads that
+instead. A step during a land now needs no special case at all: the land scrolls to
+whatever `walkRef.current.index` says by the time it runs, which is the stepped one. After
+the change, 10 runs in 10 step correctly.
+
+**The arm for it is honestly probabilistic and the record says so.** Reproducing needs the
+frame to have zero sections AND a land to be in flight, and nothing in the page exposes the
+second — every attempt to synchronize on a proxy closed the first, because once the frame's
+`.lattice` root exists all thirteen sections exist with it. So the committed test drives the
+real cold interaction under 6x CPU throttling and catches the regression 2 runs in 8;
+`playground-explore.spec.ts`'s existing `stepping walks the plan` arm caught it 1 in 4. The
+proof is the before/after pair above, not either single run.
+
+### The clock split closed one route in; the hole was elsewhere
+
+An independent checker took the fix above apart and found that it removed a *trigger*, not
+the *cause*. `scrollWalk` returns before arming its guard when the frame has no sections, so
+a cold-window step leaves no record that a step happened — and everything downstream cannot
+then tell "a step that has not arrived" from "no step at all". Press Next before the deck
+exists, then nudge the wheel: the drive preempts the land, the land reconciles, and the step
+is gone with the identical symptom.
+
+The reconcile could do that because **`readingSlideIndex` returns 0 for an empty deck by
+contract**, and the geometry guard that should have caught it does not: `bandSig([])` is
+`''`, which is also `bandSigRef`'s initial value, so an empty frame *matches* on a cold
+load. Both facts are documented, and together they made a fabricated position look like a
+verified one.
+
+The fix is a refusal rather than another clock — an empty frame carries no position, so both
+readers leave the index alone and let the next land place it. Reproduced deterministically
+on a build with the refusals removed, 8 runs in 8, at scrollY 20 (`bands[0].top - 16`, the
+title slide); 0 in 8 with them. The committed arm sends the step and the wheel in one
+page-side task, which is what makes it deterministic: driven as two round trips from the
+test side the deck renders in between and it reproduced 0 times in 8.
+
+### A swipe was documented as a step and behaved as a drive
+
+The same checker found that three places — this record's own table among them — list a swipe
+among the inputs that do not preempt a land, and it was the one that did. A swipe arrives as
+`touchmove` (eight of them for a 160px flick, measured), each stamping the drive clock; only
+`touchend` can know the gesture was horizontal enough to be a step. `onDeckTouchEnd` now
+rewinds the clock to its pre-gesture value when the gesture resolves to a step.
+
+**No symptom was demonstrated for this one.** A touch has to reach the frame, and the frame
+existing is what closes the cold window where a swallowed step is observable — 8 cold-window
+swipes at 6x throttle landed correctly with and without the rewind. It is in because a
+documented rule the code does not follow is what the next session reasons from, not because
+anyone hit it. The committed arm pins the observable pair (the swipe turns the slide, and
+the deck travels to it) and says out loud that it does not discriminate the rewind.
+
+## The 44px touch floor, and why a width query could not hold it
+
+`ui/panel.tsx` calls 44px "the touch floor every phone control in this app holds".
+`playground.css` said "bigger touch targets on the phone" and stopped at 40, under a
+`max-width: 820px` query. Measured on a real WebKit iPhone 15 Pro, **nine controls on the
+Playground's own chrome were under the floor**: the mode tabs 48x40, the component trigger
+217x36, the step list 136x32, Focus / Deck settings / Galleries 38x32, and Prev / Next —
+the primary navigation of a touch surface — 63x38. `.pg-focus-restore` was the smallest at
+34x34, and it is the only way back from focus mode: miss it and the toolbar is gone.
+
+**A finger is the same size at 834px as at 393px.** An iPad Pro 11 in portrait is 834 CSS
+px, above the cutoff, so a tablet got the desktop's 32px chrome and none of the rule. The
+floor is keyed on `(pointer: coarse)` now, which is the line the repo already draws
+elsewhere — `ui/dialog.tsx`, `ui/sheet.tsx` and `ui/resizable.tsx` size their targets with
+Tailwind's `pointer-coarse:` variant, and `studio/editor-theme.ts` carries an
+`@media (pointer: coarse)` block. Width still decides the *layout shell*;
+`use-visual-viewport.ts` is explicit that a desktop-width coarse iPad keeps the desktop
+layout. Size of target follows the pointer; shape of page follows the width. The width arm
+survives as the second half of the OR, because a desktop browser narrowed under 820px gets
+the same tabbed single-pane form and dropping it would have shrunk the mode toggle.
+
+Measured cost, before → after, nine controls under the floor → zero on all three:
+
+| device | toolbar | walk bar | deck pane |
+|---|---|---|---|
+| iPhone 15 Pro 393x659 | 103.0 → 115.0 | 100.7 → 106.7 | 394.3 → 376.3 |
+| Pixel 7 412x839 | 102.3 → 114.3 | 99.9 → 106.4 | 576.1 → 557.6 |
+| iPad Pro 11 834x1194 | 93.0 → 115.0 | 92.7 → 106.7 | 947.3 → 911.3 |
+| coarse pointer at 1440x900 | 53.0 → 63.0 | 93.5 → 106.7 | 692.5 → 669.3 |
+
+The last row is the population this change actually *adds*, and the first draft of this
+table left it out — the three above it were already inside the width arm or one breakpoint
+from it, so they measured a floor that mostly already applied. A touchscreen laptop, an iPad
+in landscape, an iPad with a keyboard: those are the machines that had the 32px chrome and
+now do not, and they pay the most (23.2px). Found by an independent checker.
+
+**Two of the block's five rules need it to sit last in the file.** `.pg-mode-btn` and
+`.pg-focus-restore` set `width`/`height` that earlier rules set at the same `(0,1,0)`
+specificity, so placed where they read best — beside their own base rules, halfway up — they
+lose to the declarations they exist to override. The other three set `min-height`/`min-width`
+at `(0,2,0)`/`(0,2,1)`, which nothing else in the file sets; they would win from anywhere,
+and a first draft claimed otherwise for all five. Measured:
+`.pg-focus-restore` stayed 34x34 on a real WebKit iPhone until the block moved to the end,
+because its own `width`/`height` are declared thirty lines further down. The first
+measurement missed this entirely, because the button is `display:none` until focus mode is
+on and a sweep of visible controls never sees it — the regression spec turns focus mode on.
+
+**Still under the floor, and deliberately not changed here:** the shared site header's
+Search / Color mode / Menu icons at 32x32 and the brand link at 106x30. They are the same on
+every page of the site, so raising them is a decision with a far wider blast radius than one
+surface's chrome.
+
+## A fixture that re-poisoned the profile it was clearing
+
+Found while running the neighboring suites, and fixed here because this PR's evidence rests
+on their signal. `playground-first-paint.spec.ts` seeded its cases by navigating to
+`/playground/?view=edit` and calling `localStorage.clear()` — which boots the Playground
+island, and **the island persists as it mounts**: measured, `lattice-docs-pg-view: "edit"`
+(with component, inserted-hash and focus) is back in storage within 250ms of the clear, on
+every run. So "a pristine profile" was a profile the fixture had just re-poisoned with
+`edit`, and whether the poison beat the reload was a race. The shape of the failures says the
+same thing: only the four cases expecting `read` ever failed — 8 in 30 on `main`, never one
+expecting `edit`. Seeding from the home page, which boots no island that writes these keys,
+makes it deterministic: 57 of 57 across three repeats.
+
+## A slide with no edge, in every dark palette
+
+Reported from a real iPhone against the deployed preview: "there is no border on the
+slides so the slide blends into the background." True, and not a cuoio quirk.
+
+The preview letterboxes the filmstrip in the pane's own `--bg-alt`, deliberately —
+`playground-engine.ts` says why: matching the iframe body to the pane means the fade-in
+has no background color shift. A slide's only separation from that surround is the
+engine's drop shadow, `0 8px 30px rgba(0,0,0,.22)` — **black**, which reads on a light
+ground and vanishes on a dark one. So in any palette where a slide's own background sits
+near `--bg-alt`, the two are simply the same color with nothing between them.
+
+Measured on the built site, WebKit at an iPhone 15 Pro profile, slide-vs-surround
+contrast across all fourteen palettes:
+
+| mode | range | verdict |
+|---|---|---|
+| dark | **1.00 – 1.49** | no edge, every palette |
+| light | 10.34 – 19.26 | fine |
+
+`cuoio` and `crepuscolo` measured exactly **1.00** — the slide and its surround are the
+same color to the byte. This was never a one-theme problem.
+
+**The fix is the slide's own hairline, not a different background** — changing the
+surround would reintroduce the flicker the letterbox exists to prevent. `buildSrcdoc`
+gains an opt-in `slideEdge` color that prepends `0 0 0 1px <color>` to the section
+shadow, and the Playground passes `var(--border, …)`, which resolves *inside* the srcdoc
+against the deck's own theme — so the ring tracks palette and mode without the preview
+code knowing either. After: **3.01 – 3.07** in every dark palette.
+
+Two things are deliberate and worth keeping:
+
+- **Opt-in, defaulting off.** `buildSrcdoc` also assembles the print document and the
+  export capture frame (`deck-export.js`), so editing the shared `sectionRule` would have
+  altered exported bytes and owed a sign-off. Off by default, every existing caller is
+  byte-identical, and `deck-preview.test.ts` pins that.
+- **A color, and the fallback is load-bearing.** An undefined custom property invalidates
+  the whole `box-shadow` at computed-value time, which would drop the drop shadow too and
+  leave the slide worse off than with no ring.
+
+The two weakest rings are `concrete`/light at 2.62 and `onyx`/light at 1.09 — and in both
+the slide already separates on its own at 11.85 and 19.26. The ring is strongest exactly
+where it is needed.
+
+## One control, two meanings
+
+The same report: "the second drop down with the variants and stresses not being enabled
+and with only a single slide being shown". Reproduced, and it was two things.
+
+The visible half was BY DESIGN and still surprising. Picking a component in Explore walks
+its twelve-slide **gallery**; picking the same component in Edit loaded its one-slide
+**sample**. Both flip the phone's single pane to the deck, so the two are
+indistinguishable until you count slides — one with a live Step list, one with a dead one,
+decided by a mode the phone barely surfaces.
+
+Underneath it was a real defect: the walk kept the plan's count over the sample's deck.
+That is the section above — fixed at `applyDeck`.
+
+**A pick is a browse action now, in both modes.** From Edit it switches the surface to
+Explore and walks the same gallery. The route back is the one the surface already
+documents: the pencil opens whatever deck is on screen, so pick-then-pencil edits the
+gallery you just chose.
+
+**Loading the gallery into the EDITOR was tried first and abandoned**, and the reason is
+worth recording because it looks like the obvious fix. `draftComponent` is DERIVED by
+detecting the component from the draft's source, and detection reads the first slide —
+which on a gallery is the gallery's own title slide. So the picker renamed itself `title`
+straight after a pick of `q-and-a`. Applying the explicit pick last fixed the label until a
+reload re-derived it from the stored draft, which
+`playground-state.spec.ts`'s "search and lens survive reopening the picker AND a reload"
+caught. The picker label, the Reset target and the pristine-draft check all assume the
+draft is ONE component's markdown; switching the surface keeps that assumption true
+instead of patching each consequence.
+
+**Stated precisely, because the tempting claim is false:** the pick no longer writes the
+draft itself, but the pencil back into Edit still loads the deck on screen over it. The
+replacement happens one control later, by a control that says it opens the deck. That is a
+legibility win, not a preservation guarantee, and the e2e arm says so where an earlier
+draft of it asserted the stronger claim and failed.
+
+## Verification
+
+`docs/e2e/playground-stress.spec.ts`, on the real built site (HARD RULE #23): eleven
+named reproductions, three `@parity` verbs across `desktop-touch` / `tablet-touch` /
+`mobile-touch`, and a seeded randomized walk over thirteen op families asserting,
+after **every** op, that the named slide is on screen, that the index is inside the
+deck, that nothing threw, and that the toolbar and walk bands never change height.
+
+The exploratory harness that found all of this is not committed (it is a throwaway in
+`.scratch/`), and the honest statement of its result is the one that matters: after the
+fixes, **ten runs of fifty randomized ops across 1440x900 and 390x844 report zero
+findings**, against 9 findings across the same seeds before. Cumulative layout shift over
+those runs is 0.0000-0.0052, with the single 0.04 outlier attributed to CodeMirror's own
+line-number gutter re-laying out when the author loads a different deck — inside the editor
+pane, on an action they asked for.
+
+`readingSlideIndex` additionally carries 12 unit cases over the two real measured
+geometries, including the phone-clamp case and a sweep asserting that every step
+at 390px lands on a slide the reader can see.
+
+The touch floor is pinned by four arms across five projects: `@parity` on
+`desktop-touch` (1440px wide, so only the coarse-pointer query can satisfy it — the width
+arm cannot), `tablet-touch` and `mobile-touch`; `@mobile` at a phone width with a fine
+pointer, for the width arm; and two `@webkit-phone` arms on real WebKit, one sweeping every
+visible control and one turning focus mode on to reach `.pg-focus-restore`. All six green;
+the whole Playground e2e set is 83 passed across every project.
+
+**One neighboring test is red and it is not this change's:** `playground-paint.spec.ts`'s
+"a Galleries click waits for hydration" needs a window between DOMContentLoaded and the
+island's hydration, and the window has closed — the assertion that *proves the test proves
+something* is the one that fails. Verified on `main` at 674e4d1 with a clean build: 3 runs
+in 3 fail there too. Logged as #2125 rather than fixed here (HARD RULE #18's off-path
+rule), with the measurement that explains it: `body[data-view]` lands at ~1105ms, and the
+Galleries trigger becomes visible 174ms after a `domcontentloaded` navigation resolves —
+module scripts block DCL, so the test's window now closes before it starts looking.
+
+### Driven on the DEPLOYED bundle, not only a local build
+
+The PR's own Cloudflare preview is the artifact that will actually ship, so the
+load-bearing claims were re-measured against it with real WebKit rather than against
+`dist/` on this machine. Same numbers, one proxy layer fewer:
+
+| on the deployed preview | iPhone 15 Pro | iPad Pro 11 |
+|---|---|---|
+| controls under the 44px floor | 0 | 0 |
+| toolbar / walk / deck | 115.0 / 106.7 / 376.3 | 115.0 / 106.7 / 911.3 |
+| Next: frame scroll → bar | 20 → 217, `2 / 13` | 20 → 465, `2 / 13` |
+| picker panel bottom vs keyboard top | 311 vs 323 — clears | 495 vs 858 — clears |
+| search field height | 40px | 40px |
+| lens row while a search is active | hidden | hidden |
+| picker trigger, before → after Return | `kpi` → `kpi` | `kpi` → `kpi` |
+
+The last row is the reported defect stated as a measurement: Return no longer replaces
+the deck with the top hit. The keyboard rows use a **synthesized** 336px visual-viewport
+inset, sized from the reported screenshot — which is the part that is still a proxy.
+
+**Not verified here, and stated as such:** a physical phone. Real WebKit at an iPhone
+profile is a real engine, but iOS resizes the visual viewport on its own schedule and
+floats an accessory bar over the result, and neither is modeled by an inset this code
+installs itself. The swipes are genuine CDP touch sequences in headless engines, which is
+not a finger. The one thing that closes this is opening the preview on a real device.

@@ -337,3 +337,69 @@ export function sanitizePalette(palette: string, valid: string[]): string {
 	if (!valid.length || valid.includes(palette)) return palette;
 	return valid.includes('cuoio') ? 'cuoio' : valid[0];
 }
+
+/** One slide's vertical band inside the preview filmstrip, in the frame document's own
+ *  coordinates. The height must be the VISUAL one — `getBoundingClientRect()`, not
+ *  `offsetHeight`, which reports the unscaled 720px layout box the in-iframe FIT agent
+ *  then `transform: scale()`s down (measured at 390px: offsetHeight 720, real height 179).
+ *  Feeding this the layout height overstates every slide by 4x on a phone. The `top` may
+ *  come from `offsetTop`, which the same agent keeps honest with a negative
+ *  `marginBottom` — see `frameBands` in PlaygroundApp.tsx for why that is load-bearing. */
+export type SlideBand = { top: number; height: number };
+
+/**
+ * WHICH SLIDE IS THE READER LOOKING AT — the inverse of the walk's scroll.
+ *
+ * The Explore preview is a filmstrip the reader can scroll freely, and the walk bar
+ * ("6 / 13"), the caption, the Step dropdown and the `?s=` URL all claim to name the
+ * slide on screen. Before this function existed nothing computed that claim from the
+ * scroll, so every one of them was written on a step and never corrected: scrolling to
+ * slide 7 left the bar reading "1 / 13", and the next press of Next then yanked the
+ * reader back to slide 2. The chrome lied, and the primary control fought the primary
+ * gesture (#2124).
+ *
+ * TWO RULES, and the second one is what makes this safe to run as a live observer.
+ *
+ * 1. GREATEST OVERLAP, ties to the lower index — the slide filling most of the pane is
+ *    the slide you are reading. An anchor line (`last top <= scrollY + k`) is exact for
+ *    the scroll the stepper performs and arbitrary everywhere else, since `k` has to be
+ *    guessed against a slide height that changes with the pane width; the viewport CENTER
+ *    (deck-preview.js's `rootMargin: -45%`) is stable only while a slide is about as tall
+ *    as the pane, and silently reports i+1 for a jump to i when one is shorter.
+ *
+ * 2. HYSTERESIS: while the slide the caller is ALREADY on is at least half as visible as
+ *    the winner, it keeps the position. Without it the rule fights the stepper at narrow
+ *    widths, where the pane shows three slides at once and the filmstrip cannot scroll far
+ *    enough to put the last one at the top: measured at 390x844, pressing End clamps the
+ *    scroll with slides 11, 12 and 13 all fully on screen, and pure overlap then names 11
+ *    while the reader is plainly looking at the end of the deck. Hysteresis also stops the
+ *    counter twitching under a small nudge of the wheel, which is the same defect one
+ *    frame wide.
+ *
+ * Both together give the honest invariant this exists to hold: **the chrome never names a
+ * slide the reader cannot see.** Pass `current` as -1 (the default) when there is no
+ * position to keep — a fresh deck, or a caller that wants the unbiased answer.
+ *
+ * Coordinates are the frame document's; `scrollY` is `contentWindow.scrollY`. Returns 0
+ * for an empty deck so a caller never has to special-case a frame mid-render.
+ */
+export function readingSlideIndex(bands: SlideBand[], scrollY: number, viewportH: number, current = -1): number {
+	if (!bands.length) return 0;
+	const top = scrollY;
+	const bottom = scrollY + viewportH;
+	const seen = (b: SlideBand) => Math.max(0, Math.min(bottom, b.top + b.height) - Math.max(top, b.top));
+	let best = 0;
+	let bestSeen = -1;
+	for (let i = 0; i < bands.length; i++) {
+		// Strictly greater keeps the tie on the LOWER index: two slides splitting the
+		// pane exactly should read as the one you scrolled away from, not the one you
+		// have not reached, so the counter never runs ahead of the reader.
+		const s = seen(bands[i]);
+		if (s > bestSeen) {
+			bestSeen = s;
+			best = i;
+		}
+	}
+	if (current >= 0 && current < bands.length && seen(bands[current]) * 2 >= bestSeen) return current;
+	return best;
+}

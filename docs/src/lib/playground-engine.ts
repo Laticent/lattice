@@ -156,6 +156,12 @@ export function createEngineBridge(
 				gap: 16,
 				contentVisibility: true,
 				center: true,
+				// The slide's own edge, in the DECK's border token — because the letterbox
+				// above deliberately paints the surround in `--bg-alt`, and in a palette where
+				// a slide's background sits near that token the two are the same color and the
+				// slide has no edge at all. Resolved inside the srcdoc, so it tracks whatever
+				// palette and mode the deck is rendered in rather than being tuned for one.
+				slideEdge: 'var(--border, color-mix(in srgb, currentColor 22%, transparent))',
 			});
 			return { status: 'rendered', count: r.count, state: r.state, geom, patched: r.patched };
 		} catch (e) {

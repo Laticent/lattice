@@ -212,13 +212,29 @@ export const MOBILE_HEIGHT =
  * So: if a third caller appears, or if that gate is ever narrowed, this has to become
  * refcounted rather than last-writer-wins.
  */
-export function useKeyboardInset(active: boolean): void {
-	React.useEffect(() => {
-		if (!active || typeof window === 'undefined') return;
-		const vv = window.visualViewport;
-		if (!vv) return;
-		const root = document.documentElement;
-		const read = () => {
+/**
+ * REFCOUNTED, because there are three callers now and the note above predicted exactly
+ * what that costs: "if a third caller appears … this has to become refcounted rather than
+ * last-writer-wins." The Playground's component picker is the third (it opens a searchable
+ * dropdown over a focused field on a phone — the same shape as the palette), and it can be
+ * open at the same time as either Studio caller in a browser with two tabs' worth of state
+ * restored, or simply during a width change that mounts one before the other unmounts.
+ *
+ * The failure mode is silent and one-directional: whichever consumer unmounts FIRST used to
+ * remove `--kb` and `--vvh` outright, dropping any still-open surface back to the `100dvh`
+ * fallback with a keyboard still up — a sheet or a dropdown that suddenly extends under the
+ * keyboard, mid-type. One shared listener behind a count fixes it, and it also stops the
+ * second and third callers installing duplicate `resize`/`scroll` handlers that write the
+ * same two properties on every keyboard animation frame.
+ */
+let kbRefs = 0;
+let kbStop: (() => void) | null = null;
+
+function startKeyboardInset(): (() => void) | null {
+	const vv = window.visualViewport;
+	if (!vv) return null;
+	const root = document.documentElement;
+	const read = () => {
 			// Clamp at 0: the delta also moves a few px as the URL bar animates, and
 			// iOS rubber-banding can report a viewport TALLER than innerHeight — a
 			// negative inset would GROW the sheet past its cap.
@@ -233,18 +249,32 @@ export function useKeyboardInset(active: boolean): void {
 			// visible, whatever chrome is showing.
 			root.style.setProperty('--vvh', `${Math.round(vv.height)}px`);
 		};
-		read();
-		vv.addEventListener('resize', read);
-		vv.addEventListener('scroll', read);
+	read();
+	vv.addEventListener('resize', read);
+	vv.addEventListener('scroll', read);
+	return () => {
+		vv.removeEventListener('resize', read);
+		vv.removeEventListener('scroll', read);
+		// REMOVE, not zero: a stale `--kb` would shrink every later sheet by a
+		// keyboard that has closed, with nothing on screen to explain it. Same for
+		// `--vvh`, whose :root fallback (100dvh) is the right answer once no sheet is
+		// open and nothing is publishing a measured value.
+		root.style.removeProperty('--kb');
+		root.style.removeProperty('--vvh');
+	};
+}
+
+export function useKeyboardInset(active: boolean): void {
+	React.useEffect(() => {
+		if (!active || typeof window === 'undefined') return;
+		kbRefs += 1;
+		if (kbRefs === 1) kbStop = startKeyboardInset();
 		return () => {
-			vv.removeEventListener('resize', read);
-			vv.removeEventListener('scroll', read);
-			// REMOVE, not zero: a stale `--kb` would shrink every later sheet by a
-			// keyboard that has closed, with nothing on screen to explain it. Same for
-			// `--vvh`, whose :root fallback (100dvh) is the right answer once no sheet is
-			// open and nothing is publishing a measured value.
-			root.style.removeProperty('--kb');
-			root.style.removeProperty('--vvh');
+			kbRefs -= 1;
+			if (kbRefs === 0) {
+				kbStop?.();
+				kbStop = null;
+			}
 		};
 	}, [active]);
 }
