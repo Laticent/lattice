@@ -7,10 +7,14 @@
  * those two namespaces apart, so a variant token can collide with a component id and
  * pull that component's whole stylesheet onto a slide it was never written for.
  *
- * FOUR SUCH COLLISIONS EXIST. This file is their ledger: one is guarded, three are
- * recorded as pre-existing (#2132), and a fifth fails the first test below.
+ * FOUR SUCH COLLISIONS EXIST. This file is their ledger: all four are now GUARDED, and a
+ * fifth fails the first test below. Three of them were recorded here as pre-existing when
+ * `stats` was fixed, and closed by #2132; each was measured before and after against the
+ * BUILT bundle, and all six affected slides (the three variant samples and the three
+ * component samples) render pixel-identical at 150 DPI across the change — so no leaked
+ * rule was load-bearing, and the guard costs no specificity.
  *
- * The guarded one is `stats`, claimed by both `evidence/stats` and the `math`
+ * The FIRST one guarded was `stats`, claimed by both `evidence/stats` and the `math`
  * component's variant, and it was INVISIBLE until math moved onto the Form frame. `evidence/stats` scopes almost everything to `> .cell-stage`, and a sovereign
  * math slide had no stage, so only two loose rules (`section.stats h2`,
  * `section.stats h3`) ever reached one, and math declared the same title centering
@@ -68,18 +72,20 @@ function variantTokens() {
 }
 
 /**
- * THE LEDGER. Four component-id / variant-token collisions exist in the tree, and the
- * split between them is the point of this file: one is GUARDED, three are RECORDED and
- * pre-existing. A FIFTH fails this test rather than shipping as a silent style leak —
- * which is what the `stats` one did for as long as it was structurally impossible to
+ * THE LEDGER. Four component-id / variant-token collisions exist in the tree, and all four
+ * are GUARDED. A FIFTH fails the first test below rather than shipping as a silent style
+ * leak — which is what the `stats` one did for as long as it was structurally impossible to
  * observe.
  *
- * How much each actually leaks was MEASURED, not reasoned about: render the variant's
- * own committed sample, extract every selector naming the colliding component out of
- * the built bundle, and ask the browser which of them match an element on that slide.
- * The counts below are that measurement. (`status: 'latent'` means zero matched, so the
- * hazard is real and the damage today is none — exactly what `stats` looked like before
- * math took a `.cell-stage`.)
+ * How much each actually leaked was MEASURED, not reasoned about: render the variant's own
+ * committed sample, extract every selector naming the colliding component out of the built
+ * bundle, and ask the browser which of them match an element on that slide. `leakedBefore`
+ * is that measurement, taken with the guard stashed.
+ *
+ * `leakedBefore: 0` (bullet) is a LATENT collision guarded anyway. Zero is not safety: it is
+ * exactly what `stats` measured until math moved onto the Form frame and every math slide
+ * gained a `.cell-stage`. A latent collision is one structural change away from a live one,
+ * and `:where()` costs no specificity, so the guard is free.
  */
 const KNOWN_COLLISIONS = {
   stats: {
@@ -100,28 +106,51 @@ const KNOWN_COLLISIONS = {
   bullet: {
     variantOwner: 'list',
     componentOwner: 'bullet',
-    status: 'latent',
-    // Measured: 0 of 12 candidate selectors match a `list principles bullet` slide.
-    issue: 2132,
+    status: 'guarded',
+    guardedFile: 'lib/components/chart/bullet/bullet.styles.css',
+    guard: ':where(:not(.list))',
+    selectorsChecked: 11,
+    // Measured 0 before AND 0 after: this one was LATENT, and it is guarded anyway.
+    // `stats` measured zero too, right up until math moved onto the Form frame and every
+    // math slide gained a `.cell-stage` — a latent collision is one structural change away
+    // from a live one, and the guard costs nothing (#2132).
+    leakedBefore: 0,
   },
   decision: {
     variantOwner: 'compare-prose',
     componentOwner: 'decision',
-    status: 'leaking',
-    // Measured: 19 rules from the `decision` COMPONENT match a `compare-prose decision`
-    // slide — the stage flex, the h2 size, the whole `> .cell-stage > ul` card strip
-    // including its `--decision-accent` categorical cycle, and an `--elevation-berth`
-    // padding. Whether any of that is wanted is not knowable from here; it is off the
-    // path of the math migration either way (HARD RULE #18).
-    issue: 2132,
+    status: 'guarded',
+    guardedFile: 'lib/components/comparison/decision/decision.styles.css',
+    guard: ':where(:not(.compare-prose))',
+    selectorsChecked: 25,
+    // Measured against the BUILT bundle, the way this ledger's counts always are: 16 of 53
+    // selectors naming `.decision` matched a `compare-prose decision` slide before, 6 after.
+    // All 25 in `decision.styles.css` are now guarded and none of them reaches the slide.
+    //
+    // THE SIX THAT REMAIN ARE NOT A LEAK, and the distinction is why this took a render to
+    // settle. Three are `compare-prose`'s OWN rules (`section.compare-prose.decision …`) —
+    // its variant, its sheet. The other three live in `compare-prose.styles.css` and name
+    // `section.decision` DELIBERATELY, beside `section.compare-prose`, in one rule list: its
+    // own comment says "decision and compare-prose lift the leading text of each top-level
+    // <li> into a flush top-left corner tag — same recipe". A shared recipe authored in the
+    // variant owner's own sheet is not a component's stylesheet reaching a slide it was never
+    // written for, which is what this file is about.
+    leakedBefore: 16,
   },
   quadrant: {
     variantOwner: 'radar',
     componentOwner: 'quadrant',
-    status: 'leaking',
-    // Measured: 3 rules match a `radar quadrant` slide — two token blocks defining the
-    // `--quadrant-*` family, and `container-type: size` on `.chart-body`.
-    issue: 2132,
+    status: 'guarded',
+    guardedFile: 'lib/components/chart/quadrant/quadrant.styles.css',
+    guard: ':where(:not(.radar))',
+    selectorsChecked: 37,
+    // Measured: 3 of 42 before, 1 after. The one left is `chart-family.css`'s
+    // `section.form.quadrant:not(.claim-hero):not(.claim-bleed) .chart-body {
+    // container-type: size }` — the rule the issue called the sharp edge — and it is not a
+    // leak either: the line directly above it is `section.form.radar…` with the identical
+    // declaration, so a `radar quadrant` slide gets `container-type: size` from its OWN arm
+    // whether or not the quadrant one matches.
+    leakedBefore: 3,
   },
 };
 
@@ -193,7 +222,14 @@ test('the guarded component sheet carries its guard on EVERY section selector', 
       out.push(cur);
       return out;
     };
-    const owns = new RegExp(`(^|[\\s>+~])section[\\w.:()\\[\\]="'^~$*|-]*\\.${k.componentOwner}(?![\\w-])`);
+    // A THIRD WAY THIS FILTER WAS BLIND, found by #2132 and the same class as the two above.
+    // The chart family anchors its sheets on `:is(section.<name>, figure.chart-frame)` so one
+    // rule serves the slide and the docs-site standalone figure — and there `section` is
+    // preceded by `(`, which is neither the start of the string nor one of `\s > + ~`. So the
+    // filter saw 7 of quadrant's 37 owning selectors and NONE of bullet's 11, which would have
+    // certified either sheet as guarded while reading almost none of it. `(` and `,` join the
+    // boundary set, and the compound body admits the `,` and whitespace an `:is()` list carries.
+    const owns = new RegExp(`(^|[\\s>+~(,])section[\\w.:()\\[\\]="'^~$*|,\\s-]*?\\.${k.componentOwner}(?![\\w-])`);
     const selectors = code.split('}')
       .map((b) => (b.includes('{') ? b.slice(0, b.indexOf('{')) : ''))
       .flatMap(splitTop)
