@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Lattice ships 12 Frames and 10 are sovereign, each welded by name to one component, so 59 of 69 components get one carve (standard, rail on or off). Three laws — one stage per component, chrome relocated never dropped, a published stage aspect band — turn the Frame into a vocabulary a component picks from, and the axis product bounds the catalog at ~30 distinguishable Frames. 28 are drawn; 6 of the 16 new ones change the argument rather than the shape.
+summary: Lattice ships 12 Frames and 10 are sovereign, each welded by name to one component, so 59 of 69 components get one carve (standard, rail on or off). Three laws — one stage per component, chrome relocated never dropped, a published stage aspect band — turn the Frame into a vocabulary a component picks from, and the axis product bounds the catalog at ~30 distinguishable Frames. 28 are drawn; 5 of the 16 new ones change the argument rather than the shape. Reframing is a RELATION, so each Frame declares three atoms (order, rank, arity) and its reframe set is derived — 8 of 28 derive to zero, in three kinds, and only one kind is a design statement.
 ---
 
 # The Frame catalog — 28 Frames, and why the ceiling is about 30
@@ -186,13 +186,12 @@ one of the three is a reframe.
 
 | Changes | n | What moves | Frames |
 |---|---|---|---|
-| Fit | 3 | The box the body gets. The argument is identical. | `overline` `column` `bleed` |
+| Fit | 4 | The box the body gets. The argument is identical. | `overline` `column` `bleed` `recto` |
 | Register | 7 | Tone and craft. A table on a plate says what a table on a flat stage says. | `mount` + the six artisan |
-| **Reframe** | 10 | **Reading order and rank** — what the audience meets first, what reads as claim and what reads as consequence. | `foot` `plinth` `margin` `quiet` `recto` `triptych` + the four shipped dual Frames |
+| **Reframe** | 9 | **Reading order and rank** — what the audience meets first, what reads as claim and what reads as consequence. | `foot` `plinth` `margin` `quiet` `triptych` + the four shipped dual Frames |
 | Punctuation | 6 | Structure in the deck, not argument on a slide. | the six posters |
 
-**Six of the sixteen new Frames reframe, and a component can freely select all
-six.** The clearest case is `foot`: same chart, same words, but in `standard` the
+**Five of the sixteen new Frames reframe.** The clearest case is `foot`: same chart, same words, but in `standard` the
 title is a label read *before* the evidence and in `foot` it is a conclusion read
 *after* it. Assertion-first becomes evidence-first with no edit to the markdown.
 `plinth` promotes the coda from a trailing note to a reserved structural
@@ -212,6 +211,61 @@ override — it is not in this catalog, and it is the obvious next question.
 Second, reframing is an instrument, not a default. A deck that changes Frame every
 slide makes the audience re-learn the grammar each time; the catalog's value is
 that a deck can pick two or three deliberately, not that it can use twelve.
+
+## 5.6 Every Frame declares what it reframes to, and eight declare nothing
+
+§5.5 tagged each Frame with what it changes against `standard`. That is a
+category error: **reframing is a relation between two Frames, not a property of
+one.** "`foot` reframes" is meaningless without saying reframes *from what*.
+
+So each Frame declares three atoms and the relation is derived from them. A
+hand-kept edge list over 28 nodes is 756 pairs to keep honest and it drifts the
+moment a Frame's geometry changes; three scalars cannot drift from themselves —
+the same move Law III makes for admissibility.
+
+| Atom | Values | Decides |
+|---|---|---|
+| `order` | `before` · `after` · `none` | Whether the thesis is met before the evidence, after it, or not at all. A left column is `before` — it is still read first. |
+| `rank` | `thesis` · `takeaway` · `margin` · `none` | What holds the reserved, emphasized position. |
+| `arity` | `1` · `2` · `3` | How many things the slide asserts. |
+
+> **A reframes to B when they admit a common content pool and differ on at least
+> one atom.** Equal on all three and they are the same argument in a different
+> treatment — a *register sibling*, which the derivation reports for free.
+
+### What the derivation says
+
+| Content pool | Frames | Distinct readings |
+|---|---|---|
+| `flow` | 12 | **5** — before/thesis · before/margin · before/takeaway · after/thesis · none/none |
+| `canvas` | 12 | **5** — the same five |
+| a pair | 5 | **2** — one cell privileged, or neither |
+| a triple | 1 | 1 |
+| a bookend | 4 | 1 |
+
+**Twelve Frames, five arguments.** That is the honest ceiling and the number worth
+designing against; the other seven differ only in fit and register, which are
+worth having and are not reframes.
+
+The derivation also falsified a claim §5.5 made. **`recto` is not a reframe of
+`split-panel`** — both read `before/thesis/2`, one cell privileged and met first.
+`recto`'s value is that the privileged cell is a *canvas* well rather than a
+tinted flow panel, which is fit, not rhetoric. It is reclassified above.
+
+### The eight zeros, in three kinds
+
+| Kind | n | Frames | Reading |
+|---|---|---|---|
+| **Inherent** | 4 | `title` `divider` `closing` `colophon` | A bookend announces; it does not argue. All four read `none/thesis/1`, so they are each other's treatments and nobody's reframe. **Zero is the correct answer.** |
+| **Bound** | 3 | `image` `scene` `math` | Zero only because the component is welded to the Frame. All three are *one-body* components. Freed to the canvas pool they reach 11, 11 and 14. This zero is a backlog item wearing a design statement's clothes. |
+| **Unpaired** | 1 | `triptych` | `before/thesis/3` is unique, so it reframes nothing until a second three-celled Frame exists. |
+
+Distinguishing the three is the point. A catalog that reported one number would
+hide the finding: **of the ten sovereign-bound components, only four are genuinely
+two-cell** (`split-panel`, `split-compare`, `premise`, `compare-code`) and Law I
+says those stay bound. The other six have one body each and are welded to a poster
+Frame by convention rather than by structure. Three of the six would gain a
+reframe set the moment they were freed; three would correctly stay at zero.
 
 ## 6. What it buys
 
