@@ -417,6 +417,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/chart-hue-jobs.js` | chart-hue-jobs — does this member's categorical hue do a job, or is it decoration? |
 | `tools/chart-language-census.js` | chart-language-census — measure what each chart-family member ACTUALLY paints. |
 | `tools/chart-mark-separation.js` | chart-mark-separation — can a reader still tell one category from another, |
+| `tools/chart-style-catalog.js` | chart-style-catalog — what style each chart ACTUALLY paints, measured. |
 | `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |
 | `tools/check-css-values.js` | check-css-values — does the browser actually ACCEPT every value we ship? |
 | `tools/check-diagram-labels.js` | tools/check-diagram-labels.js — #1674's verification harness. |
