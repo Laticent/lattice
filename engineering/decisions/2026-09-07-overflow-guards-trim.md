@@ -8,9 +8,13 @@ summary: Can a `guards: strict` register prevent overflow by ellipsizing the tex
 **The proposal.** A deck-level `guards:` register. At `strict`, text that
 overflows renders with an ellipsis instead of spilling or being cut mid-line, so
 the component keeps its shape and an export carries a clean "…" rather than a
-sheared paragraph. At `loose`, nothing changes. The overflow ring, the "Content
-clipped" tag and the type-floor warning all stay on either way — the guard
-protects the look, it does not hide the problem.
+sheared paragraph. At `loose`, nothing changes. **The original framing said the ring, the "Content
+clipped" tag and the type-floor warning all stay on either way, so the guard
+protects the look without hiding the problem. That is false, and it is this note's
+central retraction:** the ring is geometric, so a guard that works turns it off;
+the tag is blind to a dropped element (§3); and both can be switched off together
+by an existing export setting (§10). A TRIM that keeps the problem visible must
+emit its own signal, and that signal does not exist.
 
 **The answer, in one line:** it works, it is not universal, and the boundary is
 sharp enough to write down. Trimming can only recover height that TEXT is
@@ -181,11 +185,18 @@ reproduces for both prototypes; only the printed figures are v2's.
 | Firefox 155 | 2, 3, 5 | 2 | 4 | 2, 3, 5 |
 | WebKit 26.6 | 2, 3, 5 | 2 | 4 | 2, 3, 5 |
 
-Byte-for-byte the same verdict, and the trimmed card grid renders identically in
-all three. That matters because the chosen mechanism is the row-a form — a
-**literal** integer clamp, which every engine supports — while the tempting CSS-only
-mechanism is the row-c form, which only one supports. The measured pass is portable
-precisely because the number is computed outside CSS and handed in.
+**That parity does not survive scale, and the claim built on it was mine and was
+wrong.** An earlier draft read "byte-for-byte the same verdict" and used this
+7-slide deck to carry the portability argument for the whole design. Re-run over
+the stressed gallery, the guard performs **193 actions in Chromium, 173 in
+Firefox, 193 in WebKit** — 28 actions Chromium takes that Firefox does not, 8 the
+reverse — and it disagrees element-for-element about budgets. So the measured pass
+makes the **words on the slide** a property of the renderer at roughly 3-8% of
+actions, a smaller version of the defect §1 rejects the CSS route for. §1's own
+argument is "the same deck would render three ways, which is the precise failure
+the engine exists to prevent". The measured pass does that too, just less often.
+The mechanism is portable in kind — the literal-integer clamp parses everywhere —
+and non-deterministic in degree.
 
 The two slides that did not fit under v2 are the interesting half, and they are
 section 4. Under the ruled guard, five of six are that half.
@@ -622,6 +633,35 @@ that note as reading the ladder as four moves. It does not.
   `probeContentClipped` still reports it.
 - `2026-07-22-structure-derived-split-patterns.md:315` — "never '…'" becomes
   "never '…' without an author asking for it".
+
+**TRIM's stated slot does not work, and the note never mentions why.** The ladder
+is ordered — each move fires only when the cheaper one above is exhausted — so
+"between SPLIT and FLOOR" defines TRIM by SPLIT. But SPLIT is **family-gated to
+`square`/`tall`/`strip` and never fires at `wide`** (the fit spine §3: at `wide`
+overflow is a layout defect and pagination produces a worse artifact than the
+clip). At `wide` — the boardroom default — TRIM would be the **first and only
+content-losing response to overflow**, in exactly the box where this repo ruled
+the author owns the fix. This note contains no occurrence of `wide`, `square`,
+`tall`, `strip` or `family`.
+
+**Nothing in the four rules requires the guard to achieve fit.** Measured on this
+note's own corpus, v2 cuts content on `overflow-fix-me` p2 and `README` p1 and
+leaves both still clipping — content destroyed AND the ring still on, worse than
+either outcome alone. Gallery-wide that is 46 of 98 touched slides under v2, 27 of
+98 under v3. §4d's post-condition asks only whether the ellipsis is painted, never
+whether the cut helped. A revert rule is missing.
+
+**§6's `drop` class contradicts §4d and §9 in this same document.** §6 justifies
+`drop` with "the ellipsis on the last kept item stands for the rest"; §4d refutes
+exactly that reading; §9 says not to hide content to make room. `drop`'s only
+mechanism is `display: none`, which §3 measured as invisible to the alarm. Three
+sentences that cannot all stand.
+
+**`guards: strict` composes with an existing setting into total silence.**
+`overflow-marker:` is a render-target setting with an `off` value. A deck carrying
+`guards: strict` exported with `overflow-marker: off` has no ring (it fits), no tag
+(setting), and no content-cut alarm (drop-blind): three channels off by
+configuration, no bug required.
 
 **The acceptance test is section 4d**, not the happy path. An implementation
 that cannot place a visible ellipsis at the cut must decline and leave the
