@@ -514,6 +514,19 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   trio in that post-import block, so they silently emitted **onyx's green/red** instead of
   their authored colorblind-safe values — the exact colors those palettes exist to avoid.
   Fixed by stripping `@import` before the scan.
+- **A surface that loads a theme BY NAME must follow the `@import` chain, and the chain is
+  deeper than it looks.** The bullet above is this one's mirror: there, an `@import` line
+  broke a selector scan and the a11y palettes silently took onyx's status trio. Here, an
+  embedder that did not follow `@import` at all lost onyx's contribution entirely. A review
+  harness composed `dist/themes/a11y-achromatopsia.min.css` with a hard-coded "a11y-* also
+  needs a11y-base" special case — which is one level short, because **`a11y-base` itself
+  `@import`s `onyx`**, and onyx is where `--scheme-dark-bg: #000000` is declared. The a11y
+  palettes declare no `--bg` of their own; they pin `color-scheme: light` and let the engine
+  pair resolve. So a dark slide got the engine default's navy canvas instead of black:
+  measured `rgb(0,29,51)` in the harness against `rgb(0,0,0)` from a real render — a whole
+  palette's dark canvas wrong, from one missing link. Walk the chain recursively from the
+  SOURCE `themes/*.css` (or use `lib/theme/chain.mjs`), never a hand-written special case;
+  `themes/*.manifest.json` `extends` says the same thing if you would rather read data.
 - **Can't always add a token to `PORTAL_TOKENS` — the throw is a coverage gate.** `resolveToken`
   throws if ANY base palette lacks the token, so a token only *some* palettes define (audited:
   `--text-secondary`, `--spectrum-end`/`-vertical`/`-solid`, `--cat-N-mark`) can't join without
