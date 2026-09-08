@@ -69,7 +69,14 @@ mark — were being asked to share a corner with diagnostics, and the diagnostic
 winning by displacing themselves into whatever gap was left. Moving the transient thing is
 the cheaper answer, and it is the one that stops the arithmetic rather than re-deriving it.
 
-## 2. Why top-center, and why flush
+## 2. Why top-center, and why flush *(intermediate — superseded)*
+
+> **Sections 2 and 3 describe where the berth went FIRST, and it is not where it
+> ended.** The markers spent one step centered under the spectrum bar, then one step split
+> by audience, before merging into a single capsule at the slide's BOTTOM edge — see the
+> follow-up at the end of this note, which is the description of what ships. These two
+> sections are kept because the reasoning that got the markers out of the corner is the
+> reasoning that still holds; only the destination moved.
 
 **Empty of IN-FLOW content by construction.** `section` pads `6.875cqi` at the block start
 (`base.elements.css`), so no masthead band, eyebrow, heading or chart mark can paint above
@@ -166,14 +173,19 @@ through a redaction in a delivered PDF. Unchanged, and not to be re-inverted.
 
 Real emulator exports at hd, computed geometry and rasterized pages — not eye alone.
 
-| case | clip tab | what it proves |
+**These rows measure the INTERMEDIATE top-center berth.** They are the record of why the
+move out of the corner was sound, not of what ships; the shipping geometry is in the
+follow-up. Two rows are now false of the code (`--clip-stack` is deleted, and `stamp-notch`
+reserves nothing) and are marked so rather than silently corrected.
+
+| case | clip tab | what it proved, then |
 |---|---|---|
 | plain slide | y 4→27, centered on x 640 | flush under the bar, on the frame's own center |
 | `confidential` (corner tab) | **unchanged** | a right-anchored stamp no longer displaces the marker at all |
 | `confidential stamp-flag` / `stamp-pin` | **unchanged** | the shapes that needed a 200% reserve now need none |
-| `confidential stamp-notch` | y 27→50 | the one full-width shape still pushes both tabs clear |
-| `logo:` / `logo-style: brand` / repositioned | **unchanged**, disjoint from the mark on both axes | no reserve, and none needed |
-| both registers on one slide | clip y 4→27, legibility y 27→50 | `--clip-stack` still stacks them |
+| `confidential stamp-notch` | y 27→50 | the one full-width shape still pushed both tabs clear — **no longer true**: the capsule berths at the bottom and `stamp-notch` reserves nothing |
+| `logo:` / `logo-style: brand` / repositioned | **unchanged**, disjoint from the mark on both axes | no reserve, and none needed — still true |
+| both registers on one slide | clip y 4→27, legibility y 27→50 | `--clip-stack` stacked them — **no longer true**: they are one capsule, side by side |
 
 `test/integration/parity/content-clipped-pill.test.js` carries all of it (13 tests, real
 export + computed style). Most rows now assert **independence** — the stamp and the logo
@@ -189,32 +201,46 @@ invalid stack term drops the centering with it. Same class of failure, one prope
 The canary therefore asserts the berth's absolute position — centered on x 640, top ≤ 12px —
 not only that the two tabs are disjoint.
 
-### The `elementFromPoint` measurement, re-derived
+### The `elementFromPoint` measurement, re-derived — against the BOTTOM berth
 
-`.illegible-tab` is hit-testable (`pointer-events: auto`, it carries the fix hint), and
-`docs/src/playground/chart-interact.js` resolves a pointer to a chart slice with
-`elementFromPoint(...).closest(MARK_SEL)`. A mark under the tab would stop revealing on
-hover. `2026-09-06-type-floor-tab-plain-words.md` measured that at zero for the top-right
-corner; moving the berth invalidates the measurement, so it was re-run against the new one —
-every shipped chart gallery emitting `[data-mark]`, real emulator at hd, `.illegible` +
-`.clip-marked` forced onto every slide so both tabs paint at full size:
+`.illegible-tab` is hit-testable (`pointer-events: auto`, it carries the fix hint — and the
+capsule around it sets `pointer-events: none`, so the segment's `auto` is what keeps the hint
+reachable), and `docs/src/playground/chart-interact.js` resolves a pointer to a chart slice
+with `elementFromPoint(...).closest(MARK_SEL)`. A mark under the marker would stop revealing
+on hover.
 
-| gallery | slides | interactive marks | under a tab | closest gap |
+**This number has been re-derived twice, and the second time is the one that counts.**
+`2026-09-06-type-floor-tab-plain-words.md` measured it for the top-RIGHT corner. An earlier
+draft of this note re-measured it for the top-CENTRE band and reported 0/461 with a 139px
+closest gap — and then the berth moved to the bottom edge, which silently made that table a
+measurement of a placement that no longer exists. It is restated here rather than quietly
+edited, because carrying a number across a layout change is exactly the failure this note
+spends five sections describing.
+
+Measured against the capsule as it ships — every shipped chart gallery emitting `[data-mark]`,
+real emulator at hd, `.illegible` + `.clip-marked` forced onto every slide so the capsule
+paints at full width, gap taken from each mark's BOTTOM to the capsule's TOP:
+
+| gallery | slides | interactive marks | under the capsule | closest gap |
 |---|---|---|---|---|
-| funnel | 8 | 31 | 0 | 162px |
-| gantt | 8 | 44 | 0 | 259px |
-| map | 13 | 178 | 0 | 139px |
-| piechart | 9 | 40 | 0 | 213px |
-| quadrant | 14 | 84 | 0 | 196px |
-| radar | 14 | 84 | 0 | 158px |
-| **total** | **66** | **461** | **0** | **139px** |
+| funnel | 8 | 31 | 0 | 99px |
+| gantt | 8 | 44 | 0 | 177px |
+| map | 13 | 178 | 0 | 92px |
+| piechart | 9 | 40 | 0 | 119px |
+| quadrant | 14 | 84 | 0 | 194px |
+| radar | 14 | 84 | 0 | 116px |
+| **total** | **66** | **461** | **0** | **92px** |
 
-Zero by rect intersection *and* by `elementFromPoint`. The closest any mark comes is 139px
-below the tab's bottom edge (was 162px in the corner — a different mark, in `map`, not a
-regression in kind). The clearance argument is now **structural rather than empirical**: the
-block-start padding keeps in-flow content out of the band, and every one of these marks is
-in flow. What would change it is a component that draws interactive marks into the top
-chrome band.
+Zero by rect intersection *and* by `elementFromPoint` at the overlap centroid. The closest any
+mark comes is **92px** above the capsule's top edge, in `map` — tighter than the 139px the
+top-centre berth had, and still clear by a wide margin.
+
+**The structural argument is symmetric, which is why the tighter number is not a worry.**
+`section` pads `6.875cqi` at BOTH block edges (`base.elements.css`), so no in-flow content can
+paint below y ≈ 632 at hd any more than it can paint above y ≈ 88; the capsule occupies
+697 → 720. What would change it is a component that draws interactive marks into the bottom
+chrome band — the running footer's neighbourhood — which nothing in the catalog does today.
+Re-derive with `.scratch/probe/mark-probe.mjs` (kept in the PR body, not the tree).
 
 ## 5. What this leaves open
 
@@ -254,12 +280,13 @@ chrome band.
   thing to revisit; it is unproven across this repo's three render paths and the header's
   height is content-dependent, so it is not a drop-in.
 
-- **A logo parked at top-center.** `logo-x: 50` with `logo-y: 3` puts the author's mark
-  under the bar in the middle, where it would collide. The old machinery did not handle
-  this either — it *released* the reserve for any repositioned mark — so this is not a
-  regression, and an author who parks their mark in the marker's band has chosen that. Not
-  reserved for, deliberately: a reserve that follows a freely-placed element is the
-  arithmetic this change exists to stop.
+- **A logo parked in the marker's band.** `logo-x`/`logo-y` place the author's mark
+  anywhere, so it can be parked on top of the capsule — today that means the bottom-center
+  strip (`logo-x: 50` with a high `logo-y`), not the top-center one this item originally
+  named. Unchanged in substance: the old machinery did not handle it either — it *released*
+  the reserve for any repositioned mark — so this is not a regression, and an author who
+  parks their mark in the marker's band has chosen that. Not reserved for, deliberately: a
+  reserve that follows a freely-placed element is the arithmetic this change exists to stop.
 - **`stamp-flag` / `stamp-pin` versus the logo**, carried forward unresolved from #1404.
   Both hang from the top edge at `right: 8%` / `11%`, near the mark's own column,
   independently of the marker tabs. Still not addressed here — it is a stamp/logo question
