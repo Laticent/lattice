@@ -7,21 +7,23 @@ summary: >-
   single-line footer band, `chromeOnly: true`, no author body content lost. Measured: the band is
   1187px at hd and a `bar row` footer lays out at 1344px; 29 generated footers across 8 components
   exceed it. The 20th slide, `examples/q-and-a.md` p7, was a real 59px vertical overflow and is
-  fixed here. The baseline is deliberately NOT re-blessed and the footer format is deliberately NOT
+  fixed here, and `examples/overflow-guards.md` — which clips on `main` too, on purpose, and had
+  never been recorded — is added to the baseline the way `overflow-fix-me.md` already is. The
+  caption-footer baseline is deliberately NOT re-blessed and the footer format is deliberately NOT
   changed — both are the owner's call, with the options and a recommendation recorded below.
 builds-on: 2026-07-27-footer-band-allocation.md, 2026-07-30-slide-geometry-emitted-not-measured.md
 ---
 
 # The overflow corpus's stale decks are one generated footer, not eight decks
 
-**Date** 2026-09-08 · **Issue** #2133 · **Status** In progress — diagnosed, one deck fixed, the class
-recorded and open
+**Date** 2026-09-08 · **Issue** #2133 · **Status** In progress — diagnosed, one real overflow
+fixed, one intentional-demo deck recorded, the caption-footer class recorded and open
 
 ## What was measured
 
-`node tools/check-overflow-corpus.js` over the full 314-deck corpus, this branch, real Chromium:
-**26 clipped slides across 11 decks against a baseline of 7 across 4.** The 19 new slides sit in
-7 decks, and every one of them is the same thing.
+`node tools/check-overflow-corpus.js` over the full 314-deck corpus, this branch, real Chromium.
+The DIAGNOSIS sweep read **26 clipped slides across 11 decks against a baseline of 7 across 4**;
+the 19 new slides sat in 7 decks and every one of them is the same thing.
 
 | deck | pages | cause |
 |---|---|---|
@@ -72,6 +74,44 @@ PDFs downstream:
 3. **Exempt a chrome-only cut from the corpus count.** Rejected: #1300 settled that the footer
    band is not exempt from the author channel, and the corpus tool unions both registers on
    purpose.
+
+## A NINTH deck, and it is not drift
+
+The sweep also reports `examples/overflow-guards.md` pages 2 and 4. That deck is not in the
+baseline and it clips on `origin/main` too — rendered in a clean `main` worktree at `145c442`, the
+same two pages. It arrived with `30ffa6e` (`guards: strict`, #2131) after this branch opened and
+was never recorded.
+
+It is also **clipping on purpose**, which the slides say themselves: p2 is the card the guard trims
+(`✂ TRIMMED … pages 2` on the terminal, `CONTENT CLIPPED — page 2` in the report) and p4 is the
+case where the guard DECLINES because the mark would land off-screen — its body text reads "that is
+why you are reading a slide that clips rather than one quietly missing its tail."
+
+So it is recorded, pages listed, exactly as `examples/overflow-fix-me.md` already is — the
+treatment `check-overflow-corpus.js`'s own docblock prescribes for intentional clipping ("Those
+decks stay in the baseline with their pages listed rather than being special-cased, so
+'intentional' is visible, not hidden"). **That is not the re-blessing refused above.** The 19
+caption-footer slides are decks that WERE clean and drifted; recording them banks real drift.
+`overflow-guards.md` was never clean, and leaving it out fails the ratchet on `main` for every
+branch that runs a sweep — the complaint #2133 opens with.
+
+## What the sweep reads now
+
+Re-run on the branch's final tree, same tool, same corpus:
+
+```
+total: 28 · baseline: 9 · regressions: 7 decks / 19 slides · improvements: 0 · errors: 0
+```
+
+**All 19 are the caption footer.** `examples/q-and-a.md` is gone from the list (fixed below) and
+`examples/overflow-guards.md` is gone from it (recorded above). **No deck this branch touches
+clips** — not the math demo, not `adaptive-sweep`, not the three components whose stylesheets were
+guarded. 28 = the 19 caption-footer slides + the 9 now in the baseline.
+
+The diagnosis sweep read 26 against a baseline of 7; both numbers moved for bookkeeping reasons,
+not because anything got worse. Baseline 7 → 9 is `overflow-guards.md`'s two intentional pages
+being recorded; 26 → 28 is those same two pages arriving in the corpus from `main` while
+`q-and-a` p7 left it.
 
 ## What IS fixed here
 
