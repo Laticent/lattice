@@ -89,7 +89,11 @@ measured rather than assumed:
   clips.
 - **It is all-or-nothing per box.** A plan that cannot make the box fit is
   discarded whole, so `strict` never destroys content AND leaves the slide
-  overflowing.
+  overflowing. "Fit" means the box's MEASURED content bottom, which includes the
+  card padding, borders and gaps that are not text and so are invisible to the
+  block walk. Planning against the text alone shipped a card sheared by 8px with
+  the overflow warning switched off, because 8px is inside the warning's own
+  slack — the guard sold a fix it had not delivered.
 
 Measured on the shipped corpus, `strict` resolves **one of the six** slides that
 clip today. The rest are blocked by a heading, a callout's own chrome, or a shell
@@ -101,7 +105,12 @@ cause overflow are largely the ones it refuses to touch. See
 clipped" tag or the type-floor warning, and a trim records itself
 (`data-lattice-trim`) because the existing content-clipped probe can see a clamp
 but not a removal. A typo (`guards: strictt`) resolves to the baseline and is
-caught by `npm run lint:deck` as `unknown-guards`.
+caught by `npm run lint:deck` as `unknown-guards`, including one carrying a
+trailing `#` comment.
+
+**The Read view is not trimmed.** A `--player` export's Read/Article column scrolls
+and has no fit problem, so the clamp is lifted there and the reader gets the whole
+paragraph. Trimming is a device for a slide's FIXED cell, and nothing else.
 
 ## The `finish:` front-matter register (backdrop)
 

@@ -799,7 +799,7 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 // (#1329).
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
-const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, planTrim, trimRecord } = require('./lib/core/guards-trim');
+const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // The verdict half of the same measurement — extent + legibility → the
 // `{ ratio, canSplit, splitRatio }` the overflow RING reads. (It fed `resplitDoc` until
 // 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
@@ -3429,7 +3429,9 @@ async function renderBody(browser, g, closeBrowser) {
       document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
         if (!/\bguards-strict\b/.test(s.className) || /\bguards-loose\b/.test(s.className)) return;
         clearTrim(s);
-        const model = measureTrim(s, clipSel, 12);
+        // A PER-SLIDE id namespace. The player's Read view concatenates every slide
+        // into one scrolling document, where two slides' `tb2` would collide.
+        const model = measureTrim(s, clipSel, 12, 's' + i + 'tb');
         if (model.boxes.length) out.push({ index: i, model });
       });
       return out;
@@ -3450,33 +3452,34 @@ async function renderBody(browser, g, closeBrowser) {
       // `examples/overflow-guards.md` page 4 was trimmed AND still overflowed.
       // So the outcome is re-measured, and a trim that did not buy the fit is
       // undone rather than left as content destroyed for nothing.
-      const fitted = await page.evaluate(({ i, p, applySrc, measureSrc, clearSrc, roleSrc, clipSel }) => {
+      const fitted = await page.evaluate(({ i, p, applySrc, measureSrc, clearSrc, roleSrc, findSrc, clearBoxesSrc, clipSel }) => {
         globalThis.trimRoleOf = new Function('return (' + roleSrc + ')')();
+        globalThis.trimBlockEl = new Function('return (' + findSrc + ')')();
+        globalThis.clearTrim = new Function('return (' + clearSrc + ')')();
         const applyTrim = new Function('return (' + applySrc + ')')();
         const measureTrim = new Function('return (' + measureSrc + ')')();
-        const clearTrim = new Function('return (' + clearSrc + ')')();
+        const clearTrimBoxes = new Function('return (' + clearBoxesSrc + ')')();
         const sec = document.querySelectorAll('section[data-lattice-slide]')[i];
         applyTrim(sec, p);
-        const stillOver = new Set(measureTrim(sec, clipSel, 12).boxes.map((b) => b.id));
-        if (stillOver.size === 0) return true;
-        // REVERT PER BOX, not per section. A whole-section revert throws away a good
-        // cut in one panel because a different panel is all never-trim — which is the
-        // mechanism by which `guards: strict` quietly becomes inert on exactly the
-        // split layouts it was meant to help.
-        for (const el of sec.querySelectorAll('[data-lattice-trimmed]')) {
-          const act = p.actions.find((a) => {
-            const target = sec.querySelector('[data-trim-id="' + a.blockId + '"]');
-            return target === el;
-          });
-          if (act && stillOver.has(act.boxId)) clearTrim(el.parentElement || sec);
-        }
-        return sec.querySelectorAll('[data-lattice-trimmed]').length > 0;
+        const stillOver = measureTrim(sec, clipSel, 12, 's' + i + 'tb').boxes.map((b) => b.id);
+        if (!stillOver.length) return { kept: true, fits: true };
+        // REVERT PER BOX, not per section — and through the kernel, so the export and
+        // the live preview cannot answer "what does a failed trim undo?" differently.
+        clearTrimBoxes(sec, p, stillOver);
+        // Re-measure. "Marks survived the revert" is not the same question as "the
+        // slide fits", and the old code answered the first while the report claimed
+        // the second — so a section with one panel trimmed and another still over
+        // was printed under "Those slides FIT".
+        return { kept: sec.querySelectorAll('[data-lattice-trimmed]').length > 0,
+                 fits: measureTrim(sec, clipSel, 12, 's' + i + 'tb').boxes.length === 0 };
       }, { i: index, p: plan, applySrc: TRIM_APPLY_SRC, measureSrc: TRIM_MEASURE_SRC,
-           clearSrc: TRIM_CLEAR_SRC, roleSrc: TRIM_ROLE_SRC, clipSel: CLIP_CELL_SELECTOR });
-      (fitted ? pages : reverted).push(index + 1);
+           clearSrc: TRIM_CLEAR_SRC, roleSrc: TRIM_ROLE_SRC, findSrc: TRIM_FIND_SRC,
+           clearBoxesSrc: TRIM_CLEAR_BOXES_SRC, clipSel: CLIP_CELL_SELECTOR });
+      const ok = fitted.fits && fitted.kept;
+      (ok ? pages : reverted).push(index + 1);
       // The RECORD, actually used rather than imported and voided to silence lint.
       const rec = trimRecord(plan);
-      if (fitted) detail.push(`p${index + 1}: ${rec.detail.map((d) => d.role + ' ' + d.was + '->' + d.lines).join(', ')}`);
+      if (ok) detail.push(`p${index + 1}: ${rec.detail.map((d) => d.role + ' ' + d.was + '->' + d.lines).join(', ')}`);
     }
     return { slides: pages.length, pages, reverted, detail };
   }, 'apply guards trim');
@@ -3558,6 +3561,14 @@ async function renderBody(browser, g, closeBrowser) {
     if (trimmed.detail.length) console.warn(`    Cut: ${trimmed.detail.join(' · ')}.`);
     console.warn('    Shorten the copy, or set `guards: loose` to see them clip instead.');
   }
+  // Strip the measure/apply scaffolding once the trim pass is final. `data-trim-id`,
+  // `data-trim-box` and `data-trim-prior` are this pass's own working state; the
+  // last of them is a JSON blob of prior inline styles that was shipping inside
+  // every delivered `--player` artifact. The RECORD stays.
+  await g(() => page.evaluate((finalizeSrc) => {
+    const finalizeTrim = new Function('return (' + finalizeSrc + ')')();
+    return finalizeTrim(document.body);
+  }, TRIM_FINALIZE_SRC), 'finalize guards trim');
   if (trimmed.reverted?.length) {
     // Not a warning about the deck — a warning about the guard. It planned a cut
     // whose reflow the DOM did not deliver, so the cut was undone and the slide

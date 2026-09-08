@@ -487,6 +487,21 @@ declared:
 | **drop** | repeated collection items (bullets, cards, timeline entries) | Dropping whole items reads better than shearing one, and the ellipsis on the last kept item stands for the rest. |
 | **never** | numbers and KPI values, legal and citation text, code, math, headings, attribution | A trimmed one is a false statement, not a shortened one. These keep the clip and the ring. |
 
+**Two entries in that table were unreachable when it shipped**, and a second
+review found them by enumerating what the classifier can actually return and
+diffing it against the table. `attribution: never` protected nothing — an
+attribution line rendered as a plain `<p>` inside a blockquote classified as
+`prose` and was trimmable — and `note: trim` was dead in the other direction.
+Both are now produced by `trimRoleOf`.
+
+**And the rule applies to the TAIL, which the tag does not see.** §6's argument
+against trimming code is an argument about what the cut removes, so a `<p>` ending
+in `<code>--with-a-long-flag</code>` is the same case wearing a prose tag. A block
+carrying inline code, a `<cite>` or math is now its own `mixed` role, classed
+`never`. That is deliberately over-broad — a paragraph with one inline `<code>`
+early on becomes untrimmable and the slide rings instead — which is the direction
+the asymmetry below already commits us to.
+
 **An unclassified slot defaults to `never`.** A guard that trims a slot nobody
 classified is one bad default away from putting a wrong number on a slide, and
 the failure is silent by construction — the deck looks better than the truth.
@@ -799,10 +814,124 @@ finding: the NOTE had six review passes, the CODE had none until it was asked fo
   the suite red. Two took several attempts, and the last one only fell once the
   test BUILT the padded condition instead of hoping a deck produced it.
 
-**Still open from that review, and not dismissed:** the export was observed once,
-on a cold first invocation, to revert a trim that fourteen later runs applied. Six
-consecutive runs here are byte-identical, but warm runs are not the condition
-described, so this is unreproduced rather than disproved.
+**That cold-start item is now SETTLED, mechanically rather than by run count.**
+125 renders produced byte-identical PDFs and identical stderr, under conditions
+that were genuinely cold — `drop_caches`, `/var/cache/fontconfig` removed, a fresh
+Chromium profile (the first render then took 4.39s against 1.4s warm) — plus
+16-way parallel, single-CPU pinning against four spinners, the built `dist/`
+bundle, a clean `git archive` tree, and two historical commits. A negative control
+confirmed the revert detector fires when a revert is forced.
+
+The count is the weaker half. **The barrier is in the code**:
+`lattice-emulator.js:3360-3365` awaits `[...document.fonts].map(f => f.load())` and
+then `document.fonts.ready`, unbounded, before MEASURE runs — the explicit
+force-load covering faces only later slides use, which `fonts.ready` alone skips.
+Proved by serving the deck's 17 faces through a 1.5s-per-font local server: an
+unbarriered measure gives `contentBottom 1616.78` and a 15-line wrap, both the
+`load` barrier and the force-load give `1548.78` and 13. An unsettled measurement
+really does produce a different model, and the barrier really does stop it. There
+is also no warm Chromium state to differ from — `puppeteer.launch` passes no
+`userDataDir`, so every run gets a fresh temp profile.
+
+The most likely explanation of the original observation is a working tree rather
+than a race: `lattice-emulator.js:3444-3450` records that p4 was once "trimmed AND
+still overflowed", which is exactly a `TRIM REVERTED` on this deck. Under every
+committed state p4 declines at plan time with `mark-would-be-invisible`.
+
+**Three settle holes DO exist, none reachable by this deck**, and they are recorded
+rather than closed: a deck-authored deferred script is counted at `:3203` and warned
+about at `:3747` but never awaited; `settleDeferredMedia` is bounded at 10s
+(`:3252`); and the runtime path measures on possibly-fallback metrics in its boot
+sweep and corrects after a 2s-bounded `settleFonts` (live preview only).
+
+**A SECOND INDEPENDENT REVIEW, of the corrected code, found four more shipping
+bugs.** The pattern from the first review repeated exactly once more: every one of
+them was in the half nothing exercised.
+
+1. **The guard shipped a sheared card and switched off the alarm about it — the
+   defect this whole note exists to prevent.** `planBox` computed the box's content
+   bottom as a max over the TEXT BLOCKS it could classify, discarding the measured
+   truth. `measureTrim` classifies innermost text blocks, so a card's own bottom
+   padding and border are invisible to it: on p2 of the demo deck the model said
+   1531.5 and `scrollHeight` said 1548.8. The planner cut against the smaller number,
+   the clamp landed 17px short, and the card ended 8px outside its clip cell — enough
+   to shear its bottom border and both rounded corners. Because 8px is also inside
+   the overflow probe's slack, `guards: strict` then REMOVED page 2 from the OVERFLOW
+   warning while leaving it pixel-identical to the untrimmed render. Verified by
+   rasterizing both at 300dpi: the strict and loose renders had the same fill runs.
+   The slide's own body text reads "the reader sees a finished card rather than a
+   sheared one." The fix plans against an EFFECTIVE limit — the real limit less the
+   measured tail below the deepest block — and the same slide now cuts to 6 lines
+   instead of 7 and measures 0px over. A second, smaller half of the same bug: the
+   loop exited as soon as the residual fell under `TRIM_TOLERANCE`, the alarm's
+   measurement slack, which is not the same question as "does it fit". Entry
+   tolerance and exit target are now separate constants (`FIT_EPSILON`).
+2. **The export's revert could not find a block carrying an author `id`.**
+   `applyTrim` resolved an id two ways; the emulator's revert loop open-coded only
+   one. A failed trim was therefore kept AND reported as a success under "Those
+   slides FIT". Resolution is now one kernel function, and the verdict is
+   re-measured rather than inferred from leftover marks.
+3. **An author `id` containing `"]` aborted the entire export.** The selector was
+   built by string concatenation; `querySelector` threw `SyntaxError` and no PDF was
+   produced. The finder now compares the attribute instead of building a selector.
+4. **The trim rode into the player's Read view**, an unbounded scrolling column with
+   no fit problem, so a reader who switched to it precisely to get the full text was
+   handed the seven-line truncation. Open problem 8 predicted this surface and
+   nothing stripped it. And `data-trim-id` was stamped on every text block of every
+   strict slide INCLUDING ones that fit — contradicting MR4's own premise — while
+   `data-trim-prior`, a JSON blob of prior inline styles, shipped inside every
+   `--player` artifact. Stamping now waits for the overflow check, `finalizeTrim`
+   strips the scaffolding on export, and `#lp-article` un-clamps what survives.
+
+**Three more, smaller:** the runtime reverted the whole SECTION where the export
+reverted per BOX — the kernel was single-sourced and the POLICY was not, so the same
+split-layout deck trimmed in the PDF and reverted in the live preview (HARD RULE #1);
+`attribution: 'never'` and `note: 'trim'` sat in the role table unreachable, so an
+attribution line classified as trimmable `prose`; and `findUnknownGuards` used a
+`$`-anchored regex, so `guards: strct  # for the board pack` resolved to the baseline
+with the lint that exists to catch it staying silent — the exact failure mode
+`resolve-guards.js`'s own docblock warns about by name.
+
+**What the tests could not catch, and what changed.** `trimRoleOf` — the function
+that decides which text may be cut, the entire safety property — could be replaced
+with `return 'prose'` and all 28 tests stayed green; its only reference computed a
+role from `trimRoleOf` and compared it to a role `measureTrim` produced from
+`trimRoleOf`, which can catch a wrong element and never a wrong table. The corpus
+generator made every box's `contentBottom` exactly its deepest block, so the tail
+that caused bug 1 could not appear. MR6 asserted rule 4 without the padding terms
+the rule actually uses. The fixture's docblock claimed the oracle was "independent"
+and modeled "physics, not policy" while re-encoding two of the planner's expressions
+verbatim; that claim is now corrected in place rather than defended. The adapter's
+"idempotent on a real slide" test never called `applyTrim` at all, and nothing
+anywhere exercised the revert — despite the adapter file's own header saying it did.
+
+The corpus now emits tails and a trimmable-weighted role draw, and derives each
+box's limit from its content rather than an independent draw (the old distribution
+put 107 of 254 declines on `mark-would-be-invisible` and produced 34 clamps across
+300 seeds; it now produces 87). MR3's exit target is `FIT_EPSILON`, MR6 carries the
+padding terms, MR13 asserts the clamped BORDER box, and MR14 is a new effectiveness
+canary — the arm every other relation is blind to, because rule 5 discards a
+declined box's actions and so hides any slip that turns fits into declines.
+
+**Mutation results, re-run against the corrected code.** Five of six die:
+
+| mutation | verdict |
+|---|---|
+| plan against the deepest block, ignoring the tail (**the shipped bug**) | killed — metamorphic |
+| exit at `TRIM_TOLERANCE` instead of `FIT_EPSILON` | killed — metamorphic |
+| `Math.floor` -> `Math.ceil` on the line budget | killed — both tiers |
+| drop the bottom-padding reserve | killed — metamorphic |
+| `trimRoleOf` returns `'prose'` for everything | killed — adapter |
+| weaken rule 4 to `textTop >= limit` | **survives** |
+
+The survivor is reported rather than papered over, and measured rather than
+argued: it changes 87 clamps to 88 and produces zero bad fits and zero invisible
+marks across the corpus. Rule 4 is **subsumed** by the fit test now that the exit
+target is real fit — a clamp whose mark would be invisible leaves its block's bottom
+past the limit, so the fit test refuses it anyway. Rule 4 stays as an explicit early
+decline with a named reason, and as defense in depth if the exit ever loosens. No
+test was manufactured for it; a relation that cannot fail is worse than an honest
+gap.
 
 **BUILT, as of this branch.** The kernel (`lib/core/guards-trim.js`), the register
 (`lib/core/resolve-guards.js`), both render-path call sites, the `unknown-guards`

@@ -1191,7 +1191,15 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Before the wrapper the sub-list sat at y=190.1 — the row's own baseline, floated to
 	// its right at w=105 — because it was a flex ITEM of the row. y is the claim; x and w
 	// move with whether the row carries a photo.
-	assert.equal(sha, '3485037ac2fcb4b1893aa19bd6efd9d3be47c033ab672f2851e4328111a4d700', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED 2026-09-08 — one CSS rule added to `#lp-article`, lifting the
+	// `guards: strict` line clamp inside the Read column. The projection clones the
+	// live slide DOM, so a trimmed paragraph arrived here carrying its inline
+	// `-webkit-line-clamp`, and a reader who opened Read view precisely to get the
+	// full text was handed the slide's seven-line truncation instead. Un-clamping is
+	// lossless: `-webkit-line-clamp` truncates visually and removes nothing, so the
+	// whole paragraph is already in this DOM. Found by an independent review; see
+	// `engineering/decisions/2026-09-07-overflow-guards-trim.md`.
+	assert.equal(sha, 'ca14cc8b304c0644a926571847585f0694946bc8d4ebd9d07aef2c1fe83fd1a4', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

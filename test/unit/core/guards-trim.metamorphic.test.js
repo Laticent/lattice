@@ -25,7 +25,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { planTrim, trimClassOf, trimRecord, TRIM_TOLERANCE } = require('../../../lib/core/guards-trim');
+const { planTrim, trimClassOf, trimRecord, TRIM_TOLERANCE, FIT_EPSILON } = require('../../../lib/core/guards-trim');
 
 const { makeModel, applyToModel, SEEDS, rng } = require('./fixtures/guards-trim-model');
 
@@ -68,7 +68,14 @@ test('MR3 fit-or-nothing — every planned box fits after, and a declined box is
 
     for (const boxId of plan.fits) {
       const box = after.boxes.find((b) => b.id === boxId);
-      assert.ok(box.contentBottom - box.limit <= TRIM_TOLERANCE,
+      // FIT_EPSILON, not TRIM_TOLERANCE. This relation used to accept a residual of
+      // up to 12px — the alarm's measurement slack — and that is exactly the defect a
+      // second independent review found in the shipped render: page 2 of the demo
+      // deck was declared FITTING with 8px still outside its clip cell, enough to
+      // shear the card's bottom border, and because 8px is also under the probe's
+      // slack the guard then silenced the overflow warning about it. A relation that
+      // tolerates the bug cannot catch the bug.
+      assert.ok(box.contentBottom - box.limit <= FIT_EPSILON,
         `seed ${seed}: box ${boxId} was planned as fitting but still overflows by ` +
         `${box.contentBottom - box.limit}px`);
     }
@@ -136,8 +143,14 @@ test('MR6 visible mark — every clamped block keeps a line above the box limit'
     for (const a of plan.actions) {
       const box = after.boxes.find((b) => b.id === a.boxId);
       const block = box.blocks.find((b) => b.id === a.blockId);
-      assert.ok(block.top + block.lineHeight <= box.limit,
-        `seed ${seed}: ${a.blockId} clamped with its first line at ${block.top} but the ` +
+      // The rule is over the block's TEXT top (`top + padTop`) with its bottom
+      // padding reserved — not over its border-box top. Omitting both terms is why
+      // weakening rule 4 to `textTop >= box.limit` changed 28 of 300 plans and left
+      // this relation green: with padding up to three line-heights, a mark planned
+      // below the limit still satisfied the weaker form.
+      const textTop = block.top + (block.padTop || 0);
+      assert.ok(textTop + block.lineHeight <= box.limit - (block.padBottom || 0),
+        `seed ${seed}: ${a.blockId} clamped with its first line at ${textTop} but the ` +
         `box limit is ${box.limit} — the ellipsis would be off-screen`);
     }
   }
@@ -275,6 +288,44 @@ test('MR12 all-never box — declines with no actions, whatever the overflow', (
   }
 });
 
+// ── MR14 · the planner must still DO something ───────────────────────────────
+// THE ARM EVERY OTHER RELATION IS BLIND TO, and a second independent review is why
+// it exists. Twelve of the thirteen relations above only constrain what the planner
+// does WHEN it acts; rule 5 discards a declined box's actions entirely, so any
+// arithmetic slip that turns fits into declines is invisible to all of them. Three
+// mutants proved it: weakening rule 4, dropping the bottom-padding reserve, and
+// `Math.floor` -> `Math.ceil` on the line count. All three left the other relations
+// green. Measured on this corpus, none of them SHIPS a defect — they under-trim, and
+// the fit test catches what they miss — but `ceil` collapses the planner from 85
+// clamps to 1, which is `guards: strict` silently doing nothing at all.
+//
+// So this is a CANARY, not a theorem: a floor on effectiveness over a seeded,
+// committed corpus. It is deliberately well below the measured 85/80 so ordinary
+// tuning does not trip it, and it fails loudly if the planner goes quiet. Changing
+// the generator moves these numbers — that is expected, and re-deriving them is part
+// of changing it.
+test('MR14 effectiveness — the planner keeps trimming what it can trim', () => {
+  let actions = 0;
+  let fits = 0;
+  let declines = 0;
+  for (const seed of SEEDS) {
+    const plan = planTrim(makeModel(seed));
+    actions += plan.actions.length;
+    fits += plan.fits.length;
+    declines += plan.declines.length;
+  }
+  assert.ok(actions >= 60,
+    `the planner produced only ${actions} clamps across ${SEEDS.length} seeds ` +
+    `(measured baseline: 85) — it has become conservative enough to be inert`);
+  assert.ok(fits >= 50,
+    `only ${fits} boxes were made to fit (measured baseline: 80)`);
+  // And the other direction: declines must not vanish either, or the corpus has
+  // stopped exercising rule 5's refusals and MR12/MR5 are riding on nothing.
+  assert.ok(declines >= 100,
+    `only ${declines} boxes declined (measured baseline: 253) — the corpus no longer ` +
+    `exercises the refusal path`);
+});
+
 // ── MR13 · the clamp lands inside the box ────────────────────────────────────
 // MR3 only inspects boxes the planner CLAIMS fit, so an arithmetic slip that makes
 // the planner under-trim shows up as a decline and slips past it — measured:
@@ -298,9 +349,14 @@ test('MR13 tight clamp — a clamped block\'s text ends at or above the box limi
         return ob && ob.bottom <= b.top ? sum + o.recovered : sum;
       }, 0);
       const textTop = b.top - shift + padTop;
-      const textBottom = textTop + a.lines * b.lineHeight;
-      assert.ok(textBottom <= box.limit + TRIM_TOLERANCE,
-        `seed ${seed}: ${a.blockId} clamped to ${a.lines} lines ends at ${textBottom} ` +
+      // The BORDER BOX, and to FIT_EPSILON. Two mutants lived in the slack this
+      // assertion used to leave: `Math.floor` -> `Math.ceil` on the line count (37 of
+      // 300 plans changed) and dropping the bottom-padding reserve — the second being
+      // the 8px shear that shipped. A block's padding and bottom border sit below its
+      // last line and are part of what must fit.
+      const blockBottom = textTop + a.lines * b.lineHeight + (b.padBottom || 0);
+      assert.ok(blockBottom <= box.limit + FIT_EPSILON,
+        `seed ${seed}: ${a.blockId} clamped to ${a.lines} lines ends at ${blockBottom} ` +
         `but the box limit is ${box.limit} — the clamp does not fit its own box`);
       checked++;
     }

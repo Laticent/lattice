@@ -2,7 +2,7 @@
  * Integration: the TRIM **DOM adapter**, in real Chromium.
  *
  * WHY THIS FILE EXISTS. `guards-trim.js` splits measure -> decide -> apply, and
- * only the DECIDE half had tests. The 14 metamorphic relations in
+ * only the DECIDE half had tests. The 15 metamorphic relations in
  * `test/unit/core/guards-trim.metamorphic.test.js` pin `planTrim` over generated
  * models and say so in their own header: they do not touch `measureTrim`,
  * `applyTrim` or `clearTrim`.
@@ -34,13 +34,15 @@ const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const {
-  measureTrim, planTrim, applyTrim, clearTrim,
-  ROLE_SRC, MEASURE_SRC, APPLY_SRC, CLEAR_SRC,
+  measureTrim, planTrim, applyTrim, clearTrim, clearTrimBoxes, trimBlockEl, finalizeTrim,
+  trimClassOf,
+  ROLE_SRC, MEASURE_SRC, APPLY_SRC, CLEAR_SRC, FIND_SRC, CLEAR_BOXES_SRC, FINALIZE_SRC,
 } = require(path.join(ROOT, 'lib/core/guards-trim'));
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, PROBE_SRC } =
   require(path.join(ROOT, 'lib/core/overflow-probe'));
 
 void measureTrim; void applyTrim; void clearTrim;   // used via injected source
+void clearTrimBoxes; void trimBlockEl; void finalizeTrim;
 
 const TMP = path.join(ROOT, '.scratch', 'guards-trim-adapter');
 const DECK = path.join(TMP, 'deck.md');
@@ -111,9 +113,13 @@ async function onPage(fn, url = PAGE) {
 
 const INJECT = `
   globalThis.trimRoleOf = ${ROLE_SRC};
+  globalThis.trimBlockEl = ${FIND_SRC};
+  globalThis.clearTrim = ${CLEAR_SRC};
   const measureTrim = ${MEASURE_SRC};
   const applyTrim = ${APPLY_SRC};
-  const clearTrim = ${CLEAR_SRC};
+  const clearTrim = globalThis.clearTrim;
+  const clearTrimBoxes = ${CLEAR_BOXES_SRC};
+  const finalizeTrim = ${FINALIZE_SRC};
 `;
 
 describe('the TRIM DOM adapter, in real Chromium', () => {
@@ -378,24 +384,211 @@ describe('the TRIM DOM adapter, in real Chromium', () => {
   });
 
   test('the whole pass is idempotent on a real slide', async () => {
-    // MR2 in the DOM. The runtime runs this inside a MutationObserver-driven
-    // sweep, so a pass that keeps finding work is a pass that keeps removing
-    // content — the loop shape `fit-sweep.js` was written to break.
-    const counts = await onPage((page) => page.evaluate(`(() => {
+    // MR2 in the DOM, through the REAL architecture: measure in the page, decide in
+    // Node, apply in the page. The previous version of this test never called
+    // applyTrim at all — its own comment said "apply whatever a second identical
+    // measure would plan", and then did not — so deleting `applyTrim` entirely would
+    // not have failed it.
+    const out = await onPage(async (page) => {
+      const measure = () => page.evaluate(`(() => {
+        ${INJECT}
+        const s = document.querySelectorAll('section')[0];
+        clearTrim(s);
+        return measureTrim(s, ${JSON.stringify(CLIP_CELL_SELECTOR)}, 12);
+      })()`);
+      const apply = (plan) => page.evaluate(`(() => {
+        ${INJECT}
+        const s = document.querySelectorAll('section')[0];
+        applyTrim(s, ${JSON.stringify(plan)});
+        return [...s.querySelectorAll('[data-lattice-trimmed]')]
+          .map((e) => e.getAttribute('data-trim-id') + ':' + e.style.webkitLineClamp).sort().join(',');
+      })()`);
+      const m1 = await measure();
+      const p1 = planTrim(m1);
+      const c1 = await apply(p1);
+      const m2 = await measure();
+      const p2 = planTrim(m2);
+      const c2 = await apply(p2);
+      return { boxes1: m1.boxes.length, boxes2: m2.boxes.length,
+               actions1: p1.actions.length, actions2: p2.actions.length, c1, c2 };
+    });
+    assert.ok(out.boxes1 > 0, 'anti-vacuity: the slide must overflow for this to mean anything');
+    assert.ok(out.actions1 > 0, 'anti-vacuity: the plan must actually cut something');
+    assert.equal(out.boxes2, out.boxes1, 'a clear + re-measure must be stable');
+    assert.equal(out.actions2, out.actions1, 'and the second plan must match the first');
+    assert.ok(out.c1.length > 0, 'anti-vacuity: something must actually be clamped');
+    assert.equal(out.c2, out.c1, 'a second measure+apply must reach the identical clamp');
+  });
+
+  test('every `never` role is classified as such on a REAL element — the role table is load-bearing', async () => {
+    // THE GAP A SECOND INDEPENDENT REVIEW FOUND. `trimRoleOf` decides which text may
+    // be cut, which is the entire safety property of this feature, and NOTHING tested
+    // it: replacing the whole function body with `return 'prose'` — making headings,
+    // KPI values, code, math, citations and legal text all trimmable — left all 28
+    // tests green. The one existing reference computed `trimRoleOf(el)` and compared
+    // it to the role `measureTrim` produced from `trimRoleOf`, which is tautological:
+    // it can catch a wrong ELEMENT, never a wrong TABLE.
+    //
+    // So this asserts the classification of real, laid-out elements against the
+    // fixed expectations in §6. It is deliberately a table of literals, not a
+    // re-derivation.
+    const CASES = [
+      ['<h2>Quarterly revenue</h2>', 'heading'],
+      ['<pre><code>npm run build</code></pre>', 'code'],
+      ['<p>Run <code>npm run build --with-a-long-flag</code> before shipping this.</p>', 'mixed'],
+      ['<p>See <cite>Smith 2021</cite> for the derivation and the caveats.</p>', 'mixed'],
+      ['<p>$1,234,567</p>', 'value'],
+      ['<p>\u00a7 14.2 The party of the first part shall indemnify the second.</p>', 'legal'],
+      ['<figcaption>A caption</figcaption>', 'caption'],
+      ['<dl><dt>Term</dt></dl>', 'label'],
+      ['<footer>Confidential</footer>', 'footer'],
+      ['<blockquote><p>\u2014 Ada Lovelace, 1843</p></blockquote>', 'attribution'],
+      ['<aside>A side note about the numbers above.</aside>', 'note'],
+      ['<p>Ordinary body prose that runs on for a while without anything special.</p>', 'prose'],
+      ['<ul><li>An ordinary list item, long enough to wrap on a slide.</li></ul>', 'list-item'],
+    ];
+    const got = await onPage((page) => page.evaluate(`(() => {
+      ${INJECT}
+      const cases = ${JSON.stringify(CASES)};
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      return cases.map(([html]) => {
+        host.innerHTML = html;
+        // The element under test is the deepest one the markup names, matching what
+        // the measurer's innermost-text-block walk would reach.
+        const el = host.querySelector('h2, pre, figcaption, dt, footer, aside, li, blockquote > p, p');
+        return el ? trimRoleOf(el) : 'MISSING';
+      });
+    })()`));
+    for (let i = 0; i < CASES.length; i++) {
+      assert.equal(got[i], CASES[i][1], `role for ${CASES[i][0]}`);
+    }
+    // And the table's verdict, which is the half that decides whether text is cut.
+    const NEVER = ['heading', 'code', 'mixed', 'value', 'legal', 'label', 'footer',
+      'attribution', 'math', 'citation', 'unclassified'];
+    for (const r of NEVER) assert.equal(trimClassOf(r), 'never', `${r} must never be trimmed`);
+    for (const r of ['prose', 'list-item', 'caption', 'note']) {
+      assert.equal(trimClassOf(r), 'trim', `${r} must be trimmable`);
+    }
+    // ANTI-VACUITY: the classifier must actually discriminate. `return 'prose'` for
+    // everything would satisfy nothing above, but a future refactor that collapsed
+    // the table would — so pin that the cases produce more than one answer.
+    assert.ok(new Set(got).size >= 8, 'the classifier must return distinct roles');
+  });
+
+  test('a failed trim is REVERTED per box, and a block with an author id is found', async () => {
+    // TWO SHIPPING BUGS, both found by a second independent review, both here.
+    //
+    // 1. `applyTrim` resolves a block id two ways (synthetic `data-trim-id`, or the
+    //    author's own `id`); the export's revert loop open-coded only the first. A
+    //    block carrying an author `id` was therefore clamped and could never be
+    //    undone — and the export then counted the leftover mark as success and
+    //    printed the page under "Those slides FIT".
+    // 2. Building the selector by concatenation (`'[data-trim-id="' + id + '"]'`)
+    //    threw `SyntaxError: not a valid selector` on an author id containing `"]`,
+    //    aborting the whole export with no PDF produced.
+    //
+    // Nothing exercised the revert at all before this test, despite this file's own
+    // header claiming it did.
+    const out = await onPage((page) => page.evaluate(`(() => {
+      ${INJECT}
+      const host = document.createElement('div');
+      host.style.cssText = 'position:absolute;top:0;left:0;width:400px;height:80px;overflow:hidden';
+      host.innerHTML = '<p id="a&quot;]" style="line-height:20px;margin:0">'
+        + 'word word word word word word word word word word word word word word word '
+        + 'word word word word word word word word word word word word word word word</p>';
+      document.body.appendChild(host);
+      const p = host.querySelector('p');
+      // The plan the kernel would produce for this block, addressed by the AUTHOR's id.
+      const plan = { actions: [{ boxId: 'box0', blockId: 'a"]', lines: 2, linesBefore: 8,
+                                 recovered: 120, role: 'prose', chars: 100 }] };
+      const found = !!trimBlockEl(host, 'a"]');
+      applyTrim(host, plan);
+      const clampedAfterApply = p.style.webkitLineClamp;
+      clearTrimBoxes(host, plan, ['box0']);
+      return {
+        found,
+        clampedAfterApply,
+        clampedAfterRevert: p.style.webkitLineClamp,
+        marksAfterRevert: host.querySelectorAll('[data-lattice-trimmed]').length,
+        recordAfterRevert: host.getAttribute('data-lattice-trim'),
+      };
+    })()`));
+    assert.equal(out.found, true, 'a block with an author id must be resolvable — and not throw');
+    assert.equal(out.clampedAfterApply, '2', 'anti-vacuity: it must actually have been clamped');
+    assert.equal(out.clampedAfterRevert, '', 'the revert must undo the clamp');
+    assert.equal(out.marksAfterRevert, 0, 'and remove the mark');
+    assert.equal(out.recordAfterRevert, null, 'and drop the record when nothing is left trimmed');
+  });
+
+  test('a per-box revert leaves a DIFFERENT box\'s trim standing', async () => {
+    // The policy that now lives in the kernel, and the reason it does. The export
+    // reverted per box; the runtime reverted the whole section — the export's own
+    // comment calling that "the mechanism by which `guards: strict` quietly becomes
+    // inert on exactly the split layouts it was meant to help". Same deck, two
+    // answers, single-sourced kernel and forked policy (HARD RULE #1).
+    const out = await onPage((page) => page.evaluate(`(() => {
+      ${INJECT}
+      const host = document.createElement('div');
+      host.innerHTML = '<p id="L" style="line-height:20px">left</p><p id="R" style="line-height:20px">right</p>';
+      document.body.appendChild(host);
+      const plan = { actions: [
+        { boxId: 'boxL', blockId: 'L', lines: 2, linesBefore: 8, recovered: 120, role: 'prose', chars: 10 },
+        { boxId: 'boxR', blockId: 'R', lines: 3, linesBefore: 9, recovered: 120, role: 'prose', chars: 10 },
+      ] };
+      applyTrim(host, plan);
+      const both = host.querySelectorAll('[data-lattice-trimmed]').length;
+      clearTrimBoxes(host, plan, ['boxR']);          // only the RIGHT box failed
+      return {
+        both,
+        left: host.querySelector('#L').style.webkitLineClamp,
+        right: host.querySelector('#R').style.webkitLineClamp,
+        marks: host.querySelectorAll('[data-lattice-trimmed]').length,
+        record: host.getAttribute('data-lattice-trim'),
+      };
+    })()`));
+    assert.equal(out.both, 2, 'anti-vacuity: both boxes must have been clamped first');
+    assert.equal(out.left, '2', "the box that FITTED keeps its cut");
+    assert.equal(out.right, '', 'the box that did not fit is reverted');
+    assert.equal(out.marks, 1, 'exactly one clamp survives');
+    assert.equal(out.record, '1', 'and the record counts what is still trimmed, not zero');
+  });
+
+  test('a fitting slide is not stamped, and finalizeTrim removes the scaffolding', async () => {
+    // `measureTrim` used to stamp `data-trim-id` on every text block it walked,
+    // BEFORE deciding whether the box overflowed — so a slide that fits, and that
+    // this pass never touches, still carried an attribute on every paragraph, and it
+    // shipped in the exported artifact. MR4's premise is that such a slide is
+    // byte-identical to one rendered before this feature existed; the relation
+    // models numbers and could not see it.
+    const out = await onPage((page) => page.evaluate(`(() => {
+      ${INJECT}
+      const CLIP = ${JSON.stringify(CLIP_CELL_SELECTOR)};
+      const secs = document.querySelectorAll('section');
+      const fitting = secs[1];
+      clearTrim(fitting);
+      const m = measureTrim(fitting, CLIP, 12);
+      return {
+        boxes: m.boxes.length,
+        stampedOnFitting: fitting.querySelectorAll('[data-trim-id], [data-trim-box]').length,
+      };
+    })()`));
+    assert.equal(out.boxes, 0, 'anti-vacuity: slide 2 must be the one that fits');
+    assert.equal(out.stampedOnFitting, 0,
+      'a fitting slide must carry no attribute from the guard, not just no inline style');
+
+    // And the scaffolding does not survive into a delivered artifact.
+    const fin = await onPage((page) => page.evaluate(`(() => {
       ${INJECT}
       const CLIP = ${JSON.stringify(CLIP_CELL_SELECTOR)};
       const s = document.querySelectorAll('section')[0];
-      const run = () => {
-        clearTrim(s);
-        const m = measureTrim(s, CLIP, 12);
-        return m.boxes.length;
-      };
-      const first = run();
-      // apply whatever a second identical measure would plan, then re-measure
-      return { first, second: run(), third: run() };
+      clearTrim(s);
+      measureTrim(s, CLIP, 12);
+      const before = s.querySelectorAll('[data-trim-id], [data-trim-box], [data-trim-prior]').length;
+      finalizeTrim(s);
+      return { before, after: s.querySelectorAll('[data-trim-id], [data-trim-box], [data-trim-prior]').length };
     })()`));
-    assert.ok(counts.first > 0, 'anti-vacuity: the slide must overflow for this to mean anything');
-    assert.equal(counts.second, counts.first, 'a clear + re-measure must be stable');
-    assert.equal(counts.third, counts.first, 'and stable again');
+    assert.ok(fin.before > 0, 'anti-vacuity: the overflowing slide must have been stamped');
+    assert.equal(fin.after, 0, 'finalizeTrim must remove every scaffolding attribute');
   });
 });

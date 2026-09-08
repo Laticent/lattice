@@ -26,9 +26,21 @@ const ROLES = Object.freeze([
   'heading', 'value', 'code', 'legal', 'citation',
 ]);
 
+/**
+ * A TRIMMABLE-WEIGHTED draw. Sampling `ROLES` uniformly put a `never` role first in
+ * most overflowing boxes, so the planner declined and produced only 24 actions
+ * across all 300 seeds — which every anti-vacuity floor in the relations ("checked
+ * > 0") was satisfied by, while the arithmetic they exist to pin was exercised a
+ * couple of dozen times. Declines still dominate; they are just no longer the whole
+ * corpus. The weighting is in the GENERATOR, never in the planner's table.
+ */
+const TRIM_WEIGHTED = Object.freeze([
+  'prose', 'prose', 'prose', 'list-item', 'list-item', 'caption', 'note',
+  'heading', 'value', 'code', 'legal', 'citation',
+]);
+
 /** One bounded box with blocks stacked in flow inside it. */
 function makeBox(rand, id, opts = {}) {
-  const limit = opts.limit ?? Math.round(200 + rand() * 500);
   const top0 = opts.top0 ?? Math.round(rand() * 40);
   const n = opts.blocks ?? 1 + Math.floor(rand() * 6);
   const blocks = [];
@@ -65,7 +77,7 @@ function makeBox(rand, id, opts = {}) {
     const top = columns > 1 && col > 0 ? colTop : y;
     blocks.push({
       id: `${id}-b${i}`,
-      role: opts.role ?? ROLES[Math.floor(rand() * ROLES.length)],
+      role: opts.role ?? TRIM_WEIGHTED[Math.floor(rand() * TRIM_WEIGHTED.length)],
       top,
       bottom: top + height,
       lineHeight,
@@ -76,7 +88,25 @@ function makeBox(rand, id, opts = {}) {
     if (col === 0) y = top + height + Math.round(rand() * 10);
   }
   y = blocks.reduce((m, b) => Math.max(m, b.bottom), colTop);
-  return { id, limit, contentBottom: y, blocks };
+  // THE LIMIT IS DERIVED FROM THE CONTENT, not drawn independently.
+  //
+  // An independent draw put the limit anywhere in [200, 700] while the content ran
+  // wherever it ran, so the overflowing block usually began far BELOW the limit and
+  // rule 4 refused it: `mark-would-be-invisible` was 107 of 254 declines and the
+  // whole 300-seed corpus produced 34 clamps. A real overflowing slide is one whose
+  // content runs a little past its box, which is the case the arithmetic is for.
+  // The tail below 1 still generates comfortable fits, and above ~1.1 still generates
+  // the hopeless boxes rule 4 must refuse — the distribution moved, the cases did not.
+  const limit = opts.limit ?? Math.round(top0 + (0.55 + rand() * 0.75) * (y - top0));
+  // A TAIL — content below the deepest text block that the measurer cannot model.
+  // A card's bottom padding and border, a grid row gap, a rule under the last line:
+  // `measureTrim` classifies innermost TEXT blocks and none of those is one, so the
+  // box's measured `contentBottom` runs past the deepest block. Generating boxes
+  // where the two are always equal is why every relation passed while the planner
+  // cut against the wrong number and shipped an 8px shear on the demo deck's own
+  // flagship slide (measured there: model 1531.5, real 1548.8).
+  const tail = opts.tail ?? (rand() < 0.45 ? Math.round(rand() * 30) : 0);
+  return { id, limit, contentBottom: y + tail, blocks };
 }
 
 function makeModel(seed, opts = {}) {
@@ -89,16 +119,27 @@ function makeModel(seed, opts = {}) {
 
 /**
  * Apply a plan to a model the way the DOM would: a clamped block gets shorter and
- * everything after it moves up. This is the test's stand-in for `applyTrim`, and
- * it is deliberately independent of it — a relation checked with the code under
- * test as its own oracle proves nothing.
+ * everything after it moves up. This is the test's stand-in for `applyTrim`.
+ *
+ * HOW INDEPENDENT IT ACTUALLY IS — the honest version. An earlier docblock here
+ * claimed it was "deliberately independent" of the planner and modeled "physics, not
+ * policy". A second review checked that claim and it does not hold: the two
+ * expressions that carry the weight — `linesBefore` and the shift predicate
+ * `other.bottom <= b.top` — are the planner's, term for term.
+ *
+ * So what this oracle CAN catch is a divergence between the planner's decision and
+ * the planner's own reflow model — which is real, and is what caught the scalar-shift
+ * defect. What it CANNOT catch is that shared model being wrong about a browser:
+ * centered or space-between flex, absolutely positioned or sticky blocks, a
+ * content-independent grid row. Nothing at this tier can. That is the adapter test's
+ * job (`test/integration/parity/guards-trim-adapter.test.js`), and ultimately the
+ * apply-re-measure-revert step's, which measures the outcome instead of predicting it.
  */
 function applyToModel(model, plan) {
-  // PHYSICS, NOT POLICY. The previous version re-stacked every block by one
-  // cumulative shift — the same single-column assumption the planner had — so a
-  // relation checked against it could not fail on a multi-column model however
-  // wrong the planner was. That is the shape of oracle that proves nothing, and
-  // this file's own docblock claimed independence it did not have.
+  // The previous version re-stacked every block by one cumulative shift — the same
+  // single-column assumption the planner had — so a relation checked against it
+  // could not fail on a multi-column model however wrong the planner was. Fixing
+  // that made the oracle useful; it did not make it independent (see above).
   //
   // What a browser actually does: clamping a block shortens THAT block, and blocks
   // BELOW it in the same flow move up by the amount recovered. A block beside it
@@ -123,7 +164,12 @@ function applyToModel(model, plan) {
         const height = (b.bottom - b.top) - (recovered.get(b.id) || 0);
         return { ...b, top, bottom: top + height };
       });
-      const contentBottom = blocks.reduce((m, b) => Math.max(m, b.bottom), box.limit);
+      // The tail travels with the deepest block — it is that block's container's own
+      // chrome — so it is re-added after the reflow rather than dropped. Measured
+      // from the ORIGINAL box, which is the only place it is observable.
+      const deepest = box.blocks.reduce((m, b) => Math.max(m, b.bottom), -Infinity);
+      const tail = box.blocks.length ? Math.max(0, box.contentBottom - deepest) : 0;
+      const contentBottom = blocks.reduce((m, b) => Math.max(m, b.bottom + tail), box.limit);
       return { ...box, blocks, contentBottom };
     }),
   };
@@ -131,4 +177,4 @@ function applyToModel(model, plan) {
 
 const SEEDS = Object.freeze(Array.from({ length: 300 }, (_, i) => i * 7919 + 13));
 
-module.exports = { rng, ROLES, makeBox, makeModel, applyToModel, SEEDS };
+module.exports = { rng, ROLES, TRIM_WEIGHTED, makeBox, makeModel, applyToModel, SEEDS };
