@@ -180,7 +180,8 @@ not by any gate.
    Worth stating precisely, because an earlier draft of this note said the string was read off the
    shipped PDF and it was not. On `beec5d8` those chips read `continues`: the annotation-sourced
    label ran past `LABEL_MAX` and `labelOf` declined. Reading the MathML instead made the same
-   label FIT — `limh→0f(x+h)−f(x)h=f′(x) take the limit` is 40 characters against a budget of 42 —
+   label FIT — the run-together `limh→0f(x+h)−f(x)h=f′(x) take the limit` came in under the
+   42-character budget —
    so the row's own equation started printing where a name belongs. The row is
    `| equation | what you did |` and the flat label path took the whole row. AN EQUATION IS NOT A NAME, the math twin of the "a figure is not a name" rule
    already in `labelOf`: a symbol names a thing and stays (`σ →`), but leading math carrying a
@@ -193,8 +194,10 @@ not by any gate.
    `\to` in as U+2192, set in the deck's TEXT face beside the engine-drawn `--shape-arrow-right`:
    one pill, two arrows, two faces. A math-derived label carrying one now DECLINES rather than
    printing it or deleting it — `F:A→B` is not `F:AB`, and '' degrades to the un-labeled pointer,
-   which still points. Scoped to math: an author's typed arrow in prose stays #29's coaching
-   warning.
+   which still points — but only because `cycle` and `hierarchy` were given un-labeled forms in the
+   same breath. They returned `''` for a missing label, and `''` emits no element at all, so the
+   decline DELETED a cycle's closing chip on a real render before that hole was closed. Scoped to
+   math by a real KaTeX span: an author's typed arrow in prose stays #29's coaching warning.
 5. **All three theorem cards were cut from every page and dumped on a closing page.** `math`
    claims `blockquote` and `trailing-paragraph`, and on three of its four structures the claimed
    element IS a member. `math-structures` joins `MEMBER_CLAIM_STRATEGIES`.

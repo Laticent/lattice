@@ -11,7 +11,8 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { RELATIONSHIPS, relationshipSignals, membersIn, labelOf, criteriaOf, textOf } = require('../../../lib/core/relationship');
+const fs = require('node:fs');
+const { RELATIONSHIPS, relationshipSignals, membersIn, labelOf, criteriaOf, textOf, RELATION } = require('../../../lib/core/relationship');
 const { applyRelationshipSignals } = require('../../../lib/core/auto-split');
 
 // Reads a signal as { mark, label } rather than matching its markup.
@@ -87,6 +88,29 @@ describe('core: relationship — the four kinds', () => {
     const out = relationshipSignals('cycle', oneEach(TITLES));
     assert.deepEqual(signalOf(out[0]), { mark: 'next', label: 'Circulate for comment' });
     assert.deepEqual(signalOf(out.at(-1)), { mark: 'loop', label: 'back to Draft the policy' });
+  });
+
+  // ── EVERY kind has an un-labeled form ────────────────────────────────────────────────
+  //
+  // '' emits NO ELEMENT (`auto-split.js`: `if (signals[k])`), so a kind that returns '' for a
+  // missing label does not degrade — it DISAPPEARS. `sequence` has always said "continues";
+  // `cycle` and `hierarchy` said nothing, and the cycle's closing "back to {stage 1} ↻" is the one
+  // thing §0b names as that kind's whole point. A HARD RULE #25 checker rendered the loss on a real
+  // deck: a cycle whose first stage was `- $A \to B$` printed no closing chip at all, because the
+  // shape-glyph rule declines that label.
+  const NAMELESS = ['<li>A sentence with no name in it that runs on well past the adornment budget</li>'];
+
+  test('cycle: a missing FIRST label still closes the loop', () => {
+    const out = relationshipSignals('cycle', [NAMELESS, ...oneEach(['Review', 'Publish'])]);
+    assert.deepEqual(signalOf(out.at(-1)), { mark: 'loop', label: 'back to the start' },
+      'the closing chip vanished: an empty signal emits no element at all');
+    assert.ok(out.every((h) => h !== ''), 'no page of a cycle may be signal-less');
+  });
+
+  test('hierarchy: a missing tier label still names the DIRECTION', () => {
+    const out = relationshipSignals('hierarchy', [NAMELESS, NAMELESS]);
+    assert.deepEqual(signalOf(out[0]), { mark: 'down', label: 'governs the tier below' });
+    assert.deepEqual(signalOf(out.at(-1)), { mark: 'up', label: 'under the tier above' });
   });
 
   test('hierarchy: governs ↓ down the chain, under ↑ on the last tier — never a temporal "next"', () => {
@@ -561,11 +585,43 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.equal(labelOf(tr(typeset('f(x) < y'), 'strictly below')), 'strictly below');
   });
 
-  test('a RELATION is recognized by BLOCK, not by a hand-listed character', () => {
-    // The first cut enumerated the characters and missed five commands an author reaches for on
-    // an ordinary slide. Each of these rows keeps its equation if the enumeration comes back.
+  test('a RELATION is whatever KaTeX says it is — the census, re-derived', () => {
+    // THE POINT OF THIS ARM. The relation set has been wrong twice: an enumeration that missed five
+    // everyday commands, then hand-cut Unicode ranges that missed 69 of KaTeX's 219 relation atoms.
+    // A third hand-built set would have been wrong a third time, so the constant is mechanical and
+    // this re-derives it from the SAME installed KaTeX. A version bump that adds a relation fails
+    // here instead of shipping a chip full of operators.
+    const src = fs.readFileSync(require.resolve('katex/dist/katex.mjs'), 'utf8');
+    const declared = new Set();
+    // The symbol strings in katex.mjs are `"\\u2260"` shaped — no embedded quotes — so a plain
+    // `"[^"]*"` reads them, and `JSON.parse` turns the escape into the character.
+    const re = /defineSymbol\(\s*math\s*,\s*\w+\s*,\s*rel\s*,\s*("[^"]*")/g;
+    for (let m = re.exec(src); m; m = re.exec(src)) {
+      const ch = JSON.parse(m[1]);
+      if ([...ch].length === 1) declared.add(ch);
+    }
+    assert.ok(declared.size > 200, `expected KaTeX's rel table, found ${declared.size} entries`);
+    const missing = [...declared].filter((c) => !RELATION.test(c));
+    assert.deepEqual(missing, [], 'RELATION no longer covers every `rel` atom KaTeX declares');
+
+    // The SECOND half: six relations KaTeX builds with a macro, so no `rel` line mentions them.
+    // Deriving from the table alone loses `≠`, which is not a set anyone should ship.
+    for (const [cmd, want] of [['\\ne', '≠'], ['\\notin', '∉'], ['\\notni', '∌'],
+      ['\\coloneqq', '≔'], ['\\eqqcolon', '≕'], ['\\Coloneqq', '∷']]) {
+      const body = /<math[\s\S]*?<\/math>/.exec(katex.renderToString(`a ${cmd} b`, { output: 'mathml' }))[0]
+        .replace(/<annotation[\s\S]*?<\/annotation>/, '').replace(/<[^>]*>/g, '');
+      assert.ok(body.includes(want), `${cmd} no longer renders ${want} — the supplement is stale`);
+      assert.ok(RELATION.test(want), `${want} (${cmd}) is not in RELATION`);
+    }
+  });
+
+  test('the relations that were MISSED, each by name', () => {
+    // Every one of these shipped the run-together chip under a previous cut of the set. They are
+    // spelled out rather than left to the census because the census proves coverage, not intent.
     for (const tex of ['c \\equiv d', 'c \\implies d', 'c \\longrightarrow d', 'c \\simeq d',
-      'c \\supset d', 'c \\coloneqq d', 'c \\le d', 'c \\mapsto d', 'c \\in D']) {
+      'c \\supset d', 'c \\coloneqq d', 'c \\le d', 'c \\mapsto d', 'c \\in D',
+      'c \\nleq d', 'c \\ngeq d', 'L \\triangleq S', 'u \\parallel v', 'd \\mid n',
+      'f \\lesssim g', 'A \\sqsubseteq B', 'P \\therefore Q', 'a \\ne b']) {
       assert.equal(labelOf(tr(typeset(tex), 'the step')), 'the step', `\`${tex}\` was not read as a relation`);
     }
   });
@@ -574,8 +630,10 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // `n×p` and `X⊤X` are NAMES, and a range wide enough to be tidy swallowed both: the whole
     // 22A2–22AF turnstile block takes U+22A4, which is how this repo writes transpose, and the
     // whole 2A00–2AFF block takes the n-ary operators.
+    // `\\top` is the one that matters: KaTeX classifies it `ord`, so taking KaTeX's word keeps
+    // `X^\\top X` a name for free — a hand-cut turnstile range had to be patched after it did not.
     for (const [tex, want] of [['n \\times p', 'n×p'], ['X^\\top X', 'X⊤X'], ['a + b', 'a+b'],
-      ['\\bigoplus_i V', '⨁iV']]) {
+      ['\\bigoplus_i V', '⨁iV'], ['a \\oplus b', 'a⊕b'], ['\\sum_i x_i', '∑ixi']]) {
       assert.equal(labelOf(`<li>${typeset(tex)} — a description</li>`), want,
         `\`${tex}\` was read as a claim rather than a name`);
     }
@@ -587,6 +645,14 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // chip shipped reading `— its right adjoint →`.
     assert.equal(labelOf(`<li>${typeset('L \\dashv R')} — its right adjoint</li>`), 'its right adjoint');
     assert.equal(labelOf(`<li>${typeset('a = b')}, so it holds — the reason</li>`), 'so it holds');
+  });
+
+  test('the shape-glyph decline is scoped by a real KaTeX span, not by the word "katex"', () => {
+    // The scope test was `src.includes('katex')`, which fires on PROSE — "Enable katex → then
+    // rebuild" declined its label. Harmless-sounding until a cycle's closing chip depends on it.
+    // No arm pinned it, which is how it survived a full mutation pass. (HARD RULE #25, third.)
+    assert.equal(labelOf('<li>Enable katex → then rebuild</li>'), 'Enable katex → then rebuild');
+    assert.equal(labelOf('<li>The katex ✓ pass — a note</li>'), 'The katex ✓ pass');
   });
 
   test('a math label carrying a CURATED SHAPE GLYPH declines (HARD RULE #29)', () => {
@@ -641,9 +707,21 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // 1ms after. The bound is deliberately loose (a wall clock in a merge train is not a stopwatch)
     // and still leaves a 3x margin UNDER the old cost, which is what makes it a regression guard
     // rather than a benchmark.
-    const started = Date.now();
-    labelOf(`<${'a'.repeat(40000)}`);
-    assert.ok(Date.now() - started < 2000, 'labelOf went superlinear on an unclosed tag');
+    // A RATIO, not a wall clock. The first cut of this arm asserted `< 2000ms` and claimed a "3x
+    // margin under the old cost"; re-measured on the sandbox runner the old cost was 2254ms, so the
+    // margin was 1.13x and hardware 15% faster would have passed the exact regression it names.
+    // Scaling is the property that actually matters and it is machine-independent: quadratic gives
+    // ~16x for 4x the input, linear gives ~4x. (HARD RULE #25 checker, third pass.)
+    const cost = (n) => {
+      const at = process.hrtime.bigint();
+      labelOf(`<${'a'.repeat(n)}`);
+      textOf(`<span${' '.repeat(n)}`);
+      return Number(process.hrtime.bigint() - at) / 1e6;
+    };
+    cost(2000);
+    const small = Math.max(cost(10000), 0.05);
+    const big = cost(40000);
+    assert.ok(big / small < 8, `4x the input cost ${(big / small).toFixed(1)}x the time — superlinear`);
   });
 
   test('an unbalanced author span returns the input rather than looping', () => {
