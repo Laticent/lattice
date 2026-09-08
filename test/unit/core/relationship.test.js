@@ -608,8 +608,11 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // Deriving from the table alone loses `≠`, which is not a set anyone should ship.
     for (const [cmd, want] of [['\\ne', '≠'], ['\\notin', '∉'], ['\\notni', '∌'],
       ['\\coloneqq', '≔'], ['\\eqqcolon', '≕'], ['\\Coloneqq', '∷']]) {
+      // The annotation goes (it carries the author's TeX, not the rendered character); NO tag strip
+      // follows it. Markup here is ASCII, so a relation character cannot hide inside a tag — and a
+      // one-shot `<[^>]*>` strip is the very shape CodeQL flags and `stripTags` exists to avoid.
       const body = /<math[\s\S]*?<\/math>/.exec(katex.renderToString(`a ${cmd} b`, { output: 'mathml' }))[0]
-        .replace(/<annotation[\s\S]*?<\/annotation>/, '').replace(/<[^>]*>/g, '');
+        .replace(/<annotation[\s\S]*?<\/annotation>/, '');
       assert.ok(body.includes(want), `${cmd} no longer renders ${want} — the supplement is stale`);
       assert.ok(RELATION.test(want), `${want} (${cmd}) is not in RELATION`);
     }
