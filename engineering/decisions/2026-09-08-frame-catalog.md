@@ -1,409 +1,218 @@
 ---
-status: proposed
-summary: Lattice ships 12 Frames and 10 are sovereign, each welded by name to one component, so 59 of 69 components get one carve (standard, rail on or off). Three laws turn the Frame into a vocabulary a component picks from. A first cut drew 28 Frames; its own derivation then showed 11 of the 16 new ones changed how a slide LOOKS rather than what it ARGUES, which is the Finish axis Lattice has shipped since 2026-06-11 — two were near-duplicates of shipped `finish:` backdrops. Corrected to NINE Frames, one per distinct reading (order/rank/arity), plus a contract for the Mode axis the other eleven belong to: six channels, seven clauses, and the argument that a persona is not a style — a deliverable is, which collapses ~14 team personas onto ~6 postures.
+status: superseded
+summary: RETRACTED. A proposal for a nine-Frame catalog defined by three atoms (order/rank/arity), three laws and a Mode contract. An adversarial trio plus a fact-checker falsified its foundation: §1 diagnosed a defect that had already been fixed — `FORM_TOGGLE_SKIP` IS declared data, derived from each frame manifest's `exemptFromChrome`, and the three hand-maintained Sets it promised to replace were retired on 2026-07-14 with a drift test. The counts were wrong (11 frames not 12, 9 sovereign not 10, stage 34/26/9 not 34/25/10), the axis derivation lands on 22 rather than the nine it claims, the degeneracy rule that killed `math` also merges `quiet` into `bookend`, Law II's motivating defect does not reproduce (an `image` slide renders as page 2 of 3), and both Mode clauses are refuted by shipped values. Four things survived and are independently shippable: the Form/Finish axis separation, the logo and watermark manifest-vs-render divergence, `bookend`'s homeless status stamp, and the absent `admits` field on the Frame schema.
 ---
 
-# The Frame catalog — nine Frames, and a contract for the Mode axis
+# The Frame catalog — what it got wrong, and the four things that survived
 
 **Date:** 2026-09-08
-**Status:** proposed — design only. Nothing here is implemented.
-**Extends:** `design/forms.md` (the canonical Form model — the vocabulary authority).
-**Prototypes:** `2026-09-08-frame-catalog/prototype.html` — the nine Frames drawn to
-true 16:9 at Lattice's real Form geometry, with carves, component fits and two scores.
-`2026-09-08-frame-catalog/mode-specimens.html` — the six Modes rendering identical
-content, with a lever per contract channel and a Frame lever that exercises M2.
+**Status:** **Retracted.** The catalog, the three laws and the Mode contract should not
+be built. Read §4 for what is worth keeping.
+**Reviewed by:** red-team · Munger inversion · independent checker · fact-checker
+(HARD RULE #25). Every claim below marked *verified* was re-checked against the tree
+by hand after the review, not taken from an agent report.
 
 ---
 
-## 1. The symptom
-
-`design/forms.md` §5 says a Frame's `kind` is `root` (carves the slide, keeps the
-chrome) or `sovereign` (claims the canvas, suppresses chrome Cells). Read as a
-catalog, that promises a set of structures an author selects from. Read as shipped
-code, it is something else.
-
-`lib/forms/frame/` holds twelve manifests. Two are `root` — `standard` and
-`minimal`, which is `standard` with the progress rail suppressed and is reached by
-the `no-progress` chrome control rather than by name. The other ten are sovereign,
-and **every one of them is named after, and reachable only by, the single component
-of the same name**: `title`, `divider`, `closing`, `image`, `scene`, `math`,
-`split-panel`, `split-compare`, `compare-code`, `premise`. The binding is `Set`
-membership in `masthead.transform.js` (`FORM_TOGGLE_SKIP`), not declared data.
-
-Measured across the 69 shipped component manifests:
-
-| Component stage kind | n | Frames it can select |
-|---|---|---|
-| `flow` | 34 | 2 (`standard` · `minimal`) |
-| `canvas` | 25 | 2 (same) |
-| sovereign-bound | 10 | 1 (its own) |
-
-Two manifests, but **one carve**: `minimal` is `standard` with the rail
-suppressed, and §4 below concludes that chrome posture is a control rather than a
-Frame axis.
-
-So the axis that decides where the title sits, how tall the stage is, and where a
-Key Insight lands has, for 59 of 69 components, one shape and a switch. That is the gap. The
-sovereign Frames are not a layout vocabulary — they are per-component escape
-hatches from chrome.
-
-## 2. Why the sovereigns cannot be shared
-
-They carve **two content Cells**. `split-panel` produces a panel and a supporting
-zone; `compare-code` produces two code cells with their own titles. Only a
-component authored for two cells can fill them, so the Frame and the component are
-the same object under two names. A chart cannot ask for `split-panel` because a
-chart has one body.
-
-That is the mechanism behind the whole defect, and it is what the three laws
-below fix.
-
-## 3. Three laws
-
-**Law I — one stage per component.** A Frame hands the component exactly one
-contiguous stage Cell. Every other Cell it carves is frame-owned: chrome, or an
-editorial band the Frame fills from parts the author already writes (`meta`, the
-coda, the state stamp). A Frame that carves a second *content* cell is a different
-family and admits only split-capable components.
-
-**Law II — chrome is relocated, never dropped.** Title, running header, footer,
-pagination, progress rail, meta, coda and the state stamp each get a declared home
-in every Frame — even where that home is *silent*. Today eight sovereigns suppress
-seven Cells apiece with no re-home, which is why `image` silently leaves the
-pagination sequence and why a coda can vanish when a slide changes layout.
-
-**Law III — the stage publishes an aspect band.** Each Frame declares the aspect
-its stage resolves to at 16:9 and whether it admits `flow` bodies, `canvas`
-bodies, or both. A component already declares which it is (`stage: "flow" |
-"canvas"`, read by `masthead.transform.js`). Admissibility becomes derivable —
-`frame.admits ⊇ component.stage`, minus a short per-Frame exclusion list for
-wide-only bodies — instead of three hand-maintained `Set`s. This is `forms.md`
-§7's `accepts` / `fits` pair finally doing work, and it is the same
-manifest-is-the-contract move §11 already made for Cells and Tiles.
-
-## 4. How many Frames can there be
-
-Four axes describe a Frame. The raw product is 675; most of it is illegal,
-invisible at slide scale, or already a knob elsewhere in Lattice.
-
-| Axis | Values | Survives as a Frame axis? |
-|---|---|---|
-| Stage topology — full · banded · columned · mounted · bled · margined · dual · triple · poster | 9 | Yes. This *is* the Frame. |
-| Masthead position — top band · left column · bottom · overlaid · absent | 5 | Yes, but only ~22 of the 45 pairs are legal |
-| Chrome posture — full · no rail · silent | 3 | **No** — already a per-slide control (`silent`, `no-progress`) |
-| Canvas treatment — flat · tinted · plated · bled · ruled | 5 | Partly — two are the `finish:` / `lift:` registers; three move a box |
-
-675 → drop chrome posture as orthogonal (folding it in would triple every Frame)
-→ 225 → keep only legal topology × masthead pairs → ~110 → collapse the treatments
-that are really registers → **about 30 distinguishable Frames**. Two pairs among
-those read the same at ten feet and one has no component that can fill it.
-
-**That derivation is kept because its method is right and its scope was wrong.**
-It counted *canvas treatment* as a Frame axis, and treatment is Finish (§5.1). Strip
-it and the same arithmetic lands on **nine Frames** — one per distinct reading — with
-the treatments moving to the Mode axis, where they multiply against the nine rather
-than inflating them. The ceiling is low either way because a 16:9 rectangle read for
-forty seconds does not hold more than three regions before it stops being a slide.
-
-## 5. The catalog is nine Frames, not twenty-eight
-
-The first cut of this note drew 28. Deriving each Frame's reframe set from three
-atoms — `order`, `rank`, `arity` (§5.2) — then reported, as a side result,
-that `atelier`, `ruled`, `mount`, `column`, `overline` and `bleed` all read
-`before/thesis/1`: **the same reading as `standard`**.
-
-That result was the answer, and it was filed as a footnote. A Frame that does not
-change the reading is not a Frame — it is a **treatment**, and Lattice already owns
-an axis for treatments.
-
-### 5.1 The axis error
-
-`design/design-system.md` owns a **four-axis** model — Function · Form · Substance ·
-**Finish** — and Finish answers "what should it feel like?". It is surfaced through
-three composable registers: `theme:` (color), **`mode:`** (the typographic and
-geometric hand), `finish:` (the backdrop layer stack). Eleven of my sixteen new
-Frames were `mode:` values wearing a Frame's clothes, and two were near-exact
-duplicates of shipped code — HARD RULE #15, broken:
-
-| Sheet-01 entry | Actually | Belongs |
-|---|---|---|
-| `ruled` | treatment | ships as `finish: ledger` — "fine horizontal ruled lines + a bold left margin bar + a top-right corner fold" |
-| `mat` | treatment | ships as `finish: gallery` — "a museum inset keyline frame + a spotlight" |
-| `atelier` | treatment | overlaps `finish: savile` / `atrium` |
-| `drafting` · `manuscript` · `colophon` · `mount` | treatment | `mode:` values |
-| `overline` · `column` · `bleed` | **carve variant** | variants of `standard` — same reading, different box |
-| `recto` | **carve variant** | a variant of `panel` — a canvas well, not a tinted panel |
-
-Five survive as Frames: `margin`, `plinth`, `foot`, `quiet`, `triptych`.
-
-### 5.2 The three atoms, and the boundary they draw
-
-Reframing is a **relation between two Frames**, not a property of one — "`foot`
-reframes" is meaningless without saying reframes *from what*. So each Frame declares
-three atoms and the relation derives from them, rather than from a hand-kept edge
-list (over 28 nodes that was 756 pairs to keep honest, and it drifts the moment a
-Frame's geometry changes):
-
-| Atom | Values | Decides |
-|---|---|---|
-| `order` | `before` · `after` · `none` | Whether the thesis is met before the evidence, after it, or not at all. A left column is `before` — it is still read first. |
-| `rank` | `thesis` · `takeaway` · `margin` · `none` | What holds the reserved, emphasized position. |
-| `arity` | `1` · `2` · `3` | How many things the slide asserts. |
-
-**A reframes to B when they admit a common content pool and differ on at least one
-atom.** Equal on all three and they are the same argument in a different treatment.
-That gives the boundary:
-
-> **Does it change `order`, `rank` or `arity`? If no, it is not a Frame.**
-
-Form owns the reading; Finish owns type, line, box, mark, measure and ornament.
-The test is mechanical rather than a matter of taste, and it is what lets the two
-axes compose instead of collide.
-
-### 5.3 The nine
-
-| Frame | Reading | Carves | Design | Board |
-|---|---|---|---|---|
-| `standard` | `before/thesis/1` | band · overline · column · bleed · **title-grid** | 9 | 10 |
-| `margin` | `before/margin/1` | rail right · rail left | 9 | 9 |
-| `plinth` | `before/takeaway/1` | band · wide | 9 | 10 |
-| `foot` | `after/thesis/1` | band · plate · **bleed** | 8 | 7 |
-| `quiet` | `none/none/1` | open · sheet | 7 | 8 |
-| `panel` | `before/thesis/2` | tinted · plain · well | 9 | 10 |
-| `compare` | `before/none/2` | symmetric · titled | 8 | 9 |
-| `triptych` | `before/thesis/3` | equal · weighted | 8 | 8 |
-| `bookend` | `none/thesis/1` | opening · section · closing · colophon | 9 | 10 |
-
-### 5.4 Where all twelve shipped entries go
-
-An earlier cut of this section wrote the mapping as prose and silently accounted for
-only nine of the twelve. The table is the fix — every shipped Frame has a row, so a
-missing one is visible:
-
-| Shipped | Goes to | Because |
-|---|---|---|
-| `standard` | `standard` | — |
-| `minimal` | `standard` | a chrome control (`no-progress`), not a Frame |
-| `split-panel` | `panel` | `before/thesis/2` |
-| `premise` | `panel` | same reading, plain carve — no tinted divide |
-| `compare-code` | `compare` | `before/none/2`, titled carve |
-| `split-compare` | `compare` | `before/none/2`, symmetric carve |
-| `title` · `divider` · `closing` | `bookend` | all `none/thesis/1` |
-| **`image`** | **`foot`** | `after/thesis/1` — the photograph is met first, the words conclude it. The full-bleed poster was `foot` all along, in a **bleed** carve |
-| **`scene`** | **`foot`** | same reading as `image` |
-| **`math`** | **`standard`** | see below — its sheet-01 reading was mis-derived |
-
-### 5.5 `math`, and why the unary readings are five and not six
-
-Sheet 01 gave `math` the reading `before/none/1`, which **is not among the nine** — so
-the collapse had nowhere to put it. The reading was wrong, and the reason generalizes.
-
-**`rank: none` is degenerate at arity 1.** With one content cell, "no cell is
-privileged" and "the one cell is privileged" describe the same slide — there is
-nothing to withhold emphasis *from*. `rank: none` only carries meaning at arity ≥ 2,
-which is exactly where it does work: `compare` is `before/none/2`, and there the
-`none` is a real stance — *neither of these two is the answer, you weigh them*.
-
-So the unary readings are five, not six, and the asymmetry in the reading table is
-derived rather than arbitrary.
-
-What made `math` look sovereign is two things that are not the reading:
-
-1. **It drives its own `> h2` title grid.** That is a **carve** — where the title
-   sits — not a rank change. The title is still the thesis and still met first.
-2. **It centers a display equation in the stage.** That is the component owning its
-   stage, which Law I explicitly grants. A frame-reserved position is a band the
-   *Frame* holds beyond the stage — `plinth`'s takeaway, `margin`'s rail. Math's
-   equation is inside its own stage, so no rank is reserved.
-
-`math` is therefore `standard` with a title-grid carve, and it needs no Frame of its
-own. The same test distinguishes `bookend` from `quiet` and confirms both: a bookend
-reserves the position and fills it with the thesis (`none/thesis/1`); `quiet` reserves
-nothing at all (`none/none/1`).
-
-`plinth` remains the one to build first — the coda Cell already exists, so it is
-that Cell given a reserved band and a hairline.
-
-### 5.6 What the Frames do with logo, meta and the rest of the chrome
-
-Law II says chrome is relocated, never dropped. That is a rule with no content until
-each Frame declares a home for each Tile. Working it through turns up something the
-model does not say: **chrome is not one thing. It is four families, and only one of
-them actually follows the Frame.**
-
-| Family | Tiles | Behavior when the Frame changes |
-|---|---|---|
-| **A · Cell-docked** | kicker · title · lede · meta · status | Lives in the masthead Cell. Moves wherever the Frame puts that Cell. |
-| **B · Band-docked** | footer · progress · pagination | Lives in the footer Cell. Every Frame keeps a footer band; only `bookend` silences it by default. |
-| **C · Frame-anchored** | **logo** · watermark | Pinned to the *slide*, not to a Cell. Does **not** move with the masthead. |
-| **D · Rank-assigned** | coda (key-insight + below-note) | The `rank` atom already decides it — see below. |
-
-**Family D is the tidy part: `rank` is the coda's address.** `rank: takeaway` puts it
-in `plinth`'s reserved band; `rank: margin` puts it in `margin`'s rail; `rank: thesis`
-leaves it at content height above the footer; `rank: none` means the component places
-it. No new field — the atom that defines the reading already answers "where does the
-Key Insight go".
-
-#### The logo does not do what the model says it does
-
-`lib/forms/tile/logo/logo.manifest.json` declares `"fits": ["masthead-bay"]`, and
-`design/forms.md` §5.1 lists "logo · meta · status → `masthead-bay` tiles, docked".
-**The render does something else.** `base.modifiers.css` pins it at
-`top: var(--frame-inset-y)` / `right: var(--frame-inset-x)`, 4cqi tall, as an absolutely
-positioned direct child of the section — and the author can move it anywhere with
-`logo-x` / `logo-y`, which set the logo's *center* as a percentage of the whole slide.
-It sits on the **content** plane (z 2), deliberately: forms.md §5.2 records that on the
-chrome plane an off-corner brand plate erased four words of a pull-quote, and on
-atmosphere it vanished under a split panel.
-
-So the logo is anchored to the sheet, not to a Cell. Under one Frame that divergence is
-invisible. Under nine it is a bug generator: **`logo-y: 82` means one thing when the
-masthead is on top and another when `foot` puts it at the bottom.** The Tile has form
-in this file already — `2026-08-04-finish-stacking-displaces-frame-chrome.md` measured
-`logo-x`/`logo-y` silently ceasing to mean anything, rendering at 92.2% x on every logo
-slide in the corpus with y drifting 84 / 87.1 / 88 / 100 across four slides that all
-declared 82.
-
-**Two ways to close it, and they are not equivalent.** Either the manifest is corrected
-to say what ships (`fits: ["slide"]`, a frame-anchored Tile) — cheap, honest, and leaves
-author coordinates meaning "percent of the sheet" forever. Or the logo becomes genuinely
-Cell-docked and `logo-x`/`logo-y` are reinterpreted as offsets *within* its Cell, which
-makes them survive a Frame change and breaks every deck that set them. The first is
-right for now; the second is right eventually. Either way the current state — a manifest
-that says one thing and a stylesheet that does another — is the one option that should
-not survive this catalog.
-
-#### The contested corner
-
-Top-right is the busiest 80×50px on the slide. Three occupants want it — the **logo**,
-the **status stamp**, and (on frames that keep a bay) the **meta** line — and the engine
-already arbitrates: `--corner-logo-reserve` makes the state tabs stack to the logo's
-**left**, not below it, because clearing it vertically needs ~80px of drop and would put
-a transient marker a third of the way into the body. That was a real defect: `logo:` plus
-`confidential` sliced the top off the mark, on close to the modal delivered board deck.
-
-Each Frame therefore owes a **corner order**, not just a list of homes.
-
-#### The matrix
-
-| Frame | kicker · title · lede | meta | logo | status | footer · rail · page | coda |
-|---|---|---|---|---|---|---|
-| `standard` | masthead-lede, top-left | bay, top-right | slide corner TR | stacks left of the logo | footer band | content height above the footer |
-| `margin` | masthead-lede | **the rail head** — frees the bay | slide corner TR; the rail starts below its reserve | rail foot | footer band | **the rail** (`rank: margin`) |
-| `plinth` | masthead-lede | bay | slide corner TR | left of the logo | footer band | **the reserved band** (`rank: takeaway`) |
-| `foot` | masthead-lede, **at the bottom** | **bay stays at the top** — see below | slide corner TR | left of the logo | footer band | between the stage and the title band |
-| `quiet` | **silent** — the Frame reserves no title | **top-left**, the lede's vacated space | slide corner TR | left of the logo | footer band | content height above the footer |
-| `panel` | the privileged cell | bay of the support cell | slide corner TR, inverting on a dark panel | left of the logo | footer band | support cell's foot |
-| `compare` | masthead spanning both | bay | slide corner TR | left of the logo | footer band | full width beneath both (`row` dock) |
-| `triptych` | masthead spanning three | bay | slide corner TR | left of the logo | footer band | spans all three (`grid` dock) |
-| `bookend` | the whole slide | silent by default, declared | **the point** — `logo-on: title` exists for this | **the open gap** | silent by default, declared | silent |
-
-**`foot` splits the masthead, and that is the interesting row.** The lede Cell moves to
-the bottom; the **bay does not**. Two reasons: the bay at the bottom would collide with
-pagination, and `masthead-lede` and `masthead-bay` are already two Cells in
-`lib/forms/cell/`, so moving one without the other costs nothing. It also reads better —
-the deck's identity stays where a reader's eye rests first, and only the argument moves.
-
-**`bookend`'s status is still the open hole.** A WIP or CONFIDENTIAL stamp on a title
-slide has nowhere to go: the frame silences the corner stack, and it is the one slide in
-a deck most likely to need the marker. This is the third time this note has flagged it,
-which is a fair argument for making it the first Law II fix rather than a footnote.
-
-## 6. The Mode contract
-
-A Mode is a deck-wide hand every component honors. Lattice ships **one** real value,
-`sketch`, whose governing rule generalizes: *roughen the lines the deck draws, never
-invent a box.* Written as a contract so a second and sixth value stay cohesive:
-
-**Six channels — a Mode must set every one.** Type (display + body family, weight,
-tracking) · Line (weight, and the *mechanism* — `sketch` swaps CSS borders for real
-rough.js strokes) · Box (corner geometry, fill posture, elevation) · Mark (bullets,
-ticks, numerals, the `--mark-*` / `--shape-*` masks) · Measure & rhythm (text measure
-and how much air) · Ornament (a folio, corner ticks, a title block — **to frame chrome
-only, never to the stage**).
-
-**Seven clauses.**
-
-| | Rule | Protects |
-|---|---|---|
-| **M1** | Restyle, never restructure — may not add or remove a box, Cell or slot | `sketch`'s own rule. Adding a box is deciding layout, and layout is Form |
-| **M2** | **Reading-preserving** — may not change `order`, `rank` or `arity` | The load-bearing clause: it is what makes Frame × Mode compose, and it is testable |
-| **M3** | Palette-blind — where a structure carries meaning-bearing color, change its geometry, never its hue | HARD RULE #3. `sketch` already obeys this exactly |
-| **M4** | **Total coverage** — every channel, every component; none falls back to the baseline hand | The cohesion the axis exists for. **`sketch` fails this today** by its own docs: boxed blockquotes and bordered rows "still bend a `border-radius`; they convert next" |
-| **M5** | Content-blind — never changes what a component holds, nor its capacity budget | Otherwise it is Substance |
-| **M6** | Export-safe through PDF and PPTX | The Finish layer's scar: gradients fade opaque-to-opaque because Chromium's print path turns an alpha fade into a gray cloud |
-| **M7** | Escapable per slide | Already works — `_class: boardroom` opts out of `mode: sketch` |
-
-**M4 is the only clause a machine can cheaply check, and it decides whether the axis
-is worth having**: render all 69 components under a Mode and assert none falls back.
-Without that gate a Mode ships at partial coverage and every deck using it is visibly
-two decks — which is where `sketch` is today.
-
-## 7. How many Modes — personas are the wrong unit
-
-Fourteen teams do not need fourteen hands. **A persona is not a style; a deliverable
-is.** One security team ships an audit report that must read as *checked* and an
-architecture review that must read as *engineered* — two Modes, one team, same
-quarter. Index the posture and the space collapses.
-
-The question a Mode answers is *what must the audience believe about these claims?*
-Six answers cover the listed teams. **This is a hypothesis the contract lets you
-test, not a committed catalog** — values come after the contract, and each costs a
-full pass over 69 components.
-
-| Posture | The claim | Teams | Status |
-|---|---|---|---|
-| **Restraint** | "This is finished and considered." | executive · consulting · corporate comms · board · everyone's default | ships (`boardroom`) |
-| **Rigor** | "These numbers were checked." | finance · legal · audit · compliance · government · procurement · security reporting | backdrop half ships (`finish: ledger`) |
-| **Precision** | "This was engineered." | engineering · product · data · platform · security architecture · ops | proposed |
-| **Narrative** | "This is worth reading." | comms · marketing · policy · research · NGO storytelling · exec narrative | proposed |
-| **Hand** | "We are working this out together." | education · workshops · HR · ideation · early product · NGO field | ships (`sketch`) |
-| **Display** | "Look at this." | brand · sales showcase · design · launch · recruiting | backdrop half ships (`finish: gallery`) |
-
-### 7.1 The specimen bench
-
-`mode-specimens.html` renders all six hands over one body of content — the only
-variable is the Mode — with a lever for each channel the contract names, plus two
-that test it rather than tune it:
-
-- **The Frame lever** cycles `standard · plinth · margin · foot · quiet`. Every Mode
-  must survive all five without redefining itself; that is clause M2, and it is the
-  reason Frame and Mode compose. A hand that only works under `standard` is not a Mode.
-- **The component lever** cycles table, cards, figures, steps and quote. Switching it
-  is how an M4 failure becomes visible: watch for a shape that snaps back to the
-  baseline hand while everything around it is drawn.
-
-The levers deliberately offset each Mode's own defaults rather than replacing them, so
-"every Mode at its own default" is a state you can return to and compare against. Each
-tile can also emit its six-channel spec, which is the contract's payload — a tuned
-experiment becomes a candidate value rather than a screenshot.
-
-**Six is near the ceiling, and cost is why.** Nine Frames × six Modes × eighteen
-palettes is 972 combinations to keep coherent, and M4 prices each Mode at a full pass
-over all 69 components. Past six, the marginal hand is one nobody can distinguish and
-nobody can afford to keep complete.
-
-**The gap, stated plainly: nine backdrops ship and one hand does.** `finish:` carries
-`atrium · meridian · strata · halo · ledger · nimbus · loom · savile · gallery` —
-atmosphere painted *behind* content, touching no component's geometry. `mode:` carries
-`sketch` alone. Lattice has the weather for eight styles and the grammar for one.
-
-## 8. One naming collision to settle first
-
-`ledger` already means two things: a `finish:` backdrop, and a component **Form** value
-(the shape `actors`, `glossary`, `inventory` and `kpi` take). A `mode: ledger` would be
-its third sense across three axes, which `design-system.md` §2.5 bans outright — one
-system word per concept, no third synonym. The posture is named **Rigor** above for
-that reason; the register value needs a word that is not already spent.
+## 1. What was attempted
+
+A catalog of Frames a component could select from, on the premise that Lattice's
+sovereign Frames are welded one-to-one to single components. It grew to 28 entries,
+collapsed to nine, and acquired three laws, a three-atom definition of a Frame's
+"reading" (`order` / `rank` / `arity`), a chrome placement matrix, and a six-channel
+contract for the `mode:` register with six proposed postures.
+
+## 2. Why it is retracted
+
+### The foundation described a defect that was already fixed
+
+The proposal's §1 said: *"The binding is `Set` membership in `masthead.transform.js`
+(`FORM_TOGGLE_SKIP`), not declared data."* Every clause is false (**verified**):
+
+- It lives in `lib/integrations/markdown-it/plugins.js:829`, not `masthead.transform.js`.
+- It is an Array, not a Set.
+- **It is declared data.** `deriveFormToggleSkip()` reads the frame manifests and
+  filters on `exemptFromChrome`; `lib/forms/index.js` holds the derivation. The
+  docblock calls it *"the Open/Closed win"* — the exact property the proposal claimed
+  was missing.
+
+Law III promised to replace *"three hand-maintained `Set`s"*. Those were retired on
+2026-07-14 (`2026-07-14-one-frame-model.md`, step A).
+`lib/forms/cell/masthead/masthead.transform.js` says so in a comment: the generated
+catalog *"REPLACES the three hand-maintained Sets that used to live inline here"*, with
+a drift test asserting the partition reproduces exactly.
+
+**That doc was read at the start of the session.** Its front matter says
+`status: shipped`. Its *problem statement* was carried forward as current and never
+re-checked against the tree. Everything downstream inherits the error.
+
+### The counts were wrong (**verified**)
+
+| Stated | Actual |
+|---|---|
+| 12 frame manifests, 10 sovereign | **11 and 9** — `math` was removed in `a2397b0` (#2129), *"start moving math off its sovereign frame"* |
+| stage split 34 flow / 25 canvas / 10 sovereign | **34 / 26 / 9** |
+| "59 of 69 components" | **60 of 69** |
+| author-selectable Frames: `standard` + `minimal` | **1** — `form: minimal` was retired 2026-07-03 and renders byte-identical to `standard` |
+
+`a2397b0` matters beyond the count: **`main` moved `math` off its sovereign frame
+independently, in one PR, while §5.5 was spending a section deriving that it should
+be.** That is direct evidence that the incremental path dissolves the sovereign set
+without needing a catalog.
+
+### The derivation does not produce nine (**verified**)
+
+§4 ran: 675 → drop chrome posture (÷3) → 225 → keep 22 legal pairs × 5 → 110 → strip
+treatment → **22**, not nine. The original chain was no better: 110 × 3/5 = 66, never
+30. Both terminal numbers were asserted. The product also double-counts — `bled` sits
+on both the topology and treatment axes — so it was never a bound.
+
+Nine came from a different route (an atom enumeration, filtered by hand) that §4 never
+mentions. Enumerated properly, `order × rank × arity` under the proposal's own
+degeneracy rule is 33 readings; the nine Frames cover 8. `before/takeaway/2` — two
+columns with a reserved recommendation band, the most common consulting slide there
+is — has no Frame.
+
+### The atoms contradict themselves (**verified**)
+
+§5.5 argues `rank: none` is degenerate at arity 1 and uses it to reclassify `math`.
+Applied consistently the same rule merges `quiet` (`none/none/1`) into `bookend`
+(`none/thesis/1`). The proposal exempted them six lines later using a criterion —
+*does the Frame reserve a position* — that is not one of the three atoms, and that the
+degeneracy paragraph had just declared meaningless at arity 1.
+
+Separately, §5.5's heading claims *"the unary readings are five and not six"* while
+§5.3's own table lists **six** arity-1 Frames. The "five" is a fossil of a
+pre-collapse table where `bookend` sat in a different pool.
+
+### Law II's motivating defect does not reproduce (**verified by render**)
+
+The proposal said suppression *"is why `image` silently leaves the pagination
+sequence."* Rendered through the engine:
+
+```
+page 1 of 3 | class: content form
+page 2 of 3 | class: image
+page 3 of 3 | class: content form
+```
+
+The slide is page 2 of 3 and slide 3 is still 3. The numeral is not *drawn*; the
+sequence is intact. "Not drawn" and "out of sequence" are different defects.
+
+### §2's mechanism is false (**verified**)
+
+*"They carve two content Cells"* — every sovereign frame manifest declares
+`"cells": ["stage"]`, one Cell. `.panel-left` / `.panel-right` are produced by the
+component's transform inside that single Cell. And only 4 of the 9 sovereigns are
+two-cell at all; §5.4 files the other five into shared single-cell Frames, which the
+same document treats as proof of the mechanism it disproves.
+
+### The Mode contract is refuted by shipped values
+
+`mode:` ships **three** values, not the one claimed: `boardroom`, `sketch`,
+`sketch-clean` (**verified**). `sketch-clean` exists to return prose to the baseline
+body face on dense slides — a deliberate partial fallback, which is exactly what M4
+forbids. And `base.sketch.css` steps list items from `--fs-message` to `--fs-body`,
+which by `engineering/typography.md`'s own doctrine is a change in what reads as the
+message — so the only fully shipped Mode violates M2.
+
+M2 was also called *"testable"* eight lines before the document conceded that
+**"M4 is the only clause a machine can cheaply check."**
+
+## 3. Two claims the artifacts made that were false
+
+- **"The component lever shows an M4 failure."** It cannot. All six Modes' CSS was
+  hand-authored for the same five shapes, so nothing can fall back. The bench can only
+  ever report success on the clause said to decide whether the axis is worth having.
+- **The `Design` / `Boardroom` scores** are typed constants in a JS array. A rubric was
+  published and never applied by any rater. HARD RULE #23.
+
+## 4. What survived
+
+Four findings, each verified, each independently shippable — none of which needs the
+catalog, the atoms or the laws.
+
+### 4.1 The Form / Finish axis separation
+
+The one idea no reviewer dented. `design/design-system.md` owns a four-axis model —
+Function · Form · Substance · **Finish** — and Finish is surfaced through three
+registers: `theme:` (color), `mode:` (the typographic hand), `finish:` (the backdrop).
+Eleven of the sixteen proposed "Frames" changed how a slide looks rather than what it
+argues; two were near-duplicates of shipped code (`ruled` ≈ `finish: ledger`,
+`mat` ≈ `finish: gallery`). Anything that does not change the reading belongs on the
+Finish axis, not the Form axis.
+
+The correct bookkeeping, which the proposal itself got wrong: of those eleven, **four**
+were `mode:` values, three were `finish:` values, and four were carve variants — which
+are on the Form axis. The proposal's headline "11 misfiled → Finish" was overstated.
+
+### 4.2 The logo and watermark diverge from their manifests (**verified**)
+
+`lib/forms/tile/logo/logo.manifest.json` declares `fits: ["masthead-bay"]` and
+`design/forms.md:280` lists it as docked there. `lib/base/base.modifiers.css` pins it
+absolutely to the section at `top: var(--logo-y, var(--frame-inset-y))` /
+`right: var(--logo-anchor-right, var(--frame-inset-x))`, and `logo-x`/`logo-y` set the
+logo's **center as a percent of the whole slide**.
+
+`watermark` has the identical divergence: `fits: ["stage"]` in its manifest,
+`s.appendChild(wm)` onto the **section** in `watermark.transform.js:85`.
+
+Two Tiles, same shape of defect. The cheap, correct fix is to make the manifests say
+what ships. *(One correction to the proposal's own text: the Tile's `"z": 2` is the
+plane ordinal, not a `z-index` — the computed `--z-content` is `0`.)*
+
+### 4.3 `bookend` slides have no home for the status stamp
+
+A WIP or CONFIDENTIAL marker on a title slide has nowhere to go: those frames silence
+the corner stack, and a title slide is the one most likely to need the marker. This is
+the only user-visible harm the whole exercise turned up.
+
+### 4.4 `frame.schema.json` has no `admits` field (**verified**)
+
+Its properties are `$schema, id, form, kind, exemptFromChrome, description, cells,
+suppresses, slicing`. Frame-side admissibility genuinely is undeclared — the component
+side ships (`stage: flow|canvas`, in a generated catalog with a drift test), the frame
+side does not. This is the real gap Law III was reaching for, and it needs motivating
+from this fact rather than from the retired-Sets story.
+
+## 5. What to build, unbundled
+
+In this order. Each stands alone; none needs the others.
+
+1. **Correct the logo and watermark manifests** to `fits: ["slide"]`, plus the matching
+   line in `forms.md` §5.1. One commit, real defect, no design debt.
+2. **Give `bookend` a declared home for the status stamp.**
+3. **Add `admits` to `frame.schema.json`**, populated from the shipped stage catalog.
+4. **`plinth` as a single layout** with a demo deck (HARD RULE #9) — a reserved
+   takeaway band under the stage. The coda Cell already exists
+   (`2026-08-24-universal-coda-cell.md`), so this is that Cell given a band and a
+   hairline. If authors use it, consider one more; if not, that was one PR to learn it.
+
+**Do not build:** the nine-name Frame vocabulary as a canonical rename, `carve` as a
+system noun, "the Mode axis" as a phrase (Mode is a *register* of the Finish axis —
+the proposal committed the same third-sense error it correctly caught for `ledger`),
+M2 as a numbered clause, or any new `mode:` value before `sketch` reaches its own
+coverage bar.
+
+## 6. The process failure worth keeping
+
+The error that produced everything else was small and mechanical: **a decision note
+marked `status: shipped` was read for its problem statement and not for its outcome.**
+Every subsequent claim was internally consistent and confidently argued on top of a
+premise that a single `grep` would have refuted.
+
+Four rounds of human review caught four separate errors before the trio ran; the trio
+then found that the foundation itself was wrong. The lesson is not "review more" — it
+is that a proposal's §1 should cite the tree, not another document's description of
+the tree.
 
 ## See also
 
-- `design/design-system.md` — the four axes; §2.5 the vocabulary law; the three Finish
-  registers.
-- `design/forms.md` — the Form model; §5 `kind`, §8 the catalogs, §11 the manifest.
-- `2026-06-11-sketch-finish.md` — the one shipped Mode, and why a hand cannot be a theme.
-- `2026-08-04-finish-stacking-displaces-frame-chrome.md` — the Finish↔Frame seam, and
-  what it costs when a treatment reaches into frame chrome.
-- `2026-08-25-deck-profiles-craft-style-split.md` — the precedent for a declared,
-  named deck profile (there, for grading rather than composition).
-- `2026-08-24-universal-coda-cell.md` — the Cell `plinth` and `margin` re-home.
+- `design/design-system.md` — the four axes; §2.5's vocabulary law; the three Finish registers.
+- `design/forms.md` — the Form model. Note §751's `form: <frame>` claim overstates what
+  ships: `FORM_MODES = ['off', 'standard']`.
+- `2026-07-14-one-frame-model.md` — step A, shipped: the generated stage catalog and
+  drift test that replaced the three hand-maintained Sets.
+- `2026-08-24-universal-coda-cell.md` — the coda Cell `plinth` would reuse.
+- `2026-06-11-sketch-finish.md` — the one substantially shipped Mode, and why a hand
+  cannot be a theme.

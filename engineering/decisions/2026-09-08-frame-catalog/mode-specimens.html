@@ -174,7 +174,6 @@ blockquote.pq footer{margin-top:1.6cqi;font-family:var(--m-mono)!important;font-
 .orn-ticks::before{top:2.6cqi;left:2.6cqi}
 .orn-ticks::after{bottom:2.6cqi;right:2.6cqi}
 .orn-block .sl{padding-bottom:13.5cqi}
-.orn-block .sfoot .rail,.orn-block .sfoot span:last-child{display:none}
 .orn-block .tblock{position:absolute;right:2.6cqi;bottom:2.4cqi;width:27cqi;
   background:var(--s-bg);
   border:var(--m-line) solid var(--s-ink-3);font-family:var(--m-mono);font-size:1.05cqi;
@@ -300,24 +299,30 @@ code{font-family:var(--mono);font-size:.88em;background:var(--tint-2);padding:1p
       strongest carrier of a hand and not worth randomizing), and line, box, mark,
       measure and ornament are yours to move. A Mode that only reads correctly at its
       own default is not robust enough to ship.</p></div>
-    <div><h3 style="font-size:17px;font-weight:600;margin-bottom:7px">The Frame lever proves M2</h3>
-      <p class="small" style="font-size:14px;color:var(--ink-2)">Changing Frame changes
-      the <em>reading</em> — where the thesis sits, what holds the reserved position.
-      Every Mode must survive all five without redefining itself. That is clause M2,
-      and it is the reason Frame and Mode compose instead of collide.</p></div>
-    <div><h3 style="font-size:17px;font-weight:600;margin-bottom:7px">Watch for M4 failures</h3>
-      <p class="small" style="font-size:14px;color:var(--ink-2)">Switch components and
-      look for a shape that snaps back to the baseline hand. That is total-coverage
-      failing, and it is the state <code>sketch</code> is in today — boxed blockquotes
-      and bordered rows still bend a CSS radius while everything around them is drawn.</p></div>
+    <div><h3 style="font-size:17px;font-weight:600;margin-bottom:7px">The Frame lever tests survival, not M2</h3>
+      <p class="small" style="font-size:14px;color:var(--ink-2)">It changes the Frame
+      with the hand held fixed, which shows whether a hand still reads under a different
+      composition — useful, and <em>not</em> a test of whether a hand alters the reading.
+      Nothing here measures that, which is why the retracted proposal should not have
+      called that clause testable.</p></div>
+    <div><h3 style="font-size:17px;font-weight:600;margin-bottom:7px">What this bench cannot tell you</h3>
+      <p class="small" style="font-size:14px;color:var(--ink-2)">It cannot detect a
+      coverage failure. All six hands are authored here for the same five shapes, so
+      nothing can fall back to a baseline — a real coverage test has to run the 69
+      shipped components through the engine. An earlier version of this page claimed
+      otherwise; it was wrong.</p></div>
   </div>
 </section>
 
 <section class="blk">
   <h2><span class="secno">02 /</span> What is real and what is a stand-in</h2>
-  <p class="lede">Two of these six ship. The rest are drawn here for the first time and
-  nothing below is implemented in the engine.</p>
-  <div class="codeout" id="shipnote">restraint   ships as  mode: boardroom   — the baseline, byte-for-byte today
+  <p class="lede">These are hand-built mocks, not engine output — no
+  <code>lattice.css</code>, no real component, no PDF path. Treat them as sketches for
+  comparing hands, not as evidence about anything Lattice renders. The
+  <code>mode:</code> register ships three values (<code>boardroom</code>,
+  <code>sketch</code>, <code>sketch-clean</code>); the other four postures are drawn
+  here for the first time.</p>
+  <div class="codeout" id="shipnote">restraint   ships as  mode: boardroom   — the named baseline (renders no class)
 hand        ships as  mode: sketch      — Caveat + Shantell Sans, rough.js strokes
 rigor       proposed  — backdrop half ships as finish: ledger
 precision   proposed  — the title block is the only genuinely new ornament

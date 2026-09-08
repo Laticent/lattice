@@ -218,6 +218,22 @@ code{font-family:var(--mono);font-size:.88em;background:var(--tint-2);padding:1p
 .post .st{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .st.ships{color:var(--red)}
 </style>
+<div style="background:var(--red-soft);border-top:3px solid var(--red);
+  border-bottom:1px solid var(--red);padding:18px 0;margin-bottom:8px">
+  <div style="max-width:1180px;margin:0 auto;padding:0 28px">
+    <p style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+      text-transform:uppercase;color:var(--red);font-weight:500;margin-bottom:8px">Retracted &middot; 2026-09-08</p>
+    <p style="font-family:var(--sans);font-size:17px;font-weight:600;color:var(--ink);
+      margin-bottom:8px;letter-spacing:-.01em">This catalog failed adversarial review. It is kept as a sketch, not as a proposal.</p>
+    <p style="font-size:15px;color:var(--ink-2);max-width:70ch;line-height:1.55">Its foundation was
+      false: the binding it set out to fix is already declared data, derived from each frame
+      manifest&rsquo;s <code>exemptFromChrome</code>, and the three hand-maintained Sets it promised to
+      replace were retired on 2026-07-14. The counts are wrong (11 frames, not 12; 9 sovereign, not 10),
+      the axis derivation lands on 22 rather than nine, and the degeneracy rule that reclassified
+      <code>math</code> also merges <code>quiet</code> into <code>bookend</code>. Four findings survived
+      &mdash; read <code>engineering/decisions/2026-09-08-frame-catalog.md</code> instead.</p>
+  </div>
+</div>
 <div class="wrap">
 <header class="top">
   <div class="reg">
@@ -232,7 +248,7 @@ code{font-family:var(--mono);font-size:.88em;background:var(--tint-2);padding:1p
   Frames</strong>, and a contract for the axis the other eleven belong to.</p>
   <div class="specstrip">
     <div><b>9</b><span>Frames</span></div>
-    <div><b>5</b><span>Unary readings</span></div>
+    <div><b>6</b><span>Arity-1 Frames</span></div>
     <div><b>11</b><span>Misfiled → Finish</span></div>
     <div><b>1</b><span>Mode value ships</span></div>
     <div><b>9</b><span>Backdrops ship</span></div>
@@ -606,7 +622,7 @@ const F=[
 {id:'foot',n:'Foot',ord:'after',rk:'thesis',ar:1,st:'new',
  intent:'Evidence first, thesis beneath it — so the words read as the conclusion drawn from the picture.',
  carves:['band (default)','plate — the stage mounted, the band engraved below it','bleed — the image to trim, the words on a scrim (image, scene)'],
- admits:'canvas + flow',suits:['image','scene','video','big-number','piechart','bar','line','diagram','map','quote','image','scene'],
+ admits:'canvas + flow',suits:['image','scene','video','big-number','piechart','bar','line','diagram','map','quote'],
  why:'The clean reframe. Same chart, same words, no edit to the markdown: under <code>standard</code> the title is a label read before the evidence; here it is a conclusion read after it. Assertion-first becomes evidence-first.',
  sc:8,bd:7,parts:[P('stage',5,9,90,54,'STAGE'),P('rule',5,66.5,90,.6),P('eyebrow',5,69,11,2.2),
   P('title',5,73,48,5.8),P('meta',77,69,18,2.2),P('lede',5,81,36,2.1),...footF]},
