@@ -355,7 +355,11 @@ describe('the observer wiring', () => {
     // to ~64 nodes, and a timer larger than the work it defers is waiting, not coalescing.
     const src = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function scheduleRun('), RUNTIME_SRC.indexOf('function wrapFences('));
     assert.match(src, /clearTimeout\(scheduledRunHandle\)/, 'a re-arm must cancel the pending run');
-    assert.match(src, /\}, COALESCE_MS\);/, 'the floor is one frame, not a fixed debounce');
+    // THE FLOOR IS SIZED, not fixed — `contentFloorMs()` answers COALESCE_MS for a diagram
+    // that is cheap to draw and the old DEBOUNCE_MS for one that is not. It is the ONLY timer
+    // in the dispatch path: a second one, carried by the back-off, could not be made to sum
+    // with this one in either direction (see the policy port's own note).
+    assert.match(src, /\}, contentFloorMs\(\)\);/, 'the floor is sized to the diagram, not a fixed debounce');
   });
 
   test('the CONTENT pass is never gated on a diagram — only the dispatch is', () => {
@@ -367,11 +371,16 @@ describe('the observer wiring', () => {
     // dispatch point, after the transforms have run.
     const sched = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function scheduleRun('), RUNTIME_SRC.indexOf('function wrapFences('));
     assert.doesNotMatch(sched, /diagramRuns/, 'the content pass must not wait on a diagram render');
-    const init = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function initAndRun('), RUNTIME_SRC.indexOf('function initAndRun(') + 1200);
+    const init = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function initAndRun('), RUNTIME_SRC.indexOf('function initAndRun(') + 2000);
     const transformsAt = init.indexOf('runAllContentTransforms()');
     const gateAt = init.indexOf('if (diagramRuns > 0)');
     assert.ok(transformsAt !== -1 && gateAt !== -1, 'initAndRun must run the transforms and then gate the dispatch');
     assert.ok(transformsAt < gateAt, 'the transforms must run BEFORE the dispatch gate, not behind it');
+    // UNCONDITIONALLY, which is worth pinning because it briefly was not. A second entry point
+    // (the deleted back-off timer's re-entry) made this call conditional to skip a duplicate
+    // pass; with one entry point there is nothing to skip, and any condition reappearing here
+    // is the frozen-transforms defect above coming back.
+    assert.match(init, /\n {4}runAllContentTransforms\(\);/, 'the content pass is not conditional');
     assert.match(init.slice(gateAt), /rerunRequested = true/, 'and record that the source moved while a run was in flight');
   });
 });

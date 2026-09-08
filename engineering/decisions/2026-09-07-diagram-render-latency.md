@@ -680,3 +680,110 @@ consequence of the design rather than a patch: nothing in the policy asks the ho
 **What is still not verified:** real marp-vscode, real touch beyond one iPad report, and the
 export finding one step short of a downloaded file — the capture-proceeds-un-settled half is
 measured, the human-opens-a-blank-PDF half is inferred from `mermaid.css`.
+
+---
+
+## 14. Two timers cannot be made to sum, and that is why there is one
+
+§13 shipped a policy with two answers and an independent pass measured both of them wrong.
+The claim it rested on — *"a costly diagram still waits that same 150ms, so it cannot be
+slower than before"* — was false by an amount the ledger never looked for, because the
+ledger only ever ran an 8-character burst and the effect needs a longer one.
+
+### What the sixth pass measured
+
+64-node fence, 24-character burst at 120ms, `main` against `20ec5c7f`, n=3 each, with only
+`lattice-runtime.js` swapped between runs and the md5 checked before every run:
+
+| | `main` | `20ec5c7f` |
+|---|---|---|
+| redraw after the last keystroke | 464 / 468 / 489ms | 590 / 600 / 605ms |
+| main thread busy during the burst | ~10% | ~30% |
+| renders during the burst | 1 | 3 |
+| the harness's own fixed-delay typing | 3331-3341ms | 4119-4188ms |
+
+The last row is the one that settles it. Playwright injects keystrokes on a fixed 120ms
+delay; when that takes 4188ms instead of 3341ms, **the keystrokes were queued behind our own
+renders.** A change that makes typing slower is the worst thing this file can do, and no
+redraw win pays for it.
+
+### The cause was one thing wearing three hats
+
+The cheap/costly question decided the *wait* and nothing else. A `mermaid.parse` in front of
+every render (45-61ms on that fence, against a build that parses not at all) and a 1200ms
+redraw ceiling (two extra ~376ms blocking renders mid-burst) stayed on for every diagram
+whatever it cost. So the costly arm was never the old behavior it claimed to be — it was the
+old behavior plus two additions, and the doc asserting otherwise had never been checked
+against a burst long enough to show it.
+
+### Three designs, measured, in order
+
+**Hang everything off one `diagramIsCheap()` and delete the ceiling.** 64-node went to
+483/502/521ms against `main`'s 484/505/532, 10-11% against 10-11%, one render each. It also
+took the small-diagram win with it: on a 4-node fence the burst ran the costly arm end to
+end (`parses 0`, 159-192ms against `main`'s 102-139ms), because the cost record's only entry
+at burst time is the **cold** render, which carries Mermaid's per-diagram-type lazy init and
+reads as costly. **The ceiling had been the accidental learning mechanism** — its mid-burst
+renders recorded cheap costs, the median flipped, and the rest of the burst ran live.
+
+**Net the coalescing floor out of the dispatch's back-off.** Defensible on paper: the
+document has already been still for `COALESCE_MS` by the time the wait is armed. It fixed
+the 4-node case (105-113ms) and broke the 64-node one, because it drops the effective wait to
+150ms from the last *keystroke* against a ~120ms typing cadence, and a costly render supplies
+exactly the jitter that closes that 30ms of margin — 2 renders in 2 of 3 runs, 18-19% main
+thread, typing back to 3717-3767ms. **Two serial timers cannot be made to sum**: charged in
+full they overcharge the small case, netted they undercharge the large one.
+
+**So there is one timer.** `contentFloorMs()` answers `COALESCE_MS` for a cheap diagram and
+`DEBOUNCE_MS` for a costly one, `scheduleRun` is the only place a pass is scheduled from, and
+the dispatch's own back-off — timer, ceiling, arm/clear and admit gate — is deleted rather
+than left inert. A costly diagram is then the old build's single-timer shape exactly, with no
+margin left to lose. The coalescing the second timer was really for is `diagramRuns`, which
+is not a clock.
+
+### Where it lands
+
+| | `main` | this branch |
+|---|---|---|
+| 4-node, first burst after load | 102-139ms | 115-130ms |
+| 4-node, every burst after that | 102-139ms | **41-56ms**, when the live arm engages |
+| 64-node, redraw after last keystroke | 484-532ms | 535-580ms |
+| 64-node, renders / main thread / typing | 1 / 10-11% / 3331-3341ms | 1 / 11-12% / 3364-3397ms |
+
+### Why 32% of the main thread is fine here and 30% was not on the ceiling
+
+The figure that matters is not the busy fraction, it is whether one render fits inside a
+keystroke gap. The live arm draws 24 times across a 24-character burst at ~38ms each — 31-33%
+busy, and typing measured 3310-3418ms against `main`'s 3331-3341, i.e. untouched. The
+ceiling's renders were ~376ms into a ~120ms cadence, so each one directly displaced a
+keystroke. That is what `CHEAP_RENDER_MS` is really bracketing, and it is a better statement
+of the constant than "cheap".
+
+### What is still short, stated plainly
+
+**The live arm engages from the second burst, not the first**, because one cold sample is all
+the record holds after a load. The first burst is `main`'s behavior, so this is a delayed win
+rather than a regression — but it is not what §13 claimed.
+
+**Engagement is not reliable at 4 nodes on this machine.** `CHEAP_RENDER_MS = 50` straddles a
+4-node render here (38-57ms across runs), so the second burst took the live arm in roughly one
+run in three; the other runs sat at parity. The *consequence* is now benign — a mis-latched
+diagram gets `main`'s behavior rather than something worse, which was not true before this
+section — but the wobble is real and the constant is not re-tuned on a single machine's
+readings.
+
+**Three other findings from the same pass are fixed here**: a transient render failure was
+remembered for the life of the document (the 20s settle cap and any `mermaid.render` rejection
+both recorded, and the replay ran before the cache and before any render, with no way back on
+Present, a read-only embed or an export capture frame); `forceRender` and `deferredSince` did
+not guard the empty key that `erroredSources` documents at length; and `waitForDiagrams`'s hard
+cap had zero coverage — mutating it to `while (true)` left all fifteen cells green.
+
+**The export ceiling was NOT tightened, and the first attempt to tighten it was wrong.** 2x
+looked right — an export waits twice, so 5x stacks to 80s — until the test written for it
+showed that shrinking the ceiling re-opens the blank-PDF defect the progress budget exists to
+close. The real bound is the progress rule (at most N new lows for N fences, so N x budgetMs),
+and the ceiling is a loose backstop over it.
+
+**Still unverified**: real marp-vscode, real touch beyond one iPad report, and a real
+end-to-end export artifact. The 80s worst case is reasoned from the call graph, not reproduced.

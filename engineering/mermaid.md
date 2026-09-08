@@ -339,12 +339,12 @@ measurable amount. The cheap/costly question decided the *wait* and nothing else
 diagram whatever it cost. A 24-character burst into a 64-node fence, against `main`, n=3 each,
 only `lattice-runtime.js` swapped between runs:
 
-| | `main` | the first "two answers" build |
-|---|---|---|
-| redraw after the last keystroke | 464-489ms | 590-605ms |
-| main thread busy during the burst | 10% | 30% |
-| renders during the burst | 1 | 3 |
-| the harness's own fixed-delay typing | 3331-3341ms | 4119-4188ms |
+| | `main` | the first "two answers" build | now |
+|---|---|---|---|
+| redraw after the last keystroke | 464-489ms | 590-605ms | 535-580ms |
+| main thread busy during the burst | 10% | 30% | 11-12% |
+| renders during the burst | 1 | 3 | 1 |
+| the harness's own fixed-delay typing | 3331-3341ms | 4119-4188ms | 3364-3397ms |
 
 The last row is what settles it: the injected keystrokes were queued behind our own renders,
 so the change made *typing* slower. The parse cost 45-61ms on that fence against a build that
@@ -359,19 +359,34 @@ already a step function. The headline it was credited with (`edit warm 194ms →
 measured on a five-node bench deck, under the floor, where none of it ran: that number is the
 deleted debounce and nothing else.
 
-**THE CEILING IS GONE, AND ITS REMOVAL IS THE POINT.** There was one — 1200ms, so steady
-typing could not starve the redraw the way an uncapped trailing debounce does — and it was
-asked where every pass passes rather than inside the timer, which was itself a real fix:
-tested inside the callback it was never reached, because every pass that re-arms cancels that
-callback first, and a 64-node diagram sat frozen for **14166ms** against a nominal 1200ms.
+**THE CEILING IS GONE, AND SO IS THE SECOND TIMER.** There was a ceiling — 1200ms, so steady
+typing could not starve the redraw the way an uncapped trailing debounce does. It worked, and
+it cost more than it bought: firing mid-burst means a ~376ms blocking `mermaid.render` landing
+between keystrokes, three times over a 24-character burst, which is the 30% main-thread and
+24% slower typing in the table above. There is no cheap version — the cost IS the render, the
+main thread is serial, and `mermaid.render` cannot be moved off it (it needs `document` and
+throws `ReferenceError` in a worker, measured).
 
-It worked, and it cost more than it bought. Firing mid-burst means a ~376ms blocking
-`mermaid.render` landing between keystrokes, three times over a 24-character burst — the 30%
-main-thread and 24% slower typing in the table above. There is no cheap version: the cost IS
-the render, the main thread is serial, and `mermaid.render` cannot be moved off it (it needs
-`document` and throws `ReferenceError` in a worker — measured). Starving the redraw mid-burst
-is what the old build does, so matching it is parity rather than a regression, and the diagram
-is redrawn the moment the author pauses.
+Removing it exposed the second timer as the remaining problem. The dispatch carried its own
+trailing back-off *on top of* `scheduleRun`'s coalescing floor, and **two serial timers cannot
+be made to sum.** Charged in full, a 4-node fence read 152-171ms against the old build's
+102-139ms. Netting the floor out of the second timer fixed that and dropped the effective wait
+to 150ms from the last *keystroke* against a ~120ms typing cadence — where a costly render
+supplies exactly the jitter that closes the margin, taking a 64-node burst back to 2 renders in
+2 of 3 runs, 18-19% main thread, and typing stretched 3331 → 3767ms.
+
+**So there is one timer, and the policy sizes it.** `contentFloorMs()` answers `COALESCE_MS`
+for a diagram that is cheap to draw and the old `DEBOUNCE_MS` for one that is not, and
+`scheduleRun` is the only place a pass is scheduled from. A costly diagram is then the old
+build's single-timer shape exactly, and there is no margin left to lose. The coalescing the
+second timer was really for is `diagramRuns`, which is not a clock.
+
+**WHY 32% OF THE MAIN THREAD IS FINE ON THE CHEAP ARM AND 30% WAS NOT ON THE CEILING.** The
+figure that matters is not the busy fraction, it is whether one render fits inside a keystroke
+gap. The cheap arm draws 24 times across a 24-character burst at ~38ms each — 31-33% busy, and
+typing measured 3310-3418ms against the old build's 3331-3341, i.e. untouched. The ceiling's
+renders were ~376ms into a ~120ms cadence, so each one directly displaced keystrokes. That is
+what `CHEAP_RENDER_MS` is really bracketing.
 
 **NOTHING IN THE POLICY ASKS THE HOST ANYTHING**, and that is load-bearing. Two designs tried
 to make arrival faster by asking the DOM "does any fence lack a drawing?" — and it is

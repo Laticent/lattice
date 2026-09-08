@@ -1,284 +1,133 @@
 /**
- * THE DISPATCH POLICY — whether the author's next keystroke costs a blocking render, how
- * long a redraw is held, and the ceiling that stops "held" becoming "frozen".
+ * Unit: the diagram dispatch policy — ONE timer, sized to what a render costs.
  *
- * WHY THESE ARMS DRIVE THE TIMER INSTEAD OF ONLY THE ARITHMETIC. Two designs have now
- * shipped from this file with the whole suite green and the mechanism not working. The first
- * coalesced on completion, which cannot fire because `mermaid.render` occupies the main
- * thread so a keystroke never arrives mid-run. The second guarded a ceiling INSIDE the timer
- * callback while every pass cancelled that callback before it ran — a 64-node diagram sat
- * frozen for 14166ms against a nominal 1200ms ceiling. An independent checker then mutated
- * the policy eight ways, including inverting the leading edge and dropping `backoffElapsed`
- * (which never redraws at all), and every mutation survived 9179 tests.
+ * Lifted verbatim from `lib/runtime/index.js` between the BACK-OFF PORT sentinels and
+ * evaluated with its dependencies injected, so these cells test the SHIPPED policy rather
+ * than a paraphrase of it. What the policy decides is a single number: how long
+ * `scheduleRun` waits before the pass that draws. A cheap render gets the frame-level floor
+ * and redraws live; a costly one gets the 150ms this work set out to delete, which is the
+ * shape of the build being replaced.
  *
- * The common cause: the arms tested pure arithmetic while the behavior lived in the
- * scheduling. So the decision, the arm, the ceiling and the re-entry now sit inside the
- * lifted block together, and these arms drive them with a controllable clock and timer.
+ * The history matters because two designs were measured and rejected here, and both looked
+ * right on paper:
+ *
+ *   · a redraw CEILING (1200ms) so steady typing could not starve the diagram. It fires
+ *     mid-burst, and mid-burst means a ~376ms blocking `mermaid.render` between keystrokes:
+ *     30% main thread against 10%, and the harness's own typing stretched 3331 -> 4188ms.
+ *   · a SECOND timer for the dispatch, on top of the content floor. Two serial timers cannot
+ *     be made to sum: charged in full a 4-node fence read 152-171ms against the old build's
+ *     102-139ms, and netting the floor out dropped the effective wait to 150ms from the last
+ *     keystroke against a ~120ms typing cadence, which a costly render's own jitter closes.
  */
-
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { JSDOM } from 'jsdom';
 
 const RUNTIME_SRC = readFileSync(new URL('../../../lib/runtime/index.js', import.meta.url), 'utf8');
 const BEGIN = '  // ── BEGIN BACK-OFF PORT';
 const END = '  // ── END BACK-OFF PORT';
-const PENDING = 'pre[data-mermaid-state="pending"],marp-pre[data-mermaid-state="pending"]';
 
-/** A pending fence whose slot is the real `.mermaid` sibling, holding a drawing or not. */
-const FENCE = (hasInk) =>
-	`<pre data-mermaid-state="pending"><code>flowchart LR</code></pre><div class="mermaid">${hasInk ? '<svg></svg>' : ''}</div>`;
-
-function liftPolicy(html = '') {
+function liftPolicy() {
 	const start = RUNTIME_SRC.indexOf(BEGIN);
 	const end = RUNTIME_SRC.indexOf(END);
 	assert.notEqual(start, -1, 'the policy must stay bracketed with BEGIN BACK-OFF PORT');
 	assert.notEqual(end, -1, 'the policy must stay bracketed with END BACK-OFF PORT');
 	const src = RUNTIME_SRC.slice(start, end);
-	for (const fn of [
-		'function diagramBackoffMs()',
-		'function shouldDispatchDiagrams()',
-		'function armDiagramBackoff()',
-		'function diagramIsCheap()',
-		'function admitDiagramPass(',
-	]) {
+	for (const fn of ['function medianRenderCostMs()', 'function recordRenderCost(', 'function diagramIsCheap()', 'function contentFloorMs()']) {
 		assert.ok(src.includes(fn), `the port must hold ${fn} — the scheduling is the behavior`);
 	}
+	// NO TIMER LIVES HERE ANY MORE, and that is an assertion rather than an observation: the
+	// two rejected designs above both took the shape of a second clock inside this port.
+	assert.doesNotMatch(src, /setTimeout|clearTimeout/, 'the policy decides a NUMBER; scheduleRun owns the only timer');
 
-	const dom = new JSDOM(`<body>${html}</body>`);
-	const clock = { t: 10_000 };
-	const timers = [];
-	const runs = [];
 	// eslint-disable-next-line no-new-func
 	const make = new Function(
-		'document',
-		'PENDING_FENCE_SELECTOR',
-		'nowMs',
-		'setTimeout',
-		'clearTimeout',
-		'initAndRun',
+		'COALESCE_MS',
+		'DEBOUNCE_MS',
 		`${src}
 		return {
-			diagramBackoffMs, shouldDispatchDiagrams, armDiagramBackoff,
-			clearDiagramBackoff, diagramIsCheap, medianRenderCostMs, admitDiagramPass,
+			medianRenderCostMs, diagramIsCheap, contentFloorMs, CHEAP_RENDER_MS, RENDER_COST_SAMPLES,
 			render(ms) { recordRenderCost(ms); },
 			settle(ms) { for (let i = 0; i < 3; i++) recordRenderCost(ms); },
-			get handle() { return diagramBackoffHandle; },
-			CHEAP_RENDER_MS, DIAGRAM_DEBOUNCE_MS,
+			get costs() { return [...renderCosts]; },
 		};`,
 	);
-	const api = make(
-		dom.window.document,
-		PENDING,
-		() => clock.t,
-		(fn, ms) => {
-			timers.push({ fn, ms, cancelled: false });
-			return timers.length;
-		},
-		(id) => {
-			if (timers[id - 1]) timers[id - 1].cancelled = true;
-		},
-		(opts) => runs.push(opts),
-	);
-	/** Advance the clock without firing anything. */
-	const advance = (ms) => {
-		clock.t += ms;
-	};
-	/** Fire the one live timer, as its delay elapsing would. */
-	const fire = () => {
-		const live = timers.filter((t) => !t.cancelled);
-		assert.ok(live.length, 'a back-off timer must be armed');
-		live[live.length - 1].cancelled = true;
-		live[live.length - 1].fn();
-	};
-	const live = () => timers.filter((t) => !t.cancelled);
-	return { ...api, doc: dom.window.document, timers, runs, advance, fire, live };
+	return make(16, 150);
 }
 
 describe('the diagram dispatch policy', () => {
-	test('a CHEAP render is never delayed — the live per-keystroke redraw is the feature', () => {
-		// An 8-character burst on a ~30ms fence stretched 1086ms -> 1130ms redrawing on every
-		// keystroke: 44ms across eight, which nobody can feel.
-		const p = liftPolicy(FENCE(true));
+	test('a CHEAP render gets the frame floor — the live per-keystroke redraw is the feature', () => {
+		// Measured on the built Studio, second burst onward on a 4-node fence: 47ms and 62ms
+		// to the redraw against the old build's 102-139ms, at 24 renders of ~39ms each.
+		const p = liftPolicy();
 		for (const cost of [0, 22, 30, 36, p.CHEAP_RENDER_MS]) {
 			p.settle(cost);
-			assert.equal(p.diagramBackoffMs(), 0, `${cost}ms must not be throttled`);
-			assert.equal(p.shouldDispatchDiagrams(), true, `${cost}ms must dispatch at once`);
+			assert.equal(p.diagramIsCheap(), true, `${cost}ms must count as cheap`);
+			assert.equal(p.contentFloorMs(), 16, `${cost}ms must wait only the frame floor`);
 		}
 	});
 
-	test('the policy has exactly TWO answers: draw now, or wait the old debounce', () => {
-		// A curve was tried and was never operative. Twice-the-median-capped-at-150-floored-at-50
-		// returns anything other than 0 or 150 only while a render costs 50-75ms — diagrams of
-		// roughly 20 to 33 nodes against the measured size table. Everywhere else it was already
-		// a step function with arithmetic dressing it up as adaptive.
+	test('a COSTLY render gets the old debounce, and that is the whole of it', () => {
+		// 150 is inherited, not tuned: it is what a costly diagram waited before any of this,
+		// and with the dispatch's own timer gone it is ALL a costly diagram waits — one timer,
+		// same shape as the build being replaced. Re-measured on a 64-node fence: 1 render,
+		// 11-12% main thread, typing 3364-3397ms against that build's 1, 10-11%, 3331-3341ms.
 		const p = liftPolicy();
-		for (const cheap of [0, 22, 36, p.CHEAP_RENDER_MS]) {
-			p.settle(cheap);
-			assert.equal(p.diagramBackoffMs(), 0, `${cheap}ms is cheap: draw on every keystroke`);
+		for (const cost of [51, 72, 130, 239, 400]) {
+			p.settle(cost);
+			assert.equal(p.diagramIsCheap(), false, `${cost}ms must count as costly`);
+			assert.equal(p.contentFloorMs(), 150, `${cost}ms must wait the old debounce`);
 		}
-		for (const costly of [60, 75, 130, 248, 4000]) {
-			p.settle(costly);
-			assert.equal(p.diagramBackoffMs(), p.DIAGRAM_DEBOUNCE_MS, `${costly}ms waits the debounce`);
-		}
-	});
-
-	test('the costly arm IS the old debounce, so a large diagram cannot regress', () => {
-		// 150 is inherited, not tuned: it is what a costly diagram waited before any of this.
-		// Four rewrites were spent discovering that every cleverer answer regressed the large
-		// case in some cadence, on some host, or with some second fence on the slide.
-		const p = liftPolicy();
-		assert.equal(p.DIAGRAM_DEBOUNCE_MS, 150);
-	});
-
-	test('NO CEILING: steady typing holds the redraw until the author pauses', () => {
-		// THE ARM THAT REPLACED A CEILING, and the reason is a measurement rather than a taste.
-		// A 1200ms ceiling used to fire mid-burst so that steady typing could not starve the
-		// redraw. It fired three times over a 24-character burst into a 64-node fence, and each
-		// firing is a ~376ms BLOCKING `mermaid.render` landing between keystrokes: main-thread
-		// busy went 10% -> 30%, the redraw after the last keystroke went 464-489ms -> 590-605ms,
-		// and the harness's own fixed-delay typing stretched 3331ms -> 4188ms against the build
-		// before it. Holding instead is what that build does, so it is parity, not a regression.
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		p.armDiagramBackoff();
-		for (let i = 0; i < 60; i++) {
-			p.advance(100);
-			assert.equal(
-				p.shouldDispatchDiagrams(),
-				false,
-				`held ${(i + 1) * 100}ms — a costly diagram must not dispatch while the source keeps moving`,
-			);
-			p.armDiagramBackoff();
-		}
-		assert.equal(p.live().length, 1, 'and exactly one timer is waiting for the pause');
-	});
-
-	test('the pause is what dispatches it — the held render is not lost', () => {
-		// The other half: no ceiling must not mean no redraw. The trailing timer is the only
-		// thing that draws a costly diagram, so if it stops re-entering, the diagram never
-		// updates at all.
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		for (let i = 0; i < 8; i++) {
-			assert.equal(p.admitDiagramPass(false), false, 'each keystroke is held');
-			p.advance(120);
-		}
-		p.fire();
-		assert.deepEqual(p.runs, [{ backoffElapsed: true }], 'the pause re-enters exactly once');
-		assert.equal(p.admitDiagramPass(true), true, 'and that re-entry draws');
-	});
-
-	test('THE TIMER RE-ENTERS WITH backoffElapsed — dropping it never redraws at all', () => {
-		// The mutation that wedges the pipeline outright and survived the whole suite: without
-		// the flag the re-entered pass takes the wait branch again and arms another timer,
-		// forever. Nothing but driving the callback can see this.
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		p.armDiagramBackoff();
-		p.fire();
-		assert.equal(p.runs.length, 1, 'the timer must re-enter the pass');
-		assert.deepEqual(p.runs[0], { backoffElapsed: true }, 'and it must say the wait is over');
-	});
-
-	test('re-arming cancels the pending timer, so a burst leaves exactly one live', () => {
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		for (let i = 0; i < 5; i++) {
-			p.advance(50);
-			p.armDiagramBackoff();
-		}
-		assert.equal(p.live().length, 1, 'a trailing debounce keeps one timer, not five');
-	});
-
-	test('the timer is armed for the WAIT, not for some other number', () => {
-		const p = liftPolicy(FENCE(true));
-		p.settle(60);
-		p.armDiagramBackoff();
-		assert.equal(p.live()[0].ms, p.DIAGRAM_DEBOUNCE_MS, 'a costly render waits the debounce');
-		const q = liftPolicy(FENCE(true));
-		q.settle(22);
-		assert.equal(q.diagramBackoffMs(), 0, 'and a cheap one waits nothing at all');
-	});
-
-	test('a COLD first render is outvoted by the two after it', () => {
-		// It pays Mermaid's one-time initialization as well as the diagram: a 4-node fence that
-		// costs ~36ms every other time measured 210ms once. The median takes the LOWER of two,
-		// so that figure stops deciding the policy as soon as a real sample arrives.
-		const p = liftPolicy(FENCE(true));
-		p.render(210);
-		p.render(36);
-		assert.equal(p.medianRenderCostMs(), 36, 'two samples: the lower, not the cold one');
-		p.render(34);
-		assert.equal(p.medianRenderCostMs(), 36);
-		assert.equal(p.diagramBackoffMs(), 0, 'so a cheap diagram streams again quickly');
-	});
-
-	test('a genuinely expensive diagram is still throttled', () => {
-		const p = liftPolicy(FENCE(true));
-		p.render(900);
-		p.render(350);
-		p.render(340);
-		assert.equal(p.diagramBackoffMs(), p.DIAGRAM_DEBOUNCE_MS);
-	});
-
-	test('arriving from a BIG diagram at a small one stops paying for the big one', () => {
-		const p = liftPolicy(FENCE(true));
-		p.settle(239); // a 128-node fence
-		assert.equal(p.diagramBackoffMs(), 150);
-		p.render(22);
-		p.render(22);
-		assert.equal(p.diagramBackoffMs(), 0, 'two renders of the small one is enough');
-	});
-
-	test('a HELD pass arms the timer and is not admitted', () => {
-		// `admitDiagramPass` is the gate itself, and it lives inside the port because when the
-		// two lines that USE the policy sat outside it, a checker found eight mutations that
-		// survived all 9211 tests — including the two below.
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		assert.equal(p.admitDiagramPass(false), false, 'an edit on an expensive diagram is held');
-		assert.equal(p.live().length, 1, 'and a timer is armed to come back');
-	});
-
-	test('backoffElapsed ADMITS the pass — dropping it holds the render forever', () => {
-		// The mutation: `admitDiagramPass(backoffElapsed)` ignoring its argument. The timer
-		// then re-enters, is held again, arms another timer, and the diagram never draws.
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		assert.equal(p.admitDiagramPass(true), true, 'the timer’s own re-entry must get through');
-		assert.equal(p.live().length, 0, 'and must not leave a timer behind');
-	});
-
-	test('an ADMITTED pass clears the hold, so no stale timer re-enters behind it', () => {
-		// The mutation: deleting `clearDiagramBackoff()`. A timer armed by the held pass then
-		// survives the pass that drew, and re-enters `initAndRun` for a diagram already on
-		// screen — one wasted render per held stretch, on the arm where a render is expensive.
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		assert.equal(p.admitDiagramPass(false), false);
-		assert.equal(p.live().length, 1, 'the held pass armed a timer');
-		assert.equal(p.admitDiagramPass(true), true);
-		assert.equal(p.live().length, 0, 'and admitting cancelled it');
-	});
-
-	test('CHEAP and COSTLY are the same question, asked once', () => {
-		// `diagramIsCheap` now gates the parse gate as well as the wait. When the two asked
-		// separately, the costly arm carried a 45-61ms parse the old build never paid, and
-		// "it cannot be slower than before" was false by that much.
-		const p = liftPolicy();
-		p.settle(22);
-		assert.equal(p.diagramIsCheap(), true);
-		assert.equal(p.diagramBackoffMs(), 0, 'cheap: no wait');
-		p.settle(248);
-		assert.equal(p.diagramIsCheap(), false);
-		assert.equal(p.diagramBackoffMs(), p.DIAGRAM_DEBOUNCE_MS, 'costly: the old debounce');
 	});
 
 	test('the floor sits between the two measurements that bracket it', () => {
 		const p = liftPolicy();
 		assert.ok(p.CHEAP_RENDER_MS > 36, 'a ~30ms render must stay un-throttled');
 		assert.ok(p.CHEAP_RENDER_MS < 70, 'a ~70ms render must be throttled');
+	});
+
+	test('a COLD first render is outvoted by the two after it', () => {
+		// The first `mermaid.render` of a session also pays Mermaid's per-diagram-type lazy
+		// init — a 4-node fence that costs ~36ms every other time measured 210ms once. Reading
+		// only the latest number let that one figure decide the policy for the whole burst
+		// that followed.
+		const p = liftPolicy();
+		p.render(210);
+		p.render(36);
+		p.render(38);
+		assert.equal(p.diagramIsCheap(), true, 'two real samples must outvote the cold one');
+	});
+
+	test('ONE sample is the cold one, so it decides costly — and that is parity, not a loss', () => {
+		// The known limit, stated rather than hidden. On the first burst after a load the cost
+		// record holds only the cold render, so a small diagram takes the costly arm and waits
+		// the old debounce. That is the old build's behavior exactly (measured: 110-140ms
+		// against 102-139ms), so the cost is a delayed win rather than a regression — the live
+		// redraw arrives from the second burst on.
+		const p = liftPolicy();
+		p.render(210);
+		assert.equal(p.diagramIsCheap(), false);
+		assert.equal(p.contentFloorMs(), 150, 'one cold sample must not buy the live arm');
+	});
+
+	test('an empty record is CHEAP, so arriving somewhere new costs nothing to draw', () => {
+		// A wait is only ever right when the author is CHANGING something. On a first paint
+		// there is no cost on record and nothing to coalesce.
+		const p = liftPolicy();
+		assert.deepEqual(p.costs, []);
+		assert.equal(p.diagramIsCheap(), true);
+	});
+
+	test('the median takes the LOWER of two, and keeps only the last few samples', () => {
+		// Mutations that survived an earlier suite: taking the upper of two, and letting the
+		// record grow without bound so a diagram that got cheaper never noticed.
+		const p = liftPolicy();
+		p.render(20);
+		p.render(400);
+		assert.equal(p.medianRenderCostMs(), 20, 'the lower of two, not the upper');
+		const q = liftPolicy();
+		for (const ms of [400, 400, 400, 20, 20, 20]) q.render(ms);
+		assert.equal(q.costs.length, q.RENDER_COST_SAMPLES, 'the record is bounded');
+		assert.equal(q.diagramIsCheap(), true, 'and a diagram that got cheaper is noticed');
 	});
 });
