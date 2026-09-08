@@ -3437,6 +3437,7 @@ async function renderBody(browser, g, closeBrowser) {
 
     const pages = [];
     const reverted = [];
+    const detail = [];
     for (const { index, model } of models) {
       const plan = planTrim(model);
       if (!plan.actions.length) continue;
@@ -3456,15 +3457,28 @@ async function renderBody(browser, g, closeBrowser) {
         const clearTrim = new Function('return (' + clearSrc + ')')();
         const sec = document.querySelectorAll('section[data-lattice-slide]')[i];
         applyTrim(sec, p);
-        if (measureTrim(sec, clipSel, 12).boxes.length === 0) return true;
-        clearTrim(sec);
-        return false;
+        const stillOver = new Set(measureTrim(sec, clipSel, 12).boxes.map((b) => b.id));
+        if (stillOver.size === 0) return true;
+        // REVERT PER BOX, not per section. A whole-section revert throws away a good
+        // cut in one panel because a different panel is all never-trim — which is the
+        // mechanism by which `guards: strict` quietly becomes inert on exactly the
+        // split layouts it was meant to help.
+        for (const el of sec.querySelectorAll('[data-lattice-trimmed]')) {
+          const act = p.actions.find((a) => {
+            const target = sec.querySelector('[data-trim-id="' + a.blockId + '"]');
+            return target === el;
+          });
+          if (act && stillOver.has(act.boxId)) clearTrim(el.parentElement || sec);
+        }
+        return sec.querySelectorAll('[data-lattice-trimmed]').length > 0;
       }, { i: index, p: plan, applySrc: TRIM_APPLY_SRC, measureSrc: TRIM_MEASURE_SRC,
            clearSrc: TRIM_CLEAR_SRC, roleSrc: TRIM_ROLE_SRC, clipSel: CLIP_CELL_SELECTOR });
       (fitted ? pages : reverted).push(index + 1);
-      void trimRecord;
+      // The RECORD, actually used rather than imported and voided to silence lint.
+      const rec = trimRecord(plan);
+      if (fitted) detail.push(`p${index + 1}: ${rec.detail.map((d) => d.role + ' ' + d.was + '->' + d.lines).join(', ')}`);
     }
-    return { slides: pages.length, pages, reverted };
+    return { slides: pages.length, pages, reverted, detail };
   }, 'apply guards trim');
 
   // STRUCTURAL auto-split — ONE pass, before anything is measured.
@@ -3541,6 +3555,7 @@ async function renderBody(browser, g, closeBrowser) {
     const pages = trimmed.pages.join(', ');
     console.warn(`  ✂ TRIMMED — guards: strict cut text on ${trimmed.slides} slide(s): pages ${pages}.`);
     console.warn('    Those slides FIT because text was removed, so the frame check below reports them clean.');
+    if (trimmed.detail.length) console.warn(`    Cut: ${trimmed.detail.join(' · ')}.`);
     console.warn('    Shorten the copy, or set `guards: loose` to see them clip instead.');
   }
   if (trimmed.reverted?.length) {

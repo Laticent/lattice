@@ -770,6 +770,40 @@ for building it, and the note previously implied the first was already solved:
     DOM would fix it and would change exported bytes for every deck, which is an
     owner sign-off under the Quality Bar rather than a fix to slip in here.
 
+**AN INDEPENDENT REVIEW OF THE CODE FOUND A REAL CORRECTNESS BUG, and it was the
+one the design spends its length preventing.** Recorded because the pattern is the
+finding: the NOTE had six review passes, the CODE had none until it was asked for.
+
+- **`applyTrim` could clamp the wrong element, including a never-classed one.**
+  `measureTrim` minted `data-trim-id` from a counter that reset per box while the
+  section walk also descended into the clip cells, so two elements shared an id and
+  the lookup took whichever came first in document order. Reproduced: a plan naming
+  a paragraph clamped an `<h2>`. That is rule 3 violated in the DOM without
+  `planTrim` ever proposing it, on any section with a clip cell — the common case,
+  not a corner. Fixed with one id counter per section, a stamp-once guard, and a
+  walk that does not descend into a box measured separately.
+- **The planner ignored a block's top padding and border**, so its clamp did not
+  fit its own box. Measured 26px still over on a card body with 30px padding.
+- **The reflow simulation assumed a single column.** A scalar shift credited one
+  column's recovery against another, declaring a two-column box fitting while the
+  second column still overflowed by 160px. Recovery is now per block, and only
+  blocks strictly above one another displace it.
+- **The relations could not have caught any of them**, and the reason matters more
+  than the bugs: the generator built every block as exactly the planner's own
+  height formula, so `linesBefore` was exact by construction; it never emitted
+  overlapping blocks; and the test's "independent" oracle re-stacked blocks with the
+  same single-column assumption the planner had. An oracle that shares the code's
+  assumption is not an oracle. The generator now emits realistic padding and
+  multi-column shapes, and the oracle models layout physics rather than the policy.
+- **Every one of those is now mutation-proved**: re-introducing each defect turns
+  the suite red. Two took several attempts, and the last one only fell once the
+  test BUILT the padded condition instead of hoping a deck produced it.
+
+**Still open from that review, and not dismissed:** the export was observed once,
+on a cold first invocation, to revert a trim that fourteen later runs applied. Six
+consecutive runs here are byte-identical, but warm runs are not the condition
+described, so this is unreproduced rather than disproved.
+
 **BUILT, as of this branch.** The kernel (`lib/core/guards-trim.js`), the register
 (`lib/core/resolve-guards.js`), both render-path call sites, the `unknown-guards`
 lint rule, the register docs and `examples/overflow-guards.md` have landed. What

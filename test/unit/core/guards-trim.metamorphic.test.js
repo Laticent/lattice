@@ -274,3 +274,36 @@ test('MR12 all-never box — declines with no actions, whatever the overflow', (
     assert.equal(plan.fits.length, 0, `seed ${seed}`);
   }
 });
+
+// ── MR13 · the clamp lands inside the box ────────────────────────────────────
+// MR3 only inspects boxes the planner CLAIMS fit, so an arithmetic slip that makes
+// the planner under-trim shows up as a decline and slips past it — measured:
+// deleting the top-padding term from the room calculation left all 14 relations
+// green. This one asserts the geometry of the cut itself: the clamped text must
+// END at or above the limit. Padding and borders displace text, so an omission
+// here fails immediately.
+test('MR13 tight clamp — a clamped block\'s text ends at or above the box limit', () => {
+  let checked = 0;
+  for (const seed of SEEDS) {
+    const model = makeModel(seed);
+    const plan = planTrim(model);
+    for (const a of plan.actions) {
+      const box = model.boxes.find((b) => b.id === a.boxId);
+      const b = box.blocks.find((x) => x.id === a.blockId);
+      const padTop = b.padTop || 0;
+      // Blocks strictly above this one give back their recovered height.
+      const shift = plan.actions.reduce((sum, o) => {
+        if (o.blockId === a.blockId) return sum;
+        const ob = box.blocks.find((x) => x.id === o.blockId);
+        return ob && ob.bottom <= b.top ? sum + o.recovered : sum;
+      }, 0);
+      const textTop = b.top - shift + padTop;
+      const textBottom = textTop + a.lines * b.lineHeight;
+      assert.ok(textBottom <= box.limit + TRIM_TOLERANCE,
+        `seed ${seed}: ${a.blockId} clamped to ${a.lines} lines ends at ${textBottom} ` +
+        `but the box limit is ${box.limit} — the clamp does not fit its own box`);
+      checked++;
+    }
+  }
+  assert.ok(checked > 0, 'anti-vacuity: no clamp was checked');
+});

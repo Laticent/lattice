@@ -217,6 +217,13 @@ describe('the TRIM DOM adapter, in real Chromium', () => {
           id: el.id || el.getAttribute('data-trim-id'),
           clamp: getComputedStyle(el).webkitLineClamp,
           overflow: getComputedStyle(el).overflow,
+          // The ROLE of the element that actually got clamped. Without this the
+          // assertion cannot tell a correct clamp from one applied to the wrong
+          // element: a duplicated trim id resolves to whichever element comes first
+          // in document order, so a plan naming a paragraph can clamp a HEADING and
+          // every id and line-count check still passes. That defect was real.
+          role: trimRoleOf(el),
+          tag: el.tagName,
         }));
       })()`);
       return { plan, applied };
@@ -232,6 +239,57 @@ describe('the TRIM DOM adapter, in real Chromium', () => {
       assert.equal(el.clamp, String(a.lines),
         `${a.blockId}: planned ${a.lines} lines, DOM has ${el.clamp}`);
       assert.equal(el.overflow, 'hidden');
+      assert.equal(el.role, a.role,
+        `${a.blockId}: the plan cut a ${a.role} but the DOM clamped a ${el.role} ` +
+        `(<${el.tag}>) — applyTrim resolved the id to the wrong element`);
+    }
+  });
+
+  test('a plan that claims FIT actually fits once applied — model vs DOM', async () => {
+    // THE ONE ASSERTION NO METAMORPHIC RELATION CAN MAKE. `planTrim` guarantees
+    // fit-or-nothing over its MODEL; whether that prediction survives contact with
+    // the DOM is a different claim, and it is the claim that failed on
+    // `examples/overflow-guards.md` page 4 (trimmed, and still overflowing).
+    //
+    // It is also the only thing that catches an arithmetic slip in how the planner
+    // accounts for a block's own top padding and border: omitting that term makes
+    // the planner UNDER-trim and decline rather than mis-fit, so every model-level
+    // relation stays green while the real box is left over by the padding it forgot.
+    const out = await onPage(async (page) => {
+      // GIVE THE BLOCK REAL PADDING FIRST. A card body in this engine carries
+      // ~30px of top padding against a ~20px line, and that is exactly the term a
+      // planner can forget. Neither the generated models nor this deck's plain
+      // prose reproduce it, so the condition is built rather than hoped for —
+      // four mutation rounds went by before that was the obvious move.
+      await page.evaluate(`(() => {
+        for (const p of document.querySelectorAll('.cell-stage p')) {
+          p.style.paddingTop = '34px';
+          p.style.borderTop = '6px solid transparent';
+        }
+      })()`);
+      const model = await page.evaluate(`(() => {
+        ${INJECT}
+        return measureTrim(document.querySelectorAll('section')[0], ${JSON.stringify(CLIP_CELL_SELECTOR)}, 12);
+      })()`);
+      const plan = planTrim(model);
+      const after = await page.evaluate(`(() => {
+        ${INJECT}
+        const s = document.querySelectorAll('section')[0];
+        applyTrim(s, ${JSON.stringify(plan)});
+        return measureTrim(s, ${JSON.stringify(CLIP_CELL_SELECTOR)}, 12).boxes.map((b) => ({
+          id: b.id, over: Math.round(b.contentBottom - b.limit),
+        }));
+      })()`);
+      return { plan, after };
+    });
+
+    assert.ok(out.plan.fits.length > 0,
+      'anti-vacuity: the planner claimed no box would fit, so there is no prediction to check');
+    for (const boxId of out.plan.fits) {
+      const still = out.after.find((b) => b.id === boxId);
+      assert.equal(still, undefined,
+        `box ${boxId} was planned as fitting but the real DOM still overflows it by ` +
+        `${still?.over}px — the model and the page disagree`);
     }
   });
 
