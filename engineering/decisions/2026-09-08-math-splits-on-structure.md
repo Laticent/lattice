@@ -121,6 +121,15 @@ a sequence, a symbol legend is a set), and one value cannot serve both.
 | …plus the `+` inside the bracket (what the pass emits) | 1850px | 878 |
 | …at the multi-line display scale | 925px | **fits** |
 
+*(Re-derived 2026-09-08 on the real surface, by a second instrument written from scratch rather
+than the one that produced the table: typeset each of the four forms with the same KaTeX the engine
+uses, inject it into a real rendered portrait slide so the theme cascade reaches it, and measure at
+`max-content` — the laid-out rect is clipped to the box and reads 972 for everything, which is the
+trap the instrument exists to avoid. Against a 972px stage: **2587 / 2606 / 1848 / 924**. The first
+two are exact; rows three and four come in 2px and 1px under, which is subpixel rounding, not a
+different answer. The table is left as first measured and this is the check on it. `.scratch/measure-ink.js`
+is the probe; it is throwaway, so the method is written out here rather than the path.)*
+
 Two things in that table decide the design. **Breaking at the top-level `=` alone is WORSE than
 not breaking** — the `aligned` column adds width and the long side never moves — so a depth-0-only
 pass is a regression, not a weak fix. And the win comes from DESCENDING into the delimiter group
