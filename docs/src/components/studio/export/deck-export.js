@@ -451,6 +451,26 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
  * on a diagram that is STUCK, never on one that is merely slow. A hard ceiling still bounds
  * the worst case, because a fence that oscillates without settling would otherwise wait for
  * ever.
+ *
+ * WHAT ACTUALLY BOUNDS THIS, and why the ceiling stays wide. Progress is a NEW LOW in the
+ * pending count, and the count is a non-negative integer, so there can be at most N of them
+ * for N fences: the loop's own bound is N x budgetMs, not the ceiling. An 8-diagram deck at
+ * budgetMs=12000 is therefore bounded at 96s by the progress rule alone, and the ceiling at
+ * 5x cuts that to 60s.
+ *
+ * A TIGHTER CEILING IS NOT A BETTER ONE, and this was measured the wrong way round first. 2x
+ * was tried, on the reasoning that an export waits here twice (`createCaptureFrame` before
+ * the fit pass, then `bakeDeckSections` for the bake) so an 80s worst case is really two 5x
+ * ceilings stacked. It is — and shrinking it re-opens exactly the defect this function was
+ * rewritten to close: a ceiling that fires while diagrams are still FINISHING abandons the
+ * capture mid-render, and `mermaid.css` hides the source `<pre>` for every state but
+ * error/unavailable, so what lands in the PDF is a blank region, permanently, in a file the
+ * author already downloaded. A slow export is a slow export; a blank one is #2092 again.
+ *
+ * So the ceiling is deliberately the loose backstop and the progress rule is the real bound.
+ * It is reachable — a deck that keeps finishing diagrams past the ceiling IS cut off, which
+ * is the cost — and `the ceiling is reachable, and it cuts a deck that is still finishing`
+ * in the test file pins both halves so the number cannot drift without someone reading this.
  */
 export async function waitForDiagrams(doc, budgetMs = 4000, hardCapMs = budgetMs * 5) {
 	const UNTAGGED = ':is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"]:not(.language-mermaid-source)';
@@ -544,6 +564,8 @@ export async function bakeDeckSections(render) {
 		// A longer budget than the rasterizers': this is a one-shot export step whose whole
 		// job is the diagram, and shipping the fence is a permanent defect in a frozen file
 		// (a raster that lands a frame early is merely a stale pixel).
+		// 12000/60000 here, after the capture frame's own 4000/20000: 80s worst case, and the
+		// arithmetic is written out at `waitForDiagrams` along with why it is not shrunk.
 		await waitForDiagrams(doc, 12000);
 		const sections = [...doc.querySelectorAll('.lattice > section')];
 		if (!sections.length) return null;

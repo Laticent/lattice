@@ -171,6 +171,40 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		expect(waited).toBeGreaterThan(BUDGET);
 	});
 
+	it('the ceiling is reachable, and it cuts a deck that is still finishing', async () => {
+		// THE ONLY BOUND ON THE LOOP, and it had zero coverage: mutating
+		// `while (Date.now() - start < hardCapMs)` to `while (true)` left all fifteen cells
+		// green. The first replacement written for it did not kill that mutant either, and the
+		// reason is worth keeping: progress is a NEW LOW in the pending count, so a fence set
+		// that oscillates UPWARD never resets the deadline and exits by the budget instead. The
+		// ceiling is reached only by a deck that keeps genuinely finishing diagrams for longer
+		// than the ceiling allows — which is also the case where cutting it off costs a blank
+		// region in the PDF. Both halves are the point.
+		const doc = frag('');
+		for (let i = 0; i < 12; i++) {
+			const pre = doc.createElement('pre');
+			pre.setAttribute('data-mermaid-state', 'pending');
+			doc.body.appendChild(pre);
+		}
+		// One finishes every 400ms: real progress, every time, for 4800ms — past the 3000ms
+		// ceiling (5 x BUDGET) that this deck's steady progress would otherwise outrun.
+		const tick = setInterval(() => {
+			const pre = doc.querySelector('pre[data-mermaid-state="pending"]');
+			if (!pre) return;
+			pre.setAttribute('data-mermaid-state', 'rendered');
+			const box = doc.createElement('div');
+			box.innerHTML = '<svg></svg>';
+			pre.after(box);
+		}, 400);
+		const started = Date.now();
+		await waitForDiagrams(doc, BUDGET);
+		const waited = Date.now() - started;
+		clearInterval(tick);
+		expect(doc.querySelectorAll('pre[data-mermaid-state="pending"]').length).toBeGreaterThan(0);
+		expect(waited).toBeGreaterThanOrEqual(BUDGET * 5);
+		expect(waited).toBeLessThan(BUDGET * 5 + 400);
+	});
+
 	it('gives up on a diagram that is STUCK, not merely slow', async () => {
 		// The other half: progress-based must not mean unbounded. Nothing ever settles here.
 		const doc = frag('<pre data-mermaid-state="pending"></pre>');

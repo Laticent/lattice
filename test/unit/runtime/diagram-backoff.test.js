@@ -40,7 +40,7 @@ function liftPolicy(html = '') {
 		'function diagramBackoffMs()',
 		'function shouldDispatchDiagrams()',
 		'function armDiagramBackoff()',
-		'function backoffExpired()',
+		'function diagramIsCheap()',
 		'function admitDiagramPass(',
 	]) {
 		assert.ok(src.includes(fn), `the port must hold ${fn} — the scheduling is the behavior`);
@@ -61,11 +61,11 @@ function liftPolicy(html = '') {
 		`${src}
 		return {
 			diagramBackoffMs, shouldDispatchDiagrams, armDiagramBackoff,
-			clearDiagramBackoff, backoffExpired, medianRenderCostMs, admitDiagramPass,
+			clearDiagramBackoff, diagramIsCheap, medianRenderCostMs, admitDiagramPass,
 			render(ms) { recordRenderCost(ms); },
 			settle(ms) { for (let i = 0; i < 3; i++) recordRenderCost(ms); },
 			get handle() { return diagramBackoffHandle; },
-			CHEAP_RENDER_MS, DIAGRAM_DEBOUNCE_MS, DIAGRAM_MAX_WAIT_MS,
+			CHEAP_RENDER_MS, DIAGRAM_DEBOUNCE_MS,
 		};`,
 	);
 	const api = make(
@@ -132,60 +132,42 @@ describe('the diagram dispatch policy', () => {
 		assert.equal(p.DIAGRAM_DEBOUNCE_MS, 150);
 	});
 
-	test('THE CEILING HOLDS AGAINST CONTINUOUS RE-ARMING — the 14-second freeze', () => {
-		// The bug this kills: the ceiling was tested only inside the timer callback, and every
-		// pass that re-arms cancels that callback first. The runtime's own transform writes
-		// echo back through the observer about four times per keystroke, so the timer was reset
-		// faster than it could ever fire and the ceiling was never reached. Measured on the
-		// built Studio: a 64-node diagram frozen for 14166ms against a 1200ms ceiling, scaling
-		// with how long the author kept typing.
+	test('NO CEILING: steady typing holds the redraw until the author pauses', () => {
+		// THE ARM THAT REPLACED A CEILING, and the reason is a measurement rather than a taste.
+		// A 1200ms ceiling used to fire mid-burst so that steady typing could not starve the
+		// redraw. It fired three times over a 24-character burst into a 64-node fence, and each
+		// firing is a ~376ms BLOCKING `mermaid.render` landing between keystrokes: main-thread
+		// busy went 10% -> 30%, the redraw after the last keystroke went 464-489ms -> 590-605ms,
+		// and the harness's own fixed-delay typing stretched 3331ms -> 4188ms against the build
+		// before it. Holding instead is what that build does, so it is parity, not a regression.
 		const p = liftPolicy(FENCE(true));
 		p.settle(248);
-		assert.equal(p.shouldDispatchDiagrams(), false, 'it starts by waiting');
 		p.armDiagramBackoff();
-		// Somebody types steadily; every pass re-arms, and none of them ever lets the timer run.
-		for (let i = 0; i < 40; i++) {
+		for (let i = 0; i < 60; i++) {
 			p.advance(100);
-			if (p.shouldDispatchDiagrams()) break;
+			assert.equal(
+				p.shouldDispatchDiagrams(),
+				false,
+				`held ${(i + 1) * 100}ms — a costly diagram must not dispatch while the source keeps moving`,
+			);
 			p.armDiagramBackoff();
 		}
-		assert.ok(
-			p.shouldDispatchDiagrams(),
-			'the ceiling must be reachable by a pass, not only by the timer it keeps cancelling',
-		);
+		assert.equal(p.live().length, 1, 'and exactly one timer is waiting for the pause');
 	});
 
-	test('the ceiling is reached in about DIAGRAM_MAX_WAIT_MS, not later', () => {
+	test('the pause is what dispatches it — the held render is not lost', () => {
+		// The other half: no ceiling must not mean no redraw. The trailing timer is the only
+		// thing that draws a costly diagram, so if it stops re-entering, the diagram never
+		// updates at all.
 		const p = liftPolicy(FENCE(true));
 		p.settle(248);
-		p.armDiagramBackoff();
-		let held = 0;
-		while (!p.shouldDispatchDiagrams() && held < 20_000) {
-			p.advance(100);
-			held += 100;
-			if (!p.shouldDispatchDiagrams()) p.armDiagramBackoff();
+		for (let i = 0; i < 8; i++) {
+			assert.equal(p.admitDiagramPass(false), false, 'each keystroke is held');
+			p.advance(120);
 		}
-		assert.ok(held <= p.DIAGRAM_MAX_WAIT_MS + 100, `held ${held}ms, ceiling ${p.DIAGRAM_MAX_WAIT_MS}ms`);
-	});
-
-	test('the ceiling clock spans the whole held stretch, not the last re-arm', () => {
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		p.armDiagramBackoff();
-		p.advance(700);
-		p.armDiagramBackoff(); // a re-arm must NOT restart the budget
-		p.advance(600);
-		assert.equal(p.backoffExpired(), true, '1300ms held in total must count as held');
-	});
-
-	test('a pass that gets through RESETS the budget, so the next stretch gets its own', () => {
-		const p = liftPolicy(FENCE(true));
-		p.settle(248);
-		p.armDiagramBackoff();
-		p.advance(1300);
-		assert.equal(p.backoffExpired(), true);
-		p.clearDiagramBackoff();
-		assert.equal(p.backoffExpired(), false, 'a fresh stretch is not born expired');
+		p.fire();
+		assert.deepEqual(p.runs, [{ backoffElapsed: true }], 'the pause re-enters exactly once');
+		assert.equal(p.admitDiagramPass(true), true, 'and that re-entry draws');
 	});
 
 	test('THE TIMER RE-ENTERS WITH backoffElapsed — dropping it never redraws at all', () => {
@@ -269,17 +251,29 @@ describe('the diagram dispatch policy', () => {
 		assert.equal(p.live().length, 0, 'and must not leave a timer behind');
 	});
 
-	test('an ADMITTED pass clears the hold, so the ceiling measures one stretch', () => {
-		// The mutation: deleting `clearDiagramBackoff()`. The ceiling then keeps measuring a
-		// stretch that already ended, and expires early on the next one.
+	test('an ADMITTED pass clears the hold, so no stale timer re-enters behind it', () => {
+		// The mutation: deleting `clearDiagramBackoff()`. A timer armed by the held pass then
+		// survives the pass that drew, and re-enters `initAndRun` for a diagram already on
+		// screen — one wasted render per held stretch, on the arm where a render is expensive.
 		const p = liftPolicy(FENCE(true));
 		p.settle(248);
-		p.admitDiagramPass(false);
-		p.advance(1300);
-		assert.equal(p.backoffExpired(), true, 'held long enough to expire');
-		p.admitDiagramPass(true);
-		assert.equal(p.backoffExpired(), false, 'admitting resets the budget');
-		assert.equal(p.live().length, 0, 'and cancels the pending timer');
+		assert.equal(p.admitDiagramPass(false), false);
+		assert.equal(p.live().length, 1, 'the held pass armed a timer');
+		assert.equal(p.admitDiagramPass(true), true);
+		assert.equal(p.live().length, 0, 'and admitting cancelled it');
+	});
+
+	test('CHEAP and COSTLY are the same question, asked once', () => {
+		// `diagramIsCheap` now gates the parse gate as well as the wait. When the two asked
+		// separately, the costly arm carried a 45-61ms parse the old build never paid, and
+		// "it cannot be slower than before" was false by that much.
+		const p = liftPolicy();
+		p.settle(22);
+		assert.equal(p.diagramIsCheap(), true);
+		assert.equal(p.diagramBackoffMs(), 0, 'cheap: no wait');
+		p.settle(248);
+		assert.equal(p.diagramIsCheap(), false);
+		assert.equal(p.diagramBackoffMs(), p.DIAGRAM_DEBOUNCE_MS, 'costly: the old debounce');
 	});
 
 	test('the floor sits between the two measurements that bracket it', () => {

@@ -100,6 +100,10 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
        // The cost sampler the dispatch back-off reads. It lives outside this block and these
        // cells are about the chain always advancing, so it stands in rather than lifts.
        const recordRenderCost = () => {};
+       // The cheap/costly answer. It lives with the back-off outside this block, and it now
+       // gates the parse as well as the wait — these cells are about the chain advancing, so
+       // it stands in with the arm that keeps the gate ON, which is the busier path.
+       const diagramIsCheap = () => true;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,

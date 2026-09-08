@@ -330,8 +330,27 @@ renders. The jank had moved from the diagram into the editor.
 **SO THE DISPATCH HAS TWO ANSWERS, NOT A CURVE.** A render at or under ~50ms is redrawn on
 every keystroke — that is free (a burst on a ~30ms fence stretched 1086ms → 1130ms) and it is
 what makes editing a small diagram feel live. Anything costlier waits **150ms: the exact
-debounce this work removed**, so a large diagram cannot regress against the build being
-replaced, because there it is byte-for-byte that build.
+debounce this work removed**.
+
+**AND THE ANSWER GATES EVERYTHING, WHICH IT DID NOT AT FIRST.** The first version of this
+paragraph claimed a costly diagram was "byte-for-byte that build" and it was false, by a
+measurable amount. The cheap/costly question decided the *wait* and nothing else, while a
+`mermaid.parse` in front of every render and a 1200ms redraw ceiling stayed on for every
+diagram whatever it cost. A 24-character burst into a 64-node fence, against `main`, n=3 each,
+only `lattice-runtime.js` swapped between runs:
+
+| | `main` | the first "two answers" build |
+|---|---|---|
+| redraw after the last keystroke | 464-489ms | 590-605ms |
+| main thread busy during the burst | 10% | 30% |
+| renders during the burst | 1 | 3 |
+| the harness's own fixed-delay typing | 3331-3341ms | 4119-4188ms |
+
+The last row is what settles it: the injected keystrokes were queued behind our own renders,
+so the change made *typing* slower. The parse cost 45-61ms on that fence against a build that
+parses not at all, and the ceiling forced two extra ~376ms blocking renders mid-burst. Both
+now hang off the same `diagramIsCheap()` answer, so the costly arm really is the old
+behavior — a 150ms trailing debounce with nothing in front of it.
 
 **AN EARLIER "ADAPTIVE" WAIT WAS RETIRED FOR BEING ARITHMETIC RATHER THAN ADAPTATION.** Twice
 the median render, capped at 150 and floored at 50, returns something other than 0 or 150 only
@@ -340,11 +359,19 @@ already a step function. The headline it was credited with (`edit warm 194ms →
 measured on a five-node bench deck, under the floor, where none of it ran: that number is the
 deleted debounce and nothing else.
 
-**THE CEILING IS ASKED WHERE EVERY PASS PASSES**, not inside the timer. A trailing debounce
-needs a ceiling or steady typing starves the redraw — and testing it inside the timer callback
-does nothing, because every pass that re-arms cancels that callback first. A 64-node diagram
-sat frozen for **14166ms** against a nominal 1200ms. This is the one place the new behavior is
-better than the old rather than equal to it: the debounce it restores had no ceiling at all.
+**THE CEILING IS GONE, AND ITS REMOVAL IS THE POINT.** There was one — 1200ms, so steady
+typing could not starve the redraw the way an uncapped trailing debounce does — and it was
+asked where every pass passes rather than inside the timer, which was itself a real fix:
+tested inside the callback it was never reached, because every pass that re-arms cancels that
+callback first, and a 64-node diagram sat frozen for **14166ms** against a nominal 1200ms.
+
+It worked, and it cost more than it bought. Firing mid-burst means a ~376ms blocking
+`mermaid.render` landing between keystrokes, three times over a 24-character burst — the 30%
+main-thread and 24% slower typing in the table above. There is no cheap version: the cost IS
+the render, the main thread is serial, and `mermaid.render` cannot be moved off it (it needs
+`document` and throws `ReferenceError` in a worker — measured). Starving the redraw mid-burst
+is what the old build does, so matching it is parity rather than a regression, and the diagram
+is redrawn the moment the author pauses.
 
 **NOTHING IN THE POLICY ASKS THE HOST ANYTHING**, and that is load-bearing. Two designs tried
 to make arrival faster by asking the DOM "does any fence lack a drawing?" — and it is

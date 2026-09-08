@@ -36,7 +36,7 @@ function shippedPendingState() {
 }
 
 /** Lift the real gate, bound to one jsdom document and a controllable clock. */
-function liftGate(html = '') {
+function liftGate(html = '', { cheap = true } = {}) {
 	const start = RUNTIME_SRC.indexOf(BEGIN);
 	const end = RUNTIME_SRC.indexOf(END);
 	assert.notEqual(start, -1, 'the gate must be bracketed with BEGIN PARSE-GATE PORT');
@@ -52,6 +52,8 @@ function liftGate(html = '') {
 	const timers = [];
 	const scheduled = [];
 	const rendered = [];
+	/** Every `renderDiagramNow` call's `remember` argument, in order. */
+	const remembered = [];
 	// eslint-disable-next-line no-new-func
 	const make = new Function(
 		'document',
@@ -63,6 +65,7 @@ function liftGate(html = '') {
 		'nowMs',
 		'erroredSources',
 		'attachErrorSafely',
+		'diagramIsCheap',
 		`${src}\nreturn { deferUntilQuiet, armErrorSurface, sweepDeferredFences, parsesCleanly, renderDiagramJob, forceRender, deferredSince, fenceSourceOf, ERROR_QUIET_MS, DEFERRED_FENCE_SELECTOR };`,
 	);
 	const api = make(
@@ -76,8 +79,9 @@ function liftGate(html = '') {
 		},
 		() => scheduled.push(true),
 		50,
-		(_mermaid, _scopeKey, job) => {
+		(_mermaid, _scopeKey, job, remember = false) => {
 			rendered.push(job.preEl);
+			remembered.push(remember);
 			return Promise.resolve();
 		},
 		// A CONTROLLABLE CLOCK, because the per-fence quiet windows are the thing under test
@@ -87,10 +91,14 @@ function liftGate(html = '') {
 		// outside this port, so they are injected — which is also what makes the gate's replay
 		// branch reachable from here.
 		errored,
-		(preEl, _target, err) => {
-			errored.set((preEl.querySelector('code') || preEl).textContent || '', err);
+		// Honors `remember` exactly as the real one does. A stub that always remembered was
+		// what let the permanent-error defect through: every failure looked deliberate.
+		(preEl, _target, err, remember = false) => {
+			if (remember) errored.set((preEl.querySelector('code') || preEl).textContent || '', err);
 			preEl.dataset.mermaidState = 'error';
 		},
+		// The cheap/costly answer, which now gates the parse as well as the wait.
+		() => cheap,
 	);
 	/** Fire the newest live timer, the way a quiet window elapsing would. */
 	const elapse = () => {
@@ -102,7 +110,7 @@ function liftGate(html = '') {
 	const advance = (ms) => {
 		clock.t += ms;
 	};
-	return { ...api, doc: dom.window.document, timers, scheduled, rendered, elapse, advance, clock, errored };
+	return { ...api, doc: dom.window.document, timers, scheduled, rendered, remembered, elapse, advance, clock, errored };
 }
 
 const FENCE = (state) => `<pre data-mermaid-state="${state}"><code>flowchart LR</code></pre>`;
@@ -374,5 +382,58 @@ describe('the parse gate decides', () => {
 		const verdict = gate.parsesCleanly(withParse(async () => true), 'flowchart LR\n A --> B');
 		assert.equal(gate.timers.length, before + 1, 'a parse with no cap can hang the queue forever');
 		assert.equal(await verdict, true);
+	});
+});
+
+describe('the parse gate is the CHEAP arm, and remembering is a claim about the source', () => {
+	const job = (doc) => {
+		const preEl = doc.querySelector('pre');
+		return { preEl, target: doc.createElement('div'), source: 'flowchart LR' };
+	};
+	const failsToParse = { parse: () => Promise.reject(new Error('nope')) };
+	const parsesFine = { parse: () => Promise.resolve(true) };
+
+	test('a COSTLY diagram never pays for the parse — that is the old build exactly', async () => {
+		// Half of how "a large diagram cannot regress" became false. On a 64-node fence the
+		// parse measured 45-61ms, against a build that parses not at all, and it sits on the
+		// critical path of the redraw the author is waiting for. Measured end to end: redraw
+		// after the last keystroke 590-605ms against that build's 464-489ms.
+		let parses = 0;
+		const p = liftGate(FENCE('pending'), { cheap: false });
+		await p.renderDiagramJob({ parse: () => { parses++; return Promise.reject(new Error('nope')); } }, 's', job(p.doc));
+		assert.equal(parses, 0, 'a costly diagram must not be parsed before it is rendered');
+		assert.equal(p.rendered.length, 1, 'it renders straight away, like the old build');
+		assert.equal(p.doc.querySelector('pre').dataset.mermaidState, 'pending', 'and is not deferred');
+	});
+
+	test('a CHEAP diagram still gets the gate — the anti-flash win is kept where it is free', async () => {
+		const p = liftGate(FENCE('pending'), { cheap: true });
+		await p.renderDiagramJob(failsToParse, 's', job(p.doc));
+		assert.equal(p.rendered.length, 0, 'a half-written cheap fence is held, not drawn');
+		assert.equal(p.doc.querySelector('pre').dataset.mermaidState, 'deferred');
+	});
+
+	test('a render this pass did not FORCE is never remembered', async () => {
+		// The defect: `attachErrorSafely` recorded from every call site, so a 20s settle cap on
+		// a stalled icon-pack fetch, or any transient `mermaid.render` rejection, pinned the
+		// error box for the life of the document. The old build retags the fence `pending` on
+		// the next host rebuild and succeeds. Present, a read-only embed and an export capture
+		// frame have no way to edit the fence, so there was no way back at all.
+		const p = liftGate(FENCE('pending'), { cheap: true });
+		await p.renderDiagramJob(parsesFine, 's', job(p.doc));
+		assert.deepEqual(p.remembered, [false], 'a clean parse renders WITHOUT permission to remember');
+
+		const q = liftGate(FENCE('pending'), { cheap: false });
+		await q.renderDiagramJob(parsesFine, 's', job(q.doc));
+		assert.deepEqual(q.remembered, [false], 'and neither does the costly arm');
+	});
+
+	test('only a fence RELEASED by the quiet timer may remember its failure', async () => {
+		// The one path that has earned it: this fence failed `mermaid.parse` and then sat out a
+		// full quiet window, so the text is known bad rather than unlucky.
+		const p = liftGate(FENCE('pending'), { cheap: true });
+		p.forceRender.add('flowchart LR');
+		await p.renderDiagramJob(parsesFine, 's', job(p.doc));
+		assert.deepEqual(p.remembered, [true], 'a forced render is the deliberate one');
 	});
 });
