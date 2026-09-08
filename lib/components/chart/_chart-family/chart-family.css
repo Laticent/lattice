@@ -366,6 +366,37 @@ section.word-cloud,
    * quadrant zone, a pie wedge, a gantt bar, and a status pill all darken the
    * same way on dark. (The light side is unchanged from the old `var(--bg)`.) */
   --chart-cat-base: light-dark(var(--bg), black);
+
+/* ── THE BODY tier — the 82% vivid solid, defined ONCE ────────────────────
+ * The family's third wash level, beside --catN-fill (24%/40%) and --catN-ink
+ * (text-safe). It had no token, so the recipe was RETYPED at ten call sites —
+ * five stylesheets and five transforms — and with nothing to be consistent
+ * with, five of the ten drifted onto `var(--bg)` instead of --chart-cat-base.
+ *
+ * THE DRIFT IS INVISIBLE ON LIGHT, which is why it survived: --chart-cat-base
+ * IS --bg on a light canvas, so the two spellings agree. On dark they do not —
+ * base is black, --bg is the theme's navy — and the same slot came out two
+ * colours. Measured on indaco dark: a pie WEDGE at oklab(0.521…) beside its own
+ * legend SWATCH at oklab(0.561…). A key that does not match the mark it labels.
+ *
+ * Mixing toward black rather than the canvas is the point of --chart-cat-base
+ * (see its note above): a warm hue mixed into a cool canvas neutralises to
+ * brown, and toward black the hue stays true.
+ *
+ * A call site with a NUMBERED slot reads this token. One with a hue in a
+ * variable — map's per-region --region-hue, radar's per-series colour, the
+ * gradient stops pie and quadrant mint inline — keeps its color-mix but takes
+ * --chart-cat-base as the target, because a per-slot token cannot serve a hue
+ * the transform computes. Both obey one rule: THE WASH TARGET IS ALWAYS
+ * --chart-cat-base. */
+  --chart-cat-1-body: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--chart-cat-base));
+  --chart-cat-2-body: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--chart-cat-base));
+  --chart-cat-3-body: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--chart-cat-base));
+  --chart-cat-4-body: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--chart-cat-base));
+  --chart-cat-5-body: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--chart-cat-base));
+  --chart-cat-6-body: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--chart-cat-base));
+  --chart-cat-7-body: color-mix(in oklab, var(--chart-cat-7-hue) 82%, var(--chart-cat-base));
+  --chart-cat-8-body: color-mix(in oklab, var(--chart-cat-8-hue) 82%, var(--chart-cat-base));
 }
 
 /* ── THE MARK CONTRACT — one slot table for the whole family ──────────────
@@ -432,41 +463,49 @@ section.word-cloud,
   --mark-hue:  var(--chart-cat-1-hue);
   --mark-ink:  var(--chart-cat-1-ink);
   --mark-fill: var(--chart-cat-1-fill);
+  --mark-body: var(--chart-cat-1-body);
 }
 :is(section.chart-frame, figure.chart-frame) [data-hue="2"] {
   --mark-hue:  var(--chart-cat-2-hue);
   --mark-ink:  var(--chart-cat-2-ink);
   --mark-fill: var(--chart-cat-2-fill);
+  --mark-body: var(--chart-cat-2-body);
 }
 :is(section.chart-frame, figure.chart-frame) [data-hue="3"] {
   --mark-hue:  var(--chart-cat-3-hue);
   --mark-ink:  var(--chart-cat-3-ink);
   --mark-fill: var(--chart-cat-3-fill);
+  --mark-body: var(--chart-cat-3-body);
 }
 :is(section.chart-frame, figure.chart-frame) [data-hue="4"] {
   --mark-hue:  var(--chart-cat-4-hue);
   --mark-ink:  var(--chart-cat-4-ink);
   --mark-fill: var(--chart-cat-4-fill);
+  --mark-body: var(--chart-cat-4-body);
 }
 :is(section.chart-frame, figure.chart-frame) [data-hue="5"] {
   --mark-hue:  var(--chart-cat-5-hue);
   --mark-ink:  var(--chart-cat-5-ink);
   --mark-fill: var(--chart-cat-5-fill);
+  --mark-body: var(--chart-cat-5-body);
 }
 :is(section.chart-frame, figure.chart-frame) [data-hue="6"] {
   --mark-hue:  var(--chart-cat-6-hue);
   --mark-ink:  var(--chart-cat-6-ink);
   --mark-fill: var(--chart-cat-6-fill);
+  --mark-body: var(--chart-cat-6-body);
 }
 :is(section.chart-frame, figure.chart-frame) [data-hue="7"] {
   --mark-hue:  var(--chart-cat-7-hue);
   --mark-ink:  var(--chart-cat-7-ink);
   --mark-fill: var(--chart-cat-7-fill);
+  --mark-body: var(--chart-cat-7-body);
 }
 :is(section.chart-frame, figure.chart-frame) [data-hue="8"] {
   --mark-hue:  var(--chart-cat-8-hue);
   --mark-ink:  var(--chart-cat-8-ink);
   --mark-fill: var(--chart-cat-8-fill);
+  --mark-body: var(--chart-cat-8-body);
 }
 
 /* ── Chart SEMANTIC / status color model ─────────────────────────────────

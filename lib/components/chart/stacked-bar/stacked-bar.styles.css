@@ -51,7 +51,7 @@
  * all eight. The fallback is not decoration — an unset custom property is
  * invalid-at-computed-value-time, i.e. black. slot-contract.md */
 :is(section.stacked-bar, figure.chart-frame) .sbar-seg {
-  fill: color-mix(in oklab, var(--mark-hue, var(--chart-cat-1-hue)) 82%, var(--chart-cat-base));
+  fill: var(--mark-body, var(--chart-cat-1-body));
   /* THE SEPARATOR — the one rule this chart cannot ship without. Two adjacent
    * parts are two abutting areas, and without a separator a slot-2 segment
    * sitting on a slot-3 segment reads as one taller block. A hairline in the
