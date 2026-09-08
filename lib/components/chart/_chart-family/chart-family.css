@@ -405,6 +405,27 @@ section.word-cloud,
  * is held because scaling it deletes the magnitude (spend-rules.md 1d), and a
  * text-bearing mark is held because --cat-on-mark was solved against a
  * full-strength mark (5). The reasons live in each manifest's `kernel.marks`.
+ *
+ * TWO MORE ATTRIBUTES RIDE WITH `data-hue`, and they are what lets a finish be
+ * written without naming a single member:
+ *
+ *   data-encodes="hue"    what the body ENCODES — the axis that decides whether a
+ *                      finish may retreat it at all (spend-rules.md 1). `ramp`
+ *                      is scaled, `presence` is floored, `layered` is edge-only.
+ *   data-paint="fill"  HOW the mark takes paint — `fill` for an SVG shape, `bg`
+ *                      for an HTML one.
+ *
+ * `data-paint` is a GATE, not a label. A mark that declares no paint role is not
+ * a finish's to touch: the line's series path is the case that proves it — the
+ * agreed mark table lists `.line-dot` and never `.line-path`, and a finish that
+ * reached the path stepped its stroke down to 2.18:1 on light and 1.26:1 on
+ * dark, because on a stroked mark the stroke IS the mark and there is no edge to
+ * carry it. So the dots declare a paint role and the path does not.
+ *
+ * A finish therefore gates on `[data-paint][data-hue="N"]` at THIS selector's
+ * own specificity. Less than that and the table below wins and silently re-sets
+ * what the finish just set — measured: a tone finish whose bars went tonal while
+ * its own key stayed four categorical colours.
  * engineering/decisions/2026-09-07-chart-design-language/slot-contract.md */
 
 :is(section.chart-frame, figure.chart-frame) [data-hue="1"] {
