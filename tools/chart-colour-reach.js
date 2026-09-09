@@ -108,8 +108,14 @@ async function main() {
       const toRgb = (c) => {
         if (!c || c === 'none') return null;
         cx.clearRect(0, 0, 1, 1);
-        cx.fillStyle = '#000';
+        // A canvas keeps its PREVIOUS fillStyle when a value does not parse, so
+        // the sentinel is what tells a bad value apart from a real black. Reading
+        // it back makes that guard explicit — an implicit reset reads to a linter
+        // (and to the next person) as a write nothing uses.
+        const SENTINEL = '#010203';
+        cx.fillStyle = SENTINEL;
         cx.fillStyle = c;
+        if (cx.fillStyle === SENTINEL && c.toLowerCase() !== SENTINEL) return null;
         cx.fillRect(0, 0, 1, 1);
         const d = cx.getImageData(0, 0, 1, 1).data;
         return d[3] === 0 ? null : `rgb(${d[0]}, ${d[1]}, ${d[2]})`;

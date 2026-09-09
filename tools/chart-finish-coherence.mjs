@@ -61,9 +61,18 @@ for (const th of themes) for (const mode of modes) {
     res[`${th}/${mode}/${fin}`] = await p.evaluate(() => {
       const cv = document.createElement('canvas'); cv.width = cv.height = 1;
       const cx = cv.getContext('2d', { willReadFrequently: true });
-      const rgb = v => { try { cx.clearRect(0,0,1,1); cx.fillStyle = '#000'; cx.fillStyle = v;
-        cx.fillRect(0,0,1,1); const d = cx.getImageData(0,0,1,1).data; return [d[0],d[1],d[2]]; }
-        catch { return null; } };
+      // A canvas keeps its PREVIOUS fillStyle when a value does not parse, so the
+      // sentinel is what tells a bad value apart from a real black. Reading it
+      // back makes that guard explicit rather than an unused-looking reset.
+      const SENTINEL = '#010203';
+      const rgb = (v) => { try {
+        cx.clearRect(0, 0, 1, 1);
+        cx.fillStyle = SENTINEL;
+        cx.fillStyle = v;
+        if (cx.fillStyle === SENTINEL && String(v).toLowerCase() !== SENTINEL) return null;
+        cx.fillRect(0, 0, 1, 1);
+        const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]];
+      } catch { return null; } };
       const lum = c => { const f = x => { x /= 255; return x <= 0.03928 ? x/12.92 : ((x+0.055)/1.055)**2.4; };
         return 0.2126*f(c[0]) + 0.7152*f(c[1]) + 0.0722*f(c[2]); };
       const ratio = (a, z) => { const [x,y] = [lum(a), lum(z)].sort((m,n)=>n-m); return (x+0.05)/(y+0.05); };
