@@ -8,10 +8,21 @@
   `data-split-label` stamp skipped both content rules entirely, so a `theorem` card titled
   `**$A \to B$ Theorem.**` shipped the chip `A→B Theorem` — a typed arrow two characters from the
   engine-drawn one.
-- **Fixed: a `>` inside a quoted attribute value no longer ends the tag.** Three readers bounded a
-  tag at the first `>`, which Chromium does not: a member written as raw HTML with
-  `<td title="a>b">` put `b">` and an un-dropped equation into its neighbor's pointer. Reachable
-  only from `html: true`, fixed in the shared tag strip so every reader gets it.
+- **Fixed: a `>` inside a quoted attribute value no longer ends the tag — in EVERY reader.** Eight
+  more readers bounded a tag at the first `>`, which Chromium does not. Earlier passes converted
+  them a few at a time, and each time the ones left behind kept shipping the same defect: a member
+  written as raw HTML with `<td title="a>b">` put `b">` and an un-dropped equation into its
+  neighbor's pointer; `<h3 title="a>b">Ridge regression</h3>` labeled a page
+  `b">Ridge regression`; a `<math>` tag carrying one read back its own attributes as if they were
+  symbols; and a `<p title="a>b">` in front of a `**31**` figure skipped the rule that stops a
+  bare numeral naming a page, so the chip read `31 deals closed this quarter`. There is one bound
+  now and every reader in the label kernel uses it. Reachable only from `html: true`.
+- **Fixed: a `class` attribute is read the way Chromium reads it.** The class test was
+  double-quote-only in both directions: `class='katex-error'` and `class=katex-error` were
+  invisible, so a failed KaTeX render was not recognized and the author's raw `\frac{a` reached
+  the pointer chip — and a `class=` sitting inside ANOTHER attribute's value was treated as real,
+  so `<span title=" class='katex-error'">` had its visible words dropped instead. Attributes are
+  walked rather than pattern-matched, and the first `class` wins, as in a browser.
 - **Fixed: a carousel slot title carrying math is read depth-aware.** The one read that runs FIRST
   used the lazy `</span>` pair the rest of the file bans, so a title holding `$X^\top X$` stopped
   at KaTeX's first inner close and the chip printed the per-glyph visual half AND the raw TeX:

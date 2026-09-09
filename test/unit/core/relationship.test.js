@@ -805,11 +805,17 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.doesNotMatch(bad, /katex-error/, '…and carry no error class, or it pins nothing');
     assert.doesNotMatch(labelOf(`<li>${bad}</li>`), /dfracc/, 'and with nothing beside it, decline');
     const label = labelOf(`<li>${bad} — a description of it</li>`);
-    assert.doesNotMatch(label, /dfracc/, "the author's broken SOURCE reached the chip");
     // `/\\/`, ONE backslash. This read `/\\\\/` — two — for two commits, so it could not fail on
-    // `\frac{a`, the exact string the branch shipped to a slide. A sentence the diff presented as
-    // a guarantee, carried entirely by the `assert.equal` beside it.
+    // `\frac{a`, the exact string the branch shipped to a slide.
+    //
+    // AND IT GOES FIRST, which the fold that fixed the escaping did not do. `node:assert` throws at
+    // the first failing call, so an assertion that sits BELOW a strictly stronger one can never be
+    // the one that reports: over eleven mutations that leaked raw TeX into the label, this
+    // message appeared ZERO times and `doesNotMatch(/dfracc/)` reported every one. Non-vacuous is
+    // not the same as reachable, and the commit message claimed the first while meaning the
+    // second. (HARD RULE #25 checker, twelfth pass, which measured it.)
     assert.doesNotMatch(label, /\\/, 'no backslash command may reach a rendered label');
+    assert.doesNotMatch(label, /dfracc/, "the author's broken SOURCE reached the chip");
     // A WELL-FORMED sibling still reads its symbols, so the refusal is scoped to the ERROR render
     // rather than to "math with a `\\dfrac` in it" — and what it reads is `ab`, which is worth
     // asserting rather than hiding. The mirror is symbols, not structure, so a fraction loses its
@@ -922,11 +928,11 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
       const err = typeset(tex);
       assert.match(err, /katex-error/, `${tex} must render the CLASSED failure`);
       const label = labelOf(`<li>${err} — a description of it</li>`);
+      // Before the equality, so that a leaked backslash is what REPORTS — see the note on the
+      // same pair in the `\dfracc` arm above. `biome`'s formatter is off in this repo, so the
+      // mis-indented block this replaces was invisible to `npm run lint` as well.
+      assert.doesNotMatch(label, /\\/, 'no backslash command may reach a rendered label');
       assert.equal(label, 'a description of it', `\`${tex}\` reached the chip`);
-      // `/\\/`, ONE backslash. This read `/\\\\/` — two — for two commits, so it could not fail on
-    // `\frac{a`, the exact string the branch shipped to a slide. A sentence the diff presented as
-    // a guarantee, carried entirely by the `assert.equal` beside it.
-    assert.doesNotMatch(label, /\\/, 'no backslash command may reach a rendered label');
     }
     // AND THE SEPARATOR GOES WITH IT. `decoded` is '' for a failed render, and returning early
     // there left the em dash leading: the chip shipped `— a description of it`, which is
@@ -953,8 +959,8 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
       'class="katex-error" title="a>b"',
     ]) {
       const label = labelOf(err(attrs));
-      assert.equal(label, 'the unclosed one', `attrs \`${attrs}\` leaked the source`);
       assert.doesNotMatch(label, /\\/, 'no backslash command may reach a rendered label');
+      assert.equal(label, 'the unclosed one', `attrs \`${attrs}\` leaked the source`);
     }
     // And it does NOT fire on a span that merely mentions the string — the `^` anchor and the
     // token test, both of which the regex claimed and no arm held.
@@ -975,12 +981,12 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // `X ⊤ X` spacing and the `y i ␀` padding this whole thread exists to remove. It shipped with
     // no arm, and both directions of the mutation survived all 9,329 tests.
     const mixed = `${typeset('X^\\top X')} and ${typeset('\\frac{a')} — desc`;
-    assert.equal(textOf(mixed), 'X⊤X and — desc');
     assert.doesNotMatch(textOf(mixed), /X ⊤ X/, 'the visual half reached the text');
+    assert.equal(textOf(mixed), 'X⊤X and — desc');
     // …and with the subscript shape, whose failure is the one that reads worst.
     const sub = `${typeset('y_i')} and ${typeset('\\frac{a')} — desc`;
+    assert.doesNotMatch(textOf(sub), /[\u200B\u2061-\u2064]/, 'an invisible operator reached the text');
     assert.equal(textOf(sub), 'yi and — desc');
-    assert.doesNotMatch(textOf(sub), /[\u200B\u2061-\u2064]/);
   });
 
   test('the EMPTINESS test bounds a tag the same way the rest of the file does', () => {
@@ -1004,6 +1010,90 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.equal(labelOf(`<td>${step}</td>`), 'the limit step');
     assert.equal(labelOf(`<td title="a>b">${step}</td>`), 'the limit step');
     assert.equal(stripTags('<td title="a>b">x</td>', ' ').trim(), 'x');
+  });
+
+  test('the CLASS reader is quote-agnostic, in both directions', () => {
+    // `/\sclass="([^"]*)"/` was the class reader, and double-quote-only is wrong TWICE over.
+    // Chromium reads `class='katex-error'` and `class=katex-error` as that class and this file read
+    // neither, so `isErrorSpan` said false and the author's raw `\frac{a` flattened into the pill —
+    // the blocker the commit before this one closed, one quoting style over. And it matched INSIDE
+    // another attribute's VALUE, so `<span title=" class='katex-error'">` was classified as the
+    // error rendering and its visible words were dropped instead. Both rendered before the fix.
+    // (HARD RULE #25 checker, twelfth pass.)
+    const err = (attrs) => labelOf(`<li><span ${attrs}>\\frac{a</span> — the unclosed one</li>`);
+    for (const attrs of [
+      'class="katex-error"',
+      "class='katex-error' style=\"color:#cc0000\"",
+      'class=katex-error style="color:#cc0000"',
+      "style='color:#cc0000' class=katex-error",
+    ]) {
+      assert.doesNotMatch(err(attrs), /\\/, `attrs \`${attrs}\` leaked the source`);
+      assert.equal(err(attrs), 'the unclosed one', `attrs \`${attrs}\` was not read as the error`);
+    }
+    // The mirror: a `class=` that lives inside ANOTHER attribute's value is not a class. Chromium
+    // reads no class at all here, so the span is ordinary markup and its words are the name.
+    // The quoting is load-bearing and a first draft got it backwards — a SINGLE-quoted `title`
+    // around a DOUBLE-quoted `class` is what the old reader matched, and the reverse shape it
+    // was written with could not have failed.
+    const Q = String.fromCharCode(39);
+    assert.equal(
+      labelOf(`<li><span title=${Q} class="katex-error"${Q}>visible words</span> — the description</li>`),
+      'visible words', 'a `class=` inside another attribute VALUE was read as a class');
+    // …and the FIRST `class` wins when a tag carries two, which is what Chromium keeps.
+    assert.equal(labelOf('<li><span class="katex" class="katex-error">zz</span> — desc</li>'), 'zz');
+  });
+
+  test('every STRUCTURAL reader bounds its tag the same way — five of them did not', () => {
+    // `<h[3-6][^>]*>`, `<(?:ul|ol)\b[^>]*>`, `<li[^>]*>`, `<math\b[^>]*>` and the leading-tag run
+    // in front of `<strong>` were all still bounding a tag at the first `>`. Three put ATTRIBUTE
+    // TEXT straight onto a chip. The fifth is worse than the "missed match, harmless fallback" it
+    // was first written up as: when the run does not match, the FIGURE RULE never runs, so
+    // `<p title="a>b"><strong>31</strong> deals closed this quarter` labeled its page
+    // `31 deals closed this quarter` — the whole run WITH the numeral, which is the exact shape
+    // `isFigure` exists to refuse. A first draft of this arm asserted only the harmless shape and
+    // SURVIVED the mutation; the two figure shapes below are what makes it a pin.
+    // Each pair is the same member with and without a `>` in an attribute value, and the answers
+    // must agree. (HARD RULE #25 checker, twelfth pass, each rendered.)
+    const pairs = [
+      ['a heading', '<div><h3 A>Ridge regression</h3><p>body</p></div>', 'Ridge regression'],
+      ['a nested list item', '<li><strong>31</strong><ul><li A>Keep whole</li></ul></li>', 'Keep whole'],
+      ['the nested list itself', '<li><strong>31</strong><ul A><li>Keep whole</li></ul></li>', 'Keep whole'],
+      ['a leading tag before <strong>', '<li><p A><strong>Ridge.</strong> a description</p></li>', 'Ridge'],
+      ['a figure, named by its nested item',
+        '<li><p A><strong>31</strong><ul><li>Keep whole and ring</li></ul></p></li>', 'Keep whole and ring'],
+      ['a figure, named by the run after it',
+        '<li><p A><strong>31</strong> deals closed this quarter</li>', 'deals closed this quarter'],
+      ['the labeled title slot', '<li><span class="split-pt-t" A>Named by the splitter</span> rest</li>',
+        'Named by the splitter'],
+    ];
+    for (const [what, shape, want] of pairs) {
+      assert.equal(labelOf(shape.replace(' A', ' title="x"')), want, `${what}: the control moved`);
+      assert.equal(labelOf(shape.replace(' A', ' title="a>b"')), want, `${what}: the tag bound leaked`);
+    }
+    // The MathML mirror, which is the reader the whole math label path rests on.
+    const mirror = '<semantics><mrow><mi>σ</mi></mrow>'
+      + '<annotation encoding="application/x-tex">\\sigma</annotation></semantics>';
+    const span = (attrs) => `<span class="katex"><span class="katex-mathml"><math ${attrs}>${mirror}</math></span></span>`;
+    assert.equal(textOf(span('display="block"')), 'σ');
+    assert.equal(textOf(span('title="a>b" display="block"')), 'σ');
+    // And the annotation is read in either quoting style, since the tag is bounded before the
+    // `encoding` test rather than by it.
+    const noMathml = (q) => `<span class="katex-error">x</span><span class="katex"><span class="katex-mathml">`
+      + `<annotation encoding=${q}application/x-tex${q}>\\sigma</annotation></span></span>`;
+    assert.equal(textOf(noMathml('"')), textOf(noMathml("'")));
+  });
+
+  test('a dropped equation takes its separator with it, whatever tags sit between', () => {
+    // The strip was `(?:\s|<[^>]*>)*` then the separator, and that `<[^>]*>` is the same bound:
+    // one tag carrying a `>` in an attribute defeated it and the chip shipped
+    // `— the Gram matrix of the design`, character-for-character the defect this function's own
+    // comment records as fixed for `L \dashv R`. (HARD RULE #25 checker, twelfth pass.)
+    const eq = typeset('X^\\top X');
+    const member = (attrs) => `<li>${eq} <span ${attrs}></span> — the Gram matrix of the design</li>`;
+    assert.equal(labelOf(member('title="x"')), 'the Gram matrix of the design');
+    assert.equal(labelOf(member('title="a>b"')), 'the Gram matrix of the design');
+    // No separator, no change: the strip must not eat a leading word.
+    assert.equal(labelOf(`<li>${eq} <span title="a>b"></span> the Gram matrix</li>`), 'the Gram matrix');
   });
 
   test('EVERY leading equation is dropped, not just the first', () => {

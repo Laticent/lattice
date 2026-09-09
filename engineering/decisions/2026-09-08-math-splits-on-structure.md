@@ -15,7 +15,7 @@ summary: >-
   behind, so nothing in the MATH work can reach a 16:9 render (the #2132 stylesheet guards below
   do, by design). Measured on
   `math feature`'s sample at portrait: 2587px of ink against a 972px stage, 1850px broken, 925px
-  at the multi-line display scale keyed on the marker the pass emits. Fixes nine kernel defects
+  at the multi-line display scale keyed on the marker the pass emits. Fixes thirteen kernel defects
   the enrollment surfaced — a display equation hoisted to the cover as a lede and lost from every
   body page, a forward pointer that read "X X X" off KaTeX's a11y mirror and then a literal
   `\sigma` off its TeX annotation before it settled on the MathML symbols, a `derivation` step
@@ -170,13 +170,16 @@ The 2.4em itself is left alone, and #2129's CSS comment explains why one rule ca
 samples: bare's hero renders 914px inside a 972px box at 2.4em, so dropping the declaration to fit
 `feature` would take it from 112.75px to 42.28px — trading one defect for another.
 
-## Eleven kernel defects this surfaced, all fixed here
+## Thirteen kernel defects this surfaced, all fixed here
 
 **The heading said "Three" while the list below it held five, and the PR body said eight.** Nobody
 re-counted; the number was written when the list was short and never moved with it. That is the
 same failure this branch's own subject is about, in the document making the argument — so the
 count is stated here as a count of the numbered entries below, and a reader who adds one is
-expected to change this word.
+expected to change this word. **It happened a second time**: the heading moved to eleven and the
+front-matter summary above still said nine, because the summary is a different sentence in a
+different place and nobody read both. Both are counts of the same list; if you add an entry,
+change both.
 
 The first five were found by rendering `examples/math-split-structure.md` at portrait and reading
 the pages, not by any gate. The last four were found by an independent checker reading the final
@@ -277,6 +280,27 @@ through — which is the more useful fact about them.
    material, so it stayed in the trunk. It rides the page of the member it FOLLOWS now. A block
    before the first member is framing and still repeats — the opposite call, made deliberately: a
    premise every card is read under behaves like the equation that repeats over every legend page.
+
+12. **Eight readers still bounded a tag at the first `>`, and four of them put attribute text on a
+   chip.** `tagEnd` — the quote-aware bound this file worked out under defect 2 — was applied to
+   the readers a pass happened to be looking at, three or four at a time, four times over. What
+   was left each time kept shipping the same defect: `<h3 title="a>b">Ridge regression</h3>`
+   labeled a page `b">Ridge regression`; a `<li title="a>b">` did the same for a nested metric
+   name; a `<math>` tag carrying one read its own attributes back as symbols; and the tag run in
+   front of a leading `<strong>` failed to match at all, which is the subtle one — when that match
+   fails **the FIGURE RULE never runs**, so `<p title="a>b"><strong>31</strong> deals closed this
+   quarter` labeled its page `31 deals closed this quarter`, the whole run with the numeral in it,
+   which is exactly what `isFigure` exists to refuse. Every reader in the kernel uses one bound
+   now, and the arm pins each pair — the same member with and without a `>` in an attribute — so
+   a ninth reader added later has a shape to copy.
+13. **The `class` attribute was read in one quoting style out of three, and matched inside other
+   attributes.** `/\sclass="([^"]*)"/` misses `class='katex-error'` and `class=katex-error`, both
+   of which Chromium reads as that class, so a failed KaTeX render went unrecognized and the
+   author's raw `\frac{a` reached the chip — the blocker of the pass before this one, one quoting
+   style over. And it matched a `class=` sitting inside ANOTHER attribute's value, where Chromium
+   sees no class at all, so `<span title=" class='katex-error'">` had its visible words dropped
+   instead. Attributes are walked now, by the same value-position rule `tagEnd` uses, and the
+   FIRST `class` wins, which is the one a browser keeps.
 
 ## What the gates could not have caught, and what now pins it
 
