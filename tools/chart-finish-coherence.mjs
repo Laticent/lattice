@@ -94,7 +94,7 @@ for (const th of themes) for (const mode of modes) {
             body = body.map((c, i) => Math.round(c * al + under[i] * (1 - al)));
           }
           // text sitting inside this mark
-          const mr = m.getBoundingClientRect(); let worst = null;
+          const mr = m.getBoundingClientRect(); let worst = null, worstText = null;
           if (body && mr.width && mr.height) {
             for (const t of card.querySelectorAll('text,tspan,span,div,p')) {
               const tr = t.getBoundingClientRect();
@@ -105,7 +105,7 @@ for (const th of themes) for (const mode of modes) {
               if ((ox*oy) / (tr.width*tr.height) < 0.6) continue;
               const tc = rgb(getComputedStyle(t).color); if (!tc) continue;
               const r = ratio(tc, body);
-              if (worst === null || r < worst) worst = r;
+              if (worst === null || r < worst) { worst = r; worstText = (t.textContent || '').trim().slice(0, 24); }
             }
           }
           // the EDGE is what a retreating body hands identity to: it has to
@@ -119,7 +119,7 @@ for (const th of themes) for (const mode of modes) {
           const bodyVsCanvas = (body && canvas) ? ratio(body, canvas) : null;
           out.push({ textured, bodyVsCanvas, edgeVsBody, edgeVsCanvas, member: card.dataset.member, cls: (m.getAttribute('class')||'').split(' ')[0],
             reg: m.dataset.register, enc: m.dataset.fill, grad, body: (body ? body.join(',') : 'GRADIENT') + '@' + (svg ? cs.fillOpacity : cs.opacity),
-            textRatio: worst });
+            textRatio: worst, worstText });
         }
       }
       return out;
