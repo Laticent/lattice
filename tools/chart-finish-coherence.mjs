@@ -23,6 +23,12 @@
  *      fill-opacity over the canvas before judging text on it, or a radar
  *      polygon reads 2.12:1 when it actually paints 4.58:1.
  *
+ *   4. SET THE CONTROL, DO NOT SET THE ATTRIBUTE. Switching theme in this
+ *      prototype injects a stylesheet and re-renders the grid; writing
+ *      `stage.dataset.theme` alone changes nothing, and an unknown key changes
+ *      nothing silently. An earlier revision of this tool did exactly that and
+ *      reported four themes that were all indaco. Click the real button.
+ *
  * Usage: node tools/chart-finish-coherence.mjs [path-to-prototype.html]
  */
 
@@ -35,18 +41,23 @@ const p = await b.newPage(); await p.setViewport({ width: 1400, height: 2000 });
 await p.goto(FILE, { waitUntil: 'networkidle0', timeout: 180000 });
 await new Promise(r => setTimeout(r, 3000));
 
-const THEMES = ['indaco', 'cuoio', 'onyx', 'achromatopsia'];
-const FIN = ['pigment', 'etching', 'tone'];
+// read the real control vocabularies rather than assuming them
+const { themes, modes, finishes } = await p.evaluate(() => {
+  const vals = id => [...document.querySelectorAll(`#${id} button`)].map(b => b.dataset.v);
+  return { themes: vals('theme'), modes: vals('mode'), finishes: vals('finish') };
+});
+const click = async (id, v) => {
+  const ok = await p.evaluate((id, v) => {
+    const b = document.querySelector(`#${id} button[data-v="${v}"]`);
+    if (!b) return false; b.click(); return true;
+  }, id, v);
+  if (!ok) throw new Error(`no control ${id}=${v} — the vocabulary changed`);
+  await new Promise(r => setTimeout(r, 550));
+};
 const res = {};
-for (const th of THEMES) for (const mode of ['light', 'dark']) {
-  for (const fin of FIN) {
-    await p.evaluate((th, mode, fin) => {
-      const st = document.getElementById('stage');
-      st.dataset.theme = th; st.dataset.mode = mode; st.dataset.finish = fin;
-      document.documentElement.dataset.mode = mode;
-      st.style.colorScheme = mode;
-    }, th, mode, fin);
-    await new Promise(r => setTimeout(r, 500));
+for (const th of themes) for (const mode of modes) {
+  for (const fin of finishes) {
+    await click('theme', th); await click('mode', mode); await click('finish', fin);
     res[`${th}/${mode}/${fin}`] = await p.evaluate(() => {
       const cv = document.createElement('canvas'); cv.width = cv.height = 1;
       const cx = cv.getContext('2d', { willReadFrequently: true });
@@ -62,8 +73,11 @@ for (const th of THEMES) for (const mode of ['light', 'dark']) {
           const cs = getComputedStyle(m); const svg = m instanceof SVGElement;
           const paint = svg ? cs.fill : cs.backgroundColor;
           const img = svg ? '' : cs.backgroundImage;
-          const grad = /url\(|gradient/.test(paint) || /gradient/.test(img);
-          let body = grad ? null : rgb(paint);
+          const ref = /url\(["']?#?([^"')]+)/.exec(paint || '');
+          const def = ref && document.getElementById(ref[1]);
+          const textured = !!def && def.tagName.toLowerCase() === 'pattern';
+          const grad = !textured && (/url\(|gradient/.test(paint) || /gradient/.test(img));
+          let body = (grad || textured) ? null : rgb(paint);
           const al = parseFloat(svg ? cs.fillOpacity : cs.opacity);
           if (body && al < 1) {
             const under = rgb(getComputedStyle(card.querySelector('section.chart-frame') || card).backgroundColor) ||
@@ -94,7 +108,7 @@ for (const th of THEMES) for (const mode of ['light', 'dark']) {
           if (ec && body) edgeVsBody = ratio(ec, body);
           if (ec && canvas) edgeVsCanvas = ratio(ec, canvas);
           const bodyVsCanvas = (body && canvas) ? ratio(body, canvas) : null;
-          out.push({ bodyVsCanvas, edgeVsBody, edgeVsCanvas, member: card.dataset.member, cls: (m.getAttribute('class')||'').split(' ')[0],
+          out.push({ textured, bodyVsCanvas, edgeVsBody, edgeVsCanvas, member: card.dataset.member, cls: (m.getAttribute('class')||'').split(' ')[0],
             reg: m.dataset.register, enc: m.dataset.fill, grad, body: (body ? body.join(',') : 'GRADIENT') + '@' + (svg ? cs.fillOpacity : cs.opacity),
             textRatio: worst });
         }

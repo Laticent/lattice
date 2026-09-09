@@ -2,9 +2,20 @@
 
 **Before this change, 6 of the 11 members in the prototype rendered
 byte-identical under all three finishes.** Three of the six kept a gradient body
-that no finish was allowed to replace. Measured across 8 theme × mode
-combinations, by flipping the live prototype and reading computed paint
-(`tools/chart-finish-coherence.mjs`).
+that no finish was allowed to replace.
+
+> **Correction (2026-09-09).** The first revision of this note claimed the result
+> was measured across 8 theme × mode combinations. It was not. The harness set
+> `stage.dataset.theme`, and the prototype switches theme by injecting a
+> stylesheet and re-rendering — so the attribute did nothing, silently, and all
+> four "themes" were **indaco**. It also passed `achromatopsia` where the control
+> vocabulary says `a11y-achromatopsia`, a key that matched nothing. The tool now
+> clicks the real controls and reads the vocabulary off the page; the numbers
+> below are re-measured. The lesson is HARD RULE #23's, exactly: a green gate is
+> not verification of a surface the gate never reached.
+
+Measured by driving the live prototype's own controls across every theme × mode
+it ships and reading computed paint (`tools/chart-finish-coherence.mjs`).
 
 | | before | after |
 |---|---|---|
