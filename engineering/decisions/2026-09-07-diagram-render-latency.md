@@ -937,6 +937,32 @@ carries no `@smoke` tag, and CI runs `test:e2e:smoke` only, so the export e2e ru
 merge. The artifact behind this fix's "verified on the real surface" claim is real and was produced
 by hand; it is not re-derivable from a PR-gate run.
 
+### The raster lane, driven — and the release is a no-op there
+
+The PR's card named one raise-path: drive a RASTER export with the render stalled, since only the
+webpage export was driven end to end. Driven, on the real Studio, `Images (.zip)` with
+`mermaid.render` held indefinitely. The downloaded PNG carries the author's source text under the
+heading — `flowchart LR / A["UNRENDERABLEFENCESENTINEL"] --> B["Second"]` — exactly as intended.
+
+**Then the same export with the release deleted produced a BYTE-IDENTICAL PNG** (md5
+`aa8582712b729dd37ecfc0729cfefe61` both ways). The raster lane was never exposed to the blank-band
+defect, and this change neither fixes nor endangers it. That is worth more than the "verified" the
+raise-path was reaching for: it retires the risk rather than confirming a benefit.
+
+**The test written for it is NOT shipping, and that is the point.** A pixel arm that passes with
+and without the fix discriminates nothing, and this document already records what a suite that
+cannot tell a no-op from a fix costs (§13: tripling the give-up threshold left every cell green).
+Shipping it would have added a green check that means nothing and reads like coverage.
+
+**Its first version was also wrong in the way that keeps recurring here.** It sampled the slide's
+lower band, 40%-95% — and scored a perfectly correct artifact at ZERO ink, because a released
+fence paints its source directly under the rule at ~20% and everything below is empty slide. Four
+times in this investigation the instrument measured something adjacent to the target: the `<pre>`
+instead of the `<code>` the rule hides, the editor document instead of the preview realm, a deck
+size the engine does not accept, and now an empty half of a slide. Each looked like a clean
+result. The lesson is not "be careful" — it is that a probe needs an arm proving it can see the
+thing it is looking for, before its null result means anything.
+
 ### Off-path, logged not fixed (HARD RULE #18)
 
 `lib/integrations/mermaid/mermaid.css` asserts in a comment that "the Studio's offscreen EXPORT
