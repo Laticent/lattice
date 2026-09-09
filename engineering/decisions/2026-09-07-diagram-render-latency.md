@@ -988,28 +988,48 @@ disagreement is itself the next thing to chase. Do not treat the mechanism as kn
 reserved. A probe that reads the `<pre>`'s own style therefore scores a correctly-withheld fence
 as painted source. The first run of this instrument did exactly that.
 
-### B. Typing on a diagram deck leaks a preview realm per keystroke
+### B. Typing on a diagram deck churns a large transient footprint — and does NOT leak
 
-90 keystrokes at 120ms, 4× CPU throttle, same Studio, two decks differing only in whether they
-hold diagrams:
+**The first version of this section said "leak" and was wrong.** It reported the peak of a
+typing burst without ever forcing a collection, and a peak is not retention. Corrected, with the
+measurement that settles it — 90 keystrokes at 120ms, 4x CPU throttle, then two forced GCs:
 
-| deck | documents | DOM nodes | listeners | JS heap |
+| deck | peak documents | peak nodes | peak listeners | AFTER FORCED GC |
 |---|---|---|---|---|
-| prose only | 8 → 15 | 1739 → 1813 | 1622 → 1625 | 35.3 → 28.5 MB (collected) |
-| six heavy diagrams | 7 → **97** | 4522 → **17380** | 1117 → **6280** | 34 → 65.3 MB |
+| prose only | 9 -> 20 | 1827 -> 2314 | 1617 -> 1870 | docs 4, nodes 728, listeners 1024 |
+| six heavy diagrams | 6 -> **96** | 3896 -> **16683** | 1072 -> **6235** | docs **6**, nodes 3891, listeners 1034 |
 
-A document per keystroke, none collected, listeners growing with them. The prose deck is flat
-over the same burst, so this is diagram-specific and it is the realm rebuild
-`2026-09-05-diagram-fence-flash.md` measured (6 of 6) and partly addressed with fix D
-(deck-scope the mermaid flag) — the rebuild still happens, and what this adds is that the
-discarded realms are RETAINED.
+Everything returns to baseline or below. Retained beyond baseline on the heavy deck: **0
+documents, -5 nodes, -38 listeners, -3.5MB heap.** There is no retention to fix.
 
-**Growth is proportional to keystrokes, so the ceiling is the session, not the deck.** No crash
-reproduced here in 90 strokes on a desktop-class box; a tablet has far less headroom and the
-reported symptom — the tab reloading itself mid-typing — is what a renderer being killed for
-memory looks like. That is consistent with the measurement, not proven by it: the crash itself
-was NOT reproduced (HARD RULE #23).
+**Nor is the churn what the first draft assumed.** Instrumented in every realm, a typing burst
+mints **0 iframe realms** and makes **0 `mermaid.render` calls** on both decks — the srcdoc patch
+fast path (`single-slide-render.ts`, the `sig` at ~:1475) is working exactly as designed, and its
+deliberate choice to key `mermaid` on the PROP rather than a content scan is why a fence edit
+needs no full write. `DOMParser.parseFromString` runs exactly once per keystroke on BOTH decks,
+so it is not the source of the document count either. **What the 96 documents are is not
+established**, and the honest state of this is: the peak is real and diagram-proportional, the
+mechanism behind that particular counter is not identified.
+
+**The reported crash did not reproduce.** With the renderer's V8 old space capped at 256MB —
+far below a desktop's headroom — 60 keystrokes on the heavy deck oscillate between 34 and 42MB
+with no upward trend and no crash. JS heap is not the mechanism.
+
+**And the engine that crashed is not reachable from here (HARD RULE #23).** The report came from
+a tablet; this was measured in desktop Chromium. A WebKit tab is killed on TOTAL PROCESS memory,
+which is dominated by graphics and layer buffers that appear in none of the numbers above. The
+deck used for the heavy arm also declares `size: 4k`, so every slide rasterizes at 4K — six of
+those is a large layer footprint that no heap figure here would show. That is a hypothesis, not
+a finding.
+
+**The instrument for this already exists and is the right next step, not another probe.**
+`docs/src/lib/crash-sentinel.ts` is a flight recorder built for precisely this failure class:
+it writes a session record to `localStorage` on a heartbeat BEFORE the renderer dies, because
+nothing in-page survives a renderer death, and it distinguishes a same-tab self-reload from a
+force-quit through a `sessionStorage` continuity check. It is opt-in (Workspace -> General ->
+Crash reports) and reports are read at Workspace -> Crash reports -> View. A diagnosis should
+come from a record captured on the device that actually failed.
 
 **The deck used for the heavy arm was deliberately pathological** — six flowcharts of 30 nodes
-and 125 edges, built to outrun an export budget — so it reaches the ceiling far faster than an
-ordinary deck would. It exaggerates the rate, not the leak.
+and 125 edges at `size: 4k`, built to outrun an export budget — so it reaches any ceiling far
+faster than an ordinary deck. It exaggerates the rate.
