@@ -72,12 +72,12 @@
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "25798f3287bad687df14a9d3cd1b08142fa09ebc0dd06ad707ddea98ac76a664"
+		"srcSha256": "a8aa841bf72fb1e1606a778b7936655db8023df19e1ec158ee00384b86c00260"
 	},
 	"funnel.dark": {
 		"src": "lib/components/chart/funnel/funnel.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "697936170e894ce73e50c0a82161e87ff943f03192923f6e78baca2d7f1ff1dc"
+		"srcSha256": "3f155aa9ff25cdd5e078883255dd02aefc10d941e5dcdbecf7eda6fe9a0660ff"
 	},
 	"image.light": {
 		"src": "lib/components/imagery/image/image.gallery.light.pdf",
@@ -132,12 +132,12 @@
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "63cac63250906c3857db936a2087dd103b8fc80a8071bf0718157021bc8e8866"
+		"srcSha256": "e887d288b4447d2eed5c021850e119ada051dd883046730dadac231e75baa078"
 	},
 	"radar.dark": {
 		"src": "lib/components/chart/radar/radar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "3b9d2edde2f8e002b752a62c5f75b0bc177c2601e9f55518b93fbe76ee8e0cd3"
+		"srcSha256": "30458ad705f4429da71e279f4f1c4d511d093ec97ad3202ee5f913349b2a79c6"
 	},
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
