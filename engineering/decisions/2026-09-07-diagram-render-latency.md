@@ -945,3 +945,71 @@ capture frame goes through `buildSrcdoc` with a real Mermaid URL, so it carries 
 comment predates this work and contradicts the code, which happens not to matter — it is *why* an
 untagged fence still paints its source in the capture frame, which the fix relies on — but a reader
 trusting the comment would conclude the opposite. Not pulled into this PR.
+
+## 17. Two janks reported from a real tablet, and what they measure at
+
+Both were reported against the live Studio, not the export, so neither is caused by the fix
+this branch ships — that change writes `data-mermaid-final`, and the only writer is the export
+capture frame (`deck-export.js`), so no element in a live preview ever carries it and
+`RELEASED_FENCE_SELECTOR` behaves exactly as on `main`. Both are pre-existing and OFF-PATH for
+this PR, so they are logged here rather than pulled into the diff (HARD RULE #18).
+
+Measured on the real built Studio at `/studio/`, CDP CPU throttling to stand in for a tablet.
+
+### A. A cold first paste paints the raw fence source for seconds
+
+Pasting a diagram deck into a Studio that has not yet drawn one leaves the author looking at
+their own ```mermaid markdown until the SVG lands. Sampled per painted frame inside the preview
+realm (`requestAnimationFrame` immediately precedes the frame it composites):
+
+| CPU | painted frames showing raw source | first SVG |
+|---|---|---|
+| 1× | 13 | +653ms |
+| 2× | 16 | +1356ms |
+| 4× | 23-27 | +4082-4498ms |
+| 6× | 16 | +6697ms |
+
+The frame COUNT is roughly flat while the wait grows an order of magnitude, which says the
+source window is bounded by the runtime's tagging debounce rather than by Mermaid's arrival —
+the same shape §4 of `2026-09-05-diagram-fence-flash.md` describes.
+
+**What is established and what is not.** The symptom reproduces every run. The withhold rule
+(`mermaid.css:145`) is present in the preview realm's stylesheet, its gate `[data-lattice-diagrams]`
+is stamped on `<html>` at +291ms — before the source is first inked at +391ms — the fence is
+untagged (`data-mermaid-state` null) and its `<code>` carries `language-mermaid`, and
+`code.matches()` against the rule's own selector returns true. Computed visibility is nevertheless
+`visible` for the whole window. **The reason it loses is NOT pinned.** Two probes disagreed on
+whether the declaration is even enumerable from the realm (`CSS.getMatchedStylesForNode` reported
+no visibility declaration on the node; a flat sheet walk counted five in the document), and that
+disagreement is itself the next thing to chase. Do not treat the mechanism as known.
+
+**One measurement trap cost a wrong answer here.** The rule sets `visibility:hidden` on the
+`<code>`; the `<pre>` deliberately keeps `display:block` and its height so the slot stays
+reserved. A probe that reads the `<pre>`'s own style therefore scores a correctly-withheld fence
+as painted source. The first run of this instrument did exactly that.
+
+### B. Typing on a diagram deck leaks a preview realm per keystroke
+
+90 keystrokes at 120ms, 4× CPU throttle, same Studio, two decks differing only in whether they
+hold diagrams:
+
+| deck | documents | DOM nodes | listeners | JS heap |
+|---|---|---|---|---|
+| prose only | 8 → 15 | 1739 → 1813 | 1622 → 1625 | 35.3 → 28.5 MB (collected) |
+| six heavy diagrams | 7 → **97** | 4522 → **17380** | 1117 → **6280** | 34 → 65.3 MB |
+
+A document per keystroke, none collected, listeners growing with them. The prose deck is flat
+over the same burst, so this is diagram-specific and it is the realm rebuild
+`2026-09-05-diagram-fence-flash.md` measured (6 of 6) and partly addressed with fix D
+(deck-scope the mermaid flag) — the rebuild still happens, and what this adds is that the
+discarded realms are RETAINED.
+
+**Growth is proportional to keystrokes, so the ceiling is the session, not the deck.** No crash
+reproduced here in 90 strokes on a desktop-class box; a tablet has far less headroom and the
+reported symptom — the tab reloading itself mid-typing — is what a renderer being killed for
+memory looks like. That is consistent with the measurement, not proven by it: the crash itself
+was NOT reproduced (HARD RULE #23).
+
+**The deck used for the heavy arm was deliberately pathological** — six flowcharts of 30 nodes
+and 125 edges, built to outrun an export budget — so it reaches the ceiling far faster than an
+ordinary deck would. It exaggerates the rate, not the leak.
