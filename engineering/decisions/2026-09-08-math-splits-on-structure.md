@@ -15,7 +15,7 @@ summary: >-
   behind, so nothing in the MATH work can reach a 16:9 render (the #2132 stylesheet guards below
   do, by design). Measured on
   `math feature`'s sample at portrait: 2587px of ink against a 972px stage, 1850px broken, 925px
-  at the multi-line display scale keyed on the marker the pass emits. Fixes thirteen kernel defects
+  at the multi-line display scale keyed on the marker the pass emits. Fixes fifteen kernel defects
   the enrollment surfaced — a display equation hoisted to the cover as a lede and lost from every
   body page, a forward pointer that read "X X X" off KaTeX's a11y mirror and then a literal
   `\sigma` off its TeX annotation before it settled on the MathML symbols, a `derivation` step
@@ -170,7 +170,7 @@ The 2.4em itself is left alone, and #2129's CSS comment explains why one rule ca
 samples: bare's hero renders 914px inside a 972px box at 2.4em, so dropping the declaration to fit
 `feature` would take it from 112.75px to 42.28px — trading one defect for another.
 
-## Thirteen kernel defects this surfaced, all fixed here
+## Fifteen kernel defects this surfaced, all fixed here
 
 **The heading said "Three" while the list below it held five, and the PR body said eight.** Nobody
 re-counted; the number was written when the list was short and never moved with it. That is the
@@ -301,6 +301,24 @@ through — which is the more useful fact about them.
    sees no class at all, so `<span title=" class='katex-error'">` had its visible words dropped
    instead. Attributes are walked now, by the same value-position rule `tagEnd` uses, and the
    FIRST `class` wins, which is the one a browser keeps.
+
+14. **An element reader ran past its own close tag, two ways, and one of them regressed a chip from
+   PURE AUTHORED MARKDOWN.** Fixing defect 12 routed the bounded readers through the shared
+   `findMatchingClose`, which brought two behaviors the regexes did not have. It matches a tag name
+   by PREFIX (`<li` counts `<line>`, `<link>`, `<listing>`; `<annotation>` counts the real MathML
+   `<annotation-xml>`), so one `<svg><line/></svg>` inside a metric name swallowed the next item —
+   `Keep whole Second item entirely`. And it is DEPTH-AWARE where every regex it replaced was lazy
+   (`([\s\S]*?)</li>`), so a `stats` member whose first sub-bullet carries its own sub-list AND
+   further text handed the whole item to the label, blew the 42-character budget and DECLINED. That
+   second one needs no raw HTML at all, which is what makes it the worst of the fifteen: the commit
+   that caused it stated in its own message that the change was "confined to input carrying a `>` in
+   an attribute value", and that sentence was false when it was written. Depth-aware may well be the
+   better read; adopting it silently, inside a commit whose subject is tag bounds, is not how to
+   find out. The readers keep the lazy, exact-name, case-folded close the regexes had.
+15. **The x-tex annotation was assumed to be the first one.** The regex scanned FOR
+   `encoding="application/x-tex"`; the bounded reader took the first `<annotation>` and tested it,
+   so a legal `application/mathml` sibling before it left the author's source unstripped and
+   `\sigma` rode into the text. It searches now.
 
 ## What the gates could not have caught, and what now pins it
 

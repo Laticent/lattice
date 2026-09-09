@@ -17,6 +17,18 @@
   symbols; and a `<p title="a>b">` in front of a `**31**` figure skipped the rule that stops a
   bare numeral naming a page, so the chip read `31 deals closed this quarter`. There is one bound
   now and every reader in the label kernel uses it. Reachable only from `html: true`.
+- **Fixed: an element reader stops at the first close tag whose name actually matches.** Routing
+  those readers through the shared `findMatchingClose` inherited two behaviors neither the regexes
+  nor the labels wanted: it matches a tag name by PREFIX, so `<li` counted `<line>`, `<link>` and
+  `<listing>` (and `<annotation>` counted the real MathML `<annotation-xml>`) — one `<svg><line/></svg>`
+  inside a metric name ran the reader past its own `</li>` and swallowed the next item; and it is
+  DEPTH-AWARE where every regex was lazy, which changed the answer on straight authored markdown:
+  a `stats` member whose first sub-bullet carries its own sub-list AND further text handed the whole
+  item to the label, blew the length budget and declined, so the forward pointer stopped naming the
+  next page. Tag names now match exactly and case-insensitively, on both halves of the element.
+- **Fixed: the x-tex annotation is searched for, not assumed to be first.** A legal
+  `application/mathml` annotation sitting before KaTeX's own left the author's `\sigma` unstripped
+  and riding into the label.
 - **Fixed: a `class` attribute is read the way Chromium reads it.** The class test was
   double-quote-only in both directions: `class='katex-error'` and `class=katex-error` were
   invisible, so a failed KaTeX render was not recognized and the author's raw `\frac{a` reached

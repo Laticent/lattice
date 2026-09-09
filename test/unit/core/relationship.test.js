@@ -1096,6 +1096,85 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.equal(labelOf(`<li>${eq} <span title="a>b"></span> the Gram matrix</li>`), 'the Gram matrix');
   });
 
+  test('the nested-list read keeps the LAZY, EXACT-NAME close the regexes had', () => {
+    // Two regressions from one line, and the first lands on STRAIGHT AUTHORED MARKDOWN — the shape
+    // the commit that caused it claimed could not be affected. Routing the `<li>` read through
+    // `findMatchingClose` swapped a lazy `([\s\S]*?)</li>` for a DEPTH-AWARE close, so a `stats`
+    // member whose first sub-bullet carries its own sub-list AND further text handed the whole
+    // item to the label, blew the budget and declined — the pointer stopped naming the next page.
+    // This fixture is what markdown-it really emits for:
+    //   - **119%**
+    //     - Net revenue retention
+    //       - measured yearly
+    //
+    //       across cohorts
+    const deep = '<li><strong>119%</strong>\n<ul>\n<li>\n<p>Net revenue retention</p>\n<ul>\n'
+      + '<li>measured yearly</li>\n</ul>\n<p>across cohorts</p>\n</li>\n</ul>\n</li>';
+    assert.equal(labelOf(deep), 'Net revenue retention measured yearly');
+    // …and `findMatchingClose` PREFIX-matches its tag name, so `<li` counts `<line>`, `<link>` and
+    // `<listing>` as nested items. One `<svg><line/></svg>` inside a metric name ran the reader
+    // past its own `</li>` and swallowed the NEXT item: the chip read `Keep whole Second item
+    // entirely`. (`<annotation>` counts `<annotation-xml>` the same way — a real MathML element.)
+    // Both halves of that need a CLOSE tag to bite, and they bite in different readers: the
+    // depth-aware walk miscounts a self-closing `<line/>` as an open `<li>`, while a lazy scan for
+    // `</li` stops at a `</line>` or `</listing>`. One fixture per mechanism, or one of the two
+    // rides on the other — the first draft of this arm used a self-closing `<line/>` only, and the
+    // boundary test's mutation SURVIVED it.
+    // Both halves of that need a CLOSE tag to bite, and they bite in DIFFERENT readers: the
+    // depth-aware walk miscounts a self-closing `<line/>` as an open `<li>`, while a lazy scan for
+    // `</li` stops at a `</line>` or `</listing>`. Two fixtures, and the second needs a TAIL after
+    // the offending close or both readings give the same answer — a first draft asserted a shape
+    // where they agreed and the boundary test's mutation SURVIVED it twice.
+    const nested = (mark) => `<li><strong>31</strong><ul><li>Keep whole ${mark}and more text</li>`
+      + '<li>Second item entirely</li></ul></li>';
+    assert.equal(labelOf(nested('<svg width="10"><line x1="0" y1="0" x2="9" y2="9"/></svg> ')),
+      'Keep whole and more text', 'a self-closing <line/> was counted as a nested <li>');
+    assert.equal(labelOf(nested('<listing>x</listing> ')),
+      'Keep whole x and more text', 'a </listing> close was read as this item\'s own </li>');
+    // The control, so the arm pins the CLOSE rule rather than the markup inside it.
+    assert.equal(labelOf(nested('')), 'Keep whole and more text');
+  });
+
+  test('a tag name is matched case-INSENSITIVELY, on both halves of the element', () => {
+    // Chromium reads `<H3>` and `</H3>` as `h3`. `firstOpenTag` folds the OPEN name and a first cut
+    // handed the raw-case name to the close finder, so `<H3>x</h3>` — legal, and what a hand-written
+    // member can carry under `html: true` — found its open tag and then no close, and the reader
+    // returned nothing. Both halves fold now, and the arm holds all four casings.
+    for (const [open, close] of [['h3', 'h3'], ['H3', 'H3'], ['H3', 'h3'], ['h3', 'H3']]) {
+      assert.equal(labelOf(`<div><${open}>Ridge regression</${close}><p>body</p></div>`),
+        'Ridge regression', `<${open}>…</${close}> was not read as a heading`);
+    }
+  });
+
+  test('the x-tex annotation is SEARCHED for, not assumed to be the first', () => {
+    // The regex scanned FOR `encoding="application/x-tex"`. A first cut of the bounded reader took
+    // the FIRST `<annotation>` and tested it, so a legal `application/mathml` sibling sitting
+    // before it left the author's source unstripped — `\sigma` riding into the text, which is the
+    // defect this file exists to close, reintroduced by the commit closing another one.
+    const mirror = (first) => '<span class="katex"><span class="katex-mathml"><math><semantics>'
+      + '<mrow><mi>s</mi></mrow>'
+      + (first ? `<annotation encoding="${first}">S</annotation>` : '')
+      + '<annotation encoding="application/x-tex">\\sigma</annotation>'
+      + '</semantics></math></span></span>';
+    assert.doesNotMatch(textOf(mirror('application/mathml')), /\\/, 'raw TeX reached the text');
+    assert.equal(textOf(mirror('application/mathml')), 'sS');
+    assert.equal(textOf(mirror(null)), 's');
+  });
+
+  test('the leading-tag run before <strong> is {1,3} — at least ONE, at most three', () => {
+    // The `1,` half has no arm otherwise: re-widening the run to allow ZERO leading tags survives
+    // the whole suite, because every real caller hands `labelOf` a member wrapped in its own
+    // `<li>`/`<td>`. This is the one input that tells the two apart — with the widening,
+    // `leadingStrong` matches, the FIGURE rule fires, and the label becomes `deals closed this
+    // quarter`. (HARD RULE #25 checker, thirteenth pass, which found the hole by mutating it.)
+    assert.equal(labelOf('<strong>31</strong> deals closed this quarter'),
+      '31 deals closed this quarter');
+    // …and at most three: a fourth wrapper is not a leading run.
+    const wrap = (n) => `${'<div>'.repeat(n)}<strong>31</strong> deals closed${'</div>'.repeat(n)}`;
+    assert.equal(labelOf(wrap(3)), 'deals closed');
+    assert.equal(labelOf(wrap(4)), '31 deals closed');
+  });
+
   test('EVERY leading equation is dropped, not just the first', () => {
     assert.equal(labelOf(tr(`${typeset('a = b')} ${typeset('c = d')}`, 'combine')), 'combine');
     // The limit, asserted rather than left to be discovered: an equation that is not LEADING
