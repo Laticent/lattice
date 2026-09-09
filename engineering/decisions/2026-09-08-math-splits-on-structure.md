@@ -170,7 +170,7 @@ The 2.4em itself is left alone, and #2129's CSS comment explains why one rule ca
 samples: bare's hero renders 914px inside a 972px box at 2.4em, so dropping the declaration to fit
 `feature` would take it from 112.75px to 42.28px — trading one defect for another.
 
-## Nine kernel defects this surfaced, all fixed here
+## Eleven kernel defects this surfaced, all fixed here
 
 **The heading said "Three" while the list below it held five, and the PR body said eight.** Nobody
 re-counted; the number was written when the list was short and never moved with it. That is the
@@ -265,6 +265,18 @@ through — which is the more useful fact about them.
    member the equation is now dropped and the description beside it becomes the name (`- $\sigma$
    — the logistic link` reads `the logistic link`); where it cannot be spared, the chip degrades to
    the un-labeled `continues →`.
+
+10. **A member whose math fails to TYPESET was named by its broken source.** KaTeX has two failure
+   renderings and only one carries a class: a `ParseError` is
+   `<span class="katex-error" style="color:#cc0000">\frac{a</span>` — no `.katex` wrapper, no
+   MathML — so the span scan walked past it and `stripTags` flattened the author's raw TeX into the
+   chip. `lib/engine/math.js` had already learned this and says so in a docblock; this file learned
+   half of it twice, and the second half took two folds because the first fix bounded the new test
+   with `[^>]*`, which is the tag-bounding disagreement the file had already removed twice.
+11. **A block between two members printed on every page of the run.** Neither a member nor trailing
+   material, so it stayed in the trunk. It rides the page of the member it FOLLOWS now. A block
+   before the first member is framing and still repeats — the opposite call, made deliberately: a
+   premise every card is read under behaves like the equation that repeats over every legend page.
 
 ## What the gates could not have caught, and what now pins it
 

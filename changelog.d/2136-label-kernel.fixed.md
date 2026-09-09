@@ -16,3 +16,15 @@
   used the lazy `</span>` pair the rest of the file bans, so a title holding `$X^\top X$` stopped
   at KaTeX's first inner close and the chip printed the per-glyph visual half AND the raw TeX:
   `X ⊤ X X^\top X`.
+- **Fixed: a block BETWEEN two split members rides one page — the member it follows.** A sentence
+  written between two `theorem` cards is neither a member nor the run's closing material, so it
+  stayed in the trunk and printed on every body page: an authored "that theorem is the only one we
+  need for the proof that follows below" appeared above the Proof card as well, with no theorem on
+  that page. A block written BEFORE the first member is framing and still repeats, deliberately —
+  a premise every card is read under, the same way the equation repeats over every legend page.
+- **Fixed: a member whose math fails to TYPESET is named by the prose beside it.** KaTeX has two
+  failure renderings and only one carries a class, so a `ParseError` — `$\frac{a$`, an unbalanced
+  `\left(`, an unclosed environment — was invisible to the label reader and the author's raw TeX
+  reached the pointer chip. Both renderings are recognized now, and the separator goes with the
+  dropped span, so `- $\frac{a$ — the unclosed one` points at `the unclosed one` rather than at
+  `— the unclosed one`.

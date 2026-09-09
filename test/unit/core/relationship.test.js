@@ -806,7 +806,10 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.doesNotMatch(labelOf(`<li>${bad}</li>`), /dfracc/, 'and with nothing beside it, decline');
     const label = labelOf(`<li>${bad} — a description of it</li>`);
     assert.doesNotMatch(label, /dfracc/, "the author's broken SOURCE reached the chip");
-    assert.doesNotMatch(label, /\\\\/, 'no backslash command may reach a rendered label');
+    // `/\\/`, ONE backslash. This read `/\\\\/` — two — for two commits, so it could not fail on
+    // `\frac{a`, the exact string the branch shipped to a slide. A sentence the diff presented as
+    // a guarantee, carried entirely by the `assert.equal` beside it.
+    assert.doesNotMatch(label, /\\/, 'no backslash command may reach a rendered label');
     // A WELL-FORMED sibling still reads its symbols, so the refusal is scoped to the ERROR render
     // rather than to "math with a `\\dfrac` in it" — and what it reads is `ab`, which is worth
     // asserting rather than hiding. The mirror is symbols, not structure, so a fraction loses its
@@ -920,7 +923,10 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
       assert.match(err, /katex-error/, `${tex} must render the CLASSED failure`);
       const label = labelOf(`<li>${err} — a description of it</li>`);
       assert.equal(label, 'a description of it', `\`${tex}\` reached the chip`);
-      assert.doesNotMatch(label, /\\\\/, 'no backslash command may reach a rendered label');
+      // `/\\/`, ONE backslash. This read `/\\\\/` — two — for two commits, so it could not fail on
+    // `\frac{a`, the exact string the branch shipped to a slide. A sentence the diff presented as
+    // a guarantee, carried entirely by the `assert.equal` beside it.
+    assert.doesNotMatch(label, /\\/, 'no backslash command may reach a rendered label');
     }
     // AND THE SEPARATOR GOES WITH IT. `decoded` is '' for a failed render, and returning early
     // there left the em dash leading: the chip shipped `— a description of it`, which is
@@ -929,6 +935,52 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
       assert.equal(labelOf(`<li>${typeset('\\frac{a')} ${sep} a description of it</li>`),
         'a description of it', `the \`${sep}\` separator survived the drop`);
     }
+  });
+
+  test('the ERROR span is classified by the same tag bound as everything else', () => {
+    // The first cut tested `/^<span[^>]*\\sclass="[^"]*…katex-error…/`, and `[^>]*` before a quoted
+    // attribute is the exact shape this file spent three commits removing: it bounds the tag at
+    // the first `>`, which Chromium does not. A `katex-error` span carrying `title="a>b"` BEFORE
+    // its `class` was FOUND by the scan and then not CLASSIFIED by the test, so `errored` came
+    // back false and the author's raw `\\frac{a` flattened into the pointer pill — the very defect
+    // the commit that added the regex claims to close. Reachable from `html: true`, which is the
+    // same reachability this file has twice accepted as reason enough to fix.
+    const err = (attrs) => `<li><span ${attrs}>\\frac{a</span> — the unclosed one</li>`;
+    for (const attrs of [
+      'class="katex-error" style="color:#cc0000"',
+      'title="a>b" class="katex-error" style="color:#cc0000"',
+      "title='a>b' class=\"katex-error\"",
+      'class="katex-error" title="a>b"',
+    ]) {
+      const label = labelOf(err(attrs));
+      assert.equal(label, 'the unclosed one', `attrs \`${attrs}\` leaked the source`);
+      assert.doesNotMatch(label, /\\/, 'no backslash command may reach a rendered label');
+    }
+    // And it does NOT fire on a span that merely mentions the string — the `^` anchor and the
+    // token test, both of which the regex claimed and no arm held.
+    // `x`, not `desc`: the clause break cuts at ` — `, and reading it as an ERROR would have
+    // dropped the span AND its separator, leaving `desc`. The difference between the two answers
+    // is exactly the distinction under test.
+    assert.equal(labelOf('<li><span class="katex" title="katex-error">x</span> — desc</li>'), 'x');
+    for (const cls of ['katex-errors', 'my-katex-error']) {
+      assert.match(labelOf(`<li><span class="${cls}">zz</span> — desc</li>`), /zz/,
+        `\`${cls}\` was treated as the error rendering`);
+    }
+  });
+
+  test('a GOOD span before an errored one is still read — the scan takes the EARLIER', () => {
+    // `findKatexSpan` returns the MIN of the `.katex` and `.katex-error` scans, and that `Math.min`
+    // is load-bearing: hand it the error span when a good one comes first and `stripMathMirror`
+    // skips the good one, so the label falls back to KaTeX's per-glyph visual half — which is the
+    // `X ⊤ X` spacing and the `y i ␀` padding this whole thread exists to remove. It shipped with
+    // no arm, and both directions of the mutation survived all 9,329 tests.
+    const mixed = `${typeset('X^\\top X')} and ${typeset('\\frac{a')} — desc`;
+    assert.equal(textOf(mixed), 'X⊤X and — desc');
+    assert.doesNotMatch(textOf(mixed), /X ⊤ X/, 'the visual half reached the text');
+    // …and with the subscript shape, whose failure is the one that reads worst.
+    const sub = `${typeset('y_i')} and ${typeset('\\frac{a')} — desc`;
+    assert.equal(textOf(sub), 'yi and — desc');
+    assert.doesNotMatch(textOf(sub), /[\u200B\u2061-\u2064]/);
   });
 
   test('the EMPTINESS test bounds a tag the same way the rest of the file does', () => {

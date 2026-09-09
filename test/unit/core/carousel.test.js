@@ -906,8 +906,14 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     // follows below" followed nothing. Token conservation reports 0 lost, which is why no gate saw
     // it: the material is REORDERED, not dropped. (HARD RULE #25 checker, on the fold that fixed it.)
     const card = (label) => `<blockquote><p><strong>${label}</strong> body of the card.</p></blockquote>`;
-    const inner = mathInner(`${card('Definition.')}<p>MIDBEAT that definition is the only one we need.</p>`
-      + `${card('Theorem.')}${card('Proof.')}<p>TAILBEAT and that closes the argument.</p>`);
+    // MIDBEAT sits after the SECOND card, deliberately. It was after the first for one commit,
+    // where "the page of the member it follows" and "always member 0" are the same page — so
+    // `trailsMember = () => 0` passed the arm AND the whole 9,329-test suite while printing the
+    // sentence under the wrong card on a real render. An arm written to replace a regression
+    // frozen as an invariant had the same weakness one line over. (HARD RULE #25 checker.)
+    const inner = mathInner(`${card('Definition.')}${card('Theorem.')}`
+      + `<p>MIDBEAT that theorem is the only one we need.</p>`
+      + `${card('Proof.')}<p>TAILBEAT and that closes the argument.</p>`);
     const parts = split(mathTag('theorem'), inner);
     assert.ok(Array.isArray(parts), 'expected a split');
     const closing = parts.filter((p) => roleOf(p) === 'closing');
@@ -925,8 +931,20 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     // two, because the next reader takes the arm as the specification.
     const on = parts.filter((p) => p.includes('MIDBEAT'));
     assert.equal(on.length, 1, 'an interstitial block must ride exactly one page');
-    assert.match(on[0], /Definition\./, '…and it is the page of the member it follows');
-    assert.doesNotMatch(on[0], /Theorem\./);
+    assert.match(on[0], /Theorem\./, '…and it is the page of the member it FOLLOWS');
+    assert.doesNotMatch(on[0], /Definition\./, 'not simply the first member');
+
+    // AND A BLOCK BEFORE THE FIRST MEMBER IS FRAMING, SO IT REPEATS — the opposite call, made
+    // deliberately, and pinned because nothing held it: deleting the floor that decides it passed
+    // all 9,329 tests. A premise every card is read under behaves like the equation that repeats
+    // over every legend page; a sentence between two cards does not.
+    const framed = mathInner('<p>PREAMBLE we fix a closed interval for the whole argument.</p>'
+      + `${card('Definition.')}${card('Theorem.')}${card('Proof.')}`);
+    const fp = split(mathTag('theorem'), framed);
+    const bodies = fp.filter((p) => roleOf(p) === 'body');
+    assert.equal(bodies.length, 3);
+    assert.equal(bodies.filter((p) => p.includes('PREAMBLE')).length, 3,
+      'a block before the first member is framing and rides every page');
   });
 
   test('a trailing note lands ONCE, on a closing page — on the card-stack arm too', () => {
