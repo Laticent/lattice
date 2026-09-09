@@ -169,9 +169,21 @@ async function main() {
       const toRgb = (css) => {
         if (!css || css === 'none') return null;
         _ctx.clearRect(0, 0, 1, 1);
-        _ctx.fillStyle = '#000';
-        _ctx.fillStyle = css;              // invalid syntax leaves it at #000
-        if (_ctx.fillStyle === '#000000' && !/^(#000000|black|rgb\(0, 0, 0\))$/i.test(css.trim())) return null;
+        // A canvas keeps its PREVIOUS fillStyle when a value does not parse, so
+        // the sentinel is what tells a bad value apart from a real colour. Read
+        // it back BEFORE the real assignment: that normalizes it to the form the
+        // canvas returns, and makes the write plainly live rather than a dead
+        // store to a reader (and to the analyzer, which flagged the earlier form
+        // — correctly, on the code as written).
+        //
+        // The sentinel also replaces a hardcoded '#000000' plus a regex of every
+        // way an author might spell black. #010203 is a value nobody types, so
+        // the false-negative that list existed to avoid cannot arise.
+        const SENTINEL = '#010203';
+        _ctx.fillStyle = SENTINEL;
+        const sentinel = _ctx.fillStyle;
+        _ctx.fillStyle = css;
+        if (_ctx.fillStyle === sentinel && String(css).trim().toLowerCase() !== sentinel) return null;
         _ctx.fillRect(0, 0, 1, 1);
         const d = _ctx.getImageData(0, 0, 1, 1).data;
         return d[3] === 0 ? null : `rgb(${d[0]}, ${d[1]}, ${d[2]})`;
