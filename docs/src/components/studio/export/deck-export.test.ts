@@ -141,6 +141,150 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		return Date.now() - started < BUDGET * 0.5 ? 'early' : 'at-budget';
 	}
 
+	it('RELEASES a fence still un-settled at the budget, so it bakes as source not as a blank', async () => {
+		// THE WHOLE FIX. `mermaid.css` hides the source <pre> for every state but `error` and
+		// `unavailable`, so when this budget expires with a fence un-settled the capture bakes a
+		// BLANK REGION into a downloaded file. Releasing it to `unavailable` hands the author
+		// their own source instead — the same mechanism `releaseUnrenderableFences` uses when
+		// Mermaid never arrives, applied at the export's own give-up point.
+		const doc = frag('<pre data-mermaid-state="pending"><code>flowchart LR</code></pre><div class="mermaid"></div>');
+		const released = await waitForDiagrams(doc, BUDGET);
+		expect(released).toBe(1);
+		expect(doc.querySelector('pre')?.getAttribute('data-mermaid-state')).toBe('unavailable');
+	});
+
+	it('marks the release FINAL, so the runtime cannot take it back before the capture', async () => {
+		// `reclaimReleasedFences` returns any `unavailable` fence to `pending` — re-hiding it —
+		// as soon as a content pass runs with Mermaid present. `bakeDeckSections` releases, then
+		// awaits a dynamic import before reading `outerHTML`, and the capture frame shares this
+		// thread, so a pass scheduled during the wait lands in that await. Without the mark the
+		// capture takes the blank this release exists to prevent, and it does it intermittently
+		// — which is the worst shape for a defect in a downloaded file.
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		await waitForDiagrams(doc, BUDGET);
+		const pre = doc.querySelector('pre');
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('unavailable');
+		expect(pre?.hasAttribute('data-mermaid-final')).toBe(true);
+	});
+
+	it('releases a `rendered` fence whose box never received an SVG', async () => {
+		// The subtler blank: the runtime says `rendered`, so the <pre> is hidden, but nothing
+		// landed in the box. Both halves of the un-settled test have to reach the release.
+		const doc = frag('<pre data-mermaid-state="rendered"><code>x</code></pre><div class="mermaid"></div>');
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(1);
+		expect(doc.querySelector('pre')?.getAttribute('data-mermaid-state')).toBe('unavailable');
+	});
+
+	it('does NOT release when the caller will wait AGAIN — the release belongs to the LAST wait', async () => {
+		// THE DOUBLE-WAIT REGRESSION. `bakeDeckSections` builds a capture frame (which waits
+		// 4000) and then waits 12000 more on the same document. The release is TERMINAL —
+		// `unavailable` + `data-mermaid-final` closes every route the runtime has back to the
+		// fence — so releasing at the first wait silently caps the bake at the frame's budget
+		// and strands a diagram that was still going to draw. Waiting is idempotent; releasing
+		// is not, so only the last wait before the capture may release.
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const stranded = await waitForDiagrams(doc, BUDGET, { release: false });
+		const pre = doc.querySelector('pre');
+		// It still REPORTS what is blanking — the caller needs the count — but it has changed
+		// nothing, so a later wait can still catch the fence.
+		expect(stranded).toBe(1);
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('pending');
+		expect(pre?.hasAttribute('data-mermaid-final')).toBe(false);
+	});
+
+	it('a fence that draws AFTER a non-releasing wait still bakes as a drawing', async () => {
+		// The user-visible half of the same regression: the diagram lands between the two
+		// budgets. With the frame releasing, this fence shipped as source text; it must ship
+		// as the drawing it became.
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const pre = doc.querySelector('pre');
+		await waitForDiagrams(doc, BUDGET, { release: false });
+		pre?.setAttribute('data-mermaid-state', 'rendered');
+		const box = pre?.nextElementSibling as HTMLElement | null;
+		if (box) box.innerHTML = '<svg></svg>';
+		// The second, longer wait sees a settled fence and releases nothing.
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('rendered');
+		expect(pre?.hasAttribute('data-mermaid-final')).toBe(false);
+	});
+
+	it('re-reads at the give-up point — a fence that drew mid-poll is not released', async () => {
+		// The give-up must re-read rather than reuse the last poll's list, which is up to one
+		// poll interval stale. Reusing it stamps a SUCCESSFULLY DRAWN fence `unavailable`, and
+		// `mermaid.css` then hides the box — so the export ships source over a diagram that is
+		// sitting right there in the DOM. The draw lands in the final poll gap (after the last
+		// poll at 480 of a 600 budget), which is the only window where the two lists differ.
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const pre = doc.querySelector('pre');
+		setTimeout(() => {
+			pre?.setAttribute('data-mermaid-state', 'rendered');
+			const box = pre?.nextElementSibling as HTMLElement | null;
+			if (box) box.innerHTML = '<svg></svg>';
+		}, BUDGET - 50);
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('rendered');
+		expect(pre?.hasAttribute('data-mermaid-final')).toBe(false);
+	});
+
+	it('does NOT release a fence the runtime has not tagged — it already shows its source', async () => {
+		// The hide is keyed on `data-mermaid-state`, so an untagged fence paints its own source
+		// already. Tagging it here would take nothing away from the blank and would misreport a
+		// fence that was never the runtime's to lose.
+		const doc = frag('<pre><code class="language-mermaid">flowchart LR\n A --> B</code></pre>');
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(doc.querySelector('pre')?.hasAttribute('data-mermaid-state')).toBe(false);
+	});
+
+	it('releases NOTHING when every fence drew in time', async () => {
+		const doc = frag('<pre data-mermaid-state="pending"><code>x</code></pre><div class="mermaid"></div>');
+		const pre = doc.querySelector('pre');
+		setTimeout(() => {
+			pre?.setAttribute('data-mermaid-state', 'rendered');
+			const box = pre?.nextElementSibling as HTMLElement | null;
+			if (box) box.innerHTML = '<svg></svg>';
+		}, 150);
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(pre?.getAttribute('data-mermaid-state')).toBe('rendered');
+	});
+
+	it('releases only the fences still blanking, not the ones that drew', async () => {
+		const doc = frag(
+			'<pre id="a" data-mermaid-state="rendered"><code>x</code></pre><div class="mermaid"><svg></svg></div>' +
+				'<pre id="b" data-mermaid-state="pending"><code>y</code></pre><div class="mermaid"></div>' +
+				'<pre id="c" data-mermaid-state="error"><code>z</code></pre><div class="mermaid"></div>',
+		);
+		expect(await waitForDiagrams(doc, BUDGET)).toBe(1);
+		expect(doc.querySelector('#a')?.getAttribute('data-mermaid-state')).toBe('rendered');
+		expect(doc.querySelector('#b')?.getAttribute('data-mermaid-state')).toBe('unavailable');
+		expect(doc.querySelector('#c')?.getAttribute('data-mermaid-state')).toBe('error');
+	});
+
+	it('gives up AT the budget, not at some multiple of it', async () => {
+		// The number this function is about. An earlier design let the give-up threshold be
+		// tripled — 4000 to 12000 in the capture frame — with every cell in this file green,
+		// because the only timing assertion had 3.3x of slack. This one has 0.5x.
+		const doc = frag('<pre data-mermaid-state="pending"></pre>');
+		const started = Date.now();
+		await waitForDiagrams(doc, BUDGET);
+		const waited = Date.now() - started;
+		expect(waited).toBeGreaterThanOrEqual(BUDGET);
+		expect(waited).toBeLessThan(BUDGET * 1.5);
+	});
+
+	it('treats an UNRECOGNIZED state as un-settled, not as done', async () => {
+		// The settled set is a whitelist — `rendered` with its SVG in place, plus `error` and
+		// `unavailable`, where the runtime has given up and the source <pre> is the honest
+		// artifact. Anything else is a diagram still on its way, INCLUDING a state this file has
+		// never heard of: a runtime is free to add one, and the failure mode of guessing wrong
+		// here is a blank region in a downloaded file rather than a slow export.
+		//
+		// `deferred` is the concrete instance. It does not exist in the shipped runtime — it
+		// came from an abandoned render-latency branch (PR #2128) that held a fence whose source
+		// was mid-word — and the arm is kept for the general property, not that branch.
+		const doc = frag('<pre data-mermaid-state="deferred"></pre>');
+		expect(await returned(doc)).toBe('at-budget');
+	});
+
 	it('returns immediately when the deck has no diagram at all', async () => {
 		expect(await returned(frag('<p>no diagrams here</p>'))).toBe('early');
 	});
