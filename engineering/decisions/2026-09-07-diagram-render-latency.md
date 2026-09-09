@@ -1015,12 +1015,34 @@ mechanism behind that particular counter is not identified.
 far below a desktop's headroom — 60 keystrokes on the heavy deck oscillate between 34 and 42MB
 with no upward trend and no crash. JS heap is not the mechanism.
 
-**And the engine that crashed is not reachable from here (HARD RULE #23).** The report came from
-a tablet; this was measured in desktop Chromium. A WebKit tab is killed on TOTAL PROCESS memory,
-which is dominated by graphics and layer buffers that appear in none of the numbers above. The
-deck used for the heavy arm also declares `size: 4k`, so every slide rasterizes at 4K — six of
-those is a large layer footprint that no heap figure here would show. That is a hypothesis, not
-a finding.
+**`size: 4k` was the leading hypothesis and it is now MEASURED FALSE — in Chromium.** The preview
+lays out at the deck's intrinsic `@size` box and scales the iframe element by a CSS transform
+(`single-slide-render.ts:940`, `:1637`), so a 4K deck really is a 3840x2160 document, and the
+reasoning was that a transformed iframe rasterizes at intrinsic size — roughly 33MB per full-res
+buffer. Same deck, same keystrokes, varying ONLY `@size`, total browser RSS:
+
+| deck size | verified intrinsic box | after paste | peak |
+|---|---|---|---|
+| `hd` | 1280x720, `scale(0.50625)` | 1047 MB | 1054 MB |
+| `4k` | 3840x2160, `scale(0.16875)` | 1053 MB | 1061 MB |
+
+**~6MB, or 0.6%.** Chromium rasterizes at the COMPOSITED scale, so the intrinsic box costs almost
+nothing. `size: 4k` is a supported setting in daily use and telling an author to stop using it was
+never an acceptable answer; it is now also not even the right suspect on this engine.
+
+**That result required two attempts, and the first was worthless in a way worth recording.** It
+substituted `size: 16:9` — not a preset the engine accepts (`lib/engine/sizes.js:46-49` takes `hd`
+and `4k`) — so both arms may have rendered identically, and they came back within 1MB of each
+other. A null result manufactured by a broken manipulation reads exactly like a real one. The probe
+now prints the measured intrinsic box for each arm, so the manipulation is verified inline.
+
+**And the engine that crashed is NOT reachable from here (HARD RULE #23).** The report came from a
+tablet; everything above is desktop Chromium. A WebKit tab is killed on TOTAL PROCESS memory,
+dominated by graphics buffers no number above can see, and WebKit's treatment of a transformed
+iframe may differ from Chromium's — which is precisely the question the table cannot answer.
+Playwright's WebKit was downloaded here and will not launch: the host is missing the system
+libraries it needs, which require root package installs. So the one engine that could settle it
+is out of reach, and no amount of further Chromium measurement substitutes.
 
 **The instrument for this already exists and is the right next step, not another probe.**
 `docs/src/lib/crash-sentinel.ts` is a flight recorder built for precisely this failure class:
