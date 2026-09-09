@@ -7,11 +7,11 @@
 
 The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
 grouped by board column. Design lives in `engineering/decisions/`; this tracks
-only *status*. **296 open** items.
+only *status*. **299 open** items.
 
-> ⚠️ **19 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2004](https://github.com/Laticent/lattice/issues/2004), [#2010](https://github.com/Laticent/lattice/issues/2010), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2105](https://github.com/Laticent/lattice/issues/2105), [#2121](https://github.com/Laticent/lattice/issues/2121), [#2132](https://github.com/Laticent/lattice/issues/2132), [#2133](https://github.com/Laticent/lattice/issues/2133), [#2136](https://github.com/Laticent/lattice/issues/2136), [#2137](https://github.com/Laticent/lattice/issues/2137).
+> ⚠️ **20 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2004](https://github.com/Laticent/lattice/issues/2004), [#2010](https://github.com/Laticent/lattice/issues/2010), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2105](https://github.com/Laticent/lattice/issues/2105), [#2121](https://github.com/Laticent/lattice/issues/2121), [#2132](https://github.com/Laticent/lattice/issues/2132), [#2133](https://github.com/Laticent/lattice/issues/2133), [#2136](https://github.com/Laticent/lattice/issues/2136), [#2137](https://github.com/Laticent/lattice/issues/2137), [#2145](https://github.com/Laticent/lattice/issues/2145).
 
-## Backlog (287)
+## Backlog (290)
 
 - [#515](https://github.com/Laticent/lattice/issues/515) feat(playground): Google Drive bring-your-own-storage — Connect / Save / Open — high · website
 - [#617](https://github.com/Laticent/lattice/issues/617) Harden .lattice-*.zip import against zip-slip / path traversal on filesystem-backed (desktop/CLI) imports — high · engine
@@ -202,6 +202,7 @@ only *status*. **296 open** items.
 - [#2126](https://github.com/Laticent/lattice/issues/2126) test/oracle/family-conformance.json is stale on main: 22 drifts across 8 components, two of them never recorded at all — medium · infra
 - [#2134](https://github.com/Laticent/lattice/issues/2134) The E2E suite runs against a site `npm run build` would not ship — `build:e2e` skips two head-rewriting post-build steps — medium · website
 - [#2138](https://github.com/Laticent/lattice/issues/2138) overflow probe: an ellipsised footer with an inline element reports the whole slide `over` — medium · engine
+- [#2149](https://github.com/Laticent/lattice/issues/2149) The deck logo is invisible on `divider light` — the dark-canvas rule keys on the layout class, not the canvas — medium · engine
 - [#180](https://github.com/Laticent/lattice/issues/180) epic(chart): resolution-independent charts — cqi-first, kill fixed-px, for any-format / 10K export — low · chart
 - [#279](https://github.com/Laticent/lattice/issues/279) docs: reconcile Mermaid diagram-type count (README "25" vs gallery "26") — low · diagram
 - [#280](https://github.com/Laticent/lattice/issues/280) docs: fix phantom `--hljs-name`/`--hljs-meta` token rows in highlight-js.docs.md — low · docs
@@ -280,6 +281,7 @@ only *status*. **296 open** items.
 - [#2077](https://github.com/Laticent/lattice/issues/2077) fix(comparison): inline code in a compare-prose corner tag is 1.16:1 — it keeps its own ink on the accent banner — low · comparison
 - [#2086](https://github.com/Laticent/lattice/issues/2086) kit(agent): the same component prose ships in four cuts — decide which of them earns its place — low · infra
 - [#2087](https://github.com/Laticent/lattice/issues/2087) fix(studio): getFrontMatter doesn't strip a trailing YAML comment, so three Inspector toggles show the wrong state — low · website
+- [#2146](https://github.com/Laticent/lattice/issues/2146) Six surfaces still say the masthead-bay holds the logo Tile — low · engine
 - [#1745](https://github.com/Laticent/lattice/issues/1745) contrast(sweep): 285 sub-AA text runs in the exported players — 148 genuinely low-contrast, 137 from the new 4.5:1 floor — p3 · theme
 - [#1973](https://github.com/Laticent/lattice/issues/1973) Expose categorical tokens as Mermaid-consumable node classes, so `:::` can pin an entity's color — diagram
 - [#2004](https://github.com/Laticent/lattice/issues/2004) fix(list): an inline-code chip in a list card swallows the space beside it — engine
@@ -300,6 +302,7 @@ only *status*. **296 open** items.
 - [#2133](https://github.com/Laticent/lattice/issues/2133) The overflow-corpus baseline is stale: 8 decks clip on main that it records as clean
 - [#2136](https://github.com/Laticent/lattice/issues/2136) math: split on structure — four split preprocessors, plus a TeX line-break pass for over-wide equations
 - [#2137](https://github.com/Laticent/lattice/issues/2137) positionIsTrustworthy refuses any deck whose display math has a lone `=` or `-` continuation line
+- [#2145](https://github.com/Laticent/lattice/issues/2145) examples/portrait-prose-deboost.pdf is stale on main — 28 committed pages, 31 rendered
 
 ## Ready (6)
 
