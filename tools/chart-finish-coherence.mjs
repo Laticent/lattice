@@ -68,8 +68,13 @@ for (const th of themes) for (const mode of modes) {
       const rgb = (v) => { try {
         cx.clearRect(0, 0, 1, 1);
         cx.fillStyle = SENTINEL;
+        // Read it back BEFORE the real assignment: that both normalizes the
+        // sentinel to the form the canvas returns, and makes the write plainly
+        // live to a reader (and to the analyzer, which flagged the earlier form
+        // as a dead store twice — correctly, on the code as written).
+        const sentinel = cx.fillStyle;
         cx.fillStyle = v;
-        if (cx.fillStyle === SENTINEL && String(v).toLowerCase() !== SENTINEL) return null;
+        if (cx.fillStyle === sentinel && String(v).trim().toLowerCase() !== sentinel) return null;
         cx.fillRect(0, 0, 1, 1);
         const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]];
       } catch { return null; } };
