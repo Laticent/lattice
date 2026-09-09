@@ -1,0 +1,13 @@
+{
+  "name": "lattice",
+  "owner": {
+    "name": "Lattice"
+  },
+  "plugins": [
+    {
+      "name": "lattice",
+      "source": "./",
+      "description": "Author boardroom-quality slide decks in Markdown with the Lattice layout catalog."
+    }
+  ]
+}
