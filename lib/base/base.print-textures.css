@@ -70,19 +70,18 @@ section.print.piechart .wedge:nth-of-type(6n+3) { fill: url(#latt-a11y-chart-tex
 section.print.piechart .wedge:nth-of-type(6n+4) { fill: url(#latt-a11y-chart-tex-4) !important; }
 section.print.piechart .wedge:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
 section.print.piechart .wedge:nth-of-type(6n)   { fill: url(#latt-a11y-chart-tex-6) !important; }
-/* Legend swatches carry the SAME texture as their wedge (data-cat = 0-based). */
-section.print.piechart .chart-key-swatch[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
-section.print.piechart .chart-key-swatch[data-cat="1"] { fill: url(#latt-a11y-chart-tex-2) !important; }
-section.print.piechart .chart-key-swatch[data-cat="2"] { fill: url(#latt-a11y-chart-tex-3) !important; }
-section.print.piechart .chart-key-swatch[data-cat="3"] { fill: url(#latt-a11y-chart-tex-4) !important; }
-section.print.piechart .chart-key-swatch[data-cat="4"] { fill: url(#latt-a11y-chart-tex-5) !important; }
-section.print.piechart .chart-key-swatch[data-cat="5"] { fill: url(#latt-a11y-chart-tex-6) !important; }
-section.print.funnel .funnel-band:nth-of-type(6n+1) { fill: url(#latt-a11y-chart-tex-1) !important; }
-section.print.funnel .funnel-band:nth-of-type(6n+2) { fill: url(#latt-a11y-chart-tex-2) !important; }
-section.print.funnel .funnel-band:nth-of-type(6n+3) { fill: url(#latt-a11y-chart-tex-3) !important; }
-section.print.funnel .funnel-band:nth-of-type(6n+4) { fill: url(#latt-a11y-chart-tex-4) !important; }
-section.print.funnel .funnel-band:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
-section.print.funnel .funnel-band:nth-of-type(6n+6) { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* Legend swatches carry the SAME texture as their wedge (data-hue = 1-based). */
+section.print.piechart .chart-key-swatch[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.print.piechart .chart-key-swatch[data-hue="2"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.print.piechart .chart-key-swatch[data-hue="3"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.print.piechart .chart-key-swatch[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.print.piechart .chart-key-swatch[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.print.piechart .chart-key-swatch[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* funnel is ONE hue, so it is one texture. The hue count IS the texture count
+ * (engineering/decisions/2026-09-07-chart-design-language/spend-rules.md §1c):
+ * six patterns across the bands would claim six categories in grayscale while
+ * the color channel says one. Slot 1, matching a single-series bar. */
+section.print.funnel .funnel-band { fill: url(#latt-a11y-chart-tex-1) !important; }
 
 /* Multi-series line charts (radar) — grayscale overlaps, so a distinct
  * stroke-dasharray per series carries the distinction hue can't. */
@@ -94,32 +93,32 @@ section.print.radar .radar-poly[data-series="2"] { stroke-dasharray: 1.5 3.5 !im
  * bullet) ──────────────────────────────────────────────────────────────────
  * Seven charts landed together against one substrate, so unlike the members
  * above they share ONE attribute convention rather than seven hook shapes:
- *   · every categorical FILLED mark carries `data-cat="0..5"` — the same 0-based
+ *   · every categorical FILLED mark carries `data-hue="1..6"` — the same 1-based
  *     slot the shared legend swatch already uses, so a mark and its key entry
  *     texture identically for free;
  *   · every STROKED series mark carries `data-series="0..5"`;
  *   · a semantic mark carries `data-s`.
  * That is why this block is ten rules instead of seventy.
  * See engineering/decisions/2026-09-06-cartesian-chart-expansion.md. */
-section.print.bar .bar-mark[data-cat="0"],
-section.print.stacked-bar .sbar-seg[data-cat="0"],
-section.print.line :is(.line-area, .line-band)[data-cat="0"],
-section.print.scatter :is(.scatter-dot, .scatter-bubble, .scatter-size-ring)[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
-section.print.bar .bar-mark[data-cat="1"],
-section.print.stacked-bar .sbar-seg[data-cat="1"],
-section.print.line :is(.line-area, .line-band)[data-cat="1"] { fill: url(#latt-a11y-chart-tex-2) !important; }
-section.print.bar .bar-mark[data-cat="2"],
-section.print.stacked-bar .sbar-seg[data-cat="2"],
-section.print.line :is(.line-area, .line-band)[data-cat="2"] { fill: url(#latt-a11y-chart-tex-3) !important; }
-section.print.bar .bar-mark[data-cat="3"],
-section.print.stacked-bar .sbar-seg[data-cat="3"],
-section.print.line :is(.line-area, .line-band)[data-cat="3"] { fill: url(#latt-a11y-chart-tex-4) !important; }
-section.print.bar .bar-mark[data-cat="4"],
-section.print.stacked-bar .sbar-seg[data-cat="4"],
-section.print.line :is(.line-area, .line-band)[data-cat="4"] { fill: url(#latt-a11y-chart-tex-5) !important; }
-section.print.bar .bar-mark[data-cat="5"],
-section.print.stacked-bar .sbar-seg[data-cat="5"],
-section.print.line :is(.line-area, .line-band)[data-cat="5"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+section.print.bar .bar-mark[data-hue="1"],
+section.print.stacked-bar .sbar-seg[data-hue="1"],
+section.print.line :is(.line-area, .line-band)[data-hue="1"],
+section.print.scatter :is(.scatter-dot, .scatter-bubble, .scatter-size-ring)[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.print.bar .bar-mark[data-hue="2"],
+section.print.stacked-bar .sbar-seg[data-hue="2"],
+section.print.line :is(.line-area, .line-band)[data-hue="2"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.print.bar .bar-mark[data-hue="3"],
+section.print.stacked-bar .sbar-seg[data-hue="3"],
+section.print.line :is(.line-area, .line-band)[data-hue="3"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.print.bar .bar-mark[data-hue="4"],
+section.print.stacked-bar .sbar-seg[data-hue="4"],
+section.print.line :is(.line-area, .line-band)[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.print.bar .bar-mark[data-hue="5"],
+section.print.stacked-bar .sbar-seg[data-hue="5"],
+section.print.line :is(.line-area, .line-band)[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.print.bar .bar-mark[data-hue="6"],
+section.print.stacked-bar .sbar-seg[data-hue="6"],
+section.print.line :is(.line-area, .line-band)[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
 
 /* The WATERFALL is semantic, not categorical: its three registers are direction
  * and reference, so they take the first three textures by MEANING. Direction
@@ -148,16 +147,21 @@ section.print.line :is(.line-path, .line-dot)[data-series="5"],
 section.print.slope :is(.slope-line, .slope-bar)[data-series="5"] { stroke-dasharray: 11 4 1 4 !important; }
 
 /* The KEY swatches carry the same texture as the marks they name. The Cartesian
- * members emit `data-cat` on their legend rows (svg-legend.js), so one rule per
+ * members emit `data-hue` on their legend rows (svg-legend.js), so one rule per
  * slot covers every member that shows a key — and without it the bars carried
  * six distinct textures while the key carried six flat grays, which on the one
  * palette whose whole job is the non-color channel makes the key unusable. */
-:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
-:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="1"] { fill: url(#latt-a11y-chart-tex-2) !important; }
-:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="2"] { fill: url(#latt-a11y-chart-tex-3) !important; }
-:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="3"] { fill: url(#latt-a11y-chart-tex-4) !important; }
-:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="4"] { fill: url(#latt-a11y-chart-tex-5) !important; }
-:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="5"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* WHY scatter AND slope ARE NOT ON THIS LIST. Neither builds a keyed legend, so
+ * a `.chart-key-swatch` arm for them matches nothing: scatter never calls
+ * buildSvgLegend, and slope's only mention of it is a comment saying it draws
+ * its two-entry key in its own coordinate system instead. Both arms were carried
+ * here for years, dead. */
+:is(section.print.bar, section.print.stacked-bar, section.print.line) .chart-key-swatch[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line) .chart-key-swatch[data-hue="2"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line) .chart-key-swatch[data-hue="3"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line) .chart-key-swatch[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line) .chart-key-swatch[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line) .chart-key-swatch[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
 
 /* BULLET is deliberately untextured. Its three layers are separated by VALUE,
  * not hue — a light band wash, a solid measure bar, a dark target tick — and

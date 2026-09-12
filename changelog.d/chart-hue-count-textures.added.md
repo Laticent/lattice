@@ -1,0 +1,1 @@
+- Chart design language: the hue count is the texture count — a rainbow single series hands a monochrome reader one hatch pattern per bar for values of a single measure, which reads as a harder categorical boundary than the colour it replaced.

@@ -4,9 +4,11 @@
  * The kernel (funnel.transform.js) emits a <div class="funnel-figure"> with an
  * SVG of centered trapezoid bands, stage labels (left), values (right), and the
  * stage-to-stage conversion % in the gaps. All color lives here so the kernel
- * stays palette-blind: bands carry `--i` (their index) and ride a single-hue
- * ramp off --chart-cat-1-hue; text uses the canvas ink tokens. Unlayered like every
- * other component file (broad @layer activation is blocked — see cascade.md). */
+ * stays palette-blind: every band takes one hue, --chart-cat-1-hue, and text uses
+ * the canvas ink tokens. The band also carries `--i` (its stage index), the chart
+ * family's slot-index hook that several members emit; nothing reads it here.
+ * Unlayered like every other component file (broad @layer activation is blocked
+ * — see cascade.md). */
 
 :is(section.funnel, figure.chart-frame) .funnel-figure {
   width: 100%;
@@ -21,30 +23,28 @@
   display: block;
 }
 
-/* Bands — one distinct hue per stage, rotating the categorical chart palette
- * exactly like the piechart wedges, so a stage reads as its own color. This
- * is the "on-brand" palette: themes curate --chart-catN (cuoio's earth
- * pigments, etc.), so the rotation greens/browns/etc. per theme rather than
- * sitting on a fixed blue. Vivid solid (mix toward --bg for body, the same
- * 82% richness the pie legend swatch uses), six-hue cap (Wong 2011) matching
- * PIE_PALETTE. Labels + values sit on the canvas, never on a band, so the fill
- * never affects text contrast. A hairline canvas-colored stroke keeps adjacent
- * bands crisp.
+/* ONE FUNNEL IS ONE HUE. Every stage label sits in the left gutter beside its
+ * own band with clear space around it, so hue has neither job to do: nothing to
+ * BIND (no legend rail, no leader line, no open path read along its length) and
+ * nothing to SEPARATE (the bands stack with a gap between them, and the taper
+ * already ranks them). A hue per stage was decoration — the same "six hues for
+ * six bars" tell bar.styles.css names, one component over.
  *
- * :nth-of-type counts <polygon> siblings — every band is a polygon and the only
- * polygons in the figure, so the count tracks stage order. (Same rotation idiom
- * as piechart.styles.css; see the gotchas note on nth-of-type vs nth-child.) */
+ * Measured, not asserted: tools/chart-hue-jobs.js reads the rendered gallery and
+ * reports both jobs per member. funnel came back key=none, leaders=0, gap=0.44 —
+ * no job — while spending five hues. See
+ * engineering/decisions/2026-09-07-chart-design-language/spend-rules.md §2.
+ *
+ * Slot 1 is the family's single-series slot, the one a one-series bar takes.
+ * Vivid solid (mix toward --bg for body, the same 82% richness the pie legend
+ * swatch uses). Labels and values sit on the canvas, never on a band, so the
+ * fill never affects text contrast. A hairline canvas-colored stroke keeps
+ * adjacent bands crisp. */
 :is(section.funnel, figure.chart-frame) .funnel-band {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg));
+  fill: var(--chart-cat-1-body);
   stroke: var(--bg);
   stroke-width: 0.75;
 }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 1) { fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 2) { fill: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 3) { fill: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 4) { fill: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 5) { fill: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 6) { fill: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--bg)); }
 
 /* Stage label — left column, right-aligned to the band. */
 :is(section.funnel, figure.chart-frame) .funnel-label {

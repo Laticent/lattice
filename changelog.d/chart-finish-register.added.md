@@ -1,0 +1,1 @@
+- Chart look becomes an author choice through a `charts:` front-matter register — three coherent presets (`editorial`, `panel`, `material`) rather than a set of independent knobs, following the same shape as the fourteen registers already shipped. The line a preset may not cross is measured, not asserted: it may change how a chart looks, never whether it can be read.

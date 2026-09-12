@@ -42,23 +42,21 @@
 /* ONE SERIES IS ONE HUE. A single-series bar chart is one <g class="bar-lane">,
  * so it takes slot 1 and every bar is the same color — the color encodes
  * nothing that length has not already said, and six hues for six bars is the
- * classic amateur tell. The rotation below only ever engages on `grouped`,
- * where a lane IS a series and the hue is doing real work.
+ * classic amateur tell. The cycle only ever engages on `grouped`, where a lane
+ * IS a series and the hue is doing real work.
  *
- * :nth-of-type counts the <g> lanes inside .bar-cat — never :nth-child, and
- * never the rects themselves, whose document order interleaves series.
+ * The six :nth-of-type lane rules that used to sit here are gone. Each bar
+ * carries its own `data-hue` and the family's slot table resolves --mark-ink
+ * from it, so the slot travels ON THE MARK instead of being re-derived from the
+ * lane's document position — which is strictly safer, because a lane that skips
+ * a series can no longer put the next one at the wrong ordinal. slot-contract.md
  *
  * `.bar-cat` and `.bar-signed` below are MUTUALLY EXCLUSIVE containers the
  * kernel picks between, not two rules racing on specificity. The lane selector
  * carries one class-unit more than a `.bar-mark.bar-down` would, so written as
  * a single container these rules silently overrode the diverging pair and a
  * cuoio negative bar painted a bronze edge around a teal fill. */
-:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(1) .bar-mark { stroke: var(--chart-cat-1-ink); }
-:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(2) .bar-mark { stroke: var(--chart-cat-2-ink); }
-:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(3) .bar-mark { stroke: var(--chart-cat-3-ink); }
-:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(4) .bar-mark { stroke: var(--chart-cat-4-ink); }
-:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(5) .bar-mark { stroke: var(--chart-cat-5-ink); }
-:is(section.bar, figure.chart-frame) .bar-cat > g:nth-of-type(6) .bar-mark { stroke: var(--chart-cat-6-ink); }
+:is(section.bar, figure.chart-frame) .bar-cat .bar-mark { stroke: var(--mark-ink, var(--chart-cat-1-ink)); }
 
 /* `diverging` encodes the SIGN, not the category, so it overrides the lane
  * rotation (higher specificity, and later in the file). Two hues far apart on

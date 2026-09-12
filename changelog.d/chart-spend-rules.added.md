@@ -1,0 +1,1 @@
+- Chart design language: the rules for where colour is spent — a hue appears once per link between a name and its mark, and a finish may retreat a mark's fill only where that fill is not the sole carrier of a channel.

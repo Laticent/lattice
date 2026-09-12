@@ -60,7 +60,7 @@ function rects(html) {
     const tag = m[0];
     const num = (k) => Number(tag.match(new RegExp(`${k}="(-?[\\d.]+)"`))[1]);
     return {
-      cat: Number(tag.match(/data-cat="(\d+)"/)[1]),
+      cat: Number(tag.match(/data-hue="(\d+)"/)[1]) - 1,
       mark: Number(tag.match(/data-mark="(\d+)"/)[1]),
       label: tag.match(/data-label="([^"]*)"/)[1],
       x: num('x'), y: num('y'), w: num('width'), h: num('height'),
@@ -326,12 +326,12 @@ describe('stacked-bar kernel', () => {
       }
     });
 
-    test('every segment carries the family hooks: data-cat, data-mark, --i, a role', () => {
+    test('every segment carries the family hooks: data-hue, data-mark, a role', () => {
       const tag = build(FY).match(/<rect class="sbar-seg"[^<>]*>/)[0];
-      assert.match(tag, /data-cat="0"/);
+      assert.match(tag, /data-hue="1"/);
       assert.match(tag, /data-mark="0"/);
       assert.match(tag, /data-anima-role="bar"/);
-      assert.match(tag, /style="--i:0"/);
+      assert.doesNotMatch(tag, /--i:/, 'the dead --i index went with data-cat');
       assert.match(tag, /data-label="FY23 · Licenses"/);
       assert.match(tag, /data-value="18\.4"/);
     });
@@ -456,15 +456,23 @@ describe('stacked-bar kernel', () => {
     test('no hex literal, and every fill goes through a chart token', () => {
       assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b/);
       const fills = [...css.matchAll(/fill:\s*([^;]+);/g)].map((m) => m[1]);
-      assert.ok(fills.length >= 12);
-      for (const f of fills) assert.match(f, /var\(--chart-cat-\d-(?:hue|ink)\)|var\(--text-body\)/);
+      // The floor used to be 12, which pinned the ten per-slot rules. The mark
+      // contract collapsed those to one declaration, so the count is now small
+      // BY DESIGN and a floor would just re-pin the duplication. What still has
+      // to hold is that every fill reaches a token — never a literal.
+      assert.ok(fills.length >= 2, 'the sheet still paints something');
+      for (const f of fills) assert.match(f, /var\(--mark-(?:hue|ink|body)[,)]|var\(--chart-cat-\d-(?:hue|ink|body)\)|var\(--text-body\)/);
     });
 
-    test('all six categorical slots are painted, on the mark AND on its name', () => {
-      for (let i = 1; i < 6; i++) {
-        assert.match(css, new RegExp(`\\.sbar-seg\\[data-cat="${i}"\\]`));
-        assert.match(css, new RegExp(`\\.sbar-name\\[data-cat="${i}"\\]`));
-      }
+    // The five per-slot rules are GONE — the mark contract resolves --mark-hue
+    // from `data-hue` in one family table, so the member declares once. What has
+    // to hold is that the one declaration READS the contract and carries a
+    // fallback: an unset custom property is invalid-at-computed-value-time,
+    // which paints the segment black. slot-contract.md
+    test('the segment paints from the mark contract, with a fallback', () => {
+      assert.doesNotMatch(css, /\[data-cat=/, 'data-cat is retired, not renamed in place');
+      assert.match(css, /\.sbar-seg \{[^}]*var\(--mark-body, var\(--chart-cat-1-body\)\)/s);
+      assert.doesNotMatch(css, /\.sbar-seg\[data-hue=/, 'no per-slot rule survives — the family table owns the cycle');
     });
 
     test('the stylesheet is unlayered and carries no margin (HARD RULES #20, #26)', () => {

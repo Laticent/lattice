@@ -112,6 +112,19 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **The general shape:** anything that replaces `light-dark()` with static CSS has
   to answer *which element's* `color-scheme` each token was resolving against, not
   just "light or dark".
+- **The same trap catches an EMBEDDER, with no flattening involved.** A page that
+  hosts slides inside its own chrome — a review harness, a docs-site preview, a
+  published prototype — usually sets `:root { color-scheme: light dark }` so its
+  chrome follows the reader's device. Every theme token inside the slides then
+  resolves through the READER's preference, because `light-dark()` reads
+  `color-scheme` and knows nothing about a control the page is offering. Measured
+  on a chart-finish prototype: the same page with the same "light" control gave a
+  `rgb(255,255,255)` canvas to a light-preference viewer and `rgb(0,0,0)` to a dark
+  one, so onyx rendered black on a phone in dark mode and white on a laptop. Only
+  the LIGHT direction is exposed — the engine already pins `color-scheme: dark` on
+  `section.dark`, so the dark direction happens to be correct. **An embedder that
+  offers a light/dark control must pin `color-scheme` on the slide from that
+  control**, not rely on the class alone.
 
 ## A token flattened for the player took the print band's value
 

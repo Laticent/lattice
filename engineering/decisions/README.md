@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ◐ [2026-09-07-chart-design-language.md](2026-09-07-chart-design-language.md) — The chart family shares tokens, kernels and a frame and still reads as several authors — because the shared layer stops at COLOR.
 - ◐ [2026-09-07-overflow-guards-trim.md](2026-09-07-overflow-guards-trim.md) — Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit?
 - ◐ [2026-09-06-cartesian-chart-expansion.md](2026-09-06-cartesian-chart-expansion.md) — The chart family ships fourteen components and not one of them plots a value against an axis — `progress` is a percentage fill with no…
 - ☐ [2026-09-06-component-owned-split-kernels.md](2026-09-06-component-owned-split-kernels.md) — Eleven components lose content at a split size with no split available to save them, and the reason is not a broken splitter — none of the…
