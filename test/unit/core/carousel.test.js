@@ -13,6 +13,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const katex = require('katex');
 const { carouselize, readSubjects, readFeature, readRows, CAROUSEL_STRATEGIES, MEMBER_CLAIM_STRATEGIES } = require('../../../lib/core/carousel');
 const { splitSections } = require('../../../lib/core/split-sections');
 // The content-cell reader + depth-aware top-level walk the engine itself uses to place
@@ -298,7 +299,7 @@ describe('core: carousel — cover-paginate (dense lists / legal batch)', () => 
   // shape masthead-lift builds (lib/forms/cell/masthead/masthead.transform.js), which is
   // what the shared cover reader keys on. (The old fixture put the eyebrow after the
   // heading, where a real render puts the SUBTITLE; the cover grabbed the first <code>
-  // anywhere and so mislabelled a subtitle as the mono-caps kicker.)
+  // anywhere and so mislabeled a subtitle as the mono-caps kicker.)
   const inner = `<header>H</header><p><code>Scope eyebrow</code></p><h2>Heading</h2><p><code>Seven jurisdictions</code></p><ul>${item('A')}${item('B')}${item('C')}${item('D')}</ul><footer>F</footer>`;
   const recipe = { strategy: 'cover-paginate', axis: 'item', perPage: 2, intro: 'Item by item' };
 
@@ -679,6 +680,23 @@ const jnSection = (orientation) =>
 const jnInner = jnSection('portrait');
 const jnLandscapeInner = jnSection('landscape');
 
+// `math-structures` — the THEOREM card stack, i.e. the bespoke arm.
+//
+// Two of the strategy's four arms delegate to `cover-paginate`, which the row above already
+// drives; the card stack and the columns are the code this change actually adds, and the card
+// stack is the riskier of the two — its members are sibling `<blockquote>`s, which is also the
+// shape the trailing-material scan reads as a coda. Shaped as the engine renders it: the
+// masthead band OUTSIDE `.cell-stage`, the cards inside it, each titled by a leading `<strong>`
+// with no class of its own (`> blockquote > p > strong`, styled positionally).
+const mtTag = '<section data-lattice-slide="1" id="s1" class="math theorem form">';
+const mtInner = '<div class="cell-masthead"><div class="masthead-lede">' +
+  '<p><code>Continuity · IVT</code></p><h2>The intermediate value theorem</h2></div></div>' +
+  '<div class="cell-stage">' +
+  '<blockquote><p><strong>Definition.</strong> A continuous function on a closed interval.</p></blockquote>' +
+  '<blockquote><p><strong>Theorem.</strong> Every intermediate value is attained.</p></blockquote>' +
+  '<blockquote><p><strong>Proof.</strong> Take the supremum of the sublevel set.</p></blockquote>' +
+  '</div><div class="cell-footer"><footer>math</footer></div>';
+
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
   ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
@@ -692,6 +710,7 @@ const STRATEGY_CASES = [
   ['roadmap-horizons', rmTag,           rmInner,         { strategy: 'roadmap-horizons' }],
   ['journey-stages', jnTag,             jnInner,         { strategy: 'journey-stages' }],
   ['compare-options', scSection.openTag, scSection.inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }],
+  ['math-structures', mtTag,             mtInner,         { strategy: 'math-structures' }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to
@@ -710,6 +729,325 @@ test('core: carousel — STRATEGY_CASES covers every registered strategy', () =>
 });
 
 const roleOf = (sec) => (sec.match(/\sdata-split-role="([^"]*)"/) || [])[1] || null;
+
+// ── math-structures: the DISPATCH ORDER, which is the whole strategy ──────────────
+//
+// `math-structures` picks an arm by the shape it finds in the stage, and the first cut got the
+// ORDER wrong in a way no committed sample could show. It asked `cover-paginate` first, and that
+// function's only question is "is there a list or a table with two or more members anywhere in
+// the stage" — `firstList` is deliberately nesting-tolerant. So any math slide carrying a list
+// ANYWHERE won the paginate arm before the structural arms were consulted, and the manifest's own
+// promise ("`stats` and `canvas` keep the whole slide") held only for the two committed samples.
+//
+// One authoring keystroke broke it, and the keystroke is the one this repo's house style teaches:
+// write the `stats` reading as a list instead of a paragraph and the slide came out as four pages
+// with the CI panel on a cover and the estimate it qualifies on the next page. Measured on real
+// renders at `size: portrait`, all three cases below.
+//
+// These fixtures are therefore not "more coverage" — they are the three shapes that distinguish a
+// correct dispatch from an incorrect one, and STRATEGY_CASES cannot: its one fixture per strategy
+// exercises whichever arm that fixture happens to hit.
+describe('core: carousel — math-structures dispatches on the STRUCTURE, not on the first list it finds', () => {
+  const mathTag = (variant) => `<section data-lattice-slide="1" id="s1" class="math ${variant} form">`;
+  const mathInner = (stage) => '<div class="cell-masthead"><div class="masthead-lede">'
+    + '<h2>The heading</h2></div></div>'
+    + `<div class="cell-stage">${stage}</div><div class="cell-footer"><footer>math</footer></div>`;
+  const recipe = { strategy: 'math-structures' };
+  const split = (tag, inner) => carouselize(tag, inner, recipe, 2, 'math');
+
+  test('`stats` refuses BY NAME, even when its reading is authored as a list', () => {
+    // The three-part scaffold — estimate, interval, reading — is one statement. Its indivisibility
+    // is a fact about the VARIANT, so it is asserted in code rather than left to fall out of a
+    // member count that an author's markup can change.
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">b</span></span></p>'
+      + '<blockquote><p>95% CI</p></blockquote>'
+      + '<ul><li>Effect size is the headline</li><li>The p-value rules out chance</li>'
+      + '<li>The interval is the honest range</li></ul>',
+    );
+    assert.equal(split(mathTag('stats'), inner), null,
+      'a `math stats` slide must keep the whole slide whatever its reading is authored as');
+  });
+
+  test('`canvas` refuses BY NAME, even when its reading is authored as a list', () => {
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">s</span></span></p>'
+      + '<ul><li>Maps R to (0,1)</li><li>S-shaped</li><li>Steepest at the origin</li></ul>'
+      + '<div class="functionplot"><svg viewBox="0 0 10 10"></svg></div>',
+    );
+    assert.equal(split(mathTag('canvas'), inner), null,
+      'a `math canvas` slide must keep the whole slide — the plot is not a collection');
+  });
+
+  test('a `theorem` card that CONTAINS a list still splits by CARD, and loses no card', () => {
+    // Run paginate-first this emitted three pages that had dropped the Definition and Theorem
+    // cards entirely and repeated one list item across two of them.
+    const card = (label, body) => `<blockquote><p><strong>${label}</strong> ${body}</p></blockquote>`;
+    const inner = mathInner(
+      card('Definition.', 'A function is continuous.')
+      + card('Theorem.', 'Every intermediate value is attained.')
+      + '<blockquote><p><strong>Proof.</strong> Three moves:</p>'
+      + '<ul><li>take the supremum</li><li>continuity forces equality</li><li>conclude</li></ul></blockquote>',
+    );
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.length, 4, `cover + one card per page, got ${parts?.length}`);
+    for (const label of ['Definition.', 'Theorem.', 'Proof.']) {
+      const on = parts.filter((p) => p.includes(label)).length;
+      assert.equal(on, 1, `${label} must appear on exactly one page, appeared on ${on}`);
+    }
+  });
+
+  test('a `compare` column that CONTAINS bullets still splits by COLUMN, and keeps its own bullets', () => {
+    // Run paginate-first this put BOTH columns on every page and sliced only the first column's
+    // list, scattering its items out of order.
+    const col = (name, bullets) => `<h3>${name}</h3>`
+      + '<p><span class="katex-display"><span class="katex">e</span></span></p>'
+      + `<ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul>`;
+    const inner = mathInner(col('Frequentist', ['no prior', 'sampling distribution'])
+      + col('Bayesian', ['conditions on the prior', 'posterior is the uncertainty']));
+    const parts = split(mathTag('compare'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.length, 3, `cover + one column per page, got ${parts?.length}`);
+    const freq = parts.find((p) => p.includes('Frequentist') && !roleOf(p).includes('cover'));
+    assert.ok(freq && !freq.includes('Bayesian'), 'a column page must not carry the other column');
+    assert.ok(freq.includes('sampling distribution'), "…and must keep its own column's bullets");
+  });
+
+  test("a `compare` column's OWN paragraphs are not the section's coda", () => {
+    // `compare` renders a FLAT `h3, p, p, h3, p, p` run, so nothing in the markup separates the
+    // last column's last paragraph from a closing one. `trailingSlotMaterialOf`'s
+    // `bareParagraphIsNote` reads a `<p>` after a structural element as a note, and it claimed BOTH
+    // of the Ridge column's `<p>`s — its display equation and its explanation. The last column ran
+    // to the first of them and `examples/math-split-structure.md` went from 28 pages to 29: page
+    // 7.3 read "Ridge" and nothing else, with the equation dumped on a closing page.
+    // A regression THIS BRANCH introduced while fixing the blockquote case below (HARD RULE #18).
+    const col = (name, tail) => `<h3>${name}</h3>`
+      + '<p><span class="katex-display"><span class="katex">e</span></span></p>'
+      + `<p>${tail}</p>`;
+    const inner = mathInner(col('Ordinary least squares', 'OLSTAIL unbiased under exogeneity.')
+      + col('Ridge', 'RIDGETAIL biased, lower variance.'));
+    const parts = split(mathTag('compare'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.filter((p) => roleOf(p) === 'closing').length, 0,
+      `a column's own prose was hoisted to a closing page (roles: ${parts.map(roleOf).join(',')})`);
+    assert.equal(parts.length, 3, `cover + one column per page, got ${parts.length}`);
+    const ridge = parts.find((p) => p.includes('Ridge') && roleOf(p) !== 'cover');
+    assert.match(ridge, /RIDGETAIL/, "the last column lost its own explanation");
+    assert.match(ridge, /katex-display/, "…and its own equation");
+    assert.doesNotMatch(ridge, /OLSTAIL/, 'a column page must not carry the other column');
+  });
+
+  test('the coda is the EARLIEST trailing block, not the first one in the array', () => {
+    // `trailingBeatsOf` returns `[...insight, ...note]`, so picking with `find` took the first
+    // INSIGHT rather than the earliest beat: with a `.below-note` div ahead of a blockquote, the
+    // note was stranded on the last column's page while the blockquote started the coda —
+    // contradicting the rule two hundred lines up that names BOTH as announcing themselves.
+    // Latent through the `math` transform, which claims `trailing-paragraph` and never emits the
+    // below-note wrapper; reachable here because the fixture is rendered HTML, which is what the
+    // reader actually sees. Pinned rather than left, because the sort is otherwise unfalsifiable.
+    const col = (name) => `<h3>${name}</h3>`
+      + '<p><span class="katex-display"><span class="katex">e</span></span></p><p>body.</p>';
+    const inner = mathInner(`${col('Frequentist')}${col('Bayesian')}`
+      + '<div class="below-note"><p>SENTINELN the footnote.</p></div>'
+      + '<blockquote><p>SENTINELQ the run takeaway.</p></blockquote>');
+    const parts = split(mathTag('compare'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    const closing = parts.filter((p) => roleOf(p) === 'closing');
+    assert.equal(closing.length, 1);
+    // BOTH trailing blocks close the run — neither is stranded on a column page.
+    assert.match(closing[0], /SENTINELN/, 'the below-note was stranded on the last column');
+    assert.match(closing[0], /SENTINELQ/);
+    const bayes = parts.find((p) => p.includes('Bayesian') && roleOf(p) === 'body');
+    assert.doesNotMatch(bayes, /SENTINELN|SENTINELQ/);
+  });
+
+  test('…but a key insight AFTER the columns still closes the run', () => {
+    // The finding the rule above exists for, kept beside the regression it caused. A `blockquote`
+    // ANNOUNCES itself as a coda where a bare paragraph cannot, which is the whole discriminator.
+    const col = (name) => `<h3>${name}</h3>`
+      + '<p><span class="katex-display"><span class="katex">e</span></span></p><p>body.</p>';
+    const inner = mathInner(`${col('Frequentist')}${col('Bayesian')}`
+      + '<blockquote><p>SENTINELQ the run takeaway.</p></blockquote>');
+    const parts = split(mathTag('compare'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.filter((p) => p.includes('SENTINELQ')).length, 1);
+    assert.equal(roleOf(parts.at(-1)), 'closing', 'the insight must close the run, not ride a column');
+    assert.ok(parts.at(-1).includes('SENTINELQ'));
+    // …and neither column lost anything to it.
+    const bayes = parts.find((p) => p.includes('Bayesian') && roleOf(p) === 'body');
+    assert.match(bayes, /katex-display/);
+  });
+
+  test('a trailing note lands ONCE, on a closing page — on the paginated arm', () => {
+    // `math` claims `blockquote` AND `trailing-paragraph`, so `splitEnvelope`'s own region scan
+    // (which asks with the layout class) returned nothing and the note stayed in the trunk —
+    // `partitionAxis` then copied it onto every body page. Measured at portrait: four copies on a
+    // four-symbol legend. The strategy owns its beats now and builds the closing page itself.
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">b</span></span></p>'
+      + '<ul><li>one</li><li>two</li><li>three</li></ul>'
+      + '<p>SENTINELNOTE the note the author wrote last.</p>',
+    );
+    const parts = split(mathTag(''), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    const copies = parts.filter((p) => p.includes('SENTINELNOTE')).length;
+    assert.equal(copies, 1, `the note printed on ${copies} pages`);
+    assert.equal(roleOf(parts.at(-1)), 'closing', 'the note must close the run, not ride a body page');
+    assert.ok(parts.at(-1).includes('SENTINELNOTE'));
+  });
+
+  test('a beat BETWEEN two members is not trailing — the floor is the last member\'s end', () => {
+    // `mathBeats`' floor (`b.start >= max(member.end)`) was added for a real defect and shipped
+    // with NO arm: removing the filter survived 4,772 unit tests across every scope that touches
+    // this file. `trailingBeatsOf` is class-blind, so once the cards are filtered out as members a
+    // paragraph sitting BETWEEN two of them was still read as a beat — and the closing page then
+    // printed it after the Proof, so an authored "that definition is the only one we need for what
+    // follows below" followed nothing. Token conservation reports 0 lost, which is why no gate saw
+    // it: the material is REORDERED, not dropped. (HARD RULE #25 checker, on the fold that fixed it.)
+    const card = (label) => `<blockquote><p><strong>${label}</strong> body of the card.</p></blockquote>`;
+    // MIDBEAT sits after the SECOND card, deliberately. It was after the first for one commit,
+    // where "the page of the member it follows" and "always member 0" are the same page — so
+    // `trailsMember = () => 0` passed the arm AND the whole 9,329-test suite while printing the
+    // sentence under the wrong card on a real render. An arm written to replace a regression
+    // frozen as an invariant had the same weakness one line over. (HARD RULE #25 checker.)
+    const inner = mathInner(`${card('Definition.')}${card('Theorem.')}`
+      + `<p>MIDBEAT that theorem is the only one we need.</p>`
+      + `${card('Proof.')}<p>TAILBEAT and that closes the argument.</p>`);
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    const closing = parts.filter((p) => roleOf(p) === 'closing');
+    assert.equal(closing.length, 1);
+    // The TRAILING beat closes the run…
+    assert.match(closing[0], /TAILBEAT/);
+    // …and the one between two cards does not. It belongs to the member it sits with.
+    assert.doesNotMatch(closing[0], /MIDBEAT/, 'a beat between two members was hoisted to the coda');
+    // AND IT RIDES ONE PAGE — the member it follows. This arm PINNED THREE COPIES for one commit,
+    // on the reasoning that deciding an interstitial block's placement was "a rule this branch
+    // does not have". That was wrong twice over: #18 does not let a branch ship a window it
+    // opened (`math` did not split at all on `origin/main`), and the rule WAS already written,
+    // two hundred lines up in the same file — a bare paragraph "belongs to the column above it".
+    // Freezing a branch-created regression as a certified invariant is the worse failure of the
+    // two, because the next reader takes the arm as the specification.
+    const on = parts.filter((p) => p.includes('MIDBEAT'));
+    assert.equal(on.length, 1, 'an interstitial block must ride exactly one page');
+    assert.match(on[0], /Theorem\./, '…and it is the page of the member it FOLLOWS');
+    assert.doesNotMatch(on[0], /Definition\./, 'not simply the first member');
+
+    // AND A BLOCK BEFORE THE FIRST MEMBER IS FRAMING, SO IT REPEATS — the opposite call, made
+    // deliberately, and pinned because nothing held it: deleting the floor that decides it passed
+    // all 9,329 tests. A premise every card is read under behaves like the equation that repeats
+    // over every legend page; a sentence between two cards does not.
+    const framed = mathInner('<p>PREAMBLE we fix a closed interval for the whole argument.</p>'
+      + `${card('Definition.')}${card('Theorem.')}${card('Proof.')}`);
+    const fp = split(mathTag('theorem'), framed);
+    const bodies = fp.filter((p) => roleOf(p) === 'body');
+    assert.equal(bodies.length, 3);
+    assert.equal(bodies.filter((p) => p.includes('PREAMBLE')).length, 3,
+      'a block before the first member is framing and rides every page');
+  });
+
+  test('a trailing note lands ONCE, on a closing page — on the card-stack arm too', () => {
+    // …and the three CARDS must not be mistaken for that note: they are a contiguous trailing run
+    // of blockquotes, which is exactly what a class-blind trailing scan reads as a coda.
+    const card = (label) => `<blockquote><p><strong>${label}</strong> body.</p></blockquote>`;
+    const inner = mathInner(card('Definition.') + card('Theorem.') + card('Proof.')
+      + '<p>SENTINELNOTE the note the author wrote last.</p>');
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts), 'expected a split');
+    assert.equal(parts.filter((p) => p.includes('SENTINELNOTE')).length, 1);
+    assert.equal(roleOf(parts.at(-1)), 'closing');
+    for (const label of ['Definition.', 'Theorem.', 'Proof.']) {
+      assert.equal(parts.filter((p) => p.includes(label)).length, 1, `${label} must ride one page`);
+    }
+  });
+
+  test('the STAMP owes the label rules — an equation and a shape glyph are not names', () => {
+    // `data-split-label` reaches `applyRelationshipSignals` as an already-FLATTENED plain string:
+    // `dropLeadEquations` finds no `.katex` span in it and `mathSafe`'s span-scoped test returns
+    // −1, so both content guards no-op. A theorem card titled `**$A \to B$ Theorem.**` shipped the
+    // chip `A→B Theorem` — a typed arrow two characters from the engine-drawn shape — and one
+    // titled `**$f(x) = y$ Theorem.**` shipped `f(x)=y Theorem`. Both are the exact inputs this
+    // branch's own docblocks say it removed, through the arm this branch created: `math` was
+    // `atomic` on `origin/main`, so no math member could reach a chip at all (HARD RULE #18).
+    // Verified on a real portrait render, not only here.
+    const K = (tex) => katex.renderToString(tex, { output: 'htmlAndMathml', throwOnError: false });
+    const inner = mathInner(
+      `<blockquote><p><strong>Definition.</strong> A map from A to B, at some length.</p></blockquote>`
+      + `<blockquote><p><strong>${K('A \\to B')} Theorem.</strong> For every continuous f the image is closed.</p></blockquote>`
+      + `<blockquote><p><strong>${K('f(x) = y')} Theorem.</strong> The intermediate value theorem, restated.</p></blockquote>`,
+    );
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts) && parts.length >= 3);
+    const labels = parts.map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1] ?? null);
+    for (const l of labels) {
+      if (l === null) continue;
+      assert.doesNotMatch(l, /→|=|katex|top/, `the stamp printed ${JSON.stringify(l)}`);
+    }
+    // The leading math is DROPPED and the prose beside it becomes the name — the same answer
+    // `labelOf` gives, which is the point of sharing `safeName` rather than copying the rules.
+    assert.deepEqual(labels.filter(Boolean), ['Definition', 'Theorem', 'Theorem']);
+  });
+
+  test('a DECLINED label stamps blank — it does not fall back to the heuristic', () => {
+    // Two different answers, and the reader tells them apart. No attribute means "this strategy
+    // names nothing, use your heuristic". An EMPTY one means "I found the title element and the
+    // label rules declined it" — and falling through there would re-enable the heuristic the stamp
+    // exists to override, which on these strategies is known to be wrong (a `kanban` card names
+    // the first row inside it, not the card). A title that is only untypeable math is the case.
+    const K = (tex) => katex.renderToString(tex, { output: 'htmlAndMathml', throwOnError: false });
+    const inner = mathInner(
+      `<blockquote><p><strong>${K('F: A \\to B')}</strong> A card whose whole title is math.</p></blockquote>`
+      + `<blockquote><p><strong>${K('\\sigma')}</strong> And another, at some length to match.</p></blockquote>`
+      + `<blockquote><p><strong>Proof.</strong> A third card so the run has three members.</p></blockquote>`,
+    );
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts) && parts.length >= 3);
+    const stamps = parts.map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1]);
+    // Present, and empty — not absent.
+    assert.ok(stamps.some((v) => v === ''), `expected a blank stamp, got ${JSON.stringify(stamps)}`);
+    assert.ok(stamps.includes('Proof'), 'the nameable card must still be named');
+  });
+
+  test('a card is labeled by its LEADING strong, not by a bold word in its body', () => {
+    // An unanchored `tag:strong` took the first `<strong>` anywhere in the member, so a card
+    // written `> A theorem about **compactness**.` labeled its page — and the previous page's
+    // forward pointer — "compactness".
+    const inner = mathInner(
+      '<blockquote><p><strong>Definition.</strong> A function is continuous.</p></blockquote>'
+      + '<blockquote><p>A theorem about <strong>compactness</strong>.</p></blockquote>',
+    );
+    const parts = split(mathTag('theorem'), inner);
+    assert.ok(Array.isArray(parts) && parts.length >= 3);
+    const labels = parts.map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1] ?? null);
+    // `Definition`, not `Definition.` — the stamp goes through `safeName` now, which trims the
+    // sentence punctuation a card title is authored with. The CHIP always read `Definition →`
+    // (`labelOf` trimmed it on the way out); the attribute now says the same thing.
+    assert.ok(labels.includes('Definition'), `expected the leading strong, got ${JSON.stringify(labels)}`);
+    assert.ok(!labels.includes('compactness'), 'a mid-sentence bold word is not a title');
+  });
+
+  test('the equation+legend arm still fires — the guard is on NESTING, not on lists', () => {
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">b</span></span></p>'
+      + '<ul><li>one</li><li>two</li><li>three</li></ul>',
+    );
+    const parts = split(mathTag(''), inner);
+    assert.ok(Array.isArray(parts) && parts.length >= 3,
+      `a direct-child legend must still paginate, got ${parts?.length}`);
+  });
+
+  test('a legend nested BELOW the stage is not a seam — the slide rings', () => {
+    // `firstList` would find this list; the stage has no collection of its own, so there is no
+    // structure to cut and the honest answer is the ring.
+    const inner = mathInner(
+      '<p><span class="katex-display"><span class="katex">b</span></span></p>'
+      + '<div class="wrap"><ul><li>one</li><li>two</li><li>three</li></ul></div>',
+    );
+    assert.equal(split(mathTag(''), inner), null);
+  });
+});
+
 
 describe('core: carousel — every strategy emits a role-stamped envelope (§8 rule 9)', () => {
   for (const [name, tag, inner, rec] of STRATEGY_CASES) {
@@ -930,10 +1268,26 @@ describe('core: carousel — the run closes on ONE page carrying both beats (202
     || !MEMBER_CLAIM_STRATEGIES.has(name)
     || rendersBeat(clsOf(tag), beat));
   // …and the expectation must not be able to go vacuous: most cases must still carry both.
+  //
+  // THE FLOOR IS DERIVED, not a constant. It read `STRATEGY_CASES.length - 1`, which encoded
+  // "there is exactly one member-claim strategy" — a fact about the roster on the day it was
+  // written, not about what this guard is for. `math-structures` is a second one (its theorem
+  // cards ARE the claimed blockquotes, measured), so the constant failed on a legitimate entry
+  // and the only ways forward were to weaken it to `- 2` or to derive it.
+  //
+  // Only a MEMBER_CLAIM strategy can decline a beat, so that set IS the exemption budget: every
+  // other strategy must expect both, and a claim-honoring one may or may not (it declines only
+  // where its layout actually claims the bare shape). The guard therefore stays exactly as tight
+  // as it was and cannot rot as the roster grows.
   test('the closing-page expectation is not vacuous — most strategies hoist both beats', () => {
     const both = STRATEGY_CASES.filter(([n, t]) => hoists(n, t, 'key-insight') && hoists(n, t, 'below-note'));
-    assert.ok(both.length >= STRATEGY_CASES.length - 1,
-      `only ${both.length}/${STRATEGY_CASES.length} cases expect both beats — the arm below is weakening`);
+    // The budget counts member-claim strategies PRESENT IN THIS TABLE, not globally: a third one
+    // added to the set but never given a case here would otherwise widen the guard by one without
+    // covering anything. Exact today — both are in the table.
+    const budget = STRATEGY_CASES.filter(([n]) => MEMBER_CLAIM_STRATEGIES.has(n)).length;
+    assert.ok(both.length >= STRATEGY_CASES.length - budget,
+      `only ${both.length}/${STRATEGY_CASES.length} cases expect both beats, against a budget of ` +
+      `${budget} member-claim strategies in this table — the arm below is weakening`);
   });
 
   for (const [name, tag, inner, rec] of STRATEGY_CASES) {

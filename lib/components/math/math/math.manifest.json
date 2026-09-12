@@ -7,6 +7,12 @@
   "stage": "canvas",
   "conformance": "strict",
   "coda": { "dock": "grid", "claims": ["blockquote", "trailing-paragraph"] },
+  "split": {
+    "strategy": "math-structures",
+    "intro": "The equation, then its symbols",
+    "roles": ["cover", "body"],
+    "note": "#2136 - math splits on STRUCTURE, not on variant. Eight variants render four structures: equation+legend (bare/feature/matrix/decompose), step table (derivation), card stack (theorem) and columns (compare). `stats` and `canvas` are fixed scaffolds that the strategy refuses BY NAME, first: being indivisible is a fact about the VARIANT, and letting it fall out of a member count held only for the two committed samples (author the stats reading as a list and `cover-paginate` claimed the slide). The two paginated arms run LAST, and only on a collection that is a direct child of the stage. A STRATEGY rather than a bare `capacity.axis` because two of the four structures are not collections at all - markdown renders theorem as sibling <blockquote>s and compare as a flat h3/p/p run - and because a bare axis would let a later change paginate the two scaffolds. NO `perPage`: the split trigger is STRUCTURAL and passes `ATOMIZE` as the ratio (auto-split.js, owner ruling 2026-09-01), so the shared paginator resolves one member per page whatever a recipe declares - a number here would read as pacing and change nothing. The two bespoke arms are one member per page by construction. See lib/core/carousel.js `splitMathStructures`."
+  },
   "substance": "prose",
   "adapt": {
     "mode": "reflow",
@@ -167,6 +173,10 @@
     {
       "mistake": "Legend items lead with plain text instead of the rendered symbol, e.g. \"beta hat — OLS coefficient\" instead of the symbol wrapped in `$...$`.",
       "fix": "Each legend `li` should lead with the symbol exactly as it appears in the display equation, wrapped in `$...$` (e.g. `$\\hat\\beta$` — OLS coefficient) — plain text doesn't render as math and breaks the visual match between the equation and its legend."
+    },
+    {
+      "mistake": "Assuming a math slide stays whole at portrait, story or mobile. It does not: since #2136 `math` splits on its rendered STRUCTURE, so a hero equation with a five-symbol legend becomes a cover plus one legend page per symbol, and a `theorem` becomes one card per page.",
+      "fix": "Author for the SEAM the variant has. bare/`feature`/`matrix`/`decompose` paginate their legend with the equation repeating above every page, and `derivation` paginates its rows with the table header repeating — so each legend item and each step must read on its own. `theorem` and `compare` get one card or one column per page, so a card that only makes sense beside its neighbor will not. `stats` and `canvas` are fixed scaffolds and keep the whole slide. 16:9 is untouched; the split has never applied there. A run's pages carry a forward pointer naming the next one, read from the member's title — a member that leads with an equation is named by the prose beside it, so give a legend symbol a real description (`- $\\sigma$ — the logistic link`) rather than leaving it bare. A block written BETWEEN two members rides the page of the member it FOLLOWS, so a sentence meant to introduce the next card will sit under the previous one; a block written BEFORE the first member is framing and repeats on every page. And a member whose math does not TYPESET is named by the prose beside it rather than by its broken source, so give one a description."
     }
   ],
   "variantDecisionRule": [

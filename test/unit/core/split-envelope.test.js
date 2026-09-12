@@ -394,6 +394,29 @@ describe('core: splitEnvelope — readers', () => {
   // common one: when the title lives in the `.cell-masthead` BAND it is outside the
   // content cell entirely, so `<h2>` is legitimately absent from the scanned region and
   // guarding on "no h2 → no lede" silently dropped every ordinary cover's lede.
+  test('a DISPLAY EQUATION is not a lede — it belongs on every body page', () => {
+    // The kernel defect this branch lists FIRST, and nothing pinned it: a `$$…$$` above the
+    // collection is a `<p>` and read as framing prose, so `splitEnvelope` hoisted it to the cover
+    // as a lede and REMOVED it from the trunk — every body page then showed a legend with no
+    // equation above it. `isDisplayMathP` refuses both renderers' display wrappers.
+    // Mutating it to `() => false` passed the entire 9,300-test suite before this arm existed.
+    // (HARD RULE #25 checker, final pass.)
+    const eq = '<p><span class="katex-display"><span class="katex">b</span></span></p>';
+    const mj = '<p><mjx-container display="true">b</mjx-container></p>';
+    for (const math of [eq, mj]) {
+      const inner = `<div class="cell-stage"><h2>T</h2>${math}${items(3)}</div>`;
+      assert.deepEqual(splitRegions(inner, 'item').lede.map((s) => s.outer), [],
+        'a display equation was read as lede material');
+    }
+    // …and an ordinary framing paragraph in the same position still is one, so the refusal is
+    // scoped to display math rather than to "a `<p>` before the collection".
+    const prose = `<div class="cell-stage"><h2>T</h2><p>Framing.</p>${items(3)}</div>`;
+    assert.deepEqual(splitRegions(prose, 'item').lede.map((s) => s.outer), ['<p>Framing.</p>']);
+    // INLINE math is prose — `$\sigma$ is the link` is a sentence, not a stage element.
+    const inline = `<div class="cell-stage"><h2>T</h2><p><span class="katex">s</span> is the link.</p>${items(3)}</div>`;
+    assert.equal(splitRegions(inline, 'item').lede.length, 1);
+  });
+
   test('ledeSpansIn: the lede lives in the TITLE\'S OWN container, at any of three depths', () => {
     // 1. banded — the <h2> is outside the cell; every stage <p> before the collection is a lede.
     const banded = formInner({ lede: 'Framing.', n: 3 });

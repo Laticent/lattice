@@ -14,13 +14,13 @@
  * paragraph. Cards render as a horizontal strip with an accent left
  * edge — visually unified, signaling that they all support the verdict.
  * ──────────────────────────────────────────────────────────────────────── */
-section.decision > .cell-stage { display:flex; flex-direction:column; }
+section.decision:where(:not(.compare-prose)) > .cell-stage { display:flex; flex-direction:column; }
 /* No width: the heading FILLS the masthead band, whose `.masthead-lede` track already
  * reserves the right bay. A 70.3125cqi cap used to sit here; it held the verdict heading
  * below its band on 8 of 12 measured slides and cost every one of them an extra line
  * (`compare-prose decision` — the authored pairing — included). Framing behavior is the
  * deck's call via the `headline:` alignment register, not a per-component bake. */
-section.decision h2 {
+section.decision:where(:not(.compare-prose)) h2 {
   font-size:var(--fs-h2);
   line-height:var(--lh-tight);
 }
@@ -38,16 +38,16 @@ section.decision h2 {
  * center` (below), so releasing this floor cannot throw a card's content off its top —
  * measured on the overstuffed control, the ink stays exactly where it was and the tail
  * is still lost visibly. */
-section.decision > .cell-stage > ul,
-section.decision > .cell-stage > ol {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol {
   display:flex;
   gap:var(--sp-md);
   flex:1;
   min-height:0;
   list-style:none; padding:0; margin:0;
 }
-section.decision > .cell-stage > ul > li,
-section.decision > .cell-stage > ol > li {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li {
   flex:1;
   background:var(--bg-alt);
   border:1px solid var(--border);
@@ -71,16 +71,16 @@ section.decision > .cell-stage > ol > li {
  * mirrors the KPI palette so the two layouts read as siblings (KPI = top
  * accent, decision = bottom accent). Each card's corner-tag fill follows
  * the same variable so the card reads as one color. */
-section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+1) { --decision-accent:var(--cat-1-mark);   --decision-accent-deep:var(--cat-1-mark); }
-section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+2) { --decision-accent:var(--cat-2-mark);  --decision-accent-deep:var(--cat-2-mark); }
-section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+3) { --decision-accent:var(--cat-3-mark); --decision-accent-deep:var(--cat-3-mark); }
-section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+4) { --decision-accent:var(--cat-4-mark); --decision-accent-deep:var(--cat-4-mark); }
-section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+5) { --decision-accent:var(--cat-5-mark);   --decision-accent-deep:var(--cat-5-mark); }
-section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+6) { --decision-accent:var(--cat-6-mark);   --decision-accent-deep:var(--cat-6-mark); }
-section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+7) { --decision-accent:var(--cat-7-mark);  --decision-accent-deep:var(--cat-7-mark); }
-section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n)   { --decision-accent:var(--cat-8-mark);  --decision-accent-deep:var(--cat-8-mark); }
-section.decision > .cell-stage > ul > li > strong,
-section.decision > .cell-stage > ol > li > strong {
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+1) { --decision-accent:var(--cat-1-mark);   --decision-accent-deep:var(--cat-1-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+2) { --decision-accent:var(--cat-2-mark);  --decision-accent-deep:var(--cat-2-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+3) { --decision-accent:var(--cat-3-mark); --decision-accent-deep:var(--cat-3-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+4) { --decision-accent:var(--cat-4-mark); --decision-accent-deep:var(--cat-4-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+5) { --decision-accent:var(--cat-5-mark);   --decision-accent-deep:var(--cat-5-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+6) { --decision-accent:var(--cat-6-mark);   --decision-accent-deep:var(--cat-6-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+7) { --decision-accent:var(--cat-7-mark);  --decision-accent-deep:var(--cat-7-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n)   { --decision-accent:var(--cat-8-mark);  --decision-accent-deep:var(--cat-8-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > strong,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > strong {
   display:block;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -89,10 +89,10 @@ section.decision > .cell-stage > ol > li > strong {
   text-transform:uppercase;
   color:var(--accent);
 }
-section.decision > .cell-stage > ul > li > p,
-section.decision > .cell-stage > ol > li > p,
-section.decision > .cell-stage > ul > li > ul,
-section.decision > .cell-stage > ol > li > ul {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > p,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > p,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > ul,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > ul {
   font-size:var(--fs-body);
   line-height:var(--lh-base);
   color:var(--text-body);
@@ -107,7 +107,7 @@ section.decision > .cell-stage > ol > li > ul {
  * <em>italic body</em>`. Text-node siblings still inherit (CSS can't
  * target text nodes); the manifest validator catches that case at
  * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
-section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
+section.decision:where(:not(.compare-prose)) :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
 /* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The cards are a horizontal strip; in a square-or-narrower box four side-by-side
@@ -124,14 +124,14 @@ section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * State the basis with any capacity number — the count depends on it. This rule
  * read `<= 1.05` because it was written when the only question was
  * landscape-or-portrait and square rode the portrait side, unseen (#1218). */
-section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) { flex-direction: column; }
+section.decision.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) { flex-direction: column; }
 /* Centering the justification in its card used to live here, scoped to square,
    tall and strip. It is not a family behavior — a card that fills its track owes
    its content the height in every family — so it moved up to the base card rule
    and this per-family copy is gone. */
 /* One option per full-width card — the justification is the card's hero, so it
    carries statement weight (--fs-message), not body weight. */
-section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
+section.decision.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
   font-size:var(--fs-message);
   line-height: var(--lh-snug);
 }
@@ -167,9 +167,9 @@ section.decision-points .split-pt-b { color: var(--text-body); font-size: var(--
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
-section.decision > .cell-stage > ol > li {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li {
   box-shadow: var(--elevation-card);
 }
-section.decision > .cell-stage {
+section.decision:where(:not(.compare-prose)) > .cell-stage {
   padding-block: var(--elevation-berth);
 }
