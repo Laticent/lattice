@@ -10,6 +10,7 @@ the second round answers.
 | 2 | Three colour-forward finishes | `candidates-colour/` (4 tracks) | `judgement-colour.md` | `pigment` / `etching` / `ground` — **`finishes.spec.js`** |
 | — | Do the three actually differ? | the rendered gallery | **`scoring.md`** | **5/10** — they reach 5 of 21 members; a slot contract is upstream of all three |
 | — | Where is colour spent, and what does a finish own? | the review of `scoring.md` | **`spend-rules.md`** | colour goes to the join once; finish owns the mark, `frame:` becomes its own register |
+| — | What did the three finishes actually RENDER? | the inspection decks, built from `kernel.marks` | **`finish-render-defects.md`** | 30 mark classes flattened an encoding, and neither audit could see it — contrast and distinctness are different questions |
 
 `finishes.superseded.spec.js` is round one's four-finish attempt, kept as the
 record of a failure worth not repeating: it varied furniture opacity and corner
