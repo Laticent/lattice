@@ -24,6 +24,19 @@ Items 3–5 (function-plot, the `lpm-conformance` fixtures + parity gate, and
 `kind` / `trigger` / `order` / `parity` / `degradesTo` / `tokens` fields below
 remain design, not schema.
 
+**Status update (2026-09-13):** the model here is continued, and its sequencing
+revised, by [`2026-09-13-plugin-architecture.md`](2026-09-13-plugin-architecture.md).
+Read that note first. Three things it changes:
+its **Phase 1 is not this note's Phase 1** — the blocker measured since is the six
+hand-maintained rosters a chart folder-drop still misses (two of which fail
+silently), so killing those comes before any further dispatch work; **trust is
+attached to the DELIVERY CHANNEL rather than to the plugin**, which is what lets
+an npm-installed plugin carry code without reopening the shipped threat model;
+and this note's **Phase 4 splits into two doors**, an npm channel and a
+declarative zip channel, with the `LICENSE-EXCEPTIONS` plugin grant sequenced
+ahead of both. The `kind` / `trigger` / `order` / `parity` / `degradesTo` /
+`tokens` fields below remain design, not schema.
+
 ---
 
 ## The question
