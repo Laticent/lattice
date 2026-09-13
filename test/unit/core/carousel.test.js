@@ -670,6 +670,98 @@ describe('core: carousel — kanban-lanes (kanban portrait, one lane per slide)'
   });
 });
 
+describe('core: carousel — code-cards (code: by block, then by line-run)', () => {
+  // `code` was the one component in the catalog with a §0c treatment and NO processor: the
+  // treatment read "code-cards (by line / block — PROPOSED)" and nothing was ever built, so a
+  // listing past the component's own stated wall rang at every presentation @size while its own
+  // docs told authors "fourteen is the wall … split it".
+  const cdTag = '<section id="c1" class="code form" data-lattice-slide="2">';
+  const mast = '<div class="cell-masthead"><div class="masthead-lede"><h2>The endpoint.</h2></div></div>';
+  const pre = (...lines) => `<pre><code class="language-js">\n${lines.join('\n')}\n</code></pre>`;
+  const wrap = (...pres) => `${mast}<div class="cell-stage">${pres.join('')}</div>`;
+  const recipe = { strategy: 'code-cards', axis: 'line', perPage: 12 };
+  const bodies = (parts) => parts.filter((x) => /\sdata-split-role="body"/.test(x));
+
+  test('MORE THAN ONE fenced block → one block per page, source-sliced', () => {
+    const parts = carouselize(cdTag, wrap(pre('const a = 1;'), pre('const b = 2;'), pre('const c = 3;')), recipe);
+    const body = bodies(parts);
+    assert.equal(body.length, 3, 'one page per fenced block');
+    assert.ok(body.every((p) => (p.match(/<pre\b/g) || []).length === 1), 'a page carried more than one block');
+    assert.match(body[0], /const a = 1;/);
+    assert.doesNotMatch(body[0], /const b = 2;/);
+    assert.match(body[2], /const c = 3;/);
+    // Source-sliced, not re-authored: the component's own stage cell and masthead survive, which
+    // is what keeps `code.styles.css` applying to the page.
+    assert.ok(body.every((p) => /cell-stage/.test(p) && /The endpoint\./.test(p)));
+  });
+
+  test('ONE block inside the budget → null, left whole', () => {
+    const lines = Array.from({ length: 12 }, (_, i) => `const a${i} = ${i};`);
+    assert.equal(carouselize(cdTag, wrap(pre(...lines)), recipe), null);
+  });
+
+  test('ONE block over the budget → line-runs of perPage lines', () => {
+    const lines = Array.from({ length: 27 }, (_, i) => `const a${i} = ${i};`);
+    const body = bodies(carouselize(cdTag, wrap(pre(...lines)), recipe));
+    assert.equal(body.length, 3, '27 lines at 12 per page is 12 + 12 + 3');
+    const counts = body.map((p) => (p.match(/const a\d+ = /g) || []).length);
+    assert.deepEqual(counts, [12, 12, 3]);
+    // Conservation: every line reaches exactly one page, in order.
+    const seen = body.flatMap((p) => [...p.matchAll(/const a(\d+) = /g)].map((m) => Number(m[1])));
+    assert.deepEqual(seen, lines.map((_, i) => i));
+  });
+
+  // THE ARM THIS KERNEL EXISTS FOR. Highlighted code is HTML and a span can legitimately cross a
+  // newline — a block comment, a template literal, a multi-line string. Cutting the string at a
+  // `\n` would leave one page with an unclosed `<span>` and the next starting inside a tag that
+  // never opened; a browser then re-parses both pages wrong and the highlight bleeds over
+  // everything after the cut. The walk closes what is open at the break and re-opens it.
+  test('a highlight span crossing the cut is closed and re-opened', () => {
+    const lines = [
+      ...Array.from({ length: 11 }, (_, i) => `const a${i} = ${i};`),
+      '<span class="hljs-comment">/* a block comment',
+      '   that crosses the page boundary',
+      '   on purpose */</span>',
+      ...Array.from({ length: 3 }, (_, i) => `const b${i} = ${i};`),
+    ];
+    const body = bodies(carouselize(cdTag, wrap(pre(...lines)), recipe));
+    assert.equal(body.length, 2);
+    const balanced = (html) => {
+      const code = html.slice(html.indexOf('<code'), html.indexOf('</code>'));
+      const open = (code.match(/<span\b/g) || []).length;
+      const close = (code.match(/<\/span>/g) || []).length;
+      return open === close;
+    };
+    assert.ok(balanced(body[0]), 'page 1 left a span open across the cut');
+    assert.ok(balanced(body[1]), 'page 2 opened inside a span that was never opened');
+    // …and the comment's own text is not lost or duplicated by the re-open.
+    const all = body.join('');
+    assert.equal(all.split('that crosses the page boundary').length - 1, 1);
+    assert.match(body[0], /a block comment/);
+    assert.match(body[1], /on purpose \*\//);
+  });
+
+  test('pages after the first are marked (cont.)', () => {
+    const lines = Array.from({ length: 25 }, (_, i) => `const a${i} = ${i};`);
+    const body = bodies(carouselize(cdTag, wrap(pre(...lines)), recipe));
+    assert.doesNotMatch(body[0], /lat-cont/);
+    assert.ok(body.slice(1).every((p) => /lat-cont/.test(p)));
+  });
+
+  test('the run opens on the shared accent cover, and only it keeps the id', () => {
+    const lines = Array.from({ length: 25 }, (_, i) => `const a${i} = ${i};`);
+    const parts = carouselize(cdTag, wrap(pre(...lines)), recipe);
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.match(parts[0], /split-feat-h">The endpoint\./);
+    assert.equal(parts.filter((p) => /\sid="c1"/.test(p)).length, 1);
+    assert.match(parts[0], /\sid="c1"/);
+  });
+
+  test('a section with no fenced block at all → null', () => {
+    assert.equal(carouselize(cdTag, `${mast}<div class="cell-stage"><p>prose</p></div>`, recipe), null);
+  });
+});
+
 test('carouselize degrades to null on Object.prototype-shadowing strategy names', () => {
   // A manifest typo like strategy:"toString" must be an unknown strategy
   // (null → left for the ring), not an inherited Object.prototype member.
@@ -769,6 +861,14 @@ const mtInner = '<div class="cell-masthead"><div class="masthead-lede">' +
   '<blockquote><p><strong>Theorem.</strong> Every intermediate value is attained.</p></blockquote>' +
   '<blockquote><p><strong>Proof.</strong> Take the supremum of the sublevel set.</p></blockquote>' +
   '</div><div class="cell-footer"><footer>math</footer></div>';
+// `code-cards`'s case is the LINE-RUN seam, not the block seam: the block seam is a plain source
+// slice (the same shape `redline-blocks` already contributes), while the line cut is the one that
+// rewrites a `<pre>`'s contents and so the one both gates should be watching.
+const cdTag2 = '<section data-lattice-slide="1" id="s1" class="code form">';
+const cdInner = '<div class="cell-masthead"><div class="masthead-lede"><h2>The endpoint.</h2></div></div>'
+  + '<div class="cell-stage"><pre><code class="language-js">\n'
+  + Array.from({ length: 25 }, (_, i) => `const a${i} = ${i};`).join('\n')
+  + '\n</code></pre></div>';
 
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
@@ -784,6 +884,7 @@ const STRATEGY_CASES = [
   ['journey-stages', jnTag,             jnInner,         { strategy: 'journey-stages' }],
   ['compare-options', scSection.openTag, scSection.inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }],
   ['math-structures', mtTag,             mtInner,         { strategy: 'math-structures' }],
+  ['code-cards',     cdTag2,            cdInner,         { strategy: 'code-cards', axis: 'line', perPage: 12 }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to
