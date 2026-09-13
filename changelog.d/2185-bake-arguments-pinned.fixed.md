@@ -7,10 +7,9 @@
   spot was invisible to four green end-to-end arms. Three cells now drive the real
   `bakeDeckSections` and `rasterizeDeckImages` through a stubbed capture frame. Flipping
   the explicit `releaseDiagrams` to `true` fails two of them; moving the bake's budget to
-  either 8000 or 16000 fails the budget cell; flipping the DEFAULT to `false`, which stops the
-  six other capture-frame call sites releasing at all, fails the third. That the six stop
-  releasing is certain; whether an author would then see a blank is NOT established here,
-  and the decision note measured the opposite on one lane — the contradiction is logged
-  rather than resolved. Each cell costs
+  either 8000 or 16000 fails the budget cell; flipping the DEFAULT to `false` fails the third —
+  and that one is not hypothetical: driven on the real Studio, an `Images (.zip)` export
+  with the render stalled comes back with a BLANK slide where the shipping default paints
+  the author's source, while the diagram-free slide stays byte-identical as a control. Each cell costs
   tens of milliseconds, because the budget is walked with fake timers rather than waited
   out.

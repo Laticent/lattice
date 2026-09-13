@@ -405,17 +405,16 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 		// `createCaptureFrame` call sites that take it stop releasing at the only wait they
 		// get.
 		//
-		// WHAT THIS CELL DOES AND DOES NOT CLAIM. It pins the PARAMETER, not a harm. That
-		// the six lanes stop releasing is mechanically certain; that an author would then
-		// see a BLANK in a downloaded file is NOT established, and the decision note
-		// measured the opposite on one of them: §16 "The raster lane, driven — and the
-		// release is a no-op there" drove `Images (.zip)` with `mermaid.render` held and got
-		// a BYTE-IDENTICAL PNG with and without the release. That contradicts the reading of
-		// `mermaid.css:73`, whose hide rule is deliberately UNSCOPED and so should hide a
-		// `pending` fence in this frame whatever `data-lattice-diagrams` says. The two have
-		// not been reconciled and settling it needs a real export (HARD RULE #23), so this
-		// comment states the mechanism and stops there. An earlier draft asserted the blank
-		// outright, which is the same unre-derived-claim failure this whole branch is about.
+		// AND THE HARM IS MEASURED, not inferred. Driven on the real Studio, `Images (.zip)`
+		// with `mermaid.render` held: with the default shipping (`true`) the downloaded PNG
+		// carries the author's source text; with it flipped to `false` the SAME slide comes
+		// back BLANK — heading, rule, and nothing else. Slide 01, which has no diagram, is
+		// byte-identical across both arms, which is the control that makes the comparison
+		// mean something. §19 has the images and the md5s.
+		//
+		// §16 concluded the opposite — "the release is a no-op there" — and that conclusion
+		// does NOT reproduce. It is corrected in §19 rather than left standing, because it
+		// was already being used to argue this cell was pinning a cosmetic parameter.
 		//
 		// It also pins the default only AS SEEN THROUGH this lane: a change that flips the
 		// default and adds an explicit `true` here would keep this cell green while the

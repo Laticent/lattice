@@ -1024,25 +1024,14 @@ It remains **advisory**: `studio-smoke` is deliberately absent from the required
 `needs`, so a red arm reports on the PR and does not block the merge (promotion is #800). The claim
 is now PR-visible, not PR-gating, and saying otherwise would overstate what a tag buys.
 
-### UNRESOLVED: this section and `mermaid.css` predict different things
-
-Flagged by the checker pass on the cell that pins the `releaseDiagrams` default, and **not settled
-here.** The section below measures the raster lane's release as a NO-OP — `Images (.zip)` with
-`mermaid.render` held, byte-identical PNG with and without the release. The stylesheet predicts the
-opposite: `mermaid.css:73` hides any fence carrying `data-mermaid-state` other than `error` or
-`unavailable`, and that rule is **deliberately unscoped** — it does not consult
-`data-lattice-diagrams`, which is the attribute `createCaptureFrame` withholds (`diagrams: false`).
-A fence left `pending` by a stalled render should therefore be hidden in the raster capture frame,
-and deleting the release should have changed those pixels. It did not.
-
-One of the two is wrong and it matters, because the answer decides whether flipping that default is
-a cosmetic change or reintroduces #2092 across six lanes. Settling it needs a real `Images (.zip)`
-export with the release deleted, compared byte for byte — HARD RULE #23, not reachable from the
-sandbox. **Until then, no claim in this note or in the test comments asserts the blank.** An earlier
-draft of the new cell's comment did, which is exactly the unre-derived claim this document exists to
-stop.
-
 ### The raster lane, driven — and the release is a no-op there
+
+> **SUPERSEDED — this subsection's conclusion is WRONG. See §19.** The raster lane IS exposed to
+> the blank, and the "byte-identical PNG" result below does not reproduce. Read §19 before
+> relying on anything in the four paragraphs that follow. They are kept, not edited, because the
+> reasoning that produced the wrong answer is the point.
+
+
 
 The PR's card named one raise-path: drive a RASTER export with the render stalled, since only the
 webpage export was driven end to end. Driven, on the real Studio, `Images (.zip)` with
@@ -1249,3 +1238,53 @@ drawn artifact has fewer `<pre>`" and stopped would have described a deck that n
 sentinels are asserted present as source text in the released artifact and present inside `<svg>`
 in the drawn one, before any count above is read — §16's rule that a probe needs an arm proving
 it can see the thing it is looking for.
+
+## 19. The raster lane IS exposed to the blank — §16's "no-op" does not reproduce
+
+**Flipping `createCaptureFrame`'s `{ releaseDiagrams = true }` default to `false` bakes a BLANK
+SLIDE into a downloaded `.png`.** §16 concluded the opposite and that conclusion is withdrawn.
+
+### What was driven
+
+Real Studio, real `Images (.zip)` export, `mermaid.render` replaced with a promise that never
+resolves — the same stall the e2e give-up arm uses. One deck, two slides: a cover with no diagram
+and one `<!-- _class: diagram -->` slide carrying a single flowchart fence. Two arms, differing in
+**one character of source** and each given its own full `build:e2e`:
+
+| arm | `releaseDiagrams` default | slide 02 md5 | what it shows |
+|---|---|---|---|
+| A | `true` (shipping) | `34e40055012c5b1597e7eb4b3e924c5f` | the author's Mermaid source, syntax-highlighted |
+| B | `false` | `e0224ae075f3f492a37ed7de61a0dada` | **blank — heading and rule, nothing else** |
+
+**Slide 01 is byte-identical across both arms** (`6c431df88da11ed8d03763cbd1f0c889`). That is the
+control, and it is what makes the slide-02 difference mean something: the pipeline is deterministic
+and the only thing that moved is the diagram slide. Ink sampled by horizontal band agrees — bands 0
+and 1 (the eyebrow and heading) match exactly; band 2, where the source text sits, drops from 1535
+to 768 to zero text.
+
+### Why this matters more than the number
+
+The mechanism was predictable from the stylesheet and nobody checked it against §16.
+`mermaid.css:73` hides any fence whose `data-mermaid-state` is neither `error` nor `unavailable`,
+and that rule is **deliberately unscoped** — it does not consult `data-lattice-diagrams`, which is
+exactly the attribute `createCaptureFrame` withholds (`diagrams: false`). So a fence left `pending`
+by a stalled render is hidden in the capture frame, and the release at 4000 is the only thing that
+moves it to `unavailable` and lets the source paint. Remove the release and the slot collapses.
+
+**Why §16 got it wrong is not established.** Its manipulation was "the release deleted" rather than
+"the default flipped" — behaviorally the same for every default-taking lane — so the difference is
+not in what was changed. The likeliest candidates are that its deck's fence never reached a tagged
+state, or that the arms were not both rebuilt. What is certain is that its result does not
+reproduce, and it shipped as a settled "retires the risk".
+
+### The lesson, which this document has now recorded four times
+
+§16's own words: *"a probe needs an arm proving it can see the thing it is looking for, before its
+null result means anything."* It then published a null result — byte-identical PNGs — **with no such
+arm.** This probe has one: slide 01, which must match and does. A null result and a broken
+manipulation are indistinguishable without it, and that is the fourth time in this investigation an
+instrument measured something adjacent to the target.
+
+**And the cost of believing it was real.** §16's conclusion was used, in this branch, to argue that
+the cell pinning that default was pinning a cosmetic parameter, and a correct claim was softened to
+match it. The wrong record nearly ate the right test.
