@@ -241,6 +241,38 @@ deck page number, the running header and the running footer. Two results and one
   pointer's BOX against the footer's ink: the same one-sided comparison this note warns about,
   applied to the note's own headline number. Ink to ink it is 206.6×24.5px.
 
+**DRIFT ACROSS A RUN'S PAGES — the other half of the question, also asked for the first time.**
+`check-jank` sweeps ONE slide's content and asks whether an anchor holds position. A run asks
+the same thing along a different axis: a reader sees its pages in sequence, seconds apart, so a
+fixed mark that sits somewhere else on page 3 than on page 1 wobbles exactly the way that rig's
+own header describes — "fine in a still; it wobbles across a deck". Nothing had asked it,
+because the rig renders `--no-split`.
+
+Measured per RUN over the same corpus — 315 runs, 1,456 pages, the spread of each wayfinding
+mark's position across a run's BODY pages, in the section's own right/bottom coordinates (a
+cover is a different treatment by design and is excluded rather than counted as drift):
+
+- **26 marks move more than 2px.** Almost all are the forward POINTER on the vertical axis,
+  19–64px, on Form pages where it is laid out in FLOW — so its altitude follows the page's
+  content height, and a three-member page puts it 64px from where a one-member page did.
+  Two are the k-of-N rail moving HORIZONTALLY (18px on `checklist`, 26.5px on `roadmap`),
+  which is the rail's berth shifting with the section-rail reservation beside it.
+- **Every one of them is pre-existing.** Each class was re-rendered from the merge-base tree and
+  reproduces with the IDENTICAL number — `dy 63.9` on `cover-paginate`'s glossary run, `dy 57.9`
+  on `portrait-prose-deboost`, `dy 37.6` on `list-tabular`, `dy 32` on `premise`, `dx 18` on
+  `checklist`. Nothing here creates or worsens the class.
+- **One base finding is GONE at head**: `roadmap`'s rail drifted 26.5px horizontally at the
+  merge base and does not at HEAD, because the native-slice cover changed that run's shape.
+
+Recorded, not fixed: the pointer's altitude is a consequence of laying it out in flow, and
+pinning it would move every Form split page in the corpus — the same "belongs in its own change"
+boundary the band reservation above respects.
+
+**WHAT IS STILL NOT MEASURED ON A SPLIT PAGE.** CROWDING, and DRIFT in `check-jank`'s own sense
+(sweep ONE slide's content and watch its anchors) — both need the rig to render WITH splitting,
+which is a change to the tool. The two sweeps here answer the collision question and the
+across-a-run question and neither answers those.
+
 `premise` is the other coverless shape in the corpus and it does not collide — its content
 stops ~400px above the band. That is content-dependent luck rather than a reservation, and the
 same fragility is still there; it is pre-existing, this change does not tip it, and it is
