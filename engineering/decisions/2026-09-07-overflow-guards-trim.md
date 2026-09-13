@@ -1379,13 +1379,29 @@ discarded nothing) rather than being weakened to accept any decline.
   the model and the verifier share it, so nothing certifies a shear. Left as a known
   narrowing with the number written down.
 
-### What was NOT verified
+### THE REAL PLAYGROUND, DRIVEN — the step HARD RULE #23 was owed
 
-The Playground's scaled preview was reproduced as a **mechanism** in real Chromium on
-the exact code path, and as a **surface** by reading `deck-preview.js` (the fit agent and
-the runtime share one `srcdoc`). Nobody built the docs site and loaded a `guards: strict`
-deck into the filmstrip. Under HARD RULE #23 that step is still owed, and the difference
-is "the mechanism was broken" versus "users saw it" — **UNVERIFIED** on that surface. The
-Studio export capture frame goes through the same builder; if its scale is anything but
-exactly 1, this reached exported bytes.
+Everything above was measured on synthetic pages that reproduce `deck-preview.js`'s
+transform shape. That is a mechanism, not a surface. The docs site was then built and the
+**real Playground** opened in real Chromium, a `guards: strict` deck pasted into the real
+editor, and the filmstrip iframe read at two pane widths — then the whole thing rebuilt
+with `scaleOf` pinned to 1 (the shipped bug) and re-run.
+
+| `.lattice` width | scale | with the bug | fixed |
+|---|---|---|---|
+| 532px | 0.4156 | clamped to **3 lines** | clamped to **12 lines** |
+| 422px | 0.3297 | **no clamp at all, and the slide RINGS** | clamped to **12 lines**, no ring |
+
+Both halves of the defect, on the surface a user touches. At one pane width the guard cut
+**nine lines of the author's copy it did not need to**; at a narrower one it went
+**inert** — the guard silent, the overflow ring on, which is `guards: strict` failing
+in exactly the way it exists to prevent. The same deck at `guards: loose` clamps nothing
+at either width, which is what stops the fixed reading from being a test of nothing.
+
+The line count is now **identical across a 26% and a 33% scale**, which is the invariant:
+what a slide says is not a property of how wide the reader's pane is.
+
+**Still not verified:** the Studio export capture frame goes through the same builder
+(`buildSrcdoc` + the fit agent). If its scale is anything but exactly 1, this reached
+exported bytes. Not measured — the fix is correct at any scale either way.
 
