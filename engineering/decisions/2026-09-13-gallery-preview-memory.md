@@ -2,21 +2,24 @@
 status: in-progress
 summary: >
   A phone reloaded its tab while browsing the Studio's add-slide gallery. Six metamorphic
-  relations over the preview window found NO defect — retention saturates, the visible set is
-  path-independent, close releases everything, a recycled tile comes back painted — on Chromium
-  at two widths and on real WebKit. There is no leak either: a +144MB-per-cycle ratchet measured
-  under CDP is the HeapProfiler detached-realm artifact `gotchas/memory-profiling.md` predicts,
-  and four cycles re-measured off-inspector settle flat at 1011/1017/1024/1026 MB. The defect is
-  PEAK, and its cause is that `PREVIEW_BUDGET = 32` was device-blind: a 390x844 phone showed
-  THREE slides and held THIRTY-ONE live engine documents. Shipped: the ceiling follows the
-  in-band set instead of a constant, which cuts peak ~50% on a phone, ~30% on a tablet and ~12%
-  on the desktop with the visible tile count unchanged at all three. Viewport-AREA scaling was
-  measured first and rejected — it fixes the phone and hands a tablet 24, which measures no
-  better than 32. NOT shipped, and designed here with its feasibility measured: a poster cache.
-  A tile can be captured in-browser at full fidelity on BOTH engines (148ms Chromium / 284ms
-  WebKit) once one bug is fixed — the engine sheet carries 147 literal `<`, harmless in HTML's
-  RAWTEXT `<style>` and fatal inside a foreignObject's XHTML, so the CSS needs CDATA wrapping.
-  33 poster tiles cost +25MB against +600-1300MB for 33 live documents.
+  relations over the preview window found NO defect and there is no leak either — a
+  +144MB-per-cycle ratchet measured under CDP is the HeapProfiler detached-realm artifact
+  `gotchas/memory-profiling.md` predicts. The defect is PEAK, and the cause turned out to be the
+  windowing itself: WebKit never reclaims a preview document you tear down (five create/destroy
+  cycles with zero frames alive read 149/230/282/401/442 MB, against Chromium's flat
+  170/86/87/79/78), so browsing 69 tiles cost 69 documents whatever the budget said, and a
+  tighter window recycled MORE. Shipped in three parts. One, the retention ceiling follows the
+  in-band set instead of `PREVIEW_BUDGET = 32`, halving mounted documents 33 -> 14-15. Two, every
+  frame gets the 640KB engine stylesheet as one shared `blob:` link instead of parsing its own
+  copy (Chromium -63%, WebKit -21%; the per-frame document went from ~769,000 bytes to 2,508).
+  Three, and decisively, the three thumbnail grids draw from a POOL of at most 10 frames that are
+  re-pointed rather than destroyed — a full browse now mints 11 iframes and 15 documents instead
+  of 69 of each, and WebKit retains a ~388MB median where it retained +648MB. NOT built, and
+  designed here with its feasibility measured: a poster cache. A tile can be captured in-browser
+  at full fidelity on BOTH engines (148ms Chromium / 284ms WebKit) once one bug is fixed — the
+  engine sheet carries 147 literal `<`, harmless in HTML's RAWTEXT `<style>` and fatal inside a
+  foreignObject's XHTML, so the CSS needs CDATA wrapping. 33 poster tiles cost +25MB against
+  +600-1300MB for 33 live documents.
 ---
 
 # The add-slide gallery's memory, and what a cached poster would buy
@@ -157,10 +160,11 @@ picking the flattering before-figure for each — those percentages were not rep
 
 ### This lands on three surfaces, not one
 
-`useInView` and the `livePreviews` registry are module-global and shared by the add-slide
-gallery, **Present's slide overview** and **Reshape's variant tiles**. All three get the same
-retention. The overview is the one to watch: its tiles are the author's OWN slides with the
-authoring alarms live, and each is a whole-deck engine parse.
+`useInView` and the `livePreviews` registry were module-global and shared by the add-slide
+gallery, **Present's slide overview** and **Reshape's variant tiles**, so all three got the same
+retention. All three are now on the pool instead (§4c), which is shared the same way. The
+overview is the one to watch: its tiles are the author's OWN slides with the authoring alarms
+live — it passes no `specimen` flag, deliberately — and each is a whole-deck engine parse.
 
 **What this does not fix**, so nobody re-measures it: the band itself. An in-band tile is never
 recycled, so ~12 live documents at 390 and 820 alike are irreducible *while a tile is an engine
@@ -233,6 +237,118 @@ Two things came out of that, and they are the durable part of this section:
 
 Render parity is now proven rather than assumed: byte-identical screenshots on both engines, and
 identical computed box, background, color and family.
+
+## 4c. The finding that made the budget beside the point: WebKit keeps every document you destroy
+
+Everything above tunes HOW MANY preview documents are alive at once. That was the wrong
+quantity, and the measurement that says so is the most important one in this note.
+
+A preview document is not freed on WebKit when you tear it down. Isolated harness, five cycles
+of "create 16 engine frames, destroy them all, idle 12s", each reading taken with **zero frames
+alive**:
+
+| cycle | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| Chromium | 170 | 86 | 87 | 79 | 78 |
+| WebKit | 149 | 230 | 282 | 401 | 442 |
+
+Chromium reclaims and stays flat. WebKit ratchets, monotonically, with nothing on the page. So
+browsing the 69-tile catalog costs about 69 documents' worth of memory on the engine an iPhone
+runs, **whatever the window is set to** — and a tighter window is WORSE, because the window is
+what creates the churn. Predicted 69 x ~11MB ~= 760MB; measured on the real Studio, +784MB
+retained with 8 live tiles. The budget in §4 reduced how many exist at any instant, which is
+still worth having for peak; it could not touch this, because the cost is per document ever
+CREATED.
+
+### What replaced it
+
+`docs/src/components/studio/preview-pool.tsx`. One grid owns at most **10** frames for its
+lifetime, in one absolutely-positioned layer inside the grid's own scroll content, and
+RE-POINTS them over the tiles worth showing. Nothing is ever torn down, so there is nothing for
+WebKit to fail to reclaim.
+
+A re-point is nearly free because `single-slide-render.ts`'s render signature — theme, mode,
+geometry, the mermaid flag, the author CSS — deliberately does NOT include the markdown. Same
+signature means the patch path: the same iframe, the same realm, a new body. Same harness, five
+rounds of swapping all 16 tiles to different content:
+
+| | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| WebKit, recreate | 175 | 274 | 357 | 480 | 579 | 603 |
+| WebKit, re-point | 197 | 195 | 198 | 205 | 209 | 213 |
+
+Slots are keyed by that signature (`shapeKey`), so a tile prefers a slot it can patch into; the
+mermaid bucket and saved local components (their own `extraCss`) are the only groups in a
+gallery that differ.
+
+**Measured on the real Studio**, four full traversals of the catalog at 390x844:
+
+| | before | after |
+|---|---|---|
+| iframe elements created | 69+ | **11** |
+| preview documents (srcdoc writes) | 69+ | **15** |
+| WebKit retained after the browse | +648 MB | **379 / 388 / 389 MB** (median 388) |
+| Chromium retained after the browse | ~105 MB | **79 / 87 / 88 MB** |
+
+Read the MB columns with §4's ±200 warning; the COUNTS are the near-deterministic half, and
+they are the quantity the finding is about. Three runs per engine, because one is not evidence.
+
+### Three things that were wrong before this worked, all of them invisible to the gates
+
+- **Un-throttled re-pointing outran the render.** A flick delivers observer callbacks every
+  frame, so the first cut re-pointed every slot ~60 times a second; a re-point arriving while
+  the previous write is in flight falls through to a full `srcdoc` write, minting exactly the
+  realm this module exists to avoid. It produced 9 iframes (the pool working) and 50 extra
+  documents (the pool defeating itself), +472MB. Fixed with `APPLY_MS` (assignments settle,
+  they do not track) and `RELEASE_GRACE` (a tile keeps its slot briefly after leaving the band).
+- **Priority order is load-bearing, not tidy.** Sorting by recency gave slots to the oldest
+  tiles; sorting on `inBand` alone prefers tiles below the fold, because the band reaches 150px
+  past the viewport and a downward scroll admits them first. On-screen wins, then in-band, then
+  most recent — and the order has to decide who KEEPS a slot as well as who gets a free one.
+  It did not, in one cut, and three tiles filling the screen rendered as empty cards while
+  tiles in their release grace squatted on the slots. That one was found by LOOKING at the grid.
+- **A patched slide lost the specimen flag's suppression.** A catalog tile resolves its overflow
+  marker to `off`, and at `off` the runtime deliberately installs "no probe, no observer, no
+  resize handler" — so nothing was left to stamp `data-lattice-overflow-marker` on a section
+  that arrived by patch rather than by boot, and that attribute is what the CSS suppression keys
+  on. Six of ten frames carried no marker after a scroll and never recovered, so an overflowing
+  sample painted the loud red authoring ring at 260px. `patchSlideBody` now carries the level
+  across the swap. The subtlety worth keeping: it stamps the article's own `<section>` children,
+  because `data-lattice-slide` is written by the RUNTIME and is not yet on the sections a patch
+  inserts — keyed on that attribute the stamp matched nothing at all (`matched=0`, measured).
+
+### Two visual defects the pool introduces by construction
+
+A pooled frame is positioned OVER its tile instead of inside it, and that has two consequences a
+reviewer should expect to handle on any new pooled surface:
+
+- **Chrome drawn over the preview box needs a positive `z-index`.** The layer paints above the
+  grid, so the overview's slide number, Reshape's "Current" badge and the gallery's hover Insert
+  overlay all disappeared behind the frame. Four overlays now carry `z-10`.
+- **The tile can no longer clip its own preview.** `overflow-hidden rounded-xl` on the card does
+  not reach a frame that is not inside it, so the slide painted square corners over the card's
+  curve. The slot clips itself, copying the radius from the nearest clipping ancestor, per
+  corner — a preview above a name row is rounded on top and square at the bottom.
+
+Neither was caught by a gate, a test, or a full-page screenshot. Both came out of shooting ONE
+tile at 2x and looking at it.
+
+### What this costs, honestly
+
+- **10 frames are held for the grid's lifetime**, including while you are looking at a filtered
+  result of three tiles. The old design would have released them. That is the trade: a fixed
+  ceiling you can reason about, instead of a variable cost that is permanent on WebKit.
+- **Moving an iframe in the DOM reloads it**, so the layer repositions frames rather than
+  reparenting them — which means positions are recomputed on layout changes, not on scroll. A
+  layout move the ResizeObserver cannot see would leave a frame misaligned until the next pass.
+- **The `useInView` window, the `livePreviews` registry and `SlideThumbFace` are gone**, along
+  with their unit suite. The properties that matter are pinned instead by
+  `preview-pool.test.tsx` (the slot ceiling holds; a slot is re-pointed rather than remounted —
+  zero unmounts; an on-screen tile outranks a grace-holder), each verified by mutation, and by
+  the six metamorphic relations on the real browser.
+
+`PREVIEW_RETAIN` and the §4 numbers stay in this note because they are the record of how the
+defect was found, not because the knob still exists.
 
 ## 5. The poster cache — feasible, high-fidelity, not built
 
