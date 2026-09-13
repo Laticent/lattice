@@ -159,13 +159,32 @@ function dropsFor(body, cls, orientation) {
   return res?.transformed ? out : null;
 }
 
+/**
+ * BLANKED TO SPACES, NOT DELETED, and matching BOTH closers — `lint-core.js`'s
+ * `withoutCodeCommentMarkers` idiom, for its reasons (HARD RULE #15).
+ *
+ * Deleting a multi-character marker in one pass can RECONSTITUTE it from the
+ * text either side: `<!<!----` loses the inner `<!--` and the remaining halves
+ * close up into a fresh one. Spaces cannot combine into a marker, so one pass
+ * suffices. `--!>` is a real closer the HTML parser honors and a single-closer
+ * regex walks straight past it, swallowing the rest of the slide as comment.
+ * And an UNTERMINATED `<!--` matches nothing at all, so the raw marker reaches
+ * the transform as content — the second pass neutralizes what the first leaves.
+ *
+ * Newlines survive the blanking (unlike lint-core's, which runs over code
+ * fences where that does not matter): this body is scanned for a `^##` heading,
+ * and collapsing a multi-line comment to one run of spaces would weld the next
+ * heading onto the previous line.
+ */
+const blankRun = (m) => m.replace(/[^\n]/g, ' ');
+
 /** Each `<!-- _class: … -->` section of a deck, with its title for reporting. */
 function* chartSections(file) {
   const src = fs.readFileSync(P(file), 'utf8');
   for (const chunk of src.split(/^---\s*$/m)) {
     const m = chunk.match(/<!--\s*_class:\s*([^>]*?)\s*-->/);
     if (!m) continue;
-    const body = chunk.replace(/<!--[\s\S]*?-->/g, '');
+    const body = chunk.replace(/<!--[\s\S]*?--!?>/g, blankRun).replace(/<!--|--!?>/g, blankRun);
     const titleMatch = body.match(/^##\s+(.*)$/m);
     const title = titleMatch ? titleMatch[1].trim() : '(untitled)';
     yield { cls: m[1].trim(), body, title };
