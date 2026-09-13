@@ -90,6 +90,16 @@ const STEPS = [
   // dagre IIFE at BUNDLE time, so a stale or missing file would be baked into
   // lattice-runtime.js and lattice-emulator.js rather than caught later.
   { label: 'dagre bundle (state-chart layout)', script: 'build-dagre-bundle.js', uncommitted: true },
+  // Ahead of the bundles for the same reason as dagre, and it used to sit 18 steps
+  // LATER, next to build-player-core.js — its first-discovered consumer. player-core
+  // is not its only one: lattice-emulator.js's graph reaches
+  // lib/export/anima-player-bundle.generated.mjs too, so esbuild inlined it into
+  // dist/lattice-emulator.js at step 8 and this step then rewrote it at step 26.
+  // Measured on a real `npm run build`: the emulator was written 2.6s BEFORE the file
+  // it contains. One build could not converge when an anima source changed — and
+  // nothing caught it, because dist/ is gitignored and `build:check
+  // --exclude-uncommitted` skips the emulator by design.
+  { label: 'anima-player bundle (engine export)', script: 'build-anima-player.js' },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
   { label: 'VS Code snippets', script: 'build-snippets.js' },
@@ -111,8 +121,6 @@ const STEPS = [
   { label: 'standalone-core bundle (docs site)', script: 'build-standalone-core.js', uncommitted: true },
   { label: 'image-set-core bundle (docs site)', script: 'build-image-set-core.js', uncommitted: true },
   { label: 'a11y-textures bundle (docs site)', script: 'build-a11y-textures.js', uncommitted: true },
-  // anima-player IIFE must exist before player-core bundles it in (playerJs injects it).
-  { label: 'anima-player bundle (engine export)', script: 'build-anima-player.js' },
   { label: 'player-core bundle (docs site)', script: 'build-player-core.js', uncommitted: true },
   { label: 'player-prune bundle (docs site)', script: 'build-player-prune.js', uncommitted: true },
   // Cadenza's dist/ must exist on disk BEFORE read-along-core bundles it in.
@@ -152,14 +160,14 @@ const STEPS = [
   { label: 'dist README', script: 'build-dist-readme.js', uncommitted: true },
 ];
 
-// The slowest steps (non-incremental `tsc --emitDeclarationOnly`) have no
-// ordering dependency on anything EXCEPT read-along-core, which needs Cadenza's
-// dist/ on disk (see the STEPS comment above). Run them in the background as
-// soon as the pipeline starts; join right before read-along-core, the one step
-// that actually needs to wait. Each -lib script stages into its own
-// `${dist}.tmp` sibling and touches only its own lib dir, so the three run
-// collision-free; Lente/Vetrina aren't read-along inputs, so joining them at
-// that point is incidental (harmless), not a dependency.
+// The slowest steps (non-incremental `tsc --emitDeclarationOnly`). Their only
+// ordering dependency is on the steps that BUNDLE their dist/ — today
+// build-player-core.js and build-read-along-core.js, both of which reach
+// Cadenza's (see JOIN_BEFORE_SCRIPTS below; this comment claimed read-along-core
+// was the only one, and it was wrong). Run them in the background as soon as the
+// pipeline starts; join right before the first step that consumes one. Each -lib
+// script stages into its own `${dist}.tmp` sibling and touches only its own lib
+// dir, so the four run collision-free.
 // Conservative scope: just these library dists, not a full 26-step dependency-tier
 // reorg (the other steps' temp-path usage across all 26 scripts isn't
 // audited, so parallelizing further risks output collisions this narrow slice
@@ -170,7 +178,23 @@ const BACKGROUND_LABELS = new Set([
   'Lente library dist (CJS + .d.ts)',
   'Suono library dist (CJS + .d.ts)',
 ]);
-const JOIN_BEFORE_SCRIPT = 'build-read-along-core.js';
+
+// EVERY foreground step that bundles a background step's output in. Whichever
+// comes first in STEPS order does the joining; the rest are no-ops, since
+// awaiting a settled promise costs nothing.
+//
+// This was a single script — read-along-core — on the claim that the four library
+// dists "have no ordering dependency on anything EXCEPT read-along-core". That was
+// false, and silently so: build-player-core.js bundles `@laticent/cadenza`, whose
+// entry IS docs/src/lib/cadenza/dist/index.mjs (esbuild inlines it — the marker is
+// in docs/src/playground/player-core.generated.js), and player-core runs SIX steps
+// ahead of the join. Nothing made it wait, so it read a file a live child process
+// could be rewriting. It happens to win today by 5.7s of scheduling luck (measured:
+// cadenza dist written 13:20:43.665, player-core 13:20:49.325) — a slower tsc, a
+// colder container, or one step moved earlier flips it. The same dependency, in its
+// serial form, is already on the record: the bootstrap loop below hit
+// `Could not resolve "@laticent/cadenza"` for exactly this reason.
+const JOIN_BEFORE_SCRIPTS = new Set(['build-player-core.js', 'build-read-along-core.js']);
 
 function runStep(step, check) {
   const args = [path.join(__dirname, step.script)];
@@ -268,10 +292,11 @@ async function main(argv) {
   //
   // CONSTRAINT this creates, and it is load-bearing: an uncommitted step may not
   // depend on a COMMITTED step's output being freshly generated, because the
-  // bootstrap skips those. Today that holds — build-player-core.js needs
-  // build-anima-player.js's lib/export/anima-player-bundle.generated.mjs, and that
-  // file is committed, so a checkout always has it. If a dependency of an
-  // uncommitted step is ever moved out of git, bootstrap it here too.
+  // bootstrap skips those. Today that holds — build-player-core.js AND
+  // build-emulator.js both need build-anima-player.js's
+  // lib/export/anima-player-bundle.generated.mjs, and that file is committed, so a
+  // checkout always has it. If a dependency of an uncommitted step is ever moved out
+  // of git, bootstrap it here too.
   const GUARD_INPUTS = ['dist/lattice.css', 'docs/src/playground/player-core.generated.js'];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');
@@ -320,26 +345,30 @@ async function main(argv) {
   const backgroundSteps = steps.filter((s) => BACKGROUND_LABELS.has(s.label));
   const foregroundSteps = steps.filter((s) => !BACKGROUND_LABELS.has(s.label));
 
-  // The background steps are only ever AWAITED at the join point. If scoping
-  // removed the join step while leaving a background step in, nothing would
+  // The background steps are only ever AWAITED at a join point. If scoping
+  // removed every join step while leaving a background step in, nothing would
   // await it and its failure would be silently discarded — a check that passes
-  // because it stopped looking. Today all four background steps AND the join
-  // step are built-not-committed, so they leave together and this never fires; it exists
+  // because it stopped looking. Today all four background steps AND both join
+  // steps are built-not-committed, so they leave together and this never fires; it exists
   // because that is a coincidence of the current tags, not a property anyone
   // enforced, and the failure it guards is invisible.
-  if (backgroundSteps.length && !foregroundSteps.some((s) => s.script === JOIN_BEFORE_SCRIPT)) {
+  if (backgroundSteps.length && !foregroundSteps.some((s) => JOIN_BEFORE_SCRIPTS.has(s.script))) {
     process.stderr.write(
-      `\nbuild aborted: ${backgroundSteps.length} background step(s) are in scope but the ` +
-        `join step (${JOIN_BEFORE_SCRIPT}) is not, so their results would never be awaited. ` +
-        'Fix the uncommitted tags in STEPS so the join step is in scope whenever a background step is.\n',
+      `\nbuild aborted: ${backgroundSteps.length} background step(s) are in scope but no ` +
+        `join step (${[...JOIN_BEFORE_SCRIPTS].join(', ')}) is, so their results would never be awaited. ` +
+        'Fix the uncommitted tags in STEPS so a join step is in scope whenever a background step is.\n',
     );
     return 1;
   }
   const backgroundResults = backgroundSteps.map((step) => ({ step, ok: runStepAsync(step, check) }));
 
   const failed = [];
+  let joined = false;
   for (const step of foregroundSteps) {
-    if (step.script === JOIN_BEFORE_SCRIPT) {
+    // Join at the FIRST consumer, once — a second pass would re-report the same
+    // background failure and double-count it in `failed`.
+    if (!joined && JOIN_BEFORE_SCRIPTS.has(step.script)) {
+      joined = true;
       for (const { step: bgStep, ok } of backgroundResults) {
         if (!(await ok)) failed.push(bgStep.label);
       }

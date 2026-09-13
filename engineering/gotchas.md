@@ -156,6 +156,8 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 - [A page number / progress rail / proof-panel color looks wrong in the preview, right in the export](gotchas/lattice-internals.md#a-page-number--progress-rail--proof-panel-color-looks-wrong-in-the-preview-right-in-the-export)
 - [Editing a manifest `sample` staled the bucket survey gallery](gotchas/lattice-internals.md#editing-a-manifest-sample-staled-the-bucket-survey-gallery)
+- [`dist/lattice-emulator.js` rejects a manifest key the schema already declares](gotchas/lattice-internals.md#distlattice-emulatorjs-rejects-a-manifest-key-the-schema-already-declares)
+- [A generated file is in the bundle that was built before it](gotchas/lattice-internals.md#a-generated-file-is-in-the-bundle-that-was-built-before-it)
 - [A committed render golden doesn't match a fresh render — check staleness FIRST](gotchas/lattice-internals.md#a-committed-render-golden-doesnt-match-a-fresh-render--check-staleness-first)
 - [A manifest slot's `selector` describes AUTHORING input — a transform may consume it](gotchas/lattice-internals.md#a-manifest-slots-selector-describes-authoring-input--a-transform-may-consume-it)
 - [Legacy `--fs-*` token names retired](gotchas/lattice-internals.md#legacy---fs--token-names-retired)

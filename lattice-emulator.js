@@ -39,6 +39,7 @@ const path          = require('path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
 const os            = require('os');
 const { execSync, execFileSync } = require('child_process');
+const { pkgRootFrom } = require('./lib/core/pkg-root');
 
 // Inline each local `logo-wall` mark as a REAL `<svg>` for the export path.
 // The logo-marks transform emits `<span class="logo-mark" … style="--logo-mask:
@@ -80,14 +81,11 @@ function inlineLogoMarkSvg(html, baseFileUrl) {
 // output file's __dirname, so a fixed `..` is wrong for the source case —
 // walk up to the nearest package.json instead, which lands on the root in
 // both layouts (and on the installed package dir for npm consumers).
-const PKG_ROOT = (() => {
-  let dir = __dirname;
-  while (dir !== path.dirname(dir)) {
-    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
-    dir = path.dirname(dir);
-  }
-  return __dirname;
-})();
+// The walk itself is SHARED (lib/core/pkg-root.js), not repeated here:
+// lib/components/index.js resolves the manifest schema through the same helper,
+// and the two must agree or the contract and the manifests this file hands
+// `loadAll()` come from different trees.
+const PKG_ROOT = pkgRootFrom(__dirname);
 
 // The package version, READ at runtime from PKG_ROOT — never `require`d.
 // `require('./package.json')` would look correct, but esbuild treats it as a

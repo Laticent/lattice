@@ -56,6 +56,50 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Commits:** `29c3022` (regen chart survey after the word-cloud
   `sample` 1–5 normalization).
 
+## `dist/lattice-emulator.js` rejects a manifest key the schema already declares
+
+- **Symptom:** `node dist/lattice-emulator.js deck.md out.pdf` dies with
+  `unknown manifest key 'x' — not in manifest.schema.json (the schema is the source of
+  truth; add the field there first)` — naming a field `lib/components/manifest.schema.json`
+  visibly HAS. `node lattice-emulator.js` on the same tree renders fine. Typically hits a
+  fresh sandbox whose `dist/` predates the checkout, or a local edit that adds a manifest
+  field and its schema entry without rebuilding.
+- **Cause:** `lib/components/index.js` read its two inputs from two different ERAS. The
+  manifests come off disk at run time (`loadAll` → `fs.readdirSync` / `readFileSync`), but
+  the schema was a relative `require`, and esbuild inlines a relative `require` into the
+  bundle. So the bundle checked the live tree's manifests against whatever the schema said
+  on the day it was built. The error message is the misleading part: it points the author
+  at the one file that is already correct.
+- **Mitigation:** The schema is READ from the package root now, not `require`d
+  (`lib/components/index.js`) — the same rule `lattice-emulator.js:92` already stated for
+  `package.json`, and for the same reason. The `require` survives as the fallback for a
+  tree with no `lib/`. Both sides now resolve under one `PKG_ROOT`, which is the same
+  directory `lattice-emulator.js` hands `loadAll()`, so they cannot disagree.
+- **Triggered by:** Bundling a file whose runtime twin is read from disk. Any
+  `require('./x.json')` in a module that reaches `dist/` has this shape.
+- **Commits:** see `engineering/decisions/2026-09-13-bundle-era-skew.md`.
+
+## A generated file is in the bundle that was built before it
+
+- **Symptom:** One `npm run build` does not converge — a second identical build changes
+  `dist/`, or a `--check` twin calls an artifact stale right after a clean build.
+- **Cause:** A `tools/build.js` STEP that produces a file ordered AFTER a step that
+  `require`s it. esbuild inlines at bundle time, so the bundle carries the PREVIOUS
+  revision. `dist/` is gitignored and CI's `build:check --exclude-uncommitted` skips the
+  built-not-committed artifacts, so nothing catches it: `dist/lattice-emulator.js` was
+  written 2.6s before `lib/export/anima-player-bundle.generated.mjs`, which it contains.
+- **Mitigation:** Generator steps come before every bundle that inlines them. The
+  background library dists (Cadenza, Vetrina, Lente, Suono) are joined before their FIRST
+  consumer via `JOIN_BEFORE_SCRIPTS`, not just before `build-read-along-core.js`.
+- **Triggered by:** Adding a generator, or adding an import that reaches one. To check a
+  bundle's real inputs, grep its esbuild module markers **unanchored** —
+  `grep -n '// lib/' <bundle>` — because only some bundles put them in column 0.
+  `dist/lattice-emulator.js` does; `dist/lattice-runtime.js` wraps modules in the CJS
+  closure form and indents all 1288 of them, so `'^// lib/'` scores it a false zero. A
+  MINIFIED bundle (`docs/public/playground/*.js`) carries no markers at all — grep it for
+  a symbol only the suspected input defines instead.
+- **Commits:** see `engineering/decisions/2026-09-13-bundle-era-skew.md`.
+
 ## A committed render golden doesn't match a fresh render — check staleness FIRST
 
 - **Symptom:** a committed gallery golden
