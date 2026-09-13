@@ -72,12 +72,12 @@
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "d99a5401afd9280981162b6cf9c4e1b618ac073e6a960ea991317bcf68cdbf94"
+		"srcSha256": "a8aa841bf72fb1e1606a778b7936655db8023df19e1ec158ee00384b86c00260"
 	},
 	"funnel.dark": {
 		"src": "lib/components/chart/funnel/funnel.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "a780c7e6012e92a60cb84413d4cdce36b9750915088927973c24003ec0031c9a"
+		"srcSha256": "3f155aa9ff25cdd5e078883255dd02aefc10d941e5dcdbecf7eda6fe9a0660ff"
 	},
 	"image.light": {
 		"src": "lib/components/imagery/image/image.gallery.light.pdf",
@@ -92,12 +92,12 @@
 	"inventory.light": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "68142f568b3295460fb8e4b372366e21719f7f8b880165f3835a9ad8d6bdcb60"
+		"srcSha256": "39c105da512f21b11fe6ac446d664b309b98f2fc1f285040f892849ae6b64d03"
 	},
 	"inventory.dark": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "a60fd6e797ceeb527cbb5e1be0f5cd8ab3c0a60b3fabd06791df76a58700f0d1"
+		"srcSha256": "1c68ab4c1c1a9e03c8bd944ca7f9a99a29ad373bc526605048547076a51157c6"
 	},
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",
@@ -132,12 +132,12 @@
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "34c7f9b8a2b26a3c98d6aa99c84e5cfa3da2f5ecf36271eb5df019c3953f6e56"
+		"srcSha256": "bf8aa298f90f0011fa4b3e325f94d64e1f163341ed6ec9b03bda77bea6b25966"
 	},
 	"radar.dark": {
 		"src": "lib/components/chart/radar/radar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "40d88a7e10906250d1d56f7d0b1706345eb2f477e276ffc26344045588de244e"
+		"srcSha256": "0d67b8677490e5b1e038efdb8c3003d096b6b1b6b2e8e6208f15e0eeacba66cd"
 	},
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
