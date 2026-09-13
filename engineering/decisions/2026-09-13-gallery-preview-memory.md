@@ -379,6 +379,23 @@ needed a viewport I had not measured.** A phone-sized measurement is not a measu
 - **10 frames are held for the grid's lifetime**, including while you are looking at a filtered
   result of three tiles. The old design would have released them. That is the trade: a fixed
   ceiling you can reason about, instead of a variable cost that is permanent on WebKit.
+- **CLOSING a grid still discards its documents**, and that half is untouched: the pool lives with
+  the grid, so every open mints a fresh set and WebKit keeps every set you close. Measured A/B,
+  five open/close cycles of Present's overview on WebKit, MB over each build's own baseline:
+
+  | | 1 | 2 | 3 | 4 | 5 |
+  |---|---|---|---|---|---|
+  | main | +250 | +414 | +470 | +653 | +672 |
+  | this branch | +212 | +312 | +371 | +386 | +401 |
+
+  Both climb; the slope roughly halves, because each open now costs ~10 documents instead of one
+  per tile you scrolled past. This is #1517's territory — its own oracle (CDP, GC forced twice, five
+  gallery cycles at 1440x900) reads **28 documents flat** here against the 71 recorded there.
+  Closing it properly means keeping a pool alive ACROSS opens, which trades a permanent residue for
+  the per-open cost. On WebKit that trade looks free — a closed document is not reclaimed anyway,
+  so holding it and reusing it costs nothing it was not already costing — and on Chromium it is a
+  real ~60-110MB that would otherwise be freed. That is a number to set deliberately rather than a
+  defect to fix quietly, so it is recorded here and not done.
 - **Moving an iframe in the DOM reloads it**, so the layer repositions frames rather than
   reparenting them — which means positions are recomputed on layout changes, not on scroll. A
   layout move the ResizeObserver cannot see would leave a frame misaligned until the next pass.
