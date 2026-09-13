@@ -250,6 +250,31 @@ describe('core: carousel — cover-rows (list-tabular)', () => {
     assert.match(rows[0].title, /<code>Term<\/code>/, 'the chip was flattened out of the title');
   });
 
+  // …AND A LOOSE LIST'S `<p>` WRAPPER IS NOT INLINE MARKUP. Blank lines between items is
+  // ordinary authoring, and markdown-it then wraps each item's content in `<p>`. The title
+  // lands inside `<span class="split-pt-t">`, and `<span><p>…</p></span>` is invalid — a `<p>`
+  // is not phrasing content, so the browser closes the span and reparents the paragraph, which
+  // takes the label out of the row it belongs to. The wrapper is unwrapped and the inline
+  // markup inside it kept. Found by the HARD RULE #25 checker.
+  test('a LOOSE list drops the <p> wrapper and keeps what was inside it', () => {
+    const rows = readRows('<div class="cell-stage"><ol>'
+      + '<li><p>Label <code>Term</code></p><ul><li><p>One clause.</p></li></ul></li>'
+      + '<li><p>Second <em>row</em></p></li>'
+      + '</ol></div>');
+    assert.equal(rows.length, 2);
+    for (const r of rows) assert.doesNotMatch(r.title, /<\/?p\b/, `a <p> reached the title: ${r.title}`);
+    assert.match(rows[0].title, /<code>Term<\/code>/, 'unwrapping the <p> also stripped the chip');
+    assert.match(rows[1].title, /<em>row<\/em>/, 'unwrapping the <p> also stripped the emphasis');
+  });
+
+  // A title that holds TWO paragraphs is not a wrapper to unwrap — it is a title with a
+  // paragraph in it, and flattening the pair would silently join two blocks into one line.
+  // The unwrap fires only on a single paragraph that spans the whole title.
+  test('a title holding two paragraphs is left alone', () => {
+    const rows = readRows('<div class="cell-stage"><ol><li><p>One</p><p>Two</p></li></ol></div>');
+    assert.match(rows[0].title, /<p>One<\/p><p>Two<\/p>/);
+  });
+
   // A bodyless member must not print the string "null" where its body span would go.
   test('a bodyless member renders without a body span', () => {
     const inner = '<div class="cell-masthead"><div class="masthead-lede"><h2>The register.</h2></div></div>'
@@ -759,6 +784,44 @@ describe('core: carousel — code-cards (code: by block, then by line-run)', () 
 
   test('a section with no fenced block at all → null', () => {
     assert.equal(carouselize(cdTag, `${mast}<div class="cell-stage"><p>prose</p></div>`, recipe), null);
+  });
+
+  // THE LINE-RUN SEAM CONSERVES CHARACTERS, INCLUDING A `<` THAT OPENS NO TAG. The slicer walks
+  // the highlighted inner with a tag-or-text pattern, and neither alternative matched a bare
+  // `<`, so `exec` skipped it and the character was DELETED. Not reachable from authored
+  // markdown — the highlighter escapes `<` to `&lt;` inside a fence — but this function's whole
+  // contract is conservation, and `carouselize` takes rendered inner HTML, so a producer that
+  // does not escape reaches it. Found by the HARD RULE #25 checker.
+  test('a `<` that opens no tag survives the line-run slice', () => {
+    const lines = Array.from({ length: 30 }, (_, i) => (i === 7 ? 'if (a < b) return;' : `const a${i} = ${i};`));
+    const parts = carouselize(cdTag, wrap(pre(...lines)), recipe);
+    assert.ok(parts && parts.length > 1, 'the run did not split');
+    const all = parts.join('');
+    assert.match(all, /if \(a < b\) return;/, 'the stray `<` was dropped from the sliced line');
+    for (const l of lines) assert.ok(all.includes(l), `line lost: ${l}`);
+  });
+
+  // THE ENGINE ID LANDS EXACTLY ONCE PER RUN. With a cover the cover holds it and every body
+  // page drops it; with no masthead there is no cover, so the FIRST body page keeps it. Both
+  // seams are asserted, because they stamp their pages through different code.
+  test('with a cover, the cover holds the engine id and no body page repeats it', () => {
+    const parts = carouselize(cdTag, wrap(pre('const a = 1;'), pre('const b = 2;')), recipe);
+    assert.equal(parts.join('').match(/\sid="c1"/g).length, 1, 'the id was duplicated or lost');
+    assert.match(parts[0], /\sdata-split-role="cover"[^>]*\sid="c1"|\sid="c1"[^>]*\sdata-split-role="cover"/);
+  });
+
+  test('with NO masthead, the first body page keeps the engine id — the run still anchors', () => {
+    for (const inner of [
+      `<div class="cell-stage">${pre('const a = 1;')}${pre('const b = 2;')}</div>`,
+      `<div class="cell-stage">${pre(...Array.from({ length: 30 }, (_, i) => `const a${i} = ${i};`))}</div>`,
+    ]) {
+      const parts = carouselize(cdTag, inner, recipe);
+      assert.ok(parts && parts.length > 1, 'the heading-less run did not split');
+      assert.ok(!parts.some((x) => /\sdata-split-role="cover"/.test(x)), 'a coverless run grew a cover');
+      const ids = parts.join('').match(/\sid="c1"/g) || [];
+      assert.equal(ids.length, 1, `the heading-less run emitted ${ids.length} ids`);
+      assert.match(parts[0], /\sid="c1"/, 'the id did not land on the first page');
+    }
   });
 });
 

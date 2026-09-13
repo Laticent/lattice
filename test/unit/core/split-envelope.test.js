@@ -1097,6 +1097,38 @@ describe('core: roleOpenTag carries the authored modifiers as data', () => {
     const out = roleOpenTag(tag, 'content split-panel-split split-panel-points form', false, 'body');
     assert.match(out, /\sdata-split-mods="[^"]*\bcat-3\b/);
   });
+
+  // THE LAYOUT TOKEN IS FOUND IN THE ROLE STRING, NOT AT INDEX 0. `_class` takes its tokens in
+  // any order — CSS matches `section.split-panel.cat-3` either way and nothing lints it — so
+  // dropping the FIRST token dropped the author's modifier and kept the layout, which is the
+  // exact defect the attribute exists to fix. Both orders, same answer.
+  test('a modifier-first _class keeps the modifier and drops the layout', () => {
+    const flipped = '<section id="s9" class="cat-3 split-panel proof form" data-lattice-slide="8">';
+    const out = roleOpenTag(flipped, 'content split-panel-split split-panel-cover form', true, 'cover');
+    const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+    assert.ok(mods.includes('cat-3'), `the authored category was dropped: ${mods.join('|')}`);
+    assert.ok(mods.includes('proof'), `a modifier was dropped: ${mods.join('|')}`);
+    assert.ok(!mods.includes('split-panel'), 'the layout token reached the attribute');
+  });
+
+  // …and the SHARED cover's role string names the layout the other way (`split-cover-<layout>`),
+  // so both forms have to be read. This is the case that made deriving-from-the-role-string look
+  // wrong the first time it was tried: `content lat-split-cover form` names no layout at all,
+  // and a naive derivation stamped `checklist` — the layout wearing a modifier's clothes.
+  test('the shared cover reads `split-cover-<layout>` and still drops the layout', () => {
+    const t = '<section id="s10" class="compact checklist form" data-lattice-slide="9">';
+    const out = roleOpenTag(t, 'content lat-split-cover split-cover-checklist form', true, 'cover');
+    const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+    assert.deepEqual(mods, ['compact'], `got ${mods.join('|')}`);
+  });
+
+  test('a layout with no modifiers gets no attribute, whichever token comes first', () => {
+    for (const cls of ['checklist form', 'form checklist']) {
+      const t = `<section id="s11" class="${cls}" data-lattice-slide="10">`;
+      const out = roleOpenTag(t, 'content lat-split-cover split-cover-checklist form', true, 'cover');
+      assert.ok(!/data-split-mods/.test(out), `'${cls}' stamped an attribute: ${out}`);
+    }
+  });
 });
 
 describe('split-envelope — EVERY arm that reaches the sibling coda Cell is pinned', () => {

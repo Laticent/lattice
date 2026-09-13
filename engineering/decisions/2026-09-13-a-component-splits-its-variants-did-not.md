@@ -42,8 +42,32 @@ split. They do now, through the same derived axis a plain layout is asked for.
 ALREADY emitted (`lat-split-native`) still takes the recipe's declared axis or none. That is
 the case the old comment was about — deriving there cut `redline`'s reasoning away from the
 passage it explains — and the recipe never declined on such a page; it produced it.
-`recipeDeclined` is the flag that separates the two, and the `count <= 1` guard is what still
-rings a genuinely single-member slide.
+`recipeDeclined` is the flag that separates the two.
+
+**AND THE FALLBACK IS AN ALLOWLIST, NOT A DEFAULT — the first version of this change got that
+wrong, and the correction is the more useful half of this record.** Five strategies are shape
+READERS: they parse a specific DOM and re-author it, and their `null` genuinely means "not my
+shape". Four others return `null` to ENFORCE a scope their own comments state —
+`journey-stages` and `roadmap-horizons` keep the landscape board whole, `redline-blocks` keeps a
+single passage whole, `kanban-lanes` keeps a single-lane board whole. Re-deriving an axis there
+overrides the component's own veto with whatever list the DOM happens to carry.
+
+Measured, when the fallback was unconditional: a `journey` slide at `size: square` became a
+cover plus SEVEN body pages, each repeating the whole board and differing only by one item of
+the MOOD LEGEND — nine of the ten slides in `journey`'s own gallery, and eight of `roadmap`'s.
+`redline annotated`, one passage plus a three-item why-list, was cut into three pages carrying
+the reasoning without the amendment it explains. The remaining four strategies
+(`cover-paginate`, `cover-cards`, `compare-options`, `code-cards`) are out for a third reason:
+they route through the envelope already, so their `null` means there is no collection at all
+and re-asking gets the same answer.
+
+**The `count <= 1` guard was credited with keeping `redline annotated` ringing, and it never
+did.** That slide holds one passage AND a three-item why-list, so the count is three and the
+guard never fires. The guard does what its own line says and no more: it stops a single-member
+collection from paginating. What rings `annotated` is the allowlist. The claim was written into
+a code comment and into this record before either was checked, and the checker that caught it
+found the veto regression on `square` — a family the portrait-only first census could not see,
+which is why the census below now sweeps all four splitting families.
 
 ### 2. `readRows` required a clause, so a flat register was not a register
 
@@ -141,11 +165,41 @@ the grid being present, and `capacity.relationship: comparison` puts an `Option 
 every page. A paged 2×2 is a worse read than a 2×2 that fits. It is a better read than the 4 of
 7 gallery pages that clipped, where the reader saw part of the grid and was told nothing.
 
-## What the jank rig cannot see
+## What the jank rig cannot see — and what a split-page sweep found once it was looked at
 
 `tools/check-jank.js` renders `--no-split`, and says so in its own warning. So **no split page
-has ever been measured for jank** — not the k-of-N rail, not the "next:" pointer, not the
+had ever been measured for jank** — not the k-of-N rail, not the "next:" pointer, not the
 runhead, all of which are fixed marks a run owns and a growing member can reach.
+
+**Measured now, on 1,456 split pages across 22 decks at portrait and square:** pairwise overlap
+between every mark that can land in a page's bands — the forward pointer, the k-of-N rail, the
+deck page number, the running header and the running footer. Two results and one method note:
+
+- **One collision this change caused, on one page class.** `split-panel pullquote` splits
+  coverless (it leads with the quotation, so there is no `<h2>` for a reader OR a cover), and
+  those pages are not Forms, so they have no `.cell-footer` row to dock the marks in.
+  `dockInFooterCell` appends both at section level: the pointer as a flex item of the section's
+  column, the rail absolute in its bottom-right berth. The layout's two panels fill 1298 of the
+  section's 1350px, so the pointer took the last 52 and the rail's segments printed straight
+  through the pill's label — and the pill printed over 230×46px of the running footer's text.
+  Fixed by RESERVING the band: `padding-bottom` on the section (never `margin`, HARD RULE #20),
+  which an absolutely-positioned child does not move with, so the rail stays exactly where it
+  is while the flow can no longer reach under it. The reservation is 8.6cqi because that is what
+  the measurement asked for, not a round number.
+- **One collision that is not this change's**, proved by running the same sweep against the
+  merge base: `compare-split` in `portrait-prose-deboost` at square, 81.5×5.8px of
+  pointer-over-rail, identical at base and at HEAD on the same page class (the page INDEX moves,
+  25→29, because this branch inserts pages ahead of it). Off-path and recorded, not pulled in.
+- **The method note is load-bearing: measure INK, not boxes.** The first revision of this sweep
+  compared bounding boxes and reported seven collisions. A running footer's box spans the band
+  (988px) while its string does not, so it reported the rail as colliding with a footer whose
+  text stopped 11px earlier — three of the seven were that. A `Range` over each element's
+  contents gives the union of its text's own rects, and the count fell to one.
+
+`premise` is the other coverless shape in the corpus and it does not collide — its content
+stops ~400px above the band. That is content-dependent luck rather than a reservation, and the
+same fragility is still there; it is pre-existing, this change does not tip it, and it is
+recorded below rather than fixed here.
 
 What WAS measured, across every component × every gallery modifier set at `wide` and `tall`
 (534 sweeps, plus a 63-mark anchor pass):
@@ -190,6 +244,20 @@ probe calls fine.
   `split-panel` cover clips are. It is pre-existing and shared: a plain unsplit `content` slide
   with a long enough `_footer:` clips identically. Widening it is a change to every component's
   band.
+- **`split-panel`'s running footer is illegible on its coverless split pages, and was before
+  them.** The layout inks its chrome `--on-dark-secondary` — white at 0.76 alpha — because that
+  chrome normally sits over the dark panel. At portrait the panel is on TOP and the footer sits
+  on the white half, so the text is white on white. Measured identical at base and at HEAD, and
+  on the UNSPLIT slide too, so it is pre-existing and off this change's path. It is also why the
+  pointer collision above rasterized as a ghost rather than as solid overprint — and why fixing
+  the collision was still worth doing: the day that ink is corrected, the overprint becomes
+  visible.
+- **A coverless split page on a NON-Form layout has no reserved band, only a lucky one.** The
+  fix above is scoped to `split-panel` because that is the only page class the 1,456-page sweep
+  found colliding. `premise`'s seven coverless pages carry the same two marks with the same
+  absolute berth and no reservation; they clear it only because their content is short. The
+  general fix is a band reservation in the shared chrome, which moves seven shipped pages and
+  belongs in its own change.
 - **`split-panel steps` overflows at `wide` from step 1 of the jank sweep** — the component's
   own skeleton, at its own authoring size, with a six-word heading. Pre-existing, off this
   change's path, and recorded here rather than walked past (HARD RULE #18's off-path arm).

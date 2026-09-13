@@ -239,6 +239,46 @@ describe('core: a declined recipe falls through to the derived axis', () => {
     const out = split(docSec(1, 'widget form lat-split-native', stage(3)), capacity).html;
     assert.equal(sections(out), 1, 'an already-emitted split page derived an axis it was never given');
   });
+
+  // THE FALLTHROUGH IS AN ALLOWLIST OF SHAPE READERS, NOT A DEFAULT — the four strategies whose
+  // `null` is a VETO must still ring. Each of these was a real, measured regression when the
+  // fallthrough was unconditional; each is asserted against the strategy name, so admitting a
+  // fifth reader to `SHAPE_READER_STRATEGIES` without thinking fails here rather than on a slide.
+  for (const strategy of ['journey-stages', 'roadmap-horizons', 'redline-blocks', 'kanban-lanes']) {
+    test(`a VETO from ${strategy} rings the slide — it does not re-derive an axis`, () => {
+      const capacity = { widget: { axis: 'item', hard: 4, split: { strategy, perPage: 1 } } };
+      const out = split(docSec(1, 'widget', stage(3)), capacity).html;
+      assert.equal(sections(out), 1,
+        `${strategy} declined and the slide was paginated on a derived axis anyway`);
+    });
+  }
+
+  // The measured shape behind the `journey-stages` row above: a landscape-form journey board at
+  // `size: square`. `deriveAxis` reaches the MOOD LEGEND once the stage seam is refused, so the
+  // board was repeated on every page and only the legend changed.
+  test('a journey board whose only list is a legend is not sliced on the legend', () => {
+    const capacity = { journey: { axis: 'item', hard: 4, split: { strategy: 'journey-stages', perPage: 1 } } };
+    const board = '<div class="journey-grid"><div class="journey-stage">S1</div>'
+      + '<div class="journey-stage">S2</div></div>'
+      + `<div class="journey-legend">${list(7)}</div>`;
+    const out = split(docSec(1, 'journey', `<h2>T</h2>${board}`), capacity).html;
+    assert.equal(sections(out), 1, 'the legend became the split axis');
+    assert.equal((out.match(/journey-grid/g) || []).length, 1, 'the board was repeated per page');
+  });
+
+  // A HEADING-LESS SLIDE STILL SPLITS, AND COVERLESS IS THE RIGHT ANSWER FOR IT. The envelope's
+  // own rule is "a missing masthead costs the COVER, not the split" — there is nothing to build a
+  // cover from — so the run is body pages carrying the run's k-of-N rail and its forward pointer.
+  // This is the case `split-panel pullquote` is: it leads with the quotation and carries no
+  // `<h2>`, so `readFeature` declines and there is no masthead either. Ringing it instead was
+  // tried on this branch and reverted — it took three slides of real coverage, that flagship
+  // variant among them, to protect against a shape that turned out to be identical at base.
+  test('a heading-less slide whose recipe declined splits, coverless', () => {
+    const capacity = { widget: { axis: 'item', hard: 4, split: { strategy: 'cover-sides', perPage: 1 } } };
+    const out = split(docSec(1, 'widget', `<div class="cell-stage">${list(4)}</div>`), capacity).html;
+    assert.equal(sections(out), 4, 'the heading-less run did not split');
+    assert.deepEqual(rolesOf(out), ['body', 'body', 'body', 'body']);
+  });
 });
 
 describe('core: document-level bookkeeping across a split', () => {
