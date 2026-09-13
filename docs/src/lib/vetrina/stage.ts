@@ -1499,6 +1499,13 @@ export function createStage(opts: StageOptions): Stage {
 				// Glide back to `from` + a shake — the honest "the move didn't happen". The list
 				// has NOT reordered (the drop was gated on an act that failed), but the host may
 				// have re-rendered on the failure, so aim live here too.
+				//
+				// AND REVEAL `from` AGAIN, because the drag itself may have moved the page: the
+				// glide to `to` scrolled it into view, and on a long list that can leave the place
+				// the item came from off-screen. Aiming live tracks it there faithfully — off the
+				// bottom of the window, where the shake that is supposed to say "it didn't happen"
+				// says nothing at all.
+				if (fromEl) reveal(fromEl);
 				if (fromEl && !reduced) {
 					await tween(
 						() => {
