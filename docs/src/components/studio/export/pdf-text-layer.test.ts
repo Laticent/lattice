@@ -6,6 +6,7 @@ import {
 	createFontSet,
 	encodeRunText,
 	glyphName,
+	MIN_TEXT_SCALE,
 	registerTextFont,
 	TEXT_CODE_FIRST,
 	TEXT_NOMINAL_WIDTH,
@@ -71,7 +72,7 @@ function readTextBlocks(stream: string, fonts: Map<string, Map<number, string>>)
  * Build a one-page document the way `pdf-export-worker.js` does — text layer, font
  * objects, deflated content stream — then read it back the way a reader would.
  */
-async function roundTrip(runs: Run[], pageW = 960, pageH = 720) {
+async function roundTrip(runs: Run[], pageW = 960, pageH = 720, forceArrayContents = false) {
 	const doc = await PDFDocument.create();
 	const fontSet = createFontSet();
 	const layer = textLayerOps(runs, fontSet, pageW, pageH);
@@ -79,14 +80,15 @@ async function roundTrip(runs: Run[], pageW = 960, pageH = 720) {
 	const page = doc.addPage([pageW, pageH]);
 	const bytes = new TextEncoder().encode(layer.ops);
 	const deflated = deflateSync(bytes);
-	// Fonts BEFORE contents, exactly as `pdf-export-worker.js` writes them — the
-	// order is what keeps `/Contents` a single stream reference (see the assertion
-	// below and the note in the worker).
-	for (const f of layer.fonts) page.node.setFontDictionary(PDFName.of(textFontName(f)), refs[f]);
+	// Fonts before contents, exactly as `pdf-export-worker.js` writes them.
+	// `forceArrayContents` writes them the other way round on an UN-normalized page,
+	// which is what produces the array shape a reader also has to handle.
+	if (!forceArrayContents) for (const f of layer.fonts) page.node.setFontDictionary(PDFName.of(textFontName(f)), refs[f]);
 	page.node.set(
 		PDFName.of('Contents'),
 		doc.context.register(PDFRawStream.of(doc.context.obj({ Length: deflated.length, Filter: 'FlateDecode' }), deflated)),
 	);
+	if (forceArrayContents) for (const f of layer.fonts) page.node.setFontDictionary(PDFName.of(textFontName(f)), refs[f]);
 	// `updateMetadata:false` — pdf-lib stamps its own /Producer into anything it loads.
 	const reloaded = await PDFDocument.load(await doc.save(), { updateMetadata: false });
 	const loaded = reloaded.getPage(0);
@@ -176,9 +178,12 @@ describe('textLayerOps', () => {
 		expect(drawn).toBeCloseTo(0.2 * 960, 1);
 	});
 
-	it('never collapses a run to zero width when the measurement is degenerate', async () => {
-		const { blocks } = await roundTrip([run({ w: 0 })]);
-		expect(blocks[0].tz).toBeGreaterThan(0);
+	it('never writes a run below the scale at which extraction starts losing characters', async () => {
+		// Measured on poppler's default layout mode: `Coverage` comes back as `Coverag` at
+		// 5% and `Calibration` as `Calibrton` at 3%; 10% and above is exact. A degenerate
+		// measurement must land on the floor, not near zero.
+		const { blocks } = await roundTrip([run({ w: 0 }), run({ t: 'Coverage', w: 0.0001, s: 0.05 })]);
+		for (const b of blocks) expect(b.tz).toBeGreaterThanOrEqual(MIN_TEXT_SCALE);
 	});
 
 	it('drops a run with no size rather than writing a zero-height one', async () => {
@@ -235,12 +240,20 @@ describe('toUnicodeCMap', () => {
 });
 
 describe('the page shape the rest of the toolchain reads', () => {
-	it('keeps `/Contents` a single stream, not the array pdf-lib normalizes to', async () => {
-		// `tools/bench-pdf-export.mjs` resolves each page's image THROUGH its content
-		// stream and takes `instanceof PDFRawStream`; the array form makes it read every
-		// text-bearing page as empty and then call any page order identical. Adding the
-		// fonts after the stream is exactly what produces that array.
-		const { contentsIsArray } = await roundTrip([{ t: 'Copy', x: 0.1, y: 0.5, w: 0.1, s: 0.04 }]);
-		expect(contentsIsArray).toBe(false);
+	it('reads the same either way `/Contents` is written', async () => {
+		// pdf-lib writes `/Contents` as a single stream or as a one-element ARRAY depending
+		// on whether anything has normalized the page yet. Both are legal PDF and a reader
+		// has to take both — `tools/bench-pdf-export.mjs` and `docs/e2e/pdf-export-worker.spec.ts`
+		// each silently returned an EMPTY digest for the array form, which would have made
+		// them pass on any page order. An earlier version of this suite pinned the write
+		// order instead, which was the wrong end: the order is not what decides the shape
+		// (pdf-lib's `normalize()` is `if (this.normalized) return`, and `setXObject` has
+		// already run it), so that arm could not fail.
+		const direct = await roundTrip([{ t: 'Copy', x: 0.1, y: 0.5, w: 0.1, s: 0.04 }]);
+		const normalized = await roundTrip([{ t: 'Copy', x: 0.1, y: 0.5, w: 0.1, s: 0.04 }], 960, 720, true);
+		expect(direct.blocks.map((b) => b.text)).toEqual(['Copy']);
+		expect(normalized.blocks.map((b) => b.text)).toEqual(['Copy']);
+		expect(normalized.contentsIsArray).toBe(true);
+		expect(direct.contentsIsArray).toBe(false);
 	});
 });

@@ -49,6 +49,11 @@ export const TEXT_CODE_LAST = 0xff;
 export const CODES_PER_FONT = TEXT_CODE_LAST - TEXT_CODE_FIRST + 1;
 /** Every code's width, in 1/1000 em. See the `Tz` note above. */
 export const TEXT_NOMINAL_WIDTH = 500;
+/** The horizontal-scale band a run may be written at, as a percentage.
+ *  The floor is where poppler's default extraction stops losing characters; the
+ *  ceiling is a sanity bound on a measurement that has gone wrong. */
+export const MIN_TEXT_SCALE = 10;
+export const MAX_TEXT_SCALE = 1000;
 
 /** The resource name a page gives the n-th text font. */
 export function textFontName(index) {
@@ -97,9 +102,15 @@ export function encodeRunText(set, text) {
 	return { font: set.indexOf(font), hex, length: chars.length };
 }
 
+/** The largest magnitude `num` will write. Past 1e21 `toFixed` gives up and returns
+ *  exponential notation (`"1e+21"`), which is not a PDF number and would make the
+ *  content stream unparseable. No measurement can reach it — a page is under 2000 pt —
+ *  so a value this large is a bug upstream, and writing 0 keeps the file readable. */
+const MAX_PDF_NUMBER = 1e21;
+
 /** A PDF number: fixed notation always (`1e-7` is not a PDF number), 3 decimals. */
 function num(value) {
-	if (!Number.isFinite(value)) return '0';
+	if (!Number.isFinite(value) || Math.abs(value) >= MAX_PDF_NUMBER) return '0';
 	const s = value.toFixed(3);
 	return s.replace(/\.?0+$/, '') || '0';
 }
@@ -123,10 +134,15 @@ export function textLayerOps(runs, fontSet, pageW, pageH) {
 		if (!encoded) continue;
 		const width = Number(run.w) * pageW;
 		const natural = encoded.length * size * (TEXT_NOMINAL_WIDTH / 1000);
-		// Clamped, because a degenerate rect (a zero-width measurement, a run the
-		// browser could not lay out) must not write `0 Tz` — which collapses the
-		// whole run onto one point and can make an extractor read it as one glyph.
-		const scale = natural > 0 && width > 0 ? Math.min(1000, Math.max(1, (width / natural) * 100)) : 100;
+		// Clamped, and the FLOOR is the interesting end. A degenerate rect (a zero-width
+		// measurement, a run the browser could not lay out) must not write `0 Tz`, which
+		// collapses the run onto one point. But 1 is not safe either: poppler's default
+		// layout mode DROPS characters below about 10% — measured, `Coverage` extracts as
+		// `Coverag` at 5% and `Calibration` as `Calibrton` at 3%, while everything at 10%
+		// and above is exact. So the floor is where extraction still works. A run that hits
+		// it is wider than its ink, which is the right way to be wrong: a selection box a
+		// little too big beats a word that cannot be searched.
+		const scale = natural > 0 && width > 0 ? Math.min(MAX_TEXT_SCALE, Math.max(MIN_TEXT_SCALE, (width / natural) * 100)) : 100;
 		used.add(encoded.font);
 		// PDF user space is bottom-left; a run's y is its baseline from the top.
 		ops += `BT\n3 Tr\n/${textFontName(encoded.font)} ${num(size)} Tf\n${num(scale)} Tz\n${num(Number(run.x) * pageW)} ${num(pageH - Number(run.y) * pageH)} Td\n<${encoded.hex}> Tj\nET\n`;

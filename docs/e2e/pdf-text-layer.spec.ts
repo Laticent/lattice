@@ -24,6 +24,13 @@ const DECK = MARKERS.map(
 		`<!-- _class: big-number -->\n\n\`Section ${i + 1}\`\n\n- ${(i + 1) * 11}\n  - ${word} contracts signed across the northern territories.`,
 ).join('\n\n---\n\n');
 
+// A chart, because a chart is where the measurement goes wrong in a way no other slide
+// can show: its labels live inside a scaled `viewBox`, where the computed font size is
+// in USER UNITS while every rect is in CSS px. Reading the two as one unit sized every
+// chart label at a quarter of its own ink, and the only visible symptom in the FILE is
+// the horizontal scale running away to compensate.
+const CHART_DECK = '<!-- _class: bar -->\n\n## Coverage by region\n\n- EMEA `4.2`\n- Americas `3.1`\n- APAC `2.4`\n';
+
 /** `/ToUnicode` back into code → character. The bfchar lines are the two-digit ones. */
 function parseCMap(text: string) {
 	const map = new Map<number, string>();
@@ -62,14 +69,16 @@ async function pageText(bytes: Uint8Array) {
 		}
 		const words: string[] = [];
 		const modes = new Set<string>();
+		const scales: number[] = [];
 		for (const [, body] of stream.matchAll(/BT\n([\s\S]*?)ET\n/g)) {
 			const font = /\/(\S+)\s+[\d.]+\s+Tf/.exec(body)?.[1] ?? '';
 			const codes = (/<([0-9a-f]*)>\s*Tj/.exec(body)?.[1].match(/../g) || []).map((h) => Number.parseInt(h, 16));
 			const cmap = cmaps.get(font);
 			modes.add(/(\d)\s+Tr/.exec(body)?.[1] ?? 'none');
+			scales.push(Number(/([\d.]+)\s+Tz/.exec(body)?.[1] ?? 100));
 			words.push(codes.map((c) => cmap?.get(c) ?? '�').join(''));
 		}
-		return { words, modes: [...modes] };
+		return { words, modes: [...modes], scales };
 	});
 }
 
@@ -109,4 +118,27 @@ test('every exported page carries the words on the slide it pictures', async ({ 
 	// The copy reads in order — the run sequence is the DOM's, which is the slide's.
 	const first = pages[0].words.join(' ');
 	expect(first).toContain('contracts signed across the northern territories.');
+});
+
+test('a chart label is sized by its ink, not by its viewBox units', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, CHART_DECK);
+	await expect(railButtons(page)).toHaveCount(1);
+	const [chart] = await pageText(await exportPdf(page));
+
+	// The labels are there at all.
+	const text = chart.words.join(' ');
+	for (const label of ['EMEA', 'Americas', 'APAC']) expect(text).toContain(label);
+
+	// And they are sized right. Every run carries a horizontal scale computed to make its
+	// drawn width match the width the browser measured, so a run whose FONT SIZE is wrong
+	// by a factor shows up as a scale that has run away to compensate — and at the ceiling
+	// it saturates, after which the box stops matching the ink at all. Measured across
+	// three real decks, honest runs sit between 56 and 174. This band is the invariant
+	// that would have caught an 8-user-unit label written at 8 pt inside a 4x viewBox.
+	expect(chart.scales.length).toBeGreaterThan(3);
+	for (const scale of chart.scales) {
+		expect(scale).toBeGreaterThan(25);
+		expect(scale).toBeLessThan(400);
+	}
 });

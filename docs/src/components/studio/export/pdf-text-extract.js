@@ -78,6 +78,46 @@ function isScreenReaderOnly(cs) {
 	return Number.isFinite(w) && Number.isFinite(h) && w <= 2 && h <= 2;
 }
 
+/** Does this element clip what overflows it?
+ *  An EMPTY value counts as `visible`: a real browser always resolves this property,
+ *  but a document with no layout engine resolves nothing, and reading `''` as "clips"
+ *  would silently drop every word on the slide. */
+function clips(cs) {
+	const set = (v) => !!v && v !== 'visible';
+	return set(cs.overflow) || set(cs.overflowX) || set(cs.overflowY);
+}
+
+/** The intersection of two client rects, or null when they do not meet. */
+function intersect(a, b) {
+	if (!a) return b;
+	if (!b) return a;
+	const left = Math.max(a.left, b.left);
+	const top = Math.max(a.top, b.top);
+	const right = Math.min(a.right, b.right);
+	const bottom = Math.min(a.bottom, b.bottom);
+	return right > left && bottom > top ? { left, top, right, bottom } : null;
+}
+
+/**
+ * The element's font size in the SAME units as the rects we measure.
+ *
+ * For HTML that is what `getComputedStyle` already gives. For SVG it is NOT: inside a
+ * `viewBox` the computed `font-size` is in the viewBox's USER UNITS while every client
+ * rect is post-viewBox CSS px. Every chart the engine draws is a scaled viewBox, so
+ * reading the two as one unit gave every chart label a font a QUARTER the size of its
+ * own ink — measured on a real export: an 8-unit label whose rendered box is 36 px.
+ * The element's screen CTM is the missing factor. It also carries the capture frame's
+ * FIT scale, which the caller divides out of every other measurement, so it is divided
+ * out of this one too.
+ */
+function measuredFontSize(el, cs, frameScale) {
+	const size = Number.parseFloat(cs.fontSize) || 0;
+	if (!(size > 0) || typeof el.getScreenCTM !== 'function') return size;
+	const m = el.getScreenCTM();
+	if (!m) return size;
+	return (size * Math.hypot(m.a, m.b)) / (frameScale || 1);
+}
+
 /**
  * Every word on one rendered slide, normalized to its box.
  *
@@ -98,27 +138,43 @@ export function collectSlideTextRuns(section) {
 	const runs = [];
 	const range = doc.createRange();
 
-	const visit = (el) => {
+	const visit = (el, clip) => {
 		const cs = win.getComputedStyle(el);
-		if (cs.display === 'none' || cs.visibility !== 'visible' || Number.parseFloat(cs.opacity) === 0) return;
+		if (cs.display === 'none' || Number.parseFloat(cs.opacity) === 0) return;
 		if (isScreenReaderOnly(cs)) return;
+		// `visibility` INHERITS and is OVERRIDABLE, so a hidden parent can hold a visible
+		// child that a human sees. Pruning the subtree would lose it; this skips only this
+		// element's own text and keeps walking.
+		const shown = cs.visibility === 'visible';
+		// An element that clips decides what is actually on the page beneath it. Without
+		// this, text scrolled or ellipsized out of a box was written into the layer at its
+		// UNCLIPPED position — a marquee over blank paper picking up words that are not
+		// there, which is the same defect the screen-reader-only skip exists to prevent.
+		const inner = clips(cs) ? intersect(clip, el.getBoundingClientRect()) : clip;
+		if (clips(cs) && !inner) return;
 		const transform = cs.textTransform;
-		const fontSize = Number.parseFloat(cs.fontSize) || 0;
+		const fontSize = measuredFontSize(el, cs, scale);
 		for (let child = el.firstChild; child; child = child.nextSibling) {
 			if (child.nodeType === 1) {
-				if (!SKIP_ELEMENTS.has(String(child.localName || '').toLowerCase())) visit(child);
-			} else if (child.nodeType === 3 && /\S/.test(child.nodeValue || '')) {
-				emit(child, transform, fontSize);
+				if (!SKIP_ELEMENTS.has(String(child.localName || '').toLowerCase())) visit(child, inner);
+			} else if (child.nodeType === 3 && shown && /\S/.test(child.nodeValue || '')) {
+				emit(child, transform, fontSize, inner);
 			}
 		}
 	};
 
-	const emit = (node, transform, fontSize) => {
+	const emit = (node, transform, fontSize, clip) => {
 		for (const word of splitWords(node.nodeValue || '')) {
 			range.setStart(node, word.start);
 			range.setEnd(node, word.end);
-			const r = range.getBoundingClientRect();
+			// The FIRST fragment, not the union. A word that soft-wraps mid-word (a long
+			// compound in a narrow column) has a rect per line, and their union is a box two
+			// lines tall whose baseline sits between them — placing the whole word nowhere.
+			// The first fragment is where the word starts, which is where a reader looks.
+			const rects = typeof range.getClientRects === 'function' ? range.getClientRects() : null;
+			const r = rects && rects.length > 1 ? rects[0] : range.getBoundingClientRect();
 			if (!(r.width > 0 && r.height > 0)) continue;
+			if (clip && !intersect(clip, r)) continue;
 			const x = (r.left - frame.left) / scale;
 			const top = (r.top - frame.top) / scale;
 			const w = r.width / scale;
@@ -143,7 +199,8 @@ export function collectSlideTextRuns(section) {
 		}
 	};
 
-	visit(section);
+	// The section itself is the outermost clip: a deck paints to its own edge.
+	visit(section, null);
 	range.detach?.();
 	return runs;
 }

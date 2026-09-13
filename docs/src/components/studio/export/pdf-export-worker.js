@@ -166,13 +166,15 @@ async function handle(m) {
 			// KB of operators, which is ~3% of a 56-page deck left uncompressed for no
 			// reason when the compressor is already right here.
 			const stream = await deflate(ops);
-			// The font resources go on BEFORE `/Contents`, and the order is load-bearing.
-			// pdf-lib normalizes a page's entries whenever it touches its resource
-			// dictionaries, and normalizing WRAPS an existing `/Contents` stream in an
-			// array — legal, but a shape nothing else in this repo writes, and enough to
-			// make `tools/bench-pdf-export.mjs` read every text-bearing page as empty.
-			// Writing the stream last leaves the single-reference form every page had
-			// before the text layer existed.
+			// Fonts before `/Contents`, which keeps the single-reference form every page had
+			// before the text layer — but the ordering is NOT what guarantees it, and an
+			// earlier version of this comment said it was. pdf-lib's `normalize()` is
+			// `if (this.normalized) return`, and `setXObject` two lines up has already run
+			// it, so `/Contents` can no longer be wrapped in an array whatever the order.
+			// The durable guard is in the READERS — `tools/bench-pdf-export.mjs` and
+			// `docs/e2e/pdf-export-worker.spec.ts` now take both shapes — because a reader
+			// that takes only one silently reports every text-bearing page as empty, and a
+			// verification tool that cannot fail is worse than no tool.
 			for (const f of layers[i].fonts) page.node.setFontDictionary(PDFName.of(textFontName(f)), fontRefs[f]);
 			page.node.set(
 				PDFName.of('Contents'),

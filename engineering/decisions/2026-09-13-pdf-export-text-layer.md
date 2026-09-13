@@ -78,13 +78,47 @@ search operate on.
 
 ### What is deliberately NOT extracted
 
-- Anything a human cannot see: `display:none`, `visibility:hidden` (which is how
-  the capture frame hides an unrendered Mermaid fence), `opacity:0`.
+- Anything a human cannot see: `display:none`, `opacity:0`, and `visibility:hidden`
+  (which is how the capture frame hides an unrendered Mermaid fence). `visibility`
+  skips the element's OWN text and keeps walking, because the property inherits AND
+  can be overridden — pruning the subtree would lose a `visibility:visible` child of a
+  hidden parent, which is text a human sees.
 - **Screen-reader-only text** — the 1px `overflow:hidden` clip. `.cell-sr-label`
   names a matrix cell's state for anything reading DOM text; it is not copy on the
   slide, so lifting it into the page's text would make the extraction disagree with
   the picture it sits on.
+- **Text an ancestor clips away.** A `text-overflow: ellipsis` line shows `Clipped…`
+  and the words past the cut are not on the page; written at their unclipped position
+  they land over whatever else occupies that strip, so a marquee across blank paper
+  picks up words that are not there. That is the same argument as the sr-only skip,
+  and the first version of this did not apply it — an 80px clipped box wrote three
+  words, two of them 200px to the right of any ink. A word the clip only PARTLY cuts
+  is kept: part of it is genuinely on the slide.
 - `<script>` / `<style>` content, which is not copy at all.
+
+### The gap that is NOT deliberate: generated content
+
+**A `::before`, `::after` or `::marker` is not in the text layer, and on some slides
+that is the most important word on them.** Generated content has no node, so there is
+nothing to put a Range around. A `stamp: confidential` deck exports a PDF in which
+Cmd-F for CONFIDENTIAL finds nothing. Measured over the catalog — 38 `counter()`
+declarations across 16 components, plus literal labels:
+
+| Surface | The copy a human reads |
+|---|---|
+| the `stamp:` register (`lib/base/base.variants.css`) | `[ CONFIDENTIAL ]`, `[ DRAFT ]` |
+| `list-steps` | `STEP 01`, `STEP 02`, … |
+| `redline` | `OLD` · `NEW` · `WHY` |
+| `compare-prose`, `policy-recommendation`, `regulatory-update`, `math`, `split-panel` | `DECISION`, `The ask`, `TIER 1`, `where`, `Audience ·` |
+| any `<ol>` | `1.` `2.` `3.` (`::marker`) |
+
+It is recorded here rather than fixed because the fix is not the obvious one. The
+literal strings could be lifted off `getComputedStyle(el, '::before').content` and
+placed against the element's own box — but the counters cannot: Chromium returns the
+SPECIFIED value, so `content` reads back as `"STEP " counter(step, decimal-leading-zero)`
+rather than `STEP 01`. A half-implementation that carried the literals and silently
+dropped every counter would be a subtler version of this same gap. The honest fix
+needs a different mechanism, and it is the next rung after a tagged PDF.
 
 `aria-hidden` is **not** a reason to skip, and that is the non-obvious one: charts
 mark a VISIBLE label `aria-hidden` when its accessible name lives elsewhere
@@ -96,19 +130,42 @@ word offsets are taken from the RAW text and only the run's own string is
 transformed — `'ß'.toUpperCase()` is two characters, so transforming first would
 shift every range after it.
 
-## A trap this hit, worth knowing
+## Three traps this hit, worth knowing
 
-**pdf-lib rewrites `/Contents` into an array the moment you touch a page's
-resource dictionaries.** `setFontDictionary` normalizes the page, and normalizing
-wraps an existing `/Contents` stream in a one-element array. Legal PDF, and
-nothing renders differently — but `tools/bench-pdf-export.mjs` resolves each
-page's image THROUGH its content stream and takes `instanceof PDFRawStream`, so
-every text-bearing page read as empty, every digest came back identical, and the
-tool then called any page order correct. A verification tool that cannot fail is
-worse than no tool.
+**An SVG label's `font-size` is not in the same unit as its rect.** Inside a
+`viewBox` the computed font size is in USER UNITS while every client rect is
+post-viewBox CSS px. Every chart the engine draws is a scaled viewBox, so reading
+the two as one unit gave every chart label a font a QUARTER the size of its own ink
+— measured on a real export: an 8-unit label whose rendered box is 36 px. The
+symptom in the FILE is not the size, which nothing checks; it is the horizontal
+scale running away to compensate, and then saturating: a gantt's `Q1`–`Q4` wrote at
+the 1000% ceiling, past which the box stops matching the ink at all. The element's
+screen CTM is the missing factor, and the e2e now pins the scale band that would
+have caught it.
 
-The fix is one line of ordering — fonts on, then the content stream — and the unit
-tier pins the shape so it cannot drift back.
+**`/Contents` is a single stream OR an array, and the readers are where that has to
+be handled.** pdf-lib normalizes a page's entries whenever it touches their resource
+dictionaries, and normalizing wraps an existing `/Contents` stream in a one-element
+array. Legal PDF, nothing renders differently — but `tools/bench-pdf-export.mjs` and
+`docs/e2e/pdf-export-worker.spec.ts` both resolved each page's image THROUGH its
+content stream with `instanceof PDFRawStream`, so a text-bearing page read as empty,
+every digest came back identical, and the tool then called any page order correct.
+A verification tool that cannot fail is worse than no tool.
+
+**And the first fix for that was the wrong end, which is the third trap.** Writing
+the fonts before the stream does produce the single-reference form — but not because
+of the order: `normalize()` is `if (this.normalized) return`, and `setXObject` two
+lines earlier has already run it, so `/Contents` cannot be wrapped whatever the order.
+The comment claiming otherwise was load-bearing in appearance only, and the unit arm
+pinning it could not fail. Both readers now take both shapes, which is the guard that
+actually holds.
+
+**Poppler's default extraction drops characters below about 10% horizontal scale.**
+Measured, one word at fifteen scales: `Coverage` comes back as `Coverag` at 5% and
+`Calibration` as `Calibrton` at 3%, while 10% and above is exact (`-raw` and pdf.js
+are unaffected; the physical-layout mode most tools use is not). The clamp floor is
+therefore 10, not 1. A run that hits it is written wider than its ink — the right way
+to be wrong, because a selection box slightly too big beats a word nobody can find.
 
 ## How it was verified
 
@@ -119,7 +176,8 @@ tier pins the shape so it cannot drift back.
 | The picture did not move | Same deck, `main` vs this branch: the page image streams are **byte-identical page for page** (18/18, 18 distinct digests, so the comparison is not vacuous), and the rasterized pages match at **AE = 0** on all 18 at 50 dpi |
 | The words are invisible, not white-on-white | Every text block is written `3 Tr`, asserted per block in the e2e spec. AE = 0 above is the independent proof |
 | The layer lands on the right page | `docs/e2e/pdf-text-layer.spec.ts` exports a four-slide deck through the real Studio, decodes every page's `Tj` bytes through that page's own `/ToUnicode` CMap, and asserts each page carries its own marker word and NONE of the other three. **Mutation-proved**: shifting the text layer one page (`texts[(i + 1) % pages.length]`) fails it |
-| It costs nothing on the eager path | Studio `eagerJsGz` is **650.4 KB / 658.7 KB with and without this change** — identical, measured by a full `npm run build` on each. `deck-export.js` is dynamically imported, so the extractor rides in the lazy export chunk |
+| It costs nothing on the eager path | Studio `eagerJsGz` measures **650.4 KB with this change and 650.4 KB without it**, against a 658.7 KB budget — two full `npm run build` runs, one per tree. `deck-export.js` is only ever reached through `import()`, so the extractor rides in the lazy export chunk |
+| A chart label sits on its own ink | `docs/e2e/pdf-text-layer.spec.ts` exports a real `bar` chart and asserts every run's horizontal scale stays inside the band honest runs occupy (measured 56–174 across three real decks). The unit tier pins the CTM correction directly |
 | Any character survives | Unit tier round-trips `—`, `café`, `日本語` and `👋` through a real pdf-lib document and back out through the CMap; a `)` and a trailing `\` too, the pair that corrupted the sticky-note annotations when they were written as PDF literals |
 | The file a reader opens is well-formed | Ghostscript parses all 18 pages, no errors |
 | It costs almost nothing | 3,264,300 → 3,286,755 bytes over 18 pages (**+0.69%**), with the content stream now deflated. Wall time 5.4 s → 5.9 s on the same machine |
