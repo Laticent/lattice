@@ -213,6 +213,55 @@ describe('core: carousel — cover-rows (list-tabular)', () => {
     assert.doesNotMatch(rows[0].body, /<\/?li/);
   });
 
+  // ── A ROW WITH NO CLAUSE IS STILL A ROW ────────────────────────────────────────────────
+  //
+  // `readRows` required a nested body (`.filter(r => r.title && r.body)`), so a FLAT register —
+  // `1. Coverage \`98.4% of policies\``, chip and no clause — yielded zero rows and the strategy
+  // declined. Measured on `list-tabular`'s own gallery at portrait: 5 of its 14 variants
+  // (metric, register, metric+solid, register+outline, fit-meta) never split at all, while
+  // their nested-clause siblings did. The MIXED case is the sharper one, and it is arm 2: the
+  // flat rows were dropped from the member set while the strategy still succeeded on the rest,
+  // so the page count was right and the content was not.
+  test('a flat row — chip, no nested clause — is a member', () => {
+    const flat = (t) => `<li>${t}</li>`;
+    const inner = `<div class="cell-stage"><ol>${flat('Coverage <code>98.4%</code>')}${flat('Backlog <code>31 open</code>')}${flat('Cadence <code>fortnightly</code>')}</ol></div>`;
+    const rows = readRows(inner);
+    assert.equal(rows.length, 3, 'a bodyless row was dropped from the member set');
+    assert.equal(rows[0].body, null);
+  });
+
+  test('a MIXED list keeps its flat rows beside its nested ones', () => {
+    const inner = '<div class="cell-stage"><ol>'
+      + '<li>Coverage <code>98.4%</code></li>'
+      + '<li>Backlog<ul><li>Thirty-one findings are open.</li></ul></li>'
+      + '<li>Cadence <code>fortnightly</code></li>'
+      + '</ol></div>';
+    const rows = readRows(inner);
+    assert.equal(rows.length, 3, 'the flat rows were silently dropped beside the nested one');
+    assert.deepEqual(rows.map((r) => Boolean(r.body)), [false, true, false]);
+  });
+
+  // The title used to be flattened with `.replace(/<[^>]+>/g, '')`, which threw away the
+  // `<code>` chip that IS the register's second column: a `def` row authored `1. Label \`Term\``
+  // reached its split page as the bare word "Label". The body span never flattened, so one
+  // member's two halves were held to different standards.
+  test("the title keeps its inline markup — the chip is the register's second column", () => {
+    const rows = readRows('<div class="cell-stage"><ol><li>Label <code>Term</code><ul><li>One clause.</li></ul></li></ol></div>');
+    assert.match(rows[0].title, /<code>Term<\/code>/, 'the chip was flattened out of the title');
+  });
+
+  // A bodyless member must not print the string "null" where its body span would go.
+  test('a bodyless member renders without a body span', () => {
+    const inner = '<div class="cell-masthead"><div class="masthead-lede"><h2>The register.</h2></div></div>'
+      + '<div class="cell-stage"><ol><li>Coverage <code>98.4%</code></li><li>Backlog <code>31</code></li></ol></div>';
+    const parts = carouselize(ltSection.openTag, inner, cvRecipe);
+    assert.ok(parts, 'the strategy declined a flat register');
+    const body = parts.slice(1).join('');
+    assert.doesNotMatch(body, /null/, 'a null body was interpolated onto the page');
+    assert.doesNotMatch(body, /split-pt-b/, 'an empty body span was emitted');
+    assert.match(body, /split-pt-t/);
+  });
+
   test('emits a title cover then the rows windowed perPage at a time', () => {
     const parts = carouselize(ltSection.openTag, ltSection.inner, cvRecipe); // 2 rows, perPage 1 → 2 pages
     assert.equal(parts.length, 3); // cover + 2 row pages

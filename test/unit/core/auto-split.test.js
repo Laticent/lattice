@@ -200,6 +200,47 @@ describe('core: the carousel points at what is next — on EVERY run', () => {
   });
 });
 
+// ── A RECIPE THAT DECLINES FALLS THROUGH TO THE DERIVED AXIS ────────────────────────────
+//
+// `splitDoc` used to `return whole` the moment a component's declared carousel strategy handed
+// back null, so a VARIANT whose rendered DOM was not the shape that one strategy reads never
+// split at all — however plain its seam. Measured on the component galleries at portrait:
+// `compare-prose axis` renders numeral-led facet cards instead of two panes (`readSubjects`
+// found no sides), `split-panel pullquote` leads with the quote and carries no `<h2>`
+// (`readFeature` found no feature). Both hold a top-level list of independent members, both
+// clip, and neither split.
+//
+// A strategy declining means "this is not my shape". It is not the claim "this slide has no
+// seam", and the two were being conflated.
+describe('core: a declined recipe falls through to the derived axis', () => {
+  const stage = (n) => `<div class="cell-masthead"><div class="masthead-lede"><h2>A heading.</h2></div></div>`
+    + `<div class="cell-stage">${list(n)}</div>`;
+
+  test('a strategy that cannot read the section still lets the DOM be asked', () => {
+    // `cover-sides` reads two panes; there are none here, so it declines — and the three-item
+    // list under the stage is a seam the derived axis can see.
+    const capacity = { widget: { axis: 'item', hard: 4, split: { strategy: 'cover-sides', perPage: 1 } } };
+    const out = split(docSec(1, 'widget', stage(3)), capacity).html;
+    assert.ok(sections(out) > 1, 'a declined recipe left the slide whole');
+    assert.deepEqual(rolesOf(out), ['cover', 'body', 'body', 'body']);
+  });
+
+  test('a genuinely single-member slide still rings', () => {
+    const capacity = { widget: { axis: 'item', hard: 4, split: { strategy: 'cover-sides', perPage: 1 } } };
+    const out = split(docSec(1, 'widget', stage(1)), capacity).html;
+    assert.equal(sections(out), 1, 'a one-member slide was paginated');
+  });
+
+  // THE PROTECTION THIS MUST NOT REMOVE. A page the recipe ALREADY emitted (`lat-split-native`)
+  // keeps taking the recipe's declared axis — deriving there is what cut redline's reasoning
+  // away from the passage it explains. The recipe never declined on such a page; it produced it.
+  test('a page the recipe already emitted is NOT re-derived', () => {
+    const capacity = { widget: { hard: 2, split: { strategy: 'cover-sides', perPage: 1 } } };
+    const out = split(docSec(1, 'widget form lat-split-native', stage(3)), capacity).html;
+    assert.equal(sections(out), 1, 'an already-emitted split page derived an axis it was never given');
+  });
+});
+
 describe('core: document-level bookkeeping across a split', () => {
   test('preserves gaps and the section openTag/attributes across copies', () => {
     const html = `\n<section data-lattice-slide="1" class="cards" data-x="1">${list(3)}</section>\n`;
