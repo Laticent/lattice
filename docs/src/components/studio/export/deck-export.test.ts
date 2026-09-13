@@ -1,5 +1,5 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { assembleSheetPdf, bakeDeckSections, waitForDiagrams } from './deck-export.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { assembleSheetPdf, bakeDeckSections, rasterizeDeckImages, waitForDiagrams } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -310,9 +310,9 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 
 // The CALL SITE, not the helper. `waitForDiagrams` is pinned above, cell by cell; the
 // two arguments `bakeDeckSections` hands it were not pinned by anything at any tier —
-// `engineering/decisions/2026-09-07-diagram-render-latency.md` §16 names that hole
-// verbatim: "its budget and its `releaseDiagrams: false` are free parameters that no PR
-// gate can pin." They are exactly the shape of parameter that broke last time. The
+// `engineering/decisions/2026-09-07-diagram-render-latency.md` §16 named that hole: the
+// bake's budget and its `releaseDiagrams: false` were free parameters that no PR gate
+// could pin. They are exactly the shape of parameter that broke last time. The
 // double-wait regression flipped one of them and stayed invisible to four green e2e
 // arms; a checker found it by reading, and nothing in the tree could have.
 //
@@ -344,9 +344,13 @@ describe('bakeDeckSections — the arguments the call site supplies', () => {
 			const el = realCreate(tag, opts);
 			if (String(tag).toLowerCase() !== 'iframe') return el;
 			Object.defineProperty(el, 'contentDocument', { configurable: true, get: () => inner });
-			// No `__latticeFit`, and no `fonts` on the document — both are optional-chained,
-			// so the frame skips straight from `load` to the diagram wait.
-			Object.defineProperty(el, 'contentWindow', { configurable: true, get: () => ({}) });
+			// `null`, NOT `{}`. Both satisfy the optional-chained `win?.__latticeFit`, but the
+			// frame's window has a THIRD consumer: `flattenSvgStyles(svg, win)` takes any
+			// truthy `win` at its word and calls `win.getComputedStyle`. An empty object is
+			// truthy, so it threw, the bake swallowed it into `unbaked++`, and a GREEN cell
+			// printed "1/1 diagram(s) could not be baked" — the warning that signals a real
+			// export defect. `null` makes the helper fall back to this realm's own window.
+			Object.defineProperty(el, 'contentWindow', { configurable: true, get: () => null });
 			// `load` fires SYNCHRONOUSLY on assignment. The listener is attached before the
 			// assignment in `createCaptureFrame`, so the wait resolves.
 			Object.defineProperty(el, 'srcdoc', { configurable: true, get: () => '', set: () => { el.dispatchEvent(new Event('load')); } });
@@ -361,13 +365,12 @@ describe('bakeDeckSections — the arguments the call site supplies', () => {
 		(pre.nextElementSibling as HTMLElement).innerHTML = '<svg></svg>';
 	};
 
-	beforeAll(async () => {
-		// `bakeDeckSections` dynamically imports this AFTER the give-up. Warm the module
-		// registry here so the cell below resolves it from cache as a microtask — a cold
-		// import under fake timers would wait on real I/O that no `advanceTimersByTime`
-		// can reach.
-		await import('../../../playground/standalone-svg.generated.js');
-	});
+	// NO module pre-warm, deliberately. An earlier draft warmed
+	// `standalone-svg.generated.js` in `beforeAll` on the theory that a cold dynamic import
+	// under fake timers would block on real I/O. It does not: `advanceTimersByTimeAsync`
+	// yields to the real event loop between fake ticks, so the import resolves normally —
+	// measured by deleting the hook and watching the cells still pass. The hook was
+	// harmless; its reasoning was wrong, which is worse in a comment than in code.
 	afterEach(() => { vi.useRealTimers(); });
 
 	it('does NOT release at the capture frame — a diagram that draws after 4000 still bakes as a drawing', async () => {
@@ -394,13 +397,44 @@ describe('bakeDeckSections — the arguments the call site supplies', () => {
 		}
 	});
 
+	it('leaves the DEFAULT releasing, so the six rasterizing lanes still give up at 4000', async () => {
+		// THE OTHER HALF, and neither cell above can see it. `releaseDiagrams` has a default
+		// (`= true`) AND one explicit override (the bake's `false`). The two cells above pin
+		// the override; flip the DEFAULT to `false` and they both still pass, while the six
+		// lanes that rasterize straight off the capture frame — pdf, pptx, images, chart,
+		// image-set, print — stop releasing at the only wait they get, and a slow diagram
+		// bakes as a blank in a file someone downloads. That is the original #2092 defect,
+		// reintroduced through the parameter's other door.
+		//
+		// `rasterizeDeckImages` is the reachable one: it takes the default, and the release
+		// happens inside `createCaptureFrame` BEFORE any rasterizing. Its later work needs
+		// `font-embed.js` and `html-to-image`, which do not load here — so the rejection is
+		// expected and swallowed. The fence state at 5000 is the whole assertion.
+		vi.useFakeTimers();
+		const { inner, restore } = stubCaptureFrame(DECK);
+		try {
+			const pre = fence(inner);
+			const done = rasterizeDeckImages(render()).catch(() => null);
+			await vi.advanceTimersByTimeAsync(5000);
+			expect(pre.getAttribute('data-mermaid-state')).toBe('unavailable');
+			expect(pre.hasAttribute('data-mermaid-final')).toBe(true);
+			await done;
+		} finally {
+			restore();
+		}
+	});
+
 	it('gives up at 16000 — the frame’s 4000 plus the bake’s 12000, and not before', async () => {
-		// THE NUMBER. §13 records a suite whose cells all stayed green while the give-up
+		// THE NUMBER. §15 records a suite whose cells all stayed green while the give-up
 		// threshold was TRIPLED, because they pinned the shape of the loop and never the
-		// constant that decided it. These two checkpoints straddle 16000 with 1000ms of
-		// slack each way, so 12000 -> 8000 fails the first and 12000 -> 16000 fails the
-		// second. Fake timers, so the cell costs no wall clock and the boundary is exact
-		// rather than machine-dependent.
+		// constant that decided it.
+		//
+		// The real release instant is 16112ms, not 16000: a 32ms double-rAF settle, then
+		// 4080 for the frame's wait (its 120ms poll overshoots 4000), then 12000. So these
+		// checkpoints straddle it by 1112ms below and 888ms above — deterministic under
+		// fake timers, which is the point: 12000 -> 8000 gives up at 12112 and fails the
+		// first checkpoint, 12000 -> 16000 gives up at 20112 and fails the second. The
+		// title rounds; the arithmetic here does not.
 		vi.useFakeTimers();
 		const { inner, restore } = stubCaptureFrame(DECK);
 		try {

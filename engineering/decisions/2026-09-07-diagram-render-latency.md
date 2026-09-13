@@ -929,7 +929,7 @@ mutant of it — the stale list would stamp a *successfully drawn* fence `unavai
 `mermaid.css` would then hide the SVG sitting in the DOM. That cell now exists. The second was
 `bakeDeckSections` itself: nothing at any tier called it, so its budget and its
 `releaseDiagrams: false` were free parameters that no PR gate could pin. `waitForDiagrams` was
-pinned; the call site supplying its arguments was not. That is the same lesson §13 records — the
+pinned; the call site supplying its arguments was not. That is the same lesson §15 records — the
 predecessor's suite pinned the shape of the loop and never the number that decided it — landing
 one level up.
 
@@ -949,7 +949,7 @@ at 15000 and 17000, which is why a test about a 16-second constant costs nothing
 inherit the host — §15's structural finding was that a threshold keyed on milliseconds is a
 property of the machine, and a wall-clock cell here would have been exactly that mistake again.
 Deliberately behavioral rather than a source-text pin: a text matcher on `12000` goes green the
-moment someone lifts the number into a constant, which is the failure §13 already records.
+moment someone lifts the number into a constant, which is the failure §15 already records.
 
 **And the real-surface arm did not run on a PR.** `docs/e2e/mermaid-unavailable-export.spec.ts`
 carried no `@smoke` tag, and CI runs `test:e2e:smoke` only, so the export e2e ran nightly — after
@@ -971,11 +971,33 @@ the whole `@smoke` tier, 4-core sandbox, 2 workers:
 | + these two | 57 | 291s | **+13s** |
 | + all five | 60 | 297s | +19s |
 
+**The absolute counts are of a tree that no longer exists** — they were taken before #2176
+landed two more `@smoke` arms in `video-overlay-provider.spec.ts`, so the tier is 57 without
+these two and **59** with them. The DELTA is what the A/B measures and it is unaffected; the
+totals are not a number to quote later.
+
 **Far below the 43.7s the two arms take in isolation**, because two workers let them fill idle
 worker time instead of extending the critical path — which is why the arithmetic answer (sum the
-test times) would have argued for leaving them nightly. `compose-stress.spec.ts` records that a
-4-core sandbox understates the runner by about a third, putting this at roughly +20s there:
-`studio-smoke` p90 364s -> ~384s against a 15-minute cap. No cap change was needed.
+test times) would have argued for leaving them nightly.
+
+**On the runner the delta is below the noise floor, and the first PR-gate run proves only that.**
+That run did 59 tests in a 330s test step / 438s job. Two runs without the tags, the same day:
+`d05807e3` (merge_group, 57 tests) at step 241s / job 334s, and `7eebca0e` (a PR, 24 minutes
+earlier) at step 299s / job 397s. **Those two untagged runs differ from each other by 58s on the
+step — more than the whole effect.** So one green run neither confirms nor refutes the +13s; the
+controlled sandbox A/B is the instrument that can resolve it, and CI's job here is to show the
+arms run and pass. The projection this paragraph originally carried — "roughly +20s, p90 364s ->
+~384s" — is withdrawn as unmeasurable from a single run rather than left standing as if confirmed.
+
+What the run does settle: **438s against a 15-minute cap.** No cap change needed.
+
+**The tail is the part worth watching, and it is not p90.** Both arms carry
+`test.setTimeout(240_000)`, and CI runs two workers with `--retries=0`. A single hung export
+therefore adds up to ~240s of wall clock, and `ci.yml`'s recorded worst `studio-smoke` is 829s
+— 829 + 240 is past the 900s cap, where the job is KILLED and the whole smoke report is lost
+rather than two arms going red. `studio-smoke` is advisory, so nothing is blocked either way,
+but the failure mode to expect is "no smoke signal at all", not "two red arms". If that shows
+up, raise the cap and state the new measured duration; do not delete the arms.
 
 **The arms were then proved able to fail.** With the release deleted from `waitForDiagrams` — the
 state of the tree before this fix — the give-up arm fails on `codeVisibility` = `hidden`, which is
@@ -1004,7 +1026,7 @@ raise-path was reaching for: it retires the risk rather than confirming a benefi
 
 **The test written for it is NOT shipping, and that is the point.** A pixel arm that passes with
 and without the fix discriminates nothing, and this document already records what a suite that
-cannot tell a no-op from a fix costs (§13: tripling the give-up threshold left every cell green).
+cannot tell a no-op from a fix costs (§15: tripling the give-up threshold left every cell green).
 Shipping it would have added a green check that means nothing and reads like coverage.
 
 **Its first version was also wrong in the way that keeps recurring here.** It sampled the slide's

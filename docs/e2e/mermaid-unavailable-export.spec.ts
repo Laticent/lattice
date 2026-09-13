@@ -48,12 +48,36 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
  *   57 tests  291s   with these two        +13s
  *   60 tests  297s   with all five         +19s
  *
+ * Those absolute counts are of a tree that no longer exists — #2176 has since added two
+ * more `@smoke` arms, so the tier is 57 without these two and 59 with them. The DELTA is
+ * what the A/B measures and it is unaffected; the totals are not a number to quote.
+ *
  * Far below the 43.7s these two take in isolation, because with two workers they fill
- * idle worker time instead of extending the critical path. `compose-stress.spec.ts`
- * records that a 4-core sandbox understates the runner by about a third, which puts this
- * at roughly +20s there: `studio-smoke` p90 364s -> ~384s against a 15-minute cap. That
- * job is the thinnest-margin one in `ci.yml` (cap/max 1.1x), so if it ever needs the cap
+ * idle worker time instead of extending the critical path.
+ *
+ * ON THE RUNNER, THE DELTA IS BELOW THE NOISE FLOOR — measured, and worth stating
+ * plainly rather than projecting. The PR-gate run that first carried these tags did 59
+ * tests in a 330s test step / 438s job. Two runs WITHOUT them, the same day:
+ *
+ *   step 241s / job 334s   d05807e3, merge_group, 57 tests
+ *   step 299s / job 397s   7eebca0e, a PR, 24 minutes earlier
+ *
+ * Those two untagged runs differ from each other by 58s on the step alone — more than
+ * the whole effect being measured. So a single CI run neither confirms nor refutes the
+ * +13s above; the controlled sandbox A/B (one machine, one session, three arms
+ * back to back) is the measurement that can resolve it, and the CI run's job is to show
+ * the arms run and pass on the gate. DO NOT read one green run as a cost measurement.
+ *
+ * What the CI run does settle: 438s against a 15-minute cap. `studio-smoke` is the
+ * thinnest-margin job in `ci.yml` (cap/max 1.1x), so if it ever does need the cap
  * raised, raise it and state the new measured duration — do not delete it.
+ *
+ * AND WATCH THE TAIL, NOT p90. Both arms below carry `test.setTimeout(240_000)`, on two
+ * workers with `--retries=0`. One hung export adds up to ~240s, and `ci.yml`'s recorded
+ * worst `studio-smoke` is 829s — 829 + 240 is past the 900s cap, where the job is KILLED
+ * and the WHOLE smoke report is lost rather than two arms going red. Advisory, so nothing
+ * is blocked; but that is the failure mode to expect, and it does not look like a test
+ * failure.
  *
  * It is ADVISORY either way: `studio-smoke` is deliberately absent from the required `ci`
  * gate's `needs`, so a red arm here reports on the PR and does not block the merge.

@@ -1031,9 +1031,11 @@ The contract, and its limits — be precise about what it does and doesn't cover
   weeks. Every PR since the queue lands as a squash.
 
   **Do not drop the `--since`.** Unscoped, that command answers `33`, and a reader who
-  runs it concludes the passage is wrong. The 33 are real and they are all pre-queue:
-  PRs #2–#30 under the old SlideWright org, 2026-05-12 to 2026-05-27, ending at
-  `440cf0ec`. They say nothing about what `auto_merge.merge_method` does today.
+  runs it concludes the passage is wrong. The 33 are real and they are all pre-queue,
+  2026-05-12 to 2026-05-27 under the old SlideWright org, ending at `440cf0ec`: **28 are
+  `Merge pull request` commits from PRs #2–#30, and 5 are `main` merged INTO a feature
+  branch** back when that was how a branch caught up. They say nothing about what
+  `auto_merge.merge_method` does today.
 
   **And check your clone's depth before you trust either number.** A shallow clone —
   what the cloud sandbox provisions — truncates history, so the unscoped count answers
