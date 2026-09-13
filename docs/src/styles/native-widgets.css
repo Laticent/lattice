@@ -41,11 +41,18 @@
 	-webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
-/* Text selection — the native highlight we can tint cross-browser, matched to
- * the code-block selection so prose and code highlight the same, and to
- * `--cm-selection` in docs/src/playground/editor.js, which paints the one surface
- * that draws its own band. The two literals are pinned in step by
- * docs/src/playground/editor-selection.test.ts.
+/* Text selection — the native highlight we can tint cross-browser. THIS RULE IS THE
+ * ONLY OWNER of that appearance, for prose and for every code editor on the site.
+ *
+ * It briefly was not. The Playground's editor installed CodeMirror's
+ * `drawSelection()`, which replaces the native highlight with DOM it paints itself —
+ * so it could not read this rule and carried its own `--cm-selection` token, while
+ * the Studio's theme carried a third copy that nothing could render. That extension
+ * is gone (nothing needed it: no multiple selections, no rectangular selection, no
+ * search multi-cursor), so there is one value again.
+ * `docs/src/playground/editor-selection.test.ts` fails if either editor theme grows a
+ * local selection back, and `docs/e2e/editor-selection-parity.spec.ts` drives both
+ * editors and asserts they paint the same band.
  *
  * WHY 18% AND NOT 22%. The wash is a backdrop, so what matters is the ink left on
  * top of it. Measured across all 18 palettes in both modes against the six inks the

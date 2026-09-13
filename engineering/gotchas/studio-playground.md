@@ -961,6 +961,19 @@ never turn "passed in headless" into "works on iOS."
 
 ## Select-all in the Playground editor paints a light lavender slab
 
+- **RESOLVED AT THE ROOT (2026-09-13) — `drawSelection()` is gone.** Everything below
+  describes a mechanism the Playground no longer runs, and it is kept because the
+  CAUSE recurs (see the matching-bracket entry below, same trap, different package)
+  and because the contrast measurements it records still govern `::selection`.
+  The extension was buying a drawn caret and a drawn selection; nothing on either
+  editor needed it (no multiple selections, no rectangular selection, no search
+  multi-cursor), and it charged a 1px accent hairline the Studio's editor never drew,
+  a duplicate `--cm-selection` token, a third unreachable copy in the Studio's own
+  theme, and this whole cascade fight. The selection is now the NATIVE highlight on
+  every surface, owned by one rule — `::selection` in `styles/native-widgets.css`.
+  Pinned by `docs/e2e/editor-selection-parity.spec.ts`, which drives BOTH editors and
+  asserts they paint the same selection and the same caret.
+
 - **Symptom:** Select-all in the Playground's markdown editor covers the text in
   a pale lavender band that ignores the palette — body text over it measured
   **1.21:1** on cuoio-dark. The SAME action in the Studio's editor is fine. The
@@ -1091,6 +1104,56 @@ never turn "passed in headless" into "works on iOS."
   `EditorView.theme()` key lost to stylesheet ORDER, open the base theme for that
   class and **count classes** — remembering that `&` is one of them. Two packages
   have now beaten a plain element key on this surface.
+
+## The two deck editors dressed themselves independently
+
+- **Symptom:** The Playground and the Studio render the same CodeMirror DOM and look
+  subtly unlike each other — the Playground rings a selection with a 1px accent
+  hairline and the Studio does not; the carets are different colors; the type sizes
+  differ. A fix to one editor's chrome silently skips the other.
+- **Cause:** two `EditorView.theme()` objects, each declaring `&`, `.cm-content`,
+  `.cm-gutters`, `&.cm-focused` and the coarse-pointer guard for itself. The LINT
+  surface and the tooltip shell had already been extracted to `lib/lint-theme.js` for
+  exactly this reason; the editor's own chrome never was, so it forked and drifted.
+- **Fix:** `docs/src/lib/editor-chrome.js` — one definition, spread by both. It shares
+  what must never differ (canvas, ink, gutter, caret, focus reset, the iOS zoom
+  guard) and takes the rest as PARAMETERS (type size, padding, line-height, gutter
+  divider), so a real per-surface difference is declared at the call site instead of
+  being two forks nobody compares.
+- **The caret moved to `--text-body`, and that is the AA argument, not taste.**
+  `caretColor` marks the insertion point among the text you are typing, so it must
+  stay as legible as that text. `--text-body` is AA against `--bg` by contract;
+  `--accent` is a brand color with no such guarantee. The Studio already argued this;
+  the Playground used `--accent` on a surface where the native caret did not even
+  render (drawSelection() drew its own).
+- **FOUR of the Studio's rule groups were DEAD, and deleting them is most of the
+  cleanup.** Its surfaces install neither `highlightActiveLine()` nor
+  `drawSelection()`, so `.cm-activeLine`, `.cm-activeLineGutter`, `.cm-cursor` and
+  `.cm-selectionBackground` never rendered there — measured on the real Studio, zero
+  elements of each after a select-all. The selection rule was the worst: a third copy
+  of the 18% accent wash, unreachable, and invisible to the test that compared the
+  other two. **Do not "reconcile" a value against a rule that never paints** — the
+  Studio's `.cm-activeLine` carried 5% against the Playground's 12%, and converging
+  on the Studio's number would have shipped the near-invisible band the 12% was
+  measured to fix.
+- **TWO FOOTGUNS in a spread-based theme, both silent, both cost real time here.**
+  A theme spec is a flat object literal, so:
+  1. **A duplicate key REPLACES, it does not merge.** Writing `...editorChrome({…})`
+     and then a second `'&': {…}` below it for your tokens drops the shared `&`
+     entirely — `height`, `fontSize`, `color`, `backgroundColor`, gone, with no lint
+     error, because a spread and a literal key are not duplicate keys to a linter.
+     That shipped in a first cut here and put the Playground's editor at 16px instead
+     of 13.5px; only a computed-style read on the real page caught it. Surface tokens
+     go through the module's `vars` parameter for this reason.
+  2. **A shared module must not carry its own `@media` key** — it would replace the
+     consumer's, taking that consumer's other coarse-pointer rules with it. Hence the
+     separate `editorChromeCoarse` export, the same shape `lib/lint-theme.js` uses for
+     `lintThemeCoarse`, spread INSIDE each consumer's own `@media` block, which stays
+     LAST in the object (same-specificity rules resolve in key order).
+- **Pinned by** `docs/e2e/editor-selection-parity.spec.ts` (both editors, both color
+  modes, asserting they paint the SAME selection and caret) and
+  `docs/src/playground/editor-selection.test.ts`, which asserts neither theme
+  re-declares a local selection and neither re-imports `drawSelection()`.
 
 ## A chat panel's state lands on whichever deck is on screen when the turn ends
 

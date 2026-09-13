@@ -1,6 +1,7 @@
 import { HighlightStyle } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
+import { editorChrome, editorChromeCoarse } from '../../lib/editor-chrome.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../../lib/lint-theme.js';
 
 // The shared CodeMirror 6 visual theme for every Studio code surface — the deck
@@ -8,33 +9,24 @@ import { lintTheme, lintThemeCoarse, tooltipShell } from '../../lib/lint-theme.j
 // Palette-blind: every color is a token, so it tracks the active theme/mode.
 // Extracted here so the two editors share ONE look (#15 — reuse, don't fork).
 export const editorTheme = EditorView.theme({
-	'&': { backgroundColor: 'var(--bg)', color: 'var(--text-body)', height: '100%', fontSize: '13px' },
-	// `caretColor` themes the NATIVE contentEditable caret (this editor has no
-	// drawSelection extension, so `.cm-cursor` never renders — the browser caret
-	// is what you see). It tracks `--text-body`, NOT `--accent`: the caret marks
-	// the insertion point among the text you're typing, so it must stay as legible
-	// as that text on every theme. `--text-body` is AA against `--bg` by contract
-	// (accent is a brand color with no such contrast guarantee — on a dark theme it
-	// can fall below AA), so this keeps the caret light + WCAG-safe in dark mode.
-	'.cm-content': {
-		fontFamily: 'var(--font-mono, ui-monospace, monospace)',
-		padding: '14px 4px',
-		lineHeight: '1.85',
-		caretColor: 'var(--text-body)',
-	},
+	// Canvas, ink, gutter, caret and the focus reset come from the shared module, so
+	// this theme and the Playground's cannot drift again (HARD RULE #15). The caret
+	// argument that used to live here — `--text-body`, never `--accent`, because the
+	// caret must stay as legible as the text it sits in and accent carries no AA
+	// guarantee — moved there with it, and now binds both editors.
 	// (Coarse-pointer rules — including the 16px `.cm-content` lift that keeps iOS
 	// from auto-zooming on focus — live in the `@media` block at the END of this
 	// object; see the note there for why the position is load-bearing.)
-	'.cm-gutters': { backgroundColor: 'var(--bg)', color: 'var(--text-muted)', border: 'none', fontFamily: 'var(--font-mono)' },
-	'.cm-activeLine': { backgroundColor: 'color-mix(in srgb, var(--accent) 5%, transparent)' },
-	'.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--accent)' },
-	// Inert today (no drawSelection → the native caret above is what renders), but
-	// kept in sync with `caretColor` so a future drawn caret stays legible too.
-	'.cm-cursor': { borderLeftColor: 'var(--text-body)', borderLeftWidth: '2px' },
-	'&.cm-focused': { outline: 'none' },
-	'.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-		backgroundColor: 'color-mix(in srgb, var(--accent) 18%, transparent)',
-	},
+	...editorChrome({ fontSize: '13px', padding: '14px 4px', lineHeight: '1.85' }),
+	// FOUR RULE GROUPS WERE DELETED HERE, all of them dead. This theme's surfaces
+	// install neither `highlightActiveLine()` nor `drawSelection()`, so `.cm-activeLine`,
+	// `.cm-activeLineGutter`, `.cm-cursor` and `.cm-selectionBackground` never render
+	// on them — measured on the real Studio: zero elements of every one of those
+	// classes after a select-all. The selection rule was the worst of them: a third
+	// copy of the 18% accent wash, unreachable, and unpinned by
+	// `playground/editor-selection.test.ts`, which only ever compared the other two.
+	// `.cm-cursor` survives, inert, inside the shared module, where one definition
+	// covers any surface that later adds a drawn caret.
 	// Every lint surface — the squiggle, the gutter disc, the hover card, the
 	// panel — comes from the shared module, so this editor and the Playground's
 	// cannot drift apart. It also retires the lone `#b42318` hex literal that
@@ -75,10 +67,7 @@ export const editorTheme = EditorView.theme({
 	// exports its own separately rather than carrying a second `@media` key that
 	// would replace this one on spread, taking the iOS zoom guard with it.
 	'@media (pointer: coarse)': {
-		// iOS Safari auto-zooms the page when you focus an editable surface whose
-		// font computes under 16px; landing.css's global net can't reach
-		// CodeMirror's contenteditable because this scoped theme out-specifies it.
-		'.cm-content': { fontSize: '16px' },
+		...editorChromeCoarse,
 		...lintThemeCoarse,
 	},
 });

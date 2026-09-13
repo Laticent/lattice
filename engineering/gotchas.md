@@ -259,6 +259,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A CodeMirror `@media (pointer: coarse)` block has no effect on a real touch device](gotchas/studio-playground.md#a-codemirror-media-pointer-coarse-block-has-no-effect-on-a-real-touch-device)
 - [Select-all in the Playground editor paints a light lavender slab](gotchas/studio-playground.md#select-all-in-the-playground-editor-paints-a-light-lavender-slab)
 - [The matching-bracket highlight is teal on every palette](gotchas/studio-playground.md#the-matching-bracket-highlight-is-teal-on-every-palette)
+- [The two deck editors dressed themselves independently](gotchas/studio-playground.md#the-two-deck-editors-dressed-themselves-independently)
 - [A chat panel's state lands on whichever deck is on screen when the turn ends](gotchas/studio-playground.md#a-chat-panels-state-lands-on-whichever-deck-is-on-screen-when-the-turn-ends)
 - [A 4K deck renders oversized and cropped in docs-site preview and export](gotchas/studio-playground.md#a-4k-deck-renders-oversized-and-cropped-in-docs-site-preview-and-export)
 

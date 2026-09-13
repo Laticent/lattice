@@ -22,8 +22,9 @@ import { bracketMatching, HighlightStyle, indentOnInput, LanguageDescription, La
 import { languages } from '@codemirror/language-data';
 import { linter, lintGutter, lintKeymap } from '@codemirror/lint';
 import { Compartment, EditorState } from '@codemirror/state';
-import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
+import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
+import { editorChrome, editorChromeCoarse } from '../lib/editor-chrome.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../lib/lint-theme.js';
 import { latticeAutocomplete } from './complete.js';
 import { readFrontMatter } from './deck-config.js';
@@ -225,140 +226,108 @@ export const latticeHighlight = HighlightStyle.define([
 // Editor chrome themed off the page tokens so it matches the playground shell
 // and recolours with the palette/mode (CSS vars resolve live on every paint).
 const latticeTheme = EditorView.theme({
-	'&': {
-		height: '100%',
+	// Canvas, ink, gutter, caret and the focus reset come from the shared module so
+	// this editor and the Studio's cannot drift again (HARD RULE #15). Type size,
+	// padding, line-height and the gutter divider are passed in because they
+	// legitimately differ between a full-page editor and the Studio's panel — a
+	// declared difference rather than a fork.
+	...editorChrome({
 		fontSize: '13.5px',
-		color: 'var(--text-body)',
-		backgroundColor: 'var(--bg)',
-		// ── Editor contrast tokens ───────────────────────────────────────────────
-		// The cursor-line and text-selection highlights were both a flat low-alpha
-		// wash of --accent (active line 6%, selection 22%). That left the active
-		// line near-invisible on every palette (WCAG band-contrast ~1.06–1.16) and
-		// the selection faint on the low-chroma / warm light palettes. These named
-		// tokens are the single tunable contract: the active line bumps to a clearly
-		// visible band (free — alpha too low to touch text legibility), and the
-		// selection carries a defining 1px accent edge, the definition a heavier fill
-		// can't buy without hurting legibility. A downstream theme can override any.
-		//
-		// `--cm-selection` WAS 22%, on a note claiming body text "stays legible on the
-		// worst low-contrast palette, cuoio-light — no accessibility regression". That
-		// pass picked the right binding case and missed it by 0.18: cuoio/light body
-		// text over a 22% band measures 4.32, just under AA, on the site's DEFAULT
-		// palette and mode. Sweeping the whole matrix — 18 palettes x 2 modes x the six
-		// inks these editors paint — 18% is where primary text (heading, body) clears
-		// AA on all 36 and secondary text clears AA-large 3:1 with room (>= 3.28,
-		// against 3.01 at 22%). Visibility barely moves: median OKLab distance from the
-		// canvas 0.146 -> 0.118.
-		//
-		// It must stay in step with `::selection` in styles/native-widgets.css, which
-		// paints this same band on every surface that does NOT draw its own — the
-		// Studio's editor, CodeField, and all prose. editor-selection.test.ts fails if
-		// the two numbers drift apart.
-		//
-		// `--cm-match` was 26% on a note calling that 2.71:1 worst (onyx/light) for
-		// secondary ink. That number described a color NOTHING PAINTED. The rule below
-		// read the token through a bare `.cm-matchingBracket` key, which compiles to two
-		// classes and loses to @codemirror/language's base theme (three) — so every
-		// palette got CodeMirror's `#328c8252` teal instead, measured on the built
-		// Playground as `rgba(50, 140, 130, 0.32)` on cuoio LIGHT AND DARK alike. The
-		// token resolved fine; no rule consumed it. Same trap as the selection band, one
-		// package over.
-		//
-		// `--cm-nonmatch` is new. An unmatched bracket had NO token at all — it fell
-		// through to the base theme's `#bb555544` on all 36 palette-modes, which puts a
-		// fixed red on the four a11y palettes that exist to avoid exactly that hue.
-		//
-		// BOTH ARE RINGS, NOT WASHES, and that is a measurement result rather than a
-		// preference. The bracket AT THE CARET is always on the active line — the caret
-		// is what marks it — so its backdrop is `--bg` + the active-line wash + whatever
-		// the bracket adds, stacked. (Its PARTNER often sits on another line, where the
-		// ground is bare `--bg` and contrast is better by about a point; the caret-side
-		// one is the worst case and the one that binds.) Swept over the same
-		// matrix as the selection (18 palettes x 2 modes x the six inks these editors
-		// paint), the active line ALONE clears with room (primary 5.03, secondary 3.69),
-		// but adding an accent wash on top of it fails from 10% upward — 4.42 for
-		// `--text-body` on cuoio/light, the site's default palette and mode. 8% passes at
-		// 4.53 and is too faint to be worth the token. There is no alpha that is both
-		// visible and AA here, so the fill is gone and a 1px ring carries the whole
-		// signal: a ring sits at the cell's edge rather than under the ink, so it spends
-		// no text contrast at all and the stack stays exactly the active line's 5.03.
-		//
-		// The first cut of this fix DID ship washes (16% / 12%), measured only over bare
-		// `--bg` — a case that cannot happen for the bracket at the caret. Looking at the
-		// rendered result is what showed the active-line band underneath it.
-		//
-		// Solid for matched, DASHED for unmatched. The base theme separated the two states
-		// by hue alone, and on the four a11y palettes hue cannot carry it: they tune
-		// `--accent` and `--fail` for their own CVD, which lands the two rings 1.52:1
-		// apart on achromatopsia, 1.49 on protanopia and 1.40 on tritanopia — the same
-		// color, to a reader. Line style is a second channel that survives that, for the
-		// same reason the categorical series has a texture channel alongside its hues.
-		'--cm-active-line': 'color-mix(in srgb, var(--accent) 12%, transparent)',
-		'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 22%, transparent)',
-		'--cm-selection': 'color-mix(in srgb, var(--accent) 18%, transparent)',
-		'--cm-selection-edge': 'color-mix(in srgb, var(--accent) 45%, transparent)',
-		'--cm-match': 'var(--accent)',
-		'--cm-nonmatch': 'var(--fail)',
-		// Autocomplete popup. The panel reused --bg (identical to the editor) with a
-		// plain --border edge, so in light mode it floated with no visible boundary
-		// (border-vs-bg ~1.21 on indaco-light), and the detail/type hint reused
-		// --text-muted, which drops to WCAG ~2.5 on the warm light palettes. A
-		// muted-blended border lifts the panel edge to ~1.87; a body-blended detail
-		// color lifts the hint to ~3.85 while staying secondary to the label.
-		'--cm-pop-border': 'color-mix(in srgb, var(--border) 45%, var(--text-muted))',
-		'--cm-detail': 'color-mix(in srgb, var(--text-muted) 50%, var(--text-body))',
-	},
+		padding: '14px 0',
+		lineHeight: '1.6',
+		gutterDivider: true,
+		// The tokens go through `vars` so they land INSIDE the shared `&`. A second
+		// `'&'` key after the spread would REPLACE it outright — silently, and with no
+		// lint error — taking height, fontSize, color and backgroundColor with it. That
+		// is not hypothetical: it shipped in an earlier cut of this very edit and put the
+		// editor at 16px. See the warning in lib/editor-chrome.js.
+		vars: {
+			// ── Editor contrast tokens ───────────────────────────────────────────────
+			// The named contract a downstream theme can override. Each one is here because
+			// the stock value was measured and found wanting, so the notes say what was
+			// measured rather than what was preferred.
+			//
+			// ACTIVE LINE. Was a 6% accent wash, which is near-invisible on every palette
+			// (WCAG band-contrast ~1.06-1.16). 12% is a clearly visible band and still far
+			// too low to touch text legibility — swept over 18 palettes x 2 modes against
+			// the six inks these editors paint, the band alone clears 5.03 for primary text
+			// and 3.69 for secondary, failing nothing.
+			//
+			// THERE IS NO SELECTION TOKEN HERE ANY MORE. `--cm-selection` and
+			// `--cm-selection-edge` existed only because `drawSelection()` painted the
+			// selection as DOM that could not read `::selection`. With that extension gone
+			// the native highlight paints, and `::selection` in styles/native-widgets.css is
+			// the ONE owner for the whole site. Do not reintroduce a local copy; see the
+			// note on the missing selection rule further down.
+			//
+			// BRACKET MARKS. `--cm-match` was 26% on a note calling that 2.71:1 worst
+			// (onyx/light) for secondary ink. That number described a color NOTHING PAINTED:
+			// the rule read the token through a bare `.cm-matchingBracket` key, which
+			// compiles to two classes and loses to @codemirror/language's base theme
+			// (three), so every palette got CodeMirror's `#328c8252` teal instead — measured
+			// on the built Playground as `rgba(50, 140, 130, 0.32)` on cuoio LIGHT AND DARK
+			// alike. `--cm-nonmatch` is new: an unmatched bracket had no token at all and
+			// fell through to the base theme's `#bb555544`, putting a fixed red on the four
+			// a11y palettes that exist to avoid exactly that hue.
+			//
+			// BOTH BRACKET MARKS ARE RINGS, NOT WASHES, and that is a measurement result
+			// rather than a preference. The bracket AT THE CARET is always on the active
+			// line — the caret is what marks it — so any fill stacks on the band above. (Its
+			// PARTNER often sits on another line over bare `--bg`, about a point better; the
+			// caret-side one binds.) On that stack an accent wash fails AA from 10% upward —
+			// 4.42 for `--text-body` on cuoio/light, the site's default palette and mode —
+			// and 8% passes at 4.53 but is too faint to be worth a token. No alpha is both
+			// visible and AA, so the fill is gone and a 1px ring carries the whole signal: a
+			// ring sits at the cell's edge rather than under the ink, so the backdrop stays
+			// exactly the active line's 5.03. Solid for matched, DASHED for unmatched,
+			// because on the a11y palettes the two tokens land 1.40-1.52:1 apart and hue
+			// alone cannot separate the states.
+			'--cm-active-line': 'color-mix(in srgb, var(--accent) 12%, transparent)',
+			'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 22%, transparent)',
+			'--cm-match': 'var(--accent)',
+			'--cm-nonmatch': 'var(--fail)',
+			// Autocomplete popup. The panel reused --bg (identical to the editor) with a
+			// plain --border edge, so in light mode it floated with no visible boundary
+			// (border-vs-bg ~1.21 on indaco-light), and the detail/type hint reused
+			// --text-muted, which drops to WCAG ~2.5 on the warm light palettes. A
+			// muted-blended border lifts the panel edge to ~1.87; a body-blended detail
+			// color lifts the hint to ~3.85 while staying secondary to the label.
+			'--cm-pop-border': 'color-mix(in srgb, var(--border) 45%, var(--text-muted))',
+			'--cm-detail': 'color-mix(in srgb, var(--text-muted) 50%, var(--text-body))',
+		},
+	}),
 	// On touch devices, iOS Safari auto-zooms the page when you focus an input
 	// whose font is under 16px. Bump the editable surface to 16px on coarse
 	// pointers so tapping in doesn't zoom; desktop keeps the denser 13.5px.
 	// (Coarse-pointer rules live in the `@media` block at the END of this object —
 	// its position is load-bearing; see the note there.)
-	'.cm-scroller': {
-		fontFamily: 'var(--font-mono)',
-		lineHeight: '1.6',
-		overflow: 'auto',
-	},
-	'.cm-content': { padding: '14px 0', caretColor: 'var(--accent)' },
-	'.cm-gutters': {
-		backgroundColor: 'var(--bg)',
-		color: 'var(--text-muted)',
-		border: 'none',
-		borderRight: '1px solid var(--border)',
-	},
+	'.cm-scroller': { overflow: 'auto' },
+	// The active line is this surface's own — the Studio installs no
+	// `highlightActiveLine()`, so it renders no `.cm-activeLine` at all (measured:
+	// zero such elements on the real Studio). Sharing it would have moved a dead
+	// rule into the shared module and invited someone to "reconcile" this 12% with
+	// the 5% the Studio carried but never painted.
 	'.cm-activeLine': { backgroundColor: 'var(--cm-active-line)' },
 	'.cm-activeLineGutter': { backgroundColor: 'var(--cm-active-gutter)', color: 'var(--accent)' },
-	'&.cm-focused .cm-cursor': { borderLeftColor: 'var(--accent)' },
-	// The fill stays moderate (legibility-safe); the inset edge gives the band the
-	// crisp definition a heavier fill would cost in text contrast. ::selection (the
-	// native fallback before drawSelection paints) keeps the plain fill.
+	// NO SELECTION RULE HERE, ON PURPOSE — and no `drawSelection()` either.
 	//
-	// SPECIFICITY decides this rule, not stylesheet order, and the plain
-	// `&.cm-focused .cm-selectionBackground` key it used to carry LOST. This editor
-	// runs `drawSelection()`, so the selection is DOM (`.cm-selectionBackground`
-	// divs) rather than the native highlight — and @codemirror/view's base theme
-	// paints those divs through a five-class selector,
-	// `&light.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`
-	// (`#d7d4f0`), while `EditorView.theme()` compiled our key to three. Select-all
-	// therefore slabbed light lavender across every palette: measured on the built
-	// playground at cuoio-dark, computed `rgb(215, 212, 240)` under `--text-body`
-	// #D6C4A8 — about 1.3:1, unreadable. Only the FILL lost; the inset edge below
-	// has no base rule to fight, which is why the slab still carried an accent
-	// hairline — the tell that this rule was live but outgunned.
+	// This editor used to install `drawSelection()`, which replaces the browser's
+	// native highlight with a stack of `.cm-selectionBackground` divs. That bought
+	// exactly two things: a drawn caret and a drawn selection. Nothing here uses the
+	// features that actually need it — no multiple selections, no rectangular
+	// selection, no search multi-cursor (grepped; zero call sites) — and it cost:
+	//   · a 1px accent hairline this surface drew and the Studio's editor did not,
+	//     so the two editors of one product selected text differently;
+	//   · a THIRD copy of the selection wash, since the drawn band could not read
+	//     `::selection` and needed its own `--cm-selection` token;
+	//   · a whole class of cascade bug — @codemirror/view's base theme paints those
+	//     divs through a five-class selector, which beat this theme's key on
+	//     specificity and slabbed light lavender over every palette (#2139).
 	//
-	// `&light` applies because nothing marks this theme dark, but that is not the
-	// bug and marking it dark is not the fix: the dark arm is the same five-class
-	// selector and would slab `#233` instead. Matching the base's SHAPE, plus one
-	// extra class (`&` compiles to the theme's own class, so `&.cm-editor…` is six),
-	// wins on specificity in both arms and does not depend on injection order.
-	//
-	// The Studio's editor (components/studio/editor-theme.ts) never had this: with
-	// no `drawSelection()` it keeps the NATIVE highlight, which `::selection` in
-	// styles/native-widgets.css owns — no base-theme rule to lose to.
-	'&.cm-editor .cm-selectionBackground, &.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
-		backgroundColor: 'var(--cm-selection)',
-		boxShadow: 'inset 0 0 0 1px var(--cm-selection-edge)',
-	},
-	'::selection': { backgroundColor: 'var(--cm-selection)' },
+	// Without it the selection is the NATIVE highlight, owned by ONE rule for the
+	// whole site: `::selection` in styles/native-widgets.css. That is what the
+	// Studio's editor always did, and it is the surface this was reported against as
+	// the one that looks right. A base-theme rule cannot lose a cascade it is not in.
 	// Bracket matching, and the SAME specificity trap the selection rule above
 	// documents — this one in @codemirror/language rather than @codemirror/view.
 	// Its base theme is `EditorView.baseTheme({ '&.cm-focused .cm-matchingBracket':
@@ -417,9 +386,7 @@ const latticeTheme = EditorView.theme({
 	// (Measured: the fix pill stayed 28px on a real coarse pointer until this
 	// block moved below `...lintTheme`.)
 	'@media (pointer: coarse)': {
-		// iOS Safari auto-zooms the page when focusing an editable surface whose
-		// font computes under 16px.
-		'.cm-content': { fontSize: '16px' },
+		...editorChromeCoarse,
 		...lintThemeCoarse,
 	},
 });
@@ -676,7 +643,6 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 				highlightActiveLine(),
 				highlightActiveLineGutter(),
 				history(),
-				drawSelection(),
 				indentOnInput(),
 				bracketMatching(),
 				syntaxHighlighting(latticeHighlight),

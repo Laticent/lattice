@@ -2,62 +2,84 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// The selection wash is ONE appearance declared in TWO places, because it is painted
-// by two mechanisms:
+// The selection wash is ONE appearance with ONE owner: `::selection` in
+// styles/native-widgets.css, the browser's native highlight, which covers prose,
+// the Playground's editor, the Studio's deck editor and the Component studio's
+// CodeField alike.
 //
-//   - `::selection` in styles/native-widgets.css — the browser's native highlight,
-//     which covers prose, the Studio's deck editor and the Component studio's
-//     CodeField, none of which draws its own selection;
-//   - `--cm-selection` in playground/editor.js — read by the `.cm-selectionBackground`
-//     divs that `drawSelection()` paints in the Playground's editor, which the native
-//     highlight cannot reach.
+// IT USED TO HAVE THREE OWNERS, and this test used to pin two of them against each
+// other. The Playground installed `drawSelection()`, which replaces the native
+// highlight with `.cm-selectionBackground` divs that cannot read `::selection` — so
+// it carried its own `--cm-selection` token, and the numbers agreed only as long as
+// someone remembered. The Studio's theme carried a THIRD copy, which nothing
+// compared and nothing could render: with no `drawSelection()` there are no such
+// divs (measured on the real Studio — zero elements after a select-all).
 //
-// Nothing in the cascade makes them agree, so they agree only as long as someone
-// remembers. This test is that memory: it reads both literals and fails when they part.
+// Dropping `drawSelection()` collapses all of that. Nothing in either editor needed
+// it: no multiple selections, no rectangular selection, no search multi-cursor. It
+// was buying a drawn caret and a drawn selection, and charging a 1px hairline the
+// Studio's editor never drew, a duplicate token, and a whole class of cascade bug
+// (@codemirror/view's base theme out-specified the drawn band and slabbed light
+// lavender over every palette — #2139).
 //
-// The VALUE is measured, not chosen by eye. Across 18 palettes x 2 modes, against the
-// six inks these editors paint (`--text-heading`, `--text-body`, `--text-muted` and the
-// three `--syntax-*-ink`), at 18% primary text clears AA on all 36 palette-modes and
-// secondary text clears AA-large 3:1 with margin. At the 22% this replaced, primary
-// text failed on cuoio/light — the site's default palette and mode — at 4.32, and
-// secondary bottomed out at 3.01. The floor is asserted on the real surface instead, in
-// e2e/playground-selection-contrast.spec.ts; what lives here is only the agreement.
+// So this test no longer reconciles copies. It asserts there is only one.
 
 const ROOT = path.resolve(__dirname, '../..');
 const EXPECTED_ALPHA = 18;
+const read = (f: string) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
-/** The accent percentage in the first `color-mix(in srgb, var(--accent) N%, transparent)`
- *  on a line matching `anchor`. */
-function washAlpha(file: string, anchor: RegExp): number {
-	const line = fs
-		.readFileSync(path.join(ROOT, file), 'utf8')
-		.split('\n')
-		.find((l) => anchor.test(l) && l.includes('color-mix'));
-	expect(line, `${file}: no wash declaration matched ${anchor}`).toBeTruthy();
-	const m = line!.match(/var\(--accent\)\s+(\d+)%/);
-	expect(m, `${file}: could not read the accent percentage from: ${line!.trim()}`).toBeTruthy();
-	return Number(m![1]);
-}
+/** Every editor theme that could re-grow a local selection wash. */
+const EDITOR_THEMES = ['src/playground/editor.js', 'src/components/studio/editor-theme.ts'];
 
-describe('the selection wash is one number in two files', () => {
-	it('the native highlight and the drawn band use the same accent percentage', () => {
-		const native = washAlpha('src/styles/native-widgets.css', /^\s*background:/);
-		const drawn = washAlpha('src/playground/editor.js', /'--cm-selection'/);
-		expect(native, 'styles/native-widgets.css ::selection').toBe(EXPECTED_ALPHA);
-		expect(
-			drawn,
-			`playground/editor.js --cm-selection is ${drawn}% but ::selection is ${native}% — the Playground's drawn band and every other surface's native highlight would paint different selections`,
-		).toBe(native);
+describe('the selection wash has exactly one owner', () => {
+	it('::selection in native-widgets.css carries the measured value', () => {
+		// The VALUE is measured, not chosen by eye. Across 18 palettes x 2 modes,
+		// against the six inks these editors paint (`--text-heading`, `--text-body`,
+		// `--text-muted` and the three `--syntax-*-ink`), at 18% primary text clears AA
+		// on all 36 palette-modes and secondary text clears AA-large 3:1 with margin. At
+		// the 22% this replaced, primary text failed on cuoio/light — the site's default
+		// palette and mode — at 4.32, and secondary bottomed out at 3.01.
+		const line = read('src/styles/native-widgets.css')
+			.split('\n')
+			.find((l) => /^\s*background:/.test(l) && l.includes('color-mix'));
+		expect(line, 'native-widgets.css must carry the ::selection wash').toBeTruthy();
+		expect(Number(line!.match(/var\(--accent\)\s+(\d+)%/)?.[1])).toBe(EXPECTED_ALPHA);
 	});
 
 	it('the text-fragment highlight rides the same ground', () => {
 		// `::target-text` is deliberately matched to ::selection so a deep-linked
-		// passage reads in-brand rather than in UA yellow. It pins its own ink, so
-		// only the ground is shared — but the ground is shared, and drifting it would
-		// give one page two different accent washes.
-		const css = fs.readFileSync(path.join(ROOT, 'src/styles/native-widgets.css'), 'utf8');
-		const block = css.match(/::target-text\s*\{([^}]*)\}/);
+		// passage reads in-brand rather than in UA yellow. It pins its own ink, so only
+		// the ground is shared — but the ground IS shared, and drifting it would give
+		// one page two different accent washes.
+		const block = read('src/styles/native-widgets.css').match(/::target-text\s*\{([^}]*)\}/);
 		expect(block, 'native-widgets.css must carry the ::target-text rule').toBeTruthy();
 		expect(block![1].match(/var\(--accent\)\s+(\d+)%/)?.[1]).toBe(String(EXPECTED_ALPHA));
 	});
+
+	for (const file of EDITOR_THEMES) {
+		it(`${file} declares no selection of its own`, () => {
+			const src = read(file);
+			// A `.cm-selectionBackground` rule only does anything under `drawSelection()`,
+			// and re-adding one is how the second and third copies got here.
+			expect(src, `${file}: a .cm-selectionBackground rule means a drawn selection is back — it cannot read ::selection, so it is a second owner of this value`).not.toMatch(/cm-selectionBackground'\s*:/);
+			expect(src, `${file}: --cm-selection is the token the drawn band needed; the native highlight reads ::selection instead`).not.toMatch(/'--cm-selection(-edge)?'\s*:/);
+			expect(src, `${file}: a local ::selection rule re-forks the value that native-widgets.css owns for the whole site`).not.toMatch(/'::selection'\s*:/);
+		});
+
+		it(`${file} installs no drawSelection()`, () => {
+			// The extension is the root cause, not the rules it needs. Adding it back
+			// re-creates the drawn band, the duplicate token AND the base-theme cascade
+			// fight in one line — so this is the assertion that actually holds the line.
+			// If a surface ever genuinely needs it (multiple selections, rectangular
+			// selection), that is a deliberate change with a contrast sweep attached, not
+			// an import someone re-adds while reaching for something else in the same
+			// `@codemirror/view` statement.
+			// Matched as an IMPORT and as a CALL, never as a bare word: both files now
+			// carry notes explaining why the extension is gone, and a test that cannot
+			// tell prose from code would fail on its own documentation.
+			const src = read(file);
+			expect(src, `${file}: drawSelection is imported — it replaces the native highlight; see the note in playground/editor.js`).not.toMatch(/import\s*\{[^}]*\bdrawSelection\b[^}]*\}/);
+			expect(src, `${file}: drawSelection() is installed — it replaces the native highlight; see the note in playground/editor.js`).not.toMatch(/^\s*drawSelection\(\)/m);
+		});
+	}
 });
