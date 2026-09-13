@@ -204,7 +204,15 @@ describe('bullet kernel', () => {
       assert.match(html, /<svg[^<>]*viewBox="0 0 320 180"/);
       assert.match(html, /preserveAspectRatio="xMidYMid meet"/);
       assert.match(html, /<svg[^<>]*role="img"/);
-      assert.doesNotMatch(html, /aria-hidden="true"/);
+      // SCOPED TO THE ROOT, and that is the whole assertion. The marks now ride
+      // in an `aria-hidden` group because `role="img"` does not prune an SVG
+      // subtree in Chromium (cartesian.js § ariaHiddenMarks) — measured, every
+      // chart leaked every tick and label as loose text after its own <desc>.
+      // What must never happen is the attribute landing on the <svg> ITSELF,
+      // which would take the chart out of the tree entirely. An unscoped
+      // `doesNotMatch` cannot tell those two apart and forbade the fix.
+      assert.doesNotMatch(html, /<svg[^<>]*aria-hidden/, 'the chart root must stay in the accessibility tree');
+      assert.match(html, /<g aria-hidden="true">/, 'the marks must be hidden, or the desc is read twice');
       assert.match(html, /<title>Bullet graph — actual against target<\/title>/);
     });
 

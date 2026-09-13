@@ -204,9 +204,14 @@ describe('chart-family.applyToDom', () => {
     assert.ok(lW > lH, `landscape pie is wide (${lW}×${lH})`);
     assert.ok(pH > pW, `portrait pie is tall (${pW}×${pH})`);
     // Landscape diagram group sits at the left (dx 0); portrait centers it (dx > 0).
-    assert.match(land.querySelector('g').getAttribute('transform'), /^translate\(0 /,
+    // SELECTED BY ITS TRANSFORM, not by being the first <g>. The marks now sit
+    // inside an `aria-hidden` wrapper group (cartesian.js § ariaHiddenMarks), so
+    // "first g" is that wrapper and carries no transform at all — the proxy
+    // stopped naming the thing this arm is about.
+    const diagramG = (svg) => svg.querySelector('g[transform]');
+    assert.match(diagramG(land).getAttribute('transform'), /^translate\(0 /,
       'landscape diagram group at translate(0 …)');
-    const pdx = +port.querySelector('g').getAttribute('transform').match(/translate\(([\d.]+) /)[1];
+    const pdx = +diagramG(port).getAttribute('transform').match(/translate\(([\d.]+) /)[1];
     assert.ok(pdx > 0, `portrait diagram group is centered (dx=${pdx})`);
   });
 
