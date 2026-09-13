@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tip } from '@/components/ui/tooltip';
+import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
@@ -240,7 +241,7 @@ export type FabricateSeed =
 	| { kind: 'finish'; record: StudioFinish }
 	| { kind: 'motion'; record: StudioScene };
 
-export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], savedScenes = [], onClose, notify, onSaved, onOpenWorkspace, onInsert }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; savedScenes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void; onInsert?: (markdown: string, name: string) => void }) {
+export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], savedScenes = [], onClose, onSaved, onOpenWorkspace, onInsert }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; savedScenes?: { id: string; name: string }[]; onClose: () => void; onSaved?: () => void; onOpenWorkspace?: () => void; onInsert?: (markdown: string, name: string) => void }) {
 	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish' | 'motion'>('theme');
 	// All ten essentials in state, seeded from the first curated starter.
 	const [core, setCore] = React.useState<Record<EssKey, string>>(() => ({ ...(STARTERS[0].essentials as Record<EssKey, string>) }));
@@ -291,8 +292,8 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// Reference-doc grounding (#640) — one per surface: a brand guide grounds the
 	// theme, an existing component/deck grounds the component. Fed to generate*,
 	// cleared on a successful run.
-	const themeDoc = useReferenceDoc(notify);
-	const compDoc = useReferenceDoc(notify);
+	const themeDoc = useReferenceDoc();
+	const compDoc = useReferenceDoc();
 	// The description disclosure (chevron under the name) — collapsed by default on
 	// both tabs; opening reveals the one-line caption editor.
 	const [descOpen, setDescOpen] = React.useState(false);
@@ -942,7 +943,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
-				<MotionStudio seed={seed?.kind === 'motion' ? seed.record : null} savedScenes={savedScenes} notify={notify} onSaved={onSaved} onInsert={onInsert} onOpenWorkspace={onOpenWorkspace} />
+				<MotionStudio seed={seed?.kind === 'motion' ? seed.record : null} savedScenes={savedScenes} onSaved={onSaved} onInsert={onInsert} onOpenWorkspace={onOpenWorkspace} />
 			</div>
 		);
 	}
@@ -954,7 +955,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
-				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} savedFinishes={savedFinishes} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
+				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} savedFinishes={savedFinishes} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
 			</div>
 		);
 	}

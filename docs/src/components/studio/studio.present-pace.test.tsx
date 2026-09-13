@@ -60,7 +60,7 @@ afterEach(() => {
 describe('Present — the deck carries its pace (#1399)', () => {
 	it('presents a `pace: deliberate` deck deliberately on a machine set to brisk', async () => {
 		localStorage.setItem('lattice-present-pace', 'brisk'); // the viewer's stored preference
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fm('deliberate')} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fm('deliberate')} />);
 		const beat = await measureBeat();
 		// Deliberate is 2200ms, brisk 800ms. Anything under ~1.5s means the stored preference won
 		// and the author's directorial choice was lost the moment the deck left their machine.
@@ -69,7 +69,7 @@ describe('Present — the deck carries its pace (#1399)', () => {
 
 	it('takes the stored preference when the deck declares none', async () => {
 		localStorage.setItem('lattice-present-pace', 'brisk');
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fm()} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fm()} />);
 		const beat = await measureBeat();
 		// The preset is a DEFAULT for an undeclared deck, not a dead setting.
 		expect(beat).toBeLessThan(1300);
@@ -79,7 +79,7 @@ describe('Present — the deck carries its pace (#1399)', () => {
 		localStorage.setItem('lattice-present-pace', 'brisk');
 		localStorage.setItem('lattice-present-slide-beat', '0'); // the live "no beat" override
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fm('deliberate')} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fm('deliberate')} />);
 		await user.click(screen.getByRole('button', { name: 'Play the presentation' }));
 
 		// The exact-millisecond override outranks the deck, so a presenter is never trapped in

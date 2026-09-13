@@ -54,7 +54,7 @@ describe('Present — the auto-advance chain (#1394)', () => {
 		// Slides 1 and 2 speak the SAME sentence. Slide 3 is the oracle: reaching it proves
 		// slide 2 actually played and finished, not merely that the index moved.
 		const slides = [slide('One', 'Same words.'), slide('Two', 'Same words.'), slide('Three', 'Different words entirely.')];
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 
 		expect(screen.getByText('1 / 3')).toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Play the presentation' }));
@@ -69,7 +69,7 @@ describe('Present — the auto-advance chain (#1394)', () => {
 	it('still does not auto-play on a MANUAL move (the guard the fix must not weaken)', async () => {
 		const user = userEvent.setup();
 		const slides = [slide('One', 'Same words.'), slide('Two', 'Same words.')];
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 
 		// Step forward by hand from a stopped deck. The narration record changes exactly as it
 		// does on an auto-advance, so if the fix had dropped the `autoAdvanceRef` gate this

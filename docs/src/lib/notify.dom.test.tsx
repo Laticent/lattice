@@ -2,9 +2,9 @@ import { cleanup, render } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Toaster } from '@/components/ui/sonner';
-import { __resetStatusPill, showStatus } from '@/lib/status-pill';
+import { __resetNotify, notify, notifyAction } from '@/lib/notify';
 
-// The sibling `status-pill.test.ts` stubs `toast` and asserts the options object —
+// The sibling `notify.test.ts` stubs `toast` and asserts the options object —
 // which is the right seam for the merge-by-id contract, and blind to the bug this
 // file exists for. Sonner's exit-window race lives in its OWN store and timers, so
 // catching it needs the real package, a real `<Toaster>`, and real time.
@@ -18,15 +18,15 @@ async function tick(ms = 0): Promise<void> {
 	});
 }
 
-describe('the status pill, against real Sonner', () => {
-	beforeEach(() => __resetStatusPill());
+describe('the message kernel, against real Sonner', () => {
+	beforeEach(() => __resetNotify());
 	afterEach(() => cleanup());
 
 	it('several messages in one tick leave a single pill, carrying the newest', async () => {
 		render(<Toaster />);
 		act(() => {
-			showStatus('Deck created.');
-			showStatus('Renamed to “Q3”.');
+			notify('Deck created.');
+			notify('Renamed to “Q3”.');
 		});
 		await tick(50);
 		expect(pills()).toHaveLength(1);
@@ -41,8 +41,8 @@ describe('the status pill, against real Sonner', () => {
 	it('a second message in the same tick DESTROYS the first — compose, do not raise twice', async () => {
 		render(<Toaster />);
 		act(() => {
-			showStatus('Import failed — invalid zip header.');
-			showStatus('Nothing to import from that file.');
+			notify('Import failed — invalid zip header.');
+			notify('Nothing to import from that file.');
 		});
 		await tick(50);
 		expect(pills().join('|')).not.toContain('invalid zip header');
@@ -51,7 +51,7 @@ describe('the status pill, against real Sonner', () => {
 	it('renders a multi-line description as lines, not one run-on', async () => {
 		render(<Toaster />);
 		act(() => {
-			showStatus('Nothing could be imported.', { description: 'Refused 2:\na — bad\nb — worse' });
+			notify('Nothing could be imported.', { description: 'Refused 2:\na — bad\nb — worse' });
 		});
 		await tick(50);
 		const desc = document.querySelector('[data-description]');
@@ -77,7 +77,7 @@ describe('the status pill, against real Sonner', () => {
 	it('a message raised while the previous pill is leaving is not swallowed', async () => {
 		render(<Toaster />);
 		act(() => {
-			showStatus('First message.');
+			notify('First message.');
 		});
 		await tick(50);
 		expect(pills().join('|')).toContain('First message.');
@@ -95,9 +95,38 @@ describe('the status pill, against real Sonner', () => {
 		expect(gap, 'the re-raise must land inside the 200ms exit window').toBeLessThan(2800);
 
 		act(() => {
-			showStatus('Second message.');
+			notify('Second message.');
 		});
 		await tick(400); // past the previous toast's pending removal
 		expect(pills().join('|')).toContain('Second message.');
+	});
+
+	// The kinds are separate SLOTS, and this is the claim the Toaster's
+	// `visibleToasts={3}` rests on: three kinds, one pill each, never a stack of
+	// three arbitrary messages. A unit test sees the ids; only the DOM sees the count.
+	it('a status message and an action pill coexist without evicting each other', async () => {
+		render(<Toaster />);
+		act(() => {
+			notifyAction('Set pace to deliberate.', { label: 'Undo', onClick: () => {} });
+			notify('Applied indaco.');
+		});
+		await tick(50);
+		expect(pills()).toHaveLength(2);
+		expect(pills().join('|')).toContain('Undo');
+		expect(pills().join('|')).toContain('Applied indaco.');
+	});
+
+	it('a second action rewrites the first rather than stacking beside it', async () => {
+		render(<Toaster />);
+		act(() => {
+			notifyAction('Set split to 40/60.', { label: 'Undo', onClick: () => {} });
+		});
+		await tick(50);
+		act(() => {
+			notifyAction('Set pace to deliberate.', { label: 'Undo', onClick: () => {} });
+		});
+		await tick(50);
+		expect(pills()).toHaveLength(1);
+		expect(pills().join('|')).toContain('Set pace to deliberate.');
 	});
 });

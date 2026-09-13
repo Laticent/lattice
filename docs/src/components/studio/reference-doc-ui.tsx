@@ -11,6 +11,7 @@ import { Check, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import * as React from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { formatBytes, MAX_GROUND_DOCS, REF_DOC_ACCEPT, type ReferenceDoc, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
@@ -38,7 +39,7 @@ function fmtAdded(ts: number): string {
  * paperclip picker — drop it in the prompt row) and `chip` (render it below the row).
  * `onManage`, when given, adds a "Manage in Library" link to the picker footer.
  */
-export function useReferenceDoc(notify?: (msg: string) => void, onManage?: () => void) {
+export function useReferenceDoc(onManage?: () => void) {
 	// Multiple docs can ground ONE generation (#656). `docs` is the active set the
 	// caller feeds to generate*/chatComplete; the picker toggles membership.
 	const [docs, setDocs] = React.useState<ReferenceDoc[]>([]);

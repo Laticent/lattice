@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tip } from '@/components/ui/tooltip';
 import type { Scene } from '@/lib/anima';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { ART_MAX_BYTES } from './limits';
 import { MotionFrames } from './MotionFrames';
@@ -48,14 +49,12 @@ type Loaded = { art: string; parts: IntakePart[]; viewBox: readonly [number, num
 export function MotionStudio({
 	seed,
 	savedScenes = [],
-	notify,
 	onSaved,
 	onInsert,
 	onOpenWorkspace,
 }: {
 	seed?: StudioScene | null;
 	savedScenes?: { id: string; name: string }[];
-	notify: (msg: string) => void;
 	onSaved?: () => void;
 	onOpenWorkspace?: () => void;
 	/** Write the crafted asset into the current deck. Separate from Save on purpose: crafting and
@@ -143,7 +142,7 @@ export function MotionStudio({
 				onDone?.(true);
 			}, 0);
 		},
-		[notify],
+		[],
 	);
 
 	// DESCRIBE — the second on-ramp, and it needs no second doorway.
@@ -189,7 +188,7 @@ export function MotionStudio({
 			// and its callback owns the spinner until intake has actually decided.
 			setGenerating(false);
 		},
-		[generating, load, notify, replacing],
+		[generating, load, replacing],
 	);
 
 	// Reopening a saved asset is a DERIVATION, not a stored blob — `sceneToPlan` inverts the mapping,
@@ -347,7 +346,6 @@ export function MotionStudio({
 					generating={generating}
 					onDescribe={runDescribe}
 					onOpenWorkspace={onOpenWorkspace}
-					notify={notify}
 					onCancel={replacing ? () => { setReplacing(null); setPaste(''); } : undefined}
 					onLoad={(raw) => load(raw, replacing)}
 					onExample={() => load(EXAMPLE_SVG, false)}
@@ -435,7 +433,7 @@ export function MotionStudio({
 
 /** The front door. A real `<textarea>`, not a div with a paste handler, so Cmd-V works, the field is
  *  labeled, and a keyboard or screen-reader user reaches it by Tab. */
-function Empty({ paste, setPaste, busy, replacing, describe, setDescribe, generating, onDescribe, onOpenWorkspace, notify, onCancel, onLoad, onExample }: { paste: string; setPaste: (v: string) => void; busy: boolean; replacing?: boolean; describe: string; setDescribe: (v: string) => void; generating: boolean; onDescribe: (text: string) => void; onOpenWorkspace?: () => void; notify: (msg: string) => void; onCancel?: () => void; onLoad: (raw: string) => void; onExample: () => void }) {
+function Empty({ paste, setPaste, busy, replacing, describe, setDescribe, generating, onDescribe, onOpenWorkspace, onCancel, onLoad, onExample }: { paste: string; setPaste: (v: string) => void; busy: boolean; replacing?: boolean; describe: string; setDescribe: (v: string) => void; generating: boolean; onDescribe: (text: string) => void; onOpenWorkspace?: () => void; onCancel?: () => void; onLoad: (raw: string) => void; onExample: () => void }) {
 	const [over, setOver] = React.useState(false);
 	const status = useArchitectStatus();
 	const modelReady = status.ready;

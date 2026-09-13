@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { notify } from '@/lib/notify';
 import type { StopReason } from '../../lib/vetrina';
 import { useWalkthrough } from '../../lib/vetrina/react';
 import { buildTypeOps } from './demo-typing';
@@ -61,7 +62,6 @@ export type StudioDemoBindings = {
 	 *  deck switcher + activity bar it anchors on live. */
 	setPosture: (p: 'write' | 'craft') => void;
 	setCmdOpen: (open: boolean) => void;
-	notify: (message: string) => void;
 };
 
 export type StudioDemo = {
@@ -199,7 +199,7 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
 				// Names no deck: a deck is titled by its first heading now, so by the time a tour
 				// finishes it is called whatever the tour typed — not “My First Deck”.
-				cur.notify(reason === 'complete' ? 'Demo complete — the deck is yours to edit.' : 'Demo ended — the deck is yours to edit.');
+				notify(reason === 'complete' ? 'Demo complete — the deck is yours to edit.' : 'Demo ended — the deck is yours to edit.');
 			},
 		};
 	});

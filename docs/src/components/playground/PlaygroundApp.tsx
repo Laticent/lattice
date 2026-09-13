@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
-import { toast } from 'sonner';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
 import { getFrontMatter } from '@/components/studio/front-matter';
@@ -18,6 +17,7 @@ import { useResizableSplit } from '@/components/ui/use-resizable-split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import { isTypingTarget, shellKeyAction } from '@/lib/deck-nav';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
+import { notify, notifyAction, notifySticky } from '@/lib/notify';
 import {
 	adjacentComponent,
 	BACKUP_KEY,
@@ -868,16 +868,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// correcting after. Declared HERE (not derived in the hook) because the only runtime
 		// source of the real ids is the mounted group, which is one mount too late.
 
-		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
+		// A pane collapsing is an EVENT, not the render's state, so it goes to the pill
+		// rather than overwriting the line that says what the render last did. That also
+		// retires the hand-back below: nothing borrowed the line, so nothing returns it.
+		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onExpand: (side) => {
 			if (side === 'b') {
 				onPreviewExpand(); // its render writes a fresh status on the way through
-			} else if (lastRenderStatusRef.current) {
-				// The editor side renders nothing on expand, so without this the line goes on
-				// reading "Editor collapsed." over an open editor — a small lie, but this whole
-				// change is about the chrome not making them.
-				setStatusLine(lastRenderStatusRef.current);
 			}
+			// The editor side used to need a hand-back here, because "Editor collapsed."
+			// had overwritten the render line and would otherwise sit there over an open
+			// editor. It is a pill now, so the line was never borrowed.
 		},
 		onSettle: () => frameRef.current?.contentWindow?.__latticeFit?.(),
 		onDragStart: () => frameRef.current?.contentWindow?.__latticeFitSuspend?.(),
@@ -960,7 +961,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	// ── Draft protection: backup + undo toast (decision §4, invariant I2) ───────
 	const showToast = React.useCallback((msg: string, undo: boolean) => {
-		toast(msg, { duration: 6000, action: undo ? { label: 'Undo', onClick: () => undoRestoreRef.current() } : undefined });
+		// The ACTION kind when it offers Undo, the STATUS kind when it does not — the
+		// distinction the kernel exists to carry, and the reason the dwell is no longer
+		// spelled here (`lib/notify.ts` owns it, unified across both apps).
+		if (undo) notifyAction(msg, { label: 'Undo', onClick: () => undoRestoreRef.current() });
+		else notify(msg);
 	}, []);
 	const recordInsert = React.useCallback((md: string) => {
 		try {
@@ -1193,11 +1198,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			setSourceVersion((v) => v + 1);
 			syncPickers();
 			freshRender();
-			setStatusLine('Draft restored.');
+			// A pill, not the render line: `freshRender()` above is already writing its own
+			// status through, so this landed on a line that was about to be overwritten.
+			notify('Draft restored.');
 		} catch {
 			/* private mode */
 		}
-	}, [setSource, saveSource, syncPickers, freshRender, setStatusLine]);
+	}, [setSource, saveSource, syncPickers, freshRender]);
 	undoRestoreRef.current = onUndoRestore;
 
 	// ── The Explore walk machinery (decision §4, PR 6) ──────────────────────────
@@ -1448,7 +1455,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// this tab sat open — never a dead Next button. (Silent when the walk is
 				// only warming up behind the editor.)
 				if (viewRef.current === 'read') {
-					toast('This page is out of date — the site was updated while it sat open.', { duration: Infinity, action: { label: 'Reload', onClick: () => window.location.reload() } });
+					// STICKY: it must outlive every status message around it, because the tab is
+					// serving stale code until someone reloads. Its own slot, so nothing evicts it.
+					notifySticky('This page is out of date — the site was updated while it sat open.', { label: 'Reload', onClick: () => window.location.reload() });
 				}
 				return false;
 			}
@@ -1622,9 +1631,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// surface (the startup precedence rule, live for an already-open tab too).
 			if (viewRef.current !== 'edit') setViewMode('edit');
 			applyDeck(h.md, { toPreview: true });
-			setStatusLine(`Loaded the deck handed off from ${h.from}.`);
+			notify(`Loaded the deck handed off from ${h.from}.`);
 		},
-		[applyDeck, backupDraft, recordInsert, setStatusLine, setViewMode],
+		[applyDeck, backupDraft, recordInsert, setViewMode],
 	);
 	const consumeHandoffIfAny = React.useCallback(() => {
 		let h: ReturnType<typeof readHandoff> = null;

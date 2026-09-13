@@ -2,6 +2,7 @@ import { History, RotateCcw } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { notify } from '@/lib/notify';
 import { listAssetVersions } from './library/asset-history.js';
 import { restoreAssetVersion } from './library/asset-store.js';
 
@@ -68,13 +69,11 @@ export function AssetVersionsDialog({
 	open,
 	onOpenChange,
 	onRestored,
-	notify,
 }: {
 	asset: VersionedAsset | null;
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	onRestored: () => void;
-	notify: (msg: string) => void;
 }) {
 	const [versions, setVersions] = React.useState<Version[]>([]);
 	const [loading, setLoading] = React.useState(false);

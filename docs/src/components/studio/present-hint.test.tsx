@@ -20,7 +20,7 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-const open = () => render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+const open = () => render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 
 describe('Present — the first-run gesture cue', () => {
 	it('appears on a first Present, and does NOT mark itself seen merely by appearing', () => {

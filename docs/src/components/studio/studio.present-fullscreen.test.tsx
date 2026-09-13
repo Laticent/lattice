@@ -1,7 +1,10 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { notify as notifyModule } from '@/lib/notify';
 import { PresentOverlay } from './PresentOverlay';
+
+vi.mock('@/lib/notify', async (orig) => ({ ...(await orig<object>()), notify: vi.fn() }));
 
 // Present's whole-screen verb — the CAPABILITY GATE and the Escape handoff.
 //
@@ -49,14 +52,14 @@ describe('Present — full screen', () => {
 	// the whole life of the API, and a grayed-out button there sends the reader hunting
 	// for a setting that does not exist.
 	it('shows no button at all where the browser has no Fullscreen API', () => {
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		expect(screen.queryByRole('button', { name: /fullscreen/i })).toBeNull();
 	});
 
 	it('offers the button where the browser allows fullscreen, and requests it on the ROOT element', async () => {
 		const { requestFullscreen } = withFullscreenApi();
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		const btn = screen.getByRole('button', { name: 'Fullscreen' });
 		expect(btn).toHaveAttribute('aria-pressed', 'false');
 		await user.click(btn);
@@ -69,7 +72,7 @@ describe('Present — full screen', () => {
 
 	it('tracks a change the button did not make', async () => {
 		withFullscreenApi();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		expect(screen.getByRole('button', { name: 'Fullscreen' })).toBeInTheDocument();
 		// What F11 / the traffic lights / iPad Safari's own exit chip look like from here.
 		act(() => {
@@ -81,7 +84,7 @@ describe('Present — full screen', () => {
 
 	it('toggles on `f`, and stays silent on a browser that cannot', async () => {
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		await user.keyboard('f'); // no API installed — must not throw, must do nothing
 		expect(screen.queryByRole('button', { name: /fullscreen/i })).toBeNull();
 	});
@@ -89,7 +92,7 @@ describe('Present — full screen', () => {
 	it('toggles on `f` where it is available', async () => {
 		const { requestFullscreen } = withFullscreenApi();
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		await user.keyboard('f');
 		expect(requestFullscreen).toHaveBeenCalledTimes(1);
 	});
@@ -103,7 +106,7 @@ describe('Present — full screen', () => {
 		const { exit } = withFullscreenApi({ element: document.documentElement });
 		const onClose = vi.fn();
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={onClose} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={onClose} options={options} slides={slides} />);
 		await user.keyboard('{Escape}');
 		expect(exit).toHaveBeenCalledTimes(1);
 		expect(onClose).not.toHaveBeenCalled();
@@ -113,16 +116,17 @@ describe('Present — full screen', () => {
 		withFullscreenApi();
 		const onClose = vi.fn();
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={onClose} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={onClose} options={options} slides={slides} />);
 		await user.keyboard('{Escape}');
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
 	it('says nothing when the browser accepts', async () => {
 		withFullscreenApi();
-		const notify = vi.fn();
+		const notify = vi.mocked(notifyModule);
+		notify.mockClear();
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
 		await screen.findByRole('button', { name: 'Fullscreen' });
 		expect(notify).not.toHaveBeenCalled();
@@ -135,9 +139,10 @@ describe('Present — full screen', () => {
 	it('retires the control when the browser accepts and does nothing (WKWebView)', async () => {
 		withFullscreenApi();
 		Object.defineProperty(Element.prototype, 'requestFullscreen', { value: vi.fn(async () => {}), configurable: true, writable: true });
-		const notify = vi.fn();
+		const notify = vi.mocked(notifyModule);
+		notify.mockClear();
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
 		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1), { timeout: 4000 });
 		expect(notify.mock.calls[0][0]).toContain('will not hand over the screen');
@@ -153,9 +158,10 @@ describe('Present — full screen', () => {
 			configurable: true,
 			writable: true,
 		});
-		const notify = vi.fn();
+		const notify = vi.mocked(notifyModule);
+		notify.mockClear();
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={notify} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
 		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1), { timeout: 4000 });
 		expect(notify.mock.calls[0][0]).toContain('not user-initiated');
@@ -166,8 +172,8 @@ describe('Present — full screen', () => {
 	// full-screen in a state nothing explains, since the control that caused it is gone.
 	it('leaves fullscreen when Present closes', async () => {
 		const { exit } = withFullscreenApi({ element: document.documentElement });
-		const { rerender } = render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
-		rerender(<PresentOverlay open={false} onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		const { rerender } = render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
+		rerender(<PresentOverlay open={false} onClose={() => {}} options={options} slides={slides} />);
 		expect(exit).toHaveBeenCalledTimes(1);
 	});
 });

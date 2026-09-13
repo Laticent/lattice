@@ -1,6 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { notify as notifyModule } from '@/lib/notify';
 import { FinishStudio } from './FinishStudio';
+
+vi.mock('@/lib/notify', async (orig) => ({ ...(await orig<object>()), notify: vi.fn() }));
 
 // Closes the HARD RULE #23 gap the migration review flagged: the two FinishStudio
 // controls that moved from native `<input type="checkbox">` to the shared
@@ -19,7 +22,7 @@ const options = { themeBase: '', runtimeUrl: '', engineUrl: '' } as never;
 
 describe('FinishStudio — clearance/spotlight checkboxes (ui/checkbox)', () => {
 	it('the Clear-behind checkbox toggles, and clicking its row label toggles it too', () => {
-		render(<FinishStudio options={options} notify={vi.fn()} />);
+		render(<FinishStudio options={options} />);
 		const cb = screen.getByRole('checkbox', { name: 'Clear behind content' });
 		const start = cb.getAttribute('aria-checked');
 		fireEvent.click(cb);
@@ -30,7 +33,7 @@ describe('FinishStudio — clearance/spotlight checkboxes (ui/checkbox)', () => 
 	});
 
 	it('the Spotlight checkbox toggles', () => {
-		render(<FinishStudio options={options} notify={vi.fn()} />);
+		render(<FinishStudio options={options} />);
 		const cb = screen.getByRole('checkbox', { name: 'Spotlight one area' });
 		const start = cb.getAttribute('aria-checked');
 		fireEvent.click(cb);
@@ -56,7 +59,7 @@ describe('FinishStudio — the name gate and the identity it shows', () => {
 	// collision guard, and every one of them stored as `custom` — so three finishes named
 	// in different scripts became one record, each save replacing the last.
 	it.each(['报告', 'Отчёт', 'تقرير', '!!!'])('%s cannot be saved', (typed) => {
-		render(<FinishStudio options={options} notify={vi.fn()} />);
+		render(<FinishStudio options={options} />);
 		fireEvent.change(nameField(), { target: { value: typed } });
 		expect(saveBtn()).toBeDisabled();
 	});
@@ -64,13 +67,13 @@ describe('FinishStudio — the name gate and the identity it shows', () => {
 	// …and it says why, rather than leaving a dead button. Refusing without a reason was
 	// a dead end the fix itself would have created.
 	it('a refused name explains itself on the field', () => {
-		render(<FinishStudio options={options} notify={vi.fn()} />);
+		render(<FinishStudio options={options} />);
 		fireEvent.change(nameField(), { target: { value: '报告' } });
 		expect(screen.getByText(/must contain letters or numbers/i)).toBeInTheDocument();
 	});
 
 	it.each(['my-finish', 'Corporate Blue v2', 'Ledger'])('%s is still saveable', (typed) => {
-		render(<FinishStudio options={options} notify={vi.fn()} />);
+		render(<FinishStudio options={options} />);
 		fireEvent.change(nameField(), { target: { value: typed } });
 		expect(saveBtn()).not.toBeDisabled();
 	});
@@ -84,8 +87,9 @@ describe('FinishStudio — the name gate and the identity it shows', () => {
 		['an empty name', ''],
 		['a name that slugifies to nothing', '报告'],
 	])('Export refuses %s instead of writing the placeholder', (_label, typed) => {
-		const notify = vi.fn();
-		render(<FinishStudio options={options} notify={notify} />);
+		const notify = vi.mocked(notifyModule);
+		notify.mockClear();
+		render(<FinishStudio options={options} />);
 		if (typed) fireEvent.change(nameField(), { target: { value: typed } });
 		fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 		expect(notify).toHaveBeenCalledTimes(1);
@@ -94,8 +98,9 @@ describe('FinishStudio — the name gate and the identity it shows', () => {
 	});
 
 	it('Export still writes the file once the name is valid', () => {
-		const notify = vi.fn();
-		render(<FinishStudio options={options} notify={notify} />);
+		const notify = vi.mocked(notifyModule);
+		notify.mockClear();
+		render(<FinishStudio options={options} />);
 		fireEvent.change(nameField(), { target: { value: 'Ledger' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 		// …and under the namespaced identity, not the shipped preset's.
@@ -109,7 +114,7 @@ describe('FinishStudio — the name gate and the identity it shows', () => {
 	// more than one place (the slug chip and the CSS view), which is the point — every
 	// surface that names the finish must name the saved one.
 	it('a reserved name shows the namespaced class it will actually be saved under', () => {
-		render(<FinishStudio options={options} notify={vi.fn()} />);
+		render(<FinishStudio options={options} />);
 		fireEvent.change(nameField(), { target: { value: 'Ledger' } });
 		expect(screen.getAllByText(/finish-ledger-custom/).length).toBeGreaterThan(0);
 		// …and never the un-namespaced form, which resolves to the SHIPPED preset.

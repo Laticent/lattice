@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Tip } from '@/components/ui/tooltip';
+import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateFinish, useArchitectStatus } from './architect';
@@ -77,7 +78,6 @@ export function FinishStudio({
 	options,
 	seed,
 	savedFinishes = [],
-	notify,
 	onSaved,
 	onOpenWorkspace,
 }: {
@@ -86,7 +86,6 @@ export function FinishStudio({
 	seed?: StudioFinish | null;
 	/** Every saved finish, for the name-collision guard below. */
 	savedFinishes?: { id: string; name: string }[];
-	notify: (msg: string) => void;
 	onSaved?: () => void;
 	onOpenWorkspace?: () => void;
 }) {

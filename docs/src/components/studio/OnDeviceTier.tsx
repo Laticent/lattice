@@ -1,5 +1,6 @@
 import { Check, Cpu, Download, Loader2 } from 'lucide-react';
 import * as React from 'react';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { type ArchitectStatus, loadUniversalModel, setStudioTier, summonWebLLM, type TierProgress } from './architect';
 
@@ -23,7 +24,7 @@ const RUNGS: { tier: Tier; title: string; detail: string; download?: string }[] 
 	{ tier: 'universal', title: 'Universal (Transformers.js)', detail: 'Runs everywhere on WASM.', download: '~350MB' },
 ];
 
-export function OnDeviceTier({ status, notify }: { status: ArchitectStatus; notify: (msg: string) => void }) {
+export function OnDeviceTier({ status }: { status: ArchitectStatus }) {
 	const [state, setState] = React.useState<Record<Tier, RungState>>({
 		'prompt-api': { phase: 'idle', pct: 0 },
 		webllm: { phase: 'idle', pct: 0 },

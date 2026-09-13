@@ -33,7 +33,7 @@ afterEach(() => {
 describe('Present — playback (one Play)', () => {
 	it('one Play engages the reader and toggles back to Play on pause', async () => {
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		// Starts idle on slide 1 of 2 with the single Play control.
 		expect(screen.getByText('1 / 2')).toBeInTheDocument();
 		const play = screen.getByRole('button', { name: 'Play the presentation' });
@@ -48,7 +48,7 @@ describe('Present — playback (one Play)', () => {
 
 	it('Rehearse and playback are mutually exclusive transports', async () => {
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		await user.click(screen.getByRole('button', { name: 'Play the presentation' }));
 		expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
 		// Entering Rehearse stops playback: the presentation transport is replaced by
@@ -65,7 +65,7 @@ describe('Present — playback (one Play)', () => {
 		// pass every voice-model-level test untouched. Warm-ahead is a VOICE cost, so
 		// it must stay silent while muted and only fire once Voice is turned on.
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		expect(warmSpy).not.toHaveBeenCalled(); // idle — nothing to warm
 
 		// Play alone must NOT warm: Voice is muted by default, so there is no TTS to prefetch.

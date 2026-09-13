@@ -1,6 +1,7 @@
 import { Download, Loader2, PlayCircle } from 'lucide-react';
 import * as React from 'react';
 import { Slider } from '@/components/ui/slider';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import {
 	listTtsModels,
@@ -90,7 +91,7 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
 	);
 }
 
-export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; notify: (msg: string) => void }) {
+export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 	const [avail, setAvail] = React.useState<VoiceAvailability | null>(null);
 	const [models, setModels] = React.useState<OrVoiceModel[] | null>(null);
 	const [orModel, setOrModelState] = React.useState('');
@@ -259,7 +260,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 			setVoicePreview((cur) => (cur === voice ? null : cur));
 			if (!res.ok) notify(res.error || 'Could not play a sample.');
 		},
-		[orModel, speed, notify],
+		[orModel, speed],
 	);
 	const pickOrVoice = async (v: string) => {
 		setOrVoiceState(v);

@@ -10,6 +10,7 @@ import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { clearCrashReports, collectCrashReports, crashReportStats, OPEN_CRASH_REPORT_EVENT, startCrashSentinel, stopCrashSentinel } from '@/lib/crash-sentinel';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
 import { DEFAULT_BITRATE_KBPS, lookaheadPref, narrationBitrate, narrationCacheEnabled, pacePref, setLookaheadPref, setNarrationBitrate, setNarrationCacheEnabled, setPacePref } from '@/playground/narration-prefs.js';
@@ -175,7 +176,7 @@ function HandlePreview({ kind }: { kind: HandleStyle }) {
 	);
 }
 
-export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; onOpenChange: (v: boolean) => void; notify: (msg: string) => void }) {
+export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
 	const [tab, setTab] = React.useState<Tab>('AI');
 	const [dedup, setDedup] = React.useState(true);
 	React.useEffect(() => { setDedup(readDedupEnabled()); }, []);
@@ -958,7 +959,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											<span><div className="text-[13px] font-semibold text-[var(--text-heading)]">OpenRouter — {cloudActive ? 'active' : 'connected, dormant'}</div><div className="text-[11px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : 'Connected'}</div></span>
 											<button type="button" onClick={disconnect} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Disconnect</button>
 										</div>
-										<div className="mt-3"><ModelPicker status={ai} notify={notify} /></div>
+										<div className="mt-3"><ModelPicker status={ai} /></div>
 										<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground"><span className="text-[var(--accent)]">●</span> Metered per request · the deck text leaves your device.</p>
 									</div>
 								) : (
@@ -969,7 +970,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								)
 							) : (
 								<div>
-									<OnDeviceTier status={ai} notify={notify} />
+									<OnDeviceTier status={ai} />
 									{ai.openRouterReady && (
 										<div className="mt-2.5 flex items-center gap-3 rounded-xl border border-border px-3 py-2.5">
 											<span className="grid size-[30px] place-items-center rounded-lg bg-[color-mix(in_srgb,var(--text-muted)_12%,transparent)] text-muted-foreground"><Cloud className="size-4" /></span>
@@ -1102,7 +1103,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 							{/* ── READ-ALOUD VOICE — cloud (OpenRouter TTS) or on-device (Kokoro), never both at once ── */}
 							<AiSection>
 								<GroupLabel icon={<Volume2 className="size-3.5" />}>Read-aloud voice{genView === 'ondevice' ? ' · on-device' : ' · cloud'}</GroupLabel>
-								<TtsSettings tier={genView} notify={notify} />
+								<TtsSettings tier={genView} />
 							</AiSection>
 
 							{/* ── ON-DEVICE — what runs locally that is NOT the generation tier. The Model

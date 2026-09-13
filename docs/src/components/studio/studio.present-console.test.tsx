@@ -106,7 +106,7 @@ async function openStage(user: ReturnType<typeof import('@testing-library/user-e
 // gate were deleted and the panel came back unconditionally.
 describe('Present — with no Stage, Present is exactly Present', () => {
 	it('carries no notes, no next slide and no talk clock until a Stage exists', () => {
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
 		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Reset the talk clock' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Speaker notes' })).toBeNull();
@@ -123,7 +123,7 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 	it('reverts to Present when the Stage closes', async () => {
 		const { default: userEvent } = await import('@testing-library/user-event');
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
 		const fake = await openStage(user);
 		expect(screen.getByRole('complementary', { name: 'Notes and next slide' })).toBeInTheDocument();
 		// The document's own goodbye — the same beat a hand-closed window fires.
@@ -137,7 +137,7 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 	it('takes nav from the Stage — but only the four verbs, not Object.prototype', async () => {
 		const { default: userEvent } = await import('@testing-library/user-event');
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
 		const fake = await openStage(user);
 		const nav = async (act: string) => {
 			await act2(async () => {
@@ -180,7 +180,7 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 	it('offers a rail toggle that governs the rail wherever it lives', async () => {
 		const { default: userEvent } = await import('@testing-library/user-event');
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
 		// It sits with CC and Guide and means the same kind of thing: show or hide a piece
 		// of AUDIENCE chrome. Default on — deck progress is the one piece a room reads
 		// without being told to.
@@ -197,7 +197,7 @@ describe('Present — the console keeps the instruments the second window carrie
 	it('shows THIS slide\'s note and renders the NEXT slide, not the current one', async () => {
 		const { default: userEvent } = await import('@testing-library/user-event');
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
 		await openStage(user);
 		const panel = panelOf();
 		expect(panel.getByText(NOTE)).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe('Present — the console keeps the instruments the second window carrie
 	it('says the deck has ended rather than wrapping the preview to slide 1', async () => {
 		const { default: userEvent } = await import('@testing-library/user-event');
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={1} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={1} />);
 		await openStage(user);
 		const panel = panelOf();
 		expect(panel.getByText('End of the deck')).toBeInTheDocument();
@@ -223,7 +223,7 @@ describe('Present — the console keeps the instruments the second window carrie
 
 	it('does not render the panel — or its engine frame — on a narrow console', () => {
 		window.matchMedia = realMatchMedia; // the suite default: nothing matches
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
 		// ONE live preview, not two. A CSS-hidden panel would still mount its frame, which
 		// is the cost this gate is really about on the device least able to spare it.
@@ -233,7 +233,7 @@ describe('Present — the console keeps the instruments the second window carrie
 	it('offers a talk clock whose reset ARMS before it wipes', async () => {
 		const { default: userEvent } = await import('@testing-library/user-event');
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		await openStage(user);
 		const reset = screen.getByRole('button', { name: 'Reset the talk clock' });
 		await user.click(reset);

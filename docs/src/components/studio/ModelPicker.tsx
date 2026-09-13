@@ -9,6 +9,7 @@ import {
 	rowTitle,
 	shortName,
 } from '@/components/studio/ai/or-catalog.js';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } from './architect';
 
@@ -18,7 +19,7 @@ import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } 
 // Collapsed: the active model + its meta line. Expanded: search + Featured/Value/
 // Free/All tabs + the vendor-grouped, priced list. Only the model PROPOSES nothing
 // here — this just selects which OpenRouter model the architect calls.
-export function ModelPicker({ status, notify }: { status: ArchitectStatus; notify: (msg: string) => void }) {
+export function ModelPicker({ status }: { status: ArchitectStatus }) {
 	const [open, setOpen] = React.useState(false);
 	const [models, setModels] = React.useState<ORModel[] | null>(null);
 	const [view, setView] = React.useState<string>('featured');

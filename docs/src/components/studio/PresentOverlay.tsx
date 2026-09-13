@@ -44,6 +44,7 @@ import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech
 /** Emphasis spans over a slide's narration text — char offsets from the shared projection. */
 type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
 
+import { notify } from '@/lib/notify';
 import { mergeReadiness, readinessWindow } from './readiness-window';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
@@ -122,7 +123,7 @@ type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
 type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: RehearsalSlide[] };
 
-export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
+export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string }) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fire-once-on-mount by design; onReady is a stable callback.
 	React.useEffect(() => { onReady?.(); }, []);
 	const wideRoom = useConsolePanel();
@@ -537,7 +538,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			return;
 		}
 		if (!wasOpen && nowOpen) window.focus();
-	}, [notify]);
+	}, []);
 
 	// Build (and rebuild) the Stage document while presenting — async (engine render),
 	// so a Stage already open is rewritten once the new doc lands.
@@ -1489,7 +1490,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			if (fatal) setCanFull(false);
 			notify(`${reason ? `Full screen unavailable — ${reason}.` : 'Your browser would not switch to full screen.'} Use the browser's own full screen instead.`);
 		});
-	}, [notify]);
+	}, []);
 	// Closing Present gives the window back at the size the reader had it. Without
 	// this, exiting the deck leaves the EDITOR full-screen — a state nothing in the
 	// Studio chrome explains, since the button that produced it just went away.

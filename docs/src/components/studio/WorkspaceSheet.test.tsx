@@ -1,10 +1,13 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { notify as notifyModule } from '@/lib/notify';
 import type { ArchitectStatus } from './architect';
 import * as readAloud from './read-aloud';
 import { loadSettings } from './studio-store';
 import { WorkspaceSheet } from './WorkspaceSheet';
+
+vi.mock('@/lib/notify', async (orig) => ({ ...(await orig<object>()), notify: vi.fn() }));
 
 // G6 — the Workspace AI tab (Model + Spend sections) against a CONNECTED (mocked)
 // OpenRouter account. No live model is ever touched: listStudioModels/setStudioModel and
@@ -93,7 +96,7 @@ afterEach(() => {
 
 function openSheet() {
 	const user = userEvent.setup();
-	render(<WorkspaceSheet open onOpenChange={noop} notify={noop} />);
+	render(<WorkspaceSheet open onOpenChange={noop} />);
 	const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
 	return { user, sheet };
 }
@@ -292,7 +295,7 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 			{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', promptPerM: 0.62, completionPerM: 0, voices: ['af_heart', 'af_sky', 'am_onyx', 'jf_alpha'] },
 		]);
 		const user = userEvent.setup();
-		render(<WorkspaceSheet open onOpenChange={noop} notify={noop} />);
+		render(<WorkspaceSheet open onOpenChange={noop} />);
 		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
 		await user.click(await sheet.findByRole('combobox', { name: 'Cloud TTS voice' }));
 
@@ -325,7 +328,7 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 			{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', promptPerM: 0.62, completionPerM: 0, voices: ['af_heart', 'am_onyx'] },
 		]);
 		const user = userEvent.setup();
-		render(<WorkspaceSheet open onOpenChange={noop} notify={noop} />);
+		render(<WorkspaceSheet open onOpenChange={noop} />);
 		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
 		await user.click(await sheet.findByRole('combobox', { name: 'Cloud TTS voice' }));
 		await screen.findByText('★ Featured');
@@ -422,9 +425,10 @@ describe('WorkspaceSheet — Data tab backup & restore', () => {
 	});
 
 	it('downloading a backup stamps the last-backup line and toasts', async () => {
-		const notify = vi.fn();
+		const notify = vi.mocked(notifyModule);
+		notify.mockClear();
 		const user = userEvent.setup();
-		render(<WorkspaceSheet open onOpenChange={noop} notify={notify} />);
+		render(<WorkspaceSheet open onOpenChange={noop} />);
 		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
 		await user.click(sheet.getByRole('tab', { name: 'Data' }));
 		await user.click(sheet.getByRole('button', { name: /Download backup/ }));
@@ -447,9 +451,10 @@ describe('WorkspaceSheet — General tab install group', () => {
 			userChoice: Promise.resolve({ outcome: 'accepted' }),
 		};
 		try {
-			const notify = vi.fn();
+			const notify = vi.mocked(notifyModule);
+		notify.mockClear();
 			const user = userEvent.setup();
-			render(<WorkspaceSheet open onOpenChange={noop} notify={notify} />);
+			render(<WorkspaceSheet open onOpenChange={noop} />);
 			const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
 			await user.click(sheet.getByRole('tab', { name: 'General' }));
 			await user.click(sheet.getByRole('button', { name: /Install app/ }));

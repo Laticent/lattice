@@ -2,7 +2,6 @@ import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
-import { toast } from 'sonner';
 import DeckPreview from '@/components/DeckPreview';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackSheet } from '@/components/site/FeedbackSheet';
@@ -30,11 +29,11 @@ import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
+import { dismissNotice, notify, notifyAction } from '@/lib/notify';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
-import { showStatus } from '@/lib/status-pill';
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
@@ -777,9 +776,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// below can dismiss it the instant the source moves on its own. `next` is the
 	// source right after the write; `id` is Sonner's handle for dismiss().
 	const [undo, setUndo] = React.useState<{ next: string; id: string | number } | null>(null);
-	// Mirrors `undo` for `showUndo`, which must retire the previous Undo toast without
-	// taking `undo` as a dependency — that would rebuild `settingsWrite` on every write.
-	const undoRef = React.useRef<{ next: string; id: string | number } | null>(null);
 	const [palette, setPalette] = React.useState(() => {
 		try {
 			return localStorage.getItem('lattice-studio-palette') || DEFAULT_PALETTE;
@@ -1170,22 +1166,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Undo toast. Palette / light-dark are runtime toggles that reverse instantly on
 	// their own, so they don't route here. `undoTimer` auto-dismisses the toast.
 	const showUndo = React.useCallback((label: string, prev: string, next: string) => {
-		// Sonner owns display + the 5s auto-dismiss. The action closes over THIS
-		// write's prev/next and reverts only if nothing has changed since — so Undo
-		// never clobbers edits made after it. Track {next,id} for the reactive dismiss.
-		// Retire the PREVIOUS Undo before raising this one. Two settings writes inside
-		// 5s used to leave two Undo toasts on screen, and the older one was already a
-		// dead button — its `onClick` is guarded on `sourceRef.current === next`, which
-		// the second write has just falsified, so clicking it did nothing. It also made
-		// the Toaster's `visibleToasts={2}` a false claim: status pill + two Undos is
-		// three, and the oldest went `pointer-events: none` where the stock default of
-		// three had left it clickable.
-		if (undoRef.current) toast.dismiss(undoRef.current.id);
-		const id = toast(label, {
-			duration: 5000,
-			action: { label: 'Undo', onClick: () => { if (sourceRef.current === next) setSource(prev); } },
+		// The ACTION kind (`lib/notify.ts`): its own slot, so unrelated status text can
+		// never replace this button mid-reach, and one at a time — raising this retires
+		// the previous Undo, which was already a DEAD button (its click is guarded on
+		// `sourceRef.current === next`, which this write has just falsified). The kernel
+		// owns the dwell and the slot; what stays here is the only part that is the
+		// Studio's own: reverting only if nothing has changed since, and tracking
+		// {next,id} for the reactive withdrawal below.
+		const id = notifyAction(label, {
+			label: 'Undo',
+			onClick: () => {
+				if (sourceRef.current === next) setSource(prev);
+			},
 		});
-		undoRef.current = { next, id };
 		setUndo({ next, id });
 	}, [setSource]);
 	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
@@ -1201,7 +1194,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// typed, switched decks, restored a checkpoint — so Undo only ever reverts the
 	// single last settings change, never edits made after it.
 	React.useEffect(() => {
-		if (undo && source !== undo.next) { toast.dismiss(undo.id); undoRef.current = null; setUndo(null); }
+		if (undo && source !== undo.next) { dismissNotice(undo.id); setUndo(null); }
 	}, [source, undo]);
 
 	const bp = useBreakpoint();
@@ -2306,23 +2299,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		focusFullSlide(fullIdx);
 		setInsertOpen(true);
 	}
-	// Transient bottom-center confirmation, so no action in the prototype is a
-	// dead click (real ones confirm; not-yet-wired ones say so honestly).
-	//
-	// ONE pill, rewritten in place. This used to mint a fresh toast per message, so
-	// anything that spoke twice in a tick stacked — see `lib/status-pill.ts` for the
-	// merge-by-id mechanism and why the options object is built there rather than
-	// here. The Undo toast below deliberately does NOT come through this path: it
-	// carries a button, and a button must not be replaced by unrelated text.
-	//
-	// A DEGRADATION notice is the exception to "transient": it names a file path the
-	// author has to go and fix, and 2.6 s is not long enough to read one — on the case
-	// that motivates it (a long export, the author on another tab) it is gone before
-	// they look. Callers that carry one pass a longer duration, which rides through as
-	// an option rather than a second positional argument.
-	const notify = React.useCallback((msg: string, opts?: { description?: string; duration?: number }) => {
-		showStatus(msg, opts);
-	}, []);
 
 	// ── Self-driving demo walkthrough ───────────────────────────────────────
 	// A guided "watch it drive itself" tour: a fake cursor + captions play a
@@ -2374,7 +2350,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setFocus: setQuietened,
 		setPosture: changePosture,
 		setCmdOpen,
-		notify,
 		setMobilePane,
 		mobile,
 	});
@@ -2534,7 +2509,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		resumePendingAuth().then((ok) => {
 			if (ok) notify('OpenRouter connected — the Architect can now edit your deck.');
 		});
-	}, [notify]);
+	}, []);
 	// Storage durability — two quiet moves on boot. (1) Ask the browser to mark
 	// this origin's storage persistent (best-effort; silently denied where
 	// unsupported). (2) The EARNED backup nudge: only when real unbacked-up work
@@ -2553,7 +2528,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const edited = loadDeckList().filter((d) => loadSource(d.id) != null).length;
 			notify(`${edited} decks live only in this browser — a backup takes 10 s: Workspace → General.${isEvictionProneBrowser() ? ' (Safari clears unused site data after a week.)' : ''}`);
 		}
-	}, [notify]);
+	}, []);
 	// NOTE: the standalone "Rewrite lead" AI action (runArchitectAction) was removed with
 	// the Coach reframe — the deterministic chips + per-finding AI fix + the chat now cover
 	// deck edits, so a single static rewrite chip is redundant (succession doc §2, P2a).
@@ -2592,7 +2567,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				setRefineBusy(false);
 			}
 		},
-		[refineBusy, source, notify, deck.id],
+		[refineBusy, source, deck.id],
 	);
 
 	// Recompute the deck-wide findings list whenever the source (or the known-name
@@ -2753,7 +2728,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			}
 			return false;
 		},
-		[fixStates, source, components, notify, stopFixTimer],
+		[fixStates, source, components, stopFixTimer],
 	);
 	const fixFinding = React.useCallback((finding: Finding, key: string) => void draftFix(finding, key), [draftFix]);
 	const discardFix = React.useCallback(
@@ -2796,7 +2771,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			notify('Fix applied — ⌘Z or restore from History to undo.');
 			return true;
 		},
-		[fixStates, source, deck.id, notify, discardFix, setSource],
+		[fixStates, source, deck.id, discardFix, setSource],
 	);
 	// Draft fixes for EVERY draftable finding (idle OR previously-stale), serialized against
 	// one source snapshot so slide numbers stay coherent — each lands as its own reviewable
@@ -2859,7 +2834,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (applied) setSource(next);
 		if (stale.length) setFixStates((m) => { const n = { ...m }; for (const { key, slide } of stale) if (n[key]) n[key] = { phase: 'stale', slide }; return n; });
 		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${stale.length ? ` · ${stale.length} need a re-draft (slide changed)` : ''} — undo from History.` : 'None applied — those slides changed since they were drafted. Re-draft them.');
-	}, [fixStates, source, deck.id, notify, discardFix, setSource]);
+	}, [fixStates, source, deck.id, discardFix, setSource]);
 
 	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
 	// popovers/sheets/dialogs handle Escape first and stop its propagation, so `Esc`
@@ -3719,7 +3694,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// A FACTORY, not one element: the docked column wants the chat to render its own header
 	// row (title left, cost right — see ChatCost), while the mobile sheet already has
 	// PanelHeader and only wants the cost.
-	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
+	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />;
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	// The six sections, as DATA — the list view and search render all of them and the
@@ -5241,7 +5216,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
@@ -5442,7 +5417,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{libraryOpen && (
-										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} notify={notify} />
+										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} />
 									)}
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize panel" />
@@ -5572,13 +5547,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} notify={notify} />
+			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} />
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
 			{/* The crash report — mounted only once there IS one, so a healthy session
 			    pays nothing for it. Opened from the boot toast, and from Workspace →
 			    Diagnostics via the `lattice:open-crash-report` event. */}
 			{crashReports.length > 0 && <CrashReportSheet open={crashOpen} onOpenChange={setCrashOpen} reports={crashReports} onDismiss={dismissCrash} />}
-			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
+			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} />
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
 			    so it lives in its own sheet off the top bar rather than in the inspector
 			    (which is now settings-only). Restore stays always-visible (not hover-only)
@@ -5637,7 +5612,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					onEditComponent={editComponent}
 					onEditFinish={editFinish}
 					onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
-					notify={notify}
 				/>
 			)}
 			{(presentOpen || presentEverOpened) && (
@@ -5657,7 +5631,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</button>
 					}
 				>
-					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} onReady={() => setPresentEverOpened(true)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
+					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} onReady={() => setPresentEverOpened(true)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} />
 				</React.Suspense>
 			)}
 			{cmdPalette}
@@ -5665,7 +5639,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* Hidden file input for "Import deck…" (.md upload). */}
 			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 
-			{/* The one toast surface — messages (notify) + the Undo action below. */}
+			{/* The one toast surface. What lands here is `lib/notify.ts`'s three kinds. */}
 			<Toaster />
 		</div>
 		</PanelNav>

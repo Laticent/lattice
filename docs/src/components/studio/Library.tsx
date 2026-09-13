@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
+import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
@@ -159,7 +160,7 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged, notify }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -186,7 +187,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onEditFinish?: (f: StudioFinish) => void;
 	onEditMotion?: (m: StudioScene) => void;
 	onChanged: () => void;
-	notify: (msg: string, description?: string) => void;
 }) {
 	// A phone docks the search field at the bottom; the docked column and the tablet
 	// sheet keep it in the header. Same predicate `PanelSheet` uses to pick its edge.
@@ -537,9 +537,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				// A throw can still leave items on the shelf, so the tally and the refusals
 				// go UNDER the reason rather than replacing it.
 				const under = [got ? tally : null, detail].filter(Boolean).join('\n');
-				notify(`Import failed — ${failure}`, under || undefined);
-			} else if (got) notify(tally, detail);
-			else if (refusals.length) notify('Nothing could be imported from that file.', detail);
+				notify(`Import failed — ${failure}`, { description: under || undefined });
+			} else if (got) notify(tally, { description: detail });
+			else if (refusals.length) notify('Nothing could be imported from that file.', { description: detail });
 			else notify('Nothing to import from that file.');
 			setBusy(null);
 			if (fileRef.current) fileRef.current.value = '';
@@ -886,7 +886,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				open={!!historyFor}
 				onOpenChange={(o) => { if (!o) setHistoryFor(null); }}
 				onRestored={() => { reload(); onChanged(); }}
-				notify={notify}
 			/>
 		</LibraryFrame>
 	);

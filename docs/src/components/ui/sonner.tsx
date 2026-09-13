@@ -23,9 +23,8 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 //      look of the hand-rolled pills it replaces). To return to the canonical
 //      panel, swap the `--normal-*` block for the shadcn defaults and drop
 //      `toastOptions`.
-//   3. STACK DEPTH — the base ships Sonner's default of three visible toasts.
-//      Status messages now share one id and one pill, so the only thing left to
-//      stack is an actionable toast beside it; the cap says so.
+//   3. STACK DEPTH — the base ships Sonner's default of three visible toasts, as a
+//      STACK. `lib/notify.ts` makes the same number a per-kind ceiling instead.
 //
 // Everything else — the typed variant `icons`, the `ToasterProps` passthrough —
 // is the canonical base untouched. `lx-ui` carries the token reset into Sonner's
@@ -52,15 +51,19 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={mode}
       className="toaster group lx-ui"
       position="bottom-center"
-      // (3) THE STACK IS CAPPED AT TWO. Sonner's default is 3
-      // (`VISIBLE_TOASTS_AMOUNT`, dist/index.mjs:411), which is a stack, and a stack of
-      // transient confirmations reads as a pile-up — the Library's bundle import alone
-      // could raise five at once. Status text no longer competes for a slot: it all
-      // rewrites ONE pill through `lib/status-pill.ts`. Two is therefore not a taste
-      // call but the real worst case — the status pill plus one toast carrying an
-      // ACTION (Undo, Reload), which keeps its own slot because collapsing it would
-      // let unrelated text replace a button the reader was reaching for.
-      visibleToasts={2}
+      // (3) THE STACK IS CAPPED AT ONE PILL PER KIND. Sonner's default is 3
+      // (`VISIBLE_TOASTS_AMOUNT`, dist/index.mjs:411) and that three is a STACK — three
+      // arbitrary messages, which is what a pile-up looks like. This three is not:
+      // `lib/notify.ts` raises exactly three kinds (status · action · sticky), keeps one
+      // slot each, and rewrites within a slot rather than adding to it. So the ceiling
+      // is structural, and the common case on screen is one.
+      //
+      // It was briefly 2, on the belief that sticky and action could not both be up. They
+      // can: the Playground's "this page is out of date" notice never expires by design,
+      // and a draft-backup Undo lands beside it. Capping below the real worst case does
+      // not prevent the third message — it HIDES one, `pointer-events: none`, and the one
+      // it hides is the oldest, which is the affordance someone was reaching for.
+      visibleToasts={3}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,
