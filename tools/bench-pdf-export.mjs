@@ -39,7 +39,9 @@
 //   --verify <pdf>                       compare every page against this PDF (pdf only)
 //   --out <dir>                          where the file lands (default .scratch/pdf-bench)
 //
-// Reports wall time, the longest frame gap, peak browser RSS sampled from the OS,
+// Reports wall time, the frame-gap distribution (longest, how long the tab could not
+// paint in TOTAL, and how many separate stalls that was — one 800 ms freeze and twenty
+// 200 ms ones are different defects), peak browser RSS sampled from the OS,
 // and — with --verify — a per-page digest match. The digest resolves each page's
 // content stream to the image it draws, so a transposed page fails it; page count
 // alone does not. Exit code 1 if the pages differ.
@@ -203,23 +205,38 @@ async function run(browser) {
 	const file = await download;
 	const wall = Date.now() - started;
 	const peakRss = stopRss();
-	const worstGap = await page.evaluate(() => Math.round(Math.max(0, ...window.__frameGaps)));
+	// The gap DISTRIBUTION, not just its maximum. One 800 ms stall and twenty 200 ms
+	// ones are different defects with different fixes, and the max cannot tell them
+	// apart: `blocked` is how long the tab could not paint in total, `stalls` how many
+	// times it could not for longer than a beat.
+	const gaps = await page.evaluate(() => {
+		const all = window.__frameGaps.map((g) => Math.round(g));
+		const sorted = [...all].sort((a, b) => b - a);
+		const STALL = 100;
+		return {
+			worst: sorted[0] || 0,
+			top: sorted.slice(0, 5),
+			stalls: all.filter((g) => g > STALL).length,
+			blocked: Math.round(all.filter((g) => g > STALL).reduce((n, g) => n + g, 0)),
+		};
+	});
+	const worstGap = gaps.worst;
 	const ext = ARTIFACT === 'pdf' ? 'pdf' : 'pptx';
 	const out = join(OUT, `${ENGINE}-${SLIDES}-${FORMAT}-${MODE}.${ext}`);
 	await file.saveAs(out);
 	const workers = await page.evaluate(() => window.__pdfWorkers);
 	await context.close();
-	return { wall, peakRss, workers, worstGap, out };
+	return { wall, peakRss, workers, worstGap, gaps, out };
 }
 
 const browser = await ENGINES[ENGINE].launch();
 try {
 	const r = await run(browser);
 	if (ARTIFACT !== 'pdf') {
-		console.log(`${ENGINE} · ${SLIDES} blocks · pptx · ${MODE}: ${(r.wall / 1000).toFixed(1)}s  longest frame gap ${r.worstGap} ms  peak RSS ${r.peakRss} MB  → ${r.out}`);
+		console.log(`${ENGINE} · ${SLIDES} blocks · pptx · ${MODE}: ${(r.wall / 1000).toFixed(1)}s  longest frame gap ${r.worstGap} ms  blocked ${r.gaps.blocked} ms over ${r.gaps.stalls} stalls  top ${r.gaps.top.join('/')}  peak RSS ${r.peakRss} MB  → ${r.out}`);
 	} else {
 	const digests = await pageDigests(r.out);
-	console.log(`${ENGINE} · ${SLIDES} blocks → ${digests.length} pages · ${FORMAT} · ${MODE}: ${(r.wall / 1000).toFixed(1)}s  (${(r.wall / digests.length).toFixed(0)} ms/page)  longest frame gap ${r.worstGap} ms  peak RSS ${r.peakRss} MB  workers ${r.workers}  → ${r.out}`);
+	console.log(`${ENGINE} · ${SLIDES} blocks → ${digests.length} pages · ${FORMAT} · ${MODE}: ${(r.wall / 1000).toFixed(1)}s  (${(r.wall / digests.length).toFixed(0)} ms/page)  longest frame gap ${r.worstGap} ms  blocked ${r.gaps.blocked} ms over ${r.gaps.stalls} stalls  top ${r.gaps.top.join('/')}  peak RSS ${r.peakRss} MB  workers ${r.workers}  → ${r.out}`);
 	if (VERIFY) {
 		const baseline = await pageDigests(String(VERIFY));
 		const same = baseline.length === digests.length && baseline.every((d, i) => d === digests[i]);

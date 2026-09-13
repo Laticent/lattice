@@ -1127,6 +1127,24 @@ async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log
 	}
 }
 
+// Rasterize one slide to raw PNG BYTES. Same clone + draw as rasterizeSection; it
+// stops at `canvas.toBlob` instead of `toDataURL`, so the base64 that a PowerPoint
+// needs is never built on this thread — the bytes transfer to the assembly worker for
+// free and it encodes them there.
+async function rasterizeSectionToPngBytes(section, fontEmbedCSS, cornerTarget, log) {
+	const { toCanvas } = await import('html-to-image');
+	try {
+		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
+			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+			const blob = await new Promise((resolve, reject) =>
+				canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
+			return await blob.arrayBuffer();
+		}, undefined, cornerTarget);
+	} catch (e) {
+		throw captureError(e);
+	}
+}
+
 // ── PDF (one-click image PDF) ─────────────────────────────────────────────────
 // `render` is the engine result for the deck ({ html, css, mode, geom, runtimeUrl,
 // fontCss }) — see the controller's `__dbExportRender`. We rasterize a dedicated
@@ -1517,6 +1535,78 @@ export async function exportPdf(render, name, onStatus, meta, opts) {
 // the alt can never drift onto the wrong slide: no source re-split, no
 // front-matter phantom, no auto-split (`split: headings`) misalignment. Mirrors
 // lib/export/pptx-export.js, which extracts from the same rendered slides it paints.
+/** The PowerPoint slide layout for a deck's geometry — 16:9 keeps the built-in one. */
+function pptxLayout(boxW, boxH) {
+	if (!(boxW > 0 && boxH > 0) || Math.abs(boxW / boxH - 16 / 9) < 0.01) return { custom: false, w: 0, h: 0 };
+	const longest = Math.max(boxW, boxH);
+	const inches = (n) => Math.round((n / longest) * 13.333 * 1000) / 1000;
+	return { custom: true, w: inches(boxW), h: inches(boxH) };
+}
+
+function canUsePptxWorker() {
+	return typeof Worker !== 'undefined';
+}
+
+// At most this many slides may sit transferred-but-unassembled in the worker's queue —
+// the same bound, for the same reason, as the PDF lane's. Each is a full PNG, and an
+// unbounded queue grows with however far the worker falls behind the clone + draw.
+const PPTX_WORKER_MAX_IN_FLIGHT = 2;
+
+/**
+ * Build the .pptx in a worker: this thread only clones and draws.
+ *
+ * What moves is the DOCUMENT, not the encode, and the measurement is why. On a
+ * 56-slide deck the per-slide stall is the same in PowerPoint and in the PDF (350 ms
+ * vs 367 ms) — that is html-to-image, and it needs the DOM. What PowerPoint had on
+ * top was one 717 ms freeze at the END: pptxgenjs writing an XML part per slide,
+ * JSZip base64-decoding every image, and the zip write, none of it yielding.
+ */
+async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log) {
+	const worker = new Worker(new URL('./pptx-assemble-worker.js', import.meta.url), { type: 'module' });
+	try {
+		const total = sections.length;
+		let acked = 0;
+		let wake = null;
+		let failure = null;
+		const done = new Promise((resolve, reject) => {
+			worker.onmessage = (e) => {
+				const m = e.data;
+				if (m.type === 'progress') {
+					acked = m.index + 1;
+					if (wake) { wake(); wake = null; }
+				} else if (m.type === 'done') {
+					resolve(new Blob([m.bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }));
+				} else if (m.type === 'error') reject(new Error(m.message));
+			};
+			worker.onerror = (e) => reject(new Error(e.message || 'PPTX worker failed'));
+		});
+		// Latch, so a worker that died on slide 4 of 60 does not let this thread draw all
+		// 60 before the fallback re-draws every one of them (see the PDF lane's note).
+		done.catch((e) => {
+			failure = failure || e;
+			if (wake) { wake(); wake = null; }
+		});
+		worker.postMessage({ type: 'init', layout, props });
+		for (let i = 0; i < total; i++) {
+			if (failure) throw failure;
+			while (i - acked >= PPTX_WORKER_MAX_IN_FLIGHT) {
+				await Promise.race([done, new Promise((r) => { wake = r; })]);
+				if (failure) throw failure;
+			}
+			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
+			const bytes = await rasterizeSectionToPngBytes(sections[i], fontEmbedCSS, 'pptx', log);
+			worker.postMessage({ type: 'slide', index: i, bytes, altText: altTextFor(i) }, [bytes]);
+			await new Promise((r) => setTimeout(r));
+		}
+		if (failure) throw failure;
+		if (onStatus) onStatus('Building .pptx…', { current: total, total });
+		worker.postMessage({ type: 'finish' });
+		return await done;
+	} finally {
+		worker.terminate();
+	}
+}
+
 export async function exportPptx(render, name, onStatus, meta) {
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const log = createImageFailureLog();
@@ -1539,22 +1629,35 @@ export async function exportPptx(render, name, onStatus, meta) {
 		);
 		describeRecord.length = 0;
 	}
-	const { default: PptxGenJS } = await import('pptxgenjs');
-	const pptx = new PptxGenJS();
 	const { eng, summary } = provenance(meta, sections.length);
-	pptx.title = (name || 'deck').trim();
-	pptx.subject = summary;
-	pptx.author = 'Lattice Drawing Board';
-	pptx.company = `Lattice · ${eng}`;
+	const props = { title: (name || 'deck').trim(), subject: summary, author: 'Lattice Drawing Board', company: `Lattice · ${eng}` };
 	// Slide aspect from the deck's @size geometry (mirrors lib/export/pptx-export.js
 	// pptxLayout). 16:9 keeps the built-in LAYOUT_WIDE; portrait/square get a custom
 	// layout at the same aspect, normalized to a 13.333in longest edge so the PNG
 	// full-bleeds without a ~20in sheet. Without this a portrait deck letterboxed.
 	const { w: boxW, h: boxH } = slideGeom(sections[0]);
-	if (boxW > 0 && boxH > 0 && Math.abs(boxW / boxH - 16 / 9) >= 0.01) {
-		const longest = Math.max(boxW, boxH);
-		const r = (n) => Math.round((n / longest) * 13.333 * 1000) / 1000;
-		pptx.defineLayout({ name: 'LATTICE', width: r(boxW), height: r(boxH) });
+	const layout = pptxLayout(boxW, boxH);
+	// The alt text for slide i, read from the RECORD rather than from the rasterized
+	// section (see the note below).
+	const altTextFor = (i) => (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
+	if (canUsePptxWorker()) {
+		try {
+			const blob = await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log);
+			download(blob, safeName(name) + '.pptx');
+			return missingImageReason(log);
+		} catch (e) {
+			// The deck must never be lost to the fast lane — rebuild on this thread.
+			console.warn('[lattice-export] PPTX worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
+		}
+	}
+	const { default: PptxGenJS } = await import('pptxgenjs');
+	const pptx = new PptxGenJS();
+	pptx.title = props.title;
+	pptx.subject = props.subject;
+	pptx.author = props.author;
+	pptx.company = props.company;
+	if (layout.custom) {
+		pptx.defineLayout({ name: 'LATTICE', width: layout.w, height: layout.h });
 		pptx.layout = 'LATTICE';
 	} else {
 		pptx.layout = 'LAYOUT_WIDE'; // 13.333 x 7.5in, 16:9 — the PNG full-bleeds it
@@ -1572,8 +1675,7 @@ export async function exportPptx(render, name, onStatus, meta) {
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
-		const altText = (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
-		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText });
+		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: altTextFor(i) });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
 		await new Promise((r) => setTimeout(r));
