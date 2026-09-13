@@ -606,6 +606,21 @@ describe('markdown-it-plugins', () => {
     return html;
   }
 
+  test('applyDeckLogoToHtml: a built-in NAME resolves to an inlined mark, a path does not', () => {
+    // `logo: lattice` has to work where there is no deck FILE — the Playground, the
+    // Studio, an exported .html opened offline — so it resolves to a data URI rather
+    // than a path. Anything else is what the author typed and stays that way.
+    const html = '<section id="1" data-lattice-slide="1"></section>';
+    const named = plugins.applyDeckLogoToHtml(html, '---\nlogo: lattice\n---\n');
+    const namedSrc = named.match(/<img[^>]*class="deck-logo[^"]*"[^>]*src="([^"]*)"/);
+    assert.ok(namedSrc, 'expected a deck-logo img for `logo: lattice`');
+    assert.ok(namedSrc[1].startsWith('data:image/svg+xml,'), `expected an inlined mark; got ${namedSrc[1].slice(0, 40)}`);
+
+    const pathed = plugins.applyDeckLogoToHtml(html, '---\nlogo: ../brand/mark.svg\n---\n');
+    const pathedSrc = pathed.match(/<img[^>]*class="deck-logo[^"]*"[^>]*src="([^"]*)"/);
+    assert.equal(pathedSrc[1], '../brand/mark.svg');
+  });
+
   test('applyDeckLogoToHtml: `logo:` with default `logo-on: all` injects <img class="deck-logo"> into every section', () => {
     const html = logoFixture([
       '<section id="1" data-lattice-slide="1"></section>',
