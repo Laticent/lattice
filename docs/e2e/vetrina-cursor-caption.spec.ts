@@ -368,6 +368,43 @@ test.describe('the red-team findings, pinned on the real page', () => {
 		}
 	});
 
+	test('a DRAG beat holds its caption across the lift-to-drop, then takes it down', async ({ page }) => {
+		// The seam the red team named as "where I would look next": a drag's performance window spans
+		// the line, so the caption is legible only because it is explicitly HELD — and the tour had no
+		// drag beat, so nothing on this branch had ever run it. It does now (beat 4).
+		await page.goto(PROTO);
+		await page.check('input[name="caption"][value="cursor"]');
+		await page.check('input[name="narr"][value="off"]');
+		await page.locator('#run').click();
+
+		const span = await page.evaluate(async () => {
+			const WANT = 'Drag draft';
+			let up: number | null = null;
+			let down: number | null = null;
+			const t0 = performance.now();
+			while (performance.now() - t0 < 45_000) {
+				const b = document.querySelector('.vetrina-bubble') as HTMLElement | null;
+				if (!b) break;
+				const showing = Number.parseFloat(getComputedStyle(b).opacity) > 0.5 && (b.textContent ?? '').includes(WANT);
+				if (showing && up == null) up = performance.now();
+				if (!showing && up != null) {
+					down = performance.now();
+					break;
+				}
+				await new Promise((r) => requestAnimationFrame(r));
+			}
+			return up != null && down != null ? Math.round(down - up) : null;
+		});
+
+		expect(span, 'the drag beat never showed its line').not.toBeNull();
+		// Eight words at the grounded rate is ~3500ms. It must be READ, not merely flashed while the
+		// item is in the air — and it must come down, which is the property the style is sold on.
+		expect(span ?? 0).toBeGreaterThan(2500);
+		expect(span ?? 0).toBeLessThan(6500);
+		// The reorder actually happened: the theater told the truth.
+		await expect(page.locator('#tags > :first-child')).toHaveId('tag-draft');
+	});
+
 	test('a voiced narrator built once is not rebuilt per run — no AudioContext leak', async ({ page }) => {
 		// `voicedNarrator` opens an AudioContext eagerly (the unlock has to be inside the user
 		// gesture). Built inside the Run handler and never disposed, that was 8 live contexts after

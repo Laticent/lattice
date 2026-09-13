@@ -497,6 +497,22 @@ discovering again.
 Three of these are now in `docs/e2e/vetrina-cursor-caption.spec.ts`, next to the eleven that could
 not catch them.
 
+### The seam the red team said to look at next — measured, and it holds
+
+Its closing line named the `sayAt` / `syncCaption` seam as having a likely third instance: the
+DRAG beat, whose performance window spans the line from lift to drop, so the caption is legible
+only because it is explicitly held. "The prototype tour has no drag beat, so nothing on this
+branch exercises it."
+
+That is now beat 4 of the prototype tour, and the seam holds. Measured on the real page, silent,
+`caption:'cursor'`: the line goes up 66ms after it is set, stays up across the whole lift-hold-drop,
+and comes down at 3367ms — against a grounded budget of 3500ms for its eight words. No stale text,
+no starvation, and the reorder actually happened. Pinned as an e2e case.
+
+Adding the beat is also the honest fix to the tour's own comment, which claimed six beats "chosen
+to exercise every case the design turns on" while omitting the one case whose caption lifecycle is
+different from every other.
+
 ### Still unverified after this pass
 
 - **A real voice.** Unchanged, and unchangeable from here.

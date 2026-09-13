@@ -131,7 +131,7 @@
 					<button id="publish" type="button">Publish</button>
 				</div>
 				<div class="tags" id="tags">
-					<span class="tag">board</span><span class="tag">quarterly</span><span class="tag">draft</span>
+					<span class="tag" id="tag-board">board</span><span class="tag" id="tag-quarterly">quarterly</span><span class="tag" id="tag-draft">draft</span>
 				</div>
 				<p id="prose">
 					Every slide in this deck is plain Markdown, and the engine decides the layout from the
@@ -245,16 +245,25 @@
 				publish: () => {
 					statusEl.textContent = `Published “${titleEl.value || 'Untitled deck'}”.`;
 				},
+				reorder: () => {
+					const tags = $('#tags') as HTMLElement;
+					const draft = $('#tag-draft') as HTMLElement;
+					tags.insertBefore(draft, tags.firstChild);
+				},
 			};
 
-			// Six beats, chosen to exercise every case the design turns on:
+			// Seven beats, chosen to exercise every case the design turns on:
 			//   1-2  two teaching beats (read, then act) — the caption's dwell is the whole beat. Two,
 			//        not one, because the single 16-word line they replaced hit the model's 6-second
 			//        reading clamp, which is the model saying a beat should have been two.
 			//   3    typing — the action the caption is most likely to be sitting on top of
-			//   4    a deictic underline on prose — ink the caption must not cover
-			//   5    a WORD-CUED click — the click lands as the narration reaches "Publish"
-			//   6    a confirm gesture on the result
+			//   4    a DRAG — the one beat whose performance window spans the line, so the caption is
+			//        held rather than merely allowed to show. The red team named this seam as the
+			//        likely third instance of the `sayAt` / `syncCaption` family of bugs, and the
+			//        tour had no drag beat, so nothing had ever run it.
+			//   5    a deictic underline on prose — ink the caption must not cover
+			//   6    a WORD-CUED click — the click lands as the narration reaches "Publish"
+			//   7    a confirm gesture on the result
 			const tour = () =>
 				scene<typeof actions>()
 					.say('This panel is the app.')
@@ -266,6 +275,10 @@
 					.point('#title')
 					.type('#title', 'Q4 Board Update')
 					.hold(500)
+					.say('Drag draft to the front of the list.')
+					.drag('#tag-draft', '#tag-board')
+					.act((a) => a.reorder())
+					.hold(400)
 					.say('These words are the part worth reading twice.')
 					.gesture('underline', '#prose')
 					.hold(500)
