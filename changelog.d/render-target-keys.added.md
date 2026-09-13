@@ -18,3 +18,9 @@
   Only `present:` was listed, so the other two were reachable only by already knowing they
   exist. None of the three gets a settings-panel control — they name the artifact a render
   emits, not a property of the deck, and the Studio sets them at export time.
+- The reader answers one question of a deck rather than two. The scalar and legacy arms
+  disagreed about *which* line to read — first-match versus any-match — so a trailing YAML
+  comment or a pair of quotes, both no-ops in YAML, could flip a deck from on to off when an
+  earlier line for the same key held a typo. Both arms now read every line for the key: the
+  target is on if any line for it says an on-word. The verdict is invariant under reordering
+  as a result.
