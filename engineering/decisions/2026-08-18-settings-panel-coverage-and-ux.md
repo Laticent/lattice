@@ -145,6 +145,16 @@ Recorded here so the next audit doesn't "fix" them:
   stripped the comment. `lib/authoring/lint-core.js` lints against the same kernel
   (`bad-render-target-value`), so an unrecognized value is reported while the deck is being
   written rather than discovered in the artifact.
+  **Where that warning LANDS is now verified on the real Studio** (2026-09-13), closing the
+  one claim #2164 shipped as UNVERIFIED under HARD RULE #23. The finding is deck-level
+  (`slide: 0`), and `editor-diagnostics.js` anchors a deck-level finding by searching the
+  front-matter chunk for the finding's `line` STRING — so the underline's position is a
+  property of that needle, not of the rule. `docs/e2e/editor-lint.spec.ts` drives the built
+  Studio, writes `FLUID: ture` on line 3, and reads back which document position the painted
+  underline sits over: line 3, text `FLUID: ture`, with the tooltip carrying the rule's
+  message. The needle is what it pins — mutating the rule to synthesize `${key}: ${value}`
+  instead of quoting the source line moves the underline to line 1 (`---`), which is the
+  failure the rule's own comment predicts for a needle that matches nothing.
 - `marp:` — mechanical (`deck-config.js` emits it so an exported `.md` renders through
   marp-cli). Not an author-facing setting.
 
