@@ -560,8 +560,10 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 				<button {...insertProps} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
 					<span className="relative w-[184px] shrink-0 overflow-hidden rounded-lg border border-border">
 						{preview}
-						{/* Insert affordance on hover/focus — decorative; the button owns the click. */}
-						<span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1 bg-[color-mix(in_srgb,var(--accent)_88%,#000)] text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+						{/* Insert affordance on hover/focus — decorative; the button owns the click.
+						    `z-10` because the pooled preview layer paints ABOVE the grid (see
+						    preview-pool.tsx) — without it this overlay is hidden behind the frame. */}
+						<span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-1 bg-[color-mix(in_srgb,var(--accent)_88%,#000)] text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
 							<Plus className="size-3.5" /> Insert
 						</span>
 					</span>
@@ -580,8 +582,9 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 			<button {...insertProps} className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
 				<span className="relative block">
 					{preview}
-					{/* Insert affordance on hover/focus — decorative; the button owns the click. */}
-					<span className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+					{/* Insert affordance on hover/focus — decorative; the button owns the click.
+					    `z-10`: the pooled preview layer paints above the grid (preview-pool.tsx). */}
+					<span className="pointer-events-none absolute inset-x-2 bottom-2 z-10 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
 						<Plus className="size-3.5" /> Insert
 					</span>
 				</span>

@@ -54,19 +54,84 @@ import { hasMermaid } from './slide-thumb';
 
 export type PooledPreviewProps = {
 	options: SingleSlideOptions;
+	/** Slide markdown (front-matter already prepended by the caller for theme/size parity), or —
+	 *  with `slideIndex` — a whole deck document. */
 	sample: string;
+	/** DECK CONTEXT (see DeckPreview's `slideIndex`): `sample` is a whole deck and this 0-based
+	 *  slide is the one shown, so the thumbnail carries the page number the engine computes
+	 *  against the real deck instead of "1" on every tile. Omit for a standalone sample (the
+	 *  add-slide gallery's component skeletons), where 1-of-1 is the truth. */
 	slideIndex?: number;
+	/** Required with `slideIndex` — see DeckPreview. The count the caller believes, and the shown
+	 *  slide alone, so a deck whose sections do not correspond 1:1 to its slides falls back to the
+	 *  right slide instead of painting a different one. */
 	slideCount?: number;
 	slideMarkdown?: string;
+	/** Override Mermaid detection. Required alongside `slideIndex`: auto-detection reads
+	 *  `sample`, and for a deck document that means ANY mermaid slide would inject the mermaid
+	 *  runtime into EVERY thumbnail. Pass the shown slide's own markdown result. */
 	mermaid?: boolean;
 	paletteOverride?: string;
 	extraTheme?: { name: string; css: string };
 	modeOverride?: 'light' | 'dark';
+	/** A local component's own CSS — the engine theme doesn't know a `.name` rule, so
+	 *  without this a local-component thumbnail paints unstyled. It is also part of a slot's
+	 *  shape key: one document's CSS must never reach another tile. */
 	extraCss?: string;
+	/**
+	 * This tile shows a CATALOG SPECIMEN — a sample the author did not write and cannot edit
+	 * — so the engine's authoring alarms (the overflow ring/tab and the type-floor alarm)
+	 * have no addressee here and are silenced. See `SingleSlideOptions.specimen`.
+	 *
+	 * PER-CALLER, deliberately. An earlier face declared it for every thumbnail, which silenced
+	 * the alarms in Present's slide overview and Reshape's variant tiles as well — and those show
+	 * the AUTHOR'S OWN SLIDES, where a clipped slide is the whole thing the grid is being scanned
+	 * for. Measured on the real Studio, an overflowing slide read `rings=1, tabs=1` in the main
+	 * preview and `rings=0, tabs=0` on its own overview tile. Being small is not what makes a
+	 * preview unworthy of the signal; not being yours is.
+	 */
 	specimen?: boolean;
 };
 
-type Rect = { top: number; left: number; width: number; height: number };
+type Rect = { top: number; left: number; width: number; height: number; radius?: string };
+
+/**
+ * The rounding a tile's own card imposes on its preview, as a `border-radius` shorthand.
+ *
+ * A pooled frame is NOT inside the tile, so the tile's `overflow-hidden rounded-xl` cannot clip
+ * it: the slide paints square corners straight over the card's curve. Measured on Present's
+ * overview — the tile's gold border curves and the dark slide fills the corner behind it. So the
+ * slot clips itself, copying the radius from the nearest ancestor that actually clips.
+ *
+ * PER CORNER, because a preview is usually not the whole card. In the add-slide gallery the
+ * preview sits at the TOP of a card with the component's name under it, so its bottom corners are
+ * square and its top ones are not; in the overview the preview IS the card. Comparing the box's
+ * own rect against the clipping ancestor's answers that without anyone declaring it. The border
+ * width comes off each radius, because a card's inner curve is tighter than its outer one by
+ * exactly that much.
+ */
+function clipOf(el: HTMLElement): string {
+	if (typeof getComputedStyle !== 'function') return '0px';
+	const box = el.getBoundingClientRect();
+	for (let a = el.parentElement; a; a = a.parentElement) {
+		const cs = getComputedStyle(a);
+		if (cs.overflow === 'visible') continue;
+		const r = a.getBoundingClientRect();
+		const bw = (side: string) => parseFloat(cs.getPropertyValue(`border-${side}-width`)) || 0;
+		const inset = (value: string, side: string) => `${Math.max(0, (parseFloat(value) || 0) - bw(side))}px`;
+		const near = (x: number, y: number, w: number) => Math.abs(x - y) <= w + 1;
+		const top = near(box.top, r.top, bw('top'));
+		const bottom = near(box.bottom, r.bottom, bw('bottom'));
+		const left = near(box.left, r.left, bw('left'));
+		const right = near(box.right, r.right, bw('right'));
+		const tl = top && left ? inset(cs.borderTopLeftRadius, 'top') : '0px';
+		const tr = top && right ? inset(cs.borderTopRightRadius, 'top') : '0px';
+		const br = bottom && right ? inset(cs.borderBottomRightRadius, 'bottom') : '0px';
+		const bl = bottom && left ? inset(cs.borderBottomLeftRadius, 'bottom') : '0px';
+		return `${tl} ${tr} ${br} ${bl}`;
+	}
+	return '0px';
+}
 
 type Tile = {
 	id: number;
@@ -105,14 +170,14 @@ const PoolContext = React.createContext<PoolApi | null>(null);
 /** How many frames a pool may grow to. It never shrinks — releasing a frame is the thing this
  *  whole module exists to avoid — so this is the ceiling on documents for the grid's lifetime.
  *  Sized above the largest in-band set measured on any surface (12-17 tiles at 390-1440px). */
-const MAX_SLOTS = 10;
+export const MAX_SLOTS = 10;
 
 /** Minimum gap between re-point passes. Long enough that a flick settles into one reassignment
  *  rather than sixty, short enough that letting go feels immediate. */
-const APPLY_MS = 220;
+export const APPLY_MS = 220;
 /** How long a tile keeps its slot after leaving the band. Absorbs an edge flicker, and covers
  *  the common "scroll a little and come back" without a re-point. */
-const RELEASE_GRACE = 600;
+export const RELEASE_GRACE = 600;
 
 /**
  * Owns one grid's frames. Wrap the grid's scroll CONTENT — the element whose height is the
@@ -142,7 +207,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		if (!layer) return { top: 0, left: 0, width: 0, height: 0 };
 		const a = el.getBoundingClientRect();
 		const b = layer.getBoundingClientRect();
-		return { top: a.top - b.top, left: a.left - b.left, width: a.width, height: a.height };
+		return { top: a.top - b.top, left: a.left - b.left, width: a.width, height: a.height, radius: clipOf(el) };
 	}, []);
 
 	/**
@@ -287,8 +352,8 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 							// WebKit does not reclaim.
 							// biome-ignore lint/suspicious/noArrayIndexKey: the slot index IS the identity here.
 							key={i}
-							className="absolute"
-							style={{ top: s.rect.top, left: s.rect.left, width: s.rect.width, height: s.rect.height, visibility: s.tileId === null ? 'hidden' : 'visible' }}
+							className="absolute overflow-hidden"
+							style={{ top: s.rect.top, left: s.rect.left, width: s.rect.width, height: s.rect.height, borderRadius: s.rect.radius, visibility: s.tileId === null ? 'hidden' : 'visible' }}
 						>
 							{s.props ? <DeckPreview {...s.props} mermaid={s.props.mermaid ?? hasMermaid(s.props.sample)} active className="size-full" aria-hidden /> : null}
 						</div>

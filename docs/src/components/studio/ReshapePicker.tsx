@@ -4,8 +4,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { getClassTokens } from './slide-directives';
-import { SlideThumbFace, useInView } from './slide-thumb';
 import { applyVariant, componentLooks, type VariantAxis, variantActive, variantNoop } from './slide-variants';
 
 // Reshape — recast the CURRENT slide to a different variant look (the edit-mode
@@ -66,43 +66,51 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 					Reshape <span className="text-[var(--text-heading)]">{component || 'slide'}</span> › pick a look
 					<span className="normal-case tracking-normal">— {looks.length - 1} variant{looks.length - 1 === 1 ? '' : 's'}</span>
 				</div>
-				<div className="grid max-h-[60vh] grid-cols-2 gap-2.5 overflow-y-auto overscroll-contain [touch-action:pan-y] sm:grid-cols-3 lg:grid-cols-4">
-					{looks.map((look) => {
-						// "Current" means CLICKING CHANGES NOTHING, not "this token is present": the two
-						// came apart on the Default tile, which restores an axis default, so on a bare
-						// `map` it claimed to be current and then rewrote `_class` to `map world`. Ask
-						// the model rather than guessing from the token set.
-						const next = applyVariant(chunk, look.token, axes, variants, variantAxes);
-						// …but a no-op is not enough for DEFAULT on its own. On `map world` both Default
-						// and the `world` tile are no-ops, and badging both put two "Current" tiles in one
-						// pick-one family. The look that is actually on wins; Default claims the badge
-						// only when no look is on AND clicking it really would do nothing.
-						const on = look.token ? next === chunk : !anyLookOn && variantNoop(chunk, '', axes, variants, variantAxes);
-						// An active TOGGLE is the one tile whose click is deliberately destructive: it
-						// removes the look. Preview the slide as it stands (previewing it turned off
-						// reads as the wrong slide) and say so — in the label AND on the badge, since
-						// an accessible name alone leaves a sighted author no warning at all.
-						const removes = !!look.token && !look.exclusive && variantActive(tokens, look.token);
-						return (
-							<ReshapeTile
-								key={look.token || '__default'}
-								sample={(frontMatter ?? '') + (removes || on ? chunk : next)}
-								label={look.token ? look.label : 'Default'}
-								actionLabel={removes ? `Remove ${look.label}` : `Reshape to ${look.token ? look.label : 'Default'}`}
-								badge={removes ? 'Current ×' : on ? 'Current' : ''}
-								active={on || removes}
-								options={options}
-								paletteOverride={paletteOverride}
-								extraTheme={extraTheme}
-								modeOverride={modeOverride}
-								extraCss={extraCss}
-								onClick={() => {
-									onReshape(look.token);
-									setOpen(false);
-								}}
-							/>
-						);
-					})}
+				{/* The variant tiles draw from a shared `PreviewPool` (#1538): a small fixed set of
+				    engine frames, re-pointed over the tiles on screen rather than torn down, because
+				    WebKit never gives a torn-down preview document back. The pool layer sits inside
+				    the scroll content, so it scrolls with the tiles. */}
+				<div className="max-h-[60vh] overflow-y-auto overscroll-contain [touch-action:pan-y]">
+					<PreviewPool>
+						<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+							{looks.map((look) => {
+								// "Current" means CLICKING CHANGES NOTHING, not "this token is present": the two
+								// came apart on the Default tile, which restores an axis default, so on a bare
+								// `map` it claimed to be current and then rewrote `_class` to `map world`. Ask
+								// the model rather than guessing from the token set.
+								const next = applyVariant(chunk, look.token, axes, variants, variantAxes);
+								// …but a no-op is not enough for DEFAULT on its own. On `map world` both Default
+								// and the `world` tile are no-ops, and badging both put two "Current" tiles in one
+								// pick-one family. The look that is actually on wins; Default claims the badge
+								// only when no look is on AND clicking it really would do nothing.
+								const on = look.token ? next === chunk : !anyLookOn && variantNoop(chunk, '', axes, variants, variantAxes);
+								// An active TOGGLE is the one tile whose click is deliberately destructive: it
+								// removes the look. Preview the slide as it stands (previewing it turned off
+								// reads as the wrong slide) and say so — in the label AND on the badge, since
+								// an accessible name alone leaves a sighted author no warning at all.
+								const removes = !!look.token && !look.exclusive && variantActive(tokens, look.token);
+								return (
+									<ReshapeTile
+										key={look.token || '__default'}
+										sample={(frontMatter ?? '') + (removes || on ? chunk : next)}
+										label={look.token ? look.label : 'Default'}
+										actionLabel={removes ? `Remove ${look.label}` : `Reshape to ${look.token ? look.label : 'Default'}`}
+										badge={removes ? 'Current ×' : on ? 'Current' : ''}
+										active={on || removes}
+										options={options}
+										paletteOverride={paletteOverride}
+										extraTheme={extraTheme}
+										modeOverride={modeOverride}
+										extraCss={extraCss}
+										onClick={() => {
+											onReshape(look.token);
+											setOpen(false);
+										}}
+									/>
+								);
+							})}
+						</div>
+					</PreviewPool>
 				</div>
 			</PopoverContent>
 		</Popover>
@@ -110,19 +118,21 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 }
 
 function ReshapeTile({ sample, label, actionLabel, badge, active, options, paletteOverride, extraTheme, modeOverride, extraCss, onClick }: { sample: string; label: string; actionLabel: string; badge: string; active: boolean; options: SingleSlideOptions; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; onClick: () => void }) {
-	const [ref, visible] = useInView<HTMLButtonElement>();
 	return (
 		<button
 			type="button"
-			ref={ref}
 			onClick={onClick}
 			aria-label={actionLabel}
 			aria-pressed={active}
 			className={cn('relative overflow-hidden rounded-lg border-2 bg-card text-left transition-colors focus-visible:outline-none', active ? 'border-[var(--accent)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))]')}
 		>
-			<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={visible} className="pointer-events-none aspect-video w-full" />
+			{/* An empty box — the pixels come from a pooled frame positioned over it. These are the
+			    author's OWN slide in each look, so no `specimen`: the authoring alarms belong here. */}
+			<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="pointer-events-none aspect-video w-full" />
 			<div className="truncate px-1.5 py-1 font-mono text-[9.5px] font-semibold text-[var(--text-heading)]">{label}</div>
-			{!!badge && <span className="absolute right-1 top-1 rounded bg-[var(--accent)] px-1 py-0.5 font-mono text-[8px] font-bold uppercase text-[var(--on-accent)]">{badge}</span>}
+			{/* `z-10`: the pooled preview layer paints above the grid (preview-pool.tsx), so the
+			    badge needs to be lifted or the frame hides it. */}
+			{!!badge && <span className="absolute right-1 top-1 z-10 rounded bg-[var(--accent)] px-1 py-0.5 font-mono text-[8px] font-bold uppercase text-[var(--on-accent)]">{badge}</span>}
 		</button>
 	);
 }
