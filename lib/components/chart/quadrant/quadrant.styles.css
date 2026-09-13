@@ -48,7 +48,7 @@
  * from the same slot (`--cN-light` / `--cN-dark`). Cohort inherits the
  * same `[data-cell]` routing — its groups are categories too. Themes tune
  * the look by tuning cN, not a quadrant-only token set. */
-:is(section.quadrant, figure.chart-frame) {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) {
   --quadrant-frame:   color-mix(in srgb, var(--muted-mark) 42%, transparent);
   --quadrant-split:   color-mix(in srgb, var(--muted-mark) 28%, transparent);
   --quadrant-target:  color-mix(in srgb, var(--muted-mark) 78%, transparent);
@@ -71,10 +71,10 @@
  * lives in _chart-family.css and guarantees fill + border share a hue and
  * flip with the canvas (pale fill / deep border on light, deep fill / pale
  * border on dark). The quadrant just assigns slots 1-4 in reading order. */
-:is(section.quadrant, figure.chart-frame) [data-cell="0"] { --cell-fill: var(--chart-cat-1-fill); --cell-ink: var(--chart-cat-1-ink); }
-:is(section.quadrant, figure.chart-frame) [data-cell="1"] { --cell-fill: var(--chart-cat-2-fill); --cell-ink: var(--chart-cat-2-ink); }
-:is(section.quadrant, figure.chart-frame) [data-cell="2"] { --cell-fill: var(--chart-cat-3-fill); --cell-ink: var(--chart-cat-3-ink); }
-:is(section.quadrant, figure.chart-frame) [data-cell="3"] { --cell-fill: var(--chart-cat-4-fill); --cell-ink: var(--chart-cat-4-ink); }
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) [data-cell="0"] { --cell-fill: var(--chart-cat-1-fill); --cell-ink: var(--chart-cat-1-ink); }
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) [data-cell="1"] { --cell-fill: var(--chart-cat-2-fill); --cell-ink: var(--chart-cat-2-ink); }
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) [data-cell="2"] { --cell-fill: var(--chart-cat-3-fill); --cell-ink: var(--chart-cat-3-ink); }
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) [data-cell="3"] { --cell-fill: var(--chart-cat-4-fill); --cell-ink: var(--chart-cat-4-ink); }
 
 /* quadrant is a chart-family member — section layout, header/body/caption
  * skeleton and h2 styling all come from section.chart-frame. The figure
@@ -89,7 +89,7 @@
  * `.chart-header` background/hairline overrides here are retired — the element no
  * longer exists. */
 
-:is(section.quadrant, figure.chart-frame) .quadrant-figure {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-figure {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -105,7 +105,7 @@
  * key in one viewBox) and is sized by the shared rule in chart-family.css, so the
  * old square-ish `aspect-ratio:420/348` + `50cqh` cap (which would letterbox the
  * now-wider unit) must not reach it. */
-:is(section.quadrant, figure.chart-frame) .quadrant-svg:not(.quadrant-svg--cohort) {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-svg:not(.quadrant-svg--cohort) {
   /* Section-relative fill, capped at 50cqh (50% slide height). Outside the
    * Form the common quadrant is NOT in a query-container figure, so `cqh`
    * here means the SLIDE; keep the resolution-stable cqh cap it shipped
@@ -121,7 +121,7 @@
   flex: 0 1 auto;
   overflow: visible;
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-svg[data-band="none"] {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-svg[data-band="none"] {
   aspect-ratio: 420 / 320;   /* no quadrant names → no band to reserve */
 }
 /* IN-FORM (section.form) — the pie's proven fill-the-parent pattern
@@ -140,10 +140,10 @@
  *     bodies. The chart-body's own centering flex column takes over the
  *     figure's centering job.
  * Non-form rendering keeps the slide-based rule above, byte-identical. */
-section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-figure {
+section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .quadrant-figure {
   display: contents;
 }
-section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quadrant-svg--cohort) {
+section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .quadrant-svg:not(.quadrant-svg--cohort) {
   /* Container-fill (2026-07-04-chart-container-fill-sizing.md): the .chart-body is a container-type:size box and the
      figure is display:contents, so the SVG fills BOTH axes of that definite box;
      preserveAspectRatio `meet` fits the 420/348 plot inside, shrink-to-fit.
@@ -168,24 +168,24 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * stronger than the same hue's airy radar wash). fill-opacity drops the four
  * tints ~40% into the family's quiet register so identity is carried by the
  * vivid white-ringed dots at the edge, not by shouting region blocks. */
-:is(section.quadrant, figure.chart-frame) .quadrant-tint {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-tint {
   fill: var(--cell-fill);
   fill-opacity: 0.6;
   stroke: none;
 }
 
 /* ── Plot frame + split lines ─────────────────────────────────────────── */
-:is(section.quadrant, figure.chart-frame) .quadrant-bounds {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-bounds {
   fill: none;
   stroke: var(--quadrant-frame);
   stroke-width: 1.25;
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-split {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-split {
   stroke: var(--quadrant-split);
   stroke-width: 1;
 }
 /* Threshold variant: target lines pop more than ordinary centerlines. */
-:is(section.quadrant, figure.chart-frame) .quadrant-split[data-kind="target"] {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-split[data-kind="target"] {
   stroke: var(--quadrant-target);
   stroke-width: 1.75;
   stroke-dasharray: 5 4;
@@ -195,18 +195,18 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 /* SVG font-size bypass: labels sit inside a ~420×348-unit SVG viewBox, so
  * CSS px ≠ pt. Values are intentional deviations from the 12-token scale;
  * scoped to :is(section.quadrant, figure.chart-frame) so themes can override per-component via the token. */
-:is(section.quadrant, figure.chart-frame) {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) {
   --quadrant-axis-size: 14px;  /* #680: 12 -> 14 */
   --quadrant-tick-size: 12px;  /* #680: 10 -> 12 */
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-axis-name {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-axis-name {
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-size: var(--quadrant-axis-size);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-tick {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-tick {
   fill: var(--text-muted);
   font-family: var(--font-label, var(--font-body));
   font-size: var(--quadrant-tick-size);
@@ -219,7 +219,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * dark) — no --bg halo. cN-dark ink can't clear AA as text on its own tint,
  * so text never uses cell-ink; and softened --text-heading reads a touch
  * light on the vivid zones, so the labels take true black/white instead. */
-:is(section.quadrant, figure.chart-frame) .quadrant-label {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-label {
   /* The name takes ITS QUADRANT'S ink, which binds it to the block it describes
    * — the whole job of a region label. `--cell-ink` is routed from the
    * `data-cell` the label carries.
@@ -246,23 +246,23 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
   text-transform: uppercase;
 }
 /* Magic variant: heavier, more ceremonial labels with extra tracking. */
-:is(section.quadrant, figure.chart-frame) .quadrant-label--magic {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-label--magic {
   font-size: 13px;
   letter-spacing: 0.08em;
 }
 /* Threshold variant: zone names live ON the chart as action prompts. */
-:is(section.quadrant, figure.chart-frame) .quadrant-label--zone {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-label--zone {
   font-size: 11.5px;
   letter-spacing: 0.06em;
 }
 
 /* ── Scatter dots + per-dot labels ────────────────────────────────────── */
-:is(section.quadrant, figure.chart-frame) .quadrant-dot {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-dot {
   fill: var(--cell-ink);
   stroke: var(--bg);
   stroke-width: 2;
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-dot-label {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-dot-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 9.5px;
@@ -270,7 +270,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 }
 
 /* ── Bubble variant: √-area bubble + smart label position ─────────────── */
-:is(section.quadrant, figure.chart-frame) .quadrant-bubble {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-bubble {
   fill: var(--cell-fill);
   stroke: var(--cell-ink);
   stroke-width: 1.5;
@@ -278,13 +278,13 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 /* Value text is neutral heading ink — high-contrast both inside the pale
  * cN-light bubble fill and above it on the canvas (cN-dark would not clear
  * AA on its own same-hue tint). */
-:is(section.quadrant, figure.chart-frame) .quadrant-bubble-value {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-bubble-value {
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-size: 8.5px;
   font-weight: 700;
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-bubble-label {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-bubble-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 9.5px;
@@ -292,40 +292,40 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 }
 
 /* ── Trail variant: faded before + dashed connector + solid after ─────── */
-:is(section.quadrant, figure.chart-frame) .quadrant-trail-line {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-trail-line {
   stroke: var(--cell-ink);
   stroke-width: 1.5;
   stroke-dasharray: 3 3;
   stroke-linecap: round;
   opacity: 0.7;
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-trail-before {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-trail-before {
   fill: none;
   stroke: var(--cell-ink);
   stroke-width: 1.5;
   opacity: 0.6;
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-trail-after {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-trail-after {
   fill: var(--cell-ink);
   stroke: var(--bg);
   stroke-width: 1.5;
 }
 
 /* ── Cohort variant: convex hulls + centroid labels + legend ──────────── */
-:is(section.quadrant, figure.chart-frame) .quadrant-hull {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-hull {
   fill: var(--cell-fill);
   stroke: var(--cell-ink);
   stroke-width: 1.25;
   stroke-linejoin: round;
   opacity: 0.65;
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-hull-line {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-hull-line {
   stroke: var(--cell-ink);
   stroke-width: 1.5;
   stroke-linecap: round;
   opacity: 0.65;
 }
-:is(section.quadrant, figure.chart-frame) .quadrant-cohort-label {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-cohort-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 12px;
@@ -338,7 +338,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * retired with it. See 2026-06-13-svg-native-legend.md. */
 
 /* ── Threshold variant: target badges at the axis crossings ───────────── */
-:is(section.quadrant, figure.chart-frame) .quadrant-target-badge {
+:is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-target-badge {
   fill: var(--quadrant-target-ink);
   font-family: var(--font-label, var(--font-body));
   font-size: 10px;
@@ -346,22 +346,22 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 }
 
 /* ── minimal: no fills, fainter grid (composable) ─────────────────────── */
-section.quadrant.minimal .quadrant-tint {
+section.quadrant.minimal:where(:not(.radar)) .quadrant-tint {
   fill: none;
 }
-section.quadrant.minimal {
+section.quadrant.minimal:where(:not(.radar)) {
   --quadrant-frame: color-mix(in srgb, var(--muted-mark) 28%, transparent);
   --quadrant-split: color-mix(in srgb, var(--muted-mark) 18%, transparent);
 }
-section.quadrant.minimal .quadrant-bubble {
+section.quadrant.minimal:where(:not(.radar)) .quadrant-bubble {
   fill: none;
 }
-section.quadrant.minimal .quadrant-hull {
+section.quadrant.minimal:where(:not(.radar)) .quadrant-hull {
   fill: none;
 }
 
 /* ── dark: lift frame + split for dark surfaces (composable) ──────────── */
-section.quadrant.dark {
+section.quadrant.dark:where(:not(.radar)) {
   --quadrant-frame:  color-mix(in srgb, var(--muted-mark) 58%, transparent);
   --quadrant-split:  color-mix(in srgb, var(--muted-mark) 42%, transparent);
   --quadrant-target: color-mix(in srgb, var(--muted-mark) 88%, transparent);

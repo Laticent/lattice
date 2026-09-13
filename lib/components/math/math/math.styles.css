@@ -1255,3 +1255,77 @@ section .functionplot-error {
   border-radius: var(--radius-sm);
 }
 
+
+/* ── The REFLOWED display scale (#2136, lever 2) ──
+ *
+ * `lib/core/tex-linebreak.js` breaks a display equation that is too long for anything but a
+ * 16:9 slide onto `aligned` lines, and marks the paragraph `data-math-reflow="N"`. This is
+ * the other half of that move: a broken equation is set SMALLER than a single-line hero.
+ *
+ * WHY BOTH LEVERS, measured on `math feature`'s committed sample (the logistic
+ * log-likelihood) against a 972px stage:
+ *
+ *   | size     | as authored | reflowed | reflowed, at the scale below |
+ *   |----------|-------------|----------|------------------------------|
+ *   | portrait |      2587px |   1850px |                        925px |
+ *   | square   |      1486px |   1139px |                        944px |
+ *
+ * Neither lever closes it alone, which is exactly the owner ruling in #2136. The break takes
+ * ~28% off the width and then hits a floor set by the longest sub-expression; the rest is the
+ * 2.4em scale-UP the tall families apply, chosen for a "representative hero" one line long.
+ *
+ * WHY THIS IS NOT THE SHRINK-TO-FIT THE FIT SPINE FORBIDS. Axiom 3 bans SCALING TO FIT — a
+ * measured, per-slide shrink that trades legibility for a box. This is a layout constant for
+ * a different shape: a single-line hero and a three-line derivation are not the same object,
+ * and setting the multi-line one at the same 2.4em is what made it unreadable in the first
+ * place. It is also keyed on the marker the pass emits, so it reaches ONLY equations the
+ * engine broke — every single-line equation in the corpus keeps the scale it has, and every
+ * 16:9 render is byte-identical (the pass does not run at `wide`).
+ *
+ * AND IT IS NOT A GUARANTEE. An equation longer than this sample still overflows and is still
+ * flagged by the overflow watcher, which is what the watcher is for. The scale is set from
+ * the widest equation the corpus actually ships, with ~47px of clearance at portrait — the
+ * same margin the single-line 2.4em carries for the reference OLS hero. */
+section.math.form > .cell-stage > p[data-math-reflow]:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+  font-size: 1.4em;
+}
+section.math.form:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p[data-math-reflow]:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+  font-size: 1.2em;
+}
+
+/* ── the SPLIT body page: one legend line does not want two columns (#2136) ──
+ *
+ * The equation+legend variants (bare, `feature`, `matrix`, `decompose`) lay the equation beside
+ * its legend in a two-column stage. That is right for a slide carrying the whole legend and wrong
+ * for a page carrying ONE line of it, in two ways — one of them a measured content loss.
+ *
+ * At `square` the base template is `3fr 2fr`, and an `fr` track's automatic minimum is
+ * `min-content`. A legend of four items has a small min-content (the prose wraps), so the legend
+ * track squeezes to 188px and the grid fits its 972px box exactly. Sliced to one item, the
+ * legend's min-content is whatever that item's widest unbreakable run is — and a `<li>` leading
+ * with an inline `$x$` carries a `.katex` span that does not wrap — so the track grew to 235px
+ * and the grid ran 47px past the stage. `matrix`, whose template already carries `minmax(0, …)`,
+ * failed the other way for the same reason: the track cannot grow, so the legend's own content
+ * overflowed it by 145px instead. Measured on `math.gallery.md` at `square`, seven pages.
+ *
+ * The second way is simply the read. A page holding a display equation and one symbol has no
+ * comparison to set side by side; the tall families already stack it (`grid-template-columns:
+ * 1fr` at `[data-family="tall"]`), and this is that same layout, reached because the PAGE is
+ * short rather than because the BOX is narrow.
+ *
+ * Scoped to the four equation+legend variants: `derivation`, `theorem`, `compare`, `canvas` and
+ * `stats` either have no second column or are not split at all. */
+section.math.form.lat-split-native:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.stats)) > .cell-stage {
+  grid-template-columns: minmax(0, 1fr);
+}
+section.math.form.lat-split-native:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.stats)) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+  grid-column: 1 / -1;
+  /* The rule that separated the two columns has nothing left to separate. */
+  padding-right: 0;
+  border-right: 0;
+}
+section.math.form.lat-split-native:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.stats)) > .cell-stage > :is(ul, ol) {
+  grid-column: 1 / -1;
+  align-self: start;
+  min-width: 0;
+}

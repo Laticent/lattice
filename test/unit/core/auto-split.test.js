@@ -417,7 +417,9 @@ describe('auto-split: data-split-label names the page, over the first-list heuri
   // A run of three body pages, each holding a titled card whose OWN list would otherwise be read
   // as the page's members — the roadmap shape, reduced.
   const page = (n, label) => '<section data-lattice-slide="1" data-split-run="r1" '
-    + `data-split-role="body"${label ? ` data-split-label="${label}"` : ''} class="cards">`
+    // `label == null`, not `!label` — an EMPTY string is a real state here (the splitter found the
+    // title and the label rules declined it), and a falsy test collapsed it into "no attribute".
+    + `data-split-role="body"${label == null ? '' : ` data-split-label="${label}"`} class="cards">`
     + `<h2>Plan</h2><div class="card"><span class="card-title">${n}</span>`
     + '<ul><li>Workstream row one</li><li>Workstream row two</li></ul></div></section>';
   const doc = (...labels) => `<main>${labels.map((l, i) => page(`Card ${i + 1}`, l)).join('')}</main>`;
@@ -434,9 +436,58 @@ describe('auto-split: data-split-label names the page, over the first-list heuri
       'an unstamped page must fall through to membersIn exactly as before');
   });
 
-  test('a stamp is TEXT — an escaped quote comes back as a quote, not as markup', () => {
+  test('an EMPTY stamp is an answer — it does not fall back to the heuristic', () => {
+    // Three states, not two. NO attribute means "this strategy names nothing, use your heuristic"
+    // (the arm above). An EMPTY one means "the splitter found the member's title and the label
+    // rules declined it" — an equation, a shape glyph, a character the deck's face cannot set, a
+    // sentence too long to be a name. Falling through there re-enables exactly the heuristic the
+    // stamp exists to override, and on this shape it is known to be wrong: it names the workstream
+    // row INSIDE the card rather than the card. So the chip degrades to the un-labeled form.
+    // (HARD RULE #25 checker, final pass — the fix that added the empty state left this unpinned,
+    // and reverting the reader survived the arm that pins the WRITER.)
+    const out = applyRelationshipSignals(doc('Q1', '', 'Q3'), cap);
+    assert.deepEqual(sigsOf(out), ['continues', 'Q3'],
+      'a declined label must not be replaced by the first list inside the card');
+  });
+
+  test('a DECLINED member is still a member — it is only unnameable', () => {
+    // THE ARM ABOVE PINS THE CASE THAT WORKS AND CANNOT SEE EITHER FAILING ONE, which is how the
+    // fix it was written for shipped a wrong number on a slide. Returning `[]` for a declined
+    // stamp looked right — the chip degrades — but `relationshipSignals` COUNTS members.
+    //
+    // ONE declined page out of several MISCOUNTS the run. This is `decision`'s `Option N of M`,
+    // and the failure is the exact class the kernel's own `total === 0` guard exists to prevent:
+    // two options, and the deck told the reader there was one.
+    const kinds = { cards: { axis: 'item', hard: 4, relationship: 'comparison' } };
+    const two = applyRelationshipSignals(doc('Q1', ''), kinds);
+    assert.match(two, /of 2/, 'a declined title must not be subtracted from the member count');
+    assert.doesNotMatch(two, /of 1\b/);
+
+    // ALL of them declining silences the whole run: `total === 0` emits no chip ELEMENT at all,
+    // and §0b's argument is that an atomized run without the adornment cannot be read.
+    const none = applyRelationshipSignals(doc('', '', ''), cap);
+    assert.deepEqual(sigsOf(none), ['continues', 'continues'],
+      'every page declining must degrade to the un-labeled form, not to silence');
+  });
+
+  test('a stamp is TEXT — an escaped quote reaches the READER as a quote, not as markup', () => {
     // The label under test is on page TWO, because page one's pointer names page two.
+    //
+    // ONE ESCAPE, ONE DECODE, AND THE DECODE IS THE BROWSER'S. This arm used to assert
+    // `sigsOf(out)[0] === 'The "big" lane'` — i.e. that the reader here had already decoded it —
+    // which is what `decodeEntities(stamped)` did in `auto-split.js`. That call was the source of
+    // an XSS: the attribute is escaped author content, and decoding it before writing it back into
+    // markup turned `&lt;img src=x onerror=…&gt;` into a live element (verified in real Chromium:
+    // `window.PWN === 1`). The stamp is now passed through as stored, so the SIGNAL MARKUP holds
+    // `&quot;` and the browser decodes it exactly once, at the point where it is text.
     const out = applyRelationshipSignals(doc('First', 'The &quot;big&quot; lane', 'Third'), cap);
-    assert.equal(sigsOf(out)[0], 'The "big" lane');
+    assert.equal(sigsOf(out)[0], 'The &quot;big&quot; lane', 'the entity must survive to the markup');
+    // …and what a reader sees is the quote. Decoding is the last step, not the first.
+    const decoded = sigsOf(out)[0].replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+    assert.equal(decoded, 'The "big" lane');
+    // The angle brackets that made this an XSS never come back at all — they are escaped INTO the
+    // markup by `safeLabel`, so there is no path from a stamped `<img>` to a live element.
+    const hostile = applyRelationshipSignals(doc('First', '&lt;img src=x onerror=alert(1)&gt;', 'Third'), cap);
+    assert.doesNotMatch(hostile, /<img/i, 'a stamped tag became live markup');
   });
 });

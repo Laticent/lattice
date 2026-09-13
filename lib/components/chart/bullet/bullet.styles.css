@@ -17,7 +17,7 @@
 /* The figure fills the chart body so the plot scales with the slide rather than
  * sitting at the SVG's intrinsic size. `.cart-svg` (chart-family.css § Cartesian
  * chrome) sizes the root inside it; this is the box that root fills. */
-:is(section.bullet, figure.chart-frame) .bullet-figure {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-figure {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -57,25 +57,25 @@
  * projector distance the row read as one flat gray strip, which costs the
  * component the qualitative range that is half its reason to exist beside
  * `progress`. Doubling the step is what makes the zones legible as zones. */
-:is(section.bullet, figure.chart-frame) .bullet-band {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-band {
   fill: light-dark(
     color-mix(in oklab, var(--state-mute-hue) 36%, var(--bg)),
     color-mix(in oklab, var(--state-mute-hue) 40%, var(--bg)));
   stroke: none;
 }
-:is(section.bullet, figure.chart-frame) .bullet-zone-1 {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-zone-1 {
   fill: light-dark(
     color-mix(in oklab, var(--state-mute-hue) 22%, var(--bg)),
     color-mix(in oklab, var(--state-mute-hue) 26%, var(--bg)));
 }
-:is(section.bullet, figure.chart-frame) .bullet-zone-2 {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-zone-2 {
   fill: light-dark(
     color-mix(in oklab, var(--state-mute-hue) 10%, var(--bg)),
     color-mix(in oklab, var(--state-mute-hue) 13%, var(--bg)));
 }
 /* A fourth zone only exists when the author names three cut points. It is the
  * top of the scale, so it is the quietest thing on the row — barely a tint. */
-:is(section.bullet, figure.chart-frame) .bullet-zone-3 {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-zone-3 {
   fill: light-dark(
     color-mix(in oklab, var(--state-mute-hue) 4%, var(--bg)),
     color-mix(in oklab, var(--state-mute-hue) 5%, var(--bg)));
@@ -102,7 +102,7 @@
  * siblings that do wear the recipe are not shipping under any floor because of
  * it — their contrast against the canvas comes from the saturated ink edge, as
  * it does here. */
-:is(section.bullet, figure.chart-frame) .bullet-measure {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-measure {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 88%, var(--bg));
   stroke: var(--chart-cat-1-ink);
   stroke-width: 0.5;
@@ -114,7 +114,7 @@
  * reads as a threshold the bar is measured against. Heading ink, because it is
  * the reference the entire chart is about — not the quietest mark on the plot
  * (that is the grid) but the most declarative one after the measure itself. */
-:is(section.bullet, figure.chart-frame) .bullet-target {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-target {
   fill: none;
   stroke: var(--text-heading);
   stroke-width: 1.6;
@@ -128,7 +128,7 @@
  * the origin when the measure is below the row's own `Floor` and the bar has no
  * length at all. Measure ink, because it belongs to the measure — it is the
  * part of the bar that did not fit, not a separate datum. */
-:is(section.bullet, figure.chart-frame) .bullet-offscale {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-offscale {
   fill: var(--chart-cat-1-ink);
 }
 
@@ -138,7 +138,7 @@
  * its value, so the origin is given a visible edge rather than being left to
  * look like a zero baseline. Border ink, not heading ink — it is chrome that
  * qualifies the scale, not a datum. */
-:is(section.bullet, figure.chart-frame) .bullet-floor {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-floor {
   fill: none;
   stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
   stroke-width: 0.8;
@@ -149,13 +149,13 @@
  * property of the slide background and not of whichever wash sits behind them.
  * The name takes the family's category register (`cart-cat`) and adds weight:
  * in a bullet the row name is the reader's entry point, not an axis tag. */
-:is(section.bullet, figure.chart-frame) .bullet-name {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-name {
   fill: var(--text-heading);
   font-weight: 600;
 }
 /* What the measure was measured against. Muted and a step smaller, so the pair
  * reads as one figure with its reference, not as two competing numbers. */
-:is(section.bullet, figure.chart-frame) .bullet-plan {
+:is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-plan {
   fill: var(--text-muted);
   font-family: var(--font-label);
   font-size: 6.5px;

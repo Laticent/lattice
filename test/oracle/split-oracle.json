@@ -30,6 +30,11 @@
       "deck": "examples/team-profile.md",
       "by": "claude/team-profile-component-qjcym1 (rendered at size: portrait, indaco, and read page by page)",
       "note": "All five compositions split to one `li.person` per page across 45 pages: the heading repeats with `(cont.)`, each page carries the person's portrait, name, role and note intact, and the forward pointer reads `continues ->`. Axis `item` derived from the rendered <ul.team-roster>, which is the authored top-level list after the component's transform rebuilds each item -- the transform retags the <li> but does not move it, so the `ul > li` axis default still resolves and no `domSelector` is needed. list-heavy rather than atomic on purpose: a lone PERSON reads exactly as authored (a name, a role, the line about what they own -- a title AND a body), unlike a lone logo-wall mark, which would assert an endorsement nobody wrote; the reasoning is recorded at the TREATMENTS entry in lib/core/split-facts.js. This split is what caught the `bio` row defect: its text block was a wrapped flex line whose note carried `min-width: 100%`, unshrinkable, and ran up to 191px past the stage's right edge on a narrow page, losing its last word. Rebuilt as a two-track grid; re-measured at zero overflow on every one of the 45 pages. A long roster that should stay ONE slide has the in-component answer instead -- the `bench` variant drops the notes and packs six up."
+    },
+    "math": {
+      "deck": "examples/math-split-structure.md",
+      "by": "#2136 (rendered at size: portrait, indaco, rasterized and read page by page)",
+      "note": "Four structures, four verdicts, on one 8-slide deck that comes out 28 pages with nothing clipped. equation+legend (bare p3-p6 of the run, `feature` p12-p16) and step table (`derivation`) BOTH resolve through the shared cover-paginate kernel, `item` and `row` derived off the rendered DOM: the equation `<p>` and the table `<thead>` repeat on every body page, which is the requirement -- a legend page without its equation is unreadable. Card stack (`theorem`) and columns (`compare`) have no collection at all, so they slice by removing spans, one blockquote / one `### ` group per page, and stamp `data-split-label` so the pointer names its successor (\"-> Theorem\", \"-> Ridge\") where `membersIn` would find nothing. `stats` and `canvas` refuse BY NAME, first, before any arm runs: letting them fall out of a member count was a claim about the two committed SAMPLES rather than about the variants, and writing the stats reading as a list instead of a paragraph made `cover-paginate` claim the slide (measured: four pages, the CI panel on a cover without the estimate it qualifies). The two paginated arms also run LAST and only on a DIRECT-CHILD collection -- run first they outranked the structural arms whenever a card or a column contained a list of its own, dropping two theorem cards and duplicating a step. Conserved: 4 legend symbols, 3 table rows, 3 cards, 2 columns, against the unsplit render. NO closing page anywhere in the deck, which is correct and was not at first: `math` claims `blockquote` + `trailing-paragraph`, so `math-structures` joins MEMBER_CLAIM_STRATEGIES -- without it the hoist read all three theorem cards as one trailing run and emitted three empty pages plus a card dump."
     }
   },
   "components": {
@@ -430,13 +435,13 @@
       "relationship": null
     },
     "math": {
-      "treatment": "atomic",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
+      "enrolled": true,
+      "strategy": "math-structures",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
       "perPage": null,
       "relationship": null
     },

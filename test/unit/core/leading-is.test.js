@@ -140,6 +140,28 @@ function specificity(sel) {
   let classes = 0;
   let types = 0;
   let rest = s;
+  // `:where()` CONTRIBUTES ZERO, so it comes off first and pays nothing — including its
+  // contents, which is the whole reason the repo reaches for it (the component-id /
+  // variant-token collision guards, `:where(:not(.list))`, are written that way precisely so
+  // they cannot re-rank a sheet). Balanced, not `[^()]*`: the guards nest a `:not()` inside,
+  // and a lazy strip would leave a stray `)` that the fall-through below scores as garbage.
+  //
+  // Without this the scorer read `section.bullet:where(:not(.list))` as (0,3,1) against
+  // `figure.chart-frame`'s (0,1,1) and reported a lopsided `:is()` head on a pair that CSS
+  // scores identically — a false positive on the first sheet to combine the two idioms (#2132).
+  for (let guard = 0; guard < 8; guard++) {
+    const at = rest.indexOf(':where(');
+    if (at < 0) break;
+    let depth = 0;
+    let end = -1;
+    for (let i = at + ':where('.length - 1; i < rest.length; i++) {
+      if (rest[i] === '(') depth++;
+      else if (rest[i] === ')' && --depth === 0) { end = i; break; }
+    }
+    if (end < 0) return null; // unbalanced — unscorable, which the caller treats as a failure
+    rest = rest.slice(0, at) + rest.slice(end + 1);
+  }
+  if (rest.includes(':where(')) return null;
   // Nested :is()/:not()/:has() — score their arms, take the max, then remove.
   const NESTED = /:(?:is|not|has)\(([^()]*)\)/;
   for (let guard = 0; guard < 8; guard++) {
@@ -175,6 +197,10 @@ describe('leading-is — the equal-specificity precondition holds in the corpus'
     assert.deepEqual(specificity('section'), [0, 0, 1]);
     assert.deepEqual(specificity('#a.b c'), [1, 1, 1]);
     assert.deepEqual(specificity('section:is(.a.b, .c)'), [0, 2, 1]);
+    // `:where()` is zero-specificity, contents included — the collision-guard idiom.
+    assert.deepEqual(specificity('section.bullet:where(:not(.list))'), [0, 1, 1]);
+    assert.deepEqual(specificity('figure.chart-frame'), [0, 1, 1]);
+    assert.deepEqual(specificity(':where(.a, #b) .c'), [0, 1, 0]);
     assert.deepEqual(specificity('a[href]::before'), [0, 1, 2]);
   });
 

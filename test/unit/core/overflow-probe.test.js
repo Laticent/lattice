@@ -975,7 +975,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
   // Mount real nodes and stub only the geometry jsdom does not compute. `clipBoxes`
   // names the boxes whose computed overflow is non-visible; `scroll` supplies
   // scrollHeight/clientHeight for boxes that need them.
-  function mount(html, rects, { clipBoxes = [], scroll = {}, pseudo = {}, textRects = {} } = {}) {
+  function mount(html, rects, { clipBoxes = [], scroll = {}, pseudo = {}, textRects = {}, truncate = [], flex = [], wrap = [] } = {}) {
     const dom = new JSDOM('<!doctype html><body>' + html + '</body>');
     const { window } = dom;
     const doc = window.document;
@@ -1011,14 +1011,31 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
       return r ? [r] : [];
     };
     const clipSet = new Set(clipBoxes.flatMap((sel) => [...doc.querySelectorAll(sel)]));
+    // A box that TRUNCATES ITS OWN LINE — the standard frame's footer cell, and every
+    // `white-space: nowrap; overflow: hidden; text-overflow: ellipsis` label beside it.
+    // It clips on BOTH axes (that is what `overflow: hidden` computes to), so it joins
+    // `clipSet` as well: modelling only the `text-overflow` declaration would describe
+    // a box CSS treats as non-truncating, and the probe reads all three properties.
+    const truncSet = new Set(truncate.flatMap((sel) => [...doc.querySelectorAll(sel)]));
+    // A box laid out as a FLEX container — `text-overflow` is inert on one, so the probe must
+    // not exempt it however the three text properties read.
+    const flexSet = new Set(flex.flatMap((sel) => [...doc.querySelectorAll(sel)]));
+    // A box that DECLARES `text-overflow: ellipsis` but WRAPS. `white-space` was tied to
+    // `truncate` here, so no fixture could reach the probe's `nowrap`/`pre` test and deleting it
+    // survived the suite — a wrapping ellipsis box would then have been exempted from horizontal
+    // `over` while really losing text. (HARD RULE #25 checker, final pass.)
+    const wrapSet = new Set(wrap.flatMap((sel) => [...doc.querySelectorAll(sel)]));
     const prev = global.getComputedStyle;
     global.getComputedStyle = (el, pe) => {
       if (pe) return { content: pseudo[el.id] && pe === '::after' ? `"${pseudo[el.id]}"` : 'none' };
+      const trunc = truncSet.has(el);
       return {
-        overflowY: clipSet.has(el) ? 'clip' : 'visible',
-        overflowX: 'visible',
+        overflowY: clipSet.has(el) || trunc ? 'clip' : 'visible',
+        overflowX: trunc ? 'hidden' : 'visible',
+        textOverflow: trunc ? 'ellipsis' : 'clip',
+        whiteSpace: trunc && !wrapSet.has(el) ? 'nowrap' : 'normal',
         position: el.dataset?.pos || 'static',
-        display: 'block',
+        display: flexSet.has(el) ? 'flex' : 'block',
         visibility: 'visible',
       };
     };
@@ -1113,6 +1130,129 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
       (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
     assert.equal(r.over, false, '43 phantom px must not reach autosplit or the author ring');
     assert.equal(r.clipSuspect, true, '…but it IS worth a content walk to find out');
+  });
+
+  test('#2138 — an ellipsized footer carrying an inline element does not make the SLIDE `over`', () => {
+    // The shipped defect, in its measured shape. `.cell-footer > footer` is single-line
+    // chrome (`white-space: nowrap; overflow: hidden; text-overflow: ellipsis`). With a
+    // plain text footer discovery never sees it — no element children, nothing for
+    // `flowedSpill` to measure. Put ONE inline element in it — a `<code>` from a
+    // backticked word — and that element's rect sits past the footer's right edge, so
+    // the discovered-box loop read 2886px of geometric spill and the section came back
+    // `over: true` with `vOver: false` and `overCells: []`.
+    //
+    // Measured on `lib/components/statement/split-panel/split-panel.gallery.md` at
+    // `size: portrait`, where the `_footer:` values are generated from the manifest's
+    // variant summaries and carry `` `proof` `` in backticks: 30 of 71 pages read
+    // `over`, 28 of them for this reason alone.
+    const html = '<section class="form"><div class="cell-stage"><p id="body">fits</p></div>'
+      + '<div class="cell-footer"><footer id="ft">cat-1 · <code id="c">proof</code> — pins this slide</footer></div></section>';
+    const rects = {
+      section: rect(0, 1347, 0, 1080),
+      '.cell-stage': rect(0, 1280, 0, 1080),
+      '#body': rect(40, 90, 40, 1040),
+      '.cell-footer': rect(1280, 1347, 0, 1080),
+      '#ft': rect(1300, 1340, 25, 839),
+      '#c': rect(1300, 1340, 3200, 3725),        // laid out at full nowrap width, way past the box
+    };
+    const scroll = {
+      section: { scrollHeight: 1347, clientHeight: 1347, scrollWidth: 1080, clientWidth: 1080 },
+      '#ft': { scrollHeight: 40, clientHeight: 40, scrollWidth: 3857, clientWidth: 40 },
+    };
+    const r = withDom(html, rects, { scroll, truncate: ['#ft'] },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, false, 'a slide whose body fits must not read `over` because a footer word is in backticks');
+    assert.equal(r.vOver, false);
+    // …and the ellipsis is STILL reported. `clipSuspect` is what buys the content walk,
+    // and `probeContentClipped` classifies the cut `chromeOnly` — see the footer-band
+    // test below, which this exemption deliberately does not touch. The channel that
+    // tells an author their confidentiality line was truncated stays open; the one that
+    // splits the slide in half closes.
+    assert.equal(r.clipSuspect, true, 'the truncation is still worth adjudicating');
+  });
+
+  test('#2138 — a truncating box still reports VERTICAL spill, which it does not handle', () => {
+    // The exemption is one axis wide on purpose. `text-overflow` says nothing about
+    // height: a nowrap ellipsis box whose children spill BELOW it is overflowing in an
+    // axis the ellipsis mechanism cannot absorb, and that is a real cut.
+    const html = '<section class="form"><div class="cell-footer">'
+      + '<footer id="ft"><span id="a">one</span><span id="b">two</span></footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),
+      '#a': rect(650, 690, 40, 300),
+      '#b': rect(650, 990, 300, 600),            // 300px BELOW the footer's bottom edge
+    };
+    const scroll = { section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 } };
+    const r = withDom(html, rects, { scroll, truncate: ['#ft'] },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, true, 'vertical spill out of a truncating box is not the ellipsis working');
+    assert.equal(r.vOver, true);
+  });
+
+  test('#2138 — a FLEX container is not exempt: `text-overflow` does nothing there', () => {
+    // `text-overflow` acts on a block container's own inline formatting context, so it is inert on
+    // a flex or grid container — this repo's own CSS says so twice. Measured in Chrome 131: a
+    // block container ellipsizes, a flex container hard-clips mid-glyph with no ellipsis at all.
+    // Exempting those from `over` would trade a false positive for a silent content loss.
+    const html = '<section class="form"><div class="cell-footer">'
+      + '<footer id="ft"><span id="a">one</span></footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),
+      '#a': rect(650, 690, 900, 1400),           // 760px past the box's right edge
+    };
+    const scroll = { section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 } };
+    const r = withDom(html, rects, { scroll, truncate: ['#ft'], flex: ['#ft'] },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, true, 'a flex container cannot ellipsize, so its spill is real loss');
+  });
+
+  test('#2138 — a WRAPPING box is not exempt: `text-overflow` is inert without `nowrap`', () => {
+    // `text-overflow` acts at a line box's inline END, and a wrapping box never reaches one — it
+    // starts a new line instead, and what runs past the box's bottom is hard-clipped with no
+    // ellipsis. So the declaration alone is not the exemption; the probe reads `white-space` too.
+    // Nothing pinned that: the harness tied `whiteSpace` to the truncate set, so no fixture could
+    // ever reach the test, and deleting `if (ws !== 'nowrap' && ws !== 'pre') return false;`
+    // passed the whole suite. Same box, same three-property shape, one value different.
+    const html = '<section class="form"><div class="cell-footer">'
+      + '<footer id="ft"><span id="a">one</span></footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),
+      '#a': rect(650, 690, 900, 1400),           // 760px past the box's right edge
+    };
+    const scroll = { section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 } };
+    const r = withDom(html, rects, { scroll, truncate: ['#ft'], wrap: ['#ft'] },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, true, 'a wrapping box cannot ellipsize, so its spill is real loss');
+    // …and the identical box at `nowrap` IS exempt, so the arm pins the property rather than
+    // the fixture.
+    const ok = withDom(html, rects, { scroll, truncate: ['#ft'] },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(ok.over, false, 'the nowrap control must still be exempt');
+  });
+
+  test('#2138 — a NON-truncating clip box still contributes its horizontal spill', () => {
+    // The exemption keys on the three properties that make `text-overflow` actually
+    // fire, not on "is this a footer". A box that clips horizontally WITHOUT ellipsizing
+    // is silently cutting text off, and must still raise `over` — the same box shape,
+    // one declaration different, the opposite verdict.
+    const html = '<section class="form"><div class="cell-footer">'
+      + '<footer id="ft"><code id="c">proof</code></footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),
+      '#c': rect(650, 690, 900, 1400),           // 760px past the footer's right edge
+    };
+    const scroll = { section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 } };
+    const r = withDom(html, rects, { scroll, clipBoxes: ['#ft'] },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, true, 'a clip box with no ellipsis is losing text, not formatting it');
   });
 
   test('#1300 — a cut in a box the allowlist never named is found by the content probe', () => {
