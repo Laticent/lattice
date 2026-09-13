@@ -222,15 +222,32 @@ function identityKey(p: PooledPreviewProps): string {
  *
  * `overflow: hidden` counts as clipping here, unlike in `scrollParent` where only scrollable
  * ancestors qualify: this asks what is VISIBLE, and a hidden overflow hides just as well.
+ *
+ * ── `stopAt`, AND WHY THE CLIP MUST NOT WALK PAST THE LAYER ─────────────────────────
+ * A clip box is stored in LAYER coordinates and the layer scrolls with the grid's content, so a
+ * term taken from an ancestor ABOVE the layer — the dialog's own scroller, the fixed dialog,
+ * `body`, the viewport — is anchored to the viewport instead and goes stale the moment anything
+ * outside scrolls. Measured: one 40px wheel tick over the gallery left 4 of 10 tiles painting a
+ * blank 40px strip, steady across ten seconds, healing only when a scroll large enough to cross a
+ * band edge happened to re-run the assignment pass.
+ *
+ * Those terms were never needed. Every ancestor at or above the layer clips the LAYER too, so the
+ * browser already applies them — folding them into a layer-anchored rectangle buys nothing and
+ * costs correctness. Only the clippers strictly BETWEEN the tile and the layer are missing from
+ * what the browser does, and those are exactly the ones `watchNested` re-measures on scroll.
+ *
+ * So the CLIP passes `stopAt` (the pool's wrapper) and skips the viewport clamp, while `seen()`
+ * walks the whole chain: ranking wants to know what the reader can actually see, and it is
+ * recomputed from scratch on every pass rather than stored.
  */
-function visibleBox(el: HTMLElement): { top: number; bottom: number; left: number; right: number } {
+function visibleBox(el: HTMLElement, stopAt: HTMLElement | null = null, clampToViewport = true): { top: number; bottom: number; left: number; right: number } {
 	const b = el.getBoundingClientRect();
 	let top = b.top;
 	let bottom = b.bottom;
 	let left = b.left;
 	let right = b.right;
 	if (typeof getComputedStyle === 'function') {
-		for (let a: HTMLElement | null = el.parentElement; a; a = a.parentElement) {
+		for (let a: HTMLElement | null = el.parentElement; a && a !== stopAt; a = a.parentElement) {
 			const cs = getComputedStyle(a);
 			if (!clips(cs)) continue;
 			const r = a.getBoundingClientRect();
@@ -240,7 +257,7 @@ function visibleBox(el: HTMLElement): { top: number; bottom: number; left: numbe
 			right = Math.min(right, r.right);
 		}
 	}
-	if (typeof window !== 'undefined') {
+	if (clampToViewport && typeof window !== 'undefined') {
 		top = Math.max(top, 0);
 		left = Math.max(left, 0);
 		bottom = Math.min(bottom, window.innerHeight);
@@ -326,10 +343,11 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		if (!layer) return { top: 0, left: 0, width: 0, height: 0 };
 		const a = el.getBoundingClientRect();
 		const b = layer.getBoundingClientRect();
-		// The CLIP box comes along, in the same coordinates: the part of the tile its own scrolling
-		// ancestors leave visible. Without it a frame paints wherever its tile's coordinates say,
-		// even where the tile itself is hidden — see `visibleBox`.
-		const v = visibleBox(el);
+		// The CLIP box comes along, in the same coordinates: the part of the tile that the clippers
+		// INSIDE this pool leave visible. Without it a frame paints wherever its tile's coordinates
+		// say, even where the tile itself is hidden. Stopping at the wrapper is load-bearing, not an
+		// optimization — see `visibleBox`.
+		const v = visibleBox(el, layer.parentElement, false);
 		return {
 			top: a.top - b.top,
 			left: a.left - b.left,
@@ -362,7 +380,20 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				const t = s.tileId === null ? null : tiles.current.get(s.tileId);
 				if (!t) return s;
 				const rect = rectOf(t.el);
-				if (rect.top === s.rect.top && rect.left === s.rect.left && rect.width === s.rect.width && rect.height === s.rect.height && rect.clip?.top === s.rect.clip?.top && rect.clip?.height === s.rect.clip?.height) return s;
+				// EVERY field the render reads, not the four that usually move. A partial comparison is a
+				// frame frozen at a stale box with no visible cause — cheap to get right, expensive to
+				// find later.
+				const same =
+					rect.top === s.rect.top &&
+					rect.left === s.rect.left &&
+					rect.width === s.rect.width &&
+					rect.height === s.rect.height &&
+					rect.radius === s.rect.radius &&
+					rect.clip?.top === s.rect.clip?.top &&
+					rect.clip?.left === s.rect.clip?.left &&
+					rect.clip?.width === s.rect.clip?.width &&
+					rect.clip?.height === s.rect.clip?.height;
+				if (same) return s;
 				moved = true;
 				return { ...s, rect };
 			});
@@ -529,6 +560,18 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 			},
 			unregister(id) {
 				tiles.current.delete(id);
+				// RELEASE THE SCROLLERS THAT WENT WITH IT. A looks panel is mounted per open and its
+				// scroller is a fresh element each time, so a Map keyed by that element — holding a
+				// listener closure over it — pins the whole detached panel subtree for the dialog's
+				// lifetime. Measured: twelve panel opens left twelve detached scrollers and ~114
+				// detached nodes alive through a forced GC, in the one module whose subject is
+				// retained memory. Unregister is the right moment: a panel unmounting is exactly what
+				// unregisters its tiles.
+				for (const [el, off] of nested.current) {
+					if (el.isConnected) continue;
+					off();
+					nested.current.delete(el);
+				}
 				schedule();
 			},
 			setInBand(id, inBand) {

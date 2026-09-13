@@ -111,6 +111,39 @@ function NestedGrid({ n }: { n: number }) {
 	);
 }
 
+/** A grid inside an OUTER scroller, with a nested panel inside that — the gallery's real shape:
+ *  dialog scroller → pool wrapper → looks panel scroller → tiles. */
+function OuterAndNestedGrid() {
+	return (
+		<div data-testid="outer" style={{ overflowY: 'auto' }}>
+			<PreviewPool>
+				<div data-testid="panel" style={{ overflowY: 'auto' }}>
+					{Array.from({ length: 2 }, (_, i) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
+						<div key={i} data-testid={`tile-${i}`}>
+							<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} className="aspect-video w-full" />
+						</div>
+					))}
+				</div>
+			</PreviewPool>
+		</div>
+	);
+}
+
+/** The two boxes a slot renders as: the OUTER one clips, the INNER one carries the frame at the
+ *  tile's full size. Read as numbers, because the arithmetic between them is the thing. */
+const boxesOf = (c: HTMLElement, sample: string) => {
+	const f = [...c.querySelectorAll('[data-testid="deck-preview"]')].find((x) => x.getAttribute('data-sample') === sample);
+	if (!f) return null;
+	const inner = f.parentElement as HTMLElement;
+	const outer = inner.parentElement as HTMLElement;
+	const px = (v: string) => (v === '' ? Number.NaN : Number.parseFloat(v));
+	return {
+		outer: { top: px(outer.style.top), left: px(outer.style.left), width: px(outer.style.width), height: px(outer.style.height), hidden: outer.style.visibility === 'hidden' },
+		inner: { top: px(inner.style.top), left: px(inner.style.left), width: px(inner.style.width), height: px(inner.style.height) },
+	};
+};
+
 /** Every slot as the reader meets it: which sample, and whether it paints at all. */
 const slotsOf = (c: HTMLElement) =>
 	[...c.querySelectorAll('[data-testid="deck-preview"]')].map((f) => {
@@ -376,6 +409,46 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		expect(shown.find((x) => x.sample === '# 0')?.visible, 'the tile inside the panel is not painted').toBe(true);
 		const bleeding = shown.find((x) => x.sample === '# 1');
 		if (bleeding) expect(bleeding.visible, 'a tile the panel scrolled away is painting outside it').toBe(false);
+		unmount();
+	});
+
+	it('clips to the visible part and offsets the frame back into place', () => {
+		// The arithmetic, which the painted/not-painted assertion above cannot see: the OUTER box is
+		// the visible slice, and the INNER box is the tile's whole rect shifted back by the slice's
+		// origin. The frame must keep the tile's full size — the renderer scales its output to the
+		// host box, so a cropped box would shrink the slide instead of cropping it.
+		const { container, unmount } = render(<NestedGrid n={1} />);
+		at(container.querySelector('[data-testid="panel"]') as Element, 400, 100); // panel: 400..500
+		at(face(container, 0), 450, 90); // tile: 450..540 — its bottom 40px are past the panel
+		intersect(face(container, 0), true);
+		settle();
+		const b = boxesOf(container, '# 0');
+		expect(b, 'the tile got no slot').not.toBeNull();
+		expect(b?.outer.height, 'the clip box is not the visible slice').toBe(50); // 450..500
+		expect(b?.outer.top).toBe(450);
+		expect(b?.inner.height, 'the frame was cropped instead of clipped').toBe(90);
+		expect(b?.inner.top, 'the frame was not offset back into place').toBe(0); // 450 - 450
+		unmount();
+	});
+
+	it('does not fold an ancestor ABOVE the pool into the clip', () => {
+		// A clip box is stored in LAYER coordinates, and the layer scrolls with the grid's content —
+		// so a term taken from an ancestor above the layer is anchored to the viewport instead and
+		// goes stale the moment anything outside scrolls. Measured on the real gallery before this
+		// was fixed: one 40px wheel tick left 4 of 10 tiles painting a blank 40px strip, steady for
+		// ten seconds. Those terms are also unnecessary: every ancestor above the layer clips the
+		// LAYER too, so the browser already applies them.
+		const { container, unmount } = render(<OuterAndNestedGrid />);
+		at(container.querySelector('[data-testid="outer"]') as Element, 0, 200); // outer: 0..200
+		at(container.querySelector('[data-testid="panel"]') as Element, 0, 900); // panel: 0..900
+		at(face(container, 0), 300, 100); // tile: 300..400 — inside the panel, past the OUTER box
+		intersect(face(container, 0), true);
+		settle();
+		const b = boxesOf(container, '# 0');
+		expect(b, 'the tile got no slot').not.toBeNull();
+		// The panel does not clip it, so the slot is the whole tile. If the outer scroller had been
+		// folded in, this would be 0 — and stale the moment the outer scroller moved.
+		expect(b?.outer.height, 'an ancestor above the pool was folded into the clip').toBe(100);
 		unmount();
 	});
 

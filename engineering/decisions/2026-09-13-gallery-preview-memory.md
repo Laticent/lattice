@@ -395,6 +395,25 @@ Two things were wrong underneath, and the second is the interesting one:
   fully visible. The pool now listens for scroll on any scroller BETWEEN a tile and the layer and
   re-measures on an animation frame — `rect` only, no slot changes hands, no document is written.
 
+**A third pass, on that fix alone, found it had broken the ordinary case.** A clip box is stored in
+LAYER coordinates and the layer scrolls with the grid's content — so a term taken from an ancestor
+ABOVE the layer (the dialog's own scroller, the fixed dialog, the viewport) is anchored to the
+viewport instead and goes stale the moment anything outside scrolls. Measured with a real wheel
+event: one 40px tick left 4 of 10 gallery tiles painting a blank 40px strip, steady across ten
+seconds, healing only when a scroll large enough to cross a band edge happened to re-run the
+assignment pass. Those terms were never needed — every ancestor at or above the layer clips the
+LAYER too, so the browser already applies them. The clip walk now stops at the pool's wrapper, and
+only the clippers strictly between a tile and the layer remain, which are exactly the ones the
+scroll listener re-measures. `seen()` keeps the full walk, because ranking wants what the reader
+can actually see and is recomputed per pass rather than stored.
+
+The same pass found the scroll listeners were never released: a looks panel is mounted per open
+with a fresh scroller element, and a Map keyed by that element (holding a listener closure over it)
+pinned the whole detached panel subtree for the dialog's lifetime — twelve opens, twelve detached
+scrollers, ~114 detached nodes alive through a forced GC. They are released when the tiles that
+needed them unregister, which is exactly when the panel unmounts. Re-measured after the fix: zero
+detached divs after twelve opens.
+
 Also from that pass, and worth keeping: `clipOf` was emitting `10px 20px 0px 0px 0px` for an
 elliptical radius, five tokens in a four-corner shorthand, which browsers drop entirely — so the
 "fix" for square corners produced square corners. And a latent one: with slots partitioned by
