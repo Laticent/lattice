@@ -97,11 +97,14 @@ export default defineConfig({
 	//   @crosswidth  same assertion worth running at desktop AND mobile — a functional
 	//                oracle whose ANSWER could differ at 390px (a pane that is swapped in
 	//                rather than mounted, a control that moved into the drawer), not a
-	//                screenshot. Spread across nine specs today — paint, Playground state
-	//                and explore, editor lint, shell parity, the gallery budget, stress and
-	//                the Vetrina captions — so this parenthetical names the SCOPE. It used
-	//                to read "(the paint check)", naming ONE of those specs, which read as a
-	//                definition of the tag and was wrong for the other eight.
+	//                screenshot. Carried by 19 test titles across six spec files today — paint,
+	//                Playground state and explore, editor lint, the gallery budget and the
+	//                Vetrina captions — so this parenthetical names the SCOPE. It used to read
+	//                "(the paint check)", naming ONE of those files, which read as a definition
+	//                of the tag and was wrong for the other five. Count it from TEST TITLES
+	//                (`--list`), not from files mentioning the string: `studio-shell-parity`
+	//                and `playground-stress` both discuss `@crosswidth` in prose and neither
+	//                carries it — shell-parity says in so many words that it must not.
 	//   @parity      input-verb parity (keyboard/wheel/touch) — ALL THREE widths, in
 	//                BOTH pointer states (the `*-touch` projects). A verb that works at
 	//                the width the feature was written on and nowhere else is the exact
@@ -128,8 +131,11 @@ export default defineConfig({
 		// lookahead is anchored so it tests the WHOLE title: a test carrying `@crosswidth`
 		// keeps its desktop run and additionally gets its WebKit one; a webkit-exclusive
 		// test is still excluded here, which is what `webkit-phone`/`webkit-tablet` are for.
-		// Measured on the suite as it stands: `desktop` goes 492 -> 494 tests, the two
-		// render-target lint arms, and every other project's list is byte-identical.
+		// Measured: `desktop` holds 494 tests BOTH BEFORE AND AFTER the change that introduced
+		// this pattern — net zero. The two new `@webkit-phone` tags alone would have cut it to
+		// 492, and this lookahead is what puts those two arms back; 492 is an intermediate
+		// state no commit holds, so do not read it as a before. The real delta is on
+		// `webkit-phone`, 18 -> 20, and every other project's list is byte-identical.
 		{
 			name: 'desktop',
 			use: { viewport: { width: 1440, height: 900 } },

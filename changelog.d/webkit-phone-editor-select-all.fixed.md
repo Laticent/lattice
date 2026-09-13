@@ -1,4 +1,4 @@
-- **Fixed: `setEditorContent` replaced the deck instead of appending to it on the
+- **Fixed: `setEditorContent` appended to the deck instead of replacing it on the
   `webkit-phone` e2e project.** Playwright resolves `ControlOrMeta` against the OS the test
   process runs on (Linux, so `Control`), while CodeMirror resolves `Mod-` against what the
   page reports — and the iPhone user agent puts it in Mac mode, where `Mod` is Meta and a

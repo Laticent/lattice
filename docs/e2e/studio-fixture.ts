@@ -723,19 +723,36 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
  * STRING covers only the rendered lines; empty-vs-not is the signal, never its length.)
  */
 async function selectAllInEditor(page: Page): Promise<void> {
-	// An ALREADY-EMPTY document selects to an empty string too, and that is a success, not a
-	// missed keystroke — without this arm the helper would newly throw on a deck it used to
-	// clear happily. No spec sets empty content today; the guard is here so the first one to
-	// try does not have to debug it.
-	const selectedOrEmptyDoc = () =>
+	// Read the probe off the DECK SOURCE editor specifically, never a bare `.cm-content`.
+	// An unscoped query answers with whichever CodeMirror sits first in the DOM — the Studio
+	// mounts several (`CodeField`'s "Theme CSS", "Component skeleton", "Manifest JSON") — and
+	// `?? ''` would turn "no editor on this page" into a length of 0, i.e. into "the document
+	// is empty", i.e. into SUCCESS. That is the one answer this guard must never invent: its
+	// whole job is to fail loudly instead of silently appending.
+	//
+	// The deck editor is a `.cm-content` in the normal view and a plain `<textarea>` in the
+	// fallback both `Editor.tsx` and `ComposeView.tsx` render, so probe by the ACCESSIBLE NAME
+	// `focusEditor` just clicked and handle either element. A textarea reports its selection
+	// through `selectionStart`/`selectionEnd`; `window.getSelection()` does not see it on every
+	// engine.
+	const probe = () =>
 		page.evaluate(() => {
-			const selected = (window.getSelection()?.toString() ?? '').length;
-			const rendered = (document.querySelector('.cm-content')?.textContent ?? '').length;
-			return selected > 0 || rendered === 0;
+			const el = document.querySelector('[aria-label="Deck source"]');
+			if (!el) return null;
+			if (el instanceof HTMLTextAreaElement) {
+				return { selected: el.selectionEnd - el.selectionStart, rendered: el.value.length };
+			}
+			return { selected: (window.getSelection()?.toString() ?? '').length, rendered: (el.textContent ?? '').length };
 		});
 	for (const combo of ['ControlOrMeta+a', 'Meta+a']) {
 		await page.keyboard.press(combo);
-		if (await selectedOrEmptyDoc()) return;
+		const seen = await probe();
+		if (!seen) throw new Error('setEditorContent: no element labelled `Deck source` — the editor is not on this page');
+		// An ALREADY-EMPTY document selects to an empty string too, and that is a success, not a
+		// missed keystroke: without this arm the helper would newly throw on a deck it used to
+		// clear happily. It is gated on having actually FOUND the editor, so it can no longer
+		// stand in for one that is absent.
+		if (seen.selected > 0 || seen.rendered === 0) return;
 	}
 	throw new Error('setEditorContent: neither ControlOrMeta+a nor Meta+a selected the editor document');
 }

@@ -29,25 +29,31 @@ const SINGLE_PANE_MAX_WIDTH = 699;
  * silently no-op the day the toggle is renamed, and the whole point of running these arms
  * on a phone is that they fail loudly when the phone surface stops working.
  *
- * On the project's declared VIEWPORT WIDTH, though, not on its NAME. The name check this
- * replaces read `=== 'mobile'`, which is the one project that was phone-sized when it was
- * written — and it silently stopped covering the case the moment these arms picked up
- * `@webkit-phone`, because `devices['iPhone 15 Pro']` is 393x659 and answers to neither
- * name. Width is the actual cause: `useBreakpoint` (docs/src/lib/use-breakpoint.ts) flips
- * to the single-pane layout on `(max-width: 699px)`, so reading that same number here
- * tracks any phone project, present or future, and needs no edit when one is added.
+ * On the VIEWPORT WIDTH, though, not on the project NAME. The name check this replaces read
+ * `=== 'mobile'`, which is the one project that was phone-sized when it was written — and it
+ * silently stopped covering the case the moment these arms picked up `@webkit-phone`, because
+ * `devices['iPhone 15 Pro']` is 393x659 and answers to neither name. Width is the actual
+ * cause: `useBreakpoint` (docs/src/lib/use-breakpoint.ts) flips to the single-pane layout on
+ * `(max-width: 699px)`, so reading that same number here tracks any phone project, present or
+ * future, and needs no edit when one is added.
+ *
+ * Read from `page.viewportSize()` — the box the media query actually resolves against — not
+ * from `testInfo.project.use.viewport`, which is only what the PROJECT declared. A spec can
+ * set its own with a file-level `test.use({ viewport })` (`studio-shell-parity.spec.ts` does
+ * exactly that), and the declared value would then disagree with the real one and pick the
+ * wrong branch silently — the same failure this gate was rewritten to stop.
  */
 async function revealEditor(page: import('@playwright/test').Page): Promise<void> {
 	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
 	await expect(page.getByLabel('Deck source')).toBeVisible();
 }
 
-test.beforeEach(async ({ page }, testInfo) => {
+test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
-	const width = testInfo.project.use.viewport?.width;
-	// Every project in playwright.config.ts declares a viewport (the `webkit-*` ones through
-	// a device descriptor). `undefined` would mean a new one does not — treat that as
-	// desktop-shaped rather than guessing, and let the `Deck source` timeout say so.
+	// `viewportSize()` is null only for a `viewport: null` project, which means the real browser
+	// window — desktop-shaped headless. Take the desktop branch there rather than guessing, and
+	// let the `Deck source` click time out loudly if that is ever wrong.
+	const width = page.viewportSize()?.width;
 	if (width !== undefined && width <= SINGLE_PANE_MAX_WIDTH) await revealEditor(page);
 });
 
