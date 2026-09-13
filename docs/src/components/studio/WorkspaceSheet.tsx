@@ -1,4 +1,4 @@
-import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
@@ -124,12 +124,18 @@ const HANDLE_CHOICES: { value: HandleStyle; title: string; blurb: string }[] = [
 ];
 
 // The two Share → PDF page-image formats the General tab offers. PNG is the
-// lossless default; JPEG is the informed speed/size trade-off (about 2× faster
-// export and several-times-smaller files, with JPEG's edge artifacts) — a call
-// that belongs to the user, so it's a preference, not a hardcoded default.
+// lossless default; JPEG trades exactness for size on the decks where that trade
+// pays — a call that belongs to the user, so it's a preference.
+//
+// This used to read "about 2× faster export and several-times-smaller files", and
+// both halves stopped being true when the PNG path stopped round-tripping through
+// jsPDF (2026-09-13). Measured on the same 18-page deck, same machine: PNG 4.6 s /
+// 3.3 MB against JPEG 4.8 s / 7.4 MB — the flat color and hard type of a slide
+// deck is what PNG compresses well and JPEG does not. JPEG still wins on a
+// photo-heavy deck, which is the case it is offered for.
 const PDF_PAGE_CHOICES: { value: PdfPages; title: string; blurb: string }[] = [
 	{ value: 'png', title: 'Lossless', blurb: 'PNG pages — pixel-perfect, the default' },
-	{ value: 'jpeg', title: 'Fast', blurb: 'JPEG pages — ~2× faster export, much smaller file' },
+	{ value: 'jpeg', title: 'Photographic', blurb: 'JPEG pages — smaller when slides are mostly photos' },
 ];
 
 // Who the overflow marker speaks to in a bundle you export. A clipped slide is
@@ -651,7 +657,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 
 							<div className="mt-6">
 								<GroupLabel icon={<Download className="size-3.5" />}>PDF export pages</GroupLabel>
-								<p className="mb-3 text-xs text-muted-foreground">How Share → PDF embeds each slide's page image. Lossless is pixel-perfect; Fast accepts slight JPEG compression (rarely visible) for a much quicker export and a far smaller file — handy for long decks and phones.</p>
+								<p className="mb-3 text-xs text-muted-foreground">How Share → PDF embeds each slide's page image. Lossless is pixel-perfect and, on a typical slide deck, also the smaller file. Photographic accepts slight JPEG compression (rarely visible), which pays off when your slides are mostly photos.</p>
 								<div className="grid grid-cols-2 gap-2.5">
 									{PDF_PAGE_CHOICES.map((c) => {
 										const active = pdfPages === c.value;
@@ -671,7 +677,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 												<span className="grid size-8 place-items-center">
 													{c.value === 'png'
 														? <span className="grid size-6 place-items-center rounded-md border-[1.5px] font-mono text-[9px] font-bold" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>1:1</span>
-														: <Zap className="size-5" style={{ color: 'var(--accent)' }} />}
+														: <ImageIcon className="size-5" style={{ color: 'var(--accent)' }} />}
 												</span>
 												<span className="flex flex-col gap-0.5">
 													<span className="text-[13px] font-semibold text-[var(--text-heading)]">{c.title}</span>

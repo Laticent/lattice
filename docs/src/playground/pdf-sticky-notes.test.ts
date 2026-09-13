@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addPageStickyNotes } from './pdf-sticky-notes.js';
+import { addPageStickyNotes, stickyNotePlacements } from './pdf-sticky-notes.js';
 
 type Ann = { type: string; title: string; contents: string; bounds: { x: number; y: number; w: number; h: number }; open: boolean };
 
@@ -42,5 +42,38 @@ describe('pdf-sticky-notes', () => {
 		addPageStickyNotes(pdf, [{ title: 'x', contents: '' }, { title: 'y', contents: 'real' }], 1280);
 		expect(pdf.calls).toHaveLength(1);
 		expect(pdf.calls[0].contents).toBe('real');
+	});
+});
+
+describe('stickyNotePlacements', () => {
+	const note = (i: number) => ({ title: 'reviewer', contents: 'note ' + i });
+
+	it('stacks down the top-right corner', () => {
+		const [first, second] = stickyNotePlacements([note(0), note(1)], 1280, 720);
+		expect(first.x).toBe(1280 - 14 - 22);
+		expect(first.y).toBe(14);
+		expect(second.y).toBe(14 + 28);
+		expect(second.x).toBe(first.x);
+	});
+
+	it('wraps into another column rather than running off the page', () => {
+		// Without wrapping the stack walks off the bottom: a rect outside the MediaBox,
+		// which a reader may drop or draw off-canvas.
+		const many = Array.from({ length: 27 }, (_, i) => note(i));
+		const placed = stickyNotePlacements(many, 1280, 720);
+		expect(placed).toHaveLength(27);
+		for (const p of placed) {
+			expect(p.y + p.h).toBeLessThanOrEqual(720);
+			expect(p.x).toBeGreaterThanOrEqual(14);
+		}
+		// 720px holds 24 at a 28px step (a 14px inset top and bottom), so the 25th note
+		// starts the next column, level with the first.
+		expect(placed[24].x).toBe(placed[0].x - 28);
+		expect(placed[24].y).toBe(placed[0].y);
+	});
+
+	it('keeps one column when no page height is offered', () => {
+		const placed = stickyNotePlacements([note(0), note(1), note(2)], 1280);
+		expect(new Set(placed.map((p) => p.x)).size).toBe(1);
 	});
 });

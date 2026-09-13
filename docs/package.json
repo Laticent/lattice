@@ -78,6 +78,7 @@
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
+    "pdf-lib": "^1.17.1",
     "lucide-react": "^1.18.0",
     "markdown-it": "^14.3.0",
     "pptxgenjs": "^3.12.0",
