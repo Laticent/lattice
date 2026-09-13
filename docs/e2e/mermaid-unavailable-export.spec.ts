@@ -28,6 +28,38 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
  * about it exactly the way it would on a CSP block or an offline machine.
  */
 
+/**
+ * TWO OF THE FIVE ARMS ARE `@smoke`, AND THE SPLIT IS DELIBERATE.
+ *
+ * `ci.yml`'s `studio-smoke` job runs `test:e2e:smoke` on every PR that touches `docs`,
+ * `lib`, `themes` or `exemplars`; everything else here runs in the 04:41 nightly, AFTER
+ * merge. The two tagged arms are the ones carrying the claim #2147 actually makes — the
+ * export's give-up releasing an un-settled fence as source, and a diagram landing between
+ * the two waits still baking as a drawing. Neither was re-derivable from a PR before this.
+ *
+ * The other three stay nightly because they do not exercise what #2147 changed: the 404
+ * arms reach `unavailable` through the OLDER `releaseUnrenderableFences` path (no
+ * `data-mermaid-final`, which is the discriminator), and the fourth is the Mermaid-loads
+ * control.
+ *
+ * MEASURED COST, not estimated — 4-core sandbox, 2 workers, whole `@smoke` tier:
+ *
+ *   55 tests  278s   baseline
+ *   57 tests  291s   with these two        +13s
+ *   60 tests  297s   with all five         +19s
+ *
+ * Far below the 43.7s these two take in isolation, because with two workers they fill
+ * idle worker time instead of extending the critical path. `compose-stress.spec.ts`
+ * records that a 4-core sandbox understates the runner by about a third, which puts this
+ * at roughly +20s there: `studio-smoke` p90 364s -> ~384s against a 15-minute cap. That
+ * job is the thinnest-margin one in `ci.yml` (cap/max 1.1x), so if it ever needs the cap
+ * raised, raise it and state the new measured duration — do not delete it.
+ *
+ * It is ADVISORY either way: `studio-smoke` is deliberately absent from the required `ci`
+ * gate's `needs`, so a red arm here reports on the PR and does not block the merge.
+ * Promotion to blocking is #800.
+ */
+
 const SENTINEL = 'UNRENDERABLEFENCESENTINEL';
 const F = String.fromCharCode(96, 96, 96);
 
@@ -158,7 +190,7 @@ test('the Studio webpage export ships the author’s source when Mermaid never l
 	await viewer.close();
 });
 
-test('the Studio webpage export ships the author’s source when a diagram is too SLOW to draw', async ({ page, context }, testInfo) => {
+test('@smoke the Studio webpage export ships the author’s source when a diagram is too SLOW to draw', async ({ page, context }, testInfo) => {
 	// THE REGRESSION THIS PINS, on the real surface. The wait guarding the capture is bounded —
 	// it has to be, or a stalled diagram hangs the export for ever — and when it expired it used
 	// to leave the fence tagged and hidden. `mermaid.css` hides a fence's source for every state
@@ -196,7 +228,7 @@ test('the Studio webpage export ships the author’s source when a diagram is to
 	if (seen.siblingDisplay !== null) expect(seen.siblingDisplay).toBe('none');
 });
 
-test('a diagram that draws INSIDE the bake window still exports as a drawing', async ({ page, context }, testInfo) => {
+test('@smoke a diagram that draws INSIDE the bake window still exports as a drawing', async ({ page, context }, testInfo) => {
 	// THE REGRESSION ARM. The bake's two waits are sequential on one document — 4000 in the
 	// capture frame, then 12000 in the bake — so a diagram has 16000 before the give-up. When
 	// the frame's wait also RELEASED, that sum collapsed to the frame's 4000: the release is

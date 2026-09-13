@@ -951,10 +951,44 @@ property of the machine, and a wall-clock cell here would have been exactly that
 Deliberately behavioral rather than a source-text pin: a text matcher on `12000` goes green the
 moment someone lifts the number into a constant, which is the failure §13 already records.
 
-**And the real-surface arm does not run on a PR.** `docs/e2e/mermaid-unavailable-export.spec.ts`
-carries no `@smoke` tag, and CI runs `test:e2e:smoke` only, so the export e2e runs nightly — after
-merge. The artifact behind this fix's "verified on the real surface" claim is real and was produced
-by hand; it is not re-derivable from a PR-gate run.
+**And the real-surface arm did not run on a PR.** `docs/e2e/mermaid-unavailable-export.spec.ts`
+carried no `@smoke` tag, and CI runs `test:e2e:smoke` only, so the export e2e ran nightly — after
+merge. The artifact behind this fix's "verified on the real surface" claim was real and produced by
+hand; it was not re-derivable from a PR-gate run.
+
+**CLOSED for the two arms that carry the claim** — the give-up (a stalled `mermaid.render`, which
+reaches `unavailable` through *this* fix's release site) and the regression (a diagram drawing
+between the two waits). The other three stay nightly on purpose: the 404 arms reach `unavailable`
+through the older `releaseUnrenderableFences` path, which sets no `data-mermaid-final` and so
+proves nothing about #2147, and the fourth is the Mermaid-loads control.
+
+A tag is a CI-contract change, so the cost was measured before the ask rather than estimated, on
+the whole `@smoke` tier, 4-core sandbox, 2 workers:
+
+| tier | tests | wall | delta |
+|---|---|---|---|
+| baseline | 55 | 278s | — |
+| + these two | 57 | 291s | **+13s** |
+| + all five | 60 | 297s | +19s |
+
+**Far below the 43.7s the two arms take in isolation**, because two workers let them fill idle
+worker time instead of extending the critical path — which is why the arithmetic answer (sum the
+test times) would have argued for leaving them nightly. `compose-stress.spec.ts` records that a
+4-core sandbox understates the runner by about a third, putting this at roughly +20s there:
+`studio-smoke` p90 364s -> ~384s against a 15-minute cap. No cap change was needed.
+
+**The arms were then proved able to fail.** With the release deleted from `waitForDiagrams` — the
+state of the tree before this fix — the give-up arm fails on `codeVisibility` = `hidden`, which is
+the blank region the fix exists to prevent; the regression arm still passes, as it should, since
+nothing about it depends on the release. The two builds are confirmed different rather than
+assumed: `data-mermaid-final` survives into the `_astro` chunks once on the pristine build and
+zero times on the mutant, where the dead loop is eliminated. §17 records a probe whose two arms may
+have rendered identically and came back within 1MB of each other; verifying the manipulation inline
+is the answer to that.
+
+It remains **advisory**: `studio-smoke` is deliberately absent from the required `ci` gate's
+`needs`, so a red arm reports on the PR and does not block the merge (promotion is #800). The claim
+is now PR-visible, not PR-gating, and saying otherwise would overstate what a tag buys.
 
 ### The raster lane, driven — and the release is a no-op there
 
