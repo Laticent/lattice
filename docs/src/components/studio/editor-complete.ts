@@ -74,7 +74,17 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	// Marp-inherited + tooling
 	{ key: 'style', info: 'Raw CSS for this deck (a YAML block scalar).' },
 	{ key: 'debug', info: 'Layout debug overlay — on-hover / on-always (+ verbose). Preview-only, stripped from every export.' },
-	{ key: 'present', info: 'Open the exported PDF in presentation mode — true / false.' },
+	// The three RENDER-TARGET keys. They get no Studio CONTROL on purpose — they name the
+	// artifact a render should emit, not a property of the deck, and the Studio decides all
+	// three at export time (ShareSheet). That decision is recorded in
+	// engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2.3, and it is a
+	// decision about PANELS, not about this list: the editor is a plain text surface, so a
+	// key an author types by hand still owes them a hint and the accepted values. Offering
+	// `present` while hiding its two siblings — which is what this list did until now — left
+	// `fluid:` reachable only by already knowing it exists. Vocabulary: lib/core/render-target-keys.js.
+	{ key: 'present', info: 'Open the exported PDF in presentation mode. On: true / yes / on. Off: false / no / off. CLI and front matter only — the Studio sets it at export.' },
+	{ key: 'fluid', info: 'Emit the .html as the responsive fluid-box viewer — each slide fills the viewport and reflows to portrait on a phone. On: true / yes / on. Off: false / no / off. PDF/PPTX/PNG are unchanged.' },
+	{ key: 'player', info: 'Emit the .html as the self-contained offline player (Present · Read Slides · Read Article). On: true / yes / on. Off: false / no / off. Supersedes fluid.' },
 ];
 
 // The `lang:` front-matter VALUE vocabulary — the supported document languages
