@@ -262,9 +262,9 @@ CREATED.
 
 ### What replaced it
 
-`docs/src/components/studio/preview-pool.tsx`. One grid owns at most **10** frames for its
-lifetime, in one absolutely-positioned layer inside the grid's own scroll content, and
-RE-POINTS them over the tiles worth showing. Nothing is ever torn down, so there is nothing for
+`docs/src/components/studio/preview-pool.tsx`. One grid owns a small fixed set of frames for its
+lifetime — ten, or as many as it has tiles on screen, stopping at 28 — in one absolutely-positioned
+layer inside the grid's own scroll content, and RE-POINTS them over the tiles worth showing. Nothing is ever torn down, so there is nothing for
 WebKit to fail to reclaim.
 
 A re-point is nearly free because `single-slide-render.ts`'s render signature — theme, mode,
@@ -286,9 +286,9 @@ gallery that differ.
 | | before | after |
 |---|---|---|
 | iframe elements created | 69+ | **11** |
-| preview documents (srcdoc writes) | 69+ | **15** |
-| WebKit retained after the browse | +648 MB | **379 / 388 / 389 MB** (median 388) |
-| Chromium retained after the browse | ~105 MB | **79 / 87 / 88 MB** |
+| preview documents (srcdoc writes) | 69+ | **13** |
+| WebKit retained after the browse | +648 MB | **415 / 427 / 466 MB** (median 427) |
+| Chromium retained after the browse | ~105 MB | **84 / 93 / 94 MB** |
 
 Read the MB columns with §4's ±200 warning; the COUNTS are the near-deterministic half, and
 they are the quantity the finding is about. Three runs per engine, because one is not evidence.
@@ -332,6 +332,47 @@ reviewer should expect to handle on any new pooled surface:
 
 Neither was caught by a gate, a test, or a full-page screenshot. Both came out of shooting ONE
 tile at 2x and looking at it.
+
+### What an independent checker found, after all of the above measured clean
+
+The pool passed six metamorphic relations on two engines, a mutation-checked unit suite, every
+gate, and a visual pass at three widths — and a checker agent driving the same built Studio found
+four defects in an hour (HARD RULE #25). Two were serious, and both are instructive about what the
+verification above could not see.
+
+- **The slot ceiling starved tiles the reader was looking at.** `MAX_SLOTS = 10` was a constant,
+  and a desktop gallery puts 11-12 tiles on screen at 1440x900. The losers rendered as empty cards
+  — permanently, because nothing re-runs the assignment pass while a grid sits still. Measured at
+  1440x900 scrolled to 60%, one fully-visible tile blank at 4s, 8s and 15s; at 1920x1200, two.
+  **Every measurement I had taken was at 390x844**, where three tiles fit and the cap never binds,
+  and the comment beside the constant said it was "sized above the largest in-band set measured on
+  any surface (12-17 tiles)" — which argues for a bigger number than the one it introduced. The
+  cap now follows the on-screen count, floored at 10 and stopped at 28.
+- **`seen()` measured the WINDOW, and every one of these grids scrolls inside a CONTAINER.** A
+  tile the scroller had clipped away still intersected the viewport, so it ranked as on-screen:
+  19 "visible" against 12 really visible at one desktop offset. That collapsed the three-tier
+  priority into the pure LRU the code's own comment says is not enough — and it made the unit test
+  for that priority pass for a reason that cannot occur in any shipped grid, because the test
+  stubs the rects. Same bug in the observer: `rootMargin` applies to the ROOT only, so rooting at
+  the viewport bought nothing. Both now use the tile's real scrolling ancestor.
+- **A query matching nothing destroyed every preview document.** `<PreviewPool>` sat inside the
+  non-empty branch of the search conditional, so an empty result unmounted the pool: 11 frames → 1
+  → 11 per bounce, reachable by any typo, and on WebKit that is ~100MB never returned. The pool
+  now wraps both branches — it is supposed to outlive what it shows.
+- **A slot's shape key went stale under a held tile**, so after a palette or mode toggle the
+  shape-preference lookup matched an arriving tile against a document that no longer existed and
+  sent it down the full-write path — a quiet loss of the one property the module exists for.
+
+A fifth is worth recording because it is latent rather than live: `DeckPreview` builds its renderer
+ONCE, on first mount, so `specimen` and the engine/runtime URLs are fixed per SLOT no matter how
+many times the document is rewritten. A pool that re-pointed a catalog sample into a slot built for
+the author's own slide would silence that slide's overflow alarm — the regression `specimen` exists
+to prevent, reappearing inside the pool. Today's three grids are each uniform, so nothing triggers
+it; slots are now partitioned by that identity so it stays impossible, with a test that goes red
+when the partition is removed.
+
+The common thread: **every one of these is a defect the gates cannot see, and three of the four
+needed a viewport I had not measured.** A phone-sized measurement is not a measurement.
 
 ### What this costs, honestly
 

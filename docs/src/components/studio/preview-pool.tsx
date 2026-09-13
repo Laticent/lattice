@@ -118,16 +118,25 @@ function clipOf(el: HTMLElement): string {
 		if (cs.overflow === 'visible') continue;
 		const r = a.getBoundingClientRect();
 		const bw = (side: string) => parseFloat(cs.getPropertyValue(`border-${side}-width`)) || 0;
-		const inset = (value: string, side: string) => `${Math.max(0, (parseFloat(value) || 0) - bw(side))}px`;
+		// Only a plain px length can have a border width subtracted from it. A percentage (`50%`)
+		// and an elliptical pair (`10px 20px`) both lose their meaning under `parseFloat`, so they
+		// pass through untouched — slightly rounder than the card's inner curve, which is invisible,
+		// where `parseFloat('50%') + 'px'` would be a different shape altogether.
+		// The two ADJACENT sides decide the inset, not one: an asymmetric border (`border-l-4
+		// border-t`) insets a corner by the smaller of the two it touches.
+		const inset = (value: string, a1: string, a2: string) => {
+			const px = /^[\d.]+px$/.test(value.trim());
+			return px ? `${Math.max(0, parseFloat(value) - Math.min(bw(a1), bw(a2)))}px` : value;
+		};
 		const near = (x: number, y: number, w: number) => Math.abs(x - y) <= w + 1;
 		const top = near(box.top, r.top, bw('top'));
 		const bottom = near(box.bottom, r.bottom, bw('bottom'));
 		const left = near(box.left, r.left, bw('left'));
 		const right = near(box.right, r.right, bw('right'));
-		const tl = top && left ? inset(cs.borderTopLeftRadius, 'top') : '0px';
-		const tr = top && right ? inset(cs.borderTopRightRadius, 'top') : '0px';
-		const br = bottom && right ? inset(cs.borderBottomRightRadius, 'bottom') : '0px';
-		const bl = bottom && left ? inset(cs.borderBottomLeftRadius, 'bottom') : '0px';
+		const tl = top && left ? inset(cs.borderTopLeftRadius, 'top', 'left') : '0px';
+		const tr = top && right ? inset(cs.borderTopRightRadius, 'top', 'right') : '0px';
+		const br = bottom && right ? inset(cs.borderBottomRightRadius, 'bottom', 'right') : '0px';
+		const bl = bottom && left ? inset(cs.borderBottomLeftRadius, 'bottom', 'left') : '0px';
 		return `${tl} ${tr} ${br} ${bl}`;
 	}
 	return '0px';
@@ -158,6 +167,58 @@ function shapeKey(p: PooledPreviewProps): string {
 	return `${mermaid ? 'M' : '-'}|${p.extraCss || ''}|${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}`;
 }
 
+/**
+ * What a slot can NEVER be re-pointed across, as opposed to what it merely prefers.
+ *
+ * `shapeKey` above is a preference: crossing it costs a full `srcdoc` write, which is expensive
+ * but correct. This is a HARD partition, because crossing it would be silently WRONG and no write
+ * path fixes it — `DeckPreview` builds its renderer once, on first mount
+ * (`createSingleSlideRenderer`, DeckPreview.tsx), so whichever tile lands in a slot first fixes
+ * `specimen` and the engine/runtime/theme URLs for every later tile in that slot, however many
+ * times the document is rewritten.
+ *
+ * `specimen` is the one that bites: a catalog sample re-pointed into a slot built for the author's
+ * own slide would take that slide's overflow alarm away — the exact regression the `specimen`
+ * docstring above exists to warn about, reappearing inside the pool. Every grid today is uniform,
+ * so this partitions nothing; it is here so that stays true when one is not.
+ */
+function identityKey(p: PooledPreviewProps): string {
+	const o = p.options;
+	return `${p.specimen ? 'S' : '-'}|${o.themeBase}|${o.runtimeUrl}|${o.engineUrl}|${o.katexUrl || ''}`;
+}
+
+/**
+ * The box a tile has to be inside to count as ON SCREEN: the nearest scrolling ancestor of the
+ * pool's layer, intersected with the viewport.
+ *
+ * Both halves are needed. The scroller alone would call a tile visible while the dialog holding it
+ * is itself scrolled out of the window; the viewport alone counted tiles the scroller had clipped
+ * away — the measured failure, 19 "on screen" against 12 really visible.
+ */
+function clipRect(layer: HTMLElement | null): { top: number; bottom: number; left: number; right: number } {
+	const view = { top: 0, left: 0, bottom: typeof window === 'undefined' ? 0 : window.innerHeight, right: typeof window === 'undefined' ? 0 : window.innerWidth };
+	if (!layer || typeof getComputedStyle !== 'function') return view;
+	for (let a: HTMLElement | null = layer.parentElement; a; a = a.parentElement) {
+		const cs = getComputedStyle(a);
+		if (!/(auto|scroll|overlay)/.test(cs.overflowY + cs.overflowX)) continue;
+		const r = a.getBoundingClientRect();
+		return { top: Math.max(view.top, r.top), bottom: Math.min(view.bottom, r.bottom), left: Math.max(view.left, r.left), right: Math.min(view.right, r.right) };
+	}
+	return view;
+}
+
+/** The element a tile actually scrolls inside, or null for the viewport. The observer roots here
+ *  so its `rootMargin` means something (see the call site), and `clipRect` answers the same
+ *  question from the layer's side. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+	if (typeof getComputedStyle !== 'function') return null;
+	for (let a: HTMLElement | null = el.parentElement; a; a = a.parentElement) {
+		const cs = getComputedStyle(a);
+		if (/(auto|scroll|overlay)/.test(cs.overflowY + cs.overflowX)) return a;
+	}
+	return null;
+}
+
 type PoolApi = {
 	register: (tile: Tile) => void;
 	unregister: (id: number) => void;
@@ -167,10 +228,25 @@ type PoolApi = {
 
 const PoolContext = React.createContext<PoolApi | null>(null);
 
-/** How many frames a pool may grow to. It never shrinks — releasing a frame is the thing this
- *  whole module exists to avoid — so this is the ceiling on documents for the grid's lifetime.
- *  Sized above the largest in-band set measured on any surface (12-17 tiles at 390-1440px). */
-export const MAX_SLOTS = 10;
+/**
+ * The slot ceiling, and it FOLLOWS WHAT IS ON SCREEN rather than sitting at a constant.
+ *
+ * A fixed 10 shipped first and was wrong in the one way that matters: a desktop gallery puts
+ * 11-12 tiles on screen at 1440x900 and 12 at 1920x1200, so the tiles that lost the cap rendered
+ * as permanently empty cards — permanently, because nothing re-runs the assignment pass while the
+ * grid sits still. Measured at 1440x900 scrolled to 60%: one fully-visible tile blank at 4s, 8s
+ * and 15s; at 1920x1200, two. That is the invariant the design this replaced stated outright —
+ * "the budget caps RETENTION, never what is on screen" — broken by its replacement.
+ *
+ * So the cap is `max(BASE_SLOTS, tiles on screen)`, bounded by `HARD_MAX_SLOTS`. A pool never
+ * releases a frame, so it settles at the high-water mark of the biggest grid the session actually
+ * looked at — which is the honest cost of never tearing a document down, and is still bounded.
+ */
+export const BASE_SLOTS = 10;
+/** The stop. A runaway on-screen count (a huge display, a future dense grid) must not become a
+ *  runaway document count — past this the pool starves the least-recently-seen tiles again, which
+ *  is a visible defect rather than an invisible one. */
+export const HARD_MAX_SLOTS = 28;
 
 /** Minimum gap between re-point passes. Long enough that a flick settles into one reassignment
  *  rather than sixty, short enough that letting go feels immediate. */
@@ -192,7 +268,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	const tiles = React.useRef(new Map<number, Tile>());
 	const seq = React.useRef(0);
 	// slot index → the tile it currently shows, and the shape its document was last built for.
-	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string }[]>([]);
+	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string }[]>([]);
 	const slotsRef = React.useRef(slots);
 	slotsRef.current = slots;
 	const pending = React.useRef<number | null>(null);
@@ -245,15 +321,27 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 			// not enough either: the band reaches 250px past the viewport, and during a downward
 			// scroll the most recently entered tiles are the ones BELOW the fold — so recency
 			// prefers tiles nobody can see yet over tiles filling the screen right now.
+			//
+			// ON SCREEN MEANS INSIDE THE SCROLLER, not inside the window, and the difference is not
+			// academic: every grid this serves scrolls inside a container (the picker's dialog, the
+			// phone sheet, Reshape's `max-h-[60vh]` popover, the overview's flex column). Measuring
+			// against `window.innerHeight` counted tiles the scroller had clipped away as visible —
+			// 19 "on screen" against 12 really visible at one desktop offset — which collapsed this
+			// three-tier order into the pure LRU the paragraph above says is not enough.
+			const clip = clipRect(layerRef.current);
 			const seen = (t: Tile) => {
 				const r = t.el.getBoundingClientRect();
-				return r.bottom > 0 && r.top < (typeof window === 'undefined' ? 0 : window.innerHeight) && r.height > 0;
+				return r.height > 0 && r.bottom > clip.top && r.top < clip.bottom && r.right > clip.left && r.left < clip.right;
 			};
-			const rank = (t: Tile) => (seen(t) ? 0 : t.inBand ? 1 : 2);
-			const want = [...tiles.current.values()]
-				.filter(holding)
-				.sort((a, b) => (rank(a) === rank(b) ? b.seq - a.seq : rank(a) - rank(b)))
-				.slice(0, MAX_SLOTS);
+			const ranked = [...tiles.current.values()].filter(holding).map((t) => ({ t, on: seen(t) }));
+			const rank = (x: { t: Tile; on: boolean }) => (x.on ? 0 : x.t.inBand ? 1 : 2);
+			// THE CAP COVERS EVERYTHING ON SCREEN, so the sort decides who waits a beat, never who is
+			// left staring at an empty card.
+			const cap = Math.min(HARD_MAX_SLOTS, Math.max(BASE_SLOTS, ranked.filter((x) => x.on).length));
+			const want = ranked
+				.sort((a, b) => (rank(a) === rank(b) ? b.t.seq - a.t.seq : rank(a) - rank(b)))
+				.slice(0, cap)
+				.map((x) => x.t);
 			const next = slotsRef.current.map((s) => ({ ...s }));
 			const held = new Set<number>();
 			// 1. A tile keeps the slot it already has — but ONLY if it survived the cap above.
@@ -275,17 +363,29 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 					const mine = next.find((s) => s.tileId === t.id);
 					if (mine) {
 						mine.props = t.props;
+						// The KEY too. Without this a held slot keeps the shape it was built for while its props
+						// move on — a palette or mode toggle changes the key of every tile at once — and the
+						// shape-preference lookup below then matches an arriving tile against a document that no
+						// longer exists, sending it down the full-write path it exists to avoid.
+						mine.key = shapeKey(t.props);
+						// The identity cannot change under a held tile — it is the same tile — so it is not
+						// re-derived here.
 						mine.rect = rectOf(t.el);
 					}
 					continue;
 				}
 				const k = shapeKey(t.props);
-				let slot = next.find((s) => s.tileId === null && s.key === k) ?? next.find((s) => s.tileId === null);
-				if (!slot && next.length < MAX_SLOTS) {
-					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k };
+				const idk = identityKey(t.props);
+				// A free slot of the same IDENTITY, preferring one that also matches the shape so the
+				// render patches instead of rewriting. Never a slot of another identity, whatever the
+				// pressure: that one is not a cost, it is a wrong answer.
+				const free = next.filter((s) => s.tileId === null && s.id === idk);
+				let slot = free.find((s) => s.key === k) ?? free[0];
+				if (!slot && next.length < cap) {
+					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk };
 					next.push(slot);
 				}
-				if (!slot) break; // every slot is serving a visible tile; the rest wait a beat
+				if (!slot) continue; // no slot this pass; the tile waits for one rather than showing another's
 				slot.tileId = t.id;
 				slot.props = t.props;
 				slot.key = k;
@@ -328,6 +428,18 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	// The layout moving is the ONLY thing that invalidates a position, so it is the only thing
 	// that recomputes one. Covers a resize, a column-count change, a filter shortening the grid
 	// and a looks panel opening a row — all of which move tiles without any of them scrolling.
+	// A pass is ALWAYS armed at teardown — unmounting the grid unregisters every tile, and each
+	// unregister schedules one — so without this the timer fires up to APPLY_MS later against a null
+	// layer and keeps the tile map and every tile's props closure alive past unmount. Harmless to
+	// React; not harmless in the one module whose subject is retained memory.
+	React.useEffect(
+		() => () => {
+			if (pending.current !== null) window.clearTimeout(pending.current);
+			pending.current = null;
+		},
+		[],
+	);
+
 	React.useEffect(() => {
 		const layer = layerRef.current;
 		if (!layer || typeof ResizeObserver === 'undefined') return;
@@ -400,11 +512,13 @@ export function PooledThumbFace({ className, ...props }: PooledPreviewProps & { 
 				const e = entries[entries.length - 1];
 				if (e) pool.setInBand(tileId, e.isIntersecting);
 			},
-			// TIGHTER than the 250px the per-tile window used, and for a different reason: there,
-			// the margin bought a head start on an expensive cold mount. Here a re-point is a patch
-			// into a living document, so the head start is cheap to give up — and every tile the
-			// band admits is a slot the pool has to own. 150px still covers most of a row.
-			{ rootMargin: '150px' },
+			// ROOTED AT THE SCROLLER, not at the viewport, because `rootMargin` is applied to the
+			// ROOT only: with a null root the observer still clips against intermediate scrollers and
+			// the margin buys nothing on any of these grids (all three scroll inside a container).
+			// The margin itself is TIGHTER than the 250px the per-tile window used, and for a
+			// different reason: there it bought a head start on an expensive cold mount, while here a
+			// re-point is a patch into a living document. 150px covers most of a row.
+			{ root: scrollParent(el), rootMargin: '150px' },
 		);
 		io.observe(el);
 		return () => {

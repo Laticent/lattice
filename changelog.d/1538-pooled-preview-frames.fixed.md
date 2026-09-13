@@ -6,10 +6,13 @@
   recycling was itself the cost. The gallery now holds a small fixed POOL of frames in one layer
   and re-points them over the tiles worth showing, which keeps the same iframe and the same realm
   and takes `single-slide-render`'s patch path instead of writing a fresh `srcdoc`. Browsing the
-  whole 69-tile catalog four times at 390×844 now mints **11 iframes and 15 preview documents**
+  whole 69-tile catalog four times at 390×844 now mints **11 iframes and 13 preview documents**
   instead of one of each per tile, and retained memory after that browse fell from **+648MB to a
-  ~365MB median on WebKit** (three runs: 353/365/397) and from ~105MB to ~82–91MB on Chromium. The
-  instrument's own spread is ±200MB, so the run counts are the near-deterministic half of this.
+  ~427MB median on WebKit** (three runs: 415/427/466) and from ~105MB to ~84–94MB on Chromium. The
+  instrument's own spread is ±200MB, so the counts are the near-deterministic half of this. The
+  pool holds ten frames, or as many as the grid has tiles on screen (stopping at 28) — so a
+  desktop gallery showing twelve tiles holds twelve, and no tile a reader is looking at ever goes
+  without a preview.
 - **Fixed: a patched-in slide lost the specimen flag's overflow suppression.** A catalog tile is a
   SPECIMEN — a sample the author did not write and cannot fix — so its overflow watcher resolves to
   `off`, and at `off` the runtime deliberately installs "no probe, no observer, no resize handler".

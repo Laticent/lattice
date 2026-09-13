@@ -24,11 +24,10 @@ import { loadPickerView, loadSettings, type PickerView, SETTINGS_EVENT, savePick
 // builder). Search + grouping + filter all sit on the shared component-search core
 // (HARD RULE #15).
 //
-// WINDOWED means TWO-WAY (#1463): a tile mounts its iframe on scroll-in and gives it
-// back once it is far enough off screen that the shared preview budget wants the slot
-// (slide-thumb.tsx). It used to be one-way — mount on scroll-in, keep forever — so a
-// scroll through the full gallery left every tile's engine document resident at once
-// and the tab could be OOM-killed. Off-screen tiles cost a ref and a placeholder box.
+// WINDOWED means POOLED (#1538): the frames live in one layer and are re-pointed over the
+// tiles on screen (preview-pool.tsx), never torn down — because WebKit does not give a
+// torn-down preview document back, which made the two-way window that preceded this the
+// thing paying for a document per tile browsed. Off-screen tiles cost a ref and an empty box.
 //
 // These tiles are also SPECIMENS: every one renders a catalog sample the author did not
 // write and cannot edit, so the engine's authoring alarms (the overflow ring/tab, the
@@ -340,19 +339,24 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			)}
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 [touch-action:pan-y] sm:px-5">
-				{searching && flat.length === 0 ? (
-					<Empty query={query} />
-				) : (
-					/* ONE grid element in both views — only the column track changes, so a tile
-					   (and its live-preview iframe) survives a view flip instead of unmounting and
-					   re-rendering cold. List is a single full-width column whose tiles lay
-					   themselves out as rows; band headers stay `col-span-full` in both. */
-					/* POOLED PREVIEWS. The frames live in one layer inside this scroll content rather
-					   than one per tile, so they are re-pointed instead of destroyed as you scroll —
-					   which is what stops WebKit retaining a document per tile browsed. See
-					   preview-pool.tsx. The grid itself is unchanged: every tile keeps its own
-					   button, name and looks control. */
-					<PreviewPool>
+				{/* POOLED PREVIEWS. The frames live in one layer inside this scroll content rather than one
+				    per tile, so they are re-pointed instead of destroyed as you scroll — which is what stops
+				    WebKit retaining a document per tile browsed. See preview-pool.tsx. The grid itself is
+				    unchanged: every tile keeps its own button, name and looks control.
+
+				    THE POOL WRAPS BOTH BRANCHES BELOW, and that is not a formatting choice. Inside the grid
+				    branch, a query matching nothing unmounted the pool — destroying every preview document
+				    and minting a fresh set when the query matched again. Measured: 11 frames → 1 → 11 per
+				    empty-search bounce, which on WebKit is ~100MB never given back, reachable by any typo.
+				    The pool outlives what it is showing; that is the whole idea. */}
+				<PreviewPool>
+					{searching && flat.length === 0 ? (
+						<Empty query={query} />
+					) : (
+						/* ONE grid element in both views — only the column track changes, so a tile (and the
+						   slot showing it) survives a view flip instead of unmounting and re-rendering cold.
+						   List is a single full-width column whose tiles lay themselves out as rows; band
+						   headers stay `col-span-full` in both. */
 						<div className={cn('grid gap-3 pt-1', effectiveView === 'list' ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4')}>
 							{searching
 								? flat.flatMap((it) => renderTile(it, it.name, matchedLooks(it)))
@@ -361,8 +365,8 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 										return [...header, ...band.items.flatMap((it) => renderTile(it, tileKey(band.key, it.name)))];
 									})}
 						</div>
-					</PreviewPool>
-				)}
+					)}
+				</PreviewPool>
 			</div>
 
 			{/* Detail rail — prose on demand (the highlighted slide's purpose). Hidden on a

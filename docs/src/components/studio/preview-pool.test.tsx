@@ -26,7 +26,7 @@ vi.mock('@/components/DeckPreview', async () => {
 	};
 });
 
-import { APPLY_MS, MAX_SLOTS, PooledThumbFace, PreviewPool, RELEASE_GRACE } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, HARD_MAX_SLOTS, PooledThumbFace, PreviewPool, RELEASE_GRACE } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -85,6 +85,21 @@ const rects = new Map<Element, { top: number; height: number }>();
 const onScreen = (el: Element) => rects.set(el, { top: 10, height: 100 });
 const offScreen = (el: Element) => rects.set(el, { top: 5000, height: 100 });
 
+/** Four of the author's own tiles, then four catalog specimens — the one configuration in which
+ *  "per tile" is a claim about `specimen` rather than a claim about the whole pool. */
+function MixedGrid() {
+	return (
+		<PreviewPool>
+			{Array.from({ length: 8 }, (_, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
+				<div key={i} data-testid={`tile-${i}`}>
+					<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} specimen={i >= 4} className="aspect-video w-full" />
+				</div>
+			))}
+		</PreviewPool>
+	);
+}
+
 function Grid({ n, specimen = false, pooled = true }: { n: number; specimen?: boolean; pooled?: boolean }) {
 	const tiles = Array.from({ length: n }, (_, i) => (
 		// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
@@ -130,42 +145,128 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		unmount();
 	});
 
-	it('never exceeds the slot ceiling, however many tiles are in band at once', () => {
-		const n = MAX_SLOTS * 3;
+	it('never exceeds the slot ceiling for tiles that are merely in band', () => {
+		const n = BASE_SLOTS * 3;
 		const { container, unmount } = render(<Grid n={n} />);
+		// In band and NOT on screen — no rect is stubbed, so every tile reads as off screen. This is
+		// the half the ceiling is for: a band that reaches past the fold must not mint a document per
+		// tile it admits.
 		for (let i = 0; i < n; i++) intersect(face(container, i), true);
 		settle();
-		expect(showing(container).length, `the pool grew past its ceiling of ${MAX_SLOTS}`).toBeLessThanOrEqual(MAX_SLOTS);
+		expect(showing(container).length, `the pool grew past its floor of ${BASE_SLOTS} for off-screen tiles`).toBeLessThanOrEqual(BASE_SLOTS);
+		unmount();
+	});
+
+	it('covers EVERY tile on screen, even past the base ceiling', () => {
+		// The regression this pins, and it is the one a one-sided ceiling test cannot see: a fixed
+		// cap of 10 left the 11th and 12th fully-visible tiles permanently blank on a desktop
+		// gallery — permanently, because nothing re-runs the assignment pass while the grid sits
+		// still. Measured on the real Studio at 1440x900, one blank card; at 1920x1200, two. The
+		// design this replaced stated the opposite invariant outright: what is on screen is not
+		// negotiable.
+		const n = BASE_SLOTS + 5;
+		const { container, unmount } = render(<Grid n={n} />);
+		for (let i = 0; i < n; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		const shown = showing(container);
+		for (let i = 0; i < n; i++) {
+			expect(shown, `tile ${i} is on screen and has no preview`).toContain(`# ${i}`);
+		}
+		expect(shown.length).toBe(n);
+		unmount();
+	});
+
+	it('stops growing at the hard ceiling', () => {
+		// …but "cover what is on screen" is not unbounded. Past HARD_MAX_SLOTS the pool starves the
+		// least-recently-seen tiles again — a visible defect rather than an invisible memory one,
+		// which is the trade this constant makes.
+		const n = HARD_MAX_SLOTS + 6;
+		const { container, unmount } = render(<Grid n={n} />);
+		for (let i = 0; i < n; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		expect(showing(container).length).toBe(HARD_MAX_SLOTS);
+		unmount();
+	});
+
+	it('never re-points a slot across the specimen boundary', () => {
+		// `DeckPreview` builds its renderer ONCE, on first mount, so `specimen` is fixed per SLOT
+		// however many times the document is rewritten. A pool that re-points a catalog sample into
+		// a slot built for the author's own slide therefore silences that slide's overflow alarm —
+		// the regression `specimen`'s docstring warns about, reappearing inside the pool. The
+		// invariant is per slot, so it is read per slot: no slot ever changes its answer.
+		const { container, unmount } = render(<MixedGrid />);
+		const seenBySlot = new Map<number, Set<string>>();
+		const record = () => {
+			[...container.querySelectorAll('[data-testid="deck-preview"]')].forEach((f, i) => {
+				const set = seenBySlot.get(i) ?? new Set<string>();
+				set.add(String(f.getAttribute('data-specimen')));
+				seenBySlot.set(i, set);
+			});
+		};
+		// Wave 1: the author's own tiles. Wave 2: the specimens, with wave 1 released.
+		for (let i = 0; i < 4; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		record();
+		for (let i = 0; i < 4; i++) {
+			offScreen(face(container, i));
+			intersect(face(container, i), false);
+		}
+		// Let the grace window EXPIRE before the second wave asks for a slot, in two steps. A single
+		// long settle does not do it: the pass runs once, APPLY_MS after the last event, while the
+		// first wave is still inside its grace and holding — so the second wave would take fresh
+		// slots and never approach the boundary this test is about. (That is also the behavior worth
+		// knowing: assignments change on events, not on the clock.)
+		settle(RELEASE_GRACE + APPLY_MS + 40);
+		for (let i = 4; i < 8; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		record();
+		for (const [slot, answers] of seenBySlot) {
+			expect([...answers], `slot ${slot} served both a specimen and the author's own slide`).toHaveLength(1);
+		}
+		// And the specimens really did get previews, so the invariant is not held by showing nothing.
+		expect(showing(container).filter((s) => s !== null && Number(s.slice(2)) >= 4).length).toBeGreaterThan(0);
 		unmount();
 	});
 
 	it('RE-POINTS a slot instead of remounting it — the property the module exists for', () => {
-		const n = MAX_SLOTS * 2;
+		const n = BASE_SLOTS * 2;
 		const { container, unmount } = render(<Grid n={n} />);
-		for (let i = 0; i < MAX_SLOTS; i++) {
+		for (let i = 0; i < BASE_SLOTS; i++) {
 			onScreen(face(container, i));
 			intersect(face(container, i), true);
 		}
 		settle();
 		const firstWave = showing(container);
-		expect(firstWave.length).toBe(MAX_SLOTS);
+		expect(firstWave.length).toBe(BASE_SLOTS);
 		const mountedOnce = mounts;
 		expect(unmounts, 'a frame was torn down before any tile left the band').toBe(0);
 
 		// The first wave scrolls away, a second wave arrives. Past the grace window, so the slots
 		// really do change hands rather than being held.
-		for (let i = 0; i < MAX_SLOTS; i++) {
+		for (let i = 0; i < BASE_SLOTS; i++) {
 			offScreen(face(container, i));
 			intersect(face(container, i), false);
 		}
-		for (let i = MAX_SLOTS; i < n; i++) {
+		for (let i = BASE_SLOTS; i < n; i++) {
 			onScreen(face(container, i));
 			intersect(face(container, i), true);
 		}
 		settle(RELEASE_GRACE + APPLY_MS + 40);
 
 		const secondWave = showing(container);
-		expect(secondWave.some((s) => s !== null && Number(s.slice(2)) >= MAX_SLOTS), 'the second wave never got a slot').toBe(true);
+		expect(secondWave.some((s) => s !== null && Number(s.slice(2)) >= BASE_SLOTS), 'the second wave never got a slot').toBe(true);
 		// THE RELATION. The slots now show different slides and not one frame was recreated:
 		// no unmount, and no mount beyond the ones that opened the pool. A pool that re-created
 		// its frames would pass every count assertion above and fix nothing at all.
@@ -178,14 +279,14 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		// The bug this pins, seen on the real gallery as three blank cards: a tile that had
 		// scrolled away kept squatting on its slot through the grace window while a tile filling
 		// the screen waited. Priority has to decide who KEEPS a slot, not only who gets a free one.
-		const n = MAX_SLOTS + 4;
+		const n = BASE_SLOTS + 4;
 		const { container, unmount } = render(<Grid n={n} />);
-		for (let i = 0; i < MAX_SLOTS; i++) {
+		for (let i = 0; i < BASE_SLOTS; i++) {
 			onScreen(face(container, i));
 			intersect(face(container, i), true);
 		}
 		settle();
-		expect(showing(container).length).toBe(MAX_SLOTS);
+		expect(showing(container).length).toBe(BASE_SLOTS);
 
 		// Four early tiles leave the band but stay INSIDE the grace window; four new tiles arrive
 		// and are on screen. Settle by less than RELEASE_GRACE, so the grace-holders are still
@@ -194,14 +295,14 @@ describe('PreviewPool — which tiles hold a frame', () => {
 			offScreen(face(container, i));
 			intersect(face(container, i), false);
 		}
-		for (let i = MAX_SLOTS; i < n; i++) {
+		for (let i = BASE_SLOTS; i < n; i++) {
 			onScreen(face(container, i));
 			intersect(face(container, i), true);
 		}
 		settle();
 
 		const shown = showing(container);
-		for (let i = MAX_SLOTS; i < n; i++) {
+		for (let i = BASE_SLOTS; i < n; i++) {
 			expect(shown, `tile ${i} is on screen and has no preview; a grace-holder kept the slot`).toContain(`# ${i}`);
 		}
 		unmount();
@@ -228,7 +329,9 @@ describe('PooledThumbFace — the tile box', () => {
 		// a preview happens to be mounted.
 		expect(box.className).toContain('aspect-video');
 		expect(box.className).toContain('w-full');
-		expect(box.querySelector('figure'), 'the tile mounted its own engine host instead of using the pool').toBeNull();
+		// The box is EMPTY — no engine host anywhere inside the tile's own subtree. (The pool's
+		// frames are elsewhere in the tree, which is the point; `showing()` finds them.)
+		expect((container.querySelector('[data-testid="tile-0"]') as HTMLElement).querySelector('figure'), 'the tile mounted its own engine host instead of using the pool').toBeNull();
 		unmount();
 	});
 

@@ -24,12 +24,12 @@ import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 // It asserted "the same scroll offset holds the same number of live previews, however you
 // got there" — and that FAILED, at 7 vs 18 previews at the top of the grid.
 //
-// It failed because it contradicted the design. `slide-thumb.tsx` may retain a tile after it
-// leaves the observer band: the budget caps RETENTION, not what is on screen, so the mounted
-// set is a function of where you have BEEN, not only of where you ARE. A relation that
-// forbids that forbids the feature. (How MUCH it retains has since changed — the ceiling now
-// tracks the band, so above the floor the retained set is empty — but the relations below are
-// written to survive exactly that kind of re-tuning, which is why they did.)
+// It failed because it contradicted the design. A tile may stay mounted after it leaves the
+// observer band: what is bounded is RETENTION, not what is on screen, so the mounted set is a
+// function of where you have BEEN, not only of where you ARE. A relation that forbids that
+// forbids the feature. (What does the retaining has changed twice since — a budget that follows
+// the band, then a pool of frames that are re-pointed and never destroyed — and these relations
+// survived both, which is the property they were written for.)
 //
 // What an LRU window DOES promise, and what these relations therefore assert:
 //   · the retained set SATURATES — it stops growing, rather than never growing;
@@ -297,11 +297,12 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		// an LRU window promises no such thing, and the first cut of this file failed for
 		// asserting it (see the header). What it promises is that the set stops GROWING.
 		//
-		// Shrinking is not a violation, it is the budget working: the ceiling now follows the
-		// in-band set (slide-thumb.tsx `previewBudget`), so when a traversal ends and the band
-		// contracts, the ceiling contracts with it and a later sweep trims further. Measured on
-		// WebKit at the iPhone 15 Pro profile, passes 1 and 2 settled at 21 then 16 — a window
-		// doing MORE of its job, which a symmetric comparison called a regression.
+		// Shrinking is not a violation, it is the bound working: under the budget that preceded the
+		// pool, the ceiling followed the in-band set, so a traversal ending contracted it and a later
+		// sweep trimmed further. Measured on WebKit at the iPhone 15 Pro profile, passes 1 and 2
+		// settled at 21 then 16 — a window doing MORE of its job, which a symmetric comparison called
+		// a regression. The pool does not shrink at all, so today only the growth half can trip;
+		// the one-sidedness is what let this relation outlive the design it was written against.
 		//
 		// Growth is the defect this guards (#1463): a window that accumulates instead of
 		// recycling rises pass over pass, and no amount of slack hides three passes of it.
