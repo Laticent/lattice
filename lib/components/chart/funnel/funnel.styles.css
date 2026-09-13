@@ -36,7 +36,9 @@
  * engineering/decisions/2026-09-07-chart-design-language/spend-rules.md §2.
  *
  * Slot 1 is the family's single-series slot, the one a one-series bar takes.
- * Vivid solid (mix toward --bg for body, the same 82% richness the pie legend
+ * Vivid solid (--chart-cat-N-body: 82% of the hue mixed toward --chart-cat-base,
+ * NOT toward --bg — that confusion is exactly what the token exists to end; the
+ * same richness the pie legend
  * swatch uses). Labels and values sit on the canvas, never on a band, so the
  * fill never affects text contrast. A hairline canvas-colored stroke keeps
  * adjacent bands crisp. */

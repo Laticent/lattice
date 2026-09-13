@@ -117,3 +117,33 @@ Four, and each one made a claim look better than it was:
 **The rule that would have caught all four: make a measurement name its subject.**
 "gantt 2.47:1" located nothing; "Per-team weighting, 2.47:1" located the bug
 immediately.
+
+## Swept up by the independent checker on #2148 — do these next
+
+An independent checker ran on the engine diff before merge and found one
+blocking defect plus six accuracy defects. The blocker and four of the six were
+fixed in the merge commit. These are what it left on the floor:
+
+- **Dead `--i` stores in `slope` (4 sites), `funnel` (1) and `bullet` (1).** No
+  CSS anywhere reads `var(--i)`, so they are dead stores rather than a rendering
+  bug — but "the per-mark `--i` counter is gone" is only true of the three
+  members this PR migrated. Remove them when those members join the contract, not
+  before: they are pre-existing and off-path, and pulling six emitters into a
+  merge-ready PR is the widening HARD RULE #17 exists to stop.
+- **`matrix-grid` and `roadmap` gallery PDFs rebuild differently on `origin/main`
+  itself.** Not caused by this branch. The component-gallery builder is otherwise
+  byte-deterministic here (`bar` was the control), so something in those two is
+  environment-sensitive. Previously unrecorded; recorded now.
+- **The staleness gate cannot see a stale gallery.** `tools/lib/render-inputs.js:41`
+  measures staleness *against HEAD*, so once the CSS is committed the pairing
+  "looks sound whether or not anyone re-rendered" — its own words. That is how
+  `line`'s two PDFs shipped stale through a green `build:check`. A gate that
+  compared the committed PDF against a fresh render would have caught it; that is
+  a real gap, and it is the reason an independent checker earned its cost here.
+
+### Coverage the checker could NOT reach — treat as unverified
+
+- 10 of 15 palettes (it sampled 5), and 4 of the 5 a11y palettes.
+- Slots 7 and 8: no shipped gallery exercises them, so those slot-table rules and
+  their absent textures are untested by observation.
+- The `--player` export specifically — the surface the state-chart fix names.

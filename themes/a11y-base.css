@@ -191,7 +191,7 @@
    *
    * The dark arm MIRRORS the light one rather than inventing a tolerance: each
    * slot's contrast against #000 reproduces its light-arm contrast against #FFF
-   * to within 0.03 (13.58->13.62, 11.20->11.18, ... 3.11->3.09), so slot 1 stays
+   * to within 0.035 (13.58->13.62, 11.20->11.18, ... 3.11->3.09), so slot 1 stays
    * the most prominent and the palette ships the same margin at the quiet end
    * that it already ships on light. The light arm is byte-identical, so every
    * existing a11y deck renders exactly as before and this confines the change to

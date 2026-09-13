@@ -430,12 +430,19 @@ section.word-cloud,
  * `var(--mark-ink, <its own default>)`: an unset custom property is
  * invalid-at-computed-value-time, which is black again.
  *
- * `--mark-retreat` is how far a finish may pull this body back, 0..1. It is set
- * per mark class (not per slot) further down by the generated block, and it is
- * one number because both reasons a body is held reach the same answer: a ramp
- * is held because scaling it deletes the magnitude (spend-rules.md 1d), and a
- * text-bearing mark is held because --cat-on-mark was solved against a
- * full-strength mark (5). The reasons live in each manifest's `kernel.marks`.
+ * NOT YET SHIPPED: `--mark-retreat`, how far a finish may pull a body back.
+ * An earlier revision of this comment described it as set "per mark class
+ * further down by the generated block" — there is no such block and no such
+ * declaration anywhere in lib/ or themes/. It is designed, not built: the
+ * reasons a body is held (a ramp because scaling it deletes the magnitude,
+ * spend-rules.md 1d; a text-bearing mark because --cat-on-mark was solved
+ * against a full-strength mark) both land on one number, and that number wants
+ * to live in each manifest's `kernel.marks`. Read this as a plan, not a
+ * contract to code against.
+ *
+ * `--mark-fill` is declared for all eight slots and currently read by NO rule.
+ * It is kept because it completes the tier set a consumer expects beside
+ * -hue and -ink, but do not describe it as one the family paints from.
  *
  * TWO MORE ATTRIBUTES RIDE WITH `data-hue`, and they are what lets a finish be
  * written without naming a single member:
