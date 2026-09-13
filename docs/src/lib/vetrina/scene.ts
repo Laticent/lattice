@@ -33,6 +33,15 @@ export interface SceneBuilder<A> {
 	 *  the words glow-pulse, then DWELL to read (timed to the caption) BEFORE the action runs.
 	 *  Pairs with a short `hold`/settle (the land — a brief digest pause on the result). */
 	read(): this;
+	/** WORD CUE — land this step's action on the word that names it.
+	 *
+	 *      scene().say('Now click Save to publish.').at('Save')
+	 *        .point('#save').click().act((a) => a.save())
+	 *
+	 *  The cursor leaves early enough to ARRIVE as the narration reaches "Save". Needs a narrator
+	 *  that can plan its own timeline (a Cadenza-backed one can, from text alone — no audio); with
+	 *  none, the beat plays in its normal order and nothing breaks. Opposite of `read()`. */
+	at(word: string): this;
 	/** Advance GATE — hold on this step until `pred` is true (abort-safe). The "callback for
 	 *  when to move on"; pairs with `.instant()` to fire, then wait for the app to be ready. */
 	until(pred: () => boolean): this;
@@ -114,6 +123,10 @@ export function scene<A>(seed = ''): SceneBuilder<A> {
 		},
 		read() {
 			(cur ?? open([])).read = true;
+			return b;
+		},
+		at(word) {
+			(cur ?? open([])).at = word;
 			return b;
 		},
 		until(pred) {

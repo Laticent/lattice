@@ -370,6 +370,7 @@ always-reachable **Exit** icon. It sits at the bottom by default; move it with
 | `'split'` | a clean text-only caption + a separate ✕ chip in the corner | typographic calm |
 | `'scrim'` | no box — a film-subtitle over a soft bottom gradient | busy/dark content (the Studio demo opts into it) |
 | `'progress'` | the bar, with a beat-progress ring in place of the dot | long/kiosk walkthroughs that want a sense of pacing |
+| `'cursor'` | a speech balloon next to the cursor that steps aside while it performs, and takes itself down after. Becomes the `'split'` dock when the narrator is voiced | a tour where the round trip between an edge caption and the thing it is about is the cost you are paying |
 
 Every style keeps Exit inside `.vetrina-caption` (so the take-over guard reads it
 as chrome) and keeps one narration live region. The boxed styles' corner **shape**
@@ -383,6 +384,206 @@ Pacing is a curated preset — `speed: 'slow' | 'moderate' | 'fast'` — not a r
 number the eye can't use. The pointer is a shape from a small legible set
 (`arrow` / `ring` / `dot`). Cues can be silenced (`cues: { intro: false }`) but
 never replaced by DOM-touching callbacks.
+
+## The caption next to the cursor — `caption: 'cursor'`
+
+An edge dock is furniture: it sits at the bottom of the screen and the viewer's eye makes a
+round trip to it once per beat. `caption: 'cursor'` puts the words where the hand is.
+
+```ts
+run({ root, actions, play, theme: { caption: 'cursor', bounds: 'host' } });
+```
+
+Three properties do the work, and each one is a rejection of the obvious version:
+
+- **Anchored, not following.** The balloon is placed once, where the cursor is resting, and does
+  not move again while it is readable. A caption that TRACKS the pointer cannot be read at all —
+  reading is a sequence of fixations on stationary text, and text that drifts during a fixation
+  has to be re-found. Moving it means hiding it and showing it somewhere else, never sliding it.
+- **It is transient — it appears when there is something to say, and not otherwise.** The rhythm
+  is: the cursor moves (the movement is what brings the eye), it arrives, the balloon appears
+  beside it, it holds for as long as an average reader needs, and then it takes itself down. Then
+  the action happens. A beat that points somewhere says its line **on arrival**; a beat whose only
+  DOING is a deictic stroke says it once the stroke is drawn; everything else says it immediately.
+  "Only doing" is narrower than "only movement": a beat that also has an `act`, a `type` or an
+  `until` speaks first, because those are the things the line is there to explain. Saying it last
+  would put the words after the typing, or leave a 15-second advance gate with nothing on screen.
+- **It steps aside for anything else that moves.** If the cursor performs while a line is still up
+  — which, since the caption dismisses itself before the action, means a DRAG, whose lift-to-drop
+  window spans the line — the balloon fades out and comes back **re-anchored to where the cursor
+  now is**. The stage brackets its own verbs, so you write nothing; the one seam is
+  `stage.busy(on)`, which the runner already calls around the typing reveal (typing lands through
+  YOUR setters, so the stage cannot see it).
+- **The reading time is not free.** Every beat spends its caption budget, where an edge dock spends
+  none (the words just sit there). Measured on the prototype's six-beat tour: 13.0s with an edge
+  dock against **30.1s** with the cursor caption and no narrator. **Caption length is the lever** —
+  the model prices a line at ~150 wpm and clamps at 6s, so anything reaching that clamp is the
+  model telling you the beat should have been two.
+  Counter-intuitively a narrator makes it *shorter* (27.5s timed, 22.2s voiced): a word-cued beat
+  spends only what is left of the reading window after the action, and a voiced run is an edge dock,
+  which spends none.
+  **The budget is `dwellMs`, not `captionMs`** — always the grounded ~150 wpm, whatever `pacing` the
+  run selected. The two are the same number under `'grounded'` and differ by 43% under the default
+  `'legacy'`, whose 300 wpm is the rate `pacing.ts` documents as wrong by a factor. An edge dock
+  survives it because the words stay up; a caption that erases itself does not.
+- **Exit does not go with it.** The balloon hides; the corner chip does not. A caption that can
+  hide would otherwise take the only escape with it, and stranding a viewer inside a running tour
+  is the one thing this library will not do. Hiding is by opacity, never `display` — the narration
+  is a live region, and dropping it out of the layout tree drops it out of the a11y tree.
+
+- **The caption never outlives its beat.** Every line that goes up comes down, on every exit from
+  the beat — including a throw, an abort, and an `instant` beat, which has no dwell to spend and so
+  keeps its line only as long as its substance takes. A `read` beat and a word-cued (`at`) beat are
+  the two that stay up *through* the action; they still come down after it, once the reading window
+  is spent. "It appears when there is something to say, and not otherwise" is the whole style.
+- **Avoidance is a preference, not a guarantee.** The balloon stays clear of the thing being
+  pointed at by flipping to another quadrant around the cursor — which escapes a target the cursor
+  is OUTSIDE of, and cannot escape one the cursor is sitting inside. Pointing at a whole panel puts
+  the caption on the panel, and that is the right answer: the alternative is a caption 400px from
+  the pointer, which is the one thing this style exists to stop.
+
+**A VOICED narrator docks the caption at the edge instead.** Ask for `caption: 'cursor'` and wire a
+narrator whose `voiced` is true, and `run()` gives you the `'split'` dock — silently, because it is
+the same decision you would make yourself once the reasons are on the table:
+
+- The balloon exists to save a **reading trip** between the pointer and the words. A voice removes
+  that trip; nobody reads a caption they are being told.
+- What is left is the caption's other job — the **subtitle** for a viewer who cannot hear it — and
+  subtitle practice (BBC, ITU-R BT.1359) puts a subtitle at a **fixed screen position**, because a
+  reader has to know where to look back to. Moving one around the frame is a known a11y failure.
+- It is also the only honest fix for the anchor. A voiced caption never hides, and the balloon
+  re-anchors on the hidden→shown edge — so a voiced one was placed once, at the top of the beat,
+  and then sat there while the cursor crossed the app. Measured at **493px** from the pointer it
+  was speaking for.
+
+A stage you build yourself is not second-guessed: `stage.setVoiced(true)` still means "keep the
+caption up during the action" on a cursor-anchored stage you mounted directly.
+
+### Confining the chrome to your app — `bounds`
+
+`bounds: 'host'` measures every caption against the `root` element the walkthrough drives instead
+of against the window. Reach for it when the tour runs in a PANE of a larger page: a caption bar
+spanning the whole window, for a demo confined to one panel, is chrome about the wrong thing.
+
+It is the **visible part** of `root`, intersected with the window. A host taller than the
+window is the ordinary case — a panel in a scrolling page — and seating the chrome in the raw
+host's corner put Exit 638px above the top of the window, where it cannot be pressed and cannot be
+reached by keyboard either (the first `Tab` is a keydown the take-over guard reads as the viewer
+taking the wheel). A host scrolled entirely out of view falls back to the window.
+
+It is a **clamping box, not a containing block.** The overlay layer stays `position: fixed` and
+click-through; only the chrome's geometry is measured against `root`. Nothing about your CSS has
+to change, and the tour does not inherit your stacking, overflow or transform context — which is
+where an overlay goes to get clipped.
+
+## Narration — a port, not an engine
+
+Vetrina does not know how to time text and must not learn: Cadenza already does, and the two are
+separately spin-off-able (an import gate enforces it). So narration arrives the way audio arrives
+in Suono — as something you wire in.
+
+```ts
+import { cadenzaNarrator } from '…/lib/vetrina-narration/cadenza-narrator';
+
+run({ root, actions, play, narrate: cadenzaNarrator({ pace: 'moderate' }) });
+```
+
+Three things a narrator buys, and **only the first needs audio**:
+
+1. a voice;
+2. a REAL duration for each line, replacing the reading-time estimate — a timed track is text
+   arithmetic, so this works with no sound at all;
+3. a word CLOCK, which is what makes the cue below possible. Also silent.
+
+**To actually speak**, use `voicedNarrator` and hand it the bytes — it owns no key, no model and
+no network, exactly as Suono does not:
+
+```ts
+voicedNarrator({ synthesize: (text, { signal }) => myTts(text, signal) });
+```
+
+It plays through Suono and re-anchors the word clock to the clip's **measured** span — Cadenza's
+hybrid align, where the estimate supplies the internal rhythm and the measurement supplies the
+total. Every cue is scaled into that span, not just the first: anchoring only cue 0 stretches
+sentence one across the whole clip and pushes the rest past the end of the audio. It reports
+`voiced: true`, which is what docks the caption at the edge.
+
+**Build it ONCE and reuse it — then `dispose()` it.** `voicedNarrator` opens an `AudioContext`
+eagerly (the unlock has to happen inside the user gesture that started the tour), and the run does
+not own it: a narrator is passed *in*, so `run()` never closes it, and one narrator across many
+runs is what keeps a single `AudioContext` for the page. Build one per Run click and nothing
+closes them — measured at 8 live contexts after 8 runs. Chromium caps them per document and the
+constructor throws at the cap, from inside a handler that has already disabled its own button.
+
+```ts
+const narrator = voicedNarrator({ synthesize });      // once, in the gesture that starts the tour
+addEventListener('pagehide', () => narrator.dispose?.());
+```
+
+`dispose()` clears the track cache and closes the `AudioContext` **only if the narrator created
+it** — pass your own `audio` stage and it is left alone, because the rest of your page is using it.
+
+Two failures are handled rather than propagated: a voice that throws, and a voice that never
+answers (`synthesizeTimeoutMs`, 20s). Either way the beat plays on silently and the caption still
+gets its full reading budget — a hung TTS must not hang the tour.
+
+Implement `Narrator` yourself for anything else — `speak(text, { signal, onWord })` returning a
+handle whose `done` resolves at the end of the line, plus an optional `plan(text)` that reports
+the line's word timeline ahead of speaking it.
+
+### The action lands on the word — `at`
+
+```ts
+scene()
+  .say('Now click Publish to send it to the board.')
+  .at('Publish')
+  .point('#publish').click().act((a) => a.publish())
+```
+
+The cursor arrives on `#publish` as the narration reaches "Publish". **Whichever side is
+behind waits**: if the hand needs longer than the word (the usual case — cue words come early and
+a cursor crossing an app needs the best part of a second), the LINE starts late; if the word is
+further off than the trip, the ACTION starts late. Exactly one of the two ever waits.
+
+Needs a narrator that can `plan`. Without one, or when the line does not contain the word, the
+beat plays in its normal order — nothing breaks, the moment is just not staged. `at` and `read`
+are opposite rhythms; setting both warns and `at` wins.
+
+**With a VOICE, the cue is aligned to the estimate, not to the clip.** `plan()` has to answer
+before the beat starts — that is what buys the cursor its head start — but a voiced line is
+re-anchored to the clip's *measured* span once the audio arrives, and the cue does not move with
+it. So the action lands early or late by however far the real clip diverges from the estimate:
+the prototype stretches its placeholder voice to 1.2x deliberately, and a mid-line cue there
+fires ~20% of `startMs` early, on the order of 180ms. Silent (`cadenzaNarrator`), the estimate
+*is* the clock and the alignment is exact — measured at 1ms.
+
+The same caveat applies to `onWord`: the `startMs`/`endMs` on a `NarratedWord` are estimate
+times. The highlight itself runs on the re-anchored clock and stays in sync; the numbers handed
+to a host's callback are the pre-align ones.
+
+## Pacing — where the durations come from
+
+Every duration the theater spends lives in `pacing.ts`, and each constant carries its source:
+
+| timing | model |
+|---|---|
+| caption dwell | `300 + (60000/wpm)·words`, 120/150/175 wpm by preset, clamped 1.0–6.0s. Below Brysbaert's ~238 wpm for *undistracted* silent reading, inside the 160–180 wpm subtitle band — a tour caption is read under split attention. |
+| cursor travel | Fitts's law, `180 + 110·log2(D/W + 1)`, clamped 300–820ms. Target SIZE matters: landing on a 16px icon is not the same trip as landing on a 300px card. |
+| register beat | 350ms, and **zero when the cursor is already on target** — a saccade takes ~200ms to launch and the eye leads the hand by another 100–200ms, but only when it has somewhere to go. |
+| settle | 650ms — a saccade to the changed region plus time to encode it. |
+| typing | 55ms/char, above the ~40ms at which successive visual events fuse (below it the reveal reads as a paste), still ~3x a fast human. |
+
+A narrator's measurement supersedes the caption estimate wherever one exists — with a voice, that
+is the clip's measured duration. A grounded default is still a guess.
+
+`speed` remains the only public knob, and it is applied ONCE — `captionMs` is indexed by it, the
+rest are multiplied by it at their call sites.
+
+**`pacing` defaults to `'legacy'`** — the five literals this library shipped before the model
+existed. The grounded numbers are the better ones, but switching costs **+13%** run length
+(measured on the prototype tour with everything else held constant), and a library option should
+not re-time an existing walkthrough because you upgraded. Opt in with
+`theme: { pacing: 'grounded' }`, and compare the two on one surface.
 
 ## Driving from React
 
@@ -448,6 +649,8 @@ vetrina/
   storyboard.ts  the Step[] data model → Walkthrough
   scene.ts       the fluent recorder → Step[]
   theme.ts       token defaults + color validation
+  pacing.ts      every duration, each with the finding it comes from
+  narrate.ts     the narration PORT (types + one no-op) — no engine, no DOM
   recipes.ts     waitFor / loop / retry
   index.ts       the public surface (framework-free — zero deps)
   react.ts       the React adapter — useWalkthrough (peer dep react; not via index)

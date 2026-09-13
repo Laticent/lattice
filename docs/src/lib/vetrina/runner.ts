@@ -11,6 +11,8 @@
 // There is NO step interpreter here - storyboard()/scene() are library functions that
 // return a Walkthrough.
 
+import { type Narrator, SILENT_NARRATOR } from './narrate';
+import { type Pacing, resolvePacing } from './pacing';
 import { createStage, isAbortError, type Stage, type Target, wait } from './stage';
 import { resolveTheme, type Theme } from './theme';
 
@@ -51,6 +53,13 @@ export interface RunContext<A> {
 	type(target: Target, text: string, opts?: TypeOpts): Promise<void>;
 	/** Cooperative hand-off. Resolves with the user's real event, or per `onTimeout`. */
 	awaitUser(opts: AwaitUserOpts): Promise<Event>;
+	/** The run's narrator — the host's, or `SILENT_NARRATOR` when none was wired. Always
+	 *  present, so a beat has one code path: ask, and take the estimate when the answer is
+	 *  "I have no opinion". */
+	narrator: Narrator;
+	/** The run's duration model (./pacing) — where a beat's reading dwell and settle come from
+	 *  when the narrator supplies no measurement. */
+	pacing: Pacing;
 }
 
 export type Walkthrough<A> = (ctx: RunContext<A>) => Promise<void>;
@@ -72,6 +81,15 @@ export interface RunOptions<A> {
 	type?: TypeOps;
 	/** Theming — CSS-first --vt-* tokens, or this JS convenience (accent/speed/pointer/cues) (§9). */
 	theme?: Theme;
+	/** OPTIONAL narration. Give the run something that can time (and optionally speak) a line
+	 *  and three things change: each `say` beat dwells for the line's REAL duration instead of a
+	 *  reading estimate, a `Step.at` cue can land its action on the word that names it, and a
+	 *  voiced narrator keeps the caption up during the action instead of stepping aside.
+	 *
+	 *  Vetrina defines the port and nothing else (./narrate); the Cadenza-backed implementation
+	 *  lives outside the library, because these two are separately spin-off-able and the boundary
+	 *  gate is what keeps them that way. */
+	narrate?: Narrator;
 	/** Called AFTER teardown (I7) - the host restores whatever it wants. */
 	onStop?: (reason: StopReason) => void;
 	/** Play the opening flourish (materialize + wave) once at the start. Default true. */
@@ -137,14 +155,47 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 	const scopeNode: EventTarget = scope === 'root' ? root : window;
 
 	const resolved = resolveTheme(opts.theme); // validates colors up front (throws on url()/invisible)
+
+	const narrator = opts.narrate ?? SILENT_NARRATOR;
+
+	// A VOICED RUN DOCKS ITS CAPTION AT THE EDGE, even when the host asked for `'cursor'`.
+	//
+	// The balloon exists to save a reading trip: with a silent tour the viewer's eye has to
+	// travel between the pointer and the words, so the words go next to the pointer. A voice
+	// removes that trip entirely — nobody reads a caption they are being told. What is left is
+	// the caption's OTHER job, the one that matters more: it is the subtitle for a viewer who
+	// cannot hear the voice, and subtitle practice (BBC, ITU-R BT.1359) is unambiguous that a
+	// subtitle holds a FIXED, predictable screen position. Moving one around the frame is a
+	// known accessibility failure — the reader loses the place they return to after watching
+	// the app.
+	//
+	// It is also what makes the balloon's anchoring honest. A voiced caption never hides (the
+	// ear has the words, so blanking it mid-sentence robs exactly the viewer it is there for),
+	// and the bubble re-anchors on the hidden -> shown edge — so a voiced bubble was placed once,
+	// at the top of the beat, and then sat there while the cursor crossed the app. Measured at
+	// 493px from the pointer it was supposed to be speaking for: the very defect the cursor style
+	// was built to fix, surviving in the one configuration that could not hide. Re-anchoring it
+	// mid-sentence would have traded that for a subtitle that jumps, which is the worse of the
+	// two. Docking resolves both, and it needs no runtime state.
+	const stageTheme = resolved.caption === 'cursor' && narrator.voiced ? { ...resolved, caption: 'split' as const } : resolved;
+
 	const stage = createStage({
 		root,
 		onExit: () => stop('exit'),
 		portalRoot: opts.portalRoot ?? opts.theme?.portalRoot,
 		zIndex: opts.zIndex ?? opts.theme?.zIndex,
-		theme: resolved,
+		theme: stageTheme,
 	});
 
+	// ONE pacing object for the whole run, built from the RESOLVED theme.
+	//
+	// Reading the defaults off the RAW theme is a bug with a long reach, and it shipped: `Theme`
+	// leaves `pacing` undefined unless a host sets it, so a `?? 'grounded'` here fired for every
+	// caller while `resolveTheme` was defaulting to `'legacy'` and handing that to the stage. A
+	// single run then mixed the two models — grounded caption dwell, settle and typing against
+	// legacy travel and register beat — and every existing Studio tour was silently re-timed while
+	// four documents said the change was opt-in. Resolve once, in one place, and pass it down.
+	const pacing = resolvePacing(resolved.speed, resolved.pacing);
 	let stopped = false;
 	// awaitUser state: when set, the guard classifies input instead of aborting on a match.
 	let awaiting: { match: (e: Event) => boolean; resolve: (e: Event) => void } | null = null;
@@ -222,7 +273,7 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 		const key = keyOf(target);
 		const current = ops.read ? ops.read() : (typed.get(key) ?? '');
 		if (current === text) return;
-		const cadence = (o?.cadence ?? 22) * stage.pace;
+		const cadence = (o?.cadence ?? pacing.typeMsPerChar()) * stage.pace;
 		const keep = commonPrefix(current, text);
 		// Instant (no animation at all), the 'still' motion tier, or a huge insert -> set the whole
 		// target at once. NOTE: 'legible' (a reduced-motion device) is deliberately NOT here — the
@@ -238,25 +289,34 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 			ops.set(text.slice(0, keep));
 			await wait(90, signal);
 		}
-		// Reveal the tail, chunking whitespace so it reads as words; jitter each keystroke
-		// +/-40%; a longer "render breath" every ~38 chars so a live preview repaints mid-type.
-		const BREATH_EVERY = 38;
-		let sinceBreath = 0;
-		let i = keep;
-		while (i < text.length) {
-			let next = i + 1;
-			if (/\s/.test(text[i])) while (next < text.length && /\s/.test(text[next])) next++;
-			ops.append(text.slice(i, next));
-			sinceBreath += next - i;
-			i = next;
-			if (sinceBreath >= BREATH_EVERY && i < text.length) {
-				sinceBreath = 0;
-				await wait(175, signal);
-			} else {
-				await wait(cadence * (0.7 + Math.random() * 0.6), signal);
+		// TYPING IS A PERFORMANCE the stage does not own — the characters land through the host's
+		// own setters, so nothing in stage.ts can see it happening. Telling it explicitly is what
+		// lets the cursor-anchored caption step out of the way of the field being typed into,
+		// which is the one place a caption is most likely to be sitting on top of the action.
+		stage.busy?.(true);
+		try {
+			// Reveal the tail, chunking whitespace so it reads as words; jitter each keystroke
+			// +/-40%; a longer "render breath" every ~38 chars so a live preview repaints mid-type.
+			const BREATH_EVERY = 38;
+			let sinceBreath = 0;
+			let i = keep;
+			while (i < text.length) {
+				let next = i + 1;
+				if (/\s/.test(text[i])) while (next < text.length && /\s/.test(text[next])) next++;
+				ops.append(text.slice(i, next));
+				sinceBreath += next - i;
+				i = next;
+				if (sinceBreath >= BREATH_EVERY && i < text.length) {
+					sinceBreath = 0;
+					await wait(175, signal);
+				} else {
+					await wait(cadence * (0.7 + Math.random() * 0.6), signal);
+				}
 			}
+			typed.set(key, text);
+		} finally {
+			stage.busy?.(false);
 		}
-		typed.set(key, text);
 	}
 
 	function awaitUser(o: AwaitUserOpts): Promise<Event> {
@@ -291,7 +351,10 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 		});
 	}
 
-	const ctx: RunContext<A> = { stage, actions, signal, type, awaitUser };
+	// The stage still needs to know, so a host that built its own cursor-anchored stage keeps the
+	// don't-step-aside behavior; `run()` itself has already docked the caption above.
+	stage.setVoiced?.(narrator.voiced);
+	const ctx: RunContext<A> = { stage, actions, signal, type, awaitUser, narrator, pacing };
 
 	const handle: RunHandle = {
 		get active() {

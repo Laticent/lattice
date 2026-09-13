@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ◐ [2026-09-13-vetrina-cursor-caption-narration.md](2026-09-13-vetrina-cursor-caption-narration.md) — Three changes to Vetrina, prototyped together because they turn out to be one change.
 - ◐ [2026-09-08-overflow-corpus-caption-footer.md](2026-09-08-overflow-corpus-caption-footer.md) — The overflow-corpus ratchet's 8 stale decks have ONE cause and it is not the decks.
 - ◐ [2026-09-07-chart-design-language.md](2026-09-07-chart-design-language.md) — The chart family shares tokens, kernels and a frame and still reads as several authors — because the shared layer stops at COLOR.
 - ◐ [2026-09-07-overflow-guards-trim.md](2026-09-07-overflow-guards-trim.md) — Can a `guards: strict` register prevent overflow by ellipsizing the text that does not fit?

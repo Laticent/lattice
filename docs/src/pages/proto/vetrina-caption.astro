@@ -1,0 +1,400 @@
+---
+// ISOLATED PROTOTYPE — the cursor-anchored caption, Cadenza narration, and the grounded
+// pacing model, all switchable on one surface so they can be COMPARED rather than admired.
+// Route: /proto/vetrina-caption/ · not linked from nav · delete this one file to revert.
+//
+// Three things are being judged here, and each has an A and a B on the same page:
+//   caption   'bar' (the edge dock that ships) vs 'cursor' (the speech balloon)
+//   bounds    'viewport' vs 'host' (the containment question, answered by looking)
+//   pacing    'legacy' (the five hand-tuned literals) vs 'grounded' (./pacing)
+// plus narration off vs a Cadenza-timed silent narrator, which is what makes the word cue
+// (`.at('Publish')`) fire at all.
+//
+// The beat log at the bottom is the point of the page as much as the demo is: it timestamps
+// every phase of every beat, so "it feels better" can be replaced with a number.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Vetrina · caption placement, narration &amp; pacing</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				--page: light-dark(#f4f6fa, #0d0f14);
+				--panel: light-dark(#ffffff, #171a21);
+				--line: light-dark(#dfe3ec, #262b36);
+				--ink: light-dark(#14161d, #e8eaf0);
+				--muted: light-dark(#5b6170, #98a0b0);
+				--accent: light-dark(#2b6ef2, #5b93ff);
+				--vt-accent: var(--accent);
+			}
+			* { box-sizing: border-box; }
+			body {
+				margin: 0; padding: 24px 16px 64px; background: var(--page); color: var(--ink);
+				font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, sans-serif;
+			}
+			.wrap { max-width: 1040px; margin: 0 auto; }
+			h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -0.015em; }
+			.lede { color: var(--muted); margin: 0 0 22px; max-width: 68ch; }
+			fieldset {
+				border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+				padding: 12px 14px; margin: 0 0 14px; display: flex; flex-wrap: wrap;
+				gap: 8px 20px; align-items: center;
+			}
+			legend { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 0 6px; }
+			label.opt { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; cursor: pointer; }
+			.controls { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-bottom: 18px; }
+			button.go {
+				appearance: none; border: 0; border-radius: 10px; background: var(--accent); color: #fff;
+				font: 600 14px/1 system-ui, sans-serif; padding: 12px 20px; cursor: pointer;
+			}
+			button.go[disabled] { opacity: .5; cursor: default; }
+
+			/* ── The mini app the tour drives. This is the HOST: a bounded panel inside a larger
+			   page, which is the shape that makes `bounds: 'host'` mean something. ───────────── */
+			#app {
+				position: relative; border: 1px solid var(--line); border-radius: 14px;
+				background: var(--panel); padding: 20px; min-height: 380px; margin: 18px 0;
+				display: grid; gap: 16px; align-content: start;
+			}
+			#app h2 { font-size: 17px; margin: 0; }
+			#app .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+			#title {
+				flex: 1 1 260px; min-width: 0; font: inherit; padding: 9px 12px;
+				border: 1px solid var(--line); border-radius: 9px; background: var(--page); color: inherit;
+			}
+			#publish {
+				appearance: none; border: 0; border-radius: 9px; background: var(--accent); color: #fff;
+				font: 600 14px/1 system-ui, sans-serif; padding: 10px 18px; cursor: pointer;
+			}
+			#prose { margin: 0; color: var(--muted); max-width: 62ch; }
+			#status { font-size: 13px; color: var(--muted); min-height: 1.4em; }
+			.tags { display: flex; gap: 8px; flex-wrap: wrap; }
+			.tag { border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; }
+
+			/* ── The beat log: the measurement, not the demo. ───────────────────────────────── */
+			#log {
+				border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+				padding: 0; margin: 0; overflow: auto; max-height: 320px;
+			}
+			#log table { border-collapse: collapse; width: 100%; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+			#log th, #log td { text-align: left; padding: 5px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+			#log th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; }
+			#log td.n { text-align: right; font-variant-numeric: tabular-nums; }
+			#log td.say { white-space: normal; color: var(--muted); }
+			.summary { font: 13px/1.6 ui-monospace, monospace; color: var(--muted); margin: 10px 0 0; }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<h1>Caption placement, narration &amp; pacing</h1>
+			<p class="lede">
+				Same tour, same app, four switches. Run it once per combination and watch what changes — the
+				beat log below timestamps every phase, so the comparison ends in numbers rather than in
+				adjectives.
+			</p>
+
+			<div class="controls">
+				<fieldset>
+					<legend>Caption</legend>
+					<label class="opt"><input type="radio" name="caption" value="bar" checked /> bar (ships today)</label>
+					<label class="opt"><input type="radio" name="caption" value="cursor" /> cursor (new)</label>
+				</fieldset>
+				<fieldset>
+					<legend>Bounds</legend>
+					<label class="opt"><input type="radio" name="bounds" value="viewport" checked /> viewport</label>
+					<label class="opt"><input type="radio" name="bounds" value="host" /> host panel</label>
+				</fieldset>
+				<fieldset>
+					<legend>Pacing</legend>
+					<label class="opt"><input type="radio" name="pacing" value="legacy" checked /> legacy literals</label>
+					<label class="opt"><input type="radio" name="pacing" value="grounded" /> grounded model</label>
+				</fieldset>
+				<fieldset>
+					<legend>Narration</legend>
+					<label class="opt"><input type="radio" name="narr" value="off" checked /> off</label>
+					<label class="opt"><input type="radio" name="narr" value="cadenza" /> Cadenza (silent, word-timed)</label>
+					<label class="opt"><input type="radio" name="narr" value="voiced" /> voiced (placeholder audio)</label>
+				</fieldset>
+			</div>
+
+			<button class="go" id="run" type="button">Run the tour</button>
+
+			<section id="app" aria-label="Demo app">
+				<h2>New deck</h2>
+				<div class="row">
+					<input id="title" type="text" placeholder="Untitled deck" />
+					<button id="publish" type="button">Publish</button>
+				</div>
+				<div class="tags" id="tags">
+					<span class="tag" id="tag-board">board</span><span class="tag" id="tag-quarterly">quarterly</span><span class="tag" id="tag-draft">draft</span>
+				</div>
+				<p id="prose">
+					Every slide in this deck is plain Markdown, and the engine decides the layout from the
+					shape of what you wrote rather than from a template you picked.
+				</p>
+				<div id="status" role="status"></div>
+			</section>
+
+			<div id="log">
+				<table>
+					<thead><tr><th>t (ms)</th><th>Δ</th><th>beat</th><th>phase</th><th>caption</th></tr></thead>
+					<tbody id="logbody"></tbody>
+				</table>
+			</div>
+			<p class="summary" id="summary"></p>
+		</div>
+
+		<script>
+			import { encodeWav } from '@/lib/suono';
+			import { run, scene } from '@/lib/vetrina';
+			import { cadenzaNarrator, voicedNarrator } from '@/lib/vetrina-narration/cadenza-narrator';
+
+			// PLACEHOLDER AUDIO, and the label says so. What the voiced rung has to be verified on is
+			// the CAPTION RULE — a voiced narrator keeps the caption up while the cursor performs —
+			// plus the real Suono clock driving the word highlight off a measured onset. All of that
+			// is exercised by real audio of the right length; none of it is about speech quality, and
+			// HARD RULE #24 keeps our OpenRouter key off this site, so a real voice belongs to a host
+			// holding the user's own key. Silence rather than a tone: 25 seconds of beeping while you
+			// judge a caption's rhythm would be its own kind of dishonest.
+			//
+			// DELIBERATELY NOT THE ESTIMATE'S LENGTH. Generating the clip at exactly `durationMs`
+			// made the re-anchor a provable no-op — the measured span equalled the estimate, so the
+			// aligned timeline came out byte-identical and no test could tell a working `align` from
+			// no align at all, or from a plain wall clock. 1.2x is a real voice being slower than the
+			// estimate, which is the case the hybrid re-anchor exists for.
+			const PLACEHOLDER_STRETCH = 1.2;
+			const placeholderVoice = (_text: string, { durationMs }: { durationMs: number }) => {
+				const rate = 16000;
+				const samples = Math.max(1, Math.round(((durationMs * PLACEHOLDER_STRETCH) / 1000) * rate));
+				return Promise.resolve(encodeWav(new Float32Array(samples), rate));
+			};
+
+			const $ = (s: string) => document.querySelector(s) as HTMLElement;
+			const pick = (name: string) => (document.querySelector(`input[name="${name}"]:checked`) as HTMLInputElement).value;
+
+			const titleEl = $('#title') as HTMLInputElement;
+			const statusEl = $('#status');
+			const logBody = $('#logbody');
+			const summaryEl = $('#summary');
+
+			// ── The measurement. Every phase is stamped, so a pacing change is a diff in a column
+			// rather than an impression. `beat` is the caption the phase belongs to.
+			let t0 = 0;
+			let last = 0;
+			let rows = 0;
+			// Keyed by mode so switching the radio does not build a second one of the same kind.
+			const narrators = new Map<string, ReturnType<typeof cadenzaNarrator> | undefined>();
+			const narratorFor = (mode: string) => {
+				if (!narrators.has(mode)) {
+					narrators.set(
+						mode,
+						mode === 'voiced'
+							? voicedNarrator({ pace: 'moderate', synthesize: (t, c) => placeholderVoice(t, c) })
+							: mode === 'cadenza'
+								? cadenzaNarrator({ pace: 'moderate' })
+								: undefined,
+					);
+				}
+				return narrators.get(mode);
+			};
+			// The host owns the narrator, so the host releases it. `run()` never does — one narrator
+			// across many runs is the shape that keeps a single AudioContext for the page.
+			window.addEventListener('pagehide', () => {
+				for (const n of narrators.values()) n?.dispose?.();
+				narrators.clear();
+			});
+
+			const log = (beat: number, phase: string, say = '') => {
+				const t = Math.round(performance.now() - t0);
+				const d = rows === 0 ? 0 : t - last;
+				last = t;
+				rows++;
+				// Cells built as NODES. `say` was already `textContent`, but `phase` was interpolated
+				// into the markup, and one caller feeds it `THREW: ${(e as Error)?.message}` — an
+				// error string, which is the classic way author text arrives somewhere nobody
+				// expected it. Not reachable on this page as written; an XSS-shaped pattern one
+				// refactor from mattering is not worth keeping to save four lines.
+				const tr = document.createElement('tr');
+				const cell = (text: string, cls?: string) => {
+					const td = document.createElement('td');
+					if (cls) td.className = cls;
+					td.textContent = text;
+					return td;
+				};
+				tr.append(cell(String(t), 'n'), cell(String(d), 'n'), cell(String(beat), 'n'), cell(phase), cell(say, 'say'));
+				logBody.appendChild(tr);
+				logBody.parentElement!.parentElement!.scrollTop = 1e6;
+			};
+
+			const reset = () => {
+				titleEl.value = '';
+				statusEl.textContent = '';
+				logBody.replaceChildren();
+				summaryEl.textContent = '';
+				rows = 0;
+				last = 0;
+			};
+
+			// The host's real setters. The tour drives these; it never dispatches an event.
+			const actions = {
+				publish: () => {
+					statusEl.textContent = `Published “${titleEl.value || 'Untitled deck'}”.`;
+				},
+				reorder: () => {
+					const tags = $('#tags') as HTMLElement;
+					const draft = $('#tag-draft') as HTMLElement;
+					tags.insertBefore(draft, tags.firstChild);
+				},
+			};
+
+			// Seven beats, chosen to exercise every case the design turns on:
+			//   1-2  two teaching beats (read, then act) — the caption's dwell is the whole beat. Two,
+			//        not one, because the single 16-word line they replaced hit the model's 6-second
+			//        reading clamp, which is the model saying a beat should have been two.
+			//   3    typing — the action the caption is most likely to be sitting on top of
+			//   4    a DRAG — the one beat whose performance window spans the line, so the caption is
+			//        held rather than merely allowed to show. The red team named this seam as the
+			//        likely third instance of the `sayAt` / `syncCaption` family of bugs, and the
+			//        tour had no drag beat, so nothing had ever run it.
+			//   5    a deictic underline on prose — ink the caption must not cover
+			//   6    a WORD-CUED click — the click lands as the narration reaches "Publish"
+			//   7    a confirm gesture on the result
+			const tour = () =>
+				scene<typeof actions>()
+					.say('This panel is the app.')
+					.read()
+					.hold(300)
+					.say('Everything you see happens through its own setters.')
+					.hold(400)
+					.say('Give the deck a title.')
+					.point('#title')
+					.type('#title', 'Q4 Board Update')
+					.hold(500)
+					.say('Drag draft to the front of the list.')
+					.drag('#tag-draft', '#tag-board')
+					.act((a) => a.reorder())
+					.hold(400)
+					.say('These words are the part worth reading twice.')
+					.gesture('underline', '#prose')
+					.hold(500)
+					.say('Now click Publish to send it to the board.')
+					.at('Publish')
+					.point('#publish')
+					.click()
+					.act((a) => a.publish())
+					.hold(400)
+					.say('Done — and nothing here was faked.')
+					.check()
+					.hold(700)
+					.build();
+
+			$('#run').addEventListener('click', () => {
+				reset();
+				// A tour confined to the host panel is only watchable if the panel is on screen.
+				$('#app').scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+				const caption = pick('caption') as 'bar' | 'cursor';
+				const bounds = pick('bounds') as 'viewport' | 'host';
+				const pacing = pick('pacing') as 'legacy' | 'grounded';
+				const narrMode = pick('narr') as 'off' | 'cadenza' | 'voiced';
+				const narrOn = narrMode !== 'off';
+
+				t0 = performance.now();
+				log(0, `start · caption=${caption} bounds=${bounds} pacing=${pacing} narration=${narrMode}`);
+
+				const btn = $('#run') as HTMLButtonElement;
+				btn.disabled = true;
+
+				// Instrument the tour by wrapping the stage the run hands the walkthrough — the log
+				// needs the phase boundaries, and wrapping is honest: it observes, it never re-times.
+				let beat = 0;
+				// Wrap the narrator to LOG its word clock. This is how the word cue is proved rather
+				// than assumed: the log shows when the narration reached "Publish" and when the click
+				// landed, and the two either coincide or they do not.
+				// ONE NARRATOR PER MODE, FOR THE LIFE OF THE PAGE. Building one inside the Run handler
+				// is the obvious thing and it leaks: `voicedNarrator` opens an `AudioContext` eagerly
+				// (the unlock has to happen inside the user gesture), and nothing closed it — 8 live
+				// contexts after 8 runs, measured. Chromium caps them per document and `new
+				// AudioContext()` throws at the cap, from inside a handler that has already set
+				// `btn.disabled = true`: the page would wedge with Run permanently greyed out. The
+				// narrator port's `dispose()` is the other half of the answer; reusing one instance is
+				// this half, and it is what a real host should do too.
+				const base = narratorFor(narrMode);
+				const narrator = base && {
+					...base,
+					speak: (text: string, o: Parameters<typeof base.speak>[1]) =>
+						base.speak(text, {
+							...o,
+							onWord: (w) => {
+								if (w && /^publish/i.test(w.text)) log(beat, 'narration says “Publish”');
+								o.onWord?.(w);
+							},
+						}),
+				};
+
+				run<typeof actions>({
+					root: $('#app') as HTMLElement,
+					actions,
+					play: async (ctx) => {
+						const stage = ctx.stage;
+						const saw = stage.say.bind(stage);
+						stage.say = (text: string) => {
+							if (text) log(++beat, 'say', text);
+							saw(text);
+						};
+						const pointed = stage.point.bind(stage);
+						stage.point = async (t, s) => {
+							log(beat, 'point');
+							await pointed(t, s);
+							log(beat, 'arrived');
+						};
+						const pressed = stage.press.bind(stage);
+						stage.press = async (s) => {
+							log(beat, 'press');
+							return pressed(s);
+						};
+						const gestured = stage.gesture.bind(stage);
+						stage.gesture = async (k, t, s, o) => {
+							log(beat, `gesture:${k}`);
+							return gestured(k, t, s, o);
+						};
+						const typed = ctx.type;
+						ctx.type = async (t, text, o) => {
+							log(beat, `type ${text.length} chars`);
+							await typed(t, text, o);
+							log(beat, 'typed');
+						};
+						// A prototype surface owes you the error, not a silent `stop:error`.
+						try {
+							await tour()(ctx);
+						} catch (e) {
+							if ((e as Error)?.name !== 'AbortError') log(beat, `THREW: ${(e as Error)?.message}`, String((e as Error)?.stack ?? '').split('\n').slice(0, 3).join(' | '));
+							throw e;
+						}
+					},
+					type: {
+						set: (t) => {
+							titleEl.value = t;
+						},
+						append: (t) => {
+							titleEl.value += t;
+						},
+						read: () => titleEl.value,
+					},
+					theme: { caption, bounds, pacing, speed: 'moderate', accent: 'var(--accent)' },
+					narrate: narrator,
+					onStop: (reason) => {
+						log(beat, `stop:${reason}`);
+						const total = Math.round(performance.now() - t0);
+						summaryEl.textContent = `${reason} after ${total} ms · caption=${caption} bounds=${bounds} pacing=${pacing} narration=${narrMode}`;
+						btn.disabled = false;
+					},
+				});
+			});
+		</script>
+	</body>
+</html>
