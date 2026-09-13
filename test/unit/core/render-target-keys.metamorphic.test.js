@@ -71,7 +71,7 @@ function overCorpus(seed, relate, iterations = 4000) {
 /** Rewrite only the KEY of `key:` lines, leaving values and other keys alone. */
 const mapKeyLines = (block, key, fn) =>
 	block.split('\n').map((line) => {
-		const m = line.match(new RegExp(`^([ \\t]*)(${key})(:[ \\t]*)(.*)$`));
+		const m = line.match(new RegExp(`^([ \\t]*)(${key})(:[ \\t]*)(.*)$`, 'i'));
 		return m ? fn(m[1], m[2], m[3], m[4]) : line;
 	}).join('\n');
 
@@ -215,21 +215,31 @@ test('MR6c: duplicating a line never changes the verdict', () => {
 
 // ── MR7 · THE RELATION THAT DOES NOT HOLD ────────────────────────────────────────────
 
-test('MR7: the verdict is invariant under REORDERING', () => {
-	// This arm was written asserting the OPPOSITE, and that is worth recording. The union
-	// originally asked two different questions of one block — the scalar arm read the first
-	// matching line, the legacy arm any line — so `fluid: false` above `fluid: "true"` read
-	// OFF and read ON when reordered. That was pinned here as a known non-invariance.
+test('MR7: reordering is invariant for COMPLETE lines, and folded values are the exception', () => {
+	// This arm has now been wrong in BOTH directions, which is worth recording once.
 	//
-	// It was not a law, it was a symptom: the same mismatch made a trailing comment (MR2) and
-	// quoting (MR3) change the verdict, and both of those are indefensible. Making the scalar
-	// arm any-match fixed all three at once, so reordering is now genuinely invariant and the
-	// arm asserts it.
+	// It was first written asserting order-SENSITIVITY, pinning `fluid: false` above
+	// `fluid: "true"` as a known non-invariance. That was a symptom of the first-match /
+	// any-match split, not a law, and fixing that made reordering invariant — so the arm was
+	// inverted to assert invariance. Unqualified. That was wrong too: the legacy arm's middle
+	// `\s*` spans newlines on purpose (it is what reads a folded value), so it is NOT
+	// line-local, and reordering can destroy a cross-line match:
+	//
+	//     fluid:            reorder ->    true
+	//       true                          fluid:
+	//     => ON                           => OFF
+	//
+	// The generator never produced this because `randomBlock` emits only complete
+	// `key: value` lines, so the relation passed vacuously over the case that breaks it. A
+	// metamorphic test is only as wide as its generator, and a law stated wider than the
+	// generator reaches is a claim, not a result.
+	//
+	// So: invariance is asserted over the shape the generator actually covers, and the
+	// exception is pinned as a counterexample beside it.
 	const rnd = makeRng(0xe7f8091a);
 	for (let i = 0; i < 3000; i++) {
 		const block = randomBlock(rnd);
 		const lines = block.split('\n');
-		// Fisher-Yates with the seeded rng, so a failure reproduces.
 		for (let j = lines.length - 1; j > 0; j--) {
 			const k = Math.floor(rnd() * (j + 1));
 			[lines[j], lines[k]] = [lines[k], lines[j]];
@@ -244,7 +254,36 @@ test('MR7: the verdict is invariant under REORDERING', () => {
 		}
 	}
 
-	// The specific pair that used to disagree.
+	// The pair that used to disagree and now does not.
 	assert.equal(readRenderTargetKey('fluid: false\nfluid: "true"', 'fluid'), true);
 	assert.equal(readRenderTargetKey('fluid: "true"\nfluid: false', 'fluid'), true);
+
+	// THE EXCEPTION, pinned. A folded value is read by the legacy arm spanning the newline;
+	// reorder the two lines and there is nothing to span.
+	assert.equal(readRenderTargetKey('fluid:\n  true\ntheme: cuoio', 'fluid'), true);
+	assert.equal(readRenderTargetKey('  true\nfluid:\ntheme: cuoio', 'fluid'), false);
+});
+
+test('MR8: the relations COMPOSE — each one alone hid a real asymmetry', () => {
+	// Every relation above is applied to a fresh block, one transform at a time. That is how
+	// the key-case asymmetry survived: MR1 rewrote the key, MR2 and MR3 rewrote the value,
+	// and the blocks where MR1 failed were exactly the ones MR2 and MR3 produced
+	// (`FLUID: "true"` read OFF while `fluid: "true"` read ON). Composing pairs is cheap and
+	// covers the corner no single relation reaches.
+	const rnd = makeRng(0x1b2c3d4e);
+	for (let i = 0; i < 2000; i++) {
+		const block = randomBlock(rnd);
+		for (const key of KEYS) {
+			const base = readRenderTargetKey(block, key);
+			const upperKey = mapKeyLines(block, key, (ind, k, c, v) => `${ind}${k.toUpperCase()}${c}${v}`);
+			const composed = [
+				mapKeyLines(upperKey, key, (ind, k, c, v) => `${ind}${k}${c}${v}  # note`),
+				mapKeyLines(upperKey, key, (ind, k, c, v) => (v === '' ? `${ind}${k}${c}` : `${ind}${k}${c}"${v}"`)),
+				mapKeyLines(upperKey, key, (ind, k, c, v) => `  ${ind}${k}${c}${v.toUpperCase()} \t`),
+			];
+			for (const variant of composed) {
+				assert.equal(readRenderTargetKey(variant, key), base, `a composed rewrite changed ${key}:\n${block}\n---\n${variant}`);
+			}
+		}
+	}
 });

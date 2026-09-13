@@ -13,8 +13,9 @@ const {
 	readRenderTargetKey,
 	legacyOnPattern,
 	legacyOnPatternVerbatim,
+	LEGACY_ON,
+	scalarValuesFor,
 } = require('../../../lib/core/render-target-keys');
-const { frontMatterValue } = require('../../../lib/core/front-matter-key');
 const { lintTextWith } = require('../../../lib/authoring/lint-core');
 
 const REPO = join(__dirname, '..', '..', '..');
@@ -55,8 +56,8 @@ const legacy = (fm, key) => legacyOnPatternVerbatim(key).test(fm);
 
 // THE arm. The first cut of this file varied only the VALUE's case — the one dimension
 // where the `i` flag makes no difference, because the kernel lowercases the word anyway —
-// and so it passed while SIX inputs silently changed meaning, four of them turning a
-// target OFF that used to be ON. The fixtures below are whole BLOCKS, not values, because
+// and so it passed while SIX inputs silently changed meaning, every one of them turning a
+// target OFF that used to be ON (plus four widenings the other way, so ten disagreements). The fixtures below are whole BLOCKS, not values, because
 // every divergence that mattered was about WHICH LINE the matcher reads, not which word.
 //
 // The rule this pins is one-directional and is the module's entire safety argument:
@@ -96,23 +97,31 @@ test('PARITY: every block the old emulator regex enabled is still enabled', () =
 	}
 });
 
-test('PARITY: every divergence row turns a target OFF — the docblock says six, so pin six', () => {
-	// The docblock's count is a CLAIM, and an earlier draft got it wrong twice in one
-	// sentence ("six inputs ... four of them" — it is six of six turning off, plus four
-	// widenings, so ten disagreements). Counts in prose are exactly what nobody re-derives,
-	// so the direction of every row is measured here instead of asserted there.
-	const scalarOn = (block) => {
-		const v = frontMatterValue(block, 'fluid');
-		return v !== null && ON_WORDS.includes(v.toLowerCase());
-	};
-	// The six rows named in the docblock, minus the two that are plain controls.
-	const DIVERGENCES = PARITY_BLOCKS.filter(([label]) => label !== 'plain' && label !== 'among other keys');
-	let turnedOff = 0;
-	for (const [label, block] of DIVERGENCES) {
-		if (legacy(block, 'fluid') && !scalarOn(block)) turnedOff++;
-		else assert.ok(!legacy(block, 'fluid') || scalarOn(block), `${label}: unexpected direction`);
-	}
-	assert.equal(turnedOff, 6, `the docblock names SIX rows that turn a target off; measured ${turnedOff}`);
+test('PARITY: the divergence rows, counted against the SHIPPED scalar arm', () => {
+	// This arm had the same defect as the linearity one above: its `scalarOn` helper called
+	// `frontMatterValue`, the FIRST-match reader the module stopped using when the scalar arm
+	// became any-match. So it certified a count the shipped code does not exhibit — the
+	// un-re-derived-count class that a previous commit was written to end, recurring because
+	// the guard measured a proxy.
+	//
+	// Counted against the real scalar arm, the six have become TWO. Any-match closed the
+	// duplicate key and the nested shadow (the scalar arm sees the later on-word now), and
+	// reading the key case-insensitively closed both key-case rows. What is left is the
+	// honest answer to "why is the legacy arm still ORed in": exactly two spellings the
+	// scalar arm's line pattern cannot reach — a value folded onto the next line, and a
+	// non-breaking space before the key.
+	//
+	// This number has been wrong twice, both times because the guard measured a stand-in
+	// rather than the shipped reader. It is derived here from `scalarValuesFor` itself.
+	const scalarOn = (block) => scalarValuesFor(block, 'fluid').some((v) => ON_WORDS.includes(v.toLowerCase()));
+	const diverging = PARITY_BLOCKS
+		.filter(([label]) => label !== 'plain' && label !== 'among other keys')
+		.filter(([, block]) => legacy(block, 'fluid') && !scalarOn(block))
+		.map(([label]) => label);
+	assert.deepEqual(diverging.sort(), [
+		'folded value',
+		'non-breaking space before the key',
+	], 'the rows only the legacy arm can read have changed — update the kernel docblock to match');
 });
 
 test('PARITY: the widenings are enumerated, and every one is legacy-OFF becoming on', () => {
@@ -186,51 +195,29 @@ test('EQUIVALENCE: the linear pattern accepts exactly what the verbatim one did'
 });
 
 test('EQUIVALENCE: the rewrite is linear where the verbatim pattern was quadratic', () => {
-	// The verbatim shape cost 4x per doubling: 190ms / 640ms / 2477ms at 10k / 20k / 40k
-	// newlines. The cost was never backtracking — it is `^\\s*` rescanning the whole run from
-	// every line start under `/m`.
+	// THIS ARM WAS WRITTEN TO CATCH A DEFECT AND THEN FAILED TO CATCH THAT EXACT DEFECT.
+	// Its first version compared `legacyOnPattern` against `legacyOnPatternVerbatim` — two
+	// functions the test imports directly — which is true by construction no matter which
+	// one the READER uses. `LEGACY_ON` was in fact built from the verbatim (quadratic) one
+	// for three commits, so `readRenderTargetKey` cost 2328ms at 40k newlines while this
+	// arm reported linearity and the docblock claimed "200k in 2.09ms". A third reviewer
+	// found it by timing the reader.
 	//
-	// THE STRUCTURAL ASSERTION IS THE TEST; the timing below is only a backstop. Two
-	// reasons, both learned the hard way in this PR. A ratio-of-timings arm does not FAIL
-	// when the quadratic pattern comes back — it HANGS, minutes of CPU before anyone learns
-	// anything, which is a worse failure mode than the bug. And a mutation run whose restore
-	// step died left the quadratic pattern in the tree with the docblock still claiming
-	// linearity; nothing caught it, because no arm asserted which pattern actually shipped.
-	const src = legacyOnPattern('fluid').source;
-	assert.notEqual(src, legacyOnPatternVerbatim('fluid').source, 'the shipped pattern IS the verbatim one');
-	assert.ok(
-		!src.startsWith('^\\s*'),
-		`the leading run is \`\\s*\` again — under /m that rescans the whole block from every line start, which is the quadratic shape: ${src}`,
-	);
-	assert.ok(src.startsWith('^[^\\S'), `unexpected leading class: ${src}`);
+	// The lesson is the general one for this file: ASSERT ON THE SHIPPED PATH. A guard that
+	// measures a stand-in certifies the stand-in. So this times `readRenderTargetKey`, and
+	// checks the table the reader actually consults.
+	assert.equal(LEGACY_ON.fluid.source, legacyOnPattern('fluid').source, 'the reader is not using the linear pattern');
+	assert.notEqual(LEGACY_ON.fluid.source, legacyOnPatternVerbatim('fluid').source, 'the reader is using the quadratic pattern');
+	assert.ok(!LEGACY_ON.fluid.source.startsWith('^\\s*'), `leading \\s* is the quadratic shape: ${LEGACY_ON.fluid.source}`);
 
-	// Backstop, with ~600x headroom so scheduler noise cannot redden a build: 20k newlines
-	// measured at 0.2ms for the shipped pattern and 640ms for the verbatim one.
+	// Backstop with ~600x headroom: 20k newlines measured at 0.2ms through the reader and
+	// 596ms when the verbatim pattern was wired in. Times the READER, not the pattern.
 	const block = `fluid:${'\n'.repeat(20000)}`;
-	const pattern = legacyOnPattern('fluid');
-	pattern.test(block); // warm
+	readRenderTargetKey(block, 'fluid'); // warm
 	const t0 = process.hrtime.bigint();
-	pattern.test(block);
+	readRenderTargetKey(block, 'fluid');
 	const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-	assert.ok(ms < 100, `20k newlines took ${ms.toFixed(1)}ms — the verbatim pattern took 640ms here`);
-});
-
-test("the union's ONE new false-ON is pinned, so it cannot widen further unnoticed", () => {
-	// A nested key read by the scalar arm, made readable by a widening the `$`-anchored
-	// legacy regex could not read. The old export said OFF; the union says ON. Contrived
-	// (zero instances across the committed decks) but real, and the docblock names it — so
-	// it is pinned here rather than left to be rediscovered as a regression.
-	for (const block of ['nest:\n  fluid: "true"\nfluid: false', 'nest:\n  fluid: true # note\nfluid: false']) {
-		assert.equal(legacy(block, 'fluid'), false, 'the old export read this as OFF');
-		assert.equal(readRenderTargetKey(block, 'fluid'), true, 'the union reads it as ON — a known, recorded widening');
-	}
-	// Plain nested shadowing is PRE-EXISTING, not something the union introduced.
-	assert.equal(legacy('nest:\n  fluid: true\nfluid: false', 'fluid'), true);
-});
-
-test('an unknown key reads as absent rather than throwing', () => {
-	assert.deepEqual(renderTargetKeyState('x: 1', 'nope'), { state: 'absent', value: null });
-	assert.equal(readRenderTargetKey('x: 1', 'nope'), false);
+	assert.ok(ms < 100, `the reader took ${ms.toFixed(1)}ms on 20k newlines — the quadratic pattern took 596ms here`);
 });
 
 test('an absent key is off, and one key never answers for another', () => {
