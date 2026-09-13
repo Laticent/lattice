@@ -1229,6 +1229,28 @@ the canvas only while those layouts are always dark. They are not:
 both the mark rendered light-gray on a light ground and disappeared (#2149).
 A theme retunes the flip with `:root { --deck-logo-filter-inverse: … }`.
 
+**A dark THEME is a canvas too, and no class carries it.** A `-dark` theme's
+whole content is `color-scheme: dark` at the root — it never touches a slide
+class, so every class-keyed rule above is blind to it, and the mark rendered at
+the canvas's own lightness: not an error, not missing, just a slide that looks
+as though it has no logo (#2156). `section[data-theme$="-dark"]` reaches it on
+the theme's own name, declared ABOVE the per-slide rules so `light`,
+`color-light` and `print` still win — a slide pinned light inside a dark deck
+takes the light mark. The suffix is a convention, and
+`test/unit/theme/dark-theme-logo-token.test.js` holds it: all 14 themes with
+`role: variant-dark` are named `*-dark`, and nothing else is.
+
+**And a light slide gives the token back.** `dark light` and
+`divider light dark` are reachable by hand and deliberately un-linted; before
+this the scheme and the ground went light while the INVERSE filter survived, so
+the mark came out brightened at 0.45 opacity on white. `section.light` and
+`section.color-light` now reset the token exactly as `.print` does.
+
+Two canvases still have no answer, and neither is solvable in CSS:
+`color-mode: system` and `color-mode: inherited` defer the side to the reader's
+OS or the host page, so no treatment is knowable when the deck is written; and a
+full-bleed cover photograph has a lightness no token describes.
+
 ```yaml
 ---
 logo: lattice                     # a built-in name, or a path / URL of your own

@@ -94,6 +94,6 @@ The `print` band is a deck-wide register (`class: print`), not a per-slide class
 
 - One predicate, not two
   - Every rule that declares a dark canvas sets the logo token beside it. There is no selector list to add a new layout to.
-- What is still open
-  - A `-dark` **theme** flips the root color-scheme without touching a class, so no rule can hang the token on it.
-  - Stack two canvas modifiers (`divider light dark`, `dark light`) and the PDF and the exported player disagree about which ground rendered, so no single treatment is right on both. Both tracked separately.
+- Both remaining gaps are closed
+  - A `-dark` **theme** flips the canvas without touching a class. The engine reaches it on the theme's own name, above the per-slide rules so a `light` slide still wins.
+  - Stacked modifiers (`dark light`, `divider light dark`) now resolve the same way in the PDF and the exported player.

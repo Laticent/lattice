@@ -453,6 +453,39 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
  *   style: ":root{color-scheme:dark}"
  * (or the cuoio-dark / indaco-dark variant theme, which is just a
  * thin :root color-scheme:dark wrapper). */
+/* ── A DARK-CANVAS THEME OWES THE LOGO ITS FLIP, AND NO CLASS CAN CARRY IT ──────────
+ * A `variant-dark` theme is a thin wrapper whose whole content is `:root { color-scheme:
+ * dark }` — it makes the deck dark WITHOUT touching a single slide class, so every
+ * class-keyed rule below is blind to it. The mark then renders at the canvas's own
+ * lightness, which does not error and is not missing: the slide simply looks as though it
+ * has no logo. Measured on `indaco-dark`, mean |ΔL| between the logo box and its ground
+ * fell to 0.0015 against 0.1382 on plain `indaco` — a 92× collapse no gate in the tree
+ * could see, because the contrast checkers audit TEXT RUNS and this mark is an
+ * aria-hidden decorative watermark (#2156).
+ *
+ * WHY THE THEME NAME AND NOT THE THEME FILE. The obvious fix — declare the token beside
+ * the `color-scheme: dark` in each wrapper, exactly as `section.dark` does above — is
+ * barred by an architectural invariant, and rightly: `checkThemeOwnership` holds that a
+ * `variant-dark` "only pins the canvas", and a wrapper declaring tokens of its own is a
+ * `derived-variant`. So the rule lives here, in the engine, keyed on the `data-theme`
+ * attribute the engine itself writes onto every section. Verified present on both the
+ * emulator's HTML and a `--player` export.
+ *
+ * THE SUFFIX IS A CONVENTION, SO IT IS PINNED AS ONE. Measured over all 33 manifests:
+ * 14 carry `role: variant-dark`, 14 are named `*-dark`, and the two sets are identical.
+ * `test/unit/themes/dark-theme-logo-token.test.js` asserts that equality, so a dark theme
+ * named off-convention fails there rather than losing its logo silently.
+ *
+ * POSITION IS LOAD-BEARING. This is (0,1,1), the same as `.print`, `.light` and
+ * `.color-light` below, so source order decides — and it must LOSE to all three: paper is
+ * a light canvas whatever the theme, and a slide pinned light inside a dark deck takes the
+ * light mark. Declared here, above them, it is the deck-wide DEFAULT that a per-slide
+ * modifier overrides. Moving it below any of them silently inverts that. */
+section[data-theme$="-dark"] {
+  --deck-logo-filter: var(--deck-logo-filter-inverse);
+  --deck-logo-opacity: var(--deck-logo-opacity-inverse);
+}
+
 section.dark {
   color-scheme: dark;
   /* THE LOGO FLIP RIDES THE CANVAS, not the layout class. `img.deck-logo` reads this
@@ -664,6 +697,25 @@ section.print {
  * bright divider IS a light surface, so this forced scheme is consistent with it.) */
 section.light {
   color-scheme: light;
+  /* A light canvas takes the light-canvas mark, even when an earlier modifier on the SAME
+   * slide already set the inverse. `section.dark` sets the token at (0,1,1) and this rule
+   * is (0,1,1) too, but it is emitted later — so a hand-authored `dark light` or
+   * `divider light dark` resolves here. Without it the scheme and the ground both went
+   * light while the INVERSE filter survived: a brightened mark at 0.45 opacity on white.
+   * `initial` is the spelling, for the reason the `.print` reset above gives — it makes
+   * the property the guaranteed-invalid value, which is what sends
+   * `var(--deck-logo-filter, <light>)` to its fallback. There is no "unset back to the
+   * other rule" for a property an earlier matching rule already set.
+   *
+   * `dark light` is reachable by hand and deliberately un-linted — see
+   * lib/core/color-mode.js, "an un-linted footgun that CSS resolves deterministically".
+   * This is what makes it resolve to something a reader can actually see. (#2156)
+   *
+   * NOT extended to `.color-system` / `.color-inherited` below: those defer the side to
+   * the receiver's OS or the host, so neither treatment is knowable at author time and
+   * pinning either would be wrong half the time. That gap is real and recorded. */
+  --deck-logo-filter: initial;
+  --deck-logo-opacity: initial;
 }
 
 
@@ -674,6 +726,9 @@ section.light {
  * forces `color-scheme: light` so the palette's light-dark() tokens resolve light. */
 section.color-light {
   color-scheme: light;
+  /* Same reset as `.light` above, and for the same reason — see that rule. (#2156) */
+  --deck-logo-filter: initial;
+  --deck-logo-opacity: initial;
 }
 
 
