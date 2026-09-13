@@ -295,13 +295,20 @@ whole chart family — off the path of this change under HARD RULE #18, and wort
 its own render pass because hiding the subtree also hides it from find-in-page.
 
 > **Shipped**, across all 21 charts in the family, not just the seven. Every
-> chart's marks now sit under `aria-hidden="true"` and the curated `<desc>` is
-> the only thing a reader gets. The find-in-page cost this entry predicted is
-> real and was measured rather than assumed, with `window.find()` over the
-> rendered deck: the axis values and category names are no longer findable,
-> and the accessible description is. That trade is the point — a reader hearing
-> `North America`, `EMEA`, `$4.2M` as loose text after the sentence that already
-> said it was the louder defect.
+> chart's marks now sit under `aria-hidden="true"`, with `<title>`/`<desc>` left
+> outside the group so each chart keeps its accessible name. Measured over the
+> rendered gallery before the fix, all fifteen chart roots leaked their whole
+> subtree — 24 unignored nodes under `bar`, 223 under `map` — which is the claim
+> `role="img"` was believed to cover and Chromium does not implement that way
+> for SVG.
+>
+> **The find-in-page cost this entry predicted does not exist**, and that was
+> measured rather than reasoned about, because the reasoning went the wrong way
+> once already. Driving the real rendered document: a token written into a
+> `<tspan>` whose only ancestor group is `aria-hidden="true"` is still returned
+> by `window.find()`, still present in `body.textContent`, and still painted.
+> `aria-hidden` removes a node from the ACCESSIBILITY tree; it is not
+> `display: none`, and Blink's text finder walks layout, not the AX tree.
 
 **The landscape canvas letterboxes, by ~16% per side — and that is INHERITED,
 not introduced here.** Measured in a real browser at a 1280px viewport, off the
