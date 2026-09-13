@@ -1015,4 +1015,75 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await pick(user, 'Choose pace', /Natural/);
 		await waitFor(() => expect(source()).not.toMatch(/pace:/));
 	});
+
+	// ── Find + browse ────────────────────────────────────────────────────────
+	// The two controls that answer "where does this setting live" without opening six
+	// tabs to find out. Asserted on the REAL panel, not the primitive: settings-view's
+	// own test covers the matcher, and what can only break here is the wiring — whether
+	// the sections actually consult it, and whether the tabs get out of the way.
+
+	it('search reaches a control in a tab that is not open, and drops the rest', async () => {
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		// Look is the open tab, so the Speech tab's Pace row is not rendered at all.
+		expect(screen.queryByLabelText('Choose pace')).toBeNull();
+		await user.click(await screen.findByRole('button', { name: 'Search deck settings' }));
+		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'pace');
+		expect(await screen.findByLabelText('Choose pace')).toBeInTheDocument();
+		// …and Look's own rows are gone, because "pace" is not any of their words.
+		expect(screen.queryByLabelText('Choose deck theme')).toBeNull();
+	});
+
+	it('a term the label does not spell still finds its row (the `find` synonyms)', async () => {
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('button', { name: 'Search deck settings' }));
+		// Nothing in the Chrome tab is CALLED "pagination" — the row is "Page numbers".
+		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'pagination');
+		expect(await screen.findByLabelText('Page numbers')).toBeInTheDocument();
+	});
+
+	it('matching a SECTION shows it entire, not the rows that repeat the word', async () => {
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('button', { name: 'Search deck settings' }));
+		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'motion');
+		// "Speed" says nothing about motion; its section does, so it stays with its siblings.
+		expect(await screen.findByLabelText('Choose motion speed')).toBeInTheDocument();
+		expect(screen.getByLabelText('Choose motion style')).toBeInTheDocument();
+	});
+
+	it('closing the search restores the panel and the tabs', async () => {
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('button', { name: 'Search deck settings' }));
+		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'pace');
+		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
+		await user.click(screen.getByRole('button', { name: 'Close search' }));
+		expect(await screen.findByRole('tab', { name: 'Look' })).toBeInTheDocument();
+		expect(screen.getByLabelText('Choose deck theme')).toBeInTheDocument();
+		expect(screen.queryByLabelText('Choose pace')).toBeNull();
+	});
+
+	it('the list view drops the tabs and renders every section at once', async () => {
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('button', { name: 'List — every section in one scroll' }));
+		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
+		// One control from each end of the strip — Look's first row and Speech's.
+		expect(await screen.findByLabelText('Choose deck theme')).toBeInTheDocument();
+		expect(screen.getByLabelText('Choose pace')).toBeInTheDocument();
+		// Each section names itself, which is what the pill tab did in the grouped view.
+		expect(screen.getByRole('heading', { name: 'Speech' })).toBeInTheDocument();
+	});
+
+	it('the view choice persists, and is ONE choice for both scopes', async () => {
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('button', { name: 'List — every section in one scroll' }));
+		expect(localStorage.getItem('lattice-studio-settings-view')).toContain('list');
+		// The slide scope opens in the same view — it is the shell's state, not the panel's.
+		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
+		expect(await screen.findByRole('button', { name: 'List — every section in one scroll' })).toHaveAttribute('aria-pressed', 'true');
+	});
 });

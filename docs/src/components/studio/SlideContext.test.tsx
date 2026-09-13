@@ -48,7 +48,7 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	const onMutate = vi.fn();
 	const savedFinish = savedFinishNames.map((n) => ({ id: n, name: n, label: n.charAt(0).toUpperCase() + n.slice(1) }));
 	render(
-		<SlideContextBody open chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinish={savedFinish} onMutate={onMutate} />,
+		<SlideContextBody open chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinish={savedFinish} onMutate={onMutate} view="group" onViewChange={() => {}} />,
 	);
 	// Apply the captured transform to the chunk to see the resulting tokens.
 	const applied = () => getClassTokens(onMutate.mock.calls.at(-1)?.[0](chunk));
@@ -92,7 +92,7 @@ describe('SlideContextBody controls', () => {
 	it('shows a Comments tab only with a deckId, and adds a comment for the slide', () => {
 		const onMutate = vi.fn();
 		render(
-			<SlideContextBody open deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+			<SlideContextBody open deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} />,
 		);
 		goTab('Comments');
 		fireEvent.change(screen.getByRole('textbox', { name: 'New comment for this slide' }), { target: { value: 'Check this figure.' } });
@@ -254,12 +254,12 @@ describe('SlideContextBody controls', () => {
 		const edited = '<!-- _class: kpi dark scale-xl -->\n\n# Hi';
 		const onMutate = vi.fn();
 		const { rerender } = render(
-			<SlideContextBody open chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+			<SlideContextBody open chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} />,
 		);
 		expect(screen.getByRole('button', { name: /reset slide/i })).toBeDisabled();
 		// Simulate an edit landing (the source changed under the drawer).
 		rerender(
-			<SlideContextBody open chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+			<SlideContextBody open chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} />,
 		);
 		const reset = screen.getByRole('button', { name: /reset slide/i });
 		expect(reset).not.toBeDisabled();
@@ -434,6 +434,48 @@ describe('SlideContextBody controls', () => {
 		goTab('Notes');
 		expect(screen.getByRole('button', { name: /generate/i })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /connect a cloud model/i })).toBeNull();
+	});
+
+	// ── Find + browse ────────────────────────────────────────────────────────
+	// The primitive's own semantics live in ui/settings-view.test.tsx; what these
+	// assert is the WIRING — that this panel's sections consult it, that a control with
+	// no label/control row (the speaker note, a chip group) is still reachable, and that
+	// the tabs get out of the way.
+
+	it('search reaches a control in a tab that is not open', async () => {
+		const user = userEvent.setup();
+		setup('<!-- _class: kpi -->\n\n# Hi');
+		// Look is the open tab, so Chrome's rows are not rendered at all.
+		expect(screen.queryByRole('switch', { name: 'Hide pagination' })).toBeNull();
+		await user.click(screen.getByRole('button', { name: 'Search slide settings' }));
+		await user.type(screen.getByRole('textbox', { name: 'Search slide settings' }), 'page number');
+		expect(await screen.findByRole('switch', { name: 'Hide pagination' })).toBeTruthy();
+		expect(screen.queryByRole('radio', { name: 'Dark' })).toBeNull();
+	});
+
+	it('finds the speaker note, which is a textarea rather than a settings row', async () => {
+		const user = userEvent.setup();
+		setup('<!-- _class: kpi -->\n\n# Hi');
+		await user.click(screen.getByRole('button', { name: 'Search slide settings' }));
+		// "presenter" belongs to the NOTE block alone — the Notes section's own keywords
+		// carry "speaker", which would (correctly) show the section entire and prove
+		// nothing about the block-level filter.
+		await user.type(screen.getByRole('textbox', { name: 'Search slide settings' }), 'presenter');
+		expect(await screen.findByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
+		// Its two neighbours in the same section stay out: a block filters like a row.
+		expect(screen.queryByRole('textbox', { name: 'Read-as caption for this slide' })).toBeNull();
+		expect(screen.queryByRole('textbox', { name: 'Accessibility description for this slide' })).toBeNull();
+	});
+
+	it('the list view drops the tabs and renders every section at once', () => {
+		const onMutate = vi.fn();
+		render(
+			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="list" onViewChange={() => {}} />,
+		);
+		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
+		expect(screen.getByRole('radio', { name: 'Dark' })).toBeTruthy(); // Look
+		expect(screen.getByRole('switch', { name: 'Hide pagination' })).toBeTruthy(); // Chrome
+		expect(screen.getByRole('heading', { name: 'Chrome' })).toBeTruthy();
 	});
 
 	it('an un-pinned slide reads Auto and shows the deck canvas it inherits', () => {

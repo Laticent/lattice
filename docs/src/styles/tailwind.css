@@ -227,3 +227,26 @@
 		display: block;
 	}
 }
+
+/* ── Settings search: what a MISS collapses ──────────────────────────────────
+ *
+ * A control inside the Inspector hides itself (`useSettingsHit`, ui/settings-view.tsx)
+ * and stamps `data-setting-hit` when it survives. These two rules answer the questions a
+ * parent cannot answer for itself without a second render pass — "did any of my children
+ * match?" and "did anything at all?" — and `:has()` answers both in the same paint.
+ *
+ * Both are keyed on `data-settings-filtering`, set on the panel body only while a query
+ * is live, so neither can touch the panel in its normal browsing state.
+ *
+ * UNLAYERED, deliberately. `@layer base` is the natural home, but `utilities` is declared
+ * after it (line 22), so any `flex`/`block` utility that ever lands on a section wrapper
+ * would beat a layered `display: none` and the section would refuse to collapse. An
+ * unlayered rule beats every layer regardless of specificity — the cascade this whole
+ * file is built on (see its header) — so the collapse cannot be undone by a utility
+ * someone adds to a section later. */
+[data-settings-filtering] [data-settings-section]:not(:has([data-setting-hit])) {
+	display: none;
+}
+[data-settings-filtering]:has([data-setting-hit]) [data-settings-empty] {
+	display: none;
+}

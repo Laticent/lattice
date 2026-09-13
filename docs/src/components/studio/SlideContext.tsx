@@ -18,6 +18,7 @@ import { HelpTip } from '@/components/ui/help-tip';
 import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { SettingsBlock, SettingsFind, SettingsNoMatch, SettingsSection, SettingsToolbar, type SettingsView, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
 import { Switch as UISwitch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
@@ -76,6 +77,10 @@ export type SlideContextBodyProps = {
 	savedFinish?: SavedFinishMenuEntry[];
 	/** Commit a pure transform against the FRESHEST slide chunk (avoids stale drafts). */
 	onMutate: (fn: (chunk: string) => string) => void;
+	/** Grouped (pill-tabs) or list (every section in one scroll). Owned by the shell and
+	 *  shared with the deck scope — one panel's view choice is the other's too. */
+	view: SettingsView;
+	onViewChange: (v: SettingsView) => void;
 };
 
 // ── Small local controls, styled to match the Inspector vocabulary ─────────────
@@ -88,9 +93,14 @@ const ROW_LABEL = cn(SETTING_LABEL_COL, 'text-[12.5px] text-foreground');
 // the values mean, how the deck default interacts) goes in `help`, behind the ⓘ, so a
 // tab of eight controls isn't a wall of prose the eye skips. Same split as the deck
 // Inspector's Field (StudioShell.tsx).
-function Row({ label, hint, desc, help, children }: { label: string; hint?: string; desc?: string; help?: React.ReactNode; children: React.ReactNode }) {
+function Row({ label, hint, desc, help, find, children }: { label: string; hint?: string; desc?: string; help?: React.ReactNode; find?: string; children: React.ReactNode }) {
+	// Searchable on the words a person types — its label, its hint, its clause, plus any
+	// synonym `find` carries. `help` is a paragraph per row, so folding it in would match
+	// nearly every row on nearly every word.
+	const hit = useSettingsHit(label, hint, desc, find);
+	if (!hit) return null;
 	return (
-		<div className="my-1.5">
+		<div {...hit} className="my-1.5">
 			{/* The SAME 45/45 geometry the deck Inspector uses (SETTING_ROW in ui/panel) —
 			    every control in the column starts at one x, whatever its label's length, and
 			    a filling control truncates rather than growing. It still wraps: if a control's
@@ -134,7 +144,13 @@ function GroupHead({ label, desc }: { label: string; desc: string }) {
 
 // The one-line framing that opens each tab — says what the whole group is FOR
 // before the individual controls explain themselves.
+//
+// It frames the SECTION, so under search it shows only when the section itself matched:
+// three matching rows under seven paragraphs of unrelated framing is not a result list.
 function TabIntro({ children }: { children: React.ReactNode }) {
+	const query = useSettingsQuery();
+	const sectionHit = useSettingsHit();
+	if (query && !sectionHit) return null;
 	return <p className="mb-3 border-b border-border/60 pb-2.5 text-[11.5px] leading-snug text-muted-foreground">{children}</p>;
 }
 
@@ -235,7 +251,7 @@ const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)'
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
  *  (desktop/tablet) OR inside a Sheet (mobile). */
 export function SlideContextBody(props: SlideContextBodyProps) {
-	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate } = props;
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, onViewChange } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -529,46 +545,72 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// note you type on nearly every slide, then the furniture, the overlays, the accent
 	// refinement, the animation, and the review layer last.
 	const hasMarks = hasStatus || hasDecoration;
-	const tabDefs = [
-		...(editable ? [{ value: 'look', label: 'Look' }] : []),
-		{ value: 'notes', label: 'Notes' },
-		...(editable ? [{ value: 'chrome', label: 'Chrome' }] : []),
-		...(editable && hasMarks ? [{ value: 'marks', label: 'Marks' }] : []),
-		...(editable ? [{ value: 'brand', label: 'Accent' }] : []),
-		...(editable ? [{ value: 'motion', label: 'Motion' }] : []),
-		...(deckId ? [{ value: 'comments', label: 'Comments' }] : []),
-	];
-	const [tab, setTab] = React.useState('look');
-	const tabValues = tabDefs.map((t) => t.value);
-	const activeTab = tabValues.includes(tab) ? tab : (tabValues[0] ?? 'notes');
+	// The search is this panel's own and dies with it — see the note beside the deck
+	// scope's pair in StudioShell: a query carried across a scope switch hides most of
+	// the panel for a reason the author has already forgotten.
+	const [query, setQuery] = React.useState('');
+	const [searching, setSearching] = React.useState(false);
 
-	return (
-		<>
-			{/* `SETTING_SCOPE`: the rows stack against THIS body's width, so a narrow docked
-			    Inspector degrades gracefully wherever the window happens to be. */}
-			<div className={cn('flex-1 overflow-y-auto px-4 overscroll-contain [touch-action:pan-y] min-w-0', SETTING_SCOPE)}>
-					{/* Reset — revert every edit made this session back to the original slide. */}
-					<div className="flex items-center justify-between border-b border-border py-2">
-						<span className="text-[11px] text-muted-foreground">{dirty ? 'Edited this session' : 'No changes yet'}</span>
-						<Tip label="Revert this slide to how it was when you opened settings"><button
-							type="button"
-							onClick={resetSlide}
-							disabled={!dirty}
-							className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-default disabled:border-transparent disabled:text-muted-foreground disabled:opacity-50 disabled:hover:bg-transparent"
-						>
-							<RotateCcw className="size-3" />Reset slide
-						</button></Tip>
-					</div>
-
-					{/* Dynamic pill-tabs — only tabs with content for this slide render. */}
-					{tabDefs.length > 1 && (
-						<PillTabs className="py-3" ariaLabel="Slide settings sections" value={activeTab} onValueChange={setTab} tabs={tabDefs} />
-					)}
-
-					{/* NOTES */}
-					{activeTab === 'notes' && (
+	// The sections, as DATA and in REACH ORDER — ONE list, so the pill-tabs, the list view
+	// and a search can no longer disagree about what exists or what order it comes in. The
+	// tab strip and the bodies were two hand-kept orders until this pass (the strip read
+	// Look · Notes · Chrome · Marks · Accent · Motion · Comments, the bodies were written in
+	// another), which only went unnoticed because exactly one of them rendered at a time.
+	//
+	// `keywords` are what a person would type to find the SECTION rather than one of its
+	// rows — matching one shows the section entire.
+	const sectionDefs: { value: string; label: string; keywords: string; body: React.ReactNode }[] = [
+		// LOOK — identity + surface for this one slide (the accent/spectrum family
+		// lives in Brand, mirroring the deck Inspector).
+		...(editable ? [{
+			value: 'look',
+			label: 'Look',
+			keywords: 'appearance styling visual surface',
+			body: (
+						<div className="py-1">
+							<TabIntro>How this one slide looks — its canvas, text size, and backdrop. The deck decides anything you don't set here.</TabIntro>
+							<Row label="Canvas" hint={canvas.state === 'auto' && canvas.deckValue ? `${canvas.deckValue} · deck` : undefined} desc="Light or dark, for this slide alone." help={<><strong>Auto</strong> follows the deck (or the site). <strong>Light</strong> or <strong>Dark</strong> pins THIS slide regardless — so a bright slide can sit inside a dark deck, or the reverse.</>}>
+								<Seg
+									ariaLabel="Slide canvas"
+									value={canvas.state === 'auto' ? null : canvas.state}
+									onChange={(v) => onMutate((c) => setCanvas(c, (v ?? 'auto') as Canvas))}
+									options={[{ label: 'Auto', value: null }, { label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }]}
+								/>
+							</Row>
+							<Row label="Type scale" desc="Sizes all the text on this slide together." help={<><strong>M</strong> is the deck default. Step up to fill a sparse slide or to land a big statement — it scales every text role at once, so the hierarchy holds.</>}>
+								<Seg
+									ariaLabel="Type scale"
+									value={cur(scaleAxis)}
+									onChange={(v) => groupSet(scaleAxis, v)}
+									options={[{ label: 'M', value: null }, { label: 'L', value: 'scale-l' }, { label: 'XL', value: 'scale-xl' }, { label: '2XL', value: 'scale-2xl' }]}
+								/>
+							</Row>
+							<Row label="Finish" hint={finish.state === 'inherited' ? 'from deck' : undefined} desc="The backdrop behind this slide." help={<>A soft gradient or grain painted behind the content. It comes from the deck unless you override it here.</>}>
+								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
+							</Row>
+							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
+							{accepts('compact') && (
+								<Row label="Compact" hint="tighter spacing" desc="Tighter spacing between elements.">
+									<Switch label="Compact spacing" on={has('compact')} onClick={() => toggle('compact')} />
+								</Row>
+							)}
+							{accepts('accent') && <Row label="Accent" desc="Emphasize this layout's key element." help={<>Picks out whatever this layout treats as its focal element and paints it in the theme accent.</>}><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
+						</div>
+			),
+		}] : []),
+		// NOTES
+		{
+			value: 'notes',
+			label: 'Notes',
+			keywords: 'annotation commentary what you say',
+			body: (
 						<div className="py-2">
 							<TabIntro>The speaker note for this slide — what you'll say when it's on screen. It never appears on the slide itself.</TabIntro>
+							{/* The three channels below are `SettingsBlock`s, not `Row`s — each is a
+							    labeled textarea, not a label/control pair — so that a search can
+							    still find them by name and this section can still collapse when a
+							    query matches none of them. */}
+							<SettingsBlock terms="speaker note presenter say off-slide">
 							<textarea
 								value={noteDraft}
 								onChange={(e) => setNoteDraft(e.target.value)}
@@ -584,13 +626,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								Yours alone: shown beside the slide while you present, and exported to the PDF/PPTX
 								speaker-notes field. Never read aloud, and never in the caption track.
 							</p>
+							</SettingsBlock>
 
 							{/* CAPTION — the read-as OVERRIDE, and it REPLACES the generated narration
 							    rather than merging with it. A separate channel from the note, which is
 							    not a narration source at all: caption → front-matter → projection, for a
 							    clean caption track / Read-Article / export `.vtt`.
 							    Writes `<!-- caption: … -->`; never lands in the presenter-note field. */}
-							<div className="mt-5 border-t border-border pt-4">
+							<SettingsBlock terms="caption read aloud narration vtt read-article spoken" separated>
 								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Captions className="size-3.5 text-[var(--accent)]" />Caption <span className="font-normal text-muted-foreground">what this slide reads aloud</span></span>
 								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">Override the exact words this slide narrates — the read-along caption track, the HTML player's Read-Article, and the export <code className="font-mono">.vtt</code>. Highest precedence: it wins over the note and the auto text. Leave empty to fall back to the note.</p>
 								<textarea
@@ -601,12 +644,12 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 									placeholder="The exact words this slide should read aloud — e.g. “Revenue grew forty percent across three quarters.”"
 									className="min-h-[84px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
 								/>
-							</div>
+							</SettingsBlock>
 
 							{/* DESCRIPTION — a separate channel from the note (opposite register:
 							    what's ON the slide, for screen readers), exported as the image's
 							    alt text (PPTX) / an aria description (HTML). */}
-							<div className="mt-5 border-t border-border pt-4">
+							<SettingsBlock terms="description accessibility alt text screen reader wcag" separated>
 								<div className="flex items-center justify-between gap-2">
 									<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><SrDescriptionIcon className="size-3.5 text-[var(--accent)]" />Description <span className="font-normal text-muted-foreground">for screen readers</span></span>
 									{cloudReady ? (
@@ -647,84 +690,108 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 									</div>
 								)}
 								{descMsg && <p className="mt-2 text-[11px] leading-snug text-[var(--warn,#9a6a00)]">{descMsg}</p>}
-							</div>
+							</SettingsBlock>
 
 							{!editable && (
-								<div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-muted-foreground">
+								<SettingsBlock terms="hand authored class read only yaml" className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-muted-foreground">
 									<Info className="mt-0.5 size-3.5 shrink-0 text-[var(--accent)]" />
 									This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({readClassDirective(chunk).reason === 'array-form' ? 'a YAML array' : 'more than one _class comment'}), so the look/status controls are hidden. Edit it directly in the markdown.
+								</SettingsBlock>
+							)}
+						</div>
+			),
+		},
+		// CHROME
+		...(editable ? [{
+			value: 'chrome',
+			label: 'Chrome',
+			keywords: 'furniture repeats',
+			body: (
+						<div className="py-1">
+							<TabIntro>The slide's furniture — the running header, footer, page number, and the section-progress rail. Hide whatever this slide doesn't need.</TabIntro>
+							<Row label="Clean slide" hint="hide chrome" desc="Hide header, footer and page number." help={<>All three at once — for a full-bleed slide that should carry no furniture. The section rail is separate, below.</>}><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
+							{!has('silent') && (
+								// `data-settings-section`: under search this indent rule goes when its three
+								// rows do, or a bare left border floats beside an unrelated result.
+								<div data-settings-section="Chrome parts" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+									<Row label="Hide header" desc="The running title along the top."><Switch label="Hide header" on={has('no-header')} onClick={() => toggle('no-header')} /></Row>
+									<Row label="Hide footer" desc="The running line along the bottom."><Switch label="Hide footer" on={has('no-footer')} onClick={() => toggle('no-footer')} /></Row>
+									<Row label="Hide page number" desc="This slide's page number."><Switch label="Hide pagination" on={has('no-paginate')} onClick={() => toggle('no-paginate')} /></Row>
+								</div>
+							)}
+							{/* The section-progress rail is independent of `silent` (which covers
+							    only header/footer/pagination), so it sits at section level. */}
+							<Row label="Hide rail" hint="section dots" desc="Hide the section-progress dots." help={<>The rail that tracks where you are in the deck. It is independent of <strong>Clean slide</strong>, which covers only the header, footer and page number.</>}><Switch label="Hide section rail" on={has('no-progress')} onClick={() => toggle('no-progress')} /></Row>
+						</div>
+			),
+		}] : []),
+		// MARKS — everything stamped ON TOP of the slide's content: the state
+		// badge and review tone (which carry meaning) and the tint and mark
+		// treatments (which do not). Two tabs until 2026-08-18; one idea.
+		...(editable && hasMarks ? [{
+			value: 'marks',
+			label: 'Marks',
+			keywords: 'overlay overlays on top of the content',
+			body: (
+						<div className="py-1">
+							<TabIntro>Badges and accents that sit on top of this slide's content — a state stamp, a review tone, and atmospheric margins. Tap an active chip again to clear it.</TabIntro>
+							{hasStatus && (
+								<div data-settings-section="Says something">
+									<SectionHead label="Says something" desc="These carry meaning — a reader takes them as a claim about where the slide stands." />
+									{stateGroup.length > 0 && (
+										<SettingsBlock terms="stamp state badge draft confidential corner" className="my-1.5">
+											<GroupHead label="Stamp" desc="A small state badge in a corner — like Draft or Confidential." />
+											<ChipRow ariaLabel="State stamp" value={cur(stateGroup)} onChange={(v) => groupSet(stateGroup, v)} options={stateGroup.map((s) => ({ label: cap(s), value: s }))} />
+											{hasStampStyles && (
+												<Row label="Shape" hint={stampStyle.state === 'inherited' ? 'from deck' : undefined} desc="The badge's shape." help={<>The deck sets a default shape for every badge in Deck settings ▸ Accent; this pins a different one for this slide alone.</>}>
+													<Picker ariaLabel="Stamp style" value={stampStyleValue} onChange={onStampStyle} options={stampStyleHead} groups={stampStyleGroups} />
+												</Row>
+											)}
+										</SettingsBlock>
+									)}
+									{toneAxis.length > 0 && (
+										<SettingsBlock terms="tone review status pass warn fail" className="my-2">
+											<GroupHead label="Tone" desc="Colors the slide by review status — pass, warn, or fail." />
+											<ChipRow ariaLabel="Tone" value={cur(toneAxis)} onChange={(v) => groupSet(toneAxis, v)} options={toneAxis.map((t) => ({ label: cap(t.replace('tone-', '')), value: t, tone: TONE_SWATCH[t] }))} />
+											{toneStyleTokens.length > 0 && (
+												<Row label="Shape" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined} desc="A rail, a full edge, or a glow." help={<>How the tone shows on the slide. The deck sets the default in Deck settings ▸ Accent.</>}>
+													<Picker ariaLabel="Tone style" value={toneStyleValue} onChange={onToneStyle} options={toneStyleOptions} />
+												</Row>
+											)}
+										</SettingsBlock>
+									)}
+								</div>
+							)}
+							{hasDecoration && (
+								// The rule divides the two halves — and under a search the first half can be
+								// filtered away entirely, leaving a line floating over nothing. A divider is
+								// only a divider while there is something above it, so it goes with the query.
+								<div data-settings-section="Says nothing" className={hasStatus && !query ? 'mt-4 border-t border-border/60 pt-3' : undefined}>
+									<SectionHead label="Says nothing" desc="Purely visual — atmosphere in the margins, carrying no meaning a reader has to decode." />
+									{tints.length > 0 && (
+										<SettingsBlock terms="tint wash color corner edge decoration" className="my-1.5">
+											<GroupHead label="Tint" desc="A soft color wash in a corner or along an edge." />
+											<ChipRow ariaLabel="Tint treatment" value={phraseActive(tints)} onChange={(v) => applyPhrase(tints, v)} options={tints.map((p) => ({ label: decorLabel(p), value: p }))} />
+										</SettingsBlock>
+									)}
+									{marks.length > 0 && (
+										<SettingsBlock terms="mark motif watermark margin line art decoration" className="my-2">
+											<GroupHead label="Mark" desc="A faint line-art motif in the margins, like a watermark." />
+											<ChipRow ariaLabel="Mark treatment" value={phraseActive(marks)} onChange={(v) => applyPhrase(marks, v)} options={marks.map((p) => ({ label: decorLabel(p), value: p }))} />
+										</SettingsBlock>
+									)}
 								</div>
 							)}
 						</div>
-					)}
-
-					{/* COMMENTS — review layer (app state, not the deck markdown). */}
-					{activeTab === 'comments' && deckId && (
-						<div className="py-2">
-							<TabIntro>Review notes on this slide — for you or a reviewer. They live with the deck in the app, never on the slide or in a shared PDF unless you opt in at export.</TabIntro>
-							<SlideComments deckId={deckId} slide={slideNumber} />
-						</div>
-					)}
-
-					{/* LOOK — identity + surface for this one slide (the accent/spectrum family
-					    lives in Brand, mirroring the deck Inspector). */}
-					{activeTab === 'look' && (
-						<div className="py-1">
-							<TabIntro>How this one slide looks — its canvas, text size, and backdrop. The deck decides anything you don't set here.</TabIntro>
-							<Row label="Canvas" hint={canvas.state === 'auto' && canvas.deckValue ? `${canvas.deckValue} · deck` : undefined} desc="Light or dark, for this slide alone." help={<><strong>Auto</strong> follows the deck (or the site). <strong>Light</strong> or <strong>Dark</strong> pins THIS slide regardless — so a bright slide can sit inside a dark deck, or the reverse.</>}>
-								<Seg
-									ariaLabel="Slide canvas"
-									value={canvas.state === 'auto' ? null : canvas.state}
-									onChange={(v) => onMutate((c) => setCanvas(c, (v ?? 'auto') as Canvas))}
-									options={[{ label: 'Auto', value: null }, { label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }]}
-								/>
-							</Row>
-							<Row label="Type scale" desc="Sizes all the text on this slide together." help={<><strong>M</strong> is the deck default. Step up to fill a sparse slide or to land a big statement — it scales every text role at once, so the hierarchy holds.</>}>
-								<Seg
-									ariaLabel="Type scale"
-									value={cur(scaleAxis)}
-									onChange={(v) => groupSet(scaleAxis, v)}
-									options={[{ label: 'M', value: null }, { label: 'L', value: 'scale-l' }, { label: 'XL', value: 'scale-xl' }, { label: '2XL', value: 'scale-2xl' }]}
-								/>
-							</Row>
-							<Row label="Finish" hint={finish.state === 'inherited' ? 'from deck' : undefined} desc="The backdrop behind this slide." help={<>A soft gradient or grain painted behind the content. It comes from the deck unless you override it here.</>}>
-								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
-							</Row>
-							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
-							{accepts('compact') && (
-								<Row label="Compact" hint="tighter spacing" desc="Tighter spacing between elements.">
-									<Switch label="Compact spacing" on={has('compact')} onClick={() => toggle('compact')} />
-								</Row>
-							)}
-							{accepts('accent') && <Row label="Accent" desc="Emphasize this layout's key element." help={<>Picks out whatever this layout treats as its focal element and paints it in the theme accent.</>}><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
-						</div>
-					)}
-
-					{/* MOTION — chart animation for this one slide, overriding the deck defaults
-					    per-axis (Play / Style / Speed). Preview-only; the export is unchanged. */}
-					{activeTab === 'motion' && (
-						<div className="py-1">
-							<TabIntro>How a chart on this slide animates in place. Each axis inherits the deck's Motion unless you override it here. Preview-only — it changes nothing in the exported PDF or PPTX.</TabIntro>
-							<Row label="Play" hint={motionPlayProv.state === 'inherited' ? 'from deck' : undefined} desc="Animate this slide's chart." help={<><strong>Auto</strong> follows the deck. <strong>On</strong> forces motion here; <strong>Off</strong> pins this one slide static.</>}>
-								<Seg
-									ariaLabel="Chart motion"
-									value={motionPlayValue}
-									onChange={onMotionPlay}
-									options={[{ label: 'Auto', value: null }, { label: 'On', value: 'on' }, { label: 'Off', value: 'off' }]}
-								/>
-							</Row>
-							<Row label="Style" hint={motionStyleProv.state === 'inherited' ? 'from deck' : undefined} desc="How it moves in." help={<><strong>Build</strong> reveals in reading order, <strong>Together</strong> fades everything in at once, <strong>Rise</strong> lifts marks into place.</>}>
-								<Picker ariaLabel="Motion style" value={motionStyleValue} onChange={onMotionStyle} options={motionStyleOptions} />
-							</Row>
-							<Row label="Speed" hint={motionSpeedProv.state === 'inherited' ? 'from deck' : undefined} desc="How fast the build runs." help={<><strong>Auto</strong> paces to the chart's size, so a big chart doesn't crawl and a small one doesn't flash past.</>}>
-								<Picker ariaLabel="Motion speed" value={motionSpeedValue} onChange={onMotionSpeed} options={motionSpeedOptions} />
-							</Row>
-						</div>
-					)}
-
-					{/* BRAND — where the accent/spectrum shows on this slide (mirrors the deck
-					    Inspector's Brand tab: bar, card rails, structural trim, heading marks). */}
-					{activeTab === 'brand' && (
+			),
+		}] : []),
+		// BRAND — where the accent/spectrum shows on this slide (mirrors the deck
+		// Inspector's Brand tab: bar, card rails, structural trim, heading marks).
+		...(editable ? [{
+			value: 'brand',
+			label: 'Accent',
+			keywords: 'white label client color',
+			body: (
 						<div className="py-1">
 							<TabIntro>Where the accent shows on this slide — the brand bar, card rails, trim, and heading marks. The deck decides anything you don't set.</TabIntro>
 							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The strip on the slide's edge." help={<>A divider slide shows it as a left rail instead. <strong>None</strong> removes it; <strong>Solid</strong> / <strong>Duo</strong> / <strong>Mono</strong> repaint it in the theme accent.</>}>
@@ -754,78 +821,101 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								<Picker ariaLabel="Headline alignment" value={headlineOpt.value} onChange={onHeadline} options={headlineOpt.options} />
 							</Row>
 						</div>
-					)}
-
-					{/* MARKS — everything stamped ON TOP of the slide's content: the state
-					    badge and review tone (which carry meaning) and the tint and mark
-					    treatments (which do not). Two tabs until 2026-08-18; one idea. */}
-					{activeTab === 'marks' && (
+			),
+		}] : []),
+		// MOTION — chart animation for this one slide, overriding the deck defaults
+		// per-axis (Play / Style / Speed). Preview-only; the export is unchanged.
+		...(editable ? [{
+			value: 'motion',
+			label: 'Motion',
+			keywords: 'animation movement transition',
+			body: (
 						<div className="py-1">
-							<TabIntro>Badges and accents that sit on top of this slide's content — a state stamp, a review tone, and atmospheric margins. Tap an active chip again to clear it.</TabIntro>
-							{hasStatus && (
-								<div>
-									<SectionHead label="Says something" desc="These carry meaning — a reader takes them as a claim about where the slide stands." />
-									{stateGroup.length > 0 && (
-										<div className="my-1.5">
-											<GroupHead label="Stamp" desc="A small state badge in a corner — like Draft or Confidential." />
-											<ChipRow ariaLabel="State stamp" value={cur(stateGroup)} onChange={(v) => groupSet(stateGroup, v)} options={stateGroup.map((s) => ({ label: cap(s), value: s }))} />
-											{hasStampStyles && (
-												<Row label="Shape" hint={stampStyle.state === 'inherited' ? 'from deck' : undefined} desc="The badge's shape." help={<>The deck sets a default shape for every badge in Deck settings ▸ Accent; this pins a different one for this slide alone.</>}>
-													<Picker ariaLabel="Stamp style" value={stampStyleValue} onChange={onStampStyle} options={stampStyleHead} groups={stampStyleGroups} />
-												</Row>
-											)}
-										</div>
-									)}
-									{toneAxis.length > 0 && (
-										<div className="my-2">
-											<GroupHead label="Tone" desc="Colors the slide by review status — pass, warn, or fail." />
-											<ChipRow ariaLabel="Tone" value={cur(toneAxis)} onChange={(v) => groupSet(toneAxis, v)} options={toneAxis.map((t) => ({ label: cap(t.replace('tone-', '')), value: t, tone: TONE_SWATCH[t] }))} />
-											{toneStyleTokens.length > 0 && (
-												<Row label="Shape" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined} desc="A rail, a full edge, or a glow." help={<>How the tone shows on the slide. The deck sets the default in Deck settings ▸ Accent.</>}>
-													<Picker ariaLabel="Tone style" value={toneStyleValue} onChange={onToneStyle} options={toneStyleOptions} />
-												</Row>
-											)}
-										</div>
-									)}
-								</div>
-							)}
-							{hasDecoration && (
-								<div className={hasStatus ? 'mt-4 border-t border-border/60 pt-3' : undefined}>
-									<SectionHead label="Says nothing" desc="Purely visual — atmosphere in the margins, carrying no meaning a reader has to decode." />
-									{tints.length > 0 && (
-										<div className="my-1.5">
-											<GroupHead label="Tint" desc="A soft color wash in a corner or along an edge." />
-											<ChipRow ariaLabel="Tint treatment" value={phraseActive(tints)} onChange={(v) => applyPhrase(tints, v)} options={tints.map((p) => ({ label: decorLabel(p), value: p }))} />
-										</div>
-									)}
-									{marks.length > 0 && (
-										<div className="my-2">
-											<GroupHead label="Mark" desc="A faint line-art motif in the margins, like a watermark." />
-											<ChipRow ariaLabel="Mark treatment" value={phraseActive(marks)} onChange={(v) => applyPhrase(marks, v)} options={marks.map((p) => ({ label: decorLabel(p), value: p }))} />
-										</div>
-									)}
-								</div>
-							)}
+							<TabIntro>How a chart on this slide animates in place. Each axis inherits the deck's Motion unless you override it here. Preview-only — it changes nothing in the exported PDF or PPTX.</TabIntro>
+							<Row label="Play" hint={motionPlayProv.state === 'inherited' ? 'from deck' : undefined} desc="Animate this slide's chart." help={<><strong>Auto</strong> follows the deck. <strong>On</strong> forces motion here; <strong>Off</strong> pins this one slide static.</>}>
+								<Seg
+									ariaLabel="Chart motion"
+									value={motionPlayValue}
+									onChange={onMotionPlay}
+									options={[{ label: 'Auto', value: null }, { label: 'On', value: 'on' }, { label: 'Off', value: 'off' }]}
+								/>
+							</Row>
+							<Row label="Style" hint={motionStyleProv.state === 'inherited' ? 'from deck' : undefined} desc="How it moves in." help={<><strong>Build</strong> reveals in reading order, <strong>Together</strong> fades everything in at once, <strong>Rise</strong> lifts marks into place.</>}>
+								<Picker ariaLabel="Motion style" value={motionStyleValue} onChange={onMotionStyle} options={motionStyleOptions} />
+							</Row>
+							<Row label="Speed" hint={motionSpeedProv.state === 'inherited' ? 'from deck' : undefined} desc="How fast the build runs." help={<><strong>Auto</strong> paces to the chart's size, so a big chart doesn't crawl and a small one doesn't flash past.</>}>
+								<Picker ariaLabel="Motion speed" value={motionSpeedValue} onChange={onMotionSpeed} options={motionSpeedOptions} />
+							</Row>
 						</div>
-					)}
+			),
+		}] : []),
+		// COMMENTS — review layer (app state, not the deck markdown).
+		...(deckId ? [{
+			value: 'comments',
+			label: 'Comments',
+			keywords: 'feedback',
+			body: (
+						<div className="py-2">
+							<TabIntro>Review notes on this slide — for you or a reviewer. They live with the deck in the app, never on the slide or in a shared PDF unless you opt in at export.</TabIntro>
+							<SettingsBlock terms="review comments reviewer thread"><SlideComments deckId={deckId} slide={slideNumber} /></SettingsBlock>
+						</div>
+			),
+		}] : []),
+	];
+	const tabDefs = sectionDefs.map(({ value, label }) => ({ value, label }));
+	const [tab, setTab] = React.useState('look');
+	const tabValues = tabDefs.map((t) => t.value);
+	const activeTab = tabValues.includes(tab) ? tab : (tabValues[0] ?? 'notes');
 
-					{/* CHROME */}
-					{activeTab === 'chrome' && (
-						<div className="py-1">
-							<TabIntro>The slide's furniture — the running header, footer, page number, and the section-progress rail. Hide whatever this slide doesn't need.</TabIntro>
-							<Row label="Clean slide" hint="hide chrome" desc="Hide header, footer and page number." help={<>All three at once — for a full-bleed slide that should carry no furniture. The section rail is separate, below.</>}><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
-							{!has('silent') && (
-								<div className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
-									<Row label="Hide header" desc="The running title along the top."><Switch label="Hide header" on={has('no-header')} onClick={() => toggle('no-header')} /></Row>
-									<Row label="Hide footer" desc="The running line along the bottom."><Switch label="Hide footer" on={has('no-footer')} onClick={() => toggle('no-footer')} /></Row>
-									<Row label="Hide page number" desc="This slide's page number."><Switch label="Hide pagination" on={has('no-paginate')} onClick={() => toggle('no-paginate')} /></Row>
-								</div>
-							)}
-							{/* The section-progress rail is independent of `silent` (which covers
-							    only header/footer/pagination), so it sits at section level. */}
-							<Row label="Hide rail" hint="section dots" desc="Hide the section-progress dots." help={<>The rail that tracks where you are in the deck. It is independent of <strong>Clean slide</strong>, which covers only the header, footer and page number.</>}><Switch label="Hide section rail" on={has('no-progress')} onClick={() => toggle('no-progress')} /></Row>
-						</div>
+	return (
+		<>
+			{/* `SETTING_SCOPE`: the rows stack against THIS body's width, so a narrow docked
+			    Inspector degrades gracefully wherever the window happens to be. */}
+			{/* `data-settings-filtering` is set ONLY while a query is live — the two CSS rules
+			    in styles/tailwind.css key on it to collapse a section with no matching row and
+			    to reveal the no-matches note. */}
+			<div className={cn('flex-1 overflow-y-auto px-4 overscroll-contain [touch-action:pan-y] min-w-0', SETTING_SCOPE)} {...(query ? { 'data-settings-filtering': '' } : {})}>
+				<SettingsFind query={query}>
+					{/* Reset — revert every edit made this session back to the original slide. */}
+					<div className="flex items-center justify-between border-b border-border py-2">
+						<span className="text-[11px] text-muted-foreground">{dirty ? 'Edited this session' : 'No changes yet'}</span>
+						<Tip label="Revert this slide to how it was when you opened settings"><button
+							type="button"
+							onClick={resetSlide}
+							disabled={!dirty}
+							className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-default disabled:border-transparent disabled:text-muted-foreground disabled:opacity-50 disabled:hover:bg-transparent"
+						>
+							<RotateCcw className="size-3" />Reset slide
+						</button></Tip>
+					</div>
+
+					{/* Find + browse — the same toolbar the deck scope carries, from the one
+					    module both import (HARD RULE #15). VIEW is the shell's, shared with the
+					    deck panel; QUERY is this panel's own and dies with it. */}
+					<SettingsToolbar
+						scope="Slide"
+						view={view}
+						onViewChange={onViewChange}
+						query={query}
+						onQueryChange={setQuery}
+						searching={searching}
+						onSearchingChange={setSearching}
+					/>
+					{/* Dynamic pill-tabs — only tabs with content for this slide render, and
+					    only in the grouped view: a search spans every section, and the list has
+					    no single active one. */}
+					{!query && view === 'group' && tabDefs.length > 1 && (
+						<PillTabs className="py-3" ariaLabel="Slide settings sections" value={activeTab} onValueChange={setTab} tabs={tabDefs} />
 					)}
+					{sectionDefs.map((s) =>
+						query || view === 'list' || s.value === activeTab ? (
+							<SettingsSection key={s.value} label={s.label} keywords={s.keywords} heading={!!query || view === 'list'}>
+								{s.body}
+							</SettingsSection>
+						) : null,
+					)}
+					<SettingsNoMatch query={query} />
+				</SettingsFind>
 				</div>
 
 				{/* The emitted directive — teach the grammar. Inherited deck tokens ghosted. */}
