@@ -267,7 +267,16 @@ somebody scans with a phone. The watch target is now re-serialized through the
 parser that validated it. All six are fixed in this branch; two of them were
 pre-existing rather than introduced here.
 
-**CodeQL then found a seventh**, and it is the same defect class one layer down:
+**CodeQL found a seventh** — `js/incomplete-sanitization`, high, and in the *test*
+file: an arm built a regex-escaped hostname with `h.replace(/\./g, '\\.')`, which
+escapes the dot and not the backslash. A hostname carries no backslash, so nothing
+was exploitable; the rule is still right, because a partial escape is wrong the
+moment the input widens. One complete `escapeRe` helper now serves both arms. Worth
+recording how it was found: the alert was read off the annotation, after an earlier
+guess from the query list alone had blamed the wrong thing.
+
+That guess did surface a real eighth, though — the same defect class as the bug this
+registry exists to fix, one layer down:
 each id extractor carried its provider's hostname in an **unanchored** regex, so
 `instagram\.com\/p\/` also matched `https://evil.example/instagram.com/p/x`. It
 could not do harm here — `providerFor` had already settled the host — but a

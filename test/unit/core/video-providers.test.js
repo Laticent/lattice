@@ -14,6 +14,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const REPO = path.join(__dirname, '..', '..', '..');
+
+/**
+ * Escape a string for literal use inside a regular expression — EVERY metacharacter,
+ * backslash included. A `.replace(/\./g, '\\.')` that escapes only the dot is what
+ * CodeQL's js/incomplete-sanitization flags, and it is right to: a hostname happens
+ * to carry no backslash today, but a partial escape is wrong the moment the input
+ * widens, and the complete form costs nothing.
+ */
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const {
 	PROVIDERS,
 	providerFor,
@@ -36,7 +45,7 @@ describe('the registry is one table, and every row is whole', () => {
 		// and stays allowed — youtu.be needs it, because it puts the id at the path
 		// root while youtube.com nests it under a verb. So the rule is specifically
 		// "no regex-escaped host", which is the form a pattern would carry.
-		const escaped = PROVIDERS.flatMap((p) => p.hosts).map((h) => h.replace(/\./g, '\\.'));
+		const escaped = PROVIDERS.flatMap((p) => p.hosts).map(escapeRe);
 		for (const p of PROVIDERS) {
 			const src = p.id.toString();
 			for (const h of escaped) {
@@ -101,6 +110,9 @@ describe('the registry is one table, and every row is whole', () => {
 			PROVIDERS.flatMap((p) => p.hosts)
 				// Match the host as written in code, whether plain (`youtube.com`) or
 				// regex-escaped (`youtube\.com`).
+				// Deliberately a PATTERN, not an escape: each dot becomes `\\?\.` so the arm
+				// matches the host written plainly (`youtube.com`) and regex-escaped
+				// (`youtube\.com`) alike. escapeRe would match only the plain spelling.
 				.map((h) => h.split('.').join('\\\\?\\.'))
 				.join('|'),
 			'i',
@@ -143,13 +155,16 @@ describe('the registry is one table, and every row is whole', () => {
 		// covered two hosts of four. Prove the coverage rather than trusting it.
 		const hostPattern = new RegExp(
 			PROVIDERS.flatMap((p) => p.hosts)
+				// Deliberately a PATTERN, not an escape: each dot becomes `\\?\.` so the arm
+				// matches the host written plainly (`youtube.com`) and regex-escaped
+				// (`youtube\.com`) alike. escapeRe would match only the plain spelling.
 				.map((h) => h.split('.').join('\\\\?\\.'))
 				.join('|'),
 			'i',
 		);
 		for (const h of PROVIDERS.flatMap((p) => p.hosts)) {
 			assert.ok(hostPattern.test(`const s = 'https://${h}/x';`), `plain: ${h}`);
-			assert.ok(hostPattern.test(`const re = /${h.replace(/\./g, '\\.')}\\/x/;`), `escaped: ${h}`);
+			assert.ok(hostPattern.test(`const re = /${escapeRe(h)}\\/x/;`), `escaped: ${h}`);
 			assert.ok(hostPattern.test(`const t = \`https://${h}/\${id}\`;`), `template: ${h}`);
 		}
 	});
