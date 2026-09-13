@@ -81,10 +81,26 @@ test('the flag is REPEATABLE — a second entry does not replace the first', () 
 
 test('a valid entry is accepted — the refusals are not refusing everything', () => {
   // The arm that keeps this file honest: seven rejections prove nothing if the flag
-  // rejects every input. This one must get PAST validation, so it fails later and for a
-  // different reason — the bogus anchor — not with a --front-matter message.
+  // rejects every input. This one must get PAST validation and fail later, for some other
+  // reason.
+  //
+  // WHAT IT MUST NOT PIN IS **WHICH** LATER REASON, and getting that wrong is what broke
+  // CI (#2188). The first cut asserted the message names the bogus anchor — true here,
+  // where a browser is on the box, and false in the `unit` job, which sets
+  // `PUPPETEER_SKIP_DOWNLOAD: '1'` and has no Chromium at all. There the sweep dies one
+  // step earlier, at the render, with "Browser was not found". So the arm passed locally
+  // for the wrong reason and failed on every CI run, on both node versions' worth of
+  // environment — an environment assumption, not a flake, and it took two red runs and a
+  // wrong guess at the `wait-for` suite before it was found.
+  //
+  // What is actually being claimed is one thing and it is browser-independent: a WELL-FORMED
+  // entry is not rejected by THIS flag. Both downstream failures prove that equally, because
+  // both happen after the validation block.
   const { status, err } = run('--front-matter', 'paginate: true', '--anchor', 'nosuch::after', '--max', '2');
   assert.equal(status, 2, err);
   assert.doesNotMatch(err, /--front-matter/, 'a valid entry must not be refused');
-  assert.match(err, /nosuch::after/);
+  // Positive, and true with or without a browser: the run reached the sweep. Either it
+  // rendered and could not resolve the anchor, or it could not render at all.
+  assert.match(err, /nosuch::after|Browser was not found|no Chromium/,
+    `expected a failure from the sweep, not from flag parsing:\n${err}`);
 });
