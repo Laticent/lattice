@@ -270,6 +270,17 @@ themselves with the same anecdote. Folding `domainFor` back into the substrate i
 right, and it moves `slope`'s axis as well as `scatter`'s, so it belongs in its
 own change with its own renders.
 
+> **Shipped.** The algorithm is `cartesian.js § niceDomain`, one copy, and the
+> `tight` flag is deleted rather than left unused. `scatter` and `bubble` render
+> pixel-identical, which is what makes the move provably a relocation. The
+> predicted move in `slope` turned out narrower than this finding assumed: the
+> DUMBBELL scales across the tick domain and grids it, the SLOPEGRAPH does not —
+> it scales to the data with its own pad and draws no gridlines, so the ticks
+> reach it only through the value formatter. Measured across every slope and
+> dumbbell slide in the shipped decks, one tick set changes and the slide it is
+> on renders pixel-identical; the single dumbbell keeps its `40 · 50 · 60` and
+> only widens its domain, 6% of air at each end to the family's 8%.
+
 **`role="img"` does not prune the SVG subtree, so a reader hears the desc AND
 every text node under it.** Dumping the real accessibility tree over the rendered
 deck (Chromium CDP `Accessibility.getFullAXTree`) shows all seven charts exposing
