@@ -984,7 +984,12 @@ test times) would have argued for leaving them nightly.
 That run did 59 tests in a 330s test step / 438s job. Two runs without the tags, the same day:
 `d05807e3` (merge_group, 57 tests) at step 241s / job 334s, and `7eebca0e` (a PR, 24 minutes
 earlier) at step 299s / job 397s. **Those two untagged runs differ from each other by 58s on the
-step — more than the whole effect.** So one green run neither confirms nor refutes the +13s; the
+step — more than the whole effect.**
+
+**The cleanest datum is the same tier twice.** The next push ran the IDENTICAL 59-test tier and
+came back at **264s** against the first run's **330s** — a **66s** swing with the test set held
+fixed, so it is not a count difference, a rebase or a scheduling artifact. It is simply what two
+runs of this job cost. So one green run neither confirms nor refutes the +13s; the
 controlled sandbox A/B is the instrument that can resolve it, and CI's job here is to show the
 arms run and pass. The projection this paragraph originally carried — "roughly +20s, p90 364s ->
 ~384s" — is withdrawn as unmeasurable from a single run rather than left standing as if confirmed.

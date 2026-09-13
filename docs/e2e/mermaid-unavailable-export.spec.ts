@@ -63,7 +63,9 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
  *   step 299s / job 397s   7eebca0e, a PR, 24 minutes earlier
  *
  * Those two untagged runs differ from each other by 58s on the step alone — more than
- * the whole effect being measured. So a single CI run neither confirms nor refutes the
+ * the whole effect being measured. And the cleanest datum is the same tier twice: the
+ * next push ran the IDENTICAL 59-test tier at 264s against the first run's 330s, a 66s
+ * swing with the test set held fixed. So a single CI run neither confirms nor refutes the
  * +13s above; the controlled sandbox A/B (one machine, one session, three arms
  * back to back) is the measurement that can resolve it, and the CI run's job is to show
  * the arms run and pass on the gate. DO NOT read one green run as a cost measurement.
