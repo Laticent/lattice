@@ -1184,3 +1184,208 @@ the implementation added to this note's findings, both from real renders:
   this change (HARD RULE #18: a pre-existing defect found off the path is logged,
   not swept into the diff). `overflow:check` is on-demand rather than a CI gate, so
   nothing is red; the baseline needs its own pass.
+
+---
+
+## 11. A FOURTH INDEPENDENT REVIEW (2026-09-13) — the pattern held a fourth time
+
+Two checkers were run in parallel over the two regions nobody but the author had
+read: `planBox`'s per-block chrome model with its measurer, and the emulator's
+two-oracle verdict. **Both found shipping defects, and both independently found
+the same one** — which is the finding worth leading with.
+
+### The one both reviews found: the two render paths ran different policies again
+
+`verifyTrim` did not exist. The export open-coded a per-box revert AND a
+slide-level one; the runtime open-coded only the per-box half and nothing after it
+reverted. `--fluid` inlines that runtime, so **the written `.html` re-trimmed at
+open under a policy the export had just refused.** Reproduced on a deck whose
+paragraph is joined with `<br>`: the console printed `✂ TRIM REVERTED — … they
+clip unchanged`, and the delivered viewer, opened in real Chromium, carried
+`data-lattice-trim="1"` with 9 of 21 lines removed **on a slide still showing the
+overflow ring**. Trimmed AND still overflowing, in a shipped artifact, with the
+tool asserting the opposite — HARD RULE #1 and #18 in one file.
+
+This is verbatim the fork the third review closed for `clearTrim` vs
+`clearTrimBoxes`, moved one function along: **the kernel was single-sourced and
+the POLICY was not, twice.** The verdict now lives in one kernel function with both
+arms and their scoping written down, and both call sites call it. Mutation-proved:
+drop the frame arm from the runtime's call, rebuild, and the viewer ships the
+refused clamp again.
+
+### Every gate could see an UNDER-cut and none could see an OVER-cut
+
+The single most useful sentence out of this pass. `planTrim`'s exit test, the
+per-box revert, the frame check and the corpus ratchet all ask *does it still
+overflow*. A clamp that removes twice the lines it needed to satisfies every one of
+them. Three separate defects lived in that blind spot:
+
+| defect | measured |
+|---|---|
+| **`transform: scale(k)` mixes coordinate spaces.** `getBoundingClientRect` is VISUAL px; `clientHeight`, `getComputedStyle` and `scrollHeight` are LAYOUT px. `docs/src/playground/deck-preview.js` scales every `<section>` by the pane width and runs the runtime in the same document. | Identical DOM, identical text: **22 lines kept at scale 1, six at 0.5, ONE at 0.35** — the author's copy shortening as a reader drags the preview pane, and the PDF showing a different truncation again. |
+| **`line-height: normal` was guessed at `fontSize * 1.4`.** `parseFloat('normal')` is `NaN`. | 16px Arial, real line box 18px: the planner budgeted `floor(600/22.4)` = 26 lines where 33 fit — **seven lines destroyed, 132px of the box left empty**, both revert gates green. |
+| **`round(height / lineHeight)` for the line COUNT.** | Up to half a line of phantom lift per action, credited to every block below it. |
+
+All three are fixed by measuring instead of deriving: one scale per box, and the
+block's real line boxes read from a `Range` — trusted only where the geometry is
+unambiguous (every rect the same height, one uniform step apart), because a line
+carrying a taller inline face is exactly the shape the computed value is already right
+for.
+
+**THE FIRST CUT OF THE SCALE FIX WAS WRONG IN TWO WAYS, AND A MAKER-CHECKER ON THE
+DIFF CAUGHT BOTH.** Recorded because the pattern is now five for five: every pass on
+this feature has found a defect in what the previous pass had just corrected.
+
+- **It normalized the QUANTITY and left the THRESHOLD.** Everything was converted to
+  VISUAL px while `TRIM_TOLERANCE` (12) and `FIT_EPSILON` (0.5) stayed layout-px
+  constants, so the effective entry threshold became `12 / k`. Measured: a box 20 layout
+  px over entered the planner at scale 1 and was **ignored at 0.5** — `guards: strict`
+  going inert on the preview while the ring it exists to clear still fired. The fix
+  normalizes to **LAYOUT px**, which is not a free choice: it is what
+  `lib/core/overflow-probe.js` already does, for this same surface, in a header note
+  that predates this work. Two kernels answering "how far over is this box?" in
+  different units is the thing the whole section is about.
+- **It read the scale with a `DOMMatrix` walk over `transform`,** which is strictly
+  weaker than the probe's `rect.height / offsetHeight`: it returns `none` for the
+  individual `scale:` property and for `zoom:` (both of which really do scale), and
+  `cos θ` for a rotation. The measurer now uses the probe's expression, deadband
+  included, pinned by an arm asserting the two agree.
+- **And a third, from the same review:** the normalization made `contentBottom` and
+  `deepestOuter` two independently-rounded floats, so at any scale that is not an exact
+  binary fraction ~1e-5 landed on the effective limit and `Math.floor` turned it into a
+  whole LINE. Measured at 0.7, 0.62 and 0.83. Nothing could revert it — it is on the
+  over-cut axis. A deadband on the remainder and a `FLOAT_SLACK` on the budget close it;
+  they overlap on the one measured shape and neither is separately pinned, which is said
+  out loud in the constant's docblock rather than papered over.
+
+**The test arm that asserts this could not see any of it**, which is the fifth
+flattering detector in this note. `a SCALED slide plans the same cut as an unscaled one`
+was green on all three defects, because its fixture uses `line-height: normal` — a
+non-integral line box, so the budget never lands on an integer boundary where a
+one-line error shows. It is now joined by a round-line-height arm at seven scales
+including 0.7, 0.62 and 0.83, and by an arm asserting the model and the probe read the
+same unit.
+
+**The instrument is `test/integration/parity/guards-trim-measurement.test.js`,**
+and its centre is a post-condition nothing in the tree had: *a clamp never leaves a
+whole line of its box empty.* It is mutation-proved against all three defects plus
+a deliberate two-line over-cut as a control — and the control earned its place,
+because the FIRST version of that arm measured empty room as
+`clientHeight - scrollHeight`, which can never be positive, and passed all three.
+A relation that cannot fail is worse than an honest gap; this note has now said
+that about its own tests four times.
+
+### `shiftOf` credited one column's recovery to another
+
+`other.bottom <= b.top` is a VERTICAL-ORDER test, not a same-flow test: a block in
+a different column that merely ends higher satisfies it. On a real two-up the left
+card's 28px of recovery was credited to the right column's second paragraph, which
+was budgeted two lines where one fits, and the box `planTrim` had declared FITTING
+came back **16px over** in the DOM. The third review fixed the SCALAR form of this;
+the per-block form kept the same hole. The net below caught it, so the harm is a
+fit that WAS available being refused — on exactly the two-up family the per-block
+chrome work was built for.
+
+**MR3 asserts precisely this and could not fail**, because `makeBox` pinned every
+`col > 0` block to `colTop`: no second block ever sat below a first inside a
+non-first column, so the shape simply was not in the corpus. The model now carries
+each block's branch of the box (`path`) and whether each level stacks vertically
+(`vstack`), the generator stacks within columns, and the oracle models the same
+physics — reverting the planner to the vertical-order form now turns MR3 red.
+
+### Four more, smaller, each fixed
+
+- **An author `id` in the synthetic namespace shadowed a minted one.** The collision
+  guard seeded only from `data-trim-id`, while a block's id can BE an author `id` and
+  `trimBlockEl` resolves `data-trim-id` first. Reproduced three ways on `<p id="s1tb0">`:
+  the wrong paragraph cut and reported under "Those slides FIT"; an `<h3>` clamped, i.e.
+  rule 3 violated in the DOM without `planTrim` ever proposing it; and `recovered` keyed
+  on the shared id, skipping a legitimate cut. **This is the first review's bug and the
+  third review's bug in a THIRD door** — each fix closed a doorway, this one closes the
+  namespace.
+- **`frameOver()`'s catch did the opposite of its own comment.** `catch { return false }`
+  under a comment reading "a throwing probe must not silently keep a bad cut" — `false`
+  is *not over*, so a throw KEPT the cut and reported it under "Those slides FIT".
+- **The emulator open-coded `guardsEnabled` with a looser matcher.** `\b` matches at a
+  hyphen, so `no-guards-strict` and `guards-strict-x` enabled the trim on the export and
+  not in the runtime, and `x-guards-loose guards-strict` the reverse. "May this slide be
+  cut?" now has one answer, injected from the kernel like "may this BLOCK be cut?".
+- **A box with no text block reported `fitted: true`.** The reduce seeds with `limit`, so
+  an empty `blocks` array made a figure-only cell 300px over come back as fitting.
+  Latent — both call sites gate on `actions.length` — but `fits` is what a reporting
+  consumer reads, and "Those slides FIT" is that consumer in spirit.
+
+### Four more from the maker-checker, all fixed
+
+- **`table-row` was classified as a vertical stack.** A `<tr>` stacks its cells
+  HORIZONTALLY, so one cell's recovery was credited to the next — the cross-column
+  over-credit above, in the one container the fix forgot.
+- **`verifyTrim` had no direct test at all.** The highest-blast-radius function in the
+  change — it decides whether the author's content survives, on both paths — was
+  exercised only by the parity arm, which asserts the two paths AGREE rather than that
+  either verdict is right. It now has arms for a kept cut, for arm 1 catching a residual
+  the frame probe cannot see (an 8px shear is inside the probe's own slack, so the
+  fixture uses an 8px line to land there deliberately), and for a throwing probe.
+- **`reverted` reported the PLANNED count, not the undone one.** `clearTrimBoxes` skips
+  an action whose element it cannot resolve, so the field said a revert succeeded on a
+  block it never found. It returns the real count, pinned by a forged plan carrying a
+  bogus action.
+- **MR3's kill was one violation in 93 fit boxes, and the oracle had re-encoded the
+  planner.** `sameFlowAbove` was a line-for-line copy of `liftsAbove`, so a wrong
+  `stacksVertically` would have been wrong in both — the "the test's oracle re-stacked
+  blocks the same wrong way" retraction this note already carries, one level deeper. The
+  oracle now judges by `col`, a fact the generator WRITES DOWN and the planner never
+  reads, and the corpus draws two and three ragged columns instead of round-robin ones,
+  so a cross-column credit in either direction is produced. Reverting the planner's flow
+  test, or dropping its `vstack` check, now turns MR3 red.
+
+**And the ragged corpus surfaced a pre-existing narrowing worth writing down:** the
+planner only cuts blocks that THEMSELVES cross the limit, so it never clamps an earlier
+block to lift a later one into view. Raising a limit can therefore take the earlier
+block out of the candidate set and leave the later one where rule 4 refuses to mark it —
+seed 1797626, one box in 300 seeds. It is an under-trim, the safe direction, so MR7a
+names the exemption narrowly (the decline must be a mark-visibility reason, and must have
+discarded nothing) rather than being weakened to accept any decline.
+
+### Declined, with reasons
+
+- **The per-box revert arm was dead, and it is now live rather than deleted.** Both
+  reviews proved it: the slide arm required ZERO over boxes at `FIT_EPSILON`, so any box
+  still over — including one the planner never entered, over by 3px, inside its own entry
+  tolerance — reverted the whole slide, and a box the per-box arm had just reverted was
+  over again by construction. Rather than delete it, the two arms were given distinct
+  scopes: the box arm asks *did the cut fit in the boxes we cut* (plan-touched only, at
+  real fit — the sheared-card arm), and the frame arm asks *does the reader still see a
+  clipped slide* (the probe's own oracle, at its own tolerance). Either failing reverts
+  the whole plan, because rule 5's unit is what the reader sees. The export's old comment
+  promising per-box SURVIVAL is retired: the code never did that, and the adapter test
+  that certified it tested `clearTrimBoxes` in isolation rather than the composition.
+- **`did-not-converge` is unreachable** and is kept anyway. Each iteration adds exactly
+  one key to `recovered` and every candidate is filtered on it, so the loop cannot run
+  past its bound; 200,000 randomized models never produced it. It stays as the honest
+  terminal if the loop is ever changed, and is recorded here rather than left for a
+  fifth review to re-derive.
+- **The verifier stamps scaffolding on boxes it did not plan against.** `measureTrim`
+  called with `FIT_EPSILON` takes its stamping branch for any box over by ≥1px. The
+  export strips it (`finalizeTrim`); the live preview accumulates `data-trim-id` on
+  fitting boxes, which is cosmetic — `data-trim-prior` is written only by `applyTrim`.
+  Recorded, not restructured: separating "measure" from "stamp" is a signature change to
+  the kernel's most-called function for no measured harm.
+- **`overflow: clip` excludes its own `padding-bottom` from `scrollHeight` where
+  `overflow: hidden` includes it** (measured: 522 vs 532 on identical content). So
+  `contentBottom` understates a clip cell's real content bottom by its bottom padding,
+  and `.compare-right` is such a cell with real padding. The bias is in the SAFE
+  direction — the planner reserves less room than exists, so it under-trims — and both
+  the model and the verifier share it, so nothing certifies a shear. Left as a known
+  narrowing with the number written down.
+
+### What was NOT verified
+
+The Playground's scaled preview was reproduced as a **mechanism** in real Chromium on
+the exact code path, and as a **surface** by reading `deck-preview.js` (the fit agent and
+the runtime share one `srcdoc`). Nobody built the docs site and loaded a `guards: strict`
+deck into the filmstrip. Under HARD RULE #23 that step is still owed, and the difference
+is "the mechanism was broken" versus "users saw it" — **UNVERIFIED** on that surface. The
+Studio export capture frame goes through the same builder; if its scale is anything but
+exactly 1, this reached exported bytes.
+

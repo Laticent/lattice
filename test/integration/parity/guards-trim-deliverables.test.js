@@ -59,9 +59,11 @@ let puppeteer, browser;
  * note, open problem 1). A non-zero exit fails here rather than downstream, so a
  * crashed render cannot read as "no trim".
  */
-function render(out, ...flags) {
+function render(out, ...flags) { return renderDeck(DECK, out, ...flags); }
+
+function renderDeck(deck, out, ...flags) {
   const r = spawnSync('node',
-    [path.join(ROOT, 'lattice-emulator.js'), DECK, '-o', path.join(TMP, out), ...flags],
+    [path.join(ROOT, 'lattice-emulator.js'), deck, '-o', path.join(TMP, out), ...flags],
     { cwd: ROOT, encoding: 'utf8' });
   assert.equal(r.status, 0, `render ${out} failed (exit ${r.status}):\n${r.stderr}`);
   return r.stderr || '';
@@ -89,9 +91,37 @@ async function trimStateOf(file) {
   } finally { await page.close(); }
 }
 
+// A deck whose paragraph is joined with explicit breaks. `-webkit-line-clamp` shrinks
+// the BOX without removing descendant boxes from layout, so the `<br>`s keep reporting
+// rects past the frame and the overflow probe correctly still sees them — the clamp
+// buys nothing and rule 5 refuses it. That makes this the cheapest shape that exercises
+// the SLIDE-level arm of the verdict, which is the half the runtime did not have.
+const BR_DECK = path.join(TMP, 'br.md');
+const BR_SRC = `---
+marp: true
+theme: indaco
+paginate: true
+guards: strict
+---
+
+<!-- _class: title -->
+
+# Break test
+
+---
+
+<!-- _class: content -->
+
+## A paragraph joined with explicit breaks.
+
+<p>${Array.from({ length: 21 }, (_, i) =>
+  `Line ${i + 1} of a paragraph whose lines are joined with explicit breaks rather than wrapped by the renderer.<br>`).join('\n')}</p>
+`;
+
 before(async () => {
   fs.rmSync(TMP, { recursive: true, force: true });
   fs.mkdirSync(TMP, { recursive: true });
+  fs.writeFileSync(BR_DECK, BR_SRC);
   // Copied rather than rendered in place, so the deck's committed PDF is untouched
   // and the `.scratch` sidecars cannot collide with another sweep's.
   fs.copyFileSync(SOURCE_DECK, DECK);
@@ -168,6 +198,38 @@ describe('guards: strict — what the deliverable carries, and what the console 
     for (const s of state.filter((x) => want.has(x.page))) {
       assert.equal(s.overflow, false,
         `page ${s.page}: the viewer trimmed it, so it must no longer ring — the PDF reports it as fitting`);
+    }
+  });
+
+  test('a cut the export REFUSES never ships in the viewer built from the same render', async () => {
+    // THE POLICY-PARITY ARM. The export and the live runtime share the trim kernel and,
+    // until a fourth review, did NOT share the VERDICT: the export ran a per-box revert
+    // AND a slide-level one, the runtime ran only the first. `--fluid` inlines that
+    // runtime, so the written `.html` re-trimmed at open under a policy the export had
+    // just refused — 9 of 21 lines removed, on a slide still carrying the overflow ring,
+    // with the console saying "they clip unchanged" about the only file that run wrote.
+    // HARD RULE #1 and #18 in one artifact.
+    //
+    // This is the arm that could have caught it, and nothing in the tree had it: the two
+    // paths' policies were only ever compared by reading them. Mutation-proved by
+    // dropping the frame arm from the runtime's call and rebuilding — the viewer then
+    // ships `data-lattice-trim="1"` on a ringing slide and this goes red.
+    const err = renderDeck(BR_DECK, 'refused.pdf', '--fluid');
+    assert.match(err, /TRIM REVERTED/,
+      `anti-vacuity: the export did not refuse a cut on this deck, so there is no ` +
+      `refusal for the viewer to contradict; stderr:\n${err}`);
+    const refused = new Set(
+      (/TRIM REVERTED[^\n]*?pages? ([\d, ]+)/.exec(err)?.[1] || '')
+        .split(',').map((n) => Number(n.trim())).filter(Number.isFinite));
+    assert.ok(refused.size, `could not read the reverted pages out of:\n${err}`);
+
+    const state = await trimStateOf('refused.html');
+    for (const s of state.filter((x) => refused.has(x.page))) {
+      assert.equal(s.trimmed, 0,
+        `page ${s.page}: the export reverted this cut and reported it as clipping unchanged, ` +
+        `but the viewer built from the same render shipped ${s.trimmed} clamp(s) of it`);
+      assert.equal(s.record, null,
+        `page ${s.page}: the viewer carries a trim record for a cut the export refused`);
     }
   });
 });
