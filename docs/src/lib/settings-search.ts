@@ -113,7 +113,7 @@ for (const [word, expansion] of Object.entries(SYNONYMS)) {
 
 /** Fold case AND diacritics, so an author who types "eyebrow" finds it whatever their
  *  keyboard did, and a label carrying an accent is still reachable from a bare ASCII word. */
-export function normalize(s: string): string {
+function normalize(s: string): string {
 	return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 }
 
