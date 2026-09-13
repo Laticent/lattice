@@ -7,8 +7,10 @@
   bleed at every size while their content stops above it. An earlier `:not(.form)` on that rule
   left an authored `form` page with every one of those defects intact.
 - A stray `<` in a fenced block no longer loses the rest of the block. It was routed to the TAG
-  branch of the line slicer, which pushed a stack frame with no tag name: every later line break
-  emitted `</undefined>`, and 26 of 30 lines vanished from the rendered page.
+  branch of the line slicer, which pushed a stack frame with no tag name, so every later line
+  break emitted `</undefined>` and most of the block vanished from the rendered page. (How much
+  depends on where the page boundary falls relative to the `<`: three reconstructions measured 7,
+  22 and 26 of 30 lines, which is why no single figure is quoted.)
 - A loose list's `<p>` wrapper comes off BOTH halves of a member, not just the title; a title
   containing `<pre>` unwraps too (the "only one paragraph" test was a substring search); and an
   EMPTY wrapper is left alone, because peeling it to `''` turns a member that survived into one
