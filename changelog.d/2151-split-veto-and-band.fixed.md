@@ -22,7 +22,11 @@
   table rule and flipped `pass` to GREEN on the shipped UNSPLIT `heat` table, under a caption
   that reads "Red = applies"; and the universal `.heat` inversion is scoped to `td`, so the
   cards a portrait split emits kept the un-inverted mapping.
-- `split-panel pullquote`'s coverless split pages reserve the wayfinding band. The k-of-N rail's
-  berth and the running footer's text both sit in the bottom band, and the forward pointer landed
-  on top of them — measured over a sweep of 1,456 split pages at two sizes, the only page class
-  in the corpus where it happens.
+- `split-panel pullquote`'s coverless split pages place their wayfinding marks instead of
+  stacking them. Both marks dock at SECTION level on a page with no footer row — and on this
+  layout the section is the panel flex container, so the forward pointer arrived as a flex item
+  of it. At portrait that put it in the bottom band, over the k-of-N rail (42.1×6.5px) and the
+  running footer's ink (206.6×24.5px); at SQUARE the container is a row, so the same item became
+  a third COLUMN, squeezed the right panel from half the slide to 252px and ran 53px past the
+  slide edge. The pointer is now positioned in the band rather than laid out in the panel row,
+  which also restores the panels' full bleed at every size.

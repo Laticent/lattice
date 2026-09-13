@@ -251,12 +251,17 @@ describe('core: carousel — cover-rows (list-tabular)', () => {
   });
 
   // …AND A LOOSE LIST'S `<p>` WRAPPER IS NOT INLINE MARKUP. Blank lines between items is
-  // ordinary authoring, and markdown-it then wraps each item's content in `<p>`. The title
-  // lands inside `<span class="split-pt-t">`, and `<span><p>…</p></span>` is invalid — a `<p>`
-  // is not phrasing content, so the browser closes the span and reparents the paragraph, which
-  // takes the label out of the row it belongs to. The wrapper is unwrapped and the inline
-  // markup inside it kept. Found by the HARD RULE #25 checker.
-  test('a LOOSE list drops the <p> wrapper and keeps what was inside it', () => {
+  // ordinary authoring, and markdown-it then wraps each item's content in `<p>`. Title and body
+  // both land inside a `<span>` (`.split-pt-t`, `.split-pt-b` / `.split-pt-line`), where a
+  // block-level `<p>` computes `display: block` and breaks the line the span exists to hold
+  // together.
+  //
+  // THIS COMMENT USED TO SAY the browser closes the span and reparents the paragraph. It does
+  // not — measured in real Chromium, the `<p>` stays inside the span and the label stays in its
+  // row. The markup is invalid per spec (a `<p>` is not phrasing content) and Chromium's parser
+  // does not act on it here. The layout reason above is the whole reason. Found by the
+  // HARD RULE #25 checker, which also found that the first fix did the TITLE only.
+  test('a LOOSE list drops the <p> wrapper from BOTH halves of a member', () => {
     const rows = readRows('<div class="cell-stage"><ol>'
       + '<li><p>Label <code>Term</code></p><ul><li><p>One clause.</p></li></ul></li>'
       + '<li><p>Second <em>row</em></p></li>'
@@ -265,6 +270,18 @@ describe('core: carousel — cover-rows (list-tabular)', () => {
     for (const r of rows) assert.doesNotMatch(r.title, /<\/?p\b/, `a <p> reached the title: ${r.title}`);
     assert.match(rows[0].title, /<code>Term<\/code>/, 'unwrapping the <p> also stripped the chip');
     assert.match(rows[1].title, /<em>row<\/em>/, 'unwrapping the <p> also stripped the emphasis');
+    assert.doesNotMatch(rows[0].body, /<\/?p\b/, `a <p> reached the body: ${rows[0].body}`);
+  });
+
+  // A MULTI-bullet body is the shape that actually ships loose, and each line is its own span.
+  test('a loose MULTI-bullet body unwraps every line, not just the first', () => {
+    const rows = readRows('<div class="cell-stage"><ol><li><p>Coverage</p><ul>'
+      + '<li><p>What it <strong>measures</strong>.</p></li>'
+      + '<li><p>How it scores.</p></li>'
+      + '</ul></li></ol></div>');
+    assert.doesNotMatch(rows[0].body, /<\/?p\b/, `a <p> reached the body: ${rows[0].body}`);
+    assert.equal((rows[0].body.match(/split-pt-line/g) || []).length, 2, 'the two lines were fused');
+    assert.match(rows[0].body, /<strong>measures<\/strong>/, 'unwrapping stripped the inline markup');
   });
 
   // A title that holds TWO paragraphs is not a wrapper to unwrap — it is a title with a
@@ -799,6 +816,21 @@ describe('core: carousel — code-cards (code: by block, then by line-run)', () 
     const all = parts.join('');
     assert.match(all, /if \(a < b\) return;/, 'the stray `<` was dropped from the sliced line');
     for (const l of lines) assert.ok(all.includes(l), `line lost: ${l}`);
+    // THE STRAY `<` IS TEXT, NOT AN OPENING TAG — and asserting only the line above is what let
+    // the first version of this fix ship. It put the `<` through the TAG arm, which pushed a
+    // frame with `tag: undefined`; every line break after it emitted `</undefined>` and re-opened
+    // a stray `<`, so the lines were all present in the MARKUP (this arm passed) and seven of
+    // them were gone from the rendered page. `undefined` in engine output is never anything but
+    // that class of bug, and it is the cheap sentinel for it.
+    assert.doesNotMatch(all, /undefined/, 'a stack frame with no tag name reached the output');
+    // …and the stack really does balance: every page closes what it opened.
+    for (const page of parts) {
+      const opens = [...page.matchAll(/<([a-zA-Z][\w-]*)\b(?![^>]*\/>)[^>]*>/g)].map((m) => m[1].toLowerCase());
+      const closes = [...page.matchAll(/<\/([a-zA-Z][\w-]*)\s*>/g)].map((m) => m[1].toLowerCase());
+      const voidish = new Set(['br', 'hr', 'img', 'wbr', 'input', 'source', 'meta', 'link']);
+      const opened = opens.filter((t) => !voidish.has(t));
+      assert.equal(opened.length, closes.length, `unbalanced page: ${opened.length} open vs ${closes.length} close`);
+    }
   });
 
   // THE ENGINE ID LANDS EXACTLY ONCE PER RUN. With a cover the cover holds it and every body

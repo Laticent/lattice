@@ -1129,6 +1129,53 @@ describe('core: roleOpenTag carries the authored modifiers as data', () => {
       assert.ok(!/data-split-mods/.test(out), `'${cls}' stamped an attribute: ${out}`);
     }
   });
+
+  // THE TOKEN IS PASSED, AND THESE ARE THE ROLE STRINGS THAT PROVE IT HAS TO BE. Two live
+  // strategies build a role string from a literal that does not contain the layout token at
+  // all — `cover-sides` renders `compare-prose` as `compare-split-*` classes, and
+  // `compare-options` passes the authored class list for a layout named `split-compare`. The
+  // role-string reading cannot find the layout in either, falls to dropping token zero, and
+  // reproduces the exact defect it was written to fix. Every arm above this one uses a role
+  // string that DOES name the layout, which is how that shipped. Found by the HARD RULE #25
+  // checker.
+  for (const [label, cls, role, layout] of [
+    ['cover-sides (compare-prose)', 'transition compare-prose form', 'content compare-split compare-split-points form', 'compare-prose'],
+    ['compare-options (split-compare)', 'accent split-compare form', 'accent split-compare form', 'split-compare'],
+  ]) {
+    test(`${label}: the passed layout token wins where the role string names no layout`, () => {
+      const t = `<section id="s12" class="${cls}" data-lattice-slide="11">`;
+      const out = roleOpenTag(t, role, false, 'body', layout);
+      const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+      assert.ok(!mods.includes(layout), `the layout token reached the attribute: ${mods.join('|')}`);
+      assert.equal(mods.length, 1, `got ${mods.join('|')}`);
+    });
+
+    test(`${label}: and the same answer with the layout token authored FIRST`, () => {
+      const flipped = cls.split(' ');
+      flipped.unshift(flipped.splice(flipped.indexOf(layout), 1)[0]);
+      const t = `<section id="s13" class="${flipped.join(' ')}" data-lattice-slide="12">`;
+      const out = roleOpenTag(t, role, false, 'body', layout);
+      const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+      assert.ok(!mods.includes(layout), `the layout token reached the attribute: ${mods.join('|')}`);
+      assert.equal(mods.length, 1, `got ${mods.join('|')}`);
+    });
+  }
+
+  // A RUN MUST NOT DISAGREE WITH ITSELF. The cover and closing pages took the named branch
+  // (`coverSection` appends `split-cover-<layout>`) while the body pages took the positional
+  // fallback, so one `split-compare accent` run stamped `accent` on its cover and
+  // `split-compare` on the pages between — `[data-split-mods~="accent"]` fired on the first
+  // page and nowhere else.
+  test('every page of a run stamps the same modifiers', () => {
+    const t = '<section id="s14" class="accent split-compare form" data-lattice-slide="13">';
+    const pages = [
+      roleOpenTag(t, 'content lat-split-cover split-cover-split-compare form', true, 'cover', 'split-compare'),
+      roleOpenTag(t, 'accent split-compare form', false, 'body', 'split-compare'),
+      roleOpenTag(t, 'content lat-split-closing split-closing-split-compare form', false, 'closing', 'split-compare'),
+    ];
+    const mods = pages.map((x) => (x.match(/\sdata-split-mods="([^"]*)"/) || [])[1]);
+    assert.deepEqual(mods, ['accent', 'accent', 'accent'], `the run disagreed with itself: ${mods.join(' / ')}`);
+  });
 });
 
 describe('split-envelope — EVERY arm that reaches the sibling coda Cell is pinned', () => {

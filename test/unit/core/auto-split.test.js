@@ -240,16 +240,30 @@ describe('core: a declined recipe falls through to the derived axis', () => {
     assert.equal(sections(out), 1, 'an already-emitted split page derived an axis it was never given');
   });
 
-  // THE FALLTHROUGH IS AN ALLOWLIST OF SHAPE READERS, NOT A DEFAULT — the four strategies whose
+  // THE FALLTHROUGH IS AN ALLOWLIST OF SHAPE READERS, NOT A DEFAULT — the strategies whose
   // `null` is a VETO must still ring. Each of these was a real, measured regression when the
-  // fallthrough was unconditional; each is asserted against the strategy name, so admitting a
-  // fifth reader to `SHAPE_READER_STRATEGIES` without thinking fails here rather than on a slide.
+  // fallthrough was unconditional; each is asserted against the strategy name, so admitting one
+  // to `SHAPE_READER_STRATEGIES` without thinking fails here rather than on a slide.
   for (const strategy of ['journey-stages', 'roadmap-horizons', 'redline-blocks', 'kanban-lanes']) {
     test(`a VETO from ${strategy} rings the slide — it does not re-derive an axis`, () => {
       const capacity = { widget: { axis: 'item', hard: 4, split: { strategy, perPage: 1 } } };
       const out = split(docSec(1, 'widget', stage(3)), capacity).html;
       assert.equal(sections(out), 1,
         `${strategy} declined and the slide was paginated on a derived axis anyway`);
+    });
+  }
+
+  // `math-structures` IS THE FIFTH VETO AND IT NEEDS ITS OWN SHAPE, which is why it is not in
+  // the loop above. It is a reader that ALSO vetoes: on a generic list it finds a seam and
+  // splits, and it refuses only its two fixed scaffolds BY CLASS NAME (`stats`, `canvas`,
+  // `MATH_SCAFFOLDS`). A generic fixture therefore proves nothing about it. Its exclusion from
+  // the allowlist was not mentioned in that list's own justification until a checker asked — an
+  // exclusion nobody has stated is an exclusion nobody is holding.
+  for (const scaffold of ['stats', 'canvas']) {
+    test(`math \`${scaffold}\` refuses by name, and the refusal is not re-derived`, () => {
+      const capacity = { math: { axis: 'item', hard: 4, split: { strategy: 'math-structures', perPage: 1 } } };
+      const out = split(docSec(1, `math ${scaffold}`, stage(4)), capacity).html;
+      assert.equal(sections(out), 1, `the ${scaffold} scaffold was paginated on a derived axis`);
     });
   }
 

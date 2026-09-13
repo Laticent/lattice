@@ -175,26 +175,44 @@ runhead, all of which are fixed marks a run owns and a growing member can reach.
 between every mark that can land in a page's bands — the forward pointer, the k-of-N rail, the
 deck page number, the running header and the running footer. Two results and one method note:
 
-- **One collision this change caused, on one page class.** `split-panel pullquote` splits
-  coverless (it leads with the quotation, so there is no `<h2>` for a reader OR a cover), and
-  those pages are not Forms, so they have no `.cell-footer` row to dock the marks in.
-  `dockInFooterCell` appends both at section level: the pointer as a flex item of the section's
-  column, the rail absolute in its bottom-right berth. The layout's two panels fill 1298 of the
-  section's 1350px, so the pointer took the last 52 and the rail's segments printed straight
-  through the pill's label — and the pill printed over 230×46px of the running footer's text.
-  Fixed by RESERVING the band: `padding-bottom` on the section (never `margin`, HARD RULE #20),
-  which an absolutely-positioned child does not move with, so the rail stays exactly where it
-  is while the flow can no longer reach under it. The reservation is 8.6cqi because that is what
-  the measurement asked for, not a round number.
+- **One collision this change caused, on one page class — and the FIRST FIX FOR IT WAS WRONG
+  AT A SIZE THE SWEEP DID NOT ASK ABOUT.** `split-panel pullquote` splits coverless (it leads
+  with the quotation, so there is no `<h2>` for a reader OR a cover), and those pages are not
+  Forms, so they have no `.cell-footer` row to dock the marks in. `dockInFooterCell` appends
+  both at section level — and on this layout the section is the PANEL FLEX CONTAINER, which is
+  the whole of it: the pointer arrives as a flex ITEM of the panel row.
+
+  At portrait the container is a column, so the pointer stacked under the panels and landed in
+  the band: the rail's segments printed through the pill's label by 42.1×6.5px, and the pill
+  over 206.6×24.5px of the running footer's INK. **At square the container is a row, and the
+  same item becomes a third COLUMN** — `.panel-right` squeezed from half the slide to 252px
+  (the column set one word per line) and the pill ran to x1133 in a 1080px section, clipped at
+  the slide edge.
+
+  The first fix reserved the band with `padding-bottom` on the section. It closed the portrait
+  collision at all four tall sizes and was wrong anyway: at square the panels are side-by-side,
+  so the reservation cut the DARK panel short too and left a 92.9×629px white band under a
+  full-bleed navy field. **Reserving space in a container cannot be right when the mark should
+  not be in the container at all** — which is the general lesson, and it is why a sweep that
+  reports a pair of rectangles is not the same as looking at the page.
+
+  The pointer is now POSITIONED in the band the rail already owns, clear of it and of the
+  footer's ink, instead of laid out in the panel row. The panels get their whole box back at
+  every size, so no reservation is needed; the pill cannot squeeze a panel or be squeezed by
+  one; and the two marks stop overlapping because they are placed rather than stacked. The
+  8.6cqi offset is what the footer's ink measured, not a round number.
 - **One collision that is not this change's**, proved by running the same sweep against the
   merge base: `compare-split` in `portrait-prose-deboost` at square, 81.5×5.8px of
   pointer-over-rail, identical at base and at HEAD on the same page class (the page INDEX moves,
   25→29, because this branch inserts pages ahead of it). Off-path and recorded, not pulled in.
-- **The method note is load-bearing: measure INK, not boxes.** The first revision of this sweep
-  compared bounding boxes and reported seven collisions. A running footer's box spans the band
-  (988px) while its string does not, so it reported the rail as colliding with a footer whose
-  text stopped 11px earlier — three of the seven were that. A `Range` over each element's
-  contents gives the union of its text's own rects, and the count fell to one.
+- **The method note is load-bearing: measure INK, not boxes — on BOTH sides of the pair.** The
+  first revision of this sweep compared bounding boxes and reported seven collisions. A running
+  footer's box spans the band (988px) while its string does not, so it reported the rail as
+  colliding with a footer whose text stopped 11px earlier — three of the seven were that. A
+  `Range` over each element's contents gives the union of its text's own rects, and the count
+  fell to one. The first write-up then reported the surviving overlap as 230×46px, which is the
+  pointer's BOX against the footer's ink: the same one-sided comparison this note warns about,
+  applied to the note's own headline number. Ink to ink it is 206.6×24.5px.
 
 `premise` is the other coverless shape in the corpus and it does not collide — its content
 stops ~400px above the band. That is content-dependent luck rather than a reservation, and the
