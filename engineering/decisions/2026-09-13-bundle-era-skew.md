@@ -83,7 +83,7 @@ consequence — a bundle going byte-stale on a dependency bump — and never gen
 The schema is read from `PKG_ROOT` at load time, falling back to the inlined `require`.
 One path serves both entry points: the package-root walk crosses no nested `package.json`,
 so from `lib/components/index.js` and from `dist/lattice-emulator.js` it lands on the same
-root, and `PKG_ROOT/lib/components` is the directory `lattice-emulator.js:2008` already
+root, and `PKG_ROOT/lib/components` is the directory `lattice-emulator.js:2006` already
 passes to `loadAll()`. Schema and manifests are one era by construction rather than by
 coincidence of build order.
 
@@ -100,13 +100,30 @@ rethrows from `require` and shows the author their typo, while a swallowed `Synt
 puts the bundle back to validating the live tree against the build-day schema — silently,
 and ending in the same misleading `unknown manifest key` error. So anything but a missing
 file is announced through `process.emitWarning`, naming the file, the parse error, and the
-consequence. It still falls back rather than throwing: a present-but-unreadable schema
-(EACCES on a locked-down install) deserves to be heard, not to stop the CLI from starting.
+consequence.
 
-The package-root walk is SHARED (`lib/core/pkg-root.js`), not copied. It was two
-byte-identical walks — one here, one in `lattice-emulator.js` — and "one era by
-construction" would have rested on two independent implementations continuing to agree
-(HARD RULE #15).
+**That is the BUNDLE's behavior, and the two surfaces differ** — a distinction the first cut
+of this note and the warning text both blurred. In `dist/lattice-emulator.js` the fallback
+`require` is an esbuild-inlined object, so the warning is followed by a normal render: a
+present-but-unreadable schema (EACCES on a locked-down install) is heard, not fatal, and
+since `package.json` `bin` is the bundle, that is what a consumer gets. In the LOOSE SOURCE
+the fallback re-reads the same broken file, so the warning is followed immediately by the
+underlying `SyntaxError`/`EACCES` and the process dies. That is the right outcome for a
+developer — the error names the file and the position — but it means the warning's own
+sentence ("validating manifests against the schema bundled at build time") is only true on
+the bundle. The text now says which surface it is on.
+
+The package-root walk is SHARED (`lib/core/pkg-root.js`). **Correction, 2026-09-13:** the
+first cut of this note, of `pkg-root.js`'s own docblock and of #2162 all said it "was two
+byte-identical walks". That was false and it described this change's own unshipped draft,
+not the repository. The walk existed ONCE, inline in `lattice-emulator.js` —
+`git log --all -S "dirname(dir)" -- lib/components/index.js` is empty, and
+`git grep "dirname(dir)" 9f9d0eb -- '*.js'` returns only `lattice-emulator.js`. The draft
+added a second inline copy here; a checker caught it and it was extracted before shipping.
+So this is a NEW shared helper that stops a second copy from existing, not a HARD RULE #15
+de-duplication of one that did. The extraction is still the right call for the same reason —
+the guarantee must not rest on two implementations agreeing — but the justification is
+forward-looking, not historical.
 
 Scope check — only `dist/lattice-emulator.js` inlines `lib/components/index.js`. No browser
 bundle does (`layout-core.generated.js` inlines the schema JSON directly via
@@ -143,11 +160,23 @@ precisely this reason and was fixed there only. Fixed by joining before the FIRS
 ## What moving the Anima step costs
 
 `build-anima-player.js` is a DOCS-tree build (`docs/src/lib/anima/**`) and it now runs at
-step 7, ahead of both engine bundles. So a TypeScript error under `docs/src/lib/anima/`
-aborts `npm run build` before `dist/lattice-runtime.js` and `dist/lattice-emulator.js`
-exist, where before it aborted at step 26 with both already written. On a cold sandbox —
-the case this note is named for — that is the difference between a session with no engine
-bundles and a session with a working CLI and one missing generated file.
+step 7, ahead of both engine bundles. So a build failure in that step aborts `npm run build`
+before `dist/lattice-runtime.js` and `dist/lattice-emulator.js` exist, where before it
+aborted at step 26 with both already written. On a cold sandbox — the case this note is
+named for — that is the difference between a session with no engine bundles and a session
+with a working CLI and one missing generated file.
+
+**Correction, 2026-09-13: this first said "a TypeScript error", and that is wrong.**
+`build-anima-player.js` runs **esbuild only** — no `tsc`, no `spawn` (grep the file). esbuild
+STRIPS types; it does not check them. Measured: `esbuild.build` on
+`const n: number = "a string"` with `loader: 'ts'` exits 0 and emits output. A real type
+error under `docs/src/lib/anima/**` is silently compiled away and inlined into
+`dist/lattice-emulator.js`, exactly as before this change — the step cannot produce the
+failure the tradeoff was written against. What it CAN fail on, and therefore what this
+reordering actually costs, is narrower: a **syntax error, an unresolvable import, or an
+esbuild crash**. The tradeoff still holds on that narrower set — a loud abort beats a stale
+inline — but it is a smaller set than stated, and the claim reached a reviewer and a merge
+before anyone re-derived it, in a note whose whole subject is claims nobody re-derives.
 
 Taken deliberately. The alternative is the bundle shipping a stale copy of that file, which
 is silent, survives the build, and is the defect above. A loud abort is the better failure.
