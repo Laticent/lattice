@@ -316,10 +316,11 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 // double-wait regression flipped one of them and stayed invisible to four green e2e
 // arms; a checker found it by reading, and nothing in the tree could have.
 //
-// Both cells drive the REAL `bakeDeckSections` through a stubbed capture frame, so they
-// fail on the mutation rather than on the spelling — a source-text pin would go green
-// the moment someone lifted `12000` into a constant.
-describe('bakeDeckSections — the arguments the call site supplies', () => {
+// All three cells drive the REAL exporters — `bakeDeckSections` for the explicit override,
+// `rasterizeDeckImages` for the default — through a stubbed capture frame, so they fail on
+// the mutation rather than on the spelling. A source-text pin would go green the moment
+// someone lifted `12000` into a constant.
+describe('the capture frame’s diagram-wait arguments, at both call sites', () => {
 	// One slide, one fence the runtime has tagged and not yet drawn: the state in which a
 	// capture bakes a BLANK, which is the whole reason either argument exists.
 	const DECK =
@@ -397,14 +398,28 @@ describe('bakeDeckSections — the arguments the call site supplies', () => {
 		}
 	});
 
-	it('leaves the DEFAULT releasing, so the six rasterizing lanes still give up at 4000', async () => {
+	it('leaves the DEFAULT releasing, so a lane that takes it still gives up at 4000', async () => {
 		// THE OTHER HALF, and neither cell above can see it. `releaseDiagrams` has a default
 		// (`= true`) AND one explicit override (the bake's `false`). The two cells above pin
 		// the override; flip the DEFAULT to `false` and they both still pass, while the six
-		// lanes that rasterize straight off the capture frame — pdf, pptx, images, chart,
-		// image-set, print — stop releasing at the only wait they get, and a slow diagram
-		// bakes as a blank in a file someone downloads. That is the original #2092 defect,
-		// reintroduced through the parameter's other door.
+		// `createCaptureFrame` call sites that take it stop releasing at the only wait they
+		// get.
+		//
+		// WHAT THIS CELL DOES AND DOES NOT CLAIM. It pins the PARAMETER, not a harm. That
+		// the six lanes stop releasing is mechanically certain; that an author would then
+		// see a BLANK in a downloaded file is NOT established, and the decision note
+		// measured the opposite on one of them: §16 "The raster lane, driven — and the
+		// release is a no-op there" drove `Images (.zip)` with `mermaid.render` held and got
+		// a BYTE-IDENTICAL PNG with and without the release. That contradicts the reading of
+		// `mermaid.css:73`, whose hide rule is deliberately UNSCOPED and so should hide a
+		// `pending` fence in this frame whatever `data-lattice-diagrams` says. The two have
+		// not been reconciled and settling it needs a real export (HARD RULE #23), so this
+		// comment states the mechanism and stops there. An earlier draft asserted the blank
+		// outright, which is the same unre-derived-claim failure this whole branch is about.
+		//
+		// It also pins the default only AS SEEN THROUGH this lane: a change that flips the
+		// default and adds an explicit `true` here would keep this cell green while the
+		// other five lose the release.
 		//
 		// `rasterizeDeckImages` is the reachable one: it takes the default, and the release
 		// happens inside `createCaptureFrame` BEFORE any rasterizing. Its later work needs
@@ -432,9 +447,11 @@ describe('bakeDeckSections — the arguments the call site supplies', () => {
 		// The real release instant is 16112ms, not 16000: a 32ms double-rAF settle, then
 		// 4080 for the frame's wait (its 120ms poll overshoots 4000), then 12000. So these
 		// checkpoints straddle it by 1112ms below and 888ms above — deterministic under
-		// fake timers, which is the point: 12000 -> 8000 gives up at 12112 and fails the
-		// first checkpoint, 12000 -> 16000 gives up at 20112 and fails the second. The
-		// title rounds; the arithmetic here does not.
+		// fake timers, which is the point: 12000 -> 8000 gives up at 12152 and fails the
+		// first checkpoint, 12000 -> 16000 gives up at 20192 and fails the second. Those two
+		// are NOT 12112/20112: the 120ms poll overshoots any budget that is not a multiple
+		// of it, and 12000 happens to be one while 8000 and 16000 are not (8040 and 16080).
+		// The title rounds; the arithmetic here does not.
 		vi.useFakeTimers();
 		const { inner, restore } = stubCaptureFrame(DECK);
 		try {

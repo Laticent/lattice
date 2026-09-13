@@ -933,18 +933,23 @@ pinned; the call site supplying its arguments was not. That is the same lesson �
 predecessor's suite pinned the shape of the loop and never the number that decided it — landing
 one level up.
 
-**CLOSED.** `deck-export.test.ts` gained a `bakeDeckSections — the arguments the call site
-supplies` block: two cells that drive the real function through a stubbed capture frame, because
-`createCaptureFrame` is module-private and jsdom does not parse `srcdoc`, so the only seam is
-`document.createElement`. The mutations they kill, each run:
+**CLOSED.** `deck-export.test.ts` gained a `the capture frame's diagram-wait arguments, at both
+call sites` block: **three** cells driving the real exporters through a stubbed capture frame,
+because `createCaptureFrame` is module-private and jsdom does not parse `srcdoc`, so the only seam
+is `document.createElement`. The mutations they kill, each applied and run:
 
 | mutation | cells that fail |
 |---|---|
-| `releaseDiagrams: false` -> `true` | both |
+| explicit `releaseDiagrams: false` -> `true` | the override cell and the 16000 cell |
 | `waitForDiagrams(doc, 12000)` -> `16000` (total 20000) | the 16000 cell |
 | `waitForDiagrams(doc, 12000)` -> `8000` (total 12000) | the 16000 cell |
+| **`{ releaseDiagrams = true }` DEFAULT -> `false`** | **the default cell, and only it** |
 
-They cost 53ms and 34ms. The budget cell uses FAKE TIMERS and straddles 16000 with checkpoints
+The third cell exists because the first two could not see the DEFAULT: `bakeDeckSections` passes an
+explicit `false`, so flipping the default left both green while the six `createCaptureFrame` call
+sites that take it stopped releasing. It drives `rasterizeDeckImages`, which takes the default, and
+the release it observes lands at 4112ms — inside `createCaptureFrame`, before `sectionsOf` is
+reached. Each cell costs tens of milliseconds. The budget cell uses FAKE TIMERS and straddles 16000 with checkpoints
 at 15000 and 17000, which is why a test about a 16-second constant costs nothing and does not
 inherit the host — §15's structural finding was that a threshold keyed on milliseconds is a
 property of the machine, and a wall-clock cell here would have been exactly that mistake again.
@@ -988,8 +993,10 @@ step — more than the whole effect.**
 
 **The cleanest datum is the same tier twice.** The next push ran the IDENTICAL 59-test tier and
 came back at **264s** against the first run's **330s** — a **66s** swing with the test set held
-fixed, so it is not a count difference, a rebase or a scheduling artifact. It is simply what two
-runs of this job cost. So one green run neither confirms nor refutes the +13s; the
+fixed, which rules out a count difference. It does NOT rule out a scheduling artifact — runner
+class, a noisy neighbor, a cold cache — and that is the point rather than a hole in it: those ARE
+the noise. Four runs is a spread, not a distribution, so read this as "the spread swamps the
+effect", not as a measured floor. So one green run neither confirms nor refutes the +13s; the
 controlled sandbox A/B is the instrument that can resolve it, and CI's job here is to show the
 arms run and pass. The projection this paragraph originally carried — "roughly +20s, p90 364s ->
 ~384s" — is withdrawn as unmeasurable from a single run rather than left standing as if confirmed.
@@ -1016,6 +1023,24 @@ is the answer to that.
 It remains **advisory**: `studio-smoke` is deliberately absent from the required `ci` gate's
 `needs`, so a red arm reports on the PR and does not block the merge (promotion is #800). The claim
 is now PR-visible, not PR-gating, and saying otherwise would overstate what a tag buys.
+
+### UNRESOLVED: this section and `mermaid.css` predict different things
+
+Flagged by the checker pass on the cell that pins the `releaseDiagrams` default, and **not settled
+here.** The section below measures the raster lane's release as a NO-OP — `Images (.zip)` with
+`mermaid.render` held, byte-identical PNG with and without the release. The stylesheet predicts the
+opposite: `mermaid.css:73` hides any fence carrying `data-mermaid-state` other than `error` or
+`unavailable`, and that rule is **deliberately unscoped** — it does not consult
+`data-lattice-diagrams`, which is the attribute `createCaptureFrame` withholds (`diagrams: false`).
+A fence left `pending` by a stalled render should therefore be hidden in the raster capture frame,
+and deleting the release should have changed those pixels. It did not.
+
+One of the two is wrong and it matters, because the answer decides whether flipping that default is
+a cosmetic change or reintroduces #2092 across six lanes. Settling it needs a real `Images (.zip)`
+export with the release deleted, compared byte for byte — HARD RULE #23, not reachable from the
+sandbox. **Until then, no claim in this note or in the test comments asserts the blank.** An earlier
+draft of the new cell's comment did, which is exactly the unre-derived claim this document exists to
+stop.
 
 ### The raster lane, driven — and the release is a no-op there
 

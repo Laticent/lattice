@@ -55,8 +55,8 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
  * Far below the 43.7s these two take in isolation, because with two workers they fill
  * idle worker time instead of extending the critical path.
  *
- * ON THE RUNNER, THE DELTA IS BELOW THE NOISE FLOOR — measured, and worth stating
- * plainly rather than projecting. The PR-gate run that first carried these tags did 59
+ * ON THE RUNNER, THE OBSERVED SPREAD SWAMPS THE DELTA. Four runs, not a distribution,
+ * so this is a spread rather than a measured noise floor — but it is the right shape. The PR-gate run that first carried these tags did 59
  * tests in a 330s test step / 438s job. Two runs WITHOUT them, the same day:
  *
  *   step 241s / job 334s   d05807e3, merge_group, 57 tests
@@ -65,7 +65,8 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
  * Those two untagged runs differ from each other by 58s on the step alone — more than
  * the whole effect being measured. And the cleanest datum is the same tier twice: the
  * next push ran the IDENTICAL 59-test tier at 264s against the first run's 330s, a 66s
- * swing with the test set held fixed. So a single CI run neither confirms nor refutes the
+ * swing with the test set held fixed — which rules out a count difference, though not a
+ * scheduling artifact, and a scheduling artifact IS the noise. So a single CI run neither confirms nor refutes the
  * +13s above; the controlled sandbox A/B (one machine, one session, three arms
  * back to back) is the measurement that can resolve it, and the CI run's job is to show
  * the arms run and pass on the gate. DO NOT read one green run as a cost measurement.
