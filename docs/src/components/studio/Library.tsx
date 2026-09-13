@@ -99,6 +99,19 @@ export function rejectedMessage(names: string[]): string {
 	return `Can't add ${shown}${rest} — drop a .zip or ${REF_DOC_ACCEPT}.`;
 }
 
+/**
+ * What to say about the items inside a bundle that would not import. Sibling of
+ * `rejectedMessage` above, and capped for the same reason — except here each
+ * refusal carries its OWN reason, so they are named individually rather than
+ * joined into one clause. Three lines, then a count: the fourth bad scene in a
+ * fifty-item bundle is a number, not a wall.
+ */
+export function refusedDetail(refused: NonNullable<ImportRefusal>[]): string {
+	const shown = refused.slice(0, 3).map((r) => `${r.name} — ${r.why}`);
+	const rest = refused.length > 3 ? [`…and ${refused.length - 3} more.`] : [];
+	return [`Refused ${refused.length}:`, ...shown, ...rest].join('\n');
+}
+
 // A few representative swatches for a theme card: the picked essentials, or the
 // accent as a fallback when a legacy record has none.
 function themeSwatches(t: StudioTheme): string[] {
@@ -158,7 +171,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onEditFinish?: (f: StudioFinish) => void;
 	onEditMotion?: (m: StudioScene) => void;
 	onChanged: () => void;
-	notify: (msg: string) => void;
+	notify: (msg: string, description?: string) => void;
 }) {
 	// A phone docks the search field at the bottom; the docked column and the tablet
 	// sheet keep it in the header. Same predicate `PanelSheet` uses to pick its edge.
@@ -490,9 +503,18 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			reload();
 			onChanged();
 			const got = nThemes + nComps + nFinishes + nScenes;
-			if (got) notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`);
-			for (const r of refused) if (r) notify(`Refused ${r.name} — ${r.why}`);
-			if (!got && !refused.length) notify('Nothing to import from that file.');
+			// ONE message for the whole import. The refusals used to go out in a loop —
+			// one toast each — so a bundle carrying four bad scenes raised five pills in
+			// a single tick and buried its own success line. The outcome is a headline
+			// plus, when anything was refused, the refusals underneath it: same
+			// information, one pill, and the success no longer competes with the
+			// failures for a slot (`lib/status-pill.ts`).
+			const refusals = refused.filter((r): r is NonNullable<ImportRefusal> => r !== null);
+			const detail = refusals.length ? refusedDetail(refusals) : undefined;
+			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`;
+			if (got) notify(tally, detail);
+			else if (refusals.length) notify('Nothing could be imported from that file.', detail);
+			else notify('Nothing to import from that file.');
 			setBusy(null);
 			if (fileRef.current) fileRef.current.value = '';
 		}

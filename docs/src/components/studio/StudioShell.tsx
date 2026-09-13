@@ -34,6 +34,7 @@ import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
+import { showStatus } from '@/lib/status-pill';
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
@@ -2295,12 +2296,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}
 	// Transient bottom-center confirmation, so no action in the prototype is a
 	// dead click (real ones confirm; not-yet-wired ones say so honestly).
+	//
+	// ONE pill, rewritten in place. This used to mint a fresh toast per message, so
+	// anything that spoke twice in a tick stacked — see `lib/status-pill.ts` for the
+	// merge-by-id mechanism and why the options object is built there rather than
+	// here. The Undo toast below deliberately does NOT come through this path: it
+	// carries a button, and a button must not be replaced by unrelated text.
+	//
 	// A DEGRADATION notice is the exception to "transient": it names a file path the
 	// author has to go and fix, and 2.6 s is not long enough to read one — on the case
 	// that motivates it (a long export, the author on another tab) it is gone before
-	// they look. Callers that carry one pass a longer duration.
-	const notify = React.useCallback((msg: string, opts?: { duration?: number }) => {
-		toast(msg, { duration: opts?.duration ?? 2600 });
+	// they look. Callers that carry one pass a longer duration, which rides through as
+	// an option rather than a second positional argument.
+	const notify = React.useCallback((msg: string, opts?: { description?: string; duration?: number }) => {
+		showStatus(msg, opts);
 	}, []);
 
 	// ── Self-driving demo walkthrough ───────────────────────────────────────

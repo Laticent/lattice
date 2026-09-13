@@ -7,7 +7,7 @@
 // rather than silently swallowed.
 
 import { describe, expect, it } from 'vitest';
-import { classifyDropped, rejectedMessage } from './Library';
+import { classifyDropped, refusedDetail, rejectedMessage } from './Library';
 import { REF_DOC_ACCEPT } from './reference-doc';
 
 const file = (name: string) => new File(['x'], name);
@@ -68,5 +68,36 @@ describe('rejectedMessage', () => {
 		expect(msg).toContain('a.png, b.png, c.png');
 		expect(msg).toContain('and 2 more');
 		expect(msg).not.toContain('d.png');
+	});
+});
+
+describe('refusedDetail', () => {
+	it('carries each refusal WITH its own reason, on its own line', () => {
+		const msg = refusedDetail([
+			{ name: 'scene-a', why: 'its motion plan is not valid' },
+			{ name: 'dark.css', why: 'it reaches off the device.' },
+		]);
+		expect(msg).toContain('Refused 2:');
+		expect(msg).toContain('scene-a — its motion plan is not valid');
+		expect(msg).toContain('dark.css — it reaches off the device.');
+		// Reasons differ per item, so they are named individually rather than
+		// collapsed into one clause the way `rejectedMessage` can.
+		expect(msg.split('\n')).toHaveLength(3);
+	});
+
+	it('caps at three so a fifty-item bundle is a number, not a wall', () => {
+		const msg = refusedDetail(
+			['a', 'b', 'c', 'd', 'e'].map((name) => ({ name, why: 'it reaches off the device.' })),
+		);
+		expect(msg).toContain('Refused 5:');
+		expect(msg).toContain('…and 2 more.');
+		expect(msg).not.toContain('d —');
+	});
+
+	// The whole point of this helper: one message, not one toast per refusal.
+	it('returns a single string however many were refused', () => {
+		const many = refusedDetail(Array.from({ length: 20 }, (_, i) => ({ name: `f${i}`, why: 'nope' })));
+		expect(typeof many).toBe('string');
+		expect(many.split('\n')).toHaveLength(5);
 	});
 });

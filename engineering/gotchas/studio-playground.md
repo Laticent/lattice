@@ -871,6 +871,26 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by:** any `toast(title, { description })` call. See
   `engineering/decisions/2026-08-10-studio-crash-sentinel.md` § 5.
 
+## A status toast shows text from the message BEFORE it, or the wrong shape
+
+- **Symptom:** a one-line confirmation ("Deck saved.") renders as a tall card
+  carrying explanatory lines from some earlier, unrelated message. Or an `action`
+  button survives onto a message that has nothing to undo.
+- **Cause:** Sonner keys its store by toast id and `Observer.create` **merges**
+  into an existing entry rather than replacing it — `{...toast, ...data}`,
+  `sonner@2.0.7 dist/index.mjs:152-168`. Every Studio status message shares one id
+  (that is what stops them stacking), so any field a call OMITS keeps the value
+  the previous message left behind. The shape follows: the primitive switches to a
+  16px card whenever `[data-description]` is present.
+- **Fix:** raise status through `showStatus` (`docs/src/lib/status-pill.ts`), which
+  passes every field on every call **including as `undefined`** — that is what
+  clears the previous one. Don't inline `toast(msg, { id: STATUS_TOAST_ID })` at a
+  call site, and don't "tidy" the unconditional `description:` into a conditional
+  spread; `status-pill.test.ts` pins both.
+- **Related:** a toast that carries an ACTION (Undo, Reload) deliberately keeps its
+  own id and its own slot, so it is not subject to this. See
+  `engineering/decisions/2026-09-13-one-status-pill.md`.
+
 ## A DOM census over the chrome agrees with itself, but it is reading the wrong elements
 
 - **Symptom:** a spec enumerates every control in a row and compares the sets

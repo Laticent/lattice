@@ -10,7 +10,7 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 // The one toast primitive. Scaffolded from the canonical shadcn CLI
 // (`shadcn add sonner`, style new-york) and adapted to this repo's stack — only
-// where the canonical base assumes Next.js. Two deliberate deviations from the
+// where the canonical base assumes Next.js. Three deliberate deviations from the
 // verbatim output, each marked below:
 //
 //   1. THEME — the shadcn base reads `useTheme()` from `next-themes`. This is an
@@ -23,6 +23,9 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 //      look of the hand-rolled pills it replaces). To return to the canonical
 //      panel, swap the `--normal-*` block for the shadcn defaults and drop
 //      `toastOptions`.
+//   3. STACK DEPTH — the base ships Sonner's default of three visible toasts.
+//      Status messages now share one id and one pill, so the only thing left to
+//      stack is an actionable toast beside it; the cap says so.
 //
 // Everything else — the typed variant `icons`, the `ToasterProps` passthrough —
 // is the canonical base untouched. `lx-ui` carries the token reset into Sonner's
@@ -49,6 +52,15 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={mode}
       className="toaster group lx-ui"
       position="bottom-center"
+      // (3) THE STACK IS CAPPED AT TWO. Sonner's default is 3
+      // (`VISIBLE_TOASTS_AMOUNT`, dist/index.mjs:411), which is a stack, and a stack of
+      // transient confirmations reads as a pile-up — the Library's bundle import alone
+      // could raise five at once. Status text no longer competes for a slot: it all
+      // rewrites ONE pill through `lib/status-pill.ts`. Two is therefore not a taste
+      // call but the real worst case — the status pill plus one toast carrying an
+      // ACTION (Undo, Reload), which keeps its own slot because collapsing it would
+      // let unrelated text replace a button the reader was reaching for.
+      visibleToasts={2}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,
