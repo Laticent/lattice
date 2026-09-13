@@ -883,13 +883,35 @@ never turn "passed in headless" into "works on iOS."
   the previous message left behind. The shape follows: the primitive switches to a
   16px card whenever `[data-description]` is present.
 - **Fix:** raise status through `showStatus` (`docs/src/lib/status-pill.ts`), which
-  passes every field on every call **including as `undefined`** — that is what
-  clears the previous one. Don't inline `toast(msg, { id: STATUS_TOAST_ID })` at a
-  call site, and don't "tidy" the unconditional `description:` into a conditional
-  spread; `status-pill.test.ts` pins both.
+  passes `description` AND `action` on every call **including as `undefined`** —
+  that is what clears the previous one. Don't inline a `toast()` on the pill's id at
+  a call site, and don't "tidy" either unconditional key into a conditional spread;
+  `status-pill.test.ts` pins both. The merge itself is in the Toaster's own
+  subscriber (`dist/index.mjs:972-983`), **not** `Observer.create` — the default
+  `toast()` export runs `toastFunction` → `ToastState.addToast`, which appends with
+  no merge branch at all, and only `Observer.create` clears `dismissedToasts`.
 - **Related:** a toast that carries an ACTION (Undo, Reload) deliberately keeps its
   own id and its own slot, so it is not subject to this. See
   `engineering/decisions/2026-09-13-one-status-pill.md`.
+
+## A message raised right after another one flashes and disappears
+
+- **Symptom:** a confirmation appears and is gone almost immediately, roughly three
+  seconds after the message before it. Raised from the same place that works fine
+  the rest of the time.
+- **Cause:** auto-close does not remove a toast — it starts a 200ms exit animation
+  and schedules `removeToast` for the end of it (`TIME_BEFORE_UNMOUNT`,
+  `sonner@2.0.7 dist/index.mjs:425,574`), and that pending removal matches **by id
+  value**. A message raised on the same id inside that window renders, then dies on
+  the previous message's timer.
+- **Fix:** handled in `docs/src/lib/status-pill.ts` — the pill's id is reused only
+  while it is LIVE, and rotates once it has closed. If you introduce another shared
+  id anywhere, you inherit this and must do the same. Liveness must come from
+  Sonner's `onAutoClose`/`onDismiss`, not a clock: a hover pauses the dwell.
+- **Related:** raising twice in ONE tick is a different thing and still destroys the
+  first message — that is what sharing a pill MEANS. Compose one message instead;
+  the Library's import funnel did exactly this and told the reader a corrupt file
+  was empty.
 
 ## A DOM census over the chrome agrees with itself, but it is reading the wrong elements
 

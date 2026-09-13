@@ -777,6 +777,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// below can dismiss it the instant the source moves on its own. `next` is the
 	// source right after the write; `id` is Sonner's handle for dismiss().
 	const [undo, setUndo] = React.useState<{ next: string; id: string | number } | null>(null);
+	// Mirrors `undo` for `showUndo`, which must retire the previous Undo toast without
+	// taking `undo` as a dependency — that would rebuild `settingsWrite` on every write.
+	const undoRef = React.useRef<{ next: string; id: string | number } | null>(null);
 	const [palette, setPalette] = React.useState(() => {
 		try {
 			return localStorage.getItem('lattice-studio-palette') || DEFAULT_PALETTE;
@@ -1170,10 +1173,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Sonner owns display + the 5s auto-dismiss. The action closes over THIS
 		// write's prev/next and reverts only if nothing has changed since — so Undo
 		// never clobbers edits made after it. Track {next,id} for the reactive dismiss.
+		// Retire the PREVIOUS Undo before raising this one. Two settings writes inside
+		// 5s used to leave two Undo toasts on screen, and the older one was already a
+		// dead button — its `onClick` is guarded on `sourceRef.current === next`, which
+		// the second write has just falsified, so clicking it did nothing. It also made
+		// the Toaster's `visibleToasts={2}` a false claim: status pill + two Undos is
+		// three, and the oldest went `pointer-events: none` where the stock default of
+		// three had left it clickable.
+		if (undoRef.current) toast.dismiss(undoRef.current.id);
 		const id = toast(label, {
 			duration: 5000,
 			action: { label: 'Undo', onClick: () => { if (sourceRef.current === next) setSource(prev); } },
 		});
+		undoRef.current = { next, id };
 		setUndo({ next, id });
 	}, [setSource]);
 	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
@@ -1189,7 +1201,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// typed, switched decks, restored a checkpoint — so Undo only ever reverts the
 	// single last settings change, never edits made after it.
 	React.useEffect(() => {
-		if (undo && source !== undo.next) { toast.dismiss(undo.id); setUndo(null); }
+		if (undo && source !== undo.next) { toast.dismiss(undo.id); undoRef.current = null; setUndo(null); }
 	}, [source, undo]);
 
 	const bp = useBreakpoint();

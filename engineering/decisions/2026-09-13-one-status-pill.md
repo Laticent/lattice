@@ -50,7 +50,7 @@ competing for three slots.
 
 **Two classes, split on whether the message carries an affordance.**
 
-- **Status — disposable text.** One id (`lib/status-pill.ts`, `STATUS_TOAST_ID`).
+- **Status — disposable text.** One id at a time (`lib/status-pill.ts`).
   Sonner rewrites the existing toast rather than stacking a second one, so the
   previous message disappears the instant a new one arrives. This is the "one
   global pill" half of the report.
@@ -60,21 +60,53 @@ competing for three slots.
   notice is `duration: Infinity` *precisely* because it must outlive every status
   message around it. Status text is disposable; an affordance is not.
 - **`visibleToasts={2}`** is therefore not a taste call but the real worst case:
-  the status pill beside one actionable toast. Never a pile.
+  the status pill beside one actionable toast. Never a pile. **That claim was false
+  when first written** and the cap is what made it matter: `showUndo` minted a new
+  id per settings write and its reactive dismiss only fires when the source moves
+  off `undo.next`, so two writes inside 5s left two Undo toasts — three with the
+  pill, and the stock default of three had kept the oldest CLICKABLE where the cap
+  makes it `pointer-events: none`. The older Undo was already a dead button (its
+  `onClick` is guarded on `sourceRef.current === next`, which the second write
+  falsifies), so `showUndo` now retires the previous toast before raising. The cap
+  is true because the code makes it true, not because two felt like enough.
 
 `Library`'s import now composes one message — a headline plus, when anything was
 refused, the refusals named beneath it (`refusedDetail`, sibling of the existing
-`rejectedMessage`).
+`rejectedMessage`). **Composing is not optional there, it is forced**: the funnel's
+`catch` named the real reason and its `finally` then spoke unconditionally, so once
+both landed on one pill the generic line overwrote the diagnostic in the same tick
+and a corrupt file reported as an empty one. The reason is recorded and becomes the
+headline, with whatever did land underneath it. Sharing a pill converts "two
+messages" from redundancy into data loss, and every caller that speaks twice in a
+tick inherits that.
+
+Two things the pill's detail channel needed before it could carry a list. Sonner
+renders `description` as a **bare text node** — no `<br>`, no block children — and
+neither its stylesheet nor this repo's set a `white-space` rule on
+`[data-description]`, so the newlines collapsed and each refusal's name glued onto
+the previous one's reason. The primitive sets `whitespace-pre-line` on the element
+rather than per call, so any future multi-line description is correct by default.
+And the gate's messages lead with the finding and follow, after an em dash, with the
+rationale — carried whole, two refusals filled ten lines on the real Studio, because
+the rationale is the long half and repeats verbatim per item. The pill keeps the
+finding.
 
 ## The part that is easy to get wrong
 
-**A fixed id is only half the mechanism.** `Observer.create` MERGES into an
-existing entry rather than replacing it — `{...toast, ...data}`,
-`dist/index.mjs:152-168`. So any field a later call OMITS keeps the value the
-previous message left behind. Written inline,
+**A fixed id is only half the mechanism.** Sonner merges an incoming toast into
+the live one of the same id — `{...toasts[i], ...toast}` in the Toaster's own
+subscriber, `dist/index.mjs:972-983`. **Not `Observer.create`**, which is where
+the obvious reading of the package lands: the default `toast()` export runs
+`toastFunction` → `ToastState.addToast` (`:373`, `:135`), which appends and
+publishes with no merge and no `alreadyExists` branch. Worth keeping straight,
+because only `Observer.create` clears `dismissedToasts`, so anyone reasoning about
+dismissal from the wrong citation gets the opposite answer.
+
+So any field a later call OMITS keeps the value the previous message left behind.
+Written inline,
 
 ```js
-toast('Deck saved', { id: STATUS_TOAST_ID })
+toast('Deck saved', { id: theSharedId })
 ```
 
 after a message that carried a description renders "Deck saved" with the older
@@ -82,10 +114,50 @@ message's explanatory lines still attached — and, because the primitive switch
 to a 16px card whenever `[data-description]` is present, in the wrong *shape*
 too.
 
-`showStatus` therefore passes **every field on every call, including as
+`showStatus` therefore passes **every field it governs on every call, including as
 `undefined`**, which is what clears the previous one. That invariant is the whole
 reason it is a function rather than three characters at the call site, and
-`status-pill.test.ts` pins it — including that it never carries an `action`.
+`status-pill.test.ts` pins it. It governs `description` and `action`; the rest of
+Sonner's option surface is never set on this pill by anyone, because the id is not
+exported and `showStatus` is the only writer. An earlier draft of this note claimed
+the stronger "every field" and paired it with a test asserting `action` was never
+PASSED — which pins exactly the thing that would make a stray `action`
+un-clearable. The key is now present and `undefined`, which is what clearing means.
+
+## The bill for a fixed id, which nothing else in the design pays
+
+Sharing one id introduces a bug that per-message ids cannot have, and it was
+caught by an independent check of this change rather than by any gate.
+
+**Auto-close does not remove a toast.** It starts a 200ms exit animation and
+schedules `removeToast(toast)` for the end of it (`TIME_BEFORE_UNMOUNT`,
+`dist/index.mjs:425,574`), and that pending removal matches **by id value** —
+`toasts.filter(({ id }) => id !== toastToRemove.id)`. So a message raised on the
+same id inside that window renders, and is then deleted 200ms later by the
+*previous* message's timer. It flashes and vanishes. The window opens 2600ms
+after the last message and stays open for 200ms — an ordinary pace for someone
+working, not a corner case.
+
+Before status messages shared an id this was unreachable: every toast carried its
+own auto-increment id, so no pending removal could ever name a live one.
+
+**The fix is to reuse the id only while the pill is actually live**, which is the
+only case that needs it — that is what rewrites in place with no stacking. Once
+the pill has closed or is closing, the next message gets a fresh id: nothing
+pending can name it, and there is nothing to stack with, because the old pill is
+already on its way out. Liveness comes from Sonner's own `onAutoClose` /
+`onDismiss` rather than a clock of ours, so a hover that pauses the dwell keeps
+the pill live and keeps the rewrite in place.
+
+**Liveness is tokened, not compared by id.** A rewrite in place reuses the id by
+design, so an id is exactly what cannot tell a superseded raise from the current
+one. A stale callback marking the live pill dead would rotate the next message
+onto a fresh id and put two pills on screen where one was asked for.
+
+`status-pill.dom.test.tsx` guards this against the **real** Sonner — real package,
+real `<Toaster>`, real time — because the race lives in Sonner's own store and
+timers and is invisible to the mocked sibling test that owns the merge contract.
+Proven to fail: pinned back to a fixed id, the second message asserts as `''`.
 
 Two related behaviors, both read from the same source and worth knowing:
 
@@ -116,8 +188,23 @@ polls while the stack drains and reports the count it settles on — this spec
 reported `Received: 0` against the broken build, where the number that matters
 is 3.
 
-The pill was also looked at in both color modes (`.scratch/pill-{light,dark}.png`
-at the time of writing): a single capsule, correct in each.
+Three more arms drive the REAL import funnel, because each covers something no
+other tier can see:
+
+| What | Why only the real surface |
+|---|---|
+| a refused bundle names each refusal on its own line | `white-space` has to WIN a cascade; jsdom loads no Tailwind sheet, so `getComputedStyle` returns `''` for every utility |
+| the same toast's computed `white-space` is `pre-line` | same — and Sonner's own `[data-sonner-toast]` rules are unlayered (HARD RULE #26), so a matching class can silently lose |
+| a corrupt bundle reports WHY, not that the file was empty | the loss was one message overwriting another in the same tick |
+
+Both feed a crafted `lattice-asset/1` zip through the Library's real file input.
+
+The pill was looked at in both color modes, in both shapes: the one-line capsule
+(`.scratch/pill-{light,dark}.png`) and the description card
+(`.scratch/card-{light,dark}.png`). The card is the one that mattered — an earlier
+draft of this note claimed "the refusals named beneath it" having only ever looked
+at the capsule, which is exactly the surface where the collapsed newlines and the
+ten-line wall would have been visible.
 
 ## What is NOT changed
 

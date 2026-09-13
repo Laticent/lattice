@@ -49,3 +49,67 @@ test('three confirmations inside one dwell leave a single pill', async ({ page }
 	expect(await pills(page).count(), 'status messages must share one pill').toBe(1);
 	await expect(pills(page).first()).toContainText('New deck created');
 });
+
+/** A real Lattice asset zip whose themes both reach off the device, so the import
+ *  gate refuses each one and the Library has a multi-line outcome to report. */
+async function refusedBundle(): Promise<Buffer> {
+	const { default: JSZip } = await import('jszip');
+	const zip = new JSZip();
+	const items = ['alpha', 'beta'].map((name) => {
+		// A remote `url()` is the `css-url-remote` refusing rule — the beacon.
+		zip.file(`${name}.css`, `.x{background:url(https://example.invalid/${name}.png)}`);
+		return { kind: 'theme', name, label: name, css: `${name}.css` };
+	});
+	zip.file('manifest.json', JSON.stringify({ format: 'lattice-asset/1', kind: 'bundle', items }));
+	return zip.generateAsync({ type: 'nodebuffer' }) as Promise<Buffer>;
+}
+
+async function openLibrary(page: import('@playwright/test').Page) {
+	const docked = page.getByRole('button', { name: 'Open Library' });
+	await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+}
+
+// Both of these drive the REAL import funnel, because both defects they cover were
+// invisible to every other tier: one was a message destroyed by a second message in
+// the same tick, the other a stylesheet rule that has to WIN a cascade. A unit test
+// sees neither — jsdom loads no Tailwind sheet, so `getComputedStyle` returns '' for
+// every utility (measured).
+
+test('a refused import names each refusal on its own line', async ({ page }) => {
+	await gotoStudio(page);
+	await openLibrary(page);
+	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({
+		name: 'refused.zip',
+		mimeType: 'application/zip',
+		buffer: await refusedBundle(),
+	});
+
+	const pill = page.locator('[data-sonner-toast]').first();
+	await expect(pill).toContainText('Nothing could be imported');
+	const desc = pill.locator('[data-description]');
+	await expect(desc).toContainText('alpha');
+	await expect(desc).toContainText('beta');
+
+	// Sonner renders the description as a bare text node and sets no `white-space`
+	// of its own, so without the primitive's rule the two refusals collapse onto one
+	// line and each name glues onto the previous reason. The rule must WIN, not just
+	// match — Sonner's own `[data-sonner-toast]` rules are unlayered (HARD RULE #26).
+	await expect(desc).toHaveCSS('white-space', 'pre-line');
+});
+
+test('a corrupt bundle reports WHY, not that the file was empty', async ({ page }) => {
+	await gotoStudio(page);
+	await openLibrary(page);
+	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({
+		name: 'corrupt.zip',
+		mimeType: 'application/zip',
+		buffer: Buffer.from('this is not a zip at all'),
+	});
+
+	// The reason used to be raised by the `catch` and then overwritten in the same
+	// tick by the `finally`'s generic line — so a corrupt file reported as an empty
+	// one. Sharing a pill is what made that lossy; the funnel composes one message.
+	const pill = page.locator('[data-sonner-toast]').first();
+	await expect(pill).toContainText('Import failed');
+	await expect(pill).not.toContainText('Nothing to import from that file.');
+});

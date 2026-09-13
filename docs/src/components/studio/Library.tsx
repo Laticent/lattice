@@ -107,9 +107,24 @@ export function rejectedMessage(names: string[]): string {
  * fifty-item bundle is a number, not a wall.
  */
 export function refusedDetail(refused: NonNullable<ImportRefusal>[]): string {
-	const shown = refused.slice(0, 3).map((r) => `${r.name} — ${r.why}`);
+	const shown = refused.slice(0, 3).map((r) => `${r.name} — ${finding(r.why)}`);
 	const rest = refused.length > 3 ? [`…and ${refused.length - 3} more.`] : [];
 	return [`Refused ${refused.length}:`, ...shown, ...rest].join('\n');
+}
+
+/**
+ * The gate's messages lead with WHAT was found and follow, after an em dash, with
+ * why it is refused and what would be allowed instead. A pill keeps the first half.
+ *
+ * Measured on the real Studio: carried whole, two refusals filled ten lines — the
+ * rationale is the long half and it repeats verbatim per item, so three refusals
+ * read as a wall rather than a list. The rationale is not lost, it is just not in a
+ * transient pill: it is the same text the gate shows in Fabricate, where a reader
+ * can act on it.
+ */
+function finding(why: string): string {
+	const cut = why.indexOf(' — ');
+	return (cut === -1 ? why : why.slice(0, cut)).trim().replace(/[.,;]$/, '');
 }
 
 // A few representative swatches for a theme card: the picked essentials, or the
@@ -461,6 +476,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		// landed. The result was a silent partial import that the toast denied. Now a
 		// refused item is named and the rest still import.
 		const refused: ImportRefusal[] = [];
+		let failure: string | null = null;
 		try {
 			for (const f of Array.from(files)) {
 				const { themes: ts, components: cs, finishes: fs, scenes: ms } = await unpackBundle(f);
@@ -496,7 +512,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				}
 			}
 		} catch (e) {
-			notify(`Import failed — ${String((e as Error)?.message || e)}`);
+			// Recorded, NOT raised here. The `finally` below speaks unconditionally, and
+			// both messages now land on the same status pill — so raising the reason here
+			// meant the generic line overwrote it in the same tick and the user was told
+			// the file was EMPTY when it was actually corrupt. The reason is the headline
+			// instead, composed once below with whatever did land under it.
+			failure = String((e as Error)?.message || e);
 		} finally {
 			// ALWAYS refresh, even on the failure path: whatever did land is on the shelf, and
 			// a stale shelf is how a partial import reads as "nothing happened".
@@ -512,7 +533,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			const refusals = refused.filter((r): r is NonNullable<ImportRefusal> => r !== null);
 			const detail = refusals.length ? refusedDetail(refusals) : undefined;
 			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`;
-			if (got) notify(tally, detail);
+			if (failure) {
+				// A throw can still leave items on the shelf, so the tally and the refusals
+				// go UNDER the reason rather than replacing it.
+				const under = [got ? tally : null, detail].filter(Boolean).join('\n');
+				notify(`Import failed — ${failure}`, under || undefined);
+			} else if (got) notify(tally, detail);
 			else if (refusals.length) notify('Nothing could be imported from that file.', detail);
 			else notify('Nothing to import from that file.');
 			setBusy(null);

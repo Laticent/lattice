@@ -10,3 +10,11 @@
   went out in a loop, one toast each, so a bundle carrying four bad scenes raised
   five pills at once and buried its own success line. The import now raises a
   single message with the refusals named beneath it.
+- **Fixed: a Library import that fails now says why.** The funnel named the real
+  reason and then overwrote it with a generic line in the same tick, so a corrupt
+  file reported as an empty one. The reason is the headline, with whatever did land
+  underneath it.
+- **Fixed: a settings Undo no longer leaves a dead button on screen.** Two settings
+  writes inside 5s left two Undo toasts, and the older one's action was already
+  guarded off — it did nothing when clicked. The previous Undo is retired when the
+  next one is raised.

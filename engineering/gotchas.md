@@ -258,6 +258,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The Present rail is completely invisible under `forced-colors: active`](gotchas/studio-playground.md#the-present-rail-is-completely-invisible-under-forced-colors-active)
 - [A multi-line toast renders as a giant lozenge with its last line cut off](gotchas/studio-playground.md#a-multi-line-toast-renders-as-a-giant-lozenge-with-its-last-line-cut-off)
 - [A status toast shows text from the message BEFORE it, or the wrong shape](gotchas/studio-playground.md#a-status-toast-shows-text-from-the-message-before-it-or-the-wrong-shape)
+- [A message raised right after another one flashes and disappears](gotchas/studio-playground.md#a-message-raised-right-after-another-one-flashes-and-disappears)
 - [A DOM census over the chrome agrees with itself, but it is reading the wrong elements](gotchas/studio-playground.md#a-dom-census-over-the-chrome-agrees-with-itself-but-it-is-reading-the-wrong-elements)
 - [A control's own icon renders sliced/outside its button, and every overflow guard is green](gotchas/studio-playground.md#a-controls-own-icon-renders-slicedoutside-its-button-and-every-overflow-guard-is-green)
 - [A CodeMirror `@media (pointer: coarse)` block has no effect on a real touch device](gotchas/studio-playground.md#a-codemirror-media-pointer-coarse-block-has-no-effect-on-a-real-touch-device)

@@ -111,7 +111,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
           // palettes — unreadable everywhere. Dark mode was fine (`#e8e8e8`, 9.2:1),
           // which is why it survived review: the bug existed only in the mode most
           // people use.
-          description: "!text-white/80",
+          // `whitespace-pre-line` is NOT cosmetic. Sonner renders `description` as a
+          // BARE TEXT NODE — no <br>, no block children (measured: zero child
+          // elements) — and neither its own stylesheet nor this repo's sets a
+          // `white-space` rule on `[data-description]`. So a multi-line description
+          // collapsed to one run-on line, gluing each refusal's name onto the previous
+          // one's reason with a single space. Keyed on the element rather than a
+          // per-call opt-in, for the same reason the radius above is: any future
+          // multi-line description is then correct by default instead of correct only
+          // if its author remembered.
+          description: "!text-white/80 whitespace-pre-line",
           // The one-tap escape hatch (Undo / Reload), styled like the retired pill's
           // inline button — a translucent white chip on the inverse surface.
           actionButton:

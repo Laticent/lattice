@@ -72,6 +72,16 @@ describe('rejectedMessage', () => {
 });
 
 describe('refusedDetail', () => {
+	it('keeps the gate\'s FINDING and drops the rationale after the em dash', () => {
+		const msg = refusedDetail([
+			{ name: 'midnight-blue', why: 'url(https://x.invalid/a.png) fetches a remote resource — only inline data: URIs and #fragment refs are allowed (a remote url() can beacon deck content out).' },
+		]);
+		expect(msg).toContain('midnight-blue — url(https://x.invalid/a.png) fetches a remote resource');
+		// The long half repeats verbatim per item; two refusals carrying it filled ten
+		// lines on the real Studio.
+		expect(msg).not.toContain('only inline data');
+	});
+
 	it('carries each refusal WITH its own reason, on its own line', () => {
 		const msg = refusedDetail([
 			{ name: 'scene-a', why: 'its motion plan is not valid' },
@@ -79,7 +89,8 @@ describe('refusedDetail', () => {
 		]);
 		expect(msg).toContain('Refused 2:');
 		expect(msg).toContain('scene-a — its motion plan is not valid');
-		expect(msg).toContain('dark.css — it reaches off the device.');
+		// Trailing punctuation goes: these are list items, not sentences.
+		expect(msg).toContain('dark.css — it reaches off the device');
 		// Reasons differ per item, so they are named individually rather than
 		// collapsed into one clause the way `rejectedMessage` can.
 		expect(msg.split('\n')).toHaveLength(3);
