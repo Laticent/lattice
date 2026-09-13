@@ -255,15 +255,50 @@ const latticeTheme = EditorView.theme({
 		// Studio's editor, CodeField, and all prose. editor-selection.test.ts fails if
 		// the two numbers drift apart.
 		//
-		// `--cm-match` is 26% and is NOT swept with it: it is one glyph wide, it is a
-		// different feature, and it measures 2.71:1 worst (onyx/light) for secondary
-		// ink — a real finding, logged rather than folded into a selection fix
-		// (HARD RULE #18).
+		// `--cm-match` was 26% on a note calling that 2.71:1 worst (onyx/light) for
+		// secondary ink. That number described a color NOTHING PAINTED. The rule below
+		// read the token through a bare `.cm-matchingBracket` key, which compiles to two
+		// classes and loses to @codemirror/language's base theme (three) — so every
+		// palette got CodeMirror's `#328c8252` teal instead, measured on the built
+		// Playground as `rgba(50, 140, 130, 0.32)` on cuoio LIGHT AND DARK alike. The
+		// token resolved fine; no rule consumed it. Same trap as the selection band, one
+		// package over.
+		//
+		// `--cm-nonmatch` is new. An unmatched bracket had NO token at all — it fell
+		// through to the base theme's `#bb555544` on all 36 palette-modes, which puts a
+		// fixed red on the four a11y palettes that exist to avoid exactly that hue.
+		//
+		// BOTH ARE RINGS, NOT WASHES, and that is a measurement result rather than a
+		// preference. The bracket AT THE CARET is always on the active line — the caret
+		// is what marks it — so its backdrop is `--bg` + the active-line wash + whatever
+		// the bracket adds, stacked. (Its PARTNER often sits on another line, where the
+		// ground is bare `--bg` and contrast is better by about a point; the caret-side
+		// one is the worst case and the one that binds.) Swept over the same
+		// matrix as the selection (18 palettes x 2 modes x the six inks these editors
+		// paint), the active line ALONE clears with room (primary 5.03, secondary 3.69),
+		// but adding an accent wash on top of it fails from 10% upward — 4.42 for
+		// `--text-body` on cuoio/light, the site's default palette and mode. 8% passes at
+		// 4.53 and is too faint to be worth the token. There is no alpha that is both
+		// visible and AA here, so the fill is gone and a 1px ring carries the whole
+		// signal: a ring sits at the cell's edge rather than under the ink, so it spends
+		// no text contrast at all and the stack stays exactly the active line's 5.03.
+		//
+		// The first cut of this fix DID ship washes (16% / 12%), measured only over bare
+		// `--bg` — a case that cannot happen for the bracket at the caret. Looking at the
+		// rendered result is what showed the active-line band underneath it.
+		//
+		// Solid for matched, DASHED for unmatched. The base theme separated the two states
+		// by hue alone, and on the four a11y palettes hue cannot carry it: they tune
+		// `--accent` and `--fail` for their own CVD, which lands the two rings 1.52:1
+		// apart on achromatopsia, 1.49 on protanopia and 1.40 on tritanopia — the same
+		// color, to a reader. Line style is a second channel that survives that, for the
+		// same reason the categorical series has a texture channel alongside its hues.
 		'--cm-active-line': 'color-mix(in srgb, var(--accent) 12%, transparent)',
 		'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 22%, transparent)',
 		'--cm-selection': 'color-mix(in srgb, var(--accent) 18%, transparent)',
 		'--cm-selection-edge': 'color-mix(in srgb, var(--accent) 45%, transparent)',
-		'--cm-match': 'color-mix(in srgb, var(--accent) 26%, transparent)',
+		'--cm-match': 'var(--accent)',
+		'--cm-nonmatch': 'var(--fail)',
 		// Autocomplete popup. The panel reused --bg (identical to the editor) with a
 		// plain --border edge, so in light mode it floated with no visible boundary
 		// (border-vs-bg ~1.21 on indaco-light), and the detail/type hint reused
@@ -324,7 +359,35 @@ const latticeTheme = EditorView.theme({
 		boxShadow: 'inset 0 0 0 1px var(--cm-selection-edge)',
 	},
 	'::selection': { backgroundColor: 'var(--cm-selection)' },
-	'.cm-matchingBracket': { backgroundColor: 'var(--cm-match)', outline: 'none' },
+	// Bracket matching, and the SAME specificity trap the selection rule above
+	// documents — this one in @codemirror/language rather than @codemirror/view.
+	// Its base theme is `EditorView.baseTheme({ '&.cm-focused .cm-matchingBracket':
+	// { backgroundColor: '#328c8252' } })`, and `&` compiles to the base theme's own
+	// class, so that selector carries THREE. The key here was a bare
+	// `.cm-matchingBracket`, which `EditorView.theme()` prefixes to two — so the base
+	// rule won and painted a fixed teal on every palette. `Prec.lowest` on the base
+	// theme does not save us: precedence orders the stylesheets, and specificity is
+	// decided before order.
+	//
+	// Two arms because the base rule is scoped to `.cm-focused`. The focused arm needs
+	// four classes to beat it; the blurred arm has no competitor and takes three. With
+	// one arm only, the highlight changed color when the editor lost focus.
+	//
+	// `outline` rather than an inset `box-shadow`: these are INLINE mark spans, and
+	// `outline-offset: -1px` draws the ring inside each fragment's box without
+	// disturbing the glyphs on either side. The rule it replaces set `outline: 'none'`.
+	'&.cm-editor .cm-matchingBracket, &.cm-editor.cm-focused .cm-matchingBracket': {
+		backgroundColor: 'transparent',
+		outline: '1px solid var(--cm-match)',
+		outlineOffset: '-1px',
+		borderRadius: '2px',
+	},
+	'&.cm-editor .cm-nonmatchingBracket, &.cm-editor.cm-focused .cm-nonmatchingBracket': {
+		backgroundColor: 'transparent',
+		outline: '1px dashed var(--cm-nonmatch)',
+		outlineOffset: '-1px',
+		borderRadius: '2px',
+	},
 	// The floating shell every tooltip wears. This surface never had one: its lint
 	// popup fell through to @codemirror/view's base theme (`#f5f5f5`) in every
 	// palette AND in dark mode, where `--text-body` on that fill measures 1.32:1.

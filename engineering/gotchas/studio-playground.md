@@ -1009,7 +1009,10 @@ never turn "passed in headless" into "works on iOS."
   `docs/src/playground/editor.js` for the one that draws its own. Nothing in the cascade
   makes them agree; `docs/src/playground/editor-selection.test.ts` fails when they drift.
 - **The general trap:** any `EditorView.theme()` key that only names the element
-  can be out-specified by the base theme's `&light`/`&dark` compound selectors.
+  can be out-specified by the base theme's `&light`/`&dark` compound selectors — or
+  by a plain `&.cm-focused` one, which is how the same trap took the matching-bracket
+  highlight in a DIFFERENT package (see "The matching-bracket highlight is teal on
+  every palette" below). `&` counts as a class.
   Before assuming your theme lost to stylesheet ORDER, read the base theme's
   selector for that class in `@codemirror/view/dist/index.js` and count classes.
 - **Beware the misdiagnosis this one already caused:** a `requestAnimationFrame`
@@ -1021,6 +1024,73 @@ never turn "passed in headless" into "works on iOS."
 - **Not the Studio's problem:** `components/studio/editor-theme.ts` has no
   `drawSelection()`, so its selection is the NATIVE highlight, owned by
   `::selection` in `styles/native-widgets.css` — no base-theme rule to lose to.
+
+## The matching-bracket highlight is teal on every palette
+
+- **Symptom:** Put the caret next to a bracket in the Playground editor and the
+  matched pair is boxed in **teal** — the same teal on cuoio's warm gold, on onyx,
+  and on the four a11y palettes. A bracket with no partner gets a fixed **red**,
+  which is the one hue `a11y-protanopia` and `a11y-deuteranopia` exist to avoid.
+  Nothing in the palette moves either color.
+- **Cause:** The same specificity trap as the select-all slab above, one package
+  over. `@codemirror/language` ships
+  `EditorView.baseTheme({ '&.cm-focused .cm-matchingBracket': { backgroundColor:
+  '#328c8252' } })`, and **`&` compiles to the base theme's own generated class**, so
+  that selector carries THREE classes. The editor's key was a bare
+  `.cm-matchingBracket`, which `EditorView.theme()` prefixes to TWO. The base rule
+  won. `--cm-match` resolved correctly on all 36 palette-modes the whole time and
+  **no rule ever read it**. `.cm-nonmatchingBracket` was never themed at all.
+- **`Prec.lowest` is not a defense.** `EditorView.baseTheme` wraps its module in
+  `Prec.lowest`, which is easy to read as "the base theme always loses". It orders
+  the *stylesheets*; specificity is settled before order ever matters.
+- **The tell was a state-dependent color.** Under the bare key the mark was teal
+  while focused and an accent wash while blurred — measured on the built site as
+  `rgba(50, 140, 130, 0.32)` then `color(srgb 0.478 0.353 0.063 / 0.16)`. That is the
+  signature of a `.cm-focused`-scoped base rule beating an unscoped theme rule: the
+  moment the base selector stops matching, yours starts painting. A highlight that
+  changes color on blur is a cascade report, not a theming bug.
+- **Fix:** two arms, because the base rule is `.cm-focused`-scoped and the two focus
+  states are genuinely different cascades:
+  `&.cm-editor .cm-matchingBracket, &.cm-editor.cm-focused .cm-matchingBracket`
+  (four classes on the focused arm, three on the blurred, which has no competitor).
+- **It is a RING now, and that is a measurement result, not taste.** The bracket AT
+  THE CARET is always on the active line — the caret is what marks it — so any fill
+  stacks on the active-line band. (Its partner often sits on another line over bare
+  `--bg`, which measures about a point better; the caret-side one binds.) Swept over
+  18 palettes x 2 modes
+  against the six inks these editors paint, the active line alone clears with room
+  (primary 5.03, secondary 3.69), but an accent wash on top of it fails AA from
+  **10%** upward (4.42 for `--text-body` on cuoio/light, the site's default palette
+  and mode). 8% passes at 4.53 and is too faint to be worth a token. **There is no
+  alpha that is both visible and AA**, so the fill is gone and a 1px ring carries the
+  signal: a ring sits at the cell's edge rather than under the ink, so the ink's
+  backdrop stays exactly the active line's 5.03. Matched is solid `--accent`,
+  unmatched is **dashed** `--fail`.
+- **The dashed arm is load-bearing, not decorative.** The base theme separated matched
+  from unmatched by hue alone, and on the four a11y palettes hue cannot carry it: they
+  tune `--accent` and `--fail` for their own CVD, which puts the two rings **1.52:1**
+  apart on achromatopsia, 1.49 on protanopia and 1.40 on tritanopia — the same color,
+  to a reader. Line style is the channel that survives that. Do not "simplify" the two
+  rules into one that differs only in `var()`.
+- **The number in the old comment measured a color nothing painted.** `--cm-match`
+  carried a note calling it "2.71:1 worst (onyx/light) for secondary ink", logged as
+  a known finding. That figure is reproducible — an accent wash at 26% really does
+  measure 2.70 there — but it described a declaration that lost its cascade, so it
+  was never what a reader saw. **A contrast number is about a rendered surface; if it
+  was not read off one, it is arithmetic about a hypothesis.** Sweeping over bare
+  `--bg` made the same mistake a second time in this very fix: the first cut shipped
+  16% / 12% washes measured against a backdrop the bracket at the caret never has.
+  Looking at the rendered result is what showed the active-line band underneath.
+- **Pinned by** `docs/e2e/playground-bracket-contrast.spec.ts` (both color modes,
+  both focus states, on the real Playground) and
+  `docs/src/playground/editor-bracket-marks.test.ts`, which is the per-PR half: it
+  reads the base selector **out of `node_modules`** and fails if ours stops
+  out-specifying it, so a dependency bump that lengthens the base selector cannot
+  reintroduce this quietly.
+- **The general rule, now with two instances:** before assuming your
+  `EditorView.theme()` key lost to stylesheet ORDER, open the base theme for that
+  class and **count classes** — remembering that `&` is one of them. Two packages
+  have now beaten a plain element key on this surface.
 
 ## A chat panel's state lands on whichever deck is on screen when the turn ends
 
