@@ -7861,6 +7861,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
     slope: 'data viz — series, not prose',
     'stacked-bar': 'data viz — series, not prose',
     waterfall: 'data viz — series, not prose',
+  heatmap: 'data viz — a numeric matrix, not prose',
   gantt: 'data viz — schedule, not prose',
   journey: 'data viz — stage map, not prose bodies',
   map: 'data viz — geographic series',

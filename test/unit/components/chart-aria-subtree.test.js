@@ -114,17 +114,42 @@ describe('chart SVGs hide their marks from the accessibility tree', () => {
     }
   });
 
-  test('state-chart routes its runtime redraw through the wrapper', () => {
+  test('state-chart marks its runtime geometry aria-hidden IN PLACE', () => {
     // Its geometry is written by draw() in the browser, so no build-time string
-    // carries it. Pinned at the source instead — see the file docblock.
+    // carries it — pinned at the source instead, see the file docblock.
+    //
+    // AND IT IS THE ONE MEMBER THAT MUST NOT USE THE SHARED WRAPPER. Wrapping
+    // its marks in a `<g>` moved the drawing: `check:chart-fit` went red at
+    // square with the machine painting ~40px outside its stage on both sides,
+    // reproducibly, twice on each arm. It is the family's only runtime-laid-out
+    // member — it measures the document it just wrote and scales itself to fit —
+    // so an element that is free everywhere else is not free here. This arm
+    // therefore pins the OPPOSITE of the others: no wrapper, and an explicit
+    // per-child marking pass that skips <title>/<desc>.
     const src = fs.readFileSync(P('lib/components/chart/state-chart/state-chart.transform.js'), 'utf8');
     const writes = [...src.matchAll(/svg\.innerHTML\s*=\s*([^;]+);/g)].map((m) => m[1].trim());
     assert.equal(writes.length, 1, `expected exactly one svg.innerHTML assignment, found ${writes.length}`);
-    assert.match(
+    assert.doesNotMatch(
       writes[0], /ariaHiddenMarks\(/,
-      'state-chart\'s runtime redraw writes its geometry straight into the <svg>.\n'
-      + '  It must go through cartesian.js § ariaHiddenMarks, or every state name and edge\n'
-      + '  label is read aloud a second time after the <desc>.\n',
+      'state-chart must NOT use the shared wrapper — the extra <g> moves its layout '
+      + 'and takes check:chart-fit red at square.',
+    );
+    assert.match(
+      src, /for \(const el of[^)]*svg\.children[\s\S]{0,500}setAttribute\('aria-hidden', 'true'\)/,
+      'state-chart\'s runtime redraw leaves its geometry in the accessibility tree.\n'
+      + '  It must mark the children it just wrote, or every state name and edge label is\n'
+      + '  read aloud a second time after the <desc>.\n',
+    );
+    assert.match(
+      src, /tag === 'title' \|\| tag === 'desc'/,
+      'the marking pass must skip <title>/<desc>, or the chart loses its accessible name',
+    );
+    // The pass must survive the synthetic DOM the kernel's own tests build.
+    // Unguarded it threw `svg.children is not iterable` and took 72 arms with it:
+    // an a11y decoration must never be the reason a render fails.
+    assert.match(
+      src, /svg\.children \? \[\.\.\.svg\.children\] : \[\]/,
+      'the marking pass must tolerate a DOM with no children collection',
     );
   });
 });

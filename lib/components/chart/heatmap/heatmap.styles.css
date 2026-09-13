@@ -1,0 +1,150 @@
+/* heatmap — a numeric matrix read as intensity (chart-family series member).
+ *
+ * All color lives here so the kernel stays palette-blind (HARD RULE #3): each
+ * cell carries a `--mix` percentage and rides a single-hue ramp off
+ * `--chart-cat-1-hue`, mixed into a neutral anchor.
+ *
+ * THE RAMP IS `map`'S, DELIBERATELY. A choropleth and a heatmap are the same
+ * encoding — one continuous value to one intensity — differing only in whether
+ * the cells are regions or a grid, so this takes the mechanism map already
+ * proved rather than minting the family's second sequential ramp (HARD RULE #1).
+ * The anchor matters as much as the hue: mixing INTO a neutral base means a low
+ * value reads as a faint tint OVER the empty fill and never below it, which is
+ * what keeps a measured minimum distinguishable from a crossing nobody measured.
+ *
+ * UNLAYERED — no `@layer` wrapper. `@layer` is declared but inert in the engine
+ * bundle, and a layered rule loses to an unlayered base rule regardless of
+ * specificity (HARD RULE #26, engineering/cascade.md).
+ *
+ * Every selector is anchored on `:is(section.heatmap:where(:not(.journey)), figure.chart-frame)` so the
+ * fills also resolve in the Read·Article figure re-host, which re-parents the
+ * chart SVG outside its slide `section`.
+ */
+
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) {
+  /* The anchor the ramp mixes INTO — `map`'s `--map-base`, to the declaration,
+   * because this is the same encoding and map already paid for getting it right.
+   * The formula is load-bearing in both halves: mixing `--muted-mark` INTO
+   * `--bg` lifts the neutral clear of the canvas, so an unmeasured cell is a
+   * visible cell rather than a hole; and because the ramp then mixes the hue
+   * into THAT, it stays monotonic ABOVE the neutral on both canvases.
+   *
+   * An earlier cut anchored on `--chart-cat-base` instead and dark mode showed
+   * why that is wrong: the empty cell rendered pure black — darker than every
+   * measured value, so the one cell meaning "no data" read as the strongest
+   * reading on the slide — and the low end of the ramp sank into it. Exactly the
+   * failure this docblock claims not to have, which is how it was caught. */
+  --heatmap-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
+}
+
+/* Also on the SVG itself, not just the figure: Read·Article re-hosts the bare
+ * chart SVG outside `.heatmap-figure`, so the cells need the anchor on an
+ * ancestor that survives the re-host. `map` carries the same duplicate for the
+ * same reason. */
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-svg {
+  --heatmap-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
+}
+
+/* THE `:not(.journey)` GUARD, and why a zero-leak collision still gets one.
+ * `journey` declares a VARIANT token also called `heatmap` (it shades stages by
+ * score), so `_class: journey heatmap` carries both classes and every selector
+ * below would match that slide. Measured against the built bundle: 1 of 7 rules
+ * reached it — this token block — and it painted nothing, because a journey has
+ * no `.heatmap-cell` to consume `--heatmap-base`. That is LATENT, not harmless:
+ * `stats` measured zero too, right up until math moved onto the Form frame and
+ * every math slide gained a `.cell-stage`. The guard costs nothing and the
+ * ledger in test/unit/components/variant-token-collisions.test.js carries the
+ * count. 0 of 7 after.
+ */
+
+/* ── Cells ──────────────────────────────────────────────────────────────────
+ * One sequential ramp off --chart-cat-1-hue. The kernel sets --mix per cell:
+ * low → faint hue over the base, high → saturated. Low→high on the ramp. */
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell {
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) var(--mix), var(--heatmap-base));
+  /* A hairline in the canvas color, NOT a gap in the grid. At a 1.2-unit cell
+   * gap the slide's own background shows through, and on a dark canvas that
+   * reads as a black lattice laid over the data. Stroking each cell with the
+   * canvas keeps the separation without the lattice. */
+  stroke: var(--bg);
+  stroke-width: 0.4;
+}
+
+/* A crossing the author wrote no value for. It carries NO --mix, so it must not
+ * inherit the ramp's bottom stop — it takes the bare anchor and says "nothing
+ * measured here" rather than "measured, and lowest". */
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell--empty {
+  fill: var(--heatmap-base);
+  /* Distinguishable from a low-but-real cell by more than lightness alone,
+   * because lightness is exactly what the ramp spends. A dotted edge survives
+   * grayscale, print and every CVD palette. */
+  stroke: var(--muted-mark);
+  stroke-width: 0.3;
+  stroke-dasharray: 1 1;
+}
+
+/* ── Labels ─────────────────────────────────────────────────────────────────
+ * Sizes MIRROR the kernel's FS table (heatmap.transform.js). CSS owns what is
+ * painted; the kernel needs the same numbers to size the gutters they sit in. */
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-row-label {
+  fill: var(--text-body);
+  font-family: var(--font-body);
+  font-size: 7.5px; /* cqi-ok: inside a 320-unit viewBox, px == user units */
+  font-weight: 500;
+}
+
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-col-label {
+  fill: var(--text-muted);
+  font-family: var(--font-label, var(--font-body));
+  font-size: 7px; /* cqi-ok: inside a 320-unit viewBox, px == user units */
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* The value printed INSIDE a cell — the one place in this family where text sits
+ * on a colored mark, and the only reason it is allowed is that the ink flips
+ * with the fill it sits on.
+ *
+ * IT IS A STEP, NOT A BLEND, and the first cut got this wrong in a way only a
+ * render showed. Deriving the ink by mixing black and white in proportion to
+ * `--mix` is smooth and completely unreadable in the middle: at 50% it computes
+ * mid-grey, and mid-grey on a mid-ramp cell is the lowest-contrast pair the
+ * whole scale can produce. The gallery rendered `71` and `69` as grey-on-grey
+ * on both canvases. Contrast wants the ink to JUMP at the point the cell stops
+ * being light, so the kernel marks that cell and the ink swaps outright.
+ *
+ * THE SAME PAIR SERVES BOTH CANVASES, swapped. On a light canvas a faint cell
+ * takes the dark ink and a saturated one takes the light; on a dark canvas the
+ * ramp runs the other way, so a faint cell is dark and takes the LIGHT ink. One
+ * flip, expressed once.
+ *
+ * BARE `black`/`white`, the way `--quadrant-label-ink` already does it for the
+ * same job: this text sits on a vivid FILL, not on the canvas, so it wants
+ * maximum contrast rather than the softened `--text-*` tier — and a token pair
+ * named for the two ends would have to be named for a color scheme, which is
+ * the retired tier-suffix anti-pattern (HARD RULE #11). */
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value {
+  fill: light-dark(black, white);
+  font-family: var(--font-body);
+  font-size: 7px; /* cqi-ok: inside a 320-unit viewBox, px == user units */
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* The cell has crossed into the saturated half of the ramp — the kernel decides
+ * where, because it is the only thing that knows the mix. */
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-ink="flip"] {
+  fill: light-dark(white, black);
+}
+
+/* ── Figure ─────────────────────────────────────────────────────────────────
+ * The figure just centers the SVG in the chart body, like every other SVG
+ * member; sizing comes from the shared `.chart-frame` rules. */
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-figure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}

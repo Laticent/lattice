@@ -137,6 +137,26 @@ const KNOWN_COLLISIONS = {
     // written for, which is what this file is about.
     leakedBefore: 16,
   },
+  heatmap: {
+    variantOwner: 'journey',
+    componentOwner: 'heatmap',
+    status: 'guarded',
+    guardedFile: 'lib/components/chart/heatmap/heatmap.styles.css',
+    guard: ':where(:not(.journey))',
+    selectorsChecked: 7,
+    // Measured against the BUILT bundle: 1 of 7 before, 0 after. The one was the
+    // token block, `:is(section.heatmap, figure.chart-frame) { --heatmap-base }`,
+    // and it painted nothing — a journey has no `.heatmap-cell` to consume the
+    // property. So this is LATENT rather than live, and it is guarded for the
+    // reason `bullet`'s entry gives: `stats` measured zero too, right up until
+    // math moved onto the Form frame and every math slide gained a `.cell-stage`.
+    //
+    // Both names are the right name for their own thing, which is why neither is
+    // renamed: journey's `heatmap` shades its stages by score, and the component
+    // is a numeric matrix. The collision is the catalog telling the truth about
+    // an encoding two members share.
+    leakedBefore: 1,
+  },
   quadrant: {
     variantOwner: 'radar',
     componentOwner: 'quadrant',

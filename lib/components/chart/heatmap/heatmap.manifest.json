@@ -1,0 +1,131 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "heatmap",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "rows",
+      "subtitle",
+      "eyebrow"
+    ]
+  },
+  "function": "evidence",
+  "form": "canvas",
+  "substance": "series",
+  "bucket": "chart",
+  "stage": "canvas",
+  "render": "svg",
+  "renderNote": "One SVG because the grid is one scale: every cell's intensity is only readable against the same minimum and maximum, so the cells, the row names and the column heads have to be laid out and measured together. Split across two elements and a row name drifts from the row it names the moment the box changes shape.",
+  "kernel": {
+    "figureClass": "heatmap-figure"
+  },
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "tags": [
+    "metric",
+    "percentage",
+    "assessment",
+    "positioning"
+  ],
+  "description": "A numeric matrix read as intensity — where the value concentrates across two dimensions.",
+  "purpose": "Use when the question is 'where does this concentrate', not 'how do these compare'. Every row-by-column crossing carries a number, and one sequential ramp turns the whole grid into a shape a reader takes in at once — a retention cliff, a risk cluster, a quiet quarter.",
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading — name what the grid shows ('Retention decays fastest in month two'), not the chart type."
+    },
+    "eyebrow": {
+      "selector": "p > code:only-child",
+      "required": false,
+      "description": "Optional kicker above the title — the dataset and its period."
+    },
+    "rows": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One top-level list item per ROW. Its nested items are the columns, each `- Column `value``."
+    }
+  },
+  "skeleton": "<!-- _class: heatmap -->\n\n## Where it concentrates.\n\n- First row\n  - Col A `12`\n  - Col B `34`\n- Second row\n  - Col A `21`\n  - Col B `43`\n",
+  "sample": "<!-- _class: heatmap -->\n\n`Retention · 2026 cohorts`\n\n## Retention decays fastest in month two.\n\n- Jan 2026\n  - M0 `100`\n  - M1 `62`\n  - M2 `48`\n  - M3 `44`\n- Feb 2026\n  - M0 `100`\n  - M1 `58`\n  - M2 `44`\n  - M3 `41`\n- Mar 2026\n  - M0 `100`\n  - M1 `71`\n  - M2 `59`\n  - M3 `55`\n- Apr 2026\n  - M0 `100`\n  - M1 `69`\n  - M2 `57`\n",
+  "stressDoc": {
+    "summary": "Ten rows by twelve columns at the ceiling, the longest realistic row name, a ragged tail where the newest cohorts have not reached the later months, and a flat row where every value is identical. The grid is bound by cell size on both axes at once, so the ceiling is the only place you can see whether a value still sets inside its cell, whether a long row name ellipsizes rather than being culled, and whether an unmeasured crossing still reads as unmeasured rather than as the bottom of the ramp.",
+    "sample": "<!-- _class: heatmap -->\n\n`Retention · the ceiling`\n\n## Ten cohorts by twelve months — the density this holds.\n\n- January 2026 acquisition cohort\n  - M0 `100`\n  - M1 `71`\n  - M2 `59`\n  - M3 `55`\n  - M4 `52`\n  - M5 `50`\n  - M6 `48`\n  - M7 `47`\n  - M8 `46`\n  - M9 `45`\n  - M10 `44`\n  - M11 `43`\n- February 2026\n  - M0 `100`\n  - M1 `58`\n  - M2 `44`\n  - M3 `41`\n  - M4 `39`\n  - M5 `38`\n  - M6 `37`\n  - M7 `36`\n  - M8 `35`\n  - M9 `34`\n  - M10 `33`\n  - M11 `32`\n- March 2026\n  - M0 `100`\n  - M1 `62`\n  - M2 `48`\n  - M3 `45`\n  - M4 `43`\n  - M5 `42`\n  - M6 `41`\n  - M7 `40`\n  - M8 `39`\n  - M9 `38`\n  - M10 `37`\n- April 2026\n  - M0 `100`\n  - M1 `69`\n  - M2 `57`\n  - M3 `54`\n  - M4 `51`\n  - M5 `49`\n  - M6 `48`\n  - M7 `47`\n  - M8 `46`\n  - M9 `45`\n- May 2026\n  - M0 `100`\n  - M1 `66`\n  - M2 `54`\n  - M3 `50`\n  - M4 `48`\n  - M5 `47`\n  - M6 `46`\n  - M7 `45`\n  - M8 `44`\n- June 2026\n  - M0 `100`\n  - M1 `64`\n  - M2 `52`\n  - M3 `49`\n  - M4 `47`\n  - M5 `46`\n  - M6 `45`\n  - M7 `44`\n- July 2026\n  - M0 `100`\n  - M1 `61`\n  - M2 `50`\n  - M3 `47`\n  - M4 `45`\n  - M5 `44`\n  - M6 `43`\n- August 2026\n  - M0 `100`\n  - M1 `59`\n  - M2 `48`\n  - M3 `45`\n  - M4 `43`\n  - M5 `42`\n- September 2026\n  - M0 `100`\n  - M1 `57`\n  - M2 `47`\n  - M3 `44`\n  - M4 `42`\n- October 2026\n  - M0 `55`\n  - M1 `55`\n  - M2 `55`\n  - M3 `55`\n"
+  },
+  "variants": [],
+  "whenToUse": [
+    {
+      "title": "Two dimensions, one measure",
+      "body": "A number exists at every crossing of two categorical axes — cohort by month, region by quarter, hour by weekday — and the finding is a PATTERN across the grid rather than any single value."
+    },
+    {
+      "title": "The shape is the story",
+      "body": "You want the reader to see a cliff, a diagonal or a cluster before they read a single number. Intensity carries that pre-attentively; a table of the same numbers does not."
+    },
+    {
+      "title": "A ragged matrix is honest",
+      "body": "Newer cohorts genuinely have no month-six value yet. A heatmap paints those crossings as unmeasured rather than as zero, so the gap is visible instead of being read as a collapse."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "One row of numbers",
+      "body": "A single series is not a matrix — it is a comparison, and a reader judges length far more precisely than intensity. Use `bar`. The kernel declines a flat list for this reason rather than painting a one-row grid."
+    },
+    {
+      "title": "Qualitative cells",
+      "body": "If the cells are verbs, owners or statuses rather than numbers, the ramp has nothing to encode. Use `matrix-grid`, whose cells are tagged at parse time."
+    },
+    {
+      "title": "Precise comparison",
+      "body": "Asking a reader which of two similar cells is larger spends the one thing intensity is bad at. If the comparison has to be exact, the value belongs on an axis — `bar` or `line`."
+    },
+    {
+      "title": "Geography",
+      "body": "A value per country or region belongs on the `map` choropleth, which shares this ramp but places the cells where the reader expects them."
+    }
+  ],
+  "related": [
+    {
+      "name": "matrix-grid",
+      "when": "the cells are qualitative — a verb, an owner, a status — rather than a number"
+    },
+    {
+      "name": "map",
+      "when": "the two dimensions are geographic; same ramp, spatial placement"
+    },
+    {
+      "name": "bar",
+      "when": "one dimension, and the comparison has to be exact"
+    },
+    {
+      "name": "quadrant",
+      "when": "two CONTINUOUS axes with items placed on them, rather than two categorical axes with a value at each crossing"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing a flat list — `- Jan `62`` with no nested columns.",
+      "fix": "A heatmap needs two depths: the top-level item is the row, its nested items are the columns. A flat list renders nothing, deliberately."
+    },
+    {
+      "mistake": "Padding a ragged matrix with zeros so every row is the same length.",
+      "fix": "Leave the crossing out. A zero states a measurement; an absent cell states that none was taken, and the chart paints the two differently."
+    },
+    {
+      "mistake": "Mixing units down a column — `62%` in one row and `0.62` in the next.",
+      "fix": "One measure, one unit, across the whole grid. The ramp is a single scale and cannot describe two."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Two depths: top-level items are rows, nested items are columns with a trailing value pill.",
+    "Every row should name the same columns in the same order — a column that appears in one row and not another is a gap, and paints as one.",
+    "Up to 12 columns and 10 rows. Past that the cells stop carrying a readable value; consolidate a long tail rather than shrinking the grid.",
+    "One unit across the whole matrix. The affix is read from the values and printed once in the description."
+  ],
+  "specimenVoice": true
+}
