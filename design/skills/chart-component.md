@@ -9,6 +9,10 @@ distribution, a new comparison encoding) that the existing chart components (the
 live roster is `LAYOUTS` in `_chart-family/chart-registry.generated.js`) don't cover. **You'll produce** a component folder under `lib/components/chart/`
 whose kernel emits SVG through the shared `.chart-frame` dispatcher.
 
+> **Changing how an EXISTING chart looks is a different job** — read
+> `engineering/chart-styling.md` instead. It owns the structure/colour split, the
+> SVG coordinate-space trap, the three finishes, and the verification order.
+
 > Read the **`dataviz` skill first** for the medium-agnostic method (form
 > heuristic, color formula, mark specs). This skill is how that method is realized
 > in Lattice: its "swap the placeholder palette" step becomes the theme's

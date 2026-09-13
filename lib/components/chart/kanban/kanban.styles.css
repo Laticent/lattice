@@ -305,7 +305,10 @@
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 600;
-  color: var(--text-muted);
+  /* The size token sits ON the card, not on the canvas — measured 3.38:1 on dark
+   * and 4.49:1 on light against the card fill, both under 4.5:1. Same case as
+   * state-chart's ordinal: secondary intent, wrong token for a tinted surface. */
+  color: var(--text-body);
   flex: 0 0 auto;
 }
 

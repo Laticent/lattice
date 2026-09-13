@@ -759,6 +759,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | How a slide is composed — the Form vocabulary | `design/forms.md` |
 | Prose rules for galleries/decks (the words ON a slide) | `design/editorial.md` |
 | **How we write ABOUT the work** — chat, issues, PR bodies, changelog, docs, comments (HARD RULE #30) | `engineering/house-style.md` |
+| **Styling an existing chart** — structure vs colour, the viewBox trap, the three finishes, what to measure contrast against, the order to verify in | `engineering/chart-styling.md` |
 | The deck-authoring contract | `design/skill.md` |
 | Cross-cutting authoring (eyebrow, subtitle, base modifiers) | `lib/base/base.docs.md` — and for a deck-level front-matter REGISTER (`mode:` `finish:` `split:` `stamp:`/`tone:` `spectrum:` `rule:` `eyebrow:` `headline:` `lift:` `corners:`), `lib/base/base.registers.docs.md` |
 | A specific component's slots/variants/anti-patterns | `lib/components/<bucket>/<name>/<name>.docs.md` |
