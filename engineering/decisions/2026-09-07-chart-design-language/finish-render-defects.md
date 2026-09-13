@@ -95,9 +95,20 @@ against a surface the thing is not on:
    composites — the layer underneath the top one, which the text never touches.
    Only the final composite is visible.
 
+**A fourth bug, found only after the first three were fixed: SVG text paints with
+`fill`, not `color`.** Reading `color` first meant the inherited CSS color
+answered for every SVG label and `fill` was never consulted, so state-chart's
+step ordinals - which sit inside a filled box at 3.10:1 - were scored with an ink
+they are not drawn in and came back clean. Finding it needed a fifth fix first:
+the audit tested only a label's CENTER against a mark's fill geometry, and an
+ordinal tucked into a rounded box's corner can have its center outside the fill
+while the glyphs plainly sit on it. Five sample points now, not one.
+
 Bug 3 is worth its own line: **an audit that invents failures is as useless as
 one that hides them**, and both halves of it were the same error in opposite
-directions.
+directions. Bugs 1, 2 and 4 are one error three times over - reading a
+property that is not the one doing the painting. That is the thing to check first
+in anything here that measures a rendered surface.
 
 ## 3. Where it landed
 
@@ -119,10 +130,10 @@ AA, measured with the corrected instrument (light mode, indaco):
 
 | | text failures | marks under 3:1 on both channels |
 |---|---|---|
-| shipped baseline | 3 | 14 |
-| `pigment` | 2 | 7 |
-| `etching` | **0** | 7 |
-| `tone` | 2 | 7 |
+| shipped baseline | 6 | 14 |
+| `pigment` | 6 | 7 |
+| `etching` | 5 | 7 |
+| `tone` | 6 | 7 |
 
 **Every remaining failure is present in the shipped baseline and every finish
 improves on it.** The finishes introduce none. The pre-existing ones are
