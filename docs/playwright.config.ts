@@ -94,7 +94,17 @@ export default defineConfig({
 	//   (untagged)   functional oracles — desktop only (no need to re-run per width)
 	//   @mobile      mobile-layout-specific (single swappable pane) — mobile only;
 	//                the two-pane layout applies at ≥ tablet, so these can't run there
-	//   @crosswidth  same assertion worth running at desktop AND mobile (the paint check)
+	//   @crosswidth  same assertion worth running at desktop AND mobile — a functional
+	//                oracle whose ANSWER could differ at 390px (a pane that is swapped in
+	//                rather than mounted, a control that moved into the drawer), not a
+	//                screenshot. Carried by 19 test titles across six spec files today — paint,
+	//                Playground state and explore, editor lint, the gallery budget and the
+	//                Vetrina captions — so this parenthetical names the SCOPE. It used to read
+	//                "(the paint check)", naming ONE of those files, which read as a definition
+	//                of the tag and was wrong for the other five. Count it from TEST TITLES
+	//                (`--list`), not from files mentioning the string: `studio-shell-parity`
+	//                and `playground-stress` both discuss `@crosswidth` in prose and neither
+	//                carries it — shell-parity says in so many words that it must not.
 	//   @parity      input-verb parity (keyboard/wheel/touch) — ALL THREE widths, in
 	//                BOTH pointer states (the `*-touch` projects). A verb that works at
 	//                the width the feature was written on and nowhere else is the exact
@@ -113,10 +123,23 @@ export default defineConfig({
 	//   @webkit-tablet  real WebKit at a wide+short box — engine DIVERGENCE in layout, where
 	//                   the viewport is as load-bearing as the engine (#1227)
 	projects: [
+		// DESKTOP. The `@webkit` half of its grepInvert reads "webkit-ONLY", not "mentions webkit".
+		// It used to be a bare `/@mobile|@webkit/`, which was right while every `@webkit-*`
+		// spec was webkit-exclusive — and silently wrong the moment one also wanted a
+		// desktop run: adding `@webkit-phone` to a `@crosswidth` test DROPPED it from this
+		// project, trading the coverage it had for the coverage it was gaining. The negative
+		// lookahead is anchored so it tests the WHOLE title: a test carrying `@crosswidth`
+		// keeps its desktop run and additionally gets its WebKit one; a webkit-exclusive
+		// test is still excluded here, which is what `webkit-phone`/`webkit-tablet` are for.
+		// Measured: `desktop` holds 494 tests BOTH BEFORE AND AFTER the change that introduced
+		// this pattern — net zero. The two new `@webkit-phone` tags alone would have cut it to
+		// 492, and this lookahead is what puts those two arms back; 492 is an intermediate
+		// state no commit holds, so do not read it as a before. The real delta is on
+		// `webkit-phone`, 18 -> 20, and every other project's list is byte-identical.
 		{
 			name: 'desktop',
 			use: { viewport: { width: 1440, height: 900 } },
-			grepInvert: /@mobile|@webkit/,
+			grepInvert: /@mobile|^(?!.*@crosswidth).*@webkit/,
 		},
 		// A RAISED BROWSER MINIMUM FONT SIZE — the low-vision setting at Chrome's
 		// Settings -> Appearance -> Customize fonts. `--blink-settings=minimumFontSize` is the
@@ -178,7 +201,8 @@ export default defineConfig({
 		// exact greps below. A single `@webkit` would cross-run each spec on the other's
 		// surface, where it is meaningless or simply wrong (a phone drawer-gesture spec at an
 		// iPad-landscape box drives the two-pane layout, not the drawer). `grepInvert` on
-		// `desktop` still matches both by prefix, so neither runs there.
+		// `desktop` matches both by prefix, so a webkit-EXCLUSIVE test does not run there; one
+		// that also carries `@crosswidth` keeps its desktop run too (see that project's note).
 		//
 		// PHONE (#1226): the back-gesture guard is a navigation mechanism whose first
 		// implementation passed every Chromium check here and still failed on a real iPhone.
