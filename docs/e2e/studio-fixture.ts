@@ -68,6 +68,27 @@ export const CHROME = {
 		motion: 'Motion',
 		comments: 'Comments',
 	},
+	/**
+	 * The Inspector's find-and-browse toolbar, at the top right of BOTH scopes (one
+	 * component, `ui/settings-view.tsx`). They live here for the same reason the tab names
+	 * do: they are how a spec reaches a control WITHOUT a tab, so a rename would move every
+	 * such route at once.
+	 *
+	 * `openInspectorTab` below still addresses tabs directly, and that stays correct: the
+	 * pill-tabs render in the GROUPED view, which is the default and what a fresh profile
+	 * gets. A spec that switches to `settings.list` owes its own teardown or a fresh
+	 * context — the choice persists in localStorage.
+	 */
+	settings: {
+		/** Opens the search field; the field then carries the same accessible name. */
+		searchDeck: 'Search deck settings',
+		searchSlide: 'Search slide settings',
+		/** Closes the field and clears the query (Escape does the same). */
+		closeSearch: 'Close search',
+		/** The two view states — grouped pill-tabs, or one continuous list of every section. */
+		grouped: 'Grouped — one section at a time',
+		list: 'List — every section in one scroll',
+	},
 	/** Activity-bar toggle for the Coach (deterministic deck assessment) panel. */
 	coach: 'Toggle Coach',
 	/** Activity-bar toggle for the Chat (AI conversation) panel — a separate peer of the Coach. */

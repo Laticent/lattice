@@ -152,3 +152,63 @@ test('the admission test flags motion that carries nothing, and offers the fix',
 	// It writes the Inspector's own token, so the two surfaces cannot drift.
 	await expect.poll(() => persistedSource(page)).toContain('motion-off');
 });
+
+// ── Find + browse (ui/settings-view.tsx) ─────────────────────────────────────
+// The unit tier covers the matcher and the wiring in jsdom; what only the real
+// browser can answer is whether the two CSS rules that finish the job actually
+// fire — a section with no matching row must COLLAPSE, and "collapse" is
+// `display: none` from an unlayered `:has()` rule that jsdom does not evaluate
+// (HARD RULE #23: a harness passing is not the surface passing).
+
+test('search reaches a control in a tab that is not open, and collapses the rest', async ({ page }) => {
+	// The panel opens on Look, so the Speech tab's Pace control is not in the DOM.
+	await expect(page.getByLabel('Choose pace')).toHaveCount(0);
+
+	await page.getByRole('button', { name: CHROME.settings.searchDeck }).click();
+	await page.getByRole('textbox', { name: CHROME.settings.searchDeck }).fill('pace');
+
+	await expect(page.getByLabel('Choose pace')).toBeVisible();
+	// Look's own rows are gone, and so is the Look SECTION — the heading must not
+	// stand over an empty section. `toBeVisible` is the assertion that needs a real
+	// engine: the row is in the DOM, hidden by the rule its parent matched.
+	await expect(page.getByLabel('Choose deck theme')).toBeHidden();
+	await expect(page.getByRole('heading', { name: CHROME.deckTab.look })).toBeHidden();
+});
+
+test('a query that matches nothing says so, and the note goes when one matches', async ({ page }) => {
+	await page.getByRole('button', { name: CHROME.settings.searchDeck }).click();
+	const field = page.getByRole('textbox', { name: CHROME.settings.searchDeck });
+
+	await field.fill('zzzznothing');
+	await expect(page.getByText(/No setting matches/)).toBeVisible();
+
+	// The note is hidden by CSS the moment the body holds one hit — not re-rendered.
+	await field.fill('pace');
+	await expect(page.getByText(/No setting matches/)).toBeHidden();
+});
+
+test('closing the search restores the tabs and the whole panel', async ({ page }) => {
+	await page.getByRole('button', { name: CHROME.settings.searchDeck }).click();
+	await page.getByRole('textbox', { name: CHROME.settings.searchDeck }).fill('pace');
+	await expect(page.getByRole('tab', { name: CHROME.deckTab.look })).toHaveCount(0);
+
+	await page.getByRole('button', { name: CHROME.settings.closeSearch }).click();
+	await expect(page.getByRole('tab', { name: CHROME.deckTab.look })).toBeVisible();
+	await expect(page.getByLabel('Choose deck theme')).toBeVisible();
+	await expect(page.getByLabel('Choose pace')).toHaveCount(0);
+});
+
+test('the list view drops the tabs and renders every section at once', async ({ page }) => {
+	await page.getByRole('button', { name: CHROME.settings.list }).click();
+	try {
+		await expect(page.getByRole('tab', { name: CHROME.deckTab.look })).toHaveCount(0);
+		// One control from each end of the tab strip, both on screen together.
+		await expect(page.getByLabel('Choose deck theme')).toBeVisible();
+		await expect(page.getByLabel('Choose pace')).toBeVisible();
+		await expect(page.getByRole('heading', { name: CHROME.deckTab.speech })).toBeVisible();
+	} finally {
+		// The choice PERSISTS (localStorage), so put it back: a spec that leaves the
+		// panel in list view would strand every tab-addressing spec sharing the profile.
+		await page.getByRole('button', { name: CHROME.settings.grouped }).click();
+	}
+});

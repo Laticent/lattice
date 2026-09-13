@@ -147,8 +147,15 @@ the slide panel's "Says nothing" rule and the caption/description separators bot
 with nothing above it once the preceding block filtered away. Both now drop while a query is
 live — `SettingsBlock`'s `separated` prop is where that decision lives, once.
 
-213 tests green across the four affected suites, 16 of them new in
-`ui/settings-view.test.tsx` plus 9 wiring tests split across the two panels.
+Four e2e tests in `inspector.spec.ts` carry the part jsdom cannot: **`display: none` from
+an unlayered `:has()` rule is not something jsdom evaluates**, so the unit tier can only
+prove a row was not RENDERED — never that a section which still holds hidden rows actually
+collapses. Mutation-checked both ways: misspelling the attribute in the selector turns the
+e2e assertion red, and the text pin in `settings-view.test.tsx` names the other side.
+
+Green: 19 in `ui/settings-view.test.tsx`, 9 wiring tests split across the two panels, 2073
+across the ui + studio suites, 3964 across the whole docs suite, 9345 repo unit tests, 12
+e2e in `inspector.spec.ts`, plus `npm run lint` and `npm run build:check`.
 
 ---
 
