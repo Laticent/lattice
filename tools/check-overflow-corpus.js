@@ -32,6 +32,13 @@
  *   node tools/check-overflow-corpus.js --json
  *   node tools/check-overflow-corpus.js examples/foo.md …   # just these decks
  *
+ * THE BASELINE RECORDS ITS OWN DENOMINATOR (`decksSwept`). Only CLIPPING decks are
+ * listed, so a deck missing from the map is indistinguishable from a deck nobody
+ * swept — and that is not hypothetical: seven component galleries authored after the
+ * last full bless were read as clean for a week, because the file had last been
+ * hand-edited to add one deck rather than re-blessed. A check whose corpus is larger
+ * than the blessed one now says so.
+ *
  * Exit 0 when no deck exceeds its baseline; 1 when one does; 2 on a setup error.
  * Needs CHROME_PATH (the SessionStart hook exports it).
  */
@@ -161,7 +168,15 @@ async function main() {
   if (bless) {
     if (only.length) { console.error('✗ --bless re-records the WHOLE corpus; drop the deck arguments.'); process.exit(2); }
     if (errors.length) { console.error(`✗ refusing to bless: ${errors.length} deck(s) failed to render.`); for (const e of errors.slice(0, 5)) console.error(`  • ${e.deck}: ${e.error}`); process.exit(2); }
-    const next = { $comment: 'Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it.', totalSlides: clipped.reduce((n, r) => n + r.pages.length, 0), decks: Object.fromEntries(clipped.map((r) => [r.deck, r.pages])) };
+    // THE DENOMINATOR IS RECORDED, and it was the hole. This file lists only the decks
+    // that CLIP, so a deck missing from the map reads as "clean" and cannot be told from
+    // one that was never looked at. Seven galleries authored after the last full bless
+    // therefore owed nothing at all, and a hand-edit that added a single deck's entry
+    // (fa181c9) left the other seven silently floorless for a week — `overflow:check` is
+    // on-demand, so nothing ran to say otherwise. Writing down how many decks the
+    // blessing sweep actually covered turns "which decks were looked at?" from
+    // unanswerable into one comparison, reported below.
+    const next = { $comment: 'Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it. `decksSwept` is how many decks the blessing run covered: a deck absent from `decks` is clean ONLY if it was in that sweep.', totalSlides: clipped.reduce((n, r) => n + r.pages.length, 0), decksSwept: rows.length, decks: Object.fromEntries(clipped.map((r) => [r.deck, r.pages])) };
     fs.writeFileSync(BASELINE, JSON.stringify(next, null, 2) + '\n');
     console.log(`✓ blessed — ${next.totalSlides} clipped slides across ${clipped.length} decks → ${path.relative(ROOT, BASELINE)}`);
     process.exit(0);
@@ -180,17 +195,29 @@ async function main() {
   const total = clipped.reduce((n, r) => n + r.pages.length, 0);
 
   if (json) {
-    console.log(JSON.stringify({ ok: !regressions.length && !errors.length, total, baseline: base.totalSlides ?? null, regressions, improvements, errors }, null, 2));
+    console.log(JSON.stringify({ ok: !regressions.length && !errors.length, total, swept: rows.length, baselineSwept: base.decksSwept ?? null, baseline: base.totalSlides ?? null, regressions, improvements, errors }, null, 2));
     process.exit(regressions.length || errors.length ? 1 : 0);
   }
 
   for (const e of errors) console.error(`  ! ${e.deck} failed to render: ${e.error}`);
+  // DID THE CORPUS GROW SINCE THE BASELINE WAS RECORDED? A deck absent from `decks` is
+  // indistinguishable from a deck nobody swept, so a baseline recorded against a smaller
+  // corpus silently grants every newer deck a floor of zero. Said out loud rather than
+  // implied, and never fatal on its own — the per-deck ratchet below still decides.
+  if (!only.length && Number.isFinite(base.decksSwept) && rows.length > base.decksSwept) {
+    console.error(`  ⓘ the baseline was recorded against ${base.decksSwept} decks; this sweep covered ` +
+      `${rows.length}. ${rows.length - base.decksSwept} deck(s) entered the corpus since, and a deck ` +
+      'absent from the baseline is read as CLEAN — re-bless so they carry a real floor.');
+  } else if (!only.length && !Number.isFinite(base.decksSwept)) {
+    console.error('  ⓘ the baseline records no `decksSwept`, so nothing can tell a deck that is clean ' +
+      'from one that was never swept. The next --bless writes it.');
+  }
   if (improvements.length) {
     console.log(`\n  ${improvements.length} deck(s) improved — bank them with --bless:`);
     for (const i of improvements.slice(0, 12)) console.log(`    ${i.deck}  (fixed p${i.gone.join(', p')})`);
   }
   if (!regressions.length && !errors.length) {
-    console.log(`\n✓ overflow corpus — ${total} clipped slide(s) across ${clipped.length} deck(s), none above baseline (${base.totalSlides ?? '?'}).`);
+    console.log(`\n✓ overflow corpus — ${total} clipped slide(s) across ${clipped.length} deck(s) of ${rows.length} swept, none above baseline (${base.totalSlides ?? '?'}).`);
     process.exit(0);
   }
   if (regressions.length) {

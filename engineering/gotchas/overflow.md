@@ -3,6 +3,44 @@
 One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
 this file is the detail. Entry shape and the rule for adding one are in the index.
 
+## `overflow:check` reports decks as regressed that nobody touched — and the baseline says they were clean
+
+- **Symptom:** `npm run overflow:check` fails with a list of decks that "clip MORE
+  slides than the baseline (baseline: clean)", on a branch that changed none of
+  them. Checking out an older commit and re-rendering reproduces the same clipping,
+  so nothing regressed. Measured instance (2026-09-13): seven component galleries —
+  six chart members and `team-profile` — all reported at once.
+- **Cause:** the baseline lists only the decks that CLIP, so **a deck missing from
+  the map is read as clean, and a deck nobody ever swept is missing from the map in
+  exactly the same way.** Those seven were authored after the last FULL `--bless`,
+  and the file had since been hand-edited to add one deck's entry rather than
+  re-blessed (`fa181c9`). They therefore carried a floor of zero from the day they
+  landed, and because `overflow:check` is on-demand rather than a CI gate, nothing
+  ran to say so for a week. The check is not wrong; the baseline was never a
+  statement about those decks at all.
+- **How to tell which you have:** check the deck out at the commit the baseline was
+  last blessed at and render it. If it clips there too, the baseline is incomplete
+  and the honest fix is a full `--bless`. If it does not, you have a real regression
+  and blessing would bury it.
+- **The guard against a repeat:** the baseline now records `decksSwept`, the number
+  of decks the blessing run covered, and `overflow:check` reports when today's corpus
+  is larger — `ⓘ the baseline was recorded against N decks; this sweep covered M`.
+  That is the one fact that distinguishes "clean" from "never looked at", and the
+  file could not previously carry it.
+- **What those seven actually clip, and why it was blessed rather than fixed:** the
+  per-component gallery composes each variant's `<!-- _footer: -->` as
+  `label · name variant — summary`, where `summary` is the variant's full
+  documentation sentence from the manifest (`tools/build-component-docs.js`). The
+  standard frame's footer is single-line chrome (`white-space: nowrap; overflow:
+  hidden; text-overflow: ellipsis`), and 136 characters do not fit its 1187px. The
+  ellipsis is the frame's designed answer for a long footer — `probeContentClipped`
+  classifies it `chromeOnly` and `probeSectionOverflow` deliberately stopped counting
+  it as geometric spill in `fa181c9` — and the summary ships in full in
+  `dist/docs/components.md`, the manifest and the docs site. **Shortening it is a
+  change to the GENERATOR**, which would regenerate 58 galleries and their committed
+  light/dark PDFs, so it is its own pass (HARD RULE #18's off-path rule), not
+  something to fold into a baseline bless.
+
 ## A slide loses its EYEBROW and HEADING off the top, and no ring / pill / console line fires
 
 - **Symptom:** the top of a panel or card is simply gone in the render — the

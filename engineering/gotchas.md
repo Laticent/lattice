@@ -217,6 +217,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ### [Overflow detection and the Fit Spine](gotchas/overflow.md)
 
+- [`overflow:check` reports decks as regressed that nobody touched — and the baseline says they were clean](gotchas/overflow.md#overflowcheck-reports-decks-as-regressed-that-nobody-touched--and-the-baseline-says-they-were-clean)
 - [A slide loses its EYEBROW and HEADING off the top, and no ring / pill / console line fires](gotchas/overflow.md#a-slide-loses-its-eyebrow-and-heading-off-the-top-and-no-ring--pill--console-line-fires)
 - [A fixed-size slide frame silently truncates content past 1280×720](gotchas/overflow.md#a-fixed-size-slide-frame-silently-truncates-content-past-1280720)
 - [The overflow ring lags an edit, or a slide scrolled past keeps a ring it should have lost](gotchas/overflow.md#the-overflow-ring-lags-an-edit-or-a-slide-scrolled-past-keeps-a-ring-it-should-have-lost)
