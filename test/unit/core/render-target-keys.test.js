@@ -14,6 +14,7 @@ const {
 	legacyOnPattern,
 	legacyOnPatternVerbatim,
 } = require('../../../lib/core/render-target-keys');
+const { frontMatterValue } = require('../../../lib/core/front-matter-key');
 const { lintTextWith } = require('../../../lib/authoring/lint-core');
 
 const REPO = join(__dirname, '..', '..', '..');
@@ -93,6 +94,25 @@ test('PARITY: every block the old emulator regex enabled is still enabled', () =
 		assert.equal(legacy(block, 'fluid'), true, `fixture drift: legacy rejected ${label}`);
 		assert.equal(readRenderTargetKey(block, 'fluid'), true, `REGRESSION — ${label} no longer enables fluid`);
 	}
+});
+
+test('PARITY: every divergence row turns a target OFF — the docblock says six, so pin six', () => {
+	// The docblock's count is a CLAIM, and an earlier draft got it wrong twice in one
+	// sentence ("six inputs ... four of them" — it is six of six turning off, plus four
+	// widenings, so ten disagreements). Counts in prose are exactly what nobody re-derives,
+	// so the direction of every row is measured here instead of asserted there.
+	const scalarOn = (block) => {
+		const v = frontMatterValue(block, 'fluid');
+		return v !== null && ON_WORDS.includes(v.toLowerCase());
+	};
+	// The six rows named in the docblock, minus the two that are plain controls.
+	const DIVERGENCES = PARITY_BLOCKS.filter(([label]) => label !== 'plain' && label !== 'among other keys');
+	let turnedOff = 0;
+	for (const [label, block] of DIVERGENCES) {
+		if (legacy(block, 'fluid') && !scalarOn(block)) turnedOff++;
+		else assert.ok(!legacy(block, 'fluid') || scalarOn(block), `${label}: unexpected direction`);
+	}
+	assert.equal(turnedOff, 6, `the docblock names SIX rows that turn a target off; measured ${turnedOff}`);
 });
 
 test('PARITY: the widenings are enumerated, and every one is legacy-OFF becoming on', () => {
@@ -193,6 +213,24 @@ test('EQUIVALENCE: the rewrite is linear where the verbatim pattern was quadrati
 	pattern.test(block);
 	const ms = Number(process.hrtime.bigint() - t0) / 1e6;
 	assert.ok(ms < 100, `20k newlines took ${ms.toFixed(1)}ms — the verbatim pattern took 640ms here`);
+});
+
+test("the union's ONE new false-ON is pinned, so it cannot widen further unnoticed", () => {
+	// A nested key read by the scalar arm, made readable by a widening the `$`-anchored
+	// legacy regex could not read. The old export said OFF; the union says ON. Contrived
+	// (zero instances across the committed decks) but real, and the docblock names it — so
+	// it is pinned here rather than left to be rediscovered as a regression.
+	for (const block of ['nest:\n  fluid: "true"\nfluid: false', 'nest:\n  fluid: true # note\nfluid: false']) {
+		assert.equal(legacy(block, 'fluid'), false, 'the old export read this as OFF');
+		assert.equal(readRenderTargetKey(block, 'fluid'), true, 'the union reads it as ON — a known, recorded widening');
+	}
+	// Plain nested shadowing is PRE-EXISTING, not something the union introduced.
+	assert.equal(legacy('nest:\n  fluid: true\nfluid: false', 'fluid'), true);
+});
+
+test('an unknown key reads as absent rather than throwing', () => {
+	assert.deepEqual(renderTargetKeyState('x: 1', 'nope'), { state: 'absent', value: null });
+	assert.equal(readRenderTargetKey('x: 1', 'nope'), false);
 });
 
 test('an absent key is off, and one key never answers for another', () => {
@@ -315,7 +353,14 @@ test('the emulator reads all three through the kernel, not its own regex', () =>
 test("the Studio editor offers all three, so a hand-typed key is discoverable", () => {
 	const src = readFileSync(join(REPO, 'docs/src/components/studio/editor-complete.ts'), 'utf8');
 	for (const key of RENDER_TARGET_KEY_NAMES) {
-		assert.match(src, new RegExp(`\\{ key: '${key}',`), `${key} is missing from FRONT_MATTER_KEYS`);
+		const entry = src.match(new RegExp(`\\{ key: '${key}', info: '([^']*)'`));
+		assert.ok(entry, `${key} is missing from FRONT_MATTER_KEYS`);
+		// The entries exist to hand a hand-typing author the accepted values, and they said
+		// `true / false` — two of six — until a review caught it. Nothing failed when that
+		// regressed, so the six words are pinned rather than trusted.
+		for (const word of [...ON_WORDS, ...OFF_WORDS]) {
+			assert.match(entry[1], new RegExp(`\\b${word}\\b`), `${key}'s hint omits '${word}'`);
+		}
 	}
 });
 

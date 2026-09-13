@@ -1,3 +1,4 @@
+- **New lint rule** `bad-render-target-value` and two new autocomplete keys ship here, which is why this fragment is `added` rather than `fixed` — the category picks the release bump.
 - `fluid:`, `player:` and `present:` no longer fall silent on a trailing YAML comment.
   The export matched these three keys with a `$`-anchored regex, so `fluid: true  # for the
   web` enabled nothing while every other key in the same block stripped the comment and read
