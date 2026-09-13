@@ -2134,7 +2134,15 @@ export function createStage(opts: StageOptions): Stage {
 	let captionHeld = false;
 	/** The last thing the cursor aimed at — what the bubble keeps out of the way of. */
 	let lastAim: RectLike | null = null;
-	const captionShouldShow = () => captionWanted && (voiced || captionHeld || performDepth === 0);
+	/** True between `say()` and the moment its new text actually lands. The cross-fade swaps the
+	 *  words 140ms after the call, and `captionWanted` is true for the whole of that window — so
+	 *  any `syncCaption` arriving inside it (an `endPerform` from the typing reveal is the common
+	 *  one) revealed the bubble carrying the PREVIOUS line. Measured on the real page: the balloon
+	 *  faded up to 96% showing the last beat's caption, beside the new beat's cursor, for 134ms
+	 *  before the words swapped underneath it. Intermittent, because it is a race against a
+	 *  timer — which is why it survived a suite that only ever asked what was on screen at rest. */
+	let sayPending = false;
+	const captionShouldShow = () => captionWanted && !sayPending && (voiced || captionHeld || performDepth === 0);
 	/** Reveal or hide the bubble, RE-ANCHORING it whenever it comes back.
 	 *
 	 *  Placing it once, when the line is set, is the bug this signature exists to prevent: the
@@ -2191,6 +2199,7 @@ export function createStage(opts: StageOptions): Stage {
 		// stays — it is the motion-SAFE swap (Apple HIG cross-fades in place of a slide), not a
 		// vestibular trigger, and it keeps the narration readable rather than flickering.
 		if (still) {
+			sayPending = false;
 			setNarration(text);
 			syncCaption(true);
 			return;
@@ -2199,11 +2208,13 @@ export function createStage(opts: StageOptions): Stage {
 		// caption that slides from one anchor to another is a moving target, and text that moves
 		// during a fixation cannot be read — it has to be re-found and re-fixated. Fade, place,
 		// fade: the reader's eye lands once.
+		sayPending = true;
 		revealBubble?.(false, false);
 		narration.style.opacity = '0';
 		window.clearTimeout(sayTimer);
 		sayTimer = window.setTimeout(() => {
 			if (destroyed) return;
+			sayPending = false;
 			setNarration(text);
 			narration.style.opacity = '1';
 			syncCaption(true);

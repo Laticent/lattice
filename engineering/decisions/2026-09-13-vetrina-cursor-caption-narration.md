@@ -459,6 +459,44 @@ or 10,000 words does not hang or throw. A hostile `speak()` that throws, rejects
 leaves Exit and take-over working. And the `structuredClone` removal from the third pass was
 independently confirmed correct against `cursor.ts` rather than against its own comment.
 
+### A twelfth finding, found by verifying the other eleven
+
+Re-running the red team's measurements against the fixed build — because a jsdom test is not
+verification of real behavior (HARD RULE #23) — turned up a defect none of the three lenses saw,
+in the fix's own neighborhood: **the caption came back carrying the PREVIOUS beat's line.**
+
+`say()` hides the bubble, then swaps the words and reveals 140ms later. `captionWanted` is true for
+the whole of that window, so any `syncCaption` arriving inside it revealed the bubble still holding
+the last line — beside the NEW beat's cursor. The typing reveal's `busy(false)` is the common
+arrival. Measured on the real page: the balloon faded up to 96% showing "Everything you see happens
+through its own setters." for 134ms before the words became "Give the deck a title."
+
+It is a race against a timer, so it is intermittent — two consecutive runs of the same probe
+disagreed, which is exactly why 268 unit tests and 11 e2e cases missed it. Every one of them asks
+what is on screen AT REST. `captionShouldShow()` now returns false while a swap is pending. The
+regression test uses `motion:'legible'`, the one tier where travel is instant while the cross-fade
+stays, so the performance reliably begins and ends inside the window.
+
+**Why this counts for more than one bug.** It is the second time on this branch that the thing
+which found a defect was driving the real surface, and the first eleven were found the same way.
+The unit suite was not idle — 268 tests, every fix mutation-proved — and it still could not see a
+134ms visual artifact, because the oracle it has is "what is the state now", not "what did a human
+see". That is the standing limit of the coverage here, and it is worth stating rather than
+discovering again.
+
+### The five measurements, re-run on the real page after the fixes
+
+| what | before | after |
+|---|---|---|
+| Exit under `bounds:'host'`, host 2200px tall, window 900px | `y = -638` (cursor) · `y = +1436` (bar) | `y = 12` · `y = 786` — both on screen |
+| a voiced run's caption | a balloon, stale, 493px from the pointer | 0 balloons, 1 edge dock |
+| transient dwell under the DEFAULT `pacing:'legacy'`, per line | 1300 / 1900 / 1300 / 1900 / 2100 / 1700 ms | 2383 / 3350 / 2167 / 3366 / 3767 / 2950 ms |
+| `AudioContext`s across 4 voiced runs | one per run | 1 |
+| a line shown twice (the stale reveal) | up to 134ms at 96% opacity | each line appears exactly once |
+
+Three of these are now in `docs/e2e/vetrina-cursor-caption.spec.ts`, next to the eleven that could
+not catch them.
+
 ### Still unverified after this pass
 
 - **A real voice.** Unchanged, and unchangeable from here.

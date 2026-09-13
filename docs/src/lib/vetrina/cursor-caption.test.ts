@@ -518,3 +518,43 @@ describe('avoidance is a preference, and proximity outranks it', () => {
 		expect(Math.hypot(at.left - 500, at.top - 400)).toBeLessThan(100);
 	});
 });
+
+describe('the caption never comes back carrying the PREVIOUS line', () => {
+	// `say()` hides the bubble and swaps the words 140ms later, but `captionWanted` is true for the
+	// whole of that window. Any `syncCaption` arriving inside it — an `endPerform` from the typing
+	// reveal is the common one — revealed the bubble still carrying the last beat's caption, beside
+	// the new beat's cursor. Measured on the real page at 96% opacity for 134ms, and intermittent,
+	// because it is a race against a timer: a suite that only asks what is on screen AT REST cannot
+	// see it, which is why 268 tests did not.
+	it('a performance that ends mid-cross-fade does not reveal the stale words', async () => {
+		// 'legible' is the tier that makes this reproducible: travel is instant (no tween to sit
+		// through) while the 140ms caption cross-fade STAYS, so the performance genuinely begins and
+		// ends inside the swap window. Under the default tier the glide outlasts the window and the
+		// race closes on its own — which is why it is intermittent on a real page rather than absent.
+		const { root, stage, layer } = mount({ motion: 'legible' });
+		const target = document.createElement('button');
+		root.appendChild(target);
+		const bubble = bubbleOf(layer);
+		Object.defineProperty(bubble, 'offsetWidth', { value: 240, configurable: true });
+		Object.defineProperty(bubble, 'offsetHeight', { value: 60, configurable: true });
+
+		stage.say('The first line.');
+		// Let the cross-fade land, so the bubble is genuinely up with line one.
+		await new Promise<void>((r) => setTimeout(r, 200));
+		expect(hidden(layer)).toBe(false);
+		expect(bubble.textContent).toContain('The first line.');
+
+		// A new line, then a performance that begins AND ends inside the 140ms swap window.
+		stage.say('The second line.');
+		await stage.point(target);
+
+		// The reveal must not have happened yet — and if it did, it must not be showing line one.
+		if (!hidden(layer)) expect(bubble.textContent).not.toContain('The first line.');
+		expect(hidden(layer)).toBe(true);
+
+		// And it still comes back, with the right words, once the swap lands.
+		await new Promise<void>((r) => setTimeout(r, 200));
+		expect(hidden(layer)).toBe(false);
+		expect(bubble.textContent).toContain('The second line.');
+	});
+});

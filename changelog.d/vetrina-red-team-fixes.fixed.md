@@ -21,3 +21,7 @@
 - **Vetrina — `gesture` records what it aimed at**, so the caption's avoid list holds the ink just
   drawn rather than the previous beat's target. `setVoiced` is now `destroyed`-guarded like every
   other stage verb.
+- **Vetrina — the caption no longer comes back carrying the previous beat's line.** `say()` swaps
+  the words 140ms after the call, and a performance ending inside that window revealed the bubble
+  still holding the last caption, beside the new beat's cursor — measured at 96% opacity for 134ms.
+  Intermittent, because it is a race against a timer.
