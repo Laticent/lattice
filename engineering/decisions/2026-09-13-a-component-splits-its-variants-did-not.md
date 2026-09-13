@@ -329,6 +329,23 @@ probe calls fine.
   defect is worse than one that shows it. Off the path of this change (nothing here touches
   `list`, the `bullet` modifier, or the chart), so it is recorded rather than fixed — but it is
   recorded as a defect on `main`, not as churn.
+
+  **AND IT IS NOT THE ONLY STALE GOLDEN — the staleness is the finding.** Checking the other
+  changed goldens the same way turned up a second one straight away: `portrait-journey`'s split
+  pointer reads `A :1 task is then unmistakable` in `main`'s committed golden and `A:1 task …`
+  in what either tree renders today, so the space before an inline `<code>` chip is being lost
+  and the golden still shows it intact. Same verdict — base render and head render are
+  identical, so it is not this change's — and the same shape: a committed baseline that
+  silently stopped describing the engine.
+
+  Both were found only because an unrelated CSS edit forced a gallery rebuild. **Nothing
+  routinely asks whether a committed golden still matches what the engine renders**, and
+  `golden-diff` cannot ask it either — it compares the PR's goldens against the BASE's, so two
+  equally stale goldens agree and report nothing. The gate that would catch this is a fresh
+  render against the committed golden (`tools/regression-gate.mjs` asks exactly that question,
+  for the author, at bless time), run on a cadence over the whole corpus rather than on the
+  decks a PR happens to touch. That is a CI-contract change and belongs to its owner, not to
+  this PR.
 - **`split-panel steps` overflows at `wide` from step 1 of the jank sweep** — the component's
   own skeleton, at its own authoring size, with a six-word heading. Pre-existing, off this
   change's path, and recorded here rather than walked past (HARD RULE #18's off-path arm).
