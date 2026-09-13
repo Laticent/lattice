@@ -1221,11 +1221,23 @@ JPEG.
 
 ```yaml
 ---
-logo: ./acme-logo.svg
+logo: lattice                     # a built-in name, or a path / URL of your own
 logo-style: auto | brand          # optional, default `auto`
 logo-on: all | title              # optional, default `all`
 ---
 ```
+
+**A name, or a path — and the difference decides where your deck works.**
+`logo: lattice` is a BUILT-IN: the engine inlines Lattice's own mark, so it
+paints on every surface — the CLI, the Playground, the Studio, an exported
+`.html` opened offline, a phone. It is the only built-in, deliberately.
+
+Anything else is taken literally, and a PATH only means something where the
+deck FILE is. `logo: ./acme-logo.svg` resolves for the CLI, which knows the
+`.md`'s directory; in the Studio and the Playground there is no file, so the
+same line 404s — and a failed image load stops the PDF export outright (it
+says so now). For your own mark on a web surface, give a URL the viewer can
+fetch, or a `data:` URI.
 
 A real DOM element (rather than a `::before` pseudo) is what lets
 the logo compose with every treatment — tints
