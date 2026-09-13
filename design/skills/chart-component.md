@@ -82,6 +82,16 @@ dispatcher + the categorical/semantic color token model in `chart-family.css`),
   the dispatcher finds you; `chart-family.js` is not edited. **Everything else
   still does not** — see step 9 for the rosters that are hand-maintained and
   fail silently.
+- **Declare your data marks in the same block.** `kernel.marks` is required: one
+  row per mark you paint, carrying how it takes paint (`fill` / `bg` / `none`),
+  what its body encodes (`hue` / `ramp` / `presence` / `layered` / `none`) and
+  whether it carries text. A chart finish is a stylesheet, so those three facts
+  are the whole of what a finish may do to your member — and a mark you do not
+  declare is one no finish can reach. Get `paint: "none"` right in particular:
+  it is the gate that stops a finish stepping a stroke that IS the mark. Verify
+  with `node tools/chart-language-census.js <your.gallery.md> --check`, which
+  measures `bears` off a real render rather than trusting the row.
+  `engineering/decisions/2026-09-07-chart-design-language/mark-declaration.md`
 - **Validate**: `test/unit/palette/chart-contrast.test.js`, `npm run scorecard`.
 
 ---

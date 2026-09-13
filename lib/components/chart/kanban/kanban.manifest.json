@@ -15,7 +15,27 @@
   "render": "html",
   "renderNote": "Columns and cards are HTML/CSS boxes. A board is a set of text cards in named columns with no geometry to draw, and HTML gives it real text selection, wrapping and reflow that an SVG rewrite would have to reimplement badly.",
   "kernel": {
-    "figureClass": "kanban-board"
+    "figureClass": "kanban-board",
+    "marks": [
+      {
+        "class": "kanban-card",
+        "paint": "bg",
+        "encodes": "hue",
+        "bears": true
+      },
+      {
+        "class": "kanban-column",
+        "paint": "bg",
+        "encodes": "hue",
+        "bears": true
+      },
+      {
+        "class": "kanban-lane",
+        "paint": "none",
+        "encodes": "none",
+        "bears": true
+      }
+    ]
   },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },

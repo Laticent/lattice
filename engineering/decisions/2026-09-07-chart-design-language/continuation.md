@@ -22,7 +22,20 @@ in gitignored `.scratch/`, so treat the artifact as the source of truth):
 
 ## The queue, in the order it de-risks the rest
 
-### 1. Bake the chart CLASSIFICATION into the manifest
+### 1. Bake the chart CLASSIFICATION into the manifest — **DONE**
+
+**Shipped. See `mark-declaration.md` in this folder for the record.** All 21
+members declare `kernel.marks` (77 rows, 70 of them verified against a real
+render), two gates hold them up, the render-side check disagreed with the
+hand-written declarations six times, and it found one engine defect (`scatter`
+stamped `data-encodes="hue"` on a translucent bubble). The class did not land as
+the six-way enum sketched below: `paint` and `encodes` are two fields, because
+the family contains marks that split them — a body that carries no datum is not
+the same as no body. The `texture` row is not
+declared at all; it is a runtime property of an a11y palette, not of a member.
+
+The original entry follows, as written.
+
 
 Today a member's class is inferred at runtime from a hand-written `MARKS` table
 in the prototype, and every time that table was wrong the render was wrong:

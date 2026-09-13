@@ -7,7 +7,15 @@
   "render": "svg",
   "renderNote": "The bars, the connectors that carry the running total between them, the value axis and every printed delta are one `<svg>`. A waterfall is an arithmetic claim before it is a picture — each bar starts exactly where the previous one ended — so the whole walk has to be solved in one coordinate system rather than assembled from boxes that happen to line up.",
   "kernel": {
-    "figureClass": "waterfall-figure"
+    "figureClass": "waterfall-figure",
+    "marks": [
+      {
+        "class": "waterfall-bar",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
   },
   "stage": "canvas",
   "coda": {

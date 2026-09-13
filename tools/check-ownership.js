@@ -4901,6 +4901,138 @@ function checkChartKernels(manifests, errors) {
   }
 }
 
+// `kernel.marks` — every DATA MARK a chart kernel paints, declared in the
+// manifest instead of inferred at runtime.
+//
+// WHY A GATE AND NOT A CONVENTION. A chart FINISH is a stylesheet, so everything
+// it may do to a member is decided by three facts per mark: how the mark takes
+// paint, what its body encodes, and whether it carries text. Those facts lived in
+// a hand-written table in the finish prototype, and the table was wrong every
+// time anybody checked it — `funnel-band` declared text-bearing when 0 of 5 bands
+// carry any text (the labels sit in the LEFT GUTTER), which is the whole reason
+// funnel rendered byte-identical under all three finishes; `cell-filled` carrying
+// no slot, collapsing six categories to one hue. A class that is inferred is a
+// class that can be inferred wrongly, and the render is where it shows.
+//
+// WHAT THIS ARM CAN AND CANNOT SEE, stated plainly because the last session was
+// burned twice by a gate that measured less than it appeared to:
+//
+//   IT CAN see that a declared class is one the transform actually WRITES. That
+//   is the `figureClass` check's own shape, and it is what stops a rename from
+//   leaving a stale row behind — a finish rule against a class nothing emits is
+//   a silent no-op, which is exactly how a member comes to look untouched.
+//
+//   IT CAN see that every `data-paint` / `data-encodes` VALUE the transform
+//   stamps is one the manifest declares somewhere. A transform stamping
+//   `presence` against a manifest that only knows `hue` is a real contradiction
+//   and this catches it.
+//
+//   IT CANNOT tie a stamped value to the specific element it lands on (that
+//   needs the DOM, not the source), and it CANNOT check `bears` at all —
+//   bearing is geometry. Both are measured off a real render by
+//   `node tools/chart-language-census.js --check`, which is the arm that fails
+//   on a wrong `bears`. Do not read a green build:check as either.
+// FINDING A CLASS IN A TRANSFORM IS NOT A `class="…"` MATCH, and assuming it was
+// is the first thing this gate got wrong. A transform computes its class list:
+// bar.transform.js writes
+//
+//     const cls = shape.diverging ? `bar-mark ${…}` : 'bar-mark';
+//
+// and interpolates `cls` later, so `bar-mark` never appears next to the word
+// `class` anywhere in the file. A `class=` matcher reported every real mark in
+// the family as missing.
+//
+// So the test is: does the class appear as a WHOLE TOKEN inside a STRING LITERAL.
+// String-literal, because a class named only in a comment is a stale row wearing
+// a citation — which is the case this gate exists to fail on. Whole-token,
+// because `bar-mark` must not be found inside `bar-marks` (the <g> CONTAINER, a
+// different element with a different job).
+const COMMENTS = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
+const STRING_LITERALS = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
+function writesClass(src, cls) {
+  const token = new RegExp(`(?:^|[^-\\w])${cls}(?![-\\w])`);
+  const code = src.replace(COMMENTS, ' ');
+  for (const lit of code.match(STRING_LITERALS) || []) {
+    if (token.test(lit)) return true;
+  }
+  return false;
+}
+
+// A MARK IS NOT ALWAYS WRITTEN BY ITS OWN MEMBER'S TRANSFORM, and assuming it
+// was is the second thing this gate got wrong. Two shapes break it, both real:
+//
+//   `matrix-grid.transform.js` writes no cell at all. `cell-filled` /
+//   `cell-outlined` / `cell-empty` are stamped at MARKDOWN-PARSE time by
+//   `lib/core/matrix-grid-cells.js`, through the `matrixGridCells` plugin — the
+//   transform's own header says so and then does not emit them.
+//
+//   `gantt-legend-swatch` and the `chart-key-*` swatches come from the shared
+//   `_chart-family/svg-legend.js`, and `chart-status` is a family class two
+//   members reuse.
+//
+// So the search widens: the member's own transform first, then every `lib/**.js`
+// outside `dist/`. That is a weaker test than "this member writes it" and the
+// weakness is worth naming — a class one member emits would satisfy another
+// member's declaration. It still catches the failure this exists for, which is a
+// class NOBODY writes: a rename that left a row behind, or a row invented from
+// memory. The per-member tie is made on the render instead, where a mark's
+// section is a fact rather than an inference
+// (`node tools/chart-language-census.js --check`).
+let LIB_SOURCES = null;
+function libSources() {
+  if (LIB_SOURCES) return LIB_SOURCES;
+  LIB_SOURCES = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== 'node_modules') walk(abs); }
+      else if (e.name.endsWith('.js') || e.name.endsWith('.mjs')) LIB_SOURCES.push(abs);
+    }
+  };
+  walk(path.join(ROOT, 'lib'));
+  return LIB_SOURCES;
+}
+
+function checkChartMarks(manifests, errors) {
+  const STAMP_RE = /data-(paint|encodes)=\\?["']([a-z]+)/g;
+  for (const m of manifests) {
+    if (!m.kernel || !Array.isArray(m.kernel.marks)) continue;  // the loader reports a missing block
+    const bucket = manifestBucket(m);
+    if (!KERNEL_BUCKETS_GATED.has(bucket)) continue;
+    const rel = path.join('lib', 'components', bucket, m.name, `${m.name}.transform.js`);
+    const abs = path.join(ROOT, rel);
+    if (!fs.existsSync(abs)) continue;  // checkChartKernels reports the missing kernel
+    const src = fs.readFileSync(abs, 'utf8');
+    for (const mark of m.kernel.marks) {
+      if (typeof mark.class !== 'string') continue;  // the loader reports the shape error
+      if (writesClass(src, mark.class)) continue;
+      if (libSources().some((f) => writesClass(fs.readFileSync(f, 'utf8'), mark.class))) continue;
+      errors.push(
+        `${m.name}: \`kernel.marks\` declares the class "${mark.class}" but nothing under lib/ ` +
+        `writes it — not ${rel}, not the shared kernels. A finish rule against a class nothing ` +
+        `emits is a silent no-op: the member renders identically under every finish and no test ` +
+        `goes red. Either the class was renamed and this row is stale, or the row names ` +
+        `furniture rather than a mark.`);
+    }
+    // Every value the transform stamps has to be one this manifest knows. This
+    // is a SET check over one file, not a per-element one: the source cannot say
+    // which element a stamp lands on. The render-side check does that.
+    const paints = new Set(m.kernel.marks.map((x) => x.paint));
+    const encodings = new Set(m.kernel.marks.map((x) => x.encodes));
+    for (const [, key, value] of src.matchAll(STAMP_RE)) {
+      const declared = key === 'paint' ? paints : encodings;
+      if (!declared.has(value)) {
+        errors.push(
+          `${rel}: stamps \`data-${key}="${value}"\` but no mark in ${m.name}'s ` +
+          `\`kernel.marks\` declares ${key} "${value}" (declared: ${[...declared].join(', ')}). ` +
+          `The attribute is what a finish selects on and the manifest is what decides what the ` +
+          `finish may do — the two disagreeing means one of them is describing a mark that ` +
+          `is not there.`);
+      }
+    }
+  }
+}
+
 // HARD RULE #22 — untrusted slide HTML reaches a preview frame ONLY through
 // `sanitizeSlideHtml`. The docs-site Studio renders untrusted markdown (shared /
 // AI-generated decks + component skeletons) into a SAME-ORIGIN, un-sandboxed
@@ -11423,6 +11555,7 @@ function run() {
   checkSolverIntentDeclared(manifests, errors);
   checkRenderNature(manifests, errors);
   checkChartKernels(manifests, errors);
+  checkChartMarks(manifests, errors);
   checkDensityCoverage(manifests, errors);
   checkDiagramScopeSelectors(errors);
   checkClassAttrReads(errors);
@@ -11563,6 +11696,7 @@ module.exports = {
   checkSolverIntentDeclared,
   checkRenderNature,
   checkChartKernels,
+  checkChartMarks,
   RENDER_NATURES,
   RENDER_BUCKETS,
   RENDER_NOTE_MIN,

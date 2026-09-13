@@ -39,6 +39,8 @@
  *
  * Usage:
  *   node tools/chart-language-census.js [deck.md] [--theme <name>] [--json <path>]
+ *   node tools/chart-language-census.js --check        hold every manifest's
+ *                                                      kernel.marks to the render
  *
  * Defaults to the chart bucket gallery, which is the one deck that carries every
  * member exactly once.
@@ -53,11 +55,12 @@ const REPO = path.resolve(__dirname, '..');
 const DEFAULT_DECK = path.join(REPO, 'lib/components/chart/chart.gallery.md');
 
 function parseArgs(argv) {
-  const out = { deck: DEFAULT_DECK, theme: null, json: null };
+  const out = { deck: DEFAULT_DECK, theme: null, json: null, check: false };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--theme') out.theme = argv[++i];
     else if (argv[i] === '--json') out.json = argv[++i];
+    else if (argv[i] === '--check') out.check = true;
     else rest.push(argv[i]);
   }
   if (rest[0]) out.deck = path.resolve(rest[0]);
@@ -123,8 +126,23 @@ const TEXT_ROLES = [
   ['heading', ['kanban-column-header', 'cell-state-label']],
 ];
 
+/**
+ * The data marks every chart member declares, keyed by member name. This is the
+ * census's source of truth for what a mark IS — see the comment at `markSel`.
+ */
+function declaredMarks() {
+  const { loadAll } = require(path.join(REPO, 'lib/components'));
+  const byMember = new Map();
+  for (const m of loadAll()) {
+    if (m.kernel && Array.isArray(m.kernel.marks)) byMember.set(m.name, m.kernel.marks);
+  }
+  return byMember;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const DECLARED = declaredMarks();
+  const DECLARED_CLASSES = [...new Set([...DECLARED.values()].flat().map((x) => x.class))].sort();
   const chrome = process.env.CHROME_PATH;
   if (!chrome) {
     console.error('chart-language-census: CHROME_PATH is unset — this measures RESOLVED style,');
@@ -151,8 +169,9 @@ async function main() {
     const page = await browser.newPage();
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
 
-    report = await page.evaluate((TEXT_ROLES_SERIAL) => {
+    report = await page.evaluate((TEXT_ROLES_SERIAL, DECLARED_SERIAL) => {
       const TEXT_ROLES = TEXT_ROLES_SERIAL;
+      const DECLARED_CLASSES = DECLARED_SERIAL;
       // Whole-token match, never substring. `radar-ticks` (the <g> CONTAINER)
       // contains `radar-tick` (the painted label), so a substring test filed the
       // group under the tick role — and a <g> carries no font rule, so it
@@ -204,24 +223,21 @@ async function main() {
         // want is the SHAPE of the paint (flat / linear / radial / alpha),
         // which is a property of the referenced <defs> node, not of the class.
         const fills = new Set();
+        // THE MARK LIST IS THE MANIFESTS', not this file's. Every chart member
+        // declares its data marks in `kernel.marks`, and the census reads that
+        // declaration rather than carrying a second copy of it — a hand-written
+        // table here would be the very thing the declaration exists to retire,
+        // and it drifted twice while it lived here. The slot ATTRIBUTES ride
+        // alongside so a mark that carries a slot but is declared NOWHERE still
+        // shows up: that is the undeclared-mark case `--check` fails on.
         const markSel = [
           '[data-hue]', '[data-s]', '[data-series]', '[data-cell]',
-          '.wedge', '.funnel-band', '.radar-poly', '.bar-mark', '.waterfall-bar',
-          '.sbar-seg', '.quadrant-tint', '.quadrant-dot', '.map-region', '.scatter-dot',
-          '.scatter-bubble', '.kanban-card', '.gantt-bar', '.progress-fill', '.state-node',
-          '.cell-state', '.cell-filled', '.cell-outlined', '.journey-face', '.wc-word',
-          '.bullet-measure', '.slope-bar', '.line-band', '.line-area',
-          // line, slope and timeline-list draw their marks with none of the
-          // classes above; without these three they reported no mark at all,
-          // which reads as "nothing to style" rather than "not looked for".
-          '.line-path', '.line-dot', '.slope-line', '.slope-dot', '.chart-status',
+          ...DECLARED_CLASSES.map((c) => '.' + c),
         ].join(', ');
         // The class half of markSel, for grouping a mark by what a rule could
         // actually name it: the attribute half selects marks that carry a slot,
         // which is the very thing the keying arm below is measuring.
-        const MARK_CLASSES = new Set(
-          markSel.split(', ').filter((x) => x.startsWith('.')).map((x) => x.slice(1)),
-        );
+        const MARK_CLASSES = new Set(DECLARED_CLASSES);
         for (const el of sec.querySelectorAll(markSel)) {
           const cs = getComputedStyle(el);
           const svgFill = el.getAttribute('fill') || cs.fill;
@@ -339,6 +355,130 @@ async function main() {
           : overlaps >= pairs * 0.5 ? 'layered'
           : 'partial';
 
+        // ── bearing: does a mark CARRY text, measured by geometry ──────────
+        // The one fact a finish cannot afford to get wrong. A mark that carries
+        // its own label has to stay quiet enough for that label to clear 4.5:1,
+        // so a finish may only pick a body level inside a cap; a mark that
+        // carries none is the finish's to set outright.
+        //
+        // THIS IS MEASURED, NOT LISTED, and the record says why twice.
+        // `el.textContent` measures CONTAINMENT, and an SVG <rect> can have its
+        // label drawn ON it as a SIBLING <text> — measured that way `gantt`
+        // reports "no" while its bars plainly carry task names. And the
+        // hand-written list in spend-rules.md §7 declared `funnel-band`
+        // text-bearing on the assumption that a band carries its own label; it
+        // does not, the labels sit in the LEFT GUTTER, and that one wrong datum
+        // is why funnel rendered byte-identical under all three finishes.
+        //
+        // MAX-OVERLAP, NEVER FIRST-MATCH. A label pairs with the mark it sits
+        // MOST inside, not the first one whose box it touches — "first match"
+        // was wrong three separate times in the prototype that preceded this.
+        // The threshold is 60% of the TEXT's own box inside the mark's box: a
+        // label centered on a bar clears it comfortably, a tick abutting one
+        // does not.
+        const bearing = {};
+        //
+        // TWO FILTERS, both paid for by a wrong number on the first run.
+        // A VISUALLY HIDDEN label is not text on a mark: matrix-grid clips a
+        // `.cell-sr-label` ("reachable") to a 1px box behind `clip-path:
+        // inset(50%)` for anything reading DOM text, and counting it scored
+        // `cell-outlined` — a mark with no body at all — 10 of 10 text-bearing.
+        // And a mark's OWN text content is the commonest bearing shape in the
+        // HTML members: `<span class="cell cell-filled">Distinguished</span>`
+        // has no child element to measure, so excluding the element itself
+        // reported matrix-grid's filled cells as bare when they carry the
+        // grade name. Both directions were wrong in the same member.
+        const hidden = (el) => {
+          const cs = getComputedStyle(el);
+          if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) return true;
+          if (/inset\(\s*50%/.test(cs.clipPath || '')) return true;
+          const r = el.getBoundingClientRect();
+          return r.width <= 1 || r.height <= 1;
+        };
+        const textNodes = [...sec.querySelectorAll('text, tspan, span, div, p, li, td, th')]
+          .filter((t) => [...t.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+          .filter((t) => !hidden(t))
+          .map((t) => ({ el: t, r: t.getBoundingClientRect() }))
+          .filter((t) => t.r.width > 0 && t.r.height > 0);
+        const frac = (mr, tr) => {
+          const ox = Math.max(0, Math.min(mr.right, tr.right) - Math.max(mr.left, tr.left));
+          const oy = Math.max(0, Math.min(mr.bottom, tr.bottom) - Math.max(mr.top, tr.top));
+          return (ox * oy) / (tr.width * tr.height);
+        };
+        // EVERY DECLARED CLASS ON THE ELEMENT, NOT THE FIRST ONE. A mark often
+        // carries a base class and a modifier — `class="map-region map-region--on"`,
+        // `"radar-poly radar-poly--target"`, `"slope-dot slope-dot-from"` — and
+        // both are real selectors a finish rule can name, with DIFFERENT
+        // declarations behind them (`map-region` encodes nothing, `--on` is the
+        // choropleth ramp). Taking the first match filed all of them under the
+        // base and reported fourteen declared rows as exercised by no deck at
+        // all, `map-region--on` among them, on a gallery that renders 175 of
+        // them. Same "first match" trap the prototype hit three times.
+        for (const el of sec.querySelectorAll(markSel)) {
+          const classes = [...el.classList].filter((c) => MARK_CLASSES.has(c));
+          if (!classes.length) continue;
+          for (const cls of classes) {
+          const b = (bearing[cls] ||= { n: 0, withText: 0, samples: [], paint: new Set(), encodes: new Set() });
+          b.n += 1;
+          // The stamped attributes, per CLASS — what `--check` compares against
+          // the declaration. The static gate can only match these as a SET over
+          // a whole file; here each value is tied to the element it lands on,
+          // which is the check that actually holds a member to its manifest.
+          if (el.hasAttribute('data-paint')) b.paint.add(el.getAttribute('data-paint'));
+          if (el.hasAttribute('data-encodes')) b.encodes.add(el.getAttribute('data-encodes'));
+          const mr = el.getBoundingClientRect();
+          if (!mr.width || !mr.height) continue;
+          // The mark's OWN best label: the text whose box lies most inside it.
+          // Both a SIBLING (an SVG <text> drawn over a <rect>) and a DESCENDANT
+          // (kanban's card title, matrix-grid's cell text) count — text on the
+          // mark is text on the mark, whatever the tree says — and so is the
+          // mark's OWN text content, which is how every HTML member labels.
+          // A BOUNDING BOX LIES ON A NON-RECTANGULAR MARK, and three of the
+          // family's marks are non-rectangular. A pie wedge's bbox is a
+          // rectangle over its arc, a funnel band is a trapezoid, a radar
+          // polygon is a star — so a label sitting in the CORNER of the box is
+          // nowhere near the shape. The occlusion arm above already learned
+          // this (bbox alone calls the pie "layered", which is backwards). So
+          // for an SVG mark the text's CENTER must also land inside the real
+          // fill, which is what `isPointInFill` answers.
+          const inShape = (tr) => {
+            if (!(el instanceof SVGGraphicsElement) || typeof el.isPointInFill !== 'function') return true;
+            const svg = el.ownerSVGElement;
+            if (!svg || typeof svg.createSVGPoint !== 'function') return true;
+            const pt = svg.createSVGPoint();
+            // Client coords → the mark's own user space. `getScreenCTM` carries
+            // the viewBox scale and every ancestor transform; without the
+            // inverse, every test is against unscaled user units and a scaled
+            // figure answers nonsense.
+            const ctm = el.getScreenCTM();
+            if (!ctm) return true;
+            pt.x = (tr.left + tr.right) / 2;
+            pt.y = (tr.top + tr.bottom) / 2;
+            const local = pt.matrixTransform(ctm.inverse());
+            try { return el.isPointInFill(local); } catch { return true; }
+          };
+          let best = 0;
+          let bestText = null;
+          const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+          if (own && !hidden(el)) {
+            best = 1;
+            bestText = [...el.childNodes]
+              .filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').trim().slice(0, 18);
+          }
+          for (const t of textNodes) {
+            if (t.el === el) continue;
+            const f = frac(mr, t.r);
+            if (f <= best) continue;
+            if (f >= 0.6 && !inShape(t.r)) continue;
+            best = f; bestText = (t.el.textContent || '').trim().slice(0, 18);
+          }
+          if (best >= 0.6) {
+            b.withText += 1;
+            if (b.samples.length < 3) b.samples.push(bestText);
+          }
+          }
+        }
+
         // ── keying: which attribute a mark carries its slot on ─────────────
         // A finish is a stylesheet, so its whole reach is decided here. Group
         // by mark CLASS rather than by element: what a rule can select is a
@@ -375,6 +515,8 @@ async function main() {
           type: Object.fromEntries(Object.entries(type).map(([k, v]) => [k, [...v].sort()])),
           fills: [...fills].sort(),
           keying,
+          bearing: Object.fromEntries(Object.entries(bearing).map(
+            ([k, v]) => [k, { ...v, paint: [...v.paint], encodes: [...v.encodes] }])),
           grid,
           key,
           marks,
@@ -384,7 +526,7 @@ async function main() {
         });
       }
       return members;
-    }, TEXT_ROLES);
+    }, TEXT_ROLES, DECLARED_CLASSES);
   } finally {
     if (browser) await browser.close();
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -455,6 +597,112 @@ async function main() {
   const reach = report.filter((m) => Object.values(m.keying || {}).some((b) => Object.keys(b).some((k) => k.split(',').includes('data-hue'))));
   console.log(`\n  ${reach.length} of ${report.length} members key a mark on data-hue: ${reach.map((m) => m.name).sort().join(', ') || '—'}`);
   console.log(`  ${new Set(noCat.map((x) => x.split('/')[0])).size} members key on something else, ${new Set(unreachable.map((x) => x.split('/')[0])).size} on nothing at all.`);
+
+  // 5. Bearing — does a mark carry text, measured by geometric overlap.
+  console.log('\n\n── BEARING — which marks CARRY text, by geometry ' + '─'.repeat(32));
+  console.log('  60% of the label\'s own box inside the mark\'s box, max-overlap, and for a');
+  console.log('  non-rectangular mark the label\'s center inside the real fill. A mark that');
+  console.log('  carries text caps how far a finish may retreat its body; a bare one does not.');
+  console.log('  ONE labelled mark is enough to cap the class — the ⟵ flags any n > 0.\n');
+  console.log(`  ${'member'.padEnd(14)} ${'mark class'.padEnd(20)} ${'bears'.padEnd(9)} sample labels`);
+  for (const m of [...report].sort((a, b) => a.name.localeCompare(b.name))) {
+    const entries = Object.entries(m.bearing || {});
+    if (!entries.length) { console.log(`  ${m.name.padEnd(14)} ${'—'.padEnd(20)} ${'—'.padEnd(9)}`); continue; }
+    let first = true;
+    for (const [cls, b] of entries) {
+      const ratio = `${b.withText}/${b.n}`;
+      const verdict = b.withText > 0 ? '  ⟵ TEXT-BEARING' : '';
+      console.log(`  ${(first ? m.name : '').padEnd(14)} ${cls.padEnd(20)} ${ratio.padEnd(9)} ${b.samples.join(' · ')}${verdict}`);
+      first = false;
+    }
+  }
+
+  // 6. --check — hold every manifest declaration to the render.
+  //
+  // THIS IS THE ARM THAT CAN FAIL ON A WRONG `bears`, and nothing else can.
+  // `build:check` reads source: it sees that a declared class is written and
+  // that the stamped VALUES are ones the manifest knows, and it is blind to
+  // geometry. Bearing is geometry — an SVG rect's label is a SIBLING, so no
+  // amount of reading the transform says whether a bar carries a task name.
+  //
+  // What it does NOT cover, said out loud because a gate that looks broader
+  // than it is, is how two numbers got believed last session: it sees only the
+  // marks THIS DECK renders on THIS theme. A mark a variant emits and the
+  // gallery does not exercise is invisible here, and so is a slot past the
+  // deck's category count.
+  if (args.check) {
+    const problems = [];
+    for (const m of report) {
+      const declared = DECLARED.get(m.name);
+      if (!declared) { problems.push(`${m.name}: renders but declares no kernel.marks`); continue; }
+      const byClass = new Map(declared.map((d) => [d.class, d]));
+      for (const [cls, b] of Object.entries(m.bearing || {})) {
+        const d = byClass.get(cls);
+        if (!d) {
+          problems.push(
+            `${m.name}/${cls}: painted ${b.n}x on the render but declared in no kernel.marks row. ` +
+            `A finish cannot be written against a mark nobody declared.`);
+          continue;
+        }
+        // ONE MARK IS ENOUGH, AND THE TEST ONLY RUNS ONE WAY. `bears` is a CAP,
+        // so the question is not what most marks do — it is whether any label
+        // lands on this class at all. A body level that is safe for eight bars
+        // and unsafe for four is unsafe. An earlier revision asked for a 60%
+        // majority and called `journey-actor-dot` bare at 4 of 12, which is
+        // twelve dots whose initials would then be painted over.
+        //
+        // And a deck that shows NO label on a class does not refute a `true`:
+        // the bucket gallery renders radar with ring ticks over the polygons
+        // (3 of 3) and radar's own gallery renders a variant without them
+        // (0 of 4). Both are honest renders of the same class. So a deck can
+        // PROVE a mark bears text and can never disprove it — which is also the
+        // safe asymmetry, because the two errors do not cost the same: a wrong
+        // `true` under-reaches a finish, a wrong `false` paints over a label.
+        // A MARK WITH NO BODY IS NOT MEASURABLE HERE, and the reason is the hit
+        // test itself. `isPointInFill` answers against a path's FILL geometry
+        // whether or not the path is filled, so an open stroked path — a state
+        // edge, a trend line — reports a label as "inside" a region that has no
+        // ink in it at all. `state-edge` failed exactly that way: one transition
+        // label sitting in the implicit area under a curve.
+        //
+        // Skipping it costs nothing, because `bears` is a CAP ON A BODY and
+        // `paint: "none"` already tells a finish there is no body to set. The
+        // declaration stays honest — a label really does sit on a state edge —
+        // it is just not a claim this instrument can hold anyone to, and saying
+        // so is the point.
+        if (d.paint === 'none') continue;
+        if (b.withText > 0 && !d.bears) {
+          problems.push(
+            `${m.name}/${cls}: declares bears false, renders ${b.withText} of ${b.n} marks ` +
+            `carrying text${b.samples.length ? ` (${b.samples.join(', ')})` : ''}. ` +
+            `Each label has to keep clearing 4.5:1 against whatever a finish paints under it, ` +
+            `so this mark's body is CAPPED — declaring it bare lets a finish set it outright.`);
+        }
+        for (const [key, vals] of [['paint', b.paint], ['encodes', b.encodes]]) {
+          for (const v of vals) {
+            if (v !== d[key]) {
+              problems.push(
+                `${m.name}/${cls}: stamps data-${key}="${v}" on the render, manifest declares ` +
+                `${key} "${d[key]}". The attribute is what a finish selects on; the manifest is ` +
+                `what decides what the finish may do.`);
+            }
+          }
+        }
+      }
+    }
+    console.log('\n\n── CHECK — manifests against the render ' + '─'.repeat(40));
+    if (!problems.length) {
+      const n = report.reduce((a, m) => a + Object.keys(m.bearing || {}).length, 0);
+      console.log(`  OK — ${n} rendered mark classes across ${report.length} members agree with`);
+      console.log('  their kernel.marks declarations (class, paint, encodes, bears).');
+      console.log('  Covers only what THIS deck renders on THIS theme — an unexercised variant');
+      console.log('  or a slot past the deck\'s category count is not looked at.');
+    } else {
+      for (const x of problems) console.log('  ✗ ' + x);
+      console.log(`\n  ${problems.length} disagreement(s).`);
+      process.exitCode = 1;
+    }
+  }
 
   console.log('');
   if (args.json) {

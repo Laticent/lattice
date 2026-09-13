@@ -10,7 +10,33 @@
   "render": "svg",
   "renderNote": "The plot, the grid, the axis, every label and every series is one `<svg>`. A line is a claim about SHAPE — the reader compares the slope of one series against another and against the gridline behind both — so the marks and the scale they are read against have to live in one coordinate system, not in boxes that happen to line up.",
   "kernel": {
-    "figureClass": "line-figure"
+    "figureClass": "line-figure",
+    "marks": [
+      {
+        "class": "line-path",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "line-area",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "line-band",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "line-dot",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
   },
   "coda": {
     "claims": [

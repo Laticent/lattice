@@ -7,7 +7,15 @@
   "render": "svg",
   "renderNote": "Plot, stack and key are one `<svg>` in one viewBox. A stack is a cumulative geometry — every segment's position depends on the ones below it and on the value axis both bars share — so it has to be drawn in one coordinate system rather than assembled from boxes that happen to line up, and the key has to scale with the plot it names.",
   "kernel": {
-    "figureClass": "stacked-bar-figure"
+    "figureClass": "stacked-bar-figure",
+    "marks": [
+      {
+        "class": "sbar-seg",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
   },
   "stage": "canvas",
   "coda": {

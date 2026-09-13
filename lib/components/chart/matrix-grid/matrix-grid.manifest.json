@@ -26,7 +26,27 @@
   "render": "html",
   "renderNote": "HTML/CSS all the way down, no `<svg>` anywhere: a real `<table>` whose cells carry the positional grammar (filled/outlined/empty spans), colored via CSS custom properties per row. Nothing is positioned by numeric value — the grid is text and color in a semantic table, same reasoning as roadmap.",
   "kernel": {
-    "figureClass": "matrix-grid-figure"
+    "figureClass": "matrix-grid-figure",
+    "marks": [
+      {
+        "class": "cell-filled",
+        "paint": "bg",
+        "encodes": "hue",
+        "bears": true
+      },
+      {
+        "class": "cell-outlined",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "cell-empty",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      }
+    ]
   },
   "tags": [
     "stoplight",

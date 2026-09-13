@@ -15,7 +15,27 @@
   "render": "html",
   "renderNote": "Entries stack as HTML rows against a CSS rule. The only geometry is the ordering, and document order already carries it; the bodies are paragraphs that need to wrap, so they stay HTML.",
   "kernel": {
-    "figureClass": "timeline-spine"
+    "figureClass": "timeline-spine",
+    "marks": [
+      {
+        "class": "timeline-dot",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "timeline-pill",
+        "paint": "none",
+        "encodes": "none",
+        "bears": true
+      },
+      {
+        "class": "chart-status",
+        "paint": "bg",
+        "encodes": "hue",
+        "bears": true
+      }
+    ]
   },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },

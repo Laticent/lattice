@@ -433,12 +433,20 @@ section.word-cloud,
  * NOT YET SHIPPED: `--mark-retreat`, how far a finish may pull a body back.
  * An earlier revision of this comment described it as set "per mark class
  * further down by the generated block" — there is no such block and no such
- * declaration anywhere in lib/ or themes/. It is designed, not built: the
- * reasons a body is held (a ramp because scaling it deletes the magnitude,
- * spend-rules.md 1d; a text-bearing mark because --cat-on-mark was solved
- * against a full-strength mark) both land on one number, and that number wants
- * to live in each manifest's `kernel.marks`. Read this as a plan, not a
- * contract to code against.
+ * declaration anywhere in lib/ or themes/. It is designed, not built. Read this
+ * as a plan, not a contract to code against.
+ *
+ * What HAS shipped is the input it was waiting on. The two reasons a body is
+ * held — a ramp, because scaling it deletes the magnitude (spend-rules.md 1d),
+ * and a text-bearing mark, because --cat-on-mark was solved against a
+ * full-strength mark — are now DECLARED per mark rather than inferred, in each
+ * manifest's `kernel.marks`: `paint`, `encodes` and `bears`, one row per mark
+ * class. That is where the retreat number will be read from when it lands.
+ * They are declared rather than inferred because every inference of them was
+ * wrong on the render: `funnel-band` was taken for a text-bearing mark and
+ * carries no label at all (the labels sit in the left gutter), which is the
+ * whole reason funnel painted identically under all three finishes.
+ * engineering/decisions/2026-09-07-chart-design-language/mark-declaration.md
  *
  * `--mark-fill` is declared for all eight slots and currently read by NO rule.
  * It is kept because it completes the tier set a consumer expects beside
