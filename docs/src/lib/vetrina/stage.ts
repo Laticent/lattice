@@ -648,7 +648,11 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 	const dock = doc.createElement('div');
 	dock.className = 'vetrina-caption';
 	let setProgress: (c: number, t: number) => void = () => {};
-	let layout: (bounds: RectLike, layer: RectLike) => void = () => {};
+	// NO no-op default, deliberately: every branch below assigns it (`'none'` returned above), so
+	// an initializer here would be dead — and worse than dead. It would let a NEW caption style
+	// compile without seating itself, silently, and a caption that is never seated is the shape of
+	// the worst bug this file has had (Exit 638px off screen). Unassigned, the compiler asks.
+	let layout: (bounds: RectLike, layer: RectLike) => void;
 	let place: BuiltDock['place'];
 	let reveal: BuiltDock['reveal'];
 
