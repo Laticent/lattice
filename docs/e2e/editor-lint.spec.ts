@@ -15,8 +15,25 @@ import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection,
 const UNKNOWN_SLIDE = '\n\n---\n\n<!-- _class: kpii -->\n\n# Stray slide\n';
 const fixAll = (page: import('@playwright/test').Page) => page.getByRole('button', { name: /Fix all/i });
 
-test.beforeEach(async ({ page }) => {
+/**
+ * At 390px the Studio shows ONE PANE AT A TIME: the preview rail is up and the editor is
+ * not mounted, so `setEditorContent`'s click on `Deck source` simply times out. The
+ * `Markdown source` cell of the Eight-Cell Bar swaps the pane in
+ * (`2026-07-26-studio-mobile-eight-cell-bar.md`); `responsive.spec.ts` pins that toggle's
+ * own behavior, so this only has to ride it.
+ *
+ * Gated on the project name rather than on the control's presence: a `.isVisible()` probe
+ * would silently no-op the day the toggle is renamed, and the whole point of running these
+ * arms at 390 is that they fail loudly when the phone surface stops working.
+ */
+async function revealEditor(page: import('@playwright/test').Page): Promise<void> {
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await expect(page.getByLabel('Deck source')).toBeVisible();
+}
+
+test.beforeEach(async ({ page }, testInfo) => {
 	await gotoStudio(page);
+	if (testInfo.project.name === 'mobile') await revealEditor(page);
 });
 
 test('an unknown component makes Fix-all actionable; validation-off clears it', async ({ page }) => {
@@ -95,7 +112,7 @@ function underlineLine(page: import('@playwright/test').Page, needle: string): P
 	}, needle);
 }
 
-test('a bad render-target value underlines its own front-matter line, not the deck top', async ({ page }, testInfo) => {
+test('@crosswidth a bad render-target value underlines its own front-matter line, not the deck top', async ({ page }, testInfo) => {
 	await setEditorContent(page, PLACEMENT_DECK);
 
 	// The underline carries the offending line's text, and it is painted on line 3 — the
@@ -146,7 +163,7 @@ test('a bad render-target value underlines its own front-matter line, not the de
 // `fluid: false` two lines down.
 const NESTED_DECK = ['---', 'theme: indaco', 'export:', '  fluid: "true"', 'fluid: false', '---', '', '# Nested', '', 'Body copy.', ''].join('\n');
 
-test('a nested render-target key warns on the nested line', async ({ page }, testInfo) => {
+test('@crosswidth a nested render-target key warns on the nested line', async ({ page }, testInfo) => {
 	await setEditorContent(page, NESTED_DECK);
 
 	await expect
