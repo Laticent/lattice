@@ -419,6 +419,25 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
     });
     assert.equal(thrown.v.clean, false, 'a throwing probe was treated as "not over" and the cut was kept');
     assert.equal(thrown.left, 0, 'a throwing probe left clamps standing');
+
+    // 4. A MISSING probe counts as over too. `if (!over && o.probe)` deleted arm 2
+    //    outright when the option was omitted, leaving the per-box half alone — the
+    //    exact policy the runtime used to run and that this function exists to end. A
+    //    guarantee you can switch off by forgetting an argument is not a guarantee.
+    const absent = await onPage(fits, async (run) => {
+      const model = await run(MEASURE_EXPR);
+      const plan = planTrim(model);
+      return run(`
+        const sec = document.querySelector('section');
+        const p = args.plan;
+        applyTrim(sec, p);
+        const v = verifyTrim(sec, p, { clipSel: '.cell-stage', ignoreSel: '', ns: 'tb', eps: 0.5, tol: 12 });
+        return { v, left: sec.querySelectorAll('[data-lattice-trimmed]').length };
+      `, { plan });
+    });
+    assert.equal(absent.v.clean, false,
+      'omitting the probe silently dropped the frame arm and kept the cut under half the policy');
+    assert.equal(absent.left, 0, 'omitting the probe left clamps standing');
   });
 
   test('clamping one COLUMN never credits its recovered height to another', async () => {
