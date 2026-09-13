@@ -509,6 +509,19 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 //
 // `portrait-gantt-statechart` is the guard deck because it emits BOTH chart families'
 // gradients; `kanban-chart-redesign` is the second because it carries the real-property pairs.
+// The author-pinned-dark slide selector the player emits, written out LONGHAND on purpose.
+// It could be imported from player-core's PINNED_TO_LIGHT, which is what builds it — and
+// that is exactly why it is not: an assertion derived from the code under test follows
+// that code wherever it goes, and certifies whatever it currently believes. Spelled here,
+// widening the pin set is a deliberate two-file change with this line in the diff.
+//
+// It grew `:not(.light):not(.color-light)` in #2158. Before that the rule excluded only the
+// print band, so it fired on a slide the author had ALSO pinned light — and the restore
+// rules that would have corrected it exist only inside the player's dark scopes, so in
+// light scheme nothing did. Measured: `dark light` came back rgb(0,29,51) where the PDF
+// renders it rgb(255,255,255).
+const DARK_SLIDE = String.raw`section\[data-lattice-slide\]\.dark:not\(\.light\):not\(\.color-light\):not\(\.print\)`;
+
 describe('html-player export — nothing shipped depends on light-dark()', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
 	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
@@ -555,7 +568,7 @@ describe('html-player export — nothing shipped depends on light-dark()', () =>
 		const inline = [...doc.querySelectorAll('[style]')].filter((el) => (el.getAttribute('style') || '').includes('light-dark('));
 		assert.equal(inline.length, 0, `${inline.length} inline style attribute(s) still carry light-dark()`);
 		assert.match(html, /:root\[data-lp-scheme=dark\] \.lp-sd-\d+\{/, 'the dark arms are re-applied, not dropped');
-		assert.match(html, /section\[data-lattice-slide\]\.dark:not\(\.print\) \.lp-sd-\d+\{/, 'including on an author-pinned dark slide');
+		assert.match(html, new RegExp(`${DARK_SLIDE} \\.lp-sd-\\d+\\{`), 'including on an author-pinned dark slide');
 	});
 
 	// The real-property half (#1645). The kanban card is the guard because its `box-shadow` is
@@ -568,7 +581,7 @@ describe('html-player export — nothing shipped depends on light-dark()', () =>
 		assert.match(html, /:root\[data-lp-scheme=dark\][^{]*\.kanban-card\{--lp-ld-[\d-]+:/, 'the dark arms are defined under the viewer scheme');
 		assert.match(
 			html,
-			/section\[data-lattice-slide\]\.dark:not\(\.print\)[^{]*\.kanban-card\{--lp-ld-[\d-]+:/,
+			new RegExp(`${DARK_SLIDE}[^{]*\\.kanban-card\\{--lp-ld-[\\d-]+:`),
 			'and on an author-pinned dark slide, in every player scheme',
 		);
 		// The indirection exists to leave the cascade alone: the base rule must NOT have been
