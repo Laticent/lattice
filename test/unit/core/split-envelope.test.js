@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
 const {
   splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements,
   chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote, deriveAxis,
-  closingPageFromMaterial, trailingMaterialOf, existingNoteIn,
+  closingPageFromMaterial, trailingMaterialOf, existingNoteIn, roleOpenTag,
 } = require('../../../lib/core/split-envelope');
 const { dockInFooterCell } = require('../../../lib/core/footer-dock');
 const { evenGroups } = require('../../../lib/core/collections');
@@ -1028,6 +1028,46 @@ describe('core: the CLOSING page carries a two-beat coda without losing or break
     const page = closingOf(one);
     assert.match(page, /ONLY-INSIGHT/);
     assert.ok(balanced(page));
+  });
+});
+
+// ── THE AUTHORED MODIFIERS SURVIVE A ROLE SWAP, AS DATA ────────────────────────────────
+//
+// `roleOpenTag` REPLACES the class attribute (a cover is a `content` field, not a `split-panel`)
+// and keeps only the canvas axis. So a component's own variant selectors — declared
+// `section.split-panel.cat-3` — could never match a split page, and all eight `cat-N` variants
+// rendered identically once split: the plain `--accent` field, the one thing they exist to say
+// gone. Nothing failed; the pages were the wrong color.
+//
+// They reach the page as `data-split-mods` rather than as classes, which is what makes opting in
+// safe: an attribute cannot collide with any selector already in the bundle, so a component adds
+// `[data-split-mods~="cat-3"]` to its own stylesheet and nothing else in the tree moves.
+describe('core: roleOpenTag carries the authored modifiers as data', () => {
+  const tag = '<section id="s1" class="split-panel cat-3 proof dark form" data-lattice-slide="4">';
+
+  test('the modifiers are stamped; the layout token, `form` and the canvas axis are not', () => {
+    const out = roleOpenTag(tag, 'content split-panel-split split-panel-cover form', true, 'cover');
+    const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+    assert.ok(mods.includes('cat-3') && mods.includes('proof'), `got ${mods.join('|')}`);
+    assert.ok(!mods.includes('split-panel'), 'the layout token is the class being replaced');
+    assert.ok(!mods.includes('form'), 'the Form marker is not a variant');
+    assert.ok(!mods.includes('dark'), 'the canvas axis rides as a class, not as data');
+  });
+
+  test('the canvas axis still rides as a CLASS — the regression this must not undo', () => {
+    const out = roleOpenTag(tag, 'content split-panel-split split-panel-cover form', true, 'cover');
+    assert.match(out, /\sclass="[^"]*\bdark\b/);
+  });
+
+  test('a slide with no modifiers gets no attribute at all', () => {
+    const plain = '<section id="s2" class="checklist form" data-lattice-slide="5">';
+    const out = roleOpenTag(plain, 'content lat-split-cover form', true, 'cover');
+    assert.ok(!/data-split-mods/.test(out), `an empty attribute was stamped: ${out}`);
+  });
+
+  test('body pages carry it too — a run is one category, not a tinted cover and neutral pages', () => {
+    const out = roleOpenTag(tag, 'content split-panel-split split-panel-points form', false, 'body');
+    assert.match(out, /\sdata-split-mods="[^"]*\bcat-3\b/);
   });
 });
 
