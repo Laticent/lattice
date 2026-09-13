@@ -17,6 +17,33 @@ Every claim in this note comes from re-rendering all 69 per-component galleries 
 The galleries are the right corpus because each one demonstrates every variant its component
 declares, which is exactly the axis the prose kept collapsing.
 
+**TWO INSTRUMENTS, AND THE DIFFERENCE BETWEEN THEM IS WORTH STATING BEFORE ANY NUMBER.** The
+base-to-head sweeps that produced the deltas below were run two ways. A FAST one calls
+`render()` and then `splitDoc()` directly, which makes a 245-deck × 4-size sweep affordable —
+and **it over-reports, because `splitDoc` does not gate on the size family**; only the
+emulator decides whether auto-split runs at all. A REAL one drives `dist/lattice-emulator.js`
+in both trees, which is the surface an author gets.
+
+Measured against each other on every deck the fast sweep says moves, at portrait: they agree
+on 27 of 29 decks, and the fast sweep counts ONE slide too many (a `kanban` page in
+`data-viz-gallery` that `splitDoc` splits and the emulator leaves whole). So the fast sweep is
+a SUPERSET by construction, useful for finding candidates and not for stating a total.
+
+**Every total in this note is the REAL one**, from the emulator, both trees:
+
+| size | newly split (1 → n) | already splitting, +1 page | split LESS |
+|---|---|---|---|
+| portrait | 32 | 44 | 0 |
+| square | 32 | 24 | 0 |
+
+The 44/24 gap is the landscape veto, on the real surface: 20 of the portrait gains are
+`journey` and `roadmap` slides, and at square exactly one of them is. `journey.gallery`
+renders `[1,4,4,4,4,4,1,4,4,4,4,1]` pages per slide at portrait and `[1,1,1,1,1,1,1,1,1,1,4,1]`
+at square — the board stays whole, which is what its strategy's own comment promises.
+
+`story` and `mobile` were swept with the fast instrument only; both report the same shape as
+portrait, and neither total is quoted here for that reason.
+
 The collapse is worth naming, because it is the shape of the whole finding: **`split-facts.js`
 places a TREATMENT per component, and every reader is written against the shape that
 component's DEFAULT variant renders.** Nothing in the tree asked whether the other variants
