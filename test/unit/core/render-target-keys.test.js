@@ -11,6 +11,8 @@ const {
 	OFF_WORDS,
 	renderTargetKeyState,
 	readRenderTargetKey,
+	legacyOnPattern,
+	legacyOnPatternVerbatim,
 } = require('../../../lib/core/render-target-keys');
 const { lintTextWith } = require('../../../lib/authoring/lint-core');
 
@@ -45,7 +47,10 @@ test('the on and off vocabularies are disjoint and both feed the suggestion list
 // to decks already in the field.
 // ---------------------------------------------------------------------------
 
-const legacy = (fm, key) => new RegExp(`^\\s*${key}:\\s*(?:true|yes|on)\\s*$`, 'im').test(fm);
+// THE ORACLE: the pattern that actually shipped before this module, verbatim. The kernel
+// exports it for exactly this purpose — every parity claim below is measured against the
+// real thing rather than a retyped approximation that could drift into agreeing.
+const legacy = (fm, key) => legacyOnPatternVerbatim(key).test(fm);
 
 // THE arm. The first cut of this file varied only the VALUE's case — the one dimension
 // where the `i` flag makes no difference, because the kernel lowercases the word anyway —
@@ -124,6 +129,70 @@ test('every value the old regex rejected as off still reads as off', () => {
 			assert.equal(readRenderTargetKey(fm, key), false, `${key}: ${value} newly enables`);
 		}
 	}
+});
+
+// The verbatim pattern is QUADRATIC, and the shipped one is a rewrite of it — so the
+// rewrite owes two proofs, and a comment claiming equivalence is not one of them. An
+// earlier draft of the kernel asserted the verbatim pattern "could not backtrack"; it was
+// measured at 640ms for 20k newlines, which is how this pair of arms came to exist.
+test('EQUIVALENCE: the linear pattern accepts exactly what the verbatim one did', () => {
+	// A generated corpus over an alphabet chosen to hit every clause: line terminators and
+	// the non-terminator whitespace that `\s` also covers (\f, \v, NBSP, U+3000), the key
+	// in three cases, every on-word and a near-miss, and tokens that make a line almost
+	// match. Seeded, so a failure is reproducible rather than a one-off CI ghost.
+	const WS = [' ', '\t', '\n', '\r\n', '\u00a0', '\f', '\v', '\r', '\u2028', '\u2029', '\u3000'];
+	const TOK = ['fluid:', 'Fluid:', 'FLUID:', 'true', 'TRUE', 'yes', 'on', 'ture', 'false',
+		'x:', 'nest:', '#c', 'truetrue', '', 'fluid', ':', 'xfluid:'];
+	// xorshift32 — a seeded PRNG, so this corpus is the same on every machine and every run.
+	let seed = 0x9e3779b9;
+	const rnd = () => {
+		seed ^= seed << 13; seed >>>= 0;
+		seed ^= seed >> 17;
+		seed ^= seed << 5; seed >>>= 0;
+		return seed / 0x100000000;
+	};
+	const pick = (a) => a[Math.floor(rnd() * a.length)];
+	const verbatim = legacyOnPatternVerbatim('fluid');
+	const linear = legacyOnPattern('fluid');
+	let checked = 0;
+	for (let i = 0; i < 50000; i++) {
+		let block = '';
+		const len = 1 + Math.floor(rnd() * 8);
+		for (let j = 0; j < len; j++) block += pick(rnd() < 0.45 ? WS : TOK);
+		checked++;
+		assert.equal(linear.test(block), verbatim.test(block), `disagreement on ${JSON.stringify(block)}`);
+	}
+	assert.equal(checked, 50000);
+});
+
+test('EQUIVALENCE: the rewrite is linear where the verbatim pattern was quadratic', () => {
+	// The verbatim shape cost 4x per doubling: 190ms / 640ms / 2477ms at 10k / 20k / 40k
+	// newlines. The cost was never backtracking — it is `^\\s*` rescanning the whole run from
+	// every line start under `/m`.
+	//
+	// THE STRUCTURAL ASSERTION IS THE TEST; the timing below is only a backstop. Two
+	// reasons, both learned the hard way in this PR. A ratio-of-timings arm does not FAIL
+	// when the quadratic pattern comes back — it HANGS, minutes of CPU before anyone learns
+	// anything, which is a worse failure mode than the bug. And a mutation run whose restore
+	// step died left the quadratic pattern in the tree with the docblock still claiming
+	// linearity; nothing caught it, because no arm asserted which pattern actually shipped.
+	const src = legacyOnPattern('fluid').source;
+	assert.notEqual(src, legacyOnPatternVerbatim('fluid').source, 'the shipped pattern IS the verbatim one');
+	assert.ok(
+		!src.startsWith('^\\s*'),
+		`the leading run is \`\\s*\` again — under /m that rescans the whole block from every line start, which is the quadratic shape: ${src}`,
+	);
+	assert.ok(src.startsWith('^[^\\S'), `unexpected leading class: ${src}`);
+
+	// Backstop, with ~600x headroom so scheduler noise cannot redden a build: 20k newlines
+	// measured at 0.2ms for the shipped pattern and 640ms for the verbatim one.
+	const block = `fluid:${'\n'.repeat(20000)}`;
+	const pattern = legacyOnPattern('fluid');
+	pattern.test(block); // warm
+	const t0 = process.hrtime.bigint();
+	pattern.test(block);
+	const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+	assert.ok(ms < 100, `20k newlines took ${ms.toFixed(1)}ms — the verbatim pattern took 640ms here`);
 });
 
 test('an absent key is off, and one key never answers for another', () => {
