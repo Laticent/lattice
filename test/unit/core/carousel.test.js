@@ -519,32 +519,43 @@ describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {
     '<footer>F</footer>';
   const rlRecipe = { strategy: 'redline-blocks' };
   const parts = carouselize(rlTag, rlInner, rlRecipe);
+  // THE RUN OPENS ON A COVER (owner's call, 2026-09-13). `redline`'s two pages are the same
+  // clause before and after, so the masthead belongs on a page of its own rather than being
+  // met already inside the "before" page.
+  const blocks = parts.slice(1);
+
+  test('the run opens on the shared accent cover', () => {
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.match(parts[0], /split-feat-h">SB-362 rewrote the rule\./);
+    assert.doesNotMatch(parts[0], /rl-old|rl-new/);
+  });
 
   test('OLD → its own slide, NEW (+ note) → the next', () => {
-    assert.equal(parts.length, 2);
-    assert.match(parts[0], /blockquote class="rl-old"/);
-    assert.match(parts[0], /two or more methods/);
-    assert.doesNotMatch(parts[0], /<ul\b/); // the note rides NEW, not OLD
-    assert.match(parts[1], /blockquote class="rl-new"/);
-    assert.match(parts[1], /at least one method/);
-    assert.match(parts[1], /Why this matters/); // note rides the NEW slide
+    assert.equal(blocks.length, 2);
+    assert.match(blocks[0], /blockquote class="rl-old"/);
+    assert.match(blocks[0], /two or more methods/);
+    assert.doesNotMatch(blocks[0], /<ul\b/); // the note rides NEW, not OLD
+    assert.match(blocks[1], /blockquote class="rl-new"/);
+    assert.match(blocks[1], /at least one method/);
+    assert.match(blocks[1], /Why this matters/); // note rides the NEW slide
   });
 
   test('the heading + citation repeat on both slides; the 2nd is marked (cont.)', () => {
-    assert.ok(parts.every((p) => /SB-362 rewrote the rule\./.test(p) && /Cal\. Civ\. Code/.test(p)));
-    assert.doesNotMatch(parts[0], /lat-cont/);
-    assert.match(parts[1], /lat-cont/);
+    assert.ok(blocks.every((p) => /SB-362 rewrote the rule\./.test(p) && /Cal\. Civ\. Code/.test(p)));
+    assert.match(blocks[1], /lat-cont/);
   });
 
-  test('only the first slide keeps the engine id; the wide variant class is dropped', () => {
+  test('exactly one page keeps the engine id; the wide variant class is dropped', () => {
     assert.equal(parts.filter((p) => /\sid="r1"/.test(p)).length, 1);
+    assert.match(parts[0], /\sid="r1"/, 'the cover should hold the id it took from the source');
     const tokens = (p) => p.match(/class="([^"]*)"/)[1].split(/\s+/);
-    assert.ok(parts.every((p) => !tokens(p).includes('split') && tokens(p).includes('redline')));
-    assert.ok(parts.every((p) => tokens(p).includes('lat-split-native')));
+    assert.ok(blocks.every((p) => !tokens(p).includes('split') && tokens(p).includes('redline')));
+    assert.ok(blocks.every((p) => tokens(p).includes('lat-split-native')));
   });
 
   test('every frame carries the Form chrome (header + footer)', () => {
-    assert.ok(parts.every((p) => /<header>H<\/header>/.test(p) && /<footer>F<\/footer>/.test(p)));
+    assert.ok(blocks.every((p) => /<header>H<\/header>/.test(p) && /<footer>F<\/footer>/.test(p)));
+    assert.match(parts[0], /<header>H<\/header>/);
   });
 
   test('a single-passage redline (1 blockquote) → null, left for the ring', () => {
@@ -575,9 +586,9 @@ describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {
     assert.equal(out.filter((p) => /\sdata-split-role="closing"/.test(p)).length, 0,
       'a claimed blockquote must not be promoted to a closing page');
     assert.match(out.at(-1), /One duty is cheaper to audit/);
-    // …and the two passages are still where they belong.
-    assert.match(out[0], /blockquote class="rl-old"/);
-    assert.match(out[1], /blockquote class="rl-new"/);
+    // …and the two passages are still where they belong, after the run's cover.
+    assert.match(out[1], /blockquote class="rl-old"/);
+    assert.match(out[2], /blockquote class="rl-new"/);
   });
 
   test('a NON-trailing third blockquote rides the last body page — never dropped', () => {
@@ -616,28 +627,41 @@ describe('core: carousel — kanban-lanes (kanban portrait, one lane per slide)'
     '</div></div>' +
     '<footer>F</footer>';
   const parts = carouselize(kbTag, kbInner, { strategy: 'kanban-lanes' });
+  // A NATIVE-SLICE RUN NOW OPENS ON A COVER (owner's call, 2026-09-13), so the lanes start at
+  // index 1. Before that the run opened straight into "Backlog" while a `content` slide beside
+  // it in the same deck opened on the shared accent field.
+  const lanes = parts.slice(1);
+
+  test('the run opens on the shared accent cover', () => {
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.match(parts[0], /lat-split-cover/);
+    assert.match(parts[0], /split-feat-h">Where work stands\./);
+    assert.ok(!/kanban-column"/.test(parts[0]), 'the cover carried a lane');
+  });
 
   test('one slide per lane, each holding a single column', () => {
-    assert.equal(parts.length, 3);
-    assert.ok(parts.every((p) => (p.match(/kanban-column"/g) || []).length === 1));
-    assert.match(parts[0], /kanban-column-header">Backlog</);
-    assert.match(parts[1], /kanban-column-header">In progress</);
-    assert.match(parts[2], /kanban-column-header">Done</);
+    assert.equal(lanes.length, 3);
+    assert.ok(lanes.every((p) => (p.match(/kanban-column"/g) || []).length === 1));
+    assert.match(lanes[0], /kanban-column-header">Backlog</);
+    assert.match(lanes[1], /kanban-column-header">In progress</);
+    assert.match(lanes[2], /kanban-column-header">Done</);
   });
 
   test('each lane keeps only its own cards', () => {
-    assert.equal((parts[0].match(/kanban-card"/g) || []).length, 2); // Backlog: A, B
-    assert.equal((parts[1].match(/kanban-card"/g) || []).length, 1); // In progress: C
-    assert.equal((parts[2].match(/kanban-card"/g) || []).length, 2); // Done: D, E
-    assert.doesNotMatch(parts[0], />C</); // no cross-lane bleed
+    assert.equal((lanes[0].match(/kanban-card"/g) || []).length, 2); // Backlog: A, B
+    assert.equal((lanes[1].match(/kanban-card"/g) || []).length, 1); // In progress: C
+    assert.equal((lanes[2].match(/kanban-card"/g) || []).length, 2); // Done: D, E
+    assert.doesNotMatch(lanes[0], />C</); // no cross-lane bleed
   });
 
-  test('the chart-header repeats; the first keeps the id, later slides are (cont.) + id-less', () => {
-    assert.ok(parts.every((p) => /Where work stands\./.test(p)));
+  test('the chart-header repeats; the COVER keeps the id, lanes are id-less and later ones (cont.)', () => {
+    assert.ok(lanes.every((p) => /Where work stands\./.test(p)));
+    // Exactly one element carries the engine id, and it is the cover — the page that now opens
+    // the run. Two elements with one id is the defect this arm has always been about.
     assert.equal(parts.filter((p) => /\sid="k1"/.test(p)).length, 1);
     assert.match(parts[0], /\sid="k1"/);
-    assert.doesNotMatch(parts[0], /lat-cont/);
-    assert.ok(parts.slice(1).every((p) => /lat-cont/.test(p) && /lat-split-native/.test(p)));
+    assert.doesNotMatch(lanes[0], /lat-cont/);
+    assert.ok(lanes.slice(1).every((p) => /lat-cont/.test(p) && /lat-split-native/.test(p)));
   });
 
   test('a single-lane board → null (nothing to split between)', () => {
@@ -1541,9 +1565,19 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
     '</div><ul class="roadmap-legend"><li>shipped</li></ul></div></div>' +
     '<footer>F</footer>';
   const split = (...phases) => carouselize(rmTag, innerFor(...phases), { strategy: 'roadmap-horizons' });
+  // A NATIVE-SLICE RUN OPENS ON A COVER (owner's call, 2026-09-13), so the phase pages start at
+  // index 1. Before that a split roadmap opened straight into "Foundation".
+  const cards = (parts) => parts.slice(1);
+
+  test('the run opens on the shared accent cover', () => {
+    const parts = split('Foundation', 'Hardening', 'Scale');
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.match(parts[0], /split-feat-h">The rollout plan\./);
+    assert.doesNotMatch(parts[0], /horizon-card"/);
+  });
 
   test('one page per phase while inside the budget', () => {
-    const parts = split('Foundation', 'Hardening', 'Scale');
+    const parts = cards(split('Foundation', 'Hardening', 'Scale'));
     assert.equal(parts.length, 3);
     assert.ok(parts.every((p) => (p.match(/horizon-card"/g) || []).length === 1));
     assert.match(parts[0], /horizon-title">Foundation</);
@@ -1558,8 +1592,8 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
     // page reads best" — and then paid it away to stay under the cap.
     for (let n = 2; n <= 16; n += 1) {
       const phases = Array.from({ length: n }, (_, i) => `P${i + 1}`);
-      const parts = split(...phases);
-      assert.equal(parts.length, n, `${n} phases must produce ${n} pages`);
+      const parts = cards(split(...phases));
+      assert.equal(parts.length, n, `${n} phases must produce ${n} body pages`);
       assert.ok(parts.every((p) => (p.match(/horizon-card"/g) || []).length === 1),
         `${n} phases: a page carried more than one card`);
       // Conservation: every phase appears exactly once across the run.
@@ -1571,17 +1605,19 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
 
   test('pages are balanced — no page carries 2+ more cards than another', () => {
     for (let n = 2; n <= 16; n += 1) {
-      const parts = split(...Array.from({ length: n }, (_, i) => `P${i + 1}`));
+      const parts = cards(split(...Array.from({ length: n }, (_, i) => `P${i + 1}`)));
       const counts = parts.map((p) => (p.match(/horizon-card"/g) || []).length);
       assert.ok(Math.max(...counts) - Math.min(...counts) <= 1,
         `${n} phases split unevenly: ${counts.join('+')}`);
     }
   });
 
-  test('the chart-header repeats; the first keeps the id, later pages are (cont.) + id-less', () => {
-    const parts = split('A', 'B', 'C');
+  test('the chart-header repeats; the COVER keeps the id, later pages are (cont.) + id-less', () => {
+    const all = split('A', 'B', 'C');
+    const parts = cards(all);
     assert.ok(parts.every((p) => /The rollout plan\./.test(p)));
-    assert.equal(parts.filter((p) => /\sid="r1"/.test(p)).length, 1);
+    assert.equal(all.filter((p) => /\sid="r1"/.test(p)).length, 1);
+    assert.match(all[0], /\sid="r1"/);
     assert.doesNotMatch(parts[0], /lat-cont/);
     assert.ok(parts.slice(1).every((p) => /lat-cont/.test(p) && /lat-split-native/.test(p)));
   });
@@ -1614,8 +1650,11 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
 // So the negative is pinned here, from the same engine-derived fixture as the positive.
 describe('core: carousel — journey-stages splits the vertical stack and never the grid', () => {
   test('portrait: one page per stage, and the stage bands survive the cut', () => {
-    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
-    assert.ok(Array.isArray(parts), 'portrait journey did not split');
+    const all = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    assert.ok(Array.isArray(all), 'portrait journey did not split');
+    // The run opens on the shared accent cover (owner's call, 2026-09-13); the stages follow.
+    assert.match(all[0], /data-split-role="cover"/);
+    const parts = all.slice(1);
     assert.equal(parts.length, 3, `expected one page per authored stage, got ${parts.length}`);
     for (const [i, p] of parts.entries()) {
       assert.equal((p.match(/class="journey-vstage"/g) || []).length, 1,
@@ -1640,7 +1679,10 @@ describe('core: carousel — journey-stages splits the vertical stack and never 
   });
 
   test('portrait: both legends ride every page — a mood face without its key is unreadable', () => {
-    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    // BODY pages. The cover shows no mood faces, so it needs no key; every page that draws one
+    // must carry both legends, which is what this has always been about.
+    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey')
+      .filter((p) => /\sdata-split-role="body"/.test(p));
     for (const [i, p] of parts.entries()) {
       assert.ok(/journey-legend/.test(p), `page ${i + 1} lost the actor legend`);
       assert.ok(/journey-mood-legend/.test(p), `page ${i + 1} lost the mood key`);
@@ -1703,10 +1745,11 @@ describe('core: carousel — a native slice stamps the member it carries', () =>
       + buildKanbanBoard(
         '<li>The "big" lane<ul><li>one</li></ul></li><li>Second<ul><li>two</li></ul></li>')
       + '</div>';
-    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
-    const raw = (parts[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
+    const body = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban')
+      .filter((p) => /\sdata-split-role="body"/.test(p));
+    const raw = (body[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
     assert.equal(raw, 'The &quot;big&quot; lane', 'an unescaped quote would end the attribute early');
-    assert.ok(!/data-split-label="[^"]*"[^>]*big/.test(parts[0]), 'title text leaked outside the attribute');
+    assert.ok(!/data-split-label="[^"]*"[^>]*big/.test(body[0]), 'title text leaked outside the attribute');
   });
 
   // FOUND BY THE INDEPENDENT CHECKER. The extractor matched `([\\s\\S]*?)</[a-z0-9]+>` — lazy, and
@@ -1736,8 +1779,9 @@ describe('core: carousel — a native slice stamps the member it carries', () =>
     const inner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">'
       + buildKanbanBoard('<li>Ops &amp; IT<ul><li>a</li></ul></li><li>Second<ul><li>b</li></ul></li>')
       + '</div>';
-    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
-    const raw = (parts[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
+    const body = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban')
+      .filter((p) => /\sdata-split-role="body"/.test(p));
+    const raw = (body[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
     assert.equal(raw, 'Ops &amp; IT', 'stored double-escaped — one decode on read yields `&amp;`');
   });
 
