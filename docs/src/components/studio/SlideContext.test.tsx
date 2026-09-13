@@ -480,7 +480,7 @@ describe('SlideContextBody controls', () => {
 		// nothing about the block-level filter.
 		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'presenter');
 		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
-		// Its two neighbours in the same section stay out: a block filters like a row.
+		// Its two neighbors in the same section stay out: a block filters like a row.
 		expect(screen.queryByRole('textbox', { name: 'Read-as caption for this slide' })).toBeNull();
 		expect(screen.queryByRole('textbox', { name: 'Accessibility description for this slide' })).toBeNull();
 	});
@@ -496,7 +496,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('a group label names the GROUP, so one row\'s name does not return its siblings', () => {
-		// The Chrome indent scope was labelled "Hide header footer page number" — a
+		// The Chrome indent scope was labeled "Hide header footer page number" — a
 		// concatenation of its children. A matched group makes every child a hit, so typing
 		// one row's name returned all three, and the row-level filter was bypassed.
 		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'page number');

@@ -168,7 +168,7 @@ export function SettingsSection({
 	 * That last clause is the contract, and getting it wrong is quiet: a section matches
 	 * as a WHOLE, so listing a row's own word here ("page number" under Chrome) turns a
 	 * precise search into the entire section — the row was going to match anyway, and
-	 * eleven of its neighbours came with it. Keep this to the concept a person reaches
+	 * eleven of its neighbors came with it. Keep this to the concept a person reaches
 	 * for when they can't name the control: "furniture", "animation", "white label".
 	 */
 	keywords?: string;

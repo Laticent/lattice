@@ -167,9 +167,25 @@ prove a row was not RENDERED — never that a section which still holds hidden r
 collapses. Mutation-checked both ways: misspelling the attribute in the selector turns the
 e2e assertion red, and the text pin in `settings-view.test.tsx` names the other side.
 
-Green: 19 in `ui/settings-view.test.tsx`, 9 wiring tests split across the two panels, 2073
-across the ui + studio suites, 3964 across the whole docs suite, 9345 repo unit tests, 12
-e2e in `inspector.spec.ts`, plus `npm run lint` and `npm run build:check`.
+Green, at the head this note ships with: **36** in `ui/settings-view.test.tsx`, the wiring
+tests split across the two panels, **2096** across the ui + studio suites, **9416** repo unit
+tests, **26** e2e across four specs, plus `npm run lint` and `npm run build:check`. (§6 first
+recorded 19 / 2073 / 9345 / 12 — the counts at the first pass, before §8's compaction and
+§8.1's fixes added to them.)
+
+**A SECOND ENGINE, for the one mechanism that needs one.** Everything above is Chromium, and
+almost all of this change is engine-neutral React. One piece is not: the section collapse is
+an unlayered `:not(:has())` rule, and "two engines resolve the same selector differently" is
+exactly the class `webkit-tablet` exists for. WebKit is reachable from the sandbox but not
+preinstalled (`npx playwright install-deps webkit && npx playwright install webkit`), so
+`inspector.spec.ts` was run against real WebKit at 1440x900 through a throwaway config:
+**12/12 passed**, the four search/list specs among them. The collapse, the no-matches note,
+the restore-on-close and the list view all behave identically.
+
+No `@webkit-*` tag was added. Those projects are deliberately narrow, one per known
+divergence class (see the config's note), and a passing probe is not a divergence — tagging
+this spec would put 12 tests on every CI run to defend a result that came back clean. The
+probe is recorded here instead, re-runnable from these two commands.
 
 ---
 
@@ -247,12 +263,17 @@ it lives in the banner, which the shell owns — so `slideQuery` sits beside `de
 query carried across a scope switch hides most of a panel whose rows it was never about.
 Pinned in `studio.controls.test.tsx`.
 
-**The banner title is `sr-only` below a 320px panel, not shortened and not `hidden`.** The
-toolbar and close control take ~110px of that row, so a narrow panel leaves the line ~110px
-and it truncates to "Set it once — a…", which is worse than absent; shortening the copy only
-moves the width it breaks at, because the docked panel goes to 260px. Visually hidden keeps
-it in the accessibility tree, which matters more than usual: that element is the panel's
-`aria-live` region, so it is what announces a deck↔slide switch.
+**The banner title needed a second phrasing, not a second font size.** The toolbar and
+close control take ~110px of that row, so a narrow panel leaves the line ~110px and one
+sentence truncates to "Set it once — a…", which is worse than absent; shortening the copy
+only moves the width it breaks at, because the docked panel goes to 260px.
+
+**What this section first shipped was wrong, and §8.1 is the correction.** It hid the title
+below a 320px container and relied on an `sr-only` copy to carry it — which, at the 296px
+default docked width, meant the banner had no words at all. The row now carries the sentence
+where it fits and an abbreviation where it does not, both drawn. The `sr-only` node survives
+for a different job: it is the panel's `aria-live` region, and it announces a deck↔slide
+switch at every width. Read §8.1 before trusting anything in this bullet.
 
 ### What it cost the tests
 
@@ -273,7 +294,7 @@ how the first attempt went wrong, not just what it got wrong.
 match.** The title was hidden below a 320px *container* — and `SET_DEFAULT` is 296, minus
 28px of padding, so every docked desktop and tablet width was under it. The scope icon had
 just moved to a `compact`-gated switch and both badges were gone, so the docked banner
-rendered as icons over a tint, with a background colour as the only cue between deck and
+rendered as icons over a tint, with a background color as the only cue between deck and
 slide. Two tells were in the diff and neither was read as one: `toBeVisible()` became
 `toBeAttached()` in two e2e specs, and a unit test gained a comment saying to address the
 line "by TEXT rather than by visibility". A probe printing `sr-only (announced, not drawn)`
@@ -297,7 +318,7 @@ to swallow.
 chevron *inside* the tablist as a non-tab child (an `aria-required-children` axe
 violation). Borrowed `PillTabs`'s keyboard implementation and moved the chevron out.
 
-Three smaller ones: a scope labelled `"Hide header footer page number"` — a concatenation of
+Three smaller ones: a scope labeled `"Hide header footer page number"` — a concatenation of
 its children's labels — so typing one row's name returned all three; the `SettingsBlock`
 guard test matched `'<Row '` with a trailing space, missing a multi-line `<Row`, and could
 spin forever on a self-closing block; and `onViewChange` stayed a required prop nothing
