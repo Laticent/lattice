@@ -104,6 +104,29 @@ type Ring = {
 	baseOutline: string;
 };
 
+/**
+ * Block until the editor's box stops moving.
+ *
+ * The geometry assertion compares the ring's used box against the editor's, and both
+ * are read in one `evaluate` — but on a surface that mounts CodeMirror into a box still
+ * being laid out (the Specimen, which swaps faces and then grows), a read can land
+ * mid-layout and report a 58px editor under an 878px ring. That is a flake in the
+ * measurement, not a defect in the ring, so wait for two consecutive identical widths
+ * rather than for a magic threshold.
+ */
+async function awaitStableBox(page: import('@playwright/test').Page, scope = '') {
+	const width = () => page.evaluate((sel) => (document.querySelector(`${sel}.cm-editor`) as HTMLElement)?.getBoundingClientRect().width ?? 0, scope);
+	let last = -1;
+	await expect
+		.poll(async () => {
+			const now = await width();
+			const settled = now > 0 && now === last;
+			last = now;
+			return settled;
+		}, { message: `${scope || 'the editor'}'s box never settled` })
+		.toBe(true);
+}
+
 /** `.cm-editor` and its `::after`, in whatever focus state the page is in. */
 const readRing = (page: import('@playwright/test').Page, scope = ''): Promise<Ring> =>
 	page.evaluate((sel) => {
@@ -209,6 +232,7 @@ async function selectAll(page: import('@playwright/test').Page) {
 async function openSurface(page: import('@playwright/test').Page, url: string): Promise<Structure> {
 	await page.goto(url, { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.cm-content').first()).toBeVisible({ timeout: 40_000 });
+	await awaitStableBox(page);
 	await selectAll(page);
 	return page.evaluate(() => {
 		const el = document.querySelector('.cm-content') as HTMLElement;
@@ -467,6 +491,7 @@ test("every editor kills CodeMirror's dotted default, and only a full-pane edito
 		// face is chosen, so waiting for `.cm-content` before it is a guaranteed timeout.
 		await s.open(page);
 		await expect(page.locator(`${s.scope}.cm-content`).first()).toBeVisible({ timeout: 40_000 });
+		await awaitStableBox(page, s.scope);
 		const ring = await readRing(page, s.scope);
 
 		// THE SUPPRESSION IS UNCONDITIONAL. Declining our ring never means inheriting
