@@ -144,6 +144,28 @@ clone+draw that cannot leave the main thread.
 `tools/bench-pdf-export.mjs` reproduces the wall-clock and the page comparison on any
 machine: `node tools/bench-pdf-export.mjs --engine webkit --slides 58 --verify <pdf>`.
 
+## A failure this surfaced, and what it was not
+
+Testing the branch on a real phone, the jargon gallery deck failed with **"PDF failed:
+unexpected error"**. It is worth recording that this was NOT the new encode, and how
+that was established: blocking the worker script so only the main-thread jsPDF lane
+runs — which is exactly the pipeline on `main` — reproduces it identically, on the
+same deck, with the same three 404s for `lib/base/_logo/lattice-mark-min.svg`. The
+deck's front matter carries `logo: ../lib/base/_logo/lattice-mark-min.svg`, a path
+relative to the deck FILE: correct for the CLI, unresolvable on the web.
+
+html-to-image rejects with the raw load `Event`, which has no `.message`, so every
+lane's catch printed "unexpected error". `captureError` now translates it, and the
+author sees what to fix. Two things it deliberately does not do:
+
+- **It names no URL.** By the time the Event fires, the clone's `<img>` has had its
+  `src` blanked, and an empty `src` reads back as the PAGE's own address — measured,
+  `http://localhost:4321/studio/`. Naming the failing file needs the capture frame to
+  record its failed requests; that is a bigger change than this one.
+- **It does not make the export survive a missing image.** A deck with a broken image
+  path still fails rather than exporting without it. That is the pre-existing behavior
+  and a separate decision.
+
 ## What it costs
 
 - **175 KB gzipped** of `pdf-lib` on the export path, lazy-imported (`check:route-budget`

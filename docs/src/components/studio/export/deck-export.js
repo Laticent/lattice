@@ -818,9 +818,33 @@ function captureOptions(w, h, pixelRatio, fontEmbedCSS) {
 // every font itself rather than chasing the cross-origin Google-Fonts @import.
 // The data-URL flavor — PPTX and chart export consume it directly. The PDF path
 // uses rasterizeSectionToBitmap below so the PNG encode never runs on this thread.
+/**
+ * Turn a capture failure into something an author can act on.
+ *
+ * html-to-image rejects with the RAW load `Event` when an embedded asset cannot be
+ * fetched. It carries no `.message`, so every lane's catch reported it as
+ * "unexpected error" and the author was left guessing — measured on a phone against
+ * a deck whose `logo:` is a path relative to the deck FILE, which the CLI resolves
+ * and the web cannot.
+ *
+ * The message deliberately names no URL. The Event's target is the clone's `<img>`
+ * AFTER the inliner has blanked its `src`, and an empty `src` reads back as the
+ * PAGE's own address — measured: `http://localhost:4321/studio/`, which would send
+ * the author looking in exactly the wrong place. Naming the failing file needs the
+ * capture frame to record its failed requests, which is a bigger change than this.
+ */
+export function captureError(cause) {
+	if (cause instanceof Error) return cause;
+	return new Error("a slide image could not be loaded — check the deck's image and logo paths (a path relative to the deck file cannot resolve here), and the browser console for the 404");
+}
+
 async function rasterizeSection(section, fontEmbedCSS, cornerTarget) {
 	const { toPng } = await import('html-to-image');
-	return withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS)), undefined, cornerTarget);
+	try {
+		return await withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS)), undefined, cornerTarget);
+	} catch (e) {
+		throw captureError(e);
+	}
 }
 
 // Rasterize one rendered slide to a transferable ImageBitmap. Same clone + draw
@@ -829,10 +853,16 @@ async function rasterizeSection(section, fontEmbedCSS, cornerTarget) {
 // move to the export worker, which receives the bitmap zero-copy.
 async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget) {
 	const { toCanvas } = await import('html-to-image');
-	return withCaptureFixups(section, async (w, h, pixelRatio) => {
-		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
-		return await createImageBitmap(canvas);
-	}, undefined, cornerTarget);
+	try {
+		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
+			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
+			return await createImageBitmap(canvas);
+		}, undefined, cornerTarget);
+	} catch (e) {
+		// Named, so the worker lane's failure does not read as a worker problem when it
+		// is the capture — and so the main-thread retry reports the same real cause.
+		throw captureError(e);
+	}
 }
 
 // ── PDF (one-click image PDF) ─────────────────────────────────────────────────

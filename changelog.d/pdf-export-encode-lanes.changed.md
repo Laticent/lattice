@@ -12,3 +12,8 @@
   (JPEG)" is now "Photographic": with the faster lossless path, PNG measured 4.6 s /
   3.3 MB against JPEG's 4.8 s / 7.4 MB on the same deck — flat color and hard type
   compress better losslessly. JPEG still wins on photo-heavy decks.
+- **Fixed: an export that fails on a missing image says so.** When a slide's image or
+  `logo:` cannot be fetched, the browser hands back a bare load event with no message,
+  and the Share sheet reported it as "PDF failed: unexpected error". It now names the
+  cause — a path relative to the deck file resolves for the CLI but not on the web —
+  so the fix is findable. Both export lanes report the same thing.

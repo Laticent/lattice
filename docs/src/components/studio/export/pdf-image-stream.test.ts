@@ -1,6 +1,7 @@
 import { inflateSync } from 'node:zlib';
 import { PDFDict, PDFDocument, PDFHexString, PDFName, PDFRawStream, PDFString } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
+import { captureError } from './deck-export.js';
 import { deflate, imageDict, PX_TO_PT, packPredictorRows, pageContentOps } from './pdf-image-stream.js';
 
 // The export's page-image kernel. What matters here is that the bytes we hand a PDF
@@ -195,5 +196,26 @@ describe('annotation text', () => {
 		const dict = list?.lookup(0, PDFDict);
 		const contents = dict?.get(PDFName.of('Contents'));
 		expect((contents as PDFHexString).decodeText()).toBe(body);
+	});
+});
+
+describe('captureError', () => {
+	// html-to-image rejects with the raw load Event when an embedded asset 404s. It has
+	// no `.message`, so the Share sheet reported "PDF failed: unexpected error" and the
+	// author was left guessing — measured on a real phone against a deck whose `logo:`
+	// is a path relative to the deck FILE, which the CLI resolves and the web cannot.
+	it('turns a bare load Event into an actionable message', () => {
+		const error = captureError({ type: 'error', target: { tagName: 'IMG', src: 'http://localhost:4321/studio/' } });
+		expect(error).toBeInstanceOf(Error);
+		expect(error.message).toMatch(/slide image could not be loaded/);
+		expect(error.message).toContain('logo');
+		// It must NOT name a URL: by the time the Event fires, the clone's <img> has had
+		// its src blanked, and an empty src reads back as the page's own address.
+		expect(error.message).not.toContain('localhost:4321');
+	});
+
+	it('passes a real Error through untouched', () => {
+		const original = new Error('out of memory');
+		expect(captureError(original)).toBe(original);
 	});
 });
