@@ -381,6 +381,80 @@ reviewer agents at whole slides; jank is invisible to that by construction, beca
 individual slide looks fine. A reviewer agent that suspects an anchor moves should call
 this tool and read the table, not squint at three renders side by side.
 
+## The census — the whole catalog, once
+
+`tools/jank-census.js` runs the `--anchors` discovery above across every class the
+catalog declares and ranks what moves. The committed table is `engineering/jank-census.md`,
+and the command that regenerates it is printed at the top of that file.
+
+It exists because of a gap this doc had not named. `jank-sweep.test.js` is a
+RIG-INTEGRITY test — it proves the tool can still detect a collision — and it runs on
+essentially one component. Green there says nothing about the other 68, and nothing had
+ever pointed the tool at the catalog. 272 component classes had never been measured.
+
+**Read three things out of it before anything else.**
+
+**A census cannot fail a component.** `--anchors` is discovery: without `--anchor` a
+check-jank run cannot exit 1 at all. Every row is a LEAD. The verdict comes from
+re-sweeping with `--anchor`, and the census prints that command per hit.
+
+**Rank from BOTH ends of the table, not the top.** The census sorts by travel, which puts
+the drift leads first and buries the collision archetype at the bottom — a mark that
+holds *perfectly* still while content grows into it reads as `0px` and looks like the
+cleanest row on the page. That is #2005's shape exactly. The `0px` rows are where to look
+for a collision; the moving rows are where to look for drift.
+
+**Most travel is a mark riding its own block, and the clearance column is what tells them
+apart.** A `ul::before` ring drawn on a list moves down when the heading above it grows;
+that is flow, not drift, and the tell is that the clearance to the content does not
+change. Judge a mark against what it is positioned against: a `section::before` is
+section-relative and owes the canvas a fixed position, while a `ul::before` owes its list.
+
+### What the first full run found (2026-09-13)
+
+**The census had the same blind spot the invariant did, one level up.** Sweeping every
+manifest class and variant finds no `section::before` candidate anywhere — because the
+engine's running marks are base MODIFIERS (`mark-orbit`, `stamp-seal`), not manifest
+variants, so a catalog sweep never renders one. The archetype this whole tool was built
+for was not in the 272. `--marks` reads the mark selectors out of the built bundle and
+sweeps each on a plain host; **all 23 hold position** (22 at 0px, `mark-pills` at 0.1px).
+
+**One class the scan finds is NOT a modifier, and treating it as one manufactured the exact
+false clean this tool is built against.** `form` is the Form wrapper every slide carries — not
+a component, so the catalog never covers it, and not a modifier, so appending it to a host
+does nothing. Its `::after` is the PAGE NUMBER, which paints only under `paginate: true`
+front matter that a `_class` string cannot supply. Swept as `content form` it rendered no
+mark, produced no candidate, and took its place in the committed table's "no placeable
+positioned mark" list — a clean bill for a section-level running mark that was never on the
+page, and the pagination number is precisely the fixed-element-that-must-hold-position case
+this tool exists for. It is now listed OUT OF REACH with its reason instead. Measuring it
+needs a front-matter register the class string cannot reach (#2168). Caught by a checker,
+not by the sweep.
+
+**A modifier that paints nothing alone must be given its companion**, or the census
+reports "none" for a mark that is simply not on the page — the false clean this tool is
+built against, reproduced in the instrument that was supposed to check for it.
+`stamp-*` picks the SHAPE of a state marker and the LABEL comes from the state class, so
+`content stamp-seal` draws nothing while `content confidential stamp-seal` draws a
+98.8x98.8 seal. The census carries that pairing in `MARK_COMPANIONS`.
+
+**A ROTATED anchor cries wolf, and this is the rig's own defect.** `applyTransform`
+returns the axis-aligned bounding box of the transformed corners — exact for the
+`translate(-50%, 50%)` centering idiom it was built for, and badly wrong for a rotation.
+`stamp-ribbon` is a 768x25px bar at 38 degrees, so its AABB is roughly 620x493 — about
+sixteen times the area it paints — and check-jank reports a confident COLLISION from step
+7 over a real clearance of about 145px. Rendered and looked at: the heading is
+measure-capped and cannot reach the band. `stamp-mark` and `stamp-veil` are the other two
+verdicts, and both are `inset: 0` full-slide overlays where covering the content IS the
+design. Three of the 23 marks the tool exists to police therefore fail it falsely, which
+is the corrosive direction — see *Crying wolf* above. Tracked; the fix is an oriented-box
+test rather than an AABB.
+
+**Three classes cannot be swept on any axis this rig has.** `big-number`, `quote` and
+`quote bare` carry no heading to grow and no element builder to grow a collection. The
+census tries all three axes before saying so, because one refusal reads as a bad
+invocation and three read as a hole in the instrument.
+
 ## Canonical sources
 
 - `tools/check-jank.js` — the measurement, and the long form of every flag.
@@ -388,4 +462,6 @@ this tool and read the table, not squint at three renders side by side.
 - `test/integration/parity/numbered-bookend-stamp.test.js` — the hand-written, per-component
   version of the same invariant.
 - `test/integration/invariants/jank-sweep.test.js` — the proof the tool can still fail.
+- `tools/jank-census.js` + `engineering/jank-census.md` — the same measurement across the
+  whole catalog, and the committed table.
 - `engineering/capabilities.md` — every neighboring instrument, and what each one measures.
