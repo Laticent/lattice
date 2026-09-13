@@ -131,6 +131,9 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			const step = steps[i];
 			if (signal.aborted) return;
 			if (!step.instant) stage.progress?.(++taughtDone, taughtTotal);
+			// Clear any hold the previous beat set. Doing it here rather than in a `finally` is what
+			// makes an aborted beat safe: there is no path that leaves the caption pinned.
+			stage.holdCaption?.(false);
 
 			// THE WORD CUE, resolved BEFORE anything starts. `plan()` is the narrator's own
 			// timeline, so this asks "when will you say 'Publish'?" and gets an answer in
@@ -234,6 +237,13 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 					}
 				}
 			};
+
+			// A CUED BEAT PINS ITS CAPTION. `at` means the action is timed to a word in the line, so
+			// the line is what the viewer is following — and with no voice, the caption IS the line.
+			// Letting the step-aside hide it takes the instruction away at the exact moment it is
+			// being carried out; the contact sheet showed the click landing a full second before
+			// "Now click Publish…" came back. A voiced run already holds it for the same reason.
+			if (cuePlan) stage.holdCaption?.(true);
 
 			if (sayAt === 'top') await sayLine();
 

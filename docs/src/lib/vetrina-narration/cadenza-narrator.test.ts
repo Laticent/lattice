@@ -191,11 +191,14 @@ describe('voicedNarrator — the rung that speaks', () => {
 
 	it('asks the CALLER for the bytes, and hands it the estimate to match', async () => {
 		const { stage, finish } = fakeAudio();
-		let asked: { text: string; durationMs: number } | null = null;
+		// A holder, not a bare `let`: the assignment is inside the callback and control-flow
+		// analysis cannot see across it, so a plain binding narrows to `null` at the assertion.
+		const asked: { text?: string; durationMs?: number } = {};
 		const v = voicedNarrator({
 			audio: stage,
 			synthesize: async (text, ctx) => {
-				asked = { text, durationMs: ctx.durationMs };
+				asked.text = text;
+				asked.durationMs = ctx.durationMs;
 				return new ArrayBuffer(8);
 			},
 		});
@@ -203,8 +206,8 @@ describe('voicedNarrator — the rung that speaks', () => {
 		await new Promise((r) => setTimeout(r, 10));
 		finish();
 		await h.done;
-		expect(asked?.text).toBe('Now click Publish.');
-		expect(asked?.durationMs).toBeGreaterThan(0);
+		expect(asked.text).toBe('Now click Publish.');
+		expect(asked.durationMs).toBeGreaterThan(0);
 	});
 
 	it('resolves when the clip ends, not when the estimate does', async () => {

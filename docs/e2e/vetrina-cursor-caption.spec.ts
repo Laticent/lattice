@@ -164,10 +164,14 @@ test.describe('a VOICED narrator keeps the caption up — the other half of the 
 		await page.evaluate(() => {
 			const w = window as unknown as { __minOpacity?: number };
 			w.__minOpacity = 1;
+			// BOUNDED. An in-page rAF loop that never stops keeps the page busy through teardown and
+			// races Playwright's trace flush — which surfaced as an ENOENT on the trace file and read
+			// as a test failure on a test that had already passed.
+			const until = performance.now() + 20_000;
 			const tick = () => {
 				const el = document.querySelector('.vetrina-bubble') as HTMLElement | null;
 				if (el) w.__minOpacity = Math.min(w.__minOpacity ?? 1, Number(getComputedStyle(el).opacity));
-				requestAnimationFrame(tick);
+				if (performance.now() < until) requestAnimationFrame(tick);
 			};
 			requestAnimationFrame(tick);
 		});
@@ -197,6 +201,50 @@ test.describe('a VOICED narrator keeps the caption up — the other half of the 
 });
 
 test.describe('the word cue — the click lands on the word that names it', () => {
+	test('the caption is UP while the cue plays — the instruction cannot arrive after the action', async ({ page }) => {
+		// Found by looking at a contact sheet of the whole run, not by a test: the cue beat was
+		// exempted from the transient rhythm but still subject to the stage's step-aside, so the
+		// caption hid for the approach and came back AFTER the click. Measured: click at 20.2s,
+		// "Now click Publish…" at 21.1s. A cued beat now pins its caption.
+		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'cadenza' });
+		await waitForPhase(page, 'point');
+		// Sample in the page, for the same reason the voiced arm does: reading it from the test
+		// side means guessing when to look.
+		//
+		// The window OPENS at the first frame the caption is fully in, not at the `say`. Every
+		// `say` cross-fades the bubble out and back to swap the text, so a min-opacity taken from
+		// the say would always be 0 and would prove nothing about the defect — which is the caption
+		// being gone during the APPROACH, after that swap has finished.
+		await page.evaluate(() => {
+			const w = window as unknown as { __cueMin?: number; __cueArmed?: boolean };
+			w.__cueMin = 1;
+			w.__cueArmed = false;
+			// Bounded, for the same reason as the sampler above.
+			const until = performance.now() + 30_000;
+			const tick = () => {
+				const rows = [...document.querySelectorAll('#logbody tr')].map((tr) => tr.children[3].textContent ?? '');
+				const el = document.querySelector('.vetrina-bubble') as HTMLElement | null;
+				const onCuedBeat = rows.filter((r) => r.startsWith('say')).length >= 5;
+				if (el && onCuedBeat) {
+					const o = Number(getComputedStyle(el).opacity);
+					if (!w.__cueArmed && o === 1) w.__cueArmed = true;
+					if (w.__cueArmed) w.__cueMin = Math.min(w.__cueMin ?? 1, o);
+				}
+				// Stop as soon as the click has landed — the window this measures is closed by then.
+				if (performance.now() < until && !rows.some((r) => r.startsWith('press'))) requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		});
+		await waitForPhase(page, 'press');
+		const cue = await page.evaluate(() => {
+			const w = window as unknown as { __cueMin?: number; __cueArmed?: boolean };
+			return { min: w.__cueMin, armed: w.__cueArmed };
+		});
+		// It must have been up at all (armed), and never have dipped between then and the click.
+		expect(cue.armed).toBe(true);
+		expect(cue.min).toBe(1);
+	});
+
 	test('the click and the narration reaching “Publish” coincide', async ({ page }) => {
 		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'cadenza' });
 		await waitForPhase(page, 'narration says');

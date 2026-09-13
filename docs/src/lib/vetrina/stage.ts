@@ -168,6 +168,17 @@ export interface Stage {
 	 *  hand is already moving before they say the thing. Returns 0 for a target that will not
 	 *  resolve. */
 	leadMs?(target: Target): number;
+	/** PIN the caption visible for a beat, overriding the step-aside.
+	 *
+	 *  For the one beat where the caption is not competing with the action but TIMING it: a word
+	 *  cue (`Step.at`) with no voice. The step-aside exists because a silent caption and the
+	 *  action want the same eye — but when the caption is the thing being followed to the word,
+	 *  hiding it removes the instruction at the exact moment it is being carried out. Measured on
+	 *  the prototype: the click landed at 20.2s and "Now click Publish…" appeared at 21.1s.
+	 *
+	 *  Not reference-counted: a beat holds or it does not, and the storyboard clears it at the top
+	 *  of every beat so an aborted one cannot leave it pinned. */
+	holdCaption?(on: boolean): void;
 	/** Take the caption down — the line has been read, and there is nothing to say until the
 	 *  next one.
 	 *
@@ -2082,9 +2093,10 @@ export function createStage(opts: StageOptions): Stage {
 	let captionWanted = false;
 	let voiced = false;
 	let captionShown = false;
+	let captionHeld = false;
 	/** The last thing the cursor aimed at — what the bubble keeps out of the way of. */
 	let lastAim: RectLike | null = null;
-	const captionShouldShow = () => captionWanted && (voiced || performDepth === 0);
+	const captionShouldShow = () => captionWanted && (voiced || captionHeld || performDepth === 0);
 	/** Reveal or hide the bubble, RE-ANCHORING it whenever it comes back.
 	 *
 	 *  Placing it once, when the line is set, is the bug this signature exists to prevent: the
@@ -2262,6 +2274,11 @@ export function createStage(opts: StageOptions): Stage {
 		},
 		setVoiced: (v: boolean) => {
 			voiced = v;
+			syncCaption();
+		},
+		holdCaption: (on: boolean) => {
+			if (destroyed) return;
+			captionHeld = on;
 			syncCaption();
 		},
 		dismissCaption: () => {
