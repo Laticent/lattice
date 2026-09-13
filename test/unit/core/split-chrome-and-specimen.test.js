@@ -71,6 +71,11 @@ describe('stripDeckChrome removes the DECK\'s chrome, not an author\'s', () => {
   // deletes the author's caption from every page of the run — and prints it nowhere else.
   // Keyed on a footer the SECTION advertises and the DECK never declared: the old
   // implementation removed it, this one must not.
+  //
+  // SCOPE, since the run-footer rule below narrowed it: the caption must reach A page. Which
+  // pages it reaches is `stripRunFooter`'s business (the run's opener, once) — this arm carries
+  // no `data-split-run`, so it is a page the run-footer rule cannot touch, and it keeps asking
+  // the only question it ever asked: is a per-slide caption mistaken for the deck's band.
   test('a per-slide _footer: override is NOT the deck\'s chrome', () => {
     const out = stripDeckChrome(section(
       'data-split-role="body" data-header="DECK HEADER" data-footer="Vertical board · the dip reads twice"',
@@ -91,6 +96,65 @@ describe('stripDeckChrome removes the DECK\'s chrome, not an author\'s', () => {
     const html = section(body, '<header>DECK HEADER</header>' +
       '<div class="cell-footer"><footer>DECK FOOTER</footer></div>');
     assert.equal(stripDeckChrome(html), html);
+  });
+});
+
+// ── the run's own footer rides the run's OPENING page, once ───────────────────────────────
+//
+// A split run is one slide unfolded, so the slide's `_footer:` caption belongs to the run and
+// not to each of its pages. Repeating it is the repetition the 2026-09-01 chrome ruling removed
+// from the DECK frame, one level down — and it is what clips: the caption lands in the shared
+// Form footer band, whose budget is one line. Measured on `split-panel cat-1` at portrait, the
+// authored slide fits unsplit and all three of its split pages clipped; 28 pages of the shipped
+// split-panel gallery clipped the same way, and the gallery now clips 11.
+//
+// EVERY ARM HERE IS MUTATION-CHECKED against the obvious way to get it wrong: keying on
+// `data-split-role="cover"` instead of on the run's first page. That passes arms 1-2 and fails
+// arm 3, which is the shape the four native-slice strategies had before they gained a cover.
+describe("a split run's own footer is said once, on the page that opens the run", () => {
+  const run = (n, id, role, inner) =>
+    `<section data-split-run="${n}" data-split-role="${role}" data-lattice-slide="${id}" class="content">${inner}</section>`;
+  const cap = (t) => `<div class="cell-footer"><footer>${t}</footer><span class="lat-pagination">x</span></div>`;
+
+  test('the opening page keeps it and the body pages lose it', () => {
+    const html = `<main>${run(2, '2', 'cover', cap('CAPTION'))}${run(2, '2.2', 'body', cap('CAPTION'))}${run(2, '2.3', 'body', cap('CAPTION'))}</main>`;
+    const out = stripDeckChrome(html, {});
+    assert.equal((out.match(/<footer>CAPTION<\/footer>/g) || []).length, 1,
+      'the caption should reach exactly one page of the run');
+    assert.match(out.slice(0, out.indexOf('2.2')), /<footer>CAPTION<\/footer>/,
+      'the page it reaches must be the one that opens the run');
+  });
+
+  test('the page number and the k-of-N rail still ride every page', () => {
+    const rail = '<div class="lat-split-rail"><span class="seg on"></span></div>';
+    const html = `<main>${run(2, '2', 'cover', cap('C') + rail)}${run(2, '2.2', 'body', cap('C') + rail)}</main>`;
+    const out = stripDeckChrome(html, {});
+    assert.equal((out.match(/lat-pagination/g) || []).length, 2, 'a page number was stripped');
+    assert.equal((out.match(/lat-split-rail/g) || []).length, 2, 'the k-of-N rail was stripped');
+  });
+
+  // The native-slice shape: a run of `body` pages and no cover at all. Keying on the COVER role
+  // would strip the caption from every page here and print it nowhere — the outright loss
+  // `deckChromeFrom` exists to prevent, re-introduced one level down.
+  test('a run with no cover keeps the caption on its FIRST body page', () => {
+    const html = `<main>${run(5, '5', 'body', cap('KEEP'))}${run(5, '5.2', 'body', cap('KEEP'))}</main>`;
+    const out = stripDeckChrome(html, {});
+    assert.equal((out.match(/<footer>KEEP<\/footer>/g) || []).length, 1,
+      'a cover-less run lost its caption entirely');
+    assert.match(out.slice(0, out.indexOf('5.2')), /<footer>KEEP<\/footer>/);
+  });
+
+  test('two runs on one page do not borrow each other\'s opener', () => {
+    const html = `<main>${run(2, '2', 'cover', cap('A'))}${run(2, '2.2', 'body', cap('A'))}`
+      + `${run(7, '7', 'cover', cap('B'))}${run(7, '7.2', 'body', cap('B'))}</main>`;
+    const out = stripDeckChrome(html, {});
+    assert.equal((out.match(/<footer>A<\/footer>/g) || []).length, 1);
+    assert.equal((out.match(/<footer>B<\/footer>/g) || []).length, 1);
+  });
+
+  test('an UNSPLIT slide keeps its caption — the rule is scoped to a run', () => {
+    const html = `<main><section data-lattice-slide="3" class="content">${cap('SOLO')}</section></main>`;
+    assert.equal(stripDeckChrome(html, {}), html);
   });
 });
 
