@@ -2,12 +2,12 @@
 	"bar.light": {
 		"src": "lib/components/chart/bar/bar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "1d3d83d6bb1b5fb217502bd1c1de3bfde911efea5c0d58858b8bc5c728be74da"
+		"srcSha256": "1eaae53fdfa62984084b063cb52b2db0742d53d6bd9c523100076abb64501208"
 	},
 	"bar.dark": {
 		"src": "lib/components/chart/bar/bar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "f9873ecd18a9cd1680ee5fd7b8b8faead908b1012967bba23459b1bfc5ef49dd"
+		"srcSha256": "077225021adf154ec734ec9c2e5ea369c3b061a8dd0ff6105235f046839e94f3"
 	},
 	"big-number.light": {
 		"src": "lib/components/statement/big-number/big-number.gallery.light.pdf",
@@ -72,12 +72,12 @@
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "a8aa841bf72fb1e1606a778b7936655db8023df19e1ec158ee00384b86c00260"
+		"srcSha256": "d99a5401afd9280981162b6cf9c4e1b618ac073e6a960ea991317bcf68cdbf94"
 	},
 	"funnel.dark": {
 		"src": "lib/components/chart/funnel/funnel.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "3f155aa9ff25cdd5e078883255dd02aefc10d941e5dcdbecf7eda6fe9a0660ff"
+		"srcSha256": "a780c7e6012e92a60cb84413d4cdce36b9750915088927973c24003ec0031c9a"
 	},
 	"image.light": {
 		"src": "lib/components/imagery/image/image.gallery.light.pdf",
@@ -132,22 +132,22 @@
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "e887d288b4447d2eed5c021850e119ada051dd883046730dadac231e75baa078"
+		"srcSha256": "34c7f9b8a2b26a3c98d6aa99c84e5cfa3da2f5ecf36271eb5df019c3953f6e56"
 	},
 	"radar.dark": {
 		"src": "lib/components/chart/radar/radar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "30458ad705f4429da71e279f4f1c4d511d093ec97ad3202ee5f913349b2a79c6"
+		"srcSha256": "40d88a7e10906250d1d56f7d0b1706345eb2f477e276ffc26344045588de244e"
 	},
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "5b719b7e53861e86469b954ffcf4102fc690f9dd81c80f6108bb385fe88f5478"
+		"srcSha256": "49f80caf51c44ae61777f1d9c628da3398e84bef5d9a362fcd3c3249ed822ded"
 	},
 	"roadmap.dark": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "c70a3549da98b1b799c073888a4babd105de02c9a4c70a643b137aaae2737a80"
+		"srcSha256": "65694c85030b1d6898bcfb7ac685339c65f9652c94110b79a449f4b71f99d39a"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
@@ -162,11 +162,11 @@
 	"waterfall.light": {
 		"src": "lib/components/chart/waterfall/waterfall.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "5b166930e28757c23b6267e3f2533015a8500718888685c98974c91cd0e7abe1"
+		"srcSha256": "124c7175c85f4420885216729dcc85134eeeafbe3efbddd83fc57ec0c9836ec3"
 	},
 	"waterfall.dark": {
 		"src": "lib/components/chart/waterfall/waterfall.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "0685dc90c087559ab85267d1d41d29ddcdec232a9a04c5ed5bf2d7eeaac182a1"
+		"srcSha256": "96ff06dde740cac1067f7944144a3265b00fe98547c6be818d650a61b6ab0fcf"
 	}
 }
