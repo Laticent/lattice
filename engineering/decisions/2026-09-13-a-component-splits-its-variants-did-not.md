@@ -283,10 +283,21 @@ cover is a different treatment by design and is excluded rather than counted as 
   content height, and a three-member page puts it 64px from where a one-member page did.
   Two are the k-of-N rail moving HORIZONTALLY (18px on `checklist`, 26.5px on `roadmap`),
   which is the rail's berth shifting with the section-rail reservation beside it.
-- **Every one of them is pre-existing.** Each class was re-rendered from the merge-base tree and
-  reproduces with the IDENTICAL number — `dy 63.9` on `cover-paginate`'s glossary run, `dy 57.9`
-  on `portrait-prose-deboost`, `dy 37.6` on `list-tabular`, `dy 32` on `premise`, `dx 18` on
-  `checklist`. Nothing here creates or worsens the class.
+- **Every one of them is pre-existing, and this was verified per GROUP rather than per class.**
+  The 26 hits fall into 19 distinct deck x page-class x mark groups, and all 19 were re-rendered
+  from the merge-base tree: every one reproduces with the IDENTICAL number — `dy 63.9` on
+  `cover-paginate`'s glossary run, `dy 57.9` on `portrait-prose-deboost`, `dy 37.6` and `dy 24.1`
+  across `split-panel`'s seven, `dy 57.8` on `read-across-carousel`, `dy 32` on `premise`,
+  `dx 18` on `checklist`. Nothing here creates or worsens the class.
+
+  The per-group check is the point, not diligence for its own sake. An earlier pass checked one
+  representative of each CLASS — six of the nineteen — and wrote "every one is pre-existing" off
+  that. Two of the thirteen unchecked groups were on `split-panel`, the component this change
+  edits; they turned out identical, but the claim had been an extrapolation from class membership
+  rather than a measurement. The first attempt at the full check then reported a false regression
+  on `read-across-carousel` at portrait, because the base render for that one deck sat in a
+  different directory and was silently absent from the comparison. Both are the same failure in
+  miniature: a corpus that does not contain the case cannot clear it.
 - **One base finding is GONE at head**: `roadmap`'s rail drifted 26.5px horizontally at the
   merge base and does not at HEAD, because the native-slice cover changed that run's shape.
 
