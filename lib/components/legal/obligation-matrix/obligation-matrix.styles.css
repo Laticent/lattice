@@ -93,7 +93,7 @@ section.obligation-matrix tbody tr:nth-child(odd) td:not(:first-child) {
  * The universal `.heat` modifier (top of LAYOUTS section) flips to the
  * risk axis (applies = alarm red, exempt = relief green). This layout
  * additionally adds heat-aware cell-tint chrome below. */
-section.obligation-matrix td .state {
+section.obligation-matrix :is(td, .ct-card dd) .state {
   position:relative;
   display:inline-block;
   width:calc(1.4em * var(--state-disc-scale)); height:calc(1.4em * var(--state-disc-scale));
@@ -116,20 +116,20 @@ section.obligation-matrix td .state {
     0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
     inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
 }
-section.obligation-matrix td .state.pass { --state-color:var(--pass); }
-section.obligation-matrix td .state.warn { --state-color:var(--warn); }
-section.obligation-matrix td .state.fail { --state-color:var(--fail); }
-section.obligation-matrix td .state.skip { --state-color:var(--muted-mark); }
+section.obligation-matrix :is(td, .ct-card dd) .state.pass { --state-color:var(--pass); }
+section.obligation-matrix :is(td, .ct-card dd) .state.warn { --state-color:var(--warn); }
+section.obligation-matrix :is(td, .ct-card dd) .state.fail { --state-color:var(--fail); }
+section.obligation-matrix :is(td, .ct-card dd) .state.skip { --state-color:var(--muted-mark); }
 /* exempt — `[ ]` is "not subject to this obligation", a NEUTRAL state (not a
  * gap): a true hollow ring (empty center; see `.state.todo` in base.modifiers).
  * --muted-mark, not --text-label (#1821): the latter is accent-hued EMPHASIS
  * since #1801, which painted this "neutral" ring in the brand accent on the ten
  * palettes that hue it from the accent. Same tier as `skip` above by ink, and
  * still unmistakable by shape — this ring has no inner mark at all. */
-section.obligation-matrix td .state.todo { --state-color:var(--muted-mark); }
+section.obligation-matrix :is(td, .ct-card dd) .state.todo { --state-color:var(--muted-mark); }
 /* Mark overlay — masked symbol (check / dash / x / slash) on the disc.
  * Mark color from --state-mark-pct (0% = knockout to --bg). */
-section.obligation-matrix td .state::after {
+section.obligation-matrix :is(td, .ct-card dd) .state::after {
   content:'';
   position:absolute; inset:0;
   background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
@@ -141,16 +141,16 @@ section.obligation-matrix td .state::after {
  * section.heat overlay; this block adds the cell-background tint that
  * makes the table read as a heat map at a glance. */
 section.obligation-matrix.heat tbody tr td:not(:first-child) { background:none; }
-section.obligation-matrix.heat td:has(> .state.pass) {
+section.obligation-matrix.heat :is(td, .ct-card dd):has(> .state.pass) {
   background:color-mix(in srgb, var(--fail) 14%, var(--bg));
 }
-section.obligation-matrix.heat td:has(> .state.warn) {
+section.obligation-matrix.heat :is(td, .ct-card dd):has(> .state.warn) {
   background:color-mix(in srgb, var(--warn) 14%, var(--bg));
 }
-section.obligation-matrix.heat td:has(> .state.fail) {
+section.obligation-matrix.heat :is(td, .ct-card dd):has(> .state.fail) {
   background:color-mix(in srgb, var(--pass) 10%, var(--bg));
 }
-section.obligation-matrix.heat td:has(> .state.skip) {
+section.obligation-matrix.heat :is(td, .ct-card dd):has(> .state.skip) {
   background:color-mix(in srgb, var(--muted-mark) 6%, var(--bg));
 }
 /* Bracket-frame echo at the row level. Each row carries a doubled left
@@ -174,3 +174,35 @@ section.obligation-matrix.heat thead tr th:last-child {
   padding-right:var(--sp-md);
 }
 
+
+/* ── AUTO-SPLIT: the `cover-cards` page ────────────────────────────────────────
+ *
+ * At portrait the grid RESHAPES — one regime per page, its five duties transposed into the
+ * shared `.ct-card` field list (`lib/core/carousel.js` cover-cards). Two things about this
+ * component make the shared card wrong out of the box, and both are fixed here rather than in
+ * the kernel, because both are facts about THIS component's cells and not about cards.
+ *
+ * 1. THE CELL IS A MARK, NOT A SENTENCE. Every `.state` rule above was scoped `td .state`, so
+ *    on a card page the disc reached the DOM and nothing painted it: measured over CDP, the
+ *    span computed `display: inline`, `0 x 0`, no background, no box-shadow. A GDPR card
+ *    rendered as Notice / Consent / Retention / Breach / DSAR with nothing beside any of them —
+ *    the labels survived and the whole content did not, and the conservation gate could not see
+ *    it because every WORD was conserved. The selectors are WIDENED to `:is(td, .ct-card dd)`
+ *    rather than copied, so the disc recipe has one definition serving both surfaces.
+ * 2. A MARK READS BESIDE ITS LABEL, IN A COLUMN. The shared card stacks `<dt>` over `<dd>`,
+ *    which is right for a prose value and wrong for a 1.4em disc — it put a lone tick on its
+ *    own line under each duty, five times. A flex row fixed that and left the discs RAGGED,
+ *    tracking each label's width, which is the thing a matrix exists not to do: the whole read
+ *    is a column of marks you can run your eye down. So the field list is one grid and each
+ *    field contributes its two cells to it (`display: contents`), which puts every disc on the
+ *    same track whatever its label says. Scoped to this component's split pages, so no other
+ *    `cover-cards` consumer moves. */
+section.obligation-matrix.lat-split-cards .ct-card-fields {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  align-items: center;
+  column-gap: var(--sp-lg);
+  row-gap: var(--sp-2xs);
+}
+section.obligation-matrix.lat-split-cards .ct-field { display: contents; }
+section.obligation-matrix.lat-split-cards .ct-field > dd { margin: 0; }

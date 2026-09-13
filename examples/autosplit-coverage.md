@@ -109,3 +109,36 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 | Signal intake | Connector v1 | Two more sources | Streaming |
 | Scoring | Equal weights | Tuned weights | Learned weights |
 | Review | Manual | Sampled | Exception only |
+
+---
+
+<!-- _class: obligation-matrix -->
+<!-- _footer: "obligation-matrix" -->
+
+## Duties, regime by regime.
+
+| Regulation | Notice | Consent | Retention | Breach |
+| --- | :---: | :---: | :---: | :---: |
+| GDPR | [x] | [x] | [x] | [x] |
+| CCPA/CPRA | [x] | [~] | [x] | [ ] |
+| LGPD | [x] | [x] | [~] | [x] |
+
+---
+
+<!-- _class: matrix-2x2 -->
+<!-- _footer: "matrix-2x2" -->
+
+## Effort against impact.
+
+- **High impact · Low effort.**
+  - Quick wins
+  - Ship these first
+- **High impact · High effort.**
+  - Strategic bets
+  - Fund deliberately
+- **Low impact · Low effort.**
+  - Habit fillers
+  - Prune here
+- **Low impact · High effort.**
+  - Time sinks
+  - One suffices

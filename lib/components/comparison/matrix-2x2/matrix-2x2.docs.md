@@ -10,6 +10,8 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 
 ## Agent contract
 
+**Capacity** ~4 items (over 4 overflows). Four quadrants, always. `hard` is 4 because a 2x2 with five cells is not a 2x2 — the number is a contract, not a budget.
+
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short label per quadrant cell.
 
 ### Slots
