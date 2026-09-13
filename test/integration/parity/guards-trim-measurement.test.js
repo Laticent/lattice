@@ -103,13 +103,27 @@ async function onPage(html, fn) {
   await page.setViewport({ width: 1400, height: 900 });
   await page.setContent(html, { waitUntil: 'load' });
   await page.evaluate(() => document.fonts.ready);
-  const run = (expr) => page.evaluate(`(() => { ${INJECT} ${expr} })()`);
+  // DATA GOES IN AS AN ARGUMENT; ONLY THE KERNEL GOES IN AS SOURCE.
+  //
+  // The kernel functions are `.toString()`-injected by contract (see the header of
+  // `lib/core/guards-trim.js`), so they have to arrive as text. A PLAN does not, and the
+  // first cut of this harness baked one in with `${JSON.stringify(plan)}` — building
+  // JavaScript out of a value, which CodeQL flagged at five sites and which is the same
+  // class of mistake that once aborted a whole export in this very feature
+  // (`'[data-trim-id="' + id + '"]'` concatenated into a selector, killing `querySelector`
+  // on an author id containing `"]`). Nothing here is attacker-controlled, but a harness
+  // that argues about string-built code in its own subject should not be built out of it.
+  // Bodies read `args`; they interpolate nothing.
+  const run = (body, args) => page.evaluate(
+    (src, a) => new Function('args', src)(a),
+    `${INJECT}\n${body}`, args ?? null,
+  );
   try { return await fn(run); } finally { await page.close(); }
 }
 
 /** One evaluation on its own page — the common case. */
-function onShape(html, expr) {
-  return onPage(html, (run) => run(expr));
+function onShape(html, body, args) {
+  return onPage(html, (run) => run(body, args));
 }
 
 /** Measure one section into a model, in the page. */
@@ -200,7 +214,7 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
       const after = await onShape(s.html, `
         const sec = document.querySelector('section');
         const model = measureTrim(sec, '.cell-stage', 12, 'tb');
-        const plan = ${JSON.stringify(plan)};
+        const plan = args.plan;
         applyTrim(sec, plan);
         const cell = document.querySelector('.cell-stage');
         const el = trimBlockEl(sec, plan.actions[0].blockId);
@@ -231,7 +245,7 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
         return { over: cell.scrollHeight - cell.clientHeight,
                  unused: limit - deepest,
                  lineH: rects.length > 1 ? rects[1].top - rects[0].top : 0 };
-      `);
+      `, { plan });
       assert.ok(after.over <= 1, `${s.name}: the clamp left ${after.over}px still overflowing`);
       // The residual room must be under ONE line: if a whole further line would have
       // fitted, the guard removed text it did not need to.
@@ -316,11 +330,11 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
       assert.ok(plan.actions.length, 'anti-vacuity: no cut to verify');
       return { plan, ...await run(`
         const sec = document.querySelector('section');
-        const p = ${JSON.stringify(plan)};
+        const p = args.plan;
         applyTrim(sec, p);
         const v = verifyTrim(sec, p, ${OPTS} probe: probeSectionOverflow });
         return { v, left: sec.querySelectorAll('[data-lattice-trimmed]').length };
-      `) };
+      `, { plan }) };
     });
     assert.equal(good.v.clean, true, 'a cut that fits was reported as not clean');
     assert.equal(good.v.reverted, 0, 'a cut that fits was reverted');
@@ -356,7 +370,7 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
       };
       return run(`
         const sec = document.querySelector('section');
-        const p = ${JSON.stringify(over)};
+        const p = args.plan;
         applyTrim(sec, p);
         const before = sec.querySelectorAll('[data-lattice-trimmed]').length;
         const cell = document.querySelector('.cell-stage');
@@ -365,7 +379,7 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
         const v = verifyTrim(sec, p, ${OPTS} probe: probeSectionOverflow });
         return { before, residual, frameSays, planned: p.actions.length, v,
                  left: sec.querySelectorAll('[data-lattice-trimmed]').length };
-      `);
+      `, { plan: over });
     });
     assert.ok(bad.before > 0, 'anti-vacuity: the forged plan applied no clamp at all');
     assert.ok(bad.residual > 0.5 && bad.residual < 12,
@@ -389,11 +403,11 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
       const plan = planTrim(model);
       return run(`
         const sec = document.querySelector('section');
-        const p = ${JSON.stringify(plan)};
+        const p = args.plan;
         applyTrim(sec, p);
         const v = verifyTrim(sec, p, ${OPTS} probe: () => { throw new Error('probe exploded'); } });
         return { v, left: sec.querySelectorAll('[data-lattice-trimmed]').length };
-      `);
+      `, { plan });
     });
     assert.equal(thrown.v.clean, false, 'a throwing probe was treated as "not over" and the cut was kept');
     assert.equal(thrown.left, 0, 'a throwing probe left clamps standing');
@@ -430,12 +444,12 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
       const vstack = (model.boxes[0]?.blocks || []).map((b) => b.vstack);
       return { plan, vstack, ...await run(`
         const sec = document.querySelector('section');
-        const p = ${JSON.stringify(plan)};
+        const p = args.plan;
         const cell = document.querySelector('.cell-stage');
         const before = cell.scrollHeight - cell.clientHeight;
         applyTrim(sec, p);
         return { before, after: cell.scrollHeight - cell.clientHeight };
-      `) };
+      `, { plan }) };
     });
     assert.ok(got.before > 12, `anti-vacuity: the two-up shape overflows by only ${got.before}px`);
     // The flex ROW must read as NOT stacking at the level where the columns diverge.
