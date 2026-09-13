@@ -652,63 +652,76 @@ section.split-panel-points:is(
   border-left-color: var(--panel-mark);
 }
 
-/* ── THE WAYFINDING MARKS LEAVE THE PANEL ROW ON A COVERLESS SPLIT PAGE ────────────────
+/* ── THE WAYFINDING MARKS LEAVE THE PANEL ROW, AND THE BAND THEY LAND IN IS RESERVED ─────
  *
  * `pullquote` leads with the quotation and carries no `<h2>`, so `readFeature` declines and
- * there is no masthead to build a cover from either: at portrait the run is `lat-split-native`
- * BODY pages with no `.cell-footer`. `dockInFooterCell` then appends both wayfinding marks at
- * SECTION level — and on this layout the section is the PANEL FLEX CONTAINER, which is the
- * whole problem. The forward pointer arrives as a flex ITEM of it.
+ * there is no masthead to build a cover from either: the run is `lat-split-native` BODY pages
+ * with no `.cell-footer`. `dockInFooterCell` then appends both marks at SECTION level — and on
+ * this layout the section IS the panel flex container, so the forward pointer arrives as a flex
+ * ITEM of the panel row. That is the whole of it, and it needs both halves below. Each half was
+ * shipped alone first, and each alone was wrong.
  *
- * At portrait the container is a column, so the pointer stacked under the panels and landed in
- * the bottom band: the k-of-N rail (absolute, `bottom: 2.35cqi`) printed through the pill's
- * label by 42.1x6.5px, and the pill printed over 206.6x24.5px of the running footer's INK.
- * Ink, on BOTH sides of the pair — a `Range` over each element's contents, clamped to its box.
- * The first write-up of this said 230x46, which is the pointer's BOX against the footer's ink:
- * the same one-sided comparison the sweep's own method note warns about, applied to the note's
- * own headline number.
+ * HALF ONE — TAKE THE POINTER OUT OF THE ROW. At portrait the container is a column, so the
+ * pointer stacked under the panels into the bottom band: the k-of-N rail printed through the
+ * pill's label by 42.1x6.5px, and the pill over 206.6x24.5px of the running footer's INK (ink on
+ * BOTH sides — a `Range` over each element's contents, clamped to its box; the pointer's BOX
+ * against that ink measures 230x31, which is the one-sided figure this comment first reported).
+ * At SQUARE the container is a ROW and the same item becomes a third COLUMN: `.panel-right`
+ * squeezed from half the slide to 252.7px, the right column set one word per line, and the
+ * pill's right edge at x1133.4 in a 1080px section.
  *
- * AT SQUARE THE CONTAINER IS A ROW, and the same flex item becomes a THIRD COLUMN. Measured on
- * the shipped gallery slide: `.panel-right` squeezed from half the slide to 252px — the right
- * column set one word per line — and the pill itself ran to x1133 in a 1080px section, clipped
- * mid-word at the slide edge.
+ *   An earlier fix reserved the band with `padding-bottom` on the SECTION. It closed the
+ *   portrait collision at all four tall sizes and, at square, cut the DARK panel short too —
+ *   a 92.9x629.1px white band under a full-bleed navy field. Reserving space in a container
+ *   cannot be right when the mark should not be in the container.
  *
- * The first fix here reserved the band with `padding-bottom` on the section. It closed the
- * portrait collision at all four tall sizes and was wrong anyway: at square the panels are
- * side-by-side, so the reservation cut the DARK panel short too and left a 92.9x629px white
- * band under a full-bleed navy field. Reserving space in a container cannot be right when the
- * mark should not be in the container at all.
+ * HALF TWO — RESERVE THE BAND ANYWAY, INSIDE THE PANEL. Taking the pointer out of flow and
+ * stopping there was the SECOND thing that was wrong: the panels then get their whole box back,
+ * which is exactly what lets their CONTENT reach the band the pill floats over — and the pill is
+ * opaque (`--pill-bg`) at `--z-chrome`, so it paints over the words. Measured on a four-member
+ * deck at portrait, page 3: 102.2x38.0px of pill fill over the ink of "And a third clause to
+ * match.", rasterized as "to m▮▮▮▮▮". Nothing in the engine could see it — the overflow probe
+ * reads FLOW height and the pointer is no longer in flow, `check-jank` does not know
+ * `.lat-split-rel` is an anchor, and this branch's own collision sweep compares marks to marks
+ * and never marks to content. Taking the pointer out of flow widened all three blinds at once.
  *
- * So the pointer is taken OUT of the flow, into the same band the rail already owns, parked
- * clear of it and of the footer's ink. Three things follow at once: the panels get their whole
- * box back at every size (full bleed restored, no reservation needed), the pill cannot squeeze
- * or be squeezed by a panel, and the two marks stop overlapping because they are now placed
- * rather than stacked.
+ *   So the reservation moves INSIDE `.panel-right`, the panel the pointer overlaps at every
+ *   size. Padding is inside the box, so the panel's BACKGROUND still bleeds to all four slide
+ *   edges — the square defect the section-level padding caused — while its CONTENT stops above
+ *   the band. `.panel-left` needs none: at portrait it is the top half, and at square the
+ *   pointer sits within `.panel-right`'s column.
  *
- * The offsets are measurements, not round numbers. `8.6cqi` clears the running `<footer>`,
- * which this layout pins absolutely to the section's bottom — box y1270-1330 at portrait, and
- * INK y1265-1335 (measured with a Range over its text node, because the box is 988px wide and
- * the string is not). `--sp-xl` is `.panel-right`'s own side padding, so the pill's right edge
- * lines up with the column it points at rather than with the slide edge. No `max-width` is set
- * here: the base berth rule already gives `.lat-split-rel` `max-width: 100%`, resolved against
- * the section's padding box, and a `calc(100% - …)` on top of it is the container-width inset
- * `checkOwnership` refuses — the stage owns the outer inset, not the body (design/forms.md
- * §6.1). Measured at all four splitting sizes, the pill stays inside the slide.
+ * THE NUMBERS ARE MEASURED. `8.6cqi` clears the running `<footer>`, which this layout pins
+ * absolutely to the section's bottom — ink y1265-1335 at portrait. The pill is 51.5px tall
+ * (4.8cqi), so its top sits at 13.4cqi and the reserve is that plus air. `--sp-xl` is
+ * `.panel-right`'s own side padding, so the pill's right edge lines up with the column it points
+ * at; `max()` keeps the reserve from ever being SMALLER than the padding it replaces.
  *
- * Written through `--_sec-1cqi` rather than as a bare `cqi`, because this lands on a child of
- * a `container-type: size` SECTION and a bare unit would resolve against the host viewport,
- * making the offset track the preview pane (`checkOwnership`'s container-unit budget).
+ * NO `:not(.form)`. An earlier version carried one, and an authored
+ * `<!-- _class: split-panel pullquote form -->` then kept every defect of half one intact:
+ * pointer `static`, `.panel-right` 252.7px, pill 26px past the slide edge. It guarded nothing —
+ * the `feature-cover` pages that carry `form` are classed `split-panel-cover` /
+ * `split-panel-points`, which `section.split-panel` never matches, and a `.cell-stage`-docked
+ * pointer is not a `>` child of the section.
  *
- * NOT FIXED HERE, and recorded rather than walked past: on this page the footer's ink is
+ * `--_sec-1cqi` here is this file's convention, NOT a correctness requirement, and the comment
+ * that said otherwise was carried over from the section-level rule where it WAS true. Measured:
+ * a bare `8.6cqi` on a CHILD of the section resolves against the section (92.88px on a 1080px
+ * slide), identically to the token form. `checkOwnership`'s budget is on declarations landing on
+ * the section ITSELF, for exactly that reason.
+ *
+ * NOT FIXED HERE, and recorded rather than walked past: the footer's ink on this page is
  * `--on-dark-secondary` at 0.76 alpha — white — because the layout inks its chrome for the dark
  * panel, and at portrait that panel is on TOP while the footer sits on the white half. Measured
- * identical at base and at HEAD, on the UNSPLIT slide too, so it is pre-existing and off the
- * path of this change (HARD RULE #18). It is why the collision above rasterized as a ghost
- * rather than as solid overprint. */
-section.split-panel.lat-split-native:not(.form) > .lat-split-rel {
+ * identical at base and HEAD, on the UNSPLIT slide too: pre-existing, off-path (HARD RULE #18).
+ * It is why the footer collision rasterized as a ghost rather than as solid overprint. */
+section.split-panel.lat-split-native > .lat-split-rel {
   position: absolute;
   right: var(--sp-xl);
   bottom: calc(var(--_sec-1cqi, 1cqi) * 8.6);
   left: auto;
   z-index: var(--z-chrome);
+}
+section.split-panel.lat-split-native:has(> .lat-split-rel) > .panel-right {
+  padding-bottom: max(var(--sp-xl), calc(var(--_sec-1cqi, 1cqi) * 14.4));
 }

@@ -29,7 +29,12 @@ on 27 of 29 decks, and the fast sweep counts ONE slide too many (a `kanban` page
 `data-viz-gallery` that `splitDoc` splits and the emulator leaves whole). So the fast sweep is
 a SUPERSET by construction, useful for finding candidates and not for stating a total.
 
-**Every total in this note is the REAL one**, from the emulator, both trees:
+**Every total in this note is the REAL one**, from the emulator, both trees. The base they are
+measured against is the merge base AT THE TIME OF MEASUREMENT, `7d68461` — `main` has moved since
+and the current merge base is later, so re-deriving them against `origin/main` today will not
+give these numbers back. That is the hazard HARD RULE #9 names about a moving HEAD, and the fix
+is the same: quote the base with the number. The intervening commits are logo/vetrina/editor work
+that touches no split path.
 
 | size | newly split (1 → n) | already splitting, +1 page | split LESS |
 |---|---|---|---|
@@ -240,6 +245,27 @@ deck page number, the running header and the running footer. Two results and one
   fell to one. The first write-up then reported the surviving overlap as 230×46px, which is the
   pointer's BOX against the footer's ink: the same one-sided comparison this note warns about,
   applied to the note's own headline number. Ink to ink it is 206.6×24.5px.
+
+**MARK AGAINST CONTENT — the blind spot in the sweep above, found by a checker reading it.** The
+collision sweep compares a mark to other MARKS. A mark that is absolutely positioned paints over
+whatever the page flowed underneath it, and neither that sweep nor the overflow probe can see it:
+the probe reads FLOW height, and an out-of-flow mark contributes none. A third checker pass
+measured 102.2x38.0px of the `split-panel` pointer's opaque pill over a body line, on a page the
+engine considered to fit — after a fix on this branch took that pointer out of flow.
+
+So a second probe, over the same corpus: every wayfinding mark's ink against the ink of every box
+carrying readable text. 1,456 pages, 9 hits, all accounted for:
+
+- **8 are pre-existing decoration.** The k-of-N rail and the page number crossing a `watermark`
+  letterform — a single `S` or `W` set at display size as background. Re-rendered from the merge
+  base, all eight reproduce with IDENTICAL numbers (120.5x5.8, 18x40, 70.9x5.8, 13.3x30); only
+  the page indices move, because this branch inserts pages ahead of them. `check-jank`'s own
+  doctrine already classifies a mark touching DECORATION as chrome rather than a defect, and for
+  the reason its header gives: one engine-drawn mark deliberately touching another is a design
+  choice a geometry rig cannot second-guess.
+- **1 is an artifact of the sweep itself.** `examples/autosplit-coverage` at `size: square` — a
+  deck authored `size: portrait`, forced to a canvas it was not written for, on a page the engine
+  ALREADY marks `overflow clip-marked`. At its own size the deck has zero hits.
 
 **DRIFT ACROSS A RUN'S PAGES — the other half of the question, also asked for the first time.**
 `check-jank` sweeps ONE slide's content and asks whether an anchor holds position. A run asks

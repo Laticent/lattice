@@ -292,6 +292,26 @@ describe('core: carousel — cover-rows (list-tabular)', () => {
     assert.match(rows[0].title, /<p>One<\/p><p>Two<\/p>/);
   });
 
+  // `<pre>` IS NOT A SECOND `<p>`. The "only one paragraph" test was `indexOf('<p', 1)`, a
+  // SUBSTRING search, so `<pre>`, `<picture>` and `<param>` all read as a second paragraph and
+  // the wrapper was silently left on. A fenced sample inside a list item is authorable.
+  test('a title containing <pre> still unwraps its lone <p>', () => {
+    const rows = readRows('<div class="cell-stage"><ol><li><p>Label <pre>z</pre></p></li></ol></div>');
+    assert.doesNotMatch(rows[0].title, /^<p\b/, `the <p> wrapper survived: ${rows[0].title}`);
+    assert.match(rows[0].title, /<pre>z<\/pre>/, 'unwrapping ate the sample');
+  });
+
+  // AN EMPTY WRAPPER IS LEFT ALONE, because peeling it turns a member that SURVIVED into one
+  // that is dropped: `readPoints` and `readSubjects` filter on `title && body`, and `''` is
+  // falsy. Conservation beats tidiness.
+  test('an empty <p> body is not peeled into nothing', () => {
+    const rows = readRows('<div class="cell-stage"><ol>'
+      + '<li>Label<ul><li><p></p></li></ul></li>'
+      + '</ol></div>');
+    assert.equal(rows.length, 1, 'the member was dropped');
+    assert.ok(rows[0].body, `the body was peeled away: ${JSON.stringify(rows[0].body)}`);
+  });
+
   // A bodyless member must not print the string "null" where its body span would go.
   test('a bodyless member renders without a body span', () => {
     const inner = '<div class="cell-masthead"><div class="masthead-lede"><h2>The register.</h2></div></div>'

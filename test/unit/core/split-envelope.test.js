@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
 const {
   splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements,
   chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote, deriveAxis,
-  closingPageFromMaterial, trailingMaterialOf, existingNoteIn, roleOpenTag,
+  closingPageFromMaterial, trailingMaterialOf, existingNoteIn, roleOpenTag, withRole,
 } = require('../../../lib/core/split-envelope');
 const { dockInFooterCell } = require('../../../lib/core/footer-dock');
 const { evenGroups } = require('../../../lib/core/collections');
@@ -1161,12 +1161,21 @@ describe('core: roleOpenTag carries the authored modifiers as data', () => {
     });
   }
 
-  // A RUN MUST NOT DISAGREE WITH ITSELF. The cover and closing pages took the named branch
-  // (`coverSection` appends `split-cover-<layout>`) while the body pages took the positional
-  // fallback, so one `split-compare accent` run stamped `accent` on its cover and
-  // `split-compare` on the pages between — `[data-split-mods~="accent"]` fired on the first
-  // page and nowhere else.
-  test('every page of a run stamps the same modifiers', () => {
+  // A RUN MUST NOT DISAGREE WITH ITSELF — WHERE THE ATTRIBUTE IS THE CHANNEL AT ALL. The cover
+  // and closing pages took the named branch (`coverSection` appends `split-cover-<layout>`)
+  // while the body pages took the positional fallback, so one `split-compare accent` run
+  // stamped `accent` on its cover and `split-compare` on the pages between —
+  // `[data-split-mods~="accent"]` fired on the first page and nowhere else.
+  //
+  // THE INVARIANT IS NARROWER THAN "EVERY PAGE OF EVERY RUN", and this arm used to claim the
+  // wider one. `data-split-mods` exists because a ROLE CLASS REPLACES the authored class list —
+  // a `split-panel cat-3` cover is re-classed `content …`, so `section.split-panel.cat-3` can no
+  // longer match it and the modifier has to ride as data. A SOURCE-SLICED page never loses its
+  // classes: `code-cards` and the native-slice strategies rebuild the page from the authored
+  // markup and emit `class="accent code lat-split-native"`, so they carry no attribute and need
+  // none. Measured on a real render of `accent code` at portrait: cover `accent`, body pages
+  // none — which reads as a disagreement and is not one. Found by the HARD RULE #25 checker.
+  test('every page of a run stamps the same modifiers, where the role class replaced the authored one', () => {
     const t = '<section id="s14" class="accent split-compare form" data-lattice-slide="13">';
     const pages = [
       roleOpenTag(t, 'content lat-split-cover split-cover-split-compare form', true, 'cover', 'split-compare'),
@@ -1175,6 +1184,17 @@ describe('core: roleOpenTag carries the authored modifiers as data', () => {
     ];
     const mods = pages.map((x) => (x.match(/\sdata-split-mods="([^"]*)"/) || [])[1]);
     assert.deepEqual(mods, ['accent', 'accent', 'accent'], `the run disagreed with itself: ${mods.join(' / ')}`);
+  });
+
+  // …and the other half of that invariant, so the narrowing above cannot quietly become an
+  // excuse: a page that KEEPS its authored classes must keep ALL of them, because they are the
+  // channel there. `withRole` is what the source-slicing strategies stamp with, and it must not
+  // touch the class attribute at all.
+  test('a source-sliced page keeps the authored classes instead, untouched', () => {
+    const t = '<section id="s15" class="accent code form" data-lattice-slide="14">';
+    const out = withRole(t.replace(/(\sclass=")[^"]*(")/, '$1accent code form lat-split-native$2'), 'body');
+    assert.match(out, /\sclass="accent code form lat-split-native"/, `the authored classes were altered: ${out}`);
+    assert.ok(!/data-split-mods/.test(out), 'a source-sliced page stamped an attribute it does not need');
   });
 });
 
