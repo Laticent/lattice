@@ -206,9 +206,14 @@ test('EQUIVALENCE: the rewrite is linear where the verbatim pattern was quadrati
 	// The lesson is the general one for this file: ASSERT ON THE SHIPPED PATH. A guard that
 	// measures a stand-in certifies the stand-in. So this times `readRenderTargetKey`, and
 	// checks the table the reader actually consults.
-	assert.equal(LEGACY_ON.fluid.source, legacyOnPattern('fluid').source, 'the reader is not using the linear pattern');
-	assert.notEqual(LEGACY_ON.fluid.source, legacyOnPatternVerbatim('fluid').source, 'the reader is using the quadratic pattern');
-	assert.ok(!LEGACY_ON.fluid.source.startsWith('^\\s*'), `leading \\s* is the quadratic shape: ${LEGACY_ON.fluid.source}`);
+	// EVERY key, not just `fluid`. The defect that actually happened was a one-word swap in
+	// LEGACY_ON's `.map`, and a single-key assertion would still pass a table wired
+	// {fluid: linear, player: verbatim, present: verbatim}.
+	for (const key of RENDER_TARGET_KEY_NAMES) {
+		assert.equal(LEGACY_ON[key].source, legacyOnPattern(key).source, `${key} is not using the linear pattern`);
+		assert.notEqual(LEGACY_ON[key].source, legacyOnPatternVerbatim(key).source, `${key} is using the quadratic pattern`);
+		assert.ok(!LEGACY_ON[key].source.startsWith('^\\s*'), `${key}: leading \\s* is the quadratic shape`);
+	}
 
 	// Backstop with ~600x headroom: 20k newlines measured at 0.2ms through the reader and
 	// 596ms when the verbatim pattern was wired in. Times the READER, not the pattern.
@@ -297,6 +302,19 @@ test('the rule NEVER carries an autofix — a guessed polarity would flip the ar
 		assert.ok(f, `${line} should still be reported`);
 		assert.equal(f.autofixable, undefined);
 		assert.equal(f.didYouMean, undefined);
+	}
+});
+
+test('the reported line is the SOURCE line, not a reconstruction', () => {
+	// The kernel reads the key case-insensitively; the linter located the line to quote back
+	// case-sensitively, and fell back to building `${key}: ${value}` from the parts. A deck
+	// writing `FLUID: ture` was therefore told `at: fluid: ture` — a line not in the file.
+	// The editor uses this string as a needle to place the squiggle, so a fabricated line
+	// moves the underline off the offending key entirely.
+	for (const written of ['FLUID: ture', '  Player: mabye', 'PRESENT: nope']) {
+		const [f] = renderTargetFindings(deck(written));
+		assert.ok(f, `${written} should be reported`);
+		assert.equal(f.line, written.trim(), 'the quoted line must appear verbatim in the deck');
 	}
 });
 

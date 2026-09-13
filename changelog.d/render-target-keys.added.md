@@ -22,5 +22,6 @@
   disagreed about *which* line to read — first-match versus any-match — so a trailing YAML
   comment or a pair of quotes, both no-ops in YAML, could flip a deck from on to off when an
   earlier line for the same key held a typo. Both arms now read every line for the key: the
-  target is on if any line for it says an on-word. The verdict is invariant under reordering
-  as a result.
+  target is on if any line for it says an on-word. Reordering complete `key: value` lines no
+  longer changes the verdict as a result; a value folded onto the following line is the one
+  exception, since reading it depends on the two lines staying adjacent.
