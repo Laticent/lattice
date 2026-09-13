@@ -24,27 +24,39 @@ async function start(page: Page, opts: { caption: string; bounds: string; pacing
 	await expect(page.locator('.vetrina-stage')).toBeVisible();
 }
 
-/** Every logged phase, as `beat:phase`. The page writes this row by row as the tour plays. */
-const phases = (page: Page) => page.evaluate(() => [...document.querySelectorAll('#logbody tr')].map((tr) => `${tr.children[2].textContent}:${tr.children[3].textContent}`));
+// The oracles match on the PHASE, never on a beat index. An earlier version keyed on `2:type`
+// and every test in the file broke the moment a caption was split into two beats — which is a
+// change to the demo's copy, not to anything under test. What the tour is doing is the oracle;
+// which beat it happens to be is not.
 
-/** The ms column of the first row whose phase matches. */
+/** Every logged phase name, in order. The page writes these row by row as the tour plays. */
+const phases = (page: Page) => page.evaluate(() => [...document.querySelectorAll('#logbody tr')].map((tr) => tr.children[3].textContent ?? ''));
+
+/** The ms column of the first row whose phase starts with `match`. */
 const at = (page: Page, match: string) =>
-	page.evaluate(
-		(m) => {
-			const row = [...document.querySelectorAll('#logbody tr')].find((tr) => `${tr.children[2].textContent}:${tr.children[3].textContent}`.startsWith(m));
-			return row ? Number(row.children[0].textContent) : null;
-		},
-		match,
-	);
+	page.evaluate((m) => {
+		const row = [...document.querySelectorAll('#logbody tr')].find((tr) => (tr.children[3].textContent ?? '').startsWith(m));
+		return row ? Number(row.children[0].textContent) : null;
+	}, match);
+
+/** How many rows have been logged whose phase starts with `match`. */
+const countOf = (page: Page, match: string) =>
+	page.evaluate((m) => [...document.querySelectorAll('#logbody tr')].filter((tr) => (tr.children[3].textContent ?? '').startsWith(m)).length, match);
 
 async function waitForPhase(page: Page, match: string, timeout = 40_000): Promise<void> {
 	await expect.poll(async () => (await phases(page)).some((p) => p.startsWith(match)), { timeout }).toBe(true);
 }
 
+/** Wait until at least `n` rows with this phase have been logged — the positional oracle that
+ *  survives a beat being split in two. */
+async function waitForNth(page: Page, match: string, n: number, timeout = 40_000): Promise<void> {
+	await expect.poll(async () => countOf(page, match), { timeout }).toBeGreaterThanOrEqual(n);
+}
+
 test.describe('caption placement — the caption is inside the box the tour runs in', () => {
 	test('bounds:host keeps the BAR inside the host panel @crosswidth', async ({ page }) => {
 		await start(page, { caption: 'bar', bounds: 'host', pacing: 'grounded', narr: 'off' });
-		await waitForPhase(page, '1:say');
+		await waitForPhase(page, 'say');
 		const app = await page.locator(APP).boundingBox();
 		const dock = await page.locator(DOCK).boundingBox();
 		expect(app && dock).toBeTruthy();
@@ -59,7 +71,7 @@ test.describe('caption placement — the caption is inside the box the tour runs
 
 	test('bounds:viewport is unchanged — the default still spans the window', async ({ page }) => {
 		await start(page, { caption: 'bar', bounds: 'viewport', pacing: 'grounded', narr: 'off' });
-		await waitForPhase(page, '1:say');
+		await waitForPhase(page, 'say');
 		const app = await page.locator(APP).boundingBox();
 		const dock = await page.locator(DOCK).boundingBox();
 		if (!app || !dock) return;
@@ -69,7 +81,7 @@ test.describe('caption placement — the caption is inside the box the tour runs
 
 	test('the cursor bubble lands inside the host panel and clear of Exit @crosswidth', async ({ page }) => {
 		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'cadenza' });
-		await waitForPhase(page, '1:say');
+		await waitForPhase(page, 'say');
 		await expect(page.locator(BUBBLE)).toBeVisible();
 		const app = await page.locator(APP).boundingBox();
 		const bubble = await page.locator(BUBBLE).boundingBox();
@@ -95,7 +107,7 @@ const opacityBecomes = (page: Page, value: string, timeout = 10_000) =>
 test.describe('caption visibility — it steps aside, and Exit does not', () => {
 	test('the bubble is hidden while the cursor types, and back afterwards', async ({ page }) => {
 		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'off' });
-		await waitForPhase(page, '2:type');
+		await waitForPhase(page, 'type ');
 		// Mid-typing: the caption is out of the way of the field being typed into.
 		await opacityBecomes(page, '0');
 		// …but it is still in the layout and the accessibility tree, holding its live region.
@@ -103,8 +115,9 @@ test.describe('caption visibility — it steps aside, and Exit does not', () => 
 		await expect(page.locator(BUBBLE)).toHaveCSS('display', 'block');
 		// Exit never went with it.
 		await expect(page.locator('button[aria-label="Exit the demo"]')).toBeVisible();
-		// The next caption brings the bubble back.
-		await waitForPhase(page, '3:say');
+		// The next caption brings the bubble back. Under this rhythm a deictic beat says its line
+		// AFTER the stroke, so the stroke is what to wait for.
+		await waitForPhase(page, 'gesture:underline');
 		await opacityBecomes(page, '1');
 	});
 
@@ -115,8 +128,8 @@ test.describe('caption visibility — it steps aside, and Exit does not', () => 
 		// the pointer it was speaking for, while three documents said "next to the cursor".
 		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'off' });
 		const gaps: number[] = [];
-		for (const beat of ['2:say', '3:say', '4:say']) {
-			await waitForPhase(page, beat);
+		for (const nth of [2, 3, 4]) {
+			await waitForNth(page, 'say', nth);
 			await opacityBecomes(page, '1');
 			const bubble = await page.locator(BUBBLE).boundingBox();
 			const cursor = await page.locator('.vetrina-cursor').boundingBox();
@@ -132,12 +145,63 @@ test.describe('caption visibility — it steps aside, and Exit does not', () => 
 	});
 });
 
+test.describe('a VOICED narrator keeps the caption up — the other half of the rule', () => {
+	test('the caption stays visible while the cursor types, where a silent run hides it', async ({ page }) => {
+		// The rule has two halves and only one of them had ever run on a real surface. Silent, the
+		// caption and the action compete for one pair of eyes, so the caption steps aside; voiced,
+		// the ear has the words and blanking a subtitle mid-sentence takes them from exactly the
+		// viewer who is reading it BECAUSE they cannot hear it. Same policy, opposite outcome.
+		//
+		// The audio is a placeholder (silence of the right length) and that is the point: what is
+		// under test is the caption policy and the real Suono clock behind it, not a voice.
+		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'voiced' });
+		await waitForPhase(page, 'type ');
+		await expect(page.locator(BUBBLE)).toBeVisible();
+		// "It did not hide" has to hold for the DURATION of the action, not for the instant an
+		// assertion happened to land — and sampling that from the test side means guessing an
+		// interval. So the page samples it: a rAF loop records the lowest opacity the bubble ever
+		// reaches, and the assertion reads the minimum once the typing has finished.
+		await page.evaluate(() => {
+			const w = window as unknown as { __minOpacity?: number };
+			w.__minOpacity = 1;
+			const tick = () => {
+				const el = document.querySelector('.vetrina-bubble') as HTMLElement | null;
+				if (el) w.__minOpacity = Math.min(w.__minOpacity ?? 1, Number(getComputedStyle(el).opacity));
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		});
+		await waitForPhase(page, 'typed');
+		expect(await page.evaluate(() => (window as unknown as { __minOpacity?: number }).__minOpacity)).toBe(1);
+	});
+
+	test('and the silent run hides it at the same moment — the two halves differ', async ({ page }) => {
+		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'cadenza' });
+		await waitForPhase(page, 'type ');
+		await opacityBecomes(page, '0');
+	});
+
+	test('the word clock still runs off the real audio clock', async ({ page }) => {
+		// Suono's WebAudio clock drives the highlight and the clip's measured onset re-anchors it.
+		// The observable is the same one the silent rung has: the narration reports reaching the
+		// cued word, and it does so near the click.
+		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'voiced' });
+		await waitForPhase(page, 'narration says');
+		const press = await at(page, 'press');
+		const word = await at(page, 'narration says');
+		expect(press).not.toBeNull();
+		expect(word).not.toBeNull();
+		if (press == null || word == null) return;
+		expect(Math.abs(press - word)).toBeLessThan(400);
+	});
+});
+
 test.describe('the word cue — the click lands on the word that names it', () => {
 	test('the click and the narration reaching “Publish” coincide', async ({ page }) => {
 		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'cadenza' });
-		await waitForPhase(page, '4:narration says');
-		const press = await at(page, '4:press');
-		const word = await at(page, '4:narration says');
+		await waitForPhase(page, 'narration says');
+		const press = await at(page, 'press');
+		const word = await at(page, 'narration says');
 		expect(press).not.toBeNull();
 		expect(word).not.toBeNull();
 		if (press == null || word == null) return;
@@ -149,7 +213,7 @@ test.describe('the word cue — the click lands on the word that names it', () =
 
 	test('with narration off the beat still runs — the cue degrades, it does not break', async ({ page }) => {
 		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'off' });
-		await waitForPhase(page, '4:press');
+		await waitForPhase(page, 'press');
 		await expect.poll(async () => page.locator('#summary').textContent(), { timeout: 40_000 }).toContain('complete');
 		await expect(page.locator('#status')).toContainText('Published');
 	});

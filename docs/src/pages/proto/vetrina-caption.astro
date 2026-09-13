@@ -118,6 +118,7 @@
 					<legend>Narration</legend>
 					<label class="opt"><input type="radio" name="narr" value="off" checked /> off</label>
 					<label class="opt"><input type="radio" name="narr" value="cadenza" /> Cadenza (silent, word-timed)</label>
+					<label class="opt"><input type="radio" name="narr" value="voiced" /> voiced (placeholder audio)</label>
 				</fieldset>
 			</div>
 
@@ -149,8 +150,21 @@
 		</div>
 
 		<script>
+			import { encodeWav } from '@/lib/suono';
 			import { run, scene } from '@/lib/vetrina';
-			import { cadenzaNarrator } from '@/lib/vetrina-narration/cadenza-narrator';
+			import { cadenzaNarrator, voicedNarrator } from '@/lib/vetrina-narration/cadenza-narrator';
+
+			// PLACEHOLDER AUDIO, and the label says so. What the voiced rung has to be verified on is
+			// the CAPTION RULE — a voiced narrator keeps the caption up while the cursor performs —
+			// plus the real Suono clock driving the word highlight off a measured onset. All of that
+			// is exercised by real audio of the right length; none of it is about speech quality, and
+			// HARD RULE #24 keeps our OpenRouter key off this site, so a real voice belongs to a host
+			// holding the user's own key. Silence rather than a tone: 25 seconds of beeping while you
+			// judge a caption's rhythm would be its own kind of dishonest.
+			const placeholderVoice = (_text: string, { durationMs }: { durationMs: number }) => {
+				const rate = 16000;
+				return Promise.resolve(encodeWav(new Float32Array(Math.max(1, Math.round((durationMs / 1000) * rate))), rate));
+			};
 
 			const $ = (s: string) => document.querySelector(s) as HTMLElement;
 			const pick = (name: string) => (document.querySelector(`input[name="${name}"]:checked`) as HTMLInputElement).value;
@@ -203,8 +217,10 @@
 			//   5  a confirm gesture on the result
 			const tour = () =>
 				scene<typeof actions>()
-					.say('This panel is the app. Everything you are about to see happens through its own setters.')
+					.say('This panel is the app.')
 					.read()
+					.hold(300)
+					.say('Everything you see happens through its own setters.')
 					.hold(400)
 					.say('Give the deck a title.')
 					.point('#title')
@@ -231,10 +247,11 @@
 				const caption = pick('caption') as 'bar' | 'cursor';
 				const bounds = pick('bounds') as 'viewport' | 'host';
 				const pacing = pick('pacing') as 'legacy' | 'grounded';
-				const narrOn = pick('narr') === 'cadenza';
+				const narrMode = pick('narr') as 'off' | 'cadenza' | 'voiced';
+				const narrOn = narrMode !== 'off';
 
 				t0 = performance.now();
-				log(0, `start · caption=${caption} bounds=${bounds} pacing=${pacing} narration=${narrOn ? 'cadenza' : 'off'}`);
+				log(0, `start · caption=${caption} bounds=${bounds} pacing=${pacing} narration=${narrMode}`);
 
 				const btn = $('#run') as HTMLButtonElement;
 				btn.disabled = true;
@@ -245,7 +262,12 @@
 				// Wrap the narrator to LOG its word clock. This is how the word cue is proved rather
 				// than assumed: the log shows when the narration reached "Publish" and when the click
 				// landed, and the two either coincide or they do not.
-				const base = narrOn ? cadenzaNarrator({ pace: 'moderate' }) : undefined;
+				const base =
+					narrMode === 'voiced'
+						? voicedNarrator({ pace: 'moderate', synthesize: (t, c) => placeholderVoice(t, c) })
+						: narrMode === 'cadenza'
+							? cadenzaNarrator({ pace: 'moderate' })
+							: undefined;
 				const narrator = base && {
 					...base,
 					speak: (text: string, o: Parameters<typeof base.speak>[1]) =>
@@ -312,7 +334,7 @@
 					onStop: (reason) => {
 						log(beat, `stop:${reason}`);
 						const total = Math.round(performance.now() - t0);
-						summaryEl.textContent = `${reason} after ${total} ms · caption=${caption} bounds=${bounds} pacing=${pacing} narration=${narrOn ? 'cadenza' : 'off'}`;
+						summaryEl.textContent = `${reason} after ${total} ms · caption=${caption} bounds=${bounds} pacing=${pacing} narration=${narrMode}`;
 						btn.disabled = false;
 					},
 				});

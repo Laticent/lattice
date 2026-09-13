@@ -455,6 +455,18 @@ Three things a narrator buys, and **only the first needs audio**:
    arithmetic, so this works with no sound at all;
 3. a word CLOCK, which is what makes the cue below possible. Also silent.
 
+**To actually speak**, use `voicedNarrator` and hand it the bytes — it owns no key, no model and
+no network, exactly as Suono does not:
+
+```ts
+voicedNarrator({ synthesize: (text, { signal }) => myTts(text, signal) });
+```
+
+It plays through Suono, re-anchors the word clock to the clip's **measured** onset and duration
+(Cadenza's hybrid align — the estimate is the baseline, the measurement refines it), and reports
+`voiced: true`, which is what keeps the caption up during the action. A voice that fails does not
+take the tour down: the beat plays on silently and the caption still gets its full reading budget.
+
 Implement `Narrator` yourself for anything else — `speak(text, { signal, onWord })` returning a
 handle whose `done` resolves at the end of the line, plus an optional `plan(text)` that reports
 the line's word timeline ahead of speaking it.

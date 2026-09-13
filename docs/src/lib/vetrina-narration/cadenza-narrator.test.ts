@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
+import type { Stage as AudioStage } from '@/lib/suono';
 import { findCueWord, SILENT_NARRATOR } from '@/lib/vetrina';
-import { cadenzaNarrator, trackToWords } from './cadenza-narrator';
+import { cadenzaNarrator, trackToWords, voicedNarrator } from './cadenza-narrator';
 
 // The seam. What matters is that it satisfies Vetrina's port using Cadenza's timing and
 // nothing else — and that it does so with NO audio, which is what makes the word cue
@@ -140,5 +141,113 @@ describe('the port contract both narrators satisfy', () => {
 			expect(typeof h.cancel).toBe('function');
 			h.cancel();
 		}
+	});
+});
+
+
+/** A Suono stage that plays nothing and reports whatever the test says the clock reads. jsdom has
+ *  no AudioContext, so the real stage cannot be constructed here — and it does not need to be:
+ *  what this rung owes is the CONTRACT (unlock in the gesture, decode, play, re-anchor to the
+ *  measured onset, resolve when the clip ends). The audio itself is Suono's to be right about,
+ *  and the real-browser e2e drives the real stage. */
+function fakeAudio(overrides: Partial<AudioStage> = {}) {
+	const calls: string[] = [];
+	let onStart: ((o: { onsetMs: number; durationMs: number }) => void) | null = null;
+	let end: (() => void) | null = null;
+	const stage = {
+		unlock: () => void calls.push('unlock'),
+		decode: async (_b: unknown, key: string) => {
+			calls.push(`decode:${key}`);
+			return { key } as never;
+		},
+		play: (_clip: unknown, o: { onStart?: (x: { onsetMs: number; durationMs: number }) => void; signal?: AbortSignal }) => {
+			calls.push('play');
+			onStart = o.onStart ?? null;
+			return { stop: () => {}, done: new Promise((r) => { end = () => r({ ok: true }); }) };
+		},
+		clockMs: () => 0,
+		...overrides,
+	} as unknown as AudioStage;
+	return { stage, calls, start: (onsetMs: number, durationMs: number) => onStart?.({ onsetMs, durationMs }), finish: () => end?.() };
+}
+
+describe('voicedNarrator — the rung that speaks', () => {
+	it('is VOICED, which is the flag the caption policy turns on', () => {
+		const { stage } = fakeAudio();
+		expect(voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) }).voiced).toBe(true);
+	});
+
+	it('unlocks the audio context at CONSTRUCTION — iOS needs that inside the user gesture', () => {
+		const { stage, calls } = fakeAudio();
+		voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		expect(calls).toContain('unlock');
+	});
+
+	it('plans the same timeline as the silent rung — one timing model, two ways to deliver it', () => {
+		const { stage } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		expect(v.plan?.('Now click Publish.')).toEqual(cadenzaNarrator().plan?.('Now click Publish.'));
+	});
+
+	it('asks the CALLER for the bytes, and hands it the estimate to match', async () => {
+		const { stage, finish } = fakeAudio();
+		let asked: { text: string; durationMs: number } | null = null;
+		const v = voicedNarrator({
+			audio: stage,
+			synthesize: async (text, ctx) => {
+				asked = { text, durationMs: ctx.durationMs };
+				return new ArrayBuffer(8);
+			},
+		});
+		const h = v.speak('Now click Publish.', { signal: new AbortController().signal });
+		await new Promise((r) => setTimeout(r, 10));
+		finish();
+		await h.done;
+		expect(asked?.text).toBe('Now click Publish.');
+		expect(asked?.durationMs).toBeGreaterThan(0);
+	});
+
+	it('resolves when the clip ends, not when the estimate does', async () => {
+		const { stage, finish } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		let done = false;
+		const h = v.speak('Now click Publish.', { signal: new AbortController().signal });
+		h.done.then(() => {
+			done = true;
+		});
+		await new Promise((r) => setTimeout(r, 30));
+		expect(done).toBe(false);
+		finish();
+		await h.done;
+		expect(done).toBe(true);
+	});
+
+	it('a voice that fails does not take the tour down', async () => {
+		const { stage } = fakeAudio();
+		const v = voicedNarrator({
+			audio: stage,
+			synthesize: async () => {
+				throw new Error('no key');
+			},
+		});
+		await expect(v.speak('Now click Publish.', { signal: new AbortController().signal }).done).resolves.toBeUndefined();
+	});
+
+	it('cancel and abort both end the line without rejecting', async () => {
+		const { stage } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		const h1 = v.speak('One.', { signal: new AbortController().signal });
+		h1.cancel();
+		await expect(h1.done).resolves.toBeUndefined();
+		const ac = new AbortController();
+		const h2 = v.speak('Two.', { signal: ac.signal });
+		ac.abort();
+		await expect(h2.done).resolves.toBeUndefined();
+	});
+
+	it('an empty line is over before it starts', async () => {
+		const { stage } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		await expect(v.speak('', { signal: new AbortController().signal }).done).resolves.toBeUndefined();
 	});
 });

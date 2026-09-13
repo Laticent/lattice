@@ -258,10 +258,10 @@ the model on by default is a re-tune, not a swap.
 
 ## What is deliberately not here
 
-- **A voice.** The port is there and the Suono wiring is a known quantity
-  (`read-aloud.ts` already does exactly this for the deck read-along), but HARD RULE #24 keeps our
-  key off the docs site, so the voiced rung belongs to a Studio surface holding a user's key.
-  Shipping a stub that silently produced no sound would be worse than the honest absence.
+- **A real voice.** `voicedNarrator` is here and verified, but the bytes are the caller's: HARD
+  RULE #24 keeps our key off the docs site, so wiring an actual TTS voice belongs to a surface
+  holding the user's own key. What this branch ships is the rung and the proof that the rung works,
+  not a voice.
 - **A default change.** Every new option defaults to today's behavior. `caption: 'bar'`,
   `bounds: 'viewport'`. The one exception is `pacing`, which defaults to `'grounded'` — the whole
   point is the model, and `'legacy'` is the escape.
@@ -306,9 +306,15 @@ hosts where `* { box-sizing: border-box }` is the commonest reset; a stranded `p
 could hide the caption for the rest of a run; `narrator.plan()` was unguarded while `speak()` was;
 and the `at`-beats-`read` warning stated the opposite of what happens on the degradation path.
 
-**Still UNVERIFIED, and it should not be read as settled:** "a voiced narrator keeps the caption
-up" has never run against a real voice. No voiced `Narrator` exists in the tree (HARD RULE #24),
-so the rule is exercised only by a jsdom test calling `stage.setVoiced(true)` directly.
+**That gap is now closed.** "A voiced narrator keeps the caption up" ran only in jsdom, against a
+`setVoiced(true)` call rather than a narrator, for as long as no voiced narrator existed. One does
+now — `voicedNarrator` in the adapter, which takes the BYTES from its caller (so HARD RULE #24
+still holds: no key, no model, no network in this module) and plays them through Suono, driving
+the word clock off the real audio clock and re-anchoring to the clip's measured onset. The
+prototype supplies placeholder audio of the right length, and three real-browser tests now pin the
+rule from both sides: voiced keeps the caption up across the whole typing reveal, silent hides it
+at the same moment, and the word clock still lands the cue. What the placeholder does NOT verify
+is speech quality — which was never the claim.
 
 ## Follow-ups a productionization pass owes
 

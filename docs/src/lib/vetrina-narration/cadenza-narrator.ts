@@ -14,6 +14,8 @@
 // Sound is the third thing, and it is the only one that needs a voice.
 
 import { buildTrack, type CaptionTrack, makeReader, type Pace } from '@/lib/cadenza';
+import type { Stage as AudioStage, Bytes } from '@/lib/suono';
+import { createStage as createAudioStage } from '@/lib/suono';
 import type { NarratedWord, NarrateOptions, NarrationHandle, Narrator } from '@/lib/vetrina';
 
 export interface CadenzaNarratorOptions {
@@ -159,16 +161,134 @@ export function cadenzaNarrator(options: CadenzaNarratorOptions = {}): Narrator 
 	};
 }
 
-// ── The voiced rung, and why it is not here ─────────────────────────────────
-//
-// A voiced narrator is the same object with `voiced: true`, `speak` driving a Suono sequence
-// instead of a wall clock, and `reader.align(cueIndex, onsetMs, durationMs)` called from
-// `onItemStart` so the word clock rides the real voice rather than the estimate. Every piece
-// exists: `docs/src/components/studio/read-aloud.ts` already does exactly this for the deck
-// read-along, against the production voice ladder.
-//
-// It is not in this file because it cannot be: a voice needs synthesized bytes, and HARD RULE
-// #24 keeps our OpenRouter key off the docs site entirely — the Playground speaks on the
-// USER's own key, obtained by OAuth. So the voiced rung is a Studio-side wiring job with a key
-// in hand, not a library default, and shipping a stub here that silently produced no sound
-// would be worse than the honest absence.
+// ── The voiced rung ─────────────────────────────────────────────────────────
+
+export interface VoicedNarratorOptions extends CadenzaNarratorOptions {
+	/**
+	 * Produce the audio for one line. THE CALLER OWNS THE VOICE — this module fetches nothing,
+	 * holds no key and knows no model, exactly as Suono does not.
+	 *
+	 * That boundary is why the voiced rung can live here at all: HARD RULE #24 keeps our
+	 * OpenRouter key off the docs site, and the Playground speaks on the USER's own key. A host
+	 * with a key passes its TTS through; a host without one passes anything that is audio.
+	 * `durationMs` is the estimate's length, for a producer that wants to match it.
+	 */
+	synthesize(text: string, ctx: { signal: AbortSignal; durationMs: number }): Promise<Bytes>;
+	/** The Suono stage to play through. Defaults to one this narrator owns. Pass your own when the
+	 *  host already has a stage — one `AudioContext` per page is the whole point of Suono. */
+	audio?: AudioStage;
+	/** Bias the word highlight this far AHEAD of the heard voice. Broadcast lip-sync tolerance is
+	 *  asymmetric (ITU-R BT.1359): a highlight LAGGING the voice is noticed at ~45ms while one
+	 *  leading it passes to ~125ms, so the error worth avoiding is the lag. Default 40ms, the same
+	 *  bias the deck read-along uses. */
+	syncLeadMs?: number;
+}
+
+/**
+ * A narrator that SPEAKS, riding the real audio clock.
+ *
+ * Two things change against the silent rung, and the second is the one that matters to the
+ * caption: the word highlight is driven by Suono's WebAudio clock and re-anchored to the clip's
+ * MEASURED onset and duration (Cadenza's hybrid align — the estimate is the baseline, the
+ * measurement refines it), and `voiced` is true, which tells the stage to KEEP the caption up
+ * while the cursor performs. Silent, the caption and the action compete for one pair of eyes;
+ * voiced, the ear has the words and blanking a subtitle mid-sentence would take them from the
+ * viewer reading it because they cannot hear it.
+ */
+export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
+	const pace: Pace = options.pace ?? 'moderate';
+	const lead = options.syncLeadMs ?? 40;
+	const audio = options.audio ?? createAudioStage();
+	// iOS needs the unlock inside the user gesture, and a narrator is built in one (the click that
+	// starts the tour). Doing it here rather than at first `speak` is what keeps that true.
+	audio.unlock();
+
+	const cache = new Map<string, CaptionTrack>();
+	const trackFor = (text: string): CaptionTrack => {
+		let t = cache.get(text);
+		if (!t) {
+			t = buildTrack(text, { pace });
+			cache.set(text, t);
+		}
+		return t;
+	};
+
+	return {
+		voiced: true,
+		plan(text: string): NarratedWord[] | null {
+			if (!text.trim()) return null;
+			return trackToWords(trackFor(text));
+		},
+		speak(text: string, opts: NarrateOptions): NarrationHandle {
+			const track = trackFor(text);
+			if (!track.durationMs) return { done: Promise.resolve(), cancel() {} };
+			const words = trackToWords(track);
+			const cueBase: number[] = [];
+			let n = 0;
+			for (const cue of track.cues) {
+				cueBase.push(n);
+				n += cue.words.length;
+			}
+
+			const ac = new AbortController();
+			const abortAll = () => ac.abort();
+			opts.signal.addEventListener('abort', abortAll, { once: true });
+
+			let raf = 0;
+			let finished = false;
+			const reader = makeReader({
+				track,
+				onWord: (active) => {
+					if (finished) return;
+					opts.onWord?.(active ? (words[cueBase[active.cueIndex] + active.wordIndex] ?? null) : null);
+				},
+			});
+
+			const done = (async () => {
+				try {
+					const bytes = await options.synthesize(text, { signal: ac.signal, durationMs: track.durationMs });
+					if (ac.signal.aborted) return;
+					const clip = await audio.decode(bytes, `${pace}:${text}`);
+					let base: number | null = null;
+					const handle = audio.play(clip, {
+						signal: ac.signal,
+						onStart: ({ onsetMs, durationMs }) => {
+							base = onsetMs;
+							// THE RE-ANCHOR. One clip per LINE, so cue 0 carries the measurement and Cadenza
+							// shifts the tail: the internal rhythm stays the estimate's, the span becomes the
+							// voice's. (A line of several sentences is therefore scaled rather than aligned
+							// per sentence — a beat's caption is normally one sentence, and per-sentence
+							// alignment would need one clip each.)
+							reader.align(0, 0, durationMs);
+						},
+					});
+					const frame = () => {
+						if (finished || base == null) {
+							if (!finished) raf = requestAnimationFrame(frame);
+							return;
+						}
+						reader.sync(audio.clockMs() - base + lead);
+						raf = requestAnimationFrame(frame);
+					};
+					raf = requestAnimationFrame(frame);
+					await handle.done;
+				} catch {
+					// A voice that fails must not take the tour down: the beat plays on, silently, and the
+					// caption is still on screen for the whole reading budget the storyboard holds it for.
+				} finally {
+					finished = true;
+					if (raf) cancelAnimationFrame(raf);
+					opts.signal.removeEventListener('abort', abortAll);
+					opts.onWord?.(null);
+				}
+			})();
+
+			return {
+				done,
+				cancel: () => {
+					ac.abort();
+				},
+			};
+		},
+	};
+}
