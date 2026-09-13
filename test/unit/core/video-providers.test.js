@@ -24,6 +24,40 @@ const {
 } = require('../../../lib/core/video-providers.mjs');
 
 describe('the registry is one table, and every row is whole', () => {
+	test('no id extractor matches a hostname WITH A REGEX', () => {
+		// `providerFor` settles which provider owns the URL, so an extractor that
+		// re-matched the host in a pattern would be redundant AND wrong: an unanchored
+		// `instagram\.com\/p\/` also matches `https://evil.example/instagram.com/p/x`.
+		// That is the substring shape this registry exists to stop, and the shape
+		// CodeQL's js/incomplete-hostname-regexp flags. Extractors read the parsed
+		// `pathname` and `searchParams` instead.
+		//
+		// Comparing a PARSED `url.hostname` against a plain string is the safe pattern
+		// and stays allowed — youtu.be needs it, because it puts the id at the path
+		// root while youtube.com nests it under a verb. So the rule is specifically
+		// "no regex-escaped host", which is the form a pattern would carry.
+		const escaped = PROVIDERS.flatMap((p) => p.hosts).map((h) => h.replace(/\./g, '\\.'));
+		for (const p of PROVIDERS) {
+			const src = p.id.toString();
+			for (const h of escaped) {
+				assert.ok(!src.includes(h), `${p.key}: id extractor carries the host pattern ${h}`);
+			}
+		}
+	});
+
+	test('id extractors anchor to the path, so no `.*` can backtrack over a long URL', () => {
+		for (const p of PROVIDERS) {
+			const src = p.id.toString();
+			assert.ok(!src.includes('.*'), `${p.key}: no unbounded wildcard`);
+		}
+		// A long, hostile query cannot make extraction superlinear.
+		const long = `https://www.youtube.com/watch?${'&'.repeat(200000)}v=aqz-KE-bpKQ`;
+		const t0 = process.hrtime.bigint();
+		assert.equal(detectProvider(long).id, 'aqz-KE-bpKQ');
+		const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+		assert.ok(ms < 500, `extraction took ${ms.toFixed(1)}ms on a 200k-char query`);
+	});
+
 	test('each row carries the full descriptor, with the right types', () => {
 		for (const p of PROVIDERS) {
 			assert.match(p.key, /^[a-z0-9-]+$/, `${p.key}: key is a slug`);

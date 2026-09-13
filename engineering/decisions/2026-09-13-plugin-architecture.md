@@ -267,7 +267,17 @@ somebody scans with a phone. The watch target is now re-serialized through the
 parser that validated it. All six are fixed in this branch; two of them were
 pre-existing rather than introduced here.
 
-Unit suite 9437 pass / 0 fail; `lint` and `build:check` clean; the docs site builds
+**CodeQL then found a seventh**, and it is the same defect class one layer down:
+each id extractor carried its provider's hostname in an **unanchored** regex, so
+`instagram\.com\/p\/` also matched `https://evil.example/instagram.com/p/x`. It
+could not do harm here — `providerFor` had already settled the host — but a
+redundant check that is wrong on its own is the shape this registry exists to
+delete. Extraction now reads the parsed `pathname` and `searchParams`, so no
+extractor names a host in a pattern and none carries a `.*` to backtrack over.
+Two arms pin it: no regex-escaped host in any extractor, and extraction staying
+sub-500ms on a 200,000-character query.
+
+Unit suite 9439 pass / 0 fail; `lint` and `build:check` clean; the docs site builds
 with all five routes within budget; `examples/video.md` renders with poster, badge
 and QR intact.
 
