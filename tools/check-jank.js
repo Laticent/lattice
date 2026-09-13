@@ -99,6 +99,12 @@
  *                     can prove a fix rather than describe one: sweep once as shipped, once
  *                     with the fix's declarations neutralized, and the difference between
  *                     the two tables IS the evidence.
+ *   --front-matter <k: v>
+ *                     an extra deck-level front-matter key, repeatable. The lever for a
+ *                     mark the engine GATES ON FRONT MATTER: `paginate: true` is what puts
+ *                     `section.form::after` — the page number, the most widely shipped
+ *                     running mark there is — on the page at all, so before this flag the
+ *                     one tool built to measure a running mark could not reach it (#2168).
  *   --tight PX        clearance at or under this is reported TIGHT. Default 12.
  *   --max-drift PX    anchor movement over this fails, on either axis. Default 2 (sub-pixel
  *                     rounding, not a tolerance).
@@ -131,6 +137,8 @@ const {
   SIZE_ALIAS, FAMILIES, BUILDERS, words, cap, findManifest, gradedDeck, renderProbe,
 } = require('./lib/calibrate-core.js');
 const { resolveChrome } = require('./lib/resolve-chrome.js');
+// Split out so the move-vs-grow discrimination is testable without a browser (#2168).
+const { axisDrift } = require('./lib/jank-drift.js');
 
 // A pixel of slack, as in check-chart-fit: sub-pixel layout rounding routinely puts a box
 // a few hundredths past its neighbor with nothing visibly touching.
@@ -146,7 +154,14 @@ const SLACK = 1.0;
 // unusable values are now refusals, not shrugs.
 const VALUE_FLAGS = new Set([
   'anchor', 'axis', 'family', 'max', 'count', 'words', 'theme', 'tight', 'max-drift', 'style',
+  'front-matter',
 ]);
+// REPEATABLE flags accumulate instead of overwriting. A `Map.set` per occurrence made
+// `--front-matter 'paginate: true' --front-matter 'header: "x"'` silently keep only the
+// LAST one — the sweep would then run without the key the caller asked for and report a
+// clean verdict over a mark that was never on the page, which is the exact false clean
+// this flag exists to remove.
+const MULTI_FLAGS = new Set(['front-matter']);
 const BOOL_FLAGS = new Set(['json', 'advisory', 'help', 'anchors']);
 const NUMERIC = { max: 'int', count: 'int', words: 'int', tight: 'float', 'max-drift': 'float' };
 
@@ -162,6 +177,7 @@ const USAGE = [
   '  --tight PX       clearance at or under this is TIGHT (default 12)',
   '  --max-drift PX   anchor movement over this fails (default 2)',
   '  --style <css|f>  CSS injected as the deck\'s front-matter `style:`',
+  "  --front-matter <k: v>  extra deck front matter, repeatable (e.g. 'paginate: true')",
   '  --anchors        list the marks this component HAS, and how far each moves',
   '  --json           machine-readable      --advisory    never exit 1 (setup failures still exit 2)',
   '',
@@ -189,7 +205,8 @@ const { opts, positionals } = (() => {
     // property. So the next argv entry is taken verbatim rather than sniffed.
     const value = eq >= 0 ? a.slice(eq + 1) : argv[++i];
     if (value === undefined) die(`--${name} requires a value.`);
-    o.set(name, value);
+    if (MULTI_FLAGS.has(name)) o.set(name, [...(o.get(name) || []), value]);
+    else o.set(name, value);
   }
   return { opts: o, positionals: pos };
 })();
@@ -263,6 +280,87 @@ const STYLE = (() => {
       + 'inject nothing, and the sweep would silently match its own baseline.');
   }
   return raw;
+})();
+
+/**
+ * Extra deck-level front-matter keys, as `key: value`, repeatable.
+ *
+ * WHY THIS EXISTS AT ALL. `gradedDeck` (tools/lib/calibrate-core.js) emits front matter
+ * carrying exactly one key — `size:` — so any mark whose rendering is GATED ON FRONT
+ * MATTER could never be put on the page, and the rig had no way to say so. The case that
+ * forced it is the page number: `section.form::after` is positioned by
+ * lib/forms/cell/pagination-right/pagination-right.css, but its content is
+ * `attr(data-lattice-pagination)` (lib/engine/css.js) and lib/engine/css.js suppresses the
+ * pseudo outright when the slide has no such attribute — which only `paginate: true`
+ * supplies. So the most widely shipped running mark in the engine, present on every
+ * paginated slide, had never been measured by the one tool built to measure exactly that
+ * (#2168). It is also the archetype the tool was written for: `inset`-pinned to the section
+ * frame, so it cannot DRIFT, and its only available failure is the silent COLLISION where
+ * an absolutely positioned box and flex-centered content overlap without either
+ * overflowing.
+ *
+ * WHY `--style` IS NOT THIS FLAG, though it looks like it could be. `--style
+ * 'section.form::after { content: "12" !important }'` really does put a box on the page —
+ * the pagination content mask (lib/engine/css.js `maskNonPaginationContent`) packs the
+ * THEME, not the deck's own `style:` front matter, so an injected `content` survives. But
+ * that SIMULATES the mark with a fixed literal: it pins the glyph count that the real
+ * `attr()` varies with page number, and it edits the very declaration under test. A rig
+ * that reports on a stand-in is the failure mode this tool is built against, so the lever
+ * had to make the SHIPPED configuration render, not a lookalike.
+ *
+ * EVERY REFUSAL BELOW IS A WAY TO FAIL OPEN. A malformed entry that injected nothing would
+ * leave the mark absent and the sweep would report a confident CLEAN over it — the same
+ * false clean, arrived at through the fix.
+ */
+const FRONT_MATTER = (() => {
+  const raw = flag('front-matter', null);
+  if (raw == null) return [];
+  const seen = new Map();
+  for (const entry of raw) {
+    // A LINE BREAK ESCAPES THE FLAG. Front matter is line-oriented and terminated by a
+    // `---` line, so a value carrying a newline can append arbitrary keys — or close the
+    // block and make the rest of the deck body. Refused rather than escaped: there is no
+    // legitimate multi-line key this sweep needs, and `--style` already owns the one
+    // block-scalar case.
+    if (/[\r\n]/.test(entry)) {
+      die(`--front-matter '${entry.replace(/[\r\n]+/g, '\\n')}' contains a line break. `
+        + 'Front matter is line-oriented; pass one `key: value` per flag.');
+    }
+    const at = entry.indexOf(':');
+    if (at < 0) {
+      die(`--front-matter '${entry}' is not a mapping entry. Write it as \`key: value\`, `
+        + "e.g. --front-matter 'paginate: true'.");
+    }
+    const key = entry.slice(0, at).trim();
+    const value = entry.slice(at + 1).trim();
+    // A KEY THE ENGINE CANNOT READ INJECTS NOTHING. `paginate :true`, a quoted key, a key
+    // with a space — each parses as something other than the directive the caller meant,
+    // and the sweep then runs without it and reports clean.
+    if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(key)) {
+      die(`--front-matter '${entry}' has an unusable key '${key}'. A directive key is `
+        + 'a bare word: letters, digits, _ and - only.');
+    }
+    if (!value) {
+      die(`--front-matter '${entry}' has an empty value. A key with no value sets nothing, `
+        + 'and the sweep would silently match its own baseline.');
+    }
+    // TWO KEYS THIS RIG ALREADY OWNS. `size:` is how the sweep selects the family — a
+    // second one is a duplicate mapping key, which YAML resolves silently and which would
+    // let a caller override the rig's own control without the report saying so. `style:`
+    // is `--style`'s channel and is emitted as a block scalar; a second plain `style:`
+    // beside it either loses or swallows the other's CSS depending on order.
+    if (key === 'size' || key === 'style') {
+      die(`--front-matter cannot set '${key}' — the sweep owns it `
+        + `(${key === 'size' ? 'use --family' : 'use --style'}).`);
+    }
+    if (seen.has(key)) {
+      die(`--front-matter sets '${key}' twice ('${seen.get(key)}' then '${value}'). `
+        + 'A duplicate mapping key resolves silently, so the sweep would run under one of '
+        + 'them with no way to tell which.');
+    }
+    seen.set(key, value);
+  }
+  return [...seen].map(([k, v]) => `${k}: ${v}`);
 })();
 
 const CLASS = positionals[0] || null;
@@ -997,6 +1095,13 @@ async function main() {
     const block = css.trimEnd().split('\n').map((l) => `  ${l}`).join('\n');
     deck = deck.replace(/^---\n/, `---\nstyle: |\n${block}\n`);
   }
+  // AFTER the style block on purpose: this insert also targets the leading `---`, so
+  // running it second puts the plain scalar keys ABOVE `style: |`. The other order would
+  // leave them indented under nothing in particular, immediately after a block scalar —
+  // where a parser reads them as more CSS, not as directives.
+  if (FRONT_MATTER.length) {
+    deck = deck.replace(/^---\n/, `---\n${FRONT_MATTER.join('\n')}\n`);
+  }
   const render = renderProbe(deck, `jank-${COMP}-${FAMILY}`, { format: 'html', palette: THEME, keep: true });
   let rows;
   try {
@@ -1029,13 +1134,23 @@ async function main() {
   const withAnchor = measured.filter((r) => r.anchorTop != null);
   const anchorErrors = [...new Set(rows.map((r) => r.anchorError).filter(Boolean))];
 
-  // DRIFT ON BOTH AXES, and the axis is named. The first cut maxed over `anchorTop` and
-  // `anchorBottom` only, so a mark that walked 604px SIDEWAYS across the sweep — entirely
-  // off the slide on step 1 — reported `0.0px  ok` while the header promised "anchor
-  // movement". An anchor holds a position, not an altitude.
-  const spreadOf = (key) => Math.max(...withAnchor.map((r) => r[key])) - Math.min(...withAnchor.map((r) => r[key]));
+  // DRIFT ON BOTH AXES, and the axis is named. The first cut read `anchorTop`/`anchorBottom`
+  // only, so a mark that walked 604px SIDEWAYS across the sweep — entirely off the slide on
+  // step 1 — reported `0.0px  ok` while the header promised "anchor movement". An anchor
+  // holds a position, not an altitude.
+  //
+  // AND MOVING IS NOT THE SAME AS GROWING. `Math.max` over an axis's two edge spreads could
+  // not tell them apart, so a mark pinned on one edge that merely got wider was reported
+  // as having moved — the engine's own page number, at a constant 30px right inset, was
+  // called `DRIFT 9.0px` because its numeral gained a digit at page 10 (#2168). The
+  // discriminator and the measurements behind it live in tools/lib/jank-drift.js, where
+  // they are pinned by metamorphic relations that need no browser.
+  const colOf = (key) => withAnchor.map((r) => r[key]);
   const driftAxes = withAnchor.length > 1
-    ? { vertical: Math.max(spreadOf('anchorTop'), spreadOf('anchorBottom')), horizontal: Math.max(spreadOf('anchorLeft'), spreadOf('anchorRight')) }
+    ? {
+      vertical: axisDrift(colOf('anchorTop'), colOf('anchorBottom')),
+      horizontal: axisDrift(colOf('anchorLeft'), colOf('anchorRight')),
+    }
     : null;
   const drift = driftAxes ? Math.max(driftAxes.vertical, driftAxes.horizontal) : null;
   const driftAxis = driftAxes && driftAxes.horizontal > driftAxes.vertical ? 'horizontal' : 'vertical';

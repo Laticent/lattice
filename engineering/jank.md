@@ -440,9 +440,33 @@ front matter that a `_class` string cannot supply. Swept as `content form` it re
 mark, produced no candidate, and took its place in the committed table's "no placeable
 positioned mark" list — a clean bill for a section-level running mark that was never on the
 page, and the pagination number is precisely the fixed-element-that-must-hold-position case
-this tool exists for. It is now listed OUT OF REACH with its reason instead. Measuring it
-needs a front-matter register the class string cannot reach (#2168). Caught by a checker,
-not by the sweep.
+this tool exists for. It is now listed OUT OF REACH with its reason instead. Caught by a
+checker, not by the sweep.
+
+**`--front-matter` is the lever that closed it, and measuring found the premise was half
+wrong** (#2168). The flag injects arbitrary deck-level keys through the same block-scalar
+insert `--style` uses, so `paginate: true` finally puts a page number on a sweep deck. What
+that revealed is that `section.form::after` is the FALLBACK, not the shipped mark: on any
+Form carrying a footer cell — the normal case — the page number is a real element,
+`span.lat-pagination`, and `lib/forms/cell/stage/stage.css` retires the pseudo beside it
+("Retire the pagination PSEUDO wherever the real element exists"). So the mark to measure is
+an element, not a pseudo, and it is an in-flow flex child rather than a positioned one: its
+exposure is crowding inside the footer row, not a silent collision with slide copy.
+
+**Measured, first time: it holds.** `content`, heading axis to 40 words, `paginate: true` —
+drift 0.0px, no collision, clearance falling 268px → 178.4px as the heading grows.
+
+**Getting there needed a fix to DRIFT ITSELF, and that is the more useful half.** The first
+run reported `DRIFT 9.0px horizontal ✗` and exit 1. It had not moved: across a 12-page deck
+the mark sits at a constant 30px right inset on every page, and at page 10 the numeral gains
+a digit so its LEFT edge steps 8.99px. Drift was `Math.max` over an axis's two edge spreads,
+which cannot tell a box that MOVES from one that is pinned and merely GROWS. It is now `min`
+over three references — near edge, far edge and midpoint — because a mark may be pinned at
+either edge or centered, and a true translation moves all three together while growth leaves
+its own reference at zero. The measure lives in `tools/lib/jank-drift.js` with metamorphic
+relations that need no browser, including the sideways-walk case the old measure was written
+for, so the fix cannot be traded back for the bug it replaced. The census is unchanged by it:
+`--anchors` discovery reports a candidate's own spread and never called this path.
 
 **A modifier that paints nothing alone must be given its companion**, or the census
 reports "none" for a mark that is simply not on the page — the false clean this tool is
