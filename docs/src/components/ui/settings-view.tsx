@@ -4,6 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { PanelSearch } from '@/components/ui/panel';
 import type { PillTab } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
+import { useIsomorphicLayoutEffect } from '@/components/ui/use-isomorphic-layout-effect';
 import { settingsMatch } from '@/lib/settings-search';
 import { cn } from '@/lib/utils';
 
@@ -261,24 +262,79 @@ export function SettingsNoMatch({ query }: { query: string }) {
 	);
 }
 
+/** The pill count drawn when the strip CANNOT be measured — no `ResizeObserver` (jsdom), or
+ *  a container that has not been laid out yet. Two is what the narrowest supported panel
+ *  (`SET_MIN`, 260px) was measured to afford, so the unmeasured shape is never wider than
+ *  the real one and never has to shrink under the user. */
+const FALLBACK_SHORTCUTS = 2;
+/** `gap-1.5`, in px — the strip's own gap, which the fit has to pay for between every pair. */
+const STRIP_GAP = 6;
+
+/** What one measurement of the hidden strip copy yields: the row's usable width, every
+ *  pill's natural width in tab order, and the chevron's. */
+export type StripFit = { box: number; pills: number[]; chevron: number };
+
 /**
- * The section strip: a few SHORTCUT pills, then a chevron holding the full list.
+ * Which section pills to draw — the whole fitting policy, pure, so it can be argued with in
+ * a test rather than only on a running browser.
  *
- * Six pills need 425px and never had it — the phone strip is 362px and the DOCKED desktop
- * panel is 231px — so the strip wrapped to two rows at every width and cost 74px of a
- * panel whose first control already sat 414px down a 390x844 phone.
+ * The longest LEADING run that fits beside the chevron, plus the ACTIVE pill whenever it is
+ * not already in that run. The active one is APPENDED rather than swapped for the last of
+ * the run, and the measurement below reserves its width up front — pinning after the fact is
+ * how a pinned strip overflows, because the pill you pin is rarely the width of the one you
+ * dropped.
  *
- * TWO shortcuts, fixed, at every width. Three fit the phone and not the docked panel, and
- * the obvious fix — hide the third under a container query — puts the ACTIVE section
- * behind a CSS rule JS cannot see: pick the third section, drag the panel narrow, and the
- * strip shows two pills and a chevron with nothing saying where you are. Two is what the
- * narrowest supported panel can afford, so it is what every width gets, and the strip's
- * shape stops changing under a drag.
+ * `fit` is null when the strip could not be measured — no `ResizeObserver`, or a row that
+ * has not been laid out. Then it falls back to the count the narrowest supported panel was
+ * measured to afford and does NOT pin: an unmeasured strip must never be wider than a
+ * measured one, and the chevron already answers "where am I" by wearing the active
+ * section's name whenever no pill is selected.
+ */
+export function visibleSectionTabs<T>(tabs: T[], activeIndex: number, fit: StripFit | null): T[] {
+	if (!fit) return tabs.slice(0, FALLBACK_SHORTCUTS);
+	let lead = 0;
+	// An exhaustive scan over at most seven runs. The cost IS non-decreasing in `n` — passing
+	// the active index drops its reservation and picks the same pill up inside the run, so
+	// `total(activeIndex)` and `total(activeIndex + 1)` are equal and everything either side
+	// climbs — so an early exit would be correct. It is not worth the reader having to
+	// re-derive that, and a first draft of this comment claimed the opposite; the mutation
+	// run that put an `else break` in and stayed green is what caught it.
+	for (let n = 1; n <= tabs.length; n++) {
+		let total = fit.chevron;
+		for (let i = 0; i < n; i++) total += STRIP_GAP + (fit.pills[i] ?? 0);
+		if (activeIndex >= n) total += STRIP_GAP + (fit.pills[activeIndex] ?? 0);
+		if (total <= fit.box) lead = n;
+	}
+	const run = tabs.slice(0, lead);
+	return lead > 0 && activeIndex >= lead ? [...run, tabs[activeIndex]] : run;
+}
+
+/**
+ * The section strip: as many SHORTCUT pills as the panel can actually hold, then a chevron
+ * holding the full list.
  *
- * The chevron carries the WHOLE list, not the leftovers. That is what makes dropping a
- * pill safe, and it answers "where did General go" with "where all of them are". When the
- * active section is not one of the shortcuts the chevron wears its NAME instead of "More",
- * so the answer to "where am I" is always on screen.
+ * FIXED AT TWO IS WHAT THIS REPLACES, and the reasoning that fixed it there is worth
+ * keeping because half of it still stands. Six pills need 425px and never had it — the phone
+ * strip is 362px and the DOCKED desktop panel is 231px — so the strip wrapped to two rows at
+ * every width and cost 74px of a panel whose first control already sat 414px down a 390x844
+ * phone. Three pills fit the phone and not the docked panel, and the obvious fix — hiding
+ * the third under a CONTAINER QUERY — puts the ACTIVE section behind a CSS rule JS cannot
+ * see: pick the third section, drag the panel narrow, and the strip shows two pills and a
+ * chevron with nothing on screen saying where you are.
+ *
+ * That argument kills the CSS route, not the feature. A JS MEASURE knows both things CSS
+ * cannot express at once: what fits, AND which pill must survive. So the strip measures a
+ * hidden copy of itself against the row's real width and draws the longest leading run that
+ * fits — plus the active pill, always, even when it is not in that run. A wide panel gets
+ * every section as a pill; the 260px minimum still gets two; and at no width does the answer
+ * to "where am I" leave the screen. The pinned pill is RESERVED FOR in the measurement, not
+ * squeezed in after it, so the row cannot overflow by pinning.
+ *
+ * The chevron carries the WHOLE list, not the leftovers. That is what makes dropping a pill
+ * safe, and it answers "where did General go" with "where all of them are". It is drawn at
+ * every width, so the strip's shape does not sprout a new control under a drag. When even
+ * one pill will not fit, it wears the active section's NAME instead of "More", which is the
+ * floor that keeps "where am I" answered when there is no room to answer it with a pill.
  */
 export function SettingsSectionTabs({
 	tabs,
@@ -293,39 +349,98 @@ export function SettingsSectionTabs({
 	ariaLabel: string;
 	className?: string;
 }) {
-	const SHORTCUTS = 2;
-	const shortcuts = tabs.slice(0, SHORTCUTS);
-	const active = tabs.find((t) => t.value === value);
-	const activeIsOverflow = active != null && !shortcuts.some((t) => t.value === value);
+	const rowRef = React.useRef<HTMLDivElement>(null);
+	const ghostRef = React.useRef<HTMLDivElement>(null);
+	const [fit, setFit] = React.useState<StripFit | null>(null);
+
+	// A LAYOUT effect, so the measured count is in place before the browser paints: a strip
+	// that renders wide and then snaps narrow is a visible jump, and it is also a locator
+	// that Playwright can find one tick before it disappears.
+	useIsomorphicLayoutEffect(() => {
+		const row = rowRef.current;
+		const ghost = ghostRef.current;
+		if (!row || !ghost || typeof ResizeObserver === 'undefined') return;
+		const measure = () => {
+			const kids = Array.from(ghost.children) as HTMLElement[];
+			const box = row.clientWidth;
+			// A row with no width has not been laid out; a ghost with no children is a render
+			// we should not fit against. Either way, keep the last good measurement.
+			if (!box || !kids.length) return;
+			const chevron = kids[kids.length - 1].offsetWidth;
+			const pills = kids.slice(0, -1).map((k) => k.offsetWidth);
+			setFit((prev) =>
+				prev && prev.box === box && prev.chevron === chevron && prev.pills.length === pills.length && prev.pills.every((w, i) => w === pills[i])
+					? prev
+					: { box, pills, chevron },
+			);
+		};
+		const ro = new ResizeObserver(measure);
+		// BOTH, and the ghost is the interesting one: it is the only thing that changes width
+		// when a LABEL changes or when the web font lands after first paint, neither of which
+		// touches the row. Watching it means the fit re-runs on its own rather than on a
+		// dependency key someone has to remember to widen.
+		ro.observe(row);
+		ro.observe(ghost);
+		measure();
+		return () => ro.disconnect();
+	}, []);
+
+	const activeIndex = tabs.findIndex((t) => t.value === value);
+	// Derived at RENDER, not stored: `fit` changes only when the row resizes or a label does,
+	// so switching section re-fits for free — and no effect has to re-run to do it.
+	const visible = visibleSectionTabs(tabs, activeIndex, fit);
+
+	const active = activeIndex >= 0 ? tabs[activeIndex] : undefined;
+	const activeIsOverflow = active != null && !visible.some((t) => t.value === value);
 	// ROVING TABINDEX + arrow keys, the WAI-ARIA tabs pattern — borrowed from `PillTabs`,
 	// which spells out why in its own header: declaring `role="tab"` without it is a
 	// contract violation, because a screen-reader user hears "tab" and the arrow keys do
 	// nothing. The first cut of this component declared the roles and implemented neither.
 	//
-	// When the active section is in the overflow, NO shortcut is selected — so the first one
-	// takes the tab stop, or the strip would have no reachable tab at all.
-	const focusIndex = shortcuts.findIndex((t) => t.value === value);
+	// When the active section is in the overflow, NO visible pill is selected — so the first
+	// one takes the tab stop, or the strip would have no reachable tab at all.
+	const focusIndex = visible.findIndex((t) => t.value === value);
 	const tabStop = focusIndex < 0 ? 0 : focusIndex;
 	const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+		if (!visible.length) return;
 		let next = -1;
-		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (tabStop + 1) % shortcuts.length;
-		else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (tabStop - 1 + shortcuts.length) % shortcuts.length;
+		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (tabStop + 1) % visible.length;
+		else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (tabStop - 1 + visible.length) % visible.length;
 		else if (e.key === 'Home') next = 0;
-		else if (e.key === 'End') next = shortcuts.length - 1;
+		else if (e.key === 'End') next = visible.length - 1;
 		if (next < 0) return;
 		e.preventDefault();
-		onValueChange(shortcuts[next].value);
+		onValueChange(visible[next].value);
 		e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
 	};
 	// One tab is enough to navigate with — the chevron would be a menu of one.
 	if (tabs.length <= 1) return null;
 	return (
-		<div className={cn('flex flex-wrap items-center gap-1.5', className)}>
+		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5', className)}>
+			{/* The MEASURING COPY: every pill at its natural width, laid out but never drawn.
+			    `absolute` keeps it out of the row's own layout, `w-max` stops the row's width
+			    squeezing it (which would make it measure what it is being asked to decide),
+			    and `aria-hidden` + `inert` keep it out of the a11y tree and off the tab
+			    order — so `getByRole('tab')` finds the real pills only.
+			    The chevron ghost wears "More", the label it has whenever a pill is on screen.
+			    In the one case it wears a longer name — nothing fits, so it names the active
+			    section — there is no pill left for the difference to cost. */}
+			<div ref={ghostRef} aria-hidden inert className="pointer-events-none absolute left-0 top-0 flex w-max items-center gap-1.5 opacity-0" style={{ visibility: 'hidden' }}>
+				{tabs.map((t) => (
+					<span key={t.value} className={cn(SECTION_PILL, SECTION_PILL_OFF)}>
+						{t.label}
+					</span>
+				))}
+				<span className={cn(SECTION_PILL, 'gap-1', SECTION_PILL_OFF)}>
+					More
+					<ChevronDown className="size-3.5" />
+				</span>
+			</div>
 			{/* The tablist holds TABS AND NOTHING ELSE. The chevron is a sibling outside it:
 			    a non-tab child inside `role="tablist"` is an `aria-required-children` axe
 			    violation, and the first cut put it in there. */}
 			<div className="contents" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
-				{shortcuts.map((t, i) => (
+				{visible.map((t, i) => (
 					<button
 						key={t.value}
 						type="button"
@@ -333,7 +448,7 @@ export function SettingsSectionTabs({
 						aria-selected={t.value === value}
 						tabIndex={i === tabStop ? 0 : -1}
 						onClick={() => onValueChange(t.value)}
-						className={cn(SECTION_PILL, t.value === value ? SECTION_PILL_ON : SECTION_PILL_OFF)}
+						className={cn(SECTION_PILL, 'shrink-0', t.value === value ? SECTION_PILL_ON : SECTION_PILL_OFF)}
 					>
 						{t.label}
 					</button>
@@ -347,7 +462,7 @@ export function SettingsSectionTabs({
 						// changes with the active section would move under a screen reader and under
 						// every e2e locator that addresses it.
 						aria-label={`${ariaLabel} — all sections`}
-						className={cn(SECTION_PILL, 'gap-1', activeIsOverflow ? SECTION_PILL_ON : SECTION_PILL_OFF)}
+						className={cn(SECTION_PILL, 'shrink-0 gap-1', activeIsOverflow ? SECTION_PILL_ON : SECTION_PILL_OFF)}
 					>
 						{activeIsOverflow ? active.label : 'More'}
 						<ChevronDown className="size-3.5" />

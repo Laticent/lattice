@@ -15,3 +15,7 @@
 - Searching "color" in the deck panel returned the whole Accent section — eleven rows —
   because that section listed a keyword its own Brand bar row already carries. It now
   returns the two rows that are about color.
+- The Inspector's section strip now draws as many pills as the panel can hold instead of a
+  fixed two, and the section you are in is always one of them. A 390px phone gains two
+  pills; the docked desktop panel keeps two, but one of them is now where you are. Dragging
+  the panel re-fits it live, on one line. The chevron still holds the whole list.

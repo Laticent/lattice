@@ -225,3 +225,100 @@ test('the list view drops the tabs and renders every section at once', async ({ 
 		await page.getByRole('button', { name: CHROME.settings.grouped }).click();
 	}
 });
+
+// ── The section strip's MEASURED overflow ────────────────────────────────────────────
+//
+// This tier, not the unit one, because the whole mechanism is a measurement: jsdom reports
+// every width as 0 and has no `ResizeObserver`, so the unit tests can only prove the fitting
+// POLICY (`visibleSectionTabs`, given widths) and the unmeasured fallback. Whether the strip
+// actually reads its own row, and whether it stays on ONE line while doing it, is a question
+// only a real engine answers.
+
+/** The pills on screen, in order, and whether the row wrapped. */
+async function strip(page: Page) {
+	return page.evaluate(() => {
+		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
+		const row = list?.parentElement;
+		if (!row) return { rowW: 0, pills: [] as string[], lines: 0, overflow: 0 };
+		const buttons = [...row.querySelectorAll('button')].filter((b) => (b as HTMLElement).offsetParent);
+		return {
+			rowW: Math.round(row.getBoundingClientRect().width),
+			pills: [...row.querySelectorAll('[role="tab"]')].map((b) => (b.textContent ?? '').trim()),
+			lines: new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+			// How far the last control sticks out past the row it lives in.
+			overflow: Math.max(0, ...buttons.map((b) => Math.round(b.getBoundingClientRect().right - row.getBoundingClientRect().right))),
+		};
+	});
+}
+
+/**
+ * Drag the settings panel's divider by `dx` and let the strip settle.
+ *
+ * The PANEL width is the real lever, not the viewport: the docked panel is a fixed-width
+ * dock, so its row measured 231px at a 1440 viewport and 236px at 2560. Dragging is also the
+ * interaction the fixed-at-two strip was chosen to survive — "pick the third section, drag
+ * the panel narrow" is the sentence in the decision note.
+ */
+async function dragPanel(page: Page, dx: number) {
+	const handle = page.getByRole('separator', { name: CHROME.settings.resizeHandle });
+	const box = await handle.boundingBox();
+	if (!box) throw new Error('no panel resize handle');
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width / 2 + dx, box.y + box.height / 2, { steps: 8 });
+	await page.mouse.up();
+	// Wait for the SIGNAL, not a guessed interval: the strip has settled when two consecutive
+	// reads of its row agree. Polling "it changed" would be wrong — a drag into the panel's
+	// min or max width legitimately changes nothing, and this has to work for those too.
+	let last = Number.NaN;
+	await expect
+		.poll(async () => {
+			const { rowW } = await strip(page);
+			const settled = rowW === last;
+			last = rowW;
+			return settled;
+		})
+		.toBe(true);
+}
+
+test('the section strip fits itself to the panel, on one line, at every width', async ({ page }) => {
+	const counts: number[] = [];
+	for (const dx of [0, 120, 260, -260]) {
+		if (dx) await dragPanel(page, dx);
+		const { pills, lines, overflow, rowW } = await strip(page);
+		// ONE LINE, always. The fixed-at-two strip this replaced was chosen because six pills
+		// wrapped to two rows and cost 74px of a panel with none to spare — so a wrap here is
+		// the exact regression, and an overflow is the new way to get it wrong.
+		expect(lines, `row ${rowW}px: strip on ${lines} lines`).toBe(1);
+		expect(overflow, `row ${rowW}px: strip overflows by ${overflow}px`).toBeLessThanOrEqual(0);
+		expect(pills.length, `row ${rowW}px`).toBeGreaterThanOrEqual(2);
+		counts.push(pills.length);
+	}
+	// A WIDER panel actually shows MORE — without this the test passes on a strip frozen at
+	// two, which is the thing being replaced.
+	expect(counts[2], `counts ${counts.join(',')}`).toBeGreaterThan(counts[0]);
+	// …and dragging back returns the narrow shape rather than leaving the row overflowing.
+	expect(counts[3]).toBeLessThan(counts[2]);
+});
+
+test('the active section stays ON SCREEN as a pill, however narrow the panel', async ({ page }) => {
+	// The property a container query cannot express, and the reason the count was frozen at
+	// two: hide the overflow in CSS and picking section six leaves the strip reading
+	// "Look · Chrome · More" with nothing on screen saying where you are.
+	await openSection(page, CHROME.deckTab.speech);
+	const speech = page.getByRole('tab', { name: CHROME.deckTab.speech, exact: true });
+	for (const dx of [200, -200, -80]) {
+		await dragPanel(page, dx);
+		await expect(speech).toBeVisible();
+		await expect(speech).toHaveAttribute('aria-selected', 'true');
+		expect((await strip(page)).lines).toBe(1);
+	}
+});
+
+test('the chevron still holds the WHOLE list, not the leftovers', async ({ page }) => {
+	await page.setViewportSize({ width: 1800, height: 900 });
+	await page.getByRole('button', { name: CHROME.settings.allSections }).click();
+	for (const name of Object.values(CHROME.deckTab)) {
+		await expect(page.getByRole('menuitem', { name, exact: true })).toBeVisible();
+	}
+});

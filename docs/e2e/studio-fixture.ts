@@ -98,6 +98,11 @@ export const CHROME = {
 		/** The two view states — grouped sections, or one continuous list of every section. */
 		grouped: 'Grouped — one section at a time',
 		list: 'List — every section in one scroll',
+		/** The divider between the docked settings panel and the editor. The PANEL width is
+		 *  the lever the section strip measures itself against — the dock barely moves with
+		 *  the viewport (its row is 231px at a 1440 window and 236px at 2560), so a spec that
+		 *  wants a narrower or wider strip drags this. */
+		resizeHandle: 'Resize settings panel',
 		/** The section strip's chevron, which holds the FULL list. Its accessible name is
 		 *  deliberately fixed — the visible label changes to the active section's name when
 		 *  that section is not one of the shortcut pills, and a name that moved with it

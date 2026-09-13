@@ -458,3 +458,93 @@ precisely the contract §4 was written after, in the same shape ("page" returnin
 Chrome). It predates this change and sits on its path, so it is fixed here rather than filed
 (HARD RULE #18): the keyword is gone and "color" now returns the two rows that are about
 color. "white label" and "accent" still open the section whole.
+
+---
+
+## 11. Round two — as many pills as fit, measured
+
+§8 froze the strip at two shortcuts and gave a reason that still stands *for the route it
+was rejecting*: hiding the overflow with a **container query** puts the ACTIVE section behind
+a CSS rule JS cannot see. Pick section six, drag the panel narrow, and the strip reads
+`Look · Chrome · More` with nothing on screen saying where you are.
+
+**That argument kills the CSS route, not the feature.** A JS measure knows both things at
+once — what fits, AND which pill must survive — and only one of them is expressible in CSS.
+
+So `SettingsSectionTabs` renders a hidden copy of the whole strip (`aria-hidden`, `inert`,
+`visibility: hidden`, `w-max`, absolutely positioned so it is laid out but costs the row
+nothing), and a `ResizeObserver` measures the row against it. The fitting policy is a pure
+exported function, `visibleSectionTabs(tabs, activeIndex, fit)`:
+
+- the longest LEADING run of pills that fits beside the chevron;
+- **plus the active pill, always**, appended after that run when it is not in it;
+- with the active pill's width **reserved before the run is chosen**, not squeezed in after —
+  pinning afterwards is how a pinned strip overflows, since the pill you pin is rarely the
+  width of the one you dropped;
+- and when the measurement is unavailable, the shape §8 shipped: two, with no pin. An
+  unmeasured strip must never be wider than a measured one.
+
+The observer watches BOTH the row and the ghost. The ghost is the interesting one: it is the
+only thing whose width changes when a label changes or when the web font lands after first
+paint, and neither of those touches the row. That is also why there is no dependency key to
+keep in sync.
+
+### What it actually draws
+
+Measured on the running Studio, deck scope, with **Speech** — the last of six — active:
+
+| Surface | Strip row | Pills drawn |
+|---|---|---|
+| Phone, 390x844 | 362px | `Look · Chrome · General · Speech · More` |
+| Tablet drawer, 820x1180 | 218px | `Look · Speech · More` |
+| Docked desktop, 1440x900 | 231px | `Look · Speech · More` |
+| Docked desktop, 2560 | 236px | `Look · Speech · More` |
+
+The phone gains two pills it never had. The docked panel keeps two — and the difference is
+that one of them is now the section you are in. Dragging the divider live, the count walks
+2 → 3 → 4 and back, on one line the whole way, with `Speech` never leaving the screen.
+
+Note what the last two rows say about the lever: the dock is a fixed-width panel, so the
+VIEWPORT barely moves the strip (231px at 1440, 236px at 2560). The panel DRAG is what moves
+it, which is why the e2e drags rather than resizes.
+
+### Carried over, deliberately unchanged
+
+- the chevron holds the **whole** list, not the leftovers, and is drawn at every width, so
+  the strip does not sprout a new control under a drag;
+- its **accessible** name is fixed (`… — all sections`), because a name that moved with the
+  active section would move under every locator addressing it;
+- the roving-tabindex / arrow-key tablist implementation borrowed from `PillTabs`, and the
+  chevron OUTSIDE the tablist — an independent check caught that `aria-required-children`
+  violation once already, and it is not being re-introduced;
+- `openSection` in the e2e fixture still takes whichever route exists, so no spec cares how
+  many pills there are.
+
+### Where each half is tested, and why
+
+jsdom reports every width as 0 and has no `ResizeObserver`, so it can prove the POLICY and
+nothing about the measurement. The split is therefore:
+
+- **unit** — `visibleSectionTabs` against real measured pill widths: it grows with the row,
+  never exceeds it, always contains the active pill, reserves rather than squeezes, and
+  falls back to two-without-a-pin when it cannot measure.
+- **e2e** — the real strip under a real drag: one visual line and zero overflow at every
+  width, more pills when wider and fewer when narrower, and the active pill still `visible`
+  and `aria-selected` after each drag. Both go red against a strip frozen at two, which is
+  the only thing that proves they are testing the mechanism rather than describing it.
+
+**One thing the mutation run corrected in this note's own reasoning.** A first draft of the
+fit loop's comment said the cost is "not monotone in `n`, so scan them all". It is monotone:
+passing the active index drops its reservation and picks the same pill up inside the run, so
+`total(activeIndex)` and `total(activeIndex + 1)` are equal and everything either side
+climbs. The tell was a mutation that added `else break` and stayed green. The scan is still
+exhaustive — six or seven runs — but the comment now says why that is a choice rather than a
+requirement.
+
+### The shared search field, and one helper de-duplicated
+
+`useIsomorphicLayoutEffect` (`useLayoutEffect` on the client, `useEffect` under Astro's
+server render) was private to `use-resizable-split.ts`. The measure has to be a LAYOUT effect
+— a strip that paints wide and snaps narrow is both a visible jump and a locator Playwright
+can catch one tick before it vanishes — so rather than write a second copy it moved to
+`ui/use-isomorphic-layout-effect.ts` and both import it.

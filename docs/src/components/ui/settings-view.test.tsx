@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { SETTING_FILTERING, SETTING_HIT, SETTING_SECTION, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsToolbar, type SettingsView, settingsMatch, useSettingsHit } from './settings-view';
+import { SETTING_FILTERING, SETTING_HIT, SETTING_SECTION, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsToolbar, type SettingsView, settingsMatch, useSettingsHit, visibleSectionTabs } from './settings-view';
 
 // `settingsMatch` is re-exported from `lib/settings-search.ts`, where the full semantics
 // (morphology, the synonym table, the anchored typo repair) are pinned. What stays pinned
@@ -153,6 +153,59 @@ function Toolbar({ onView }: { onView?: (v: SettingsView) => void } = {}) {
 		/>
 	);
 }
+
+// Widths taken off the REAL strip at the docked default (Chromium, cuoio, 12.5px semibold):
+// the six deck sections and the chevron. Kept as numbers rather than a fixture so a reader
+// can do the arithmetic in their head.
+const PILLS = [56, 74, 82, 72, 72, 72]; // Look · Chrome · General · Accent · Motion · Speech
+const CHEVRON = 72;
+const TABS = ['Look', 'Chrome', 'General', 'Accent', 'Motion', 'Speech'];
+const fitAt = (box: number) => ({ box, pills: PILLS, chevron: CHEVRON });
+
+describe('visibleSectionTabs — the fitting policy', () => {
+	it('draws as many as the row holds, and more of them as the row grows', () => {
+		expect(visibleSectionTabs(TABS, 0, fitAt(231))).toEqual(['Look', 'Chrome']);
+		expect(visibleSectionTabs(TABS, 0, fitAt(351))).toEqual(['Look', 'Chrome', 'General']);
+		expect(visibleSectionTabs(TABS, 0, fitAt(500))).toEqual(['Look', 'Chrome', 'General', 'Accent', 'Motion']);
+	});
+
+	it('never draws more than fits — the row cannot spill to a second line', () => {
+		for (const box of [200, 231, 280, 351, 391, 500, 900]) {
+			const out = visibleSectionTabs(TABS, 5, fitAt(box));
+			const used = out.reduce((sum, label) => sum + 6 + PILLS[TABS.indexOf(label)], CHEVRON);
+			expect(used, `${out.length} pills at box ${box}`).toBeLessThanOrEqual(box);
+		}
+	});
+
+	it('KEEPS THE ACTIVE PILL ON SCREEN at every width — the thing a container query cannot', () => {
+		// Pick section 6, drag the panel narrow, and the old strip read "Look · Chrome · More"
+		// with nothing saying where you were. This is that case, at every width.
+		for (const box of [231, 280, 351, 391, 500]) {
+			expect(visibleSectionTabs(TABS, 5, fitAt(box)), `box ${box}`).toContain('Speech');
+		}
+	});
+
+	it('RESERVES the pinned pill rather than squeezing it in afterwards', () => {
+		// Look(56) + Chrome(74) + chevron(72) + 2 gaps = 214, so a 231px row holds both — but
+		// only if nothing else has to fit. With Speech active the run gives one pill back.
+		expect(visibleSectionTabs(TABS, 1, fitAt(231))).toEqual(['Look', 'Chrome']);
+		expect(visibleSectionTabs(TABS, 5, fitAt(231))).toEqual(['Look', 'Speech']);
+	});
+
+	it('appends the active pill, keeping the leading run in tab order', () => {
+		expect(visibleSectionTabs(TABS, 4, fitAt(391))).toEqual(['Look', 'Chrome', 'General', 'Motion']);
+	});
+
+	it('falls back to the chevron alone when not even one pill fits', () => {
+		expect(visibleSectionTabs(TABS, 3, fitAt(100))).toEqual([]);
+	});
+
+	it('falls back to the narrowest supported shape when it cannot measure, and does NOT pin', () => {
+		// An unmeasured strip must never be WIDER than a measured one — the chevron answers
+		// "where am I" by wearing the active section's name when no pill is selected.
+		expect(visibleSectionTabs(TABS, 5, null)).toEqual(['Look', 'Chrome']);
+	});
+});
 
 describe('SettingsToolbar', () => {
 	it('opens the field and HIDES both view toggles, so the input owns the row', async () => {
