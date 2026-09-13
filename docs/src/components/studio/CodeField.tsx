@@ -8,7 +8,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { editorTheme, studioHighlight } from './editor-theme';
+import { codeFieldTheme, studioHighlight } from './editor-theme';
 
 // A small, single-purpose CodeMirror 6 field — syntax highlighting + line numbers
 // for the Component studio's CSS and skeleton inputs. WRAP, DON'T REINVENT: it
@@ -81,7 +81,7 @@ export function CodeField({
 							autocompletion({ override: [(ctx) => completionRef.current?.(ctx) ?? null] }),
 						LANGS[language](),
 						syntaxHighlighting(studioHighlight),
-						editorTheme,
+						codeFieldTheme,
 						EditorView.lineWrapping,
 						EditorView.contentAttributes.of({ 'aria-label': ariaLabel }),
 						EditorState.readOnly.of(readOnly),

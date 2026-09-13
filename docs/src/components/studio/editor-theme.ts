@@ -8,69 +8,90 @@ import { lintTheme, lintThemeCoarse, tooltipShell } from '../../lib/lint-theme.j
 // Editor (markdown) and the Component studio's CSS + skeleton fields (CodeField).
 // Palette-blind: every color is a token, so it tracks the active theme/mode.
 // Extracted here so the two editors share ONE look (#15 — reuse, don't fork).
-export const editorTheme = EditorView.theme({
-	// Canvas, ink, gutter, caret and the focus reset come from the shared module, so
-	// this theme and the Playground's cannot drift again (HARD RULE #15). The caret
-	// argument that used to live here — `--text-body`, never `--accent`, because the
-	// caret must stay as legible as the text it sits in and accent carries no AA
-	// guarantee — moved there with it, and now binds both editors.
-	// (Coarse-pointer rules — including the 16px `.cm-content` lift that keeps iOS
-	// from auto-zooming on focus — live in the `@media` block at the END of this
-	// object; see the note there for why the position is load-bearing.)
-	...editorChrome({ fontSize: '13px', padding: '14px 4px', lineHeight: '1.85' }),
-	// FOUR RULE GROUPS WERE DELETED HERE, all of them dead. This theme's surfaces
-	// install neither `highlightActiveLine()` nor `drawSelection()`, so `.cm-activeLine`,
-	// `.cm-activeLineGutter`, `.cm-cursor` and `.cm-selectionBackground` never render
-	// on them — measured on the real Studio: zero elements of every one of those
-	// classes after a select-all. The selection rule was the worst of them: a third
-	// copy of the 18% accent wash, unreachable, and unpinned by
-	// `playground/editor-selection.test.ts`, which only ever compared the other two.
-	// `.cm-cursor` survives, inert, inside the shared module, where one definition
-	// covers any surface that later adds a drawn caret.
-	// Every lint surface — the squiggle, the gutter disc, the hover card, the
-	// panel — comes from the shared module, so this editor and the Playground's
-	// cannot drift apart. It also retires the lone `#b42318` hex literal that
-	// used to color the error squiggle here.
-	...lintTheme,
-	// The floating shell both the lint popup and the autocomplete dropdown wear —
-	// now shared with the Playground so the two surfaces cannot diverge again
-	// (CodeMirror's default is a fixed light chrome that clashes on dark/tinted
-	// palettes). The autocomplete interior follows; every color a token, with the
-	// matched substring + selected row on accent.
-	...tooltipShell,
-	'.cm-tooltip.cm-tooltip-autocomplete > ul': {
-		fontFamily: 'var(--font-mono, ui-monospace, monospace)',
-		maxHeight: '16em',
-	},
-	'.cm-tooltip-autocomplete > ul > li': { padding: '3px 8px', color: 'var(--text-body)' },
-	'.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-		backgroundColor: 'color-mix(in srgb, var(--accent) 18%, transparent)',
-		color: 'var(--text-heading)',
-	},
-	'.cm-completionMatchedText': { color: 'var(--accent)', textDecoration: 'none', fontWeight: '600' },
-	'.cm-completionDetail': { color: 'var(--text-muted)', fontStyle: 'normal', marginLeft: '0.6em', fontSize: '0.85em' },
-	'.cm-completionInfo': {
-		backgroundColor: 'var(--bg)',
-		color: 'var(--text-body)',
-		border: '1px solid color-mix(in srgb, var(--text-heading) 18%, transparent)',
-		borderRadius: '6px',
-		padding: '6px 8px',
-	},
-	// LAST on purpose, and it must stay last. A theme object is a flat map that
-	// compiles to a stylesheet in key order, and these rules target the same
-	// selectors as the base ones at the same specificity — so placed earlier they
-	// lose to the very rules they exist to override, and the touch sizes silently
-	// never apply. (Measured: the fix pill stayed 28px on a real coarse pointer
-	// until this block moved below `...lintTheme`.)
-	//
-	// It is also the ONE place coarse-pointer rules may live here — the lint module
-	// exports its own separately rather than carrying a second `@media` key that
-	// would replace this one on spread, taking the iOS zoom guard with it.
-	'@media (pointer: coarse)': {
-		...editorChromeCoarse,
-		...lintThemeCoarse,
-	},
-});
+//
+// ONE PARAMETER SPLITS THE TWO EXPORTS, and it is the only thing that differs.
+// `focusRing` decides whether the editor draws the site's focus ring itself. The deck
+// Editor fills a stable pane, so it does. An embedded `CodeField` does not, for two
+// measured reasons, both found by a checker on the change that added the ring:
+//   · three of its five call sites sit in a rounded, bordered box that already paints
+//     `focus-within:border-[var(--accent)]` (LayoutStudio x2, Fabricate's manifest
+//     field) — the ring put a second, SQUARE accent line 1px inside the rounded one;
+//   · CraftLab's host is `max-h-[26rem] overflow-auto` with no definite height, so
+//     `.cm-editor` grows to the document's full height (measured: clientHeight 415,
+//     scrollHeight 846) and an inset ring anchored to it scrolls its top and bottom
+//     edges out of view — the ring-with-a-side-missing that `lib/editor-chrome.js`
+//     rejects an inset outline for, reintroduced one surface over.
+// Declining the ring is NOT declining the suppression: `editorChrome` always kills
+// @codemirror/view's dotted `#212121` default, on every surface.
+const studioTheme = (focusRing: boolean) =>
+	EditorView.theme({
+		// Canvas, ink, gutter, caret and the focus ring come from the shared module, so
+		// this theme and the Playground's cannot drift again (HARD RULE #15). The caret
+		// argument that used to live here — `--text-body`, never `--accent`, because the
+		// caret must stay as legible as the text it sits in and accent carries no AA
+		// guarantee — moved there with it, and now binds both editors.
+		// (Coarse-pointer rules — including the 16px `.cm-content` lift that keeps iOS
+		// from auto-zooming on focus — live in the `@media` block at the END of this
+		// object; see the note there for why the position is load-bearing.)
+		...editorChrome({ fontSize: '13px', padding: '14px 4px', lineHeight: '1.85', focusRing }),
+		// FOUR RULE GROUPS WERE DELETED HERE, all of them dead. This theme's surfaces
+		// install neither `highlightActiveLine()` nor `drawSelection()`, so `.cm-activeLine`,
+		// `.cm-activeLineGutter`, `.cm-cursor` and `.cm-selectionBackground` never render
+		// on them — measured on the real Studio: zero elements of every one of those
+		// classes after a select-all. The selection rule was the worst of them: a third
+		// copy of the 18% accent wash, unreachable, and unpinned by
+		// `playground/editor-selection.test.ts`, which only ever compared the other two.
+		// `.cm-cursor` survives, inert, inside the shared module, where one definition
+		// covers any surface that later adds a drawn caret.
+		// Every lint surface — the squiggle, the gutter disc, the hover card, the
+		// panel — comes from the shared module, so this editor and the Playground's
+		// cannot drift apart. It also retires the lone `#b42318` hex literal that
+		// used to color the error squiggle here.
+		...lintTheme,
+		// The floating shell both the lint popup and the autocomplete dropdown wear —
+		// now shared with the Playground so the two surfaces cannot diverge again
+		// (CodeMirror's default is a fixed light chrome that clashes on dark/tinted
+		// palettes). The autocomplete interior follows; every color a token, with the
+		// matched substring + selected row on accent.
+		...tooltipShell,
+		'.cm-tooltip.cm-tooltip-autocomplete > ul': {
+			fontFamily: 'var(--font-mono, ui-monospace, monospace)',
+			maxHeight: '16em',
+		},
+		'.cm-tooltip-autocomplete > ul > li': { padding: '3px 8px', color: 'var(--text-body)' },
+		'.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+			backgroundColor: 'color-mix(in srgb, var(--accent) 18%, transparent)',
+			color: 'var(--text-heading)',
+		},
+		'.cm-completionMatchedText': { color: 'var(--accent)', textDecoration: 'none', fontWeight: '600' },
+		'.cm-completionDetail': { color: 'var(--text-muted)', fontStyle: 'normal', marginLeft: '0.6em', fontSize: '0.85em' },
+		'.cm-completionInfo': {
+			backgroundColor: 'var(--bg)',
+			color: 'var(--text-body)',
+			border: '1px solid color-mix(in srgb, var(--text-heading) 18%, transparent)',
+			borderRadius: '6px',
+			padding: '6px 8px',
+		},
+		// LAST on purpose, and it must stay last. A theme object is a flat map that
+		// compiles to a stylesheet in key order, and these rules target the same
+		// selectors as the base ones at the same specificity — so placed earlier they
+		// lose to the very rules they exist to override, and the touch sizes silently
+		// never apply. (Measured: the fix pill stayed 28px on a real coarse pointer
+		// until this block moved below `...lintTheme`.)
+		//
+		// It is also the ONE place coarse-pointer rules may live here — the lint module
+		// exports its own separately rather than carrying a second `@media` key that
+		// would replace this one on spread, taking the iOS zoom guard with it.
+		'@media (pointer: coarse)': {
+			...editorChromeCoarse,
+			...lintThemeCoarse,
+		},
+	});
+
+/** The Studio's deck Editor — a full pane, so it draws the site's focus ring. */
+export const editorTheme = studioTheme(true);
+/** An embedded `CodeField` — its HOST owns the focus affordance. See the note above. */
+export const codeFieldTheme = studioTheme(false);
 
 // Palette-cohesive syntax highlighting — every color a theme token, so the code
 // editors track the active studio theme + mode (no fixed light-only defaults that

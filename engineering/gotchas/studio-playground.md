@@ -1116,7 +1116,7 @@ never turn "passed in headless" into "works on iOS."
   surface and the tooltip shell had already been extracted to `lib/lint-theme.js` for
   exactly this reason; the editor's own chrome never was, so it forked and drifted.
 - **Fix:** `docs/src/lib/editor-chrome.js` — one definition, spread by both. It shares
-  what must never differ (canvas, ink, gutter, caret, focus reset, the iOS zoom
+  what must never differ (canvas, ink, gutter, caret, focus ring, the iOS zoom
   guard) and takes the rest as PARAMETERS (type size, padding, line-height, gutter
   divider), so a real per-surface difference is declared at the call site instead of
   being two forks nobody compares.
@@ -1155,11 +1155,59 @@ never turn "passed in headless" into "works on iOS."
   toolbar control and the highlight goes (measured, real WebKit: focused `213,203,178`,
   blurred `234,228,214`; Chromium keeps painting it). `drawSelection()`'s DOM persisted
   on both. The Studio always behaved this way. (2) **The Playground lost a focus ring** —
-  @codemirror/view's base `outline: 1px dotted #212121`, which the shared `outline: none`
-  now suppresses as the Studio always did. It was palette-blind (near-black on a dark
-  palette), and the caret is a text field's conventional focus affordance. (3) **Touch
-  gets OS selection handles** it did not have, which is the platform behavior a drawn
-  band was hiding.
+  @codemirror/view's base `outline: 1px dotted #212121`, replaced by a bare
+  `outline: none` as the Studio had always done. It was palette-blind (near-black on a
+  dark palette) and deserved to go; what replaced it did not, and it has since been
+  replaced again — see the next bullet. (3) **Touch gets OS selection handles** it did
+  not have, which is the platform behavior a drawn band was hiding.
+- **A `contenteditable` MATCHES NOTHING IN THE SITE'S FOCUS-RING SELECTOR, so the
+  editors fell out of the site's focus language by accident.** `styles/native-widgets.css`
+  carries the one ring — `outline: 2px solid var(--accent)`, `outline-offset: 2px` — on
+  `:where(a, button, input, select, textarea, summary, [tabindex])`. CodeMirror's
+  `.cm-content` is a `contenteditable` div with **no** `tabindex`, so it matches none of
+  them; measured on the real Playground by walking every stylesheet in the document and
+  testing each outline-bearing selector against `.cm-editor` and `.cm-content`, **zero
+  rules of ours matched either**. The shared chrome now draws the site's ring itself.
+  **Two things that sound like the reason and are not**, both
+  measured, both in `engineering/decisions/2026-09-13-editor-focus-ring.md`: the caret
+  alone DOES satisfy WCAG 2.4.7 (W3C's Understanding text names a text field's vertical
+  bar as the indicator), and CodeMirror scrolls the caret back into view on refocus
+  (`scrollTop` 0 → 1266 on a document taller than its pane), so "focus lands and nothing
+  is visible" never happens. The reason is consistency, and it is enough on its own.
+  **A `:focus-visible` arm would change nothing** — browsers treat a text-editing
+  surface as always focus-visible, so `.cm-content` matches it after a plain mouse
+  click; a native `<textarea>` here already rings on click for the same reason.
+- **THE RING IS A `::after`, NOT AN `outline`, AND THE EDITOR HAS TWO FOCUS CHANNELS.**
+  An inset outline is erased along the gutter: `.cm-scroller` is
+  `position: relative; z-index: 0`, so it opens a stacking context that paints after
+  `.cm-editor`'s outline, and `.cm-gutters` inside it is `position: sticky; z-index: 200`
+  over an opaque `var(--bg)`. Measured with a red test outline on the real focused
+  Playground, the gutter erases the whole 37px left band including both left corners;
+  an outward `outline-offset: 2px` is clipped by the `overflow: hidden` pane instead. So
+  the ring is a `z-index: 1` pseudo-element — above `.cm-scroller`'s `0`, below
+  `.cm-panels` (300) and `.cm-tooltip` (500).
+  **The two channels are `outline: none` (suppress CodeMirror's dotted `#212121`) and
+  the `::after` (draw ours), and writing one without the other is a defect that
+  shipped.** Replacing the suppression with the ring brought the base rule back — two
+  rings, an accent one with a near-black dotted one 1px outside it. **It was computed on
+  all four editor surfaces and PAINTED on one**: the Playground and Studio panes clip
+  it, and `.specimen-editor-host` is `overflow: visible`, so the component pages showed
+  it. A checker found it, not a gate; `editor-selection-parity.spec.ts` now reads
+  `.cm-editor`'s own `outline` on every surface, and opens the Specimen precisely
+  because it is the surface where this class of defect is visible rather than merely
+  present.
+- **AN EMBEDDED `CodeField` DECLINES THE RING — `editorChrome({ focusRing: false })`.**
+  Two measured reasons. Three of its five call sites (LayoutStudio x2, Fabricate's
+  manifest field) sit in a `rounded-lg border … focus-within:border-[var(--accent)]`
+  box, where the ring added a second, SQUARE accent line 1px inside the rounded one.
+  And CraftLab's host is `max-h-[26rem] overflow-auto` with no definite height, so
+  `.cm-editor` grows to the whole document (measured: clientHeight 415, scrollHeight
+  846) and an inset ring anchored to it scrolls its top and bottom edges out of view.
+  **Declining the ring is never declining the suppression** — the dotted default dies on
+  every surface. One host still paints nothing (Fabricate's Theme CSS field); that is
+  the status quo, recorded in the decision note, not a regression from this change.
+  The Studio's **Compose** view is ProseMirror, not CodeMirror, so none of this reaches
+  it — also pre-existing, also recorded there.
 - **The active-line band stands down while a selection is up**, and that is a contrast
   fix. `highlightActiveLine()` decorates the line at every range's head whether the range
   is empty or not, so a selection covering the caret's line stacked 12% + 18% accent =

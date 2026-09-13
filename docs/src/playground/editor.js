@@ -226,7 +226,7 @@ export const latticeHighlight = HighlightStyle.define([
 // Editor chrome themed off the page tokens so it matches the playground shell
 // and recolours with the palette/mode (CSS vars resolve live on every paint).
 const latticeTheme = EditorView.theme({
-	// Canvas, ink, gutter, caret and the focus reset come from the shared module so
+	// Canvas, ink, gutter, caret and the focus ring come from the shared module so
 	// this editor and the Studio's cannot drift again (HARD RULE #15). Type size,
 	// padding, line-height and the gutter divider are passed in because they
 	// legitimately differ between a full-page editor and the Studio's panel — a

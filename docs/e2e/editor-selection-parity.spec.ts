@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { BUILTIN_PALETTES } from '../src/lib/theme-catalog.generated';
 
-// Both deck editors select text the SAME way, on the real surfaces, on EVERY palette.
+// Both deck editors DRESS THE SAME WAY, on the real surfaces, on every palette.
+//
+// The filename says selection because that is what forced the spec into existence.
+// Its subject is everything the two editors must not differ on: the selection, the
+// caret, and the focus ring.
 //
 // They did not. The Playground installed `drawSelection()`, which replaces the
 // browser's native highlight with `.cm-selectionBackground` divs; the Studio's
@@ -46,6 +50,12 @@ import { BUILTIN_PALETTES } from '../src/lib/theme-catalog.generated';
 // one's. Every read asserts the palette it actually got, so a controller that reverted
 // the attribute would fail rather than certify a stale reading.
 //
+// THE FOCUS RING RIDES ALONG HERE rather than in a spec of its own, because it is the
+// same claim about the same pair of surfaces and the sweep is already open on both: 18
+// palettes x 2 modes x 2 editors, four page loads. Its own argument — why a ring at all
+// when the caret already satisfies WCAG 2.4.7 — is
+// engineering/decisions/2026-09-13-editor-focus-ring.md.
+//
 // SIX INKS, TWO BARS, and the split is the bar these editors are held to (set in
 // `engineering/gotchas/studio-playground.md` § "Select-all in the Playground editor
 // paints a light lavender slab"): full AA for primary text, AA-large 3:1 for
@@ -68,12 +78,73 @@ type Structure = {
 	nativeSelectionLength: number;
 };
 
+/**
+ * The focus ring, as computed.
+ *
+ * It is read off `.cm-editor::after`, not off the element's `outline`, because that is
+ * where the ring is drawn — an inset `outline` is erased along the gutter by
+ * CodeMirror's own sticky, opaque `.cm-gutters`, so the shared chrome uses a
+ * z-ordered pseudo-element instead. See `lib/editor-chrome.js`. An `::after` with no
+ * rule reports `content: 'none'` and a 0px border, which is what the blurred arm wants.
+ */
+type Ring = {
+	content: string;
+	style: string;
+	width: string;
+	color: string;
+	/** The ring's USED box, and the editor's, so a zero-area or displaced ring fails. */
+	box: [number, number];
+	editorBox: [number, number];
+	/**
+	 * `.cm-editor`'s own `outline` — the OTHER channel, and the one a first cut of the
+	 * ring dropped. @codemirror/view's base theme paints `1px dotted #212121` on
+	 * `&.cm-focused`; replacing the suppression with the ring instead of adding to it
+	 * brought that back on every editor, painted wherever the host does not clip it.
+	 */
+	baseOutline: string;
+};
+
+/** `.cm-editor` and its `::after`, in whatever focus state the page is in. */
+const readRing = (page: import('@playwright/test').Page, scope = ''): Promise<Ring> =>
+	page.evaluate((sel) => {
+		const el = document.querySelector(`${sel}.cm-editor`) as HTMLElement;
+		const cs = getComputedStyle(el, '::after');
+		const own = getComputedStyle(el);
+		return {
+			content: cs.content,
+			style: cs.borderTopStyle,
+			width: cs.borderTopWidth,
+			color: cs.borderTopColor,
+			// Chromium resolves a positioned pseudo-element's used width/height, so this
+			// catches the shapes a color read cannot: zero-area, `inset: 100%`, a ring
+			// anchored to a box other than the editor's. Sub-pixel on both sides —
+			// `clientWidth` rounds 647.547 to 648 and would fail a real ring.
+			box: [Number.parseFloat(cs.width), Number.parseFloat(cs.height)] as [number, number],
+			editorBox: [el.getBoundingClientRect().width, el.getBoundingClientRect().height] as [number, number],
+			baseOutline: `${own.outlineStyle} ${own.outlineWidth}`,
+		};
+	}, scope);
+
+/**
+ * The ring's used box IS the editor's, to within a sub-pixel.
+ *
+ * A color read alone cannot tell a ring from a rule that resolves to nothing: a
+ * zero-area pseudo-element, one at `inset: 100%`, and one anchored to a different box
+ * all report the same `solid 2px var(--accent)`.
+ */
+function expectRingFillsEditor(ring: Ring, where: string) {
+	for (const [i, axis] of (['width', 'height'] as const).entries()) {
+		expect(Math.abs(ring.box[i] - ring.editorBox[i]), `${where}: the focus ring's ${axis} (${ring.box[i]}) must be the editor's (${ring.editorBox[i]})`).toBeLessThan(0.5);
+	}
+}
+
 /** What one palette paints, read while a selection is up. */
 type Reading = {
 	palette: string;
 	activeLineBg: string;
 	selectionBg: string;
 	caretColor: string;
+	ring: Ring;
 	bg: string;
 	accent: string;
 	inks: Record<string, string>;
@@ -180,6 +251,21 @@ async function sweepPalettes(page: import('@playwright/test').Page): Promise<Rec
 				// which is what lets this assert the native path rather than screenshot it.
 				selectionBg: getComputedStyle(el, '::selection').backgroundColor,
 				caretColor: getComputedStyle(el).caretColor,
+				// The focus ring, read in the state the sweep is already in — focused, because
+				// selecting requires focus. Its blurred half is asserted once per surface.
+				ring: ((el, cs, own) => ({
+					content: cs.content,
+					style: cs.borderTopStyle,
+					width: cs.borderTopWidth,
+					color: cs.borderTopColor,
+					box: [Number.parseFloat(cs.width), Number.parseFloat(cs.height)] as [number, number],
+					editorBox: [el.getBoundingClientRect().width, el.getBoundingClientRect().height] as [number, number],
+					baseOutline: `${own.outlineStyle} ${own.outlineWidth}`,
+				}))(
+					document.querySelector('.cm-editor') as HTMLElement,
+					getComputedStyle(document.querySelector('.cm-editor') as HTMLElement, '::after'),
+					getComputedStyle(document.querySelector('.cm-editor') as HTMLElement),
+				),
 				bg: read('--bg'),
 				accent: read('--accent'),
 				inks: Object.fromEntries(inks.map((k) => [k, read(k)])),
@@ -191,14 +277,20 @@ async function sweepPalettes(page: import('@playwright/test').Page): Promise<Rec
 }
 
 for (const scheme of ['dark', 'light'] as const) {
-	test(`both deck editors select natively, identically, and legibly — ${scheme}`, async ({ page }) => {
+	test(`both deck editors dress alike — selection, caret and focus ring — ${scheme}`, async ({ page }) => {
 		await page.emulateMedia({ colorScheme: scheme });
 
 		const structure: Record<string, Structure> = {};
 		const readings: Record<string, Record<string, Reading>> = {};
+		const blurredRing: Record<string, Ring> = {};
 		for (const s of SURFACES) {
 			structure[s.name] = await openSurface(page, s.url);
 			readings[s.name] = await sweepPalettes(page);
+			// The ring's other half, read once: an outline that is also there unfocused is a
+			// border, not a focus affordance, and every focused read above would still pass.
+			await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+			await expect(page.locator('.cm-editor.cm-focused')).toHaveCount(0);
+			blurredRing[s.name] = await readRing(page);
 		}
 
 		for (const s of SURFACES) {
@@ -221,6 +313,9 @@ for (const scheme of ['dark', 'light'] as const) {
 			expect(st.drawnBands, `${where}: a drawn .cm-selectionBackground is back — the selection should be the browser's native highlight`).toBe(0);
 			expect(st.nativeSelectionLength, `${where}: select-all produced no native selection`).toBeGreaterThan(0);
 
+			// The focus ring only means "focus is here" if it is absent otherwise.
+			expect(Number.parseFloat(blurredRing[s.name].width) || 0, `${where}: the editor draws a ring while BLURRED (${JSON.stringify(blurredRing[s.name])}) — that is a border, not a focus ring`).toBe(0);
+
 			for (const palette of BUILTIN_PALETTES) {
 				const m = readings[s.name][palette];
 				const at = `${scheme}/${s.name}/${palette}`;
@@ -239,6 +334,42 @@ for (const scheme of ['dark', 'light'] as const) {
 					expect(wash.rgb[i], `${at}: ::selection tracks --accent (${m.accent})`).toBeLessThanOrEqual(ch + 1);
 				}
 				expect(wash.alpha, `${at}: the selection keeps its alpha (an 18% mix)`).toBeLessThan(1);
+
+				// THE FOCUS RING IS THE SITE'S OWN — `outline: 2px solid var(--accent)`, the one
+				// declaration in styles/native-widgets.css that every other focusable on this
+				// site wears. The editors were outside it by an accident of selector shape:
+				// that rule picks `:where(a, button, input, select, textarea, summary,
+				// [tabindex])`, and `.cm-content` is a contenteditable div with no tabindex, so
+				// what painted instead was @codemirror/view's own base theme. The caret alone
+				// already met WCAG 2.4.7, so this is the consistency fix, not a conformance
+				// one; the argument is in
+				// engineering/decisions/2026-09-13-editor-focus-ring.md. It is drawn as a
+				// z-ordered `::after` rather than an `outline` because CodeMirror's sticky,
+				// opaque `.cm-gutters` (z-index 200, inside the `.cm-scroller` stacking
+				// context) erases an INSET outline's left edge, and an outward one is clipped
+				// by the `overflow: hidden` pane — measured both ways on the real Playground.
+				expect(m.ring.content, `${at}: the focus ring's pseudo-element is not generated`).not.toBe('none');
+				expect(m.ring.style, `${at}: the focus ring's line style`).toBe('solid');
+				expect(Number.parseFloat(m.ring.width), `${at}: the focus ring is drawn at the site's 2px`).toBeGreaterThanOrEqual(2);
+				expect(parse(m.ring.color).rgb, `${at}: the focus ring is --accent (${m.accent})`).toEqual(tokenRgb(m.accent));
+				// A color read alone cannot tell a ring from a rule that resolves to nothing:
+				// zero-area, `inset: 100%` and a ring anchored to another box all report the
+				// same `solid 2px var(--accent)`. The used box has to BE the editor's.
+				expectRingFillsEditor(m.ring, at);
+				// THE OTHER CHANNEL. Drawing our ring is only half the job: without
+				// `outline: none` beside it, @codemirror/view's base `1px dotted #212121`
+				// paints too — a palette-blind near-black that this change exists to remove,
+				// and which a first cut shipped by replacing the suppression instead of
+				// adding to it. Invisible on a clipped pane, visible on the Specimen.
+				expect(m.ring.baseOutline, `${at}: CodeMirror's base dotted outline is back beside our ring`).toBe('none 0px');
+				// WCAG 1.4.11 asks 3:1 of a focus indicator against ADJACENT colors, and the ring
+				// has two neighbors, not one: its inner side is over the editor canvas (`--bg`),
+				// its outer side IS the editor's edge, so what abuts it there is whatever the
+				// pane puts next to the editor (on the Studio, a `rgb(143,136,125)` border).
+				// This checks the inner one, which is the tighter of the two on every palette
+				// measured — 36 live readings, minimum 5.24:1 on carbone/light against a 3.0
+				// floor. Saying "both sides are `--bg`" would be wrong, and was.
+				expect(ratio(tokenRgb(m.accent), tokenRgb(m.bg)), `${at}: the focus ring against the canvas it is drawn on`).toBeGreaterThanOrEqual(3);
 
 				// The caret is `--text-body`, never `--accent`: it marks the insertion point
 				// among the text you are typing, and accent carries no AA guarantee against
@@ -275,6 +406,82 @@ for (const scheme of ['dark', 'light'] as const) {
 		for (const palette of BUILTIN_PALETTES) {
 			expect(readings.playground[palette].selectionBg, `${scheme}/${palette}: the two editors must paint the SAME selection`).toBe(readings.studio[palette].selectionBg);
 			expect(readings.playground[palette].caretColor, `${scheme}/${palette}: the two editors must paint the SAME caret`).toBe(readings.studio[palette].caretColor);
+			// APPEARANCE only — the two panes are different sizes, so their rings' BOXES
+			// legitimately differ. What must not differ is what the ring looks like.
+			const look = (r: Ring) => ({ content: r.content, style: r.style, width: r.width, color: r.color, baseOutline: r.baseOutline });
+			expect(look(readings.playground[palette].ring), `${scheme}/${palette}: the two editors must draw the SAME focus ring`).toEqual(look(readings.studio[palette].ring));
 		}
 	});
 }
+
+// THE OTHER TWO EDITOR SURFACES, and why they get their own pass.
+//
+// The sweep above drives the two DECK editors, which is where the selection question
+// lives. The chrome question is wider: `lib/editor-chrome.js` also dresses the
+// component-page Specimen (the Playground's `createEditor`) and every Studio
+// `CodeField` (LayoutStudio, Fabricate, CraftLab). A checker found two defects on
+// exactly those two surfaces, both invisible to a spec that only opened the first two:
+//
+//   · the Specimen's host is `overflow: visible`, so it is the ONE place
+//     @codemirror/view's base `1px dotted #212121` actually PAINTS when the
+//     suppression is missing. On the Playground and the Studio the pane clips it, so
+//     the regression was computed on all four surfaces and visible on one.
+//   · CraftLab's `CodeField` host is `max-h-[26rem] overflow-auto` with no definite
+//     height, so `.cm-editor` grows to the whole document (measured: clientHeight 415
+//     against scrollHeight 846). An inset ring anchored to the editor scrolls its top
+//     and bottom edges out of view there, which is why `codeFieldTheme` declines it.
+//
+// So this pass asks a different question of each: EVERY editor suppresses the dotted
+// default, and only a full-pane editor draws the ring. It runs once rather than per
+// mode — presence and suppression do not move with the color scheme, and the palette
+// sweep above already covers what does.
+const CHROME_SURFACES = [
+	{
+		name: 'specimen',
+		url: '/components/statement/big-number/',
+		scope: '.specimen-editor-host ',
+		ring: true,
+		open: async (page: import('@playwright/test').Page) => {
+			await page.locator('.specimen-face-btn[data-face="source"]').first().click();
+			// The Specimen focuses its editor on mount, so no click is needed — and the
+			// click that would focus it lands before CodeMirror exists.
+			await expect(page.locator('.specimen-editor-host .cm-editor.cm-focused')).toHaveCount(1, { timeout: 30_000 });
+		},
+	},
+	{
+		name: 'craft-lab CodeField',
+		url: '/craft/components/anatomy/',
+		scope: '.craft-lab-editor ',
+		ring: false,
+		open: async (page: import('@playwright/test').Page) => {
+			await page.locator('.craft-lab-editor .cm-content').first().click();
+			await expect(page.locator('.craft-lab-editor .cm-editor.cm-focused')).toHaveCount(1, { timeout: 30_000 });
+		},
+	},
+] as const;
+
+test("every editor kills CodeMirror's dotted default, and only a full-pane editor rings", async ({ page }) => {
+	for (const s of CHROME_SURFACES) {
+		await page.goto(s.url, { waitUntil: 'domcontentloaded' });
+		// `open` comes FIRST: on the Specimen the editor does not exist until the Edit
+		// face is chosen, so waiting for `.cm-content` before it is a guaranteed timeout.
+		await s.open(page);
+		await expect(page.locator(`${s.scope}.cm-content`).first()).toBeVisible({ timeout: 40_000 });
+		const ring = await readRing(page, s.scope);
+
+		// THE SUPPRESSION IS UNCONDITIONAL. Declining our ring never means inheriting
+		// theirs — this is the arm that fails if the two channels are ever confused again.
+		expect(ring.baseOutline, `${s.name}: CodeMirror's base dotted outline paints here (${JSON.stringify(ring)})`).toBe('none 0px');
+
+		if (s.ring) {
+			expect(ring.content, `${s.name}: the focus ring's pseudo-element is not generated`).not.toBe('none');
+			expect(ring.style, `${s.name}: the focus ring's line style`).toBe('solid');
+			expectRingFillsEditor(ring, s.name);
+		} else {
+			// Not "no affordance" — the HOST owns it here. What must not happen is our ring
+			// drawing a second, square indicator inside a rounded one, or an inset ring
+			// anchored to an editor its host scrolls.
+			expect(ring.content, `${s.name}: an embedded field drew the editor ring — its host owns the affordance`).toBe('none');
+		}
+	}
+});
