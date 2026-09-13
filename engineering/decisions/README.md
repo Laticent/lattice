@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ◐ [2026-09-13-export-survives-a-missing-image.md](2026-09-13-export-survives-a-missing-image.md) — One unreachable image failed the whole browser export — no PDF, no PowerPoint, no image set, only a message.
 - ◐ [2026-09-13-pdf-export-encode-lanes.md](2026-09-13-pdf-export-encode-lanes.md) — The Studio's PDF export spent ~1 s per slide inside jsPDF's `addImage`, which INFLATES the canvas PNG in JavaScript and re-deflates it into…
 - ◐ [2026-09-13-pdf-export-text-layer.md](2026-09-13-pdf-export-text-layer.md) — The Studio's exported PDF was a stack of pictures: Cmd-F found nothing, a cursor selected nothing, and a screen reader got blank pages.
 - ◐ [2026-09-13-plugin-architecture.md](2026-09-13-plugin-architecture.md) — Lattice never formalized a plugin architecture, but built most of one across six registries that do not share a spine.

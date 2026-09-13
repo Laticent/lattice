@@ -311,7 +311,13 @@ export function PrintOptionsPanel({
 		// handout change only placement, so they too ride the cache. Otherwise rasterize once.
 		let imgs = imgCache && imgCache.render === render ? imgCache : null;
 		if (!imgs) {
-			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, {});
+			// An image the capture cannot fetch no longer fails the build — it is simply left
+			// out. That must not be silent here either: this drawer's own status line is
+			// transient, so the reason goes to the toast, exactly as the Share sheet does it.
+			const imageFailures = ex.createImageFailureLog();
+			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, { imageFailures });
+			const reason = ex.missingImageReason(imageFailures);
+			if (reason) notify(`Print deck ready — but ${reason}.`);
 			imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
 			if (mountedRef.current) setImgCache(imgs);
 		}
@@ -325,7 +331,7 @@ export function PrintOptionsPanel({
 		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
 		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, url, blob });
 		return url;
-	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache]);
+	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache, notify]);
 
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 

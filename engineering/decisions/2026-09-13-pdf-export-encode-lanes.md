@@ -164,7 +164,9 @@ author sees what to fix. Two things it deliberately does not do:
   record its failed requests; that is a bigger change than this one.
 - **It does not make the export survive a missing image.** A deck with a broken image
   path still fails rather than exporting without it. That is the pre-existing behavior
-  and a separate decision.
+  and a separate decision. *(Taken since: the capture's image-error hook now leaves the
+  picture out and the toast names the path, which also closes the "names no URL" line
+  above — `2026-09-13-export-survives-a-missing-image.md`.)*
 
 ## What it costs
 

@@ -138,7 +138,15 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// the chosen scope (only when the author opted in), then run the shared export.
 	const exportPdf = (opts: ExportOptions) => {
 		const annotations = opts.commentsInPdf ? buildCommentAnnotations(deckId, opts.commentScope, slideCount) : undefined;
-		run('pdf', 'PDF', (onStatus) => sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations));
+		// The three raster exports resolve to a DEGRADATION reason when they shipped
+		// something lesser — today, a slide image the capture could not load. Before, one
+		// unreachable path failed the whole export; now the file lands and the toast says
+		// what is missing from it, because the progress line it was announced on is gone
+		// by then.
+		run('pdf', 'PDF', async (onStatus, onDegraded) => {
+			const reason = await sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations);
+			if (reason) onDegraded(reason);
+		});
 	};
 
 	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
@@ -177,7 +185,10 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// Image set (.zip) export from its options step: format / resolution / thumbnails /
 	// SVG extraction — the shared kernel fills perfect-fidelity defaults.
 	const exportImages = (imageOpts: ImageSetOptions) => {
-		run('images', 'Image set', (onStatus) => shareImageSet(options, artifactSource, name, palette, mode, imageOpts, extraTheme, onStatus, extraCss));
+		run('images', 'Image set', async (onStatus, onDegraded) => {
+			const reason = await shareImageSet(options, artifactSource, name, palette, mode, imageOpts, extraTheme, onStatus, extraCss);
+			if (reason) onDegraded(reason);
+		});
 	};
 	// Marp bundle from its options step: `overflowMarker` decides who a clipped
 	// slide's marker speaks to in the exported deck. Defaulted from Workspace
@@ -228,7 +239,10 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<p className="text-xs text-muted-foreground">The rendered, paginated deck — for your audience.</p>
 								<Row icon={<Link2 className="size-4" />} title="Present link" desc="A live, themed link that opens in Present" onClick={() => { close(); onPresent(); }} />
 								<Row busy={busy === 'pdf'} status={progress} icon={<Download className="size-4" />} title="PDF" desc="One slide per page — choose what rides along" onClick={() => setView('pdf')} />
-								<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', (onStatus) => sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss))} />
+								<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', async (onStatus, onDegraded) => {
+									const reason = await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss);
+									if (reason) onDegraded(reason);
+								})} />
 								<Row busy={busy === 'images'} status={progress} icon={<Images className="size-4" />} title="Images (.zip)" desc="One image per slide — PNG/JPEG/WebP, thumbnails, chart SVGs" onClick={() => setView('imageset')} />
 								<Row icon={<Printer className="size-4" />} title="Print deck" desc="Pick paper &amp; color, preview, then print or save" onClick={() => setView('print')} />
 								<Row busy={busy === 'html'} status={progress} icon={<Globe className="size-4" />} title="Webpage (.html)" desc="One self-contained file — opens in any browser, offline" onClick={() => setView('html')} />

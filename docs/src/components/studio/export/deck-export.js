@@ -892,13 +892,24 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 
 // The html-to-image options shared by both capture flavors. transform:none
 // undoes the live FIT scale; no backgroundColor (see header).
-function captureOptions(w, h, pixelRatio, fontEmbedCSS) {
+//
+// `onImageErrorHandler` is what keeps ONE BAD PATH from costing the whole export.
+// html-to-image fetches every embedded image itself; when a fetch fails it hands the
+// clone an empty `src`, the clone's `onerror` fires, and WITHOUT this option that
+// rejects — so a deck with a 404 logo produced no PDF at all, only a message. The
+// handler resolves instead: the image is simply absent from the page, and the run
+// records the failure so the author is told rather than shipping a hole they did not
+// see. (A missing picture in a file you have beats a file you do not.)
+function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 	return {
 		width: w,
 		height: h,
 		pixelRatio,
 		cacheBust: true,
 		fontEmbedCSS,
+		onImageErrorHandler: () => {
+			if (log) log.count += 1;
+		},
 		// No `borderRadius` here: it is set on the SECTION in withCaptureFixups, which is
 		// the only place that knows whether this corner is being kept or squared. A blanket
 		// reset at this layer is what used to flatten the preview chrome's 6px AND the
@@ -933,10 +944,63 @@ export function captureError(cause) {
 	return new Error("a slide image could not be loaded — check the deck's image and logo paths (a path relative to the deck file cannot resolve here), and the browser console for the 404");
 }
 
-async function rasterizeSection(section, fontEmbedCSS, cornerTarget) {
+/**
+ * The tally one export keeps of the images it could not load.
+ *
+ * `count` comes from the capture itself (html-to-image's own image-error hook), so it
+ * sees EVERY failure — including a remote image the frame displayed happily and the
+ * exporter's `fetch` could not read past CORS. `paths` comes from the live DOM and so
+ * only names the ones the frame ALSO failed to load, which is the common case (a 404).
+ * Two sources because neither alone is both complete and specific: the hook is handed
+ * a clone whose `src` has already been blanked, and an empty `src` reads back as the
+ * PAGE's own address.
+ */
+export function createImageFailureLog() {
+	return { count: 0, paths: new Set() };
+}
+
+/** Record the images this slide asked for and did not get, by the path it asked for. */
+export function recordUnreachableImages(section, log) {
+	if (!log || typeof section?.querySelectorAll !== 'function') return;
+	for (const img of section.querySelectorAll('img')) {
+		// `complete` is the guard against a false positive: an image still in flight also
+		// reports `naturalWidth === 0`. One still loading here is counted by the capture's
+		// own hook instead — unnamed, but never missed.
+		const src = img.getAttribute('src') || '';
+		if (src && img.complete && !img.naturalWidth) log.paths.add(src);
+	}
+}
+
+/** How many names a degradation sentence carries before it stops listing them. */
+const MISSING_IMAGE_NAMES = 3;
+
+/**
+ * One sentence for the toast, or `undefined` when nothing failed.
+ *
+ * It has to persist: the progress line is gone by the time the file lands, so an
+ * export that silently shipped a hole would be indistinguishable from a clean one.
+ *
+ * The sentence counts PATHS, never `log.count`. The two are not the same thing and
+ * saying so would mislead: `count` is one per failed image ELEMENT, so a single bad
+ * `logo:` on a 56-slide deck registers 56 — one broken path, not fifty-six broken
+ * images. When nothing could be named (the CORS case) there is no honest number to
+ * give, so it gives none.
+ */
+export function missingImageReason(log) {
+	if (!log?.count) return undefined;
+	const names = [...log.paths];
+	if (!names.length) return 'an image could not be loaded, so the file ships without it';
+	const shown = names.slice(0, MISSING_IMAGE_NAMES).join(', ');
+	const more = names.length > MISSING_IMAGE_NAMES ? `, +${names.length - MISSING_IMAGE_NAMES} more` : '';
+	const subject = names.length === 1 ? 'one image' : `${names.length} images`;
+	return `${subject} (${shown}${more}) could not be loaded, so the file ships without ${names.length === 1 ? 'it' : 'them'} — a path relative to the deck file does not resolve here`;
+}
+
+async function rasterizeSection(section, fontEmbedCSS, cornerTarget, log) {
 	const { toPng } = await import('html-to-image');
+	recordUnreachableImages(section, log);
 	try {
-		return await withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS)), undefined, cornerTarget);
+		return await withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log)), undefined, cornerTarget);
 	} catch (e) {
 		throw captureError(e);
 	}
@@ -954,11 +1018,12 @@ async function rasterizeSection(section, fontEmbedCSS, cornerTarget) {
 // `forceSectionVisibleForCapture`), and after them the capture frame is gone. It
 // rides back with the bitmap so the worker can write it over the page image as an
 // invisible text layer — see `pdf-text-layer.js`.
-async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget) {
+async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log) {
 	const { toCanvas } = await import('html-to-image');
+	recordUnreachableImages(section, log);
 	try {
 		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
-			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
+			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
 			// Never let the text layer cost the export its PDF: the picture is the
 			// deliverable and the words are the improvement, so a measurement that throws
 			// (an exotic node a Range cannot span) degrades to an image-only page.
@@ -1033,7 +1098,7 @@ function canUsePdfWorker() {
 // lanes and give back part of the speed win.
 const PDF_WORKER_MAX_IN_FLIGHT = 2;
 
-async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations) {
+async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log) {
 	const worker = new Worker(new URL('./pdf-export-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
@@ -1076,7 +1141,7 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 				if (failure) throw failure;
 			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
-			const { bitmap, text } = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS, 'pdf');
+			const { bitmap, text } = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS, 'pdf', log);
 			worker.postMessage({ type: 'slide', index: i, bitmap, text }, [bitmap]);
 			// Yield a macrotask between slides so the clone/draw work (which must stay
 			// on this thread) never runs back-to-back without a paint.
@@ -1100,11 +1165,12 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 // wired parameter rots: the next caller wanting JPEG bytes in an alpha-capable container
 // would read this signature, pass 'png', and silently get a square corner. The kernel's
 // fail-safe default would mask that rather than catch it.
-async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget) {
-	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget);
+async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget, log) {
+	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget, log);
 	const { toCanvas } = await import('html-to-image');
+	recordUnreachableImages(section, log);
 	return withCaptureFixups(section, async (w, h, pixelRatio) => {
-		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
+		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
 		const out = document.createElement('canvas');
 		out.width = canvas.width;
 		out.height = canvas.height;
@@ -1121,7 +1187,7 @@ async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, corn
 // or fails. The print `sheet` mode does NOT come through here anymore: it is the
 // rasterize → assemble split below (rasterizeDeckImages + assembleSheetPdf), so a
 // paper/orientation change re-places cached images instead of re-rasterizing.
-async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations) {
+async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log) {
 	const { jsPDF } = await import('jspdf');
 	const { w: boxW, h: boxH } = slideGeom(sections[0]);
 	const { pageW, pageH } = pdfPageGeom(boxW, boxH);
@@ -1135,7 +1201,7 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 	pdf.setProperties(pdfProps(name, meta, sections.length));
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf');
+		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf', log);
 		if (i > 0) pdf.addPage([pageW, pageH], orientation);
 		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', 0, 0, pageW, pageH);
 		// Review comments for this slide → sticky notes on the page just drawn (same
@@ -1171,6 +1237,7 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 // created + torn down here).
 export async function rasterizeDeckImages(render, onStatus, opts) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
+	const log = opts?.imageFailures || null;
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
@@ -1186,7 +1253,7 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 			// straight to `assembleSheetPdf`. Passing 'png' here would keep the rounded corner
 			// and composite its transparency onto the page, which is the pale-notch artifact the
 			// capability rule exists to prevent. lib/core/corner-export-capability.mjs.
-			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf'));
+			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf', log));
 			// Yield a macrotask between slides so the progress line paints (see the note
 			// in buildPdfBlobOnMainThread) — the per-slide clone + PNG-deflate is synchronous.
 			await new Promise((r) => setTimeout(r));
@@ -1299,7 +1366,7 @@ function drawHandoutNotes(pdf, region, note) {
 
 // The shared core of exportPdf (which downloads) and renderPdfBlob (which hands
 // the bytes to a caller — e.g. the Library's theme-zip showcase).
-async function buildPdfBlob(render, name, onStatus, meta, opts) {
+async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
 	// Per-page comment sticky notes (opt-in via the export panel); absent → none.
 	const annotations = opts?.annotations || null;
@@ -1308,7 +1375,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts) {
 	// directly so it can CACHE the images across a paper/orientation change.
 	const sheet = opts?.sheet || null;
 	if (sheet) {
-		const { images, geom, pageFormat: fmt } = await rasterizeDeckImages(render, onStatus, opts);
+		const { images, geom, pageFormat: fmt } = await rasterizeDeckImages(render, onStatus, { ...opts, imageFailures: log });
 		return assembleSheetPdf(images, geom, name, meta, { sheet, pageFormat: fmt });
 	}
 	const { frame, dispose } = await createCaptureFrame(render);
@@ -1316,13 +1383,13 @@ async function buildPdfBlob(render, name, onStatus, meta, opts) {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
 		if (canUsePdfWorker()) {
 			try {
-				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
+				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log);
 			} catch (e) {
 				// The deck must never be lost to the fast lane — rebuild on-thread.
 				console.warn('[lattice-export] PDF worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 			}
 		}
-		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
+		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log);
 	} finally {
 		dispose();
 	}
@@ -1331,16 +1398,27 @@ async function buildPdfBlob(render, name, onStatus, meta, opts) {
 /** Render a deck to PDF bytes (Blob) without downloading — for embedding (zips). */
 export async function renderPdfBlob(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Rendering PDF…');
-	return buildPdfBlob(render, name, onStatus, meta, opts);
+	const log = createImageFailureLog();
+	const blob = await buildPdfBlob(render, name, onStatus, meta, opts, log);
+	// This lane hands bytes to a zip builder, not to a toast, so the only place a
+	// degradation can be said is the console. Silent would be worse: the caller would
+	// ship a deck with a hole in it and nothing anywhere would have mentioned it.
+	const reason = missingImageReason(log);
+	if (reason) console.warn(`[lattice-export] ${reason}`);
+	return blob;
 }
 
 /** `opts.pageFormat`: 'png' (default, lossless) or 'jpeg' (faster, smaller —
  *  the Studio Workspace › General preference rides in here). */
 export async function exportPdf(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Preparing PDF…');
-	const blob = await buildPdfBlob(render, name, onStatus, meta, opts);
+	const log = createImageFailureLog();
+	const blob = await buildPdfBlob(render, name, onStatus, meta, opts, log);
 	if (onStatus) onStatus('Saving PDF…');
 	download(blob, safeName(name) + '.pdf');
+	// Returned, not thrown: the deck exported. The Share sheet folds this into the
+	// toast that persists after the progress line is gone.
+	return missingImageReason(log);
 }
 
 // ── PPTX (image-slides) ───────────────────────────────────────────────────────
@@ -1353,6 +1431,7 @@ export async function exportPdf(render, name, onStatus, meta, opts) {
 // lib/export/pptx-export.js, which extracts from the same rendered slides it paints.
 export async function exportPptx(render, name, onStatus, meta) {
 	if (onStatus) onStatus('Preparing PowerPoint…');
+	const log = createImageFailureLog();
 	// Lift the `describe:` channel from the ENGINE render, before the capture frame
 	// sanitizes it away — see the altText note in the slide loop below.
 	const describeRecord = await slideChannelRecord(render.html);
@@ -1393,7 +1472,7 @@ export async function exportPptx(render, name, onStatus, meta) {
 	}
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const png = await rasterizeSection(sections[i], fontEmbedCSS, 'pptx');
+		const png = await rasterizeSection(sections[i], fontEmbedCSS, 'pptx', log);
 		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
 		// (never let pptxgenjs default `descr` to the image filename — junk a screen
 		// reader reads).
@@ -1412,6 +1491,10 @@ export async function exportPptx(render, name, onStatus, meta) {
 	}
 	if (onStatus) onStatus('Building .pptx…', { current: sections.length, total: sections.length });
 	await pptx.writeFile({ fileName: safeName(name) + '.pptx' });
+	// Same contract as exportPdf: a picture the capture could not load costs the image,
+	// never the export — and the author is told, because a silent hole is worse than a
+	// loud failure.
+	return missingImageReason(log);
 	} finally { dispose(); }
 }
 
@@ -1535,10 +1618,10 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 // one canvas.toBlob encode — html-to-image has no toWebp, and canvas covers all
 // three with a quality arg. The pixelRatio is the image-set size preset (or the
 // thumbnail scale), already OOM-capped by the shared kernel.
-async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pixelRatio, FORMAT_META) {
+async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pixelRatio, FORMAT_META, log) {
 	const { toCanvas } = await import('html-to-image');
 	return withCaptureFixups(section, async (w, h, pr) => {
-		const src = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS));
+		const src = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log));
 		const meta = FORMAT_META[format] || FORMAT_META.png;
 		let canvas = src;
 		// The underlay is about ALPHA, not about lossiness — those are different axes and
@@ -1578,6 +1661,7 @@ async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pi
 export async function exportImageSet(render, name, opts, onStatus, svgRender, meta) {
 	const core = await import('../../../playground/image-set-core.generated.js');
 	const options = core.normalizeImageSetOptions(opts);
+	const log = createImageFailureLog();
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
@@ -1592,7 +1676,8 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 		const images = [];
 		for (let i = 0; i < sections.length; i++) {
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-			images.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, scale, core.FORMAT_META));
+			recordUnreachableImages(sections[i], log);
+			images.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, scale, core.FORMAT_META, log));
 			await new Promise((r) => setTimeout(r)); // yield so the progress line paints
 		}
 
@@ -1601,7 +1686,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 		if (options.thumbnails) {
 			for (let i = 0; i < sections.length; i++) {
 				if (onStatus) onStatus('Rendering thumbnail ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-				thumbs.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, thumbScale, core.FORMAT_META));
+				thumbs.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, thumbScale, core.FORMAT_META, log));
 				await new Promise((r) => setTimeout(r));
 			}
 		}
@@ -1685,5 +1770,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 		const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 		download(blob, plan.slug + '.zip');
 		if (onStatus) onStatus('Image set downloaded.');
+		// See exportPdf: an unreachable image costs the picture, not the export.
+		return missingImageReason(log);
 	} finally { dispose(); }
 }

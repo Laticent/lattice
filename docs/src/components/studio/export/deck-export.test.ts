@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assembleSheetPdf, bakeDeckSections, rasterizeDeckImages, waitForDiagrams } from './deck-export.js';
+import { assembleSheetPdf, bakeDeckSections, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableImages, waitForDiagrams } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -470,5 +470,88 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 		} finally {
 			restore();
 		}
+	});
+});
+
+
+// ── An unreachable image degrades the export instead of failing it ────────────
+// The capture fetches every embedded image itself; before this, one failed fetch
+// rejected the whole run, so a deck whose `logo:` is a path relative to the deck FILE
+// — correct for the CLI, unresolvable on the web — produced no PDF at all. The picture
+// is now simply absent and the author is TOLD, which is the part a silent degradation
+// would get wrong. The real export is driven in `docs/e2e/export-missing-image.spec.ts`;
+// this pins the two pure pieces.
+
+/** An `<img>` as the browser reports it after a load attempt. */
+function img(src: string, { complete = true, naturalWidth = 0 } = {}) {
+	const el = document.createElement('img');
+	el.setAttribute('src', src);
+	Object.defineProperty(el, 'complete', { value: complete, configurable: true });
+	Object.defineProperty(el, 'naturalWidth', { value: naturalWidth, configurable: true });
+	return el;
+}
+
+describe('recordUnreachableImages', () => {
+	it('names the path the deck asked for, not the blanked one the clone ends up with', () => {
+		const section = document.createElement('section');
+		section.append(img('../lib/base/_logo/lattice-mark-min.svg'), img('/ok.png', { naturalWidth: 64 }));
+		const log = createImageFailureLog();
+		recordUnreachableImages(section, log);
+		expect([...log.paths]).toEqual(['../lib/base/_logo/lattice-mark-min.svg']);
+	});
+
+	it('does not accuse an image that is still loading', () => {
+		// Mid-flight, `naturalWidth` is 0 too. The capture's own error hook counts this one
+		// if it really fails — unnamed, but never missed.
+		const section = document.createElement('section');
+		section.append(img('/slow.png', { complete: false }));
+		const log = createImageFailureLog();
+		recordUnreachableImages(section, log);
+		expect([...log.paths]).toEqual([]);
+	});
+
+	it('is inert without a log, and without a section', () => {
+		expect(() => recordUnreachableImages(document.createElement('section'), null)).not.toThrow();
+		expect(() => recordUnreachableImages(null, createImageFailureLog())).not.toThrow();
+	});
+});
+
+describe('missingImageReason', () => {
+	it('says nothing when nothing failed', () => {
+		expect(missingImageReason(createImageFailureLog())).toBeUndefined();
+		expect(missingImageReason(null)).toBeUndefined();
+	});
+
+	it('names the file, and reads as a clause the toast can finish', () => {
+		const log = createImageFailureLog();
+		log.count = 1;
+		log.paths.add('../logo.svg');
+		// The sheet renders `PDF ready — but ${reason}.`
+		expect(`PDF ready — but ${missingImageReason(log)}.`).toBe(
+			'PDF ready — but one image (../logo.svg) could not be loaded, so the file ships without it — a path relative to the deck file does not resolve here.',
+		);
+	});
+
+	it('counts PATHS, not failures — one bad logo on 56 slides is one broken path', () => {
+		// `count` is one per failed image ELEMENT. Reporting it would tell the author they
+		// have fifty-six broken images when they have one, on every slide.
+		const log = createImageFailureLog();
+		log.count = 56;
+		log.paths.add('../logo.svg');
+		expect(missingImageReason(log)).toContain('one image (../logo.svg)');
+		expect(missingImageReason(log)).not.toContain('56');
+	});
+
+	it('gives no number it cannot stand behind — a CORS-blocked image fails the fetch unnamed', () => {
+		const log = createImageFailureLog();
+		log.count = 2;
+		expect(missingImageReason(log)).toBe('an image could not be loaded, so the file ships without it');
+	});
+
+	it('stops listing after three, rather than pasting a deck of paths into a toast', () => {
+		const log = createImageFailureLog();
+		log.count = 5;
+		for (const n of [1, 2, 3, 4, 5]) log.paths.add(`/img-${n}.png`);
+		expect(missingImageReason(log)).toContain('5 images (/img-1.png, /img-2.png, /img-3.png, +2 more)');
 	});
 });
