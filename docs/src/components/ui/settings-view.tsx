@@ -291,7 +291,15 @@ export type StripFit = { box: number; pills: number[]; chevron: number };
  * section's name whenever no pill is selected.
  */
 export function visibleSectionTabs<T>(tabs: T[], activeIndex: number, fit: StripFit | null): T[] {
-	if (!fit) return tabs.slice(0, FALLBACK_SHORTCUTS);
+	// A fit whose pill count disagrees with the tab count is STALE, and it must be treated as
+	// no measurement at all rather than partially believed. The slide panel's section list is
+	// per-slide (`Marks` appears only when the slide has any), so clicking between two slides
+	// changes the tab count live — and `fit.pills[i] ?? 0` would then price the new pill at
+	// ZERO and draw it for free. Measured: a 7th tab against a 6-tab fit laid out 320px of
+	// pills in a 231px row. The observer re-fires (the ghost's own width changed) and the
+	// strip self-corrects, but a `setState` from a ResizeObserver lands after paint, so the
+	// overspill gets a frame.
+	if (!fit || fit.pills.length !== tabs.length) return tabs.slice(0, FALLBACK_SHORTCUTS);
 	let lead = 0;
 	// An exhaustive scan over at most seven runs. The cost IS non-decreasing in `n` — passing
 	// the active index drops its reservation and picks the same pill up inside the run, so
@@ -416,7 +424,20 @@ export function SettingsSectionTabs({
 	// One tab is enough to navigate with — the chevron would be a menu of one.
 	if (tabs.length <= 1) return null;
 	return (
-		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5', className)}>
+		// `overflow-x-clip` is LOAD-BEARING, and it is not about the pills.
+		//
+		// The measuring ghost below is `absolute` and `w-max`, so it is 500-600px wide inside a
+		// 231px row — and a `visibility: hidden` box still contributes SCROLLABLE OVERFLOW.
+		// The panel body it sits in is `overflow-y-auto`, and CSS Overflow 3 computes the other
+		// axis to `auto` when one axis is not `visible`, so the ghost handed the whole settings
+		// panel a 273px horizontal scroll region: one two-finger swipe over the panel scrolled
+		// every control off-screen and left a blank column. Measured at 1440 (deck +262/+273,
+		// slide +342) and on the 390px phone (+130).
+		//
+		// `clip` rather than `hidden`: it clips without creating a scroll container of its own,
+		// and it leaves `overflow-y` genuinely `visible` so nothing here can start scrolling
+		// either. The dropdown is a Radix portal, so the menu is not clipped by this.
+		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5 overflow-x-clip', className)}>
 			{/* The MEASURING COPY: every pill at its natural width, laid out but never drawn.
 			    `absolute` keeps it out of the row's own layout, `w-max` stops the row's width
 			    squeezing it (which would make it measure what it is being asked to decide),
@@ -438,7 +459,12 @@ export function SettingsSectionTabs({
 			</div>
 			{/* The tablist holds TABS AND NOTHING ELSE. The chevron is a sibling outside it:
 			    a non-tab child inside `role="tablist"` is an `aria-required-children` axe
-			    violation, and the first cut put it in there. */}
+			    violation, and the first cut put it in there.
+			    And no tablist AT ALL when nothing fits — an empty `role="tablist"` is the same
+			    violation from the other side, a widget promising children it does not have.
+			    Unreachable at any supported width (the narrowest real row is 218px and one
+			    pill plus the chevron is 134px), but the floor exists so it should be correct. */}
+			{visible.length > 0 && (
 			<div className="contents" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
 				{visible.map((t, i) => (
 					<button
@@ -454,6 +480,7 @@ export function SettingsSectionTabs({
 					</button>
 				))}
 			</div>
+			)}
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<button

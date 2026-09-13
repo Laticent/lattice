@@ -32,14 +32,22 @@ import { americanize, withinDistance } from './intent-search';
 //
 // TWO THINGS DELIBERATELY NOT BORROWED, and both would be regressions:
 //
-//   `contentWords` (intent-search's tokenizer). It drops STOP WORDS, and this panel has
-//   rows called "Says something" and "Says nothing" — a stop list eats the only word that
-//   tells them apart. It also does not fold diacritics, which `settingsMatch` has always
-//   done. And `tools/intent-bakeoff/fit-search.ts` imports it, so every weight in the
-//   bake-off was tuned against its exact output: widening it there to suit this module
-//   would silently invalidate those numbers. Hence a separate tokenizer here, and the
-//   shared pieces are the ones with no policy in them — `stem`, `americanize`,
-//   `withinDistance`.
+//   `contentWords` (intent-search's tokenizer). Three reasons, and all three were CHECKED by
+//   calling it rather than reasoning about it — an earlier draft of this comment gave a
+//   fourth that turned out to be false, and named "Says something" / "Says nothing" as the
+//   casualty of its stop list. It is not: `contentWords('Says nothing')` returns
+//   ["says","nothing"], because `nothing`, `something` and `says` are not in `STOP`.
+//     · It DOES drop `no` and `all`, among 112 others — `contentWords('No comments on this
+//       slide yet')` is ["comments","yet"] and `'All 7 slides follow'` is ["slides","follow"].
+//       A settings filter has to keep those: they are what an author types.
+//     · It does not fold diacritics, and it is worse than not folding — the `[a-z0-9]`
+//       character class DROPS the accented letters, so `'Résumé finish'` tokenizes to
+//       ["sum","finish"]. `settingsMatch` has folded NFD since it shipped.
+//     · `tools/intent-bakeoff/fit-search.ts` imports it, so every weight in that bake-off was
+//       tuned against its exact output; widening it to suit this module would invalidate
+//       those numbers silently.
+//   Hence a separate tokenizer here, and the shared pieces are the ones with no policy in
+//   them — `stem`, `americanize`, `withinDistance`.
 //
 //   A GLOBAL VOCABULARY for the typo repair. intent-search only repairs a term that
 //   matched NOTHING in the index, which is what stops "mark" being repaired to "dark". We
@@ -53,18 +61,24 @@ import { americanize, withinDistance } from './intent-search';
  *  paste measured 15.2s on the main thread in the picker's own note — and nothing in a
  *  settings label is close to this. Truncating makes the worst case a constant. */
 const MAX_TOKEN = 40;
-/** A pasted paragraph is not a query. This is a COST cap, not a semantic one, and nothing
- *  can pin it: terms are ANDed, so the tail past it could only ever remove more rows from a
- *  result that is already empty — deleting the cap changes no answer, only the size of the
- *  terms x rows x words product the typo scan walks. `settings-search.test.ts` asserts that
- *  non-effect rather than pretending to catch the removal. */
+/**
+ * A pasted paragraph is not a query — a cost cap on the terms x rows x words product the
+ * typo scan walks.
+ *
+ * It is NOT answer-neutral, and an earlier version of this comment claimed it was. Terms are
+ * ANDed, so ignoring the tail can only ever show MORE: a 13-term query whose first twelve all
+ * match now returns the row, where an uncapped matcher would have rejected it on the
+ * thirteenth. The direction is the safe one — the cap can widen a result, never narrow it,
+ * so it cannot hide a row — but "changes no answer" was wrong, and the test that claimed to
+ * pin the non-effect passed only because all forty of its junk terms fell inside the cap.
+ */
 const MAX_TERMS = 12;
 
 /**
  * Words an author types that no settings row says, keyed by the word they type.
  *
  * Hand-held, like the picker's. Each entry earned its place against the LIVE panel — the
- * 65 rows of the two scopes, read off the running Studio — and each is checked by
+ * 63 filterable rows of the two scopes, read off the running Studio — and each is checked by
  * `settings-search.test.ts` to still reach a row and to not drag the panel open.
  *
  * An expansion is matched as a SUBSTRING of the row's words, and `|` separates
@@ -103,8 +117,11 @@ const SYNONYMS: Record<string, string> = {
 };
 
 /** The same table, reached by the STEM of the key — so "subtitles" finds `subtitle`. Built
- *  once; a stem collision keeps the first (alphabetically earlier) entry, which is why the
- *  table above has no two keys that stem alike. */
+ *  once, and a stem collision keeps the first (alphabetically earlier) entry. There IS one
+ *  collision: `narrate` and `narration` both stem to `narrat`. It is harmless because they
+ *  carry the same expansion — but that is a coincidence, not a design, so a new entry that
+ *  stems onto an existing key with DIFFERENT words would be silently dropped. `narrate`
+ *  wins, alphabetically. */
 const SYNONYM_STEMS: Map<string, string> = new Map();
 for (const [word, expansion] of Object.entries(SYNONYMS)) {
 	const key = stemOf(word);
@@ -120,7 +137,26 @@ function normalize(s: string): string {
 /** Normalized text → its words. No stop list (see the header: "Says nothing" is a row) and
  *  no hyphen splitting beyond what the character class does. */
 function wordsOf(normalized: string): string[] {
-	return (normalized.match(/[a-z0-9][a-z0-9+#]*/g) ?? []).map((w) => americanize(w.length > MAX_TOKEN ? w.slice(0, MAX_TOKEN) : w));
+	return (normalized.match(/[a-z0-9][a-z0-9+#]*/g) ?? []).map((w) => fold(w.length > MAX_TOKEN ? w.slice(0, MAX_TOKEN) : w));
+}
+
+/**
+ * `americanize`, but never on a word short enough for its suffix rules to hit a DIFFERENT
+ * real word.
+ *
+ * The rules are bare suffix rewrites, so `/our$/ → or` turns `four` into `for` — and "for"
+ * is a word half the panel's descriptions contain, which made `four` match the slide's
+ * Canvas row. The same shape sits behind `rise` → `rize` and `wise` → `wize`; those are
+ * harmless because the fold runs on BOTH the query and the row, so a mangling still matches
+ * itself. A COLLISION with a real word is the only harmful case, and every collision found
+ * was a four-letter word (`four`, `hour`, `tour`, `pour`, `sour`).
+ *
+ * Five is the floor because the shortest spelling the fold exists to catch is `colour` (6);
+ * nothing it is meant to fix is shorter. `americanize` itself is intent-search's and stays
+ * exactly as it is — the picker's bake-off is tuned against it.
+ */
+function fold(word: string): string {
+	return word.length >= 5 ? americanize(word) : word;
 }
 
 /**
@@ -136,7 +172,7 @@ function wordsOf(normalized: string): string[] {
  * `organization` before Porter2 sees it.
  */
 function stemOf(word: string): string {
-	return americanize(stem(americanize(word)));
+	return fold(stem(fold(word)));
 }
 
 type QueryTerm = { raw: string; stem: string; synonyms: string[] };
@@ -151,7 +187,7 @@ function parseQuery(query: string): QueryTerm[] {
 		.slice(0, MAX_TERMS)
 		.map((raw) => {
 			const clipped = raw.length > MAX_TOKEN ? raw.slice(0, MAX_TOKEN) : raw;
-			const word = americanize(clipped);
+			const word = fold(clipped);
 			const s = stemOf(clipped);
 			const expansion = SYNONYMS[word] ?? SYNONYM_STEMS.get(s);
 			return { raw: clipped, stem: s, synonyms: expansion ? expansion.split('|') : [] };
@@ -176,8 +212,9 @@ function termsFor(query: string): QueryTerm[] {
 
 type Haystack = { text: string; words: string[]; stems: Set<string> };
 const HAY_CACHE = new Map<string, Haystack>();
-/** The panel has ~65 rows; this is sized to hold both scopes several times over and to
- *  drop everything rather than grow without bound if some caller feeds it novel text. */
+/** Both scopes together hold ~63 filterable rows (the count read off the running panel);
+ *  this is sized to hold them several times over and to drop everything rather than grow
+ *  without bound if some caller feeds it novel text. */
 const HAY_CACHE_MAX = 512;
 function haystackFor(text: string): Haystack {
 	const cached = HAY_CACHE.get(text);
@@ -229,9 +266,10 @@ function nearMiss(term: string, word: string): boolean {
 	for (let i = 0; i < term.length - 1; i++) {
 		if (term[i] === term[i + 1]) continue;
 		const swapped = `${term.slice(0, i)}${term[i + 1]}${term[i]}${term.slice(i + 2)}`;
-		// The swap SPENDS the one edit, so what is left has to be exact — and the anchor
-		// still has to hold after it.
-		if (swapped[0] === word[0] && swapped[1] === word[1] && swapped === word) return true;
+		// The swap SPENDS the one edit, so what is left has to be exact. (No anchor re-check:
+		// `swapped === word` implies it, and the `i === 0` swap can never match anyway, since
+		// the anchor above already forced the first two characters to agree.)
+		if (swapped === word) return true;
 	}
 	return false;
 }

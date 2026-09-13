@@ -400,14 +400,25 @@ The kernel is `docs/src/lib/settings-search.ts` — pure and DOM-free, the shape
 
 ### What was NOT borrowed, and why each would have been a regression
 
-**`contentWords`, intent-search's tokenizer.** It drops STOP WORDS, and the slide panel has
-two halves called *Says something* and *Says nothing* — a stop list eats the only word that
-tells them apart. It also does not fold diacritics, which `settingsMatch` always has. And
-`tools/intent-bakeoff/fit-search.ts` imports it, so every weight in that bake-off was tuned
-against its exact output: widening it to suit this module would have invalidated those
-numbers silently. So this module has its own tokenizer, and the pieces it shares are the ones
-with no policy in them — `stem`, `americanize` and `withinDistance`, the last two newly
-exported from `intent-search.ts` and otherwise untouched.
+**`contentWords`, intent-search's tokenizer.** Three reasons, all of them checked by CALLING
+it — a first draft of this section gave a fourth that is simply false, and the independent
+check caught it. It claimed the stop list eats the only word telling *Says something* from
+*Says nothing*. It does not: `contentWords('Says nothing')` returns `["says","nothing"]`, and
+none of `says` / `something` / `nothing` is in `STOP`. What is true:
+
+- it **does** drop `no` and `all`, among 112 others — `'No comments on this slide yet'`
+  tokenizes to `["comments","yet"]` and `'All 7 slides follow'` to `["slides","follow"]`. A
+  settings filter has to keep those; they are what an author types;
+- it does not fold diacritics, and it is worse than not folding: the `[a-z0-9]` class DROPS
+  accented letters, so `'Résumé finish'` becomes `["sum","finish"]`. `settingsMatch` has
+  folded NFD since it shipped;
+- `tools/intent-bakeoff/fit-search.ts` imports it, so every weight in that bake-off was tuned
+  against its exact output; widening it to suit this module would invalidate those numbers
+  silently.
+
+So this module has its own tokenizer, and the pieces it shares are the ones with no policy in
+them — `stem`, `americanize` and `withinDistance`, the last two newly exported from
+`intent-search.ts` and otherwise untouched.
 
 **A global vocabulary for the typo repair.** intent-search only repairs a term that matched
 NOTHING in its index — that is what stops "mark" becoming "dark". A control here decides
@@ -443,8 +454,24 @@ corpus's own words plus the synonym keys.
 **Net precision.** 248 of 295 vocabulary words return exactly what they returned before; 47
 widen, by a median of 2 rows out of 63; **nothing narrows** — the arms are strictly additive
 by construction. The widest is "hidden" at 0 → 7, which is the synonym doing its job. The
-one genuine false positive is "alone" → 8, because Porter2 stems *alone* and *along* alike;
-it is a stemmer property, not a policy of ours, and "alone" is not a settings query.
+worst false positive inside the sweep is "alone" → 8, because Porter2 stems *alone* and
+*along* alike; that is a stemmer property, not a policy of ours, and "alone" is not a settings
+query.
+
+**And the sweep has a blind spot worth naming, because the independent check walked into
+it.** A vocabulary built FROM the corpus cannot contain a word that is not in the corpus —
+which is exactly where a false positive lives. The one found that way: `americanize`'s
+`/our$/ → or` rule turned **"four" into "for"**, and "for" appears in half the panel's
+descriptions, so `four` matched the slide's Canvas row. The fold is now skipped for words
+under five characters (`four`, `hour`, `tour`, `pour`, `sour` are the whole collision class,
+and nothing the fold exists for is shorter than `colour`). `americanize` itself is
+intent-search's and stays untouched — the picker's bake-off is tuned against it.
+
+**`MAX_TERMS` is not answer-neutral either**, and this section's first version said it was.
+Terms are ANDed, so ignoring the tail past the cap can only ever show MORE: a 13-term query
+whose first twelve all match now returns the row. The direction is the safe one — it can
+widen, never hide — but the claim was wrong, and the test that "pinned" the non-effect passed
+only because all forty of its junk terms fell inside the cap.
 
 **`find=` props stay.** They carry the synonym ONE row needs; the shared table carries what
 is not worth writing on twenty. The slide panel had zero `find=` props, which is why every
@@ -548,3 +575,74 @@ server render) was private to `use-resizable-split.ts`. The measure has to be a 
 — a strip that paints wide and snaps narrow is both a visible jump and a locator Playwright
 can catch one tick before it vanishes — so rather than write a second copy it moved to
 `ui/use-isomorphic-layout-effect.ts` and both import it.
+
+---
+
+## 12. What the independent check found — one regression, and six sentences that were not true
+
+Maker-checker over §9–§11's diff. It confirmed ten findings. Two changed the code, one is
+recorded as a limitation, and the rest were prose — which is the part worth writing down.
+
+### The regression: the measuring ghost made the panel scroll sideways
+
+**The strip's hidden measuring copy handed the whole settings panel a 273px horizontal scroll
+region.** The ghost is `absolute` and `w-max`, so it is 500–600px wide inside a 231px row —
+and a `visibility: hidden` box still contributes SCROLLABLE OVERFLOW. The panel body is
+`overflow-y-auto`, and CSS Overflow 3 computes the *other* axis to `auto` when one axis is not
+`visible`. So one two-finger swipe over the panel scrolled every control off-screen and left a
+blank tan column.
+
+| Surface | Panel `scrollWidth` − `clientWidth`, before |
+|---|---|
+| Deck, 1440 docked | +273 |
+| Slide, 1440 docked | +342 |
+| Deck sheet, 390 phone | +130 |
+
+Fixed with `overflow-x-clip` on the strip row — `clip` rather than `hidden` because it clips
+without becoming a scroll container itself and leaves `overflow-y` genuinely `visible`. The
+dropdown is a Radix portal, so its menu is not clipped. After: the panel body's `scrollWidth`
+equals its `clientWidth` at 390 / 1440 in both scopes, and a real 300px sideways wheel moves
+nothing.
+
+**Both gates that should have caught it were structurally blind.** §11's own e2e measured
+`row.querySelectorAll('button')`, and the ghost's children are `<span>`s — so the assertion
+claiming "zero overflow at every width" could not see the thing that overflowed.
+`npm run check:overflow` passed too; it measures the page and the header, not this scroller.
+The e2e now asks the SCROLLER instead of the buttons, and a second test drives a real sideways
+wheel and asserts nothing moved. That is the arm that fails on the old code.
+
+### The other code change, and one recorded limitation
+
+- **A stale `fit` priced an unmeasured pill at zero.** `fit.pills[i] ?? 0` — and the slide
+  panel's section list is per-slide (`Marks` appears only when the slide has any), so clicking
+  between slides changes the tab count live. A 7th tab against a 6-tab fit laid out 320px of
+  pills in a 231px row. A fit whose pill count disagrees with the tab count is now treated as
+  no measurement at all.
+- **`four` matched the Canvas row**, via `americanize`'s `/our$/` rule. Fixed with a
+  five-character floor on the fold; see §10.
+
+### Six sentences that were not true
+
+Each of these was written as a measured claim and was wrong. None was a defect on its own;
+together they are the reason to distrust the rest, which is the wrong property for a change
+whose whole argument lives in its comments.
+
+| Claimed | Actually |
+|---|---|
+| `contentWords`' stop list eats *Says something* / *Says nothing* | It returns `["says","nothing"]`; none of those three words is in `STOP` (§10 now gives the reasons that do hold) |
+| Clearing the field leaves the caret in it, so a phone keyboard stays up | Focus moved to the BUTTON, which had by then become "Close search". **Fixed in the code**, not the comment: `PanelSearch` refocuses its input on clear |
+| Deleting `MAX_TERMS` changes no answer | A 13-term query whose first twelve match returns the row with the cap and not without it |
+| The unit fixture's pill widths were "taken off the REAL strip" | Every number was wrong, `General` by 10px, the chevron in the wrong direction. Re-measured after `document.fonts.ready` |
+| `-my-0.5` keeps the field at 40px | The box is 39.59px empty and 42px with a trailing button. The line is height-NEUTRAL versus the old `size-6` (both contribute a 24px margin box), which is what it is actually for |
+| The synonym table "has no two keys that stem alike" | `narrate` and `narration` both stem to `narrat`. Harmless — same expansion — but by coincidence, not design |
+
+Two smaller ones went with them: `role="tablist"` could render with no `role="tab"` child at
+the zero-pill floor (unreachable at any supported width, fixed anyway), and the banner's
+"the scope stays drawn" note credited the field's placeholder, which disappears at the first
+keystroke — what actually carries it is the activity rail's own Slide / Deck labels.
+
+**The lesson is narrow and worth keeping: a claim about behavior is worth exactly what it cost
+to check.** The claims that survived — the fit arithmetic, monotonicity, no observer loop, the
+caches, "nothing narrows", the keyword fix, `use-resizable-split` being behaviorally identical
+— were the ones derived from running something. The six above were derived from reading the
+code and sounding right.

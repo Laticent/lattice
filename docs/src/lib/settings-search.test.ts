@@ -48,11 +48,21 @@ describe('settingsMatch — the rule that did not change', () => {
 	});
 
 	it('keeps STOP WORDS, which a picker tokenizer would eat', () => {
-		// `intent-search`'s `contentWords` drops "nothing", "something", "says", "no", "all".
-		// This panel has rows whose ONLY distinguishing word is one of those.
-		expect(settingsMatch('nothing', ROWS.saysNothing)).toBe(true);
-		expect(settingsMatch('says nothing', ROWS.saysNothing)).toBe(true);
+		// `intent-search`'s `contentWords` drops `no` and `all` (among 112). Verified by
+		// calling it: 'No comments on this slide yet' tokenizes to ["comments","yet"], and
+		// 'All 7 slides follow' to ["slides","follow"]. An author types those words.
+		// (NOT "says"/"nothing"/"something" — an earlier version of this comment said the
+		// stop list ate those and it does not; `contentWords('Says nothing')` is
+		// ["says","nothing"]. The Says-something / Says-nothing rows were never at risk.)
 		expect(settingsMatch('no comments', ROWS.comments)).toBe(true);
+		expect(settingsMatch('says nothing', ROWS.saysNothing)).toBe(true);
+	});
+
+	it('folds diacritics, which the picker tokenizer DROPS rather than folds', () => {
+		// `contentWords('Résumé finish')` is ["sum","finish"] — the accented letters fall
+		// outside its `[a-z0-9]` class, so the word is not folded, it is destroyed.
+		expect(settingsMatch('resume', 'Résumé finish')).toBe(true);
+		expect(settingsMatch('résumé', 'Resume finish')).toBe(true);
 	});
 
 	it('still refuses a term the row has no business matching', () => {
@@ -68,6 +78,14 @@ describe('settingsMatch — morphology', () => {
 		expect(settingsMatch('shadows', ROWS.cardLift)).toBe(true); // "shadow"
 		expect(settingsMatch('colors', ROWS.theme)).toBe(true); // "color"
 		expect(settingsMatch('aligned', ROWS.headlineAlign)).toBe(true); // "alignment"
+	});
+
+	it('does not fold a word short enough for the fold to hit a DIFFERENT word', () => {
+		// `/our$/ -> or` turns "four" into "for", and "for" is in half the panel's prose — it
+		// reached the slide's Canvas row. Nothing the fold exists for is shorter than
+		// "colour", so words under five characters are left alone.
+		expect(settingsMatch('four', 'Canvas Auto Light Dark Light or dark, for this slide alone.')).toBe(false);
+		expect(settingsMatch('hour', 'Speed Auto — By size How fast the build runs for a chart.')).toBe(false);
 	});
 
 	it('folds the British spelling onto the house one, so an author finds what we index', () => {
@@ -153,10 +171,20 @@ describe('settingsMatch — the pathological input', () => {
 		expect(Date.now() - t0).toBeLessThan(1000);
 	});
 
-	it('caps the term count, and the cap cannot RESCUE a query', () => {
-		// Terms are ANDed, so anything past the cap could only ever remove more rows.
+	it('caps the term count, and the cap can only ever WIDEN a result', () => {
+		// The direction is what matters: ignoring the tail can show a row the uncapped
+		// matcher would have rejected, but it can never HIDE one. Both arms are needed —
+		// the second is the one that actually exercises the cap. (A first version used 40
+		// junk terms after "page"; terms 1-11 were all junk and all failed, so it passed
+		// whatever the cap did.)
 		const many = Array.from({ length: 40 }, (_, i) => `zzz${i}`).join(' ');
 		expect(settingsMatch(many, ROWS.theme)).toBe(false);
 		expect(settingsMatch(`page ${many}`, ROWS.pageNumbers)).toBe(false);
+
+		// Twelve terms the row satisfies, then a thirteenth it does not: the cap drops the
+		// thirteenth, so the row shows.
+		const twelve = Array.from({ length: 12 }, () => 'page').join(' ');
+		expect(settingsMatch(`${twelve} zzznope`, ROWS.pageNumbers)).toBe(true);
+		expect(settingsMatch('page zzznope', ROWS.pageNumbers)).toBe(false);
 	});
 });

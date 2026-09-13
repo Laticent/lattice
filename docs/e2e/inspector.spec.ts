@@ -234,19 +234,35 @@ test('the list view drops the tabs and renders every section at once', async ({ 
 // actually reads its own row, and whether it stays on ONE line while doing it, is a question
 // only a real engine answers.
 
-/** The pills on screen, in order, and whether the row wrapped. */
+/**
+ * The pills on screen, whether the row wrapped, and whether the PANEL can be scrolled
+ * sideways.
+ *
+ * That last one is not about the pills, and a first cut of this helper could not see it.
+ * It measured `row.querySelectorAll('button')` — so the hidden measuring ghost, whose
+ * children are `<span>`s, was invisible to the very assertion that claimed "zero overflow
+ * at every width". The ghost is `absolute` and `w-max`, a `visibility: hidden` box still
+ * contributes scrollable overflow, and the panel body is `overflow-y-auto` — which makes
+ * the other axis `auto` too. Result: a 273px horizontal scroll region on the settings
+ * panel, and one two-finger swipe scrolled every control away and left a blank column.
+ *
+ * So this asks the SCROLLER, not the buttons: can the panel body scroll sideways at all?
+ */
 async function strip(page: Page) {
 	return page.evaluate(() => {
 		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
 		const row = list?.parentElement;
-		if (!row) return { rowW: 0, pills: [] as string[], lines: 0, overflow: 0 };
+		if (!row) return { rowW: 0, pills: [] as string[], lines: 0, overflow: 0, panelScrollX: 0 };
 		const buttons = [...row.querySelectorAll('button')].filter((b) => (b as HTMLElement).offsetParent);
+		let scroller: HTMLElement | null = row;
+		while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
 		return {
 			rowW: Math.round(row.getBoundingClientRect().width),
 			pills: [...row.querySelectorAll('[role="tab"]')].map((b) => (b.textContent ?? '').trim()),
 			lines: new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top))).size,
 			// How far the last control sticks out past the row it lives in.
 			overflow: Math.max(0, ...buttons.map((b) => Math.round(b.getBoundingClientRect().right - row.getBoundingClientRect().right))),
+			panelScrollX: scroller ? scroller.scrollWidth - scroller.clientWidth : 0,
 		};
 	});
 }
@@ -285,13 +301,15 @@ test('the section strip fits itself to the panel, on one line, at every width', 
 	const counts: number[] = [];
 	for (const dx of [0, 120, 260, -260]) {
 		if (dx) await dragPanel(page, dx);
-		const { pills, lines, overflow, rowW } = await strip(page);
+		const { pills, lines, overflow, rowW, panelScrollX } = await strip(page);
 		// ONE LINE, always. The fixed-at-two strip this replaced was chosen because six pills
 		// wrapped to two rows and cost 74px of a panel with none to spare — so a wrap here is
 		// the exact regression, and an overflow is the new way to get it wrong.
 		expect(lines, `row ${rowW}px: strip on ${lines} lines`).toBe(1);
 		expect(overflow, `row ${rowW}px: strip overflows by ${overflow}px`).toBeLessThanOrEqual(0);
 		expect(pills.length, `row ${rowW}px`).toBeGreaterThanOrEqual(2);
+		// And the hidden measuring ghost must not hand the panel a sideways scroll region.
+		expect(panelScrollX, `row ${rowW}px: panel scrolls ${panelScrollX}px sideways`).toBe(0);
 		counts.push(pills.length);
 	}
 	// A WIDER panel actually shows MORE — without this the test passes on a strip frozen at
@@ -313,6 +331,31 @@ test('the active section stays ON SCREEN as a pill, however narrow the panel', a
 		await expect(speech).toHaveAttribute('aria-selected', 'true');
 		expect((await strip(page)).lines).toBe(1);
 	}
+});
+
+test('the settings panel cannot be scrolled sideways at all', async ({ page }) => {
+	// The defect this replaced: the strip's hidden measuring ghost is `absolute` + `w-max`,
+	// a `visibility: hidden` box still contributes scrollable overflow, and the panel body is
+	// `overflow-y-auto` — which makes the OTHER axis `auto` too. The panel gained a 273px
+	// horizontal scroll region and one two-finger swipe left a blank column.
+	//
+	// This ASSIGNS `scrollLeft` rather than driving a wheel, and that is deliberate. A wheel
+	// arm was written first and it passed against the broken code — Playwright's synthesized
+	// wheel did not reach this nested scroller, so the test asserted nothing at all. Asking
+	// the element whether it will move is the property; the gesture was only ever the way a
+	// person discovers it. Mark it: this must FAIL when `overflow-x-clip` comes off the row.
+	const moved = await page.evaluate(() => {
+		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
+		let el: HTMLElement | null = list?.parentElement ?? null;
+		while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement;
+		if (!el) return -1;
+		el.scrollLeft = 400;
+		const after = el.scrollLeft;
+		el.scrollLeft = 0;
+		return after;
+	});
+	expect(moved, 'no settings scroller found').not.toBe(-1);
+	expect(moved, `the settings panel scrolled ${moved}px sideways`).toBe(0);
 });
 
 test('the chevron still holds the WHOLE list, not the leftovers', async ({ page }) => {

@@ -782,3 +782,29 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   fallback fires only when the token is *undefined*, not when it is defined as `none`.
   `npm run css:values` catches this class by substituting the values our own CSS
   actually declares for each token — see its DECLARED pass.
+
+## A `visibility: hidden` measuring element makes its scroll container scroll SIDEWAYS
+
+- **Symptom:** a panel that has no business scrolling horizontally does. One two-finger
+  trackpad swipe (or shift+wheel) over it slides every control off-screen and leaves a
+  blank column. Nothing visible is too wide, `overflow-x` is nowhere in the CSS, and the
+  repo's own `npm run check:overflow` passes — it measures the page and the header, not
+  this scroller. Measured instance: the Studio's settings panel gained a 273px horizontal
+  scroll region at the docked desktop width, 342px in the slide scope, 130px on a phone.
+- **Cause:** two rules meeting. (1) A `visibility: hidden` box is still LAID OUT and still
+  contributes **scrollable overflow** — only `display: none` removes it, and a measuring
+  ghost cannot use `display: none` because then it has nothing to measure. (2) CSS Overflow
+  3: when one axis is not `visible`, the other computes to `auto`. So a panel body declared
+  `overflow-y-auto` — the ordinary way to make a settings list scroll — is *already* an
+  `overflow-x: auto` box, and an absolutely-positioned `width: max-content` ghost 500px wide
+  inside a 231px row hands it the whole difference.
+- **Fix:** `overflow-x: clip` on the ghost's own containing block. `clip` rather than
+  `hidden`, because `hidden` would make that element a scroll container in its own right;
+  `clip` only clips, and it leaves `overflow-y` genuinely `visible` so nothing new starts
+  scrolling. A Radix/portal dropdown anchored in the clipped row is unaffected — its content
+  renders in a portal, outside the clip.
+- **Test it by asking the SCROLLER, not the children.** The first e2e written for this
+  measured `row.querySelectorAll('button')` and asserted "zero overflow at every width" — the
+  ghost's children are `<span>`s, so the assertion could not see the thing that overflowed.
+  Assert `scroller.scrollWidth === scroller.clientWidth`, and drive a real sideways wheel.
+  See `engineering/decisions/2026-09-13-settings-find-and-list-view.md` §12.

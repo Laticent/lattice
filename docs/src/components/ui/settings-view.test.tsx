@@ -154,11 +154,17 @@ function Toolbar({ onView }: { onView?: (v: SettingsView) => void } = {}) {
 	);
 }
 
-// Widths taken off the REAL strip at the docked default (Chromium, cuoio, 12.5px semibold):
-// the six deck sections and the chevron. Kept as numbers rather than a fixture so a reader
-// can do the arithmetic in their head.
-const PILLS = [56, 74, 82, 72, 72, 72]; // Look · Chrome · General · Accent · Motion · Speech
-const CHEVRON = 72;
+// Widths read off the REAL ghost strip in a real Chromium, deck scope, docked default
+// (`row.clientWidth === 231`), after `document.fonts.ready` — the last detail matters,
+// because every one of these is text and the web font lands after first paint.
+//
+// The first version of this fixture carried [56, 74, 82, 72, 72, 72] / 72 and claimed the
+// same provenance. Every number was wrong, `General` by 10px, and the chevron in the wrong
+// direction. Nothing was hiding behind it — the assertions below give the same answers
+// either way — but a fixture that says it is a measurement should be one. Re-derive with a
+// browser, not by editing the numbers until the tests pass.
+const PILLS = [54, 71, 72, 65, 66, 67]; // Look · Chrome · General · Accent · Motion · Speech
+const CHEVRON = 74;
 const TABS = ['Look', 'Chrome', 'General', 'Accent', 'Motion', 'Speech'];
 const fitAt = (box: number) => ({ box, pills: PILLS, chevron: CHEVRON });
 
@@ -200,6 +206,15 @@ describe('visibleSectionTabs — the fitting policy', () => {
 		expect(visibleSectionTabs(TABS, 3, fitAt(100))).toEqual([]);
 	});
 
+	it('treats a fit that disagrees with the tab count as NO measurement', () => {
+		// The slide panel's section list is per-slide, so the tab count changes live. A 6-pill
+		// fit against 7 tabs would price the 7th at zero and draw it for free — measured at
+		// 320px of pills in a 231px row.
+		const seven = [...TABS, 'Comments'];
+		expect(visibleSectionTabs(seven, 6, fitAt(231))).toEqual(['Look', 'Chrome']);
+		expect(visibleSectionTabs(seven, 6, { box: 231, pills: [...PILLS, 90], chevron: CHEVRON })).toEqual(['Look', 'Comments']);
+	});
+
 	it('falls back to the narrowest supported shape when it cannot measure, and does NOT pin', () => {
 		// An unmeasured strip must never be WIDER than a measured one — the chevron answers
 		// "where am I" by wearing the active section's name when no pill is selected.
@@ -235,9 +250,12 @@ describe('SettingsToolbar', () => {
 		expect(screen.getAllByLabelText('Clear search')).toHaveLength(1);
 
 		await user.click(screen.getByLabelText('Clear search'));
-		// Cleared and STILL OPEN — the toggles have not come back, the field has focus, and
-		// on a phone that means the keyboard never went away.
+		// Cleared and STILL OPEN, with the CARET STILL IN THE FIELD. That last one is the
+		// whole point of clear-and-stay: without it the click moves focus to the button, the
+		// input blurs, and a phone keyboard drops — and the button under the finger has by
+		// then become "Close search", so a second tap closes instead of clearing.
 		expect((screen.getByLabelText('Search deck settings') as HTMLInputElement).value).toBe('');
+		expect(document.activeElement).toBe(screen.getByLabelText('Search deck settings'));
 		expect(screen.queryByLabelText('Grouped — one section at a time')).toBeNull();
 
 		await user.click(screen.getByLabelText('Close search'));

@@ -4147,12 +4147,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    none: measured on a 390x844 phone with a query live, the two phrasings
 				    rendered as "Set it …" in 60px. That is the same defect §8.1 fixed, arriving
 				    through a different door — the field, not a container query.
-				    Nothing is hidden behind `sr-only` here, which is the trap §8.1 fell into.
-				    The scope stays DRAWN in this state by three other things: the field's own
-				    placeholder ("Search deck settings…"), the Slide/Deck segment directly above
-				    on mobile, and the scope icon in this row on desktop. And search is a state
-				    the author just opened on purpose — the deliverable of the row is the field
-				    they are typing into. */}
+				    Nothing is hidden behind `sr-only` here, which is the trap §8.1 fell into —
+				    but be precise about what still carries the scope, because a first draft of
+				    this comment was not. The field's PLACEHOLDER ("Search deck settings…") says
+				    it only until the first keystroke, and at the docked default it is truncated
+				    to "Search deck se". What holds at every width and through typing is the
+				    activity rail's own Slide / Deck labels on desktop, and the Slide/Deck
+				    segment directly above this row on mobile and tablet; the scope icon in this
+				    row is a second desktop cue but it is a glyph, not words. The `sr-only`
+				    live region keeps the full sentence for a screen reader throughout.
+				    And search is a state the author just opened on purpose — the deliverable of
+				    the row is the field they are typing into. */}
 				{!searchingHere && (
 					<>
 						<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>

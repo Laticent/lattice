@@ -19,3 +19,8 @@
   fixed two, and the section you are in is always one of them. A 390px phone gains two
   pills; the docked desktop panel keeps two, but one of them is now where you are. Dragging
   the panel re-fits it live, on one line. The chevron still holds the whole list.
+- **Fixed:** the settings panel could be scrolled sideways, and one two-finger swipe scrolled
+  every control off-screen and left it blank. The section strip's hidden measuring element
+  was handing the panel a 273px horizontal scroll region.
+- Clearing the Inspector's search field now leaves the caret in the field, so the next word
+  can be typed straight away (and a phone keyboard does not drop).
