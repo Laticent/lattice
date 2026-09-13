@@ -109,7 +109,10 @@
  * re-pointed per status below, exactly as it was for the <div> bars. */
 :is(section.gantt, figure.gantt) .gantt-bar,
 :is(section.gantt, figure.gantt) .gantt-milestone {
-  --fill-ink: var(--state-info-ink);
+  /* No status means no status — a neutral ink. This was --state-info-ink, the
+   * same blue a declared `pilot` or `decision` takes, so every gallery page drew
+   * a blue bar the legend never named. */
+  --fill-ink: var(--state-mute-ink);
   stroke: var(--fill-ink);
   stroke-width: var(--chart-edge);
 }
@@ -118,8 +121,11 @@
  * gradient is selected by the kernel from the same status, so the two can never
  * disagree. Canvas-aware via the token, so one rule per status, both modes. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="on-track"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="done"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="live"]     { --fill-ink: var(--state-pass-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="done"]     { --fill-ink: var(--state-pass-ink); }
+/* `live` is RUNNING work, not finished work. It shared --state-pass-ink with
+ * `done` here and shared the 'pass' fill gradient in the kernel, so the legend
+ * named three statuses and painted two of them identically. */
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="live"]     { --fill-ink: var(--state-info-ink); }
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="at-risk"],
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="blocked"],

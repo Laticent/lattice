@@ -381,7 +381,12 @@
     color-mix(in oklab, var(--bg-alt) 72%, var(--border)));
   border: var(--chart-hairline) solid color-mix(in oklab, var(--border) 65%, var(--muted-mark));
   /* THE one category cue: a crisp left keyline at the full lane ink. */
-  border-left: 0.42cqi solid var(--lane-color, var(--border));
+  /* The card's leading accent is the family token, not a local cqi. At 0.42cqi
+   * this rail painted 6px while the same card's other three edges are 1px — a
+   * 6:1 ratio on one mark, and the widest structural outlier left in the family
+   * after the SVG edges were unified. `keyline` is a variant of a card, not a
+   * different kind of object. */
+  border-left: var(--chart-fill-accent) solid var(--lane-color, var(--border));
   /* Square the LEFT corners so the keyline reads as one continuous edge; right
    * corners stay soft so the tile is not boxy. */
   border-radius: 0 0.46875cqi 0.46875cqi 0;
