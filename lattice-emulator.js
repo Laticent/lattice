@@ -831,6 +831,13 @@ const {
   LEGIBILITY_TAB_TEXT_SRC,
   LEGIBILITY_TAB_HINT_SRC,
 } = require('./lib/runtime/fluid-view-policy');
+// The three RENDER-TARGET front-matter keys (`fluid:` / `player:` / `present:`), read
+// through the shared kernel rather than three inline regexes here (HARD RULE #1). The
+// regexes this replaces were `$`-anchored, so a trailing YAML comment made the key match
+// nothing and silently do nothing; the kernel reads through `frontMatterScalar` like every
+// other register in the same block. lib/authoring/lint-core.js lints against the same
+// vocabulary, so a warning and a render cannot disagree about what `on` means.
+const { readRenderTargetKey } = require('./lib/core/render-target-keys');
 const fitBerth = require('./lib/core/fit-berth');
 const { BERTH_SRC } = fitBerth;
 // An image set's `--image-mode light|dark` forces the palette's light / dark variant
@@ -1944,11 +1951,11 @@ const fm      = fmMatch ? fmMatch[1] : '';
 // flag OR a `fluid: true` front-matter key. The PDF/PPTX/PNG outputs are
 // UNCHANGED either way — fluid only affects the written .html, after raster.
 // Design: engineering/decisions/2026-06-21-fluid-box-viewer-design.md.
-const FLUID_VIEW = !!flags.fluid || /^\s*fluid:\s*(?:true|yes|on)\s*$/im.test(fm);
+const FLUID_VIEW = !!flags.fluid || readRenderTargetKey(fm, 'fluid');
 // Presentation mode: mark the exported PDF to open in full-screen presentation
 // view (see applyPresentMode). Enabled by the `--present` flag OR a
 // `present: true` front-matter key, mirroring --fluid. PDF only.
-const PRESENT = !!flags.present || /^\s*present:\s*(?:true|yes|on)\s*$/im.test(fm);
+const PRESENT = !!flags.present || readRenderTargetKey(fm, 'present');
 // PDF-only options that have nothing to attach to under `.html`, warned HERE rather
 // than beside the other output-format warnings because both must see the FRONT MATTER
 // form, not just the CLI flag: a deck opting in with `present: true` renders to .html
@@ -1964,7 +1971,7 @@ if (OUT_FORMAT === 'html') {
 // Read·Article). Like --fluid, it only affects the written .html, after raster.
 // Enabled by `--player` OR a `player: true` front-matter key. Takes precedence over
 // --fluid (the player is the richer viewer). Frozen player-runtime version stamp.
-const PLAYER = !!flags.player || /^\s*player:\s*(?:true|yes|on)\s*$/im.test(fm);
+const PLAYER = !!flags.player || readRenderTargetKey(fm, 'player');
 const PLAYER_VERSION = '1';
 const ENGINE_BUILD = pkgVersion() ?? '';
 // Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide

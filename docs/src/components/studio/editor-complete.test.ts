@@ -132,6 +132,17 @@ describe('makeStudioCompletion', () => {
 		expect(labels(complete('---\nai-l', 8))).toContain('ai-lang');
 	});
 
+	it('completes all three RENDER-TARGET keys, not just present:', () => {
+		// These three name the artifact a render emits, so they get no settings-panel control
+		// (2026-08-18-settings-panel-coverage-and-ux.md §2.3). That is a decision about PANELS:
+		// the editor is a plain text surface, and an author typing the key by hand still needs
+		// the hint. Offering `present` while hiding `fluid` and `player` — which this list did
+		// until 2026-09-13 — left `fluid:` reachable only by already knowing it exists.
+		expect(labels(complete('---\nflu', 7))).toContain('fluid');
+		expect(labels(complete('---\nplay', 8))).toContain('player');
+		expect(labels(complete('---\npres', 8))).toContain('present');
+	});
+
 	it('does not fire in plain prose', () => {
 		expect(complete('Just some body text here')).toBeNull();
 	});

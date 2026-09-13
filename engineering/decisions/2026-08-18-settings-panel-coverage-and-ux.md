@@ -122,10 +122,29 @@ Recorded here so the next audit doesn't "fix" them:
   flags a deck that still carries it.
 - `overflow-marker:` — moved out of front matter into the export-settings data block
   (`2026-07-30-overflow-marker-register.md`, `lib/core/export-settings.js`).
-- `present:` / `player:` — read by `lattice-emulator.js:1694/1710` as a CLI
+- `present:` / `player:` / `fluid:` — read by `lattice-emulator.js` as a CLI
   convenience, but they are **render-target properties**, which `export-settings.js`
-  argues at length do not belong in the deck. The Studio decides both at export time
+  argues at length do not belong in the deck. The Studio decides all three at export time
   (ShareSheet). Leave them CLI-only.
+  **`fluid:` was missing from this row until 2026-09-13**, and the omission cost more than
+  a line. It is the same shape as its two siblings — flag-or-front-matter, HTML-only,
+  decided at render time — so its absence from the Studio was *unrecorded* rather than
+  *decided*, and the next person to ask "do we have a key for this?" had to read the
+  emulator to find out. A key deliberately left without a control still owes this list an
+  entry; silence here is indistinguishable from an oversight.
+  **This is a decision about CONTROLS, not about autocomplete.** The editor is a plain text
+  surface: an author who types `fluid:` by hand deserves the hint and the accepted values
+  whether or not a panel ever writes the key. The three were split two ways in
+  `editor-complete.ts` — `present` offered, `fluid` and `player` not — which made `fluid:`
+  reachable only by already knowing it exists. All three are now in that list, and it is
+  not a reversal of this row.
+  **Vocabulary and reader: `lib/core/render-target-keys.js`** (HARD RULE #1). The emulator
+  hand-rolled `/^\s*<key>:\s*(?:true|yes|on)\s*$/im` three times, and the `$` anchor meant
+  a trailing YAML comment — `fluid: true  # for the web` — matched nothing and silently did
+  nothing, while every other key in the same block read through `frontMatterScalar` and
+  stripped the comment. `lib/authoring/lint-core.js` lints against the same kernel
+  (`bad-render-target-value`), so an unrecognized value is reported while the deck is being
+  written rather than discovered in the artifact.
 - `marp:` — mechanical (`deck-config.js` emits it so an exported `.md` renders through
   marp-cli). Not an author-facing setting.
 
