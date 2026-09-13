@@ -146,7 +146,15 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
     // you nothing, because whatever it cut looks self-consistent.
     const inner = `<p class="body">${PARA}</p>`;
     const plans = [];
-    for (const k of [1, 0.5, 0.35]) {
+    // 0.94375 is not a round number and not a guess: it is what the STUDIO EXPORT
+    // capture frame actually runs at. `deck-export.js` sizes its iframe to the geom box
+    // (1280) and `buildSrcdoc` puts `padding: 18px` on BOTH `html` and `body`, so
+    // `.lattice` measures 1208 and the fit agent scales every section by 1208/1280.
+    // Measured in real Chromium. It matters because that frame's DOM is what the export
+    // bakes — so with the coordinate-space bug the trim ran at the wrong scale in
+    // EXPORTED BYTES, not only in a preview. Pinned here so a change to that frame's
+    // padding cannot quietly move it back.
+    for (const k of [1, 0.94375, 0.5, 0.35]) {
       const html = shapePage({ inner, outerCss: k === 1 ? '' : `transform:scale(${k});transform-origin:top left` });
       const model = await onShape(html, MEASURE_EXPR);
       assert.ok(model.boxes.length, `scale ${k}: nothing measured — the shape must overflow for this arm to mean anything`);
@@ -298,7 +306,7 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
     // and a scale list that includes 0.7, 0.62 and 0.83 is what makes it visible.
     const inner = `<p class="body">${PARA}</p>`;
     const plans = [];
-    for (const k of [1, 0.5, 0.35, 0.7, 0.62, 0.83, 0.9]) {
+    for (const k of [1, 0.94375, 0.5, 0.35, 0.7, 0.62, 0.83, 0.9]) {
       const html = shapePage({
         inner, font: '16px/24px Arial, sans-serif',
         outerCss: k === 1 ? '' : `transform:scale(${k});transform-origin:top left`,

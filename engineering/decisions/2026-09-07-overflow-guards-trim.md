@@ -1401,7 +1401,18 @@ at either width, which is what stops the fixed reading from being a test of noth
 The line count is now **identical across a 26% and a 33% scale**, which is the invariant:
 what a slide says is not a property of how wide the reader's pane is.
 
-**Still not verified:** the Studio export capture frame goes through the same builder
-(`buildSrcdoc` + the fit agent). If its scale is anything but exactly 1, this reached
-exported bytes. Not measured — the fix is correct at any scale either way.
+**AND THE STUDIO EXPORT CAPTURE FRAME IS NOT AT SCALE 1 — measured, 0.94375.** That was
+left as an open question one paragraph ago; it is answered, and the answer moves the
+defect's severity rather than the fix's. `deck-export.js` sizes its iframe to the geom box
+(1280) and `buildSrcdoc` puts `padding: 18px` on BOTH `html` and `body`, so `.lattice`
+measures **1208** and the fit agent scales every section by 1208/1280. That frame's DOM is
+what `inflatedPlayerHtml` captures and the export bakes — so with the coordinate-space bug
+the trim ran at the wrong scale in **exported bytes**, not only in a preview. 0.94375 is now
+one of the scales in the measurement suite's corpus, so a change to that frame's padding
+cannot move it back without turning three arms red.
+
+**What is still not driven:** a real Studio export of a `guards: strict` deck, end to end,
+with its PDF diffed against the CLI export of the same deck. The mechanism is the same one
+verified on the Playground and the scale is now measured and pinned, but that last instance
+has no artifact of its own.
 
