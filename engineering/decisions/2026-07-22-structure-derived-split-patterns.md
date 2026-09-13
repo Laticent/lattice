@@ -6,6 +6,10 @@ builds-on: 2026-06-22-the-fit-spine.md, 2026-06-21-reflow-as-form-capability.md,
 
 # Structure-derived split patterns — structure supplies the mechanism, not the policy
 
+> **§0c PLACEMENTS CHANGED (2026-09-13).** `obligation-matrix` and `matrix-2x2` leave `atomic`,
+> and `code`'s `PROPOSED` processor is built. See
+> [`2026-09-13-a-component-splits-its-variants-did-not.md`](2026-09-13-a-component-splits-its-variants-did-not.md).
+
 > **SUPERSEDED IN PART (2026-09-01).** This note's STRUCTURAL ruling is what the engine now does, and the §0a envelope is built. Two things in it are not current, and BOTH were edited into it after it was authored: the "it fires on measured FIT" clause in the ★ section below (added 2026-07-28, seven days later, and it overwrote this note's own trigger), and §0b's per-component PACING — a page now carries ONE structural element, so nothing reads `perPage`/`sweet`/`soft`/`hard` to size a cut. §0b's own point, that atomizing WITHOUT a wayfinding signal is unreadable, is kept and widened: every run carries one now, not the four components that declared a `relationship`. See
 > [`2026-09-01-autosplit-splits-on-structure.md`](2026-09-01-autosplit-splits-on-structure.md).
 > Read that note before acting on anything below about the split TRIGGER or its PACING.
