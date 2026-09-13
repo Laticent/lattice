@@ -41,11 +41,13 @@ export interface RectSource {
 	 *  answer with more resolution gets a highlighter that follows the words. A host that
 	 *  cannot is not penalized — every cue falls back to `getBoundingClientRect()`. */
 	getClientRects?(): DOMRectList | DOMRect[];
-	/** OPTIONAL, and the stage calls it before every AIM — a `point()`, a drag's pick-up and
-	 *  drop, a gesture — exactly as it does on an element, so a target below the fold is
-	 *  brought into view rather than pointed at off-screen. Leave it out and nothing breaks:
-	 *  the cue still plays, it just cannot scroll (the right answer for a source that has no
-	 *  scroll of its own, e.g. a region inside a frame the host positions itself). */
+	/** OPTIONAL, and the stage calls it before every AIM: a `point()`, a drag's pick-up, its
+	 *  drop and its snap-back, and a gesture that actually uses its target (`wave` and `shake`
+	 *  play at the cursor, and a cue silenced through `theme.cues` draws nothing — neither
+	 *  scrolls). Exactly as it does on an element, so a target below the fold is brought into
+	 *  view rather than pointed at off-screen. Leave it out and nothing breaks: the cue still
+	 *  plays, it just cannot scroll — which is also how a host opts a target OUT (the right
+	 *  answer for a region inside a frame the host positions itself). */
 	scrollIntoView?(arg?: boolean | ScrollIntoViewOptions): void;
 }
 
@@ -1170,9 +1172,12 @@ export function createStage(opts: StageOptions): Stage {
 	// throw and nothing would scroll at all. Retrying without it leaves that engine exactly
 	// where the drag path already left it: the host's own scroll behavior.
 	//
-	// It also RE-SEATS THE CHROME. Under `bounds: 'host'` the caption and Exit are measured
-	// against the VISIBLE part of `root`, and scrolling changes that box — but only `resize`
-	// was wired to `relayout`, because until now nothing in here could move the page. A stage
+	// It also RE-SEATS THE CHROME. Under `bounds: 'host'` the dock is measured against the
+	// VISIBLE part of `root`, and scrolling changes that box — but only `resize` was wired to
+	// `relayout`, because until now nothing in here could move the page. (What `relayout`
+	// re-seats is what each style's `layout` owns: the whole bar for the edge docks, and under
+	// `caption: 'cursor'` the Exit chip only — the balloon is placed per beat by `place`, so it
+	// picks up the new geometry on its next show rather than here.) A stage
 	// that scrolls owes the re-seat for its own scroll. Unconditionally, without measuring the
 	// target twice to find out whether it actually moved: `relayout` returns immediately under
 	// the default bounds, and under `'host'` it is idempotent and costs about what the
@@ -1505,6 +1510,14 @@ export function createStage(opts: StageOptions): Stage {
 				// the item came from off-screen. Aiming live tracks it there faithfully — off the
 				// bottom of the window, where the shake that is supposed to say "it didn't happen"
 				// says nothing at all.
+				//
+				// THE REDUCED TIER HAS TO BE PUT BACK EXPLICITLY, and getting that wrong is how the
+				// first draft of this reveal broke the a11y path it was meant to help: `legible` and
+				// `still` run no glide, so the scroll moved the page while `cx`/`cy` — viewport
+				// coordinates taken before it — stayed on `to`. Measured on that draft at a 768px
+				// window, the cursor sat at y=2415 and shook there. `place()` is the same instant
+				// landing `moveToEl` gives these tiers, and it is motion-safe: a jump is not a
+				// vestibular sweep.
 				if (fromEl) reveal(fromEl);
 				if (fromEl && !reduced) {
 					await tween(
@@ -1515,6 +1528,12 @@ export function createStage(opts: StageOptions): Stage {
 						360,
 						sig ?? signal,
 					).catch(() => {});
+				} else if (fromEl) {
+					const r = liveRect(fromEl);
+					if (r) {
+						const p = aimAt(r);
+						place(p.x, p.y);
+					}
 				}
 				stopCarry();
 				await shake(sig ?? signal).catch(() => {});
@@ -2083,7 +2102,17 @@ export function createStage(opts: StageOptions): Stage {
 		// cursor-anchored caption keeps out of the way of. `opts.rest` deliberately gets no
 		// reveal — a withdrawal is where the hand goes to stop being in the way, not something
 		// the viewer is being shown.
-		if (el) reveal(el);
+		//
+		// TWO KINDS OF TARGET ARE EXCLUDED, and both were defects in the first draft of this.
+		// `wave` and `shake` PLAY AT THE CURSOR and ignore `el` completely, so revealing for them
+		// scrolls the page out from under a cue that has not moved — it lands over whatever the
+		// scroll brought there. And a SILENCED cue draws nothing at all (`theme.cues`), so
+		// scrolling for ink that never appears is a page move with no visible cause, which is
+		// strictly worse than the off-screen cue this reveal exists to fix. The per-kind guards
+		// below already return early for both; the reveal has to reach the same answer BEFORE it
+		// fires, which is why the test is here rather than inside the switch.
+		const aimsAtTarget = kind !== 'wave' && kind !== 'shake';
+		if (el && aimsAtTarget && !silenced.has(kind)) reveal(el);
 		// A GESTURE AIMS, so it records what it aimed at. `lastAim` is what the cursor-anchored
 		// bubble keeps out of the way of, and only `point` and `drag` were writing it — so on a
 		// gesture-only beat (the shape `sayAt: 'gesture'` exists for) the balloon was scored

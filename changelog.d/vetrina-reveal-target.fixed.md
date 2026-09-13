@@ -3,8 +3,10 @@
   aimed at anything below the fold sent the cursor off-screen and played the beat to an empty
   viewport. Every verb now reveals its target first — `scrollIntoView({ block: 'nearest', inline:
   'nearest', behavior: 'instant' })`, so a target already in view moves nothing and a host's
-  `scroll-behavior: smooth` cannot turn the landing into a race between two animations. Under
-  `bounds: 'host'` the caption and Exit are re-seated after a scroll the stage performed itself.
+  `scroll-behavior: smooth` cannot turn the landing into a race between two animations. Two
+  deliberate exceptions: `wave` and `shake` play at the cursor and ignore the target they are
+  handed, and a cue silenced through `theme.cues` draws nothing, so neither scrolls. Under
+  `bounds: 'host'` the dock is re-seated after a scroll the stage performed itself.
 - **Studio — the demo's typing follow asks the editor to scroll, instead of guessing which
   element does.** Typing on a phone goes through the controlled `setSource` path, which moves no
   caret and so never scrolls; the compensation set `scrollTop = scrollHeight` on
@@ -14,6 +16,7 @@
   and walks the real scrollable ancestors. Measured behavior is unchanged on both engines reachable
   here (worst gap between the document's end and the visible box across the whole phone tour: 0px
   on Chromium at 390px, 53px on real WebKit at an iPhone box — the same before and after), so this
-  removes a fragility rather than a visible defect. It also closes a real gap next door: the
-  desktop `set` path — an `instant` beat, the `still` motion tier, or any insert over ~1600
-  characters — had no follow at all, and now has the same one.
+  removes a fragility rather than a visible defect. It also wires up a path that had no follow at all: the
+  desktop `set`, which `runner.ts` reaches for an `instant` beat, the `still` motion tier, an insert
+  over ~1600 characters, or a prefix reset. That one is a reading of the code, not a measurement —
+  no shipped tour takes that path, so no arm drives it.

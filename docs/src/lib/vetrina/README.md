@@ -273,8 +273,11 @@ it, so a tracking cue is ~16ms behind during a resize. Momentary bursts (the cli
 the anticipation ping) stay snapshot-positioned — they are gone before any of this matters.
 
 **Off-screen targets are scrolled into view, instantly.** Before every aim — a `point()`, a
-drag's pick-up and drop, a gesture — Vetrina calls `scrollIntoView({ block: 'nearest', inline:
-'nearest', behavior: 'instant' })` on the target. `nearest` means a target already in view moves
+drag's pick-up, its drop and its snap-back, and a gesture that uses its target — Vetrina calls
+`scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })` on it. Two kinds of
+target are left alone: `wave` and `shake` play at the cursor and ignore the one they are handed, and
+a cue you silenced through `theme.cues` draws nothing, so scrolling for it would move the page with
+no visible cause. `nearest` means a target already in view moves
 nothing, so a tour on a page that fits never scrolls; a target below the fold is brought up
 rather than pointed at off-screen — and on a phone that is almost every target.
 
@@ -285,8 +288,10 @@ lands and the target keeps moving. Instant settles the geometry before the numbe
 also the motion-safe choice, so the `legible` / `still` tiers need no exception.
 
 Three consequences worth knowing. Your own `scroll-behavior: smooth` does **not** apply to these
-scrolls (that is the point). Under `bounds: 'host'`, Vetrina re-seats the caption and Exit after a
-scroll it performed itself — a scroll **the viewer** performs mid-run is not yet tracked. And a
+scrolls (that is the point). Under `bounds: 'host'`, Vetrina re-seats the dock after a scroll it
+performed itself — the whole bar for an edge style, the Exit chip for `caption: 'cursor'` (whose
+balloon is placed per beat and so picks up the new geometry on its next show); a scroll **the
+viewer** performs mid-run is not tracked at all. And a
 target clipped by an `overflow: hidden` ancestor *will* be scrolled into view, because a
 programmatic scroll works on a box the viewer cannot scroll; that box then stays scrolled with no
 affordance to put it back.

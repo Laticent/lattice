@@ -188,10 +188,11 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				}
 			: {
 					// The desktop `set` is the CONTROLLED path too — it is just not used per
-					// keystroke. `runner.ts` routes three cases through it: an `instant: true` beat,
-					// the `still` motion tier, and any insert over ~1600 chars, i.e. a whole slide
-					// landing at once. (NOT a reduced-motion device: that lands on `legible`, which
-					// keeps the typing reveal — the split pacing.ts documents.) Without the follow it
+					// keystroke. `runner.ts` routes four cases through it: an `instant: true` beat,
+					// the `still` motion tier, any insert over ~1600 chars (a whole slide landing at
+					// once), and the PREFIX RESET — `ops.set(text.slice(0, keep))` when the new text
+					// diverges from what was typed. (NOT a reduced-motion device: that lands on
+					// `legible`, which keeps the typing reveal — the split pacing.ts documents.) Without the follow it
 					// dropped a screenful of text in below the fold and left the view at the top —
 					// the same defect as the phone's, on the surface nobody looked at.
 					set: (t) => {

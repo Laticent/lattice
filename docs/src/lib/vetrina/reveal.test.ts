@@ -23,8 +23,9 @@ let active: Stage | null = null;
  *  rect by `scrollBy`, so the "did it scroll before it measured" question has an answer that is
  *  not a matter of reading the implementation. `log` interleaves rect reads with scrolls, which
  *  is what makes the ORDER assertable. */
-function watchedTarget(init: { left: number; top: number; width: number; height: number }, opts: { scrollBy?: { dx: number; dy: number }; rejectBehavior?: boolean } = {}) {
+function watchedTarget(init: { left: number; top: number; width: number; height: number }, opts: { scrollBy?: { dx: number; dy: number }; once?: boolean; rejectBehavior?: boolean } = {}) {
 	const box = { ...init };
+	let scrolled = false;
 	const log: string[] = [];
 	const calls: (boolean | ScrollIntoViewOptions | undefined)[] = [];
 	const src: RectSource = {
@@ -48,9 +49,14 @@ function watchedTarget(init: { left: number; top: number; width: number; height:
 			// conversion rather than ignoring it — see the `'instant'` case below.
 			if (opts.rejectBehavior && typeof arg === 'object' && arg?.behavior) throw new TypeError("The provided value 'instant' is not a valid enum value of type ScrollBehavior.");
 			log.push('scroll');
-			if (opts.scrollBy) {
+			// `once` models the half of `block: 'nearest'` that matters when a target is revealed
+			// TWICE in one beat (a drag's pick-up, then its snap-back): the second call finds the
+			// box already in view and scrolls nothing. Without it the stub would march the target
+			// off the top of the window, which is a fiction no browser performs.
+			if (opts.scrollBy && !scrolled) {
 				box.left += opts.scrollBy.dx;
 				box.top += opts.scrollBy.dy;
+				if (opts.once) scrolled = true;
 			}
 		},
 	};
@@ -165,14 +171,20 @@ describe('an aimed cue brings its target into view first', () => {
 
 	it('keeps playing when a host source refuses to scroll at all', async () => {
 		const stage = mount();
+		const tried: unknown[] = [];
 		const src: RectSource = {
 			...unscrollableTarget({ left: 700, top: 400, width: 40, height: 30 }),
 			getBoundingClientRect: () => ({ x: 700, y: 400, left: 700, top: 400, width: 40, height: 30, right: 740, bottom: 430, toJSON: () => ({}) }) as DOMRect,
-			scrollIntoView: () => {
+			scrollIntoView: (arg) => {
+				tried.push(arg);
 				throw new Error('this region is positioned by the host');
 			},
 		};
 		await stage.point(src);
+		// It TRIED — twice, because the first throw is indistinguishable from the `behavior` enum
+		// rejection above, so the retry runs before the stage gives up. Without this the arm passes
+		// against a `reveal` that silently became a no-op, which is the mutant it is nearest to.
+		expect(tried).toHaveLength(2);
 		expect(at(cursorEl(), 'left')).toBeCloseTo(720, 0);
 	});
 });
@@ -221,5 +233,85 @@ describe("bounds:'host' re-seats the chrome after a scroll the stage itself perf
 		// The host's visible bottom moved from the window's bottom edge (768) up to 500, so the
 		// dock's distance from the bottom of the window grows by that much.
 		expect(after - before, `the dock stayed at ${before}px — it is still seated against the pre-scroll host`).toBeGreaterThan(200);
+	});
+});
+
+describe('the drag path reveals both of its ends, and the snap-back reveals again', () => {
+	// Three of the five reveal call sites live in `drag`, and an independent pass found all three
+	// uncovered: deleting them left the whole unit suite green. The drop target's call is not even
+	// new — it predates this work as a bare `toEl.scrollIntoView?.(…)` — and routing it through
+	// `reveal` changed it (it now passes `behavior` and re-seats the chrome), with nothing
+	// asserting either.
+	it('reveals the pick-up target before the glide, and the drop target before its own', async () => {
+		const stage = mount();
+		const from = watchedTarget({ left: 40, top: 60, width: 120, height: 40 });
+		const to = watchedTarget({ left: 40, top: 2400, width: 120, height: 40 }, { scrollBy: { dx: 0, dy: -2200 } });
+		await stage.drag(from.src, to.src);
+		expect(from.calls, 'the thing being picked up was never revealed').toHaveLength(1);
+		expect(to.calls, 'the drop target was never revealed').toHaveLength(1);
+		expect(to.calls[0]).toEqual({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+		// The carried chip ends on the drop target's POST-scroll position.
+		expect(at(cursorEl(), 'top')).toBeCloseTo(218, 0);
+	});
+
+	it('reveals `from` again on the snap-back, because the drop glide may have moved the page', async () => {
+		const stage = mount();
+		const from = watchedTarget({ left: 40, top: 60, width: 120, height: 40 });
+		const to = watchedTarget({ left: 40, top: 2400, width: 120, height: 40 });
+		const handle = await stage.drag(from.src, to.src);
+		await handle.snapBack();
+		expect(from.calls, 'the snap-back aimed at `from` without asking for it to be on screen').toHaveLength(2);
+	});
+
+	it('and under reduced motion the snap-back LANDS on `from` rather than shaking where `to` was', async () => {
+		// The defect this pins is one this reveal introduced and an independent checker caught:
+		// `legible`/`still` run no glide, so a reveal that scrolls the page while the cursor holds
+		// its pre-scroll viewport coordinates leaves the "it didn't happen" shake off-screen —
+		// measured at y=2415 in a 768px window. The reduced tier has to be placed explicitly.
+		const stage = mount({ motion: 'legible' });
+		const from = watchedTarget({ left: 40, top: 2400, width: 120, height: 40 }, { scrollBy: { dx: 0, dy: -2200 }, once: true });
+		const to = watchedTarget({ left: 40, top: 500, width: 120, height: 40 });
+		const handle = await stage.drag(from.src, to.src);
+		await handle.snapBack();
+		// `from` starts below the fold and its first reveal brings it to 200, so the cursor must end
+		// on 218 — not on 518, where `to` is and where the unfixed draft left it shaking.
+		expect(at(cursorEl(), 'top'), 'the cursor stayed on `to` — the shake plays where the item is not').toBeCloseTo(218, 0);
+	});
+});
+
+describe('a gesture that does not use its target does not scroll to it', () => {
+	it('`wave` and `shake` play at the cursor, so a target they ignore is not revealed', async () => {
+		// Both are documented as playing at the cursor and they never read `el`. Revealing for them
+		// scrolls the page out from under a cue that has not moved, which lands it over whatever
+		// the scroll brought there. (`Stage.gesture` and `scene().gesture` both accept a target for
+		// any kind, so this is reachable from the public surface even though no shipped tour does it.)
+		const stage = mount();
+		const wave = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
+		await stage.gesture('wave', wave.src);
+		expect(wave.calls).toHaveLength(0);
+		const shake = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
+		await stage.gesture('shake', shake.src);
+		expect(shake.calls).toHaveLength(0);
+	});
+
+	it('a SILENCED cue draws nothing, so it must not move the page either', async () => {
+		// `theme.cues = { circle: false }` is the documented way to switch a cue off. Scrolling for
+		// ink that never appears is a page move with no visible cause — worse than the off-screen
+		// cue the reveal exists to fix.
+		const stage = mount({ cues: { circle: false, underline: false } });
+		const circle = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
+		await stage.gesture('circle', circle.src);
+		expect(circle.calls, 'a silenced circle scrolled the page for ink it never drew').toHaveLength(0);
+		const underline = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
+		await stage.gesture('underline', underline.src);
+		expect(underline.calls).toHaveLength(0);
+	});
+
+	it('but the same cue, un-silenced, does reveal — the guard is the silence, not the kind', async () => {
+		const stage = mount();
+		const circle = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
+		void stage.gesture('circle', circle.src);
+		await frames(2);
+		expect(circle.calls).toHaveLength(1);
 	});
 });

@@ -34,7 +34,7 @@ the same two `scrollIntoView` occurrences before that PR and after it.
 
 ## 1. Vetrina never scrolled
 
-`git log -S scrollIntoView -- docs/src/lib/vetrina/stage.ts` returns ONE commit — the file's own
+`git log -S scrollIntoView -- docs/src/lib/vetrina/stage.ts` returns ONE commit on `main` — the file's own
 arrival. The single call it contains is in `drag()`, on the DROP target, added with the live-aim
 work (D4.1). Everything else aimed at whatever rect the target happened to have:
 
@@ -55,8 +55,25 @@ nothing".
 ask. It is the wrong place, measured: by the time a `point()` reaches it, the rect has already
 been read twice. The anticipation ping is the visible half — it would flash where the target used
 to be while the cursor glided to where it now is, which is a NEW defect in exchange for the old
-one. So each verb reveals at the top of its own beat (`point`, `drag` for both ends, `gesture`),
-which is also the only placement that is exactly once per beat.
+one. So each verb reveals at the top of its own beat, which is also the only placement that is
+exactly once per beat. FIVE call sites: `point`, a drag's pick-up, its drop (where the one
+pre-existing call was), its SNAP-BACK, and `gesture`.
+
+The snap-back is the one an independent checker found missing on the first pass, and it is the
+clearest case for the whole change: the glide to `to` may have scrolled the page, so on a long list
+the place the item came from is off-screen by then — and aiming live tracks it there faithfully,
+which puts the shake that means "it didn't happen" where nobody can see it. Its REDUCED tier then
+had to be put back explicitly (`place()`, the same instant landing `moveToEl` gives those tiers):
+`legible` and `still` run no glide, so a scroll with no landing left the cursor on `to` and shook it
+at y=2415 in a 768px window. That was a regression this work introduced on the a11y path, caught
+before merge, and it is why the reveal is not simply "call it everywhere".
+
+**Two kinds of gesture target are excluded, and both were defects in the first draft.** `wave` and
+`shake` play at the cursor and never read the target they are handed, so revealing scrolled the page
+out from under a cue that had not moved. And a cue SILENCED through `theme.cues` draws nothing at
+all, so it scrolled the page for ink that never appeared — a page move with no visible cause, which
+is worse than the off-screen cue this exists to fix. Both are now gated before the reveal fires,
+where the per-kind guards inside the switch could not reach it.
 
 `gesture` needs its own call for a second reason: a gesture-only beat (the shape `sayAt: 'gesture'`
 exists for) never passes through `point` at all, and the call has to precede the `lastAim` record,
@@ -93,13 +110,15 @@ an engine where the drag path already left it: the host's own scroll behavior.
 
 ### The chrome is re-seated after the stage's own scroll
 
-Under `bounds: 'host'` the caption and Exit are measured against the VISIBLE part of `root`, and
-a scroll changes that box. Only `resize` was wired to `relayout`, which was correct while nothing
+Under `bounds: 'host'` the dock is measured against the VISIBLE part of `root`, and a scroll changes
+that box. What gets re-seated is what each style's `layout` owns — the whole bar for an edge dock,
+and under `caption: 'cursor'` the Exit chip alone, since the balloon is placed per beat by `place`
+and picks up the new geometry on its next show. Only `resize` was wired to `relayout`, which was correct while nothing
 in the stage could move the page. `reveal` now calls `relayout()` unconditionally: it returns
 immediately under the default bounds, and under `'host'` it is idempotent and costs about what
 comparing the before/after rects would have cost anyway.
 
-### Two limits this does not close
+### Four limits this does not close
 
 - **A scroll the VIEWER performs mid-run still leaves the `bounds: 'host'` chrome seated against
   the old intersection.** Pre-existing, off the path of this change (HARD RULE #18), and not
@@ -180,12 +199,20 @@ the same follow.
 
 ## What is verified, and what is not (HARD RULE #23)
 
-- **jsdom / vitest** — `reveal.test.ts` (7 arms) pins the mechanism: the options passed, that the
+- **jsdom / vitest** — `reveal.test.ts` (13 arms) pins the mechanism: the options passed, that the
   scroll precedes every measurement in the beat, that a gesture-only beat reveals on its own
-  account, the `behavior` retry, a target that cannot scroll, and the `bounds: 'host'` re-seat.
-  `editor-reveal-tail.test.tsx` pins the reveal as a pure scroll. Every arm was mutation-checked:
-  with the calls removed, 6 of 9 go red and the 3 that stay green are the "this must not throw"
-  arms.
+  account, the `behavior` retry, a target that cannot scroll, a provider that refuses, the
+  `bounds: 'host'` re-seat, all three drag call sites, the reduced-tier snap-back landing, and the
+  `wave`/`shake`/silenced exclusions. `editor-reveal-tail.test.tsx` (2 arms) pins the reveal as a
+  pure scroll — no doc write, no caret move, no `onCursorSlide` — by comparing the effect's TYPE
+  against a sample, because `effects: []` is truthy and a looser assertion let an empty transaction
+  pass.
+  **Mutation-checked per CALL SITE, not per arm, and the distinction was a finding.** "6 of 9 arms
+  go red" was true of the first draft and it is a statement about arms: measured per call site the
+  same draft was 2 of 5, because the three drag reveals had no arm at all. Today each of the three
+  fixes dies to its own arm — drop the reduced-tier `place()` and the snap-back arm goes red; reveal
+  for every gesture kind and the `wave`/`shake` and silenced arms go red; delete the three drag
+  reveals and all three drag arms go red.
 - **Real Chromium** — `vetrina-exemplars.spec.ts`'s `reveal` exemplar (a `#far-target` more than a
   viewport down) at 1440x900 and 390x844: the page scrolls by more than half a window, the target
   ends fully on screen, and the cursor lands inside it. `demo-mobile.spec.ts` samples CodeMirror's
@@ -199,5 +226,14 @@ the same follow.
   library the reveal exemplar's page never scrolls at all — `window.scrollY === 0` with the target
   ~1,100px below the fold, at both widths; with the fix it scrolls by more than half a window and
   the cursor lands inside the target.
+- **An independent checker (HARD RULE #25) read the diff on the real surfaces**, after two runs
+  died on a session rate limit. It reproduced the geometry, the before/after, the `behavior` retry
+  (it made `behavior` throw on a real browser and watched the retry scroll the page), both tail
+  numbers, and `relayout`'s idempotence across all five caption styles — and it found the
+  reduced-tier snap-back regression, the silenced-cue and `wave`/`shake` scrolls, the per-call-site
+  coverage gap, the `~2,700px` number that was borrowed from a different measurement, and four
+  claims that were broader than the code. Everything it named is either fixed above or restated.
+  What it could NOT verify from an artifact: the OLD column of the tail table and the `yMargin`
+  experiment, both of which needed a build of the pre-change code that no longer exists in the tree.
 - **UNVERIFIED: real iOS Safari on a device.** Touch, Safari's collapsing chrome and the
   visual-viewport offset (which shifts what "in view" means) are not reachable from this sandbox.

@@ -167,7 +167,10 @@ const TAIL_TYPING_MS = 500; // a doc that changed this recently is being typed i
 // PER ENGINE because that lag is: measured worst instantaneous gap across the tour is 0px on
 // Chromium at 390px and 53px (~2 lines) on real WebKit at an iPhone 15 Pro box, identical before
 // and after the change. Both budgets keep an order of magnitude between them and the failure they
-// exist to catch — a follow that never happens leaves the tail ~2,700px away.
+// exist to catch: with every `scrollTop` write on the scroller blocked, this sampler records a
+// 400px sustained gap (measured, Chromium 390px). An earlier draft of this line said ~2,700px,
+// which was the UN-GATED sampler's reading of the fixture's seeded deck 11 lines above — a
+// different measurement wearing this one's clothes.
 const TAIL_SLACK = { chromium: 40, webkit: 120 };
 
 async function expectTailFollows(page: import('@playwright/test').Page, slack: number): Promise<void> {

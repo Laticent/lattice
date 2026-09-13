@@ -61,7 +61,7 @@ describe('the editor can reveal its tail without touching the document', () => {
 		expect(slides, 'the preview would jump to the last slide on every keystroke of a demo').toEqual([]);
 	});
 
-	it('is a no-op before the view exists rather than a throw', () => {
+	it('is a no-op once the view is GONE rather than a throw', () => {
 		const ref = React.createRef<EditorHandle>();
 		// The handle is stated at mount, so reach it and call it after unmount — the demo's
 		// double-rAF follow can land after a pane swap has taken the editor away.
