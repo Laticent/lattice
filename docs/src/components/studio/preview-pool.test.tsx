@@ -91,6 +91,32 @@ function settle(ms = APPLY_MS + 20) {
 const rects = new Map<Element, { top: number; height: number }>();
 const onScreen = (el: Element) => rects.set(el, { top: 10, height: 100 });
 const offScreen = (el: Element) => rects.set(el, { top: 5000, height: 100 });
+const at = (el: Element, top: number, height: number) => rects.set(el, { top, height });
+
+/** A grid whose tiles live inside a NESTED scroller — the add-slide gallery's looks panel, which
+ *  is `overflow-y-auto` inside the dialog's own scroller. The pool's frame layer is a sibling of
+ *  that panel, not a child, so the panel cannot clip it. */
+function NestedGrid({ n }: { n: number }) {
+	return (
+		<PreviewPool>
+			<div data-testid="panel" style={{ overflowY: 'auto' }}>
+				{Array.from({ length: n }, (_, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
+					<div key={i} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} className="aspect-video w-full" />
+					</div>
+				))}
+			</div>
+		</PreviewPool>
+	);
+}
+
+/** Every slot as the reader meets it: which sample, and whether it paints at all. */
+const slotsOf = (c: HTMLElement) =>
+	[...c.querySelectorAll('[data-testid="deck-preview"]')].map((f) => {
+		const outer = f.parentElement?.parentElement as HTMLElement;
+		return { sample: f.getAttribute('data-sample'), visible: outer.style.visibility !== 'hidden' };
+	});
 
 /** Four of the author's own tiles, then four catalog specimens — the one configuration in which
  *  "per tile" is a claim about `specimen` rather than a claim about the whole pool. */
@@ -131,7 +157,7 @@ function Grid({ n, specimen = false, pooled = true }: { n: number; specimen?: bo
 			<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} specimen={specimen} className="aspect-video w-full" />
 		</div>
 	));
-	return pooled ? <PreviewPool>{tiles}</PreviewPool> : <>{tiles}</>;
+	return pooled ? <PreviewPool>{tiles}</PreviewPool> : tiles;
 }
 
 /** The `sample` each mounted frame is currently showing — the pool's output, in one read. */
@@ -329,6 +355,27 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		for (let i = BASE_SLOTS; i < n; i++) {
 			expect(shown, `tile ${i} is on screen and has no preview; a grace-holder kept the slot`).toContain(`# ${i}`);
 		}
+		unmount();
+	});
+
+	it('does not paint a tile that its own nested scroller has hidden', () => {
+		// The defect: a look tile scrolled out of the gallery's looks panel is still inside the
+		// DIALOG's scroller, so the pool called it visible and painted its frame at the tile's
+		// coordinates — outside the panel, on top of the gallery rows above it. Measured at 390x844,
+		// six frames bleeding, four of them over other tiles, and steady rather than a flicker. The
+		// frames cannot be clipped by the panel because they are not inside it, so the pool clips
+		// them itself.
+		const { container, unmount } = render(<NestedGrid n={2} />);
+		at(container.querySelector('[data-testid="panel"]') as Element, 400, 100);
+		at(face(container, 0), 410, 50); // inside the panel
+		at(face(container, 1), 200, 50); // scrolled above it — in the DOM, out of view
+		intersect(face(container, 0), true);
+		intersect(face(container, 1), true);
+		settle();
+		const shown = slotsOf(container);
+		expect(shown.find((x) => x.sample === '# 0')?.visible, 'the tile inside the panel is not painted').toBe(true);
+		const bleeding = shown.find((x) => x.sample === '# 1');
+		if (bleeding) expect(bleeding.visible, 'a tile the panel scrolled away is painting outside it').toBe(false);
 		unmount();
 	});
 

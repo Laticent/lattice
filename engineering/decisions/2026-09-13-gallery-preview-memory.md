@@ -374,6 +374,40 @@ when the partition is removed.
 The common thread: **every one of these is a defect the gates cannot see, and three of the four
 needed a viewport I had not measured.** A phone-sized measurement is not a measurement.
 
+**A second checker pass, on those fixes, found that one of them had broken something else.** Rooting
+the observer at the tile's scroller — correct in itself — turned a flicker into a steady wrong
+picture on the one surface with a NESTED scroller: the gallery's looks panel is `overflow-y-auto`
+inside the dialog's own scroller, and the pool's frame layer is a sibling of that panel rather than
+a child, so the panel cannot clip it. A look tile scrolled out of the panel was still inside the
+dialog, kept its slot, and painted over the gallery rows above. Measured at 390x844: six frames
+outside the panel, four of them on top of other tiles.
+
+Two things were wrong underneath, and the second is the interesting one:
+
+- **The clip had to be per tile, not per pool.** One box measured from the layer is right until a
+  grid nests a second scroller inside the first. Each slot now carries the intersection of its
+  tile's box with every ancestor that clips it, and renders inside TWO boxes — an outer one at the
+  visible part that clips, and an inner one at the tile's whole rect, offset back into place. The
+  frame has to keep the tile's full size because the renderer scales its output to the host box, so
+  cropping that box would shrink the slide instead of cropping it.
+- **An inner scroll is not a layout move**, and positions were only recomputed when the layout
+  moved. So the first fix changed nothing on its own: a slot kept the box it had when its tile was
+  fully visible. The pool now listens for scroll on any scroller BETWEEN a tile and the layer and
+  re-measures on an animation frame — `rect` only, no slot changes hands, no document is written.
+
+Also from that pass, and worth keeping: `clipOf` was emitting `10px 20px 0px 0px 0px` for an
+elliptical radius, five tokens in a four-corner shorthand, which browsers drop entirely — so the
+"fix" for square corners produced square corners. And a latent one: with slots partitioned by
+identity, a grid that MIXED identities could reach a state where every slot belongs to the other
+one and the grid renders permanently blank; the pool now re-keys a spare slot as a last resort,
+accepting one teardown rather than showing nothing.
+
+**What the pool costs with a looks panel open**, measured after the fix, because the browse figures
+above never opened one: 390x844 goes 6 frames → 11 with a 16-variant panel; 1440x900 goes 11 → 21,
+and stays there. The growth is real demand — a desktop panel shows all 16 variants at once — and it
+is bounded per GRID rather than per panel: opening four different panels in turn at 1440x900 read
+11 / 11 / 11 / 14 frames, reusing the same pool each time.
+
 ### What this costs, honestly
 
 - **10 frames are held for the grid's lifetime**, including while you are looking at a filtered

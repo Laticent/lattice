@@ -12,7 +12,9 @@
   instrument's own spread is ±200MB, so the counts are the near-deterministic half of this. The
   pool holds ten frames, or as many as the grid has tiles on screen (stopping at 28) — so a
   desktop gallery showing twelve tiles holds twelve, and no tile a reader is looking at ever goes
-  without a preview.
+  without a preview. Opening a 16-variant looks panel grows it further (11 → 21 frames at
+  1440×900), and that growth is per GRID rather than per panel: four panels opened in turn reuse
+  the same pool.
 - **Fixed: a patched-in slide lost the specimen flag's overflow suppression.** A catalog tile is a
   SPECIMEN — a sample the author did not write and cannot fix — so its overflow watcher resolves to
   `off`, and at `off` the runtime deliberately installs "no probe, no observer, no resize handler".

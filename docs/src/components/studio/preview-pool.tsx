@@ -93,7 +93,17 @@ export type PooledPreviewProps = {
 	specimen?: boolean;
 };
 
-type Rect = { top: number; left: number; width: number; height: number; radius?: string };
+type Box = { top: number; left: number; width: number; height: number };
+/** Where a slot's frame goes, and how much of it the reader may see. `clip` is the part of the
+ *  tile that its own scrolling ancestors have not hidden — see `visibleBox`. */
+type Rect = Box & { radius?: string; clip?: Box };
+
+/** Does this element CLIP what overflows it? Asked positively, never as `!== 'visible'`: an
+ *  unresolved computed style (jsdom answers `''` for a plain div) would otherwise read as clipping,
+ *  and a chain of them clips everything down to nothing. */
+function clips(cs: CSSStyleDeclaration): boolean {
+	return /(auto|scroll|hidden|clip|overlay)/.test(`${cs.overflowX} ${cs.overflowY} ${cs.overflow}`);
+}
 
 /**
  * The rounding a tile's own card imposes on its preview, as a `border-radius` shorthand.
@@ -115,7 +125,7 @@ function clipOf(el: HTMLElement): string {
 	const box = el.getBoundingClientRect();
 	for (let a = el.parentElement; a; a = a.parentElement) {
 		const cs = getComputedStyle(a);
-		if (cs.overflow === 'visible') continue;
+		if (!clips(cs)) continue;
 		const r = a.getBoundingClientRect();
 		const bw = (side: string) => parseFloat(cs.getPropertyValue(`border-${side}-width`)) || 0;
 		// Only a plain px length can have a border width subtracted from it. A percentage (`50%`)
@@ -124,9 +134,17 @@ function clipOf(el: HTMLElement): string {
 		// where `parseFloat('50%') + 'px'` would be a different shape altogether.
 		// The two ADJACENT sides decide the inset, not one: an asymmetric border (`border-l-4
 		// border-t`) insets a corner by the smaller of the two it touches.
+		// ONE TOKEN PER CORNER, always, or the four-corner shorthand below is invalid and the browser
+		// drops the whole declaration — which paints SQUARE corners, the exact defect this exists to
+		// stop. An elliptical radius (`10px 20px`) computes as two tokens, so only the horizontal one
+		// survives here; the shape is a hair off and the declaration is legal. A percentage is one
+		// token and passes through, because `parseFloat('50%') + 'px'` would be a different shape
+		// altogether. Only a plain px length can have a border width subtracted from it.
+		// The two ADJACENT sides decide the inset, not one: an asymmetric border (`border-l-4
+		// border-t`) insets a corner by the smaller of the two it touches.
 		const inset = (value: string, a1: string, a2: string) => {
-			const px = /^[\d.]+px$/.test(value.trim());
-			return px ? `${Math.max(0, parseFloat(value) - Math.min(bw(a1), bw(a2)))}px` : value;
+			const one = value.trim().split(/\s+/)[0] || '0px';
+			return /^[\d.]+px$/.test(one) ? `${Math.max(0, parseFloat(one) - Math.min(bw(a1), bw(a2)))}px` : one;
 		};
 		const near = (x: number, y: number, w: number) => Math.abs(x - y) <= w + 1;
 		const top = near(box.top, r.top, bw('top'));
@@ -188,28 +206,53 @@ function identityKey(p: PooledPreviewProps): string {
 }
 
 /**
- * The box a tile has to be inside to count as ON SCREEN: the nearest scrolling ancestor of the
- * pool's layer, intersected with the viewport.
+ * How much of a tile the reader can actually see, in viewport coordinates — its own box,
+ * intersected with every ancestor that clips it, and with the viewport.
  *
- * Both halves are needed. The scroller alone would call a tile visible while the dialog holding it
- * is itself scrolled out of the window; the viewport alone counted tiles the scroller had clipped
- * away — the measured failure, 19 "on screen" against 12 really visible.
+ * PER TILE, walking the tile's OWN ancestors, and that is the whole point. An earlier cut measured
+ * one box for the pool (the layer's scrolling ancestor) and applied it to every tile, which is
+ * right until a grid nests a second scroller inside the first — the add-slide gallery's looks
+ * panel is `max-h-[46vh] overflow-y-auto` INSIDE the dialog's own scroller. A look tile scrolled
+ * out of that panel is still inside the dialog, so the pool called it visible, gave it a slot, and
+ * painted its frame at the tile's coordinates: outside the panel, on top of the gallery rows above
+ * it. Measured at 390x844, six frames bleeding, four of them over other tiles, and steady — not a
+ * flicker. The frames cannot be clipped by the panel because they are not inside it (the layer
+ * spans the OUTER scroll content), so the pool has to do the clipping itself, which is what the
+ * returned box is for.
+ *
+ * `overflow: hidden` counts as clipping here, unlike in `scrollParent` where only scrollable
+ * ancestors qualify: this asks what is VISIBLE, and a hidden overflow hides just as well.
  */
-function clipRect(layer: HTMLElement | null): { top: number; bottom: number; left: number; right: number } {
-	const view = { top: 0, left: 0, bottom: typeof window === 'undefined' ? 0 : window.innerHeight, right: typeof window === 'undefined' ? 0 : window.innerWidth };
-	if (!layer || typeof getComputedStyle !== 'function') return view;
-	for (let a: HTMLElement | null = layer.parentElement; a; a = a.parentElement) {
-		const cs = getComputedStyle(a);
-		if (!/(auto|scroll|overlay)/.test(cs.overflowY + cs.overflowX)) continue;
-		const r = a.getBoundingClientRect();
-		return { top: Math.max(view.top, r.top), bottom: Math.min(view.bottom, r.bottom), left: Math.max(view.left, r.left), right: Math.min(view.right, r.right) };
+function visibleBox(el: HTMLElement): { top: number; bottom: number; left: number; right: number } {
+	const b = el.getBoundingClientRect();
+	let top = b.top;
+	let bottom = b.bottom;
+	let left = b.left;
+	let right = b.right;
+	if (typeof getComputedStyle === 'function') {
+		for (let a: HTMLElement | null = el.parentElement; a; a = a.parentElement) {
+			const cs = getComputedStyle(a);
+			if (!clips(cs)) continue;
+			const r = a.getBoundingClientRect();
+			top = Math.max(top, r.top);
+			bottom = Math.min(bottom, r.bottom);
+			left = Math.max(left, r.left);
+			right = Math.min(right, r.right);
+		}
 	}
-	return view;
+	if (typeof window !== 'undefined') {
+		top = Math.max(top, 0);
+		left = Math.max(left, 0);
+		bottom = Math.min(bottom, window.innerHeight);
+		right = Math.min(right, window.innerWidth);
+	}
+	return { top, bottom, left, right };
 }
 
 /** The element a tile actually scrolls inside, or null for the viewport. The observer roots here
- *  so its `rootMargin` means something (see the call site), and `clipRect` answers the same
- *  question from the layer's side. */
+ *  so its `rootMargin` means something (see the call site). What is VISIBLE is a different
+ *  question, asked per tile by `visibleBox` — a tile can be inside its scroller's subtree and
+ *  scrolled out of view, and only one of those two is about clipping. */
 function scrollParent(el: HTMLElement): HTMLElement | null {
 	if (typeof getComputedStyle !== 'function') return null;
 	for (let a: HTMLElement | null = el.parentElement; a; a = a.parentElement) {
@@ -268,7 +311,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	const tiles = React.useRef(new Map<number, Tile>());
 	const seq = React.useRef(0);
 	// slot index → the tile it currently shows, and the shape its document was last built for.
-	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string }[]>([]);
+	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number }[]>([]);
 	const slotsRef = React.useRef(slots);
 	slotsRef.current = slots;
 	const pending = React.useRef<number | null>(null);
@@ -283,8 +326,49 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		if (!layer) return { top: 0, left: 0, width: 0, height: 0 };
 		const a = el.getBoundingClientRect();
 		const b = layer.getBoundingClientRect();
-		return { top: a.top - b.top, left: a.left - b.left, width: a.width, height: a.height, radius: clipOf(el) };
+		// The CLIP box comes along, in the same coordinates: the part of the tile its own scrolling
+		// ancestors leave visible. Without it a frame paints wherever its tile's coordinates say,
+		// even where the tile itself is hidden — see `visibleBox`.
+		const v = visibleBox(el);
+		return {
+			top: a.top - b.top,
+			left: a.left - b.left,
+			width: a.width,
+			height: a.height,
+			radius: clipOf(el),
+			clip: { top: v.top - b.top, left: v.left - b.left, width: Math.max(0, v.right - v.left), height: Math.max(0, v.bottom - v.top) },
+		};
 	}, []);
+
+	/**
+	 * Re-measure where the assigned slots go, WITHOUT re-deciding who holds one.
+	 *
+	 * The layer scrolls with the grid's own scroll content, so an outer scroll moves tiles and
+	 * frames together and needs no work at all. A NESTED scroller does not: the gallery's looks
+	 * panel scrolls its tiles underneath a layer that stays put, so a slot's offset from its tile
+	 * changes with every wheel tick. Positions used to be recomputed only when the LAYOUT moved,
+	 * and an inner scroll is not a layout move — so a look tile scrolled halfway out of the panel
+	 * kept the box it had when it was fully in, and its frame painted over the gallery rows above.
+	 *
+	 * Cheap by construction: it touches `rect` only, so no slot changes hands and no document is
+	 * written. Driven by rAF rather than the APPLY_MS throttle, because a frame that lags its tile
+	 * by a fifth of a second while you scroll is exactly the jank the layer was placed inside the
+	 * scroll content to avoid.
+	 */
+	const reposition = React.useCallback(() => {
+		setSlots((prev) => {
+			let moved = false;
+			const next = prev.map((s) => {
+				const t = s.tileId === null ? null : tiles.current.get(s.tileId);
+				if (!t) return s;
+				const rect = rectOf(t.el);
+				if (rect.top === s.rect.top && rect.left === s.rect.left && rect.width === s.rect.width && rect.height === s.rect.height && rect.clip?.top === s.rect.clip?.top && rect.clip?.height === s.rect.clip?.height) return s;
+				moved = true;
+				return { ...s, rect };
+			});
+			return moved ? next : prev;
+		});
+	}, [rectOf]);
 
 	/**
 	 * Re-derive slot assignments from the current in-band set.
@@ -322,16 +406,18 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 			// scroll the most recently entered tiles are the ones BELOW the fold — so recency
 			// prefers tiles nobody can see yet over tiles filling the screen right now.
 			//
-			// ON SCREEN MEANS INSIDE THE SCROLLER, not inside the window, and the difference is not
-			// academic: every grid this serves scrolls inside a container (the picker's dialog, the
-			// phone sheet, Reshape's `max-h-[60vh]` popover, the overview's flex column). Measuring
-			// against `window.innerHeight` counted tiles the scroller had clipped away as visible —
-			// 19 "on screen" against 12 really visible at one desktop offset — which collapsed this
-			// three-tier order into the pure LRU the paragraph above says is not enough.
-			const clip = clipRect(layerRef.current);
+			// ON SCREEN MEANS INSIDE THE SCROLLERS THE TILE ITSELF SITS IN, not inside the window, and
+			// the difference is not academic: every grid this serves scrolls inside a container (the
+			// picker's dialog, the phone sheet, Reshape's `max-h-[60vh]` popover, the overview's flex
+			// column), and the gallery nests a SECOND one — the looks panel — inside the first.
+			// Measuring against `window.innerHeight` counted tiles the scroller had clipped away as
+			// visible (19 "on screen" against 12 really visible at one desktop offset), and measuring
+			// against one box for the whole pool got the nested case wrong the same way one level
+			// down. Both collapse this three-tier order into the pure LRU the paragraph above says is
+			// not enough, by making almost everything rank 0.
 			const seen = (t: Tile) => {
-				const r = t.el.getBoundingClientRect();
-				return r.height > 0 && r.bottom > clip.top && r.top < clip.bottom && r.right > clip.left && r.left < clip.right;
+				const v = visibleBox(t.el);
+				return v.bottom - v.top > 1 && v.right - v.left > 1;
 			};
 			const ranked = [...tiles.current.values()].filter(holding).map((t) => ({ t, on: seen(t) }));
 			const rank = (x: { t: Tile; on: boolean }) => (x.on ? 0 : x.t.inBand ? 1 : 2);
@@ -382,10 +468,23 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
 				let slot = free.find((s) => s.key === k) ?? free[0];
 				if (!slot && next.length < cap) {
-					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk };
+					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
 					next.push(slot);
 				}
-				if (!slot) continue; // no slot this pass; the tile waits for one rather than showing another's
+				if (!slot) {
+					// LAST RESORT: re-key a free slot of another identity. Bumping `gen` makes React unmount
+					// and remount it, which destroys a document — the thing this module exists to avoid — so it
+					// happens only when the alternative is a tile that can never be shown at all. Reachable only
+					// in a grid that MIXES identities (none does today) once every slot belongs to the other one:
+					// without this the grid would render permanently blank, because nothing re-runs this pass
+					// while it sits still. A blank grid is a worse answer than one recycled frame.
+					const spare = next.find((x) => x.tileId === null);
+					if (!spare) continue;
+					spare.id = idk;
+					spare.gen++;
+					spare.props = null;
+					slot = spare;
+				}
 				slot.tileId = t.id;
 				slot.props = t.props;
 				slot.key = k;
@@ -395,10 +494,37 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		}, wait);
 	}, [rectOf]);
 
+	/** Scrollers BETWEEN a tile and the layer — the ones whose scrolling moves tiles under a layer
+	 *  that stays still. Counted once per element and released with the pool. */
+	const nested = React.useRef(new Map<HTMLElement, () => void>());
+	const raf = React.useRef(0);
+	const watchNested = React.useCallback(
+		(el: HTMLElement) => {
+			const wrapper = layerRef.current?.parentElement;
+			if (!wrapper || typeof window === 'undefined') return;
+			for (let a: HTMLElement | null = el.parentElement; a && a !== wrapper && wrapper.contains(a); a = a.parentElement) {
+				if (nested.current.has(a) || typeof getComputedStyle !== 'function') continue;
+				const cs = getComputedStyle(a);
+				if (!/(auto|scroll|overlay)/.test(`${cs.overflowX} ${cs.overflowY}`)) continue;
+				const onScroll = () => {
+					if (raf.current) return;
+					raf.current = window.requestAnimationFrame(() => {
+						raf.current = 0;
+						reposition();
+					});
+				};
+				a.addEventListener('scroll', onScroll, { passive: true });
+				nested.current.set(a, () => a.removeEventListener('scroll', onScroll));
+			}
+		},
+		[reposition],
+	);
+
 	const api = React.useMemo<PoolApi>(
 		() => ({
 			register(tile) {
 				tiles.current.set(tile.id, tile);
+				watchNested(tile.el);
 				schedule();
 			},
 			unregister(id) {
@@ -422,7 +548,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				if (t.inBand) schedule();
 			},
 		}),
-		[schedule],
+		[schedule, watchNested],
 	);
 
 	// The layout moving is the ONLY thing that invalidates a position, so it is the only thing
@@ -436,6 +562,10 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 		() => () => {
 			if (pending.current !== null) window.clearTimeout(pending.current);
 			pending.current = null;
+			if (raf.current) window.cancelAnimationFrame(raf.current);
+			raf.current = 0;
+			for (const off of nested.current.values()) off();
+			nested.current.clear();
 		},
 		[],
 	);
@@ -455,21 +585,32 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 				{/* The frames. `aria-hidden` and `pointer-events-none`: every tile's chrome is a real
 				    button in `children` above, and this layer must never take a click or a tab stop. */}
 				<div ref={layerRef} aria-hidden className="pointer-events-none absolute inset-0">
-					{slots.map((s, i) => (
-						<div
-							// KEYED BY SLOT, NEVER BY TILE — the whole mechanism in one line. React then
-							// reuses this DeckPreview across reassignments, so its iframe is never
-							// unmounted and the new sample reaches a live document through the patch path.
-							// Keying by tile would unmount and remount, which is precisely the teardown
-							// WebKit does not reclaim.
-							// biome-ignore lint/suspicious/noArrayIndexKey: the slot index IS the identity here.
-							key={i}
-							className="absolute overflow-hidden"
-							style={{ top: s.rect.top, left: s.rect.left, width: s.rect.width, height: s.rect.height, borderRadius: s.rect.radius, visibility: s.tileId === null ? 'hidden' : 'visible' }}
-						>
-							{s.props ? <DeckPreview {...s.props} mermaid={s.props.mermaid ?? hasMermaid(s.props.sample)} active className="size-full" aria-hidden /> : null}
-						</div>
-					))}
+					{slots.map((s, i) => {
+						// TWO BOXES, and the outer one is what stops a frame painting where its tile is
+						// hidden. The OUTER box is the visible part of the tile (`rect.clip`) and clips;
+						// the INNER box is the tile's WHOLE rect, offset back into place. The frame has to
+						// keep the tile's full size because `single-slide-render` scales its render to the
+						// host box — cropping that box would shrink the slide instead of cropping it.
+						const clip = s.rect.clip ?? { top: s.rect.top, left: s.rect.left, width: s.rect.width, height: s.rect.height };
+						const hidden = s.tileId === null || clip.width < 1 || clip.height < 1;
+						return (
+							<div
+								// KEYED BY SLOT, NEVER BY TILE — the whole mechanism in one line. React then
+								// reuses this DeckPreview across reassignments, so its iframe is never
+								// unmounted and the new sample reaches a live document through the patch path.
+								// Keying by tile would unmount and remount, which is precisely the teardown
+								// WebKit does not reclaim.
+								// biome-ignore lint/suspicious/noArrayIndexKey: the slot index IS the identity here.
+								key={`${i}:${s.gen}`}
+								className="absolute overflow-hidden"
+								style={{ top: clip.top, left: clip.left, width: clip.width, height: clip.height, visibility: hidden ? 'hidden' : 'visible' }}
+							>
+								<div className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, borderRadius: s.rect.radius }}>
+									{s.props ? <DeckPreview {...s.props} mermaid={s.props.mermaid ?? hasMermaid(s.props.sample)} active className="size-full" aria-hidden /> : null}
+								</div>
+							</div>
+						);
+					})}
 				</div>
 			</div>
 		</PoolContext.Provider>
