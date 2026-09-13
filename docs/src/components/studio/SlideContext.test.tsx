@@ -44,11 +44,11 @@ const lintVocab = {
 };
 const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'accent'] }];
 
-function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
+function setup(chunk: string, source = chunk, savedFinishNames: string[] = [], query = '') {
 	const onMutate = vi.fn();
 	const savedFinish = savedFinishNames.map((n) => ({ id: n, name: n, label: n.charAt(0).toUpperCase() + n.slice(1) }));
 	render(
-		<SlideContextBody open chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinish={savedFinish} onMutate={onMutate} view="group" onViewChange={() => {}} />,
+		<SlideContextBody open chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinish={savedFinish} onMutate={onMutate} view="group" onViewChange={() => {}} query={query} />,
 	);
 	// Apply the captured transform to the chunk to see the resulting tokens.
 	const applied = () => getClassTokens(onMutate.mock.calls.at(-1)?.[0](chunk));
@@ -57,12 +57,28 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	return { onMutate, applied, sourceOut };
 }
 
-// The drawer is dynamic pill-tabs — controls live under Look / Notes / Chrome / Marks /
-// Accent / Motion / Comments, in reach order. Switch to the tab that owns a control
-// before interacting with it. (Status + Decoration merged into Marks on 2026-08-18: both
-// stamp something on top of the slide's content, and the tab separates them by whether
-// the mark carries meaning.)
-const goTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
+// Controls live under Look / Notes / Chrome / Marks / Accent / Motion / Comments, in
+// reach order. Switch to the section that owns a control before interacting with it.
+// (Status + Decoration merged into Marks on 2026-08-18: both stamp something on top of
+// the slide's content, and the section separates them by whether the mark carries meaning.)
+//
+// TWO ROUTES, because the strip has two: the first two sections are shortcut pills, the
+// rest are in the chevron's menu. The helper takes whichever exists, which is what a
+// person does — and keeps every call site below written as a section NAME rather than as
+// a route that would have to change if the shortcut count ever does.
+// ASYNC, and it has to be: the chevron is a Radix DropdownMenu, which opens on a real
+// pointer sequence. `fireEvent.click` never opens it — `userEvent` is the idiom the Select
+// helpers below already use here for the same reason.
+const goTab = async (name: string) => {
+	const user = userEvent.setup();
+	const pill = screen.queryByRole('tab', { name });
+	if (pill) {
+		await user.click(pill);
+		return;
+	}
+	await user.click(screen.getByRole('button', { name: /all sections/ }));
+	await user.click(await screen.findByRole('menuitem', { name }));
+};
 
 // The finish/brand-bar/stamp/tone pickers are shadcn (Radix) Selects now — a
 // combobox trigger + a portal listbox — so drive them the way a user does:
@@ -89,12 +105,12 @@ async function selectedOptionText(comboName: RegExp): Promise<string> {
 describe('SlideContextBody controls', () => {
 	beforeEach(() => localStorage.clear());
 
-	it('shows a Comments tab only with a deckId, and adds a comment for the slide', () => {
+	it('shows a Comments tab only with a deckId, and adds a comment for the slide', async () => {
 		const onMutate = vi.fn();
 		render(
-			<SlideContextBody open deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} />,
+			<SlideContextBody open deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} query="" />,
 		);
-		goTab('Comments');
+		await goTab('Comments');
 		fireEvent.change(screen.getByRole('textbox', { name: 'New comment for this slide' }), { target: { value: 'Check this figure.' } });
 		fireEvent.click(screen.getByRole('button', { name: /add comment/i }));
 		const stored = listComments('d1');
@@ -129,9 +145,9 @@ describe('SlideContextBody controls', () => {
 		expect(applied()).toEqual(['kpi', 'scale-xl']);
 	});
 
-	it('single-selects a tone (and swaps, not stacks)', () => {
+	it('single-selects a tone (and swaps, not stacks)', async () => {
 		const { applied } = setup('<!-- _class: kpi tone-warn -->\n\n# Hi');
-		goTab('Marks');
+		await goTab('Marks');
 		fireEvent.click(screen.getByRole('radio', { name: 'Fail' }));
 		const toks = applied();
 		expect(toks).toContain('tone-fail');
@@ -140,7 +156,7 @@ describe('SlideContextBody controls', () => {
 
 	it('sets a per-slide brand bar (spectrum) from the Accent tab', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
-		goTab('Accent');
+		await goTab('Accent');
 		await pickOption(/brand bar/i, 'None');
 		expect(applied()).toContain('spectrum-off');
 	});
@@ -151,7 +167,7 @@ describe('SlideContextBody controls', () => {
 	it('reads the brand bar as Auto, naming the deck `spectrum:` value it resolves to', async () => {
 		const src = '---\nspectrum: solid\n---\n\n<!-- _class: kpi -->\n\n# Hi';
 		setup('<!-- _class: kpi -->\n\n# Hi', src);
-		goTab('Accent');
+		await goTab('Accent');
 		const label = await selectedOptionText(/brand bar/i);
 		expect(label).toMatch(/^Auto — Solid$/);
 		expect(label).not.toMatch(/inherit/i);
@@ -164,7 +180,7 @@ describe('SlideContextBody controls', () => {
 	// `autoLabel` naming what its auto LANDS ON, so every head reads one shape.
 	it('resolves the head past a value that is itself "Auto", instead of collapsing to a bare word', async () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
-		goTab('Accent');
+		await goTab('Accent');
 		// `rule`'s auto entry is labeled "Auto" and carries autoLabel 'masthead default'.
 		expect(await selectedOptionText(/heading rule/i)).toBe('Auto — Hairline');
 	});
@@ -173,7 +189,7 @@ describe('SlideContextBody controls', () => {
 	// what a slide will get without opening the deck Inspector, on every axis alike.
 	it('every Accent head carries what it resolves to', async () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
-		goTab('Accent');
+		await goTab('Accent');
 		for (const axis of [/brand bar/i, /bar placement/i, /heading rule/i, /eyebrow/i, /headline alignment/i]) {
 			const label = await selectedOptionText(axis);
 			expect(label, `${axis} head`).toMatch(/^Auto — .+/);
@@ -182,21 +198,21 @@ describe('SlideContextBody controls', () => {
 
 	it('overrides the stamp SHAPE from the Stamp style picker', async () => {
 		const { applied } = setup('<!-- _class: kpi confidential -->\n\n# Hi');
-		goTab('Marks');
+		await goTab('Marks');
 		await pickOption(/stamp style/i, 'Seal');
 		expect(applied()).toContain('stamp-seal');
 	});
 
 	it('picking the inherited/default stamp head clears the per-slide shape', async () => {
 		const { applied } = setup('<!-- _class: kpi confidential stamp-notch -->\n\n# Hi');
-		goTab('Marks');
+		await goTab('Marks');
 		await pickOption(/stamp style/i, /Default/);
 		expect(applied().some((t) => t.startsWith('stamp-'))).toBe(false);
 	});
 
 	it('sets the tone SHAPE without disturbing the semantic tone', async () => {
 		const { applied } = setup('<!-- _class: kpi tone-pass -->\n\n# Hi');
-		goTab('Marks');
+		await goTab('Marks');
 		await pickOption(/tone style/i, 'Edge');
 		const toks = applied();
 		expect(toks).toContain('tone-pass'); // semantic tone untouched
@@ -206,22 +222,22 @@ describe('SlideContextBody controls', () => {
 	it('reads the stamp shape as Auto, naming the deck `stamp:` value it resolves to', async () => {
 		const src = '---\nstamp: seal\n---\n\n<!-- _class: kpi confidential -->\n\n# Hi';
 		setup('<!-- _class: kpi confidential -->\n\n# Hi', src);
-		goTab('Marks');
+		await goTab('Marks');
 		const label = await selectedOptionText(/stamp style/i);
 		expect(label).toMatch(/^Auto — Seal$/);
 		expect(label).not.toMatch(/inherit/i);
 	});
 
-	it('toggles the silent chrome switch', () => {
+	it('toggles the silent chrome switch', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
-		goTab('Chrome');
+		await goTab('Chrome');
 		fireEvent.click(screen.getByRole('switch', { name: /silent/i }));
 		expect(applied()).toContain('silent');
 	});
 
-	it('toggles the section rail off (no-progress), independent of silent', () => {
+	it('toggles the section rail off (no-progress), independent of silent', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
-		goTab('Chrome');
+		await goTab('Chrome');
 		fireEvent.click(screen.getByRole('switch', { name: /hide section rail/i }));
 		expect(applied()).toContain('no-progress');
 	});
@@ -240,9 +256,9 @@ describe('SlideContextBody controls', () => {
 		expect(toks).not.toContain('finish-finish-velvet');
 	});
 
-	it('applies a decoration tint phrase (token + placement together)', () => {
+	it('applies a decoration tint phrase (token + placement together)', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
-		goTab('Marks');
+		await goTab('Marks');
 		fireEvent.click(screen.getByRole('radio', { name: 'Edge' }));
 		const toks = applied();
 		expect(toks).toContain('tint-edge');
@@ -254,12 +270,12 @@ describe('SlideContextBody controls', () => {
 		const edited = '<!-- _class: kpi dark scale-xl -->\n\n# Hi';
 		const onMutate = vi.fn();
 		const { rerender } = render(
-			<SlideContextBody open chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} />,
+			<SlideContextBody open chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} query="" />,
 		);
 		expect(screen.getByRole('button', { name: /reset slide/i })).toBeDisabled();
 		// Simulate an edit landing (the source changed under the drawer).
 		rerender(
-			<SlideContextBody open chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} />,
+			<SlideContextBody open chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} query="" />,
 		);
 		const reset = screen.getByRole('button', { name: /reset slide/i });
 		expect(reset).not.toBeDisabled();
@@ -297,13 +313,13 @@ describe('SlideContextBody controls', () => {
 		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
 	});
 
-	it('each tab explains itself — a tab intro plus per-control help text', () => {
+	it('each tab explains itself — a tab intro plus per-control help text', async () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
 		// Look tab (default): the group intro + a field-level description are both present.
 		expect(screen.getByText(/how this one slide looks/i)).toBeTruthy();
 		expect(screen.getByText(/light or dark, for this slide alone/i)).toBeTruthy();
 		// Switching tabs swaps in that tab's own intro.
-		goTab('Chrome');
+		await goTab('Chrome');
 		expect(screen.getByText(/the slide's furniture/i)).toBeTruthy();
 		expect(screen.getByText(/section-progress dots/i)).toBeTruthy();
 		// The row descriptions are CLAUSES now; the long explanation moved behind a ⓘ,
@@ -311,9 +327,9 @@ describe('SlideContextBody controls', () => {
 		expect(screen.getByRole('button', { name: 'More about Hide rail' })).toBeTruthy();
 	});
 
-	it('authors an accessibility description as a describe: comment under the Notes tab', () => {
+	it('authors an accessibility description as a describe: comment under the Notes tab', async () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
-		goTab('Notes');
+		await goTab('Notes');
 		const box = screen.getByRole('textbox', { name: 'Accessibility description for this slide' });
 		fireEvent.change(box, { target: { value: 'A bar chart, revenue up 40%.' } });
 		fireEvent.blur(box);
@@ -323,9 +339,9 @@ describe('SlideContextBody controls', () => {
 		expect(out).not.toMatch(/<!-- note:.*bar chart/);
 	});
 
-	it('authors a read-as caption as a caption: comment under the Notes tab', () => {
+	it('authors a read-as caption as a caption: comment under the Notes tab', async () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
-		goTab('Notes');
+		await goTab('Notes');
 		const box = screen.getByRole('textbox', { name: 'Read-as caption for this slide' });
 		fireEvent.change(box, { target: { value: 'Revenue grew forty percent across three quarters.' } });
 		fireEvent.blur(box);
@@ -333,7 +349,7 @@ describe('SlideContextBody controls', () => {
 		expect(out).toContain('<!-- caption: Revenue grew forty percent across three quarters. -->');
 	});
 
-	it('the note field says the note is PRIVATE — never read aloud, never in the caption track', () => {
+	it('the note field says the note is PRIVATE — never read aloud, never in the caption track', async () => {
 		// These two cells used to assert the opposite, because the product did the opposite:
 		// the field promised "Read aloud in Present", and with a caption present it explained
 		// that the caption "overrides the note in read-aloud". Both sentences were true of a
@@ -342,24 +358,24 @@ describe('SlideContextBody controls', () => {
 		// is nothing for a caption to override and nothing to read aloud, and the copy has to
 		// say so on the one surface where an author decides what to put in that box.
 		setup('<!-- _class: kpi -->\n\n# Q3');
-		goTab('Notes');
+		await goTab('Notes');
 		expect(screen.getByText(/Yours alone/i)).toBeTruthy();
 		expect(screen.getByText(/Never read aloud/i)).toBeTruthy();
 		expect(screen.queryByText(/Read aloud in Present/i)).toBeNull();
 	});
 
-	it('says the same thing WITH a caption set — the two channels are independent', () => {
+	it('says the same thing WITH a caption set — the two channels are independent', async () => {
 		// The copy no longer varies on the caption, because the relationship it described is
 		// gone: a caption replaces the GENERATED narration, and the note was never part of it.
 		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- caption: The board-facing line. -->');
-		goTab('Notes');
+		await goTab('Notes');
 		expect(screen.getByText(/Yours alone/i)).toBeTruthy();
 		expect(screen.queryByText(/overrides the note/i)).toBeNull();
 	});
 
-	it('the caption field is separate from the speaker note (both channels coexist)', () => {
+	it('the caption field is separate from the speaker note (both channels coexist)', async () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- Say this warmly. -->');
-		goTab('Notes');
+		await goTab('Notes');
 		const cap = screen.getByRole('textbox', { name: 'Read-as caption for this slide' });
 		fireEvent.change(cap, { target: { value: 'The board-facing line.' } });
 		fireEvent.blur(cap);
@@ -368,9 +384,9 @@ describe('SlideContextBody controls', () => {
 		expect(out).toContain('<!-- Say this warmly. -->'); // the note survives untouched
 	});
 
-	it('the description field is separate from the speaker note (both coexist)', () => {
+	it('the description field is separate from the speaker note (both coexist)', async () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
-		goTab('Notes');
+		await goTab('Notes');
 		const note = screen.getByRole('textbox', { name: 'Speaker note for this slide' });
 		fireEvent.change(note, { target: { value: 'Pause here.' } });
 		fireEvent.blur(note);
@@ -383,7 +399,7 @@ describe('SlideContextBody controls', () => {
 	it('an UNCONFIRMED AI draft does NOT commit on blur (a wrong alt is worse than none)', async () => {
 		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
 		const { onMutate } = setup('<!-- _class: kpi -->\n\n# Q3');
-		goTab('Notes');
+		await goTab('Notes');
 		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
 		// The draft lands in the field and the confirm affordance appears…
 		await screen.findByRole('button', { name: /use it/i });
@@ -396,7 +412,7 @@ describe('SlideContextBody controls', () => {
 	it('clicking "Use it" commits the AI draft as a describe: comment', async () => {
 		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
 		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
-		goTab('Notes');
+		await goTab('Notes');
 		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
 		fireEvent.click(await screen.findByRole('button', { name: /use it/i }));
 		expect(onMutate).toHaveBeenCalled();
@@ -406,7 +422,7 @@ describe('SlideContextBody controls', () => {
 	it('editing the AI draft by hand takes ownership — a subsequent blur DOES commit', async () => {
 		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
 		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
-		goTab('Notes');
+		await goTab('Notes');
 		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
 		const box = await screen.findByRole('textbox', { name: 'Accessibility description for this slide' });
 		// Typing clears the AI-draft flag (the author now owns the text).
@@ -417,10 +433,10 @@ describe('SlideContextBody controls', () => {
 		expect(sourceOut()).toContain('<!-- describe: Edited by hand. -->');
 	});
 
-	it('with no cloud model, the Description offers a Connect button instead of Generate', () => {
+	it('with no cloud model, the Description offers a Connect button instead of Generate', async () => {
 		mockStatus.mockReturnValue({ openRouterReady: false } as ReturnType<typeof useArchitectStatus>);
 		setup('<!-- _class: kpi -->\n\n# Q3');
-		goTab('Notes');
+		await goTab('Notes');
 		// Generate is gone (it can't work without cloud); a one-tap Connect stands in.
 		expect(screen.queryByRole('button', { name: /generate/i })).toBeNull();
 		const connect = screen.getByRole('button', { name: /connect a cloud model/i });
@@ -428,10 +444,10 @@ describe('SlideContextBody controls', () => {
 		expect(mockConnect).toHaveBeenCalledTimes(1);
 	});
 
-	it('once a cloud model is connected, the Description shows Generate (not Connect)', () => {
+	it('once a cloud model is connected, the Description shows Generate (not Connect)', async () => {
 		mockStatus.mockReturnValue({ openRouterReady: true } as ReturnType<typeof useArchitectStatus>);
 		setup('<!-- _class: kpi -->\n\n# Q3');
-		goTab('Notes');
+		await goTab('Notes');
 		expect(screen.getByRole('button', { name: /generate/i })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /connect a cloud model/i })).toBeNull();
 	});
@@ -442,39 +458,38 @@ describe('SlideContextBody controls', () => {
 	// no label/control row (the speaker note, a chip group) is still reachable, and that
 	// the tabs get out of the way.
 
-	it('search reaches a control in a tab that is not open', async () => {
-		const user = userEvent.setup();
-		setup('<!-- _class: kpi -->\n\n# Hi');
-		// Look is the open tab, so Chrome's rows are not rendered at all.
+	// The search FIELD lives in the scope banner (StudioShell) now, so the round trip from
+	// typing to a filtered panel is asserted in studio.controls.test.tsx against the whole
+	// shell. What belongs here is what this body does with a query it is handed.
+	it('a query reaches a control in a section that is not open', () => {
+		const { rerender } = render(
+			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" onViewChange={() => {}} query="" />,
+		);
+		// Look is the open section, so Chrome's rows are not rendered at all.
 		expect(screen.queryByRole('switch', { name: 'Hide pagination' })).toBeNull();
-		await user.click(screen.getByRole('button', { name: 'Search slide settings' }));
-		await user.type(screen.getByRole('textbox', { name: 'Search slide settings' }), 'page number');
-		expect(await screen.findByRole('switch', { name: 'Hide pagination' })).toBeTruthy();
+		rerender(
+			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" onViewChange={() => {}} query="page number" />,
+		);
+		expect(screen.getByRole('switch', { name: 'Hide pagination' })).toBeTruthy();
 		expect(screen.queryByRole('radio', { name: 'Dark' })).toBeNull();
 	});
 
-	it('finds the speaker note, which is a textarea rather than a settings row', async () => {
-		const user = userEvent.setup();
-		setup('<!-- _class: kpi -->\n\n# Hi');
-		await user.click(screen.getByRole('button', { name: 'Search slide settings' }));
+	it('finds the speaker note, which is a textarea rather than a settings row', () => {
 		// "presenter" belongs to the NOTE block alone — the Notes section's own keywords
 		// carry "speaker", which would (correctly) show the section entire and prove
 		// nothing about the block-level filter.
-		await user.type(screen.getByRole('textbox', { name: 'Search slide settings' }), 'presenter');
-		expect(await screen.findByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
+		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'presenter');
+		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
 		// Its two neighbours in the same section stay out: a block filters like a row.
 		expect(screen.queryByRole('textbox', { name: 'Read-as caption for this slide' })).toBeNull();
 		expect(screen.queryByRole('textbox', { name: 'Accessibility description for this slide' })).toBeNull();
 	});
 
-	it('search results do not move when a value is overridden (hint is not an index)', async () => {
+	it('search results do not move when a value is overridden (hint is not an index)', () => {
 		// 14 rows here compute `hint={inherited ? 'from deck' : undefined}`. While `hint`
 		// was searched, "deck" returned every axis currently INHERITING and none you had
 		// overridden — a search index that changes as you edit the thing being searched.
-		const user = userEvent.setup();
-		setup('<!-- _class: kpi -->\n\n# Hi');
-		await user.click(screen.getByRole('button', { name: 'Search slide settings' }));
-		await user.type(screen.getByRole('textbox', { name: 'Search slide settings' }), 'deck');
+		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'deck');
 		// The inherit hint is not a search term, so nothing is surfaced by the word alone.
 		expect(screen.queryByLabelText('Slide canvas')).toBeNull();
 		expect(screen.queryByLabelText('Brand bar')).toBeNull();
@@ -483,7 +498,7 @@ describe('SlideContextBody controls', () => {
 	it('the list view drops the tabs and renders every section at once', () => {
 		const onMutate = vi.fn();
 		render(
-			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="list" onViewChange={() => {}} />,
+			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="list" onViewChange={() => {}} query="" />,
 		);
 		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
 		expect(screen.getByRole('radio', { name: 'Dark' })).toBeTruthy(); // Look

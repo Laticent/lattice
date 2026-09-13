@@ -16,10 +16,9 @@ import {
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
 import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
-import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
-import { filteringProps, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
+import { filteringProps, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
 import { Toaster } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -760,8 +759,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// question about one panel you are looking at now, so carrying it across a scope
 	// switch (or a reload) would hide most of the panel for a reason the user has
 	// forgotten. The slide scope owns its own pair inside SlideContext.
+	// One pair PER SCOPE, because the one search field lives in the scope banner and serves
+	// whichever scope is open — switching scopes must not carry a query into a panel whose
+	// rows it was never about.
 	const [deckQuery, setDeckQuery] = React.useState('');
 	const [deckSearching, setDeckSearching] = React.useState(false);
+	const [slideQuery, setSlideQuery] = React.useState('');
+	const [slideSearching, setSlideSearching] = React.useState(false);
 	const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(() => loadCheckpoints(loadBootDeck().id));
 	// One-click Undo for the LAST panel settings change — a light complement to ⌘Z /
 	// Version history. Each change captures the pre-change source; Undo restores it.
@@ -4041,19 +4045,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// row and to reveal the no-matches note.
 		<div className={cn('space-y-3 pt-1', SETTING_SCOPE)} {...filteringProps(deckQuery)}>
 			<SettingsFind query={deckQuery}>
-				<SettingsToolbar
-					scope="Deck"
-					view={settingsView}
-					onViewChange={setSettingsView}
-					query={deckQuery}
-					onQueryChange={setDeckQuery}
-					searching={deckSearching}
-					onSearchingChange={setDeckSearching}
-				/>
-				{/* The tabs are the GROUPED view's navigation. A search spans every section,
-				    and the list view has no single active section, so neither has tabs. */}
+				{/* The find toolbar lives in the scope banner above this body — one field on the
+				    header row, serving whichever scope is open. The section strip is the GROUPED
+				    view's navigation: a search spans every section, and the list view has no
+				    single active one, so neither shows it. */}
 				{!deckQuery && settingsView === 'group' && (
-					<PillTabs tabs={deckSections.map(({ value, label }) => ({ value, label }))} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
+					<SettingsSectionTabs tabs={deckSections.map(({ value, label }) => ({ value, label }))} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
 				)}
 				{deckSections.map((s) =>
 					deckQuery || settingsView === 'list' || s.value === deckTab ? (
@@ -4076,8 +4073,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    activity bar's Slide/Deck icons ARE the switch, so no in-panel segment. */}
 			{compact && (
 				<div className="flex gap-1 border-b border-border p-2">
-					{([{ k: 'slide', label: 'Slide' }, { k: 'deck', label: 'Deck' }] as const).map(({ k, label }) => (
-						<button key={k} type="button" aria-pressed={inspectorScope === k} aria-label={k === 'slide' ? 'Slide scope' : 'Deck scope'} onClick={() => setInspectorScope(k)} className={cn('flex-1 rounded-md px-2 py-1.5 text-[12.5px] font-semibold transition-colors', inspectorScope === k ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>{label}</button>
+					{/* The SAME two icons the desktop activity bar uses for these scopes
+					    (chrome-parts.tsx: FileSliders for Slide, SlidersHorizontal for Deck). They
+					    were desktop-only, so one scope pair had icons at one breakpoint and bare
+					    text at another; now the switch looks like itself everywhere, and the
+					    banner below stops needing an icon to say which scope you are in. */}
+					{([{ k: 'slide', label: 'Slide', Icon: FileSliders }, { k: 'deck', label: 'Deck', Icon: SlidersHorizontal }] as const).map(({ k, label, Icon }) => (
+						<button key={k} type="button" aria-pressed={inspectorScope === k} aria-label={k === 'slide' ? 'Slide scope' : 'Deck scope'} onClick={() => setInspectorScope(k)} className={cn('inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold transition-colors', inspectorScope === k ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
+							<Icon className="size-4 shrink-0" />
+							{label}
+						</button>
 					))}
 				</div>
 			)}
@@ -4091,33 +4096,48 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    panel sets how it is configured — calling both "editing" made the two read as the
 			    same act. Both lines are active and address the author directly ("Set it once…",
 			    "What you set here…") rather than describing the panel to itself. */}
-			<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
-				{inspectorScope === 'deck' ? (
-					<>
-						<div className="flex min-w-0 items-center gap-2">
-							<SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
-							<span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--accent)]">Configure the whole deck</span>
-							<span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
-							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
-						</div>
-						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Set it once here and all {slides.length} slides follow.</p>
-					</>
-				) : (
-					<>
-						<div className="flex min-w-0 items-center gap-2">
-							<FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />
-							<span className="min-w-0 flex-1 truncate text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Configure slide {activeFullIndex + 1}</span>
-							<span className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
-							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
-						</div>
-						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">What you set here beats the deck, for this slide only. Leave it blank and the deck decides.</p>
-					</>
-				)}
+			<div role="status" aria-live="polite" className="@container/scopebar flex min-w-0 items-center gap-1.5 border-b border-border px-3.5 py-2" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
+				{/* ONE line, and it is the line that says something. This band used to be a
+				    title, a badge restating the title, an icon restating the scope, and a
+				    sentence restating all three — 72px of framing above a panel whose first
+				    control already sat 414px down a 390x844 phone.
+				    · the ICON went to the scope switch above, where it names the control that
+				      actually changes scope (and on mobile it was the second sliders glyph
+				      within 50px of the sheet header's);
+				    · the BADGE went because "Deck-wide" next to "Configure the whole deck" is
+				      the same fact twice;
+				    · the TITLE and the SENTENCE merged, keeping the sentence's content — it is
+				      the half that carries the slide count and the consequence.
+				    What is left is the consequence plus the find toolbar, which had been sitting
+				    on its own 40px row below with an empty left half. */}
+				{/* `sr-only`, NOT `hidden`, and not a shorter sentence either. The toolbar and the
+				    close control take ~110px of this row, so below about a 320px panel the line
+				    has ~110px left and truncates to "Set it once — a…", which is worse than
+				    absent. Shortening the copy to fit only moves the width it breaks at, because
+				    the docked panel goes down to 260px (SET_MIN).
+				    Visually hidden keeps it in the accessibility tree, which matters more than
+				    usual here: this element is the panel's aria-live region, so it is what
+				    ANNOUNCES a deck↔slide switch. A container query, because the panel is
+				    resizable at any viewport — the window's width says nothing about this row's. */}
+				<span className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:sr-only" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+					{inspectorScope === 'deck' ? `Set it once — all ${slides.length} slides follow` : `Slide ${activeFullIndex + 1} — overrides the deck`}
+				</span>
+				<SettingsToolbar
+					scope={inspectorScope === 'deck' ? 'Deck' : 'Slide'}
+					view={settingsView}
+					onViewChange={setSettingsView}
+					query={inspectorScope === 'deck' ? deckQuery : slideQuery}
+					onQueryChange={inspectorScope === 'deck' ? setDeckQuery : setSlideQuery}
+					searching={inspectorScope === 'deck' ? deckSearching : slideSearching}
+					onSearchingChange={inspectorScope === 'deck' ? setDeckSearching : setSlideSearching}
+					className="!pt-0 min-w-0 shrink @max-[320px]/scopebar:flex-1"
+				/>
+				{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><X className="size-4" /></button></Tip>}
 			</div>
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>
 			) : (
-				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} onViewChange={setSettingsView} />
+				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} onViewChange={setSettingsView} query={slideQuery} />
 			)}
 		</>
 	);

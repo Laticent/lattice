@@ -22,6 +22,19 @@ const liveDeckId = () =>
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
+/** Click a settings section by name, via its shortcut pill or the chevron's menu.
+ *  The strip shows the first two sections as pills and keeps the whole list behind the
+ *  chevron, so a spec that only knew `role="tab"` could reach two of six. */
+async function clickSection(user: ReturnType<typeof userEvent.setup>, name: string) {
+	const pill = screen.queryByRole('tab', { name });
+	if (pill) {
+		await user.click(pill);
+		return;
+	}
+	await user.click(await screen.findByRole('button', { name: /all sections/ }));
+	await user.click(await screen.findByRole('menuitem', { name }));
+}
+
 // These flows test the full-density Studio against the original deck set. Seed a
 // returning-user state (saved deck index sans the newcomer welcome deck +
 // onboarded:true) so the Architect/Inspector are docked and "Q3 Board Review" is
@@ -183,7 +196,7 @@ describe('Studio — every top-bar control responds', () => {
 		expect(await screen.findByRole('button', { name: /Q4/ })).toBeInTheDocument();
 
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'General' }));
+		await clickSection(user, 'General');
 		const field = await screen.findByRole('textbox', { name: 'Deck name' });
 		await user.click(field);
 		await user.type(field, 'Board pack — Q4 FY26 (final)');
@@ -211,7 +224,7 @@ describe('Studio — every top-bar control responds', () => {
 		await user.paste(rich);
 
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'General' }));
+		await clickSection(user, 'General');
 		const field = await screen.findByRole('textbox', { name: 'Deck name' });
 		await user.click(field);
 		await user.type(field, 'Board pack');
@@ -236,7 +249,7 @@ describe('Studio — every top-bar control responds', () => {
 		await user.paste('---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n');
 
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'General' }));
+		await clickSection(user, 'General');
 		const field = await screen.findByRole('textbox', { name: 'Deck name' });
 		await user.click(field);
 		await user.type(field, 'Board pack');
@@ -602,7 +615,7 @@ describe('Studio — Inspector controls respond', () => {
 		// The speaker note lives in the per-slide "Slide settings" drawer now (not the
 		// Inspector), opened from the editor row, under the Notes tab.
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
-		await user.click(await screen.findByRole('tab', { name: 'Notes' }));
+		await clickSection(user, 'Notes');
 		const notes = await screen.findByRole('textbox', { name: 'Speaker note for this slide' });
 		await user.click(notes);
 		await user.type(notes, 'Open on the room, then the number.');
@@ -667,7 +680,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Page-numbers switch writes paginate front-matter to the source', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
+		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
 		// Off by default (no front-matter); turning it on writes `paginate: true`.
 		expect(sw).not.toBeChecked();
@@ -682,7 +695,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('a settings change raises a one-click Undo toast that reverts it', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
+		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
 		await user.click(sw);
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*true/);
@@ -700,7 +713,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Undo toast steps aside once you edit after the change (never swallows your edits)', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
+		await clickSection(user, 'Chrome');
 		await user.click(await screen.findByRole('switch', { name: 'Page numbers' }));
 		expect(await screen.findByRole('button', { name: 'Undo' })).toBeInTheDocument();
 		// Edit the source AFTER the settings change — the pending Undo must bow out so it
@@ -715,7 +728,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Header/Footer fields declare running text into the source (blank clears it)', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
+		await clickSection(user, 'Chrome');
 		// Header & footer are text DECLARATIONS, not toggles: typing text (committed
 		// on blur) writes the directive; clearing the field removes it again.
 		const header = await screen.findByRole('textbox', { name: 'Header' });
@@ -739,7 +752,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Section-rail switch stamps and clears the deck-wide no-progress class', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
+		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Section rail' });
 		// Rail is ON by default (no class token) — so the switch reads checked.
 		expect(sw).toBeChecked();
@@ -814,7 +827,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Header field preserves front matter it did not come to change', async () => {
 		const user = await setup();
 		await pasteRichDeck(user);
-		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
+		await clickSection(user, 'Chrome');
 		const header = await screen.findByRole('textbox', { name: 'Header' });
 		await user.click(header);
 		await user.type(header, 'Acme — Q3');
@@ -828,7 +841,7 @@ describe('Studio — Inspector controls respond', () => {
 		// scoped `class:` in with the 23 named directives, since it is the same flat scalar.
 		const user = await setup();
 		await pasteRichDeck(user);
-		await user.click(await screen.findByRole('tab', { name: 'Chrome' }));
+		await clickSection(user, 'Chrome');
 		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
 		expect(screen.getByLabelText('Deck source').textContent).toContain('class: no-progress');
 		expectFrontMatterIntact('Section rail');
@@ -843,7 +856,7 @@ describe('Studio — Inspector controls respond', () => {
 		// routing through `Field`.
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'General' }));
+		await clickSection(user, 'General');
 		const field = await screen.findByRole('textbox', { name: /Deck name/ });
 		const label = document.querySelector(`label[for="${field.id}"]`);
 		expect(label).not.toBeNull();
@@ -881,7 +894,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Debug overlay control writes a `debug` directive to the source', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'General' }));
+		await clickSection(user, 'General');
 		await user.click(await screen.findByText('Developer')); // the dev aids are General's "more" disclosure
 		// The Debug overlay control is a preset menu with every value; picking the
 		// verbose variant writes `debug: on-always verbose`.
@@ -905,9 +918,13 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 	// deliberately unanchored — `/^key: value$/m` can never match here.
 	const source = () => screen.getByLabelText('Deck source').textContent ?? '';
 
+	// TWO ROUTES, because the section strip has two: the first two sections are shortcut
+	// pills, the rest live in the chevron's menu. Taking whichever exists keeps every call
+	// site written as a section NAME, so none of them has to change if the shortcut count
+	// ever does.
 	async function openDeckTab(user: Awaited<ReturnType<typeof setup>>, tab: string) {
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: tab }));
+		await clickSection(user, tab);
 	}
 	/** Open a tab's collapsed "more" disclosure by its summary text. */
 	async function openMore(user: Awaited<ReturnType<typeof setup>>, label: string) {
@@ -995,7 +1012,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
 		await waitFor(() => expect(source()).toMatch(/class: no-progress/));
 
-		await user.click(await screen.findByRole('tab', { name: 'General' }));
+		await clickSection(user, 'General');
 		const field = await screen.findByRole('textbox', { name: 'Default slide class' });
 		expect((field as HTMLInputElement).value).toBe(''); // the rail's token is not shown
 		await user.click(field);
@@ -1103,6 +1120,27 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'claim');
 		expect(details().open).toBe(true);
 		expect(screen.getByLabelText('Choose claim')).toBeInTheDocument();
+	});
+
+	it('the one search field serves whichever scope is open, and a query never crosses', async () => {
+		// The field lives in the scope banner now, so its state had to move up to the shell.
+		// What that risks is a query leaking across a scope switch — hiding most of a panel
+		// whose rows it was never about, for a reason the author has already forgotten.
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('button', { name: 'Search deck settings' }));
+		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'pace');
+		expect(await screen.findByLabelText('Choose pace')).toBeInTheDocument();
+
+		// Switch scope: the field is now the SLIDE's, and it is empty.
+		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
+		expect(screen.queryByRole('textbox', { name: 'Search deck settings' })).toBeNull();
+		await user.click(await screen.findByRole('button', { name: 'Search slide settings' }));
+		expect((screen.getByRole('textbox', { name: 'Search slide settings' }) as HTMLInputElement).value).toBe('');
+
+		// …and the deck's query is still its own when we go back.
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		expect((await screen.findByRole('textbox', { name: 'Search deck settings' }) as HTMLInputElement).value).toBe('pace');
 	});
 
 	it('the view choice persists, and is ONE choice for both scopes', async () => {

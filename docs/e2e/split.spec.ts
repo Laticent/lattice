@@ -235,7 +235,7 @@ test.describe('studio workspace group at the 1100px threshold', () => {
 		await page.getByRole('button', { name: 'Toggle Coach' }).click();
 		await expect(page.getByText('Deck read')).toBeVisible();
 		await openInspector(page);
-		await expect(page.getByText('Configure the whole deck')).toBeVisible();
+		await expect(page.getByText(/Set it once — all \d+ slides follow/)).toBeAttached();
 
 		// The split is live in this configuration…
 		await expect(separator(page)).toBeVisible();

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, openInspector, persistedByPrefix, persistedSource, setEditorContent, test, toastText } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openInspector, openSection, persistedByPrefix, persistedSource, setEditorContent, test, toastText } from './studio-fixture';
 
 // The Deck inspector's front-matter controls, speaker notes, and version history.
 // Front-matter writes are asserted both on the immediate outer-DOM signal
@@ -24,7 +24,7 @@ test('@smoke size control writes the size front-matter', async ({ page }) => {
 // (The tab was called "Marks" until 2026-08-18; the slide Inspector had always
 // called the same four controls Chrome, and one vocabulary won.)
 async function openChromeTab(page: Page): Promise<void> {
-	await page.getByRole('tab', { name: CHROME.deckTab.chrome }).click();
+	await openSection(page, CHROME.deckTab.chrome);
 }
 
 test('page-numbers toggle writes paginate front-matter', async ({ page }) => {
@@ -50,7 +50,7 @@ test('a speaker note is written into the slide source on blur', async ({ page })
 	// The speaker note lives in the Inspector's SLIDE scope, under the "Notes" tab.
 	// Open Slide settings (which points the panel at slide scope), then the Notes tab.
 	await page.getByRole('button', { name: 'Slide settings' }).click();
-	await page.getByRole('tab', { name: 'Notes' }).click();
+	await openSection(page, 'Notes');
 	const note = page.getByRole('textbox', { name: 'Speaker note for this slide' });
 	await note.click();
 	await note.fill('Open with the headline number.');
@@ -124,7 +124,7 @@ async function openDeckMotion(page: Page) {
 	await expect.poll(() => persistedSource(page)).toContain('motion-style: rise');
 	// `beforeEach` already opened the Inspector — `openInspector` TOGGLES, so calling it again here
 	// closes the panel and every later locator misses.
-	await page.getByRole('tab', { name: CHROME.deckTab.motion }).click();
+	await openSection(page, CHROME.deckTab.motion);
 }
 
 test('the deck Motion controls read the deck, not the built-in default', async ({ page }) => {

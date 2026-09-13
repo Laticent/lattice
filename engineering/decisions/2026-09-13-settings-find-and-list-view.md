@@ -185,3 +185,79 @@ server.
 Off the path of this change (the split's collapse state and the add-slide gallery; nothing
 here touches either), so per HARD RULE #18 it is recorded rather than pulled into the diff.
 No tracked issue covers it — #1530 is the Playground's pane desync, a different surface.
+
+---
+
+## 8. The compaction pass — giving the height back
+
+Shipping §1–§6 made a real problem visible: the find toolbar landed on a row of its own,
+right-aligned, with an empty left half. Measured on a real 390×844 phone, deck scope, the
+first control sat **414px down — 49% of the screen was chrome** before a single setting.
+
+| Band | Height |
+|---|---|
+| Sheet header (`‹ Deck │ Settings`) | 111px |
+| Slide/Deck scope segment | 49px |
+| Scope banner | 72px |
+| The find toolbar's own row | 40px |
+| Section pills, **wrapping to two rows** | 74px |
+| Per-section intro prose | 30px |
+
+Five changes, and the useful thing is that they are not independent — three of them are
+what make the fourth fit.
+
+1. **The banner's icon moved to the Slide/Deck switch.** Those are the same two icons the
+   desktop activity bar already used for these scopes (`FileSliders`, `SlidersHorizontal`),
+   so the switch had icons at one breakpoint and bare text at another. On mobile the banner
+   icon was also the second sliders glyph within 50px of the sheet header's.
+2. **The `Deck-wide` badge went.** Next to a title reading "Configure the whole deck" it is
+   the same fact twice. (The slide scope's `Override` badge was not the same case — it said
+   something its title did not — but the line replacing it now does, so it went too.)
+3. **The title and its sentence merged.** Keeping the sentence's content: it carries the
+   slide count and the consequence.
+4. **The find toolbar moved onto that line**, which is only possible because 1–3 vacated
+   it. This is the 40px row with the empty half.
+5. **The section strip became two shortcut pills plus a chevron holding the full list.**
+
+Result: **297px on the phone, 231px in the docked desktop panel** (from 414 and 351).
+
+### Why two shortcuts, fixed, and not three
+
+Six pills need 425px. The phone strip is 362px and the **docked desktop panel is 231px**, so
+the strip wrapped at every width — 74px of a panel that had none to spare.
+
+Three pills fit the phone and not the docked panel, and the obvious fix — hide the third
+under a container query — is wrong in a way worth recording: it puts the **active** section
+behind a CSS rule JS cannot see. Pick the third section, drag the panel narrow, and the
+strip shows two pills and a chevron with nothing on screen saying where you are. So the
+count is what the narrowest supported panel (`SET_MIN`, 260px) can afford, at every width,
+and the strip's shape stops changing under a drag.
+
+**The chevron carries the WHOLE list, not the leftovers.** That is what makes a dropped
+shortcut safe, and it answers "where did General go" with "where all of them are". When the
+active section is not a shortcut the chevron wears its NAME instead of "More" — its
+*accessible* name stays fixed, because a name that moved with the active section would move
+under every locator addressing it.
+
+### Two things this moved that were not obvious
+
+**The search field's state had to go up.** One field now serves whichever scope is open, and
+it lives in the banner, which the shell owns — so `slideQuery` sits beside `deckQuery` in
+`StudioShell` and `SlideContextBody` takes `query` as a prop. Still one pair per scope: a
+query carried across a scope switch hides most of a panel whose rows it was never about.
+Pinned in `studio.controls.test.tsx`.
+
+**The banner title is `sr-only` below a 320px panel, not shortened and not `hidden`.** The
+toolbar and close control take ~110px of that row, so a narrow panel leaves the line ~110px
+and it truncates to "Set it once — a…", which is worse than absent; shortening the copy only
+moves the width it breaks at, because the docked panel goes to 260px. Visually hidden keeps
+it in the accessibility tree, which matters more than usual: that element is the panel's
+`aria-live` region, so it is what announces a deck↔slide switch.
+
+### What it cost the tests
+
+Sections past the first two are menu items, not `role="tab"`, so every spec that clicked a
+tab by name had to learn both routes. One helper per tier does it — `goTab` (SlideContext),
+`clickSection` (studio.controls), `openSection` (e2e fixture) — each taking whichever route
+exists, so call sites stay written as a section NAME and none of them has to change if the
+shortcut count ever does.

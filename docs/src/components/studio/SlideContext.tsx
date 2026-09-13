@@ -16,9 +16,8 @@ import { Captions, Check, Cloud, Info, RotateCcw, Sparkles } from 'lucide-react'
 import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
 import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
-import { PillTabs } from '@/components/ui/pill-tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { filteringProps, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsToolbar, type SettingsView, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
+import { filteringProps, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, type SettingsView, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
 import { Switch as UISwitch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
@@ -81,6 +80,12 @@ export type SlideContextBodyProps = {
 	 *  shared with the deck scope — one panel's view choice is the other's too. */
 	view: SettingsView;
 	onViewChange: (v: SettingsView) => void;
+	/** The live search text. The SHELL owns it, because the one search field now lives in
+	 *  the scope banner above this body and serves whichever scope is open — so the state
+	 *  has to sit where the banner is. Still per-scope and still not persisted: a query
+	 *  carried across a scope switch hides most of the panel for a reason the author has
+	 *  already forgotten. */
+	query: string;
 };
 
 // ── Small local controls, styled to match the Inspector vocabulary ─────────────
@@ -257,7 +262,7 @@ const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)'
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
  *  (desktop/tablet) OR inside a Sheet (mobile). */
 export function SlideContextBody(props: SlideContextBodyProps) {
-	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, onViewChange } = props;
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, query } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -551,11 +556,6 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// note you type on nearly every slide, then the furniture, the overlays, the accent
 	// refinement, the animation, and the review layer last.
 	const hasMarks = hasStatus || hasDecoration;
-	// The search is this panel's own and dies with it — see the note beside the deck
-	// scope's pair in StudioShell: a query carried across a scope switch hides most of
-	// the panel for a reason the author has already forgotten.
-	const [query, setQuery] = React.useState('');
-	const [searching, setSearching] = React.useState(false);
 
 	// The sections, as DATA and in REACH ORDER — ONE list, so the pill-tabs, the list view
 	// and a search can no longer disagree about what exists or what order it comes in. The
@@ -895,23 +895,13 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 						</button></Tip>
 					</div>
 
-					{/* Find + browse — the same toolbar the deck scope carries, from the one
-					    module both import (HARD RULE #15). VIEW is the shell's, shared with the
-					    deck panel; QUERY is this panel's own and dies with it. */}
-					<SettingsToolbar
-						scope="Slide"
-						view={view}
-						onViewChange={onViewChange}
-						query={query}
-						onQueryChange={setQuery}
-						searching={searching}
-						onSearchingChange={setSearching}
-					/>
-					{/* Dynamic pill-tabs — only tabs with content for this slide render, and
-					    only in the grouped view: a search spans every section, and the list has
-					    no single active one. */}
-					{!query && view === 'group' && tabDefs.length > 1 && (
-						<PillTabs className="py-3" ariaLabel="Slide settings sections" value={activeTab} onValueChange={setTab} tabs={tabDefs} />
+					{/* The find toolbar lives in the scope banner above this body now — one field
+					    serving whichever scope is open, on the header row (HARD RULE #15).
+					    Dynamic sections — only those with content for this slide render, and only
+					    in the grouped view: a search spans every section, and the list has no
+					    single active one. */}
+					{!query && view === 'group' && (
+						<SettingsSectionTabs className="py-3" ariaLabel="Slide settings sections" value={activeTab} onValueChange={setTab} tabs={tabDefs} />
 					)}
 					{sectionDefs.map((s) =>
 						query || view === 'list' || s.value === activeTab ? (

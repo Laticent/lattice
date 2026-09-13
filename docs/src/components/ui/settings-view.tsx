@@ -1,6 +1,8 @@
-import { LayoutList, List, Search, X } from 'lucide-react';
+import { Check, ChevronDown, LayoutList, List, Search, X } from 'lucide-react';
 import * as React from 'react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelSearch } from '@/components/ui/panel';
+import type { PillTab } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -272,6 +274,91 @@ export function SettingsNoMatch({ query }: { query: string }) {
 		</p>
 	);
 }
+
+/**
+ * The section strip: a few SHORTCUT pills, then a chevron holding the full list.
+ *
+ * Six pills need 425px and never had it — the phone strip is 362px and the DOCKED desktop
+ * panel is 231px — so the strip wrapped to two rows at every width and cost 74px of a
+ * panel whose first control already sat 414px down a 390x844 phone.
+ *
+ * TWO shortcuts, fixed, at every width. Three fit the phone and not the docked panel, and
+ * the obvious fix — hide the third under a container query — puts the ACTIVE section
+ * behind a CSS rule JS cannot see: pick the third section, drag the panel narrow, and the
+ * strip shows two pills and a chevron with nothing saying where you are. Two is what the
+ * narrowest supported panel can afford, so it is what every width gets, and the strip's
+ * shape stops changing under a drag.
+ *
+ * The chevron carries the WHOLE list, not the leftovers. That is what makes dropping a
+ * pill safe, and it answers "where did General go" with "where all of them are". When the
+ * active section is not one of the shortcuts the chevron wears its NAME instead of "More",
+ * so the answer to "where am I" is always on screen.
+ */
+export function SettingsSectionTabs({
+	tabs,
+	value,
+	onValueChange,
+	ariaLabel,
+	className,
+}: {
+	tabs: PillTab[];
+	value: string;
+	onValueChange: (value: string) => void;
+	ariaLabel: string;
+	className?: string;
+}) {
+	const SHORTCUTS = 2;
+	const shortcuts = tabs.slice(0, SHORTCUTS);
+	const active = tabs.find((t) => t.value === value);
+	const activeIsOverflow = active != null && !shortcuts.some((t) => t.value === value);
+	// One tab is enough to navigate with — the chevron would be a menu of one.
+	if (tabs.length <= 1) return null;
+	return (
+		<div className={cn('flex flex-wrap items-center gap-1.5', className)} role="tablist" aria-label={ariaLabel}>
+			{shortcuts.map((t) => (
+				<button
+					key={t.value}
+					type="button"
+					role="tab"
+					aria-selected={t.value === value}
+					onClick={() => onValueChange(t.value)}
+					className={cn(SECTION_PILL, t.value === value ? SECTION_PILL_ON : SECTION_PILL_OFF)}
+				>
+					{t.label}
+				</button>
+			))}
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<button
+						type="button"
+						// The name says what it opens, never what it currently reads — a label that
+						// changes with the active section would move under a screen reader and under
+						// every e2e locator that addresses it.
+						aria-label={`${ariaLabel} — all sections`}
+						className={cn(SECTION_PILL, 'gap-1', activeIsOverflow ? SECTION_PILL_ON : SECTION_PILL_OFF)}
+					>
+						{activeIsOverflow ? active.label : 'More'}
+						<ChevronDown className="size-3.5" />
+					</button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start" className="w-52">
+					{tabs.map((t) => (
+						<DropdownMenuItem key={t.value} onSelect={() => onValueChange(t.value)}>
+							{t.label}
+							{t.value === value && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
+	);
+}
+
+// The pill's geometry, shared by the shortcuts and the chevron so the strip reads as one
+// control rather than two kinds of thing sitting next to each other.
+const SECTION_PILL = 'inline-flex items-center rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors';
+const SECTION_PILL_ON = 'border-primary bg-primary text-primary-foreground';
+const SECTION_PILL_OFF = 'border-border bg-background text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]';
 
 /**
  * The toolbar that owns both controls, at the top right of the panel body.

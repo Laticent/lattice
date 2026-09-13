@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { SETTING_FILTERING, SETTING_HIT, SETTING_SECTION, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsToolbar, type SettingsView, settingsMatch, useSettingsHit } from './settings-view';
+import { SETTING_FILTERING, SETTING_HIT, SETTING_SECTION, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsToolbar, type SettingsView, settingsMatch, useSettingsHit } from './settings-view';
 
 describe('settingsMatch', () => {
 	it('matches everything on an empty query', () => {
@@ -340,4 +340,73 @@ describe('no SettingsBlock in either panel wraps a Field or a Row', () => {
 			expect(blocks).toBeGreaterThan(0);
 		});
 	}
+});
+
+
+// ── The section strip ────────────────────────────────────────────────────────
+const SIX = [
+	{ value: 'look', label: 'Look' },
+	{ value: 'chrome', label: 'Chrome' },
+	{ value: 'general', label: 'General' },
+	{ value: 'brand', label: 'Accent' },
+	{ value: 'motion', label: 'Motion' },
+	{ value: 'speech', label: 'Speech' },
+];
+
+describe('SettingsSectionTabs', () => {
+	it('shows two shortcuts and puts the rest behind the chevron', () => {
+		render(<SettingsSectionTabs tabs={SIX} value="look" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+		expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Look', 'Chrome']);
+		expect(screen.getByRole('button', { name: /all sections/ })).toBeTruthy();
+	});
+
+	it('the chevron holds EVERY section, not the leftovers', async () => {
+		// This is what makes a dropped shortcut safe, and it is why the count can change
+		// without anything becoming unreachable.
+		const user = userEvent.setup();
+		render(<SettingsSectionTabs tabs={SIX} value="look" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+		await user.click(screen.getByRole('button', { name: /all sections/ }));
+		expect((await screen.findAllByRole('menuitem')).map((n) => n.textContent?.replace(/\s+/g, ''))).toEqual([
+			'Look', 'Chrome', 'General', 'Accent', 'Motion', 'Speech',
+		]);
+	});
+
+	it('the chevron wears the ACTIVE section name when it is not a shortcut', () => {
+		// Otherwise picking Speech leaves the strip reading "Look · Chrome · More" with
+		// nothing on screen saying where you are.
+		render(<SettingsSectionTabs tabs={SIX} value="speech" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+		const chevron = screen.getByRole('button', { name: /all sections/ });
+		expect(chevron.textContent).toContain('Speech');
+		expect(chevron.textContent).not.toContain('More');
+	});
+
+	it('reads "More" when the active section IS a shortcut', () => {
+		render(<SettingsSectionTabs tabs={SIX} value="chrome" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+		expect(screen.getByRole('button', { name: /all sections/ }).textContent).toContain('More');
+		expect(screen.getByRole('tab', { name: 'Chrome' }).getAttribute('aria-selected')).toBe('true');
+	});
+
+	it('keeps the chevron accessible name FIXED as its label changes', () => {
+		// The visible label moves with the active section; the accessible name must not, or
+		// it moves under every locator that addresses it.
+		const { rerender } = render(<SettingsSectionTabs tabs={SIX} value="look" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+		const name = () => screen.getByRole('button', { name: /all sections/ }).getAttribute('aria-label');
+		const before = name();
+		rerender(<SettingsSectionTabs tabs={SIX} value="speech" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+		expect(name()).toBe(before);
+	});
+
+	it('picks a section from the chevron', async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+		render(<SettingsSectionTabs tabs={SIX} value="look" onValueChange={onChange} ariaLabel="Deck settings sections" />);
+		await user.click(screen.getByRole('button', { name: /all sections/ }));
+		await user.click(await screen.findByRole('menuitem', { name: 'Motion' }));
+		expect(onChange).toHaveBeenCalledWith('motion');
+	});
+
+	it('renders nothing for a single section — the chevron would be a menu of one', () => {
+		const { container } = render(<SettingsSectionTabs tabs={[SIX[0]]} value="look" onValueChange={() => {}} ariaLabel="x" />);
+		expect(container.firstChild).toBeNull();
+	});
 });

@@ -86,9 +86,14 @@ export const CHROME = {
 		searchSlide: 'Search slide settings',
 		/** Closes the field and clears the query (Escape does the same). */
 		closeSearch: 'Close search',
-		/** The two view states — grouped pill-tabs, or one continuous list of every section. */
+		/** The two view states — grouped sections, or one continuous list of every section. */
 		grouped: 'Grouped — one section at a time',
 		list: 'List — every section in one scroll',
+		/** The section strip's chevron, which holds the FULL list. Its accessible name is
+		 *  deliberately fixed — the visible label changes to the active section's name when
+		 *  that section is not one of the shortcut pills, and a name that moved with it
+		 *  would move under every locator here. Use `openSection` rather than this. */
+		allSections: /all sections/,
 	},
 	/** Activity-bar toggle for the Coach (deterministic deck assessment) panel. */
 	coach: 'Toggle Coach',
@@ -648,7 +653,25 @@ export async function openInspector(page: Page): Promise<void> {
  */
 export async function openInspectorTab(page: Page, tab: keyof typeof CHROME.deckTab): Promise<void> {
 	await openInspector(page);
-	await page.getByRole('tab', { name: CHROME.deckTab[tab] }).click();
+	await openSection(page, CHROME.deckTab[tab]);
+}
+
+/**
+ * Click a settings section by NAME, via its shortcut pill or the chevron's menu.
+ *
+ * The strip shows the first two sections as pills and keeps the whole list behind the
+ * chevron, so a spec that only knew `role="tab"` could reach two of six. Centralized for
+ * the same reason `CHROME` is: the shortcut count is a design decision that will move, and
+ * when it does this is the one place that has to know.
+ */
+export async function openSection(page: Page, name: string): Promise<void> {
+	const pill = page.getByRole('tab', { name, exact: true });
+	if (await pill.count()) {
+		await pill.first().click();
+		return;
+	}
+	await page.getByRole('button', { name: CHROME.settings.allSections }).click();
+	await page.getByRole('menuitem', { name, exact: true }).click();
 }
 
 /** Focus the CodeMirror editor (the `.cm-content` carries aria-label "Deck source"). */
