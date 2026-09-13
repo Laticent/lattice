@@ -400,18 +400,21 @@ Three properties do the work, and each one is a rejection of the obvious version
   not move again while it is readable. A caption that TRACKS the pointer cannot be read at all —
   reading is a sequence of fixations on stationary text, and text that drifts during a fixation
   has to be re-found. Moving it means hiding it and showing it somewhere else, never sliding it.
-- **It steps aside.** While the cursor performs — typing, clicking, dragging, drawing a deictic
-  stroke — the balloon fades out, because at that moment it is a box sitting next to the exact
-  thing the viewer should be watching. It comes back when the cursor comes to rest, **re-anchored
-  to where the cursor now is** rather than where it was when the line was set. The stage brackets
+- **It is transient — it appears when there is something to say, and not otherwise.** The rhythm
+  is: the cursor moves (the movement is what brings the eye), it arrives, the balloon appears
+  beside it, it holds for as long as an average reader needs, and then it takes itself down. Then
+  the action happens. A beat that points somewhere says its line **on arrival**; a beat whose only
+  movement is a deictic stroke says it once the stroke is drawn; a beat that does not move at all
+  says it immediately. Saying it first would put the words beside a cursor still standing wherever
+  the previous beat left it.
+- **It steps aside for anything else that moves.** If the cursor performs while a line is up, the
+  balloon fades out and comes back **re-anchored to where the cursor now is**. The stage brackets
   its own verbs, so you write nothing; the one seam is `stage.busy(on)`, which the runner already
   calls around the typing reveal (typing lands through YOUR setters, so the stage cannot see it).
-- **It is read BEFORE the action, not after.** A caption that is going to vanish has to have been
-  readable first, so under this style every beat with a `say` spends its reading budget up front —
-  the same rhythm `read()` asks for, minus the pointing cue. The settle is credited against that
-  window, since the balloon is visible for the whole settle and there is no sense buying it twice.
-  It is not free: on a five-beat tour with ~8-word captions it is the difference between 16s and
-  25s. Short captions are the lever.
+- **The reading time is not free.** Every beat now spends its caption budget, where an edge dock
+  spends none (the words just sit there). On a five-beat tour with ~8-word captions that is the
+  difference between 16s and 27s. **Short captions are the lever**, and the model tells you which
+  ones are too long: anything that hits the 6-second clamp should have been two beats.
 - **Exit does not go with it.** The balloon hides; the corner chip does not. A caption that can
   hide would otherwise take the only escape with it, and stranding a viewer inside a running tour
   is the one thing this library will not do. Hiding is by opacity, never `display` — the narration

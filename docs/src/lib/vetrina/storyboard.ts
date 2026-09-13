@@ -131,7 +131,6 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			const step = steps[i];
 			if (signal.aborted) return;
 			if (!step.instant) stage.progress?.(++taughtDone, taughtTotal);
-			if (step.say != null) stage.say(step.say);
 
 			// THE WORD CUE, resolved BEFORE anything starts. `plan()` is the narrator's own
 			// timeline, so this asks "when will you say 'Publish'?" and gets an answer in
@@ -156,70 +155,81 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			const lineDelay = cuePlan ? Math.max(0, cueLead - cuePlan.startMs) : 0;
 			const actionDelay = cuePlan ? Math.max(0, cuePlan.startMs - cueLead) : 0;
 
-			// NARRATION runs UNDER the beat, not before it. What the beat does with the line
-			// depends on the rhythm the author asked for:
-			//   - `at`   — act ON a word, mid-line (the alignment above);
-			//   - `read` — finish the line, then act;
-			//   - neither — act now, and await the line before the settle, so the next beat's
-			//               narration never talks over this one's.
-			// With no narrator wired, `SILENT_NARRATOR.speak` resolves immediately and every
-			// branch collapses to exactly what this interpreter did before narration existed.
-			let line: { done: Promise<void> } | null = null;
-			if (step.say != null && step.say !== '' && !step.instant) {
-				// `done` must never REJECT. The run's own abort plumbing tears a taken-over tour
-				// down; a second AbortError surfacing from whichever beat happened to be mid-
-				// sentence would be a redundant failure path, and an unawaited one is an unhandled
-				// rejection in the host's console.
-				const done = (async () => {
-					if (lineDelay > 0) await wait(lineDelay, signal);
-					const handle: NarrationHandle = narrator.speak(step.say as string, { signal });
-					await handle.done;
-				})().catch(() => {});
-				line = { done };
-			}
-
-			// TEACHING BEAT (read) — after the caption shows, draw the eye to it (cursor dips to the
-			// dock + the words pulse) and DWELL long enough to read, BEFORE the action. The viewer
-			// reads first, then watches. A narrator's REAL duration supersedes the reading estimate
-			// here: an estimate is what you use when nothing has measured the thing. Skipped on
-			// instant beats (no theater) and when there's nothing to read, and skipped when `at`
-			// set the opposite rhythm. `?.` keeps fake-stage test stubs safe.
-			//
-			// THE READING WINDOW. `captionMs` is NOT multiplied by `stage.pace` here, and that is
-			// the whole of a bug worth naming: the speed preset is already inside it, as the wpm
-			// the rate table is indexed by. Multiplying again applied the preset twice — `slow`
-			// dwelled 6720ms where the model says 4800 (86 effective wpm), `fast` came out at 243
-			// wpm, above the undistracted silent-reading rate the model is explicitly meant to sit
+			// THE READING WINDOW. `captionMs` is NOT multiplied by `stage.pace`, and that is the
+			// whole of a bug worth naming: the speed preset is already inside it, as the wpm the
+			// rate table is indexed by. Multiplying again applied the preset twice — `slow` dwelled
+			// 6720ms where the model says 4800 (86 effective wpm), `fast` came out at 243 wpm,
+			// above the undistracted silent-reading rate the model is explicitly meant to sit
 			// below, and the documented 1.0–6.0s clamp bounded neither end. Every other duration in
 			// ./pacing IS speed-independent and IS multiplied at its call site; this one is the
 			// exception because its rate table is the thing Cadenza's parity test pins.
 			const readingMs = step.say ? pacing.captionMs(step.say) : 0;
 
-			if (step.read && !cuePlan && step.say != null && !step.instant) {
-				await stage.emphasizeCaption?.(signal);
-				// The LONGER of the two, always. The narrator's duration is a measurement and beats
-				// an estimate — but it measures how long the line takes to SAY, and a viewer reading
-				// the caption because they cannot hear it needs it on screen long enough to READ.
-				// Taking the max serves both, and it is also what makes the no-narrator case free:
-				// SILENT_NARRATOR resolves instantly, so the estimate is simply what is left.
-				await Promise.all([line?.done, wait(readingMs, signal)]);
-			} else if (!cuePlan && !step.instant && step.say != null && step.say !== '' && stage.captionStepsAside?.()) {
-				// A CAPTION THAT WILL VANISH HAS TO BE READ FIRST. Under `caption:'cursor'` the
-				// balloon steps aside the moment the cursor starts performing — which, on an
-				// ordinary beat, is ~140ms after the text lands. Measured on the prototype: the
-				// line "Give the deck a title." was legible for 400ms against a 1900ms budget the
-				// model had just computed and then never spent.
-				//
-				// The budget is spent here, before the action — but MINUS the settle, because the
-				// balloon is visible again for the whole settle and that time is already being
-				// paid. Buying it twice cost 6.3s across a five-beat tour and bought nothing: the
-				// reading window is the same length either way, it just starts earlier. A `read`
-				// beat (above) deliberately spends the FULL budget before the action, which is
-				// what distinguishes it; a cued beat is exempt, because `at` is an explicit
-				// instruction about when the action happens.
-				const landing = step.settle ?? (stage.still ? 300 : pacing.settleMs());
-				await Promise.all([line?.done, wait(Math.max(0, readingMs - landing * stage.pace), signal)]);
-			}
+			// A TRANSIENT CAPTION HAS ITS OWN LIFE CYCLE, and under `caption:'cursor'` that is the
+			// rhythm: the cursor moves (which is what brings the eye), it arrives, the caption
+			// appears beside it, it is held for as long as an average reader needs, and then it
+			// takes itself down. The caption exists when there is something to say and at no other
+			// time — it is not chrome waiting to be replaced.
+			//
+			// A cued beat (`at`) is exempt: the words ARE the event there, so the line runs from
+			// the top and the caption is not dismissed under it.
+			const stepsAside = step.say != null && step.say !== '' && !step.instant && !cuePlan && !!stage.captionStepsAside?.();
+			// WHERE the caption appears is "wherever the cursor comes to rest", so WHEN it appears
+			// is after the beat's last travel. A beat that points somewhere says its line on
+			// arrival; a beat whose only movement is a deictic stroke says it once the stroke is
+			// drawn; a beat that does not move at all says it immediately.
+			const travels = step.point != null || step.drag != null;
+			const gestures = step.gesture != null || step.circle != null;
+			const sayAt: 'top' | 'arrival' | 'gesture' = !stepsAside ? 'top' : travels ? 'arrival' : gestures ? 'gesture' : 'top';
+
+			// A holder rather than a bare `let`: the assignment happens inside `sayLine`, and control
+			// flow analysis cannot see across that call, so a plain binding narrows to `null` at the
+			// tail and the await below stops type-checking.
+			const line: { done: Promise<void> | null } = { done: null };
+			/**
+			 * Show the line, hold it, take it down.
+			 *
+			 * NARRATION runs UNDER the beat, not before it — the caption and the voice are one
+			 * event, so the line starts here rather than at the top. With no narrator wired,
+			 * `SILENT_NARRATOR.speak` resolves immediately and every branch below collapses to
+			 * exactly what this interpreter did before narration existed.
+			 */
+			const sayLine = async (): Promise<void> => {
+				if (step.say == null) return;
+				stage.say(step.say);
+				if (step.say !== '' && !step.instant) {
+					// `done` must never REJECT. The run's own abort plumbing tears a taken-over tour
+					// down; a second AbortError surfacing from whichever beat happened to be mid-
+					// sentence would be a redundant failure path, and an unawaited one is an
+					// unhandled rejection in the host's console.
+					const done = (async () => {
+						if (lineDelay > 0) await wait(lineDelay, signal);
+						const handle: NarrationHandle = narrator.speak(step.say as string, { signal });
+						await handle.done;
+					})().catch(() => {});
+					line.done = done;
+				}
+				// TEACHING BEAT (read) — draw the eye to the caption (the words glow-pulse; on an
+				// edge dock the cursor also dips to it) before the dwell. `?.` keeps fake-stage
+				// test stubs safe.
+				if (step.read && !cuePlan && !step.instant) await stage.emphasizeCaption?.(signal);
+				// The DWELL. A `read` beat asks for it explicitly; a transient caption needs it
+				// unconditionally, because it is about to remove itself and an unread caption that
+				// removes itself was never a caption. Everything else keeps today's rhythm, where
+				// the caption simply stays up and the beat moves on.
+				if ((step.read || stepsAside) && !cuePlan && !step.instant) {
+					// The LONGER of the two, always. The narrator's duration is a measurement and
+					// beats an estimate — but it measures how long the line takes to SAY, and a
+					// viewer reading the caption because they cannot hear it needs it on screen long
+					// enough to READ. Taking the max serves both, and it is what makes the
+					// no-narrator case free: SILENT_NARRATOR resolves instantly, so the estimate is
+					// simply what is left.
+					await Promise.all([line.done, wait(readingMs, signal)]);
+					if (stepsAside) stage.dismissCaption?.();
+				}
+			};
+
+			if (sayAt === 'top') await sayLine();
 
 			// The action's half of the alignment. Zero whenever the line is the one waiting.
 			if (actionDelay > 0) await wait(actionDelay, signal);
@@ -249,8 +259,13 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			let drag: Awaited<ReturnType<typeof stage.drag>> | null = null;
 			if (step.drag) {
 				drag = await stage.drag(step.drag.from, step.drag.to, signal);
+				if (sayAt === 'arrival') await sayLine();
 			} else if (step.point != null) {
 				await stage.point(step.point, signal);
+				// The caption lands HERE — after the travel that brought the eye over, before the
+				// click it is explaining. Saying it first put the words beside a cursor that was
+				// still standing wherever the last beat left it.
+				if (sayAt === 'arrival') await sayLine();
 				if (step.click) await stage.press(signal);
 			}
 
@@ -286,11 +301,14 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 				await stage.gesture(g.kind, g.target, signal);
 			}
 			if (step.circle != null) await stage.gesture('circle', step.circle, signal);
+			// A beat whose only movement is a deictic stroke names the thing first and speaks
+			// second — the stroke is the gesture that brings the eye, and the caption follows it.
+			if (sayAt === 'gesture') await sayLine();
 
 			// Let the line finish before the beat does. Without this the next beat's `say` would
 			// cut this one off mid-sentence — the caption swapping under a voice that is still
 			// speaking the previous one.
-			if (line) await line.done;
+			if (line.done) await line.done;
 
 			// Reading time: only 'still' shortens the default settle. 'legible' (reduced-motion
 			// device) keeps the FULL settle — a viewer who wants less motion needs MORE time to

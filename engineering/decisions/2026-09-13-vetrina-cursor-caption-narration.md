@@ -91,10 +91,26 @@ gesture work, whose entire premise is that *the cursor's position is a consequen
 stroke*, so a pointer can never cover what it names — a box welded to that pointer covers it
 instead.
 
-**Cursor-anchored is the move.** The bubble is placed once, where the cursor is resting, on the
-quadrant with room, scored against two costs that are not interchangeable: leaving the bounds is
+**Cursor-anchored is the move.** The bubble is placed where the cursor is resting, on the quadrant
+with room, scored against two costs that are not interchangeable: leaving the bounds is
 disqualifying, covering something is merely bad. It never repositions while visible — moving it
 means fading out and fading in somewhere else, never sliding.
+
+**And it is TRANSIENT, which is the correction that came from the architect after the first
+build.** The rhythm is: the cursor moves — the movement is what brings the eye — it arrives, the
+balloon appears beside it, it holds for as long as an average reader needs, and then it takes
+itself down. The caption exists when there is something to say and at no other time; it is not
+chrome waiting to be replaced. Three consequences, and each one deleted something:
+
+- **The line is said AFTER the beat's last travel**, not at the top. Saying it first put the words
+  beside a cursor still standing where the previous beat had left it — which is the same defect
+  the checker measured at 561px, arriving a second time through the ordering rather than through
+  the placement.
+- **`dismissCaption()` replaces "wait for something else to hide it".** A caption with its own
+  life cycle needs no settle credit, no lingering, and no rule about what the next beat does.
+- **The reading budget is spent once, in one place.** The earlier build spent it before the action
+  and then showed the caption again for the settle, which is why it needed the settle credited
+  against the window to avoid buying the same seconds twice.
 
 ### When it is visible
 
@@ -198,7 +214,7 @@ Same tour, same app, same machine (`/proto/vetrina-caption/`):
 |---|---|---|
 | `bar` · viewport · legacy · no narration (the default, unchanged) | 13.5 s | — |
 | `bar` · host · **grounded** · no narration | 16.3 s | **+21%** |
-| `cursor` · host · grounded · **Cadenza** | 24.8 s | **+84%** |
+| `cursor` · host · grounded · **Cadenza** | 26.6 s | **+97%** |
 
 The narrated cursor tour is nearly twice as long, and that is the honest headline. Where it went:
 
@@ -212,11 +228,11 @@ The narrated cursor tour is nearly twice as long, and that is the honest headlin
 - **Typing went 316 → 792 ms** for 15 characters. That is the fusion-threshold fix, and it is the
   one that most changes how the run reads.
 - **Narration adds ~4 s** because a beat now waits for its line instead of for an estimate of it.
-- **The reading window adds ~4.5 s more**, and it is the step-aside policy's own bill. A caption
-  that vanishes for the action has to have been readable before it, so every beat now spends its
-  reading budget up front rather than only on `read` beats. Crediting the settle against that
-  window — the balloon is visible for the whole settle, so buying it twice bought nothing —
-  recovered 1.8 s of it, from a first measurement of 26.6 s.
+- **The reading budget adds ~6 s more**, and it is the transient caption's own bill: every beat
+  now holds its line for a reader, where an edge dock holds none (the words just sit there until
+  replaced). The single largest slice is one 16-word caption that hits the 6-second clamp — which
+  is the model reporting that the beat should have been two beats, and is the lever worth pulling
+  before any other.
 
 Two consequences a productionization pass has to face: **narrated tours want shorter captions**,
 and **the six long-running gallery tours were tuned by eye against the old numbers**, so turning

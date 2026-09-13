@@ -168,6 +168,14 @@ export interface Stage {
 	 *  hand is already moving before they say the thing. Returns 0 for a target that will not
 	 *  resolve. */
 	leadMs?(target: Target): number;
+	/** Take the caption down — the line has been read, and there is nothing to say until the
+	 *  next one.
+	 *
+	 *  Distinct from `say('')`, which reverts the dock to the take-over hint: this leaves the
+	 *  words in place (so the live region does not re-announce anything) and only stops SHOWING
+	 *  them. Inert in every style but `'cursor'`, where the caption is transient by design rather
+	 *  than furniture that waits to be replaced. */
+	dismissCaption?(): void;
 	/** Does this caption get out of the way while the cursor performs?
 	 *
 	 *  It is a question about PACING, not about looks, which is why the storyboard asks it: a
@@ -2254,6 +2262,11 @@ export function createStage(opts: StageOptions): Stage {
 		},
 		setVoiced: (v: boolean) => {
 			voiced = v;
+			syncCaption();
+		},
+		dismissCaption: () => {
+			if (destroyed) return;
+			captionWanted = false;
 			syncCaption();
 		},
 		captionStepsAside: () => caption === 'cursor' && !voiced,
