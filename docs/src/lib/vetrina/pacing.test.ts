@@ -39,7 +39,24 @@ describe('pacing — the caption reading budget', () => {
 
 	it('a slow preset dwells longer than a fast one', () => {
 		const line = 'Give the deck a title, then publish it.';
-		expect(resolvePacing('slow').captionMs(line)).toBeGreaterThan(resolvePacing('fast').captionMs(line));
+		expect(resolvePacing('slow', 'grounded').captionMs(line)).toBeGreaterThan(resolvePacing('fast', 'grounded').captionMs(line));
+	});
+
+	it('the preset is applied ONCE — the rate table is already indexed by it', () => {
+		// The call site must NOT multiply by `stage.pace` on top of this. When it did, `slow`
+		// spent 6720ms on a line the model prices at 4800 (86 effective wpm) and `fast` came out
+		// at 243 wpm — above the undistracted silent-reading rate the budget exists to sit below —
+		// while the documented 1.0–6.0s clamp bounded neither end.
+		const line = 'Give the deck a title, then publish it.';
+		const words = line.trim().split(/\s+/).length;
+		for (const speed of ['slow', 'moderate', 'fast'] as const) {
+			expect(resolvePacing(speed, 'grounded').captionMs(line)).toBe(Math.round(300 + (60000 / CAPTION_WPM[speed]) * words));
+		}
+	});
+
+	it('legacy ignores the preset entirely, which is what it did before the model existed', () => {
+		const line = 'Give the deck a title, then publish it.';
+		expect(resolvePacing('slow', 'legacy').captionMs(line)).toBe(resolvePacing('fast', 'legacy').captionMs(line));
 	});
 });
 
@@ -117,7 +134,15 @@ describe('pacing — typing above the fusion threshold', () => {
 	});
 });
 
-describe('pacing — the legacy model is byte-identical to what shipped', () => {
+describe('pacing — legacy is the DEFAULT, and byte-identical to what shipped', () => {
+	it('an unspecified model is legacy, so adding the model re-times nothing on its own', () => {
+		expect(resolvePacing().model).toBe('legacy');
+		expect(resolvePacing('moderate').settleMs()).toBe(900);
+		expect(resolvePacing('moderate').typeMsPerChar()).toBe(22);
+	});
+});
+
+describe('pacing — the legacy literals', () => {
 	const legacy = resolvePacing('moderate', 'legacy');
 
 	it('reproduces the exported readMs exactly, so an A/B compares two real things', () => {

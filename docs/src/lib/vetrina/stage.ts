@@ -153,21 +153,28 @@ export interface Stage {
 	 *  for the one action it does not own — the runner's typing reveal, which lands text through
 	 *  the HOST's setters and never touches the stage. Reference-counted, so nesting is safe.
 	 *  A no-op in every caption style but `'cursor'`. */
-	busy(on: boolean): void;
+	busy?(on: boolean): void;
 	/** Tell the stage the words are being SPOKEN, not just shown.
 	 *
 	 *  It changes exactly one behavior and it is not cosmetic: a voiced caption does NOT step
 	 *  aside during the action. Silent, the caption and the action compete for one pair of eyes;
 	 *  voiced, the ear has the words and the eyes are free — and blanking a subtitle mid-sentence
 	 *  is a regression for the viewer who is reading it because they cannot hear it. */
-	setVoiced(voiced: boolean): void;
+	setVoiced?(voiced: boolean): void;
 	/** How long the cursor would need to REACH `target` from where it is now — the register beat
 	 *  plus the Fitts travel, at this run's pace.
 	 *
 	 *  It exists so a word-cued action can start EARLY enough to land on its word: a presenter's
 	 *  hand is already moving before they say the thing. Returns 0 for a target that will not
 	 *  resolve. */
-	leadMs(target: Target): number;
+	leadMs?(target: Target): number;
+	/** Does this caption get out of the way while the cursor performs?
+	 *
+	 *  It is a question about PACING, not about looks, which is why the storyboard asks it: a
+	 *  caption that vanishes for the action has to have been readable BEFORE the action, or its
+	 *  whole reading budget is spent on a hidden box. True only for `caption:'cursor'` with no
+	 *  voice — a voiced run keeps the caption up, so it can be read whenever. */
+	captionStepsAside?(): boolean;
 	/** True if the event target belongs to the stage's own chrome (the Exit button). */
 	contains(node: EventTarget | null): boolean;
 	/** Remove every node. Idempotent; all methods no-op afterward (I6 / interleave safety). */
@@ -495,7 +502,7 @@ interface BuiltDock {
 	layout: (bounds: RectLike, layer: RectLike) => void;
 	/** CURSOR style only: put the caption bubble next to `(x, y)`, out of `avoid`'s way, inside
 	 *  `bounds`. Undefined for every edge style, which has nowhere to move to. */
-	place?: (x: number, y: number, avoid: RectLike | null, bounds: RectLike) => void;
+	place?: (x: number, y: number, avoid: RectLike | null, bounds: RectLike, layer: RectLike) => void;
 	/** CURSOR style only: show or hide the BUBBLE — never the dock, which carries Exit. */
 	reveal?: (visible: boolean, instant: boolean) => void;
 }
@@ -538,15 +545,25 @@ export function placeBubble(
 		const oh = Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top);
 		return ow > 0 && oh > 0 ? ow * oh : 0;
 	};
+	const area = Math.max(1, w * h);
 	let best = candidates[0];
 	let bestScore = Number.POSITIVE_INFINITY;
 	for (const c of candidates) {
 		const box: RectLike = { left: c.left, top: c.top, width: w, height: h };
 		const outX = Math.max(0, bounds.left - box.left) + Math.max(0, box.left + w - (bounds.left + bounds.width));
 		const outY = Math.max(0, bounds.top - box.top) + Math.max(0, box.top + h - (bounds.top + bounds.height));
+		// Coverage is scored as a FRACTION of the bubble, never as an area. Comparing pixels of
+		// overflow against square-pixels of overlap made the two commensurable by accident: at a
+		// weight of 1000, any avoid rect bigger than ~1000px² outranked leaving the box entirely,
+		// so the "overflow is disqualifying" rule above was false for every real target and the
+		// final clamp was quietly doing all the work.
 		let covered = 0;
 		for (const r of avoidList) covered += overlap(box, r);
-		const score = (outX + outY) * 1000 + covered;
+		// Distance from the cursor is the tiebreak, because proximity is the entire premise of
+		// this style: between two placements that are equally in-bounds and equally clear, the
+		// nearer one is the one the eye does not have to travel to.
+		const dist = Math.hypot(c.left + w / 2 - x, c.top + h / 2 - y);
+		const score = (outX + outY > 0 ? 1e6 + (outX + outY) : 0) + Math.min(1, covered / area) * 1000 + dist / 1e4;
 		if (score < bestScore) {
 			bestScore = score;
 			best = c;
@@ -682,7 +699,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 		bubble.appendChild(narration);
 		dock.append(bubble, exit);
 
-		place = (x, y, avoid, bounds) => {
+		place = (x, y, avoid, bounds, layerRect) => {
 			// Size to the BOX before measuring. A 320px bubble is right on a desktop pane and
 			// most of the width of a phone, and a bubble that fills its box has stopped being a
 			// balloon next to the pointer and become a caption bar with extra steps.
@@ -697,8 +714,13 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 			const er = exit.getBoundingClientRect();
 			const exitBox = er.width ? { left: er.left, top: er.top, width: er.width, height: er.height } : null;
 			const at = placeBubble(x, y, w, h, [avoid, exitBox], bounds);
-			bubble.style.left = `${Math.round(at.left)}px`;
-			bubble.style.top = `${Math.round(at.top)}px`;
+			// `placeBubble` works in VIEWPORT space (that is the space the cursor, the target rects
+			// and Exit's rect are all in); the bubble is positioned inside the layer. Those are the
+			// same space only while the layer IS the viewport — and a host that puts a transform,
+			// filter or `contain:paint` on an ancestor makes the layer something else, which is the
+			// case `bounds` exists for in the first place. Convert, exactly as `seat` does.
+			bubble.style.left = `${Math.round(at.left - layerRect.left)}px`;
+			bubble.style.top = `${Math.round(at.top - layerRect.top)}px`;
 		};
 		// Hide by OPACITY, never `display` or `visibility` — the narration inside is a live
 		// region, and removing it from the layout tree removes it from the accessibility tree,
@@ -807,7 +829,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 			// Responsive: near-full-width on a phone, a centered pill capped at 680px on a wide
 			// screen (so a desktop host doesn't get a bar stretched across 1400px). One dock, both.
 			dock.style.cssText =
-				`position:absolute;left:50%;transform:translateX(-50%);${edge};z-index:10;width:calc(100% - 24px);max-width:680px;` +
+				`position:absolute;box-sizing:border-box;left:50%;transform:translateX(-50%);${edge};z-index:10;width:calc(100% - 24px);max-width:680px;` +
 				`display:flex;align-items:center;gap:11px;padding:9px 9px 9px 15px;border-radius:var(--vt-caption-radius);${glass}` +
 				'pointer-events:none;opacity:0;transition:opacity .3s ease;';
 			const dot = doc.createElement('span');
@@ -820,12 +842,16 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 				seat(dock, bounds, layerRect, top ? 14 : 78);
 				// `100vw` was the bug the containment probe found: a bar sized to the WINDOW is
 				// 704px of caption inside a 642px app, hanging 31px off each side. The width is the
-				// box the tour runs in, less the 24px gutter it always had — and less its own
-				// 24px of horizontal padding, because the box model here is content-box and
-				// forgetting that lands the bar flush against both edges with no gutter at all.
-				const inner = Math.max(96, bounds.width - 24 - 24);
+				// box the tour runs in, less the 24px gutter it always had.
+				//
+				// The dock declares its own `box-sizing: border-box` rather than doing the padding
+				// arithmetic here. Subtracting the padding by hand assumed content-box, and
+				// `* { box-sizing: border-box }` is the most common reset there is — in a library
+				// whose whole point is dropping into an arbitrary host, that assumption cost 24px
+				// of width and doubled the gutter wherever it was wrong.
+				const inner = Math.max(96, bounds.width - 24);
 				dock.style.width = `${inner}px`;
-				dock.style.maxWidth = `${Math.min(656, inner)}px`;
+				dock.style.maxWidth = `${Math.min(680, inner)}px`;
 			};
 		}
 	}
@@ -940,13 +966,18 @@ export function createStage(opts: StageOptions): Stage {
 		const r = layer.getBoundingClientRect();
 		return { left: r.left, top: r.top, width: r.width, height: r.height };
 	};
+	// ONLY under `bounds: 'host'`. Every edge style already positions itself correctly against
+	// the viewport in pure CSS, so re-seating it from JS under the default would change the
+	// geometry of every tour that never asked for any of this — measured at 704px → 680px on
+	// the default bar before this guard existed, which is exactly the "nothing shipped changes
+	// shape" claim being false.
 	const relayout = () => {
-		if (destroyed) return;
+		if (destroyed || boundsMode !== 'host') return;
 		layoutDock(boundsRect(), layerRect());
 	};
 	// A resize moves the box every caption is measured against. Cheap, idempotent, and removed
 	// on destroy — the stage must not outlive its listeners.
-	window.addEventListener('resize', relayout);
+	if (boundsMode === 'host') window.addEventListener('resize', relayout);
 
 	// Born at the middle of the BOX the tour runs in, not always the middle of the window: a
 	// stage confined to a pane used to spawn its cursor over whatever else was on the page.
@@ -2042,10 +2073,26 @@ export function createStage(opts: StageOptions): Stage {
 	let performDepth = 0;
 	let captionWanted = false;
 	let voiced = false;
+	let captionShown = false;
 	/** The last thing the cursor aimed at — what the bubble keeps out of the way of. */
 	let lastAim: RectLike | null = null;
 	const captionShouldShow = () => captionWanted && (voiced || performDepth === 0);
-	const syncCaption = () => revealBubble?.(captionShouldShow(), still);
+	/** Reveal or hide the bubble, RE-ANCHORING it whenever it comes back.
+	 *
+	 *  Placing it once, when the line is set, is the bug this signature exists to prevent: the
+	 *  line is set at the TOP of a beat, before the cursor has gone anywhere, so a bubble placed
+	 *  there and then hidden for the performance reappears next to where the cursor was at the end
+	 *  of the PREVIOUS beat. Measured at up to 561px away from the pointer it is supposed to be
+	 *  speaking for. "Anchored to where the cursor is resting" means anchored at the moment it
+	 *  comes to rest, which is here.
+	 *
+	 *  `force` re-places while already visible — for a text change, which changes the size. */
+	const syncCaption = (force = false) => {
+		const show = captionShouldShow();
+		if (show && (force || !captionShown)) placeBubbleNow();
+		captionShown = show;
+		revealBubble?.(show, still);
+	};
 	const beginPerform = () => {
 		performDepth++;
 		syncCaption();
@@ -2066,7 +2113,7 @@ export function createStage(opts: StageOptions): Stage {
 			}
 		};
 	}
-	const placeBubbleNow = () => placeBubbleIn?.(cx, cy, lastAim, boundsRect());
+	const placeBubbleNow = () => placeBubbleIn?.(cx, cy, lastAim, boundsRect(), layerRect());
 
 	// Update the narration with a gentle cross-fade (the DOCK itself stays up — Exit must never
 	// blink out). '' reverts to the take-over hint, so the dock is never empty.
@@ -2074,13 +2121,20 @@ export function createStage(opts: StageOptions): Stage {
 	function say(text: string): void {
 		if (destroyed) return;
 		captionWanted = !!text;
+		// A NEW LINE ENDS THE PREVIOUS PERFORMANCE. The stage brackets its own verbs, but `drag`
+		// spans two calls (lift, then drop-or-snapBack) and a raw Walkthrough — the total, always-
+		// reachable primitive — can branch away without calling either. That would strand the
+		// count above zero and hide the caption for the rest of the run. A beat that has started
+		// saying something new is proof the last one finished, so it is also the right place to
+		// re-zero. (The cost: a host calling `say` DURING a drag reveals the bubble mid-drag. That
+		// is a cosmetic slip against a caption that never comes back.)
+		if (text) performDepth = 0;
 		// Only 'still' snaps the caption in place. Under 'legible' the 140ms opacity cross-fade
 		// stays — it is the motion-SAFE swap (Apple HIG cross-fades in place of a slide), not a
 		// vestibular trigger, and it keeps the narration readable rather than flickering.
 		if (still) {
 			setNarration(text);
-			placeBubbleNow();
-			syncCaption();
+			syncCaption(true);
 			return;
 		}
 		// The bubble goes out BEFORE the text changes and comes back in its new place, because a
@@ -2093,9 +2147,8 @@ export function createStage(opts: StageOptions): Stage {
 		sayTimer = window.setTimeout(() => {
 			if (destroyed) return;
 			setNarration(text);
-			placeBubbleNow();
 			narration.style.opacity = '1';
-			syncCaption();
+			syncCaption(true);
 		}, 140);
 	}
 
@@ -2203,11 +2256,13 @@ export function createStage(opts: StageOptions): Stage {
 			voiced = v;
 			syncCaption();
 		},
+		captionStepsAside: () => caption === 'cursor' && !voiced,
 		leadMs,
 		contains: (node) => node instanceof Node && layer.contains(node),
 		destroy: () => {
 			destroyed = true;
-			window.removeEventListener('resize', relayout);
+			window.removeEventListener('resize', relayout); // no-op when it was never added
+
 			layer.remove();
 		},
 	};

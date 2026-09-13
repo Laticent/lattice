@@ -196,11 +196,11 @@ Same tour, same app, same machine (`/proto/vetrina-caption/`):
 
 | configuration | total | vs. today |
 |---|---|---|
-| `bar` · viewport · legacy · no narration (what ships) | 13.5 s | — |
-| `bar` · host · **grounded** · no narration | 16.4 s | **+21%** |
-| `cursor` · host · grounded · **Cadenza** | 20.3 s | **+50%** |
+| `bar` · viewport · legacy · no narration (the default, unchanged) | 13.5 s | — |
+| `bar` · host · **grounded** · no narration | 16.3 s | **+21%** |
+| `cursor` · host · grounded · **Cadenza** | 24.8 s | **+84%** |
 
-The tour got half again as long, and that is the honest headline. Where it went:
+The narrated cursor tour is nearly twice as long, and that is the honest headline. Where it went:
 
 - **The read beat's caption is 16 words**, which at a caption reading rate is 6.4 s — over the
   6-second ceiling, so the clamp binds. The model is not being slow here; it is reporting that
@@ -212,6 +212,11 @@ The tour got half again as long, and that is the honest headline. Where it went:
 - **Typing went 316 → 792 ms** for 15 characters. That is the fusion-threshold fix, and it is the
   one that most changes how the run reads.
 - **Narration adds ~4 s** because a beat now waits for its line instead of for an estimate of it.
+- **The reading window adds ~4.5 s more**, and it is the step-aside policy's own bill. A caption
+  that vanishes for the action has to have been readable before it, so every beat now spends its
+  reading budget up front rather than only on `read` beats. Crediting the settle against that
+  window — the balloon is visible for the whole settle, so buying it twice bought nothing —
+  recovered 1.8 s of it, from a first measurement of 26.6 s.
 
 Two consequences a productionization pass has to face: **narrated tours want shorter captions**,
 and **the six long-running gallery tours were tuned by eye against the old numbers**, so turning
@@ -222,12 +227,17 @@ the model on by default is a re-tune, not a swap.
 1. **Caption visibility is auto by mode** — silent hides during the action, voiced does not.
 2. **Pacing is the cited model plus voice calibration**, not defaults alone; `speed` stays the
    only public knob, per the library's own "curated preset, not a raw number the eye can't use".
-3. **`bounds` is a first-class option**, and a CLAMPING box rather than a containing block: the
+3. **`pacing` defaults to `'legacy'`, not `'grounded'`.** This reverses the first draft. The
+   grounded numbers are better and every one is sourced, but adopting them re-times every
+   existing tour by +21%, and the six long-running galleries were paced by eye against the old
+   ones. A library option should not do that to a caller who did not ask. Flipping the default is
+   a merge decision with a re-tune attached, and it is the first follow-up below.
+4. **`bounds` is a first-class option**, and a CLAMPING box rather than a containing block: the
    layer stays `position: fixed` and click-through, and only the chrome's geometry is measured
    against `root`. Making the layer a child of the host would put the tour inside the host's
    stacking, overflow and transform context, which is where an overlay goes to get clipped.
    Nothing about the host's CSS has to change.
-4. **The word cue is built**, both alignment directions, with the degradation path (no narrator,
+5. **The word cue is built**, both alignment directions, with the degradation path (no narrator,
    or a word the line does not contain) leaving the beat in its normal order.
 
 ## What is deliberately not here
@@ -241,12 +251,59 @@ the model on by default is a re-tune, not a swap.
   point is the model, and `'legacy'` is the escape.
 - **Viewer telemetry.** See above.
 
+## What the independent checker broke, and what it cost
+
+An independent checker (HARD RULE #25's maker-checker rung) ran against the first commit and
+confirmed six defects. Recording them because two are the kind that would have shipped:
+
+1. **The cursor-anchored caption was not anchored to the cursor.** The balloon was placed once,
+   when the line was set — which is at the TOP of a beat, before any travel — and never
+   re-placed. It then reappeared after the performance beside where the cursor had been at the
+   end of the *previous* beat. Measured at up to **561 px** from the pointer it was speaking for,
+   while this document, the README and the changelog all said "next to the cursor". Placement now
+   happens on the hidden→visible edge, which is the moment the cursor actually comes to rest.
+2. **The e2e that certified it was ~50% flaky** (2 failures in 4 runs) — `expect.poll`'s default
+   backoff reaches 1 s intervals and stepped over a visibility window a few hundred ms wide. A
+   40 ms interval plus the wider window from finding 6 fixes it; re-run 10× green. The claim "6
+   e2e on a real Chromium" in the first commit body was therefore not true when it was written.
+3. **The default `bar` geometry changed for every existing caller.** `layout()` ran
+   unconditionally, so a run that never asked for `bounds` got its bar re-seated from JS: 704 →
+   680 px at 1440, 390 → 366 px at 390. The bounds machinery is now gated on `bounds: 'host'`.
+4. **The speed preset was applied twice to the caption dwell** — once inside `captionMs` via the
+   wpm table, once again as `* stage.pace` at the call site. `slow` spent 6720 ms on a line
+   priced at 4800 (86 effective wpm) and `fast` came out at 243 wpm, *above* the undistracted
+   silent-reading rate the budget exists to sit below, with the documented 1.0–6.0 s clamp
+   bounding neither end.
+5. **`pacing` defaulted to `'grounded'`**, re-timing every shipped tour including the Studio's
+   Guide rung, whose own comment about a 480 ms register beat the change had just deleted. Now
+   `'legacy'`, so the comment is true again.
+6. **The step-aside starved the caption of the budget the same commit had just grounded.** On an
+   ordinary beat the text lands ~140 ms after `say`, by which time the cursor is already
+   performing, so the balloon was readable only during the settle: **400 ms against a 1900 ms
+   budget** that was computed and then never spent.
+
+Also fixed from the same pass: `placeBubble` scored overflow (pixels) against coverage (square
+pixels), so "leaving the bounds is disqualifying" was false for any target above ~1000 px²;
+`place()` wrote viewport coordinates into a layer-relative offset while its two siblings
+converted; the bar's width arithmetic assumed `content-box` in a library designed to drop into
+hosts where `* { box-sizing: border-box }` is the commonest reset; a stranded `performDepth`
+could hide the caption for the rest of a run; `narrator.plan()` was unguarded while `speak()` was;
+and the `at`-beats-`read` warning stated the opposite of what happens on the degradation path.
+
+**Still UNVERIFIED, and it should not be read as settled:** "a voiced narrator keeps the caption
+up" has never run against a real voice. No voiced `Narrator` exists in the tree (HARD RULE #24),
+so the rule is exercised only by a jsdom test calling `stage.setVoiced(true)` directly.
+
 ## Follow-ups a productionization pass owes
 
-- Re-tune or re-caption the six gallery tours against the grounded model, or hold them on
-  `'legacy'` and say why.
-- Decide whether `pacing: 'legacy'` survives merge or is a prototype-only lever. It is API
-  surface that exists to make one comparison possible.
+- Decide whether the default flips to `'grounded'`, and re-tune or re-caption the galleries if it
+  does. `'legacy'` is the default today precisely so that decision is taken deliberately.
+- The `bar` caption now declares `box-sizing: border-box`, so it is 24 px narrower than before and
+  finally honors the 680 px cap its own comment claims. That is a real change to a shipped
+  default — small, deliberate, and the alternative was keeping an assumption that breaks in any
+  host with a border-box reset.
+- The e2e spec carries no `@smoke` tag, so it runs nightly and never per-PR. Tagging it is a
+  question about what every PR pays for, so it is not taken here.
 - The bubble at 390px is nearly the width of the host panel, at which point it has converged on a
   caption bar with extra steps. Either accept that (it is still next to the cursor) or fall back
   to `bar` below a width.

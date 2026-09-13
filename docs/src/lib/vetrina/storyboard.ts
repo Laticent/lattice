@@ -5,7 +5,7 @@
 // so it composes with the primitive and the fluent builder (scene() is defined as
 // storyboard(seed, this.toData()) — one interpreter, no drift).
 
-import { findCueWord, type NarrationHandle, SILENT_NARRATOR } from './narrate';
+import { findCueWord, type NarratedWord, type NarrationHandle, type Narrator, SILENT_NARRATOR } from './narrate';
 import { resolvePacing } from './pacing';
 import { holdUntil } from './recipes';
 import type { RunContext, Walkthrough } from './runner';
@@ -64,8 +64,15 @@ export interface Step<A> {
 
 /** The pre-model default settle. `pacing.settleMs()` owns this now; the constant stays as the
  *  `'legacy'` model's value and as the number the older tours were tuned against. */
-const STEP_SETTLE = 900;
-void STEP_SETTLE;
+/** Ask a narrator for its timeline, treating a throw as "I have no timeline". */
+function planFor(narrator: Narrator, text: string): NarratedWord[] | null {
+	try {
+		return narrator.plan?.(text) ?? null;
+	} catch (e) {
+		console.warn('vetrina: the narrator\'s plan() threw; the word cue is skipped for this beat.', e);
+		return null;
+	}
+}
 
 /** SUPERSEDED by `pacing.captionMs` (./pacing) — kept because it is exported API, and because a
  *  host that has been calling it should keep getting the same number rather than a silently
@@ -96,7 +103,10 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			console.warn('vetrina: an `instant` beat ignores point/click/drag/gesture — remove them, or drop `instant` to perform the beat.');
 		}
 		if (s.at && s.read) {
-			console.warn(`vetrina: a beat set both \`read\` (finish the line, then act) and \`at: ${JSON.stringify(s.at)}\` (act ON that word) — they are opposite rhythms. \`at\` wins; drop \`read\`.`);
+			console.warn(
+				`vetrina: a beat set both \`read\` (finish the line, then act) and \`at: ${JSON.stringify(s.at)}\` (act ON that word) — they are opposite rhythms. ` +
+					'`at` wins WHEN the cue resolves; with no narrator, or a narrator that cannot plan, or a word the line does not contain, `read` runs instead. Pick one.',
+			);
 		}
 		if (s.at && s.say == null) {
 			console.warn(`vetrina: \`at: ${JSON.stringify(s.at)}\` needs a \`say\` to find the word in — the cue is ignored.`);
@@ -137,7 +147,11 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			// So whichever side is behind waits. If the hand needs longer than the word, the LINE
 			// starts late; if the word is further off than the trip, the ACTION starts late.
 			// Exactly one of these is non-zero, and either way the cursor lands on the word.
-			const cuePlan = step.at && step.say != null && step.say !== '' && !step.instant ? findCueWord(narrator.plan?.(step.say), step.at) : null;
+			// `plan()` is third-party code (the port is implementable by any host), so it is guarded
+			// the same way `speak()` is. The README promises the cue degrades to the beat's normal
+			// order when it cannot be resolved; a throw that took the run down would make that
+			// false in the one case most likely to hit it.
+			const cuePlan = step.at && step.say != null && step.say !== '' && !step.instant ? findCueWord(planFor(narrator, step.say), step.at) : null;
 			const cueLead = cuePlan && step.point != null ? (stage.leadMs?.(step.point) ?? 0) : 0;
 			const lineDelay = cuePlan ? Math.max(0, cueLead - cuePlan.startMs) : 0;
 			const actionDelay = cuePlan ? Math.max(0, cuePlan.startMs - cueLead) : 0;
@@ -170,6 +184,17 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			// here: an estimate is what you use when nothing has measured the thing. Skipped on
 			// instant beats (no theater) and when there's nothing to read, and skipped when `at`
 			// set the opposite rhythm. `?.` keeps fake-stage test stubs safe.
+			//
+			// THE READING WINDOW. `captionMs` is NOT multiplied by `stage.pace` here, and that is
+			// the whole of a bug worth naming: the speed preset is already inside it, as the wpm
+			// the rate table is indexed by. Multiplying again applied the preset twice — `slow`
+			// dwelled 6720ms where the model says 4800 (86 effective wpm), `fast` came out at 243
+			// wpm, above the undistracted silent-reading rate the model is explicitly meant to sit
+			// below, and the documented 1.0–6.0s clamp bounded neither end. Every other duration in
+			// ./pacing IS speed-independent and IS multiplied at its call site; this one is the
+			// exception because its rate table is the thing Cadenza's parity test pins.
+			const readingMs = step.say ? pacing.captionMs(step.say) : 0;
+
 			if (step.read && !cuePlan && step.say != null && !step.instant) {
 				await stage.emphasizeCaption?.(signal);
 				// The LONGER of the two, always. The narrator's duration is a measurement and beats
@@ -177,7 +202,23 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 				// the caption because they cannot hear it needs it on screen long enough to READ.
 				// Taking the max serves both, and it is also what makes the no-narrator case free:
 				// SILENT_NARRATOR resolves instantly, so the estimate is simply what is left.
-				await Promise.all([line?.done, wait(pacing.captionMs(step.say) * stage.pace, signal)]);
+				await Promise.all([line?.done, wait(readingMs, signal)]);
+			} else if (!cuePlan && !step.instant && step.say != null && step.say !== '' && stage.captionStepsAside?.()) {
+				// A CAPTION THAT WILL VANISH HAS TO BE READ FIRST. Under `caption:'cursor'` the
+				// balloon steps aside the moment the cursor starts performing — which, on an
+				// ordinary beat, is ~140ms after the text lands. Measured on the prototype: the
+				// line "Give the deck a title." was legible for 400ms against a 1900ms budget the
+				// model had just computed and then never spent.
+				//
+				// The budget is spent here, before the action — but MINUS the settle, because the
+				// balloon is visible again for the whole settle and that time is already being
+				// paid. Buying it twice cost 6.3s across a five-beat tour and bought nothing: the
+				// reading window is the same length either way, it just starts earlier. A `read`
+				// beat (above) deliberately spends the FULL budget before the action, which is
+				// what distinguishes it; a cued beat is exempt, because `at` is an explicit
+				// instruction about when the action happens.
+				const landing = step.settle ?? (stage.still ? 300 : pacing.settleMs());
+				await Promise.all([line?.done, wait(Math.max(0, readingMs - landing * stage.pace), signal)]);
 			}
 
 			// The action's half of the alignment. Zero whenever the line is the one waiting.

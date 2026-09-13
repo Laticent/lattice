@@ -262,7 +262,7 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 		// own setters, so nothing in stage.ts can see it happening. Telling it explicitly is what
 		// lets the cursor-anchored caption step out of the way of the field being typed into,
 		// which is the one place a caption is most likely to be sitting on top of the action.
-		stage.busy(true);
+		stage.busy?.(true);
 		try {
 			// Reveal the tail, chunking whitespace so it reads as words; jitter each keystroke
 			// +/-40%; a longer "render breath" every ~38 chars so a live preview repaints mid-type.
@@ -284,7 +284,7 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 			}
 			typed.set(key, text);
 		} finally {
-			stage.busy(false);
+			stage.busy?.(false);
 		}
 	}
 
@@ -323,7 +323,7 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 	const narrator = opts.narrate ?? SILENT_NARRATOR;
 	// The stage needs to know whether the words are SPOKEN, because that is what decides whether
 	// the cursor-anchored caption steps aside for the action (see Stage.setVoiced).
-	stage.setVoiced(narrator.voiced);
+	stage.setVoiced?.(narrator.voiced);
 	const pacing = resolvePacing(opts.theme?.speed ?? 'moderate', opts.theme?.pacing ?? 'grounded');
 	const ctx: RunContext<A> = { stage, actions, signal, type, awaitUser, narrator, pacing };
 

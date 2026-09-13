@@ -105,9 +105,9 @@ describe('caption: cursor — it steps aside, and Exit does not go with it', () 
 		const { layer, stage } = mount({ motion: 'still' }); // 'still' makes say() synchronous
 		stage.say('Give the deck a title.');
 		expect(hidden(layer)).toBe(false);
-		stage.busy(true);
+		stage.busy?.(true);
 		expect(hidden(layer)).toBe(true);
-		stage.busy(false);
+		stage.busy?.(false);
 		expect(hidden(layer)).toBe(false);
 	});
 
@@ -119,7 +119,7 @@ describe('caption: cursor — it steps aside, and Exit does not go with it', () 
 		// The dock's own opacity is the mount cross-fade, driven by a rAF this test does not run.
 		// What matters is that stepping the BUBBLE aside does not touch it.
 		const dockOpacityBefore = dock.style.opacity;
-		stage.busy(true);
+		stage.busy?.(true);
 		expect(hidden(layer)).toBe(true);
 		// Exit is not inside the bubble, and nothing hid it.
 		expect(bubbleOf(layer).contains(exit)).toBe(false);
@@ -130,7 +130,7 @@ describe('caption: cursor — it steps aside, and Exit does not go with it', () 
 	it('hides by OPACITY, never display/visibility — a live region out of the layout tree is out of the a11y tree', () => {
 		const { layer, stage } = mount({ motion: 'still' });
 		stage.say('This is the caption.');
-		stage.busy(true);
+		stage.busy?.(true);
 		const bubble = bubbleOf(layer);
 		expect(bubble.style.display).not.toBe('none');
 		expect(bubble.style.visibility).not.toBe('hidden');
@@ -142,32 +142,32 @@ describe('caption: cursor — it steps aside, and Exit does not go with it', () 
 	it('nesting is reference-counted — an inner verb finishing must not reveal the caption early', () => {
 		const { layer, stage } = mount({ motion: 'still' });
 		stage.say('Reorder the backlog.');
-		stage.busy(true);
-		stage.busy(true);
-		stage.busy(false);
+		stage.busy?.(true);
+		stage.busy?.(true);
+		stage.busy?.(false);
 		expect(hidden(layer)).toBe(true); // still one performance deep
-		stage.busy(false);
+		stage.busy?.(false);
 		expect(hidden(layer)).toBe(false);
 	});
 
 	it('an unbalanced release cannot drive the count negative and desync the caption', () => {
 		const { layer, stage } = mount({ motion: 'still' });
 		stage.say('Done.');
-		stage.busy(false);
-		stage.busy(false);
-		stage.busy(true);
+		stage.busy?.(false);
+		stage.busy?.(false);
+		stage.busy?.(true);
 		expect(hidden(layer)).toBe(true);
 	});
 
 	it('a VOICED narrator keeps the caption up during the action', () => {
 		const { layer, stage } = mount({ motion: 'still' });
-		stage.setVoiced(true);
+		stage.setVoiced?.(true);
 		stage.say('Now click Publish to send it to the board.');
-		stage.busy(true);
+		stage.busy?.(true);
 		// The ear is carrying the words, so the eye is free — and blanking a subtitle mid-sentence
 		// takes them from the viewer who is reading it BECAUSE they cannot hear it.
 		expect(hidden(layer)).toBe(false);
-		stage.setVoiced(false);
+		stage.setVoiced?.(false);
 		expect(hidden(layer)).toBe(true);
 	});
 
@@ -182,7 +182,7 @@ describe('caption: cursor — it steps aside, and Exit does not go with it', () 
 	it('busy() is inert in every other style, so a host can call it unconditionally', () => {
 		const { layer, stage } = mount({ caption: 'bar', motion: 'still' });
 		stage.say('Give the deck a title.');
-		stage.busy(true);
+		stage.busy?.(true);
 		expect(layer.querySelector('.vetrina-bubble')).toBeNull();
 		expect(layer.querySelector('.vetrina-narration')?.textContent).toBe('Give the deck a title.');
 	});
@@ -191,8 +191,98 @@ describe('caption: cursor — it steps aside, and Exit does not go with it', () 
 		const { stage } = mount({ motion: 'still' });
 		stage.say('Mid-beat.');
 		stage.destroy();
-		expect(() => stage.busy(true)).not.toThrow();
-		expect(() => stage.setVoiced(true)).not.toThrow();
+		expect(() => stage.busy?.(true)).not.toThrow();
+		expect(() => stage.setVoiced?.(true)).not.toThrow();
+	});
+});
+
+describe('caption: cursor — the bubble is anchored to where the cursor RESTS', () => {
+	// jsdom has no layout, so `place` returns early on a zero-size bubble and the coordinates
+	// cannot be asserted here — the e2e does that on a real surface. What IS assertable, and is
+	// the actual defect, is WHEN the placement is recomputed: the balloon used to be positioned
+	// once, when the line was set, which is before the beat's travel. It then reappeared after
+	// the performance next to where the cursor had been at the end of the PREVIOUS beat —
+	// measured at up to 561px from the pointer it was speaking for.
+	function mountSpy() {
+		const { layer, stage } = mount({ motion: 'still' });
+		const bubble = bubbleOf(layer);
+		let places = 0;
+		// `place` sizes the bubble to the bounds BEFORE it measures, and bails on a zero-area
+		// measurement — which is every measurement in jsdom. So the observable that survives here
+		// is that write, not the left/top it would have produced.
+		const proto = Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype, 'maxWidth');
+		Object.defineProperty(bubble.style, 'maxWidth', {
+			configurable: true,
+			get: () => '320px',
+			set: () => {
+				places++;
+			},
+		});
+		return { layer, stage, places: () => places, restore: () => proto && Object.defineProperty(bubble.style, 'maxWidth', proto) };
+	}
+
+	it('re-places when it comes BACK, not only when the line changes', () => {
+		const { stage, places, restore } = mountSpy();
+		stage.say('Give the deck a title.');
+		const afterSay = places();
+		stage.busy?.(true); // the cursor travels and types — the bubble is hidden
+		expect(places()).toBe(afterSay); // nothing to place while hidden
+		stage.busy?.(false); // …and comes to rest somewhere else
+		expect(places()).toBeGreaterThan(afterSay);
+		restore();
+	});
+
+	it('re-places on a text change too — a new line is a new size', () => {
+		const { stage, places, restore } = mountSpy();
+		stage.say('One.');
+		const first = places();
+		stage.say('A considerably longer second line.');
+		expect(places()).toBeGreaterThan(first);
+		restore();
+	});
+
+	it('stepping aside never places — placement is for the moment it is SHOWN', () => {
+		const { stage, places, restore } = mountSpy();
+		stage.say('Give the deck a title.');
+		const before = places();
+		stage.busy?.(true);
+		stage.busy?.(true);
+		expect(places()).toBe(before);
+		restore();
+	});
+
+	it('a new line during a performance re-zeros the count — the drag-stranding guard', () => {
+		// `drag` brackets across two calls and a raw Walkthrough can branch away from both, which
+		// would leave the count above zero and the caption hidden for the rest of the run. A beat
+		// that has started saying something new is proof the last performance finished.
+		const { layer, stage } = mount({ motion: 'still' });
+		stage.busy?.(true);
+		stage.busy?.(true);
+		stage.say('A new beat begins.');
+		expect(hidden(layer)).toBe(false);
+	});
+});
+
+describe('bounds — the default is not touched by the machinery that serves `host`', () => {
+	it("bounds:'viewport' leaves the bar's geometry to CSS, as it was before `bounds` existed", () => {
+		const { layer } = mount({ caption: 'bar' });
+		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
+		// The mount lays out under `host` only. Under the default these stay the declared values —
+		// re-seating them from JS is what silently narrowed every existing tour's caption bar from
+		// 704px to 680px at 1440, on a change whose commit message said nothing shipped moved.
+		expect(dock.style.left).toBe('50%');
+		expect(dock.style.width).toBe('calc(100% - 24px)');
+		expect(dock.style.maxWidth).toBe('680px');
+	});
+
+	it("bounds:'host' is what opts into the JS seating", async () => {
+		const { layer } = mount({ caption: 'bar', bounds: 'host' });
+		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
+		// The seating runs in the mount frame, so give it one.
+		await new Promise<void>((r) => requestAnimationFrame(() => r()));
+		// jsdom reports a zero-area root, so `boundsRect` falls back to the window — the assertion
+		// is that the JS path RAN (px, not the declared calc), not what number it produced.
+		expect(dock.style.width.endsWith('px')).toBe(true);
 	});
 });
 

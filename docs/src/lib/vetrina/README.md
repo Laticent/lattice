@@ -402,9 +402,16 @@ Three properties do the work, and each one is a rejection of the obvious version
   has to be re-found. Moving it means hiding it and showing it somewhere else, never sliding it.
 - **It steps aside.** While the cursor performs — typing, clicking, dragging, drawing a deictic
   stroke — the balloon fades out, because at that moment it is a box sitting next to the exact
-  thing the viewer should be watching. It comes back on the next `say`. The stage brackets its
-  own verbs, so you write nothing; the one seam is `stage.busy(on)`, which the runner already
+  thing the viewer should be watching. It comes back when the cursor comes to rest, **re-anchored
+  to where the cursor now is** rather than where it was when the line was set. The stage brackets
+  its own verbs, so you write nothing; the one seam is `stage.busy(on)`, which the runner already
   calls around the typing reveal (typing lands through YOUR setters, so the stage cannot see it).
+- **It is read BEFORE the action, not after.** A caption that is going to vanish has to have been
+  readable first, so under this style every beat with a `say` spends its reading budget up front —
+  the same rhythm `read()` asks for, minus the pointing cue. The settle is credited against that
+  window, since the balloon is visible for the whole settle and there is no sense buying it twice.
+  It is not free: on a five-beat tour with ~8-word captions it is the difference between 16s and
+  25s. Short captions are the lever.
 - **Exit does not go with it.** The balloon hides; the corner chip does not. A caption that can
   hide would otherwise take the only escape with it, and stranding a viewer inside a running tour
   is the one thing this library will not do. Hiding is by opacity, never `display` — the narration
@@ -482,8 +489,13 @@ Every duration the theater spends lives in `pacing.ts`, and each constant carrie
 A narrator's measurement supersedes the caption estimate wherever one exists — with a voice, that
 is the clip's measured duration. A grounded default is still a guess.
 
-`speed` remains the only public knob. `theme: { pacing: 'legacy' }` reproduces the five literals
-this library shipped before the model existed, so the two can be compared on one surface.
+`speed` remains the only public knob, and it is applied ONCE — `captionMs` is indexed by it, the
+rest are multiplied by it at their call sites.
+
+**`pacing` defaults to `'legacy'`** — the five literals this library shipped before the model
+existed. The grounded numbers are the better ones, but switching costs +21% run length on a
+measured tour, and a library option should not re-time an existing walkthrough because you
+upgraded. Opt in with `theme: { pacing: 'grounded' }`, and compare the two on one surface.
 
 ## Driving from React
 

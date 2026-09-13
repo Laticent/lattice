@@ -12,21 +12,11 @@
 export type { NarratedWord, NarrateOptions, NarrationHandle, Narrator } from './narrate';
 export { findCueWord, SILENT_NARRATOR } from './narrate';
 export type { Pacing, PacingModel, Speed } from './pacing';
-export {
-	CAPTION_MAX_MS,
-	CAPTION_MIN_MS,
-	CAPTION_NOTICE_MS,
-	CAPTION_WPM,
-	FITTS_A_MS,
-	FITTS_B_MS,
-	NOMINAL_TARGET_PX,
-	REGISTER_MS,
-	resolvePacing,
-	SETTLE_MS,
-	TRAVEL_MAX_MS,
-	TRAVEL_MIN_MS,
-	TYPE_MS_PER_CHAR,
-} from './pacing';
+// Only the model and the one number that is a CROSS-LIBRARY contract (it must equal Cadenza's
+// `PACE_WPM`, and a parity test pins it). The other dozen constants stay module-private: a
+// curated library does not publish `FITTS_B_MS` for a host to tune — §9's "a curated preset,
+// never a raw number the eye can't use" applies to the barrel as much as to the theme.
+export { CAPTION_WPM, resolvePacing } from './pacing';
 export type { LoopOpts, RetryOpts, WaitForOpts } from './recipes';
 export { loop, retry, waitFor } from './recipes';
 // `holdUntil` is intentionally NOT public — it's the internal gate behind the descriptor's

@@ -65,11 +65,17 @@ export interface Theme {
 	 *  the host's own stacking, overflow and transform context, which is where an overlay goes to
 	 *  get clipped. Nothing about the host's CSS has to change. */
 	bounds?: 'viewport' | 'host';
-	/** Which pacing model the run spends its time by (default 'grounded'; see ./pacing).
+	/** Which pacing model the run spends its time by (see ./pacing).
 	 *
-	 *  `'legacy'` reproduces the five hand-tuned literals this library shipped before the model
-	 *  existed. It is here so the two can be compared on the same surface in the same session —
-	 *  a pacing change that cannot be A/B'd is a matter of taste, and taste is not evidence. */
+	 *  **Defaults to `'legacy'`** — the five hand-tuned literals this library shipped before the
+	 *  model existed — so adding the model changes no tour that does not ask for it. That is not
+	 *  a verdict on the model: `'grounded'` is the better set of numbers and every one of them is
+	 *  sourced. It is that switching costs +21% run length on a measured tour, and the six
+	 *  long-running galleries were paced by eye against the old numbers, so flipping the default
+	 *  is a re-tune with a review attached rather than a default.
+	 *
+	 *  Opt in per run, and compare the two on one surface in one session — a pacing change that
+	 *  cannot be A/B'd is a matter of taste, and taste is not evidence. */
 	pacing?: 'grounded' | 'legacy';
 	/** How to honor motion preference (default 'system'):
 	 *   - 'system'  read `prefers-reduced-motion`: reduce → 'legible', else → 'full';
@@ -229,7 +235,7 @@ export function resolveTheme(theme: Theme = {}): ResolvedTheme {
 		caption: theme.caption ?? 'bar',
 		bounds: theme.bounds ?? 'viewport',
 		speed: theme.speed ?? 'moderate',
-		pacing: theme.pacing ?? 'grounded',
+		pacing: theme.pacing ?? 'legacy',
 		// 'system' stays symbolic here — the stage resolves it against the live device (matchMedia),
 		// keeping the one media read in one testable place.
 		motion: theme.motion ?? 'system',

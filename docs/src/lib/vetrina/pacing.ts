@@ -26,9 +26,11 @@ export type Speed = 'slow' | 'moderate' | 'fast';
 
 /** Which pacing model a run uses.
  *
- *  `'legacy'` reproduces the five hand-tuned literals byte for byte. It exists so the
- *  grounded model can be A/B'd against what shipped, on the same surface, in the same
- *  session — an unmeasurable "feels better" is not evidence (HARD RULE #19). */
+ *  `'legacy'` reproduces the five hand-tuned literals byte for byte, and is the DEFAULT: the
+ *  grounded numbers are the better ones, but adopting them re-times every existing tour (+21%
+ *  on a measured run), so that is a decision with a review attached rather than something a
+ *  library upgrade does to you. It also exists so the two can be A/B'd on the same surface in
+ *  the same session — an unmeasurable "feels better" is not evidence (HARD RULE #19). */
 export type PacingModel = 'grounded' | 'legacy';
 
 // ── What the numbers said ───────────────────────────────────────────────────
@@ -144,7 +146,7 @@ export interface Pacing {
 }
 
 /** Build the pacing model for a run. Pure — no DOM, no clock, no state. */
-export function resolvePacing(speed: Speed = 'moderate', model: PacingModel = 'grounded'): Pacing {
+export function resolvePacing(speed: Speed = 'moderate', model: PacingModel = 'legacy'): Pacing {
 	const legacy = model === 'legacy';
 	return {
 		model,

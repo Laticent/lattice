@@ -86,12 +86,18 @@ test.describe('caption placement — the caption is inside the box the tour runs
 	});
 });
 
+/** The bubble's opacity, sampled fast. The default poll backoff reaches 1s intervals within ~2s
+ *  and steps clean over a visibility window that is a few hundred ms wide — which is how the
+ *  first version of this file managed to be ~50% flaky while testing something real. */
+const opacityBecomes = (page: Page, value: string, timeout = 10_000) =>
+	expect.poll(async () => page.locator(BUBBLE).evaluate((el) => getComputedStyle(el).opacity), { intervals: [40], timeout }).toBe(value);
+
 test.describe('caption visibility — it steps aside, and Exit does not', () => {
 	test('the bubble is hidden while the cursor types, and back afterwards', async ({ page }) => {
 		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'off' });
 		await waitForPhase(page, '2:type');
 		// Mid-typing: the caption is out of the way of the field being typed into.
-		await expect.poll(async () => page.locator(BUBBLE).evaluate((el) => getComputedStyle(el).opacity), { timeout: 5_000 }).toBe('0');
+		await opacityBecomes(page, '0');
 		// …but it is still in the layout and the accessibility tree, holding its live region.
 		await expect(page.locator(`${BUBBLE} .vetrina-narration[role="status"]`)).toHaveCount(1);
 		await expect(page.locator(BUBBLE)).toHaveCSS('display', 'block');
@@ -99,7 +105,30 @@ test.describe('caption visibility — it steps aside, and Exit does not', () => 
 		await expect(page.locator('button[aria-label="Exit the demo"]')).toBeVisible();
 		// The next caption brings the bubble back.
 		await waitForPhase(page, '3:say');
-		await expect.poll(async () => page.locator(BUBBLE).evaluate((el) => getComputedStyle(el).opacity), { timeout: 5_000 }).toBe('1');
+		await opacityBecomes(page, '1');
+	});
+
+	test('the bubble comes back NEXT TO THE CURSOR, not where the cursor used to be', async ({ page }) => {
+		// The defect this exists for: the balloon was placed once, when the line was set — which is
+		// before the beat's travel — and never re-placed. It reappeared after the performance
+		// beside where the cursor had been at the end of the PREVIOUS beat, measured at 561px from
+		// the pointer it was speaking for, while three documents said "next to the cursor".
+		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'off' });
+		const gaps: number[] = [];
+		for (const beat of ['2:say', '3:say', '4:say']) {
+			await waitForPhase(page, beat);
+			await opacityBecomes(page, '1');
+			const bubble = await page.locator(BUBBLE).boundingBox();
+			const cursor = await page.locator('.vetrina-cursor').boundingBox();
+			if (!bubble || !cursor) continue;
+			// Nearest edge-to-edge distance: the balloon is placed with a ~20px gap off the cursor,
+			// so anything in the low tens is adjacent and anything in the hundreds is the bug.
+			const dx = Math.max(0, Math.max(bubble.x - (cursor.x + cursor.width), cursor.x - (bubble.x + bubble.width)));
+			const dy = Math.max(0, Math.max(bubble.y - (cursor.y + cursor.height), cursor.y - (bubble.y + bubble.height)));
+			gaps.push(Math.hypot(dx, dy));
+		}
+		expect(gaps.length).toBeGreaterThanOrEqual(2);
+		for (const gap of gaps) expect(gap).toBeLessThan(80);
 	});
 });
 
