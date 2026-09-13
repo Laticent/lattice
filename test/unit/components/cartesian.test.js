@@ -670,6 +670,21 @@ describe('cartesian — domain policy', () => {
   // shipped 0.08 these tests pass with BOTH guards deleted — coverage in
   // appearance only. `pad` is a parameter, so the next caller that wants more
   // air is the one these protect.
+  test('a reversed pair is ordered, not plotted off the chart', () => {
+    // Exported substrate has no way to insist its arguments arrive sorted. Both
+    // shipped callers derive the pair themselves (`scatter` with Math.min/max,
+    // `slope` from a sorted model), so this is unreachable today — and it
+    // returned [7.5, 12.5] for (10, 2), a domain excluding the 2 entirely, with
+    // nothing anywhere to say so. The next caller has no reason to know.
+    for (const [a, b] of [[10, 2], [5, -5], [0, -10]]) {
+      const t = C.niceDomain(a, b);
+      assert.ok(t.min <= Math.min(a, b) && t.max >= Math.max(a, b),
+        `niceDomain(${a}, ${b}) -> [${t.min}, ${t.max}] does not contain its own data`);
+    }
+    // And ordering is all it does — the result matches the sorted call exactly.
+    assert.deepEqual(C.niceDomain(10, 2), C.niceDomain(2, 10));
+  });
+
   test('the zero wall is a TICK rule — the snap-out never reaches below zero', () => {
     // The domain is padded BELOW zero deliberately: clamping it at zero pinned
     // a bubble's center to the plot corner and deleted the `$0` tick the
