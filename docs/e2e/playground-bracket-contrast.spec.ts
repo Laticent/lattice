@@ -13,7 +13,7 @@ import { expect, test } from '@playwright/test';
 // `#bb555544` — a fixed red, including on the four a11y palettes that exist to avoid
 // that hue.
 //
-// This is the same trap `playground-selection-contrast.spec.ts` pins one package over,
+// This is the same trap `editor-selection-parity.spec.ts` pins one package over,
 // and it needs the same kind of test for the same reason (HARD RULE #23): a unit test
 // can read the selector but cannot say which declaration won a cascade. It reads
 // COMPUTED style rather than pixels so a failure says WHY.

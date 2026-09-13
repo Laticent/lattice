@@ -995,7 +995,7 @@ never turn "passed in headless" into "works on iOS."
 - **Fix:** Match the base theme's selector SHAPE and add one class, so the win is
   specificity rather than stylesheet order:
   `&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`.
-  Pinned by `docs/e2e/playground-selection-contrast.spec.ts` (both color modes),
+  Pinned by `docs/e2e/editor-selection-parity.spec.ts` (both color modes),
   which asserts the band's rgb tracks `--accent` and names the four base literals.
 - **Winning the cascade is not the same as being right, and this one wasn't.** With
   the base theme beaten, the recipe it restored — `--accent` at 22%, ink left alone —
@@ -1150,6 +1150,23 @@ never turn "passed in headless" into "works on iOS."
      separate `editorChromeCoarse` export, the same shape `lib/lint-theme.js` uses for
      `lintThemeCoarse`, spread INSIDE each consumer's own `@media` block, which stays
      LAST in the object (same-specificity rules resolve in key order).
+- **Three consequences of going native, none of them bugs, all of them undisclosed the
+  first time round.** (1) **On WebKit the selection does not survive blur** — click a
+  toolbar control and the highlight goes (measured, real WebKit: focused `213,203,178`,
+  blurred `234,228,214`; Chromium keeps painting it). `drawSelection()`'s DOM persisted
+  on both. The Studio always behaved this way. (2) **The Playground lost a focus ring** —
+  @codemirror/view's base `outline: 1px dotted #212121`, which the shared `outline: none`
+  now suppresses as the Studio always did. It was palette-blind (near-black on a dark
+  palette), and the caret is a text field's conventional focus affordance. (3) **Touch
+  gets OS selection handles** it did not have, which is the platform behavior a drawn
+  band was hiding.
+- **The active-line band stands down while a selection is up**, and that is a contrast
+  fix. `highlightActiveLine()` decorates the line at every range's head whether the range
+  is empty or not, so a selection covering the caret's line stacked 12% + 18% accent =
+  27.84%. On cuoio/light `--text-body` read **3.96:1** there, under AA, while the same
+  selection over bare `--bg` reads 4.61 — and the spec that was supposed to catch it
+  composited over `--bg`, so it passed. **A contrast spec must read its backdrop from the
+  live DOM, not assume the canvas.** The parity spec now does.
 - **Pinned by** `docs/e2e/editor-selection-parity.spec.ts` (both editors, both color
   modes, asserting they paint the SAME selection and caret) and
   `docs/src/playground/editor-selection.test.ts`, which asserts neither theme

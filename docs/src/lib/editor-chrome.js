@@ -36,6 +36,15 @@
 // rendered at 16px instead of 13.5px and only a computed-style read on the real page
 // caught it. That is why surface tokens go through the `vars` parameter.
 //
+// ONE BEHAVIOR CHANGE COMES WITH NATIVE SELECTION, and it is worth knowing before you
+// read it as a bug: on WebKit/Safari the native highlight does NOT survive the editor
+// losing focus. Select text in the Playground, click a toolbar control, and the
+// highlight disappears — measured, real WebKit: focused `213,203,178`, blurred
+// `234,228,214`. Chromium keeps painting it. `drawSelection()` used to paint DOM that
+// persisted on both, which is why this changed when it was dropped. The Studio's editor
+// has always behaved this way, so this is convergence rather than regression — but it
+// IS a change on the Playground and nobody should rediscover it as a defect.
+//
 // THE COARSE-POINTER RULES ARE A SEPARATE EXPORT, deliberately. A theme object is a
 // flat map, so a spread module carrying its own `@media (pointer: coarse)` key
 // REPLACES the consumer's — taking that consumer's other coarse rules with it.
@@ -79,8 +88,30 @@ export function editorChrome({ fontSize, padding, lineHeight, gutterDivider = fa
 			color: 'var(--text-muted)',
 			border: 'none',
 			fontFamily: 'var(--font-mono, ui-monospace, monospace)',
+			// THE GUTTER NEEDS ITS OWN line-height, and this is the whole reason the
+			// declaration cannot simply live on `.cm-content`. `.cm-gutters` is a SIBLING
+			// of `.cm-content` inside `.cm-scroller`, not a child of it — so it inherits
+			// nothing from the content box. Without this it falls back to
+			// @codemirror/view's base `.cm-scroller { line-height: 1.4 }`, and because
+			// `GutterElement.update` still gives each gutter BOX an explicit pixel height,
+			// the boxes stay aligned while the number GLYPH inside each one drifts up.
+			// Measured on the real Playground when this was missing: gutters 18.9px
+			// against content 21.6px, every line number sitting ~1.35px above the line it
+			// labels, all the way down the file. The Playground used to get this by
+			// accident, from a `lineHeight` on `.cm-scroller` that the gutters inherited.
+			lineHeight,
 			...(gutterDivider ? { borderRight: '1px solid var(--border)' } : {}),
 		},
+		// NO FOCUS RING, and this is a deliberate removal on the Playground rather than an
+		// inherited default. Without this rule @codemirror/view's base theme paints
+		// `outline: 1px dotted #212121` — a fixed near-black that the Studio has always
+		// suppressed and the Playground used to show. Two reasons it goes: the ring is
+		// palette-blind (on a dark palette it is near-black on near-black, so it is not
+		// doing the job it looks like it is doing), and for a text field the CARET is the
+		// conventional focus affordance, which is why every editor here themes
+		// `caretColor` rather than an outline. If a themed ring is ever wanted, it belongs
+		// here, on a token — not as CodeMirror's untokenized default coming back by
+		// omission.
 		'&.cm-focused': { outline: 'none' },
 		// INERT on both surfaces today — `.cm-cursor` is drawn by `drawSelection()`,
 		// which neither installs, so the native caret above is what renders. Kept,

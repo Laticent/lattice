@@ -309,6 +309,21 @@ const latticeTheme = EditorView.theme({
 	// the 5% the Studio carried but never painted.
 	'.cm-activeLine': { backgroundColor: 'var(--cm-active-line)' },
 	'.cm-activeLineGutter': { backgroundColor: 'var(--cm-active-gutter)', color: 'var(--accent)' },
+	// THE ACTIVE LINE STANDS DOWN WHILE A SELECTION IS UP, and this is a contrast fix
+	// rather than a preference. `highlightActiveLine()` decorates the line at every
+	// range's HEAD whether or not that range is empty (@codemirror/view's `getDeco`
+	// has no `r.empty` check), so a selection that covers the caret's line lands on
+	// TWO stacked accent washes — 12% + 18% composites to 27.84%. Measured on
+	// cuoio/light, the site's default palette and mode: `--text-body` reads 3.96:1
+	// there, under AA, while the same selection over bare `--bg` reads 4.61.
+	//
+	// The band's job is "here is your caret". A selection says that already, and more
+	// precisely — so dropping it while one is up costs nothing and is what makes the
+	// 4.5 floor this editor's specs assert actually TRUE on the surface rather than
+	// only in the arithmetic. `--cm-active-line` itself is untouched: the band is
+	// exactly as visible as before whenever there is no selection.
+	'&.cm-has-selection .cm-activeLine': { backgroundColor: 'transparent' },
+	'&.cm-has-selection .cm-activeLineGutter': { backgroundColor: 'transparent' },
 	// NO SELECTION RULE HERE, ON PURPOSE — and no `drawSelection()` either.
 	//
 	// This editor used to install `drawSelection()`, which replaces the browser's
@@ -642,6 +657,13 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 				lineNumbers(),
 				highlightActiveLine(),
 				highlightActiveLineGutter(),
+				// Marks the editor while any range is non-empty, so the theme can stand the
+				// active-line band down for the duration (see the rule in `latticeTheme`). A
+				// computed facet rather than a ViewPlugin: it is a pure function of the
+				// selection, and `compute(['selection'], …)` re-runs exactly when that changes.
+				EditorView.editorAttributes.compute(['selection'], (state) =>
+					state.selection.ranges.some((r) => !r.empty) ? { class: 'cm-has-selection' } : {},
+				),
 				history(),
 				indentOnInput(),
 				bracketMatching(),
@@ -685,8 +707,11 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 	// Safari painted a "system lavender" selection tint before CodeMirror's theme
 	// landed. The lavender was `#d7d4f0` — @codemirror/view's own base-theme
 	// selection color, not the system's — so the cause was CSS specificity, not
-	// injection timing, and the reflow never fixed anything. It is removed with the
-	// real fix, in the `.cm-selectionBackground` rule above.)
+	// injection timing, and the reflow never fixed anything. It was removed with the
+	// real fix — a `.cm-selectionBackground` rule that out-specified the base theme —
+	// and that rule is itself gone now: this editor draws no selection at all, so
+	// there is no band for a base theme to win. See the note where the selection rule
+	// used to be.)
 	return {
 		getValue: () => view.state.doc.toString(),
 		setValue: (text) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }),

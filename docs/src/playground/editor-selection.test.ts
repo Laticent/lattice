@@ -28,8 +28,19 @@ const ROOT = path.resolve(__dirname, '../..');
 const EXPECTED_ALPHA = 18;
 const read = (f: string) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
-/** Every editor theme that could re-grow a local selection wash. */
-const EDITOR_THEMES = ['src/playground/editor.js', 'src/components/studio/editor-theme.ts'];
+/** Every file that could re-grow a local selection wash or re-install the extension.
+ *  The shared module is on this list deliberately: it is now the single most likely
+ *  home for a re-added rule, which is exactly what makes it easy to forget. The two
+ *  Studio components are here because they import `@codemirror/view` directly and are
+ *  where a `drawSelection()` would actually be installed for that surface — neither is
+ *  on a route the e2e drives, so this tier is the only thing watching CodeField. */
+const EDITOR_THEMES = [
+	'src/playground/editor.js',
+	'src/components/studio/editor-theme.ts',
+	'src/lib/editor-chrome.js',
+	'src/components/studio/Editor.tsx',
+	'src/components/studio/CodeField.tsx',
+];
 
 describe('the selection wash has exactly one owner', () => {
 	it('::selection in native-widgets.css carries the measured value', () => {
@@ -79,7 +90,7 @@ describe('the selection wash has exactly one owner', () => {
 			// tell prose from code would fail on its own documentation.
 			const src = read(file);
 			expect(src, `${file}: drawSelection is imported — it replaces the native highlight; see the note in playground/editor.js`).not.toMatch(/import\s*\{[^}]*\bdrawSelection\b[^}]*\}/);
-			expect(src, `${file}: drawSelection() is installed — it replaces the native highlight; see the note in playground/editor.js`).not.toMatch(/^\s*drawSelection\(\)/m);
+			expect(src, `${file}: drawSelection() is installed — it replaces the native highlight; see the note in playground/editor.js`).not.toMatch(/^\s*drawSelection\s*\(/m);
 		});
 	}
 });
