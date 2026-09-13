@@ -294,10 +294,19 @@ Recorded, not fixed: the pointer's altitude is a consequence of laying it out in
 pinning it would move every Form split page in the corpus — the same "belongs in its own change"
 boundary the band reservation above respects.
 
-**WHAT IS STILL NOT MEASURED ON A SPLIT PAGE.** CROWDING, and DRIFT in `check-jank`'s own sense
-(sweep ONE slide's content and watch its anchors) — both need the rig to render WITH splitting,
-which is a change to the tool. The two sweeps here answer the collision question and the
-across-a-run question and neither answers those.
+**WHAT IS STILL NOT MEASURED ON A SPLIT PAGE, AND WHY A QUICK VERSION DOES NOT COUNT.** CROWDING,
+and DRIFT in `check-jank`'s own sense (sweep ONE slide's content and watch its anchors). Both need
+the rig to render WITH splitting, which is a change to the tool.
+
+CROWDING was attempted here with a standalone probe — ink union against the section's content box,
+`--tight 12`, the rig's own definition — and the attempt is worth recording because of how it
+failed: **1,440 of 1,456 pages came back crowded.** A 99% hit rate is not a finding, it is the
+cry-wolf failure `check-jank`'s own header warns about, and the cause is that the naive
+reimplementation lacks everything that makes the real one trustworthy — the frame's reserved band
+rather than the section's (near-zero) padding, the chrome classifier that keeps a mark in its own
+berth from reading as content, and the anchor exclusion. Rebuilding those is rebuilding
+`check-jank` (HARD RULE #15 says not to), so the honest state is: not measured, and a probe that
+says otherwise should be disbelieved.
 
 `premise` is the other coverless shape in the corpus and it does not collide — its content
 stops ~400px above the band. That is content-dependent luck rather than a reservation, and the
