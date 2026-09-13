@@ -100,10 +100,33 @@ contract, and a separate decision.
 
 ## What is still NOT built
 
-- **`etching`'s LETTER half.** The design re-points `.cart-value`, `.cart-cat`,
-  `.cart-tick` and the mark's own lane rule to the category ink. The generator
-  emits **zero** rules for any of them — only the LINE half exists, which is why
-  independent reviewers read `etching` as "pigment with a quieter body".
+- **`etching`'s LETTER half — and it must NOT be built as written.** The design
+  re-points `.cart-value`, `.cart-cat`, `.cart-tick` and the mark's own lane rule
+  to the category ink. The generator emits **zero** rules for any of them, which
+  is why independent reviewers read `etching` as "pigment with a quieter body".
+  Measured against the rendered baseline before writing the rule, two of the four
+  cannot be done on today's substrate and one of them should never be:
+
+  | class | resolves the ink chain PER MARK in | if re-pointed anyway |
+  |---|---|---|
+  | `.cart-series` (the NAME) | **3 of 4** members | works — this is the one already done |
+  | `.cart-value` | **1 of 4** (slope only) | bar, bullet and stacked-bar paint every value number one `--chart-cat-1-ink` blue |
+  | `.cart-cat` | **0 of 5** | every category label, one blue |
+  | `.cart-tick` | **0 of 5** | every value-axis number, one blue — **and it is shared furniture** |
+
+  The first two are the flattening defect again, in the type channel: a rule that
+  gives every label the same colour fails the floor exactly as surely as one that
+  neutralises them. The third is worse than unimplementable, it is wrong —
+  `.cart-tick` is the numeric axis tick (`cartesian.js` builds it from the scale's
+  own ticks), so it is owned by no group, and *"ink belongs to whatever owns it"*
+  is the rule that stops decoration. Painting it a categorical hue IS the
+  decoration.
+
+  This is the same substrate gap that made `finishes.spec.js` reach 5 of 21
+  members, and its own header says so: the design was written against a prototype
+  where a slot contract existed, and these labels carry no slot in the engine.
+  Closing it means the transforms publishing the slot on their labels — the same
+  class of change as `paint: "stroke"`, and the same decision.
 - **The register audit.** Three of the eight destinations in the design's reach
   table are implemented (mark body, mark edge, and now the mark's name). The
   mark's VALUE and its own chrome are not.
