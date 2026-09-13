@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { assembleSheetPdf, waitForDiagrams } from './deck-export.js';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { assembleSheetPdf, bakeDeckSections, waitForDiagrams } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -305,5 +305,120 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 
 	it('treats an ERROR fence as settled — the source <pre> is the honest artifact', async () => {
 		expect(await returned(frag('<pre data-mermaid-state="error"><code class="language-mermaid-source">x</code></pre><div class="mermaid"></div>'))).toBe('early');
+	});
+});
+
+// The CALL SITE, not the helper. `waitForDiagrams` is pinned above, cell by cell; the
+// two arguments `bakeDeckSections` hands it were not pinned by anything at any tier —
+// `engineering/decisions/2026-09-07-diagram-render-latency.md` §16 names that hole
+// verbatim: "its budget and its `releaseDiagrams: false` are free parameters that no PR
+// gate can pin." They are exactly the shape of parameter that broke last time. The
+// double-wait regression flipped one of them and stayed invisible to four green e2e
+// arms; a checker found it by reading, and nothing in the tree could have.
+//
+// Both cells drive the REAL `bakeDeckSections` through a stubbed capture frame, so they
+// fail on the mutation rather than on the spelling — a source-text pin would go green
+// the moment someone lifted `12000` into a constant.
+describe('bakeDeckSections — the arguments the call site supplies', () => {
+	// One slide, one fence the runtime has tagged and not yet drawn: the state in which a
+	// capture bakes a BLANK, which is the whole reason either argument exists.
+	const DECK =
+		'<div class="lattice"><section><h1>probe</h1>' +
+		'<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR</code></pre>' +
+		'<div class="mermaid"></div></section></div>';
+
+	/** The `DeckRender` shape `createCaptureFrame` destructures. Every field is inert here. */
+	const render = () => ({ html: '', css: '', mode: 'light', geom: { w: 1280, h: 720 }, runtimeUrl: '', fontCss: '', mermaidUrl: 'about:blank' });
+
+	/**
+	 * jsdom does not parse `srcdoc` — an iframe fires `load` and leaves an EMPTY
+	 * `contentDocument` — so `bakeDeckSections` would sail through both waits and return
+	 * null at the no-sections check, asserting nothing. Hand the frame a document we
+	 * control instead: the only seam into `createCaptureFrame`, which is module-private.
+	 */
+	function stubCaptureFrame(html: string) {
+		const inner = document.implementation.createHTMLDocument('capture');
+		inner.body.innerHTML = html;
+		const realCreate = document.createElement.bind(document);
+		const spy = vi.spyOn(document, 'createElement').mockImplementation(((tag: string, opts?: ElementCreationOptions) => {
+			const el = realCreate(tag, opts);
+			if (String(tag).toLowerCase() !== 'iframe') return el;
+			Object.defineProperty(el, 'contentDocument', { configurable: true, get: () => inner });
+			// No `__latticeFit`, and no `fonts` on the document — both are optional-chained,
+			// so the frame skips straight from `load` to the diagram wait.
+			Object.defineProperty(el, 'contentWindow', { configurable: true, get: () => ({}) });
+			// `load` fires SYNCHRONOUSLY on assignment. The listener is attached before the
+			// assignment in `createCaptureFrame`, so the wait resolves.
+			Object.defineProperty(el, 'srcdoc', { configurable: true, get: () => '', set: () => { el.dispatchEvent(new Event('load')); } });
+			return el;
+		}) as typeof document.createElement);
+		return { inner, restore: () => spy.mockRestore() };
+	}
+
+	const fence = (d: Document) => d.querySelector('pre') as HTMLElement;
+	const draw = (pre: HTMLElement) => {
+		pre.setAttribute('data-mermaid-state', 'rendered');
+		(pre.nextElementSibling as HTMLElement).innerHTML = '<svg></svg>';
+	};
+
+	beforeAll(async () => {
+		// `bakeDeckSections` dynamically imports this AFTER the give-up. Warm the module
+		// registry here so the cell below resolves it from cache as a microtask — a cold
+		// import under fake timers would wait on real I/O that no `advanceTimersByTime`
+		// can reach.
+		await import('../../../playground/standalone-svg.generated.js');
+	});
+	afterEach(() => { vi.useRealTimers(); });
+
+	it('does NOT release at the capture frame — a diagram that draws after 4000 still bakes as a drawing', async () => {
+		// THE DOUBLE-WAIT REGRESSION, at the call site this time. `createCaptureFrame`
+		// defaults to releasing, and the release is terminal, so the bake MUST opt out:
+		// `releaseDiagrams: false`. Flip it to `true` and this fence is stamped
+		// `unavailable` at 4000, the bake's own wait finds nothing blanking and returns on
+		// its first poll, and a diagram that was still going to draw ships as source text.
+		vi.useFakeTimers();
+		const { inner, restore } = stubCaptureFrame(DECK);
+		try {
+			const pre = fence(inner);
+			// Past the frame's 4000, well inside the bake's 12000 — the window the opt-out buys.
+			setTimeout(() => draw(pre), 5500);
+			const done = bakeDeckSections(render());
+			await vi.advanceTimersByTimeAsync(8000);
+			const out = await done;
+			expect(pre.getAttribute('data-mermaid-state')).toBe('rendered');
+			expect(pre.hasAttribute('data-mermaid-final')).toBe(false);
+			expect(out?.diagrams).toBe(1);
+			expect(out?.failed).toBe(0);
+		} finally {
+			restore();
+		}
+	});
+
+	it('gives up at 16000 — the frame’s 4000 plus the bake’s 12000, and not before', async () => {
+		// THE NUMBER. §13 records a suite whose cells all stayed green while the give-up
+		// threshold was TRIPLED, because they pinned the shape of the loop and never the
+		// constant that decided it. These two checkpoints straddle 16000 with 1000ms of
+		// slack each way, so 12000 -> 8000 fails the first and 12000 -> 16000 fails the
+		// second. Fake timers, so the cell costs no wall clock and the boundary is exact
+		// rather than machine-dependent.
+		vi.useFakeTimers();
+		const { inner, restore } = stubCaptureFrame(DECK);
+		try {
+			const pre = fence(inner);
+			const done = bakeDeckSections(render());
+			await vi.advanceTimersByTimeAsync(15_000);
+			expect(pre.getAttribute('data-mermaid-state')).toBe('pending');
+			expect(pre.hasAttribute('data-mermaid-final')).toBe(false);
+			await vi.advanceTimersByTimeAsync(2_000);
+			// Released as SOURCE, and marked final so the runtime cannot reclaim it before
+			// the capture reads `outerHTML`.
+			expect(pre.getAttribute('data-mermaid-state')).toBe('unavailable');
+			expect(pre.hasAttribute('data-mermaid-final')).toBe(true);
+			const out = await done;
+			expect(out?.diagrams).toBe(0);
+			expect(out?.failed).toBe(1);
+		} finally {
+			restore();
+		}
 	});
 });

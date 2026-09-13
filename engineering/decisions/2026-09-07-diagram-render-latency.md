@@ -926,11 +926,30 @@ text is the more informative artifact, so the default releases and the exception
 **Two coverage holes came with it, and one is not closed.** The give-up's re-read (rather than
 reusing the last poll's list, which is up to a poll interval stale) had no cell that killed a
 mutant of it — the stale list would stamp a *successfully drawn* fence `unavailable` and
-`mermaid.css` would then hide the SVG sitting in the DOM. That cell now exists. The one still open
-is `bakeDeckSections` itself: nothing at any tier calls it, so its budget and its
-`releaseDiagrams: false` are free parameters that no PR gate can pin. `waitForDiagrams` is pinned;
-the call site supplying its arguments is not. That is the same lesson §13 records — the predecessor's
-suite pinned the shape of the loop and never the number that decided it — landing one level up.
+`mermaid.css` would then hide the SVG sitting in the DOM. That cell now exists. The second was
+`bakeDeckSections` itself: nothing at any tier called it, so its budget and its
+`releaseDiagrams: false` were free parameters that no PR gate could pin. `waitForDiagrams` was
+pinned; the call site supplying its arguments was not. That is the same lesson §13 records — the
+predecessor's suite pinned the shape of the loop and never the number that decided it — landing
+one level up.
+
+**CLOSED.** `deck-export.test.ts` gained a `bakeDeckSections — the arguments the call site
+supplies` block: two cells that drive the real function through a stubbed capture frame, because
+`createCaptureFrame` is module-private and jsdom does not parse `srcdoc`, so the only seam is
+`document.createElement`. The mutations they kill, each run:
+
+| mutation | cells that fail |
+|---|---|
+| `releaseDiagrams: false` -> `true` | both |
+| `waitForDiagrams(doc, 12000)` -> `16000` (total 20000) | the 16000 cell |
+| `waitForDiagrams(doc, 12000)` -> `8000` (total 12000) | the 16000 cell |
+
+They cost 53ms and 34ms. The budget cell uses FAKE TIMERS and straddles 16000 with checkpoints
+at 15000 and 17000, which is why a test about a 16-second constant costs nothing and does not
+inherit the host — §15's structural finding was that a threshold keyed on milliseconds is a
+property of the machine, and a wall-clock cell here would have been exactly that mistake again.
+Deliberately behavioral rather than a source-text pin: a text matcher on `12000` goes green the
+moment someone lifts the number into a constant, which is the failure §13 already records.
 
 **And the real-surface arm does not run on a PR.** `docs/e2e/mermaid-unavailable-export.spec.ts`
 carries no `@smoke` tag, and CI runs `test:e2e:smoke` only, so the export e2e runs nightly — after
