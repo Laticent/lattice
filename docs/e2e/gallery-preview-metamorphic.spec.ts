@@ -24,12 +24,12 @@ import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 // It asserted "the same scroll offset holds the same number of live previews, however you
 // got there" — and that FAILED, at 7 vs 18 previews at the top of the grid.
 //
-// It failed because it contradicted the design. `slide-thumb.tsx` retains a tile after it
-// leaves the observer band, and only recycles it when another tile needs the slot: the
-// budget caps RETENTION, not what is on screen. So the mounted set is deliberately a
-// function of where you have BEEN, not only of where you ARE — scrolling back within the
-// slack is free, which is the whole point. A relation that forbids that forbids the
-// feature.
+// It failed because it contradicted the design. `slide-thumb.tsx` may retain a tile after it
+// leaves the observer band: the budget caps RETENTION, not what is on screen, so the mounted
+// set is a function of where you have BEEN, not only of where you ARE. A relation that
+// forbids that forbids the feature. (How MUCH it retains has since changed — the ceiling now
+// tracks the band, so above the floor the retained set is empty — but the relations below are
+// written to survive exactly that kind of re-tuning, which is why they did.)
 //
 // What an LRU window DOES promise, and what these relations therefore assert:
 //   · the retained set SATURATES — it stops growing, rather than never growing;
@@ -38,9 +38,10 @@ import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 //   · state does not survive a close;
 //   · a recycled tile comes back correct.
 // Measured shape of the current implementation, for whoever reads a failure here: at
-// 390x844 the gallery shows 3-4 tiles and settles at 31 mounted; at 1440x900 it shows 7
-// and settles at 31. Both saturate on the FIRST traversal and do not move on the second
-// or third.
+// 390x844 the gallery shows 3 tiles and settles at ~13 mounted, at 820x1180 it shows 6 and
+// settles at ~12, at 1440x900 it shows 7 and settles at ~17. Retention saturates on the
+// FIRST traversal; a later pass may settle LOWER as the band contracts (measured on WebKit
+// at 21 then 16), which is why MR-1 is one-sided.
 //
 // ── SCOPE (HARD RULE #23) ───────────────────────────────────────────────────────────
 // These run in Chromium and — tagged `@webkit-phone` below — in real WebKit at the
@@ -168,6 +169,42 @@ async function stepTo(page: Page, top: number, stride = 300) {
 	await jumpTo(page, top);
 }
 
+/**
+ * Tile boxes inside the scroller's viewport that are NOT showing a painted slide — the
+ * author-visible symptom, and the only floor worth holding a count against.
+ *
+ * A count floor like "more than one preview is mounted" is satisfied by a gallery that
+ * collapsed to two tiles with five blank boxes on screen, which is the exact shape a
+ * retention regression would take. This asks the question that matters instead.
+ *
+ * NOT zero even when everything is healthy: measured on the built site, a settled gallery
+ * carries one unpainted box at 390x844 and at 820x1180 alike — the tile at the edge that is
+ * still writing its srcdoc. The callers allow for that; they are guarding against a wall of
+ * empty cards, not against one.
+ */
+const blankVisible = (page: Page) =>
+	page.evaluate((sel) => {
+		const sc = document.querySelectorAll(sel)[0] as HTMLElement | undefined;
+		if (!sc) return { blank: 0, seen: 0 };
+		const r = sc.getBoundingClientRect();
+		let blank = 0;
+		let seen = 0;
+		for (const box of sc.querySelectorAll('.aspect-video')) {
+			const b = box.getBoundingClientRect();
+			if (b.bottom <= r.top || b.top >= r.bottom || b.height < 4) continue;
+			seen++;
+			const fr = box.matches('iframe.live') ? (box as HTMLIFrameElement) : box.querySelector<HTMLIFrameElement>('iframe.live');
+			let painted = false;
+			try {
+				painted = !!fr?.contentDocument?.querySelector('.lattice, section[data-lattice-slide]');
+			} catch {
+				painted = false;
+			}
+			if (!painted) blank++;
+		}
+		return { blank, seen };
+	}, SCROLLER);
+
 /** Preview documents mounted inside an expanded LOOKS PANEL. The panel is the picker's only
  *  `scroll-mt-2` row (SlidePicker's `LooksPanel`), which is what makes it addressable at all —
  *  its look tiles share the grid tiles' `Insert …` aria-label prefix, so a role query cannot
@@ -236,8 +273,14 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		// recycling rises pass over pass, and no amount of slack hides three passes of it.
 		expect(afterPass[1], `mounted previews GREW between traversal 1 and 2: ${afterPass[0]} → ${afterPass[1]}`).toBeLessThanOrEqual(afterPass[0] + SLACK);
 		expect(afterPass[2], `mounted previews GREW between traversal 2 and 3: ${afterPass[1]} → ${afterPass[2]}`).toBeLessThanOrEqual(afterPass[1] + SLACK);
-		// And the window is still a WINDOW — a set that shrank to nothing would satisfy the above.
-		expect(afterPass[2], 'the gallery mounted no previews at all after three traversals').toBeGreaterThan(1);
+		// And the window is still a WINDOW. A set that shrank to nothing satisfies the one-sided
+		// growth checks above perfectly, and — since the comment there licenses shrinking as "the
+		// budget working" — a genuine bleed would present as exactly the monotone decline they
+		// permit. So the floor is the author-visible symptom rather than a count: after three
+		// traversals the tiles on screen are painted, not a wall of empty cards.
+		const rest = await blankVisible(page);
+		expect(rest.seen, 'no tile box was on screen, so nothing was checked').toBeGreaterThan(1);
+		expect(rest.blank, `${rest.blank} of ${rest.seen} tile boxes on screen are blank after three traversals`).toBeLessThanOrEqual(2);
 	});
 
 	test('@crosswidth MR-2 · what you can SEE depends on the offset, never on the route', async ({ page }, testInfo) => {
@@ -518,7 +561,9 @@ test('@webkit-phone MR-1 + MR-3 hold on the engine a phone actually runs', async
 	// One-sided, for the reason MR-1 gives above — and this is the surface that proved it
 	// necessary: the ceiling follows the band, so a settled count may fall between passes.
 	expect(passes[1], `WebKit: mounted previews GREW between traversal 1 and 2: ${passes[0]} → ${passes[1]}`).toBeLessThanOrEqual(passes[0] + SLACK);
-	expect(passes[1], 'WebKit: the gallery mounted no previews at all').toBeGreaterThan(1);
+	const rest = await blankVisible(page);
+	expect(rest.seen, 'WebKit: no tile box was on screen, so nothing was checked').toBeGreaterThan(1);
+	expect(rest.blank, `WebKit: ${rest.blank} of ${rest.seen} tile boxes on screen are blank`).toBeLessThanOrEqual(2);
 
 	await page.keyboard.press('Escape');
 	await expect.poll(() => mounted(page), { timeout: 20_000, message: 'WebKit: the gallery did not tear its previews down on close' }).toBe(0);

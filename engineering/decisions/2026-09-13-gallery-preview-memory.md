@@ -49,7 +49,11 @@ the budget being re-tuned, and therefore keeps being the gate afterwards.
 | MR-5 a recycled tile comes back painted | the correctness half — every count relation above is satisfied by a window that mounts nothing |
 | MR-6 a looks panel gives its previews back | expanded-panel accumulation |
 
-13/13 green on Chromium 1440x900, Chromium 390x844 and real WebKit at the iPhone 15 Pro profile.
+13/13 green on Chromium 1440x900, Chromium 390x844 and real WebKit at the iPhone 15 Pro profile
+— that result is from BEFORE the budget change. Two of the relations had to be re-stated once
+the ceiling started tracking the band (MR-1 became one-sided; its floor became "the tiles on
+screen are painted" rather than a count), and the suite is green on the shipped code at all
+three surfaces after that.
 
 **Three of the six were wrong in their first form, and the correction is the most useful thing
 in this note.** They asserted "the same scroll offset holds the same number of live previews,
@@ -93,36 +97,74 @@ deliberately" — "chosen from one desktop measurement… all three lenses flagg
 Per-tile cost measures at **~10-13MB**, which independently reproduces the ~10MB/tile figure
 from #1463.
 
-## 4. What shipped, and the option that lost
+## 4. What shipped, and the two shapes that lost
 
-The ceiling is now `previewBudget(inBand) = clamp(inBand, 8, 32)` — **retain the band, and
-beyond it the floor** — computed per enforcement from the registry's own `inBand` flags.
+The knob now counts the tiles kept warm BEHIND the band — `PREVIEW_RETAIN = 4` out-of-band
+previews — instead of capping the mounted TOTAL. That separation is the whole idea: the tiles on
+screen are not negotiable and are decided by the viewport; the tiles retained behind you are
+negotiable and are the entire memory question. A phone and a workstation both retain four and
+differ only in how many they SHOW, which was never the budget's business.
 
-**Viewport-AREA scaling was implemented and measured FIRST, and it is the obvious move.** It
-fixes the phone and does nothing for the device the report also named: area-scaling hands an
-820x1180 iPad 24, and 24 measures no better than 32. Peak resident set above the Studio's own
-baseline, browsing the gallery once, same protocol per row:
+**Mounted engine documents while browsing: 33 → 14-15, with visible tiles unchanged at 3 / 6 / 7.**
 
-| mapping | 390x844 | 820x1180 | 1440x900 |
-|---|---|---|---|
-| fixed 32 (before) | +1237 / +1323 MB | +985 / +1251 MB | +984 MB |
-| area-scaled | +573 MB (10 live) | +1119 MB (25 live) | +984 MB (33 live) |
-| **in-band (shipped)** | **+636 MB (13 live)** | **+787 MB (12 live)** | **+863 MB (17 live)** |
-| visible tiles, every row | 3 | 6 | 7 |
+Two shapes were implemented and measured first, and both are recorded because each looks right:
 
-Two things make the in-band mapping the better design beyond the numbers. It needs **no device
-signal**, which matters because the obvious one is unavailable — WebKit does not implement
-`navigator.deviceMemory`, so it is absent on exactly the devices this is for. And it follows a
-rotation, a resize and a column-count change for free, because all three move the band.
+| shape | why it lost |
+|---|---|
+| **Scale the TOTAL by viewport area** | Fixes the phone, does nothing for the tablet also in the report — it hands an iPad 24, and 24 measured no better than 32. |
+| **Derive the TOTAL from the band** (`clamp(inBandCount, 8, 32)`) | Correct on paper, fragile in fact. The count came from the slots' own `inBand` flags, so ONE stale `true` did not merely fail to evict one tile — it raised the ceiling for *every* tile. Measured at 32 then 11 mounted documents at the same offset, and 10 then 17 on WebKit. |
 
-**A consequence worth knowing:** the cap is now dynamic, so a settled mounted count can FALL
-between traversals as the band contracts. MR-1 is therefore one-sided — saturation forbids
-growth, and shrinkage is the budget working. Measured on WebKit: passes settling at 21 then 16,
-which a symmetric comparison called a regression.
+That second failure also exposed a **real bug, present before any of this work**: the observer's
+"left the band" branch was guarded on `visibleRef.current`, React state that is not yet committed
+when a flick delivers the matching leave. The leave was dropped and the tile kept an in-band flag
+while off screen — permanently, since stranded slots are never evictable. Counting the RETAINED
+set contains the damage of a stale flag to its own tile; removing the guard fixes the stranding
+itself. The mounted total went from drifting across identical runs to deterministic within ±1.
 
-**What this does not fix, so nobody re-measures it:** the band itself. An in-band tile is never
+### What retention costs, and why 4
+
+Peak resident set while browsing the gallery once, against tiles surviving a 700px scroll away
+and back — measured by ELEMENT identity, because a remounted tile is present too and presence
+proves nothing:
+
+| retain | 390x844 | survivors | 820x1180 | survivors |
+|---|---|---|---|---|
+| 0 | +657 MB | **0/3** | +695 MB | **0/6** |
+| **4 (shipped)** | +722 MB | **3/3** | +792 MB | 3/6 |
+| 8 | +940 MB | 3/3 | +952 MB | 6/6 |
+
+Retain 8 buys a tablet its second half for ~200MB, the wrong way round for the device being
+discarded. **Retain 0 was measured, briefly shipped, and is a REGRESSION rather than a trade** —
+it removes the two-way window's hysteresis entirely, so a phone re-renders every tile you scroll
+back to. An independent checker caught it against a header comment still promising the slack was
+there; it is the reason this section exists.
+
+### Read the MB figures as ±200
+
+Peak RSS is a noisy instrument and the earlier drafts of this note quoted it far too precisely.
+Five IDENTICAL runs of the shipped code at 390x844: **730, 931, 931, 974, 991 MB — a 261MB
+spread.** Two things survive that noise and are the honest claims:
+
+- the arms do not **overlap** — five runs of this design span 730..991 against four of the fixed
+  32 at 1237..1327;
+- the **document count** is near-deterministic and halves: 33 → 14-15, a spread of ONE across
+  those same five runs.
+
+Prefer the count when re-deriving any of this. It is the quantity that actually moves, ~10-13MB
+per tile converts it, and it is the only one of the two a single run can be trusted on. An
+earlier draft reported "~50% on a phone, ~30% on a tablet, ~12% on desktop" from single runs,
+picking the flattering before-figure for each — those percentages were not reproducible.
+
+### This lands on three surfaces, not one
+
+`useInView` and the `livePreviews` registry are module-global and shared by the add-slide
+gallery, **Present's slide overview** and **Reshape's variant tiles**. All three get the same
+retention. The overview is the one to watch: its tiles are the author's OWN slides with the
+authoring alarms live, and each is a whole-deck engine parse.
+
+**What this does not fix**, so nobody re-measures it: the band itself. An in-band tile is never
 recycled, so ~12 live documents at 390 and 820 alike are irreducible *while a tile is an engine
-document*. That is the whole remaining cost on a tablet, and only a cheaper tile addresses it.
+document*. That is the remaining cost on a tablet, and only a cheaper tile addresses it.
 
 ## 5. The poster cache — feasible, high-fidelity, not built
 

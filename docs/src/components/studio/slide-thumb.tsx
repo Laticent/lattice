@@ -32,46 +32,53 @@ export function hasMermaid(md: string): boolean {
 // still with looks panels expanded). That is a memory-exhaustion profile, and a
 // renderer OOM presents to the user exactly as "the tab died and reloaded".
 //
-// So the window is now two-way, with its hysteresis supplied by a SHARED BUDGET
-// rather than a second distance threshold: a tile mounts when it enters the
-// observer's band and STAYS mounted after it leaves, until the grid needs the slot
-// back. Only an OUT-OF-BAND tile is ever recycled — a tile you can see is never
-// torn down — so the budget caps RETENTION, never what is on screen. Scrolling
-// back within the slack (budget minus whatever is in band, ~3 rows on the desktop
-// dialog) still costs nothing; scrolling far enough re-renders, which is the trade
-// this deliberately makes: a cold tile beats a dead tab.
+// So the window is now two-way, with its hysteresis supplied by a SHARED COUNT of
+// retained tiles rather than a second distance threshold: a tile mounts when it
+// enters the observer's band and stays mounted after it leaves, until it is the
+// oldest of more than `PREVIEW_RETAIN` tiles waiting behind the band. Only an
+// OUT-OF-BAND tile is ever recycled — a tile you can see is never torn down — so
+// the knob caps RETENTION, never what is on screen. Scrolling far enough
+// re-renders, which is the trade this deliberately makes: a cold tile beats a
+// dead tab.
 //
-// ── AND THE CEILING FOLLOWS THE BAND, NOT A CONSTANT (#1538) ────────────────
+// ── AND THE KNOB COUNTS RETENTION, NOT THE TOTAL (#1538) ───────────────────
 // 32 was one desktop measurement applied to every device, and a phone is not a small
 // desktop: it has a fraction of the memory AND shows a fraction of the tiles, so a fixed
-// retention ceiling lands hardest exactly where there is least headroom. Measured on the
-// built site at budget 32 — a phone was showing THREE slides and paying for THIRTY-ONE:
+// cap on the mounted TOTAL lands hardest exactly where there is least headroom. Measured on
+// the built site at budget 32 — a phone was showing THREE slides and paying for THIRTY-ONE:
 //
 //   viewport     tiles you can see    live documents held
 //   1440x900             7                    31
 //    820x1180            6                    31
 //    390x844             3                    31
 //
-// The ceiling is now `max(PREVIEW_BUDGET_MIN, whatever is in band)`: retain the band, and
-// beyond it the floor. The floor is what keeps the old slack where it is cheap — a grid
-// smaller than it (a short looks panel, Present's overview of a small deck) still retains
-// everything and re-renders nothing.
+// A cap on the TOTAL conflates two different things: the tiles on screen, which are not
+// negotiable and are decided by the viewport, and the tiles kept warm behind you, which are
+// negotiable and are the entire memory question. So the knob counts only the second —
+// `PREVIEW_RETAIN` out-of-band tiles — and the in-band set is simply never touched. A phone
+// and a workstation both retain four; they differ in how many they SHOW, which was never the
+// budget's business. Measured across the whole gallery: 33 mounted engine documents became
+// 14-15, and what an author can SEE is unchanged at 3 / 6 / 7.
 //
-// WHY NOT SCALE BY VIEWPORT AREA, which is the obvious move and was measured first: it
-// fixes the phone and does nothing for a tablet. Area-scaling hands an iPad 24, and 24
-// measures no better than 32. Peak resident set above the Studio's own baseline, browsing
-// the gallery once, same protocol for every row:
+// A THIRD BUG had to go with it, and it is why the total used to look random. The observer's
+// "left the band" branch was guarded on `visibleRef.current` — React state that is not yet
+// committed when a flick delivers the matching leave — so the leave was DROPPED and the tile
+// kept an in-band flag while off screen. Stranded tiles are never evictable, so the mounted
+// total drifted with however many the last scroll stranded: 15 then 30 across two identical
+// WebKit traversals, 24 vs 11 across three identical opens at 390x844. The count is now
+// deterministic to ±1 over five runs.
 //
-//   mapping          390x844          820x1180         1440x900
-//   fixed 32         +1237/+1323 MB   +985/+1251 MB    +984 MB
-//   area-scaled       +573 MB (10)    +1119 MB (25)    +984 MB (33)
-//   THIS (in-band)    +629 MB (11)     +827 MB (12)    +890 MB (17)
+// TWO EARLIER SHAPES WERE MEASURED AND REJECTED, both recorded because each looks right:
 //
-// — and the column that makes it cheap: visible tiles are 3 / 6 / 7 under EVERY row. The
-// budget caps retention and never the on-screen set, so none of this changes what the
-// author can see. Following the band also needs no device signal at all, which matters
-// because the obvious one is unavailable: WebKit does not implement
-// `navigator.deviceMemory`, so it is absent on exactly the devices this is for.
+//   · SCALE THE TOTAL BY VIEWPORT AREA. Fixes the phone, does nothing for a tablet — it hands
+//     an iPad 24, and 24 measures no better than 32.
+//   · DERIVE THE TOTAL FROM THE BAND (`clamp(inBandCount, 8, 32)`). Correct on paper and
+//     fragile in fact: the count came from the slots' own `inBand` flags, so ONE stale `true`
+//     — the coalesced-delivery hazard this file spends forty lines on — did not merely fail to
+//     evict one tile, it raised the ceiling for every tile. Measured on the built site, two
+//     identical traversals settled at 32 and then 11 mounted documents at the SAME offset, and
+//     on WebKit at 10 then 17. Counting the RETAINED set instead makes a stale flag cost
+//     exactly what it should: that one tile survives, and nothing else moves.
 //
 // PEAK is the meter, not post-GC retained heap. iOS discards a tab on footprint under
 // memory pressure and that discard is what a user reports as "the page reloaded". There is
@@ -85,25 +92,46 @@ export function hasMermaid(md: string): boolean {
 // in-band tile is never recycled, so ~12 live engine documents at 390 and 820 alike are
 // irreducible while a tile IS an engine document — which is the whole remaining cost on a
 // tablet. Only a cheaper tile addresses that.
-export const PREVIEW_BUDGET = 32;
-
-/** The hard ceiling, whatever the band does — a runaway in-band set must not become a
- *  runaway document count. This is the number the constant above used to mean outright. */
-const PREVIEW_BUDGET_MAX = PREVIEW_BUDGET;
-/** The floor: retain at least this many even when the band is smaller, so a short grid keeps
- *  the free scroll-back the two-way window was built for. */
-const PREVIEW_BUDGET_MIN = 8;
 
 /**
- * How many previews may stay mounted right now, given how many are currently IN BAND.
+ * How many OUT-OF-BAND previews the window keeps — the retention slack, and the only knob
+ * left now that the ceiling is not a total.
  *
- * Derived per enforcement rather than fixed, which is what makes it self-tuning: it needs no
- * viewport read, no breakpoint and no device signal, and it follows a rotation, a window
- * resize and a column-count change for free, because all three move the band.
+ * The old `PREVIEW_BUDGET = 32` was a cap on the mounted TOTAL, which conflates two different
+ * things: the tiles on screen (not negotiable, and viewport-determined) and the tiles kept
+ * warm behind you (negotiable, and the entire memory question). Counting only the second makes
+ * the knob mean what it is for, and makes it independent of viewport, column count and
+ * rotation without reading any of them — a phone and a workstation retain four tiles each; they
+ * differ in how many they SHOW, which was never the budget's business.
+ *
+ * 4 is a measurement, not a guess — the knee of the curve. Peak resident set above the Studio's
+ * own baseline while browsing the gallery once, against tiles surviving a 700px scroll away and
+ * back (by ELEMENT identity: a remounted tile is present too, so presence proves nothing):
+ *
+ *   retain      390x844                     820x1180
+ *     0       +657 MB   ·  0/3 survive     +695 MB   ·  0/6 survive
+ *     4       +722 MB   ·  3/3 survive     +792 MB   ·  3/6 survive
+ *     8       +940 MB   ·  3/3 survive     +952 MB   ·  6/6 survive
+ *
+ * 8 buys a tablet its second half for ~200MB, which is the wrong way round for the device that
+ * was being discarded. 0 was measured and briefly shipped, and is the one row that is a
+ * REGRESSION rather than a trade: it takes the two-way window's hysteresis away entirely, so a
+ * phone re-renders every tile you scroll back to.
+ *
+ * READ THOSE MB FIGURES AS ±200. Peak RSS is a noisy instrument: five IDENTICAL runs of the
+ * shipped code at 390x844 gave 730, 931, 931, 974, 991 MB — a 261MB spread. What survives that
+ * noise, and is the honest claim, is (a) the two arms do not OVERLAP — five runs of this design
+ * span 730..991 against four of the fixed 32 at 1237..1327 — and (b) the DOCUMENT COUNT is
+ * near-deterministic and halves: 33 mounted engine documents became 14-15, a spread of ONE over
+ * those same five runs. Prefer the count when re-deriving any of this; it is the quantity that
+ * actually moves, ~10-13MB per tile converts it, and it is the only one of the two that a
+ * single run can be trusted on.
+ *
+ * SHARED ACROSS GRIDS. `livePreviews` is module-global — the add-slide gallery, Present's slide
+ * overview and Reshape's variant tiles all feed it — so this is 8 retained tiles in total, not
+ * per grid. Two grids open at once share the slack rather than each minting their own.
  */
-export function previewBudget(inBand = 0): number {
-	return Math.min(PREVIEW_BUDGET_MAX, Math.max(PREVIEW_BUDGET_MIN, inBand));
-}
+export const PREVIEW_RETAIN = 4;
 
 type Slot = { inBand: boolean; recycle: () => void };
 /** Mounted previews, insertion-ordered by when each was last IN BAND — so the head
@@ -121,16 +149,58 @@ function touchPreview(token: object, slot: Slot): void {
 /** Recycle least-recently-seen OUT-OF-BAND previews until the budget is met. If every
  *  mounted preview is in band we simply run over: the on-screen set is not negotiable. */
 function enforcePreviewBudget(): void {
-	let inBandNow = 0;
-	for (const s of livePreviews.values()) if (s.inBand) inBandNow++;
-	const cap = previewBudget(inBandNow);
-	if (livePreviews.size <= cap) return;
+	// Count the RETAINED tiles — the out-of-band ones — and evict the oldest until only
+	// `PREVIEW_RETAIN` remain. Insertion order is last-in-band order, so the survivors are the
+	// ones you most recently scrolled past, which are the ones you scroll back to.
+	//
+	// DERIVED FROM THE RETAINED SET, NEVER FROM A COUNT OF THE BAND, and that is the whole
+	// robustness of it. An earlier cut computed a ceiling as `clamp(inBandCount, 8, 32)` from
+	// the slots' own `inBand` flags — so a single stale `true` (the coalesced-delivery hazard
+	// this file spends forty lines on) did not just fail to evict ONE tile, it raised the
+	// ceiling for every tile, and the mounted set stopped being a function of anything
+	// observable. Measured on the built site, two identical traversals of the gallery settled
+	// at 32 and then 11 mounted documents at the SAME offset. Here a stale flag costs exactly
+	// what it should: that one tile is not recycled, and nothing else moves.
+	let retained = 0;
+	for (const s of livePreviews.values()) if (!s.inBand) retained++;
+	if (retained <= PREVIEW_RETAIN) return;
 	for (const [token, slot] of livePreviews) {
-		if (livePreviews.size <= cap) return;
+		if (retained <= PREVIEW_RETAIN) return;
 		if (slot.inBand) continue;
 		livePreviews.delete(token);
 		slot.recycle();
+		retained--;
 	}
+}
+
+let sweepHandle = 0;
+/**
+ * Re-run the sweep once the observer has gone quiet.
+ *
+ * REQUIRED by a ceiling that tracks the band, and it is the half that was missing. Enforcement
+ * runs inside an observer callback, so it can only ever see the band AS IT WAS AT THAT INSTANT
+ * — and mid-scroll that is the widest the band ever gets. The callbacks then stop, the band
+ * settles smaller, and nothing re-checks: the mounted set stays parked at whatever the last
+ * callback licensed. With a FIXED ceiling that was invisible (32 was 32 whenever you asked).
+ *
+ * Measured on real WebKit at the iPhone 15 Pro profile, two identical traversals of the gallery
+ * settled at 10 and then 17 mounted documents — a 7-tile spread with the grid at the same
+ * offset both times, which is the metamorphic saturation relation failing for a true reason.
+ * One trailing sweep per frame converges the set to the settled band instead, which is what
+ * this file claims the ceiling does.
+ *
+ * Coalesced to one pending frame: a flick delivers callbacks continuously, and a sweep per
+ * callback would walk the registry on every one of them for a band that is still moving.
+ */
+function scheduleBudgetSweep(): void {
+	if (sweepHandle) return;
+	const run = () => {
+		sweepHandle = 0;
+		enforcePreviewBudget();
+	};
+	// `setTimeout` where there is no rAF (jsdom, a backgrounded tab): a sweep that never runs
+	// would leave the very over-retention this exists to collect.
+	sweepHandle = typeof requestAnimationFrame === 'function' ? requestAnimationFrame(run) : (setTimeout(run, 0) as unknown as number);
 }
 
 /** How many previews are mounted right now — for tests and diagnostics only. */
@@ -194,17 +264,37 @@ export function useInView<T extends Element>(rootMargin = '250px'): [React.RefOb
 				// batch. This one was the outlier.)
 				const e = entries[entries.length - 1];
 				if (!e) return;
+				// Both branches enforce IMMEDIATELY and then again on the next frame. The immediate
+				// pass keeps the ceiling honest while the band is moving; the trailing one is what
+				// makes it honest once it has STOPPED, because a callback can only ever see the
+				// band as it was mid-scroll — see `scheduleBudgetSweep`.
 				if (e.isIntersecting) {
 					setVisible(true);
 					touchPreview(token, { inBand: true, recycle: () => setVisible(false) });
 					enforcePreviewBudget();
-				} else if (visibleRef.current) {
+					scheduleBudgetSweep();
+				} else {
 					// Left the band but still mounted — it becomes evictable, newest-last, and
-					// only actually goes when someone else needs the slot.
+					// only actually goes when it is the oldest of too many waiting.
+					//
+					// NOT guarded on `visibleRef.current`, and that guard is what made the mounted
+					// set float. `visible` is React state: it is assigned during render, so between
+					// the intersecting callback and React committing it, `visibleRef.current` is
+					// still FALSE. A flick delivers the matching leave inside that window routinely
+					// — and the guard then DROPPED the leave, stranding `inBand: true` on a tile
+					// that is off screen, permanently. Stranded slots are never evictable, so the
+					// mounted total drifted with however many the last scroll happened to strand:
+					// measured on WebKit at 15 then 30 documents across two identical traversals,
+					// and at 24 vs 11 across three identical opens in Chromium at 390x844.
+					//
+					// The guard was also redundant. It was standing in for "is there a slot for
+					// this tile", and `livePreviews.get(token)` answers that directly and
+					// correctly — a tile that never mounted has no slot and falls through.
 					const slot = livePreviews.get(token);
 					if (slot) {
 						slot.inBand = false;
 						enforcePreviewBudget();
+						scheduleBudgetSweep();
 					}
 				}
 			},

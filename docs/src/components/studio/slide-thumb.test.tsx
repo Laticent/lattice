@@ -12,7 +12,7 @@ vi.mock('@/components/DeckPreview', () => ({
 	},
 }));
 
-import { livePreviewCount, PREVIEW_BUDGET, previewBudget, SlideThumbFace, useInView } from './slide-thumb';
+import { livePreviewCount, PREVIEW_RETAIN, SlideThumbFace, useInView } from './slide-thumb';
 
 // #1463 — the thumbnail window is TWO-WAY and budgeted. The old hook disconnected its
 // observer on first intersection, so a tile that had ever been on screen kept its engine
@@ -110,38 +110,58 @@ describe('useInView — the two-way, budgeted preview window (#1463)', () => {
 		unmount();
 	});
 
-	it('does NOT recycle a tile that merely scrolled out of band — that is the slack', () => {
+	it('keeps a tile that scrolled out of band while the grid is under the floor', () => {
+		// The slack that SURVIVES #1538, and the only slack there is. Under the floor the
+		// ceiling does not track the band, so an out-of-band tile stays mounted and scrolling
+		// back to it costs nothing — a looks panel, or Present's overview of a short deck.
 		const { container, unmount } = render(<Grid n={3} />);
 		const t0 = container.querySelector('[data-testid="tile-0"]') as Element;
 		intersect(t0, true);
 		intersect(t0, false);
-		// Still mounted: it is evictable, but nothing needed the slot.
 		expect(isLive(container, 0)).toBe(true);
 		unmount();
 	});
 
-	it('holds the mounted set at the budget as a long grid is scrolled through', () => {
-		const n = PREVIEW_BUDGET * 2;
+	it('DOES recycle it once more than PREVIEW_RETAIN tiles are waiting behind the band', () => {
+		// The companion to the test above, and the reason that one had to be renamed rather than
+		// left as "that is the slack": slack is now a COUNT of retained tiles, not "whatever is
+		// left under a total". One tile out of band is kept; the (RETAIN + 1)th evicts the oldest.
+		const n = PREVIEW_RETAIN + 4;
+		const { container, unmount } = render(<Grid n={n} />);
+		for (let i = 0; i < n; i++) {
+			const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
+			intersect(el, true);
+			intersect(el, false);
+		}
+		expect(livePreviewCount()).toBe(PREVIEW_RETAIN);
+		expect(isLive(container, 0), 'the oldest retained tile survived past the knob').toBe(false);
+		expect(isLive(container, n - 1), 'the newest retained tile was recycled').toBe(true);
+		unmount();
+	});
+
+	it('holds the RETAINED set at PREVIEW_RETAIN as a long grid is scrolled through', () => {
+		const n = PREVIEW_RETAIN * 8;
 		const { container, unmount } = render(<Grid n={n} />);
 		// Walk a viewport down the grid: each tile enters the band, then leaves it.
 		for (let i = 0; i < n; i++) {
 			const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
 			intersect(el, true);
-			expect(livePreviewCount()).toBeLessThanOrEqual(previewBudget());
+			// One tile is in band at this instant, so the mounted set is the retained set plus it.
+			expect(livePreviewCount()).toBeLessThanOrEqual(PREVIEW_RETAIN + 1);
 			intersect(el, false);
 		}
-		expect(livePreviewCount()).toBeLessThanOrEqual(previewBudget());
-		// The one-way window would have left all 64 mounted.
+		expect(livePreviewCount()).toBeLessThanOrEqual(PREVIEW_RETAIN);
+		// The one-way window would have left every tile mounted.
 		const mounted = Array.from({ length: n }, (_, i) => isLive(container, i)).filter(Boolean).length;
-		expect(mounted).toBeLessThanOrEqual(previewBudget());
+		expect(mounted).toBeLessThanOrEqual(PREVIEW_RETAIN);
 		// And the recycling is LRU — the tiles scrolled past longest ago are the ones gone.
 		expect(isLive(container, 0)).toBe(false);
 		expect(isLive(container, n - 1)).toBe(true);
 		unmount();
 	});
 
-	it('never recycles an IN-BAND tile, even past the budget', () => {
-		const n = PREVIEW_BUDGET + 6;
+	it('never recycles an IN-BAND tile, however many are on screen at once', () => {
+		const n = PREVIEW_RETAIN + 6;
 		const { container, unmount } = render(<Grid n={n} />);
 		// Everything is on screen at once (a very tall viewport) — nothing leaves the band.
 		for (let i = 0; i < n; i++) intersect(container.querySelector(`[data-testid="tile-${i}"]`) as Element, true);
@@ -176,7 +196,7 @@ describe('useInView — the two-way, budgeted preview window (#1463)', () => {
 		// This is the case that made "an in-band tile is never recycled" untrue. Tile 0 is on
 		// screen the whole time; its last entry says so. Reading entries[0] marked it evictable
 		// and the next tile needing a slot tore down something the user was looking at.
-		const n = PREVIEW_BUDGET + 4;
+		const n = PREVIEW_RETAIN + 4;
 		const { container, unmount } = render(<Grid n={n} />);
 		const t0 = container.querySelector('[data-testid="tile-0"]') as Element;
 		intersect(t0, true);
@@ -207,7 +227,7 @@ describe('useInView — the two-way, budgeted preview window (#1463)', () => {
 			const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
 			deliver(el, [true, false]);
 		}
-		expect(livePreviewCount()).toBeLessThanOrEqual(previewBudget());
+		expect(livePreviewCount()).toBeLessThanOrEqual(PREVIEW_RETAIN);
 		unmount();
 	});
 
@@ -231,46 +251,63 @@ describe('useInView — the two-way, budgeted preview window (#1463)', () => {
 // ── The ceiling scales with the screen (#1538) ───────────────────────────────────────
 // 32 was one desktop measurement applied to every device, so a phone showing 3 tiles held
 // the same 31 live engine documents as a workstation showing 7. These pin the SHAPE of the
-// mapping — that it falls with area, is clamped at both ends, and re-reads on rotation —
-// not the constants, which are a memory trade the header records the measurements for.
-describe('previewBudget — the ceiling follows the band (#1538)', () => {
-	it('retains the floor when the band is smaller than it', () => {
-		// A short grid — a looks panel, Present's overview of a small deck — keeps the free
-		// scroll-back the two-way window exists for. The floor is what preserves that.
-		expect(previewBudget(0)).toBe(8);
-		expect(previewBudget(3)).toBe(8);
-		expect(previewBudget(8)).toBe(8);
-	});
-
-	it('grows with the band once the band is larger than the floor', () => {
-		// The whole point: an in-band tile is never recycled, so the ceiling must not sit below
-		// the band or it is simply inoperative. This is the self-tuning half — a wider viewport,
-		// a rotation and a column-count change all move the band and the ceiling follows, with
-		// no viewport read, no breakpoint, and no device signal.
-		expect(previewBudget(12)).toBe(12);
-		expect(previewBudget(20)).toBe(20);
-	});
-
-	it('never exceeds the hard ceiling, however large the band gets', () => {
-		// A runaway band must not become a runaway document count.
-		expect(previewBudget(64)).toBe(PREVIEW_BUDGET);
-		expect(previewBudget(1000)).toBe(PREVIEW_BUDGET);
-	});
-
-	it('is monotonic in the band — a bigger band never earns a smaller ceiling', () => {
-		let last = 0;
-		for (let band = 0; band <= 40; band++) {
-			const cap = previewBudget(band);
-			expect(cap).toBeGreaterThanOrEqual(last);
-			last = cap;
+// mapping — that it tracks the BAND, is clamped at both ends, and is monotonic — not the
+// constants, which are a memory trade the header records the measurements for.
+//
+// The shape is deliberately NOT viewport-derived. An area-scaled mapping was implemented and
+// measured first and is recorded as rejected in slide-thumb.tsx: it fixes the phone and hands
+// a tablet 24, which measures no better than 32.
+describe('the retention knob (#1538)', () => {
+	it('keeps exactly PREVIEW_RETAIN tiles warm behind the band, whatever the grid size', () => {
+		// The knob counts the RETAINED set, not the mounted total, so it is independent of how
+		// many tiles a viewport happens to show. Two grid sizes, same answer — which is the
+		// property a cap on the total could not have: there, a phone showing 3 and a workstation
+		// showing 7 were held to the same 32 and so retained wildly different amounts.
+		for (const n of [PREVIEW_RETAIN * 3, PREVIEW_RETAIN * 6]) {
+			const { container, unmount } = render(<Grid n={n} />);
+			for (let i = 0; i < n; i++) {
+				const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
+				intersect(el, true);
+				intersect(el, false);
+			}
+			expect(livePreviewCount(), `grid of ${n} retained more than ${PREVIEW_RETAIN}`).toBe(PREVIEW_RETAIN);
+			unmount();
 		}
 	});
 
-	it('needs no window — it is safe during SSR', () => {
-		// Deliberately a pure function of its argument. The mapping this replaced read
-		// `window.innerWidth`, which made the module unsafe to evaluate on the server and tied
-		// the ceiling to a viewport rather than to the thing that actually costs memory.
-		expect(previewBudget(10)).toBe(10);
+	it('retains the MOST RECENTLY passed tiles — the ones a scroll back reaches first', () => {
+		const n = PREVIEW_RETAIN * 3;
+		const { container, unmount } = render(<Grid n={n} />);
+		for (let i = 0; i < n; i++) {
+			const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
+			intersect(el, true);
+			intersect(el, false);
+		}
+		// The tail survives, the head is gone — LRU over last-in-band order.
+		for (let i = n - PREVIEW_RETAIN; i < n; i++) expect(isLive(container, i), `tile ${i} should still be warm`).toBe(true);
+		for (let i = 0; i < n - PREVIEW_RETAIN; i++) expect(isLive(container, i), `tile ${i} should have been recycled`).toBe(false);
+		unmount();
+	});
+
+	it('a stale in-band flag costs ONE tile, not the whole ceiling', () => {
+		// The failure mode that retired the previous shape. That one derived a ceiling on the
+		// mounted TOTAL from a count of the in-band flags, so a single stale `true` — the
+		// coalesced-delivery hazard — raised the ceiling for EVERY tile and the mounted set
+		// stopped tracking anything (measured on the built site at 32 then 11 documents at the
+		// same offset). Counting the retained set instead contains the damage to the stuck tile.
+		const n = PREVIEW_RETAIN * 3;
+		const { container, unmount } = render(<Grid n={n} />);
+		// Tile 0 goes in band and never reports leaving — permanently stale.
+		intersect(container.querySelector('[data-testid="tile-0"]') as Element, true);
+		for (let i = 1; i < n; i++) {
+			const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
+			intersect(el, true);
+			intersect(el, false);
+		}
+		expect(isLive(container, 0), 'the stuck tile is in band, so it is never recycled').toBe(true);
+		// …and everything else is still held to the knob: the stale slot costs its own tile only.
+		expect(livePreviewCount(), 'a stale in-band flag inflated the whole window').toBe(PREVIEW_RETAIN + 1);
+		unmount();
 	});
 });
 
