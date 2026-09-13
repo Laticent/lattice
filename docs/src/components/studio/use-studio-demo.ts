@@ -1,6 +1,7 @@
 import * as React from 'react';
-import type { StopReason, TypeOps } from '../../lib/vetrina';
+import type { StopReason } from '../../lib/vetrina';
 import { useWalkthrough } from '../../lib/vetrina/react';
+import { buildTypeOps } from './demo-typing';
 import type { StudioActions } from './studio-actions';
 import { buildTour, DEFAULT_TOUR } from './tours';
 
@@ -137,70 +138,36 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 
 		// Typing lands natively in the editor (append per keystroke run; set for the
 		// reduced-motion / large-insert path). The diff baseline is run-scoped in Vetrina.
-		// DESKTOP types NATIVELY (typeTail) for real caret + scroll-follow. MOBILE routes typing
-		// through the CONTROLLED setSource path: a native typeTail insert makes the CodeMirror doc
-		// run AHEAD of the React `value` prop, and the editor's value-sync then diffs against the
-		// lagging value and DELETES the chars typed since — intermittent DROPPED CHARACTERS
-		// (garbled slides), likelier since the preview re-renders during typing (both panes mounted
-		// now). The single controlled writer removes the race; React coalesces so it still reads as
-		// typing. `acc` mirrors the doc so an `append(delta)` re-sets the whole growing string.
-		// setSource replaces the doc via the React value with NO caret move, so — unlike a native
-		// typeTail insert — CodeMirror never scrolls to follow: on a phone the view sits at the top
-		// while a long slide types below the fold (the visible gap vs. tablet, which types natively).
-		// followEditor() is the compensation: it asks the EDITOR to reveal its tail, one commit later.
+		// The typing channel — which sink a tour's characters land in — is built by
+		// `buildTypeOps` (./demo-typing), where the two channels and the reason a controlled write
+		// owes a reveal are written down. What stays here is the DOM scheduling it cannot own:
 		//
-		// It used to reach for `#studio-pane-editor .cm-scroller` and set `scrollTop = scrollHeight`,
-		// and both halves of that could leave the view short of the text. The extent it read is
-		// whatever CodeMirror has MEASURED so far, so arriving before the editor's own measure cycle
-		// meant scrolling to the pre-insert height — the scroll lands above the line that was just
-		// typed, which looks exactly like not scrolling at all. And the scroller was a guess: it is
-		// `.cm-scroller` only while the editor is the height-constrained box on this surface, on this
-		// engine. `revealTail` hands both questions to CodeMirror, which measures its own document and
-		// walks the real scrollable ancestors — race-free by construction, and if it does land early
-		// it reveals the previous tail (one line behind) rather than parking at the top.
+		// The double rAF is for the one thing that is genuinely ordering rather than measurement:
+		// the DOCUMENT. `setSource` is React state, and the value-sync effect that writes it into
+		// the editor runs after the commit, so a reveal fired synchronously would reveal the tail
+		// as it was before this keystroke. Two frames clear the commit and its passive effects.
 		//
-		// The double rAF stays, for the one thing that is genuinely ordering rather than measurement:
-		// the DOCUMENT. `setSource` is React state, and the value-sync effect that writes it into the
-		// editor runs after the commit, so a reveal fired synchronously here would reveal the tail as
-		// it was before this keystroke. Two frames clear the commit and its passive effects.
+		// And the reveal ASKS CODEMIRROR (`revealEditorTail` -> `EditorHandle.revealTail`) rather
+		// than setting `scrollTop = scrollHeight` on a selector-found `.cm-scroller`, which was two
+		// guesses in one line: the extent (`scrollHeight` is whatever CodeMirror has measured so
+		// far, so arriving before its measure cycle scrolls to the pre-insert height) and the
+		// element (`.cm-scroller` is the scroller only while the editor is the height-constrained
+		// box on this surface, on this engine). CodeMirror measures its own document and walks the
+		// real scrollable ancestors; if the reveal still lands early it shows the previous tail —
+		// one line behind — rather than parking at the top.
 		const followEditor = () => {
 			requestAnimationFrame(() => requestAnimationFrame(() => bindRef.current.revealEditorTail()));
 		};
-		let acc = '';
-		// Native `typeTail` needs the mounted editor; fall back to the controlled setSource
-		// path when on a phone OR when the lazy editor hasn't mounted yet (a fast "Take a
-		// tour" click during the cold-load chunk fetch). Decided once per run — if the editor
-		// mounts mid-run the controlled path keeps working (its `value` drives the editor), so
-		// there's never the setSource⟷typeTail race the comment above warns about.
-		const controlledTyping = bindRef.current.mobile || !bindRef.current.editorReady();
-		const type: TypeOps = controlledTyping
-			? {
-					set: (t) => {
-						acc = t;
-						bindRef.current.setSource(t);
-						followEditor();
-					},
-					append: (t) => {
-						acc += t;
-						bindRef.current.setSource(acc);
-						followEditor();
-					},
-				}
-			: {
-					// The desktop `set` is the CONTROLLED path too — it is just not used per
-					// keystroke. `runner.ts` routes four cases through it: an `instant: true` beat,
-					// the `still` motion tier, any insert over ~1600 chars (a whole slide landing at
-					// once), and the PREFIX RESET — `ops.set(text.slice(0, keep))` when the new text
-					// diverges from what was typed. (NOT a reduced-motion device: that lands on
-					// `legible`, which keeps the typing reveal — the split pacing.ts documents.) Without the follow it
-					// dropped a screenful of text in below the fold and left the view at the top —
-					// the same defect as the phone's, on the surface nobody looked at.
-					set: (t) => {
-						bindRef.current.setSource(t);
-						followEditor();
-					},
-					append: (t) => bindRef.current.typeTail(t),
-				};
+		// Native `typeTail` needs the mounted editor; take the controlled path on a phone OR when
+		// the lazy editor has not mounted yet (a fast "Take a tour" click during the cold-load chunk
+		// fetch). Decided once per run — if the editor mounts mid-run the controlled path keeps
+		// working, since its `value` is what drives the editor.
+		const type = buildTypeOps({
+			controlled: bindRef.current.mobile || !bindRef.current.editorReady(),
+			setSource: (t) => bindRef.current.setSource(t),
+			typeTail: (t) => bindRef.current.typeTail(t),
+			follow: followEditor,
+		});
 
 		return {
 			actions,

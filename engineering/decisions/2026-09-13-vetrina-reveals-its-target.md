@@ -207,16 +207,33 @@ The caret is deliberately untouched, and that is the load-bearing half: moving i
 also scroll, and would fire the editor's cursor→slide channel, jumping the preview to the last
 slide on every keystroke of a demo. `editor-reveal-tail.test.tsx` pins exactly that.
 
-**The desktop `set` path had no follow at all.** It is the controlled path too — it just is not
+**The desktop `set` path had no follow at all**, and closing that is the one part of this half that
+is a fix rather than a hardening. It is the controlled path too — it just is not
 used per keystroke. `runner.ts` routes three cases through it: an `instant: true` beat, the `still`
 motion tier, and any insert over ~1600 characters (a whole slide at once). A reduced-motion DEVICE
 is not one of them — it resolves to `legible`, which keeps the typing reveal. It dropped a screenful of text in below the fold and left
 the view at the top, the same defect as the phone's on the surface nobody looked at. It now calls
 the same follow.
 
+**And that claim is now a test rather than a reading.** No shipped tour takes that path, so it
+cannot be driven end to end without inventing a tour or a test hook in the shell — both worse than
+the defect they would cover. So the typing channel moved into its own module (`demo-typing.ts`,
+`buildTypeOps`) with every effect behind a passed-in host, and `demo-typing.test.ts` pins the wiring
+on both channels: every `set` follows, a native `append` does not (it carries its own reveal and must
+not also write through the React value), and a `set` REPLACES the controlled accumulator rather than
+adding to it — which, if it ever stopped being true, would re-send the old document's head in front
+of the new one on the channel a phone uses for every keystroke. The mutant that is the pre-PR state
+(a desktop `set` with no follow) dies to that arm.
+
+The split is deliberate: the BEHAVIOR this depends on — that the reveal actually scrolls a real view —
+is verified on two engines by `demo-mobile.spec.ts`. What was left over was pure wiring, and a unit
+test is the surface wiring has.
+
 ## What is verified, and what is not (HARD RULE #23)
 
-- **jsdom / vitest** — `reveal.test.ts` (13 arms) pins the mechanism: the options passed, that the
+- **jsdom / vitest** — `demo-typing.test.ts` (4 arms) pins the typing channel's WIRING, which is the
+  only instrument the desktop `set` path can have: no shipped tour takes it, so it cannot be driven
+  end to end. `reveal.test.ts` (13 arms) pins the mechanism: the options passed, that the
   scroll precedes every measurement in the beat, that a gesture-only beat reveals on its own
   account, the `behavior` retry, a target that cannot scroll, a provider that refuses, the
   `bounds: 'host'` re-seat, all three drag call sites, the reduced-tier snap-back landing, and the

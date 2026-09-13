@@ -18,5 +18,6 @@
   on Chromium at 390px, 53px on real WebKit at an iPhone box — the same before and after), so this
   removes a fragility rather than a visible defect. It also wires up a path that had no follow at all: the
   desktop `set`, which `runner.ts` reaches for an `instant` beat, the `still` motion tier, an insert
-  over ~1600 characters, or a prefix reset. That one is a reading of the code, not a measurement —
-  no shipped tour takes that path, so no arm drives it.
+  over ~1600 characters, or a prefix reset. No shipped tour takes that path, so it cannot be
+  driven end to end; the typing channel is now a module of its own (`demo-typing.ts`) whose wiring is
+  unit-tested on both channels, and the mutant that is the old state dies to that test.
