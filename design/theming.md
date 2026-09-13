@@ -130,9 +130,10 @@ consumers a first-class pair and one override seam, with no new curated color.
 Custom-logo authors point `logo:` in front matter at an image file.
 A build-stage rewriter injects `<img class="deck-logo">` as the
 first child of each section; CSS desaturates the img to a faint
-grayscale watermark via `filter`, inverting the brightness on
-dark-canvas layouts so the mark stays legible without a theme-specific
-asset. See [lib/base/base.docs.md § Custom logo](../lib/base/base.docs.md)
+grayscale watermark via `filter`, inverting the brightness on a dark
+CANVAS — not on a list of layouts, which is a distinction that cost a
+defect (#2149) — so the mark stays legible without a theme-specific asset.
+Retune the inverted treatment with `:root { --deck-logo-filter-inverse: … }`. See [lib/base/base.docs.md § Custom logo](../lib/base/base.docs.md)
 for the authoring contract.
 
 ### Semantic signals

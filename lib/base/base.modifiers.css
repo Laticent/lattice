@@ -455,6 +455,11 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
  * thin :root color-scheme:dark wrapper). */
 section.dark {
   color-scheme: dark;
+  /* THE LOGO FLIP RIDES THE CANVAS, not the layout class. `img.deck-logo` reads this
+   * token; see the `--deck-logo-filter` note on that rule for why it is declared here
+   * and not in a selector list of its own (#2149). */
+  --deck-logo-filter: var(--deck-logo-filter-inverse);
+  --deck-logo-opacity: var(--deck-logo-opacity-inverse);
   /* LONGHANDS, not the `background:` shorthand, so a theme missing --spectrum loses the
    * RIBBON and not the CANVAS. One undefined var() makes the WHOLE declaration invalid at
    * computed-value time, and the property falls to its INITIAL value — it does not fall
@@ -615,6 +620,13 @@ section.print {
   --hljs-tag: var(--print-text-body);
   --hljs-punctuation: var(--print-text-secondary);
   --spectrum: var(--print-border);  /* the rainbow ribbon → a flat gray rule (code panel edge, etc.) */
+  /* Paper is a LIGHT canvas, so the mark takes the light-canvas treatment even on a
+   * `dark print` slide. `initial` makes a custom property the guaranteed-invalid value,
+   * which is what sends `var(--deck-logo-filter, ‹light›)` to its fallback — the reset
+   * has to be spelled this way because there is no "unset to the other rule" for a
+   * property that was set by an earlier matching rule. (#2149) */
+  --deck-logo-filter: initial;
+  --deck-logo-opacity: initial;
   background: var(--bg);            /* paper white; no spectrum ribbon (saves toner, drops hue) */
   border-top: none;
 }
@@ -696,6 +708,20 @@ section.color-inherited {
 section:is(.title, .closing):not(.print),
 section.divider:not(.light):not(.print) {
   color-scheme: dark;
+  /* SAME PREDICATE, SAME PLACE — and that is the point. The deck logo used to flip on
+   * `section.title, section.divider, section.closing, section.dark`, a selector list that
+   * named LAYOUT CLASSES while its own comment claimed to name DARK CANVASES. The two
+   * agree only while those layouts are always dark, and they are not: `divider.light`
+   * REPLACES the canvas with `--bg` (divider.styles.css), and `.print` remaps the whole
+   * band to paper. On `<!-- _class: divider light -->` the mark therefore got the
+   * light-gray on-dark treatment on a light ground and vanished — present in the DOM,
+   * correctly positioned, invisible, and silent by construction: nothing errors and
+   * nothing is missing, which is why it took a pixel gate disagreeing with an element
+   * count to find it (#2149, #2142).
+   * Declaring the flip HERE, in the rule that already decides which bookend canvases are
+   * dark, means there is one predicate rather than two copies free to drift. */
+  --deck-logo-filter: var(--deck-logo-filter-inverse);
+  --deck-logo-opacity: var(--deck-logo-opacity-inverse);
 }
 
 
@@ -2277,6 +2303,28 @@ section.lattice-exporting .fit-culprit,
  * gone — the tabs berth top-center now and clear the mark outright — but the reason
  * generalizes and a custom property on the img is invisible to everything above it.)
  * ──────────────────────────────────────────────────────────────────── */
+/* The INVERSE-CANVAS pair, defined ONCE. Every rule that declares a dark canvas points its
+ * `--deck-logo-filter` here rather than repeating the values, so the two dark-canvas
+ * rules in this file cannot drift apart the way the layout-class selector list drifted
+ * from the canvas it claimed to describe (#2149). A theme that paints an unusually deep
+ * `--surface-inverse` can retune the brightness here without touching a selector.
+ *
+ * DECLARED ON `:root` ALONE, deliberately. The neighbouring `:root, section` idiom in
+ * base.tokens.css is load-bearing there because those values carry a `var()` that must
+ * re-substitute per slide; these two do not. Adding the `section` half here would match
+ * every slide DIRECTLY, and a directly-matched declaration beats an inherited one whatever
+ * its specificity — so a theme's own `:root { --deck-logo-filter-inverse: ... }` would be
+ * silently ignored and the sentence above would be false. Measured both ways.
+ *
+ * NAMED `-inverse`, NOT `-on-dark`: HARD RULE #11 retires a token whose name ends in a
+ * color-scheme word, and `checkRetiredTokenNames` rejects one on sight. `inverse` is the
+ * engine's own word for this ground (`--surface-inverse`) and it is a ROLE — the treatment
+ * a mark takes when the canvas is inverted — which is what the rule asks for. */
+:root {
+  --deck-logo-filter-inverse: grayscale(1) brightness(2.4) contrast(1.1);
+  --deck-logo-opacity-inverse: 0.45;
+}
+
 img.deck-logo {
   /* CONTENT plane. The deck mark's KIND is chrome — frame furniture, not author content,
    * and its Tile manifest says so — but a plane says what may COVER what, and on that axis
@@ -2331,20 +2379,29 @@ img.deck-logo {
   object-fit: contain;
   pointer-events: none;
   user-select: none;
-  opacity: 0.4;
-  /* Default tuned for light canvases (body slides): darken to a
-   * faint dark-gray watermark. */
-  filter: grayscale(1) brightness(0.4) contrast(1.2);
-}
-
-/* Dark-canvas layouts and the explicit `.dark` modifier flip the
- * brightness so the mark shows as a faint light-gray watermark. */
-section.title    img.deck-logo,
-section.divider  img.deck-logo,
-section.closing  img.deck-logo,
-section.dark     img.deck-logo {
-  filter: grayscale(1) brightness(2.4) contrast(1.1);
-  opacity: 0.45;
+  /* THE FLIP IS A TOKEN THE CANVAS SETS, NOT A SELECTOR LIST HERE.
+   *
+   * The mark is a monochrome watermark, so it needs the OPPOSITE treatment on a dark
+   * canvas (brighten) from a light one (darken). Getting that wrong does not error — it
+   * renders the mark at the canvas's own lightness and the slide looks like it has no
+   * logo at all.
+   *
+   * This used to be a second rule naming `section.title, section.divider,
+   * section.closing, section.dark`. That is a list of LAYOUTS, and the condition is
+   * about the CANVAS; the two agree only while those layouts are always dark. They are
+   * not — `divider light` and the `print` band are both light — so the mark disappeared
+   * on them (#2149). The predicate now lives in ONE place: the rules that declare
+   * `color-scheme: dark` for the canvas set `--deck-logo-filter` beside it, and this
+   * declaration's `var()` FALLBACK is the light-canvas default. A new dark canvas gets
+   * the flip by setting the token where it sets its scheme; it cannot get it by being
+   * added to a list here, because there is no longer a list here to be added to.
+   *
+   * The light-canvas values are written as the var() fallback rather than as a separate
+   * `--deck-logo-filter` declaration on `section`, because an inherited custom property
+   * set on `section` would be inherited by a NESTED section too, and `initial` (how
+   * `.print` gives the token back) only reaches the fallback when nothing set it. */
+  opacity: var(--deck-logo-opacity, 0.4);
+  filter: var(--deck-logo-filter, grayscale(1) brightness(0.4) contrast(1.2));
 }
 
 /* `deck-logo-brand` — keep the logo's original colors on a soft

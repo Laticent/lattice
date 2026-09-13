@@ -445,6 +445,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/gen-chart-finish-css.py` | Generates the prototype's finish rule block: every ENCODING and every REGISTER |
 | `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
+| `tools/jank-census.js` | jank-census — run check-jank's `--anchors` discovery across the WHOLE catalog and rank what moves. |
 | `tools/manifest-schemas.js` | The ONE declaration of which manifest families exist, which schema governs |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
 | `tools/mutate-stage-window.mjs` | mutate-stage-window — break what each Stage-window cell NAMES, and watch it go red. |

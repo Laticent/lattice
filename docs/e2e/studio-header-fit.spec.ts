@@ -79,22 +79,35 @@ const SETTLE_TRIES = 40; // 4s ceiling — far past the ~100ms reflow, still bou
 //
 // The reason it matters is not the arithmetic. 188 of those 246 are the DECK PILL'S OWN
 // shrink range (230px down to its 42px floor), i.e. capacity the row can only "spend" by
-// truncating the deck title — the very thing #1417 says is not headroom. Spare with the pill
-// PINNED is **58px**. So `MIN_SPARE_AT_FLOOR = 16` sits ~230px below what `spareAt` returns
-// and cannot fail on any change smaller than the pill's whole title: it is INERT, and this
-// file's own ratchet rule ("if a change frees width, raise it to match") has never fired.
+// truncating the deck title — the very thing #1417 says is not headroom.
 //
-// It is left at 16 here rather than retuned, deliberately: the honest fix is to measure with
-// the pill pinned, which is a change to what this guard MEANS, and that is a decision to take
-// on its own rather than inside a header PR. Filed so it cannot rot quietly.
-// The floor stays at **16** — but do NOT cite it as evidence that a width change fits. Note the tolerance is
-// thinner than it was (3px, not 9): the fonts are self-hosted woff2 and this spec waits on
-// `document.fonts.ready`, so cross-runner metric drift should be sub-pixel rather than the
-// several px the original 9 was guarding against. If CI ever does flake here, the answer is
-// to free width in the row, NOT to lower this number.
+// **RE-BASED A THIRD TIME, AND THIS ONE CHANGED THE MEANING (#2072).** `spareAt` now PINS
+// the deck pill at its rendered width before searching, so what it returns is what the ROW
+// has spare rather than what the TITLE can be made to give up. Measured at 700/Craft on a
+// built site, four consecutive runs on one machine: **56px pinned**, **246px unpinned** —
+// and the unpinned figure reproduces #2072's to the pixel.
 //
-// One `icon-sm` control plus its gap is 38px, so a whole new control does not merely trip
-// this, it overflows the row outright.
+// WHAT MADE THE OLD FLOOR INERT WAS THE BASIS, NOT THE NUMBER, and the distinction is worth
+// keeping straight because it says what to protect. Against the unpinned basis, adding a
+// whole new `icon-sm` control at this width still leaves **202px** of reported spare — so
+// no floor in the low tens could ever have moved for it, and this file's ratchet rule ("if
+// a change frees width, raise it to match") never once fired. Against the pinned basis the
+// same control takes the row from 56px to **12px**, which even 16 would have caught.
+//
+// SO THE FLOOR IS DERIVED FROM WHAT IT IS FOR: going off *while there is still margin to
+// lose*. 48 sits 8px under the measured 56 — it fires once a change has spent an eighth of
+// the row's real headroom. 16 would fire only after 44 of those 56px were gone, which is a
+// smoke alarm in the next room. The only spread ever observed is 2px (56 here against the
+// 58 #2072 measured on other hardware); within one machine it is 0px across four runs, so
+// 48 is four times the largest observed cross-machine drift.
+//
+// That the floor can still fail is not asserted here, it is DEMONSTRATED — see the
+// 'floor still fires' arm below, which adds a control and watches this number catch it.
+//
+// Note the tolerance is thinner than it was (3px, not 9): the fonts are self-hosted woff2
+// and this spec waits on `document.fonts.ready`, so cross-runner metric drift should be
+// sub-pixel rather than the several px the original 9 was guarding against. If CI ever does
+// flake here, the answer is to free width in the row, NOT to lower this number.
 //
 // What it is NOT: a guarantee about the FALLBACK font. With the webfont blocked the dial
 // grows 219px → 240px and spare falls to ~4px — the row still fits (`over` is 0), but no
@@ -107,7 +120,7 @@ const SETTLE_TRIES = 40; // 4s ceiling — far past the ~100ms reflow, still bou
 // It is a FLOOR, not a target. If a change frees width, raise it to match — the same
 // ratchet discipline every budget in `tools/check-ownership.js` carries, so the margin
 // cannot erode one PR at a time. Lowering it is how this row regresses.
-const MIN_SPARE_AT_FLOOR = 16;
+const MIN_SPARE_AT_FLOOR = 48;
 
 // Step the dial by ARIA NAME, never by text: an icon-only dial has no text, so a
 // textContent lookup would match nothing, the click would be a no-op, and every
@@ -326,11 +339,55 @@ async function readHeaderSettled(page: import('@playwright/test').Page, tail: st
  * The probe must carry INK. An empty `<div>` of any width does not grow a flex row's
  * `scrollWidth` in Chrome, so an empty probe reports infinite headroom — measured, and
  * it is exactly the kind of silently-passing measurement this file exists to prevent.
+ *
+ * THE DECK PILL IS PINNED WHILE MEASURING, and that is the difference between a number
+ * and a number that means something (#2072). The pill renders ~230px wide at 700 and
+ * floors at `min-w-[42px]`, so an unpinned search spends that 188px of shrink range
+ * before `scrollWidth` moves at all — and it can only spend it by truncating the deck
+ * title, which #1417 established is precisely NOT headroom:
+ *
+ *   > the pill is the element engineered to keep the header's `scrollWidth` quiet while
+ *   > it absorbs the pressure, so it is the one element that can break silently.
+ *
+ * Measured at 700/Craft on a built site, four consecutive runs: **56px pinned**, **246px
+ * unpinned**. The unpinned figure reproduces #2072's to the pixel.
+ *
+ * Pass `{ pinPill: false }` to measure the old way. Nothing asserts on that number; it
+ * exists so the two bases can be printed side by side the next time this one is
+ * questioned, which on this file's history it will be.
  */
-async function spareAt(page: import('@playwright/test').Page, tolerance: number): Promise<number> {
-	return page.evaluate((tol) => {
+async function spareAt(
+	page: import('@playwright/test').Page,
+	tolerance: number,
+	{ pinPill = true }: { pinPill?: boolean } = {},
+): Promise<number> {
+	return page.evaluate(([tol, pin]) => {
 		const h = document.querySelector('[data-studio-root] header');
 		if (!h) throw new Error('no [data-studio-root] header');
+		// Freeze the absorber at the width it actually rendered, so the search measures what
+		// the ROW has spare rather than what the TITLE can be made to give up.
+		const pill = h.querySelector('[data-demo="deck-switcher"]') as HTMLElement | null;
+		let unpin: (() => void) | null = null;
+		if (pin) {
+			// A missing pill is not a reason to fall back to the old basis quietly: the number
+			// would silently change meaning, which is exactly the failure #2072 was.
+			if (!pill) {
+				throw new Error('no [data-demo="deck-switcher"] to pin — the pill moved or was renamed, '
+					+ 'and an unpinned measurement is not the same number (see the note above)');
+			}
+			const w = pill.getBoundingClientRect().width;
+			const was = { flex: pill.style.flex, width: pill.style.width, minWidth: pill.style.minWidth, maxWidth: pill.style.maxWidth };
+			pill.style.flex = '0 0 auto';
+			pill.style.width = `${w}px`;
+			pill.style.minWidth = `${w}px`;
+			pill.style.maxWidth = `${w}px`;
+			unpin = () => {
+				pill.style.flex = was.flex;
+				pill.style.width = was.width;
+				pill.style.minWidth = was.minWidth;
+				pill.style.maxWidth = was.maxWidth;
+			};
+		}
 		const probe = document.createElement('span');
 		probe.textContent = '·';
 		probe.style.cssText = 'flex:0 0 auto;display:inline-block;overflow:hidden;visibility:hidden';
@@ -352,8 +409,9 @@ async function spareAt(page: import('@playwright/test').Page, tolerance: number)
 			return lo;
 		} finally {
 			probe.remove(); // never leave the probe behind — later widths measure the real row
+			unpin?.(); // and never leave the pill pinned — every later width would measure a frozen row
 		}
-	}, tolerance);
+	}, [tolerance, pinPill] as [number, boolean]);
 }
 
 test('@smoke the Studio header fits — and keeps its words — at every supported width', async ({ page }) => {
@@ -546,7 +604,8 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 		// Headroom, at the floor only — see MIN_SPARE_AT_FLOOR above.
 		if (width === WIDTHS[0]) {
 			const spare = await spareAt(page, TOLERANCE);
-			expect(spare, `spare capacity at the ${width}px floor`).toBeGreaterThanOrEqual(MIN_SPARE_AT_FLOOR);
+			expect(spare, `spare capacity at the ${width}px floor (deck pill pinned — see MIN_SPARE_AT_FLOOR)`)
+				.toBeGreaterThanOrEqual(MIN_SPARE_AT_FLOOR);
 		}
 	}
 });
@@ -577,6 +636,100 @@ test('@smoke the Studio header fits — and keeps its words — at every support
  * That difference is asserted explicitly, both ways, so a tier silently losing (or gaining)
  * its pill fails here instead of hollowing the test into a no-op.
  */
+/**
+ * `spareAt`, but only once two consecutive reads agree — the same settle discipline
+ * `readHeaderSettled` uses, and for the same reason. Measured: the row can still be
+ * mid-reflow when the Search pill's locator resolves, and a `spareAt` taken there returned
+ * **-1** (already over) on a run whose three neighbours all returned 56. A guard that
+ * reports "this row does not fit" because it measured too early is worse than no guard.
+ */
+async function spareAtSettled(page: import('@playwright/test').Page, tolerance: number): Promise<number> {
+	let prev = await spareAt(page, tolerance);
+	for (let i = 0; i < SETTLE_TRIES; i++) {
+		await page.waitForTimeout(SETTLE_STEP_MS);
+		const next = await spareAt(page, tolerance);
+		if (next === prev) return next;
+		prev = next;
+	}
+	// Never silently accept an unsettled row — a header still moving after 4s is the finding.
+	throw new Error(`spare capacity never settled after ${(SETTLE_TRIES * SETTLE_STEP_MS) / 1000}s — last read ${prev}px`);
+}
+
+/**
+ * THE FLOOR CAN STILL FIRE (#2072).
+ *
+ * `MIN_SPARE_AT_FLOOR` spent its whole life inert, and the reason was the BASIS rather
+ * than the number. Measured against the unpinned `spareAt`, adding a whole new `icon-sm`
+ * control at the 700px floor leaves **202px** of reported "spare" — so a 16px floor could
+ * not have moved for it, and this file's own ratchet rule ("if a change frees width, raise
+ * it to match") never once fired in its lifetime.
+ *
+ * A guard nobody has watched fail is indistinguishable from a decoration, and the only
+ * thing that separates them is making it fail. So this arm ADDS A CONTROL and asserts the
+ * floor catches it. Measured with the pill pinned: **56px before, 12px after**, against a
+ * 48px floor. One `icon-sm` button plus its gap is 38px, which is the smallest thing
+ * anyone actually adds to this row, so it is the right size for the probe.
+ *
+ * WHY THE PROBE IS INJECTED rather than committed to `StudioShell.tsx`: a permanently
+ * shipped extra control would be a permanently burst row, and the point is to prove the
+ * guard fires, not to break the app. The injected node carries the same box a real
+ * `icon-sm` control carries — `shrink-0`, 30px wide, in an 8px-gap flex row — so the row
+ * cannot absorb it by shrinking something else, which is the pressure a real control
+ * applies. (Committing one was tried first and broke the Studio shell outright, which is
+ * its own argument.)
+ *
+ * WHAT THIS ARM DOES NOT PROVE, stated because the obvious reading is wrong: it does not
+ * pin 48. Mutation-tested — drop the floor back to 16 and this arm still PASSES, because
+ * once the basis is pinned a whole control takes the row to 12px and 16 catches that too.
+ * What the arm defends is that the guard can fire at all; the VALUE is justified by the
+ * paragraph above it (fire while margin remains), and nothing here ratchets it. The two
+ * mutations that do kill this arm are the ones worth knowing: measuring the probe with
+ * `{ pinPill: false }` (the old basis — 202px of phantom spare, nothing caught), and
+ * shrinking PROBE_CONTROL_PX to 8 (not a real control, so the floor rightly ignores it).
+ *
+ * Deliberately NOT `@smoke`: it drives the same fixture as the arm above and earns its
+ * cost nightly, not on every push.
+ */
+const PROBE_CONTROL_PX = 38; // one icon-sm (30px) + one 8px flex gap
+
+test('the header fit floor still fires — one more control at 700px trips it', async ({ page }) => {
+	await gotoStudio(page);
+	await page.evaluate(() => document.fonts.ready);
+	await page.setViewportSize({ width: WIDTHS[0], height: 900 });
+	await expect(page.locator('[data-studio-root] header').getByRole('button', { name: /Search or run/ })).toHaveCount(1);
+
+	const before = await spareAtSettled(page, TOLERANCE);
+	// The guard must be PASSING before the probe, or "it failed after" proves nothing — a row
+	// that was already over would fail the assertion below for entirely the wrong reason.
+	expect(before, 'the row must clear its own floor before the probe is added').toBeGreaterThanOrEqual(MIN_SPARE_AT_FLOOR);
+
+	const added = await page.evaluate((px) => {
+		const h = document.querySelector('[data-studio-root] header');
+		if (!h) throw new Error('no [data-studio-root] header');
+		const probe = document.createElement('button');
+		probe.type = 'button';
+		probe.setAttribute('data-fit-probe', '');
+		probe.setAttribute('aria-hidden', 'true');
+		probe.tabIndex = -1;
+		// INK, not an empty box: an empty element does not grow a flex row's scrollWidth in
+		// Chrome, which is the silently-passing measurement the spareAt docblock warns about.
+		probe.textContent = '\u00b7';
+		probe.style.cssText = `flex:0 0 auto;width:${px - 8}px;margin-left:8px;overflow:hidden`;
+		h.appendChild(probe);
+		void (h as HTMLElement).offsetWidth;
+		return probe.getBoundingClientRect().width;
+	}, PROBE_CONTROL_PX);
+	expect(added, 'the probe must actually occupy its width').toBeGreaterThan(0);
+
+	const after = await spareAtSettled(page, TOLERANCE);
+	expect(
+		after,
+		`adding one ${PROBE_CONTROL_PX}px control at ${WIDTHS[0]}px left ${after}px spare, which the `
+			+ `${MIN_SPARE_AT_FLOOR}px floor did NOT catch — the guard is inert again (spare was ${before}px before). `
+			+ 'Raising the floor is not the fix; find what the row is absorbing it with.',
+	).toBeLessThan(MIN_SPARE_AT_FLOOR);
+});
+
 const OPEN_SEARCH_WIDTHS = [700, 768, 834, 1024, 1099, 1100, 1160, 1200, 1280, 1440, 1920];
 
 test('the inline search does not burst the row when it opens, at every tier that has it', async ({ page }) => {

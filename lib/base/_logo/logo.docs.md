@@ -143,7 +143,10 @@ child, and — **on the `<section>`, not on the img** — the `--logo-*` placeme
 properties.
 
 CSS lives at `lib/base/base.modifiers.css` — the `img.deck-logo` selector plus the
-dark-canvas brightness flip.
+dark-canvas brightness flip. The flip is carried by `--deck-logo-filter` /
+`--deck-logo-opacity`, set beside the `color-scheme: dark` of whichever rule makes the
+canvas dark, with the light-canvas values as the `var()` fallback. A theme overrides the
+inverted pair at `:root` via `--deck-logo-filter-inverse` / `--deck-logo-opacity-inverse`.
 
 ## Gotchas
 
