@@ -67,6 +67,20 @@ export interface Narrator {
 	 *  a presenter's hand is already moving before they say the word. A narrator that cannot
 	 *  see its own future returns null, and the cue degrades to "narrate, then act". */
 	plan?(text: string): NarratedWord[] | null;
+	/** OPTIONAL: release whatever this narrator owns — an `AudioContext`, a decoded-clip
+	 *  cache, a worker.
+	 *
+	 *  THE HOST CALLS THIS, never `run()`. A narrator is passed IN, so the run does not own
+	 *  it and must not close it: one narrator across many runs is the shape that keeps a
+	 *  single `AudioContext` for the page, which is the whole point of one. `run()` tearing
+	 *  it down at the end of the first tour would break exactly the correct usage.
+	 *
+	 *  It exists because a narrator built PER RUN otherwise leaks: measured at 8 live
+	 *  `AudioContext`s after 8 runs of the prototype, none closed. Chromium caps hardware
+	 *  contexts per document, and the constructor throws when the cap is hit — which, from
+	 *  inside a click handler that has already disabled its own button, is a page that
+	 *  cannot be restarted. Idempotent; a disposed narrator must not be reused. */
+	dispose?(): void;
 }
 
 /** Find the word a `Step.at` cue names, in a plan.

@@ -370,7 +370,7 @@ always-reachable **Exit** icon. It sits at the bottom by default; move it with
 | `'split'` | a clean text-only caption + a separate ✕ chip in the corner | typographic calm |
 | `'scrim'` | no box — a film-subtitle over a soft bottom gradient | busy/dark content (the Studio demo opts into it) |
 | `'progress'` | the bar, with a beat-progress ring in place of the dot | long/kiosk walkthroughs that want a sense of pacing |
-| `'cursor'` | a speech balloon next to the cursor that steps aside while it performs | a tour where the round trip between an edge caption and the thing it is about is the cost you are paying |
+| `'cursor'` | a speech balloon next to the cursor that steps aside while it performs, and takes itself down after. Becomes the `'split'` dock when the narrator is voiced | a tour where the round trip between an edge caption and the thing it is about is the cost you are paying |
 
 Every style keeps Exit inside `.vetrina-caption` (so the take-over guard reads it
 as chrome) and keeps one narration live region. The boxed styles' corner **shape**
@@ -420,23 +420,56 @@ Three properties do the work, and each one is a rejection of the obvious version
   the model prices a line at ~150 wpm and clamps at 6s, so anything reaching that clamp is the
   model telling you the beat should have been two.
   Counter-intuitively a narrator makes it *shorter* (27.5s timed, 22.2s voiced): a word-cued beat
-  is exempt from the dwell, and a voiced run skips it on every beat but a `read` one, because the
-  caption stays up and has no vanishing to be read ahead of.
+  spends only what is left of the reading window after the action, and a voiced run is an edge dock,
+  which spends none.
+  **The budget is `dwellMs`, not `captionMs`** — always the grounded ~150 wpm, whatever `pacing` the
+  run selected. The two are the same number under `'grounded'` and differ by 43% under the default
+  `'legacy'`, whose 300 wpm is the rate `pacing.ts` documents as wrong by a factor. An edge dock
+  survives it because the words stay up; a caption that erases itself does not.
 - **Exit does not go with it.** The balloon hides; the corner chip does not. A caption that can
   hide would otherwise take the only escape with it, and stranding a viewer inside a running tour
   is the one thing this library will not do. Hiding is by opacity, never `display` — the narration
   is a live region, and dropping it out of the layout tree drops it out of the a11y tree.
 
-**A voiced narrator changes the rule.** Silent, the caption and the action compete for one pair
-of eyes. Voiced, the ear has the words and the eyes are free — and blanking a subtitle
-mid-sentence takes the words from the viewer who is reading them *because* they cannot hear them.
-So a `Narrator` whose `voiced` is true keeps the caption up during the action, automatically.
+- **The caption never outlives its beat.** Every line that goes up comes down, on every exit from
+  the beat — including a throw, an abort, and an `instant` beat, which has no dwell to spend and so
+  keeps its line only as long as its substance takes. A `read` beat and a word-cued (`at`) beat are
+  the two that stay up *through* the action; they still come down after it, once the reading window
+  is spent. "It appears when there is something to say, and not otherwise" is the whole style.
+- **Avoidance is a preference, not a guarantee.** The balloon stays clear of the thing being
+  pointed at by flipping to another quadrant around the cursor — which escapes a target the cursor
+  is OUTSIDE of, and cannot escape one the cursor is sitting inside. Pointing at a whole panel puts
+  the caption on the panel, and that is the right answer: the alternative is a caption 400px from
+  the pointer, which is the one thing this style exists to stop.
+
+**A VOICED narrator docks the caption at the edge instead.** Ask for `caption: 'cursor'` and wire a
+narrator whose `voiced` is true, and `run()` gives you the `'split'` dock — silently, because it is
+the same decision you would make yourself once the reasons are on the table:
+
+- The balloon exists to save a **reading trip** between the pointer and the words. A voice removes
+  that trip; nobody reads a caption they are being told.
+- What is left is the caption's other job — the **subtitle** for a viewer who cannot hear it — and
+  subtitle practice (BBC, ITU-R BT.1359) puts a subtitle at a **fixed screen position**, because a
+  reader has to know where to look back to. Moving one around the frame is a known a11y failure.
+- It is also the only honest fix for the anchor. A voiced caption never hides, and the balloon
+  re-anchors on the hidden→shown edge — so a voiced one was placed once, at the top of the beat,
+  and then sat there while the cursor crossed the app. Measured at **493px** from the pointer it
+  was speaking for.
+
+A stage you build yourself is not second-guessed: `stage.setVoiced(true)` still means "keep the
+caption up during the action" on a cursor-anchored stage you mounted directly.
 
 ### Confining the chrome to your app — `bounds`
 
 `bounds: 'host'` measures every caption against the `root` element the walkthrough drives instead
 of against the window. Reach for it when the tour runs in a PANE of a larger page: a caption bar
 spanning the whole window, for a demo confined to one panel, is chrome about the wrong thing.
+
+It is the **visible part** of `root`, intersected with the window. A host taller than the
+window is the ordinary case — a panel in a scrolling page — and seating the chrome in the raw
+host's corner put Exit 638px above the top of the window, where it cannot be pressed and cannot be
+reached by keyboard either (the first `Tab` is a keydown the take-over guard reads as the viewer
+taking the wheel). A host scrolled entirely out of view falls back to the window.
 
 It is a **clamping box, not a containing block.** The overlay layer stays `position: fixed` and
 click-through; only the chrome's geometry is measured against `root`. Nothing about your CSS has
@@ -473,7 +506,22 @@ It plays through Suono and re-anchors the word clock to the clip's **measured** 
 hybrid align, where the estimate supplies the internal rhythm and the measurement supplies the
 total. Every cue is scaled into that span, not just the first: anchoring only cue 0 stretches
 sentence one across the whole clip and pushes the rest past the end of the audio. It reports
-`voiced: true`, which is what keeps the caption up during the action.
+`voiced: true`, which is what docks the caption at the edge.
+
+**Build it ONCE and reuse it — then `dispose()` it.** `voicedNarrator` opens an `AudioContext`
+eagerly (the unlock has to happen inside the user gesture that started the tour), and the run does
+not own it: a narrator is passed *in*, so `run()` never closes it, and one narrator across many
+runs is what keeps a single `AudioContext` for the page. Build one per Run click and nothing
+closes them — measured at 8 live contexts after 8 runs. Chromium caps them per document and the
+constructor throws at the cap, from inside a handler that has already disabled its own button.
+
+```ts
+const narrator = voicedNarrator({ synthesize });      // once, in the gesture that starts the tour
+addEventListener('pagehide', () => narrator.dispose?.());
+```
+
+`dispose()` clears the track cache and closes the `AudioContext` **only if the narrator created
+it** — pass your own `audio` stage and it is left alone, because the rest of your page is using it.
 
 Two failures are handled rather than propagated: a voice that throws, and a voice that never
 answers (`synthesizeTimeoutMs`, 20s). Either way the beat plays on silently and the caption still
@@ -492,7 +540,7 @@ scene()
   .point('#publish').click().act((a) => a.publish())
 ```
 
-The cursor arrives on `#publish` exactly as the narration reaches "Publish". **Whichever side is
+The cursor arrives on `#publish` as the narration reaches "Publish". **Whichever side is
 behind waits**: if the hand needs longer than the word (the usual case — cue words come early and
 a cursor crossing an app needs the best part of a second), the LINE starts late; if the word is
 further off than the trip, the ACTION starts late. Exactly one of the two ever waits.
@@ -500,6 +548,18 @@ further off than the trip, the ACTION starts late. Exactly one of the two ever w
 Needs a narrator that can `plan`. Without one, or when the line does not contain the word, the
 beat plays in its normal order — nothing breaks, the moment is just not staged. `at` and `read`
 are opposite rhythms; setting both warns and `at` wins.
+
+**With a VOICE, the cue is aligned to the estimate, not to the clip.** `plan()` has to answer
+before the beat starts — that is what buys the cursor its head start — but a voiced line is
+re-anchored to the clip's *measured* span once the audio arrives, and the cue does not move with
+it. So the action lands early or late by however far the real clip diverges from the estimate:
+the prototype stretches its placeholder voice to 1.2x deliberately, and a mid-line cue there
+fires ~20% of `startMs` early, on the order of 180ms. Silent (`cadenzaNarrator`), the estimate
+*is* the clock and the alignment is exact — measured at 1ms.
+
+The same caveat applies to `onWord`: the `startMs`/`endMs` on a `NarratedWord` are estimate
+times. The highlight itself runs on the re-anchored clock and stays in sync; the numbers handed
+to a host's callback are the pre-align ones.
 
 ## Pacing — where the durations come from
 

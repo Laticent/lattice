@@ -14,7 +14,7 @@ import type { Stage } from './stage';
 // line at the TOP of the beat — which put the words beside a cursor still standing wherever the
 // previous beat had left it, and then left the caption up afterwards waiting to be replaced.
 
-function harness(stepsAside: boolean) {
+function harness(stepsAside: boolean, narrator?: unknown) {
 	const trace: string[] = [];
 	const stage = {
 		say: (t: string) => void trace.push(`say:${t}`),
@@ -46,6 +46,7 @@ function harness(stepsAside: boolean) {
 		// A fast preset keeps the reading dwells short enough that the whole file stays quick;
 		// the ORDER is what is under test, not the duration.
 		pacing: resolvePacing('fast', 'grounded'),
+		narrator,
 	} as unknown as RunContext<Record<string, never>>;
 	return { ctx, trace };
 }
@@ -160,6 +161,109 @@ describe('a transient caption speaks AFTER the cursor arrives', () => {
 		const { ctx, trace } = harness(true);
 		await scene().say('This is the lesson.').read().point('#a').hold(0).build()(ctx);
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['point', 'say:This is the lesson.', 'emphasize', 'dismiss']);
+	});
+});
+
+// A cue only resolves against a narrator that can `plan`, and it is the RESOLVED cue that takes
+// a beat off the step-aside path. A harness without one silently tests the other branch.
+const PLANNER = {
+	voiced: false,
+	speak: () => ({ done: Promise.resolve(), cancel() {} }),
+	plan: (text: string) => text.split(/\s+/).map((w, i) => ({ text: w, index: i, startMs: i * 300, endMs: i * 300 + 280 })),
+};
+
+describe('a transient caption is never left standing', () => {
+	// `stepsAside` takes a caption down inside its own beat. The two shapes it excludes did not
+	// take theirs down AT ALL: an `instant` beat left its line up, and the balloon then re-anchored
+	// itself beside the cursor on every later beat that had no `say` of its own; a cued (`at`) beat
+	// did the same. Both contradict the property the style is sold on, and both were invisible
+	// inside `run()` because `destroy()` swept the leftover away at the end of the tour.
+
+	it('an INSTANT beat does not leave its line up for the rest of the tour', async () => {
+		const { ctx, trace } = harness(true);
+		await scene().say('Setup line, not a lesson.').instant().hold(0).build()(ctx);
+		expect(trace.filter((t) => t === 'dismiss')).toHaveLength(1);
+	});
+
+	it('and the beat after it does not inherit a caption', async () => {
+		const { ctx, trace } = harness(true);
+		await scene().say('Setup line.').instant().hold(0).point('#a').hold(0).build()(ctx);
+		// One line said, one line dismissed, and the pointing beat that follows says nothing.
+		expect(trace.filter((t) => t.startsWith('say:'))).toEqual(['say:Setup line.']);
+		expect(trace.filter((t) => t === 'dismiss')).toHaveLength(1);
+		expect(trace.indexOf('dismiss')).toBeLessThan(trace.indexOf('point'));
+	});
+
+	it('a CUED beat pins its caption through the action, then takes it down', async () => {
+		// A cue only resolves against a narrator that can `plan`, and it is the RESOLVED cue that
+		// takes the beat off the step-aside path — so a harness without one tests the wrong branch.
+		const { ctx, trace } = harness(true, PLANNER);
+		await scene().say('Now click Publish.').at('Publish').point('#publish').click().hold(0).build()(ctx);
+		// Pinned through the action — that is what `at` is for — and then taken down, which is the
+		// part that was missing: the line used to survive the beat and be inherited by the next.
+		expect(trace).toContain('dismiss');
+		expect(trace.indexOf('press')).toBeLessThan(trace.indexOf('dismiss'));
+		expect(trace.lastIndexOf('hold:false')).toBeGreaterThan(trace.indexOf('dismiss'));
+	});
+});
+
+describe('a transient dwell is budgeted by dwellMs, never captionMs', () => {
+	// The two are the same number under `'grounded'` and differ by 43% under the DEFAULT
+	// `'legacy'`, whose 300 wpm ./pacing documents as wrong by a factor. An edge dock survives the
+	// wrong number because the words stay up; a transient caption ERASES itself on it. Asserting
+	// which function is consulted is the fast oracle — asserting the duration would mean sleeping
+	// through a real 3-second dwell to catch a one-line regression.
+	function spied(stepsAside: boolean) {
+		const base = resolvePacing('fast', 'legacy');
+		const calls: string[] = [];
+		const { ctx, trace } = harness(stepsAside);
+		(ctx as { pacing: unknown }).pacing = {
+			...base,
+			captionMs: (t: string) => {
+				calls.push('captionMs');
+				return 1;
+			},
+			dwellMs: (t: string) => {
+				calls.push('dwellMs');
+				return 1;
+			},
+		};
+		return { ctx, trace, calls };
+	}
+
+	it('a transient beat asks dwellMs', async () => {
+		const { ctx, calls } = spied(true);
+		await scene().say('This panel is the app you are about to tour.').point('#a').hold(0).build()(ctx);
+		expect(calls).toContain('dwellMs');
+		expect(calls).not.toContain('captionMs');
+	});
+
+	it('and an edge dock still asks captionMs, which is a pacing decision and follows the model', async () => {
+		const { ctx, calls } = spied(false);
+		await scene().say('This panel is the app you are about to tour.').point('#a').hold(0).build()(ctx);
+		expect(calls).toContain('captionMs');
+		expect(calls).not.toContain('dwellMs');
+	});
+});
+
+describe('a hold never outlives the beat that set it', () => {
+	it('a throwing act on a cued beat releases the pin', async () => {
+		// The release used to sit at the top of the NEXT iteration, under a comment claiming "there
+		// is no path that leaves the caption pinned". A throwing `act` that a host swallows —
+		// `retry()` and `loop()` in ./recipes both catch — left `captionHeld` true, and the caption
+		// never stepped aside again for the rest of the run.
+		const { ctx, trace } = harness(true, PLANNER);
+		const play = scene<{ boom: () => void }>()
+			.say('This one is going to fail.')
+			.at('going')
+			.point('#a')
+			.act(() => {
+				throw new Error('boom');
+			})
+			.hold(0)
+			.build();
+		await expect(play(ctx as never)).rejects.toThrow('boom');
+		expect(trace.lastIndexOf('hold:false')).toBeGreaterThan(trace.lastIndexOf('hold:true'));
 	});
 });
 

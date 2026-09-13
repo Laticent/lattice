@@ -356,3 +356,165 @@ describe('findCueWord — naming a moment in a line', () => {
 		expect(findCueWord(twice, 'Publish')?.startMs).toBe(500);
 	});
 });
+
+describe("bounds:'host' confines the chrome to the VISIBLE part of the host", () => {
+	// A host taller than the window is the ordinary case the option exists for — a panel in a
+	// scrolling page — and seating Exit in the RAW host's corner put it 638px above the top of the
+	// window, or 536px below the bottom for the bar. Off screen, and Exit is pointer-only (the
+	// first Tab is a keydown the take-over guard reads as the viewer taking the wheel), so the
+	// documented escape from the demo was simply gone. The branch's own e2e could not see it: it
+	// asserts containment against a proto host SMALLER than the viewport.
+	function tallHost(theme: Parameters<typeof resolveTheme>[0] = {}) {
+		const root = document.createElement('div');
+		document.body.appendChild(root);
+		// 2200px tall, starting 700px above the top of the window — the shape a mid-page panel has
+		// once the viewer has scrolled into it.
+		root.getBoundingClientRect = () => ({ left: 40, top: -700, width: 900, height: 2200, right: 940, bottom: 1500, x: 40, y: -700, toJSON: () => ({}) }) as DOMRect;
+		active = createStage({ root, onExit: () => {}, theme: resolveTheme({ bounds: 'host', ...theme }) });
+		const layer = document.querySelector('.vetrina-stage') as HTMLElement;
+		// jsdom measures every element as 0x0, and the seating converts viewport -> layer by
+		// subtracting the LAYER's box. Left at zero it reports the caption 690px above the top of
+		// the window in a passing tree, which would make these assertions about jsdom rather than
+		// about the clamp. The layer is `position:fixed; inset:0`, so the window IS its box.
+		layer.getBoundingClientRect = () => ({ left: 0, top: 0, width: window.innerWidth, height: window.innerHeight, right: window.innerWidth, bottom: window.innerHeight, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+		return { root, layer };
+	}
+
+	const px = (v: string) => (v.endsWith('px') ? Number.parseFloat(v) : Number.NaN);
+
+	it('seats Exit inside the window, not in the off-screen corner of the host', async () => {
+		const { layer } = tallHost({ caption: 'cursor' });
+		await new Promise<void>((r) => requestAnimationFrame(() => r()));
+		const exit = layer.querySelector('.vetrina-exit') as HTMLElement;
+		// The layer is the viewport (jsdom reports 0,0), so these offsets ARE window coordinates.
+		// Whichever edge it is anchored from, the distance must be inside the window's own extent.
+		const fromTop = px(exit.style.top);
+		const fromBottom = px(exit.style.bottom);
+		const anchored = Number.isFinite(fromTop) ? fromTop : fromBottom;
+		expect(Number.isFinite(anchored)).toBe(true);
+		expect(anchored).toBeGreaterThanOrEqual(0);
+		expect(anchored).toBeLessThan(window.innerHeight);
+	});
+
+	it("and the same for the 'bar' dock, which carries the whole caption with it", async () => {
+		const { layer } = tallHost({ caption: 'bar' });
+		await new Promise<void>((r) => requestAnimationFrame(() => r()));
+		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
+		const fromTop = px(dock.style.top);
+		const fromBottom = px(dock.style.bottom);
+		const anchored = Number.isFinite(fromTop) ? fromTop : fromBottom;
+		expect(anchored).toBeGreaterThanOrEqual(0);
+		expect(anchored).toBeLessThan(window.innerHeight);
+	});
+
+	it('a host scrolled entirely out of view falls back to the window rather than clamping to a sliver', async () => {
+		const root = document.createElement('div');
+		document.body.appendChild(root);
+		root.getBoundingClientRect = () => ({ left: 0, top: -4000, width: 900, height: 500, right: 900, bottom: -3500, x: 0, y: -4000, toJSON: () => ({}) }) as DOMRect;
+		active = createStage({ root, onExit: () => {}, theme: resolveTheme({ caption: 'bar', bounds: 'host' }) });
+		const layer = document.querySelector('.vetrina-stage') as HTMLElement;
+		layer.getBoundingClientRect = () => ({ left: 0, top: 0, width: window.innerWidth, height: window.innerHeight, right: window.innerWidth, bottom: window.innerHeight, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+		await new Promise<void>((r) => requestAnimationFrame(() => r()));
+		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
+		const fromBottom = px(dock.style.bottom);
+		expect(fromBottom).toBeGreaterThanOrEqual(0);
+		expect(fromBottom).toBeLessThan(window.innerHeight);
+	});
+});
+
+describe('a VOICED run docks its caption at the edge', () => {
+	// The balloon saves a reading trip between the pointer and the words. A voice removes that
+	// trip, and what is left is a SUBTITLE — which subtitle practice puts at a fixed screen
+	// position, because a reader has to know where to look back to. It is also the only honest
+	// fix for the anchor: a voiced caption never hides, and the bubble re-anchors on the
+	// hidden -> shown edge, so a voiced one was placed once at the top of the beat and then sat
+	// there while the cursor crossed the app — measured at 493px from the pointer it was
+	// speaking for, the very defect the cursor style was built to remove.
+	async function stageOfRun(voiced: boolean) {
+		const root = document.createElement('div');
+		document.body.appendChild(root);
+		const got: { stepsAside?: boolean; hasBubble?: boolean } = {};
+		await new Promise<void>((resolve) => {
+			run({
+				root,
+				actions: {},
+				intro: false,
+				theme: { caption: 'cursor' },
+				narrate: { voiced, speak: () => ({ done: Promise.resolve(), cancel() {} }) },
+				play: async (ctx) => {
+					got.stepsAside = ctx.stage.captionStepsAside?.() ?? false;
+					got.hasBubble = !!document.querySelector('.vetrina-bubble');
+				},
+				onStop: () => resolve(),
+			});
+		});
+		return got;
+	}
+
+	it('a voiced narrator turns the balloon into an edge dock', async () => {
+		expect(await stageOfRun(true)).toEqual({ stepsAside: false, hasBubble: false });
+	});
+
+	it('and a silent one still gets the balloon', async () => {
+		expect(await stageOfRun(false)).toEqual({ stepsAside: true, hasBubble: true });
+	});
+});
+
+describe('setVoiced is guarded like every other verb', () => {
+	it('a destroyed stage ignores it instead of styling a detached bubble', () => {
+		// The state has to be "caption WANTED but currently HIDDEN", because that is the only one
+		// in which `syncCaption` re-places rather than short-circuiting — with the bubble already
+		// shown, an unguarded `setVoiced` is a no-op and the test would pass either way. A
+		// performance in flight is what hides it: `point` brackets itself, so not awaiting it
+		// leaves the depth above zero.
+		const { root, stage, layer } = mount({ motion: 'still' });
+		const target = document.createElement('button');
+		root.appendChild(target);
+		const bubble = bubbleOf(layer);
+		// jsdom measures everything as 0x0 and `place()` correctly declines to position a
+		// zero-size bubble — so without a size the placement never runs and the guard is
+		// untestable rather than unnecessary.
+		Object.defineProperty(bubble, 'offsetWidth', { value: 240, configurable: true });
+		Object.defineProperty(bubble, 'offsetHeight', { value: 60, configurable: true });
+		stage.say('Something worth saying.');
+		void stage.point(target);
+		expect(bubble.style.opacity).toBe('0');
+		stage.destroy();
+		active = null;
+		// A sentinel no placement would ever produce — and a VALID length, because CSSOM silently
+		// drops an unparseable one and the assertion would then pass on the old value either way.
+		bubble.style.left = '-99999px';
+		expect(() => stage.setVoiced?.(true)).not.toThrow();
+		expect(bubble.style.left).toBe('-99999px');
+	});
+});
+
+describe('avoidance is a preference, and proximity outranks it', () => {
+	// A gesture now writes `lastAim` too, so the scorer is fed the thing the stroke just drew
+	// instead of the previous beat's target. That is the right input — and MEASURED, it changes no
+	// placement in any layout I could build, which is worth writing down rather than dressing up.
+	//
+	// The reason is structural: a bubble anchored to the cursor cannot escape a rect the cursor is
+	// SITTING IN, and after a gesture the cursor is always on the thing it gestured at. Avoidance
+	// works by flipping to another quadrant around the cursor, so it only escapes a target the
+	// cursor is OUTSIDE of. These pin that boundary, so the next reader does not mistake the
+	// avoid list for a guarantee.
+
+	it('escapes a target the cursor is outside of', () => {
+		const target = box(410, 310, 300, 200);
+		const at = placeBubble(400, 300, 240, 60, target, VIEW, 20);
+		const overlaps = at.left < target.left + target.width && at.left + 240 > target.left && at.top < target.top + target.height && at.top + 60 > target.top;
+		expect(overlaps).toBe(false);
+	});
+
+	it('but sits on one the cursor is INSIDE, rather than abandoning the cursor to escape it', () => {
+		// A whole panel, with clear room below it. Moving the caption down there would put it
+		// hundreds of px from the pointer, which is the one thing `caption:'cursor'` exists to
+		// stop — so overlapping is the correct answer, not a bug.
+		const panel = box(0, 200, 1000, 460);
+		const at = placeBubble(500, 400, 260, 70, panel, VIEW, 20);
+		const overlaps = at.left < panel.left + panel.width && at.left + 260 > panel.left && at.top < panel.top + panel.height && at.top + 70 > panel.top;
+		expect(overlaps).toBe(true);
+		expect(Math.hypot(at.left - 500, at.top - 400)).toBeLessThan(100);
+	});
+});

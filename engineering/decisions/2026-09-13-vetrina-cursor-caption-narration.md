@@ -364,3 +364,110 @@ our key off this site. Speech quality was never the claim.
 - `layout()` re-runs on `resize` only. A host that scrolls or animates its own panel moves the
   bounds box without a resize event; the cues already re-read their targets every frame, and the
   dock does not.
+
+## The red team's pass — eleven findings, and what three of them changed
+
+A hostile pass ran against `a4e3e0d` with the docs site rebuilt, so the browser was driving the
+current source rather than a stale artifact. Three findings were high, and each was a defect the
+branch's own tests could not see because the tests exercised the configuration the AUTHOR ran
+rather than the one a host gets.
+
+**1. `bounds: 'host'` put Exit completely off screen.** Measured, real Chromium at 1440x900, with
+a host taller than the window — an ordinary panel in a scrolling page, which is the case the
+option exists for: Exit at `y = -638` under `caption:'cursor'`, `y = +1436` under `'bar'` (which
+takes the whole caption bar with it). The chrome was seated from the RAW host rect with nothing
+clamping it to the window. Exit is also POINTER-ONLY — the first `Tab` is a keydown the take-over
+guard reads as the viewer taking the wheel, and the run is torn down before focus can reach the
+chip — so off screen means the documented escape from the demo is simply gone. The branch's own
+e2e asserted containment against a proto host SMALLER than the viewport, which is the one shape
+that cannot fail. Fixed in `boundsRect()`, so every consumer (bubble, `seat`, `seatCorner`) is
+corrected at once: the bounds are the host intersected with the window, falling back to the window
+when the intersection is empty.
+
+**2. A voiced cursor caption was anchored where the cursor USED to be.** Reproduced at 493px — the
+same defect, in the same units, that this record already claimed to have fixed at 561px. The
+mechanism: a voiced caption never hides, and the bubble re-anchors only on the hidden→shown edge,
+so a voiced one was placed once at the top of the beat and then sat there while the cursor crossed
+the app. The docblock explaining the bug fixed only the path that hides.
+
+The fix is not a re-anchor. **A voiced run docks the caption at the edge.** The balloon exists to
+save a reading trip between the pointer and the words; a voice removes that trip. What is left is
+the caption's other job — the subtitle for a viewer who cannot hear it — and subtitle practice
+puts a subtitle at a fixed screen position, because a reader has to know where to look back to.
+Re-anchoring mid-sentence would have traded a stale caption for a jumping subtitle, which is the
+worse of the two for exactly the viewer the voiced path is there for. `run()` resolves
+`caption:'cursor'` + `voiced` to the `'split'` dock; a stage a host mounts directly is untouched.
+
+**3. The transient caption's reading budget defaulted to the number this record calls wrong.**
+`caption:'cursor'` with the DEFAULT `pacing:'legacy'` — one option, which is what a host sets after
+reading the caption-style table — budgeted the SELF-DISMISSING caption at legacy's 300 wpm.
+Measured on the prototype's own lines: an 8-word caption up for 1900ms against the grounded 3500ms,
+then erased. All 11 e2e cases and the rhythm unit tests passed `pacing:'grounded'`; **zero tests
+exercised the shipping default pairing.**
+
+The fix separates two questions the one function was answering. `captionMs` is "how long does this
+beat linger", a pacing decision, and follows the model. `dwellMs` is "how long does a person need
+to read this", which is physiology and follows nothing — the grounded rate under both models. An
+edge dock survives the wrong number because the words stay up; a caption that erases itself does
+not. (`dwellMs`, not `readMs`: the library already exports a `readMs` from `storyboard.ts` that IS
+the frozen legacy 300 wpm function, and two functions with one name meaning opposite things is a
+footgun, not a coincidence to leave lying around.)
+
+**Also fixed:** a per-run `voicedNarrator` leaked an `AudioContext` with no way to release one (8
+live after 8 runs, measured) — the port gained `dispose()`, the narrators implement it, and the
+narrator closes only a stage it created; an `instant` beat and a cued (`at`) beat never dismissed
+their captions at all, so the balloon re-anchored beside the cursor on every later beat that had no
+`say` of its own; `holdCaption` had a throw path that left the caption pinned under a comment
+asserting it did not; both track caches were unbounded, in service of the exact workload (a kiosk
+attract loop with a counter in the line) that makes them grow forever; `setVoiced` was the only
+stage verb with no `destroyed` guard; and the prototype built log rows with `innerHTML`, with one
+caller interpolating an error message into the un-escaped column.
+
+### The one fix that fixes nothing measurable, and why it still ships
+
+`lastAim` — the rect the balloon keeps clear of — was written only by `point` and `drag`, never by
+`gesture`. On a gesture-only beat the scorer was therefore fed the PREVIOUS beat's target, and the
+deictic ink just drawn was not in the avoid list at all. `gesture` now writes it.
+
+**Measured, it changes no placement.** Six gesture kinds, four geometries, with and without the
+fix: byte-identical output every time. The reason is structural and is worth writing down, because
+it is a property of the headline feature rather than of this fix. Avoidance works by flipping the
+bubble to another quadrant AROUND THE CURSOR, so it escapes a target the cursor is outside of and
+cannot escape one the cursor is sitting inside — and after a gesture the cursor is always on the
+thing it gestured at. Pointing at a whole panel puts the caption on the panel, and that is correct:
+the alternative is a caption 400px from the pointer, which is the one thing this style exists to
+stop.
+
+So the fix ships (a scorer fed the right rect is strictly better than one fed the wrong rect, and
+it costs two lines) with **no test**, because a test that passes with the fix deleted is worse than
+no test — that is the exact error the third pass caught in the re-anchor probe. What ships instead
+is a pair of tests pinning the real boundary: avoidance escapes a target the cursor is outside of,
+and deliberately does not escape one it is inside.
+
+### What the red team ran that HELD
+
+Worth recording, because a clean result on a hostile pass is evidence and an unexamined surface is
+not. HARD RULE #24: no key, no endpoint, no spender in the diff, and the gate covers it because it
+keys on the key NAME. HARD RULE #22: nothing here assembles a preview document — the rule does not
+apply, rather than passing vacuously. The bubble cannot intercept a real click (`opacity:0` and
+`pointer-events:none` mid-typing, with Exit painted above it). The live region survives hiding —
+CDP `Accessibility.getFullAXTree` at `opacity:0` shows the `role=status` node present and
+un-ignored, and Exit exposed as a button named "Exit the demo". No string-injection path into any
+inline style (every value is numeric or a `var()` reference; theme values go through
+`setProperty`, which CSSOM-validates). A hostile `plan()` returning `NaN`, `Infinity`, out-of-order
+or 10,000 words does not hang or throw. A hostile `speak()` that throws, rejects, or never resolves
+leaves Exit and take-over working. And the `structuredClone` removal from the third pass was
+independently confirmed correct against `cursor.ts` rather than against its own comment.
+
+### Still unverified after this pass
+
+- **A real voice.** Unchanged, and unchangeable from here.
+- **Chromium's `AudioContext` cap.** The leak is measured; the consequence (a wedged Run button)
+  is inference from Chrome's documented limit. This sandbox has no audio device and happily built
+  60 contexts.
+- **WebKit.** Chromium only, with `backdrop-filter`, `color-mix` and `light-dark()` in play.
+- **A scaled ancestor.** `place` and `seat` convert viewport→layer by subtracting the layer's
+  origin, which is right for a translation and wrong by the factor under `transform: scale()`. The
+  cursor's own positioning has had the same shape since before this branch, so it is a pre-existing
+  fragility inherited rather than created — HARD RULE #18's off-path case, logged here rather than
+  pulled into this diff.

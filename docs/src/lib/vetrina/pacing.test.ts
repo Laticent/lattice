@@ -158,3 +158,37 @@ describe('pacing — the legacy literals', () => {
 		expect(legacy.travelMs(9999, 44)).toBe(820);
 	});
 });
+
+describe('dwellMs — the budget for a caption that is about to be ERASED', () => {
+	// `captionMs` is a pacing decision and follows the model; `dwellMs` is how long a person needs
+	// to read the words and follows nothing. The split exists because `caption:'cursor'` against
+	// the DEFAULT `pacing:'legacy'` — one option, which is what a host sets after reading the
+	// caption-style table — budgeted the self-dismissing caption at legacy's 300 wpm, the rate
+	// pacing.ts documents as wrong by a factor. Nothing tested that pairing.
+	const LINE = 'This panel is the app you are about to tour.'; // 9 words
+
+	it('is the grounded number under BOTH models, unlike captionMs', () => {
+		const legacy = resolvePacing('moderate', 'legacy');
+		const grounded = resolvePacing('moderate', 'grounded');
+		expect(legacy.dwellMs(LINE)).toBe(grounded.dwellMs(LINE));
+		expect(legacy.captionMs(LINE)).not.toBe(legacy.dwellMs(LINE));
+	});
+
+	it('and the gap it closes is the measured one — legacy erases the line 43% early', () => {
+		const legacy = resolvePacing('moderate', 'legacy');
+		const shortfall = 1 - legacy.captionMs(LINE) / legacy.dwellMs(LINE);
+		expect(shortfall).toBeGreaterThan(0.4);
+	});
+
+	it('tracks the speed preset, because the reading RATE is what the preset selects', () => {
+		expect(resolvePacing('slow', 'legacy').dwellMs(LINE)).toBeGreaterThan(resolvePacing('fast', 'legacy').dwellMs(LINE));
+	});
+
+	it('keeps the same floor and ceiling as captionMs — a caption still never flashes or stares', () => {
+		for (const model of ['legacy', 'grounded'] as const) {
+			const p = resolvePacing('moderate', model);
+			expect(p.dwellMs('Hi.')).toBeGreaterThanOrEqual(CAPTION_MIN_MS);
+			expect(p.dwellMs('word '.repeat(400))).toBeLessThanOrEqual(CAPTION_MAX_MS);
+		}
+	});
+});

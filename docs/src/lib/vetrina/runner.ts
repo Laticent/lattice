@@ -155,12 +155,36 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 	const scopeNode: EventTarget = scope === 'root' ? root : window;
 
 	const resolved = resolveTheme(opts.theme); // validates colors up front (throws on url()/invisible)
+
+	const narrator = opts.narrate ?? SILENT_NARRATOR;
+
+	// A VOICED RUN DOCKS ITS CAPTION AT THE EDGE, even when the host asked for `'cursor'`.
+	//
+	// The balloon exists to save a reading trip: with a silent tour the viewer's eye has to
+	// travel between the pointer and the words, so the words go next to the pointer. A voice
+	// removes that trip entirely — nobody reads a caption they are being told. What is left is
+	// the caption's OTHER job, the one that matters more: it is the subtitle for a viewer who
+	// cannot hear the voice, and subtitle practice (BBC, ITU-R BT.1359) is unambiguous that a
+	// subtitle holds a FIXED, predictable screen position. Moving one around the frame is a
+	// known accessibility failure — the reader loses the place they return to after watching
+	// the app.
+	//
+	// It is also what makes the balloon's anchoring honest. A voiced caption never hides (the
+	// ear has the words, so blanking it mid-sentence robs exactly the viewer it is there for),
+	// and the bubble re-anchors on the hidden -> shown edge — so a voiced bubble was placed once,
+	// at the top of the beat, and then sat there while the cursor crossed the app. Measured at
+	// 493px from the pointer it was supposed to be speaking for: the very defect the cursor style
+	// was built to fix, surviving in the one configuration that could not hide. Re-anchoring it
+	// mid-sentence would have traded that for a subtitle that jumps, which is the worse of the
+	// two. Docking resolves both, and it needs no runtime state.
+	const stageTheme = resolved.caption === 'cursor' && narrator.voiced ? { ...resolved, caption: 'split' as const } : resolved;
+
 	const stage = createStage({
 		root,
 		onExit: () => stop('exit'),
 		portalRoot: opts.portalRoot ?? opts.theme?.portalRoot,
 		zIndex: opts.zIndex ?? opts.theme?.zIndex,
-		theme: resolved,
+		theme: stageTheme,
 	});
 
 	// ONE pacing object for the whole run, built from the RESOLVED theme.
@@ -327,9 +351,8 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 		});
 	}
 
-	const narrator = opts.narrate ?? SILENT_NARRATOR;
-	// The stage needs to know whether the words are SPOKEN, because that is what decides whether
-	// the cursor-anchored caption steps aside for the action (see Stage.setVoiced).
+	// The stage still needs to know, so a host that built its own cursor-anchored stage keeps the
+	// don't-step-aside behavior; `run()` itself has already docked the caption above.
 	stage.setVoiced?.(narrator.voiced);
 	const ctx: RunContext<A> = { stage, actions, signal, type, awaitUser, narrator, pacing };
 

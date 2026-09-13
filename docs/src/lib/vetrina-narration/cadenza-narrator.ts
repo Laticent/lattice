@@ -46,6 +46,11 @@ export function trackToWords(track: CaptionTrack): NarratedWord[] {
 	return out;
 }
 
+/** How many segmented tracks either narrator keeps. A tour is tens of lines; the cap is an
+ *  order of magnitude above that, so it never evicts anything a real walkthrough re-reads,
+ *  and it turns an unbounded leak into a fixed ceiling for the replay case that does grow. */
+const TRACK_CACHE_MAX = 256;
+
 /**
  * A narrator that TIMES a line without speaking it.
  *
@@ -66,6 +71,12 @@ export function cadenzaNarrator(options: CadenzaNarratorOptions = {}): Narrator 
 		let t = cache.get(text);
 		if (!t) {
 			t = buildTrack(text, { pace });
+			// BOUNDED, because the workload the cache is FOR is the one that breaks it unbounded.
+			// The justification is a kiosk attract loop replaying the same lines forever — and any
+			// line carrying a counter, a clock or a name is a distinct string every pass, so the map
+			// grows one segmented track per replay and never sheds one. Insertion-ordered eviction:
+			// a tour cycles through its lines, so the oldest key is the furthest from being needed.
+			if (cache.size >= TRACK_CACHE_MAX) cache.delete(cache.keys().next().value as string);
 			cache.set(text, t);
 		}
 		return t;
@@ -158,6 +169,11 @@ export function cadenzaNarrator(options: CadenzaNarratorOptions = {}): Narrator 
 
 			return { done, cancel: onAbort };
 		},
+		dispose(): void {
+			// Nothing here owns a device — only the track cache. Present so a host can dispose any
+			// narrator without asking which rung it got.
+			cache.clear();
+		},
 	};
 }
 
@@ -222,6 +238,11 @@ async function withTimeout<T>(p: Promise<T>, ms: number, onTimeout?: () => void)
 export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 	const pace: Pace = options.pace ?? 'moderate';
 	const lead = options.syncLeadMs ?? 40;
+	// WHO OWNS THE CONTEXT decides who may close it. A stage the host passed in is the host's,
+	// and disposing it would close an `AudioContext` the rest of the page is still using; one
+	// created here is ours, and without a way to release it a narrator built per run leaks —
+	// 8 live contexts after 8 runs, measured, against a per-document cap that throws when hit.
+	const ownsAudio = options.audio == null;
 	const audio = options.audio ?? createAudioStage();
 	// iOS needs the unlock inside the user gesture, and a narrator is built in one (the click that
 	// starts the tour). Doing it here rather than at first `speak` is what keeps that true.
@@ -232,6 +253,12 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 		let t = cache.get(text);
 		if (!t) {
 			t = buildTrack(text, { pace });
+			// BOUNDED, because the workload the cache is FOR is the one that breaks it unbounded.
+			// The justification is a kiosk attract loop replaying the same lines forever — and any
+			// line carrying a counter, a clock or a name is a distinct string every pass, so the map
+			// grows one segmented track per replay and never sheds one. Insertion-ordered eviction:
+			// a tour cycles through its lines, so the oldest key is the furthest from being needed.
+			if (cache.size >= TRACK_CACHE_MAX) cache.delete(cache.keys().next().value as string);
 			cache.set(text, t);
 		}
 		return t;
@@ -340,6 +367,11 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 					ac.abort();
 				},
 			};
+		},
+		dispose(): void {
+			cache.clear();
+			// Only what we made. A host that passed its own stage in still has a page using it.
+			if (ownsAudio) audio.dispose?.();
 		},
 	};
 }

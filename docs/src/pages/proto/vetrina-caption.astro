@@ -187,16 +187,46 @@
 			let t0 = 0;
 			let last = 0;
 			let rows = 0;
+			// Keyed by mode so switching the radio does not build a second one of the same kind.
+			const narrators = new Map<string, ReturnType<typeof cadenzaNarrator> | undefined>();
+			const narratorFor = (mode: string) => {
+				if (!narrators.has(mode)) {
+					narrators.set(
+						mode,
+						mode === 'voiced'
+							? voicedNarrator({ pace: 'moderate', synthesize: (t, c) => placeholderVoice(t, c) })
+							: mode === 'cadenza'
+								? cadenzaNarrator({ pace: 'moderate' })
+								: undefined,
+					);
+				}
+				return narrators.get(mode);
+			};
+			// The host owns the narrator, so the host releases it. `run()` never does — one narrator
+			// across many runs is the shape that keeps a single AudioContext for the page.
+			window.addEventListener('pagehide', () => {
+				for (const n of narrators.values()) n?.dispose?.();
+				narrators.clear();
+			});
+
 			const log = (beat: number, phase: string, say = '') => {
 				const t = Math.round(performance.now() - t0);
 				const d = rows === 0 ? 0 : t - last;
 				last = t;
 				rows++;
+				// Cells built as NODES. `say` was already `textContent`, but `phase` was interpolated
+				// into the markup, and one caller feeds it `THREW: ${(e as Error)?.message}` — an
+				// error string, which is the classic way author text arrives somewhere nobody
+				// expected it. Not reachable on this page as written; an XSS-shaped pattern one
+				// refactor from mattering is not worth keeping to save four lines.
 				const tr = document.createElement('tr');
-				tr.innerHTML =
-					`<td class="n">${t}</td><td class="n">${d}</td><td class="n">${beat}</td>` +
-					`<td>${phase}</td><td class="say"></td>`;
-				(tr.lastElementChild as HTMLElement).textContent = say;
+				const cell = (text: string, cls?: string) => {
+					const td = document.createElement('td');
+					if (cls) td.className = cls;
+					td.textContent = text;
+					return td;
+				};
+				tr.append(cell(String(t), 'n'), cell(String(d), 'n'), cell(String(beat), 'n'), cell(phase), cell(say, 'say'));
 				logBody.appendChild(tr);
 				logBody.parentElement!.parentElement!.scrollTop = 1e6;
 			};
@@ -272,12 +302,15 @@
 				// Wrap the narrator to LOG its word clock. This is how the word cue is proved rather
 				// than assumed: the log shows when the narration reached "Publish" and when the click
 				// landed, and the two either coincide or they do not.
-				const base =
-					narrMode === 'voiced'
-						? voicedNarrator({ pace: 'moderate', synthesize: (t, c) => placeholderVoice(t, c) })
-						: narrMode === 'cadenza'
-							? cadenzaNarrator({ pace: 'moderate' })
-							: undefined;
+				// ONE NARRATOR PER MODE, FOR THE LIFE OF THE PAGE. Building one inside the Run handler
+				// is the obvious thing and it leaks: `voicedNarrator` opens an `AudioContext` eagerly
+				// (the unlock has to happen inside the user gesture), and nothing closed it — 8 live
+				// contexts after 8 runs, measured. Chromium caps them per document and `new
+				// AudioContext()` throws at the cap, from inside a handler that has already set
+				// `btn.disabled = true`: the page would wedge with Run permanently greyed out. The
+				// narrator port's `dispose()` is the other half of the answer; reusing one instance is
+				// this half, and it is what a real host should do too.
+				const base = narratorFor(narrMode);
 				const narrator = base && {
 					...base,
 					speak: (text: string, o: Parameters<typeof base.speak>[1]) =>

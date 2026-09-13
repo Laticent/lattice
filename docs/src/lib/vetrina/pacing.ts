@@ -33,6 +33,21 @@ export type Speed = 'slow' | 'moderate' | 'fast';
  *  the same session — an unmeasurable "feels better" is not evidence (HARD RULE #19). */
 export type PacingModel = 'grounded' | 'legacy';
 
+// ── Why `dwellMs` is NOT a model choice ──────────────────────────────────────
+// `captionMs` answers "how long does this beat linger", which is a pacing decision and so
+// follows the model. `dwellMs` answers "how long does a person need to read this", which is
+// physiology and follows nothing — it is the grounded rate under both models.
+//
+// The two are the same number under `'grounded'` and diverge under `'legacy'`, and the
+// divergence is the reason the split exists. Legacy's 300 wpm is survivable for an EDGE DOCK,
+// where the number only decides when the beat moves on and the words stay up until the next
+// line replaces them. It is not survivable for a caption that REMOVES ITSELF. Measured on the
+// prototype's own lines, `'legacy'` put an 8-word caption up for 1900 ms against the grounded
+// 3500 ms and then erased it — 43% less time, at a rate this file already documents as wrong
+// by a factor. And `caption: 'cursor'` against the DEFAULT `pacing: 'legacy'` is exactly what a
+// host gets by reading the caption-style table and setting one option, so it is the pairing
+// most people will actually run. An unread caption that removes itself was never a caption.
+
 // ── What the numbers said ───────────────────────────────────────────────────
 // Two of the five literals were not merely untuned, they were wrong by a factor:
 //
@@ -146,6 +161,13 @@ export interface Pacing {
 	/** How long to dwell on a caption so it can be READ — the fallback, used only when no
 	 *  narrator has supplied a real duration for this line. */
 	captionMs(text: string): number;
+	/** How long an average reader needs for `text`, ALWAYS at the grounded rate, whatever pacing
+	 *  model the run selected. This is the one to use wherever the caption is about to be
+	 *  REMOVED rather than merely replaced.
+	 *
+	 *  NOT the `readMs` the library exports from ./storyboard — that one is the frozen legacy
+	 *  300 wpm function, kept for hosts already calling it, and it means the opposite thing. */
+	dwellMs(text: string): number;
 	/** The land — the digest pause after an action, when the author did not name one. */
 	settleMs(): number;
 	/** Per-character delay for the typing reveal. */
@@ -155,6 +177,11 @@ export interface Pacing {
 /** Build the pacing model for a run. Pure — no DOM, no clock, no state. */
 export function resolvePacing(speed: Speed = 'moderate', model: PacingModel = 'legacy'): Pacing {
 	const legacy = model === 'legacy';
+	const dwellMs = (text: string): number => {
+		const words = text.trim().split(/\s+/).filter(Boolean).length;
+		const raw = CAPTION_NOTICE_MS + (60000 / CAPTION_WPM[speed]) * words;
+		return Math.round(clamp(raw, CAPTION_MIN_MS, CAPTION_MAX_MS));
+	};
 	return {
 		model,
 		speed,
@@ -171,11 +198,11 @@ export function resolvePacing(speed: Speed = 'moderate', model: PacingModel = 'l
 			return clamp(FITTS_A_MS + FITTS_B_MS * log2(d / w + 1), TRAVEL_MIN_MS, TRAVEL_MAX_MS);
 		},
 		captionMs(text: string): number {
+			if (!legacy) return dwellMs(text);
 			const words = text.trim().split(/\s+/).filter(Boolean).length;
-			if (legacy) return clamp(LEGACY.captionNoticeMs + LEGACY.captionMsPerWord * words, LEGACY.captionMinMs, LEGACY.captionMaxMs);
-			const raw = CAPTION_NOTICE_MS + (60000 / CAPTION_WPM[speed]) * words;
-			return Math.round(clamp(raw, CAPTION_MIN_MS, CAPTION_MAX_MS));
+			return clamp(LEGACY.captionNoticeMs + LEGACY.captionMsPerWord * words, LEGACY.captionMinMs, LEGACY.captionMaxMs);
 		},
+		dwellMs,
 		settleMs(): number {
 			return legacy ? LEGACY.settleMs : SETTLE_MS;
 		},

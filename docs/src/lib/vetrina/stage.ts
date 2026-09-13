@@ -981,11 +981,30 @@ export function createStage(opts: StageOptions): Stage {
 	 *
 	 *  `'host'` measures the `root` the walkthrough drives; `'viewport'` measures the window. A
 	 *  root that has collapsed to nothing (detached, `display:none`) falls back to the window —
-	 *  a zero-area bounds would clamp every caption into a single point. */
+	 *  a zero-area bounds would clamp every caption into a single point.
+	 *
+	 *  IT IS THE VISIBLE PART OF THE HOST, not the whole host, and that intersection is the
+	 *  difference between a working option and a broken one. A host taller than the window is
+	 *  the ordinary case — a panel in a scrolling page — and seating Exit in the raw host's
+	 *  corner put it 638px above the top of the window or 536px below the bottom, measured. Off
+	 *  screen, Exit cannot be pressed; and Exit is POINTER-ONLY, because the first `Tab` is a
+	 *  keydown that the take-over guard reads as the viewer taking the wheel, which tears the
+	 *  run down before focus can reach the chip. So an off-screen chip is not an inconvenience,
+	 *  it removes the documented escape from the demo.
+	 *
+	 *  A host scrolled entirely out of view leaves an empty intersection, which is the same
+	 *  degenerate case as a collapsed root: fall back to the window rather than clamp the
+	 *  caption into a point somewhere nobody is looking. */
 	const boundsRect = (): RectLike => {
 		if (boundsMode === 'host') {
 			const r = root.getBoundingClientRect();
-			if (r.width > 1 && r.height > 1) return { left: r.left, top: r.top, width: r.width, height: r.height };
+			if (r.width > 1 && r.height > 1) {
+				const left = Math.max(0, r.left);
+				const top = Math.max(0, r.top);
+				const right = Math.min(window.innerWidth, r.left + r.width);
+				const bottom = Math.min(window.innerHeight, r.top + r.height);
+				if (right - left > 1 && bottom - top > 1) return { left, top, width: right - left, height: bottom - top };
+			}
 		}
 		return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
 	};
@@ -1980,6 +1999,14 @@ export function createStage(opts: StageOptions): Stage {
 	async function gesture(kind: Gesture, target?: Target, signal?: AbortSignal, opts?: GestureOptions): Promise<void> {
 		if (destroyed) return;
 		const el = target != null ? resolveSource(target) : null;
+		// A GESTURE AIMS, so it records what it aimed at. `lastAim` is what the cursor-anchored
+		// bubble keeps out of the way of, and only `point` and `drag` were writing it — so on a
+		// gesture-only beat (the shape `sayAt: 'gesture'` exists for) the balloon was scored
+		// against the PREVIOUS beat's target, and the deictic ink it had just drawn was not in
+		// the avoid list at all. A caption covering the underline it is describing is the one
+		// collision this whole placement pass is for.
+		const aim = el && liveRect(el);
+		if (aim) lastAim = { left: aim.left, top: aim.top, width: aim.width, height: aim.height };
 		// An explicit rest overrides the gesture's own ending — the host knowing something about
 		// what surrounds the target that the stage cannot (see `gestureRest`). For `circle` it is a
 		// withdrawal AFTER the orbit, because an orbit has no ending to redirect; the deictic four
@@ -2284,6 +2311,10 @@ export function createStage(opts: StageOptions): Stage {
 			else endPerform();
 		},
 		setVoiced: (v: boolean) => {
+			// Guarded like every sibling. Harmless today — `run()` calls this once, before play —
+			// but without it a late call writes styles onto a detached bubble through `syncCaption`
+			// -> `placeBubbleNow`, and it was the only verb on this object missing the check.
+			if (destroyed) return;
 			voiced = v;
 			syncCaption();
 		},
