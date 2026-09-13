@@ -99,12 +99,19 @@ diff (`gap-1.5 px-1 sm:gap-2 sm:px-1.5`, a 28px mark, a 16px chevron, and a 56px
 wordmark measured at ≥1100), to 58 / 64 / 128. So the split spends **+4px below
 640 and +6px everywhere above it** — the second box's own padding, which is what
 makes it a second target. **Do not cite `MIN_SPARE_AT_FLOOR` as
-the proof that it fits** — an earlier draft did, and the guard cannot resolve
-6px: `spareAt` measures 246px at 700, of which 188 is the deck pill's own shrink
-range (230px down to its 42px floor) rather than row headroom, so a ≥16px
-assertion carries ~230px of slack. The numbers that mean something are spare with
-the pill **pinned** — 58px at 700, Craft, fonts loaded — and
+the proof that it fits** — an earlier draft did, and at the time the guard could
+not resolve 6px: `spareAt` measured 246px at 700, of which 188 is the deck pill's
+own shrink range (230px down to its 42px floor) rather than row headroom, so a
+≥16px assertion carried ~230px of slack. The numbers that mean something are
+spare with the pill **pinned** — 58px at 700, Craft, fonts loaded — and
 `scrollWidth === clientWidth` at all nine sampled widths.
+
+**Resolved (#2072).** `spareAt` now pins the pill itself, so the number it returns
+IS the pinned one (56px measured here, against the 58 above — the only
+cross-machine spread ever seen on it), and `MIN_SPARE_AT_FLOOR` is 48. The
+sentence above still holds for a 6px change — 48 is a floor, not a resolution —
+but the guard is no longer inert: `studio-header-fit.spec.ts` carries an arm that
+adds a real `icon-sm` control and watches the floor catch it.
 
 ## What the guard can assert now that it could not before
 

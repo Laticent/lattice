@@ -5382,12 +5382,18 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'signal.',
   },
   {
-    file: 'docs/e2e/studio-header-fit.spec.ts', ms: 'SETTLE_STEP_MS', count: 1,
+    file: 'docs/e2e/studio-header-fit.spec.ts', ms: 'SETTLE_STEP_MS', count: 2,
     why: 'JUDGED KEEP (#1526), and the entry it replaces guessed right. It is the step of a '
        + 'bounded read-until-two-consecutive-reads-agree poll (`readHeaderSettled`, SETTLE_TRIES = '
        + '40) - a poll INTERVAL, which this list has never counted as a settle. Its invisibility '
        + 'to every earlier census is a property of the argument being a named constant, not of the '
-       + 'wait.',
+       + 'wait. COUNT RAISED 1 -> 2 (#2072): `spareAtSettled` is the second poll and the same '
+       + 'shape - two consecutive `spareAt` reads must agree before the header fit floor is '
+       + 'asserted. It is not a fixed bet on a loaded box; it replaces one. Measured: one run in '
+       + 'five returned -1 (row already over) from reading mid-reflow while its three neighbours '
+       + 'all returned 56, and a fit guard that reports "this row does not fit" because it '
+       + 'measured too early is worse than no guard. The alternative was a fixed sleep, which is '
+       + 'what this list exists to stop.',
   },
   {
     file: 'docs/e2e/studio-jargon-alignment.spec.ts', ms: 50, count: 1,
