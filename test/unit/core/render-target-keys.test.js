@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
+const { execSync } = require('node:child_process');
 const { join } = require('node:path');
 
 const {
@@ -15,6 +16,7 @@ const {
 	legacyOnPatternVerbatim,
 	LEGACY_ON,
 	scalarValuesFor,
+	indentedKeyLines,
 } = require('../../../lib/core/render-target-keys');
 const { lintTextWith } = require('../../../lib/authoring/lint-core');
 
@@ -22,6 +24,7 @@ const REPO = join(__dirname, '..', '..', '..');
 const deck = (fm) => `---\n${fm}\n---\n\n# Slide\n\nBody.\n`;
 const renderTargetFindings = (src) =>
 	lintTextWith(src, {}).filter((f) => f.rule === 'bad-render-target-value');
+const nestedFindings = (src) => lintTextWith(src, {}).filter((f) => f.rule === 'nested-render-target-key');
 
 // ---------------------------------------------------------------------------
 // The vocabulary itself
@@ -358,6 +361,169 @@ test('a deck with no front matter reports nothing', () => {
 test('a BOM or CRLF deck is still read', () => {
 	assert.equal(renderTargetFindings('﻿---\nfluid: ture\n---\n\n# S\n').length, 1);
 	assert.equal(renderTargetFindings('---\r\nfluid: ture\r\n---\r\n\r\n# S\r\n').length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// The NESTED key — the union reader's one false-ON, warned about rather than read
+// away. The kernel's docblock names this rule as the remedy: narrowing the reader
+// to column 0 would re-break six measured parity rows and turn off decks in the
+// field, so the reader keeps believing an indented key and the author gets told.
+// ---------------------------------------------------------------------------
+
+test('the kernel reports the indented lines a reader arm actually reads', () => {
+	assert.deepEqual(indentedKeyLines('nest:\n  fluid: "true"\nfluid: false', 'fluid'), ['  fluid: "true"']);
+	assert.deepEqual(indentedKeyLines('a:\n  fluid: true\nb:\n\tfluid: no', 'fluid'), ['  fluid: true', '\tfluid: no']);
+	// WITH the indentation. The editor tells a nested line from a top-level one that trims to
+	// the same characters only by this string.
+	assert.deepEqual(indentedKeyLines('fluid: true\nnest:\n  fluid: true', 'fluid'), ['  fluid: true']);
+	// A TOP-LEVEL key is not indented, whatever its case.
+	assert.deepEqual(indentedKeyLines('fluid: true\nFLUID: no', 'fluid'), []);
+	// A value FOLDED onto the next line writes no key, so there is nothing to warn about —
+	// the legacy arm reaches across the newline for the value, and the author can read why
+	// the deck is on.
+	assert.deepEqual(indentedKeyLines('fluid:\n  true', 'fluid'), []);
+	// Same inherited-name guard as renderTargetKeyState — a plain object's prototype is not
+	// a render-target key.
+	for (const key of ['toString', 'constructor', '__proto__', 'nope']) {
+		assert.deepEqual(indentedKeyLines('  fluid: true', key), []);
+	}
+});
+
+test('an EXOTIC leading space is reported only where an arm really reads the line', () => {
+	// The two arms disagree about leading whitespace: the scalar arm's `[ \t]` cannot cross a
+	// NBSP, and the legacy arm can but only ever matches a bare, unquoted ON word. A warning
+	// is a claim about the export, so the kernel filters the wide class down to the lines an
+	// arm reads — an earlier draft claimed the export reads a NBSP-prefixed `fluid: false`,
+	// which neither arm touches. The ORACLE is the shipped reader, not a re-derived twin.
+	for (const lead of ['\u00a0', '\u3000', '\u000b', '\u000c']) {
+		for (const value of ['true', 'yes', 'false', 'ture', '"true"', 'true  # note', '']) {
+			const fm = `${lead}fluid: ${value}`;
+			const reported = indentedKeyLines(fm, 'fluid').length > 0;
+			const read = renderTargetKeyState(fm, 'fluid').state !== 'absent';
+			assert.equal(reported, read, `${JSON.stringify(fm)}: reported=${reported} but the reader says read=${read}`);
+		}
+	}
+	// A plain space or tab is read by the scalar arm whatever the value, so every one of
+	// those IS reported.
+	for (const value of ['true', 'false', 'ture', '"true"', 'true  # note']) {
+		assert.equal(indentedKeyLines(`  fluid: ${value}`, 'fluid').length, 1, value);
+	}
+});
+
+test('a nested render-target key is warned about, deck-level and verbatim', () => {
+	const src = deck('nest:\n  fluid: "true"\nfluid: false');
+	const [f, ...rest] = nestedFindings(src);
+	assert.equal(rest.length, 0);
+	assert.equal(f.rule, 'nested-render-target-key');
+	assert.equal(f.severity, 'warning');
+	assert.equal(f.slide, 0);
+	assert.equal(f.classToken, 'fluid');
+	// The editor places the underline by searching for this string, indentation included
+	// (docs/e2e/editor-lint.spec.ts drives that on the real Studio).
+	assert.equal(f.line, '  fluid: "true"');
+	assert.ok(src.includes(f.line), 'the quoted line is not in the deck');
+	// The warning has to say what the EXPORT does — that half is always true — and put the
+	// YAML disagreement conditionally, because a uniformly indented block has no key above.
+	assert.match(f.message, /the export reads it as the deck's own/);
+	assert.match(f.message, /Wherever YAML reads this line/);
+	assert.match(f.fix, /left margin/);
+});
+
+test("this is the deck the kernel calls the union's false-ON — the reader says ON and the rule points at why", () => {
+	const fm = 'nest:\n  fluid: "true"\nfluid: false';
+	assert.equal(readRenderTargetKey(fm, 'fluid'), true, 'the reader must still believe the nested line');
+	const [f] = nestedFindings(deck(fm));
+	assert.ok(f, 'the one deck shape this rule exists for is not reported');
+	assert.equal(f.line, '  fluid: "true"');
+});
+
+test('a FREE-FORM map entry warns, and the fix names an escape that keeps it', () => {
+	// `lexicon:` and `acronyms:` take arbitrary word keys, and `present` is the textbook
+	// English heteronym — the first word an author teaches a deck to pronounce. This is not a
+	// false positive: the export really does read the line, so `lexicon:` + `present: on`
+	// flags the PDF full-screen. Silence would hide that. What the author needs is a repair
+	// that keeps the lexicon entry, and quoting the key is one — both arms want `present:`
+	// immediately after the whitespace run.
+	const [f] = nestedFindings(deck('lexicon:\n  present: pre ZENT'));
+	assert.ok(f, 'a lexicon entry the export reads must still be reported');
+	assert.match(f.fix, /quote the key \(`"present":`\)/);
+	assert.equal(readRenderTargetKey('lexicon:\n  present: on', 'present'), true, 'the live false-ON this warns about');
+	// The escape works, and it silences the sibling rule too — `pre ZENT` is no longer read
+	// as an unrecognized render-target value.
+	assert.deepEqual(nestedFindings(deck('lexicon:\n  "present": pre ZENT')), []);
+	assert.deepEqual(renderTargetFindings(deck('lexicon:\n  "present": pre ZENT')), []);
+});
+
+test('every indented line is reported — including two that are byte-identical', () => {
+	// The CLI lists both. The EDITOR underlines the first of the two, because its needle is
+	// the line text and two identical lines are one needle; the second surfaces on the next
+	// lint once the first is fixed. Stated rather than dodged — an earlier version of this
+	// arm used two DIFFERENT values, which cannot see the collision at all.
+	const found = nestedFindings(deck('a:\n  present: yes\nb:\n  present: yes'));
+	assert.deepEqual(found.map((f) => f.line), ['  present: yes', '  present: yes']);
+	const mixed = nestedFindings(deck('a:\n  present: yes\nb:\n  present: no'));
+	assert.deepEqual(mixed.map((f) => f.line), ['  present: yes', '  present: no']);
+});
+
+test('it fires on an off-value too — the line is read as the register either way', () => {
+	assert.equal(nestedFindings(deck('a:\n  player: false')).length, 1);
+});
+
+test('the key is matched case-insensitively, as both arms read it', () => {
+	const [f] = nestedFindings(deck('a:\n  FLUID: true'));
+	assert.ok(f, 'an indented FLUID: is read as the register and must be reported');
+	assert.equal(f.line, '  FLUID: true');
+});
+
+test('a top-level key, a folded value and a deck with no front matter are all silent', () => {
+	assert.deepEqual(nestedFindings(deck('fluid: true\nplayer: no\npresent: on')), []);
+	assert.deepEqual(nestedFindings(deck('fluid:\n  true')), []);
+	assert.deepEqual(nestedFindings(deck('title: X\ntheme: cuoio')), []);
+	assert.deepEqual(nestedFindings('# Slide\n\n  fluid: true\n'), []);
+	// A list item and a comment are not the key, for the rule OR the reader.
+	assert.deepEqual(nestedFindings(deck('a:\n  - fluid: true\n  # fluid: true')), []);
+});
+
+test('the rule NEVER carries an autofix — de-indenting, quoting and deleting are all plausible', () => {
+	const { applyAllFixes } = require('../../../lib/authoring/lint-core');
+	const src = deck('a:\n  fluid: true');
+	assert.equal(applyAllFixes(src, {}), src);
+	const [f] = nestedFindings(src);
+	assert.equal(f.autofixable, undefined);
+	assert.equal(f.didYouMean, undefined);
+});
+
+test('THE COMMITTED CORPUS IS CLEAN — every tracked deck, through the shipped rule', () => {
+	// The claim the kernel's docblock makes in prose ("ZERO carry an indented render-target
+	// key"), re-derived here through the RULE rather than a stand-in regex — the defect class
+	// this module keeps hitting. It is a warning, not a gate: a deck of someone else's is
+	// free to do this, and #29's asymmetry is the policy (we hold the line on the decks WE
+	// ship). This arm is what makes "we ship none" a fact rather than a memory.
+	//
+	// A real vocab shape, unlike the `{}` the deck-shaped arms above pass: `lintTextWith`
+	// reaches `vocab.names.has(...)` for any deck carrying a `_class` directive, and the
+	// corpus is full of them. The SETS are empty — this arm reads one rule's findings, and
+	// every other rule's verdict is filtered out anyway.
+	const sweepVocab = { names: new Set(), modifiers: new Set() };
+	const findings = (src) => lintTextWith(src, sweepVocab).filter((f) => f.rule === 'nested-render-target-key');
+	// POSITIVE CONTROL FIRST. An empty offenders list is what this arm asserts, and an empty
+	// list is also what a deleted rule returns — measured: with the rule unregistered this
+	// sweep stayed green. So prove the rule is wired through the same call the sweep makes,
+	// on a deck that is not in the corpus.
+	assert.equal(findings(deck('a:\n  fluid: true')).length, 1, 'the rule is not reachable through the call this sweep makes');
+	const files = execSync('git ls-files "*.md"', { cwd: REPO, maxBuffer: 1 << 28 }).toString().trim().split('\n');
+	const offenders = [];
+	let withFrontMatter = 0;
+	for (const rel of files) {
+		const src = readFileSync(join(REPO, rel), 'utf8');
+		if (!/^\uFEFF?---[ \t]*\r?\n/.test(src)) continue;
+		withFrontMatter++;
+		if (findings(src).length) offenders.push(rel);
+	}
+	assert.deepEqual(offenders, []);
+	// A witness that the sweep read the corpus rather than skipping it — an empty result from
+	// an empty walk is the other way this arm would rot silently.
+	assert.ok(withFrontMatter > 500, `only ${withFrontMatter} tracked .md carried front matter`);
 });
 
 // ---------------------------------------------------------------------------

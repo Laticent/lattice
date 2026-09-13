@@ -70,10 +70,20 @@ test('the Coach surfaces the inline-issue count', async ({ page }) => {
 // structure it is trying to check.
 const PLACEMENT_DECK = ['---', 'theme: indaco', 'FLUID: ture', '---', '', '# Placement', '', 'Body copy.', ''].join('\n');
 
-/** Where the painted warning underline actually is, read back through the live view. */
-function underlineLine(page: import('@playwright/test').Page): Promise<{ number: number; text: string } | null> {
-	return page.evaluate(() => {
-		const el = document.querySelector('.cm-lintRange-warning');
+/** The warning underline covering `needle` — never `.first()`, which follows whichever
+ *  finding sorted earliest the moment a second rule fires on the deck. */
+const warningCovering = (page: import('@playwright/test').Page, needle: string) =>
+	page.locator('.cm-lintRange-warning').filter({ hasText: needle }).first();
+
+/**
+ * Where the painted warning underline actually is, read back through the live view.
+ *
+ * `needle` picks the underline among any others on the page by the text it covers — a bare
+ * `.first()` would silently follow whichever finding sorted earliest.
+ */
+function underlineLine(page: import('@playwright/test').Page, needle: string): Promise<{ number: number; text: string } | null> {
+	return page.evaluate((want) => {
+		const el = [...document.querySelectorAll('.cm-lintRange-warning')].find((n) => (n.textContent || '').includes(want));
 		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror's view through its DOM handle.
 		const view = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
 		if (!el || !view) return null;
@@ -82,7 +92,7 @@ function underlineLine(page: import('@playwright/test').Page): Promise<{ number:
 		if (pos == null) return null;
 		const line = view.state.doc.lineAt(pos);
 		return { number: line.number, text: line.text };
-	});
+	}, needle);
 }
 
 test('a bad render-target value underlines its own front-matter line, not the deck top', async ({ page }, testInfo) => {
@@ -92,7 +102,7 @@ test('a bad render-target value underlines its own front-matter line, not the de
 	// line the author wrote — rather than on line 1, the chunk-start fallback a needle that
 	// matched nothing would land on.
 	await expect
-		.poll(() => underlineLine(page), { message: 'no warning underline ever appeared for `FLUID: ture`' })
+		.poll(() => underlineLine(page, 'FLUID: ture'), { message: 'no warning underline ever appeared for `FLUID: ture`' })
 		.toEqual({ number: 3, text: 'FLUID: ture' });
 
 	// Two shots, because the hover tooltip covers the very line it is about: the underline
@@ -109,7 +119,7 @@ test('a bad render-target value underlines its own front-matter line, not the de
 	// and that is the rule's own wording, not drift: the message and fix are about the KEY,
 	// which the kernel reads case-insensitively, while the `line` needle above is about the
 	// SOURCE. Only the needle has to be verbatim — it is the one the editor searches with.
-	await page.locator('.cm-lintRange-warning').first().hover();
+	await warningCovering(page, 'FLUID: ture').hover();
 	const tooltip = page.locator('.cm-tooltip-lint');
 	await expect(tooltip).toContainText("'ture' is not an on/off value for `fluid:`");
 	await expect(tooltip).toContainText('Set `fluid:` to one of true / yes / on');
@@ -120,4 +130,35 @@ test('a bad render-target value underlines its own front-matter line, not the de
 	const tooltipShot = testInfo.outputPath('render-target-tooltip.png');
 	await page.locator('.cm-editor').first().screenshot({ path: tooltipShot });
 	await testInfo.attach('render-target-tooltip.png', { path: tooltipShot, contentType: 'image/png' });
+});
+
+
+// ── A NESTED render-target key warns, on the nested line ───────────────────
+// The kernel reads an indented `fluid:` as the deck's own register — the union reader's one
+// false-ON — and says in its own docblock that the remedy is a warning, not a narrower
+// reader (narrowing re-breaks six measured parity rows and turns off decks in the field).
+// `nested-render-target-key` is that warning, and this is the surface it exists for: an
+// author writing the deck, before the wrong artifact is exported.
+//
+// The deck below is the kernel's own example, with `export:` standing in for its `nest:`.
+// YAML shows `fluid` nested under that key;
+// the export reads it as the register and ships the fluid viewer, outvoting the top-level
+// `fluid: false` two lines down.
+const NESTED_DECK = ['---', 'theme: indaco', 'export:', '  fluid: "true"', 'fluid: false', '---', '', '# Nested', '', 'Body copy.', ''].join('\n');
+
+test('a nested render-target key warns on the nested line', async ({ page }, testInfo) => {
+	await setEditorContent(page, NESTED_DECK);
+
+	await expect
+		.poll(() => underlineLine(page, 'fluid: "true"'), { message: 'no warning underline ever appeared for the nested `fluid:`' })
+		.toEqual({ number: 4, text: '  fluid: "true"' });
+
+	await warningCovering(page, 'fluid: "true"').hover();
+	const tooltip = page.locator('.cm-tooltip-lint');
+	await expect(tooltip).toContainText("the export reads it as the deck's own `fluid:`");
+	await expect(tooltip).toContainText('Move `fluid:` to the left margin');
+
+	const shot = testInfo.outputPath('nested-render-target-key.png');
+	await page.locator('.cm-editor').first().screenshot({ path: shot });
+	await testInfo.attach('nested-render-target-key.png', { path: shot, contentType: 'image/png' });
 });

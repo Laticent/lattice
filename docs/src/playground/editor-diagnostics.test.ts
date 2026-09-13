@@ -79,6 +79,30 @@ describe('findingsToDiagnostics', () => {
 		expect(diag.from).toBe(line.from + 2); // two-space indent skipped
 	});
 
+	it('prefers the line the finding quoted VERBATIM over one that merely trims to it', () => {
+		// A nested render-target key and a top-level one trim to the same characters. The
+		// finding is about the INDENTED line, so quoting it with its indentation has to win —
+		// on the trimmed match alone the squiggle landed on the innocent top-level line while
+		// the message said it was indented.
+		const nested = doc('---\nfluid: true\nnest:\n  fluid: true\n---\n\n# One\n');
+		const [diag] = findingsToDiagnostics(nested, [
+			{ slide: 0, rule: 'nested-render-target-key', severity: 'warning', line: '  fluid: true', message: 'indented' },
+		]);
+		expect(nested.lineAt(diag.from).number).toBe(4);
+		// And the trimmed form still lands on the first line that trims to it — the behavior
+		// every other rule relies on, since they all quote their line trimmed.
+		const [plain] = findingsToDiagnostics(nested, [{ slide: 0, rule: 'r', severity: 'warning', line: 'fluid: true', message: 'm' }]);
+		expect(nested.lineAt(plain.from).number).toBe(2);
+	});
+
+	it('falls back to the trimmed match when the verbatim line is not in the document', () => {
+		// The indentation is a preference, not a requirement: a finding quoting `  - **A.**
+		// body` on a document that indents it differently still lands on the line.
+		const indented = doc('<!-- _class: kpi -->\n\n   - **A.** body\n');
+		const [diag] = findingsToDiagnostics(indented, [{ slide: 1, rule: 'r', severity: 'warning', line: '  - **A.** body', message: 'm' }]);
+		expect(indented.lineAt(diag.from).number).toBe(3);
+	});
+
 	it('attaches a quick-fix action only for autofixable findings with an onFix hook', () => {
 		const calls: unknown[] = [];
 		const diags = findingsToDiagnostics(
