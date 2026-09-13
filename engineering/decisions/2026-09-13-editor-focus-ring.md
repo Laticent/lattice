@@ -144,10 +144,34 @@ not the token file: 36 readings, every one tracking `--accent` at 2px, **minimum
 (carbone/light)**, none under 3. `editor-selection-parity.spec.ts` holds that floor per
 palette, per surface, reading the same property.
 
-The ring's *inner* side is over `--bg`; its outer side is the editor's own edge, so the
-color beyond it is whatever abuts the pane (the Studio's pane border reads
-`rgb(143,136,125)`). The spec checks the inner neighbor, which is the tighter of the two
-on every palette measured.
+**Both of the ring's sides face `--bg`, and that took a fix.** The first cut drew the
+ring flush on all four edges, which put the right edge against the pane SPLITTER — and
+the splitter paints `var(--border)`, which resolves to the SAME value as `--accent` on
+onyx, ardesia and the four a11y palettes. Measured across 18 palettes x 2 modes on both
+deck editors, sampling the first opaque paint outside each edge: top and bottom cleared
+4.60:1 everywhere, and the **right edge was under 3:1 on 30 of 36 palette-modes,
+bottoming at 1.11:1 on onyx/dark** where both tokens are `#FFFFFF`. Rendered, focused
+and unfocused looked the same on that edge — a white band either way.
+
+That claim had been asserted from reasoning ("the inner neighbor is the tighter of the
+two") rather than measured, and the measurement refuted it. On a change whose entire
+subject is that a contrast number read off anything but a rendered surface is arithmetic
+about a hypothesis, that is worth recording as the mistake it was.
+
+**The fix is `inset: 0 1px 0 0`** — the right edge stops 1px short, leaving a strip of
+the editor's own canvas between ring and splitter. Both of the ring's sides then face
+`--bg` and it clears 5.24:1 on every palette. The splitter contrasts with the canvas on
+its own `--border`-vs-`--bg` contract (3.03:1 floor), which this rule does not touch.
+Pixel-sampled at 4x across the edge: **5 distinct bands on all 36 palette-modes**,
+against 3-4 when flush. Where the edge does not meet a splitter — the Specimen, a narrow
+Studio — the gap is canvas against canvas and costs nothing.
+
+Two alternatives were rendered and rejected. Tinting the splitter to `--bg` while the
+editor is focused fixes the root cause (two tokens collapsing to one value) but touches
+`ui/split.tsx`, shared pane chrome, and hides the pane boundary for as long as you are
+typing. Accepting three edges and recording the judgment was the cheapest option and is
+defensible — three edges at >=4.60:1 do carry the indicator — but it leaves one edge
+saying nothing on the palettes most likely to need it.
 
 ## What it does under forced colors
 

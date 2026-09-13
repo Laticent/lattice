@@ -156,8 +156,15 @@ const readRing = (page: import('@playwright/test').Page, scope = ''): Promise<Ri
  * all report the same `solid 2px var(--accent)`.
  */
 function expectRingFillsEditor(ring: Ring, where: string) {
+	// WIDTH IS THE EDITOR'S MINUS ONE, on purpose. The ring's right edge insets 1px so a
+	// strip of canvas separates it from the pane splitter, which paints `--border` — the
+	// same value as `--accent` on onyx, ardesia and the a11y palettes, where the two
+	// otherwise fuse into one band (measured: 1.11:1 on onyx/dark). See the note in
+	// lib/editor-chrome.js. Height still matches exactly; a ring that stopped insetting,
+	// or inset on the wrong axis, fails here.
+	const want: [number, number] = [ring.editorBox[0] - 1, ring.editorBox[1]];
 	for (const [i, axis] of (['width', 'height'] as const).entries()) {
-		expect(Math.abs(ring.box[i] - ring.editorBox[i]), `${where}: the focus ring's ${axis} (${ring.box[i]}) must be the editor's (${ring.editorBox[i]})`).toBeLessThan(0.5);
+		expect(Math.abs(ring.box[i] - want[i]), `${where}: the focus ring's ${axis} is ${ring.box[i]}, expected ${want[i]} (the editor's ${axis} is ${ring.editorBox[i]})`).toBeLessThan(0.5);
 	}
 }
 

@@ -176,12 +176,31 @@ export function editorChrome({ fontSize, padding, lineHeight, gutterDivider = fa
 		// `outline-offset` computed as `-2px` (ours) while `outline` computed as `none`
 		// (theirs). Both are deleted. If a focus ring ever stops painting again, grep
 		// `cm-focused` across `docs/src/styles/` BEFORE re-reading this file.
+		// THE RIGHT EDGE INSETS 1px, AND THAT IS A MEASUREMENT, NOT SYMMETRY TASTE.
+		// Flush on all four sides, the right edge lands against the pane SPLITTER, which
+		// paints `var(--border)` — and on the palettes where `--border` and `--accent`
+		// resolve to the same value (onyx, ardesia, the four a11y themes) the two fuse
+		// into one white or one black band. Measured across 18 palettes x 2 modes on both
+		// deck editors: the ring's top and bottom cleared 4.60:1 against their neighbours
+		// on every palette, and the RIGHT edge was under 3:1 on 30 of 36 palette-modes,
+		// bottoming at 1.11:1 on onyx/dark, where `--accent` and `--border` are both
+		// `#FFFFFF`. Focused and unfocused looked the same on that edge.
+		// The 1px inset leaves a strip of the editor's own canvas between ring and
+		// splitter, so BOTH of the ring's sides face `var(--bg)` and it clears 5.24:1
+		// everywhere (carbone/light is the floor). The splitter then contrasts with the
+		// canvas on its own `--border`-vs-`--bg` contract, which this rule does not touch.
+		// Pixel-sampled at 4x across the edge: 5 distinct bands on all 36 palette-modes,
+		// against 3-4 (ring and splitter merged) when it was flush.
+		// It costs nothing where the edge does NOT meet a splitter — the Specimen, a
+		// narrow Studio — because there the gap is canvas against canvas, invisible.
+		// The outward `1px` is why `editor-selection-parity.spec.ts` expects the ring's
+		// used width to be the editor's MINUS ONE; height still matches exactly.
 		...(focusRing
 			? {
 					'&.cm-editor.cm-focused::after': {
 						content: '""',
 						position: 'absolute',
-						inset: '0',
+						inset: '0 1px 0 0',
 						zIndex: '1',
 						border: '2px solid var(--accent)',
 						pointerEvents: 'none',
