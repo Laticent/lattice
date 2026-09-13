@@ -197,3 +197,44 @@ test('validate() reports (never throws) on truthy non-string sample/skeleton for
     assert.ok(Array.isArray(errors) && errors.length > 0, JSON.stringify(c));
   }
 });
+
+// ── The schema object is frozen on BOTH sides of the load ────────────────────
+// index.js reads the schema from the package root (so the bundle validates the
+// tree it actually reads manifests from) and keeps the `require` as an ENOENT
+// fallback. That split means there are now TWO objects, and only one of them is
+// the one other modules hold: lib/layout/gate.js and tools/check-ownership.js
+// take the REQUIRE-CACHE copy. index.js used to freeze that copy as a side
+// effect of `require`ing it; it now has to freeze it on purpose, via the second
+// call in the chained deep-freeze IIFE.
+//
+// IN A CHILD PROCESS, and that is the whole point of this arm. Deleting that
+// second call is an edit a reader could easily mistake for a typo, and in THIS
+// file an earlier test requires lib/layout/gate.js (line ~40), which freezes the
+// same object independently — so an in-process assertion here passes either way
+// and pins nothing. Measured: the first draft of this test stayed green under
+// exactly the mutation it was written to catch. Load index.js ALONE.
+test('index.js alone freezes the require-cache schema copy, deeply', () => {
+  const { execFileSync } = require('node:child_process');
+  const path = require('node:path');
+  const ROOT = path.join(__dirname, '..', '..', '..');
+  const probe = [
+    'const s = require("./lib/components/manifest.schema.json");',
+    'require("./lib/components/index.js");',
+    'const gate = Object.keys(require.cache).some((k) => k.includes("layout/gate"));',
+    'console.log(JSON.stringify({',
+    '  frozen: Object.isFrozen(s),',
+    '  deep: Object.isFrozen(s.properties) && Object.isFrozen(s.properties.function.enum),',
+    '  gate,',
+    '}));',
+  ].join('\n');
+  const out = JSON.parse(execFileSync(process.execPath, ['-e', probe], { cwd: ROOT, encoding: 'utf8' }));
+
+  assert.equal(out.gate, false, 'probe is not isolated — gate.js leaked in and would freeze it anyway');
+  assert.ok(out.frozen, 'index.js did not freeze the require-cache schema copy');
+  assert.ok(out.deep, 'the freeze is not deep — a nested enum stayed mutable');
+});
+
+test('the schema the validator derives from is frozen too', () => {
+  assert.ok(Object.isFrozen(components.FUNCTIONS), 'derived FUNCTIONS is not frozen');
+  assert.ok(Object.isFrozen(components.BUCKETS), 'derived BUCKETS is not frozen');
+});

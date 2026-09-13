@@ -94,10 +94,14 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Triggered by:** Adding a generator, or adding an import that reaches one. To check a
   bundle's real inputs, grep its esbuild module markers **unanchored** —
   `grep -n '// lib/' <bundle>` — because only some bundles put them in column 0.
-  `dist/lattice-emulator.js` does; `dist/lattice-runtime.js` wraps modules in the CJS
-  closure form and indents all 1288 of them, so `'^// lib/'` scores it a false zero. A
-  MINIFIED bundle (`docs/public/playground/*.js`) carries no markers at all — grep it for
-  a symbol only the suspected input defines instead.
+  `dist/lattice-emulator.js` does (468 at column 0); `dist/lattice-runtime.js` wraps every
+  module in the CJS closure form and indents all **167** of them — one per `__commonJS`
+  wrapper, a count the two greps agree on — so `'^// lib/'` scores that bundle a flat zero.
+  (An earlier cut of this entry said 1288. That was every indented comment LINE in the file,
+  not the module markers, and it was not even that: the real figure for the thing it
+  miscounted is 1284. A sanity number that is wrong by 7.7x teaches the same false negative
+  the entry exists to prevent.) A MINIFIED bundle (`docs/public/playground/*.js`) carries no
+  markers at all — grep it for a symbol only the suspected input defines instead.
 - **Commits:** see `engineering/decisions/2026-09-13-bundle-era-skew.md`.
 
 ## A committed render golden doesn't match a fresh render — check staleness FIRST
