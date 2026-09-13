@@ -19,7 +19,7 @@ test('@smoke size control writes the size front-matter', async ({ page }) => {
 });
 
 // Header / Footer / Page numbers / Section rail live under the Inspector's
-// "Chrome" tab (DECK_TABS); the panel opens on "Look". Selecting the tab is part
+// "Chrome" tab (`deckSections`); the panel opens on "Look". Selecting the tab is part
 // of the flow — these two specs were silently red for want of that one click.
 // (The tab was called "Marks" until 2026-08-18; the slide Inspector had always
 // called the same four controls Chrome, and one vocabulary won.)

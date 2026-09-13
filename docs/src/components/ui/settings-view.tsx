@@ -40,18 +40,27 @@ export type SettingsView = 'group' | 'list';
 export const SETTING_HIT = { 'data-setting-hit': '' } as const;
 
 /** Put this on the panel body while a query is live. The two CSS rules keyed on it
- *  collapse empty sections and reveal the no-matches note.
- *
- *  This and `SETTING_SECTION` are the JS half of a TEXT-MATCHED coupling with
- *  `styles/tailwind.css` — nothing links the two but the spelling, so
- *  `settings-view.test.tsx` reads that file and pins the rules against these three
- *  constants. Rename one side and the test names the other. */
+ *  collapse empty sections and reveal the no-matches note. Spread `filteringProps(query)`
+ *  rather than writing the attribute — see the note on `SETTING_SECTION`. */
 export const SETTING_FILTERING = 'data-settings-filtering';
 
-/** Marks a section wrapper so the collapse rule can find it — a top-level section, and
- *  equally any nested wrapper that should go when everything inside it filters away (the
- *  deck's `More` disclosure, the slide's two Marks halves). */
+/** Marks a wrapper the collapse rule can empty out — a top-level `SettingsSection`, and
+ *  equally any nested `SettingsScope`.
+ *
+ *  These three constants are the JS half of a TEXT-MATCHED coupling with
+ *  `styles/tailwind.css`: nothing links the two but the spelling, and
+ *  `settings-view.test.tsx` pins the CSS against them. That pin is only worth having
+ *  because **no app file writes any of these attributes by hand** — the components below
+ *  are the sole writers, so renaming a constant moves every call site with it. It did not
+ *  hold when this shipped: six call sites across the two panels hand-wrote the literals,
+ *  so the constant and the CSS could be renamed together while the panels kept stamping
+ *  the old string and the unit pin stayed green. */
 export const SETTING_SECTION = 'data-settings-section';
+
+/** The panel body's filtering flag — spread it, don't spell it. */
+export function filteringProps(query: string): Record<string, string> {
+	return query ? { [SETTING_FILTERING]: '' } : {};
+}
 
 /**
  * Does `haystack` satisfy `query`? Every whitespace-separated term must appear
@@ -106,6 +115,36 @@ export function useSettingsHit(...terms: (string | undefined | null | false)[]):
 }
 
 /**
+ * The match rule every wrapper shares, and the one thing to understand about search here.
+ *
+ * A wrapper is ONE OF TWO THINGS under a query, never both:
+ *
+ *   1. **It matched as a whole** — "motion" names the Motion section, "logo" names the
+ *      logo group. Then every control inside is a hit, whatever its own words say. That
+ *      is what makes `logo` show the five rows called `Show on`, `Treatment`, `Size`,
+ *      `Across` and `Down`, none of which contains the word.
+ *   2. **It did not** — then it says nothing about its children; each filters on its own
+ *      words, and the CSS empties the wrapper if none survives.
+ *
+ * What it must NEVER be is an AND-gate, where a child has to match the wrapper's words
+ * AND its own. That shipped: the Marks chip groups wrapped their `Shape` rows in a
+ * `SettingsBlock` whose terms were "stamp state badge draft confidential corner", so
+ * typing `shape` — the row's own visible label — answered "No setting matches". Worse,
+ * typing `tone` matched the block and rendered its header while silently dropping one of
+ * its two rows, so the panel showed LESS than the tab did, with no signal.
+ *
+ * Hence: a wrapper that can contain a control is a `SettingsSection` (top level) or a
+ * `SettingsScope` (nested). `SettingsBlock` is the leaf-only exception — see its note.
+ */
+function useGroupMatch(label: string, keywords?: string): boolean {
+	const query = React.useContext(SettingsQueryCtx);
+	const outerMatched = React.useContext(SettingsSectionCtx);
+	// An enclosing group that matched carries down: a nested scope inside a matched
+	// section must not re-filter what its parent already decided to show whole.
+	return !query || outerMatched || settingsMatch(query, label, keywords);
+}
+
+/**
  * One section of a settings panel — a tab's worth of controls.
  *
  * `heading` is what the list view adds and the tabbed view does not need: in `group` the
@@ -134,11 +173,10 @@ export function SettingsSection({
 	heading?: boolean;
 	children: React.ReactNode;
 }) {
-	const query = React.useContext(SettingsQueryCtx);
-	const matched = !query || settingsMatch(query, label, keywords);
+	const matched = useGroupMatch(label, keywords);
 	return (
 		<SettingsSectionCtx.Provider value={matched}>
-			<section data-settings-section={label} aria-label={label} className={heading ? 'border-t border-border/60' : undefined}>
+			<section {...{ [SETTING_SECTION]: label }} aria-label={label} className={heading ? 'border-t border-border/60' : undefined}>
 				{heading && (
 					<h3 className="sticky top-0 z-[1] -mx-1 mb-1 bg-[var(--bg)] px-1 pb-1.5 pt-2.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
 						{label}
@@ -151,9 +189,48 @@ export function SettingsSection({
 }
 
 /**
- * A block of settings content that is NOT a label/control row — a textarea, a chip row,
- * a comment thread. It filters exactly like a row so that a section made only of these
- * still collapses when nothing in it matches.
+ * A group of controls NESTED inside a section — the logo sub-rows, a Marks chip group,
+ * the indented chrome rows. Same match rule as `SettingsSection` (see `useGroupMatch`),
+ * but a plain `<div>`: no landmark, no heading, and it takes the caller's classes, so it
+ * is a drop-in for the wrapper that was already there.
+ *
+ * Reach for this — not `SettingsBlock` — whenever the wrapper contains a `Field` or a
+ * `Row`. It is what lets `logo` show the five rows that never say "logo", and what stops
+ * a group's own words becoming a prerequisite for finding a control inside it.
+ */
+export function SettingsScope({
+	label,
+	keywords,
+	className,
+	children,
+}: {
+	/** What a person would type to mean this whole group. */
+	label: string;
+	keywords?: string;
+	className?: string;
+	children: React.ReactNode;
+}) {
+	const matched = useGroupMatch(label, keywords);
+	return (
+		<SettingsSectionCtx.Provider value={matched}>
+			<div {...{ [SETTING_SECTION]: label }} className={className}>
+				{children}
+			</div>
+		</SettingsSectionCtx.Provider>
+	);
+}
+
+/**
+ * A LEAF of settings content that is not a label/control row — a textarea, a chip row, a
+ * comment thread. It filters as one unit on its own `terms`, so a section made only of
+ * these still collapses when nothing in it matches.
+ *
+ * **It must not contain a `Field` or a `Row`.** This is all-or-nothing by design, so a
+ * control inside it would need to match this block's words AND its own — the AND-gate
+ * described on `useGroupMatch`, which is exactly how two shipped controls became
+ * unfindable by their own label. Use `SettingsScope` for a wrapper that holds controls.
+ * `settings-view.test.tsx` greps both panels for this and fails on a `Row`/`Field` inside
+ * a `SettingsBlock`.
  */
 export function SettingsBlock({
 	terms,

@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { SETTING_FILTERING, SETTING_HIT, SETTING_SECTION, SettingsFind, SettingsNoMatch, SettingsSection, SettingsToolbar, type SettingsView, settingsMatch, useSettingsHit } from './settings-view';
+import { SETTING_FILTERING, SETTING_HIT, SETTING_SECTION, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsToolbar, type SettingsView, settingsMatch, useSettingsHit } from './settings-view';
 
 describe('settingsMatch', () => {
 	it('matches everything on an empty query', () => {
@@ -213,4 +213,131 @@ describe('the tailwind.css rules that finish the job', () => {
 		expect(rule).toBeGreaterThan(-1);
 		expect(css.slice(rule)).not.toContain('@layer');
 	});
+});
+
+
+// ── The AND-gate, and the three defects it caused ────────────────────────────
+// A wrapper must never require a child to match ITS words AND the child's own. Each of
+// these reproduces a failure that shipped, so each fails again if the rule is undone.
+
+describe('a nested SettingsScope never gates its children', () => {
+	it('finds a row by its own label when the group says nothing like it', () => {
+		// Shipped bug: `Shape` lived in a block whose terms were "stamp state badge …",
+		// so typing the row's own visible label answered "No setting matches".
+		render(
+			<SettingsFind query="shape">
+				<SettingsSection label="Marks" keywords="overlay">
+					<SettingsScope label="Stamp" keywords="state badge draft confidential">
+						<Row label="Shape" desc="The badge's shape." />
+					</SettingsScope>
+				</SettingsSection>
+			</SettingsFind>,
+		);
+		expect(screen.getByText('Shape')).toBeTruthy();
+	});
+
+	it('shows every row when the GROUP matches, including rows that never say its name', () => {
+		// Shipped bug: searching "logo" hid `Show on` / `Treatment` / `Size` / `Across` /
+		// `Down` — the five rows that exist only because a logo is set.
+		render(
+			<SettingsFind query="logo">
+				<SettingsSection label="Chrome" keywords="furniture">
+					<SettingsScope label="Logo" keywords="brand mark image">
+						<Row label="Show on" />
+						<Row label="Treatment" />
+						<Row label="Across" />
+					</SettingsScope>
+				</SettingsSection>
+			</SettingsFind>,
+		);
+		expect(screen.getByText('Show on')).toBeTruthy();
+		expect(screen.getByText('Treatment')).toBeTruthy();
+		expect(screen.getByText('Across')).toBeTruthy();
+	});
+
+	it('does not drop a sibling row when the group matches (the worse half of the bug)', () => {
+		// Shipped bug: "tone" matched the block, rendered its header, and silently dropped
+		// one of its two rows — the panel showed LESS than the tab, with no signal.
+		render(
+			<SettingsFind query="tone">
+				<SettingsSection label="Marks">
+					<SettingsScope label="Tone" keywords="review status pass warn fail">
+						<Row label="Shape" desc="A rail, a full edge, or a glow." />
+					</SettingsScope>
+				</SettingsSection>
+			</SettingsFind>,
+		);
+		expect(screen.getByText('Shape')).toBeTruthy();
+	});
+
+	it('a leaf SettingsBlock stays all-or-nothing — the contrast the two names carry', () => {
+		// This is the behavior `SettingsScope` exists to NOT have. A block wraps content
+		// with no controls in it (a textarea, a chip row), so matching it as one unit is
+		// right; the bug was using it around rows.
+		const { rerender } = render(
+			<SettingsFind query="caption">
+				<SettingsSection label="Notes">
+					<SettingsBlock terms="caption read aloud narration">
+						<textarea aria-label="Read-as caption" />
+					</SettingsBlock>
+				</SettingsSection>
+			</SettingsFind>,
+		);
+		expect(screen.getByLabelText('Read-as caption')).toBeTruthy();
+		rerender(
+			<SettingsFind query="motion">
+				<SettingsSection label="Notes">
+					<SettingsBlock terms="caption read aloud narration">
+						<textarea aria-label="Read-as caption" />
+					</SettingsBlock>
+				</SettingsSection>
+			</SettingsFind>,
+		);
+		expect(screen.queryByLabelText('Read-as caption')).toBeNull();
+	});
+
+	it('still filters its rows when neither the group nor the row matches', () => {
+		render(
+			<SettingsFind query="zzz">
+				<SettingsSection label="Marks">
+					<SettingsScope label="Tone">
+						<Row label="Shape" />
+					</SettingsScope>
+				</SettingsSection>
+			</SettingsFind>,
+		);
+		expect(screen.queryByText('Shape')).toBeNull();
+	});
+});
+
+// The rule above is only safe while no `SettingsBlock` wraps a control — a block IS
+// all-or-nothing, so a Row inside one is the AND-gate again. Nothing in the type system
+// says so, and the two panels are where it would be broken, so read them.
+describe('no SettingsBlock in either panel wraps a Field or a Row', () => {
+	const panels = ['../studio/StudioShell.tsx', '../studio/SlideContext.tsx'];
+	for (const rel of panels) {
+		it(`${rel.split('/').pop()} keeps controls out of its blocks`, () => {
+			const src = readFileSync(join(__dirname, rel), 'utf8');
+			const offenders: string[] = [];
+			let blocks = 0;
+			// Walk each <SettingsBlock …> … </SettingsBlock> span and look inside it.
+			const open = /<SettingsBlock\b/g;
+			let m = open.exec(src);
+			while (m !== null) {
+				const end = src.indexOf('</SettingsBlock>', m.index);
+				if (end < 0) continue;
+				blocks++;
+				const inner = src.slice(m.index, end);
+				// A nested block would end the span early; that is fine, it is still a subset.
+				for (const tag of ['<Row ', '<Field ', '<TextRow ']) {
+					if (inner.includes(tag)) offenders.push(`${tag.trim()} inside the block at index ${m.index}`);
+				}
+				m = open.exec(src);
+			}
+			expect(offenders).toEqual([]);
+			// …and the walk actually found blocks, so a regex that silently stops matching
+			// cannot turn this into a test that passes by looking at nothing.
+			expect(blocks).toBeGreaterThan(0);
+		});
+	}
 });

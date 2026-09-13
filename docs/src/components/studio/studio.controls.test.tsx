@@ -1077,6 +1077,34 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		expect(screen.getByRole('heading', { name: 'Speech' })).toBeInTheDocument();
 	});
 
+	it('a "more" disclosure opened by hand survives a search, and cannot hide a hit', async () => {
+		// Two failures from one cause: `<details open={query ? true : undefined}>` is only
+		// half-controlled, so a user click moves the DOM attribute behind React's back.
+		// (a) collapse it mid-search and the next query's hit renders inside a shut
+		// disclosure with no "no matches" note; (b) open it by hand, search, close the
+		// search, and `true → undefined` strips the attribute and shuts what you opened.
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		const summary = await screen.findByText('More look settings');
+		const details = () => summary.closest('details') as HTMLDetailsElement;
+
+		// (b) the user's own open state survives a whole search round-trip.
+		await user.click(summary);
+		expect(details().open).toBe(true);
+		await user.click(screen.getByRole('button', { name: 'Search deck settings' }));
+		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'corner');
+		await user.click(screen.getByRole('button', { name: 'Close search' }));
+		expect(details().open).toBe(true);
+
+		// (a) a live query forces it open, whatever the user did to it.
+		await user.click(summary); // collapse by hand
+		expect(details().open).toBe(false);
+		await user.click(screen.getByRole('button', { name: 'Search deck settings' }));
+		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'claim');
+		expect(details().open).toBe(true);
+		expect(screen.getByLabelText('Choose claim')).toBeInTheDocument();
+	});
+
 	it('the view choice persists, and is ONE choice for both scopes', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));

@@ -49,7 +49,8 @@ export const CHROME = {
 	 * accessible-name drift did — and the 2026-08-18 regroup renamed and merged several
 	 * at once (deck `Marks`→`Chrome`; slide `Status`+`Decoration`→`Marks`; a new deck
 	 * `General`). Address a tab through here, never by a bare literal.
-	 * Source of truth: DECK_TABS in StudioShell.tsx, tabDefs in SlideContext.tsx.
+	 * Source of truth: `deckSections` in StudioShell.tsx, `sectionDefs` in SlideContext.tsx —
+	 * both panels derive their pill strip from that one list.
 	 */
 	deckTab: {
 		look: 'Look',

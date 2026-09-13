@@ -120,20 +120,34 @@ the section is FOR, in words its rows do not already carry.** "furniture", "anim
 ## 5. What the refactor fixed on the way
 
 Rendering all sections at once meant the bodies could no longer be `{tab === 'x' && …}`
-conditionals, so each panel now builds one `sectionDefs` array: value, label, keywords, body.
-The tab strip is derived from it (`sectionDefs.map(({ value, label }) => …)`).
+conditionals, so each panel now builds one list — `deckSections` / `sectionDefs` — of
+value, label, keywords and body, and derives its pill strip from it
+(`.map(({ value, label }) => …)`).
 
 That collapsed a real duplication in `SlideContext.tsx`: the tab strip read Look · Notes ·
-Chrome · Marks · Accent · Motion · Comments and the bodies were written in a different
-order, with each tab's render condition repeated in both places. Nothing had noticed,
-because exactly one of them rendered at a time.
+Chrome · Marks · Accent · Motion · Comments while the bodies were written in a different
+order. Nothing had noticed, because exactly one of them rendered at a time.
+
+**Two corrections to what this section first claimed**, both from the independent check:
+
+- It said the tab strip was derived in *both* panels. It was not — `StudioShell.tsx` kept
+  `DECK_TABS`, a second hand-kept copy of the same six labels in the same order, and still
+  passed it to `PillTabs` while mapping `deckSections` right below. The shared `DeckTab`
+  union catches a value typo; nothing caught a label or order drift, and a seventh
+  `deckSections` entry would have rendered a section unreachable in grouped view. The list
+  is gone and the strip is derived.
+- It said *"each tab's render condition repeated in both places"*. One did — `comments`.
+  The other six were bare `activeTab === 'x'` checks. The duplication was the ORDER, not
+  the conditions.
 
 ---
 
 ## 6. Verified
 
-On the real Studio in a real browser (`.scratch/shoot-settings.js`, `.scratch/shoot-slide.js`
-— throwaway drivers, not a harness), at 1440 / 820 / 390:
+On the real Studio in a real browser, at 1440 / 820 / 390. The drivers were ad-hoc
+puppeteer scripts under `.scratch/` (gitignored, and deleted after the run) rather than
+`tools/screenshot.js`, because this needed to CLICK — open a scope, type a query, toggle a
+view — and that tool takes a URL and a selector to wait for, not a script:
 
 - grouped view unchanged; list view drops the tabs and renders every section with a sticky
   heading and a divider;

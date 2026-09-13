@@ -467,6 +467,19 @@ describe('SlideContextBody controls', () => {
 		expect(screen.queryByRole('textbox', { name: 'Accessibility description for this slide' })).toBeNull();
 	});
 
+	it('search results do not move when a value is overridden (hint is not an index)', async () => {
+		// 14 rows here compute `hint={inherited ? 'from deck' : undefined}`. While `hint`
+		// was searched, "deck" returned every axis currently INHERITING and none you had
+		// overridden — a search index that changes as you edit the thing being searched.
+		const user = userEvent.setup();
+		setup('<!-- _class: kpi -->\n\n# Hi');
+		await user.click(screen.getByRole('button', { name: 'Search slide settings' }));
+		await user.type(screen.getByRole('textbox', { name: 'Search slide settings' }), 'deck');
+		// The inherit hint is not a search term, so nothing is surfaced by the word alone.
+		expect(screen.queryByLabelText('Slide canvas')).toBeNull();
+		expect(screen.queryByLabelText('Brand bar')).toBeNull();
+	});
+
 	it('the list view drops the tabs and renders every section at once', () => {
 		const onMutate = vi.fn();
 		render(

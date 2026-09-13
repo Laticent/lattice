@@ -19,7 +19,7 @@ import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
-import { SettingsBlock, SettingsFind, SettingsNoMatch, SettingsSection, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
+import { filteringProps, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
 import { Toaster } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -171,14 +171,13 @@ const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => (
 // deck" instead of a tab strip plus a stray expander.
 // See engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md.
 type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech';
-const DECK_TABS: { value: DeckTab; label: string }[] = [
-	{ value: 'look', label: 'Look' },
-	{ value: 'chrome', label: 'Chrome' },
-	{ value: 'general', label: 'General' },
-	{ value: 'brand', label: 'Accent' },
-	{ value: 'motion', label: 'Motion' },
-	{ value: 'speech', label: 'Speech' },
-];
+// There is deliberately NO `DECK_TABS` list here. There was one, and it survived the
+// move to `deckSections` as a SECOND hand-kept copy of the same six labels in the same
+// order — the exact duplication the slide panel's `sectionDefs` had just collapsed, and
+// the decision note claimed this panel had too. The union above catches a value typo; it
+// cannot catch a label or an order drift, and a seventh `deckSections` entry added
+// without touching the list would render a section unreachable in grouped view. The pill
+// strip is derived from `deckSections` at its call site instead.
 
 // The head value for a register with NO named baseline (`stamp:`, `tone:`): absent means
 // "the engine's own default shape", which is not a value the register can spell. Radix
@@ -3691,15 +3690,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	// The six sections, as DATA — the list view and search render all of them and the
+	// grouped view renders one. `body` is a THUNK, not an element: `{deckTab === 'x' && …}`
+	// used to short-circuit, so only the active tab's JSX was ever built, and an array of
+	// elements would have rebuilt all six on every render (each one maps a catalog, a
+	// vocabulary or a saved list) including in grouped view where five are not shown. A
+	// function restores the short-circuit — the caller invokes only what it renders.
 	// grouped view renders one, so the bodies can no longer be six `deckTab === …`
 	// conditionals inline. `keywords` are the words a person would type to find the
 	// SECTION (not its rows): matching one shows the section entire.
-	const deckSections: { value: DeckTab; label: string; keywords: string; body: React.ReactNode }[] = [
+	const deckSections: { value: DeckTab; label: string; keywords: string; body: () => React.ReactNode }[] = [
 		{
 			value: 'look',
 			label: 'Look',
 			keywords: 'appearance styling visual design surface',
-			body: (
+			body: () => (
 			<div>
 				<TabNote>How the deck looks — its palette, light or dark, slide shape, and the surface behind your content.</TabNote>
 				<Field label="Theme" desc="This deck's color palette." find="palette colors brand" help={<>Pinning a theme saves it <strong>with the deck</strong>, so it survives a change to the website theme and travels into every export. <strong>Auto</strong> (the link icon) follows the website theme instead.</>}>
@@ -3805,7 +3809,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			value: 'chrome',
 			label: 'Chrome',
 			keywords: 'furniture repeats on every slide',
-			body: (
+			body: () => (
 			<div>
 				<TabNote>The furniture that repeats on every slide — running header and footer, page numbers, the section rail, and your logo.</TabNote>
 				<TextRow label="Header" desc="The line along the top. Blank hides it." find="running title chrome" help={<>A deck title or client name, repeated on every slide. Any slide can hide it on its own with <code>_class: no-header</code>.</>} value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
@@ -3813,12 +3817,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Page numbers" desc="Number every slide." find="pagination paginate"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 				<Field label="Section rail" desc="Progress dots down the edge." find="progress no-progress" help={<>The rail that tracks where you are in the deck. On by default; turning it off stamps <code>class: no-progress</code> on the deck.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				<TextRow label="Logo" desc="A path or URL to your mark." find="brand mark image" help={<>Drawn into the masthead of every slide. Point it at a file beside the deck (<code>./brand/mark.svg</code>) or a full URL. A local file is dropped from an in-browser export, which has no filesystem to copy it from — use a URL if the deck is going to be shared as a bundle.</>} value={logo} placeholder="e.g. ./brand/mark.svg" onCommit={setLogo} />
-				{/* The four logo modifiers mean nothing without a logo, so they stay hidden
-				    until one is set — otherwise the tab opens with four dead rows. */}
+				{/* The five logo modifiers mean nothing without a logo, so they stay hidden
+				    until one is set — otherwise the tab opens with five dead rows. */}
 				{logo.trim() !== '' && (
-					// `data-settings-section`: under search this indent rule must go when its four
-					// rows do, or a bare left border floats beside an unrelated result.
-					<div data-settings-section="Logo" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+					// A SCOPE, not a bare marked div: these five rows are `Show on`, `Treatment`,
+					// `Size`, `Across` and `Down`, and not one of them says "logo" — so before
+					// this was a scope, searching the word that is the entire reason they exist
+					// hid all five and left the path field standing alone. A scope also takes the
+					// indent rule with them when they do filter out, which the marked div did.
+					<SettingsScope label="Logo" keywords="brand mark image" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
 						<Field label="Show on" desc="Every slide, or just the cover.">
 							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="w-full" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
 						</Field>
@@ -3828,7 +3835,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<TextRow label="Size" desc="A multiplier. Blank is default." help={<>Scales the mark — <code>1</code> is its default size. Clamped to 0.2–3; anything outside that is ignored rather than applied.</>} value={logoScale} placeholder="e.g. 1.2" onCommit={setLogoNum('logo-scale', 'Logo size')} />
 						<TextRow label="Across" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits horizontally, as a percentage of the slide — <code>0</code> is the left edge, <code>100</code> the right. Set both Across and Down to move it off the masthead entirely.</>} value={logoX} placeholder="e.g. 92" onCommit={setLogoNum('logo-x', 'Logo across')} />
 						<TextRow label="Down" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits vertically, as a percentage of the slide — <code>0</code> is the top edge, <code>100</code> the bottom.</>} value={logoY} placeholder="e.g. 8" onCommit={setLogoNum('logo-y', 'Logo down')} />
-					</div>
+					</SettingsScope>
 				)}
 				<TextRow label="Meta line" desc="Small print in the masthead bay." help={<>The status line beside the heading — a date, a document number, a review stage. Distinct from the footer: it belongs to the masthead, so it sits with the title rather than at the foot of the slide.</>} value={metaLine} placeholder="e.g. Q3 FY26 · Board review" onCommit={setMetaLine} />
 			</div>
@@ -3838,7 +3845,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			value: 'general',
 			label: 'General',
 			keywords: 'structure setup basics about this deck',
-			body: (
+			body: () => (
 			<div>
 				<TabNote>What this deck is and how it's put together — set once, mostly at the start.</TabNote>
 				<TextRow
@@ -3902,7 +3909,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			value: 'brand',
 			label: 'Accent',
 			keywords: 'white label client color',
-			body: (
+			body: () => (
 			<div>
 				<TabNote>Where your accent shows. Set the theme accent to a client's brand color and everything here follows it, white-labeling the deck.</TabNote>
 				<Field label="Brand bar" desc="The strip along the slide edge." find="spectrum rainbow" help={<>The colored strip on each slide's top edge (a divider shows it as a left rail). <strong>Rainbow</strong> is the default; <strong>Solid</strong> repaints it in the theme accent — set that accent to a client's brand color to white-label the deck.</>}>
@@ -3974,7 +3981,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			value: 'motion',
 			label: 'Motion',
 			keywords: 'animation movement transition',
-			body: (
+			body: () => (
 			<div>
 				<TabNote>How charts animate on the live surfaces (Studio, Present) — they play once when a slide is shown. Preview-only: it changes nothing in the exported PDF or PPTX, and any slide can override it.</TabNote>
 				<Field label="Play" desc="Animate charts in this deck." help={<>Off keeps every chart static. A single slide can still force motion on or off in its own settings.</>}>
@@ -4008,7 +4015,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			value: 'speech',
 			label: 'Speech',
 			keywords: 'read aloud narration voice tts audio',
-			body: (
+			body: () => (
 			<div>
 				<TabNote>Teach read-aloud how to say tricky words, symbols and acronyms — carried into the deck and its captions.</TabNote>
 				<Field label="Pace" desc="How long a slide holds before speaking." help={<>The rhythm a self-presenting deck keeps. <strong>Brisk</strong> for a demo or an audience that knows the material, <strong>Natural</strong> for boardroom delivery, <strong>Deliberate</strong> for a technical audience or one reading in a second language.</>}>
@@ -4032,7 +4039,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// `data-settings-filtering` is on ONLY while a query is live: it is what the two
 		// CSS rules in styles/tailwind.css key on to collapse a section with no matching
 		// row and to reveal the no-matches note.
-		<div className={cn('space-y-3 pt-1', SETTING_SCOPE)} {...(deckQuery ? { 'data-settings-filtering': '' } : {})}>
+		<div className={cn('space-y-3 pt-1', SETTING_SCOPE)} {...filteringProps(deckQuery)}>
 			<SettingsFind query={deckQuery}>
 				<SettingsToolbar
 					scope="Deck"
@@ -4046,12 +4053,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The tabs are the GROUPED view's navigation. A search spans every section,
 				    and the list view has no single active section, so neither has tabs. */}
 				{!deckQuery && settingsView === 'group' && (
-					<PillTabs tabs={DECK_TABS} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
+					<PillTabs tabs={deckSections.map(({ value, label }) => ({ value, label }))} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
 				)}
 				{deckSections.map((s) =>
 					deckQuery || settingsView === 'list' || s.value === deckTab ? (
 						<SettingsSection key={s.value} label={s.label} keywords={s.keywords} heading={!!deckQuery || settingsView === 'list'}>
-							{s.body}
+							{s.body()}
 						</SettingsSection>
 					) : null,
 				)}
@@ -5697,17 +5704,33 @@ function TabNote({ children }: { children: React.ReactNode }) {
 // the rare ones. Collapsed, not hidden: nothing becomes unreachable, it just stops competing.
 //
 // Under SEARCH it opens itself and collapses when empty. Both matter: a result hidden
-// behind a closed disclosure is a result the search failed to deliver, and a summary
-// left standing over nothing is a row that lies about having content. `data-settings-section`
-// is what collapses it — the same attribute a top-level section carries, because it is the
-// same question ("did anything inside me match?") and one CSS rule answers both.
+// behind a closed disclosure is a result the search failed to deliver, and a summary left
+// standing over nothing is a row that lies about having content. `SettingsScope` gives it
+// the second half and makes the disclosure findable by its own name.
+//
+// FULLY CONTROLLED, and the first cut was not — it passed `open={query ? true : undefined}`,
+// which React only writes when the PROP changes. A user clicking the triangle moves the DOM
+// attribute behind React's back, and React never corrects it while `open` stays `true`. Two
+// failures fell out, both measured: collapse it mid-search and the next query's hit is
+// rendered inside a shut disclosure with no "no matches" note to explain the empty panel;
+// and open it by hand, run a search, close the search, and `true → undefined` strips the
+// attribute and shuts a disclosure the user opened. Holding `userOpen` in state fixes both —
+// a live query forces it open (during a search a disclosure is not a disclosure, it is just
+// content), and closing the search restores exactly what the user had.
 function More({ label, children }: { label: string; children: React.ReactNode }) {
 	const query = useSettingsQuery();
+	const [userOpen, setUserOpen] = React.useState(false);
 	return (
-		<details data-settings-section={label} open={query ? true : undefined} className="mt-2 border-t border-border/60 pt-2">
-			<summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[var(--text-heading)]">{label}</summary>
-			<div className="mt-1">{children}</div>
-		</details>
+		<SettingsScope label={label}>
+			<details
+				open={!!query || userOpen}
+				onToggle={(e) => { if (!query) setUserOpen(e.currentTarget.open); }}
+				className="mt-2 border-t border-border/60 pt-2"
+			>
+				<summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[var(--text-heading)]">{label}</summary>
+				<div className="mt-1">{children}</div>
+			</details>
+		</SettingsScope>
 	);
 }
 
