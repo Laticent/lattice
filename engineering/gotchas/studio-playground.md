@@ -1167,8 +1167,31 @@ never turn "passed in headless" into "works on iOS."
   selection over bare `--bg` reads 4.61 — and the spec that was supposed to catch it
   composited over `--bg`, so it passed. **A contrast spec must read its backdrop from the
   live DOM, not assume the canvas.** The parity spec now does.
+- **A CONTRAST SPEC THAT ONLY DRIVES THE DEFAULT PALETTE IS A FILE SWEEP WEARING A
+  BROWSER'S CLOTHES.** The 18% wash was chosen from arithmetic over the token files;
+  the browser only ever confirmed cuoio, so 17 of 18 palettes were never rendered for
+  the claim. The parity spec now loops all 18 in both modes on both editors, and
+  switching palette is one `data-palette` write plus the `lattice-chrome-change`
+  announcement — exactly what `setPalette()` does, with `site-chrome-first-paint.spec.ts`
+  already pinning that the real control lands there. Mutation-proved: moving ONE
+  palette's `--text-body` in the served stylesheet (onyx/light `#3a3a3a` → `#9a9a9a`)
+  fails the light test at 1.84:1 and leaves the dark one green.
+- **A TOKEN READ BACK FROM `getComputedStyle` MAY BE THREE-DIGIT HEX, and slicing it
+  by index reads `NaN`.** A custom property comes back as AUTHORED text and the
+  generated sheet is minified, so `#FFFFFF` arrives as `#fff`. The helper every
+  contrast spec here copies — `[1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))` —
+  returns `NaN` on those, and a `NaN` ratio makes every `toBeGreaterThanOrEqual`
+  meaningless in whichever direction that spec's assertion happens to point. Nothing
+  saw it because cuoio's tokens are all six digits and cuoio was the only palette
+  driven; indaco's `--bg` is the first shorthand a sweep meets. The parity spec now
+  parses 3/4/6/8-digit forms and THROWS on anything that is not a hex literal.
+  `playground-bracket-contrast.spec.ts`, `playground-kpi-pill.spec.ts` and
+  `crash-sentinel.spec.ts` still carry the index-slicing copy; they are safe only
+  because none of them changes palette, so **fix the helper before adding a palette
+  loop to any of them.**
 - **Pinned by** `docs/e2e/editor-selection-parity.spec.ts` (both editors, both color
-  modes, asserting they paint the SAME selection and caret) and
+  modes, all 18 palettes, asserting they paint the SAME selection and caret and that
+  every ink clears its floor on the backdrop read from the live DOM) and
   `docs/src/playground/editor-selection.test.ts`, which asserts neither theme
   re-declares a local selection and neither re-imports `drawSelection()`.
 
