@@ -31,14 +31,21 @@ import { APPLY_MS, BASE_SLOTS, HARD_MAX_SLOTS, PooledThumbFace, PreviewPool, REL
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
 type Entry = { target: Element; isIntersecting: boolean };
-let observers: { cb: (e: Entry[]) => void; targets: Set<Element>; disconnected: boolean }[] = [];
+type IOOptions = { root?: Element | Document | null; rootMargin?: string };
+let observers: { cb: (e: Entry[]) => void; options: IOOptions; targets: Set<Element>; disconnected: boolean }[] = [];
 
 class FakeIO {
 	cb: (e: Entry[]) => void;
+	options: IOOptions;
 	targets = new Set<Element>();
 	disconnected = false;
-	constructor(cb: (e: Entry[]) => void) {
+	// It TAKES THE OPTIONS, and not only because dropping them is a signature mismatch a static
+	// analyzer flags: a fake that discards `root` cannot fail when the observer is rooted at the
+	// wrong element, which is exactly the defect that shipped — `rootMargin` is applied to the root
+	// only, so rooting at the viewport bought nothing on a grid that scrolls inside a container.
+	constructor(cb: (e: Entry[]) => void, options: IOOptions = {}) {
 		this.cb = cb;
+		this.options = options;
 		observers.push(this);
 	}
 	observe(el: Element) {
@@ -97,6 +104,23 @@ function MixedGrid() {
 				</div>
 			))}
 		</PreviewPool>
+	);
+}
+
+/** A grid inside a real scrolling container — the shape every shipped consumer has, and the one
+ *  the bare `Grid` below does not model. */
+function ScrollGrid({ n }: { n: number }) {
+	return (
+		<div data-testid="scroller" style={{ overflowY: 'auto', height: 400 }}>
+			<PreviewPool>
+				{Array.from({ length: n }, (_, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
+					<div key={i} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>
+		</div>
 	);
 }
 
@@ -304,6 +328,21 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		const shown = showing(container);
 		for (let i = BASE_SLOTS; i < n; i++) {
 			expect(shown, `tile ${i} is on screen and has no preview; a grace-holder kept the slot`).toContain(`# ${i}`);
+		}
+		unmount();
+	});
+
+	it('roots its observer at the scroller the tiles actually scroll in', () => {
+		// `rootMargin` is applied to the ROOT. With a null root the observer still clips against
+		// intermediate scrollers, so the 150px margin — the head start a tile gets before it is
+		// needed — silently bought nothing on every grid this ships to, all of which scroll inside a
+		// container.
+		const { container, unmount } = render(<ScrollGrid n={3} />);
+		const scroller = container.querySelector('[data-testid="scroller"]');
+		expect(observers.length).toBeGreaterThan(0);
+		for (const o of observers) {
+			expect(o.options.root, 'an observer was rooted at the viewport instead of the scroller').toBe(scroller);
+			expect(o.options.rootMargin, 'the band margin is gone').toBeTruthy();
 		}
 		unmount();
 	});
