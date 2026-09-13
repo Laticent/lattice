@@ -344,7 +344,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl, dagreUrl }) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl, dagreUrl }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	const host = document.createElement('div');
@@ -410,7 +410,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			requestAnimationFrame(() => requestAnimationFrame(finish));
 			setTimeout(finish, 500);
 		});
-		await waitForDiagrams(doc);
+		// Release by default: most lanes rasterize straight off this frame, so this wait IS the
+		// last one and a fence still un-settled here would bake as a blank. `bakeDeckSections`
+		// opts out — it waits again, longer, and owns the give-up itself.
+		await waitForDiagrams(doc, 4000, { release: releaseDiagrams });
 		if (win?.__latticeFit) win.__latticeFit();
 	} catch (e) {
 		dispose();
@@ -433,13 +436,64 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 // immediately, on the very deck it exists to wait for. (It escaped notice because the
 // ~700ms of font + rAF settling ahead of it usually covered the gap; a cold mermaid
 // script fetch, or a big multi-diagram deck, is where it loses the race.)
-export async function waitForDiagrams(doc, budgetMs = 4000) {
+/**
+ * WAIT FOR THE DIAGRAMS, THEN GIVE UP HONESTLY — the give-up is the fix, not the waiting.
+ *
+ * WHAT GOES WRONG WITHOUT THIS. `mermaid.css` hides the source `<pre>` for every state but
+ * `error` and `unavailable`, because a fence on its way to being drawn must not flash its
+ * markdown. So when this budget expires with a fence still un-settled, the capture proceeds
+ * and bakes a BLANK REGION into the file — permanently, in something the author has already
+ * downloaded and may already have sent. That is the #2092 shape.
+ *
+ * WAITING LONGER WAS TRIED AND IT IS THE WRONG AXIS. The first cut of this change replaced the
+ * wall clock with a "no progress for budgetMs" rule under a 5x ceiling, on the theory that a
+ * big enough deck on a slow enough machine outruns a fixed constant. Three independent passes
+ * took it apart, and the measurements are why it is gone:
+ *
+ *   · The budget is never reached. Measured in real Chrome at 20x CPU throttle, 40 slides each
+ *     holding a 64-node flowchart: 190ms after this function is entered, against 4000. The
+ *     reason is structural rather than lucky — `frame.load`, `fonts.ready` and the rAF settle
+ *     all run ahead of this loop on the same main thread Mermaid uses, so the script fetch and
+ *     parse (seconds, under throttle) are already paid before the first poll.
+ *   · On a real deck the rule cannot even fire. A band dispatches its jobs through one
+ *     `Promise.allSettled` (lib/runtime/index.js), and almost every deck is one band, so the
+ *     pending count goes N -> 0 inside a single 20ms window. From a 120ms poll there is no
+ *     intermediate low to record, so the progress rule returned at exactly the same
+ *     millisecond as the wall clock it replaced.
+ *
+ * WHERE THOSE TWO NUMBERS COME FROM, because it bears on how far to trust them: a real-Chrome
+ * harness that reproduces this function's GATE SEQUENCE against the shipped runtime and
+ * stylesheet — not the Studio's own `srcdoc` capture frame, which it does not exercise. They
+ * are strong evidence that waiting longer buys nothing and they are not measurements of the
+ * real export surface (HARD RULE #23). What IS measured there is the thing this function now
+ * does: `docs/e2e/mermaid-unavailable-export.spec.ts` stalls `mermaid.render` past both budgets,
+ * drives the actual Studio webpage export, and reads the fence out of the DOWNLOADED file.
+ *   · And it did not fix the blank anyway: when the ceiling fired on a still-finishing deck,
+ *     the capture baked the same blank, five times later.
+ *
+ * SO THE ANSWER IS NOT A BETTER CONSTANT. At the moment this function gives up it knows
+ * exactly which fences are un-settled, and it used to throw that away. Tagging them
+ * `unavailable` hands the author their own source text where a blank would have gone — the
+ * same mechanism `releaseUnrenderableFences` already uses when Mermaid never arrives, and the
+ * same one `test/integration/mermaid/mermaid-unavailable.test.js` pins. It removes the blank
+ * on every path, on any machine, with no number to get wrong.
+ *
+ * @returns the number of fences released as source rather than drawn — 0 when everything drew.
+ */
+export async function waitForDiagrams(doc, budgetMs = 4000, { release = true } = {}) {
 	const UNTAGGED = ':is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"]:not(.language-mermaid-source)';
 	const TAGGED = ':is(pre, marp-pre)[data-mermaid-state]';
-	if (!doc.querySelector(`${UNTAGGED}, ${TAGGED}, .mermaid`)) return;
-	const start = Date.now();
-	while (Date.now() - start < budgetMs) {
-		let pending = doc.querySelectorAll(UNTAGGED).length;
+	if (!doc.querySelector(`${UNTAGGED}, ${TAGGED}, .mermaid`)) return 0;
+
+	/**
+	 * The fences that would bake as a blank if the capture happened right now.
+	 *
+	 * An UNTAGGED fence is not one of them and that distinction is load-bearing: the hide is
+	 * keyed on `data-mermaid-state`, so a fence the runtime has not reached yet still paints
+	 * its source. Tagging it here would take that away.
+	 */
+	const blanking = () => {
+		const out = [];
 		for (const pre of doc.querySelectorAll(TAGGED)) {
 			const state = pre.getAttribute('data-mermaid-state');
 			// `error` and `unavailable` ARE settled — the runtime has given up and the source
@@ -448,12 +502,43 @@ export async function waitForDiagrams(doc, budgetMs = 4000) {
 			// Reading only the first is what made a 404'd script burn this whole budget and
 			// then bake the empty slot anyway; see lib/runtime/index.js releaseUnrenderableFences.)
 			// Only `rendered` owes an SVG in the sibling box.
-			if (state !== 'rendered' && state !== 'error' && state !== 'unavailable') pending++;
-			else if (state === 'rendered' && !pre.nextElementSibling?.querySelector?.('svg')) pending++;
+			if (state !== 'rendered' && state !== 'error' && state !== 'unavailable') out.push(pre);
+			else if (state === 'rendered' && !pre.nextElementSibling?.querySelector?.('svg')) out.push(pre);
 		}
-		if (!pending) return;
+		return out;
+	};
+
+	const start = Date.now();
+	while (Date.now() - start < budgetMs) {
+		if (!blanking().length && !doc.querySelectorAll(UNTAGGED).length) return 0;
 		await new Promise((r) => setTimeout(r, 120));
 	}
+
+	// THE BUDGET EXPIRED. Re-read rather than reusing the last poll's list, which is up to one
+	// poll interval stale and may name a fence that has since drawn.
+	const stranded = blanking();
+	// A CALLER THAT WAITS AGAIN MUST NOT RELEASE HERE. The release is terminal — `unavailable`
+	// plus `data-mermaid-final` closes every route the runtime has back to this fence (see the
+	// mark below) — so releasing at anything but the LAST wait before the capture silently
+	// shortens the budget to that wait's. `bakeDeckSections` is exactly that case: it builds a
+	// capture frame (which waits) and then waits 12000 more on the same document, so a release
+	// in the frame would cap the bake at the frame's 4000 and strand a diagram that was still
+	// going to draw. Waiting is idempotent; releasing is not.
+	if (!release) return stranded.length;
+	for (const pre of stranded) {
+		// `unavailable` rather than `error`: nothing about this fence is known to be wrong. It
+		// ran out of time, which is what the state means everywhere else it is set.
+		pre.setAttribute('data-mermaid-state', 'unavailable');
+		// AND FINAL, or the runtime takes it straight back. `reclaimReleasedFences` returns any
+		// `unavailable` fence to `pending` — re-hiding it — as soon as a content pass runs with
+		// Mermaid present, which is exactly the situation here. The gap is not theoretical:
+		// `bakeDeckSections` releases, then awaits a dynamic import before reading `outerHTML`,
+		// and the capture frame shares this thread, so a pass scheduled during the wait lands in
+		// that await. The capture would then take the blank this release exists to prevent, and
+		// it would do it intermittently.
+		pre.setAttribute('data-mermaid-final', '');
+	}
+	return stranded.length;
 }
 
 /**
@@ -509,13 +594,22 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  * @returns {Promise<{ sections: string[], diagrams: number, failed: number } | null>}
  */
 export async function bakeDeckSections(render) {
-	const { frame, dispose } = await createCaptureFrame(render);
+	const { frame, dispose } = await createCaptureFrame(render, { releaseDiagrams: false });
 	try {
 		const doc = frame.contentDocument;
 		if (!doc) return null;
 		// A longer budget than the rasterizers': this is a one-shot export step whose whole
 		// job is the diagram, and shipping the fence is a permanent defect in a frozen file
-		// (a raster that lands a frame early is merely a stale pixel).
+		// (a raster that lands a frame early is merely a stale pixel). The frame above already
+		// waited 4000 WITHOUT releasing, so a diagram has 16000 in total here and the give-up
+		// below is the first and only one.
+		//
+		// The wait is unchanged; what changed is what happens when it expires. Anything still
+		// un-settled is released to `unavailable`, so the slide carries the author's source
+		// instead of a blank — see `waitForDiagrams`. Its return value is deliberately dropped
+		// here: the `failed` tally below already counts every fence that is not `rendered`, and
+		// `share-export.ts` already turns that into "N diagram(s) ship as source, not as
+		// drawings" for the author. A second channel would report the same fences twice.
 		await waitForDiagrams(doc, 12000);
 		const sections = [...doc.querySelectorAll('.lattice > section')];
 		if (!sections.length) return null;
