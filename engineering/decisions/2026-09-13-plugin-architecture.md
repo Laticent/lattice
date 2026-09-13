@@ -286,6 +286,26 @@ extractor names a host in a pattern and none carries a `.*` to backtrack over.
 Two arms pin it: no regex-escaped host in any extractor, and extraction staying
 sub-500ms on a 200,000-character query.
 
+**The lightbox is now driven, not inferred.** `docs/e2e/video-overlay-provider.spec.ts`
+runs against the built site and covers the two claims that unit tests could only
+approximate: a tap on a real poster crosses the in-frame link guard into
+`window.__videoPlay` and mounts the parent-hosted player with a src built from the
+registry row and the **parsed id**; and the hostile deck
+(`https://evil.example/#instagram.com/reel/X`) renders its `video` section with **no
+figure, no poster, no badge** at all. Both arms were **mutation-proved** — breaking the
+`embed` template fails the first, restoring the old substring host match fails the
+second — because a green e2e spec that cannot fail turns an unverified claim into a
+certified one, which is worse than no spec.
+
+That mutation pass also surfaced a trap worth writing down: **the two arms are served by
+different bundles.** The overlay is astro/vite-bundled from `docs/src`, so
+`npm run build:e2e` refreshes it; the static video transform rides
+`docs/public/playground/lattice-playground.js`, which the ROOT `npm run build` produces
+and `sync:playground` only copies. Verifying a kernel change with an astro rebuild alone
+exercises the overlay and silently skips the transform — which is exactly what happened
+on the first mutation run, and would have certified a reintroduced vulnerability as
+green.
+
 Unit suite 9439 pass / 0 fail; `lint` and `build:check` clean; the docs site builds
 with all five routes within budget; `examples/video.md` renders with poster, badge
 and QR intact.
