@@ -30,11 +30,14 @@
 // Adding a provider is now one row there. See that file's header for the contract,
 // and engineering/decisions/2026-09-13-plugin-architecture.md for why.
 //
-// `embedSrc` / `isEmbeddable` / `providerShape` are re-exported unchanged: they are
-// this module's public surface (PlaygroundApp, single-slide-render, and the unit
-// suite all import them from here), and the safety property they carry is unchanged
-// too — a player src is ALWAYS rebuilt from the parsed video id against the
-// provider's own template, never from the author's href.
+// `embedSrc` / `isEmbeddable` / `providerShape` are re-exported so this module's
+// public surface is unchanged. Be precise about who that serves: `embedSrc` and
+// `providerShape` are used INSIDE this file (below), and the only importer of the
+// re-exports is this module's own unit suite — `installVideoBridge` is what
+// single-slide-render and PlaygroundApp actually import, and `isEmbeddable` has no
+// runtime consumer at all today. The safety property they carry is unchanged: a
+// player src is ALWAYS rebuilt from the parsed video id against the provider's own
+// template, never from the author's href.
 export { embedSrc, isEmbeddable, providerShape } from '../../../lib/core/video-providers.mjs';
 
 import { embedSrc, PROVIDERS, providerFor, providerShape } from '../../../lib/core/video-providers.mjs';

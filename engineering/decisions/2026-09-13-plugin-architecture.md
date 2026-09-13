@@ -40,7 +40,7 @@ consumers fail silently when nobody remembers.
 | Import trust boundary | **Shipped** — `docs/src/components/studio/import-gate.ts` refuses an imported asset that reaches off the device, and its docblock reasons carefully about where a refusal belongs (the zip, where author and victim differ) and where it does not (your own data) |
 | Installed-asset library | IndexedDB per kind — theme, component, finish, scene, reference doc — plus the `lattice-workspace/1` backup |
 | Runtime theme registration | `ThemeStore.add()` (`lib/engine/themes.js:91`) takes a theme CSS string at run time |
-| Dynamic loading, browser | **Mature.** 41% of the Studio island's code already deferred across 25 lazy chunks, under a blocking per-route byte ledger (`docs/route-budget.json`). Three "ensure" loaders side-load a classic script and poll for a global; `ensure-hljs-language.ts` stages **157** highlight.js grammars and fetches only the ones a deck's fences name |
+| Dynamic loading, browser | **Mature.** 41% of the Studio island's code already deferred across 25 lazy chunks, under a blocking per-route byte ledger (`docs/route-budget.json`). Three "ensure" loaders side-load a classic script and poll for a global; `ensure-hljs-language.ts` stages **156** highlight.js grammars and fetches only the ones a deck's fences name |
 | Dynamic loading, Node | `loadPuppeteer()` (`lattice-emulator.js:3117`) does a variable-path `require` that **survives into the built bundle** — the existing proof that the shipped CLI can load something absent at build time |
 
 ### What is missing: a spine
@@ -239,19 +239,42 @@ resolver rebuilt TikTok's oEmbed endpoint and player src by hand beside a row
 that declares both, and the Instagram `postMessage` origin check named the host
 inline. All three now read the registry.
 
-**Evidence.** A parity harness compared old and new across 28 URLs × 4 facets
-before any consumer was rewired; every surviving difference is one of the
-deliberate improvements above. `test/unit/core/video-providers.test.js` pins what
-neither consumer suite can see alone: every row is complete, keys are unique,
-hostnames are bare data, hostile URLs resolve to nothing on all five facets, and
-— the arm that stops a third table appearing — **a census asserting no provider
-hostname is written anywhere outside the kernel**. That census is what found the
-three hard-codings. Unit suite 9422 pass / 0 fail; `lint` and `build:check` clean.
+**Evidence.** Before any consumer was rewired, a one-off harness compared the new
+kernel against both old tables — restored from git — across 28 URLs × 4 facets. It
+is not committed, because it depends on two deleted files; it is reproducible from
+this note's parent commit, and its outcome is the table in the PR body. What is
+durable is `test/unit/core/video-providers.test.js`, which pins what neither
+consumer suite can see alone: every row complete, keys unique, hostnames bare data,
+hostile URLs resolving to nothing on all five facets, the watch target
+re-serialized, and — the arm that stops a third table appearing — **a census
+asserting no provider hostname is written in executable code anywhere outside the
+kernel**. That census is what found three further hard-codings in the overlay. Its
+pattern is derived from the registry rather than written beside it, and a second
+arm proves that pattern covers every declared host: the hand-written first draft
+silently could not match `youtu.be` or `youtube-nocookie`, so a re-introduced
+YouTube table would have shipped through its own guard.
+
+**Maker-checker (HARD RULE #25).** An independent checker read the diff and
+confirmed six defects, four of them real losses this change would otherwise have
+shipped: a mixed-case hostname that matched the row and then yielded no id (a dead
+poster link and a dead QR); a trailing-dot FQDN that resolved to no provider at
+all; the census blind spots above; and the sharpest one — **the security claim did
+not hold for the QR channel.** A backslash ends the authority in WHATWG (every
+browser, and `new URL` here) but is userinfo under RFC 3986, so
+`https://instagram.com\@evil.example/p/X/` passed the host check and was then
+handed through verbatim as the watch target, which is also the payload of a QR code
+somebody scans with a phone. The watch target is now re-serialized through the
+parser that validated it. All six are fixed in this branch; two of them were
+pre-existing rather than introduced here.
+
+Unit suite 9437 pass / 0 fail; `lint` and `build:check` clean; the docs site builds
+with all five routes within budget; `examples/video.md` renders with poster, badge
+and QR intact.
 
 **Not done here, deliberately:** no new provider is added. Adding Loom or a bare
 `.mp4` is now a one-row change, and it is a visible change that owes a demo-deck
-update under HARD RULE #9; keeping this slice behavior-preserving for the four
-shipped providers is what let the parity harness be the evidence.
+update under HARD RULE #9; holding this slice to the four shipped providers is what
+let a parity comparison be the evidence.
 
 ## Non-goals
 

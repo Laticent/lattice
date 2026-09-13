@@ -11,7 +11,8 @@ so everything downstream (CSS, transforms, export) is renderer-agnostic.
 - `css.js` — per-render scaffold + theme CSS emission.
 - `themes.js` — the theme store.
 - `math.js` / `qr.js` — synchronous KaTeX / QR renderers.
-- `background-image.js`, `video-providers.js`, `render-guard.js`.
+- `background-image.js`, `render-guard.js`. (Video provider resolution moved to
+  the shared registry `lib/core/video-providers.mjs`, which the docs site reads too.)
 
 Consumed by `lattice-emulator.js` (CLI/PDF), `lib/playground` (browser),
 and `tools/export-marp.js`. History: `engineering/marp-independence.md`.

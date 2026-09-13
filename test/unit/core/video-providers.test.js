@@ -50,11 +50,29 @@ describe('the registry is one table, and every row is whole', () => {
 	});
 
 	test('no second provider table: nothing outside the kernel hard-codes a provider host', () => {
-		// The defect this change closes was a SECOND table in the docs site with its
-		// own regexes. This is the census that stops a third appearing: a provider
-		// hostname may be written in the kernel and in tests, nowhere else.
+		// The defect this change closed was a SECOND table in the docs site with its own
+		// regexes. This is the census that stops a third appearing.
+		//
+		// The pattern is DERIVED FROM THE REGISTRY, not written out beside it. A
+		// hand-written alternation is exactly what drifts: the first draft of this arm
+		// read `(?:youtube|youtu\.be|vimeo|tiktok|instagram)\\?\.` and required a literal
+		// dot after every branch, which made `youtu.be` and `youtube-nocookie` — two of
+		// the four hosts the registry declares — UNMATCHABLE. A second YouTube table
+		// written against either would have shipped green through its own guard.
+		//
+		// Scope is EXECUTABLE CODE. A provider URL in a manifest, a skeleton, a deck or a
+		// doc is authoring content, not a dispatch table, and `video.manifest.json` is
+		// full of legitimate examples.
+		const hostPattern = new RegExp(
+			PROVIDERS.flatMap((p) => p.hosts)
+				// Match the host as written in code, whether plain (`youtube.com`) or
+				// regex-escaped (`youtube\.com`).
+				.map((h) => h.split('.').join('\\\\?\\.'))
+				.join('|'),
+			'i',
+		);
 		const roots = ['lib', 'docs/src', 'tools'];
-		const hosts = /(?:youtube|youtu\.be|vimeo|tiktok|instagram)\\?\./;
+		const CODE = /\.(js|mjs|cjs|jsx|ts|tsx|astro)$/;
 		const offenders = [];
 		const walk = (dir) => {
 			for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -64,15 +82,15 @@ describe('the registry is one table, and every row is whole', () => {
 					walk(full);
 					continue;
 				}
-				if (!/\.(js|mjs|ts|tsx)$/.test(e.name)) continue;
+				if (!CODE.test(e.name)) continue;
 				const rel = path.relative(REPO, full);
 				if (rel === path.join('lib', 'core', 'video-providers.mjs')) continue;
-				if (/\.test\.(js|mjs|ts|tsx)$/.test(e.name)) continue;
+				if (/\.test\.(js|mjs|cjs|jsx|ts|tsx)$/.test(e.name)) continue;
 				for (const [i, line] of fs.readFileSync(full, 'utf8').split('\n').entries()) {
-					// Prose mentions are fine; a REGEX or a URL TEMPLATE naming a provider
-					// host is the thing that drifts.
+					// A comment mentioning a provider is fine; a REGEX or a URL TEMPLATE
+					// naming one is the thing that drifts.
 					const code = line.replace(/^\s*(\/\/|\*|\/\*).*$/, '');
-					if (!hosts.test(code)) continue;
+					if (!hostPattern.test(code)) continue;
 					if (!/[/`'"]/.test(code)) continue;
 					offenders.push(`${rel}:${i + 1}: ${line.trim().slice(0, 90)}`);
 				}
@@ -84,6 +102,22 @@ describe('the registry is one table, and every row is whole', () => {
 			[],
 			`a provider host is hard-coded outside lib/core/video-providers.mjs:\n${offenders.join('\n')}`,
 		);
+	});
+
+	test('the census pattern actually covers every host the registry declares', () => {
+		// The arm above is only as good as its pattern, and its predecessor silently
+		// covered two hosts of four. Prove the coverage rather than trusting it.
+		const hostPattern = new RegExp(
+			PROVIDERS.flatMap((p) => p.hosts)
+				.map((h) => h.split('.').join('\\\\?\\.'))
+				.join('|'),
+			'i',
+		);
+		for (const h of PROVIDERS.flatMap((p) => p.hosts)) {
+			assert.ok(hostPattern.test(`const s = 'https://${h}/x';`), `plain: ${h}`);
+			assert.ok(hostPattern.test(`const re = /${h.replace(/\./g, '\\.')}\\/x/;`), `escaped: ${h}`);
+			assert.ok(hostPattern.test(`const t = \`https://${h}/\${id}\`;`), `template: ${h}`);
+		}
 	});
 });
 
@@ -99,6 +133,8 @@ describe('the host match is a parsed host, not a substring', () => {
 		'https://evil.example/#youtube.com/embed/aqz-KE-bpKQ',
 		'https://evil.example/?next=https://vimeo.com/1084537',
 		'https://notyoutube.com/watch?v=aqz-KE-bpKQ',
+		'https://youtube.com.evil.example/watch?v=aqz-KE-bpKQ',
+		'https://youtube.com@evil.example/watch?v=aqz-KE-bpKQ',
 	];
 
 	test('a provider name away from the host position resolves to nothing, on every facet', () => {
@@ -111,7 +147,21 @@ describe('the host match is a parsed host, not a substring', () => {
 		}
 	});
 
-	test('the legitimate host forms still resolve — with and without scheme or www', () => {
+	test('the watch target is re-serialized, so the two URL standards cannot disagree about it', () => {
+		// A backslash is an authority terminator in WHATWG (every browser, and the
+		// parser here) but userinfo in RFC 3986. `tiktok` and `instagram` hand their
+		// watch target straight through, and that target is the payload of a QR code
+		// somebody scans with a phone — so a raw string would let the scanner's parser
+		// reach a different host than the one we validated.
+		const p = detectProvider('https://instagram.com\\@evil.example/p/DaStLQkuN3Q/');
+		assert.equal(p.key, 'instagram');
+		assert.ok(!p.url.includes('\\'), 'no backslash survives into the href or the QR');
+		assert.equal(new URL(p.url).hostname, 'instagram.com');
+		// A scheme-less bullet becomes an absolute link, not a relative one.
+		assert.equal(detectProvider('youtube.com/watch?v=aqz-KE-bpKQ').url, 'https://www.youtube.com/watch?v=aqz-KE-bpKQ');
+	});
+
+	test('the legitimate host forms still resolve — with and without scheme, www, or a trailing dot', () => {
 		for (const u of [
 			'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
 			'https://youtube.com/watch?v=aqz-KE-bpKQ',
@@ -119,8 +169,12 @@ describe('the host match is a parsed host, not a substring', () => {
 			'https://music.youtube.com/watch?v=aqz-KE-bpKQ',
 			'https://youtu.be/aqz-KE-bpKQ',
 			'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ',
+			// A fully-qualified name keeps its trailing dot through the parser; without
+			// stripping it the row never matched and the slide silently rendered no poster.
+			'https://youtube.com./watch?v=aqz-KE-bpKQ',
 		]) {
 			assert.equal(providerFor(u)?.key, 'youtube', u);
+			assert.ok(detectProvider(u).id, `${u}: id extracted`);
 		}
 		assert.equal(providerFor('https://vimeo.com/1084537')?.key, 'vimeo');
 		assert.equal(providerFor('https://www.tiktok.com/t/ZP8GrtdJH/')?.key, 'tiktok');

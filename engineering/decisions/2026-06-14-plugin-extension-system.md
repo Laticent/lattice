@@ -34,8 +34,7 @@ attached to the DELIVERY CHANNEL rather than to the plugin**, which is what lets
 an npm-installed plugin carry code without reopening the shipped threat model;
 and this note's **Phase 4 splits into two doors**, an npm channel and a
 declarative zip channel, with the `LICENSE-EXCEPTIONS` plugin grant sequenced
-ahead of both. The `kind` / `trigger` / `order` / `parity` / `degradesTo` /
-`tokens` fields below remain design, not schema.
+ahead of both.
 
 ---
 
