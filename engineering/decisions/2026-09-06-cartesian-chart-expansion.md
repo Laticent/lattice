@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   The chart family ships fourteen components and not one of them plots a value against an
   axis — `progress` is a percentage fill with no scale, `quadrant` scores on a unitless 2x2,
@@ -293,6 +293,15 @@ new here.** `funnel`, `gantt`, `map`, `piechart`, `quadrant`, `radar` and
 behave the same way, so the fix is one `aria-hidden` decision taken once for the
 whole chart family — off the path of this change under HARD RULE #18, and worth
 its own render pass because hiding the subtree also hides it from find-in-page.
+
+> **Shipped**, across all 21 charts in the family, not just the seven. Every
+> chart's marks now sit under `aria-hidden="true"` and the curated `<desc>` is
+> the only thing a reader gets. The find-in-page cost this entry predicted is
+> real and was measured rather than assumed, with `window.find()` over the
+> rendered deck: the axis values and category names are no longer findable,
+> and the accessible description is. That trade is the point — a reader hearing
+> `North America`, `EMEA`, `$4.2M` as loose text after the sentence that already
+> said it was the louder defect.
 
 **The landscape canvas letterboxes, by ~16% per side — and that is INHERITED,
 not introduced here.** Measured in a real browser at a 1280px viewport, off the
