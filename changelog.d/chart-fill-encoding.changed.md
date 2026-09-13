@@ -1,0 +1,2 @@
+- Chart design language: what a mark's fill ENCODES — hue, ramp, presence or layered — decides HOW a finish reaches it, not whether. A ramp is scaled into the finish's band, a layered body takes a flat alpha, a presence mark gets an on level and an edge-only off. An earlier revision let the encoding decide *whether*, which left three of the four encodings with a stroke tweak and no body.
+- A finish reaches a textured mark through shade and its edge, never by repainting it: on the a11y palettes the fill is the pattern that carries category when hue cannot.

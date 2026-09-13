@@ -1,0 +1,1 @@
+- `tools/chart-language-census.js` measures what every chart-family member actually paints — type register per semantic role, fill finish, axis furniture, key model and interaction handles — by reading resolved style out of a real browser render. A census, not a gate: it grounds the chart design-language work in numbers anyone can reproduce.

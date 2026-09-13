@@ -406,11 +406,19 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-split-treatments.js` | build-split-treatments.js — regenerate §0c's treatment table in |
 | `tools/build-stage-catalog.js` | Generates lib/forms/cell/masthead/stage-catalog.generated.js — a plain CJS |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
+| `tools/build-stress-deck.js` | build-stress-deck — assemble one bucket's CEILING cases into a single deck. |
 | `tools/build-suono-lib.js` | Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type |
 | `tools/build-theme-catalog.js` | Generates docs/src/components/studio/palettes.generated.ts — the palette picker's |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/calibrate-capacity.js` | calibrate-capacity — find the ELEMENT COUNT a layout overflows at, per box |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
+| `tools/chart-colour-reach.js` | chart-colour-reach — how far does colour actually travel into a chart? |
+| `tools/chart-finish-coherence.mjs` | chart-finish-coherence — does every chart member actually CHANGE when the |
+| `tools/chart-finish-divergence.js` | chart-finish-divergence — do two chart finishes actually LOOK different, and |
+| `tools/chart-hue-jobs.js` | chart-hue-jobs — does this member's categorical hue do a job, or is it decoration? |
+| `tools/chart-language-census.js` | chart-language-census — measure what each chart-family member ACTUALLY paints. |
+| `tools/chart-mark-separation.js` | chart-mark-separation — can a reader still tell one category from another, |
+| `tools/chart-style-catalog.js` | chart-style-catalog — what style each chart ACTUALLY paints, measured. |
 | `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |
 | `tools/check-css-values.js` | check-css-values — does the browser actually ACCEPT every value we ship? |
 | `tools/check-diagram-labels.js` | tools/check-diagram-labels.js — #1674's verification harness. |
@@ -434,6 +442,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/export-marp.js` | export-marp — produce a portable, self-contained bundle of a Lattice deck for |
 | `tools/fetch-emoji-font.js` | Vendor Noto Color Emoji for the opt-in FULL-OFFLINE tier. |
 | `tools/fetch-video-oembed.js` | fetch-video-oembed.js — the BUILD-TIME (authoring-time) half of the `video` |
+| `tools/gen-chart-finish-css.py` | Generates the prototype's finish rule block: every ENCODING and every REGISTER |
 | `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
 | `tools/manifest-schemas.js` | The ONE declaration of which manifest families exist, which schema governs |

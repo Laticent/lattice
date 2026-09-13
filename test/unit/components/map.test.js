@@ -130,7 +130,20 @@ describe('map kernel', () => {
       const html = buildMap(m, 'highlight');
       // Region <path>s emit in basemap order; the SVG-native key swatches
       // preserve authored order, so assert slot rotation off the swatch fills.
-      const slots = [...html.matchAll(/class="chart-key-swatch"[^>]*?fill="color-mix\(in oklab, var\(--chart-cat-(\d)-hue\)/g)].map((x) => +x[1]);
+      // The swatch reads the family's BODY tier now — one token instead of the
+      // 82% recipe retyped per call site, which is what let five of ten sites
+      // drift onto var(--bg) and paint a key that did not match its own marks.
+      // Split on the class, then read forward from the start of each chunk with
+      // ONE anchored `[^>]*`. The obvious `class="…"[^>]*?fill="…"` form pairs a
+      // lazy quantifier with a following literal the quantifier can also match,
+      // which backtracks polynomially on a crafted string (CodeQL flagged it as
+      // a high-severity ReDoS on library input). Anchoring makes it linear.
+      const slots = html
+        .split('class="chart-key-swatch"')
+        .slice(1)
+        .map((chunk) => /^[^>]*fill="var\(--chart-cat-(\d)-body\)/.exec(chunk))
+        .filter(Boolean)
+        .map((x) => +x[1]);
       assert.deepEqual(slots, [1, 2, 3, 4, 5, 6, 1], 'seventh region wraps back to slot 1');
     });
   });

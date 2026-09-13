@@ -42,13 +42,29 @@
 }
 
 /* ── Regions ──────────────────────────────────────────────────────────────
- * Unnamed regions sit on a quiet neutral fill so the named ones carry the
- * read. A hairline canvas-colored stroke keeps adjacent states crisp —
- * the same crisp-divider idiom funnel uses between bands. */
+ * Unnamed regions sit on a quiet neutral fill so the named ones carry the read.
+ *
+ * THE BASEMAP IS DRAWN, NOT TINTED — its legibility comes from its BORDERS.
+ * `--map-base` is `color-mix(--muted-mark 16%, --bg)`, and a fixed perceptual
+ * percentage cannot serve both canvas polarities: 16% away from white is a
+ * visible grey, while 16% away from BLACK is four sRGB levels. Measured against
+ * the canvas, the land read 1.18–1.25:1 on every theme and **1.02:1 on onyx and
+ * a11y-achromatopsia in dark**, whose canvas is #000 — a world map nobody can
+ * see, with only the named countries showing.
+ *
+ * The stroke used to be `var(--bg)`, a hairline canvas-colored divider that kept
+ * adjacent named regions crisp — and was invisible over the land by definition,
+ * so it could not help. Drawing it in the theme's own muted ink instead fixes
+ * both polarities with ONE rule and no light-dark pair, because an outline does
+ * not care which way the canvas leans: border-against-land goes from 1.02–1.25:1
+ * to **2.86–6.10:1** across five themes x two modes. It still separates adjacent
+ * named regions, and it costs the choropleth nothing — raising `--map-base`
+ * instead was measured and rejected, because lifting the land pushes the ramp's
+ * faintest step INTO it (onyx dark: data-against-land 1.19:1 -> 1.07:1). */
 :is(section.map, figure.chart-frame) .map-region {
   fill: var(--map-base);
-  stroke: var(--bg);
-  stroke-width: 0.6;
+  stroke: color-mix(in oklab, var(--muted-mark) 55%, transparent);
+  stroke-width: 0.5;
   stroke-linejoin: round;
 }
 
@@ -65,7 +81,7 @@
  * three categorical charts read as one family. The kernel sets --region-hue
  * to the slot's var reference. */
 :is(section.map, figure.chart-frame) .map-region--hl {
-  fill: color-mix(in oklab, var(--region-hue) 82%, var(--bg));
+  fill: color-mix(in oklab, var(--region-hue) 82%, var(--chart-cat-base));
 }
 
 /* ── Legend ───────────────────────────────────────────────────────────────

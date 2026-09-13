@@ -1,0 +1,1 @@
+- The chart taxonomy now covers the two layers above the mark: the **chrome ladder** (grid → rule → tick → label → title → value, one rung per role rather than five different rule colours by accident) and the **figure frame** — a chart's own ground and edge, which it has never had. The ground is declared always so an export can bake it; the edge stays off by default.

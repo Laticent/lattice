@@ -1,0 +1,2 @@
+- `tools/chart-finish-divergence.js` renders one deck under several candidate chart finishes and reports, per member, the percent of pixels a reader would see change — so a finish that silently fails to reach a chart is caught instead of shipped.
+- `tools/chart-language-census.js` gains a KEYING arm: which attribute each member carries its mark's colour slot on (`data-cat`, `data-mark`, `data-s`, `data-series`, or nothing at all).

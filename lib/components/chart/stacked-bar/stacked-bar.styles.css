@@ -41,13 +41,17 @@
  * swatch and the band it names are now the same color — under the wash they
  * were not.
  *
- * Keyed on [data-cat], the family's categorical hook (the same attribute the
- * shared legend stamps on its swatches), rather than :nth-of-type: a segment's
- * palette slot is its SERIES, and a bar that skips a series would put the next
- * one at the wrong ordinal. The attribute carries the slot itself, so it cannot
- * drift. */
+ * Keyed on [data-hue], the mark contract's slot (the same attribute the shared
+ * legend stamps on its swatches), rather than :nth-of-type: a segment's palette
+ * slot is its SERIES, and a bar that skips a series would put the next one at
+ * the wrong ordinal. The attribute carries the slot itself, so it cannot drift.
+ *
+ * The five per-slot rules that used to follow are gone: the family's slot table
+ * resolves --mark-hue from the same attribute, so this ONE declaration covers
+ * all eight. The fallback is not decoration — an unset custom property is
+ * invalid-at-computed-value-time, i.e. black. slot-contract.md */
 :is(section.stacked-bar, figure.chart-frame) .sbar-seg {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--chart-cat-base));
+  fill: var(--mark-body, var(--chart-cat-1-body));
   /* THE SEPARATOR — the one rule this chart cannot ship without. Two adjacent
    * parts are two abutting areas, and without a separator a slot-2 segment
    * sitting on a slot-3 segment reads as one taller block. A hairline in the
@@ -58,11 +62,6 @@
   stroke-width: 0.6;
   stroke-linejoin: miter;
 }
-:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="1"] { fill: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--chart-cat-base)); }
-:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="2"] { fill: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--chart-cat-base)); }
-:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="3"] { fill: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--chart-cat-base)); }
-:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="4"] { fill: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--chart-cat-base)); }
-:is(section.stacked-bar, figure.chart-frame) .sbar-seg[data-cat="5"] { fill: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--chart-cat-base)); }
 
 /* ── THE DIRECT LABEL ───────────────────────────────────────────────────────
  * A series name set beside the last bar's own segment, in that series' own INK
@@ -71,12 +70,6 @@
  * anything up, because the name and the band are visibly the same color.
  * --chart-cat-N-ink is already tuned for text weight on both canvases (it mixes
  * toward --text-heading), so this is a token swap, not a new color. */
-:is(section.stacked-bar, figure.chart-frame) .sbar-name { fill: var(--chart-cat-1-ink); }
-:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="1"] { fill: var(--chart-cat-2-ink); }
-:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="2"] { fill: var(--chart-cat-3-ink); }
-:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="3"] { fill: var(--chart-cat-4-ink); }
-:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="4"] { fill: var(--chart-cat-5-ink); }
-:is(section.stacked-bar, figure.chart-frame) .sbar-name[data-cat="5"] { fill: var(--chart-cat-6-ink); }
 
 /* The total, printed on the canvas past the end of the bar — never on a
  * segment. It takes .cart-value's display face and heading ink from the family

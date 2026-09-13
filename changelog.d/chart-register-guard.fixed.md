@@ -1,0 +1,2 @@
+- Chart design language: a mark that carries text has its wash level CAPPED by the register, not exempted from the finish. An earlier revision pinned it outright, and measured, that made `gantt`, `progress` and `matrix-grid` render byte-identical under all three finishes. Each finish now picks a level inside the cap, measured against 4.5:1 for the mark's own text (worst case 4.98:1 across 8 theme × mode combinations).
+- A state-keyed mark carries its own resolved ink on the element, so a finish needs no second status-to-slot mapping.

@@ -316,7 +316,7 @@ describe('scatter kernel', () => {
 
     test('every dot carries the a11y/print hooks the family textures on', () => {
       const svg = buildScatter(model, CTX, AXES);
-      assert.equal((svg.match(/class="scatter-dot" data-cat="0"/g) || []).length, 4);
+      assert.equal((svg.match(/class="scatter-dot" data-hue="1"/g) || []).length, 4);
       assert.match(svg, /data-anima-role="point"/);
       assert.match(svg, /data-mark="0"/);
       assert.match(svg, /data-label="Atlas"/);
