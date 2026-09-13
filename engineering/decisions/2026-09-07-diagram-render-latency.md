@@ -974,6 +974,13 @@ trusting the comment would conclude the opposite. Not pulled into this PR.
 
 ## 17. Two janks reported from a real tablet, and what they measure at
 
+**Now tracked, so this note is no longer their only record** (HARD RULE #18's path for an
+off-path defect you find): jank A is **#2190**, jank B is **#2191**, and the crash the
+janks were reported alongside is **#2189**. Each issue carries the measurements below
+plus the measurement trap that goes with it; #2189 carries the one instruction that
+actually moves it, which is a crash-sentinel record from the tablet. Nothing here is
+closed by the filing.
+
 Both were reported against the live Studio, not the export, so neither is caused by the fix
 this branch ships — that change writes `data-mermaid-final`, and the only writer is the export
 capture frame (`deck-export.js`), so no element in a live preview ever carries it and
@@ -1070,7 +1077,8 @@ Playwright's WebKit was downloaded here and will not launch: the host is missing
 libraries it needs, which require root package installs. So the one engine that could settle it
 is out of reach, and no amount of further Chromium measurement substitutes.
 
-**The instrument for this already exists and is the right next step, not another probe.**
+**The instrument for this already exists and is the right next step, not another probe** (#2189).
+
 `docs/src/lib/crash-sentinel.ts` is a flight recorder built for precisely this failure class:
 it writes a session record to `localStorage` on a heartbeat BEFORE the renderer dies, because
 nothing in-page survives a renderer death, and it distinguishes a same-tab self-reload from a
