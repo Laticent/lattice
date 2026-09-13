@@ -160,3 +160,76 @@ test('interleave + take-over — composed segments drive state that survives a m
 	await expect.poll(() => attr(page, 'data-vt-reason')).toBe('takeover');
 	expect(await attr(page, 'data-steps')).toBe('1 2 3');
 });
+
+// ── reveal: a target below the fold ────────────────────────────────────────────────────────
+//
+// The one oracle in this file that measures RECTANGLES rather than the board's own state
+// attributes, and it has to: the subject IS scroll position. (`vetrina-geometry.spec.ts` sets the
+// precedent — a cue's agreement with the thing it names is geometry or it is nothing.) It is still
+// cause→effect and still deterministic: the demo holds on the stage at `phase=holding`, so nothing
+// here waits on wall-clock.
+//
+// The defect it pins: nothing in the stage scrolled, ever. `#far-target` sits more than a viewport
+// down the page, so on the unfixed build all three numbers below go the other way — the page never
+// moves (scrollY 0), the target stays below the window, and the cursor faithfully parks on it
+// OFF-SCREEN, which is exactly what made this look like "the tour does nothing" on a phone.
+
+/** Where the cue and its target ended up, in viewport coordinates. The cursor is measured by its
+ *  own box rather than its inline `left`/`top`, so the hand's paint-only wobble and the
+ *  translate(-50%,-50%) are both accounted for by the browser rather than by arithmetic here. */
+async function revealGeometry(page: Page) {
+	return page.evaluate(() => {
+		const t = document.querySelector('#far-target')?.getBoundingClientRect();
+		const c = document.querySelector('.vetrina-cursor')?.getBoundingClientRect();
+		return {
+			scrollY: window.scrollY,
+			view: window.innerHeight,
+			target: t ? { top: t.top, bottom: t.bottom, left: t.left, right: t.right } : null,
+			cursor: c ? { x: (c.left + c.right) / 2, y: (c.top + c.bottom) / 2 } : null,
+		};
+	});
+}
+
+async function expectRevealed(page: Page): Promise<void> {
+	await goto(page, 'reveal');
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect.poll(() => attr(page, 'data-vt-phase')).toBe('holding');
+
+	const g = await revealGeometry(page);
+	expect(g.target, 'no #far-target — the reveal exemplar measured nothing').not.toBeNull();
+	expect(g.cursor, 'no cursor — the reveal exemplar measured nothing').not.toBeNull();
+	// The page moved by more than half a window. This is also the guard on the oracle itself: a
+	// scroll that large can only mean the target started well below the fold, which is the
+	// condition the case exists to create.
+	expect(g.scrollY, 'the page never scrolled — the cue is pointing off-screen').toBeGreaterThan(g.view / 2);
+	// The target is fully on screen, top and bottom — within a pixel. `block: 'nearest'` lands the
+	// bottom edge FLUSH with the window's, so at 390x844 it measured 844.171875 against a viewport
+	// of 844: fractional layout, not an overshoot. A whole pixel of slack is the right size for
+	// that and still an order of magnitude below the failure this pins (a target ~1,100px down).
+	expect(g.target?.top).toBeGreaterThanOrEqual(-1);
+	expect(g.target?.bottom).toBeLessThanOrEqual(g.view + 1);
+	// And the cursor is ON it (a 4px slack for the hand's landing wobble).
+	expect(g.cursor?.y, `cursor at y=${g.cursor?.y} vs target ${g.target?.top}-${g.target?.bottom}`).toBeGreaterThanOrEqual((g.target?.top ?? 0) - 4);
+	expect(g.cursor?.y).toBeLessThanOrEqual((g.target?.bottom ?? 0) + 4);
+	expect(g.cursor?.x).toBeGreaterThanOrEqual((g.target?.left ?? 0) - 4);
+	expect(g.cursor?.x).toBeLessThanOrEqual((g.target?.right ?? 0) + 4);
+
+	// The second half of the demo is a gesture-only beat on the same target — a verb that never
+	// passes through `point`, and whose reveal is therefore its own. It completes.
+	await expect.poll(() => attr(page, 'data-vt-phase'), { timeout: 20_000 }).toBe('done');
+	await expect.poll(() => attr(page, 'data-vt-reason')).toBe('complete');
+}
+
+test('reveal @crosswidth — a target below the fold is scrolled into view and the cursor lands on it', async ({ page }) => {
+	await expectRevealed(page);
+});
+
+// REAL WEBKIT AT AN IPHONE BOX, because two things in this fix are engine-specific and the report
+// was an iPhone. `behavior: 'instant'` is a WebIDL enum member (Safari 15.4+), so an engine that
+// does not know it throws from the dictionary conversion rather than ignoring it — a Chromium pass
+// cannot see that at all. And `block: 'nearest'` is the browser's own judgment about what is
+// already visible. This is the WebKit ENGINE, not iOS: real touch, Safari's collapsing chrome and
+// the visual-viewport offset are still owed on a device (HARD RULE #23).
+test('reveal @webkit-phone — the same on real WebKit, where `behavior: instant` is an engine question', async ({ page }) => {
+	await expectRevealed(page);
+});

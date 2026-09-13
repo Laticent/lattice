@@ -178,6 +178,25 @@ function instantPlay(): Walkthrough<BoardHost> {
 	};
 }
 
+/** A target BELOW THE FOLD — the one condition no other exemplar creates. The cue has to bring
+ *  it into view, or it names an empty viewport and the cursor parks off-screen (which is what a
+ *  phone did to nearly every target before the reveal landed). Holds on the stage afterwards so
+ *  the e2e can measure where the target, the viewport and the cursor actually ended up. */
+function revealPlay(): Walkthrough<BoardHost> {
+	return async (ctx) => {
+		ctx.actions.setPhase('touring');
+		await ctx.stage.point('#far-target', ctx.signal);
+		ctx.stage.say('Down here — a scroll away.');
+		ctx.actions.setPhase('holding');
+		await ctx.awaitUser({ match: () => false, timeout: 6000, onTimeout: 'resume' });
+		// The deictic stroke is the second half: a gesture-only beat never passes through
+		// `point`, so it reveals on its own account — and by now the page is already there,
+		// which is the `nearest` no-op case.
+		await ctx.stage.gesture('bracket', '#far-target', ctx.signal);
+		ctx.actions.setPhase('done');
+	};
+}
+
 const DEMOS: Record<string, () => Walkthrough<BoardHost>> = {
 	gestures: gesturesPlay,
 	'drag-ok': dragOkPlay,
@@ -187,6 +206,7 @@ const DEMOS: Record<string, () => Walkthrough<BoardHost>> = {
 	'theming-js': themingPlay, // same hold, but started with a concrete JS accent (below)
 	decouple: decouplePlay,
 	interleave: interleavePlay,
+	reveal: revealPlay,
 };
 
 export interface StartOptions {

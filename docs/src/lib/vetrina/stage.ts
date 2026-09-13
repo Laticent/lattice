@@ -41,7 +41,11 @@ export interface RectSource {
 	 *  answer with more resolution gets a highlighter that follows the words. A host that
 	 *  cannot is not penalized — every cue falls back to `getBoundingClientRect()`. */
 	getClientRects?(): DOMRectList | DOMRect[];
-	/** Optional; the stage calls it before a drag glide exactly as it does on an element. */
+	/** OPTIONAL, and the stage calls it before every AIM — a `point()`, a drag's pick-up and
+	 *  drop, a gesture — exactly as it does on an element, so a target below the fold is
+	 *  brought into view rather than pointed at off-screen. Leave it out and nothing breaks:
+	 *  the cue still plays, it just cannot scroll (the right answer for a source that has no
+	 *  scroll of its own, e.g. a region inside a frame the host positions itself). */
 	scrollIntoView?(arg?: boolean | ScrollIntoViewOptions): void;
 }
 
@@ -1137,6 +1141,57 @@ export function createStage(opts: StageOptions): Stage {
 		return out.length ? out : null;
 	};
 
+	// ── Bringing a target into view ─────────────────────────────────────────────
+	//
+	// A cue can only name something the viewer can SEE, and for most of this library's life
+	// nothing here scrolled: `point()` at a target below the fold aimed the cursor off the
+	// bottom of the window and the beat played to an empty viewport. The library's own answer
+	// to the question existed already — the drag path scrolled its DROP target (D4.1) — but it
+	// was one call, on one verb, so every other cue was left pointing at nowhere. On a desktop
+	// the host usually fits; on a phone almost nothing does, which is where it finally bit.
+	//
+	// `block: 'nearest'` is what makes this safe to run before EVERY aim: a target already in
+	// view moves nothing at all, so a tour on a page that fits scrolls exactly never.
+	//
+	// INSTANT, not smooth, and that is the one real decision here. Smooth is the prettier
+	// picture and it makes the landing a RACE between two animations: the glide's duration is
+	// computed once, from the distance Fitts's law sees at kickoff, while a browser's smooth
+	// scroll runs ~300-500ms — inside and sometimes past the 300-820ms travel envelope. The
+	// cursor would then land where the target was going to be and the target would still be
+	// moving. Instant makes the geometry final and synchronous BEFORE the duration is computed,
+	// which is the property every aim in this file is built on. It also takes the host's
+	// `scroll-behavior: smooth` out of the stage's hands, which the drag path was silently at
+	// the mercy of, and it is the motion-safe answer anyway — a programmatic smooth scroll is
+	// vestibular motion, so the `legible`/`still` tiers would have had to opt out of it.
+	//
+	// THE FALLBACK IS NOT DEFENSIVE PADDING. `behavior` is a WebIDL enum, and an enum member an
+	// engine does not know throws TypeError from the dictionary conversion rather than being
+	// ignored — `'instant'` shipped in Safari 15.4, so on an older iOS the whole call would
+	// throw and nothing would scroll at all. Retrying without it leaves that engine exactly
+	// where the drag path already left it: the host's own scroll behavior.
+	//
+	// It also RE-SEATS THE CHROME. Under `bounds: 'host'` the caption and Exit are measured
+	// against the VISIBLE part of `root`, and scrolling changes that box — but only `resize`
+	// was wired to `relayout`, because until now nothing in here could move the page. A stage
+	// that scrolls owes the re-seat for its own scroll. Unconditionally, without measuring the
+	// target twice to find out whether it actually moved: `relayout` returns immediately under
+	// the default bounds, and under `'host'` it is idempotent and costs about what the
+	// comparison would have cost anyway. (A scroll the VIEWER performs mid-run still goes
+	// unseated; that one is pre-existing and noted in the decision record.)
+	const reveal = (src: RectSource): void => {
+		if (destroyed || typeof src.scrollIntoView !== 'function') return;
+		try {
+			src.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+		} catch {
+			try {
+				src.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			} catch {
+				return; // a host-supplied source may refuse entirely; a cue that cannot scroll still plays
+			}
+		}
+		relayout();
+	};
+
 	// Every write to the cursor's opacity goes through here, so a host's `setCursorVisible(false)`
 	// cannot be quietly undone by an intro or a gesture that hard-sets opacity to 1.
 	let cursorHidden = false;
@@ -1292,6 +1347,13 @@ export function createStage(opts: StageOptions): Stage {
 	const fittsWidth = (r: DOMRect | null): number => (r ? Math.max(1, Math.min(r.width, r.height)) : NaN);
 
 	async function moveToEl(src: RectSource, signal?: AbortSignal): Promise<void> {
+		// NO `reveal()` HERE, deliberately, even though this is the choke point every aimed move
+		// goes through. By the time a `point()` reaches it, two other things have already read the
+		// target's rect — the anticipation streak + ping, and the register beat's `alreadyAimed` —
+		// and a scroll after those prices them at the target's OLD position. The ping is the
+		// visible one: it would flash where the target used to be while the cursor glided to where
+		// it now is. So each verb reveals at the TOP of its own beat (`point`, `drag`, `gesture`),
+		// which is also the only place that is once per beat.
 		// Re-read the rect at glide time AND on every frame of the glide (D4.1, #1400): the
 		// host may have scrolled or reflowed since the beat began, and may still be reflowing.
 		const aim = () => {
@@ -1362,8 +1424,11 @@ export function createStage(opts: StageOptions): Stage {
 	async function drag(from: Target, to: Target, signal?: AbortSignal): Promise<DragHandle> {
 		const fromEl = resolveSource(from);
 		const toEl = resolveSource(to);
-		// Pick up: glide to `from` + a grab pulse.
+		// Pick up: glide to `from` + a grab pulse. The drop target has been revealed since D4.1;
+		// the thing being PICKED UP owed it just as much — a drag that starts off-screen is a
+		// hand appearing from nowhere carrying something the viewer never saw it take.
 		if (fromEl) {
+			reveal(fromEl);
 			await moveToEl(fromEl, signal);
 			if (!reduced)
 				spawnFx(
@@ -1396,7 +1461,7 @@ export function createStage(opts: StageOptions): Stage {
 		// Glide to `to` — re-read the rect at glide time + scroll it into view (D4.1), since the
 		// reorder reflow hasn't happened yet (that waits on the gated drop).
 		if (toEl) {
-			toEl.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+			reveal(toEl);
 			// The scroll above is exactly the case a snapshot gets wrong, so aim LIVE (#1400).
 			const aim = () => {
 				const r = liveRect(toEl);
@@ -2003,6 +2068,15 @@ export function createStage(opts: StageOptions): Stage {
 	async function gesture(kind: Gesture, target?: Target, signal?: AbortSignal, opts?: GestureOptions): Promise<void> {
 		if (destroyed) return;
 		const el = target != null ? resolveSource(target) : null;
+		// A gesture is the one aimed cue that does not have to MOVE the cursor to draw — the
+		// deictic four ink their target where it stands, and `check`/`cross` bloom on it — so a
+		// gesture-only beat (the shape `sayAt: 'gesture'` exists for) never passes through
+		// `point`. It reveals here instead, and it has to be before `lastAim` is recorded below:
+		// a rect read across a scroll is off by exactly the scroll, and `lastAim` is the box the
+		// cursor-anchored caption keeps out of the way of. `opts.rest` deliberately gets no
+		// reveal — a withdrawal is where the hand goes to stop being in the way, not something
+		// the viewer is being shown.
+		if (el) reveal(el);
 		// A GESTURE AIMS, so it records what it aimed at. `lastAim` is what the cursor-anchored
 		// bubble keeps out of the way of, and only `point` and `drag` were writing it — so on a
 		// gesture-only beat (the shape `sayAt: 'gesture'` exists for) the balloon was scored
@@ -2100,6 +2174,11 @@ export function createStage(opts: StageOptions): Stage {
 		if (destroyed) return;
 		const src = resolveSource(target);
 		if (!src) return; // null-resolve = no-op (no wait, no throw)
+		// FIRST, before anything in this beat measures the target. Three things read its rect —
+		// the anticipation ping, the register beat's `alreadyAimed`, and the glide's own duration —
+		// and every one of them means the target's CURRENT place, so the scroll has to precede
+		// all three or they describe where it used to be.
+		reveal(src);
 		if (!silenced.has('anticipate')) anticipate(src);
 		// The register beat: the pause that lets the viewer's eye reach the target before the
 		// cursor does (a saccade takes ~200ms to launch, and in aimed movement the eye leads the

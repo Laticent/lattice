@@ -243,7 +243,7 @@ A `Target` is a **selector** (resolved inside the `root` you passed), an **eleme
 export interface RectSource {
   getBoundingClientRect(): DOMRect;          // viewport coordinates, live
   getClientRects?(): DOMRect[] | DOMRectList; // optional; per LINE, for the deictic cues
-  scrollIntoView?(arg?): void;               // optional; used before a drag glide
+  scrollIntoView?(arg?): void;               // optional; used before every aim (see below)
 }
 ```
 
@@ -271,6 +271,31 @@ confidently at the wrong thing is worse than no walkthrough.
 The cost of that guarantee is exactly one frame: a reflow lands after the frame that caused
 it, so a tracking cue is ~16ms behind during a resize. Momentary bursts (the click spark,
 the anticipation ping) stay snapshot-positioned — they are gone before any of this matters.
+
+**Off-screen targets are scrolled into view, instantly.** Before every aim — a `point()`, a
+drag's pick-up and drop, a gesture — Vetrina calls `scrollIntoView({ block: 'nearest', inline:
+'nearest', behavior: 'instant' })` on the target. `nearest` means a target already in view moves
+nothing, so a tour on a page that fits never scrolls; a target below the fold is brought up
+rather than pointed at off-screen — and on a phone that is almost every target.
+
+It is **instant on purpose**, not for lack of polish. A smooth scroll makes the landing a race
+between two animations: the glide's duration is computed once, from the distance at kickoff, and
+a browser's smooth scroll (~300–500ms) can outlive the 300–820ms travel envelope — so the cursor
+lands and the target keeps moving. Instant settles the geometry before the number is taken. It is
+also the motion-safe choice, so the `legible` / `still` tiers need no exception.
+
+Three consequences worth knowing. Your own `scroll-behavior: smooth` does **not** apply to these
+scrolls (that is the point). Under `bounds: 'host'`, Vetrina re-seats the caption and Exit after a
+scroll it performed itself — a scroll **the viewer** performs mid-run is not yet tracked. And a
+target clipped by an `overflow: hidden` ancestor *will* be scrolled into view, because a
+programmatic scroll works on a box the viewer cannot scroll; that box then stays scrolled with no
+affordance to put it back.
+
+**Opting a target out is one line, and it is the same widening `RectSource` already gives you:**
+hand Vetrina something that answers `getBoundingClientRect()` and nothing else, and the reveal is
+a no-op for it. That is how the Studio's Present guide aims at regions inside the preview iframe
+without the tour ever scrolling the slide
+(`engineering/decisions/2026-09-13-vetrina-reveals-its-target.md`).
 
 **How to say "gone".** A `RectSource` has to return a `DOMRect`, so it cannot answer `null`.
 Answer with a **zero-area rect** instead — that is the word for "this is nowhere now", and

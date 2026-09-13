@@ -63,6 +63,22 @@
 				color: var(--vt-accent);
 				font-weight: 600;
 			}
+			/* THE `reveal` DEMO'S PAGE, and it is display:none for every other one on purpose.
+			   Several exemplars assert positions (the dock's edge, computed tokens on the cursor),
+			   so a block that made the page scrollable for all of them would change the surface
+			   they were written against. `padding-top: 160vh` puts the target more than a
+			   viewport down at ANY width, which is the condition under test. */
+			#reveal-block { grid-column: 1 / -1; display: none; padding-top: 160vh; }
+			body[data-demo='reveal'] #reveal-block { display: block; }
+			#far-target {
+				height: 64px;
+				border: 2px dashed var(--vt-accent);
+				border-radius: 10px;
+				display: grid;
+				place-items: center;
+				color: var(--vt-accent);
+				font-weight: 600;
+			}
 			.controls { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 			button {
 				font: 600 0.85rem system-ui, sans-serif;
@@ -104,6 +120,13 @@
 					     injects into shadow trees, so this stays isolated. -->
 					<div id="shadow-host"></div>
 				</div>
+
+				<!-- Below the fold, and INSIDE the board because a run is root-scoped to it: the
+				     `reveal` exemplar's whole subject is a target the viewer cannot see yet. -->
+				<div id="reveal-block">
+					<p class="readout">More than a viewport of page. A cue down here has to be brought into view.</p>
+					<div id="far-target">far target</div>
+				</div>
 			</section>
 
 			<div class="controls">
@@ -125,6 +148,10 @@
 			const board = document.getElementById('vt-board');
 			const params = new URLSearchParams(location.search);
 			const demo = params.get('demo') || 'gestures';
+
+			// The `reveal` exemplar needs a page taller than the window; every other one must keep
+			// the layout it was written against, so the tall block is CSS-gated on this attribute.
+			document.body.dataset.demo = demo;
 
 			const nameOut = document.getElementById('demo-name');
 			const phaseOut = document.getElementById('phase-out');
