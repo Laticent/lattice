@@ -12,7 +12,7 @@ vi.mock('@/components/DeckPreview', () => ({
 	},
 }));
 
-import { livePreviewCount, PREVIEW_BUDGET, SlideThumbFace, useInView } from './slide-thumb';
+import { livePreviewCount, PREVIEW_BUDGET, previewBudget, SlideThumbFace, useInView } from './slide-thumb';
 
 // #1463 — the thumbnail window is TWO-WAY and budgeted. The old hook disconnected its
 // observer on first intersection, so a tile that had ever been on screen kept its engine
@@ -127,13 +127,13 @@ describe('useInView — the two-way, budgeted preview window (#1463)', () => {
 		for (let i = 0; i < n; i++) {
 			const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
 			intersect(el, true);
-			expect(livePreviewCount()).toBeLessThanOrEqual(PREVIEW_BUDGET);
+			expect(livePreviewCount()).toBeLessThanOrEqual(previewBudget());
 			intersect(el, false);
 		}
-		expect(livePreviewCount()).toBeLessThanOrEqual(PREVIEW_BUDGET);
+		expect(livePreviewCount()).toBeLessThanOrEqual(previewBudget());
 		// The one-way window would have left all 64 mounted.
 		const mounted = Array.from({ length: n }, (_, i) => isLive(container, i)).filter(Boolean).length;
-		expect(mounted).toBeLessThanOrEqual(PREVIEW_BUDGET);
+		expect(mounted).toBeLessThanOrEqual(previewBudget());
 		// And the recycling is LRU — the tiles scrolled past longest ago are the ones gone.
 		expect(isLive(container, 0)).toBe(false);
 		expect(isLive(container, n - 1)).toBe(true);
@@ -207,7 +207,7 @@ describe('useInView — the two-way, budgeted preview window (#1463)', () => {
 			const el = container.querySelector(`[data-testid="tile-${i}"]`) as Element;
 			deliver(el, [true, false]);
 		}
-		expect(livePreviewCount()).toBeLessThanOrEqual(PREVIEW_BUDGET);
+		expect(livePreviewCount()).toBeLessThanOrEqual(previewBudget());
 		unmount();
 	});
 
@@ -225,6 +225,52 @@ describe('useInView — the two-way, budgeted preview window (#1463)', () => {
 		expect(isLive(container, 0)).toBe(true);
 		expect(isLive(container, 1)).toBe(true);
 		unmount();
+	});
+});
+
+// ── The ceiling scales with the screen (#1538) ───────────────────────────────────────
+// 32 was one desktop measurement applied to every device, so a phone showing 3 tiles held
+// the same 31 live engine documents as a workstation showing 7. These pin the SHAPE of the
+// mapping — that it falls with area, is clamped at both ends, and re-reads on rotation —
+// not the constants, which are a memory trade the header records the measurements for.
+describe('previewBudget — the ceiling follows the band (#1538)', () => {
+	it('retains the floor when the band is smaller than it', () => {
+		// A short grid — a looks panel, Present's overview of a small deck — keeps the free
+		// scroll-back the two-way window exists for. The floor is what preserves that.
+		expect(previewBudget(0)).toBe(8);
+		expect(previewBudget(3)).toBe(8);
+		expect(previewBudget(8)).toBe(8);
+	});
+
+	it('grows with the band once the band is larger than the floor', () => {
+		// The whole point: an in-band tile is never recycled, so the ceiling must not sit below
+		// the band or it is simply inoperative. This is the self-tuning half — a wider viewport,
+		// a rotation and a column-count change all move the band and the ceiling follows, with
+		// no viewport read, no breakpoint, and no device signal.
+		expect(previewBudget(12)).toBe(12);
+		expect(previewBudget(20)).toBe(20);
+	});
+
+	it('never exceeds the hard ceiling, however large the band gets', () => {
+		// A runaway band must not become a runaway document count.
+		expect(previewBudget(64)).toBe(PREVIEW_BUDGET);
+		expect(previewBudget(1000)).toBe(PREVIEW_BUDGET);
+	});
+
+	it('is monotonic in the band — a bigger band never earns a smaller ceiling', () => {
+		let last = 0;
+		for (let band = 0; band <= 40; band++) {
+			const cap = previewBudget(band);
+			expect(cap).toBeGreaterThanOrEqual(last);
+			last = cap;
+		}
+	});
+
+	it('needs no window — it is safe during SSR', () => {
+		// Deliberately a pure function of its argument. The mapping this replaced read
+		// `window.innerWidth`, which made the module unsafe to evaluate on the server and tied
+		// the ceiling to a viewport rather than to the thing that actually costs memory.
+		expect(previewBudget(10)).toBe(10);
 	});
 });
 

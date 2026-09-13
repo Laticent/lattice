@@ -222,13 +222,22 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 			afterPass.push(await mounted(page));
 		}
 
-		// THE RELATION. Not "the count returns to what it was" — an LRU window promises no such
-		// thing and the first cut of this file failed for asserting it (see the header). What it
-		// promises is that the set STOPS growing: pass 2 and pass 3 are no-ops on it. A window
-		// that accumulates instead of recycling rises here pass over pass; one that thrashes
-		// (recycling tiles it is about to need) oscillates.
-		agree(afterPass[0], afterPass[1], 'mounted previews after traversal 1 vs traversal 2');
-		agree(afterPass[1], afterPass[2], 'mounted previews after traversal 2 vs traversal 3');
+		// THE RELATION, and it is ONE-SIDED on purpose. Not "the count returns to what it was" —
+		// an LRU window promises no such thing, and the first cut of this file failed for
+		// asserting it (see the header). What it promises is that the set stops GROWING.
+		//
+		// Shrinking is not a violation, it is the budget working: the ceiling now follows the
+		// in-band set (slide-thumb.tsx `previewBudget`), so when a traversal ends and the band
+		// contracts, the ceiling contracts with it and a later sweep trims further. Measured on
+		// WebKit at the iPhone 15 Pro profile, passes 1 and 2 settled at 21 then 16 — a window
+		// doing MORE of its job, which a symmetric comparison called a regression.
+		//
+		// Growth is the defect this guards (#1463): a window that accumulates instead of
+		// recycling rises pass over pass, and no amount of slack hides three passes of it.
+		expect(afterPass[1], `mounted previews GREW between traversal 1 and 2: ${afterPass[0]} → ${afterPass[1]}`).toBeLessThanOrEqual(afterPass[0] + SLACK);
+		expect(afterPass[2], `mounted previews GREW between traversal 2 and 3: ${afterPass[1]} → ${afterPass[2]}`).toBeLessThanOrEqual(afterPass[1] + SLACK);
+		// And the window is still a WINDOW — a set that shrank to nothing would satisfy the above.
+		expect(afterPass[2], 'the gallery mounted no previews at all after three traversals').toBeGreaterThan(1);
 	});
 
 	test('@crosswidth MR-2 · what you can SEE depends on the offset, never on the route', async ({ page }, testInfo) => {
@@ -506,7 +515,10 @@ test('@webkit-phone MR-1 + MR-3 hold on the engine a phone actually runs', async
 		await quiesced(page);
 		passes.push(await mounted(page));
 	}
-	agree(passes[0], passes[1], 'WebKit: mounted previews after traversal 1 vs traversal 2');
+	// One-sided, for the reason MR-1 gives above — and this is the surface that proved it
+	// necessary: the ceiling follows the band, so a settled count may fall between passes.
+	expect(passes[1], `WebKit: mounted previews GREW between traversal 1 and 2: ${passes[0]} → ${passes[1]}`).toBeLessThanOrEqual(passes[0] + SLACK);
+	expect(passes[1], 'WebKit: the gallery mounted no previews at all').toBeGreaterThan(1);
 
 	await page.keyboard.press('Escape');
 	await expect.poll(() => mounted(page), { timeout: 20_000, message: 'WebKit: the gallery did not tear its previews down on close' }).toBe(0);

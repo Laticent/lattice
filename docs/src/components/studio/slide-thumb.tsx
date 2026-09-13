@@ -40,7 +40,70 @@ export function hasMermaid(md: string): boolean {
 // back within the slack (budget minus whatever is in band, ~3 rows on the desktop
 // dialog) still costs nothing; scrolling far enough re-renders, which is the trade
 // this deliberately makes: a cold tile beats a dead tab.
+//
+// ── AND THE CEILING FOLLOWS THE BAND, NOT A CONSTANT (#1538) ────────────────
+// 32 was one desktop measurement applied to every device, and a phone is not a small
+// desktop: it has a fraction of the memory AND shows a fraction of the tiles, so a fixed
+// retention ceiling lands hardest exactly where there is least headroom. Measured on the
+// built site at budget 32 — a phone was showing THREE slides and paying for THIRTY-ONE:
+//
+//   viewport     tiles you can see    live documents held
+//   1440x900             7                    31
+//    820x1180            6                    31
+//    390x844             3                    31
+//
+// The ceiling is now `max(PREVIEW_BUDGET_MIN, whatever is in band)`: retain the band, and
+// beyond it the floor. The floor is what keeps the old slack where it is cheap — a grid
+// smaller than it (a short looks panel, Present's overview of a small deck) still retains
+// everything and re-renders nothing.
+//
+// WHY NOT SCALE BY VIEWPORT AREA, which is the obvious move and was measured first: it
+// fixes the phone and does nothing for a tablet. Area-scaling hands an iPad 24, and 24
+// measures no better than 32. Peak resident set above the Studio's own baseline, browsing
+// the gallery once, same protocol for every row:
+//
+//   mapping          390x844          820x1180         1440x900
+//   fixed 32         +1237/+1323 MB   +985/+1251 MB    +984 MB
+//   area-scaled       +573 MB (10)    +1119 MB (25)    +984 MB (33)
+//   THIS (in-band)    +629 MB (11)     +827 MB (12)    +890 MB (17)
+//
+// — and the column that makes it cheap: visible tiles are 3 / 6 / 7 under EVERY row. The
+// budget caps retention and never the on-screen set, so none of this changes what the
+// author can see. Following the band also needs no device signal at all, which matters
+// because the obvious one is unavailable: WebKit does not implement
+// `navigator.deviceMemory`, so it is absent on exactly the devices this is for.
+//
+// PEAK is the meter, not post-GC retained heap. iOS discards a tab on footprint under
+// memory pressure and that discard is what a user reports as "the page reloaded". There is
+// no LEAK here and this does not claim to fix one: four open/close cycles settle flat at
+// 1011 / 1017 / 1024 / 1026 MB. Measured with no CDP heap client attached, because a forced
+// `HeapProfiler.collectGarbage` does not dispose Blink's detached realms and recycling a
+// tile mints exactly those — see engineering/gotchas/memory-profiling.md, which is also why
+// an earlier pass of this work reported a +144MB per-cycle ratchet that does not exist.
+//
+// WHAT THIS DOES NOT FIX, so the next person does not re-measure it: the band itself. An
+// in-band tile is never recycled, so ~12 live engine documents at 390 and 820 alike are
+// irreducible while a tile IS an engine document — which is the whole remaining cost on a
+// tablet. Only a cheaper tile addresses that.
 export const PREVIEW_BUDGET = 32;
+
+/** The hard ceiling, whatever the band does — a runaway in-band set must not become a
+ *  runaway document count. This is the number the constant above used to mean outright. */
+const PREVIEW_BUDGET_MAX = PREVIEW_BUDGET;
+/** The floor: retain at least this many even when the band is smaller, so a short grid keeps
+ *  the free scroll-back the two-way window was built for. */
+const PREVIEW_BUDGET_MIN = 8;
+
+/**
+ * How many previews may stay mounted right now, given how many are currently IN BAND.
+ *
+ * Derived per enforcement rather than fixed, which is what makes it self-tuning: it needs no
+ * viewport read, no breakpoint and no device signal, and it follows a rotation, a window
+ * resize and a column-count change for free, because all three move the band.
+ */
+export function previewBudget(inBand = 0): number {
+	return Math.min(PREVIEW_BUDGET_MAX, Math.max(PREVIEW_BUDGET_MIN, inBand));
+}
 
 type Slot = { inBand: boolean; recycle: () => void };
 /** Mounted previews, insertion-ordered by when each was last IN BAND — so the head
@@ -58,9 +121,12 @@ function touchPreview(token: object, slot: Slot): void {
 /** Recycle least-recently-seen OUT-OF-BAND previews until the budget is met. If every
  *  mounted preview is in band we simply run over: the on-screen set is not negotiable. */
 function enforcePreviewBudget(): void {
-	if (livePreviews.size <= PREVIEW_BUDGET) return;
+	let inBandNow = 0;
+	for (const s of livePreviews.values()) if (s.inBand) inBandNow++;
+	const cap = previewBudget(inBandNow);
+	if (livePreviews.size <= cap) return;
 	for (const [token, slot] of livePreviews) {
-		if (livePreviews.size <= PREVIEW_BUDGET) return;
+		if (livePreviews.size <= cap) return;
 		if (slot.inBand) continue;
 		livePreviews.delete(token);
 		slot.recycle();
