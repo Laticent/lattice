@@ -737,6 +737,142 @@ function scheduleVizScan(getDoc: () => Document | null | undefined): void {
 	}, 650);
 }
 
+// ── ONE PARSED STYLESHEET FOR EVERY PREVIEW FRAME ───────────────────────────────────
+// The engine sheet is ~640KB and, per 2026-07-11-preview-performance-diagnosis, "a pure
+// function of theme-name + geometry". A thumbnail grid renders every tile at the SAME theme
+// and the SAME geometry, so all of its frames want a BYTE-IDENTICAL sheet — and until this
+// cache they each inlined their own copy into their own `<style>`, which a browser has no way
+// to recognize as the same thing. Fifteen tiles meant fifteen parses and fifteen CSSOMs.
+//
+// Handing every frame ONE URL instead lets the engine share the parsed sheet. Measured over 16
+// same-origin frames, cost per frame for the sheet alone:
+//
+//   delivery                 Chromium      WebKit (what iOS runs)
+//   inline <style>            11.1 MB          12.9 MB
+//   <link> to one url          6.4 MB           5.2 MB
+//
+// — a 42% cut on Chromium and 60% on WebKit, with all 16 frames verified still styled. A
+// `blob:` url shares exactly as well as an `http:` one (measured, both engines), which is what
+// makes this reachable at all: the sheet is composed at runtime, so there is no static URL to
+// point at. The preview CSP leaves `blob:` open by design and declares no `default-src`, so
+// nothing there needs changing (docs/src/playground/preview-csp.js).
+//
+// KEYED BY CONTENT, AND THE FULL STRING IS COMPARED, not just its hash. `hashString` collisions
+// are a live concern in this file — `single-slide-render.cache-keys.test.ts` exists because one
+// silently served a stale sheet — and serving the wrong 640KB of CSS is a worse failure than a
+// cache miss. The retained strings are the ones `theme-fetch` already holds, so keeping them
+// here costs a reference, not a copy.
+const sheetCache = new Map<string, { url: string; css: string }>();
+/** Enough for the working set a Studio session actually has — a theme, its dark twin, and a
+ *  couple mid-edit — without holding blobs for sheets nothing is pointing at any more. */
+const SHEET_CACHE_MAX = 6;
+
+/**
+ * Resolve every `url()` in a stylesheet against the DOCUMENT, before it goes into a blob.
+ *
+ * REQUIRED, and it is the one thing that makes a blob sheet render identically rather than
+ * merely load. A stylesheet's relative URLs resolve against the STYLESHEET's base, and a
+ * `blob:` URL is an opaque-path URL with nothing to resolve against — so `url(/…/playfair-400.woff2)`,
+ * which is perfectly correct inline, becomes unfetchable the moment the same bytes are served
+ * from a blob. It fails SILENTLY and in the most expensive possible way: the sheet itself parses
+ * (3595 rules, all colors and layout correct), so every structural check passes while the deck
+ * renders in fallback faces. Measured before this call existed: 37 of 37 `@font-face` entries at
+ * `status: "error"` against 37 loaded inline, and the headline measuring 828px — the fallback
+ * width exactly — against 877px.
+ *
+ * `theme-fetch.ts` already absolutizes font URLs once, to a ROOT-relative path, for the inline
+ * case; that is the right answer there and not enough here. This is the same footgun one level
+ * out, and the reason it is done at the blob boundary rather than in the fetcher is that only
+ * this path needs a scheme-and-host URL — every other consumer embeds the text in a document
+ * that has a real base.
+ *
+ * `data:` and `blob:` values are already absolute and left alone.
+ */
+function absolutizeUrls(css: string): string {
+	const base = typeof document !== 'undefined' ? document.baseURI : '';
+	if (!base) return css;
+	return css.replace(/url\((\s*)(['"]?)([^'")]+)\2(\s*)\)/g, (whole, pre, quote, raw) => {
+		const value = String(raw).trim();
+		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return whole; // data:, blob:, https:, #frag
+		try {
+			return `url(${pre}${quote}${new URL(value, base).href}${quote}${''})`;
+		} catch {
+			return whole;
+		}
+	});
+}
+
+/**
+ * A URL serving `css`, shared with every other frame that wants the same bytes — or `null`
+ * where object URLs are unavailable, in which case the caller inlines as before.
+ *
+ * The null path is not dead code: it is what keeps this module renderable under jsdom and any
+ * non-browser host, and it keeps the fallback on the SAME cascade order as the live path.
+ */
+function sharedSheetHref(css: string): string | null {
+	if (!css) return null;
+	if (typeof Blob !== 'function' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return null;
+	const key = `${css.length}:${hashString(css)}`;
+	const hit = sheetCache.get(key);
+	if (hit) {
+		// Compare the BYTES, never just the key — a collision here serves another theme's sheet.
+		if (hit.css === css) {
+			sheetCache.delete(key); // re-insert at the tail: this is the most recently wanted sheet
+			sheetCache.set(key, hit);
+			return hit.url;
+		}
+		sheetCache.delete(key);
+		URL.revokeObjectURL(hit.url);
+	}
+	try {
+		const url = URL.createObjectURL(new Blob([absolutizeUrls(css)], { type: 'text/css' }));
+		sheetCache.set(key, { url, css });
+		while (sheetCache.size > SHEET_CACHE_MAX) {
+			const oldest = sheetCache.keys().next().value as string | undefined;
+			if (oldest === undefined) break;
+			const drop = sheetCache.get(oldest);
+			sheetCache.delete(oldest);
+			// A frame that already LOADED this url keeps its stylesheet regardless — revoking frees
+			// the blob, it does not un-style a live document. The case that WOULD bite is a frame
+			// whose srcdoc names this url but has not fetched it yet: revoke first and that tile
+			// paints unthemed, permanently, with nothing to retry. It takes SHEET_CACHE_MAX distinct
+			// sheets in flight to reach here at all (a fast theme-cycle), so the window is small and
+			// so is the insurance — hold the blob a few seconds past eviction and let the pending
+			// load win. Worst case is one stale blob alive for that long.
+			if (drop) setTimeout(() => URL.revokeObjectURL(drop.url), 10_000);
+		}
+		return url;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Point a live frame's shared-sheet `<link>` at `url` without a flash.
+ *
+ * Assigning `href` in place would drop the old sheet the moment the new one is fetched, and a
+ * blob fetch is fast but not synchronous — so the frame can paint one frame unstyled, on the
+ * exact path (a theme toggle) this file already went to some trouble to make seamless. Adding
+ * the new link AFTER the old one and removing the old on load keeps a styled document at every
+ * instant: while both are attached the later one wins the cascade, which is the new one.
+ */
+function swapSharedSheet(doc: Document, url: string): void {
+	const current = doc.getElementById('lattice-sheet') as HTMLLinkElement | null;
+	if (!current || current.getAttribute('href') === url) return;
+	const next = doc.createElement('link');
+	next.rel = 'stylesheet';
+	next.setAttribute('href', url);
+	next.id = 'lattice-sheet';
+	current.id = 'lattice-sheet-outgoing';
+	const drop = () => current.remove();
+	next.addEventListener('load', drop, { once: true });
+	next.addEventListener('error', drop, { once: true });
+	current.after(next);
+	// A frame torn down mid-swap fires neither event; without this the outgoing sheet would stay
+	// attached and keep winning nothing — harmless, but it would accumulate one per toggle.
+	setTimeout(drop, 2000);
+}
+
 /**
  * Build a single-slide renderer bound to a theme source + runtime URL. Returns:
  *   - renderInto(host, markdown, mermaid, paletteOverride?, extra?, modeOverride?, extraCss?, opts?) → Promise<RenderStatus>
@@ -820,7 +956,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// to document intent; color-scheme is forced to the rendered mode so a theme's `light-dark()`
 	// pairs resolve as chosen; author-supplied `extraCss` (Fabricate Layout Studio's live component
 	// styles) is appended AFTER the theme, the same order the Workbench previews it.
-	function themeStyleContent(css: string, mode: 'light' | 'dark', geom: Geom, extraCss = ''): string {
+	/**
+	 * The FRAME half — everything that must sit BEFORE the engine sheet in the cascade.
+	 *
+	 * The split is what lets the engine sheet move into a shared `<link>` (see
+	 * `sharedSheetHref`) without changing which rule wins. `singleSlideFrame` emits
+	 * `.lattice>section{width;height}` and frame-css.js is explicit that it "must AGREE with the
+	 * engine scaffold's `article.lattice > section`" — so the two DO collide, and today the
+	 * engine's copy wins by coming later. Emitting this as one element, the sheet as the next,
+	 * and the author's CSS as the last keeps that order byte-for-byte; collapsing any two of them
+	 * would silently hand the win to the other side, which is exactly the disagreement that
+	 * comment warns renders the slide at the wrong size.
+	 */
+	function frameStyleContent(mode: 'light' | 'dark', geom: Geom): string {
 		return (
 			singleSlideFrame(geom.width, geom.height) +
 			':root{color-scheme:' +
@@ -841,28 +989,50 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// before the async Anima host mounts + reveals it (hidden → build → settle). `visibility:hidden`
 			// keeps the figure's box (no reflow / no Fit-math corruption on reveal, unlike display:none). The
 			// class is added ONLY by the live parent host — never by engine output — so it is inert in export.
-			'.anima-prehide{visibility:hidden}' +
-			css +
-			(extraCss ? '\n/* studio-extra-css */\n' + extraCss : '')
+			'.anima-prehide{visibility:hidden}'
 		);
 	}
 
+	/** The AUTHOR half — everything that must sit AFTER the engine sheet. Fabricate's live
+	 *  component styles, which have always been appended last so they can override the theme. */
+	function authorStyleContent(extraCss = ''): string {
+		return extraCss ? '/* studio-extra-css */\n' + extraCss : '';
+	}
+
 	/**
-	 * The same string, safe to embed in a `<style>` element (HARD RULE #22, stylesheet
-	 * channel). Both caller-influenced halves pass through it — the composed theme CSS
-	 * (which carries a Studio theme's label + description in its comment header, and the
-	 * description is model-populated) and `extraCss` (the author's live component styles).
+	 * Text safe to embed in a `<style>` element (HARD RULE #22, stylesheet channel).
 	 *
-	 * Sanitizing the ASSEMBLED string rather than each part is deliberate: one call site
-	 * for both channels, and a `</style` cannot be assembled across the join because the
-	 * separator between them is a comment we emit ourselves.
+	 * EVERY caller-influenced string still passes through it, and that is unchanged by the
+	 * shared-sheet split. The two channels are the composed theme CSS (which carries a Studio
+	 * theme's label + description in its comment header, and the description is model-populated)
+	 * and `extraCss` (the author's live component styles). The theme CSS now usually leaves
+	 * through a `<link>`, where the `</style` break-out this guards against cannot occur at
+	 * all — RAWTEXT is a property of the `<style>` ELEMENT, and a linked sheet is never parsed
+	 * as markup. It is sanitized anyway rather than exempted: the fallback path DOES inline it
+	 * when object URLs are unavailable, and one unconditional call is cheaper to keep correct
+	 * than a rule about which delivery is in play.
 	 *
 	 * The RESTYLE fast path sets this via `.textContent`, which is a DOM write and cannot
 	 * be broken out of — it takes the sanitized string anyway so the two paths produce a
 	 * byte-identical resident `<style>`, and so no future caller has to know which is which.
 	 */
-	function styleElementText(css: string, mode: 'light' | 'dark', geom: Geom, extraCss = ''): string {
-		return sanitizeStyleText(themeStyleContent(css, mode, geom, extraCss));
+	function styleElementText(text: string): string {
+		return sanitizeStyleText(text);
+	}
+
+	/**
+	 * The three style elements a preview document carries, in cascade order, as markup.
+	 *
+	 * `sheetUrl` non-null → the engine sheet rides a shared `<link>` and only the small frame
+	 * and author halves are inlined. Null → everything inlines, in the same order, which is
+	 * exactly what this builder emitted before the split.
+	 */
+	function styleMarkup(css: string, mode: 'light' | 'dark', geom: Geom, extraCss: string, sheetUrl: string | null): string {
+		const frame = '<style id="lattice-frame">' + styleElementText(frameStyleContent(mode, geom)) + '</style>';
+		const sheet = sheetUrl ? '<link id="lattice-sheet" rel="stylesheet" href="' + sheetUrl + '">' : '<style id="lattice-sheet">' + styleElementText(css) + '</style>';
+		// Keeps the id the RESTYLE path and single-slide-render.cache-keys.test.ts already know.
+		const author = '<style id="lattice-theme">' + styleElementText(authorStyleContent(extraCss)) + '</style>';
+		return frame + sheet + author;
 	}
 
 	// Render the slide at its INTRINSIC `@size` box and scale the iframe ELEMENT
@@ -887,9 +1057,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
 			previewCspMeta({ katexUrl: opts.katexUrl || '' }) +
-			'<style id="lattice-theme">' +
-			styleElementText(css, mode, geom, extraCss) +
-			'</style>' +
+			// THREE elements in cascade order — frame box, then the engine sheet (shared across
+			// every frame that wants the same bytes), then the author's CSS. Each carries an id so
+			// the RESTYLE fast path below can update it in place without rewriting the srcdoc.
+			styleMarkup(css, mode, geom, extraCss, sharedSheetHref(css)) +
 			// The font gate, in <head> — and here the placement is LOAD-BEARING rather
 			// than merely consistent. This document does not reveal itself: the parent
 			// fades the iframe in from `scaleFrame`, which POLLS. `facesReady` decides
@@ -1578,10 +1749,28 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const safe = sanitizeOnce(out.html);
 					const restyleSanitizeMs = performance.now() - tSan;
 					const tFrame = performance.now();
-					// Swap the theme <style> in place FIRST, then the body — the new palette applies
+					// Swap the styles in place FIRST, then the body — the new palette applies
 					// atomically with the new section, so a viewer never sees the old theme on the new
 					// body (or vice-versa) for a frame.
-					themeStyleEl.textContent = styleElementText(out.css, mode, geom, extraCss);
+					//
+					// All THREE elements, because the sheet split them: the frame box (mode's
+					// `color-scheme` lives here), the engine sheet, and the author's CSS. The sheet is
+					// the one that cannot be a synchronous textContent write — it is a `<link>` now —
+					// so `swapSharedSheet` overlaps the old and new sheets rather than blanking the
+					// document between them. The other two stay synchronous, so the atomicity this
+					// path was built for still holds for everything except the sheet, whose old copy
+					// keeps applying until the new one is ready.
+					const doc = live.contentDocument as Document;
+					const frameEl = doc.getElementById('lattice-frame');
+					if (frameEl) frameEl.textContent = styleElementText(frameStyleContent(mode, geom));
+					const nextSheet = sharedSheetHref(out.css);
+					if (nextSheet) swapSharedSheet(doc, nextSheet);
+					else {
+						// Fallback delivery — the sheet is an inline <style> in this document too.
+						const inlineSheet = doc.getElementById('lattice-sheet');
+						if (inlineSheet) inlineSheet.textContent = styleElementText(out.css);
+					}
+					themeStyleEl.textContent = styleElementText(authorStyleContent(extraCss));
 					const inPlace = swapKind();
 					if (patchSlideBody(live, safe, inPlace)) {
 						// Stamp only once the write LANDED. Stamping first meant a failed patch fell

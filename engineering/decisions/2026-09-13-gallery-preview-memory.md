@@ -166,6 +166,74 @@ authoring alarms live, and each is a whole-deck engine parse.
 recycled, so ~12 live documents at 390 and 820 alike are irreducible *while a tile is an engine
 document*. That is the remaining cost on a tablet, and only a cheaper tile addresses it.
 
+## 4b. The sheet every frame was parsing on its own
+
+The retention work above caps how many live documents exist. This is the other half — what one
+costs — and it turned out to be the larger lever on the engine an iPhone runs.
+
+**Measured cost of a preview frame, attributed one piece at a time** (16 same-origin frames):
+
+| per frame | Chromium | WebKit |
+|---|---|---|
+| empty iframe (realm only) | 2.0 MB | 1.0 MB |
+| + slide markup | 3.0 MB | 2.0 MB |
+| **+ engine CSS inlined** | **9.9 MB** | **13.2 MB** |
+| + engine CSS via a shared `<link>` | 6.2 MB | **5.6 MB** |
+| + runtime via `<script src>` | 11.7 MB | 12.1 MB |
+
+The CSS is the biggest single line and it was duplicated per frame for no reason: `out.css` is
+"a pure function of theme-name + geometry" (2026-07-11), and every tile in a grid shares both —
+so all of them wanted byte-identical CSS while each inlined its own copy into its own `<style>`,
+which a browser cannot recognize as the same bytes.
+
+**The runtime was already shared** (`<script src>`, one URL, cached), which is why it does not
+appear as a fix here. After the change the only per-frame JS is two inline agents totalling
+1.1KB. There is nothing else of size left to share.
+
+**Delivery had to be a `blob:` URL**, because the sheet is composed at runtime and there is no
+static URL to point at. Measured: a blob shares exactly as well as an http URL on both engines,
+with all 16 frames verified styled. The preview CSP declares no `default-src` and leaves `blob:`
+open, so nothing there needed changing.
+
+**Result, A/B in one build** (the fallback path inlines exactly as before, so removing
+`URL.createObjectURL` in the page reproduces the old delivery with everything else held
+constant), peak RSS browsing the gallery once at 390x844:
+
+| | inline (before) | shared `<link>` (after) |
+|---|---|---|
+| Chromium | +1041 / +993 MB | **+393 / +361 MB** (−63%) |
+| WebKit | +1469 / +1399 MB | **+1189 / +1064 MB** (−21%) |
+
+The per-frame document dropped from ~769,000 bytes to 2,508.
+
+### The bug this nearly shipped, and why nothing caught it
+
+A stylesheet's relative `url()` resolves against the STYLESHEET's base. A `blob:` URL is an
+opaque-path URL with nothing to resolve against — so `url(/…/playfair-400.woff2)`, correct
+inline, becomes unfetchable from a blob. `theme-fetch.ts` already absolutizes font URLs once, to
+a root-relative path, and that is the right answer for the inline case and not enough here.
+
+It failed in the most expensive way available. The sheet parsed — 3595 rules, every color and
+every box correct — so the document was structurally perfect and rendered in **fallback faces**:
+37 of 37 `@font-face` entries at `status: "error"` against 37 loaded inline, and the deck's
+headline measuring 828px, the fallback width exactly, instead of 877px.
+
+**Every check that counted things passed.** The gallery's budget and metamorphic suites passed,
+because a tile with the wrong font is still a mounted, painted tile. `preview-font-swap.spec.ts`
+passed. The unit suites passed — and could not have failed, because **jsdom has `Blob` but not
+`URL.createObjectURL`**, so every one of them exercises the fallback and none of them can reach
+the shared path at all. What caught it was rendering the same slide both ways and LOOKING at the
+two screenshots.
+
+Two things came out of that, and they are the durable part of this section:
+- `single-slide-render.shared-sheet.test.ts` stubs `createObjectURL` so the shipped path is the
+  one under test;
+- `preview-shared-sheet.spec.ts` asserts the FACES loaded, not that a sheet arrived — verified to
+  go red when the fix is reverted.
+
+Render parity is now proven rather than assumed: byte-identical screenshots on both engines, and
+identical computed box, background, color and family.
+
 ## 5. The poster cache — feasible, high-fidelity, not built
 
 The ask proposed a palette-blind SVG family glyph. **That trade is worse than it needs to be**:
