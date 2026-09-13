@@ -210,29 +210,29 @@ surface in one session. A pacing change that cannot be compared is a matter of t
 
 Same tour, same app, same machine (`/proto/vetrina-caption/`):
 
-| configuration | total | vs. today |
+| configuration | total | vs. the default |
 |---|---|---|
-| `bar` · viewport · legacy · no narration (the default, unchanged) | 13.5 s | — |
-| `bar` · host · **grounded** · no narration | 16.3 s | **+21%** |
-| `cursor` · host · grounded · **Cadenza** | 26.6 s | **+97%** |
+| `bar` · viewport · legacy · no narration (**the default**) | 11.6 s | — |
+| `bar` · host · **grounded** · no narration | 13.0 s | **+12%** |
+| `cursor` · host · grounded · no narration | **30.1 s** | **+160%** |
+| `cursor` · host · grounded · Cadenza (silent, timed) | 27.5 s | +138% |
+| `cursor` · host · grounded · voiced (placeholder, 1.2x) | 22.2 s | +92% |
 
-The narrated cursor tour is nearly twice as long, and that is the honest headline. Where it went:
+Every row is the SAME tour on the same machine, two runs each, spread under 0.2 s. That
+qualification is not boilerplate: an earlier version of this table had its first two rows measured
+against a tour whose captions were then edited, so its "+21%" and "+97%" were deltas between two
+different demos. An independent checker caught it.
 
-- **The read beat's caption is 16 words**, which at a caption reading rate is 6.4 s — over the
-  6-second ceiling, so the clamp binds. The model is not being slow here; it is reporting that
-  the beat is too long and should be two beats. That is a useful signal to have, and arguably the
-  most valuable thing the model does: it turns "this caption is a bit long" into a number.
-- **Travel redistributed rather than inflated.** Beat 2 (the wide title field) went 1074 → 937 ms;
-  beat 4 (the 44px-tall Publish button) went 849 → 932 ms. Net roughly flat, spent where the
-  difficulty actually is.
-- **Typing went 316 → 792 ms** for 15 characters. That is the fusion-threshold fix, and it is the
-  one that most changes how the run reads.
-- **Narration adds ~4 s** because a beat now waits for its line instead of for an estimate of it.
-- **The reading budget adds ~6 s more**, and it is the transient caption's own bill: every beat
-  now holds its line for a reader, where an edge dock holds none (the words just sit there until
-  replaced). The single largest slice is one 16-word caption that hits the 6-second clamp — which
-  is the model reporting that the beat should have been two beats, and is the lever worth pulling
-  before any other.
+Three things the corrected table says that the broken one hid:
+
+- **The transient caption, not the pacing model, is the cost.** Grounded pacing alone is +12%.
+  Everything above that is the reading budget every beat now spends.
+- **It is SLOWER without a narrator than with one** — 30.1 s silent against 27.5 s timed. Not a
+  paradox: a word-cued beat is exempt from the dwell, and the cue only resolves when a narrator can
+  plan the line. No narrator, no exemption.
+- **Voiced is the fastest of the three** at 22.2 s, because a voiced run keeps the caption up and
+  therefore never spends a reading dwell at all — the beat is as long as the line takes to say.
+  The slowest configuration is the one a host without a TTS key would run.
 
 Two consequences a productionization pass has to face: **narrated tours want shorter captions**,
 and **the six long-running gallery tours were tuned by eye against the old numbers**, so turning
@@ -282,6 +282,11 @@ confirmed six defects. Recording them because two are the kind that would have s
    backoff reaches 1 s intervals and stepped over a visibility window a few hundred ms wide. A
    40 ms interval plus the wider window from finding 6 fixes it; re-run 10× green. The claim "6
    e2e on a real Chromium" in the first commit body was therefore not true when it was written.
+   *(A later commit blamed a different symptom — an `ENOENT` on a Playwright trace file — on
+   unbounded in-page rAF samplers. **That attribution was wrong**, and the second checker refuted
+   it: the ENOENT reproduces on a test that installs no sampler at all, and disappears when two
+   concurrent Playwright runs stop sharing `outputDir`. Bounding the samplers is still right; it
+   was not the fix it was credited as.)*
 3. **The default `bar` geometry changed for every existing caller.** `layout()` ran
    unconditionally, so a run that never asked for `bounds` got its bar re-seated from JS: 704 →
    680 px at 1440, 390 → 366 px at 390. The bounds machinery is now gated on `bounds: 'host'`.
@@ -306,15 +311,30 @@ hosts where `* { box-sizing: border-box }` is the commonest reset; a stranded `p
 could hide the caption for the rest of a run; `narrator.plan()` was unguarded while `speak()` was;
 and the `at`-beats-`read` warning stated the opposite of what happens on the degradation path.
 
-**That gap is now closed.** "A voiced narrator keeps the caption up" ran only in jsdom, against a
-`setVoiced(true)` call rather than a narrator, for as long as no voiced narrator existed. One does
-now — `voicedNarrator` in the adapter, which takes the BYTES from its caller (so HARD RULE #24
-still holds: no key, no model, no network in this module) and plays them through Suono, driving
-the word clock off the real audio clock and re-anchoring to the clip's measured onset. The
-prototype supplies placeholder audio of the right length, and three real-browser tests now pin the
-rule from both sides: voiced keeps the caption up across the whole typing reveal, silent hides it
-at the same moment, and the word clock still lands the cue. What the placeholder does NOT verify
-is speech quality — which was never the claim.
+**That gap is closed, and the first attempt to close it did not.** "A voiced narrator keeps the
+caption up" ran only in jsdom, against a `setVoiced(true)` call rather than a narrator, for as long
+as no voiced narrator existed. `voicedNarrator` now exists — it takes the BYTES from its caller
+(so HARD RULE #24 still holds: no key, no model, no network in this module) and plays them through
+Suono, driving the word clock off the real audio clock and re-anchoring to the clip's measured
+span. Three real-browser tests pin the caption rule from both sides: voiced keeps the caption up
+across the whole typing reveal, silent hides it at the same moment, and the cue still lands.
+
+**The re-anchor needed a second pass, because the first one was unfalsifiable.** The prototype
+generated its placeholder clip at exactly the estimate's length, which made `align` a provable
+no-op: the re-anchored timeline came out byte-identical to the estimate, so no browser test could
+tell a working re-anchor from no re-anchor, or from a plain wall clock. The placeholder now runs at
+1.2x — a voice slower than the estimate, which is the case the hybrid exists for — and the unit
+suite drives `onStart` with a duration that differs, which is where the real assertion lives.
+
+That second pass also found a defect the first had shipped: `align(0, 0, durationMs)` re-anchors
+cue 0 and SHIFTS the rest, so a multi-sentence line stretched sentence one across the whole clip
+and pushed every later sentence past the end of the audio, never to be highlighted, on a timeline
+longer than the sound. Every cue is now scaled into the measured span. The test for it fails
+against the old code — checked by reverting, not by assertion.
+
+**Precisely what is still unverified:** a REAL voice. Every run here is placeholder audio; real
+synthesis latency and a real clip are untouched by anything in the tree, and HARD RULE #24 keeps
+our key off this site. Speech quality was never the claim.
 
 ## Follow-ups a productionization pass owes
 

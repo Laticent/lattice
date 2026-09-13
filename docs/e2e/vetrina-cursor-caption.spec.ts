@@ -105,7 +105,12 @@ const opacityBecomes = (page: Page, value: string, timeout = 10_000) =>
 	expect.poll(async () => page.locator(BUBBLE).evaluate((el) => getComputedStyle(el).opacity), { intervals: [40], timeout }).toBe(value);
 
 test.describe('caption visibility — it steps aside, and Exit does not', () => {
-	test('the bubble is hidden while the cursor types, and back afterwards', async ({ page }) => {
+	test('nothing is over the field while the cursor types, and a caption returns after', async ({ page }) => {
+		// NOTE what this does and does not prove. Under the silent cursor rhythm the caption is
+		// DISMISSED before the action, so its absence during typing is the transient life cycle
+		// rather than the `busy()` step-aside. The step-aside itself is covered by the voiced arm
+		// below (where it must NOT fire) and by the unit tests; a drag is the only shape where it
+		// still governs a silent caption, and the prototype tour has no drag beat.
 		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'off' });
 		await waitForPhase(page, 'type ');
 		// Mid-typing: the caption is out of the way of the field being typed into.
@@ -222,16 +227,22 @@ test.describe('the word cue — the click lands on the word that names it', () =
 			// Bounded, for the same reason as the sampler above.
 			const until = performance.now() + 30_000;
 			const tick = () => {
-				const rows = [...document.querySelectorAll('#logbody tr')].map((tr) => tr.children[3].textContent ?? '');
+				// Content, not a count. `say`-rows >= 5 was a beat index wearing a disguise, and this
+				// file's own header is about exactly that: the last caption logged has to BE the cued
+				// line, whatever number of beats precede it.
+				const rows = [...document.querySelectorAll('#logbody tr')];
+				const says = rows.filter((tr) => (tr.children[3].textContent ?? '').startsWith('say'));
+				const lastSaid = says.length ? (says[says.length - 1].children[4].textContent ?? '') : '';
 				const el = document.querySelector('.vetrina-bubble') as HTMLElement | null;
-				const onCuedBeat = rows.filter((r) => r.startsWith('say')).length >= 5;
+				const onCuedBeat = lastSaid.includes('click Publish');
 				if (el && onCuedBeat) {
 					const o = Number(getComputedStyle(el).opacity);
 					if (!w.__cueArmed && o === 1) w.__cueArmed = true;
 					if (w.__cueArmed) w.__cueMin = Math.min(w.__cueMin ?? 1, o);
 				}
 				// Stop as soon as the click has landed — the window this measures is closed by then.
-				if (performance.now() < until && !rows.some((r) => r.startsWith('press'))) requestAnimationFrame(tick);
+				const pressed = rows.some((tr) => (tr.children[3].textContent ?? '').startsWith('press'));
+				if (performance.now() < until && !pressed) requestAnimationFrame(tick);
 			};
 			requestAnimationFrame(tick);
 		});

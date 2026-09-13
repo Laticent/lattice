@@ -177,6 +177,11 @@ export interface VoicedNarratorOptions extends CadenzaNarratorOptions {
 	/** The Suono stage to play through. Defaults to one this narrator owns. Pass your own when the
 	 *  host already has a stage — one `AudioContext` per page is the whole point of Suono. */
 	audio?: AudioStage;
+	/** Give up on `synthesize` after this long and let the beat continue silently. A hung voice
+	 *  otherwise leaves the line's `done` pending forever and the beat blocks on it. Suono's own
+	 *  sequencer carries the same guard (`produceTimeoutMs`, 20s); this is the per-line equivalent
+	 *  for the one-clip path. Default 20000. */
+	synthesizeTimeoutMs?: number;
 	/** Bias the word highlight this far AHEAD of the heard voice. Broadcast lip-sync tolerance is
 	 *  asymmetric (ITU-R BT.1359): a highlight LAGGING the voice is noticed at ~45ms while one
 	 *  leading it passes to ~125ms, so the error worth avoiding is the lag. Default 40ms, the same
@@ -195,6 +200,22 @@ export interface VoicedNarratorOptions extends CadenzaNarratorOptions {
  * voiced, the ear has the words and blanking a subtitle mid-sentence would take them from the
  * viewer reading it because they cannot hear it.
  */
+/** Race a promise against a deadline, resolving to the loser's absence rather than throwing at
+ *  the call site — a hung voice must degrade to silence, not hang the beat. */
+async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+	let timer = 0;
+	try {
+		return await Promise.race([
+			p,
+			new Promise<never>((_, reject) => {
+				timer = window.setTimeout(() => reject(new Error(`vetrina: synthesize() did not answer within ${ms}ms`)), ms);
+			}),
+		]);
+	} finally {
+		if (timer) window.clearTimeout(timer);
+	}
+}
+
 export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 	const pace: Pace = options.pace ?? 'moderate';
 	const lead = options.syncLeadMs ?? 40;
@@ -220,9 +241,21 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 			return trackToWords(trackFor(text));
 		},
 		speak(text: string, opts: NarrateOptions): NarrationHandle {
-			const track = trackFor(text);
+			// Guard FIRST, as the silent rung does. Registering the listener and then checking a
+			// controller that cannot have fired yet meant an already-aborted run still synthesized,
+			// decoded and played — with a real TTS behind `synthesize` that is a billed request and
+			// audible speech issued after the tour was torn down.
+			if (opts.signal.aborted) return { done: Promise.resolve(), cancel() {} };
+
+			// A FRESH COPY PER LINE. `align` re-anchors the track IN PLACE, so handing it the cached
+			// one would leave the next play of the same line starting from an already-scaled
+			// timeline — compounding on every pass of a kiosk loop. The cache still earns its keep:
+			// it saves the segmentation, which is the expensive half.
+			const track = structuredClone(trackFor(text));
 			if (!track.durationMs) return { done: Promise.resolve(), cancel() {} };
 			const words = trackToWords(track);
+			// The estimate's spans, captured before anything re-anchors them.
+			const estimate = { total: track.durationMs, cues: track.cues.map((c) => ({ start: c.startMs, dur: Math.max(1, c.endMs - c.startMs) })) };
 			const cueBase: number[] = [];
 			let n = 0;
 			for (const cue of track.cues) {
@@ -246,7 +279,10 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 
 			const done = (async () => {
 				try {
-					const bytes = await options.synthesize(text, { signal: ac.signal, durationMs: track.durationMs });
+					const bytes = await withTimeout(
+						options.synthesize(text, { signal: ac.signal, durationMs: estimate.total }),
+						options.synthesizeTimeoutMs ?? 20_000,
+					);
 					if (ac.signal.aborted) return;
 					const clip = await audio.decode(bytes, `${pace}:${text}`);
 					let base: number | null = null;
@@ -254,12 +290,19 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 						signal: ac.signal,
 						onStart: ({ onsetMs, durationMs }) => {
 							base = onsetMs;
-							// THE RE-ANCHOR. One clip per LINE, so cue 0 carries the measurement and Cadenza
-							// shifts the tail: the internal rhythm stays the estimate's, the span becomes the
-							// voice's. (A line of several sentences is therefore scaled rather than aligned
-							// per sentence — a beat's caption is normally one sentence, and per-sentence
-							// alignment would need one clip each.)
-							reader.align(0, 0, durationMs);
+							// THE RE-ANCHOR. One clip per LINE, so the measurement is the whole line's span and
+							// EVERY cue is scaled into it — the internal rhythm stays the estimate's, the total
+							// becomes the voice's.
+							//
+							// Anchoring only cue 0 (which is what this did first) does not scale a
+							// multi-sentence line, it breaks it: `align` re-anchors the cue it is given and
+							// SHIFTS the rest, so sentence one stretched across the entire clip and every later
+							// sentence was pushed past the end of the audio, never to be highlighted. The
+							// spans are read from `estimate`, captured before the first align mutated them.
+							const k = estimate.total > 0 ? durationMs / estimate.total : 1;
+							for (let i = 0; i < estimate.cues.length; i++) {
+								reader.align(i, estimate.cues[i].start * k, estimate.cues[i].dur * k);
+							}
 						},
 					});
 					const frame = () => {

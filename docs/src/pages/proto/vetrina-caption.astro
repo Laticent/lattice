@@ -161,9 +161,17 @@
 			// HARD RULE #24 keeps our OpenRouter key off this site, so a real voice belongs to a host
 			// holding the user's own key. Silence rather than a tone: 25 seconds of beeping while you
 			// judge a caption's rhythm would be its own kind of dishonest.
+			//
+			// DELIBERATELY NOT THE ESTIMATE'S LENGTH. Generating the clip at exactly `durationMs`
+			// made the re-anchor a provable no-op — the measured span equalled the estimate, so the
+			// aligned timeline came out byte-identical and no test could tell a working `align` from
+			// no align at all, or from a plain wall clock. 1.2x is a real voice being slower than the
+			// estimate, which is the case the hybrid re-anchor exists for.
+			const PLACEHOLDER_STRETCH = 1.2;
 			const placeholderVoice = (_text: string, { durationMs }: { durationMs: number }) => {
 				const rate = 16000;
-				return Promise.resolve(encodeWav(new Float32Array(Math.max(1, Math.round((durationMs / 1000) * rate))), rate));
+				const samples = Math.max(1, Math.round(((durationMs * PLACEHOLDER_STRETCH) / 1000) * rate));
+				return Promise.resolve(encodeWav(new Float32Array(samples), rate));
 			};
 
 			const $ = (s: string) => document.querySelector(s) as HTMLElement;
@@ -209,8 +217,10 @@
 				},
 			};
 
-			// Five beats, chosen to exercise every case the design turns on:
-			//   1  a pure teaching beat (read, then act) — the caption's dwell is the whole beat
+			// Six beats, chosen to exercise every case the design turns on:
+			//   1-2  two teaching beats (read, then act) — the caption's dwell is the whole beat. Two,
+			//        not one, because the single 16-word line they replaced hit the model's 6-second
+			//        reading clamp, which is the model saying a beat should have been two.
 			//   2  typing — the action the caption is most likely to be sitting on top of
 			//   3  a deictic underline on prose — ink the caption must not cover
 			//   4  a WORD-CUED click — the click lands as the narration reaches "Publish"

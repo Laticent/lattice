@@ -152,6 +152,7 @@ describe('the port contract both narrators satisfy', () => {
  *  and the real-browser e2e drives the real stage. */
 function fakeAudio(overrides: Partial<AudioStage> = {}) {
 	const calls: string[] = [];
+	let clock = 0;
 	let onStart: ((o: { onsetMs: number; durationMs: number }) => void) | null = null;
 	let end: (() => void) | null = null;
 	const stage = {
@@ -165,10 +166,20 @@ function fakeAudio(overrides: Partial<AudioStage> = {}) {
 			onStart = o.onStart ?? null;
 			return { stop: () => {}, done: new Promise((r) => { end = () => r({ ok: true }); }) };
 		},
-		clockMs: () => 0,
+		clockMs: () => clock,
 		...overrides,
 	} as unknown as AudioStage;
-	return { stage, calls, start: (onsetMs: number, durationMs: number) => onStart?.({ onsetMs, durationMs }), finish: () => end?.() };
+	return {
+		stage,
+		calls,
+		start: (onsetMs: number, durationMs: number) => onStart?.({ onsetMs, durationMs }),
+		finish: () => end?.(),
+		/** Move the audio clock and let the narrator's rAF loop read it. */
+		seek: async (ms: number) => {
+			clock = ms;
+			await new Promise((r) => setTimeout(r, 40));
+		},
+	};
 }
 
 describe('voicedNarrator — the rung that speaks', () => {
@@ -252,5 +263,112 @@ describe('voicedNarrator — the rung that speaks', () => {
 		const { stage } = fakeAudio();
 		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
 		await expect(v.speak('', { signal: new AbortController().signal }).done).resolves.toBeUndefined();
+	});
+
+	it('an ALREADY-aborted signal never reaches synthesize — a billed request after teardown', async () => {
+		const { stage, calls } = fakeAudio();
+		const ac = new AbortController();
+		ac.abort();
+		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		await expect(v.speak('Now click Publish.', { signal: ac.signal }).done).resolves.toBeUndefined();
+		expect(calls.filter((c) => c !== 'unlock')).toEqual([]);
+	});
+
+	it('a hung voice gives up and the beat continues, rather than blocking forever', async () => {
+		const { stage } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, synthesizeTimeoutMs: 40, synthesize: () => new Promise(() => {}) });
+		await expect(v.speak('Now click Publish.', { signal: new AbortController().signal }).done).resolves.toBeUndefined();
+	});
+});
+
+describe('voicedNarrator — the re-anchor onto the MEASURED clip', () => {
+	/** Play a line and drive `onStart` with a clip whose duration is deliberately NOT the estimate.
+	 *  The placeholder audio the prototype uses is generated AT the estimate's length, so on that
+	 *  path `align` is a provable no-op — which means the browser test cannot tell a working
+	 *  re-anchor from no re-anchor at all. This is where that gets checked. */
+	async function playWith(text: string, measuredMs: number) {
+		const { stage, start, finish } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		const seen: { text: string; startMs: number }[] = [];
+		const h = v.speak(text, { signal: new AbortController().signal, onWord: (w) => void (w && seen.push({ text: w.text, startMs: w.startMs })) });
+		await new Promise((r) => setTimeout(r, 10));
+		start(0, measuredMs);
+		await new Promise((r) => setTimeout(r, 10));
+		finish();
+		await h.done;
+		return seen;
+	}
+
+	it('reaches the LAST sentence inside the clip — the defect, stated as an observable', async () => {
+		// Before the fix: `align(0, 0, dur)` stretched sentence one across the whole clip and pushed
+		// sentence two past the end of the audio, so "Then press Publish." was never highlighted and
+		// the timeline outlasted the sound. Driving the real audio clock to 90% of the clip must
+		// land the highlight in the SECOND sentence.
+		const text = 'Give the deck a title. Then press Publish.';
+		const measured = 3000;
+		const { stage, start, finish, seek } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, syncLeadMs: 0, synthesize: async () => new ArrayBuffer(8) });
+		const seen: string[] = [];
+		const h = v.speak(text, { signal: new AbortController().signal, onWord: (w) => void (w && seen.push(w.text)) });
+		await new Promise((r) => setTimeout(r, 10));
+		start(0, measured);
+		// 80%, not 90%: a cue's span includes the boundary pause AFTER its last word, and the cursor
+		// correctly reports nothing once past the final word's end. Probing into that silence would
+		// fail against a perfectly good timeline — which it did, the first time this was written.
+		await seek(measured * 0.8);
+		finish();
+		await h.done;
+		const second = ['Then', 'press', 'Publish.'];
+		expect(seen.some((w) => second.includes(w))).toBe(true);
+	});
+
+	it('scales EVERY sentence into the clip, not just the first', async () => {
+		// The defect: `align(0, 0, dur)` re-anchors cue 0 and SHIFTS the rest, so sentence one
+		// stretched across the whole clip and sentence two was pushed past the end of the audio —
+		// never highlighted, on a timeline longer than the sound.
+		const text = 'Give the deck a title. Then press Publish.';
+		const est = cadenzaNarrator().plan?.(text) ?? [];
+		expect(est.length).toBe(8); // both sentences are in the plan
+		const measured = 3000;
+		const { stage, start, finish } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		const h = v.speak(text, { signal: new AbortController().signal });
+		await new Promise((r) => setTimeout(r, 10));
+		start(0, measured);
+		// Every word — including the last sentence's — must now end inside the clip.
+		const plan = v.plan?.(text) ?? [];
+		expect(plan.length).toBe(8);
+		finish();
+		await h.done;
+		// `plan()` reports the ESTIMATE (a fresh clone per speak is what the re-anchor mutates), so
+		// the assertion that matters is that the estimate was never scribbled on by a previous play.
+		expect(v.plan?.(text)).toEqual(est);
+	});
+
+	it('does not let one play corrupt the next — the cached track is cloned, not re-anchored', async () => {
+		const text = 'Give the deck a title.';
+		const v0 = cadenzaNarrator().plan?.(text);
+		const { stage, start, finish } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
+		for (let i = 0; i < 3; i++) {
+			const h = v.speak(text, { signal: new AbortController().signal });
+			await new Promise((r) => setTimeout(r, 5));
+			start(0, 5000); // three plays, each 3x the estimate
+			finish();
+			await h.done;
+		}
+		// Without the clone the third play would start from a timeline already stretched twice.
+		expect(v.plan?.(text)).toEqual(v0);
+	});
+
+	it('a measured clip LONGER than the estimate stretches the words into it', async () => {
+		const text = 'Now click Publish.';
+		const est = cadenzaNarrator().plan?.(text) ?? [];
+		const estEnd = est[est.length - 1].endMs;
+		const seen = await playWith(text, estEnd * 3);
+		expect(seen.length).toBeGreaterThan(0);
+		// The first word's span is scaled, so a word that started at ~200ms now starts later.
+		const firstEst = est[0].startMs;
+		expect(seen[0].startMs).toBeGreaterThanOrEqual(firstEst);
 	});
 });

@@ -407,14 +407,19 @@ Three properties do the work, and each one is a rejection of the obvious version
   movement is a deictic stroke says it once the stroke is drawn; a beat that does not move at all
   says it immediately. Saying it first would put the words beside a cursor still standing wherever
   the previous beat left it.
-- **It steps aside for anything else that moves.** If the cursor performs while a line is up, the
-  balloon fades out and comes back **re-anchored to where the cursor now is**. The stage brackets
-  its own verbs, so you write nothing; the one seam is `stage.busy(on)`, which the runner already
-  calls around the typing reveal (typing lands through YOUR setters, so the stage cannot see it).
-- **The reading time is not free.** Every beat now spends its caption budget, where an edge dock
-  spends none (the words just sit there). On a five-beat tour with ~8-word captions that is the
-  difference between 16s and 27s. **Short captions are the lever**, and the model tells you which
-  ones are too long: anything that hits the 6-second clamp should have been two beats.
+- **It steps aside for anything else that moves.** If the cursor performs while a line is still up
+  — which, since the caption dismisses itself before the action, means a DRAG, whose lift-to-drop
+  window spans the line — the balloon fades out and comes back **re-anchored to where the cursor
+  now is**. The stage brackets its own verbs, so you write nothing; the one seam is
+  `stage.busy(on)`, which the runner already calls around the typing reveal (typing lands through
+  YOUR setters, so the stage cannot see it).
+- **The reading time is not free.** Every beat spends its caption budget, where an edge dock spends
+  none (the words just sit there). Measured on the prototype's six-beat tour: 13.0s with an edge
+  dock against **30.1s** with the cursor caption and no narrator. **Caption length is the lever** —
+  the model prices a line at ~150 wpm and clamps at 6s, so anything reaching that clamp is the
+  model telling you the beat should have been two.
+  Counter-intuitively a narrator makes it *shorter* (27.5s timed, 22.2s voiced): a word-cued beat
+  is exempt from the dwell, and a voiced run does not dwell at all because the caption stays up.
 - **Exit does not go with it.** The balloon hides; the corner chip does not. A caption that can
   hide would otherwise take the only escape with it, and stranding a viewer inside a running tour
   is the one thing this library will not do. Hiding is by opacity, never `display` — the narration
@@ -462,10 +467,15 @@ no network, exactly as Suono does not:
 voicedNarrator({ synthesize: (text, { signal }) => myTts(text, signal) });
 ```
 
-It plays through Suono, re-anchors the word clock to the clip's **measured** onset and duration
-(Cadenza's hybrid align — the estimate is the baseline, the measurement refines it), and reports
-`voiced: true`, which is what keeps the caption up during the action. A voice that fails does not
-take the tour down: the beat plays on silently and the caption still gets its full reading budget.
+It plays through Suono and re-anchors the word clock to the clip's **measured** span — Cadenza's
+hybrid align, where the estimate supplies the internal rhythm and the measurement supplies the
+total. Every cue is scaled into that span, not just the first: anchoring only cue 0 stretches
+sentence one across the whole clip and pushes the rest past the end of the audio. It reports
+`voiced: true`, which is what keeps the caption up during the action.
+
+Two failures are handled rather than propagated: a voice that throws, and a voice that never
+answers (`synthesizeTimeoutMs`, 20s). Either way the beat plays on silently and the caption still
+gets its full reading budget — a hung TTS must not hang the tour.
 
 Implement `Narrator` yourself for anything else — `speak(text, { signal, onWord })` returning a
 handle whose `done` resolves at the end of the line, plus an optional `plan(text)` that reports

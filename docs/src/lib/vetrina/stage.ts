@@ -16,7 +16,7 @@
 // those tokens in CSS (light/dark rides its own cascade — the layer inherits from :root)
 // or via the JS `Theme` convenience (theme.ts writes the tokens onto the layer).
 
-import { type Pacing, resolvePacing } from './pacing';
+import { CAPTION_FADE_MS, type Pacing, resolvePacing } from './pacing';
 import type { ResolvedTheme } from './theme';
 
 /** A live source of a rectangle in VIEWPORT coordinates — everything the stage needs to
@@ -176,8 +176,12 @@ export interface Stage {
 	 *  hiding it removes the instruction at the exact moment it is being carried out. Measured on
 	 *  the prototype: the click landed at 20.2s and "Now click Publish…" appeared at 21.1s.
 	 *
-	 *  Not reference-counted: a beat holds or it does not, and the storyboard clears it at the top
-	 *  of every beat so an aborted one cannot leave it pinned. */
+	 *  Not reference-counted: holds do not nest the way `busy()` does, so a beat holds or it does
+	 *  not. The storyboard clears it at the top of every beat AND when the walkthrough ends; an
+	 *  aborted run is covered by teardown instead, since `destroy()` no-ops every method here.
+	 *  Because that clear is unconditional, a HOST that pins the caption around a composed
+	 *  storyboard will find its pin dropped at the first beat — pin around the run, not through
+	 *  one. */
 	holdCaption?(on: boolean): void;
 	/** Take the caption down — the line has been read, and there is nothing to say until the
 	 *  next one.
@@ -713,7 +717,10 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 		bubble.className = 'vetrina-bubble';
 		bubble.style.cssText =
 			`position:absolute;left:0;top:0;max-width:min(320px,68%);padding:9px 14px;border-radius:var(--vt-caption-radius);${glass}` +
-			'opacity:0;transition:opacity .18s ease;will-change:opacity;';
+			// The duration comes from ./pacing rather than being typed here: the storyboard waits it
+			// out before acting, and two copies of a number that must agree is a comment away from
+			// being wrong.
+			`opacity:0;transition:opacity ${CAPTION_FADE_MS}ms ease;will-change:opacity;`;
 		narration.style.cssText = 'display:block;min-width:0;line-height:1.4;text-align:left;font-size:13.5px;';
 		bubble.appendChild(narration);
 		dock.append(bubble, exit);
@@ -746,7 +753,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 		// so a screen-reader user would stop being told what the tour is doing exactly when a
 		// sighted one starts watching it happen.
 		reveal = (visible, instant) => {
-			bubble.style.transition = instant ? 'none' : 'opacity .18s ease';
+			bubble.style.transition = instant ? 'none' : `opacity ${CAPTION_FADE_MS}ms ease`;
 			bubble.style.opacity = visible ? '1' : '0';
 		};
 		// The bubble is positioned per-beat by `place`; the only thing with a fixed home is Exit,

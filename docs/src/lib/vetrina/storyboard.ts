@@ -182,8 +182,15 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			// arrival; a beat whose only movement is a deictic stroke says it once the stroke is
 			// drawn; a beat that does not move at all says it immediately.
 			const travels = step.point != null || step.drag != null;
-			const gestures = step.gesture != null || step.circle != null;
-			const sayAt: 'top' | 'arrival' | 'gesture' = !stepsAside ? 'top' : travels ? 'arrival' : gestures ? 'gesture' : 'top';
+			// A gesture is the say-point only when it is the beat's ONLY doing. Treating it as one
+			// whenever it was present sent the caption to the END of two common shapes: a
+			// `say`+`type`+`gesture` beat TYPED before it said the line explaining the typing, and a
+			// `say`+`until`+`gesture` beat held the advance gate — up to ~15s — with no caption on
+			// screen at all, then spoke after the confirm. It also meant a beat whose `act` threw
+			// never showed its caption, because the throw leaves the beat before the gesture block:
+			// the tour stopped on an empty caption where it used to say what it had been trying.
+			const gestureOnly = (step.gesture != null || step.circle != null) && step.act == null && step.type == null && step.until == null && !step.click;
+			const sayAt: 'top' | 'arrival' | 'gesture' = !stepsAside ? 'top' : travels ? 'arrival' : gestureOnly ? 'gesture' : 'top';
 
 			// A holder rather than a bare `let`: the assignment happens inside `sayLine`, and control
 			// flow analysis cannot see across that call, so a plain binding narrows to `null` at the
@@ -220,6 +227,12 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 				// unconditionally, because it is about to remove itself and an unread caption that
 				// removes itself was never a caption. Everything else keeps today's rhythm, where
 				// the caption simply stays up and the beat moves on.
+				// HOLD IT FOR ITS OWN DWELL. Without this the reading window depends on `performDepth`
+				// happening to be zero — which for a DRAG beat it is not: the drag holds the count from
+				// lift to drop, and the caption was legible only as a side effect of `say()` re-zeroing
+				// it, a line whose own comment calls that a cosmetic slip. Anything that "fixed" the
+				// slip would have spent every drag beat's whole budget on a hidden bubble.
+				if (stepsAside) stage.holdCaption?.(true);
 				if ((step.read || stepsAside) && !cuePlan && !step.instant) {
 					// The LONGER of the two, always. The narrator's duration is a measurement and
 					// beats an estimate — but it measures how long the line takes to SAY, and a
@@ -230,6 +243,7 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 					await Promise.all([line.done, wait(readingMs, signal)]);
 					if (stepsAside) {
 						stage.dismissCaption?.();
+						stage.holdCaption?.(false);
 						// Let it finish going. Dismissing and acting in the same frame fires the action
 						// while the words are still fading — measured at ~18% opacity under the click
 						// burst. `still` collapses content cadence, so it snaps and there is no fade.
@@ -331,5 +345,10 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			// read, not less, so rushing here would invert the intent.
 			await wait((step.settle ?? (stage.still ? 300 : pacing.settleMs())) * stage.pace, signal);
 		}
+		// A TRAILING cued beat has no next top to clear its hold, and a storyboard is composable —
+		// it can be followed by raw primitives in the same run, which would then play with the
+		// step-aside disabled. (An abort or a throwing `act` leaves by throwing and is covered by
+		// teardown instead: `destroy()` no-ops every stage method.)
+		stage.holdCaption?.(false);
 	};
 }
