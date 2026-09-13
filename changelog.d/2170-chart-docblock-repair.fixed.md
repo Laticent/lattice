@@ -1,0 +1,2 @@
+- Ten chart docblocks read as sentences again. The sweep that replaced the false `role="img"` claim left each one opening mid-clause and lowercase — "the marks ride in an `aria-hidden` group … from the accessibility tree, so" — in the same ten files the change was about.
+- `chart-family.docs.md` no longer advertises `niceTicks`' deleted `tight` flag, and documents `niceDomain` in its place. The flag failed silently once removed, so an author following the table got the snapped-out axis it existed to avoid.

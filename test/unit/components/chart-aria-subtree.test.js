@@ -69,7 +69,57 @@ const SLIDES = {
     + '- Wins\n  - Weekly brief `8, 40`\n- Defer\n  - Weighting UI `4, 55`\n- Sinks\n  - Exports `2, 20`\n',
   gantt: '`Q1 2025 - Q4 2025`\n\n## G.\n\n- Build\n  - Kernel `Q1-Q2`\n  - Ship `Q3-Q4`\n',
   'word-cloud': '## WC.\n\n- alpha `9`\n- beta `7`\n- gamma `5`\n- delta `3`\n',
+  // A MULTI-ROOT VARIANT, and the reason the per-root scan below exists. The
+  // small-multiples radar emits one `<svg role="img">` PER SERIES, and the
+  // family-wide pass missed every one of them: measured on the shipped radar
+  // gallery, 5 of 15 roots still exposed their subtree and four were these.
+  // A document-wide `assert.match(html, /<g aria-hidden/)` cannot see that —
+  // one wrapped root satisfies it for the whole slide.
+  'radar small-multiples': '## RM.\n\n- Meridian\n  - Speed `8`\n  - Cost `6`\n  - Care `7`\n'
+    + '- Kestrel\n  - Speed `6`\n  - Cost `8`\n  - Care `5`\n',
+  heatmap: '## H.\n\n- Jan\n  - M0 `100`\n  - M1 `62`\n- Feb\n  - M0 `100`\n  - M1 `58`\n',
+  map: '## M.\n\n- Kenya `4.2`\n- Nigeria `3.1`\n- India `2.8`\n',
 };
+
+/**
+ * Every text node in `html` that a screen reader would still reach — i.e. one
+ * that sits outside every `aria-hidden` subtree.
+ *
+ * A SCAN, NOT A REGEX MATCH. The first cut of this file asserted
+ * `/<g aria-hidden="true">/` against the whole document, which a multi-root
+ * chart passes as soon as ONE of its roots is wrapped — exactly how the
+ * small-multiples radar slipped through. This walks the tag stream instead and
+ * tracks how deep inside `aria-hidden` it is, so a leak anywhere is visible
+ * wherever it is.
+ */
+function exposedText(html, tags = ['text', 'tspan']) {
+  const out = [];
+  let depth = 0;          // open elements carrying aria-hidden="true"
+  const stack = [];       // one entry per open element: was it aria-hidden?
+  const TAG = /<(\/?)([a-zA-Z][\w-]*)([^>]*?)(\/?)>/g;
+  let m = TAG.exec(html);
+  let textTag = null;
+  while (m) {
+    const [, closing, name, attrs, selfClose] = m;
+    if (closing) {
+      if (textTag === name) textTag = null;
+      const wasHidden = stack.pop();
+      if (wasHidden) depth--;
+    } else if (!selfClose) {
+      const hidden = /aria-hidden\s*=\s*"true"/.test(attrs);
+      stack.push(hidden);
+      if (hidden) depth++;
+      if (tags.includes(name) && depth === 0) textTag = name;
+    }
+    const next = TAG.exec(html);
+    if (textTag && depth === 0) {
+      const slice = html.slice(m.index + m[0].length, next ? next.index : html.length).trim();
+      if (slice) out.push(slice);
+    }
+    m = next;
+  }
+  return out;
+}
 
 /** Every `<svg …>` opening tag in a rendered chart, with its attributes. */
 function svgRoots(html) {
@@ -90,12 +140,18 @@ describe('chart SVGs hide their marks from the accessibility tree', () => {
       const imgRoots = roots.filter((a) => /role="img"/.test(a));
       assert.ok(imgRoots.length > 0, `${cls} emitted no <svg role="img"> root`);
 
-      assert.match(
-        res.html, /<g aria-hidden="true">/,
-        `${cls} emits no aria-hidden marks group.\n`
+      // PER ROOT, not per document. `<title>`/`<desc>` are the curated route and
+      // are meant to stay reachable; every OTHER text node is a mark and must
+      // not be.
+      const leaked = exposedText(res.html)
+        .filter((t) => !res.html.includes(`<title>${t}</title>`))
+        .filter((t) => !res.html.includes(`<desc>${t}</desc>`));
+      assert.deepEqual(
+        leaked, [],
+        `${cls} leaves ${leaked.length} mark(s) in the accessibility tree: ${JSON.stringify(leaked.slice(0, 6))}\n`
         + '  `role="img"` does NOT prune an SVG subtree in Chromium — measured, 24 unignored\n'
-        + '  descendants under `bar` alone — so without this group a screen reader reads the\n'
-        + '  curated <desc> and then every tick and label again as loose text.\n'
+        + '  descendants under `bar` alone — so without an aria-hidden group a screen reader\n'
+        + '  reads the curated <desc> and then every tick and label again as loose text.\n'
         + '  Wrap the marks with cartesian.js § ariaHiddenMarks.\n',
       );
     });
@@ -105,12 +161,40 @@ describe('chart SVGs hide their marks from the accessibility tree', () => {
     // The whole point of hiding the marks is that <title>/<desc> become the
     // route to the data. Hiding them too would leave the chart nameless — a
     // strictly worse outcome than the leak, and an easy mistake when wrapping.
+    // A PER-ROOT CHECK, and the two things it must NOT do — both learned by
+    // getting them wrong here first.
+    //
+    // It must not treat every `<title>` as a chart name. `map` emits 176 of
+    // them, one per country path, and those belong INSIDE the hidden group
+    // exactly like the marks; only the root's own title is the accessible name.
+    //
+    // And it must not require a `<title>` at all. A small-multiples mini names
+    // itself with `aria-label` on the root, which is an equally valid
+    // accessible name — demanding a title would fail a chart that is correct.
     for (const [cls, body] of Object.entries(SLIDES)) {
       const { html } = transformChartSection(md.render(body), cls, 'landscape');
-      const hidden = html.indexOf('<g aria-hidden="true">');
-      const title = html.indexOf('<title>');
-      assert.ok(title >= 0, `${cls}: no <title> at all`);
-      assert.ok(title < hidden, `${cls}: <title> is inside the aria-hidden group — the chart has no accessible name`);
+      const reachable = new Set(exposedText(html, ['title', 'desc']));
+      const named = [];
+      for (const m of html.matchAll(/<svg\b([^>]*)>/g)) {
+        if (!/role="img"/.test(m[1])) continue;          // a decorative root needs no name
+        if (/aria-hidden\s*=\s*"true"/.test(m[1])) continue;
+        const label = /aria-label="([^"]*)"/.exec(m[1]);
+        const after = html.slice(m.index + m[0].length);
+        const title = /^\s*<title>([^<]*)<\/title>/.exec(after);
+        const name = label?.[1].trim() || title?.[1].trim() || '';
+        named.push({
+          name,
+          reachable: Boolean(label?.[1].trim() || (title && reachable.has(title[1].trim()))),
+        });
+      }
+      assert.ok(named.length > 0, `${cls}: no <svg role="img"> root to name`);
+      const nameless = named.filter((r) => !r.name || !r.reachable);
+      assert.equal(
+        nameless.length, 0,
+        `${cls}: ${nameless.length} of ${named.length} chart root(s) have no reachable accessible name — `
+        + 'either no aria-label and no <title>, or a <title> buried inside the aria-hidden group. '
+        + 'That is strictly worse than the leak the wrapper fixes: the chart becomes anonymous.',
+      );
     }
   });
 

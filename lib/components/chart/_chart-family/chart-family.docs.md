@@ -425,7 +425,8 @@ another; a plot is the opposite case.
 | | |
 |---|---|
 | `parseSeries` | the series DSL — one authoring shape, two depths |
-| `niceTicks` · `niceStep` | the 1 / 2 / 2.5 / 5 / 10 ladder, with `tight` and `target: 'auto'` |
+| `niceTicks` · `niceStep` | the 1 / 2 / 2.5 / 5 / 10 ladder, snapping the DOMAIN out to whole steps (`target: 'auto'` picks the tick count that wastes least) |
+| `niceDomain` | the same ladder, but the domain is the DATA plus a pad and only the ticks inside it are drawn — what a chart wants when its marks encode POSITION rather than length (`scatter`, `slope`) |
 | `linearScale` · `bandScale` · `pointScale` | the three scales a plot needs |
 | `plotBox` · `viewFor` | one gutter convention, one viewBox per orientation |
 | `buildGrid` · `buildValueTicks` · `buildCategoryLabels` · `buildAxisRule` · `buildAxisTitle` | the painted chrome |
