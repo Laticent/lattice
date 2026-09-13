@@ -4,6 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { PanelSearch } from '@/components/ui/panel';
 import type { PillTab } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
+import { settingsMatch } from '@/lib/settings-search';
 import { cn } from '@/lib/utils';
 
 // settings-view.tsx — ONE find-and-browse grammar for both Inspector scopes.
@@ -64,26 +65,11 @@ export function filteringProps(query: string): Record<string, string> {
 	return query ? { [SETTING_FILTERING]: '' } : {};
 }
 
-/**
- * Does `haystack` satisfy `query`? Every whitespace-separated term must appear
- * somewhere, in any order — so "page number" finds "Hide page number" and
- * "number page" finds it too. Case- and accent-insensitive; an empty query matches
- * everything.
- *
- * Pure, and exported for its unit test: this is the whole search semantics.
- */
-export function settingsMatch(query: string, ...haystack: (string | undefined | null | false)[]): boolean {
-	const terms = normalize(query).split(/\s+/).filter(Boolean);
-	if (terms.length === 0) return true;
-	const hay = normalize(haystack.filter(Boolean).join(' '));
-	return terms.every((t) => hay.includes(t));
-}
-
-// Fold case AND diacritics, so an author who types "eyebrow" finds it whatever their
-// keyboard did, and a label carrying an accent is still reachable from a bare ASCII word.
-function normalize(s: string): string {
-	return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-}
+// The matcher itself lives in `lib/settings-search.ts` — pure, DOM-free and testable
+// without a render, the same shape `component-search.ts` takes for the picker. It is
+// re-exported here because every call site in this file and both panels knows it by this
+// name, and because `settings-view.test.tsx` is where its semantics are pinned.
+export { settingsMatch };
 
 const SettingsQueryCtx = React.createContext('');
 // True when the ENCLOSING section matched the query as a whole — every row inside it is

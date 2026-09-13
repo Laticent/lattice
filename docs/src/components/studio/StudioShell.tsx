@@ -3916,7 +3916,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		{
 			value: 'brand',
 			label: 'Accent',
-			keywords: 'white label client color',
+			// NOT 'color': the decision note's §4 contract is that keywords name what a section
+			// is FOR in words ITS ROWS DO NOT ALREADY CARRY, and this section's Brand bar row
+			// says "color" itself. Measured on the live panel: "color" returned ELEVEN rows —
+			// the whole Accent section, because the section matched as a whole — when the two
+			// rows actually about color (Theme, Color mode) were going to match on their own.
+			// The same shape as the "page"/Chrome bug §4 was written after.
+			keywords: 'white label client',
 			body: () => (
 			<div>
 				<TabNote>Where your accent shows. Set the theme accent to a client's brand color and everything here follows it, white-labeling the deck.</TabNote>

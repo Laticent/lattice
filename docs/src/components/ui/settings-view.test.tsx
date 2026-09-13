@@ -6,6 +6,10 @@ import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { SETTING_FILTERING, SETTING_HIT, SETTING_SECTION, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsToolbar, type SettingsView, settingsMatch, useSettingsHit } from './settings-view';
 
+// `settingsMatch` is re-exported from `lib/settings-search.ts`, where the full semantics
+// (morphology, the synonym table, the anchored typo repair) are pinned. What stays pinned
+// HERE is the contract the panels depend on: the terms are ANDed, order-free, case- and
+// accent-blind, and an absent haystack slot is skipped rather than counted as a miss.
 describe('settingsMatch', () => {
 	it('matches everything on an empty query', () => {
 		expect(settingsMatch('', 'Theme')).toBe(true);
@@ -20,8 +24,11 @@ describe('settingsMatch', () => {
 		expect(settingsMatch('page footer', 'Hide page number')).toBe(false);
 	});
 	it('searches every haystack term together, skipping the absent ones', () => {
-		expect(settingsMatch('pagination', 'Page numbers', undefined, 'pagination paginate')).toBe(true);
-		expect(settingsMatch('pagination', 'Page numbers', undefined, false)).toBe(false);
+		// The `find=` slot is what carries a synonym ONE row needs. (The negative arm used to
+		// be `pagination` without it; that reaches the row on its own now, through the shared
+		// vocabulary in `lib/settings-search.ts`, so the arm needs a word nothing carries.)
+		expect(settingsMatch('mezzanine', 'Page numbers', undefined, 'mezzanine paginate')).toBe(true);
+		expect(settingsMatch('mezzanine', 'Page numbers', undefined, false)).toBe(false);
 	});
 	it('folds diacritics, so an ASCII word still reaches an accented label', () => {
 		expect(settingsMatch('resume', 'Résumé')).toBe(true);

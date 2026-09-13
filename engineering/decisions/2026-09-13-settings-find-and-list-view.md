@@ -329,3 +329,132 @@ now.
 **The before/after figures are re-derived, not asserted.** Checking the pre-compaction files
 out over the running dev server and re-measuring: phone **414px**, docked desktop **352px**
 (§8 first said 351 — a rounding slip). After: **297px** and **231px**.
+
+---
+
+## 9. Round two — three ✕ in one row
+
+§8 gave the find toolbar the banner's row. What it did not notice is that the row already
+had a ✕ on it, and `PanelSearch` draws one of its own.
+
+Measured on a real 390x844 phone, deck scope, query "page":
+
+| Control | x | Size | Job |
+|---|---|---|---|
+| `Clear search` | 305 | 24x24 | Empty the field, stay open |
+| `Close search` | 348 | 28x28 | Empty the field, close it, restore the toggles |
+
+Two sizes of the same glyph, 19px apart, on a 293px row. The **docked desktop panel was
+worse**: at 1440 the same query drew `Clear search` at 196, `Close search` at 239 and the
+panel's own `Collapse settings` at 273 — three identical marks inside 100px of a 296px
+panel.
+
+**This was a composition bug, not a stray button.** Both jobs are real, and the phone is
+where the difference bites: clear-and-stay keeps the keyboard up for the next word, and
+closing dismisses it. What is not real is needing both **drawn at once** — with text in the
+field the next thing you want is it gone, and with the field empty there is nothing to
+clear. So the fix went into the shared field rather than beside it: `PanelSearch` takes an
+`onClose` alongside `onClear` and draws ONE trailing button whose job, and whose accessible
+name, follow the field's state. Escape is unchanged and still leaves from either state.
+
+The panel's own collapse is now `PanelLeftClose` — the idiom the preview pane two panes over
+already uses for the same act. It is a different job from dismissing a search, and it should
+not have looked like one.
+
+**One more thing this exposed.** With the field open at 390px, the banner sentence rendered
+as `Set it …` in the 60px it had left. That is §8.1's defect — a row whose words are a stub —
+arriving through a different door: the field, not a container query. The sentence now steps
+aside entirely while the field is open. Nothing moved behind `sr-only`, which is the trap
+§8.1 fell into: the scope stays DRAWN by the field's own placeholder ("Search deck
+settings…"), by the Slide/Deck segment above it on mobile, and by the scope icon in the row
+on desktop.
+
+---
+
+## 10. Round two — recall, without importing a ranker
+
+`settingsMatch` was a boolean substring test: every whitespace term had to appear literally.
+The component picker next door has a genuinely good search kernel we were not using
+(`lib/component-search.ts` + `lib/intent-search.ts`, imported by four surfaces already), and
+HARD RULE #15 says reuse rather than reinvent.
+
+**The fork, and it matters: we took the recall and refused the ranking.** The picker RANKS —
+it answers "which of 69 components did you mean" with an ordered list, and a wrong guess
+costs a scroll. A settings filter has no order to be wrong about: a row is drawn or it is
+not, so a ranker's tail is not a worse answer further down, it is six unrelated rows sitting
+beside the right one with nothing saying which is which. Precision-first is CORRECT here, and
+the substring rule stays exactly as it was — first test, and the reason `pag` still finds
+Page numbers on the third keystroke.
+
+What a boolean substring test has no answer for is recall, so three arms were added, all
+OR'd, none of which can hide a row the old rule showed:
+
+| Arm | Fixes |
+|---|---|
+| **Morphology** (Porter2, the picker's stemmer) | "numbers" → "Hide page number", "captions" → Caption, "aligned" → Headline alignment. Substring already covered a query SHORTER than the label; never this direction. |
+| **Vocabulary** (a 19-entry table) | "font" → Type scale, "pagination" → the slide's page-number row, "margin" → Claim, "a11y" → the screen-reader description. |
+| **Typo** (anchored, one edit, plus transposition) | "numbre" and "nubmer" → Page numbers, "capiton" → Caption, "algnment" → Headline alignment. |
+
+The kernel is `docs/src/lib/settings-search.ts` — pure and DOM-free, the shape
+`component-search.ts` takes. `settings-view.tsx` re-exports `settingsMatch` from it.
+
+### What was NOT borrowed, and why each would have been a regression
+
+**`contentWords`, intent-search's tokenizer.** It drops STOP WORDS, and the slide panel has
+two halves called *Says something* and *Says nothing* — a stop list eats the only word that
+tells them apart. It also does not fold diacritics, which `settingsMatch` always has. And
+`tools/intent-bakeoff/fit-search.ts` imports it, so every weight in that bake-off was tuned
+against its exact output: widening it to suit this module would have invalidated those
+numbers silently. So this module has its own tokenizer, and the pieces it shares are the ones
+with no policy in them — `stem`, `americanize` and `withinDistance`, the last two newly
+exported from `intent-search.ts` and otherwise untouched.
+
+**A global vocabulary for the typo repair.** intent-search only repairs a term that matched
+NOTHING in its index — that is what stops "mark" becoming "dark". A control here decides
+alone, with no registry of what the other sixty rows say; that registry is the second render
+pass §3's `:has()` rules exist to avoid, and a best-effort one filled as rows render would
+make a row's visibility depend on what was drawn before it. The repair is **anchored on the
+first two characters** instead: a real typo is almost never in the first two keystrokes.
+"mark"→"dark", "tint"→"hint" and "accent"→"ascent" are all refused by the anchor alone.
+
+### Three things the measurement changed
+
+Every number below is from the LIVE panel — 63 rows read off the running Studio, both
+scopes — compared against the substring-only rule, over a 295-word vocabulary built from the
+corpus's own words plus the synonym keys.
+
+- **One edit, not the picker's two-at-seven-characters.** At two edits, "comment" reached the
+  row about frame CONTENT and "connect" reached both: two edits on a seven-letter word is
+  most of the word, and an anchor cannot save a pair that genuinely shares a prefix. Dropping
+  to one edit put 7 queries back to their exact pre-change result sets and cost none of the
+  typos above.
+- **A transposition arm, because Levenshtein scores a swap as two edits.** The single
+  commonest way a fast typist misses is therefore the one a one-edit budget refuses:
+  "numbre" returned nothing. Trying each adjacent swap and then requiring an exact hit buys
+  that class without buying a second free edit — and leaves `withinDistance` in
+  `intent-search.ts` untouched, which the bake-off depends on.
+- **`americanize` on BOTH sides of the stemmer.** Its rules are anchored to the end of the
+  word, so `colour` folds and `colours` does not — the `s` is in the way. Stemming first and
+  folding after lands the plural on the same stem as the singular. Before that, "colours"
+  only reached the Theme row through the typo repair, one deletion from "colors", which is a
+  rescue that evaporates the moment the row's wording moves. Folding BEFORE the stemmer still
+  earns its place: `organisation` has to become `organization` before Porter2 sees it.
+
+**Net precision.** 248 of 295 vocabulary words return exactly what they returned before; 47
+widen, by a median of 2 rows out of 63; **nothing narrows** — the arms are strictly additive
+by construction. The widest is "hidden" at 0 → 7, which is the synonym doing its job. The
+one genuine false positive is "alone" → 8, because Porter2 stems *alone* and *along* alike;
+it is a stemmer property, not a policy of ours, and "alone" is not a settings query.
+
+**`find=` props stay.** They carry the synonym ONE row needs; the shared table carries what
+is not worth writing on twenty. The slide panel had zero `find=` props, which is why every
+query above lands hardest there.
+
+### A pre-existing keyword bug, found by the same measurement
+
+Searching **"color"** on the deck panel returned ELEVEN rows — the whole Accent section —
+because its `keywords` listed `color`, a word its own Brand bar row already carries. That is
+precisely the contract §4 was written after, in the same shape ("page" returning all of
+Chrome). It predates this change and sits on its path, so it is fixed here rather than filed
+(HARD RULE #18): the keyword is gone and "color" now returns the two rows that are about
+color. "white label" and "accent" still open the section whole.
