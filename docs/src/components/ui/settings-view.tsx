@@ -424,29 +424,39 @@ export function SettingsSectionTabs({
 	// One tab is enough to navigate with — the chevron would be a menu of one.
 	if (tabs.length <= 1) return null;
 	return (
-		// `overflow-x-clip` is LOAD-BEARING, and it is not about the pills.
+		// `overflow-clip` is LOAD-BEARING, and it is not about the pills.
 		//
-		// The measuring ghost below is `absolute` and `w-max`, so it is 500-600px wide inside a
+		// The measuring ghost below is `absolute` and `w-max`, so it is 504px wide inside a
 		// 231px row — and a `visibility: hidden` box still contributes SCROLLABLE OVERFLOW.
 		// The panel body it sits in is `overflow-y-auto`, and CSS Overflow 3 computes the other
 		// axis to `auto` when one axis is not `visible`, so the ghost handed the whole settings
-		// panel a 273px horizontal scroll region: one two-finger swipe over the panel scrolled
-		// every control off-screen and left a blank column. Measured at 1440 (deck +262/+273,
-		// slide +342) and on the 390px phone (+130).
+		// panel a horizontal scroll region: one two-finger swipe over the panel scrolled every
+		// control off-screen and left a blank column. Measured as the panel body's
+		// `scrollWidth − clientWidth`: +259 deck and +336 slide at 1440 docked, +128 on the
+		// 390px phone.
 		//
-		// `clip` rather than `hidden`: it clips without creating a scroll container of its own,
-		// and it leaves `overflow-y` genuinely `visible` so nothing here can start scrolling
-		// either. The dropdown is a Radix portal, so the menu is not clipped by this.
+		// `clip` rather than `hidden`: it clips without becoming a scroll container of its own,
+		// so nothing here can start scrolling either. The dropdown is a Radix portal, so the
+		// menu is not clipped by this.
 		//
-		// `overflow-clip-margin` IS PART OF THE FIX, not a tweak. The first pill sits flush
-		// against the row's content edge (measured gap: 0px), and the app focus ring is
-		// `outline: 2px` at `outline-offset: 2px` — so it paints 4px OUTSIDE the box, and a
-		// bare `clip` shears it off. Measured: the left arc of the ring on "Look" sliced at
-		// every width in both scopes, and the chevron's right arc gone on the 390px sheet
-		// where it sits 2px from the edge. That is a keyboard and low-vision regression in
-		// the fix for a scroll regression. 6px is the ring's 4px plus a pixel of rounding
-		// either side; it widens the PAINT area only — `clip` still never scrolls.
-		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5 overflow-x-clip [overflow-clip-margin:6px]', className)}>
+		// BOTH AXES, and that is not tidiness. `overflow-clip-margin` applies only when the
+		// element clips on BOTH axes — with `overflow-x: clip` beside `overflow-y: visible`
+		// Chromium ignores the declaration entirely. An earlier cut of this fix shipped
+		// `overflow-x-clip` with the margin and the margin did nothing: 0px and 6px rendered
+		// pixel-identical, and the ring stayed sheared at 390 and 1440 alike.
+		//
+		// The MARGIN is the other half. The first pill sits flush against the row's content
+		// edge (measured gap: 0px) and the app focus ring is `outline: 2px` at
+		// `outline-offset: 2px`, so it paints 4px OUTSIDE the box and a bare `clip` shears it
+		// off — a keyboard and low-vision regression inside the fix for a scroll regression.
+		// Measured against the same clip topology at a wider margin, on the focused first pill:
+		// 0px cuts 552 (390) / 486 (1440) pixels, 4px cuts 2, and 6px, 8px and 12px are
+		// identical to each other. 6px is the ring's 4px plus a pixel of rounding either side.
+		//
+		// Do NOT raise it further "for safety": the clip margin is part of the ancestor's
+		// scrollable overflow, so at 16px the panel starts scrolling again (+2px, then +10 at
+		// 24px and +34 at 48px) — the very regression this line exists to close.
+		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5 overflow-clip [overflow-clip-margin:6px]', className)}>
 			{/* The MEASURING COPY: every pill at its natural width, laid out but never drawn.
 			    `absolute` keeps it out of the row's own layout, `w-max` stops the row's width
 			    squeezing it (which would make it measure what it is being asked to decide),
@@ -471,13 +481,15 @@ export function SettingsSectionTabs({
 			    violation, and the first cut put it in there.
 			    And no tablist AT ALL when nothing fits — an empty `role="tablist"` is the same
 			    violation from the other side, a widget promising children it does not have.
-			    Reachable, and the arithmetic that first said otherwise left out the pinned
-			    pill. One pill plus the chevron is 134px, but `visibleSectionTabs` also
+			    Reachable TODAY, and the arithmetic that first said otherwise left out the
+			    pinned pill. One pill plus the chevron is 134px, but `visibleSectionTabs` also
 			    RESERVES the active pill when it is not in the run — so with the slide scope's
 			    `Comments` active (the widest label, 87px) `n = 1` costs 74 + 6 + 54 + 6 + 87 =
-			    227px, and any row narrower than that gets no pills at all. The panel minimum
-			    is 260px so this needs a narrower container than the UI offers today, but it
-			    is a width away, not impossible. */}
+			    227px, and any row narrower than that gets no pills at all. The 820px tablet
+			    drawer gives the slide panel a 214px row: pick Comments there and the strip is
+			    the chevron alone, wearing "Comments". An earlier draft of this comment said it
+			    "needs a narrower container than the UI offers today" — it reasoned from the
+			    260px DOCK minimum and never looked at the drawer. */}
 			{visible.length > 0 && (
 			<div className="contents" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
 				{visible.map((t, i) => (

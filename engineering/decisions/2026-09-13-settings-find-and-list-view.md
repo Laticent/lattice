@@ -585,7 +585,7 @@ recorded as a limitation, and the rest were prose — which is the part worth wr
 
 ### The regression: the measuring ghost made the panel scroll sideways
 
-**The strip's hidden measuring copy handed the whole settings panel a 273px horizontal scroll
+**The strip's hidden measuring copy handed the whole settings panel a 259px horizontal scroll
 region.** The ghost is `absolute` and `w-max`, so it is 500–600px wide inside a 231px row —
 and a `visibility: hidden` box still contributes SCROLLABLE OVERFLOW. The panel body is
 `overflow-y-auto`, and CSS Overflow 3 computes the *other* axis to `auto` when one axis is not
@@ -598,26 +598,23 @@ blank tan column.
 | Slide, 1440 docked | +336 |
 | Deck sheet, 390 phone | +128 |
 
-Fixed with `overflow-x-clip` on the strip row — `clip` rather than `hidden` because it clips
-without becoming a scroll container itself and leaves `overflow-y` genuinely `visible`. The
-dropdown is a Radix portal, so its menu is not clipped. After: the panel body's `scrollWidth`
-equals its `clientWidth` at 390 / 1440 in both scopes, and a 400px sideways wheel over the
-panel moves it 0px.
+Fixed with `overflow-clip` on the strip row — `clip` rather than `hidden` because it clips
+without becoming a scroll container itself. The dropdown is a Radix portal, so its menu is
+not clipped. After: the panel body's `scrollWidth` equals its `clientWidth` at 390 / 820 /
+1440 in both scopes, and a 400px sideways wheel over the panel moves it 0px.
 
 **And the first cut of that fix broke something else.** A bare `clip` has an
 `overflow-clip-margin` of 0, the first pill sits flush against the row's content edge
 (measured gap: 0px), and the app focus ring is `outline: 2px` at `outline-offset: 2px` — so
 it paints 4px OUTSIDE the box and was sheared off. A keyboard and low-vision regression
-inside the fix for a scroll regression. `[overflow-clip-margin:6px]` restores it: with the
-margin the focused pill is pixel-identical to the same pill with no clip at all, and the
-margin widens only the PAINT area, so `clip` still never scrolls.
+inside the fix for a scroll regression. `[overflow-clip-margin:6px]` restores it — but only
+once the row clips on BOTH axes, which took a third check to establish and is §13.
 
-*Two corrections to the check that found this, both measured.* It reported the scroll region
-as +273/+342/+130; 273 is the ROW's own `scrollWidth − clientWidth` (504 − 231), a different
-box from the one that scrolls. And it reported the ring sheared at 390 as well as 1440 — at
-390 the clip margin makes no difference at all (0px, 6px and 24px render identically), so
-nothing there was ever clipped; the 390 pixel diff it saw is the horizontal scrollbar that
-the *broken* state introduces, which moves the whole capture.
+*One correction to the check that found this.* It reported the scroll region as
++273/+342/+130, measured on a different box from the one a swipe actually moves — the first
+of those is the ROW's own `scrollWidth − clientWidth` (504 − 231 at the docked deck panel).
+The PANEL BODY, which is the box that scrolls, gains +259 deck and +336 slide at 1440,
++272/+349 in the 820 drawer, and +128/+205 on a 390 phone.
 
 **Both gates that should have caught it were structurally blind.** §11's own e2e measured
 `row.querySelectorAll('button')`, and the ghost's children are `<span>`s — so the assertion
@@ -670,3 +667,69 @@ to check.** The claims that survived — the fit arithmetic, monotonicity, no ob
 caches, "nothing narrows", the keyword fix, `use-resizable-split` being behaviorally identical
 — were the ones derived from running something. The six above were derived from reading the
 code and sounding right.
+
+---
+
+## 13. What the THIRD check found — the fix for the fix did nothing
+
+§12 closed with a lesson about claims that cost nothing to check. A third independent pass
+over the same diff found the very next one.
+
+### `overflow-clip-margin` needs BOTH axes, and the shipped row clipped one
+
+The row went out as `overflow-x-clip [overflow-clip-margin:6px]`, with a comment explaining
+that leaving `overflow-y: visible` was the conservative half of the fix. **Chromium applies
+`overflow-clip-margin` only to an element that clips on both axes**, so the declaration did
+nothing at all: the row rendered identically with `0px` and with `6px`, and the focus ring on
+the first pill stayed sheared — the regression §12 said it had closed.
+
+Measured on the running Studio, against the same clip topology at a wider margin, on the
+focused first pill (`:focus-visible`, real keyboard focus, noise floor 0):
+
+| Row's overflow | Pixels of paint cut, 390 | 1440 | Panel scrolls sideways |
+|---|---|---|---|
+| `clip` / `visible`, margin 6px — **as shipped** | 149 | 149 | 0px |
+| `clip` / `visible`, margin 0px | 149 | 149 | 0px |
+| `clip` / `clip`, margin 0px | 552 | 486 | 0px |
+| `clip` / `clip`, margin 4px | 2 | 2 | 0px |
+| **`clip` / `clip`, margin 6px** | **0** | **0** | **0px** |
+| `clip` / `clip`, margin 12px | 0 | 0 | 0px |
+
+The first two rows being equal is the finding: the margin was inert. The fix is
+`overflow-clip`, both axes, same 6px.
+
+**And the margin has a ceiling, which nothing had measured.** A clip margin is part of the
+ancestor's scrollable overflow, so raising it "for safety" brings the scroll region back:
+`16px` returns +2px, `24px` +10px, `48px` +34px. The usable band is 6–12px, and the comment
+on the row now says so.
+
+### Two more of my corrections were wrong
+
+- **§12 "corrected" the second check by saying the ring was never sheared at 390.** It was.
+  That correction reasoned from a pixel diff against the *un-clipped* state, which at 390 also
+  carries a 128px scroll region — the layout shift swamped the ring. Comparing states that
+  share a clip topology, 390 shears exactly as 1440 does. The original check was right and I
+  overruled it with a worse measurement.
+- **"This needs a narrower container than the UI offers today"**, on the zero-pill floor, was
+  reasoned from the 260px dock minimum and never looked at the tablet drawer. The 820px
+  drawer gives the slide panel a **214px** row; pick `Comments` there and the strip really is
+  the chevron alone, wearing "Comments" — measured, not derived.
+
+### The gates could not have caught any of it
+
+The scroll test passes in the broken state, because the scroll fix was never the broken half.
+Nothing else in the suite can see a painted focus ring — this repo keeps no pixel baseline for
+the Studio. So the diff now carries a structural pin instead, and it says what it is: an e2e
+arm asserting the row computes to `clip` on both axes with a `6px` margin, with the reason
+written next to it. A pin on the mechanism, not on the pixels, is the honest version of what
+can be tested here.
+
+The wheel arm needed a second fix for the same reason as the first. `expect.poll(…).toBe(0)`
+matches its FIRST sample — taken before the compositor applies the scroll — so the restored
+arm also passed against a panel that then scrolled 259px. It now proves the wheel is being
+delivered (a vertical wheel at the same cursor must move the panel body), then polls until
+the horizontal value settles and asserts on what it settled at.
+
+**Three independent checks, three regressions or dead fixes of mine, each found by the check
+and not by a gate.** That is the number worth carrying out of this work, and it is why the
+merge card for it does not read `high`.

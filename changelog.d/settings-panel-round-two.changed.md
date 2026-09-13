@@ -21,6 +21,8 @@
   the panel re-fits it live, on one line. The chevron still holds the whole list.
 - **Fixed:** the settings panel could be scrolled sideways, and one two-finger swipe scrolled
   every control off-screen and left it blank. The section strip's hidden measuring element
-  was handing the panel a 273px horizontal scroll region.
+  was handing the panel a 259px horizontal scroll region.
+- **Fixed:** the focus ring on the section strip's first pill was sheared flat on its left,
+  so keyboard users could not see which pill they were on.
 - Clearing the Inspector's search field now leaves the caret in the field, so the next word
   can be typed straight away (and a phone keyboard does not drop).

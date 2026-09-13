@@ -243,7 +243,7 @@ test('the list view drops the tabs and renders every section at once', async ({ 
  * children are `<span>`s, was invisible to the very assertion that claimed "zero overflow
  * at every width". The ghost is `absolute` and `w-max`, a `visibility: hidden` box still
  * contributes scrollable overflow, and the panel body is `overflow-y-auto` — which makes
- * the other axis `auto` too. Result: a 273px horizontal scroll region on the settings
+ * the other axis `auto` too. Result: a 259px horizontal scroll region on the settings
  * panel, and one two-finger swipe scrolled every control away and left a blank column.
  *
  * So this asks the SCROLLER, not the buttons: can the panel body scroll sideways at all?
@@ -340,8 +340,8 @@ test('the settings panel cannot be scrolled sideways at all', async ({ page }) =
 	// horizontal scroll region and one sideways swipe left a blank column.
 	//
 	// TWO ARMS, because they fail for different reasons: the property (can it scroll at all)
-	// and the gesture (does a real wheel move it). Both must fail when `overflow-x-clip`
-	// comes off the row.
+	// and the gesture (does a real wheel move it). Both must fail when `overflow-clip` comes
+	// off the row.
 	const scroller = async () =>
 		page.evaluate(() => {
 			const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
@@ -356,16 +356,63 @@ test('the settings panel cannot be scrolled sideways at all', async ({ page }) =
 	expect(before, 'no settings scroller found').not.toBeNull();
 	expect(before?.canScroll, `the panel can scroll ${before?.canScroll}px sideways`).toBe(0);
 
-	// The GESTURE. An earlier version of this arm passed against the broken code and was
-	// deleted on the false conclusion that "Playwright's synthesized wheel cannot reach this
-	// nested scroller". It reaches it fine — the arm was missing `mouse.move`, so the cursor
-	// sat at Playwright's default (0, 0), outside the panel, and the wheel went nowhere.
-	// With the move, the same wheel scrolls the un-clipped panel 262px. Keep the move.
+	// The GESTURE, and it has been got wrong twice — both times in the direction of a test
+	// that passes against broken code, which is the only direction that matters.
+	//
+	// First: the arm was missing `mouse.move`, so the cursor sat at Playwright's default
+	// (0, 0), outside the panel, and the wheel went nowhere. It was then deleted on the
+	// false conclusion that "Playwright's synthesized wheel cannot reach this nested
+	// scroller". It reaches it fine. Keep the move — and rather than trust it, PROVE
+	// delivery by listening for the event on the scroller itself. (Scrolling the axis that
+	// IS meant to move would be the obvious proof and does not work here: at this viewport
+	// the panel's content fits, so there is nothing to scroll vertically either.)
+	await page.evaluate(() => {
+		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
+		let el: HTMLElement | null = list?.parentElement ?? null;
+		while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement;
+		(window as unknown as { __wheelDx?: number }).__wheelDx = 0;
+		el?.addEventListener('wheel', (e) => {
+			(window as unknown as { __wheelDx: number }).__wheelDx += (e as WheelEvent).deltaX;
+		});
+	});
 	await page.mouse.move(before!.x, before!.y);
 	await page.mouse.wheel(400, 0);
 	await expect
-		.poll(async () => (await scroller())?.scrollLeft)
-		.toBe(0);
+		.poll(async () => page.evaluate(() => (window as unknown as { __wheelDx?: number }).__wheelDx ?? 0), { message: 'the wheel never reached the panel, so this arm is vacuous' })
+		.toBe(400);
+
+	// Second: `expect.poll(…).toBe(0)` matched its FIRST sample, taken before the compositor
+	// had applied the scroll — so it passed on a panel that then scrolled 259px. Wait for the
+	// value to SETTLE (two consecutive reads agreeing), then assert on what it settled at.
+	let settledLeft = Number.NaN;
+	await expect
+		.poll(async () => {
+			const now = (await scroller())?.scrollLeft ?? -1;
+			const same = now === settledLeft;
+			settledLeft = now;
+			return same;
+		})
+		.toBe(true);
+	expect(settledLeft, 'a sideways wheel scrolled the settings panel').toBe(0);
+});
+
+test('the strip clips on BOTH axes, which is what makes its clip margin real', async ({ page }) => {
+	// A structural pin, and it says so: the thing it protects is a PAINTED focus ring, which
+	// Playwright cannot assert without a pixel baseline this suite does not keep.
+	//
+	// `overflow-clip-margin` applies only to an element that clips on both axes. The first
+	// cut of the scroll fix used `overflow-x: clip` with `overflow-y: visible` and a 6px
+	// margin — and Chromium ignored the margin completely: 0px and 6px rendered
+	// pixel-identical, and the first pill's focus ring stayed sheared at 390 and 1440 alike.
+	// The scroll test above passes in that state, so nothing else here can catch a revert.
+	const row = await page.evaluate(() => {
+		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
+		const s = list?.parentElement ? getComputedStyle(list.parentElement) : null;
+		return s && { x: s.overflowX, y: s.overflowY, margin: s.overflowClipMargin };
+	});
+	expect(row, 'no section strip row found').toBeTruthy();
+	expect(row, 'a clip margin does nothing unless BOTH axes clip').toMatchObject({ x: 'clip', y: 'clip' });
+	expect(row?.margin, 'the focus ring paints 4px outside the pill').toBe('6px');
 });
 
 test('the chevron still holds the WHOLE list, not the leftovers', async ({ page }) => {

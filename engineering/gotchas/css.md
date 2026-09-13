@@ -789,8 +789,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   trackpad swipe (or shift+wheel) over it slides every control off-screen and leaves a
   blank column. Nothing visible is too wide, `overflow-x` is nowhere in the CSS, and the
   repo's own `npm run check:overflow` passes — it measures the page and the header, not
-  this scroller. Measured instance: the Studio's settings panel gained a 273px horizontal
-  scroll region at the docked desktop width, 342px in the slide scope, 130px on a phone.
+  this scroller. Measured instance: the Studio's settings panel gained a 259px horizontal
+  scroll region at the docked desktop width (336px in the slide scope), 272px in the 820px
+  tablet drawer (349px slide), and 128px on a 390px phone (205px slide).
 - **Cause:** two rules meeting. (1) A `visibility: hidden` box is still LAID OUT and still
   contributes **scrollable overflow** — only `display: none` removes it, and a measuring
   ghost cannot use `display: none` because then it has nothing to measure. (2) CSS Overflow
@@ -798,18 +799,28 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `overflow-y-auto` — the ordinary way to make a settings list scroll — is *already* an
   `overflow-x: auto` box, and an absolutely-positioned `width: max-content` ghost 500px wide
   inside a 231px row hands it the whole difference.
-- **Fix:** `overflow-x: clip` on the ghost's own containing block, **with an
+- **Fix:** `overflow: clip` on the ghost's own containing block, **on both axes, with an
   `overflow-clip-margin`**. `clip` rather than `hidden`, because `hidden` would make that
-  element a scroll container in its own right; `clip` only clips, and it leaves `overflow-y`
-  genuinely `visible` so nothing new starts scrolling. A Radix/portal dropdown anchored in
-  the clipped row is unaffected — its content renders in a portal, outside the clip.
+  element a scroll container in its own right; `clip` only clips, so nothing new starts
+  scrolling. A Radix/portal dropdown anchored in the clipped row is unaffected — its content
+  renders in a portal, outside the clip.
 - **The margin is not optional, and forgetting it trades one regression for another.**
   `clip` defaults to `overflow-clip-margin: 0`, and a child flush against the content edge
   loses whatever paints outside its box — in this repo that is the app focus ring
-  (`outline: 2px` at `outline-offset: 2px`, so 4px beyond). Measured: the ring on the strip's
-  first pill sheared flat on its left at the docked desktop width. Set the margin to the
-  ring's reach plus a pixel or two; it widens the PAINT area only, and `clip` still never
-  scrolls.
+  (`outline: 2px` at `outline-offset: 2px`, so 4px beyond). Measured on the strip's focused
+  first pill, against the same clip topology at a wider margin: `0px` cuts 552 pixels at
+  390 and 486 at 1440, `4px` cuts 2, and `6px`, `8px` and `12px` are identical to each
+  other. Set the margin to the ring's reach plus a pixel or two.
+- **`overflow-clip-margin` applies only when BOTH axes clip — `overflow-x: clip` beside
+  `overflow-y: visible` silently ignores it.** This is the trap inside the fix. The first
+  cut here was `overflow-x: clip` with a 6px margin, on the reasoning that leaving the y
+  axis `visible` was the more conservative change; Chromium dropped the margin on the floor,
+  0px and 6px rendered pixel-identical, and the sheared ring shipped anyway. Clipping the y
+  axis too costs nothing when the row is a single line of pills.
+- **Do not raise the margin "for safety" — it is part of the ancestor's scrollable
+  overflow.** Past a point it brings the very scroll region back: measured on this panel,
+  `16px` returns +2px of horizontal scroll, `24px` +10, `48px` +34. The usable band was
+  6–12px.
 - **Test it by asking the SCROLLER, not the children.** The first e2e written for this
   measured `row.querySelectorAll('button')` and asserted "zero overflow at every width" — the
   ghost's children are `<span>`s, so the assertion could not see the thing that overflowed.
@@ -818,5 +829,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   dispatched at the cursor's current position, which starts at (0, 0); without the move the
   wheel lands outside the panel, nothing scrolls, and the test passes against the defect. One
   was written and deleted here on the false conclusion that Playwright's wheel could not
-  reach a nested scroller. It can.
+  reach a nested scroller. It can. **And assert on the SETTLED value:** the replacement arm
+  used `expect.poll(…).toBe(0)`, which matches its first sample — taken before the
+  compositor applied the scroll — so it too passed against the defect. Poll until two
+  consecutive reads agree, then assert; and prove the wheel is being delivered at all by
+  scrolling the axis that IS supposed to move first.
   See `engineering/decisions/2026-09-13-settings-find-and-list-view.md` §12.
