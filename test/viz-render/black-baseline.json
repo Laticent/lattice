@@ -2,13 +2,42 @@
   "note": "Sanctioned opaque-black SVG paint on the SCOPED render path. Each entry is a legitimately-black ink/hairline, NOT a dropped-color bug. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.",
   "themes": [
     "indaco",
-    "cuoio"
+    "cuoio",
+    "concrete"
   ],
   "schemes": [
     "light",
     "dark"
   ],
   "sanctioned": [
+    {
+      "family": "chart",
+      "component": "heatmap",
+      "selector": "text.heatmap-value",
+      "property": "fill",
+      "scheme": "dark"
+    },
+    {
+      "family": "chart",
+      "component": "heatmap",
+      "selector": "text.heatmap-value",
+      "property": "fill",
+      "scheme": "light"
+    },
+    {
+      "family": "chart",
+      "component": "heatmap",
+      "selector": "text.heatmap-value>tspan",
+      "property": "fill",
+      "scheme": "dark"
+    },
+    {
+      "family": "chart",
+      "component": "heatmap",
+      "selector": "text.heatmap-value>tspan",
+      "property": "fill",
+      "scheme": "light"
+    },
     {
       "family": "chart",
       "component": "quadrant",
