@@ -15,6 +15,9 @@
   "function": "statement",
   "form": "canvas",
   "substance": "prose",
+  "projection": {
+    "data": true
+  },
   "stage": "flow",
   "coda": { "claims": [] },
   "tags": [

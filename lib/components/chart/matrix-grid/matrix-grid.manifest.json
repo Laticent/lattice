@@ -21,6 +21,10 @@
   "bucket": "chart",
   "form": "matrix",
   "substance": "structure",
+  "projection": {
+    "figure": "none",
+    "data": true
+  },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
   "render": "html",

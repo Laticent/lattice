@@ -1,0 +1,237 @@
+---
+status: shipped
+summary: >
+  Phase 1 of the plugin rollout: kill the hand-maintained rosters. Adding a chart touched zero
+  lines of chart-family.js and still needed about six edits to unrelated lists in five other
+  files — and NOT ONE went red, so a forgotten one shipped as black fills or a vector export
+  silently downgraded to PNG. The census found the rosters were worse and better than the note
+  claimed: nine literals, not six (one hid inside a page.evaluate under a different name), and
+  FOUR of them held the IDENTICAL twelve names. One fact wearing four names. Each component now
+  declares one `projection` block — how its rendered visual travels off the slide, and whether
+  its substance is data — and one generated ESM catalog projects the sets every consumer reads.
+  Eight of the nine derived sets are byte-identical to the literals they replace; the ninth
+  gains three names its own comment said belonged. Deliberately NOT inferred from existing
+  manifest fields: that was tried here before and got two components backwards. A chart that
+  forgets to declare now fails the build, which is the arm the six rosters never had.
+last-updated: 2026-09-13
+companion:
+  - ../../lib/core/projection-catalog.generated.mjs
+  - ../../tools/build-projection-catalog.js
+  - ../../test/unit/components/chart-folder-drop.test.js
+  - ./2026-09-13-plugin-architecture.md
+  - ./2026-09-01-manifest-driven-chart-dispatch.md
+---
+
+# The rosters stop being hand-maintained
+
+**Date:** 2026-09-13
+**Implements** [`2026-09-13-plugin-architecture.md`](2026-09-13-plugin-architecture.md)
+§ Rollout **Phase 1 — kill the rosters**, the prerequisite for every phase after it.
+**Continues** [`2026-09-01-manifest-driven-chart-dispatch.md`](2026-09-01-manifest-driven-chart-dispatch.md),
+whose § "What a folder drop does NOT get you" logged exactly this debt.
+
+## The problem, stated as a cost
+
+Adding a chart is a folder drop for **dispatch and framing** — real, and pinned by a test.
+It was not a folder drop for anything else. Six hand-maintained rosters in five other files
+each had to be remembered, and the plugin note named the consequence:
+
+> **Not one of them goes red.** Omit the first and `--chart-cat-N-*` resolves to nothing, so
+> fills render black. Omit `CLEAN_SVG_LAYOUTS` and vector export silently downgrades to PNG.
+
+That is the blocker for the whole rollout, because a third party cannot hand-edit
+`deck-export.js`.
+
+## What the census found
+
+Two things the plugin note did not know, both of which changed the design.
+
+**There were nine literals, not six.** `tools/export-chart-svg.js` carries its copy *inside a
+`page.evaluate()` callback*, named `KEYED` rather than `KEYED_CHART_LAYOUTS` — invisible to a
+grep for the exported name, which is why the earlier count missed it. And
+`prose-projection.mjs` held five sets, not two.
+
+**Four of them were the same twelve names.** Measured, not eyeballed:
+
+| Roster | File |
+|---|---|
+| `CHART_TOKEN_COMPONENTS` | `lib/transformers/prose-projection.mjs` |
+| `KEYED_CHART_LAYOUTS` | `lib/export/image-set.js` |
+| `CLEAN_SVG_LAYOUTS` | `docs/src/components/studio/export/deck-export.js` |
+| `KEYED` | `tools/export-chart-svg.js`, inside the `page.evaluate` |
+
+Same twelve members, three different orders, four different names, two module systems. They
+are all asserting **one fact**: *this chart renders as a single self-contained `<svg>`.* The
+prose projection cares because such an SVG re-hosts cleanly but loses its
+`section.chart-frame`-scoped custom properties; the two export paths care because a
+self-contained SVG can be extracted as vector instead of rasterized. Same property, different
+consequence — which is precisely the shape that grows four copies.
+
+`deck-export.js` makes the point on its own: it already imports the single-sourced
+`core.KEYED_CHART_LAYOUTS` for the image-set path at line 1625, and kept its own literal for
+the single-chart path 180 lines above. One module, two rosters, same twelve names.
+
+## The model — one declaration, sets derived
+
+Each component manifest gains one optional block:
+
+```jsonc
+"projection": {
+  "figure": "svg",   // svg | flow | spatial | placeholder | bare | none
+  "data": true       // substance is data; only ever true
+}
+```
+
+`figure` is **how the rendered visual survives being taken off the slide** — the one fact all
+eight figure rosters were encoding:
+
+| kind | means | who declares it |
+|---|---|---|
+| `svg` | one self-contained `<svg>`: re-hosts cleanly, extracts as vector, needs `chart-frame` carried back or its fills fall to black | the twelve |
+| `flow` | HTML+CSS table/bar/track sized only in `cqi`; the whole `.chart-body` re-hosts into a width container | gantt, kanban, progress, roadmap, timeline-list |
+| `spatial` | absolutely-positioned / `cqi`-sized; needs a **bounded** box | word-cloud |
+| `placeholder` | a static re-host cannot reconstruct it; keeps the honest "best seen in Present" note | journey, state-chart |
+| `bare` | plain `<figure>`, no chart-frame — does not ride the chart spectrum | diagram, image, video, math |
+| `none` | no static re-host producer at all | matrix-grid |
+
+`data` is a genuinely separate axis and stays its own key: `kpi`, `stats` and `big-number` are
+data with no re-hostable visual, and a `bare` image is a visual with no data.
+
+`tools/build-projection-catalog.js` freezes these into
+`lib/core/projection-catalog.generated.mjs`, which exports the record plus the seven derived
+sets. **The rule lives in the generator, so every consumer reads a name rather than
+re-deriving one** — `MEDIA_COMPONENTS` is "every figure except `flow`", and that sentence is
+now written once instead of being implicit in a hand-typed list of nineteen.
+
+## Declared, not inferred — and the repo already paid for that lesson
+
+The obvious shortcut is to derive the kinds from fields the manifests already carry: `render`
+is `svg | hybrid | html`, `bucket` is `chart`, `substance` is `series`. **That was tried here
+and it was wrong.** `docs/src/components/studio/motion-sheet.ts` says so in its own docblock:
+
+> MEASURED, not inferred from the manifests… An earlier draft of this file keyed on
+> `render: svg` in the manifest instead, and got two of them backwards — `diagram` declares
+> SVG and emits NO role… while `state-chart` is `render: hybrid` and DOES.
+
+`render` describes what a component *draws with*. `projection.figure` describes what happens
+when you *lift it off the slide*. Those correlate and are not the same question, and a
+correlation that holds for nineteen of twenty-one components is the worst possible kind: it
+passes review, and the two it gets backwards fail silently. So the fact is declared.
+
+## Why generated, and why ESM
+
+**Generated** for the same reason as the chart registry: this file is bundled by esbuild into
+`dist/lattice-emulator.js` and the docs-site bundles, which cannot `fs`-load 69 manifests at
+run time.
+
+**ESM** because the consumers straddle both module systems — three are ESM in `docs/src`,
+three are CJS in `lib/` — and rollup cannot take named exports from a source-tree CommonJS
+file. That is the exact role `lib/theme/edges.generated.mjs` already fills: `require()`d from
+CJS on Node ≥ 22.12 (pinned in `package.json`), imported by relative path in the docs bundle.
+
+This is also the answer to a blocker `2026-09-01` had to leave open. It recorded the durable
+fix for the `single-slide-render.ts` mirror as "import it here rather than mirror it —
+**blocked only on the generated module being CJS while this bundle is ESM**". The chart
+registry could not take this route, because it emits `require()` calls into CJS transform
+modules. A pure **data** catalog has no such tie, so it takes the `.mjs` road and the blocker
+does not apply to it.
+
+## What changed, and what did not
+
+**Eight of the nine derived sets are byte-identical** to the literals they replace —
+`CHART_TOKEN_COMPONENTS`, `MEDIA_COMPONENTS`, `FLOW_CHART_COMPONENTS`,
+`SPATIAL_BOUNDED_COMPONENTS`, `SPATIAL_PLACEHOLDER_COMPONENTS`, `KEYED_CHART_LAYOUTS`,
+`CLEAN_SVG_LAYOUTS` and the `page.evaluate` copy. That parity is the evidence the
+declarations are right, and it is asserted rather than claimed
+(`test/unit/core/projection-catalog.test.js`).
+
+**One set changes, by exactly three names.** `DATA_LAYOUTS` gains `journey`, `matrix-grid` and
+`roadmap`. These are chart layouts that the roster's own comment says belong to it — *"chart +
+evidence buckets, plus the solo hero metric"* — and their absence was drift, not intent. The
+effect is that a deck built on one of the three now scores **Data** instead of reporting
+`N/A`. It is the only behavior change in this commit, it is what the roster meant to say all
+along, and it is named here rather than buried because a silent scoring change is precisely
+the genre of defect this note exists to end.
+
+**`matrix-grid` keeps behaving exactly as it does today**, and this is where `none` earns its
+place in the enum. It has no static re-host producer — its CSS already carries the
+`figure.matrix-grid` half and nothing projects into it, a gap `matrix-grid.test.js` documents.
+Declaring a real figure kind for it would change a rendered surface, which is a different
+change owing a demo deck under HARD RULE #9. Declaring `none` records the gap instead. **The
+point is not that every chart re-hosts; it is that every chart SAYS** — and the difference
+between "declares no producer" and "was forgotten" is the entire subject of this note.
+
+## The arm the rosters never had
+
+A declaration you can forget is a roster with better manners. `checkProjectionCoverage`
+(`tools/check-ownership.js`, via `build:check`) fails the build when a **chart-bucket**
+component declares no `projection.figure`. Chart bucket only, and required rather than
+optional there: every chart has a rendered visual, so there is always a right answer, while a
+component outside the bucket may legitimately have none.
+
+The error names what breaks, not just what is missing, because the whole defect class is
+failures nobody could see.
+
+**Mutation-proved**, four arms, baseline clean after each revert:
+
+| Mutation | Result |
+|---|---|
+| A chart drops `projection.figure` | `checkProjectionCoverage` fails, naming the chart and the three consequences |
+| A chart declares `figure: "vector"` | the loader rejects the manifest |
+| A chart declares `data: false` | the loader rejects it — `data` is only ever `true`, so there is no negative to declare |
+| The generated catalog is edited by hand | `build-projection-catalog.js --check` reports it STALE |
+
+## The folder-drop proof, extended
+
+`test/unit/components/chart-folder-drop.test.js` already dropped a chart nobody has seen into
+a copy of `lib/` and rendered a real deck through it. It now also runs the real projection
+generator against that copy and asserts the drop reaches every catalog it belongs in:
+
+- declared `flow` → in `FLOW_CHART_COMPONENTS` and `DATA_LAYOUTS`, and **out** of
+  `MEDIA_COMPONENTS` (flow dispatches on its own branch first) and `SVG_CHART_LAYOUTS`;
+- re-declared `svg` → in `SVG_CHART_LAYOUTS`, which is one assertion covering all four of the
+  rosters that held the identical twelve, and in `MEDIA_COMPONENTS`;
+- declared `none` → recorded in `PROJECTION`, absent from all five figure sets, still in
+  `DATA_LAYOUTS`;
+- **declaration omitted** → the loader still accepts it (absence is a coverage question, not a
+  shape error) and the ownership gate refuses it. Driven over a synthetic manifest through the
+  exported `checkProjectionCoverage`, because the shipped tree can never be in that state —
+  which is exactly why the rosters could be forgotten in silence. The repo already exports its
+  theme gates for this reason: *"a gate only proves something if you can watch it fail."*
+- `familyOf('tempo-bars', 'chart') === 'charts'` → the docs picker finds it with no edit.
+
+## `families.mjs` is a floor, not a projection
+
+The sixth roster is different in kind and is treated differently. `FAMILY_DEFS` is a
+**curated browsing taxonomy**, not a fact about a component: it deliberately keeps `split-*`
+whole and makes math its own family rather than "a lodger in Code & math". Projecting it from
+manifests would delete real editorial judgment to fix a coverage bug.
+
+So the taxonomy stays hand-written and `familyOf()` gains a **bucket fallback** before
+`'other'`. An uncurated component lands in a plausible family instead of one nobody named, and
+a dropped chart reaches the picker with no edit. That is a floor under the curation, not a
+replacement for it.
+
+## What this does NOT cover
+
+Four more hand-maintained lists in this family are **out of scope and off the path** of this
+change (HARD RULE #18), logged here rather than pulled into the diff:
+
+| Roster | Why not here |
+|---|---|
+| `chart-interact.js` `CHART_SVG_SEL` | A CSS **selector** list (`.bar-svg, …`), and it is NOT derivable from `kernel.figureClass` — `bar` declares `bar-figure`, the selector wants `bar-svg`. A different fact needing its own declaration. |
+| `single-slide-render.ts:1249` | A regex alternation mirroring `LAYOUTS`. Its documented blocker (the registry being CJS) is real for *that* list, which is the chart registry's, not this catalog's. |
+| `motion-sheet.ts` `ROLE_COMPONENTS` | Measured per component, and its docblock is the best argument in the tree against inferring any of this. Would need its own declared field. |
+| `registers.ts` `TABLE_UNSUITED` | The one roster in the family that already **has** a rot guard (`table-suitability.test.ts`). Least urgent by definition. |
+
+So the honest form of the claim is: **a chart folder-drop needs zero edits outside its own
+folder for dispatch, framing, prose projection, standalone-SVG extraction, both vector export
+paths, the deck scorecard and the docs picker** — and where a drop still costs an edit, it is
+one of the four above, none of which fails silently in the way the nine did.
+
+## References
+
+- [`2026-09-13-plugin-architecture.md`](2026-09-13-plugin-architecture.md) § Rollout Phase 1 — the sequence this is first in.
+- [`2026-09-01-manifest-driven-chart-dispatch.md`](2026-09-01-manifest-driven-chart-dispatch.md) § "What a folder drop does NOT get you" — where this debt was logged.
+- [`2026-08-16-manifest-is-the-theme-contract.md`](2026-08-16-manifest-is-the-theme-contract.md) — `edges.generated.mjs`, the dual-consumption precedent.
+- `design/skills/chart-component.md` § the roster checklist — shortened by this change.

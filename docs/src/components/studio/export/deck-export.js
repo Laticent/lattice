@@ -31,6 +31,7 @@
 // re-derived by scanning `@import` — this was the fourth such scanner in the repo.
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
+import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
@@ -1734,7 +1735,11 @@ function subsetFontFaceCss(css, families) {
 // state-chart/roadmap/timeline/word-cloud) is HTML/CSS or mixed → exported as a
 // high-res PNG, rasterized in-browser by the SAME html-to-image path the
 // one-click PDF/PPTX uses (it renders these charts faithfully).
-const CLEAN_SVG_LAYOUTS = ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'piechart', 'radar', 'map', 'quadrant', 'funnel'];
+// Projected from each manifest's `projection.figure === "svg"`. This module already
+// single-sources the OTHER half of the same fact 180 lines below — `core.KEYED_CHART_LAYOUTS`
+// off the image-set bundle — while keeping its own literal up here: one file, two rosters,
+// the same twelve names. Both now read the one catalog.
+const CLEAN_SVG_LAYOUTS = SVG_CHART_LAYOUTS;
 
 // The cursor's active chart slide (ANY `chart-frame` section), or null — drives
 // the "Export chart" menu visibility.

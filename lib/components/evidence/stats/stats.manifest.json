@@ -4,6 +4,9 @@
   "function": "evidence",
   "form": "stack",
   "substance": "structure",
+  "projection": {
+    "data": true
+  },
   "stage": "flow",
   "coda": { "claims": ["trailing-paragraph"] },
   "capacity": {

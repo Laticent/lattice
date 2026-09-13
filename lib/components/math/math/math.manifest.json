@@ -4,6 +4,9 @@
   "function": "evidence",
   "bucket": "math",
   "form": "canvas",
+  "projection": {
+    "figure": "bare"
+  },
   "stage": "canvas",
   "conformance": "strict",
   "coda": { "dock": "grid", "claims": ["blockquote", "trailing-paragraph"] },

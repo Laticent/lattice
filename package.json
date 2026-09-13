@@ -127,6 +127,8 @@
     "image-set-core:check": "node tools/build-image-set-core.js --check",
     "a11y-textures:build": "node tools/build-a11y-textures.js",
     "a11y-textures:check": "node tools/build-a11y-textures.js --check",
+    "projection-catalog:build": "node tools/build-projection-catalog.js",
+    "projection-catalog:check": "node tools/build-projection-catalog.js --check",
     "axis-dom-catalog:build": "node tools/build-axis-dom-catalog.js",
     "axis-dom-catalog:check": "node tools/build-axis-dom-catalog.js --check",
     "stage-catalog:build": "node tools/build-stage-catalog.js",

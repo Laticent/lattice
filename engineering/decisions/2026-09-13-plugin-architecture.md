@@ -77,6 +77,10 @@ one of those rosters is a wall between us and any plugin — and they are alread
 a tax on us. **Kill the rosters and the plugin system is most of the way built;
 build the third-party door first and it opens onto a frame full of holes.**
 
+**Since fixed** — and the census that did it found the count above was low. There
+were nine literals, not six, and four held the same twelve names:
+[`2026-09-13-projected-rosters.md`](2026-09-13-projected-rosters.md).
+
 The same defect one level over is what this note's first slice fixes: the video
 component's provider table existed **twice**, in two unrelated trees, with
 independent regexes.
@@ -170,11 +174,18 @@ and about **our own kernels**: `lib/components` is 53% of the runtime bundle.
 
 ## Rollout — debt first
 
-**Phase 1 — kill the rosters.** Move the six hand-maintained lists into manifest
-fields projected into generated catalogs, the pattern five other catalogs already
-use. No new concepts, no external surface. Makes the existing folder-drop claim
-true and removes two silent-failure modes. **This is the prerequisite for
-everything below**, because a plugin cannot hand-edit `deck-export.js`.
+**Phase 1 — kill the rosters. SHIPPED**, see
+[`2026-09-13-projected-rosters.md`](2026-09-13-projected-rosters.md). Each component
+declares one `projection` block and `lib/core/projection-catalog.generated.mjs`
+projects the sets every consumer reads. The census found the debt was **nine**
+literals, not six — one hid inside a `page.evaluate` under a different name — and
+that **four of them held the identical twelve names**, which is why the fix is one
+declared fact rather than six projected lists. Eight of the nine derived sets are
+byte-identical to the literals they replace; the ninth (`DATA_LAYOUTS`) gains the
+three chart layouts its own comment said belonged. `checkProjectionCoverage` now
+fails the build for a chart that declares no figure, so the silent half is closed.
+Four further rosters resisted projection and are named there — each needs its own
+declared fact, and none of them fails silently the way these nine did.
 
 **Phase 2 — providers as the first contribution kind (T0).** Shipped with this
 note; see below.

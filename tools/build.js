@@ -86,6 +86,11 @@ const STEPS = [
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
   { label: 'chart dispatch registry (lib/components/chart)', script: 'build-chart-registry.js' },
+  // Also ahead of the bundles: lib/export/image-set.js and lib/authoring/scorecard.js
+  // `require()` this catalog and both are inlined by esbuild, and three docs-site
+  // modules import it. It replaces nine hand-maintained rosters — see
+  // engineering/decisions/2026-09-13-projected-rosters.md.
+  { label: 'projection catalog (lib/core)', script: 'build-projection-catalog.js' },
   // Ahead of the bundles: the state-chart transform requires the generated
   // dagre IIFE at BUNDLE time, so a stale or missing file would be baked into
   // lattice-runtime.js and lattice-emulator.js rather than caught later.
