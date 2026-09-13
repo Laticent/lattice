@@ -14,6 +14,7 @@ import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
 import { type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { loadSettings, type OverflowMarker } from './studio-store';
+import { DEGRADED_TOAST_MS } from './toast-duration';
 import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsPanel';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
@@ -30,7 +31,7 @@ function Row({ icon, title, desc, dev, busy, status, onClick }: { icon: React.Re
 	);
 }
 
-export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent, notify }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; notify: (msg: string) => void }) {
+export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent, notify }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; notify: (msg: string, opts?: { duration?: number }) => void }) {
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
 	// a real per-artifact decision: PDF (comments as sticky notes), the Webpage player
@@ -110,7 +111,9 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				await fn(setProgress, (reason) => {
 					degraded = reason;
 				});
-				notify(degraded ? `${label} ready — but ${degraded}.` : `${label} ready.`);
+				// A degradation names a path to go and fix, so it stays up long enough to read.
+				// The plain "ready." stays transient — there is nothing in it to act on.
+				notify(degraded ? `${label} ready — but ${degraded}.` : `${label} ready.`, degraded ? { duration: DEGRADED_TOAST_MS } : undefined);
 			} catch (e) {
 				// Every share row funnels through here, and each one lazy-imports its exporter.
 				// A stale tab or a dropped connection failed BEFORE the export began, so echoing

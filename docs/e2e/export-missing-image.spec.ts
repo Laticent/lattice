@@ -41,8 +41,12 @@ test('a deck with an unreachable image still exports, and the toast says what is
 	// And the author was told, in the toast — which persists, unlike the progress line.
 	const toast = page.locator('[data-sonner-toast]');
 	await expect(toast).toContainText(/PDF ready — but/i);
-	await expect(toast).toContainText(/could not be loaded/i);
+	await expect(toast).toContainText(/could not load every image/i);
 	// Named, not merely counted. Before this, the only thing the export could say about
 	// a failing image was "unexpected error".
 	await expect(toast).toContainText(BROKEN);
+	// And it does NOT blame deck-relative resolution for a path that is not relative.
+	// This fixture is rooted, and the hint used to be appended unconditionally — to this
+	// very toast — sending the author to look in a place the problem cannot be.
+	await expect(toast).not.toContainText(/relative to the deck file/i);
 });

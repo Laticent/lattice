@@ -37,10 +37,15 @@ deliverable; a picture is a part of it.
 
 ## What ships
 
-`onImageErrorHandler` on both capture flavors, which resolves instead. The image is
-simply absent from the page and everything else renders. That one option is the
-whole behavioral fix, and it changes the PDF, the PowerPoint AND the image set at
-once, because they share `captureOptions`.
+`onImageErrorHandler` on both capture flavors, which resolves instead — and HIDES the
+failed `<img>` in the clone. Resolving alone is not "the picture is simply absent":
+the browser paints its own broken-image glyph AND the author's alt text into the box,
+so the first version of this exported a boardroom slide carrying a platform icon (a
+different one per machine, the divergence HARD RULE #29 exists for) and a line of
+prose nobody wrote. Measured on a real export, then fixed: `visibility:hidden` on the
+clone, which leaves the box its size so nothing around it moves. That option plus that
+line is the whole behavioral fix, and it changes the PDF, the PowerPoint, the image
+set and the print deck at once, because they share `captureOptions`.
 
 The rest is the part that keeps it from becoming a WORSE defect. An export that
 silently ships a hole is harder to catch than one that refuses: the author sees
@@ -49,25 +54,43 @@ the reason goes in the toast — through the `onDegraded` channel the webpage ex
 already uses, because the progress line is transient and gone by the time the file
 lands.
 
-### Naming the path takes TWO sources, and neither alone is enough
+### Naming the path takes THREE sources, and none alone is enough
 
-- **`count` comes from the capture's hook**, which sees every failure — including a
-  remote image the frame displayed happily and whose `fetch` the exporter could not
-  read past CORS.
+- **`count` comes from the capture's hook**, which sees every `<img>` failure —
+  including a remote one the frame displayed happily and whose `fetch` the exporter
+  could not read past CORS.
 - **`paths` comes from the LIVE DOM** — an `<img>` that is `complete` with
   `naturalWidth === 0` asked for something it did not get, and it still has the
   attribute the author wrote.
+- **A probe covers `background-image`, which neither of the other two can see.** This
+  is the channel that mattered most and the one the first version of this note got
+  wrong: a deck's `![bg](…)` full-bleed panel is NOT an `<img>` — `lib/core/bg-image.js`
+  emits a `<div>` with a `background-image` — and html-to-image catches that fetch
+  ITSELF, substitutes an empty URL and only `console.warn`s. So the hook never fires,
+  nothing is counted, and a real export of a deck with a dead `![bg]` path produced a
+  page with no background under a toast reading "PDF ready." — verbatim the silent hole
+  this change exists to prevent. Probing each distinct background URL with an `Image` in
+  the capture frame closes it, and costs almost nothing: the browser has already fetched
+  them, so a probe of a working background is a cache hit.
 
 The hook cannot name anything: it is handed the CLONE, whose `src` has already been
 blanked, and an empty `src` reads back as the PAGE's own address (measured:
 `http://localhost:4321/studio/`), which would send the author looking in exactly the
 wrong place. The DOM scan cannot see the CORS case, because that image loaded fine.
 Together they give a trigger that is complete and names that are right. The sentence
-then lists up to three paths, and when it can name NONE of them it gives no number at
-all — deliberately, because `count` is one per failed image ELEMENT: a single bad
-`logo:` on a 56-slide deck registers 56, and telling an author they have fifty-six
-broken images when they have one would send them hunting for fifty-five that do not
-exist.
+asserts **no total at all**, which is the only wording the log can stand behind:
+`paths` may be a subset of what failed (a CORS-blocked `<img>` fires the hook and can
+never be named), and `count` is one per failed ELEMENT, so a single bad `logo:` on a
+56-slide deck registers 56. "One image" beside a list of one would tell an author to
+stop looking; "56 images" would send them hunting for fifty-five that do not exist.
+What is always true is that not every image loaded, and which ones we know about.
+
+The trailing hint — *a path relative to the deck file does not resolve here* — is
+appended **only when a named path is actually relative**. A `/absolute` or `https://`
+URL that 404s has nothing to do with deck-relative resolution, and the first version
+appended it unconditionally, including to the rooted fixture in its own e2e test.
+
+Each path is truncated at 120 characters, because an author can write a very long one.
 
 `complete` is the guard that matters in the scan — an image still in flight also
 reports `naturalWidth === 0`, and accusing it would name a file that was fine.
@@ -77,18 +100,26 @@ reports `naturalWidth === 0`, and accusing it would name a file that was fine.
 | Claim | Evidence |
 |---|---|
 | A deck with a 404 image exports | `docs/e2e/export-missing-image.spec.ts` drives the REAL Studio with a deck referencing `/this-image-does-not-exist-4f2a.png`, downloads the PDF and opens it: 2 pages. On `main` the same deck produces no download at all |
-| The author is told, and told WHAT | The same spec asserts the toast reads `PDF ready — but …could not be loaded…` and contains the broken path verbatim |
-| The naming rules are right | Unit tier (jsdom): the path the deck wrote is what gets named; an image still loading is not accused; one bad path on 56 slides reads as one image, not 56; a failure that can be named at all gives no count; the list stops at three |
+| The author is told, and told WHAT | The same spec asserts the toast reads `PDF ready — but the export could not load every image…`, contains the broken path verbatim, and does NOT blame deck-relative resolution for a rooted path |
+| The degraded page is a GAP, not a broken glyph | The e2e deck's image carries alt text; the exported page shows neither a broken-image icon nor the alt, because the clone's `<img>` is hidden |
+| The naming rules are right | Unit tier (jsdom): the path the deck wrote is what gets named; an image still loading is not accused; the sentence asserts no total; the relative-path hint appears only for a relative path; the list stops at three and one path at 120 characters |
+| A dead background is named too | Unit tier drives the probe against a stubbed loader: a `background-image` that 404s is named AND trips the trigger by itself, while one that loads says nothing |
 | The e2e arm can fail | **Mutation-proved**: delete `onImageErrorHandler` from `captureOptions` — which is exactly `main` — rebuild, and the spec fails (no download arrives) |
-| Nothing else changed | `npm run lint`, `tsc`, the docs export suite (78), root unit suite, `build:check` |
+| Nothing else changed | `npm run lint`, `tsc`, the docs export suite (90), the root unit suite, `build:check` |
 
 ## What this is NOT
 
 - **Not a fix for a broken path.** It is a fix for what a broken path COSTS. The
   author still has to correct the deck; they can now see which line to correct.
-- **Not coverage of every image channel.** A CSS `background-image` that 404s and an
-  SVG `<image href>` are counted by the hook (they go through the same fetch) but not
-  NAMED by the DOM scan, which reads `<img>` elements. Naming those needs the capture
-  frame to record its own failed requests.
+- **Not coverage of every image channel.** An SVG `<image href>` fires the hook (it is
+  handled by the same code path as an `<img>`) but is not NAMED — the DOM scan reads
+  `<img>` elements and the probe reads `background-image`. A CORS-blocked background is
+  seen by nothing at all: it loads in the frame, so the probe says fine, and the hook
+  never fires for a background. Both would need the capture frame to record its own
+  failed requests.
+- **Not a durable record.** The reason rides in a toast. It now stays up 15 s rather
+  than 2.6 — long enough to read a path, which the design depends on and did not have —
+  but an author who steps away during a long export still misses it. Somewhere to go
+  back and read what an export dropped is a separate change.
 - **Not a change to the CLI export.** `lattice-emulator.js` has its own asset path and
   is not on this seam.

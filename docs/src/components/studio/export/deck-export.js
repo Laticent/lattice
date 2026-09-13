@@ -907,8 +907,16 @@ function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 		pixelRatio,
 		cacheBust: true,
 		fontEmbedCSS,
-		onImageErrorHandler: () => {
+		onImageErrorHandler: (event) => {
 			if (log) log.count += 1;
+			// HIDE the failed `<img>` in the clone. Resolving alone is not "the picture is
+			// simply absent": the browser paints its own broken-image glyph AND the author's
+			// alt text into the box, so the exported slide ships a platform icon (a different
+			// one per machine, the divergence HARD RULE #29 exists for) and a line of prose
+			// nobody wrote — measured, on a real export, before this line. `visibility`
+			// rather than `display`, so the box keeps its size and nothing around it moves.
+			const el = event?.target;
+			if (el?.style) el.style.visibility = 'hidden';
 		},
 		// No `borderRadius` here: it is set on the SECTION in withCaptureFixups, which is
 		// the only place that knows whether this corner is being kept or squared. A blanket
@@ -947,13 +955,17 @@ export function captureError(cause) {
 /**
  * The tally one export keeps of the images it could not load.
  *
- * `count` comes from the capture itself (html-to-image's own image-error hook), so it
- * sees EVERY failure — including a remote image the frame displayed happily and the
- * exporter's `fetch` could not read past CORS. `paths` comes from the live DOM and so
- * only names the ones the frame ALSO failed to load, which is the common case (a 404).
- * Two sources because neither alone is both complete and specific: the hook is handed
- * a clone whose `src` has already been blanked, and an empty `src` reads back as the
- * PAGE's own address.
+ * `count` is the TRIGGER and `paths` is the DETAIL, and they are deliberately not the
+ * same measurement. `count` comes from the capture itself (html-to-image's own
+ * image-error hook), so it fires on failures nothing else can see — a remote image the
+ * frame displayed happily and the exporter's `fetch` could not read past CORS. But it
+ * can name nothing: the hook is handed a CLONE whose `src` has already been blanked,
+ * and an empty `src` reads back as the PAGE's own address. `paths` comes from the live
+ * DOM, which still has the attribute the author wrote.
+ *
+ * So `count` is used as a boolean and `paths` supplies every word of the sentence. It
+ * is never reported AS a number: it is one per failed image ELEMENT, so a single bad
+ * `logo:` on a 56-slide deck registers 56 — one broken path, not fifty-six.
  */
 export function createImageFailureLog() {
 	return { count: 0, paths: new Set() };
@@ -971,8 +983,81 @@ export function recordUnreachableImages(section, log) {
 	}
 }
 
+/**
+ * Every distinct URL a slide's CSS asks for as a `background-image`.
+ *
+ * A deck's `![bg](…)` full-bleed panel is NOT an `<img>` — `lib/core/bg-image.js`
+ * emits a `<div>` with a `background-image`, which is exactly why the `<img>` scan
+ * above cannot see the most visually consequential image on a slide.
+ */
+export function backgroundImageUrls(section) {
+	const win = section?.ownerDocument?.defaultView;
+	if (!win || typeof section.querySelectorAll !== 'function') return [];
+	const urls = new Set();
+	for (const el of [section, ...section.querySelectorAll('*')]) {
+		const value = win.getComputedStyle(el).backgroundImage;
+		if (!value || value === 'none') continue;
+		for (const [, , url] of value.matchAll(/url\((['"]?)(.*?)\1\)/g)) {
+			// `data:` is already inline — it cannot 404, and html-to-image passes it through
+			// untouched, so naming one would accuse an image the export never lost.
+			if (url && !url.startsWith('data:')) urls.add(url);
+		}
+	}
+	return [...urls];
+}
+
+/** A URL a `<link>`-style probe could not load, in the frame that will be captured. */
+function probeImage(win, url, timeoutMs) {
+	return new Promise((resolve) => {
+		const img = new win.Image();
+		const done = (ok) => resolve(ok);
+		img.onload = () => done(true);
+		img.onerror = () => done(false);
+		// Bounded: a URL that neither loads nor errors must not hold the export open.
+		setTimeout(() => done(true), timeoutMs);
+		img.src = url;
+	});
+}
+
+/** How long the whole background probe may take before the export proceeds anyway. */
+const BACKGROUND_PROBE_MS = 4000;
+
+/**
+ * Everything a deck asked for and did not get, across all its slides.
+ *
+ * Two passes because the two channels fail in different places. An `<img>` reports its
+ * own failure through `naturalWidth`. A `background-image` does not: `html-to-image`
+ * catches that fetch itself, substitutes an empty URL and only `console.warn`s, so the
+ * background vanishes from the export with nothing thrown and nothing counted. Probing
+ * the URL in the capture frame is what makes it visible — and the browser has already
+ * fetched it, so a probe of a WORKING background is a cache hit.
+ */
+export async function recordUnreachableAssets(sections, log) {
+	if (!log || !sections?.length) return;
+	for (const section of sections) recordUnreachableImages(section, log);
+	const win = sections[0]?.ownerDocument?.defaultView;
+	if (!win?.Image) return;
+	const urls = new Set();
+	for (const section of sections) for (const url of backgroundImageUrls(section)) urls.add(url);
+	if (!urls.size) return;
+	const results = await Promise.all([...urls].map((url) => probeImage(win, url, BACKGROUND_PROBE_MS)));
+	[...urls].forEach((url, i) => {
+		if (results[i]) return;
+		log.paths.add(url);
+		// The hook never fires for a background, so this IS the trigger as well as the name.
+		log.count += 1;
+	});
+}
+
 /** How many names a degradation sentence carries before it stops listing them. */
 const MISSING_IMAGE_NAMES = 3;
+/** How much of one path the sentence will carry — an author can write a very long URL. */
+const MISSING_IMAGE_NAME_CHARS = 120;
+
+/** Does this path look relative to the deck FILE — the one cause worth naming? */
+function looksDeckRelative(path) {
+	return !/^(?:[a-z][a-z0-9+.-]*:|\/)/i.test(path);
+}
 
 /**
  * One sentence for the toast, or `undefined` when nothing failed.
@@ -980,25 +1065,26 @@ const MISSING_IMAGE_NAMES = 3;
  * It has to persist: the progress line is gone by the time the file lands, so an
  * export that silently shipped a hole would be indistinguishable from a clean one.
  *
- * The sentence counts PATHS, never `log.count`. The two are not the same thing and
- * saying so would mislead: `count` is one per failed image ELEMENT, so a single bad
- * `logo:` on a 56-slide deck registers 56 — one broken path, not fifty-six broken
- * images. When nothing could be named (the CORS case) there is no honest number to
- * give, so it gives none.
+ * It asserts NO TOTAL. `paths` can be a subset of what failed (a CORS-blocked `<img>`
+ * fires the hook and cannot be named), so "one image" beside a list of one would be a
+ * claim the log cannot support — it would tell an author to stop looking. What it can
+ * always say truthfully is that not every image loaded, and which ones it knows about.
  */
 export function missingImageReason(log) {
 	if (!log?.count) return undefined;
-	const names = [...log.paths];
-	if (!names.length) return 'an image could not be loaded, so the file ships without it';
+	const names = [...log.paths].map((p) => (p.length > MISSING_IMAGE_NAME_CHARS ? `${p.slice(0, MISSING_IMAGE_NAME_CHARS)}…` : p));
+	if (!names.length) return 'the export could not load every image, so the file ships without at least one';
 	const shown = names.slice(0, MISSING_IMAGE_NAMES).join(', ');
 	const more = names.length > MISSING_IMAGE_NAMES ? `, +${names.length - MISSING_IMAGE_NAMES} more` : '';
-	const subject = names.length === 1 ? 'one image' : `${names.length} images`;
-	return `${subject} (${shown}${more}) could not be loaded, so the file ships without ${names.length === 1 ? 'it' : 'them'} — a path relative to the deck file does not resolve here`;
+	// The hint is only appended when it is TRUE. A `/absolute` or `https://` path that
+	// 404s has nothing to do with deck-relative resolution, and sending an author to
+	// check for that is sending them to the wrong place.
+	const hint = [...log.paths].some(looksDeckRelative) ? ' — a path relative to the deck file does not resolve here' : '';
+	return `the export could not load every image, so the file ships without: ${shown}${more}${hint}`;
 }
 
 async function rasterizeSection(section, fontEmbedCSS, cornerTarget, log) {
 	const { toPng } = await import('html-to-image');
-	recordUnreachableImages(section, log);
 	try {
 		return await withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log)), undefined, cornerTarget);
 	} catch (e) {
@@ -1020,7 +1106,6 @@ async function rasterizeSection(section, fontEmbedCSS, cornerTarget, log) {
 // invisible text layer — see `pdf-text-layer.js`.
 async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log) {
 	const { toCanvas } = await import('html-to-image');
-	recordUnreachableImages(section, log);
 	try {
 		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
 			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
@@ -1168,7 +1253,6 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget, log) {
 	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget, log);
 	const { toCanvas } = await import('html-to-image');
-	recordUnreachableImages(section, log);
 	return withCaptureFixups(section, async (w, h, pixelRatio) => {
 		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
 		const out = document.createElement('canvas');
@@ -1241,6 +1325,7 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);
 		const images = [];
 		for (let i = 0; i < sections.length; i++) {
@@ -1381,6 +1466,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		await recordUnreachableAssets(sections, log);
 		if (canUsePdfWorker()) {
 			try {
 				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log);
@@ -1400,9 +1486,11 @@ export async function renderPdfBlob(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Rendering PDF…');
 	const log = createImageFailureLog();
 	const blob = await buildPdfBlob(render, name, onStatus, meta, opts, log);
-	// This lane hands bytes to a zip builder, not to a toast, so the only place a
-	// degradation can be said is the console. Silent would be worse: the caller would
-	// ship a deck with a hole in it and nothing anywhere would have mentioned it.
+	// This lane hands bytes to a zip builder rather than returning to a toast, so the
+	// console is where the reason goes TODAY — a property of the wiring, not of the lane.
+	// A caller that has a toast (the Library's showcase zip does) should take the reason
+	// instead. Silent would be worse either way: it would ship a deck with a hole in it
+	// and nothing anywhere would have mentioned it.
 	const reason = missingImageReason(log);
 	if (reason) console.warn(`[lattice-export] ${reason}`);
 	return blob;
@@ -1438,6 +1526,7 @@ export async function exportPptx(render, name, onStatus, meta) {
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 	const { sections, fontEmbedCSS } = await sectionsOf(frame);
+	await recordUnreachableAssets(sections, log);
 	// The record and the rasterized sections come from two different splits of the same
 	// render, and the alt text below binds them BY INDEX. If they ever disagree on length,
 	// every slide past the divergence gets someone else's description — a silent
@@ -1604,11 +1693,17 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 		// PNG tier — rasterize the chart slide via the shared html-to-image path.
 		if (onStatus) onStatus('Rasterizing chart…');
 		const { fontEmbedCSS } = await sectionsOf(frame);
+		// This lane carries the failure log too. An unreachable image no longer throws, so
+		// without it a chart would download silently minus its picture — the exact silent
+		// hole the degradation exists to prevent, on the one door that had no log.
+		const log = createImageFailureLog();
+		await recordUnreachableAssets([sec], log);
 		// Destination is a `.png`, so the corner survives — the same slide must not come out
 		// rounded through the image set and square through this door.
-		const dataUrl = await rasterizeSection(sec, fontEmbedCSS, 'png');
+		const dataUrl = await rasterizeSection(sec, fontEmbedCSS, 'png', log);
 		download(dataUrlToBlob(dataUrl), `${safeName(name)}-chart.png`);
 		if (onStatus) onStatus('Chart downloaded as PNG.');
+		return missingImageReason(log);
 	} finally { dispose(); }
 }
 
@@ -1666,6 +1761,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
 		if (!sections.length) throw new Error('Nothing to export — the deck rendered no slides.');
+		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);
 		const scale = core.resolveRasterScale(options.size, w, h);
 		// Pass the resolved raster scale so a thumbnail can never come out bigger than the full
@@ -1676,7 +1772,6 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 		const images = [];
 		for (let i = 0; i < sections.length; i++) {
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-			recordUnreachableImages(sections[i], log);
 			images.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, scale, core.FORMAT_META, log));
 			await new Promise((r) => setTimeout(r)); // yield so the progress line paints
 		}
