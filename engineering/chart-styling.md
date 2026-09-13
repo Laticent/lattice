@@ -22,9 +22,18 @@ looks wrong there it is wrong everywhere, and a per-member fix guarantees the se
 stops reading as one system.
 
 This is not a style preference. It is the lesson of the defect that made this
-document necessary: 19 mark edges painting at **16 different physical weights**,
-a 13.1× spread, every one of them a local decision that looked right in
-isolation.
+document necessary: the family's declared marks painted at **21 different
+physical weights**, a 5.8× spread from 0.5px to 2.9px, every one of them a local
+decision that looked right in isolation. Today it is **8** weights over 2.2× —
+21 mark classes at exactly 1px, six knockouts at their own role-correct widths,
+and one sanctioned 2px emphasis.
+
+Re-derive both with `node tools/chart-structure-census.js`, on the branch and on
+`main`. Quote a commit when you quote the numbers: an earlier draft of this
+paragraph said 16 weights over 13.1×, because the probe that produced it
+multiplied by `box.width / viewBox.width` where `xMidYMid meet` gives a UNIFORM
+`min(sx, sy)`. Measured against a rendered control — viewBox 100×100 in a 400×100
+box, `stroke-width: 2` — the x-ratio predicts 8px and the render paints 2.
 
 ## 2 · The coordinate-space trap — read this before touching any `stroke-width`
 
@@ -37,9 +46,13 @@ is meaningless on the next.
 Measure it, never reason about it:
 
 ```
-node .scratch/charts/probe-edge.js        # physical weight per mark, before/after
-node .scratch/finishes/structure.js base  # every width, radius and gap in the family
+node tools/chart-structure-census.js          # every width, radius and gap, in PHYSICAL px
+node tools/chart-structure-census.js --check  # is every outline mark actually pinned?
 ```
+
+The census reports each width twice, `user` as declared and `px` as rendered, and
+the physical column is the one to read. Its scale comes from `getScreenCTM()`,
+never from the viewBox ratio — see above for what that mistake costs.
 
 **The rule:** a data mark's edge comes from `var(--chart-edge)` and carries
 `vector-effect: non-scaling-stroke`. That pairing is load-bearing in both
@@ -50,7 +63,20 @@ Use one without the other and you break one of the two properties.
 
 `chart-mark-edge-census.test.js` ties the shared rule's class list to the marks
 each manifest declares `paint: "fill"`, so a new member joins by declaring its
-marks — not by editing CSS.
+marks — not by editing CSS. It also fails on a class a member gives
+`--chart-edge` that the shared rule does not pin, which is the leak worth knowing
+about: the source text reads identically either way, and two radar marks took the
+token, missed the list, and rendered at 1.24px and 1.29px beside a 1.00px
+neighbour.
+
+**A KNOCKOUT IS NOT AN OUTLINE, and the family has six.** `funnel-band`,
+`line-dot`, `quadrant-dot`, `quadrant-trail-after`, `radar-dot`, `scatter-dot`
+and `sbar-seg` stroke in `var(--bg)`. That stroke holds two touching marks apart
+— a dot where two lines cross, a segment abutting the next in its stack — so its
+correct weight follows what it separates, not the family's outline weight.
+Flattening them into `--chart-edge` took quadrant's separator from 2.23px to
+1.00px. The test re-derives the exemption from each member's own CSS, and a
+`:hover` rule does not qualify.
 
 ### The structural tokens
 
@@ -63,9 +89,17 @@ marks — not by editing CSS.
 | `--chart-mark-radius` | `0.46875cqi` | a mark's corner |
 
 **A text halo is not a mark edge.** `paint-order: stroke` on a label uses
-`stroke-width` to fatten a readability outline around glyphs. Those are deliberate
-and must not be folded into `--chart-edge`; the census test skips any rule
-carrying `paint-order`.
+`stroke-width` to fatten a readability outline around glyphs, in the CANVAS
+colour. Those are deliberate and must not be folded into `--chart-edge`. The
+census test tells them apart by that canvas colour, not by the presence of
+`paint-order` — the pie's `.wedge` is a declared mark that carries `paint-order`
+precisely so only the outer half of its edge shows, and a `paint-order` exemption
+would have let it take any literal width and ship green.
+
+**And a width can arrive as a presentation attribute**, where no CSS scan will
+see it. A transform writing `stroke-width="1.2"` into the markup sets the same
+property from a file none of the CSS arms opens; the census has an arm for that
+too, with one sanctioned entry (`journey-face`, an icon on an `<svg>` wrapper).
 
 ## 3 · The three finishes
 
@@ -102,8 +136,22 @@ whatever is painted behind it, which may be a card, a panel, a tint, another mar
 or several of those composited.
 
 ```
-node .scratch/charts/solve.js <rendered.html> [screen|print]
+node tools/chart-contrast-solve.js <rendered.html> [screen|print]
 ```
+
+**It samples; it does not model.** The solver shoots the slide twice — once as
+rendered, once with only the glyph FILL removed — and the pixels that differ are
+the pixels a glyph covers. Shot B at those pixels is the backdrop, with
+gradients, stacking order, opacity and the family's canvas-coloured halos all
+already resolved by the renderer. The INK still comes from computed style,
+because Chromium antialiases a body-size stem across two or three pixels with
+subpixel fringing and no pixel on it ever holds the pure colour: a `#111`-on-white
+control measured 4.02:1 from its darkest pixel against a true 18.1:1.
+
+Each row carries a **`share`** — the fraction of the glyph's covered pixels at the
+reported ratio. `share: 1` is a colour choice. `share: 0.001` is a connector
+crossing one corner of the label, and sending a colour change after it fixes
+nothing.
 
 Floors: **4.5:1** for text, **3:1** for large (≥24px, or ≥18.66px bold) and for
 any graphical object carrying information (WCAG 1.4.11). A mark passes on **either**
@@ -119,14 +167,26 @@ you write a new instrument, check it against all six.
    `url()` after CSS has overridden it. Read computed style, always.
 2. **SVG text paints with `fill`, HTML text with `color`.** Reading `color` first
    scores an SVG label with an ink it is not drawn in.
-3. **A colour carries its own alpha.** `color(srgb 0 .4 .6 / 0.1)` is a 10% wash;
-   dropping the fourth channel turns it into a saturated fill and invents failures.
+3. **A colour carries its own alpha — the INK's as much as the backdrop's.**
+   `color(srgb 0 .4 .6 / 0.1)` is a 10% wash; dropping the fourth channel on a
+   backdrop turns it into a saturated fill and invents failures, and dropping it
+   on the ink hides them: `color: color(srgb 0 0 0 / 0.18)` on white renders at
+   1.53:1 and scored as pure black. Two elements in the shipped chart gallery
+   carry a translucent ink.
 4. **A gradient resolves through `getComputedStyle(stop).stopColor`** — the
    attribute still carries `var()`, which a canvas cannot resolve.
 5. **A bounding box lies.** Use `isPointInFill` for SVG, and a `Range` for text —
    a table cell's *box* reaches the row rule its *glyphs* never touch.
 6. **`<text>`, `<tspan>` and `<g>` do not paint.** Counting them as surfaces makes
    every label its own backdrop and scores it at exactly 1:1.
+7. **A gradient backdrop has two ends and the glyph sits on ONE of them.** Scoring
+   against the flattering end passes white text over a black-to-white ramp;
+   scoring against the worse end fails every label in the family. Sample where the
+   glyph actually is.
+8. **Document order is not paint order.** `z-index` and `position` reorder it, and
+   this family has both. SVG has no `z-index` at all — there, later in the document
+   IS on top, which is why radar's scale rungs used to be dimmed by the series
+   polygons painted after them.
 
 And one that is not about measurement at all: **contrast and distinctness are
 different questions.** A chart whose five categories all painted one colour passed
@@ -134,7 +194,7 @@ every contrast audit in this repo, because one colour is perfectly legible. If y
 change how marks take paint, run the flattening detector too:
 
 ```
-node .scratch/finishes/flatten.js    # distinct paints per mark class vs the baseline
+node tools/chart-mark-separation.js  # is one category still distinguishable from the next?
 ```
 
 ## 5 · The order to verify in
@@ -145,10 +205,13 @@ an earlier one moved.
 1. `npm run build` — the CSS you edited is not what renders until you do.
 2. **Re-render**, then measure. Measuring a stale render is the single most common
    way to report a fix that did not happen.
-3. `node .scratch/finishes/structure.js base` — did the structural spread move?
-4. `node .scratch/charts/solve.js … screen` **and** `… print`. `@media print` is
-   live in the CLI vector PDF path, so a screen measurement does not prove the PDF.
-5. `node .scratch/finishes/flatten.js` — did an encoding collapse?
+3. `node tools/chart-structure-census.js --check` — is every outline still pinned?
+   Then without `--check` — did the structural spread move?
+4. `node tools/chart-contrast-solve.js … screen` **and** `… print`. `@media print`
+   is live in the CLI vector PDF path, so a screen measurement does not prove the
+   PDF. Neither does either of them, strictly: both are `emulateMediaType` in
+   headless Chromium, not the vector PDF itself (HARD RULE #23).
+5. `node tools/chart-mark-separation.js` — did an encoding collapse?
 6. `npm run lint`, `npm run build:check`, `npm test`.
 7. **Look at it.** Rasterize and open the pages. Every instrument above has a blind
    spot; your eyes are what catch a mark that is legible, distinct, correctly
@@ -175,3 +238,21 @@ assumes hue is available breaks there and nowhere else.
   strength of what you changed, not on what it says.
 - **A mark that carries no datum is ground, not figure.** Painting it at body depth
   made a choropleth's no-data countries darker than its data.
+- **An export loses whatever the flattener does not carry.** `flattenSvgStyles`
+  inlines a curated list of computed properties and omits any value equal to the
+  CSS initial. `stroke-width: 1px` IS the initial — so a mark pinned with
+  `vector-effect: non-scaling-stroke` on the slide arrived in the PDF, PPTX and
+  standalone SVG with neither property, and fell back to one viewBox USER unit:
+  measured, a 1px map edge came back at 0.83px and scatter's at 2.21px. A stroked
+  element now never drops either property.
+- **A theme cannot override a token the engine declares on `.chart-frame`.** A
+  palette declares on the same element, and `.chart-frame` wins. The fill wash is
+  read through `var(--palette-fill-*, <default>)` for exactly this reason — a
+  palette that set `--chart-fill-top-l` directly would look like an override and
+  do nothing.
+- **The wash's own contract is per-theme, and one theme breaks it.** "The wash
+  only tints, so `--text-heading` labels clear it on both canvases" holds on a
+  canvas near either end of the range and fails on a mid-toned one. concrete
+  (canvas `#B8B8B5`) measured 4.14:1 light and 3.49:1 dark for a label on a mark,
+  and no ink fixes it — its `--text-heading` is already 15,15,14 and pure black
+  reaches 4.20:1. The wash is what has to move.
