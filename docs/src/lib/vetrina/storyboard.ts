@@ -5,6 +5,8 @@
 // so it composes with the primitive and the fluent builder (scene() is defined as
 // storyboard(seed, this.toData()) — one interpreter, no drift).
 
+import { findCueWord, type NarrationHandle, SILENT_NARRATOR } from './narrate';
+import { resolvePacing } from './pacing';
 import { holdUntil } from './recipes';
 import type { RunContext, Walkthrough } from './runner';
 import { type Gesture, isAbortError, type Target, wait } from './stage';
@@ -43,14 +45,37 @@ export interface Step<A> {
 	 *  the thing happen. Needs a `say`; ignored on `instant` beats. Pairs with a short `settle`
 	 *  (the LAND — a brief digest pause on the result). */
 	read?: boolean;
+	/** WORD CUE — fire this beat's action on the word that names it.
+	 *
+	 *  `at: 'Save'` on a beat whose caption reads "Now click Save to publish" makes the click land
+	 *  as the narration reaches "Save", instead of after the whole line. The cursor LEAVES EARLY
+	 *  by exactly the time it needs to get there (`stage.leadMs`), because a presenter's hand is
+	 *  already moving before they say the thing — arriving on the word is the point, and starting
+	 *  on the word would mean arriving after it.
+	 *
+	 *  Needs a narrator that can see its own timeline (`Narrator.plan`) — which a Cadenza-backed
+	 *  one can do from text alone, with no audio. Without one, or when the word is not in the
+	 *  line, the beat runs in its normal order: nothing breaks, the moment is just not staged.
+	 *
+	 *  Mutually exclusive with `read` (which means "finish the line, THEN act"); setting both
+	 *  warns at build and `at` wins. */
+	at?: string;
 }
 
+/** The pre-model default settle. `pacing.settleMs()` owns this now; the constant stays as the
+ *  `'legacy'` model's value and as the number the older tours were tuned against. */
 const STEP_SETTLE = 900;
+void STEP_SETTLE;
 
-/** Reading dwell for a caption, scaled to its length — the DWELL in a teaching beat. A human
- *  reads ~4 words/sec; we budget a little slower (a newcomer, glancing between caption and canvas)
- *  and clamp so a short beat still lands and a long one doesn't stall. Multiply by `stage.pace` at
- *  the call site so a slow/fast theme scales reading time too. */
+/** SUPERSEDED by `pacing.captionMs` (./pacing) — kept because it is exported API, and because a
+ *  host that has been calling it should keep getting the same number rather than a silently
+ *  different one.
+ *
+ *  What it got wrong: `300 + 200*words` is 200 ms/word ≈ 300 wpm for a caption a viewer has never
+ *  seen, while also watching an app. The BBC's subtitle guideline is 160–180 wpm and Brysbaert's
+ *  2019 meta-analysis puts UNDISTRACTED silent reading at ~238 wpm — so this budgeted a distracted
+ *  reader 60% more than an undistracted one gets. Cadenza, doing the same job in the same repo,
+ *  used 150 wpm; the two disagreed by 2x. `pacing.captionMs` is the reconciliation. */
 export function readMs(text: string): number {
 	const words = text.trim().split(/\s+/).filter(Boolean).length;
 	return Math.min(4500, Math.max(1200, 300 + 200 * words));
@@ -70,9 +95,21 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 		if (s.instant && (s.point != null || s.drag || s.click || s.gesture != null || s.circle != null)) {
 			console.warn('vetrina: an `instant` beat ignores point/click/drag/gesture — remove them, or drop `instant` to perform the beat.');
 		}
+		if (s.at && s.read) {
+			console.warn(`vetrina: a beat set both \`read\` (finish the line, then act) and \`at: ${JSON.stringify(s.at)}\` (act ON that word) — they are opposite rhythms. \`at\` wins; drop \`read\`.`);
+		}
+		if (s.at && s.say == null) {
+			console.warn(`vetrina: \`at: ${JSON.stringify(s.at)}\` needs a \`say\` to find the word in — the cue is ignored.`);
+		}
 	}
 	return async (ctx: RunContext<A>) => {
 		const { stage, actions, signal } = ctx;
+		// Defensive, the same way this interpreter already treats `stage.progress?.` and
+		// `stage.emphasizeCaption?.`: a `RunContext` assembled by hand — every fake-stage test in
+		// this folder, and any host driving a Walkthrough without `run()` — predates these two
+		// fields and must keep working. `run()` always supplies both.
+		const narrator = ctx.narrator ?? SILENT_NARRATOR;
+		const pacing = ctx.pacing ?? resolvePacing();
 
 		// Progress counts TAUGHT beats only — the `instant` plumbing beats (setup / close / jump)
 		// teach nothing and flash by, so counting them would make the ring lurch on beats the
@@ -86,14 +123,65 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			if (!step.instant) stage.progress?.(++taughtDone, taughtTotal);
 			if (step.say != null) stage.say(step.say);
 
-			// TEACHING BEAT (read) — after the caption shows, draw the eye to it (cursor dips to the
-			// dock + the words pulse) and DWELL long enough to read, timed to the caption length,
-			// BEFORE the action. The viewer reads first, then watches. Skipped on instant beats (no
-			// theater) and when there's nothing to read. `?.` keeps fake-stage test stubs safe.
-			if (step.read && step.say != null && !step.instant) {
-				await stage.emphasizeCaption?.(signal);
-				await wait(readMs(step.say) * stage.pace, signal);
+			// THE WORD CUE, resolved BEFORE anything starts. `plan()` is the narrator's own
+			// timeline, so this asks "when will you say 'Publish'?" and gets an answer in
+			// milliseconds; `stage.leadMs` answers the matching question on the other side — "how
+			// long would the cursor need to get there?".
+			//
+			// ALIGNING THE TWO IS THE WHOLE TRICK, AND IT GOES BOTH WAYS. The obvious version only
+			// delays the ACTION until the word is `lead` ms away — and it silently never fires,
+			// because the interesting words come early in a line ("Now click Publish…" says it at
+			// ~410 ms) while a cursor crossing an app needs ~900 ms to arrive. Measured on the
+			// prototype: every cue resolved to a zero wait, i.e. to no cue at all.
+			//
+			// So whichever side is behind waits. If the hand needs longer than the word, the LINE
+			// starts late; if the word is further off than the trip, the ACTION starts late.
+			// Exactly one of these is non-zero, and either way the cursor lands on the word.
+			const cuePlan = step.at && step.say != null && step.say !== '' && !step.instant ? findCueWord(narrator.plan?.(step.say), step.at) : null;
+			const cueLead = cuePlan && step.point != null ? (stage.leadMs?.(step.point) ?? 0) : 0;
+			const lineDelay = cuePlan ? Math.max(0, cueLead - cuePlan.startMs) : 0;
+			const actionDelay = cuePlan ? Math.max(0, cuePlan.startMs - cueLead) : 0;
+
+			// NARRATION runs UNDER the beat, not before it. What the beat does with the line
+			// depends on the rhythm the author asked for:
+			//   - `at`   — act ON a word, mid-line (the alignment above);
+			//   - `read` — finish the line, then act;
+			//   - neither — act now, and await the line before the settle, so the next beat's
+			//               narration never talks over this one's.
+			// With no narrator wired, `SILENT_NARRATOR.speak` resolves immediately and every
+			// branch collapses to exactly what this interpreter did before narration existed.
+			let line: { done: Promise<void> } | null = null;
+			if (step.say != null && step.say !== '' && !step.instant) {
+				// `done` must never REJECT. The run's own abort plumbing tears a taken-over tour
+				// down; a second AbortError surfacing from whichever beat happened to be mid-
+				// sentence would be a redundant failure path, and an unawaited one is an unhandled
+				// rejection in the host's console.
+				const done = (async () => {
+					if (lineDelay > 0) await wait(lineDelay, signal);
+					const handle: NarrationHandle = narrator.speak(step.say as string, { signal });
+					await handle.done;
+				})().catch(() => {});
+				line = { done };
 			}
+
+			// TEACHING BEAT (read) — after the caption shows, draw the eye to it (cursor dips to the
+			// dock + the words pulse) and DWELL long enough to read, BEFORE the action. The viewer
+			// reads first, then watches. A narrator's REAL duration supersedes the reading estimate
+			// here: an estimate is what you use when nothing has measured the thing. Skipped on
+			// instant beats (no theater) and when there's nothing to read, and skipped when `at`
+			// set the opposite rhythm. `?.` keeps fake-stage test stubs safe.
+			if (step.read && !cuePlan && step.say != null && !step.instant) {
+				await stage.emphasizeCaption?.(signal);
+				// The LONGER of the two, always. The narrator's duration is a measurement and beats
+				// an estimate — but it measures how long the line takes to SAY, and a viewer reading
+				// the caption because they cannot hear it needs it on screen long enough to READ.
+				// Taking the max serves both, and it is also what makes the no-narrator case free:
+				// SILENT_NARRATOR resolves instantly, so the estimate is simply what is left.
+				await Promise.all([line?.done, wait(pacing.captionMs(step.say) * stage.pace, signal)]);
+			}
+
+			// The action's half of the alignment. Zero whenever the line is the one waiting.
+			if (actionDelay > 0) await wait(actionDelay, signal);
 
 			// INSTANT beat — skip ALL theater (cursor / typing animation / gesture / settle) and
 			// just apply the substance. Positioning + gesture verbs are ignored; `type` is set at
@@ -158,10 +246,15 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			}
 			if (step.circle != null) await stage.gesture('circle', step.circle, signal);
 
+			// Let the line finish before the beat does. Without this the next beat's `say` would
+			// cut this one off mid-sentence — the caption swapping under a voice that is still
+			// speaking the previous one.
+			if (line) await line.done;
+
 			// Reading time: only 'still' shortens the default settle. 'legible' (reduced-motion
 			// device) keeps the FULL settle — a viewer who wants less motion needs MORE time to
 			// read, not less, so rushing here would invert the intent.
-			await wait((step.settle ?? (stage.still ? 300 : STEP_SETTLE)) * stage.pace, signal);
+			await wait((step.settle ?? (stage.still ? 300 : pacing.settleMs())) * stage.pace, signal);
 		}
 	};
 }

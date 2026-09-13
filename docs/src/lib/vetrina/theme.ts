@@ -51,7 +51,26 @@ export interface Theme {
  *  to take over" hint would be chrome competing with chrome. Do NOT use it for a walkthrough:
  *  with no dock there is no Exit, and stranding a viewer inside a running tour is the one thing
  *  this library will not do. */
-	caption?: 'bar' | 'split' | 'scrim' | 'progress' | 'none';
+	caption?: 'bar' | 'split' | 'scrim' | 'progress' | 'cursor' | 'none';
+	/** What box the tour's chrome is confined to (default 'viewport').
+	 *
+	 *  `'host'` keeps every caption — and the cursor-anchored bubble in particular — inside the
+	 *  `root` element the walkthrough drives, instead of inside the window. Reach for it when the
+	 *  tour runs in a PANE of a larger page: a caption bar spanning the whole window for a demo
+	 *  confined to one panel is chrome about the wrong thing.
+	 *
+	 *  It is a CLAMPING box, not a containing block: the overlay layer stays `position: fixed`
+	 *  and click-through, and only the chrome's geometry is measured against `root`. That
+	 *  distinction is deliberate — making the layer a child of the host would put the tour inside
+	 *  the host's own stacking, overflow and transform context, which is where an overlay goes to
+	 *  get clipped. Nothing about the host's CSS has to change. */
+	bounds?: 'viewport' | 'host';
+	/** Which pacing model the run spends its time by (default 'grounded'; see ./pacing).
+	 *
+	 *  `'legacy'` reproduces the five hand-tuned literals this library shipped before the model
+	 *  existed. It is here so the two can be compared on the same surface in the same session —
+	 *  a pacing change that cannot be A/B'd is a matter of taste, and taste is not evidence. */
+	pacing?: 'grounded' | 'legacy';
 	/** How to honor motion preference (default 'system'):
 	 *   - 'system'  read `prefers-reduced-motion`: reduce → 'legible', else → 'full';
 	 *   - 'full'    play everything, ignore the OS preference;
@@ -92,7 +111,10 @@ export interface ResolvedTheme {
 	pace: number; // duration multiplier (slow > 1 > fast)
 	pointer: 'arrow' | 'ring' | 'dot';
 	placement: 'top' | 'bottom'; // which edge the narration dock sits at
-	caption: 'bar' | 'split' | 'scrim' | 'progress' | 'none'; // the narration dock style ('none' = pointer layer only)
+	caption: 'bar' | 'split' | 'scrim' | 'progress' | 'cursor' | 'none'; // the narration dock style ('none' = pointer layer only)
+	bounds: 'viewport' | 'host'; // what box the chrome is clamped to
+	speed: 'slow' | 'moderate' | 'fast'; // the preset NAME (pacing needs it; `pace` is only its multiplier)
+	pacing: 'grounded' | 'legacy'; // which pacing model the durations come from
 	motion: 'full' | 'legible' | 'still' | 'system'; // motion policy; 'system' resolves against the device in the stage
 	hand: number; // how much arc + tremor + overshoot the cursor's travel carries (0 = a straight glide)
 	silenced: Set<string>; // cue names to skip
@@ -205,6 +227,9 @@ export function resolveTheme(theme: Theme = {}): ResolvedTheme {
 		pointer: theme.pointer ?? 'arrow',
 		placement: theme.placement ?? 'bottom',
 		caption: theme.caption ?? 'bar',
+		bounds: theme.bounds ?? 'viewport',
+		speed: theme.speed ?? 'moderate',
+		pacing: theme.pacing ?? 'grounded',
 		// 'system' stays symbolic here — the stage resolves it against the live device (matchMedia),
 		// keeping the one media read in one testable place.
 		motion: theme.motion ?? 'system',
