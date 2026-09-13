@@ -79,12 +79,32 @@ const cartMod = require(P('lib/components/chart/_chart-family/cartesian.js'));
 let dropped = null;
 const note = (mechanism, what) => { if (dropped) dropped.push(`${mechanism}: ${what}`); };
 
+/**
+ * A CALLER MAY PLACE THE SAME NAMES SEVERAL TIMES AND KEEP ONE RESULT.
+ * `quadrant` sizes its dot labels per slide (#1605) by walking a ladder of
+ * font sizes largest-first and taking the first rung where every name places —
+ * so a crowded slide legitimately produces up to nine placement passes, eight
+ * of them REJECTED. Counting every pass reported 141 losses on a corpus that
+ * loses nothing; counting only the last is fragile the moment a caller reorders
+ * its search.
+ *
+ * So calls are grouped by the set of names they placed, and a group counts as
+ * a loss only when EVERY attempt in it dropped something — which is exactly
+ * "the caller had no option that kept all the names". A caller that places once
+ * is the same rule with one attempt, so nothing about the single-pass case
+ * changes.
+ */
+const attempts = new Map();
 const realPlaceLabels = labelMod.placeLabels;
 labelMod.placeLabels = function patchedPlaceLabels(items, opts) {
   const out = realPlaceLabels.call(this, items, opts);
-  out.forEach((r, i) => {
-    if (r?.hidden) note('placeLabels', items[i]?.text || `item #${i}`);
-  });
+  if (dropped) {
+    const key = items.map((it) => it?.text ?? '').join('\u0000');
+    const lost = out.map((r, i) => (r?.hidden ? items[i]?.text || `item #${i}` : null)).filter(Boolean);
+    const prior = attempts.get(key);
+    // Keep the BEST attempt seen for this set of names.
+    if (!prior || lost.length < prior.length) attempts.set(key, lost);
+  }
   return out;
 };
 
@@ -116,6 +136,7 @@ const ORIENTATIONS = ['landscape', 'portrait', 'square'];
  */
 function dropsFor(body, cls, orientation) {
   dropped = [];
+  attempts.clear();
   let res = null;
   let threw = null;
   try {
@@ -126,8 +147,12 @@ function dropsFor(body, cls, orientation) {
     // it is reported as a loss rather than passing as "not a chart".
     threw = err;
   }
-  // Hand the tally over and stop counting, so a later un-instrumented call
-  // cannot append to this slide's total.
+  // Fold in the best attempt per name-set, then stop counting, so a later
+  // un-instrumented call cannot append to this slide's total.
+  for (const lost of attempts.values()) {
+    for (const name of lost) dropped.push(`placeLabels: ${name}`);
+  }
+  attempts.clear();
   const out = dropped;
   dropped = null;
   if (threw) return [`threw: ${threw.message}`];

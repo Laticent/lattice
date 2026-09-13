@@ -198,6 +198,14 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) {
   --quadrant-axis-size: 14px;  /* #680: 12 -> 14 */
   --quadrant-tick-size: 12px;  /* #680: 10 -> 12 */
+  /* THE FLOOR, not the size. #1605: the kernel picks a dot-label size per
+   * SLIDE and writes it onto the label group, so a sparse quadrant prints big
+   * names and a crowded one falls back toward this value. It stays 9.5 because
+   * that is what the densest slide in the corpus can carry, and because a deck
+   * that renders without the kernel's inline property must still paint at a
+   * size the geometry is known to hold. Kept here rather than inlined so a
+   * theme can still raise the whole ladder. */
+  --quadrant-dot-size: 9.5px;
 }
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-axis-name {
   fill: var(--text-heading);
@@ -269,7 +277,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-dot-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
-  font-size: 9.5px;
+  font-size: var(--quadrant-dot-size);
   font-weight: 500;
 }
 
@@ -291,7 +299,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-bubble-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
-  font-size: 9.5px;
+  font-size: var(--quadrant-dot-size);
   font-weight: 500;
 }
 
