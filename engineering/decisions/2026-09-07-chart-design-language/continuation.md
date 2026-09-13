@@ -103,7 +103,30 @@ round-2 design. The user's position: grounding and rule **do not** obviously mak
 sense as chart controls. Decide what the register actually offers before shipping
 it — a control nobody can name the use for is a control that will be set wrong.
 
-### 6. Jank and defect audit
+### 6. Jank and defect audit — **RUN; the acceptance test is BLOCKED**
+
+**See `jank-audit.md` in this folder.** The sweep is now run across all 21
+members and the headline is about the instrument: **two of its three arms have
+nothing to measure here.** Drift and collision both need a positioned anchor and
+**0 of 21 charts have one**, so only crowding can report — and crowding is
+advisory, which means no chart can fail this gate today. The axis that WOULD
+stress a chart (`--axis count` / `--axis words`) refuses to run at all: the
+`BUILDERS` roster in `tools/lib/calibrate-core.js` carries 27 entries and not one
+chart, and no chart is on the deliberate-exclusion list either.
+
+What the heading axis did find: 14 of 21 vacuous (the ink never moves), and the
+7 that move all push DOWN rather than yield, splitting cleanly by render nature
+(all 5 `html` members push, 13 of 14 `svg` members are vacuous, `gantt` the
+exception because its height comes from the lane count). **One real defect:
+`journey` crowds 11.6px into the bottom padding at a two-line heading and 34px
+at three** — logged rather than fixed, because the fix is a layout change to a
+shipped component and owes its own demo deck.
+
+**So this priority's "done when" is not reachable until the `BUILDERS` roster
+carries the chart family.** That is the next step, and it is 21 authoring shapes
+that each have to be right.
+
+The original entry follows, as written.
 
 Not yet run against the chart family. `engineering/jank.md` + `npm run check:jank`
 ask the question every fit gate does not: does the layout MOVE as content grows?

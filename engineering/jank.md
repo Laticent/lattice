@@ -216,6 +216,19 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
 - **Read the `SWEEP moved` line before believing a clean verdict.** It names which dimension
   actually changed. Four byte-identical-looking rows under a clean verdict are normal when the
   only thing moving is ink *width*, which the table has no column for.
+- **A whole FAMILY can have nothing for two of the three arms to watch, and the run is still
+  green.** Drift and collision both need an anchor; the chart bucket has none — `--anchors`
+  reports "none" on all 21 members, because a chart draws its furniture inside its own figure
+  rather than pinning it to the section. So on a chart only CROWDING can report anything, and
+  crowding is advisory, which means **no chart can ever fail this gate**. Ask `--anchors`
+  first: a green run on a component with no anchor is green because nothing was watched.
+  `engineering/decisions/2026-09-07-chart-design-language/jank-audit.md`
+- **`--axis count` and `--axis words` are unavailable to any component missing from
+  `BUILDERS`**, and the roster is smaller than it looks: 27 entries, none of them a chart.
+  The refusal is explicit (`no element builder for 'X'`), so it cannot pass silently — but it
+  does push you onto the heading axis, which for 14 of the 21 charts moves no ink at all and
+  reports itself vacuous. The axis a component actually responds to is not always the one you
+  can sweep.
 
 ## What it does not do
 
