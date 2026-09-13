@@ -169,9 +169,12 @@ test.describe('a VOICED narrator keeps the caption up — the other half of the 
 		await page.evaluate(() => {
 			const w = window as unknown as { __minOpacity?: number };
 			w.__minOpacity = 1;
-			// BOUNDED. An in-page rAF loop that never stops keeps the page busy through teardown and
-			// races Playwright's trace flush — which surfaced as an ENOENT on the trace file and read
-			// as a test failure on a test that had already passed.
+			// BOUNDED, because an in-page loop that outlives the test it belongs to is untidy.
+			//
+			// It is NOT the cause of the ENOENT-on-trace-file failures this file once produced: that
+			// was traced to two concurrent Playwright runs sharing `outputDir: 'test-results'`, and it
+			// reproduces on tests that install no sampler at all. If you hit it, pass your own
+			// `--output=<dir>`. An earlier commit credited the bound with that fix; it was wrong.
 			const until = performance.now() + 20_000;
 			const tick = () => {
 				const el = document.querySelector('.vetrina-bubble') as HTMLElement | null;
@@ -224,7 +227,8 @@ test.describe('the word cue — the click lands on the word that names it', () =
 			const w = window as unknown as { __cueMin?: number; __cueArmed?: boolean };
 			w.__cueMin = 1;
 			w.__cueArmed = false;
-			// Bounded, for the same reason as the sampler above.
+			// Bounded, for the same reason as the sampler above (tidiness — see the note there about
+			// what the ENOENT actually was).
 			const until = performance.now() + 30_000;
 			const tick = () => {
 				// Content, not a count. `say`-rows >= 5 was a beat index wearing a disguise, and this

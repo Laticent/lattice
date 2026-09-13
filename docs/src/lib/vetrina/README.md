@@ -404,9 +404,10 @@ Three properties do the work, and each one is a rejection of the obvious version
   is: the cursor moves (the movement is what brings the eye), it arrives, the balloon appears
   beside it, it holds for as long as an average reader needs, and then it takes itself down. Then
   the action happens. A beat that points somewhere says its line **on arrival**; a beat whose only
-  movement is a deictic stroke says it once the stroke is drawn; a beat that does not move at all
-  says it immediately. Saying it first would put the words beside a cursor still standing wherever
-  the previous beat left it.
+  DOING is a deictic stroke says it once the stroke is drawn; everything else says it immediately.
+  "Only doing" is narrower than "only movement": a beat that also has an `act`, a `type` or an
+  `until` speaks first, because those are the things the line is there to explain. Saying it last
+  would put the words after the typing, or leave a 15-second advance gate with nothing on screen.
 - **It steps aside for anything else that moves.** If the cursor performs while a line is still up
   — which, since the caption dismisses itself before the action, means a DRAG, whose lift-to-drop
   window spans the line — the balloon fades out and comes back **re-anchored to where the cursor
@@ -419,7 +420,8 @@ Three properties do the work, and each one is a rejection of the obvious version
   the model prices a line at ~150 wpm and clamps at 6s, so anything reaching that clamp is the
   model telling you the beat should have been two.
   Counter-intuitively a narrator makes it *shorter* (27.5s timed, 22.2s voiced): a word-cued beat
-  is exempt from the dwell, and a voiced run does not dwell at all because the caption stays up.
+  is exempt from the dwell, and a voiced run skips it on every beat but a `read` one, because the
+  caption stays up and has no vanishing to be read ahead of.
 - **Exit does not go with it.** The balloon hides; the corner chip does not. A caption that can
   hide would otherwise take the only escape with it, and stranding a viewer inside a running tour
   is the one thing this library will not do. Hiding is by opacity, never `display` — the narration
@@ -518,9 +520,10 @@ is the clip's measured duration. A grounded default is still a guess.
 rest are multiplied by it at their call sites.
 
 **`pacing` defaults to `'legacy'`** — the five literals this library shipped before the model
-existed. The grounded numbers are the better ones, but switching costs +21% run length on a
-measured tour, and a library option should not re-time an existing walkthrough because you
-upgraded. Opt in with `theme: { pacing: 'grounded' }`, and compare the two on one surface.
+existed. The grounded numbers are the better ones, but switching costs **+13%** run length
+(measured on the prototype tour with everything else held constant), and a library option should
+not re-time an existing walkthrough because you upgraded. Opt in with
+`theme: { pacing: 'grounded' }`, and compare the two on one surface.
 
 ## Driving from React
 

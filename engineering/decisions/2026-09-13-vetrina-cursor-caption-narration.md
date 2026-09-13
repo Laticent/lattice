@@ -230,9 +230,10 @@ Three things the corrected table says that the broken one hid:
 - **It is SLOWER without a narrator than with one** — 30.1 s silent against 27.5 s timed. Not a
   paradox: a word-cued beat is exempt from the dwell, and the cue only resolves when a narrator can
   plan the line. No narrator, no exemption.
-- **Voiced is the fastest of the three** at 22.2 s, because a voiced run keeps the caption up and
-  therefore never spends a reading dwell at all — the beat is as long as the line takes to say.
-  The slowest configuration is the one a host without a TTS key would run.
+- **Voiced is the fastest of the three** at 22.2 s, because a voiced run keeps the caption up, so
+  a beat has no vanishing caption to be read ahead of and skips the dwell — on every beat except a
+  `read` one, which dwells regardless (the prototype's first beat is one). The slowest
+  configuration is the one a host without a TTS key would run.
 
 Two consequences a productionization pass has to face: **narrated tours want shorter captions**,
 and **the six long-running gallery tours were tuned by eye against the old numbers**, so turning
@@ -245,7 +246,8 @@ the model on by default is a re-tune, not a swap.
    only public knob, per the library's own "curated preset, not a raw number the eye can't use".
 3. **`pacing` defaults to `'legacy'`, not `'grounded'`.** This reverses the first draft. The
    grounded numbers are better and every one is sourced, but adopting them re-times every
-   existing tour by +21%, and the six long-running galleries were paced by eye against the old
+   existing tour by +13% (measured with everything else held constant), and the six long-running
+   galleries were paced by eye against the old
    ones. A library option should not do that to a caller who did not ask. Flipping the default is
    a merge decision with a re-tune attached, and it is the first follow-up below.
 4. **`bounds` is a first-class option**, and a CLAMPING box rather than a containing block: the
@@ -331,6 +333,16 @@ cue 0 and SHIFTS the rest, so a multi-sentence line stretched sentence one acros
 and pushed every later sentence past the end of the audio, never to be highlighted, on a timeline
 longer than the sound. Every cue is now scaled into the measured span. The test for it fails
 against the old code — checked by reverting, not by assertion.
+
+**A third pass then found that this was still not verified.** The 1.2x placeholder made `align`
+arithmetically non-trivial but nothing OBSERVED it: three of the four tests written for it passed
+with the re-anchor deleted entirely, because `onWord` hands back a word built from the pre-align
+track, so asserting on `word.startMs` compares the estimate with itself. The suite now drives the
+real audio clock across the clip and records WHEN each word goes active, over 1/2/3 sentences at
+0.5x/1.2x/3x. Mutation-checked: 6 of 9 arms fail against the old `align(0, 0, dur)`, 8 of 9 fail
+with the re-anchor removed. The browser cannot see this defect at all — every caption in the
+prototype tour is one sentence, and the bug is multi-sentence-only — so the unit probe is the
+coverage, and saying so is the point.
 
 **Precisely what is still unverified:** a REAL voice. Every run here is placeholder audio; real
 synthesis latency and a real clip are untouched by anything in the tree, and HARD RULE #24 keeps

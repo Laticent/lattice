@@ -27,9 +27,9 @@ export type Speed = 'slow' | 'moderate' | 'fast';
 /** Which pacing model a run uses.
  *
  *  `'legacy'` reproduces the five hand-tuned literals byte for byte, and is the DEFAULT: the
- *  grounded numbers are the better ones, but adopting them re-times every existing tour (+21%
- *  on a measured run), so that is a decision with a review attached rather than something a
- *  library upgrade does to you. It also exists so the two can be A/B'd on the same surface in
+ *  grounded numbers are the better ones, but adopting them re-times every existing tour (+13% on
+ *  a measured run, everything else held constant), so that is a decision with a review attached
+ *  rather than something a library upgrade does to you. It also exists so the two can be A/B'd on the same surface in
  *  the same session — an unmeasurable "feels better" is not evidence (HARD RULE #19). */
 export type PacingModel = 'grounded' | 'legacy';
 

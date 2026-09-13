@@ -177,7 +177,7 @@ function fakeAudio(overrides: Partial<AudioStage> = {}) {
 		/** Move the audio clock and let the narrator's rAF loop read it. */
 		seek: async (ms: number) => {
 			clock = ms;
-			await new Promise((r) => setTimeout(r, 40));
+			await new Promise((r) => setTimeout(r, 25));
 		},
 	};
 }
@@ -282,93 +282,84 @@ describe('voicedNarrator — the rung that speaks', () => {
 });
 
 describe('voicedNarrator — the re-anchor onto the MEASURED clip', () => {
-	/** Play a line and drive `onStart` with a clip whose duration is deliberately NOT the estimate.
-	 *  The placeholder audio the prototype uses is generated AT the estimate's length, so on that
-	 *  path `align` is a provable no-op — which means the browser test cannot tell a working
-	 *  re-anchor from no re-anchor at all. This is where that gets checked. */
-	async function playWith(text: string, measuredMs: number) {
-		const { stage, start, finish } = fakeAudio();
-		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
-		const seen: { text: string; startMs: number }[] = [];
-		const h = v.speak(text, { signal: new AbortController().signal, onWord: (w) => void (w && seen.push({ text: w.text, startMs: w.startMs })) });
+	/**
+	 * Drive the REAL audio clock across a clip and record, for each word, the clock value at
+	 * which it became active.
+	 *
+	 * This is the observation the first attempt at these tests was missing. `onWord` hands back a
+	 * word object built from the PRE-align track, so asserting on `word.startMs` compares the
+	 * estimate with itself — tautologically true, and it passed with `align` deleted. What the
+	 * re-anchor changes is WHEN each word goes active against the clip, so that is what gets
+	 * recorded here.
+	 */
+	async function driveWords(text: string, measuredMs: number, steps: number) {
+		const { stage, start, finish, seek } = fakeAudio();
+		const v = voicedNarrator({ audio: stage, syncLeadMs: 0, synthesize: async () => new ArrayBuffer(8) });
+		// Recorded by INDEX, not by text. A line repeats words — "the" appears in two of the three
+		// sentences below — so a text match finds the first occurrence and makes an in-order
+		// timeline look out of order. The port hands back the word's position for exactly this.
+		const seen: { at: number; index: number }[] = [];
+		const h = v.speak(text, {
+			signal: new AbortController().signal,
+			onWord: (w) => {
+				if (w && seen[seen.length - 1]?.index !== w.index) seen.push({ at: lastClock, index: w.index });
+			},
+		});
+		let lastClock = 0;
 		await new Promise((r) => setTimeout(r, 10));
 		start(0, measuredMs);
-		await new Promise((r) => setTimeout(r, 10));
+		for (let i = 0; i <= steps; i++) {
+			lastClock = (measuredMs / steps) * i;
+			await seek(lastClock);
+		}
 		finish();
 		await h.done;
 		return seen;
 	}
 
-	it('reaches the LAST sentence inside the clip — the defect, stated as an observable', async () => {
-		// Before the fix: `align(0, 0, dur)` stretched sentence one across the whole clip and pushed
-		// sentence two past the end of the audio, so "Then press Publish." was never highlighted and
-		// the timeline outlasted the sound. Driving the real audio clock to 90% of the clip must
-		// land the highlight in the SECOND sentence.
-		const text = 'Give the deck a title. Then press Publish.';
-		const measured = 3000;
-		const { stage, start, finish, seek } = fakeAudio();
-		const v = voicedNarrator({ audio: stage, syncLeadMs: 0, synthesize: async () => new ArrayBuffer(8) });
-		const seen: string[] = [];
-		const h = v.speak(text, { signal: new AbortController().signal, onWord: (w) => void (w && seen.push(w.text)) });
-		await new Promise((r) => setTimeout(r, 10));
-		start(0, measured);
-		// 80%, not 90%: a cue's span includes the boundary pause AFTER its last word, and the cursor
-		// correctly reports nothing once past the final word's end. Probing into that silence would
-		// fail against a perfectly good timeline — which it did, the first time this was written.
-		await seek(measured * 0.8);
-		finish();
-		await h.done;
-		const second = ['Then', 'press', 'Publish.'];
-		expect(seen.some((w) => second.includes(w))).toBe(true);
-	});
+	const ONE = 'Now click Publish.';
+	const TWO = 'Give the deck a title. Then press Publish.';
+	const THREE = 'Give the deck a title. Then press Publish. It goes to the board.';
 
-	it('scales EVERY sentence into the clip, not just the first', async () => {
-		// The defect: `align(0, 0, dur)` re-anchors cue 0 and SHIFTS the rest, so sentence one
-		// stretched across the whole clip and sentence two was pushed past the end of the audio —
-		// never highlighted, on a timeline longer than the sound.
-		const text = 'Give the deck a title. Then press Publish.';
-		const est = cadenzaNarrator().plan?.(text) ?? [];
-		expect(est.length).toBe(8); // both sentences are in the plan
-		const measured = 3000;
-		const { stage, start, finish } = fakeAudio();
-		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
-		const h = v.speak(text, { signal: new AbortController().signal });
-		await new Promise((r) => setTimeout(r, 10));
-		start(0, measured);
-		// Every word — including the last sentence's — must now end inside the clip.
-		const plan = v.plan?.(text) ?? [];
-		expect(plan.length).toBe(8);
-		finish();
-		await h.done;
-		// `plan()` reports the ESTIMATE (a fresh clone per speak is what the re-anchor mutates), so
-		// the assertion that matters is that the estimate was never scribbled on by a previous play.
-		expect(v.plan?.(text)).toEqual(est);
-	});
+	for (const [label, text] of [
+		['one sentence', ONE],
+		['two sentences', TWO],
+		['three sentences', THREE],
+	] as const) {
+		for (const stretch of [0.5, 1.2, 3]) {
+			it(`${label} at ${stretch}x: every word is reached, in order, at its scaled position`, async () => {
+				const plan = cadenzaNarrator().plan?.(text) ?? [];
+				// The clip is sized from the TRACK's duration, which is what the re-anchor scales by —
+				// not from the last word's end. A track carries the boundary pause after its final
+				// word, so sizing from the word makes every expected position wrong by that pause.
+				const estTotal = buildTrack(text, { pace: 'moderate' }).durationMs;
+				// The clock is SAMPLED, so the resolution has to beat the word rate: at a fixed 14 steps
+				// a thirteen-word line puts two words between consecutive samples and "every word is
+				// reached" fails on the probe rather than on the code.
+				const steps = plan.length * 3;
+				const measured = Math.round(estTotal * stretch);
+				const seen = await driveWords(text, measured, steps);
+				const reached = seen.map((x) => x.index);
 
-	it('does not let one play corrupt the next — the cached track is cloned, not re-anchored', async () => {
-		const text = 'Give the deck a title.';
-		const v0 = cadenzaNarrator().plan?.(text);
-		const { stage, start, finish } = fakeAudio();
-		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
-		for (let i = 0; i < 3; i++) {
-			const h = v.speak(text, { signal: new AbortController().signal });
-			await new Promise((r) => setTimeout(r, 5));
-			start(0, 5000); // three plays, each 3x the estimate
-			finish();
-			await h.done;
+				// 1. EVERY word is reached. The old `align(0, 0, dur)` pushed later sentences past the
+				//    end of the audio, so they never went active at all.
+				for (const w of plan) expect(reached).toContain(w.index);
+
+				// 2. In the estimate's order — the internal rhythm is what the estimate is for.
+				for (let i = 1; i < reached.length; i++) expect(reached[i]).toBeGreaterThan(reached[i - 1]);
+
+				// 3. Each word goes active at its SCALED position, within the resolution of the clock
+				//    steps. This is the assertion that fails when the re-anchor is deleted rather than
+				//    merely broken: with no align the words run at the estimate's pace, so on a 3x clip
+				//    the last one lands a third of the way in, and on a 0.5x clip it is never reached.
+				const tolerance = (measured / steps) * 2;
+				for (const w of [plan[0], plan[plan.length - 1]]) {
+					const observed = seen.find((x) => x.index === w.index);
+					expect(observed).toBeDefined();
+					const expectedAt = (w.startMs / estTotal) * measured;
+					expect(Math.abs((observed?.at ?? 0) - expectedAt)).toBeLessThanOrEqual(tolerance);
+				}
+			});
 		}
-		// Without the clone the third play would start from a timeline already stretched twice.
-		expect(v.plan?.(text)).toEqual(v0);
-	});
-
-	it('a measured clip LONGER than the estimate stretches the words into it', async () => {
-		const text = 'Now click Publish.';
-		const est = cadenzaNarrator().plan?.(text) ?? [];
-		const estEnd = est[est.length - 1].endMs;
-		const seen = await playWith(text, estEnd * 3);
-		expect(seen.length).toBeGreaterThan(0);
-		// The first word's span is scaled, so a word that started at ~200ms now starts later.
-		const firstEst = est[0].startMs;
-		expect(seen[0].startMs).toBeGreaterThanOrEqual(firstEst);
-	});
+	}
 });

@@ -189,6 +189,25 @@ export interface VoicedNarratorOptions extends CadenzaNarratorOptions {
 	syncLeadMs?: number;
 }
 
+/** Race a promise against a deadline, resolving to the loser's absence rather than throwing at
+ *  the call site — a hung voice must degrade to silence, not hang the beat. */
+async function withTimeout<T>(p: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
+	let timer = 0;
+	try {
+		return await Promise.race([
+			p,
+			new Promise<never>((_, reject) => {
+				timer = window.setTimeout(() => {
+					onTimeout?.();
+					reject(new Error(`vetrina: synthesize() did not answer within ${ms}ms`));
+				}, ms);
+			}),
+		]);
+	} finally {
+		if (timer) window.clearTimeout(timer);
+	}
+}
+
 /**
  * A narrator that SPEAKS, riding the real audio clock.
  *
@@ -200,22 +219,6 @@ export interface VoicedNarratorOptions extends CadenzaNarratorOptions {
  * voiced, the ear has the words and blanking a subtitle mid-sentence would take them from the
  * viewer reading it because they cannot hear it.
  */
-/** Race a promise against a deadline, resolving to the loser's absence rather than throwing at
- *  the call site — a hung voice must degrade to silence, not hang the beat. */
-async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-	let timer = 0;
-	try {
-		return await Promise.race([
-			p,
-			new Promise<never>((_, reject) => {
-				timer = window.setTimeout(() => reject(new Error(`vetrina: synthesize() did not answer within ${ms}ms`)), ms);
-			}),
-		]);
-	} finally {
-		if (timer) window.clearTimeout(timer);
-	}
-}
-
 export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 	const pace: Pace = options.pace ?? 'moderate';
 	const lead = options.syncLeadMs ?? 40;
@@ -247,11 +250,12 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 			// audible speech issued after the tour was torn down.
 			if (opts.signal.aborted) return { done: Promise.resolve(), cancel() {} };
 
-			// A FRESH COPY PER LINE. `align` re-anchors the track IN PLACE, so handing it the cached
-			// one would leave the next play of the same line starting from an already-scaled
-			// timeline — compounding on every pass of a kiosk loop. The cache still earns its keep:
-			// it saves the segmentation, which is the expensive half.
-			const track = structuredClone(trackFor(text));
+			// The cached track is safe to hand over as-is: `makeCursor` deep-copies its input on entry
+			// (cadenza/cursor.ts, "so the cursor can re-anchor without mutating the caller's track"),
+			// so `align` never reaches this object and a replay cannot inherit a scaled timeline.
+			// An earlier version cloned here against that supposed compounding — a `structuredClone`
+			// per line guarding a bug that could not happen, with a test that passed either way.
+			const track = trackFor(text);
 			if (!track.durationMs) return { done: Promise.resolve(), cancel() {} };
 			const words = trackToWords(track);
 			// The estimate's spans, captured before anything re-anchors them.
@@ -282,6 +286,10 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 					const bytes = await withTimeout(
 						options.synthesize(text, { signal: ac.signal, durationMs: estimate.total }),
 						options.synthesizeTimeoutMs ?? 20_000,
+						// Abort the REQUEST, not just the wait. Leaving a hung TTS call in flight bills
+						// for a clip nothing will ever play — the same waste the already-aborted guard
+						// above exists to prevent, arriving through the other door.
+						() => ac.abort(),
 					);
 					if (ac.signal.aborted) return;
 					const clip = await audio.decode(bytes, `${pace}:${text}`);
