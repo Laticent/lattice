@@ -863,15 +863,28 @@ function pdfProps(name, meta, slideCount) {
 }
 
 function canUsePdfWorker() {
-	return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap !== 'undefined';
+	// `CompressionStream` joined the list when the encode stopped going through a PNG
+	// round-trip: it IS the compressor now, so a browser without it takes the
+	// main-thread lane rather than producing an uncompressed 100 MB PDF.
+	return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap !== 'undefined' && typeof CompressionStream !== 'undefined';
 }
 
 // Worker lane: returns the PDF bytes as a Blob. Any worker-side failure rejects
 // so the caller can fall back to the legacy lane.
+//
+// ONE worker, deliberately. An earlier revision of this change dealt slides
+// round-robin across four encode workers and merged their documents, for a
+// measured 1.9-2.8x — because the encode was ~1 s/slide against a main thread that
+// drew a slide in 256-651 ms. Replacing the encode instead (see
+// `pdf-image-stream.js`) made it 109-135 ms/slide, which puts the pipeline under
+// the producer in every engine: more workers now buy nothing, and the lanes' costs
+// were real — +0.5 to +1.4 GB of peak browser memory, a main-thread merge that grew
+// with the deck, and a device heuristic to keep phones out of the deep end.
+//
 // At most this many slides may sit transferred-but-unprocessed in the worker's
-// message queue. Each one is a full UNCOMPRESSED page bitmap (~15 MB at 2× HD),
+// message queue. Each one is a full UNCOMPRESSED page bitmap (~15 MB at 2x HD),
 // so an unbounded queue grows with however far the worker's encode falls behind
-// the main thread's clone+draw — on a ~60-slide deck that's hundreds of MB,
+// the main thread's clone+draw - on a ~60-slide deck that's hundreds of MB,
 // which blows iOS Safari's per-tab memory ceiling and crashes the export
 // mid-deck. A window of 2 keeps the pipeline overlapped (main draws slide N+1
 // while the worker encodes slide N) with bounded memory; 1 would serialize the
@@ -884,6 +897,7 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 		const total = sections.length;
 		let acked = 0;
 		let wake = null;
+		let failure = null;
 		const done = new Promise((resolve, reject) => {
 			worker.onmessage = (e) => {
 				const m = e.data;
@@ -896,19 +910,28 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 			};
 			worker.onerror = (e) => reject(new Error(e.message || 'PDF worker failed'));
 		});
-		// A worker error can land while the loop is between awaits; pre-attach a
-		// no-op handler so the browser never flags an unhandled rejection (the
-		// real `await done` below still observes the original rejection).
-		done.catch(() => {});
+		// Latch the failure rather than only awaiting at the end. The worker keeps
+		// handling later slides after an error, so in a producer-bound export the
+		// backpressure wait below is never entered - without the latch a worker that
+		// died on slide 4 of 60 would let the main thread draw all 60 before the
+		// fallback re-drew every one of them. (Also the no-op handler that keeps the
+		// browser from flagging an unhandled rejection while the loop is between awaits;
+		// the real `await done` still observes the original rejection.)
+		done.catch((e) => {
+			failure = failure || e;
+			if (wake) { wake(); wake = null; }
+		});
 		const { w: boxW, h: boxH } = slideGeom(sections[0]);
 		const { pageW, pageH } = pdfPageGeom(boxW, boxH);
 		worker.postMessage({ type: 'init', pageW, pageH, total, pageFormat, props: pdfProps(name, meta, total), annotations });
 		for (let i = 0; i < total; i++) {
+			if (failure) throw failure;
 			// Backpressure: wait for the worker's ack before growing the in-flight
 			// window. Raced against `done` so a worker-side error breaks the wait
 			// (rejects) instead of deadlocking the loop.
 			while (i - acked >= PDF_WORKER_MAX_IN_FLIGHT) {
 				await Promise.race([done, new Promise((r) => { wake = r; })]);
+				if (failure) throw failure;
 			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
 			const bitmap = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS, 'pdf');
@@ -917,6 +940,7 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 			// on this thread) never runs back-to-back without a paint.
 			await new Promise((r) => setTimeout(r));
 		}
+		if (failure) throw failure;
 		worker.postMessage({ type: 'finish' });
 		return await done;
 	} finally {
@@ -959,7 +983,12 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 	const { jsPDF } = await import('jspdf');
 	const { w: boxW, h: boxH } = slideGeom(sections[0]);
 	const { pageW, pageH } = pdfPageGeom(boxW, boxH);
-	const orientation = 'landscape';
+	// Orientation follows the DECK, not the usual case. A hardcoded 'landscape' makes
+	// jsPDF swap a portrait format to satisfy it, so a `size: portrait` deck (576x720
+	// px) got a 960x768 pt landscape page with the image drawn 768x960 over it —
+	// overflowing the bottom by 192 pt. The worker lane writes the box it is given, so
+	// this is also what keeps the two lanes producing the same page.
+	const orientation = pageW >= pageH ? 'landscape' : 'portrait';
 	const pdf = new jsPDF({ orientation, unit: 'px', format: [pageW, pageH], compress: true });
 	pdf.setProperties(pdfProps(name, meta, sections.length));
 	for (let i = 0; i < sections.length; i++) {
@@ -969,7 +998,7 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', 0, 0, pageW, pageH);
 		// Review comments for this slide → sticky notes on the page just drawn (same
 		// helper + placement the worker lane uses, so the two lanes stay identical).
-		if (annotations) addPageStickyNotes(pdf, annotations[i], pageW);
+		if (annotations) addPageStickyNotes(pdf, annotations[i], pageW, pageH);
 		// Yield a macrotask between slides so the browser can PAINT the progress
 		// line and service input — the per-slide rasterize + PNG-deflate are
 		// synchronous, and without this break a multi-slide export blocks the main
