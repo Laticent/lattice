@@ -2324,6 +2324,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		createFirstDeck: createDemoFirstDeck,
 		setSource,
 		typeTail: (t: string) => editorRef.current?.typeTail(t),
+		// The controlled typing path moves no caret, so the editor never scrolls to follow what
+		// the demo is typing. This is how it follows — CodeMirror's own reveal, not a scrollTop
+		// on a guessed element (see Editor's `revealTail`).
+		revealEditorTail: () => editorRef.current?.revealTail(),
 		// True once the lazy CodeMirror editor has mounted (its imperative handle is set).
 		// The demo uses this to pick its typing channel: native `typeTail` when ready, else
 		// the controlled `setSource` path (the same one the phone uses) so a "Take a tour"

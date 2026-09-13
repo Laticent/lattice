@@ -23,6 +23,10 @@ export type StudioDemoBindings = {
 	setSource: (source: string) => void;
 	/** Append typed text natively in the editor (the demo's typing channel). */
 	typeTail: (text: string) => void;
+	/** Scroll the editor's view to the END of the document, caret untouched. The controlled
+	 *  typing path needs it explicitly; a native `typeTail` gets the same reveal for free by
+	 *  moving the caret. */
+	revealEditorTail: () => void;
 	/** True once the lazy editor has mounted. When false (a "Take a tour" click in the
 	 *  brief cold-load window before the CodeMirror chunk mounts), the demo types through
 	 *  the controlled `setSource` path instead of the native `typeTail`, so no characters
@@ -143,15 +147,24 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		// setSource replaces the doc via the React value with NO caret move, so — unlike a native
 		// typeTail insert — CodeMirror never scrolls to follow: on a phone the view sits at the top
 		// while a long slide types below the fold (the visible gap vs. tablet, which types natively).
-		// followEditor() nudges the editor's scroller to the end after the doc updates (double rAF,
-		// past React's commit + the editor's value-sync) so the phone WATCHES it type.
+		// followEditor() is the compensation: it asks the EDITOR to reveal its tail, one commit later.
+		//
+		// It used to reach for `#studio-pane-editor .cm-scroller` and set `scrollTop = scrollHeight`,
+		// and both halves of that could leave the view short of the text. The extent it read is
+		// whatever CodeMirror has MEASURED so far, so arriving before the editor's own measure cycle
+		// meant scrolling to the pre-insert height — the scroll lands above the line that was just
+		// typed, which looks exactly like not scrolling at all. And the scroller was a guess: it is
+		// `.cm-scroller` only while the editor is the height-constrained box on this surface, on this
+		// engine. `revealTail` hands both questions to CodeMirror, which measures its own document and
+		// walks the real scrollable ancestors — race-free by construction, and if it does land early
+		// it reveals the previous tail (one line behind) rather than parking at the top.
+		//
+		// The double rAF stays, for the one thing that is genuinely ordering rather than measurement:
+		// the DOCUMENT. `setSource` is React state, and the value-sync effect that writes it into the
+		// editor runs after the commit, so a reveal fired synchronously here would reveal the tail as
+		// it was before this keystroke. Two frames clear the commit and its passive effects.
 		const followEditor = () => {
-			requestAnimationFrame(() =>
-				requestAnimationFrame(() => {
-					const sc = document.querySelector<HTMLElement>('#studio-pane-editor .cm-scroller');
-					if (sc) sc.scrollTop = sc.scrollHeight;
-				}),
-			);
+			requestAnimationFrame(() => requestAnimationFrame(() => bindRef.current.revealEditorTail()));
 		};
 		let acc = '';
 		// Native `typeTail` needs the mounted editor; fall back to the controlled setSource
@@ -174,7 +187,17 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 					},
 				}
 			: {
-					set: (t) => bindRef.current.setSource(t),
+					// The desktop `set` is the CONTROLLED path too — it is just not used per
+					// keystroke. `runner.ts` routes three cases through it: an `instant: true` beat,
+					// the `still` motion tier, and any insert over ~1600 chars, i.e. a whole slide
+					// landing at once. (NOT a reduced-motion device: that lands on `legible`, which
+					// keeps the typing reveal — the split pacing.ts documents.) Without the follow it
+					// dropped a screenful of text in below the fold and left the view at the top —
+					// the same defect as the phone's, on the surface nobody looked at.
+					set: (t) => {
+						bindRef.current.setSource(t);
+						followEditor();
+					},
 					append: (t) => bindRef.current.typeTail(t),
 				};
 

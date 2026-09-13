@@ -240,6 +240,19 @@ export type EditorHandle = {
 	 *  typing, and the change flows back out through `onChange` like any edit. Carries
 	 *  no user-event annotation, so it does NOT trip `onUserEdit` (the first-edit cue). */
 	typeTail: (text: string) => void;
+	/** Scroll the document's END into view WITHOUT touching the caret or the document — what
+	 *  `typeTail` gets for free (a native insert moves the caret, and CodeMirror follows the
+	 *  caret), and what the CONTROLLED `value`-prop path cannot get at all: that path replaces
+	 *  the doc from React state, moves no caret, and so never scrolls. A phone types through
+	 *  the controlled path, which is why its editor sat at the top while a long slide typed
+	 *  below the fold.
+	 *
+	 *  It asks CODEMIRROR to scroll rather than setting `scrollTop` on a guessed element, and
+	 *  both halves of that matter: CodeMirror measures the document in its own cycle (so it
+	 *  cannot read a pre-update extent and clamp short), and it walks the real scrollable
+	 *  ancestors (so it does not depend on `.cm-scroller` being the thing that scrolls on this
+	 *  surface, on this engine). `y: 'nearest'` is the same reveal a real keystroke performs. */
+	revealTail: () => void;
 	/** Replace the WHOLE document with `text` SYNCHRONOUSLY (a direct view dispatch,
 	 *  not the async `value`-prop sync). The demo calls `resetDoc('')` before it starts
 	 *  typing so the first `typeTail` can never append onto a stale seed (e.g. a freshly
@@ -499,6 +512,17 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// Insert at the tail, caret to the new end, scroll to follow. No userEvent
 			// annotation → onUserEdit stays silent (this is the demo, not the author).
 			v.dispatch({ changes: { from: end, insert: text }, selection: { anchor: end + text.length }, scrollIntoView: true });
+		},
+		revealTail() {
+			const v = viewRef.current;
+			if (!v) return;
+			// No changes, no selection — a pure scroll effect, so it cannot disturb what the
+			// author (or the value-sync) has in the document, and it is a no-op when the tail
+			// is already on screen. NO `yMargin`: a 48px one was tried against the WebKit frame
+			// lag measured in demo-mobile.spec.ts and made no difference (53px worst gap with it
+			// and without), so it would be a number with nothing behind it. `y: 'nearest'` is the
+			// same reveal the native typing path performs.
+			v.dispatch({ effects: EditorView.scrollIntoView(v.state.doc.length, { y: 'nearest' }) });
 		},
 		resetDoc(text: string) {
 			const v = viewRef.current;
