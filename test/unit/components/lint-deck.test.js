@@ -481,6 +481,39 @@ describe('deck linter', () => {
     assert.match(lf, /card-style-inline-title/, 'the fixture must actually produce a finding, or this asserts nothing');
   });
 
+  // THE HUMAN REPORT CHANNEL, not the `--json` one. `classToken` is the component token a
+  // finding is ABOUT, and three shipped rules legitimately carry none: `focus-spec`,
+  // `focus-style` and `focus-steps` judge a `_focus` DIRECTIVE, which belongs to the slide
+  // rather than to any one component. The CLI interpolated the field unconditionally, so a
+  // malformed `_focus` printed `⚠ … · focus-spec [undefined]` at the author — a defect that
+  // was reachable from a real deck, not a hypothetical about some future rule.
+  //
+  // Both arms run through `main()` and read its REAL stderr, because the bug lived in the
+  // format string and nowhere else: a test that re-derived the line from a finding object
+  // would assert on a stand-in and pass over the broken CLI.
+  test('the CLI report omits the token bracket for a finding that carries no classToken', async () => {
+    const run = async (src, tag) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), `lint-token-${tag}-`));
+      const file = path.join(dir, 'deck.md');
+      fs.writeFileSync(file, src);
+      const chunks = [];
+      const orig = process.stderr.write.bind(process.stderr);
+      process.stderr.write = (s) => { chunks.push(String(s)); return true; };
+      try { await main([file]); } finally { process.stderr.write = orig; fs.rmSync(dir, { recursive: true, force: true }); }
+      return chunks.join('');
+    };
+
+    // A malformed `_focus` axis — a `focus-spec` warning, and the rule sets no classToken.
+    const noToken = await run(`${FM}<!-- _class: kpi -->\n<!-- _focus: rowe 4 -->\n\n## H.\n\n- Metric\n  - 42\n`, 'none');
+    assert.match(noToken, /· focus-spec\n/, `expected a bare rule name, got:\n${noToken}`);
+    assert.doesNotMatch(noToken, /\[undefined\]/, 'the CLI must never print a literal [undefined] at an author');
+    assert.doesNotMatch(noToken, /focus-spec \[\]/, 'an empty bracket is a different claim from no bracket');
+
+    // A finding that DOES carry one still prints it, in the same place, unchanged.
+    const withToken = await run(`${FM}<!-- _class: cards-grid -->\n\n## H.\n\n- **First.** body on same line.\n`, 'some');
+    assert.match(withToken, /· card-style-inline-title \[cards-grid\]\n/, `expected the token bracket, got:\n${withToken}`);
+  });
+
   test('every committed deck is completely lint-clean (no errors, no warnings)', () => {
     // The deck tree is clean and the gate is --strict, so warnings count too.
     // Locks in the fixes for the baseline gallery (cards-stack inline-title),

@@ -221,7 +221,14 @@ async function main(argv) {
 
   for (const f of report) {
     const mark = f.severity === 'error' ? '✗' : '⚠';
-    process.stderr.write(`${mark} ${f.file} · slide ${f.slide} · ${f.rule} [${f.classToken}]\n`);
+    // The bracket names the COMPONENT TOKEN a finding is about, and a rule is allowed to
+    // have none: `focus-spec` / `focus-style` / `focus-steps` judge a `_focus` DIRECTIVE,
+    // which belongs to the slide rather than to any one component, so they set no
+    // `classToken` and this line printed a literal `[undefined]` at the author. Omit the
+    // bracket instead of inventing a token — an empty `[]` would read as "no component",
+    // which is a different claim from "this rule is not about a component".
+    const token = f.classToken ? ` [${f.classToken}]` : '';
+    process.stderr.write(`${mark} ${f.file} · slide ${f.slide} · ${f.rule}${token}\n`);
     process.stderr.write(`    ${f.message}\n`);
     if (f.line) process.stderr.write(`    at: ${f.line}\n`);
     process.stderr.write(`    fix: ${f.fix.replace(/\n/g, '\n    ')}\n\n`);
