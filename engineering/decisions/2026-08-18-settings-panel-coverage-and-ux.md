@@ -145,6 +145,58 @@ Recorded here so the next audit doesn't "fix" them:
   stripped the comment. `lib/authoring/lint-core.js` lints against the same kernel
   (`bad-render-target-value`), so an unrecognized value is reported while the deck is being
   written rather than discovered in the artifact.
+  **Where that warning LANDS is now verified on the real Studio** (2026-09-13), closing the
+  one claim #2164 shipped as UNVERIFIED under HARD RULE #23. The finding is deck-level
+  (`slide: 0`), and `editor-diagnostics.js` anchors a deck-level finding by searching the
+  front-matter chunk for the finding's `line` STRING — so the underline's position is a
+  property of that needle, not of the rule. `docs/e2e/editor-lint.spec.ts` drives the built
+  Studio, writes `FLUID: ture` on line 3, and reads back which document position the painted
+  underline sits over: line 3, text `FLUID: ture`, with the tooltip carrying the rule's
+  message. The needle is what it pins — mutating the rule to synthesize `${key}: ${value}`
+  instead of quoting the source line moves the underline to line 1 (`---`), which is the
+  failure the rule's own comment predicts for a needle that matches nothing.
+  **A NESTED key is warned about, not read away** (2026-09-13). The union reader believes an
+  indented `fluid:` — both matchers open on a leading whitespace run, and the reader takes an
+  on-word from any line for the key — so `fluid: "true"` nested under some other key opts the
+  deck in while a top-level `fluid: false` says no. The kernel records this as the union's one
+  false-ON and rules out the obvious repair: reading only column-0 keys would turn off six
+  measured input shapes that work today, on decks in the field. So the reader is unchanged and
+  `lib/authoring/lint-core.js` gains `nested-render-target-key`, which reports the divergence
+  between what YAML shows the author and what the export does. No autofix — de-indenting the
+  key, quoting it and deleting it are all plausible, and the source does not say which was
+  meant. Zero tracked `*.md` carry the shape, and that is now an arm in
+  `render-target-keys.test.js` sweeping the corpus through the shipped rule rather than a
+  number in a docblock.
+  **The warning claims only what the export does.** It reports an indented line only where a
+  reader arm really reads it — the two arms disagree about leading whitespace, and a first
+  draft told authors the export acts on a NBSP-prefixed `fluid: false` that neither arm
+  touches. And it does not assert what YAML does: a front matter whose every key is indented
+  by the same amount is a legal document with those keys at the top level, so the
+  disagreement is stated conditionally.
+  **The case that earns the rule is a free-form map.** `lexicon:` and `acronyms:` take
+  arbitrary word keys, and `present` is the textbook English heteronym — `lexicon:` with an
+  indented `present: on` really does flag the exported PDF full-screen. Staying silent there
+  would hide a live surprise, so the fix text names the escape that keeps the entry: quoting
+  the key (`"present": pre ZENT`) is the same mapping to YAML and stops both reader arms,
+  each of which wants the key immediately after the whitespace run.
+  **CASE-INSENSITIVE KEY READING STAYS LOCAL TO THIS FAMILY — deliberate, not drift**
+  (2026-09-13). `render-target-keys.js` reads `FLUID:` and `fluid:` as one key; every sibling
+  reader in `lib/core/front-matter-key.js` is case-sensitive, and nobody had ruled on the
+  divergence. The ruling: keep it, here only.
+  The `/i` is not a choice this module gets to make. The emulator's regex shipped with it, so
+  a deck in the field writing `FLUID: true` is on TODAY, and reading case-sensitively would
+  turn it off — a self-inflicted regression on decks we cannot see (HARD RULE #18). Both arms
+  then have to carry it or the split re-opens: while the scalar arm was case-sensitive,
+  `FLUID: "true"` read OFF where `fluid: "true"` read ON.
+  Aligning the siblings would be the larger mistake. YAML keys ARE case-sensitive, and
+  `topLevelFrontMatterValue` exists because a reader and a WRITER disagreeing about which line
+  is the register corrupts a deck (#1416): every writer anchors at column 0 and writes the
+  canonical spelling, so a case-insensitive reader would honor a `CLASS:` no writer can ever
+  update. A repo-wide `/i` is a behavior change to every register with no defect asking for it.
+  Measured: across every tracked `*.md` (906 front-matter blocks), **zero decks change verdict**
+  whether the render-target reader is case-insensitive or not — the `/i` is protecting decks in
+  the field, not anything we ship. So the divergence costs nothing today, and this row is the
+  record that it was examined rather than inherited.
 - `marp:` — mechanical (`deck-config.js` emits it so an exported `.md` renders through
   marp-cli). Not an author-facing setting.
 

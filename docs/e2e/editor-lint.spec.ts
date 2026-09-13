@@ -1,4 +1,4 @@
-import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection, test } from './studio-fixture';
+import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection, setEditorContent, test } from './studio-fixture';
 
 // The editor's real grammar lint (shared lint-core). An unknown component makes
 // Fix-all actionable and surfaces an inline-issue count in the Coach; turning
@@ -42,4 +42,123 @@ test('the Coach surfaces the inline-issue count', async ({ page }) => {
 	// The count lives in the Architect Coach, which is collapsed by default.
 	await page.getByRole('button', { name: 'Toggle Coach' }).click();
 	await expect(page.getByText(/\d+ inline issue/)).toBeVisible();
+});
+
+// ── The render-target squiggle lands on the OFFENDING line ─────────────────
+// `bad-render-target-value` (lib/authoring/lint-core.js) is a DECK-level finding — it
+// reports `slide: 0`, because the keys it judges live in front matter, which belongs to no
+// slide. That number is also the editor's anchor: `findingsToDiagnostics`
+// (docs/src/playground/editor-diagnostics.js) resolves slide 0 to the deck top and then
+// searches that chunk for a line matching the finding's `line` STRING. So the underline is
+// placed by a substring match, and every claim about where it lands is really a claim about
+// that needle — which is why the rule refuses to synthesize one and quotes the source line
+// verbatim, case and all.
+//
+// #2164 shipped this path UNVERIFIED (HARD RULE #23): the bundled
+// `authoring-core.generated.js` was proven to EMIT the verbatim line, and nothing had driven
+// the real editor to see where the squiggle actually appears. This is that oracle.
+//
+// The deck writes `FLUID:` in capitals on purpose. The kernel reads the key
+// case-insensitively while the rule's line-capture regex once did not, so a lowercased
+// `fluid: ture` was quoted back for a deck that contains no such line — a needle matching
+// nothing, which sends the underline to line 1 rather than dropping it. A lowercase key
+// would pass whether or not that drift is fixed; this one fails on it.
+//
+// The oracle is GEOMETRIC, not a DOM-tree walk: read the painted underline's box, ask the
+// live CodeMirror view which document position sits under it, and report that line. A test
+// that asked the DOM which line element contains the span would be asserting on the same
+// structure it is trying to check.
+const PLACEMENT_DECK = ['---', 'theme: indaco', 'FLUID: ture', '---', '', '# Placement', '', 'Body copy.', ''].join('\n');
+
+/** The warning underline covering `needle` — never `.first()`, which follows whichever
+ *  finding sorted earliest the moment a second rule fires on the deck. */
+const warningCovering = (page: import('@playwright/test').Page, needle: string) =>
+	page.locator('.cm-lintRange-warning').filter({ hasText: needle }).first();
+
+/**
+ * Where the painted warning underline actually is, read back through the live view.
+ *
+ * `needle` picks the underline among any others on the page by the text it covers — a bare
+ * `.first()` would silently follow whichever finding sorted earliest.
+ */
+function underlineLine(page: import('@playwright/test').Page, needle: string): Promise<{ number: number; text: string } | null> {
+	return page.evaluate((want) => {
+		const el = [...document.querySelectorAll('.cm-lintRange-warning')].find((n) => (n.textContent || '').includes(want));
+		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror's view through its DOM handle.
+		const view = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+		if (!el || !view) return null;
+		const r = el.getBoundingClientRect();
+		const pos = view.posAtCoords({ x: r.left + 1, y: r.top + r.height / 2 });
+		if (pos == null) return null;
+		const line = view.state.doc.lineAt(pos);
+		return { number: line.number, text: line.text };
+	}, needle);
+}
+
+test('a bad render-target value underlines its own front-matter line, not the deck top', async ({ page }, testInfo) => {
+	await setEditorContent(page, PLACEMENT_DECK);
+
+	// The underline carries the offending line's text, and it is painted on line 3 — the
+	// line the author wrote — rather than on line 1, the chunk-start fallback a needle that
+	// matched nothing would land on.
+	await expect
+		.poll(() => underlineLine(page, 'FLUID: ture'), { message: 'no warning underline ever appeared for `FLUID: ture`' })
+		.toEqual({ number: 3, text: 'FLUID: ture' });
+
+	// Two shots, because the hover tooltip covers the very line it is about: the underline
+	// on its own, then the message an author reads.
+	const underlineShot = testInfo.outputPath('render-target-squiggle.png');
+	await page.locator('.cm-editor').first().screenshot({ path: underlineShot });
+	await testInfo.attach('render-target-squiggle.png', { path: underlineShot, contentType: 'image/png' });
+
+	// The tooltip is what the author reads, so it is part of the same claim — and hovering
+	// it is also what makes the evidence screenshot show the finding rather than a bare
+	// wavy line. `@codemirror/lint` opens the hover on a 300ms timer.
+	//
+	// It names the key in the CANONICAL lowercase (`fluid:`) even for this deck's `FLUID:`,
+	// and that is the rule's own wording, not drift: the message and fix are about the KEY,
+	// which the kernel reads case-insensitively, while the `line` needle above is about the
+	// SOURCE. Only the needle has to be verbatim — it is the one the editor searches with.
+	await warningCovering(page, 'FLUID: ture').hover();
+	const tooltip = page.locator('.cm-tooltip-lint');
+	await expect(tooltip).toContainText("'ture' is not an on/off value for `fluid:`");
+	await expect(tooltip).toContainText('Set `fluid:` to one of true / yes / on');
+
+	// Evidence artifacts for HARD RULE #23, both from the running Studio.
+	// Both PNGs are written to the run's output dir (not only into the report blob) so they
+	// are files somebody can open straight from `test-results/`.
+	const tooltipShot = testInfo.outputPath('render-target-tooltip.png');
+	await page.locator('.cm-editor').first().screenshot({ path: tooltipShot });
+	await testInfo.attach('render-target-tooltip.png', { path: tooltipShot, contentType: 'image/png' });
+});
+
+
+// ── A NESTED render-target key warns, on the nested line ───────────────────
+// The kernel reads an indented `fluid:` as the deck's own register — the union reader's one
+// false-ON — and says in its own docblock that the remedy is a warning, not a narrower
+// reader (narrowing re-breaks six measured parity rows and turns off decks in the field).
+// `nested-render-target-key` is that warning, and this is the surface it exists for: an
+// author writing the deck, before the wrong artifact is exported.
+//
+// The deck below is the kernel's own example, with `export:` standing in for its `nest:`.
+// YAML shows `fluid` nested under that key;
+// the export reads it as the register and ships the fluid viewer, outvoting the top-level
+// `fluid: false` two lines down.
+const NESTED_DECK = ['---', 'theme: indaco', 'export:', '  fluid: "true"', 'fluid: false', '---', '', '# Nested', '', 'Body copy.', ''].join('\n');
+
+test('a nested render-target key warns on the nested line', async ({ page }, testInfo) => {
+	await setEditorContent(page, NESTED_DECK);
+
+	await expect
+		.poll(() => underlineLine(page, 'fluid: "true"'), { message: 'no warning underline ever appeared for the nested `fluid:`' })
+		.toEqual({ number: 4, text: '  fluid: "true"' });
+
+	await warningCovering(page, 'fluid: "true"').hover();
+	const tooltip = page.locator('.cm-tooltip-lint');
+	await expect(tooltip).toContainText("the export reads it as the deck's own `fluid:`");
+	await expect(tooltip).toContainText('Move `fluid:` to the left margin');
+
+	const shot = testInfo.outputPath('nested-render-target-key.png');
+	await page.locator('.cm-editor').first().screenshot({ path: shot });
+	await testInfo.attach('nested-render-target-key.png', { path: shot, contentType: 'image/png' });
 });

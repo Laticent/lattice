@@ -126,21 +126,31 @@ export function findingsToDiagnostics(doc, findings, opts = {}) {
 		const nextStart = starts[slide + 1] || total + 1;
 		let lineNo = startLine;
 		if (f.line) {
-			const needle = String(f.line).trim();
-			// Prefer an EXACT line match anywhere in the slide; only fall back to a
-			// substring match if none exists (so a superset line like `- foobar`
-			// doesn't win over the exact `- foo` later in the slide).
+			const raw = String(f.line);
+			const needle = raw.trim();
+			// Three tiers, strongest first.
+			//   VERBATIM — the finding quoted the line with its own indentation, so an
+			//     indented line can be told from a top-level one that trims to the same
+			//     characters. `nested-render-target-key` reports `  fluid: true` on a deck
+			//     that also carries a top-level `fluid: true`; on the trimmed match alone the
+			//     squiggle landed on the innocent top-level line, saying it was indented.
+			//     Most rules trim their `line`, so for them this tier simply never hits.
+			//   EXACT — the trimmed match, anywhere in the slide.
+			//   LOOSE — a substring, so a superset line like `- foobar` doesn't win over the
+			//     exact `- foo` later in the slide.
+			let verbatim = 0;
 			let exact = 0;
 			let loose = 0;
 			for (let n = startLine; n < nextStart && n <= total; n++) {
 				const text = doc.line(n).text;
-				if (text.trim() === needle) {
-					exact = n;
+				if (text === raw) {
+					verbatim = n;
 					break;
 				}
+				if (!exact && text.trim() === needle) exact = n;
 				if (!loose && needle && text.includes(needle)) loose = n;
 			}
-			if (exact || loose) lineNo = exact || loose;
+			if (verbatim || exact || loose) lineNo = verbatim || exact || loose;
 		}
 		lineNo = clamp(lineNo, 1, total);
 		const line = doc.line(lineNo);
