@@ -1,6 +1,6 @@
 /**
  * Unit tests for the `video` component: provider detection
- * (lib/engine/video-providers.js), the transform kernel
+ * (lib/core/video-providers.mjs), the transform kernel
  * (lib/components/imagery/video/video.transform.js), and the build-time oEmbed
  * resolver (tools/fetch-video-oembed.js) with an injected fetcher (no network).
  *
@@ -14,7 +14,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { detectProvider } = require('../../../lib/engine/video-providers');
+const { detectProvider } = require('../../../lib/core/video-providers.mjs');
 const video = require('../../../lib/components/imagery/video/video.transform');
 const { resolveOembed, videoUrlsFromDeck } = require('../../../tools/fetch-video-oembed');
 

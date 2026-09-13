@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { detectProvider } = require('../lib/engine/video-providers');
+const { detectProvider } = require('../lib/core/video-providers.mjs');
 
 // Minimal GET → JSON. Injectable so tests never hit the network.
 function httpGetJson(url) {
