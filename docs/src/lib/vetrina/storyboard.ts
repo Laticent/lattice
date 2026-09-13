@@ -6,7 +6,7 @@
 // storyboard(seed, this.toData()) — one interpreter, no drift).
 
 import { findCueWord, type NarratedWord, type NarrationHandle, type Narrator, SILENT_NARRATOR } from './narrate';
-import { resolvePacing } from './pacing';
+import { CAPTION_FADE_MS, resolvePacing } from './pacing';
 import { holdUntil } from './recipes';
 import type { RunContext, Walkthrough } from './runner';
 import { type Gesture, isAbortError, type Target, wait } from './stage';
@@ -225,7 +225,13 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 					// no-narrator case free: SILENT_NARRATOR resolves instantly, so the estimate is
 					// simply what is left.
 					await Promise.all([line.done, wait(readingMs, signal)]);
-					if (stepsAside) stage.dismissCaption?.();
+					if (stepsAside) {
+						stage.dismissCaption?.();
+						// Let it finish going. Dismissing and acting in the same frame fires the action
+						// while the words are still fading — measured at ~18% opacity under the click
+						// burst. `still` collapses content cadence, so it snaps and there is no fade.
+						if (!stage.still) await wait(CAPTION_FADE_MS, signal);
+					}
 				}
 			};
 

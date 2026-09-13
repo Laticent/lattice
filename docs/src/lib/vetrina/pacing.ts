@@ -103,6 +103,13 @@ export const REGISTER_MS = 350;
  *  to the changed region (~250 ms) plus the time to encode it (~400 ms). */
 export const SETTLE_MS = 650;
 
+/** How long the caption's cross-fade takes. It MIRRORS the `transition: opacity .18s` the bubble
+ *  is styled with (stage.ts), and the coupling is deliberate: a beat that dismisses its caption
+ *  and acts in the same frame fires the action while the words are still at ~18% — measured on
+ *  the real page, a visible smudge under the click burst. "It disappears, and then the action
+ *  happens" means waiting for it to actually be gone. */
+export const CAPTION_FADE_MS = 180;
+
 /** Milliseconds per character for the typing reveal. Above the ~40 ms at which successive
  *  visual events fuse, so the reveal reads as typing rather than as a paste; still ~3x a
  *  fast human typist, because a demo that types at human speed is unwatchable. */
