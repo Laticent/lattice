@@ -4966,9 +4966,13 @@ function writesClass(src, cls) {
 //   `lib/core/matrix-grid-cells.js`, through the `matrixGridCells` plugin — the
 //   transform's own header says so and then does not emit them.
 //
-//   `gantt-legend-swatch` and the `chart-key-*` swatches come from the shared
-//   `_chart-family/svg-legend.js`, and `chart-status` is a family class two
-//   members reuse.
+//   `chart-key-swatch` comes from the shared `_chart-family/svg-legend.js` and is
+//   emitted inside six different members' sections, and `chart-status` is a
+//   family class two members reuse. (An earlier revision named
+//   `gantt-legend-swatch` as the second example. That was wrong — gantt writes it
+//   in its own transform, at gantt.transform.js:586 — and the same false claim
+//   reached the decision record. The widening is still warranted; one of the two
+//   examples given for it was not.)
 //
 // So the search widens: the member's own transform first, then every `lib/**.js`
 // outside `dist/`. That is a weaker test than "this member writes it" and the
@@ -4994,7 +4998,19 @@ function libSources() {
 }
 
 function checkChartMarks(manifests, errors) {
-  const STAMP_RE = /data-(paint|encodes)=\\?["']([a-z]+)/g;
+  // A STAMP IS NOT ALWAYS A LITERAL, and the first cut of this only matched one.
+  // `scatter.transform.js` now writes
+  //
+  //     data-encodes="${bubbles ? 'layered' : 'hue'}"
+  //
+  // because a translucent bubble and an opaque dot encode differently — and the
+  // literal-only matcher saw NOTHING there, so static coverage of the stamp went
+  // DOWN on the very member this contract was fixing. Match the literal form and
+  // the values inside an interpolation, and take every quoted token out of the
+  // latter: a ternary stamps either arm depending on the datum, so both have to
+  // be declared.
+  const STAMP_RE = /data-(paint|encodes)=\\?["'](?:([a-z-]+)|\$\{([^}]*)\})/g;
+  const QUOTED = /['"`]([a-z-]+)['"`]/g;
   for (const m of manifests) {
     if (!m.kernel || !Array.isArray(m.kernel.marks)) continue;  // the loader reports a missing block
     const bucket = manifestBucket(m);
@@ -5019,8 +5035,12 @@ function checkChartMarks(manifests, errors) {
     // which element a stamp lands on. The render-side check does that.
     const paints = new Set(m.kernel.marks.map((x) => x.paint));
     const encodings = new Set(m.kernel.marks.map((x) => x.encodes));
-    for (const [, key, value] of src.matchAll(STAMP_RE)) {
+    for (const [, key, literal, interpolated] of src.matchAll(STAMP_RE)) {
       const declared = key === 'paint' ? paints : encodings;
+      const values = literal
+        ? [literal]
+        : [...String(interpolated).matchAll(QUOTED)].map((q) => q[1]);
+      for (const value of values) {
       if (!declared.has(value)) {
         errors.push(
           `${rel}: stamps \`data-${key}="${value}"\` but no mark in ${m.name}'s ` +
@@ -5028,6 +5048,7 @@ function checkChartMarks(manifests, errors) {
           `The attribute is what a finish selects on and the manifest is what decides what the ` +
           `finish may do — the two disagreeing means one of them is describing a mark that ` +
           `is not there.`);
+      }
       }
     }
   }

@@ -109,6 +109,60 @@ describe('checkChartMarks — what it fires on', () => {
     assert.equal(gate('map', [MARK('map-legend')]).length, 1);
   });
 
+  // A STAMP IS NOT ALWAYS A LITERAL. scatter writes
+  // `data-encodes="${bubbles ? 'layered' : 'hue'}"` because a translucent bubble
+  // and an opaque dot encode differently — and the literal-only matcher this
+  // shipped with saw nothing there, so static coverage of the stamp went DOWN on
+  // the member the contract was fixing. Both arms of the ternary must be
+  // declared.
+  test('sees a stamp built by an interpolation, not just a literal one', () => {
+    const errors = gate('scatter', [
+      MARK('scatter-dot'),
+      MARK('scatter-bubble'),           // declares hue, not layered
+      MARK('scatter-size-ring'),
+      MARK('scatter-trend', { paint: 'none', encodes: 'none' }),
+    ]);
+    assert.ok(errors.some((e) => /data-encodes="layered"/.test(e)),
+      `the computed arm of the ternary must be checked, got ${JSON.stringify(errors)}`);
+  });
+
+  test('passes once both arms of the computed stamp are declared', () => {
+    assert.deepEqual(
+      gate('scatter', [
+        MARK('scatter-dot'),
+        MARK('scatter-bubble', { encodes: 'layered' }),
+        MARK('scatter-size-ring', { encodes: 'layered' }),
+        MARK('scatter-trend', { paint: 'none', encodes: 'none' }),
+      ]),
+      [],
+    );
+  });
+
+  // The legend IS the binding: a swatch declaring a different encoding from the
+  // mark it names is the drift this contract exists to stop. scatter's size-key
+  // ring is the bubble's own legend, painted from the same translucent recipe,
+  // and it stamped `hue` while the bubble stamped `layered` for exactly as long
+  // as nothing walked emitted->declared.
+  test('scatter declares its size-key ring, and it agrees with the bubble', () => {
+    const scatter = loadAll().find((m) => m.name === 'scatter');
+    const byClass = new Map(scatter.kernel.marks.map((x) => [x.class, x]));
+    const ring = byClass.get('scatter-size-ring');
+    assert.ok(ring, 'the size-key ring is a painted mark and must be declared');
+    assert.equal(ring.encodes, byClass.get('scatter-bubble').encodes);
+  });
+
+  // The family-wide legend swatch comes from _chart-family/svg-legend.js and
+  // lands inside six members' sections. It was declared by none of them, and
+  // the source-side gate cannot see an omission at all.
+  test('every member that renders a chart-key-swatch declares one', () => {
+    const expected = ['bar', 'map', 'piechart', 'quadrant', 'radar', 'stacked-bar'];
+    for (const name of expected) {
+      const m = loadAll().find((x) => x.name === name);
+      assert.ok(m.kernel.marks.some((x) => x.class === 'chart-key-swatch'),
+        `${name} renders a chart-key-swatch and declares none`);
+    }
+  });
+
   test('fires when the transform stamps an encoding the manifest does not declare', () => {
     const errors = gate('bar', [MARK('bar-mark', { encodes: 'presence' })]);
     assert.ok(errors.some((e) => /stamps `data-encodes="hue"`/.test(e)),

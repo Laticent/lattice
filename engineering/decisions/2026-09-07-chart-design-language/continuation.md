@@ -25,10 +25,12 @@ in gitignored `.scratch/`, so treat the artifact as the source of truth):
 ### 1. Bake the chart CLASSIFICATION into the manifest — **DONE**
 
 **Shipped. See `mark-declaration.md` in this folder for the record.** All 21
-members declare `kernel.marks` (77 rows, 70 of them verified against a real
-render), two gates hold them up, the render-side check disagreed with the
-hand-written declarations six times, and it found one engine defect (`scatter`
-stamped `data-encodes="hue"` on a translucent bubble). The class did not land as
+members declare `kernel.marks` (85 rows). Two checks hold them up — one in
+`build:check`, one an on-demand render command — and neither is complete; the
+record's coverage table says which rows each actually holds. The render check
+disagreed with the hand-written declarations six times, and it found one engine
+defect (`scatter` stamped `data-encodes="hue"` on a translucent bubble, and on
+that bubble's own legend ring). The class did not land as
 the six-way enum sketched below: `paint` and `encodes` are two fields, because
 the family contains marks that split them — a body that carries no datum is not
 the same as no body. The `texture` row is not

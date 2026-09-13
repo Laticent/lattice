@@ -32,6 +32,12 @@
         "bears": false
       },
       {
+        "class": "scatter-size-ring",
+        "paint": "fill",
+        "encodes": "layered",
+        "bears": false
+      },
+      {
         "class": "scatter-trend",
         "paint": "none",
         "encodes": "none",

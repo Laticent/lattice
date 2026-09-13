@@ -20,7 +20,7 @@
       {
         "class": "kanban-card",
         "paint": "bg",
-        "encodes": "hue",
+        "encodes": "none",
         "bears": true
       },
       {

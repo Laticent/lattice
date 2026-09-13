@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * chart-language-census — measure what each chart-family member ACTUALLY paints.
+ * chart-language-census — measure what each chart-family member ACTUALLY paints, and (--check) hold every kernel.marks declaration to that render.
  *
  * The chart family shares tokens, kernels and a frame, and still reads as five
  * authors. Prose cannot settle that argument and neither can a still: the
@@ -172,6 +172,9 @@ async function main() {
     report = await page.evaluate((TEXT_ROLES_SERIAL, DECLARED_SERIAL) => {
       const TEXT_ROLES = TEXT_ROLES_SERIAL;
       const DECLARED_CLASSES = DECLARED_SERIAL;
+      // Prefix for a painted mark carrying a slot attribute that no manifest
+      // declares. It cannot collide with a class name — `!` is not valid in one.
+      const UNDECLARED = '!undeclared:';
       // Whole-token match, never substring. `radar-ticks` (the <g> CONTAINER)
       // contains `radar-tick` (the painted label), so a substring test filed the
       // group under the tick role — and a <g> carries no font rule, so it
@@ -415,10 +418,33 @@ async function main() {
         // all, `map-region--on` among them, on a gallery that renders 175 of
         // them. Same "first match" trap the prototype hit three times.
         for (const el of sec.querySelectorAll(markSel)) {
-          const classes = [...el.classList].filter((c) => MARK_CLASSES.has(c));
-          if (!classes.length) continue;
+          let classes = [...el.classList].filter((c) => MARK_CLASSES.has(c));
+          // AN UNDECLARED MARK HAS TO SURVIVE THIS FILTER OR THE ARM IS DEAD.
+          // The slot attributes in `markSel` are here precisely to catch a
+          // painted mark that no manifest declares — and `continue` on an empty
+          // filter threw exactly those away, so `--check`'s undeclared branch
+          // could never fire. It reported OK on scatter with its principal mark
+          // deleted from the declarations. Bucket the element under a sentinel
+          // instead, and let the check report it.
+          if (!classes.length) {
+            // ON AN SVG <text>, `fill` IS THE TYPE COLOR, not a body — so a
+            // label carrying a categorical slot (`cart-series`, `cart-value`,
+            // `quadrant-dot-label`, `waterfall-delta`, `state-index-t`) reports
+            // as a painted mark unless type is excluded by TAG. Nine of them
+            // did on the first run of this arm. A label taking a categorical
+            // ink is the family's own convention and is deliberately outside
+            // this contract; `bears` is how a label enters it, from the mark's
+            // side.
+            const tag = el.tagName.toLowerCase();
+            if (tag === 'text' || tag === 'tspan' || tag === 'textpath') continue;
+            const svg = el instanceof SVGElement;
+            const cs = getComputedStyle(el);
+            const paint = svg ? (el.getAttribute('fill') || cs.fill) : cs.backgroundColor;
+            if (!paint || paint === 'none' || paint === 'rgba(0, 0, 0, 0)') continue;
+            classes = [UNDECLARED + ([...el.classList][0] || 'anonymous')];
+          }
           for (const cls of classes) {
-          const b = (bearing[cls] ||= { n: 0, withText: 0, samples: [], paint: new Set(), encodes: new Set() });
+          const b = (bearing[cls] ||= { n: 0, withText: 0, ownText: 0, samples: [], paint: new Set(), encodes: new Set() });
           b.n += 1;
           // The stamped attributes, per CLASS — what `--check` compares against
           // the declaration. The static gate can only match these as a SET over
@@ -461,6 +487,7 @@ async function main() {
           let bestText = null;
           const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
           if (own && !hidden(el)) {
+            b.ownText += 1;
             best = 1;
             bestText = [...el.childNodes]
               .filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').trim().slice(0, 18);
@@ -487,13 +514,20 @@ async function main() {
         // of them there are.
         const SLOT_ATTRS = ['data-hue', 'data-mark', 'data-cell', 'data-series', 'data-s'];
         const keying = {};
+        // EVERY declared class, not the first — the same fix the bearing arm
+        // above carries, and this loop was left on `.find()` when that one was
+        // corrected. A modifier row (`map-region--on`) reports under its base
+        // (`map-region`) otherwise, which is how fourteen rows came to look
+        // unexercised.
         for (const el of sec.querySelectorAll(markSel)) {
-          const cls = [...el.classList].find((c) => MARK_CLASSES.has(c));
-          if (!cls) continue;
+          const classes = [...el.classList].filter((c) => MARK_CLASSES.has(c));
+          if (!classes.length) continue;
           const attrs = SLOT_ATTRS.filter((a) => el.hasAttribute(a));
           const k = attrs.join(',') || 'none';
-          ((keying[cls] ||= {})[k] ||= 0);
-          keying[cls][k] += 1;
+          for (const cls of classes) {
+            ((keying[cls] ||= {})[k] ||= 0);
+            keying[cls][k] += 1;
+          }
         }
 
         // ── key: how categories are named ──────────────────────────────────
@@ -637,6 +671,14 @@ async function main() {
       if (!declared) { problems.push(`${m.name}: renders but declares no kernel.marks`); continue; }
       const byClass = new Map(declared.map((d) => [d.class, d]));
       for (const [cls, b] of Object.entries(m.bearing || {})) {
+        if (cls.startsWith('!undeclared:')) {
+          problems.push(
+            `${m.name}/${cls.slice('!undeclared:'.length)}: painted ${b.n}x on the render, carries a ` +
+            `slot attribute, and is declared in no kernel.marks row. The gate in build:check walks ` +
+            `declared\u2192emitted only, so an OMISSION is invisible to it — this is the arm that sees ` +
+            `one. Either declare it, or it is furniture and the slot attribute on it is the defect.`);
+          continue;
+        }
         const d = byClass.get(cls);
         if (!d) {
           problems.push(
@@ -658,19 +700,21 @@ async function main() {
         // PROVE a mark bears text and can never disprove it — which is also the
         // safe asymmetry, because the two errors do not cost the same: a wrong
         // `true` under-reaches a finish, a wrong `false` paints over a label.
-        // A MARK WITH NO BODY IS NOT MEASURABLE HERE, and the reason is the hit
-        // test itself. `isPointInFill` answers against a path's FILL geometry
-        // whether or not the path is filled, so an open stroked path — a state
-        // edge, a trend line — reports a label as "inside" a region that has no
-        // ink in it at all. `state-edge` failed exactly that way: one transition
-        // label sitting in the implicit area under a curve.
+        // ONLY THE FILL-GEOMETRY ARTIFACT IS SKIPPED, not the whole mark.
+        // `isPointInFill` answers against a path's FILL geometry whether or not
+        // the path is filled, so an open stroked path — a state edge, a trend
+        // line — reports a label as "inside" a region with no ink in it at all.
+        // `state-edge` failed exactly that way, on one transition label sitting
+        // in the implicit area under a curve.
         //
-        // Skipping it costs nothing, because `bears` is a CAP ON A BODY and
-        // `paint: "none"` already tells a finish there is no body to set. The
-        // declaration stays honest — a label really does sit on a state edge —
-        // it is just not a claim this instrument can hold anyone to, and saying
-        // so is the point.
-        if (d.paint === 'none') continue;
+        // But a body-less mark that carries its OWN TEXT has no artifact in it:
+        // `timeline-pill`, `wc-word` and `kanban-lane` ARE their labels, and
+        // that is measured by reading the element's own child text nodes, not by
+        // any hit test. An earlier revision skipped every `paint: "none"` row
+        // and so could not detect `timeline-pill` or `wc-word` being flipped to
+        // `bears: false` — 19 of the 70 rendered rows sat behind that skip,
+        // including one row of this work's own disagreement table.
+        if (d.paint === 'none' && !b.ownText) continue;
         if (b.withText > 0 && !d.bears) {
           problems.push(
             `${m.name}/${cls}: declares bears false, renders ${b.withText} of ${b.n} marks ` +
@@ -690,6 +734,18 @@ async function main() {
         }
       }
     }
+    // One member renders on several slides of its own gallery, and `report`
+    // carries one entry per SECTION — so an undeclared mark repeats once per
+    // slide. Dedupe, or a single omission prints six identical lines.
+    const seen = new Set();
+    const unique = problems.filter((x) => {
+      const k = x.split(':')[0];
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    problems.length = 0;
+    problems.push(...unique);
     console.log('\n\n── CHECK — manifests against the render ' + '─'.repeat(40));
     if (!problems.length) {
       const n = report.reduce((a, m) => a + Object.keys(m.bearing || {}).length, 0);

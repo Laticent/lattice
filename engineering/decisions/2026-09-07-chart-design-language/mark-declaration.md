@@ -76,10 +76,24 @@ cannot tie a stamped value to the element it lands on.
 
 It also cannot say that a class is written *by this member*: `matrix-grid`
 emits no cell at all (the three `cell-*` classes are stamped at markdown-parse
-time by `lib/core/matrix-grid-cells.js`) and `gantt-legend-swatch` comes from the
-shared `_chart-family/svg-legend.js`. So the search widens to all of `lib/`, and
-a class one member emits would satisfy another member's row. The per-member tie
-is made on the render, where a mark's section is a fact rather than an inference.
+time by `lib/core/matrix-grid-cells.js`), and `chart-key-swatch` comes from the
+shared `_chart-family/svg-legend.js` and lands inside six different members'
+sections. So the search widens to all of `lib/`, and a class one member emits
+would satisfy another member's row. The per-member tie is made on the render,
+where a mark's section is a fact rather than an inference.
+
+**And it is weaker even than that.** `writesClass` asks whether the class appears
+as a whole token in any string literal under `lib/` — which **6772 distinct
+kebab tokens satisfy**, `border-radius` and `font-size` among them, and
+`bar-marks` too, the `<g>` container this gate's own error message offers to
+catch as "furniture". It reliably catches the failure it was built for — a class
+NOBODY writes, from a rename or from memory — and it does not verify that a row
+names a mark. Do not read it as more.
+
+*(An earlier revision of this section named `gantt-legend-swatch` as the second
+example of a mark emitted outside its member. That was false: gantt writes it in
+its own transform. The widening is still warranted on the `matrix-grid` and
+`chart-key-swatch` cases; one of the two examples given for it was not.)*
 
 **`node tools/chart-language-census.js --check` reads the render.** It is the
 only arm that can fail on a wrong `bears`, because bearing is geometry: an SVG
@@ -138,8 +152,9 @@ disagreement was the declaration's fault:
 | `radar` / `radar-sector` | bears false | 1 of 4 | a ring tick over a tinted sector |
 | `radar` / `radar-poly--hero` | bears false | 1 of 1 | the same ring tick, over the benchmark variant's hero polygon |
 
-A sixth was a contradiction the other way — the manifest was right and the engine
-was wrong. **`scatter` stamped `data-encodes="hue"` on its bubbles.** A bubble is
+One more contradiction ran the other way — the manifest was right and the engine
+was wrong. (It is not a seventh row of the table above: those six are the
+declarations' fault, this one is the engine's.) **`scatter` stamped `data-encodes="hue"` on its bubbles.** A bubble is
 `color-mix(… var(--chart-cat-1-ink) 42%, transparent)` on purpose, because two
 overlapping bubbles should deepen where they cross; that is the `layered`
 encoding, and stamping `hue` would have told a finish it could hand a translucent
@@ -148,11 +163,29 @@ transform now splits the stamp with the class.
 
 ## Coverage, stated rather than implied
 
-**77 mark rows across 21 members; 70 verified against a real render.** The bucket
-gallery reaches 47 of them and the 21 per-member galleries carry the variants.
+**85 mark rows across 21 members. "Verified" needs splitting, because one word
+was doing four jobs.** An independent checker re-derived every number in this
+file; all of them reproduced except this one, which overstated what the render
+actually holds each row to.
 
-Getting from 63 to 70 took one more fix to the instrument, and it was the same
-trap a third time. A mark usually carries a base class AND a modifier —
+| | rows |
+|---|---|
+| declared | 85 |
+| observed on some render | 78 |
+| `bears: true` PROVED by a label on the render | 25 |
+| `bears: false` — a deck can never disprove it (see the asymmetry above) | 56 |
+| `paint` / `encodes` compared against a stamped attribute | **7** |
+
+**The last line is the honest headline: `paint` and `encodes` are checked against
+the render on 7 rows, because only 6 of 21 members stamp the attributes at all.**
+For the other 15, those two fields are held up by a source read and by review —
+not by the static gate, which only checks that *stamped* values are declared, and
+not by the render check, which has nothing to compare. That is the gap the
+migration of the remaining 16 members to the mark contract closes, and until it
+does, "verified" in this file means *observed*, not *held to*.
+
+Getting the observed count up took two more fixes to the instrument, and the
+first was the same trap a third time. A mark usually carries a base class AND a modifier —
 `class="map-region map-region--on"`, `"radar-poly radar-poly--target"`,
 `"slope-dot slope-dot-from"` — and both are selectors a finish can name, with
 different declarations behind them (`map-region` encodes nothing; `--on` is the
@@ -161,6 +194,29 @@ the base and reported **fourteen rows as exercised by no deck at all**,
 `map-region--on` among them, on a gallery that renders 175 of them. A mark now
 counts toward every declared class it carries. `radar-poly--hero` — the sixth row
 in the table above — was only visible once it did.
+
+**The second fix was the undeclared-mark arm, which was dead code.** An
+independent checker deleted `scatter-bubble` from scatter's declarations and the
+check still reported OK: an element carrying no *already-declared* class exited
+the loop before the branch that reports it could ever run, so the one arm that
+walks emitted→declared never walked. Repaired, it found `chart-key-swatch` —
+the family-wide legend swatch, emitted inside **six** members' sections by the
+shared `_chart-family/svg-legend.js` — declared by none of them, plus
+`quadrant-tint` and `scatter-size-ring`. That took the roster from 77 rows to 85.
+
+`scatter-size-ring` is the one that stings: it is the size-key legend FOR the
+bubble, painted from the same translucent recipe, and it was still stamping
+`hue` after the bubble had been corrected to `layered`. A legend declaring a
+different encoding from the mark it names is the exact defect this file's own
+schema text calls the worst version of the problem. **The fix was half-applied
+and nothing caught it, because the arm that would have was dead.**
+
+One filter had to come with it. On an SVG `<text>` the `fill` property IS the
+type color, so every label carrying a categorical slot — `cart-series`,
+`cart-value`, `quadrant-dot-label`, `waterfall-delta`, `state-index-t` — reported
+as an undeclared painted mark on the first run. Nine did. Type is excluded by
+tag: a label taking a categorical ink is the family's own convention, and `bears`
+is how a label enters this contract, from the mark's side.
 
 **What no deck exercises is not verified**, and the seven that remain match what
 the source inventories independently named as unreachable: `bullet-offscale` (no

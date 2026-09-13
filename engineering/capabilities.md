@@ -417,7 +417,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/chart-finish-coherence.mjs` | chart-finish-coherence — does every chart member actually CHANGE when the |
 | `tools/chart-finish-divergence.js` | chart-finish-divergence — do two chart finishes actually LOOK different, and |
 | `tools/chart-hue-jobs.js` | chart-hue-jobs — does this member's categorical hue do a job, or is it decoration? |
-| `tools/chart-language-census.js` | chart-language-census — measure what each chart-family member ACTUALLY paints. |
+| `tools/chart-language-census.js` | chart-language-census — measure what each chart-family member ACTUALLY paints, and (--check) hold every kernel.marks declaration to that render. |
 | `tools/chart-mark-separation.js` | chart-mark-separation — can a reader still tell one category from another, |
 | `tools/chart-style-catalog.js` | chart-style-catalog — what style each chart ACTUALLY paints, measured. |
 | `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |

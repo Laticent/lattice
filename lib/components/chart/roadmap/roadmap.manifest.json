@@ -37,14 +37,14 @@
     "marks": [
       {
         "class": "cell-state-text",
-        "paint": "bg",
-        "encodes": "hue",
+        "paint": "none",
+        "encodes": "none",
         "bears": true
       },
       {
         "class": "roadmap-legend-mark",
-        "paint": "bg",
-        "encodes": "hue",
+        "paint": "none",
+        "encodes": "none",
         "bears": false
       },
       {

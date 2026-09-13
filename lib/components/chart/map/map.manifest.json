@@ -35,6 +35,12 @@
         "paint": "fill",
         "encodes": "hue",
         "bears": false
+      },
+      {
+        "class": "chart-key-swatch",
+        "paint": "fill",
+        "encodes": "ramp",
+        "bears": false
       }
     ]
   },

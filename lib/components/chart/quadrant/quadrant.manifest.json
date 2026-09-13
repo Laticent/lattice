@@ -60,6 +60,18 @@
         "paint": "none",
         "encodes": "none",
         "bears": false
+      },
+      {
+        "class": "chart-key-swatch",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "quadrant-tint",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": true
       }
     ]
   },
