@@ -22,8 +22,10 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 //   npx playwright test --project=desktop --grep @perf
 //
 // WHERE IT RUNS, precisely — an earlier version of this note said "not in any project's grep",
-// which was wrong. The `desktop` project's only filter is `grepInvert: /@mobile|@webkit/`, so
-// @perf IS in its default selection and any bare `test:e2e` picks it up. Since these assertions
+// which was wrong. The `desktop` project's only filter is a `grepInvert` covering @mobile and the
+// webkit-EXCLUSIVE tags (see playwright.config.ts for the exact pattern, which now spares a spec
+// that is also @crosswidth), so @perf IS in its default selection and any bare `test:e2e` picks
+// it up. Since these assertions
 // became real ceilings, `studio-e2e-nightly.yml` excludes @perf explicitly (`--grep-invert @perf`)
 // so the suite runs ONCE a night, in perf-nightly.yml's engine-perf job, which is the workflow that
 // can actually file an issue about a breach.

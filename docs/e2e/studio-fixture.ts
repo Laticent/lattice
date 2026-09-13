@@ -693,6 +693,54 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
 }
 
 /**
+ * Select the whole editor document.
+ *
+ * NOT a bare `ControlOrMeta+a`, because the two ends of that keystroke disagree about
+ * which platform this is. Playwright resolves `ControlOrMeta` against the OS the TEST
+ * process runs on — Linux here, so `Control` — while CodeMirror resolves its own `Mod-`
+ * bindings against what the PAGE reports. On the `webkit-phone` project the iPhone user
+ * agent puts CodeMirror in Mac mode, where `Mod` is Meta and a bare `Ctrl-a` is instead
+ * the emacs "move to line start" binding. Measured on WebKit at iPhone 15 Pro:
+ * `Control+a` collapsed the selection (caret 140 → 137) and `Meta+a` selected the
+ * document; on Chromium at 390px `ControlOrMeta+a` selects it on the first press.
+ *
+ * That silently made `setEditorContent` an APPEND — the select-all missed, `Delete` removed
+ * one character, and the new deck landed on top of whatever the Studio had loaded. The two
+ * render-target arms in `editor-lint.spec.ts` are what surfaced it, and they are currently
+ * the only spec that is both `@webkit-phone` and an editor-helper caller.
+ *
+ * `webkit-tablet` is NOT affected, and the reason is worth writing down because the obvious
+ * guess is wrong: that project reports a MAC user agent ("Macintosh; Intel Mac OS X"), so
+ * "it has a desktop UA" is not the explanation. CodeMirror keys its Mac mode off
+ * `navigator.platform` (here "Linux x86_64" on both WebKit projects) plus the UA's `Mobile/`
+ * token — which only the iPhone descriptor carries. Measured: `ControlOrMeta+a` selects the
+ * document on `webkit-tablet` on the first press.
+ *
+ * So: press, then CHECK THE OBSERVABLE and take the other modifier if the first did
+ * nothing. The check is `window.getSelection()` — a standard API on the real editor —
+ * rather than a re-derivation of CodeMirror's own platform sniff, which would just be the
+ * same guess in a new place. (CodeMirror virtualizes long documents, so the selected
+ * STRING covers only the rendered lines; empty-vs-not is the signal, never its length.)
+ */
+async function selectAllInEditor(page: Page): Promise<void> {
+	// An ALREADY-EMPTY document selects to an empty string too, and that is a success, not a
+	// missed keystroke — without this arm the helper would newly throw on a deck it used to
+	// clear happily. No spec sets empty content today; the guard is here so the first one to
+	// try does not have to debug it.
+	const selectedOrEmptyDoc = () =>
+		page.evaluate(() => {
+			const selected = (window.getSelection()?.toString() ?? '').length;
+			const rendered = (document.querySelector('.cm-content')?.textContent ?? '').length;
+			return selected > 0 || rendered === 0;
+		});
+	for (const combo of ['ControlOrMeta+a', 'Meta+a']) {
+		await page.keyboard.press(combo);
+		if (await selectedOrEmptyDoc()) return;
+	}
+	throw new Error('setEditorContent: neither ControlOrMeta+a nor Meta+a selected the editor document');
+}
+
+/**
  * Replace the entire editor document with `text`. Uses `insertText` (a single
  * input event) rather than per-key typing: the editor's markdown niceties
  * (list auto-continuation) would rewrite a multi-line deck typed key-by-key —
@@ -700,7 +748,7 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
  */
 export async function setEditorContent(page: Page, text: string): Promise<void> {
 	await focusEditor(page);
-	await page.keyboard.press('ControlOrMeta+a');
+	await selectAllInEditor(page);
 	await page.keyboard.press('Delete');
 	await page.keyboard.insertText(text);
 }

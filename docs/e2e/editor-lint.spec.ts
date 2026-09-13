@@ -15,16 +15,27 @@ import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection,
 const UNKNOWN_SLIDE = '\n\n---\n\n<!-- _class: kpii -->\n\n# Stray slide\n';
 const fixAll = (page: import('@playwright/test').Page) => page.getByRole('button', { name: /Fix all/i });
 
+/** The width at which `useBreakpoint` flips the Studio to a single swappable pane. */
+const SINGLE_PANE_MAX_WIDTH = 699;
+
 /**
- * At 390px the Studio shows ONE PANE AT A TIME: the preview rail is up and the editor is
+ * Below 700px the Studio shows ONE PANE AT A TIME: the preview rail is up and the editor is
  * not mounted, so `setEditorContent`'s click on `Deck source` simply times out. The
  * `Markdown source` cell of the Eight-Cell Bar swaps the pane in
  * (`2026-07-26-studio-mobile-eight-cell-bar.md`); `responsive.spec.ts` pins that toggle's
  * own behavior, so this only has to ride it.
  *
- * Gated on the project name rather than on the control's presence: a `.isVisible()` probe
- * would silently no-op the day the toggle is renamed, and the whole point of running these
- * arms at 390 is that they fail loudly when the phone surface stops working.
+ * Gated declaratively rather than on the control's presence: a `.isVisible()` probe would
+ * silently no-op the day the toggle is renamed, and the whole point of running these arms
+ * on a phone is that they fail loudly when the phone surface stops working.
+ *
+ * On the project's declared VIEWPORT WIDTH, though, not on its NAME. The name check this
+ * replaces read `=== 'mobile'`, which is the one project that was phone-sized when it was
+ * written — and it silently stopped covering the case the moment these arms picked up
+ * `@webkit-phone`, because `devices['iPhone 15 Pro']` is 393x659 and answers to neither
+ * name. Width is the actual cause: `useBreakpoint` (docs/src/lib/use-breakpoint.ts) flips
+ * to the single-pane layout on `(max-width: 699px)`, so reading that same number here
+ * tracks any phone project, present or future, and needs no edit when one is added.
  */
 async function revealEditor(page: import('@playwright/test').Page): Promise<void> {
 	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
@@ -33,7 +44,11 @@ async function revealEditor(page: import('@playwright/test').Page): Promise<void
 
 test.beforeEach(async ({ page }, testInfo) => {
 	await gotoStudio(page);
-	if (testInfo.project.name === 'mobile') await revealEditor(page);
+	const width = testInfo.project.use.viewport?.width;
+	// Every project in playwright.config.ts declares a viewport (the `webkit-*` ones through
+	// a device descriptor). `undefined` would mean a new one does not — treat that as
+	// desktop-shaped rather than guessing, and let the `Deck source` timeout say so.
+	if (width !== undefined && width <= SINGLE_PANE_MAX_WIDTH) await revealEditor(page);
 });
 
 test('an unknown component makes Fix-all actionable; validation-off clears it', async ({ page }) => {
@@ -97,6 +112,15 @@ const warningCovering = (page: import('@playwright/test').Page, needle: string) 
  *
  * `needle` picks the underline among any others on the page by the text it covers — a bare
  * `.first()` would silently follow whichever finding sorted earliest.
+ *
+ * WHY THE TWO ARMS BELOW ALSO CARRY `@webkit-phone`, and not just `@crosswidth`: this
+ * oracle is GEOMETRY, and geometry is the class `webkit-phone` exists for. It reads a
+ * painted box (`getBoundingClientRect`) and hands the coordinates back to CodeMirror
+ * (`posAtCoords`) to ask which document line sits under them — a round trip through the
+ * engine's own text layout, on a surface where `editor-theme.ts` raises `.cm-content` to
+ * 16px for coarse pointers and re-wraps every line. A Chromium pass at 390px does not
+ * predict that; it is the same reason #1227 gave for not trusting one. `@crosswidth` keeps
+ * the desktop and 390px Chromium runs; this adds the one real WebKit phone.
  */
 function underlineLine(page: import('@playwright/test').Page, needle: string): Promise<{ number: number; text: string } | null> {
 	return page.evaluate((want) => {
@@ -112,7 +136,7 @@ function underlineLine(page: import('@playwright/test').Page, needle: string): P
 	}, needle);
 }
 
-test('@crosswidth a bad render-target value underlines its own front-matter line, not the deck top', async ({ page }, testInfo) => {
+test('@crosswidth @webkit-phone a bad render-target value underlines its own front-matter line, not the deck top', async ({ page }, testInfo) => {
 	await setEditorContent(page, PLACEMENT_DECK);
 
 	// The underline carries the offending line's text, and it is painted on line 3 — the
@@ -163,7 +187,7 @@ test('@crosswidth a bad render-target value underlines its own front-matter line
 // `fluid: false` two lines down.
 const NESTED_DECK = ['---', 'theme: indaco', 'export:', '  fluid: "true"', 'fluid: false', '---', '', '# Nested', '', 'Body copy.', ''].join('\n');
 
-test('@crosswidth a nested render-target key warns on the nested line', async ({ page }, testInfo) => {
+test('@crosswidth @webkit-phone a nested render-target key warns on the nested line', async ({ page }, testInfo) => {
 	await setEditorContent(page, NESTED_DECK);
 
 	await expect
