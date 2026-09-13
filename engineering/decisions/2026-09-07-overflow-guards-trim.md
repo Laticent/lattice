@@ -775,15 +775,65 @@ for building it, and the note previously implied the first was already solved:
    unlike `overflow-marker:`, this key removes text. §10's third row overrides
    that note in one line without answering it.
 
-10. **The `.html` deliverable does not carry the trim, and the PDF does.**
+10. **The `.html` deliverable does not carry the trim, and the PDF does — SETTLED
+    (2026-09-13), and the measurement moved the answer.**
     `lattice-emulator.js` writes `outHtml` from `cleanDocHtml`, a Node-side string,
     BEFORE the page is ever loaded; every browser pass — including this one —
     mutates the live DOM instead. So a `guards: strict` deck exports a PDF whose
     page ends in an ellipsis and an `.html` sidecar beside it that still clips. The
     two disagree, which is the class of defect `engineering/gotchas/overflow.md`
-    already catalogues for the marker. Re-serializing the export HTML from the live
-    DOM would fix it and would change exported bytes for every deck, which is an
-    owner sign-off under the Quality Bar rather than a fix to slip in here.
+    already catalogues for the marker.
+
+    **Three things were measured before deciding, and two of them were not in the
+    problem as written.** Opened in real Chromium at 1280x720:
+
+    | deliverable | carries the trim? |
+    |---|---|
+    | `.pdf` / `.png` / `.pptx` | yes — rasterized from the live DOM |
+    | `--player` `.html` | yes — baked from `inflatedPlayerHtml`, a capture of that DOM |
+    | `--fluid` `.html` | **yes** — the viewer inlines the runtime, which re-measures and re-trims at OPEN |
+    | plain `.html` sidecar | no |
+    | `-o deck.html` | no — **and it is the whole run** |
+
+    So the scope is one file, not "the HTML export": the fluid viewer already solves
+    this, by re-measuring rather than by carrying a baked clamp. And the `-o deck.html`
+    case is worse than a sidecar disagreement. On `examples/overflow-guards.md` the
+    console printed `TRIMMED … pages 2` for a run whose only artifact has no trim in
+    it, and the `OVERFLOW` line — measured off the trimmed DOM — left page 2 off a list
+    the written file belongs on. The tool asserted the opposite of what it had done,
+    about the only file it produced, and the one channel that could have contradicted
+    it agreed with it instead. That is not a divergence to document, it is rule 5 ("fit
+    or change nothing") violated at the ARTIFACT level: a cut that reaches no
+    deliverable is not worth its cost.
+
+    **The ruling.** The guard is SKIPPED when the `.html` is the deliverable and
+    neither `--fluid` nor `--player` is set, and says so; a PDF export keeps the trim
+    and WARNS that its sidecar does not carry one. Exported bytes are unchanged for
+    every deck — the `.html` never had the trim, so declining to compute one removes
+    nothing from it — which is why this did not need the Quality Bar export sign-off
+    the problem anticipated.
+
+    **Re-serializing the export HTML from the live DOM is still not taken, and the
+    reason is no longer just its blast radius.** `-webkit-line-clamp` is a fixed line
+    count, and the `.html` is a document the reader can open at any size: a clamp
+    computed at 1280x720 is wrong the moment someone resizes the window. Re-computing
+    it there instead is precisely what open problem 6 argues against for
+    export-to-Marp — a trim running in the recipient's browser, at their window size,
+    with no author present and no record of what was removed. **Open problems 6 and 10
+    ask for opposite things**, and 6 is the one with the reasoning behind it. `--fluid`
+    is the sanctioned form of "trim at the reader's size", opt-in and announced.
+
+    **THE INSTRUMENT THAT WAS MISSING, which is the more useful half.** Every other
+    instrument this feature has reads the LIVE DOM — the metamorphic relations model
+    it, the adapter test measures it in real Chromium, the 169-deck sweep diffs PDF
+    bytes rendered from it. Nothing ever opened a WRITTEN `.html` and asked whether the
+    trim was in there, so a whole deliverable could be untrimmed in plain sight and no
+    arm could see it. `test/integration/parity/guards-trim-deliverables.test.js` is that
+    arm: it renders the real deck three ways, opens each written `.html` in real
+    Chromium, and pins the pair — the `.html` deliverable carries no trim AND the
+    console neither claims one nor hides the clip; the sidecar carries none AND the
+    console declares that; `--fluid` DOES carry it and trims the same page the PDF did.
+    The third arm is what stops the first two from being a test of "trim never works".
 
 **AN INDEPENDENT REVIEW OF THE CODE FOUND A REAL CORRECTNESS BUG, and it was the
 one the design spends its length preventing.** Recorded because the pattern is the

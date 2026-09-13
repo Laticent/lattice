@@ -3587,13 +3587,66 @@ async function renderBody(browser, g, closeBrowser) {
   // browser measures, `planTrim` decides, the page applies. That split is why the
   // policy has metamorphic relations at unit speed instead of a browser harness
   // nobody can check (lib/core/guards-trim.js).
-  const trimmed = await applyGuardsTrim();
+  //
+  // WHICH DELIVERABLES CAN CARRY A TRIM — and the one that cannot.
+  //
+  // Every artifact this run writes comes FROM THE LIVE DOM: the PDF and the PNGs are
+  // rasterized from it, the PPTX from those rasters, the player from a capture of it
+  // (`inflatedPlayerHtml`), and the fluid viewer inlines the runtime, which re-measures
+  // and re-trims at the reader's own size. The plain `.html` is the sole exception — it
+  // is `cleanDocHtml`, a Node-side string written BEFORE the page was ever loaded, and
+  // nothing rewrites it from the DOM afterwards.
+  //
+  // Beside a raster that is a sidecar's divergence, reported below. When the `.html` IS
+  // the deliverable (`-o deck.html`, no `--fluid`, no `--player`) it is the whole run:
+  // trimming the live DOM then changes NO file this render writes, and it changed every
+  // channel that reports on one. Measured on `examples/overflow-guards.md`: the console
+  // printed "TRIMMED … pages 2" naming a cut that exists in no artifact, and the OVERFLOW
+  // line measured the trimmed DOM and so left page 2 off a list the written file belongs
+  // on. The tool asserted the opposite of what it had done, about the only file it made.
+  //
+  // So the guard does not run there, and says so. This is rule 5 ("fit or change
+  // nothing") at the ARTIFACT level: a cut that reaches no deliverable is not worth its
+  // cost, and every channel below then describes the file that was actually written.
+  //
+  // Baking the clamp into the `.html` instead is a DIFFERENT decision, not a bug fix.
+  // `-webkit-line-clamp` computed at 1280x720 is a fixed line count in a document the
+  // reader can open at any size; re-computing it there is what the design note's open
+  // problem 6 argues against for export-to-Marp — a trim running in the recipient's
+  // browser, at their window size, with no author present. `--fluid` is that opt-in,
+  // deliberately (2026-09-07-overflow-guards-trim.md, open problem 10).
+  const TRIM_REACHES_DELIVERABLE = !(OUT_FORMAT === 'html' && !FLUID_VIEW && !PLAYER);
+  const trimmed = TRIM_REACHES_DELIVERABLE
+    ? await applyGuardsTrim()
+    : { slides: 0, pages: [], reverted: [], detail: [] };
+  if (!TRIM_REACHES_DELIVERABLE) {
+    // Only worth saying on a deck that asked for it. Counted off the live DOM rather
+    // than the front matter, because a per-slide `<!-- _class: guards-strict -->` is
+    // just as much an ask and never reaches `fm`.
+    const strictSlides = await g(() => page.evaluate(() =>
+      document.querySelectorAll('section[data-lattice-slide].guards-strict:not(.guards-loose)').length),
+    'count guards-strict slides');
+    if (strictSlides) {
+      console.warn('  \u2702 guards: strict NOT APPLIED \u2014 an .html deliverable is written before the page renders, so it cannot carry a trim.');
+      console.warn(`    Any slide that would have been trimmed clips in ${path.basename(outFile)} exactly as it would at \`guards: loose\`, and the warnings below report that file rather than a trimmed DOM.`);
+      console.warn('    Use --fluid (the viewer re-measures and trims at the reader\'s own size) or --player, or export a PDF.');
+    }
+  }
   if (trimmed.slides) {
     const pages = trimmed.pages.join(', ');
     console.warn(`  ✂ TRIMMED — guards: strict cut text on ${trimmed.slides} slide(s): pages ${pages}.`);
     console.warn('    Those slides FIT because text was removed, so the frame check below reports them clean.');
     if (trimmed.detail.length) console.warn(`    Cut: ${trimmed.detail.join(' · ')}.`);
     console.warn('    Shorten the copy, or set `guards: loose` to see them clip instead.');
+    // THE SIDECAR DISAGREES, and it used to do so silently. `outHtml` is written from a
+    // Node-side string before the page loads (see TRIM_REACHES_DELIVERABLE above), so the
+    // `.html` beside the raster still clips the pages the raster fits. Two deliverables of
+    // one export contradicting each other is the defect class engineering/gotchas/overflow.md
+    // already catalogues for the marker; it is named here rather than fixed, because
+    // re-serializing the export HTML from the live DOM is an owner call under the Quality Bar.
+    if (OUT_FORMAT !== 'html' && !FLUID_VIEW && !PLAYER) {
+      console.warn(`    The .html sidecar does NOT carry the trim \u2014 it is written before the page renders, so page${trimmed.slides > 1 ? 's' : ''} ${pages} clip${trimmed.slides > 1 ? '' : 's'} there. --fluid or --player make it agree.`);
+    }
   }
   // Strip the measure/apply scaffolding once the trim pass is final. `data-trim-id`,
   // `data-trim-box` and `data-trim-prior` are this pass's own working state; the

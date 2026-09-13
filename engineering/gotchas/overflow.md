@@ -133,6 +133,42 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   Compare the SAME tool's measurement before vs. after an explicit
   `document.fonts.load()` + `document.fonts.ready` wait on the SAME page.
 
+## `guards: strict` trims the PDF but not the `.html` beside it — or, with `-o deck.html`, nothing at all
+
+- **Symptom:** a `guards: strict` deck exports and the console says
+  `✂ TRIMMED — guards: strict cut text on 1 slide(s): pages 2`. The PDF's page 2
+  ends in an ellipsis and no longer rings. Open the `.html` written beside it and
+  page 2 clips exactly as it would at `guards: loose`, red ring and all. Worse with
+  `-o deck.html`: the same TRIMMED line is printed for a run whose ONLY file has no
+  trim in it, and the `⚠ OVERFLOW` line — measured off the trimmed DOM — leaves that
+  page off a list the written file belongs on.
+- **Cause:** every other artifact comes from the LIVE DOM. The PDF and the PNGs are
+  rasterized from it, the PPTX from those rasters, the `--player` from a capture of
+  it. The plain `.html` is the exception: `lattice-emulator.js` writes it from
+  `cleanDocHtml`, a Node-side string, BEFORE the page is ever loaded, and only the
+  auto-split and rails passes rewrite it — both of which work on the string, not the
+  DOM. TRIM works on the DOM, so it never reaches that file. The `.html` still gets
+  its overflow RING because the sidecar carries an inline watcher that re-measures at
+  open; there is no equivalent for the trim.
+- **Fix:** `--fluid` or `--player`. The fluid viewer inlines the runtime, which
+  re-measures and re-trims at the reader's own window size, so its `.html` carries the
+  trim and agrees with the PDF (verified by opening both in real Chromium —
+  `test/integration/parity/guards-trim-deliverables.test.js`). The player bakes from
+  the live DOM, so it carries it too. Plain `-o deck.pdf` now SAYS its sidecar does
+  not, instead of leaving the two deliverables to disagree in silence.
+- **Why the `.html` deliverable is not trimmed at all rather than trimmed uselessly:**
+  with `-o deck.html` the trim reached no file this run wrote, and it changed every
+  channel that reports on one — rule 5 ("fit or change nothing") violated at the
+  artifact level. The guard is now skipped there and says so, which makes the console
+  describe the file on disk again.
+- **Why the trim is not baked into the `.html` instead:** a `-webkit-line-clamp`
+  computed at 1280×720 is a FIXED line count in a document the reader can open at any
+  size, and re-computing it there is what open problem 6 of
+  `engineering/decisions/2026-09-07-overflow-guards-trim.md` argues against for
+  export-to-Marp — a trim running in the recipient's browser, at their window size,
+  with no author present and no record of what was removed. `--fluid` is that opt-in,
+  deliberately. Open problem 10 of the same note.
+
 ## One slide renders at ~2x type and overflows, but ONLY in a live preview — the PDF is perfect
 
 - **Symptom:** a single layout looks right in the exported `.pdf` and right in
