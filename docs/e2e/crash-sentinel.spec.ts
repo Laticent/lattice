@@ -1,5 +1,5 @@
 import { RECORD_VERSION } from '../src/lib/crash-sentinel';
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, openSection, test } from './studio-fixture';
 
 /**
  * The crash report, on a real browser.
@@ -97,7 +97,7 @@ async function allowRecording(page: Parameters<typeof gotoStudio>[0]) {
 async function openWorkspace(page: Parameters<typeof gotoStudio>[0]) {
 	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
 	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
-	await page.getByRole('tab', { name: 'General' }).click();
+	await openSection(page, 'General');
 }
 
 /**

@@ -16,9 +16,9 @@ import {
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
 import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
-import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
+import { filteringProps, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
 import { Toaster } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -100,7 +100,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, setDeckLabel, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsView, saveSource, setDeckLabel, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
@@ -170,14 +170,13 @@ const PresentOverlay = React.lazy(() => import('./PresentOverlay').then((m) => (
 // deck" instead of a tab strip plus a stray expander.
 // See engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md.
 type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech';
-const DECK_TABS: { value: DeckTab; label: string }[] = [
-	{ value: 'look', label: 'Look' },
-	{ value: 'chrome', label: 'Chrome' },
-	{ value: 'general', label: 'General' },
-	{ value: 'brand', label: 'Accent' },
-	{ value: 'motion', label: 'Motion' },
-	{ value: 'speech', label: 'Speech' },
-];
+// There is deliberately NO `DECK_TABS` list here. There was one, and it survived the
+// move to `deckSections` as a SECOND hand-kept copy of the same six labels in the same
+// order — the exact duplication the slide panel's `sectionDefs` had just collapsed, and
+// the decision note claimed this panel had too. The union above catches a value typo; it
+// cannot catch a label or an order drift, and a seventh `deckSections` entry added
+// without touching the list would render a section unreachable in grouped view. The pill
+// strip is derived from `deckSections` at its call site instead.
 
 // The head value for a register with NO named baseline (`stamp:`, `tone:`): absent means
 // "the engine's own default shape", which is not a value the register can spell. Radix
@@ -749,6 +748,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
 	// §"Deck inspector: NOT tabbed" — see 2026-07-17-panel-drawer-cohesion.)
 	const [deckTab, setDeckTab] = React.useState<DeckTab>('look');
+	// ── Find + browse, shared by both Inspector scopes ────────────────────────
+	// VIEW is one preference for deck AND slide (studio-store's `settings-view` key):
+	// someone who wants the flat list wants it for settings, not for half of settings.
+	// It persists — a view choice is furniture, and re-picking it every session is the
+	// kind of tax a setting exists to remove.
+	const [settingsView, setSettingsViewState] = React.useState<SettingsPanelView>(() => loadSettingsView());
+	const setSettingsView = React.useCallback((v: SettingsPanelView) => { setSettingsViewState(v); saveSettingsView(v); }, []);
+	// QUERY is NOT shared and NOT persisted, and both are deliberate: a search is a
+	// question about one panel you are looking at now, so carrying it across a scope
+	// switch (or a reload) would hide most of the panel for a reason the user has
+	// forgotten. The slide scope owns its own pair inside SlideContext.
+	// One pair PER SCOPE, because the one search field lives in the scope banner and serves
+	// whichever scope is open — switching scopes must not carry a query into a panel whose
+	// rows it was never about.
+	const [deckQuery, setDeckQuery] = React.useState('');
+	const [deckSearching, setDeckSearching] = React.useState(false);
+	const [slideQuery, setSlideQuery] = React.useState('');
+	const [slideSearching, setSlideSearching] = React.useState(false);
 	const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(() => loadCheckpoints(loadBootDeck().id));
 	// One-click Undo for the LAST panel settings change — a light complement to ⌘Z /
 	// Version history. Each change captures the pre-change source; Undo restores it.
@@ -3676,15 +3693,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
-	const inspectorBody = (
-		// `SETTING_SCOPE` makes this body the container the rows measure themselves against,
-		// so they stack when the PANEL is dragged narrow — not when the window is.
-		<div className={cn('space-y-3 pt-1', SETTING_SCOPE)}>
-			<PillTabs tabs={DECK_TABS} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
-			{deckTab === 'look' && (
+	// The six sections, as DATA — the list view and search render all of them and the
+	// grouped view renders one. `body` is a THUNK, not an element: `{deckTab === 'x' && …}`
+	// used to short-circuit, so only the active tab's JSX was ever built, and an array of
+	// elements would have rebuilt all six on every render (each one maps a catalog, a
+	// vocabulary or a saved list) including in grouped view where five are not shown. A
+	// function restores the short-circuit — the caller invokes only what it renders.
+	// grouped view renders one, so the bodies can no longer be six `deckTab === …`
+	// conditionals inline. `keywords` are the words a person would type to find the
+	// SECTION (not its rows): matching one shows the section entire.
+	const deckSections: { value: DeckTab; label: string; keywords: string; body: () => React.ReactNode }[] = [
+		{
+			value: 'look',
+			label: 'Look',
+			keywords: 'appearance styling visual design surface',
+			body: () => (
 			<div>
 				<TabNote>How the deck looks — its palette, light or dark, slide shape, and the surface behind your content.</TabNote>
-				<Field label="Theme" desc="This deck's color palette." help={<>Pinning a theme saves it <strong>with the deck</strong>, so it survives a change to the website theme and travels into every export. <strong>Auto</strong> (the link icon) follows the website theme instead.</>}>
+				<Field label="Theme" desc="This deck's color palette." find="palette colors brand" help={<>Pinning a theme saves it <strong>with the deck</strong>, so it survives a change to the website theme and travels into every export. <strong>Auto</strong> (the link icon) follows the website theme instead.</>}>
 					<CatalogSelect
 						ariaLabel="Choose deck theme"
 						swatchShape="round"
@@ -3703,7 +3729,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    would sit beside the dropdown instead of beneath the setting. (The saved
 				    FINISH list below was already shaped this way.) */}
 				{savedThemes.length > 0 && (
-					<div className="mt-2 space-y-0.5">
+					<SettingsBlock terms="manage saved themes palette delete" className="mt-2 space-y-0.5">
 						<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved</div>
 						{savedThemes.map((t) => (
 							<div key={t.id} className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[var(--accent-soft)]">
@@ -3712,7 +3738,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								<button type="button" onClick={() => removeTheme(t)} aria-label={`Delete ${t.label}`} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
 							</div>
 						))}
-					</div>
+					</SettingsBlock>
 				)}
 				<Field label="Color mode" desc="Light, dark, or follow something." help={<>The mode the deck opens in <strong>everywhere</strong> it's rendered. <strong>Light</strong> / <strong>Dark</strong> pin it. <strong>System</strong> follows the viewer's OS. <strong>Match site</strong> adopts the host — the website toggle here, the OS in a shared file. <strong>Theme default</strong> uses the theme's own mode. <strong>Print</strong> is ink on white, for paper.</>}>
 					<DropdownMenu>
@@ -3726,7 +3752,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</Field>
-				<Field label="Size" desc="Slide shape and dimensions." help={<>16:9 is the default landscape. The portrait and square formats are for social and mobile — they change what fits on a slide, so check a dense slide after switching.</>}>
+				<Field label="Size" desc="Slide shape and dimensions." find="aspect ratio widescreen portrait square 16:9 4:3" help={<>16:9 is the default landscape. The portrait and square formats are for social and mobile — they change what fits on a slide, so check a dense slide after switching.</>}>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Control>{SIZE_LABELS[deckSize] ?? deckSize} <ChevronDown className="size-3.5" /></Control>
@@ -3738,13 +3764,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</Field>
-				<Field label="Mode" desc="Crisp, or hand-drawn." help={<>The rendering hand: <strong>Boardroom</strong> is the clean default; <strong>Sketch</strong> draws headings, boxes and rules by hand. Separate from Finish — the two combine.</>}>
+				<Field label="Mode" desc="Crisp, or hand-drawn." find="sketch boardroom hand drawn" help={<>The rendering hand: <strong>Boardroom</strong> is the clean default; <strong>Sketch</strong> draws headings, boxes and rules by hand. Separate from Finish — the two combine.</>}>
 					{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
 					    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
 					    owns `style:` for inline CSS, so the axis is named "mode"). */}
 					<CatalogSelect ariaLabel="Choose mode" value={activeMode(renderMode).name} onValueChange={setRenderMode} className="w-full" groups={[{ options: catalogOptions(MODES) }]} />
 				</Field>
-				<Field label="Finish" desc="A backdrop behind every slide." help={<>A palette-blind layer stack — a soft gradient, wash or grain — painted behind the content. It follows whatever palette the deck is on, so it never fights the theme. Tune one in Fabricate to save your own.</>}>
+				<Field label="Finish" desc="A backdrop behind every slide." find="background texture gradient grain wash" help={<>A palette-blind layer stack — a soft gradient, wash or grain — painted behind the content. It follows whatever palette the deck is on, so it never fights the theme. Tune one in Fabricate to save your own.</>}>
 					<CatalogSelect
 						ariaLabel="Choose finish"
 						value={activeSavedFinish ? `finish-${activeSavedFinish.name}` : activeFinish(finish).name}
@@ -3758,7 +3784,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					/>
 				</Field>
 				{savedFinishes.length > 0 && (
-					<div className="mt-2 space-y-0.5">
+					<SettingsBlock terms="manage saved finishes backdrop delete" className="mt-2 space-y-0.5">
 						<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved finishes</div>
 						{savedFinishes.map((f) => (
 							<div key={f.id} className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[var(--accent-soft)]">
@@ -3767,11 +3793,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								<button type="button" onClick={() => removeFinish(f)} aria-label={`Delete ${f.label}`} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
 							</div>
 						))}
-					</div>
+					</SettingsBlock>
 				)}
 				{/* Card lift — the opt-in "Struck" elevation. A deck-wide surface toggle
 				    alongside Finish; per-slide `_class: lifted`/`flat` override. */}
-				<Field label="Card lift" desc="A soft shadow under card surfaces." help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: flat</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
+				<Field label="Card lift" desc="A soft shadow under card surfaces." find="shadow elevation struck" help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: flat</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
 				<More label="More look settings">
 					<Field label="Corners" desc="Square or rounded slide corners." help={<>Rounds the <strong>slide surface itself</strong> — a lighter, more screen-native frame. Square is the default. A slide opts back out with <code>_class: corners-square</code>.</>}>
 						<CatalogSelect ariaLabel="Choose corners" value={activeCorners(corners).name} onValueChange={setCorners} className="w-full" groups={[{ options: catalogOptions(CORNERS) }]} />
@@ -3781,19 +3807,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</Field>
 				</More>
 			</div>
-			)}
-			{deckTab === 'chrome' && (
+			),
+		},
+		{
+			value: 'chrome',
+			label: 'Chrome',
+			keywords: 'furniture repeats on every slide',
+			body: () => (
 			<div>
 				<TabNote>The furniture that repeats on every slide — running header and footer, page numbers, the section rail, and your logo.</TabNote>
-				<TextRow label="Header" desc="The line along the top. Blank hides it." help={<>A deck title or client name, repeated on every slide. Any slide can hide it on its own with <code>_class: no-header</code>.</>} value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
-				<TextRow label="Footer" desc="The line along the bottom. Blank hides it." help={<>A confidentiality or source line, repeated on every slide. Any slide can hide it on its own with <code>_class: no-footer</code>.</>} value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
-				<Field label="Page numbers" desc="Number every slide."><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
-				<Field label="Section rail" desc="Progress dots down the edge." help={<>The rail that tracks where you are in the deck. On by default; turning it off stamps <code>class: no-progress</code> on the deck.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
-				<TextRow label="Logo" desc="A path or URL to your mark." help={<>Drawn into the masthead of every slide. Point it at a file beside the deck (<code>./brand/mark.svg</code>) or a full URL. A local file is dropped from an in-browser export, which has no filesystem to copy it from — use a URL if the deck is going to be shared as a bundle.</>} value={logo} placeholder="e.g. ./brand/mark.svg" onCommit={setLogo} />
-				{/* The four logo modifiers mean nothing without a logo, so they stay hidden
-				    until one is set — otherwise the tab opens with four dead rows. */}
+				<TextRow label="Header" desc="The line along the top. Blank hides it." find="running title chrome" help={<>A deck title or client name, repeated on every slide. Any slide can hide it on its own with <code>_class: no-header</code>.</>} value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
+				<TextRow label="Footer" desc="The line along the bottom. Blank hides it." find="running confidential chrome" help={<>A confidentiality or source line, repeated on every slide. Any slide can hide it on its own with <code>_class: no-footer</code>.</>} value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
+				<Field label="Page numbers" desc="Number every slide." find="pagination paginate"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
+				<Field label="Section rail" desc="Progress dots down the edge." find="progress no-progress" help={<>The rail that tracks where you are in the deck. On by default; turning it off stamps <code>class: no-progress</code> on the deck.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+				<TextRow label="Logo" desc="A path or URL to your mark." find="brand mark image" help={<>Drawn into the masthead of every slide. Point it at a file beside the deck (<code>./brand/mark.svg</code>) or a full URL. A local file is dropped from an in-browser export, which has no filesystem to copy it from — use a URL if the deck is going to be shared as a bundle.</>} value={logo} placeholder="e.g. ./brand/mark.svg" onCommit={setLogo} />
+				{/* The five logo modifiers mean nothing without a logo, so they stay hidden
+				    until one is set — otherwise the tab opens with five dead rows. */}
 				{logo.trim() !== '' && (
-					<div className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+					// A SCOPE, not a bare marked div: these five rows are `Show on`, `Treatment`,
+					// `Size`, `Across` and `Down`, and not one of them says "logo" — so before
+					// this was a scope, searching the word that is the entire reason they exist
+					// hid all five and left the path field standing alone. A scope also takes the
+					// indent rule with them when they do filter out, which the marked div did.
+					<SettingsScope label="Logo" keywords="brand mark image" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
 						<Field label="Show on" desc="Every slide, or just the cover.">
 							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="w-full" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
 						</Field>
@@ -3803,12 +3839,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<TextRow label="Size" desc="A multiplier. Blank is default." help={<>Scales the mark — <code>1</code> is its default size. Clamped to 0.2–3; anything outside that is ignored rather than applied.</>} value={logoScale} placeholder="e.g. 1.2" onCommit={setLogoNum('logo-scale', 'Logo size')} />
 						<TextRow label="Across" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits horizontally, as a percentage of the slide — <code>0</code> is the left edge, <code>100</code> the right. Set both Across and Down to move it off the masthead entirely.</>} value={logoX} placeholder="e.g. 92" onCommit={setLogoNum('logo-x', 'Logo across')} />
 						<TextRow label="Down" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits vertically, as a percentage of the slide — <code>0</code> is the top edge, <code>100</code> the bottom.</>} value={logoY} placeholder="e.g. 8" onCommit={setLogoNum('logo-y', 'Logo down')} />
-					</div>
+					</SettingsScope>
 				)}
 				<TextRow label="Meta line" desc="Small print in the masthead bay." help={<>The status line beside the heading — a date, a document number, a review stage. Distinct from the footer: it belongs to the masthead, so it sits with the title rather than at the foot of the slide.</>} value={metaLine} placeholder="e.g. Q3 FY26 · Board review" onCommit={setMetaLine} />
 			</div>
-			)}
-			{deckTab === 'general' && (
+			),
+		},
+		{
+			value: 'general',
+			label: 'General',
+			keywords: 'structure setup basics about this deck',
+			body: () => (
 			<div>
 				<TabNote>What this deck is and how it's put together — set once, mostly at the start.</TabNote>
 				<TextRow
@@ -3829,10 +3870,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onValueChange={setDeckLang}
 					/>
 				</Field>
-				<Field label="New slide on" desc="Headings, or --- dividers." help={<>How the markdown body divides into slides. <strong>Headings</strong> (the default) starts a slide at each <code>##</code>, so the deck needs no separators — a <code>---</code> still works. <strong>Dividers</strong> splits only on <code>---</code>.</>}>
+				<Field label="New slide on" desc="Headings, or --- dividers." find="split divider break" help={<>How the markdown body divides into slides. <strong>Headings</strong> (the default) starts a slide at each <code>##</code>, so the deck needs no separators — a <code>---</code> still works. <strong>Dividers</strong> splits only on <code>---</code>.</>}>
 					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="w-full" groups={[{ options: [{ value: 'headings', label: 'Each ## heading' }, { value: 'rule', label: '--- dividers only' }] }] } />
 				</Field>
-				<Field label="Deck chrome" desc="The masthead band and status bay." help={<>The Form composition model — the masthead band, the meta/status bay and the progress rail. On for every deck by default; turning it off strips all three, leaving bare slides.</>}><Toggle label="Deck chrome" on={formOn} onClick={toggleForm} /></Field>
+				<Field label="Deck chrome" desc="The masthead band and status bay." find="form masthead bay" help={<>The Form composition model — the masthead band, the meta/status bay and the progress rail. On for every deck by default; turning it off strips all three, leaving bare slides.</>}><Toggle label="Deck chrome" on={formOn} onClick={toggleForm} /></Field>
 				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE}:c2`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
 				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
 				<TextRow label="Default slide class" desc="A modifier applied to every slide." help={<>Space-separated modifiers stamped on every slide — e.g. <code>no-note</code>. Color belongs to <strong>Color mode</strong>, which supersedes a <code>dark</code>/<code>light</code> token here, and a component name is ignored outright. The Section rail toggle owns its own token in this key and isn't shown here.</>} value={deckClass} placeholder="e.g. no-note" onCommit={setDeckClass} />
@@ -3840,13 +3881,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    disclosure hanging below the tab strip; they are facts about this deck like
 				    everything else here, so they live in General's own "more" instead. */}
 				<More label="Developer">
+					{/* Plain prose, not a `SettingsBlock`: it is the disclosure's framing line, and
+					    `More` already disappears under search when nothing inside it matched — so
+					    this shows exactly when a developer row it frames is on screen. */}
 					<p className="mb-2 text-[11px] leading-snug text-muted-foreground">Aids while you write. Preview-only — none of this appears in the export.</p>
-					<Field label="Inline validation" desc="Flag unknown components as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
+					<Field label="Inline validation" desc="Flag unknown components as you type." find="developer lint editor"><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
 					{/* Debug overlay — outlines every box by layout mode and labels the
 					    structural ones on hover; `always` pins them. A deck setting (`debug:`
 					    front matter), preview-only, stripped from every export.
 					    engineering/decisions/2026-07-01-debug-bounding-boxes.md */}
-					<Field label="Debug overlay" desc="Outline every layout box." help={<>Outlines each box by layout mode (grid / flex / flow) and labels the structural ones. <strong>Verbose</strong> adds the class and box levers. Stripped from every export, so it can safely ride in the deck.</>}>
+					<Field label="Debug overlay" desc="Outline every layout box." find="developer boxes grid flex" help={<>Outlines each box by layout mode (grid / flex / flow) and labels the structural ones. <strong>Verbose</strong> adds the class and box levers. Stripped from every export, so it can safely ride in the deck.</>}>
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Control aria-label="Debug overlay">{debugLabel} <ChevronDown className="size-3.5" /></Control>
@@ -3863,11 +3907,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</Field>
 				</More>
 			</div>
-			)}
-			{deckTab === 'brand' && (
+			),
+		},
+		{
+			value: 'brand',
+			label: 'Accent',
+			keywords: 'white label client color',
+			body: () => (
 			<div>
 				<TabNote>Where your accent shows. Set the theme accent to a client's brand color and everything here follows it, white-labeling the deck.</TabNote>
-				<Field label="Brand bar" desc="The strip along the slide edge." help={<>The colored strip on each slide's top edge (a divider shows it as a left rail). <strong>Rainbow</strong> is the default; <strong>Solid</strong> repaints it in the theme accent — set that accent to a client's brand color to white-label the deck.</>}>
+				<Field label="Brand bar" desc="The strip along the slide edge." find="spectrum rainbow" help={<>The colored strip on each slide's top edge (a divider shows it as a left rail). <strong>Rainbow</strong> is the default; <strong>Solid</strong> repaints it in the theme accent — set that accent to a client's brand color to white-label the deck.</>}>
 					{/* The white-label spectrum — the rainbow bar on the top border / divider
 					    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
 					    the theme accent to a client's brand and Solid follows. */}
@@ -3930,8 +3979,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					)}
 				</More>
 			</div>
-			)}
-			{deckTab === 'motion' && (
+			),
+		},
+		{
+			value: 'motion',
+			label: 'Motion',
+			keywords: 'animation movement transition',
+			body: () => (
 			<div>
 				<TabNote>How charts animate on the live surfaces (Studio, Present) — they play once when a slide is shown. Preview-only: it changes nothing in the exported PDF or PPTX, and any slide can override it.</TabNote>
 				<Field label="Play" desc="Animate charts in this deck." help={<>Off keeps every chart static. A single slide can still force motion on or off in its own settings.</>}>
@@ -3946,6 +4000,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The three controls above state the deck's INTENT; this states the CONSEQUENCE —
 				    which slides the engine can actually animate and whether the motion earns its
 				    place. Both halves answer the same question, which is why they share a tab. */}
+				<SettingsBlock terms="motion targets which slides animate charts review">
 				<MotionTargets
 					targets={motionTargets}
 					onGoToSlide={(slide) => setActiveSlide(slide - 1)}
@@ -3956,9 +4011,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						settingsWrite(`Motion off for ${flagged.length} slides`, (src) => flagged.reduce((acc, t) => setSlideMotionOff(acc, t.chunk), src));
 					}}
 				/>
+				</SettingsBlock>
 			</div>
-			)}
-			{deckTab === 'speech' && (
+			),
+		},
+		{
+			value: 'speech',
+			label: 'Speech',
+			keywords: 'read aloud narration voice tts audio',
+			body: () => (
 			<div>
 				<TabNote>Teach read-aloud how to say tricky words, symbols and acronyms — carried into the deck and its captions.</TabNote>
 				<Field label="Pace" desc="How long a slide holds before speaking." help={<>The rhythm a self-presenting deck keeps. <strong>Brisk</strong> for a demo or an audience that knows the material, <strong>Natural</strong> for boardroom delivery, <strong>Deliberate</strong> for a technical audience or one reading in a second language.</>}>
@@ -3971,21 +4032,64 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<AcronymEditor acronyms={acronyms} onChange={setAcronyms} />
 				</InspGroup>
 			</div>
-			)}
+			),
+		},
+	];
+
+	const inspectorBody = (
+		// `SETTING_SCOPE` makes this body the container the rows measure themselves against,
+		// so they stack when the PANEL is dragged narrow — not when the window is.
+		//
+		// `data-settings-filtering` is on ONLY while a query is live: it is what the two
+		// CSS rules in styles/tailwind.css key on to collapse a section with no matching
+		// row and to reveal the no-matches note.
+		<div className={cn('space-y-3 pt-1', SETTING_SCOPE)} {...filteringProps(deckQuery)}>
+			<SettingsFind query={deckQuery}>
+				{/* The find toolbar lives in the scope banner above this body — one field on the
+				    header row, serving whichever scope is open. The section strip is the GROUPED
+				    view's navigation: a search spans every section, and the list view has no
+				    single active one, so neither shows it. */}
+				{!deckQuery && settingsView === 'group' && (
+					<SettingsSectionTabs tabs={deckSections.map(({ value, label }) => ({ value, label }))} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
+				)}
+				{deckSections.map((s) =>
+					deckQuery || settingsView === 'list' || s.value === deckTab ? (
+						<SettingsSection key={s.value} label={s.label} keywords={s.keywords} heading={!!deckQuery || settingsView === 'list'}>
+							{s.body()}
+						</SettingsSection>
+					) : null,
+				)}
+				<SettingsNoMatch query={deckQuery} />
+			</SettingsFind>
 		</div>
 	);
 
 	// The Inspector's scope-switch + active body — shared by the desktop/tablet
 	// column AND the mobile Sheet (one source of truth; HARD RULE #15). The wrapper
 	// (an <aside> on desktop, a <Sheet> on mobile) differs; the innards do not.
+	// Two phrasings of the same fact: the sentence where the row can hold it, an
+	// abbreviation where it cannot. The long form is what the live region announces at
+	// every width — see the banner below.
+	const scopeLine = inspectorScope === 'deck'
+		? { full: `Set it once — all ${slides.length} slides follow`, short: `All ${slides.length} slides` }
+		: { full: `Slide ${activeFullIndex + 1} — overrides the deck`, short: `Slide ${activeFullIndex + 1} override` };
+
 	const inspectorScopeContent = (
 		<>
 			{/* Scope switch on tablet + mobile: a Slide-first segment. On desktop the
 			    activity bar's Slide/Deck icons ARE the switch, so no in-panel segment. */}
 			{compact && (
 				<div className="flex gap-1 border-b border-border p-2">
-					{([{ k: 'slide', label: 'Slide' }, { k: 'deck', label: 'Deck' }] as const).map(({ k, label }) => (
-						<button key={k} type="button" aria-pressed={inspectorScope === k} aria-label={k === 'slide' ? 'Slide scope' : 'Deck scope'} onClick={() => setInspectorScope(k)} className={cn('flex-1 rounded-md px-2 py-1.5 text-[12.5px] font-semibold transition-colors', inspectorScope === k ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>{label}</button>
+					{/* The SAME two icons the desktop activity bar uses for these scopes
+					    (chrome-parts.tsx: FileSliders for Slide, SlidersHorizontal for Deck). They
+					    were desktop-only, so one scope pair had icons at one breakpoint and bare
+					    text at another; now the switch looks like itself everywhere, and the
+					    banner below stops needing an icon to say which scope you are in. */}
+					{([{ k: 'slide', label: 'Slide', Icon: FileSliders }, { k: 'deck', label: 'Deck', Icon: SlidersHorizontal }] as const).map(({ k, label, Icon }) => (
+						<button key={k} type="button" aria-pressed={inspectorScope === k} aria-label={k === 'slide' ? 'Slide scope' : 'Deck scope'} onClick={() => setInspectorScope(k)} className={cn('inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold transition-colors', inspectorScope === k ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
+							<Icon className="size-4 shrink-0" />
+							{label}
+						</button>
 					))}
 				</div>
 			)}
@@ -3999,33 +4103,54 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    panel sets how it is configured — calling both "editing" made the two read as the
 			    same act. Both lines are active and address the author directly ("Set it once…",
 			    "What you set here…") rather than describing the panel to itself. */}
-			<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
-				{inspectorScope === 'deck' ? (
-					<>
-						<div className="flex min-w-0 items-center gap-2">
-							<SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
-							<span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--accent)]">Configure the whole deck</span>
-							<span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
-							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
-						</div>
-						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Set it once here and all {slides.length} slides follow.</p>
-					</>
-				) : (
-					<>
-						<div className="flex min-w-0 items-center gap-2">
-							<FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />
-							<span className="min-w-0 flex-1 truncate text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Configure slide {activeFullIndex + 1}</span>
-							<span className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
-							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
-						</div>
-						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">What you set here beats the deck, for this slide only. Leave it blank and the deck decides.</p>
-					</>
-				)}
+			<div className="@container/scopebar flex min-w-0 items-center gap-1.5 border-b border-border px-3.5 py-2" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
+				{/* ONE line, and it is the line that says something. This band used to be a
+				    title, a badge restating the title, an icon restating the scope, and a
+				    sentence restating all three — 72px of framing above a panel whose first
+				    control sat 414px down a 390x844 phone. The icon moved to the scope switch,
+				    the badge went (it was the title again), title and sentence merged, and the
+				    find toolbar came up off a 40px row of its own.
+				    THE ROW ALWAYS CARRIES WORDS. A first cut hid the line below a 320px
+				    container, which is every DOCKED desktop width — SET_DEFAULT is 296 and
+				    296 − 28px of padding = 268 — so the banner rendered as icons and a tint at
+				    the default, and the scope was legible only by drag-resizing the panel past
+				    348px. Two phrasings that swap on the container instead: the sentence where
+				    it fits, an abbreviation where it does not. */}
+				{/* The ANNOUNCEMENT is its own node, and it carries the long form at every
+				    width — a screen reader should hear the sentence, not the abbreviation.
+				    It is also no longer a WRAPPER around the toolbar: when the whole row was
+				    the live region, opening search swapped the toolbar's subtree inside it and
+				    `PanelSearch` mounted its Clear button on the first keystroke, so a polite
+				    region announced additions that were not the scope changing. */}
+				<span role="status" aria-live="polite" className="sr-only">{scopeLine.full}</span>
+				{/* The scope ICON returns on DESKTOP only, and only because the scope switch it
+				    moved to is `compact`-gated — without it the docked banner names the scope
+				    nowhere, leaving a background tint as the sole cue between deck and slide. */}
+				{!compact && (inspectorScope === 'deck'
+					? <SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
+					: <FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />)}
+				<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+					{scopeLine.full}
+				</span>
+				<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+					{scopeLine.short}
+				</span>
+				<SettingsToolbar
+					scope={inspectorScope === 'deck' ? 'Deck' : 'Slide'}
+					view={settingsView}
+					onViewChange={setSettingsView}
+					query={inspectorScope === 'deck' ? deckQuery : slideQuery}
+					onQueryChange={inspectorScope === 'deck' ? setDeckQuery : setSlideQuery}
+					searching={inspectorScope === 'deck' ? deckSearching : slideSearching}
+					onSearchingChange={inspectorScope === 'deck' ? setDeckSearching : setSlideSearching}
+					className="!pt-0 min-w-0 shrink"
+				/>
+				{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><X className="size-4" /></button></Tip>}
 			</div>
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>
 			) : (
-				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} />
+				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} query={slideQuery} />
 			)}
 		</>
 	);
@@ -5568,9 +5693,11 @@ function RailOp({ label, onClick, disabled, danger, armed, children }: { label: 
 		<Tip label={label}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn('grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:opacity-30 disabled:hover:bg-transparent', danger && !armed && 'hover:bg-[color-mix(in_srgb,var(--fail,#b3261e)_12%,transparent)] hover:text-[var(--fail,#b3261e)]', armed && 'bg-[var(--fail-fill,#b3261e)] text-white hover:bg-[var(--fail-fill,#b3261e)] hover:text-white')}>{children}</button></Tip>
 	);
 }
-function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNode; label: string; desc?: string; last?: boolean; children: React.ReactNode }) {
+function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
+	const hit = useSettingsHit(label, desc, find);
+	if (!hit) return null;
 	return (
-		<div className={cn('py-3', !last && 'border-b border-border')}>
+		<div {...hit} className={cn('py-3', !last && 'border-b border-border')}>
 			<div className="mb-1 flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{icon}{label}</div>
 			{desc && <p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
 			{children}
@@ -5593,7 +5720,14 @@ const FIELD_LABEL = cn(SETTING_LABEL_COL, 'text-[12.5px] text-foreground');
 // before the individual rows explain themselves. (The slide Inspector's TabIntro, same job,
 // same weight; kept local to each file rather than shared because the two panels size their
 // type independently.)
+//
+// It is the SECTION's line, not a row's, so it follows the section: while a search is
+// running it shows only when the section itself matched the query. A three-row result
+// under six unrelated paragraphs of framing is not a result list.
 function TabNote({ children }: { children: React.ReactNode }) {
+	const query = useSettingsQuery();
+	const sectionHit = useSettingsHit();
+	if (query && !sectionHit) return null;
 	return <p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">{children}</p>;
 }
 
@@ -5601,12 +5735,47 @@ function TabNote({ children }: { children: React.ReactNode }) {
 // Without it every row carries the same weight, so `Card rail placement` (a sub-option of a
 // sub-option) sits as prominently as `Brand bar` and the common controls are buried under
 // the rare ones. Collapsed, not hidden: nothing becomes unreachable, it just stops competing.
+//
+// Under SEARCH it opens itself and collapses when empty. Both matter: a result hidden
+// behind a closed disclosure is a result the search failed to deliver, and a summary left
+// standing over nothing is a row that lies about having content. `SettingsScope` gives it
+// the second half and makes the disclosure findable by its own name.
+//
+// UNDER SEARCH IT IS NOT A DISCLOSURE AT ALL — the children render inline and the
+// `<details>` is not in the tree. That is the fix, and the two half-measures before it are
+// why it is written this way.
+//
+// First cut: `open={query ? true : undefined}`. React only writes a DOM prop when the prop
+// CHANGES, so a user click moved the attribute behind React's back and it never corrected.
+// Second cut: controlled `open`, with `onToggle` ignoring the user while a query was live —
+// which SWALLOWED the toggle. No state change, no re-render, `open` still `true` from
+// React's side while the DOM said `false`: the same desync through a different door, and
+// the exact failure the fix claimed to remove. Collapse it mid-search, type a new query,
+// and its one hit rendered inside a shut disclosure — with no "no matches" note, because
+// there WAS a hit, so the panel showed a lone summary over an empty column.
+//
+// There is no toggle to swallow if there is no disclosure. `userOpen` survives the search
+// untouched, so closing the field restores exactly what the author had open.
 function More({ label, children }: { label: string; children: React.ReactNode }) {
+	const query = useSettingsQuery();
+	const [userOpen, setUserOpen] = React.useState(false);
+	if (query) {
+		return (
+			<SettingsScope label={label}>
+				<div className="mt-2 border-t border-border/60 pt-2">
+					<div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+					<div className="mt-1">{children}</div>
+				</div>
+			</SettingsScope>
+		);
+	}
 	return (
-		<details className="mt-2 border-t border-border/60 pt-2">
-			<summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[var(--text-heading)]">{label}</summary>
-			<div className="mt-1">{children}</div>
-		</details>
+		<SettingsScope label={label}>
+			<details open={userOpen} onToggle={(e) => setUserOpen(e.currentTarget.open)} className="mt-2 border-t border-border/60 pt-2">
+				<summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[var(--text-heading)]">{label}</summary>
+				<div className="mt-1">{children}</div>
+			</details>
+		</SettingsScope>
 	);
 }
 
@@ -5628,9 +5797,15 @@ function More({ label, children }: { label: string; children: React.ReactNode })
 // span; `descId` names the help line so the field can `aria-describedby` it. Both are
 // opt-in, so the dropdown/toggle rows — whose controls carry their own `aria-label` —
 // render exactly the markup they did before.
-function Field({ label, desc, help, htmlFor, descId, children }: { label: string; desc?: string; help?: React.ReactNode; htmlFor?: string; descId?: string; children: React.ReactNode }) {
+function Field({ label, desc, help, find, htmlFor, descId, children }: { label: string; desc?: string; help?: React.ReactNode; find?: string; htmlFor?: string; descId?: string; children: React.ReactNode }) {
+	// `label` + `desc` are what a person actually types; `find` carries the synonym the
+	// row's own words don't spell (a "Page numbers" row is looked for as "pagination").
+	// `help` is deliberately NOT searched: it is a paragraph of prose per row, so folding
+	// it in would match nearly every row on nearly every word.
+	const hit = useSettingsHit(label, desc, find);
+	if (!hit) return null;
 	return (
-		<div className="my-2">
+		<div {...hit} className="my-2">
 			{/* `PINNED_FIELD_ROW` holds the row you are TYPING in above the keyboard — the
 			    position the command palette's docked field occupies, borrowed rather than
 			    recomputed. It goes on the LABEL+CONTROL row, not the whole block: the help
@@ -5674,7 +5849,7 @@ function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => void; la
 // empty commit clears the setting.
 //
 // The geometry is `Field`'s, not its own — see the note there.
-function TextRow({ label, desc, help, value, placeholder, onCommit }: { label: string; desc?: string; help?: React.ReactNode; value: string; placeholder?: string; onCommit: (v: string) => void }) {
+function TextRow({ label, desc, help, find, value, placeholder, onCommit }: { label: string; desc?: string; help?: React.ReactNode; find?: string; value: string; placeholder?: string; onCommit: (v: string) => void }) {
 	const [draft, setDraft] = React.useState(value);
 	// A real <label htmlFor> (not a bare span) so tapping the label focuses the field,
 	// and aria-describedby so a screen reader announces the help line (incl. "Blank
@@ -5686,7 +5861,7 @@ function TextRow({ label, desc, help, value, placeholder, onCommit }: { label: s
 	// never fights the author mid-keystroke.
 	React.useEffect(() => { setDraft(value); }, [value]);
 	return (
-		<Field label={label} desc={desc} help={help} htmlFor={id} descId={desc ? descId : undefined}>
+		<Field label={label} desc={desc} help={help} find={find} htmlFor={id} descId={desc ? descId : undefined}>
 			<Input
 				id={id}
 				aria-describedby={desc ? descId : undefined}

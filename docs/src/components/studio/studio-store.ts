@@ -855,6 +855,27 @@ export function savePickerView(view: PickerView): void {
 	write(PICKER_VIEW_LS, view);
 }
 
+// ── The Inspector's settings view (deck + slide scopes share ONE choice) ────
+// GROUP (the pill-tabbed panel — one section at a time) or LIST (every section down
+// one continuous scroll under its own heading). Furniture, for the same reason
+// `PickerView` is: it belongs to the screen you are sitting at, not to the deck you
+// would restore onto another one, so it stays out of `StudioSettings` and out of the
+// backup file.
+//
+// ONE key for both scopes on purpose. Someone who wants the flat list wants it for
+// settings, not for the deck half of settings — two keys would let the two panels
+// disagree about a preference the user expressed once.
+const SETTINGS_VIEW_LS = 'lattice-studio-settings-view';
+export type SettingsPanelView = 'group' | 'list';
+/** Anything but a stored `'list'` reads as the grouped default — a junk or absent
+ *  value can only ever fall back, never throw. */
+export function loadSettingsView(): SettingsPanelView {
+	return read<SettingsPanelView>(SETTINGS_VIEW_LS) === 'list' ? 'list' : 'group';
+}
+export function saveSettingsView(view: SettingsPanelView): void {
+	write(SETTINGS_VIEW_LS, view);
+}
+
 // ── Workspace export / import (the backup feature's store half) ─────────────
 // The knowledge of WHICH keys make up a Studio workspace stays in this module;
 // workspace-backup.ts only packs/unpacks what these two functions hand it.

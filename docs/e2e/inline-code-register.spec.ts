@@ -1,4 +1,4 @@
-import { appendToEditor, CHROME, expect, gotoStudio, LIVE_PREVIEW, openInspector, persistedSource, test } from './studio-fixture';
+import { appendToEditor, CHROME, expect, gotoStudio, LIVE_PREVIEW, openInspector, openSection, persistedSource, test } from './studio-fixture';
 
 // ── The `inline-code:` register, driven from the real Studio ────────────────────────
 //
@@ -27,7 +27,7 @@ test('the deck-settings toggle turns the inline grammar off, and the preview obe
 	// and typing is the flow an author actually takes anyway.
 	await appendToEditor(page, '\n\nProse with `{ALPHA}:c2` and `[x]` and plain `getUserId()`.\n');
 	await openInspector(page);
-	await page.getByRole('tab', { name: CHROME.deckTab.general }).click();
+	await openSection(page, CHROME.deckTab.general);
 
 	const toggle = page.getByRole('switch', { name: 'Inline pills and marks' });
 	// ON by default — no register in the deck, and the default has to be the running
@@ -109,8 +109,11 @@ for (const [label, width, height] of [
 			await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
 		}
 
-		const tab = page.getByRole('tab', { name: CHROME.deckTab.general });
-		if (await tab.count()) await tab.first().click();
+		// UNCONDITIONAL, and that is a fix: this was `if (await tab.count()) …`, which
+		// silently did nothing the moment General stopped being a pill — leaving the panel
+		// on Look and the assertions below hunting a row that was never rendered. The helper
+		// takes whichever route exists and fails loudly when neither does.
+		await openSection(page, CHROME.deckTab.general);
 
 		const toggle = page.getByRole('switch', { name: 'Inline pills and marks' });
 		await expect(toggle).toBeVisible({ timeout: 15_000 });

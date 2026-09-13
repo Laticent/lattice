@@ -49,7 +49,8 @@ export const CHROME = {
 	 * accessible-name drift did — and the 2026-08-18 regroup renamed and merged several
 	 * at once (deck `Marks`→`Chrome`; slide `Status`+`Decoration`→`Marks`; a new deck
 	 * `General`). Address a tab through here, never by a bare literal.
-	 * Source of truth: DECK_TABS in StudioShell.tsx, tabDefs in SlideContext.tsx.
+	 * Source of truth: `deckSections` in StudioShell.tsx, `sectionDefs` in SlideContext.tsx —
+	 * both panels derive their pill strip from that one list.
 	 */
 	deckTab: {
 		look: 'Look',
@@ -67,6 +68,32 @@ export const CHROME = {
 		accent: 'Accent',
 		motion: 'Motion',
 		comments: 'Comments',
+	},
+	/**
+	 * The Inspector's find-and-browse toolbar, at the top right of BOTH scopes (one
+	 * component, `ui/settings-view.tsx`). They live here for the same reason the tab names
+	 * do: they are how a spec reaches a control WITHOUT a tab, so a rename would move every
+	 * such route at once.
+	 *
+	 * `openInspectorTab` below still addresses tabs directly, and that stays correct: the
+	 * pill-tabs render in the GROUPED view, which is the default and what a fresh profile
+	 * gets. A spec that switches to `settings.list` owes its own teardown or a fresh
+	 * context — the choice persists in localStorage.
+	 */
+	settings: {
+		/** Opens the search field; the field then carries the same accessible name. */
+		searchDeck: 'Search deck settings',
+		searchSlide: 'Search slide settings',
+		/** Closes the field and clears the query (Escape does the same). */
+		closeSearch: 'Close search',
+		/** The two view states — grouped sections, or one continuous list of every section. */
+		grouped: 'Grouped — one section at a time',
+		list: 'List — every section in one scroll',
+		/** The section strip's chevron, which holds the FULL list. Its accessible name is
+		 *  deliberately fixed — the visible label changes to the active section's name when
+		 *  that section is not one of the shortcut pills, and a name that moved with it
+		 *  would move under every locator here. Use `openSection` rather than this. */
+		allSections: /all sections/,
 	},
 	/** Activity-bar toggle for the Coach (deterministic deck assessment) panel. */
 	coach: 'Toggle Coach',
@@ -626,7 +653,25 @@ export async function openInspector(page: Page): Promise<void> {
  */
 export async function openInspectorTab(page: Page, tab: keyof typeof CHROME.deckTab): Promise<void> {
 	await openInspector(page);
-	await page.getByRole('tab', { name: CHROME.deckTab[tab] }).click();
+	await openSection(page, CHROME.deckTab[tab]);
+}
+
+/**
+ * Click a settings section by NAME, via its shortcut pill or the chevron's menu.
+ *
+ * The strip shows the first two sections as pills and keeps the whole list behind the
+ * chevron, so a spec that only knew `role="tab"` could reach two of six. Centralized for
+ * the same reason `CHROME` is: the shortcut count is a design decision that will move, and
+ * when it does this is the one place that has to know.
+ */
+export async function openSection(page: Page, name: string): Promise<void> {
+	const pill = page.getByRole('tab', { name, exact: true });
+	if (await pill.count()) {
+		await pill.first().click();
+		return;
+	}
+	await page.getByRole('button', { name: CHROME.settings.allSections }).click();
+	await page.getByRole('menuitem', { name, exact: true }).click();
 }
 
 /** Focus the CodeMirror editor (the `.cm-content` carries aria-label "Deck source"). */

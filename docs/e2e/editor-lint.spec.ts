@@ -1,4 +1,4 @@
-import { appendToEditor, CHROME, expect, gotoStudio, openInspector, test } from './studio-fixture';
+import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection, test } from './studio-fixture';
 
 // The editor's real grammar lint (shared lint-core). An unknown component makes
 // Fix-all actionable and surfaces an inline-issue count in the Coach; turning
@@ -31,7 +31,7 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 	// switch is out of the a11y tree until it is opened. That disclosure moved INSIDE the
 	// General tab on 2026-08-18 — it used to hang below the tab strip as a footer.
 	await openInspector(page);
-	await page.getByRole('tab', { name: CHROME.deckTab.general }).click();
+	await openSection(page, CHROME.deckTab.general);
 	await page.getByText('Developer', { exact: true }).click();
 	await page.getByRole('switch', { name: 'Inline validation' }).click();
 	await expect(fixAll(page)).toBeDisabled();
