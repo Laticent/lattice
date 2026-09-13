@@ -111,7 +111,7 @@
 :is(section.gantt, figure.gantt) .gantt-milestone {
   --fill-ink: var(--state-info-ink);
   stroke: var(--fill-ink);
-  stroke-width: 0.6;
+  stroke-width: var(--chart-edge);
 }
 
 /* Status — each re-points --fill-ink at a semantic --state-* ink. The FILL
@@ -164,7 +164,7 @@
 :is(section.gantt, figure.gantt) .gantt-legend-swatch {
   --fill-ink: var(--state-info-ink);
   stroke: var(--fill-ink);
-  stroke-width: 0.6;
+  stroke-width: var(--chart-edge);
 }
 :is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="on-track"],
 :is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="done"],
@@ -190,7 +190,7 @@
  * mark it lifts. On an SVG mark the cue is a thicker ink edge rather than a box
  * shadow: a filter would rasterize the mark in the PDF path. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone).chart-mark-active {
-  stroke-width: 1.8;
+  stroke-width: var(--chart-edge-strong);
   stroke: var(--fill-ink);
 }
 

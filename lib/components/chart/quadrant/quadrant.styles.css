@@ -260,7 +260,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-dot {
   fill: var(--cell-ink);
   stroke: var(--bg);
-  stroke-width: 2;
+  stroke-width: var(--chart-edge);
 }
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-dot-label {
   fill: var(--quadrant-label-ink);
@@ -273,7 +273,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-bubble {
   fill: var(--cell-fill);
   stroke: var(--cell-ink);
-  stroke-width: 1.5;
+  stroke-width: var(--chart-edge);
 }
 /* Value text is neutral heading ink — high-contrast both inside the pale
  * cN-light bubble fill and above it on the canvas (cN-dark would not clear
@@ -308,20 +308,20 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-trail-after {
   fill: var(--cell-ink);
   stroke: var(--bg);
-  stroke-width: 1.5;
+  stroke-width: var(--chart-edge);
 }
 
 /* ── Cohort variant: convex hulls + centroid labels + legend ──────────── */
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-hull {
   fill: var(--cell-fill);
   stroke: var(--cell-ink);
-  stroke-width: 1.25;
+  stroke-width: var(--chart-edge);
   stroke-linejoin: round;
   opacity: 0.65;
 }
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-hull-line {
   stroke: var(--cell-ink);
-  stroke-width: 1.5;
+  stroke-width: var(--chart-edge);
   stroke-linecap: round;
   opacity: 0.65;
 }

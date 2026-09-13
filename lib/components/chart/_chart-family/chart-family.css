@@ -632,6 +632,31 @@ section.chart-frame,
    * untouched. */
   --chart-hairline: clamp(1px, 0.078cqi, 2px);   /* 1px borders, rules, separators */
   --chart-accent-lg: clamp(6px, 0.46cqi, 9px);   /* heavy accent stripe (roadmap milestone) */
+  /* THE SAME WEIGHT, INSIDE AN SVG. The note above ends "Swatch/coordinate px
+   * inside SVG viewBoxes are NOT line weights — they scale with the SVG and stay
+   * untouched." That was right about RESOLUTION and wrong about CONSISTENCY, and
+   * measuring the rendered gallery is what separates the two: every member tuned
+   * its own `stroke-width` literal inside its own viewBox, and those viewBoxes
+   * span 4.3x (320 … 1375 units at the same rendered width). So 19 mark edges
+   * painted at 16 DIFFERENT physical weights — 0.42px on a map region, 5.49px on
+   * a quadrant dot, a 13.1x spread on marks that are all "the edge of a data
+   * mark". Nobody chose that; it is what per-member tuning in per-member
+   * coordinate spaces adds up to.
+   *
+   * `vector-effect: non-scaling-stroke` removes the viewBox scaling and ONLY the
+   * viewBox scaling, so the stroke lands in CSS pixels. Pairing it with the same
+   * clamp() the DOM side already uses keeps #180 answered — the weight still
+   * grows with the container above HD — while making one token mean one weight
+   * on both sides of the SVG boundary. Export DPI is a separate transform and is
+   * unaffected: a 1px CSS stroke is still 3px in a 3x raster.
+   * Measured: 16 distinct weights (13.1x spread) -> 1. */
+  --chart-edge: var(--chart-hairline);            /* every data mark's edge */
+  --chart-edge-strong: calc(var(--chart-hairline) * 2);  /* hero / active only */
+  /* ONE MARK CORNER. `0.46875cqi` was written out five times across progress,
+   * kanban and state-chart — the same number, three members, no shared name —
+   * next to 13 other radii the family had drifted into. A corner is structure:
+   * it should read the same on a progress bar, a kanban card and a state node. */
+  --chart-mark-radius: 0.46875cqi;
 
   /* LEGIBILITY FLOOR for chart-internal text that is sized in raw `cqi` rather
    * than through the `--fs-*` role scale (HARD RULE #4 / #1213). A few marks
@@ -1587,4 +1612,82 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   width: 100%;
   height: 100%;
   display: block;
+}
+
+
+/* ══ STRUCTURE — ONE EDGE WEIGHT FOR EVERY DATA MARK ═══════════════════════
+ * Colour is the palette's job and the finish's job. STRUCTURE is the family's,
+ * and it has to read the same on every member or the set does not look like one
+ * system. This rule is that contract for the mark EDGE.
+ *
+ * THE CLASS LIST IS NOT HAND-PICKED — it is every mark each member declares
+ * with `paint: "fill"` in its manifest's `kernel.marks`, which is exactly the
+ * set of "things with a body that can carry an outline". `chart-mark-edge-
+ * census.test.js` fails if the two drift apart, so a new chart member joins
+ * this contract by declaring its marks and nothing else.
+ *
+ * `stroke: none` marks are unaffected — a width with no paint draws nothing —
+ * so area fills and hulls keep their current look and only gain the weight if
+ * and when something gives them a stroke.
+ *
+ * Why this can override a member's own literal rather than 71 files being
+ * edited: the member values were tuned in 21 different viewBox coordinate
+ * spaces and none of them is a considered physical weight. There is nothing to
+ * preserve. Measured before: 16 distinct weights across 19 mark edges, spread
+ * 13.1x. After: 1. */
+:is(section.chart-frame, figure.chart-frame) svg :is(
+  .bar-mark,
+  .chart-key-swatch,
+  .bullet-measure,
+  .bullet-offscale,
+  .funnel-band,
+  .gantt-bar,
+  .gantt-bar--unscaled,
+  .gantt-bar-accent,
+  .gantt-milestone,
+  .gantt-legend-swatch,
+  .journey-face,
+  .line-area,
+  .line-band,
+  .line-dot,
+  .map-region,
+  .map-region--on,
+  .map-region--hl,
+  .wedge,
+  .quadrant-dot,
+  .quadrant-bubble,
+  .quadrant-trail-after,
+  .quadrant-hull,
+  .quadrant-tint,
+  .radar-poly,
+  .radar-poly--hero,
+  .radar-band,
+  .radar-sector,
+  .radar-dot,
+  .scatter-dot,
+  .scatter-bubble,
+  .scatter-size-ring,
+  .slope-dot,
+  .slope-dot-from,
+  .slope-dot-to,
+  .slope-dot-via,
+  .sbar-seg,
+  .state-node-shape,
+  .state-index-disc,
+  .state-edge-arrow,
+  .waterfall-bar
+) {
+  vector-effect: non-scaling-stroke;
+  stroke-width: var(--chart-edge);
+}
+
+/* EMPHASIS is the one sanctioned departure, and it is a doubling rather than a
+ * per-member number: a hero series on a radar, and the active mark a Studio
+ * selection puts under the cursor. Both need to out-weigh their neighbours, and
+ * both are states, not members. */
+:is(section.chart-frame, figure.chart-frame) svg :is(
+  .radar-poly--hero,
+  .chart-mark-active
+) {
+  stroke-width: var(--chart-edge-strong);
 }

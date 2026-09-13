@@ -217,7 +217,7 @@ section.state-chart .state-node {
   border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
   border-left: var(--chart-fill-accent) solid var(--fill-ink);
   color: var(--state-node-ink);
-  border-radius: 0.46875cqi;
+  border-radius: var(--chart-mark-radius);
   font-weight: 500;
   line-height: 1.25;
 }
@@ -560,7 +560,7 @@ section.state-chart.horizontal .state-node-row {
   border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
   border-left: var(--chart-fill-accent) solid var(--fill-ink);
   color: var(--state-node-ink);
-  border-radius: 0.46875cqi;
+  border-radius: var(--chart-mark-radius);
 }
 /* Neutral rows too — the pill carries the status color (see the SVG-node note). */
 
@@ -710,7 +710,7 @@ section.state-chart .state-node-shape {
    * (SVG fill cannot take a CSS gradient). What stays here is the edge. */
   --fill-hue: var(--muted-mark);
   stroke: color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
-  stroke-width: 1;
+  stroke-width: var(--chart-edge);
 }
 
 /* The node's leading accent edge — the HTML card's
@@ -745,7 +745,7 @@ section.state-chart .state-index-disc {
     color-mix(in oklab, var(--pill-hue) 30%, var(--bg)),
     color-mix(in oklab, var(--pill-hue) 54%, black));
   stroke: var(--pill-ink);
-  stroke-width: 0.75;
+  stroke-width: var(--chart-edge);
 }
 section.state-chart .state-index-disc[data-s="on-track"],
 section.state-chart .state-index-disc[data-s="done"],
@@ -765,7 +765,7 @@ section.state-chart .state-index-disc[data-s="deferred"] { --pill-hue: var(--sta
  * state diagram must never lose. */
 section.state-chart .state-node-shape[data-kind="start"] {
   stroke: var(--state-node-stroke);
-  stroke-width: 1.5;
+  stroke-width: var(--chart-edge-strong);
 }
 /* The start node's heavier leading stripe — the HTML card's wider border-left. */
 section.state-chart .state-node-accent[data-kind="start"] {
@@ -775,7 +775,7 @@ section.state-chart .state-node-accent[data-kind="start"] {
  * offset rect behind the node — the same doubled edge the HTML outline drew. */
 section.state-chart .state-node-shape[data-kind="terminal"] {
   stroke: var(--state-node-stroke);
-  stroke-width: 1.5;
+  stroke-width: var(--chart-edge-strong);
 }
 section.state-chart .state-node-ring {
   fill: none;
@@ -788,5 +788,5 @@ section.state-chart .state-node-ring {
  * rasterize the node in the PDF path. */
 section.state-chart .state-node-shape.chart-mark-active {
   stroke: var(--accent);
-  stroke-width: 2;
+  stroke-width: var(--chart-edge-strong);
 }

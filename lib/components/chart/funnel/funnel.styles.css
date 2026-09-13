@@ -45,7 +45,7 @@
 :is(section.funnel, figure.chart-frame) .funnel-band {
   fill: var(--chart-cat-1-body);
   stroke: var(--bg);
-  stroke-width: 0.75;
+  stroke-width: var(--chart-edge);
 }
 
 /* Stage label — left column, right-aligned to the band. */

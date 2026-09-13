@@ -153,7 +153,7 @@
 :is(section.slope, figure.chart-frame) .slope-dot-from {
   fill: var(--bg);
   stroke: color-mix(in oklab, var(--text-body) 72%, transparent);
-  stroke-width: 0.9;
+  stroke-width: var(--chart-edge);
 }
 :is(section.slope, figure.chart-frame) .slope-dot-to,
 :is(section.slope, figure.chart-frame) .slope-dot-via {

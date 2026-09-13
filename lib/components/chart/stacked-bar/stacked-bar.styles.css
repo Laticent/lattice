@@ -59,7 +59,7 @@
    * not a border in a new color, it is a sliver of the slide showing through,
    * so it stays right on both canvases and under every theme. */
   stroke: var(--bg);
-  stroke-width: 0.6;
+  stroke-width: var(--chart-edge);
   stroke-linejoin: miter;
 }
 

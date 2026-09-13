@@ -80,7 +80,7 @@
 :is(section.line, figure.chart-frame) .line-dot {
   fill: var(--mark-hue, var(--chart-cat-1-hue));
   stroke: var(--bg);
-  stroke-width: 0.9;
+  stroke-width: var(--chart-edge);
 }
 
 /* THE DIRECT LABEL — the series' own name at the end of its own line.

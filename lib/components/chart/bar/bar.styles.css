@@ -36,7 +36,7 @@
  * reads as a boundary, not as a second mark. */
 :is(section.bar, figure.chart-frame) .bar-mark {
   stroke: var(--chart-cat-1-ink);
-  stroke-width: 0.7;
+  stroke-width: var(--chart-edge);
 }
 
 /* ONE SERIES IS ONE HUE. A single-series bar chart is one <g class="bar-lane">,

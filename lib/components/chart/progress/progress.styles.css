@@ -49,7 +49,7 @@
    * + radius clip the fill's rounded corners. */
   height: 2.5cqi;
   background: transparent;
-  border-radius: 0.46875cqi;
+  border-radius: var(--chart-mark-radius);
   overflow: hidden;
 }
 :is(section.progress, figure.progress) .progress-fill {
@@ -94,7 +94,7 @@
                color-mix(in oklab, var(--fill-hue) calc(38% + var(--pct) * 0.58%), black)) 100%);
   border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
   border-left: var(--chart-fill-accent) solid var(--fill-ink);
-  border-radius: 0.46875cqi;
+  border-radius: var(--chart-mark-radius);
   transition: none;
   /* The % readout rides the bar's leading edge: right-aligned ON the colored
    * fill, like a gantt bar's in-bar label. --text-heading clears the wash on
