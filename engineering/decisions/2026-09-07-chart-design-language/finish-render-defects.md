@@ -101,9 +101,19 @@ directions.
 
 ## 3. Where it landed
 
-Flattened mark classes: **30 → 1**. The remaining one is
-`tone / journey-actor-dot`, whose slot is not in any attribute or custom
-property this can key on.
+Flattened mark classes: **30 → 0**.
+
+The last one fell to a fix that was really the same defect wearing the edge
+instead of the body: **an edge's last resort was a constant ink**. Only five
+members publish an ink name, so everything else outlined in `--chart-cat-1-ink`
+— every pie wedge boundary one blue against a legend showing five, every radar
+vertex marker a blue ring on all three series, every waterfall bar blue-edged
+with the sign left in the body. Under `pigment` that is a detail. Under
+`etching` it is the whole finish: the body retreats to a whisper *by design*, so
+an edge carrying no identity leaves the categories with nothing. Appending the
+hue chain to the ink chain means an edge falls back to the mark's own
+identity — which is what the unfinished chart already does, and why `line` and
+`stacked-bar` were the two members that looked right throughout.
 
 AA, measured with the corrected instrument (light mode, indaco):
 
@@ -119,6 +129,11 @@ improves on it.** The finishes introduce none. The pre-existing ones are
 radar's tick labels (1.77–1.86:1 on the composited polygons) and journey's task
 chip at 1.07:1 — logged here, not fixed, because they are off the path of this
 change (HARD RULE #18).
+
+The map legend needed the same correction in a different register: seeding the
+finish's raw band endpoints gave etching's eight chips a 3% luminance spread —
+eight identical swatches explaining a map that ramps properly — because a
+region's `--mix` is the *datum* scaled by the band. The legend walks the datum.
 
 One measured level: a text-bearing ramp takes **0.75** of the band. Swept at
 1 / 0.75 / 0.6 / 0.5 against the real render — the full band leaves tone's
