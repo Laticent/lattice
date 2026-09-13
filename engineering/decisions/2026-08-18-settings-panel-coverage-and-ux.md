@@ -179,6 +179,24 @@ Recorded here so the next audit doesn't "fix" them:
   would hide a live surprise, so the fix text names the escape that keeps the entry: quoting
   the key (`"present": pre ZENT`) is the same mapping to YAML and stops both reader arms,
   each of which wants the key immediately after the whitespace run.
+  **CASE-INSENSITIVE KEY READING STAYS LOCAL TO THIS FAMILY — deliberate, not drift**
+  (2026-09-13). `render-target-keys.js` reads `FLUID:` and `fluid:` as one key; every sibling
+  reader in `lib/core/front-matter-key.js` is case-sensitive, and nobody had ruled on the
+  divergence. The ruling: keep it, here only.
+  The `/i` is not a choice this module gets to make. The emulator's regex shipped with it, so
+  a deck in the field writing `FLUID: true` is on TODAY, and reading case-sensitively would
+  turn it off — a self-inflicted regression on decks we cannot see (HARD RULE #18). Both arms
+  then have to carry it or the split re-opens: while the scalar arm was case-sensitive,
+  `FLUID: "true"` read OFF where `fluid: "true"` read ON.
+  Aligning the siblings would be the larger mistake. YAML keys ARE case-sensitive, and
+  `topLevelFrontMatterValue` exists because a reader and a WRITER disagreeing about which line
+  is the register corrupts a deck (#1416): every writer anchors at column 0 and writes the
+  canonical spelling, so a case-insensitive reader would honor a `CLASS:` no writer can ever
+  update. A repo-wide `/i` is a behavior change to every register with no defect asking for it.
+  Measured: across every tracked `*.md` (906 front-matter blocks), **zero decks change verdict**
+  whether the render-target reader is case-insensitive or not — the `/i` is protecting decks in
+  the field, not anything we ship. So the divergence costs nothing today, and this row is the
+  record that it was examined rather than inherited.
 - `marp:` — mechanical (`deck-config.js` emits it so an exported `.md` renders through
   marp-cli). Not an author-facing setting.
 
