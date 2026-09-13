@@ -22,82 +22,39 @@
 // it returns true if it mounted a player (→ the guard suppresses navigation), false
 // for a non-embeddable provider (→ the guard falls back to opening a tab).
 
-// Allow-listed providers → a privacy embed URL built from the video id only.
-// Add a provider here (with its id parser + embed template) to support it; anything
-// not listed falls through to the poster's plain link.
+// The provider table lives in ONE place — `lib/core/video-providers.mjs` — because
+// the static render (poster link, "Watch on {label}" badge, QR target) and this
+// lightbox are two questions about the SAME four providers. This file used to carry
+// its own copy with its own id regexes, so adding a provider meant two edits in
+// unrelated trees and missing this one silently degraded playback to "opens a tab".
+// Adding a provider is now one row there. See that file's header for the contract,
+// and engineering/decisions/2026-09-13-plugin-architecture.md for why.
 //
-// NO `playsinline`: on iPhone Safari a `playsinline` YouTube embed is locked to a
-// small inline player with a stripped control set (play/pause only) and NO
-// fullscreen — iOS reserves the scrubber/volume/fullscreen for its NATIVE video
-// player. Omitting `playsinline` lets iOS hand playback to that native player on
-// play — full controls + fullscreen — still in-page (not a new tab). Desktop is
-// unaffected (it plays inline in the lightbox with full controls either way).
-const EMBED = [
-	{
-		key: 'youtube',
-		id: (u) => (u.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/) || [])[1],
-		src: (id) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`,
-	},
-	{
-		key: 'vimeo',
-		id: (u) => (u.match(/vimeo\.com\/(?:video\/)?(\d+)/) || [])[1],
-		src: (id) => `https://player.vimeo.com/video/${id}?autoplay=1`,
-	},
-	{
-		// TikTok CANONICAL links carry the numeric id in the URL (`/@user/video/{id}`,
-		// `/embed/{id}`, `/player/v1/{id}`), so they embed SYNCHRONOUSLY — no fetch, as
-		// reliable as YouTube. Only `/t/{code}` SHORT links (no id in the URL) fall
-		// through to the async oEmbed resolve (resolveTikTokSrc, below).
-		key: 'tiktok',
-		id: (u) => (u.match(/tiktok\.com\/(?:@[\w.-]+\/video\/|embed\/(?:v2\/)?|player\/v1\/)(\d+)/) || [])[1],
-		src: (id) => `https://www.tiktok.com/player/v1/${id}?autoplay=1`,
-	},
-	{
-		// Instagram's `/{p,reel,tv}/{shortcode}/embed/` page IS frameable (no
-		// `X-Frame-Options`, no `frame-ancestors` in its CSP) and carries the shortcode
-		// IN THE URL — so it embeds SYNCHRONOUSLY, no resolve fetch, immune to the ITP
-		// wall that blocks TikTok short links on iPhone. We normalize every post type to
-		// the universal `/p/{code}/embed/` path (the same URL Instagram's own embed.js
-		// builds for reels/IGTV/video posts). The shortcode is `[\w-]+`, so it can't
-		// break out of the path (same rebuild-from-id safety as the other providers).
-		// This is the self-contained `/embed/` IFRAME — NOT the `instgrm.Embeds` widget
-		// script (which we still won't load into the parent: privacy + #24).
-		key: 'instagram',
-		id: (u) => (u.match(/instagram\.com\/(?:reels?|p|tv)\/([\w-]+)/) || [])[1],
-		src: (id) => `https://www.instagram.com/p/${id}/embed/`,
-	},
-];
+// `embedSrc` / `isEmbeddable` / `providerShape` are re-exported so this module's
+// public surface is unchanged. Be precise about who that serves: `embedSrc` and
+// `providerShape` are used INSIDE this file (below), and the only importer of the
+// re-exports is this module's own unit suite — `installVideoBridge` is what
+// single-slide-render and PlaygroundApp actually import, and `isEmbeddable` has no
+// runtime consumer at all today. The safety property they carry is unchanged: a
+// player src is ALWAYS rebuilt from the parsed video id against the provider's own
+// template, never from the author's href.
+export { embedSrc, isEmbeddable, providerShape } from '../../../lib/core/video-providers.mjs';
 
-// A YouTube/Vimeo/Instagram/canonical-TikTok href → a safe player src, or null
-// (SYNC — the id/shortcode is in the URL). Exported for tests. TikTok SHORT links
-// are the one async case (resolveTikTokSrc); everything else resolves here.
-export function embedSrc(href) {
-	if (!href) return null;
-	for (const p of EMBED) {
-		const id = p.id(String(href));
-		if (id) return p.src(id);
-	}
-	return null;
-}
+import { embedSrc, PROVIDERS, providerFor, providerShape } from '../../../lib/core/video-providers.mjs';
 
-const isTikTok = (href) => /(?:^|\/\/|\.)tiktok\.com\//i.test(String(href || ''));
-const isInstagram = (href) => /(?:^|\/\/|\.)instagram\.com\//i.test(String(href || ''));
+/** A row by key — the async TikTok path and the Instagram origin check read theirs. */
+const rowFor = (key) => PROVIDERS.find((p) => p.key === key);
 
-/** True if a tap on this href should open the player (sync YT/Vimeo, or async TikTok). */
-export function isEmbeddable(href) {
-	return Boolean(embedSrc(href)) || isTikTok(href);
-}
+/** Is `hostname` one of this row's declared hosts (exact, or a subdomain)? */
+const ownsHost = (row, hostname) => {
+	const h = String(hostname || '').toLowerCase();
+	return Boolean(row) && row.hosts.some((owned) => h === owned || h.endsWith(`.${owned}`));
+};
 
-/**
- * The provider's native player shape → how the lightbox sizes itself. YouTube/Vimeo
- * are 16:9 (`landscape`); TikTok and Instagram reels are vertical phone video
- * (`portrait`), so forcing them into a 16:9 box letterboxes/crops them. Exported for
- * tests. Instagram is additionally auto-fit to its self-reported card height (below).
- * @returns {'portrait'|'landscape'}
- */
-export function providerShape(href) {
-	return isTikTok(href) || isInstagram(href) ? 'portrait' : 'landscape';
-}
+/** Host tests, read off the shared registry so they cannot drift from it. */
+const isProvider = (href, key) => providerFor(href)?.key === key;
+const isTikTok = (href) => isProvider(href, 'tiktok');
+const isInstagram = (href) => isProvider(href, 'instagram');
 
 /**
  * Resolve a TikTok URL (short `/t/{code}` OR canonical `/@user/video/{id}`) to its
@@ -127,12 +84,15 @@ export async function resolveTikTokSrc(href, fetchImpl) {
 			});
 		});
 	try {
-		const r = await doFetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(String(href)));
+		const tiktok = rowFor('tiktok');
+		const r = await doFetch(tiktok.oembed(String(href)));
 		if (!r?.ok) return null;
 		const j = await r.json();
 		const html = String((j?.html) || '');
 		const id = (html.match(/data-video-id="(\d+)"/) || html.match(/\/video\/(\d+)/) || [])[1];
-		return id ? `https://www.tiktok.com/player/v1/${id}?autoplay=1` : null;
+		// Same rebuild-from-id rule as the sync path: the src comes from the row's own
+		// template and the parsed NUMERIC id, never from the response HTML.
+		return id ? tiktok.embed(id) : null;
 	} catch (_e) {
 		return null;
 	}
@@ -232,7 +192,7 @@ function play(poster) {
 			onMessage = (e) => {
 				try {
 					if (!modal || modal.root !== root) return;
-					if (!/(^|\.)instagram\.com$/i.test(new URL(e.origin).hostname)) return;
+					if (!ownsHost(rowFor('instagram'), new URL(e.origin).hostname)) return;
 					const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
 					const h = d && d.type === 'MEASURE' && d.details && Number(d.details.height);
 					if (h && h > 0) shell.style.height = Math.min(Math.round(h), Math.round(window.innerHeight * 0.86)) + 'px';
