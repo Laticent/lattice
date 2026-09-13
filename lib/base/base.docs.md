@@ -1214,10 +1214,20 @@ slide. A build-stage rewriter injects `<img class="deck-logo"
 src="…">` as the first child of each selected `<section>` — same
 shape Marp uses for `<header>` and `<footer>`. CSS desaturates the
 img to a faint grayscale watermark via `filter: grayscale(1)`,
-inverting the brightness on dark-canvas layouts (`.title`,
-`.divider`, `.closing`, `.dark`) so the mark stays legible on every
-theme without per-author light/dark variants. Works on SVG, PNG, and
-JPEG.
+inverting the brightness on a DARK CANVAS so the mark stays legible on
+every theme without per-author light/dark variants. Works on SVG, PNG,
+and JPEG.
+
+The flip is a token the canvas sets, not a list of layouts. `img.deck-logo`
+reads `filter: var(--deck-logo-filter, <light-canvas default>)`, and every
+rule that declares `color-scheme: dark` for a canvas sets
+`--deck-logo-filter: var(--deck-logo-filter-inverse)` beside it; `.print`
+gives the token back, because paper is a light ground. This used to name
+`.title`, `.divider`, `.closing`, `.dark` — LAYOUT classes, which agree with
+the canvas only while those layouts are always dark. They are not:
+`divider light` replaces the canvas and the print band remaps it, and on
+both the mark rendered light-gray on a light ground and disappeared (#2149).
+A theme retunes the flip with `:root { --deck-logo-filter-inverse: … }`.
 
 ```yaml
 ---
