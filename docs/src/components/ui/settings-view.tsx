@@ -311,22 +311,48 @@ export function SettingsSectionTabs({
 	const shortcuts = tabs.slice(0, SHORTCUTS);
 	const active = tabs.find((t) => t.value === value);
 	const activeIsOverflow = active != null && !shortcuts.some((t) => t.value === value);
+	// ROVING TABINDEX + arrow keys, the WAI-ARIA tabs pattern — borrowed from `PillTabs`,
+	// which spells out why in its own header: declaring `role="tab"` without it is a
+	// contract violation, because a screen-reader user hears "tab" and the arrow keys do
+	// nothing. The first cut of this component declared the roles and implemented neither.
+	//
+	// When the active section is in the overflow, NO shortcut is selected — so the first one
+	// takes the tab stop, or the strip would have no reachable tab at all.
+	const focusIndex = shortcuts.findIndex((t) => t.value === value);
+	const tabStop = focusIndex < 0 ? 0 : focusIndex;
+	const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+		let next = -1;
+		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (tabStop + 1) % shortcuts.length;
+		else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (tabStop - 1 + shortcuts.length) % shortcuts.length;
+		else if (e.key === 'Home') next = 0;
+		else if (e.key === 'End') next = shortcuts.length - 1;
+		if (next < 0) return;
+		e.preventDefault();
+		onValueChange(shortcuts[next].value);
+		e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+	};
 	// One tab is enough to navigate with — the chevron would be a menu of one.
 	if (tabs.length <= 1) return null;
 	return (
-		<div className={cn('flex flex-wrap items-center gap-1.5', className)} role="tablist" aria-label={ariaLabel}>
-			{shortcuts.map((t) => (
-				<button
-					key={t.value}
-					type="button"
-					role="tab"
-					aria-selected={t.value === value}
-					onClick={() => onValueChange(t.value)}
-					className={cn(SECTION_PILL, t.value === value ? SECTION_PILL_ON : SECTION_PILL_OFF)}
-				>
-					{t.label}
-				</button>
-			))}
+		<div className={cn('flex flex-wrap items-center gap-1.5', className)}>
+			{/* The tablist holds TABS AND NOTHING ELSE. The chevron is a sibling outside it:
+			    a non-tab child inside `role="tablist"` is an `aria-required-children` axe
+			    violation, and the first cut put it in there. */}
+			<div className="contents" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
+				{shortcuts.map((t, i) => (
+					<button
+						key={t.value}
+						type="button"
+						role="tab"
+						aria-selected={t.value === value}
+						tabIndex={i === tabStop ? 0 : -1}
+						onClick={() => onValueChange(t.value)}
+						className={cn(SECTION_PILL, t.value === value ? SECTION_PILL_ON : SECTION_PILL_OFF)}
+					>
+						{t.label}
+					</button>
+				))}
+			</div>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<button

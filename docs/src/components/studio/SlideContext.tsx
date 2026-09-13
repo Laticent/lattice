@@ -76,10 +76,11 @@ export type SlideContextBodyProps = {
 	savedFinish?: SavedFinishMenuEntry[];
 	/** Commit a pure transform against the FRESHEST slide chunk (avoids stale drafts). */
 	onMutate: (fn: (chunk: string) => string) => void;
-	/** Grouped (pill-tabs) or list (every section in one scroll). Owned by the shell and
-	 *  shared with the deck scope — one panel's view choice is the other's too. */
+	/** Grouped (sections behind a strip) or list (every section in one scroll). Owned by
+	 *  the shell and shared with the deck scope — one panel's view choice is the other's
+	 *  too. The SETTER is not passed: the toggle that writes it lives in the scope banner,
+	 *  which the shell owns, so this body only ever reads the value. */
 	view: SettingsView;
-	onViewChange: (v: SettingsView) => void;
 	/** The live search text. The SHELL owns it, because the one search field now lives in
 	 *  the scope banner above this body and serves whichever scope is open — so the state
 	 *  has to sit where the banner is. Still per-scope and still not persisted: a query
@@ -717,9 +718,12 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<TabIntro>The slide's furniture — the running header, footer, page number, and the section-progress rail. Hide whatever this slide doesn't need.</TabIntro>
 							<Row label="Clean slide" hint="hide chrome" desc="Hide header, footer and page number." help={<>All three at once — for a full-bleed slide that should carry no furniture. The section rail is separate, below.</>}><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
 							{!has('silent') && (
-								// A SCOPE: it takes the indent rule with its three rows when they filter out,
-								// and "hide" or "header" reaches them through the group as well as the row.
-								<SettingsScope label="Hide header footer page number" keywords="chrome furniture" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+								// A SCOPE, so the indent rule goes with its three rows when they filter out.
+								// Its label names the GROUP, not its members: it read "Hide header footer
+								// page number", and because a matched group makes every child a hit, typing
+								// one row's name returned all three. A label is what you would type to mean
+								// the whole group — never a concatenation of what is inside it.
+								<SettingsScope label="Slide furniture" keywords="chrome parts" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
 									<Row label="Hide header" desc="The running title along the top."><Switch label="Hide header" on={has('no-header')} onClick={() => toggle('no-header')} /></Row>
 									<Row label="Hide footer" desc="The running line along the bottom."><Switch label="Hide footer" on={has('no-footer')} onClick={() => toggle('no-footer')} /></Row>
 									<Row label="Hide page number" desc="This slide's page number."><Switch label="Hide pagination" on={has('no-paginate')} onClick={() => toggle('no-paginate')} /></Row>

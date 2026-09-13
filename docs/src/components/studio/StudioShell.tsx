@@ -4067,6 +4067,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The Inspector's scope-switch + active body — shared by the desktop/tablet
 	// column AND the mobile Sheet (one source of truth; HARD RULE #15). The wrapper
 	// (an <aside> on desktop, a <Sheet> on mobile) differs; the innards do not.
+	// Two phrasings of the same fact: the sentence where the row can hold it, an
+	// abbreviation where it cannot. The long form is what the live region announces at
+	// every width — see the banner below.
+	const scopeLine = inspectorScope === 'deck'
+		? { full: `Set it once — all ${slides.length} slides follow`, short: `All ${slides.length} slides` }
+		: { full: `Slide ${activeFullIndex + 1} — overrides the deck`, short: `Slide ${activeFullIndex + 1} override` };
+
 	const inspectorScopeContent = (
 		<>
 			{/* Scope switch on tablet + mobile: a Slide-first segment. On desktop the
@@ -4096,31 +4103,37 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    panel sets how it is configured — calling both "editing" made the two read as the
 			    same act. Both lines are active and address the author directly ("Set it once…",
 			    "What you set here…") rather than describing the panel to itself. */}
-			<div role="status" aria-live="polite" className="@container/scopebar flex min-w-0 items-center gap-1.5 border-b border-border px-3.5 py-2" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
+			<div className="@container/scopebar flex min-w-0 items-center gap-1.5 border-b border-border px-3.5 py-2" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
 				{/* ONE line, and it is the line that says something. This band used to be a
 				    title, a badge restating the title, an icon restating the scope, and a
 				    sentence restating all three — 72px of framing above a panel whose first
-				    control already sat 414px down a 390x844 phone.
-				    · the ICON went to the scope switch above, where it names the control that
-				      actually changes scope (and on mobile it was the second sliders glyph
-				      within 50px of the sheet header's);
-				    · the BADGE went because "Deck-wide" next to "Configure the whole deck" is
-				      the same fact twice;
-				    · the TITLE and the SENTENCE merged, keeping the sentence's content — it is
-				      the half that carries the slide count and the consequence.
-				    What is left is the consequence plus the find toolbar, which had been sitting
-				    on its own 40px row below with an empty left half. */}
-				{/* `sr-only`, NOT `hidden`, and not a shorter sentence either. The toolbar and the
-				    close control take ~110px of this row, so below about a 320px panel the line
-				    has ~110px left and truncates to "Set it once — a…", which is worse than
-				    absent. Shortening the copy to fit only moves the width it breaks at, because
-				    the docked panel goes down to 260px (SET_MIN).
-				    Visually hidden keeps it in the accessibility tree, which matters more than
-				    usual here: this element is the panel's aria-live region, so it is what
-				    ANNOUNCES a deck↔slide switch. A container query, because the panel is
-				    resizable at any viewport — the window's width says nothing about this row's. */}
-				<span className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:sr-only" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
-					{inspectorScope === 'deck' ? `Set it once — all ${slides.length} slides follow` : `Slide ${activeFullIndex + 1} — overrides the deck`}
+				    control sat 414px down a 390x844 phone. The icon moved to the scope switch,
+				    the badge went (it was the title again), title and sentence merged, and the
+				    find toolbar came up off a 40px row of its own.
+				    THE ROW ALWAYS CARRIES WORDS. A first cut hid the line below a 320px
+				    container, which is every DOCKED desktop width — SET_DEFAULT is 296 and
+				    296 − 28px of padding = 268 — so the banner rendered as icons and a tint at
+				    the default, and the scope was legible only by drag-resizing the panel past
+				    348px. Two phrasings that swap on the container instead: the sentence where
+				    it fits, an abbreviation where it does not. */}
+				{/* The ANNOUNCEMENT is its own node, and it carries the long form at every
+				    width — a screen reader should hear the sentence, not the abbreviation.
+				    It is also no longer a WRAPPER around the toolbar: when the whole row was
+				    the live region, opening search swapped the toolbar's subtree inside it and
+				    `PanelSearch` mounted its Clear button on the first keystroke, so a polite
+				    region announced additions that were not the scope changing. */}
+				<span role="status" aria-live="polite" className="sr-only">{scopeLine.full}</span>
+				{/* The scope ICON returns on DESKTOP only, and only because the scope switch it
+				    moved to is `compact`-gated — without it the docked banner names the scope
+				    nowhere, leaving a background tint as the sole cue between deck and slide. */}
+				{!compact && (inspectorScope === 'deck'
+					? <SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
+					: <FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />)}
+				<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+					{scopeLine.full}
+				</span>
+				<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+					{scopeLine.short}
 				</span>
 				<SettingsToolbar
 					scope={inspectorScope === 'deck' ? 'Deck' : 'Slide'}
@@ -4130,14 +4143,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					onQueryChange={inspectorScope === 'deck' ? setDeckQuery : setSlideQuery}
 					searching={inspectorScope === 'deck' ? deckSearching : slideSearching}
 					onSearchingChange={inspectorScope === 'deck' ? setDeckSearching : setSlideSearching}
-					className="!pt-0 min-w-0 shrink @max-[320px]/scopebar:flex-1"
+					className="!pt-0 min-w-0 shrink"
 				/>
 				{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><X className="size-4" /></button></Tip>}
 			</div>
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>
 			) : (
-				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} onViewChange={setSettingsView} query={slideQuery} />
+				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} query={slideQuery} />
 			)}
 		</>
 	);
@@ -5728,25 +5741,37 @@ function TabNote({ children }: { children: React.ReactNode }) {
 // standing over nothing is a row that lies about having content. `SettingsScope` gives it
 // the second half and makes the disclosure findable by its own name.
 //
-// FULLY CONTROLLED, and the first cut was not — it passed `open={query ? true : undefined}`,
-// which React only writes when the PROP changes. A user clicking the triangle moves the DOM
-// attribute behind React's back, and React never corrects it while `open` stays `true`. Two
-// failures fell out, both measured: collapse it mid-search and the next query's hit is
-// rendered inside a shut disclosure with no "no matches" note to explain the empty panel;
-// and open it by hand, run a search, close the search, and `true → undefined` strips the
-// attribute and shuts a disclosure the user opened. Holding `userOpen` in state fixes both —
-// a live query forces it open (during a search a disclosure is not a disclosure, it is just
-// content), and closing the search restores exactly what the user had.
+// UNDER SEARCH IT IS NOT A DISCLOSURE AT ALL — the children render inline and the
+// `<details>` is not in the tree. That is the fix, and the two half-measures before it are
+// why it is written this way.
+//
+// First cut: `open={query ? true : undefined}`. React only writes a DOM prop when the prop
+// CHANGES, so a user click moved the attribute behind React's back and it never corrected.
+// Second cut: controlled `open`, with `onToggle` ignoring the user while a query was live —
+// which SWALLOWED the toggle. No state change, no re-render, `open` still `true` from
+// React's side while the DOM said `false`: the same desync through a different door, and
+// the exact failure the fix claimed to remove. Collapse it mid-search, type a new query,
+// and its one hit rendered inside a shut disclosure — with no "no matches" note, because
+// there WAS a hit, so the panel showed a lone summary over an empty column.
+//
+// There is no toggle to swallow if there is no disclosure. `userOpen` survives the search
+// untouched, so closing the field restores exactly what the author had open.
 function More({ label, children }: { label: string; children: React.ReactNode }) {
 	const query = useSettingsQuery();
 	const [userOpen, setUserOpen] = React.useState(false);
+	if (query) {
+		return (
+			<SettingsScope label={label}>
+				<div className="mt-2 border-t border-border/60 pt-2">
+					<div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+					<div className="mt-1">{children}</div>
+				</div>
+			</SettingsScope>
+		);
+	}
 	return (
 		<SettingsScope label={label}>
-			<details
-				open={!!query || userOpen}
-				onToggle={(e) => { if (!query) setUserOpen(e.currentTarget.open); }}
-				className="mt-2 border-t border-border/60 pt-2"
-			>
+			<details open={userOpen} onToggle={(e) => setUserOpen(e.currentTarget.open)} className="mt-2 border-t border-border/60 pt-2">
 				<summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[var(--text-heading)]">{label}</summary>
 				<div className="mt-1">{children}</div>
 			</details>

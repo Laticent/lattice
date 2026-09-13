@@ -435,6 +435,13 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 	});
 });
 
+/** The scope echo's ANNOUNCEMENT — the `role="status"` node, not the visible line.
+ *  The banner carries the long form twice by design (announced once, drawn once, with an
+ *  abbreviation swapped in on a narrow container), so a bare `getByText` matches two nodes
+ *  and jsdom cannot resolve the container query that decides which one is drawn. The live
+ *  region is the half that is there at every width. */
+const scopeEcho = () => screen.queryAllByRole('status').map((n) => n.textContent ?? '').join(' | ');
+
 describe('StudioShell — e2e flows (jsdom)', () => {
 	it('opens and closes Present (the verb)', async () => {
 		const user = setup();
@@ -559,10 +566,10 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		// The scope echo is one line now — it carries the consequence rather than a title,
 		// a badge and a sentence all restating the scope (2026-09-13 note §8). It is also
 		// `sr-only` below a 320px panel, so address it by TEXT rather than by visibility.
-		const echo = () => screen.queryByText(/Set it once — all \d+ slides follow/);
+		const echo = () => (/Set it once — all \d+ slides follow/.test(scopeEcho()) ? true : null);
 		expect(echo()).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		expect(await screen.findByText(/Set it once — all \d+ slides follow/)).toBeInTheDocument();
+		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
 		// The Chrome shortcut is a stable marker that the deck-scope body rendered — it is
 		// one of the two sections the strip keeps as a pill.
 		expect(screen.getByRole('tab', { name: 'Chrome' })).toBeInTheDocument();
@@ -764,7 +771,7 @@ describe('StudioShell — responsive layout', () => {
 		const user = setup();
 		// Nothing docked open by default; the deck stays visible.
 		expect(screen.queryByText('Deck read')).not.toBeInTheDocument();
-		expect(screen.queryByText(/Set it once — all \d+ slides follow/)).not.toBeInTheDocument();
+		expect(scopeEcho()).not.toMatch(/Set it once — all \d+ slides follow/);
 		// Tablet keeps the docked column (in-panel segment, no rail), and Deck scope opens
 		// from the overflow menu rather than a bar button: "Settings" was one of three
 		// tablet-only inline toggles (with Coach and Chat) that the 2026-08-18 width ladder
@@ -772,7 +779,7 @@ describe('StudioShell — responsive layout', () => {
 		// unchanged — a DOCKED column, not a dimming sheet — only the door it comes through.
 		await user.click(screen.getByRole('button', { name: 'More controls' }));
 		await user.click(await screen.findByRole('menuitem', { name: /Settings — deck/ }));
-		expect(await screen.findByText(/Set it once — all \d+ slides follow/)).toBeInTheDocument();
+		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
 	});
 });
 
@@ -783,13 +790,13 @@ describe('StudioShell — desktop activity bar', () => {
 		expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
 		// The bar's Deck icon opens the settings panel at deck scope.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		expect(await screen.findByText(/Set it once — all \d+ slides follow/)).toBeInTheDocument();
+		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
 		// Switching to Slide swaps the one panel in place (grouped exclusivity).
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
-		expect(await screen.findByText(/Slide \d+ — overrides the deck/)).toBeInTheDocument();
+		await waitFor(() => expect(scopeEcho()).toMatch(/Slide \d+ — overrides the deck/));
 		// Clicking the ACTIVE scope icon closes the panel — the one collapse rule.
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
-		expect(screen.queryByText(/Slide \d+ — overrides the deck/)).not.toBeInTheDocument();
+		expect(scopeEcho()).not.toMatch(/Slide \d+ — overrides the deck/);
 	});
 
 	it('the Architect stays independent of settings — the coach can be up WHILE you tune (grouped, not global)', async () => {
@@ -801,7 +808,7 @@ describe('StudioShell — desktop activity bar', () => {
 		// Opening deck settings does NOT close the coach — independent groups, not a
 		// single mutually-exclusive sidebar.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		expect(await screen.findByText(/Set it once — all \d+ slides follow/)).toBeInTheDocument();
+		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
 		expect(screen.getByRole('button', { name: 'Toggle Coach' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
@@ -906,12 +913,12 @@ describe('StudioShell — topbar information architecture', () => {
 		// as a Sheet, but it hosts the SAME Slide-first scope switch + echo as the
 		// desktop/tablet column — opening from "Settings" lands on deck scope.
 		await user.click(within(paneBar).getByRole('button', { name: 'Settings' }));
-		expect(await screen.findByText(/Set it once — all \d+ slides follow/)).toBeInTheDocument();
+		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
 		// The Slide-first segment is present, so a user can flip to this-slide scope
 		// without leaving the sheet — the deterministic scope switch, one surface.
 		const scopeSheet = screen.getByRole('dialog');
 		await user.click(within(scopeSheet).getByRole('button', { name: 'Slide scope' }));
-		expect(await within(scopeSheet).findByText(/Slide \d+ — overrides the deck/)).toBeInTheDocument();
+		await waitFor(() => expect(within(scopeSheet).getAllByRole('status').map((n) => n.textContent ?? '').join(' | ')).toMatch(/Slide \d+ — overrides the deck/));
 	});
 
 	it('the launcher and deck switcher no longer duplicate "New deck" (deck CRUD lives in the switcher)', async () => {

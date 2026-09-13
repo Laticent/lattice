@@ -1,6 +1,6 @@
 - **Changed: the Studio's settings panels give a third of their height back to the
   settings.** The first control sat 414px down a 390×844 phone — half the screen was
-  chrome. It now sits at 297px, and 231px in the docked desktop panel (was 351px).
+  chrome. It now sits at 297px, and 231px in the docked desktop panel (was 352px).
   Nothing moved more than one tap away. The scope banner is one line instead of four
   stacked restatements of the same fact: its icon moved to the Slide/Deck switch (the
   same two icons the desktop activity bar already used), its `Deck-wide` badge went

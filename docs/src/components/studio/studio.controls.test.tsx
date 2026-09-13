@@ -1118,8 +1118,30 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		expect(details().open).toBe(false);
 		await user.click(screen.getByRole('button', { name: 'Search deck settings' }));
 		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'claim');
-		expect(details().open).toBe(true);
 		expect(screen.getByLabelText('Choose claim')).toBeInTheDocument();
+	});
+
+	it('a hit under "more" cannot be hidden by collapsing the disclosure MID-search', async () => {
+		// The arm the first version of the test above never covered, and the one the second
+		// implementation still failed: with `onToggle` ignoring the user while a query was
+		// live, the click was SWALLOWED — React kept `open: true` while the DOM went false,
+		// and the next query's one hit rendered inside a shut disclosure. No "no matches"
+		// note either, because there WAS a hit: a lone summary over an empty column.
+		// Under search there is no disclosure at all now, so there is nothing to collapse.
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('button', { name: 'Search deck settings' }));
+		const field = screen.getByRole('textbox', { name: 'Search deck settings' });
+		await user.type(field, 'corners');
+		expect(await screen.findByLabelText('Choose corners')).toBeVisible();
+
+		// Try to collapse it mid-search — the summary is not there to click.
+		expect(screen.queryByText('More look settings')?.closest('details') ?? null).toBeNull();
+
+		// …and the next query's hit is visible, not buried.
+		await user.clear(field);
+		await user.type(field, 'claim');
+		expect(await screen.findByLabelText('Choose claim')).toBeVisible();
 	});
 
 	it('the one search field serves whichever scope is open, and a query never crosses', async () => {

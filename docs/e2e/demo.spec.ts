@@ -74,7 +74,10 @@ test('the walkthrough reskin drives the REAL deck Inspector (not a phantom point
 	await gotoStudio(page);
 	await startTour(page); // the full walkthrough
 	await expect(page.locator(STAGE)).toBeVisible();
-	await expect(page.getByText(/Set it once — all \d+ slides follow/)).toBeAttached({ timeout: 100_000 });
+	// The scope echo's announcement — see the note in split.spec.ts; the visible line has
+	// two phrasings and a container query decides which is drawn.
+	await expect(page.getByRole('status').filter({ hasText: /Set it once — all \d+ slides follow/ }).first())
+		.toHaveText(/Set it once — all \d+ slides follow/, { timeout: 100_000 });
 });
 
 // The full walkthrough (above) exercises every toolkit helper; these prove the OTHER four tours

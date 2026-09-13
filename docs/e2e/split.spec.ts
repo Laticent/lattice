@@ -235,7 +235,12 @@ test.describe('studio workspace group at the 1100px threshold', () => {
 		await page.getByRole('button', { name: 'Toggle Coach' }).click();
 		await expect(page.getByText('Deck read')).toBeVisible();
 		await openInspector(page);
-		await expect(page.getByText(/Set it once — all \d+ slides follow/)).toBeAttached();
+		// The scope echo's ANNOUNCEMENT. The banner carries the long form twice by design
+		// (announced once, drawn once, with an abbreviation swapped in on a narrow
+		// container), so a bare getByText is a strict-mode violation — and which visible
+		// span is drawn depends on a container query. The live region is the half that is
+		// there at every width.
+		await expect(page.getByTestId('studio-settings').getByRole('status')).toHaveText(/Set it once — all \d+ slides follow/);
 
 		// The split is live in this configuration…
 		await expect(separator(page)).toBeVisible();

@@ -325,14 +325,20 @@ describe('no SettingsBlock in either panel wraps a Field or a Row', () => {
 			let m = open.exec(src);
 			while (m !== null) {
 				const end = src.indexOf('</SettingsBlock>', m.index);
+				// ALWAYS advance. `continue` without this spun forever on a self-closing
+				// `<SettingsBlock … />`, hanging vitest instead of reporting anything.
+				const from = m.index;
+				m = open.exec(src);
 				if (end < 0) continue;
 				blocks++;
-				const inner = src.slice(m.index, end);
-				// A nested block would end the span early; that is fine, it is still a subset.
-				for (const tag of ['<Row ', '<Field ', '<TextRow ']) {
-					if (inner.includes(tag)) offenders.push(`${tag.trim()} inside the block at index ${m.index}`);
+				const inner = src.slice(from, end);
+				// A WORD BOUNDARY, not a trailing space: `inner.includes('<Row ')` missed a
+				// multi-line `<Row` / `<TextRow` whose props start on the next line, and that
+				// formatting is already in this tree — so the guard would have certified the
+				// AND-gate right back in.
+				for (const tag of ['Row', 'Field', 'TextRow']) {
+					if (new RegExp(`<${tag}\\b`).test(inner)) offenders.push(`<${tag}> inside the block at index ${from}`);
 				}
-				m = open.exec(src);
 			}
 			expect(offenders).toEqual([]);
 			// …and the walk actually found blocks, so a regex that silently stops matching
@@ -403,6 +409,38 @@ describe('SettingsSectionTabs', () => {
 		await user.click(screen.getByRole('button', { name: /all sections/ }));
 		await user.click(await screen.findByRole('menuitem', { name: 'Motion' }));
 		expect(onChange).toHaveBeenCalledWith('motion');
+	});
+
+	it('implements the roving tabindex and arrow keys its roles promise', async () => {
+		// Declaring `role="tab"` without them is an ARIA contract violation — a screen-reader
+		// user hears "tab" and the arrows do nothing. The first cut declared the roles and
+		// implemented neither.
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+		render(<SettingsSectionTabs tabs={SIX} value="look" onValueChange={onChange} ariaLabel="Deck settings sections" />);
+		const tabs = screen.getAllByRole('tab');
+		expect(tabs.map((t) => t.getAttribute('tabindex'))).toEqual(['0', '-1']);
+		tabs[0].focus();
+		await user.keyboard('{ArrowRight}');
+		expect(onChange).toHaveBeenCalledWith('chrome');
+	});
+
+	it('keeps a reachable tab stop when the active section is in the overflow', () => {
+		// No shortcut is selected then, so without this the strip has no tab in the tab order
+		// at all and a keyboard user cannot reach it.
+		render(<SettingsSectionTabs tabs={SIX} value="speech" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+		expect(screen.getAllByRole('tab').map((t) => t.getAttribute('tabindex'))).toEqual(['0', '-1']);
+	});
+
+	it('puts NOTHING but tabs inside the tablist — the chevron is a sibling', () => {
+		// A non-tab child of `role="tablist"` is an `aria-required-children` axe violation,
+		// and the first cut put the chevron in there.
+		render(<SettingsSectionTabs tabs={SIX} value="look" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+		const list = screen.getByRole('tablist');
+		for (const child of Array.from(list.children)) {
+			expect(child.getAttribute('role')).toBe('tab');
+		}
+		expect(screen.getByRole('button', { name: /all sections/ }).closest('[role="tablist"]')).toBeNull();
 	});
 
 	it('renders nothing for a single section — the chevron would be a menu of one', () => {

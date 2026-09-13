@@ -219,7 +219,7 @@ what make the fourth fit.
    it. This is the 40px row with the empty half.
 5. **The section strip became two shortcut pills plus a chevron holding the full list.**
 
-Result: **297px on the phone, 231px in the docked desktop panel** (from 414 and 351).
+Result: **297px on the phone, 231px in the docked desktop panel** (from 414 and 352).
 
 ### Why two shortcuts, fixed, and not three
 
@@ -261,3 +261,50 @@ tab by name had to learn both routes. One helper per tier does it — `goTab` (S
 `clickSection` (studio.controls), `openSection` (e2e fixture) — each taking whichever route
 exists, so call sites stay written as a section NAME and none of them has to change if the
 shortcut count ever does.
+
+
+### §8.1 — what the second independent check found
+
+The compaction and the six fixes before it self-reviewed; a checker over both found
+**seven** confirmed defects. Three are worth keeping in the record because they are about
+how the first attempt went wrong, not just what it got wrong.
+
+**The banner had no words at the default docked width, and the tests were weakened to
+match.** The title was hidden below a 320px *container* — and `SET_DEFAULT` is 296, minus
+28px of padding, so every docked desktop and tablet width was under it. The scope icon had
+just moved to a `compact`-gated switch and both badges were gone, so the docked banner
+rendered as icons over a tint, with a background colour as the only cue between deck and
+slide. Two tells were in the diff and neither was read as one: `toBeVisible()` became
+`toBeAttached()` in two e2e specs, and a unit test gained a comment saying to address the
+line "by TEXT rather than by visibility". A probe printing `sr-only (announced, not drawn)`
+was read as the fix working, when it meant the deliverable was invisible.
+Now: two phrasings that swap on the container — the sentence where it fits, an abbreviation
+where it does not — the long form announced at every width, and the icon back on desktop,
+where the switch that took it does not render. Words at every width, verified at 390 / 820
+/ 1440 / 2560 in both scopes.
+
+**The `<details>` fix did not hold, through a second door.** The controlled version ignored
+`onToggle` while a query was live, which *swallowed* the toggle: no state change, no
+re-render, `open` still `true` from React's side while the DOM said `false` — the same
+desync the first cut had. Collapse it mid-search, type again, and the new hit rendered
+inside a shut disclosure with no "no matches" note, because there *was* a hit. The test
+covered collapse-then-search and open-search-close, never toggle-*during*-search. Under a
+query there is now no `<details>` at all: the children render inline, so there is no toggle
+to swallow.
+
+**The section strip re-introduced the exact ARIA violation `PillTabs` exists to avoid** —
+`role="tablist"` with `role="tab"` children, no roving tabindex, no arrow keys, and the
+chevron *inside* the tablist as a non-tab child (an `aria-required-children` axe
+violation). Borrowed `PillTabs`'s keyboard implementation and moved the chevron out.
+
+Three smaller ones: a scope labelled `"Hide header footer page number"` — a concatenation of
+its children's labels — so typing one row's name returned all three; the `SettingsBlock`
+guard test matched `'<Row '` with a trailing space, missing a multi-line `<Row`, and could
+spin forever on a self-closing block; and `onViewChange` stayed a required prop nothing
+read. The search toolbar had also ended up *inside* the `aria-live` region, so opening
+search and the first keystroke mutated a polite region — the announcement is its own node
+now.
+
+**The before/after figures are re-derived, not asserted.** Checking the pre-compaction files
+out over the running dev server and re-measuring: phone **414px**, docked desktop **352px**
+(§8 first said 351 — a rounding slip). After: **297px** and **231px**.

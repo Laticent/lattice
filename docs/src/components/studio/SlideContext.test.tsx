@@ -48,7 +48,7 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = [], q
 	const onMutate = vi.fn();
 	const savedFinish = savedFinishNames.map((n) => ({ id: n, name: n, label: n.charAt(0).toUpperCase() + n.slice(1) }));
 	render(
-		<SlideContextBody open chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinish={savedFinish} onMutate={onMutate} view="group" onViewChange={() => {}} query={query} />,
+		<SlideContextBody open chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinish={savedFinish} onMutate={onMutate} view="group" query={query} />,
 	);
 	// Apply the captured transform to the chunk to see the resulting tokens.
 	const applied = () => getClassTokens(onMutate.mock.calls.at(-1)?.[0](chunk));
@@ -108,7 +108,7 @@ describe('SlideContextBody controls', () => {
 	it('shows a Comments tab only with a deckId, and adds a comment for the slide', async () => {
 		const onMutate = vi.fn();
 		render(
-			<SlideContextBody open deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} query="" />,
+			<SlideContextBody open deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" query="" />,
 		);
 		await goTab('Comments');
 		fireEvent.change(screen.getByRole('textbox', { name: 'New comment for this slide' }), { target: { value: 'Check this figure.' } });
@@ -270,12 +270,12 @@ describe('SlideContextBody controls', () => {
 		const edited = '<!-- _class: kpi dark scale-xl -->\n\n# Hi';
 		const onMutate = vi.fn();
 		const { rerender } = render(
-			<SlideContextBody open chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} query="" />,
+			<SlideContextBody open chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" query="" />,
 		);
 		expect(screen.getByRole('button', { name: /reset slide/i })).toBeDisabled();
 		// Simulate an edit landing (the source changed under the drawer).
 		rerender(
-			<SlideContextBody open chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" onViewChange={() => {}} query="" />,
+			<SlideContextBody open chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" query="" />,
 		);
 		const reset = screen.getByRole('button', { name: /reset slide/i });
 		expect(reset).not.toBeDisabled();
@@ -463,12 +463,12 @@ describe('SlideContextBody controls', () => {
 	// shell. What belongs here is what this body does with a query it is handed.
 	it('a query reaches a control in a section that is not open', () => {
 		const { rerender } = render(
-			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" onViewChange={() => {}} query="" />,
+			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" query="" />,
 		);
 		// Look is the open section, so Chrome's rows are not rendered at all.
 		expect(screen.queryByRole('switch', { name: 'Hide pagination' })).toBeNull();
 		rerender(
-			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" onViewChange={() => {}} query="page number" />,
+			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" query="page number" />,
 		);
 		expect(screen.getByRole('switch', { name: 'Hide pagination' })).toBeTruthy();
 		expect(screen.queryByRole('radio', { name: 'Dark' })).toBeNull();
@@ -495,10 +495,20 @@ describe('SlideContextBody controls', () => {
 		expect(screen.queryByLabelText('Brand bar')).toBeNull();
 	});
 
+	it('a group label names the GROUP, so one row\'s name does not return its siblings', () => {
+		// The Chrome indent scope was labelled "Hide header footer page number" — a
+		// concatenation of its children. A matched group makes every child a hit, so typing
+		// one row's name returned all three, and the row-level filter was bypassed.
+		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'page number');
+		expect(screen.getByRole('switch', { name: 'Hide pagination' })).toBeTruthy();
+		expect(screen.queryByRole('switch', { name: 'Hide header' })).toBeNull();
+		expect(screen.queryByRole('switch', { name: 'Hide footer' })).toBeNull();
+	});
+
 	it('the list view drops the tabs and renders every section at once', () => {
 		const onMutate = vi.fn();
 		render(
-			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="list" onViewChange={() => {}} query="" />,
+			<SlideContextBody open chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="list" query="" />,
 		);
 		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
 		expect(screen.getByRole('radio', { name: 'Dark' })).toBeTruthy(); // Look
