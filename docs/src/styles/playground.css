@@ -312,8 +312,13 @@
  * 0.85rem/1.5 against the editor's 13.5px/1.6, and the text sat 34px from the left
  * against the editor's 43px — so every line of the deck slid right and down as the
  * editor booted, by a gap that GREW down the file (1.2px per line). Sources, all in
- * `editor.js`'s `latticeTheme`: `&{fontSize:13.5px}`, `.cm-scroller{lineHeight:1.6}`,
+ * `editor.js`'s `latticeTheme`: `&{fontSize:13.5px}`, `.cm-content{lineHeight:1.6}`,
  * `.cm-content{padding:14px 0}`, plus CodeMirror's own `.cm-line{padding:0 2px 0 6px}`.
+ * (`fontSize`, `lineHeight` and `padding` are now passed to the shared
+ * `lib/editor-chrome.js`; `lineHeight` moved from `.cm-scroller` to `.cm-content`
+ * with it. The computed value on a `.cm-line` is unchanged at 21.6px, which is what
+ * this placeholder has to match — and the e2e case named below measures the real
+ * pair rather than trusting that.)
  * The 6px of that last one is folded into the padding here, because this <pre> stands in
  * for the content, not for a line inside it. */
 .pg-editor-placeholder {

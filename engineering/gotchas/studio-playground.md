@@ -961,6 +961,19 @@ never turn "passed in headless" into "works on iOS."
 
 ## Select-all in the Playground editor paints a light lavender slab
 
+- **RESOLVED AT THE ROOT (2026-09-13) — `drawSelection()` is gone.** Everything below
+  describes a mechanism the Playground no longer runs, and it is kept because the
+  CAUSE recurs (see the matching-bracket entry below, same trap, different package)
+  and because the contrast measurements it records still govern `::selection`.
+  The extension was buying a drawn caret and a drawn selection; nothing on either
+  editor needed it (no multiple selections, no rectangular selection, no search
+  multi-cursor), and it charged a 1px accent hairline the Studio's editor never drew,
+  a duplicate `--cm-selection` token, a third unreachable copy in the Studio's own
+  theme, and this whole cascade fight. The selection is now the NATIVE highlight on
+  every surface, owned by one rule — `::selection` in `styles/native-widgets.css`.
+  Pinned by `docs/e2e/editor-selection-parity.spec.ts`, which drives BOTH editors and
+  asserts they paint the same selection and the same caret.
+
 - **Symptom:** Select-all in the Playground's markdown editor covers the text in
   a pale lavender band that ignores the palette — body text over it measured
   **1.21:1** on cuoio-dark. The SAME action in the Studio's editor is fine. The
@@ -982,7 +995,7 @@ never turn "passed in headless" into "works on iOS."
 - **Fix:** Match the base theme's selector SHAPE and add one class, so the win is
   specificity rather than stylesheet order:
   `&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`.
-  Pinned by `docs/e2e/playground-selection-contrast.spec.ts` (both color modes),
+  Pinned by `docs/e2e/editor-selection-parity.spec.ts` (both color modes),
   which asserts the band's rgb tracks `--accent` and names the four base literals.
 - **Winning the cascade is not the same as being right, and this one wasn't.** With
   the base theme beaten, the recipe it restored — `--accent` at 22%, ink left alone —
@@ -1009,7 +1022,10 @@ never turn "passed in headless" into "works on iOS."
   `docs/src/playground/editor.js` for the one that draws its own. Nothing in the cascade
   makes them agree; `docs/src/playground/editor-selection.test.ts` fails when they drift.
 - **The general trap:** any `EditorView.theme()` key that only names the element
-  can be out-specified by the base theme's `&light`/`&dark` compound selectors.
+  can be out-specified by the base theme's `&light`/`&dark` compound selectors — or
+  by a plain `&.cm-focused` one, which is how the same trap took the matching-bracket
+  highlight in a DIFFERENT package (see "The matching-bracket highlight is teal on
+  every palette" below). `&` counts as a class.
   Before assuming your theme lost to stylesheet ORDER, read the base theme's
   selector for that class in `@codemirror/view/dist/index.js` and count classes.
 - **Beware the misdiagnosis this one already caused:** a `requestAnimationFrame`
@@ -1021,6 +1037,140 @@ never turn "passed in headless" into "works on iOS."
 - **Not the Studio's problem:** `components/studio/editor-theme.ts` has no
   `drawSelection()`, so its selection is the NATIVE highlight, owned by
   `::selection` in `styles/native-widgets.css` — no base-theme rule to lose to.
+
+## The matching-bracket highlight is teal on every palette
+
+- **Symptom:** Put the caret next to a bracket in the Playground editor and the
+  matched pair is boxed in **teal** — the same teal on cuoio's warm gold, on onyx,
+  and on the four a11y palettes. A bracket with no partner gets a fixed **red**,
+  which is the one hue `a11y-protanopia` and `a11y-deuteranopia` exist to avoid.
+  Nothing in the palette moves either color.
+- **Cause:** The same specificity trap as the select-all slab above, one package
+  over. `@codemirror/language` ships
+  `EditorView.baseTheme({ '&.cm-focused .cm-matchingBracket': { backgroundColor:
+  '#328c8252' } })`, and **`&` compiles to the base theme's own generated class**, so
+  that selector carries THREE classes. The editor's key was a bare
+  `.cm-matchingBracket`, which `EditorView.theme()` prefixes to TWO. The base rule
+  won. `--cm-match` resolved correctly on all 36 palette-modes the whole time and
+  **no rule ever read it**. `.cm-nonmatchingBracket` was never themed at all.
+- **`Prec.lowest` is not a defense.** `EditorView.baseTheme` wraps its module in
+  `Prec.lowest`, which is easy to read as "the base theme always loses". It orders
+  the *stylesheets*; specificity is settled before order ever matters.
+- **The tell was a state-dependent color.** Under the bare key the mark was teal
+  while focused and an accent wash while blurred — measured on the built site as
+  `rgba(50, 140, 130, 0.32)` then `color(srgb 0.478 0.353 0.063 / 0.16)`. That is the
+  signature of a `.cm-focused`-scoped base rule beating an unscoped theme rule: the
+  moment the base selector stops matching, yours starts painting. A highlight that
+  changes color on blur is a cascade report, not a theming bug.
+- **Fix:** two arms, because the base rule is `.cm-focused`-scoped and the two focus
+  states are genuinely different cascades:
+  `&.cm-editor .cm-matchingBracket, &.cm-editor.cm-focused .cm-matchingBracket`
+  (four classes on the focused arm, three on the blurred, which has no competitor).
+- **It is a RING now, and that is a measurement result, not taste.** The bracket AT
+  THE CARET is always on the active line — the caret is what marks it — so any fill
+  stacks on the active-line band. (Its partner often sits on another line over bare
+  `--bg`, which measures about a point better; the caret-side one binds.) Swept over
+  18 palettes x 2 modes
+  against the six inks these editors paint, the active line alone clears with room
+  (primary 5.03, secondary 3.69), but an accent wash on top of it fails AA from
+  **10%** upward (4.42 for `--text-body` on cuoio/light, the site's default palette
+  and mode). 8% passes at 4.53 and is too faint to be worth a token. **There is no
+  alpha that is both visible and AA**, so the fill is gone and a 1px ring carries the
+  signal: a ring sits at the cell's edge rather than under the ink, so the ink's
+  backdrop stays exactly the active line's 5.03. Matched is solid `--accent`,
+  unmatched is **dashed** `--fail`.
+- **The dashed arm is load-bearing, not decorative.** The base theme separated matched
+  from unmatched by hue alone, and on the four a11y palettes hue cannot carry it: they
+  tune `--accent` and `--fail` for their own CVD, which puts the two rings **1.52:1**
+  apart on achromatopsia, 1.49 on protanopia and 1.40 on tritanopia — the same color,
+  to a reader. Line style is the channel that survives that. Do not "simplify" the two
+  rules into one that differs only in `var()`.
+- **The number in the old comment measured a color nothing painted.** `--cm-match`
+  carried a note calling it "2.71:1 worst (onyx/light) for secondary ink", logged as
+  a known finding. That figure is reproducible — an accent wash at 26% really does
+  measure 2.70 there — but it described a declaration that lost its cascade, so it
+  was never what a reader saw. **A contrast number is about a rendered surface; if it
+  was not read off one, it is arithmetic about a hypothesis.** Sweeping over bare
+  `--bg` made the same mistake a second time in this very fix: the first cut shipped
+  16% / 12% washes measured against a backdrop the bracket at the caret never has.
+  Looking at the rendered result is what showed the active-line band underneath.
+- **Pinned by** `docs/e2e/playground-bracket-contrast.spec.ts` (both color modes,
+  both focus states, on the real Playground) and
+  `docs/src/playground/editor-bracket-marks.test.ts`, which is the per-PR half: it
+  reads the base selector **out of `node_modules`** and fails if ours stops
+  out-specifying it, so a dependency bump that lengthens the base selector cannot
+  reintroduce this quietly.
+- **The general rule, now with two instances:** before assuming your
+  `EditorView.theme()` key lost to stylesheet ORDER, open the base theme for that
+  class and **count classes** — remembering that `&` is one of them. Two packages
+  have now beaten a plain element key on this surface.
+
+## The two deck editors dressed themselves independently
+
+- **Symptom:** The Playground and the Studio render the same CodeMirror DOM and look
+  subtly unlike each other — the Playground rings a selection with a 1px accent
+  hairline and the Studio does not; the carets are different colors; the type sizes
+  differ. A fix to one editor's chrome silently skips the other.
+- **Cause:** two `EditorView.theme()` objects, each declaring `&`, `.cm-content`,
+  `.cm-gutters`, `&.cm-focused` and the coarse-pointer guard for itself. The LINT
+  surface and the tooltip shell had already been extracted to `lib/lint-theme.js` for
+  exactly this reason; the editor's own chrome never was, so it forked and drifted.
+- **Fix:** `docs/src/lib/editor-chrome.js` — one definition, spread by both. It shares
+  what must never differ (canvas, ink, gutter, caret, focus reset, the iOS zoom
+  guard) and takes the rest as PARAMETERS (type size, padding, line-height, gutter
+  divider), so a real per-surface difference is declared at the call site instead of
+  being two forks nobody compares.
+- **The caret moved to `--text-body`, and that is the AA argument, not taste.**
+  `caretColor` marks the insertion point among the text you are typing, so it must
+  stay as legible as that text. `--text-body` is AA against `--bg` by contract;
+  `--accent` is a brand color with no such guarantee. The Studio already argued this;
+  the Playground used `--accent` on a surface where the native caret did not even
+  render (drawSelection() drew its own).
+- **FOUR of the Studio's rule groups were DEAD, and deleting them is most of the
+  cleanup.** Its surfaces install neither `highlightActiveLine()` nor
+  `drawSelection()`, so `.cm-activeLine`, `.cm-activeLineGutter`, `.cm-cursor` and
+  `.cm-selectionBackground` never rendered there — measured on the real Studio, zero
+  elements of each after a select-all. The selection rule was the worst: a third copy
+  of the 18% accent wash, unreachable, and invisible to the test that compared the
+  other two. **Do not "reconcile" a value against a rule that never paints** — the
+  Studio's `.cm-activeLine` carried 5% against the Playground's 12%, and converging
+  on the Studio's number would have shipped the near-invisible band the 12% was
+  measured to fix.
+- **TWO FOOTGUNS in a spread-based theme, both silent, both cost real time here.**
+  A theme spec is a flat object literal, so:
+  1. **A duplicate key REPLACES, it does not merge.** Writing `...editorChrome({…})`
+     and then a second `'&': {…}` below it for your tokens drops the shared `&`
+     entirely — `height`, `fontSize`, `color`, `backgroundColor`, gone, with no lint
+     error, because a spread and a literal key are not duplicate keys to a linter.
+     That shipped in a first cut here and put the Playground's editor at 16px instead
+     of 13.5px; only a computed-style read on the real page caught it. Surface tokens
+     go through the module's `vars` parameter for this reason.
+  2. **A shared module must not carry its own `@media` key** — it would replace the
+     consumer's, taking that consumer's other coarse-pointer rules with it. Hence the
+     separate `editorChromeCoarse` export, the same shape `lib/lint-theme.js` uses for
+     `lintThemeCoarse`, spread INSIDE each consumer's own `@media` block, which stays
+     LAST in the object (same-specificity rules resolve in key order).
+- **Three consequences of going native, none of them bugs, all of them undisclosed the
+  first time round.** (1) **On WebKit the selection does not survive blur** — click a
+  toolbar control and the highlight goes (measured, real WebKit: focused `213,203,178`,
+  blurred `234,228,214`; Chromium keeps painting it). `drawSelection()`'s DOM persisted
+  on both. The Studio always behaved this way. (2) **The Playground lost a focus ring** —
+  @codemirror/view's base `outline: 1px dotted #212121`, which the shared `outline: none`
+  now suppresses as the Studio always did. It was palette-blind (near-black on a dark
+  palette), and the caret is a text field's conventional focus affordance. (3) **Touch
+  gets OS selection handles** it did not have, which is the platform behavior a drawn
+  band was hiding.
+- **The active-line band stands down while a selection is up**, and that is a contrast
+  fix. `highlightActiveLine()` decorates the line at every range's head whether the range
+  is empty or not, so a selection covering the caret's line stacked 12% + 18% accent =
+  27.84%. On cuoio/light `--text-body` read **3.96:1** there, under AA, while the same
+  selection over bare `--bg` reads 4.61 — and the spec that was supposed to catch it
+  composited over `--bg`, so it passed. **A contrast spec must read its backdrop from the
+  live DOM, not assume the canvas.** The parity spec now does.
+- **Pinned by** `docs/e2e/editor-selection-parity.spec.ts` (both editors, both color
+  modes, asserting they paint the SAME selection and caret) and
+  `docs/src/playground/editor-selection.test.ts`, which asserts neither theme
+  re-declares a local selection and neither re-imports `drawSelection()`.
 
 ## A chat panel's state lands on whichever deck is on screen when the turn ends
 
