@@ -107,9 +107,12 @@ test('PARITY: the divergence rows, counted against the SHIPPED scalar arm', () =
 	// Counted against the real scalar arm, the six have become TWO. Any-match closed the
 	// duplicate key and the nested shadow (the scalar arm sees the later on-word now), and
 	// reading the key case-insensitively closed both key-case rows. What is left is the
-	// honest answer to "why is the legacy arm still ORed in": exactly two spellings the
-	// scalar arm's line pattern cannot reach — a value folded onto the next line, and a
-	// non-breaking space before the key.
+	// honest answer to "why is the legacy arm still ORed in": two SHAPES the scalar arm's
+	// line pattern cannot reach — a value folded onto the next line, and leading whitespace
+	// outside `[ \t]`. The second is a class, not a spelling: NBSP is the fixture, but form
+	// feed, vertical tab, U+3000 and a BOM all qualify, because the legacy arm's leading run
+	// is `\s` minus the line terminators. This comment said "exactly two spellings" while
+	// the kernel docblock it points at was being corrected for that exact wording.
 	//
 	// This number has been wrong twice, both times because the guard measured a stand-in
 	// rather than the shipped reader. It is derived here from `scalarValuesFor` itself.
@@ -121,7 +124,7 @@ test('PARITY: the divergence rows, counted against the SHIPPED scalar arm', () =
 	assert.deepEqual(diverging.sort(), [
 		'folded value',
 		'non-breaking space before the key',
-	], 'the rows only the legacy arm can read have changed — update the kernel docblock to match');
+	], 'the legacy-only rows among these FIXTURES have changed — check the kernel docblock, but note it describes a CLASS and this list is a sample of it');
 });
 
 test('PARITY: the widenings are enumerated, and every one is legacy-OFF becoming on', () => {
@@ -315,6 +318,24 @@ test('the reported line is the SOURCE line, not a reconstruction', () => {
 		const [f] = renderTargetFindings(deck(written));
 		assert.ok(f, `${written} should be reported`);
 		assert.equal(f.line, written.trim(), 'the quoted line must appear verbatim in the deck');
+	}
+});
+
+test('the reported LINE and the reported VALUE come from the same line', () => {
+	// "these two readers agree about which line" is the assumption that has broken three
+	// times in this module — first-match vs any-match, case-sensitive vs case-insensitive,
+	// and the linter's line-matcher vs the kernel's. It holds by construction (both take the
+	// first case-insensitive hit), which is exactly the kind of by-construction claim worth a
+	// guard, because the construction is two regexes in two different files.
+	for (const fm of ['FLUID: ture\nfluid: mabye', 'fluid: ture\nFLUID: mabye', '  Fluid: ture\nfluid: mabye']) {
+		const { value } = renderTargetKeyState(fm, 'fluid');
+		const [f] = renderTargetFindings(`---\n${fm}\n---\n\n# S\n`);
+		assert.ok(f, `${fm} should be reported`);
+		assert.equal(f.classToken, value, 'the finding reports a different value than the kernel read');
+		assert.ok(
+			f.line.toLowerCase().endsWith(`: ${String(value).toLowerCase()}`),
+			`the quoted line ${JSON.stringify(f.line)} is not the line value ${JSON.stringify(value)} came from`,
+		);
 	}
 });
 
