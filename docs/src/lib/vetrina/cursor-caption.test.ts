@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { findCueWord, type NarratedWord } from './narrate';
+import { run } from './runner';
 import { createStage, placeBubble, type RectLike, type Stage } from './stage';
 import { resolveTheme } from './theme';
 
@@ -283,6 +284,46 @@ describe('bounds — the default is not touched by the machinery that serves `ho
 		// jsdom reports a zero-area root, so `boundsRect` falls back to the window — the assertion
 		// is that the JS path RAN (px, not the declared calc), not what number it produced.
 		expect(dock.style.width.endsWith('px')).toBe(true);
+	});
+});
+
+describe('the pacing default reaches the RUN, not just resolveTheme', () => {
+	// The claim "pacing defaults to legacy, so nothing shipped is re-timed" was made in four
+	// documents and was FALSE: `resolveTheme` defaulted to 'legacy' and handed that to the stage,
+	// while the runner read `opts.theme?.pacing ?? 'grounded'` off the RAW theme. Every run mixed
+	// the two — grounded dwell, settle and typing against legacy travel — and every existing tour
+	// was silently re-timed. Asserting on `resolveTheme` alone could never have caught it; this
+	// drives a real run and reads what the beat actually gets.
+	async function pacingOfRun(theme?: Parameters<typeof run>[0]['theme']) {
+		const root = document.createElement('div');
+		document.body.appendChild(root);
+		const got: { model?: string; typeMs?: number } = {};
+		await new Promise<void>((resolve) => {
+			run({
+				root,
+				actions: {},
+				intro: false,
+				theme,
+				play: async (ctx) => {
+					got.model = ctx.pacing.model;
+					got.typeMs = ctx.pacing.typeMsPerChar();
+				},
+				onStop: () => resolve(),
+			});
+		});
+		return got;
+	}
+
+	it('no pacing in the theme means legacy in the beat, not just in resolveTheme', async () => {
+		expect(await pacingOfRun()).toEqual({ model: 'legacy', typeMs: 22 });
+	});
+
+	it('no THEME AT ALL means legacy too', async () => {
+		expect(await pacingOfRun(undefined)).toEqual({ model: 'legacy', typeMs: 22 });
+	});
+
+	it('and opting in actually opts in', async () => {
+		expect(await pacingOfRun({ pacing: 'grounded' })).toEqual({ model: 'grounded', typeMs: 55 });
 	});
 });
 

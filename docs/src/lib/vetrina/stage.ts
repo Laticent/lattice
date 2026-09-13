@@ -905,7 +905,11 @@ export function createStage(opts: StageOptions): Stage {
 	const pace = opts.theme?.pace ?? 1;
 	// The one place durations come from (./pacing). `pace` stays the multiplier the speed preset
 	// already applied everywhere; `pacing` is what decides the numbers it multiplies.
-	const pacing: Pacing = resolvePacing(opts.theme?.speed ?? 'moderate', opts.theme?.pacing ?? 'grounded');
+	// `opts.theme` here is a RESOLVED theme, so these fallbacks only cover a stage mounted without
+	// one at all — and they must match `resolveTheme`'s own defaults, or a bare `createStage()`
+	// silently runs a different model from a `run()`. They said `'grounded'` while resolveTheme
+	// said `'legacy'`; the runner had the same split and there it reached production.
+	const pacing: Pacing = resolvePacing(opts.theme?.speed ?? 'moderate', opts.theme?.pacing ?? 'legacy');
 	const boundsMode = opts.theme?.bounds ?? 'viewport';
 	// How much HAND the cursor's travel carries. Zero under 'legible'/'still' — the arc, the
 	// tremor and the overshoot are all vestibular motion, which is precisely what those tiers

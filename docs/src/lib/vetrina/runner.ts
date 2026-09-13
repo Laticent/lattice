@@ -163,8 +163,15 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 		theme: resolved,
 	});
 
-	// The typing reveal's per-character delay comes from the same model as every other duration.
-	const typePacing = resolvePacing(opts.theme?.speed ?? 'moderate', opts.theme?.pacing ?? 'grounded');
+	// ONE pacing object for the whole run, built from the RESOLVED theme.
+	//
+	// Reading the defaults off the RAW theme is a bug with a long reach, and it shipped: `Theme`
+	// leaves `pacing` undefined unless a host sets it, so a `?? 'grounded'` here fired for every
+	// caller while `resolveTheme` was defaulting to `'legacy'` and handing that to the stage. A
+	// single run then mixed the two models — grounded caption dwell, settle and typing against
+	// legacy travel and register beat — and every existing Studio tour was silently re-timed while
+	// four documents said the change was opt-in. Resolve once, in one place, and pass it down.
+	const pacing = resolvePacing(resolved.speed, resolved.pacing);
 	let stopped = false;
 	// awaitUser state: when set, the guard classifies input instead of aborting on a match.
 	let awaiting: { match: (e: Event) => boolean; resolve: (e: Event) => void } | null = null;
@@ -242,7 +249,7 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 		const key = keyOf(target);
 		const current = ops.read ? ops.read() : (typed.get(key) ?? '');
 		if (current === text) return;
-		const cadence = (o?.cadence ?? typePacing.typeMsPerChar()) * stage.pace;
+		const cadence = (o?.cadence ?? pacing.typeMsPerChar()) * stage.pace;
 		const keep = commonPrefix(current, text);
 		// Instant (no animation at all), the 'still' motion tier, or a huge insert -> set the whole
 		// target at once. NOTE: 'legible' (a reduced-motion device) is deliberately NOT here — the
@@ -324,7 +331,6 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 	// The stage needs to know whether the words are SPOKEN, because that is what decides whether
 	// the cursor-anchored caption steps aside for the action (see Stage.setVoiced).
 	stage.setVoiced?.(narrator.voiced);
-	const pacing = resolvePacing(opts.theme?.speed ?? 'moderate', opts.theme?.pacing ?? 'grounded');
 	const ctx: RunContext<A> = { stage, actions, signal, type, awaitUser, narrator, pacing };
 
 	const handle: RunHandle = {
