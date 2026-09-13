@@ -685,11 +685,47 @@ section.split-panel-points:is(
  * `.lat-split-rel` is an anchor, and this branch's own collision sweep compares marks to marks
  * and never marks to content. Taking the pointer out of flow widened all three blinds at once.
  *
- *   So the reservation moves INSIDE `.panel-right`, the panel the pointer overlaps at every
- *   size. Padding is inside the box, so the panel's BACKGROUND still bleeds to all four slide
- *   edges — the square defect the section-level padding caused — while its CONTENT stops above
- *   the band. `.panel-left` needs none: at portrait it is the top half, and at square the
- *   pointer sits within `.panel-right`'s column.
+ *   So the reservation moves INSIDE THE PANELS. Padding is inside the box, so their BACKGROUND
+ *   still bleeds to all four slide edges — the square defect the section-level padding caused.
+ *
+ *   WHAT THE RESERVATION DOES AND DOES NOT DO, because the first two write-ups of it claimed the
+ *   stronger thing. It REPOSITIONS content that fits: `.panel-right > ul` is `justify-content:
+ *   space-evenly`, so shortening the box re-centres the member block clear of the band. That is
+ *   what removes the run's last-page drift and what puts `mirror`'s column right. It does NOT
+ *   hold overflowing content out of the band, and cannot: `.panel-right` is `overflow: clip`,
+ *   whose clip edge is the PADDING box, so content that exceeds the shortened content box spills
+ *   straight through the reserve. Measured on a three-member deck with 48-word bodies: the pill
+ *   prints 321.1x38.0px over the first page's text WITH the reservation and 321.1x38.0px WITHOUT
+ *   it — byte-identical, because the reservation was never the thing standing in the way there.
+ *   Those pages are flagged `overflow` by the engine, so they are not silent; but "their content
+ *   stops above the band" was false as written and is withdrawn.
+ *
+ *   BOTH PANELS, AND EVERY PAGE OF THE RUN. The first version of this rule reserved only
+ *   `.panel-right`, and only where `:has(> .lat-split-rel)`. Both halves of that were wrong, and
+ *   both were found by the HARD RULE #25 checker on shapes the fix had not been tried against:
+ *
+ *   · `mirror` ROW-REVERSES the panels (see the `.mirror` rules above). At square that puts
+ *     `.panel-right` in the LEFT half — measured x0-450.9 — while the pointer sits at x708-1013,
+ *     inside `.panel-left`. So the reserve was on the column the pill does not cover, and the
+ *     pill printed through 199.5x23.1px of the cite line while ~89px of dead space was held at
+ *     the bottom of the other column. Reserving BOTH is the fix that does not have to know which
+ *     way the row runs; on the panel the pointer never reaches, the padding is invisible, because
+ *     at portrait `.panel-left` is the top half and at square neither column's content is near
+ *     the band anyway.
+ *
+ *   · THE LAST PAGE OF A RUN CARRIES NO FORWARD POINTER, so `:has(> .lat-split-rel)` was false
+ *     there and that page alone got no reserve. `.panel-right > ul` is `justify-content:
+ *     space-evenly`, so the member block re-centred in a box 76.6px taller and the column JUMPED
+ *     between pages a reader sees seconds apart: measured 38.3px at portrait, 44.3px at square,
+ *     33.4px at story, 31.3px at mobile, with identical member text on every page. On `compact`
+ *     it is a 125px step, because `--sp-xl` shrinks there and the 14.4cqi reserve does not. The
+ *     rule keys on the RUN (`lat-split-native`), not on the pointer, so every page of it reserves
+ *     the same band whether or not that page has a mark to put in it — which is the whole point
+ *     of a reserved band.
+ *
+ *   The branch's own drift probe could not see that second one: it measures the positions of
+ *   {rail, pagination, pointer} and this is CONTENT drift. One level up from where the sweep
+ *   looked, which is where every defect in this file has been.
  *
  * THE NUMBERS ARE MEASURED. `8.6cqi` clears the running `<footer>`, which this layout pins
  * absolutely to the section's bottom — ink y1265-1335 at portrait. The pill is 51.5px tall
@@ -722,6 +758,6 @@ section.split-panel.lat-split-native > .lat-split-rel {
   left: auto;
   z-index: var(--z-chrome);
 }
-section.split-panel.lat-split-native:has(> .lat-split-rel) > .panel-right {
+section.split-panel.lat-split-native > :is(.panel-left, .panel-right) {
   padding-bottom: max(var(--sp-xl), calc(var(--_sec-1cqi, 1cqi) * 14.4));
 }

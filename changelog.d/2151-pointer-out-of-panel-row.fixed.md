@@ -3,9 +3,13 @@
   the forward pointer arrived as a flex ITEM of it: a column at portrait, where it landed on the
   k-of-N rail and the running footer's ink, and a third COLUMN at square, where it squeezed the
   right panel from half the slide to 252.7px and ran 53px past the slide edge. It is now
-  positioned in the band, with the reserve inside `.panel-right` so the panels keep their full
-  bleed at every size while their content stops above it. An earlier `:not(.form)` on that rule
-  left an authored `form` page with every one of those defects intact.
+  positioned in the band, with the reserve inside BOTH panels on every page of the run so the
+  panels keep their full bleed at every size. The reserve REPOSITIONS content that fits — which
+  is what stops a run's last page (no forward pointer) sitting 31-44px off its siblings, and what
+  puts the reserve on the right column under `mirror`, which row-reverses them. It does not hold
+  OVERFLOWING content out of the band and cannot, since `.panel-right` clips at its padding box;
+  those pages are flagged `overflow` by the engine. An earlier `:not(.form)` on the rule left an
+  authored `form` page with every one of the original defects intact.
 - A stray `<` in a fenced block no longer loses the rest of the block. It was routed to the TAG
   branch of the line slicer, which pushed a stack frame with no tag name, so every later line
   break emitted `</undefined>` and most of the block vanished from the rendered page. (How much

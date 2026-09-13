@@ -29,20 +29,28 @@
  * compares marks only to other marks. So the deck goes through `dist/lattice-emulator.js` and
  * the arms measure what a reader gets (HARD RULE #23).
  *
- * WHAT THESE ARMS DO NOT PIN, stated because the alternative is claiming coverage they do not
- * have. Deleting the `.panel-right` reservation leaves every arm below GREEN. On the decks here
- * the flow stops ~110px above the pointer's berth, so the reservation is headroom rather than
- * the thing standing between the pill and the words — the overprint the checker measured
- * (102.2x38.0px over "And a third clause to match.") was on a deck whose exact content I could
- * not reconstruct from the report, and I could not make one of my own reach the band.
+ * WHAT THE RESERVATION IS FOR, measured rather than assumed — and the earlier answer here was
+ * wrong in BOTH directions. It said the reservation could not be pinned because no deck reached
+ * the band. Then a deck was built that does (three members, 48-word bodies) and the pill printed
+ * 321.1x38.0px over the text WITH the reservation and 321.1x38.0px WITHOUT it. Byte-identical.
+ * `.panel-right` is `overflow: clip`, and a clip edge is the PADDING box, so content that
+ * exceeds the shortened content box spills straight through the reserve. The reservation never
+ * stood between the pill and overflowing words, and an arm asserting that it did would have been
+ * asserting a falsehood.
  *
- * The reservation stays regardless, and the reasoning is worth writing down rather than
- * re-deriving: the pointer is OPAQUE, absolutely positioned and at `--z-chrome`, over a column
- * whose height is the author's to decide. That it does not collide on four decks is a fact about
- * those four decks. The rule that would make it safe on all of them is the reservation, and its
- * cost is bounded and visible. What is NOT claimed is that an arm here would catch its removal.
- * The arms that ARE mutation-proved: `position: absolute` (16 of 20 fail without it) and the
- * absence of `:not(.form)` (4 of 20).
+ * What it DOES do is reposition content that FITS, and that has two consequences worth pinning,
+ * both of which the arms below cover:
+ *
+ *   · EVERY PAGE OF A RUN RESERVES THE SAME BAND. The last page carries no forward pointer, so
+ *     a `:has(> .lat-split-rel)` version of this rule skipped it — and `space-evenly` then
+ *     re-centred that page's member block 31-44px off its siblings (125px on `compact`). A
+ *     reader pages through seconds apart and the column jumps.
+ *   · BOTH PANELS RESERVE IT. `mirror` row-reverses them, so at square the pointer sits over
+ *     `.panel-left`; reserving only `.panel-right` put the band on the column the pill does not
+ *     cover and printed through 199.5x23.1px of the cite line.
+ *
+ * Mutation-proved: `position: absolute` (16 of 20 arms fail without it), the absence of
+ * `:not(.form)` (4 of 20), and the reservation itself through the two arms below.
  */
 
 const { describe, test, before, after } = require('node:test');
@@ -94,7 +102,7 @@ describe('split-panel: a coverless split page places its marks and reserves the 
     if (!exe) return;
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-spband-'));
     for (const size of SIZES) {
-      for (const cls of ['', 'form']) {
+      for (const cls of ['', 'form', 'mirror']) {
         const key = `${size}|${cls}`;
         const md = path.join(dir, `${size}${cls}.md`);
         const html = path.join(dir, `${size}${cls}.html`);
@@ -161,6 +169,23 @@ describe('split-panel: a coverless split page places its marks and reserves the 
     });
   };
 
+  /** The member block's vertical mid-line per page — the thing that drifts when one page of a
+   *  run reserves a different band from its siblings. */
+  const measureContent = async (size, cls) => {
+    await p.goto(`file://${rendered.get(`${size}|${cls}`)}`, { waitUntil: 'networkidle0' });
+    return p.evaluate(() => {
+      const out = [];
+      document.querySelectorAll('section.split-panel.lat-split-native').forEach((s, i) => {
+        const ul = s.querySelector('.panel-right > ul');
+        if (!ul) return;
+        const sr = s.getBoundingClientRect();
+        const r = ul.getBoundingClientRect();
+        out.push({ page: i + 1, mid: +(((r.top + r.bottom) / 2) - sr.top).toFixed(1) });
+      });
+      return out;
+    });
+  };
+
   for (const size of SIZES) {
     for (const cls of ['', 'form']) {
       const label = `${size}${cls ? ' + authored form' : ''}`;
@@ -194,6 +219,32 @@ describe('split-panel: a coverless split page places its marks and reserves the 
       for (const x of await measure(size, '')) {
         assert.ok(x.bleeds, `page ${x.page}: a reservation cut the panels short of the slide edge`);
       }
+    });
+
+    // THE RUN'S PAGES AGREE. This is what the reservation actually buys, and it is measured on
+    // the member block's own mid-line rather than on a mark, because the drift it removes is
+    // CONTENT drift — invisible to a sweep that tracks the pointer, the rail and the page number,
+    // which is how it shipped.
+    test(`${size}: every page of the run places its content identically`, async (t) => {
+      if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+      const mids = await measureContent(size, '');
+      assert.ok(mids.length >= 2, `the run did not split (${mids.length} page(s))`);
+      const spread = Math.max(...mids.map((m) => m.mid)) - Math.min(...mids.map((m) => m.mid));
+      assert.ok(spread <= 1, `the member block moves ${spread.toFixed(1)}px between pages of one run`
+        + ` — ${JSON.stringify(mids)}`);
+    });
+
+    // …INCLUDING UNDER `mirror`, which row-reverses the panels. At square that swaps which column
+    // the pointer sits over, so a reservation on one named panel lands on the wrong one.
+    test(`${size}: mirror reverses the panels and the band is still reserved where the pill is`, async (t) => {
+      if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+      for (const x of await measure(size, 'mirror')) {
+        assert.equal(x.overContent, null,
+          `page ${x.page}: under mirror the pill covers body text — ${JSON.stringify(x.overContent)}`);
+      }
+      const mids = await measureContent(size, 'mirror');
+      const spread = Math.max(...mids.map((m) => m.mid)) - Math.min(...mids.map((m) => m.mid));
+      assert.ok(spread <= 1, `under mirror the member block moves ${spread.toFixed(1)}px between pages`);
     });
   }
 });
