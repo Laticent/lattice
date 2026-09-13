@@ -219,11 +219,11 @@ describe('a transient dwell is budgeted by dwellMs, never captionMs', () => {
 		const { ctx, trace } = harness(stepsAside);
 		(ctx as { pacing: unknown }).pacing = {
 			...base,
-			captionMs: (t: string) => {
+			captionMs: () => {
 				calls.push('captionMs');
 				return 1;
 			},
-			dwellMs: (t: string) => {
+			dwellMs: () => {
 				calls.push('dwellMs');
 				return 1;
 			},
