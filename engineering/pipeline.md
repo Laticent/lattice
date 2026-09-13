@@ -128,6 +128,15 @@ maximum viewer compatibility). If a recipient needs an *editable* PPTX
 (real text boxes, not an image), that's out of scope for this exporter —
 Lattice's PPTX output is a presentation artifact, not an authoring one.
 
+**The Studio's browser PDF is the exception, and only its worker lane.** It
+rasterizes like the above, then writes every word back over the page image
+in PDF text rendering mode 3 — invisible ink, so the page looks identical
+(measured: AE = 0) and `pdftotext`, a text cursor and a screen reader all
+find the copy. The main-thread fallback lane, the print `sheet` lane and
+PPTX still ship pictures alone. Mechanism, what it deliberately leaves out,
+and why the fallback does not get it:
+`engineering/decisions/2026-09-13-pdf-export-text-layer.md`.
+
 ## 4a. CLI PDF output is byte-reproducible
 
 Rendering the same deck twice **on the same machine** writes the same bytes — so

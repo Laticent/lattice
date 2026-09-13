@@ -194,4 +194,5 @@ author sees what to fix. Two things it deliberately does not do:
   images through a second encoder that has never been measured against this one.
 - **Not a text layer.** The exported PDF is still images: unsearchable, and inert to a
   screen reader. The inversion pass argued that is the more valuable defect to fix, and
-  it is untouched here.
+  it is untouched here. *(Fixed since, on this worker lane:
+  `2026-09-13-pdf-export-text-layer.md`.)*

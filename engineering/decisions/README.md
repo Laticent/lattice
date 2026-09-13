@@ -132,6 +132,7 @@ it is load-bearing.
 ### Active — proposed · in-progress · blocked
 
 - ◐ [2026-09-13-pdf-export-encode-lanes.md](2026-09-13-pdf-export-encode-lanes.md) — The Studio's PDF export spent ~1 s per slide inside jsPDF's `addImage`, which INFLATES the canvas PNG in JavaScript and re-deflates it into…
+- ◐ [2026-09-13-pdf-export-text-layer.md](2026-09-13-pdf-export-text-layer.md) — The Studio's exported PDF was a stack of pictures: Cmd-F found nothing, a cursor selected nothing, and a screen reader got blank pages.
 - ◐ [2026-09-13-plugin-architecture.md](2026-09-13-plugin-architecture.md) — Lattice never formalized a plugin architecture, but built most of one across six registries that do not share a spine.
 - ◐ [2026-09-13-vetrina-cursor-caption-narration.md](2026-09-13-vetrina-cursor-caption-narration.md) — Three changes to Vetrina, prototyped together because they turn out to be one change.
 - ◐ [2026-09-08-overflow-corpus-caption-footer.md](2026-09-08-overflow-corpus-caption-footer.md) — The overflow-corpus ratchet's 8 stale decks have ONE cause and it is not the decks.

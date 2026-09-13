@@ -37,6 +37,7 @@ import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
+import { collectSlideTextRuns } from './pdf-text-extract.js';
 
 function safeName(name) {
 	return (name || 'deck').trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'deck';
@@ -941,16 +942,33 @@ async function rasterizeSection(section, fontEmbedCSS, cornerTarget) {
 	}
 }
 
-// Rasterize one rendered slide to a transferable ImageBitmap. Same clone + draw
-// as rasterizeSection (that part needs the DOM and stays here), but it stops at
-// the canvas: the expensive PNG deflate (canvas.toDataURL) and jsPDF's re-encode
-// move to the export worker, which receives the bitmap zero-copy.
+// Rasterize one rendered slide to a transferable ImageBitmap, AND read its words
+// out of the same laid-out DOM. Same clone + draw as rasterizeSection (that part
+// needs the DOM and stays here), but it stops at the canvas: the expensive PNG
+// deflate (canvas.toDataURL) and jsPDF's re-encode move to the export worker,
+// which receives the bitmap zero-copy.
+//
+// The text is collected INSIDE the fixups, next to the capture, because that is the
+// only moment the measurement is true: before them the slide can still be behind
+// the preview's lazy-render gates and every rect reads zero (see
+// `forceSectionVisibleForCapture`), and after them the capture frame is gone. It
+// rides back with the bitmap so the worker can write it over the page image as an
+// invisible text layer — see `pdf-text-layer.js`.
 async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget) {
 	const { toCanvas } = await import('html-to-image');
 	try {
 		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
 			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
-			return await createImageBitmap(canvas);
+			// Never let the text layer cost the export its PDF: the picture is the
+			// deliverable and the words are the improvement, so a measurement that throws
+			// (an exotic node a Range cannot span) degrades to an image-only page.
+			let text = [];
+			try {
+				text = collectSlideTextRuns(section);
+			} catch (_e) {
+				text = [];
+			}
+			return { bitmap: await createImageBitmap(canvas), text };
 		}, undefined, cornerTarget);
 	} catch (e) {
 		// Named, so the worker lane's failure does not read as a worker problem when it
@@ -1058,8 +1076,8 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 				if (failure) throw failure;
 			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
-			const bitmap = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS, 'pdf');
-			worker.postMessage({ type: 'slide', index: i, bitmap }, [bitmap]);
+			const { bitmap, text } = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS, 'pdf');
+			worker.postMessage({ type: 'slide', index: i, bitmap, text }, [bitmap]);
 			// Yield a macrotask between slides so the clone/draw work (which must stay
 			// on this thread) never runs back-to-back without a paint.
 			await new Promise((r) => setTimeout(r));
