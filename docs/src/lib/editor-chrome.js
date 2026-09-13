@@ -154,9 +154,8 @@ export function editorChrome({ fontSize, padding, lineHeight, gutterDivider = fa
 		// scroller's `0`, not the gutter's `200`, whose number is scoped to the context the
 		// scroller opens. It stays UNDER `.cm-panels` (300) and `.cm-tooltip` (500), so
 		// search and lint still paint over it. `pointerEvents: 'none'` keeps it out of
-		// clicks and drags. The painted pixels are identical to an inset outline; only the
-		// paint order differs. `.cm-editor` is `position: relative !important` in the base
-		// theme, so `inset: 0` is anchored, not surface-dependent.
+		// clicks and drags. `.cm-editor` is `position: relative !important` in the base
+		// theme, so the `inset` below is anchored to it on every surface.
 		//
 		// THERE IS NO `:focus-visible` ARM, because it would change nothing. Browsers treat
 		// a text-editing surface as always focus-visible — measured: `.cm-content` matches
@@ -178,13 +177,18 @@ export function editorChrome({ fontSize, padding, lineHeight, gutterDivider = fa
 		// `cm-focused` across `docs/src/styles/` BEFORE re-reading this file.
 		// THE RIGHT EDGE INSETS 1px, AND THAT IS A MEASUREMENT, NOT SYMMETRY TASTE.
 		// Flush on all four sides, the right edge lands against the pane SPLITTER, which
-		// paints `var(--border)` — and on the palettes where `--border` and `--accent`
-		// resolve to the same value (onyx, ardesia, the four a11y themes) the two fuse
-		// into one white or one black band. Measured across 18 palettes x 2 modes on both
-		// deck editors: the ring's top and bottom cleared 4.60:1 against their neighbours
-		// on every palette, and the RIGHT edge was under 3:1 on 30 of 36 palette-modes,
-		// bottoming at 1.11:1 on onyx/dark, where `--accent` and `--border` are both
-		// `#FFFFFF`. Focused and unfocused looked the same on that edge.
+		// paints `var(--border)` — and `--border` sits too close to `--accent` to separate
+		// from it on most palettes. Measured across 18 palettes x 2 modes on both deck
+		// editors: the ring's top and bottom cleared 4.60:1 against their neighbors on
+		// every palette, and the RIGHT edge was under 3:1 on 30 of 36 palette-modes,
+		// bottoming at 1.11:1 on onyx/dark. Focused and unfocused looked the same there.
+		// BE PRECISE ABOUT WHY, because a first draft of this note was not: the two tokens
+		// are byte-identical on exactly ONE palette-mode — onyx/dark, both `#FFFFFF`. The
+		// other 28 are merely too close (`--accent` against `--border` is under 3:1 on 29
+		// of 36 by token arithmetic). That draft named "onyx, ardesia and the four a11y
+		// themes" as resolving to the same value; ardesia does not fuse at all — it clears
+		// 3:1 in BOTH modes — and a reader grepping for a token identity that does not
+		// exist would not find it. A checker caught it.
 		// The 1px inset leaves a strip of the editor's own canvas between ring and
 		// splitter, so BOTH of the ring's sides face `var(--bg)` and it clears 5.24:1
 		// everywhere (carbone/light is the floor). The splitter then contrasts with the

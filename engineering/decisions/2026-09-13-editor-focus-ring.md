@@ -104,9 +104,12 @@ owners — but left nothing in their place.
 `focusRing` is the only difference. The deck Editor takes `true`, `CodeField` takes
 `false`, for two measured reasons:
 
-- **Three of its five call sites already paint a focus affordance.** LayoutStudio's two
+- **Three of its SEVEN call sites already paint a focus affordance.** LayoutStudio's two
   fields and Fabricate's manifest field sit in `rounded-lg border border-border …
-  focus-within:border-[var(--accent)]` boxes. Measured: host radius 8px, host border
+  focus-within:border-[var(--accent)]` boxes. (Seven: `grep -rn '<CodeField' docs/src
+  --include=*.tsx`. An earlier count said five, having missed the two multi-line JSX
+  mounts — Fabricate's Theme CSS field and FinishStudio's `readOnly` one, which is not a
+  focus stop at all since `editable.of(false)` drops `contenteditable`.) Measured: host radius 8px, host border
   `rgb(122,90,16) 1px` from `focus-within`, plus our square 2px ring 1px inside it — a
   second, square indicator cutting across the rounded one.
 - **CraftLab's host scrolls the editor.** `.craft-lab-editor` is `max-h-[26rem]
@@ -146,12 +149,20 @@ palette, per surface, reading the same property.
 
 **Both of the ring's sides face `--bg`, and that took a fix.** The first cut drew the
 ring flush on all four edges, which put the right edge against the pane SPLITTER — and
-the splitter paints `var(--border)`, which resolves to the SAME value as `--accent` on
-onyx, ardesia and the four a11y palettes. Measured across 18 palettes x 2 modes on both
-deck editors, sampling the first opaque paint outside each edge: top and bottom cleared
-4.60:1 everywhere, and the **right edge was under 3:1 on 30 of 36 palette-modes,
-bottoming at 1.11:1 on onyx/dark** where both tokens are `#FFFFFF`. Rendered, focused
-and unfocused looked the same on that edge — a white band either way.
+the splitter paints `var(--border)`, which sits too close to `--accent` to separate from
+it on most palettes. Measured across 18 palettes x 2 modes on both deck editors,
+sampling the first opaque paint outside each edge: top and bottom cleared 4.60:1
+everywhere, and the **right edge was under 3:1 on 30 of 36 palette-modes, bottoming at
+1.11:1 on onyx/dark**. Rendered, focused and unfocused looked the same on that edge.
+
+**The first draft of that sentence overstated WHY, and a second checker caught it.** It
+said the two tokens "resolve to the SAME value on onyx, ardesia and the four a11y
+palettes." They are byte-identical on exactly **one** palette-mode — onyx/dark, both
+`#FFFFFF`. The other 28 are merely too close: `--accent` against `--border` is under 3:1
+on **29 of 36** palette-modes by token arithmetic. **Ardesia does not fuse at all** — it
+clears 3:1 in both modes and was named wrongly. The fix is unaffected, but the
+explanation was the same species of unre-derived claim this record exists to stamp out,
+one paragraph below the place it says so.
 
 That claim had been asserted from reasoning ("the inner neighbor is the tighter of the
 two") rather than measured, and the measurement refuted it. On a change whose entire

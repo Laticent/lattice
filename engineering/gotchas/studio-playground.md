@@ -1196,20 +1196,23 @@ never turn "passed in headless" into "works on iOS."
   `.cm-editor`'s own `outline` on every surface, and opens the Specimen precisely
   because it is the surface where this class of defect is visible rather than merely
   present.
-- **THE RING'S RIGHT EDGE INSETS 1px, BECAUSE `--border` AND `--accent` COLLAPSE ON SIX
-  PALETTES.** Flush on all four sides, the right edge lands against the pane splitter,
-  which paints `var(--border)` — the same value as `--accent` on onyx, ardesia and the
-  four a11y themes. Measured over 18 palettes x 2 modes on both deck editors: top and
-  bottom cleared 4.60:1 against their real neighbors, and the right edge was **under 3:1
-  on 30 of 36 palette-modes, worst 1.11:1 on onyx/dark** where both tokens are `#FFFFFF`
-  — focused and unfocused rendered the same white band. `inset: 0 1px 0 0` leaves a strip
+- **THE RING'S RIGHT EDGE INSETS 1px, BECAUSE `--border` SITS TOO CLOSE TO `--accent` ON
+  MOST PALETTES.** Flush on all four sides, the right edge lands against the pane
+  splitter, which paints `var(--border)`. Measured over 18 palettes x 2 modes on both
+  deck editors: top and bottom cleared 4.60:1 against their real neighbors, and the right
+  edge was **under 3:1 on 30 of 36 palette-modes, worst 1.11:1 on onyx/dark** — focused
+  and unfocused rendered the same white band. **The two tokens are byte-identical on
+  exactly ONE palette-mode** (onyx/dark, both `#FFFFFF`); the rest are merely too close,
+  `--accent` against `--border` being under 3:1 on 29 of 36 by token arithmetic. An
+  earlier version of this entry claimed six palettes "resolve to the same value" and
+  named ardesia, which clears 3:1 in both modes and does not fuse at all. `inset: 0 1px 0 0` leaves a strip
   of canvas between ring and splitter, so both of the ring's sides face `--bg` and it
   clears 5.24:1 everywhere; pixel-sampled at 4x, 5 distinct bands on all 36 against 3-4
   when flush. **The general trap: an inset indicator's outer neighbor is not the canvas,
   it is whatever the LAYOUT puts next to the box** — and two tokens that differ on most
   palettes can be identical on a few. Sample the neighbor; do not reason about it.
 - **AN EMBEDDED `CodeField` DECLINES THE RING — `editorChrome({ focusRing: false })`.**
-  Two measured reasons. Three of its five call sites (LayoutStudio x2, Fabricate's
+  Two measured reasons. Three of its SEVEN call sites (LayoutStudio x2, Fabricate's
   manifest field) sit in a `rounded-lg border … focus-within:border-[var(--accent)]`
   box, where the ring added a second, SQUARE accent line 1px inside the rounded one.
   And CraftLab's host is `max-h-[26rem] overflow-auto` with no definite height, so

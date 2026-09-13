@@ -116,6 +116,15 @@ describe("the editor focus ring keeps both of its channels", () => {
 		expect(chrome, 'the ring itself is gone').toContain("'&.cm-editor.cm-focused::after'");
 	});
 
+	it('keeps the right edge inset past the pane splitter', () => {
+		// The 1px inset is the whole subject of the commit that added it, and CI does not
+		// run the e2e spec that measures it: `test:e2e:smoke` greps `@smoke`, which
+		// `editor-selection-parity.spec.ts` does not carry, so it runs nightly only.
+		// Reverting `inset` to `0` therefore passed every per-PR gate. A checker found
+		// that; this is the cheap pin that closes it.
+		expect(chrome, "the ring's right edge is flush again — it fuses with the pane splitter, which paints --border").toContain("inset: '0 1px 0 0'");
+	});
+
 	it('keeps the suppression OUTSIDE the focusRing branch', () => {
 		// The suppression is unconditional on purpose: a surface that declines OUR ring
 		// must not inherit THEIRS. Folding it inside the `focusRing` conditional would

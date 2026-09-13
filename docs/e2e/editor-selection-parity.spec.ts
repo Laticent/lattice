@@ -102,6 +102,8 @@ type Ring = {
 	 * brought that back on every editor, painted wherever the host does not clip it.
 	 */
 	baseOutline: string;
+	/** The palette's `--accent`, so a reading can be judged without a second round-trip. */
+	accent: string;
 };
 
 /**
@@ -145,6 +147,7 @@ const readRing = (page: import('@playwright/test').Page, scope = ''): Promise<Ri
 			box: [Number.parseFloat(cs.width), Number.parseFloat(cs.height)] as [number, number],
 			editorBox: [el.getBoundingClientRect().width, el.getBoundingClientRect().height] as [number, number],
 			baseOutline: `${own.outlineStyle} ${own.outlineWidth}`,
+			accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
 		};
 	}, scope);
 
@@ -292,6 +295,7 @@ async function sweepPalettes(page: import('@playwright/test').Page): Promise<Rec
 					box: [Number.parseFloat(cs.width), Number.parseFloat(cs.height)] as [number, number],
 					editorBox: [el.getBoundingClientRect().width, el.getBoundingClientRect().height] as [number, number],
 					baseOutline: `${own.outlineStyle} ${own.outlineWidth}`,
+					accent: root.getPropertyValue('--accent').trim(),
 				}))(
 					document.querySelector('.cm-editor') as HTMLElement,
 					getComputedStyle(document.querySelector('.cm-editor') as HTMLElement, '::after'),
@@ -508,6 +512,11 @@ test("every editor kills CodeMirror's dotted default, and only a full-pane edito
 		if (s.ring) {
 			expect(ring.content, `${s.name}: the focus ring's pseudo-element is not generated`).not.toBe('none');
 			expect(ring.style, `${s.name}: the focus ring's line style`).toBe('solid');
+			// COLOR AND WIDTH TOO, which this pass used to skip. A checker injected a red
+			// 1px ring on the Specimen and every arm here still passed — the palette sweep
+			// checks both, but it never opens these two surfaces, so nothing did.
+			expect(Number.parseFloat(ring.width), `${s.name}: the focus ring is drawn at the site's 2px`).toBeGreaterThanOrEqual(2);
+			expect(parse(ring.color).rgb, `${s.name}: the focus ring is --accent (${ring.accent})`).toEqual(tokenRgb(ring.accent));
 			expectRingFillsEditor(ring, s.name);
 		} else {
 			// Not "no affordance" — the HOST owns it here. What must not happen is our ring

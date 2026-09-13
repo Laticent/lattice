@@ -13,9 +13,15 @@ import { lintTheme, lintThemeCoarse, tooltipShell } from '../../lib/lint-theme.j
 // `focusRing` decides whether the editor draws the site's focus ring itself. The deck
 // Editor fills a stable pane, so it does. An embedded `CodeField` does not, for two
 // measured reasons, both found by a checker on the change that added the ring:
-//   · three of its five call sites sit in a rounded, bordered box that already paints
+//   · three of its SEVEN call sites sit in a rounded, bordered box that already paints
 //     `focus-within:border-[var(--accent)]` (LayoutStudio x2, Fabricate's manifest
-//     field) — the ring put a second, SQUARE accent line 1px inside the rounded one;
+//     field) — the ring put a second, SQUARE accent line 1px inside the rounded one.
+//     (Seven, not five: a first draft of this note counted only the single-line JSX
+//     mounts and missed Fabricate's Theme CSS field and FinishStudio's read-only one.
+//     `grep -rn '<CodeField' docs/src --include=*.tsx` is the honest count. Three carry
+//     their own affordance, three carry none, and FinishStudio's is `readOnly`, so
+//     `EditorView.editable.of(false)` drops `contenteditable` and it is not a focus
+//     stop at all.);
 //   · CraftLab's host is `max-h-[26rem] overflow-auto` with no definite height, so
 //     `.cm-editor` grows to the document's full height (measured: clientHeight 415,
 //     scrollHeight 846) and an inset ring anchored to it scrolls its top and bottom
