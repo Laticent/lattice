@@ -1108,3 +1108,58 @@ come from a record captured on the device that actually failed.
 **The deck used for the heavy arm was deliberately pathological** — six flowcharts of 30 nodes
 and 125 edges at `size: 4k`, built to outrun an export budget — so it reaches any ceiling far
 faster than an ordinary deck. It exaggerates the rate.
+
+## 18. The source-`<pre>` asymmetry in exported artifacts, explained — it is correct
+
+A released artifact carries **two** source `<pre>` per diagram where a drawn one carries **one**,
+and the drawn one's SVG count rises by **two**. Both diagrams demonstrably draw, so the missing
+`<pre>` looked like something the bake had eaten. It is not. **The webpage export ships two
+projections of every slide, and the second one holds exactly one representation per diagram.**
+
+### Measured, on the real Studio
+
+A two-diagram deck, exported twice through Share → Webpage: once with `mermaid.render` held
+forever (released), once untouched (drawn). Counted in the downloaded bytes AND in the live
+`file://` DOM, which agree.
+
+| | released | drawn |
+|---|---|---|
+| tagged `<pre>` in the whole file | **4** | **2** |
+| …of those, inside a `<section>` | 2 | 2 |
+| …of those, inside the `<article>` | **2** | **0** |
+| `<svg>` in the whole file | 42 | **46** |
+| `<svg>` inside the `<article>` | **0** | **2** |
+| `<article>` size | 1,139 bytes | **42,157 bytes** |
+
+The paged deck is unchanged across the two arms: one `<pre>` per diagram, in its slide, either
+way. **Every difference is in the `<article>`** — the Read·Article prose projection the player
+ships alongside the slides.
+
+### The mechanism
+
+The projection re-hosts the diagram under the stage, and takes whichever representation exists:
+
+- **Drawn** — it re-hosts the rendered `<svg>`. `bakeDeckSections`' own comment says so, and this
+  is the measurement behind it: *"the prose projection re-hosts the first `svg` under the stage,
+  which is the rendered one."* The spent `<pre>` is not projected, because there is a drawing to
+  show instead. That is the `+2 <svg>` and the 42KB article.
+- **Released** — there is no `<svg>` to re-host, so the projection carries the source `<pre>`,
+  syntax-highlighted, `language-mermaid-source`. That is the second `<pre>`.
+
+So the two halves of the reported asymmetry are **one fact seen from two sides**, not two facts:
+the article holds one representation per diagram, and which one depends on whether a drawing
+exists. Per diagram, `released_pre - drawn_pre == 1` and `drawn_svg - released_svg == 2` both fall
+out of it. (The original report counted a ONE-diagram deck — 2 against 1. The table above doubles
+every number because this deck carries two.)
+
+### Verdict: correct, and worth leaving alone
+
+Showing a reader the drawing where one exists and the author's own source where one does not is
+the behavior the give-up fix exists to produce, reaching one surface further than the fix was
+aimed at. Nothing to change.
+
+**The probe carried a positive arm, and this is why it needed one.** A census that found "the
+drawn artifact has fewer `<pre>`" and stopped would have described a deck that never drew. Both
+sentinels are asserted present as source text in the released artifact and present inside `<svg>`
+in the drawn one, before any count above is read — §16's rule that a probe needs an arm proving
+it can see the thing it is looking for.
