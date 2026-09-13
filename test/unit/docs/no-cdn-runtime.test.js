@@ -39,16 +39,93 @@ const DOCS_SRC = path.join(REPO, 'docs', 'src');
 
 // The hosts a runtime dependency must never come from. Not an exhaustive list of
 // CDNs on the internet — it is the list of ones this repo has actually reached for,
-// plus the obvious neighbours, so a copy-paste from a README trips it.
+// plus the obvious neighbors, so a copy-paste from a README trips it.
 const BARRED_HOSTS = [
 	'cdn.jsdelivr.net',
 	'unpkg.com',
 	'cdnjs.cloudflare.com',
 	'code.jquery.com',
 	'esm.sh',
+	'esm.run',
 	'fonts.googleapis.com',
 	'fonts.gstatic.com',
 ];
+
+// ─── The esm.run carve-out ─────────────────────────────────────────────────
+//
+// `esm.run` is not a neighboring CDN this list adds for completeness. It is
+// `cdn.jsdelivr.net` — the FIRST host on the bar list — under another name.
+// Measured 2026-09-13:
+//
+//     $ curl -sSI https://esm.run/kokoro-js
+//     HTTP/2 301
+//     location: https://cdn.jsdelivr.net/npm/kokoro-js/+esm
+//
+// So the 2026-09-03 sweep barred jsdelivr by one hostname while three runtime
+// imports kept reaching the same origin through its alias. That is a GAP the
+// sweep missed, not a carve-out it granted — nothing in
+// `2026-09-03-self-hosted-runtime-deps.md` names the AI tier at all. It is
+// listed here so the gate can see it.
+//
+// WHY THE THREE BELOW ARE STILL ADMITTED. They are the Studio's opt-in
+// on-device AI tier, and loading them from a CDN is a decision with a record:
+// `2026-06-08-drawing-board-phase-2-build.md` § "no new npm deps" chose lazy
+// CDN import over bundling, and left the escape hatch ("swap the CDN URL
+// constants … and add the deps then"). Taking that hatch is a bigger change
+// than listing the host, and it cannot be verified from this sandbox — WebGPU
+// and WASM inference need a real device (HARD RULE #23), which is the same
+// reason the 2026-06-08 note gave for not bundling them. Self-hosting the
+// three LIBRARIES would also leave the hundreds of megabytes of model WEIGHTS
+// (Qwen2.5-0.5B, Kokoro-82M, bge-small) on HuggingFace's CDN regardless, so it
+// buys less than it looks like it buys.
+//
+// WHAT IS ACCEPTED, SAID PLAINLY, so nobody has to re-derive it: ALL THREE can
+// execute in the TOP-LEVEL document that holds the user's OpenRouter key in
+// `localStorage`, and all three are UNPINNED (`esm.run/<pkg>` with no version
+// resolves to whatever jsdelivr serves that day) and carry no `integrity` —
+// the same shape as the `mermaid@11` default that 2026-09-03 deleted. The
+// difference is consent and reach, not kind: these load only after a user
+// opts into the AI tier, where mermaid ran on the landing page for everyone.
+// That is a real residual risk, written down rather than closed. The follow-up
+// is in `2026-09-13-esm-run-ai-tier-carve-out.md`.
+//
+// THE SANCTION IS PER URL, NOT PER FILE, and deliberately: a file-scoped
+// exemption would let a FOURTH package appear inside an already-exempt file
+// and ship green. Adding one here is a review conversation with its
+// justification, exactly like every `SANCTIONED_*` list in
+// `tools/check-ownership.js`.
+const SANCTIONED_CDN_IMPORTS = new Map([
+	[
+		'esm.run/@mlc-ai/web-llm',
+		'WebLLM — the opt-in local generation rung of the Studio AI ladder ' +
+			'(architect-model.js). Main thread, so it shares the origin holding the ' +
+			'OpenRouter key.',
+	],
+	[
+		'esm.run/@huggingface/transformers',
+		'Transformers.js — bge-small embeddings for the Studio AI ladder ' +
+			'(architect-model.js). Main thread, same origin caveat as WebLLM.',
+	],
+	[
+		'esm.run/kokoro-js',
+		'Kokoro — the on-device read-aloud voice (voice-model.js). PREFERS a ' +
+			'same-origin module worker (kokoro-worker.js), which cannot read ' +
+			'localStorage; the worker origin is load-bearing because iOS Safari ' +
+			'refuses a cross-origin import from the opaque origin of a blob: worker. ' +
+			'But `loadMain()` (voice-model.js:555) imports it on the MAIN THREAD when ' +
+			'the Worker cannot be constructed or its load fails on a non-coarse ' +
+			'pointer, so this rung reaches the key-bearing document too. It is on the ' +
+			'main thread that mobile is spared, not the key.',
+	],
+]);
+
+// Every `esm.run/<specifier>` (or any other barred host followed by a path) written
+// in docs/src, whatever quoting or scheme carries it.
+const CDN_IMPORT_RE = (host) =>
+	new RegExp(host.replace(/\./g, '\\.') + '/[^\\s\'"`)]+', 'g');
+
+// The hosts that carry at least one sanctioned URL. Derived, never written twice.
+const sanctionedHosts = new Set([...SANCTIONED_CDN_IMPORTS.keys()].map((u) => u.split('/')[0]));
 
 // This test file itself, which necessarily spells the hosts out.
 const SELF = path.relative(REPO, __filename);
@@ -80,7 +157,23 @@ test('no docs/src file references a CDN host', () => {
 		const text = fs.readFileSync(file, 'utf8');
 		text.split('\n').forEach((line, i) => {
 			for (const host of BARRED_HOSTS) {
-				if (line.includes(host)) hits.push(`${rel}:${i + 1} → ${host}`);
+				if (!line.includes(host)) continue;
+				// A sanctioned URL is admitted; anything else on the line — including a
+				// FIFTH package inside a file that already carries a sanctioned one — is
+				// a hit. A bare hostname with no path is prose (a comment explaining the
+				// carve-out), and cannot load anything by itself.
+				const urls = line.match(CDN_IMPORT_RE(host)) || [];
+				const unsanctioned = urls.filter((u) => !SANCTIONED_CDN_IMPORTS.has(u));
+				if (unsanctioned.length > 0) {
+					hits.push(`${rel}:${i + 1} → ${unsanctioned.join(', ')}`);
+				} else if (urls.length === 0 && !sanctionedHosts.has(host)) {
+					// A bare hostname with no path. For a host with nothing sanctioned it is
+					// still a hit — that is the original, strict reading, and it is what
+					// catches a URL assembled from pieces. For a host that legitimately
+					// appears in the tree, prose about it is unavoidable (the comments
+					// explaining this carve-out are exactly that) and loads nothing.
+					hits.push(`${rel}:${i + 1} → ${host}`);
+				}
 			}
 		});
 	}
@@ -91,6 +184,26 @@ test('no docs/src file references a CDN host', () => {
 		`docs/src must not reference a CDN host — self-host it instead (stage it in ` +
 			`docs/scripts/sync-playground-assets.mjs and pass the local URL through the ` +
 			`host's options). Found:\n  ${hits.join('\n  ')}`,
+	);
+});
+
+test('every sanctioned CDN import is still loaded by docs/src', () => {
+	// A sanction outlives its call site silently: the load moves to a bundled import,
+	// the entry stays, and the next reader takes the carve-out for a live one. Every
+	// neighboring `SANCTIONED_*` list in tools/check-ownership.js fails on a stale
+	// entry for the same reason, so this one does too — and it is the arm that turns
+	// the allowlist back into a bar the day the AI tier is self-hosted.
+	const text = walk(DOCS_SRC)
+		.filter((f) => path.relative(REPO, f) !== SELF)
+		.map((f) => fs.readFileSync(f, 'utf8'))
+		.join('\n');
+
+	const stale = [...SANCTIONED_CDN_IMPORTS.keys()].filter((url) => !text.includes(url));
+	assert.deepStrictEqual(
+		stale,
+		[],
+		`SANCTIONED_CDN_IMPORTS lists a URL that docs/src no longer loads. Delete the ` +
+			`entry — a carve-out nobody exercises reads as permission next time. Stale:\n  ${stale.join('\n  ')}`,
 	);
 });
 

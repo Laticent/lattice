@@ -332,12 +332,16 @@ let a parity comparison be the evidence.
   hard load failure.
 - **Whether `lib/transformers` ordering can be declared at all**, or whether T2
   stays a hand-ordered array forever with the DSL as the only outside path.
-- **`esm.run` is a live precedent for loading foreign code at run time** — the
-  Studio's AI tier dynamically imports web-llm, transformers and kokoro from it,
-  in the top-level document that holds the user's OpenRouter key, and
-  `test/unit/docs/no-cdn-runtime.test.js` does not list that host. Whether that
-  is a sanctioned carve-out or a gap the 2026-09-03 sweep missed should be
-  settled before any plugin proposal is measured against it.
+- ~~**`esm.run` is a live precedent for loading foreign code at run time.**~~
+  **SETTLED — and it is not a precedent.**
+  [`2026-09-13-esm-run-ai-tier-carve-out.md`](2026-09-13-esm-run-ai-tier-carve-out.md):
+  `esm.run` 301s to `cdn.jsdelivr.net`, which that gate already bars, so this was
+  a **gap** the 2026-09-03 sweep missed rather than a carve-out it granted — the
+  sweep never names the AI tier. The host is now barred with a per-URL sanction
+  on the three loads, and what is accepted (all three can execute in the
+  key-bearing document; all three unpinned; no `integrity`) is written down.
+  A plugin proposal citing run-time foreign code as established practice should
+  cite that note, which refuses it.
 
 ## References
 
