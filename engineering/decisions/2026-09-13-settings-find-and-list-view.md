@@ -594,22 +594,46 @@ blank tan column.
 
 | Surface | Panel `scrollWidth` − `clientWidth`, before |
 |---|---|
-| Deck, 1440 docked | +273 |
-| Slide, 1440 docked | +342 |
-| Deck sheet, 390 phone | +130 |
+| Deck, 1440 docked | +259 |
+| Slide, 1440 docked | +336 |
+| Deck sheet, 390 phone | +128 |
 
 Fixed with `overflow-x-clip` on the strip row — `clip` rather than `hidden` because it clips
 without becoming a scroll container itself and leaves `overflow-y` genuinely `visible`. The
 dropdown is a Radix portal, so its menu is not clipped. After: the panel body's `scrollWidth`
-equals its `clientWidth` at 390 / 1440 in both scopes, and a real 300px sideways wheel moves
-nothing.
+equals its `clientWidth` at 390 / 1440 in both scopes, and a 400px sideways wheel over the
+panel moves it 0px.
+
+**And the first cut of that fix broke something else.** A bare `clip` has an
+`overflow-clip-margin` of 0, the first pill sits flush against the row's content edge
+(measured gap: 0px), and the app focus ring is `outline: 2px` at `outline-offset: 2px` — so
+it paints 4px OUTSIDE the box and was sheared off. A keyboard and low-vision regression
+inside the fix for a scroll regression. `[overflow-clip-margin:6px]` restores it: with the
+margin the focused pill is pixel-identical to the same pill with no clip at all, and the
+margin widens only the PAINT area, so `clip` still never scrolls.
+
+*Two corrections to the check that found this, both measured.* It reported the scroll region
+as +273/+342/+130; 273 is the ROW's own `scrollWidth − clientWidth` (504 − 231), a different
+box from the one that scrolls. And it reported the ring sheared at 390 as well as 1440 — at
+390 the clip margin makes no difference at all (0px, 6px and 24px render identically), so
+nothing there was ever clipped; the 390 pixel diff it saw is the horizontal scrollbar that
+the *broken* state introduces, which moves the whole capture.
 
 **Both gates that should have caught it were structurally blind.** §11's own e2e measured
 `row.querySelectorAll('button')`, and the ghost's children are `<span>`s — so the assertion
 claiming "zero overflow at every width" could not see the thing that overflowed.
 `npm run check:overflow` passed too; it measures the page and the header, not this scroller.
-The e2e now asks the SCROLLER instead of the buttons, and a second test drives a real sideways
-wheel and asserts nothing moved. That is the arm that fails on the old code.
+The e2e now asks the SCROLLER instead of the buttons, and a second test drives a real
+sideways wheel. Both fail on the un-clipped row.
+
+**The wheel arm has its own lesson, and it is the sharpest one here.** A first version of it
+passed against the broken code, and it was deleted with a comment blaming Playwright:
+"the synthesized wheel does not reach this nested scroller". That is false. The second
+independent check dispatched the same wheel and moved the panel 262px. The arm was missing
+`page.mouse.move` — the cursor sat at Playwright's default (0, 0), outside the panel, so the
+wheel went nowhere. A working test was thrown away, and a wrong root cause was written into
+a durable comment, *in the commit whose whole subject was correcting false claims*. The arm
+is back, with the move, and it fails on the old code.
 
 ### The other code change, and one recorded limitation
 

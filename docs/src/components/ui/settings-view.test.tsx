@@ -471,6 +471,41 @@ describe('SettingsSectionTabs', () => {
 		expect(screen.getByRole('button', { name: /all sections/ })).toBeTruthy();
 	});
 
+	// The ZERO-PILL FLOOR, which needs a measurement to reach — and jsdom has no
+	// `ResizeObserver` and reports every width as 0, so without this stub the component can
+	// only ever take the unmeasured fallback and the guard is unreachable. It was: an
+	// independent check found `{visible.length > 0 && …}` had no coverage at any tier, and
+	// deleting it left the whole suite green. An empty `role="tablist"` is a malformed
+	// widget — the same `aria-required-children` family as the chevron-inside-the-tablist
+	// bug this component already had once.
+	it('renders NO tablist when not even one pill fits', () => {
+		const observers: (() => void)[] = [];
+		const RO = globalThis.ResizeObserver;
+		const widths = new Map<string, number>([['Look', 54], ['Chrome', 71], ['General', 72], ['Accent', 65], ['Motion', 66], ['Speech', 67], ['More', 74]]);
+		globalThis.ResizeObserver = class {
+			constructor(cb: () => void) { observers.push(cb); }
+			observe() { observers[observers.length - 1]?.(); }
+			disconnect() {}
+			unobserve() {}
+		} as unknown as typeof ResizeObserver;
+		// A row far too narrow for any pill, and a ghost whose children report real widths.
+		const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(100);
+		const offsetWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+			return widths.get((this.textContent ?? '').trim()) ?? 0;
+		});
+		try {
+			render(<SettingsSectionTabs tabs={SIX} value="speech" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+			expect(screen.queryAllByRole('tab')).toHaveLength(0);
+			expect(screen.queryByRole('tablist')).toBeNull();
+			// …and the chevron carries the active section's name, so "where am I" survives.
+			expect(screen.getByRole('button', { name: /all sections/ }).textContent).toContain('Speech');
+		} finally {
+			clientWidth.mockRestore();
+			offsetWidth.mockRestore();
+			globalThis.ResizeObserver = RO;
+		}
+	});
+
 	it('the chevron holds EVERY section, not the leftovers', async () => {
 		// This is what makes a dropped shortcut safe, and it is why the count can change
 		// without anything becoming unreachable.

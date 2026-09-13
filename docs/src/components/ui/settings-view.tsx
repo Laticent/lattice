@@ -437,7 +437,16 @@ export function SettingsSectionTabs({
 		// `clip` rather than `hidden`: it clips without creating a scroll container of its own,
 		// and it leaves `overflow-y` genuinely `visible` so nothing here can start scrolling
 		// either. The dropdown is a Radix portal, so the menu is not clipped by this.
-		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5 overflow-x-clip', className)}>
+		//
+		// `overflow-clip-margin` IS PART OF THE FIX, not a tweak. The first pill sits flush
+		// against the row's content edge (measured gap: 0px), and the app focus ring is
+		// `outline: 2px` at `outline-offset: 2px` — so it paints 4px OUTSIDE the box, and a
+		// bare `clip` shears it off. Measured: the left arc of the ring on "Look" sliced at
+		// every width in both scopes, and the chevron's right arc gone on the 390px sheet
+		// where it sits 2px from the edge. That is a keyboard and low-vision regression in
+		// the fix for a scroll regression. 6px is the ring's 4px plus a pixel of rounding
+		// either side; it widens the PAINT area only — `clip` still never scrolls.
+		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5 overflow-x-clip [overflow-clip-margin:6px]', className)}>
 			{/* The MEASURING COPY: every pill at its natural width, laid out but never drawn.
 			    `absolute` keeps it out of the row's own layout, `w-max` stops the row's width
 			    squeezing it (which would make it measure what it is being asked to decide),
@@ -462,8 +471,13 @@ export function SettingsSectionTabs({
 			    violation, and the first cut put it in there.
 			    And no tablist AT ALL when nothing fits — an empty `role="tablist"` is the same
 			    violation from the other side, a widget promising children it does not have.
-			    Unreachable at any supported width (the narrowest real row is 218px and one
-			    pill plus the chevron is 134px), but the floor exists so it should be correct. */}
+			    Reachable, and the arithmetic that first said otherwise left out the pinned
+			    pill. One pill plus the chevron is 134px, but `visibleSectionTabs` also
+			    RESERVES the active pill when it is not in the run — so with the slide scope's
+			    `Comments` active (the widest label, 87px) `n = 1` costs 74 + 6 + 54 + 6 + 87 =
+			    227px, and any row narrower than that gets no pills at all. The panel minimum
+			    is 260px so this needs a narrower container than the UI offers today, but it
+			    is a width away, not impossible. */}
 			{visible.length > 0 && (
 			<div className="contents" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
 				{visible.map((t, i) => (

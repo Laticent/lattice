@@ -94,7 +94,6 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [On a `finish:` deck the running header/footer/logo moved, and ate stage height](gotchas/css.md#on-a-finish-deck-the-running-headerfooterlogo-moved-and-ate-stage-height)
 - [Something decorative on a slide is painting on the wrong side of something else](gotchas/css.md#something-decorative-on-a-slide-is-painting-on-the-wrong-side-of-something-else)
 - [`white-space:nowrap` on `section code` collapsed code blocks + overflowed eyebrows](gotchas/css.md#white-spacenowrap-on-section-code-collapsed-code-blocks--overflowed-eyebrows)
-- [A `visibility: hidden` measuring element makes its scroll container scroll SIDEWAYS](gotchas/css.md#a-visibility-hidden-measuring-element-makes-its-scroll-container-scroll-sideways)
 - [`var(--fg)` is undefined — SVG `fill`/`stroke` silently falls back to black/none](gotchas/css.md#var--fg-is-undefined--svg-fillstroke-silently-falls-back-to-blacknone)
 - [State disc never paints — a recipe var that embeds `--state-color` was defined at `:root`/section](gotchas/css.md#state-disc-never-paints--a-recipe-var-that-embeds---state-color-was-defined-at-rootsection)
 - [Chrome (`<body>`) tokens are the `PORTAL_TOKENS` subset — a slide-only token is `undefined` there (the `--pass`/`--warn`/`--fail` bug, fixed)](gotchas/css.md#chrome-body-tokens-are-the-portal_tokens-subset--a-slide-only-token-is-undefined-there-the---pass--warn--fail-bug-fixed)
@@ -107,6 +106,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [`100dvw`/`100vw` includes the scrollbar — a full-width child of a scroll container clips when centered](gotchas/css.md#100dvw100vw-includes-the-scrollbar--a-full-width-child-of-a-scroll-container-clips-when-centered)
 - [A CSS reset declaration silently does nothing — the value doesn't exist](gotchas/css.md#a-css-reset-declaration-silently-does-nothing--the-value-doesnt-exist)
 - [The same declaration, but it dies at COMPUTED-VALUE time — and does NOT fall back](gotchas/css.md#the-same-declaration-but-it-dies-at-computed-value-time--and-does-not-fall-back)
+- [A `visibility: hidden` measuring element makes its scroll container scroll SIDEWAYS](gotchas/css.md#a-visibility-hidden-measuring-element-makes-its-scroll-container-scroll-sideways)
 
 ### [Docs site build and dev server (Astro + GitHub Pages)](gotchas/docs-site.md)
 

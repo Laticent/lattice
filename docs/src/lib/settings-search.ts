@@ -37,7 +37,7 @@ import { americanize, withinDistance } from './intent-search';
 //   fourth that turned out to be false, and named "Says something" / "Says nothing" as the
 //   casualty of its stop list. It is not: `contentWords('Says nothing')` returns
 //   ["says","nothing"], because `nothing`, `something` and `says` are not in `STOP`.
-//     · It DOES drop `no` and `all`, among 112 others — `contentWords('No comments on this
+//     · It DOES drop `no` and `all` — 111 words in all — `contentWords('No comments on this
 //       slide yet')` is ["comments","yet"] and `'All 7 slides follow'` is ["slides","follow"].
 //       A settings filter has to keep those: they are what an author types.
 //     · It does not fold diacritics, and it is worse than not folding — the `[a-z0-9]`
@@ -151,8 +151,10 @@ function wordsOf(normalized: string): string[] {
  * itself. A COLLISION with a real word is the only harmful case, and every collision found
  * was a four-letter word (`four`, `hour`, `tour`, `pour`, `sour`).
  *
- * Five is the floor because the shortest spelling the fold exists to catch is `colour` (6);
- * nothing it is meant to fix is shorter. `americanize` itself is intent-search's and stays
+ * Five, not six, and the difference is real: `odour` is five characters and folds to `odor`,
+ * so a six-character floor would drop a spelling the fold exists for. Five is the shortest
+ * length at which no rule reaches a different word — every collision found is four
+ * characters (`four`, `hour`, `tour`, `pour`, `sour`). `americanize` itself is intent-search's and stays
  * exactly as it is — the picker's bake-off is tuned against it.
  */
 function fold(word: string): string {

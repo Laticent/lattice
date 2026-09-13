@@ -798,13 +798,25 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `overflow-y-auto` — the ordinary way to make a settings list scroll — is *already* an
   `overflow-x: auto` box, and an absolutely-positioned `width: max-content` ghost 500px wide
   inside a 231px row hands it the whole difference.
-- **Fix:** `overflow-x: clip` on the ghost's own containing block. `clip` rather than
-  `hidden`, because `hidden` would make that element a scroll container in its own right;
-  `clip` only clips, and it leaves `overflow-y` genuinely `visible` so nothing new starts
-  scrolling. A Radix/portal dropdown anchored in the clipped row is unaffected — its content
-  renders in a portal, outside the clip.
+- **Fix:** `overflow-x: clip` on the ghost's own containing block, **with an
+  `overflow-clip-margin`**. `clip` rather than `hidden`, because `hidden` would make that
+  element a scroll container in its own right; `clip` only clips, and it leaves `overflow-y`
+  genuinely `visible` so nothing new starts scrolling. A Radix/portal dropdown anchored in
+  the clipped row is unaffected — its content renders in a portal, outside the clip.
+- **The margin is not optional, and forgetting it trades one regression for another.**
+  `clip` defaults to `overflow-clip-margin: 0`, and a child flush against the content edge
+  loses whatever paints outside its box — in this repo that is the app focus ring
+  (`outline: 2px` at `outline-offset: 2px`, so 4px beyond). Measured: the ring on the strip's
+  first pill sheared flat on its left at the docked desktop width. Set the margin to the
+  ring's reach plus a pixel or two; it widens the PAINT area only, and `clip` still never
+  scrolls.
 - **Test it by asking the SCROLLER, not the children.** The first e2e written for this
   measured `row.querySelectorAll('button')` and asserted "zero overflow at every width" — the
   ghost's children are `<span>`s, so the assertion could not see the thing that overflowed.
-  Assert `scroller.scrollWidth === scroller.clientWidth`, and drive a real sideways wheel.
+  Assert `scroller.scrollWidth === scroller.clientWidth`, and drive a real sideways wheel —
+  **and in Playwright, `page.mouse.move` onto the scroller first.** `page.mouse.wheel` is
+  dispatched at the cursor's current position, which starts at (0, 0); without the move the
+  wheel lands outside the panel, nothing scrolls, and the test passes against the defect. One
+  was written and deleted here on the false conclusion that Playwright's wheel could not
+  reach a nested scroller. It can.
   See `engineering/decisions/2026-09-13-settings-find-and-list-view.md` §12.
