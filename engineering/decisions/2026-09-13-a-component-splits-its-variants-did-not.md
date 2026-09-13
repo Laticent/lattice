@@ -367,6 +367,42 @@ probe calls fine.
   `split-panel` cover clips are. It is pre-existing and shared: a plain unsplit `content` slide
   with a long enough `_footer:` clips identically. Widening it is a change to every component's
   band.
+- **A COVERLESS `split-panel` PAGE CAN STILL PRINT ITS POINTER OVER LONG CONTENT — accepted on
+  the owner's call, with what is and is not fixed stated exactly.** The layout's section IS its
+  panel flex container, so the forward pointer arrives as a flex item of the panel row and has to
+  be taken out of it; out of flow, it is an opaque pill at `--z-chrome` over a column that clips
+  at its PADDING box. Four independent checker rounds each found a different defect in that
+  geometry, the last two of them shipping:
+
+  | round | defect | state |
+  |---|---|---|
+  | 1 | rail printed through the pill's label; pill over the footer's ink | fixed, pinned |
+  | 2 | section-level reserve cut the dark panel short at square | fixed, pinned |
+  | 3 | `:not(.form)` left an authored `form` page with every round-1 defect | fixed, pinned (4 of 28 arms) |
+  | 3 | pointer out of flow with no reserve → pill over body text | partly fixed — see below |
+  | 4 | `mirror` row-reverses the panels; the reserve was on the wrong column | fixed, pinned |
+  | 4 | the run's last page has no pointer, so it alone got no reserve → 31-44px content drift | fixed, pinned (8 of 28 arms) |
+
+  **What the reserve does NOT do, measured rather than argued.** It repositions content that
+  FITS — which is the drift fix and the mirror fix, and both are real. It cannot hold OVERFLOWING
+  content out of the band, because `.panel-right` is `overflow: clip` and a clip edge is the
+  padding box. On a three-member deck with 48-word bodies the pill prints 321.1x38.0px over the
+  text WITH the reserve and 321.1x38.0px WITHOUT it — byte-identical. Those pages carry the
+  engine's `overflow` flag, so the surface is not silent.
+
+  **The root fix is a kernel change and is deliberately not taken here.** `dockInFooterCell`
+  appends both marks at SECTION level whenever a page has no `.cell-footer` row; docking the
+  pointer inside the content flow instead would make it unable to overlap content on ANY layout
+  rather than this one. That moves shipped pages across every splitting component and wants its
+  own change and its own review.
+
+  **And the pattern is the durable finding, not the six defects.** Each round's fix held for the
+  cases it was measured against and broke on one it had not been tried against — portrait but not
+  square, non-`form` but not `form`, `.panel-right` but not `mirror`, pages with a pointer but not
+  the last one. Three hand-authored test fixtures in a row could not reach the defect they were
+  written for. The lesson is one line: **a corpus that does not contain the case cannot clear
+  it**, and on a layout that reflows by size AND by modifier the corpus has to be the cross
+  product, not a representative.
 - **`split-panel`'s running footer is illegible on its coverless split pages, and was before
   them.** The layout inks its chrome `--on-dark-secondary` — white at 0.76 alpha — because that
   chrome normally sits over the dark panel. At portrait the panel is on TOP and the footer sits
@@ -424,6 +460,10 @@ probe calls fine.
   for the author, at bless time), run on a cadence over the whole corpus rather than on the
   decks a PR happens to touch. That is a CI-contract change and belongs to its owner, not to
   this PR.
+- **`split-panel pullquote mirror` renders its right panel entirely off-slide at portrait** —
+  `{left: -62.4 to 1531.6, right: -451.6 to -62.4}` on a 1080px slide. Identical with
+  `--no-split` (one whole slide, `overflow clip-marked`), so it is pre-existing and not this
+  change's; found by the round-4 checker and unrecorded anywhere else.
 - **`split-panel steps` overflows at `wide` from step 1 of the jank sweep** — the component's
   own skeleton, at its own authoring size, with a six-word heading. Pre-existing, off this
   change's path, and recorded here rather than walked past (HARD RULE #18's off-path arm).
