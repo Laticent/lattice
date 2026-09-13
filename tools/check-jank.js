@@ -322,9 +322,22 @@ const FRONT_MATTER = (() => {
     // block and make the rest of the deck body. Refused rather than escaped: there is no
     // legitimate multi-line key this sweep needs, and `--style` already owns the one
     // block-scalar case.
-    if (/[\r\n]/.test(entry)) {
-      die(`--front-matter '${entry.replace(/[\r\n]+/g, '\\n')}' contains a line break. `
-        + 'Front matter is line-oriented; pass one `key: value` per flag.');
+    // ALL FOUR of them. `[\r\n]` was the first cut and U+2028/U+2029 walked straight
+    // through it, because JavaScript's own LineTerminator set has four members and the
+    // engine's two front-matter readers disagree about the other two: `parseFrontMatter`
+    // splits on /\r?\n/ and then matches a key with an un-anchored `.`, which cannot cross
+    // U+2028 — so the line silently fails to match and is DROPPED — while
+    // `frontMatterValue` uses /m/, where `^` does break there, so it SEES the smuggled
+    // second key. Both halves of that split are defects, and both were reproduced:
+    //   · `'paginate: true\u2028size: 4:3'` set `size`, the key this flag refuses by name,
+    //     overriding the rig's own family control (`error: unknown size: 4:3`);
+    //   · the requested `paginate: true` was dropped, and the sweep then reported a
+    //     confident CLEAN over a page number that was never on the page — exit 0.
+    // The second is the precise false clean every refusal in this block exists to prevent,
+    // arrived at THROUGH the guard meant to stop it.
+    if (/[\r\n\u2028\u2029]/.test(entry)) {
+      die(`--front-matter '${entry.replace(/[\r\n\u2028\u2029]+/g, '\\n')}' contains a line `
+        + 'break. Front matter is line-oriented; pass one `key: value` per flag.');
     }
     const at = entry.indexOf(':');
     if (at < 0) {
@@ -958,6 +971,12 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
         sel: c.sel,
         top: round(c.top - sr.top),
         left: round(c.left - sr.left),
+        // THE DIMENSIONS AS NUMBERS, not only as the display string. Discovery needs the FAR
+        // edges to tell a box that moves from one that grows, and for a while this reshape
+        // kept `size` alone — so the far edge silently equalled the near one and discovery
+        // reported every widening mark as drift.
+        w: round(c.width),
+        h: round(c.height),
         size: `${round(c.width)}x${round(c.height)}`,
       })),
     };
@@ -1246,13 +1265,37 @@ async function main() {
       const firstPerSel = new Map();
       for (const c of r.candidates || []) if (!firstPerSel.has(c.sel)) firstPerSel.set(c.sel, c);
       for (const [sel, c] of firstPerSel) {
-        if (!seen.has(sel)) seen.set(sel, { tops: [], lefts: [], size: c.size, perSlide: [] });
+        if (!seen.has(sel)) {
+          seen.set(sel, { tops: [], lefts: [], bottoms: [], rights: [], size: c.size, perSlide: [] });
+        }
         seen.get(sel).tops.push(c.top);
         seen.get(sel).lefts.push(c.left);
+        // THE FAR EDGES, so discovery can ask the same question the verdict does. Without
+        // them this path could only ever see a near edge move, which is a box GROWING as
+        // readily as a box MOVING.
+        //
+        // REFUSED, not defaulted. The first cut wrote `c.width || 0`, and because the
+        // reshape above was still dropping the number, every far edge silently equalled its
+        // near edge and the whole fix was inert while looking applied — a zero standing in
+        // for a measurement, which is this tool's defining failure.
+        if (!Number.isFinite(c.w) || !Number.isFinite(c.h)) {
+          die(`candidate '${sel}' came back without numeric dimensions (w=${c.w}, h=${c.h}) — `
+            + 'discovery cannot measure a far edge without them.');
+        }
+        seen.get(sel).bottoms.push(c.top + c.h);
+        seen.get(sel).rights.push(c.left + c.w);
         seen.get(sel).perSlide.push((r.candidates || []).filter((x) => x.sel === sel).length);
       }
     }
-    const spread = (v) => (v.length > 1 ? Math.max(...v) - Math.min(...v) : 0);
+    // ONE MEASURE, SHARED WITH THE VERDICT. This path kept its own `Math.max` over the two
+    // NEAR edges through the first cut of #2168, and the result was a tool that contradicted
+    // itself: discovery printed `26.2px — does not hold position` about a right-pinned mark
+    // whose numeral was widening, and the `--anchor` verdict on the same mark, in the same
+    // run, cleared it at `0.0px ok`. Discovery is the step this tool's own output tells the
+    // operator to run FIRST, so the disagreement lands before the verdict does — and by the
+    // header's own standard ("crying wolf is the more corrosive failure"), that is worse
+    // than either answer alone. Splitting the kernel out and moving only one of its two call
+    // sites onto it is exactly the shape HARD RULE #1 exists to stop.
     const found = [...seen.entries()].map(([sel, v]) => ({
       sel,
       size: v.size,
@@ -1260,7 +1303,10 @@ async function main() {
       // How many match per slide — a selector matching several is not one mark, and naming
       // it measures whichever happens to be first in document order.
       per: Math.max(...v.perSlide),
-      drift: +Math.max(spread(v.tops), spread(v.lefts)).toFixed(1),
+      drift: +Math.max(
+        axisDrift(v.tops, v.bottoms),
+        axisDrift(v.lefts, v.rights),
+      ).toFixed(1),
     })).sort((a, b) => b.drift - a.drift);
     if (JSON_OUT) { console.log(JSON.stringify({ component: CLASS, family: FAMILY, candidates: found }, null, 2)); return; }
     console.log(`\n  ${CLASS} · ${FAMILY} · ${AXIS} sweep, ${rows.length} slides — generated boxes this tool can watch\n`);

@@ -10,12 +10,20 @@
  * — correct. But a box PINNED on one edge that merely grows moves only the other edge, and
  * the max reported that growth as movement.
  *
- * Measured on the engine's own page number (#2168): `span.lat-pagination` sits at a
- * constant 30px right inset on all 12 pages of a 12-page deck, and at page 10 the numeral
- * gains a digit so its LEFT edge steps 8.99px. The old measure called that
- * `DRIFT 9.0px horizontal` and exited 1 — a false verdict against the most widely shipped
- * running mark in the engine, which had never been measured before because rendering it at
- * all needs `paginate: true` front matter the sweep deck could not carry.
+ * Measured on the engine's own page number (#2168). Dumped straight out of `check-jank`
+ * over a 12-page deck — these are the columns this function actually receives:
+ *
+ *   L [1241 x9, 1232 x3]      R [1250 x12]
+ *
+ * The far edge is constant on all twelve pages; at page 10 the numeral gains a digit and
+ * the near edge steps back 9px. The old measure called that `DRIFT 9.0px horizontal` and
+ * exited 1 — a false verdict against the most widely shipped running mark in the engine,
+ * which had never been measured at all before, because rendering it needs `paginate: true`
+ * front matter the sweep deck could not carry.
+ *
+ * The figure is 9, not 8.99: `check-jank` rounds every coordinate to one decimal before the
+ * measure sees it. 8.99 is the raw DOM inset delta read with a separate browser probe, and
+ * an earlier draft of this docblock quoted it here as if this instrument had produced it.
  *
  * THE DISCRIMINATOR IS `min` OVER THREE REFERENCES, and it needs all three because a mark
  * may be pinned at either edge or centered:

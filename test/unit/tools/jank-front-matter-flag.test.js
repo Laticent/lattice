@@ -8,8 +8,15 @@
  * reject is a decoration — the same argument the rest of this tool's flag list is built on.
  *
  * These arms spawn the CLI because the validation runs at module scope and exits the
- * process. They are cheap on purpose: every refusal below fires BEFORE the manifest is
- * resolved and long before Chromium launches, so this file adds no render to the suite.
+ * process. The seven REFUSALS are cheap: each fires before the manifest is resolved and
+ * long before Chromium launches.
+ *
+ * THE EIGHTH IS NOT, and saying otherwise here was wrong. `a valid entry is accepted` is
+ * the arm that proves the flag does not reject everything, so by construction it must get
+ * PAST validation — which means it runs the whole pipeline, including a real render when a
+ * browser is present. Measured: ~3.6s. That is the price of the only arm that keeps the
+ * other seven honest, and it is worth paying, but it is a render and this file used to
+ * claim it added none.
  */
 
 const test = require('node:test');

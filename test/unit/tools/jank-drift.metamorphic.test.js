@@ -10,9 +10,19 @@
  *
  * A metamorphic relation needs no oracle. It does not ask "is 9.0px the right answer?" —
  * it asks "when the input changes THIS way, must the output change THAT way?", which is
- * checkable even where the correct answer is unknown. Every relation below is either a
- * defect that actually happened (MR7) or an over-correction that fixing it could have
- * introduced (MR8) — the two ways this function can be wrong.
+ * checkable even where the correct answer is unknown.
+ *
+ * THEY ARE NOT ALL EQUALLY STRONG, and an earlier version of this header claimed they were
+ * ("every relation below is either a defect that actually happened or an over-correction") —
+ * false of most of them. Read them in three tiers:
+ *   · MR6/MR6b/MR7/MR7b/MR8 are the load-bearing ones: each is a defect that happened or a
+ *     mutant that survived. MR7b and MR6b were both added after an independent checker
+ *     found the suite could not tell `(near+far)/2` from `near+far`, and that the generator
+ *     never produced a pinned edge at all.
+ *   · MR2/MR3/MR4/MR5 are genuine properties, but exercised only over free-floating boxes.
+ *   · MR1 is close to vacuous for a pure function, and MR9 is an axiom for `Math.min`.
+ *     Both still kill non-`min` mutants, so they earn their place — but neither is evidence
+ *     the measure is RIGHT.
  *
  * WHAT THIS FILE DOES NOT COVER, so nobody reads it as more than it is: that the RIG feeds
  * this function faithful section-relative edges. That is a browser claim and it belongs in
@@ -36,6 +46,14 @@ function rng(seed) {
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 2 ** 32; };
 }
 const SEEDS = [1, 7, 42, 99, 1234, 65535];
+
+/**
+ * Free-floating boxes: both edges wander. Measured across all six seeds, the smallest
+ * reference spread is 44.37px — no column is ever constant, so these NEVER produce the
+ * pinned-edge shape MR6 is about. That was a real gap: for a while MR6 rested entirely on
+ * three hand-written triples while the seeded relations exercised only this shape, which
+ * every spread-based formula satisfies by construction. `pinnedBoxes` below closes it.
+ */
 function boxes(seed, steps = 8) {
   const r = rng(seed);
   const near = [];
@@ -49,6 +67,19 @@ function boxes(seed, steps = 8) {
     far.push(+(n + w).toFixed(2));
   }
   return { near, far };
+}
+
+/**
+ * A box PINNED at one edge that only changes size — the page number's shape, and the one
+ * the whole change is about. `which` picks which edge holds still.
+ */
+function pinnedBoxes(seed, which, steps = 8) {
+  const r = rng(seed);
+  const fixed = 100 + r() * 400;
+  const sizes = Array.from({ length: steps }, () => +(5 + r() * 300).toFixed(2));
+  return which === 'far'
+    ? { near: sizes.map((w) => +(fixed - w).toFixed(2)), far: Array(steps).fill(fixed) }
+    : { near: Array(steps).fill(fixed), far: sizes.map((w) => +(fixed + w).toFixed(2)) };
 }
 
 test('MR1 determinism — the same edges always give the same answer', () => {
@@ -109,27 +140,61 @@ test('MR5 a pure translation is reported in full, at either edge or the middle',
   }
 });
 
+test('MR6b growth alone is never movement — over generated pinned boxes, both edges', () => {
+  // The seeded half of MR6. `boxes()` cannot produce this shape at all, so without this the
+  // pinned case was three literals and nothing else.
+  for (const seed of SEEDS) {
+    for (const which of ['near', 'far']) {
+      const { near, far } = pinnedBoxes(seed, which);
+      assert.equal(axisDrift(near, far), 0, `seed ${seed} pinned ${which}`);
+      // And the measure it replaced called every one of these movement, which is the defect.
+      assert.ok(oldMeasure(near, far) > 0, `seed ${seed} pinned ${which}: nothing to catch`);
+    }
+  }
+});
+
 test('MR6 growth alone is never movement, whichever reference is pinned', () => {
   // Pinned at the NEAR edge: the far edge runs away.
   assert.equal(axisDrift([100, 100, 100], [110, 150, 300]), 0);
   // Pinned at the FAR edge: the near edge runs back. This is the page number.
   assert.equal(axisDrift([100, 80, 20], [300, 300, 300]), 0);
-  // Pinned at neither, but symmetric about a fixed CENTRE — the third reference, and the
+  // Pinned at neither, but symmetric about a fixed CENTER — the third reference, and the
   // reason two were not enough.
   assert.equal(axisDrift([100, 90, 80], [200, 210, 220]), 0);
 });
 
-test('MR7 the regression itself — the engine page number, measured', () => {
-  // THE REAL NUMBERS. A 12-page deck, `span.lat-pagination`, section-relative edges: the
-  // right inset is 30px on all twelve pages, and at page 10 the numeral gains a digit so
-  // the left edge steps 8.99px. Section width 1280, so far = 1280 - 30 = 1250.
-  const near = [1241.02, 1241.02, 1241.02, 1241.02, 1241.02, 1241.02, 1241.02, 1241.02, 1241.02,
-    1232.03, 1232.03, 1232.03];
-  const far = near.map((_, i) => (i < 9 ? 1250.00 : 1250.00));
-  assert.equal(axisDrift(near, far), 0, 'a mark at a constant right inset has not moved');
-  // And the measure it replaced disagreed — which is what shipped `DRIFT 9.0px ✗`, exit 1,
-  // against a mark doing exactly what a page number should do.
-  assert.ok(Math.abs(oldMeasure(near, far) - 8.99) < 0.011, `old measure said ${oldMeasure(near, far)}`);
+test('MR7 the regression itself — the engine page number, as the rig reports it', () => {
+  // THE RIG'S OWN COLUMNS, not a reconstruction. Dumped out of `check-jank` on a 12-page
+  // deck (`content`, wide, indaco, `paginate: true`, `--anchor 'span.lat-pagination'`):
+  //
+  //   L [1241 x9, 1232 x3]      R [1250 x12]
+  //
+  // The far edge is constant across all twelve pages; at page 10 the numeral gains a digit
+  // and the near edge steps back. These are the values `axisDrift` actually receives —
+  // `check-jank` rounds every coordinate to ONE DECIMAL before the measure sees it, so a
+  // two-decimal figure cannot come from this rig at all. An earlier draft of this test
+  // carried 1241.02 / 1232.03 / 8.99, which are the raw DOM insets read with a separate
+  // browser probe. True numbers, wrong instrument, presented as this one's — in a file
+  // whose whole thesis is that the rig's only oracle was itself.
+  const near = [...Array(9).fill(1241), ...Array(3).fill(1232)];
+  const far = Array(12).fill(1250);
+  assert.equal(axisDrift(near, far), 0, 'a mark at a constant far edge has not moved');
+  // And the measure it replaced disagreed — which is what shipped `DRIFT 9.0px` and exit 1
+  // against a mark doing exactly what a page number should do. Exact, not approximate:
+  // these are 1-dp values, so the subtraction is exact.
+  assert.equal(oldMeasure(near, far), 9);
+});
+
+test('MR7b the third reference is the MIDPOINT, not the sum of the edges', () => {
+  // A SURVIVING MUTANT, found by an independent checker. Dropping the `/ 2` — using
+  // `near + far` instead of `(near + far) / 2` — passed all eleven other relations, because
+  // MR4's scale equivariance and MR5's symmetric shapes are both blind to a constant factor
+  // on one of the three columns. It is not cosmetic: it changes verdicts at the limit.
+  //
+  // The witness is the smallest case that separates them. near [0,10], far [100,94]:
+  // the midpoints are 50 and 52, spread 2 — at the default 2px limit, a pass. Under the
+  // mutant the sums are 100 and 104, spread 4 — a fail on a box whose midpoint moved 2px.
+  assert.equal(axisDrift([0, 10], [100, 94]), 2);
 });
 
 test('MR8 the over-correction guard — a sideways walk is still caught in full', () => {

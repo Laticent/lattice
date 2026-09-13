@@ -1,15 +1,15 @@
 /**
- * `mdCell` in tools/jank-census.js — the census table's cell sanitiser.
+ * `mdCell` in tools/jank-census.js — the census table's cell sanitizer.
  *
  * WHY THIS FILE EXISTS. The first cut escaped `|` and stopped there, which CodeQL flagged as
  * `js/incomplete-sanitization` (high) on PR #2163. The defect is not abstract: escaping a
  * delimiter without escaping the ESCAPE CHARACTER means an input that already contains `\|`
  * comes out as `\\|` — a literal backslash followed by a live, unescaped cell delimiter. The
- * sanitiser hands back exactly the character it was there to neutralise.
+ * sanitizer hands back exactly the character it was there to neutralize.
  *
  * The census writes a COMMITTED table (engineering/jank-census.md) from strings assembled out
  * of child-process stderr and CSS selectors, so a broken row is a broken artifact in the repo,
- * not a transient. And a sanitiser nobody has watched fail is a decoration — the same shape of
+ * not a transient. And a sanitizer nobody has watched fail is a decoration — the same shape of
  * defect as the two inert gates the rest of that PR was about, which is why it is pinned here
  * rather than left to the reader of the regex.
  */

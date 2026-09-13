@@ -453,8 +453,11 @@ Form carrying a footer cell — the normal case — the page number is a real el
 an element, not a pseudo, and it is an in-flow flex child rather than a positioned one: its
 exposure is crowding inside the footer row, not a silent collision with slide copy.
 
-**Measured, first time: it holds.** `content`, heading axis to 40 words, `paginate: true` —
-drift 0.0px, no collision, clearance falling 268px → 178.4px as the heading grows.
+**Measured, first time: it holds.** `content`, heading axis to 40 words, `paginate: true`,
+anchored on `span.lat-pagination` — drift 0.0px, no collision, clearance falling
+**348.6px → 169.4px** as the heading grows. (An earlier draft of this line said 268 → 178.4.
+Those came from the `--style`-SIMULATED run on `section.form::after`, not from the real mark:
+two runs, conflated. Re-derived from the shipped mark on the base this ships against.)
 
 **Getting there needed a fix to DRIFT ITSELF, and that is the more useful half.** The first
 run reported `DRIFT 9.0px horizontal ✗` and exit 1. It had not moved: across a 12-page deck
@@ -465,8 +468,23 @@ over three references — near edge, far edge and midpoint — because a mark ma
 either edge or centered, and a true translation moves all three together while growth leaves
 its own reference at zero. The measure lives in `tools/lib/jank-drift.js` with metamorphic
 relations that need no browser, including the sideways-walk case the old measure was written
-for, so the fix cannot be traded back for the bug it replaced. The census is unchanged by it:
-`--anchors` discovery reports a candidate's own spread and never called this path.
+for, so the fix cannot be traded back for the bug it replaced.
+
+**Both halves of the tool now share the measure, and for a while only one did.** The first cut
+moved the verdict path onto the kernel and left `--anchors` computing `Math.max` over the two
+NEAR edges. The tool then contradicted itself: discovery printed `26.2px — does not hold
+position` about a right-pinned mark that the `--anchor` verdict cleared at `0.0px` in the same
+run, and discovery is the step this tool's own output tells you to run FIRST, so the wrong
+answer arrived first. Splitting a kernel out and moving one of its two call sites is the shape
+HARD RULE #1 exists to stop.
+
+**Regenerate the census with the command in its own header, and no other.** It is printed at
+the top of `jank-census.md` and it is not the obvious one: without `--md` the tool writes
+nothing at all, and without `--tolerate-unmeasured` it exits 1 on the three classes that have
+no growable axis. Running `node tools/jank-census.js --variants --marks` and diffing the file
+therefore compares the committed table against ITSELF and reports "byte-identical" no matter
+what changed — a check that passes because it never measured, which is the exact failure this
+whole tool exists to catch. It was run that way three times before anyone read the header.
 
 **A modifier that paints nothing alone must be given its companion**, or the census
 reports "none" for a mark that is simply not on the page — the false clean this tool is
