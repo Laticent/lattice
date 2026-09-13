@@ -303,6 +303,32 @@ probe calls fine.
   absolute berth and no reservation; they clear it only because their content is short. The
   general fix is a band reservation in the shared chrome, which moves seven shipped pages and
   belongs in its own change.
+- **`list principles bullet` IS BROKEN ON `main`, AND ITS COMMITTED GOLDEN WAS HIDING IT.**
+  Found by rebuilding the gallery PDFs this change's CSS edits made stale — the rebuild is
+  mechanical, and `golden-diff` then reported one changed slide on `list` in both moods, which
+  is the only gallery in the corpus it did not call "rebuild-only".
+
+  It is not this change's. Rendering `list.gallery.md` from the merge-base tree and from this
+  branch gives a PIXEL-IDENTICAL slide 8 (`ImageChops.difference(...).getbbox()` → `None`), the
+  section markup is byte-identical, and the only CSS rules that differ between the two bundles
+  are `obligation-matrix`'s and `split-panel`'s. What differs is `main`'s COMMITTED golden,
+  which still shows the styled register — display-weight statements, accent dots, hairline
+  dividers — while `main`'s own code renders a bare `1. 2. 3.` in body type with the whole
+  `principles` register gone. The golden was blessed before the regression and never rebuilt.
+
+  **The mechanism is a NAME COLLISION, and half of it is already defended.** `bullet` is a
+  declared VARIANT of `list` (`list.manifest.json`, beside `lettered` and `roman`) *and* a
+  standalone chart COMPONENT. So `<!-- _class: list principles bullet -->` carries two
+  component names and the layout resolver has to pick one. `bullet.styles.css` already guards
+  its own side — every rule in it is scoped `:is(section.bullet:where(:not(.list)), …)` — so
+  someone met this collision before and defended the chart from the list. Nothing defends the
+  list from the chart.
+
+  **The golden stays rebuilt.** It now shows what the engine produces instead of what it
+  produced before the regression, which is what a golden is for; a baseline that hides a live
+  defect is worse than one that shows it. Off the path of this change (nothing here touches
+  `list`, the `bullet` modifier, or the chart), so it is recorded rather than fixed — but it is
+  recorded as a defect on `main`, not as churn.
 - **`split-panel steps` overflows at `wide` from step 1 of the jank sweep** — the component's
   own skeleton, at its own authoring size, with a six-word heading. Pre-existing, off this
   change's path, and recorded here rather than walked past (HARD RULE #18's off-path arm).
