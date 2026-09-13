@@ -216,7 +216,53 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 	// so. Stamped BEFORE the write, because the runtime reads it from the observer callback
 	// that write triggers. See adoptOutgoingDiagrams in lib/runtime/index.js.
 	lattice.setAttribute('data-lattice-swap', inPlace ? 'in-place' : 'reflow');
+	// CARRY THE MARKER LEVEL ACROSS THE SWAP, and this is not bookkeeping — it is the one
+	// thing a patch cannot get from the runtime.
+	//
+	// The runtime stamps `data-lattice-overflow-marker` at boot and then keeps it current from
+	// its own observer. At `off` — the level a SPECIMEN resolves to — it deliberately installs
+	// nothing: "no probe, no observer, no resize handler" (lib/runtime/index.js). So an `off`
+	// document has no one left to stamp a section that arrives later, and a patched-in slide
+	// comes up with the attribute ABSENT. The attribute is what `base.modifiers.css` keys its
+	// suppression on, so an absent one means an overflowing catalog tile paints the loud author
+	// ring — the exact chrome the specimen flag exists to remove, on a sample the author did not
+	// write and cannot fix.
+	//
+	// It only became reachable when the add-slide gallery started POOLING its frames: before
+	// that a tile was rebuilt rather than patched, so every `off` document was freshly booted.
+	// Measured on the pooled gallery: 6 of 10 frames carried no marker attribute after a scroll,
+	// and it never recovered. Levels that DO install an observer (`author`, the Studio's own
+	// preview) re-stamp themselves and are unaffected either way — carrying the value across is
+	// the same value they would write back, so this costs them nothing.
+	//
+	// READ IT OFF THE OUTGOING SLIDE, because that is the only place it still exists. The
+	// runtime resolves the level from an export-settings block it CONSUMES at boot
+	// (`readExportSettings` removes the block it reads), so nothing in the document can
+	// re-derive it — but the section the runtime stamped is right here, one statement before we
+	// overwrite it. Hence the read is BEFORE the write and the stamp is after.
+	//
+	// AND STAMP THE ARTICLE'S OWN CHILDREN, not `section[data-lattice-slide]`. That attribute is
+	// written by the RUNTIME (`applyFormDefaultToDom`, lib/runtime/index.js), not by the engine —
+	// so the sections arriving in `safeHtml` do not carry it yet, and a selector keyed on it
+	// matches NOTHING at patch time. Measured on the pooled gallery with the selector in place:
+	// `matched=0` on all six patched frames, while the same documents read
+	// `section[data-lattice-slide]` a second later once the runtime's pass had run. A slide is a
+	// top-level `<section>` of the `.lattice` article, which is true the instant the write lands.
+	const level =
+		[...lattice.children]
+			.find((el) => el.tagName === 'SECTION' && el.hasAttribute('data-lattice-overflow-marker'))
+			?.getAttribute('data-lattice-overflow-marker') ??
+		// Fallback for the one case the read cannot cover: an outgoing slide that carries no
+		// stamp at all. A SPECIMEN document resolves to `off` by construction
+		// (`isSpecimenDocument` in lib/runtime/index.js routes it there), so the flag on <html>
+		// answers it without guessing. Any other document is left alone — it has a watcher.
+		(doc.documentElement.hasAttribute('data-lattice-specimen') ? 'off' : null);
 	lattice.innerHTML = (fresh || holder).innerHTML;
+	if (level) {
+		for (const s of lattice.children) {
+			if (s.tagName === 'SECTION') s.setAttribute('data-lattice-overflow-marker', level);
+		}
+	}
 	return true;
 }
 

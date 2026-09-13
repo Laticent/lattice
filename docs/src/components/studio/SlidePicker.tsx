@@ -9,7 +9,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { NEW_SLIDE } from './deck-ops';
-import { SlideThumbFace, useInView } from './slide-thumb';
+import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { componentLooks, type VariantAxis, variantSample } from './slide-variants';
 import { loadPickerView, loadSettings, type PickerView, SETTINGS_EVENT, savePickerView } from './studio-store';
 
@@ -347,14 +347,21 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 					   (and its live-preview iframe) survives a view flip instead of unmounting and
 					   re-rendering cold. List is a single full-width column whose tiles lay
 					   themselves out as rows; band headers stay `col-span-full` in both. */
-					<div className={cn('grid gap-3 pt-1', effectiveView === 'list' ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4')}>
-						{searching
-							? flat.flatMap((it) => renderTile(it, it.name, matchedLooks(it)))
-							: (bands ?? []).flatMap((band) => {
-									const header = band.label ? [<h3 key={`h:${band.key}`} className={cn('col-span-full px-0.5 pb-1 pt-2 text-[13px] font-semibold leading-normal', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-[var(--text-heading)]')}>{band.label}</h3>] : [];
-									return [...header, ...band.items.flatMap((it) => renderTile(it, tileKey(band.key, it.name)))];
-								})}
-					</div>
+					/* POOLED PREVIEWS. The frames live in one layer inside this scroll content rather
+					   than one per tile, so they are re-pointed instead of destroyed as you scroll —
+					   which is what stops WebKit retaining a document per tile browsed. See
+					   preview-pool.tsx. The grid itself is unchanged: every tile keeps its own
+					   button, name and looks control. */
+					<PreviewPool>
+						<div className={cn('grid gap-3 pt-1', effectiveView === 'list' ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4')}>
+							{searching
+								? flat.flatMap((it) => renderTile(it, it.name, matchedLooks(it)))
+								: (bands ?? []).flatMap((band) => {
+										const header = band.label ? [<h3 key={`h:${band.key}`} className={cn('col-span-full px-0.5 pb-1 pt-2 text-[13px] font-semibold leading-normal', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-[var(--text-heading)]')}>{band.label}</h3>] : [];
+										return [...header, ...band.items.flatMap((it) => renderTile(it, tileKey(band.key, it.name)))];
+									})}
+						</div>
+					</PreviewPool>
 				)}
 			</div>
 
@@ -511,7 +518,7 @@ function LooksToggle({ name, looksCount, matchCount, isOpen, onToggle }: { name:
 // the meta — for when you are reading names and descriptions rather than scanning
 // artwork. Both views render the SAME live engine preview through the same windowing.
 function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, view = 'grid', looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks }: { item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; view?: PickerView; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
-	const [ref, visible] = useInView<HTMLDivElement>();
+	const ref = React.useRef<HTMLDivElement>(null);
 	const sample = frontMatter ? frontMatter + item.skeleton : item.skeleton;
 	const isBlank = item.name === 'Blank';
 	const isList = view === 'list';
@@ -525,7 +532,7 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 	) : (
 		// pointer-events-none: the render is a separate-document iframe that would
 		// otherwise swallow the tile's click.
-		<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} specimen className="pointer-events-none aspect-video w-full" />
+		<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" />
 	);
 
 	// Line 3 in grid, the trailing cluster in list. Rendered OUTSIDE the insert button in
@@ -622,17 +629,15 @@ function LooksPanel({ item, looksFilter, onInsertLook, options, frontMatter, pal
 }
 
 function LookTile({ item, token, label, onInsert, options, frontMatter, paletteOverride, extraTheme, modeOverride }: { item: PickerItem; token: string; label: string; onInsert: (it: PickerItem, token: string) => void; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark' }) {
-	const [ref, visible] = useInView<HTMLButtonElement>();
 	const sample = (frontMatter ?? '') + variantSample(item.skeleton, token);
 	return (
 		<button
 			type="button"
-			ref={ref}
 			onClick={() => onInsert(item, token)}
 			aria-label={token ? `Insert ${item.name} · ${label}` : `Insert ${item.name}, default look`}
 			className="group/lk relative overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-[var(--accent)] focus-visible:border-[var(--accent)] focus-visible:outline-none"
 		>
-			<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} specimen className="pointer-events-none aspect-video w-full" />
+			<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" />
 			<div className="truncate px-1.5 py-1 font-mono text-[9.5px] font-semibold text-[var(--text-heading)]">{token ? label : 'Default'}</div>
 		</button>
 	);

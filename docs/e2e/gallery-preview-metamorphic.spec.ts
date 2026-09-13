@@ -181,38 +181,72 @@ async function stepTo(page: Page, top: number, stride = 300) {
  * carries one unpainted box at 390x844 and at 820x1180 alike — the tile at the edge that is
  * still writing its srcdoc. The callers allow for that; they are guarding against a wall of
  * empty cards, not against one.
+ *
+ * ── WHY THE FRAME IS FOUND BY RECT AND NOT BY DESCENT ───────────────────────────────
+ * A pooled preview is not a CHILD of the tile it shows. `preview-pool.tsx` holds a small
+ * fixed set of frames in one absolutely-positioned layer and MOVES them over whichever
+ * tiles are worth rendering — moving an iframe in the DOM reloads it, so the pool
+ * repositions rather than reparents. `box.querySelector('iframe.live')`, which this helper
+ * used to do, therefore finds nothing on a pooled grid and finds the frame on an un-pooled
+ * one (Present's overview, Reshape's variants). Matching by rect is the one question both
+ * contracts answer identically — and it is the question the reader actually has: is there a
+ * painted slide ON this card.
+ *
+ * Returns the LABEL too, so the recycle relation can ask "did THIS component come back
+ * painted" without a second, differently-shaped walk. The label comes off the tile's own
+ * control (`aria-label="Insert …"`), which survives a recycle because it is the tile's, not
+ * the frame's.
  */
-const blankVisible = (page: Page) =>
+const tileReport = (page: Page) =>
 	page.evaluate((sel) => {
 		const sc = document.querySelectorAll(sel)[0] as HTMLElement | undefined;
-		if (!sc) return { blank: 0, seen: 0 };
+		const out: { blank: number; seen: number; painted: Record<string, boolean> } = { blank: 0, seen: 0, painted: {} };
+		if (!sc) return out;
 		const r = sc.getBoundingClientRect();
-		let blank = 0;
-		let seen = 0;
+		const frames = [...document.querySelectorAll<HTMLIFrameElement>('iframe.live')];
 		for (const box of sc.querySelectorAll('.aspect-video')) {
 			const b = box.getBoundingClientRect();
 			if (b.bottom <= r.top || b.top >= r.bottom || b.height < 4) continue;
-			seen++;
-			const fr = box.matches('iframe.live') ? (box as HTMLIFrameElement) : box.querySelector<HTMLIFrameElement>('iframe.live');
+			out.seen++;
+			// The frame sitting over this box: same top-left to within a pixel or two. A pooled
+			// frame is placed at the box's own rect, an un-pooled one IS inside it — both land here.
+			const fr = frames.find((f) => {
+				const q = f.getBoundingClientRect();
+				return q.width > 4 && Math.abs(q.top - b.top) < 3 && Math.abs(q.left - b.left) < 3;
+			});
 			let painted = false;
 			try {
 				painted = !!fr?.contentDocument?.querySelector('.lattice, section[data-lattice-slide]');
 			} catch {
 				painted = false;
 			}
-			if (!painted) blank++;
+			if (!painted) out.blank++;
+			const label = box.closest('[aria-label]')?.getAttribute('aria-label') || '';
+			if (label) out.painted[label] = painted;
 		}
-		return { blank, seen };
+		return out;
 	}, SCROLLER);
 
-/** Preview documents mounted inside an expanded LOOKS PANEL. The panel is the picker's only
- *  `scroll-mt-2` row (SlidePicker's `LooksPanel`), which is what makes it addressable at all —
- *  its look tiles share the grid tiles' `Insert …` aria-label prefix, so a role query cannot
- *  tell the two apart. */
+/** Previews shown by an expanded LOOKS PANEL. The panel is the picker's only `scroll-mt-2`
+ *  row (SlidePicker's `LooksPanel`), which is what makes it addressable at all — its look
+ *  tiles share the grid tiles' `Insert …` aria-label prefix, so a role query cannot tell the
+ *  two apart.
+ *
+ *  Counted by OVERLAP rather than by descent, for the reason `tileReport` gives: the panel's
+ *  previews come from the same pool layer as the grid's and are positioned over the panel,
+ *  not parented into it. */
 const panelFrames = (page: Page) =>
 	page.evaluate(() => {
 		const panel = document.querySelector('[class*="scroll-mt-2"]');
-		return panel ? panel.querySelectorAll('iframe.live').length : 0;
+		if (!panel) return 0;
+		const p = panel.getBoundingClientRect();
+		if (p.height < 4) return 0;
+		let n = 0;
+		for (const f of document.querySelectorAll('iframe.live')) {
+			const q = f.getBoundingClientRect();
+			if (q.width > 4 && q.top >= p.top - 3 && q.bottom <= p.bottom + 3) n++;
+		}
+		return n;
 	});
 
 const scrollHeight = (page: Page) =>
@@ -278,7 +312,7 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		// budget working" — a genuine bleed would present as exactly the monotone decline they
 		// permit. So the floor is the author-visible symptom rather than a count: after three
 		// traversals the tiles on screen are painted, not a wall of empty cards.
-		const rest = await blankVisible(page);
+		const rest = await tileReport(page);
 		expect(rest.seen, 'no tile box was on screen, so nothing was checked').toBeGreaterThan(1);
 		expect(rest.blank, `${rest.blank} of ${rest.seen} tile boxes on screen are blank after three traversals`).toBeLessThanOrEqual(2);
 	});
@@ -420,9 +454,9 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		await firstBandPainted(page);
 		await quiesced(page);
 
-		// What each mounted tile IS and whether it actually painted: the component's label, taken
-		// from the tile chrome (stable across a recycle), mapped to whether its frame holds a
-		// rendered slide — the thing a recycle could silently lose.
+		// What each tile on screen IS and whether it actually painted: the component's label,
+		// taken from the tile's own control (stable across a recycle), mapped to whether a
+		// rendered slide is showing on it — the thing a recycle could silently lose.
 		//
 		// A MAP, not a list, and that distinction is the whole correctness of this test. A list
 		// compared with `toEqual` also asserts how MANY tiles are mounted, which is retention —
@@ -430,23 +464,7 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		// first read and a warm second one. Measured at 390x844: 3 tiles mounted before the
 		// traversal and 6 after, the first three identical and painted. That is the window
 		// working, and a list comparison called it a regression.
-		const painted = () =>
-			page.evaluate((sel) => {
-				const sc = document.querySelectorAll(sel)[0] as HTMLElement | undefined;
-				const out: Record<string, boolean> = {};
-				if (!sc) return out;
-				for (const fr of sc.querySelectorAll('iframe.live')) {
-					const frame = fr as HTMLIFrameElement;
-					const label = (frame.closest('div')?.textContent || '').trim().slice(0, 40);
-					if (!label) continue;
-					try {
-						out[label] = !!frame.contentDocument?.querySelector('.lattice, section[data-lattice-slide]');
-					} catch {
-						out[label] = false;
-					}
-				}
-				return out;
-			}, SCROLLER);
+		const painted = async () => (await tileReport(page)).painted;
 
 		const before = await painted();
 		const names = Object.keys(before);
@@ -561,7 +579,7 @@ test('@webkit-phone MR-1 + MR-3 hold on the engine a phone actually runs', async
 	// One-sided, for the reason MR-1 gives above — and this is the surface that proved it
 	// necessary: the ceiling follows the band, so a settled count may fall between passes.
 	expect(passes[1], `WebKit: mounted previews GREW between traversal 1 and 2: ${passes[0]} → ${passes[1]}`).toBeLessThanOrEqual(passes[0] + SLACK);
-	const rest = await blankVisible(page);
+	const rest = await tileReport(page);
 	expect(rest.seen, 'WebKit: no tile box was on screen, so nothing was checked').toBeGreaterThan(1);
 	expect(rest.blank, `WebKit: ${rest.blank} of ${rest.seen} tile boxes on screen are blank`).toBeLessThanOrEqual(2);
 
