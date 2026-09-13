@@ -1243,6 +1243,53 @@ describe('quadrant — per-slide sizing never trades attribution for type', () =
       + 'attribution: it may grow only while travel is no worse than at the floor.');
   });
 
+  // A SLIDE THE GUARD ITSELF ONCE MADE WORSE. The first cut of the attribution
+  // budget put travel ahead of presence, and `travelOf` can only measure labels
+  // that PLACED — so on a slide where the floor already hides a name, the budget
+  // is taken over the survivors, and any taller rung that manages to place that
+  // name has one more travelling label than the budget allows. It was refused,
+  // the slide kept the floor, and the floor is the size that drops the name.
+  // A guard against misattribution was choosing deletion instead.
+  //
+  // Measured over 600 generated quadrants: the shipped guard dropped a name on
+  // 88 slides against the bare ladder's 74 — 14 worse, 0 better. With presence
+  // as the primary key it is 74, with 5 slides BETTER than the bare ladder.
+  //
+  // This fixture is one of those 14. It is verbatim, not minimized: the shape
+  // that breaks it is a crowded slide whose floor is already lossy, and reducing
+  // it by hand loses exactly that property.
+  test('the ladder never paints fewer names than the floor would', () => {
+    const CROWDED = innerOf(`<ul>
+      <li>Strategic Bets<ul>
+        <li>Integration <code>3.99, 85.9</code></li>
+        <li>Revenue Signal Analytics <code>5.39, 94.1</code></li>
+        <li>Automation Analytics Analytics <code>7.26, 98.4</code></li>
+        <li>Migration Retention Revenue <code>2.39, 82.8</code></li>
+      </ul></li>
+      <li>Quick Wins<ul>
+        <li>Migration Integration Automation <code>2.26, 21.6</code></li>
+        <li>Intake Migration Analytics <code>0.82, 32.0</code></li>
+        <li>Reliability Revenue Partner <code>9.60, 86.3</code></li>
+      </ul></li>
+      <li>Defer<ul>
+        <li>Adoption Audit <code>7.38, 75.3</code></li>
+        <li>Adoption Analytics Analytics <code>2.23, 53.9</code></li>
+      </ul></li>
+      <li>Time Sinks<ul>
+        <li>Integration Integration <code>9.49, 69.6</code></li>
+      </ul></li>
+    </ul>`);
+    const model = parseQuadrant(CROWDED);
+    const authored = model.groups.reduce((n, g) => n + g.items.length, 0);
+    const out = buildQuadrant(model, 'default', SCALE);
+    const painted = [...out.matchAll(/<text class="quadrant-dot-label"/g)].length;
+    assert.equal(authored, 10, 'fixture drifted — it must carry ten names');
+    assert.equal(painted, authored,
+      `${authored - painted} name(s) dropped. Presence is the ladder's primary key: `
+      + 'a rung that paints more names wins outright, and attribution only ever '
+      + 'breaks a tie between rungs painting the same number.');
+  });
+
   // THE TEN-ITEM SLIDE, because the eight-item one above cannot exercise half
   // the guard. The budget has two terms — how MANY names travel and how FAR the
   // worst one does — and on the fixture above they always agree, so a build with
