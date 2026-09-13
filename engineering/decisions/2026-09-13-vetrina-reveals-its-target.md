@@ -180,6 +180,23 @@ Identical, and neither ever sustained past a frame or two. A 48px `yMargin` on t
 against the WebKit lag and made no difference (53px with it and without), so it was dropped rather
 than shipped as a number with nothing behind it.
 
+The four cells are the sampler's own output, in the order old-Chromium, old-WebKit, new-Chromium,
+new-WebKit:
+
+```
+[tail] 611 samples while typing, worst instantaneous offset 0px  (slack 40px)    old · chromium 390
+[tail] 252 samples while typing, worst instantaneous offset 53px (slack 40px)    old · webkit iPhone
+[tail] 619 samples while typing, worst instantaneous offset 0px  (slack 40px)    new · chromium 390
+[tail] 245 samples while typing, worst instantaneous offset 53px (slack 40px)    new · webkit iPhone
+```
+
+**To regenerate the OLD row** — an independent checker could not, because nothing in the tree is an
+artifact of that build, and this is the recipe it needed: restore `Editor.tsx` and
+`use-studio-demo.ts` from `main`, `node tools/build-vetrina-lib.js && (cd docs && npm run build:e2e)`,
+then `npx playwright test e2e/demo-mobile.spec.ts --grep "follows the typing"` on `--project=mobile`
+and `--project=webkit-phone`. The arm passes either way; the number is in the `[tail]` line it prints
+on a pass, which is exactly why that line prints on a pass.
+
 So the fragilities above are real by construction and this change removes them before they bite —
 but they are not what the iPhone report was seeing. **That symptom is still unexplained**, and the
 candidates the sandbox cannot reach are the interesting ones: the software keyboard's
