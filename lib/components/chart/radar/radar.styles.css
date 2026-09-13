@@ -88,10 +88,15 @@
  */
 
 /* ── Grid: concentric ring polygons + radial spokes ───────────────────── */
+/* GRID, NOT A MARK. `--chart-edge` is the token for a DATA MARK's outline, and
+ * a ring is shared furniture — it belongs to no series, so it takes no mark
+ * token (the same reason a gridline never takes a categorical hue). The family
+ * has no grid-weight token yet; until it does, the ring keeps the weight it has
+ * always had. */
 :is(section.radar, figure.chart-frame) .radar-ring {
   fill: none;
   stroke: var(--radar-grid-soft);
-  stroke-width: var(--chart-edge);
+  stroke-width: 1;
 }
 :is(section.radar, figure.chart-frame) .radar-ring[data-ring="4"] {
   stroke: var(--radar-grid);   /* outer ring carries the chart edge */
@@ -116,6 +121,19 @@
   font-size: var(--radar-axis-label-size);
   font-weight: 600;
 }
+/* A TICK IS GUTTER FURNITURE AND MUST READ AS SUCH. `--text-muted` is an ink
+ * designed against the CANVAS, and radar is the one member that then paints its
+ * ticks over the plot — the 2.5 / 5 / 7.5 rungs land under whatever series
+ * polygons reach that far. Measured with the ticks sampled against the pixels
+ * actually behind them, every one of the twelve themes failed AA there:
+ * 2.68-4.50:1 against a 4.5 floor, worst on a11y-base.
+ *
+ * The fix is the family's existing halo idiom (stacked-bar's total, waterfall's
+ * value, state-chart's label): paint the glyph's own outline in the CANVAS
+ * colour first, so the tick sits on `--bg` whatever runs behind it and the
+ * theme's designed tick-on-canvas contrast is what a reader gets. Palette-blind,
+ * and right on both canvases. 1.8 on a 9-unit glyph in a ~300-unit viewBox is
+ * the same proportion stacked-bar uses. */
 :is(section.radar, figure.chart-frame) .radar-tick {
   fill: var(--text-muted);
   font-family: var(--font-label, var(--font-body));
@@ -123,6 +141,10 @@
   /* font-weight raised to 600 (matching the cover-variant lift) so faint
    * sub-token-size ticks have enough stroke weight to be legible. */
   font-weight: 600;
+  paint-order: stroke fill;
+  stroke: var(--bg);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
 }
 
 /* ── Series polygons + vertex dots ────────────────────────────────────── */
@@ -132,10 +154,14 @@
   stroke-width: var(--chart-edge);
   stroke-linejoin: round;
 }
+/* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
+ * two touching marks apart, so its correct weight follows what it has to
+ * separate, not the family's outline weight. It is deliberately excluded
+ * from the shared `--chart-edge` rule — see chart-family.css. */
 :is(section.radar, figure.chart-frame) .radar-dot {
   fill: var(--series-color);
   stroke: var(--bg);
-  stroke-width: var(--chart-edge);
+  stroke-width: 1;
 }
 
 /* ── Legend ───────────────────────────────────────────────────────────────

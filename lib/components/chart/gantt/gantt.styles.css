@@ -111,28 +111,68 @@
 :is(section.gantt, figure.gantt) .gantt-milestone {
   /* No status means no status — a neutral ink. This was --state-info-ink, the
    * same blue a declared `pilot` or `decision` takes, so every gallery page drew
-   * a blue bar the legend never named. */
-  --fill-ink: var(--state-mute-ink);
+   * a blue bar the legend never named.
+   *
+   * THE NEUTRAL IS `--muted-mark`, NOT `--state-mute-ink`, and the difference is
+   * a contract rather than a shade. `--state-mute-ink` is an INK: it is held to
+   * a TEXT floor and nothing promises it clears 3:1 as a graphical object.
+   * Measured against the slide canvas it does not — 2.18:1 on onyx and the five
+   * a11y themes, 2.87:1 on concrete — so a bar edged in it is a mark a reader
+   * cannot reliably see, which is the one thing every mark in this family owes
+   * (the body cannot carry it: the wash is a tint by design and measures 1.15:1).
+   * `--muted-mark` is the graphical de-emphasis tier held to 3:1 for exactly
+   * this job, and it clears the CANVAS at 3.81-5.10:1 — but a gantt mark does
+   * not sit on the canvas. It sits on the lane band, which is lighter, and a
+   * neutral milestone measured 1.68:1 against it. `--text-secondary` is the
+   * neutral with room to spare (5.47-7.83:1 on the canvas, and it clears the
+   * band too), it is held to a TEXT floor which is stricter than the graphical
+   * one, and no declared status uses it — so an unstated bar stays plainly
+   * visible without impersonating a status. */
+  --fill-ink: var(--text-secondary);
   stroke: var(--fill-ink);
   stroke-width: var(--chart-edge);
 }
 
 /* Status — each re-points --fill-ink at a semantic --state-* ink. The FILL
- * gradient is selected by the kernel from the same status, so the two can never
- * disagree. Canvas-aware via the token, so one rule per status, both modes. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="on-track"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="done"]     { --fill-ink: var(--state-pass-ink); }
+ * gradient is selected by the kernel (`GANTT_STATUS_FILL`) from the same
+ * status, so the two can never disagree. Canvas-aware via the token, so one
+ * rule per status, both modes.
+ *
+ * THE SWATCH IS IN THE SAME SELECTOR AS THE BARS, and that is not tidiness.
+ * There used to be a second, parallel table below for `.gantt-legend-swatch`,
+ * and the two drifted the first time one of them moved: re-pointing `live` from
+ * pass to info here left the chip's EDGE green while the kernel filled its body
+ * blue, so the key showed a two-colour chip for a one-colour status. One table
+ * cannot disagree with itself. */
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="on-track"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="done"]     { --fill-ink: var(--state-pass-ink); }
 /* `live` is RUNNING work, not finished work. It shared --state-pass-ink with
  * `done` here and shared the 'pass' fill gradient in the kernel, so the legend
  * named three statuses and painted two of them identically. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="live"]     { --fill-ink: var(--state-info-ink); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="at-risk"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="blocked"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="pilot"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="decision"] { --fill-ink: var(--state-info-ink); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="deferred"] { --fill-ink: var(--state-mute-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="live"]     { --fill-ink: var(--state-info-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="at-risk"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="blocked"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="pilot"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="decision"] { --fill-ink: var(--state-info-ink); }
+
+/* DEFERRED IS HOLLOW, and that is the one status whose paint is not just an
+ * ink. It takes the same mute ramp a status-LESS bar takes, so on colour alone
+ * "pushed to next quarter" and "nobody said" are the same bar — and an unstated
+ * bar emits no legend chip, so no key can tell them apart. Dropping the fill to
+ * a wash while keeping the full-strength edge draws it as an outline, which is
+ * what a deferred item looks like in every schedule a reader has seen. The
+ * earlier arrangement put the collision on `pilot` instead of `deferred`; this
+ * removes it rather than moving it again. */
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="deferred"] {
+  /* The same neutral as the unstated default, for the reason given there: this
+   * edge is the ONLY thing carrying the mark once the fill drops to a wash, so
+   * it needs the tier with headroom against the lane band, not just the
+   * canvas. */
+  --fill-ink: var(--text-secondary);
+  fill-opacity: 0.18;
+}
 
 /* Unparseable / missing span — a muted full-width placeholder so the task stays
  * visible (lint-core flags the cause); never a silent drop. */
@@ -168,21 +208,13 @@
  * reader needs a key. The swatch is filled by the same gradient as its bars, so
  * a chip and a bar of the same status read identically. */
 :is(section.gantt, figure.gantt) .gantt-legend-swatch {
-  --fill-ink: var(--state-info-ink);
+  /* The fallback for a chip whose status the table above does not carry — the
+   * same neutral an unstated bar takes, not `info`. An `info` fallback made an
+   * unrecognized status look like a declared `pilot`. */
+  --fill-ink: var(--text-secondary);
   stroke: var(--fill-ink);
   stroke-width: var(--chart-edge);
 }
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="on-track"],
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="done"],
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="live"]     { --fill-ink: var(--state-pass-ink); }
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="at-risk"],
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="blocked"],
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="pilot"],
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="decision"] { --fill-ink: var(--state-info-ink); }
-:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="deferred"] { --fill-ink: var(--state-mute-ink); }
-
 :is(section.gantt, figure.gantt) .gantt-legend-label {
   fill: var(--text-body);
   font-family: var(--font-body);

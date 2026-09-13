@@ -311,6 +311,38 @@
   --chart-state-info: light-dark(#2F567F, #79A6D6); /* deep slate     */
   --chart-state-mute: light-dark(#68675B, #A69882); /* warm greige    */
 
+  /* ── The fill WASH, flattened for this canvas ─────────────────────────────
+   * chart-family.css builds every mark fill as a two-stop wash between the hue
+   * and the canvas, and states the contract that wash exists to keep: "the wash
+   * only tints, so --text-heading labels clear it on both canvases." On the
+   * family's percentages concrete is the one theme where that is false, for the
+   * same reason its warn and info hues are deepened ten lines above: its canvas
+   * is an unusually dark greige (#B8B8B5), so the same mix lands far closer to
+   * the heading ink than it does on a near-white page.
+   *
+   * Measured on the rendered gallery, each glyph against the pixels actually
+   * behind it: gantt's in-bar caption and state-chart's node label came in at
+   * 4.14:1 light and 3.49:1 dark against a 4.5 floor.
+   *
+   * THE INK SIDE IS EXHAUSTED — this is why the wash moves and not the label.
+   * concrete's `--text-heading` already resolves to 15,15,14 on light, and pure
+   * black on the 38% stop reaches only 4.20:1; on dark, pure white reaches
+   * 3.72:1. No ink clears this fill, so the fill is what has to change.
+   * Flattening it is also the lever with the smallest reach: one theme, the
+   * family's recipe untouched, every other palette untouched. It costs depth in
+   * the gradient and nothing else — the mark's visibility rides its ink edge,
+   * which is unchanged.
+   *
+   *   stop            family   here
+   *   top,    light     20%     14%
+   *   bottom, light     38%     28%
+   *   top,    dark      48%     38%
+   *   bottom, dark      64%     50%
+   *
+   * Re-derive with: node tools/chart-contrast-solve.js <rendered.html> screen */
+  --palette-fill-top-l: 14%;     --palette-fill-top-d: 38%;
+  --palette-fill-bottom-l: 28%;  --palette-fill-bottom-d: 50%;
+
   /* ── Categorical TEXTURE — adopt the universal channel ─────────────────
    * concrete is near-monochrome (light chips all ~#DDD). Opt into its BESPOKE
    * raw-concrete texture set (board-form / tie-holes / fluted / … in
