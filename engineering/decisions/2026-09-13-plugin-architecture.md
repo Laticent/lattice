@@ -181,7 +181,7 @@ projects the sets every consumer reads. The census found the debt was **nine**
 literals, not six — one hid inside a `page.evaluate` under a different name — and
 that **four of them held the identical twelve names**, which is why the fix is one
 declared fact rather than six projected lists. Eight of the nine derived sets are
-byte-identical to the literals they replace; the ninth (`DATA_LAYOUTS`) gains the
+member-identical to the literals they replace; the ninth (`DATA_LAYOUTS`) gains the
 three chart layouts its own comment said belonged. `checkProjectionCoverage` now
 fails the build for a chart that declares no figure, so the silent half is closed.
 Four further rosters resisted projection and are named there — each needs its own

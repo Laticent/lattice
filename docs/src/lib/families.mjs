@@ -56,7 +56,7 @@ for (const def of FAMILY_DEFS) for (const n of def.members) NAME_TO_FAMILY.set(n
 // NEW component into a bucket nobody named — a dropped chart used to land in 'other'
 // and vanish from the docs picker, one of the six rosters a folder-drop silently
 // missed. See engineering/decisions/2026-09-13-projected-rosters.md.
-const BUCKET_FALLBACK = new Map([
+export const BUCKET_FALLBACK_KEYS = [
 	['chart', 'charts'],
 	['diagram', 'charts'],
 	['imagery', 'images'],
@@ -65,7 +65,8 @@ const BUCKET_FALLBACK = new Map([
 	['legal', 'legal'],
 	['comparison', 'compare'],
 	['anchor', 'titles'],
-]);
+];
+const BUCKET_FALLBACK = new Map(BUCKET_FALLBACK_KEYS);
 
 /**
  * Family key for a component. Prefers the curated FAMILY_DEFS membership; falls back

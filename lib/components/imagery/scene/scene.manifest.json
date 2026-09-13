@@ -3,6 +3,9 @@
   "name": "scene",
   "function": "imagery",
   "form": "canvas",
+  "projection": {
+    "figure": "none"
+  },
   "substance": "prose",
   "anatomyBlock": "image-canvas",
   "orientation": [

@@ -107,42 +107,37 @@ function build() {
 // See engineering/decisions/2026-09-13-projected-rosters.md.
 
 /** name → its declared projection block. The whole record; the sets below are views. */
-export const PROJECTION = Object.freeze({
+export const PROJECTION = /* @__PURE__ */ Object.freeze({
 ${entries}
 });
 
 /** Renders as ONE self-contained <svg>: re-hosts cleanly, extracts as standalone vector. */
-export const SVG_CHART_LAYOUTS = Object.freeze([
+export const SVG_CHART_LAYOUTS = /* @__PURE__ */ Object.freeze([
 ${list(svg)}
 ]);
 
 /** HTML+CSS flow-height layouts (\`cqi\` only): re-host the whole .chart-body. */
-export const FLOW_CHART_COMPONENTS = Object.freeze([
+export const FLOW_CHART_COMPONENTS = /* @__PURE__ */ Object.freeze([
 ${list(flow)}
 ]);
 
 /** Absolutely-positioned / \`cqi\`-sized: needs a BOUNDED box to re-host. */
-export const SPATIAL_BOUNDED_COMPONENTS = Object.freeze([
+export const SPATIAL_BOUNDED_COMPONENTS = /* @__PURE__ */ Object.freeze([
 ${list(spatial)}
 ]);
 
 /** A static re-host cannot reconstruct these; they keep the honest placeholder. */
-export const SPATIAL_PLACEHOLDER_COMPONENTS = Object.freeze([
+export const SPATIAL_PLACEHOLDER_COMPONENTS = /* @__PURE__ */ Object.freeze([
 ${list(placeholder)}
 ]);
 
-/** Re-hosts as a plain <figure> — does not ride the chart spectrum, so no chart-frame. */
-export const BARE_FIGURE_COMPONENTS = Object.freeze([
-${list(bare)}
-]);
-
 /** Every component with a re-hostable visual except the flow layouts (own branch, first). */
-export const MEDIA_COMPONENTS = Object.freeze([
+export const MEDIA_COMPONENTS = /* @__PURE__ */ Object.freeze([
 ${list(media)}
 ]);
 
 /** Substance is data: one on a deck makes the scorecard's Data category scorable. */
-export const DATA_LAYOUTS = Object.freeze([
+export const DATA_LAYOUTS = /* @__PURE__ */ Object.freeze([
 ${list(data)}
 ]);
 `;

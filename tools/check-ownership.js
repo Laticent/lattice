@@ -5064,10 +5064,17 @@ function checkChartMarks(manifests, errors) {
 // PNG. The declaration replaced the lists, but a declaration you can forget is just a
 // roster with better manners — so forgetting it has to be loud.
 //
-// CHART BUCKET ONLY, and required rather than optional there. Every chart has a
-// rendered visual by definition, so there is always a right answer; a component
-// outside the bucket may legitimately have none, which is why the block stays optional
-// elsewhere (the loader validates its SHAPE for everyone).
+// SCOPED TO THE BUCKETS WHOSE MEMBERS ALWAYS HAVE A RENDERED VISUAL, and required
+// rather than optional there, because for those there is always a right answer. A
+// `statement` or `inventory` component may legitimately have none, which is why the
+// block stays optional elsewhere (the loader validates its SHAPE for everyone).
+//
+// It was chart-only in the first cut, and a checker found the hole: drop a component
+// into `diagram/` or `imagery/` with no block and `build:check` passes, but the
+// component is absent from MEDIA_COMPONENTS and Read·Article hands it the generic
+// projection instead of a captioned <figure>. That is the same silent capability loss
+// this whole change exists to end, one bucket over. `math` is here for the same reason
+// — its body is a typeset equation, which is a rendered visual by any reading.
 //
 // `none` is a legal answer and deliberately so. `matrix-grid` has no static re-host
 // producer today — its CSS already carries the `figure.matrix-grid` half, but nothing
@@ -5075,13 +5082,15 @@ function checkChartMarks(manifests, errors) {
 // The point is not that every chart re-hosts; it is that every chart SAYS.
 //
 // See engineering/decisions/2026-09-13-projected-rosters.md.
+const PROJECTION_REQUIRED_BUCKETS = new Set(['chart', 'diagram', 'imagery', 'math']);
+
 function checkProjectionCoverage(manifests, errors) {
   for (const m of manifests) {
-    if (manifestBucket(m) !== 'chart') continue;
+    if (!PROJECTION_REQUIRED_BUCKETS.has(manifestBucket(m))) continue;
     const figure = m.projection?.figure;
     if (typeof figure === 'string') continue;  // the loader validated the value itself
     errors.push(
-      `${m.name}: chart-bucket component with no \`projection.figure\`. Declare how its ` +
+      `${m.name}: ${manifestBucket(m)}-bucket component with no \`projection.figure\`. Declare how its ` +
       `visual re-hosts off the slide — svg | flow | spatial | placeholder | bare — or ` +
       `\`none\` if it genuinely has no static re-host. Without it the chart is absent from ` +
       `every projected catalog at once: black fills in the prose projection, no standalone ` +

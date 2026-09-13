@@ -9,7 +9,7 @@ summary: >
   FOUR of them held the IDENTICAL twelve names. One fact wearing four names. Each component now
   declares one `projection` block — how its rendered visual travels off the slide, and whether
   its substance is data — and one generated ESM catalog projects the sets every consumer reads.
-  Eight of the nine derived sets are byte-identical to the literals they replace; the ninth
+  Eight of the nine derived sets are member-identical to the literals they replace; the ninth
   gains three names its own comment said belonged. Deliberately NOT inferred from existing
   manifest fields: that was tried here before and got two components backwards. A chart that
   forgets to declare now fails the build, which is the arm the six rosters never had.
@@ -124,9 +124,11 @@ passes review, and the two it gets backwards fail silently. So the fact is decla
 `dist/lattice-emulator.js` and the docs-site bundles, which cannot `fs`-load 69 manifests at
 run time.
 
-**ESM** because the consumers straddle both module systems — three are ESM in `docs/src`,
-three are CJS in `lib/` — and rollup cannot take named exports from a source-tree CommonJS
-file. That is the exact role `lib/theme/edges.generated.mjs` already fills: `require()`d from
+**ESM** because the five consumers straddle both module systems and three trees — ESM:
+`lib/transformers/prose-projection.mjs` and `docs/src/.../deck-export.js`; CJS:
+`lib/export/image-set.js`, `lib/authoring/scorecard.js` and `tools/export-chart-svg.js` —
+and rollup cannot take named exports from a source-tree CommonJS file. One ESM consumer
+inside the docs bundle is enough to force the choice. That is the exact role `lib/theme/edges.generated.mjs` already fills: `require()`d from
 CJS on Node ≥ 22.12 (pinned in `package.json`), imported by relative path in the docs bundle.
 
 This is also the answer to a blocker `2026-09-01` had to leave open. It recorded the durable
@@ -138,12 +140,24 @@ does not apply to it.
 
 ## What changed, and what did not
 
-**Eight of the nine derived sets are byte-identical** to the literals they replace —
+**Eight of the nine derived sets are MEMBER-identical** to the literals they replace —
 `CHART_TOKEN_COMPONENTS`, `MEDIA_COMPONENTS`, `FLOW_CHART_COMPONENTS`,
 `SPATIAL_BOUNDED_COMPONENTS`, `SPATIAL_PLACEHOLDER_COMPONENTS`, `KEYED_CHART_LAYOUTS`,
 `CLEAN_SVG_LAYOUTS` and the `page.evaluate` copy. That parity is the evidence the
 declarations are right, and it is asserted rather than claimed
 (`test/unit/core/projection-catalog.test.js`).
+
+**Member-identical, not byte-identical, and the distinction is real.** An earlier draft
+of this line said "byte-identical" and contradicted the sentence eighty lines above it
+that the four copies sat in *three different orders*. Five of the eight were `Set`
+literals, where order is not a fact at all. The other three were **arrays**, and their
+order changes from insertion order to alphabetical. That is not cosmetic in principle:
+`lattice-emulator.js` and `deck-export.js` both derive a section's `chartType` with
+`.find(c => sec.classList.contains(c))`, so the first matching name wins. It is
+harmless in fact — a section carries one layout class, and the one pair where a reader
+would suspect otherwise (`bar` / `stacked-bar`) is exact class matching, not substring,
+and orders the same way either way. Said plainly because "byte-identical" was a stronger
+claim than the evidence, and this note is about claims nobody re-derives.
 
 **One set changes, by exactly three names.** `DATA_LAYOUTS` gains `journey`, `matrix-grid` and
 `roadmap`. These are chart layouts that the roster's own comment says belong to it — *"chart +
@@ -153,13 +167,20 @@ effect is that a deck built on one of the three now scores **Data** instead of r
 along, and it is named here rather than buried because a silent scoring change is precisely
 the genre of defect this note exists to end.
 
-**`matrix-grid` keeps behaving exactly as it does today**, and this is where `none` earns its
-place in the enum. It has no static re-host producer — its CSS already carries the
+**`matrix-grid` keeps its FIGURE behavior exactly as it is today** — it is one of the three
+names `DATA_LAYOUTS` gains above, and it moves family in the docs picker (below), so the
+unqualified form of this sentence would be false. This is where `none` earns its It has no static re-host producer — its CSS already carries the
 `figure.matrix-grid` half and nothing projects into it, a gap `matrix-grid.test.js` documents.
 Declaring a real figure kind for it would change a rendered surface, which is a different
 change owing a demo deck under HARD RULE #9. Declaring `none` records the gap instead. **The
 point is not that every chart re-hosts; it is that every chart SAYS** — and the difference
 between "declares no producer" and "was forgotten" is the entire subject of this note.
+
+`scene` (imagery) is the second `none`, found by the checker when the gate widened past the
+chart bucket. It renders an inline palette-blind SVG, so it plainly has a visual, and it was
+never in `MEDIA_COMPONENTS` — a pre-existing gap of exactly matrix-grid's shape. Declaring
+`none` records it and changes nothing; giving it a real kind is a rendered-surface change
+that owes its own deck.
 
 ## The arm the rosters never had
 
@@ -208,9 +229,22 @@ whole and makes math its own family rather than "a lodger in Code & math". Proje
 manifests would delete real editorial judgment to fix a coverage bug.
 
 So the taxonomy stays hand-written and `familyOf()` gains a **bucket fallback** before
-`'other'`. An uncurated component lands in a plausible family instead of one nobody named, and
-a dropped chart reaches the picker with no edit. That is a floor under the curation, not a
-replacement for it.
+`'other'`, and a dropped chart reaches the picker with no edit. That is a floor under the
+curation, not a replacement for it.
+
+**The floor is partial, and deliberately so.** `BUCKET_FALLBACK` maps eight of the thirteen
+buckets — the ones where a single family key is unambiguous. `connect`, `progression`,
+`inventory`, `statement` and `evidence` have no entry, so six shipped components (contact,
+cycle, inventory, premise, team-profile, wifi) still resolve to `'other'`, exactly as they do
+today. Extending it would re-home those six, and which shape family each belongs in is an
+editorial call about a curated taxonomy rather than a mechanical one — the same reason this
+change does not project `FAMILY_DEFS` in the first place. Logged rather than guessed.
+
+**Four components that ship today DO change family**, because they were already falling to
+`'other'` and now have a bucket: `matrix-grid` → Charts & diagrams, `video` and `scene` →
+Images, `policy-recommendation` → Legal. Captured at 1440 / 820 / 390 px; no jank, and the
+Other group shrinks from ten to six. This is a website change and it is named here rather
+than described as affecting only new components, which is what an earlier draft said.
 
 ## What this does NOT cover
 
