@@ -11,11 +11,20 @@
  * Usage:
  *   node tools/screenshot.js <url> <out.png> [--width N] [--height N]
  *                                            [--full] [--wait <css-selector>]
- *                                            [--delay <ms>]
+ *                                            [--delay <ms>] [--storage k=v]
  *
  * Example (after starting the docs dev server on :4321):
  *   node tools/screenshot.js http://127.0.0.1:4321/studio/ \
  *     .scratch/studio.png --width 1440 --height 900
+ *
+ * `--storage k=v` (repeatable) seeds localStorage BEFORE the first navigation, so
+ * the page's own pre-paint script reads it and the shot is of a settled page rather
+ * than one caught mid-switch. That is the only way to photograph the docs site on a
+ * NON-DEFAULT palette: the palette lives in `lattice-docs-palette` (and the mode in
+ * `lattice-docs-mode`), and no route takes it as a query parameter —
+ *   --storage lattice-docs-palette=onyx --storage lattice-docs-mode=dark
+ * Toggling it after load instead photographs a page that has already painted cuoio,
+ * which is a different picture on any surface with a transition.
  *
  * Then view the PNG with the Read tool (it renders inline) or SendUserFile.
  *
@@ -30,7 +39,7 @@ const puppeteer = require('puppeteer');
 const { resolveChrome } = require('./lib/resolve-chrome');
 
 function parseArgs(argv) {
-  const a = { width: 1440, height: 900, full: false, wait: null, delay: 0 };
+  const a = { width: 1440, height: 900, full: false, wait: null, delay: 0, storage: [] };
   const pos = [];
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
@@ -39,6 +48,12 @@ function parseArgs(argv) {
     else if (t === '--height') a.height = Number(argv[++i]);
     else if (t === '--wait') a.wait = argv[++i];
     else if (t === '--delay') a.delay = Number(argv[++i]);
+    else if (t === '--storage') {
+      const pair = argv[++i] ?? '';
+      const eq = pair.indexOf('=');
+      if (eq < 1) { console.error(`--storage wants key=value, got ${JSON.stringify(pair)}`); process.exit(2); }
+      a.storage.push([pair.slice(0, eq), pair.slice(eq + 1)]);
+    }
     else pos.push(t);
   }
   a.url = pos[0];
@@ -49,7 +64,7 @@ function parseArgs(argv) {
 async function main() {
   const a = parseArgs(process.argv.slice(2));
   if (!a.url || !a.out) {
-    console.error('usage: node tools/screenshot.js <url> <out.png> [--width N] [--height N] [--full] [--wait <sel>] [--delay <ms>]');
+    console.error('usage: node tools/screenshot.js <url> <out.png> [--width N] [--height N] [--full] [--wait <sel>] [--delay <ms>] [--storage k=v]');
     process.exit(2);
   }
   fs.mkdirSync(path.dirname(path.resolve(a.out)), { recursive: true });
@@ -62,6 +77,13 @@ async function main() {
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: a.width, height: a.height, deviceScaleFactor: 1 });
+    // Seeded on EVERY document, before any of its script runs — the page's own
+    // pre-paint seed is what reads these, so writing them after `goto` would be too late.
+    if (a.storage.length) {
+      await page.evaluateOnNewDocument((pairs) => {
+        try { for (const [k, v] of pairs) localStorage.setItem(k, v); } catch { /* storage disabled */ }
+      }, a.storage);
+    }
     await page.goto(a.url, { waitUntil: 'networkidle0', timeout: 60000 });
     if (a.wait) await page.waitForSelector(a.wait, { timeout: 30000 });
     if (a.delay) await new Promise(r => setTimeout(r, a.delay));

@@ -94,3 +94,51 @@ describe('the selection wash has exactly one owner', () => {
 		});
 	}
 });
+
+// THE FOCUS RING'S TWO CHANNELS, pinned at the SOURCE because the e2e tier is nightly.
+//
+// `editorChrome` owes two declarations that are easy to confuse for one: `outline:
+// 'none'`, which suppresses @codemirror/view's base `1px dotted #212121`, and the
+// `::after`, which draws the site's ring. A first cut REPLACED the suppression with the
+// ring, so the dotted near-black came back on every editor — computed on all four
+// surfaces and painted on the one whose host does not clip it (the component-page
+// Specimen, `overflow: visible`). Nothing in the tree could see it.
+//
+// The e2e spec now reads both channels on the real pages, which is the honest oracle
+// (HARD RULE #23) — but it runs nightly, and this file is the per-PR half. It asks the
+// cheap question a text read CAN answer: are both declarations still there, and is the
+// CodeField still the one surface that declines the ring?
+describe("the editor focus ring keeps both of its channels", () => {
+	const chrome = read('src/lib/editor-chrome.js');
+
+	it('suppresses CodeMirror\'s dotted default AND draws our ring', () => {
+		expect(chrome, 'the base-theme suppression is gone — the dotted #212121 ring comes back').toContain("'&.cm-editor.cm-focused': { outline: 'none' }");
+		expect(chrome, 'the ring itself is gone').toContain("'&.cm-editor.cm-focused::after'");
+	});
+
+	it('keeps the right edge inset past the pane splitter', () => {
+		// The 1px inset is the whole subject of the commit that added it, and CI does not
+		// run the e2e spec that measures it: `test:e2e:smoke` greps `@smoke`, which
+		// `editor-selection-parity.spec.ts` does not carry, so it runs nightly only.
+		// Reverting `inset` to `0` therefore passed every per-PR gate. A checker found
+		// that; this is the cheap pin that closes it.
+		expect(chrome, "the ring's right edge is flush again — it fuses with the pane splitter, which paints --border").toContain("inset: '0 1px 0 0'");
+	});
+
+	it('keeps the suppression OUTSIDE the focusRing branch', () => {
+		// The suppression is unconditional on purpose: a surface that declines OUR ring
+		// must not inherit THEIRS. Folding it inside the `focusRing` conditional would
+		// re-ship the same defect for exactly the surfaces that opted out.
+		const branch = chrome.slice(chrome.indexOf('...(focusRing'));
+		expect(branch, 'the suppression moved inside the focusRing branch — an opted-out surface would get CodeMirror\'s dotted ring').not.toContain("outline: 'none'");
+	});
+
+	it('gives the embedded CodeField a theme that declines the ring', () => {
+		const theme = read('src/components/studio/editor-theme.ts');
+		expect(theme).toContain('export const editorTheme = studioTheme(true);');
+		expect(theme).toContain('export const codeFieldTheme = studioTheme(false);');
+		// The split only means anything if CodeField actually uses the ringless one.
+		expect(read('src/components/studio/CodeField.tsx'), 'CodeField must use codeFieldTheme').toContain('codeFieldTheme');
+		expect(read('src/components/studio/Editor.tsx'), 'the deck Editor must use editorTheme').toContain('editorTheme');
+	});
+});

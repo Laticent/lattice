@@ -357,9 +357,6 @@
 		font-size: 16px;
 	}
 }
-.pg-editor-host .cm-editor.cm-focused {
-	outline: none;
-}
 .pg-preview-wrap {
 	flex: 1;
 	min-height: 0;

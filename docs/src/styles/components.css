@@ -255,9 +255,6 @@
 .specimen-editor-host .cm-editor {
 	background: var(--bg);
 }
-.specimen-editor-host .cm-editor.cm-focused {
-	outline: none;
-}
 
 /* ── Variant switcher ───────────────────────────────────────────────────── */
 .specimen-variants {
