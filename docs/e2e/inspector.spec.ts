@@ -187,15 +187,28 @@ test('a query that matches nothing says so, and the note goes when one matches',
 	await expect(page.getByText(/No setting matches/)).toBeHidden();
 });
 
-test('closing the search restores the tabs and the whole panel', async ({ page }) => {
+test('one trailing ✕ clears, then closes — and the panel comes back whole', async ({ page }) => {
 	await page.getByRole('button', { name: CHROME.settings.searchDeck }).click();
+	// Empty field: exactly one trailing button in the row, and its job is to leave.
+	await expect(page.getByRole('button', { name: CHROME.settings.clearSearch })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: CHROME.settings.closeSearch })).toBeVisible();
+
 	await page.getByRole('textbox', { name: CHROME.settings.searchDeck }).fill('pace');
 	await expect(page.getByRole('tab', { name: CHROME.deckTab.look })).toHaveCount(0);
+	// Text in the field: the SAME button empties it, and no second ✕ appears beside it.
+	// Both counts matter — the defect this replaced was two ✕ drawn 19px apart.
+	await expect(page.getByRole('button', { name: CHROME.settings.closeSearch })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: CHROME.settings.clearSearch })).toHaveCount(1);
 
-	await page.getByRole('button', { name: CHROME.settings.closeSearch }).click();
+	await page.getByRole('button', { name: CHROME.settings.clearSearch }).click();
+	// Cleared, still open: the panel is whole again with the field ready for the next word.
+	await expect(page.getByRole('textbox', { name: CHROME.settings.searchDeck })).toBeVisible();
 	await expect(page.getByRole('tab', { name: CHROME.deckTab.look })).toBeVisible();
 	await expect(page.getByLabel('Choose deck theme')).toBeVisible();
 	await expect(page.getByLabel('Choose pace')).toHaveCount(0);
+
+	await page.getByRole('button', { name: CHROME.settings.closeSearch }).click();
+	await expect(page.getByRole('textbox', { name: CHROME.settings.searchDeck })).toHaveCount(0);
 });
 
 test('the list view drops the tabs and renders every section at once', async ({ page }) => {

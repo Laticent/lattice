@@ -1076,7 +1076,14 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(await screen.findByRole('button', { name: 'Search deck settings' }));
 		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'pace');
 		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
+		// One trailing ✕, and with text in the field its job is CLEAR — so leaving takes two
+		// deliberate steps, or the Escape the test below uses.
+		await user.click(screen.getByRole('button', { name: 'Clear search' }));
+		// Cleared, and the FIELD IS STILL OPEN: the panel is whole again (an empty query
+		// filters nothing, so the strip returns) but the next query is one keystroke away.
+		expect(screen.getByRole('textbox', { name: 'Search deck settings' })).toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Close search' }));
+		expect(screen.queryByRole('textbox', { name: 'Search deck settings' })).toBeNull();
 		expect(await screen.findByRole('tab', { name: 'Look' })).toBeInTheDocument();
 		expect(screen.getByLabelText('Choose deck theme')).toBeInTheDocument();
 		expect(screen.queryByLabelText('Choose pace')).toBeNull();
@@ -1110,7 +1117,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		expect(details().open).toBe(true);
 		await user.click(screen.getByRole('button', { name: 'Search deck settings' }));
 		await user.type(screen.getByRole('textbox', { name: 'Search deck settings' }), 'corner');
-		await user.click(screen.getByRole('button', { name: 'Close search' }));
+		await user.keyboard('{Escape}');
 		expect(details().open).toBe(true);
 
 		// (a) a live query forces it open, whatever the user did to it.

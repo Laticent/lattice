@@ -158,12 +158,39 @@ describe('SettingsToolbar', () => {
 		expect(screen.getByLabelText('Search deck settings')).toBeTruthy();
 	});
 
+	// ONE trailing ✕, two jobs. There were two side by side — the field's 24px "Clear
+	// search" and a 28px "Close search" 19px away, same glyph, on a 293px phone row — and
+	// the panel's own collapse made three within 100px of the 296px docked desktop panel.
+	it('the trailing ✕ CLEARS while there is text and CLOSES once there is not', async () => {
+		const user = userEvent.setup();
+		render(<Toolbar />);
+		await user.click(screen.getByLabelText('Search deck settings'));
+		// Empty field: the one button is the way out.
+		expect(screen.queryByLabelText('Clear search')).toBeNull();
+		expect(screen.getByLabelText('Close search')).toBeTruthy();
+
+		await user.type(screen.getByLabelText('Search deck settings'), 'theme');
+		// Text in the field: the SAME button now empties it, and there is no second ✕.
+		expect(screen.queryByLabelText('Close search')).toBeNull();
+		expect(screen.getAllByLabelText('Clear search')).toHaveLength(1);
+
+		await user.click(screen.getByLabelText('Clear search'));
+		// Cleared and STILL OPEN — the toggles have not come back, the field has focus, and
+		// on a phone that means the keyboard never went away.
+		expect((screen.getByLabelText('Search deck settings') as HTMLInputElement).value).toBe('');
+		expect(screen.queryByLabelText('Grouped — one section at a time')).toBeNull();
+
+		await user.click(screen.getByLabelText('Close search'));
+		expect(screen.getByLabelText('Grouped — one section at a time')).toBeTruthy();
+	});
+
 	it('brings the toggles back when the search closes', async () => {
 		const user = userEvent.setup();
 		render(<Toolbar />);
 		await user.click(screen.getByLabelText('Search deck settings'));
 		await user.type(screen.getByLabelText('Search deck settings'), 'theme');
-		await user.click(screen.getByLabelText('Close search'));
+		// Escape is the one-key exit from a DIRTY field — the trailing ✕ clears first.
+		await user.keyboard('{Escape}');
 		expect(screen.getByLabelText('Grouped — one section at a time')).toBeTruthy();
 		// …and the query is gone with it, so the panel is whole again.
 		await user.click(screen.getByLabelText('Search deck settings'));

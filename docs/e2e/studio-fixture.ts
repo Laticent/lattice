@@ -84,8 +84,17 @@ export const CHROME = {
 		/** Opens the search field; the field then carries the same accessible name. */
 		searchDeck: 'Search deck settings',
 		searchSlide: 'Search slide settings',
-		/** Closes the field and clears the query (Escape does the same). */
+		/**
+		 * The field's ONE trailing ✕, whose job follows the field's state — so which of
+		 * these two names is present tells you whether the field has text in it.
+		 * `closeSearch` is drawn only when the field is EMPTY; typing swaps it for
+		 * `clearSearch`, which empties the field and leaves it open. Escape closes from
+		 * either state.
+		 *
+		 * They used to be two buttons drawn at once, 19px apart, same glyph, two sizes.
+		 */
 		closeSearch: 'Close search',
+		clearSearch: 'Clear search',
 		/** The two view states — grouped sections, or one continuous list of every section. */
 		grouped: 'Grouped — one section at a time',
 		list: 'List — every section in one scroll',

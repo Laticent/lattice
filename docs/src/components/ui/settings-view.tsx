@@ -1,4 +1,4 @@
-import { Check, ChevronDown, LayoutList, List, Search, X } from 'lucide-react';
+import { Check, ChevronDown, LayoutList, List, Search } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelSearch } from '@/components/ui/panel';
@@ -438,23 +438,23 @@ export function SettingsToolbar({
 					inputRef={inputRef}
 					value={query}
 					onChange={onQueryChange}
-					// Clears the TEXT and stays open — a person mid-search wants the field back
-					// empty, not gone. Closing is the ✕ beside it, and Escape.
+					// ONE trailing button, and the field decides which job it is doing: clear the
+					// TEXT while there is text (a person mid-search wants the field back empty,
+					// not gone — and on a phone that keeps the keyboard up), close the FIELD once
+					// there is not.
+					//
+					// This used to be two: `PanelSearch`'s own clear, and a second ✕ drawn beside
+					// it here. Measured on a real 390x844 phone, deck scope, query "page": a 24px
+					// "Clear search" at x=305 and a 28px "Close search" at x=348 — same glyph,
+					// two sizes, 19px apart, on a 293px row. The docked desktop panel was worse:
+					// three ✕ inside 100px of its 296px, counting the panel's own collapse. The
+					// two jobs are real, but they are never both wanted at once.
 					onClear={() => onQueryChange('')}
+					onClose={close}
 					placeholder={`Search ${scope.toLowerCase()} settings…`}
 					label={`Search ${scope.toLowerCase()} settings`}
 					className="flex-1 py-1.5"
 				/>
-				<Tip label="Close search">
-					<button
-						type="button"
-						aria-label="Close search"
-						onClick={close}
-						className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
-					>
-						<X className="size-4" />
-					</button>
-				</Tip>
 			</div>
 		);
 	}

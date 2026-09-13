@@ -4077,6 +4077,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const scopeLine = inspectorScope === 'deck'
 		? { full: `Set it once — all ${slides.length} slides follow`, short: `All ${slides.length} slides` }
 		: { full: `Slide ${activeFullIndex + 1} — overrides the deck`, short: `Slide ${activeFullIndex + 1} override` };
+	// Is the OPEN scope the one being searched? The banner draws one row for whichever
+	// scope is showing, and the field belongs to that scope alone.
+	const searchingHere = inspectorScope === 'deck' ? deckSearching : slideSearching;
 
 	const inspectorScopeContent = (
 		<>
@@ -4133,12 +4136,27 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{!compact && (inspectorScope === 'deck'
 					? <SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
 					: <FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />)}
-				<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
-					{scopeLine.full}
-				</span>
-				<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
-					{scopeLine.short}
-				</span>
+				{/* …EXCEPT while the field is open, when the title yields the whole row. §8.1's
+				    rule is that this row always carries WORDS, and a truncated stub carries
+				    none: measured on a 390x844 phone with a query live, the two phrasings
+				    rendered as "Set it …" in 60px. That is the same defect §8.1 fixed, arriving
+				    through a different door — the field, not a container query.
+				    Nothing is hidden behind `sr-only` here, which is the trap §8.1 fell into.
+				    The scope stays DRAWN in this state by three other things: the field's own
+				    placeholder ("Search deck settings…"), the Slide/Deck segment directly above
+				    on mobile, and the scope icon in this row on desktop. And search is a state
+				    the author just opened on purpose — the deliverable of the row is the field
+				    they are typing into. */}
+				{!searchingHere && (
+					<>
+						<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+							{scopeLine.full}
+						</span>
+						<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+							{scopeLine.short}
+						</span>
+					</>
+				)}
 				<SettingsToolbar
 					scope={inspectorScope === 'deck' ? 'Deck' : 'Slide'}
 					view={settingsView}
@@ -4149,7 +4167,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					onSearchingChange={inspectorScope === 'deck' ? setDeckSearching : setSlideSearching}
 					className="!pt-0 min-w-0 shrink"
 				/>
-				{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><X className="size-4" /></button></Tip>}
+				{/* `PanelLeftClose`, not a ✕ — this collapses the DOCKED PANEL, and the preview's
+				    own collapse two panes over already uses that idiom (`PanelRightClose`). It
+				    wore a ✕, which put a third identical glyph in this row the moment search
+				    opened: clear the field, close the field, collapse the panel, all the same
+				    mark within 100px of a 296px panel. The first two are one button now; this
+				    one says what it actually does. */}
+				{!mobile && <Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><PanelLeftClose className="size-4" /></button></Tip>}
 			</div>
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>

@@ -726,6 +726,7 @@ export function PanelSearch({
 	placeholder,
 	label,
 	onClear,
+	onClose,
 	className,
 }: {
 	inputRef?: React.Ref<HTMLInputElement>;
@@ -734,10 +735,30 @@ export function PanelSearch({
 	placeholder: string;
 	/** Accessible name — the field has no visible label. */
 	label: string;
-	/** Render a clear affordance when there is something to clear. */
+	/** Empty the field and STAY open. Drawn as the trailing button whenever there is
+	 *  something to clear. */
 	onClear?: () => void;
+	/**
+	 * Leave the field entirely — what the trailing button does once there is nothing left
+	 * to clear.
+	 *
+	 * ONE trailing button, two jobs, because two of them side by side is the same glyph
+	 * twice. A caller that wants both affordances used to draw its own ✕ next to this
+	 * one: the Inspector's find toolbar put a 28px "Close search" 19px from this 24px
+	 * "Clear search" on a 293px phone row (three ✕ within 100px of a 296px docked panel,
+	 * counting the panel's own). The two jobs are real and distinct — clear-and-stay keeps
+	 * the keyboard up, close-and-reset gives the toolbar back — but they are never both
+	 * useful at once: with text in the field the next thing you want is it gone, and with
+	 * the field empty there is nothing to clear. So the button follows the field's state
+	 * and its accessible name says which job it is doing right now.
+	 *
+	 * Escape stays the one-key exit from either state; a caller owns that, since the key
+	 * has to be caught on a row this component does not draw.
+	 */
+	onClose?: () => void;
 	className?: string;
 }) {
+	const trailing = onClear && value ? { run: onClear, label: 'Clear search' } : onClose ? { run: onClose, label: 'Close search' } : null;
 	return (
 		<div className={cn(PANEL_SEARCH_BOX, className)}>
 			<SearchIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -750,8 +771,16 @@ export function PanelSearch({
 				data-focus-ring="container"
 				className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground"
 			/>
-			{onClear && value ? (
-				<button type="button" onClick={onClear} aria-label="Clear search" className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground">
+			{trailing ? (
+				// 28px of TARGET inside a 24px slot — `-my-0.5` takes the two extra pixels back
+				// out of the box, so the field keeps the 40px height every other surface sized
+				// against while the thumb gets a target it can hit on a phone.
+				<button
+					type="button"
+					onClick={trailing.run}
+					aria-label={trailing.label}
+					className="-my-0.5 grid size-7 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground"
+				>
 					<XIcon className="size-4" />
 				</button>
 			) : null}
