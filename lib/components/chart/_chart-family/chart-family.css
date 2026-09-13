@@ -612,8 +612,26 @@ section.chart-frame,
    * "shoots forward", double-encoding value as length AND intensity. It keeps
    * the shared material (palette, edge, accent); only the gradient is bespoke.
    * See progress.styles.css. The others have no --pct and wear the wash. */
-  --chart-fill-top-l: 20%;     --chart-fill-top-d: 48%;
-  --chart-fill-bottom-l: 38%;  --chart-fill-bottom-d: 64%;
+  /* THE WASH IS THEME-OVERRIDABLE, through one indirection, and the shape of
+   * that indirection is load-bearing. The engine owns the DEFAULT and declares
+   * it here on `.chart-frame` — the same element a palette declares its own
+   * tokens on — so a palette setting `--chart-fill-top-l` directly would lose
+   * the cascade to this line and read as an override that silently does
+   * nothing. A palette therefore sets `--palette-fill-*` instead, which
+   * inherits in and is picked up here.
+   *
+   * Why any theme would want to: these percentages assume a canvas near one
+   * end of the range. On a mid-toned one they put the fill halfway between the
+   * canvas and the ink, and the contract this block states two paragraphs up
+   * — "the wash only tints, so --text-heading labels clear it on both
+   * canvases" — stops holding. concrete is that theme (canvas #B8B8B5), and
+   * it is not fixable from the ink side: measured, its `--text-heading` is
+   * already 15,15,14 and pure black reaches only 4.20:1 on the 38% stop.
+   * See themes/concrete.css § the fill wash. */
+  --chart-fill-top-l: var(--palette-fill-top-l, 20%);
+  --chart-fill-top-d: var(--palette-fill-top-d, 48%);
+  --chart-fill-bottom-l: var(--palette-fill-bottom-l, 38%);
+  --chart-fill-bottom-d: var(--palette-fill-bottom-d, 64%);
   --chart-fill-edge: 38%;
   --chart-fill-accent: clamp(4px, 0.31cqi, 7px);
 
@@ -637,11 +655,11 @@ section.chart-frame,
    * untouched." That was right about RESOLUTION and wrong about CONSISTENCY, and
    * measuring the rendered gallery is what separates the two: every member tuned
    * its own `stroke-width` literal inside its own viewBox, and those viewBoxes
-   * span 4.3x (320 … 1375 units at the same rendered width). So 19 mark edges
-   * painted at 16 DIFFERENT physical weights — 0.42px on a map region, 5.49px on
-   * a quadrant dot, a 13.1x spread on marks that are all "the edge of a data
-   * mark". Nobody chose that; it is what per-member tuning in per-member
-   * coordinate spaces adds up to.
+   * span 4.3x (320 … 1375 units at the same rendered width). So the family's
+   * declared marks painted at 21 DIFFERENT physical weights — 0.5px on a map
+   * region, 2.9px on a pie wedge, a 5.8x spread on marks that are all "the edge
+   * of a data mark". Nobody chose that; it is what per-member tuning in
+   * per-member coordinate spaces adds up to.
    *
    * `vector-effect: non-scaling-stroke` removes the viewBox scaling and ONLY the
    * viewBox scaling, so the stroke lands in CSS pixels. Pairing it with the same
@@ -649,7 +667,21 @@ section.chart-frame,
    * grows with the container above HD — while making one token mean one weight
    * on both sides of the SVG boundary. Export DPI is a separate transform and is
    * unaffected: a 1px CSS stroke is still 3px in a 3x raster.
-   * Measured: 16 distinct weights (13.1x spread) -> 1. */
+   *
+   * MEASURED, both sides with `node tools/chart-structure-census.js`:
+   * 21 distinct physical weights over 5.8x -> 8 over 2.2x. Not one weight, and
+   * the remainder is the point: 21 mark classes at exactly 1px, SIX KNOCKOUTS at
+   * their own role-correct widths (see the exclusion note below the shared rule),
+   * and one sanctioned 2px emphasis on state-chart's start and terminal nodes.
+   *
+   * THE SCALE IS `getScreenCTM()`, NEVER `box.width / viewBox.width`. Every
+   * chart SVG here uses `xMidYMid meet`, where the user->screen scale is the
+   * UNIFORM `min(sx, sy)` and the leftover axis becomes padding; the x-ratio
+   * overstates the weight wherever the box's aspect differs from the viewBox's.
+   * The first draft of this note said "16 weights, 13.1x spread, 5.49px on a
+   * quadrant dot" from that wrong ratio. Against a rendered control — viewBox
+   * 100x100 in a 400x100 box, stroke-width 2 — the x-ratio predicts 8px and
+   * Chromium paints 2. */
   --chart-edge: var(--chart-hairline);            /* every data mark's edge */
   --chart-edge-strong: calc(var(--chart-hairline) * 2);  /* hero / active only */
   /* ONE MARK CORNER. `0.46875cqi` was written out five times across progress,
@@ -1635,43 +1667,61 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
  * spaces and none of them is a considered physical weight. There is nothing to
  * preserve. Measured before: 16 distinct weights across 19 mark edges, spread
  * 13.1x. After: 1. */
+
+/* SIX MARKS ARE DELIBERATELY NOT HERE, AND THEY ARE NOT AN OVERSIGHT.
+ * `funnel-band` · `line-dot` · `quadrant-dot` · `radar-dot` · `scatter-dot` ·
+ * `sbar-seg` stroke in `var(--bg)`, the canvas colour. That is a KNOCKOUT, not
+ * an outline: its job is to hold two touching marks apart — a dot where two
+ * lines cross, a segment abutting the next segment in the same stack — and its
+ * correct weight follows what it has to separate, not the family's outline
+ * weight. Their own stylesheets document them as load-bearing for exactly that.
+ *
+ * The first cut of this rule collapsed them along with everything else, because
+ * the census that found "16 physical weights" measured how THICK each stroke is
+ * and never asked what each stroke is FOR. A knockout and an outline are two
+ * different objects that happen to share a property name, and flattening one
+ * into the other took quadrant's separator from 5.49px to 1px. Measured, then
+ * reverted. `chart-mark-edge-census.test.js` checks that every name on this list
+ * really does stroke `var(--bg)`, so the exclusion cannot become a dumping
+ * ground for a mark somebody just wants to keep thick.
+ *
+ * `journey-face` is out for a different reason: the class sits on an <svg>
+ * WRAPPER, not on a shape, so the rule could never reach the <circle> and
+ * <path> that draw the face. It is an icon whose stroke weight is part of its
+ * drawing, not the outline of a datum — measured at 1.4px and left there. */
 :is(section.chart-frame, figure.chart-frame) svg :is(
   .bar-mark,
   .chart-key-swatch,
   .bullet-measure,
   .bullet-offscale,
-  .funnel-band,
   .gantt-bar,
   .gantt-bar--unscaled,
   .gantt-bar-accent,
   .gantt-milestone,
   .gantt-legend-swatch,
-  .journey-face,
   .line-area,
   .line-band,
-  .line-dot,
   .map-region,
   .map-region--on,
   .map-region--hl,
   .wedge,
-  .quadrant-dot,
   .quadrant-bubble,
-  .quadrant-trail-after,
   .quadrant-hull,
+  .quadrant-hull-line,
   .quadrant-tint,
   .radar-poly,
   .radar-poly--hero,
+  .radar-poly--target,
+  .radar-poly--before,
   .radar-band,
   .radar-sector,
-  .radar-dot,
-  .scatter-dot,
+  .radar-sector-mean,
   .scatter-bubble,
   .scatter-size-ring,
   .slope-dot,
   .slope-dot-from,
   .slope-dot-to,
   .slope-dot-via,
-  .sbar-seg,
   .state-node-shape,
   .state-index-disc,
   .state-edge-arrow,
@@ -1689,5 +1739,10 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   .radar-poly--hero,
   .chart-mark-active
 ) {
+  /* The pin is repeated rather than inherited from the rule above: an element
+   * can match this one WITHOUT matching that one — `.chart-mark-active` lands
+   * on whatever the Studio cursor is over, including a member the base list
+   * does not name — and an unpinned width is a width in viewBox units. */
+  vector-effect: non-scaling-stroke;
   stroke-width: var(--chart-edge-strong);
 }

@@ -257,10 +257,14 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
 }
 
 /* ── Scatter dots + per-dot labels ────────────────────────────────────── */
+/* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
+ * two touching marks apart, so its correct weight follows what it has to
+ * separate, not the family's outline weight. It is deliberately excluded
+ * from the shared `--chart-edge` rule — see chart-family.css. */
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-dot {
   fill: var(--cell-ink);
   stroke: var(--bg);
-  stroke-width: var(--chart-edge);
+  stroke-width: 2;
 }
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-dot-label {
   fill: var(--quadrant-label-ink);
@@ -305,10 +309,16 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
   stroke-width: 1.5;
   opacity: 0.6;
 }
+/* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
+ * two touching marks apart, so its correct weight follows what it has to
+ * separate, not the family's outline weight. It is deliberately excluded
+ * from the shared `--chart-edge` rule — see chart-family.css. Here it also
+ * keeps the endpoint dot at the same 1.5 as `.quadrant-trail-before`, the
+ * line it terminates. */
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-trail-after {
   fill: var(--cell-ink);
   stroke: var(--bg);
-  stroke-width: var(--chart-edge);
+  stroke-width: 1.5;
 }
 
 /* ── Cohort variant: convex hulls + centroid labels + legend ──────────── */

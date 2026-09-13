@@ -31,10 +31,14 @@
  * touching dots visibly two dots while every dot stays exactly where its
  * numbers put it. (Same idiom as `.quadrant-dot`.)
  */
+/* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
+ * two touching marks apart, so its correct weight follows what it has to
+ * separate, not the family's outline weight. It is deliberately excluded
+ * from the shared `--chart-edge` rule — see chart-family.css. */
 :is(section.scatter, figure.chart-frame) .scatter-dot {
   fill: var(--chart-cat-1-ink);
   stroke: var(--bg);
-  stroke-width: var(--chart-edge);
+  stroke-width: 0.9;
 }
 
 /* A bubble is large enough for a two-tone treatment: a translucent body — area

@@ -389,7 +389,7 @@
   border-left: var(--chart-fill-accent) solid var(--lane-color, var(--border));
   /* Square the LEFT corners so the keyline reads as one continuous edge; right
    * corners stay soft so the tile is not boxy. */
-  border-radius: 0 0.46875cqi 0.46875cqi 0;
+  border-radius: 0 var(--chart-mark-radius) var(--chart-mark-radius) 0;
   box-shadow: none;
 }
 :is(section.kanban, figure.kanban).keyline.dark .kanban-card {
