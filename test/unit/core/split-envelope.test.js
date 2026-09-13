@@ -1065,6 +1065,34 @@ describe('core: roleOpenTag carries the authored modifiers as data', () => {
     assert.ok(!/data-split-mods/.test(out), `an empty attribute was stamped: ${out}`);
   });
 
+  // THE VALUE IS AN ATTRIBUTE, so a token that could close it is not admitted. Escaping was the
+  // obvious answer and a charset filter is the safer one: a value that cannot contain a quote is
+  // not a sink at all, where an escape is only as good as its last-touched regex. Flagged by
+  // CodeQL (`js/incomplete-html-attribute-sanitization`) on this branch's first push.
+  test('a token carrying markup characters is dropped, not escaped into the attribute', () => {
+    // A raw `"` is NOT in this list, and the reason is the interesting half: the class value is
+    // read with `class="([^"]*)"`, so a raw quote ends the capture and anything after it was
+    // never a class token to begin with. What the filter is for is everything a class value CAN
+    // legitimately hold — an entity, an angle bracket, an apostrophe — which the reader hands
+    // over intact and which has no business in a selector.
+    for (const hostile of ['a&quot;b', 'a<b', "a'b", 'a>b', 'a&amp;b', 'a{b', 'a=b']) {
+      const t = `<section id="s3" class="split-panel ${hostile} cat-1 form" data-lattice-slide="6">`;
+      const out = roleOpenTag(t, 'content split-panel-split split-panel-cover form', true, 'cover');
+      const attr = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1];
+      assert.equal(attr, 'cat-1', `'${hostile}' reached the attribute as '${attr}'`);
+      assert.equal((out.match(/\sdata-split-mods="/g) || []).length, 1);
+      assert.match(out, /^<section [^>]*>$/);
+    }
+  });
+
+  test('a raw quote in the class value cannot reach the attribute — the reader bounds it', () => {
+    const t = '<section id="s4" class="split-panel x"y cat-1 form" data-lattice-slide="7">';
+    const out = roleOpenTag(t, 'content split-panel-split split-panel-cover form', true, 'cover');
+    const attr = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1];
+    assert.ok(!/["<>]/.test(attr ?? ''), `a markup character reached the attribute: '${attr}'`);
+    assert.match(out, /^<section [^>]*>$/);
+  });
+
   test('body pages carry it too — a run is one category, not a tinted cover and neutral pages', () => {
     const out = roleOpenTag(tag, 'content split-panel-split split-panel-points form', false, 'body');
     assert.match(out, /\sdata-split-mods="[^"]*\bcat-3\b/);
