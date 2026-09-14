@@ -84,6 +84,24 @@ because all four are written together in one place.
   optional x-span) and five in `docs/src/components/studio/tour-chrome.test.ts`. Two mutants were
   driven — forcing `overlapsX` true kills the two "beside" arms; zeroing the extent kills three —
   and each leaves the rest of the suite green.
-- **Not claimed**: no shipped tour uses `progress` or `split` today, so this changes the behavior of
-  no tour currently in the product. It is the mechanism that was wrong, and the styles that would
-  have hit it are the ones now covered.
+## 6. This DOES change a shipped tour, and an earlier draft of this note said it did not
+
+The first draft closed with "no shipped tour uses `progress` or `split` today, so this changes the
+behavior of no tour currently in the product." That is false, and it contradicts §4 of this same
+note, which argues that a `bar`'s gutters move by hundreds of pixels.
+
+`docs/src/components/studio/use-studio-demo.ts:186` ships `caption: b.mobile ? 'scrim' : 'bar'`.
+So every desktop and tablet Studio tour uses `bar` — and `bar` is
+`width: calc(100% - 24px); max-width: 680px`, centered (`stage.ts:935`). On a 1440px window it
+paints x 380..1060, so the published band goes from **1440px wide to 680px**, and `intrudes` now
+returns `false` for any cue target lying entirely in `[0, 380]` or `[1060, 1440]`. Those targets
+used to be scrolled for and no longer are.
+
+That is the correct direction — nothing is painted over them — but it is a behavior change in a
+tour currently in the product, and it should be reviewed as one. What remains genuinely unclaimed
+is the `progress`/`split` half: those two styles are the worst case and no shipped tour selects
+them. `scrim`, the phone style, is full width and is unaffected either way.
+
+The measurement that would close the remaining question is a target inventory of the shipped
+Studio tour at 1440x900 and 820x1180, asking whether any cue target actually lands entirely in a
+`bar` gutter. That was not done.

@@ -37,9 +37,19 @@
  * a host recovering the band as `innerHeight - inset` is still right, and is simply not yet
  * accounting for a keyboard it may not have.
  *
- * `window.visualViewport` is absent on older engines and in jsdom, and then this is `innerHeight`
- * and every caller is byte-identical to what it did before this existed — the same safety
- * property the whole module is built on.
+ * WHERE IT IS ABSENT — older engines, and jsdom — this is `innerHeight` and every caller is
+ * byte-identical to what it did before this existed.
+ *
+ * DESKTOP IS NOT THAT CASE, and saying so was a measured mistake. `window.visualViewport` is
+ * present in every current browser including headless Chromium (verified here: `hasVV: true`,
+ * `height === innerHeight`, `offsetTop === 0` at 800x600). The branch IS taken on desktop; it
+ * simply returns the same number at page-scale 1, which is why no desktop behavior changes.
+ *
+ * Under PINCH-ZOOM it returns a genuinely smaller number — at scale 2 the visual viewport is half
+ * the window — so a reveal during a zoomed-in tour clears to what the viewer can actually see
+ * rather than to the window's edge. That is the intended reading of this function, not a side
+ * effect: the whole point is "the lowest line a viewer can see", and a zoomed viewer cannot see
+ * the rest. It is stated because an earlier draft of this comment claimed desktop was untouched.
  */
 export function visibleBottom(): number {
 	if (typeof window === 'undefined') return 0;
@@ -89,23 +99,30 @@ export function tourChromeOverlap(scroller: Element | null | undefined, keep = 4
 	if (typeof window === 'undefined') return 0;
 	const box = scroller.getBoundingClientRect();
 	if (!(box.height > 0)) return 0;
-	// IS THIS SCROLLER EVEN BEHIND THE CAPTION? Most caption styles are not full width — a
-	// centered `progress` pill is capped at 380px and a `split` cap at 560px — so a scroller off
-	// to one side of a wide window is covered by nothing, and reserving room in it would scroll a
-	// pane for a caption that is nowhere near it. Full width publishes 0 on both sides, which
-	// makes this test pass exactly as it did before the extent existed.
+	// TWO OBSTRUCTIONS, AND ONLY ONE OF THEM IS BESIDE ANYTHING. A reveal has to clear whichever
+	// reaches higher, so this takes the minimum of the two lines — but they are qualified
+	// differently, and conflating them was a real defect: an early draft returned 0 from the
+	// horizontal test before the keyboard line was ever computed, which left a pane beside a
+	// narrow caption with NO keyboard clearing at all.
+	//
+	// THE CAPTION is horizontally bounded. Most styles are not full width — a centered
+	// `progress` pill is capped at 380px, a `split` cap at 560px, and the shipped `bar` at 680px —
+	// so a scroller off to one side of a wide window is covered by nothing, and reserving room in
+	// it would scroll a pane for a caption that is nowhere near it. A full-width caption publishes
+	// 0 on both sides, which makes this test pass exactly as it did before the extent existed.
 	const bandLeft = tourChromeSide('--vt-chrome-left');
 	const bandRight = window.innerWidth - tourChromeSide('--vt-chrome-right');
-	if (!(box.right > bandLeft && box.left < bandRight)) return 0;
+	const overlapsCaption = box.right > bandLeft && box.left < bandRight;
 	// The published number is measured from the bottom of the WINDOW, so this is where the
 	// covered band starts; a scroller ending above it is already clear and needs nothing.
-	//
-	// THE KEYBOARD IS THE OTHER OBSTRUCTION, and it is in front of the caption rather than
-	// beside it: a caption seated against the window's bottom edge is itself partly or wholly
-	// behind an open software keyboard, so the first thing a reveal has to clear is whichever
-	// edge is HIGHER. Taking the minimum covers both without needing to know which — when no
-	// keyboard is up the two are equal and this is the line it has always been.
-	const chromeTop = Math.min(window.innerHeight - inset, visibleBottom());
+	// `Infinity` when the caption is elsewhere — it constrains nothing, rather than short-circuiting.
+	const captionTop = overlapsCaption ? window.innerHeight - inset : Number.POSITIVE_INFINITY;
+	// THE KEYBOARD spans the full width of the screen, so it is in FRONT of the caption rather
+	// than beside it and no horizontal test applies to it. A caption seated against the window's
+	// bottom edge is itself partly or wholly behind an open keyboard. With no keyboard up
+	// `visibleBottom()` is `innerHeight`, which constrains nothing either.
+	const chromeTop = Math.min(captionTop, visibleBottom());
+	if (!Number.isFinite(chromeTop)) return 0;
 	return Math.max(0, Math.min(box.bottom - chromeTop, box.height - keep));
 }
 
@@ -124,10 +141,23 @@ export function tourChromeOverlap(scroller: Element | null | undefined, keep = 4
  * *guaranteed* it for any pane shorter than about twice the band (a landscape phone, a split pane,
  * a small handset).
  *
- * Halving costs nothing on the surfaces this was measured on: the Studio's phone editor is 741px
+ * Halving cost nothing against the CAPTION band alone: the Studio's phone editor is 741px
  * (Chromium at 390x844) and 556px (real WebKit at an iPhone box), so half the usable height is 346
- * and 254 — both above the 230px band, so both still clear it completely. On a pane too short for
- * that, a partial lift is the honest answer and an oscillation is not.
+ * and 254 — both above the 230px `scrim`, so both clear it completely.
+ *
+ * IT DOES NOT ALWAYS CLEAR A KEYBOARD, AND THAT IS A DELIBERATE PARTIAL LIFT. Once
+ * `tourChromeOverlap` started reporting the keyboard too, the number it can ask for grew past the
+ * band: a 336px keyboard on the 556px WebKit pane wants 336 and this returns 254, so the tail
+ * settles about 82px inside the keyboard. The clamp still wins that argument, because the
+ * alternative is worse — CodeMirror applies `yMargin` at BOTH edges and tests the top one first,
+ * so an unclamped value makes the reveal judder between the two branches one keystroke at a time
+ * rather than sitting 82px low. A pane at least twice the obstruction clears it completely
+ * (the 741px Chromium pane does); a shorter one gets as much as it can have.
+ *
+ * The honest summary: on a pane too short for the obstruction, a partial lift is the answer and
+ * an oscillation is not. That was true of the band and it is true of the keyboard — but the band
+ * fit inside the clamp on every measured surface and the keyboard does not, so this stopped being
+ * a theoretical edge and became the phone's ordinary case.
  */
 export function tourChromeMargin(scroller: Element | null | undefined, keep = 48): number {
 	const full = tourChromeOverlap(scroller, keep);

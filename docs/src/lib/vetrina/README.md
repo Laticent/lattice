@@ -352,8 +352,9 @@ inline on the document element:
 --vt-chrome-right   px of CLEAR space between the window's RIGHT edge and the band
 ```
 
-Both are measured **from the window's edges**, so a host recovers the band's top as
-`innerHeight - inset` whatever `bounds` is set to. They are removed on `destroy()` — removed, not
+All four are measured **from the window's edges**, so a host recovers the band's top as
+`innerHeight - inset` whatever `bounds` is set to. The vertical pair says how much is COVERED;
+the horizontal pair how much is CLEAR (see below, where that asymmetry is the point). They are removed on `destroy()` — removed, not
 zeroed, so a stale value can never make a later reveal reserve room for a caption that has gone —
 and only when the value is still the one this stage published, so a second stage tearing down
 cannot take a running tour's number with it.
@@ -396,6 +397,13 @@ are in the same frame as `getBoundingClientRect()`, which is what makes them dir
 the published inset. Without a keyboard — every desktop, and every headless browser — `seen` is
 `innerHeight` and the expression is exactly the published band. The Studio does this in
 `tourChromeOverlap` (`docs/src/components/studio/tour-chrome.ts`).
+
+**Apply the horizontal test to the caption only, never to the keyboard.** The caption is bounded
+on both sides; the keyboard spans the screen, so nothing is ever *beside* it. Clearing the two
+as one number by short-circuiting on the horizontal test leaves a pane beside a narrow caption
+with no keyboard clearing at all — which is exactly the bug this recipe exists to avoid, and one
+the Studio shipped for a day before a review caught it. Take the caption's line as `Infinity`
+when it does not overlap, rather than returning early.
 
 Read them from the inline style (`documentElement.style.getPropertyValue(...)`), not
 `getComputedStyle` — a host reading this per keystroke should not force a style recalculation. The

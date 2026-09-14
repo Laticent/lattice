@@ -32,9 +32,15 @@ function scroller(h: number, fromBottom = 0): Element {
  * old arms keep exercising the absent-API path they were written for.
  */
 const setKeyboard = (covered: number, offsetTop = 0) => {
+	// FAITHFUL TO WHAT AN ENGINE ACTUALLY DOES: the keyboard fixes the visual viewport's HEIGHT,
+	// and `offsetTop` then slides that fixed-height box down inside the layout viewport as the
+	// page scrolls under it. An earlier version of this helper shrank `height` as `offsetTop`
+	// grew, which held `offsetTop + height` invariant — a viewport no engine produces, and one
+	// that made the offsetTop arm below assert the same number with and without the term it
+	// claimed to be testing.
 	Object.defineProperty(window, 'visualViewport', {
 		configurable: true,
-		value: { height: window.innerHeight - covered - offsetTop, offsetTop, addEventListener() {}, removeEventListener() {} },
+		value: { height: window.innerHeight - covered, offsetTop, addEventListener() {}, removeEventListener() {} },
 	});
 };
 const clearKeyboard = () => {
@@ -62,10 +68,21 @@ describe('visibleBottom — the lowest line a viewer can actually see', () => {
 	});
 
 	it('follows the page scrolling UNDER the keyboard, which resize alone never reports', () => {
-		// offsetTop is the visual viewport sliding down the layout one; the visible bottom moves
-		// with it, so a reveal aimed at innerHeight - covered would be wrong by exactly offsetTop.
+		// `offsetTop` slides the fixed-height visual viewport DOWN the layout one, so the visible
+		// bottom moves down with it — the term makes this clear LESS, not more, and the direction
+		// is worth stating because the docblock used to justify it the other way round. 768px
+		// window, 300px keyboard, scrolled 40px under it: the visible box is 468px tall starting
+		// at y=40, so its bottom is 508, not 468.
 		setKeyboard(300, 40);
-		expect(visibleBottom()).toBe(window.innerHeight - 300);
+		expect(visibleBottom()).toBe(508);
+	});
+
+	it('clamps to the window once the page has scrolled fully under the keyboard', () => {
+		// At the document end `offsetTop` reaches `innerHeight - vvHeight`, so `offsetTop + height`
+		// lands exactly on `innerHeight` — the true visible bottom in layout coordinates. This is
+		// the case the clamp exists to keep honest rather than to correct.
+		setKeyboard(300, 300);
+		expect(visibleBottom()).toBe(window.innerHeight);
 	});
 
 	it('never reports a line BELOW the window, which a rubber-band overscroll can produce', () => {
@@ -262,10 +279,72 @@ describe('tourChromeOverlap — a caption that is not full width', () => {
 		expect(tourChromeOverlap(pane(0, 300))).toBe(230);
 	});
 
+	it('reads an unparseable or negative side as 0 rather than as NaN', () => {
+		// NaN would make both comparisons false and silently return 0 — the defect, restored by a
+		// bad property value. The publisher clamps to >= 0, so a negative cannot arrive from
+		// `stage.ts` today; this pins the guard rather than the publisher.
+		setInset('230px');
+		setSides('none', '-40px');
+		expect(tourChromeOverlap(pane(0, 300))).toBe(230);
+	});
+
 	it('treats a touching edge as clear', () => {
 		setInset('230px');
 		setSides('322px', '322px');
 		// Right edge exactly on the band's left edge — a zero-width intersection is not an overlap.
 		expect(tourChromeOverlap(pane(202, 120))).toBe(0);
+	});
+
+	it('STILL clears the keyboard for a pane beside the caption — the keyboard is full width', () => {
+		// The composition defect an independent checker found: the horizontal test is about the
+		// CAPTION, and an early draft returned 0 from it before the keyboard line was computed, so
+		// a pane beside a narrow caption got no keyboard clearing at all. The keyboard spans the
+		// screen; nothing is ever "beside" it.
+		// 768px window, 336px keyboard → visible bottom 432. A 160px pane at x 0..160 is clear of
+		// the caption's 322..702 band but squarely behind the keyboard.
+		setInset('123px');
+		setSides('322px', '322px');
+		setKeyboard(336);
+		expect(tourChromeOverlap(pane(0, 160))).toBe(336);
+	});
+
+	it('is 0 for a pane beside the caption when no keyboard is up', () => {
+		// The other half of the same line: with nothing else obstructing, a pane beside the caption
+		// still reserves nothing. `Infinity` for the caption term must not leak out as a number.
+		setInset('123px');
+		setSides('322px', '322px');
+		expect(tourChromeOverlap(pane(0, 160))).toBe(0);
+	});
+});
+
+describe('tourChromeMargin — the clamp against a keyboard is a partial lift, and it is pinned', () => {
+	// Finding 2 from an independent checker: the half-clamp was derived against the 230px caption
+	// band, which fits inside it on every measured pane. A keyboard does not, so the clamp now
+	// binds on the surface this swimlane is about. These two arms record the real numbers so the
+	// shortfall is a stated behavior rather than a surprise.
+	const setSides2 = (l: string, r: string) => {
+		document.documentElement.style.setProperty('--vt-chrome-left', l);
+		document.documentElement.style.setProperty('--vt-chrome-right', r);
+	};
+	afterEach(() => {
+		document.documentElement.style.removeProperty('--vt-chrome-left');
+		document.documentElement.style.removeProperty('--vt-chrome-right');
+	});
+
+	it('clears a 336px keyboard completely on the 741px Chromium phone pane', () => {
+		setInset('230px');
+		setSides2('0px', '0px');
+		setKeyboard(336);
+		// (741 - 48) / 2 = 346.5, which is above 336 — so the full ask survives the clamp.
+		expect(tourChromeMargin(scroller(741))).toBe(336);
+	});
+
+	it('falls 82px short on the 556px real-WebKit pane, and that is the clamp doing its job', () => {
+		setInset('230px');
+		setSides2('0px', '0px');
+		setKeyboard(336);
+		// (556 - 48) / 2 = 254. The alternative to this shortfall is a per-keystroke judder, not a
+		// complete lift — see the halving derivation in tour-chrome.ts.
+		expect(tourChromeMargin(scroller(556))).toBe(254);
 	});
 });

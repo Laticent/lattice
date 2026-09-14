@@ -279,6 +279,14 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 						// Headless has no keyboard, so `vv` equals `innerHeight` here and this arm reads
 						// exactly as it did — but if the oracle kept the layout-only formula it would stop
 						// being a ruler for the helper the moment either one moved.
+						//
+						// IT DELIBERATELY DOES NOT CARRY THE HORIZONTAL TEST the helper also gained. This
+						// spec drives the phone Studio, whose caption is `scrim` — full width, publishing
+						// 0 on both sides — so the test would be a no-op here. Leaving it out keeps the
+						// oracle STRICTER than the implementation rather than looser, which is the safe
+						// direction for a ruler: on a hypothetical narrow-caption project it would demand
+						// clearing the helper no longer asks for, and fail loudly, rather than certify a
+						// reveal that landed under a caption.
 						const vv = window.visualViewport;
 						const seen = vv && vv.height > 0 ? Math.min(window.innerHeight, vv.offsetTop + vv.height) : window.innerHeight;
 						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome, seen);

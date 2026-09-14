@@ -590,6 +590,39 @@ describe('the reveal clears the tour\'s own caption', () => {
 		stage.destroy();
 	});
 
+	it('re-publishes when only the EXTENT moved, which the vertical pair alone cannot see', async () => {
+		// The write-skip compares the LIVE value, and it has to compare all four. A caption re-seated
+		// by a window resize keeps its HEIGHT — so `top`/`bottom` are byte-identical — while its
+		// gutters move by hundreds of pixels. Comparing the vertical pair alone would skip the write
+		// and leave a stale extent published, which reads as "this pane is beside the caption" for a
+		// pane the caption now covers: the original defect, restored by a resize.
+		const stage = captionCovering(230, {}, { left: 322, width: 380 });
+		await frames(2);
+		expect(published('left')).toBe('322px');
+		// Same height, different gutters — exactly what a re-seat produces.
+		const painted = document.querySelector('.vetrina-caption') as HTMLElement;
+		const el = (painted.querySelector('div[aria-hidden="true"]') as HTMLElement) ?? painted;
+		const top = window.innerHeight - 230;
+		el.getBoundingClientRect = () => ({ left: 100, top, width: 380, height: 230, right: 480, bottom: top + 230, x: 100, y: top, toJSON: () => ({}) }) as DOMRect;
+		window.dispatchEvent(new Event('resize'));
+		await frames(2);
+		expect(published('bottom'), 'the vertical band did not move, which is the point').toBe('230px');
+		expect(published('left'), 'the extent went stale — the dedupe skipped on the vertical pair').toBe('100px');
+		expect(published('right')).toBe(`${window.innerWidth - 480}px`);
+		stage.destroy();
+	});
+
+	it('takes all four properties back on destroy, not just the pair it owns the token for', async () => {
+		const stage = captionCovering(230, {}, { left: 322, width: 380 });
+		await frames(2);
+		expect(published('left')).toBe('322px');
+		stage.destroy();
+		expect(published('top')).toBe('');
+		expect(published('bottom')).toBe('');
+		expect(published('left')).toBe('');
+		expect(published('right')).toBe('');
+	});
+
 	it('publishes 0 on both sides for a FULL-WIDTH caption, which is what `scrim` is', async () => {
 		// The default `captionCovering` box, i.e. every arm above this one. 0/0 is what makes the
 		// extent additive: a consumer that reads a missing property as 0 rebuilds the old band.

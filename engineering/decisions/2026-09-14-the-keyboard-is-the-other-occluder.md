@@ -73,6 +73,25 @@ takes roughly 300-340px. The reserve ComposeView had to add by hand was never ab
 arrives by a different mechanism, which is exactly what the `scrollPastEnd()` comment in
 `Editor.tsx` already said it was for (#1290).
 
+**This does NOT mean the reveal now lands clear of the keyboard on every pane, and an independent
+checker caught the note claiming otherwise.** Scroll EXTENT is not where the tail STOPS. The stop
+is set by `yMargin`, which `revealTail` takes from `tourChromeMargin` — and that halves the ask,
+because CodeMirror applies `yMargin` at both edges and tests the top one first (an unhalved value
+judders the view one keystroke at a time). Against the 230px caption band the halving never bound:
+half the usable height is 346px on the 741px Chromium pane and 254px on the 556px real-WebKit one,
+both above 230. Against a 336px keyboard it binds on the shorter pane:
+
+| pane | overlap asked | margin granted | shortfall |
+|---|---|---|---|
+| 741px (Chromium @390x844) | 336 | 336 | 0 |
+| 556px (real WebKit @ iPhone box) | 336 | **254** | **82px** |
+
+So the honest statement is: the markdown editor has the scroll room it needs and always did, and
+the reveal now aims at the right line, but on a pane shorter than twice the obstruction it makes a
+PARTIAL lift by design — the alternative is an oscillation, not a complete one. Both numbers are
+pinned as arms in `tour-chrome.test.ts` so the shortfall is a stated behavior rather than a
+surprise.
+
 Two consequences worth keeping:
 
 - **Copying Compose's precedent would not have worked anyway.** `scrollPastEnd` writes that padding
@@ -86,7 +105,13 @@ Two consequences worth keeping:
 
 ## 3. What is verified, and what is not
 
-- **The arithmetic**: six new unit arms in `docs/src/components/studio/tour-chrome.test.ts`, with a
+- **The composition with the horizontal extent**, which was wrong in the first draft and is the
+  one functional defect this swimlane's checker found: the caption's x-test must gate the
+  CAPTION's line only. The keyboard spans the screen, so nothing is beside it, and returning
+  early from the x-test left a pane beside a narrow caption with no keyboard clearing at all.
+  The caption's line is now `Infinity` when it does not overlap. Pinned by an arm that dies to
+  the early return.
+- **The arithmetic**: unit arms in `docs/src/components/studio/tour-chrome.test.ts`, with a
   `visualViewport` stub the suite did not have before (jsdom ships none, which is itself the
   no-keyboard path every pre-existing arm runs on). Two mutants were driven: reverting `chromeTop`
   to the layout-only expression kills exactly the two keyboard arms and leaves the other 21 green;
@@ -94,9 +119,15 @@ Two consequences worth keeping:
 - **The `scrollPastEnd` reserve**: read out of the installed `@codemirror/view` build, quoted above.
   That is a source reading, not a device measurement.
 - **UNVERIFIED: real iOS Safari on a device.** Unchanged from #2209, and this note does not claim
-  otherwise. Headless Chromium and headless WebKit have no software keyboard, so `visualViewport`
-  there reports `innerHeight` and the new branch is never taken — which is precisely why it is safe
-  to land, and precisely why landing it does not settle ATTRIBUTION. The e2e samplers in
+  otherwise. Headless engines have no software keyboard, so `visualViewport` there reports
+  `innerHeight` and the new line equals the old one — which is precisely why it is safe to land,
+  and precisely why landing it does not settle ATTRIBUTION.
+  **An earlier draft of this note said the branch "is never taken" on desktop. That is false, and
+  it was measured false:** `window.visualViewport` is present in headless Chromium
+  (`hasVV: true`, `height === innerHeight`, `offsetTop === 0` at 800x600). The branch is taken and
+  returns the same number at page-scale 1. Under pinch-zoom it returns a smaller one, so a reveal
+  during a zoomed-in tour clears to what the viewer can see — the intended reading of
+  `visibleBottom`, now stated rather than assumed away. The e2e samplers in
   `demo-mobile.spec.ts` were moved into the same frame so they remain a ruler for the helper, but
   on a headless engine that move is a no-op by construction.
 - **What would settle it**: one run of `demo-mobile.spec.ts`'s tail arm on a real iPhone with the
