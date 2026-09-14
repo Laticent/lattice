@@ -59,6 +59,22 @@ export function tourChromeBottom(): number {
 }
 
 /**
+ * One side of the band's horizontal extent — the CLEAR strip between that window edge and the
+ * caption, in px.
+ *
+ * Unlike the vertical pair, 0 is a REAL value here and not a stand-in for "absent": a full-width
+ * caption (`scrim`, the phone style) genuinely reports `0px` on both sides. That is also what
+ * makes reading a missing property as 0 correct rather than merely convenient — it reconstructs
+ * the full-width band this module assumed before the extent was published at all, so a Studio
+ * running against an older Vetrina build behaves exactly as it used to.
+ */
+function tourChromeSide(name: '--vt-chrome-left' | '--vt-chrome-right'): number {
+	if (typeof document === 'undefined') return 0;
+	const n = Number.parseFloat(document.documentElement.style.getPropertyValue(name));
+	return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
  * How far `scroller`'s own box reaches into the band a running tour is covering — i.e. the extra
  * room a reveal inside it has to leave so its target lands where a viewer can actually see it.
  *
@@ -73,6 +89,14 @@ export function tourChromeOverlap(scroller: Element | null | undefined, keep = 4
 	if (typeof window === 'undefined') return 0;
 	const box = scroller.getBoundingClientRect();
 	if (!(box.height > 0)) return 0;
+	// IS THIS SCROLLER EVEN BEHIND THE CAPTION? Most caption styles are not full width — a
+	// centered `progress` pill is capped at 380px and a `split` cap at 560px — so a scroller off
+	// to one side of a wide window is covered by nothing, and reserving room in it would scroll a
+	// pane for a caption that is nowhere near it. Full width publishes 0 on both sides, which
+	// makes this test pass exactly as it did before the extent existed.
+	const bandLeft = tourChromeSide('--vt-chrome-left');
+	const bandRight = window.innerWidth - tourChromeSide('--vt-chrome-right');
+	if (!(box.right > bandLeft && box.left < bandRight)) return 0;
 	// The published number is measured from the bottom of the WINDOW, so this is where the
 	// covered band starts; a scroller ending above it is already clear and needs nothing.
 	//

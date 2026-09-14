@@ -348,6 +348,8 @@ inline on the document element:
 ```
 --vt-chrome-top     px of the viewport's TOP edge the caption is covering
 --vt-chrome-bottom  px of the viewport's BOTTOM edge the caption is covering
+--vt-chrome-left    px of CLEAR space between the window's LEFT edge and the band
+--vt-chrome-right   px of CLEAR space between the window's RIGHT edge and the band
 ```
 
 Both are measured **from the window's edges**, so a host recovers the band's top as
@@ -360,11 +362,19 @@ They are **measured from the rendered box**, not derived from the style constant
 wraps to three lines reports its real height; and `caption: 'cursor'` publishes `0`, because its
 balloon already places itself out of the way of whatever is being pointed at.
 
-Two honest limits on what the number means. It is a conservative **band**, not a paint mask: for an
-edge dock it runs from the window's edge up to the dock's box, so it includes the ~78px transparent
-gutter the dock floats above (123px for a ~45px `bar`). And it is purely **vertical** — a centered
-`progress` pill 380px wide is reported as a full-width band. Both over-reserve rather than
-under-reserve, which is the right direction to be wrong in.
+The horizontal pair reads the other way round from the vertical one, and the asymmetry is
+deliberate: the vertical numbers say how much is COVERED, the horizontal ones how much is CLEAR. A
+full-width caption — `scrim`, the phone style — therefore publishes `0px` on both sides, so a
+consumer that ignores them, or reads a missing property as `0`, reconstructs exactly the full-width
+band that was published before they existed. The covered x-range is
+`[left, innerWidth - right]`. It is worth reading: a centered `progress` pill is capped at 380px and
+a `split` cap at 560px, so on a 1440px window the band is a quarter of the width and a target beside
+it is covered by nothing at all.
+
+One honest limit remains on what the number means. It is a conservative **band**, not a paint mask:
+for an edge dock it runs from the window's edge up to the dock's box, so it includes the ~78px
+transparent gutter the dock floats above (123px for a ~45px `bar`). That over-reserves rather than
+under-reserves, which is the right direction to be wrong in.
 
 **A SOFTWARE KEYBOARD is the third limit, and it is the host's to handle, not the stage's.** The
 band is measured against `window.innerHeight` — the LAYOUT viewport — and iOS does not shrink that

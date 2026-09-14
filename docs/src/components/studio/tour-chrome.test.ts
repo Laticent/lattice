@@ -219,3 +219,53 @@ describe('tourChromeMargin — with a software keyboard up', () => {
 	});
 });
 
+describe('tourChromeOverlap — a caption that is not full width', () => {
+	// jsdom's window is 1024px. A centered 380px `progress` pill spans x 322..702, so the clear
+	// strips are 322px on each side, and a pane off to one side is covered by nothing.
+	const setSides = (left: string | null, right: string | null) => {
+		const d = document.documentElement.style;
+		if (left === null) d.removeProperty('--vt-chrome-left');
+		else d.setProperty('--vt-chrome-left', left);
+		if (right === null) d.removeProperty('--vt-chrome-right');
+		else d.setProperty('--vt-chrome-right', right);
+	};
+	afterEach(() => setSides(null, null));
+
+	/** A scroller `w` px wide starting at `left`, tall enough to reach into the band. */
+	function pane(left: number, w: number, h = 600): Element {
+		const el = document.createElement('div');
+		const bottom = window.innerHeight;
+		el.getBoundingClientRect = () => ({ left, top: bottom - h, width: w, height: h, right: left + w, bottom, x: left, y: bottom - h, toJSON: () => ({}) }) as DOMRect;
+		return el;
+	}
+
+	it('is 0 for a pane entirely beside the caption', () => {
+		setInset('230px');
+		setSides('322px', '322px');
+		expect(tourChromeOverlap(pane(0, 300))).toBe(0);
+	});
+
+	it('is the full band for a pane under the caption', () => {
+		setInset('230px');
+		setSides('322px', '322px');
+		expect(tourChromeOverlap(pane(400, 200))).toBe(230);
+	});
+
+	it('is the full band for a full-width caption, which publishes 0 on both sides', () => {
+		setInset('230px');
+		setSides('0px', '0px');
+		expect(tourChromeOverlap(pane(0, 300))).toBe(230);
+	});
+
+	it('is unchanged when the extent is ABSENT, so an older Vetrina build behaves as it always did', () => {
+		setInset('230px');
+		expect(tourChromeOverlap(pane(0, 300))).toBe(230);
+	});
+
+	it('treats a touching edge as clear', () => {
+		setInset('230px');
+		setSides('322px', '322px');
+		// Right edge exactly on the band's left edge — a zero-width intersection is not an overlap.
+		expect(tourChromeOverlap(pane(202, 120))).toBe(0);
+	});
+});
