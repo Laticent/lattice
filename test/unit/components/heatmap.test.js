@@ -134,7 +134,13 @@ describe('heatmap — the quantized ramp', () => {
     assert.ok(values.length > 0, 'no printed value carried a step');
     for (const [, step] of [...cells, ...values]) {
       const n = Number(step);
-      assert.ok(n >= 1 && n <= RAMP_STEPS, `data-step="${step}" is outside the ramp`);
+      // The message does NOT spell the attribute back out. `step` is read out of
+      // rendered HTML, so `attr="${step}"` is attribute-shaped text built from a
+      // tainted value — which CodeQL flags as incomplete attribute sanitization
+      // (code-scanning/271) and is right to, even though this string is only ever
+      // an assertion message. Naming the value plainly costs nothing and says the
+      // same thing.
+      assert.ok(n >= 1 && n <= RAMP_STEPS, `step ${JSON.stringify(step)} is outside the ramp`);
     }
   });
 
