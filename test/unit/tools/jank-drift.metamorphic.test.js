@@ -23,6 +23,11 @@
  *   · MR1 is close to vacuous for a pure function, and MR9 is an axiom for `Math.min`.
  *     Both still kill non-`min` mutants, so they earn their place — but neither is evidence
  *     the measure is RIGHT.
+ *   · MR12/MR13 are the pair that says what CAN happen rather than what an adversary failed
+ *     to find. MR13 is load-bearing and kills the `Math.max` mutant on its own. MR12 kills
+ *     no mutant this suite did not already kill — it is kept for exactness (MR5 pins three
+ *     literals; MR12 pins the same property over generated positions, sizes and offsets)
+ *     and for the record of the stronger claim it started as, which was false.
  *
  * WHAT THIS FILE DOES NOT COVER, so nobody reads it as more than it is: that the RIG feeds
  * this function faithful section-relative edges. That is a browser claim and it belongs in
@@ -235,4 +240,97 @@ test('MR11 a measurement that did not happen is refused, never averaged', () => 
   assert.throws(() => axisDrift([0, Number.NaN], [10, 20]), TypeError);
   assert.throws(() => axisDrift([0, 10], [10, Infinity]), TypeError);
   assert.throws(() => axisDrift([0, 1, 2], [10, 20]), TypeError);
+});
+
+/**
+ * MR12/MR13 are the pair that turns "an adversary looked for a masked translation and did
+ * not find one" into a statement about what CAN happen. The measure is a minimum over three
+ * references, so a case that reads 0 is a case where SOME reference never moved — and the
+ * three references are exactly the three ways a mark holds position while it grows: pinned
+ * at its near edge, pinned at its far edge, or centered. That is the design intent, and
+ * these two relations pin both halves of it.
+ *
+ * They are property-style rather than example-based: each runs over the seeded generators
+ * plus the adversarial shapes below, so neither rests on a literal somebody chose.
+ */
+
+// Offset sequences for MR12 — monotone, oscillating, and negative-going.
+const OFFSETS = [
+  [0, 5, 10, 15, 20, 25, 30, 35],
+  [0, 604, 0, 604, 0, 604, 0, 604],
+  [0, -0.5, -1, -1.5, -2, -2.5, -3, -3.5],
+];
+
+// Shapes an adversary would reach for when trying to make a real translation read zero:
+// oscillation, a single late step, opposite-direction edges, a degenerate box.
+const ADVERSARIAL = [
+  { near: [0, 50, 0, 50], far: [80, 130, 80, 130] },
+  { near: [0, 0, 0, 90], far: [40, 40, 40, 130] },
+  { near: [0, 30, 60], far: [200, 170, 140] },
+  { near: [10, 10, 10], far: [10, 10, 10] },
+  { near: [0, -25, -50], far: [60, 35, 10] },
+  { near: [0, 1e-3, 2e-3], far: [5, 5.001, 5.002] },
+];
+
+function everyShape() {
+  const out = [];
+  for (const seed of SEEDS) {
+    out.push({ label: `boxes(${seed})`, ...boxes(seed) });
+    out.push({ label: `pinnedBoxes(${seed},near)`, ...pinnedBoxes(seed, 'near') });
+    out.push({ label: `pinnedBoxes(${seed},far)`, ...pinnedBoxes(seed, 'far') });
+  }
+  ADVERSARIAL.forEach((s, i) => { out.push({ label: `adversarial[${i}]`, ...s }); });
+  return out;
+}
+
+test('MR12 a rigid translation of a STATIC box reports the offset exactly', () => {
+  // MR5 states this over three hand-written pairs; here it is over generated positions,
+  // sizes and offset shapes. Near, far and midpoint are each the constant plus the offset,
+  // so all three spreads equal the offset's and the minimum of them is exact — the half
+  // that matters for a measure which only ever moves a verdict toward PASS.
+  //
+  // THE FIRST VERSION OF THIS RELATION CLAIMED MORE AND WAS FALSE: that adding the same
+  // per-step offset to ANY box sequence reports at least the offset's spread. It does not.
+  // Over `boxes(1)` an offset spreading 35 reported 34.92, because the box's own wander can
+  // partly cancel the offset — `spread(a + b)` is not `spread(b)` once `a` varies. The
+  // general truth is MR13's direction, not this one; stating it this way would have pinned
+  // a property the measure does not have.
+  for (const seed of SEEDS) {
+    const r = rng(seed);
+    for (const base of OFFSETS) {
+      const at = +(r() * 400).toFixed(2);
+      const w = +(5 + r() * 300).toFixed(2);
+      const off = base.map((v) => +(v * (0.5 + r())).toFixed(2));
+      const got = axisDrift(off.map((o) => at + o), off.map((o) => at + w + o));
+      assert.ok(Math.abs(got - spread(off)) <= EPS,
+        `seed ${seed}: offset spreading ${spread(off)} reported ${got}`);
+    }
+  }
+});
+
+test('MR13 a ZERO verdict always names a reference that held still', () => {
+  // The converse, and the reason a zero can be trusted. If the measure ever returned 0 for
+  // a sequence in which the near edge, the far edge AND the midpoint all moved, the tool
+  // would be certifying a mark that drifted. Over every shape here, a 0 verdict is always
+  // accompanied by a reference whose own spread is 0 — one of the three ways a mark holds
+  // position. A shape that reads non-zero is not evidence either way, so it is skipped
+  // rather than asserted on.
+  let zeros = 0;
+  for (const { label, near, far } of everyShape()) {
+    if (axisDrift(near, far) > EPS) continue;
+    zeros += 1;
+    const mid = near.map((n, i) => (n + far[i]) / 2);
+    const held = [
+      ['near edge', spread(near)],
+      ['far edge', spread(far)],
+      ['midpoint', spread(mid)],
+    ].filter(([, s]) => s <= EPS);
+    assert.ok(held.length > 0,
+      `${label}: reported 0 drift while all three references moved `
+      + `(near ${spread(near)}, far ${spread(far)}, mid ${spread(mid)})`);
+  }
+  // The relation is vacuous if nothing in the corpus reads zero, and a vacuous pass is the
+  // failure mode this whole file exists to avoid — so the corpus is required to contain the
+  // shape under discussion.
+  assert.ok(zeros >= 2, `only ${zeros} shapes read 0 — MR13 needs zeros to say anything`);
 });

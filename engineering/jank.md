@@ -511,14 +511,31 @@ leads — but the table's ORDER, which is the whole point of a census, was wrong
 
 **The new measure still fails a real mover, and that arm matters more than the others.**
 Every verdict the change moves, it moves toward PASS, so the relations in
-`test/unit/tools/jank-drift.metamorphic.test.js` are all defending against a rig that quietly stops finding
-things. They are synthetic. The census's real top mover supplies the control the real surface
-owes: `node tools/check-jank.js "state-chart inline" --anchor 'span.state-index' --max 12`
+`test/unit/tools/jank-drift.metamorphic.test.js` are all defending against a rig that quietly
+stops finding things — and they are arithmetic, not a render. The census's real top mover
+supplies the control the real surface owes:
+`node tools/check-jank.js "state-chart inline" --anchor 'span.state-index' --max 12`
 reports `DRIFT 42.5px vertical ✗` and exits 1. At step 10 the heading wraps to a second line
 and pushes the chart down; the anchor's content-facing edge steps 242.6px → 285.1px. The
 verdict is self-certifying because the measure is a MINIMUM: 42.5 can only come back if the
 near edge, the far edge AND the midpoint each spread at least that far, which is what a
 whole-box translation looks like and what growth cannot produce.
+
+**And the residual — "no counter-example was found" — is now a statement about what CAN
+happen.** The measure is a MINIMUM over three references, so a zero verdict is a case where
+some reference never moved, and the three references are exactly the three ways a mark holds
+position while it grows: pinned at its near edge, pinned at its far edge, or centered. MR13
+pins that direction over every generated and adversarial shape in the suite — a zero is only
+ever accompanied by a reference whose own spread is zero — and it kills the `Math.max` mutant
+on its own. A mark whose near edge, far edge AND midpoint all moved cannot read clean.
+
+**The converse does NOT hold, and assuming it did put a false relation in the suite for one
+run.** MR12 started as the claim that adding the same per-step offset to any box reports at
+least that offset's spread. It reported 34.92 for an offset spreading 35, because a box's own
+wander partly cancels the offset: `spread(a + b)` is not `spread(b)` once `a` varies, and in
+the shifted coordinates the box genuinely is more static than the offset alone. MR12 is
+therefore narrowed to a STATIC box, where all three references are the constant plus the
+offset and the answer is exact. The general guarantee is MR13's direction only.
 
 **A modifier that paints nothing alone must be given its companion**, or the census
 reports "none" for a mark that is simply not on the page — the false clean this tool is
