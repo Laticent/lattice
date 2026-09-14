@@ -2,7 +2,7 @@
 status: shipped
 summary: >
   ABANDONED after measurement — the trade is binary and the price is not worth paying. Read
-  §15 first; §1-§14 are the investigation that got there, and three of their headline numbers
+  §15 first; §1-§14 are the investigation that got there, and four of their headline numbers
   are retracted in §15. The idea: a fixed 150ms debounce sat in front of every Mermaid render,
   larger than a FULL RENDER for any diagram up to about 64 nodes (22ms at 4 nodes, 43 at 16,
   72 at 32, 130 at 64, 239 at 128), so it was waiting rather than coalescing. Dropping it to
@@ -17,9 +17,13 @@ summary: >
   redraw are the same fact. SEVEN independent review passes each found a shipping blocker in a
   head its author had called ready, which is its own lesson: every claim was checked by a
   throwaway probe written by whoever wanted the answer, and two of those probes reported the
-  flattering result. What survived is unrelated to latency — `waitForDiagrams` now waits on
-  PROGRESS rather than a 4000ms wall clock, because when that constant lost the capture
-  proceeded anyway and baked a blank region into a downloaded PDF.
+  flattering result. What survived is unrelated to latency — when
+  `waitForDiagrams`' budget expires, the un-settled fences are RELEASED to `unavailable`
+  instead of being captured hidden, because the stylesheet hides a fence on its way to being
+  drawn and the capture was baking a blank region into a downloaded PDF. The budget itself is
+  still a plain 4000ms wall clock: the "no progress for budgetMs" design this summary used to
+  describe was BUILT AND KILLED by the trio (§15), and saying it shipped sent a reader to the
+  one function in the diff expecting a rule that is not in it.
 ---
 # The 150ms in front of every diagram was the wait
 
@@ -632,6 +636,13 @@ Settle time was up 19-47% from the parse tax. The budget now means **"no progres
 4000ms"** rather than "4000ms total": give up on a diagram that is stuck, never on one that is
 merely slow.
 
+> **RETRACTED — the progress budget never shipped.** The trio killed it (§15: it is never
+> reached, it cannot fire on a real deck, and it did not fix the blank anyway).
+> `waitForDiagrams` is a plain `while (Date.now() - start < budgetMs)` wall clock today
+> (`deck-export.js:512`). What shipped from this line of work is the RELEASE at the give-up
+> point, not a new budget rule. Marked because its three §13 siblings are marked and this one
+> was not, so a reader scanning for the corrections took it as standing.
+
 **The error box strobed.** With a broken fence beside the one being edited it blinked roughly
 every 600ms. The release marker was a WeakSet keyed on the `<pre>` NODE, and both hosts
 replace that node every keystroke, so each release survived one pass. Keying it on the fence
@@ -818,7 +829,7 @@ That is not a tuning failure, it is arithmetic, and it generalizes to the whole 
 
 ### What was retracted along the way
 
-Three claims in the sections above did not survive re-measurement on the final head, and are
+Four claims in the sections above did not survive re-measurement on the final head, and are
 left standing there with this correction rather than quietly edited:
 
 - **"a burst in ~78ms where it took ~1.1s"** — measured on a bench deck below the size where
@@ -1288,3 +1299,53 @@ instrument measured something adjacent to the target.
 **And the cost of believing it was real.** §16's conclusion was used, in this branch, to argue that
 the cell pinning that default was pinning a cosmetic parameter, and a correct claim was softened to
 match it. The wrong record nearly ate the right test.
+
+## 20. Was §16 a one-off? An audit of §1–§15 for the same defect
+
+§19 refuted §16 because its null result had no control arm. The obvious next question — is that one
+bad experiment or a method — was the `raise it by:` line on this work's pre-merge card, so it was
+walked rather than left as a suggestion.
+
+**Answer: the shape recurs, and it clusters by era rather than running through the document.** Of
+roughly 64 measurement-bearing claims in §1–§15, **11 are uncontrolled nulls** — an outcome of "no
+difference / zero / identical / never reached" with nothing showing the instrument could have
+produced the other answer. The three that carry real weight are all in §15, written in the same
+sitting as §16. **§8–§13 is the opposite**: the author names controls explicitly and repeatedly, and
+in several places the control IS the finding — §8's "the control that rules out a harness artifact",
+§12's "the control is what makes it airtight: one attribute is the only difference, and it flips 8
+renders to 1", and §14/§15's "with only `lattice-runtime.js` swapped between runs and the md5
+checked before every run", which is exactly the build verification §19 suspects §16 of skipping,
+used correctly two sections earlier.
+
+So §16 is the worst instance of a late-era habit, not a departure from this document's method.
+
+**The heaviest uncontrolled nulls, for whoever picks this up:**
+
+| § | The claim | Why it matters |
+|---|---|---|
+| §15 | "the function returned at **exactly the same millisecond** as the wall clock it replaced" | Same shape as §16: two arms indistinguishable, conclusion "no-op". It is the reason the export still uses a wall clock — the mechanism §19 shows standing between a stall and a blank slide |
+| §15 | "**The budget is never reached** … 190ms after the function is entered, against 4000" | The 20x CPU throttle is never verified inline. §17 names that exact failure (`size: 16:9`, a manipulation the engine ignored) and its fix — print the measured manipulation per arm — which this arm does not do |
+| §15 | "**The throttle fired zero times in 24 keystrokes**" | A zero count cannot be told from an unwired counter. Mitigated: the arithmetic argument beside it is instrument-independent |
+
+**Most of them can never be re-derived.** They measure code that no longer exists — both cited branch
+heads (`756ac707`, `20ec5c7f`) are gone from this clone, and none of `COALESCE_MS`, `CHEAP_RENDER_MS`,
+`PARSE_CAP_MS`, `contentFloorMs` or `diagramRuns` resolves anywhere in the tree. That is expected for
+an abandoned branch, and it is the point: an uncontrolled null becomes permanently unfalsifiable the
+moment its branch is deleted. §16's only stayed checkable because the parameter it was about is still
+in `main`.
+
+**One was cheap and it holds.** §15's "the rule reported zero violations across all 1934 files" was a
+null with no arm; given one — a scratch file containing a bare `bareWrite = 1;` — the rule fires
+(`× The bareWrite variable is undeclared`), and the repo scan is still clean. The file count has
+drifted to 1989, which the note never pinned as stable.
+
+### Off-path, logged not fixed (HARD RULE #18)
+
+`§7`'s remedy set is stale and would cost someone a rebuild. It says the fence-detection move "is
+blocked on `lib/core/mermaid-fences.js` being CommonJS … so it needs converting to ESM or the
+detection moving into the runtime". The premise is right, the two options are not exhaustive: a third
+route already ships that module to the browser today via the esbuild pre-bundle in
+`tools/build-read-along-core.js` (`read-along-core.generated.js`, imported by
+`docs/src/components/studio/narration-resolve.ts`). Anyone starting from §7 would rebuild what the
+tree has (HARD RULE #15). Not pulled into this diff — different subsystem, and §7 is an archived
+section of an abandoned investigation.
