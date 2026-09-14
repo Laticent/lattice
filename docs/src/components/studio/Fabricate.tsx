@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tip } from '@/components/ui/tooltip';
+import { Announce } from '@/lib/announce';
 import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
@@ -1691,10 +1692,13 @@ function ThemeFindings({ findings, blocked }: { findings: Finding[]; blocked: bo
 	return (
 		<div className="flex max-h-[40%] shrink-0 flex-col gap-1 overflow-y-auto">
 			{blocked && (
-				<p className="rounded-md border border-[color-mix(in_srgb,var(--fail)_35%,transparent)] bg-[color-mix(in_srgb,var(--fail)_10%,transparent)] px-2 py-1.5 text-[11px] leading-snug text-[var(--fail)]">
+				<p aria-hidden="true" className="rounded-md border border-[color-mix(in_srgb,var(--fail)_35%,transparent)] bg-[color-mix(in_srgb,var(--fail)_10%,transparent)] px-2 py-1.5 text-[11px] leading-snug text-[var(--fail)]">
 					The preview is paused — this stylesheet reaches off the device. Fix the blocking finding below and it comes straight back.
 				</p>
 			)}
+			{/* The preview going dark is the kind of thing you notice instantly by eye and
+			    not at all otherwise, so it is the clearest case in this file for a region. */}
+			<Announce message={blocked ? 'The preview is paused — this stylesheet reaches off the device. Fix the blocking finding below and it comes straight back.' : null} />
 			{findings.map((f, i) => (
 				<div key={`${f.rule}-${f.line ?? i}`} className="flex items-start gap-1.5 px-1 text-[11px] leading-snug">
 					<span className={cn('mt-[3px] shrink-0 font-mono text-[9px] font-bold uppercase', f.level === 'error' ? 'text-[var(--fail)]' : 'text-[var(--warn)]')}>{f.line ? `L${f.line}` : f.level === 'error' ? 'ERR' : 'WARN'}</span>

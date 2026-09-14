@@ -21,6 +21,7 @@ import { filteringProps, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsS
 import { Switch as UISwitch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
+import { Announce } from '@/lib/announce';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { autoHeadLabel } from './auto-mark';
@@ -696,7 +697,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 										<button type="button" onClick={confirmDescription} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground hover:opacity-90"><Check className="size-3" />Use it</button>
 									</div>
 								)}
-								{descMsg && <p className="mt-2 text-[11px] leading-snug text-[var(--warn,#9a6a00)]">{descMsg}</p>}
+								{descMsg && <p aria-hidden="true" className="mt-2 text-[11px] leading-snug text-[var(--warn,#9a6a00)]">{descMsg}</p>}
+								<Announce message={descMsg} />
 							</SettingsBlock>
 
 							{!editable && (

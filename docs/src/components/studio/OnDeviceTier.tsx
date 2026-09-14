@@ -1,5 +1,6 @@
 import { Check, Cpu, Download, Loader2 } from 'lucide-react';
 import * as React from 'react';
+import { Announce } from '@/lib/announce';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { type ArchitectStatus, loadUniversalModel, setStudioTier, summonWebLLM, type TierProgress } from './architect';
@@ -112,7 +113,9 @@ export function OnDeviceTier({ status }: { status: ArchitectStatus }) {
 								<span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: `${Math.max(4, s.pct)}%` }} />
 							</div>
 						)}
-						{s.phase === 'error' && <p className="mt-1.5 text-[11px] text-[var(--fail,#b3261e)]">{s.note ?? 'Could not load — try again.'}</p>}
+						{s.phase === 'error' && <p aria-hidden="true" className="mt-1.5 text-[11px] text-[var(--fail,#b3261e)]">{s.note ?? 'Could not load — try again.'}</p>}
+						{/* Assertive: they asked for a download and are waiting on it. */}
+						<Announce assertive message={s.phase === 'error' ? (s.note ?? 'Could not load — try again.') : null} />
 					</div>
 				);
 			})}

@@ -53,9 +53,29 @@ export type AnnounceProps = {
  * <Announce message={nameReason} assertive />
  * ```
  *
- * Do NOT put `role="status"` on the visible strip as well and also render this —
- * the reader would hear it twice. This replaces the attribute, it does not
- * accompany it.
+ * ── The visible strip is the SIGHTED rendering; this is the a11y one ────────
+ *
+ * They carry the same words, so exactly one of them belongs in the accessibility
+ * tree. Mark the visible strip `aria-hidden` and let this node be the text — that
+ * way a reader navigating the panel meets the message once, not twice, and meets it
+ * in the node that also announces.
+ *
+ * The inverse (put `aria-live` on the visible strip and skip this) is what you
+ * reach for first and it is the failure at the top of this file: a strip rendered
+ * as `{msg && <p aria-live>…</p>}` is a NEW node every time the message arrives,
+ * and a newly inserted region is mostly not announced.
+ *
+ * A duplicate is also visible to a test: `getByText` finds both nodes and throws.
+ * If a spec starts reporting "found multiple elements", it is telling you the
+ * `aria-hidden` above is missing, not that the spec is wrong.
+ *
+ * ── When NOT to reach for this ───────────────────────────────────────────────
+ *
+ * A field that validates on every keystroke should not own a live region: it would
+ * talk over the typing it is describing. Associate the message with the input
+ * (`aria-describedby`) instead. Progress that ticks — "Rendering…", a percentage —
+ * is the same problem wearing a different hat; announce the terminal state if
+ * anything, never the ticks.
  */
 export function Announce({ message, assertive = false }: AnnounceProps): React.JSX.Element {
 	return (

@@ -1,6 +1,7 @@
 import { Download, Loader2, PlayCircle } from 'lucide-react';
 import * as React from 'react';
 import { Slider } from '@/components/ui/slider';
+import { Announce } from '@/lib/announce';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import {
@@ -385,7 +386,9 @@ export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 							<span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: `${Math.max(4, kokoroLoad.pct)}%` }} />
 						</div>
 					)}
-					{kokoroLoad.phase === 'error' && <p className="mt-1.5 text-[11px] text-[var(--fail,#b3261e)]">{kokoroLoad.note}</p>}
+					{kokoroLoad.phase === 'error' && <p aria-hidden="true" className="mt-1.5 text-[11px] text-[var(--fail,#b3261e)]">{kokoroLoad.note}</p>}
+					{/* Assertive: they asked for a download and are waiting on it. */}
+					<Announce assertive message={kokoroLoad.phase === 'error' ? kokoroLoad.note : null} />
 				</div>
 			)}
 
