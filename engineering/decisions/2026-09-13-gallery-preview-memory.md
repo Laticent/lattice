@@ -13,8 +13,9 @@ summary: >
   frame gets the 640KB engine stylesheet as one shared `blob:` link instead of parsing its own
   copy (Chromium -63%, WebKit -21%; the per-frame document went from ~769,000 bytes to 2,508).
   Three, and decisively, the three thumbnail grids draw from a POOL of at most 10 frames that are
-  re-pointed rather than destroyed — a full browse now mints 11 iframes and 15 documents instead
-  of 69 of each, and WebKit retains a ~388MB median where it retained +648MB. NOT built, and
+  re-pointed rather than destroyed — a full browse now mints 11 iframes and 13 documents where
+  main mints 157-185, and the same-instrument A/B (both builds, same protocol, three runs each)
+  reads a 2331MB WebKit median on main against 471MB here, 467MB against 89MB on Chromium. NOT built, and
   designed here with its feasibility measured: a poster cache. A tile can be captured in-browser
   at full fidelity on BOTH engines (148ms Chromium / 284ms WebKit) once one bug is fixed — the
   engine sheet carries 147 literal `<`, harmless in HTML's RAWTEXT `<style>` and fatal inside a
@@ -281,17 +282,33 @@ Slots are keyed by that signature (`shapeKey`), so a tile prefers a slot it can 
 mermaid bucket and saved local components (their own `extraCss`) are the only groups in a
 gallery that differ.
 
-**Measured on the real Studio**, four full traversals of the catalog at 390x844:
+**Measured on the real Studio**, four full traversals of the catalog at 390x844. Both builds are
+served from their own `docs/dist`, driven by the same script, three runs per engine per build,
+RSS read over each run's own Studio baseline (`docs/.scratch-ab-final.mjs`, not committed):
 
-| | before | after |
+| | main | this branch |
 |---|---|---|
-| iframe elements created | 69+ | **11** |
-| preview documents (srcdoc writes) | 69+ | **13** |
-| WebKit retained after the browse | +648 MB | **415 / 427 / 466 MB** (median 427) |
-| Chromium retained after the browse | ~105 MB | **84 / 93 / 94 MB** |
+| iframe elements created (WebKit) | 157 / 171 / 158 | **11 / 11 / 11** |
+| iframe elements created (Chromium) | 185 / 183 / 182 | **11 / 11 / 11** |
+| preview documents (srcdoc writes) | one per iframe, so the same counts | **13 / 13 / 15** |
+| frames still alive at the end | 36 / 32 / 32 | 11 / 11 / 11 |
+| WebKit retained after the browse | 2248 / 2331 / 2362 MB (median 2331) | **436 / 471 / 489 MB** (median 471) |
+| Chromium retained after the browse | 445 / 467 / 523 MB (median 467) | **62 / 89 / 95 MB** (median 89) |
 
 Read the MB columns with §4's ±200 warning; the COUNTS are the near-deterministic half, and
 they are the quantity the finding is about. Three runs per engine, because one is not evidence.
+
+**The "before" number in this table moved, and the reason is worth keeping.** An earlier draft
+quoted +648MB on WebKit and ~105MB on Chromium for main. Those came from a run of main taken
+before the instrument was fixed — RSS summed by process NAME, so a reading could include or
+miss a browser depending on what else was running (§4's contamination note). Re-measuring both
+builds with the corrected process-tree instrument leaves the BRANCH side where it was (471
+against the 419-427 medians measured on the head, inside the spread) and moves MAIN up by 3.6x.
+The direction of the finding never depended on it, but the size of the win did, so the honest
+number is the one where both sides were read the same way.
+
+Main creates 157-185 iframes for a 69-tile catalog because four traversals re-mount a tile every
+time it re-enters the band — recycling is the cost, stated as a count.
 
 ### Three things that were wrong before this worked, all of them invisible to the gates
 

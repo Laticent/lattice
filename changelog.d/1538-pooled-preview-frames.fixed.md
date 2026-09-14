@@ -7,9 +7,11 @@
   and re-points them over the tiles worth showing, which keeps the same iframe and the same realm
   and takes `single-slide-render`'s patch path instead of writing a fresh `srcdoc`. Browsing the
   whole 69-tile catalog four times at 390×844 now mints **11 iframes and 13 preview documents**
-  instead of one of each per tile, and retained memory after that browse fell from **+648MB to a
-  ~427MB median on WebKit** (three runs: 415/427/466) and from ~105MB to ~84–94MB on Chromium. The
-  instrument's own spread is ±200MB, so the counts are the near-deterministic half of this. The
+  where the old path mints 157-185 — it re-mounts a tile every time it re-enters the band, so four
+  traversals of 69 tiles cost far more than 69 documents. Retained memory after that browse, both
+  builds driven by the same script three times per engine: **WebKit 2331MB to a 471MB median**
+  (2248/2331/2362 against 436/471/489), **Chromium 467MB to 89MB** (445/467/523 against 62/89/95).
+  The instrument's own spread is ±200MB, so the counts are the near-deterministic half of this. The
   pool holds ten frames, or as many as the grid has tiles on screen (stopping at 28) — so a
   desktop gallery showing twelve tiles holds twelve, and no tile a reader is looking at ever goes
   without a preview. Opening a 16-variant looks panel grows it further (11 → 21 frames at
