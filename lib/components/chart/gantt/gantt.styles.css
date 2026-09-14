@@ -144,18 +144,18 @@
  * pass to info here left the chip's EDGE green while the kernel filled its body
  * blue, so the key showed a two-colour chip for a one-colour status. One table
  * cannot disagree with itself. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="on-track"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="done"]     { --fill-ink: var(--state-pass-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="on-track"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="done"]     { --fill-ink: var(--state-pass-ink); }
 /* `live` is RUNNING work, not finished work. It shared --state-pass-ink with
  * `done` here and shared the 'pass' fill gradient in the kernel, so the legend
  * named three statuses and painted two of them identically. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="live"]     { --fill-ink: var(--state-info-ink); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="at-risk"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="blocked"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="pilot"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="decision"] { --fill-ink: var(--state-info-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="live"]     { --fill-ink: var(--state-info-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="at-risk"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="blocked"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="pilot"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="decision"] { --fill-ink: var(--state-info-ink); }
 
 /* DEFERRED IS HOLLOW, and that is the one status whose paint is not just an
  * ink. It takes the same mute ramp a status-LESS bar takes, so on colour alone
@@ -165,12 +165,18 @@
  * what a deferred item looks like in every schedule a reader has seen. The
  * earlier arrangement put the collision on `pilot` instead of `deferred`; this
  * removes it rather than moving it again. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="deferred"] {
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="deferred"] {
   /* The same neutral as the unstated default, for the reason given there: this
    * edge is the ONLY thing carrying the mark once the fill drops to a wash, so
    * it needs the tier with headroom against the lane band, not just the
    * canvas. */
   --fill-ink: var(--text-secondary);
+}
+/* The HOLLOWING is the bar's, not the accent's. The accent is a 4px leading
+ * cue; at 18% it disappears, and then a deferred bar has nothing marking where
+ * it starts. Its INK is shared with the bar above — which is what the defect
+ * was about — and only the body goes to a wash. */
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="deferred"] {
   fill-opacity: 0.18;
 }
 
@@ -236,18 +242,35 @@
  * `border-left: var(--chart-fill-accent) solid var(--fill-ink)`; SVG has no
  * per-side stroke, so the kernel emits a narrow rect at the bar's start and it
  * takes the same semantic ink. Keeps the chart-family fill language intact —
- * the kanban card and progress bar wear the same edge. */
+ * the kanban card and progress bar wear the same edge.
+ *
+ * IT HAS NO STATUS TABLE OF ITS OWN, and that is the fix rather than the shape.
+ * There were THREE parallel status->ink tables in this file — bars, legend
+ * chips, and this — and merging only the first two left the third disagreeing
+ * with both. Measured on the committed gallery: a `live` bar painted a blue
+ * body with a GREEN accent, a `deferred` bar drew a solid accent on a hollow
+ * outline, and an unstated bar kept the blue leading edge the merge was
+ * supposed to remove. The accent is the bar's own leading edge, drawn at the
+ * bar's own x — so it must INHERIT `--fill-ink` from the bar's rules, never
+ * re-derive it. It cannot disagree with a table it does not have. */
 :is(section.gantt, figure.gantt) .gantt-bar-accent {
-  --fill-ink: var(--state-info-ink);
+  /* THE INK ONLY — never the bar's outline. The accent is a solid fill; adding
+   * it to the bars' rule handed it their `stroke` too, which outlined a 4px
+   * sliver in its own colour and pushed it under the 3:1 floor on four themes. */
   fill: var(--fill-ink);
 }
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="on-track"],
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="done"],
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="live"]     { --fill-ink: var(--state-pass-ink); }
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="at-risk"],
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="blocked"],
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="pilot"],
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="decision"] { --fill-ink: var(--state-info-ink); }
-:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="deferred"] { --fill-ink: var(--state-mute-ink); }
+
+/* AN UNSTATED BAR HAS NO ACCENT, because the accent has nothing to do. Its one
+ * job is to reinforce the mark's HUE at the leading edge — so on a bar carrying
+ * no status there is no hue to reinforce, and what it draws instead is a neutral
+ * sliver that has to justify itself against the 3:1 floor for a mark carrying no
+ * information. Measured, it could not: 2.88:1 on carta-dark against the bar's own
+ * wash. Deepening the ink to clear it made the bar with NO status the
+ * highest-contrast edge on the chart, which inverts the hierarchy the whole
+ * status vocabulary exists to express.
+ *
+ * `deferred` keeps its accent: it IS a status, and on a hollow bar the accent is
+ * the one solid cue marking where the bar starts. */
+:is(section.gantt, figure.gantt) .gantt-bar-accent:not([data-s]) {
+  display: none;
+}

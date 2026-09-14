@@ -34,3 +34,17 @@
   floor than a graphical one and has headroom on the lane band the marks
   actually sit on; no declared status uses it, so an unstated bar is plainly
   visible without impersonating one.
+- **The bar's leading ACCENT had a third status table**, and merging only the bar
+  and chip tables left it disagreeing with both: a `live` bar painted a blue body
+  with a **green** accent, a `deferred` bar drew a solid accent on a hollow
+  outline, and an unstated bar kept the blue leading edge the merge was meant to
+  remove. All three visible in the committed gallery. The accent now takes
+  `--fill-ink` from the one table — it cannot disagree with a table it does not
+  have.
+- **An unstated bar has no accent at all.** The accent's only job is to reinforce
+  the mark's hue at its leading edge, so with no status there is no hue and what
+  it drew was a neutral sliver carrying no information — measured at 2.88:1
+  against the bar's own wash on carta-dark, under the 3:1 floor. Deepening the ink
+  to clear it made the bar with NO status the highest-contrast edge on the chart.
+  `deferred` keeps its accent: it is a status, and on a hollow bar the accent is
+  the one solid cue marking where the bar starts.

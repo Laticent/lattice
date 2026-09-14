@@ -22,6 +22,19 @@
  * EXCLUSION 2 — WRAPPERS. `journey-face` names an <svg> element, not a shape, so
  * the rule could never reach the <circle> and <path> inside it. The test below
  * re-derives that from the transform that emits it.
+ *
+ * WHAT THESE ARMS CANNOT SEE, stated because a text matcher that implies more
+ * than it checks is worse than one that admits its edge. They read CSS and JS as
+ * TEXT, so a width laundered through an alias — `--w: var(--chart-edge);
+ * stroke-width: var(--w)` — reaches the same value under a name no regex here
+ * knows to follow. That shape is not caught and cannot cheaply be: following it
+ * means resolving a custom-property graph across files.
+ *
+ * `tools/chart-structure-census.js --check` is the arm that closes it, and the
+ * division of labour is deliberate: it asks the RENDER what every mark actually
+ * paints, so it does not care how the width was spelled. These arms exist
+ * because they are cheap enough to run on every commit; that one is the backstop
+ * that cannot be written around.
  */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -142,7 +155,9 @@ function memberEdgeUsers() {
   const out = new Map();
   for (const dir of fs.readdirSync(CHART_DIR)) {
     for (const { sel, body } of rules(dir)) {
-      if (!/stroke-width:\s*var\(--chart-edge/.test(body)) continue;
+      // `--chart-edge` ANYWHERE in the value, not only as the outermost var():
+      // `var(--nope, var(--chart-edge))` resolves to the token just the same.
+      if (!/stroke-width:[^;}]*--chart-edge/.test(body)) continue;
       for (const one of splitSelectorList(sel)) {
         for (const c of keyClasses(one)) {
           if (!out.has(c)) out.set(c, new Set());
@@ -266,10 +281,19 @@ test('no chart member re-declares a numeric stroke-width on a covered fill mark'
       // literal width under that exemption and shipped green. The canvas-colour
       // test is the one that actually separates a halo from an edge, and it is
       // the same test the knockout arm uses.
-      if (/(^|[;{\s])stroke:\s*var\(--bg\)/.test(body)) continue;
       for (const c of declared) {
         if (c in WRAPPERS) continue;
-        if (sel.includes(`.${c}`)) { offenders.push(`${dir}: ${sel.slice(0, 70)}`); break; }
+        if (!sel.includes(`.${c}`)) continue;
+        // THE EXEMPTION COMES FROM THE CURATED LIST, NOT FROM THE RULE BODY.
+        // Testing the body for `stroke: var(--bg)` let any rule buy its own
+        // exemption by adding one declaration — which is exactly the dumping
+        // ground the KNOCKOUTS docblock promises this cannot become. The list
+        // is the gate; the arm above is what proves each entry on it earns the
+        // place. A rule on a listed knockout still skips, because that is the
+        // mark whose width is legitimately its own.
+        if (c in KNOCKOUTS) break;
+        offenders.push(`${dir}: ${sel.slice(0, 70)}`);
+        break;
       }
     }
   }
@@ -303,19 +327,29 @@ test('no transform sets a mark width as a presentation attribute', () => {
     if (!fs.existsSync(f)) continue;
     const src = fs.readFileSync(f, 'utf8');
     const allowed = new Set(SANCTIONED_ATTR_WIDTHS[`${dir}.transform.js`] || []);
-    // an element that carries a declared mark's class AND a literal stroke-width
-    for (const m of src.matchAll(/<(\w+)[^>]*?class="([^"]*)"[^>]*?stroke-width="([\d.]+)"/g)) {
-      const classes = m[2].split(/\s+/);
-      for (const c of classes) {
-        if (!declared.has(c) || allowed.has(c)) continue;
-        offenders.push(`${dir}: <${m[1]} class="${c}" stroke-width="${m[3]}">`);
-      }
-    }
-    // …and the same with the attributes the other way round
-    for (const m of src.matchAll(/<(\w+)[^>]*?stroke-width="([\d.]+)"[^>]*?class="([^"]*)"/g)) {
-      for (const c of m[3].split(/\s+/)) {
-        if (!declared.has(c) || allowed.has(c)) continue;
-        offenders.push(`${dir}: <${m[1]} class="${c}" stroke-width="${m[2]}">`);
+    // Any element string that names a declared mark AND sets stroke-width by
+    // ATTRIBUTE or inline STYLE, in either order.
+    //
+    // THE VALUE IS NOT REQUIRED TO BE A LITERAL. A transform that computes a
+    // width emits `stroke-width="${w}"`, and an arm that only matched digits
+    // waved through the exact shape a transform actually writes — which is the
+    // one this arm exists for. It now matches any value, and an interpolation
+    // is as much a defect as a number: neither goes through `--chart-edge`.
+    // Quoting is either style, and `=` may carry spaces.
+    const SW = String.raw`(?:stroke-width\s*=\s*["']([^"']+)["']|style\s*=\s*["'][^"']*stroke-width\s*:\s*([^;"']+))`;
+    const CLS = String.raw`class\s*=\s*["']([^"']*)["']`;
+    const hits = [
+      new RegExp(String.raw`<(\w+)[^>]*?${CLS}[^>]*?${SW}`, 'g'),
+      new RegExp(String.raw`<(\w+)[^>]*?${SW}[^>]*?${CLS}`, 'g'),
+    ];
+    for (const [i, re] of hits.entries()) {
+      for (const m of src.matchAll(re)) {
+        const classes = (i === 0 ? m[2] : m[4]) || '';
+        const width = (i === 0 ? m[3] ?? m[4] : m[2] ?? m[3]) || '';
+        for (const c of classes.split(/\s+/)) {
+          if (!declared.has(c) || allowed.has(c)) continue;
+          offenders.push(`${dir}: <${m[1]} class="${c}" stroke-width=${width.trim()}>`);
+        }
       }
     }
   }

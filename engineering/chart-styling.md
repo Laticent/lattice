@@ -23,14 +23,15 @@ stops reading as one system.
 
 This is not a style preference. It is the lesson of the defect that made this
 document necessary: the family's declared marks painted at **21 different
-physical weights**, a 5.8× spread from 0.5px to 2.9px, every one of them a local
+physical weights**, a 6.9× spread from 0.42px to 2.9px, every one of them a local
 decision that looked right in isolation. Today it is **8** weights over 2.2× —
-21 mark classes at exactly 1px, six knockouts at their own role-correct widths,
+21 mark classes at exactly 1px, seven knockouts at their own role-correct widths,
 and one sanctioned 2px emphasis.
 
 Re-derive both with `node tools/chart-structure-census.js`, on the branch and on
 `main`. Quote a commit when you quote the numbers: an earlier draft of this
-paragraph said 16 weights over 13.1×, because the probe that produced it
+paragraph said 16 weights over 13.1×, and a later one said 21 over 5.8× measured
+against a stale build. The 13.1× came from a probe that
 multiplied by `box.width / viewBox.width` where `xMidYMid meet` gives a UNIFORM
 `min(sx, sy)`. Measured against a rendered control — viewBox 100×100 in a 400×100
 box, `stroke-width: 2` — the x-ratio predicts 8px and the render paints 2.
@@ -243,13 +244,19 @@ assumes hue is available breaks there and nowhere else.
   CSS initial. `stroke-width: 1px` IS the initial — so a mark pinned with
   `vector-effect: non-scaling-stroke` on the slide arrived in the PDF, PPTX and
   standalone SVG with neither property, and fell back to one viewBox USER unit:
-  measured, a 1px map edge came back at 0.83px and scatter's at 2.21px. A stroked
-  element now never drops either property.
-- **A theme cannot override a token the engine declares on `.chart-frame`.** A
-  palette declares on the same element, and `.chart-frame` wins. The fill wash is
-  read through `var(--palette-fill-*, <default>)` for exactly this reason — a
-  palette that set `--chart-fill-top-l` directly would look like an override and
-  do nothing.
+  measured over the same live SVGs, a pinned 1px edge came back at 0.84px on a map
+  region and 2.46px on a scatter bubble. A stroked element now never drops either
+  property. The cost is bytes: +2.7% to +8.2% per exported SVG, and on the Mermaid
+  path — where nothing carries `non-scaling-stroke` — every one of those extra
+  declarations is a no-op.
+- **An INHERITED custom property loses to the element's own declaration**, and no
+  specificity beats that. A palette declares in `:root`; `chart-family.css` declares
+  the fill wash on `.chart-frame` itself, so a palette setting `--chart-fill-top-l`
+  looks like an override and does nothing. The wash is read through
+  `var(--palette-fill-*, <default>)` for that reason. Note what this is NOT: a
+  palette scoped to `.chart-frame` would win, because then it is an own declaration
+  too. (Zero of the 15 shipped palettes do that for any of the 72 properties this
+  file sets there.)
 - **The wash's own contract is per-theme, and one theme breaks it.** "The wash
   only tints, so `--text-heading` labels clear it on both canvases" holds on a
   canvas near either end of the range and fails on a mid-toned one. concrete

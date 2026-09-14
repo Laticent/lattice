@@ -614,11 +614,21 @@ section.chart-frame,
    * See progress.styles.css. The others have no --pct and wear the wash. */
   /* THE WASH IS THEME-OVERRIDABLE, through one indirection, and the shape of
    * that indirection is load-bearing. The engine owns the DEFAULT and declares
-   * it here on `.chart-frame` — the same element a palette declares its own
-   * tokens on — so a palette setting `--chart-fill-top-l` directly would lose
-   * the cascade to this line and read as an override that silently does
-   * nothing. A palette therefore sets `--palette-fill-*` instead, which
-   * inherits in and is picked up here.
+   * it here, ON `.chart-frame` ITSELF. A palette declares in a `:root` block,
+   * so its value reaches this element by INHERITANCE — and an inherited value
+   * always loses to the element's own declaration, whatever the two selectors'
+   * specificity say. A palette setting `--chart-fill-top-l` directly therefore
+   * reads as an override that silently does nothing. A palette sets
+   * `--palette-fill-*` instead, which nothing here declares, so the inherited
+   * value is the only one and it is picked up below.
+   *
+   * Measured by injecting stylesheets into the rendered gallery: `:root` at 99%
+   * resolves to the engine's 20%; `section.chart-frame` at 88% resolves to 88%;
+   * `:root` setting `--palette-fill-top-l` to 77% resolves to 77%. So the case
+   * that loses is inheritance, NOT same-element specificity — a palette scoped
+   * to `.chart-frame` would in fact win. No shipped theme does that: across the
+   * 15 palettes, zero declare any of the 72 custom properties this file sets on
+   * `.chart-frame`.
    *
    * Why any theme would want to: these percentages assume a canvas near one
    * end of the range. On a mid-toned one they put the fill halfway between the
@@ -656,8 +666,8 @@ section.chart-frame,
    * measuring the rendered gallery is what separates the two: every member tuned
    * its own `stroke-width` literal inside its own viewBox, and those viewBoxes
    * span 4.3x (320 … 1375 units at the same rendered width). So the family's
-   * declared marks painted at 21 DIFFERENT physical weights — 0.5px on a map
-   * region, 2.9px on a pie wedge, a 5.8x spread on marks that are all "the edge
+   * declared marks painted at 21 DIFFERENT physical weights — 0.42px on a map
+   * region, 2.9px on a pie wedge, a 6.9x spread on marks that are all "the edge
    * of a data mark". Nobody chose that; it is what per-member tuning in
    * per-member coordinate spaces adds up to.
    *
@@ -669,7 +679,7 @@ section.chart-frame,
    * unaffected: a 1px CSS stroke is still 3px in a 3x raster.
    *
    * MEASURED, both sides with `node tools/chart-structure-census.js`:
-   * 21 distinct physical weights over 5.8x -> 8 over 2.2x. Not one weight, and
+   * 21 distinct physical weights over 6.9x -> 8 over 2.2x. Not one weight, and
    * the remainder is the point: 21 mark classes at exactly 1px, SIX KNOCKOUTS at
    * their own role-correct widths (see the exclusion note below the shared rule),
    * and one sanctioned 2px emphasis on state-chart's start and terminal nodes.
@@ -1668,9 +1678,10 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
  * preserve. Measured before: 16 distinct weights across 19 mark edges, spread
  * 13.1x. After: 1. */
 
-/* SIX MARKS ARE DELIBERATELY NOT HERE, AND THEY ARE NOT AN OVERSIGHT.
- * `funnel-band` · `line-dot` · `quadrant-dot` · `radar-dot` · `scatter-dot` ·
- * `sbar-seg` stroke in `var(--bg)`, the canvas colour. That is a KNOCKOUT, not
+/* SEVEN MARKS ARE DELIBERATELY NOT HERE, AND THEY ARE NOT AN OVERSIGHT.
+ * `funnel-band` · `line-dot` · `quadrant-dot` · `quadrant-trail-after` ·
+ * `radar-dot` · `scatter-dot` · `sbar-seg` stroke in `var(--bg)`, the canvas
+ * colour. That is a KNOCKOUT, not
  * an outline: its job is to hold two touching marks apart — a dot where two
  * lines cross, a segment abutting the next segment in the same stack — and its
  * correct weight follows what it has to separate, not the family's outline
