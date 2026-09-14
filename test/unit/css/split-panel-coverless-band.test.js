@@ -65,18 +65,26 @@
  *     bottom-right corner is the panel: 52 of 198 palette/variant cells under WCAG 1.4.11's 3:1,
  *     bottoming out at 1.00:1.
  *
- * MUTATION-PROVED, and the counts are against the 64 arms as they stand today — re-derive them
+ * MUTATION-PROVED, and the counts are against the 76 arms as they stand today — re-derive them
  * before quoting one, because every count in this file's history was measured against a different
- * number of arms (20, then 40, then 56, now 64) AND against a different fixture:
+ * number of arms (20, then 40, 56, 64, now 76) AND against a different fixture AND against a
+ * different MEASURE. The two columns below are the same mutations counted before and after this
+ * round's instrument fixes, which is the only way to see that the CSS did not change under them:
  *
- *     mutation                                          arms that fail
- *     pointer `position: static`                             31
- *     the every-page keying → `:has(> .lat-split-rel)`       16
- *     the pill's `max-width` clamp deleted                     6
- *     the reserve widened to BOTH panels at every size         6
- *     the reserve re-gated to ONE named panel                  5
- *     the non-mirror `metric` rail arm deleted                 4
- *     the `form` canvas rail arm deleted                       4
+ *     mutation                                          @64   @76
+ *     pointer `position: static`                          31    43
+ *     the pill's `max-width` clamp deleted                 6    20
+ *     the every-page keying → `:has(> .lat-split-rel)`    16    16
+ *     the reserve re-gated to ONE named panel              5    14
+ *     the Form specificity lift removed                    —     8
+ *     the reserve widened to BOTH panels at every size     6     6
+ *     the non-mirror `metric` rail arm deleted             4     4
+ *     the `form` canvas rail arm deleted                   4     4
+ *
+ * The two big movers are not new arms, they are the SAME arms given a correct measure: the clamp
+ * row went 6 → 20 and the one-named-panel row 5 → 14 when the occluder became the pill's BORDER
+ * BOX instead of its text ink, and when `clearsBothEdges` started pinning the clamp's margin
+ * rather than mere containment.
  *
  * (The clamp row needs its sanction removed with it, or `build:check` aborts on a stale
  * `SANCTIONED_STAGE_INSETS` entry before the arms ever run — which is the gate working.)
@@ -88,10 +96,26 @@
  * `.panel-right` as always the light one. And the one-named-panel row reddened NOTHING until the
  * fixture carried a 42-character forward label: the pill is as wide as the next page's title, so
  * every "which panel does it sit in" figure taken from the 15- and 21-character titles above was a
- * property of those titles. Five rounds each widened WHICH PAGES OR PANELS the rule covers; what
- * kept being too narrow was the PROBE — what it looks at, which decks it looks at, and now which
- * ELEMENTS it looks at (the rail arm read `querySelector('.seg')`, and segment 0 is always the
- * opaque one, so the 0.7-alpha off pills had never been measured at all).
+ * property of those titles. And the Form row could not redden at all while the wide-label loop ran
+ * `['', 'mirror']` over a `before()` that RENDERED five classes: the `form`, `form mirror` and
+ * `metric` wide renders were produced and never read, which is how a clamp that never applied on
+ * Form pages passed a suite at 64/64.
+ *
+ * SIX ROUNDS each widened WHICH PAGES OR PANELS the rule covers; what kept being too narrow was
+ * the PROBE, along a new axis every time — what it looks at (`.panel-right` only), which decks it
+ * looks at (`form` and `mirror` never together), which ELEMENTS it looks at (`querySelector('.seg')`
+ * always takes segment 0, which is always the opaque one), which LABEL WIDTHS it feeds them (15 and
+ * 21 characters against a 42-character cap), which CLASSES it asserts against (two of the five it
+ * renders), and what MEASURE it reads (text ink, on an element that paints as a filled box).
+ *
+ * The instrument fails the same way the rules did, and it fails while green — which is why the arm
+ * added last reads an INVARIANT (`clearsBothEdges`: the pill clears both slide edges by one
+ * `--sp-xl`, at any label the engine can emit) rather than a measurement of one fixture. Even that
+ * is not a safe habit on its own: its first draft read `--sp-xl` off the SECTION, where a custom
+ * property computes to the literal string `calc(3.75 * 10.800px * 1.95)`, so `parseFloat` gave NaN,
+ * fell back to 0, and asserted a tautology that passed. It was caught only because its mutation
+ * reddened 6 arms where it was predicted to redden 8. ALWAYS PREDICT THE COUNT BEFORE RUNNING THE
+ * MUTATION; a green arm and a vacuous one are indistinguishable from the summary line.
  */
 
 const { describe, test, before, after } = require('node:test');
@@ -238,7 +262,24 @@ describe('split-panel: a coverless split page places its marks and reserves the 
         const ptr = s.querySelector('.lat-split-rel');
         if (!ptr) return;
         const sr = s.getBoundingClientRect();
-        const pi = ink(ptr);
+        // `--sp-xl` off the SECTION is the wrong source and reads as nothing: a custom property
+        // computes to its token value, not a used length, so it comes back as the literal string
+        // `calc(3.75 * 10.800px * 1.95)` and `parseFloat` gives NaN. The first draft of the arm
+        // below did exactly that, fell back to 0, and asserted a tautology — caught only because
+        // its mutation reddened 6 arms where it was predicted to redden 8. The pointer's own
+        // computed `right` IS this length, already resolved against the same containing block the
+        // clamp resolves against: `78.975px` at portrait, `66.825px` at square.
+        const spXl = parseFloat(getComputedStyle(ptr).right) || 0;
+        // THE PILL IS FILLED AND BORDERED, so the rect that paints over words — and the rect that
+        // can leave the slide — is its BORDER BOX, not its text ink. This was `ink(ptr)`, which
+        // sits `padding-left + border` inside the box: 22.5px + 1px at portrait/story/mobile,
+        // 16.6px + 1px at square. That made the containment arm blind to any overhang smaller than
+        // the pill's own padding, and it understated every overprint this file has quoted by the
+        // same amount — while the file's own doctrine, three times over, says "opaque pill BOX
+        // against cite INK". The asymmetry is deliberate and is the whole measure: the OCCLUDER is
+        // a box because it is opaque, the TARGET is ink because a `li`'s box is far wider than its
+        // words. Round 9 found the CJK-34 case reading `insideSlide: true` at -6.2 / -15.9 / -19.9.
+        const pi = ptr.getBoundingClientRect();
         const rail = s.querySelector('.lat-split-rail');
         const foot = s.querySelector('footer');
         const pl = s.querySelector('.panel-left').getBoundingClientRect();
@@ -257,6 +298,16 @@ describe('split-panel: a coverless split page places its marks and reserves the 
           page: i + 1,
           position: getComputedStyle(ptr).position,
           insideSlide: pi.right <= sr.right + 0.5 && pi.left >= sr.left - 0.5,
+          // THE CLAMP'S OWN MARGIN, which is a stronger statement than "inside the slide" and the
+          // reason this arm exists. Containment is satisfied by LUCK at `square`, where the
+          // unclamped pill happened to land 11.2px inside; the same mutation that reddens portrait,
+          // story and mobile leaves square green. `max-width: calc(100% - 2 * var(--sp-xl))` on an
+          // element with `right: var(--sp-xl)` says something exact — the pill clears BOTH edges by
+          // one `--sp-xl` — and that holds at any label the engine can emit, including the CJK and
+          // fullwidth cases no ASCII fixture can reach and no font stack here renders reproducibly.
+          clearsBothEdges: pi.left - sr.left >= spXl - 0.5 && sr.right - pi.right >= spXl - 0.5,
+          spXl: +spXl.toFixed(2),
+          inset: +(pi.left - sr.left).toFixed(1),
           bleeds: Math.abs(pl.left - sr.left) < 0.5 && Math.abs(pr.right - sr.right) < 0.5
             && Math.abs(Math.min(pl.top, pr.top) - sr.top) < 0.5
             && Math.abs(Math.max(pl.bottom, pr.bottom) - sr.bottom) < 0.5,
@@ -501,8 +552,15 @@ describe('split-panel: a coverless split page places its marks and reserves the 
     // 21-character title, and the engine allows 42. At the cap the pill is 496px at square rather
     // than 305px and crosses the seam, which is how a reserve gated to one named panel shipped a
     // pill-over-text overprint that the narrow fixture called clean.
-    for (const cls of ['', 'mirror']) {
-      test(`${size}${cls ? ' + mirror' : ''}: the pill covers no content at the 42-character label cap`, async (t) => {
+    // …FOR EVERY CLASS THE FIXTURE RENDERS. This loop read `['', 'mirror']` while `before()`
+    // rendered the wide deck for all five, so the `form`, `form mirror` and `metric` wide renders
+    // were PRODUCED AND NEVER READ — and `form` is exactly where the clamp that this arm exists to
+    // pin does not apply, because `base.modifiers.css` re-declares `max-width: 100%` for Form
+    // pages at the same (0,3,1) specificity and later in the bundle. The pill ran 79.0 / 88.7 /
+    // 92.7px off the LEFT EDGE on an authored `split-panel pullquote form`, silently, with the
+    // suite at 64/64. Rendering a class is not asserting against it.
+    for (const cls of ['', 'form', 'mirror', 'form mirror', 'metric']) {
+      test(`${size}${cls ? ` + ${cls}` : ''}: the pill covers no content at the 42-character label cap`, async (t) => {
         if (!exe) return t.skip('no Chromium — set CHROME_PATH');
         const pages = await measure(size, cls, '|wide');
         assert.ok(pages.length >= 2, `the wide-label run did not split (${pages.length} page(s))`);
@@ -512,6 +570,13 @@ describe('split-panel: a coverless split page places its marks and reserves the 
           // enough to fail on, and it failed on the first one that was.
           assert.ok(x.insideSlide,
             `page ${x.page}: at the widest label the cap admits, the pointer ran past the slide edge`);
+          // …and the INVARIANT behind it, which containment alone does not state. See the note on
+          // `clearsBothEdges` in `measure()`: at `square` the unclamped pill lands inside the slide
+          // by accident, so the containment assertion above stays green on a tree where the clamp
+          // does not apply at all. This one does not.
+          assert.ok(x.clearsBothEdges,
+            `page ${x.page}: the pointer does not clear both slide edges by --sp-xl — `
+            + `inset ${x.inset}px vs --sp-xl ${x.spXl}px (the clamp is not applying)`);
           assert.equal(x.overContent, null,
             `page ${x.page}: at the label cap the opaque pill covers body text — ${JSON.stringify(x.overContent)}`);
           assert.equal(x.overRail, null, `page ${x.page}: pill over the k-of-N rail — ${JSON.stringify(x.overRail)}`);

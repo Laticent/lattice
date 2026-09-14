@@ -555,6 +555,75 @@ probe calls fine.
   reason this note records below — but nothing in the tree measures footer-against-rail on this
   layout, and the silent path is a real difference from every other layout.
 
+  **Round 9: round 8's fix never applied to half the shapes it was written for — and the round-8
+  paragraph above is, as written, wrong about the fix being in place.** Leave it standing: it is
+  the seventh consecutive round to find a shipping defect in the round before, and the pattern is
+  the record.
+
+  `base.modifiers.css` re-declares this element for Form pages:
+  `section.form.lat-split-native > .lat-split-rel { max-width: 100% }`. That is specificity
+  **(0,3,1)** — exactly the same as the component's `section.split-panel.lat-split-native >
+  .lat-split-rel` — and it lands LATER in the bundle (`dist/lattice.css` 26541 vs 19404). Engine
+  CSS layers nothing (HARD RULE #26), so plain source order decides and the base rule wins. On an
+  authored `<!-- _class: split-panel pullquote form -->` the clamp computed away to `100%` and the
+  pill ran to **-79.0 / -88.7 / -92.7 at portrait / story / mobile** — verbatim the three numbers
+  round 8 quotes as the defect it fixed. The clamp only ever applied to the shapes base does not
+  re-declare. At `square` the unclamped pill lands 11.2px inside the slide, so that size looked
+  fine by luck.
+
+  The fix names the Form case explicitly alongside the general selector, lifting it to (0,4,1). It
+  stays in the component's own file, and the `SANCTIONED_STAGE_INSETS` entry is untouched because
+  the gate matches file + property + value, not the selector.
+
+  **Three instrument defects behind it, and they are the finding.**
+
+  · **The wide-label loop asserted against two of the five classes it RENDERED.** `before()` builds
+  the saturating deck for `['', 'form', 'mirror', 'form mirror', 'metric']`; the arm read
+  `for (const cls of ['', 'mirror'])`. The `form`, `form mirror` and `metric` wide renders were
+  produced and never read — so the suite sat at 64/64 over a clamp that did not apply. **Rendering
+  a class is not asserting against it**, and the gap is invisible from the summary line.
+
+  · **The occluder was measured as the pill's text INK, not its border box.** The pill is filled
+  and bordered; its ink sits `padding-left + border` inside the box — 22.5px + 1px at portrait,
+  story and mobile, 16.6px + 1px at square. So `insideSlide` was blind to any overhang smaller than
+  the pill's own padding (the CJK-34 case reads `true` at -6.2 / -15.9 / -19.9), and every
+  overprint figure this note quotes was understated by the same amount. The file's own doctrine
+  says "opaque pill BOX against cite INK" in three places; the code did not. The asymmetry is the
+  measure: the OCCLUDER is a box because it is opaque, the TARGET is ink because a `li`'s box is
+  far wider than its words.
+
+  · **Containment is the wrong assertion; the clamp's MARGIN is the right one.** `insideSlide` is
+  satisfied by luck at `square`. `max-width: calc(100% - 2 * var(--sp-xl))` on an element with
+  `right: var(--sp-xl)` says something exact — the pill clears BOTH edges by one `--sp-xl` — and
+  that holds at any label the engine can emit, including the CJK and fullwidth cases no ASCII
+  fixture reaches and no font stack here renders reproducibly. The new `clearsBothEdges` arm pins
+  it, and it reddens all four sizes where containment reddens three.
+
+  **The invariant arm's own first draft was vacuous, and that is worth recording.** It read
+  `--sp-xl` off the SECTION. A custom property computes to its token value, not a used length, so
+  it came back as the literal string `calc(3.75 * 10.800px * 1.95)`; `parseFloat` gave NaN, the
+  `|| 0` fallback made the comparison trivially true, and it passed. It was caught ONLY because the
+  mutation reddened 6 arms where 8 were predicted. It now reads
+  `parseFloat(getComputedStyle(ptr).right)` — the same length, already resolved against the same
+  containing block. **Predict the mutation count before running it:** a green arm and a vacuous one
+  are indistinguishable from the test summary, and this file has now shipped both.
+
+  **Six axes, one shape.** Across rounds 5-9 the rule was widened six times and each round the
+  PROBE was narrower than the layout along a NEW axis: what it looks at (`.panel-right` only),
+  which decks (`form` and `mirror` never together), which elements (`querySelector('.seg')` always
+  takes segment 0, always the opaque one), which label widths (15 and 21 against a 42 cap), which
+  classes it ASSERTS against (two of five rendered), and what MEASURE it reads (ink, on an element
+  that paints as a filled box). The instrument fails the same way the rules do, and it fails green.
+
+  **What round 9 checked and found sound.** The clamp is a genuine invariant on every shape base
+  does not re-declare, across 42 ASCII `W`, 42 fullwidth, 34-code-unit Japanese, 21 emoji (surrogate
+  PAIRS at 42 code units), 42 Arabic and 21 combining pairs, at four sizes x {plain, mirror}: zero
+  off-slide, pill box left exactly `--sp-xl`. `LABEL_MAX` never slices mid-surrogate. `--sp-xl` is
+  NOT the section's horizontal padding on any family (that is 0px non-form, 54px form) — it is
+  `.panel-right`'s own `padding-right`, and the clamp's correctness does not rest on that
+  coincidence. No dead or contradicted rule in the block. And with the fix in, the stricter
+  box-based measure is clean across all 60 class x size x page configurations.
+
   **What the reserve does NOT do, measured rather than argued.** It repositions content that
   FITS — which is the drift fix and the mirror fix, and both are real. It cannot hold longer
   content out of the band, because `.panel-right` is `overflow: clip` and a clip edge is the

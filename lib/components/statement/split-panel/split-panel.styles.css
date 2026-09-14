@@ -825,7 +825,18 @@ section.split-panel-points:is(
  * panel, and at portrait that panel is on TOP while the footer sits on the white half. Measured
  * identical at base and HEAD, on the UNSPLIT slide too: pre-existing, off-path (HARD RULE #18).
  * It is why the footer collision rasterized as a ghost rather than as solid overprint. */
-section.split-panel.lat-split-native > .lat-split-rel {
+/* …AND THE CLAMP BELOW HAS TO OUT-SPECIFY A FORM-SCOPED BASE RULE, or it does not apply at all.
+ * `base.modifiers.css` re-declares this element for Form pages as
+ * `section.form.lat-split-native > .lat-split-rel { max-width: 100% }` — specificity (0,3,1),
+ * exactly the same as the general selector here, and it lands LATER in the bundle
+ * (`dist/lattice.css` 26541 vs 19404). Engine CSS layers nothing (HARD RULE #26), so plain source
+ * order decides and the base rule wins: on an authored `split-panel pullquote form` the clamp was
+ * computed away to `100%` and the pill ran to -79.0 / -88.7 / -92.7 at portrait / story / mobile —
+ * the SAME three numbers the round that added the clamp quotes as the defect it fixed. It was only
+ * ever fixed on the shapes base does not re-declare. So the Form case is named explicitly, which
+ * lifts it to (0,4,1); the general selector stays for every other shape. */
+section.split-panel.lat-split-native > .lat-split-rel,
+section.split-panel.form.lat-split-native > .lat-split-rel {
   position: absolute;
   right: var(--sp-xl);
   bottom: calc(var(--_sec-1cqi, 1cqi) * 8.6);
