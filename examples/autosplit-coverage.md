@@ -142,3 +142,19 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 - **Low impact · High effort.**
   - Time sinks
   - One suffices
+
+---
+
+<!-- _class: split-panel pullquote -->
+<!-- _footer: "split-panel pullquote" -->
+
+> A split page should look like the slide it came from, one element at a time.
+
+`split-panel pullquote · the seam holds`
+
+- The quote keeps its half
+  - The dark panel ends where it ends unsplit.
+- The column reserves the band
+  - Only the panel the pointer reaches gives up space.
+- Every page reserves it
+  - The last page has no pointer and holds it anyway.
