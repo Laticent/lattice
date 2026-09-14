@@ -67,15 +67,19 @@
  *
  * MUTATION-PROVED, and the counts are against the 64 arms as they stand today — re-derive them
  * before quoting one, because every count in this file's history was measured against a different
- * number of arms (20, then 40, then 56, now 64):
+ * number of arms (20, then 40, then 56, now 64) AND against a different fixture:
  *
  *     mutation                                          arms that fail
- *     pointer `position: static`                             27
+ *     pointer `position: static`                             31
  *     the every-page keying → `:has(> .lat-split-rel)`       16
- *     the reserve re-gated to ONE named panel                 6
- *     the reserve widened to BOTH panels at every size        6
- *     the non-mirror `metric` rail arm deleted                4
- *     the `form` canvas rail arm deleted                      4
+ *     the pill's `max-width` clamp deleted                     6
+ *     the reserve widened to BOTH panels at every size         6
+ *     the reserve re-gated to ONE named panel                  5
+ *     the non-mirror `metric` rail arm deleted                 4
+ *     the `form` canvas rail arm deleted                       4
+ *
+ * (The clamp row needs its sanction removed with it, or `build:check` aborts on a stale
+ * `SANCTIONED_STAGE_INSETS` entry before the arms ever run — which is the gate working.)
  *
  * EVERY ROW HERE WAS ONCE ZERO, and that — not any one defect — is what this file is about. The
  * `.mirror` reserve reddened nothing while the content probe read `.panel-right` only, because the
@@ -126,14 +130,26 @@ size: ${size}
   - And a third clause to match.
 `;
 
-// THE PILL'S WIDTH IS AN AUTHORING VARIABLE, and every "which panel does it sit in" number this
-// file has quoted came from the 15- and 21-character titles above. `relationship.js` clips the
-// forward label at `LABEL_MAX = 42`, so a deck may legitimately make the pill 496px wide at square
-// (672px stacked) instead of 305px — wide enough to cross the seam into the panel the rule did NOT
-// reserve. That is not a hypothetical: a `:not(.mirror)` gate measured "safe" on the deck above
-// reopened a pill-over-text overprint on `steps mirror` at the cap. The fixture now carries the
-// cap, because a probe narrower than the layout is the defect this file keeps shipping.
-const LONG_TITLE = 'Reading with a title of forty-two chars!!';
+// THE PILL'S WIDTH IS AN AUTHORING VARIABLE, and it SATURATES rather than samples. Every "which
+// panel does it sit in" number this file has quoted came from the 15- and 21-character titles
+// above; `relationship.js` clips the forward label at `LABEL_MAX = 42`, so a deck may legitimately
+// make the pill wide enough to cross the seam into a panel the rule did not reserve — which is
+// exactly what a `:not(.mirror)` gate, measured "safe" on the deck above, reopened on
+// `steps mirror`.
+//
+// But a 42-character string is not the widest case either, and picking one was the NEXT defect:
+// `LABEL_MAX` counts UTF-16 CODE UNITS while the pill is sized by RENDERED WIDTH, and those differ
+// by ~2.6x between scripts at the same count. A 34-code-unit Japanese title — comfortably inside
+// the cap — drove the pill to the full 1080px section width and 79px off the LEFT edge of the
+// slide, with `insideSlide` (the arm two hundred lines below, which has existed all along)
+// returning false and never running against an input that could reach it.
+//
+// So the fixture SATURATES the bound instead of sampling a plausible string: 42 `W`s is the widest
+// label the cap admits in ASCII, and it drove the pill to 1080px before the clamp went in. A CJK
+// title at the same count is wider still — which is the point. The arm asserts the INVARIANT (the
+// pill is inside the slide at the widest label the engine will emit), not a measurement of one
+// string.
+const LONG_TITLE = 'W'.repeat(42);
 const wideDeck = (size, cls) => `---
 marp: true
 theme: indaco
@@ -491,6 +507,11 @@ describe('split-panel: a coverless split page places its marks and reserves the 
         const pages = await measure(size, cls, '|wide');
         assert.ok(pages.length >= 2, `the wide-label run did not split (${pages.length} page(s))`);
         for (const x of pages) {
+          // The containment arm, run against a label that SATURATES the pill's bound. It is the
+          // same assertion the narrow decks make; it had simply never been given an input wide
+          // enough to fail on, and it failed on the first one that was.
+          assert.ok(x.insideSlide,
+            `page ${x.page}: at the widest label the cap admits, the pointer ran past the slide edge`);
           assert.equal(x.overContent, null,
             `page ${x.page}: at the label cap the opaque pill covers body text — ${JSON.stringify(x.overContent)}`);
           assert.equal(x.overRail, null, `page ${x.page}: pill over the k-of-N rail — ${JSON.stringify(x.overRail)}`);

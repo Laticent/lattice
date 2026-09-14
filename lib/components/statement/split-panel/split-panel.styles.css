@@ -831,6 +831,34 @@ section.split-panel.lat-split-native > .lat-split-rel {
   bottom: calc(var(--_sec-1cqi, 1cqi) * 8.6);
   left: auto;
   z-index: var(--z-chrome);
+  /* CONTAINED BY CONSTRUCTION, because the label's WIDTH is not something a fixture can bound.
+   * `LABEL_MAX = 42` (`lib/core/relationship.js`) counts UTF-16 CODE UNITS, and the pill is as
+   * wide as the text those units render to — which differs by ~2.6x between scripts at the same
+   * count. The base pill carries `max-width: 100%` (`base.modifiers.css`), and THAT is the rule
+   * this one quietly broke: in flow the percentage resolves against the stage content box, 972px,
+   * which is why every other pointer (`checklist`, `feature-list`, `steps`, `timeline`) clamps to
+   * 972 and sits 54px inside both edges. Making it absolute re-based the same `100%` onto the
+   * SECTION's padding box, 1080px — so with `left: auto` the pill grew past its own right inset
+   * and off the LEFT edge of the slide: measured 1080px wide and 79.0px past x=0 at portrait,
+   * 88.7 at story, 92.7 at mobile, on a 34-code-unit Japanese title (comfortably inside the cap)
+   * and on 42 ASCII `W`s. Rounded left cap gone, border cut flush at the edge, first glyph
+   * sheared — with no overflow warning and a clean `lint:deck`.
+   *
+   * So restore the bound the base rule intended, against the box this element is actually laid
+   * out in. It is the INVARIANT rather than another sampled string: the pill cannot reach the
+   * opposite inset at ANY label the engine will emit, in any script.
+   *
+   * SANCTIONED (`SANCTIONED_STAGE_INSETS`), and the gate's own rationale is why it is admissible
+   * rather than why it is an exception: check (a) exists because a BODY docked in a stage cell
+   * already has the frame's inset, so subtracting it again makes the figure pay twice. This is
+   * not a body and there is no stage cell — a coverless native page has no `.cell-stage`, which
+   * is the whole reason this pointer is section-level and absolute. There is no first inset here
+   * to pay twice; the subtraction IS this element's only inset. Every other spelling is worse:
+   * both insets plus `width: fit-content` is over-constrained and resolves LEFT-aligned, the
+   * `margin-inline-start: auto` that would fix that is HARD RULE #20, and moving the pill's
+   * chrome to the inner `.lat-split-label` to stretch the outer would duplicate eight base
+   * declarations in a component file and drift from them. */
+  max-width: calc(100% - 2 * var(--sp-xl));
 }
 section.split-panel.lat-split-native > .panel-right,
 section.split-panel.lat-split-native:is(.mirror, :not([data-orientation="portrait"])) > .panel-left {

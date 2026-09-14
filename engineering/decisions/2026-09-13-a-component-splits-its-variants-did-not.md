@@ -393,6 +393,8 @@ probe calls fine.
   | 7 | round 6's `:not(.mirror)` gate reopened a pill-over-text overprint at the label cap | fixed, pinned (8 of 64 arms) |
   | 7 | the rail sweep measured only the always-opaque segment, so its floor was the wrong number | fixed; 5,643 cells, 3 under 3:1 |
   | 7 | "`claim-hero`/`claim-bleed` zero the inset" is false — the margin is 0.475cqi, a TOKEN coupling | corrected |
+  | 8 | the pill runs OFF THE LEFT EDGE of the slide at a legitimate label — and the arm that catches it already existed | fixed, pinned |
+  | 8 | an authored `_footer:` overprints the k-of-N rail on every coverless run, silently | recorded |
 
   **Round 5's three are one finding wearing three hats, and it is the same one as rounds 1-4.**
   Round 4 widened WHICH PANELS reserve the band; nobody widened WHAT THE PROBE LOOKS AT. The test's
@@ -462,12 +464,15 @@ probe calls fine.
   blast-radius count is not the 71 across 13 a PR body said — and the corrected figure this
   paragraph first carried, 66 across 14, was ALSO wrong, because the same commit that wrote it
   added a slide to `examples/split-mirror-marks.md` and the number was taken from the parent. **The
-  count is 67 authored `_class:` split-panel slides across 14 decks at `4799390`**, and a rendered
-  count needs its corpus named with it: 74 `section.split-panel` across the 13 decks whose SOURCE
-  matches `_class:.*split-panel`, 81 across 14 if the sweep renders every deck in `examples/`
-  (`read-across-carousel.md` produces sections it does not author that way). A paragraph whose
-  subject is other people's unreproducible numbers shipped two of its own; the lesson is the one
-  above — state the instrument with the number.
+  count is 66 authored `_class:` split-panel slides across 14 decks at `cda73bb`** — and the corpus
+  has to be named too, which the 67 was not: that is top-level `examples/*.md` with
+  `examples/token-contrast/**` excluded. The same grep over all of `examples/` gives 93 across 27,
+  and over the whole tree 148 across 41. The RENDERED count needs its corpus just as much: 71
+  `section.split-panel` across the 13 decks whose SOURCE matches, 81 across 14 if the sweep renders
+  every deck in `examples/` (`read-across-carousel.md` produces sections it does not author that
+  way). A paragraph whose subject is other people's unreproducible numbers shipped three of its
+  own — 71/13, then 66/14 from the parent, then 67/14 with no corpus. The lesson is the one above,
+  and it is not "check the number": state the INSTRUMENT with it.
 
   **Round 7: the CSS was close to right, and the INSTRUMENT was not.** This is the finding that
   matters most on this branch, and it is the one an eighth round would otherwise have repeated.
@@ -507,6 +512,48 @@ probe calls fine.
   `.lat-split-rail` sits at `bottom: 2.35cqi`. The coupling the arm depends on is a TOKEN, not a
   Frame: raise `--frame-inset-y` past 2.35cqi and every `claim-hero`/`claim-bleed` split page
   silently paints panel ink on canvas again, with nothing in the tree to say so.
+
+  **Round 8: the same pattern, one axis down — and this time the arm that catches it was already
+  in the file.** Round 7 named the precondition for convergence (measure every segment, sweep the
+  label length) and round 8 confirms both halves reproduce exactly. It then found the third
+  instance of the same shape, with the sharpest possible signature:
+
+  **`LABEL_MAX = 42` counts UTF-16 CODE UNITS; the pill is sized by RENDERED WIDTH.** Those differ
+  by about 2.6x between scripts at the same count. A 34-code-unit Japanese member title —
+  comfortably inside the cap — drives the pill to the full 1080px section width, and with
+  `left: auto` it runs **79.0px off the LEFT edge at portrait, 88.7 at story, 92.7 at mobile**: the
+  rounded left cap gone, the border cut flush at x=0, the first glyph sheared. 42 ASCII `W`s do it
+  too. No overflow warning fires and `lint:deck` is clean.
+
+  The cause is one this file created. `base.modifiers.css` gives the pill `max-width: 100%`; IN
+  FLOW that resolves against the stage content box (972px), and every other pointer — `checklist`,
+  `feature-list`, `steps`, `timeline` — clamps there and sits 54px inside both edges. This layout
+  has to position the pill absolutely (in flow it becomes a third column of the panel row), and
+  that re-based the same `100%` onto the SECTION padding box, 1080px. The fix restores the bound
+  the base rule already intended, against the box this element is actually laid out in:
+  `max-width: calc(100% - 2 * var(--sp-xl))`, sanctioned in `SANCTIONED_STAGE_INSETS` with the
+  reason the gate's own rationale does not reach it — check (a) exists because a BODY in a stage
+  cell already carries the frame inset, and a coverless native page has no `.cell-stage` at all.
+
+  **And the arm that catches it has existed since round 5.** `insideSlide` — "the pointer ran past
+  the slide edge" — returns FALSE on this input at three of four sizes. It was green only because
+  the wide-label deck never ran it and the narrow decks carry a label 338-352px clear of the edge.
+  That is round 5's `.panel-right`-only content probe, round 6's short labels and round 7's
+  `querySelector('.seg')` in a fourth costume: **the rule was widened five times; the probe was
+  what kept being narrower than the layout.**
+
+  So the fixture now SATURATES the bound rather than sampling it — `LONG_TITLE` is 42 `W`s, the
+  widest label the cap admits in ASCII, and the arm asserts the invariant (the pill is inside the
+  slide at any label the engine will emit) rather than a measurement of one string.
+
+  **Also found and recorded rather than fixed:** an authored `_footer:` overprints the k-of-N rail
+  on every coverless `split-panel` run — 42.1x6.5px at portrait, 79.3x48px on a 15-page run where
+  the rail takes its `k/N` form. On every control layout the caption docks in `.cell-footer`, is
+  ellipsised, and the engine prints `⚠ CONTENT CLIPPED`; on this page class there is no
+  `.cell-footer`, so it stays absolute, is never ellipsised, and nothing warns. The overprint adds
+  no NEW visible ink — the caption is already illegible there for the pre-existing footer-ink
+  reason this note records below — but nothing in the tree measures footer-against-rail on this
+  layout, and the silent path is a real difference from every other layout.
 
   **What the reserve does NOT do, measured rather than argued.** It repositions content that
   FITS — which is the drift fix and the mirror fix, and both are real. It cannot hold longer
