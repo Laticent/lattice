@@ -1243,27 +1243,42 @@ never turn "passed in headless" into "works on iOS."
   by index reads `NaN`.** A custom property comes back as AUTHORED text and the
   generated sheet is minified, so `#FFFFFF` arrives as `#fff`. The helper the parity
   spec shipped with, and `bracket-contrast` copied —
-  `[1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))` — returns `NaN` on those, and a `NaN` ratio makes every `toBeGreaterThanOrEqual`
-  meaningless in whichever direction that spec's assertion happens to point. Nothing
-  saw it because cuoio's tokens are all six digits and cuoio was the only palette
-  driven; indaco's `--bg` is the first shorthand a sweep meets. The parity spec now
-  parses 3/4/6/8-digit forms and THROWS on anything that is not a hex literal.
-  **The parser, the computed-color parser and `ratio` now live in one module,**
-  `docs/e2e/color-contrast.ts`, so the next contrast spec cannot inherit the broken
-  copy the way `playground-bracket-contrast.spec.ts` did — it carried the
-  index-slicing helper until #2194's follow-up, safe only because it never changed
-  palette. Two of the three specs first recorded here as carrying that copy never
-  had it: `playground-kpi-pill.spec.ts` parses computed `rgb()` / `color(srgb …)`
-  and reads no token, and `crash-sentinel.spec.ts` measures off a 1×1 canvas inside
-  `page.evaluate` — which is also why it is not a caller and is not meant to become
-  one: an `evaluate` callback is serialized to the browser and cannot close over an
-  import, and `stage-window.spec.ts` keeps its own copy for the same reason.
+  `[1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))` — returns `NaN` on those,
+  and a `NaN` ratio makes every `toBeGreaterThanOrEqual` meaningless in whichever
+  direction that spec's assertion happens to point. Nothing saw it because every
+  token these specs READ is six digits under cuoio, the palette they drove — cuoio
+  does ship a shorthand `--on-accent:#fff`, so "cuoio has no shorthand" is the
+  wrong lesson; nothing read it. indaco's `--bg` is the first shorthand a sweep
+  meets. The parity spec now parses 3/4/6/8-digit forms and THROWS on anything that
+  is not a hex literal.
+  **That parser, the computed-color parser and `ratio` now live in one module,**
+  `docs/e2e/color-contrast.ts` (#2200), so the next contrast spec cannot inherit
+  the broken copy the way `playground-bracket-contrast.spec.ts` did — it carried
+  the index-slicing helper until then, safe only because it never changed palette.
+  Two of the three specs first recorded here as carrying that copy never had it:
+  `playground-kpi-pill.spec.ts` parses computed `rgb()` / `color(srgb …)`, reads no
+  token, and drives burgundy / indaco / carbone rather than cuoio; and
+  `crash-sentinel.spec.ts` measures off a 1x1 canvas inside `page.evaluate` — which
+  is also why it is not a caller and is not meant to become one: an `evaluate`
+  callback is serialized to the browser and cannot close over an import.
+  `stage-window.spec.ts` keeps its own copy for that same reason.
+- **The shared parser reads NUMBERS OUT OF A STRING, so it is right for `rgb()`,
+  `rgba()` and `color(srgb …)` and wrong for anything else.** `oklab(1 0 0 / 0.8)`
+  reads as near-black and reported 1.21:1 for text that is actually white
+  (`crash-sentinel.spec.ts`, measured); `color(rec2020 …)` turns the color space's
+  name into a channel. Every value the three callers read today is one of the three
+  it handles. A surface that starts emitting another form does not get a wider
+  regex — it gets `crash-sentinel`'s answer: paint the color on a 1x1 canvas and
+  ask the browser for the pixel.
 - **The alpha of a computed `rgba()` comes from the PARSER, not from a
   trailing-number regex.** `bracket-contrast` read its active-line alpha with
   `/[\d.]+\s*\)$/`, which lands on the BLUE CHANNEL the moment the band comes back
   opaque `rgb(r, g, b)` — compositing the ink's ground against an "alpha" of 30.
-  Same family of bug as the index slice, same fix: one parser that reports what it
-  actually found (`parseColor` returns `{ rgb, alpha }`).
+  Measured on the real Playground with the band forced to `rgb(20, 20, 30)`: the
+  regex ground is `[-6650, -6563, -6118]`, out of gamut on every channel, against
+  `[20, 20, 30]` from the parser. Same family of bug as the index slice, same fix:
+  one parser that reports what it actually found (`parseColor` returns
+  `{ rgb, alpha }`).
 - **Pinned by** `docs/e2e/editor-selection-parity.spec.ts` (both editors, both color
   modes, all 18 palettes, asserting they paint the SAME selection and caret and that
   every ink clears its floor on the backdrop read from the live DOM) and

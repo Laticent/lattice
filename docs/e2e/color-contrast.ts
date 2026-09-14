@@ -4,9 +4,10 @@
  *
  * WHY THIS EXISTS, and it is not DRY for its own sake. Three specs
  * (`editor-selection-parity`, `playground-bracket-contrast`,
- * `playground-kpi-pill`) carried byte-identical copies of `ratio` and of the
- * computed-color parser, and the first two also carried a hex parser that was
- * WRONG in a way no copy could see from where it sat:
+ * `playground-kpi-pill`) carried byte-identical copies of `ratio` and three
+ * spellings of one computed-color parser. `playground-bracket-contrast` also
+ * carried a hex parser that was WRONG in a way no copy could see from where it
+ * sat — the copy `editor-selection-parity` shipped with and fixed in #2194:
  *
  *     const hexToRgb = (h: string) => [1, 3, 5].map((i) => Number.parseInt(h.slice(i, i + 2), 16));
  *
@@ -15,9 +16,11 @@
  * `#000`. Slicing at fixed indexes reads NaN on those, every ratio built on them
  * becomes NaN, and `NaN >= 4.5` is false: the spec fails where it should pass,
  * and an `expect` written the other way round passes where it should fail. Only
- * a palette SWEEP reaches it — cuoio, the default every one of these specs drove,
- * has no shorthand token at all, and indaco's `--bg` is the first one a sweep
- * hits (#2194). The sweep fixed its own copy and left the sibling latent.
+ * a palette SWEEP reaches it: under cuoio, the palette the two token-reading
+ * specs drive, every token they read is six digits (cuoio does ship a shorthand
+ * `--on-accent:#fff` — nothing reads it), and indaco's `--bg` is the first
+ * shorthand a sweep meets (#2194). The sweep fixed its own copy and left the
+ * sibling latent.
  *
  * A shared module is what stops the next spec inheriting the broken one by copy.
  *
@@ -59,6 +62,18 @@ export function tokenRgb(v: string): number[] {
 /**
  * A COMPUTED color — what `getComputedStyle` hands back, not what was authored.
  * `rgb()` / `rgba()` come back 0–255; `color(srgb …)` comes back 0–1.
+ *
+ * KNOWN LIMIT, and it is the one place this module reports confidently rather
+ * than throwing: it reads the numbers in the string, so it is right for `rgb()`,
+ * `rgba()` and `color(srgb …)` and WRONG for anything else. `oklab(1 0 0 / 0.8)`
+ * — which Tailwind emits for an opacity-modified color — reads as rgb(1, 0, 0),
+ * near-black, and reported 1.21:1 for text that is actually white (measured, see
+ * `crash-sentinel.spec.ts`); `color(rec2020 …)` turns the color space's own name
+ * into a channel. Every value these three specs read today is `rgb()`, `rgba()`
+ * or `color(srgb …)`, checked on the running Playground. If a surface starts
+ * emitting another form, do what `crash-sentinel` does — paint the color on a
+ * 1×1 canvas and ask the browser for the pixel — rather than widening this
+ * regex.
  */
 export function parseColor(c: string): { rgb: number[]; alpha: number } {
 	const n = c.match(/-?[\d.]+/g)?.map(Number) ?? [];
