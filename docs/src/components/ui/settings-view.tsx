@@ -452,8 +452,11 @@ export function SettingsSectionTabs({
 		// ghost alone. It paints nothing, holds nothing focusable, and contributes no overflow of
 		// its own, while the ghost inside keeps its intrinsic `max-content` width — which is the
 		// only thing the measurement needs. Verified in Chromium 141 AND WebKit 26 at 390 / 820 /
-		// 1440 in both scopes: focus ring pixel-identical to no clip at all, panel and document
-		// both unscrollable sideways, row height unchanged.
+		// 1440 in both scopes: focus ring pixel-identical to no clip at all, the strip
+		// contributing zero sideways scroll to panel or document, row height unchanged.
+		// (The panel is not unconditionally unscrollable sideways. Pick General and it scrolls
+		// 15px at 1440, from the Language row's select trigger — a different component, a
+		// pre-existing cause, and byte-identical to `main`. See #2203 and decision note §15.)
 		//
 		// `clip` rather than `hidden` on that wrapper: `hidden` would make it a scroll container
 		// in its own right. The section dropdown is a Radix portal, so its menu is outside all of

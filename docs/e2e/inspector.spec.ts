@@ -335,8 +335,16 @@ test('the active section stays ON SCREEN as a pill, however narrow the panel', a
 	}
 });
 
-test('the settings panel cannot be scrolled sideways at all', async ({ page }) => {
-	// The defect: the strip's hidden measuring ghost is `absolute` + `w-max`, a
+test('the section strip adds no sideways scroll to the settings panel', async ({ page }) => {
+	// SCOPE, and it is narrower than this test's first name. The arms below run on the
+	// section the panel opens with (Look), and they pin the STRIP's contribution — which is
+	// what this PR owns. They are not a claim that the panel can never scroll sideways in
+	// any state: pick General and it scrolls 15px at 1440 / 28px at 820, because the Language
+	// row's select trigger has a min-content of 258px inside a 231px content box. That is a
+	// different component, a different cause, and byte-identical to `main` — see #2203.
+	// An earlier name for this test asserted the broader thing and was false.
+	//
+	// The defect this DOES pin: the strip's hidden measuring ghost is `absolute` + `w-max`, a
 	// `visibility: hidden` box still contributes scrollable overflow, and the panel body is
 	// `overflow-y-auto` — which makes the OTHER axis `auto` too. The panel gained a
 	// horizontal scroll region (262px in this browser) and one sideways swipe left a blank
@@ -367,8 +375,11 @@ test('the settings panel cannot be scrolled sideways at all', async ({ page }) =
 	// false conclusion that "Playwright's synthesized wheel cannot reach this nested
 	// scroller". It reaches it fine. Keep the move — and rather than trust it, PROVE
 	// delivery by listening for the event on the scroller itself. (Scrolling the axis that
-	// IS meant to move would be the obvious proof and does NOT work here: the panel's
-	// content fits, so its vertical scroll range is 0 at every width and scope measured.)
+	// IS meant to move would be the obvious proof and does not work AT THIS VIEWPORT AND
+	// SECTION: the deck panel's content fits at 1440x900, so its vertical scroll range is 0
+	// and a vertical wheel moves nothing. It is not 0 everywhere — the slide scope's Notes
+	// section gives 180px at the same viewport — so the listener is the portable probe, not
+	// merely the convenient one.)
 	await page.evaluate(() => {
 		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
 		let el: HTMLElement | null = list?.parentElement ?? null;

@@ -701,9 +701,12 @@ what it cannot see is a second engine.
 
 **And the margin has a ceiling, which nothing had measured.** A clip margin is part of the
 ancestor's scrollable overflow, so raising it "for safety" brings the scroll region back:
-in the deck scope `16px` returns +2px, `24px` +10px, `48px` +34px. (The slide scope's row is
-13px narrower and holds out until 24px — the three numbers are one scope's, and an earlier
-draft of this section presented them as the panel's.)
+in the deck scope `16px` returns +2px, `24px` +10px, `48px` +34px. The slide scope's row is
+4px narrower and holds out one step longer (`16px` → 0, `24px` → +8, `48px` → +32) — the
+three numbers are one scope's, and an earlier draft of this section presented them as the
+panel's. (That draft also said "13px narrower". Measured, the deck/slide gap is 4px at every
+width in both engines; 13 is the deck row at 1440 minus the deck row at 820 — the width axis
+mistaken for the scope axis.)
 
 ### Two more of my corrections were wrong
 
@@ -738,9 +741,9 @@ un-clipped), same focused pill:
 | Chromium 141 | 0px of paint cut |
 | WebKit 26 | **374px of paint cut** |
 
-This is a regression the PR *created*: `main`'s row is `flex flex-wrap items-center gap-1.5`,
-with no ghost and no clip, so HARD RULE #18 applies with no exit — the surface worked before
-the change and did not after.
+This is a regression the PR *created*: `main`'s row is `flex flex-wrap gap-1.5`
+(`pill-tabs.tsx`, no `className` from the call site), with no ghost and no clip, so HARD
+RULE #18 applies with no exit — the surface worked before the change and did not after.
 
 **The new e2e pin could not have caught it, and the reason is worth keeping.** The pin
 asserted `overflowClipMargin === '6px'`; in WebKit that property reads `undefined`, so the arm
@@ -772,8 +775,11 @@ across both engines before this one was taken:
 | no clip, ghost `position: fixed` | 0 | 0 | 0 | +0 |
 | **no clip, ghost in a `size-0` clip box** | **0** | **0** | **0** | **+0** |
 
-The last two both work. `position: fixed` was rejected for a failure mode it would have taken
-another round to find: a `transform`, `filter` or `contain` on any ancestor makes a fixed
+The last two both work — though the `position: fixed` row's Chromium `0` is an identity, not
+an independent measurement: the control that table diffs against is itself "ghost `fixed`,
+row un-clipped". Its other three columns are real, and a later round re-derived the three
+non-trivial rows exactly. `position: fixed` was rejected for a failure mode it would have
+taken another round to find: a `transform`, `filter` or `contain` on any ancestor makes a fixed
 descendant resolve against *that* ancestor instead of the viewport, and the mobile settings
 sheet animates in on a transform — so the overflow would come back for the length of the
 animation. No ancestor captures it today (checked at 390 / 820 / 1440 in both scopes, both
@@ -781,15 +787,16 @@ engines), which is exactly the kind of "true right now" the last three rounds ke
 The `size-0` wrapper depends on nothing but intrinsic sizing.
 
 Verified after the change, both engines, 390 / 820 / 1440 × deck and slide: focus ring
-pixel-identical to no clip at all, panel `scrollWidth == clientWidth`, document
-`scrollWidth == clientWidth`, row height unchanged, ghost widths intact.
+pixel-identical to no clip at all, panel and document `scrollWidth == clientWidth` **on the
+section the panel opens with**, row height unchanged, ghost widths intact. The unqualified
+form of that sentence was false — §15.
 
 ### Five more claims that were not true
 
 | Claimed | Actually |
 |---|---|
 | "restores the ring" (§13, the component comment, the card) | In Chromium. WebKit has no `overflow-clip-margin`, so the ring stayed sheared on Safari and iOS |
-| The gotcha's advice to prove wheel delivery "by scrolling the axis that IS supposed to move" | The panel's vertical scroll range is **0** at every width and scope — the shipped arm uses a `wheel` listener, and its own comment says the documented technique cannot work here |
+| The gotcha's advice to prove wheel delivery "by scrolling the axis that IS supposed to move" | It does not work at the viewport and section the spec runs (deck / Look / 1440x900, range 0), which is why the shipped arm uses a `wheel` listener. The claim as written — "0 at every width and scope" — is false: slide / Notes gives 180px at the same viewport (§15) |
 | "this suite keeps no pixel baseline for the Studio" | It keeps three (`visual.spec.ts-snapshots/studio-{desktop,tablet,mobile}-linux.png`). None opens the Inspector, so the substance holds; the sentence did not |
 | Two `**Fixed:**` changelog bullets, for the sideways scroll and the sheared ring | Neither ever shipped — both were created inside this PR. Removed: HARD RULE #10 records user-visible changes, and a release note claiming to fix a bug no release had is noise |
 | "504px wide inside a 231px row" | One scope, one engine. Deck 504 (WebKit) / 507 (Chromium); slide 579 / 585. Rows run 214–362 |
@@ -799,3 +806,70 @@ one axis, one state, one scope, one engine. The pattern is not carelessness abou
 every wrong claim here had a measurement behind it. It is that the measurement's *scope* was
 assumed rather than chosen, and the assumption never appeared in the sentence the claim was
 written as.
+
+
+---
+
+## 15. What the FIFTH check found — the code held, three claims about it did not
+
+The first clean-ish round. `1dbd890`'s change was re-derived independently and stood up: the
+focus ring's diff box lands at exactly `[-4, -4, +4, +4]` from the pill in all twelve
+engine × width × scope combinations, §14's candidate table reproduces to the pixel on its
+three non-trivial rows, the ResizeObserver still re-fits through the new offsetParent chain,
+`Accessibility.getFullAXTree` finds zero ghost-only labels among 644 nodes, and each of four
+mutations fails exactly the arm it should. What did not stand up were three sentences.
+
+### The panel CAN scroll sideways — pick General
+
+**"The settings panel cannot be scrolled sideways at all" was the name of a test and the
+substance of four sentences, and it is false.** With the General section selected the panel
+body has a horizontal scroll region, and a real wheel moves it:
+
+| Viewport | Engine | `scrollWidth − clientWidth` |
+|---|---|---|
+| 1440x900 | Chromium 141 | 15 |
+| 1440x900 | WebKit 26 | 13 |
+| 820x1180 | Chromium 141 | 28 |
+| 820x1180 | WebKit 26 | 26 |
+
+Every other section reads 0, which is why nothing caught it: the panel opens on **Look**, and
+so does the e2e's `beforeEach`.
+
+**It is not the strip.** Attributed by elimination: with the ghost's clip box set
+`display: none` the panel still reads 15; with that box set `overflow: visible` it reads 262.
+The 15px is the **Language row's select trigger** — `min-content` 258px inside a 231px content
+box, which the row's `min-w-0` cannot pull below because the trigger's own `min-width` is
+`auto`. `SETTING_CONTROL_COL`, `LanguageSelect.tsx`, the panel-body classes and `SET_MIN` are
+byte-identical to `main`.
+
+**Left as #2203, not fixed here**, and the boundary is HARD RULE #18's on-path test.
+This change neither caused it nor worsened it; the cause is a different component; and the
+one-line fix that clears it — `max-w-full` on `SETTING_CONTROL_COL`, measured to take the
+trigger 260 → 231 and the overflow to 0 — lands on a constant every settings row in both
+panels renders through. That is a change about the row system, not about the section strip,
+and #17 says it gets its own branch. What this PR owes is that its own sentences stop
+claiming the panel never scrolls: the test is renamed to what it pins, and the comments say
+where the remaining 15px comes from.
+
+### Two more over-scoped measurements
+
+- **"The panel's vertical scroll range is 0 at every width and scope"** — in three places,
+  and used in `gotchas/css.md` to steer the next reader away from the obvious wheel-delivery
+  probe. It is 0 for deck / Look at 1440x900, the surface the spec runs. It is **180px** for
+  slide / Notes at the same viewport, 241 for Marks, 86 for Accent, and 58 for deck / Look at
+  1280x720 — the range moves with viewport *height*, an axis the sentence never named. The
+  `wheel`-listener probe is still the right one because it is portable; it is not the only
+  one that works.
+- **"The slide scope's row is 13px narrower"** — it is **4px**, at 390, 820 and 1440, in both
+  engines. 13 is the deck row at 1440 minus the deck row at 820: the width axis mistaken for
+  the scope axis. The conclusion it supported (the slide scope holds out one step longer on
+  the clip-margin ceiling) re-derives correctly.
+
+### The shape of all five rounds
+
+Five rounds, and the through-line is not carelessness about measuring — every wrong claim in
+this PR had a real measurement behind it. It is that the measurement's **scope** was assumed
+rather than chosen, and the assumption never made it into the sentence: one axis (round
+three), one state, one section (this round), one scope (the 13px), one engine (round four).
+The fix is not "measure more"; it is to write the scope into the claim, so that a sentence
+which has only been tested on deck / Look / Chromium / 1440 says so.

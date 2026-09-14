@@ -785,7 +785,11 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 ## A `visibility: hidden` measuring element makes its scroll container scroll SIDEWAYS
 
-- **Symptom:** a panel that has no business scrolling horizontally does. One two-finger
+- **Symptom:** a panel that has no business scrolling horizontally does. (Two causes wear
+  this symptom, and they are worth telling apart before you reach for a clip: an out-of-flow
+  measuring element, below — or an ordinary in-flow control whose `min-content` exceeds the
+  column, which a clip would only hide. Attribute it first by setting the suspect subtree
+  `display: none` and re-reading `scrollWidth`.) One two-finger
   trackpad swipe (or shift+wheel) over it slides every control off-screen and leaves a
   blank column. Nothing visible is too wide, `overflow-x` is nowhere in the CSS, and the
   repo's own `npm run check:overflow` passes — it measures the page and the header, not
@@ -834,8 +838,11 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   used `expect.poll(…).toBe(0)`, which matches its first sample — taken before the
   compositor applied the scroll — so it too passed against the defect. Poll until two
   consecutive reads agree, then assert.
-  **Prove the wheel is being delivered, and note that the obvious way often cannot be used.**
-  Scrolling the axis that IS supposed to move is the natural probe, and it does not work on a
-  panel whose content fits: this one's vertical scroll range is 0 at every width and scope.
-  Attach a `wheel` listener to the scroller and assert on the `deltaX` it actually saw.
+  **Prove the wheel is being delivered, and prefer the probe that works everywhere.**
+  Scrolling the axis that IS supposed to move is the natural probe and it fails silently on a
+  panel whose content happens to fit — the measured instance reads a vertical range of 0 at
+  the viewport and section its spec runs (1440x900, deck, Look), though 180px one section
+  over, so "the content fits" is a property of where you looked, not of the panel. Attach a
+  `wheel` listener to the scroller and assert on the `deltaX` it actually saw: that binds
+  wherever you point it.
   See `engineering/decisions/2026-09-13-settings-find-and-list-view.md` §12.
