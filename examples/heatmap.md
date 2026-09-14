@@ -16,7 +16,7 @@ The chart family could compare magnitudes, decompose a total, plot a trend and s
 ---
 
 <!-- _class: heatmap -->
-<!-- _footer: "Four cohorts, four months — the shape, not the numbers" -->
+<!-- _footer: "Four cohorts, four months — the shape first, the number on it" -->
 
 `Retention · 2026 cohorts`
 
@@ -62,9 +62,9 @@ A heatmap and a `map` encode the same thing — one continuous value as one inte
 
 <!-- _class: statement silent -->
 
-## The cell carries no number, and that was measured.
+## The ramp is five stops, so the number can sit on it.
 
-Text on a colored fill is the one placement this family will not guarantee contrast for. The heatmap tried to buy an exception — print the value, flip its ink partway along the ramp — and the exception did not survive the palette sweep: across all **33 palettes** on both canvases, the best single crossover still leaves **318 cells** below AA, worst `2.60:1`. A per-palette crossover clears it but cannot be *expressed*, because a slide flips its own canvas and CSS has no numeric `light-dark()`. The intensity carries the reading; the numbers stay in the description a screen reader hears.
+Text on a colored fill is the one placement this family will not otherwise guarantee. The first cut printed the value on a **continuous** ramp and flipped its ink at one crossover — measured across all **33 palettes**, that leaves **318 cells** below AA, worst `2.60:1`. The fix is to stop asking for an exception: quantize. Five chosen stops means five fills to solve an ink against, and we choose which five — so the ramp steps *over* the band where no ink of any color reaches `4.5:1`. Each theme carries its own five inks, solved against the fill each stop actually paints.
 
 ---
 

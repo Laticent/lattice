@@ -287,6 +287,10 @@ describe('heatmap: kernel font sizes mirror the rules that paint them', () => {
       ':is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-col-label'],
     ['row', 'lib/components/chart/_chart-family/chart-family.css',
       ':is(section.chart-frame, figure.chart-frame) .cart-cat'],
+    // The printed value. Its SIZE is mirrored here; its INK is per-stop and per
+    // palette, gated by heatmap.test.js and derive-chart-cat-ink.js --check.
+    ['value', 'lib/components/chart/heatmap/heatmap.styles.css',
+      ':is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value'],
   ]) {
     test(`${key} matches ${selector}`, () => {
       const fromCss = declaredFontSize(read(file), selector);
@@ -306,7 +310,7 @@ describe('heatmap: kernel font sizes mirror the rules that paint them', () => {
     const svg = buildHeatmap(parseHeatmap(ul), {});
     const classes = new Set([...svg.matchAll(/<text class="([^"]+)"/g)].map((m) => m[1]));
     assert.deepEqual([...classes].sort(),
-      ['cart-cat', 'heatmap-col-label cart-cat'],
+      ['cart-cat', 'heatmap-col-label cart-cat', 'heatmap-value'],
       'a new <text> class needs a mirror arm above, or a size the kernel emits itself');
   });
 });

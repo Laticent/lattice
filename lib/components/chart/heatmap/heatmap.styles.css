@@ -58,8 +58,9 @@
  */
 
 /* ── Cells ──────────────────────────────────────────────────────────────────
- * One sequential ramp off --chart-cat-1-hue. The kernel sets --mix per cell:
- * low → faint hue over the base, high → saturated. Low→high on the ramp. */
+ * One sequential ramp off --chart-cat-1-hue, in five stops. The kernel sets
+ * `data-step` per cell and the stop rules below turn that into --mix: low →
+ * faint hue over the base, high → saturated. Low→high on the ramp. */
 :is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) var(--mix), var(--heatmap-base));
   /* A hairline in the canvas color, NOT a gap in the grid. At a 1.2-unit cell
@@ -100,6 +101,58 @@
   font-weight: 600;
   letter-spacing: 0.02em;
 }
+
+/* ── The ramp's five stops ───────────────────────────────────────────────────
+ * The kernel puts `data-step` on a cell and on its value; the theme carries what
+ * each step LOOKS like. Two tokens per stop, and the split is the whole design:
+ *
+ *   --heatmap-stepN   how far along the ramp the fill sits. A plain number, and
+ *                     the SAME number on both canvases — which is why it can be
+ *                     a number at all. A per-canvas one would have to cross the
+ *                     `section.dark` scheme flip, and CSS has `light-dark()` for
+ *                     colors only. That constraint is the reason this ramp is
+ *                     quantized; lib/theme/cat-ink.js § solveHeatmapRamp records it.
+ *   --heatmap-stepN-ink  the ink solved against the fill that stop actually paints,
+ *                     as a light-dark() pair — the same shape --cat-on-mark uses.
+ *
+ * THE FALLBACKS ARE NOT A SECOND RAMP. A palette with no chart cycle gets no
+ * generated block, so these keep it rendering: even stops, and the body ink,
+ * which is where every solve starts. They are NOT contrast-guaranteed — only a
+ * derived palette is, and `derive-chart-cat-ink.js --check` gates those. A theme
+ * that wants the guarantee declares a cycle and is generated into.
+ *
+ * FIVE RULES, ONE PER STOP, because `attr()` cannot be used in a custom property
+ * value in any shipped engine — `--mix: attr(data-step)` parses and resolves to
+ * nothing. Five is small enough that writing them out costs less than the
+ * indirection would. */
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="1"] { --mix: var(--heatmap-step1, 18%); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="2"] { --mix: var(--heatmap-step2, 36.5%); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="3"] { --mix: var(--heatmap-step3, 55%); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="4"] { --mix: var(--heatmap-step4, 73.5%); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="5"] { --mix: var(--heatmap-step5, 92%); }
+
+/* The value printed INSIDE a cell. Its ink is chosen per STOP, not per canvas
+ * and not per cell: the stop is the only thing that knows which fill is under
+ * the text, and the theme's solve already asked that question against that
+ * exact fill. */
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value {
+  /* The per-stop rules below override this. It is here as the floor, not as a
+   * choice: without it a value whose stop rule somehow did not match would take
+   * the SVG default of BLACK rather than something of the theme's. It also marks
+   * the rule SVG-context for check-chart-responsiveness, which is what licenses
+   * the px font-size inside a viewBox. */
+  fill: var(--text-body);
+  font-family: var(--font-body);
+  font-size: 7px; /* cqi-ok: inside a 320-unit viewBox, px == user units */
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="1"] { fill: var(--heatmap-step1-ink, var(--text-body)); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="2"] { fill: var(--heatmap-step2-ink, var(--text-body)); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="3"] { fill: var(--heatmap-step3-ink, var(--text-body)); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="4"] { fill: var(--heatmap-step4-ink, var(--text-body)); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="5"] { fill: var(--heatmap-step5-ink, light-dark(#FFFFFF, #0A1628)); }
 
 /* ── Figure ─────────────────────────────────────────────────────────────────
  * The figure just centers the SVG in the chart body, like every other SVG

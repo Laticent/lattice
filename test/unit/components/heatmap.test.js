@@ -12,11 +12,13 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const MarkdownIt = require('markdown-it');
 
 const {
-  parseHeatmap, buildHeatmap, mixFor,
-  MAX_COLS, MAX_ROWS, MIX_FLOOR, MIX_TOP,
+  parseHeatmap, buildHeatmap,
+  MAX_COLS, MAX_ROWS, MIX_FLOOR, MIX_TOP, RAMP_STEPS, stepFor,
 } = require('../../../lib/components/chart/heatmap/heatmap.transform');
 
 const md = new MarkdownIt({ html: true });
@@ -90,59 +92,114 @@ describe('heatmap — a missing cell is not a zero', () => {
   });
 });
 
-describe('heatmap — the ramp', () => {
-  test('the minimum sits at the FLOOR, not at zero', () => {
-    // At 0% the lowest real value paints the bare anchor — the same fill as a
-    // crossing nobody measured, which is the distinction the parse step keeps.
-    assert.equal(mixFor(10, 10, 90), MIX_FLOOR);
-  });
+describe('heatmap — the quantized ramp', () => {
+  // The value IS printed on the fill here, which the chart family otherwise
+  // refuses. What buys the exception is quantizing: five chosen stops, each
+  // carrying an ink solved against the fill that stop actually paints. The
+  // measurement and the dead zone that forces it are in the transform's docblock
+  // and in lib/theme/cat-ink.js § solveHeatmapRamp. These arms hold the CONTRACT
+  // the three places share — kernel, stylesheet, generator — because the ink is
+  // only correct for the fill it was solved against, so a step index that means
+  // one thing in the kernel and another in CSS is a silent contrast failure.
 
-  test('the maximum sits at the top', () => {
-    assert.equal(mixFor(90, 10, 90), MIX_TOP);
-  });
-
-  test('it is monotonic across the domain', () => {
-    let prev = -Infinity;
-    for (let v = 0; v <= 100; v += 5) {
-      const m = mixFor(v, 0, 100);
-      assert.ok(m >= prev, `mix went backwards at ${v}`);
-      prev = m;
+  test('a value maps to a step in range, and the extremes land on the ends', () => {
+    assert.equal(stepFor(0, 0, 100), 1, 'the matrix minimum takes the first stop');
+    assert.equal(stepFor(100, 0, 100), RAMP_STEPS, 'the maximum takes the last, not one past it');
+    for (let v = 0; v <= 100; v += 1) {
+      const s = stepFor(v, 0, 100);
+      assert.ok(Number.isInteger(s) && s >= 1 && s <= RAMP_STEPS, `stepFor(${v}) = ${s} is off the ramp`);
     }
   });
 
-  test('a FLAT matrix takes the mid stop rather than dividing by zero', () => {
-    const m = mixFor(50, 50, 50);
-    assert.ok(Number.isFinite(m), 'a matrix with one distinct value must still paint');
-    assert.ok(m > MIX_FLOOR && m < MIX_TOP, 'a flat matrix has no gradient, so it sits mid-ramp');
+  test('steps never go backwards as the value climbs', () => {
+    let prev = 0;
+    for (let v = 0; v <= 100; v += 1) {
+      const s = stepFor(v, 0, 100);
+      assert.ok(s >= prev, `stepFor(${v}) = ${s} dropped below ${prev} — the ramp must be monotonic`);
+      prev = s;
+    }
+  });
+
+  test('a FLAT matrix takes the middle step rather than dividing by zero', () => {
+    const s = stepFor(50, 50, 50);
+    assert.ok(Number.isInteger(s) && s >= 1 && s <= RAMP_STEPS, 'a flat matrix must still paint');
+    assert.equal(s, Math.ceil(RAMP_STEPS / 2), 'a matrix with no gradient sits mid-ramp');
+  });
+
+  test('every cell and every value carries a step, and they agree', () => {
+    const svg = buildHeatmap(parseHeatmap(ul(GRID)), {});
+    const cells = [...svg.matchAll(/<rect class="heatmap-cell"[^>]*data-step="(\d+)"[^>]*data-value="([^"]*)"/g)];
+    assert.ok(cells.length > 0, 'no cells carried a step');
+    const values = [...svg.matchAll(/<text class="heatmap-value"[^>]*data-step="(\d+)"/g)];
+    assert.ok(values.length > 0, 'no printed value carried a step');
+    for (const [, step] of [...cells, ...values]) {
+      const n = Number(step);
+      assert.ok(n >= 1 && n <= RAMP_STEPS, `data-step="${step}" is outside the ramp`);
+    }
+  });
+
+  test('the kernel emits NO color — the ramp lives in the theme', () => {
+    // HARD RULE #3, and the reason a rendered deck stays theme-swappable: the
+    // same HTML has to paint correctly under all 33 palettes, so a mix percentage
+    // or an ink baked in here would be wrong the moment the stylesheet changed.
+    const svg = buildHeatmap(parseHeatmap(ul(GRID)), {});
+    assert.doesNotMatch(svg, /--mix\s*:/, 'the kernel must not set a mix percentage');
+    assert.doesNotMatch(svg, /#[0-9a-fA-F]{3,8}\b/, 'the kernel must not emit a color');
+  });
+
+  test('the step count agrees with the stylesheet and the generator', () => {
+    // Three places encode it and none can see the others at runtime. A drift here
+    // pairs an ink with a fill it was not solved against, which no test that
+    // looks at only one side can catch.
+    const css = fs.readFileSync(
+      path.join(__dirname, '../../../lib/components/chart/heatmap/heatmap.styles.css'), 'utf8');
+    for (let n = 1; n <= RAMP_STEPS; n += 1) {
+      assert.ok(css.includes(`.heatmap-cell[data-step="${n}"]`), `no cell rule for step ${n}`);
+      assert.ok(css.includes(`.heatmap-value[data-step="${n}"]`), `no value rule for step ${n}`);
+      assert.ok(css.includes(`--heatmap-step${n}`), `the stylesheet never reads --heatmap-step${n}`);
+      assert.ok(css.includes(`--heatmap-step${n}-ink`), `the stylesheet never reads --heatmap-step${n}-ink`);
+    }
+    assert.ok(!css.includes(`data-step="${RAMP_STEPS + 1}"`),
+      `the stylesheet has a rule for step ${RAMP_STEPS + 1}, which the kernel never emits`);
+    const gen = require('../../../tools/derive-chart-cat-ink.js');
+    assert.equal(gen.RAMP_STEPS, RAMP_STEPS, 'the generator writes a different number of stops than the kernel emits');
+    assert.equal(gen.RAMP_LO, MIX_FLOOR, "the generator's ramp floor differs from the kernel's");
+    assert.equal(gen.RAMP_HI, MIX_TOP, "the generator's ramp top differs from the kernel's");
   });
 });
 
-describe('heatmap — nothing is printed ON a cell', () => {
-  // The family rule is that labels and values sit on the CANVAS, never on the
-  // colored mark (design/skills/chart-component.md). This component shipped an
-  // exception to it — the number in the cell, its ink flipping partway along the
-  // ramp — and the exception did not survive measurement: no single crossover
-  // clears AA across the 33 palettes, and a per-palette one cannot be expressed
-  // because `section.dark` flips the canvas per slide. The withdrawal and its
-  // numbers are recorded in the transform's own docblock; these two arms are
-  // what stops it coming back by accident.
+describe('heatmap — every shipped palette carries an AA-clean ramp', () => {
+  // THE GATE THAT MATTERS, and it is cheap: pure color math over the committed
+  // theme files, no browser. `derive-chart-cat-ink.js --check` asserts the same
+  // thing inside build:check; this runs it in the unit tier so a palette edit
+  // fails in seconds rather than at the end of a build.
+  //
+  // It re-derives the fill from the COMMITTED --heatmap-stepN rather than from
+  // the solver, so a theme hand-edited to a prettier number fails here even
+  // though the ink it is paired with is untouched.
+  const gen = require('../../../tools/derive-chart-cat-ink.js');
 
-  test('every text in the SVG is a gutter label, never a cell', () => {
-    const svg = buildHeatmap(parseHeatmap(ul(GRID)), {});
-    // The gutter classes are `heatmap-col-label` for a column name and the
-    // substrate's bare `cart-cat` for a row name (svg-label-css-mirror.test.js
-    // pins that census). Anything else is text the kernel put in the plot.
-    const strays = [...svg.matchAll(/<text class="([^"]*)"[^>]*>/g)]
-      .filter((m) => !/^(?:heatmap-col-label cart-cat|cart-cat)$/.test(m[1]))
-      .map((m) => m[0]);
-    assert.deepEqual(strays, [],
-      'a text that is not a gutter label is text on a colored mark — the withdrawn exception');
+  test('every committed ramp climbs, and stays inside the kernel\'s ends', () => {
+    // A nudge may pull a stop off even spacing but must never invert the ramp or
+    // escape [MIX_FLOOR, MIX_TOP] — outside those the low stop stops being
+    // distinguishable from an unmeasured cell, which is the floor's whole job.
+    for (const theme of gen.rampPalettes()) {
+      const { mixes } = gen.rampFor(theme);
+      assert.equal(mixes.length, RAMP_STEPS, `${theme}: wrong number of stops`);
+      let prev = -Infinity;
+      for (const m of mixes) {
+        assert.ok(m > prev, `${theme}: stops went backwards at ${m}`);
+        assert.ok(m >= MIX_FLOOR && m <= MIX_TOP, `${theme}: stop ${m}% is outside the ramp`);
+        prev = m;
+      }
+    }
   });
 
-  test('withdrawing the printed value does not withdraw the value', () => {
-    const svg = buildHeatmap(parseHeatmap(ul(GRID)), {});
-    assert.match(svg, /data-value="100"/,
-      'the number still reaches the mark data, which is what the <desc> and hover read');
+  test('every base palette has a block, and every pair clears AA on its own cell', () => {
+    const palettes = gen.rampPalettes();
+    assert.ok(palettes.length >= 19, `only ${palettes.length} palettes carry a ramp`);
+    const failures = palettes.flatMap((t) => gen.rampContrastFailures(t));
+    assert.deepEqual(failures, [], 'a committed ramp pair does not clear AA on the fill it sits on');
   });
 });
 
