@@ -459,6 +459,20 @@ anchored on `span.lat-pagination` — drift 0.0px, no collision, clearance falli
 Those came from the `--style`-SIMULATED run on `section.form::after`, not from the real mark:
 two runs, conflated. Re-derived from the shipped mark on the base this ships against.)
 
+**The pseudo fallback is real and it is ONE frame.** Of the eleven frames in
+`lib/forms/frame/`, exactly one — `compare-code` — declares no footer cell, so it is the only
+place the retirement rule above does not fire and `::after` still paints the page number.
+Measured there too, since a fallback nobody sweeps is a fallback nobody knows the state of:
+
+```sh
+node tools/check-jank.js compare-code --front-matter 'paginate: true' \
+  --anchor 'section.compare-code::after' --max 10
+```
+
+Drift 0.0px, no collision, clearance a constant 49px across the sweep — the pseudo is
+positioned against the section, so a growing heading does not reach it. Both shapes of the
+engine's most widely shipped running mark are therefore measured, not one.
+
 **Getting there needed a fix to DRIFT ITSELF, and that is the more useful half.** The first
 run reported `DRIFT 9.0px horizontal ✗` and exit 1. It had not moved: across a 12-page deck
 the mark sits at a constant 30px right inset on every page, and at page 10 the numeral gains
