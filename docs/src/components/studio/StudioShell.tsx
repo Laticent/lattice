@@ -3920,7 +3920,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		{
 			value: 'brand',
 			label: 'Accent',
-			keywords: 'white label client color',
+			// NOT 'color': the decision note's §4 contract is that keywords name what a section
+			// is FOR in words ITS ROWS DO NOT ALREADY CARRY, and this section's Brand bar row
+			// says "color" itself. Measured on the live panel: "color" returned ELEVEN rows —
+			// the whole Accent section, because the section matched as a whole — when the two
+			// rows actually about color (Theme, Color mode) were going to match on their own.
+			// The same shape as the "page"/Chrome bug §4 was written after.
+			keywords: 'white label client',
 			body: () => (
 			<div>
 				<TabNote>Where your accent shows. Set the theme accent to a client's brand color and everything here follows it, white-labeling the deck.</TabNote>
@@ -4081,6 +4087,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const scopeLine = inspectorScope === 'deck'
 		? { full: `Set it once — all ${slides.length} slides follow`, short: `All ${slides.length} slides` }
 		: { full: `Slide ${activeFullIndex + 1} — overrides the deck`, short: `Slide ${activeFullIndex + 1} override` };
+	// Is the OPEN scope the one being searched? The banner draws one row for whichever
+	// scope is showing, and the field belongs to that scope alone.
+	const searchingHere = inspectorScope === 'deck' ? deckSearching : slideSearching;
 
 	const inspectorScopeContent = (
 		<>
@@ -4137,12 +4146,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{!compact && (inspectorScope === 'deck'
 					? <SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
 					: <FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />)}
-				<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
-					{scopeLine.full}
-				</span>
-				<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
-					{scopeLine.short}
-				</span>
+				{/* …EXCEPT while the field is open, when the title yields the whole row. §8.1's
+				    rule is that this row always carries WORDS, and a truncated stub carries
+				    none: measured on a 390x844 phone with a query live, the two phrasings
+				    rendered as "Set it …" in 60px. That is the same defect §8.1 fixed, arriving
+				    through a different door — the field, not a container query.
+				    Nothing is hidden behind `sr-only` here, which is the trap §8.1 fell into —
+				    but be precise about what still carries the scope, because a first draft of
+				    this comment was not. The field's PLACEHOLDER ("Search deck settings…") says
+				    it only until the first keystroke, and at the docked default it is truncated
+				    to "Search deck se". What holds at every width and through typing is the
+				    activity rail's own Slide / Deck labels on desktop, and the Slide/Deck
+				    segment directly above this row on mobile and tablet; the scope icon in this
+				    row is a second desktop cue but it is a glyph, not words. The `sr-only`
+				    live region keeps the full sentence for a screen reader throughout.
+				    And search is a state the author just opened on purpose — the deliverable of
+				    the row is the field they are typing into. */}
+				{!searchingHere && (
+					<>
+						<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @max-[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+							{scopeLine.full}
+						</span>
+						<span aria-hidden className="min-w-0 flex-1 truncate text-[12px] font-semibold @[320px]/scopebar:hidden" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}>
+							{scopeLine.short}
+						</span>
+					</>
+				)}
 				<SettingsToolbar
 					scope={inspectorScope === 'deck' ? 'Deck' : 'Slide'}
 					view={settingsView}
@@ -4153,7 +4182,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					onSearchingChange={inspectorScope === 'deck' ? setDeckSearching : setSlideSearching}
 					className="!pt-0 min-w-0 shrink"
 				/>
-				{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><X className="size-4" /></button></Tip>}
+				{/* `PanelLeftClose`, not a ✕ — this collapses the DOCKED PANEL, and the preview's
+				    own collapse two panes over already uses that idiom (`PanelRightClose`). It
+				    wore a ✕, which put a third identical glyph in this row the moment search
+				    opened: clear the field, close the field, collapse the panel, all the same
+				    mark within 100px of a 296px panel. The first two are one button now; this
+				    one says what it actually does. */}
+				{!mobile && <Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: inspectorScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><PanelLeftClose className="size-4" /></button></Tip>}
 			</div>
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>

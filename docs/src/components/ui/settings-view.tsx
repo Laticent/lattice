@@ -1,9 +1,11 @@
-import { Check, ChevronDown, LayoutList, List, Search, X } from 'lucide-react';
+import { Check, ChevronDown, LayoutList, List, Search } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelSearch } from '@/components/ui/panel';
 import type { PillTab } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
+import { useIsomorphicLayoutEffect } from '@/components/ui/use-isomorphic-layout-effect';
+import { settingsMatch } from '@/lib/settings-search';
 import { cn } from '@/lib/utils';
 
 // settings-view.tsx — ONE find-and-browse grammar for both Inspector scopes.
@@ -64,26 +66,11 @@ export function filteringProps(query: string): Record<string, string> {
 	return query ? { [SETTING_FILTERING]: '' } : {};
 }
 
-/**
- * Does `haystack` satisfy `query`? Every whitespace-separated term must appear
- * somewhere, in any order — so "page number" finds "Hide page number" and
- * "number page" finds it too. Case- and accent-insensitive; an empty query matches
- * everything.
- *
- * Pure, and exported for its unit test: this is the whole search semantics.
- */
-export function settingsMatch(query: string, ...haystack: (string | undefined | null | false)[]): boolean {
-	const terms = normalize(query).split(/\s+/).filter(Boolean);
-	if (terms.length === 0) return true;
-	const hay = normalize(haystack.filter(Boolean).join(' '));
-	return terms.every((t) => hay.includes(t));
-}
-
-// Fold case AND diacritics, so an author who types "eyebrow" finds it whatever their
-// keyboard did, and a label carrying an accent is still reachable from a bare ASCII word.
-function normalize(s: string): string {
-	return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-}
+// The matcher itself lives in `lib/settings-search.ts` — pure, DOM-free and testable
+// without a render, the same shape `component-search.ts` takes for the picker. It is
+// re-exported here because every call site in this file and both panels knows it by this
+// name, and because `settings-view.test.tsx` is where its semantics are pinned.
+export { settingsMatch };
 
 const SettingsQueryCtx = React.createContext('');
 // True when the ENCLOSING section matched the query as a whole — every row inside it is
@@ -275,24 +262,87 @@ export function SettingsNoMatch({ query }: { query: string }) {
 	);
 }
 
+/** The pill count drawn when the strip CANNOT be measured — no `ResizeObserver` (jsdom), or
+ *  a container that has not been laid out yet. Two is what the narrowest supported panel
+ *  (`SET_MIN`, 260px) was measured to afford, so the unmeasured shape is never wider than
+ *  the real one and never has to shrink under the user. */
+const FALLBACK_SHORTCUTS = 2;
+/** `gap-1.5`, in px — the strip's own gap, which the fit has to pay for between every pair. */
+const STRIP_GAP = 6;
+
+/** What one measurement of the hidden strip copy yields: the row's usable width, every
+ *  pill's natural width in tab order, and the chevron's. */
+export type StripFit = { box: number; pills: number[]; chevron: number };
+
 /**
- * The section strip: a few SHORTCUT pills, then a chevron holding the full list.
+ * Which section pills to draw — the whole fitting policy, pure, so it can be argued with in
+ * a test rather than only on a running browser.
  *
- * Six pills need 425px and never had it — the phone strip is 362px and the DOCKED desktop
- * panel is 231px — so the strip wrapped to two rows at every width and cost 74px of a
- * panel whose first control already sat 414px down a 390x844 phone.
+ * The longest LEADING run that fits beside the chevron, plus the ACTIVE pill whenever it is
+ * not already in that run. The active one is APPENDED rather than swapped for the last of
+ * the run, and the measurement below reserves its width up front — pinning after the fact is
+ * how a pinned strip overflows, because the pill you pin is rarely the width of the one you
+ * dropped.
  *
- * TWO shortcuts, fixed, at every width. Three fit the phone and not the docked panel, and
- * the obvious fix — hide the third under a container query — puts the ACTIVE section
- * behind a CSS rule JS cannot see: pick the third section, drag the panel narrow, and the
- * strip shows two pills and a chevron with nothing saying where you are. Two is what the
- * narrowest supported panel can afford, so it is what every width gets, and the strip's
- * shape stops changing under a drag.
+ * `fit` is null when the strip could not be measured — no `ResizeObserver`, or a row that
+ * has not been laid out. Then it falls back to the count the narrowest supported panel was
+ * measured to afford and does NOT pin: an unmeasured strip must never be wider than a
+ * measured one, and the chevron already answers "where am I" by wearing the active
+ * section's name whenever no pill is selected.
+ */
+export function visibleSectionTabs<T>(tabs: T[], activeIndex: number, fit: StripFit | null): T[] {
+	// A fit whose pill count disagrees with the tab count is STALE, and it must be treated as
+	// no measurement at all rather than partially believed. The slide panel's section list is
+	// per-slide (`Marks` appears only when the slide has any), so clicking between two slides
+	// changes the tab count live — and `fit.pills[i] ?? 0` would then price the new pill at
+	// ZERO and draw it for free. Measured: a 7th tab against a 6-tab fit laid out 320px of
+	// pills in a 231px row. The observer re-fires (the ghost's own width changed) and the
+	// strip self-corrects, but a `setState` from a ResizeObserver lands after paint, so the
+	// overspill gets a frame.
+	if (!fit || fit.pills.length !== tabs.length) return tabs.slice(0, FALLBACK_SHORTCUTS);
+	let lead = 0;
+	// An exhaustive scan over at most seven runs. The cost IS non-decreasing in `n` — passing
+	// the active index drops its reservation and picks the same pill up inside the run, so
+	// `total(activeIndex)` and `total(activeIndex + 1)` are equal and everything either side
+	// climbs — so an early exit would be correct. It is not worth the reader having to
+	// re-derive that, and a first draft of this comment claimed the opposite; the mutation
+	// run that put an `else break` in and stayed green is what caught it.
+	for (let n = 1; n <= tabs.length; n++) {
+		let total = fit.chevron;
+		for (let i = 0; i < n; i++) total += STRIP_GAP + (fit.pills[i] ?? 0);
+		if (activeIndex >= n) total += STRIP_GAP + (fit.pills[activeIndex] ?? 0);
+		if (total <= fit.box) lead = n;
+	}
+	const run = tabs.slice(0, lead);
+	return lead > 0 && activeIndex >= lead ? [...run, tabs[activeIndex]] : run;
+}
+
+/**
+ * The section strip: as many SHORTCUT pills as the panel can actually hold, then a chevron
+ * holding the full list.
  *
- * The chevron carries the WHOLE list, not the leftovers. That is what makes dropping a
- * pill safe, and it answers "where did General go" with "where all of them are". When the
- * active section is not one of the shortcuts the chevron wears its NAME instead of "More",
- * so the answer to "where am I" is always on screen.
+ * FIXED AT TWO IS WHAT THIS REPLACES, and the reasoning that fixed it there is worth
+ * keeping because half of it still stands. Six pills need 425px and never had it — the phone
+ * strip is 362px and the DOCKED desktop panel is 231px — so the strip wrapped to two rows at
+ * every width and cost 74px of a panel whose first control already sat 414px down a 390x844
+ * phone. Three pills fit the phone and not the docked panel, and the obvious fix — hiding
+ * the third under a CONTAINER QUERY — puts the ACTIVE section behind a CSS rule JS cannot
+ * see: pick the third section, drag the panel narrow, and the strip shows two pills and a
+ * chevron with nothing on screen saying where you are.
+ *
+ * That argument kills the CSS route, not the feature. A JS MEASURE knows both things CSS
+ * cannot express at once: what fits, AND which pill must survive. So the strip measures a
+ * hidden copy of itself against the row's real width and draws the longest leading run that
+ * fits — plus the active pill, always, even when it is not in that run. A wide panel gets
+ * every section as a pill; the 260px minimum still gets two; and at no width does the answer
+ * to "where am I" leave the screen. The pinned pill is RESERVED FOR in the measurement, not
+ * squeezed in after it, so the row cannot overflow by pinning.
+ *
+ * The chevron carries the WHOLE list, not the leftovers. That is what makes dropping a pill
+ * safe, and it answers "where did General go" with "where all of them are". It is drawn at
+ * every width, so the strip's shape does not sprout a new control under a drag. When even
+ * one pill will not fit, it wears the active section's NAME instead of "More", which is the
+ * floor that keeps "where am I" answered when there is no room to answer it with a pill.
  */
 export function SettingsSectionTabs({
 	tabs,
@@ -307,39 +357,159 @@ export function SettingsSectionTabs({
 	ariaLabel: string;
 	className?: string;
 }) {
-	const SHORTCUTS = 2;
-	const shortcuts = tabs.slice(0, SHORTCUTS);
-	const active = tabs.find((t) => t.value === value);
-	const activeIsOverflow = active != null && !shortcuts.some((t) => t.value === value);
+	const rowRef = React.useRef<HTMLDivElement>(null);
+	const ghostRef = React.useRef<HTMLDivElement>(null);
+	const [fit, setFit] = React.useState<StripFit | null>(null);
+
+	// A LAYOUT effect, so the measured count is in place before the browser paints: a strip
+	// that renders wide and then snaps narrow is a visible jump, and it is also a locator
+	// that Playwright can find one tick before it disappears.
+	useIsomorphicLayoutEffect(() => {
+		const row = rowRef.current;
+		const ghost = ghostRef.current;
+		if (!row || !ghost || typeof ResizeObserver === 'undefined') return;
+		const measure = () => {
+			const kids = Array.from(ghost.children) as HTMLElement[];
+			const box = row.clientWidth;
+			// A row with no width has not been laid out; a ghost with no children is a render
+			// we should not fit against. Either way, keep the last good measurement.
+			if (!box || !kids.length) return;
+			const chevron = kids[kids.length - 1].offsetWidth;
+			const pills = kids.slice(0, -1).map((k) => k.offsetWidth);
+			setFit((prev) =>
+				prev && prev.box === box && prev.chevron === chevron && prev.pills.length === pills.length && prev.pills.every((w, i) => w === pills[i])
+					? prev
+					: { box, pills, chevron },
+			);
+		};
+		const ro = new ResizeObserver(measure);
+		// BOTH, and the ghost is the interesting one: it is the only thing that changes width
+		// when a LABEL changes or when the web font lands after first paint, neither of which
+		// touches the row. Watching it means the fit re-runs on its own rather than on a
+		// dependency key someone has to remember to widen.
+		ro.observe(row);
+		ro.observe(ghost);
+		measure();
+		return () => ro.disconnect();
+	}, []);
+
+	const activeIndex = tabs.findIndex((t) => t.value === value);
+	// Derived at RENDER, not stored: `fit` changes only when the row resizes or a label does,
+	// so switching section re-fits for free — and no effect has to re-run to do it.
+	const visible = visibleSectionTabs(tabs, activeIndex, fit);
+
+	const active = activeIndex >= 0 ? tabs[activeIndex] : undefined;
+	const activeIsOverflow = active != null && !visible.some((t) => t.value === value);
 	// ROVING TABINDEX + arrow keys, the WAI-ARIA tabs pattern — borrowed from `PillTabs`,
 	// which spells out why in its own header: declaring `role="tab"` without it is a
 	// contract violation, because a screen-reader user hears "tab" and the arrow keys do
 	// nothing. The first cut of this component declared the roles and implemented neither.
 	//
-	// When the active section is in the overflow, NO shortcut is selected — so the first one
-	// takes the tab stop, or the strip would have no reachable tab at all.
-	const focusIndex = shortcuts.findIndex((t) => t.value === value);
+	// When the active section is in the overflow, NO visible pill is selected — so the first
+	// one takes the tab stop, or the strip would have no reachable tab at all.
+	const focusIndex = visible.findIndex((t) => t.value === value);
 	const tabStop = focusIndex < 0 ? 0 : focusIndex;
 	const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+		if (!visible.length) return;
 		let next = -1;
-		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (tabStop + 1) % shortcuts.length;
-		else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (tabStop - 1 + shortcuts.length) % shortcuts.length;
+		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (tabStop + 1) % visible.length;
+		else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (tabStop - 1 + visible.length) % visible.length;
 		else if (e.key === 'Home') next = 0;
-		else if (e.key === 'End') next = shortcuts.length - 1;
+		else if (e.key === 'End') next = visible.length - 1;
 		if (next < 0) return;
 		e.preventDefault();
-		onValueChange(shortcuts[next].value);
+		onValueChange(visible[next].value);
 		e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
 	};
 	// One tab is enough to navigate with — the chevron would be a menu of one.
 	if (tabs.length <= 1) return null;
 	return (
-		<div className={cn('flex flex-wrap items-center gap-1.5', className)}>
+		// THE GHOST IS CLIPPED, NOT THE ROW — and which box carries the clip is the whole
+		// lesson here, because putting it on the row cost three commits and two regressions.
+		//
+		// The problem: the measuring ghost below is `absolute` and `w-max`, so it is 504-585px
+		// wide (deck / slide, and each engine rounds differently) inside a row of 214-362px —
+		// and a `visibility: hidden` box still contributes SCROLLABLE OVERFLOW. The panel body
+		// it sits in is `overflow-y-auto`, and CSS Overflow 3 computes the other axis to `auto`
+		// when one axis is not `visible`, so the ghost handed the whole settings panel a
+		// horizontal scroll region: one two-finger swipe over the panel scrolled every control
+		// off-screen and left a blank column. Measured as the panel body's
+		// `scrollWidth − clientWidth`: +259 deck / +336 slide at 1440 docked, +272 / +349 in the
+		// 820 drawer, +128 / +205 on a 390 phone — measured in Chrome 131 and WebKit 26. Add 3px
+		// deck / 6px slide for Playwright's Chromium 141, whose label metrics differ by a pixel.
+		//
+		// The obvious fix is `overflow: clip` on this row. DO NOT DO THAT. The row's first pill
+		// sits flush against its content edge (measured gap: 0px) and the app focus ring is
+		// `outline: 2px` at `outline-offset: 2px` — so it paints 4px OUTSIDE the pill and a clip
+		// on this row shears it off. That is a keyboard and low-vision regression traded for a
+		// scroll one. `overflow-clip-margin: 6px` looks like the answer and is a trap twice over:
+		//   1. It applies only when the element clips on BOTH axes. `overflow-x: clip` beside
+		//      `overflow-y: visible` ignores it silently — 0px and 6px render pixel-identical.
+		//   2. Even with both axes, WEBKIT DOES NOT IMPLEMENT IT AT ALL
+		//      (`CSS.supports('overflow-clip-margin','6px')` is false). On Safari and iOS the row
+		//      is a bare clip and the ring is sheared anyway — measured at 374px of paint cut.
+		//
+		// So the clip goes on a box that has nothing to shear: a zero-size wrapper around the
+		// ghost alone. It paints nothing, holds nothing focusable, and contributes no overflow of
+		// its own, while the ghost inside keeps its intrinsic `max-content` width — which is the
+		// only thing the measurement needs. Verified in Chromium 141 AND WebKit 26 at 390 / 820 /
+		// 1440 in both scopes: focus ring pixel-identical to no clip at all, the strip
+		// contributing zero sideways scroll to panel or document, row height unchanged.
+		// (The panel is not unconditionally unscrollable sideways. Pick General and it scrolls
+		// 15px at 1440 in Chromium, 13px in WebKit, from the Language row's select trigger — a
+		// different component, a pre-existing cause, and byte-identical to `main`. See #2203 and
+		// decision note §15.)
+		//
+		// `clip` rather than `hidden` on that wrapper: `hidden` would make it a scroll container
+		// in its own right. The section dropdown is a Radix portal, so its menu is outside all of
+		// this and is not clipped by any of it.
+		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5', className)}>
+			{/* The zero-size CLIP BOX. `size-0` plus `overflow-clip` is what stops the ghost's
+			    500-600px reaching the panel's scroll area; `absolute` keeps the box itself out of
+			    the row's layout. Nothing is painted or focusable in here, which is the point. */}
+			<div aria-hidden className="pointer-events-none absolute left-0 top-0 size-0 overflow-clip">
+				{/* The MEASURING COPY: every pill at its natural width, laid out but never drawn.
+				    `w-max` stops the zero-width parent squeezing it — intrinsic sizing ignores the
+				    parent's width, so the widths measured here are the widths the real pills would
+				    take. `inert` keeps it off the tab order, and it inherits `aria-hidden` from the
+				    clip box above, so `getByRole('tab')` finds the real pills only.
+				    The chevron ghost wears "More", the label it has whenever a pill is on screen.
+				    In the one case it wears a longer name — nothing fits, so it names the active
+				    section — there is no pill left for the difference to cost. */}
+				<div ref={ghostRef} inert className="flex w-max items-center gap-1.5 opacity-0" style={{ visibility: 'hidden' }}>
+					{tabs.map((t) => (
+						<span key={t.value} className={cn(SECTION_PILL, SECTION_PILL_OFF)}>
+							{t.label}
+						</span>
+					))}
+					<span className={cn(SECTION_PILL, 'gap-1', SECTION_PILL_OFF)}>
+						More
+						<ChevronDown className="size-3.5" />
+					</span>
+				</div>
+			</div>
 			{/* The tablist holds TABS AND NOTHING ELSE. The chevron is a sibling outside it:
 			    a non-tab child inside `role="tablist"` is an `aria-required-children` axe
-			    violation, and the first cut put it in there. */}
+			    violation, and the first cut put it in there.
+			    And no tablist AT ALL when nothing fits — an empty `role="tablist"` is the same
+			    violation from the other side, a widget promising children it does not have.
+			    Reachable TODAY, and the arithmetic that first said otherwise left out the
+			    pinned pill. One pill plus the chevron is 134px, but `visibleSectionTabs` also
+			    RESERVES the active pill when it is not in the run — so with the slide scope's
+			    `Comments` active (the widest label, 87px) `n = 1` costs 74 + 6 + 54 + 6 + 87 =
+			    227px, and any row narrower than that gets no pills at all.
+			    THAT IS THE DEFAULT DESKTOP IN CHROMIUM, not an exotic width. The docked slide
+			    panel's row is 227px at 1440x900, and Chromium 141 measures `Comments` at 89px
+			    rather than the 87px above, so `n = 1` costs 229 and the strip is the chevron
+			    alone, wearing "Comments". WebKit 26 keeps two pills at the same width on the
+			    strength of those two pixels; both engines hit the floor in the 820px drawer,
+			    whose row is 214px. Two earlier drafts of this comment were wrong in the same
+			    direction — first that the floor "needs a narrower container than the UI offers
+			    today" (it reasoned from the 260px DOCK minimum and never looked at the drawer),
+			    then that the drawer was where it lived. A two-pixel label metric decides it. */}
+			{visible.length > 0 && (
 			<div className="contents" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
-				{shortcuts.map((t, i) => (
+				{visible.map((t, i) => (
 					<button
 						key={t.value}
 						type="button"
@@ -347,12 +517,13 @@ export function SettingsSectionTabs({
 						aria-selected={t.value === value}
 						tabIndex={i === tabStop ? 0 : -1}
 						onClick={() => onValueChange(t.value)}
-						className={cn(SECTION_PILL, t.value === value ? SECTION_PILL_ON : SECTION_PILL_OFF)}
+						className={cn(SECTION_PILL, 'shrink-0', t.value === value ? SECTION_PILL_ON : SECTION_PILL_OFF)}
 					>
 						{t.label}
 					</button>
 				))}
 			</div>
+			)}
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<button
@@ -361,7 +532,7 @@ export function SettingsSectionTabs({
 						// changes with the active section would move under a screen reader and under
 						// every e2e locator that addresses it.
 						aria-label={`${ariaLabel} — all sections`}
-						className={cn(SECTION_PILL, 'gap-1', activeIsOverflow ? SECTION_PILL_ON : SECTION_PILL_OFF)}
+						className={cn(SECTION_PILL, 'shrink-0 gap-1', activeIsOverflow ? SECTION_PILL_ON : SECTION_PILL_OFF)}
 					>
 						{activeIsOverflow ? active.label : 'More'}
 						<ChevronDown className="size-3.5" />
@@ -438,23 +609,23 @@ export function SettingsToolbar({
 					inputRef={inputRef}
 					value={query}
 					onChange={onQueryChange}
-					// Clears the TEXT and stays open — a person mid-search wants the field back
-					// empty, not gone. Closing is the ✕ beside it, and Escape.
+					// ONE trailing button, and the field decides which job it is doing: clear the
+					// TEXT while there is text (a person mid-search wants the field back empty,
+					// not gone — and on a phone that keeps the keyboard up), close the FIELD once
+					// there is not.
+					//
+					// This used to be two: `PanelSearch`'s own clear, and a second ✕ drawn beside
+					// it here. Measured on a real 390x844 phone, deck scope, query "page": a 24px
+					// "Clear search" at x=305 and a 28px "Close search" at x=348 — same glyph,
+					// two sizes, 19px apart, on a 293px row. The docked desktop panel was worse:
+					// three ✕ inside 100px of its 296px, counting the panel's own collapse. The
+					// two jobs are real, but they are never both wanted at once.
 					onClear={() => onQueryChange('')}
+					onClose={close}
 					placeholder={`Search ${scope.toLowerCase()} settings…`}
 					label={`Search ${scope.toLowerCase()} settings`}
 					className="flex-1 py-1.5"
 				/>
-				<Tip label="Close search">
-					<button
-						type="button"
-						aria-label="Close search"
-						onClick={close}
-						className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
-					>
-						<X className="size-4" />
-					</button>
-				</Tip>
 			</div>
 		);
 	}

@@ -4,8 +4,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { SETTING_FILTERING, SETTING_HIT, SETTING_SECTION, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsToolbar, type SettingsView, settingsMatch, useSettingsHit } from './settings-view';
+import { SETTING_FILTERING, SETTING_HIT, SETTING_SECTION, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsToolbar, type SettingsView, settingsMatch, useSettingsHit, visibleSectionTabs } from './settings-view';
 
+// `settingsMatch` is re-exported from `lib/settings-search.ts`, where the full semantics
+// (morphology, the synonym table, the anchored typo repair) are pinned. What stays pinned
+// HERE is the contract the panels depend on: the terms are ANDed, order-free, case- and
+// accent-blind, and an absent haystack slot is skipped rather than counted as a miss.
 describe('settingsMatch', () => {
 	it('matches everything on an empty query', () => {
 		expect(settingsMatch('', 'Theme')).toBe(true);
@@ -20,8 +24,11 @@ describe('settingsMatch', () => {
 		expect(settingsMatch('page footer', 'Hide page number')).toBe(false);
 	});
 	it('searches every haystack term together, skipping the absent ones', () => {
-		expect(settingsMatch('pagination', 'Page numbers', undefined, 'pagination paginate')).toBe(true);
-		expect(settingsMatch('pagination', 'Page numbers', undefined, false)).toBe(false);
+		// The `find=` slot is what carries a synonym ONE row needs. (The negative arm used to
+		// be `pagination` without it; that reaches the row on its own now, through the shared
+		// vocabulary in `lib/settings-search.ts`, so the arm needs a word nothing carries.)
+		expect(settingsMatch('mezzanine', 'Page numbers', undefined, 'mezzanine paginate')).toBe(true);
+		expect(settingsMatch('mezzanine', 'Page numbers', undefined, false)).toBe(false);
 	});
 	it('folds diacritics, so an ASCII word still reaches an accented label', () => {
 		expect(settingsMatch('resume', 'Résumé')).toBe(true);
@@ -147,6 +154,74 @@ function Toolbar({ onView }: { onView?: (v: SettingsView) => void } = {}) {
 	);
 }
 
+// Widths read off the REAL ghost strip in a real Chromium, deck scope, docked default
+// (`row.clientWidth === 231`), after `document.fonts.ready` — the last detail matters,
+// because every one of these is text and the web font lands after first paint.
+//
+// The first version of this fixture carried [56, 74, 82, 72, 72, 72] / 72 and claimed the
+// same provenance. Every number was wrong, `General` by 10px, and the chevron in the wrong
+// direction. Nothing was hiding behind it — the assertions below give the same answers
+// either way — but a fixture that says it is a measurement should be one. Re-derive with a
+// browser, not by editing the numbers until the tests pass.
+const PILLS = [54, 71, 72, 65, 66, 67]; // Look · Chrome · General · Accent · Motion · Speech
+const CHEVRON = 74;
+const TABS = ['Look', 'Chrome', 'General', 'Accent', 'Motion', 'Speech'];
+const fitAt = (box: number) => ({ box, pills: PILLS, chevron: CHEVRON });
+
+describe('visibleSectionTabs — the fitting policy', () => {
+	it('draws as many as the row holds, and more of them as the row grows', () => {
+		expect(visibleSectionTabs(TABS, 0, fitAt(231))).toEqual(['Look', 'Chrome']);
+		expect(visibleSectionTabs(TABS, 0, fitAt(351))).toEqual(['Look', 'Chrome', 'General']);
+		expect(visibleSectionTabs(TABS, 0, fitAt(500))).toEqual(['Look', 'Chrome', 'General', 'Accent', 'Motion']);
+	});
+
+	it('never draws more than fits — the row cannot spill to a second line', () => {
+		for (const box of [200, 231, 280, 351, 391, 500, 900]) {
+			const out = visibleSectionTabs(TABS, 5, fitAt(box));
+			const used = out.reduce((sum, label) => sum + 6 + PILLS[TABS.indexOf(label)], CHEVRON);
+			expect(used, `${out.length} pills at box ${box}`).toBeLessThanOrEqual(box);
+		}
+	});
+
+	it('KEEPS THE ACTIVE PILL ON SCREEN at every width — the thing a container query cannot', () => {
+		// Pick section 6, drag the panel narrow, and the old strip read "Look · Chrome · More"
+		// with nothing saying where you were. This is that case, at every width.
+		for (const box of [231, 280, 351, 391, 500]) {
+			expect(visibleSectionTabs(TABS, 5, fitAt(box)), `box ${box}`).toContain('Speech');
+		}
+	});
+
+	it('RESERVES the pinned pill rather than squeezing it in afterwards', () => {
+		// Look(54) + Chrome(71) + chevron(74) + 2 gaps = 211, so a 231px row holds both — but
+		// only if nothing else has to fit. With Speech active the run gives one pill back.
+		expect(visibleSectionTabs(TABS, 1, fitAt(231))).toEqual(['Look', 'Chrome']);
+		expect(visibleSectionTabs(TABS, 5, fitAt(231))).toEqual(['Look', 'Speech']);
+	});
+
+	it('appends the active pill, keeping the leading run in tab order', () => {
+		expect(visibleSectionTabs(TABS, 4, fitAt(391))).toEqual(['Look', 'Chrome', 'General', 'Motion']);
+	});
+
+	it('falls back to the chevron alone when not even one pill fits', () => {
+		expect(visibleSectionTabs(TABS, 3, fitAt(100))).toEqual([]);
+	});
+
+	it('treats a fit that disagrees with the tab count as NO measurement', () => {
+		// The slide panel's section list is per-slide, so the tab count changes live. A 6-pill
+		// fit against 7 tabs would price the 7th at zero and draw it for free — measured at
+		// 320px of pills in a 231px row.
+		const seven = [...TABS, 'Comments'];
+		expect(visibleSectionTabs(seven, 6, fitAt(231))).toEqual(['Look', 'Chrome']);
+		expect(visibleSectionTabs(seven, 6, { box: 231, pills: [...PILLS, 90], chevron: CHEVRON })).toEqual(['Look', 'Comments']);
+	});
+
+	it('falls back to the narrowest supported shape when it cannot measure, and does NOT pin', () => {
+		// An unmeasured strip must never be WIDER than a measured one — the chevron answers
+		// "where am I" by wearing the active section's name when no pill is selected.
+		expect(visibleSectionTabs(TABS, 5, null)).toEqual(['Look', 'Chrome']);
+	});
+});
+
 describe('SettingsToolbar', () => {
 	it('opens the field and HIDES both view toggles, so the input owns the row', async () => {
 		const user = userEvent.setup();
@@ -158,12 +233,42 @@ describe('SettingsToolbar', () => {
 		expect(screen.getByLabelText('Search deck settings')).toBeTruthy();
 	});
 
+	// ONE trailing ✕, two jobs. There were two side by side — the field's 24px "Clear
+	// search" and a 28px "Close search" 19px away, same glyph, on a 293px phone row — and
+	// the panel's own collapse made three within 100px of the 296px docked desktop panel.
+	it('the trailing ✕ CLEARS while there is text and CLOSES once there is not', async () => {
+		const user = userEvent.setup();
+		render(<Toolbar />);
+		await user.click(screen.getByLabelText('Search deck settings'));
+		// Empty field: the one button is the way out.
+		expect(screen.queryByLabelText('Clear search')).toBeNull();
+		expect(screen.getByLabelText('Close search')).toBeTruthy();
+
+		await user.type(screen.getByLabelText('Search deck settings'), 'theme');
+		// Text in the field: the SAME button now empties it, and there is no second ✕.
+		expect(screen.queryByLabelText('Close search')).toBeNull();
+		expect(screen.getAllByLabelText('Clear search')).toHaveLength(1);
+
+		await user.click(screen.getByLabelText('Clear search'));
+		// Cleared and STILL OPEN, with the CARET STILL IN THE FIELD. That last one is the
+		// whole point of clear-and-stay: without it the click moves focus to the button, the
+		// input blurs, and a phone keyboard drops — and the button under the finger has by
+		// then become "Close search", so a second tap closes instead of clearing.
+		expect((screen.getByLabelText('Search deck settings') as HTMLInputElement).value).toBe('');
+		expect(document.activeElement).toBe(screen.getByLabelText('Search deck settings'));
+		expect(screen.queryByLabelText('Grouped — one section at a time')).toBeNull();
+
+		await user.click(screen.getByLabelText('Close search'));
+		expect(screen.getByLabelText('Grouped — one section at a time')).toBeTruthy();
+	});
+
 	it('brings the toggles back when the search closes', async () => {
 		const user = userEvent.setup();
 		render(<Toolbar />);
 		await user.click(screen.getByLabelText('Search deck settings'));
 		await user.type(screen.getByLabelText('Search deck settings'), 'theme');
-		await user.click(screen.getByLabelText('Close search'));
+		// Escape is the one-key exit from a DIRTY field — the trailing ✕ clears first.
+		await user.keyboard('{Escape}');
 		expect(screen.getByLabelText('Grouped — one section at a time')).toBeTruthy();
 		// …and the query is gone with it, so the panel is whole again.
 		await user.click(screen.getByLabelText('Search deck settings'));
@@ -364,6 +469,41 @@ describe('SettingsSectionTabs', () => {
 		render(<SettingsSectionTabs tabs={SIX} value="look" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
 		expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Look', 'Chrome']);
 		expect(screen.getByRole('button', { name: /all sections/ })).toBeTruthy();
+	});
+
+	// The ZERO-PILL FLOOR, which needs a measurement to reach — and jsdom has no
+	// `ResizeObserver` and reports every width as 0, so without this stub the component can
+	// only ever take the unmeasured fallback and the guard is unreachable. It was: an
+	// independent check found `{visible.length > 0 && …}` had no coverage at any tier, and
+	// deleting it left the whole suite green. An empty `role="tablist"` is a malformed
+	// widget — the same `aria-required-children` family as the chevron-inside-the-tablist
+	// bug this component already had once.
+	it('renders NO tablist when not even one pill fits', () => {
+		const observers: (() => void)[] = [];
+		const RO = globalThis.ResizeObserver;
+		const widths = new Map<string, number>([['Look', 54], ['Chrome', 71], ['General', 72], ['Accent', 65], ['Motion', 66], ['Speech', 67], ['More', 74]]);
+		globalThis.ResizeObserver = class {
+			constructor(cb: () => void) { observers.push(cb); }
+			observe() { observers[observers.length - 1]?.(); }
+			disconnect() {}
+			unobserve() {}
+		} as unknown as typeof ResizeObserver;
+		// A row far too narrow for any pill, and a ghost whose children report real widths.
+		const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(100);
+		const offsetWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+			return widths.get((this.textContent ?? '').trim()) ?? 0;
+		});
+		try {
+			render(<SettingsSectionTabs tabs={SIX} value="speech" onValueChange={() => {}} ariaLabel="Deck settings sections" />);
+			expect(screen.queryAllByRole('tab')).toHaveLength(0);
+			expect(screen.queryByRole('tablist')).toBeNull();
+			// …and the chevron carries the active section's name, so "where am I" survives.
+			expect(screen.getByRole('button', { name: /all sections/ }).textContent).toContain('Speech');
+		} finally {
+			clientWidth.mockRestore();
+			offsetWidth.mockRestore();
+			globalThis.ResizeObserver = RO;
+		}
 	});
 
 	it('the chevron holds EVERY section, not the leftovers', async () => {

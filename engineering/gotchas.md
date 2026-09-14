@@ -106,6 +106,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [`100dvw`/`100vw` includes the scrollbar — a full-width child of a scroll container clips when centered](gotchas/css.md#100dvw100vw-includes-the-scrollbar--a-full-width-child-of-a-scroll-container-clips-when-centered)
 - [A CSS reset declaration silently does nothing — the value doesn't exist](gotchas/css.md#a-css-reset-declaration-silently-does-nothing--the-value-doesnt-exist)
 - [The same declaration, but it dies at COMPUTED-VALUE time — and does NOT fall back](gotchas/css.md#the-same-declaration-but-it-dies-at-computed-value-time--and-does-not-fall-back)
+- [A `visibility: hidden` measuring element makes its scroll container scroll SIDEWAYS](gotchas/css.md#a-visibility-hidden-measuring-element-makes-its-scroll-container-scroll-sideways)
 
 ### [Docs site build and dev server (Astro + GitHub Pages)](gotchas/docs-site.md)
 

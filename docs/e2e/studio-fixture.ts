@@ -84,11 +84,25 @@ export const CHROME = {
 		/** Opens the search field; the field then carries the same accessible name. */
 		searchDeck: 'Search deck settings',
 		searchSlide: 'Search slide settings',
-		/** Closes the field and clears the query (Escape does the same). */
+		/**
+		 * The field's ONE trailing ✕, whose job follows the field's state — so which of
+		 * these two names is present tells you whether the field has text in it.
+		 * `closeSearch` is drawn only when the field is EMPTY; typing swaps it for
+		 * `clearSearch`, which empties the field and leaves it open. Escape closes from
+		 * either state.
+		 *
+		 * They used to be two buttons drawn at once, 19px apart, same glyph, two sizes.
+		 */
 		closeSearch: 'Close search',
+		clearSearch: 'Clear search',
 		/** The two view states — grouped sections, or one continuous list of every section. */
 		grouped: 'Grouped — one section at a time',
 		list: 'List — every section in one scroll',
+		/** The divider between the docked settings panel and the editor. The PANEL width is
+		 *  the lever the section strip measures itself against — the dock barely moves with
+		 *  the viewport (its row is 231px at a 1440 window and 236px at 2560), so a spec that
+		 *  wants a narrower or wider strip drags this. */
+		resizeHandle: 'Resize settings panel',
 		/** The section strip's chevron, which holds the FULL list. Its accessible name is
 		 *  deliberately fixed — the visible label changes to the active section's name when
 		 *  that section is not one of the shortcut pills, and a name that moved with it
@@ -659,8 +673,9 @@ export async function openInspectorTab(page: Page, tab: keyof typeof CHROME.deck
 /**
  * Click a settings section by NAME, via its shortcut pill or the chevron's menu.
  *
- * The strip shows the first two sections as pills and keeps the whole list behind the
- * chevron, so a spec that only knew `role="tab"` could reach two of six. Centralized for
+ * The strip shows as many leading sections as the panel can hold — plus the active one,
+ * always — and keeps the whole list behind the chevron, so a spec that only knew
+ * `role="tab"` could reach as few as none of six. Centralized for
  * the same reason `CHROME` is: the shortcut count is a design decision that will move, and
  * when it does this is the one place that has to know.
  */

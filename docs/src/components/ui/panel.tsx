@@ -726,6 +726,7 @@ export function PanelSearch({
 	placeholder,
 	label,
 	onClear,
+	onClose,
 	className,
 }: {
 	inputRef?: React.Ref<HTMLInputElement>;
@@ -734,15 +735,58 @@ export function PanelSearch({
 	placeholder: string;
 	/** Accessible name — the field has no visible label. */
 	label: string;
-	/** Render a clear affordance when there is something to clear. */
+	/** Empty the field and STAY open. Drawn as the trailing button whenever there is
+	 *  something to clear. */
 	onClear?: () => void;
+	/**
+	 * Leave the field entirely — what the trailing button does once there is nothing left
+	 * to clear.
+	 *
+	 * ONE trailing button, two jobs, because two of them side by side is the same glyph
+	 * twice. A caller that wants both affordances used to draw its own ✕ next to this
+	 * one: the Inspector's find toolbar put a 28px "Close search" 19px from this 24px
+	 * "Clear search" on a 293px phone row (three ✕ within 100px of a 296px docked panel,
+	 * counting the panel's own). The two jobs are real and distinct — clear-and-stay keeps
+	 * the keyboard up, close-and-reset gives the toolbar back — but they are never both
+	 * useful at once: with text in the field the next thing you want is it gone, and with
+	 * the field empty there is nothing to clear. So the button follows the field's state
+	 * and its accessible name says which job it is doing right now.
+	 *
+	 * Escape stays the one-key exit from either state; a caller owns that, since the key
+	 * has to be caught on a row this component does not draw.
+	 */
+	onClose?: () => void;
 	className?: string;
 }) {
+	// CLEARING MUST LEAVE THE CARET IN THE FIELD, and that is the whole reason clear-and-stay
+	// is worth having as a separate job from close. Without it a tap moves focus to the
+	// button, the input blurs, and on a phone the soft keyboard drops — so the affordance
+	// that exists to keep you typing stops you typing. Worse, the button under the finger has
+	// silently become "Close search" by then, so a second tap closes the search instead of
+	// clearing again. Measured before this line existed: focus after a click on Clear was
+	// `BUTTON aria-label="Close search"`.
+	//
+	// Hence a local ref, merged with whatever the caller passed (which may be a callback ref,
+	// so it cannot simply be read).
+	const localRef = React.useRef<HTMLInputElement>(null);
+	const setInput = React.useCallback(
+		(el: HTMLInputElement | null) => {
+			localRef.current = el;
+			if (typeof inputRef === 'function') inputRef(el);
+			else if (inputRef) (inputRef as React.RefObject<HTMLInputElement | null>).current = el;
+		},
+		[inputRef],
+	);
+	const trailing = onClear && value
+		? { run: () => { onClear(); localRef.current?.focus(); }, label: 'Clear search' }
+		: onClose
+			? { run: onClose, label: 'Close search' }
+			: null;
 	return (
 		<div className={cn(PANEL_SEARCH_BOX, className)}>
 			<SearchIcon className="size-4 shrink-0 text-muted-foreground" />
 			<input
-				ref={inputRef}
+				ref={setInput}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				placeholder={placeholder}
@@ -750,8 +794,22 @@ export function PanelSearch({
 				data-focus-ring="container"
 				className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground"
 			/>
-			{onClear && value ? (
-				<button type="button" onClick={onClear} aria-label="Clear search" className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground">
+			{trailing ? (
+				// 28px of TARGET in the space a 24px one used to take. `-my-0.5` pulls the two
+				// extra pixels back so the button's MARGIN box is 24px — exactly what the
+				// previous `size-6` contributed — which is what keeps this height-neutral for
+				// the Library and Add-a-slide fields that also render it.
+				// It does NOT make the field a flat 40px, and an earlier version of this
+				// comment said it did: measured, the box is 39.59px empty and 42px once a
+				// trailing button exists, because 24px was already taller than the 21.59px
+				// input. That 2.4px step on the first keystroke is pre-existing, unchanged
+				// here, and not what this line is for.
+				<button
+					type="button"
+					onClick={trailing.run}
+					aria-label={trailing.label}
+					className="-my-0.5 grid size-7 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground"
+				>
 					<XIcon className="size-4" />
 				</button>
 			) : null}

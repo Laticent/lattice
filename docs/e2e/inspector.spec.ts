@@ -187,15 +187,28 @@ test('a query that matches nothing says so, and the note goes when one matches',
 	await expect(page.getByText(/No setting matches/)).toBeHidden();
 });
 
-test('closing the search restores the tabs and the whole panel', async ({ page }) => {
+test('one trailing ✕ clears, then closes — and the panel comes back whole', async ({ page }) => {
 	await page.getByRole('button', { name: CHROME.settings.searchDeck }).click();
+	// Empty field: exactly one trailing button in the row, and its job is to leave.
+	await expect(page.getByRole('button', { name: CHROME.settings.clearSearch })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: CHROME.settings.closeSearch })).toBeVisible();
+
 	await page.getByRole('textbox', { name: CHROME.settings.searchDeck }).fill('pace');
 	await expect(page.getByRole('tab', { name: CHROME.deckTab.look })).toHaveCount(0);
+	// Text in the field: the SAME button empties it, and no second ✕ appears beside it.
+	// Both counts matter — the defect this replaced was two ✕ drawn 19px apart.
+	await expect(page.getByRole('button', { name: CHROME.settings.closeSearch })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: CHROME.settings.clearSearch })).toHaveCount(1);
 
-	await page.getByRole('button', { name: CHROME.settings.closeSearch }).click();
+	await page.getByRole('button', { name: CHROME.settings.clearSearch }).click();
+	// Cleared, still open: the panel is whole again with the field ready for the next word.
+	await expect(page.getByRole('textbox', { name: CHROME.settings.searchDeck })).toBeVisible();
 	await expect(page.getByRole('tab', { name: CHROME.deckTab.look })).toBeVisible();
 	await expect(page.getByLabel('Choose deck theme')).toBeVisible();
 	await expect(page.getByLabel('Choose pace')).toHaveCount(0);
+
+	await page.getByRole('button', { name: CHROME.settings.closeSearch }).click();
+	await expect(page.getByRole('textbox', { name: CHROME.settings.searchDeck })).toHaveCount(0);
 });
 
 test('the list view drops the tabs and renders every section at once', async ({ page }) => {
@@ -210,5 +223,235 @@ test('the list view drops the tabs and renders every section at once', async ({ 
 		// The choice PERSISTS (localStorage), so put it back: a spec that leaves the
 		// panel in list view would strand every tab-addressing spec sharing the profile.
 		await page.getByRole('button', { name: CHROME.settings.grouped }).click();
+	}
+});
+
+// ── The section strip's MEASURED overflow ────────────────────────────────────────────
+//
+// This tier, not the unit one, because the whole mechanism is a measurement: jsdom reports
+// every width as 0 and has no `ResizeObserver`, so the unit tests can only prove the fitting
+// POLICY (`visibleSectionTabs`, given widths) and the unmeasured fallback. Whether the strip
+// actually reads its own row, and whether it stays on ONE line while doing it, is a question
+// only a real engine answers.
+
+/**
+ * The pills on screen, whether the row wrapped, and whether the PANEL can be scrolled
+ * sideways.
+ *
+ * That last one is not about the pills, and a first cut of this helper could not see it.
+ * It measured `row.querySelectorAll('button')` — so the hidden measuring ghost, whose
+ * children are `<span>`s, was invisible to the very assertion that claimed "zero overflow
+ * at every width". The ghost is `absolute` and `w-max`, a `visibility: hidden` box still
+ * contributes scrollable overflow, and the panel body is `overflow-y-auto` — which makes
+ * the other axis `auto` too. Result: a horizontal scroll region on the settings panel —
+ * 259px as this repo's puppeteer scripts measure it in Chrome 131, 262px in the Chromium
+ * this spec runs in — and one two-finger swipe scrolled every control away and left a
+ * blank column.
+ *
+ * So this asks the SCROLLER, not the buttons: can the panel body scroll sideways at all?
+ */
+async function strip(page: Page) {
+	return page.evaluate(() => {
+		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
+		const row = list?.parentElement;
+		if (!row) return { rowW: 0, pills: [] as string[], lines: 0, overflow: 0, panelScrollX: 0 };
+		const buttons = [...row.querySelectorAll('button')].filter((b) => (b as HTMLElement).offsetParent);
+		let scroller: HTMLElement | null = row;
+		while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+		return {
+			rowW: Math.round(row.getBoundingClientRect().width),
+			pills: [...row.querySelectorAll('[role="tab"]')].map((b) => (b.textContent ?? '').trim()),
+			lines: new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+			// How far the last control sticks out past the row it lives in.
+			overflow: Math.max(0, ...buttons.map((b) => Math.round(b.getBoundingClientRect().right - row.getBoundingClientRect().right))),
+			panelScrollX: scroller ? scroller.scrollWidth - scroller.clientWidth : 0,
+		};
+	});
+}
+
+/**
+ * Drag the settings panel's divider by `dx` and let the strip settle.
+ *
+ * The PANEL width is the real lever, not the viewport: the docked panel is a fixed-width
+ * dock, so its row measured 231px at a 1440 viewport and 236px at 2560. Dragging is also the
+ * interaction the fixed-at-two strip was chosen to survive — "pick the third section, drag
+ * the panel narrow" is the sentence in the decision note.
+ */
+async function dragPanel(page: Page, dx: number) {
+	const handle = page.getByRole('separator', { name: CHROME.settings.resizeHandle });
+	const box = await handle.boundingBox();
+	if (!box) throw new Error('no panel resize handle');
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width / 2 + dx, box.y + box.height / 2, { steps: 8 });
+	await page.mouse.up();
+	// Wait for the SIGNAL, not a guessed interval: the strip has settled when two consecutive
+	// reads of its row agree. Polling "it changed" would be wrong — a drag into the panel's
+	// min or max width legitimately changes nothing, and this has to work for those too.
+	let last = Number.NaN;
+	await expect
+		.poll(async () => {
+			const { rowW } = await strip(page);
+			const settled = rowW === last;
+			last = rowW;
+			return settled;
+		})
+		.toBe(true);
+}
+
+test('the section strip fits itself to the panel, on one line, at every width', async ({ page }) => {
+	const counts: number[] = [];
+	for (const dx of [0, 120, 260, -260]) {
+		if (dx) await dragPanel(page, dx);
+		const { pills, lines, overflow, rowW, panelScrollX } = await strip(page);
+		// ONE LINE, always. The fixed-at-two strip this replaced was chosen because six pills
+		// wrapped to two rows and cost 74px of a panel with none to spare — so a wrap here is
+		// the exact regression, and an overflow is the new way to get it wrong.
+		expect(lines, `row ${rowW}px: strip on ${lines} lines`).toBe(1);
+		expect(overflow, `row ${rowW}px: strip overflows by ${overflow}px`).toBeLessThanOrEqual(0);
+		expect(pills.length, `row ${rowW}px`).toBeGreaterThanOrEqual(2);
+		// And the hidden measuring ghost must not hand the panel a sideways scroll region.
+		expect(panelScrollX, `row ${rowW}px: panel scrolls ${panelScrollX}px sideways`).toBe(0);
+		counts.push(pills.length);
+	}
+	// A WIDER panel actually shows MORE — without this the test passes on a strip frozen at
+	// two, which is the thing being replaced.
+	expect(counts[2], `counts ${counts.join(',')}`).toBeGreaterThan(counts[0]);
+	// …and dragging back returns the narrow shape rather than leaving the row overflowing.
+	expect(counts[3]).toBeLessThan(counts[2]);
+});
+
+test('the active section stays ON SCREEN as a pill, however narrow the panel', async ({ page }) => {
+	// The property a container query cannot express, and the reason the count was frozen at
+	// two: hide the overflow in CSS and picking section six leaves the strip reading
+	// "Look · Chrome · More" with nothing on screen saying where you are.
+	await openSection(page, CHROME.deckTab.speech);
+	const speech = page.getByRole('tab', { name: CHROME.deckTab.speech, exact: true });
+	for (const dx of [200, -200, -80]) {
+		await dragPanel(page, dx);
+		await expect(speech).toBeVisible();
+		await expect(speech).toHaveAttribute('aria-selected', 'true');
+		expect((await strip(page)).lines).toBe(1);
+	}
+});
+
+test('the section strip adds no sideways scroll to the settings panel', async ({ page }) => {
+	// SCOPE, and it is narrower than this test's first name. The arms below run on the
+	// section the panel opens with (Look), and they pin the STRIP's contribution — which is
+	// what this PR owns. They are not a claim that the panel can never scroll sideways in
+	// any state: pick General and it scrolls 15px at 1440 / 28px at 820, because the Language
+	// row's select trigger has a min-content of 258px inside a 231px content box. That is a
+	// different component, a different cause, and byte-identical to `main` — see #2203.
+	// An earlier name for this test asserted the broader thing and was false.
+	//
+	// The defect this DOES pin: the strip's hidden measuring ghost is `absolute` + `w-max`, a
+	// `visibility: hidden` box still contributes scrollable overflow, and the panel body is
+	// `overflow-y-auto` — which makes the OTHER axis `auto` too. The panel gained a
+	// horizontal scroll region (262px in this browser) and one sideways swipe left a blank
+	// column.
+	//
+	// TWO ARMS, because they fail for different reasons: the property (can it scroll at all)
+	// and the gesture (does a real wheel move it). Both must fail when the ghost's clip box
+	// stops clipping.
+	const scroller = async () =>
+		page.evaluate(() => {
+			const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
+			let el: HTMLElement | null = list?.parentElement ?? null;
+			while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement;
+			if (!el) return null;
+			const r = el.getBoundingClientRect();
+			return { x: r.x + r.width / 2, y: r.y + Math.min(120, r.height / 2), scrollLeft: el.scrollLeft, canScroll: el.scrollWidth - el.clientWidth };
+		});
+
+	const before = await scroller();
+	expect(before, 'no settings scroller found').not.toBeNull();
+	expect(before?.canScroll, `the panel can scroll ${before?.canScroll}px sideways`).toBe(0);
+
+	// The GESTURE, and it has been got wrong twice — both times in the direction of a test
+	// that passes against broken code, which is the only direction that matters.
+	//
+	// First: the arm was missing `mouse.move`, so the cursor sat at Playwright's default
+	// (0, 0), outside the panel, and the wheel went nowhere. It was then deleted on the
+	// false conclusion that "Playwright's synthesized wheel cannot reach this nested
+	// scroller". It reaches it fine. Keep the move — and rather than trust it, PROVE
+	// delivery by listening for the event on the scroller itself. (Scrolling the axis that
+	// IS meant to move would be the obvious proof and does not work AT THIS VIEWPORT AND
+	// SECTION: the deck panel's content fits at 1440x900, so its vertical scroll range is 0
+	// and a vertical wheel moves nothing. It is not 0 everywhere — the slide scope's Notes
+	// section gives 180px at the same viewport — so the listener is the portable probe, not
+	// merely the convenient one.)
+	await page.evaluate(() => {
+		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
+		let el: HTMLElement | null = list?.parentElement ?? null;
+		while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement;
+		(window as unknown as { __wheelDx?: number }).__wheelDx = 0;
+		el?.addEventListener('wheel', (e) => {
+			(window as unknown as { __wheelDx: number }).__wheelDx += (e as WheelEvent).deltaX;
+		});
+	});
+	await page.mouse.move(before!.x, before!.y);
+	await page.mouse.wheel(400, 0);
+	await expect
+		.poll(async () => page.evaluate(() => (window as unknown as { __wheelDx?: number }).__wheelDx ?? 0), { message: 'the wheel never reached the panel, so this arm is vacuous' })
+		.toBe(400);
+
+	// Second: `expect.poll(…).toBe(0)` matched its FIRST sample, taken before the compositor
+	// had applied the scroll — so it passed on a panel that then scrolled 259px. Wait for the
+	// value to SETTLE (two consecutive reads agreeing), then assert on what it settled at.
+	let settledLeft = Number.NaN;
+	await expect
+		.poll(async () => {
+			const now = (await scroller())?.scrollLeft ?? -1;
+			const same = now === settledLeft;
+			settledLeft = now;
+			return same;
+		})
+		.toBe(true);
+	expect(settledLeft, 'a sideways wheel scrolled the settings panel').toBe(0);
+});
+
+test('the clip is on the measuring ghost, never on the strip row', async ({ page }) => {
+	// A structural pin, and it says so: what it protects is a PAINTED focus ring, which
+	// Playwright cannot assert without a pixel baseline. This suite does keep Studio
+	// baselines (`visual.spec.ts-snapshots/studio-*.png`), but none of them opens the
+	// Inspector, so none can see this ring.
+	//
+	// The invariant: the row must NOT clip. Its first pill sits flush against the row's
+	// content edge and the focus ring paints 4px outside the pill, so any clip on the row
+	// shears it. `overflow-clip-margin` is not a way out — it applies only when both axes
+	// clip, and WebKit does not implement it at all, so on Safari the ring is sheared
+	// however the row is written. The clip belongs on the zero-size box around the ghost,
+	// which paints nothing and holds nothing focusable.
+	//
+	// The scroll test above passes with the clip on the row, so nothing else here can catch
+	// a revert to it.
+	const geom = await page.evaluate(() => {
+		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
+		const row = list?.parentElement;
+		if (!row) return null;
+		const rs = getComputedStyle(row);
+		// The ghost is the only `visibility: hidden` descendant; find it, then look at the box
+		// that is supposed to be clipping it.
+		const ghost = [...row.querySelectorAll<HTMLElement>('div')].find((d) => getComputedStyle(d).visibility === 'hidden');
+		const clipBox = ghost?.parentElement;
+		const cs = clipBox ? getComputedStyle(clipBox) : null;
+		return {
+			row: { x: rs.overflowX, y: rs.overflowY },
+			clipBox: cs && { x: cs.overflowX, y: cs.overflowY, w: clipBox?.offsetWidth, h: clipBox?.offsetHeight },
+			ghostWidth: ghost?.offsetWidth ?? 0,
+		};
+	});
+	expect(geom, 'no section strip row found').toBeTruthy();
+	expect(geom?.row, 'a clip on the ROW shears the first pill\'s focus ring').toMatchObject({ x: 'visible', y: 'visible' });
+	expect(geom?.clipBox, 'the ghost must sit in a zero-size clipping box').toMatchObject({ x: 'clip', y: 'clip', w: 0, h: 0 });
+	// And the zero-size parent must not have squeezed the thing being measured.
+	expect(geom?.ghostWidth ?? 0, 'the ghost lost its intrinsic width, so the fit is measuring nothing').toBeGreaterThan(300);
+});
+
+test('the chevron still holds the WHOLE list, not the leftovers', async ({ page }) => {
+	await page.setViewportSize({ width: 1800, height: 900 });
+	await page.getByRole('button', { name: CHROME.settings.allSections }).click();
+	for (const name of Object.values(CHROME.deckTab)) {
+		await expect(page.getByRole('menuitem', { name, exact: true })).toBeVisible();
 	}
 });

@@ -90,7 +90,7 @@ const B = 0.75;
  *  inputs we must keep accepting, so a US-English pass must not touch them — a
  *  sweep that rewrote `organisation` here made the key unreachable AND scored the
  *  stemmed term twice, at 1.85x every other query word. */
-const americanize = (w: string) =>
+export const americanize = (w: string) =>
 	w.replace(/isation$/, 'ization').replace(/ising$/, 'izing').replace(/ise$/, 'ize').replace(/our$/, 'or');
 
 /** Text → the content words a match can turn on, un-stemmed.
@@ -161,8 +161,12 @@ export function buildIntentIndex(items: CatalogItem[]): IntentIndex {
 }
 
 /** Levenshtein distance ≤ max, with a row-minimum early exit so a long vocabulary
- *  scan stays cheap. Returns false as soon as no completion can come in under max. */
-function withinDistance(a: string, b: string, max: number): boolean {
+ *  scan stays cheap. Returns false as soon as no completion can come in under max.
+ *
+ *  Exported for `settings-search.ts`, which repairs a typo against the words of ONE
+ *  settings row rather than against a global vocabulary — a different policy over the
+ *  same distance, and there is no reason for two copies of Levenshtein in the bundle. */
+export function withinDistance(a: string, b: string, max: number): boolean {
 	if (Math.abs(a.length - b.length) > max) return false;
 	let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
 	for (let i = 1; i <= a.length; i++) {

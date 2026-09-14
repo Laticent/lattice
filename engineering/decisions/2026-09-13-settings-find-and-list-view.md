@@ -329,3 +329,619 @@ now.
 **The before/after figures are re-derived, not asserted.** Checking the pre-compaction files
 out over the running dev server and re-measuring: phone **414px**, docked desktop **352px**
 (§8 first said 351 — a rounding slip). After: **297px** and **231px**.
+
+---
+
+## 9. Round two — three ✕ in one row
+
+§8 gave the find toolbar the banner's row. What it did not notice is that the row already
+had a ✕ on it, and `PanelSearch` draws one of its own.
+
+Measured on a real 390x844 phone, deck scope, query "page":
+
+| Control | x | Size | Job |
+|---|---|---|---|
+| `Clear search` | 305 | 24x24 | Empty the field, stay open |
+| `Close search` | 348 | 28x28 | Empty the field, close it, restore the toggles |
+
+Two sizes of the same glyph, 19px apart, on a 293px row. The **docked desktop panel was
+worse**: at 1440 the same query drew `Clear search` at 196, `Close search` at 239 and the
+panel's own `Collapse settings` at 273 — three identical marks inside 100px of a 296px
+panel.
+
+**This was a composition bug, not a stray button.** Both jobs are real, and the phone is
+where the difference bites: clear-and-stay keeps the keyboard up for the next word, and
+closing dismisses it. What is not real is needing both **drawn at once** — with text in the
+field the next thing you want is it gone, and with the field empty there is nothing to
+clear. So the fix went into the shared field rather than beside it: `PanelSearch` takes an
+`onClose` alongside `onClear` and draws ONE trailing button whose job, and whose accessible
+name, follow the field's state. Escape is unchanged and still leaves from either state.
+
+The panel's own collapse is now `PanelLeftClose` — the idiom the preview pane two panes over
+already uses for the same act. It is a different job from dismissing a search, and it should
+not have looked like one.
+
+**One more thing this exposed.** With the field open at 390px, the banner sentence rendered
+as `Set it …` in the 60px it had left. That is §8.1's defect — a row whose words are a stub —
+arriving through a different door: the field, not a container query. The sentence now steps
+aside entirely while the field is open. Nothing moved behind `sr-only`, which is the trap
+§8.1 fell into: the scope stays DRAWN by the activity rail's own Slide / Deck labels on
+desktop and by the Slide/Deck segment above the row on mobile. (An earlier draft of this
+paragraph credited the field's own placeholder, which disappears at the first keystroke —
+§12.)
+
+---
+
+## 10. Round two — recall, without importing a ranker
+
+`settingsMatch` was a boolean substring test: every whitespace term had to appear literally.
+The component picker next door has a genuinely good search kernel we were not using
+(`lib/component-search.ts` + `lib/intent-search.ts`, imported by four surfaces already), and
+HARD RULE #15 says reuse rather than reinvent.
+
+**The fork, and it matters: we took the recall and refused the ranking.** The picker RANKS —
+it answers "which of 69 components did you mean" with an ordered list, and a wrong guess
+costs a scroll. A settings filter has no order to be wrong about: a row is drawn or it is
+not, so a ranker's tail is not a worse answer further down, it is six unrelated rows sitting
+beside the right one with nothing saying which is which. Precision-first is CORRECT here, and
+the substring rule stays exactly as it was — first test, and the reason `pag` still finds
+Page numbers on the third keystroke.
+
+What a boolean substring test has no answer for is recall, so three arms were added, all
+OR'd, none of which can hide a row the old rule showed:
+
+| Arm | Fixes |
+|---|---|
+| **Morphology** (Porter2, the picker's stemmer) | "numbers" → "Hide page number", "captions" → Caption, "aligned" → Headline alignment. Substring already covered a query SHORTER than the label; never this direction. |
+| **Vocabulary** (a 19-entry table) | "font" → Type scale, "pagination" → the slide's page-number row, "margin" → Claim, "a11y" → the screen-reader description. |
+| **Typo** (anchored, one edit, plus transposition) | "numbre" and "nubmer" → Page numbers, "capiton" → Caption, "algnment" → Headline alignment. |
+
+The kernel is `docs/src/lib/settings-search.ts` — pure and DOM-free, the shape
+`component-search.ts` takes. `settings-view.tsx` re-exports `settingsMatch` from it.
+
+### What was NOT borrowed, and why each would have been a regression
+
+**`contentWords`, intent-search's tokenizer.** Three reasons, all of them checked by CALLING
+it — a first draft of this section gave a fourth that is simply false, and the independent
+check caught it. It claimed the stop list eats the only word telling *Says something* from
+*Says nothing*. It does not: `contentWords('Says nothing')` returns `["says","nothing"]`, and
+none of `says` / `something` / `nothing` is in `STOP`. What is true:
+
+- it **does** drop `no` and `all`, among 109 others (`STOP` holds 111 words in all) — `'No comments on this slide yet'`
+  tokenizes to `["comments","yet"]` and `'All 7 slides follow'` to `["slides","follow"]`. A
+  settings filter has to keep those; they are what an author types;
+- it does not fold diacritics, and it is worse than not folding: the `[a-z0-9]` class DROPS
+  accented letters, so `'Résumé finish'` becomes `["sum","finish"]`. `settingsMatch` has
+  folded NFD since it shipped;
+- `tools/intent-bakeoff/fit-search.ts` imports it, so every weight in that bake-off was tuned
+  against its exact output; widening it to suit this module would invalidate those numbers
+  silently.
+
+So this module has its own tokenizer, and the pieces it shares are the ones with no policy in
+them — `stem`, `americanize` and `withinDistance`, the last two newly exported from
+`intent-search.ts` and otherwise untouched.
+
+**A global vocabulary for the typo repair.** intent-search only repairs a term that matched
+NOTHING in its index — that is what stops "mark" becoming "dark". A control here decides
+alone, with no registry of what the other sixty rows say; that registry is the second render
+pass §3's `:has()` rules exist to avoid, and a best-effort one filled as rows render would
+make a row's visibility depend on what was drawn before it. The repair is **anchored on the
+first two characters** instead: a real typo is almost never in the first two keystrokes.
+"mark"→"dark", "tint"→"hint" and "accent"→"ascent" are all refused by the anchor alone.
+
+### Three things the measurement changed
+
+Every number below is from the LIVE panel — 63 rows read off the running Studio, both
+scopes — compared against the substring-only rule, over a 295-word vocabulary built from the
+corpus's own words plus the synonym keys.
+
+- **One edit, not the picker's two-at-seven-characters.** At two edits, "comment" reached the
+  row about frame CONTENT and "connect" reached both: two edits on a seven-letter word is
+  most of the word, and an anchor cannot save a pair that genuinely shares a prefix. Dropping
+  to one edit put 7 queries back to their exact pre-change result sets and cost none of the
+  typos above.
+- **A transposition arm, because Levenshtein scores a swap as two edits.** The single
+  commonest way a fast typist misses is therefore the one a one-edit budget refuses:
+  "numbre" returned nothing. Trying each adjacent swap and then requiring an exact hit buys
+  that class without buying a second free edit — and leaves `withinDistance` in
+  `intent-search.ts` untouched, which the bake-off depends on.
+- **`americanize` on BOTH sides of the stemmer.** Its rules are anchored to the end of the
+  word, so `colour` folds and `colours` does not — the `s` is in the way. Stemming first and
+  folding after lands the plural on the same stem as the singular. Before that, "colours"
+  only reached the Theme row through the typo repair, one deletion from "colors", which is a
+  rescue that evaporates the moment the row's wording moves. Folding BEFORE the stemmer still
+  earns its place: `organisation` has to become `organization` before Porter2 sees it.
+
+**Net precision.** 248 of 295 vocabulary words return exactly what they returned before; 47
+widen, by a median of 2 rows out of 63; **nothing narrows** — the arms are strictly additive
+by construction. The widest is "hidden" at 0 → 7, which is the synonym doing its job. The
+worst false positive inside the sweep is "alone" → 8, because Porter2 stems *alone* and
+*along* alike; that is a stemmer property, not a policy of ours, and "alone" is not a settings
+query.
+
+**And the sweep has a blind spot worth naming, because the independent check walked into
+it.** A vocabulary built FROM the corpus cannot contain a word that is not in the corpus —
+which is exactly where a false positive lives. The one found that way: `americanize`'s
+`/our$/ → or` rule turned **"four" into "for"**, and "for" appears in half the panel's
+descriptions, so `four` matched the slide's Canvas row. The fold is now skipped for words
+under five characters (`four`, `hour`, `tour`, `pour`, `sour` are the whole collision class,
+and nothing the fold exists for is shorter than `colour`). `americanize` itself is
+intent-search's and stays untouched — the picker's bake-off is tuned against it.
+
+**`MAX_TERMS` is not answer-neutral either**, and this section's first version said it was.
+Terms are ANDed, so ignoring the tail past the cap can only ever show MORE: a 13-term query
+whose first twelve all match now returns the row. The direction is the safe one — it can
+widen, never hide — but the claim was wrong, and the test that "pinned" the non-effect passed
+only because all forty of its junk terms fell inside the cap.
+
+**`find=` props stay.** They carry the synonym ONE row needs; the shared table carries what
+is not worth writing on twenty. The slide panel had zero `find=` props, which is why every
+query above lands hardest there.
+
+### A pre-existing keyword bug, found by the same measurement
+
+Searching **"color"** on the deck panel returned ELEVEN rows — the whole Accent section —
+because its `keywords` listed `color`, a word its own Brand bar row already carries. That is
+precisely the contract §4 was written after, in the same shape ("page" returning all of
+Chrome). It predates this change and sits on its path, so it is fixed here rather than filed
+(HARD RULE #18): the keyword is gone and "color" now returns the two rows that are about
+color. "white label" and "accent" still open the section whole.
+
+---
+
+## 11. Round two — as many pills as fit, measured
+
+§8 froze the strip at two shortcuts and gave a reason that still stands *for the route it
+was rejecting*: hiding the overflow with a **container query** puts the ACTIVE section behind
+a CSS rule JS cannot see. Pick section six, drag the panel narrow, and the strip reads
+`Look · Chrome · More` with nothing on screen saying where you are.
+
+**That argument kills the CSS route, not the feature.** A JS measure knows both things at
+once — what fits, AND which pill must survive — and only one of them is expressible in CSS.
+
+So `SettingsSectionTabs` renders a hidden copy of the whole strip (`aria-hidden`, `inert`,
+`visibility: hidden`, `w-max`, absolutely positioned so it is laid out but costs the row
+nothing), and a `ResizeObserver` measures the row against it. The fitting policy is a pure
+exported function, `visibleSectionTabs(tabs, activeIndex, fit)`:
+
+- the longest LEADING run of pills that fits beside the chevron;
+- **plus the active pill, always**, appended after that run when it is not in it;
+- with the active pill's width **reserved before the run is chosen**, not squeezed in after —
+  pinning afterwards is how a pinned strip overflows, since the pill you pin is rarely the
+  width of the one you dropped;
+- and when the measurement is unavailable, the shape §8 shipped: two, with no pin. An
+  unmeasured strip must never be wider than a measured one.
+
+The observer watches BOTH the row and the ghost. The ghost is the interesting one: it is the
+only thing whose width changes when a label changes or when the web font lands after first
+paint, and neither of those touches the row. That is also why there is no dependency key to
+keep in sync.
+
+### What it actually draws
+
+Measured on the running Studio, deck scope, with **Speech** — the last of six — active, in
+**Chrome 131 / WebKit 26**:
+
+| Surface | Strip row | Pills drawn |
+|---|---|---|
+| Phone, 390x844 | 362px | `Look · Chrome · General · Speech · More` |
+| Tablet drawer, 820x1180 | 218px | `Look · Speech · More` |
+| Docked desktop, 1440x900 | 231px | `Look · Speech · More` |
+| Docked desktop, 2560 | 236px | `Look · Speech · More` |
+
+**The phone row turns on one pixel, and Chromium 141 falls the other way.** That build
+measures `Chrome` at 72px where the two above measure 71, so `n = 3` costs
+`74 + 6+54 + 6+72 + 6+72 + 6+67 = 363` against a 362px row and `General` drops: the phone
+draws `Look · Chrome · Speech · More`. Same policy, same widths to within a pixel, one pill
+of difference — which is the argument for scoping every number in this note to the engine
+that produced it (§16).
+
+The phone gains a pill it never had — two in Chrome 131 and WebKit, one in Chromium 141, and
+two in every engine when the opening section is active rather than the last. The docked panel keeps two — and the difference is
+that one of them is now the section you are in. Dragging the divider live, the count walks
+2 → 3 → 4 and back, on one line the whole way, with `Speech` never leaving the screen.
+
+Note what the last two rows say about the lever: the dock is a fixed-width panel, so the
+VIEWPORT barely moves the strip (231px at 1440, 236px at 2560). The panel DRAG is what moves
+it, which is why the e2e drags rather than resizes.
+
+### Carried over, deliberately unchanged
+
+- the chevron holds the **whole** list, not the leftovers, and is drawn at every width, so
+  the strip does not sprout a new control under a drag;
+- its **accessible** name is fixed (`… — all sections`), because a name that moved with the
+  active section would move under every locator addressing it;
+- the roving-tabindex / arrow-key tablist implementation borrowed from `PillTabs`, and the
+  chevron OUTSIDE the tablist — an independent check caught that `aria-required-children`
+  violation once already, and it is not being re-introduced;
+- `openSection` in the e2e fixture still takes whichever route exists, so no spec cares how
+  many pills there are.
+
+### Where each half is tested, and why
+
+jsdom reports every width as 0 and has no `ResizeObserver`, so it can prove the POLICY and
+nothing about the measurement. The split is therefore:
+
+- **unit** — `visibleSectionTabs` against real measured pill widths: it grows with the row,
+  never exceeds it, always contains the active pill, reserves rather than squeezes, and
+  falls back to two-without-a-pin when it cannot measure.
+- **e2e** — the real strip under a real drag: one visual line and zero overflow at every
+  width, more pills when wider and fewer when narrower, and the active pill still `visible`
+  and `aria-selected` after each drag. Both go red against a strip frozen at two, which is
+  the only thing that proves they are testing the mechanism rather than describing it.
+
+**One thing the mutation run corrected in this note's own reasoning.** A first draft of the
+fit loop's comment said the cost is "not monotone in `n`, so scan them all". It is monotone:
+passing the active index drops its reservation and picks the same pill up inside the run, so
+`total(activeIndex)` and `total(activeIndex + 1)` are equal and everything either side
+climbs. The tell was a mutation that added `else break` and stayed green. The scan is still
+exhaustive — six or seven runs — but the comment now says why that is a choice rather than a
+requirement.
+
+### The shared search field, and one helper de-duplicated
+
+`useIsomorphicLayoutEffect` (`useLayoutEffect` on the client, `useEffect` under Astro's
+server render) was private to `use-resizable-split.ts`. The measure has to be a LAYOUT effect
+— a strip that paints wide and snaps narrow is both a visible jump and a locator Playwright
+can catch one tick before it vanishes — so rather than write a second copy it moved to
+`ui/use-isomorphic-layout-effect.ts` and both import it.
+
+---
+
+## 12. What the independent check found — one regression, and six sentences that were not true
+
+Maker-checker over §9–§11's diff. It confirmed ten findings. Two changed the code, one is
+recorded as a limitation, and the rest were prose — which is the part worth writing down.
+
+### The regression: the measuring ghost made the panel scroll sideways
+
+**The strip's hidden measuring copy handed the whole settings panel a 259px horizontal scroll
+region.** The ghost is `absolute` and `w-max`, so it is 500–600px wide inside a 231px row —
+and a `visibility: hidden` box still contributes SCROLLABLE OVERFLOW. The panel body is
+`overflow-y-auto`, and CSS Overflow 3 computes the *other* axis to `auto` when one axis is not
+`visible`. So one two-finger swipe over the panel scrolled every control off-screen and left a
+blank tan column.
+
+| Surface | Panel `scrollWidth` − `clientWidth`, before |
+|---|---|
+| Deck, 1440 docked | +259 |
+| Slide, 1440 docked | +336 |
+| Deck sheet, 390 phone | +128 |
+
+The first fix was `overflow-x-clip` on the strip row. **Clipping the row turned out to be
+the wrong box entirely, and it took two more checks to establish that** — §13. What ships is
+a zero-size `overflow: clip` wrapper around the ghost alone. After: the panel body's
+`scrollWidth` equals its `clientWidth` at 390 / 820 / 1440 in both scopes, and a 400px
+sideways wheel over the panel moves it 0px.
+
+**And the first cut of that fix broke something else.** A bare `clip` has an
+`overflow-clip-margin` of 0, the first pill sits flush against the row's content edge
+(measured gap: 0px), and the app focus ring is `outline: 2px` at `outline-offset: 2px` — so
+it paints 4px OUTSIDE the box and was sheared off. A keyboard and low-vision regression
+inside the fix for a scroll regression. `[overflow-clip-margin:6px]` looked like the answer
+and was not, twice over — §13.
+
+*One correction to the check that found this.* It reported the scroll region as
++273/+342/+130, measured on a different box from the one a swipe actually moves — the first
+of those is the ROW's own `scrollWidth − clientWidth` (504 − 231 at the docked deck panel).
+The PANEL BODY, which is the box that scrolls, gains +259 deck and +336 slide at 1440,
++272/+349 in the 820 drawer, and +128/+205 on a 390 phone.
+
+**Both gates that should have caught it were structurally blind.** §11's own e2e measured
+`row.querySelectorAll('button')`, and the ghost's children are `<span>`s — so the assertion
+claiming "zero overflow at every width" could not see the thing that overflowed.
+`npm run check:overflow` passed too; it measures the page and the header, not this scroller.
+The e2e now asks the SCROLLER instead of the buttons, and a second test drives a real
+sideways wheel. Both fail on the un-clipped row.
+
+**The wheel arm has its own lesson, and it is the sharpest one here.** A first version of it
+passed against the broken code, and it was deleted with a comment blaming Playwright:
+"the synthesized wheel does not reach this nested scroller". That is false. The second
+independent check dispatched the same wheel and moved the panel 262px. The arm was missing
+`page.mouse.move` — the cursor sat at Playwright's default (0, 0), outside the panel, so the
+wheel went nowhere. A working test was thrown away, and a wrong root cause was written into
+a durable comment, *in the commit whose whole subject was correcting false claims*. The arm
+is back, with the move, and it fails on the old code.
+
+### The other code change, and one recorded limitation
+
+- **A stale `fit` priced an unmeasured pill at zero.** `fit.pills[i] ?? 0` — and the slide
+  panel's section list is per-slide (`Marks` appears only when the slide has any), so clicking
+  between slides changes the tab count live. A 7th tab against a 6-tab fit laid out 320px of
+  pills in a 231px row. A fit whose pill count disagrees with the tab count is now treated as
+  no measurement at all.
+- **`four` matched the Canvas row**, via `americanize`'s `/our$/` rule. Fixed with a
+  five-character floor on the fold; see §10.
+
+### Six sentences that were not true
+
+Each of these was written as a measured claim and was wrong. None was a defect on its own;
+together they are the reason to distrust the rest, which is the wrong property for a change
+whose whole argument lives in its comments.
+
+| Claimed | Actually |
+|---|---|
+| `contentWords`' stop list eats *Says something* / *Says nothing* | It returns `["says","nothing"]`; none of those three words is in `STOP` (§10 now gives the reasons that do hold) |
+| Clearing the field leaves the caret in it, so a phone keyboard stays up | Focus moved to the BUTTON, which had by then become "Close search". **Fixed in the code**, not the comment: `PanelSearch` refocuses its input on clear |
+| Deleting `MAX_TERMS` changes no answer | A 13-term query whose first twelve match returns the row with the cap and not without it |
+| The unit fixture's pill widths were "taken off the REAL strip" | Every number was wrong, `General` by 10px, the chevron in the wrong direction. Re-measured after `document.fonts.ready` |
+| `-my-0.5` keeps the field at 40px | The box is 39.59px empty and 42px with a trailing button. The line is height-NEUTRAL versus the old `size-6` (both contribute a 24px margin box), which is what it is actually for |
+| The synonym table "has no two keys that stem alike" | `narrate` and `narration` both stem to `narrat`. Harmless — same expansion — but by coincidence, not design |
+
+Two smaller ones went with them: `role="tablist"` could render with no `role="tab"` child at
+the zero-pill floor (unreachable at any supported width, fixed anyway), and the banner's
+"the scope stays drawn" note credited the field's placeholder, which disappears at the first
+keystroke — what actually carries it is the activity rail's own Slide / Deck labels.
+
+**The lesson is narrow and worth keeping: a claim about behavior is worth exactly what it cost
+to check.** The claims that survived — the fit arithmetic, monotonicity, no observer loop, the
+caches, "nothing narrows", the keyword fix, `use-resizable-split` being behaviorally identical
+— were the ones derived from running something. The six above were derived from reading the
+code and sounding right.
+
+---
+
+## 13. What the THIRD check found — the fix for the fix did nothing
+
+§12 closed with a lesson about claims that cost nothing to check. A third independent pass
+over the same diff found the very next one.
+
+### `overflow-clip-margin` needs BOTH axes, and the shipped row clipped one
+
+The row went out as `overflow-x-clip [overflow-clip-margin:6px]`, with a comment explaining
+that leaving `overflow-y: visible` was the conservative half of the fix. **Chromium applies
+`overflow-clip-margin` only to an element that clips on both axes**, so the declaration did
+nothing at all: the row rendered identically with `0px` and with `6px`, and the focus ring on
+the first pill stayed sheared — the regression §12 said it had closed.
+
+Measured on the running Studio, against the same clip topology at a wider margin, on the
+focused first pill (`:focus-visible`, real keyboard focus, noise floor 0):
+
+| Row's overflow | Pixels of paint cut, 390 | 1440 |
+|---|---|---|
+| `clip` / `visible`, margin 6px — **as shipped** | 149 | 149 |
+| `clip` / `visible`, margin 0px | 149 | 149 |
+| `clip` / `clip`, margin 0px | 552 | 486 |
+| `clip` / `clip`, margin 4px | 2 | 2 |
+| `clip` / `clip`, margin 6px | 0 | 0 |
+
+The first two rows being equal is the finding: the margin was inert. **The conclusion drawn
+from this table — "so clip both axes" — was itself wrong, and §14 is why.** The table stands;
+what it cannot see is a second engine.
+
+**And the margin has a ceiling, which nothing had measured.** A clip margin is part of the
+ancestor's scrollable overflow, so raising it "for safety" brings the scroll region back:
+in the deck scope `16px` returns +2px, `24px` +10px, `48px` +34px. The slide scope's row is
+4px narrower and holds out one step longer (`16px` → 0, `24px` → +8, `48px` → +32) — the
+three numbers are one scope's, and an earlier draft of this section presented them as the
+panel's. (That draft also said "13px narrower". Measured, the deck/slide gap is 4px at every
+width in both engines; 13 is the deck row at 1440 minus the deck row at 820 — the width axis
+mistaken for the scope axis.)
+
+### Two more of my corrections were wrong
+
+- **§12 "corrected" the second check by saying the ring was never sheared at 390.** It was.
+  That correction reasoned from a pixel diff against the *un-clipped* state, which at 390 also
+  carries a 128px scroll region — the layout shift swamped the ring. Comparing states that
+  share a clip topology, 390 shears exactly as 1440 does. The original check was right and I
+  overruled it with a worse measurement.
+- **"This needs a narrower container than the UI offers today"**, on the zero-pill floor, was
+  reasoned from the 260px dock minimum and never looked at the tablet drawer. The 820px
+  drawer gives the slide panel a **214px** row; pick `Comments` there and the strip really is
+  the chevron alone, wearing "Comments" — measured, not derived. *(And the correction was
+  itself too narrow: in Chromium the floor is reached at the DEFAULT DESKTOP. §15.)*
+
+---
+
+## 14. What the FOURTH check found — the fix worked in one engine
+
+Three rounds had all been measured in Chromium, because that is the browser this sandbox
+renders with and the only one the e2e suite drives. The fourth check installed WebKit and
+asked the question none of the first three had.
+
+### WebKit does not implement `overflow-clip-margin` at all
+
+`CSS.supports('overflow-clip-margin', '6px')` is **`false`** in WebKit 26. So on Safari and
+iOS, a row written `overflow: clip` with a `6px` margin is simply a bare clip, and the first
+pill's focus ring is sliced flat — the exact round-two regression, shipped to every Apple
+user. Measured on the same page, same control (the ghost taken out of flow, the row
+un-clipped), same focused pill:
+
+| Engine | `clip` + `clip-margin: 6px` on the row |
+|---|---|
+| Chromium 141 | 0px of paint cut |
+| WebKit 26 | **374px of paint cut** |
+
+This is a regression the PR *created*: `main`'s row is `flex flex-wrap gap-1.5`
+(`pill-tabs.tsx`, no `className` from the call site), with no ghost and no clip, so HARD
+RULE #18 applies with no exit — the surface worked before the change and did not after.
+
+**The new e2e pin could not have caught it, and the reason is worth keeping.** The pin
+asserted `overflowClipMargin === '6px'`; in WebKit that property reads `undefined`, so the arm
+would have *failed* there — but the spec is untagged and runs on the Chromium `desktop`
+project only. The one browser where the UI was broken is the one the test never visits.
+
+### The fix: clip the ghost, not the row
+
+The mistake was three rounds deep, not one: **the clip was on the wrong box the whole time.**
+The row is full of focusable, painted children sitting flush against its edge; the ghost is a
+hidden measuring copy that paints nothing. Put the clip on a zero-size box around the ghost
+alone and there is nothing left to shear, so no clip margin is needed and no engine's support
+for one matters.
+
+```
+<div class="absolute left-0 top-0 size-0 overflow-clip">   ← paints nothing, clips everything
+  <div class="w-max" style="visibility:hidden"> … </div>   ← keeps its intrinsic width
+```
+
+`w-max` survives the zero-width parent because intrinsic sizing ignores the parent's width,
+and the intrinsic widths are the only thing the fit reads. Five candidates were measured
+across both engines before this one was taken:
+
+| Candidate | Ring cut, Chromium | WebKit | Panel scroll | Row height |
+|---|---|---|---|---|
+| `clip` + `clip-margin: 6px` on the row (shipped) | 0 | **374** | 0 | +0 |
+| clip + `padding: 6px` + `margin: -6px` on the row | 118 | 40 | 0 | **+12** |
+| clip + `padding: 6px`, uncompensated | 3798 | 3632 | 0 | **+12** |
+| no clip, ghost `position: fixed` | 0 | 0 | 0 | +0 |
+| **no clip, ghost in a `size-0` clip box** | **0** | **0** | **0** | **+0** |
+
+The last two both work — though the `position: fixed` row's Chromium `0` is an identity, not
+an independent measurement: the control that table diffs against is itself "ghost `fixed`,
+row un-clipped". Its other three columns are real, and a later round re-derived the three
+non-trivial rows exactly. `position: fixed` was rejected for a failure mode it would have
+taken another round to find: a `transform`, `filter` or `contain` on any ancestor makes a fixed
+descendant resolve against *that* ancestor instead of the viewport, and the mobile settings
+sheet animates in on a transform — so the overflow would come back for the length of the
+animation. No ancestor captures it today (checked at 390 / 820 / 1440 in both scopes, both
+engines), which is exactly the kind of "true right now" the last three rounds kept punishing.
+The `size-0` wrapper depends on nothing but intrinsic sizing.
+
+Verified after the change, both engines, 390 / 820 / 1440 × deck and slide: focus ring
+pixel-identical to no clip at all, panel and document `scrollWidth == clientWidth` **on the
+section the panel opens with**, row height unchanged, ghost widths intact. The unqualified
+form of that sentence was false — §15.
+
+### Five more claims that were not true
+
+| Claimed | Actually |
+|---|---|
+| "restores the ring" (§13, the component comment, the card) | In Chromium. WebKit has no `overflow-clip-margin`, so the ring stayed sheared on Safari and iOS |
+| The gotcha's advice to prove wheel delivery "by scrolling the axis that IS supposed to move" | It does not work at the viewport and section the spec runs (deck / Look / 1440x900, range 0), which is why the shipped arm uses a `wheel` listener. The claim as written — "0 at every width and scope" — is false: slide / Notes gives 180px at the same viewport (§15) |
+| "this suite keeps no pixel baseline for the Studio" | It keeps three (`visual.spec.ts-snapshots/studio-{desktop,tablet,mobile}-linux.png`). None opens the Inspector, so the substance holds; the sentence did not |
+| Two `**Fixed:**` changelog bullets, for the sideways scroll and the sheared ring | Neither ever shipped — both were created inside this PR. Removed: HARD RULE #10 records user-visible changes, and a release note claiming to fix a bug no release had is noise |
+| "504px wide inside a 231px row" | One scope, one engine. Deck 504 (WebKit) / 507 (Chromium); slide 579 / 585. Rows run 214–362 |
+
+**Four rounds, four findings, and each one was a claim measured on too narrow a surface** —
+one axis, one state, one scope, one engine. The pattern is not carelessness about measuring;
+every wrong claim here had a measurement behind it. It is that the measurement's *scope* was
+assumed rather than chosen, and the assumption never appeared in the sentence the claim was
+written as.
+
+
+---
+
+## 15. What the FIFTH check found — the code held, three claims about it did not
+
+The first clean-ish round. `1dbd890`'s change was re-derived independently and stood up: the
+focus ring's diff box lands at exactly `[-4, -4, +4, +4]` from the pill in all twelve
+engine × width × scope combinations, §14's candidate table reproduces to the pixel on its
+three non-trivial rows, the ResizeObserver still re-fits through the new offsetParent chain,
+`Accessibility.getFullAXTree` finds zero ghost-only labels among 644 nodes, and each of four
+mutations fails exactly the arm it should. What did not stand up were three sentences.
+
+### The panel CAN scroll sideways — pick General
+
+**"The settings panel cannot be scrolled sideways at all" was the name of a test and the
+substance of four sentences, and it is false.** With the General section selected the panel
+body has a horizontal scroll region, and a real wheel moves it:
+
+| Viewport | Engine | `scrollWidth − clientWidth` |
+|---|---|---|
+| 1440x900 | Chromium 141 | 15 |
+| 1440x900 | WebKit 26 | 13 |
+| 820x1180 | Chromium 141 | 28 |
+| 820x1180 | WebKit 26 | 26 |
+
+Every other section reads 0, which is why nothing caught it: the panel opens on **Look**, and
+so does the e2e's `beforeEach`.
+
+**It is not the strip.** Attributed by elimination: with the ghost's clip box set
+`display: none` the panel still reads 15; with that box set `overflow: visible` it reads 262.
+The 15px is the **Language row's select trigger** — it renders 260px wide in Chromium 141 and
+258px in WebKit 26, inside a 231px content box, and the row's `min-w-0` cannot pull it below
+that because the trigger's own `min-width` computes to `auto`. (Neither figure is its
+`min-content`, which a `width: min-content` probe puts at 266 / 288.) `SETTING_CONTROL_COL`, `LanguageSelect.tsx`, the panel-body classes and `SET_MIN` are
+byte-identical to `main`.
+
+**Left as #2203, not fixed here**, and the boundary is HARD RULE #18's on-path test.
+This change neither caused it nor worsened it; the cause is a different component; and the
+one-line fix that clears it — `max-w-full` on `SETTING_CONTROL_COL`, measured to take the
+trigger 260 → 231 and the overflow to 0 — lands on a constant every settings row in both
+panels renders through. That is a change about the row system, not about the section strip,
+and #17 says it gets its own branch. What this PR owes is that its own sentences stop
+claiming the panel never scrolls: the test is renamed to what it pins, and the comments say
+where the remaining 15px comes from.
+
+### Two more over-scoped measurements
+
+- **"The panel's vertical scroll range is 0 at every width and scope"** — in three places,
+  and used in `gotchas/css.md` to steer the next reader away from the obvious wheel-delivery
+  probe. It is 0 for deck / Look at 1440x900, the surface the spec runs. It is **180px** for
+  slide / Notes at the same viewport, 241 for Marks, 86 for Accent, and 58 for deck / Look at
+  1280x720 — the range moves with viewport *height*, an axis the sentence never named. The
+  `wheel`-listener probe is still the right one because it is portable; it is not the only
+  one that works.
+- **"The slide scope's row is 13px narrower"** — it is **4px**, at 390, 820 and 1440, in both
+  engines. 13 is the deck row at 1440 minus the deck row at 820: the width axis mistaken for
+  the scope axis. The conclusion it supported (the slide scope holds out one step longer on
+  the clip-margin ceiling) re-derives correctly.
+
+### The shape of all five rounds
+
+Five rounds, and the through-line is not carelessness about measuring — every wrong claim in
+this PR had a real measurement behind it. It is that the measurement's **scope** was assumed
+rather than chosen, and the assumption never made it into the sentence: one axis (round
+three), one state, one section (this round), one scope (the 13px), one engine (round four).
+The fix is not "measure more"; it is to write the scope into the claim, so that a sentence
+which has only been tested on deck / Look / Chromium / 1440 says so.
+
+
+---
+
+## 16. What the SIXTH pass found — and why it was the last
+
+§15 ended by prescribing the fix for all five previous rounds: *write the scope into the
+claim.* A sixth pass, this one fact-checking the PROSE only and touching no design question,
+asked whether §15 had taken its own advice. It had not, in four places.
+
+**No shipped behavior was wrong.** The `size-0 overflow-clip` wrapper was re-derived
+independently for the second time — focus ring restored, panel scroll 0, row height
+unchanged, ghost widths intact, in Chromium 141 and WebKit 26 at 390 / 820 / 1440 in both
+scopes. Thirty-four claims confirmed. What it found was fourteen defects in the writing, of
+which four would mislead someone acting on them.
+
+### The four that mattered
+
+- **The `+259 / +336 / +272 / +349 / +128 / +205` set is a Chrome 131 number**, stated
+  unqualified in three documents — while §15 gives **262** for the same box at the same
+  viewport. Playwright's Chromium 141 measures 262 / 342 / 275 / 355 / 131 / 211. One file in
+  the whole change got this right: `inspector.spec.ts`, which says "259px as this repo's
+  puppeteer scripts measure it in Chrome 131, 262px in the Chromium this spec runs in". That
+  sentence is now the model the other three follow.
+- **The zero-pill floor is the DEFAULT DESKTOP in Chromium**, not a tablet-drawer curiosity.
+  The docked slide panel's row is 227px; Chromium 141 measures `Comments` at 89px where
+  Chrome 131 and WebKit measure 87, so `n = 1` costs 229 against 227 and the strip is the
+  chevron alone. WebKit keeps two pills at the same width. **A two-pixel label metric decides
+  it** — which is the sharpest illustration in this whole note of why an engine-scoped
+  measurement must carry its engine.
+- **`gotchas/css.md` still said "13px narrower"** — a claim §15 of this same change had
+  explicitly retracted in favor of 4px. The correction reached the decision note and not the
+  gotcha, which is the file a stranger hits first.
+- **§11's phone table row is wrong in Chromium 141.** With `Speech` active at 390x844 it
+  draws `Look · Chrome · Speech · More`, not five pills: `n = 3` costs 363px against a 362px
+  row because `Chrome` measures 72px rather than 71. One pixel, one pill.
+
+### And a correction to a correction
+
+§14 reported `main`'s row as `flex flex-wrap gap-1.5` from `pill-tabs.tsx`, with no
+`className` from the call site. **All three parts were wrong** — `main`'s strip row is
+`cn('flex flex-wrap items-center gap-1.5', className)` in `settings-view.tsx:337`,
+`pill-tabs.tsx` is a different component the strip does not render, and the slide call site
+passes `className="py-3"`. The original text had been right; a check told me otherwise and I
+rewrote it without opening the file. **That is the same defect as all the others, one level
+up: a claim accepted because it arrived with authority rather than because it was
+re-derived.**
+
+### Why this is the last round
+
+Six rounds, and the returns are now clearly diminishing in one direction and not the other:
+every round since the third has found prose, not behavior, and the prose defects have gotten
+smaller each time (a shipped Safari regression, then a false test name, then a stale engine
+qualifier). The code has been independently re-derived twice with nothing found.
+
+The durable fix is not a seventh round. It is the rule this note has now earned the right to
+state plainly: **a measurement taken in one browser, one section, one scope or one viewport
+is not a fact about the component — it is a fact about that configuration, and the sentence
+has to say so.** Every one of the twenty-plus false claims in this change was a true
+measurement wearing a wider sentence than it had earned.

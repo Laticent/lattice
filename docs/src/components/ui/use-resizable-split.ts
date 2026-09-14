@@ -6,6 +6,7 @@ import { type Layout, type LayoutChangedMeta, useGroupRef, usePanelRef } from "r
 // shell has to read it before React exists (#1495). This hook owns the behavior; it does not
 // own the shape of the strings.
 import { bucketFor, collapseKeyFor } from "./split-storage"
+import { useIsomorphicLayoutEffect } from "./use-isomorphic-layout-effect"
 
 // Shared resizable-workspace state for the Playground + Studio, backed by
 // react-resizable-panels v4 (2026-07-19 splitter migration). It presents the
@@ -41,16 +42,6 @@ export type SplitSide = "a" | "b"
 type LayoutMap = Record<string, number>
 type LayoutStore = Record<string, LayoutMap>
 
-/**
- * `useLayoutEffect` on the client, `useEffect` on the server.
- *
- * The Playground mounts this hook through a `client:load` island, so the module DOES run
- * under Astro's server render, where React logs a warning for every `useLayoutEffect` and
- * runs none of them. The restore below has to be a LAYOUT effect on the client (see its
- * note) and is a no-op on the server either way, so this is the standard swap rather than a
- * behavior choice.
- */
-const useIsomorphicLayoutEffect = typeof window === "undefined" ? React.useEffect : React.useLayoutEffect
 
 /**
  * How long the BACKSTOP restore keeps trying, in ms.
