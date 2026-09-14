@@ -16,7 +16,7 @@ The chart family could compare magnitudes, decompose a total, plot a trend and s
 ---
 
 <!-- _class: heatmap -->
-<!-- _footer: "Four cohorts, four months — the shape before the numbers" -->
+<!-- _footer: "Four cohorts, four months — the shape, not the numbers" -->
 
 `Retention · 2026 cohorts`
 
@@ -62,9 +62,9 @@ A heatmap and a `map` encode the same thing — one continuous value as one inte
 
 <!-- _class: statement silent -->
 
-## The value's ink flips along the ramp, not with the page.
+## The cell carries no number, and that was measured.
 
-This is the one place in the family where text sits on a colored mark. A faint cell needs dark ink and a saturated one needs light — on **both** canvases, in opposite directions. The obvious construction, blending the two inks in proportion to the fill, is smooth and unreadable in the middle: it computes mid-grey exactly where the cell is mid-toned. Measured, that rendered `71` at **2.87:1**. The ink steps instead, at a crossover read off the painted pixels rather than guessed — `5.52:1` at its worst now.
+Text on a colored fill is the one placement this family will not guarantee contrast for. The heatmap tried to buy an exception — print the value, flip its ink partway along the ramp — and the exception did not survive the palette sweep: across all **33 palettes** on both canvases, the best single crossover still leaves **318 cells** below AA, worst `2.60:1`. A per-palette crossover clears it but cannot be *expressed*, because a slide flips its own canvas and CSS has no numeric `light-dark()`. The intensity carries the reading; the numbers stay in the description a screen reader hears.
 
 ---
 
@@ -75,7 +75,7 @@ This is the one place in the family where text sits on a colored mark. A faint c
 
 ## Ten cohorts by twelve months.
 
-- January 2026
+- Jan 2026
   - M0 `100`
   - M1 `71`
   - M2 `59`
@@ -88,7 +88,7 @@ This is the one place in the family where text sits on a colored mark. A faint c
   - M9 `45`
   - M10 `44`
   - M11 `43`
-- February 2026
+- Feb 2026
   - M0 `100`
   - M1 `58`
   - M2 `44`
@@ -99,7 +99,8 @@ This is the one place in the family where text sits on a colored mark. A faint c
   - M7 `36`
   - M8 `35`
   - M9 `34`
-- March 2026
+  - M10 `33`
+- Mar 2026
   - M0 `100`
   - M1 `62`
   - M2 `48`
@@ -107,19 +108,58 @@ This is the one place in the family where text sits on a colored mark. A faint c
   - M4 `43`
   - M5 `42`
   - M6 `41`
-- April 2026
+  - M7 `40`
+  - M8 `39`
+  - M9 `38`
+- Apr 2026
   - M0 `100`
   - M1 `69`
   - M2 `57`
   - M3 `54`
   - M4 `51`
+  - M5 `50`
+  - M6 `49`
+  - M7 `48`
+  - M8 `47`
 - May 2026
   - M0 `100`
   - M1 `66`
   - M2 `54`
-- June 2026
+  - M3 `51`
+  - M4 `49`
+  - M5 `48`
+  - M6 `47`
+  - M7 `46`
+- Jun 2026
   - M0 `100`
   - M1 `64`
+  - M2 `51`
+  - M3 `48`
+  - M4 `46`
+  - M5 `45`
+  - M6 `44`
+- Jul 2026
+  - M0 `100`
+  - M1 `73`
+  - M2 `61`
+  - M3 `58`
+  - M4 `56`
+  - M5 `55`
+- Aug 2026
+  - M0 `100`
+  - M1 `60`
+  - M2 `47`
+  - M3 `44`
+  - M4 `42`
+- Sep 2026
+  - M0 `100`
+  - M1 `68`
+  - M2 `56`
+  - M3 `53`
+- Oct 2026
+  - M0 `100`
+  - M1 `75`
+  - M2 `64`
 
 ---
 

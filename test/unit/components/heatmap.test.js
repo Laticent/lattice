@@ -16,7 +16,7 @@ const MarkdownIt = require('markdown-it');
 
 const {
   parseHeatmap, buildHeatmap, mixFor,
-  MAX_COLS, MAX_ROWS, MIX_FLOOR, MIX_TOP, INK_FLIP_AT,
+  MAX_COLS, MAX_ROWS, MIX_FLOOR, MIX_TOP,
 } = require('../../../lib/components/chart/heatmap/heatmap.transform');
 
 const md = new MarkdownIt({ html: true });
@@ -117,23 +117,32 @@ describe('heatmap — the ramp', () => {
   });
 });
 
-describe('heatmap — the value ink', () => {
-  test('the flip is a STEP at the measured crossover, not the ramp midpoint', () => {
-    // The midpoint is the intuitive answer and it measured 2.87:1 on the
-    // gallery's own `71` — below AA on the one surface in this family where
-    // text sits on a colored mark. See the constant's docblock.
-    assert.ok(INK_FLIP_AT > (MIX_FLOOR + MIX_TOP) / 2,
-      'the crossover sits well above the midpoint — white only overtakes black near the top of the ramp');
+describe('heatmap — nothing is printed ON a cell', () => {
+  // The family rule is that labels and values sit on the CANVAS, never on the
+  // colored mark (design/skills/chart-component.md). This component shipped an
+  // exception to it — the number in the cell, its ink flipping partway along the
+  // ramp — and the exception did not survive measurement: no single crossover
+  // clears AA across the 33 palettes, and a per-palette one cannot be expressed
+  // because `section.dark` flips the canvas per slide. The withdrawal and its
+  // numbers are recorded in the transform's own docblock; these two arms are
+  // what stops it coming back by accident.
+
+  test('every text in the SVG is a gutter label, never a cell', () => {
+    const svg = buildHeatmap(parseHeatmap(ul(GRID)), {});
+    // The gutter classes are `heatmap-col-label` for a column name and the
+    // substrate's bare `cart-cat` for a row name (svg-label-css-mirror.test.js
+    // pins that census). Anything else is text the kernel put in the plot.
+    const strays = [...svg.matchAll(/<text class="([^"]*)"[^>]*>/g)]
+      .filter((m) => !/^(?:heatmap-col-label cart-cat|cart-cat)$/.test(m[1]))
+      .map((m) => m[0]);
+    assert.deepEqual(strays, [],
+      'a text that is not a gutter label is text on a colored mark — the withdrawn exception');
   });
 
-  test('only cells past the crossover carry the flip', () => {
-    const model = parseHeatmap(ul(GRID));
-    const svg = buildHeatmap(model, {});
-    const values = [...svg.matchAll(/<text class="heatmap-value"[^>]*>/g)].map((m) => m[0]);
-    const flipped = values.filter((v) => /data-ink="flip"/.test(v)).length;
-    // Both rows top out at 100, which is the only value at MIX_TOP.
-    assert.equal(flipped, 2, 'exactly the two maxima should flip');
-    assert.ok(values.length > flipped, 'the rest must keep the default ink');
+  test('withdrawing the printed value does not withdraw the value', () => {
+    const svg = buildHeatmap(parseHeatmap(ul(GRID)), {});
+    assert.match(svg, /data-value="100"/,
+      'the number still reaches the mark data, which is what the <desc> and hover read');
   });
 });
 

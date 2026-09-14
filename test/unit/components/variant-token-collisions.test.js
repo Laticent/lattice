@@ -143,7 +143,12 @@ const KNOWN_COLLISIONS = {
     status: 'guarded',
     guardedFile: 'lib/components/chart/heatmap/heatmap.styles.css',
     guard: ':where(:not(.journey))',
-    selectorsChecked: 7,
+    // 6, not the 7 this started at. Three rules went when the in-cell value was
+    // withdrawn (`.heatmap-value`, its `[data-ink="flip"]` pair) and the dead
+    // `.heatmap-row-label` with them; the sheet has six owning selectors now and
+    // all six carry the guard. Lowering a ratchet needs a reason in the diff —
+    // this is it.
+    selectorsChecked: 6,
     // Measured against the BUILT bundle: 1 of 7 before, 0 after. The one was the
     // token block, `:is(section.heatmap, figure.chart-frame) { --heatmap-base }`,
     // and it painted nothing — a journey has no `.heatmap-cell` to consume the

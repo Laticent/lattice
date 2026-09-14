@@ -47,7 +47,7 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 <!-- _class: heatmap -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · heatmap — Ten rows by twelve columns at the ceiling, the longest realistic row name, a ragged tail where the newest cohorts have not reached the later months, and a flat row where every value is identical. The grid is bound by cell size on both axes at once, so the ceiling is the only place you can see whether a value still sets inside its cell, whether a long row name ellipsizes rather than being culled, and whether an unmeasured crossing still reads as unmeasured rather than as the bottom of the ramp." -->
+<!-- _footer: "Stress test · heatmap — Ten rows by twelve columns at the ceiling, the longest realistic row name, a ragged tail where the newest cohorts have not reached the later months, and a flat row where every value is identical. The grid is bound by cell size on both axes at once, so the ceiling is the only place you can see whether a column name still sets above its column, whether a long row name ellipsizes rather than being culled, and whether an unmeasured crossing still reads as unmeasured rather than as the bottom of the ramp." -->
 
 `Retention · the ceiling`
 

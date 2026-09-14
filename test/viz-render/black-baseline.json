@@ -12,34 +12,6 @@
   "sanctioned": [
     {
       "family": "chart",
-      "component": "heatmap",
-      "selector": "text.heatmap-value",
-      "property": "fill",
-      "scheme": "dark"
-    },
-    {
-      "family": "chart",
-      "component": "heatmap",
-      "selector": "text.heatmap-value",
-      "property": "fill",
-      "scheme": "light"
-    },
-    {
-      "family": "chart",
-      "component": "heatmap",
-      "selector": "text.heatmap-value>tspan",
-      "property": "fill",
-      "scheme": "dark"
-    },
-    {
-      "family": "chart",
-      "component": "heatmap",
-      "selector": "text.heatmap-value>tspan",
-      "property": "fill",
-      "scheme": "light"
-    },
-    {
-      "family": "chart",
       "component": "quadrant",
       "selector": "text.quadrant-dot-label",
       "property": "fill",

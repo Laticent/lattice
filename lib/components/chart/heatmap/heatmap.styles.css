@@ -85,56 +85,20 @@
 
 /* ── Labels ─────────────────────────────────────────────────────────────────
  * Sizes MIRROR the kernel's FS table (heatmap.transform.js). CSS owns what is
- * painted; the kernel needs the same numbers to size the gutters they sit in. */
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-row-label {
-  fill: var(--text-body);
-  font-family: var(--font-body);
-  font-size: 7.5px; /* cqi-ok: inside a 320-unit viewBox, px == user units */
-  font-weight: 500;
-}
-
+ * painted; the kernel needs the same numbers to size the gutters they sit in.
+ *
+ * ONLY THE COLUMN NAME IS STYLED HERE. Row names come off the substrate's
+ * `buildCategoryLabels`, which emits `cart-cat` and nothing member-specific, so
+ * a `.heatmap-row-label` rule would match no element — this file shipped one
+ * for exactly that reason and it was dead the whole time. Row names take the
+ * family's `.cart-cat` (chart-family.css), which is what `FS.row` mirrors and
+ * what svg-label-css-mirror.test.js now checks it against. */
 :is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-col-label {
   fill: var(--text-muted);
   font-family: var(--font-label, var(--font-body));
   font-size: 7px; /* cqi-ok: inside a 320-unit viewBox, px == user units */
   font-weight: 600;
   letter-spacing: 0.02em;
-}
-
-/* The value printed INSIDE a cell — the one place in this family where text sits
- * on a colored mark, and the only reason it is allowed is that the ink flips
- * with the fill it sits on.
- *
- * IT IS A STEP, NOT A BLEND, and the first cut got this wrong in a way only a
- * render showed. Deriving the ink by mixing black and white in proportion to
- * `--mix` is smooth and completely unreadable in the middle: at 50% it computes
- * mid-grey, and mid-grey on a mid-ramp cell is the lowest-contrast pair the
- * whole scale can produce. The gallery rendered `71` and `69` as grey-on-grey
- * on both canvases. Contrast wants the ink to JUMP at the point the cell stops
- * being light, so the kernel marks that cell and the ink swaps outright.
- *
- * THE SAME PAIR SERVES BOTH CANVASES, swapped. On a light canvas a faint cell
- * takes the dark ink and a saturated one takes the light; on a dark canvas the
- * ramp runs the other way, so a faint cell is dark and takes the LIGHT ink. One
- * flip, expressed once.
- *
- * BARE `black`/`white`, the way `--quadrant-label-ink` already does it for the
- * same job: this text sits on a vivid FILL, not on the canvas, so it wants
- * maximum contrast rather than the softened `--text-*` tier — and a token pair
- * named for the two ends would have to be named for a color scheme, which is
- * the retired tier-suffix anti-pattern (HARD RULE #11). */
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value {
-  fill: light-dark(black, white);
-  font-family: var(--font-body);
-  font-size: 7px; /* cqi-ok: inside a 320-unit viewBox, px == user units */
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-/* The cell has crossed into the saturated half of the ramp — the kernel decides
- * where, because it is the only thing that knows the mix. */
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-ink="flip"] {
-  fill: light-dark(white, black);
 }
 
 /* ── Figure ─────────────────────────────────────────────────────────────────
