@@ -486,6 +486,29 @@ therefore compares the committed table against ITSELF and reports "byte-identica
 what changed — a check that passes because it never measured, which is the exact failure this
 whole tool exists to catch. It was run that way three times before anyone read the header.
 
+**And when it WAS re-derived, the table moved — at the top.** Every one of the census's biggest
+movers turned out to be a box GROWING, which the old discovery measure could not tell from a
+box moving:
+
+| class · candidate | before | after |
+|---|---:|---:|
+| `image statement` · `div.image-text` | 614.3px | **0.1px** |
+| `image spotlight` · `div.image-text` | 184px | **0.1px** |
+| `scene spotlight` · `div.scene-text::before` | 184px | **0.1px** |
+| `state-chart lr` · `div.state-chart-scale` | 160px | **10.1px** |
+| `state-chart` · `div.state-chart-scale` | 89.5px | **0.1px** |
+| `list-criteria` · `li::before` | 89.5px | **67.1px** |
+| `q-and-a grid` · `ul::before` → `ul::after` | 89.5px | **44.8px** |
+
+The 614.3px row was the headline lead when the census first shipped — the worst mover in the
+catalog, quoted as such. It had not moved at all. The real top mover is `state-chart inline`'s
+`span.state-index` at 85px, which was not in the old top ten.
+
+**Read the ranking accordingly.** `moves` now means TRANSLATION, so a row that fell to ~0 was
+never a lead; the ones that stayed high (85px, 67.1px, 44.8px) are the ones worth a verdict
+sweep. Nothing in the catalog was newly found to move — the correction only removes false
+leads — but the table's ORDER, which is the whole point of a census, was wrong at the top.
+
 **A modifier that paints nothing alone must be given its companion**, or the census
 reports "none" for a mark that is simply not on the page — the false clean this tool is
 built against, reproduced in the instrument that was supposed to check for it.
