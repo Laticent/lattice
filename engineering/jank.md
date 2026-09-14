@@ -467,24 +467,45 @@ paragraph called it "the page number on most paginated slides we ship", and it i
 minority mark. Measured over the whole population — every deck in `examples/` that sets
 `paginate: true`, exported through `dist/lattice-emulator.js` and read in Chromium:
 
-| of 1882 paginated slides | | |
+| of 1882 paginated slides | count | share |
 |---|---:|---:|
-| the real `span.lat-pagination` | 1485 | 78.9% |
+| the real `span.lat-pagination` | 1490 | 79.2% |
 | the `::after` pseudo | **232** | **12.3%** |
-| neither — `silent` suppresses the numeral | 165 | 8.8% |
+| neither mark paints | 160 | 8.5% |
 
-89 of the 164 decks paint the pseudo at least once. The counting rule: a section carrying
-`data-lattice-pagination`, pseudo painted when `getComputedStyle(sec, '::after').content`
-is not `none` and it is not hidden, span shown when `span.lat-pagination` has a client rect.
-Validated against this section's own published datum — it returns `bloom`'s 7 of 13 exactly.
+89 of the 164 decks paint the pseudo at least once. The 160 are **158 `silent` slides**, one
+`image statement` (`image.styles.css` suppresses the pseudo for a full-bleed composition), and
+one `big-number claim-bleed` whose footer cell is `display: none`.
+
+**The counting rule, because a share is only as good as its predicate.** A section carrying
+`data-lattice-pagination`; the pseudo counts as painted when
+`getComputedStyle(sec, '::after').content` is neither `none` nor `normal` and the pseudo is not
+itself hidden; the span counts as shown when `span.lat-pagination` exists and nothing between
+it and the section hides it. **That last clause is bounded at the section on purpose.** An
+earlier version asked for a client rect instead, which files five `player: true` slides under
+"neither" — their span is present, `display: block`, `visibility: visible`, carrying the right
+numeral, but `div.lp-frame`, an ancestor OUTSIDE the slide, is `display: none` while that slide
+is not the current one. A player frame must not decide whether a slide's own mark is shown.
+That bug moved two of the four numbers in this table by five slides, and `bloom` could not
+reveal it, which is the limit of checking a rule against one deck.
 
 **Two smaller samples got this wrong, and the sample size is why.** A draft quoted **5.5%**
-from 12 decks; an independent pass over 27 decks got **17.8%**. Resampling the 164 decks
-20,000 times says neither was unlucky — at n=12 the 5th-95th percentile band is **4.6%-21.3%**
-(full range 0.0%-37.6%), and at n=27 it is 6.6%-18.4%. Both drafts sat inside their own band.
-A decimal place off a dozen decks is noise dressed as precision, and neither draft named its
-decks or its command, so no reader could re-derive either. That is the reason the table above
-gives a population figure and the rule that produces it rather than a sample.
+from a 12-deck stride sample; an independent pass over 27 decks got **17.8%**. Drawing 20,000
+subsamples of *n* distinct decks (without replacement) and pooling each subsample's slides puts
+the 5th-95th percentile at **4.6%-21.3%** for n=12 and **6.5%-18.4%** for n=27, stable to a
+tenth across seeds. The method matters and is stated because it changes the digits: drawing
+*with* replacement gives 4.5%-21.6% and 6.2%-18.8%.
+
+Two samples of one population disagreeing threefold is the finding, and it needs no band to
+make it. A draft went further and said the bands show neither sample was unlucky; they do not
+show that. 5.5% sits at the **8.8th** percentile of its distribution and 17.8% at the
+**92.9th**, so
+on a 10th-90th band — as arbitrary a choice as the 5th-95th, made after seeing the data — both
+would read as unlucky instead. And a stride sample is systematic rather than random, so a
+random-subsample band is an approximation for it, not a model of it. What survives without any
+of that machinery: a dozen decks cannot resolve a 12.3% share to a decimal place, and neither
+draft named its decks or its command, so no reader could re-derive either. That is why the
+table above gives a population figure and the rule that produces it.
 
 **And one deck is not the population.** `bloom-engineering-journey`'s 7 of 13 is six
 `split-panel` slides plus a `premise`, not seven of anything — and it is high rather than
