@@ -463,11 +463,22 @@ two runs, conflated. Re-derived from the shipped mark on the base this ships aga
 got each of them wrong once.** It is a fallback by construction: the rule below retires it
 wherever the real element exists. It is also live on committed decks, which is the part the
 first version of this section denied. What it is NOT is the common case — a draft of this
-paragraph called it "the page number on most paginated slides we ship", and measuring says
-**4 of 73** paginated slides across a 12-deck stride sample, or **5.5%**. The real
-`span.lat-pagination` carries the other 69. `bloom-engineering-journey` is an outlier, not a
-typical deck: six consecutive `split-panel` slides give it 7 of 13, and quoting it as the
-general case is how "most" got written. The retirement rule keys on a `.cell-footer` DIV
+paragraph called it "the page number on most paginated slides we ship", and it is the
+minority mark on every sample anyone has taken. The real `span.lat-pagination` carries the
+rest.
+
+**The share is deliberately not stated here yet**, and the reason is worth more than the
+number would be. A draft quoted **5.5%** from a 12-deck stride sample. A checker measuring a
+different 27-deck sample got 17.8%. Neither is defensible: bootstrapped over the 164
+paginated decks, a 12-deck sample spans 4.7%–21.2%, so one decimal place at that size is
+noise dressed as precision — and the draft named neither its decks nor its command, so no
+reader could re-derive it. A population figure over all 164 decks, with the command that
+produces it, replaces this paragraph. `bloom-engineering-journey`'s 7 of 13 is six
+`split-panel` slides plus a `premise`, not seven of anything — and it is high rather than
+exceptional: seven shipped decks sit at or above its share, and 89 of the 164 paint the
+pseudo at least once. Quoting one deck as the general case is how "most" got written.
+
+**The split is by frame kind.** The retirement rule keys on a `.cell-footer` DIV
 (`section.form:has(> .cell-footer)::after { content: none }`), which `buildFooterCell`
 (`lib/forms/cell/masthead/masthead.transform.js`) emits only for a frame that is not
 chrome-exempt. So `kind` / `exemptFromChrome` decides it, not the `cells` array:
@@ -500,8 +511,8 @@ behavior, not an edge case waiting for an author to find it.
    sentence an earlier draft removed was true and is restored here: an author who writes
    `paginate: true` does get a numeral on a `title` or `divider` slide. What suppresses it on
    the decks we ship is usually a different mechanism entirely — `section.silent.silent::after
-   { content: none }` (`lib/base/base.variants.css`), and `bloom` authors its bookends
-   `title silent spectrum`.
+   { content: none }` (`lib/base/base.variants.css`), and `bloom` authors them
+   `title silent spectrum` and `closing silent spectrum`.
 3. *"`divider.manifest.json:39`."* The frame manifests contain no `_paginate` at all
    (`grep -rn "_paginate" lib/forms/frame/` is empty); that line is in the COMPONENT manifest,
    `lib/components/anchor/divider/divider.manifest.json`. A citation naming the wrong file of
@@ -614,17 +625,25 @@ stops finding things — and they are arithmetic, not a render. The census's rea
 supplies the control the real surface owes:
 `node tools/check-jank.js video --anchor 'span.video-play' --max 12` reports
 `DRIFT 44.8px vertical ✗` and exits 1, on a **single-match** anchor over a sweep that is not
-vacuous (ink height moves 44.8px with it). Its two advisories travel with it, since the
-paragraph below is about exactly that: the anchor overlaps DECORATION at step 1 (`CHROME`,
-reported never failed), and naming it removes its one child box from the ink (`SUBTREE`).
+vacuous (ink height moves 44.8px with it). Its four advisories travel with it, since the
+paragraph below is about exactly that: `CHROME` (the anchor overlaps decoration at step 1,
+reported never failed), `PASSES`, `CROWDING`, and `SUBTREE` — which reports **one** box
+removed from the ink, and that box is the anchor ITSELF. `check-jank.js` counts
+`1 + el.querySelectorAll('*').length`, so a `1` means the element has no descendants at all.
+A draft of this line read it as "its one child box", inventing a child and inverting what the
+advisory warns about: the trap is naming a CONTAINER, which deletes its contents from the
+measurement. This anchor is not one.
 Neither touches the single-match, non-vacuous, exit-1 properties the control is quoted for.
 
 **And the census row for this same anchor reads 89.6px, not 44.8px.** That is not a
 contradiction and it is the reason the census header calls a row a LEAD: 89.6 is the
 twenty-four-slide `--anchors` discovery figure, 44.8 is the twelve-slide `--anchor` verdict.
-A census row and a verdict are never comparable, which is also why a draft of this paragraph
-claiming "five of them moving further than the control" was wrong — it ranked
-twenty-four-slide discovery figures against a twelve-slide verdict. Re-swept like for like,
+A census row and a verdict are not comparable AT DIFFERENT STEP COUNTS — match them and they
+agree exactly: `--anchor 'span.video-play' --max 24` returns 89.6px, the census row to the
+decimal. (A draft said "never comparable", which the very next command disproves.) That is
+why a draft of this paragraph claiming "five of them moving further than the control" was
+wrong: it ranked twenty-four-slide discovery figures against a twelve-slide verdict.
+Re-swept like for like,
 `citation-card pull-quote` ties the control rather than beating it. Because the measure is a MINIMUM, 44.8 can only
 come back if the near edge, the far edge AND the midpoint each spread at least that far — the
 shape of a box that moved, not one pinned at an edge or centered that merely grew. It is NOT a
@@ -638,8 +657,8 @@ not have been.** That sweep prints `ANCHOR 'span.state-index' matches more than 
 it.` The number was quoted without the line the instrument attached to it (HARD RULE #23), and
 the paragraph then claimed a single-match substitute "does not exist among the census's
 movers". `engineering/jank-census.md` lists thirteen `per = 1` rows at or above 44.8px — the answer
-was one `awk` away in the file this very section is about — the answer was one
-`awk` away in the file this very section is about. It also quoted `42.6px` for `--anchors` on
+was one `awk` away in the file this very section is about. It also quoted `42.6px` for
+`--anchors` on
 that component, where the real figure is `85px`: 42.5 is the twelve-slide `--anchor` run and
 85 is the twenty-four-slide discovery run, two runs conflated in the paragraph whose whole
 subject is not conflating runs.
