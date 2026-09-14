@@ -1,3 +1,4 @@
+import { ratio, rgbOf } from './color-contrast';
 import { expect, test } from './studio-fixture';
 
 // The kpi status pill, on the REAL Playground.
@@ -38,19 +39,6 @@ color-mode: ${mode}
    - for context \`On plan\`
 `;
 
-/** WCAG relative luminance, on the sRGB values getComputedStyle hands back. */
-function ratio(a: number[], b: number[]) {
-	const lum = (c: number[]) => {
-		const [r, g, bl] = c.map((v) => {
-			const s = v / 255;
-			return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-		});
-		return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
-	};
-	const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
-	return (x + 0.05) / (y + 0.05);
-}
-
 const CASES = [
 	// theme, mode, and whether the PASS pill is expected to clear AA here.
 	// carbone is the exception and it is not this component's fault: the palette has no
@@ -86,28 +74,22 @@ for (const { theme, mode, passClearsAA } of CASES) {
 		);
 		expect(pills.length, 'the seeded deck did not reach the preview frame').toBeGreaterThanOrEqual(2);
 
-		const parse = (c: string) => {
-			const m = c.match(/-?[\d.]+/g)?.map(Number) ?? [];
-			// `color(srgb r g b)` comes back 0-1; `rgb(r, g, b)` comes back 0-255.
-			return c.startsWith('color(') ? m.slice(0, 3).map((v) => Math.round(v * 255)) : m.slice(0, 3);
-		};
-
 		for (const pill of pills) {
 			// The ground is OPAQUE. An alpha channel here means the palette's `--*-bg`
 			// tint is back and the pill is inheriting its tile again.
 			expect(pill.bg, `${pill.text}: ground must be opaque`).not.toMatch(/rgba|\/\s*0?\.\d/);
 			// The state hue still inks the label AND the border -- the border is what
 			// carries the chip's edge now that the fill may match its tile (#1847).
-			expect(parse(pill.fg), `${pill.text}: ink and border are the same state hue`).toEqual(parse(pill.border));
+			expect(rgbOf(pill.fg), `${pill.text}: ink and border are the same state hue`).toEqual(rgbOf(pill.border));
 		}
 
 		const warn = pills.find((p) => p.text === 'Attention');
 		const pass = pills.find((p) => p.text === 'On plan');
 		expect(warn && pass, 'both status pills painted').toBeTruthy();
 
-		expect(ratio(parse(warn!.fg), parse(warn!.bg)), `${theme} ${mode}: warn pill`).toBeGreaterThanOrEqual(4.5);
+		expect(ratio(rgbOf(warn!.fg), rgbOf(warn!.bg)), `${theme} ${mode}: warn pill`).toBeGreaterThanOrEqual(4.5);
 		if (passClearsAA) {
-			expect(ratio(parse(pass!.fg), parse(pass!.bg)), `${theme} ${mode}: pass pill`).toBeGreaterThanOrEqual(4.5);
+			expect(ratio(rgbOf(pass!.fg), rgbOf(pass!.bg)), `${theme} ${mode}: pass pill`).toBeGreaterThanOrEqual(4.5);
 		}
 	});
 }

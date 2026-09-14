@@ -1241,17 +1241,29 @@ never turn "passed in headless" into "works on iOS."
   fails the light test at 1.84:1 and leaves the dark one green.
 - **A TOKEN READ BACK FROM `getComputedStyle` MAY BE THREE-DIGIT HEX, and slicing it
   by index reads `NaN`.** A custom property comes back as AUTHORED text and the
-  generated sheet is minified, so `#FFFFFF` arrives as `#fff`. The helper every
-  contrast spec here copies — `[1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))` —
-  returns `NaN` on those, and a `NaN` ratio makes every `toBeGreaterThanOrEqual`
+  generated sheet is minified, so `#FFFFFF` arrives as `#fff`. The helper the parity
+  spec shipped with, and `bracket-contrast` copied —
+  `[1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))` — returns `NaN` on those, and a `NaN` ratio makes every `toBeGreaterThanOrEqual`
   meaningless in whichever direction that spec's assertion happens to point. Nothing
   saw it because cuoio's tokens are all six digits and cuoio was the only palette
   driven; indaco's `--bg` is the first shorthand a sweep meets. The parity spec now
   parses 3/4/6/8-digit forms and THROWS on anything that is not a hex literal.
-  `playground-bracket-contrast.spec.ts`, `playground-kpi-pill.spec.ts` and
-  `crash-sentinel.spec.ts` still carry the index-slicing copy; they are safe only
-  because none of them changes palette, so **fix the helper before adding a palette
-  loop to any of them.**
+  **The parser, the computed-color parser and `ratio` now live in one module,**
+  `docs/e2e/color-contrast.ts`, so the next contrast spec cannot inherit the broken
+  copy the way `playground-bracket-contrast.spec.ts` did — it carried the
+  index-slicing helper until #2194's follow-up, safe only because it never changed
+  palette. Two of the three specs first recorded here as carrying that copy never
+  had it: `playground-kpi-pill.spec.ts` parses computed `rgb()` / `color(srgb …)`
+  and reads no token, and `crash-sentinel.spec.ts` measures off a 1×1 canvas inside
+  `page.evaluate` — which is also why it is not a caller and is not meant to become
+  one: an `evaluate` callback is serialized to the browser and cannot close over an
+  import, and `stage-window.spec.ts` keeps its own copy for the same reason.
+- **The alpha of a computed `rgba()` comes from the PARSER, not from a
+  trailing-number regex.** `bracket-contrast` read its active-line alpha with
+  `/[\d.]+\s*\)$/`, which lands on the BLUE CHANNEL the moment the band comes back
+  opaque `rgb(r, g, b)` — compositing the ink's ground against an "alpha" of 30.
+  Same family of bug as the index slice, same fix: one parser that reports what it
+  actually found (`parseColor` returns `{ rgb, alpha }`).
 - **Pinned by** `docs/e2e/editor-selection-parity.spec.ts` (both editors, both color
   modes, all 18 palettes, asserting they paint the SAME selection and caret and that
   every ink clears its floor on the backdrop read from the live DOM) and

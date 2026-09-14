@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { composite, parseColor, ratio, tokenRgb } from './color-contrast';
 
 // The Playground editor's BRACKET-MATCH marks, on the real Playground.
 //
@@ -26,23 +27,6 @@ import { expect, test } from '@playwright/test';
 const BASE_MATCH = 'rgba(50, 140, 130, 0.32)'; //  #328c8252
 const BASE_NONMATCH = 'rgba(187, 85, 85, 0.27)'; // #bb555544
 
-const hexToRgb = (h: string) => [1, 3, 5].map((i) => Number.parseInt(h.slice(i, i + 2), 16));
-function parseRgb(c: string): number[] {
-	const n = c.match(/-?[\d.]+/g)?.map(Number) ?? [];
-	return c.startsWith('color(') ? n.slice(0, 3).map((v) => Math.round(v * 255)) : n.slice(0, 3);
-}
-const composite = (over: number[], under: number[], alpha: number) => over.map((v, i) => v * alpha + under[i] * (1 - alpha));
-function ratio(a: number[], b: number[]) {
-	const lum = (c: number[]) => {
-		const [r, g, bl] = c.map((v) => {
-			const s = v / 255;
-			return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-		});
-		return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
-	};
-	const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
-	return (x + 0.05) / (y + 0.05);
-}
 /** One read of a bracket mark, plus the tokens needed to judge it. */
 type Reading = {
 	mark: { bg: string; color: string; width: string; style: string } | null;
@@ -137,8 +121,8 @@ for (const scheme of ['dark', 'light'] as const) {
 
 				// The ring IS the palette's token, which is the tightest available statement
 				// that THIS rule painted rather than some literal.
-				const want = hexToRgb(state[tokenKey]);
-				expect(parseRgb(mark.color), `${where}: the ring is its token (${state[tokenKey]})`).toEqual(want);
+				const want = tokenRgb(state[tokenKey]);
+				expect(parseColor(mark.color).rgb, `${where}: the ring is its token (${state[tokenKey]})`).toEqual(want);
 				expect(Number.parseFloat(mark.width), `${where}: the ring is drawn`).toBeGreaterThan(0);
 				// Line style separates matched from unmatched WITHOUT relying on hue.
 				expect(mark.style, `${where}: the ring's line style`).toBe(wantStyle);
@@ -149,11 +133,13 @@ for (const scheme of ['dark', 'light'] as const) {
 				// punctuation, so `--text-muted` is the ink and AA-large 3:1 is its bar (the
 				// bar the selection sweep set); `--text-body` is held to full AA because a
 				// match can fall inside a fenced code block where body ink paints strings.
-				const band = parseRgb(state.activeLine!);
-				const alpha = Number(state.activeLine!.match(/[\d.]+\s*\)$/)?.[0].replace(')', '') ?? 1);
-				const ground = composite(band, hexToRgb(state.bg), Number.isFinite(alpha) ? alpha : 1);
-				expect(ratio(hexToRgb(state.textMuted), ground), `${where}: muted ink over the active line`).toBeGreaterThanOrEqual(3);
-				expect(ratio(hexToRgb(state.textBody), ground), `${where}: body ink over the active line`).toBeGreaterThanOrEqual(4.5);
+				// The band's alpha comes from the parser, not from a trailing-number regex:
+				// that regex read the BLUE CHANNEL as the alpha whenever the band came back
+				// opaque `rgb(...)`, and composited the ground against it.
+				const band = parseColor(state.activeLine!);
+				const ground = composite(band.rgb, tokenRgb(state.bg), band.alpha);
+				expect(ratio(tokenRgb(state.textMuted), ground), `${where}: muted ink over the active line`).toBeGreaterThanOrEqual(3);
+				expect(ratio(tokenRgb(state.textBody), ground), `${where}: body ink over the active line`).toBeGreaterThanOrEqual(4.5);
 			}
 		}
 	});

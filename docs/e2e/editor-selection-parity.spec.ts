@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { BUILTIN_PALETTES } from '../src/lib/theme-catalog.generated';
+import { composite, parseColor, ratio, tokenRgb } from './color-contrast';
 
 // Both deck editors DRESS THE SAME WAY, on the real surfaces, on every palette.
 //
@@ -189,47 +190,6 @@ const SURFACES = [
 	{ name: 'studio', url: '/studio/' },
 ] as const;
 
-/**
- * A palette token's rgb channels.
- *
- * NOT a fixed-index slice, which is what this spec shipped with. A custom property
- * comes back as AUTHORED text, and the generated sheet is minified — so `#FFFFFF`
- * arrives as `#fff` and `#000000` as `#000`. Slicing at 1/3/5 reads NaN on those,
- * every ratio downstream becomes NaN, and `NaN >= 4.5` is false: the spec fails
- * where it should pass, and one `expect` shape over it would pass where it should
- * fail. The default-palette-only version could not meet this — every one of cuoio's
- * tokens is six digits — and indaco's `--bg` is the first shorthand the sweep hits.
- * Three sibling contrast specs still carry the index-slicing helper; they are safe
- * only because none of them changes palette (see the gotchas entry).
- *
- * Throws rather than returning NaN, so a token that stops being a hex literal is a
- * loud failure instead of an assertion that quietly stops meaning anything.
- */
-function tokenRgb(v: string): number[] {
-	const digits = /^#([\da-f]{3,8})$/i.exec(v.trim())?.[1];
-	if (!digits || ![3, 4, 6, 8].includes(digits.length)) throw new Error(`not a hex token: ${JSON.stringify(v)}`);
-	const wide = digits.length <= 4 ? [...digits].map((c) => c + c).join('') : digits;
-	return [0, 2, 4].map((i) => Number.parseInt(wide.slice(i, i + 2), 16));
-}
-function parse(c: string): { rgb: number[]; alpha: number } {
-	const n = c.match(/-?[\d.]+/g)?.map(Number) ?? [];
-	const isColorFn = c.startsWith('color(');
-	const rgb = isColorFn ? n.slice(0, 3).map((v) => Math.round(v * 255)) : n.slice(0, 3);
-	return { rgb, alpha: n.length > 3 ? n[3] : 1 };
-}
-const composite = (over: number[], under: number[], a: number) => over.map((v, i) => v * a + under[i] * (1 - a));
-function ratio(a: number[], b: number[]) {
-	const lum = (c: number[]) => {
-		const [r, g, bl] = c.map((v) => {
-			const s = v / 255;
-			return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-		});
-		return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
-	};
-	const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
-	return (x + 0.05) / (y + 0.05);
-}
-
 /** Focus the editor and select its whole document. */
 async function selectAll(page: import('@playwright/test').Page) {
 	await page.locator('.cm-content').first().click();
@@ -363,7 +323,7 @@ for (const scheme of ['dark', 'light'] as const) {
 				// The wash is `color-mix(… var(--accent) 18%, transparent)`, which keeps the
 				// accent's channels and moves only alpha — so the painted rgb IS the accent's.
 				// That is the tightest available statement that native-widgets.css painted this.
-				const wash = parse(m.selectionBg);
+				const wash = parseColor(m.selectionBg);
 				for (const [i, ch] of tokenRgb(m.accent).entries()) {
 					expect(wash.rgb[i], `${at}: ::selection tracks --accent (${m.accent})`).toBeGreaterThanOrEqual(ch - 1);
 					expect(wash.rgb[i], `${at}: ::selection tracks --accent (${m.accent})`).toBeLessThanOrEqual(ch + 1);
@@ -386,7 +346,7 @@ for (const scheme of ['dark', 'light'] as const) {
 				expect(m.ring.content, `${at}: the focus ring's pseudo-element is not generated`).not.toBe('none');
 				expect(m.ring.style, `${at}: the focus ring's line style`).toBe('solid');
 				expect(Number.parseFloat(m.ring.width), `${at}: the focus ring is drawn at the site's 2px`).toBeGreaterThanOrEqual(2);
-				expect(parse(m.ring.color).rgb, `${at}: the focus ring is --accent (${m.accent})`).toEqual(tokenRgb(m.accent));
+				expect(parseColor(m.ring.color).rgb, `${at}: the focus ring is --accent (${m.accent})`).toEqual(tokenRgb(m.accent));
 				// A color read alone cannot tell a ring from a rule that resolves to nothing:
 				// zero-area, `inset: 100%` and a ring anchored to another box all report the
 				// same `solid 2px var(--accent)`. The used box has to BE the editor's.
@@ -409,7 +369,7 @@ for (const scheme of ['dark', 'light'] as const) {
 				// The caret is `--text-body`, never `--accent`: it marks the insertion point
 				// among the text you are typing, and accent carries no AA guarantee against
 				// the canvas. Both editors now get this from lib/editor-chrome.js.
-				expect(parse(m.caretColor).rgb, `${at}: the caret is --text-body (${m.inks['--text-body']})`).toEqual(tokenRgb(m.inks['--text-body']));
+				expect(parseColor(m.caretColor).rgb, `${at}: the caret is --text-body (${m.inks['--text-body']})`).toEqual(tokenRgb(m.inks['--text-body']));
 
 				// What the reader actually gets, for every ink these editors paint. 4.5 is full
 				// AA, and it is why the wash is 18%: at the 22% this replaced, cuoio/light — the
@@ -425,7 +385,7 @@ for (const scheme of ['dark', 'light'] as const) {
 				// Playground now stands its active-line band down while a selection is up,
 				// which is what makes this floor true rather than arithmetic. Reading the band
 				// from the live DOM keeps the spec honest if that ever regresses.
-				const band = m.activeLineBg === 'none' || !m.activeLineBg ? null : parse(m.activeLineBg);
+				const band = m.activeLineBg === 'none' || !m.activeLineBg ? null : parseColor(m.activeLineBg);
 				const ground = band && band.alpha > 0 ? composite(band.rgb, tokenRgb(m.bg), band.alpha) : tokenRgb(m.bg);
 				const over = composite(wash.rgb, ground, wash.alpha);
 				for (const ink of INKS) {
@@ -516,7 +476,7 @@ test("every editor kills CodeMirror's dotted default, and only a full-pane edito
 			// 1px ring on the Specimen and every arm here still passed — the palette sweep
 			// checks both, but it never opens these two surfaces, so nothing did.
 			expect(Number.parseFloat(ring.width), `${s.name}: the focus ring is drawn at the site's 2px`).toBeGreaterThanOrEqual(2);
-			expect(parse(ring.color).rgb, `${s.name}: the focus ring is --accent (${ring.accent})`).toEqual(tokenRgb(ring.accent));
+			expect(parseColor(ring.color).rgb, `${s.name}: the focus ring is --accent (${ring.accent})`).toEqual(tokenRgb(ring.accent));
 			expectRingFillsEditor(ring, s.name);
 		} else {
 			// Not "no affordance" — the HOST owns it here. What must not happen is our ring
