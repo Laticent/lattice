@@ -1398,21 +1398,82 @@ Both halves of the defect, on the surface a user touches. At one pane width the 
 in exactly the way it exists to prevent. The same deck at `guards: loose` clamps nothing
 at either width, which is what stops the fixed reading from being a test of nothing.
 
-The line count is now **identical across a 26% and a 33% scale**, which is the invariant:
+The line count is now **identical across a 42% and a 33% scale**, which is the invariant:
 what a slide says is not a property of how wide the reader's pane is.
 
 **AND THE STUDIO EXPORT CAPTURE FRAME IS NOT AT SCALE 1 — measured, 0.94375.** That was
 left as an open question one paragraph ago; it is answered, and the answer moves the
 defect's severity rather than the fix's. `deck-export.js` sizes its iframe to the geom box
 (1280) and `buildSrcdoc` puts `padding: 18px` on BOTH `html` and `body`, so `.lattice`
-measures **1208** and the fit agent scales every section by 1208/1280. That frame's DOM is
-what `inflatedPlayerHtml` captures and the export bakes — so with the coordinate-space bug
-the trim ran at the wrong scale in **exported bytes**, not only in a preview. 0.94375 is now
-one of the scales in the measurement suite's corpus, so a change to that frame's padding
-cannot move it back without turning three arms red.
+measures **1208** and the fit agent scales every section by 1208/1280. The frame's own
+comment says the rest: *"The FIT agent still scales + reveals against the real width;
+`rasterizeSection` undoes the scale (`transform: none`) per slide."* So the runtime trims at
+0.94375 and the raster is taken at full size — the wrong LINE COUNT is baked. With the
+coordinate-space bug that reached **exported bytes**, not only a preview.
+
+**The CLI export was never affected, and an earlier draft of this paragraph said the
+opposite.** It cited `inflatedPlayerHtml` as what "the export bakes". That symbol lives only
+in `lattice-emulator.js` — it is the CLI's own player capture — and the CLI sets
+`page.setViewport({ width: slideW, height: slideH })` (`:3235`), so its sections carry no
+transform and `scaleOf` reads 1 there. The citation pointed a reader at the one export path
+the defect could not reach, as evidence that it reached exported bytes. Caught by a checker
+reading this very paragraph; recorded rather than quietly corrected, because a PR whose
+subject is claims nobody re-derives had shipped one.
+
+**0.94375 is a measurement, not a pin, and calling it a pin was the second wrong claim
+here.** It is a bare literal in the measurement suite's scale list, fed to a synthetic
+`transform: scale(k)`; nothing in that file reads `deck-export.js`, `buildSrcdoc` or the
+padding, so changing `padding = 18` to `24` moves the real frame to 0.925 and leaves the
+suite green. What the entry actually buys is worth keeping on its own terms —
+`0.94375 = 151/160` is another non-binary fraction, in the same family as 0.7, 0.62 and
+0.83, so it exercises the float-residue path. Re-derive the number from two places when it
+matters: `deck-preview.js`'s `padding` default and `deck-export.js`'s geom sizing.
+
+**And it is scrollbar-dependent.** 0.94375 was measured in headless Chromium, which uses
+zero-width overlay scrollbars. The capture frame's content runs about three times its
+height, so on a Chrome with classic scrollbars — the Windows/Linux desktop default, where
+the Studio actually runs — the agent reads roughly 1193 and the scale is about 0.932. Not 1
+in either configuration, which is all the severity argument needs; stated because "0.94375"
+read as a property of the frame when it is a property of the frame plus a scrollbar
+setting.
 
 **What is still not driven:** a real Studio export of a `guards: strict` deck, end to end,
 with its PDF diffed against the CLI export of the same deck. The mechanism is the same one
-verified on the Playground and the scale is now measured and pinned, but that last instance
-has no artifact of its own.
+verified on the Playground and the frame's scale is now measured, but that last instance has
+no artifact of its own.
+
+---
+
+## 12. A FIFTH PASS, on the commits the fourth never saw (2026-09-13)
+
+The fourth review signed off on one commit, and three more landed after it — including a
+change to `verifyTrim`'s policy. Nobody independent had read them. A checker scoped to that
+89-line delta found **no correctness defect in the kernel change** and four wrong CLAIMS,
+three of them in this note. That split is the finding: by the fifth pass the code was
+holding and the prose was not.
+
+- **The paragraph above cited the one export path the defect could not reach.** It said the
+  Studio frame's DOM "is what `inflatedPlayerHtml` captures and the export bakes".
+  `inflatedPlayerHtml` is the CLI's own player capture, and the CLI runs at scale 1. The
+  conclusion survives through `rasterizeSection`; the citation pointed at evidence against
+  it. Corrected in place, with the retraction kept.
+- **A measurement was recorded as a pin.** "A change to that frame's padding cannot move it
+  back without turning three arms red" — the suite reads no padding, no builder and no
+  frame, so it would stay green; and the count was two arms, not three.
+- **The measured scale is scrollbar-dependent** (0.94375 with overlay scrollbars, ~0.932
+  with classic ones), which the flat number hid.
+- **"26% and a 33% scale"** contradicted its own table one line above (0.4156 is 42%).
+
+**And one real hole, one layer inside the fix that closed the last one.** `818b460` made a
+MISSING probe count as over; the checker showed a probe that RETURNS nothing does the same
+damage — `{}`, `false`, `0` and `''` all make `!!result.over` false, so the cut stands
+unverified, while `null` and `undefined` threw and failed safe. Incoherent, and wrong in the
+dangerous direction for the four that did not throw. Latent rather than shipping: the only
+probe in the tree always returns `{ over, … }`. `verifyTrim` now requires the answer to BE
+an answer — a boolean `over` — or it counts as over, and the seven shapes are pinned.
+
+**The pattern, restated because it changed shape.** Passes one through four each found a
+defect in the previous pass's CODE. The fifth found the code sound and the prose wrong. A
+note that exists to stop claims being re-derived had accumulated four of its own, three
+written the same evening they were retracted.
 

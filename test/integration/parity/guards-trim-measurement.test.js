@@ -438,6 +438,38 @@ describe('the TRIM measurer geometry, in real Chromium', () => {
     assert.equal(absent.v.clean, false,
       'omitting the probe silently dropped the frame arm and kept the cut under half the policy');
     assert.equal(absent.left, 0, 'omitting the probe left clamps standing');
+
+    // 5. A PROBE THAT ANSWERS NOTHING is the same door one layer in. Guarding only
+    //    `typeof o.probe` closed the omission and left this open: `{}`, `false`, `0` and
+    //    `''` all make `!!result.over` false, so "not over", so the cut stands
+    //    unverified — while `null` and `undefined` threw on the property access and
+    //    failed safe. Incoherent, and wrong in the dangerous direction for the four that
+    //    did not throw. The answer has to BE an answer.
+    const shapes = [
+      ['{}', '() => ({})'],
+      ['false', '() => false'],
+      ['0', '() => 0'],
+      ["''", "() => ''"],
+      ['null', '() => null'],
+      ['undefined', '() => undefined'],
+      ['{over:"yes"}', '() => ({ over: "yes" })'],
+    ];
+    for (const [label, src] of shapes) {
+      const got = await onPage(fits, async (run) => {
+        const model = await run(MEASURE_EXPR);
+        const plan = planTrim(model);
+        return run(`
+          const sec = document.querySelector('section');
+          const p = args.plan;
+          applyTrim(sec, p);
+          const v = verifyTrim(sec, p, ${OPTS} probe: ${src} });
+          return { v, left: sec.querySelectorAll('[data-lattice-trimmed]').length };
+        `, { plan });
+      });
+      assert.equal(got.v.clean, false,
+        `a probe returning ${label} was treated as a clean verdict — arm 2 is off`);
+      assert.equal(got.left, 0, `a probe returning ${label} left clamps standing`);
+    }
   });
 
   test('clamping one COLUMN never credits its recovered height to another', async () => {
