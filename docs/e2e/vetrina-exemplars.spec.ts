@@ -186,6 +186,10 @@ async function revealGeometry(page: Page) {
 			view: window.innerHeight,
 			target: t ? { top: t.top, bottom: t.bottom, left: t.left, right: t.right } : null,
 			cursor: c ? { x: (c.left + c.right) / 2, y: (c.top + c.bottom) / 2 } : null,
+			// The band the stage's own caption is painting over, published by the stage for
+			// exactly this reason and read here as the ORACLE rather than re-derived from the
+			// caption's style constants — those are the thing under test.
+			chrome: Number.parseFloat(document.documentElement.style.getPropertyValue('--vt-chrome-bottom')) || 0,
 		};
 	});
 }
@@ -202,12 +206,24 @@ async function expectRevealed(page: Page): Promise<void> {
 	// scroll that large can only mean the target started well below the fold, which is the
 	// condition the case exists to create.
 	expect(g.scrollY, 'the page never scrolled — the cue is pointing off-screen').toBeGreaterThan(g.view / 2);
-	// The target is fully on screen, top and bottom — within a pixel. `block: 'nearest'` lands the
-	// bottom edge FLUSH with the window's, so at 390x844 it measured 844.171875 against a viewport
-	// of 844: fractional layout, not an overshoot. A whole pixel of slack is the right size for
-	// that and still an order of magnitude below the failure this pins (a target ~1,100px down).
+	// The target is fully on screen, top and bottom — within a pixel.
 	expect(g.target?.top).toBeGreaterThanOrEqual(-1);
 	expect(g.target?.bottom).toBeLessThanOrEqual(g.view + 1);
+
+	// AND IT CLEARS THE TOUR'S OWN CAPTION, which is the half `block: 'nearest'` gets wrong on its
+	// own and the half that is not visible in the assertion above. `nearest` scrolls the MINIMUM,
+	// so a target that started below the fold lands its bottom edge FLUSH with the window's — an
+	// earlier revision of this comment recorded exactly that (844.171875 against a viewport of
+	// 844) and read it as a success. It is the bottom edge the caption is painted against: with
+	// the default `bar` that is a dock ~118px up from it, and with the phone's `scrim` a 230px
+	// gradient at up to 90% opacity. So "scrolled into view" was landing the target under the
+	// thing that was talking about it. The stage now asks for that much room via `scroll-margin`,
+	// and this is the arm that fails if it stops.
+	expect(g.chrome, 'the stage published no chrome inset — the oracle below proves nothing').toBeGreaterThan(0);
+	expect(
+		g.target?.bottom,
+		`the target's bottom is at ${g.target?.bottom} in a ${g.view}px window whose last ${g.chrome}px are under the caption`,
+	).toBeLessThanOrEqual(g.view - g.chrome + 1);
 	// And the cursor is ON it (a 4px slack for the hand's landing wobble).
 	expect(g.cursor?.y, `cursor at y=${g.cursor?.y} vs target ${g.target?.top}-${g.target?.bottom}`).toBeGreaterThanOrEqual((g.target?.top ?? 0) - 4);
 	expect(g.cursor?.y).toBeLessThanOrEqual((g.target?.bottom ?? 0) + 4);

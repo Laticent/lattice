@@ -220,6 +220,15 @@ candidates the sandbox cannot reach are the interesting ones: the software keybo
 visual-viewport offset, which changes what "in view" means without changing any scrollTop, and
 Safari's collapsing chrome. The measurement that would settle it is this same sampler, on a device.
 
+> **SUPERSEDED (2026-09-14).** It was neither of those, and no device was needed. The tour's OWN
+> caption covers the bottom of the editor — 230px of `scrim` gradient on a phone, reaching 90%
+> opacity at the edge — and the reveal landed the tail flush with exactly that edge. The table above
+> could not see it, because it measured the tail against the SCROLLER'S box: on WebKit the worst tail
+> position is the same absolute y in both columns (712 in a 659px window), reading 53px against the
+> scroller's bottom and 283px against the caption's top. An oracle that saturates reports agreement
+> between a hypothesis and its negation. Full account, with the after-state geometry on both engines:
+> `2026-09-14-tour-caption-is-an-occluder.md`.
+
 The caret is deliberately untouched, and that is the load-bearing half: moving it to the end would
 also scroll, and would fire the editor's cursor→slide channel, jumping the preview to the last
 slide on every keystroke of a demo. `editor-reveal-tail.test.tsx` pins exactly that.

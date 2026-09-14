@@ -67,8 +67,25 @@
 			   Several exemplars assert positions (the dock's edge, computed tokens on the cursor),
 			   so a block that made the page scrollable for all of them would change the surface
 			   they were written against. `padding-top: 160vh` puts the target more than a
-			   viewport down at ANY width, which is the condition under test. */
+			   viewport down at ANY width, which is the condition under test.
+
+			   `#reveal-runway` below is the scroll RUNWAY, and without it the case cannot measure
+			   what it is for: the reveal asks for room to clear the tour's own caption
+			   (`scroll-margin`), and a target sitting at the end of the document has nowhere to be
+			   scrolled TO — the page hits its maximum scroll and the target stays partly covered.
+			   Measured before it existed: 759px in an 844px window whose last 123px the caption
+			   covers, i.e. 85 of the 123px recovered and the rest unreachable. That is honest
+			   behavior (it is in the library README), but it is not what this arm exists to pin.
+
+			   IT IS OUTSIDE THE BOARD, and that is not tidiness. The page centers `#app` in the
+			   viewport when a run starts, so runway added INSIDE the board changes where the page
+			   lands before the tour has done anything — measured, it put `#far-target` already on
+			   screen at y=208 with the window at its maximum scroll, which quietly removed the
+			   below-the-fold condition this whole exemplar is built on. A sibling adds document
+			   range below the target and leaves the board's own box exactly as it was. */
 			#reveal-block { grid-column: 1 / -1; display: none; padding-top: 160vh; }
+			#reveal-runway { display: none; height: 60vh; }
+			body[data-demo='reveal'] #reveal-runway { display: block; }
 			body[data-demo='reveal'] #reveal-block { display: block; }
 			#far-target {
 				height: 64px;
@@ -128,6 +145,9 @@
 					<div id="far-target">far target</div>
 				</div>
 			</section>
+			<!-- Scroll runway: document range BELOW the target, so the reveal has somewhere to lift
+			     it to. Outside the board on purpose — see #reveal-runway in the styles above. -->
+			<div id="reveal-runway"></div>
 
 			<div class="controls">
 				<button id="start" type="button">Start demo</button>
