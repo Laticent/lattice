@@ -390,6 +390,9 @@ probe calls fine.
   | 6 | round 5's rail fix keyed on `mirror`, and two corners never have a mirror in them | fixed, pinned (4 + 4 of 56) |
   | 6 | the `.panel-right` reserve was ungated on `mirror`, holding ~89px of dead band | fixed, pinned (4 of 56) |
   | 6 | four `mirror` seam arms were placebo, and three quoted figures did not reproduce | fixed |
+  | 7 | round 6's `:not(.mirror)` gate reopened a pill-over-text overprint at the label cap | fixed, pinned (8 of 64 arms) |
+  | 7 | the rail sweep measured only the always-opaque segment, so its floor was the wrong number | fixed; 5,643 cells, 3 under 3:1 |
+  | 7 | "`claim-hero`/`claim-bleed` zero the inset" is false — the margin is 0.475cqi, a TOKEN coupling | corrected |
 
   **Round 5's three are one finding wearing three hats, and it is the same one as rounds 1-4.**
   Round 4 widened WHICH PANELS reserve the band; nobody widened WHAT THE PROBE LOOKS AT. The test's
@@ -456,8 +459,54 @@ probe calls fine.
   portrait 361.4x51.5, square 305.0x38.5, story 381.6x45.9, mobile 390.1x41.8. Also corrected: the
   band reserve's `.mirror` selector is (0,4,1), not the (0,3,1) a commit message claimed for the
   pair; `1c14463` says "two slides" added to `autosplit-coverage.md` and one was; and the
-  blast-radius count is 66 authored `_class:` split-panel slides across 14 decks, or 78 rendered
-  sections, not the 71 across 13 a PR body said.
+  blast-radius count is not the 71 across 13 a PR body said — and the corrected figure this
+  paragraph first carried, 66 across 14, was ALSO wrong, because the same commit that wrote it
+  added a slide to `examples/split-mirror-marks.md` and the number was taken from the parent. **The
+  count is 67 authored `_class:` split-panel slides across 14 decks at `4799390`**, and a rendered
+  count needs its corpus named with it: 74 `section.split-panel` across the 13 decks whose SOURCE
+  matches `_class:.*split-panel`, 81 across 14 if the sweep renders every deck in `examples/`
+  (`read-across-carousel.md` produces sections it does not author that way). A paragraph whose
+  subject is other people's unreproducible numbers shipped two of its own; the lesson is the one
+  above — state the instrument with the number.
+
+  **Round 7: the CSS was close to right, and the INSTRUMENT was not.** This is the finding that
+  matters most on this branch, and it is the one an eighth round would otherwise have repeated.
+  Two load-bearing numbers turned out to be properties of the measuring apparatus rather than of
+  the layout:
+
+  - **"the pointer overlaps the other panel by 0-43px" is a property of a 21-CHARACTER LABEL.** The
+    pill's text is the NEXT page's member title, clipped at `LABEL_MAX = 42` in
+    `lib/core/relationship.js`. The fixture in `split-panel-coverless-band.test.js` uses titles of
+    15 and 21 characters, which give a 305px pill at square. At the cap the pill is 496.4px at
+    square and 672.7px stacked, and it CROSSES THE SEAM: measured at square, it overlaps
+    `.panel-left` by 112.3px on plain `pullquote` and `.panel-right` by 149.1px on `steps mirror`.
+    Round 6's `:not(.mirror)` gate, added to recover ~89px of what looked like dead band, therefore
+    reopened a real pill-over-text overprint. **The reserve now follows the LAYOUT, not a panel
+    name:** in a row both panels reserve (the pill can cross into either, and a row's panels are
+    full height so padding costs nothing); in a column only the bottom one (the top panel is out of
+    reach at any label width, and reserving it is what moved the seam).
+  - **"0 of 627 cells, floor 5.11:1" is a property of `querySelector`.** `auto-split.js` marks
+    segments `0..k` as `on`, so segment 0 is ALWAYS the opaque one, and both the sweep and the test
+    arm took the first segment. Neither had ever measured the 0.7-alpha OFF pills — which are
+    exactly the ones `base.modifiers.css` spends forty lines tuning to clear 3:1. Measuring every
+    segment: **5,643 cells, 3 under 3:1, floor 2.97:1.**
+
+  The three failing cells are `cuoio | steps mirror [off]`, where the corner is `--bg-alt`. That is
+  NOT this layout's ink choice: the rail's own ink and alpha measure **3.11:1 on `--bg` and 2.97:1
+  on `--bg-alt`** on cuoio, independently of any component — `base.modifiers.css` tuned 0.7 against
+  `--bg` and its own comment quotes 3.11, leaving 0.11 of headroom that a slightly darker field
+  consumes. Any split page whose corner is `--bg-alt` measures 2.97 on that palette. A one-token
+  fix exists and was measured (`--text-heading` at 0.7 gives 5.94 there) and is NOT taken: it would
+  make one layout's rail darker than every other split page's to patch a shared alpha whose home is
+  `.lat-split-rail .seg` itself.
+
+  **And the `claim-hero`/`claim-bleed` exemption rests on 0.475cqi, not on "zeroing the inset".**
+  Round 6 wrote that those Frames zero the frame inset; they do not. They set
+  `--frame-y: var(--frame-inset-y)` (`stage.css`), and that token is `1.875cqi`
+  (`base.tokens.css`). The panel clears the rail by FOUR PIXELS at square, and only because
+  `.lat-split-rail` sits at `bottom: 2.35cqi`. The coupling the arm depends on is a TOKEN, not a
+  Frame: raise `--frame-inset-y` past 2.35cqi and every `claim-hero`/`claim-bleed` split page
+  silently paints panel ink on canvas again, with nothing in the tree to say so.
 
   **What the reserve does NOT do, measured rather than argued.** It repositions content that
   FITS — which is the drift fix and the mirror fix, and both are real. It cannot hold longer
@@ -512,6 +561,14 @@ probe calls fine.
   deliberately NOT taken: it would make this PR's mirrored count louder than every other split
   page in the same deck, to partially fix a condition whose home is `.lat-split-rail .seg-count`
   itself.
+- **`split-panel pullquote metric` demotes its own quotation, and that is pre-existing.** The
+  combination renders no `<blockquote>` in `.panel-left` — the quote arrives as a plain `<p>` at
+  `--fs-meta` — and leaves an EMPTY `<blockquote></blockquote>` in `.panel-right`. Byte-identical
+  on the `--no-split` render, so splitting is not involved. It is recorded here because it is why
+  the `metric` fix has no slide in the demo deck: a coverless `metric` page needs the heading-less
+  shape, `lint-core.js` rule 5 warns `split-missing-headline` on a `metric` slide with no `## `
+  hero number, and the only lint-clean heading-less route is `pullquote metric` — which renders
+  the page above. The fix itself is pinned by a test arm and measured in this note instead.
 - **`split-panel`'s running footer is illegible on its coverless split pages, and was before
   them.** The layout inks its chrome `--on-dark-secondary` — white at 0.76 alpha — because that
   chrome normally sits over the dark panel. At portrait the panel is on TOP and the footer sits

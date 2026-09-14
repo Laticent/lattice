@@ -65,28 +65,29 @@
  *     bottom-right corner is the panel: 52 of 198 palette/variant cells under WCAG 1.4.11's 3:1,
  *     bottoming out at 1.00:1.
  *
- * MUTATION-PROVED, and the counts are against the 56 arms as they stand today — re-derive them
+ * MUTATION-PROVED, and the counts are against the 64 arms as they stand today — re-derive them
  * before quoting one, because every count in this file's history was measured against a different
- * number of arms (20, then 40, now 56):
+ * number of arms (20, then 40, then 56, now 64):
  *
  *     mutation                                          arms that fail
- *     pointer `position: static`                             23
- *     the reserve widened back to BOTH panels                11
- *     every rail-ink rule deleted                             8
- *     the every-page keying → `:has(> .lat-split-rel)`        4
- *     `:not(.form)` back on both native rules                 4
- *     the `.mirror > .panel-left` reserve deleted             4
+ *     pointer `position: static`                             27
+ *     the every-page keying → `:has(> .lat-split-rel)`       16
+ *     the reserve re-gated to ONE named panel                 6
+ *     the reserve widened to BOTH panels at every size        6
  *     the non-mirror `metric` rail arm deleted                4
  *     the `form` canvas rail arm deleted                      4
- *     the reserve un-gated from `mirror`                      4
  *
- * THREE OF THOSE ROWS WERE ZERO UNTIL THE FIXTURE SET GREW, and the pattern is the same one every
- * time. The `.mirror` row was zero while the content probe read `.panel-right` only — the
- * overprint it exists to catch lands on `.panel-left cite`, so the arm asserted `overContent ===
- * null` against a set that structurally could not contain its own defect. The `form` and `metric`
- * rows were zero while the file rendered `form` and `mirror` separately and never together, and
- * treated `.panel-right` as always the light one. Each round widened WHICH PAGES OR PANELS the
- * rule covers; nobody widened WHAT THE PROBE LOOKS AT, or WHICH DECKS IT LOOKS AT.
+ * EVERY ROW HERE WAS ONCE ZERO, and that — not any one defect — is what this file is about. The
+ * `.mirror` reserve reddened nothing while the content probe read `.panel-right` only, because the
+ * overprint it catches lands on `.panel-left cite`. The `form` and `metric` rail arms reddened
+ * nothing while the file rendered `form` and `mirror` separately and never together, and treated
+ * `.panel-right` as always the light one. And the one-named-panel row reddened NOTHING until the
+ * fixture carried a 42-character forward label: the pill is as wide as the next page's title, so
+ * every "which panel does it sit in" figure taken from the 15- and 21-character titles above was a
+ * property of those titles. Five rounds each widened WHICH PAGES OR PANELS the rule covers; what
+ * kept being too narrow was the PROBE — what it looks at, which decks it looks at, and now which
+ * ELEMENTS it looks at (the rail arm read `querySelector('.seg')`, and segment 0 is always the
+ * opaque one, so the 0.7-alpha off pills had never been measured at all).
  */
 
 const { describe, test, before, after } = require('node:test');
@@ -125,6 +126,29 @@ size: ${size}
   - And a third clause to match.
 `;
 
+// THE PILL'S WIDTH IS AN AUTHORING VARIABLE, and every "which panel does it sit in" number this
+// file has quoted came from the 15- and 21-character titles above. `relationship.js` clips the
+// forward label at `LABEL_MAX = 42`, so a deck may legitimately make the pill 496px wide at square
+// (672px stacked) instead of 305px — wide enough to cross the seam into the panel the rule did NOT
+// reserve. That is not a hypothetical: a `:not(.mirror)` gate measured "safe" on the deck above
+// reopened a pill-over-text overprint on `steps mirror` at the cap. The fixture now carries the
+// cap, because a probe narrower than the layout is the defect this file keeps shipping.
+const LONG_TITLE = 'Reading with a title of forty-two chars!!';
+const wideDeck = (size, cls) => `---
+marp: true
+theme: indaco
+size: ${size}
+---
+
+<!-- _class: split-panel ${cls} -->
+
+> pullquote gives half the slide to one voice, and the other half to what it means.
+
+\`split-panel · the layout, quoted\`
+
+${['a', 'b', 'c', 'd'].map(() => `- ${LONG_TITLE}\n  - ${'clause '.repeat(12).trim()}.`).join('\n')}
+`;
+
 const SIZES = ['portrait', 'square', 'story', 'mobile'];
 
 describe('split-panel: a coverless split page places its marks and reserves the band', () => {
@@ -157,6 +181,12 @@ describe('split-panel: a coverless split page places its marks and reserves the 
         const whole = path.join(dir, `${size}${cls}-whole.html`);
         execFileSync(process.execPath, [EMU, md, whole, '-q', '--no-split'], { stdio: 'ignore' });
         rendered.set(`${key}|whole`, whole);
+        // …and the same shape with the forward label at the engine's 42-character cap.
+        const wmd = path.join(dir, `${size}${cls}-wide.md`);
+        const whtml = path.join(dir, `${size}${cls}-wide.html`);
+        fs.writeFileSync(wmd, wideDeck(size, `pullquote${cls ? ` ${cls}` : ''}`));
+        execFileSync(process.execPath, [EMU, wmd, whtml, '-q'], { stdio: 'ignore' });
+        rendered.set(`${key}|wide`, whtml);
       }
     }
     const puppeteer = require('puppeteer-core');
@@ -170,8 +200,8 @@ describe('split-panel: a coverless split page places its marks and reserves the 
   });
 
   /** Every coverless split page in the rendered deck, with the geometry the arms ask about. */
-  const measure = async (size, cls) => {
-    await p.goto(`file://${rendered.get(`${size}|${cls}`)}`, { waitUntil: 'networkidle0' });
+  const measure = async (size, cls, variant = '') => {
+    await p.goto(`file://${rendered.get(`${size}|${cls}${variant}`)}`, { waitUntil: 'networkidle0' });
     return p.evaluate(() => {
       const ink = (el) => {
         const b = el.getBoundingClientRect();
@@ -284,25 +314,33 @@ describe('split-panel: a coverless split page places its marks and reserves the 
         return { rgb: [m[0] * k, m[1] * k, m[2] * k], a: m.length > 3 ? m[3] : 1 };
       };
       const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return +((x + 0.05) / (y + 0.05)).toFixed(2); };
-      const out = [];
+      // EVERY segment, not the first. `auto-split.js` marks segments 0..k `on`, so segment 0 is
+      // ALWAYS `on` — and `.seg` is `opacity: 0.7` while `.seg.on` is `1`. A probe that takes
+      // `querySelector('.seg')` has therefore only ever measured the opaque pill, and the OFF
+      // pills are the ones `base.modifiers.css` spends forty lines tuning to clear 3:1.
+      const rows = [];
       document.querySelectorAll('section.split-panel.lat-split-native').forEach((s, i) => {
-        const seg = s.querySelector('.lat-split-rail .seg');
-        if (!seg) return;
-        // Sections below the fold are outside the viewport, and `elementsFromPoint` is a VIEWPORT
-        // query: without this every page but the first reports the page's own white backdrop.
-        seg.scrollIntoView({ block: 'center' });
-        const cs = getComputedStyle(seg);
-        const col = parse(cs.color);
-        const r = seg.getBoundingClientRect();
-        let bg = [255, 255, 255];
-        for (const el of document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2)) {
-          const c = parse(getComputedStyle(el).backgroundColor);
-          if (c.a >= 0.99) { bg = c.rgb; break; }
+        for (const seg of s.querySelectorAll('.lat-split-rail .seg')) {
+          // Sections below the fold are outside the viewport, and `elementsFromPoint` is a
+          // VIEWPORT query: without this every page but the first reports the white backdrop.
+          seg.scrollIntoView({ block: 'center' });
+          const cs = getComputedStyle(seg);
+          const col = parse(cs.color);
+          const r = seg.getBoundingClientRect();
+          let bg = [255, 255, 255];
+          for (const el of document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2)) {
+            const c = parse(getComputedStyle(el).backgroundColor);
+            if (c.a >= 0.99) { bg = c.rgb; break; }
+          }
+          const a = col.a * (+cs.opacity);
+          rows.push({
+            page: i + 1,
+            on: seg.classList.contains('on'),
+            ratio: ratio(col.rgb.map((v, j) => v * a + bg[j] * (1 - a)), bg),
+          });
         }
-        const a = col.a * (+cs.opacity);
-        out.push({ page: i + 1, ratio: ratio(col.rgb.map((v, j) => v * a + bg[j] * (1 - a)), bg) });
       });
-      return out;
+      return rows;
     });
   };
 
@@ -408,25 +446,54 @@ describe('split-panel: a coverless split page places its marks and reserves the 
       });
     }
 
-    // ONLY THE CORNER PANEL GIVES UP THE BAND. The rule reserves it by adding bottom padding, so
-    // the panel the pointer cannot reach must keep exactly the padding the unsplit slide gives it.
-    // Ungated, the `.panel-right` arm reserved ~89px on a mirrored page where the pointer is in
-    // the other column — dead band, and content lifted 44.4px off where the whole slide puts it.
-    // Nothing caught that: it is not an overprint, it does not drift across a run, and the seam
-    // arm watches `.panel-left`.
+    // IN A COLUMN, THE TOP PANEL KEEPS ITS OWN PADDING — and in a ROW both panels give up the
+    // band. Two rounds tried to name ONE panel for the reserve and both were reading this file's
+    // own short labels: the pill's width is the next page's member title, clipped at 42
+    // characters, so at the cap it is 496px at square and CROSSES THE SEAM (measured: it overlaps
+    // `.panel-left` by 112.3px unmirrored and `.panel-right` by 149.1px on `steps mirror`). A
+    // `:not(.mirror)` gate that measured safe on the narrow fixture reopened a real overprint
+    // there. What does NOT vary is the column case: `.panel-left` is the top half, the pill cannot
+    // reach it at any label width (measured 0 overlap at portrait, story and mobile even at
+    // 672.7px), and reserving it would inflate it — which is the seam defect round 5 fixed.
     for (const cls of ['', 'mirror']) {
-      test(`${size}${cls ? ' + mirror' : ''}: the panel the pointer cannot reach keeps its own padding`, async (t) => {
+      test(`${size}${cls ? ' + mirror' : ''}: the reserve follows the row/column, not one named panel`, async (t) => {
         if (!exe) return t.skip('no Chromium — set CHROME_PATH');
         const whole = await measureSeam(`${size}|${cls}|whole`);
         const split = await measureSeam(`${size}|${cls}`);
         assert.ok(whole.length === 1 && split.length >= 2, 'the fixture did not render as expected');
-        // `mirror` puts the pointer over `.panel-left`, so `.panel-right` is the untouched one;
-        // unmirrored it is the other way round.
-        const key = cls.includes('mirror') ? 'pbR' : 'pbL';
         for (const x of split) {
-          assert.equal(x[key], whole[0][key],
-            `page ${x.page}: ${key === 'pbR' ? '.panel-right' : '.panel-left'} reserved a band the`
-            + ` pointer never reaches — ${x[key]} split vs ${whole[0][key]} unsplit`);
+          if (x.column) {
+            // Only the bottom panel can be reached, so the top one must be untouched.
+            assert.equal(x.pbL, whole[0].pbL,
+              `page ${x.page}: .panel-left reserved a band the pill cannot reach in a column`
+              + ` — ${x.pbL} split vs ${whole[0].pbL} unsplit`);
+            assert.notEqual(x.pbR, whole[0].pbR,
+              `page ${x.page}: .panel-right did not reserve the band the pill sits in`);
+          } else {
+            // A row: the pill can cross the seam, so neither panel may be left out.
+            assert.notEqual(x.pbL, whole[0].pbL,
+              `page ${x.page}: .panel-left did not reserve, and in a row the pill can cross into it`);
+            assert.notEqual(x.pbR, whole[0].pbR,
+              `page ${x.page}: .panel-right did not reserve, and in a row the pill can cross into it`);
+          }
+        }
+      });
+    }
+
+    // …AND THE SAME DECK WITH THE FORWARD LABEL AT THE ENGINE'S CAP. This is the arm the file was
+    // missing: every "which panel does the pill sit in" figure it has quoted came from a 15- or
+    // 21-character title, and the engine allows 42. At the cap the pill is 496px at square rather
+    // than 305px and crosses the seam, which is how a reserve gated to one named panel shipped a
+    // pill-over-text overprint that the narrow fixture called clean.
+    for (const cls of ['', 'mirror']) {
+      test(`${size}${cls ? ' + mirror' : ''}: the pill covers no content at the 42-character label cap`, async (t) => {
+        if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+        const pages = await measure(size, cls, '|wide');
+        assert.ok(pages.length >= 2, `the wide-label run did not split (${pages.length} page(s))`);
+        for (const x of pages) {
+          assert.equal(x.overContent, null,
+            `page ${x.page}: at the label cap the opaque pill covers body text — ${JSON.stringify(x.overContent)}`);
+          assert.equal(x.overRail, null, `page ${x.page}: pill over the k-of-N rail — ${JSON.stringify(x.overRail)}`);
         }
       });
     }

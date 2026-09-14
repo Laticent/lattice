@@ -756,17 +756,33 @@ section.split-panel-points:is(
  *     content box and never inflates anything. The measurement that caught this was a RASTER of
  *     the split deck — the geometry probes had all reported "no overprint" and were right.
  *
- *   · AND ONLY THE CORNER PANEL, which is the same correction the rail rules below needed. The
- *     `.panel-right` arm was ungated on `mirror`, so a mirrored page reserved the band on BOTH
- *     columns — and under `mirror` the pointer is in the other one. Measured at square across 22
- *     configurations, the pointer overlaps the corner panel by 347-390px of its 390px width and
- *     the other panel by 0-43px; on an UNMIRRORED page that other-panel sliver is 0-7px and has
- *     never had a reserve. So the ungated arm held ~89px of dead band at the bottom of the light
- *     column and lifted its content 44.4px off where the unsplit slide puts it — the same defect,
- *     in the same rule, that round 4 wrote up as "~89px of dead space held at the bottom of the
- *     other column" when the reserve was on the wrong panel. Round 5 added the right panel and
- *     left the wrong one in place. `:not(.mirror)` makes the two arms one statement: the band is
- *     reserved on the panel in the corner, and on no other.
+ *   · IN A ROW, BOTH PANELS — BECAUSE THE PILL'S WIDTH IS AN AUTHORING VARIABLE. Two rounds tried
+ *     to name ONE panel for the reserve, and both were reading a fixture instead of the layout.
+ *     The pill's label is the NEXT page's member title, clipped at `LABEL_MAX = 42` characters
+ *     (`lib/core/relationship.js`), so its width is the author's to decide. The fixture this file
+ *     ships uses 15- and 21-character titles, which give a 305px pill at square — narrow enough to
+ *     sit inside one panel, which is where "the pointer overlaps the other panel by 0-43px" came
+ *     from. It is a property of those labels and of nothing else. At the 42 the engine allows, the
+ *     pill is 496.4px at square and 672.7px at the stacked sizes, and it CROSSES THE SEAM:
+ *
+ *       square, 42-char label     overlap of .panel-left    overlap of .panel-right
+ *       pullquote                        112.3                     384.1
+ *       pullquote metric                 113.3                     383.1
+ *       pullquote mirror                 496.4                       0
+ *       steps mirror                     347.3                     149.1
+ *
+ *     So a rule that reserves one named panel leaves the other exposed, whichever one it picks —
+ *     and a `:not(.mirror)` gate, which round 6 added to recover ~89px of what looked like dead
+ *     band, reopened a measured pill-over-text overprint on `steps mirror`. The band belongs to
+ *     BOTH panels wherever the section is a ROW, and padding costs nothing there because a row's
+ *     panels are already full height.
+ *
+ *     IN A COLUMN ONLY THE BOTTOM ONE, and that half is round 5's finding unchanged: `.panel-left`
+ *     is then a flex item sized by its content, so a reserve INFLATES it — the seam moved 49.3% to
+ *     55.0% of the slide at portrait. The pill cannot reach it there anyway (measured overlap 0 at
+ *     portrait, story and mobile, even at 672.7px wide), because `.panel-left` is the top half.
+ *     `:is(.mirror, :not([data-orientation="portrait"]))` is exactly "the section is a row":
+ *     `mirror` forces `row-reverse` at every size, and the portrait stamp is what makes a column.
  *
  *   · THE LAST PAGE OF A RUN CARRIES NO FORWARD POINTER, so `:has(> .lat-split-rel)` was false
  *     there and that page alone got no reserve. `.panel-right > ul` is `justify-content:
@@ -816,8 +832,8 @@ section.split-panel.lat-split-native > .lat-split-rel {
   left: auto;
   z-index: var(--z-chrome);
 }
-section.split-panel.lat-split-native:not(.mirror) > .panel-right,
-section.split-panel.mirror.lat-split-native > .panel-left {
+section.split-panel.lat-split-native > .panel-right,
+section.split-panel.lat-split-native:is(.mirror, :not([data-orientation="portrait"])) > .panel-left {
   padding-bottom: max(var(--sp-xl), calc(var(--_sec-1cqi, 1cqi) * 14.4));
 }
 
@@ -874,9 +890,16 @@ section.split-panel.mirror.lat-split-native > .panel-left {
  *     `.panel-left` y74.3 h909.2 in a 1080 section, ending at y983.5) and the rail sits at
  *     y1051.3, 68px BELOW them on the frame's white margin. Painting it the panel's ink there
  *     measured 1.00:1 on `form mirror`, `form mirror claim-quiet` and `watermark form mirror`, at
- *     both sizes — an invisible rail, where before this rule it was 11.50:1. `claim-hero` and
- *     `claim-bleed` zero the inset, so on those the panel does reach the corner and the panel ink
- *     is right; that set is MEASURED, not assumed, and a new Frame has to be measured into it.
+ *     both sizes — an invisible rail, where before this rule it was 11.50:1. On `claim-hero` and
+ *     `claim-bleed` the panel DOES reach the corner, so the panel ink is right there — but not
+ *     because those Frames "zero the inset", which an earlier draft of this comment claimed and
+ *     which is false. They set `--frame-y: var(--frame-inset-y)` (`stage.css`), and that token is
+ *     `1.875cqi` (`base.tokens.css`). The panel clears the rail by FOUR PIXELS at square, and only
+ *     because `.lat-split-rail` sits at `bottom: 2.35cqi` — a margin of 0.475cqi. So the coupling
+ *     this arm depends on is a TOKEN, not a Frame: raise `--frame-inset-y` past 2.35cqi and every
+ *     `claim-hero`/`claim-bleed` split page silently paints panel ink on canvas again, with
+ *     nothing in the tree to say so. The Frame set is still measured rather than assumed, and
+ *     `resolve-claim.js` says it is the whole vocabulary — but the fragile edge is the 0.475cqi.
  *   · `metric` INVERTS THE PANELS (line 140: `.panel-right { background-color: --surface-inverse }`),
  *     so on an UNMIRRORED `metric` page the corner panel is the dark one and canvas ink measured
  *     1.02:1 — the identical defect, on a surface no `.mirror` selector can reach. The 33-palette

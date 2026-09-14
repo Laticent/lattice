@@ -47,21 +47,6 @@ A split page puts its wayfinding marks in the bottom-right corner. Three things 
 
 ---
 
-<!-- _class: split-panel pullquote metric -->
-
-> Two corners never had a mirror in them, and keying on one missed both.
-
-`the corner, not the modifier`
-
-- Metric inverts the panels
-  - Its dark half is the right one, and the rail sat on it at 1.02 to 1.
-- A Form frame insets them
-  - The rail drops below both, onto canvas, where panel ink read 1.00 to 1.
-- The rule asks what is in the corner
-  - Not which modifier is on the slide.
-
----
-
 <!-- _class: closing -->
 
 ## What a reader should see
