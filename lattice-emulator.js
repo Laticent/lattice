@@ -797,7 +797,14 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 // (#1329).
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
-const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
+const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
+// "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
+// This was open-coded here as `/\bguards-strict\b/.test(cls) && !/\bguards-loose\b/`,
+// and `-` is a non-word character, so `\b` matches at a hyphen: `no-guards-strict` and
+// `guards-strict-x` enabled the trim here and not in the runtime, and
+// `x-guards-loose guards-strict` disabled it here and not there. Same deck, two answers
+// about whether a slide is trimmable at all (HARD RULE #1). Injected from the kernel.
+const { GUARDS_ENABLED_SRC } = require('./lib/core/resolve-guards');
 // The verdict half of the same measurement — extent + legibility → the
 // `{ ratio, canSplit, splitRatio }` the overflow RING reads. (It fed `resplitDoc` until
 // 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
@@ -3421,7 +3428,7 @@ async function renderBody(browser, g, closeBrowser) {
    * and `golden-diff` stays green.
    */
   const applyGuardsTrim = () => g(async () => {
-    const models = await page.evaluate(({ roleSrc, measureSrc, clearSrc, clipSel }) => {
+    const models = await page.evaluate(({ roleSrc, measureSrc, clearSrc, clipSel, enabledSrc }) => {
       // `measureTrim` calls `trimRoleOf` by name. Under `require` that is module
       // scope; injected through `new Function` it is not, so the role classifier is
       // bound globally FIRST. Inlining it into the measurer instead would put the
@@ -3430,9 +3437,10 @@ async function renderBody(browser, g, closeBrowser) {
       globalThis.trimRoleOf = new Function('return (' + roleSrc + ')')();
       const measureTrim = new Function('return (' + measureSrc + ')')();
       const clearTrim = new Function('return (' + clearSrc + ')')();
+      const guardsEnabled = new Function('return (' + enabledSrc + ')')();
       const out = [];
       document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
-        if (!/\bguards-strict\b/.test(s.className) || /\bguards-loose\b/.test(s.className)) return;
+        if (!guardsEnabled(s.className)) return;
         clearTrim(s);
         // A PER-SLIDE id namespace, matching the runtime. The export bakes one
         // document too, and an id only has to be unique where it is resolved.
@@ -3440,7 +3448,7 @@ async function renderBody(browser, g, closeBrowser) {
         if (model.boxes.length) out.push({ index: i, model });
       });
       return out;
-    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR });
+    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: GUARDS_ENABLED_SRC });
 
     const pages = [];
     const reverted = [];
@@ -3457,57 +3465,29 @@ async function renderBody(browser, g, closeBrowser) {
       // `examples/overflow-guards.md` page 4 was trimmed AND still overflowed.
       // So the outcome is re-measured, and a trim that did not buy the fit is
       // undone rather than left as content destroyed for nothing.
-      const fitted = await page.evaluate(({ i, p, eps, applySrc, measureSrc, clearSrc, roleSrc, findSrc, clearBoxesSrc, clipSel, ignoreSel, probeSrc, tol }) => {
+      const fitted = await page.evaluate(({ i, p, eps, applySrc, measureSrc, clearSrc, roleSrc, findSrc, clearBoxesSrc, verifySrc, clipSel, ignoreSel, probeSrc, tol }) => {
         globalThis.trimRoleOf = new Function('return (' + roleSrc + ')')();
-        // THE SAME ORACLE THE WARNING USES. `measureTrim` answers "does this box's own
-        // scroll extent exceed its client height"; `probeSectionOverflow` answers
-        // "does this slide exceed its frame", cell-aware, and it is what prints the
-        // OVERFLOW line below. Verifying with only the first produced a report that
-        // contradicted itself one line later — "Those slides FIT … the frame check
-        // below reports them clean", immediately above the frame check naming that
-        // same page. Reproduced by a third review on a two-up slide. A trim now has
-        // to satisfy BOTH, or it is reverted.
-        const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
         globalThis.trimBlockEl = new Function('return (' + findSrc + ')')();
         globalThis.clearTrim = new Function('return (' + clearSrc + ')')();
+        globalThis.measureTrim = new Function('return (' + measureSrc + ')')();
+        globalThis.clearTrimBoxes = new Function('return (' + clearBoxesSrc + ')')();
         const applyTrim = new Function('return (' + applySrc + ')')();
-        const measureTrim = new Function('return (' + measureSrc + ')')();
-        const clearTrimBoxes = new Function('return (' + clearBoxesSrc + ')')();
+        const verifyTrim = new Function('return (' + verifySrc + ')')();
+        const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
         const sec = document.querySelectorAll('section[data-lattice-slide]')[i];
         applyTrim(sec, p);
-        // VERIFY AT THE FIT TARGET, NOT THE ALARM'S SLACK. This read 12 — the
-        // overflow probe's measurement tolerance — while `planBox`'s exit target was
-        // tightened to 0.5, so the one gate that catches model error certified any
-        // residual under 12px as a fit. That is verbatim the defect the tightening
-        // existed to end, moved one function along; a third review reproduced a
-        // sheared card through it. ENTRY still uses 12 (which boxes are worth acting
-        // on is the probe's question); the verdict does not.
-        const frameOver = () => {
-          try { return !!probeSectionOverflow(sec, clipSel, tol, ignoreSel).over; }
-          catch (_e) { return false; }   // a throwing probe must not silently keep a bad cut
-        };
-        // STEP 1 — PER BOX, through the kernel, so the export and the live preview
-        // cannot answer "what does a failed trim undo?" differently. A cut in a panel
-        // that fitted is not thrown away because a DIFFERENT panel is all never-trim:
-        // that whole-section revert is the mechanism by which `guards: strict` goes
-        // inert on exactly the split layouts it exists for (HARD RULE #1).
-        const stillOver = measureTrim(sec, clipSel, eps, 's' + i + 'tb').boxes.map((b) => b.id);
-        if (stillOver.length) clearTrimBoxes(sec, p, stillOver);
-
-        // STEP 2 — RULE 5, AT THE SLIDE. If the reader would still see a clipped
-        // slide, the cut bought nothing and every clamp comes off. Not the same
-        // question as step 1, and step 1 alone got it wrong: on a two-up slide every
-        // clip cell measured clean while the FRAME still overflowed, so nothing was
-        // "still over" to revert, 22 lines of copy were destroyed, and the export
-        // printed "Those slides FIT" one line above the frame check naming that same
-        // page. Reproduced by a third review.
-        const clean = measureTrim(sec, clipSel, eps, 's' + i + 'tb').boxes.length === 0
-                   && !frameOver();
-        if (!clean) clearTrimBoxes(sec, p, p.actions.map((a) => a.boxId));
-        return { kept: sec.querySelectorAll('[data-lattice-trimmed]').length > 0, fits: clean };
+        // THE VERDICT IS THE KERNEL'S, not this file's. Both arms, their scoping and
+        // the all-or-nothing consequence live in `verifyTrim` (lib/core/guards-trim.js)
+        // because the runtime ran a DIFFERENT policy from the one open-coded here and
+        // two independent reviews reproduced a `--fluid` artifact shipping a clamp this
+        // path had refused. The kernel was single-sourced and the policy was not.
+        const v = verifyTrim(sec, p, {
+          clipSel, ignoreSel, ns: 's' + i + 'tb', eps, tol, probe: probeSectionOverflow,
+        });
+        return { kept: sec.querySelectorAll('[data-lattice-trimmed]').length > 0, fits: v.clean };
       }, { i: index, p: plan, eps: TRIM_FIT_EPSILON, applySrc: TRIM_APPLY_SRC, measureSrc: TRIM_MEASURE_SRC,
            clearSrc: TRIM_CLEAR_SRC, roleSrc: TRIM_ROLE_SRC, findSrc: TRIM_FIND_SRC,
-           clearBoxesSrc: TRIM_CLEAR_BOXES_SRC, clipSel: CLIP_CELL_SELECTOR,
+           clearBoxesSrc: TRIM_CLEAR_BOXES_SRC, verifySrc: TRIM_VERIFY_SRC, clipSel: CLIP_CELL_SELECTOR,
            ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, tol: 12 });
       const ok = fitted.fits && fitted.kept;
       (ok ? pages : reverted).push(index + 1);
@@ -3587,13 +3567,66 @@ async function renderBody(browser, g, closeBrowser) {
   // browser measures, `planTrim` decides, the page applies. That split is why the
   // policy has metamorphic relations at unit speed instead of a browser harness
   // nobody can check (lib/core/guards-trim.js).
-  const trimmed = await applyGuardsTrim();
+  //
+  // WHICH DELIVERABLES CAN CARRY A TRIM — and the one that cannot.
+  //
+  // Every artifact this run writes comes FROM THE LIVE DOM: the PDF and the PNGs are
+  // rasterized from it, the PPTX from those rasters, the player from a capture of it
+  // (`inflatedPlayerHtml`), and the fluid viewer inlines the runtime, which re-measures
+  // and re-trims at the reader's own size. The plain `.html` is the sole exception — it
+  // is `cleanDocHtml`, a Node-side string written BEFORE the page was ever loaded, and
+  // nothing rewrites it from the DOM afterwards.
+  //
+  // Beside a raster that is a sidecar's divergence, reported below. When the `.html` IS
+  // the deliverable (`-o deck.html`, no `--fluid`, no `--player`) it is the whole run:
+  // trimming the live DOM then changes NO file this render writes, and it changed every
+  // channel that reports on one. Measured on `examples/overflow-guards.md`: the console
+  // printed "TRIMMED … pages 2" naming a cut that exists in no artifact, and the OVERFLOW
+  // line measured the trimmed DOM and so left page 2 off a list the written file belongs
+  // on. The tool asserted the opposite of what it had done, about the only file it made.
+  //
+  // So the guard does not run there, and says so. This is rule 5 ("fit or change
+  // nothing") at the ARTIFACT level: a cut that reaches no deliverable is not worth its
+  // cost, and every channel below then describes the file that was actually written.
+  //
+  // Baking the clamp into the `.html` instead is a DIFFERENT decision, not a bug fix.
+  // `-webkit-line-clamp` computed at 1280x720 is a fixed line count in a document the
+  // reader can open at any size; re-computing it there is what the design note's open
+  // problem 6 argues against for export-to-Marp — a trim running in the recipient's
+  // browser, at their window size, with no author present. `--fluid` is that opt-in,
+  // deliberately (2026-09-07-overflow-guards-trim.md, open problem 10).
+  const TRIM_REACHES_DELIVERABLE = !(OUT_FORMAT === 'html' && !FLUID_VIEW && !PLAYER);
+  const trimmed = TRIM_REACHES_DELIVERABLE
+    ? await applyGuardsTrim()
+    : { slides: 0, pages: [], reverted: [], detail: [] };
+  if (!TRIM_REACHES_DELIVERABLE) {
+    // Only worth saying on a deck that asked for it. Counted off the live DOM rather
+    // than the front matter, because a per-slide `<!-- _class: guards-strict -->` is
+    // just as much an ask and never reaches `fm`.
+    const strictSlides = await g(() => page.evaluate(() =>
+      document.querySelectorAll('section[data-lattice-slide].guards-strict:not(.guards-loose)').length),
+    'count guards-strict slides');
+    if (strictSlides) {
+      console.warn('  \u2702 guards: strict NOT APPLIED \u2014 an .html deliverable is written before the page renders, so it cannot carry a trim.');
+      console.warn(`    Any slide that would have been trimmed clips in ${path.basename(outFile)} exactly as it would at \`guards: loose\`, and the warnings below report that file rather than a trimmed DOM.`);
+      console.warn('    Use --fluid (the viewer re-measures and trims at the reader\'s own size) or --player, or export a PDF.');
+    }
+  }
   if (trimmed.slides) {
     const pages = trimmed.pages.join(', ');
     console.warn(`  ✂ TRIMMED — guards: strict cut text on ${trimmed.slides} slide(s): pages ${pages}.`);
     console.warn('    Those slides FIT because text was removed, so the frame check below reports them clean.');
     if (trimmed.detail.length) console.warn(`    Cut: ${trimmed.detail.join(' · ')}.`);
     console.warn('    Shorten the copy, or set `guards: loose` to see them clip instead.');
+    // THE SIDECAR DISAGREES, and it used to do so silently. `outHtml` is written from a
+    // Node-side string before the page loads (see TRIM_REACHES_DELIVERABLE above), so the
+    // `.html` beside the raster still clips the pages the raster fits. Two deliverables of
+    // one export contradicting each other is the defect class engineering/gotchas/overflow.md
+    // already catalogues for the marker; it is named here rather than fixed, because
+    // re-serializing the export HTML from the live DOM is an owner call under the Quality Bar.
+    if (OUT_FORMAT !== 'html' && !FLUID_VIEW && !PLAYER) {
+      console.warn(`    The .html sidecar does NOT carry the trim \u2014 it is written before the page renders, so page${trimmed.slides > 1 ? 's' : ''} ${pages} clip${trimmed.slides > 1 ? '' : 's'} there. --fluid or --player make it agree.`);
+    }
   }
   // Strip the measure/apply scaffolding once the trim pass is final. `data-trim-id`,
   // `data-trim-box` and `data-trim-prior` are this pass's own working state; the

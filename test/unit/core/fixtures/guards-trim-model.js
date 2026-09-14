@@ -51,8 +51,15 @@ function makeBox(rand, id, opts = {}) {
   // and walks into its children. A planner that credits one column's recovery
   // against the other passes every single-column relation and is still wrong; that
   // defect shipped and was found by review, not here.
-  const columns = opts.columns ?? (rand() < 0.3 ? 2 : 1);
+  // Two AND three columns. A cross-column credit is wrong in BOTH directions, and
+  // round-robin `i % columns` produced columns of near-equal height in near-equal
+  // order — so the corpus only ever presented the earlier column ending above the
+  // later one, and a planner that credits only in that direction survived. Three
+  // columns with a weighted draw makes the stacks ragged, so both directions occur.
+  const columns = opts.columns ?? (rand() < 0.22 ? 2 : rand() < 0.12 ? 3 : 1);
   const colTop = y;
+  const colY = new Array(Math.max(1, columns)).fill(colTop);
+  const colN = new Array(Math.max(1, columns)).fill(0);
   for (let i = 0; i < n; i++) {
     const lineHeight = 12 + Math.round(rand() * 24);
     const lines = 1 + Math.floor(rand() * 8);
@@ -78,8 +85,15 @@ function makeBox(rand, id, opts = {}) {
     // from the whole corpus and deleting the planner's chrome term (the fix that
     // ends the sheared card) changed nothing any relation could see.
     const chrome = opts.chrome ?? (rand() < 0.5 ? Math.round(rand() * 40) : 0);
-    const col = columns > 1 ? i % columns : 0;
-    const top = columns > 1 && col > 0 ? colTop : y;
+    const col = columns > 1 ? Math.min(columns - 1, Math.floor(rand() * columns)) : 0;
+    // EACH COLUMN STACKS, and it did not before: `col > 0` blocks were all pinned to
+    // `colTop`, so no second block ever sat BELOW a first one inside a non-first column.
+    // That shape is the one the cross-column credit bug needs — a block whose `top`
+    // equals another column's `bottom` — and the generator grazed it 9 times in 595
+    // boxes, never in a way that made MR3 fire. With per-column stacking MR3 catches it:
+    // reverting the planner's flow test to the old vertical-order form turns this suite
+    // red. Found by a fourth independent review, which had to hand-build the shape.
+    const top = colY[col];
     blocks.push({
       id: `${id}-b${i}`,
       role: opts.role ?? TRIM_WEIGHTED[Math.floor(rand() * TRIM_WEIGHTED.length)],
@@ -87,11 +101,34 @@ function makeBox(rand, id, opts = {}) {
       bottom: top + height,
       outerBottom: top + height + chrome,
       lineHeight,
+      // THE RENDERER'S OWN LINE COUNT, which the measurer supplies when the block's
+      // line boxes are unambiguous and omits when they are not. Emitted for most
+      // blocks and withheld for the rest, so BOTH planner paths stay exercised — the
+      // measured count and the `round(height / lineHeight)` derivation it replaces.
+      ...(rand() < 0.7 ? { lines } : {}),
+      // THE BLOCK'S BRANCH OF THE BOX. One column: the box stacks its blocks directly.
+      // Several: the box holds one flex ROW (which does not stack) holding the columns
+      // (which do). `planBox` reads exactly this to decide whether one clamp lifts
+      // another, and a model without it falls back to the vertical-order test.
+      ...(columns > 1
+        ? { path: [0, col, colN[col]], vstack: [true, false, true] }
+        : { path: [i], vstack: [true] }),
+      // THE TRUTH, carried separately and never read by the planner. `col` is which
+      // vertical stack this block is actually in — the generator KNOWS that, because it
+      // built the shape. The oracle judges by `col`; the planner has to derive the same
+      // answer from `path`/`vstack`, which is what makes MR3 an oracle rather than a
+      // second copy of the code. The previous version of `sameFlowAbove` was a
+      // line-for-line transcription of `planBox`'s `liftsAbove`, so a wrong `vstack`
+      // would have been wrong in both and invisible to every relation — the exact
+      // "the test's oracle re-stacked blocks the same wrong way" retraction this file
+      // already records, one level deeper. Found by the maker-checker.
+      col,
       padTop,
       padBottom,
       chars: 20 + Math.floor(rand() * 400),
     });
-    if (col === 0) y = top + height + chrome + Math.round(rand() * 10);
+    colY[col] = top + height + chrome + Math.round(rand() * 10);
+    colN[col] += 1;
   }
   y = blocks.reduce((m, b) => Math.max(m, b.outerBottom), colTop);
   // THE LIMIT IS DERIVED FROM THE CONTENT, not drawn independently.
@@ -160,11 +197,43 @@ function applyToModel(model, plan) {
         if (!b) continue;
         const padTop = b.padTop || 0;
         const padBottom = b.padBottom || 0;
-        const before = Math.max(1, Math.round((b.bottom - b.top - padTop - padBottom) / b.lineHeight));
+        // The block's REAL line count when it has one. A clamp to N keeps N line
+        // boxes, so it removes `(lines - N) * lineHeight` — that is physics, and the
+        // rounded derivation is only an estimate of it for a block that never reported
+        // its lines.
+        const before = b.lines > 0
+          ? b.lines
+          : Math.max(1, Math.round((b.bottom - b.top - padTop - padBottom) / b.lineHeight));
         recovered.set(b.id, Math.max(0, (before - a.lines) * b.lineHeight));
       }
+      // WHAT MOVES WHEN A BLOCK SHRINKS, and `outerBottom <= b.top` is not it. That is
+      // a vertical-order test: a block in a DIFFERENT column that merely ends higher
+      // satisfies it, and the oracle then credited a lift the browser does not perform —
+      // re-encoding the same assumption the planner had, which is how MR3 stayed green
+      // while a hand-built two-up came back 16px over. A block moves only when a block
+      // ABOVE IT IN THE SAME FLOW shrinks: the branches must diverge at a level whose
+      // container stacks its children vertically, with the shrinking block on the
+      // earlier side. This is physics, not the planner's policy — reverting the PLANNER
+      // to the vertical-order form now turns MR3 red, which is the whole point of an
+      // oracle that does not share the code's assumptions.
+      // WHAT MOVES WHEN A BLOCK SHRINKS, judged from the shape the generator BUILT.
+      //
+      // `o.outerBottom <= b.top` alone is a vertical-order test: a block in a DIFFERENT
+      // column that merely ends higher satisfies it, and the oracle then credits a lift
+      // the browser does not perform. A block moves only when a block above it IN THE
+      // SAME VERTICAL STACK shrinks — and `col` says which stack a block is in, as a
+      // fact the generator wrote down rather than a property either side re-derives.
+      // The planner must reach the same answer from `path`/`vstack`; reverting it to the
+      // vertical-order form turns MR3 red, and a wrong `stacksVertically` would too.
+      const sameFlowAbove = (o, b) => {
+        if (!(o.outerBottom <= b.top)) return false;
+        // Out of the normal flow: it does not move, and shrinking it frees nothing.
+        if (o.inFlow === false || b.inFlow === false) return false;
+        if (Number.isInteger(o.col) && Number.isInteger(b.col)) return o.col === b.col;
+        return true;                                   // a model with no columns: one stack
+      };
       const shiftOf = (b) => box.blocks.reduce((sum, o) =>
-        (o.outerBottom <= b.top ? sum + (recovered.get(o.id) || 0) : sum), 0);
+        (sameFlowAbove(o, b) ? sum + (recovered.get(o.id) || 0) : sum), 0);
       const blocks = box.blocks.map((b) => {
         const top = b.top - shiftOf(b);
         const height = (b.bottom - b.top) - (recovered.get(b.id) || 0);

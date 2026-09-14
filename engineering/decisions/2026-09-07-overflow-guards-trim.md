@@ -775,15 +775,65 @@ for building it, and the note previously implied the first was already solved:
    unlike `overflow-marker:`, this key removes text. §10's third row overrides
    that note in one line without answering it.
 
-10. **The `.html` deliverable does not carry the trim, and the PDF does.**
+10. **The `.html` deliverable does not carry the trim, and the PDF does — SETTLED
+    (2026-09-13), and the measurement moved the answer.**
     `lattice-emulator.js` writes `outHtml` from `cleanDocHtml`, a Node-side string,
     BEFORE the page is ever loaded; every browser pass — including this one —
     mutates the live DOM instead. So a `guards: strict` deck exports a PDF whose
     page ends in an ellipsis and an `.html` sidecar beside it that still clips. The
     two disagree, which is the class of defect `engineering/gotchas/overflow.md`
-    already catalogues for the marker. Re-serializing the export HTML from the live
-    DOM would fix it and would change exported bytes for every deck, which is an
-    owner sign-off under the Quality Bar rather than a fix to slip in here.
+    already catalogues for the marker.
+
+    **Three things were measured before deciding, and two of them were not in the
+    problem as written.** Opened in real Chromium at 1280x720:
+
+    | deliverable | carries the trim? |
+    |---|---|
+    | `.pdf` / `.png` / `.pptx` | yes — rasterized from the live DOM |
+    | `--player` `.html` | yes — baked from `inflatedPlayerHtml`, a capture of that DOM |
+    | `--fluid` `.html` | **yes** — the viewer inlines the runtime, which re-measures and re-trims at OPEN |
+    | plain `.html` sidecar | no |
+    | `-o deck.html` | no — **and it is the whole run** |
+
+    So the scope is one file, not "the HTML export": the fluid viewer already solves
+    this, by re-measuring rather than by carrying a baked clamp. And the `-o deck.html`
+    case is worse than a sidecar disagreement. On `examples/overflow-guards.md` the
+    console printed `TRIMMED … pages 2` for a run whose only artifact has no trim in
+    it, and the `OVERFLOW` line — measured off the trimmed DOM — left page 2 off a list
+    the written file belongs on. The tool asserted the opposite of what it had done,
+    about the only file it produced, and the one channel that could have contradicted
+    it agreed with it instead. That is not a divergence to document, it is rule 5 ("fit
+    or change nothing") violated at the ARTIFACT level: a cut that reaches no
+    deliverable is not worth its cost.
+
+    **The ruling.** The guard is SKIPPED when the `.html` is the deliverable and
+    neither `--fluid` nor `--player` is set, and says so; a PDF export keeps the trim
+    and WARNS that its sidecar does not carry one. Exported bytes are unchanged for
+    every deck — the `.html` never had the trim, so declining to compute one removes
+    nothing from it — which is why this did not need the Quality Bar export sign-off
+    the problem anticipated.
+
+    **Re-serializing the export HTML from the live DOM is still not taken, and the
+    reason is no longer just its blast radius.** `-webkit-line-clamp` is a fixed line
+    count, and the `.html` is a document the reader can open at any size: a clamp
+    computed at 1280x720 is wrong the moment someone resizes the window. Re-computing
+    it there instead is precisely what open problem 6 argues against for
+    export-to-Marp — a trim running in the recipient's browser, at their window size,
+    with no author present and no record of what was removed. **Open problems 6 and 10
+    ask for opposite things**, and 6 is the one with the reasoning behind it. `--fluid`
+    is the sanctioned form of "trim at the reader's size", opt-in and announced.
+
+    **THE INSTRUMENT THAT WAS MISSING, which is the more useful half.** Every other
+    instrument this feature has reads the LIVE DOM — the metamorphic relations model
+    it, the adapter test measures it in real Chromium, the 169-deck sweep diffs PDF
+    bytes rendered from it. Nothing ever opened a WRITTEN `.html` and asked whether the
+    trim was in there, so a whole deliverable could be untrimmed in plain sight and no
+    arm could see it. `test/integration/parity/guards-trim-deliverables.test.js` is that
+    arm: it renders the real deck three ways, opens each written `.html` in real
+    Chromium, and pins the pair — the `.html` deliverable carries no trim AND the
+    console neither claims one nor hides the clip; the sidecar carries none AND the
+    console declares that; `--fluid` DOES carry it and trims the same page the PDF did.
+    The third arm is what stops the first two from being a test of "trim never works".
 
 **AN INDEPENDENT REVIEW OF THE CODE FOUND A REAL CORRECTNESS BUG, and it was the
 one the design spends its length preventing.** Recorded because the pattern is the
@@ -1134,3 +1184,380 @@ the implementation added to this note's findings, both from real renders:
   this change (HARD RULE #18: a pre-existing defect found off the path is logged,
   not swept into the diff). `overflow:check` is on-demand rather than a CI gate, so
   nothing is red; the baseline needs its own pass.
+
+---
+
+## 11. A FOURTH INDEPENDENT REVIEW (2026-09-13) — the pattern held a fourth time
+
+Two checkers were run in parallel over the two regions nobody but the author had
+read: `planBox`'s per-block chrome model with its measurer, and the emulator's
+two-oracle verdict. **Both found shipping defects, and both independently found
+the same one** — which is the finding worth leading with.
+
+### The one both reviews found: the two render paths ran different policies again
+
+`verifyTrim` did not exist. The export open-coded a per-box revert AND a
+slide-level one; the runtime open-coded only the per-box half and nothing after it
+reverted. `--fluid` inlines that runtime, so **the written `.html` re-trimmed at
+open under a policy the export had just refused.** Reproduced on a deck whose
+paragraph is joined with `<br>`: the console printed `✂ TRIM REVERTED — … they
+clip unchanged`, and the delivered viewer, opened in real Chromium, carried
+`data-lattice-trim="1"` with 9 of 21 lines removed **on a slide still showing the
+overflow ring**. Trimmed AND still overflowing, in a shipped artifact, with the
+tool asserting the opposite — HARD RULE #1 and #18 in one file.
+
+This is verbatim the fork the third review closed for `clearTrim` vs
+`clearTrimBoxes`, moved one function along: **the kernel was single-sourced and
+the POLICY was not, twice.** The verdict now lives in one kernel function with both
+arms and their scoping written down, and both call sites call it. Mutation-proved:
+drop the frame arm from the runtime's call, rebuild, and the viewer ships the
+refused clamp again.
+
+### Every gate could see an UNDER-cut and none could see an OVER-cut
+
+The single most useful sentence out of this pass. `planTrim`'s exit test, the
+per-box revert, the frame check and the corpus ratchet all ask *does it still
+overflow*. A clamp that removes twice the lines it needed to satisfies every one of
+them. Three separate defects lived in that blind spot:
+
+| defect | measured |
+|---|---|
+| **`transform: scale(k)` mixes coordinate spaces.** `getBoundingClientRect` is VISUAL px; `clientHeight`, `getComputedStyle` and `scrollHeight` are LAYOUT px. `docs/src/playground/deck-preview.js` scales every `<section>` by the pane width and runs the runtime in the same document. | Identical DOM, identical text: **22 lines kept at scale 1, six at 0.5, ONE at 0.35** — the author's copy shortening as a reader drags the preview pane, and the PDF showing a different truncation again. |
+| **`line-height: normal` was guessed at `fontSize * 1.4`.** `parseFloat('normal')` is `NaN`. | 16px Arial, real line box 18px: the planner budgeted `floor(600/22.4)` = 26 lines where 33 fit — **seven lines destroyed, 132px of the box left empty**, both revert gates green. |
+| **`round(height / lineHeight)` for the line COUNT.** | Up to half a line of phantom lift per action, credited to every block below it. |
+
+All three are fixed by measuring instead of deriving: one scale per box, and the
+block's real line boxes read from a `Range` — trusted only where the geometry is
+unambiguous (every rect the same height, one uniform step apart), because a line
+carrying a taller inline face is exactly the shape the computed value is already right
+for.
+
+**THE FIRST CUT OF THE SCALE FIX WAS WRONG IN TWO WAYS, AND A MAKER-CHECKER ON THE
+DIFF CAUGHT BOTH.** Recorded because the pattern is now five for five: every pass on
+this feature has found a defect in what the previous pass had just corrected.
+
+- **It normalized the QUANTITY and left the THRESHOLD.** Everything was converted to
+  VISUAL px while `TRIM_TOLERANCE` (12) and `FIT_EPSILON` (0.5) stayed layout-px
+  constants, so the effective entry threshold became `12 / k`. Measured: a box 20 layout
+  px over entered the planner at scale 1 and was **ignored at 0.5** — `guards: strict`
+  going inert on the preview while the ring it exists to clear still fired. The fix
+  normalizes to **LAYOUT px**, which is not a free choice: it is what
+  `lib/core/overflow-probe.js` already does, for this same surface, in a header note
+  that predates this work. Two kernels answering "how far over is this box?" in
+  different units is the thing the whole section is about.
+- **It read the scale with a `DOMMatrix` walk over `transform`,** which is strictly
+  weaker than the probe's `rect.height / offsetHeight`: it returns `none` for the
+  individual `scale:` property and for `zoom:` (both of which really do scale), and
+  `cos θ` for a rotation. The measurer now uses the probe's expression, deadband
+  included, pinned by an arm asserting the two agree.
+- **And a third, from the same review:** the normalization made `contentBottom` and
+  `deepestOuter` two independently-rounded floats, so at any scale that is not an exact
+  binary fraction ~1e-5 landed on the effective limit and `Math.floor` turned it into a
+  whole LINE. Measured at 0.7, 0.62 and 0.83. Nothing could revert it — it is on the
+  over-cut axis. A deadband on the remainder and a `FLOAT_SLACK` on the budget close it;
+  they overlap on the one measured shape and neither is separately pinned, which is said
+  out loud in the constant's docblock rather than papered over.
+
+**The test arm that asserts this could not see any of it**, which is the fifth
+flattering detector in this note. `a SCALED slide plans the same cut as an unscaled one`
+was green on all three defects, because its fixture uses `line-height: normal` — a
+non-integral line box, so the budget never lands on an integer boundary where a
+one-line error shows. It is now joined by a round-line-height arm at seven scales
+including 0.7, 0.62 and 0.83, and by an arm asserting the model and the probe read the
+same unit.
+
+**The instrument is `test/integration/parity/guards-trim-measurement.test.js`,**
+and its centre is a post-condition nothing in the tree had: *a clamp never leaves a
+whole line of its box empty.* It is mutation-proved against all three defects plus
+a deliberate two-line over-cut as a control — and the control earned its place,
+because the FIRST version of that arm measured empty room as
+`clientHeight - scrollHeight`, which can never be positive, and passed all three.
+A relation that cannot fail is worse than an honest gap; this note has now said
+that about its own tests four times.
+
+### `shiftOf` credited one column's recovery to another
+
+`other.bottom <= b.top` is a VERTICAL-ORDER test, not a same-flow test: a block in
+a different column that merely ends higher satisfies it. On a real two-up the left
+card's 28px of recovery was credited to the right column's second paragraph, which
+was budgeted two lines where one fits, and the box `planTrim` had declared FITTING
+came back **16px over** in the DOM. The third review fixed the SCALAR form of this;
+the per-block form kept the same hole. The net below caught it, so the harm is a
+fit that WAS available being refused — on exactly the two-up family the per-block
+chrome work was built for.
+
+**MR3 asserts precisely this and could not fail**, because `makeBox` pinned every
+`col > 0` block to `colTop`: no second block ever sat below a first inside a
+non-first column, so the shape simply was not in the corpus. The model now carries
+each block's branch of the box (`path`) and whether each level stacks vertically
+(`vstack`), the generator stacks within columns, and the oracle models the same
+physics — reverting the planner to the vertical-order form now turns MR3 red.
+
+### Four more, smaller, each fixed
+
+- **An author `id` in the synthetic namespace shadowed a minted one.** The collision
+  guard seeded only from `data-trim-id`, while a block's id can BE an author `id` and
+  `trimBlockEl` resolves `data-trim-id` first. Reproduced three ways on `<p id="s1tb0">`:
+  the wrong paragraph cut and reported under "Those slides FIT"; an `<h3>` clamped, i.e.
+  rule 3 violated in the DOM without `planTrim` ever proposing it; and `recovered` keyed
+  on the shared id, skipping a legitimate cut. **This is the first review's bug and the
+  third review's bug in a THIRD door** — each fix closed a doorway, this one closes the
+  namespace.
+- **`frameOver()`'s catch did the opposite of its own comment.** `catch { return false }`
+  under a comment reading "a throwing probe must not silently keep a bad cut" — `false`
+  is *not over*, so a throw KEPT the cut and reported it under "Those slides FIT".
+- **The emulator open-coded `guardsEnabled` with a looser matcher.** `\b` matches at a
+  hyphen, so `no-guards-strict` and `guards-strict-x` enabled the trim on the export and
+  not in the runtime, and `x-guards-loose guards-strict` the reverse. "May this slide be
+  cut?" now has one answer, injected from the kernel like "may this BLOCK be cut?".
+- **A box with no text block reported `fitted: true`.** The reduce seeds with `limit`, so
+  an empty `blocks` array made a figure-only cell 300px over come back as fitting.
+  Latent — both call sites gate on `actions.length` — but `fits` is what a reporting
+  consumer reads, and "Those slides FIT" is that consumer in spirit.
+
+### Four more from the maker-checker, all fixed
+
+- **`table-row` was classified as a vertical stack.** A `<tr>` stacks its cells
+  HORIZONTALLY, so one cell's recovery was credited to the next — the cross-column
+  over-credit above, in the one container the fix forgot.
+- **`verifyTrim` had no direct test at all.** The highest-blast-radius function in the
+  change — it decides whether the author's content survives, on both paths — was
+  exercised only by the parity arm, which asserts the two paths AGREE rather than that
+  either verdict is right. It now has arms for a kept cut, for arm 1 catching a residual
+  the frame probe cannot see (an 8px shear is inside the probe's own slack, so the
+  fixture uses an 8px line to land there deliberately), and for a throwing probe.
+- **`reverted` reported the PLANNED count, not the undone one.** `clearTrimBoxes` skips
+  an action whose element it cannot resolve, so the field said a revert succeeded on a
+  block it never found. It returns the real count, pinned by a forged plan carrying a
+  bogus action.
+- **MR3's kill was one violation in 93 fit boxes, and the oracle had re-encoded the
+  planner.** `sameFlowAbove` was a line-for-line copy of `liftsAbove`, so a wrong
+  `stacksVertically` would have been wrong in both — the "the test's oracle re-stacked
+  blocks the same wrong way" retraction this note already carries, one level deeper. The
+  oracle now judges by `col`, a fact the generator WRITES DOWN and the planner never
+  reads, and the corpus draws two and three ragged columns instead of round-robin ones,
+  so a cross-column credit in either direction is produced. Reverting the planner's flow
+  test, or dropping its `vstack` check, now turns MR3 red.
+
+**And the ragged corpus surfaced a pre-existing narrowing worth writing down:** the
+planner only cuts blocks that THEMSELVES cross the limit, so it never clamps an earlier
+block to lift a later one into view. Raising a limit can therefore take the earlier
+block out of the candidate set and leave the later one where rule 4 refuses to mark it —
+seed 1797626, one box in 300 seeds. It is an under-trim, the safe direction, so MR7a
+names the exemption narrowly (the decline must be a mark-visibility reason, and must have
+discarded nothing) rather than being weakened to accept any decline.
+
+### Declined, with reasons
+
+- **The per-box revert arm was dead, and it is now live rather than deleted.** Both
+  reviews proved it: the slide arm required ZERO over boxes at `FIT_EPSILON`, so any box
+  still over — including one the planner never entered, over by 3px, inside its own entry
+  tolerance — reverted the whole slide, and a box the per-box arm had just reverted was
+  over again by construction. Rather than delete it, the two arms were given distinct
+  scopes: the box arm asks *did the cut fit in the boxes we cut* (plan-touched only, at
+  real fit — the sheared-card arm), and the frame arm asks *does the reader still see a
+  clipped slide* (the probe's own oracle, at its own tolerance). Either failing reverts
+  the whole plan, because rule 5's unit is what the reader sees. The export's old comment
+  promising per-box SURVIVAL is retired: the code never did that, and the adapter test
+  that certified it tested `clearTrimBoxes` in isolation rather than the composition.
+- **`did-not-converge` is unreachable** and is kept anyway. Each iteration adds exactly
+  one key to `recovered` and every candidate is filtered on it, so the loop cannot run
+  past its bound; 200,000 randomized models never produced it. It stays as the honest
+  terminal if the loop is ever changed, and is recorded here rather than left for a
+  fifth review to re-derive.
+- **The verifier stamps scaffolding on boxes it did not plan against.** `measureTrim`
+  called with `FIT_EPSILON` takes its stamping branch for any box over by ≥1px. The
+  export strips it (`finalizeTrim`); the live preview accumulates `data-trim-id` on
+  fitting boxes, which is cosmetic — `data-trim-prior` is written only by `applyTrim`.
+  Recorded, not restructured: separating "measure" from "stamp" is a signature change to
+  the kernel's most-called function for no measured harm.
+- **`overflow: clip` excludes its own `padding-bottom` from `scrollHeight` where
+  `overflow: hidden` includes it** (measured: 522 vs 532 on identical content). So
+  `contentBottom` understates a clip cell's real content bottom by its bottom padding,
+  and `.compare-right` is such a cell with real padding. The bias is in the SAFE
+  direction — the planner reserves less room than exists, so it under-trims — and both
+  the model and the verifier share it, so nothing certifies a shear. Left as a known
+  narrowing with the number written down.
+
+### THE REAL PLAYGROUND, DRIVEN — the step HARD RULE #23 was owed
+
+Everything above was measured on synthetic pages that reproduce `deck-preview.js`'s
+transform shape. That is a mechanism, not a surface. The docs site was then built and the
+**real Playground** opened in real Chromium, a `guards: strict` deck pasted into the real
+editor, and the filmstrip iframe read at two pane widths — then the whole thing rebuilt
+with `scaleOf` pinned to 1 (the shipped bug) and re-run.
+
+| `.lattice` width | scale | with the bug | fixed |
+|---|---|---|---|
+| 532px | 0.4156 | clamped to **3 lines** | clamped to **12 lines** |
+| 422px | 0.3297 | **no clamp at all, and the slide RINGS** | clamped to **12 lines**, no ring |
+
+Both halves of the defect, on the surface a user touches. At one pane width the guard cut
+**nine lines of the author's copy it did not need to**; at a narrower one it went
+**inert** — the guard silent, the overflow ring on, which is `guards: strict` failing
+in exactly the way it exists to prevent. The same deck at `guards: loose` clamps nothing
+at either width, which is what stops the fixed reading from being a test of nothing.
+
+The line count is now **identical across a 42% and a 33% scale**, which is the invariant:
+what a slide says is not a property of how wide the reader's pane is.
+
+**AND THE STUDIO EXPORT CAPTURE FRAME IS NOT AT SCALE 1 — measured, 0.94375.** That was
+left as an open question one paragraph ago; it is answered, and the answer moves the
+defect's severity rather than the fix's. `deck-export.js` sizes its iframe to the geom box
+(1280) and `buildSrcdoc` puts `padding: 18px` on BOTH `html` and `body`, so `.lattice`
+measures **1208** and the fit agent scales every section by 1208/1280. The frame's own
+comment says the rest: *"The FIT agent still scales + reveals against the real width;
+`rasterizeSection` undoes the scale (`transform: none`) per slide."* So the runtime trims at
+0.94375 and the raster is taken at full size — the wrong LINE COUNT is baked. With the
+coordinate-space bug that reached **exported bytes**, not only a preview. That sentence was
+an inference when it was written; §13 drove the real Studio export twice and made it a
+measurement — the bug costs the delivered PDF **sixteen words, one whole line of the
+author's copy**, and leaves the room it cut them from empty.
+
+**The CLI export was never affected, and an earlier draft of this paragraph said the
+opposite.** It cited `inflatedPlayerHtml` as what "the export bakes". That symbol lives only
+in `lattice-emulator.js` — it is the CLI's own player capture — and the CLI sets
+`page.setViewport({ width: slideW, height: slideH })` (`:3235`), so its sections carry no
+transform and `scaleOf` reads 1 there. The citation pointed a reader at the one export path
+the defect could not reach, as evidence that it reached exported bytes. Caught by a checker
+reading this very paragraph; recorded rather than quietly corrected, because a PR whose
+subject is claims nobody re-derives had shipped one.
+
+**0.94375 is a measurement, not a pin, and calling it a pin was the second wrong claim
+here.** It is a bare literal in the measurement suite's scale list, fed to a synthetic
+`transform: scale(k)`; nothing in that file reads `deck-export.js`, `buildSrcdoc` or the
+padding, so changing `padding = 18` to `24` moves the real frame to 0.925 and leaves the
+suite green. What the entry actually buys is worth keeping on its own terms —
+`0.94375 = 151/160` is another non-binary fraction, in the same family as 0.7, 0.62 and
+0.83, so it exercises the float-residue path. Re-derive the number from two places when it
+matters: `deck-preview.js`'s `padding` default and `deck-export.js`'s geom sizing.
+
+**And it is scrollbar-dependent.** 0.94375 was measured in headless Chromium, which uses
+zero-width overlay scrollbars. The capture frame's content runs about three times its
+height, so on a Chrome with classic scrollbars — the Windows/Linux desktop default, where
+the Studio actually runs — the agent reads roughly 1193 and the scale is about 0.932. Not 1
+in either configuration, which is all the severity argument needs; stated because "0.94375"
+read as a property of the frame when it is a property of the frame plus a scrollbar
+setting.
+
+**What is still not driven:** a real Studio export of a `guards: strict` deck, end to end,
+with its PDF diffed against the CLI export of the same deck. The mechanism is the same one
+verified on the Playground and the frame's scale is now measured, but that last instance has
+no artifact of its own.
+
+---
+
+## 12. A FIFTH PASS, on the commits the fourth never saw (2026-09-13)
+
+The fourth review signed off on one commit, and three more landed after it — including a
+change to `verifyTrim`'s policy. Nobody independent had read them. A checker scoped to that
+89-line delta found **no correctness defect in the kernel change** and four wrong CLAIMS,
+three of them in this note. That split is the finding: by the fifth pass the code was
+holding and the prose was not.
+
+- **The paragraph above cited the one export path the defect could not reach.** It said the
+  Studio frame's DOM "is what `inflatedPlayerHtml` captures and the export bakes".
+  `inflatedPlayerHtml` is the CLI's own player capture, and the CLI runs at scale 1. The
+  conclusion survives through `rasterizeSection`; the citation pointed at evidence against
+  it. Corrected in place, with the retraction kept.
+- **A measurement was recorded as a pin.** "A change to that frame's padding cannot move it
+  back without turning three arms red" — the suite reads no padding, no builder and no
+  frame, so it would stay green; and the count was two arms, not three.
+- **The measured scale is scrollbar-dependent** (0.94375 with overlay scrollbars, ~0.932
+  with classic ones), which the flat number hid.
+- **"26% and a 33% scale"** contradicted its own table one line above (0.4156 is 42%).
+
+**And one real hole, one layer inside the fix that closed the last one.** `818b460` made a
+MISSING probe count as over; the checker showed a probe that RETURNS nothing does the same
+damage — `{}`, `false`, `0` and `''` all make `!!result.over` false, so the cut stands
+unverified, while `null` and `undefined` threw and failed safe. Incoherent, and wrong in the
+dangerous direction for the four that did not throw. Latent rather than shipping: the only
+probe in the tree always returns `{ over, … }`. `verifyTrim` now requires the answer to BE
+an answer — a boolean `over` — or it counts as over, and the seven shapes are pinned.
+
+**The pattern, restated because it changed shape.** Passes one through four each found a
+defect in the previous pass's CODE. The fifth found the code sound and the prose wrong. A
+note that exists to stop claims being re-derived had accumulated four of its own, three
+written the same evening they were retracted.
+
+
+## 13. THE STUDIO EXPORT, DRIVEN END TO END — fix against bug, on the delivered PDF (2026-09-14)
+
+Everything §11 measured about the coordinate-space bug was measured in the **live preview**.
+The severity claim — that the bug reached *exported bytes*, not only a preview — was an
+inference from two facts read in code: the Studio's capture frame scales sections by 0.94375,
+and `rasterizeSection` undoes the scale per slide, so the wrong line count is baked. §12
+retracted the citation that inference leaned on. It stayed the PR's one open caveat.
+
+**It is now an artifact.** #2199 gave the exported PDF a real text layer, which collapsed the
+cost of the oracle: `pdftotext` instead of a pixel-signature harness. The same `guards: strict`
+deck was exported through the **real Studio Share → PDF flow**, twice — once from a site built
+on the fix, once from a site built with `scaleOf` pinned to `1` — plus a `guards: loose`
+control.
+
+| build | body words in the delivered PDF | last line of copy |
+|---|---|---|
+| **fixed** | **205** | `Sentence 12 … past its limit.` — complete |
+| **`scaleOf` pinned to 1** (the shipped bug) | **189** | `Sentence 11 … past its limit.`, and a **whole empty line below it** |
+| `guards: loose` (control) | 205 | `Sentence 12 …` hard-clipped mid-line, no trim |
+
+**The bug removes sixteen words — one full line of the author's copy — from the bytes the
+reader receives, and leaves the room it cut them from empty.** That is the over-cut class
+verbatim: `verifyTrim` is satisfied (the slide no longer overflows), every gate in the tree is
+satisfied, and a line of the deck is gone. The raster confirms it by eye — eleven lines and a
+blank band where the twelfth belongs.
+
+The capture frame was instrumented during the export itself, so the mechanism is not inferred
+either:
+
+```
+--- capture-frame states during strict.pdf ---
+    s0:trim=1,clamped=1,cls=content.guards-strict.form.clip-marked,sc=1.0000
+    s0:trim=1,clamped=1,cls=content.guards-strict.form,sc=0.9437
+    s0:trim=1,clamped=1,cls=content.guards-strict.form.clip-marked.lattice-exporting,sc=0.9437
+--- capture-frame states during loose.pdf ---
+    s0:trim=null,clamped=0,cls=content.form.overflow.clip-marked.fit-marked,sc=1.0000
+```
+
+The trim fires inside the export's own frame, at 0.9437 — the scale §11 measured on a replica,
+now read off the real export.
+
+**Why this is not a Studio-vs-CLI diff, which is what the pre-merge card's raise path named.**
+The CLI sets `page.setViewport({ width: slideW, height: slideH })` and runs at scale 1, so the
+CLI export was never affected (§12). Diffing the two paths would have conflated the trim with
+every other difference between two renderers. Fix-against-bug on the **one** path, same deck,
+same flow, isolates the variable — and it is the comparison that actually answers the
+question, because `guards: strict` against `guards: loose` does not: at this frame's scale the
+correct trim lands on the same line the clip already cuts, so the two agree at 205 words and
+say nothing about whether the trim ran.
+
+**What this changes for the reader of §11.** Nothing in the fix; everything in the severity.
+The bug was not a preview artifact that a correct export papered over. It shipped in the PDF.
+
+### And the instrument, because nothing in the tree could see this
+
+`docs/e2e/guards-trim-export.spec.ts` (new) drives the same two exports and asserts the
+post-condition at the **artifact** level: **a `guards: strict` export never delivers less
+copy than the untrimmed one.** `loose` clips at the box edge and the PDF's text layer
+carries only what is visible, so the loose export is exactly *everything that fit*; a
+correct clamp lands on that same last fitting line, so the two come back **equal** — and an
+over-cut comes back shorter. There is no line count in the assertion, so it does not have
+to know this deck fits twelve.
+
+Anti-vacuity at both ends, because the comparison has two ways to be trivially true: an
+export that painted nothing makes `0 >= 0` pass, and a deck that does not overflow makes
+both exports whole. The control's count is pinned strictly inside `(0, 14)`.
+
+Mutation-proved by rebuilding the site with `scaleOf` pinned to 1: **green on the fix,
+red on the bug with `strict delivered 11 sentences and the untrimmed control delivered
+12`.** Runtime 34s.
+
+**The oracle needed a CI step, which was not the agent's to add — and the owner authorized
+it.** `pdftotext` comes from poppler, and `studio-e2e-nightly.yml` — the only job that runs
+this suite — provisioned Node, the browsers and the site, and no poppler. Adding a step to a
+workflow is the repo owner's call (CLAUDE.md § SECOND FILTER, row 2), so the arm was written
+to **skip with a message saying the export path is uncovered on that runner** rather than
+quietly passing, and the step was put to the owner with its cost. Authorized and added, so
+the skip is now the fallback rather than the nightly's actual state. The root integration
+tier already depends on poppler the same way (`ci.yml`, `integration-nightly.yml`), so this
+adds a dependency the repo already carries rather than a new one.

@@ -89,6 +89,16 @@ jobs:
         run: npx playwright install --with-deps chromium webkit firefox
         working-directory: docs
 
+      # poppler-utils, for ONE spec: guards-trim-export.spec.ts reads the exported PDF's
+      # text layer with `pdftotext` to hold the over-cut floor on the delivered artifact
+      # (a `guards: strict` export never carries less copy than the untrimmed one). Without
+      # it that spec SKIPS — it says so rather than passing quietly — and the Studio export
+      # path is uncovered on the only runner that drives it. #2199's real text layer is what
+      # made this oracle cheap; the alternative was a pixel-signature harness. The root
+      # integration tier already depends on poppler the same way (ci.yml, integration-nightly.yml).
+      - name: Install poppler-utils (pdftotext, for the export text-layer oracle)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
       # playwright.config.ts's webServer builds (without the slow showcase:check)
       # then previews the production site, and the suite drives it across the
       # desktop / tablet / mobile projects. trace + video are on, so the artifacts

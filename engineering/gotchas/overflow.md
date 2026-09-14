@@ -3,6 +3,44 @@
 One topic from the [gotchas index](../gotchas.md) — start there to find a symptom;
 this file is the detail. Entry shape and the rule for adding one are in the index.
 
+## `overflow:check` reports decks as regressed that nobody touched — and the baseline says they were clean
+
+- **Symptom:** `npm run overflow:check` fails with a list of decks that "clip MORE
+  slides than the baseline (baseline: clean)", on a branch that changed none of
+  them. Checking out an older commit and re-rendering reproduces the same clipping,
+  so nothing regressed. Measured instance (2026-09-13): seven component galleries —
+  six chart members and `team-profile` — all reported at once.
+- **Cause:** the baseline lists only the decks that CLIP, so **a deck missing from
+  the map is read as clean, and a deck nobody ever swept is missing from the map in
+  exactly the same way.** Those seven were authored after the last FULL `--bless`,
+  and the file had since been hand-edited to add one deck's entry rather than
+  re-blessed (`fa181c9`). They therefore carried a floor of zero from the day they
+  landed, and because `overflow:check` is on-demand rather than a CI gate, nothing
+  ran to say so for a week. The check is not wrong; the baseline was never a
+  statement about those decks at all.
+- **How to tell which you have:** check the deck out at the commit the baseline was
+  last blessed at and render it. If it clips there too, the baseline is incomplete
+  and the honest fix is a full `--bless`. If it does not, you have a real regression
+  and blessing would bury it.
+- **The guard against a repeat:** the baseline now records `decksSwept`, the number
+  of decks the blessing run covered, and `overflow:check` reports when today's corpus
+  is larger — `ⓘ the baseline was recorded against N decks; this sweep covered M`.
+  That is the one fact that distinguishes "clean" from "never looked at", and the
+  file could not previously carry it.
+- **What those seven actually clip, and why it was blessed rather than fixed:** the
+  per-component gallery composes each variant's `<!-- _footer: -->` as
+  `label · name variant — summary`, where `summary` is the variant's full
+  documentation sentence from the manifest (`tools/build-component-docs.js`). The
+  standard frame's footer is single-line chrome (`white-space: nowrap; overflow:
+  hidden; text-overflow: ellipsis`), and 136 characters do not fit its 1187px. The
+  ellipsis is the frame's designed answer for a long footer — `probeContentClipped`
+  classifies it `chromeOnly` and `probeSectionOverflow` deliberately stopped counting
+  it as geometric spill in `fa181c9` — and the summary ships in full in
+  `dist/docs/components.md`, the manifest and the docs site. **Shortening it is a
+  change to the GENERATOR**, which would regenerate 58 galleries and their committed
+  light/dark PDFs, so it is its own pass (HARD RULE #18's off-path rule), not
+  something to fold into a baseline bless.
+
 ## A slide loses its EYEBROW and HEADING off the top, and no ring / pill / console line fires
 
 - **Symptom:** the top of a panel or card is simply gone in the render — the
@@ -132,6 +170,42 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   what each has settled by the time you measure) — that's a red herring.
   Compare the SAME tool's measurement before vs. after an explicit
   `document.fonts.load()` + `document.fonts.ready` wait on the SAME page.
+
+## `guards: strict` trims the PDF but not the `.html` beside it — or, with `-o deck.html`, nothing at all
+
+- **Symptom:** a `guards: strict` deck exports and the console says
+  `✂ TRIMMED — guards: strict cut text on 1 slide(s): pages 2`. The PDF's page 2
+  ends in an ellipsis and no longer rings. Open the `.html` written beside it and
+  page 2 clips exactly as it would at `guards: loose`, red ring and all. Worse with
+  `-o deck.html`: the same TRIMMED line is printed for a run whose ONLY file has no
+  trim in it, and the `⚠ OVERFLOW` line — measured off the trimmed DOM — leaves that
+  page off a list the written file belongs on.
+- **Cause:** every other artifact comes from the LIVE DOM. The PDF and the PNGs are
+  rasterized from it, the PPTX from those rasters, the `--player` from a capture of
+  it. The plain `.html` is the exception: `lattice-emulator.js` writes it from
+  `cleanDocHtml`, a Node-side string, BEFORE the page is ever loaded, and only the
+  auto-split and rails passes rewrite it — both of which work on the string, not the
+  DOM. TRIM works on the DOM, so it never reaches that file. The `.html` still gets
+  its overflow RING because the sidecar carries an inline watcher that re-measures at
+  open; there is no equivalent for the trim.
+- **Fix:** `--fluid` or `--player`. The fluid viewer inlines the runtime, which
+  re-measures and re-trims at the reader's own window size, so its `.html` carries the
+  trim and agrees with the PDF (verified by opening both in real Chromium —
+  `test/integration/parity/guards-trim-deliverables.test.js`). The player bakes from
+  the live DOM, so it carries it too. Plain `-o deck.pdf` now SAYS its sidecar does
+  not, instead of leaving the two deliverables to disagree in silence.
+- **Why the `.html` deliverable is not trimmed at all rather than trimmed uselessly:**
+  with `-o deck.html` the trim reached no file this run wrote, and it changed every
+  channel that reports on one — rule 5 ("fit or change nothing") violated at the
+  artifact level. The guard is now skipped there and says so, which makes the console
+  describe the file on disk again.
+- **Why the trim is not baked into the `.html` instead:** a `-webkit-line-clamp`
+  computed at 1280×720 is a FIXED line count in a document the reader can open at any
+  size, and re-computing it there is what open problem 6 of
+  `engineering/decisions/2026-09-07-overflow-guards-trim.md` argues against for
+  export-to-Marp — a trim running in the recipient's browser, at their window size,
+  with no author present and no record of what was removed. `--fluid` is that opt-in,
+  deliberately. Open problem 10 of the same note.
 
 ## One slide renders at ~2x type and overflows, but ONLY in a live preview — the PDF is perfect
 
@@ -406,3 +480,32 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   drops the whole declaration.
 - **Where:** `lib/forms/cell/stage/stage.css` § safe alignment,
   `engineering/decisions/2026-09-02-stage-clip-shear-sweep.md` § The head-loss half.
+
+## The Studio's PDF export measures at 0.94, not 1 — and the raster is taken at 1
+
+- **Symptom:** geometry code that is correct in the CLI export ships a wrong answer in the
+  Studio's Share → PDF. A `guards: strict` deck exported from the Studio came back one line
+  of copy short, with a whole empty line of room under the cut; the same deck through the
+  CLI was right. Nothing reports it: the slide fits, so the overflow probe, the trim's own
+  verdict and the corpus ratchet all read clean.
+- **Cause:** the two exports run at different scales. The CLI sets
+  `page.setViewport({ width: slideW, height: slideH })`, so its capture is at **scale 1**.
+  `docs/src/components/studio/export/deck-export.js` sizes its capture iframe to the geom
+  box (1280) while `buildSrcdoc` puts `padding: 18px` on **both** `html` and `body`, so
+  `.lattice` measures 1208 and the FIT agent scales every section by 1208/1280 =
+  **0.94375** — about 0.932 with classic scrollbars, which is the desktop default. The
+  runtime therefore measures and decides at that scale, and `rasterizeSection` then undoes
+  it (`transform: none`) per slide, so whatever line count was decided at 0.94 is baked at
+  1. Any measurement that reads `getBoundingClientRect()` against a `clientHeight`
+  threshold is off by that factor, in the direction that removes the author's text.
+- **Fix:** normalize to **layout px** the way `lib/core/overflow-probe.js` does —
+  `rect.height / offsetHeight` per box, divided out of every rect-derived quantity. Do not
+  take the scale from `DOMMatrix`: it misses the `scale:` property and `zoom:`, and returns
+  cos θ under rotation.
+- **Don't test it by diffing `strict` against `loose`.** At this frame's scale a correct
+  trim lands on the same line the clip already cuts, so the two agree word-for-word and the
+  comparison says nothing. Diff **fix against bug on the one path** — build the site twice
+  and export the same deck through the real Share flow. Since #2199 the exported PDF carries
+  a real text layer, so `pdftotext` is the oracle.
+- **Where:** `engineering/decisions/2026-09-07-overflow-guards-trim.md` §11 (the frame) and
+  §13 (the two exports, measured).

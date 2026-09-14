@@ -217,16 +217,19 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ### [Overflow detection and the Fit Spine](gotchas/overflow.md)
 
+- [`overflow:check` reports decks as regressed that nobody touched — and the baseline says they were clean](gotchas/overflow.md#overflowcheck-reports-decks-as-regressed-that-nobody-touched--and-the-baseline-says-they-were-clean)
 - [A slide loses its EYEBROW and HEADING off the top, and no ring / pill / console line fires](gotchas/overflow.md#a-slide-loses-its-eyebrow-and-heading-off-the-top-and-no-ring--pill--console-line-fires)
 - [A fixed-size slide frame silently truncates content past 1280×720](gotchas/overflow.md#a-fixed-size-slide-frame-silently-truncates-content-past-1280720)
 - [The overflow ring lags an edit, or a slide scrolled past keeps a ring it should have lost](gotchas/overflow.md#the-overflow-ring-lags-an-edit-or-a-slide-scrolled-past-keeps-a-ring-it-should-have-lost)
 - [A false "Overflows" ring appears on the exported `.html` sidecar for a slide that actually fits](gotchas/overflow.md#a-false-overflows-ring-appears-on-the-exported-html-sidecar-for-a-slide-that-actually-fits)
+- [`guards: strict` trims the PDF but not the `.html` beside it — or, with `-o deck.html`, nothing at all](gotchas/overflow.md#guards-strict-trims-the-pdf-but-not-the-html-beside-it--or-with--o-deckhtml-nothing-at-all)
 - [One slide renders at ~2x type and overflows, but ONLY in a live preview — the PDF is perfect](gotchas/overflow.md#one-slide-renders-at-2x-type-and-overflows-but-only-in-a-live-preview--the-pdf-is-perfect)
 - [A slide clips 30-70px in the Playground that the exported PDF renders whole](gotchas/overflow.md#a-slide-clips-30-70px-in-the-playground-that-the-exported-pdf-renders-whole)
 - [The Playground and the Studio disagree about which slides overflow (and a slide's own padding changes when the preview pane is resized)](gotchas/overflow.md#the-playground-and-the-studio-disagree-about-which-slides-overflow-and-a-slides-own-padding-changes-when-the-preview-pane-is-resized)
 - [Exported fluid viewer: an overflowing slide shows NO marker tab, or the red author ring leaks to a reader](gotchas/overflow.md#exported-fluid-viewer-an-overflowing-slide-shows-no-marker-tab-or-the-red-author-ring-leaks-to-a-reader)
 - [A dense slide loses its card borders and corners, but not one word of text](gotchas/overflow.md#a-dense-slide-loses-its-card-borders-and-corners-but-not-one-word-of-text)
 - [A slide silently loses its FIRST line, and every gate reads clean](gotchas/overflow.md#a-slide-silently-loses-its-first-line-and-every-gate-reads-clean)
+- [The Studio's PDF export measures at 0.94, not 1 — and the raster is taken at 1](gotchas/overflow.md#the-studios-pdf-export-measures-at-094-not-1--and-the-raster-is-taken-at-1)
 
 ### [The Studio and the Playground (docs-site app surfaces)](gotchas/studio-playground.md)
 

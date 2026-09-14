@@ -114,6 +114,17 @@ and has no fit problem, so the clamp is lifted there and the reader gets the who
 paragraph, list markers intact. Trimming is a device for a slide's FIXED cell, and
 nothing else.
 
+**A plain `.html` is not trimmed either, and the reason is the same one.** `strict`
+reaches every artifact built from the rendered page — the PDF, the PNGs, the PPTX,
+a `--player` bundle — and the `.html` is the one file the exporter writes from a
+string BEFORE the page loads, so no clamp can reach it. Exporting `-o deck.html`
+therefore skips the guard outright and says so, rather than cutting a live DOM no
+file is made from; exporting a PDF keeps the trim and warns that the `.html` sidecar
+beside it still clips. `--fluid` closes the gap properly: that viewer inlines the
+runtime, which re-measures at the reader's own window size — the right answer for a
+document with no fixed page, where a line count baked at 1280x720 would be wrong the
+moment someone resized it.
+
 **Inline code, a citation or math makes a paragraph untrimmable.** The argument
 against an ellipsis on a line of code is an argument about the TAIL that gets cut,
 so a `<p>` ending in `--with-a-long-flag` is the same case wearing a prose tag.
