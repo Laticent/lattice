@@ -273,7 +273,15 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 						// the scroller's own bottom, which is what this used to compare against.
 						const chrome = Number.parseFloat(document.documentElement.style.getPropertyValue('--vt-chrome-bottom')) || 0;
 						w.__tail.chrome = Math.max(w.__tail.chrome, chrome);
-						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome);
+						// THE SAME FRAME `tourChromeOverlap` NOW WORKS IN. The published band is measured
+						// against the LAYOUT viewport, which a software keyboard does not shrink, so the
+						// lowest line a viewer can see is the visual viewport's bottom when there is one.
+						// Headless has no keyboard, so `vv` equals `innerHeight` here and this arm reads
+						// exactly as it did — but if the oracle kept the layout-only formula it would stop
+						// being a ruler for the helper the moment either one moved.
+						const vv = window.visualViewport;
+						const seen = vv && vv.height > 0 ? Math.min(window.innerHeight, vv.offsetTop + vv.height) : window.innerHeight;
+						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome, seen);
 						// How far the END of the document is from being on screen. `coordsAtPos` is null
 						// when the tail is not rendered at all, and then the distance from the bottom of
 						// the scroll range is the honest measure of how far behind the view is.
@@ -394,7 +402,10 @@ async function expectComposeTailFollows(page: import('@playwright/test').Page, s
 						const box = host.getBoundingClientRect();
 						const chrome = Number.parseFloat(document.documentElement.style.getPropertyValue('--vt-chrome-bottom')) || 0;
 						w.__tail.chrome = Math.max(w.__tail.chrome, chrome);
-						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome);
+						// Same frame as the editor sampler above — see its note.
+						const vv = window.visualViewport;
+						const seen = vv && vv.height > 0 ? Math.min(window.innerHeight, vv.offsetTop + vv.height) : window.innerHeight;
+						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome, seen);
 						const off = Math.max(0, last.getBoundingClientRect().bottom - visibleBottom);
 						w.__tail.samples++;
 						w.__tail.maxOff = Math.max(w.__tail.maxOff, Math.round(off));

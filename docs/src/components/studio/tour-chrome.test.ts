@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { tourChromeBottom, tourChromeMargin, tourChromeOverlap } from './tour-chrome';
+import { tourChromeBottom, tourChromeMargin, tourChromeOverlap, visibleBottom } from './tour-chrome';
 
 // The HOST half of "a tour's caption is an occluder". Vetrina publishes the band it is painting
 // over; this is what a host does with the number. The arithmetic is the whole module, and getting
@@ -23,7 +23,59 @@ function scroller(h: number, fromBottom = 0): Element {
 	return el;
 }
 
-afterEach(() => setInset(null));
+/**
+ * Put a software keyboard up: `covered` px of the LAYOUT viewport hidden behind it.
+ *
+ * jsdom has no `visualViewport` at all, which is itself the no-keyboard case every arm written
+ * before this one ran under — so installing one is what makes the new branch reachable, and
+ * `clearKeyboard` puts the property back to `undefined` rather than to a zero-inset stub, so the
+ * old arms keep exercising the absent-API path they were written for.
+ */
+const setKeyboard = (covered: number, offsetTop = 0) => {
+	Object.defineProperty(window, 'visualViewport', {
+		configurable: true,
+		value: { height: window.innerHeight - covered - offsetTop, offsetTop, addEventListener() {}, removeEventListener() {} },
+	});
+};
+const clearKeyboard = () => {
+	Object.defineProperty(window, 'visualViewport', { configurable: true, value: undefined });
+};
+
+afterEach(() => {
+	setInset(null);
+	clearKeyboard();
+});
+
+describe('visibleBottom — the lowest line a viewer can actually see', () => {
+	it('is the window bottom on every engine without a visual viewport, which is where this started', () => {
+		expect(visibleBottom()).toBe(window.innerHeight);
+	});
+
+	it('is the window bottom with a visual viewport and no keyboard up', () => {
+		setKeyboard(0);
+		expect(visibleBottom()).toBe(window.innerHeight);
+	});
+
+	it('rises by the keyboard height when one is up', () => {
+		setKeyboard(336);
+		expect(visibleBottom()).toBe(window.innerHeight - 336);
+	});
+
+	it('follows the page scrolling UNDER the keyboard, which resize alone never reports', () => {
+		// offsetTop is the visual viewport sliding down the layout one; the visible bottom moves
+		// with it, so a reveal aimed at innerHeight - covered would be wrong by exactly offsetTop.
+		setKeyboard(300, 40);
+		expect(visibleBottom()).toBe(window.innerHeight - 300);
+	});
+
+	it('never reports a line BELOW the window, which a rubber-band overscroll can produce', () => {
+		Object.defineProperty(window, 'visualViewport', {
+			configurable: true,
+			value: { height: window.innerHeight, offsetTop: 60, addEventListener() {}, removeEventListener() {} },
+		});
+		expect(visibleBottom()).toBe(window.innerHeight);
+	});
+});
 
 describe('tourChromeBottom — what a running tour is covering', () => {
 	it('is 0 when no tour is running, which is every ordinary keystroke on every surface', () => {
@@ -110,3 +162,60 @@ describe('tourChromeMargin — the same, made safe for a SYMMETRIC consumer', ()
 		expect(tourChromeOverlap(scroller(0))).toBe(0);
 	});
 });
+
+describe('tourChromeOverlap — with a software keyboard up', () => {
+	// The gap #2209 shipped with, and the reason its numbers could not settle the iPhone report:
+	// every one of them is in the LAYOUT viewport, which iOS does not shrink for the keyboard. A
+	// caption seated against the window's bottom edge is then itself behind the keyboard, and a
+	// reveal that clears only the caption still lands somewhere the viewer cannot see.
+
+	it('clears the KEYBOARD when it reaches higher than the caption', () => {
+		// 768px window, 336px keyboard → the lowest visible line is 432. The caption's own band
+		// tops out at 538, which is already behind the keyboard, so the keyboard is what a reveal
+		// has to clear. Before this, the answer here was 230 — the caption band alone.
+		setInset('230px');
+		setKeyboard(336);
+		expect(tourChromeOverlap(scroller(600))).toBe(336);
+	});
+
+	it('still clears the CAPTION when the caption reaches higher than the keyboard', () => {
+		// A tall caption on a short keyboard: the band tops out at 268, the visible bottom is 568,
+		// so the caption is the binding constraint and the keyboard changes nothing.
+		setInset('500px');
+		setKeyboard(200);
+		expect(tourChromeOverlap(scroller(600))).toBe(500);
+	});
+
+	it('is unchanged by a visual viewport with no keyboard up', () => {
+		setInset('230px');
+		const without = tourChromeOverlap(scroller(600));
+		setKeyboard(0);
+		expect(tourChromeOverlap(scroller(600))).toBe(without);
+	});
+
+	it('is still 0 with a keyboard up and NO tour running', () => {
+		// The module's safety property, and it has to survive the keyboard: with no tour there is
+		// no published band, and reserving keyboard room here would double-count against the
+		// scroll extent `scrollPastEnd()` already gives the markdown editor.
+		setKeyboard(336);
+		expect(tourChromeOverlap(scroller(600))).toBe(0);
+	});
+
+	it('keeps the `keep` clamp, so a short pane is never asked for more than it has', () => {
+		setInset('230px');
+		setKeyboard(336);
+		// 120px pane: the keyboard would ask for 336, the clamp allows 120 - 48 = 72.
+		expect(tourChromeOverlap(scroller(120))).toBe(72);
+	});
+});
+
+describe('tourChromeMargin — with a software keyboard up', () => {
+	it('halves the keyboard-aware overlap, not the caption-only one', () => {
+		// 336 is the overlap; half the usable 600 - 48 pane is 276, and CodeMirror's symmetric
+		// yMargin makes the smaller of the two the only non-oscillating answer.
+		setInset('230px');
+		setKeyboard(336);
+		expect(tourChromeMargin(scroller(600))).toBe(276);
+	});
+});
+

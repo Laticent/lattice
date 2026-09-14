@@ -21,6 +21,35 @@
 // Absent, unparseable or zero → 0, and every caller is then byte-identical to what it did before
 // this existed. That is the property that makes it safe on every surface where no tour is running.
 
+/**
+ * The client-y of the bottom edge of what the viewer can actually SEE.
+ *
+ * Normally `innerHeight` — but a SOFTWARE KEYBOARD does not shrink the layout viewport on iOS,
+ * it only shrinks the VISUAL one, and every number on this path is in layout coordinates:
+ * `--vt-chrome-*` is measured against `window.innerHeight` (`stage.ts` `chromeInset`), and
+ * `getBoundingClientRect()` is layout-relative too. So with the keyboard up, "the bottom of the
+ * window" is a line the viewer cannot see, and a reveal that stops there stops behind the
+ * keyboard. `visualViewport.offsetTop + height` is that same line in the same frame, which is why
+ * the two are directly comparable and the smaller one wins.
+ *
+ * This is the consumer half of the frame problem; it does NOT change what the stage publishes.
+ * `--vt-chrome-*` stays measured from the window's edges exactly as the README documents it —
+ * a host recovering the band as `innerHeight - inset` is still right, and is simply not yet
+ * accounting for a keyboard it may not have.
+ *
+ * `window.visualViewport` is absent on older engines and in jsdom, and then this is `innerHeight`
+ * and every caller is byte-identical to what it did before this existed — the same safety
+ * property the whole module is built on.
+ */
+export function visibleBottom(): number {
+	if (typeof window === 'undefined') return 0;
+	const vv = window.visualViewport;
+	if (!vv || !(vv.height > 0)) return window.innerHeight;
+	// Clamped: a rubber-band overscroll can put `offsetTop + height` PAST the layout viewport's
+	// bottom, and a "visible" edge below the window is not a thing a reveal should aim at.
+	return Math.min(window.innerHeight, vv.offsetTop + vv.height);
+}
+
 /** The px of the viewport's bottom edge a running tour is covering. 0 when no tour is running. */
 export function tourChromeBottom(): number {
 	if (typeof document === 'undefined') return 0;
@@ -46,7 +75,13 @@ export function tourChromeOverlap(scroller: Element | null | undefined, keep = 4
 	if (!(box.height > 0)) return 0;
 	// The published number is measured from the bottom of the WINDOW, so this is where the
 	// covered band starts; a scroller ending above it is already clear and needs nothing.
-	const chromeTop = window.innerHeight - inset;
+	//
+	// THE KEYBOARD IS THE OTHER OBSTRUCTION, and it is in front of the caption rather than
+	// beside it: a caption seated against the window's bottom edge is itself partly or wholly
+	// behind an open software keyboard, so the first thing a reveal has to clear is whichever
+	// edge is HIGHER. Taking the minimum covers both without needing to know which — when no
+	// keyboard is up the two are equal and this is the line it has always been.
+	const chromeTop = Math.min(window.innerHeight - inset, visibleBottom());
 	return Math.max(0, Math.min(box.bottom - chromeTop, box.height - keep));
 }
 

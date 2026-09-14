@@ -366,6 +366,27 @@ gutter the dock floats above (123px for a ~45px `bar`). And it is purely **verti
 `progress` pill 380px wide is reported as a full-width band. Both over-reserve rather than
 under-reserve, which is the right direction to be wrong in.
 
+**A SOFTWARE KEYBOARD is the third limit, and it is the host's to handle, not the stage's.** The
+band is measured against `window.innerHeight` — the LAYOUT viewport — and iOS does not shrink that
+for the keyboard; it shrinks the VISUAL one. So with a keyboard up the caption is itself partly or
+wholly behind it, and a host that clears only the published band still reveals into pixels the
+viewer cannot see. The stage cannot fix this for you: it has no way to know whether the host's
+surface even takes text input. What a host does instead is take whichever obstruction reaches
+higher:
+
+```js
+const vv = window.visualViewport;
+const seen = vv && vv.height > 0 ? Math.min(innerHeight, vv.offsetTop + vv.height) : innerHeight;
+const clearBelow = Math.min(innerHeight - chromeBottom, seen);
+```
+
+`offsetTop` matters as much as `height`: it is the visual viewport sliding down the layout one as
+the page scrolls under the keyboard, and a `resize` listener alone never reports it. Both numbers
+are in the same frame as `getBoundingClientRect()`, which is what makes them directly comparable to
+the published inset. Without a keyboard — every desktop, and every headless browser — `seen` is
+`innerHeight` and the expression is exactly the published band. The Studio does this in
+`tourChromeOverlap` (`docs/src/components/studio/tour-chrome.ts`).
+
 Read them from the inline style (`documentElement.style.getPropertyValue(...)`), not
 `getComputedStyle` — a host reading this per keystroke should not force a style recalculation. The
 Studio does exactly that so its editor follows what a tour types without revealing the new line
