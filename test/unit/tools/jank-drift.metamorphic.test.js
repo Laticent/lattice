@@ -23,11 +23,13 @@
  *   · MR1 is close to vacuous for a pure function, and MR9 is an axiom for `Math.min`.
  *     Both still kill non-`min` mutants, so they earn their place — but neither is evidence
  *     the measure is RIGHT.
- *   · MR12/MR13 are the pair that says what CAN happen rather than what an adversary failed
- *     to find. MR13 is load-bearing and kills the `Math.max` mutant on its own. MR12 kills
- *     no mutant this suite did not already kill — it is kept for exactness (MR5 pins three
- *     literals; MR12 pins the same property over generated positions, sizes and offsets)
- *     and for the record of the stronger claim it started as, which was false.
+ *   · MR12/MR13 are the WEAKEST pair here, and an earlier version of this note called MR13
+ *     load-bearing, which a checker disproved. MR13's inner assertion is a tautology for any
+ *     min-of-three implementation; what fails under the `Math.max` mutant is its corpus
+ *     guard. MR12 kills no mutant this suite did not already kill. Both are kept for what
+ *     they record rather than what they catch: MR12 pins exactness over generated shapes
+ *     where MR5 pins three literals, and both carry the stronger claims they started as,
+ *     which were false. Read them as documentation with an executable check attached.
  *
  * WHAT THIS FILE DOES NOT COVER, so nobody reads it as more than it is: that the RIG feeds
  * this function faithful section-relative edges. That is a browser claim and it belongs in
@@ -309,28 +311,38 @@ test('MR12 a rigid translation of a STATIC box reports the offset exactly', () =
 });
 
 test('MR13 a ZERO verdict always names a reference that held still', () => {
-  // The converse, and the reason a zero can be trusted. If the measure ever returned 0 for
-  // a sequence in which the near edge, the far edge AND the midpoint all moved, the tool
-  // would be certifying a mark that drifted. Over every shape here, a 0 verdict is always
-  // accompanied by a reference whose own spread is 0 — one of the three ways a mark holds
-  // position. A shape that reads non-zero is not evidence either way, so it is skipped
-  // rather than asserted on.
-  let zeros = 0;
+  // WHAT THIS DOES AND DOES NOT PIN, because the first version of this comment overstated it
+  // and the doc quoting it inherited the overstatement. The inner assertion CANNOT fail for
+  // any implementation that returns the min of exactly these three spreads: min <= EPS
+  // implies some spread <= EPS, unconditionally, for any corpus (checked over 300,000
+  // randomized shapes, zero inner failures). So this is not a search for a counter-example —
+  // there is none to find, and that is the point worth recording.
+  //
+  // What it does pin is narrower and still worth having: that the function never returns
+  // something SMALLER than the min of its three references, and that the corpus still
+  // contains genuinely pinned shapes. The second half is the `informative` guard below, and
+  // it is what fails under the `Math.max` mutant — so "MR13 kills that mutant" is a fact
+  // about the guard, not about the direction the relation advertises. MR6b kills it directly.
+  let informative = 0;
   for (const { label, near, far } of everyShape()) {
     if (axisDrift(near, far) > EPS) continue;
-    zeros += 1;
     const mid = near.map((n, i) => (n + far[i]) / 2);
-    const held = [
+    const spreads = [
       ['near edge', spread(near)],
       ['far edge', spread(far)],
       ['midpoint', spread(mid)],
-    ].filter(([, s]) => s <= EPS);
+    ];
+    const held = spreads.filter(([, sp]) => sp <= EPS);
     assert.ok(held.length > 0,
       `${label}: reported 0 drift while all three references moved `
       + `(near ${spread(near)}, far ${spread(far)}, mid ${spread(mid)})`);
+    // A DEGENERATE zero carries no information: `adversarial[3]` is a box that never moves
+    // and never grows, which every conceivable formula returns 0 for. Counting those toward
+    // the corpus guard let two free zeros keep it green with one real shape behind them, so
+    // only a zero where something DID move is counted — that is the pinned-or-symmetric
+    // case this relation exists to hold.
+    if (spreads.some(([, sp]) => sp > EPS)) informative += 1;
   }
-  // The relation is vacuous if nothing in the corpus reads zero, and a vacuous pass is the
-  // failure mode this whole file exists to avoid — so the corpus is required to contain the
-  // shape under discussion.
-  assert.ok(zeros >= 2, `only ${zeros} shapes read 0 — MR13 needs zeros to say anything`);
+  assert.ok(informative >= 4,
+    `only ${informative} shapes read 0 while something moved — MR13 needs those to say anything`);
 });

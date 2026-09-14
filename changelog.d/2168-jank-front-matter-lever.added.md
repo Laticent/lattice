@@ -7,3 +7,8 @@
   moved — the page number, at a constant 30px right inset, was failed for `9.0px` because its
   numeral gained a digit at page 10. It is now the smallest of the near edge, far edge and
   midpoint spreads. A true translation still reports in full.
+- **Fixed:** the vacuity warning no longer accepts a GROWING anchor as proof that a sweep
+  moved something. It maxed the anchor's raw near-edge spread, so a page numeral going 9 to
+  10 was enough to suppress the "every step laid out in the same place" warning on a sweep
+  where nothing else moved at all. The anchor now contributes the same drift measure the
+  verdict uses.

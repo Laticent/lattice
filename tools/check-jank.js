@@ -1199,9 +1199,20 @@ async function main() {
   // SIZE **AND** POSITION. Measuring the ink union's dimensions alone declared a sweep
   // "not moving the content" four lines under a DRIFT line reporting 300px of movement —
   // the block kept its shape and changed where it sat. Anything that moves counts.
+  //
+  // THE INK MAY GROW; THE ANCHOR MAY ONLY MOVE. For the ink, growth IS the axis doing its
+  // job, so `inkHeight`/`inkWidth` belong here. For the anchor the opposite holds, and this
+  // line read `spreadRange('anchorTop')`/`spreadRange('anchorLeft')` — the raw NEAR-edge
+  // spread the move-vs-grow fix replaced everywhere else (#2168). An anchor that merely got
+  // WIDER therefore certified an otherwise inert sweep as non-vacuous: `compare-code` at
+  // `--max 10` laid out identically on all ten steps, and the only thing that moved was the
+  // page numeral going 9 -> 10, worth 9.9px of `anchorLeft` spread. One step fewer and the
+  // same run printed the vacuous warning. So the anchor contributes `drift` — the same
+  // kernel measure the DRIFT verdict uses (HARD RULE #1) — and a growing mark can no longer
+  // vouch for a sweep that moved nothing.
   const spread = measured.length > 1
     ? Math.max(spreadRange('inkHeight'), spreadRange('inkWidth'),
-      spreadRange('inkTop'), spreadRange('inkBottom'), spreadRange('anchorTop'), spreadRange('anchorLeft'))
+      spreadRange('inkTop'), spreadRange('inkBottom'), drift || 0)
     : 0;
 
   const summary = {
