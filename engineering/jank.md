@@ -464,18 +464,19 @@ got each of them wrong once.** It is a fallback by construction: the rule below 
 wherever the real element exists. It is also live on committed decks, which is the part the
 first version of this section denied. What it is NOT is the common case — a draft of this
 paragraph called it "the page number on most paginated slides we ship", and it is the
-minority mark on every sample anyone has taken. The real `span.lat-pagination` carries the
-rest.
+minority mark on every sample anyone has taken. The real `span.lat-pagination` carries most
+of the remainder — not all of it, because a slide can also suppress the numeral outright with
+`silent`, and then neither mark paints.
 
 **The share is deliberately not stated here yet**, and the reason is worth more than the
-number would be. A draft quoted **5.5%** from a 12-deck stride sample. A checker measuring a
-different 27-deck sample got 17.8%. Neither is defensible: bootstrapped over the 164
-paginated decks, a 12-deck sample spans 4.7%–21.2%, so one decimal place at that size is
-noise dressed as precision — and the draft named neither its decks nor its command, so no
-reader could re-derive it. A population figure over all 164 decks, with the command that
-produces it, replaces this paragraph. `bloom-engineering-journey`'s 7 of 13 is six
+number would be. A draft quoted **5.5%** from a 12-deck stride sample; an independent pass
+over a different 27-deck sample got **17.8%**. Two samples of the same population disagreeing
+threefold is the finding: at that size the draw dominates the answer, so a decimal place is
+noise dressed as precision. Neither draft named its decks or its command, so no reader could
+re-derive either. A population figure over all 164 decks, with the command that produces it,
+replaces this paragraph. `bloom-engineering-journey`'s 7 of 13 is six
 `split-panel` slides plus a `premise`, not seven of anything — and it is high rather than
-exceptional: seven shipped decks sit at or above its share, and 89 of the 164 paint the
+exceptional: six other shipped decks match or exceed its share, and 89 of the 164 paint the
 pseudo at least once. Quoting one deck as the general case is how "most" got written.
 
 **The split is by frame kind.** The retirement rule keys on a `.cell-footer` DIV
@@ -602,7 +603,8 @@ table named `::before` at 44.8px, and `::before` measures **44.7px**. A draft of
 explained that away as sub-pixel jitter across a tie — "the measurements reproduce to a tenth
 of a pixel, the row LABEL does not". Every part of that was wrong. Three consecutive
 `--anchors` runs here return 44.8 and 44.7 with no variation, and a full census regeneration
-reproduces the committed table byte for byte, so there is no jitter to appeal to; 0.1px is the tool's ROUNDING
+reproduces the committed table byte for byte, so there is no jitter to appeal to; 0.1px is
+the tool's ROUNDING
 QUANTUM (`+(...).toFixed(1)`), so "reproduces to a tenth of a pixel" is unfalsifiable rather
 than an error bound; and at 44.8 against 44.8 there would be no crossing to describe, only a
 stable sort deciding a tie. The row was simply older than the tool. The census is regenerated
@@ -644,7 +646,8 @@ decimal. (A draft said "never comparable", which the very next command disproves
 why a draft of this paragraph claiming "five of them moving further than the control" was
 wrong: it ranked twenty-four-slide discovery figures against a twelve-slide verdict.
 Re-swept like for like,
-`citation-card pull-quote` ties the control rather than beating it. Because the measure is a MINIMUM, 44.8 can only
+`citation-card pull-quote` ties the control rather than beating it. Because the measure is a
+MINIMUM, 44.8 can only
 come back if the near edge, the far edge AND the midpoint each spread at least that far — the
 shape of a box that moved, not one pinned at an edge or centered that merely grew. It is NOT a
 shape only translation can make: growth that is neither pinned nor symmetric reports drift too,
@@ -656,12 +659,11 @@ not have been.** That sweep prints `ANCHOR 'span.state-index' matches more than 
 (6) — the FIRST in document order is measured and the rest are folded into the ink. Narrow
 it.` The number was quoted without the line the instrument attached to it (HARD RULE #23), and
 the paragraph then claimed a single-match substitute "does not exist among the census's
-movers". `engineering/jank-census.md` lists thirteen `per = 1` rows at or above 44.8px — the answer
-was one `awk` away in the file this very section is about. It also quoted `42.6px` for
-`--anchors` on
-that component, where the real figure is `85px`: 42.5 is the twelve-slide `--anchor` run and
-85 is the twenty-four-slide discovery run, two runs conflated in the paragraph whose whole
-subject is not conflating runs.
+movers". `engineering/jank-census.md` lists thirteen `per = 1` rows at or above 44.8px — the
+answer was one `awk` away in the file this very section is about. It also quoted `42.6px` for
+`--anchors` on that component, where the real figure is `85px`: 42.5 is the twelve-slide
+`--anchor` run and 85 is the twenty-four-slide discovery run — two runs conflated in the
+paragraph whose whole subject is not conflating runs.
 
 **And the residual — "no counter-example was found" — is now a statement about what CAN
 happen.** The measure is a MINIMUM over three references, so a zero verdict is a case where
