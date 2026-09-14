@@ -164,14 +164,21 @@ test('themeDualMode flattens against `:root` ONLY — a component-scoped decl ne
 // Spelling `.color-light` the same as `.light` left a 1.61:1 divider in the player's dark
 // scheme — 11.29:1 once carved out.
 //
-// THE PRECONDITION IS NARROWER THAN A FIRST DRAFT CLAIMED, and the correction is worth as
-// much as the fix. That draft said "on any `color-mode: light` deck"; measured on three
-// themes, it reproduces on NONE of them, because the player's own toggle strips the class
-// first — `applyDeckMode` removes `color-light` from every section when the viewer picks
-// dark, so the rule cannot match. What reaches it is a slide carrying `color-light` as a
-// PER-SLIDE class on a deck with no deck-wide `color-mode:`, where `deckMode` is unset and
-// the toggle manages nothing. `lint:deck` warns about that spelling, which is a fair reason
-// to call the case rare and no reason at all to describe it wrongly.
+// THE PRECONDITION TOOK TWO TRIES TO STATE, and both wrong versions are worth recording.
+// The first said "on any `color-mode: light` deck" — the one deck mode that is IMMUNE, because
+// there `applyDeckMode` strips the class when the viewer picks dark AND the export bakes
+// `data-lp-scheme="light"`. The second narrowed it to a deck with no deck-wide `color-mode:`
+// at all, which excluded the worse case.
+//
+// What actually reaches it: a slide carrying `color-light` as a PER-SLIDE class on any deck
+// whose mode is not `light`.
+//   · `color-mode: dark`      — `pinsOpposite` skips a slide that pins the opposite scheme, so
+//                               the class is never stripped, and the export bakes `dark`. The
+//                               defect is in the as-exported bytes, with no interaction at all.
+//   · `system` / `inherited`  — `deckModeClass` is empty for these, so nothing manages the
+//                               class; reachable with JavaScript switched off.
+// `lint:deck` warns about that spelling, which is a fair reason to call the case rare and no
+// reason at all to describe it wrongly — twice.
 const restoreSel = (pin) => {
 	if (pin === '.print') return `section[data-lattice-slide]${pin}`;
 	const carve = pin === '.light'
@@ -383,14 +390,26 @@ test('every ALWAYS_DARK `unless` is single-class and space-free', () => {
 	// obvious substring hazard — `:not(.color-light)` is correctly NOT dropped for `.light` —
 	// but two re-spellings CSS would happily accept break it in the unsafe direction:
 	// `:not(.light, .bright)` and `:not( .light )` both fail to match, so `.divider` stays in
-	// the `.light` carve-out and a bright divider takes on-dark inks over its own white canvas.
+	// the `.light` carve-out and a bright divider takes the dark token block in the player's
+	// dark scheme. Measured, that is a FIDELITY break, not an illegibility one: the player
+	// renders it 17.16:1 white-on-dark where the engine renders 18.13:1 dark-on-white. A draft
+	// of this comment said "over its own white canvas", which is wrong —
+	// `section.divider.light` sets `background: var(--bg)`, so the ground moves with the ink.
 	//
 	// Nothing else pins this, and the failure is silent. So the grammar is the assertion.
 	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
 	// Recover the entries from the emitted unconditional block rather than importing them —
 	// an expectation derived from the code under test follows that code anywhere it goes.
-	const sel = darkBlock.match(/\}(section\[data-lattice-slide\]\.title[^{]*)\{/)[1];
-	for (const arm of sel.split(',')) {
+	// The recovery regex assumes `.title` leads the block. Reordering ALWAYS_DARK is harmless
+	// and would make this return null, so it says so rather than dying on a bare null deref —
+	// a test whose failure names nothing costs the next reader the same hour twice.
+	const found = darkBlock.match(/\}(section\[data-lattice-slide\]\.title[^{]*)\{/);
+	assert.ok(found,
+		'could not find the unconditional always-dark block by its leading `.title` arm — if '
+		+ 'ALWAYS_DARK was reordered this regex needs updating, not the source');
+	const arms = found[1].split(',');
+	assert.ok(arms.length >= 2, `expected several always-dark arms, got ${arms.length}`);
+	for (const arm of arms) {
 		const unless = arm.replace(/^section\[data-lattice-slide\]\.[a-z-]+/, '').replace(':not(.print)', '');
 		assert.match(unless, /^(:not\(\.[a-zA-Z0-9_-]+\))*$/,
 			`an ALWAYS_DARK \`unless\` must be a chain of single-class, space-free :not() — got '${unless}' in '${arm}'`);

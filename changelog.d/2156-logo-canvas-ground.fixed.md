@@ -33,11 +33,16 @@
   player, so a `strong` inside one came back at 1.61:1 (now 11.29:1). These are dark panels in
   every player scheme and now carry the dark token block unconditionally. The two places that
   decide whether a slide gets dark TOKENS — the unconditional block and the restore-to-light
-  carve-out — now take the engine's force-dark set whole: `title`, `closing`, and `divider` unless it is the bright
-  `divider.light` variant, which replaces the canvas and keeps the light scheme it declares.
+  carve-out — now take the engine's force-dark set whole: `title`, `closing`, and `divider`
+  unless it is the bright `divider.light` variant, which replaces the canvas and keeps the
+  light scheme it declares.
   The carve-out is per pin, because which slides must not restore depends on the pin doing the
   restoring: a `divider light` is genuinely light and restores, a `divider color-light` is a
   dark panel and does not. Spelling those the same left a divider at 1.61:1 in the player's
-  dark scheme, now 11.29:1. It takes a slide carrying `color-light` as a per-slide class on a
-  deck with no deck-wide `color-mode:` — with one set, the player's toggle strips the class
-  before the rule can match, so no `color-mode: light` deck was ever affected.
+  dark scheme, now 11.29:1. It takes a slide carrying `color-light` as a per-slide class on any
+  deck whose deck-wide mode is **not** `light`. Only a `color-mode: light` deck is immune,
+  because there the toggle strips the class and the export bakes `data-lp-scheme="light"`. On a
+  `color-mode: dark` deck the slide pins the opposite scheme, so the toggle skips it and the
+  export bakes `dark` — the defect is in the file the recipient opens, with no interaction. On
+  a `system` or `inherited` deck nothing manages the class at all, and it is reachable with
+  JavaScript switched off.
