@@ -81,6 +81,8 @@ on two viewports, and the difference between them is the point:
 | depth into the 230px gradient | 92px | **225px** |
 | gradient alpha over that line | ~0.48–0.57 | **~0.88–0.90** |
 | worst instantaneous depth | 115px (α ~0.68) | 283px (below the fold) |
+| **measured** mean luminance of the typed band | 0.896 (min 0.217) | **0.032** |
+| **measured** bands effectively blacked out | **0 of 19** | **13 of 20** |
 
 **Say what each number is.** The settled depth is where the line sits once the reveal has run; the
 worst is a transient during a growth frame. An earlier draft of this table put Chromium's 115 beside
@@ -93,6 +95,21 @@ black with the subtitle 73px below it: unreadable, and that is the viewport the 
 Chromium at 390x844 it is behind ~50%: dimmed, still legible. So the Chromium run establishes the
 MECHANISM off-device — which is what makes it reproducible and testable here — and the WebKit run is
 what establishes the harm. Neither is iOS (see the last section).
+
+**The last two rows are RENDERED PIXELS, not arithmetic, and they are why this section no longer
+rests on a computed number.** The alpha figures above are what the gradient's stops say should
+happen; the luminance figures are what a real engine actually drew. A sampler grabs the band of the
+editor holding the last four typed lines, repeatedly across the whole typing run — sampling rather
+than trying to catch one frame, which is what made two earlier attempts race the tour — and each
+band's mean relative luminance is measured off the PNG. On real WebKit at an iPhone box **13 of 20
+sampled bands came back under 0.2**, i.e. effectively black, and the median band sat at 0.032 while
+the page behind it is ~0.9. With the fix: 1 of 22, median 0.906. On Chromium at 390x844 **none of
+the 19 bands was blacked out** (the darkest reached 0.217) — the shallower occlusion really is a
+dimming, exactly as the alpha column predicts.
+
+The two rasters are legible on their own: before, the gutter shows lines 32–34 mid-word in dark grey
+on near-black with the caption's subtitle across the top; after, lines 29–31 on the ordinary light
+page. They are the artifact this record went without in its first revision.
 
 ## 2. Why the previous pass measured nothing — the instrument, not the device
 
@@ -305,11 +322,17 @@ ever saw and the case asserts it was non-zero.
   crossed it, which put it above the defect; and the table in §1 mixed a worst reading with a settled
   one. Every one of those is a claim that was broader than the code, in a record whose subject is
   exactly that.
+- **The HARM is measured in pixels, not computed.** Before/after rasters on real WebKit at an
+  iPhone 15 Pro box and on Chromium at 390x844, 81 sampled bands in total, with each band's mean
+  relative luminance read off the rendered PNG — see §1. This closes the one evidence gap the first
+  revision of this record carried, which was that "the viewer cannot read it" rested on the
+  gradient's declared alpha rather than on anything a browser had drawn.
 - **UNVERIFIED: real iOS Safari on a device**, and this record does not claim otherwise. Touch, the
   collapsing chrome and the software keyboard's visual-viewport offset are not reachable from this
   sandbox. What changed is that the previous pass ruled those in by ruling everything else out on an
-  instrument that could not see; there is now a mechanism that reproduces off-device and is fixed.
-  Whether it is THE report still needs the phone.
+  instrument that could not see; there is now a mechanism that reproduces off-device, is measured in
+  rendered pixels on the engine iOS ships, and is fixed. What still needs the phone is ATTRIBUTION —
+  whether this is the symptom that was reported.
   **A second defect on that path is still live and is not touched here:** the markdown editor has no
   software-keyboard inset at all (`useVisualViewport` is wired only into `ComposeView`), and every
   number in this change — the caption's band, `boundsRect`, `tourChromeOverlap` — is expressed in the
