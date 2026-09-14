@@ -92,8 +92,8 @@ Stack both and the later one wins: this slide is light, and so is its mark.
 ## The canvas decides — and there are three ways to set one
 
 - A slide class
-  - `dark`, `light`, the bookends, the print band.
+  - `dark`, `light`, the bookends, the print band. A bookend stays a dark panel even when the slide is also pinned `light`.
 - A theme
-  - A `-dark` wrapper, reached by name.
-- Neither, and this is the honest gap
-  - `color-mode: system` and `color-mode: inherited` defer the side to the reader's OS or the host page, so no treatment is knowable when the deck is written. A full-bleed cover photograph is the same problem: no token describes its lightness.
+  - A `-dark` wrapper, reached by name. `color-mode: inherited` rides on it, because the root it inherits from **is** that theme.
+- Nobody, and that is the honest gap
+  - `color-mode: system` defers to the reader's OS. A PDF resolves light, the exported player resolves dark, so no one treatment is right on both. A cover photograph is the same shape: no token describes its lightness.

@@ -1246,10 +1246,21 @@ this the scheme and the ground went light while the INVERSE filter survived, so
 the mark came out brightened at 0.45 opacity on white. `section.light` and
 `section.color-light` now reset the token exactly as `.print` does.
 
-Two canvases still have no answer, and neither is solvable in CSS:
-`color-mode: system` and `color-mode: inherited` defer the side to the reader's
-OS or the host page, so no treatment is knowable when the deck is written; and a
-full-bleed cover photograph has a lightness no token describes.
+**A bookend is a dark panel even when the slide is pinned light.**
+`section:is(.title, .closing):not(.print)` forces `color-scheme: dark` at (0,2,1),
+so a hand-authored `title light dark` renders dark and takes the inverse mark. The
+exported player has to be told that separately — it rebuilds dark from flat rules
+and has no cascade to consult — and until it was, such a slide came out white ink
+on a white ground, 1.00:1.
+
+One canvas is genuinely unanswerable, and one is not:
+
+- `color-mode: inherited` takes its scheme from the deck root, which on a `-dark`
+  theme is that theme. Knowable, so it gets the flip.
+- `color-mode: system` defers to the reader's OS. A PDF rendered headless resolves
+  light; the exported player resolves dark. No single treatment is right on both,
+  so it keeps the light-canvas mark and is wrong on a dark OS.
+- A full-bleed cover photograph has a lightness no token describes.
 
 ```yaml
 ---

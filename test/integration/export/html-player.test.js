@@ -520,7 +520,16 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 // rules that would have corrected it exist only inside the player's dark scopes, so in
 // light scheme nothing did. Measured: `dark light` came back rgb(0,29,51) where the PDF
 // renders it rgb(255,255,255).
-const DARK_SLIDE = String.raw`section\[data-lattice-slide\]\.dark:not\(\.light\):not\(\.color-light\):not\(\.print\)`;
+//
+// Then it grew the `:where(…, .title, .closing)` re-admission, because subtracting the pin
+// set WHOLESALE went too far: the engine keeps a bookend a dark panel even when the slide
+// is pinned light, so a `title light dark` slide lost --bg and every ink while its ink
+// stayed on-dark — white on white, 1.00:1, in the as-exported view.
+// `,\s*` between the `:where()` arms, because THIS file reads the SHIPPED export, which is
+// minified — `,.title,.closing` — while the unit tests read `themeDualMode`'s unminified
+// return. A pattern written from the unminified form passes upstairs and fails here, which
+// is exactly what happened.
+const DARK_SLIDE = String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\),\s*\.title,\s*\.closing\)`;
 
 describe('html-player export — nothing shipped depends on light-dark()', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');

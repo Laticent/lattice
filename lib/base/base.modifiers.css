@@ -473,7 +473,7 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
  *
  * THE SUFFIX IS A CONVENTION, SO IT IS PINNED AS ONE. Measured over all 33 manifests:
  * 14 carry `role: variant-dark`, 14 are named `*-dark`, and the two sets are identical.
- * `test/unit/themes/dark-theme-logo-token.test.js` asserts that equality, so a dark theme
+ * `test/unit/theme/dark-theme-logo-token.test.js` asserts that equality, so a dark theme
  * named off-convention fails there rather than losing its logo silently.
  *
  * POSITION IS LOAD-BEARING. This is (0,1,1), the same as `.print`, `.light` and
@@ -481,7 +481,22 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
  * a light canvas whatever the theme, and a slide pinned light inside a dark deck takes the
  * light mark. Declared here, above them, it is the deck-wide DEFAULT that a per-slide
  * modifier overrides. Moving it below any of them silently inverts that. */
-section[data-theme$="-dark"] {
+/* `.color-system` ONLY, and the asymmetry is the point. Both registers defer the side, but
+ * only one of them defers it somewhere this rule cannot see:
+ *   · `.color-system` is `color-scheme: light dark` — the RECEIVER's OS decides, so no
+ *     treatment is knowable when the deck is written. Measured on a `-dark` theme: headless
+ *     Chrome resolves `prefers-color-scheme: light`, the ground comes back #FFFFFF, and
+ *     pinning the inverse there put a brightened mark on white — #2149 on a shipped PDF.
+ *   · `.color-inherited` is `color-scheme: inherit`, and on a `-dark` theme the thing it
+ *     inherits from is that theme's own `:root { color-scheme: dark }`. Measured: scheme
+ *     `dark`, ground rgb(0,29,51). Deterministic, so it keeps the flip.
+ * An earlier cut excluded both and handed `color-inherited` a light mark on a dark ground —
+ * giving up a real fix to be symmetrical.
+ *
+ * `:where()` so the exclusion costs NO specificity: this rule has to stay (0,1,1) and lose
+ * to `.print` / `.light` / `.color-light` below on source order. A plain `:not()` would take
+ * it to (0,2,1) and invert every one of those. */
+section[data-theme$="-dark"]:where(:not(.color-system)) {
   --deck-logo-filter: var(--deck-logo-filter-inverse);
   --deck-logo-opacity: var(--deck-logo-opacity-inverse);
 }

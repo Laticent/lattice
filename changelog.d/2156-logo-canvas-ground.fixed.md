@@ -13,3 +13,8 @@
   light scheme nothing corrected it. The exclusion is now derived from the pin set itself,
   at all three emitters, so the two cannot drift apart again. Exported bytes: +960 raw,
   +11 gzipped on a 4-slide deck.
+- **Fixed:** a `title light dark` or `closing light dark` bookend rendered as a blank white
+  slide in the exported player — white ink on a white ground. The engine keeps a bookend's dark
+  panel even when the slide is pinned light; the player, which rebuilds dark from flat rules and
+  has no cascade to consult, was not told. Both the dark rule and all four restore-to-light sites
+  now carve the bookends out, and a printed bookend still correctly takes paper.

@@ -67,8 +67,18 @@ test('the engine rule that flips the logo for a dark theme is still there, and s
   // silently, with no specificity change to notice in review.
   const css = fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.modifiers.css'), 'utf8');
 
+  // EXACTLY ONE, checked before anything else. The first cut used `indexOf` alone, which
+  // sees only the FIRST occurrence — so a SECOND copy of the block pasted in after
+  // `section.color-light` inverted the real precedence while this arm stayed green. Verified:
+  // with such a duplicate in place the file reported `2 pass, 0 fail`, and `print`, `light`
+  // and `color-light` would all have lost on a `-dark` theme. Counting is what closes it.
+  const occurrences = css.split('section[data-theme$="-dark"]').length - 1;
+  assert.equal(occurrences, 1,
+    `the dark-theme logo rule appears ${occurrences} times in base.modifiers.css; a second `
+    + 'copy declared later silently inverts the cascade, and position is the only thing '
+    + 'separating these rules — they are all (0,1,1).');
+
   const theme = css.indexOf('section[data-theme$="-dark"]');
-  assert.ok(theme > 0, 'the dark-theme logo rule is gone from base.modifiers.css');
 
   for (const later of ['section.print {', 'section.light {', 'section.color-light {']) {
     const at = css.indexOf(later);
@@ -77,4 +87,14 @@ test('the engine rule that flips the logo for a dark theme is still there, and s
       `section[data-theme$="-dark"] must be declared BEFORE ${later} — same specificity, `
       + 'so source order decides, and the per-slide modifier has to win.');
   }
+
+  // AND NOT NESTED. `indexOf` is a text scan, so a rule wrapped in `@media` or `@supports`
+  // keeps its position and its specificity while its APPLICABILITY changes — the arm above
+  // cannot see that at all. Checking the brace depth at the match is the cheapest thing that
+  // can: engine CSS declares these at the top level, so any depth but zero is a real change
+  // that deserves a look.
+  const depth = [...css.slice(0, theme)].reduce((d, ch) => d + (ch === '{' ? 1 : ch === '}' ? -1 : 0), 0);
+  assert.equal(depth, 0,
+    'the dark-theme logo rule is nested inside an at-rule; it no longer applies '
+    + 'unconditionally, which the source-order check above cannot detect.');
 });

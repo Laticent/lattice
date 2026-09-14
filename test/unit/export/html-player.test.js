@@ -5,6 +5,10 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
+// A real matcher for the one arm that asks WHICH SLIDES a selector reaches. Hand-parsing
+// `:where(:not(a):not(b), c, d)` was tried first and got it wrong — the browser's own
+// matcher is the only honest judge of a selector, and this file already ships jsdom.
+const { JSDOM } = require('jsdom');
 const {
 	buildPlayerHtml,
 	fileToDataUri,
@@ -145,6 +149,15 @@ test('themeDualMode flattens against `:root` ONLY — a component-scoped decl ne
 // page was decided by `data-lp-scheme` — the same two signals agreeing only because the
 // player's script writes an inline color-scheme onto <html>. Reported from a real iPad:
 // gantt bars and state-chart nodes dark on a light page.
+// The restore-to-light selector the player emits for each pin, spelled out rather than
+// imported from player-core: an expectation derived from the code under test follows that
+// code anywhere it goes. `.light` and `.color-light` carve out the bookends, because the
+// engine keeps a `title`/`closing` panel dark even when the slide is pinned light; `.print`
+// does not, because a printed bookend IS paper.
+const restoreSel = (pin) => (pin === '.print'
+	? `section[data-lattice-slide]${pin}`
+	: `section[data-lattice-slide]${pin}:where(:not(.title):not(.closing))`);
+
 test('hoistInlineLightDark collapses an inline style to its light arm and re-applies the dark one', () => {
 	const { JSDOM } = require('jsdom');
 	const dom = new JSDOM(
@@ -160,11 +173,11 @@ test('hoistInlineLightDark collapses an inline style to its light arm and re-app
 	assert.match(css, /:root\[data-lp-scheme=dark\] \.lp-sd-0\{stop-color:color-mix\(in oklab, var\(--h\) var\(--top-d\), black\)!important\}/);
 	// Every scope the token block carries: the viewer's choice, a pinned-dark slide in ANY
 	// scheme, the no-JS system fallback, and the restore for a slide pinned light or to print.
-	assert.match(css, /section\[data-lattice-slide\]\.dark:not\(\.light\):not\(\.color-light\):not\(\.print\) \.lp-sd-0\{/);
+	assert.match(css, /section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\) \.lp-sd-0\{/);
 	assert.match(css, /@media \(prefers-color-scheme:dark\)\{:root\[data-lp-scheme=system\] \.lp-sd-0\{/);
 	for (const pin of ['.light', '.color-light', '.print']) {
 		assert.ok(
-			css.includes(`:root[data-lp-scheme=dark] section[data-lattice-slide]${pin} .lp-sd-0{stop-color:color-mix(in oklab, var(--h) var(--top-l), var(--bg))!important}`),
+			css.includes(`:root[data-lp-scheme=dark] ${restoreSel(pin)} .lp-sd-0{stop-color:color-mix(in oklab, var(--h) var(--top-l), var(--bg))!important}`),
 			`a slide pinned ${pin} keeps the light arm while the player is dark`,
 		);
 	}
@@ -223,19 +236,19 @@ test('hoistRuleLightDark splices a slide pin INTO a section-subject selector, no
 	// descendant prefix would ask for a section inside a section and match nothing. Same trap
 	// one step along: `section.kanban .card` would look for a kanban section nested in a dark one.
 	const { darkBlock } = hoistRuleLightDark('section.title.spectrum::before{background:light-dark(#eee,#111)}');
-	assert.match(darkBlock, /section\[data-lattice-slide\]\.dark:not\(\.light\):not\(\.color-light\):not\(\.print\)\.title\.spectrum::before\{/);
+	assert.match(darkBlock, /section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\)\.title\.spectrum::before\{/);
 	assert.doesNotMatch(darkBlock, /\.dark:not\(\.light\):not\(\.color-light\):not\(\.print\) section\.title/, 'never a section inside a section');
 	// An arm that does NOT open on `section` keeps the descendant form — which is also what
 	// themes a figure Read·Article re-hosts outside any section.
 	const { darkBlock: descendant } = hoistRuleLightDark('.card{background:light-dark(#eee,#111)}');
-	assert.match(descendant, /section\[data-lattice-slide\]\.dark:not\(\.light\):not\(\.color-light\):not\(\.print\) \.card\{/);
+	assert.match(descendant, /section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\) \.card\{/);
 });
 
 test('hoistRuleLightDark restores the light arm on a slide pinned against the player scheme', () => {
 	const { darkBlock } = hoistRuleLightDark('.card{background:light-dark(#eee,#111)}');
 	for (const pin of ['.light', '.color-light', '.print']) {
 		assert.ok(
-			darkBlock.includes(`:root[data-lp-scheme=dark] section[data-lattice-slide]${pin} .card{--lp-ld-0-0:#eee}`),
+			darkBlock.includes(`:root[data-lp-scheme=dark] ${restoreSel(pin)} .card{--lp-ld-0-0:#eee}`),
 			`a ${pin} slide keeps the light arm while the player is dark`,
 		);
 	}
@@ -311,6 +324,33 @@ test('themeDualMode is a no-op (empty dark block) when the CSS has no light-dark
 	assert.equal(darkBlock, '');
 });
 
+test('a BOOKEND keeps the dark canvas even when it is also pinned light', () => {
+	// THE REGRESSION THIS PINS, and it shipped a blank slide. The engine has a rule the player
+	// does not model: `section:is(.title, .closing):not(.print)` forces `color-scheme: dark`
+	// and the on-dark panel EVEN WITH `.light` present, because a bookend IS a dark panel.
+	// Subtracting the whole pin set from the dark rule therefore stripped --bg and every ink
+	// from a `title light dark` slide while its ink stayed on-dark: white on white, 1.00:1,
+	// measured by tools/check-player-contrast.js as two NEW below-AA runs in the AS-EXPORTED
+	// view — the one a recipient opens.
+	//
+	// Asserted by MATCHING A REAL ELEMENT, not by reading the selector text. The text was
+	// already asserted above and still shipped the defect; what matters is which slides the
+	// rule reaches, and the browser's own matcher is the only honest judge of that.
+	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
+	const sel = darkBlock.match(/^(section\[data-lattice-slide\][^{]*)\{/)[1];
+	const { document } = new JSDOM('<section data-lattice-slide="1"></section>').window;
+	const el = document.querySelector('section');
+	const reaches = (classes) => { el.className = classes.join(' '); return el.matches(sel); };
+
+	assert.ok(reaches(['dark']), 'a plain .dark slide must get the dark tokens');
+	assert.ok(reaches(['dark', 'light', 'title']), 'a `title light dark` bookend must stay dark');
+	assert.ok(reaches(['dark', 'light', 'closing']), 'a `closing light dark` bookend must stay dark');
+	assert.ok(!reaches(['dark', 'light']), 'an ordinary `dark light` slide must be pinned light');
+	assert.ok(!reaches(['dark', 'color-light']), 'an ordinary `dark color-light` slide must be pinned light');
+	assert.ok(!reaches(['dark', 'print']), 'the print band always wins, bookend or not');
+	assert.ok(!reaches(['dark', 'title', 'print']), 'a PRINTED bookend is paper, not a dark panel');
+});
+
 test('themeDualMode honors a slide-level color-scheme PIN in both player schemes', () => {
 	// `light-dark()` resolves against the ELEMENT's color-scheme, and Lattice pins that per
 	// slide: `section.dark` (a `_class: dark` slide — and EVERY slide of a `color-mode: dark`
@@ -322,7 +362,7 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	const css = ':root{--bg:light-dark(#FFFFFF,#001D33)}';
 	const { darkBlock } = themeDualMode(css);
 	// A `.dark` section is dark unconditionally — outside the attribute rule AND the media query.
-	assert.match(darkBlock, /^section\[data-lattice-slide\]\.dark:not\(\.light\):not\(\.color-light\):not\(\.print\)\{--bg:#001D33;/, 'a .dark slide carries the dark values in EVERY player scheme');
+	assert.match(darkBlock, /^section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\)\{--bg:#001D33;/, 'a .dark slide carries the dark values in EVERY player scheme');
 	// THE EXCLUSION SET IS THE WHOLE PIN SET, not just the print band. `:not(.print)` was
 	// never decoration: without it this rule outranks `section.print` (0,1,1), so a
 	// `_class: dark` slide in a `color-mode: print` deck took the dark canvas under the
@@ -335,21 +375,15 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	// `dark light` slide and a `divider light dark` slide both came back `rgb(0,29,51)`
 	// where the PDF renders them `rgb(255,255,255)`. The engine has no such contest —
 	// `section.light` follows `section.dark` in source order and wins on `color-scheme`.
-	assert.match(darkBlock, /\.dark:not\(\.light\):not\(\.color-light\):not\(\.print\)/, 'the .dark pin never outranks a pinned-light slide or the print band');
+	// …and the bookends are re-admitted, because the engine keeps a `title`/`closing` panel
+	// dark even when the slide is pinned light. Subtracting the pin set WITHOUT that carve-out
+	// shipped a blank `title light dark` slide — white ink on white, 1.00:1.
+	assert.match(darkBlock, /\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\)/,
+		'the .dark pin yields to a pinned-light slide and the print band, but not to a bookend');
+	// WHICH SLIDES that reaches is asserted separately, against a real matcher — see
+	// 'a BOOKEND keeps the dark canvas even when it is also pinned light'. This arm only
+	// checks the text, and the text was already right once while the behavior was wrong.
 
-	// AND THE EXCLUSION ACTUALLY EXCLUDES. The arm above reads the selector TEXT; this one
-	// asks whether the rule can still match a slide carrying both classes, which is the
-	// behavior the text is there to produce. Without it, a future edit that spells the
-	// exclusion differently — or drops one class — passes the text match and reopens the
-	// defect.
-	for (const pinned of ['dark light', 'dark color-light', 'dark print']) {
-		const el = { classList: new Set(pinned.split(' ')) };
-		const sel = darkBlock.match(/^section\[data-lattice-slide\]([^{]*)\{/)[1];
-		const excluded = [...sel.matchAll(/:not\(\.([\w-]+)\)/g)].map((m) => m[1]);
-		assert.ok(excluded.some((c) => el.classList.has(c)),
-			`a '${pinned}' slide must be excluded from the unconditional dark rule, but the `
-			+ `selector only excludes ${excluded.join(', ')}`);
-	}
 	// The blanket dark rule skips every pinned section, so a pin is never overridden…
 	assert.match(darkBlock, /section\[data-lattice-slide\]:not\(\.dark\):not\(\.light\):not\(\.color-light\):not\(\.print\)/, 'the blanket dark rule applies only to UNPINNED sections');
 	// …and a light-pinned section is restored to the LIGHT literals when the player is dark.
@@ -360,7 +394,7 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	// dark silently replaced the B&W-safe print band with the theme's light colors.
 	assert.match(
 		darkBlock,
-		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light:not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light:not\(\.print\)\{--bg:#FFFFFF;\}/,
+		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light:where\(:not\(\.title\):not\(\.closing\)\):not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light:where\(:not\(\.title\):not\(\.closing\)\):not\(\.print\)\{--bg:#FFFFFF;\}/,
 		'a light-pinned slide keeps light values while the player is dark, without overriding the print band',
 	);
 	// `.print` gets no restore rule of its own: `section.print` already remaps the whole band
