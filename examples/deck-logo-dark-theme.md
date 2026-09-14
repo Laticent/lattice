@@ -95,5 +95,7 @@ Stack both and the later one wins: this slide is light, and so is its mark.
   - `dark`, `light`, the bookends, the print band. A bookend stays a dark panel even when the slide is also pinned `light`.
 - A theme
   - A `-dark` wrapper, reached by name. `color-mode: inherited` rides on it, because the root it inherits from **is** that theme.
+- The receiver, for `color-mode: system`
+  - The deck defers the side to the reader's OS, and the mark now defers with it — a media query, not a pin, so it reads the same signal the canvas does. The PDF resolves light and takes the light mark; an OS-following player takes whichever side the reader is on.
 - Nobody, and that is the honest gap
-  - `color-mode: system` defers to the reader's OS. A PDF resolves light, the exported player resolves dark, so no one treatment is right on both. A cover photograph is the same shape: no token describes its lightness.
+  - A cover photograph. No token describes the lightness of a full-bleed image, so nothing can derive the mark from it.

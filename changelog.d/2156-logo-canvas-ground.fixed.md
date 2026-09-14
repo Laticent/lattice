@@ -22,12 +22,15 @@
   The ground already followed the receiver's OS on every surface; only the mark did not, so a
   viewer on a dark OS got a dark-ink logo on a dark slide. The mark now follows the same
   signal the canvas does — `@media (prefers-color-scheme: dark)` in the engine, and the
-  player's own scheme scopes where its toggle overrides the OS. Measured across all six
-  combinations of OS setting and player toggle: all six now agree with their own ground.
+  player's own scheme scopes where its toggle overrides the OS. Measured across five slide
+  kinds — bookends, a divider, a pinned-light slide and ordinary content — by six
+  combinations of OS setting and player toggle: 30 of 30 agree with their own ground.
 - **Fixed:** an eyebrow on a `dark light` slide kept its on-dark ink on a light ground —
   white on white, 1.00:1. Same defect as the logo, on the element beside it: the rule keyed
   on the `.dark` class while `.light` decides the ground. Bookends keep the on-dark ink,
   because a bookend stays a dark panel.
-- **Fixed:** a bookend lost its dark tokens after a toggle to light in the exported player,
-  so a `strong` inside a `title` slide came back at 1.61:1. A bookend is a dark panel in
-  every player scheme; it now carries the dark token block unconditionally.
+- **Fixed:** a bookend or divider lost its dark tokens after a toggle to light in the exported
+  player, so a `strong` inside one came back at 1.61:1 (now 11.29:1). These are dark panels in
+  every player scheme and now carry the dark token block unconditionally. The player mirrors
+  the engine's force-dark set whole — `title`, `closing`, and `divider` unless it is the bright
+  `divider.light` variant, which replaces the canvas and keeps the light scheme it declares.

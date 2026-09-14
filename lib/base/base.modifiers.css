@@ -527,15 +527,25 @@ section[data-theme$="-dark"]:where(:not(.color-system)) {
  * mark simply follows the same signal the canvas already follows.
  *
  * Measured before this rule existed, on `theme: indaco-dark` + `color-mode: system`,
- * emulating both OS settings on the HTML export AND the `--player` export:
+ * emulating both OS settings on the HTML export and the `--player` export:
  *
  *   os=light  bg rgb(255,255,255)  filter brightness(0.4)   correct
  *   os=dark   bg rgb(0,29,51)      filter brightness(0.4)   WRONG, both surfaces
  *
- * The ground follows the OS on BOTH surfaces; only the mark did not. #2201 recorded this
- * as the PDF and the player disagreeing, which is not what it is — the two runs behind
- * that table were taken on hosts with different OS settings, so the surface got the blame
- * for the receiver.
+ * The ground follows the receiver on both of those; only the mark did not.
+ *
+ * THE PDF IS A THIRD ANSWER, and a draft of this comment got it wrong. It claimed #2201's
+ * "PDF light, player dark" table came from two runs on hosts with different OS settings.
+ * It does not: there is no `emulateMediaFeatures` call anywhere in the render path, and
+ * headless Chrome resolves `prefers-color-scheme: light` here — so the PDF is light
+ * whatever the exporting host prefers, and one dark-OS host reproduces that table on its
+ * own. Whether a dark-OS host would change the PDF is UNVERIFIED; a headless sandbox has
+ * no desktop preference to give it.
+ *
+ * None of that changes this rule, which is why it is worth stating plainly rather than
+ * arguing: the mark now follows whatever the SURFACE resolves. Light PDF, light mark.
+ * OS-following player, following mark. The open question about the PDF stays open and the
+ * mark is right either way.
  *
  * Position and specificity as the rule above: `section.color-system` is (0,1,1) and a
  * media query adds none, so `.print` / `.light` / `.color-light` below still win on source

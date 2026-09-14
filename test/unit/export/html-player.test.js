@@ -324,6 +324,56 @@ test('themeDualMode is a no-op (empty dark block) when the CSS has no light-dark
 	assert.equal(darkBlock, '');
 });
 
+test('the color-system logo rules reach ONLY slides whose ground follows the OS', () => {
+	// THE REGRESSION THIS PINS, and it is #2156 rebuilt one register over. `color-system` is a
+	// DECK-WIDE stamp, so the engine puts it on the bookends and dividers too. The first cut of
+	// these rules excluded only `.print`, and at (0,5,1) they steamroll the engine's own
+	// (0,2,1) force-dark rule — so in the player's LIGHT scheme the mark was reset to its
+	// light-canvas treatment on a panel that is permanently rgb(0,61,102). Measured by an
+	// independent checker: mean |ΔL| of the mark against its ground collapsed 19.15 -> 2.07,
+	// and the player surface went from 2 failing cells to 6.
+	//
+	// IT WAS MISSED BECAUSE THE PROBE DECK COULD NOT SHOW IT — one `_class: content` slide and
+	// no bookend, swept across all six OS-by-toggle cells. A matrix is only as wide as the deck
+	// under it, which is why this arm asks the matcher about the classes that deck lacked.
+	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
+	const sel = darkBlock.match(/:root\[data-lp-scheme=dark\] (section\[data-lattice-slide\]\.color-system[^{]*)\{/)[1];
+	const { document } = new JSDOM('<section data-lattice-slide="1"></section>').window;
+	const el = document.querySelector('section');
+	const reaches = (classes) => { el.className = classes.join(' '); return el.matches(sel); };
+
+	// Follows the OS, so the rules must reach it.
+	assert.ok(reaches(['color-system', 'content']), 'an ordinary system slide follows the receiver');
+	// Permanently dark whatever the OS says — the engine forces color-scheme: dark on these.
+	assert.ok(!reaches(['color-system', 'title']), 'a title bookend is a dark panel, not a system canvas');
+	assert.ok(!reaches(['color-system', 'closing']), 'a closing bookend is a dark panel');
+	assert.ok(!reaches(['color-system', 'divider']), 'a divider is a dark panel');
+	// Permanently LIGHT — a pin, or the bright divider variant that replaces the canvas.
+	assert.ok(!reaches(['color-system', 'light']), 'a pinned-light slide is light whatever the OS says');
+	assert.ok(!reaches(['color-system', 'color-light']), 'a color-light slide is light whatever the OS says');
+	assert.ok(!reaches(['color-system', 'divider', 'light']), 'divider.light keeps the light scheme it declares');
+	assert.ok(!reaches(['color-system', 'print']), 'the print band is paper');
+});
+
+test('the unconditional dark block mirrors the engine force-dark set WHOLE', () => {
+	// The engine forces color-scheme: dark on `section:is(.title, .closing):not(.print)` AND
+	// on `section.divider:not(.light):not(.print)`. The first cut of the unconditional block
+	// copied the two bookends and dropped the divider, so a divider kept the 1.61:1 ink the
+	// block exists to fix — measured on a real --player export, default scheme.
+	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
+	const sel = darkBlock.split('{')[1] && darkBlock.match(/\}(section\[data-lattice-slide\]\.title[^{]*)\{/)[1];
+	const { document } = new JSDOM('<section data-lattice-slide="1"></section>').window;
+	const el = document.querySelector('section');
+	const reaches = (classes) => { el.className = classes.join(' '); return el.matches(sel); };
+
+	assert.ok(reaches(['title']), 'a title is a dark panel in every scheme');
+	assert.ok(reaches(['closing']), 'a closing is a dark panel in every scheme');
+	assert.ok(reaches(['divider']), 'a divider is a dark panel in every scheme');
+	assert.ok(!reaches(['divider', 'light']), 'divider.light replaces the canvas and stays light');
+	assert.ok(!reaches(['title', 'print']), 'a printed bookend is paper');
+	assert.ok(!reaches(['content']), 'an ordinary slide is not forced dark');
+});
+
 test('a BOOKEND keeps the dark canvas even when it is also pinned light', () => {
 	// THE REGRESSION THIS PINS, and it shipped a blank slide. The engine has a rule the player
 	// does not model: `section:is(.title, .closing):not(.print)` forces `color-scheme: dark`
