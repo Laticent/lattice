@@ -164,7 +164,9 @@ author sees what to fix. Two things it deliberately does not do:
   record its failed requests; that is a bigger change than this one.
 - **It does not make the export survive a missing image.** A deck with a broken image
   path still fails rather than exporting without it. That is the pre-existing behavior
-  and a separate decision.
+  and a separate decision. *(Taken since: the capture's image-error hook now leaves the
+  picture out and the toast names the path, which also closes the "names no URL" line
+  above — `2026-09-13-export-survives-a-missing-image.md`.)*
 
 ## What it costs
 
@@ -194,4 +196,5 @@ author sees what to fix. Two things it deliberately does not do:
   images through a second encoder that has never been measured against this one.
 - **Not a text layer.** The exported PDF is still images: unsearchable, and inert to a
   screen reader. The inversion pass argued that is the more valuable defect to fix, and
-  it is untouched here.
+  it is untouched here. *(Fixed since, on this worker lane:
+  `2026-09-13-pdf-export-text-layer.md`.)*

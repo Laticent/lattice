@@ -8,7 +8,8 @@
 // Protocol (all messages are {type, ...}):
 //   in  : {type:'init', pageW, pageH, total, pageFormat:'png'|'jpeg',
 //          props:{title,subject,author,keywords,creator}, annotations}
-//   in  : {type:'slide', index, bitmap}            (bitmap is a transferred ImageBitmap)
+//   in  : {type:'slide', index, bitmap, text}      (bitmap is a transferred ImageBitmap;
+//                                                  text is the slide's words — see below)
 //   in  : {type:'finish'}
 //   out : {type:'progress', index}                 (slide encoded + embedded)
 //   out : {type:'done', bytes}                     (ArrayBuffer, transferred)
@@ -27,6 +28,14 @@
 // `/DCTDecode` with no re-encode at all, for a smaller file on photographic decks,
 // at the price of JPEG's edge artifacts. The trade-off is the USER's, not ours.
 //
+// THE PAGE IS NOT JUST A PICTURE any more. Each 'slide' carries the words the main
+// thread measured off the same laid-out DOM (`pdf-text-extract.js`), and 'finish'
+// writes them over the image in text rendering mode 3 — invisible ink that Cmd-F,
+// a text cursor and a screen reader all read. The mechanism, the font objects and
+// what the layer deliberately leaves out are in `pdf-text-layer.js`. The codes are
+// allocated ACROSS the document, which is why every page's operators are built in
+// one pass before any font object is registered.
+//
 // Messages are processed through a serial promise chain: onmessage handlers are
 // async (the encode awaits), and without the chain two 'slide' messages could
 // interleave their awaits and embed pages out of order.
@@ -34,6 +43,7 @@
 import { PDFDocument, PDFHexString, PDFName, PDFRawStream } from 'pdf-lib';
 import { stickyNotePlacements } from '../../../playground/pdf-sticky-notes.js';
 import { deflate, imageDict, PX_TO_PT, packPredictorRows, pageContentOps } from './pdf-image-stream.js';
+import { createFontSet, registerTextFont, textFontName, textLayerOps } from './pdf-text-layer.js';
 
 let doc = null;
 let box = null; // page box in px (the deck's geometry) — points are px * PX_TO_PT
@@ -41,6 +51,7 @@ let jpeg = false;
 let annotations = null; // per-page comment sticky notes (index-aligned to slides)
 let props = null;
 let pages = []; // one image XObject ref per slide, in slide order
+let texts = []; // one array of normalized text runs per slide, index-aligned to `pages`
 let chain = Promise.resolve();
 // One reusable scratch canvas (slides in a deck share one geometry) — churning a
 // fresh multi-MB OffscreenCanvas per slide is avoidable allocator pressure on the
@@ -101,6 +112,7 @@ async function handle(m) {
 		annotations = m.annotations || null;
 		props = m.props || {};
 		pages = [];
+		texts = [];
 		doc = await PDFDocument.create();
 		return;
 	}
@@ -124,6 +136,7 @@ async function handle(m) {
 		const bytes = await encode(canvas, ctx);
 		const dict = imageDict(doc.context, { width: canvas.width, height: canvas.height, jpeg });
 		pages[m.index] = doc.context.register(PDFRawStream.of(dict, bytes));
+		texts[m.index] = Array.isArray(m.text) ? m.text : [];
 		self.postMessage({ type: 'progress', index: m.index });
 		return;
 	}
@@ -131,11 +144,42 @@ async function handle(m) {
 		const w = box.w * PX_TO_PT;
 		const h = box.h * PX_TO_PT;
 		const name = PDFName.of('Im0');
+		// Pass one: every page's invisible text, which is also what assigns the
+		// document's character codes. The font objects cannot be written until the last
+		// page has had its say, so they are registered between the two passes.
+		const fontSet = createFontSet();
+		// `Array.from`, not `pages.map`: a slide that never arrived leaves a HOLE, and
+		// `map` preserves holes — `layers[i]` would then be undefined in the loop below.
+		const layers = Array.from({ length: pages.length }, (_v, i) => textLayerOps(texts[i], fontSet, w, h));
+		const fontRefs = fontSet.map((font) => registerTextFont(doc, { PDFRawStream }, font.chars));
 		for (let i = 0; i < pages.length; i++) {
 			const page = doc.addPage([w, h]);
 			page.node.setXObject(name, pages[i]);
-			const ops = pageContentOps(w, h);
-			page.node.set(PDFName.of('Contents'), doc.context.register(PDFRawStream.of(doc.context.obj({ Length: ops.length }), ops)));
+			// Image first, words over it — the order OCR output uses, and the one that
+			// keeps a viewer's selection on top of the picture it belongs to.
+			const image = pageContentOps(w, h);
+			const words = new TextEncoder().encode(layers[i].ops);
+			const ops = new Uint8Array(image.length + words.length);
+			ops.set(image);
+			ops.set(words, image.length);
+			// Deflated, unlike the image-only stream this replaces: a wordy slide is a few
+			// KB of operators, which is ~3% of a 56-page deck left uncompressed for no
+			// reason when the compressor is already right here.
+			const stream = await deflate(ops);
+			// Fonts before `/Contents`, which keeps the single-reference form every page had
+			// before the text layer — but the ordering is NOT what guarantees it, and an
+			// earlier version of this comment said it was. pdf-lib's `normalize()` is
+			// `if (this.normalized) return`, and `setXObject` two lines up has already run
+			// it, so `/Contents` can no longer be wrapped in an array whatever the order.
+			// The durable guard is in the READERS — `tools/bench-pdf-export.mjs` and
+			// `docs/e2e/pdf-export-worker.spec.ts` now take both shapes — because a reader
+			// that takes only one silently reports every text-bearing page as empty, and a
+			// verification tool that cannot fail is worse than no tool.
+			for (const f of layers[i].fonts) page.node.setFontDictionary(PDFName.of(textFontName(f)), fontRefs[f]);
+			page.node.set(
+				PDFName.of('Contents'),
+				doc.context.register(PDFRawStream.of(doc.context.obj({ Length: stream.length, Filter: 'FlateDecode' }), stream)),
+			);
 			if (annotations) writeStickyNotes(page, annotations[i]);
 		}
 		if (props.title) doc.setTitle(props.title);

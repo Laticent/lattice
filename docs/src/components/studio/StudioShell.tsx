@@ -2295,8 +2295,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}
 	// Transient bottom-center confirmation, so no action in the prototype is a
 	// dead click (real ones confirm; not-yet-wired ones say so honestly).
-	const notify = React.useCallback((msg: string) => {
-		toast(msg, { duration: 2600 });
+	// A DEGRADATION notice is the exception to "transient": it names a file path the
+	// author has to go and fix, and 2.6 s is not long enough to read one — on the case
+	// that motivates it (a long export, the author on another tab) it is gone before
+	// they look. Callers that carry one pass a longer duration.
+	const notify = React.useCallback((msg: string, opts?: { duration?: number }) => {
+		toast(msg, { duration: opts?.duration ?? 2600 });
 	}, []);
 
 	// ── Self-driving demo walkthrough ───────────────────────────────────────

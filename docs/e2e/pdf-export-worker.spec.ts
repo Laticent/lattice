@@ -96,7 +96,15 @@ async function pageSignatures(bytes: Uint8Array): Promise<string[]> {
 	const doc = await PDFDocument.load(bytes);
 	return doc.getPages().map((page) => {
 		const { width: pageW, height: pageH } = page.getSize();
-		const contents = doc.context.lookup(page.node.get(PDFName.of('Contents')));
+		// BOTH shapes — `/Contents` is a single stream or a one-element array (pdf-lib
+		// normalizes to the latter as soon as anything touches a page's resources). Taking
+		// only the stream returns an empty signature for such a page, which would make this
+		// oracle pass on ANY page order.
+		const rawContents = doc.context.lookup(page.node.get(PDFName.of('Contents')));
+		const contents =
+			rawContents instanceof PDFRawStream
+				? rawContents
+				: doc.context.lookup((rawContents as unknown as { get(i: number): unknown })?.get?.(0) as never);
 		const decoded = contents instanceof PDFRawStream ? inflateOrRaw(contents) : new Uint8Array();
 		const name = /\/([A-Za-z0-9_.+-]+)\s+Do\b/.exec(new TextDecoder('latin1').decode(decoded))?.[1];
 		const xobjects = page.node.Resources()?.lookup(PDFName.of('XObject'), PDFDict);

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assembleSheetPdf, bakeDeckSections, rasterizeDeckImages, waitForDiagrams } from './deck-export.js';
+import { assembleSheetPdf, backgroundImageUrls, bakeDeckSections, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, waitForDiagrams } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -467,6 +467,189 @@ describe('the capture frame’s diagram-wait arguments, at both call sites', () 
 			const out = await done;
 			expect(out?.diagrams).toBe(0);
 			expect(out?.failed).toBe(1);
+		} finally {
+			restore();
+		}
+	});
+});
+
+
+// ── An unreachable image degrades the export instead of failing it ────────────
+// The capture fetches every embedded image itself; before this, one failed fetch
+// rejected the whole run, so a deck whose `logo:` is a path relative to the deck FILE
+// — correct for the CLI, unresolvable on the web — produced no PDF at all. The picture
+// is now simply absent and the author is TOLD, which is the part a silent degradation
+// would get wrong. The real export is driven in `docs/e2e/export-missing-image.spec.ts`;
+// this pins the two pure pieces.
+
+/** An `<img>` as the browser reports it after a load attempt. */
+function img(src: string, { complete = true, naturalWidth = 0 } = {}) {
+	const el = document.createElement('img');
+	el.setAttribute('src', src);
+	Object.defineProperty(el, 'complete', { value: complete, configurable: true });
+	Object.defineProperty(el, 'naturalWidth', { value: naturalWidth, configurable: true });
+	return el;
+}
+
+describe('recordUnreachableImages', () => {
+	it('names the path the deck asked for, not the blanked one the clone ends up with', () => {
+		const section = document.createElement('section');
+		section.append(img('../lib/base/_logo/lattice-mark-min.svg'), img('/ok.png', { naturalWidth: 64 }));
+		const log = createImageFailureLog();
+		recordUnreachableImages(section, log);
+		expect([...log.paths]).toEqual(['../lib/base/_logo/lattice-mark-min.svg']);
+	});
+
+	it('does not accuse an image that is still loading', () => {
+		// Mid-flight, `naturalWidth` is 0 too. The capture's own error hook counts this one
+		// if it really fails — unnamed, but never missed.
+		const section = document.createElement('section');
+		section.append(img('/slow.png', { complete: false }));
+		const log = createImageFailureLog();
+		recordUnreachableImages(section, log);
+		expect([...log.paths]).toEqual([]);
+	});
+
+	it('is inert without a log, and without a section', () => {
+		expect(() => recordUnreachableImages(document.createElement('section'), null)).not.toThrow();
+		expect(() => recordUnreachableImages(null, createImageFailureLog())).not.toThrow();
+	});
+});
+
+describe('missingImageReason', () => {
+	it('says nothing when nothing failed', () => {
+		expect(missingImageReason(createImageFailureLog())).toBeUndefined();
+		expect(missingImageReason(null)).toBeUndefined();
+	});
+
+	it('names the file, and reads as a clause the toast can finish', () => {
+		const log = createImageFailureLog();
+		log.count = 1;
+		log.paths.add('../logo.svg');
+		// The sheet renders `PDF ready — but ${reason}.`
+		expect(`PDF ready — but ${missingImageReason(log)}.`).toBe(
+			'PDF ready — but the export could not load every image, so the file ships without: ../logo.svg — a path relative to the deck file does not resolve here.',
+		);
+	});
+
+	it('asserts no total, because `paths` can be a subset of what failed', () => {
+		// A CORS-blocked <img> fires the hook and can never be named, so "one image" beside
+		// a list of one would tell an author to stop looking while a second is still missing.
+		// And `count` is one per failed ELEMENT — one bad logo on 56 slides registers 56.
+		const log = createImageFailureLog();
+		log.count = 56;
+		log.paths.add('../logo.svg');
+		const reason = missingImageReason(log) as string;
+		expect(reason).toContain('../logo.svg');
+		expect(reason).not.toMatch(/\b(?:one|1|56)\b/);
+	});
+
+	it('still says something when it can name nothing', () => {
+		const log = createImageFailureLog();
+		log.count = 2;
+		expect(missingImageReason(log)).toBe('the export could not load every image, so the file ships without at least one');
+	});
+
+	it('only blames a deck-relative path when the path IS one', () => {
+		// An absolute or remote URL that 404s has nothing to do with deck-relative
+		// resolution, and sending the author to check for that sends them to the wrong place.
+		const absolute = createImageFailureLog();
+		absolute.count = 1;
+		absolute.paths.add('https://example.invalid/logo.png');
+		expect(missingImageReason(absolute)).not.toContain('relative to the deck file');
+		const rooted = createImageFailureLog();
+		rooted.count = 1;
+		rooted.paths.add('/assets/logo.png');
+		expect(missingImageReason(rooted)).not.toContain('relative to the deck file');
+		const relative = createImageFailureLog();
+		relative.count = 1;
+		relative.paths.add('../logo.svg');
+		expect(missingImageReason(relative)).toContain('relative to the deck file');
+	});
+
+	it('stops listing after three, rather than pasting a deck of paths into a toast', () => {
+		const log = createImageFailureLog();
+		log.count = 5;
+		for (const n of [1, 2, 3, 4, 5]) log.paths.add(`/img-${n}.png`);
+		expect(missingImageReason(log)).toContain('/img-1.png, /img-2.png, /img-3.png, +2 more');
+	});
+
+	it('truncates one very long path rather than pasting a data URI into a toast', () => {
+		const log = createImageFailureLog();
+		log.count = 1;
+		log.paths.add(`/${'a'.repeat(400)}.png`);
+		const reason = missingImageReason(log) as string;
+		expect(reason.length).toBeLessThan(220);
+		expect(reason).toContain('…');
+	});
+});
+
+
+describe('backgroundImageUrls', () => {
+	it('finds the panel a deck writes as `![bg](…)`, which is not an <img> at all', () => {
+		// `lib/core/bg-image.js` emits a <div> with a background-image for the full-bleed
+		// panel — the most visually consequential picture on a slide, and invisible to the
+		// <img> scan.
+		const section = document.createElement('section');
+		section.innerHTML = '<div class="lattice-bg" style="background-image:url(\'/photo.jpg\')"></div>';
+		document.body.append(section);
+		expect(backgroundImageUrls(section)).toEqual(['/photo.jpg']);
+	});
+
+	it('ignores a data URI, which is already inline and cannot 404', () => {
+		const section = document.createElement('section');
+		section.innerHTML = '<div style="background-image:url(data:image/gif;base64,R0lGOD)"></div>';
+		document.body.append(section);
+		expect(backgroundImageUrls(section)).toEqual([]);
+	});
+});
+
+describe('recordUnreachableAssets', () => {
+	/** Stand in for the browser's loader: these URLs 404, everything else loads. */
+	function stubImageLoader(broken: string[]) {
+		const real = window.Image;
+		class Probe {
+			onload: (() => void) | null = null;
+			onerror: (() => void) | null = null;
+			set src(value: string) {
+				queueMicrotask(() => (broken.includes(value) ? this.onerror?.() : this.onload?.()));
+			}
+		}
+		(window as unknown as { Image: unknown }).Image = Probe;
+		return () => {
+			(window as unknown as { Image: unknown }).Image = real;
+		};
+	}
+
+	it('names a background the export will silently drop, and trips the trigger itself', async () => {
+		// html-to-image catches a failed BACKGROUND fetch itself and only console.warns, so
+		// the image-error hook never fires: without the probe this ships a hole and says
+		// "PDF ready.".
+		const section = document.createElement('section');
+		section.innerHTML = '<div style="background-image:url(/missing-bg.png)"></div>';
+		document.body.append(section);
+		const restore = stubImageLoader(['/missing-bg.png']);
+		try {
+			const log = createImageFailureLog();
+			await recordUnreachableAssets([section], log);
+			expect([...log.paths]).toEqual(['/missing-bg.png']);
+			expect(log.count).toBe(1);
+			expect(missingImageReason(log)).toContain('/missing-bg.png');
+		} finally {
+			restore();
+		}
+	});
+
+	it('says nothing about a background that loads', async () => {
+		const section = document.createElement('section');
+		section.innerHTML = '<div style="background-image:url(/fine.png)"></div>';
+		document.body.append(section);
+		const restore = stubImageLoader([]);
+		try {
+			const log = createImageFailureLog();
+			await recordUnreachableAssets([section], log);
+			expect(log.count).toBe(0);
+			expect(missingImageReason(log)).toBeUndefined();
 		} finally {
 			restore();
 		}

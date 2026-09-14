@@ -802,11 +802,13 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
  *  (PNG lossless / JPEG fast) is the Workspace › General preference. `annotations`
  *  (opt-in via the export panel) is the per-page comment sticky-note payload —
  *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
-export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][]): Promise<void> {
+export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][]): Promise<string | undefined> {
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
 	const { loadSettings } = await import('./studio-store');
-	await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, annotations });
+	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
+	// an image it could not load. The caller folds it into the toast; see ShareSheet.
+	return ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, annotations });
 }
 
 /** PowerPoint (image-slides, full-bleed). Each image's alt text is the slide's
@@ -814,10 +816,10 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
  *  a screen reader nothing. `exportPptx` reads the description from the SAME rendered
  *  section it rasterizes, so the alt stays index-locked to its slide even on
  *  front-matter or auto-split (`split: headings`) decks — no source re-split here. */
-export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
+export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<string | undefined> {
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
-	await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' });
+	return ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' });
 }
 
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
@@ -842,7 +844,7 @@ export type ImageSetOptions = {
  *  light/dark render the matching palette variant, print stamps the B&W `color-mode: print`
  *  canvas (rendered light), and inherit keeps the preview mode — mirroring the CLI's
  *  `--image-mode`. The chosen mode also rides in `imageOpts` so the manifest records it. */
-export async function shareImageSet(options: SingleSlideOptions, source: string, name: string, palette: string, previewMode: 'light' | 'dark', imageOpts: ImageSetOptions, extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
+export async function shareImageSet(options: SingleSlideOptions, source: string, name: string, palette: string, previewMode: 'light' | 'dark', imageOpts: ImageSetOptions, extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<string | undefined> {
 	const chosen = imageOpts.mode ?? 'inherit';
 	let renderMode: 'light' | 'dark' = previewMode;
 	let src = source;
@@ -902,7 +904,7 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	// left null — the `generator: 'studio'` field already marks the source.
 	const meta = { title: getFrontMatter(source, 'title') || undefined, palette, engineVersion: null };
 	const ex = await exporters();
-	await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta);
+	return ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta);
 }
 
 type ReadAlongCore = {

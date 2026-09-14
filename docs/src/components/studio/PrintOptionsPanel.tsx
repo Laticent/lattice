@@ -37,6 +37,7 @@ import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
 import { withPrintCanvas } from './front-matter';
 import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
+import { DEGRADED_TOAST_MS } from './toast-duration';
 
 type Paper = 'auto' | 'letter' | 'legal' | 'a4';
 type Orient = 'auto' | 'landscape' | 'portrait';
@@ -162,7 +163,7 @@ export function PrintOptionsPanel({
 	extraTheme?: ExtraTheme;
 	extraCss?: string;
 	onBack: () => void;
-	notify: (msg: string) => void;
+	notify: (msg: string, opts?: { duration?: number }) => void;
 }) {
 	const [opts, setOpts] = React.useState<Opts>({ paper: 'auto', orientation: 'auto', color: 'color', layout: '1' });
 	const [render, setRender] = React.useState<DeckRender | null>(null);
@@ -310,8 +311,15 @@ export function PrintOptionsPanel({
 		// unchanged) — the assemble below re-places them, no re-rasterize. N-up and the notes
 		// handout change only placement, so they too ride the cache. Otherwise rasterize once.
 		let imgs = imgCache && imgCache.render === render ? imgCache : null;
+		// An image the capture cannot fetch no longer fails the build — it is simply left
+		// out. That must not be silent here either: this drawer's own status line is
+		// transient, so the reason goes to the toast, exactly as the Share sheet does it.
+		// It is announced AFTER the assemble below, never here: a build that then throws
+		// would otherwise tell the author their print deck was "ready" and immediately that
+		// it could not be built.
+		const imageFailures = ex.createImageFailureLog();
 		if (!imgs) {
-			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, {});
+			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, { imageFailures });
 			imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
 			if (mountedRef.current) setImgCache(imgs);
 		}
@@ -320,12 +328,14 @@ export function PrintOptionsPanel({
 			notes: handout ? slideNotes.map((n) => n || '') : undefined,
 			onStatus: (m: string) => { if (mountedRef.current) setStatus(m); },
 		});
+		const missing = ex.missingImageReason(imageFailures);
+		if (missing) notify(`Print deck built — but ${missing}.`, { duration: DEGRADED_TOAST_MS });
 		const url = URL.createObjectURL(blob);
 		const prevUrl = builtPdf?.url;
 		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
 		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, url, blob });
 		return url;
-	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache]);
+	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache, notify]);
 
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 

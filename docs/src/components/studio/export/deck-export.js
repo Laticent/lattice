@@ -37,6 +37,7 @@ import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
+import { collectSlideTextRuns } from './pdf-text-extract.js';
 
 function safeName(name) {
 	return (name || 'deck').trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'deck';
@@ -891,13 +892,32 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 
 // The html-to-image options shared by both capture flavors. transform:none
 // undoes the live FIT scale; no backgroundColor (see header).
-function captureOptions(w, h, pixelRatio, fontEmbedCSS) {
+//
+// `onImageErrorHandler` is what keeps ONE BAD PATH from costing the whole export.
+// html-to-image fetches every embedded image itself; when a fetch fails it hands the
+// clone an empty `src`, the clone's `onerror` fires, and WITHOUT this option that
+// rejects — so a deck with a 404 logo produced no PDF at all, only a message. The
+// handler resolves instead: the image is simply absent from the page, and the run
+// records the failure so the author is told rather than shipping a hole they did not
+// see. (A missing picture in a file you have beats a file you do not.)
+function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
 	return {
 		width: w,
 		height: h,
 		pixelRatio,
 		cacheBust: true,
 		fontEmbedCSS,
+		onImageErrorHandler: (event) => {
+			if (log) log.count += 1;
+			// HIDE the failed `<img>` in the clone. Resolving alone is not "the picture is
+			// simply absent": the browser paints its own broken-image glyph AND the author's
+			// alt text into the box, so the exported slide ships a platform icon (a different
+			// one per machine, the divergence HARD RULE #29 exists for) and a line of prose
+			// nobody wrote — measured, on a real export, before this line. `visibility`
+			// rather than `display`, so the box keeps its size and nothing around it moves.
+			const el = event?.target;
+			if (el?.style) el.style.visibility = 'hidden';
+		},
 		// No `borderRadius` here: it is set on the SECTION in withCaptureFixups, which is
 		// the only place that knows whether this corner is being kept or squared. A blanket
 		// reset at this layer is what used to flatten the preview chrome's 6px AND the
@@ -932,29 +952,195 @@ export function captureError(cause) {
 	return new Error("a slide image could not be loaded — check the deck's image and logo paths (a path relative to the deck file cannot resolve here), and the browser console for the 404");
 }
 
-async function rasterizeSection(section, fontEmbedCSS, cornerTarget) {
+/**
+ * The tally one export keeps of the images it could not load.
+ *
+ * `count` is the TRIGGER and `paths` is the DETAIL, and they are deliberately not the
+ * same measurement. `count` comes from the capture itself (html-to-image's own
+ * image-error hook), so it fires on failures nothing else can see — a remote image the
+ * frame displayed happily and the exporter's `fetch` could not read past CORS. But it
+ * can name nothing: the hook is handed a CLONE whose `src` has already been blanked,
+ * and an empty `src` reads back as the PAGE's own address. `paths` comes from the live
+ * DOM, which still has the attribute the author wrote.
+ *
+ * So `count` is used as a boolean and `paths` supplies every word of the sentence. It
+ * is never reported AS a number: it is one per failed image ELEMENT, so a single bad
+ * `logo:` on a 56-slide deck registers 56 — one broken path, not fifty-six.
+ */
+export function createImageFailureLog() {
+	return { count: 0, paths: new Set() };
+}
+
+/** Record the images this slide asked for and did not get, by the path it asked for. */
+export function recordUnreachableImages(section, log) {
+	if (!log || typeof section?.querySelectorAll !== 'function') return;
+	for (const img of section.querySelectorAll('img')) {
+		// `complete` is the guard against a false positive: an image still in flight also
+		// reports `naturalWidth === 0`. One still loading here is counted by the capture's
+		// own hook instead — unnamed, but never missed.
+		const src = img.getAttribute('src') || '';
+		if (src && img.complete && !img.naturalWidth) log.paths.add(src);
+	}
+}
+
+/**
+ * Every distinct URL a slide's CSS asks for as a `background-image`.
+ *
+ * A deck's `![bg](…)` full-bleed panel is NOT an `<img>` — `lib/core/bg-image.js`
+ * emits a `<div>` with a `background-image`, which is exactly why the `<img>` scan
+ * above cannot see the most visually consequential image on a slide.
+ */
+export function backgroundImageUrls(section) {
+	const win = section?.ownerDocument?.defaultView;
+	if (!win || typeof section.querySelectorAll !== 'function') return [];
+	const urls = new Set();
+	for (const el of [section, ...section.querySelectorAll('*')]) {
+		const value = win.getComputedStyle(el).backgroundImage;
+		if (!value || value === 'none') continue;
+		for (const [, , url] of value.matchAll(/url\((['"]?)(.*?)\1\)/g)) {
+			// `data:` is already inline — it cannot 404, and html-to-image passes it through
+			// untouched, so naming one would accuse an image the export never lost.
+			if (url && !url.startsWith('data:')) urls.add(url);
+		}
+	}
+	return [...urls];
+}
+
+/** A URL a `<link>`-style probe could not load, in the frame that will be captured. */
+function probeImage(win, url, timeoutMs) {
+	return new Promise((resolve) => {
+		const img = new win.Image();
+		const done = (ok) => resolve(ok);
+		img.onload = () => done(true);
+		img.onerror = () => done(false);
+		// Bounded: a URL that neither loads nor errors must not hold the export open.
+		setTimeout(() => done(true), timeoutMs);
+		img.src = url;
+	});
+}
+
+/** How long the whole background probe may take before the export proceeds anyway. */
+const BACKGROUND_PROBE_MS = 4000;
+
+/**
+ * Everything a deck asked for and did not get, across all its slides.
+ *
+ * Two passes because the two channels fail in different places. An `<img>` reports its
+ * own failure through `naturalWidth`. A `background-image` does not: `html-to-image`
+ * catches that fetch itself, substitutes an empty URL and only `console.warn`s, so the
+ * background vanishes from the export with nothing thrown and nothing counted. Probing
+ * the URL in the capture frame is what makes it visible — and the browser has already
+ * fetched it, so a probe of a WORKING background is a cache hit.
+ */
+export async function recordUnreachableAssets(sections, log) {
+	if (!log || !sections?.length) return;
+	for (const section of sections) recordUnreachableImages(section, log);
+	const win = sections[0]?.ownerDocument?.defaultView;
+	if (!win?.Image) return;
+	const urls = new Set();
+	for (const section of sections) for (const url of backgroundImageUrls(section)) urls.add(url);
+	if (!urls.size) return;
+	const results = await Promise.all([...urls].map((url) => probeImage(win, url, BACKGROUND_PROBE_MS)));
+	[...urls].forEach((url, i) => {
+		if (results[i]) return;
+		log.paths.add(url);
+		// The hook never fires for a background, so this IS the trigger as well as the name.
+		log.count += 1;
+	});
+}
+
+/** How many names a degradation sentence carries before it stops listing them. */
+const MISSING_IMAGE_NAMES = 3;
+/** How much of one path the sentence will carry — an author can write a very long URL. */
+const MISSING_IMAGE_NAME_CHARS = 120;
+
+/** Does this path look relative to the deck FILE — the one cause worth naming? */
+function looksDeckRelative(path) {
+	return !/^(?:[a-z][a-z0-9+.-]*:|\/)/i.test(path);
+}
+
+/**
+ * One sentence for the toast, or `undefined` when nothing failed.
+ *
+ * It has to persist: the progress line is gone by the time the file lands, so an
+ * export that silently shipped a hole would be indistinguishable from a clean one.
+ *
+ * It asserts NO TOTAL. `paths` can be a subset of what failed (a CORS-blocked `<img>`
+ * fires the hook and cannot be named), so "one image" beside a list of one would be a
+ * claim the log cannot support — it would tell an author to stop looking. What it can
+ * always say truthfully is that not every image loaded, and which ones it knows about.
+ */
+export function missingImageReason(log) {
+	if (!log?.count) return undefined;
+	const names = [...log.paths].map((p) => (p.length > MISSING_IMAGE_NAME_CHARS ? `${p.slice(0, MISSING_IMAGE_NAME_CHARS)}…` : p));
+	if (!names.length) return 'the export could not load every image, so the file ships without at least one';
+	const shown = names.slice(0, MISSING_IMAGE_NAMES).join(', ');
+	const more = names.length > MISSING_IMAGE_NAMES ? `, +${names.length - MISSING_IMAGE_NAMES} more` : '';
+	// The hint is only appended when it is TRUE. A `/absolute` or `https://` path that
+	// 404s has nothing to do with deck-relative resolution, and sending an author to
+	// check for that is sending them to the wrong place.
+	const hint = [...log.paths].some(looksDeckRelative) ? ' — a path relative to the deck file does not resolve here' : '';
+	return `the export could not load every image, so the file ships without: ${shown}${more}${hint}`;
+}
+
+async function rasterizeSection(section, fontEmbedCSS, cornerTarget, log) {
 	const { toPng } = await import('html-to-image');
 	try {
-		return await withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS)), undefined, cornerTarget);
+		return await withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log)), undefined, cornerTarget);
 	} catch (e) {
 		throw captureError(e);
 	}
 }
 
-// Rasterize one rendered slide to a transferable ImageBitmap. Same clone + draw
-// as rasterizeSection (that part needs the DOM and stays here), but it stops at
-// the canvas: the expensive PNG deflate (canvas.toDataURL) and jsPDF's re-encode
-// move to the export worker, which receives the bitmap zero-copy.
-async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget) {
+// Rasterize one rendered slide to a transferable ImageBitmap, AND read its words
+// out of the same laid-out DOM. Same clone + draw as rasterizeSection (that part
+// needs the DOM and stays here), but it stops at the canvas: the expensive PNG
+// deflate (canvas.toDataURL) and jsPDF's re-encode move to the export worker,
+// which receives the bitmap zero-copy.
+//
+// The text is collected INSIDE the fixups, next to the capture, because that is the
+// only moment the measurement is true: before them the slide can still be behind
+// the preview's lazy-render gates and every rect reads zero (see
+// `forceSectionVisibleForCapture`), and after them the capture frame is gone. It
+// rides back with the bitmap so the worker can write it over the page image as an
+// invisible text layer — see `pdf-text-layer.js`.
+async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log) {
 	const { toCanvas } = await import('html-to-image');
 	try {
 		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
-			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
-			return await createImageBitmap(canvas);
+			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+			// Never let the text layer cost the export its PDF: the picture is the
+			// deliverable and the words are the improvement, so a measurement that throws
+			// (an exotic node a Range cannot span) degrades to an image-only page.
+			let text = [];
+			try {
+				text = collectSlideTextRuns(section);
+			} catch (_e) {
+				text = [];
+			}
+			return { bitmap: await createImageBitmap(canvas), text };
 		}, undefined, cornerTarget);
 	} catch (e) {
 		// Named, so the worker lane's failure does not read as a worker problem when it
 		// is the capture — and so the main-thread retry reports the same real cause.
+		throw captureError(e);
+	}
+}
+
+// Rasterize one slide to raw PNG BYTES. Same clone + draw as rasterizeSection; it
+// stops at `canvas.toBlob` instead of `toDataURL`, so the base64 that a PowerPoint
+// needs is never built on this thread — the bytes transfer to the assembly worker for
+// free and it encodes them there.
+async function rasterizeSectionToPngBytes(section, fontEmbedCSS, cornerTarget, log) {
+	const { toCanvas } = await import('html-to-image');
+	try {
+		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
+			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+			const blob = await new Promise((resolve, reject) =>
+				canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
+			return await blob.arrayBuffer();
+		}, undefined, cornerTarget);
+	} catch (e) {
 		throw captureError(e);
 	}
 }
@@ -1015,7 +1201,7 @@ function canUsePdfWorker() {
 // lanes and give back part of the speed win.
 const PDF_WORKER_MAX_IN_FLIGHT = 2;
 
-async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations) {
+async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log) {
 	const worker = new Worker(new URL('./pdf-export-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
@@ -1058,8 +1244,8 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 				if (failure) throw failure;
 			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
-			const bitmap = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS, 'pdf');
-			worker.postMessage({ type: 'slide', index: i, bitmap }, [bitmap]);
+			const { bitmap, text } = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS, 'pdf', log);
+			worker.postMessage({ type: 'slide', index: i, bitmap, text }, [bitmap]);
 			// Yield a macrotask between slides so the clone/draw work (which must stay
 			// on this thread) never runs back-to-back without a paint.
 			await new Promise((r) => setTimeout(r));
@@ -1082,11 +1268,11 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 // wired parameter rots: the next caller wanting JPEG bytes in an alpha-capable container
 // would read this signature, pass 'png', and silently get a square corner. The kernel's
 // fail-safe default would mask that rather than catch it.
-async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget) {
-	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget);
+async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget, log) {
+	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget, log);
 	const { toCanvas } = await import('html-to-image');
 	return withCaptureFixups(section, async (w, h, pixelRatio) => {
-		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
+		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
 		const out = document.createElement('canvas');
 		out.width = canvas.width;
 		out.height = canvas.height;
@@ -1103,7 +1289,7 @@ async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, corn
 // or fails. The print `sheet` mode does NOT come through here anymore: it is the
 // rasterize → assemble split below (rasterizeDeckImages + assembleSheetPdf), so a
 // paper/orientation change re-places cached images instead of re-rasterizing.
-async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations) {
+async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log) {
 	const { jsPDF } = await import('jspdf');
 	const { w: boxW, h: boxH } = slideGeom(sections[0]);
 	const { pageW, pageH } = pdfPageGeom(boxW, boxH);
@@ -1117,7 +1303,7 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 	pdf.setProperties(pdfProps(name, meta, sections.length));
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf');
+		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf', log);
 		if (i > 0) pdf.addPage([pageW, pageH], orientation);
 		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', 0, 0, pageW, pageH);
 		// Review comments for this slide → sticky notes on the page just drawn (same
@@ -1153,9 +1339,11 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 // created + torn down here).
 export async function rasterizeDeckImages(render, onStatus, opts) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
+	const log = opts?.imageFailures || null;
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);
 		const images = [];
 		for (let i = 0; i < sections.length; i++) {
@@ -1168,7 +1356,7 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 			// straight to `assembleSheetPdf`. Passing 'png' here would keep the rounded corner
 			// and composite its transparency onto the page, which is the pale-notch artifact the
 			// capability rule exists to prevent. lib/core/corner-export-capability.mjs.
-			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf'));
+			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf', log));
 			// Yield a macrotask between slides so the progress line paints (see the note
 			// in buildPdfBlobOnMainThread) — the per-slide clone + PNG-deflate is synchronous.
 			await new Promise((r) => setTimeout(r));
@@ -1281,7 +1469,7 @@ function drawHandoutNotes(pdf, region, note) {
 
 // The shared core of exportPdf (which downloads) and renderPdfBlob (which hands
 // the bytes to a caller — e.g. the Library's theme-zip showcase).
-async function buildPdfBlob(render, name, onStatus, meta, opts) {
+async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
 	// Per-page comment sticky notes (opt-in via the export panel); absent → none.
 	const annotations = opts?.annotations || null;
@@ -1290,21 +1478,22 @@ async function buildPdfBlob(render, name, onStatus, meta, opts) {
 	// directly so it can CACHE the images across a paper/orientation change.
 	const sheet = opts?.sheet || null;
 	if (sheet) {
-		const { images, geom, pageFormat: fmt } = await rasterizeDeckImages(render, onStatus, opts);
+		const { images, geom, pageFormat: fmt } = await rasterizeDeckImages(render, onStatus, { ...opts, imageFailures: log });
 		return assembleSheetPdf(images, geom, name, meta, { sheet, pageFormat: fmt });
 	}
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		await recordUnreachableAssets(sections, log);
 		if (canUsePdfWorker()) {
 			try {
-				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
+				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log);
 			} catch (e) {
 				// The deck must never be lost to the fast lane — rebuild on-thread.
 				console.warn('[lattice-export] PDF worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 			}
 		}
-		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
+		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log);
 	} finally {
 		dispose();
 	}
@@ -1313,16 +1502,29 @@ async function buildPdfBlob(render, name, onStatus, meta, opts) {
 /** Render a deck to PDF bytes (Blob) without downloading — for embedding (zips). */
 export async function renderPdfBlob(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Rendering PDF…');
-	return buildPdfBlob(render, name, onStatus, meta, opts);
+	const log = createImageFailureLog();
+	const blob = await buildPdfBlob(render, name, onStatus, meta, opts, log);
+	// This lane hands bytes to a zip builder rather than returning to a toast, so the
+	// console is where the reason goes TODAY — a property of the wiring, not of the lane.
+	// A caller that has a toast (the Library's showcase zip does) should take the reason
+	// instead. Silent would be worse either way: it would ship a deck with a hole in it
+	// and nothing anywhere would have mentioned it.
+	const reason = missingImageReason(log);
+	if (reason) console.warn(`[lattice-export] ${reason}`);
+	return blob;
 }
 
 /** `opts.pageFormat`: 'png' (default, lossless) or 'jpeg' (faster, smaller —
  *  the Studio Workspace › General preference rides in here). */
 export async function exportPdf(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Preparing PDF…');
-	const blob = await buildPdfBlob(render, name, onStatus, meta, opts);
+	const log = createImageFailureLog();
+	const blob = await buildPdfBlob(render, name, onStatus, meta, opts, log);
 	if (onStatus) onStatus('Saving PDF…');
 	download(blob, safeName(name) + '.pdf');
+	// Returned, not thrown: the deck exported. The Share sheet folds this into the
+	// toast that persists after the progress line is gone.
+	return missingImageReason(log);
 }
 
 // ── PPTX (image-slides) ───────────────────────────────────────────────────────
@@ -1333,14 +1535,88 @@ export async function exportPdf(render, name, onStatus, meta, opts) {
 // the alt can never drift onto the wrong slide: no source re-split, no
 // front-matter phantom, no auto-split (`split: headings`) misalignment. Mirrors
 // lib/export/pptx-export.js, which extracts from the same rendered slides it paints.
+/** The PowerPoint slide layout for a deck's geometry — 16:9 keeps the built-in one. */
+function pptxLayout(boxW, boxH) {
+	if (!(boxW > 0 && boxH > 0) || Math.abs(boxW / boxH - 16 / 9) < 0.01) return { custom: false, w: 0, h: 0 };
+	const longest = Math.max(boxW, boxH);
+	const inches = (n) => Math.round((n / longest) * 13.333 * 1000) / 1000;
+	return { custom: true, w: inches(boxW), h: inches(boxH) };
+}
+
+function canUsePptxWorker() {
+	return typeof Worker !== 'undefined';
+}
+
+// At most this many slides may sit transferred-but-unassembled in the worker's queue —
+// the same bound, for the same reason, as the PDF lane's. Each is a full PNG, and an
+// unbounded queue grows with however far the worker falls behind the clone + draw.
+const PPTX_WORKER_MAX_IN_FLIGHT = 2;
+
+/**
+ * Build the .pptx in a worker: this thread only clones and draws.
+ *
+ * What moves is the DOCUMENT, not the encode, and the measurement is why. On a
+ * 56-slide deck the per-slide stall is the same in PowerPoint and in the PDF (350 ms
+ * vs 367 ms) — that is html-to-image, and it needs the DOM. What PowerPoint had on
+ * top was one 717 ms freeze at the END: pptxgenjs writing an XML part per slide,
+ * JSZip base64-decoding every image, and the zip write, none of it yielding.
+ */
+async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log) {
+	const worker = new Worker(new URL('./pptx-assemble-worker.js', import.meta.url), { type: 'module' });
+	try {
+		const total = sections.length;
+		let acked = 0;
+		let wake = null;
+		let failure = null;
+		const done = new Promise((resolve, reject) => {
+			worker.onmessage = (e) => {
+				const m = e.data;
+				if (m.type === 'progress') {
+					acked = m.index + 1;
+					if (wake) { wake(); wake = null; }
+				} else if (m.type === 'done') {
+					resolve(new Blob([m.bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }));
+				} else if (m.type === 'error') reject(new Error(m.message));
+			};
+			worker.onerror = (e) => reject(new Error(e.message || 'PPTX worker failed'));
+		});
+		// Latch, so a worker that died on slide 4 of 60 does not let this thread draw all
+		// 60 before the fallback re-draws every one of them (see the PDF lane's note).
+		done.catch((e) => {
+			failure = failure || e;
+			if (wake) { wake(); wake = null; }
+		});
+		worker.postMessage({ type: 'init', layout, props });
+		for (let i = 0; i < total; i++) {
+			if (failure) throw failure;
+			while (i - acked >= PPTX_WORKER_MAX_IN_FLIGHT) {
+				await Promise.race([done, new Promise((r) => { wake = r; })]);
+				if (failure) throw failure;
+			}
+			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
+			const bytes = await rasterizeSectionToPngBytes(sections[i], fontEmbedCSS, 'pptx', log);
+			worker.postMessage({ type: 'slide', index: i, bytes, altText: altTextFor(i) }, [bytes]);
+			await new Promise((r) => setTimeout(r));
+		}
+		if (failure) throw failure;
+		if (onStatus) onStatus('Building .pptx…', { current: total, total });
+		worker.postMessage({ type: 'finish' });
+		return await done;
+	} finally {
+		worker.terminate();
+	}
+}
+
 export async function exportPptx(render, name, onStatus, meta) {
 	if (onStatus) onStatus('Preparing PowerPoint…');
+	const log = createImageFailureLog();
 	// Lift the `describe:` channel from the ENGINE render, before the capture frame
 	// sanitizes it away — see the altText note in the slide loop below.
 	const describeRecord = await slideChannelRecord(render.html);
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 	const { sections, fontEmbedCSS } = await sectionsOf(frame);
+	await recordUnreachableAssets(sections, log);
 	// The record and the rasterized sections come from two different splits of the same
 	// render, and the alt text below binds them BY INDEX. If they ever disagree on length,
 	// every slide past the divergence gets someone else's description — a silent
@@ -1353,29 +1629,42 @@ export async function exportPptx(render, name, onStatus, meta) {
 		);
 		describeRecord.length = 0;
 	}
-	const { default: PptxGenJS } = await import('pptxgenjs');
-	const pptx = new PptxGenJS();
 	const { eng, summary } = provenance(meta, sections.length);
-	pptx.title = (name || 'deck').trim();
-	pptx.subject = summary;
-	pptx.author = 'Lattice Drawing Board';
-	pptx.company = `Lattice · ${eng}`;
+	const props = { title: (name || 'deck').trim(), subject: summary, author: 'Lattice Drawing Board', company: `Lattice · ${eng}` };
 	// Slide aspect from the deck's @size geometry (mirrors lib/export/pptx-export.js
 	// pptxLayout). 16:9 keeps the built-in LAYOUT_WIDE; portrait/square get a custom
 	// layout at the same aspect, normalized to a 13.333in longest edge so the PNG
 	// full-bleeds without a ~20in sheet. Without this a portrait deck letterboxed.
 	const { w: boxW, h: boxH } = slideGeom(sections[0]);
-	if (boxW > 0 && boxH > 0 && Math.abs(boxW / boxH - 16 / 9) >= 0.01) {
-		const longest = Math.max(boxW, boxH);
-		const r = (n) => Math.round((n / longest) * 13.333 * 1000) / 1000;
-		pptx.defineLayout({ name: 'LATTICE', width: r(boxW), height: r(boxH) });
+	const layout = pptxLayout(boxW, boxH);
+	// The alt text for slide i, read from the RECORD rather than from the rasterized
+	// section (see the note below).
+	const altTextFor = (i) => (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
+	if (canUsePptxWorker()) {
+		try {
+			const blob = await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log);
+			download(blob, safeName(name) + '.pptx');
+			return missingImageReason(log);
+		} catch (e) {
+			// The deck must never be lost to the fast lane — rebuild on this thread.
+			console.warn('[lattice-export] PPTX worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
+		}
+	}
+	const { default: PptxGenJS } = await import('pptxgenjs');
+	const pptx = new PptxGenJS();
+	pptx.title = props.title;
+	pptx.subject = props.subject;
+	pptx.author = props.author;
+	pptx.company = props.company;
+	if (layout.custom) {
+		pptx.defineLayout({ name: 'LATTICE', width: layout.w, height: layout.h });
 		pptx.layout = 'LATTICE';
 	} else {
 		pptx.layout = 'LAYOUT_WIDE'; // 13.333 x 7.5in, 16:9 — the PNG full-bleeds it
 	}
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const png = await rasterizeSection(sections[i], fontEmbedCSS, 'pptx');
+		const png = await rasterizeSection(sections[i], fontEmbedCSS, 'pptx', log);
 		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
 		// (never let pptxgenjs default `descr` to the image filename — junk a screen
 		// reader reads).
@@ -1386,14 +1675,17 @@ export async function exportPptx(render, name, onStatus, meta) {
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
-		const altText = (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
-		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText });
+		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: altTextFor(i) });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
 		await new Promise((r) => setTimeout(r));
 	}
 	if (onStatus) onStatus('Building .pptx…', { current: sections.length, total: sections.length });
 	await pptx.writeFile({ fileName: safeName(name) + '.pptx' });
+	// Same contract as exportPdf: a picture the capture could not load costs the image,
+	// never the export — and the author is told, because a silent hole is worse than a
+	// loud failure.
+	return missingImageReason(log);
 	} finally { dispose(); }
 }
 
@@ -1503,11 +1795,17 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 		// PNG tier — rasterize the chart slide via the shared html-to-image path.
 		if (onStatus) onStatus('Rasterizing chart…');
 		const { fontEmbedCSS } = await sectionsOf(frame);
+		// This lane carries the failure log too. An unreachable image no longer throws, so
+		// without it a chart would download silently minus its picture — the exact silent
+		// hole the degradation exists to prevent, on the one door that had no log.
+		const log = createImageFailureLog();
+		await recordUnreachableAssets([sec], log);
 		// Destination is a `.png`, so the corner survives — the same slide must not come out
 		// rounded through the image set and square through this door.
-		const dataUrl = await rasterizeSection(sec, fontEmbedCSS, 'png');
+		const dataUrl = await rasterizeSection(sec, fontEmbedCSS, 'png', log);
 		download(dataUrlToBlob(dataUrl), `${safeName(name)}-chart.png`);
 		if (onStatus) onStatus('Chart downloaded as PNG.');
+		return missingImageReason(log);
 	} finally { dispose(); }
 }
 
@@ -1517,10 +1815,10 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 // one canvas.toBlob encode — html-to-image has no toWebp, and canvas covers all
 // three with a quality arg. The pixelRatio is the image-set size preset (or the
 // thumbnail scale), already OOM-capped by the shared kernel.
-async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pixelRatio, FORMAT_META) {
+async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pixelRatio, FORMAT_META, log) {
 	const { toCanvas } = await import('html-to-image');
 	return withCaptureFixups(section, async (w, h, pr) => {
-		const src = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS));
+		const src = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log));
 		const meta = FORMAT_META[format] || FORMAT_META.png;
 		let canvas = src;
 		// The underlay is about ALPHA, not about lossiness — those are different axes and
@@ -1560,10 +1858,12 @@ async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pi
 export async function exportImageSet(render, name, opts, onStatus, svgRender, meta) {
 	const core = await import('../../../playground/image-set-core.generated.js');
 	const options = core.normalizeImageSetOptions(opts);
+	const log = createImageFailureLog();
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
 		if (!sections.length) throw new Error('Nothing to export — the deck rendered no slides.');
+		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);
 		const scale = core.resolveRasterScale(options.size, w, h);
 		// Pass the resolved raster scale so a thumbnail can never come out bigger than the full
@@ -1574,7 +1874,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 		const images = [];
 		for (let i = 0; i < sections.length; i++) {
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-			images.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, scale, core.FORMAT_META));
+			images.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, scale, core.FORMAT_META, log));
 			await new Promise((r) => setTimeout(r)); // yield so the progress line paints
 		}
 
@@ -1583,7 +1883,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 		if (options.thumbnails) {
 			for (let i = 0; i < sections.length; i++) {
 				if (onStatus) onStatus('Rendering thumbnail ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-				thumbs.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, thumbScale, core.FORMAT_META));
+				thumbs.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, thumbScale, core.FORMAT_META, log));
 				await new Promise((r) => setTimeout(r));
 			}
 		}
@@ -1667,5 +1967,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 		const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 		download(blob, plan.slug + '.zip');
 		if (onStatus) onStatus('Image set downloaded.');
+		// See exportPdf: an unreachable image costs the picture, not the export.
+		return missingImageReason(log);
 	} finally { dispose(); }
 }
