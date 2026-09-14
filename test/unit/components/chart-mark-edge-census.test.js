@@ -54,6 +54,11 @@ const KNOCKOUTS = {
   'scatter-dot': 'scatter',
   'sbar-seg': 'stacked-bar',
   'quadrant-trail-after': 'quadrant',
+  // The heatmap grid: at a 1.2-unit gap the canvas shows between cells and reads
+  // as a black lattice over the data on a dark slide, so each cell strokes the
+  // canvas instead. A separator, not an outline — its weight follows what it has
+  // to separate, which is why it is here rather than on var(--chart-edge).
+  'heatmap-cell': 'heatmap',
 };
 
 /** The class names an element that WRAPS shapes; a stroke on it paints nothing. */
