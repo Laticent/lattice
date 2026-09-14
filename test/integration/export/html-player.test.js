@@ -525,11 +525,30 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 // set WHOLESALE went too far: the engine keeps a bookend a dark panel even when the slide
 // is pinned light, so a `title light dark` slide lost --bg and every ink while its ink
 // stayed on-dark — white on white, 1.00:1, in the as-exported view.
-// `,\s*` between the `:where()` arms, because THIS file reads the SHIPPED export, which is
-// minified — `,.title,.closing` — while the unit tests read `themeDualMode`'s unminified
-// return. A pattern written from the unminified form passes upstairs and fails here, which
-// is exactly what happened.
-const DARK_SLIDE = String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\),\s*\.title,\s*\.closing\)`;
+// THE SCOPE IS THREE ARMS, AND THIS FILE MUST CHECK ALL THREE. An earlier cut pinned the
+// single-compound `:where(:not(.light):not(.color-light), .title, .closing)` spelling. That
+// spelling is gone: the emitted block holds to a pre-selector-list vocabulary, because an
+// engine that cannot PARSE the form drops the whole rule and a dropped rule there is silently
+// un-themed dark mode. So `player-core` writes the disjunction as arms instead, and the pinned
+// regex went on asserting a selector the emitter had stopped writing. No completed CI run
+// caught it: the run on the previous head ended with GitHub's `cancelled` conclusion — the
+// next push superseded it — so its green beacon reported a workflow that never ran this job.
+//
+// Checking ONE arm would restore green and still miss the defect this branch hit twice — a
+// comma list binds a trailing suffix to its LAST arm alone (`a,b .x` is `a` and `b .x`), so a
+// broken cross-product leaves arms 1 and 2 bare while arm 3 looks right. Each arm is therefore
+// asserted for the suffix it owes. Measured on real `--player` exports at the time of writing:
+// 12 `.lp-sd-N` hits per arm in portrait-gantt-statechart, 1 `.kanban-card` hit per arm in
+// kanban-chart-redesign.
+//
+// Written against the SHIPPED export, which is minified — no spaces after the commas — while
+// the unit tests read `themeDualMode`'s unminified return. A pattern taken from the unminified
+// form passes upstairs and fails here, which is exactly what happened once already.
+const DARK_SLIDE_ARMS = [
+	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\)`,
+	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.title`,
+	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.closing`,
+];
 
 describe('html-player export — nothing shipped depends on light-dark()', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
@@ -577,7 +596,11 @@ describe('html-player export — nothing shipped depends on light-dark()', () =>
 		const inline = [...doc.querySelectorAll('[style]')].filter((el) => (el.getAttribute('style') || '').includes('light-dark('));
 		assert.equal(inline.length, 0, `${inline.length} inline style attribute(s) still carry light-dark()`);
 		assert.match(html, /:root\[data-lp-scheme=dark\] \.lp-sd-\d+\{/, 'the dark arms are re-applied, not dropped');
-		assert.match(html, new RegExp(`${DARK_SLIDE} \\.lp-sd-\\d+\\{`), 'including on an author-pinned dark slide');
+		// `[,{]`, not `{`: see the kanban test below — in a minified list only the last arm meets a
+		// brace, so anchoring on `{` would assert three times over that ONE arm is suffixed.
+		for (const arm of DARK_SLIDE_ARMS) {
+			assert.match(html, new RegExp(`${arm} \\.lp-sd-\\d+[,{]`), `including on an author-pinned dark slide — arm ${arm}`);
+		}
 	});
 
 	// The real-property half (#1645). The kanban card is the guard because its `box-shadow` is
@@ -588,11 +611,18 @@ describe('html-player export — nothing shipped depends on light-dark()', () =>
 		const html = exported['kanban-chart-redesign'];
 		assert.match(html, /box-shadow:var\(--lp-ld-[\d-]+,/, 'the base declaration keeps its place and reads the token');
 		assert.match(html, /:root\[data-lp-scheme=dark\][^{]*\.kanban-card\{--lp-ld-[\d-]+:/, 'the dark arms are defined under the viewer scheme');
-		assert.match(
-			html,
-			new RegExp(`${DARK_SLIDE}[^{]*\\.kanban-card\\{--lp-ld-[\\d-]+:`),
-			'and on an author-pinned dark slide, in every player scheme',
-		);
+		// Two assertions, because one conflates two things. `[,{]` after the suffix is what proves
+		// THIS arm carries it: in a minified comma list only the LAST arm is followed by `{`, the
+		// others by `,`, and a pattern that let `[^{]*` run to the next brace would be satisfied by
+		// some OTHER arm's suffix — passing on exactly the broken cross-product it is here to catch.
+		for (const arm of DARK_SLIDE_ARMS) {
+			assert.match(
+				html,
+				new RegExp(`${arm} \\.kanban-card[,{]`),
+				`and on an author-pinned dark slide, in every player scheme — arm ${arm}`,
+			);
+		}
+		assert.match(html, /\.kanban-card\{--lp-ld-[\d-]+:/, 'and the rule those arms head defines the token');
 		// The indirection exists to leave the cascade alone: the base rule must NOT have been
 		// re-emitted at a scope-boosted specificity, which is what silently un-flattened every
 		// keyline card. A scoped copy would carry the real property, not just the token.
