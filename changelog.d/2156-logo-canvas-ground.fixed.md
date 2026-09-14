@@ -18,3 +18,16 @@
   panel even when the slide is pinned light; the player, which rebuilds dark from flat rules and
   has no cascade to consult, was not told. Both the dark rule and all four restore-to-light sites
   now carve the bookends out, and a printed bookend still correctly takes paper.
+- **Fixed:** `color-mode: system` gave the logo a light-canvas mark on a dark-canvas ground.
+  The ground already followed the receiver's OS on every surface; only the mark did not, so a
+  viewer on a dark OS got a dark-ink logo on a dark slide. The mark now follows the same
+  signal the canvas does — `@media (prefers-color-scheme: dark)` in the engine, and the
+  player's own scheme scopes where its toggle overrides the OS. Measured across all six
+  combinations of OS setting and player toggle: all six now agree with their own ground.
+- **Fixed:** an eyebrow on a `dark light` slide kept its on-dark ink on a light ground —
+  white on white, 1.00:1. Same defect as the logo, on the element beside it: the rule keyed
+  on the `.dark` class while `.light` decides the ground. Bookends keep the on-dark ink,
+  because a bookend stays a dark panel.
+- **Fixed:** a bookend lost its dark tokens after a toggle to light in the exported player,
+  so a `strong` inside a `title` slide came back at 1.61:1. A bookend is a dark panel in
+  every player scheme; it now carries the dark token block unconditionally.

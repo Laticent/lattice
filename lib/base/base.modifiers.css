@@ -202,14 +202,31 @@ section.divider.light p:has(> code:only-child):has(+ h2) > code { color: var(--t
 section.closing p:has(> code:only-child):has(+ h1) > code,
 section.closing p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark-secondary); }
 /* Dark modifier (any layout + dark class) */
-section.dark p:has(> code:only-child):has(+ h1) > code,
-section.dark p:has(> code:only-child):has(+ h2) > code,
-section.dark p:has(> code:only-child):has(+ h3) > code,
-section.dark p:has(> code:only-child):has(+ h4) > code,
-section.dark p:has(> code:only-child):has(+ h5) > code,
-section.dark p:has(> code:only-child):has(+ ul) > code,
-section.dark p:has(> code:only-child):has(+ ol) > code,
-section.dark p:has(> code:only-child):has(+ pre) > code { color: var(--on-dark-secondary); }
+/* THE EYEBROW'S INK FOLLOWS THE RESOLVED GROUND, not the `.dark` class. (#2158)
+ *
+ * Same defect as the deck logo two hundred lines down, on the element beside it: this rule
+ * keyed on `.dark` while `.light` — later in source order — decides the ground. On a
+ * `content dark light` slide the ground goes white and the eyebrow kept its on-dark ink.
+ * Measured by this repo's own `check-player-contrast` on
+ * `examples/deck-logo-dark-theme.md` p5: `rgb(255,255,255)` on `rgb(255,255,255)`, 1.00:1.
+ *
+ * `:where()` carries no specificity, so the rule keeps the exact rank it had and still
+ * beats the `section p:has(…)` default it overrides. The bookends are re-admitted for the
+ * reason `lib/export/player-core.mjs` re-admits them: `section:is(.title, .closing)` forces
+ * `color-scheme: dark` even under `.light`, so a bookend IS a dark panel and its eyebrow
+ * should stay on-dark.
+ *
+ * `section.dark.form .tile-watermark` (lib/forms/tile/watermark/watermark.css) has the
+ * identical bug and is NOT fixed here — the contrast gate does not audit a watermark, so
+ * changing it would be an unmeasured rendered change. Logged instead. */
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h1) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h2) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h3) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h4) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h5) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ ul) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ ol) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ pre) > code { color: var(--on-dark-secondary); }
 
 
 /* ── KEY INSIGHT ──────────────────────────────────────────────
@@ -499,6 +516,35 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
 section[data-theme$="-dark"]:where(:not(.color-system)) {
   --deck-logo-filter: var(--deck-logo-filter-inverse);
   --deck-logo-opacity: var(--deck-logo-opacity-inverse);
+}
+
+/* `.color-system` DEFERS the side to the receiver, so the mark defers with it. (#2201)
+ *
+ * The rule above excludes `color-system` because its ground is not knowable at author
+ * time — and the earlier reading of that was that no treatment could be right, since a
+ * static pin is wrong half the time. That is true of a PIN. It is not true of a MEDIA
+ * QUERY, which resolves per receiver exactly as `color-scheme: light dark` does, so the
+ * mark simply follows the same signal the canvas already follows.
+ *
+ * Measured before this rule existed, on `theme: indaco-dark` + `color-mode: system`,
+ * emulating both OS settings on the HTML export AND the `--player` export:
+ *
+ *   os=light  bg rgb(255,255,255)  filter brightness(0.4)   correct
+ *   os=dark   bg rgb(0,29,51)      filter brightness(0.4)   WRONG, both surfaces
+ *
+ * The ground follows the OS on BOTH surfaces; only the mark did not. #2201 recorded this
+ * as the PDF and the player disagreeing, which is not what it is — the two runs behind
+ * that table were taken on hosts with different OS settings, so the surface got the blame
+ * for the receiver.
+ *
+ * Position and specificity as the rule above: `section.color-system` is (0,1,1) and a
+ * media query adds none, so `.print` / `.light` / `.color-light` below still win on source
+ * order. A printed system slide is paper, and stays light. */
+@media (prefers-color-scheme: dark) {
+  section.color-system {
+    --deck-logo-filter: var(--deck-logo-filter-inverse);
+    --deck-logo-opacity: var(--deck-logo-opacity-inverse);
+  }
 }
 
 section.dark {

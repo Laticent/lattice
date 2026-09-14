@@ -448,7 +448,18 @@ test('themeDualMode takes the LAST declaration of a derived token, as the cascad
 	// 203 tokens carry more than one declaration in the real stylesheet.
 	const css = ':root{--text-heading:light-dark(#0A1628,#FFFFFF);--ink:var(--text-heading)}:root{--ink:var(--text-heading) /* override */}';
 	const { darkBlock } = themeDualMode(css);
-	assert.equal((darkBlock.match(/--ink:/g) || []).length, 5, 'emitted once per scheme scope, not twice per scope');
+	// ONCE PER SCOPE, NOT TWICE PER SCOPE — asserted as that property rather than as a
+	// magic total, because the total is not a fact about the cascade and moves whenever a
+	// scope is added. It moved once already: #2201 added the unconditional BOOKEND scope, a
+	// bookend being a dark panel in every player scheme, and a bare `5` would have been
+	// "corrected" to `6` with nothing left saying why either number was right.
+	const blocks = darkBlock.split('}').filter((b) => b.includes('--ink:'));
+	for (const b of blocks) {
+		assert.equal((b.match(/--ink:/g) || []).length, 1, `a scope emits --ink once: ${b}`);
+	}
+	assert.equal(blocks.length, 6,
+		'six scopes carry it: the .dark pin, the bookends, dark-root, dark-root restore, '
+		+ 'and the two inside the system media query');
 });
 
 // The self-contained .html PLAYER assembler (lib/export/html-player.js) — P2 slice 3
