@@ -1751,6 +1751,47 @@ the API/MCP/`gh`, set `area:`/`type:`/`priority:`/`status:backlog` (or file
 through the **Work item** form). The gate exists to catch a miss, not to excuse
 skipping the taxonomy.
 
+#### The intake bar — a card nobody can pull is not on the queue
+
+The four axes decide **which column a card sits in**. They say nothing about
+whether anyone can *work* it. That second question is the Definition of Ready —
+a governing doc and an acceptance check — and until 2026-09-14 it was asked only
+at the `status:ready` promotion, which is a transition nobody performs.
+
+**What that cost, measured over all 318 open cards:** 100 meet the Definition of
+Ready and **218 do not** — and every one of those 218 is missing the **swimlane**
+(not one fails on the acceptance check alone). That is how the queue reaches 318
+open with 6 pickable. The **work-item form already makes both fields required**,
+so the entire gap is the paths that skip the form — a blank web issue,
+`gh issue create`, a REST/MCP agent — which is where the 218 came from.
+
+So the triage gate now carries a second arm: a card missing either field gets
+**`needs:definition`** and one comment naming what to add, clearing automatically
+once both are written. Same philosophy as the axes arm — *make the right thing
+true* — moved from the promotion nobody performs to the creation everybody
+performs. `parseForm` accepts the headings hand-written cards already use, so
+this asks for substance, not a template.
+
+**Two exits keep the bar from re-litigating the backlog:**
+
+- **Grandfathered.** Only cards opened on or after `DOR_CUTOFF`
+  (`.github/scripts/triage.js`) are judged. Age-blind flagging would have
+  commented on up to **218** cards as they were touched and buried the 29-card
+  triage banner under them; with the cutoff, the same replay over the real queue
+  flags **7**. Sweeping the legacy 218 is a deliberate labeling pass — the cheap
+  move that took the Ready column from 4 to 64 in about a minute — never a side
+  effect of landing a gate.
+- **Exempt.** `studio-feedback.yml` files an end-user bug report, and the
+  reporter cannot name the decision doc their crash belongs to. Cards labeled
+  `feedback` are never asked for a swimlane; triage turns such a report into a
+  card, and the bar then applies to the card.
+
+The flag is pushed into `BACKLOG.md` as its own 📐 banner, for the same reason
+`needs:triage` is: a flag behind a board filter nobody opened is not surfaced.
+The two stay **separate** banners — they answer different questions ("which column
+does this belong in" vs "can anyone work it"), and one merged count would mean
+neither.
+
 ### Card lifecycle (the `status:` columns)
 
 A **card** is one small, claimable unit (links its swimlane doc; doesn't restate
@@ -1771,6 +1812,12 @@ A card is `status:ready` only with **both**: a linked governing doc/spec
 captures them as the two ★ fields; the **Definition of Ready gate** workflow
 re-checks on every `status:ready` application and strips the label + comments if
 either is missing — so `status:ready` is a guarantee, not a hope.
+
+**The same two fields are now checked at intake** (§ The intake bar), which is
+the half that was missing: the gate below guards *promotion*, and promotion is a
+step nobody takes, so for 218 of 318 open cards the Definition of Ready was never
+asked at all. Both gates read the same `parseForm` fields, so a card that clears
+intake clears this one.
 
 **A hand-written card counts too.** The gate reads the two fields out of the
 body, and it used to recognize only the headings the *form* renders — so a card

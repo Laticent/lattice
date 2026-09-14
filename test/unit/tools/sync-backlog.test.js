@@ -91,3 +91,44 @@ describe('sync-backlog renderBacklog', () => {
     assert.doesNotMatch(md, /need triage/);
   });
 });
+
+describe('sync-backlog — the needs:definition banner', () => {
+  const card = (number, labels) => ({
+    number, title: `card ${number}`, url: `https://x/${number}`, labels: labels.map((name) => ({ name })),
+  });
+
+  test('a flagged card is pushed into the mirror, not left behind a board filter', () => {
+    const out = renderBacklog([card(1, ['status:backlog', 'needs:definition']), card(2, ['status:backlog'])]);
+    assert.match(out, /📐 \*\*1 card needs definition\*\*/);
+    assert.match(out, /\[#1\]\(https:\/\/x\/1\)/);
+    assert.doesNotMatch(out, /\[#2\]\(https:\/\/x\/2\)\./); // not listed in the banner
+  });
+
+  test('no flagged card renders no banner at all — the render stays pure', () => {
+    assert.doesNotMatch(renderBacklog([card(1, ['status:backlog'])]), /📐/);
+  });
+
+  test('the two flags stay separate banners — they answer different questions', () => {
+    const out = renderBacklog([
+      card(1, ['status:backlog', 'needs:triage']),
+      card(2, ['status:backlog', 'needs:definition']),
+    ]);
+    assert.match(out, /⚠️ \*\*1 card needs triage\*\*/);
+    assert.match(out, /📐 \*\*1 card needs definition\*\*/);
+  });
+
+  test('banner grammar agrees at one and at many', () => {
+    // The original agreed the noun and left the verb plural: "1 card need triage".
+    const one = renderBacklog([card(1, ['status:backlog', 'needs:triage', 'needs:definition'])]);
+    assert.match(one, /1 card needs triage/);
+    assert.match(one, /1 card needs definition/);
+    assert.match(one, /so nothing can pull it\)/);
+    const many = renderBacklog([
+      card(1, ['status:backlog', 'needs:triage', 'needs:definition']),
+      card(2, ['status:backlog', 'needs:triage', 'needs:definition']),
+    ]);
+    assert.match(many, /2 cards need triage/);
+    assert.match(many, /2 cards need definition/);
+    assert.match(many, /so nothing can pull them\)/);
+  });
+});

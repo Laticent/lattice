@@ -47,6 +47,12 @@ const PRIORITY_RANK = { 'priority:critical': 0, 'priority:high': 1, 'priority:me
 
 const labelNames = (issue) => (issue.labels || []).map((l) => (typeof l === 'string' ? l : l.name));
 
+// Banner grammar. Both flag banners read "<n> cards need X" / "1 card needs X";
+// the original agreed the noun and left the verb plural, so a single flagged card
+// rendered "1 card need triage".
+const cards = (n) => `${n} card${n === 1 ? '' : 's'}`;
+const verb = (n) => (n === 1 ? 'needs' : 'need');
+
 /** The board column an issue belongs to (its `status:` label, else Inbox). */
 function columnFor(issue) {
   const names = new Set(labelNames(issue));
@@ -94,9 +100,24 @@ function renderBacklog(issues) {
     .filter((i) => labelNames(i).includes('needs:triage'))
     .sort((a, b) => a.number - b.number);
   const triageBanner = needTriage.length
-    ? `> ⚠️ **${needTriage.length} card${needTriage.length === 1 ? '' : 's'} need triage** ` +
+    ? `> ⚠️ **${cards(needTriage.length)} ${verb(needTriage.length)} triage** ` +
       `(missing \`area:\`/\`type:\`/\`priority:\`): ` +
       `${needTriage.map((i) => `[#${i.number}](${i.url || '#'})`).join(', ')}.\n\n`
+    : '';
+
+  // The intake bar's flag gets the same treatment, and for the same reason: a
+  // card nobody can PULL is as dead to the queue as one nobody can sort. Kept a
+  // SEPARATE banner rather than folded into the one above — the two flags answer
+  // different questions ("which column does this belong in" vs "can anyone work
+  // it"), and merging them would put a count on screen that means neither.
+  const needDefinition = open
+    .filter((i) => labelNames(i).includes('needs:definition'))
+    .sort((a, b) => a.number - b.number);
+  const definitionBanner = needDefinition.length
+    ? `> 📐 **${cards(needDefinition.length)} ${verb(needDefinition.length)} definition** ` +
+      `(missing a swimlane or an acceptance check, so nothing can pull ` +
+      `${needDefinition.length === 1 ? 'it' : 'them'}): ` +
+      `${needDefinition.map((i) => `[#${i.number}](${i.url || '#'})`).join(', ')}.\n\n`
     : '';
 
   const sections = [];
@@ -127,7 +148,7 @@ The live, claimable work queue — a read-only mirror of [open issues](https://g
 grouped by board column. Design lives in \`engineering/decisions/\`; this tracks
 only *status*. **${open.length} open** item${open.length === 1 ? '' : 's'}.
 
-${triageBanner}${sections.join('\n').trimEnd()}\n`;
+${triageBanner}${definitionBanner}${sections.join('\n').trimEnd()}\n`;
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────

@@ -10,7 +10,13 @@ name: Issue triage gate
 #   • adds `status:backlog` when the card has no status lane, and
 #   • adds `needs:triage` + ONE comment when area/type/priority is missing from
 #     BOTH the labels and the (optional) parsed form — clearing `needs:triage`
-#     automatically once the axes are filled.
+#     automatically once the axes are filled, and
+#   • adds `needs:definition` when the two Definition-of-Ready fields (swimlane,
+#     acceptance check) are missing — the INTAKE BAR, which moves the DoR check
+#     from the `status:ready` promotion nobody performs to the creation everybody
+#     performs. Grandfathered to cards opened on or after triage.js's DOR_CUTOFF,
+#     because flagging age-blind would storm the ~218 legacy cards that fail it.
+#     Both concerns share one comment when a bare card trips both.
 #
 # THE ONE PATH THIS CANNOT CATCH, BY DESIGN: an issue opened by another workflow
 # via the repo GITHUB_TOKEN does not trigger new workflow runs (GitHub's
@@ -40,12 +46,16 @@ jobs:
         with:
           script: |
             const { parseForm } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/issue-form.js`);
-            const { computeTriage, COMMENT_SENTINEL } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/triage.js`);
+            const { computeTriage } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/triage.js`);
 
             const issue = context.payload.issue;
             const labels = (issue.labels || []).map((l) => (typeof l === 'string' ? l : l.name));
             const form = parseForm(issue.body || '');
-            const { add, remove, comment } = computeTriage({ labels, form });
+            // created_at drives the DoR arm's grandfathering — without it every
+            // legacy card would be flagged the moment anything touches it.
+            const { add, remove, comment, sentinels } = computeTriage({
+              labels, form, createdAt: issue.created_at,
+            });
 
             if (add.length) {
               await github.rest.issues.addLabels({
@@ -60,19 +70,23 @@ jobs:
               core.info(`Removed: ${name}`);
             }
             if (comment) {
-              // Post the explainer at most once per card — guard against a
+              // Post the explainer at most once per concern — guard against a
               // concurrent open+edit or a remove-axis → re-flag cycle by checking
-              // for the sentinel in existing comments before posting.
+              // for this comment's sentinels among existing comments. Every
+              // sentinel already present means the card has been told everything
+              // this comment would say, so skip; otherwise post.
               const prior = await github.paginate(github.rest.issues.listComments, {
                 ...context.repo, issue_number: issue.number, per_page: 100,
               });
-              if (prior.some((c) => (c.body || '').includes(COMMENT_SENTINEL))) {
-                core.info('Triage comment already present — skip.');
+              const seen = prior.map((c) => c.body || '').join('\n');
+              const fresh = sentinels.filter((s) => !seen.includes(s));
+              if (fresh.length === 0) {
+                core.info('Intake comment already present for every concern — skip.');
               } else {
                 await github.rest.issues.createComment({
                   ...context.repo, issue_number: issue.number, body: comment,
                 });
-                core.info('Posted needs:triage comment.');
+                core.info(`Posted intake comment covering: ${fresh.join(', ')}`);
               }
             }
             if (!add.length && !remove.length && !comment) core.info('Card already compliant — no-op.');
