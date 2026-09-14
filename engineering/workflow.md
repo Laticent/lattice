@@ -1529,6 +1529,87 @@ still counts agents cumulatively, still logs the spend, and still needs my OK to
 go past 8. Raise or lower the number in a given brief if the work warrants it —
 but write the number *in the card*, so the session it governs can read it.
 
+### The handoff issue — when the brief must outlive the session
+
+**A session that leaves work pending files one handoff issue.** The brief on the
+PR (§Where the cards go) is durable, but it is still not *claimable*, not
+searchable and not dedupable — and a session that dies before it opens a PR has
+nowhere to put the brief at all. The handoff issue closes that gap: it is the
+continuation brief as a real card on the board, so the next session pulls it from
+the queue instead of being handed it by you.
+
+File one when anything is pending at the end of a session. It is **one issue, not
+one per item** — the brief is a single line of work, and splitting it loses the
+ordering that makes it work.
+
+**Six rules, and two of them are traps you cannot see from the outside.**
+
+1. **Real H2 headings outside the fence; the fenced brief is the value.** The DoR
+   gate reads the two ★ fields out of the body with `parseForm`, and
+   `maskFences` blanks every fenced block *before* it looks for headings
+   (`.github/scripts/issue-form.js`) — deliberately, so a `# Done when` in a
+   pasted log cannot fake a field. The brief is fenced by mandate, so pasting it
+   verbatim leaves the gate seeing **no swimlane and no acceptance check**, and it
+   strips `status:ready` off the card you just filed. Write
+   `## Swimlane / governing decision doc` and `## Acceptance check` as real
+   headings *outside* any fence; a fence is fine as a **value** — the parser
+   slices values from the comment mask, not the fence mask, so a fenced
+   acceptance check counts as filled.
+2. **Never reference it with a closing keyword.** `pr-autoclose-issues.yml`
+   re-parses a merged PR body and closes **every** issue under a closing
+   keyword — it exists to defeat partial-close. A nine-item handoff closed by a
+   six-item PR loses three items silently. Link it as `#N` or `Refs #N`, never
+   `Closes #N`.
+3. **Items are checkboxes, capped at five or six.** One swimlane per handoff. The
+   cap is not tidiness: HARD RULE #28 derives **one** confidence level per PR on
+   the lowest qualifying axis, so nine unrelated items means one weak item floors
+   the whole card and the merge ask stops being informative.
+4. **Only off-path findings go in.** On-path defects get fixed in the change that
+   found them (#18). A handoff issue is not a place to park a window you created.
+5. **Stamp the base sha.** The next session needs to know what tree the brief was
+   true of; `main` will have moved.
+6. **Close it by hand.** Tick the items a PR delivered, then — if anything
+   remains — rewrite the remainder into a fresh handoff issue and close this one
+   with a pointer to it. A partially-done handoff is never left open to rot, and
+   never closed with items still unticked.
+
+Label it with all four axes and `status:ready`: it meets the Definition of Ready
+by construction, which is the whole point of the shape above.
+
+Body template — note where the fence starts:
+
+```
+## Summary
+<one line: the line of work this hands off>
+
+## Swimlane / governing decision doc
+engineering/decisions/YYYY-MM-DD-<topic>.md   (or the stable swimlane label)
+
+## Acceptance check
+Every item below is ticked, or rewritten into a fresh handoff issue and this one
+closed with a pointer to it.
+
+## Notes / context
+
+### Items
+- [ ] P1 · <the change, one line> — done when <acceptance a reviewer can run>
+- [ ] P2 · …
+
+### Brief
+<the fenced 🎯 continuation brief, verbatim — paste-ready>
+
+### Base
+<sha> on main, <date>
+```
+
+**Use those four H2s, in that order.** `Summary`, `Swimlane / governing decision
+doc`, `Acceptance check` and `Notes / context` are the headings the work-item form
+renders, so `parseForm` treats each as a field boundary. Drop `## Notes / context`
+and the acceptance check runs to the end of the body, swallowing the items, the
+brief and the base sha into the field the gate is checking — it still passes, but
+the card stops saying what it means. Everything after it is free-form: the items,
+the brief and the base sha sit under H3s inside `Notes / context`.
+
 ## 🚦 Pre-merge card — the evidence, before I decide
 
 The merge gate is the one place a human is required (HARD RULE #7), and for a
