@@ -177,8 +177,48 @@ Measured on the real Studio and Playground, built and driven in Chromium:
 | several confirmations leave one pill | `e2e/status-pill.spec.ts`, three real menu actions inside one dwell |
 | a refused import names each refusal on its own line | crafted `lattice-asset/1` zip through the real Library file input |
 | a corrupt bundle reports **why** | same input, a non-zip buffer |
+| a status message raised inside the previous one's **exit window** survives it | `e2e/status-pill.spec.ts`, real wall-clock dwell, real Sonner |
+| an action message raised inside a **clicked** affordance's exit window survives it | same file — the close path Sonner never reports |
 
 Plus 4194 unit tests, `npm run lint`, and `npm run build:check`.
+
+### The exit window, and why it took two tries to measure
+
+The 200ms window is the kernel's whole reason for rotating ids, and for a while it was
+measured only in jsdom (`src/lib/notify.dom.test.tsx`) — against the real Sonner
+package, but with no animation frames, no layout and timers that are not the browser's.
+The first attempt to close that gap drove the window with a **faked clock**, and it
+**passed with the defect pinned in**. It was deleted rather than shipped: an arm that
+cannot fail is not coverage.
+
+What works is to stop timing the window and start **observing** it. Sonner sets
+`data-removed="true"` on the toast element at the exact instant the window opens, so a
+`MutationObserver` installed in the page fires on that attribute and raises the next
+message from inside the same microtask — a few milliseconds in, deterministically,
+however loaded the box is. The click it dispatches is programmatic, which is the single
+synthetic step and is there because a CDP round-trip cannot make a 200ms deadline;
+everything the click then runs is the real app in a real browser.
+
+The same move settles the other end. Waiting out the window with a 600ms sleep is a
+guess about how loaded the box is, and the `SANCTIONED_E2E_SLEEPS` gate said so — but
+the window has an event of its own: the pending `removeToast` DETACHES the exiting
+element when it fires, so "no toast is still marked `data-removed`" is the deadline
+passing, polled rather than assumed. No sanction needed.
+
+Both arms are **proven to fail**, each against the defect it exists for, and the matrix
+is what makes them discriminating rather than merely red:
+
+| Build | status arm | action arm |
+|---|---|---|
+| as shipped | pass | pass |
+| `raiseSlot` never rotates the id (trap 2 off) | **fail** — 0 pills | **fail** — 0 pills |
+| `notifyAction` stops reporting the click as a close | pass | **fail** — 0 pills |
+
+The bottom row is the one worth keeping: it is the finding the checker raised, it breaks
+*only* the kind that carries a button, and the status arm staying green is what says the
+action arm is measuring the wrap rather than the rotation. Both fail arms were re-run
+against the final assertion shape, not an earlier one. Twelve consecutive green runs of
+both, two workers, no flake.
 
 One counting note, because it cost a cycle: Chromium gives every `StaticText` node an
 `InlineTextBox` child carrying the same string, so counting raw name matches doubles

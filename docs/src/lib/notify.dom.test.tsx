@@ -8,6 +8,13 @@ import { __resetNotify, notify, notifyAction } from '@/lib/notify';
 // which is the right seam for the merge-by-id contract, and blind to the bug this
 // file exists for. Sonner's exit-window race lives in its OWN store and timers, so
 // catching it needs the real package, a real `<Toaster>`, and real time.
+//
+// This tier is jsdom, so it is the FAST arm, not the deciding one: no animation
+// frames, no layout, and timers that are not the browser's. The exit-window and
+// clicked-affordance claims are also driven in Chromium on the built Studio —
+// `docs/e2e/status-pill.spec.ts`, "THE EXIT WINDOW, on the real surface" — where both
+// are proven to fail against the defect each exists for. Change the window mechanics
+// here and change them there too; neither tier alone is the evidence.
 
 function pills(): string[] {
 	return Array.from(document.querySelectorAll('[data-sonner-toast]')).map((p) => p.textContent ?? '');
