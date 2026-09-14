@@ -76,3 +76,29 @@
 # builds its fixture at runtime with `.replace()`, which is better; this escape hatch exists so
 # that a fixture that MUST live on disk has a correct way to.
 *.crlf.* -text
+
+# THE DECISION INDEX IS A GENERATED LIST OF UNIQUE ROWS, SO KEEPING BOTH SIDES IS THE RIGHT
+# MERGE. `engineering/decisions/README.md` carries a block, spliced between two sentinels, with
+# one row per note — and roughly half of all merged PRs rewrite it (44-50% across the last 100,
+# 200 and 300 commits; `CHANGELOG.md` sat at the same place before per-PR fragments fixed it in
+# #1593, and is now at 1%). That makes it the repo's highest-churn shared region.
+#
+# WHEN IT CONFLICTS IS NOT RANDOM, AND IT IS NOT RARE. Rows sort date-descending then filename,
+# so a note carrying TODAY's date sorts above every existing note in its status group. Two notes
+# written the same day into the same group are therefore ALWAYS immediate neighbours — one
+# insertion point, one textual conflict — whatever their filenames are. Measured with real
+# branches: same-date-far-apart-filenames conflicts, both-dated-today conflicts, and only a
+# straddling note that already sorts BETWEEN them merges cleanly. This is the common shape, not
+# a corner; #1547's mitigation closed the SILENT miscount case and left this one.
+#
+# `union` keeps both sides' rows. That is correct here because every row is unique to one note
+# and the block's order is not asserted — `build-decisions-index.js --check` was deliberately
+# weakened in #1547 to verify per-note correctness rather than byte-identity, so a union-merged
+# index passes it. Verified by merging two real branches: both rows present, gate green.
+#
+# THE ONE CASE UNION GETS WRONG FAILS LOUDLY, WHICH IS WHY THIS IS SAFE. If two branches change
+# the SAME note's status, union keeps both of that note's rows. The note file itself still
+# conflicts (a real semantic conflict, correctly surfaced), and `--check` then refuses with
+# "2 entries in the index — it must appear exactly once". Measured. A wrong merge here cannot
+# reach `main` quietly; it hits the gate every PR already runs.
+engineering/decisions/README.md merge=union
