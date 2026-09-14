@@ -12,7 +12,7 @@
  * exclusion has to earn its place here on every run, or the escape hatch becomes
  * the rule.
  *
- * EXCLUSION 1 — KNOCKOUTS. Six marks stroke in `var(--bg)`, the canvas color.
+ * EXCLUSION 1 — KNOCKOUTS. Eight marks stroke in `var(--bg)`, the canvas color.
  * That is a separator, not an outline: its job is to hold two touching marks
  * apart, so its correct weight follows what it has to separate. Flattening one
  * into the other took quadrant's separator from 5.49px to 1px. The test below

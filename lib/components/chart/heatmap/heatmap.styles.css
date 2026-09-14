@@ -82,7 +82,17 @@
   /* WIDTH FROM THE FAMILY, dash and color from here. The weight of a data mark's
    * edge is chart-family.css's to set (chart-mark-edge-census.test.js); what is
    * local to this member is what the edge MEANS — dotted, muted, "nobody measured
-   * this" — not how thick it is. */
+   * this" — not how thick it is.
+   *
+   * THE DASH IS IN CSS PIXELS HERE, NOT USER UNITS, and that is not obvious from
+   * reading this line. Joining the family rule also brings its
+   * `vector-effect: non-scaling-stroke`, which re-scopes the dash ARRAY as well as
+   * the width — so `1 1` means 1 CSS px, not 1 viewBox unit. Measured on a real
+   * render: dash pitch went 2.46 CSS px to 1.00, and at 1x DPR the gaps stop
+   * reaching the background, so the dots read as a fine texture rather than as
+   * dots. Still distinguishable from a measured cell at 2x and in the vector PDF,
+   * but thinner than it was; if this ever has to read at 1x, the answer is a
+   * larger dash pair here, not a local width. */
   stroke: var(--muted-mark);
   stroke-dasharray: 1 1;
 }
