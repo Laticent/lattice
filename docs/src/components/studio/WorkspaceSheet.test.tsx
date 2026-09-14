@@ -426,7 +426,7 @@ describe('WorkspaceSheet — Data tab backup & restore', () => {
 
 	it('downloading a backup stamps the last-backup line and toasts', async () => {
 		const notify = vi.mocked(notifyModule);
-		notify.mockClear();
+			notify.mockClear();
 		const user = userEvent.setup();
 		render(<WorkspaceSheet open onOpenChange={noop} />);
 		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
@@ -452,7 +452,7 @@ describe('WorkspaceSheet — General tab install group', () => {
 		};
 		try {
 			const notify = vi.mocked(notifyModule);
-		notify.mockClear();
+			notify.mockClear();
 			const user = userEvent.setup();
 			render(<WorkspaceSheet open onOpenChange={noop} />);
 			const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));

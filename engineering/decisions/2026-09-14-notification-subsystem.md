@@ -11,7 +11,7 @@ summary: >
   owns the EVENT/broadcast class and gives each message a KIND that carries its policy (status ·
   action · sticky, one slot each), which is what finally makes the Toaster's cap structural; and
   `lib/announce.tsx` gives the condition strips the a11y half they were missing without moving
-  where they render. The `notify` prop chain — 15 modules, 175 call sites — is retired for a
+  where they render. The `notify` prop chain — 16 modules, 173 call sites — is retired for a
   module singleton, the repo's established cross-island pattern. Every call site's text is
   unchanged.
 ---
@@ -39,7 +39,7 @@ site. Every symptom fell out of that one gap:
 
 - The Library raised **one pill per refused item** in a loop — no rate policy existed.
 - A status message could **evict an Undo** — no priority existed.
-- `notify` was **prop-drilled through 15 modules** — a transport problem wearing an
+- `notify` was **prop-drilled through 16 modules** — a transport problem wearing an
   API's clothes; it was injected so tests could stub it.
 - ArchitectChat **built its own store** — it needed per-deck keying and replay, which
   `notify(msg: string)` cannot express. Not sloppiness: the vocabulary gap forcing a
@@ -107,7 +107,7 @@ would be the first thing a consolidation wrongly absorbed.
 
 ## The prop chain is retired
 
-`notify` reached 175 call sites through 15 modules. The 2026-09-13 note declined to
+`notify` reached 173 call sites through 16 modules (re-derive: `grep -rn "notify(" docs/src --include=*.tsx --include=*.ts | grep -v "\.test\." | grep -vE "notifyAction|notifySticky|function notify|__resetNotify"`; the count moves with the tree, so quote the command, not just the number). The 2026-09-13 note declined to
 touch it, on the honest ground that it was a real dependency-injection seam — six
 suites assert on it. That reasoning was right about the seam and wrong about the
 conclusion: **a module singleton is no less testable**, it is the repo's established
@@ -157,7 +157,7 @@ Measured on the real Studio and Playground, built and driven in Chromium:
 | a refused import names each refusal on its own line | crafted `lattice-asset/1` zip through the real Library file input |
 | a corrupt bundle reports **why** | same input, a non-zip buffer |
 
-Plus 4190 unit tests, `npm run lint`, and `npm run build:check`.
+Plus 4194 unit tests, `npm run lint`, and `npm run build:check`.
 
 One counting note, because it cost a cycle: Chromium gives every `StaticText` node an
 `InlineTextBox` child carrying the same string, so counting raw name matches doubles
@@ -175,5 +175,5 @@ every occurrence and the assertion never means what it reads as.
   would be noise, or deliberately silent (`aria-hidden` decorative dots, two explicit
   `aria-live="off"` sites). Logged rather than swept: a blanket pass would have
   announced the ticks.
-- **`Library.tsx:315` carries a British `centre`.** Pre-existing, off-path, logged
+- **`Library.tsx:330` carries a British `centre`.** Pre-existing, off-path, logged
   per HARD RULE #18.

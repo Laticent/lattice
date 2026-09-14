@@ -868,17 +868,22 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// correcting after. Declared HERE (not derived in the hook) because the only runtime
 		// source of the real ids is the mounted group, which is one mount too late.
 
-		// A pane collapsing is an EVENT, not the render's state, so it goes to the pill
-		// rather than overwriting the line that says what the render last did. That also
-		// retires the hand-back below: nothing borrowed the line, so nothing returns it.
-		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
+		// STAYS ON THE LINE, and the kernel's own decision record says why: a CONDITION
+		// has no dwell. "Preview collapsed — rendering paused." holds exactly as long as
+		// the pane is collapsed, so a 2600ms pill would expire while it was still true
+		// and hand the line back to `Rendered 7 slide(s).` over a preview that is doing
+		// nothing — the lie the hand-back below was built to prevent, relocated rather
+		// than removed. This was briefly moved to a pill and moved straight back.
+		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onExpand: (side) => {
 			if (side === 'b') {
 				onPreviewExpand(); // its render writes a fresh status on the way through
+			} else if (lastRenderStatusRef.current) {
+				// The editor side renders nothing on expand, so without this the line goes on
+				// reading "Editor collapsed." over an open editor — a small lie, but this whole
+				// change is about the chrome not making them.
+				setStatusLine(lastRenderStatusRef.current);
 			}
-			// The editor side used to need a hand-back here, because "Editor collapsed."
-			// had overwritten the render line and would otherwise sit there over an open
-			// editor. It is a pill now, so the line was never borrowed.
 		},
 		onSettle: () => frameRef.current?.contentWindow?.__latticeFit?.(),
 		onDragStart: () => frameRef.current?.contentWindow?.__latticeFitSuspend?.(),
@@ -981,15 +986,26 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			return false;
 		}
 	}, [getSource]);
-	/** Park the current draft before a programmatic overwrite; offer undo. */
+	/**
+	 * Park the current draft before a programmatic overwrite; offer undo.
+	 *
+	 * Returns whether it SPOKE, so a caller that would otherwise add its own
+	 * confirmation can stay quiet. That used to be invisible: Sonner's collapsed stack
+	 * showed only the front pill, so the handoff's two near-identical sentences —
+	 * "Loaded the deck from X — your previous draft is backed up." and "Loaded the deck
+	 * handed off from X." — were never on screen together to be read as the repetition
+	 * they are. Expanding the stack made it plain.
+	 */
 	const backupDraft = React.useCallback(
 		(why: string) => {
-			if (draftIsPristine()) return;
+			if (draftIsPristine()) return false;
 			try {
 				localStorage.setItem(BACKUP_KEY, getSource());
 				showToast(`${why} — your previous draft is backed up.`, true);
+				return true;
 			} catch {
 				/* private mode: nothing to park into */
+				return false;
 			}
 		},
 		[draftIsPristine, getSource, showToast],
@@ -1619,7 +1635,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// consumed on APPLY, never on load — a "no" destroys nothing (invariant I4).
 	const applyHandoff = React.useCallback(
 		(h: { md: string; from: string; ts: number }) => {
-			backupDraft(`Loaded the deck from ${h.from}`);
+			const backedUp = backupDraft(`Loaded the deck from ${h.from}`);
 			recordInsert(h.md);
 			try {
 				localStorage.removeItem(HANDOFF_KEY);
@@ -1631,7 +1647,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// surface (the startup precedence rule, live for an already-open tab too).
 			if (viewRef.current !== 'edit') setViewMode('edit');
 			applyDeck(h.md, { toPreview: true });
-			notify(`Loaded the deck handed off from ${h.from}.`);
+			// Only when the backup toast did not already say it — see `backupDraft`.
+			if (!backedUp) notify(`Loaded the deck handed off from ${h.from}.`);
 		},
 		[applyDeck, backupDraft, recordInsert, setViewMode],
 	);

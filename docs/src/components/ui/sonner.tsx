@@ -64,6 +64,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // not prevent the third message — it HIDES one, `pointer-events: none`, and the one
       // it hides is the oldest, which is the affordance someone was reaching for.
       visibleToasts={3}
+      // (4) EXPANDED, NOT STACKED — and this is only safe because of (3). Sonner's
+      // collapsed stack zeroes the content of every toast but the front one
+      // (`[data-expanded='false'][data-front='false'] > * { opacity: 0 }`), so a pill
+      // behind another is an unreadable sliver that still accepts clicks. Measured: a
+      // draft-backup Undo sitting behind a status message was a 4px edge with an
+      // invisible button in it, which is a worse outcome than either being replaced or
+      // being absent. The kernel's per-kind ceiling is what makes expanding sane —
+      // with an unbounded stack this would have been a wall, with at most three kinds
+      // it is at most three lines, and the common case is still one.
+      expand
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,

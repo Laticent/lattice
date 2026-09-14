@@ -42,3 +42,43 @@ describe('Announce', () => {
 		expect(region()?.className).toContain('sr-only');
 	});
 });
+
+// A CALLER-SIDE hazard, pinned here because the component cannot defend against it:
+// mounting `<Announce>` inside the branch that the message arrives with re-creates
+// the region, which is the silent-insert failure. The Fabricate theme gate was
+// written that way first — its region lived inside the `findings.length` branch, and
+// `blocked` can only become true as findings go 0 → N.
+describe('the caller must keep the node across the change', () => {
+	function Wrong({ on }: { on: boolean }) {
+		if (!on) return <p>clean</p>;
+		return (
+			<div>
+				<Announce message="Refused." />
+			</div>
+		);
+	}
+	function Right({ on }: { on: boolean }) {
+		return (
+			<>
+				<Announce message={on ? 'Refused.' : null} />
+				{on ? <div>bad</div> : <p>clean</p>}
+			</>
+		);
+	}
+
+	it('a region mounted inside the branch is a NEW node — it will not announce', () => {
+		const { rerender } = render(<Wrong on={false} />);
+		expect(region()).toBeNull(); // nothing to change FROM
+		rerender(<Wrong on />);
+		expect(region()).not.toBeNull();
+	});
+
+	it('a region mounted outside it survives the swap, so the text is a change', () => {
+		const { rerender } = render(<Right on={false} />);
+		const before = region();
+		expect(before).not.toBeNull();
+		rerender(<Right on />);
+		expect(region()).toBe(before);
+		expect(region()?.textContent).toBe('Refused.');
+	});
+});

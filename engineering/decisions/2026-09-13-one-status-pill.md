@@ -10,7 +10,9 @@ summary: >
   status text shares ONE id and rewrites one pill in place (`lib/notify.ts`), while a
   toast carrying Undo or Reload keeps its own slot, so unrelated text can never replace a
   button the reader was reaching for. `visibleToasts={2}` is then the real worst case, not a
-  taste call. The trap worth knowing: a fixed id is only HALF the mechanism — Sonner MERGES
+  taste call (SUPERSEDED 2026-09-14 — the cap is 3, one slot per KIND; sticky and action can
+  both be up, which this note got wrong. See 2026-09-14-notification-subsystem.md). The trap
+  worth knowing: a fixed id is only HALF the mechanism — Sonner MERGES
   by id, so any field a later call omits inherits the previous message's value, which is why
   `notify` passes every field on every call including as `undefined`. Measured on the
   real Studio: 3 pills before, 1 after.
@@ -59,7 +61,7 @@ competing for three slots.
   replace a button the reader was reaching for, and the Playground's stale-page
   notice is `duration: Infinity` *precisely* because it must outlive every status
   message around it. Status text is disposable; an affordance is not.
-- **`visibleToasts={2}`** is therefore not a taste call but the real worst case:
+- **`visibleToasts={2}`** — **SUPERSEDED 2026-09-14: the cap is 3, one slot per kind.** The reasoning below was right that the number must be derived from the real worst case and wrong about what that worst case is; sticky and action CAN both be up. Kept because the correction is the point. It is therefore not a taste call but the real worst case:
   the status pill beside one actionable toast. Never a pile. **That claim was false
   when first written** and the cap is what made it matter: `showUndo` minted a new
   id per settings write and its reactive dismiss only fires when the source moves

@@ -5,11 +5,11 @@ import { expect, gotoStudio, test } from './studio-fixture';
 // Every transient confirmation in the Studio used to mint its own toast, and the
 // Toaster showed three at once, so anything that spoke twice inside the 2600ms
 // dwell stacked. Status messages now share a single Sonner id and rewrite one
-// pill in place (`src/lib/status-pill.ts`).
+// pill in place (`src/lib/notify.ts`).
 //
 // This runs on the real Studio because the mechanism is Sonner's own store plus
 // its rendered stack — a unit test can only see the options object we hand over,
-// which is what `status-pill.test.ts` pins. It cannot see how many `<li>` land.
+// which is what `notify.test.ts` pins. It cannot see how many `<li>` land.
 
 /** The toast elements themselves — NOT the `[data-sonner-toaster]` container the
  *  fixture's `appToast` returns. This spec counts pills, so it needs the items. */

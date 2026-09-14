@@ -29,11 +29,11 @@
 // ── What deliberately does NOT come through here ─────────────────────────────
 //
 // This kernel owns messages that are EVENTS, broadcast to whoever is looking. Two
-// neighbouring families are not events and are not absorbed:
+// neighboring families are not events and are not absorbed:
 //
 //   · A CONDITION has no dwell. A panel strip that must be visible exactly while
 //     Save is disabled cannot expire or be dismissed without lying — so it renders
-//     where the control is, and takes only `announce.ts` for its a11y half.
+//     where the control is, and takes only `announce.tsx` for its a11y half.
 //   · An ADDRESSED notice is keyed to an entity and replayed when the reader comes
 //     back to it. ArchitectChat's per-deck failure notice is consumed by the next
 //     turn on that deck, never by time; a broadcast pill cannot express it.
@@ -118,7 +118,14 @@ const slots: Record<keyof typeof NOTICE_ID_PREFIX, Slot> = {
  * dwell from full. Once the pill has closed the id rotates, because a pending
  * removal still names the old one for 200ms (trap 2).
  */
-function raiseSlot(kind: keyof typeof NOTICE_ID_PREFIX, message: string, fields: Record<string, unknown>): NoticeHandle {
+function raiseSlot(
+	kind: keyof typeof NOTICE_ID_PREFIX,
+	message: string,
+	fields: Record<string, unknown>,
+	/** Handed the slot's own "this pill is gone" callback, for a kind that has a close
+	 *  path Sonner does not report (see `notifyAction`). */
+	wire?: (closed: () => void) => Record<string, unknown>,
+): NoticeHandle {
 	const slot = slots[kind];
 	if (!slot.live) slot.id = `${NOTICE_ID_PREFIX[kind]}#${++slot.seq}`;
 	slot.live = true;
@@ -130,7 +137,12 @@ function raiseSlot(kind: keyof typeof NOTICE_ID_PREFIX, message: string, fields:
 	const closed = () => {
 		if (slot.raise === token) slot.live = false;
 	};
-	toast(message, { id: slot.id, onAutoClose: closed, onDismiss: closed, ...fields });
+	// `fields` FIRST: the liveness callbacks are the slot's own bookkeeping and a
+	// caller's options must never be able to land on top of them. Spread the other way
+	// round, one future `onAutoClose` in an options object silently stops the slot
+	// tracking its own pill — which is finding #1 below, re-introduced for all three
+	// kinds by a one-line edit nothing would catch.
+	toast(message, { ...fields, ...(wire?.(closed) ?? {}), id: slot.id, onAutoClose: closed, onDismiss: closed });
 	return slot.id;
 }
 
@@ -149,13 +161,35 @@ export function notify(message: string, opts: NotifyOptions = {}): void {
 	});
 }
 
-/** Tell the reader something happened AND offer one way to respond to it. */
+/**
+ * Tell the reader something happened AND offer one way to respond to it.
+ *
+ * THE CLICK IS A CLOSE PATH SONNER DOES NOT REPORT. Its action button runs
+ * `toast.action.onClick(...)` and then `deleteToast()` — with no `onDismiss`
+ * (`dist/index.mjs:816-821`). The close button and the swipe both fire it; this one
+ * does not. Left alone, a slot whose affordance was CLICKED stays `live` forever, so
+ * its id never rotates and the exit-window protection above is simply off for it —
+ * the next message on that kind renders and is then deleted by this one's pending
+ * removal. So the caller's handler is wrapped to report the close itself.
+ *
+ * This path did not exist before the kernel: the pill that preceded it always passed
+ * `action: undefined`, so nothing in the app had ever mounted an action button.
+ */
 export function notifyAction(message: string, opts: ActionOptions): NoticeHandle {
-	return raiseSlot('action', message, {
-		duration: opts.duration ?? ACTION_DURATION,
-		description: opts.description,
-		action: { label: opts.label, onClick: opts.onClick },
-	});
+	return raiseSlot(
+		'action',
+		message,
+		{ duration: opts.duration ?? ACTION_DURATION, description: opts.description },
+		(closed) => ({
+			action: {
+				label: opts.label,
+				onClick: () => {
+					opts.onClick();
+					closed();
+				},
+			},
+		}),
+	);
 }
 
 /**
@@ -164,11 +198,21 @@ export function notifyAction(message: string, opts: ActionOptions): NoticeHandle
  * open. Never expires — so use it only where waiting is the correct behavior.
  */
 export function notifySticky(message: string, opts: ActionOptions): NoticeHandle {
-	return raiseSlot('sticky', message, {
-		duration: Number.POSITIVE_INFINITY,
-		description: opts.description,
-		action: { label: opts.label, onClick: opts.onClick },
-	});
+	return raiseSlot(
+		'sticky',
+		message,
+		{ duration: Number.POSITIVE_INFINITY, description: opts.description },
+		// Same unreported close path as `notifyAction` — see its docblock.
+		(closed) => ({
+			action: {
+				label: opts.label,
+				onClick: () => {
+					opts.onClick();
+					closed();
+				},
+			},
+		}),
+	);
 }
 
 /** Retire a notice early. Safe to call on one already gone. */
@@ -176,8 +220,16 @@ export function dismissNotice(handle: NoticeHandle): void {
 	toast.dismiss(handle);
 }
 
-/** Test-only: forget which pills are live. The module keeps process-wide state, so a
- *  suite asserting id rotation has to start from a known point. */
+/**
+ * Test-only: forget which pills are live. The module keeps process-wide state, so a
+ * suite asserting id rotation has to start from a known point.
+ *
+ * `seq` is deliberately NOT rewound. Sonner's own store is module-global too and
+ * outlives a React unmount, so a rewound counter hands the next test an id a LINGERING
+ * toast still answers to — which merges the two, and the suite reads one pill where it
+ * raised two (or two where it raised one, depending on order). Monotonic ids cost
+ * nothing and make each test's pills its own.
+ */
 export function __resetNotify(): void {
-	for (const slot of Object.values(slots)) Object.assign(slot, { id: '', live: false, seq: 0, raise: 0 });
+	for (const slot of Object.values(slots)) Object.assign(slot, { id: '', live: false, raise: 0 });
 }

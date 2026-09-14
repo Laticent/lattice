@@ -1685,20 +1685,37 @@ function PairRow({ icon, label, ratio }: { icon: React.ReactNode; label: string;
  * (HARD RULE #24). A blank specimen with no explanation is the one thing that must
  * not happen, so the reason is stated where the specimen went blank.
  */
+const PREVIEW_PAUSED = 'The preview is paused — this stylesheet reaches off the device. Fix the blocking finding below and it comes straight back.';
+
 function ThemeFindings({ findings, blocked }: { findings: Finding[]; blocked: boolean }) {
-	if (!findings.length) {
-		return <p className="px-1 py-1 font-mono text-[10.5px] uppercase tracking-wider text-[var(--pass)]">Gate clean</p>;
-	}
+	// The region is OUTSIDE the early return, and that placement is the whole point.
+	// `blocked` can only become true as `findings` goes 0 → N, so a region rendered
+	// inside the second branch would be CREATED carrying its sentence — and a freshly
+	// inserted live region is mostly not announced (`lib/announce.tsx`). Mounted here
+	// it persists across the swap and the sentence arrives as a CHANGE, which is what
+	// gets read out. It was written the wrong way round first, and the a11y-tree e2e
+	// did not catch it: that arm asserts the node is in the tree afterwards, which it
+	// is either way.
+	return (
+		<>
+			<Announce message={blocked ? PREVIEW_PAUSED : null} />
+			{!findings.length ? (
+				<p className="px-1 py-1 font-mono text-[10.5px] uppercase tracking-wider text-[var(--pass)]">Gate clean</p>
+			) : (
+				<ThemeFindingsList findings={findings} blocked={blocked} />
+			)}
+		</>
+	);
+}
+
+function ThemeFindingsList({ findings, blocked }: { findings: Finding[]; blocked: boolean }) {
 	return (
 		<div className="flex max-h-[40%] shrink-0 flex-col gap-1 overflow-y-auto">
 			{blocked && (
 				<p aria-hidden="true" className="rounded-md border border-[color-mix(in_srgb,var(--fail)_35%,transparent)] bg-[color-mix(in_srgb,var(--fail)_10%,transparent)] px-2 py-1.5 text-[11px] leading-snug text-[var(--fail)]">
-					The preview is paused — this stylesheet reaches off the device. Fix the blocking finding below and it comes straight back.
+					{PREVIEW_PAUSED}
 				</p>
 			)}
-			{/* The preview going dark is the kind of thing you notice instantly by eye and
-			    not at all otherwise, so it is the clearest case in this file for a region. */}
-			<Announce message={blocked ? 'The preview is paused — this stylesheet reaches off the device. Fix the blocking finding below and it comes straight back.' : null} />
 			{findings.map((f, i) => (
 				<div key={`${f.rule}-${f.line ?? i}`} className="flex items-start gap-1.5 px-1 text-[11px] leading-snug">
 					<span className={cn('mt-[3px] shrink-0 font-mono text-[9px] font-bold uppercase', f.level === 'error' ? 'text-[var(--fail)]' : 'text-[var(--warn)]')}>{f.line ? `L${f.line}` : f.level === 'error' ? 'ERR' : 'WARN'}</span>

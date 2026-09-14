@@ -52,7 +52,7 @@ export function useReferenceDoc(onManage?: () => void) {
 	}, []);
 	React.useEffect(() => refresh(), [refresh]);
 
-	const capReached = () => { if (docs.length >= MAX_GROUND_DOCS) { notify?.(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return true; } return false; };
+	const capReached = () => { if (docs.length >= MAX_GROUND_DOCS) { notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return true; } return false; };
 
 	const onFile = async (file?: File | null) => {
 		if (!file) return;
@@ -64,9 +64,9 @@ export function useReferenceDoc(onManage?: () => void) {
 			// The cap is re-checked INSIDE the updater so concurrent adds can't race past it.
 			setDocs((cur) => (cur.some((x) => x.id === rec.id) || cur.length >= MAX_GROUND_DOCS ? cur : [...cur, { ...d, id: rec.id }]));
 			refresh();
-			notify?.(`Attached “${d.name}” — saved to your library and grounding the next generation (billed each run).`);
+			notify(`Attached “${d.name}” — saved to your library and grounding the next generation (billed each run).`);
 		} catch (e) {
-			notify?.((e as Error)?.message || 'Could not read that file.');
+			notify((e as Error)?.message || 'Could not read that file.');
 		}
 		if (inputRef.current) inputRef.current.value = ''; // allow re-picking the same file
 	};
@@ -76,7 +76,7 @@ export function useReferenceDoc(onManage?: () => void) {
 	const toggleSaved = (rec: RefDocRecord) => {
 		setDocs((cur) => {
 			if (cur.some((d) => d.id === rec.id)) return cur.filter((d) => d.id !== rec.id);
-			if (cur.length >= MAX_GROUND_DOCS) { notify?.(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return cur; }
+			if (cur.length >= MAX_GROUND_DOCS) { notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return cur; }
 			return [...cur, recordToDoc(rec)];
 		});
 	};

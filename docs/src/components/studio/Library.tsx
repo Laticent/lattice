@@ -529,7 +529,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			// a single tick and buried its own success line. The outcome is a headline
 			// plus, when anything was refused, the refusals underneath it: same
 			// information, one pill, and the success no longer competes with the
-			// failures for a slot (`lib/status-pill.ts`).
+			// failures for a slot (`lib/notify.ts`).
 			const refusals = refused.filter((r): r is NonNullable<ImportRefusal> => r !== null);
 			const detail = refusals.length ? refusedDetail(refusals) : undefined;
 			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`;

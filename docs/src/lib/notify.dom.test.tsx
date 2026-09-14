@@ -116,6 +116,28 @@ describe('the message kernel, against real Sonner', () => {
 		expect(pills().join('|')).toContain('Applied indaco.');
 	});
 
+	// THE CLOSE PATH SONNER DOES NOT REPORT. Its action button runs the handler and
+	// then `deleteToast()` with no `onDismiss`, so a slot that trusts the callbacks
+	// stays `live` after a click, never rotates its id, and the NEXT message on that
+	// kind is deleted by this one's still-pending removal — it flashes and vanishes.
+	it('an action pill that was CLICKED does not swallow the next one', async () => {
+		render(<Toaster />);
+		act(() => {
+			notifyAction('First action.', { label: 'Undo', onClick: () => {} });
+		});
+		await tick(50);
+		const button = document.querySelector('[data-button]') as HTMLButtonElement;
+		expect(button).not.toBeNull();
+		act(() => button.click());
+		await tick(20); // still inside the previous pill's 200ms removal window
+
+		act(() => {
+			notifyAction('Second action.', { label: 'Undo', onClick: () => {} });
+		});
+		await tick(400); // past that pending removal
+		expect(pills().join('|')).toContain('Second action.');
+	});
+
 	it('a second action rewrites the first rather than stacking beside it', async () => {
 		render(<Toaster />);
 		act(() => {
