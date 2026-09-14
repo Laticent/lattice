@@ -414,11 +414,13 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/calibrate-capacity.js` | calibrate-capacity — find the ELEMENT COUNT a layout overflows at, per box |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/chart-colour-reach.js` | chart-colour-reach — how far does colour actually travel into a chart? |
+| `tools/chart-contrast-solve.js` | CONTRAST SOLVER — every text and every mark against WHAT IS ACTUALLY BEHIND IT. |
 | `tools/chart-finish-coherence.mjs` | chart-finish-coherence — does every chart member actually CHANGE when the |
 | `tools/chart-finish-divergence.js` | chart-finish-divergence — do two chart finishes actually LOOK different, and |
 | `tools/chart-hue-jobs.js` | chart-hue-jobs — does this member's categorical hue do a job, or is it decoration? |
-| `tools/chart-language-census.js` | chart-language-census — measure what each chart-family member ACTUALLY paints. |
+| `tools/chart-language-census.js` | chart-language-census — measure what each chart-family member ACTUALLY paints, and (--check) hold every kernel.marks declaration to that render. |
 | `tools/chart-mark-separation.js` | chart-mark-separation — can a reader still tell one category from another, |
+| `tools/chart-structure-census.js` | chart-structure-census — the chart family's SHARED STRUCTURE, measured. |
 | `tools/chart-style-catalog.js` | chart-style-catalog — what style each chart ACTUALLY paints, measured. |
 | `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |
 | `tools/check-css-values.js` | check-css-values — does the browser actually ACCEPT every value we ship? |

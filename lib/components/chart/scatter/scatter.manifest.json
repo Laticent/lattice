@@ -17,7 +17,33 @@
   "render": "svg",
   "renderNote": "Grid, both tick ladders, the two axis captions, every dot, every point name and the bubble size key are one `<svg>`. The label engine tries eight positions around each dot against the marks, the plot bounds and the labels already placed, and draws a leader when a name still cannot sit against its dot — none of that works unless all of it shares one coordinate system.",
   "kernel": {
-    "figureClass": "scatter-figure"
+    "figureClass": "scatter-figure",
+    "marks": [
+      {
+        "class": "scatter-dot",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "scatter-bubble",
+        "paint": "fill",
+        "encodes": "layered",
+        "bears": false
+      },
+      {
+        "class": "scatter-size-ring",
+        "paint": "fill",
+        "encodes": "layered",
+        "bears": false
+      },
+      {
+        "class": "scatter-trend",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      }
+    ]
   },
   "stage": "canvas",
   "coda": {

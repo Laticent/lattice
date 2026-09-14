@@ -47,7 +47,7 @@
  * and the edge is what keeps it visible at all. */
 :is(section.waterfall, figure.chart-frame) .waterfall-bar {
   stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
-  stroke-width: 0.5;
+  stroke-width: var(--chart-edge);
   paint-order: stroke fill;
 }
 :is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="up"] {
@@ -64,7 +64,7 @@
 :is(section.waterfall, figure.chart-frame) .waterfall-bar[data-s="flat"] {
   fill: none;
   stroke: color-mix(in oklab, var(--text-body) 55%, transparent);
-  stroke-width: 0.7;
+  stroke-width: var(--chart-edge);
 }
 /* A total is a different KIND of bar, not a third category — and it is drawn in
  * the CANVAS'S OWN INK rather than from the status palette, which is the one
@@ -98,7 +98,7 @@
     color-mix(in oklab, var(--text-body) 13%, var(--bg)),
     color-mix(in oklab, var(--text-body) 20%, var(--bg)));
   stroke: color-mix(in oklab, var(--text-body) 40%, transparent);
-  stroke-width: 0.6;
+  stroke-width: var(--chart-edge);
 }
 
 /* The connector — the line that makes this a bridge. It carries the running

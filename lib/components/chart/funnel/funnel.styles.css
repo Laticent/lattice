@@ -42,6 +42,10 @@
  * swatch uses). Labels and values sit on the canvas, never on a band, so the
  * fill never affects text contrast. A hairline canvas-colored stroke keeps
  * adjacent bands crisp. */
+/* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
+ * two touching marks apart, so its correct weight follows what it has to
+ * separate, not the family's outline weight. It is deliberately excluded
+ * from the shared `--chart-edge` rule — see chart-family.css. */
 :is(section.funnel, figure.chart-frame) .funnel-band {
   fill: var(--chart-cat-1-body);
   stroke: var(--bg);

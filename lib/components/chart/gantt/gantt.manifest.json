@@ -16,7 +16,39 @@
   "render": "svg",
   "renderNote": "Bars, milestones, the date axis and every caption are one `<svg>`. A bar's start and length are positions on a shared time axis, so axis and bars must be solved together; CSS boxes would re-derive the same scale per row and drift.",
   "kernel": {
-    "figureClass": "gantt-chart"
+    "figureClass": "gantt-chart",
+    "marks": [
+      {
+        "class": "gantt-bar",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": true
+      },
+      {
+        "class": "gantt-bar--unscaled",
+        "paint": "fill",
+        "encodes": "none",
+        "bears": true
+      },
+      {
+        "class": "gantt-bar-accent",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "gantt-milestone",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "gantt-legend-swatch",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
   },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },

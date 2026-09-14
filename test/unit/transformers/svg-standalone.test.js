@@ -114,3 +114,80 @@ describe('collectFontFamilies', () => {
     assert.deepEqual(collectFontFamilies('<svg><rect/></svg>'), []);
   });
 });
+
+/**
+ * THE EXPORT'S PROPERTY LIST IS DUPLICATED ON PURPOSE, so it needs a test.
+ *
+ * `flattenSvgStyles` is serialized into a puppeteer page, so it must be
+ * closure-free — which is why it carries its own copy of the curated property
+ * list and the initial-value map instead of reading the module-level ones. Two
+ * copies of a list drift, and the drift is invisible: the export keeps working
+ * and quietly stops carrying one property.
+ *
+ * The rest of the function is browser-only and covered end to end by the CLI
+ * (`tools/export-chart-svg.js`), so these read the SOURCE. A text-level census
+ * is the only arm that can see a list going out of sync in Node.
+ */
+describe('the flattener carries the edge contract into the exported file', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  // Comments are stripped first: a `//` comment inside one of these literals
+  // carries an apostrophe ("the chart's swatch"), and a naive quote scan reads
+  // that as the start of a string and the next one as its end.
+  const SRC = fs.readFileSync(
+    path.join(__dirname, '../../../lib/components/chart/_chart-family/standalone-svg.js'),
+    'utf8',
+  );
+  const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+
+  /** Both copies of an array literal named in `names`, in source order. */
+  const arraysNamed = (names) => {
+    const out = [];
+    for (const m of CODE.matchAll(/const\s+(\w+)\s*=\s*\[([\s\S]*?)\];/g)) {
+      if (!names.includes(m[1])) continue;
+      out.push([...m[2].matchAll(/'([^']+)'/g)].map((x) => x[1]));
+    }
+    return out;
+  };
+  const objectsNamed = (names) => {
+    const out = [];
+    for (const m of CODE.matchAll(/const\s+(\w+)\s*=\s*\{([\s\S]*?)\n\s*\};/g)) {
+      if (!names.includes(m[1])) continue;
+      out.push([...m[2].matchAll(/'([^']+)':/g)].map((x) => x[1]));
+    }
+    return out;
+  };
+
+  test('the module list and the closure-free copy are the same list', () => {
+    const [outer, inner] = arraysNamed(['STYLE_PROPS', 'PROPS']);
+    assert.ok(outer && inner, 'both STYLE_PROPS and PROPS must be present');
+    assert.deepEqual(inner, outer,
+      'PROPS inside flattenSvgStyles has drifted from STYLE_PROPS — the export would carry a different set of properties than the module documents');
+  });
+
+  test('the module initial-value map and its copy are the same map', () => {
+    const [outer, inner] = objectsNamed(['INITIAL', 'INIT']);
+    assert.ok(outer && inner, 'both INITIAL and INIT must be present');
+    assert.deepEqual(inner, outer,
+      'INIT inside flattenSvgStyles has drifted from INITIAL');
+  });
+
+  test('vector-effect is carried', () => {
+    for (const list of arraysNamed(['STYLE_PROPS', 'PROPS'])) {
+      assert.ok(list.includes('vector-effect'),
+        'without vector-effect a mark pinned with non-scaling-stroke exports as one viewBox USER unit, which the viewBox then scales — measured on the CLI artifact, a 1px map edge came back at 0.83px and a scatter dot at 2.21px');
+    }
+  });
+
+  test('a stroked element never drops its width or its pin as "the initial"', () => {
+    // `stroke-width: 1px` IS the CSS initial, and it is exactly what
+    // --chart-edge resolves to at HD — so the omit-the-initial optimization
+    // deleted the one declaration that made the edge mean anything.
+    assert.match(SRC, /const\s+strokes\s*=\s*cs\.getPropertyValue\('stroke'\)/,
+      'the walk must ask whether the element actually paints a stroke');
+    assert.match(SRC, /const\s+pinned\s*=\s*strokes\s*&&\s*\(p === 'stroke-width' \|\| p === 'vector-effect'\)/,
+      'a stroked element must pin stroke-width and vector-effect past the initial-value skip');
+    assert.match(SRC, /if \(!pinned && Object\.hasOwn\(INIT, p\) && v === INIT\[p\]\) continue;/,
+      'the initial-value skip must consult that pin');
+  });
+});

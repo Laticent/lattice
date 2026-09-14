@@ -74,7 +74,15 @@ const DROP_MANIFEST = {
   renderNote:
     'Plain HTML boxes: each bar is a <div> whose width comes from a CSS custom property, ' +
     'so there is no shared coordinate system to solve and nothing to draw in SVG.',
-  kernel: { figureClass: DROP_FIGURE },
+  // `marks` is required alongside `figureClass`, and the drop declares it for
+  // the same reason a shipped member does: a chart FINISH is a stylesheet, so a
+  // member that declares no mark is one no finish can reach. `tempo-bar` is an
+  // HTML box painted through `background`, its width is the datum and its color
+  // is a flat identity, and it carries its own label.
+  kernel: {
+    figureClass: DROP_FIGURE,
+    marks: [{ class: 'tempo-bar', paint: 'bg', encodes: 'hue', bears: true }],
+  },
   tags: ['percentage', 'stoplight', 'status'],
   description: 'A strip of labeled tempo bars, one per item, for the folder-drop proof.',
   skeleton: `<!-- _class: ${DROP_NAME} -->\n\n## Tempo\n\n- Verse \`4\`\n- Chorus \`8\`\n`,

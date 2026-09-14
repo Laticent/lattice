@@ -17,7 +17,75 @@
   "render": "svg",
   "renderNote": "The web, spokes, area polygons, axis labels, the key and \u2014 since the 2026-07-27 conversion \u2014 the small-multiples captions are all one `<svg>`. Each mini carries its series name in a fixed caption band inside its own viewBox, so a standalone SVG export of a small-multiples radar names its four shapes instead of shipping them blank, and chart-motion moves a mini's caption with the mini rather than leaving it behind.",
   "kernel": {
-    "figureClass": "radar-figure"
+    "figureClass": "radar-figure",
+    "marks": [
+      {
+        "class": "radar-poly",
+        "paint": "fill",
+        "encodes": "layered",
+        "bears": true
+      },
+      {
+        "class": "radar-poly--hero",
+        "paint": "fill",
+        "encodes": "layered",
+        "bears": true
+      },
+      {
+        "class": "radar-poly--target",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "radar-poly--before",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "radar-band",
+        "paint": "fill",
+        "encodes": "layered",
+        "bears": false
+      },
+      {
+        "class": "radar-sector",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": true
+      },
+      {
+        "class": "radar-sector-mean",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "radar-dot",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "radar-gap",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "radar-delta-seg",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "chart-key-swatch",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
   },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },

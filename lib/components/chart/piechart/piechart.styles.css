@@ -92,7 +92,7 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
   /* Stroke color is the slot's --catN-ink (set per nth-child below); the
    * wedge fill is the same hue's --catN-fill. Pale fill + deep border on a
    * light canvas, deep fill + pale border on dark — the shared chart model. */
-  stroke-width: 1.5;
+  stroke-width: var(--chart-edge);
   paint-order: stroke;
 }
 /* SVG-native legend TYPE is now shared across the four keyed charts — see the

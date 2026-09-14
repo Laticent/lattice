@@ -64,7 +64,7 @@
 :is(section.map, figure.chart-frame) .map-region {
   fill: var(--map-base);
   stroke: color-mix(in oklab, var(--muted-mark) 55%, transparent);
-  stroke-width: 0.5;
+  stroke-width: var(--chart-edge);
   stroke-linejoin: round;
 }
 

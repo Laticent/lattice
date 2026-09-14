@@ -9,6 +9,10 @@ distribution, a new comparison encoding) that the existing chart components (the
 live roster is `LAYOUTS` in `_chart-family/chart-registry.generated.js`) don't cover. **You'll produce** a component folder under `lib/components/chart/`
 whose kernel emits SVG through the shared `.chart-frame` dispatcher.
 
+> **Changing how an EXISTING chart looks is a different job** — read
+> `engineering/chart-styling.md` instead. It owns the structure/colour split, the
+> SVG coordinate-space trap, the three finishes, and the verification order.
+
 > Read the **`dataviz` skill first** for the medium-agnostic method (form
 > heuristic, color formula, mark specs). This skill is how that method is realized
 > in Lattice: its "swap the placeholder palette" step becomes the theme's
@@ -82,6 +86,16 @@ dispatcher + the categorical/semantic color token model in `chart-family.css`),
   the dispatcher finds you; `chart-family.js` is not edited. **Everything else
   still does not** — see step 9 for the rosters that are hand-maintained and
   fail silently.
+- **Declare your data marks in the same block.** `kernel.marks` is required: one
+  row per mark you paint, carrying how it takes paint (`fill` / `bg` / `none`),
+  what its body encodes (`hue` / `ramp` / `presence` / `layered` / `none`) and
+  whether it carries text. A chart finish is a stylesheet, so those three facts
+  are the whole of what a finish may do to your member — and a mark you do not
+  declare is one no finish can reach. Get `paint: "none"` right in particular:
+  it is the gate that stops a finish stepping a stroke that IS the mark. Verify
+  with `node tools/chart-language-census.js <your.gallery.md> --check`, which
+  measures `bears` off a real render rather than trusting the row.
+  `engineering/decisions/2026-09-07-chart-design-language/mark-declaration.md`
 - **Validate**: `test/unit/palette/chart-contrast.test.js`, `npm run scorecard`.
 
 ---

@@ -77,6 +77,10 @@
  * measurements rather than as beads on a string (line.transform.js
  * §DOT_MIN_SPACING). The canvas-colored halo is what keeps a dot legible where
  * two lines cross — without it, the crossing paints a four-way ambiguity. */
+/* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
+ * two touching marks apart, so its correct weight follows what it has to
+ * separate, not the family's outline weight. It is deliberately excluded
+ * from the shared `--chart-edge` rule — see chart-family.css. */
 :is(section.line, figure.chart-frame) .line-dot {
   fill: var(--mark-hue, var(--chart-cat-1-hue));
   stroke: var(--bg);

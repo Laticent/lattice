@@ -105,7 +105,7 @@
 :is(section.bullet:where(:not(.list)), figure.chart-frame) .bullet-measure {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 88%, var(--bg));
   stroke: var(--chart-cat-1-ink);
-  stroke-width: 0.5;
+  stroke-width: var(--chart-edge);
 }
 
 /* ── THE TARGET ─────────────────────────────────────────────────────────────

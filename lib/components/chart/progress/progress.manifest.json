@@ -17,7 +17,21 @@
   "render": "html",
   "renderNote": "Each bar is an HTML box whose width is its percentage. One number per row needs no shared coordinate system, and keeping the label as prose lets it wrap and stay selectable — an SVG bar would buy nothing but a text-wrapping problem.",
   "kernel": {
-    "figureClass": "progress-bars"
+    "figureClass": "progress-bars",
+    "marks": [
+      {
+        "class": "progress-fill",
+        "paint": "bg",
+        "encodes": "ramp",
+        "bears": true
+      },
+      {
+        "class": "chart-status",
+        "paint": "bg",
+        "encodes": "hue",
+        "bears": true
+      }
+    ]
   },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },

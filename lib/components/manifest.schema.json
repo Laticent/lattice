@@ -99,9 +99,46 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "figureClass"
+        "figureClass",
+        "marks"
       ],
       "properties": {
+        "marks": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Every DATA MARK this kernel paints \u2014 the elements whose paint carries a datum, declared rather than inferred. A chart FINISH (pigment / etching / tone) is a stylesheet, so everything it may do to a member is decided by these three facts, and a class that is inferred is a class that can be inferred wrongly: `funnel-band` was taken for a text-bearing mark on the assumption that a band carries its own label \u2014 it does not, the labels sit in the left gutter \u2014 and that one wrong datum is why funnel rendered byte-identical under all three finishes; `cell-filled` carried no slot attribute and six categories collapsed to one hue. Axis furniture, text labels, the plot frame and per-group TRACKS (a bar's headroom, a bullet's band) are not marks and are not listed. A legend SWATCH is, because a swatch painted from a different palette than the mark it names is the worst version of the same defect \u2014 the legend IS the binding. Checked two ways, neither of them complete. `checkChartMarks` in tools/check-ownership.js (via build:check) fails on a class nothing under lib/ writes and on a stamped data-paint/data-encodes value no row declares \u2014 it walks declared\u2192emitted only, so an OMITTED mark is invisible to it, and its class test is a whole-token search of lib/ string literals rather than proof the row names a mark. `node tools/chart-language-census.js --check` reads a real render: it is the only thing that can fail on a wrong `bears`, and the only thing that reports a painted mark no manifest declares \u2014 but it is an on-demand command, not a CI gate, and it sees only what a given deck renders on a given theme. engineering/decisions/2026-09-07-chart-design-language/",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "class",
+              "paint",
+              "encodes",
+              "bears"
+            ],
+            "properties": {
+              "class": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]+$",
+                "description": "The mark's own class, exactly as the transform writes it \u2014 what a finish rule can name. The gate requires the transform to write it, so a renamed class cannot leave a stale declaration behind."
+              },
+              "paint": {
+                "type": "string",
+                "enum": ["fill", "bg", "none"],
+                "description": "HOW the mark takes paint, and it is a GATE rather than a label: `fill` for an SVG shape painted through the fill property, `bg` for an HTML element painted through background. `none` means the mark has no body at all \u2014 a stroke-only path, a hollow ring, a text chip, a typed word \u2014 and a finish may not reach it. The line's series path is the case that proves the gate: a finish that reached it stepped its stroke to 2.18:1 on light and 1.26:1 on dark, because on a stroked mark the stroke IS the mark and there is no edge left to carry identity. Matches the `data-paint` attribute the transform stamps."
+              },
+              "encodes": {
+                "type": "string",
+                "enum": ["hue", "ramp", "presence", "layered", "none"],
+                "description": "What the BODY encodes \u2014 the axis that decides HOW a finish may reach it, never WHETHER (every encoding gets a body under every finish; the rule that made this a whether left three members painting identically under all three). `hue` a categorical or status identity color, which a finish may set outright; `ramp` a continuous magnitude where the fill level IS the datum, so a finish scales the band and may not set the level; `presence` on/off, which a finish floors; `layered` translucent shapes that overlap, which take a flat alpha and never a gradient \u2014 a gradient reads as a fourth color where two polygons cross. `none` means THE BODY CARRIES NO DATUM, which is two different marks and deliberately one value: a mark with no body at all (paint `none` \u2014 a stroked path, a hollow ring, a typed word), and a mark whose body is a deliberate constant. `state-chart` is the second kind and says why in its own stylesheet \u2014 the node fill is ALWAYS neutral so status color lives only in the index badge, or a green on-track node blends into a green wash. Both are the same instruction to a finish: nothing in this body is load-bearing, set it freely. What `encodes` never describes is a datum carried somewhere OTHER than the body \u2014 `journey-stage` paints one constant ground under a categorical `::before` rail, and that rail is not this field's to record. Matches the `data-encodes` attribute the transform stamps."
+              },
+              "bears": {
+                "type": "boolean",
+                "description": "Does the mark CARRY TEXT \u2014 a label inside its own box, as its own text content or as an overlaid sibling. True CAPS how far a finish may retreat the body, because that text has to keep clearing 4.5:1 against whatever the finish paints underneath it; false leaves the body the finish's to set outright. DERIVED GEOMETRICALLY, never from a list: `el.textContent` measures containment, and an SVG rect can have its label drawn ON it as a sibling text node \u2014 measured that way `gantt` reports no while its bars plainly carry task names. `node tools/chart-language-census.js --check` re-measures every entry off a real render at 60% max-overlap and fails on a disagreement."
+              }
+            }
+          }
+        },
         "figureClass": {
           "type": "string",
           "pattern": "^[a-z0-9-]+$",

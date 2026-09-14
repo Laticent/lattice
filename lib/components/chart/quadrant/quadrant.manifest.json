@@ -17,7 +17,63 @@
   "render": "svg",
   "renderNote": "Axes, cell tints, bubbles, trails and every label — including the corner names that sit outside the plot — are one `<svg>`. Points are placed by value on two axes, and the placement engine that keeps labels off each other and off the marks needs all of it in one coordinate system. A name the engine had to move away from its own dot is joined back to it by a hairline leader, because on a crowded plot \"beside\" stops meaning \"nearest\" — and a quadrant has no axis, no value pill and no other channel to say which dot a name belongs to.",
   "kernel": {
-    "figureClass": "quadrant-figure"
+    "figureClass": "quadrant-figure",
+    "marks": [
+      {
+        "class": "quadrant-dot",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "quadrant-bubble",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": true
+      },
+      {
+        "class": "quadrant-trail-after",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "quadrant-trail-before",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "quadrant-trail-line",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "quadrant-hull",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "quadrant-hull-line",
+        "paint": "none",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "chart-key-swatch",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "quadrant-tint",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": true
+      }
+    ]
   },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },

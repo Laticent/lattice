@@ -433,12 +433,20 @@ section.word-cloud,
  * NOT YET SHIPPED: `--mark-retreat`, how far a finish may pull a body back.
  * An earlier revision of this comment described it as set "per mark class
  * further down by the generated block" — there is no such block and no such
- * declaration anywhere in lib/ or themes/. It is designed, not built: the
- * reasons a body is held (a ramp because scaling it deletes the magnitude,
- * spend-rules.md 1d; a text-bearing mark because --cat-on-mark was solved
- * against a full-strength mark) both land on one number, and that number wants
- * to live in each manifest's `kernel.marks`. Read this as a plan, not a
- * contract to code against.
+ * declaration anywhere in lib/ or themes/. It is designed, not built. Read this
+ * as a plan, not a contract to code against.
+ *
+ * What HAS shipped is the input it was waiting on. The two reasons a body is
+ * held — a ramp, because scaling it deletes the magnitude (spend-rules.md 1d),
+ * and a text-bearing mark, because --cat-on-mark was solved against a
+ * full-strength mark — are now DECLARED per mark rather than inferred, in each
+ * manifest's `kernel.marks`: `paint`, `encodes` and `bears`, one row per mark
+ * class. That is where the retreat number will be read from when it lands.
+ * They are declared rather than inferred because every inference of them was
+ * wrong on the render: `funnel-band` was taken for a text-bearing mark and
+ * carries no label at all (the labels sit in the left gutter), which is the
+ * whole reason funnel painted identically under all three finishes.
+ * engineering/decisions/2026-09-07-chart-design-language/mark-declaration.md
  *
  * `--mark-fill` is declared for all eight slots and currently read by NO rule.
  * It is kept because it completes the tier set a consumer expects beside
@@ -604,8 +612,36 @@ section.chart-frame,
    * "shoots forward", double-encoding value as length AND intensity. It keeps
    * the shared material (palette, edge, accent); only the gradient is bespoke.
    * See progress.styles.css. The others have no --pct and wear the wash. */
-  --chart-fill-top-l: 20%;     --chart-fill-top-d: 48%;
-  --chart-fill-bottom-l: 38%;  --chart-fill-bottom-d: 64%;
+  /* THE WASH IS THEME-OVERRIDABLE, through one indirection, and the shape of
+   * that indirection is load-bearing. The engine owns the DEFAULT and declares
+   * it here, ON `.chart-frame` ITSELF. A palette declares in a `:root` block,
+   * so its value reaches this element by INHERITANCE — and an inherited value
+   * always loses to the element's own declaration, whatever the two selectors'
+   * specificity say. A palette setting `--chart-fill-top-l` directly therefore
+   * reads as an override that silently does nothing. A palette sets
+   * `--palette-fill-*` instead, which nothing here declares, so the inherited
+   * value is the only one and it is picked up below.
+   *
+   * Measured by injecting stylesheets into the rendered gallery: `:root` at 99%
+   * resolves to the engine's 20%; `section.chart-frame` at 88% resolves to 88%;
+   * `:root` setting `--palette-fill-top-l` to 77% resolves to 77%. So the case
+   * that loses is inheritance, NOT same-element specificity — a palette scoped
+   * to `.chart-frame` would in fact win. No shipped theme does that: across the
+   * 15 palettes, zero declare any of the 72 custom properties this file sets on
+   * `.chart-frame`.
+   *
+   * Why any theme would want to: these percentages assume a canvas near one
+   * end of the range. On a mid-toned one they put the fill halfway between the
+   * canvas and the ink, and the contract this block states two paragraphs up
+   * — "the wash only tints, so --text-heading labels clear it on both
+   * canvases" — stops holding. concrete is that theme (canvas #B8B8B5), and
+   * it is not fixable from the ink side: measured, its `--text-heading` is
+   * already 15,15,14 and pure black reaches only 4.20:1 on the 38% stop.
+   * See themes/concrete.css § the fill wash. */
+  --chart-fill-top-l: var(--palette-fill-top-l, 20%);
+  --chart-fill-top-d: var(--palette-fill-top-d, 48%);
+  --chart-fill-bottom-l: var(--palette-fill-bottom-l, 38%);
+  --chart-fill-bottom-d: var(--palette-fill-bottom-d, 64%);
   --chart-fill-edge: 38%;
   --chart-fill-accent: clamp(4px, 0.31cqi, 7px);
 
@@ -624,6 +660,45 @@ section.chart-frame,
    * untouched. */
   --chart-hairline: clamp(1px, 0.078cqi, 2px);   /* 1px borders, rules, separators */
   --chart-accent-lg: clamp(6px, 0.46cqi, 9px);   /* heavy accent stripe (roadmap milestone) */
+  /* THE SAME WEIGHT, INSIDE AN SVG. The note above ends "Swatch/coordinate px
+   * inside SVG viewBoxes are NOT line weights — they scale with the SVG and stay
+   * untouched." That was right about RESOLUTION and wrong about CONSISTENCY, and
+   * measuring the rendered gallery is what separates the two: every member tuned
+   * its own `stroke-width` literal inside its own viewBox, and those viewBoxes
+   * span 4.3x (320 … 1375 units at the same rendered width). So the family's
+   * declared marks painted at 21 DIFFERENT physical weights — 0.42px on a map
+   * region, 2.9px on a pie wedge, a 6.9x spread on marks that are all "the edge
+   * of a data mark". Nobody chose that; it is what per-member tuning in
+   * per-member coordinate spaces adds up to.
+   *
+   * `vector-effect: non-scaling-stroke` removes the viewBox scaling and ONLY the
+   * viewBox scaling, so the stroke lands in CSS pixels. Pairing it with the same
+   * clamp() the DOM side already uses keeps #180 answered — the weight still
+   * grows with the container above HD — while making one token mean one weight
+   * on both sides of the SVG boundary. Export DPI is a separate transform and is
+   * unaffected: a 1px CSS stroke is still 3px in a 3x raster.
+   *
+   * MEASURED, both sides with `node tools/chart-structure-census.js`:
+   * 21 distinct physical weights over 6.9x -> 8 over 2.2x. Not one weight, and
+   * the remainder is the point: 21 mark classes at exactly 1px, SIX KNOCKOUTS at
+   * their own role-correct widths (see the exclusion note below the shared rule),
+   * and one sanctioned 2px emphasis on state-chart's start and terminal nodes.
+   *
+   * THE SCALE IS `getScreenCTM()`, NEVER `box.width / viewBox.width`. Every
+   * chart SVG here uses `xMidYMid meet`, where the user->screen scale is the
+   * UNIFORM `min(sx, sy)` and the leftover axis becomes padding; the x-ratio
+   * overstates the weight wherever the box's aspect differs from the viewBox's.
+   * The first draft of this note said "16 weights, 13.1x spread, 5.49px on a
+   * quadrant dot" from that wrong ratio. Against a rendered control — viewBox
+   * 100x100 in a 400x100 box, stroke-width 2 — the x-ratio predicts 8px and
+   * Chromium paints 2. */
+  --chart-edge: var(--chart-hairline);            /* every data mark's edge */
+  --chart-edge-strong: calc(var(--chart-hairline) * 2);  /* hero / active only */
+  /* ONE MARK CORNER. `0.46875cqi` was written out five times across progress,
+   * kanban and state-chart — the same number, three members, no shared name —
+   * next to 13 other radii the family had drifted into. A corner is structure:
+   * it should read the same on a progress bar, a kanban card and a state node. */
+  --chart-mark-radius: 0.46875cqi;
 
   /* LEGIBILITY FLOOR for chart-internal text that is sized in raw `cqi` rather
    * than through the `--fs-*` role scale (HARD RULE #4 / #1213). A few marks
@@ -1579,4 +1654,106 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   width: 100%;
   height: 100%;
   display: block;
+}
+
+
+/* ══ STRUCTURE — ONE EDGE WEIGHT FOR EVERY DATA MARK ═══════════════════════
+ * Colour is the palette's job and the finish's job. STRUCTURE is the family's,
+ * and it has to read the same on every member or the set does not look like one
+ * system. This rule is that contract for the mark EDGE.
+ *
+ * THE CLASS LIST IS NOT HAND-PICKED — it is every mark each member declares
+ * with `paint: "fill"` in its manifest's `kernel.marks`, which is exactly the
+ * set of "things with a body that can carry an outline". `chart-mark-edge-
+ * census.test.js` fails if the two drift apart, so a new chart member joins
+ * this contract by declaring its marks and nothing else.
+ *
+ * `stroke: none` marks are unaffected — a width with no paint draws nothing —
+ * so area fills and hulls keep their current look and only gain the weight if
+ * and when something gives them a stroke.
+ *
+ * Why this can override a member's own literal rather than 71 files being
+ * edited: the member values were tuned in 21 different viewBox coordinate
+ * spaces and none of them is a considered physical weight. There is nothing to
+ * preserve. Measured before: 16 distinct weights across 19 mark edges, spread
+ * 13.1x. After: 1. */
+
+/* SEVEN MARKS ARE DELIBERATELY NOT HERE, AND THEY ARE NOT AN OVERSIGHT.
+ * `funnel-band` · `line-dot` · `quadrant-dot` · `quadrant-trail-after` ·
+ * `radar-dot` · `scatter-dot` · `sbar-seg` stroke in `var(--bg)`, the canvas
+ * colour. That is a KNOCKOUT, not
+ * an outline: its job is to hold two touching marks apart — a dot where two
+ * lines cross, a segment abutting the next segment in the same stack — and its
+ * correct weight follows what it has to separate, not the family's outline
+ * weight. Their own stylesheets document them as load-bearing for exactly that.
+ *
+ * The first cut of this rule collapsed them along with everything else, because
+ * the census that found "16 physical weights" measured how THICK each stroke is
+ * and never asked what each stroke is FOR. A knockout and an outline are two
+ * different objects that happen to share a property name, and flattening one
+ * into the other took quadrant's separator from 5.49px to 1px. Measured, then
+ * reverted. `chart-mark-edge-census.test.js` checks that every name on this list
+ * really does stroke `var(--bg)`, so the exclusion cannot become a dumping
+ * ground for a mark somebody just wants to keep thick.
+ *
+ * `journey-face` is out for a different reason: the class sits on an <svg>
+ * WRAPPER, not on a shape, so the rule could never reach the <circle> and
+ * <path> that draw the face. It is an icon whose stroke weight is part of its
+ * drawing, not the outline of a datum — measured at 1.4px and left there. */
+:is(section.chart-frame, figure.chart-frame) svg :is(
+  .bar-mark,
+  .chart-key-swatch,
+  .bullet-measure,
+  .bullet-offscale,
+  .gantt-bar,
+  .gantt-bar--unscaled,
+  .gantt-bar-accent,
+  .gantt-milestone,
+  .gantt-legend-swatch,
+  .line-area,
+  .line-band,
+  .map-region,
+  .map-region--on,
+  .map-region--hl,
+  .wedge,
+  .quadrant-bubble,
+  .quadrant-hull,
+  .quadrant-hull-line,
+  .quadrant-tint,
+  .radar-poly,
+  .radar-poly--hero,
+  .radar-poly--target,
+  .radar-poly--before,
+  .radar-band,
+  .radar-sector,
+  .radar-sector-mean,
+  .scatter-bubble,
+  .scatter-size-ring,
+  .slope-dot,
+  .slope-dot-from,
+  .slope-dot-to,
+  .slope-dot-via,
+  .state-node-shape,
+  .state-index-disc,
+  .state-edge-arrow,
+  .waterfall-bar
+) {
+  vector-effect: non-scaling-stroke;
+  stroke-width: var(--chart-edge);
+}
+
+/* EMPHASIS is the one sanctioned departure, and it is a doubling rather than a
+ * per-member number: a hero series on a radar, and the active mark a Studio
+ * selection puts under the cursor. Both need to out-weigh their neighbours, and
+ * both are states, not members. */
+:is(section.chart-frame, figure.chart-frame) svg :is(
+  .radar-poly--hero,
+  .chart-mark-active
+) {
+  /* The pin is repeated rather than inherited from the rule above: an element
+   * can match this one WITHOUT matching that one — `.chart-mark-active` lands
+   * on whatever the Studio cursor is over, including a member the base list
+   * does not name — and an unpinned width is a width in viewBox units. */
+  vector-effect: non-scaling-stroke;
+  stroke-width: var(--chart-edge-strong);
 }

@@ -31,6 +31,10 @@
  * touching dots visibly two dots while every dot stays exactly where its
  * numbers put it. (Same idiom as `.quadrant-dot`.)
  */
+/* KNOCKOUT, NOT AN OUTLINE. This stroke is `var(--bg)`: its job is to hold
+ * two touching marks apart, so its correct weight follows what it has to
+ * separate, not the family's outline weight. It is deliberately excluded
+ * from the shared `--chart-edge` rule — see chart-family.css. */
 :is(section.scatter, figure.chart-frame) .scatter-dot {
   fill: var(--chart-cat-1-ink);
   stroke: var(--bg);
@@ -52,7 +56,7 @@
 :is(section.scatter, figure.chart-frame) .scatter-bubble {
   fill: color-mix(in oklab, var(--chart-cat-1-ink) 42%, transparent);
   stroke: var(--chart-cat-1-ink);
-  stroke-width: 0.7;
+  stroke-width: var(--chart-edge);
 }
 
 /* A BUBBLE WITH NO MAGNITUDE. `bubble` needs a third pill per point; a point
@@ -94,7 +98,7 @@
 :is(section.scatter, figure.chart-frame) .scatter-size-ring {
   fill: color-mix(in oklab, var(--chart-cat-1-ink) 26%, transparent);
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 62%, transparent);
-  stroke-width: 0.6;
+  stroke-width: var(--chart-edge);
 }
 
 :is(section.scatter, figure.chart-frame) .scatter-size-value {

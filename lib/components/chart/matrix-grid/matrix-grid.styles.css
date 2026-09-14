@@ -276,7 +276,7 @@
  * text, needs 4.5, not 3") — same tokens, same floor, verified the same way. */
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-filled {
   background: var(--row-fill, var(--accent));
-  border: 2px solid var(--row-hue, var(--accent));
+  border: var(--chart-edge) solid var(--row-hue, var(--accent));
   /* NOT the raw curated ink. This text sits on `--row-fill` — the row's TINT —
    * and `--chart-catN-ink` is solved against --bg / --bg-alt, which are different
    * (and further) surfaces. Measured across 15 palettes x 2 modes x 8 slots, taking
@@ -288,7 +288,7 @@
 }
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-outlined {
   background: none;
-  border: 2px solid var(--row-hue, var(--accent));
+  border: var(--chart-edge) solid var(--row-hue, var(--accent));
 }
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-empty {
   background: none;
@@ -347,7 +347,7 @@ section.matrix-grid.chart-frame .chart-caption {
   content: '';
   width: 0.8em; height: 0.8em;
   border-radius: var(--radius-sm);
-  border: 2px solid var(--muted-mark);
+  border: var(--chart-edge) solid var(--muted-mark);
 }
 
 /* ── Box-local tall/strip: the TYPE has to step down with the box (#1620) ────
