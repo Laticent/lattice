@@ -161,11 +161,27 @@ stylesheet renders **black, unstyled, serif**. The export resolves this:
 - **`lib/components/chart/_chart-family/standalone-svg.js`** — the shared core.
   `flattenSvgStyles` walks the rendered chart and inlines the browser's
   **computed** paint/text styles as literals (so `var()`/`color-mix()` bake to
-  `rgb()`/`oklab()` and no external CSS is needed); gradient `<stop>`s are
+  `rgb()`/`oklab()` and no external stylesheet is needed); gradient `<stop>`s are
   resolved through a rendered probe (defs aren't laid out, so `getComputedStyle`
   won't resolve them there). `finalizeStandaloneSvg` then guarantees `xmlns`, a
   `viewBox`-derived intrinsic `width`/`height`, and injects the embedded fonts.
   `collectFontFamilies` subsets which faces to embed.
+
+  **One class of reference survives the bake on purpose, and the file has to
+  define it.** A paint that matches a scheme-varying token stays as
+  `fill:var(--token)`, so the exported player can re-theme the chart when its
+  light/dark toggle moves. A detached `.svg` has no host to define that token, the
+  `var()` resolves to nothing, and `fill` falls to its SVG initial — **black**.
+  Measured before the fix: a `map` export painted 172 of 184 regions black, and a
+  `heatmap` export put 3 of its 5 ink stops below WCAG AA (worst `1.98:1`). So a
+  caller headed for a FILE passes `flattenSvgStyles(svg, win, { collectTokens:
+  true })`; the bake resolves every token the clone still names — through the
+  computed-style pass, an element's own inline style, and a presentation attribute
+  like `fill="color-mix(in oklab, var(--chart-cat-1-hue) 88%, …)"` — and hands them
+  to `finalizeStandaloneSvg` on a `data-lattice-tokens` attribute, which strips it
+  and writes a sanitized `svg{…}` rule into the file's own `<style>` block. A
+  caller whose clone stays INLINE in a themed host omits the flag and gets the
+  previous bytes exactly.
 - **CLI — `tools/export-chart-svg.js`** (headless): `node tools/export-chart-svg.js
   <deck.md> [--slide N] [--chart I] [--theme NAME] [--mode light|dark]
   [-o out.svg] [--all]`. Renders through `window.LatticePlayground.render` in a

@@ -4258,7 +4258,7 @@ async function renderBody(browser, g, closeBrowser) {
                   for (const wrap of document.querySelectorAll('.mermaid-svg[data-look-idx]')) {
                     const svg = wrap.querySelector('svg');
                     if (!svg) continue;
-                    try { acc[wrap.getAttribute('data-look-idx')] = ser.serializeToString(window.__flattenSvgStyles(svg, window)); } catch (_e) { /* skip one un-flattenable svg */ }
+                    try { acc[wrap.getAttribute('data-look-idx')] = ser.serializeToString(window.__flattenSvgStyles(svg, window, { collectTokens: true })); } catch (_e) { /* skip one un-flattenable svg */ }
                   }
                   return acc;
                 }), 'flatten look diagrams');
@@ -4290,7 +4290,7 @@ async function renderBody(browser, g, closeBrowser) {
         document.querySelectorAll('section[data-lattice-slide]').forEach((sec, si) => {
           const push = (svg, kind, chartType, mmdIdx) => {
             try {
-              const flat = window.__flattenSvgStyles(svg, window);
+              const flat = window.__flattenSvgStyles(svg, window, { collectTokens: true });
               out.push({ slide: si + 1, kind, chartType: chartType || null, mmdIdx: mmdIdx == null ? null : Number(mmdIdx), markup: ser.serializeToString(flat) });
             } catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
           };

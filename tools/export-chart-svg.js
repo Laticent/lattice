@@ -225,7 +225,7 @@ async function main() {
         const svgs = Array.from(sec.querySelectorAll('svg[viewBox]'));
         const svg = svgs[sel.chart];
         if (!svg) return null;
-        const flat = window.__flattenSvgStyles(svg, window);
+        const flat = window.__flattenSvgStyles(svg, window, { collectTokens: true });
         return new XMLSerializer().serializeToString(flat);
       }, t);
       if (!markup) { console.warn(`! slide ${t.slide} chart ${t.chart}: not found, skipped`); continue; }

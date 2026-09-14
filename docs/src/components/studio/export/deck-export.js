@@ -1805,7 +1805,7 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 			// before we read computed styles (mirrors the PDF/PPTX path).
 			const fontCssAll = await buildFontEmbedCss();
 			await ensureFontsLoaded(doc, fontCssAll);
-			const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, win));
+			const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, win, { collectTokens: true }));
 			const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
 			const out = finalizeStandaloneSvg(markup, { fontFaceCss });
 			download(new Blob([out], { type: 'image/svg+xml;charset=utf-8' }), `${safeName(name)}-chart.svg`);
@@ -1949,7 +1949,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 					}
 					for (const [svg, kind, chartType] of targets) {
 						try {
-							const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, svgWin));
+							const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, svgWin, { collectTokens: true }));
 							const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
 							svgs.push({ slide: si + 1, kind, chartType: chartType || null, svg: finalizeStandaloneSvg(markup, { fontFaceCss, background: svgBg }) });
 						} catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
