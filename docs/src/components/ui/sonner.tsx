@@ -10,7 +10,7 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 // The one toast primitive. Scaffolded from the canonical shadcn CLI
 // (`shadcn add sonner`, style new-york) and adapted to this repo's stack — only
-// where the canonical base assumes Next.js. Two deliberate deviations from the
+// where the canonical base assumes Next.js. Three deliberate deviations from the
 // verbatim output, each marked below:
 //
 //   1. THEME — the shadcn base reads `useTheme()` from `next-themes`. This is an
@@ -23,6 +23,8 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 //      look of the hand-rolled pills it replaces). To return to the canonical
 //      panel, swap the `--normal-*` block for the shadcn defaults and drop
 //      `toastOptions`.
+//   3. STACK DEPTH — the base ships Sonner's default of three visible toasts, as a
+//      STACK. `lib/notify.ts` makes the same number a per-kind ceiling instead.
 //
 // Everything else — the typed variant `icons`, the `ToasterProps` passthrough —
 // is the canonical base untouched. `lx-ui` carries the token reset into Sonner's
@@ -49,6 +51,29 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={mode}
       className="toaster group lx-ui"
       position="bottom-center"
+      // (3) THE STACK IS CAPPED AT ONE PILL PER KIND. Sonner's default is 3
+      // (`VISIBLE_TOASTS_AMOUNT`, dist/index.mjs:411) and that three is a STACK — three
+      // arbitrary messages, which is what a pile-up looks like. This three is not:
+      // `lib/notify.ts` raises exactly three kinds (status · action · sticky), keeps one
+      // slot each, and rewrites within a slot rather than adding to it. So the ceiling
+      // is structural, and the common case on screen is one.
+      //
+      // It was briefly 2, on the belief that sticky and action could not both be up. They
+      // can: the Playground's "this page is out of date" notice never expires by design,
+      // and a draft-backup Undo lands beside it. Capping below the real worst case does
+      // not prevent the third message — it HIDES one, `pointer-events: none`, and the one
+      // it hides is the oldest, which is the affordance someone was reaching for.
+      visibleToasts={3}
+      // (4) EXPANDED, NOT STACKED — and this is only safe because of (3). Sonner's
+      // collapsed stack zeroes the content of every toast but the front one
+      // (`[data-expanded='false'][data-front='false'] > * { opacity: 0 }`), so a pill
+      // behind another is an unreadable sliver that still accepts clicks. Measured: a
+      // draft-backup Undo sitting behind a status message was a 4px edge with an
+      // invisible button in it, which is a worse outcome than either being replaced or
+      // being absent. The kernel's per-kind ceiling is what makes expanding sane —
+      // with an unbounded stack this would have been a wall, with at most three kinds
+      // it is at most three lines, and the common case is still one.
+      expand
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,
@@ -99,7 +124,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
           // palettes — unreadable everywhere. Dark mode was fine (`#e8e8e8`, 9.2:1),
           // which is why it survived review: the bug existed only in the mode most
           // people use.
-          description: "!text-white/80",
+          // `whitespace-pre-line` is NOT cosmetic. Sonner renders `description` as a
+          // BARE TEXT NODE — no <br>, no block children (measured: zero child
+          // elements) — and neither its own stylesheet nor this repo's sets a
+          // `white-space` rule on `[data-description]`. So a multi-line description
+          // collapsed to one run-on line, gluing each refusal's name onto the previous
+          // one's reason with a single space. Keyed on the element rather than a
+          // per-call opt-in, for the same reason the radius above is: any future
+          // multi-line description is then correct by default instead of correct only
+          // if its author remembered.
+          description: "!text-white/80 whitespace-pre-line",
           // The one-tap escape hatch (Undo / Reload), styled like the retired pill's
           // inline button — a translucent white chip on the inverse surface.
           actionButton:

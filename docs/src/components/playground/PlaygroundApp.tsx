@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
-import { toast } from 'sonner';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL } from '@/components/playground/pg-split';
 import { getFrontMatter } from '@/components/studio/front-matter';
@@ -18,6 +17,7 @@ import { useResizableSplit } from '@/components/ui/use-resizable-split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import { isTypingTarget, shellKeyAction } from '@/lib/deck-nav';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
+import { notify, notifyAction, notifySticky } from '@/lib/notify';
 import {
 	adjacentComponent,
 	BACKUP_KEY,
@@ -868,6 +868,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// correcting after. Declared HERE (not derived in the hook) because the only runtime
 		// source of the real ids is the mounted group, which is one mount too late.
 
+		// STAYS ON THE LINE, and the kernel's own decision record says why: a CONDITION
+		// has no dwell. "Preview collapsed — rendering paused." holds exactly as long as
+		// the pane is collapsed, so a 2600ms pill would expire while it was still true
+		// and hand the line back to `Rendered 7 slide(s).` over a preview that is doing
+		// nothing — the lie the hand-back below was built to prevent, relocated rather
+		// than removed. This was briefly moved to a pill and moved straight back.
 		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onExpand: (side) => {
 			if (side === 'b') {
@@ -960,7 +966,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	// ── Draft protection: backup + undo toast (decision §4, invariant I2) ───────
 	const showToast = React.useCallback((msg: string, undo: boolean) => {
-		toast(msg, { duration: 6000, action: undo ? { label: 'Undo', onClick: () => undoRestoreRef.current() } : undefined });
+		// The ACTION kind when it offers Undo, the STATUS kind when it does not — the
+		// distinction the kernel exists to carry, and the reason the dwell is no longer
+		// spelled here (`lib/notify.ts` owns it, unified across both apps).
+		if (undo) notifyAction(msg, { label: 'Undo', onClick: () => undoRestoreRef.current() });
+		else notify(msg);
 	}, []);
 	const recordInsert = React.useCallback((md: string) => {
 		try {
@@ -976,15 +986,26 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			return false;
 		}
 	}, [getSource]);
-	/** Park the current draft before a programmatic overwrite; offer undo. */
+	/**
+	 * Park the current draft before a programmatic overwrite; offer undo.
+	 *
+	 * Returns whether it SPOKE, so a caller that would otherwise add its own
+	 * confirmation can stay quiet. That used to be invisible: Sonner's collapsed stack
+	 * showed only the front pill, so the handoff's two near-identical sentences —
+	 * "Loaded the deck from X — your previous draft is backed up." and "Loaded the deck
+	 * handed off from X." — were never on screen together to be read as the repetition
+	 * they are. Expanding the stack made it plain.
+	 */
 	const backupDraft = React.useCallback(
 		(why: string) => {
-			if (draftIsPristine()) return;
+			if (draftIsPristine()) return false;
 			try {
 				localStorage.setItem(BACKUP_KEY, getSource());
 				showToast(`${why} — your previous draft is backed up.`, true);
+				return true;
 			} catch {
 				/* private mode: nothing to park into */
+				return false;
 			}
 		},
 		[draftIsPristine, getSource, showToast],
@@ -1193,11 +1214,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			setSourceVersion((v) => v + 1);
 			syncPickers();
 			freshRender();
-			setStatusLine('Draft restored.');
+			// A pill, not the render line: `freshRender()` above is already writing its own
+			// status through, so this landed on a line that was about to be overwritten.
+			notify('Draft restored.');
 		} catch {
 			/* private mode */
 		}
-	}, [setSource, saveSource, syncPickers, freshRender, setStatusLine]);
+	}, [setSource, saveSource, syncPickers, freshRender]);
 	undoRestoreRef.current = onUndoRestore;
 
 	// ── The Explore walk machinery (decision §4, PR 6) ──────────────────────────
@@ -1448,7 +1471,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// this tab sat open — never a dead Next button. (Silent when the walk is
 				// only warming up behind the editor.)
 				if (viewRef.current === 'read') {
-					toast('This page is out of date — the site was updated while it sat open.', { duration: Infinity, action: { label: 'Reload', onClick: () => window.location.reload() } });
+					// STICKY: it must outlive every status message around it, because the tab is
+					// serving stale code until someone reloads. Its own slot, so nothing evicts it.
+					notifySticky('This page is out of date — the site was updated while it sat open.', { label: 'Reload', onClick: () => window.location.reload() });
 				}
 				return false;
 			}
@@ -1610,7 +1635,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// consumed on APPLY, never on load — a "no" destroys nothing (invariant I4).
 	const applyHandoff = React.useCallback(
 		(h: { md: string; from: string; ts: number }) => {
-			backupDraft(`Loaded the deck from ${h.from}`);
+			const backedUp = backupDraft(`Loaded the deck from ${h.from}`);
 			recordInsert(h.md);
 			try {
 				localStorage.removeItem(HANDOFF_KEY);
@@ -1622,9 +1647,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// surface (the startup precedence rule, live for an already-open tab too).
 			if (viewRef.current !== 'edit') setViewMode('edit');
 			applyDeck(h.md, { toPreview: true });
-			setStatusLine(`Loaded the deck handed off from ${h.from}.`);
+			// Only when the backup toast did not already say it — see `backupDraft`.
+			if (!backedUp) notify(`Loaded the deck handed off from ${h.from}.`);
 		},
-		[applyDeck, backupDraft, recordInsert, setStatusLine, setViewMode],
+		[applyDeck, backupDraft, recordInsert, setViewMode],
 	);
 	const consumeHandoffIfAny = React.useCallback(() => {
 		let h: ReturnType<typeof readHandoff> = null;

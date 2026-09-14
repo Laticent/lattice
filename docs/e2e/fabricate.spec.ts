@@ -174,6 +174,15 @@ test('a hand-edited theme survives save → reopen, byte-identical apart from th
  * user's OpenRouter key (HARD RULE #24). The unit tests prove the verdict; this
  * proves the real author sees the reason and can recover from it.
  */
+/** The VISIBLE refusal strip, matched by ELEMENT. Its `<Announce>` twin is a `<span>`
+ *  carrying the same sentence for assistive tech, so a bare `getByText` matches both
+ *  and trips strict mode — and `visible=true` does not separate them either, because
+ *  `sr-only` clips the region to a 1px box rather than hiding it, which is exactly
+ *  what keeps it in the accessibility tree. */
+function paused(page: import('@playwright/test').Page) {
+	return page.locator('p', { hasText: /The preview is paused/ });
+}
+
 test('CSS that reaches off the device is paused out of the preview, with a reason', async ({ page }) => {
 	const clean = await exportedCss(page);
 	await page.getByRole('button', { name: 'CSS', exact: true }).click();
@@ -182,23 +191,45 @@ test('CSS that reaches off the device is paused out of the preview, with a reaso
 	await expect(page.getByText('Gate clean')).toBeVisible();
 
 	await cssBox.fill(`${clean}\n:root { --leak: url(https://evil.example/?beacon); }\n`);
-	await expect(page.getByText(/The preview is paused/)).toBeVisible();
+	await expect(paused(page)).toBeVisible();
 	await expect(page.getByText(/fetches a remote resource/)).toBeVisible();
+
+	// THE REFUSAL REACHES A SCREEN READER, AND EXACTLY ONCE. It used to reach one not
+	// at all: the strip was visible text with nothing in the a11y tree. It is now a
+	// stable `<Announce>` live region (`lib/announce.tsx`) with the visible strip
+	// marked `aria-hidden`, so the sentence is in the tree once — announced when it
+	// arrives, and met once by someone navigating the panel rather than twice.
+	//
+	// Only the real browser computes this. jsdom has no accessibility tree, so the
+	// unit tier can assert the attributes and never what they add up to.
+	const cdp = await page.context().newCDPSession(page);
+	type AxNode = { name?: { value?: string }; ignored?: boolean; role?: { value?: string } };
+	const { nodes } = (await cdp.send('Accessibility.getFullAXTree')) as { nodes: AxNode[] };
+	// `StaticText` only: Chromium gives every one of those an `InlineTextBox` child
+	// carrying the same string, so counting raw name matches doubles each occurrence
+	// and the assertion never means what it reads as.
+	const spoken = nodes.filter(
+		(n) => !n.ignored && n.role?.value === 'StaticText' && /The preview is paused/.test(n.name?.value ?? ''),
+	);
+	expect(spoken).toHaveLength(1);
 
 	// …and it is recoverable. A gate you cannot get out of is one authors learn to
 	// route around.
 	await cssBox.fill(clean);
-	await expect(page.getByText(/The preview is paused/)).toHaveCount(0);
+	await expect(paused(page)).toHaveCount(0);
 	await expect(page.getByText('Gate clean')).toBeVisible();
 });
 
 /**
  * Click Save and wait for the confirmation.
  *
- * `.first()` because these specs save more than once and the toasts STACK — the
- * second save leaves two "Saved …" nodes on screen, and a bare `getByText(/Saved/)`
- * is then a strict-mode violation rather than a failed assertion. Only the presence
- * of a confirmation is being asserted, so the first one is the right one to read.
+ * `.first()` is now belt AND braces. It was load-bearing when every confirmation
+ * minted its own toast, so a second save left two "Saved …" nodes and a bare
+ * `getByText(/Saved/)` was a strict-mode violation rather than a failed assertion.
+ * Status messages share one pill as of `lib/notify.ts`, so the second save rewrites
+ * the first in place and there is only ever one — the `.first()` stays because only
+ * the PRESENCE of a confirmation is being asserted either way, and a spec that stops
+ * depending on the count is one less thing to revisit if the policy moves again.
  */
 async function saveAsset(page: import('@playwright/test').Page) {
 	await page.getByRole('button', { name: 'Save', exact: true }).click();

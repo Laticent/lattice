@@ -30,6 +30,7 @@ import { ArrowLeft, Download, ExternalLink, Loader2, Printer } from 'lucide-reac
 import * as React from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { messageForFailure } from '@/lib/chunk-load';
+import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // Engine helpers (shared kernel, HARD RULE #1): the paper decision + slide placement
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
@@ -153,7 +154,6 @@ export function PrintOptionsPanel({
 	extraTheme,
 	extraCss,
 	onBack,
-	notify,
 }: {
 	options: SingleSlideOptions;
 	source: string;
@@ -163,7 +163,6 @@ export function PrintOptionsPanel({
 	extraTheme?: ExtraTheme;
 	extraCss?: string;
 	onBack: () => void;
-	notify: (msg: string, opts?: { duration?: number }) => void;
 }) {
 	const [opts, setOpts] = React.useState<Opts>({ paper: 'auto', orientation: 'auto', color: 'color', layout: '1' });
 	const [render, setRender] = React.useState<DeckRender | null>(null);
@@ -335,7 +334,7 @@ export function PrintOptionsPanel({
 		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
 		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, url, blob });
 		return url;
-	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache, notify]);
+	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache]);
 
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 
@@ -404,7 +403,7 @@ export function PrintOptionsPanel({
 		} finally {
 			if (mountedRef.current) { setBuilding(null); setStatus(''); }
 		}
-	}, [render, building, buildPdf, triggerDownload, notify]);
+	}, [render, building, buildPdf, triggerDownload]);
 
 	// Open the cached PDF in a new tab, synchronously inside the click (never pop-up-blocked
 	// because nothing awaits first). If a blocker nulls the open, DOWNLOAD instead — never
@@ -412,7 +411,7 @@ export function PrintOptionsPanel({
 	const openPdfTab = React.useCallback((url: string) => {
 		const w = window.open(url, '_blank');
 		if (!w) { triggerDownload(url); notify('Pop-up blocked — the PDF was saved. Open it, then Share → Print.'); }
-	}, [triggerDownload, notify]);
+	}, [triggerDownload]);
 
 	// iOS tap 2 — hand the built PDF to the OS. `navigator.share({ files })` opens the native
 	// share sheet, where Print / AirPrint live, and it works across iOS browsers. This matters
@@ -433,7 +432,7 @@ export function PrintOptionsPanel({
 			return;
 		}
 		openPdfTab(entry.url);
-	}, [pdfFilename, name, triggerDownload, openPdfTab, notify]);
+	}, [pdfFilename, name, triggerDownload, openPdfTab]);
 
 	const doPrint = React.useCallback(() => {
 		if (!render || building) return;
@@ -466,7 +465,7 @@ export function PrintOptionsPanel({
 			.then(() => { if (mountedRef.current) notify('PDF ready — tap “Open PDF” to print.'); })
 			.catch((e) => notify(messageForFailure(e, 'Could not build the PDF.')))
 			.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
-	}, [render, building, ios, nup, handout, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, openPdfToPrint, notify]);
+	}, [render, building, ios, nup, handout, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, openPdfToPrint]);
 
 	// A fresh render (no re-render in flight) is all either action needs to START — the PDF
 	// is built on click, not up front. Both drop the instant a color change begins.

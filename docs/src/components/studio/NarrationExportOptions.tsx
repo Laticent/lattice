@@ -27,6 +27,7 @@
 import { AudioLines, Captions, Loader2, PlugZap } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
+import { Announce } from '@/lib/announce';
 import { formatBytes, formatDuration, formatUsd, type NarrationMeasure, PAYLOAD_MAX_BYTES, PAYLOAD_WARN_BYTES } from './narration-bake';
 import { type BakeVoice, defaultBakeVoice, listTtsCatalog, type OrVoiceModel, onDeviceBakeVoice, previewTtsVoice, voiceAvailability } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
@@ -323,7 +324,9 @@ export function NarrationExportOptions({
 							Reading the deck and checking what this device has already prepared…
 						</p>
 					)}
-					{measureError && <p className="text-[11.5px] text-[var(--fail,#b3261e)]">Could not measure this deck: {measureError}. Narration is unavailable for this export.</p>}
+					{measureError && <p aria-hidden="true" className="text-[11.5px] text-[var(--fail,#b3261e)]">Could not measure this deck: {measureError}. Narration is unavailable for this export.</p>}
+					{/* Assertive: it withdraws an export option they were part-way through choosing. */}
+					<Announce assertive message={measureError ? `Could not measure this deck: ${measureError}. Narration is unavailable for this export.` : null} />
 					{nothingToSay && !measuring && <p className="text-[11.5px] text-muted-foreground">This deck has nothing to narrate — give its slides some prose, or add a caption to each one. (A speaker note will not do it: notes are yours alone and are never narrated.)</p>}
 
 					{/* Captions alone still cost something and still have a count — saying so is what

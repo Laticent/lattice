@@ -26,7 +26,7 @@ afterEach(() => { localStorage.clear(); vi.clearAllMocks(); });
 
 describe('Present — slide box', () => {
 	it('sizes the slide card 16:9 and never lets it be stretched (#1227)', () => {
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		const dialog = screen.getByRole('dialog', { name: 'Present' });
 		// Find the sizer by what DEFINES it — it is the SIZE CONTAINER the card measures
 		// itself against — rather than as `card.parentElement`: a wrapper inserted between
@@ -61,7 +61,7 @@ describe('Present — slide box', () => {
 		// is the whole reason they cannot overlap. jsdom computes no layout, so the class
 		// carrying the invariant is what is asserted.
 		localStorage.clear();
-		const { unmount } = render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		const { unmount } = render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		expect(rowOf(screen.getByRole('dialog', { name: 'Present' }))?.className).toMatch(/\bpb-14\b/);
 		unmount();
 
@@ -69,7 +69,7 @@ describe('Present — slide box', () => {
 		// gets it back. Reserving it unconditionally cost ~56px of height for a cue shown
 		// once ever (#1301 review).
 		localStorage.setItem('lattice-present-hint', '1');
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		const row = rowOf(screen.getByRole('dialog', { name: 'Present' }));
 		expect(row?.className).not.toMatch(/\bpb-14\b/);
 		expect(row?.className).toMatch(/\bpb-4\b/);
@@ -77,7 +77,7 @@ describe('Present — slide box', () => {
 
 	it('frames the slide with the READ stop\'s padding, so both surfaces match', () => {
 		localStorage.setItem('lattice-present-hint', '1');
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		const row = rowOf(screen.getByRole('dialog', { name: 'Present' }));
 		// Read's preview holder is `p-4 sm:p-5`; Present matches it vertically.
 		expect(row?.className).toMatch(/\bpt-4\b/);

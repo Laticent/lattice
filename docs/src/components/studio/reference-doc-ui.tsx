@@ -11,6 +11,7 @@ import { Check, Paperclip, Plus, Trash2, X } from 'lucide-react';
 import * as React from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { formatBytes, MAX_GROUND_DOCS, REF_DOC_ACCEPT, type ReferenceDoc, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
@@ -38,7 +39,7 @@ function fmtAdded(ts: number): string {
  * paperclip picker — drop it in the prompt row) and `chip` (render it below the row).
  * `onManage`, when given, adds a "Manage in Library" link to the picker footer.
  */
-export function useReferenceDoc(notify?: (msg: string) => void, onManage?: () => void) {
+export function useReferenceDoc(onManage?: () => void) {
 	// Multiple docs can ground ONE generation (#656). `docs` is the active set the
 	// caller feeds to generate*/chatComplete; the picker toggles membership.
 	const [docs, setDocs] = React.useState<ReferenceDoc[]>([]);
@@ -51,7 +52,7 @@ export function useReferenceDoc(notify?: (msg: string) => void, onManage?: () =>
 	}, []);
 	React.useEffect(() => refresh(), [refresh]);
 
-	const capReached = () => { if (docs.length >= MAX_GROUND_DOCS) { notify?.(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return true; } return false; };
+	const capReached = () => { if (docs.length >= MAX_GROUND_DOCS) { notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return true; } return false; };
 
 	const onFile = async (file?: File | null) => {
 		if (!file) return;
@@ -63,9 +64,9 @@ export function useReferenceDoc(notify?: (msg: string) => void, onManage?: () =>
 			// The cap is re-checked INSIDE the updater so concurrent adds can't race past it.
 			setDocs((cur) => (cur.some((x) => x.id === rec.id) || cur.length >= MAX_GROUND_DOCS ? cur : [...cur, { ...d, id: rec.id }]));
 			refresh();
-			notify?.(`Attached “${d.name}” — saved to your library and grounding the next generation (billed each run).`);
+			notify(`Attached “${d.name}” — saved to your library and grounding the next generation (billed each run).`);
 		} catch (e) {
-			notify?.((e as Error)?.message || 'Could not read that file.');
+			notify((e as Error)?.message || 'Could not read that file.');
 		}
 		if (inputRef.current) inputRef.current.value = ''; // allow re-picking the same file
 	};
@@ -75,7 +76,7 @@ export function useReferenceDoc(notify?: (msg: string) => void, onManage?: () =>
 	const toggleSaved = (rec: RefDocRecord) => {
 		setDocs((cur) => {
 			if (cur.some((d) => d.id === rec.id)) return cur.filter((d) => d.id !== rec.id);
-			if (cur.length >= MAX_GROUND_DOCS) { notify?.(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return cur; }
+			if (cur.length >= MAX_GROUND_DOCS) { notify(`You can ground up to ${MAX_GROUND_DOCS} docs at once — remove one first.`); return cur; }
 			return [...cur, recordToDoc(rec)];
 		});
 	};

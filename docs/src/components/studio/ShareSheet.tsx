@@ -3,6 +3,7 @@ import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { chunkLoadMessage, isChunkLoadError } from '@/lib/chunk-load';
 import { deckColorMode } from '@/lib/deck-theme';
+import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
@@ -31,7 +32,7 @@ function Row({ icon, title, desc, dev, busy, status, onClick }: { icon: React.Re
 	);
 }
 
-export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent, notify }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; notify: (msg: string, opts?: { duration?: number }) => void }) {
+export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void }) {
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
 	// a real per-artifact decision: PDF (comments as sticky notes), the Webpage player
@@ -127,7 +128,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				setProgress(null);
 			}
 		},
-		[busy, notify],
+		[busy],
 	);
 
 	const name = deckFilename(deckTitle).replace(/\.md$/, '');
@@ -231,7 +232,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 							onCancel={() => bakeRef.current?.abort()}
 						/>
 					) : view === 'print' ? (
-						<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} onBack={() => setView('menu')} notify={notify} />
+						<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} onBack={() => setView('menu')} />
 					) : view === 'imageset' ? (
 						<ImageSetOptionsPanel busy={busy === 'images'} status={progress} onBack={() => setView('menu')} onExport={exportImages} />
 					) : view === 'marp' ? (

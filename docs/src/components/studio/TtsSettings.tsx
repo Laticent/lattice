@@ -1,6 +1,8 @@
 import { Download, Loader2, PlayCircle } from 'lucide-react';
 import * as React from 'react';
 import { Slider } from '@/components/ui/slider';
+import { Announce } from '@/lib/announce';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import {
 	listTtsModels,
@@ -90,7 +92,7 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
 	);
 }
 
-export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; notify: (msg: string) => void }) {
+export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 	const [avail, setAvail] = React.useState<VoiceAvailability | null>(null);
 	const [models, setModels] = React.useState<OrVoiceModel[] | null>(null);
 	const [orModel, setOrModelState] = React.useState('');
@@ -259,7 +261,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 			setVoicePreview((cur) => (cur === voice ? null : cur));
 			if (!res.ok) notify(res.error || 'Could not play a sample.');
 		},
-		[orModel, speed, notify],
+		[orModel, speed],
 	);
 	const pickOrVoice = async (v: string) => {
 		setOrVoiceState(v);
@@ -384,7 +386,9 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 							<span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: `${Math.max(4, kokoroLoad.pct)}%` }} />
 						</div>
 					)}
-					{kokoroLoad.phase === 'error' && <p className="mt-1.5 text-[11px] text-[var(--fail,#b3261e)]">{kokoroLoad.note}</p>}
+					{kokoroLoad.phase === 'error' && <p aria-hidden="true" className="mt-1.5 text-[11px] text-[var(--fail,#b3261e)]">{kokoroLoad.note}</p>}
+					{/* Assertive: they asked for a download and are waiting on it. */}
+					<Announce assertive message={kokoroLoad.phase === 'error' ? kokoroLoad.note : null} />
 				</div>
 			)}
 

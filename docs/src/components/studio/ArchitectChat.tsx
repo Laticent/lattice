@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { diffLines, sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { Textarea } from '@/components/ui/textarea';
+import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, useArchitectStatus } from './architect';
 import { ChatCodeBlock } from './ChatCodeBlock';
@@ -140,7 +141,7 @@ export function __clearPendingNotices() {
 	publishNotices();
 }
 
-export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs, notify }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; notify: (m: string) => void }) {
+export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
 	const [busy, setBusy] = React.useState(false);
@@ -170,7 +171,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	);
 	const [pulse, setPulse] = React.useState(0);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
-	const refDoc = useReferenceDoc(notify, onManageDocs);
+	const refDoc = useReferenceDoc(onManageDocs);
 	const status = useArchitectStatus(pulse);
 
 	const deckIdRef = React.useRef(deckId);

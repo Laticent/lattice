@@ -37,7 +37,7 @@ afterEach(() => vi.clearAllMocks());
 describe('Present — reader lens gate (fail closed)', () => {
 	it('an UNAPPROVED registry lens is not even offered to the reader', () => {
 		const reg = parseLensRegistry(fmWith(false));
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fmWith(false)} registry={reg} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fmWith(false)} registry={reg} />);
 		// brief is the ONLY non-full lens and it's unapproved → not reader-eligible → the picker has only
 		// "Full deck", so it renders a static label with NO reader-view dropdown (nothing to switch to).
 		expect(screen.getByText('Full deck')).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe('Present — reader lens gate (fail closed)', () => {
 
 	it('an APPROVED registry lens is offered as a real reader-view switcher', () => {
 		const reg = parseLensRegistry(fmWith(true));
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fmWith(true)} registry={reg} notify={() => {}} />);
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fmWith(true)} registry={reg} />);
 		// brief is approved → eligible → the picker now has 2 entries (Full deck + Bottom line) → dropdown.
 		expect(screen.getByRole('button', { name: 'Reader view' })).toBeInTheDocument();
 		// The library says brief has exactly one member (the KPI slide) — the seam preserves that.

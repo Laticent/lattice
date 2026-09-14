@@ -451,7 +451,10 @@ describe('Studio — Fabricate Theme Studio depth', () => {
 
 			fireEvent.change(box, { target: { value: `${box.value}\n:root { --leak: url(https://evil.example/?beacon); }\n` } });
 			await waitFor(() => expect(specimen.getAttribute('data-extra-theme')).toBe(''));
-			expect(await screen.findByText(/The preview is paused/)).toBeInTheDocument();
+			// TWO nodes carry this sentence now: the visible strip and the `<Announce>`
+			// live region that is the a11y rendering of it (`lib/announce.tsx`). Ask for
+			// the visible one — a bare `findByText` matches both and throws.
+			expect(await screen.findByText(/The preview is paused/, { ignore: '[role="status"],[role="alert"]' })).toBeInTheDocument();
 		});
 
 		it('…but a merely non-conforming theme keeps rendering while you fix it', async () => {
@@ -464,7 +467,7 @@ describe('Studio — Fabricate Theme Studio depth', () => {
 			fireEvent.change(box, { target: { value: box.value.replace(/--spectrum:\s*[^;]+;/, '') } });
 			await waitFor(() => expect(screen.queryByText(/is not declared/)).toBeInTheDocument());
 			expect(specimen.getAttribute('data-extra-theme')).not.toBe('');
-			expect(screen.queryByText(/The preview is paused/)).toBeNull();
+			expect(screen.queryByText(/The preview is paused/, { ignore: '[role="status"],[role="alert"]' })).toBeNull();
 		});
 	});
 

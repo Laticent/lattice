@@ -39,7 +39,7 @@ function fm({ approved = false, landing }: { approved?: boolean; landing?: strin
 
 function present(source: string, startIndex?: number) {
 	const reg = parseLensRegistry(source);
-	render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={source} registry={reg} startIndex={startIndex} notify={() => {}} />);
+	render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={source} registry={reg} startIndex={startIndex} />);
 	return reg;
 }
 

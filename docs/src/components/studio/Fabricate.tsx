@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tip } from '@/components/ui/tooltip';
+import { Announce } from '@/lib/announce';
+import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
@@ -240,7 +242,7 @@ export type FabricateSeed =
 	| { kind: 'finish'; record: StudioFinish }
 	| { kind: 'motion'; record: StudioScene };
 
-export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], savedScenes = [], onClose, notify, onSaved, onOpenWorkspace, onInsert }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; savedScenes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void; onInsert?: (markdown: string, name: string) => void }) {
+export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], savedScenes = [], onClose, onSaved, onOpenWorkspace, onInsert }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; savedScenes?: { id: string; name: string }[]; onClose: () => void; onSaved?: () => void; onOpenWorkspace?: () => void; onInsert?: (markdown: string, name: string) => void }) {
 	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish' | 'motion'>('theme');
 	// All ten essentials in state, seeded from the first curated starter.
 	const [core, setCore] = React.useState<Record<EssKey, string>>(() => ({ ...(STARTERS[0].essentials as Record<EssKey, string>) }));
@@ -291,8 +293,8 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// Reference-doc grounding (#640) — one per surface: a brand guide grounds the
 	// theme, an existing component/deck grounds the component. Fed to generate*,
 	// cleared on a successful run.
-	const themeDoc = useReferenceDoc(notify);
-	const compDoc = useReferenceDoc(notify);
+	const themeDoc = useReferenceDoc();
+	const compDoc = useReferenceDoc();
 	// The description disclosure (chevron under the name) — collapsed by default on
 	// both tabs; opening reveals the one-line caption editor.
 	const [descOpen, setDescOpen] = React.useState(false);
@@ -942,7 +944,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
-				<MotionStudio seed={seed?.kind === 'motion' ? seed.record : null} savedScenes={savedScenes} notify={notify} onSaved={onSaved} onInsert={onInsert} onOpenWorkspace={onOpenWorkspace} />
+				<MotionStudio seed={seed?.kind === 'motion' ? seed.record : null} savedScenes={savedScenes} onSaved={onSaved} onInsert={onInsert} onOpenWorkspace={onOpenWorkspace} />
 			</div>
 		);
 	}
@@ -954,7 +956,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
-				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} savedFinishes={savedFinishes} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
+				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} savedFinishes={savedFinishes} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
 			</div>
 		);
 	}
@@ -1683,15 +1685,35 @@ function PairRow({ icon, label, ratio }: { icon: React.ReactNode; label: string;
  * (HARD RULE #24). A blank specimen with no explanation is the one thing that must
  * not happen, so the reason is stated where the specimen went blank.
  */
+const PREVIEW_PAUSED = 'The preview is paused — this stylesheet reaches off the device. Fix the blocking finding below and it comes straight back.';
+
 function ThemeFindings({ findings, blocked }: { findings: Finding[]; blocked: boolean }) {
-	if (!findings.length) {
-		return <p className="px-1 py-1 font-mono text-[10.5px] uppercase tracking-wider text-[var(--pass)]">Gate clean</p>;
-	}
+	// The region is OUTSIDE the early return, and that placement is the whole point.
+	// `blocked` can only become true as `findings` goes 0 → N, so a region rendered
+	// inside the second branch would be CREATED carrying its sentence — and a freshly
+	// inserted live region is mostly not announced (`lib/announce.tsx`). Mounted here
+	// it persists across the swap and the sentence arrives as a CHANGE, which is what
+	// gets read out. It was written the wrong way round first, and the a11y-tree e2e
+	// did not catch it: that arm asserts the node is in the tree afterwards, which it
+	// is either way.
+	return (
+		<>
+			<Announce message={blocked ? PREVIEW_PAUSED : null} />
+			{!findings.length ? (
+				<p className="px-1 py-1 font-mono text-[10.5px] uppercase tracking-wider text-[var(--pass)]">Gate clean</p>
+			) : (
+				<ThemeFindingsList findings={findings} blocked={blocked} />
+			)}
+		</>
+	);
+}
+
+function ThemeFindingsList({ findings, blocked }: { findings: Finding[]; blocked: boolean }) {
 	return (
 		<div className="flex max-h-[40%] shrink-0 flex-col gap-1 overflow-y-auto">
 			{blocked && (
-				<p className="rounded-md border border-[color-mix(in_srgb,var(--fail)_35%,transparent)] bg-[color-mix(in_srgb,var(--fail)_10%,transparent)] px-2 py-1.5 text-[11px] leading-snug text-[var(--fail)]">
-					The preview is paused — this stylesheet reaches off the device. Fix the blocking finding below and it comes straight back.
+				<p aria-hidden="true" className="rounded-md border border-[color-mix(in_srgb,var(--fail)_35%,transparent)] bg-[color-mix(in_srgb,var(--fail)_10%,transparent)] px-2 py-1.5 text-[11px] leading-snug text-[var(--fail)]">
+					{PREVIEW_PAUSED}
 				</p>
 			)}
 			{findings.map((f, i) => (

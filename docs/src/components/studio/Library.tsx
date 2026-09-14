@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
+import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
@@ -99,6 +100,34 @@ export function rejectedMessage(names: string[]): string {
 	return `Can't add ${shown}${rest} — drop a .zip or ${REF_DOC_ACCEPT}.`;
 }
 
+/**
+ * What to say about the items inside a bundle that would not import. Sibling of
+ * `rejectedMessage` above, and capped for the same reason — except here each
+ * refusal carries its OWN reason, so they are named individually rather than
+ * joined into one clause. Three lines, then a count: the fourth bad scene in a
+ * fifty-item bundle is a number, not a wall.
+ */
+export function refusedDetail(refused: NonNullable<ImportRefusal>[]): string {
+	const shown = refused.slice(0, 3).map((r) => `${r.name} — ${finding(r.why)}`);
+	const rest = refused.length > 3 ? [`…and ${refused.length - 3} more.`] : [];
+	return [`Refused ${refused.length}:`, ...shown, ...rest].join('\n');
+}
+
+/**
+ * The gate's messages lead with WHAT was found and follow, after an em dash, with
+ * why it is refused and what would be allowed instead. A pill keeps the first half.
+ *
+ * Measured on the real Studio: carried whole, two refusals filled ten lines — the
+ * rationale is the long half and it repeats verbatim per item, so three refusals
+ * read as a wall rather than a list. The rationale is not lost, it is just not in a
+ * transient pill: it is the same text the gate shows in Fabricate, where a reader
+ * can act on it.
+ */
+function finding(why: string): string {
+	const cut = why.indexOf(' — ');
+	return (cut === -1 ? why : why.slice(0, cut)).trim().replace(/[.,;]$/, '');
+}
+
 // A few representative swatches for a theme card: the picked essentials, or the
 // accent as a fallback when a legacy record has none.
 function themeSwatches(t: StudioTheme): string[] {
@@ -131,7 +160,7 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged, notify }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -158,7 +187,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onEditFinish?: (f: StudioFinish) => void;
 	onEditMotion?: (m: StudioScene) => void;
 	onChanged: () => void;
-	notify: (msg: string) => void;
 }) {
 	// A phone docks the search field at the bottom; the docked column and the tablet
 	// sheet keep it in the header. Same predicate `PanelSheet` uses to pick its edge.
@@ -448,6 +476,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		// landed. The result was a silent partial import that the toast denied. Now a
 		// refused item is named and the rest still import.
 		const refused: ImportRefusal[] = [];
+		let failure: string | null = null;
 		try {
 			for (const f of Array.from(files)) {
 				const { themes: ts, components: cs, finishes: fs, scenes: ms } = await unpackBundle(f);
@@ -483,16 +512,35 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				}
 			}
 		} catch (e) {
-			notify(`Import failed — ${String((e as Error)?.message || e)}`);
+			// Recorded, NOT raised here. The `finally` below speaks unconditionally, and
+			// both messages now land on the same status pill — so raising the reason here
+			// meant the generic line overwrote it in the same tick and the user was told
+			// the file was EMPTY when it was actually corrupt. The reason is the headline
+			// instead, composed once below with whatever did land under it.
+			failure = String((e as Error)?.message || e);
 		} finally {
 			// ALWAYS refresh, even on the failure path: whatever did land is on the shelf, and
 			// a stale shelf is how a partial import reads as "nothing happened".
 			reload();
 			onChanged();
 			const got = nThemes + nComps + nFinishes + nScenes;
-			if (got) notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`);
-			for (const r of refused) if (r) notify(`Refused ${r.name} — ${r.why}`);
-			if (!got && !refused.length) notify('Nothing to import from that file.');
+			// ONE message for the whole import. The refusals used to go out in a loop —
+			// one toast each — so a bundle carrying four bad scenes raised five pills in
+			// a single tick and buried its own success line. The outcome is a headline
+			// plus, when anything was refused, the refusals underneath it: same
+			// information, one pill, and the success no longer competes with the
+			// failures for a slot (`lib/notify.ts`).
+			const refusals = refused.filter((r): r is NonNullable<ImportRefusal> => r !== null);
+			const detail = refusals.length ? refusedDetail(refusals) : undefined;
+			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`;
+			if (failure) {
+				// A throw can still leave items on the shelf, so the tally and the refusals
+				// go UNDER the reason rather than replacing it.
+				const under = [got ? tally : null, detail].filter(Boolean).join('\n');
+				notify(`Import failed — ${failure}`, { description: under || undefined });
+			} else if (got) notify(tally, { description: detail });
+			else if (refusals.length) notify('Nothing could be imported from that file.', { description: detail });
+			else notify('Nothing to import from that file.');
 			setBusy(null);
 			if (fileRef.current) fileRef.current.value = '';
 		}
@@ -838,7 +886,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				open={!!historyFor}
 				onOpenChange={(o) => { if (!o) setHistoryFor(null); }}
 				onRestored={() => { reload(); onChanged(); }}
-				notify={notify}
 			/>
 		</LibraryFrame>
 	);
