@@ -7,11 +7,11 @@ import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 // to 62 while Chrome's resident set went ~1.1GB → ~1.6GB (~10MB per tile). That is a
 // memory-exhaustion profile, and a renderer OOM presents as "the tab died and reloaded".
 //
-// The window is two-way now, over a shared budget (slide-thumb.tsx `PREVIEW_BUDGET`).
-// This is the REAL-SURFACE oracle for the property that matters: however far you scroll,
-// the number of live preview documents plateaus instead of climbing. It asserts against a
-// ceiling with headroom rather than the exact budget — the in-band set is viewport-derived
-// and may legitimately run over it (an on-screen tile is never recycled).
+// The frames now come from a fixed POOL that is re-pointed rather than recycled
+// (preview-pool.tsx). This is the REAL-SURFACE oracle for the property that outlived both
+// designs: however far you scroll, the number of live preview documents plateaus instead of
+// climbing. It asserts against a ceiling with headroom rather than an exact count — the pool's
+// own ceiling follows what is on screen, so the number legitimately differs by viewport.
 const CEILING = 48;
 
 /** Live engine preview documents currently mounted in the page. */

@@ -197,6 +197,8 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A CDP/DevTools memory profile shows a "leak" that vanishes off-inspector](gotchas/memory-profiling.md#a-cdpdevtools-memory-profile-shows-a-leak-that-vanishes-off-inspector)
 - [A heap retainer walk names `<DevTools console>` / `ScriptStateProtectingContext` as the holder](gotchas/memory-profiling.md#a-heap-retainer-walk-names-devtools-console--scriptstateprotectingcontext-as-the-holder)
 - [perf-torture says `RISING` but memory isn't leaking (JIT warmup)](gotchas/memory-profiling.md#perf-torture-says-rising-but-memory-isnt-leaking-jit-warmup)
+- [WebKit's memory keeps rising as a grid recycles iframes, with nothing on the page](gotchas/memory-profiling.md#webkits-memory-keeps-rising-as-a-grid-recycles-iframes-with-nothing-on-the-page)
+- [Moving a rendered iframe in the DOM blanks it](gotchas/memory-profiling.md#moving-a-rendered-iframe-in-the-dom-blanks-it)
 
 ### [Mermaid](gotchas/mermaid.md)
 

@@ -9,7 +9,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { NEW_SLIDE } from './deck-ops';
-import { SlideThumbFace, useInView } from './slide-thumb';
+import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { componentLooks, type VariantAxis, variantSample } from './slide-variants';
 import { loadPickerView, loadSettings, type PickerView, SETTINGS_EVENT, savePickerView } from './studio-store';
 
@@ -24,11 +24,10 @@ import { loadPickerView, loadSettings, type PickerView, SETTINGS_EVENT, savePick
 // builder). Search + grouping + filter all sit on the shared component-search core
 // (HARD RULE #15).
 //
-// WINDOWED means TWO-WAY (#1463): a tile mounts its iframe on scroll-in and gives it
-// back once it is far enough off screen that the shared preview budget wants the slot
-// (slide-thumb.tsx). It used to be one-way — mount on scroll-in, keep forever — so a
-// scroll through the full gallery left every tile's engine document resident at once
-// and the tab could be OOM-killed. Off-screen tiles cost a ref and a placeholder box.
+// WINDOWED means POOLED (#1538): the frames live in one layer and are re-pointed over the
+// tiles on screen (preview-pool.tsx), never torn down — because WebKit does not give a
+// torn-down preview document back, which made the two-way window that preceded this the
+// thing paying for a document per tile browsed. Off-screen tiles cost a ref and an empty box.
 //
 // These tiles are also SPECIMENS: every one renders a catalog sample the author did not
 // write and cannot edit, so the engine's authoring alarms (the overflow ring/tab, the
@@ -340,22 +339,34 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			)}
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 [touch-action:pan-y] sm:px-5">
-				{searching && flat.length === 0 ? (
-					<Empty query={query} />
-				) : (
-					/* ONE grid element in both views — only the column track changes, so a tile
-					   (and its live-preview iframe) survives a view flip instead of unmounting and
-					   re-rendering cold. List is a single full-width column whose tiles lay
-					   themselves out as rows; band headers stay `col-span-full` in both. */
-					<div className={cn('grid gap-3 pt-1', effectiveView === 'list' ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4')}>
-						{searching
-							? flat.flatMap((it) => renderTile(it, it.name, matchedLooks(it)))
-							: (bands ?? []).flatMap((band) => {
-									const header = band.label ? [<h3 key={`h:${band.key}`} className={cn('col-span-full px-0.5 pb-1 pt-2 text-[13px] font-semibold leading-normal', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-[var(--text-heading)]')}>{band.label}</h3>] : [];
-									return [...header, ...band.items.flatMap((it) => renderTile(it, tileKey(band.key, it.name)))];
-								})}
-					</div>
-				)}
+				{/* POOLED PREVIEWS. The frames live in one layer inside this scroll content rather than one
+				    per tile, so they are re-pointed instead of destroyed as you scroll — which is what stops
+				    WebKit retaining a document per tile browsed. See preview-pool.tsx. The grid itself is
+				    unchanged: every tile keeps its own button, name and looks control.
+
+				    THE POOL WRAPS BOTH BRANCHES BELOW, and that is not a formatting choice. Inside the grid
+				    branch, a query matching nothing unmounted the pool — destroying every preview document
+				    and minting a fresh set when the query matched again. Measured: 11 frames → 1 → 11 per
+				    empty-search bounce, which on WebKit is ~100MB never given back, reachable by any typo.
+				    The pool outlives what it is showing; that is the whole idea. */}
+				<PreviewPool>
+					{searching && flat.length === 0 ? (
+						<Empty query={query} />
+					) : (
+						/* ONE grid element in both views — only the column track changes, so a tile (and the
+						   slot showing it) survives a view flip instead of unmounting and re-rendering cold.
+						   List is a single full-width column whose tiles lay themselves out as rows; band
+						   headers stay `col-span-full` in both. */
+						<div className={cn('grid gap-3 pt-1', effectiveView === 'list' ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4')}>
+							{searching
+								? flat.flatMap((it) => renderTile(it, it.name, matchedLooks(it)))
+								: (bands ?? []).flatMap((band) => {
+										const header = band.label ? [<h3 key={`h:${band.key}`} className={cn('col-span-full px-0.5 pb-1 pt-2 text-[13px] font-semibold leading-normal', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-[var(--text-heading)]')}>{band.label}</h3>] : [];
+										return [...header, ...band.items.flatMap((it) => renderTile(it, tileKey(band.key, it.name)))];
+									})}
+						</div>
+					)}
+				</PreviewPool>
 			</div>
 
 			{/* Detail rail — prose on demand (the highlighted slide's purpose). Hidden on a
@@ -511,7 +522,7 @@ function LooksToggle({ name, looksCount, matchCount, isOpen, onToggle }: { name:
 // the meta — for when you are reading names and descriptions rather than scanning
 // artwork. Both views render the SAME live engine preview through the same windowing.
 function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, view = 'grid', looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks }: { item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; view?: PickerView; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
-	const [ref, visible] = useInView<HTMLDivElement>();
+	const ref = React.useRef<HTMLDivElement>(null);
 	const sample = frontMatter ? frontMatter + item.skeleton : item.skeleton;
 	const isBlank = item.name === 'Blank';
 	const isList = view === 'list';
@@ -525,7 +536,7 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 	) : (
 		// pointer-events-none: the render is a separate-document iframe that would
 		// otherwise swallow the tile's click.
-		<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} specimen className="pointer-events-none aspect-video w-full" />
+		<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" />
 	);
 
 	// Line 3 in grid, the trailing cluster in list. Rendered OUTSIDE the insert button in
@@ -553,8 +564,10 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 				<button {...insertProps} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
 					<span className="relative w-[184px] shrink-0 overflow-hidden rounded-lg border border-border">
 						{preview}
-						{/* Insert affordance on hover/focus — decorative; the button owns the click. */}
-						<span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1 bg-[color-mix(in_srgb,var(--accent)_88%,#000)] text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+						{/* Insert affordance on hover/focus — decorative; the button owns the click.
+						    `z-10` because the pooled preview layer paints ABOVE the grid (see
+						    preview-pool.tsx) — without it this overlay is hidden behind the frame. */}
+						<span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-1 bg-[color-mix(in_srgb,var(--accent)_88%,#000)] text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
 							<Plus className="size-3.5" /> Insert
 						</span>
 					</span>
@@ -573,8 +586,9 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 			<button {...insertProps} className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]">
 				<span className="relative block">
 					{preview}
-					{/* Insert affordance on hover/focus — decorative; the button owns the click. */}
-					<span className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+					{/* Insert affordance on hover/focus — decorative; the button owns the click.
+					    `z-10`: the pooled preview layer paints above the grid (preview-pool.tsx). */}
+					<span className="pointer-events-none absolute inset-x-2 bottom-2 z-10 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
 						<Plus className="size-3.5" /> Insert
 					</span>
 				</span>
@@ -622,17 +636,15 @@ function LooksPanel({ item, looksFilter, onInsertLook, options, frontMatter, pal
 }
 
 function LookTile({ item, token, label, onInsert, options, frontMatter, paletteOverride, extraTheme, modeOverride }: { item: PickerItem; token: string; label: string; onInsert: (it: PickerItem, token: string) => void; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark' }) {
-	const [ref, visible] = useInView<HTMLButtonElement>();
 	const sample = (frontMatter ?? '') + variantSample(item.skeleton, token);
 	return (
 		<button
 			type="button"
-			ref={ref}
 			onClick={() => onInsert(item, token)}
 			aria-label={token ? `Insert ${item.name} · ${label}` : `Insert ${item.name}, default look`}
 			className="group/lk relative overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-[var(--accent)] focus-visible:border-[var(--accent)] focus-visible:outline-none"
 		>
-			<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} specimen className="pointer-events-none aspect-video w-full" />
+			<PooledThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} specimen className="pointer-events-none aspect-video w-full" />
 			<div className="truncate px-1.5 py-1 font-mono text-[9.5px] font-semibold text-[var(--text-heading)]">{token ? label : 'Default'}</div>
 		</button>
 	);

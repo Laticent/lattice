@@ -3,8 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { SlideOverview } from './SlideOverview';
 
-// The slide sorter renders one thumbnail per slide (the real engine render is
-// stubbed — these assert the grid, the current marker, and jump/close wiring).
+// The slide sorter renders one TILE per slide (the real engine render is stubbed — these assert
+// the grid, the current marker, and jump/close wiring).
+//
+// The tile is the unit here, not the preview, and that changed with the pool (#1538). A tile no
+// longer owns a `DeckPreview`: the previews live in a shared layer that mounts at most a few of
+// them, for the tiles on screen, one throttled pass later. Counting rendered previews would now
+// be counting the POOL's policy from the wrong module — `preview-pool.test.tsx` owns that, with
+// the timers it needs — while this file's actual subject is that every slide gets a button, the
+// current one is marked, and clicking one jumps and closes.
 vi.mock('@/components/DeckPreview', () => ({
 	default: ({ 'aria-label': label }: { 'aria-label'?: string }) => <div data-testid="thumb">{label}</div>,
 }));
@@ -18,10 +25,10 @@ describe('SlideOverview — the slide sorter', () => {
 		expect(screen.queryByRole('dialog', { name: 'Slide overview' })).not.toBeInTheDocument();
 	});
 
-	it('renders a thumbnail per slide and marks the current one', () => {
+	it('renders a tile per slide and marks the current one', () => {
 		render(<SlideOverview open onClose={() => {}} options={options} set={set} current={1} onJump={() => {}} />);
 		expect(screen.getByText('All slides — 3')).toBeInTheDocument();
-		expect(screen.getAllByTestId('thumb')).toHaveLength(3);
+		expect(screen.getAllByRole('button', { name: /^Slide \d+$/ })).toHaveLength(3);
 		// Slide 2 is current → its button carries aria-current.
 		const slide2 = screen.getByRole('button', { name: 'Slide 2' });
 		expect(slide2).toHaveAttribute('aria-current', 'true');
