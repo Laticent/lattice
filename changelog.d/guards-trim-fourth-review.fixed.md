@@ -7,7 +7,11 @@
   one that was too large — the new post-condition (a clamp never leaves a whole line of
   its box empty) is that arm. Driven on the real Playground: the same deck now clamps to
   the same line count at a 42% and a 33% preview scale, where it previously cut to three
-  lines at one width and went silent — with the overflow ring on — at the other.
+  lines at one width and went silent — with the overflow ring on — at the other. It was not
+  a preview-only defect: exporting the same deck to PDF from the Studio dropped a full line
+  of copy out of the delivered file and left the room it cut it from empty. A new end-to-end
+  arm exports the same deck twice and holds the floor that catches it: a `guards: strict`
+  export never delivers less copy than the untrimmed one.
 - The live preview and the export now reach the same verdict on a trim. They shared the
   kernel and not the policy: the export refused a cut that did not make the slide fit
   while the runtime kept it, so a `--fluid` export shipped a clamp — on a slide still

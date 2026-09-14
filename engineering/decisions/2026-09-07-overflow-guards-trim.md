@@ -1409,7 +1409,10 @@ measures **1208** and the fit agent scales every section by 1208/1280. The frame
 comment says the rest: *"The FIT agent still scales + reveals against the real width;
 `rasterizeSection` undoes the scale (`transform: none`) per slide."* So the runtime trims at
 0.94375 and the raster is taken at full size — the wrong LINE COUNT is baked. With the
-coordinate-space bug that reached **exported bytes**, not only a preview.
+coordinate-space bug that reached **exported bytes**, not only a preview. That sentence was
+an inference when it was written; §13 drove the real Studio export twice and made it a
+measurement — the bug costs the delivered PDF **sixteen words, one whole line of the
+author's copy**, and leaves the room it cut them from empty.
 
 **The CLI export was never affected, and an earlier draft of this paragraph said the
 opposite.** It cited `inflatedPlayerHtml` as what "the export bakes". That symbol lives only
@@ -1477,3 +1480,81 @@ defect in the previous pass's CODE. The fifth found the code sound and the prose
 note that exists to stop claims being re-derived had accumulated four of its own, three
 written the same evening they were retracted.
 
+
+## 13. THE STUDIO EXPORT, DRIVEN END TO END — fix against bug, on the delivered PDF (2026-09-14)
+
+Everything §11 measured about the coordinate-space bug was measured in the **live preview**.
+The severity claim — that the bug reached *exported bytes*, not only a preview — was an
+inference from two facts read in code: the Studio's capture frame scales sections by 0.94375,
+and `rasterizeSection` undoes the scale per slide, so the wrong line count is baked. §12
+retracted the citation that inference leaned on. It stayed the PR's one open caveat.
+
+**It is now an artifact.** #2199 gave the exported PDF a real text layer, which collapsed the
+cost of the oracle: `pdftotext` instead of a pixel-signature harness. The same `guards: strict`
+deck was exported through the **real Studio Share → PDF flow**, twice — once from a site built
+on the fix, once from a site built with `scaleOf` pinned to `1` — plus a `guards: loose`
+control.
+
+| build | body words in the delivered PDF | last line of copy |
+|---|---|---|
+| **fixed** | **205** | `Sentence 12 … past its limit.` — complete |
+| **`scaleOf` pinned to 1** (the shipped bug) | **189** | `Sentence 11 … past its limit.`, and a **whole empty line below it** |
+| `guards: loose` (control) | 205 | `Sentence 12 …` hard-clipped mid-line, no trim |
+
+**The bug removes sixteen words — one full line of the author's copy — from the bytes the
+reader receives, and leaves the room it cut them from empty.** That is the over-cut class
+verbatim: `verifyTrim` is satisfied (the slide no longer overflows), every gate in the tree is
+satisfied, and a line of the deck is gone. The raster confirms it by eye — eleven lines and a
+blank band where the twelfth belongs.
+
+The capture frame was instrumented during the export itself, so the mechanism is not inferred
+either:
+
+```
+--- capture-frame states during strict.pdf ---
+    s0:trim=1,clamped=1,cls=content.guards-strict.form.clip-marked,sc=1.0000
+    s0:trim=1,clamped=1,cls=content.guards-strict.form,sc=0.9437
+    s0:trim=1,clamped=1,cls=content.guards-strict.form.clip-marked.lattice-exporting,sc=0.9437
+--- capture-frame states during loose.pdf ---
+    s0:trim=null,clamped=0,cls=content.form.overflow.clip-marked.fit-marked,sc=1.0000
+```
+
+The trim fires inside the export's own frame, at 0.9437 — the scale §11 measured on a replica,
+now read off the real export.
+
+**Why this is not a Studio-vs-CLI diff, which is what the pre-merge card's raise path named.**
+The CLI sets `page.setViewport({ width: slideW, height: slideH })` and runs at scale 1, so the
+CLI export was never affected (§12). Diffing the two paths would have conflated the trim with
+every other difference between two renderers. Fix-against-bug on the **one** path, same deck,
+same flow, isolates the variable — and it is the comparison that actually answers the
+question, because `guards: strict` against `guards: loose` does not: at this frame's scale the
+correct trim lands on the same line the clip already cuts, so the two agree at 205 words and
+say nothing about whether the trim ran.
+
+**What this changes for the reader of §11.** Nothing in the fix; everything in the severity.
+The bug was not a preview artifact that a correct export papered over. It shipped in the PDF.
+
+### And the instrument, because nothing in the tree could see this
+
+`docs/e2e/guards-trim-export.spec.ts` (new) drives the same two exports and asserts the
+post-condition at the **artifact** level: **a `guards: strict` export never delivers less
+copy than the untrimmed one.** `loose` clips at the box edge and the PDF's text layer
+carries only what is visible, so the loose export is exactly *everything that fit*; a
+correct clamp lands on that same last fitting line, so the two come back **equal** — and an
+over-cut comes back shorter. There is no line count in the assertion, so it does not have
+to know this deck fits twelve.
+
+Anti-vacuity at both ends, because the comparison has two ways to be trivially true: an
+export that painted nothing makes `0 >= 0` pass, and a deck that does not overflow makes
+both exports whole. The control's count is pinned strictly inside `(0, 14)`.
+
+Mutation-proved by rebuilding the site with `scaleOf` pinned to 1: **green on the fix,
+red on the bug with `strict delivered 11 sentences and the untrimmed control delivered
+12`.** Runtime 34s.
+
+**One disclosed gap, and it is a decision that is not the agent's to take.** The oracle is
+`pdftotext`, and `studio-e2e-nightly.yml` — the only job that runs this suite — provisions
+Node, the browsers and the site, and no poppler. Adding a step to a workflow is the repo
+owner's call (CLAUDE.md § SECOND FILTER, row 2), so the arm skips with a message saying the
+export path is **uncovered on that runner** rather than quietly passing. One
+`apt-get install -y poppler-utils` step closes it.

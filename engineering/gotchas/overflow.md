@@ -480,3 +480,32 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   drops the whole declaration.
 - **Where:** `lib/forms/cell/stage/stage.css` § safe alignment,
   `engineering/decisions/2026-09-02-stage-clip-shear-sweep.md` § The head-loss half.
+
+## The Studio's PDF export measures at 0.94, not 1 — and the raster is taken at 1
+
+- **Symptom:** geometry code that is correct in the CLI export ships a wrong answer in the
+  Studio's Share → PDF. A `guards: strict` deck exported from the Studio came back one line
+  of copy short, with a whole empty line of room under the cut; the same deck through the
+  CLI was right. Nothing reports it: the slide fits, so the overflow probe, the trim's own
+  verdict and the corpus ratchet all read clean.
+- **Cause:** the two exports run at different scales. The CLI sets
+  `page.setViewport({ width: slideW, height: slideH })`, so its capture is at **scale 1**.
+  `docs/src/components/studio/export/deck-export.js` sizes its capture iframe to the geom
+  box (1280) while `buildSrcdoc` puts `padding: 18px` on **both** `html` and `body`, so
+  `.lattice` measures 1208 and the FIT agent scales every section by 1208/1280 =
+  **0.94375** — about 0.932 with classic scrollbars, which is the desktop default. The
+  runtime therefore measures and decides at that scale, and `rasterizeSection` then undoes
+  it (`transform: none`) per slide, so whatever line count was decided at 0.94 is baked at
+  1. Any measurement that reads `getBoundingClientRect()` against a `clientHeight`
+  threshold is off by that factor, in the direction that removes the author's text.
+- **Fix:** normalize to **layout px** the way `lib/core/overflow-probe.js` does —
+  `rect.height / offsetHeight` per box, divided out of every rect-derived quantity. Do not
+  take the scale from `DOMMatrix`: it misses the `scale:` property and `zoom:`, and returns
+  cos θ under rotation.
+- **Don't test it by diffing `strict` against `loose`.** At this frame's scale a correct
+  trim lands on the same line the clip already cuts, so the two agree word-for-word and the
+  comparison says nothing. Diff **fix against bug on the one path** — build the site twice
+  and export the same deck through the real Share flow. Since #2199 the exported PDF carries
+  a real text layer, so `pdftotext` is the oracle.
+- **Where:** `engineering/decisions/2026-09-07-overflow-guards-trim.md` §11 (the frame) and
+  §13 (the two exports, measured).

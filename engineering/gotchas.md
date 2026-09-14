@@ -229,6 +229,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Exported fluid viewer: an overflowing slide shows NO marker tab, or the red author ring leaks to a reader](gotchas/overflow.md#exported-fluid-viewer-an-overflowing-slide-shows-no-marker-tab-or-the-red-author-ring-leaks-to-a-reader)
 - [A dense slide loses its card borders and corners, but not one word of text](gotchas/overflow.md#a-dense-slide-loses-its-card-borders-and-corners-but-not-one-word-of-text)
 - [A slide silently loses its FIRST line, and every gate reads clean](gotchas/overflow.md#a-slide-silently-loses-its-first-line-and-every-gate-reads-clean)
+- [The Studio's PDF export measures at 0.94, not 1 — and the raster is taken at 1](gotchas/overflow.md#the-studios-pdf-export-measures-at-094-not-1--and-the-raster-is-taken-at-1)
 
 ### [The Studio and the Playground (docs-site app surfaces)](gotchas/studio-playground.md)
 
