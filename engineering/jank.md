@@ -471,7 +471,7 @@ minority mark. Measured over the whole population — every deck in `examples/` 
 |---|---:|---:|
 | the real `span.lat-pagination` | 1490 | 79.2% |
 | the `::after` pseudo | **232** | **12.3%** |
-| neither mark paints | 160 | 8.5% |
+| neither mark is used | 160 | 8.5% |
 
 89 of the 164 decks paint the pseudo at least once. The 160 are **158 `silent` slides**, one
 `image statement` (`image.styles.css` suppresses the pseudo for a full-bleed composition), and
@@ -480,32 +480,53 @@ one `big-number claim-bleed` whose footer cell is `display: none`.
 **The counting rule, because a share is only as good as its predicate.** A section carrying
 `data-lattice-pagination`; the pseudo counts as painted when
 `getComputedStyle(sec, '::after').content` is neither `none` nor `normal` and the pseudo is not
-itself hidden; the span counts as shown when `span.lat-pagination` exists and nothing between
-it and the section hides it. **That last clause is bounded at the section on purpose.** An
-earlier version asked for a client rect instead, which files five `player: true` slides under
-"neither" — their span is present, `display: block`, `visibility: visible`, carrying the right
-numeral, but `div.lp-frame`, an ancestor OUTSIDE the slide, is `display: none` while that slide
-is not the current one. A player frame must not decide whether a slide's own mark is shown.
-That bug moved two of the four numbers in this table by five slides, and `bloom` could not
-reveal it, which is the limit of checking a rule against one deck.
+itself hidden; the span counts as shown when `span.lat-pagination` exists and nothing **from
+the span up to the section, the span included**, hides it. "Hides" means `display: none` or
+`visibility: hidden` — and in this corpus every blocker is `display: none`, so the second half
+never arbitrates.
+
+**BOTH ENDS OF THAT CHAIN ARE LOAD-BEARING, and each cost a measurement.** The top end: an
+earlier version asked for a client rect, which files five `player: true` slides under
+"neither" — all five in `html-player`, their span present, `display: block`, `visibility:
+visible`, carrying the right numeral, but `div.lp-frame`, an ancestor OUTSIDE the slide, is
+`display: none` while that slide is not the current one. A player frame must not decide
+whether a slide's own mark is shown.
+The bottom end: the fix for that said "nothing **between** it and the section", which reads as
+excluding the span's own style — and nine slides carry `display: none` on the span itself. The
+literal reading of those words moves nine slides out of "neither" and into the span column —
+a wider gap than the five-slide bug they were written to close. Counted: `a11y` 1,
+`chart-detail-reveal` 1, `finish-backdrops` 1, `label-attribution` 2, `pie-detail-notes` 1,
+`svg-chart-labels-motion` 3, each `display: none` on the span with `visibility: visible`. The
+table above is the inclusive reading.
+
+`bloom` reveals neither end: zero of its slides differ between the rect rule and the chain
+rule. A rule checked against one deck is a rule checked against nothing in particular, which
+is why the paragraph above gives the population instead.
 
 **Two smaller samples got this wrong, and the sample size is why.** A draft quoted **5.5%**
-from a 12-deck stride sample; an independent pass over 27 decks got **17.8%**. Drawing 20,000
-subsamples of *n* distinct decks (without replacement) and pooling each subsample's slides puts
-the 5th-95th percentile at **4.6%-21.3%** for n=12 and **6.5%-18.4%** for n=27, stable to a
-tenth across seeds. The method matters and is stated because it changes the digits: drawing
-*with* replacement gives 4.5%-21.6% and 6.2%-18.8%.
+from a 12-deck stride sample; an independent pass over 27 decks got **17.8%**. Both were
+estimating the same 12.3%. Draw 20,000 subsamples of *n* distinct decks from the 164 — without
+replacement, pooling each subsample's slides, `mulberry32` seeded 1, over the same per-deck
+counts the table above pools — and the 5th-95th percentile runs **4.7%-21.4%** at n=12 and
+**6.5%-18.4%** at n=27. Twelve decks can pool as high as **58.1%** (50 of 86 slides). Two small
+samples disagreeing threefold is the width of the instrument, not a fault in either.
 
-Two samples of one population disagreeing threefold is the finding, and it needs no band to
-make it. A draft went further and said the bands show neither sample was unlucky; they do not
-show that. 5.5% sits at the **8.8th** percentile of its distribution and 17.8% at the
-**92.9th**, so
-on a 10th-90th band — as arbitrary a choice as the 5th-95th, made after seeing the data — both
-would read as unlucky instead. And a stride sample is systematic rather than random, so a
-random-subsample band is an approximation for it, not a model of it. What survives without any
-of that machinery: a dozen decks cannot resolve a 12.3% share to a decimal place, and neither
-draft named its decks or its command, so no reader could re-derive either. That is why the
-table above gives a population figure and the rule that produces it.
+**Every part of that instrument is named because each one moves the digits.** Draw *with*
+replacement instead and the same seed gives 4.5%-21.6% and 6.3%-18.9%. Change the seed and the
+ends move too: over seeds 1, 2, 3 and 7 the n=12 band runs 4.6-4.7 at the bottom and 21.2-21.4
+at the top, and n=27's bottom runs 6.5-6.7 while its top holds at 18.4. An earlier draft called
+these bands "stable to a tenth across seeds". They are stable to about two.
+
+**A band does not certify a sample as lucky, and a draft said it did.** 5.5% sits at the
+**8.9th** percentile of the *n=12* distribution and 17.8% at the **92.7th** of the *n=27* —
+each against its own *n*, which is the only comparison either supports. Widen to a 10th-90th
+band, as arbitrary a choice as the 5th-95th and picked after seeing the data, and 17.8% reads
+as unlucky outright while 5.5% lands on the line (8.5th to 10.0th over those same four seeds).
+A stride sample is systematic rather than random besides, so a random-subsample band
+approximates it rather than models it. What survives without any of that machinery: a dozen
+decks cannot resolve a 12.3% share to a decimal place, and neither draft named its decks or its
+command, so no reader could re-derive either. That is why the table above gives a population
+figure and the rule that produces it.
 
 **And one deck is not the population.** `bloom-engineering-journey`'s 7 of 13 is six
 `split-panel` slides plus a `premise`, not seven of anything — and it is high rather than
