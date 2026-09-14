@@ -32,7 +32,7 @@ Use when the question is 'where does this concentrate', not 'how do these compar
 - Every row should name the same columns in the same order — a column that appears in one row and not another is a gap, and paints as one.
 - Up to 12 columns and 10 rows. Past that the cells stop carrying a readable value; consolidate a long tail rather than shrinking the grid.
 - One unit across the whole matrix. The affix is read from the values and printed once in the description.
-- **Values are binned into five tones, so near-equal cells share one.** The ramp is quantized rather than continuous — that is what lets the printed value keep AA contrast on every palette. The number in the cell is exact; the tone is a band. If a reader has to tell two close values apart by color, the comparison belongs on an axis.
+- **Values are binned into five tones, so near-equal cells share one.** The ramp is quantized rather than continuous — that is what lets the printed value keep AA contrast on every palette. The bands are cut at the matrix's own quantiles, so a skewed table still uses the whole ramp, but tone is not linear in value: the number in the cell is exact, the tone is a band. If a reader has to tell two close values apart by color, the comparison belongs on an axis.
 
 ## When to use
 

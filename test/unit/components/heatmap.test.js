@@ -18,7 +18,7 @@ const MarkdownIt = require('markdown-it');
 
 const {
   parseHeatmap, buildHeatmap,
-  MAX_COLS, MAX_ROWS, MIX_FLOOR, MIX_TOP, RAMP_STEPS, stepFor,
+  MAX_COLS, MAX_ROWS, MIX_FLOOR, MIX_TOP, RAMP_STEPS, stepFor, rampBreaks,
 } = require('../../../lib/components/chart/heatmap/heatmap.transform');
 
 const md = new MarkdownIt({ html: true });
@@ -102,11 +102,13 @@ describe('heatmap — the quantized ramp', () => {
   // only correct for the fill it was solved against, so a step index that means
   // one thing in the kernel and another in CSS is a silent contrast failure.
 
+  const evenBreaks = rampBreaks(Array.from({ length: 101 }, (_, i) => i));
+
   test('a value maps to a step in range, and the extremes land on the ends', () => {
-    assert.equal(stepFor(0, 0, 100), 1, 'the matrix minimum takes the first stop');
-    assert.equal(stepFor(100, 0, 100), RAMP_STEPS, 'the maximum takes the last, not one past it');
+    assert.equal(stepFor(0, evenBreaks), 1, 'the matrix minimum takes the first stop');
+    assert.equal(stepFor(100, evenBreaks), RAMP_STEPS, 'the maximum takes the last, not one past it');
     for (let v = 0; v <= 100; v += 1) {
-      const s = stepFor(v, 0, 100);
+      const s = stepFor(v, evenBreaks);
       assert.ok(Number.isInteger(s) && s >= 1 && s <= RAMP_STEPS, `stepFor(${v}) = ${s} is off the ramp`);
     }
   });
@@ -114,16 +116,46 @@ describe('heatmap — the quantized ramp', () => {
   test('steps never go backwards as the value climbs', () => {
     let prev = 0;
     for (let v = 0; v <= 100; v += 1) {
-      const s = stepFor(v, 0, 100);
+      const s = stepFor(v, evenBreaks);
       assert.ok(s >= prev, `stepFor(${v}) = ${s} dropped below ${prev} — the ramp must be monotonic`);
       prev = s;
     }
   });
 
-  test('a FLAT matrix takes the middle step rather than dividing by zero', () => {
-    const s = stepFor(50, 50, 50);
+  test('a FLAT matrix takes the middle step rather than reading as all-maximum', () => {
+    // Every value identical means there are no boundaries to cut, so `rampBreaks`
+    // returns none. Counting boundaries a value clears would otherwise put every
+    // cell at the TOP step, which reads as a matrix that is maximal everywhere.
+    assert.deepEqual(rampBreaks([50, 50, 50]), []);
+    const s = stepFor(50, rampBreaks([50, 50, 50]));
     assert.ok(Number.isInteger(s) && s >= 1 && s <= RAMP_STEPS, 'a flat matrix must still paint');
     assert.equal(s, Math.ceil(RAMP_STEPS / 2), 'a matrix with no gradient sits mid-ramp');
+  });
+
+  // The classing is QUANTILE, not equal-interval, and this is the arm that says so.
+  // Equal-interval spends the ramp on empty range whenever the data is skewed —
+  // and a heatmap's data usually is. Measured across every heatmap slide we ship,
+  // equal-interval used all five tones on 1 of 8 (mean 4.13 of 5); quantile uses
+  // all five on 8 of 8. The flagship slide below is the worst case: its M0 column
+  // is 100% by construction, which pins the top of the range while everything the
+  // headline is about clusters low.
+  test('the classing cuts at quantiles, so a skewed matrix still uses the whole ramp', () => {
+    const retention = [100, 62, 48, 44, 100, 58, 44, 41, 100, 71, 59, 55, 100, 69, 57];
+    const breaks = rampBreaks(retention);
+    const steps = retention.map((v) => stepFor(v, breaks));
+    assert.equal(new Set(steps).size, RAMP_STEPS,
+      `the shipped flagship matrix uses ${new Set(steps).size} of ${RAMP_STEPS} tones — the ramp is being wasted`);
+
+    // Equal interval on the same numbers, for the contrast this arm exists to pin.
+    const min = Math.min(...retention), max = Math.max(...retention);
+    const evenSteps = retention.map((v) =>
+      Math.max(1, Math.min(RAMP_STEPS, Math.floor((v - min) / (max - min) * RAMP_STEPS) + 1)));
+    assert.ok(new Set(evenSteps).size < RAMP_STEPS,
+      'equal interval is supposed to waste a tone here — if it no longer does, this arm has stopped measuring anything');
+
+    // And the boundaries are the data's own, so the extremes still anchor the ends.
+    assert.equal(stepFor(41, breaks), 1, 'the minimum takes the first stop');
+    assert.equal(stepFor(100, breaks), RAMP_STEPS, 'the maximum takes the last');
   });
 
   test('every cell and every value carries a step, and they agree', () => {
@@ -367,17 +399,28 @@ describe('heatmap — every step lands inside the ramp', () => {
   test('a span that overflows a double does not produce NaN', () => {
     // `max > min` holds and the ratio is still not finite: both terms go Infinity
     // and Infinity/Infinity is NaN. Authorable as plain literals, no API misuse.
-    assert.equal(stepFor(1e308, -1e308, 1e308), Math.ceil(RAMP_STEPS / 2));
-    assert.equal(stepFor(0, -1e308, 1e308), 1);
+    // Quantile classing compares against the data's own values, so it never forms
+    // the ratio that overflowed. Pinned anyway: this is the contract four other
+    // places rely on, and it must not depend on which classing is in force.
+    const wide = rampBreaks([-1e308, 0, 1e308]);
+    for (const n of [1e308, -1e308, 0, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const s = stepFor(n, wide);
+      assert.ok(Number.isInteger(s) && s >= 1 && s <= RAMP_STEPS, `stepFor(${n}) = ${s}, off the ramp`);
+    }
   });
 
   test('no input drives the step out of 1..RAMP_STEPS', () => {
-    const spans = [[0, 100], [41, 100], [5, 5], [-1e308, 1e308], [0, 1e-16], [-10, -1], [0, Number.MAX_VALUE]];
-    for (const [lo, hi] of spans) {
-      for (const n of [lo, hi, (lo + hi) / 2, lo - 1, hi + 1, 0]) {
-        const s = stepFor(n, lo, hi);
+    const sets = [
+      [0, 25, 50, 75, 100], [41, 44, 48, 100], [5, 5, 5], [-1e308, 0, 1e308],
+      [0, 1e-16], [-10, -5, -1], [0, Number.MAX_VALUE], [7], [],
+    ];
+    for (const vals of sets) {
+      const breaks = rampBreaks(vals);
+      const probes = [...vals, 0, -1, 1e9, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
+      for (const n of probes) {
+        const s = stepFor(n, breaks);
         assert.ok(Number.isInteger(s) && s >= 1 && s <= RAMP_STEPS,
-          `stepFor(${n}, ${lo}, ${hi}) = ${s}, outside 1..${RAMP_STEPS}`);
+          `stepFor(${n}, breaks of ${JSON.stringify(vals)}) = ${s}, outside 1..${RAMP_STEPS}`);
       }
     }
   });
