@@ -1552,9 +1552,12 @@ Mutation-proved by rebuilding the site with `scaleOf` pinned to 1: **green on th
 red on the bug with `strict delivered 11 sentences and the untrimmed control delivered
 12`.** Runtime 34s.
 
-**One disclosed gap, and it is a decision that is not the agent's to take.** The oracle is
-`pdftotext`, and `studio-e2e-nightly.yml` — the only job that runs this suite — provisions
-Node, the browsers and the site, and no poppler. Adding a step to a workflow is the repo
-owner's call (CLAUDE.md § SECOND FILTER, row 2), so the arm skips with a message saying the
-export path is **uncovered on that runner** rather than quietly passing. One
-`apt-get install -y poppler-utils` step closes it.
+**The oracle needed a CI step, which was not the agent's to add — and the owner authorized
+it.** `pdftotext` comes from poppler, and `studio-e2e-nightly.yml` — the only job that runs
+this suite — provisioned Node, the browsers and the site, and no poppler. Adding a step to a
+workflow is the repo owner's call (CLAUDE.md § SECOND FILTER, row 2), so the arm was written
+to **skip with a message saying the export path is uncovered on that runner** rather than
+quietly passing, and the step was put to the owner with its cost. Authorized and added, so
+the skip is now the fallback rather than the nightly's actual state. The root integration
+tier already depends on poppler the same way (`ci.yml`, `integration-nightly.yml`), so this
+adds a dependency the repo already carries rather than a new one.
