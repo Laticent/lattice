@@ -259,8 +259,11 @@ Studio export paths this catalog serves, only one is reachable:
 `exportChart` and `activeChartSvg` are exported from `deck-export.js` and imported by
 nothing — measured across `docs/src`, `lib`, `tools` and `test`, and across the built
 site: the only chunk carrying the symbols is the one that defines them, and the string
-`Export chart` appears nowhere in `docs/dist`. The comment above the literal says it
-"drives the Export menu's 'Export chart' entry"; there is no such entry.
+`Export chart` appears nowhere in `docs/dist`. A third, `activeChartSection`, has exactly
+one caller — `activeChartSvg` — so the whole three-function cluster is reachable from
+nothing. The comment above the literal said it "drives the Export menu's 'Export chart'
+entry", and a SECOND comment two lines below said the same of `activeChartSection`;
+there is no such entry, and both are corrected.
 
 So the fourth copy of the twelve names was maintained by hand for a code path a user
 cannot reach. That is not an argument that it did not matter — it is the same
