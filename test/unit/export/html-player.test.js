@@ -151,12 +151,25 @@ test('themeDualMode flattens against `:root` ONLY — a component-scoped decl ne
 // gantt bars and state-chart nodes dark on a light page.
 // The restore-to-light selector the player emits for each pin, spelled out rather than
 // imported from player-core: an expectation derived from the code under test follows that
-// code anywhere it goes. `.light` and `.color-light` carve out the bookends, because the
-// engine keeps a `title`/`closing` panel dark even when the slide is pinned light; `.print`
-// does not, because a printed bookend IS paper.
-const restoreSel = (pin) => (pin === '.print'
-	? `section[data-lattice-slide]${pin}`
-	: `section[data-lattice-slide]${pin}:where(:not(.title):not(.closing))`);
+// code anywhere it goes.
+//
+// THE CARVE-OUT DIFFERS BY PIN, and that asymmetry is the assertion. The engine's force-dark
+// set is `section:is(.title, .closing):not(.print)` PLUS `section.divider:not(.light):not(.print)`,
+// so which slides must NOT restore depends on the pin doing the restoring:
+//   · `.light`       — a `divider light` is the bright variant, genuinely light, so it restores.
+//                      Only the bookends are held back.
+//   · `.color-light` — `divider:not(.light)` still matches, so a `divider color-light` is a dark
+//                      panel and must be held back too.
+//   · `.print`       — nothing is held back; a printed panel IS paper.
+// Spelling `.color-light` the same as `.light` left a 1.61:1 divider in the player's dark
+// scheme on any `color-mode: light` deck.
+const restoreSel = (pin) => {
+	if (pin === '.print') return `section[data-lattice-slide]${pin}`;
+	const carve = pin === '.light'
+		? ':not(.title):not(.closing)'
+		: ':not(.title):not(.closing):not(.divider)';
+	return `section[data-lattice-slide]${pin}:where(${carve})`;
+};
 
 test('hoistInlineLightDark collapses an inline style to its light arm and re-applies the dark one', () => {
 	const { JSDOM } = require('jsdom');
@@ -355,13 +368,34 @@ test('the color-system logo rules reach ONLY slides whose ground follows the OS'
 	assert.ok(!reaches(['color-system', 'print']), 'the print band is paper');
 });
 
+test('the color-system rules carry a light-scheme RESET, not just a dark arm', () => {
+	// THE ARM WITH NO COVERAGE. Deleting the `:root[data-lp-scheme=light]` reset passed the
+	// ENTIRE unit tier — 9507 tests, not one moved — which is how an independent checker found
+	// it rather than the suite. It is the arm that fixes the one cell the engine rule alone
+	// gets wrong: a viewer on a DARK OS who picks light. The engine's
+	// `@media (prefers-color-scheme: dark)` cannot see the player's attribute, so it keeps
+	// firing; without this reset the mark wears the inverse treatment on a white ground, which
+	// is #2149's shape.
+	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
+	assert.match(darkBlock,
+		/:root\[data-lp-scheme=light\] section\[data-lattice-slide\]\.color-system[^{]*\{--deck-logo-filter:initial;--deck-logo-opacity:initial\}/,
+		'a viewer who picks light must get the light mark even on a dark OS');
+	// And the dark arms, so the pair is pinned together rather than one side at a time.
+	assert.match(darkBlock,
+		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-system[^{]*\{--deck-logo-filter:var\(--deck-logo-filter-inverse\)/,
+		'a viewer who picks dark must get the inverse mark even on a light OS');
+	assert.match(darkBlock,
+		/@media \(prefers-color-scheme:dark\)\{:root\[data-lp-scheme=system\] section\[data-lattice-slide\]\.color-system[^{]*\{--deck-logo-filter:var\(--deck-logo-filter-inverse\)/,
+		'a viewer who defers follows the OS');
+});
+
 test('the unconditional dark block mirrors the engine force-dark set WHOLE', () => {
 	// The engine forces color-scheme: dark on `section:is(.title, .closing):not(.print)` AND
 	// on `section.divider:not(.light):not(.print)`. The first cut of the unconditional block
 	// copied the two bookends and dropped the divider, so a divider kept the 1.61:1 ink the
 	// block exists to fix — measured on a real --player export, default scheme.
 	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
-	const sel = darkBlock.split('{')[1] && darkBlock.match(/\}(section\[data-lattice-slide\]\.title[^{]*)\{/)[1];
+	const sel = darkBlock.match(/\}(section\[data-lattice-slide\]\.title[^{]*)\{/)[1];
 	const { document } = new JSDOM('<section data-lattice-slide="1"></section>').window;
 	const el = document.querySelector('section');
 	const reaches = (classes) => { el.className = classes.join(' '); return el.matches(sel); };
@@ -444,7 +478,7 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	// dark silently replaced the B&W-safe print band with the theme's light colors.
 	assert.match(
 		darkBlock,
-		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light:where\(:not\(\.title\):not\(\.closing\)\):not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light:where\(:not\(\.title\):not\(\.closing\)\):not\(\.print\)\{--bg:#FFFFFF;\}/,
+		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light:where\(:not\(\.title\):not\(\.closing\)\):not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light:where\(:not\(\.title\):not\(\.closing\):not\(\.divider\)\):not\(\.print\)\{--bg:#FFFFFF;\}/,
 		'a light-pinned slide keeps light values while the player is dark, without overriding the print band',
 	);
 	// `.print` gets no restore rule of its own: `section.print` already remaps the whole band

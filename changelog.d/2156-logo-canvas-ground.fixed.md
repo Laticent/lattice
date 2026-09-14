@@ -31,6 +31,11 @@
   because a bookend stays a dark panel.
 - **Fixed:** a bookend or divider lost its dark tokens after a toggle to light in the exported
   player, so a `strong` inside one came back at 1.61:1 (now 11.29:1). These are dark panels in
-  every player scheme and now carry the dark token block unconditionally. The player mirrors
-  the engine's force-dark set whole — `title`, `closing`, and `divider` unless it is the bright
+  every player scheme and now carry the dark token block unconditionally. Both places the player
+  mirrors the engine's force-dark set — the unconditional block AND the restore-to-light
+  carve-out — now take it whole: `title`, `closing`, and `divider` unless it is the bright
   `divider.light` variant, which replaces the canvas and keeps the light scheme it declares.
+  The carve-out is per pin, because which slides must not restore depends on the pin doing the
+  restoring: a `divider light` is genuinely light and restores, a `divider color-light` is a
+  dark panel and does not. Spelling those the same left a divider at 1.61:1 in the player's
+  dark scheme on any `color-mode: light` deck (now 11.29:1).
