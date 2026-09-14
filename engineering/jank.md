@@ -673,10 +673,16 @@ not have been.** That sweep prints `ANCHOR 'span.state-index' matches more than 
 it.` The number was quoted without the line the instrument attached to it (HARD RULE #23), and
 the paragraph then claimed a single-match substitute "does not exist among the census's
 movers". `engineering/jank-census.md` lists thirteen `per = 1` rows at or above 44.8px — the
-answer was one `awk` away in the file this very section is about. It also quoted `42.6px` for
-`--anchors` on that component, where the real figure is `85px`: 42.5 is the twelve-slide
-`--anchor` run and 85 is the twenty-four-slide discovery run — two runs conflated in the
-paragraph whose whole subject is not conflating runs.
+answer was one `awk` away in the file this very section is about.
+
+**A later draft then "corrected" a number that was already right, and the correction is the
+error.** It said the paragraph's `42.6px` for `--anchors` should have been `85px`. Both are
+real `--anchors` readings of `span.state-index`, and the only thing between them is the step
+count: `--max 12` gives 42.6, `--max 24` gives 85, which is what the census sweeps. The draft
+quoted the figure for the step count its own paragraph used, so it was correct; what neither
+version said is that a discovery figure means nothing without its step count. Saying "the
+real figure is 85px" silently re-bases to 24 steps and accuses the earlier text of a mistake
+it did not make.
 
 **And the residual — "no counter-example was found" — is now a statement about what CAN
 happen.** The measure is a MINIMUM over three references, so a zero verdict is a case where
