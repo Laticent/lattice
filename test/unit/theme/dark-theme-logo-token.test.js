@@ -21,6 +21,21 @@
  * agree exactly: 33 manifests, 14 with `role: variant-dark`, 14 named `*-dark`, same 14.
  * This file is what keeps that true, so a dark theme named off-convention fails here
  * rather than shipping decks with an invisible logo.
+ *
+ * WHAT THIS FILE CANNOT SEE, stated because a checker asked and the answer is a real gap:
+ * it reads `themes/*.manifest.json`, so it covers the themes we SHIP and nothing else. The
+ * docs Studio registers a fabricated theme under its full user-given name
+ * (`docs/src/lib/deck-theme.ts` says so, with `noir-dark` as its own example), and that name
+ * may end in `-dark` over a light palette, or be dark without the suffix. Neither case is
+ * reachable from here and neither has a gate. It is a limit of deriving the treatment from a
+ * NAME; the fix is to read the declared role, which `checkThemeOwnership` currently bars
+ * because a `variant-dark` wrapper may only pin the canvas.
+ *
+ * WHAT ELSE THIS FILE DOES NOT DO: it asserts a naming convention, not a rendered result.
+ * Four mutations that deleted the `--deck-logo-filter` declarations this convention exists
+ * to deliver passed the whole unit suite. `test/integration/parity/deck-logo-ground.test.js`
+ * is the arm that catches those — it reads the COMPUTED filter off the mark in a browser —
+ * and the two files are complements, not substitutes.
  */
 
 const test = require('node:test');

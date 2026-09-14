@@ -46,3 +46,18 @@
   export bakes `dark` — the defect is in the file the recipient opens, with no interaction. On
   a `system` or `inherited` deck nothing manages the class at all, and it is reachable with
   JavaScript switched off.
+- **Fixed: a hand-authored `dark color-system` slide got the light-canvas mark on a
+  permanently dark ground** in the exported player — #2156's defect rebuilt one class over.
+  The rule that resets the mark for a receiver-following slide excluded every other pin
+  (`light`, `color-light`, `print`, the bookends, `divider`) but not `dark`, which is
+  reachable by hand exactly as those are. Measured over all 256 combinations of the eight
+  scheme-steering classes in three player schemes, it was the single disagreeing cell.
+- **The player's emitted dark block no longer uses `:where()`.** That block holds to a
+  pre-selector-list vocabulary on purpose — an engine that cannot parse the form drops the
+  whole rule, and a dropped rule there is silently un-themed dark mode — and a change had
+  put `:where(:not(.light):not(.color-light), .title, .closing)` into it, a selector list in
+  the banned position, four hundred lines from the comment barring it. The guard test could
+  not see it: its pattern listed `:is(` and a `:not(a,b)` shape and never `:where(`. The
+  selector is now spelled as arms, every consumer distributes over them (a comma list
+  carries no suffix — the suffix binds to the last arm alone, which two tests caught), and
+  the guard checks the class it names. Byte-for-byte, the resolved cascade is unchanged.

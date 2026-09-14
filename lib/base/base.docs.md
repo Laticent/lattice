@@ -1240,6 +1240,17 @@ takes the light mark. The suffix is a convention, and
 `test/unit/theme/dark-theme-logo-token.test.js` holds it: all 14 themes with
 `role: variant-dark` are named `*-dark`, and nothing else is.
 
+**That gate reaches SHIPPED manifests only, and one surface is outside it.**
+The docs Studio registers a FABRICATED theme under whatever full name the user
+gave it (`docs/src/lib/deck-theme.ts`), and that name may legitimately end in
+`-dark` without the palette being dark — or be a genuinely dark palette named
+without the suffix. Either way the mark is derived from the name rather than
+from the ground, and no gate can see it, because the theme does not exist until
+someone makes one. The equality above is a property of `themes/`, not of the
+selector. Reading the declared ROLE instead of the name would close it, and
+`checkThemeOwnership` is what currently prevents that: a `variant-dark` wrapper
+"only pins the canvas", so it may not declare the token itself.
+
 **And a light slide gives the token back.** `dark light` and
 `divider light dark` are reachable by hand and deliberately un-linted; before
 this the scheme and the ground went light while the INVERSE filter survived, so

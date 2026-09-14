@@ -96,6 +96,19 @@ Stack both and the later one wins: this slide is light, and so is its mark.
 - A theme
   - A `-dark` wrapper, reached by name. `color-mode: inherited` rides on it, because the root it inherits from **is** that theme.
 - The receiver, for `color-mode: system`
-  - The deck defers the side to the reader's OS, and the mark now defers with it — a media query, not a pin, so it reads the same signal the canvas does. The PDF resolves light and takes the light mark; an OS-following player takes whichever side the reader is on.
-- Nobody, and that is the honest gap
-  - A cover photograph. No token describes the lightness of a full-bleed image, so nothing can derive the mark from it.
+  - The deck defers the side to the reader's OS, and the mark defers with it — a media query, not a pin. The PDF resolves light; a player takes whichever side its reader is on.
+
+---
+
+<!-- _class: content -->
+
+`The honest gap`
+
+## And a fourth way, which we cannot read
+
+Every route above resolves to a token the mark can be derived from. One does not.
+
+- A cover photograph
+  - No token describes how light a full-bleed image is, so nothing can derive the mark from it. An author who puts a pale logo over a pale photograph gets exactly that.
+- What we do instead
+  - Nothing automatic. The author picks the treatment, and the engine stays out of a judgment it has no signal for.

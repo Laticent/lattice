@@ -6,7 +6,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 // A real matcher for the one arm that asks WHICH SLIDES a selector reaches. Hand-parsing
-// `:where(:not(a):not(b), c, d)` was tried first and got it wrong — the browser's own
+// `:where(:not(a):not(b), c, d)` was tried first and got it wrong twice — the browser's own
 // matcher is the only honest judge of a selector, and this file already ships jsdom.
 const { JSDOM } = require('jsdom');
 const {
@@ -184,7 +184,7 @@ const restoreSel = (pin) => {
 	const carve = pin === '.light'
 		? ':not(.title):not(.closing)'
 		: ':not(.title):not(.closing):not(.divider)';
-	return `section[data-lattice-slide]${pin}:where(${carve})`;
+	return `section[data-lattice-slide]${pin}${carve}`;
 };
 
 test('hoistInlineLightDark collapses an inline style to its light arm and re-applies the dark one', () => {
@@ -202,7 +202,7 @@ test('hoistInlineLightDark collapses an inline style to its light arm and re-app
 	assert.match(css, /:root\[data-lp-scheme=dark\] \.lp-sd-0\{stop-color:color-mix\(in oklab, var\(--h\) var\(--top-d\), black\)!important\}/);
 	// Every scope the token block carries: the viewer's choice, a pinned-dark slide in ANY
 	// scheme, the no-JS system fallback, and the restore for a slide pinned light or to print.
-	assert.match(css, /section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\) \.lp-sd-0\{/);
+	assert.match(css, /section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\) \.lp-sd-0\{/);
 	assert.match(css, /@media \(prefers-color-scheme:dark\)\{:root\[data-lp-scheme=system\] \.lp-sd-0\{/);
 	for (const pin of ['.light', '.color-light', '.print']) {
 		assert.ok(
@@ -265,12 +265,32 @@ test('hoistRuleLightDark splices a slide pin INTO a section-subject selector, no
 	// descendant prefix would ask for a section inside a section and match nothing. Same trap
 	// one step along: `section.kanban .card` would look for a kanban section nested in a dark one.
 	const { darkBlock } = hoistRuleLightDark('section.title.spectrum::before{background:light-dark(#eee,#111)}');
-	assert.match(darkBlock, /section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\)\.title\.spectrum::before\{/);
+	assert.match(
+		darkBlock,
+		new RegExp(
+			[
+				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\)\.title\.spectrum::before`,
+				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.title\.title\.spectrum::before`,
+				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.closing\.title\.spectrum::before\{`,
+			].join(','),
+		),
+		'the pin is spliced into EVERY arm, not just the last — a comma list carries no suffix',
+	);
 	assert.doesNotMatch(darkBlock, /\.dark:not\(\.light\):not\(\.color-light\):not\(\.print\) section\.title/, 'never a section inside a section');
 	// An arm that does NOT open on `section` keeps the descendant form — which is also what
 	// themes a figure Read·Article re-hosts outside any section.
 	const { darkBlock: descendant } = hoistRuleLightDark('.card{background:light-dark(#eee,#111)}');
-	assert.match(descendant, /section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\) \.card\{/);
+	assert.match(
+		descendant,
+		new RegExp(
+			[
+				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\) \.card`,
+				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.title \.card`,
+				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.closing \.card\{`,
+			].join(','),
+		),
+		'the descendant form reaches every arm',
+	);
 });
 
 test('hoistRuleLightDark restores the light arm on a slide pinned against the player scheme', () => {
@@ -494,7 +514,18 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	const css = ':root{--bg:light-dark(#FFFFFF,#001D33)}';
 	const { darkBlock } = themeDualMode(css);
 	// A `.dark` section is dark unconditionally — outside the attribute rule AND the media query.
-	assert.match(darkBlock, /^section\[data-lattice-slide\]\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\)\{--bg:#001D33;/, 'a .dark slide carries the dark values in EVERY player scheme');
+	assert.match(
+		darkBlock,
+		new RegExp(
+			'^' +
+				[
+					String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\)`,
+					String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.title`,
+					String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.closing\{--bg:#001D33;`,
+				].join(','),
+		),
+		'a .dark slide carries the dark values in EVERY player scheme, on all three arms',
+	);
 	// THE EXCLUSION SET IS THE WHOLE PIN SET, not just the print band. `:not(.print)` was
 	// never decoration: without it this rule outranks `section.print` (0,1,1), so a
 	// `_class: dark` slide in a `color-mode: print` deck took the dark canvas under the
@@ -510,8 +541,14 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	// …and the bookends are re-admitted, because the engine keeps a `title`/`closing` panel
 	// dark even when the slide is pinned light. Subtracting the pin set WITHOUT that carve-out
 	// shipped a blank `title light dark` slide — white ink on white, 1.00:1.
-	assert.match(darkBlock, /\.dark:not\(\.print\):where\(:not\(\.light\):not\(\.color-light\), \.title, \.closing\)/,
-		'the .dark pin yields to a pinned-light slide and the print band, but not to a bookend');
+	for (const arm of [
+		String.raw`\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\)`,
+		String.raw`\.dark:not\(\.print\)\.title`,
+		String.raw`\.dark:not\(\.print\)\.closing`,
+	]) {
+		assert.match(darkBlock, new RegExp(arm),
+			'the .dark pin yields to a pinned-light slide and the print band, but not to a bookend');
+	}
 	// WHICH SLIDES that reaches is asserted separately, against a real matcher — see
 	// 'a BOOKEND keeps the dark canvas even when it is also pinned light'. This arm only
 	// checks the text, and the text was already right once while the behavior was wrong.
@@ -526,15 +563,30 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	// dark silently replaced the B&W-safe print band with the theme's light colors.
 	assert.match(
 		darkBlock,
-		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light:where\(:not\(\.title\):not\(\.closing\)\):not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light:where\(:not\(\.title\):not\(\.closing\):not\(\.divider\)\):not\(\.print\)\{--bg:#FFFFFF;\}/,
+		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light:not\(\.title\):not\(\.closing\):not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light:not\(\.title\):not\(\.closing\):not\(\.divider\):not\(\.print\)\{--bg:#FFFFFF;\}/,
 		'a light-pinned slide keeps light values while the player is dark, without overriding the print band',
 	);
 	// `.print` gets no restore rule of its own: `section.print` already remaps the whole band
 	// to `--print-*` literals, so being left out of the blanket rule is all it needs.
 	assert.doesNotMatch(darkBlock, /\.print\{/, 'the print band is excluded, not re-declared');
-	// Written without `:is()` / `:not(a,b)` — those selector-list forms are Safari-14-era, and
-	// an engine that cannot parse one drops the WHOLE rule, which here would un-theme dark mode.
-	assert.doesNotMatch(darkBlock, /:is\(|:not\([^)]*,/, 'no selector-list :is()/:not() the target engines might not parse');
+	// Written without `:is()` / `:where()` / `:not(a,b)` — those forms are Safari-14-era, and an
+	// engine that cannot parse one drops the WHOLE rule, which here would un-theme dark mode.
+	//
+	// `:where()` IS IN THIS ASSERTION BECAUSE IT WAS MISSING FROM IT. The alternation used to
+	// read `/:is\(|:not\([^)]*,/`, which cannot see `:where(` at all — and the `:not\([^)]*,`
+	// arm cannot even see a list spanning two `:not()`s, because `[^)]*` stops at the first
+	// `)`. A change shipped `:where(:not(.light):not(.color-light), .title, .closing)` into this
+	// very block — a selector list, in the banned position — and this test stayed green, while
+	// the paragraph in `player-core.mjs` that bars `:where()` by name stood four hundred lines
+	// away, unamended. A gate that names a hazard class and then checks a proper subset of it
+	// is worse than no gate: it is an assurance nobody re-derives.
+	//
+	// `:where()` and `:is()` shipped in the same browser generation, so there is no version of
+	// this policy where one is safe and the other is not.
+	for (const form of [':is(', ':where(']) {
+		assert.ok(!darkBlock.includes(form), `no ${form}) — the target engines might not parse it`);
+	}
+	assert.doesNotMatch(darkBlock, /:not\([^)]*,/, 'no selector-list :not(a, b)');
 });
 
 test('themeDualMode carries DERIVED tokens onto the pinned scope, transitively', () => {
