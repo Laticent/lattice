@@ -1341,6 +1341,36 @@ merge gate with a green, review-ready PR waiting on my authorization. Those are
 the two points where I come back to a stopped session and need to know, without
 reading the transcript, what happened and what to say next.
 
+### Where the cards go — a comment on the PR, not only the transcript
+
+**Both cards go as one comment on the PR, and in chat, same wording.** That is the
+contract HARD RULE #28 already sets for the 🚦 pre-merge card, and the argument
+behind it — *the transcript is not a durable surface; the PR is* — applies here
+with more force. The pre-merge card is read within minutes by the person being
+asked. The continuation brief is addressed to a session that **does not exist
+yet**, possibly days out. It is the card that suffers most from living only in a
+chat log, and until now it was the one with no location rule at all.
+
+**The PR is the surface, because both trigger moments presuppose one**: a merge
+just confirmed, or a green PR parked at the gate. A merged PR still takes
+comments, and it is the object the standup is about.
+
+- **One comment, both cards**, standup first, each in its own fence. Not two
+  comments — I read them together or not at all.
+- **Same wording as the chat copy.** If the two ever differ, **the comment is the
+  record** and the chat copy is the convenience. That ordering is what makes the
+  durable surface worth having.
+- **Fenced in the comment too.** GitHub re-flows unfenced markdown exactly like
+  the terminal does, and the brief is still meant to be copied verbatim.
+
+Three edge cases, with deterministic answers:
+
+| Situation | Where the comment goes |
+|---|---|
+| The work was claimed from a ticket that **stays open** | The PR comment as above, **plus a one-line pointer comment** on that ticket linking it. A pointer, never a second copy of the cards. |
+| The merge **closed** that ticket | PR comment only. A comment on a closed issue is near-invisible, and `pr-autoclose-issues.yml` closes linked issues aggressively by design. |
+| **No PR exists** — the session ends with nothing opened | Comment on the ticket being worked, if there is one. If there is neither a PR nor a ticket, chat only — and **say so in the chat card**, so I know this handoff has no durable copy. |
+
 ### Both cards are always fenced — no exceptions
 
 Each card goes inside a plain triple-backtick fence, **no language tag**. Not

@@ -30,8 +30,8 @@ choice:
 | a branch's meaty work is complete, verified, pushed (a design/decision doc counts — the doc *is* the deliverable) | **open the PR** via the template (rule 6) — **one PR for the session's line of work, one commit per item**, not a PR per slice (`workflow.md` §Batch a session's slices) |
 | a PR is open | **subscribe + drive CI green**; rebase before each push (rule 7) |
 | the PR is green and rebased | **ask to merge, with a fenced 🚦 pre-merge card — posted on the PR *and* in the ask** — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each. **This row is an INDEX, not the spec: open `workflow.md` §Pre-merge card and build the card from the template there** — the four-level scale, the lowest-axis floor rule, the axis attribution and the `raise it by:` line are all in that section and all load-bearing (HARD RULE #28) |
-| merge confirmed + local `main` synced | **post the standup + the continuation brief** — two fenced cards, always fenced (`workflow.md` §Post-merge standup) |
-| a session goes idle with work still pending — parked at the merge gate, or out of scope | **post the continuation brief** so a fresh session can pick it up cold (same §) |
+| merge confirmed + local `main` synced | **post the standup + the continuation brief** — two fenced cards, always fenced, **as one comment on the PR *and* in chat, same wording** (`workflow.md` §Post-merge standup + §Where the cards go) |
+| a session goes idle with work still pending — parked at the merge gate, or out of scope | **post the continuation brief** so a fresh session can pick it up cold — **on the PR as well as in chat** (same §) |
 
 **Decision filter** — before any `AskUserQuestion` or "want me to…?", ask *"is
 the next step already dictated by CLAUDE.md / workflow.md?"* If yes, **do it.**
