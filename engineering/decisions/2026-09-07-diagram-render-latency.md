@@ -2,7 +2,7 @@
 status: shipped
 summary: >
   ABANDONED after measurement — the trade is binary and the price is not worth paying. Read
-  §15 first; §1-§14 are the investigation that got there, and three of their headline numbers
+  §15 first; §1-§14 are the investigation that got there, and four of their headline numbers
   are retracted in §15. The idea: a fixed 150ms debounce sat in front of every Mermaid render,
   larger than a FULL RENDER for any diagram up to about 64 nodes (22ms at 4 nodes, 43 at 16,
   72 at 32, 130 at 64, 239 at 128), so it was waiting rather than coalescing. Dropping it to
@@ -17,9 +17,13 @@ summary: >
   redraw are the same fact. SEVEN independent review passes each found a shipping blocker in a
   head its author had called ready, which is its own lesson: every claim was checked by a
   throwaway probe written by whoever wanted the answer, and two of those probes reported the
-  flattering result. What survived is unrelated to latency — `waitForDiagrams` now waits on
-  PROGRESS rather than a 4000ms wall clock, because when that constant lost the capture
-  proceeded anyway and baked a blank region into a downloaded PDF.
+  flattering result. What survived is unrelated to latency — when
+  `waitForDiagrams`' budget expires, the un-settled fences are RELEASED to `unavailable`
+  instead of being captured hidden, because the stylesheet hides a fence on its way to being
+  drawn and the capture was baking a blank region into a downloaded PDF. The budget itself is
+  still a plain 4000ms wall clock: the "no progress for budgetMs" design this summary used to
+  describe was BUILT AND KILLED by the trio (§15), and saying it shipped sent a reader to the
+  one function in the diff expecting a rule that is not in it.
 ---
 # The 150ms in front of every diagram was the wait
 
@@ -632,6 +636,13 @@ Settle time was up 19-47% from the parse tax. The budget now means **"no progres
 4000ms"** rather than "4000ms total": give up on a diagram that is stuck, never on one that is
 merely slow.
 
+> **RETRACTED — the progress budget never shipped.** The trio killed it (§15: it is never
+> reached, it cannot fire on a real deck, and it did not fix the blank anyway).
+> `waitForDiagrams` is a plain `while (Date.now() - start < budgetMs)` wall clock today
+> (`deck-export.js:512`). What shipped from this line of work is the RELEASE at the give-up
+> point, not a new budget rule. Marked because its three §13 siblings are marked and this one
+> was not, so a reader scanning for the corrections took it as standing.
+
 **The error box strobed.** With a broken fence beside the one being edited it blinked roughly
 every 600ms. The release marker was a WeakSet keyed on the `<pre>` NODE, and both hosts
 replace that node every keystroke, so each release survived one pass. Keying it on the fence
@@ -818,7 +829,7 @@ That is not a tuning failure, it is arithmetic, and it generalizes to the whole 
 
 ### What was retracted along the way
 
-Three claims in the sections above did not survive re-measurement on the final head, and are
+Four claims in the sections above did not survive re-measurement on the final head, and are
 left standing there with this correction rather than quietly edited:
 
 - **"a burst in ~78ms where it took ~1.1s"** — measured on a bench deck below the size where
@@ -926,18 +937,112 @@ text is the more informative artifact, so the default releases and the exception
 **Two coverage holes came with it, and one is not closed.** The give-up's re-read (rather than
 reusing the last poll's list, which is up to a poll interval stale) had no cell that killed a
 mutant of it — the stale list would stamp a *successfully drawn* fence `unavailable` and
-`mermaid.css` would then hide the SVG sitting in the DOM. That cell now exists. The one still open
-is `bakeDeckSections` itself: nothing at any tier calls it, so its budget and its
-`releaseDiagrams: false` are free parameters that no PR gate can pin. `waitForDiagrams` is pinned;
-the call site supplying its arguments is not. That is the same lesson §13 records — the predecessor's
-suite pinned the shape of the loop and never the number that decided it — landing one level up.
+`mermaid.css` would then hide the SVG sitting in the DOM. That cell now exists. The second was
+`bakeDeckSections` itself: nothing at any tier called it, so its budget and its
+`releaseDiagrams: false` were free parameters that no PR gate could pin. `waitForDiagrams` was
+pinned; the call site supplying its arguments was not. That is the same lesson §15 records — the
+predecessor's suite pinned the shape of the loop and never the number that decided it — landing
+one level up.
 
-**And the real-surface arm does not run on a PR.** `docs/e2e/mermaid-unavailable-export.spec.ts`
-carries no `@smoke` tag, and CI runs `test:e2e:smoke` only, so the export e2e runs nightly — after
-merge. The artifact behind this fix's "verified on the real surface" claim is real and was produced
-by hand; it is not re-derivable from a PR-gate run.
+**CLOSED.** `deck-export.test.ts` gained a `the capture frame's diagram-wait arguments, at both
+call sites` block: **three** cells driving the real exporters through a stubbed capture frame,
+because `createCaptureFrame` is module-private and jsdom does not parse `srcdoc`, so the only seam
+is `document.createElement`. The mutations they kill, each applied and run:
+
+| mutation | cells that fail |
+|---|---|
+| explicit `releaseDiagrams: false` -> `true` | the override cell and the 16000 cell |
+| `waitForDiagrams(doc, 12000)` -> `16000` (total 20000) | the 16000 cell |
+| `waitForDiagrams(doc, 12000)` -> `8000` (total 12000) | the 16000 cell |
+| **`{ releaseDiagrams = true }` DEFAULT -> `false`** | **the default cell, and only it** |
+
+The third cell exists because the first two could not see the DEFAULT: `bakeDeckSections` passes an
+explicit `false`, so flipping the default left both green while the six `createCaptureFrame` call
+sites that take it stopped releasing. It drives `rasterizeDeckImages`, which takes the default, and
+the release it observes lands at 4112ms — inside `createCaptureFrame`, before `sectionsOf` is
+reached. Each cell costs tens of milliseconds. The budget cell uses FAKE TIMERS and straddles 16000 with checkpoints
+at 15000 and 17000, which is why a test about a 16-second constant costs nothing and does not
+inherit the host — §15's structural finding was that a threshold keyed on milliseconds is a
+property of the machine, and a wall-clock cell here would have been exactly that mistake again.
+Deliberately behavioral rather than a source-text pin: a text matcher on `12000` goes green the
+moment someone lifts the number into a constant, which is the failure §15 already records.
+
+**And the real-surface arm did not run on a PR.** `docs/e2e/mermaid-unavailable-export.spec.ts`
+carried no `@smoke` tag, and CI runs `test:e2e:smoke` only, so the export e2e ran nightly — after
+merge. The artifact behind this fix's "verified on the real surface" claim was real and produced by
+hand; it was not re-derivable from a PR-gate run.
+
+**CLOSED for the two arms that carry the claim** — the give-up (a stalled `mermaid.render`, which
+reaches `unavailable` through *this* fix's release site) and the regression (a diagram drawing
+between the two waits). The other three stay nightly on purpose: the 404 arms reach `unavailable`
+through the older `releaseUnrenderableFences` path, which sets no `data-mermaid-final` and so
+proves nothing about #2147, and the fourth is the Mermaid-loads control.
+
+A tag is a CI-contract change, so the cost was measured before the ask rather than estimated, on
+the whole `@smoke` tier, 4-core sandbox, 2 workers:
+
+| tier | tests | wall | delta |
+|---|---|---|---|
+| baseline | 55 | 278s | — |
+| + these two | 57 | 291s | **+13s** |
+| + all five | 60 | 297s | +19s |
+
+**The absolute counts are of a tree that no longer exists** — they were taken before #2176
+landed two more `@smoke` arms in `video-overlay-provider.spec.ts`, so the tier is 57 without
+these two and **59** with them. The DELTA is what the A/B measures and it is unaffected; the
+totals are not a number to quote later.
+
+**Far below the 43.7s the two arms take in isolation**, because two workers let them fill idle
+worker time instead of extending the critical path — which is why the arithmetic answer (sum the
+test times) would have argued for leaving them nightly.
+
+**On the runner the delta is below the noise floor, and the first PR-gate run proves only that.**
+That run did 59 tests in a 330s test step / 438s job. Two runs without the tags, the same day:
+`d05807e3` (merge_group, 57 tests) at step 241s / job 334s, and `7eebca0e` (a PR, 24 minutes
+earlier) at step 299s / job 397s. **Those two untagged runs differ from each other by 58s on the
+step — more than the whole effect.**
+
+**The cleanest datum is the same tier twice.** The next push ran the IDENTICAL 59-test tier and
+came back at **264s** against the first run's **330s** — a **66s** swing with the test set held
+fixed, which rules out a count difference. It does NOT rule out a scheduling artifact — runner
+class, a noisy neighbor, a cold cache — and that is the point rather than a hole in it: those ARE
+the noise. Four runs is a spread, not a distribution, so read this as "the spread swamps the
+effect", not as a measured floor. So one green run neither confirms nor refutes the +13s; the
+controlled sandbox A/B is the instrument that can resolve it, and CI's job here is to show the
+arms run and pass. The projection this paragraph originally carried — "roughly +20s, p90 364s ->
+~384s" — is withdrawn as unmeasurable from a single run rather than left standing as if confirmed.
+
+What the run does settle: **438s against a 15-minute cap.** No cap change needed.
+
+**The tail is the part worth watching, and it is not p90.** Both arms carry
+`test.setTimeout(240_000)`, and CI runs two workers with `--retries=0`. A single hung export
+therefore adds up to ~240s of wall clock, and `ci.yml`'s recorded worst `studio-smoke` is 829s
+— 829 + 240 is past the 900s cap, where the job is KILLED and the whole smoke report is lost
+rather than two arms going red. `studio-smoke` is advisory, so nothing is blocked either way,
+but the failure mode to expect is "no smoke signal at all", not "two red arms". If that shows
+up, raise the cap and state the new measured duration; do not delete the arms.
+
+**The arms were then proved able to fail.** With the release deleted from `waitForDiagrams` — the
+state of the tree before this fix — the give-up arm fails on `codeVisibility` = `hidden`, which is
+the blank region the fix exists to prevent; the regression arm still passes, as it should, since
+nothing about it depends on the release. The two builds are confirmed different rather than
+assumed: `data-mermaid-final` survives into the `_astro` chunks once on the pristine build and
+zero times on the mutant, where the dead loop is eliminated. §17 records a probe whose two arms may
+have rendered identically and came back within 1MB of each other; verifying the manipulation inline
+is the answer to that.
+
+It remains **advisory**: `studio-smoke` is deliberately absent from the required `ci` gate's
+`needs`, so a red arm reports on the PR and does not block the merge (promotion is #800). The claim
+is now PR-visible, not PR-gating, and saying otherwise would overstate what a tag buys.
 
 ### The raster lane, driven — and the release is a no-op there
+
+> **SUPERSEDED — this subsection's conclusion is WRONG. See §19.** The raster lane IS exposed to
+> the blank, and the "byte-identical PNG" result below does not reproduce. Read §19 before
+> relying on anything in the four paragraphs that follow. They are kept, not edited, because the
+> reasoning that produced the wrong answer is the point.
+
+
 
 The PR's card named one raise-path: drive a RASTER export with the render stalled, since only the
 webpage export was driven end to end. Driven, on the real Studio, `Images (.zip)` with
@@ -951,7 +1056,7 @@ raise-path was reaching for: it retires the risk rather than confirming a benefi
 
 **The test written for it is NOT shipping, and that is the point.** A pixel arm that passes with
 and without the fix discriminates nothing, and this document already records what a suite that
-cannot tell a no-op from a fix costs (§13: tripling the give-up threshold left every cell green).
+cannot tell a no-op from a fix costs (§15: tripling the give-up threshold left every cell green).
 Shipping it would have added a green check that means nothing and reads like coverage.
 
 **Its first version was also wrong in the way that keeps recurring here.** It sampled the slide's
@@ -973,6 +1078,13 @@ untagged fence still paints its source in the capture frame, which the fix relie
 trusting the comment would conclude the opposite. Not pulled into this PR.
 
 ## 17. Two janks reported from a real tablet, and what they measure at
+
+**Now tracked, so this note is no longer their only record** (HARD RULE #18's path for an
+off-path defect you find): jank A is **#2190**, jank B is **#2191**, and the crash the
+janks were reported alongside is **#2189**. Each issue carries the measurements below
+plus the measurement trap that goes with it; #2189 carries the one instruction that
+actually moves it, which is a crash-sentinel record from the tablet. Nothing here is
+closed by the filing.
 
 Both were reported against the live Studio, not the export, so neither is caused by the fix
 this branch ships — that change writes `data-mermaid-final`, and the only writer is the export
@@ -1070,7 +1182,8 @@ Playwright's WebKit was downloaded here and will not launch: the host is missing
 libraries it needs, which require root package installs. So the one engine that could settle it
 is out of reach, and no amount of further Chromium measurement substitutes.
 
-**The instrument for this already exists and is the right next step, not another probe.**
+**The instrument for this already exists and is the right next step, not another probe** (#2189).
+
 `docs/src/lib/crash-sentinel.ts` is a flight recorder built for precisely this failure class:
 it writes a session record to `localStorage` on a heartbeat BEFORE the renderer dies, because
 nothing in-page survives a renderer death, and it distinguishes a same-tab self-reload from a
@@ -1081,3 +1194,158 @@ come from a record captured on the device that actually failed.
 **The deck used for the heavy arm was deliberately pathological** — six flowcharts of 30 nodes
 and 125 edges at `size: 4k`, built to outrun an export budget — so it reaches any ceiling far
 faster than an ordinary deck. It exaggerates the rate.
+
+## 18. The source-`<pre>` asymmetry in exported artifacts, explained — it is correct
+
+A released artifact carries **two** source `<pre>` per diagram where a drawn one carries **one**,
+and the drawn one's SVG count rises by **two**. Both diagrams demonstrably draw, so the missing
+`<pre>` looked like something the bake had eaten. It is not. **The webpage export ships two
+projections of every slide, and the second one holds exactly one representation per diagram.**
+
+### Measured, on the real Studio
+
+A two-diagram deck, exported twice through Share → Webpage: once with `mermaid.render` held
+forever (released), once untouched (drawn). Counted in the downloaded bytes AND in the live
+`file://` DOM, which agree.
+
+| | released | drawn |
+|---|---|---|
+| tagged `<pre>` in the whole file | **4** | **2** |
+| …of those, inside a `<section>` | 2 | 2 |
+| …of those, inside the `<article>` | **2** | **0** |
+| `<svg>` in the whole file | 42 | **46** |
+| `<svg>` inside the `<article>` | **0** | **2** |
+| `<article>` size | 1,139 bytes | **42,157 bytes** |
+
+The paged deck is unchanged across the two arms: one `<pre>` per diagram, in its slide, either
+way. **Every difference is in the `<article>`** — the Read·Article prose projection the player
+ships alongside the slides.
+
+### The mechanism
+
+The projection re-hosts the diagram under the stage, and takes whichever representation exists:
+
+- **Drawn** — it re-hosts the rendered `<svg>`. `bakeDeckSections`' own comment says so, and this
+  is the measurement behind it: *"the prose projection re-hosts the first `svg` under the stage,
+  which is the rendered one."* The spent `<pre>` is not projected, because there is a drawing to
+  show instead. That is the `+2 <svg>` and the 42KB article.
+- **Released** — there is no `<svg>` to re-host, so the projection carries the source `<pre>`,
+  syntax-highlighted, `language-mermaid-source`. That is the second `<pre>`.
+
+So the two halves of the reported asymmetry are **one fact seen from two sides**, not two facts:
+the article holds one representation per diagram, and which one depends on whether a drawing
+exists. Per diagram, `released_pre - drawn_pre == 1` and `drawn_svg - released_svg == 2` both fall
+out of it. (The original report counted a ONE-diagram deck — 2 against 1. The table above doubles
+every number because this deck carries two.)
+
+### Verdict: correct, and worth leaving alone
+
+Showing a reader the drawing where one exists and the author's own source where one does not is
+the behavior the give-up fix exists to produce, reaching one surface further than the fix was
+aimed at. Nothing to change.
+
+**The probe carried a positive arm, and this is why it needed one.** A census that found "the
+drawn artifact has fewer `<pre>`" and stopped would have described a deck that never drew. Both
+sentinels are asserted present as source text in the released artifact and present inside `<svg>`
+in the drawn one, before any count above is read — §16's rule that a probe needs an arm proving
+it can see the thing it is looking for.
+
+## 19. The raster lane IS exposed to the blank — §16's "no-op" does not reproduce
+
+**Flipping `createCaptureFrame`'s `{ releaseDiagrams = true }` default to `false` bakes a BLANK
+SLIDE into a downloaded `.png`.** §16 concluded the opposite and that conclusion is withdrawn.
+
+### What was driven
+
+Real Studio, real `Images (.zip)` export, `mermaid.render` replaced with a promise that never
+resolves — the same stall the e2e give-up arm uses. One deck, two slides: a cover with no diagram
+and one `<!-- _class: diagram -->` slide carrying a single flowchart fence. Two arms, differing in
+**one character of source** and each given its own full `build:e2e`:
+
+| arm | `releaseDiagrams` default | slide 02 md5 | what it shows |
+|---|---|---|---|
+| A | `true` (shipping) | `34e40055012c5b1597e7eb4b3e924c5f` | the author's Mermaid source, syntax-highlighted |
+| B | `false` | `e0224ae075f3f492a37ed7de61a0dada` | **blank — heading and rule, nothing else** |
+
+**Slide 01 is byte-identical across both arms** (`6c431df88da11ed8d03763cbd1f0c889`). That is the
+control, and it is what makes the slide-02 difference mean something: the pipeline is deterministic
+and the only thing that moved is the diagram slide. Ink sampled by horizontal band agrees — bands 0
+and 1 (the eyebrow and heading) match exactly; band 2, where the source text sits, drops from 1535
+to 768 to zero text.
+
+### Why this matters more than the number
+
+The mechanism was predictable from the stylesheet and nobody checked it against §16.
+`mermaid.css:73` hides any fence whose `data-mermaid-state` is neither `error` nor `unavailable`,
+and that rule is **deliberately unscoped** — it does not consult `data-lattice-diagrams`, which is
+exactly the attribute `createCaptureFrame` withholds (`diagrams: false`). So a fence left `pending`
+by a stalled render is hidden in the capture frame, and the release at 4000 is the only thing that
+moves it to `unavailable` and lets the source paint. Remove the release and the slot collapses.
+
+**Why §16 got it wrong is not established.** Its manipulation was "the release deleted" rather than
+"the default flipped" — behaviorally the same for every default-taking lane — so the difference is
+not in what was changed. The likeliest candidates are that its deck's fence never reached a tagged
+state, or that the arms were not both rebuilt. What is certain is that its result does not
+reproduce, and it shipped as a settled "retires the risk".
+
+### The lesson, which this document has now recorded four times
+
+§16's own words: *"a probe needs an arm proving it can see the thing it is looking for, before its
+null result means anything."* It then published a null result — byte-identical PNGs — **with no such
+arm.** This probe has one: slide 01, which must match and does. A null result and a broken
+manipulation are indistinguishable without it, and that is the fourth time in this investigation an
+instrument measured something adjacent to the target.
+
+**And the cost of believing it was real.** §16's conclusion was used, in this branch, to argue that
+the cell pinning that default was pinning a cosmetic parameter, and a correct claim was softened to
+match it. The wrong record nearly ate the right test.
+
+## 20. Was §16 a one-off? An audit of §1–§15 for the same defect
+
+§19 refuted §16 because its null result had no control arm. The obvious next question — is that one
+bad experiment or a method — was the `raise it by:` line on this work's pre-merge card, so it was
+walked rather than left as a suggestion.
+
+**Answer: the shape recurs, and it clusters by era rather than running through the document.** Of
+roughly 64 measurement-bearing claims in §1–§15, **11 are uncontrolled nulls** — an outcome of "no
+difference / zero / identical / never reached" with nothing showing the instrument could have
+produced the other answer. The three that carry real weight are all in §15, written in the same
+sitting as §16. **§8–§13 is the opposite**: the author names controls explicitly and repeatedly, and
+in several places the control IS the finding — §8's "the control that rules out a harness artifact",
+§12's "the control is what makes it airtight: one attribute is the only difference, and it flips 8
+renders to 1", and §14/§15's "with only `lattice-runtime.js` swapped between runs and the md5
+checked before every run", which is exactly the build verification §19 suspects §16 of skipping,
+used correctly two sections earlier.
+
+So §16 is the worst instance of a late-era habit, not a departure from this document's method.
+
+**The heaviest uncontrolled nulls, for whoever picks this up:**
+
+| § | The claim | Why it matters |
+|---|---|---|
+| §15 | "the function returned at **exactly the same millisecond** as the wall clock it replaced" | Same shape as §16: two arms indistinguishable, conclusion "no-op". It is the reason the export still uses a wall clock — the mechanism §19 shows standing between a stall and a blank slide |
+| §15 | "**The budget is never reached** … 190ms after the function is entered, against 4000" | The 20x CPU throttle is never verified inline. §17 names that exact failure (`size: 16:9`, a manipulation the engine ignored) and its fix — print the measured manipulation per arm — which this arm does not do |
+| §15 | "**The throttle fired zero times in 24 keystrokes**" | A zero count cannot be told from an unwired counter. Mitigated: the arithmetic argument beside it is instrument-independent |
+
+**Most of them can never be re-derived.** They measure code that no longer exists — both cited branch
+heads (`756ac707`, `20ec5c7f`) are gone from this clone, and none of `COALESCE_MS`, `CHEAP_RENDER_MS`,
+`PARSE_CAP_MS`, `contentFloorMs` or `diagramRuns` resolves anywhere in the tree. That is expected for
+an abandoned branch, and it is the point: an uncontrolled null becomes permanently unfalsifiable the
+moment its branch is deleted. §16's only stayed checkable because the parameter it was about is still
+in `main`.
+
+**One was cheap and it holds.** §15's "the rule reported zero violations across all 1934 files" was a
+null with no arm; given one — a scratch file containing a bare `bareWrite = 1;` — the rule fires
+(`× The bareWrite variable is undeclared`), and the repo scan is still clean. The file count has
+drifted to 1989, which the note never pinned as stable.
+
+### Off-path, logged not fixed (HARD RULE #18)
+
+`§7`'s remedy set is stale and would cost someone a rebuild. It says the fence-detection move "is
+blocked on `lib/core/mermaid-fences.js` being CommonJS … so it needs converting to ESM or the
+detection moving into the runtime". The premise is right, the two options are not exhaustive: a third
+route already ships that module to the browser today via the esbuild pre-bundle in
+`tools/build-read-along-core.js` (`read-along-core.generated.js`, imported by
+`docs/src/components/studio/narration-resolve.ts`). Anyone starting from §7 would rebuild what the
+tree has (HARD RULE #15). Not pulled into this diff — different subsystem, and §7 is an archived
+section of an abandoned investigation.

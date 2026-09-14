@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { assembleSheetPdf, waitForDiagrams } from './deck-export.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { assembleSheetPdf, bakeDeckSections, rasterizeDeckImages, waitForDiagrams } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -305,5 +305,170 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 
 	it('treats an ERROR fence as settled — the source <pre> is the honest artifact', async () => {
 		expect(await returned(frag('<pre data-mermaid-state="error"><code class="language-mermaid-source">x</code></pre><div class="mermaid"></div>'))).toBe('early');
+	});
+});
+
+// The CALL SITE, not the helper. `waitForDiagrams` is pinned above, cell by cell; the
+// two arguments `bakeDeckSections` hands it were not pinned by anything at any tier —
+// `engineering/decisions/2026-09-07-diagram-render-latency.md` §16 named that hole: the
+// bake's budget and its `releaseDiagrams: false` were free parameters that no PR gate
+// could pin. They are exactly the shape of parameter that broke last time. The
+// double-wait regression flipped one of them and stayed invisible to four green e2e
+// arms; a checker found it by reading, and nothing in the tree could have.
+//
+// All three cells drive the REAL exporters — `bakeDeckSections` for the explicit override,
+// `rasterizeDeckImages` for the default — through a stubbed capture frame, so they fail on
+// the mutation rather than on the spelling. A source-text pin would go green the moment
+// someone lifted `12000` into a constant.
+describe('the capture frame’s diagram-wait arguments, at both call sites', () => {
+	// One slide, one fence the runtime has tagged and not yet drawn: the state in which a
+	// capture bakes a BLANK, which is the whole reason either argument exists.
+	const DECK =
+		'<div class="lattice"><section><h1>probe</h1>' +
+		'<pre data-mermaid-state="pending"><code class="language-mermaid-source">flowchart LR</code></pre>' +
+		'<div class="mermaid"></div></section></div>';
+
+	/** The `DeckRender` shape `createCaptureFrame` destructures. Every field is inert here. */
+	const render = () => ({ html: '', css: '', mode: 'light', geom: { w: 1280, h: 720 }, runtimeUrl: '', fontCss: '', mermaidUrl: 'about:blank' });
+
+	/**
+	 * jsdom does not parse `srcdoc` — an iframe fires `load` and leaves an EMPTY
+	 * `contentDocument` — so `bakeDeckSections` would sail through both waits and return
+	 * null at the no-sections check, asserting nothing. Hand the frame a document we
+	 * control instead: the only seam into `createCaptureFrame`, which is module-private.
+	 */
+	function stubCaptureFrame(html: string) {
+		const inner = document.implementation.createHTMLDocument('capture');
+		inner.body.innerHTML = html;
+		const realCreate = document.createElement.bind(document);
+		const spy = vi.spyOn(document, 'createElement').mockImplementation(((tag: string, opts?: ElementCreationOptions) => {
+			const el = realCreate(tag, opts);
+			if (String(tag).toLowerCase() !== 'iframe') return el;
+			Object.defineProperty(el, 'contentDocument', { configurable: true, get: () => inner });
+			// `null`, NOT `{}`. Both satisfy the optional-chained `win?.__latticeFit`, but the
+			// frame's window has a THIRD consumer: `flattenSvgStyles(svg, win)` takes any
+			// truthy `win` at its word and calls `win.getComputedStyle`. An empty object is
+			// truthy, so it threw, the bake swallowed it into `unbaked++`, and a GREEN cell
+			// printed "1/1 diagram(s) could not be baked" — the warning that signals a real
+			// export defect. `null` makes the helper fall back to this realm's own window.
+			Object.defineProperty(el, 'contentWindow', { configurable: true, get: () => null });
+			// `load` fires SYNCHRONOUSLY on assignment. The listener is attached before the
+			// assignment in `createCaptureFrame`, so the wait resolves.
+			Object.defineProperty(el, 'srcdoc', { configurable: true, get: () => '', set: () => { el.dispatchEvent(new Event('load')); } });
+			return el;
+		}) as typeof document.createElement);
+		return { inner, restore: () => spy.mockRestore() };
+	}
+
+	const fence = (d: Document) => d.querySelector('pre') as HTMLElement;
+	const draw = (pre: HTMLElement) => {
+		pre.setAttribute('data-mermaid-state', 'rendered');
+		(pre.nextElementSibling as HTMLElement).innerHTML = '<svg></svg>';
+	};
+
+	// NO module pre-warm, deliberately. An earlier draft warmed
+	// `standalone-svg.generated.js` in `beforeAll` on the theory that a cold dynamic import
+	// under fake timers would block on real I/O. It does not: `advanceTimersByTimeAsync`
+	// yields to the real event loop between fake ticks, so the import resolves normally —
+	// measured by deleting the hook and watching the cells still pass. The hook was
+	// harmless; its reasoning was wrong, which is worse in a comment than in code.
+	afterEach(() => { vi.useRealTimers(); });
+
+	it('does NOT release at the capture frame — a diagram that draws after 4000 still bakes as a drawing', async () => {
+		// THE DOUBLE-WAIT REGRESSION, at the call site this time. `createCaptureFrame`
+		// defaults to releasing, and the release is terminal, so the bake MUST opt out:
+		// `releaseDiagrams: false`. Flip it to `true` and this fence is stamped
+		// `unavailable` at 4000, the bake's own wait finds nothing blanking and returns on
+		// its first poll, and a diagram that was still going to draw ships as source text.
+		vi.useFakeTimers();
+		const { inner, restore } = stubCaptureFrame(DECK);
+		try {
+			const pre = fence(inner);
+			// Past the frame's 4000, well inside the bake's 12000 — the window the opt-out buys.
+			setTimeout(() => draw(pre), 5500);
+			const done = bakeDeckSections(render());
+			await vi.advanceTimersByTimeAsync(8000);
+			const out = await done;
+			expect(pre.getAttribute('data-mermaid-state')).toBe('rendered');
+			expect(pre.hasAttribute('data-mermaid-final')).toBe(false);
+			expect(out?.diagrams).toBe(1);
+			expect(out?.failed).toBe(0);
+		} finally {
+			restore();
+		}
+	});
+
+	it('leaves the DEFAULT releasing, so a lane that takes it still gives up at 4000', async () => {
+		// THE OTHER HALF, and neither cell above can see it. `releaseDiagrams` has a default
+		// (`= true`) AND one explicit override (the bake's `false`). The two cells above pin
+		// the override; flip the DEFAULT to `false` and they both still pass, while the six
+		// `createCaptureFrame` call sites that take it stop releasing at the only wait they
+		// get.
+		//
+		// AND THE HARM IS MEASURED, not inferred. Driven on the real Studio, `Images (.zip)`
+		// with `mermaid.render` held: with the default shipping (`true`) the downloaded PNG
+		// carries the author's source text; with it flipped to `false` the SAME slide comes
+		// back BLANK — heading, rule, and nothing else. Slide 01, which has no diagram, is
+		// byte-identical across both arms, which is the control that makes the comparison
+		// mean something. §19 has the images and the md5s.
+		//
+		// §16 concluded the opposite — "the release is a no-op there" — and that conclusion
+		// does NOT reproduce. It is corrected in §19 rather than left standing, because it
+		// was already being used to argue this cell was pinning a cosmetic parameter.
+		//
+		// It also pins the default only AS SEEN THROUGH this lane: a change that flips the
+		// default and adds an explicit `true` here would keep this cell green while the
+		// other five lose the release.
+		//
+		// `rasterizeDeckImages` is the reachable one: it takes the default, and the release
+		// happens inside `createCaptureFrame` BEFORE any rasterizing. Its later work needs
+		// `font-embed.js` and `html-to-image`, which do not load here — so the rejection is
+		// expected and swallowed. The fence state at 5000 is the whole assertion.
+		vi.useFakeTimers();
+		const { inner, restore } = stubCaptureFrame(DECK);
+		try {
+			const pre = fence(inner);
+			const done = rasterizeDeckImages(render()).catch(() => null);
+			await vi.advanceTimersByTimeAsync(5000);
+			expect(pre.getAttribute('data-mermaid-state')).toBe('unavailable');
+			expect(pre.hasAttribute('data-mermaid-final')).toBe(true);
+			await done;
+		} finally {
+			restore();
+		}
+	});
+
+	it('gives up at 16000 — the frame’s 4000 plus the bake’s 12000, and not before', async () => {
+		// THE NUMBER. §15 records a suite whose cells all stayed green while the give-up
+		// threshold was TRIPLED, because they pinned the shape of the loop and never the
+		// constant that decided it.
+		//
+		// The real release instant is 16112ms, not 16000: a 32ms double-rAF settle, then
+		// 4080 for the frame's wait (its 120ms poll overshoots 4000), then 12000. So these
+		// checkpoints straddle it by 1112ms below and 888ms above — deterministic under
+		// fake timers, which is the point: 12000 -> 8000 gives up at 12152 and fails the
+		// first checkpoint, 12000 -> 16000 gives up at 20192 and fails the second. Those two
+		// are NOT 12112/20112: the 120ms poll overshoots any budget that is not a multiple
+		// of it, and 12000 happens to be one while 8000 and 16000 are not (8040 and 16080).
+		// The title rounds; the arithmetic here does not.
+		vi.useFakeTimers();
+		const { inner, restore } = stubCaptureFrame(DECK);
+		try {
+			const pre = fence(inner);
+			const done = bakeDeckSections(render());
+			await vi.advanceTimersByTimeAsync(15_000);
+			expect(pre.getAttribute('data-mermaid-state')).toBe('pending');
+			expect(pre.hasAttribute('data-mermaid-final')).toBe(false);
+			await vi.advanceTimersByTimeAsync(2_000);
+			// Released as SOURCE, and marked final so the runtime cannot reclaim it before
+			// the capture reads `outerHTML`.
+			expect(pre.getAttribute('data-mermaid-state')).toBe('unavailable');
+			expect(pre.hasAttribute('data-mermaid-final')).toBe(true);
+			const out = await done;
+			expect(out?.diagrams).toBe(0);
+			expect(out?.failed).toBe(1);
+		} finally {
+			restore();
+		}
 	});
 });

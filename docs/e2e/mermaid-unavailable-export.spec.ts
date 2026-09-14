@@ -28,6 +28,65 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
  * about it exactly the way it would on a CSP block or an offline machine.
  */
 
+/**
+ * TWO OF THE FIVE ARMS ARE `@smoke`, AND THE SPLIT IS DELIBERATE.
+ *
+ * `ci.yml`'s `studio-smoke` job runs `test:e2e:smoke` on every PR that touches `docs`,
+ * `lib`, `themes` or `exemplars`; everything else here runs in the 04:41 nightly, AFTER
+ * merge. The two tagged arms are the ones carrying the claim #2147 actually makes — the
+ * export's give-up releasing an un-settled fence as source, and a diagram landing between
+ * the two waits still baking as a drawing. Neither was re-derivable from a PR before this.
+ *
+ * The other three stay nightly because they do not exercise what #2147 changed: the 404
+ * arms reach `unavailable` through the OLDER `releaseUnrenderableFences` path (no
+ * `data-mermaid-final`, which is the discriminator), and the fourth is the Mermaid-loads
+ * control.
+ *
+ * MEASURED COST, not estimated — 4-core sandbox, 2 workers, whole `@smoke` tier:
+ *
+ *   55 tests  278s   baseline
+ *   57 tests  291s   with these two        +13s
+ *   60 tests  297s   with all five         +19s
+ *
+ * Those absolute counts are of a tree that no longer exists — #2176 has since added two
+ * more `@smoke` arms, so the tier is 57 without these two and 59 with them. The DELTA is
+ * what the A/B measures and it is unaffected; the totals are not a number to quote.
+ *
+ * Far below the 43.7s these two take in isolation, because with two workers they fill
+ * idle worker time instead of extending the critical path.
+ *
+ * ON THE RUNNER, THE OBSERVED SPREAD SWAMPS THE DELTA. Four runs, not a distribution,
+ * so this is a spread rather than a measured noise floor — but it is the right shape. The PR-gate run that first carried these tags did 59
+ * tests in a 330s test step / 438s job. Two runs WITHOUT them, the same day:
+ *
+ *   step 241s / job 334s   d05807e3, merge_group, 57 tests
+ *   step 299s / job 397s   7eebca0e, a PR, 24 minutes earlier
+ *
+ * Those two untagged runs differ from each other by 58s on the step alone — more than
+ * the whole effect being measured. And the cleanest datum is the same tier twice: the
+ * next push ran the IDENTICAL 59-test tier at 264s against the first run's 330s, a 66s
+ * swing with the test set held fixed — which rules out a count difference, though not a
+ * scheduling artifact, and a scheduling artifact IS the noise. So a single CI run neither confirms nor refutes the
+ * +13s above; the controlled sandbox A/B (one machine, one session, three arms
+ * back to back) is the measurement that can resolve it, and the CI run's job is to show
+ * the arms run and pass on the gate. DO NOT read one green run as a cost measurement.
+ *
+ * What the CI run does settle: 438s against a 15-minute cap. `studio-smoke` is the
+ * thinnest-margin job in `ci.yml` (cap/max 1.1x), so if it ever does need the cap
+ * raised, raise it and state the new measured duration — do not delete it.
+ *
+ * AND WATCH THE TAIL, NOT p90. Both arms below carry `test.setTimeout(240_000)`, on two
+ * workers with `--retries=0`. One hung export adds up to ~240s, and `ci.yml`'s recorded
+ * worst `studio-smoke` is 829s — 829 + 240 is past the 900s cap, where the job is KILLED
+ * and the WHOLE smoke report is lost rather than two arms going red. Advisory, so nothing
+ * is blocked; but that is the failure mode to expect, and it does not look like a test
+ * failure.
+ *
+ * It is ADVISORY either way: `studio-smoke` is deliberately absent from the required `ci`
+ * gate's `needs`, so a red arm here reports on the PR and does not block the merge.
+ * Promotion to blocking is #800.
+ */
+
 const SENTINEL = 'UNRENDERABLEFENCESENTINEL';
 const F = String.fromCharCode(96, 96, 96);
 
@@ -158,7 +217,7 @@ test('the Studio webpage export ships the author’s source when Mermaid never l
 	await viewer.close();
 });
 
-test('the Studio webpage export ships the author’s source when a diagram is too SLOW to draw', async ({ page, context }, testInfo) => {
+test('@smoke the Studio webpage export ships the author’s source when a diagram is too SLOW to draw', async ({ page, context }, testInfo) => {
 	// THE REGRESSION THIS PINS, on the real surface. The wait guarding the capture is bounded —
 	// it has to be, or a stalled diagram hangs the export for ever — and when it expired it used
 	// to leave the fence tagged and hidden. `mermaid.css` hides a fence's source for every state
@@ -196,7 +255,7 @@ test('the Studio webpage export ships the author’s source when a diagram is to
 	if (seen.siblingDisplay !== null) expect(seen.siblingDisplay).toBe('none');
 });
 
-test('a diagram that draws INSIDE the bake window still exports as a drawing', async ({ page, context }, testInfo) => {
+test('@smoke a diagram that draws INSIDE the bake window still exports as a drawing', async ({ page, context }, testInfo) => {
 	// THE REGRESSION ARM. The bake's two waits are sequential on one document — 4000 in the
 	// capture frame, then 12000 in the bake — so a diagram has 16000 before the give-up. When
 	// the frame's wait also RELEASED, that sum collapsed to the frame's 4000: the release is

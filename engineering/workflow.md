@@ -1019,10 +1019,29 @@ The contract, and its limits — be precise about what it does and doesn't cover
   *"The merge strategy for main is set by the merge queue."*
 
   So a stored `"merge"` is a stale label, not a pending violation of § Merging's
-  *"never a merge commit"*. **The repo's history settles it:
-  `git rev-list --count --merges origin/main` is `0`** — no merge commit has ever
-  landed here, including from PR #1613, whose `auto_merge.merge_method` has read
-  `"merge"` for weeks. Every PR above lands as a squash.
+  *"never a merge commit"*. **The repo's history settles it — but only the history the
+  queue governs.** Count from the day the queue went live:
+
+  ```console
+  $ git rev-list --count --merges --since=2026-06-30 origin/main
+  0
+  ```
+
+  Zero, including PR #1613, whose `auto_merge.merge_method` has read `"merge"` for
+  weeks. Every PR since the queue lands as a squash.
+
+  **Do not drop the `--since`.** Unscoped, that command answers `33`, and a reader who
+  runs it concludes the passage is wrong. The 33 are real and they are all pre-queue,
+  2026-05-12 to 2026-05-27 under the old SlideWright org, ending at `440cf0ec`: **28 are
+  `Merge pull request` commits — PRs #1–#30 less #10 and #11, which never landed as merge
+  commits — and 5 are `main` merged INTO a feature branch** back when that was how a branch caught up. They say nothing about what
+  `auto_merge.merge_method` does today.
+
+  **And check your clone's depth before you trust either number.** A shallow clone —
+  what the cloud sandbox provisions — truncates history, so the unscoped count answers
+  `0` there for a reason that has nothing to do with the merge queue. `git rev-parse
+  --is-shallow-repository` says which you have; `git fetch --unshallow origin main`
+  makes the counts mean something.
 
   **Read it, but do not act on it alone.** After anything arms auto-merge:
 
