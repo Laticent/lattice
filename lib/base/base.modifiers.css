@@ -579,6 +579,25 @@ section.print {
   --chart-cat3-ink: var(--print-chart-3); --chart-cat4-ink: var(--print-chart-4);
   --chart-cat5-ink: var(--print-chart-5); --chart-cat6-ink: var(--print-chart-6);
   --chart-cat7-ink: var(--print-chart-7); --chart-cat8-ink: var(--print-chart-8);
+  /* …and the heatmap's ramp, for the third time and the same reason. This one is
+   * worse than the two above if it is missed: those seeds paint text on the
+   * CANVAS, where inheriting a full-hue value is ugly; this one paints text ON THE
+   * CELL, where the ink is solved against a specific fill and the band moves that
+   * fill out from under it. Measured before this remap existed: 47 of 95 stop
+   * pairs below AA in print, worst 1.40:1 on `carbone` — worse than the failure
+   * that got the printed value withdrawn in the first place.
+   *
+   * THE STOPS MOVE TOO, not just the inks. A palette nudges its own stops to dodge
+   * its own fill's dead zone (lib/theme/cat-ink.js § solveHeatmapRamp); those
+   * nudges describe the theme's fill, not the band's. Remapping the inks alone
+   * would pair a print ink with a palette-nudged stop — the same defect one level
+   * down. Both are generated into base.tokens.css by tools/derive-chart-cat-ink.js
+   * and gated by its `--check`. */
+  --heatmap-step1: var(--print-heatmap-step1); --heatmap-step1-ink: var(--print-heatmap-step1-ink);
+  --heatmap-step2: var(--print-heatmap-step2); --heatmap-step2-ink: var(--print-heatmap-step2-ink);
+  --heatmap-step3: var(--print-heatmap-step3); --heatmap-step3-ink: var(--print-heatmap-step3-ink);
+  --heatmap-step4: var(--print-heatmap-step4); --heatmap-step4-ink: var(--print-heatmap-step4-ink);
+  --heatmap-step5: var(--print-heatmap-step5); --heatmap-step5-ink: var(--print-heatmap-step5-ink);
   --chart-state-pass: var(--print-pass);
   --chart-state-warn: var(--print-warn);
   --chart-state-fail: var(--print-fail);

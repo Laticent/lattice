@@ -153,11 +153,28 @@ describe('heatmap — the quantized ramp', () => {
     // looks at only one side can catch.
     const css = fs.readFileSync(
       path.join(__dirname, '../../../lib/components/chart/heatmap/heatmap.styles.css'), 'utf8');
+    // MATCH THE WHOLE RULE, not the token name. `css.includes('--heatmap-step1')`
+    // is satisfied by the substring inside `--heatmap-step1-ink`, so the first cut
+    // of this arm passed while step 1's cell read step 3's position — an ink paired
+    // with a fill it was never solved against, which is the exact failure the arm
+    // exists to catch. Assert the PAIRING: rule N reads token N.
     for (let n = 1; n <= RAMP_STEPS; n += 1) {
-      assert.ok(css.includes(`.heatmap-cell[data-step="${n}"]`), `no cell rule for step ${n}`);
-      assert.ok(css.includes(`.heatmap-value[data-step="${n}"]`), `no value rule for step ${n}`);
-      assert.ok(css.includes(`--heatmap-step${n}`), `the stylesheet never reads --heatmap-step${n}`);
-      assert.ok(css.includes(`--heatmap-step${n}-ink`), `the stylesheet never reads --heatmap-step${n}-ink`);
+      const cellRule = new RegExp(
+        `\\.heatmap-cell\\[data-step="${n}"\\][^{]*\\{[^}]*--mix:\\s*var\\(--heatmap-step${n}(?![\\w-])`);
+      const valueRule = new RegExp(
+        `\\.heatmap-value\\[data-step="${n}"\\][^{]*\\{[^}]*fill:\\s*var\\(--heatmap-step${n}-ink(?![\\w-])`);
+      assert.match(css, cellRule, `step ${n}'s cell rule does not read --heatmap-step${n}`);
+      assert.match(css, valueRule, `step ${n}'s value rule does not read --heatmap-step${n}-ink`);
+    }
+
+    // THE CSS FALLBACK NUMBERS describe the ramp for a theme with no generated
+    // block, so they have to be the ramp the kernel and generator agree on. Nothing
+    // else ties them to MIX_FLOOR / MIX_TOP / RAMP_STEPS: move MIX_TOP and they
+    // would silently keep describing the old ends.
+    for (let n = 1; n <= RAMP_STEPS; n += 1) {
+      const even = MIX_FLOOR + ((MIX_TOP - MIX_FLOOR) * (n - 1)) / (RAMP_STEPS - 1);
+      const want = `var(--heatmap-step${n}, ${Number(even.toFixed(2))}%)`;
+      assert.ok(css.includes(want), `step ${n}'s fallback should be ${want} — the evenly spaced position`);
     }
     assert.ok(!css.includes(`data-step="${RAMP_STEPS + 1}"`),
       `the stylesheet has a rule for step ${RAMP_STEPS + 1}, which the kernel never emits`);
@@ -165,6 +182,23 @@ describe('heatmap — the quantized ramp', () => {
     assert.equal(gen.RAMP_STEPS, RAMP_STEPS, 'the generator writes a different number of stops than the kernel emits');
     assert.equal(gen.RAMP_LO, MIX_FLOOR, "the generator's ramp floor differs from the kernel's");
     assert.equal(gen.RAMP_HI, MIX_TOP, "the generator's ramp top differs from the kernel's");
+
+    // FIVE ENCODINGS OF THE COUNT, not three. `lib/theme/derive.js` writes the
+    // Studio's ramp from a bare literal, and it passes neither `steps` nor
+    // `lo`/`hi` to solveHeatmapRamp — so it rides that module's defaults. Raise
+    // RAMP_STEPS in the kernel and the generator and every Studio theme would
+    // quietly keep five stops, with the two pins above still green.
+    const derive = fs.readFileSync(path.join(__dirname, '../../../lib/theme/derive.js'), 'utf8');
+    const literal = derive.match(/heatmap: \[\s*\.\.\.Array\.from\(\{ length: (\d+) \}/);
+    assert.ok(literal, "could not find derive.js's heatmap REQUIRED_TOKENS literal");
+    assert.equal(Number(literal[1]), RAMP_STEPS, "derive.js declares a different number of heatmap tokens than the kernel emits steps");
+    const recipe = fs.readFileSync(path.join(__dirname, '../../../lib/theme/cat-ink.js'), 'utf8');
+    const defaults = recipe.match(/lo = (\d+(?:\.\d+)?), hi = (\d+(?:\.\d+)?), steps = (\d+)/);
+    assert.ok(defaults, 'could not find solveHeatmapRamp\'s defaults');
+    assert.deepEqual(
+      [Number(defaults[1]), Number(defaults[2]), Number(defaults[3])],
+      [MIX_FLOOR, MIX_TOP, RAMP_STEPS],
+      "solveHeatmapRamp's defaults differ from the kernel's ramp — derive.js rides them without passing its own");
   });
 });
 
@@ -201,6 +235,33 @@ describe('heatmap — every shipped palette carries an AA-clean ramp', () => {
     const failures = palettes.flatMap((t) => gen.rampContrastFailures(t));
     assert.deepEqual(failures, [], 'a committed ramp pair does not clear AA on the fill it sits on');
   });
+  test('the PRINT band carries its own ramp, and every pair clears AA there', () => {
+    // THE THIRD CANVAS. `section.print` is not a color-scheme flip — it remaps
+    // --bg, --muted-mark and --chart-cat1 to the universal --print-* band, so
+    // every input to the fill moves while light-dark() stays on its light arm.
+    // Before the band had its own ramp, the theme's ink painted on the print
+    // fill: 47 of 95 pairs below AA, worst 1.40:1 on `carbone` — worse than the
+    // failure that got the printed value withdrawn in the first place. Neither
+    // the generator's own --check nor any browser sweep of the two theme canvases
+    // could see it, because both re-ask the question the generator answered.
+    assert.deepEqual(gen.printContrastFailures(), [],
+      'a committed print-band pair does not clear AA on the fill it sits on');
+  });
+
+  test('the print band REMAPS both the stops and the inks', () => {
+    // Remapping the inks alone would pair a print ink with a palette-nudged stop,
+    // which is the same ink-meets-an-unfamiliar-fill defect one level down.
+    const band = fs.readFileSync(
+      path.join(__dirname, '../../../lib/base/base.modifiers.css'), 'utf8');
+    const print = band.slice(band.indexOf('section.print {'));
+    for (let n = 1; n <= RAMP_STEPS; n += 1) {
+      assert.ok(print.includes(`--heatmap-step${n}: var(--print-heatmap-step${n})`),
+        `the print band does not remap --heatmap-step${n}`);
+      assert.ok(print.includes(`--heatmap-step${n}-ink: var(--print-heatmap-step${n}-ink)`),
+        `the print band does not remap --heatmap-step${n}-ink`);
+    }
+  });
+
 });
 
 describe('heatmap — capacity is reported, never silently dropped', () => {

@@ -115,11 +115,14 @@
  *   --heatmap-stepN-ink  the ink solved against the fill that stop actually paints,
  *                     as a light-dark() pair — the same shape --cat-on-mark uses.
  *
- * THE FALLBACKS ARE NOT A SECOND RAMP. A palette with no chart cycle gets no
- * generated block, so these keep it rendering: even stops, and the body ink,
- * which is where every solve starts. They are NOT contrast-guaranteed — only a
- * derived palette is, and `derive-chart-cat-ink.js --check` gates those. A theme
- * that wants the guarantee declares a cycle and is generated into.
+ * THE FALLBACKS ARE NOT A SECOND RAMP. Every SHIPPED palette carries a generated
+ * block — all 19 bases, the 14 variant-darks inheriting theirs — so nothing in
+ * this repo takes these. They exist for a theme from outside it: even stops, and
+ * the body ink for stops 1-4, where a solve that has to move at all starts. Stop
+ * 5 cannot use it — a saturated cell needs the opposite pole — so its fallback is
+ * an explicit pair. None of this is contrast-guaranteed; only a derived palette
+ * is, and `derive-chart-cat-ink.js --check` gates those. A theme that wants the
+ * guarantee gets generated into, or derives through lib/theme/derive.js.
  *
  * FIVE RULES, ONE PER STOP, because `attr()` cannot be used in a custom property
  * value in any shipped engine — `--mix: attr(data-step)` parses and resolves to
