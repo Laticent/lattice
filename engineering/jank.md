@@ -554,6 +554,14 @@ The 614.3px row was the headline lead when the census first shipped — the wors
 catalog, quoted as such. It had not moved at all. The real top mover is `state-chart inline`'s
 `span.state-index` at 85px, which was not in the old top ten.
 
+**Two rows within 0.1px of each other are not stably ordered.** Re-deriving the census after
+the vacuity fix moved `matrix-grid`'s worst candidate from `div.matrix-grid-figure::before` to
+`::after` — not because anything changed, but because `::before` measured 44.8px on one run and
+44.7px on the next, crossing `::after`'s 44.8px. The measurements reproduce to a tenth of a
+pixel; the LABEL on a row whose top two candidates sit inside that does not. Treat a
+sub-pixel gap between candidates as a tie, and re-derive before reading anything into a
+change of that size.
+
 **Read the ranking accordingly.** `moves` now means TRANSLATION, so a row that fell to ~0 was
 never a lead; the ones that stayed high (85px, 67.1px, 44.8px) are the ones worth a verdict
 sweep. Nothing in the catalog was newly found to move — the correction only removes false
