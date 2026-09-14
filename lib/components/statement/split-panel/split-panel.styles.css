@@ -603,3 +603,392 @@ section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .
  * checking why the header is not inverse here should find the answer at the header rule. */
 section.split-panel:is(.metric, .steps) :is(header, footer),
 section.split-panel.mirror :is(header, footer) { color: var(--marp-slide-header-color, var(--text-muted)); }
+
+/* ── AUTO-SPLIT: the categorical tint follows the run ──────────────────────────
+ *
+ * `cat-1…cat-8` are declared `section.split-panel.cat-N`, and a re-authored split page is
+ * classed `content split-panel-split split-panel-{cover,points} form` — `roleOpenTag` REPLACES
+ * the class attribute and keeps only the canvas axis. So the selector could never match, and a
+ * split `cat-3` slide opened on the plain `--accent` field: all eight variants rendered
+ * identically once split, and the one thing they exist to say was gone. Nothing failed — the
+ * pages were simply the wrong color.
+ *
+ * The modifiers reach the page as `data-split-mods` (lib/core/split-envelope.js `roleOpenTag`),
+ * an attribute rather than classes, so opting in here cannot collide with any other selector in
+ * the bundle. What is set is the same THREE custom properties `section.split-panel.cat-N` sets —
+ * the recipe below them is untouched and shared, so this is the tint being reused rather than
+ * re-authored.
+ *
+ * `--cat-on-fill` for every text run, for the reason the panel's own block gives at length: it
+ * is the one ink the categorical token contract guarantees against any `--cat-N-fill` (>= 4.5:1,
+ * gated by checkCatContrast). `--cat-N-mark` is a STROKE token and is used for rules only. */
+section.split-panel-split[data-split-mods~="cat-1"] { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); --panel-label-ink: var(--cat-1-ink, var(--cat-1-mark)); }
+section.split-panel-split[data-split-mods~="cat-2"] { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); --panel-label-ink: var(--cat-2-ink, var(--cat-2-mark)); }
+section.split-panel-split[data-split-mods~="cat-3"] { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); --panel-label-ink: var(--cat-3-ink, var(--cat-3-mark)); }
+section.split-panel-split[data-split-mods~="cat-4"] { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); --panel-label-ink: var(--cat-4-ink, var(--cat-4-mark)); }
+section.split-panel-split[data-split-mods~="cat-5"] { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); --panel-label-ink: var(--cat-5-ink, var(--cat-5-mark)); }
+section.split-panel-split[data-split-mods~="cat-6"] { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); --panel-label-ink: var(--cat-6-ink, var(--cat-6-mark)); }
+section.split-panel-split[data-split-mods~="cat-7"] { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); --panel-label-ink: var(--cat-7-ink, var(--cat-7-mark)); }
+section.split-panel-split[data-split-mods~="cat-8"] { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); --panel-label-ink: var(--cat-8-ink, var(--cat-8-mark)); }
+/* The cover IS the panel on a split run — it is the feature's own page — so the tint paints the
+ * whole field, exactly as `.panel-left` takes it on an unsplit slide. */
+section.split-panel-cover:is(
+  [data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"],
+  [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) {
+  background: var(--panel-fill);
+  color: var(--cat-on-fill);
+}
+section.split-panel-cover:is(
+  [data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"],
+  [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) :is(.split-feat-h, .split-feat-eye, .split-feat-lede, .split-cover-lead) {
+  color: var(--cat-on-fill);
+}
+/* The point pages keep the canvas and take the category on their RULE and their label ink —
+ * the same two channels `.panel-right` uses on an unsplit slide, so a run reads as one
+ * category rather than a tinted cover followed by neutral pages. */
+section.split-panel-points:is(
+  [data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"],
+  [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) .split-pts > li {
+  border-left-color: var(--panel-mark);
+}
+
+/* ── THE WAYFINDING MARKS LEAVE THE PANEL ROW, AND THE BAND THEY LAND IN IS RESERVED ─────
+ *
+ * `pullquote` leads with the quotation and carries no `<h2>`, so `readFeature` declines and
+ * there is no masthead to build a cover from either: the run is `lat-split-native` BODY pages
+ * with no `.cell-footer`. `dockInFooterCell` then appends both marks at SECTION level — and on
+ * this layout the section IS the panel flex container, so the forward pointer arrives as a flex
+ * ITEM of the panel row. That is the whole of it, and it needs both halves below. Each half was
+ * shipped alone first, and each alone was wrong.
+ *
+ * HALF ONE — TAKE THE POINTER OUT OF THE ROW. At portrait the container is a column, so the
+ * pointer stacked under the panels into the bottom band: the k-of-N rail printed through the
+ * pill's label by 42.1x6.5px, and the pill over 206.6x24.5px of the running footer's INK (ink on
+ * BOTH sides — a `Range` over each element's contents, clamped to its box; the pointer's BOX
+ * against that ink measures 230x31, which is the one-sided figure this comment first reported).
+ * At SQUARE the container is a ROW and the same item becomes a third COLUMN: `.panel-right`
+ * squeezed from half the slide to 252.7px, the right column set one word per line, and the
+ * pill's right edge at x1133.4 in a 1080px section.
+ *
+ *   An earlier fix reserved the band with `padding-bottom` on the SECTION. It closed the
+ *   portrait collision at all four tall sizes and, at square, cut the DARK panel short too —
+ *   a 92.9x629.1px white band under a full-bleed navy field. Reserving space in a container
+ *   cannot be right when the mark should not be in the container.
+ *
+ * HALF TWO — RESERVE THE BAND ANYWAY, INSIDE THE PANEL. Taking the pointer out of flow and
+ * stopping there was the SECOND thing that was wrong: the panels then get their whole box back,
+ * which is exactly what lets their CONTENT reach the band the pill floats over — and the pill is
+ * opaque (`--pill-bg`) at `--z-chrome`, so it paints over the words. Swept on a four-member
+ * portrait deck at seven body lengths, pointer absolute and NO reserve: 8 and 12 words clear; a
+ * 16-word body prints 351.5x14.6px of pill fill over its last line, and 20 words and up print the
+ * pill's full 51.5px height over it. Nothing in the engine could see it — the overflow probe
+ * reads FLOW height and the pointer is no longer in flow, `check-jank` does not know
+ * `.lat-split-rel` is an anchor, and this branch's own collision sweep compares marks to marks
+ * and never marks to content. Taking the pointer out of flow widened all three blinds at once.
+ *
+ *   So the reservation moves INSIDE THE PANELS. Padding is inside the box, so their BACKGROUND
+ *   still bleeds to all four slide edges — the square defect the section-level padding caused.
+ *
+ *   WHAT THE RESERVATION DOES AND DOES NOT DO, because the first two write-ups of it claimed the
+ *   stronger thing. It REPOSITIONS content that fits: `.panel-right > ul` is `justify-content:
+ *   space-evenly`, so shortening the box re-centres the member block clear of the band. That is
+ *   what removes the run's last-page drift and what puts `mirror`'s column right. It does NOT
+ *   hold overflowing content out of the band, and cannot: `.panel-right` is `overflow: clip`,
+ *   whose clip edge is the PADDING box, so content that exceeds the shortened content box spills
+ *   straight through the reserve. The same sweep run WITH the reserve shows exactly that: the
+ *   16-word collision goes to zero, and 20, 24, 28 and 32 words print the identical overprint they
+ *   printed without it — the reserve was never the thing standing in the way there. Those lengths
+ *   are not silent, but the thing that sees them is the DECK LINTER, not the engine — and naming
+ *   ONE linter rule for it was wrong twice over. `lint:deck` has two density rules and this
+ *   component declares both thresholds (`density: soft 16, hard 24` in its manifest):
+ *   `density-crowd` past the soft target, `density-overflow` past the hard one. Which of the two
+ *   fires at a colliding length depends on the element's TITLE, because the rule counts the whole
+ *   element. Measured, four members, same body length, two title widths:
+ *
+ *       body words   with a 3-word title      with an 8-word title
+ *       12           nothing (15 total)       density-crowd (20)
+ *       16           density-crowd (19)       density-crowd (24)
+ *       20           density-crowd (23)       density-overflow (28)
+ *       24           density-overflow (27)    density-overflow (32)
+ *
+ *   So every colliding length IS flagged, by one rule or the other, and an earlier draft that
+ *   named `density-overflow` alone described only the long-titled half. The draft before THAT
+ *   credited the ENGINE's own overflow probe, which is wrong in the other direction: whether the
+ *   engine flags depends on the deck too — a 20-word body of short words measures
+ *   `scrollHeight === clientHeight` with no `overflow` class and no CLI warning while the pill
+ *   covers the words, and a 24-word body of ordinary words trips the class on all four pages. The
+ *   durable claim, and the only one worth writing down, is the weak one: **a page whose content
+ *   fits its panel can still have the pill over its words, and nothing in the engine says so.**
+ *
+ *   THE PANEL THE POINTER CAN REACH, AND EVERY PAGE OF THE RUN. Three versions of this rule
+ *   picked three different sets of panels, and each was wrong in its own way. The first reserved
+ *   only `.panel-right`, and only where the section `:has(> .lat-split-rel)`. The second
+ *   over-corrected to BOTH panels on every page. Each error was found by a later HARD RULE #25
+ *   round, on a shape the previous fix had not been tried against:
+ *
+ *   · `mirror` ROW-REVERSES the panels (see the `.mirror` rules above), and it beats the portrait
+ *     column rule — same specificity (0,2,1), later in the bundle — so a mirrored section is a ROW
+ *     at every size. At square that puts `.panel-right` in the LEFT half — measured x0-450.9 —
+ *     while the pointer sits at x708-1013, inside `.panel-left`. Reserving only `.panel-right` put
+ *     the band on the column the pill does not cover. Measured with the `.mirror` arm removed, on
+ *     the fixture `split-panel-coverless-band.test.js` defines, OPAQUE PILL BOX against the ink of
+ *     the cite line — the pill is filled, so its box is what paints over the words, and saying
+ *     which measure is used is the point: this figure has been quoted four different ways in this
+ *     file (217.1x28.4, 199.5x23.1, 236.7x26.0) because nobody said.
+ *
+ *       page 1        page 2
+ *       portrait  361.4x51.5    287.8x51.5
+ *       square    305.0x38.5    231.6x38.5
+ *       story     381.6x45.9    308.0x45.9
+ *       mobile    390.1x41.8    313.4x41.8
+ *
+ *     All four sizes, both pages that carry a pointer. Hence the second selector.
+ *
+ *   · BUT RESERVING BOTH INFLATES THE DARK PANEL, and reserving both on EVERY size is how that
+ *     shipped for a round. Once the section is a COLUMN, `.panel-left` is a flex item whose height
+ *     is content-driven, so padding there does not shrink a content box — it GROWS the panel.
+ *     Measured on the same four-member deck: the dark/light boundary moved from 49.3% to 55.0% of
+ *     the slide at portrait (+76.6px), 35.9% to 39.4% at story, 29.9% to 32.6% at mobile — on a
+ *     variant whose stated premise is that the quote gets half the slide. At square nothing moved,
+ *     because a row's panels are already full height. So the `.panel-left` arm is gated on
+ *     `.mirror`, the only configuration that puts the pointer over that panel; and because
+ *     `.mirror` forces a row at every size (previous bullet), the padding there always shrinks a
+ *     content box and never inflates anything. The measurement that caught this was a RASTER of
+ *     the split deck — the geometry probes had all reported "no overprint" and were right.
+ *
+ *   · IN A ROW, BOTH PANELS — BECAUSE THE PILL'S WIDTH IS AN AUTHORING VARIABLE. Two rounds tried
+ *     to name ONE panel for the reserve, and both were reading a fixture instead of the layout.
+ *     The pill's label is the NEXT page's member title, clipped at `LABEL_MAX = 42` characters
+ *     (`lib/core/relationship.js`), so its width is the author's to decide. The fixture this file
+ *     ships uses 15- and 21-character titles, which give a 305px pill at square — narrow enough to
+ *     sit inside one panel, which is where "the pointer overlaps the other panel by 0-43px" came
+ *     from. It is a property of those labels and of nothing else. At the 42 the engine allows, the
+ *     pill is 496.4px at square and 672.7px at the stacked sizes, and it CROSSES THE SEAM:
+ *
+ *       square, 42-char label     overlap of .panel-left    overlap of .panel-right
+ *       pullquote                        112.3                     384.1
+ *       pullquote metric                 113.3                     383.1
+ *       pullquote mirror                 496.4                       0
+ *       steps mirror                     347.3                     149.1
+ *
+ *     So a rule that reserves one named panel leaves the other exposed, whichever one it picks —
+ *     and a `:not(.mirror)` gate, which round 6 added to recover ~89px of what looked like dead
+ *     band, reopened a measured pill-over-text overprint on `steps mirror`. The band belongs to
+ *     BOTH panels wherever the section is a ROW, and padding costs nothing there because a row's
+ *     panels are already full height.
+ *
+ *     IN A COLUMN ONLY THE BOTTOM ONE, and that half is round 5's finding unchanged: `.panel-left`
+ *     is then a flex item sized by its content, so a reserve INFLATES it — the seam moved 49.3% to
+ *     55.0% of the slide at portrait. The pill cannot reach it there anyway (measured overlap 0 at
+ *     portrait, story and mobile, even at 672.7px wide), because `.panel-left` is the top half.
+ *     `:is(.mirror, :not([data-orientation="portrait"]))` is exactly "the section is a row":
+ *     `mirror` forces `row-reverse` at every size, and the portrait stamp is what makes a column.
+ *
+ *   · THE LAST PAGE OF A RUN CARRIES NO FORWARD POINTER, so `:has(> .lat-split-rel)` was false
+ *     there and that page alone got no reserve. `.panel-right > ul` is `justify-content:
+ *     space-evenly`, so the member block re-centered in a box 76.5px taller and the column JUMPED
+ *     between pages a reader sees seconds apart. The rule keys on the RUN (`lat-split-native`),
+ *     not on the pointer, so every page of it reserves the same band whether or not that page has
+ *     a mark to put in it — which is the whole point of a reserved band. Held by mutation: put the
+ *     `:has(> .lat-split-rel)` gate back and the last page's member block steps 38.3px at
+ *     portrait, 33.4px at story, 31.4px at mobile and 44.3px at square, with identical member text
+ *     on every page; take the gate out and pages 1, 2 and 4 sit at the same y at all four sizes.
+ *     (Page 3's member is genuinely one line shorter in that deck, so `space-evenly` centers it
+ *     differently on every variant of the rule. That residual spread is content, not the gate —
+ *     read the LAST page against the first two, never the run's max spread.)
+ *
+ *   The branch's own drift probe could not see that second one: it measures the positions of
+ *   {rail, pagination, pointer} and this is CONTENT drift. One level up from where the sweep
+ *   looked, which is where every defect in this file has been.
+ *
+ * THE NUMBERS ARE MEASURED. `8.6cqi` clears the running `<footer>`, which this layout pins
+ * absolutely to the section's bottom — ink y1265-1335 at portrait. The pill is 51.5px tall
+ * (4.8cqi), so its top sits at 13.4cqi and the reserve is that plus air. `--sp-xl` is
+ * `.panel-right`'s own side padding, so the pill's right edge lines up with the column it points
+ * at; `max()` keeps the reserve from ever being SMALLER than the padding it replaces.
+ *
+ * NO `:not(.form)`. An earlier version carried one, and an authored
+ * `<!-- _class: split-panel pullquote form -->` then kept every defect of half one intact:
+ * pointer `static`, `.panel-right` 252.7px, pill 26px past the slide edge. It guarded nothing —
+ * the `feature-cover` pages that carry `form` are classed `split-panel-cover` /
+ * `split-panel-points`, which `section.split-panel` never matches, and a `.cell-stage`-docked
+ * pointer is not a `>` child of the section.
+ *
+ * `--_sec-1cqi` here is this file's convention, NOT a correctness requirement, and the comment
+ * that said otherwise was carried over from the section-level rule where it WAS true. Measured:
+ * a bare `8.6cqi` on a CHILD of the section resolves against the section (92.88px on a 1080px
+ * slide), identically to the token form. `checkOwnership`'s budget is on declarations landing on
+ * the section ITSELF, for exactly that reason.
+ *
+ * NOT FIXED HERE, and recorded rather than walked past: the footer's ink on this page is
+ * `--on-dark-secondary` at 0.76 alpha — white — because the layout inks its chrome for the dark
+ * panel, and at portrait that panel is on TOP while the footer sits on the white half. Measured
+ * identical at base and HEAD, on the UNSPLIT slide too: pre-existing, off-path (HARD RULE #18).
+ * It is why the footer collision rasterized as a ghost rather than as solid overprint. */
+/* …AND THE CLAMP BELOW HAS TO OUT-SPECIFY A FORM-SCOPED BASE RULE, or it does not apply at all.
+ * `base.modifiers.css` re-declares this element for Form pages as
+ * `section.form.lat-split-native > .lat-split-rel { max-width: 100% }` — specificity (0,3,1),
+ * exactly the same as the general selector here, and it lands LATER in the bundle
+ * (`dist/lattice.css` 26541 vs 19404). Engine CSS layers nothing (HARD RULE #26), so plain source
+ * order decides and the base rule wins: on an authored `split-panel pullquote form` the clamp was
+ * computed away to `100%` and the pill ran to -79.0 / -88.7 / -92.7 at portrait / story / mobile —
+ * the SAME three numbers the round that added the clamp quotes as the defect it fixed. It was only
+ * ever fixed on the shapes base does not re-declare. So the Form case is named explicitly, which
+ * lifts it to (0,4,1); the general selector stays for every other shape. */
+section.split-panel.lat-split-native > .lat-split-rel,
+section.split-panel.form.lat-split-native > .lat-split-rel {
+  position: absolute;
+  right: var(--sp-xl);
+  bottom: calc(var(--_sec-1cqi, 1cqi) * 8.6);
+  left: auto;
+  z-index: var(--z-chrome);
+  /* CONTAINED BY CONSTRUCTION, because the label's WIDTH is not something a fixture can bound.
+   * `LABEL_MAX = 42` (`lib/core/relationship.js`) counts UTF-16 CODE UNITS, and the pill is as
+   * wide as the text those units render to — which differs by ~2.6x between scripts at the same
+   * count. The base pill carries `max-width: 100%` (`base.modifiers.css`), and THAT is the rule
+   * this one quietly broke: in flow the percentage resolves against the stage content box, 972px,
+   * which is why every other pointer (`checklist`, `feature-list`, `steps`, `timeline`) clamps to
+   * 972 and sits 54px inside both edges. Making it absolute re-based the same `100%` onto the
+   * SECTION's padding box, 1080px — so with `left: auto` the pill grew past its own right inset
+   * and off the LEFT edge of the slide: measured 1080px wide and 79.0px past x=0 at portrait,
+   * 88.7 at story, 92.7 at mobile, on a 34-code-unit Japanese title (comfortably inside the cap)
+   * and on 42 ASCII `W`s. Rounded left cap gone, border cut flush at the edge, first glyph
+   * sheared — with no overflow warning and a clean `lint:deck`.
+   *
+   * So restore the bound the base rule intended, against the box this element is actually laid
+   * out in. It is the INVARIANT rather than another sampled string: the pill cannot reach the
+   * opposite inset at ANY label the engine will emit, in any script.
+   *
+   * SANCTIONED (`SANCTIONED_STAGE_INSETS`), and the gate's own rationale is why it is admissible
+   * rather than why it is an exception: check (a) exists because a BODY docked in a stage cell
+   * already has the frame's inset, so subtracting it again makes the figure pay twice. This is
+   * not a body and there is no stage cell — a coverless native page has no `.cell-stage`, which
+   * is the whole reason this pointer is section-level and absolute. There is no first inset here
+   * to pay twice; the subtraction IS this element's only inset. Every other spelling is worse:
+   * both insets plus `width: fit-content` is over-constrained and resolves LEFT-aligned, the
+   * `margin-inline-start: auto` that would fix that is HARD RULE #20, and moving the pill's
+   * chrome to the inner `.lat-split-label` to stretch the outer would duplicate eight base
+   * declarations in a component file and drift from them. */
+  max-width: calc(100% - 2 * var(--sp-xl));
+}
+section.split-panel.lat-split-native > .panel-right,
+section.split-panel.lat-split-native:is(.mirror, :not([data-orientation="portrait"])) > .panel-left {
+  padding-bottom: max(var(--sp-xl), calc(var(--_sec-1cqi, 1cqi) * 14.4));
+}
+
+/* …AND THE RESERVE ALONE CANNOT HOLD CONTENT OUT. This is a KNOWN, UNFIXED RESIDUAL, recorded
+ * here rather than patched, because the patch was worse than the defect and the real cause is
+ * not in this file.
+ *
+ * `overflow: clip` clips at the PADDING box, and the reserved band above IS padding — so it is
+ * inside the clip region. The reserve correctly shrinks the member list's content box, and the
+ * list's own overflow then spills straight back down through it and paints under the pill.
+ * Measured, portrait, three members at 32 words: 396.1x51.5px of opaque pill over `li` ink on
+ * page 1, 296.4x51.5 on page 2 — with NO `overflow` class, NO `clip-marked`, and a clean
+ * `lint:deck`. Silent is the part that matters. The same defect reaches an ORDERED list one
+ * keystroke away (`1.` instead of `-`), which no `> ul` rule would ever have matched.
+ *
+ * WHAT WAS TRIED AND REVERTED, so nobody re-derives it: `> .panel-right > ul { min-height: 0;
+ * overflow: clip }`. It clips the list above the band and does remove the overprint — and it
+ * also lets the list shrink to whatever a flex SIBLING leaves it, because `min-height: 0` is
+ * exactly the removal of a flex item's automatic minimum. On a `split-panel pullquote qr` deck
+ * the list collapsed from 287px to 52.6px and the author's ENTIRE member column rendered with
+ * ZERO painted words. The two declarations are inseparable: with `min-height: auto` the clip
+ * stops biting and the overprint returns at its own numbers. The approach is wrong, not the
+ * tuning.
+ *
+ * AND THE REAL CAUSE IS ONE LEVEL UP, which is why no rule here is the answer.
+ * `overflow-probe.js` measures a clip cell as `scrollHeight - clientHeight`, and `clientHeight`
+ * INCLUDES padding — so any layout that reserves a chrome band with `padding-bottom` on a clip
+ * cell has a blind zone exactly the height of that reserve. Content can paint into it, over
+ * chrome, and the probe reports zero. That is a kernel property shared by every `CLIP_CELL`
+ * (`.cell-stage`, `.panel-left`, `.panel-right`, `.compare-right`), so the fix belongs there
+ * (HARD RULE #1), not in one component's stylesheet. */
+
+
+/* ── AND THE k-OF-N RAIL NEEDS THE PANEL'S INK, FOR THE SAME REASON ────────────────────────
+ *
+ * The band the two rules above clear is the bottom-right corner, and under `mirror` that corner
+ * is the PANEL. `.lat-split-rail .seg` draws in `currentColor`, which on a split body page is the
+ * section's canvas ink — correct over `.panel-right`, invisible over `.panel-left`. The pointer
+ * does not have this problem because it carries its own `--pill-bg` fill; the rail is a bare
+ * shape on whatever it lands on.
+ *
+ * This is THIS branch's surface, not a pre-existing one: `pullquote` declines `readFeature`, so
+ * before the native-split path it never split and the rail never existed on this layout. Measured
+ * across all 33 shipped palettes, six variants each, worst page per cell, against WCAG 1.4.11's
+ * 3:1 for a meaningful graphical object — the floor the rail's own rule in `base.modifiers.css`
+ * already argues for itself:
+ *
+ *     variant (mirrored)     before                                after
+ *     (base) / pullquote     1.02-2.72 on the 19 LIGHT palettes,    7.19-11.76 on all 33
+ *                            7.87-14.01 on the 14 dark ones
+ *     watermark              1.00-2.61 on ALL 33                    5.33-21.00 on all 33
+ *     cat-N                  3.72-12.07 — clear, on canvas ink      5.75-16.73 on the contract ink
+ *     proof (auto-tints      3.88-12.20 — clear, on canvas ink      6.02-17.14 on the contract ink
+ *       to a cat-N)
+ *     metric / steps         5.46-14.39 — clear on canvas ink       unchanged, cell for cell
+ *
+ *   Cells under 3:1: 52 of 198 before, 0 of 198 after; worst cell after is 5.33:1.
+ *
+ * FOUR ARMS, IN THE BACKGROUND CASCADE'S OWN ORDER, because `.panel-left`'s fill is decided by
+ * four rules in this file and the last one to paint is the one the rail lands on: the inverse
+ * default (line ~45), `.metric`/`.steps`' canvas fills (~133/~165), `.watermark`'s accent (~286),
+ * then `cat-N`'s `--panel-fill` (~530). Re-ordering the arms to read tidily would give
+ * `metric cat-3` the canvas ink on a tinted panel, because cat's background wins and metric's
+ * ink would not. This is the same four-field table the header/footer rules above already use, with
+ * the same tokens; `--cat-on-fill` is the one ink the categorical contract guarantees against any
+ * `--cat-N-fill` (>=4.5:1, gated by `checkCatContrast`), so the cat arm is correct by contract
+ * rather than by the luck of the palettes currently shipped.
+ *
+ * THE FIRST VERSION OF THIS FIX HAD ONLY THE TWO FAILING ARMS, and that made things worse, not
+ * better: `section.split-panel.mirror > .lat-split-rail` catches `metric` and `steps` too, whose
+ * panels are `--bg` and `--bg-alt`, so it put light ink on a light field and took the sweep from
+ * 52 failing cells to 76. The header table above already warns about exactly those two variants,
+ * in exactly those words, and the warning was read only after the sweep failed.
+ *
+ * THE SECOND VERSION KEYED ON `mirror`, AND THAT WAS THE WRONG QUESTION — twice over. The rail
+ * does not care about `mirror`; it cares WHICH PANEL IS IN THE BOTTOM-RIGHT CORNER and what that
+ * panel is filled with. `mirror` is only one of the three things that decide it, and keying on it
+ * shipped one defect and missed another. Measured with a probe that reports, per configuration,
+ * which box the rail's own rect sits inside (`.scratch/r7/where.js`), at square and portrait:
+ *
+ *   · AN INSETTING FORM FRAME PUTS THE RAIL ON THE CANVAS, NOT ON A PANEL. `.lat-split-rail` is
+ *     absolutely positioned on the SECTION at `bottom: 2.35cqi`, and a coverless native page has
+ *     no `.cell-footer` for it to dock into — so on `form` the panels are inset (measured
+ *     `.panel-left` y74.3 h909.2 in a 1080 section, ending at y983.5) and the rail sits at
+ *     y1051.3, 68px BELOW them on the frame's white margin. Painting it the panel's ink there
+ *     measured 1.00:1 on `form mirror`, `form mirror claim-quiet` and `watermark form mirror`, at
+ *     both sizes — an invisible rail, where before this rule it was 11.50:1. On `claim-hero` and
+ *     `claim-bleed` the panel DOES reach the corner, so the panel ink is right there — but not
+ *     because those Frames "zero the inset", which an earlier draft of this comment claimed and
+ *     which is false. They set `--frame-y: var(--frame-inset-y)` (`stage.css`), and that token is
+ *     `1.875cqi` (`base.tokens.css`). The panel clears the rail by FOUR PIXELS at square, and only
+ *     because `.lat-split-rail` sits at `bottom: 2.35cqi` — a margin of 0.475cqi. So the coupling
+ *     this arm depends on is a TOKEN, not a Frame: raise `--frame-inset-y` past 2.35cqi and every
+ *     `claim-hero`/`claim-bleed` split page silently paints panel ink on canvas again, with
+ *     nothing in the tree to say so. The Frame set is still measured rather than assumed, and
+ *     `resolve-claim.js` says it is the whole vocabulary — but the fragile edge is the 0.475cqi.
+ *   · `metric` INVERTS THE PANELS (line 140: `.panel-right { background-color: --surface-inverse }`),
+ *     so on an UNMIRRORED `metric` page the corner panel is the dark one and canvas ink measured
+ *     1.02:1 — the identical defect, on a surface no `.mirror` selector can reach. The 33-palette
+ *     sweep could not see it because every deck in that sweep was mirrored.
+ *
+ * So the rules below key on THE CORNER PANEL. `mirror` selects `.panel-left`, its absence
+ * `.panel-right`, and each arm names the fill that panel actually carries. The last rule is the
+ * canvas case and wins over all of them, because an inset frame moves the rail off both panels
+ * whatever they are filled with. */
+/* the corner is `.panel-right` — light on every variant except `metric`, which inverts it */
+section.split-panel.lat-split-native:not(.mirror).metric > .lat-split-rail { color: var(--on-dark-secondary); }
+/* the corner is `.panel-left` — the inverse fill, unless the variant repaints it */
+section.split-panel.mirror.lat-split-native > .lat-split-rail { color: var(--on-dark-secondary); }
+section.split-panel.mirror.lat-split-native:is(.metric, .steps) > .lat-split-rail { color: inherit; }
+section.split-panel.mirror.watermark.lat-split-native > .lat-split-rail { color: var(--on-accent); }
+section.split-panel.mirror.lat-split-native:is(.cat-1, .cat-2, .cat-3, .cat-4,
+                                               .cat-5, .cat-6, .cat-7, .cat-8) > .lat-split-rail {
+  color: var(--cat-on-fill);
+}
+/* the corner is the FRAME'S CANVAS — an insetting Form frame lifts both panels off it */
+section.split-panel.lat-split-native.form:not(.claim-hero):not(.claim-bleed) > .lat-split-rail {
+  color: inherit;
+}

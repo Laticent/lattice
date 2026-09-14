@@ -309,6 +309,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-13-a-component-splits-its-variants-did-not.md](2026-09-13-a-component-splits-its-variants-did-not.md) — A census of all 69 component galleries re-rendered at portrait found that "auto-split covers the catalog" was true of components and false…
 - ☑ [2026-09-13-bundle-era-skew.md](2026-09-13-bundle-era-skew.md) — A bundled artifact must not freeze a file its runtime twin reads from disk.
 - ☑ [2026-09-13-editor-focus-ring.md](2026-09-13-editor-focus-ring.md) — The deck editors draw the site's 2px accent focus ring as a z-ordered pseudo-element; the caret alone met WCAG 2.4.7 but left the largest…
 - ☑ [2026-09-13-esm-run-ai-tier-carve-out.md](2026-09-13-esm-run-ai-tier-carve-out.md) — `esm.run` is not a neighboring CDN the no-CDN gate forgot — it is a 301 to `cdn.jsdelivr.net`, the FIRST host that gate bars.

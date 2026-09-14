@@ -46,8 +46,7 @@
         "sweet": 4,
         "soft": 4,
         "hard": 4
-      },
-      "axisRetired": "ATOMIC text grid — a 2x2 quadrant read is destroyed by splitting BETWEEN quadrants (you would see 2 of 4 cells with no axis structure), and it has no viewBox to scale, so it RINGS on overflow. §0c owner resolution 2026-07-22 + its named follow-on (\"stale capacity.axis - remove it from matrix-2x2\"). The axis was retained here only as a per-family COUNT estimate, but the split registry reads it as an opt-in, which enrolled the component against its own resolution."
+      }
     }
   },
   "tags": [
@@ -140,5 +139,21 @@
   "dataShapeGuidance": [
     "Author exactly four outer list items, one per quadrant. The layout assumes a fixed 2×2 and does not clamp, reflow, or warn on a different count — a 3rd or 5th item is an authoring bug the engine won't catch; it just wraps into a broken grid."
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "capacity": {
+    "axis": "item",
+    "min": 4,
+    "sweet": 4,
+    "soft": 4,
+    "hard": 4,
+    "relationship": "comparison",
+    "note": "Four quadrants, always. `hard` is 4 because a 2x2 with five cells is not a 2x2 — the number is a contract, not a budget."
+  },
+  "split": {
+    "strategy": "cover-paginate",
+    "axis": "item",
+    "perPage": 1,
+    "intro": "Quadrant by quadrant",
+    "note": "ENROLLED 2026-09-13 BY OWNER'S CALL, REVERSING THE 2026-07-22 RESOLUTION THIS FIELD REPLACES. The retired note read: \"ATOMIC text grid - a 2x2 quadrant read is destroyed by splitting BETWEEN quadrants (you would see 2 of 4 cells with no axis structure), and it has no viewBox to scale, so it RINGS on overflow.\" That reasoning is still true of an UNADORNED slice, and it is the #1193 defect class. What makes the enrollment survivable is that the quadrant's own label IS its position on both axes - `High impact / Low effort` - so a page names where it sits without the grid being present, and `capacity.relationship: comparison` gives every page an `Option N of 4` rail. The cost is accepted rather than denied: a paged 2x2 is a worse read than a 2x2 that fits, and it is a better read than 4 of 4 quadrants clipped, which is what 4 of 7 gallery pages did at portrait."
+  }
 }

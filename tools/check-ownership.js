@@ -2719,6 +2719,28 @@ const SANCTIONED_STAGE_INSETS = [
       + 'children, which is the half of the rule a box IS allowed to own, wearing a '
       + 'padding\'s clothes only because the sibling it spaces cannot carry it.',
   },
+  {
+    file: 'lib/components/statement/split-panel/split-panel.styles.css',
+    prop: 'max-width',
+    value: 'calc(100% - 2 * var(--sp-xl))',
+    why: 'The forward pointer on a coverless `split-panel` split page, restoring the bound the '
+      + 'BASE pill already intends. `base.modifiers.css` gives `.lat-split-rel` `max-width: 100%`; '
+      + 'in flow that resolves against the stage content box (972px) and every other pointer '
+      + 'clamps there, 54px inside both edges. This layout has to position the pill absolutely '
+      + '(in flow it becomes a third COLUMN of the panel row and squeezes the right panel to '
+      + '252.7px at square), and that re-bases the same `100%` onto the SECTION padding box '
+      + '(1080px) \u2014 so the pill grew past its right inset and off the LEFT edge: measured 1080px '
+      + 'wide, 79.0px past x=0 at portrait, on a 34-code-unit Japanese title, well inside '
+      + '`LABEL_MAX = 42`, which counts code units while the pill is sized by rendered width. '
+      + 'Check (a) exists because a BODY in a stage cell already carries the frame inset and '
+      + 'subtracting it again makes the figure pay twice; this is section-level CHROME and a '
+      + 'coverless native page has NO `.cell-stage`, so there is no first inset to pay twice and '
+      + 'this subtraction is the element\'s only one. Every other spelling is worse: both insets '
+      + 'with `width: fit-content` is over-constrained and resolves left-aligned; the '
+      + '`margin-inline-start: auto` that would correct that is HARD RULE #20; moving the pill '
+      + 'chrome to the inner label so the outer can stretch would duplicate eight base '
+      + 'declarations in a component file and drift from them.',
+  },
 ];
 
 // The body elements the Forms inset rule governs — the boxes that dock in a stage

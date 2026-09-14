@@ -35,6 +35,21 @@
       "deck": "examples/math-split-structure.md",
       "by": "#2136 (rendered at size: portrait, indaco, rasterized and read page by page)",
       "note": "Four structures, four verdicts, on one 8-slide deck that comes out 28 pages with nothing clipped. equation+legend (bare p3-p6 of the run, `feature` p12-p16) and step table (`derivation`) BOTH resolve through the shared cover-paginate kernel, `item` and `row` derived off the rendered DOM: the equation `<p>` and the table `<thead>` repeat on every body page, which is the requirement -- a legend page without its equation is unreadable. Card stack (`theorem`) and columns (`compare`) have no collection at all, so they slice by removing spans, one blockquote / one `### ` group per page, and stamp `data-split-label` so the pointer names its successor (\"-> Theorem\", \"-> Ridge\") where `membersIn` would find nothing. `stats` and `canvas` refuse BY NAME, first, before any arm runs: letting them fall out of a member count was a claim about the two committed SAMPLES rather than about the variants, and writing the stats reading as a list instead of a paragraph made `cover-paginate` claim the slide (measured: four pages, the CI panel on a cover without the estimate it qualifies). The two paginated arms also run LAST and only on a DIRECT-CHILD collection -- run first they outranked the structural arms whenever a card or a column contained a list of its own, dropping two theorem cards and duplicating a step. Conserved: 4 legend symbols, 3 table rows, 3 cards, 2 columns, against the unsplit render. NO closing page anywhere in the deck, which is correct and was not at first: `math` claims `blockquote` + `trailing-paragraph`, so `math-structures` joins MEMBER_CLAIM_STRATEGIES -- without it the hoist read all three theorem cards as one trailing run and emitted three empty pages plus a card dump."
+    },
+    "code": {
+      "deck": "examples/autosplit-coverage.md",
+      "by": "#2151 (rendered at size: portrait, indaco, and read page by page)",
+      "note": "Two seams, both on the deck. ONE BLOCK PAST THE BUDGET (slide 3) -> cover + 3.2 + 3.3: twelve lines then the remainder, highlighting intact across the cut, the continuation marked (cont.), and the k-of-N rail and page number on every page. TWO FENCED BLOCKS (slide 4) -> one <pre> per page, source-sliced, so `code.styles.css` applies to the page exactly as it does unsplit. `perPage` is 12 and there is NO `capacity` block: a split page also carries the run's heading and chrome, and 14 lines measurably overflows at portrait while 13 is clean. The first cut declared the component's documented 8/10/14 as a capacity and it immediately warned `capacity-crowd` on two committed decks -- a real authoring finding, and not this change's to make, so the advisory is left undeclared and the split reads `split.perPage` instead. What no line cut fixes is a listing whose LINES are too long for the box -- that clips horizontally and rings, which is why the deck's samples are written short."
+    },
+    "obligation-matrix": {
+      "deck": "examples/autosplit-coverage.md",
+      "by": "#2151 (rendered at size: portrait, indaco, read page by page, and probed over CDP)",
+      "note": "ENROLLED, reversing the atomic placement. `cover-cards` reshapes each regime row into a card whose column headers become in-card labels; landscape renders the native grid untouched. TWO WRONG ANSWERS WERE MEASURED FIRST AND BOTH ARE WHY THIS ENTRY EXISTS. (1) A ROW SLICE (`cover-paginate`, axis row) repeats the <thead> and keeps every mark in its own CSS -- and took the component gallery from 9 bad pages to 43, because slicing rows does not narrow six columns. (2) The transpose SHIPPED THE MARKS UNSTYLED: every `.state` rule was scoped `td .state`, and a card cell is a <dd>, so the disc computed display:inline at 0x0 (read over CDP) and a GDPR card rendered as Notice / Consent / Retention / Breach / DSAR with nothing beside any of them. No gate could see it -- every word was conserved. Fixed in the component's own stylesheet by WIDENING the selectors to `:is(td, .ct-card dd)` rather than copying the block, plus a split-scoped grid so the discs align in one column instead of tracking each label's width."
+    },
+    "matrix-2x2": {
+      "deck": "examples/autosplit-coverage.md",
+      "by": "#2151 (rendered at size: portrait, indaco, read page by page)",
+      "note": "ENROLLED BY OWNER'S CALL, REVERSING THE 2026-07-22 ATOMIC RESOLUTION, and the cost is accepted rather than denied. That resolution is still half true: an unadorned slice shows 2 of 4 cells with no axis structure, which is the #1193 defect class. What was checked on the render is the half that answers it -- each page leads with the quadrant's own label, `High impact / Low effort.`, which IS its position on both axes, and carries an `Option 1 of 4` rail from `capacity.relationship: comparison`. So a reader on page 2 of 5 is told where this cell sits and how many there are. The page is THIN (one cell in a page-tall box, content low-centred) and that is recorded, not claimed away. It is still a better read than the 4 of 7 gallery pages that clipped at portrait, where the reader saw part of the grid and was told nothing."
     }
   },
   "components": {
@@ -163,11 +178,11 @@
       "treatment": "code",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
-      "perPage": null,
+      "enrolled": true,
+      "strategy": "code-cards",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 12,
       "relationship": null
     },
     "compare-code": {
@@ -446,15 +461,15 @@
       "relationship": null
     },
     "matrix-2x2": {
-      "treatment": "atomic",
-      "axis": null,
-      "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
-      "perPage": null,
-      "relationship": null
+      "treatment": "read-across",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "cover-paginate",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 1,
+      "relationship": "comparison"
     },
     "matrix-grid": {
       "treatment": "atomic",
@@ -468,14 +483,14 @@
       "relationship": null
     },
     "obligation-matrix": {
-      "treatment": "atomic",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
-      "perPage": null,
+      "enrolled": true,
+      "strategy": "cover-cards",
+      "reshape": "width-reducing",
+      "coverClass": "lat-split-cover",
+      "perPage": 1,
       "relationship": null
     },
     "piechart": {

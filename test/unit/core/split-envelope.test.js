@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
 const {
   splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements,
   chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote, deriveAxis,
-  closingPageFromMaterial, trailingMaterialOf, existingNoteIn,
+  closingPageFromMaterial, trailingMaterialOf, existingNoteIn, roleOpenTag, withRole,
 } = require('../../../lib/core/split-envelope');
 const { dockInFooterCell } = require('../../../lib/core/footer-dock');
 const { evenGroups } = require('../../../lib/core/collections');
@@ -1028,6 +1028,173 @@ describe('core: the CLOSING page carries a two-beat coda without losing or break
     const page = closingOf(one);
     assert.match(page, /ONLY-INSIGHT/);
     assert.ok(balanced(page));
+  });
+});
+
+// ── THE AUTHORED MODIFIERS SURVIVE A ROLE SWAP, AS DATA ────────────────────────────────
+//
+// `roleOpenTag` REPLACES the class attribute (a cover is a `content` field, not a `split-panel`)
+// and keeps only the canvas axis. So a component's own variant selectors — declared
+// `section.split-panel.cat-3` — could never match a split page, and all eight `cat-N` variants
+// rendered identically once split: the plain `--accent` field, the one thing they exist to say
+// gone. Nothing failed; the pages were the wrong color.
+//
+// They reach the page as `data-split-mods` rather than as classes, which is what makes opting in
+// safe: an attribute cannot collide with any selector already in the bundle, so a component adds
+// `[data-split-mods~="cat-3"]` to its own stylesheet and nothing else in the tree moves.
+describe('core: roleOpenTag carries the authored modifiers as data', () => {
+  const tag = '<section id="s1" class="split-panel cat-3 proof dark form" data-lattice-slide="4">';
+
+  test('the modifiers are stamped; the layout token, `form` and the canvas axis are not', () => {
+    const out = roleOpenTag(tag, 'content split-panel-split split-panel-cover form', true, 'cover');
+    const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+    assert.ok(mods.includes('cat-3') && mods.includes('proof'), `got ${mods.join('|')}`);
+    assert.ok(!mods.includes('split-panel'), 'the layout token is the class being replaced');
+    assert.ok(!mods.includes('form'), 'the Form marker is not a variant');
+    assert.ok(!mods.includes('dark'), 'the canvas axis rides as a class, not as data');
+  });
+
+  test('the canvas axis still rides as a CLASS — the regression this must not undo', () => {
+    const out = roleOpenTag(tag, 'content split-panel-split split-panel-cover form', true, 'cover');
+    assert.match(out, /\sclass="[^"]*\bdark\b/);
+  });
+
+  test('a slide with no modifiers gets no attribute at all', () => {
+    const plain = '<section id="s2" class="checklist form" data-lattice-slide="5">';
+    const out = roleOpenTag(plain, 'content lat-split-cover form', true, 'cover');
+    assert.ok(!/data-split-mods/.test(out), `an empty attribute was stamped: ${out}`);
+  });
+
+  // THE VALUE IS AN ATTRIBUTE, so a token that could close it is not admitted. Escaping was the
+  // obvious answer and a charset filter is the safer one: a value that cannot contain a quote is
+  // not a sink at all, where an escape is only as good as its last-touched regex. Flagged by
+  // CodeQL (`js/incomplete-html-attribute-sanitization`) on this branch's first push.
+  test('a token carrying markup characters is dropped, not escaped into the attribute', () => {
+    // A raw `"` is NOT in this list, and the reason is the interesting half: the class value is
+    // read with `class="([^"]*)"`, so a raw quote ends the capture and anything after it was
+    // never a class token to begin with. What the filter is for is everything a class value CAN
+    // legitimately hold — an entity, an angle bracket, an apostrophe — which the reader hands
+    // over intact and which has no business in a selector.
+    for (const hostile of ['a&quot;b', 'a<b', "a'b", 'a>b', 'a&amp;b', 'a{b', 'a=b']) {
+      const t = `<section id="s3" class="split-panel ${hostile} cat-1 form" data-lattice-slide="6">`;
+      const out = roleOpenTag(t, 'content split-panel-split split-panel-cover form', true, 'cover');
+      const attr = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1];
+      assert.equal(attr, 'cat-1', `'${hostile}' reached the attribute as '${attr}'`);
+      assert.equal((out.match(/\sdata-split-mods="/g) || []).length, 1);
+      assert.match(out, /^<section [^>]*>$/);
+    }
+  });
+
+  test('a raw quote in the class value cannot reach the attribute — the reader bounds it', () => {
+    const t = '<section id="s4" class="split-panel x"y cat-1 form" data-lattice-slide="7">';
+    const out = roleOpenTag(t, 'content split-panel-split split-panel-cover form', true, 'cover');
+    const attr = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1];
+    assert.ok(!/["<>]/.test(attr ?? ''), `a markup character reached the attribute: '${attr}'`);
+    assert.match(out, /^<section [^>]*>$/);
+  });
+
+  test('body pages carry it too — a run is one category, not a tinted cover and neutral pages', () => {
+    const out = roleOpenTag(tag, 'content split-panel-split split-panel-points form', false, 'body');
+    assert.match(out, /\sdata-split-mods="[^"]*\bcat-3\b/);
+  });
+
+  // THE LAYOUT TOKEN IS FOUND IN THE ROLE STRING, NOT AT INDEX 0. `_class` takes its tokens in
+  // any order — CSS matches `section.split-panel.cat-3` either way and nothing lints it — so
+  // dropping the FIRST token dropped the author's modifier and kept the layout, which is the
+  // exact defect the attribute exists to fix. Both orders, same answer.
+  test('a modifier-first _class keeps the modifier and drops the layout', () => {
+    const flipped = '<section id="s9" class="cat-3 split-panel proof form" data-lattice-slide="8">';
+    const out = roleOpenTag(flipped, 'content split-panel-split split-panel-cover form', true, 'cover');
+    const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+    assert.ok(mods.includes('cat-3'), `the authored category was dropped: ${mods.join('|')}`);
+    assert.ok(mods.includes('proof'), `a modifier was dropped: ${mods.join('|')}`);
+    assert.ok(!mods.includes('split-panel'), 'the layout token reached the attribute');
+  });
+
+  // …and the SHARED cover's role string names the layout the other way (`split-cover-<layout>`),
+  // so both forms have to be read. This is the case that made deriving-from-the-role-string look
+  // wrong the first time it was tried: `content lat-split-cover form` names no layout at all,
+  // and a naive derivation stamped `checklist` — the layout wearing a modifier's clothes.
+  test('the shared cover reads `split-cover-<layout>` and still drops the layout', () => {
+    const t = '<section id="s10" class="compact checklist form" data-lattice-slide="9">';
+    const out = roleOpenTag(t, 'content lat-split-cover split-cover-checklist form', true, 'cover');
+    const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+    assert.deepEqual(mods, ['compact'], `got ${mods.join('|')}`);
+  });
+
+  test('a layout with no modifiers gets no attribute, whichever token comes first', () => {
+    for (const cls of ['checklist form', 'form checklist']) {
+      const t = `<section id="s11" class="${cls}" data-lattice-slide="10">`;
+      const out = roleOpenTag(t, 'content lat-split-cover split-cover-checklist form', true, 'cover');
+      assert.ok(!/data-split-mods/.test(out), `'${cls}' stamped an attribute: ${out}`);
+    }
+  });
+
+  // THE TOKEN IS PASSED, AND THESE ARE THE ROLE STRINGS THAT PROVE IT HAS TO BE. Two live
+  // strategies build a role string from a literal that does not contain the layout token at
+  // all — `cover-sides` renders `compare-prose` as `compare-split-*` classes, and
+  // `compare-options` passes the authored class list for a layout named `split-compare`. The
+  // role-string reading cannot find the layout in either, falls to dropping token zero, and
+  // reproduces the exact defect it was written to fix. Every arm above this one uses a role
+  // string that DOES name the layout, which is how that shipped. Found by the HARD RULE #25
+  // checker.
+  for (const [label, cls, role, layout] of [
+    ['cover-sides (compare-prose)', 'transition compare-prose form', 'content compare-split compare-split-points form', 'compare-prose'],
+    ['compare-options (split-compare)', 'accent split-compare form', 'accent split-compare form', 'split-compare'],
+  ]) {
+    test(`${label}: the passed layout token wins where the role string names no layout`, () => {
+      const t = `<section id="s12" class="${cls}" data-lattice-slide="11">`;
+      const out = roleOpenTag(t, role, false, 'body', layout);
+      const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+      assert.ok(!mods.includes(layout), `the layout token reached the attribute: ${mods.join('|')}`);
+      assert.equal(mods.length, 1, `got ${mods.join('|')}`);
+    });
+
+    test(`${label}: and the same answer with the layout token authored FIRST`, () => {
+      const flipped = cls.split(' ');
+      flipped.unshift(flipped.splice(flipped.indexOf(layout), 1)[0]);
+      const t = `<section id="s13" class="${flipped.join(' ')}" data-lattice-slide="12">`;
+      const out = roleOpenTag(t, role, false, 'body', layout);
+      const mods = (out.match(/\sdata-split-mods="([^"]*)"/) || [])[1].split(' ');
+      assert.ok(!mods.includes(layout), `the layout token reached the attribute: ${mods.join('|')}`);
+      assert.equal(mods.length, 1, `got ${mods.join('|')}`);
+    });
+  }
+
+  // A RUN MUST NOT DISAGREE WITH ITSELF — WHERE THE ATTRIBUTE IS THE CHANNEL AT ALL. The cover
+  // and closing pages took the named branch (`coverSection` appends `split-cover-<layout>`)
+  // while the body pages took the positional fallback, so one `split-compare accent` run
+  // stamped `accent` on its cover and `split-compare` on the pages between —
+  // `[data-split-mods~="accent"]` fired on the first page and nowhere else.
+  //
+  // THE INVARIANT IS NARROWER THAN "EVERY PAGE OF EVERY RUN", and this arm used to claim the
+  // wider one. `data-split-mods` exists because a ROLE CLASS REPLACES the authored class list —
+  // a `split-panel cat-3` cover is re-classed `content …`, so `section.split-panel.cat-3` can no
+  // longer match it and the modifier has to ride as data. A SOURCE-SLICED page never loses its
+  // classes: `code-cards` and the native-slice strategies rebuild the page from the authored
+  // markup and emit `class="accent code lat-split-native"`, so they carry no attribute and need
+  // none. Measured on a real render of `accent code` at portrait: cover `accent`, body pages
+  // none — which reads as a disagreement and is not one. Found by the HARD RULE #25 checker.
+  test('every page of a run stamps the same modifiers, where the role class replaced the authored one', () => {
+    const t = '<section id="s14" class="accent split-compare form" data-lattice-slide="13">';
+    const pages = [
+      roleOpenTag(t, 'content lat-split-cover split-cover-split-compare form', true, 'cover', 'split-compare'),
+      roleOpenTag(t, 'accent split-compare form', false, 'body', 'split-compare'),
+      roleOpenTag(t, 'content lat-split-closing split-closing-split-compare form', false, 'closing', 'split-compare'),
+    ];
+    const mods = pages.map((x) => (x.match(/\sdata-split-mods="([^"]*)"/) || [])[1]);
+    assert.deepEqual(mods, ['accent', 'accent', 'accent'], `the run disagreed with itself: ${mods.join(' / ')}`);
+  });
+
+  // …and the other half of that invariant, so the narrowing above cannot quietly become an
+  // excuse: a page that KEEPS its authored classes must keep ALL of them, because they are the
+  // channel there. `withRole` is what the source-slicing strategies stamp with, and it must not
+  // touch the class attribute at all.
+  test('a source-sliced page keeps the authored classes instead, untouched', () => {
+    const t = '<section id="s15" class="accent code form" data-lattice-slide="14">';
+    const out = withRole(t.replace(/(\sclass=")[^"]*(")/, '$1accent code form lat-split-native$2'), 'body');
+    assert.match(out, /\sclass="accent code form lat-split-native"/, `the authored classes were altered: ${out}`);
+    assert.ok(!/data-split-mods/.test(out), 'a source-sliced page stamped an attribute it does not need');
   });
 });
 
