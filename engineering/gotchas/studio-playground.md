@@ -882,11 +882,11 @@ never turn "passed in headless" into "works on iOS."
   (that is what stops them stacking), so any field a call OMITS keeps the value
   the previous message left behind. The shape follows: the primitive switches to a
   16px card whenever `[data-description]` is present.
-- **Fix:** raise status through `showStatus` (`docs/src/lib/status-pill.ts`), which
+- **Fix:** raise status through `notify` (`docs/src/lib/notify.ts`), which
   passes `description` AND `action` on every call **including as `undefined`** —
   that is what clears the previous one. Don't inline a `toast()` on the pill's id at
   a call site, and don't "tidy" either unconditional key into a conditional spread;
-  `status-pill.test.ts` pins both. The merge itself is in the Toaster's own
+  `notify.test.ts` pins both. The merge itself is in the Toaster's own
   subscriber (`dist/index.mjs:972-983`), **not** `Observer.create` — the default
   `toast()` export runs `toastFunction` → `ToastState.addToast`, which appends with
   no merge branch at all, and only `Observer.create` clears `dismissedToasts`.
@@ -904,7 +904,7 @@ never turn "passed in headless" into "works on iOS."
   `sonner@2.0.7 dist/index.mjs:425,574`), and that pending removal matches **by id
   value**. A message raised on the same id inside that window renders, then dies on
   the previous message's timer.
-- **Fix:** handled in `docs/src/lib/status-pill.ts` — the pill's id is reused only
+- **Fix:** handled in `docs/src/lib/notify.ts` — the pill's id is reused only
   while it is LIVE, and rotates once it has closed. If you introduce another shared
   id anywhere, you inherit this and must do the same. Liveness must come from
   Sonner's `onAutoClose`/`onDismiss`, not a clock: a hover pauses the dwell.

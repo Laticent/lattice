@@ -7,12 +7,12 @@ summary: >
   per message, so anything speaking twice inside the 2600ms dwell stacked. Library's bundle
   import made it worst, raising refusals in a loop — five pills in one tick, its own success
   line among them. Fixed by splitting toasts on whether they carry an affordance: disposable
-  status text shares ONE id and rewrites one pill in place (`lib/status-pill.ts`), while a
+  status text shares ONE id and rewrites one pill in place (`lib/notify.ts`), while a
   toast carrying Undo or Reload keeps its own slot, so unrelated text can never replace a
   button the reader was reaching for. `visibleToasts={2}` is then the real worst case, not a
   taste call. The trap worth knowing: a fixed id is only HALF the mechanism — Sonner MERGES
   by id, so any field a later call omits inherits the previous message's value, which is why
-  `showStatus` passes every field on every call including as `undefined`. Measured on the
+  `notify` passes every field on every call including as `undefined`. Measured on the
   real Studio: 3 pills before, 1 after.
 ---
 
@@ -50,7 +50,7 @@ competing for three slots.
 
 **Two classes, split on whether the message carries an affordance.**
 
-- **Status — disposable text.** One id at a time (`lib/status-pill.ts`).
+- **Status — disposable text.** One id at a time (`lib/notify.ts`).
   Sonner rewrites the existing toast rather than stacking a second one, so the
   previous message disappears the instant a new one arrives. This is the "one
   global pill" half of the report.
@@ -114,12 +114,12 @@ message's explanatory lines still attached — and, because the primitive switch
 to a 16px card whenever `[data-description]` is present, in the wrong *shape*
 too.
 
-`showStatus` therefore passes **every field it governs on every call, including as
+`notify` therefore passes **every field it governs on every call, including as
 `undefined`**, which is what clears the previous one. That invariant is the whole
 reason it is a function rather than three characters at the call site, and
-`status-pill.test.ts` pins it. It governs `description` and `action`; the rest of
+`notify.test.ts` pins it. It governs `description` and `action`; the rest of
 Sonner's option surface is never set on this pill by anyone, because the id is not
-exported and `showStatus` is the only writer. An earlier draft of this note claimed
+exported and `notify` is the only writer. An earlier draft of this note claimed
 the stronger "every field" and paired it with a test asserting `action` was never
 PASSED — which pins exactly the thing that would make a stray `action`
 un-clearable. The key is now present and `undefined`, which is what clearing means.
@@ -154,7 +154,7 @@ design, so an id is exactly what cannot tell a superseded raise from the current
 one. A stale callback marking the live pill dead would rotate the next message
 onto a fresh id and put two pills on screen where one was asked for.
 
-`status-pill.dom.test.tsx` guards this against the **real** Sonner — real package,
+`notify.dom.test.tsx` guards this against the **real** Sonner — real package,
 real `<Toaster>`, real time — because the race lives in Sonner's own store and
 timers and is invisible to the mocked sibling test that owns the merge contract.
 Proven to fail: pinned back to a fixed id, the second message asserts as `''`.
@@ -208,7 +208,11 @@ ten-line wall would have been visible.
 
 ## What is NOT changed
 
-- The `notify` prop chain stays. It is the injection point every Studio test and
+**Superseded on 2026-09-14 by `2026-09-14-notification-subsystem.md`**, which
+generalized this one pill into three kinds and retired the prop chain below. The
+mechanism notes above still hold — they are what that kernel is built on.
+
+- ~~The `notify` prop chain stays.~~ **Retired.** It was the injection point every Studio test and
   the `use-studio-demo` tour rely on; collapsing 15 modules onto a direct
   `toast()` import would trade a testable seam for less plumbing, which is a
   separate call from this one.
