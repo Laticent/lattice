@@ -236,6 +236,112 @@ describe("bounds:'host' re-seats the chrome after a scroll the stage itself perf
 	});
 });
 
+describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", () => {
+	// The limit the previous pass logged and did not close. Under `bounds: 'host'` the chrome is
+	// measured against the VISIBLE part of the host, and the chrome lives in a `position: fixed`
+	// layer — so a scroll moves the host under it and leaves the caption describing where the host
+	// used to be. Only `resize` and the stage's own reveal were wired to `relayout`.
+	//
+	// The jank question the record asked to be measured is answered by the SECOND arm here and by
+	// a real-surface frame-cost run (docs/e2e/vetrina-cursor-caption.spec.ts): the handler reads
+	// the clamped box and returns without writing when it has not moved, which is every scroll of
+	// a host that already spans the window.
+
+	/** A host taller than the window, partly on screen, with a counter on each rect read so an
+	 *  arm can tell "checked and stopped" from "re-seated". */
+	function scrollableHost(bounds: 'host' | 'viewport' = 'host') {
+		const root = document.createElement('div');
+		document.body.appendChild(root);
+		const hostBox = { left: 0, top: 300, width: 900, height: 2000 };
+		const reads = { root: 0, layer: 0 };
+		root.getBoundingClientRect = () => {
+			reads.root++;
+			return { left: hostBox.left, top: hostBox.top, width: hostBox.width, height: hostBox.height, right: hostBox.left + hostBox.width, bottom: hostBox.top + hostBox.height, x: hostBox.left, y: hostBox.top, toJSON: () => ({}) } as DOMRect;
+		};
+		active = createStage({ root, onExit: () => {}, theme: resolveTheme({ motion: 'full', caption: 'bar', bounds }) });
+		const layer = document.querySelector('.vetrina-stage') as HTMLElement;
+		layer.getBoundingClientRect = () => {
+			reads.layer++;
+			return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight, right: window.innerWidth, bottom: window.innerHeight, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+		};
+		return { layer, hostBox, reads };
+	}
+
+	const scrollTo = async (hostBox: { top: number }, top: number) => {
+		hostBox.top = top;
+		window.dispatchEvent(new Event('scroll'));
+		await frames(3); // the handler is rAF-coalesced
+	};
+
+	it('moves the caption when the viewer scrolls the host through the window', async () => {
+		const { layer, hostBox } = scrollableHost();
+		await frames(2);
+		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
+		const before = Number.parseFloat(dock.style.bottom);
+		expect(Number.isFinite(before)).toBe(true);
+
+		// The host's top moves from 300 to -400: its visible box now starts at the top of the
+		// window and is 700px taller, so the dock's distance from the window's bottom changes.
+		await scrollTo(hostBox, -400);
+		const after = Number.parseFloat(dock.style.bottom);
+		expect(after, `the dock stayed at ${before}px — it is still seated against the pre-scroll host`).not.toBeCloseTo(before, 0);
+	});
+
+	it('does NO work on a scroll that does not move the seated geometry — the whole jank answer', async () => {
+		// A host taller than the window and spanning it: the intersection is the window at every
+		// scroll position. This is the Studio's shell and every full-page tour, so it is the
+		// common case rather than a lucky one.
+		//
+		// THE ORACLE IS THE WRITE, not the read, and the distinction is the cost model. Two rect
+		// reads in a rAF callback are cheap; what is expensive is a STYLE WRITE, because it dirties
+		// layout and turns the next frame's read into a forced reflow. So this watches the dock's
+		// style attribute rather than counting `getBoundingClientRect` calls — which is also the
+		// only oracle that still works now that the cheap check reads both rects itself.
+		const { layer, hostBox } = scrollableHost();
+		hostBox.top = -500; // already covering the window top to bottom
+		await frames(2);
+		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
+		let writes = 0;
+		const mo = new MutationObserver((recs) => {
+			writes += recs.length;
+		});
+		mo.observe(dock, { attributes: true, attributeFilter: ['style'] });
+		try {
+			await scrollTo(hostBox, -600); // still spanning the window — seated geometry unchanged
+			await scrollTo(hostBox, -700);
+			await scrollTo(hostBox, -800);
+			expect(writes, 'the handler wrote a style on a scroll that moved nothing').toBe(0);
+			// The oracle can see a write when there IS one — otherwise "0" would prove nothing.
+			await scrollTo(hostBox, 300); // now the host really does slide down the window
+			expect(writes, 'the oracle never observed a write at all, so the zero above is meaningless').toBeGreaterThan(0);
+		} finally {
+			mo.disconnect();
+		}
+		expect(dock.style.bottom).toBeTruthy();
+	});
+
+	it('registers nothing at all under the default bounds', async () => {
+		// `bounds: 'viewport'` seats every edge style in pure CSS, so there is nothing for a
+		// scroll to re-seat — and a tour that never asked for any of this should not pay even a
+		// handler that returns early.
+		const { reads } = scrollableHost('viewport');
+		await frames(2);
+		const before = reads.root;
+		window.dispatchEvent(new Event('scroll'));
+		await frames(3);
+		expect(reads.root - before, 'the default bounds paid for a scroll handler it has no use for').toBe(0);
+	});
+
+	it('stops listening on destroy', async () => {
+		const { hostBox, reads } = scrollableHost();
+		await frames(2);
+		(active as Stage).destroy();
+		const before = reads.root;
+		await scrollTo(hostBox, -900);
+		expect(reads.root - before, 'the stage outlived its scroll listener').toBe(0);
+	});
+});
+
 describe('the reveal clears the tour\'s own caption', () => {
 	// THE SECOND HALF OF THE IPHONE REPORT, and the half the first pass left unexplained. Making a
 	// cue scroll its target into view is not the same as making it VISIBLE: `block: 'nearest'`

@@ -432,3 +432,88 @@ test.describe('the red-team findings, pinned on the real page', () => {
 		expect(await page.evaluate(() => (window as unknown as { __ac: number }).__ac)).toBeLessThanOrEqual(1);
 	});
 });
+
+test.describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", () => {
+	// Under `bounds: 'host'` the chrome is measured against the VISIBLE part of the host, and it
+	// lives in a `position: fixed` layer — so a scroll slides the host under chrome that does not
+	// move, and the caption ends up describing where the host used to be. Only `resize` and the
+	// stage's own reveal were wired to the re-seat; a viewer's scroll reached neither.
+	//
+	// This is layout, so it can only be pinned here (HARD RULE #23). The unit arms in
+	// docs/src/lib/vetrina/reveal.test.ts pin the wiring and the no-work property; jsdom has no
+	// scrolling and no boxes to check either against.
+
+	/** Scroll the window by `dy` WITHOUT touching the page: the runner's take-over guard reads a
+	 *  `pointerdown` as the viewer taking the wheel and would tear the run down mid-assertion. A
+	 *  wheel is not a pointerdown, and `scrollBy` is not an input event at all. */
+	async function viewerScroll(page: Page, dy: number): Promise<void> {
+		await page.evaluate((d) => window.scrollBy(0, d), dy);
+		await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+	}
+
+	test('the caption follows the host through the window @crosswidth', async ({ page }) => {
+		await start(page, { caption: 'bar', bounds: 'host', pacing: 'grounded', narr: 'off' });
+		await waitForPhase(page, 'say');
+		const before = { app: await page.locator(APP).boundingBox(), dock: await page.locator(DOCK).boundingBox() };
+		expect(before.app && before.dock).toBeTruthy();
+		if (!before.app || !before.dock) return;
+
+		await viewerScroll(page, 220);
+		const app = await page.locator(APP).boundingBox();
+		const dock = await page.locator(DOCK).boundingBox();
+		if (!app || !dock) return;
+		// Guard the oracle: if the page did not actually scroll the host, nothing below is a test.
+		expect(Math.abs(app.y - before.app.y), 'the page did not scroll — this proves nothing').toBeGreaterThan(100);
+		// The dock is still inside the host's box. Without the re-seat it stays where it was while
+		// the host moves out from under it, which is the whole defect.
+		expect(dock.y, `the dock is at ${dock.y}, above a host that now starts at ${app.y}`).toBeGreaterThanOrEqual(app.y - 1);
+		expect(dock.y + dock.height).toBeLessThanOrEqual(app.y + app.height + 1);
+	});
+
+	// HARD RULE #19 territory: the decision record refused this listener until the jank question was
+	// measured, so the number ships with it. The baseline is the SAME scroll on the SAME page with
+	// no tour running — i.e. what the browser costs by itself — which is a truer before/after than
+	// two builds, because it isolates exactly what a running tour adds to a scroll frame.
+	async function scrollFrameCost(page: Page): Promise<{ n: number; mean: number; worst: number; over20: number }> {
+		return page.evaluate(async () => {
+			const deltas: number[] = [];
+			await new Promise<void>((res) => {
+				let last = performance.now();
+				let i = 0;
+				let dir = 1;
+				const tick = (t: number) => {
+					deltas.push(t - last);
+					last = t;
+					// A scroll EVERY frame — the worst case a handler can be asked to survive.
+					window.scrollBy(0, 7 * dir);
+					if (window.scrollY < 30) dir = 1;
+					else if (window.scrollY > 300) dir = -1;
+					if (++i >= 200) return res();
+					requestAnimationFrame(tick);
+				};
+				requestAnimationFrame(tick);
+			});
+			deltas.shift(); // the first delta spans the wait, not a frame
+			const mean = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+			return { n: deltas.length, mean: Math.round(mean * 100) / 100, worst: Math.round(Math.max(...deltas) * 100) / 100, over20: deltas.filter((d) => d > 20).length };
+		});
+	}
+
+	test('@mobile re-seating costs the scroll nothing measurable on a phone viewport', async ({ page }) => {
+		// Baseline first, on the same page with no stage mounted.
+		await page.goto(PROTO);
+		const idle = await scrollFrameCost(page);
+
+		await start(page, { caption: 'bar', bounds: 'host', pacing: 'grounded', narr: 'off' });
+		await waitForPhase(page, 'say');
+		const running = await scrollFrameCost(page);
+
+		console.log(`[scroll-cost] idle mean ${idle.mean}ms worst ${idle.worst}ms (${idle.over20}/${idle.n} frames >20ms) | tour running mean ${running.mean}ms worst ${running.worst}ms (${running.over20}/${running.n} frames >20ms)`);
+		// The claim is "not measurable", not "free": the handler reads the clamped box every frame
+		// and re-seats only when it moved. A 4ms allowance on the MEAN is a quarter of a 60fps
+		// frame and several times any plausible cost of two rect reads — generous enough not to be
+		// flaky on a shared runner, tight enough that a per-frame relayout (the shape the decision
+		// record refused) could not hide inside it.
+		expect(running.mean, `a running tour added ${(running.mean - idle.mean).toFixed(2)}ms to the mean scroll frame`).toBeLessThan(idle.mean + 4);
+	});
+});

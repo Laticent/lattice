@@ -288,10 +288,14 @@ lands and the target keeps moving. Instant settles the geometry before the numbe
 also the motion-safe choice, so the `legible` / `still` tiers need no exception.
 
 Three consequences worth knowing. Your own `scroll-behavior: smooth` does **not** apply to these
-scrolls (that is the point). Under `bounds: 'host'`, Vetrina re-seats the dock after a scroll it
-performed itself — the whole bar for an edge style, the Exit chip for `caption: 'cursor'` (whose
-balloon is placed per beat and so picks up the new geometry on its next show); a scroll **the
-viewer** performs mid-run is not tracked at all. And a
+scrolls (that is the point). Under `bounds: 'host'`, Vetrina re-seats the dock after **any** scroll
+that moves the host's visible box — its own, a resize, or one the viewer performs — the whole bar
+for an edge style, the Exit chip for `caption: 'cursor'` (whose balloon is placed per beat and so
+picks up the new geometry on its next show). The viewer's half is rAF-coalesced and compares the
+clamped box before it writes anything, so a scroll of a host that already spans the window — the
+common case — costs two rect reads and no layout. Note that on a touch screen a finger scroll begins
+with a `pointerdown`, which the take-over guard reads as the viewer taking over, so it ends the run
+rather than re-seating anything. And a
 target clipped by an `overflow: hidden` ancestor *will* be scrolled into view, because a
 programmatic scroll works on a box the viewer cannot scroll; that box then stays scrolled with no
 affordance to put it back.

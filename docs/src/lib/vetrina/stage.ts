@@ -1091,10 +1091,68 @@ export function createStage(opts: StageOptions): Stage {
 	// geometry of every tour that never asked for any of this — measured at 704px → 680px on
 	// the default bar before this guard existed, which is exactly the "nothing shipped changes
 	// shape" claim being false.
+	/** The seated geometry, rounded to whole pixels. Comparing this is what lets a scroll handler
+	 *  do NOTHING on the overwhelmingly common scroll — one where the clamped intersection has not
+	 *  moved, which is every scroll of a page whose host already spans the window.
+	 *
+	 *  It covers BOTH rects `layoutDock` consumes, not just the bounds. `layerRect`'s own note
+	 *  says why: the layer is `position: fixed`, but a host transform, filter or `contain: paint`
+	 *  on an ancestor makes that ancestor the containing block, and then the layer scrolls with
+	 *  the page. A key on the bounds alone would compare equal on exactly that page — a host
+	 *  spanning the window, so the clamped box never changes — while the thing the caption is
+	 *  positioned inside moved under it every frame. */
+	const rectKey = (r: RectLike) => `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`;
+	const seatKey = (b: RectLike, l: RectLike) => `${rectKey(b)}|${rectKey(l)}`;
+	let seatedKey = '';
 	const relayout = () => {
 		if (destroyed || boundsMode !== 'host') return;
-		layoutDock(boundsRect(), layerRect());
+		const b = boundsRect();
+		const l = layerRect();
+		seatedKey = seatKey(b, l);
+		layoutDock(b, l);
 	};
+
+	// ── A scroll the VIEWER performs re-seats the chrome too ──────────────────────────────
+	//
+	// Under `bounds: 'host'` the chrome is measured against the VISIBLE part of `root`, and a
+	// scroll changes that box while the chrome — inside a `position: fixed` layer — does not
+	// move at all. So the caption and the Exit chip end up describing where the host used to be.
+	// That is the same class of defect as the off-screen Exit chip the visible-part clamp exists
+	// to prevent, arrived at by scrolling instead of by an oversized host.
+	//
+	// TWO things keep this off the jank budget the decision record asked to be measured, and the
+	// second one is the load-bearing half:
+	//   1. rAF-COALESCED — a burst of scroll events costs one re-seat per frame, not one each.
+	//   2. IT COMPARES BEFORE IT WRITES. The handler reads the clamped box and returns if it has
+	//      not moved. That is the common case, not an optimization for a rare one: `boundsRect`
+	//      intersects the host with the window, so a host that already spans the window — the
+	//      Studio's `100dvh` shell, every full-page tour — yields the SAME box at every scroll
+	//      position, and the handler never writes a style or dirties layout. Work happens only
+	//      while a partly-visible host is actually sliding through the window, which is the case
+	//      that needs it.
+	// It is registered only under `bounds: 'host'`, so the default pays nothing at all — not even
+	// a handler that returns early.
+	//
+	// CAPTURE PHASE, because `scroll` does not bubble: a host inside its own scrolling box would
+	// be invisible to a plain `window` listener. `passive` so it can never delay a scroll.
+	//
+	// WHAT IT DOES NOT COVER, and it is worth knowing before reading the jank numbers as a phone
+	// story: on a touch screen the viewer's own scroll starts with a `pointerdown`, which the
+	// runner's take-over guard reads as the viewer taking the wheel — so a finger scroll ENDS the
+	// run rather than reaching this. What reaches it is a wheel or trackpad scroll, a host that
+	// scrolls its own page, an anchor jump, and momentum still running when a run starts.
+	let scrollRaf = 0;
+	const reseatForScroll = (): void => {
+		scrollRaf = 0;
+		if (destroyed || boundsMode !== 'host') return;
+		if (seatKey(boundsRect(), layerRect()) === seatedKey) return; // scrolled, but nothing moved
+		relayout();
+		publishChromeInset();
+	};
+	const onViewerScroll = (): void => {
+		if (!scrollRaf) scrollRaf = requestAnimationFrame(reseatForScroll);
+	};
+	if (boundsMode === 'host') window.addEventListener('scroll', onViewerScroll, { passive: true, capture: true });
 
 	// ── The caption is an OCCLUDER, and everything that reveals has to clear it ───────────
 	//
@@ -2686,6 +2744,8 @@ export function createStage(opts: StageOptions): Stage {
 		destroy: () => {
 			destroyed = true;
 			window.removeEventListener('resize', onViewportResize);
+			window.removeEventListener('scroll', onViewerScroll, { capture: true }); // no-op when it was never added
+			if (scrollRaf) cancelAnimationFrame(scrollRaf);
 			// REMOVE, not zero — a stale `--vt-chrome-*` would make every later reveal on this page
 			// leave room for a caption that is no longer on it — but ONLY WHEN IT IS STILL OURS.
 			// A second stage can outlive this one (the Present guide mounts one over a running

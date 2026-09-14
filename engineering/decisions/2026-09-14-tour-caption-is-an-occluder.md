@@ -248,6 +248,19 @@ stopped the stage publishing would blind the ruler and restore the defect in the
 arm would go green — the same shape of failure as §2, rebuilt. The sampler records the largest band it
 ever saw and the case asserts it was non-zero.
 
+## 5. Two limits from the previous record, closed
+
+- **A viewer's own scroll now re-seats `bounds: 'host'` chrome.** The record refused this until the
+  jank question was measured, and the measurement is the design: the handler is rAF-coalesced and
+  **compares the clamped box before it writes**. `boundsRect` intersects the host with the window, so
+  a host that already spans the window — the Studio's `100dvh` shell, every full-page tour — yields
+  the same box at every scroll position and the handler never writes a style or dirties layout. Work
+  happens only while a partly-visible host is actually sliding through the window. Registered only
+  under `bounds: 'host'`, capture phase (scroll does not bubble), passive.
+  **What it does not cover, stated plainly:** on a touch screen the viewer's scroll starts with a
+  `pointerdown`, which the take-over guard reads as taking the wheel — so a finger scroll *ends the
+  run* rather than reaching this. What reaches it is a wheel or trackpad scroll, a host scrolling its
+  own page, an anchor jump, and momentum still running when a run starts.
 ## What is verified, and what is not (HARD RULE #23)
 
 - **Real Chromium at 390x844 and real WebKit at an iPhone 15 Pro box** — the geometry table in §1 and
