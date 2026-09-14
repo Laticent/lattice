@@ -459,8 +459,15 @@ anchored on `span.lat-pagination` — drift 0.0px, no collision, clearance falli
 Those came from the `--style`-SIMULATED run on `section.form::after`, not from the real mark:
 two runs, conflated. Re-derived from the shipped mark on the base this ships against.)
 
-**The pseudo is not a fallback — it is the page number on most paginated slides we ship, and
-this doc said the opposite twice.** The retirement rule keys on a `.cell-footer` DIV
+**The pseudo IS a fallback, and it really ships — those are both true and this doc has now
+got each of them wrong once.** It is a fallback by construction: the rule below retires it
+wherever the real element exists. It is also live on committed decks, which is the part the
+first version of this section denied. What it is NOT is the common case — a draft of this
+paragraph called it "the page number on most paginated slides we ship", and measuring says
+**4 of 73** paginated slides across a 12-deck stride sample, or **5.5%**. The real
+`span.lat-pagination` carries the other 69. `bloom-engineering-journey` is an outlier, not a
+typical deck: six consecutive `split-panel` slides give it 7 of 13, and quoting it as the
+general case is how "most" got written. The retirement rule keys on a `.cell-footer` DIV
 (`section.form:has(> .cell-footer)::after { content: none }`), which `buildFooterCell`
 (`lib/forms/cell/masthead/masthead.transform.js`) emits only for a frame that is not
 chrome-exempt. So `kind` / `exemptFromChrome` decides it, not the `cells` array:
@@ -485,8 +492,16 @@ behavior, not an edge case waiting for an author to find it.
    rather than the field it belongs to inverts whenever two fields can hold the same word.
 2. *"Every other sovereign frame's skeleton carries `<!-- _paginate: false -->`."* Three
    components do — the two bookends and `divider`. The other six sovereign frames are reachable
-   with the lever and were measured that way. The claim came from opening `divider` and
-   generalizing, which is the same move as (1) one level up.
+   with the lever. Only `premise` was actually swept, and the sentence below says so rather
+   than implying six runs exist. The claim came from opening `divider` and generalizing,
+   which is the same move as (1) one level up.
+   **And `_paginate: false` is not a rule** — it lives inside the `"skeleton"` STRING of
+   three component manifests, a starter snippet an author can delete or never use. So the
+   sentence an earlier draft removed was true and is restored here: an author who writes
+   `paginate: true` does get a numeral on a `title` or `divider` slide. What suppresses it on
+   the decks we ship is usually a different mechanism entirely — `section.silent.silent::after
+   { content: none }` (`lib/base/base.variants.css`), and `bloom` authors its bookends
+   `title silent spectrum`.
 3. *"`divider.manifest.json:39`."* The frame manifests contain no `_paginate` at all
    (`grep -rn "_paginate" lib/forms/frame/` is empty); that line is in the COMPONENT manifest,
    `lib/components/anchor/divider/divider.manifest.json`. A citation naming the wrong file of
@@ -574,9 +589,9 @@ catalog, quoted as such. It had not moved at all. The real top mover is `state-c
 `matrix-grid`'s worst candidate is `div.matrix-grid-figure::after` at 44.8px; the committed
 table named `::before` at 44.8px, and `::before` measures **44.7px**. A draft of this section
 explained that away as sub-pixel jitter across a tie — "the measurements reproduce to a tenth
-of a pixel, the row LABEL does not". Every part of that was wrong. Seventeen runs (serial,
-under the census's own `--jobs 3` contention, and through `jank-census --only`) return 44.8 and
-44.7 with no variation, so there is no jitter to appeal to; 0.1px is the tool's ROUNDING
+of a pixel, the row LABEL does not". Every part of that was wrong. Three consecutive
+`--anchors` runs here return 44.8 and 44.7 with no variation, and a full census regeneration
+reproduces the committed table byte for byte, so there is no jitter to appeal to; 0.1px is the tool's ROUNDING
 QUANTUM (`+(...).toFixed(1)`), so "reproduces to a tenth of a pixel" is unfalsifiable rather
 than an error bound; and at 44.8 against 44.8 there would be no crossing to describe, only a
 stable sort deciding a tie. The row was simply older than the tool. The census is regenerated
@@ -599,7 +614,18 @@ stops finding things — and they are arithmetic, not a render. The census's rea
 supplies the control the real surface owes:
 `node tools/check-jank.js video --anchor 'span.video-play' --max 12` reports
 `DRIFT 44.8px vertical ✗` and exits 1, on a **single-match** anchor over a sweep that is not
-vacuous (ink height moves 44.8px with it). Because the measure is a MINIMUM, 44.8 can only
+vacuous (ink height moves 44.8px with it). Its two advisories travel with it, since the
+paragraph below is about exactly that: the anchor overlaps DECORATION at step 1 (`CHROME`,
+reported never failed), and naming it removes its one child box from the ink (`SUBTREE`).
+Neither touches the single-match, non-vacuous, exit-1 properties the control is quoted for.
+
+**And the census row for this same anchor reads 89.6px, not 44.8px.** That is not a
+contradiction and it is the reason the census header calls a row a LEAD: 89.6 is the
+twenty-four-slide `--anchors` discovery figure, 44.8 is the twelve-slide `--anchor` verdict.
+A census row and a verdict are never comparable, which is also why a draft of this paragraph
+claiming "five of them moving further than the control" was wrong — it ranked
+twenty-four-slide discovery figures against a twelve-slide verdict. Re-swept like for like,
+`citation-card pull-quote` ties the control rather than beating it. Because the measure is a MINIMUM, 44.8 can only
 come back if the near edge, the far edge AND the midpoint each spread at least that far — the
 shape of a box that moved, not one pinned at an edge or centered that merely grew. It is NOT a
 shape only translation can make: growth that is neither pinned nor symmetric reports drift too,
@@ -611,8 +637,8 @@ not have been.** That sweep prints `ANCHOR 'span.state-index' matches more than 
 (6) — the FIRST in document order is measured and the rest are folded into the ink. Narrow
 it.` The number was quoted without the line the instrument attached to it (HARD RULE #23), and
 the paragraph then claimed a single-match substitute "does not exist among the census's
-movers". `engineering/jank-census.md` lists thirteen `per = 1` rows at or above 44.8px, five of
-them moving further than the control they were said not to exist for — the answer was one
+movers". `engineering/jank-census.md` lists thirteen `per = 1` rows at or above 44.8px — the answer
+was one `awk` away in the file this very section is about — the answer was one
 `awk` away in the file this very section is about. It also quoted `42.6px` for `--anchors` on
 that component, where the real figure is `85px`: 42.5 is the twelve-slide `--anchor` run and
 85 is the twenty-four-slide discovery run, two runs conflated in the paragraph whose whole
