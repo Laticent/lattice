@@ -52,7 +52,7 @@
   (`light`, `color-light`, `print`, the bookends, `divider`) but not `dark`, which is
   reachable by hand exactly as those are. Measured over all 256 combinations of the eight
   scheme-steering classes in three player schemes, it was the single disagreeing cell.
-- **The player's emitted dark block no longer uses `:where()`.** That block holds to a
+- **`player-core`'s own emitted selectors no longer use `:where()`.** That block holds to a
   pre-selector-list vocabulary on purpose — an engine that cannot parse the form drops the
   whole rule, and a dropped rule there is silently un-themed dark mode — and a change had
   put `:where(:not(.light):not(.color-light), .title, .closing)` into it, a selector list in
@@ -60,4 +60,20 @@
   not see it: its pattern listed `:is(` and a `:not(a,b)` shape and never `:where(`. The
   selector is now spelled as arms, every consumer distributes over them (a comma list
   carries no suffix — the suffix binds to the last arm alone, which two tests caught), and
-  the guard checks the class it names. Byte-for-byte, the resolved cascade is unchanged.
+  the guard checks the class it names. The token block this guard covers measures **zero**
+  `:where(` and zero `:is(`.
+- **The whole emitted dark block is NOT `:where()`-free, and an earlier draft of the bullet
+  above claimed it was.** `hoistRuleLightDark` copies each source rule's selector verbatim,
+  so any `:where()` an author or the engine sheet wrote reaches the scoped copy — 55 of them
+  over `dist/lattice.css` on this branch (`themeDualMode(dist/lattice.css).darkBlock`; the
+  count moves with the bundle, so it is quoted with its base rather than as a constant). By
+  the same argument the block's own docblock makes, those are exposed: the base rule reads
+  `prop: var(--lp-ld-N, <light arm>)`, so an engine that drops the scoped copy freezes the
+  declaration light in dark mode. It predates this change and is not widened by it; the
+  guard cannot simply be extended over `ruleBlock` without failing on legitimately authored
+  `:where()` in engine and theme CSS. Logged, not fixed here.
+- **The resolved cascade is unchanged — the bytes are not.** Distributing the arms triples
+  some rules: the emitted dark block grows ~4% and a `--player` export of
+  `examples/deck-logo-dark-theme.md` grows 3,681 bytes (+0.66%). An earlier draft said
+  "byte-for-byte, the resolved cascade is unchanged", which reads as a claim about bytes and
+  is not one. What is unchanged is every resolved value, measured.

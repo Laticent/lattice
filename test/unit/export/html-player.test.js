@@ -402,6 +402,17 @@ test('the color-system logo rules reach ONLY slides whose ground follows the OS'
 	assert.ok(!reaches(['color-system', 'color-light']), 'a color-light slide is light whatever the OS says');
 	assert.ok(!reaches(['color-system', 'divider', 'light']), 'divider.light keeps the light scheme it declares');
 	assert.ok(!reaches(['color-system', 'print']), 'the print band is paper');
+	// Permanently dark BY THE AUTHOR'S OWN PIN. `DARK_SLIDE_SEL` hands a `.dark` slide the dark
+	// token block in every player scheme, so a `dark color-system` section has a ground that does
+	// NOT follow the OS — and without this exclusion the light scheme reset its mark to the
+	// light-canvas treatment on a permanently dark panel. #2156, one class over.
+	//
+	// `slidePinEvictsDeckToken` stops front matter producing the pair, exactly as it does for
+	// `light` and `color-light` two lines up; hand-authored markup still can, which is why all
+	// three are guards rather than reachable cases. This arm exists because the pin was the
+	// ONLY behavior change in the commit that added it and nothing tested it: reverting
+	// `:not(.dark)` alone left 9,509 unit tests and 156 integration tests green.
+	assert.ok(!reaches(['color-system', 'dark']), 'an author-pinned dark slide is dark whatever the OS says');
 });
 
 test('every ALWAYS_DARK `unless` is single-class and space-free', () => {

@@ -106,7 +106,7 @@ Stack both and the later one wins: this slide is light, and so is its mark.
 
 ## And a fourth way, which we cannot read
 
-Every route above resolves to a token the mark can be derived from. One does not.
+Every route on the previous slide resolves to a token the mark can be derived from. This one does not.
 
 - A cover photograph
   - No token describes how light a full-bleed image is, so nothing can derive the mark from it. An author who puts a pale logo over a pale photograph gets exactly that.
