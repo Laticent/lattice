@@ -505,28 +505,30 @@ is why the paragraph above gives the population instead.
 
 **Two smaller samples got this wrong, and the sample size is why.** A draft quoted **5.5%**
 from a 12-deck stride sample; an independent pass over 27 decks got **17.8%**. Both were
-estimating the same 12.3%. Draw 20,000 subsamples of *n* distinct decks from the 164 — without
-replacement, pooling each subsample's slides, `mulberry32` seeded 1, over the same per-deck
-counts the table above pools — and the 5th-95th percentile runs **4.7%-21.4%** at n=12 and
-**6.5%-18.4%** at n=27. Twelve decks can pool as high as **58.1%** (50 of 86 slides). Two small
-samples disagreeing threefold is the width of the instrument, not a fault in either.
+estimating the same 12.3%. Draw 1,000,000 subsamples of *n* distinct decks from the 164 —
+without replacement, pooling each subsample's slides, `mulberry32` seeded 1, over the same
+per-deck counts the table above pools — and the 5th-95th percentile runs **4.7%-21.3%** at n=12
+and **6.6%-18.4%** at n=27. Twelve decks can pool as high as **58.1%** (50 of 86 slides). Two
+small samples disagreeing threefold is the width of the instrument, not a fault in either.
 
-**Every part of that instrument is named because each one moves the digits.** Draw *with*
-replacement instead and the same seed gives 4.5%-21.6% and 6.3%-18.9%. Change the seed and the
-ends move too: over seeds 1, 2, 3 and 7 the n=12 band runs 4.6-4.7 at the bottom and 21.2-21.4
-at the top, and n=27's bottom runs 6.5-6.7 while its top holds at 18.4. An earlier draft called
-these bands "stable to a tenth across seeds". They are stable to about two.
+**The DRAW COUNT is part of that instrument, and the draft before this one found out the
+expensive way.** It ran 20,000 draws, where the endpoints still wander a tenth or two between
+seeds — and it reported the wander as a property of the estimate rather than of the draw count,
+then quoted three digits a converged run moves: 21.4 for 21.3, 6.5 for 6.6, and 18.9 for 18.8.
+At 1,000,000 draws three seeds agree to a hundredth, so the figures above are the estimator's
+values and not one seed's. The draw SCHEME is stated for the same reason: drawing *with*
+replacement gives 4.5%-21.6% and 6.3%-18.8%.
 
 **A band does not certify a sample as lucky, and a draft said it did.** 5.5% sits at the
-**8.9th** percentile of the *n=12* distribution and 17.8% at the **92.7th** of the *n=27* —
-each against its own *n*, which is the only comparison either supports. Widen to a 10th-90th
-band, as arbitrary a choice as the 5th-95th and picked after seeing the data, and 17.8% reads
-as unlucky outright while 5.5% lands on the line (8.5th to 10.0th over those same four seeds).
-A stride sample is systematic rather than random besides, so a random-subsample band
-approximates it rather than models it. What survives without any of that machinery: a dozen
-decks cannot resolve a 12.3% share to a decimal place, and neither draft named its decks or its
-command, so no reader could re-derive either. That is why the table above gives a population
-figure and the rule that produces it.
+**8.9th** percentile of the *n=12* distribution and 17.8% at the **92.8th** of the *n=27* —
+each against its own *n*, which is the only comparison either supports; 17.8% read against n=12
+would be the 84.3rd, which inverts the reading. Widen to a 10th-90th band, as arbitrary a
+choice as the 5th-95th and picked after seeing the data, and **both** read as unlucky instead:
+n=12's 10th percentile is 5.70% and n=27's 90th is 17.18%. A stride sample is systematic rather
+than random besides, so a random-subsample band approximates it rather than models it. What
+survives without any of that machinery: a dozen decks cannot resolve a 12.3% share to a decimal
+place, and neither draft named its decks or its command, so no reader could re-derive either.
+That is why the table above gives a population figure and the rule that produces it.
 
 **And one deck is not the population.** `bloom-engineering-journey`'s 7 of 13 is six
 `split-panel` slides plus a `premise`, not seven of anything — and it is high rather than
@@ -559,8 +561,8 @@ behavior, not an edge case waiting for an author to find it.
    rather than the field it belongs to inverts whenever two fields can hold the same word.
 2. *"Every other sovereign frame's skeleton carries `<!-- _paginate: false -->`."* Three
    components do — the two bookends and `divider`. The other six sovereign frames are reachable
-   with the lever. Only `premise` was actually swept, and the sentence below says so rather
-   than implying six runs exist. The claim came from opening `divider` and generalizing,
+   with the lever. Two were actually swept — `premise`, and `compare-code` vacuously (below) —
+   and the sentence below says so rather than implying six runs exist. The claim came from opening `divider` and generalizing,
    which is the same move as (1) one level up.
    **And `_paginate: false` is not a rule** — it lives inside the `"skeleton"` STRING of
    three component manifests, a starter snippet an author can delete or never use. So the
@@ -597,8 +599,11 @@ models, different styling surfaces, and nothing tells an author which they have.
 clearance above belongs to the pseudo alone.
 
 **The first attempt at this measurement was vacuous, and the tool could not say so because of a
-defect this change introduced.** `compare-code` was swept instead — the only sovereign frame
-with no element builder, so `heading` is its only axis, and on that axis its ink does not move:
+defect this change introduced.** `compare-code` was swept instead. SIX of the nine sovereign
+frames have no element builder (`tools/lib/calibrate-core.js` `BUILDERS` carries only
+`premise`, `split-panel` and `split-compare`), and `compare-code` declares no `capacity.axis`
+either — `check-jank` needs both to offer `count` — so `heading` is its only axis, and on that
+axis its ink does not move:
 ten steps, every ink column constant. The run was presented here as evidence that "a growing
 heading does not reach it". The vacuity guard should have refused it, and did not, because it
 still maxed `spreadRange('anchorLeft')` — the raw near-edge spread the move-vs-grow fix
@@ -641,7 +646,7 @@ box moving:
 | class · candidate | before | after |
 |---|---:|---:|
 | `image statement` · `div.image-text` | 614.3px | **0.1px** |
-| `image spotlight` · `div.image-text` | 184px | **0.1px** |
+| `image spotlight` · `div.image-text::before` | 184px | **0.1px** |
 | `scene spotlight` · `div.scene-text::before` | 184px | **0.1px** |
 | `state-chart lr` · `div.state-chart-scale` | 160px | **10.1px** |
 | `state-chart` · `div.state-chart-scale` | 89.5px | **0.1px** |
@@ -649,8 +654,14 @@ box moving:
 | `q-and-a grid` · `ul::before` → `ul::after` | 89.5px | **44.8px** |
 
 The 614.3px row was the headline lead when the census first shipped — the worst mover in the
-catalog, quoted as such. It had not moved at all. The real top mover is `state-chart inline`'s
-`span.state-index` at 85px, which was not in the old top ten.
+catalog, quoted as such. It had not moved at all. What replaced it at the top is not a row but
+a TIER: twelve rows tied at **89.6px**, with 21 rows above 85px. `span.state-index` at 85px is
+the new worst candidate for `state-chart inline` alone — it displaced that class's
+`div.state-chart-scale` at 89.5px and was not in the old top ten. An earlier draft of this line
+called it the census's top mover, which the census this change regenerates refutes outright,
+and which the paragraph below already contradicted by reaching for `video` — one of the twelve
+— as the real one. A superlative the artifact beside it disproves is the same defect as the
+614.3px row this paragraph is about.
 
 **One census row was stale, and the first explanation offered for it was invented.**
 `matrix-grid`'s worst candidate is `div.matrix-grid-figure::after` at 44.8px; the committed
@@ -671,8 +682,8 @@ disagreement benign — and one that cannot be falsified, at that — is how a w
 survives a re-derivation.
 
 **Read the ranking accordingly.** `moves` now means TRANSLATION, so a row that fell to ~0 was
-never a lead; the ones that stayed high (85px, 67.1px, 44.8px) are the ones worth a verdict
-sweep. Nothing in the catalog was newly found to move — the correction only removes false
+never a lead; of the rows above, the ones that stayed high (67.1px, 44.8px) are the ones worth
+a verdict sweep, and the untouched 89.6px tier sits above both. Nothing in the catalog was newly found to move — the correction only removes false
 leads — but the table's ORDER, which is the whole point of a census, was wrong at the top.
 
 **The new measure still fails a real mover, and that arm matters more than the others.**
