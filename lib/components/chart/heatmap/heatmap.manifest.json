@@ -141,5 +141,9 @@
     "Up to 12 columns and 10 rows. Past that the cells stop carrying a readable value; consolidate a long tail rather than shrinking the grid.",
     "One unit across the whole matrix. The affix is read from the values and printed once in the description."
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "projection": {
+    "figure": "svg",
+    "data": true
+  }
 }
