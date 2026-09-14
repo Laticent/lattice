@@ -509,6 +509,17 @@ never a lead; the ones that stayed high (85px, 67.1px, 44.8px) are the ones wort
 sweep. Nothing in the catalog was newly found to move — the correction only removes false
 leads — but the table's ORDER, which is the whole point of a census, was wrong at the top.
 
+**The new measure still fails a real mover, and that arm matters more than the others.**
+Every verdict the change moves, it moves toward PASS, so the relations in
+`test/unit/tools/jank-drift.metamorphic.test.js` are all defending against a rig that quietly stops finding
+things. They are synthetic. The census's real top mover supplies the control the real surface
+owes: `node tools/check-jank.js "state-chart inline" --anchor 'span.state-index' --max 12`
+reports `DRIFT 42.5px vertical ✗` and exits 1. At step 10 the heading wraps to a second line
+and pushes the chart down; the anchor's content-facing edge steps 242.6px → 285.1px. The
+verdict is self-certifying because the measure is a MINIMUM: 42.5 can only come back if the
+near edge, the far edge AND the midpoint each spread at least that far, which is what a
+whole-box translation looks like and what growth cannot produce.
+
 **A modifier that paints nothing alone must be given its companion**, or the census
 reports "none" for a mark that is simply not on the page — the false clean this tool is
 built against, reproduced in the instrument that was supposed to check for it.
