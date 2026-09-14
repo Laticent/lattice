@@ -150,6 +150,21 @@ test('@mobile a real tap mid-run takes over — stage detaches, the deck is kept
 // rendered — the strongest form of "not following"). Sampling a scrollTop would not distinguish a
 // view that follows from one that scrolled once and clamped short.
 //
+// AND IT IS MEASURED AGAINST THE *VISIBLE* BOX, WHICH IS NOT THE SCROLLER'S BOX. This is the
+// correction that made the case able to fail at all, and the reason the numbers in the decision
+// record's table were identical before and after the change that table was measuring. The
+// sampler compared the tail to `scrollDOM.getBoundingClientRect().bottom` — "is the tail inside
+// the editor" — while the thing being reported was "I cannot see what it is typing". Those come
+// apart exactly here: a running tour paints its caption OVER the bottom of the editor, from a
+// body-portalled fixed layer at z-index 2147482000 that nothing in the host's layout can see. On
+// a phone that caption is `scrim`, a 230px gradient reaching 90% opacity at the bottom edge — and
+// `revealTail` was landing the tail flush with that edge. Measured with the old reveal: the tail
+// sat 115px inside the gradient on Chromium at 390x844 and 225px inside it on real WebKit at an
+// iPhone 15 Pro box, while this sampler scored both 0px. So the visible bottom is the scroller's
+// bottom OR the top of the tour's chrome, whichever is higher — `--vt-chrome-bottom`, which
+// Vetrina publishes for exactly this (docs/src/lib/vetrina/README.md § "The caption is an
+// occluder"). Off a tour the property is absent and this is byte-identical to the old oracle.
+//
 // IT SAMPLES ONLY WHILE THE DOCUMENT IS GROWING, and that gate is load-bearing rather than
 // cautious. An editor showing a document taller than its pane, parked at the top, is the CORRECT
 // state when nobody is typing — and the studio fixture seeds a deck of ~1,900 characters, so an
@@ -160,20 +175,53 @@ test('@mobile a real tap mid-run takes over — stage detaches, the deck is kept
 // by CodeMirror after the frame that caused it, so the tail is legitimately a frame or two behind.
 // What a missing follow looks like is an offset that never closes.
 type TailSample = { off: number; scrollTop: number; overflow: number; rendered: boolean };
-type TailReport = { samples: number; worst: TailSample | null; maxOff: number; error?: string };
-const TAIL_SUSTAIN = 6;
+type TailReport = { samples: number; worst: TailSample | null; maxOff: number; maxRun: number; chrome: number; error?: string };
+// SUSTAIN IS THE DISCRIMINATOR, NOT SLACK. What separates an engine's measure lag from a follow
+// that is broken is DURATION: the lag is a couple of frames and then the view catches up, while a
+// broken follow never closes. Measured on the shipped build, the longest run of frames over budget
+// is 0 on BOTH engines — the transients below never reach the budget at all — while a `revealTail`
+// mutated to a no-op is over it for the rest of the typing.
+//
+// It used to be 6, which was enough while the oracle saturated at 0 and the budget never had to
+// tolerate a real transient. Once the oracle measured against the VISIBLE box (see above), WebKit's
+// legitimate 283px lag became visible, and holding the arm on DEPTH alone would have meant a budget
+// between 283 and the 457px a genuinely broken follow produces — 1.14x at best, a coin flip.
+// Widening the window instead is what lets the budgets below sit close to the transient and still
+// leave the real defect 1.9x / 1.5x clear of them.
+const TAIL_SUSTAIN = 20;
 const TAIL_TYPING_MS = 500; // a doc that changed this recently is being typed into
 // The slack absorbs the frame or two between an insert and the engine's measure of it, and it is
-// PER ENGINE because that lag is: measured worst instantaneous gap across the tour is 0px on
-// Chromium at 390px and 53px (~2 lines) on real WebKit at an iPhone 15 Pro box, identical before
-// and after the change. The failure they exist to catch is far larger than either: with every
-// `scrollTop` write on the scroller blocked, this sampler records a 400px sustained gap — 10x the
-// Chromium budget, measured on Chromium at 390px. That multiple is NOT claimed for WebKit: 120px is
-// 2.3x the 53px lag it has to tolerate there, and nobody has run the blocked-follow case on that
-// engine. (An earlier draft of this line said ~2,700px and "an order of magnitude" for both. The
-// first was the UN-GATED sampler's reading of the fixture's seeded deck 11 lines above — a different
-// measurement wearing this one's clothes; the second was arithmetic nobody had done.)
-const TAIL_SLACK = { chromium: 40, webkit: 120 };
+// PER ENGINE because that lag is.
+//
+// BOTH NUMBERS GREW WHEN THE ORACLE ABOVE CHANGED, and the arithmetic is worth following, because
+// it says the growth is the ruler and not a regression. On real WebKit the worst the tail ever
+// reaches is the SAME absolute position before and after the fix — y=712 in a 659px window. Against
+// the old ruler (the scroller's own bottom, 659) that reads 53px; against the new one (the top of
+// the caption, 429) the identical frame reads 283px. One position, two rulers, and only the second
+// one is about what a viewer can see. Chromium is the same story with the old reading SATURATED:
+// its tail never passed 844, so `max(0, co.bottom - 844)` could only ever print 0, and the same
+// frames measure 49px against a visible bottom of 614.
+//
+// Measured on the shipped build: the worst INSTANTANEOUS gap is 49px on Chromium at 390x844 (three
+// runs, identical; 582/583/589 samples) and 283px on real WebKit at an iPhone 15 Pro box (two runs,
+// identical; 326/339 samples).
+//
+// **THE BUDGET HAS TO BE BELOW THE CAPTION, and that is what decides these numbers.** The defect
+// this file exists to catch is a tail parked at the scroller's bottom edge — the full 230px `scrim`
+// band, under the caption. A budget above 230 cannot see it: the tail sits permanently covered,
+// scores under budget, and the arm goes green forever. An earlier revision set WebKit to 300
+// precisely so its 283px transient would never cross — a budget LARGER than the defect, which
+// would have caught only the mutant that deletes the reveal outright (457px) and passed every
+// partial regression: the margin halved, a new style's `occludes` returning null, the publish
+// channel broken.
+//
+// So the budgets sit below the band and TAIL_SUSTAIN does the discriminating. WebKit's 283px
+// transient IS above its 120px budget on the frame it happens — deliberately — and the arm holds
+// because that transient lasts a couple of frames while a covered tail never closes.
+//
+// The SETTLED gap on both engines is 0: the tail parks with its bottom edge within a pixel of the
+// caption's top (615 against a caption at 614 on Chromium, 429 against 429 on WebKit).
+const TAIL_SLACK = { chromium: 60, webkit: 120 };
 
 async function expectTailFollows(page: import('@playwright/test').Page, slack: number): Promise<void> {
 	const pageErrors: string[] = [];
@@ -184,7 +232,7 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 	await page.addInitScript(
 		([sustain, slackPx, typingMs]: [number, number, number]) => {
 			const w = window as unknown as { __tail: TailReport };
-			w.__tail = { samples: 0, worst: null, maxOff: 0 };
+			w.__tail = { samples: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0 };
 			let run = 0;
 			let lastView: unknown = null;
 			let lastLen = -1;
@@ -220,13 +268,22 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 					if (view && sc && overflow > 60 && typing) {
 						const co = view.coordsAtPos(view.state.doc.length);
 						const box = sc.getBoundingClientRect();
+						// The band the running tour is painting over, in px up from the window's bottom
+						// edge. Absent (no tour, or a build without the fix) → 0 → `visibleBottom` is
+						// the scroller's own bottom, which is what this used to compare against.
+						const chrome = Number.parseFloat(document.documentElement.style.getPropertyValue('--vt-chrome-bottom')) || 0;
+						w.__tail.chrome = Math.max(w.__tail.chrome, chrome);
+						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome);
 						// How far the END of the document is from being on screen. `coordsAtPos` is null
 						// when the tail is not rendered at all, and then the distance from the bottom of
 						// the scroll range is the honest measure of how far behind the view is.
-						const off = co ? Math.max(0, co.bottom - box.bottom, box.top - co.top) : overflow - sc.scrollTop;
+						const off = co ? Math.max(0, co.bottom - visibleBottom, box.top - co.top) : overflow - sc.scrollTop;
 						w.__tail.samples++;
 						w.__tail.maxOff = Math.max(w.__tail.maxOff, Math.round(off));
 						run = off > slackPx ? run + 1 : 0;
+						// The longest run seen, sustained or not — the number TAIL_SUSTAIN is set from,
+						// and the one that says how much headroom a passing run actually had.
+						w.__tail.maxRun = Math.max(w.__tail.maxRun, run);
 						if (run >= sustain && (!w.__tail.worst || off > w.__tail.worst.off)) {
 							w.__tail.worst = { off: Math.round(off), scrollTop: Math.round(sc.scrollTop), overflow: Math.round(overflow), rendered: !!co };
 						}
@@ -256,6 +313,15 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 	expect(pageErrors, `the page threw: ${pageErrors.join(' | ')}`).toEqual([]);
 	expect(tail.error, 'the sampler threw inside the page, so it measured nothing').toBeUndefined();
 	expect(tail.samples, 'the editor was never both overflowing and being typed into — this proves nothing').toBeGreaterThan(TAIL_SUSTAIN * 10);
+	// GUARD THE RULER ITSELF. `--vt-chrome-bottom` is what turns this from "is the tail inside the
+	// editor" into "is the tail inside the VISIBLE part of it", and it is read with `|| 0` — so a
+	// regression that stopped the stage publishing would blind this oracle and restore the defect
+	// in one stroke, and the arm would go green. That is the exact shape of failure this whole
+	// change is about, so the sampler records whether it ever saw a real band and says so here.
+	expect(tail.chrome, 'the stage never published a chrome inset, so this measured the OLD blind ruler').toBeGreaterThan(0);
+	// And the headroom the pass actually had, as an assertion rather than a log line: a legitimate
+	// transient is a couple of frames, so a run anywhere near the window is drift worth seeing.
+	expect(tail.maxRun, `the longest run over budget was ${tail.maxRun} frames against a ${TAIL_SUSTAIN}-frame window — the headroom this case relies on is gone`).toBeLessThan(TAIL_SUSTAIN / 2);
 	expect(
 		tail.worst,
 		tail.worst
@@ -264,7 +330,7 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 	).toBeNull();
 	// Printed on a PASS too: the headroom this case actually has, so "it still passes" can be read
 	// as a number rather than taken on faith.
-	console.log(`[tail] ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px)`);
+	console.log(`[tail] ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px), longest run over budget ${tail.maxRun} frames (of ${TAIL_SUSTAIN}), caption band ${tail.chrome}px`);
 }
 
 test('@mobile the editor follows the typing — the tail of the deck stays on screen', async ({ page }) => {
@@ -274,8 +340,103 @@ test('@mobile the editor follows the typing — the tail of the deck stays on sc
 // THE SAME ON REAL WEBKIT AT AN IPHONE BOX, because the report this came from was an iPhone and
 // the thing being asked is "does the editor scroll": which element scrolls, and how soon after an
 // insert it is measured, are engine answers. Still not iOS — real touch, Safari's collapsing
-// chrome and the visual-viewport offset the software keyboard introduces are not reachable here,
-// and the phone report for THIS half is still unexplained (see the decision record).
+// chrome and the visual-viewport offset the software keyboard introduces are not reachable here
+// (engineering/decisions/2026-09-14-tour-caption-is-an-occluder.md, "what is not verified").
 test('@webkit-phone the editor follows the typing on real WebKit too', async ({ page }) => {
 	await expectTailFollows(page, TAIL_SLACK.webkit);
+});
+
+// ── And the same question for the OTHER editor ────────────────────────────────────────────────
+//
+// A tour started in COMPOSE mode types through the same controlled `setSource` path — the
+// markdown editor is not mounted in that mode, so `buildTypeOps` never picks the native channel —
+// and a controlled replace moves no caret there either. `ComposeHandle.revealTail` is the
+// compensation, and this is its real surface: jsdom has no layout, so the unit arms in
+// `ComposeView.sync.test.tsx` stub both geometry reads and can only pin the wiring (HARD RULE #23).
+//
+// THE ORACLE IS DIFFERENT BY NECESSITY. ProseMirror hangs no back-reference to its view off the
+// DOM, so there is no `coordsAtPos` to ask from out here. What stands in is the end of the
+// rendered document — the last element inside `.ProseMirror` — measured against the visible part
+// of `.cs-host`. That is weaker than the CodeMirror oracle (it cannot report "the tail is not
+// rendered at all") and it is the strongest one available without a test hook in the component.
+async function expectComposeTailFollows(page: import('@playwright/test').Page, slack: number): Promise<void> {
+	const pageErrors: string[] = [];
+	page.on('pageerror', (e) => pageErrors.push(String(e)));
+
+	await page.addInitScript(
+		([sustain, slackPx, typingMs]: [number, number, number]) => {
+			const w = window as unknown as { __tail: TailReport };
+			w.__tail = { samples: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0 };
+			let run = 0;
+			let lastLen = -1;
+			let lastChange = 0;
+			let lastHost: unknown = null;
+			const tick = () => {
+				try {
+					const host = document.querySelector('#studio-pane-editor .cs-host') as HTMLElement | null;
+					const pm = host?.querySelector('.ProseMirror') as HTMLElement | null;
+					const last = pm?.lastElementChild as HTMLElement | null;
+					const len = pm ? (pm.textContent ?? '').length : -1;
+					// A remount arrives holding the whole document — not a change, same as the
+					// CodeMirror sampler above.
+					if (host !== lastHost) {
+						lastHost = host;
+						lastLen = len;
+						lastChange = 0;
+						run = 0;
+					} else if (len !== lastLen) {
+						lastLen = len;
+						lastChange = performance.now();
+					}
+					const typing = lastChange > 0 && performance.now() - lastChange < typingMs;
+					const overflow = host ? host.scrollHeight - host.clientHeight : 0;
+					if (host && last && typing && overflow > 60) {
+						const box = host.getBoundingClientRect();
+						const chrome = Number.parseFloat(document.documentElement.style.getPropertyValue('--vt-chrome-bottom')) || 0;
+						w.__tail.chrome = Math.max(w.__tail.chrome, chrome);
+						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome);
+						const off = Math.max(0, last.getBoundingClientRect().bottom - visibleBottom);
+						w.__tail.samples++;
+						w.__tail.maxOff = Math.max(w.__tail.maxOff, Math.round(off));
+						run = off > slackPx ? run + 1 : 0;
+						w.__tail.maxRun = Math.max(w.__tail.maxRun, run);
+						if (run >= sustain && (!w.__tail.worst || off > w.__tail.worst.off)) {
+							w.__tail.worst = { off: Math.round(off), scrollTop: Math.round(host.scrollTop), overflow: Math.round(overflow), rendered: true };
+						}
+					} else {
+						run = 0;
+					}
+				} catch (e) {
+					w.__tail.error = String(e);
+				}
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		},
+		[TAIL_SUSTAIN, slack, TAIL_TYPING_MS] as [number, number, number],
+	);
+
+	await gotoStudio(page);
+	// Switch the phone to the RICH editor before the tour starts. No tour changes `editMode`, so
+	// this is the only way into the state — an author who chose Compose and then asked for a tour.
+	await page.getByRole('button', { name: 'Compose — rich editor' }).click();
+	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
+	await startMobileDemo(page);
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect.poll(() => firstDeckSource(page), { timeout: 120_000 }).toContain('_class: closing');
+
+	const tail = await page.evaluate(() => (window as unknown as { __tail: TailReport }).__tail);
+	expect(pageErrors, `the page threw: ${pageErrors.join(' | ')}`).toEqual([]);
+	expect(tail.error, 'the sampler threw inside the page, so it measured nothing').toBeUndefined();
+	expect(tail.samples, 'Compose was never both overflowing and being typed into — this proves nothing').toBeGreaterThan(TAIL_SUSTAIN * 5);
+	expect(tail.chrome, 'the stage never published a chrome inset, so this measured a blind ruler').toBeGreaterThan(0);
+	expect(
+		tail.worst,
+		tail.worst ? `the tail was ${tail.worst.off}px off screen for ${TAIL_SUSTAIN}+ consecutive frames while typing (scrollTop ${tail.worst.scrollTop} of ${tail.worst.overflow})` : '',
+	).toBeNull();
+	console.log(`[compose-tail] ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px), longest run over budget ${tail.maxRun} frames (of ${TAIL_SUSTAIN}), caption band ${tail.chrome}px`);
+}
+
+test('@mobile a tour started in COMPOSE mode follows its typing too', async ({ page }) => {
+	await expectComposeTailFollows(page, TAIL_SLACK.chromium);
 });

@@ -133,11 +133,11 @@ it is load-bearing.
 
 - ◐ [2026-09-13-export-survives-a-missing-image.md](2026-09-13-export-survives-a-missing-image.md) — One unreachable image failed the whole browser export — no PDF, no PowerPoint, no image set, only a message.
 - ◐ [2026-09-13-firefox-export-peak-rss.md](2026-09-13-firefox-export-peak-rss.md) — Firefox's peak RSS on an 18-page Studio export rose 257 MB when #2169 replaced the PDF encode, and nobody knew why.
+- ◐ [2026-09-13-gallery-preview-memory.md](2026-09-13-gallery-preview-memory.md) — A phone reloaded its tab while browsing the Studio's add-slide gallery.
 - ◐ [2026-09-13-pdf-export-encode-lanes.md](2026-09-13-pdf-export-encode-lanes.md) — The Studio's PDF export spent ~1 s per slide inside jsPDF's `addImage`, which INFLATES the canvas PNG in JavaScript and re-deflates it into…
 - ◐ [2026-09-13-pdf-export-text-layer.md](2026-09-13-pdf-export-text-layer.md) — The Studio's exported PDF was a stack of pictures: Cmd-F found nothing, a cursor selected nothing, and a screen reader got blank pages.
 - ◐ [2026-09-13-plugin-architecture.md](2026-09-13-plugin-architecture.md) — Lattice never formalized a plugin architecture, but built most of one across six registries that do not share a spine.
 - ◐ [2026-09-13-pptx-assembly-off-the-main-thread.md](2026-09-13-pptx-assembly-off-the-main-thread.md) — The PowerPoint export froze the tab for 717 ms at the end of a 56-slide build.
-- ◐ [2026-09-13-gallery-preview-memory.md](2026-09-13-gallery-preview-memory.md) — A phone reloaded its tab while browsing the Studio's add-slide gallery.
 - ◐ [2026-09-13-vetrina-cursor-caption-narration.md](2026-09-13-vetrina-cursor-caption-narration.md) — Three changes to Vetrina, prototyped together because they turn out to be one change.
 - ◐ [2026-09-08-overflow-corpus-caption-footer.md](2026-09-08-overflow-corpus-caption-footer.md) — The overflow-corpus ratchet's 8 stale decks have ONE cause and it is not the decks.
 - ◐ [2026-09-07-chart-design-language.md](2026-09-07-chart-design-language.md) — The chart family shares tokens, kernels and a frame and still reads as several authors — because the shared layer stops at COLOR.
@@ -311,6 +311,7 @@ it is load-bearing.
 ### Shipped — the work landed; the note stays as the record
 
 - ☑ [2026-09-14-notification-subsystem.md](2026-09-14-notification-subsystem.md) — "We should have a notification subsystem and not handle notifications bespokely across the Studio." A census of every surface that tells a…
+- ☑ [2026-09-14-tour-caption-is-an-occluder.md](2026-09-14-tour-caption-is-an-occluder.md) — The unexplained half of the iPhone report has a mechanism, it is not iOS-specific, and it was measurable in the sandbox the whole time…
 - ☑ [2026-09-13-bundle-era-skew.md](2026-09-13-bundle-era-skew.md) — A bundled artifact must not freeze a file its runtime twin reads from disk.
 - ☑ [2026-09-13-editor-focus-ring.md](2026-09-13-editor-focus-ring.md) — The deck editors draw the site's 2px accent focus ring as a z-ordered pseudo-element; the caret alone met WCAG 2.4.7 but left the largest…
 - ☑ [2026-09-13-esm-run-ai-tier-carve-out.md](2026-09-13-esm-run-ai-tier-carve-out.md) — `esm.run` is not a neighboring CDN the no-CDN gate forgot — it is a 301 to `cdn.jsdelivr.net`, the FIRST host that gate bars.

@@ -288,13 +288,88 @@ lands and the target keeps moving. Instant settles the geometry before the numbe
 also the motion-safe choice, so the `legible` / `still` tiers need no exception.
 
 Three consequences worth knowing. Your own `scroll-behavior: smooth` does **not** apply to these
-scrolls (that is the point). Under `bounds: 'host'`, Vetrina re-seats the dock after a scroll it
-performed itself — the whole bar for an edge style, the Exit chip for `caption: 'cursor'` (whose
-balloon is placed per beat and so picks up the new geometry on its next show); a scroll **the
-viewer** performs mid-run is not tracked at all. And a
+scrolls (that is the point). Under `bounds: 'host'`, Vetrina re-seats the dock after **any** scroll
+that moves the host's visible box — its own, a resize, or one the viewer performs — the whole bar
+for an edge style, the Exit chip for `caption: 'cursor'` (whose balloon is placed per beat and so
+picks up the new geometry on its next show). The viewer's half is rAF-coalesced and compares the
+clamped box before it writes anything, so a scroll of a host that already spans the window — the
+common case — costs two rect reads and no layout. Note that on a touch screen a finger scroll begins
+with a `pointerdown`, which the take-over guard reads as the viewer taking over, so it ends the run
+rather than re-seating anything. And a
 target clipped by an `overflow: hidden` ancestor *will* be scrolled into view, because a
 programmatic scroll works on a box the viewer cannot scroll; that box then stays scrolled with no
 affordance to put it back.
+
+### The caption is an occluder, and the reveal clears it
+
+**Scrolling a target into view is not the same as making it visible, and `block: 'nearest'` is
+where the two come apart.** `nearest` scrolls the *minimum*, so a target that was below the fold
+lands its bottom edge flush with the window's — and that is the edge Vetrina paints its own
+caption against. With the default `bar` the caption is a dock roughly 120px up from it; with
+`caption: 'scrim'`, the phone choice, it is a 230px gradient reaching 90% opacity exactly there.
+So the cue scrolled to its target and then talked through it.
+
+Measured on the Studio's phone tour, with the caption up and the editor typing: the tail of the
+document sat **115px inside the gradient on Chromium at 390×844** and **225px inside it on real
+WebKit at an iPhone 15 Pro box**. That is the second half of the iPhone report the reveal work
+above did not close.
+
+Every reveal now asks for that much room through **`scroll-margin`** — the platform's own "leave
+space for the fixed thing over there". Using it rather than correcting the scroll afterwards is
+the decision: `scroll-margin` lets the *browser* keep choosing which ancestor scrolls, which is
+the guess the rest of this file exists to avoid making. The property is written inline on the
+target and restored in a `finally`, so a tour that was only visiting a page leaves nothing behind
+on it. A `RectSource` that is not an element simply does not get one.
+
+**It is two passes.** The first is the `nearest` scroll this library has always done — the one that
+makes a reveal safe before every aim, because an in-view target moves nothing. Only then does the
+stage look at where the target landed, and only if it landed inside the band does it borrow the
+margin and align again with `block: 'end'`. An in-view target still costs exactly one no-op scroll.
+
+Two things about that second pass are worth knowing, because both were measured rather than assumed:
+
+- **It uses `end`, not `nearest`, because the engines disagree.** With the target already flush
+  against the viewport's edge, Chromium's `nearest` ignores the scroll-margin and scrolls nothing;
+  WebKit honors it. `end` works on both.
+- **A target too tall for the remaining room is left alone.** `nearest` acts on the scroll-*margin*
+  box, so once that box is taller than the viewport a target that was fully visible has one edge in
+  and one out — and the browser aligns the far edge, pushing the near one off screen. A 500px target
+  with a 230px band in a 659px window ends 71px above the top. Anything that big cannot hide under a
+  caption anyway, so it keeps the position plain `nearest` gave it.
+
+**It clears what it can.** A target sitting at the end of its scroll range has nowhere to be
+scrolled to, so it stays partly covered — measured at 85 of 123px recovered on a page with no
+runway below the target. If your tour points at the last thing on the page, give the page some
+room under it.
+
+**Your app can read the same number.** While a stage is mounted it publishes two custom properties
+inline on the document element:
+
+```
+--vt-chrome-top     px of the viewport's TOP edge the caption is covering
+--vt-chrome-bottom  px of the viewport's BOTTOM edge the caption is covering
+```
+
+Both are measured **from the window's edges**, so a host recovers the band's top as
+`innerHeight - inset` whatever `bounds` is set to. They are removed on `destroy()` — removed, not
+zeroed, so a stale value can never make a later reveal reserve room for a caption that has gone —
+and only when the value is still the one this stage published, so a second stage tearing down
+cannot take a running tour's number with it.
+
+They are **measured from the rendered box**, not derived from the style constants, so a `bar` that
+wraps to three lines reports its real height; and `caption: 'cursor'` publishes `0`, because its
+balloon already places itself out of the way of whatever is being pointed at.
+
+Two honest limits on what the number means. It is a conservative **band**, not a paint mask: for an
+edge dock it runs from the window's edge up to the dock's box, so it includes the ~78px transparent
+gutter the dock floats above (123px for a ~45px `bar`). And it is purely **vertical** — a centered
+`progress` pill 380px wide is reported as a full-width band. Both over-reserve rather than
+under-reserve, which is the right direction to be wrong in.
+
+Read them from the inline style (`documentElement.style.getPropertyValue(...)`), not
+`getComputedStyle` — a host reading this per keystroke should not force a style recalculation. The
+Studio does exactly that so its editor follows what a tour types without revealing the new line
+under the caption (`docs/src/components/studio/tour-chrome.ts`).
 
 **Opting a target out is one line, and it is the same widening `RectSource` already gives you:**
 hand Vetrina something that answers `getBoundingClientRect()` and nothing else, and the reveal is

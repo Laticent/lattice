@@ -294,6 +294,24 @@ const INK_OUT = 6; // bracket / ring: outside the target's box
 /** Right/bottom of a `RectLike`, without requiring a real `DOMRect`. */
 const r2 = (r: RectLike) => ({ right: r.left + r.width, bottom: r.top + r.height });
 
+/** An element's viewport box as a `RectLike`, or null when it paints nothing. A zero-area box
+ *  is NOT an occluder — a hidden caption, or a `scrim` whose gradient has not been laid out
+ *  yet, must not make a reveal dodge empty space. */
+const rectOf = (el: HTMLElement | null | undefined): RectLike | null => {
+	if (!el || typeof el.getBoundingClientRect !== 'function') return null;
+	const r = el.getBoundingClientRect();
+	return r.width > 0 && r.height > 0 ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
+};
+
+/** The smallest box containing both, skipping nulls. */
+const unionRect = (a: RectLike | null, b: RectLike | null): RectLike | null => {
+	if (!a) return b;
+	if (!b) return a;
+	const left = Math.min(a.left, b.left);
+	const top = Math.min(a.top, b.top);
+	return { left, top, width: Math.max(r2(a).right, r2(b).right) - left, height: Math.max(r2(a).bottom, r2(b).bottom) - top };
+};
+
 /**
  * Where a gesture LEAVES the cursor — the whole point of the deictic set.
  *
@@ -534,6 +552,30 @@ interface BuiltDock {
 	place?: (x: number, y: number, avoid: RectLike | null, bounds: RectLike, layer: RectLike) => void;
 	/** CURSOR style only: show or hide the BUBBLE — never the dock, which carries Exit. */
 	reveal?: (visible: boolean, instant: boolean) => void;
+	/** The band of the viewport this style actually PAINTS OVER, in viewport coordinates —
+	 *  what a reveal has to leave clear so the thing being revealed does not land underneath
+	 *  the tour's own caption. Undefined means "nothing worth clearing".
+	 *
+	 *  It is measured, not derived from the style constants, because the painted box is what
+	 *  matters and it changes with the text: a three-line beat in a `bar` is taller than a
+	 *  one-line one. `scrim` is the case that forced this to exist — a 230px gradient reaching
+	 *  90% opacity at the bottom edge, over whatever the host is doing underneath.
+	 *
+	 *  `cursor` deliberately declares nothing: its whole design is to place the bubble OUT of
+	 *  the way of the thing being pointed at (`placeBubble`), and its only fixed chrome is a
+	 *  32px corner chip. Making a reveal dodge that would move the page for nothing.
+	 *
+	 *  REQUIRED, for the same reason `layout` is (see its note): an optional member lets a NEW
+	 *  caption style compile without saying what it covers, and a style that covers something
+	 *  silently IS the defect this field exists to close. Say `() => null` out loud instead.
+	 *
+	 *  It is a CONSERVATIVE band, not a paint mask. For an edge dock the box is the dock's, and
+	 *  the published inset runs from the window's edge up to it — so it includes the ~78px
+	 *  transparent gutter the dock is seated above (123px published for a ~45px `bar`). That
+	 *  over-reserves rather than under-reserves, which is the right direction, but it is why this
+	 *  is "the band a reveal must stay clear of" and not "the pixels this style paints". It is
+	 *  also purely VERTICAL: a centered `progress` pill 380px wide reports a full-width band. */
+	occludes: () => RectLike | null;
 }
 
 /** How far the caption bubble keeps off the cursor it is anchored to. The cursor glyph is
@@ -617,7 +659,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 		dock.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;';
 		const narration = doc.createElement('span');
 		dock.appendChild(narration);
-		return { dock, narration, setNarration: () => {}, setProgress: () => {}, layout: () => {} };
+		return { dock, narration, setNarration: () => {}, setProgress: () => {}, layout: () => {}, occludes: () => null };
 	}
 	const top = placement === 'top';
 	const glass =
@@ -661,6 +703,8 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 	let layout: (bounds: RectLike, layer: RectLike) => void;
 	let place: BuiltDock['place'];
 	let reveal: BuiltDock['reveal'];
+	// Left unassigned on purpose, exactly like `layout` above: the compiler makes every branch say.
+	let occludes: BuiltDock['occludes'];
 
 	// Re-seat an EDGE-anchored caption inside `bounds`. The offsets are the ones each style
 	// already used; what changes is what they are measured FROM. `bounds` and `layer` are both
@@ -769,6 +813,11 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 		// The bubble is positioned per-beat by `place`; the only thing with a fixed home is Exit,
 		// and it belongs in the corner of the box the tour is running in.
 		layout = (bounds, layerRect) => seatCorner(exit, bounds, layerRect);
+		// NOTHING, said out loud rather than by omission. This style places its bubble OUT of the
+		// way of whatever is being pointed at, and its only fixed chrome is a 32px corner chip.
+		// Note what a careless default would do here: this dock is a transparent `inset: 0`
+		// container, so handing ITS box back would report the entire viewport as covered.
+		occludes = () => null;
 	} else if (caption === 'split' || caption === 'scrim') {
 		// A full-area, transparent container: the caption sits at the placement edge, Exit rides
 		// the opposite corner. The container carries `.vetrina-caption` so Exit stays inside it.
@@ -787,6 +836,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 			narration.style.cssText = 'display:block;min-width:0;line-height:1.4;text-align:center;font-size:13.5px;transition:opacity .18s ease;';
 			cap.appendChild(narration);
 			dock.append(cap, exit);
+			occludes = () => rectOf(cap);
 			layout = (bounds, layerRect) => {
 				seat(cap, bounds, layerRect, top ? 14 : 78);
 				cap.style.maxWidth = `${Math.max(120, Math.min(560, bounds.width * 0.84))}px`;
@@ -820,6 +870,10 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 				'width:min(340px,86%);line-height:1.4;text-align:center;font-size:15px;font-weight:600;' +
 				'text-shadow:0 1px 2px rgba(0,0,0,.85),0 2px 18px rgba(0,0,0,.7);transition:opacity .18s ease;';
 			dock.append(scrim, narration, exit);
+			// The gradient CONTAINS the subtitle at every length the style is for, but the two are
+			// unioned rather than assumed: `scrim`'s narration is capped at `min(340px, 86%)` and a
+			// long beat wraps upward, so a tall enough one reaches past the 230px band.
+			occludes = () => unionRect(rectOf(scrim), rectOf(narration));
 			layout = (bounds, layerRect) => {
 				scrim.style.left = `${bounds.left - layerRect.left}px`;
 				scrim.style.right = `${layerRect.left + layerRect.width - (bounds.left + bounds.width)}px`;
@@ -833,6 +887,13 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 		// bar / progress — one boxed dock at the placement edge (the bottom offset clears a host's
 		// bottom chrome, e.g. the Studio pane bar). `bar` spans the width with a leading pulse dot;
 		// `progress` is centered with a beat-progress ring.
+		//
+		// These are the two styles whose DOCK *is* the painted box — every other branch makes the
+		// dock a transparent full-area container and paints into a child. Assigned HERE rather
+		// than as a trailing `if (!occludes)` default, which is the shape a unit arm caught: a
+		// catch-all also claimed `caption: 'cursor'`, whose full-area transparent dock would then
+		// have reported the whole viewport as covered and made every reveal dodge nothing.
+		occludes = () => rectOf(dock);
 		const edge = top ? 'top:14px' : 'bottom:78px';
 		if (caption === 'progress') {
 			dock.style.cssText =
@@ -893,7 +954,7 @@ function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bot
 	}
 
 	setNarration(''); // start on the hint
-	return { dock, narration, setNarration, setProgress, layout, place, reveal };
+	return { dock, narration, setNarration, setProgress, layout, place, reveal, occludes };
 }
 
 export function createStage(opts: StageOptions): Stage {
@@ -973,7 +1034,7 @@ export function createStage(opts: StageOptions): Stage {
 	// buildDock owns the per-style structure; the `dock` + `narration` it returns stay stable so
 	// say() / the fade-in / contains() are style-agnostic. Exit is always an icon button inside
 	// `.vetrina-caption`, so the take-over guard still reads it as chrome (layer.contains).
-	const { dock, narration, setNarration, setProgress, layout: layoutDock, place: placeBubbleIn, reveal: revealBubble } = buildDock(doc, caption, placement, onExit);
+	const { dock, narration, setNarration, setProgress, layout: layoutDock, place: placeBubbleIn, reveal: revealBubble, occludes: dockOccludes } = buildDock(doc, caption, placement, onExit);
 
 	// One-time keyframes for the live-dot pulse (idempotent — id-guarded).
 	if (!doc.getElementById('vetrina-keyframes')) {
@@ -1030,13 +1091,151 @@ export function createStage(opts: StageOptions): Stage {
 	// geometry of every tour that never asked for any of this — measured at 704px → 680px on
 	// the default bar before this guard existed, which is exactly the "nothing shipped changes
 	// shape" claim being false.
+	/** The seated geometry, rounded to whole pixels. Comparing this is what lets a scroll handler
+	 *  do NOTHING on the overwhelmingly common scroll — one where the clamped intersection has not
+	 *  moved, which is every scroll of a page whose host already spans the window.
+	 *
+	 *  It covers BOTH rects `layoutDock` consumes, not just the bounds. `layerRect`'s own note
+	 *  says why: the layer is `position: fixed`, but a host transform, filter or `contain: paint`
+	 *  on an ancestor makes that ancestor the containing block, and then the layer scrolls with
+	 *  the page. A key on the bounds alone would compare equal on exactly that page — a host
+	 *  spanning the window, so the clamped box never changes — while the thing the caption is
+	 *  positioned inside moved under it every frame. */
+	const rectKey = (r: RectLike) => `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`;
+	const seatKey = (b: RectLike, l: RectLike) => `${rectKey(b)}|${rectKey(l)}`;
+	let seatedKey = '';
 	const relayout = () => {
 		if (destroyed || boundsMode !== 'host') return;
-		layoutDock(boundsRect(), layerRect());
+		const b = boundsRect();
+		const l = layerRect();
+		seatedKey = seatKey(b, l);
+		layoutDock(b, l);
+	};
+
+	// ── A scroll the VIEWER performs re-seats the chrome too ──────────────────────────────
+	//
+	// Under `bounds: 'host'` the chrome is measured against the VISIBLE part of `root`, and a
+	// scroll changes that box while the chrome — inside a `position: fixed` layer — does not
+	// move at all. So the caption and the Exit chip end up describing where the host used to be.
+	// That is the same class of defect as the off-screen Exit chip the visible-part clamp exists
+	// to prevent, arrived at by scrolling instead of by an oversized host.
+	//
+	// TWO things keep this off the jank budget the decision record asked to be measured, and the
+	// second one is the load-bearing half:
+	//   1. rAF-COALESCED — a burst of scroll events costs one re-seat per frame, not one each.
+	//   2. IT COMPARES BEFORE IT WRITES. The handler reads the clamped box and returns if it has
+	//      not moved. That is the common case, not an optimization for a rare one: `boundsRect`
+	//      intersects the host with the window, so a host that already spans the window — the
+	//      Studio's `100dvh` shell, every full-page tour — yields the SAME box at every scroll
+	//      position, and the handler never writes a style or dirties layout. Work happens only
+	//      while a partly-visible host is actually sliding through the window, which is the case
+	//      that needs it.
+	// It is registered only under `bounds: 'host'`, so the default pays nothing at all — not even
+	// a handler that returns early.
+	//
+	// CAPTURE PHASE, because `scroll` does not bubble: a host inside its own scrolling box would
+	// be invisible to a plain `window` listener. `passive` so it can never delay a scroll.
+	//
+	// WHAT IT DOES NOT COVER, and it is worth knowing before reading the jank numbers as a phone
+	// story: on a touch screen the viewer's own scroll starts with a `pointerdown`, which the
+	// runner's take-over guard reads as the viewer taking the wheel — so a finger scroll ENDS the
+	// run rather than reaching this. What reaches it is a wheel or trackpad scroll, a host that
+	// scrolls its own page, an anchor jump, and momentum still running when a run starts.
+	let scrollRaf = 0;
+	const reseatForScroll = (): void => {
+		scrollRaf = 0;
+		if (destroyed || boundsMode !== 'host') return;
+		if (seatKey(boundsRect(), layerRect()) === seatedKey) return; // scrolled, but nothing moved
+		relayout();
+		publishChromeInset();
+	};
+	const onViewerScroll = (): void => {
+		if (!scrollRaf) scrollRaf = requestAnimationFrame(reseatForScroll);
+	};
+	if (boundsMode === 'host') window.addEventListener('scroll', onViewerScroll, { passive: true, capture: true });
+
+	// ── The caption is an OCCLUDER, and everything that reveals has to clear it ───────────
+	//
+	// This is the half of the iPhone report that #2193 did not close. That change made a cue
+	// scroll its target into view; `block: 'nearest'` then lands a target that was below the
+	// fold FLUSH with the bottom edge of the window — which is exactly where this library is
+	// painting its own caption. Under `caption: 'scrim'` that is a 230px gradient reaching 90%
+	// opacity at that edge, so the thing the tour just scrolled to is the thing the tour is
+	// covering. Measured on the Studio's phone tour, the freshly typed tail of the document
+	// landed 115px inside the gradient on Chromium at 390x844 and 225px inside it on real
+	// WebKit at an iPhone 15 Pro box — under the subtitle, not merely near it.
+	//
+	// `chromeInset()` is the number that fixes it, and it is deliberately published as well as
+	// used: a HOST that scrolls its own content during a tour (the Studio's editor following
+	// what the tour types) has exactly the same problem and no way to see the chrome, because
+	// the stage is a body-portalled fixed layer the host knows nothing about.
+	//
+	// It is measured from the PAINTED box, not from the style constants — see `BuiltDock.occludes`.
+	const chromeInset = (): { top: number; bottom: number } => {
+		const zero = { top: 0, bottom: 0 };
+		if (destroyed || !dockOccludes) return zero;
+		const box = dockOccludes();
+		if (!box) return zero;
+		// MEASURED FROM THE WINDOW, not from `bounds`, and the frame is the whole contract. Every
+		// consumer recovers the band's top edge as `innerHeight - inset`, so a bounds-relative
+		// number is silently wrong by however far the host stops short of the window: a 400px host
+		// parked at the top of a 768px window, caption box at y=280, published 120 — and a host
+		// following the documented contract reserved 120px at the BOTTOM of the window, where
+		// nothing is painted, and nothing over the band that is. `bounds` decides where the caption
+		// is SEATED; it has no business deciding what frame the number is reported in.
+		const vh = window.innerHeight;
+		// Which edge the chrome is against is `placement`, but the number comes from the box:
+		// a `bar` grows upward as its text wraps, and the inset has to grow with it.
+		if (placement === 'top') return { top: Math.max(0, Math.min(r2(box).bottom, vh)), bottom: 0 };
+		return { top: 0, bottom: Math.max(0, Math.min(vh - box.top, vh)) };
+	};
+
+	// The published half. Two custom properties, inline on the document element so a host reads
+	// them without a computed-style pass (`documentElement.style.getPropertyValue`) — the same
+	// idiom the Studio's `--cs-kb-inset` already uses for the software keyboard, which is the
+	// same SHAPE of problem: a band of the viewport that is covered without anything in the
+	// layout knowing it. Removed on destroy, never zeroed: a stale inset would have every later
+	// reveal leave room for chrome that is no longer there.
+	const CHROME_TOP = '--vt-chrome-top';
+	const CHROME_BOTTOM = '--vt-chrome-bottom';
+	let publishedBottom = '';
+	const publishChromeInset = (): void => {
+		if (destroyed) return;
+		const el = doc.documentElement;
+		const ins = chromeInset();
+		const top = `${Math.round(ins.top)}px`;
+		const bottom = `${Math.round(ins.bottom)}px`;
+		// Skip the write when the property ALREADY HOLDS this value. A custom property on the
+		// document element is a document-wide style invalidation, and this runs on every perform
+		// bracket and (under `bounds: 'host'`) on a scroll that moved the box, so an unconditional
+		// write would pay that repeatedly to re-state a number that does not move — a `scrim`'s
+		// band is a constant 230px for a whole run.
+		//
+		// IT COMPARES THE LIVE VALUE, NOT A CACHE OF OUR LAST WRITE, and that difference was a
+		// reproduced defect rather than a precaution. Two stages can share a document: the Studio's
+		// Present guide builds a second one (`caption: 'none'`), and two shipped tours open Present
+		// mid-run. The guide publishes 0px over the tour's 230px and then, on teardown, removes the
+		// property outright. With a cache, the live stage's memo still agreed with a value that was
+		// gone, so it never wrote again and every reveal for the rest of the run silently reverted
+		// to the defect this whole change exists to fix.
+		if (el.style.getPropertyValue(CHROME_BOTTOM) === bottom && el.style.getPropertyValue(CHROME_TOP) === top) return;
+		publishedBottom = bottom;
+		el.style.setProperty(CHROME_TOP, top);
+		el.style.setProperty(CHROME_BOTTOM, bottom);
 	};
 	// A resize moves the box every caption is measured against. Cheap, idempotent, and removed
 	// on destroy — the stage must not outlive its listeners.
-	if (boundsMode === 'host') window.addEventListener('resize', relayout);
+	//
+	// It re-publishes the chrome inset under EITHER bounds mode, which `relayout` alone does not:
+	// `relayout` is a no-op under the default `'viewport'` because those styles seat themselves in
+	// pure CSS, but the box they seat themselves into is the WINDOW — so a rotate changes what the
+	// caption covers without `relayout` having anything to do. A stale inset there would have the
+	// host leave room in the wrong place.
+	const onViewportResize = (): void => {
+		relayout();
+		publishChromeInset();
+	};
+	window.addEventListener('resize', onViewportResize);
 
 	// Born at the middle of the BOX the tour runs in, not always the middle of the window: a
 	// stage confined to a pane used to spawn its cursor over whatever else was on the page.
@@ -1183,18 +1382,93 @@ export function createStage(opts: StageOptions): Stage {
 	// the default bounds, and under `'host'` it is idempotent and costs about what the
 	// comparison would have cost anyway. (A scroll the VIEWER performs mid-run still goes
 	// unseated; that one is pre-existing and noted in the decision record.)
+	//
+	// AND IT CLEARS THE CAPTION. `nearest` lands an off-screen target flush with the edge the
+	// caption is painted against, so the scroll that put the target "in view" put it under the
+	// tour's own chrome — see `chromeInset` above for the two measurements. The room is asked
+	// for with `scroll-margin`, which is the platform's own mechanism for exactly this ("leave
+	// this much space for the fixed thing over there") and, decisively, lets the BROWSER keep
+	// choosing which ancestor scrolls. Correcting the scroll ourselves afterwards would mean
+	// re-deriving that choice, which is the guess `revealTail` was written to stop making.
+	//
+	// The property is set INLINE and restored in a `finally`, because it is the host's element:
+	// a tour must not leave a `scroll-margin` behind on a page it was only visiting. Restoring to
+	// the previous inline value (usually `''`) puts any stylesheet-supplied value back.
 	const reveal = (src: RectSource): void => {
 		if (destroyed || typeof src.scrollIntoView !== 'function') return;
-		try {
-			src.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
-		} catch {
+		/** One scroll, with the `behavior` retry. False means the source refused outright. */
+		const into = src.scrollIntoView.bind(src);
+		const scroll = (block: ScrollLogicalPosition): boolean => {
 			try {
-				src.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+				into({ block, inline: 'nearest', behavior: 'instant' });
 			} catch {
-				return; // a host-supplied source may refuse entirely; a cue that cannot scroll still plays
+				try {
+					into({ block, inline: 'nearest' });
+				} catch {
+					return false; // a host-supplied source may refuse entirely; a cue that cannot scroll still plays
+				}
+			}
+			return true;
+		};
+		// SCROLL FIRST, THEN ASK WHETHER IT LANDED UNDER THE CAPTION. The order is not a style
+		// choice: everything in a beat that reads this rect means "where the target is NOW", and an
+		// arm in reveal.test.ts pins that the scroll precedes every read. Deciding the margin from
+		// a PRE-scroll rect would have put a measurement first — and it would have been the wrong
+		// measurement anyway, since whether a target ends up under the caption is a fact about
+		// where it lands, not where it started.
+		if (!scroll('nearest')) return;
+		const ins = chromeInset();
+		const el = src as Partial<Element> & Partial<HTMLElement>;
+		const styled = typeof el.setAttribute === 'function' && typeof el.getAttribute === 'function' && el.style ? (el as HTMLElement) : null;
+		if (styled && (ins.top > 0 || ins.bottom > 0) && typeof src.getBoundingClientRect === 'function') {
+			const box = src.getBoundingClientRect();
+			const vh = window.innerHeight;
+			// Does it actually need lifting, and is there room to lift it? Both halves matter.
+			const intrudes = ins.bottom > 0 ? box.bottom > vh - ins.bottom : box.top < ins.top;
+			// A TARGET THAT NO LONGER FITS GETS NO MARGIN, and skipping is the only safe answer.
+			// Per CSSOM-View, `nearest` acts on the scroll-MARGIN box: once that box is taller than
+			// the viewport, a target that was fully visible has one edge in and one out, so
+			// `nearest` aligns the far edge and pushes the near one OFF SCREEN — a 500px target
+			// with a 230px band in a 659px window ends 71px above the top. Shipped tours point at
+			// whole panes, so this is the ordinary case rather than a corner, and leaving such a
+			// target alone is right anyway: it is far too big to hide under a caption.
+			const fits = box.height > 0 && box.height + ins.top + ins.bottom <= vh;
+			if (intrudes && fits) {
+				// The scroll is synchronous, so nothing can write between the borrow and the
+				// restore. The restore goes through CSSOM rather than `setAttribute('style', …)`
+				// because a host CSP without `'unsafe-inline'` for style ATTRIBUTES blocks the
+				// attribute write while allowing the property write — which would strand our value
+				// on the host's element permanently. (CSSOM re-serializes the declaration, so an
+				// attribute may come back normalized; it is never semantically changed.) The
+				// attribute is removed outright when the element had none, so a tour that was only
+				// visiting leaves no `style=""` behind either.
+				const hadAttr = styled.getAttribute('style');
+				const had = { top: styled.style.scrollMarginTop, bottom: styled.style.scrollMarginBottom };
+				try {
+					if (ins.top > 0) styled.style.scrollMarginTop = `${Math.round(ins.top)}px`;
+					if (ins.bottom > 0) styled.style.scrollMarginBottom = `${Math.round(ins.bottom)}px`;
+					// `end` / `start`, NOT `nearest`, and this is an ENGINE fact rather than a
+					// preference. Measured on both: with the target already flush against the edge,
+					// Chromium's `nearest` ignores the scroll-margin entirely and scrolls nothing,
+					// while WebKit honors it. `end` moves the margin box's end edge to the
+					// scrollport's on both. `nearest` is still right for the FIRST pass — it is what
+					// makes a reveal safe to run before every aim, since an in-view target moves
+					// nothing — but by here the decision that this target is covered has already
+					// been taken, and the alignment is no longer in question.
+					scroll(ins.top > 0 ? 'start' : 'end');
+				} finally {
+					styled.style.scrollMarginTop = had.top;
+					styled.style.scrollMarginBottom = had.bottom;
+					if (hadAttr === null) styled.removeAttribute('style');
+				}
 			}
 		}
 		relayout();
+		// The scroll moved the host's visible box, so the band the caption covers moved with it.
+		// Every other re-seat site pairs these two; this one did not, and under `bounds: 'host'`
+		// that left the PUBLISHED number describing the pre-scroll geometry until some later
+		// caption change happened to differ from it.
+		publishChromeInset();
 	};
 
 	// Every write to the cursor's opacity goes through here, so a host's `setCursorVisible(false)`
@@ -1216,6 +1490,7 @@ export function createStage(opts: StageOptions): Stage {
 	requestAnimationFrame(() => {
 		if (destroyed) return;
 		relayout();
+		publishChromeInset();
 		dock.style.opacity = '1';
 		paintCursorOpacity();
 	});
@@ -2277,6 +2552,11 @@ export function createStage(opts: StageOptions): Stage {
 		if (show && (force || !captionShown)) placeBubbleNow();
 		captionShown = show;
 		revealBubble?.(show, still);
+		// The caption's painted box is what `--vt-chrome-*` reports, and a `bar` grows upward as
+		// its text wraps — so the inset is republished wherever the caption changes. This is the
+		// choke point for that: `say` routes both its branches through here, and the perform
+		// brackets call it too. It is a handful of calls per beat, not a per-frame cost.
+		publishChromeInset();
 	};
 	const beginPerform = () => {
 		performDepth++;
@@ -2463,8 +2743,18 @@ export function createStage(opts: StageOptions): Stage {
 		contains: (node) => node instanceof Node && layer.contains(node),
 		destroy: () => {
 			destroyed = true;
-			window.removeEventListener('resize', relayout); // no-op when it was never added
-
+			window.removeEventListener('resize', onViewportResize);
+			window.removeEventListener('scroll', onViewerScroll, { capture: true }); // no-op when it was never added
+			if (scrollRaf) cancelAnimationFrame(scrollRaf);
+			// REMOVE, not zero — a stale `--vt-chrome-*` would make every later reveal on this page
+			// leave room for a caption that is no longer on it — but ONLY WHEN IT IS STILL OURS.
+			// A second stage can outlive this one (the Present guide mounts one over a running
+			// tour), and a departing stage that deletes the survivor's number turns its own
+			// teardown into a silent regression for the tour still playing.
+			if (doc.documentElement.style.getPropertyValue(CHROME_BOTTOM) === publishedBottom) {
+				doc.documentElement.style.removeProperty(CHROME_TOP);
+				doc.documentElement.style.removeProperty(CHROME_BOTTOM);
+			}
 			layer.remove();
 		},
 	};

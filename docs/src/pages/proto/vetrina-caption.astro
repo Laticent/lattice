@@ -147,6 +147,12 @@
 				</table>
 			</div>
 			<p class="summary" id="summary"></p>
+			<!-- SCROLL RUNWAY. "The viewer scrolls mid-run" is a case this page has to be able to
+			     express at EVERY width, and without this the page fits a 1440x900 window with
+			     nothing to scroll — so the arm that drives it could only report that it had proved
+			     nothing. It is inert: outside `#app`, so it changes no measurement the other cases
+			     take, and it only adds document range below the fold. -->
+			<div id="scroll-runway" aria-hidden="true" style="height: 80vh"></div>
 		</div>
 
 		<script>

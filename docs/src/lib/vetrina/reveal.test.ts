@@ -236,6 +236,334 @@ describe("bounds:'host' re-seats the chrome after a scroll the stage itself perf
 	});
 });
 
+describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", () => {
+	// The limit the previous pass logged and did not close. Under `bounds: 'host'` the chrome is
+	// measured against the VISIBLE part of the host, and the chrome lives in a `position: fixed`
+	// layer — so a scroll moves the host under it and leaves the caption describing where the host
+	// used to be. Only `resize` and the stage's own reveal were wired to `relayout`.
+	//
+	// The jank question the record asked to be measured is answered by the SECOND arm here and by
+	// a real-surface frame-cost run (docs/e2e/vetrina-cursor-caption.spec.ts): the handler reads
+	// the clamped box and returns without writing when it has not moved, which is every scroll of
+	// a host that already spans the window.
+
+	/** A host taller than the window, partly on screen, with a counter on each rect read so an
+	 *  arm can tell "checked and stopped" from "re-seated". */
+	function scrollableHost(bounds: 'host' | 'viewport' = 'host') {
+		const root = document.createElement('div');
+		document.body.appendChild(root);
+		const hostBox = { left: 0, top: 300, width: 900, height: 2000 };
+		const reads = { root: 0, layer: 0 };
+		root.getBoundingClientRect = () => {
+			reads.root++;
+			return { left: hostBox.left, top: hostBox.top, width: hostBox.width, height: hostBox.height, right: hostBox.left + hostBox.width, bottom: hostBox.top + hostBox.height, x: hostBox.left, y: hostBox.top, toJSON: () => ({}) } as DOMRect;
+		};
+		active = createStage({ root, onExit: () => {}, theme: resolveTheme({ motion: 'full', caption: 'bar', bounds }) });
+		const layer = document.querySelector('.vetrina-stage') as HTMLElement;
+		layer.getBoundingClientRect = () => {
+			reads.layer++;
+			return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight, right: window.innerWidth, bottom: window.innerHeight, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+		};
+		return { layer, hostBox, reads };
+	}
+
+	const scrollTo = async (hostBox: { top: number }, top: number) => {
+		hostBox.top = top;
+		window.dispatchEvent(new Event('scroll'));
+		await frames(3); // the handler is rAF-coalesced
+	};
+
+	it('moves the caption when the viewer scrolls the host through the window', async () => {
+		const { layer, hostBox } = scrollableHost();
+		await frames(2);
+		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
+		const before = Number.parseFloat(dock.style.bottom);
+		expect(Number.isFinite(before)).toBe(true);
+
+		// The host's top moves from 300 to -400: its visible box now starts at the top of the
+		// window and is 700px taller, so the dock's distance from the window's bottom changes.
+		await scrollTo(hostBox, -400);
+		const after = Number.parseFloat(dock.style.bottom);
+		expect(after, `the dock stayed at ${before}px — it is still seated against the pre-scroll host`).not.toBeCloseTo(before, 0);
+	});
+
+	it('does NO work on a scroll that does not move the seated geometry — the whole jank answer', async () => {
+		// A host taller than the window and spanning it: the intersection is the window at every
+		// scroll position. This is the Studio's shell and every full-page tour, so it is the
+		// common case rather than a lucky one.
+		//
+		// THE ORACLE IS THE WRITE, not the read, and the distinction is the cost model. Two rect
+		// reads in a rAF callback are cheap; what is expensive is a STYLE WRITE, because it dirties
+		// layout and turns the next frame's read into a forced reflow. So this watches the dock's
+		// style attribute rather than counting `getBoundingClientRect` calls — which is also the
+		// only oracle that still works now that the cheap check reads both rects itself.
+		const { layer, hostBox } = scrollableHost();
+		hostBox.top = -500; // already covering the window top to bottom
+		await frames(2);
+		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
+		let writes = 0;
+		const mo = new MutationObserver((recs) => {
+			writes += recs.length;
+		});
+		mo.observe(dock, { attributes: true, attributeFilter: ['style'] });
+		try {
+			await scrollTo(hostBox, -600); // still spanning the window — seated geometry unchanged
+			await scrollTo(hostBox, -700);
+			await scrollTo(hostBox, -800);
+			expect(writes, 'the handler wrote a style on a scroll that moved nothing').toBe(0);
+			// The oracle can see a write when there IS one — otherwise "0" would prove nothing.
+			await scrollTo(hostBox, 300); // now the host really does slide down the window
+			expect(writes, 'the oracle never observed a write at all, so the zero above is meaningless').toBeGreaterThan(0);
+		} finally {
+			mo.disconnect();
+		}
+		expect(dock.style.bottom).toBeTruthy();
+	});
+
+	it('registers nothing at all under the default bounds', async () => {
+		// `bounds: 'viewport'` seats every edge style in pure CSS, so there is nothing for a
+		// scroll to re-seat — and a tour that never asked for any of this should not pay even a
+		// handler that returns early.
+		const { reads } = scrollableHost('viewport');
+		await frames(2);
+		const before = reads.root;
+		window.dispatchEvent(new Event('scroll'));
+		await frames(3);
+		expect(reads.root - before, 'the default bounds paid for a scroll handler it has no use for').toBe(0);
+	});
+
+	it('stops listening on destroy', async () => {
+		const { hostBox, reads } = scrollableHost();
+		await frames(2);
+		(active as Stage).destroy();
+		const before = reads.root;
+		await scrollTo(hostBox, -900);
+		expect(reads.root - before, 'the stage outlived its scroll listener').toBe(0);
+	});
+});
+
+describe('the reveal clears the tour\'s own caption', () => {
+	// THE SECOND HALF OF THE IPHONE REPORT, and the half the first pass left unexplained. Making a
+	// cue scroll its target into view is not the same as making it VISIBLE: `block: 'nearest'`
+	// scrolls the minimum, so a target that was below the fold lands its bottom edge flush with
+	// the window's — which is the edge this library paints its caption against. Under the phone's
+	// `caption: 'scrim'` that is a 230px gradient reaching 90% opacity exactly there.
+	//
+	// Measured on the Studio's phone tour before this existed: the freshly typed tail of the
+	// document sat 115px inside the gradient on Chromium at 390x844 and 225px inside it on real
+	// WebKit at an iPhone 15 Pro box. The committed sampler scored both 0px, because it asked
+	// whether the tail was inside the EDITOR rather than whether it was inside the VISIBLE part
+	// of it (docs/e2e/demo-mobile.spec.ts).
+	//
+	// The room is asked for with `scroll-margin`, the platform's own "leave space for the fixed
+	// thing over there", so the BROWSER keeps choosing which ancestor scrolls. jsdom has no
+	// layout, so what these pin is the contract: the property is set from the measured caption box
+	// before the scroll and restored after, and the same number is published for a host to read.
+
+	/** Give the painted caption a real box. jsdom measures every element as 0x0, and a zero-area
+	 *  box is deliberately NOT an occluder — so without this the stage would correctly report an
+	 *  inset of 0 and these arms would be about jsdom. `h` px tall, against the bottom of a
+	 *  ~768px window. */
+	function captionCovering(h: number, theme: Parameters<typeof resolveTheme>[0] = {}): Stage {
+		const stage = mount({ caption: 'bar', ...theme });
+		const painted = document.querySelector('.vetrina-caption') as HTMLElement;
+		// `bar` paints the dock itself; `split`/`scrim` paint into a child. Either way the element
+		// the style declared as its occluder is what gets measured, so stub whichever this is.
+		const el = (painted.querySelector('div[aria-hidden="true"]') as HTMLElement) ?? painted;
+		const top = (theme.placement === 'top' ? 0 : window.innerHeight - h);
+		el.getBoundingClientRect = () => ({ left: 0, top, width: window.innerWidth, height: h, right: window.innerWidth, bottom: top + h, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+		return stage;
+	}
+
+	/** A target that is a REAL element, so it has the `style` the reveal writes through, and whose
+	 *  `scrollIntoView` MODELS what `block: 'nearest'` actually does to an off-screen target: it
+	 *  brings the scroll-MARGIN box's near edge flush with the viewport's. Honoring the margin is
+	 *  the whole point of the fixture — a stub that ignored it could not tell the fix from its
+	 *  absence, which is the failure mode this file's subject is about. `seen` records the margin
+	 *  at each call, so the two-pass shape (scroll, look, lift clear) is assertable. */
+	function elementTarget(height = 40) {
+		const el = document.createElement('div');
+		document.body.appendChild(el);
+		const box = { left: 300, top: 2400, width: 120, height };
+		el.getBoundingClientRect = () => ({ left: box.left, top: box.top, width: box.width, height: box.height, right: box.left + box.width, bottom: box.top + box.height, x: box.left, y: box.top, toJSON: () => ({}) }) as DOMRect;
+		const seen: { top: string; bottom: string; block?: ScrollLogicalPosition }[] = [];
+		el.scrollIntoView = (arg?: boolean | ScrollIntoViewOptions) => {
+			const m = { top: el.style.scrollMarginTop, bottom: el.style.scrollMarginBottom, block: typeof arg === 'object' ? arg?.block : undefined };
+			seen.push(m);
+			const mb = Number.parseFloat(m.bottom) || 0;
+			const mt = Number.parseFloat(m.top) || 0;
+			if (box.top + box.height + mb > window.innerHeight) box.top = window.innerHeight - mb - box.height;
+			else if (box.top - mt < 0) box.top = mt;
+		};
+		return { el, seen, box };
+	}
+
+	const published = (name: 'top' | 'bottom') => document.documentElement.style.getPropertyValue(`--vt-chrome-${name}`);
+
+	it('lands the target clear of the caption, and hands the element back unchanged', async () => {
+		const stage = captionCovering(230);
+		await frames(2); // the mount rAF measures and publishes
+		const { el, seen, box } = elementTarget();
+		await stage.point(el);
+
+		// TWO passes, and the order is the contract: scroll first (so nothing in the beat measures
+		// a stale rect), then look at where it landed, then lift it clear if it landed covered.
+		expect(seen, 'the target was never scrolled').toHaveLength(2);
+		expect(seen[0], 'the first pass pre-empted the measurement it is supposed to decide from').toEqual({ top: '', bottom: '', block: 'nearest' });
+		// `end`, not `nearest`, and it is an ENGINE fact: measured on both, Chromium's `nearest`
+		// ignores a scroll-margin on a target already flush with the edge and scrolls nothing,
+		// while WebKit honors it. `nearest` stays right for the first pass — that is what makes a
+		// reveal safe before every aim — but by the second the decision has already been taken.
+		expect(seen[1].block, 'the lift used `nearest`, which Chromium answers by doing nothing').toBe('end');
+		// The number is the MEASURED caption box, not a constant: 230px of window covered.
+		expect(seen[1].bottom, 'the reveal never asked for room for the caption it was about to talk through').toBe('230px');
+		expect(seen[1].top, 'a bottom-placed caption must not also reserve room at the top').toBe('');
+		// And the OUTCOME: the target's bottom edge is above the band, not flush with the window.
+		expect(box.top + box.height, `the target ended at ${box.top + box.height} in a ${window.innerHeight}px window whose last 230px are covered`).toBeLessThanOrEqual(window.innerHeight - 230);
+		// And it is the HOST's element — a tour that was only visiting must not leave a
+		// `scroll-margin` behind on it, NOR the empty `style=""` a per-property restore leaves on
+		// an element that had no style attribute to begin with.
+		expect(el.style.scrollMarginBottom, 'the tour left its scroll-margin on the host element').toBe('');
+		expect(el.getAttribute('style'), 'the tour left a style attribute on an element that had none').toBeNull();
+	});
+
+	it('publishes the same number for a host that scrolls its own content, and takes it back on destroy', async () => {
+		const stage = captionCovering(230);
+		await frames(2);
+		// The Studio's editor reads this to follow what a tour types without revealing under the
+		// caption; it cannot measure the stage itself, which is a body-portalled fixed layer.
+		expect(published('bottom')).toBe('230px');
+		expect(published('top')).toBe('0px');
+		stage.destroy();
+		// REMOVED, not zeroed — a stale inset would have every later reveal on this page leave
+		// room for a caption that is no longer on it.
+		expect(published('bottom'), 'the inset outlived the stage').toBe('');
+		expect(published('top')).toBe('');
+	});
+
+	it('a top-placed caption reserves room at the TOP, and nothing at the bottom', async () => {
+		const stage = captionCovering(64, { placement: 'top' });
+		await frames(2);
+		expect(published('top')).toBe('64px');
+		expect(published('bottom')).toBe('0px');
+		const { el, seen, box } = elementTarget();
+		box.top = -900; // above the fold, so `nearest` brings it down to the top edge
+		await stage.point(el);
+		expect(seen).toHaveLength(2);
+		expect(seen[1].top).toBe('64px');
+		expect(seen[1].bottom).toBe('');
+		expect(seen[1].block, 'a top-placed caption lifts toward the START edge').toBe('start');
+		expect(box.top, 'the target landed under a top-placed caption').toBeGreaterThanOrEqual(64);
+	});
+
+	it('leaves a target TALLER than the remaining room alone, rather than pushing it off the top', async () => {
+		// `nearest` acts on the scroll-MARGIN box. Once that box is taller than the viewport a
+		// target that was visible has one edge in and one out, so the browser aligns the FAR edge
+		// and pushes the near one off screen — a 500px target with a 230px band in a 659px window
+		// ends 71px above the top. Shipped tours point at whole panes, so this is the ordinary
+		// case; the right answer is to leave such a target where plain `nearest` put it.
+		const stage = captionCovering(230);
+		await frames(2);
+		const { el, seen } = elementTarget(window.innerHeight - 230 + 10);
+		await stage.point(el);
+		expect(seen, 'the reveal asked for room it could only get by scrolling the target off screen').toHaveLength(1);
+		expect(el.getAttribute('style')).toBeNull();
+	});
+
+	it('does not scroll a second time for a target that already landed clear of the caption', async () => {
+		// The lift is not unconditional: an in-view target costs one no-op `nearest` and nothing
+		// else. Without this every aim of every tour would pay two scrolls.
+		const stage = captionCovering(230);
+		await frames(2);
+		const { el, seen, box } = elementTarget();
+		box.top = 40; // already on screen, nowhere near the band
+		await stage.point(el);
+		expect(seen).toHaveLength(1);
+	});
+
+	it("caption: 'cursor' declares no occluder — its bubble already steps out of the way", async () => {
+		// The one style that must NOT make reveals dodge it. Its whole design is to place the
+		// balloon away from the thing being pointed at, and its only fixed chrome is a 32px corner
+		// chip; reserving a band for that would move the page for nothing.
+		const stage = captionCovering(230, { caption: 'cursor' });
+		await frames(2);
+		expect(published('bottom')).toBe('0px');
+		const { el, seen } = elementTarget();
+		await stage.point(el);
+		expect(seen, 'the cursor caption made the reveal take a second pass it has no use for').toHaveLength(1);
+		expect(seen[0].bottom, 'the cursor caption reserved a band it does not occupy').toBe('');
+	});
+
+	it('restores an element that DID have inline styles, exactly', async () => {
+		const stage = captionCovering(230);
+		await frames(2);
+		const { el } = elementTarget();
+		el.setAttribute('style', 'color: red; scroll-margin-bottom: 9px');
+		await stage.point(el);
+		// The DECLARATIONS, not the raw string: the restore goes through CSSOM (so a host CSP that
+		// blocks `style-src-attr` cannot strand our value on the element), and any CSSOM write
+		// re-serializes the declaration — `9px` can come back as `9px;`. Semantically identical,
+		// and asserting the string would be asserting the serializer.
+		expect(el.style.color).toBe('red');
+		expect(el.style.scrollMarginBottom).toBe('9px');
+		expect(el.style.scrollMarginTop).toBe('');
+	});
+
+	it('survives a SECOND stage publishing over it and then tearing down', async () => {
+		// The failure this pins was reproduced, not imagined. `--vt-chrome-*` is one document-global
+		// pair, and two stages can share a page: the Studio's Present guide builds a second one
+		// (`caption: 'none'`) and two shipped tours open Present mid-run. The guide publishes 0px
+		// over the tour's band and, on teardown, removes the property outright — so with a memo of
+		// "what I last wrote", the live stage agreed with a value that was gone and never wrote
+		// again. Every reveal for the rest of the run silently reverted to the defect.
+		const tour = captionCovering(230);
+		await frames(2);
+		expect(published('bottom')).toBe('230px');
+
+		// A second stage over the top — its own root, its own dock, no occluder of its own.
+		const guideRoot = document.createElement('div');
+		document.body.appendChild(guideRoot);
+		const guide = createStage({ root: guideRoot, onExit: () => {}, theme: resolveTheme({ motion: 'full', caption: 'none' }) });
+		await frames(2);
+		guide.destroy();
+		await frames(1);
+
+		// The live stage puts its own number back on its next beat, rather than trusting a cache.
+		// A `point` is the smallest real beat: it brackets a performance, and every perform bracket
+		// goes through `syncCaption`, which is where the inset is republished. (`say` would do it
+		// too, but only after its 140ms cross-fade, which is not what is under test here.)
+		await tour.point(watchedTarget({ left: 10, top: 10, width: 20, height: 20 }).src);
+		expect(published('bottom'), 'a departed stage took the live one\'s inset with it, permanently').toBe('230px');
+	});
+
+	it('a departing stage does not remove an inset that is no longer its own', async () => {
+		const tour = captionCovering(230);
+		await frames(2);
+		const otherRoot = document.createElement('div');
+		document.body.appendChild(otherRoot);
+		const other = createStage({ root: otherRoot, onExit: () => {}, theme: resolveTheme({ motion: 'full', caption: 'none' }) });
+		await frames(2);
+		// `other` published 0px, so the live tour republishes 230px on its next beat...
+		await tour.point(watchedTarget({ left: 10, top: 10, width: 20, height: 20 }).src);
+		expect(published('bottom')).toBe('230px');
+		// ...and now `other` tearing down must NOT delete it.
+		other.destroy();
+		expect(published('bottom'), 'a stage removed an inset it did not publish').toBe('230px');
+	});
+
+	it('a RectSource that is not an element still reveals — the margin is simply not available', async () => {
+		// The Present guide's in-iframe regions answer `getBoundingClientRect` and nothing else.
+		// They opt out of scrolling entirely, but a provider that DOES offer `scrollIntoView`
+		// without being an element must not throw on the way past the margin.
+		const stage = captionCovering(230);
+		await frames(2);
+		const { src, calls } = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
+		await stage.point(src);
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toEqual({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+	});
+});
+
 describe('the drag path reveals both of its ends, and the snap-back reveals again', () => {
 	// Three of the five reveal call sites live in `drag`, and an independent pass found all three
 	// uncovered: deleting them left the whole unit suite green. The drop target's call is not even

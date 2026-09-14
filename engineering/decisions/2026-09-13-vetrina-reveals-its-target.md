@@ -124,6 +124,9 @@ comparing the before/after rects would have cost anyway.
   the old intersection.** Pre-existing, off the path of this change (HARD RULE #18), and not
   pulled in: the cheap fix is a `scroll` listener, and a listener that runs `relayout` at scroll
   frequency on a phone is a jank decision that wants its own measurement.
+  **CLOSED (2026-09-14)** — the measurement was taken, and the answer was to compare the clamped box
+  before writing, so the common case does no work at all. See
+  `2026-09-14-tour-caption-is-an-occluder.md` §5.
 - **A target clipped by an `overflow: hidden` ancestor gets scrolled anyway** — a programmatic
   scroll works on a box the viewer cannot scroll, so that box stays scrolled with no affordance to
   put it back. Accepted rather than guarded: it only happens when the target really is clipped,
@@ -137,6 +140,9 @@ comparing the before/after rects would have cost anyway.
   path): `ComposeView` already documents, with a measurement, that ProseMirror's own
   `tr.scrollIntoView()` does not scroll that host, so the fix there is a different mechanism and
   jsdom has no layout to test it with.
+  **CLOSED (2026-09-14)** — `2026-09-14-tour-caption-is-an-occluder.md` §5, which also found that the
+  tour's own `editorMounted` gate could not see a ProseMirror editor at all, so every typing beat of
+  a Compose phone tour was spinning to its timeout.
 - **`leadMs()` predicts a word-cued beat's travel from the PRE-scroll rect.** The prediction is
   now long for an off-screen target, so a cued action starts marginally early. Left alone
   deliberately: the alternative is scrolling the page at prediction time, well before the beat.
@@ -219,6 +225,15 @@ but they are not what the iPhone report was seeing. **That symptom is still unex
 candidates the sandbox cannot reach are the interesting ones: the software keyboard's
 visual-viewport offset, which changes what "in view" means without changing any scrollTop, and
 Safari's collapsing chrome. The measurement that would settle it is this same sampler, on a device.
+
+> **SUPERSEDED (2026-09-14).** It was neither of those, and no device was needed. The tour's OWN
+> caption covers the bottom of the editor — 230px of `scrim` gradient on a phone, reaching 90%
+> opacity at the edge — and the reveal landed the tail flush with exactly that edge. The table above
+> could not see it, because it measured the tail against the SCROLLER'S box: on WebKit the worst tail
+> position is the same absolute y in both columns (712 in a 659px window), reading 53px against the
+> scroller's bottom and 283px against the caption's top. An oracle that saturates reports agreement
+> between a hypothesis and its negation. Full account, with the after-state geometry on both engines:
+> `2026-09-14-tour-caption-is-an-occluder.md`.
 
 The caret is deliberately untouched, and that is the load-bearing half: moving it to the end would
 also scroll, and would fire the editor's cursor→slide channel, jumping the preview to the last

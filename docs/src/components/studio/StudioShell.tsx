@@ -2324,7 +2324,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// The controlled typing path moves no caret, so the editor never scrolls to follow what
 		// the demo is typing. This is how it follows — CodeMirror's own reveal, not a scrollTop
 		// on a guessed element (see Editor's `revealTail`).
-		revealEditorTail: () => editorRef.current?.revealTail(),
+		// BOTH editors, the same way `goToSlide` drives both `revealSlide`s: only one is mounted
+		// per `editMode`, so the other call is a free no-op. Compose was the silent half — a tour
+		// started there types through the same controlled path and had nothing to follow it with.
+		revealEditorTail: () => {
+			editorRef.current?.revealTail();
+			composeRef.current?.revealTail();
+		},
 		// True once the lazy CodeMirror editor has mounted (its imperative handle is set).
 		// The demo uses this to pick its typing channel: native `typeTail` when ready, else
 		// the controlled `setSource` path (the same one the phone uses) so a "Take a tour"

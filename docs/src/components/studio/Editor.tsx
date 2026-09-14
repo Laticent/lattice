@@ -11,6 +11,7 @@ import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagn
 import { type CompletionComponent, makeStudioCompletion } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { slideEditableOffset, slideIndexAt } from './lint';
+import { tourChromeMargin } from './tour-chrome';
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
 // lazily imported the first time the editor validates — surfaces that never lint
@@ -251,7 +252,11 @@ export type EditorHandle = {
 	 *  both halves of that matter: CodeMirror measures the document in its own cycle (so it
 	 *  cannot read a pre-update extent and clamp short), and it walks the real scrollable
 	 *  ancestors (so it does not depend on `.cm-scroller` being the thing that scrolls on this
-	 *  surface, on this engine). `y: 'nearest'` is the same reveal a real keystroke performs. */
+	 *  surface, on this engine). `y: 'nearest'` is the same reveal a real keystroke performs.
+	 *
+	 *  It also leaves room for the TOUR'S OWN CAPTION when one is running (`tour-chrome.ts`).
+	 *  Revealing to the scroller's bottom edge is revealing under the caption on a phone, where
+	 *  the stage paints a 230px scrim over exactly that edge. */
 	revealTail: () => void;
 	/** Replace the WHOLE document with `text` SYNCHRONOUSLY (a direct view dispatch,
 	 *  not the async `value`-prop sync). The demo calls `resetDoc('')` before it starts
@@ -518,11 +523,30 @@ export const Editor = React.forwardRef<EditorHandle, {
 			if (!v) return;
 			// No changes, no selection — a pure scroll effect, so it cannot disturb what the
 			// author (or the value-sync) has in the document, and it is a no-op when the tail
-			// is already on screen. NO `yMargin`: a 48px one was tried against the WebKit frame
-			// lag measured in demo-mobile.spec.ts and made no difference (53px worst gap with it
-			// and without), so it would be a number with nothing behind it. `y: 'nearest'` is the
-			// same reveal the native typing path performs.
-			v.dispatch({ effects: EditorView.scrollIntoView(v.state.doc.length, { y: 'nearest' }) });
+			// is already on screen. `y: 'nearest'` is the same reveal the native typing path
+			// performs.
+			//
+			// THE `yMargin` IS THE TOUR'S OWN CAPTION, and the distinction from the 48px one that
+			// was tried and dropped is the whole point. That was a CONSTANT, aimed at WebKit's
+			// frame lag, and it measured as a no-op because the lag was not what it was fighting
+			// (53px worst gap with it and without). This is a MEASURED occlusion: `y: 'nearest'`
+			// lands the tail flush with the bottom edge of the scroller, and on a phone a running
+			// tour is painting a 230px gradient over that edge — so the line just typed arrived
+			// under the caption, which is what "the editor doesn't follow" looked like on an
+			// iPhone.
+			//
+			// `|| undefined` IS NOT NOISE. CodeMirror's default `yMargin` is 5, not 0
+			// (`options.yMargin ?? 5`), and `0` is a value it keeps — so passing a plain 0 when no
+			// tour is running would quietly drop the 5px of breathing room this reveal has always
+			// had. `undefined` gives the default back, which makes the no-tour path genuinely
+			// unchanged rather than nearly so.
+			//
+			// The margin is CLAMPED to half the usable scroller by `tourChromeOverlap`, because
+			// CodeMirror applies `yMargin` at BOTH edges and tests the top one first — see that
+			// function's note for the oscillation an unclamped value produces on a short pane.
+			v.dispatch({
+				effects: EditorView.scrollIntoView(v.state.doc.length, { y: 'nearest', yMargin: tourChromeMargin(v.scrollDOM) || undefined }),
+			});
 		},
 		resetDoc(text: string) {
 			const v = viewRef.current;
