@@ -31,6 +31,7 @@
 // re-derived by scanning `@import` — this was the fourth such scanner in the repo.
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
+import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
@@ -1727,17 +1728,36 @@ function subsetFontFaceCss(css, families) {
 
 // The chart `<svg>` on the slide the editor cursor is in, or null. The controller
 // The cursor's slide is marked `.db-active` in the preview (cursor↔slide sync),
-// so these gate the export to "the chart you're looking at" and drive the Export
-// menu's "Export chart" entry. `CLEAN_SVG_LAYOUTS` are the charts that render as a
+// so these gate the export to "the chart you're looking at".
+//
+// NOTHING CALLS THEM TODAY. `activeChartSvg` and `exportChart` are exported here and
+// imported nowhere — measured across docs/src, lib, tools and test, and across the
+// built site, where the only chunk carrying the symbols is this one and the string
+// "Export chart" does not appear at all. This comment used to say they "drive the
+// Export menu's 'Export chart' entry"; there is no such entry. The LIVE chart-SVG
+// path is the image-set ZIP below (`core.KEYED_CHART_LAYOUTS`), which ShareSheet
+// reaches. Left in place rather than deleted — it is a complete, working single-chart
+// export waiting on a menu — but the claim is corrected, and it now reads the same
+// projected catalog as the live path so it cannot rot while it waits.
+// See engineering/decisions/2026-09-13-projected-rosters.md.
+//
+// `CLEAN_SVG_LAYOUTS` are the charts that render as a
 // SINGLE self-contained <svg> (diagram + in-svg legend) → exported as crisp
 // standalone vector. Every OTHER chart-frame slide (gantt/kanban/progress/journey/
 // state-chart/roadmap/timeline/word-cloud) is HTML/CSS or mixed → exported as a
 // high-res PNG, rasterized in-browser by the SAME html-to-image path the
 // one-click PDF/PPTX uses (it renders these charts faithfully).
-const CLEAN_SVG_LAYOUTS = ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'piechart', 'radar', 'map', 'quadrant', 'funnel'];
+// Projected from each manifest's `projection.figure === "svg"`. This module already
+// single-sources the OTHER half of the same fact 180 lines below — `core.KEYED_CHART_LAYOUTS`
+// off the image-set bundle — while keeping its own literal up here: one file, two rosters,
+// the same twelve names. Both now read the one catalog.
+const CLEAN_SVG_LAYOUTS = SVG_CHART_LAYOUTS;
 
-// The cursor's active chart slide (ANY `chart-frame` section), or null — drives
-// the "Export chart" menu visibility.
+// The cursor's active chart slide (ANY `chart-frame` section), or null. Its only
+// caller is `activeChartSvg` just below, which nothing calls either — so this drives
+// no menu visibility today; the comment said it did, for the same absent "Export
+// chart" entry. See the note above `CLEAN_SVG_LAYOUTS` and
+// engineering/decisions/2026-09-13-projected-rosters.md.
 export function activeChartSection(frame) {
 	const sec = frame?.contentDocument?.querySelector('.lattice > section.db-active');
 	return sec?.classList.contains('chart-frame') ? sec : null;

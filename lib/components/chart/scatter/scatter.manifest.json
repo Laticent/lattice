@@ -45,6 +45,10 @@
       }
     ]
   },
+  "projection": {
+    "figure": "svg",
+    "data": true
+  },
   "stage": "canvas",
   "coda": {
     "claims": [

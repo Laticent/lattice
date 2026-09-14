@@ -12,6 +12,9 @@
   "function": "imagery",
   "form": "canvas",
   "coda": { "dock": "grid", "claims": ["trailing-paragraph"] },
+  "projection": {
+    "figure": "bare"
+  },
   "substance": "prose",
   "orientation": [
     "landscape",

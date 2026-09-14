@@ -105,6 +105,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `playground:check` | Freshness gate for the playground bundle. |
 | `playground:watch` | Rebuild the playground bundle on change. |
 | `prepack` | npm lifecycle: build before packing, so the published tarball carries dist/ even though git does not. |
+| `projection-catalog:build` | Generate lib/core/projection-catalog.generated.mjs — each component's `projection` block (how its rendered visual re-hosts off the slide \| svg, flow, spatial, placeholder, bare or none \| plus whether its substance is data), projected into the sets the prose projection, image-set export, Studio single-chart export, tools/export-chart-svg.js and the authoring scorecard read. Replaces nine hand-maintained rosters across five files, four of which held the same twelve names and none of which went red on omission. Emitted as ESM so CJS and the docs bundles can both reach it. |
+| `projection-catalog:check` | Freshness gate for the generated projection catalog. |
 | `read-along-core:build` | Bundle the read-along captions producer (lib/core/read-along-build.js + read-along-vtt.js) for the browser — the Studio Share sheet's "Captions (.vtt)" export. |
 | `read-along-core:check` | Freshness gate for the read-along-core Playground bundle. |
 | `runtime:build` | Build dist/lattice-runtime.js — browser runtime transforms (vscode preview / web export). |
@@ -401,6 +403,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-marp-kit.js` | build-marp-kit — assemble dist/marp-kit/, the copy-and-go folder. |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
+| `tools/build-projection-catalog.js` | build-projection-catalog.js — freeze every component manifest's `projection` |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |
 | `tools/build-showcase-galleries.js` | build-showcase-galleries — GENERATED consolidated cross-bucket showcase decks. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |

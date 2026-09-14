@@ -177,13 +177,32 @@ mud and value-collapse hide there.
 7. **Demo deck** `examples/<name>.md` + galleries; wire all three paths.
 8. **Validate contrast** on both canvases; `npm run build:check` + `npm test`.
 9. **Add yourself to the rosters the manifest does NOT drive.** The `kernel`
-   block registers your dispatch and framing. Everything else is hand-maintained.
-   A census of the tree (2026-09-06, while seven members landed at once) found
-   **sixteen** such rosters, not the six this step used to name — and the six it
-   named were all in the SILENT half, so following this list alone used to leave
-   you with a red build, and following only the gates left you with a chart that
-   has no prose projection, no vector export, no scorecard credit and no docs
-   entry.
+   block registers your dispatch and framing, and the `projection` block now
+   registers everything the SILENT half of this list used to cost. What remains
+   is hand-maintained. A census of the tree (2026-09-06, while seven members
+   landed at once) found **sixteen** such rosters, not the six this step used to
+   name — and the six it named were all in the SILENT half, so following this
+   list alone used to leave you with a red build, and following only the gates
+   left you with a chart that has no prose projection, no vector export, no
+   scorecard credit and no docs entry.
+
+   **DECLARE, don't enumerate — `projection` replaced nine of them.** Your
+   manifest carries one block:
+
+   ```jsonc
+   "projection": { "figure": "svg", "data": true }
+   ```
+
+   `figure` says how your rendered visual survives being lifted off the slide —
+   `svg` (one self-contained `<svg>`), `flow` (HTML+CSS, `cqi`-sized),
+   `spatial` (needs a bounded box), `placeholder` (cannot be statically
+   re-hosted), `bare` (no chart-frame), or `none` (no re-host producer at all).
+   That one declaration feeds the prose projection's five sets, both vector
+   export paths and the scorecard, and `familyOf()` falls back to your bucket so
+   the docs picker finds you. **You cannot forget it:**
+   `checkProjectionCoverage` fails the build for a chart-bucket component with no
+   `projection.figure`. See
+   `engineering/decisions/2026-09-13-projected-rosters.md`.
 
    **GATED — the build or a test goes red without these:**
    - `lib/core/split-facts.js` `TREATMENTS` — every chart is `'graphic'` (it
@@ -200,19 +219,22 @@ mud and value-collapse hide there.
      slot selector resolves" check. A chart's `ul > li` is consumed by its
      kernel, so without this the integration tier fails layer 1.
 
+   **PROJECTED — these nine were hand-maintained until 2026-09-13 and are now
+   derived from your `projection` block. Listed so you know what the one
+   declaration buys, and so a reader of an older branch can find them:**
+   `MEDIA_COMPONENTS`, `CHART_TOKEN_COMPONENTS`, `FLOW_CHART_COMPONENTS`,
+   `SPATIAL_BOUNDED_COMPONENTS` and `SPATIAL_PLACEHOLDER_COMPONENTS`
+   (`lib/transformers/prose-projection.mjs`); `KEYED_CHART_LAYOUTS`
+   (`lib/export/image-set.js`) and its copy as a local `const KEYED` inside a
+   `page.evaluate()` in `tools/export-chart-svg.js`; `CLEAN_SVG_LAYOUTS`
+   (`docs/src/components/studio/export/deck-export.js`); and `DATA_LAYOUTS`
+   (`lib/authoring/scorecard.js`). Four of those held the identical twelve names.
+   `docs/src/lib/families.mjs` stays hand-curated — it is an editorial taxonomy —
+   but `familyOf()` now falls back to your bucket, so a chart lands in "Charts &
+   diagrams" without an edit; add yourself only if you want a different shape
+   family.
+
    **SILENT — no gate, no red test, just a capability your chart quietly lacks:**
-   - `lib/transformers/prose-projection.mjs` — `MEDIA_COMPONENTS` (the accessible
-     `<figure>` projection) and `CHART_TOKEN_COMPONENTS` (without it the re-hosted
-     figure loses `chart-frame` and every fill paints SVG-initial BLACK), plus
-     `SPATIAL_BOUNDED_COMPONENTS` / `SPATIAL_PLACEHOLDER_COMPONENTS` / `FLOW_CHART_COMPONENTS`.
-   - `lib/export/image-set.js` `KEYED_CHART_LAYOUTS`, **and** its second copy as a
-     local `const KEYED` inside `page.evaluate()` in `tools/export-chart-svg.js` —
-     invisible to a grep for the exported name. Without both you export a raster
-     PNG where a vector SVG was meant.
-   - `docs/src/components/studio/export/deck-export.js` `CLEAN_SVG_LAYOUTS`.
-   - `lib/authoring/scorecard.js` `DATA_LAYOUTS` — else a deck built on your chart
-     scores Data: N/A instead of scoring.
-   - `docs/src/lib/families.mjs` — else the chart never appears in the docs picker.
    - `docs/src/lib/single-slide-render.ts` — the Studio chart-count chip (a regex
      alternation, not an array).
    - `docs/src/playground/chart-interact.js` `CHART_SVG_SEL` — without it the
@@ -229,8 +251,14 @@ mud and value-collapse hide there.
      text your kernel paints on the canvas) and `lib/core/chart-narration.js`
      `NARRATORS` (spoken facts in Present, captions and the webpage export).
 
-   Folding these into the manifest the way dispatch now is would be the right
-   follow-up; until then, this list is the map.
+   Folding the rest into the manifest the way dispatch and projection now are
+   would be the right follow-up; until then, this list is the map. The four that
+   resisted projection each need their own declared fact rather than a reuse of
+   `projection` — `CHART_SVG_SEL` wants a selector (`bar` declares the figure
+   class `bar-figure` but the selector is `.bar-svg`), and `ROLE_COMPONENTS` is
+   measured per component precisely because inferring it from `render` got two
+   backwards. See `engineering/decisions/2026-09-13-projected-rosters.md`
+   § "What this does NOT cover".
 
 ---
 

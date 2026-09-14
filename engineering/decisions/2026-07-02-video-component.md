@@ -1,11 +1,12 @@
 ---
-status: in-progress
-summary: A `video` component (imagery bucket) that renders a static poster + play badge + provider label + scannable QR/link — never a live iframe — so it works identically in PDF/PPTX/HTML; posters come from an author override or a build-time oEmbed fetch cached to disk, keeping render offline-deterministic
-last-updated: 2026-07-02
+status: shipped
+summary: A `video` component (imagery bucket) that renders a static poster + play badge + provider label + scannable QR/link — never a live iframe inside the slide — so it works identically in PDF/PPTX/HTML; posters come from an author override or a build-time oEmbed fetch cached to disk, keeping render offline-deterministic
+last-updated: 2026-09-13
 companion:
   - ../../lib/components/imagery/image/image.manifest.json
   - ../../lib/engine/qr.js
   - ./2026-07-01-qr-authoring-grammar.md
+  - ./2026-07-02-video-overlay-playback.md
   - ../../lib/core/transform-dsl/schema.js
 ---
 
@@ -30,8 +31,16 @@ play badge, the provider's name, an optional caption, and a **scannable QR code*
 (reusing `lib/engine/qr.js`) that links to the video. In the boardroom the
 audience scans to watch; in the HTML export the poster is also a plain link.
 This degrades identically across PDF / PPTX / HTML and needs zero security
-exceptions. (A live in-Studio player is a possible future phase, gated on the
-#22 iframe exception — explicitly out of scope here.)
+exceptions.
+
+**Live playback shipped later, and it needed no #22 exception either** — this
+paragraph's original parenthetical predicted one and was wrong on both counts.
+[`2026-07-02-video-overlay-playback.md`](2026-07-02-video-overlay-playback.md)
+mounts the player in the **parent** document, positioned over the poster, so it is
+never slide HTML and never passes through `sanitizeSlideHtml`. It runs on the
+Playground and in the Studio today. Nothing here changes: the *component* still
+renders a static poster, and that is still what a PDF, a PPTX and an HTML export
+carry.
 
 ## Shape
 
@@ -122,5 +131,11 @@ in dark + light and actually look at it (Quality Bar).
 
 ## Status
 
-Proposed — design for review before the build lands. Flip to `in-progress` when
-the component work starts, `shipped` on merge.
+**Shipped.** Every item in Delivery above is in the tree: the manifest and
+variants, `video.docs.md`, `video.styles.css`, the poster asset,
+`video.gallery.md` with its dark and light PDFs, `lib/transformers/video.js`
+registered in the shared registry, `tools/fetch-video-oembed.js`, unit tests, and
+`examples/video.md` with its committed PDF. `spotlight` stays deferred (see
+Compositions), and the provider table moved to `lib/core/video-providers.mjs` in
+2026-09 — see
+[`2026-09-13-plugin-architecture.md`](2026-09-13-plugin-architecture.md).

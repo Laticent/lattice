@@ -25,6 +25,10 @@
       }
     ]
   },
+  "projection": {
+    "figure": "spatial",
+    "data": true
+  },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
   "tags": [

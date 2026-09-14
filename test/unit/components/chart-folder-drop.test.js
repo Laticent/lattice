@@ -83,6 +83,11 @@ const DROP_MANIFEST = {
     figureClass: DROP_FIGURE,
     marks: [{ class: 'tempo-bar', paint: 'bg', encodes: 'hue', bears: true }],
   },
+  // Declared, because a chart-bucket component without it fails `checkProjectionCoverage`
+  // — which is the point: the six rosters this replaces could each be forgotten in silence.
+  // `flow` is the honest kind for a strip of <div> bars; the svg catalogs are exercised by
+  // the second generator run below, which re-declares the same drop as `svg`.
+  projection: { figure: 'flow', data: true },
   tags: ['percentage', 'stoplight', 'status'],
   description: 'A strip of labeled tempo bars, one per item, for the folder-drop proof.',
   skeleton: `<!-- _class: ${DROP_NAME} -->\n\n## Tempo\n\n- Verse \`4\`\n- Chorus \`8\`\n`,
@@ -101,12 +106,28 @@ function stageTree() {
   });
 }
 
-function dropChart() {
+function dropChart(projection = DROP_MANIFEST.projection) {
   const dir = path.join(SCRATCH, 'lib', 'components', 'chart', DROP_NAME);
   fs.mkdirSync(dir, { recursive: true });
+  const manifest = projection === null
+    ? Object.fromEntries(Object.entries(DROP_MANIFEST).filter(([k]) => k !== 'projection'))
+    : { ...DROP_MANIFEST, projection };
   fs.writeFileSync(path.join(dir, `${DROP_NAME}.manifest.json`),
-    JSON.stringify(DROP_MANIFEST, null, 2) + '\n');
+    JSON.stringify(manifest, null, 2) + '\n');
   fs.writeFileSync(path.join(dir, `${DROP_NAME}.transform.js`), DROP_KERNEL);
+}
+
+/** Run a generator against the scratch tree and fail loudly if it did not. */
+function generate(tool) {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', tool), '--root', SCRATCH],
+    { cwd: ROOT, encoding: 'utf8' });
+  assert.equal(r.status, 0, `${tool} failed:\n${r.stderr}`);
+}
+
+/** Re-read the scratch projection catalog, bypassing the ESM module cache. */
+async function readProjectionCatalog() {
+  const file = path.join(SCRATCH, 'lib', 'core', 'projection-catalog.generated.mjs');
+  return import(`${require('node:url').pathToFileURL(file).href}?v=${Date.now()}${Math.random()}`);
 }
 
 test('a chart added by folder-drop alone', async (t) => {
@@ -162,6 +183,124 @@ test('a chart added by folder-drop alone', async (t) => {
     assert.match(html, /data-beats="4"/);
     assert.match(html, /class="[^"]*\btempo-bars\b[^"]*\bchart-frame\b/,
       'the rendered section is not tagged as a framed chart');
+  });
+
+  // ── The projected catalogs ────────────────────────────────────────────────
+  //
+  // Dispatch and framing were never the whole claim. A dropped chart was ALSO absent
+  // from six hand-maintained rosters in five other files, and not one of them went
+  // red: omit the chart-token roster and every fill rendered black; omit the
+  // clean-SVG roster and vector export silently downgraded to PNG. These arms are
+  // what make "a folder drop needs zero edits outside its own folder" a measured
+  // claim rather than a slogan.
+  // See engineering/decisions/2026-09-13-projected-rosters.md.
+
+  await t.test('the drop reaches every catalog its declared kind belongs in', async () => {
+    generate('build-projection-catalog.js');
+    const c = await readProjectionCatalog();
+
+    // Declared `flow`: the flow branch of the prose projection, the media set (which
+    // is every re-hostable figure EXCEPT flow — so flow must be OUT), and the
+    // scorecard's data layouts.
+    assert.deepEqual(c.PROJECTION[DROP_NAME], { figure: 'flow', data: true },
+      'the generator did not read the dropped manifest\'s `projection` block');
+    assert.ok(c.FLOW_CHART_COMPONENTS.includes(DROP_NAME),
+      'the dropped chart is not in FLOW_CHART_COMPONENTS — the prose projection would ' +
+      'drop its .chart-body re-host and the bare table would overflow a narrow column');
+    assert.ok(c.DATA_LAYOUTS.includes(DROP_NAME),
+      'the dropped chart is not in DATA_LAYOUTS — a deck built on it would score Data: N/A');
+    assert.ok(!c.MEDIA_COMPONENTS.includes(DROP_NAME),
+      'a flow chart must NOT be in MEDIA_COMPONENTS — flow is dispatched on its own ' +
+      'branch first, and the media branch would re-host it as a bare figure');
+    assert.ok(!c.SVG_CHART_LAYOUTS.includes(DROP_NAME),
+      'a flow chart must NOT claim standalone-vector extraction');
+  });
+
+  await t.test('re-declared `svg`, the same drop reaches the four vector catalogs', async () => {
+    // The four rosters that held the IDENTICAL twelve names — CHART_TOKEN_COMPONENTS,
+    // KEYED_CHART_LAYOUTS, CLEAN_SVG_LAYOUTS and the copy inside a page.evaluate in
+    // tools/export-chart-svg.js — are all one export now, so one membership assertion
+    // covers all four. Re-dropping rather than adding a second fixture keeps the proof
+    // about the DECLARATION, not about this particular chart.
+    dropChart({ figure: 'svg', data: true });
+    generate('build-projection-catalog.js');
+    const c = await readProjectionCatalog();
+
+    assert.ok(c.SVG_CHART_LAYOUTS.includes(DROP_NAME),
+      'the dropped chart is not in SVG_CHART_LAYOUTS — its fills would resolve to an ' +
+      'undefined var and render BLACK in the prose projection, it would yield no ' +
+      'standalone SVG, and both export surfaces would degrade it to a raster PNG');
+    assert.ok(c.MEDIA_COMPONENTS.includes(DROP_NAME),
+      'an svg chart must be in MEDIA_COMPONENTS — else no captioned-<figure> projection');
+    assert.ok(!c.FLOW_CHART_COMPONENTS.includes(DROP_NAME));
+
+    dropChart();  // restore the honest declaration for anything after this
+    generate('build-projection-catalog.js');
+  });
+
+  await t.test('`none` is a real answer, not a way to opt out of the catalogs', async () => {
+    dropChart({ figure: 'none', data: true });
+    generate('build-projection-catalog.js');
+    const c = await readProjectionCatalog();
+
+    // It is still RECORDED — that is the difference between declaring "no producer"
+    // and simply being forgotten, which is the entire subject of this change.
+    assert.deepEqual(c.PROJECTION[DROP_NAME], { figure: 'none', data: true });
+    for (const set of ['SVG_CHART_LAYOUTS', 'FLOW_CHART_COMPONENTS', 'MEDIA_COMPONENTS',
+      'SPATIAL_BOUNDED_COMPONENTS', 'SPATIAL_PLACEHOLDER_COMPONENTS']) {
+      assert.ok(!c[set].includes(DROP_NAME), `\`none\` must not appear in ${set}`);
+    }
+    assert.ok(c.DATA_LAYOUTS.includes(DROP_NAME),
+      'having no figure path says nothing about whether the substance is data');
+
+    dropChart();
+    generate('build-projection-catalog.js');
+  });
+
+  await t.test('FORGETTING the declaration goes RED — the arm the six rosters lacked', () => {
+    dropChart(null);
+    const dropped = JSON.parse(fs.readFileSync(path.join(
+      SCRATCH, 'lib', 'components', 'chart', DROP_NAME, `${DROP_NAME}.manifest.json`), 'utf8'));
+    assert.equal(dropped.projection, undefined, 'the fixture still declares a projection');
+
+    // The LOADER accepts it: absence is a coverage question, not a shape error, and
+    // conflating the two would make the block un-optional for the 41 components that
+    // legitimately have no rendered visual.
+    const { validate } = require(path.join(ROOT, 'lib', 'components'));
+    assert.deepEqual(validate(dropped, DROP_NAME), []);
+
+    // The OWNERSHIP GATE refuses it. Driven over the synthetic manifest rather than
+    // over the shipped tree, because the shipped tree can never be in this state —
+    // which is exactly why every roster this replaces could be forgotten in silence.
+    const { checkProjectionCoverage } = require(path.join(ROOT, 'tools', 'check-ownership.js'));
+    const errors = [];
+    checkProjectionCoverage([dropped], errors);
+    assert.equal(errors.length, 1, `expected one coverage error, got ${JSON.stringify(errors)}`);
+    assert.match(errors[0], /projection\.figure/);
+    assert.match(errors[0], /silently degrades to PNG/,
+      'the error must say what BREAKS, not just that a field is missing — the whole ' +
+      'defect class is failures nobody could see');
+
+    // And it passes the moment the chart declares one, including `none`.
+    for (const figure of ['svg', 'flow', 'spatial', 'placeholder', 'bare', 'none']) {
+      const ok = [];
+      checkProjectionCoverage([{ ...dropped, projection: { figure } }], ok);
+      assert.deepEqual(ok, [], `\`${figure}\` should satisfy coverage`);
+    }
+    // A non-chart component owes nothing.
+    const nonChart = [];
+    checkProjectionCoverage([{ name: 'x', bucket: 'statement', function: 'statement' }], nonChart);
+    assert.deepEqual(nonChart, [], 'coverage must not reach outside the chart bucket');
+
+    dropChart();
+  });
+
+  await t.test('the docs picker finds it with no edit to families.mjs', async () => {
+    const { familyOf } = await import(
+      require('node:url').pathToFileURL(path.join(ROOT, 'docs', 'src', 'lib', 'families.mjs')).href);
+    assert.equal(familyOf(DROP_NAME, 'chart'), 'charts',
+      'the dropped chart fell to the `other` family — it would be absent from the ' +
+      'component browser\'s shape lens, the sixth roster a drop used to miss');
   });
 
   await t.test('no central file was edited to get any of that', () => {

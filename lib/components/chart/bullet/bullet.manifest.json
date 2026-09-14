@@ -14,6 +14,10 @@
   "form": "canvas",
   "substance": "series",
   "bucket": "chart",
+  "projection": {
+    "figure": "svg",
+    "data": true
+  },
   "stage": "canvas",
   "render": "svg",
   "renderNote": "One SVG because three of the four marks in a row share one scale: the target is a tick at a VALUE, the qualitative zones tile that same value axis, and the measure is read against both. HTML boxes can express one bar against an implicit 0-100 domain; they cannot put a threshold and a banded scale in the same coordinate system.",

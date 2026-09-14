@@ -75,6 +75,10 @@
       }
     ]
   },
+  "projection": {
+    "figure": "svg",
+    "data": true
+  },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
   "tags": [

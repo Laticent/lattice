@@ -5054,6 +5054,51 @@ function checkChartMarks(manifests, errors) {
   }
 }
 
+// Every chart declares HOW its visual travels off the slide.
+//
+// This is the arm that turns the whole class of silent roster omissions into a build
+// failure. Before the `projection` block, adding a chart meant remembering six
+// unrelated hand-maintained lists, and NOT ONE of them went red: omit the chart-token
+// roster and `color-mix(var(--chart-cat-N-hue) …)` resolved to nothing, so every fill
+// rendered black; omit the clean-SVG roster and vector export silently downgraded to
+// PNG. The declaration replaced the lists, but a declaration you can forget is just a
+// roster with better manners — so forgetting it has to be loud.
+//
+// SCOPED TO THE BUCKETS WHOSE MEMBERS ALWAYS HAVE A RENDERED VISUAL, and required
+// rather than optional there, because for those there is always a right answer. A
+// `statement` or `inventory` component may legitimately have none, which is why the
+// block stays optional elsewhere (the loader validates its SHAPE for everyone).
+//
+// It was chart-only in the first cut, and a checker found the hole: drop a component
+// into `diagram/` or `imagery/` with no block and `build:check` passes, but the
+// component is absent from MEDIA_COMPONENTS and Read·Article hands it the generic
+// projection instead of a captioned <figure>. That is the same silent capability loss
+// this whole change exists to end, one bucket over. `math` is here for the same reason
+// — its body is a typeset equation, which is a rendered visual by any reading.
+//
+// `none` is a legal answer and deliberately so. `matrix-grid` has no static re-host
+// producer today — its CSS already carries the `figure.matrix-grid` half, but nothing
+// projects into it — and declaring that fact is honest where omitting it was invisible.
+// The point is not that every chart re-hosts; it is that every chart SAYS.
+//
+// See engineering/decisions/2026-09-13-projected-rosters.md.
+const PROJECTION_REQUIRED_BUCKETS = new Set(['chart', 'diagram', 'imagery', 'math']);
+
+function checkProjectionCoverage(manifests, errors) {
+  for (const m of manifests) {
+    if (!PROJECTION_REQUIRED_BUCKETS.has(manifestBucket(m))) continue;
+    const figure = m.projection?.figure;
+    if (typeof figure === 'string') continue;  // the loader validated the value itself
+    errors.push(
+      `${m.name}: ${manifestBucket(m)}-bucket component with no \`projection.figure\`. Declare how its ` +
+      `visual re-hosts off the slide — svg | flow | spatial | placeholder | bare — or ` +
+      `\`none\` if it genuinely has no static re-host. Without it the chart is absent from ` +
+      `every projected catalog at once: black fills in the prose projection, no standalone ` +
+      `SVG extraction, and a vector export that silently degrades to PNG. ` +
+      `See lib/components/manifest.schema.json \`projection\`.`);
+  }
+}
+
 // HARD RULE #22 — untrusted slide HTML reaches a preview frame ONLY through
 // `sanitizeSlideHtml`. The docs-site Studio renders untrusted markdown (shared /
 // AI-generated decks + component skeletons) into a SAME-ORIGIN, un-sandboxed
@@ -11577,6 +11622,7 @@ function run() {
   checkRenderNature(manifests, errors);
   checkChartKernels(manifests, errors);
   checkChartMarks(manifests, errors);
+  checkProjectionCoverage(manifests, errors);
   checkDensityCoverage(manifests, errors);
   checkDiagramScopeSelectors(errors);
   checkClassAttrReads(errors);
@@ -11656,6 +11702,10 @@ module.exports = {
   // Theme-manifest gates + their pure helpers, exported so the suite can drive them
   // against synthetic fixtures rather than only asserting the shipped tree is clean —
   // a gate only proves something if you can watch it fail.
+  // Driven against synthetic manifests by the folder-drop proof, for the reason
+  // stated above: the arm that matters is the one where a chart FORGETS to declare
+  // its projection, and the shipped tree can never be in that state.
+  checkProjectionCoverage,
   checkManifestSchemas,
   checkAjvBoundary,
   checkThemeManifestCoverage,

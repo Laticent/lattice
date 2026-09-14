@@ -80,6 +80,7 @@ const EXPECTED_PR_OWNED = new Set([
   'build-theme-catalog.js', // lib/theme/edges.generated.mjs AND the palette catalog
   'build-axis-dom-catalog.js', // lib/runtime
   'build-chart-registry.js', // lib/components/chart/_chart-family/chart-registry.generated.js
+  'build-projection-catalog.js', // lib/core/projection-catalog.generated.mjs
   'build-snippets.js', // .vscode
   'build-component-docs.js', // lib/components/**/*.docs.md
   'build-landing-tokens.js', // docs/src/styles

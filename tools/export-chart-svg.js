@@ -39,6 +39,12 @@ const path = require('path');
 const puppeteer = require('puppeteer');
 const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = require('../lib/components/chart/_chart-family/standalone-svg.js');
 const { buildChartFontFaceCss } = require('./lib/chart-font-embed.js');
+// The keyed set, projected from each manifest's `projection.figure === "svg"`. This
+// file's copy lived INSIDE the page.evaluate below under a different name (`KEYED`),
+// where a grep for the exported name could not see it, and its comment still said
+// "the FOUR keyed layouts" when there were twelve. It is passed into the browser as
+// an argument: an evaluate callback is serialized, so it cannot close over a require.
+const { SVG_CHART_LAYOUTS: KEYED_CHART_LAYOUTS } = require('../lib/core/projection-catalog.generated.mjs');
 const { resolveChrome } = require('./lib/resolve-chrome');
 
 const ROOT = path.join(__dirname, '..');
@@ -138,19 +144,18 @@ async function main() {
     await new Promise(r => setTimeout(r, 350));
 
     // Enumerate charts: [{slide (1-based), chart (0-based)}] for every keyed chart.
-    // Scope to the FOUR keyed layouts (their svgs are the one-unit diagram+key
+    // Scope to the keyed layouts (their svgs are the one-unit diagram+key
     // this feature exports), keyed off the section class — NOT aria-hidden: the
     // quadrant's own svg is aria-hidden (its a11y rides text/desc), so filtering
     // that out would wrongly drop it. Same set the Drawing Board gate uses, and
     // it skips aux overlays (e.g. the state-chart edge svg).
-    const index = await page.evaluate(() => {
+    const index = await page.evaluate((KEYED) => {
       // Keyed charts render as a single self-contained <svg> → export as vector.
       // Every OTHER chart-frame slide (gantt/kanban/progress/journey/… — HTML/CSS
       // or mixed) → screenshot its container to PNG. The engine renders these
       // correctly (the section is pinned to its real box so container queries
       // resolve), so a real element screenshot captures them — exactly how the
       // chart galleries are produced.
-      const KEYED = ['bar', 'bullet', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'piechart', 'radar', 'map', 'quadrant', 'funnel'];
       const out = [];
       const sections = Array.from(document.querySelectorAll('.lattice > section'));
       sections.forEach((sec, si) => {
@@ -161,7 +166,7 @@ async function main() {
         else out.push({ slide: si + 1, chart: 0, kind: 'png' });
       });
       return out;
-    });
+    }, KEYED_CHART_LAYOUTS);
     if (!index.length) throw new Error('no charts found in this deck');
 
     // Which targets to export.

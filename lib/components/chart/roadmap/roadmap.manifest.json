@@ -55,6 +55,10 @@
       }
     ]
   },
+  "projection": {
+    "figure": "flow",
+    "data": true
+  },
   "stage": "canvas",
   "coda": {
     "claims": [

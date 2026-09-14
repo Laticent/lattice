@@ -12,6 +12,9 @@
   "function": "imagery",
   "form": "canvas",
   "substance": "prose",
+  "projection": {
+    "figure": "bare"
+  },
   "stage": "canvas",
   "coda": { "dock": "row" },
   "orientation": [

@@ -15,10 +15,14 @@
 // COVERAGE IS NOT GATED, and the comment here used to say otherwise — it claimed
 // "every one of the 52 components is covered (see test below in the page build)".
 // Both halves were wrong: the count had drifted (the list carries more than that
-// now), and no test enforces coverage. `familyOf()` below falls back to `'other'`
-// for anything unmapped, so a new component silently lands in a bucket nobody named
-// rather than failing a build. Stated plainly instead of restating a number that
-// rots: if you add a component and want it browsable by shape, add it here.
+// now), and no test enforces coverage. Stated plainly instead of restating a number
+// that rots: if you add a component and want it browsable by SHAPE, add it here.
+//
+// What has changed is the cost of forgetting. `familyOf()` now falls back to the
+// component's engine BUCKET before 'other', so an uncurated component lands in a
+// plausible family instead of one nobody named — a dropped chart reaches the picker
+// with no edit to this file. That is a floor, not a substitute for curation: the
+// bucket lens is coarser than the shape lens, which is why this list exists.
 export const FAMILY_DEFS = [
 	{ key: 'titles', label: 'Titles & breaks', members: ['title', 'divider', 'closing'] },
 	{ key: 'statements', label: 'Statements', members: ['big-number', 'content', 'quote'] },
@@ -45,9 +49,34 @@ export const FAMILY_DEFS = [
 const NAME_TO_FAMILY = new Map();
 for (const def of FAMILY_DEFS) for (const n of def.members) NAME_TO_FAMILY.set(n, def.key);
 
-/** Family key for a component name ('other' if somehow unmapped). */
-export function familyOf(name) {
-	return NAME_TO_FAMILY.get(name) || 'other';
+// The engine bucket each family absorbs when a component is not named above. This is
+// the SAFETY NET, not the taxonomy: FAMILY_DEFS stays hand-curated because it encodes
+// editorial judgment no manifest field carries (math is its own family rather than a
+// lodger in "Code & math"; split-* is kept whole). What it must not do is drop a
+// NEW component into a bucket nobody named — a dropped chart used to land in 'other'
+// and vanish from the docs picker, one of the six rosters a folder-drop silently
+// missed. See engineering/decisions/2026-09-13-projected-rosters.md.
+export const BUCKET_FALLBACK_KEYS = [
+	['chart', 'charts'],
+	['diagram', 'charts'],
+	['imagery', 'images'],
+	['math', 'math'],
+	['code', 'code'],
+	['legal', 'legal'],
+	['comparison', 'compare'],
+	['anchor', 'titles'],
+];
+const BUCKET_FALLBACK = new Map(BUCKET_FALLBACK_KEYS);
+
+/**
+ * Family key for a component. Prefers the curated FAMILY_DEFS membership; falls back
+ * to the component's engine bucket so a component nobody has curated yet is still
+ * browsable, and only then to 'other'.
+ * @param {string} name
+ * @param {string} [bucket]  the manifest's bucket (or function), when the caller has it
+ */
+export function familyOf(name, bucket) {
+	return NAME_TO_FAMILY.get(name) || (bucket ? BUCKET_FALLBACK.get(bucket) : undefined) || 'other';
 }
 
 // Function lens (the 7 audience-functions) + Substance lens orders, mirrored
@@ -65,7 +94,7 @@ export function buildCatalog(manifests, bucketOf) {
 	const labelOf = new Map(FAMILY_DEFS.map((d) => [d.key, d.label]));
 	return manifests
 		.map((m) => {
-			const family = familyOf(m.name);
+			const family = familyOf(m.name, bucketOf(m));
 			return {
 				name: m.name,
 				bucket: bucketOf(m),

@@ -71,6 +71,10 @@
       }
     ]
   },
+  "projection": {
+    "figure": "placeholder",
+    "data": true
+  },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
   "orientation": [

@@ -6,6 +6,10 @@
   "substance": "series",
   "bucket": "chart",
   "anatomyBlock": "line",
+  "projection": {
+    "figure": "svg",
+    "data": true
+  },
   "stage": "canvas",
   "render": "svg",
   "renderNote": "The plot, the grid, the axis, every label and every series is one `<svg>`. A line is a claim about SHAPE — the reader compares the slope of one series against another and against the gridline behind both — so the marks and the scale they are read against have to live in one coordinate system, not in boxes that happen to line up.",
