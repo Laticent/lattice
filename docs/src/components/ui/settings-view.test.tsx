@@ -192,7 +192,7 @@ describe('visibleSectionTabs — the fitting policy', () => {
 	});
 
 	it('RESERVES the pinned pill rather than squeezing it in afterwards', () => {
-		// Look(56) + Chrome(74) + chevron(72) + 2 gaps = 214, so a 231px row holds both — but
+		// Look(54) + Chrome(71) + chevron(74) + 2 gaps = 211, so a 231px row holds both — but
 		// only if nothing else has to fit. With Speech active the run gives one pill back.
 		expect(visibleSectionTabs(TABS, 1, fitAt(231))).toEqual(['Look', 'Chrome']);
 		expect(visibleSectionTabs(TABS, 5, fitAt(231))).toEqual(['Look', 'Speech']);

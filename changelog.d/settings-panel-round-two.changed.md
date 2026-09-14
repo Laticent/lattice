@@ -12,12 +12,15 @@
   "margin" finds Claim), and it repairs a typo ("numbre", "capiton", "algnment"). No
   ranking: a filter draws a row or it does not, so precision-first substring matching still
   runs first. Per-row `find=` synonyms are unchanged.
-- Searching "color" in the deck panel returned the whole Accent section — eleven rows —
-  because that section listed a keyword its own Brand bar row already carries. It now
-  returns the two rows that are about color.
+- Searching "color" in the deck panel returned eleven rows — the whole Accent section, nine
+  of them, plus Theme and Color mode — because that section listed a keyword its own Brand
+  bar row already carries. It now returns the two rows that are about color.
 - The Inspector's section strip now draws as many pills as the panel can hold instead of a
-  fixed two, and the section you are in is always one of them. A 390px phone gains two
-  pills; the docked desktop panel keeps two, but one of them is now where you are. Dragging
-  the panel re-fits it live, on one line. The chevron still holds the whole list.
+  fixed two, and the section you are in is one of them wherever there is room for a pill at
+  all. A 390px phone gains one or two; the docked desktop panel keeps two, but one of them is
+  now where you are. When even one pill will not fit — a long section name in the slide
+  panel — the chevron wears that section's name instead of "More", so the strip still answers
+  "where am I". Dragging the panel re-fits it live, on one line. The chevron still holds the
+  whole list.
 - Clearing the Inspector's search field now leaves the caret in the field, so the next word
   can be typed straight away (and a phone keyboard does not drop).

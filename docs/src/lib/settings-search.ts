@@ -233,7 +233,7 @@ function haystackFor(text: string): Haystack {
  * Is `term` a plausible TYPO of `word`?
  *
  * ONE EDIT, ANCHORED ON TWO CHARACTERS — and every part of that was measured, on the live
- * 65-row corpus of both scopes, against the substring-only rule it replaces.
+ * 63-row corpus of both scopes, against the substring-only rule it replaces.
  *
  * THE ANCHOR is what makes a PER-ROW repair safe. intent-search can be generous because it
  * only repairs a term that matched nothing in its whole index, which is what stops "mark"

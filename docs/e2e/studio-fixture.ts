@@ -673,8 +673,9 @@ export async function openInspectorTab(page: Page, tab: keyof typeof CHROME.deck
 /**
  * Click a settings section by NAME, via its shortcut pill or the chevron's menu.
  *
- * The strip shows the first two sections as pills and keeps the whole list behind the
- * chevron, so a spec that only knew `role="tab"` could reach two of six. Centralized for
+ * The strip shows as many leading sections as the panel can hold — plus the active one,
+ * always — and keeps the whole list behind the chevron, so a spec that only knew
+ * `role="tab"` could reach as few as none of six. Centralized for
  * the same reason `CHROME` is: the shortcut count is a design decision that will move, and
  * when it does this is the one place that has to know.
  */

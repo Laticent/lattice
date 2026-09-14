@@ -435,7 +435,8 @@ export function SettingsSectionTabs({
 		// horizontal scroll region: one two-finger swipe over the panel scrolled every control
 		// off-screen and left a blank column. Measured as the panel body's
 		// `scrollWidth − clientWidth`: +259 deck / +336 slide at 1440 docked, +272 / +349 in the
-		// 820 drawer, +128 / +205 on a 390 phone.
+		// 820 drawer, +128 / +205 on a 390 phone — measured in Chrome 131 and WebKit 26. Add 3px
+		// deck / 6px slide for Playwright's Chromium 141, whose label metrics differ by a pixel.
 		//
 		// The obvious fix is `overflow: clip` on this row. DO NOT DO THAT. The row's first pill
 		// sits flush against its content edge (measured gap: 0px) and the app focus ring is
@@ -455,8 +456,9 @@ export function SettingsSectionTabs({
 		// 1440 in both scopes: focus ring pixel-identical to no clip at all, the strip
 		// contributing zero sideways scroll to panel or document, row height unchanged.
 		// (The panel is not unconditionally unscrollable sideways. Pick General and it scrolls
-		// 15px at 1440, from the Language row's select trigger — a different component, a
-		// pre-existing cause, and byte-identical to `main`. See #2203 and decision note §15.)
+		// 15px at 1440 in Chromium, 13px in WebKit, from the Language row's select trigger — a
+		// different component, a pre-existing cause, and byte-identical to `main`. See #2203 and
+		// decision note §15.)
 		//
 		// `clip` rather than `hidden` on that wrapper: `hidden` would make it a scroll container
 		// in its own right. The section dropdown is a Radix portal, so its menu is outside all of
@@ -495,11 +497,16 @@ export function SettingsSectionTabs({
 			    pinned pill. One pill plus the chevron is 134px, but `visibleSectionTabs` also
 			    RESERVES the active pill when it is not in the run — so with the slide scope's
 			    `Comments` active (the widest label, 87px) `n = 1` costs 74 + 6 + 54 + 6 + 87 =
-			    227px, and any row narrower than that gets no pills at all. The 820px tablet
-			    drawer gives the slide panel a 214px row: pick Comments there and the strip is
-			    the chevron alone, wearing "Comments". An earlier draft of this comment said it
-			    "needs a narrower container than the UI offers today" — it reasoned from the
-			    260px DOCK minimum and never looked at the drawer. */}
+			    227px, and any row narrower than that gets no pills at all.
+			    THAT IS THE DEFAULT DESKTOP IN CHROMIUM, not an exotic width. The docked slide
+			    panel's row is 227px at 1440x900, and Chromium 141 measures `Comments` at 89px
+			    rather than the 87px above, so `n = 1` costs 229 and the strip is the chevron
+			    alone, wearing "Comments". WebKit 26 keeps two pills at the same width on the
+			    strength of those two pixels; both engines hit the floor in the 820px drawer,
+			    whose row is 214px. Two earlier drafts of this comment were wrong in the same
+			    direction — first that the floor "needs a narrower container than the UI offers
+			    today" (it reasoned from the 260px DOCK minimum and never looked at the drawer),
+			    then that the drawer was where it lived. A two-pixel label metric decides it. */}
 			{visible.length > 0 && (
 			<div className="contents" role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
 				{visible.map((t, i) => (

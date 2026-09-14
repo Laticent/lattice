@@ -365,9 +365,10 @@ not have looked like one.
 as `Set it …` in the 60px it had left. That is §8.1's defect — a row whose words are a stub —
 arriving through a different door: the field, not a container query. The sentence now steps
 aside entirely while the field is open. Nothing moved behind `sr-only`, which is the trap
-§8.1 fell into: the scope stays DRAWN by the field's own placeholder ("Search deck
-settings…"), by the Slide/Deck segment above it on mobile, and by the scope icon in the row
-on desktop.
+§8.1 fell into: the scope stays DRAWN by the activity rail's own Slide / Deck labels on
+desktop and by the Slide/Deck segment above the row on mobile. (An earlier draft of this
+paragraph credited the field's own placeholder, which disappears at the first keystroke —
+§12.)
 
 ---
 
@@ -406,7 +407,7 @@ check caught it. It claimed the stop list eats the only word telling *Says somet
 *Says nothing*. It does not: `contentWords('Says nothing')` returns `["says","nothing"]`, and
 none of `says` / `something` / `nothing` is in `STOP`. What is true:
 
-- it **does** drop `no` and `all`, among 112 others — `'No comments on this slide yet'`
+- it **does** drop `no` and `all`, among 109 others (`STOP` holds 111 words in all) — `'No comments on this slide yet'`
   tokenizes to `["comments","yet"]` and `'All 7 slides follow'` to `["slides","follow"]`. A
   settings filter has to keep those; they are what an author types;
 - it does not fold diacritics, and it is worse than not folding: the `[a-z0-9]` class DROPS
@@ -518,7 +519,8 @@ keep in sync.
 
 ### What it actually draws
 
-Measured on the running Studio, deck scope, with **Speech** — the last of six — active:
+Measured on the running Studio, deck scope, with **Speech** — the last of six — active, in
+**Chrome 131 / WebKit 26**:
 
 | Surface | Strip row | Pills drawn |
 |---|---|---|
@@ -527,7 +529,15 @@ Measured on the running Studio, deck scope, with **Speech** — the last of six 
 | Docked desktop, 1440x900 | 231px | `Look · Speech · More` |
 | Docked desktop, 2560 | 236px | `Look · Speech · More` |
 
-The phone gains two pills it never had. The docked panel keeps two — and the difference is
+**The phone row turns on one pixel, and Chromium 141 falls the other way.** That build
+measures `Chrome` at 72px where the two above measure 71, so `n = 3` costs
+`74 + 6+54 + 6+72 + 6+72 + 6+67 = 363` against a 362px row and `General` drops: the phone
+draws `Look · Chrome · Speech · More`. Same policy, same widths to within a pixel, one pill
+of difference — which is the argument for scoping every number in this note to the engine
+that produced it (§16).
+
+The phone gains a pill it never had — two in Chrome 131 and WebKit, one in Chromium 141, and
+two in every engine when the opening section is active rather than the last. The docked panel keeps two — and the difference is
 that one of them is now the section you are in. Dragging the divider live, the count walks
 2 → 3 → 4 and back, on one line the whole way, with `Speech` never leaving the screen.
 
@@ -718,7 +728,8 @@ mistaken for the scope axis.)
 - **"This needs a narrower container than the UI offers today"**, on the zero-pill floor, was
   reasoned from the 260px dock minimum and never looked at the tablet drawer. The 820px
   drawer gives the slide panel a **214px** row; pick `Comments` there and the strip really is
-  the chevron alone, wearing "Comments" — measured, not derived.
+  the chevron alone, wearing "Comments" — measured, not derived. *(And the correction was
+  itself too narrow: in Chromium the floor is reached at the DEFAULT DESKTOP. §15.)*
 
 ---
 
@@ -837,9 +848,10 @@ so does the e2e's `beforeEach`.
 
 **It is not the strip.** Attributed by elimination: with the ghost's clip box set
 `display: none` the panel still reads 15; with that box set `overflow: visible` it reads 262.
-The 15px is the **Language row's select trigger** — `min-content` 258px inside a 231px content
-box, which the row's `min-w-0` cannot pull below because the trigger's own `min-width` is
-`auto`. `SETTING_CONTROL_COL`, `LanguageSelect.tsx`, the panel-body classes and `SET_MIN` are
+The 15px is the **Language row's select trigger** — it renders 260px wide in Chromium 141 and
+258px in WebKit 26, inside a 231px content box, and the row's `min-w-0` cannot pull it below
+that because the trigger's own `min-width` computes to `auto`. (Neither figure is its
+`min-content`, which a `width: min-content` probe puts at 266 / 288.) `SETTING_CONTROL_COL`, `LanguageSelect.tsx`, the panel-body classes and `SET_MIN` are
 byte-identical to `main`.
 
 **Left as #2203, not fixed here**, and the boundary is HARD RULE #18's on-path test.
@@ -873,3 +885,63 @@ rather than chosen, and the assumption never made it into the sentence: one axis
 three), one state, one section (this round), one scope (the 13px), one engine (round four).
 The fix is not "measure more"; it is to write the scope into the claim, so that a sentence
 which has only been tested on deck / Look / Chromium / 1440 says so.
+
+
+---
+
+## 16. What the SIXTH pass found — and why it was the last
+
+§15 ended by prescribing the fix for all five previous rounds: *write the scope into the
+claim.* A sixth pass, this one fact-checking the PROSE only and touching no design question,
+asked whether §15 had taken its own advice. It had not, in four places.
+
+**No shipped behavior was wrong.** The `size-0 overflow-clip` wrapper was re-derived
+independently for the second time — focus ring restored, panel scroll 0, row height
+unchanged, ghost widths intact, in Chromium 141 and WebKit 26 at 390 / 820 / 1440 in both
+scopes. Thirty-four claims confirmed. What it found was fourteen defects in the writing, of
+which four would mislead someone acting on them.
+
+### The four that mattered
+
+- **The `+259 / +336 / +272 / +349 / +128 / +205` set is a Chrome 131 number**, stated
+  unqualified in three documents — while §15 gives **262** for the same box at the same
+  viewport. Playwright's Chromium 141 measures 262 / 342 / 275 / 355 / 131 / 211. One file in
+  the whole change got this right: `inspector.spec.ts`, which says "259px as this repo's
+  puppeteer scripts measure it in Chrome 131, 262px in the Chromium this spec runs in". That
+  sentence is now the model the other three follow.
+- **The zero-pill floor is the DEFAULT DESKTOP in Chromium**, not a tablet-drawer curiosity.
+  The docked slide panel's row is 227px; Chromium 141 measures `Comments` at 89px where
+  Chrome 131 and WebKit measure 87, so `n = 1` costs 229 against 227 and the strip is the
+  chevron alone. WebKit keeps two pills at the same width. **A two-pixel label metric decides
+  it** — which is the sharpest illustration in this whole note of why an engine-scoped
+  measurement must carry its engine.
+- **`gotchas/css.md` still said "13px narrower"** — a claim §15 of this same change had
+  explicitly retracted in favor of 4px. The correction reached the decision note and not the
+  gotcha, which is the file a stranger hits first.
+- **§11's phone table row is wrong in Chromium 141.** With `Speech` active at 390x844 it
+  draws `Look · Chrome · Speech · More`, not five pills: `n = 3` costs 363px against a 362px
+  row because `Chrome` measures 72px rather than 71. One pixel, one pill.
+
+### And a correction to a correction
+
+§14 reported `main`'s row as `flex flex-wrap gap-1.5` from `pill-tabs.tsx`, with no
+`className` from the call site. **All three parts were wrong** — `main`'s strip row is
+`cn('flex flex-wrap items-center gap-1.5', className)` in `settings-view.tsx:337`,
+`pill-tabs.tsx` is a different component the strip does not render, and the slide call site
+passes `className="py-3"`. The original text had been right; a check told me otherwise and I
+rewrote it without opening the file. **That is the same defect as all the others, one level
+up: a claim accepted because it arrived with authority rather than because it was
+re-derived.**
+
+### Why this is the last round
+
+Six rounds, and the returns are now clearly diminishing in one direction and not the other:
+every round since the third has found prose, not behavior, and the prose defects have gotten
+smaller each time (a shipped Safari regression, then a false test name, then a stale engine
+qualifier). The code has been independently re-derived twice with nothing found.
+
+The durable fix is not a seventh round. It is the rule this note has now earned the right to
+state plainly: **a measurement taken in one browser, one section, one scope or one viewport
+is not a fact about the component — it is a fact about that configuration, and the sentence
+has to say so.** Every one of the twenty-plus false claims in this change was a true
+measurement wearing a wider sentence than it had earned.

@@ -793,7 +793,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   trackpad swipe (or shift+wheel) over it slides every control off-screen and leaves a
   blank column. Nothing visible is too wide, `overflow-x` is nowhere in the CSS, and the
   repo's own `npm run check:overflow` passes — it measures the page and the header, not
-  this scroller. Measured instance: the Studio's settings panel gained a 259px horizontal
+  this scroller. Measured instance (Chrome 131 and WebKit 26; Playwright's Chromium 141 reads
+  3-6px wider, worth knowing before quoting one of these at another build): the Studio's
+  settings panel gained a 259px horizontal
   scroll region at the docked desktop width (336px in the slide scope), 272px in the 820px
   tablet drawer (349px slide), and 128px on a 390px phone (205px slide).
 - **Cause:** two rules meeting. (1) A `visibility: hidden` box is still LAID OUT and still
@@ -824,7 +826,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   Chromium 141 on the same page. A fix that depends on this property is a fix for one engine.
 - **And the margin has a ceiling anyway, so raising it "for safety" fails too** — it is part
   of the ancestor's scrollable overflow. Measured on this panel's DECK scope, `16px` returns
-  +2px of horizontal scroll, `24px` +10, `48px` +34 (the slide scope, whose row is 13px
+  +2px of horizontal scroll, `24px` +10, `48px` +34 (the slide scope, whose row is 4px
   narrower, holds out until 24px). The usable band was 6–12px.
 - **Test it by asking the SCROLLER, not the children.** The first e2e written for this
   measured `row.querySelectorAll('button')` and asserted "zero overflow at every width" — the

@@ -48,7 +48,7 @@ describe('settingsMatch — the rule that did not change', () => {
 	});
 
 	it('keeps STOP WORDS, which a picker tokenizer would eat', () => {
-		// `intent-search`'s `contentWords` drops `no` and `all` (among 112). Verified by
+		// `intent-search`'s `contentWords` drops `no` and `all` (`STOP` holds 111 words). Verified by
 		// calling it: 'No comments on this slide yet' tokenizes to ["comments","yet"], and
 		// 'All 7 slides follow' to ["slides","follow"]. An author types those words.
 		// (NOT "says"/"nothing"/"something" — an earlier version of this comment said the
