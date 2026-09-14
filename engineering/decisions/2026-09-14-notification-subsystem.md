@@ -85,6 +85,27 @@ reaching for.
 `lib/announce.tsx` owns the a11y half of property 1's *condition* side — and only
 that half. It renders no visible text, moves nothing, changes no layout.
 
+## The stack is EXPANDED, and only the ceiling makes that safe
+
+Sonner's collapsed stack zeroes the content of every pill but the front one
+(`[data-expanded='false'][data-front='false'] > * { opacity: 0 }`). Looking at two
+kinds on screen — which is the whole claim that an affordance keeps its own slot —
+showed what that means: a draft-backup Undo sitting behind a status message was a 4px
+edge with an **invisible but still clickable** button in it. That is a worse outcome
+than either being replaced or being absent, and no test would ever have said so.
+
+`expand` fixes it, and the per-kind ceiling is what makes `expand` sane: with an
+unbounded stack it would be a wall; with at most three kinds it is at most three
+lines, and the common case is still one.
+
+**Expanding then exposed a content defect the collapsed stack had been hiding.** The
+Playground's handoff raised two near-identical sentences — "Loaded the deck from X —
+your previous draft is backed up." and "Loaded the deck handed off from X." — which
+were never both readable at once, so nobody had read them as the repetition they are.
+`backupDraft` now reports whether it spoke and the caller stays quiet when it did.
+Worth stating plainly: **the bug was always there, and the only thing that found it
+was looking at the rendered surface.**
+
 ## What it must NOT own, and why each resists
 
 This is the more valuable half of the census. Absorbing these would break working

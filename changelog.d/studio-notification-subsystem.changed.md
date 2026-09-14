@@ -18,3 +18,10 @@
   without moving where it renders, on five surfaces that had visible text and nothing
   in the accessibility tree. Not applied to progress that ticks, where a region would
   talk over the work it describes.
+- **Fixed: a toast behind another is readable again.** The stack is expanded rather
+  than collapsed, so a pill behind a newer one is no longer a 4px edge with an
+  invisible but still clickable button in it. Safe now that at most one pill per kind
+  can be on screen.
+- **Fixed: opening a handed-off deck says so once, not twice.** The backup
+  confirmation already reports the load, so the second message is suppressed.
+
