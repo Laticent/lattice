@@ -459,55 +459,71 @@ anchored on `span.lat-pagination` — drift 0.0px, no collision, clearance falli
 Those came from the `--style`-SIMULATED run on `section.form::after`, not from the real mark:
 two runs, conflated. Re-derived from the shipped mark on the base this ships against.)
 
-**The pseudo fallback is real, and it is NINE frames — this doc said one, and the grep that
-said so was inverted.** The retirement rule keys on a `.cell-footer` DIV
+**The pseudo is not a fallback — it is the page number on most paginated slides we ship, and
+this doc said the opposite twice.** The retirement rule keys on a `.cell-footer` DIV
 (`section.form:has(> .cell-footer)::after { content: none }`), which `buildFooterCell`
-(`lib/forms/cell/masthead/masthead.transform.js`) only ever emits for a frame that is not
-chrome-exempt. So what decides this is `kind` / `exemptFromChrome`, not the `cells` array:
+(`lib/forms/cell/masthead/masthead.transform.js`) emits only for a frame that is not
+chrome-exempt. So `kind` / `exemptFromChrome` decides it, not the `cells` array:
 
 | | frames | `.cell-footer` | page number |
 |---|---|---|---|
 | root (`kind: root`) | `minimal`, `standard` | emitted | the real `span.lat-pagination` |
 | sovereign (`exemptFromChrome: true`) | the other **nine** | never emitted | the `::after` pseudo |
 
-**The measurement that got this wrong is worth keeping.** `grep -c '"footer"'` over
-`lib/forms/frame/*/*.manifest.json` returns 1 for ten frames and 0 for `compare-code`, which
-reads like "ten declare a footer, one does not". It is the opposite: in the eight sovereign
-frames the hit is inside **`suppresses`**, and `compare-code` is the single sovereign frame
-that does NOT suppress the footer. The grep singled out one frame for the inverse of the
-stated reason, and a count taken off a string match rather than the field it belongs to will
-do that whenever two fields can hold the same word.
+**Measured on a committed deck, not inferred.** `examples/bloom-engineering-journey.md`
+exported through `dist/lattice-emulator.js` and opened in Chromium paints the pseudo on **7 of
+its 13 slides** — `premise`, `split-panel` and friends, `visibility: visible`, `opacity: 1`, no
+`.cell-footer`. 164 of the decks in `examples/` set `paginate: true`. This is the shipped
+behavior, not an edge case waiting for an author to find it.
 
-**So the pseudo has no honest verdict sweep today, and saying so is the finding.** Only
-`compare-code` is reachable with the `paginate:` lever at all — every other sovereign frame's
-own skeleton carries `<!-- _paginate: false -->` (`divider.manifest.json:39` and its
-siblings), which a deck-level `paginate: true` cannot override. And `compare-code` has no
-element builder, so `heading` is its only axis, and on that axis its ink does not move: ten
-steps, every ink column constant, the heading wrapping to a second line without shifting a
-measured pixel. The tool now says exactly that:
+**Three wrong claims led here, and the shape of each is worth more than the correction.**
+
+1. *"Exactly one frame declares no footer cell."* Nine do. `grep -c '"footer"'` over the frame
+   manifests returns 1 for ten and 0 for `compare-code`, which reads like a count of frames
+   that HAVE one; in eight sovereigns the hit is inside **`suppresses`**, and `compare-code` is
+   the single sovereign that does not suppress the footer. A count taken off a string match
+   rather than the field it belongs to inverts whenever two fields can hold the same word.
+2. *"Every other sovereign frame's skeleton carries `<!-- _paginate: false -->`."* Three
+   components do — the two bookends and `divider`. The other six sovereign frames are reachable
+   with the lever and were measured that way. The claim came from opening `divider` and
+   generalizing, which is the same move as (1) one level up.
+3. *"`divider.manifest.json:39`."* The frame manifests contain no `_paginate` at all
+   (`grep -rn "_paginate" lib/forms/frame/` is empty); that line is in the COMPONENT manifest,
+   `lib/components/anchor/divider/divider.manifest.json`. A citation naming the wrong file of
+   two with the same basename reads as precision and carries none.
+
+**So the mark IS measurable, and here it is.** `premise`, a sovereign frame, `paginate: true`,
+element axis to 12:
 
 ```
-⚠ every step laid out in the same place — this axis is not moving the ink, so the clean
-  verdicts above are vacuous. But the `lines` column DID move, so the growing thing is
-  outside the ink: clipped, or a box this walk could not place.
+slide   elements   ink top   ink bot   anchor   clearance
+    1          1     327.9     396.1      681       284.9
+    9          9      47.2     676.8      681         4.2
+   10         10      12.1     711.9      681       -30.9
+   11         11       -23       747      681         -66     OVER
 ```
 
-An earlier draft of this section presented that same run as evidence that "a growing heading
-does not reach it". It was a sweep in which nothing moved.
+`DRIFT 0.0px  ok` — the mark holds position across the whole sweep, which is what it is for.
+What moves is the content: ink height 772.1px, ink top 386.0px. Clearance closes to **4.2px at
+step 9**, and at step 10 the ink is 30.9px PAST the anchor without touching it, because they do
+not share a column — the tool's `PASSES` line, and one wider line away from a collision. The
+probe flags overflow from step 11. So the pseudo does not drift; the copy arrives at it.
 
-**And the reason it did NOT print the warning then is a defect this change caused.** The
-vacuity guard maxed `spreadRange('anchorLeft')` — the raw near-edge spread that the
-move-vs-grow fix replaced in the DRIFT verdict. The page numeral going 9 -> 10 at step 10 is
-worth 9.9px of near-edge spread, so a mark that merely got WIDER vouched for a sweep that
-moved nothing; at `--max 9` the same run warned correctly. Teaching one consumer of those
-columns the distinction and leaving the other on the old measure is the half-migrated-kernel
-shape HARD RULE #1 exists to stop, and it is the SECOND time it happened in this change — the
-first was `--anchors` discovery. The guard now takes the anchor's contribution from `drift`,
-the same kernel measure the verdict uses.
+**Which makes the two marks a question, not a curiosity — #2206.** The page number is
+`span.lat-pagination` on a root frame and `section::after` on a sovereign one: different box
+models, different styling surfaces, and nothing tells an author which they have. The 4.2px
+clearance above belongs to the pseudo alone.
 
-**Nine sovereign frames painting a page number is a separate question** — the shipped
-skeletons all opt out, so no shipped deck shows one, but an author writing `paginate: true`
-gets a numeral on a `title` or `divider` slide. Tracked in #2206, not settled here.
+**The first attempt at this measurement was vacuous, and the tool could not say so because of a
+defect this change introduced.** `compare-code` was swept instead — the only sovereign frame
+with no element builder, so `heading` is its only axis, and on that axis its ink does not move:
+ten steps, every ink column constant. The run was presented here as evidence that "a growing
+heading does not reach it". The vacuity guard should have refused it, and did not, because it
+still maxed `spreadRange('anchorLeft')` — the raw near-edge spread the move-vs-grow fix
+replaced in the verdict. The page numeral going 9 -> 10 is worth 9.9px of near-edge spread, so a
+mark that merely got WIDER vouched for a sweep that moved nothing; at `--max 9` the same run
+warned correctly. Second instance of the half-migrated kernel in this one change — the first was
+`--anchors` discovery — and the guard now takes the anchor's term from `drift`.
 
 **Getting there needed a fix to DRIFT ITSELF, and that is the more useful half.** The first
 run reported `DRIFT 9.0px horizontal ✗` and exit 1. It had not moved: across a 12-page deck
@@ -554,13 +570,22 @@ The 614.3px row was the headline lead when the census first shipped — the wors
 catalog, quoted as such. It had not moved at all. The real top mover is `state-chart inline`'s
 `span.state-index` at 85px, which was not in the old top ten.
 
-**Two rows within 0.1px of each other are not stably ordered.** Re-deriving the census after
-the vacuity fix moved `matrix-grid`'s worst candidate from `div.matrix-grid-figure::before` to
-`::after` — not because anything changed, but because `::before` measured 44.8px on one run and
-44.7px on the next, crossing `::after`'s 44.8px. The measurements reproduce to a tenth of a
-pixel; the LABEL on a row whose top two candidates sit inside that does not. Treat a
-sub-pixel gap between candidates as a tie, and re-derive before reading anything into a
-change of that size.
+**One census row was stale, and the first explanation offered for it was invented.**
+`matrix-grid`'s worst candidate is `div.matrix-grid-figure::after` at 44.8px; the committed
+table named `::before` at 44.8px, and `::before` measures **44.7px**. A draft of this section
+explained that away as sub-pixel jitter across a tie — "the measurements reproduce to a tenth
+of a pixel, the row LABEL does not". Every part of that was wrong. Seventeen runs (serial,
+under the census's own `--jobs 3` contention, and through `jank-census --only`) return 44.8 and
+44.7 with no variation, so there is no jitter to appeal to; 0.1px is the tool's ROUNDING
+QUANTUM (`+(...).toFixed(1)`), so "reproduces to a tenth of a pixel" is unfalsifiable rather
+than an error bound; and at 44.8 against 44.8 there would be no crossing to describe, only a
+stable sort deciding a tie. The row was simply older than the tool. The census is regenerated
+here and the row is correct.
+
+**The lesson is the reflex, not the row.** A committed artifact disagreeing with a fresh run is
+a stale artifact until something proves otherwise. Reaching for a mechanism that makes the
+disagreement benign — and one that cannot be falsified, at that — is how a wrong number
+survives a re-derivation.
 
 **Read the ranking accordingly.** `moves` now means TRANSLATION, so a row that fell to ~0 was
 never a lead; the ones that stayed high (85px, 67.1px, 44.8px) are the ones worth a verdict
@@ -572,24 +597,26 @@ Every verdict the change moves, it moves toward PASS, so the relations in
 `test/unit/tools/jank-drift.metamorphic.test.js` are all defending against a rig that quietly
 stops finding things — and they are arithmetic, not a render. The census's real top mover
 supplies the control the real surface owes:
-`node tools/check-jank.js "state-chart inline" --anchor 'span.state-index' --max 12`
-reports `DRIFT 42.5px vertical ✗` and exits 1. At step 10 the heading wraps to a second line
-and pushes the chart down; the anchor's content-facing edge steps 242.6px → 285.1px. Because
-the measure is a MINIMUM, 42.5 can only come back if the near edge, the far edge AND the
-midpoint each spread at least that far — the shape of a box that moved, not one pinned at an
-edge or centered that merely grew. It is NOT a shape only translation can make: growth that
-is neither pinned nor symmetric reports drift too, and correctly (`near [0,-50]`,
-`far [300,450]` — a box expanding 300px to 500px about no fixed reference — reads 50).
+`node tools/check-jank.js video --anchor 'span.video-play' --max 12` reports
+`DRIFT 44.8px vertical ✗` and exits 1, on a **single-match** anchor over a sweep that is not
+vacuous (ink height moves 44.8px with it). Because the measure is a MINIMUM, 44.8 can only
+come back if the near edge, the far edge AND the midpoint each spread at least that far — the
+shape of a box that moved, not one pinned at an edge or centered that merely grew. It is NOT a
+shape only translation can make: growth that is neither pinned nor symmetric reports drift too,
+and correctly (`near [0,-50]`, `far [300,450]` — a box expanding 300px to 500px about no fixed
+reference — reads 50).
 
-**Carry the run's own caveat with the run.** That sweep prints
-`ANCHOR 'span.state-index' matches more than one element (6) — the FIRST in document order is
-measured and the rest are folded into the ink. Narrow it.` The 42.5px is therefore one of six
-marks, which is enough for a positive control and is not a verdict on the component. An
-earlier draft of this paragraph quoted the number without the line the instrument attached to
-it (HARD RULE #23). A single-match substitute was looked for and does not exist among the
-census's movers: on this component `--anchors` offers only `span.state-index` (6 per slide,
-42.6px) and `div.state-chart-scale` (1 per slide, 0px), and the next candidate down the
-census, `q-and-a grid`'s `ul::after`, matches twelve and overflows the slide from step 5.
+**The first control offered here was `state-chart inline`'s `span.state-index`, and it should
+not have been.** That sweep prints `ANCHOR 'span.state-index' matches more than one element
+(6) — the FIRST in document order is measured and the rest are folded into the ink. Narrow
+it.` The number was quoted without the line the instrument attached to it (HARD RULE #23), and
+the paragraph then claimed a single-match substitute "does not exist among the census's
+movers". `engineering/jank-census.md` lists thirteen `per = 1` rows at or above 44.8px, five of
+them moving further than the control they were said not to exist for — the answer was one
+`awk` away in the file this very section is about. It also quoted `42.6px` for `--anchors` on
+that component, where the real figure is `85px`: 42.5 is the twelve-slide `--anchor` run and
+85 is the twenty-four-slide discovery run, two runs conflated in the paragraph whose whole
+subject is not conflating runs.
 
 **And the residual — "no counter-example was found" — is now a statement about what CAN
 happen.** The measure is a MINIMUM over three references, so a zero verdict is a case where
@@ -610,7 +637,7 @@ implementation returning the min of those three spreads, a zero result implies o
 zero — unconditionally, for any corpus (checked over 300,000 randomized shapes: zero inner
 failures). What MR13 actually pins is narrower and still worth having: that the function does
 not return something SMALLER than the min of its three references, and that the corpus still
-contains genuinely pinned shapes. Its `zeros` guard is what fails under the `Math.max` mutant,
+contains genuinely pinned shapes. Its corpus guard is what fails under the `Math.max` mutant,
 so "MR13 kills that mutant" is true of the relation as a whole and not of the direction it
 advertises. MR6b kills the same mutant directly.
 

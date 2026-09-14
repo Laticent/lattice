@@ -324,6 +324,7 @@ test('MR13 a ZERO verdict always names a reference that held still', () => {
   // it is what fails under the `Math.max` mutant — so "MR13 kills that mutant" is a fact
   // about the guard, not about the direction the relation advertises. MR6b kills it directly.
   let informative = 0;
+  const kinds = new Set();
   for (const { label, near, far } of everyShape()) {
     if (axisDrift(near, far) > EPS) continue;
     const mid = near.map((n, i) => (n + far[i]) / 2);
@@ -337,12 +338,24 @@ test('MR13 a ZERO verdict always names a reference that held still', () => {
       `${label}: reported 0 drift while all three references moved `
       + `(near ${spread(near)}, far ${spread(far)}, mid ${spread(mid)})`);
     // A DEGENERATE zero carries no information: `adversarial[3]` is a box that never moves
-    // and never grows, which every conceivable formula returns 0 for. Counting those toward
-    // the corpus guard let two free zeros keep it green with one real shape behind them, so
-    // only a zero where something DID move is counted — that is the pinned-or-symmetric
-    // case this relation exists to hold.
-    if (spreads.some(([, sp]) => sp > EPS)) informative += 1;
+    // and never grows, which every conceivable formula returns 0 for. Record WHICH reference
+    // held instead of just counting, because the property this relation is quoted for is
+    // that the three references are the three ways a mark holds position — and a scalar
+    // floor cannot pin that. The corpus has 6 near-pinned, 6 far-pinned and exactly ONE
+    // centered shape, so deleting that one would leave a count-based guard green with the
+    // centered case gone entirely.
+    if (spreads.some(([, sp]) => sp > EPS)) {
+      informative += 1;
+      for (const [kind] of held) kinds.add(kind);
+    }
   }
-  assert.ok(informative >= 4,
-    `only ${informative} shapes read 0 while something moved — MR13 needs those to say anything`);
+  // AN EARLIER VERSION ASSERTED `informative >= 4`, and both halves were wrong: 4 was not
+  // derived from anything (the corpus yields 13, and the `Math.max` mutant yields 0, so any
+  // threshold >= 1 separates them), and the comment justifying it described "two free zeros"
+  // keeping the guard green when the corpus contains exactly one degenerate shape. Requiring
+  // all three kinds is the assertion the prose actually claims, and it still fails under the
+  // mutant — which drives `informative` to 0 and `kinds` to empty.
+  assert.deepEqual([...kinds].sort(), ['far edge', 'midpoint', 'near edge'],
+    `the corpus must still exercise all three ways a mark holds position; saw ${[...kinds].sort().join(', ') || 'none'}`);
+  assert.ok(informative > 0, 'no shape read 0 while something moved — the relation says nothing');
 });
