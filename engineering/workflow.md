@@ -1529,6 +1529,103 @@ still counts agents cumulatively, still logs the spend, and still needs my OK to
 go past 8. Raise or lower the number in a given brief if the work warrants it —
 but write the number *in the card*, so the session it governs can read it.
 
+### The handoff issue — when the brief must outlive the session
+
+**A session that leaves work pending files one handoff issue.** The brief on the
+PR (§Where the cards go) is durable, but it is still not *claimable*, not
+searchable and not dedupable — and a session that dies before it opens a PR has
+nowhere to put the brief at all. The handoff issue closes that gap: it is the
+continuation brief as a real card on the board, so the next session pulls it from
+the queue instead of being handed it by you.
+
+File one when anything is pending at the end of a session. It is **one issue, not
+one per item** — the brief is a single line of work, and splitting it loses the
+ordering that makes it work.
+
+**Six rules, and two of them are traps you cannot see from the outside.**
+
+1. **Real H2 headings outside the fence; the fenced brief is the value.** The DoR
+   gate reads the two ★ fields out of the body with `parseForm`, and
+   `maskFences` blanks every fenced block *before* it looks for headings
+   (`.github/scripts/issue-form.js`) — deliberately, so a `# Done when` in a
+   pasted log cannot fake a field. The brief is fenced by mandate, so pasting it
+   verbatim leaves the gate seeing **no swimlane and no acceptance check**, and it
+   strips `status:ready` off the card you just filed. Write
+   `## Swimlane / governing decision doc` and `## Acceptance check` as real
+   headings *outside* any fence; a fence is fine as a **value** — the parser
+   slices values from the comment mask, not the fence mask, so a fenced
+   acceptance check counts as filled.
+2. **Never reference it with a closing keyword.** `pr-autoclose-issues.yml`
+   re-parses a merged PR body and closes **every** issue under a closing
+   keyword — it exists to defeat partial-close. A nine-item handoff closed by a
+   six-item PR loses three items silently. Link it as `#N` or `Refs #N`, never
+   `Closes #N`.
+3. **Items are checkboxes in the BODY, capped at five or six.** One swimlane per
+   handoff. The cap is not tidiness: HARD RULE #28 derives **one** confidence
+   level per PR on the lowest qualifying axis, so nine unrelated items means one
+   weak item floors the whole card and the merge ask stops being informative.
+   **A later finding gets added to the body, never left in a comment** — the
+   acceptance check reads "every item below is ticked", and a comment is not
+   below. A cold session ticked the four body boxes in a live test and would have
+   closed the card with a fifth item, added by comment, silently unaddressed.
+4. **Only off-path findings go in.** On-path defects get fixed in the change that
+   found them (#18). A handoff issue is not a place to park a window you created.
+5. **Name the base — the sha, the branch, AND any open PR the work sits on.** The
+   sha alone is not enough, and this is the rule a live cold-start test broke
+   hardest against. If the work the card describes is on an unmerged PR, say so
+   and say which base to start from: *continue that branch*, or *wait for it to
+   merge and cut a fresh one from `main`*. Otherwise the card names a constant, a
+   script or a label that exists only on that branch, while the working agreement
+   says "one branch, one PR: `claude/<slug>`" — and a session that cuts from
+   `main` finds the target missing, while one that continues the branch is
+   stacking on an open PR, which HARD RULE #17 forbids. Neither reading is
+   recoverable from the repo; only the author can settle it. Re-stamp the sha
+   when you push again — a base naming the commit *before* the one that added the
+   card's own evidence tool is worse than no sha.
+6. **Close it by hand.** Tick the items a PR delivered, then — if anything
+   remains — rewrite the remainder into a fresh handoff issue and close this one
+   with a pointer to it. A partially-done handoff is never left open to rot, and
+   never closed with items still unticked.
+
+Label it with all four axes and `status:ready`: it meets the Definition of Ready
+by construction, which is the whole point of the shape above.
+
+Body template — note where the fence starts:
+
+```
+## Summary
+<one line: the line of work this hands off>
+
+## Swimlane / governing decision doc
+engineering/decisions/YYYY-MM-DD-<topic>.md   (or the stable swimlane label)
+
+## Acceptance check
+Every item below is ticked, or rewritten into a fresh handoff issue and this one
+closed with a pointer to it.
+
+## Notes / context
+
+### Items
+- [ ] P1 · <the change, one line> — done when <acceptance a reviewer can run>
+- [ ] P2 · …
+
+### Brief
+<the fenced 🎯 continuation brief, verbatim — paste-ready>
+
+### Base
+<sha> on <branch>, branched from <sha> on main, <date>
+Sits on PR #<N>, <merged | OPEN and unmerged>.
+Start from: <continue that branch | wait for #<N> to merge, then branch from main>
+```
+
+**Use those four H2s, in that order.** `Summary`, `Swimlane / governing decision
+doc`, `Acceptance check` and `Notes / context` are the headings the work-item form
+renders, so `parseForm` treats each as a field boundary. Drop `## Notes / context`
+and the acceptance check runs to the end of the body, swallowing the items, the
+brief and the base sha into the field the gate is checking — it still passes, but
+the card stops saying what it means. Everything after it is free-form: the items,
+the brief and the base sha sit under H3s inside `Notes / context`.
+
 ## 🚦 Pre-merge card — the evidence, before I decide
 
 The merge gate is the one place a human is required (HARD RULE #7), and for a
@@ -1670,6 +1767,55 @@ the API/MCP/`gh`, set `area:`/`type:`/`priority:`/`status:backlog` (or file
 through the **Work item** form). The gate exists to catch a miss, not to excuse
 skipping the taxonomy.
 
+#### The intake bar — a card nobody can pull is not on the queue
+
+The four axes decide **which column a card sits in**. They say nothing about
+whether anyone can *work* it. That second question is the Definition of Ready —
+a governing doc and an acceptance check — and until 2026-09-14 it was asked only
+at the `status:ready` promotion, which is a transition nobody performs.
+
+**What that cost, measured over all 318 open cards:** 100 meet the Definition of
+Ready and **218 do not** — and every one of those 218 is missing the **swimlane**
+(not one fails on the acceptance check alone). That is how the queue reaches 318
+open with 6 pickable. The **work-item form already makes both fields required**,
+so the entire gap is the paths that skip the form — a blank web issue,
+`gh issue create`, a REST/MCP agent — which is where the 218 came from.
+
+So the triage gate now carries a second arm: a card missing either field gets
+**`needs:definition`** and one comment naming what to add, clearing automatically
+once both are written. Same philosophy as the axes arm — *make the right thing
+true* — moved from the promotion nobody performs to the creation everybody
+performs. `parseForm` accepts the headings hand-written cards already use, so
+this asks for substance, not a template.
+
+**Two exits keep the bar from re-litigating the backlog:**
+
+- **Grandfathered.** Only cards opened on or after `DOR_CUTOFF`
+  (`.github/scripts/triage.js`) are judged. Age-blind flagging would have
+  commented on up to **218** cards as they were touched and buried the 29-card
+  triage banner under them; with the cutoff, the same replay over the real queue
+  flags **7**. Re-derive both numbers with `npm run audit:queue` — they move with
+  the queue. Sweeping the legacy 218 is a deliberate labeling pass, never a side
+  effect of landing a gate. **The cutoff governs what the GATE flags, never what a
+  human may flag:** applying `needs:definition` to a pre-cutoff card by hand
+  sticks, because that labeling pass is exactly how the 218 get swept.
+- **Exempt.** `studio-feedback.yml` files an end-user bug report, and the
+  reporter cannot name the decision doc their crash belongs to. Cards labeled
+  `feedback` are never asked for a swimlane. **The exemption follows the label, so
+  promoting a report into a work item means removing `feedback`** — nothing
+  automates that, it is the human triage step, and until it happens the card stays
+  outside the bar. The label is also what couples three files: the template that
+  applies it, `.github/labels.json` that creates it, and `DOR_EXEMPT_LABELS` that
+  honors it. It was missing from the taxonomy when the bar was first written —
+  which would have handed every Studio bug reporter a demand for a governing
+  decision doc — so the three are pinned together by test.
+
+The flag is pushed into `BACKLOG.md` as its own 📐 banner, for the same reason
+`needs:triage` is: a flag behind a board filter nobody opened is not surfaced.
+The two stay **separate** banners — they answer different questions ("which column
+does this belong in" vs "can anyone work it"), and one merged count would mean
+neither.
+
 ### Card lifecycle (the `status:` columns)
 
 A **card** is one small, claimable unit (links its swimlane doc; doesn't restate
@@ -1690,6 +1836,12 @@ A card is `status:ready` only with **both**: a linked governing doc/spec
 captures them as the two ★ fields; the **Definition of Ready gate** workflow
 re-checks on every `status:ready` application and strips the label + comments if
 either is missing — so `status:ready` is a guarantee, not a hope.
+
+**The same two fields are now checked at intake** (§ The intake bar), which is
+the half that was missing: the gate below guards *promotion*, and promotion is a
+step nobody takes, so for 218 of 318 open cards the Definition of Ready was never
+asked at all. Both gates read the same `parseForm` fields, so a card that clears
+intake clears this one.
 
 **A hand-written card counts too.** The gate reads the two fields out of the
 body, and it used to recognize only the headings the *form* renders — so a card

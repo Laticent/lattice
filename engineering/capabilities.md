@@ -268,6 +268,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 
 | Name | What it does |
 |---|---|
+| `audit:queue` | Audit open issues against the Definition of Ready and replay the intake gate over them — the numbers behind the intake bar (input: `gh issue list` JSON). |
 | `sync:backlog` | Regenerate BACKLOG.md — the one-way mirror of the open GitHub issue queue (input: `gh issue list` JSON). |
 | `sync:labels` | Apply the .github/labels.json taxonomy to the repo labels via the gh CLI (labels-as-code; needs gh auth). |
 
@@ -380,6 +381,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
 | `tools/audit-capacity-basis.js` | audit-capacity-basis — what words-per-element does each component ACTUALLY get |
 | `tools/audit-diagram-contrast.mjs` | tools/audit-diagram-contrast.mjs — what Mermaid ACTUALLY paints, per palette, |
+| `tools/audit-queue-dor.js` | Audit the open issue queue against the Definition of Ready, and replay the |
 | `tools/bench-pdf-export.mjs` | Times the Studio's REAL browser raster exports, per browser engine — the PDF by |
 | `tools/bench-preview-diagrams.mjs` | bench-preview-diagrams — how long the LIVE PREVIEW takes to bake a deck's diagrams. |
 | `tools/bench-sanitize.mjs` | Time the slide-HTML sanitizer in the browser the preview actually runs in. |

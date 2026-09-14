@@ -267,3 +267,65 @@ describe('parseForm — HTML comments render as nothing, so they fill nothing', 
     assert.doesNotMatch(v, /note/);
   });
 });
+
+describe('parseForm — the handoff issue (engineering/workflow.md § The handoff issue)', () => {
+  // A handoff issue carries the 🎯 continuation brief, and that brief is fenced
+  // by mandate (§ Both cards are always fenced). These two tests pin the shape
+  // the doc prescribes against the trap it exists to avoid — if either flips,
+  // a session files a handoff card that the DoR gate silently un-readies.
+  const brief = [
+    '🎯 Continuation — agent-workflow hardening',
+    '## Swimlane / governing decision doc', // a decoy: inside the fence, must not count
+    '## Acceptance check',
+    '  P1 · [no ticket] do the thing',
+  ].join('\n');
+
+  test('THE TRAP: a brief pasted verbatim inside one fence yields NO fields', () => {
+    // maskFences blanks fenced blocks BEFORE headings are located, so every
+    // heading in the brief is invisible — and the DoR gate strips status:ready
+    // off the card the session just filed.
+    const body = ['Handoff from the last session.', '', fence, brief, fence].join('\n');
+    const f = parseForm(body);
+    assert.ok(!f.swimlane, 'swimlane must NOT be found inside a fence');
+    assert.ok(!f.acceptance, 'acceptance must NOT be found inside a fence');
+  });
+
+  test('THE SHAPE: H2s outside the fence parse, and Notes bounds the acceptance check', () => {
+    const body = [
+      '## Summary', '', 'Hand off the swimlane.', '',
+      '## Swimlane / governing decision doc', '', 'engineering/decisions/2026-06-14-github-project-management.md', '',
+      '## Acceptance check', '', 'Every item below is ticked, or rewritten into a fresh handoff issue.', '',
+      '## Notes / context', '',
+      '### Items', '- [ ] P1 · do the thing — done when x', '',
+      '### Brief', fence, brief, fence, '',
+      '### Base', '51eb93e on main',
+    ].join('\n');
+    const f = parseForm(body);
+    assert.match(f.swimlane, /2026-06-14-github-project-management\.md/);
+    assert.match(f.acceptance, /Every item below is ticked/);
+    // Without the `## Notes / context` boundary the acceptance check runs to the
+    // end of the body and swallows the items, the brief and the base sha.
+    assert.doesNotMatch(f.acceptance, /Items|Base|Continuation/);
+    assert.match(f.notes, /### Items/);
+  });
+
+  test('the Base block names the PR the work sits on, not just a sha', () => {
+    // A live cold-start test stalled here: three of the card's items named a
+    // constant, a script and two labels that existed only on an unmerged PR's
+    // branch, while the working agreement said to cut a fresh branch from main.
+    // Neither reading is recoverable from the repo.
+    const body = [
+      '## Summary', '', 'x', '',
+      '## Swimlane / governing decision doc', '', 'decisions/y.md', '',
+      '## Acceptance check', '', 'every item ticked', '',
+      '## Notes / context', '',
+      '### Base',
+      '20c6567 on claude/slug, branched from df36705 on main, 2026-09-14',
+      'Sits on PR #2215, OPEN and unmerged.',
+      'Start from: wait for #2215 to merge, then branch from main',
+    ].join('\n');
+    const notes = parseForm(body).notes;
+    assert.match(notes, /Sits on PR #\d+/, 'the base must name the PR');
+    assert.match(notes, /Start from:/, 'the base must say which branch to start from');
+  });
+});

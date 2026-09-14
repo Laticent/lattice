@@ -269,6 +269,7 @@ const SCRIPT_META = {
   'changelog:bump':           ['Release', 'Roll CHANGELOG.md ## Unreleased → a versioned section (semver from the entries).'],
 
   // Project queue
+  'audit:queue':              ['Project queue', 'Audit open issues against the Definition of Ready and replay the intake gate over them — the numbers behind the intake bar (input: `gh issue list` JSON).'],
   'sync:backlog':             ['Project queue', 'Regenerate BACKLOG.md — the one-way mirror of the open GitHub issue queue (input: `gh issue list` JSON).'],
   'sync:labels':              ['Project queue', 'Apply the .github/labels.json taxonomy to the repo labels via the gh CLI (labels-as-code; needs gh auth).'],
 
