@@ -6,7 +6,7 @@ summary: >
   over its page image in text rendering mode 3 — invisible ink, the mechanism OCR
   output has used for decades. The words are measured in the capture frame one WORD
   at a time and carried by a font that is a lookup table rather than a typeface, so
-  any character survives. `pdftotext` on a real 18-page export returns 1,220 words
+  any character survives. `pdftotext` on a real 18-page export returns 1,214 words
   in reading order; the picture is untouched (image streams byte-identical, pages
   AE = 0) and the file grows 0.7%.
 ---
@@ -171,7 +171,7 @@ to be wrong, because a selection box slightly too big beats a word nobody can fi
 
 | Claim | Evidence |
 |---|---|
-| The text is really there, on the real surface | `pdftotext -layout` on a Studio export driven through `tools/bench-pdf-export.mjs` (built docs site, Chromium 141, 18 pages): **1,220 words**, in reading order, headings and body copy intact. The same export from `main`: **0 words** |
+| The text is really there, on the real surface | `pdftotext -layout` on a Studio export driven through `tools/bench-pdf-export.mjs` (built docs site, Chromium 141, 18 pages): **1,214 words**, in reading order, headings and body copy intact. The same export from `main`: **0 words** |
 | It says what the slide SHOWS | The extracted copy carries the theme's uppercase eyebrows (`LATTICE · DECISION FRAMEWORK GALLERY`) and the `·` separator — the `text-transform` and the non-ASCII path, both on a real page |
 | The picture did not move | Same deck, `main` vs this branch: the page image streams are **byte-identical page for page** (18/18, 18 distinct digests, so the comparison is not vacuous), and the rasterized pages match at **AE = 0** on all 18 at 50 dpi |
 | The words are invisible, not white-on-white | Every text block is written `3 Tr`, asserted per block in the e2e spec. AE = 0 above is the independent proof |
@@ -180,7 +180,7 @@ to be wrong, because a selection box slightly too big beats a word nobody can fi
 | A chart label sits on its own ink | `docs/e2e/pdf-text-layer.spec.ts` exports a real `bar` chart and asserts every run's horizontal scale stays inside the band honest runs occupy (measured 56–174 across three real decks). The unit tier pins the CTM correction directly |
 | Any character survives | Unit tier round-trips `—`, `café`, `日本語` and `👋` through a real pdf-lib document and back out through the CMap; a `)` and a trailing `\` too, the pair that corrupted the sticky-note annotations when they were written as PDF literals |
 | The file a reader opens is well-formed | Ghostscript parses all 18 pages, no errors |
-| It costs almost nothing | 3,264,300 → 3,286,755 bytes over 18 pages (**+0.69%**), with the content stream now deflated. Wall time 5.4 s → 5.9 s on the same machine |
+| It costs almost nothing | 3,264,300 → 3,286,647 bytes over 18 pages (**+0.68%**), with the content stream now deflated. Wall time 5.4 s → 5.9 s on the same machine |
 
 ## What this is NOT
 
