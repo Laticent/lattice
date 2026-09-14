@@ -89,6 +89,10 @@ function settle(ms = APPLY_MS + 20) {
 // every rect with zeros. Tiles opt in through this map; anything absent reads as off screen,
 // which is the conservative answer and the one an un-stubbed test would get anyway.
 const rects = new Map<Element, { top: number; height: number }>();
+/** Per-element width override, so a test can move a box horizontally only. */
+const widths = new Map<Element, number>();
+/** Live `scroll` listeners per element — the pool is supposed to give these back. */
+const listeners = new Map<Element, number>();
 const onScreen = (el: Element) => rects.set(el, { top: 10, height: 100 });
 const offScreen = (el: Element) => rects.set(el, { top: 5000, height: 100 });
 const at = (el: Element, top: number, height: number) => rects.set(el, { top, height });
@@ -127,6 +131,21 @@ function OuterAndNestedGrid() {
 				</div>
 			</PreviewPool>
 		</div>
+	);
+}
+
+/** A panel that can unmount while the pool stays mounted — the looks panel's lifecycle. */
+function PanelGrid({ open }: { open: boolean }) {
+	return (
+		<PreviewPool>
+			{open ? (
+				<div data-testid="panel" style={{ overflowY: 'auto' }}>
+					<div data-testid="tile-0">
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample="# 0" className="aspect-video w-full" />
+					</div>
+				</div>
+			) : null}
+		</PreviewPool>
 	);
 }
 
@@ -204,14 +223,37 @@ beforeEach(() => {
 	unmounts = 0;
 	observers = [];
 	rects.clear();
+	widths.clear();
+	listeners.clear();
 	vi.useFakeTimers();
 	(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeIO;
 	Element.prototype.getBoundingClientRect = function () {
 		const r = rects.get(this) ?? { top: 0, height: 0 };
-		return { top: r.top, left: 0, right: 200, bottom: r.top + r.height, width: 200, height: r.height, x: 0, y: r.top, toJSON: () => ({}) } as DOMRect;
+		const w = widths.get(this) ?? 200;
+		return { top: r.top, left: 0, right: w, bottom: r.top + r.height, width: w, height: r.height, x: 0, y: r.top, toJSON: () => ({}) } as DOMRect;
+	};
+	// Count `scroll` listeners per element. The pool must hand back the ones it takes on a panel
+	// that unmounts, and nothing else observable from the DOM shows whether it did.
+	const add = EventTarget.prototype.addEventListener;
+	const remove = EventTarget.prototype.removeEventListener;
+	EventTarget.prototype.addEventListener = function (type, ...rest) {
+		if (type === 'scroll' && this instanceof Element) listeners.set(this, (listeners.get(this) ?? 0) + 1);
+		return add.call(this, type, ...rest);
+	};
+	EventTarget.prototype.removeEventListener = function (type, ...rest) {
+		if (type === 'scroll' && this instanceof Element) listeners.set(this, Math.max(0, (listeners.get(this) ?? 0) - 1));
+		return remove.call(this, type, ...rest);
+	};
+	restoreListeners = () => {
+		EventTarget.prototype.addEventListener = add;
+		EventTarget.prototype.removeEventListener = remove;
 	};
 });
+/** Undo the listener counter, so the wrappers do not stack across tests. */
+let restoreListeners = () => {};
+
 afterEach(() => {
+	restoreListeners();
 	vi.useRealTimers();
 	(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = undefined;
 });
@@ -428,6 +470,93 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		expect(b?.outer.top).toBe(450);
 		expect(b?.inner.height, 'the frame was cropped instead of clipped').toBe(90);
 		expect(b?.inner.top, 'the frame was not offset back into place').toBe(0); // 450 - 450
+		unmount();
+	});
+
+	it('offsets the frame the right WAY when the clip cuts the top', () => {
+		// The case above cuts the BOTTOM, where `rect.top - clip.top` is 0 either way round — so it
+		// cannot tell the correct offset from its negation, and a sign flip passes it. Cutting the
+		// TOP is the state a tile is in for most of a downward scroll, and there the sign is the
+		// whole difference between a frame in place and a frame slid off by the cut.
+		const { container, unmount } = render(<NestedGrid n={1} />);
+		at(container.querySelector('[data-testid="panel"]') as Element, 400, 100); // panel: 400..500
+		at(face(container, 0), 360, 90); // tile: 360..450 — its top 40px are above the panel
+		intersect(face(container, 0), true);
+		settle();
+		const b = boxesOf(container, '# 0');
+		expect(b?.outer.top, 'the clip box did not start at the panel').toBe(400);
+		expect(b?.outer.height, 'the clip box is not the visible slice').toBe(50); // 400..450
+		expect(b?.inner.top, 'the frame is offset the wrong way, so it slides off by the cut').toBe(-40);
+		expect(b?.inner.height, 'the frame was cropped instead of clipped').toBe(90);
+		unmount();
+	});
+
+	it('does not clamp the clip to the viewport', () => {
+		// The other half of "keep the clip inside the pool", and it had no coverage: a clip stored in
+		// LAYER coordinates must not carry a viewport term either, for the same reason it must not
+		// carry the dialog's — the layer scrolls, the viewport does not. Measured on the real phone
+		// sheet with only the clamp restored: 2 of 10 tiles painting a 15px blank strip, steady.
+		// A tile below the fold keeps its full box here; the browser is what stops it painting.
+		const { container, unmount } = render(<Grid n={1} />);
+		at(face(container, 0), 5000, 100); // far below any viewport jsdom reports
+		intersect(face(container, 0), true);
+		settle();
+		const b = boxesOf(container, '# 0');
+		expect(b?.outer.height, 'the clip was clamped to the viewport').toBe(100);
+		unmount();
+	});
+
+	it('arms no pass after it unmounts', () => {
+		// React runs a deleted tree's cleanups PARENT FIRST, so the pool's own cleanup cannot cancel
+		// the pass each child's `unregister` arms after it. Clearing the timer there looks like a fix
+		// and measurably is not: one timer stayed armed, holding this pool's closures for up to
+		// APPLY_MS past unmount, in the module whose whole subject is retained memory.
+		const { container, unmount } = render(<Grid n={3} />);
+		for (let i = 0; i < 3; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		unmount();
+		expect(vi.getTimerCount(), 'a pass is still armed after the pool unmounted').toBe(0);
+	});
+
+	it('releases the scroll listener when the scroller that needed it goes away', () => {
+		// The memory half of the same commit: a looks panel is mounted per open with a FRESH scroller
+		// element, so a map keyed by that element — holding a listener closure over it — pins the
+		// whole detached panel subtree. Measured before the fix: twelve opens, twelve detached
+		// scrollers, ~114 detached nodes alive through a forced GC.
+		const { container, rerender, unmount } = render(<PanelGrid open />);
+		const panel = container.querySelector('[data-testid="panel"]') as HTMLElement & { __off?: number };
+		at(panel, 0, 400);
+		at(face(container, 0), 10, 100);
+		intersect(face(container, 0), true);
+		settle();
+		expect(listeners.get(panel), 'the pool never watched the panel').toBe(1);
+		rerender(<PanelGrid open={false} />);
+		settle();
+		expect(listeners.get(panel), 'the listener outlived the panel it was watching').toBe(0);
+		unmount();
+	});
+
+	it('re-measures when only the horizontal part of the clip moves', () => {
+		// `reposition` skips the state write when nothing moved, and that comparison has to read
+		// every field the render uses. It compared six of nine; the three it missed are silent —
+		// a frame frozen at a stale box with no visible cause.
+		const { container, unmount } = render(<NestedGrid n={1} />);
+		const panel = container.querySelector('[data-testid="panel"]') as HTMLElement;
+		at(panel, 0, 400);
+		at(face(container, 0), 10, 100);
+		intersect(face(container, 0), true);
+		settle();
+		expect(boxesOf(container, '# 0')?.outer.width).toBe(200);
+		// Narrow the PANEL horizontally only: every vertical term stays put.
+		widths.set(panel, 120);
+		act(() => {
+			panel.dispatchEvent(new Event('scroll'));
+			vi.advanceTimersByTime(40);
+		});
+		expect(boxesOf(container, '# 0')?.outer.width, 'a horizontal-only move was skipped as "unmoved"').toBe(120);
 		unmount();
 	});
 

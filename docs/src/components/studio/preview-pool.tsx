@@ -333,6 +333,9 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	slotsRef.current = slots;
 	const pending = React.useRef<number | null>(null);
 	const lastApply = React.useRef(0);
+	/** False once this pool has unmounted — see the teardown effect for why a cleared timer is not
+	 *  enough on its own. */
+	const alive = React.useRef(true);
 	/** Tiles that have left the band but whose slot is not released yet — see RELEASE_GRACE. */
 	const leftAt = React.useRef(new Map<number, number>());
 
@@ -418,7 +421,7 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	 * Tiles you are actually looking at are unaffected — they hold their slots throughout.
 	 */
 	const schedule = React.useCallback(() => {
-		if (pending.current !== null) return;
+		if (!alive.current || pending.current !== null) return;
 		const wait = Math.max(0, APPLY_MS - (Date.now() - lastApply.current));
 		pending.current = window.setTimeout(() => {
 			pending.current = null;
@@ -597,12 +600,15 @@ export function PreviewPool({ children, className }: { children: React.ReactNode
 	// The layout moving is the ONLY thing that invalidates a position, so it is the only thing
 	// that recomputes one. Covers a resize, a column-count change, a filter shortening the grid
 	// and a looks panel opening a row — all of which move tiles without any of them scrolling.
-	// A pass is ALWAYS armed at teardown — unmounting the grid unregisters every tile, and each
-	// unregister schedules one — so without this the timer fires up to APPLY_MS later against a null
-	// layer and keeps the tile map and every tile's props closure alive past unmount. Harmless to
-	// React; not harmless in the one module whose subject is retained memory.
+	// TEARDOWN, and the ordering is the whole subtlety. React runs a deleted tree's cleanups PARENT
+	// FIRST, and unmounting the grid unregisters every tile, each of which schedules a pass — so
+	// clearing the timer here cannot cancel the ones armed after this runs. Measured: one timer
+	// still armed after unmount. `alive` is what actually stops it: `schedule()` refuses to arm once
+	// the pool is gone. Without it the callback holds this pool's closures for up to APPLY_MS past
+	// unmount, in the one module whose subject is retained memory.
 	React.useEffect(
 		() => () => {
+			alive.current = false;
 			if (pending.current !== null) window.clearTimeout(pending.current);
 			pending.current = null;
 			if (raf.current) window.cancelAnimationFrame(raf.current);

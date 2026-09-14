@@ -374,6 +374,28 @@ when the partition is removed.
 The common thread: **every one of these is a defect the gates cannot see, and three of the four
 needed a viewport I had not measured.** A phone-sized measurement is not a measurement.
 
+**The fourth pass came back clean on behavior, and that is what the confidence rests on.** It
+reproduced all three claims on the real surface with a DISCRIMINATING CONTROL each — the same page
+served with the fix reverted at the network layer, which brings the defect back exactly (4 of 12
+tiles cut by a wheel tick; 114 detached nodes and 12 detached scrollers after twelve panel opens).
+A measurement that cannot fail proves nothing, and a control is what tells the two apart.
+
+What it did find was a suite that could not fail for four of the five things the previous round
+fixed, which is the same defect class one level up:
+
+- the clip-arithmetic test cut the tile at the BOTTOM, where `rect.top - clip.top` is zero either
+  way round — so flipping the offset's sign passed it, while a tile cut at the TOP (the normal
+  state of a downward scroll) would slide off by the cut;
+- dropping the viewport clamp — half of the fix — had no coverage at all, and restoring it is a
+  one-word edit that measurably cuts 2 of 10 tiles on the phone sheet;
+- the scroller release and the widened `moved` comparison could both be deleted with a green suite.
+
+All four now have a test that goes red when the fix is reverted. The pass also caught a comment
+asserting the opposite of the code: React runs a deleted tree's cleanups PARENT FIRST, so clearing
+the pending timer in the pool's own cleanup cannot cancel the pass each child's `unregister` arms
+after it — measured, one timer still armed. An `alive` flag now refuses to arm one, with its own
+mutation-checked test.
+
 **A second checker pass, on those fixes, found that one of them had broken something else.** Rooting
 the observer at the tile's scroller — correct in itself — turned a flicker into a steady wrong
 picture on the one surface with a NESTED scroller: the gallery's looks panel is `overflow-y-auto`
