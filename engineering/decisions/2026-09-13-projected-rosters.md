@@ -246,6 +246,33 @@ Images, `policy-recommendation` → Legal. Captured at 1440 / 820 / 390 px; no j
 Other group shrinks from ten to six. This is a website change and it is named here rather
 than described as affecting only new components, which is what an earlier draft said.
 
+## One of the four copies fed nothing
+
+Worth recording, because it changes how much the fourth copy ever cost. Of the two
+Studio export paths this catalog serves, only one is reachable:
+
+| Path | Roster it read | State |
+|---|---|---|
+| Image-set ZIP — `Share → Images (.zip)`, "chart SVGs" | `KEYED_CHART_LAYOUTS`, via `core.KEYED_CHART_LAYOUTS` (`deck-export.js:1630`) | **wired**; `ShareSheet.tsx:232` reaches it |
+| Single-chart export | `CLEAN_SVG_LAYOUTS` → `activeChartSvg` / `exportChart` | **no caller** |
+
+`exportChart` and `activeChartSvg` are exported from `deck-export.js` and imported by
+nothing — measured across `docs/src`, `lib`, `tools` and `test`, and across the built
+site: the only chunk carrying the symbols is the one that defines them, and the string
+`Export chart` appears nowhere in `docs/dist`. The comment above the literal says it
+"drives the Export menu's 'Export chart' entry"; there is no such entry.
+
+So the fourth copy of the twelve names was maintained by hand for a code path a user
+cannot reach. That is not an argument that it did not matter — it is the same
+`chartType` fact, it sits in a module whose *other* half is live, and the day someone
+wires the menu it would have been the copy most likely to have rotted. It is an
+argument that a hand-maintained roster can be wrong for years without anyone noticing,
+which is this note's whole subject arriving one level lower than expected.
+
+**Pre-existing and off the path** (HARD RULE #18): wiring a menu is a feature, not a
+roster fix. Logged here, not pulled into the diff. What this change does is make the
+dead path read the same catalog as the live one, so it cannot drift while it waits.
+
 ## What this does NOT cover
 
 Four more hand-maintained lists in this family are **out of scope and off the path** of this

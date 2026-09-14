@@ -1728,8 +1728,18 @@ function subsetFontFaceCss(css, families) {
 
 // The chart `<svg>` on the slide the editor cursor is in, or null. The controller
 // The cursor's slide is marked `.db-active` in the preview (cursor↔slide sync),
-// so these gate the export to "the chart you're looking at" and drive the Export
-// menu's "Export chart" entry. `CLEAN_SVG_LAYOUTS` are the charts that render as a
+// so these gate the export to "the chart you're looking at".
+//
+// NOTHING CALLS THEM TODAY. `activeChartSvg` and `exportChart` are exported here and
+// imported nowhere — measured across docs/src, lib, tools and test, and across the
+// built site, where the only chunk carrying the symbols is this one and the string
+// "Export chart" does not appear at all. This comment used to say they "drive the
+// Export menu's 'Export chart' entry"; there is no such entry. The LIVE chart-SVG
+// path is the image-set ZIP below (`core.KEYED_CHART_LAYOUTS`), which ShareSheet
+// reaches. Left in place rather than deleted — it is a complete, working single-chart
+// export waiting on a menu — but the claim is corrected, and it now reads the same
+// projected catalog as the live path so it cannot rot while it waits.
+// See engineering/decisions/2026-09-13-projected-rosters.md. `CLEAN_SVG_LAYOUTS` are the charts that render as a
 // SINGLE self-contained <svg> (diagram + in-svg legend) → exported as crisp
 // standalone vector. Every OTHER chart-frame slide (gantt/kanban/progress/journey/
 // state-chart/roadmap/timeline/word-cloud) is HTML/CSS or mixed → exported as a
