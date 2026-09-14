@@ -424,57 +424,64 @@ export function SettingsSectionTabs({
 	// One tab is enough to navigate with — the chevron would be a menu of one.
 	if (tabs.length <= 1) return null;
 	return (
-		// `overflow-clip` is LOAD-BEARING, and it is not about the pills.
+		// THE GHOST IS CLIPPED, NOT THE ROW — and which box carries the clip is the whole
+		// lesson here, because putting it on the row cost three commits and two regressions.
 		//
-		// The measuring ghost below is `absolute` and `w-max`, so it is 504px wide inside a
-		// 231px row — and a `visibility: hidden` box still contributes SCROLLABLE OVERFLOW.
-		// The panel body it sits in is `overflow-y-auto`, and CSS Overflow 3 computes the other
-		// axis to `auto` when one axis is not `visible`, so the ghost handed the whole settings
-		// panel a horizontal scroll region: one two-finger swipe over the panel scrolled every
-		// control off-screen and left a blank column. Measured as the panel body's
-		// `scrollWidth − clientWidth`: +259 deck and +336 slide at 1440 docked, +128 on the
-		// 390px phone.
+		// The problem: the measuring ghost below is `absolute` and `w-max`, so it is 504-585px
+		// wide (deck / slide, and each engine rounds differently) inside a row of 214-362px —
+		// and a `visibility: hidden` box still contributes SCROLLABLE OVERFLOW. The panel body
+		// it sits in is `overflow-y-auto`, and CSS Overflow 3 computes the other axis to `auto`
+		// when one axis is not `visible`, so the ghost handed the whole settings panel a
+		// horizontal scroll region: one two-finger swipe over the panel scrolled every control
+		// off-screen and left a blank column. Measured as the panel body's
+		// `scrollWidth − clientWidth`: +259 deck / +336 slide at 1440 docked, +272 / +349 in the
+		// 820 drawer, +128 / +205 on a 390 phone.
 		//
-		// `clip` rather than `hidden`: it clips without becoming a scroll container of its own,
-		// so nothing here can start scrolling either. The dropdown is a Radix portal, so the
-		// menu is not clipped by this.
+		// The obvious fix is `overflow: clip` on this row. DO NOT DO THAT. The row's first pill
+		// sits flush against its content edge (measured gap: 0px) and the app focus ring is
+		// `outline: 2px` at `outline-offset: 2px` — so it paints 4px OUTSIDE the pill and a clip
+		// on this row shears it off. That is a keyboard and low-vision regression traded for a
+		// scroll one. `overflow-clip-margin: 6px` looks like the answer and is a trap twice over:
+		//   1. It applies only when the element clips on BOTH axes. `overflow-x: clip` beside
+		//      `overflow-y: visible` ignores it silently — 0px and 6px render pixel-identical.
+		//   2. Even with both axes, WEBKIT DOES NOT IMPLEMENT IT AT ALL
+		//      (`CSS.supports('overflow-clip-margin','6px')` is false). On Safari and iOS the row
+		//      is a bare clip and the ring is sheared anyway — measured at 374px of paint cut.
 		//
-		// BOTH AXES, and that is not tidiness. `overflow-clip-margin` applies only when the
-		// element clips on BOTH axes — with `overflow-x: clip` beside `overflow-y: visible`
-		// Chromium ignores the declaration entirely. An earlier cut of this fix shipped
-		// `overflow-x-clip` with the margin and the margin did nothing: 0px and 6px rendered
-		// pixel-identical, and the ring stayed sheared at 390 and 1440 alike.
+		// So the clip goes on a box that has nothing to shear: a zero-size wrapper around the
+		// ghost alone. It paints nothing, holds nothing focusable, and contributes no overflow of
+		// its own, while the ghost inside keeps its intrinsic `max-content` width — which is the
+		// only thing the measurement needs. Verified in Chromium 141 AND WebKit 26 at 390 / 820 /
+		// 1440 in both scopes: focus ring pixel-identical to no clip at all, panel and document
+		// both unscrollable sideways, row height unchanged.
 		//
-		// The MARGIN is the other half. The first pill sits flush against the row's content
-		// edge (measured gap: 0px) and the app focus ring is `outline: 2px` at
-		// `outline-offset: 2px`, so it paints 4px OUTSIDE the box and a bare `clip` shears it
-		// off — a keyboard and low-vision regression inside the fix for a scroll regression.
-		// Measured against the same clip topology at a wider margin, on the focused first pill:
-		// 0px cuts 552 (390) / 486 (1440) pixels, 4px cuts 2, and 6px, 8px and 12px are
-		// identical to each other. 6px is the ring's 4px plus a pixel of rounding either side.
-		//
-		// Do NOT raise it further "for safety": the clip margin is part of the ancestor's
-		// scrollable overflow, so at 16px the panel starts scrolling again (+2px, then +10 at
-		// 24px and +34 at 48px) — the very regression this line exists to close.
-		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5 overflow-clip [overflow-clip-margin:6px]', className)}>
-			{/* The MEASURING COPY: every pill at its natural width, laid out but never drawn.
-			    `absolute` keeps it out of the row's own layout, `w-max` stops the row's width
-			    squeezing it (which would make it measure what it is being asked to decide),
-			    and `aria-hidden` + `inert` keep it out of the a11y tree and off the tab
-			    order — so `getByRole('tab')` finds the real pills only.
-			    The chevron ghost wears "More", the label it has whenever a pill is on screen.
-			    In the one case it wears a longer name — nothing fits, so it names the active
-			    section — there is no pill left for the difference to cost. */}
-			<div ref={ghostRef} aria-hidden inert className="pointer-events-none absolute left-0 top-0 flex w-max items-center gap-1.5 opacity-0" style={{ visibility: 'hidden' }}>
-				{tabs.map((t) => (
-					<span key={t.value} className={cn(SECTION_PILL, SECTION_PILL_OFF)}>
-						{t.label}
+		// `clip` rather than `hidden` on that wrapper: `hidden` would make it a scroll container
+		// in its own right. The section dropdown is a Radix portal, so its menu is outside all of
+		// this and is not clipped by any of it.
+		<div ref={rowRef} className={cn('relative flex min-w-0 items-center gap-1.5', className)}>
+			{/* The zero-size CLIP BOX. `size-0` plus `overflow-clip` is what stops the ghost's
+			    500-600px reaching the panel's scroll area; `absolute` keeps the box itself out of
+			    the row's layout. Nothing is painted or focusable in here, which is the point. */}
+			<div aria-hidden className="pointer-events-none absolute left-0 top-0 size-0 overflow-clip">
+				{/* The MEASURING COPY: every pill at its natural width, laid out but never drawn.
+				    `w-max` stops the zero-width parent squeezing it — intrinsic sizing ignores the
+				    parent's width, so the widths measured here are the widths the real pills would
+				    take. `inert` keeps it off the tab order, and it inherits `aria-hidden` from the
+				    clip box above, so `getByRole('tab')` finds the real pills only.
+				    The chevron ghost wears "More", the label it has whenever a pill is on screen.
+				    In the one case it wears a longer name — nothing fits, so it names the active
+				    section — there is no pill left for the difference to cost. */}
+				<div ref={ghostRef} inert className="flex w-max items-center gap-1.5 opacity-0" style={{ visibility: 'hidden' }}>
+					{tabs.map((t) => (
+						<span key={t.value} className={cn(SECTION_PILL, SECTION_PILL_OFF)}>
+							{t.label}
+						</span>
+					))}
+					<span className={cn(SECTION_PILL, 'gap-1', SECTION_PILL_OFF)}>
+						More
+						<ChevronDown className="size-3.5" />
 					</span>
-				))}
-				<span className={cn(SECTION_PILL, 'gap-1', SECTION_PILL_OFF)}>
-					More
-					<ChevronDown className="size-3.5" />
-				</span>
+				</div>
 			</div>
 			{/* The tablist holds TABS AND NOTHING ELSE. The chevron is a sibling outside it:
 			    a non-tab child inside `role="tablist"` is an `aria-required-children` axe

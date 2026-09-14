@@ -243,8 +243,10 @@ test('the list view drops the tabs and renders every section at once', async ({ 
  * children are `<span>`s, was invisible to the very assertion that claimed "zero overflow
  * at every width". The ghost is `absolute` and `w-max`, a `visibility: hidden` box still
  * contributes scrollable overflow, and the panel body is `overflow-y-auto` — which makes
- * the other axis `auto` too. Result: a 259px horizontal scroll region on the settings
- * panel, and one two-finger swipe scrolled every control away and left a blank column.
+ * the other axis `auto` too. Result: a horizontal scroll region on the settings panel —
+ * 259px as this repo's puppeteer scripts measure it in Chrome 131, 262px in the Chromium
+ * this spec runs in — and one two-finger swipe scrolled every control away and left a
+ * blank column.
  *
  * So this asks the SCROLLER, not the buttons: can the panel body scroll sideways at all?
  */
@@ -336,12 +338,13 @@ test('the active section stays ON SCREEN as a pill, however narrow the panel', a
 test('the settings panel cannot be scrolled sideways at all', async ({ page }) => {
 	// The defect: the strip's hidden measuring ghost is `absolute` + `w-max`, a
 	// `visibility: hidden` box still contributes scrollable overflow, and the panel body is
-	// `overflow-y-auto` — which makes the OTHER axis `auto` too. The panel gained a 259px
-	// horizontal scroll region and one sideways swipe left a blank column.
+	// `overflow-y-auto` — which makes the OTHER axis `auto` too. The panel gained a
+	// horizontal scroll region (262px in this browser) and one sideways swipe left a blank
+	// column.
 	//
 	// TWO ARMS, because they fail for different reasons: the property (can it scroll at all)
-	// and the gesture (does a real wheel move it). Both must fail when `overflow-clip` comes
-	// off the row.
+	// and the gesture (does a real wheel move it). Both must fail when the ghost's clip box
+	// stops clipping.
 	const scroller = async () =>
 		page.evaluate(() => {
 			const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
@@ -364,8 +367,8 @@ test('the settings panel cannot be scrolled sideways at all', async ({ page }) =
 	// false conclusion that "Playwright's synthesized wheel cannot reach this nested
 	// scroller". It reaches it fine. Keep the move — and rather than trust it, PROVE
 	// delivery by listening for the event on the scroller itself. (Scrolling the axis that
-	// IS meant to move would be the obvious proof and does not work here: at this viewport
-	// the panel's content fits, so there is nothing to scroll vertically either.)
+	// IS meant to move would be the obvious proof and does NOT work here: the panel's
+	// content fits, so its vertical scroll range is 0 at every width and scope measured.)
 	await page.evaluate(() => {
 		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
 		let el: HTMLElement | null = list?.parentElement ?? null;
@@ -396,23 +399,42 @@ test('the settings panel cannot be scrolled sideways at all', async ({ page }) =
 	expect(settledLeft, 'a sideways wheel scrolled the settings panel').toBe(0);
 });
 
-test('the strip clips on BOTH axes, which is what makes its clip margin real', async ({ page }) => {
-	// A structural pin, and it says so: the thing it protects is a PAINTED focus ring, which
-	// Playwright cannot assert without a pixel baseline this suite does not keep.
+test('the clip is on the measuring ghost, never on the strip row', async ({ page }) => {
+	// A structural pin, and it says so: what it protects is a PAINTED focus ring, which
+	// Playwright cannot assert without a pixel baseline. This suite does keep Studio
+	// baselines (`visual.spec.ts-snapshots/studio-*.png`), but none of them opens the
+	// Inspector, so none can see this ring.
 	//
-	// `overflow-clip-margin` applies only to an element that clips on both axes. The first
-	// cut of the scroll fix used `overflow-x: clip` with `overflow-y: visible` and a 6px
-	// margin — and Chromium ignored the margin completely: 0px and 6px rendered
-	// pixel-identical, and the first pill's focus ring stayed sheared at 390 and 1440 alike.
-	// The scroll test above passes in that state, so nothing else here can catch a revert.
-	const row = await page.evaluate(() => {
+	// The invariant: the row must NOT clip. Its first pill sits flush against the row's
+	// content edge and the focus ring paints 4px outside the pill, so any clip on the row
+	// shears it. `overflow-clip-margin` is not a way out — it applies only when both axes
+	// clip, and WebKit does not implement it at all, so on Safari the ring is sheared
+	// however the row is written. The clip belongs on the zero-size box around the ghost,
+	// which paints nothing and holds nothing focusable.
+	//
+	// The scroll test above passes with the clip on the row, so nothing else here can catch
+	// a revert to it.
+	const geom = await page.evaluate(() => {
 		const list = document.querySelector('[role="tablist"][aria-label*="sections"]');
-		const s = list?.parentElement ? getComputedStyle(list.parentElement) : null;
-		return s && { x: s.overflowX, y: s.overflowY, margin: s.overflowClipMargin };
+		const row = list?.parentElement;
+		if (!row) return null;
+		const rs = getComputedStyle(row);
+		// The ghost is the only `visibility: hidden` descendant; find it, then look at the box
+		// that is supposed to be clipping it.
+		const ghost = [...row.querySelectorAll<HTMLElement>('div')].find((d) => getComputedStyle(d).visibility === 'hidden');
+		const clipBox = ghost?.parentElement;
+		const cs = clipBox ? getComputedStyle(clipBox) : null;
+		return {
+			row: { x: rs.overflowX, y: rs.overflowY },
+			clipBox: cs && { x: cs.overflowX, y: cs.overflowY, w: clipBox?.offsetWidth, h: clipBox?.offsetHeight },
+			ghostWidth: ghost?.offsetWidth ?? 0,
+		};
 	});
-	expect(row, 'no section strip row found').toBeTruthy();
-	expect(row, 'a clip margin does nothing unless BOTH axes clip').toMatchObject({ x: 'clip', y: 'clip' });
-	expect(row?.margin, 'the focus ring paints 4px outside the pill').toBe('6px');
+	expect(geom, 'no section strip row found').toBeTruthy();
+	expect(geom?.row, 'a clip on the ROW shears the first pill\'s focus ring').toMatchObject({ x: 'visible', y: 'visible' });
+	expect(geom?.clipBox, 'the ghost must sit in a zero-size clipping box').toMatchObject({ x: 'clip', y: 'clip', w: 0, h: 0 });
+	// And the zero-size parent must not have squeezed the thing being measured.
+	expect(geom?.ghostWidth ?? 0, 'the ghost lost its intrinsic width, so the fit is measuring nothing').toBeGreaterThan(300);
 });
 
 test('the chevron still holds the WHOLE list, not the leftovers', async ({ page }) => {

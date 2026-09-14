@@ -799,28 +799,29 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `overflow-y-auto` — the ordinary way to make a settings list scroll — is *already* an
   `overflow-x: auto` box, and an absolutely-positioned `width: max-content` ghost 500px wide
   inside a 231px row hands it the whole difference.
-- **Fix:** `overflow: clip` on the ghost's own containing block, **on both axes, with an
-  `overflow-clip-margin`**. `clip` rather than `hidden`, because `hidden` would make that
-  element a scroll container in its own right; `clip` only clips, so nothing new starts
-  scrolling. A Radix/portal dropdown anchored in the clipped row is unaffected — its content
-  renders in a portal, outside the clip.
-- **The margin is not optional, and forgetting it trades one regression for another.**
-  `clip` defaults to `overflow-clip-margin: 0`, and a child flush against the content edge
-  loses whatever paints outside its box — in this repo that is the app focus ring
+- **Fix: clip the HIDDEN ELEMENT in a zero-size box — do not clip the row it sits in.**
+  Wrap the measuring ghost in an `absolute`, `size-0`, `overflow: clip` div. That box paints
+  nothing and holds nothing focusable, so there is nothing for the clip to damage, and the
+  ghost inside keeps its intrinsic `max-content` width because intrinsic sizing ignores the
+  parent's width — which is the only property the measurement needs. `clip` rather than
+  `hidden`, because `hidden` would make that box a scroll container in its own right. A
+  Radix/portal dropdown in the row is unaffected either way; its menu renders in a portal.
+- **Clipping the ROW is the obvious fix and it is wrong.** A child flush against the content
+  edge loses whatever paints outside its box — in this repo that is the app focus ring
   (`outline: 2px` at `outline-offset: 2px`, so 4px beyond). Measured on the strip's focused
-  first pill, against the same clip topology at a wider margin: `0px` cuts 552 pixels at
-  390 and 486 at 1440, `4px` cuts 2, and `6px`, `8px` and `12px` are identical to each
-  other. Set the margin to the ring's reach plus a pixel or two.
-- **`overflow-clip-margin` applies only when BOTH axes clip — `overflow-x: clip` beside
-  `overflow-y: visible` silently ignores it.** This is the trap inside the fix. The first
-  cut here was `overflow-x: clip` with a 6px margin, on the reasoning that leaving the y
-  axis `visible` was the more conservative change; Chromium dropped the margin on the floor,
-  0px and 6px rendered pixel-identical, and the sheared ring shipped anyway. Clipping the y
-  axis too costs nothing when the row is a single line of pills.
-- **Do not raise the margin "for safety" — it is part of the ancestor's scrollable
-  overflow.** Past a point it brings the very scroll region back: measured on this panel,
-  `16px` returns +2px of horizontal scroll, `24px` +10, `48px` +34. The usable band was
-  6–12px.
+  first pill: a bare clip on the row cuts 552 pixels at 390 and 486 at 1440. You have then
+  traded a scroll regression for a keyboard and low-vision one.
+- **`overflow-clip-margin` looks like the escape and is a trap twice over.** First, it
+  applies only when the element clips on BOTH axes — `overflow-x: clip` beside
+  `overflow-y: visible` silently ignores it, and 0px and 6px render pixel-identical. Second,
+  and fatally, **WebKit does not implement it at all** (`CSS.supports('overflow-clip-margin',
+  '6px')` is `false` in WebKit 26). On Safari and iOS a row written this way is a bare clip
+  and the ring is sheared regardless — measured at 374px of paint cut, against 0px in
+  Chromium 141 on the same page. A fix that depends on this property is a fix for one engine.
+- **And the margin has a ceiling anyway, so raising it "for safety" fails too** — it is part
+  of the ancestor's scrollable overflow. Measured on this panel's DECK scope, `16px` returns
+  +2px of horizontal scroll, `24px` +10, `48px` +34 (the slide scope, whose row is 13px
+  narrower, holds out until 24px). The usable band was 6–12px.
 - **Test it by asking the SCROLLER, not the children.** The first e2e written for this
   measured `row.querySelectorAll('button')` and asserted "zero overflow at every width" — the
   ghost's children are `<span>`s, so the assertion could not see the thing that overflowed.
@@ -832,6 +833,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   reach a nested scroller. It can. **And assert on the SETTLED value:** the replacement arm
   used `expect.poll(…).toBe(0)`, which matches its first sample — taken before the
   compositor applied the scroll — so it too passed against the defect. Poll until two
-  consecutive reads agree, then assert; and prove the wheel is being delivered at all by
-  scrolling the axis that IS supposed to move first.
+  consecutive reads agree, then assert.
+  **Prove the wheel is being delivered, and note that the obvious way often cannot be used.**
+  Scrolling the axis that IS supposed to move is the natural probe, and it does not work on a
+  panel whose content fits: this one's vertical scroll range is 0 at every width and scope.
+  Attach a `wheel` listener to the scroller and assert on the `deltaX` it actually saw.
   See `engineering/decisions/2026-09-13-settings-find-and-list-view.md` §12.

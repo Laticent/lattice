@@ -598,17 +598,18 @@ blank tan column.
 | Slide, 1440 docked | +336 |
 | Deck sheet, 390 phone | +128 |
 
-Fixed with `overflow-clip` on the strip row — `clip` rather than `hidden` because it clips
-without becoming a scroll container itself. The dropdown is a Radix portal, so its menu is
-not clipped. After: the panel body's `scrollWidth` equals its `clientWidth` at 390 / 820 /
-1440 in both scopes, and a 400px sideways wheel over the panel moves it 0px.
+The first fix was `overflow-x-clip` on the strip row. **Clipping the row turned out to be
+the wrong box entirely, and it took two more checks to establish that** — §13. What ships is
+a zero-size `overflow: clip` wrapper around the ghost alone. After: the panel body's
+`scrollWidth` equals its `clientWidth` at 390 / 820 / 1440 in both scopes, and a 400px
+sideways wheel over the panel moves it 0px.
 
 **And the first cut of that fix broke something else.** A bare `clip` has an
 `overflow-clip-margin` of 0, the first pill sits flush against the row's content edge
 (measured gap: 0px), and the app focus ring is `outline: 2px` at `outline-offset: 2px` — so
 it paints 4px OUTSIDE the box and was sheared off. A keyboard and low-vision regression
-inside the fix for a scroll regression. `[overflow-clip-margin:6px]` restores it — but only
-once the row clips on BOTH axes, which took a third check to establish and is §13.
+inside the fix for a scroll regression. `[overflow-clip-margin:6px]` looked like the answer
+and was not, twice over — §13.
 
 *One correction to the check that found this.* It reported the scroll region as
 +273/+342/+130, measured on a different box from the one a swipe actually moves — the first
@@ -686,22 +687,23 @@ the first pill stayed sheared — the regression §12 said it had closed.
 Measured on the running Studio, against the same clip topology at a wider margin, on the
 focused first pill (`:focus-visible`, real keyboard focus, noise floor 0):
 
-| Row's overflow | Pixels of paint cut, 390 | 1440 | Panel scrolls sideways |
-|---|---|---|---|
-| `clip` / `visible`, margin 6px — **as shipped** | 149 | 149 | 0px |
-| `clip` / `visible`, margin 0px | 149 | 149 | 0px |
-| `clip` / `clip`, margin 0px | 552 | 486 | 0px |
-| `clip` / `clip`, margin 4px | 2 | 2 | 0px |
-| **`clip` / `clip`, margin 6px** | **0** | **0** | **0px** |
-| `clip` / `clip`, margin 12px | 0 | 0 | 0px |
+| Row's overflow | Pixels of paint cut, 390 | 1440 |
+|---|---|---|
+| `clip` / `visible`, margin 6px — **as shipped** | 149 | 149 |
+| `clip` / `visible`, margin 0px | 149 | 149 |
+| `clip` / `clip`, margin 0px | 552 | 486 |
+| `clip` / `clip`, margin 4px | 2 | 2 |
+| `clip` / `clip`, margin 6px | 0 | 0 |
 
-The first two rows being equal is the finding: the margin was inert. The fix is
-`overflow-clip`, both axes, same 6px.
+The first two rows being equal is the finding: the margin was inert. **The conclusion drawn
+from this table — "so clip both axes" — was itself wrong, and §14 is why.** The table stands;
+what it cannot see is a second engine.
 
 **And the margin has a ceiling, which nothing had measured.** A clip margin is part of the
 ancestor's scrollable overflow, so raising it "for safety" brings the scroll region back:
-`16px` returns +2px, `24px` +10px, `48px` +34px. The usable band is 6–12px, and the comment
-on the row now says so.
+in the deck scope `16px` returns +2px, `24px` +10px, `48px` +34px. (The slide scope's row is
+13px narrower and holds out until 24px — the three numbers are one scope's, and an earlier
+draft of this section presented them as the panel's.)
 
 ### Two more of my corrections were wrong
 
@@ -715,21 +717,85 @@ on the row now says so.
   drawer gives the slide panel a **214px** row; pick `Comments` there and the strip really is
   the chevron alone, wearing "Comments" — measured, not derived.
 
-### The gates could not have caught any of it
+---
 
-The scroll test passes in the broken state, because the scroll fix was never the broken half.
-Nothing else in the suite can see a painted focus ring — this repo keeps no pixel baseline for
-the Studio. So the diff now carries a structural pin instead, and it says what it is: an e2e
-arm asserting the row computes to `clip` on both axes with a `6px` margin, with the reason
-written next to it. A pin on the mechanism, not on the pixels, is the honest version of what
-can be tested here.
+## 14. What the FOURTH check found — the fix worked in one engine
 
-The wheel arm needed a second fix for the same reason as the first. `expect.poll(…).toBe(0)`
-matches its FIRST sample — taken before the compositor applies the scroll — so the restored
-arm also passed against a panel that then scrolled 259px. It now proves the wheel is being
-delivered (a vertical wheel at the same cursor must move the panel body), then polls until
-the horizontal value settles and asserts on what it settled at.
+Three rounds had all been measured in Chromium, because that is the browser this sandbox
+renders with and the only one the e2e suite drives. The fourth check installed WebKit and
+asked the question none of the first three had.
 
-**Three independent checks, three regressions or dead fixes of mine, each found by the check
-and not by a gate.** That is the number worth carrying out of this work, and it is why the
-merge card for it does not read `high`.
+### WebKit does not implement `overflow-clip-margin` at all
+
+`CSS.supports('overflow-clip-margin', '6px')` is **`false`** in WebKit 26. So on Safari and
+iOS, a row written `overflow: clip` with a `6px` margin is simply a bare clip, and the first
+pill's focus ring is sliced flat — the exact round-two regression, shipped to every Apple
+user. Measured on the same page, same control (the ghost taken out of flow, the row
+un-clipped), same focused pill:
+
+| Engine | `clip` + `clip-margin: 6px` on the row |
+|---|---|
+| Chromium 141 | 0px of paint cut |
+| WebKit 26 | **374px of paint cut** |
+
+This is a regression the PR *created*: `main`'s row is `flex flex-wrap items-center gap-1.5`,
+with no ghost and no clip, so HARD RULE #18 applies with no exit — the surface worked before
+the change and did not after.
+
+**The new e2e pin could not have caught it, and the reason is worth keeping.** The pin
+asserted `overflowClipMargin === '6px'`; in WebKit that property reads `undefined`, so the arm
+would have *failed* there — but the spec is untagged and runs on the Chromium `desktop`
+project only. The one browser where the UI was broken is the one the test never visits.
+
+### The fix: clip the ghost, not the row
+
+The mistake was three rounds deep, not one: **the clip was on the wrong box the whole time.**
+The row is full of focusable, painted children sitting flush against its edge; the ghost is a
+hidden measuring copy that paints nothing. Put the clip on a zero-size box around the ghost
+alone and there is nothing left to shear, so no clip margin is needed and no engine's support
+for one matters.
+
+```
+<div class="absolute left-0 top-0 size-0 overflow-clip">   ← paints nothing, clips everything
+  <div class="w-max" style="visibility:hidden"> … </div>   ← keeps its intrinsic width
+```
+
+`w-max` survives the zero-width parent because intrinsic sizing ignores the parent's width,
+and the intrinsic widths are the only thing the fit reads. Five candidates were measured
+across both engines before this one was taken:
+
+| Candidate | Ring cut, Chromium | WebKit | Panel scroll | Row height |
+|---|---|---|---|---|
+| `clip` + `clip-margin: 6px` on the row (shipped) | 0 | **374** | 0 | +0 |
+| clip + `padding: 6px` + `margin: -6px` on the row | 118 | 40 | 0 | **+12** |
+| clip + `padding: 6px`, uncompensated | 3798 | 3632 | 0 | **+12** |
+| no clip, ghost `position: fixed` | 0 | 0 | 0 | +0 |
+| **no clip, ghost in a `size-0` clip box** | **0** | **0** | **0** | **+0** |
+
+The last two both work. `position: fixed` was rejected for a failure mode it would have taken
+another round to find: a `transform`, `filter` or `contain` on any ancestor makes a fixed
+descendant resolve against *that* ancestor instead of the viewport, and the mobile settings
+sheet animates in on a transform — so the overflow would come back for the length of the
+animation. No ancestor captures it today (checked at 390 / 820 / 1440 in both scopes, both
+engines), which is exactly the kind of "true right now" the last three rounds kept punishing.
+The `size-0` wrapper depends on nothing but intrinsic sizing.
+
+Verified after the change, both engines, 390 / 820 / 1440 × deck and slide: focus ring
+pixel-identical to no clip at all, panel `scrollWidth == clientWidth`, document
+`scrollWidth == clientWidth`, row height unchanged, ghost widths intact.
+
+### Five more claims that were not true
+
+| Claimed | Actually |
+|---|---|
+| "restores the ring" (§13, the component comment, the card) | In Chromium. WebKit has no `overflow-clip-margin`, so the ring stayed sheared on Safari and iOS |
+| The gotcha's advice to prove wheel delivery "by scrolling the axis that IS supposed to move" | The panel's vertical scroll range is **0** at every width and scope — the shipped arm uses a `wheel` listener, and its own comment says the documented technique cannot work here |
+| "this suite keeps no pixel baseline for the Studio" | It keeps three (`visual.spec.ts-snapshots/studio-{desktop,tablet,mobile}-linux.png`). None opens the Inspector, so the substance holds; the sentence did not |
+| Two `**Fixed:**` changelog bullets, for the sideways scroll and the sheared ring | Neither ever shipped — both were created inside this PR. Removed: HARD RULE #10 records user-visible changes, and a release note claiming to fix a bug no release had is noise |
+| "504px wide inside a 231px row" | One scope, one engine. Deck 504 (WebKit) / 507 (Chromium); slide 579 / 585. Rows run 214–362 |
+
+**Four rounds, four findings, and each one was a claim measured on too narrow a surface** —
+one axis, one state, one scope, one engine. The pattern is not carelessness about measuring;
+every wrong claim here had a measurement behind it. It is that the measurement's *scope* was
+assumed rather than chosen, and the assumption never appeared in the sentence the claim was
+written as.
