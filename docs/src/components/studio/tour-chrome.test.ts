@@ -308,6 +308,25 @@ describe('tourChromeOverlap — a caption that is not full width', () => {
 		expect(tourChromeOverlap(pane(0, 160))).toBe(336);
 	});
 
+	it('distinguishes LEFT from RIGHT — an asymmetric band, pane on the far side', () => {
+		// EVERY OTHER FIXTURE HERE IS SYMMETRIC, which a checker's mutants exposed: swapping the two
+		// properties, or dropping either half of the overlap test, passed the whole suite. A `bar`
+		// under `bounds:'host'` over an off-center host publishes asymmetric gutters, so this is the
+		// ordinary case, not a contrivance. 1024px window, band [100, 480].
+		setInset('230px');
+		setSides('100px', '544px');
+		// A pane at x 600..900 is entirely to the RIGHT of the band — covered by nothing.
+		expect(tourChromeOverlap(pane(600, 300))).toBe(0);
+	});
+
+	it('reserves the band for a pane the ASYMMETRIC band actually covers', () => {
+		// The same band, a pane at x 200..300, squarely inside [100, 480]. Swapping the two
+		// properties would read the band as [544, 924] and return 0 here — the original defect.
+		setInset('230px');
+		setSides('100px', '544px');
+		expect(tourChromeOverlap(pane(200, 100))).toBe(230);
+	});
+
 	it('is 0 for a pane beside the caption when no keyboard is up', () => {
 		// The other half of the same line: with nothing else obstructing, a pane beside the caption
 		// still reserves nothing. `Infinity` for the caption term must not leak out as a number.

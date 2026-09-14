@@ -96,9 +96,29 @@
 # weakened in #1547 to verify per-note correctness rather than byte-identity, so a union-merged
 # index passes it. Verified by merging two real branches: both rows present, gate green.
 #
-# THE ONE CASE UNION GETS WRONG FAILS LOUDLY, WHICH IS WHY THIS IS SAFE. If two branches change
-# the SAME note's status, union keeps both of that note's rows. The note file itself still
-# conflicts (a real semantic conflict, correctly surfaced), and `--check` then refuses with
-# "2 entries in the index — it must appear exactly once". Measured. A wrong merge here cannot
-# reach `main` quietly; it hits the gate every PR already runs.
+# INSIDE THE BLOCK, A WRONG UNION FAILS LOUDLY. If two branches change the SAME note's status,
+# union keeps both of that note's rows. The note file itself still conflicts (a real semantic
+# conflict, correctly surfaced), and `--check` then refuses with "2 entries in the index — it
+# must appear exactly once". Measured. That class of wrong merge cannot reach `main` quietly.
+#
+# OUTSIDE THE BLOCK IT DOES NOT, AND THAT IS THIS DRIVER'S REAL LIMIT. A merge driver applies to
+# a whole file, but the gate reads only between the sentinels (`parseIndex` slices the text
+# between them), and they sit at lines 130 and 695 — so the 129 lines of hand-written prose above
+# the block (the Convention section, the status-lifecycle table, the ROW_CAP guidance) are under
+# union with NO gate behind them. Two PRs rewording the same prose line would merge clean and
+# commit both sentences back to back. Reproduced with `git merge-file --union`; exit 0, no
+# conflict, both sentences present.
+#
+# Why that is still the right trade: the prose is nearly static while the block churns. Of the
+# 150 commits in the last 300 on `main` that touch this file, 4 changed any line that is not an
+# index row — and two of those four would additionally have to hit the SAME line in parallel.
+# The failure is also visible rather than corrupting: a duplicated sentence in a rendered README
+# reads as an obvious editing mistake in the PR diff, where a wrong CODE merge would not. If that
+# ever stops being acceptable, the fix is to move the generated block into its own file so the
+# driver covers only generated content — a bigger change, costed as the alternative in
+# `engineering/decisions/2026-09-14-the-decision-index-merges-as-a-union.md` §3.
+#
+# (An earlier version of this note claimed the status case was "THE ONE case union gets wrong".
+# It is the one case INSIDE the block. A review caught the prose region; the claim was an
+# incomplete safety proof, which is worse than a stated limit.)
 engineering/decisions/README.md merge=union

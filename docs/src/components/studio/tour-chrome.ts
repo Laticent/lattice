@@ -122,6 +122,11 @@ export function tourChromeOverlap(scroller: Element | null | undefined, keep = 4
 	// bottom edge is itself partly or wholly behind an open keyboard. With no keyboard up
 	// `visibleBottom()` is `innerHeight`, which constrains nothing either.
 	const chromeTop = Math.min(captionTop, visibleBottom());
+	// BELT AND BRACES, NOT A LIVE PATH: `visibleBottom()` is always finite, so `min` of it with
+	// `Infinity` is too, and the only way through here is an `innerHeight` that is itself NaN.
+	// It stays because the alternative to catching that is returning NaN into a CodeMirror
+	// `yMargin`, which takes the reveal with it — but do not read it as the `Infinity` branch
+	// having an escape; that branch cannot reach this line.
 	if (!Number.isFinite(chromeTop)) return 0;
 	return Math.max(0, Math.min(box.bottom - chromeTop, box.height - keep));
 }

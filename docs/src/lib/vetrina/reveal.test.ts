@@ -658,6 +658,31 @@ describe('the reveal clears the tour\'s own caption', () => {
 		stage.destroy();
 	});
 
+	it('distinguishes LEFT from RIGHT — an asymmetric band, target on the far side', async () => {
+		// The stage-side twin of the host-side arm: every other fixture here is horizontally
+		// SYMMETRIC, so swapping `ins.left`/`ins.right` or dropping either half of `overlapsX`
+		// passed the whole suite when a checker mutated them. Band [100, 480] on a 1024px window.
+		const stage = captionCovering(230, {}, { left: 100, width: 380 });
+		await frames(2);
+		// x 700..820 — entirely right of the band, covered by nothing, so no lift.
+		const { el, seen } = elementTarget(40, 700);
+		await stage.point(el);
+		expect(seen.length, 'lifted a target the asymmetric band does not cover').toBe(1);
+		stage.destroy();
+	});
+
+	it('still lifts a target the ASYMMETRIC band covers', async () => {
+		// Same band, x 200..320, squarely inside [100, 480]. A swap would read [544, 924] and skip
+		// the lift here — the defect this pair exists to catch, in the direction that UNDER-reserves.
+		const stage = captionCovering(230, {}, { left: 100, width: 380 });
+		await frames(2);
+		const { el, seen } = elementTarget(40, 200);
+		await stage.point(el);
+		expect(seen.length).toBe(2);
+		expect(seen[1].bottom).toBe('230px');
+		stage.destroy();
+	});
+
 	it('treats a touching edge as clear, not as covered', async () => {
 		const stage = captionCovering(230, {}, PILL);
 		await frames(2);

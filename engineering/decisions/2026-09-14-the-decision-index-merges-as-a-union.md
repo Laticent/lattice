@@ -79,11 +79,32 @@ Every row is unique to one note, and the block's ORDER is not asserted — #1547
 PRs could share the merge queue. So a union-merged index is legal by construction. Verified by
 merging two real branches with the driver in place: both rows present, `--check` green.
 
-**The one case union gets wrong fails loudly.** If two branches change the SAME note's status,
+**Inside the block, a wrong union fails loudly.** If two branches change the SAME note's status,
 union keeps both of that note's rows. Measured: the note file itself still conflicts — a real
 semantic conflict, correctly surfaced and NOT suppressed by the driver, which only covers
 `README.md` — and `--check` then refuses with `2 entries in the index — it must appear exactly
-once`. A wrong merge cannot reach `main` quietly; it hits the gate every PR already runs.
+once`. That class of wrong merge hits the gate every PR already runs.
+
+**Outside the block it does not, and a review caught the first draft of this note claiming
+otherwise.** A merge driver applies to a whole file; `parseIndex` reads only the text between the
+sentinels, which sit at lines 130 and 695. The 129 lines of hand-written prose above the block —
+the Convention section, the status-lifecycle table, the `ROW_CAP` guidance — are therefore under
+union with no gate behind them, and two PRs rewording the same prose line would merge clean with
+both sentences committed back to back. Reproduced with `git merge-file --union`: exit 0, no
+conflict, both sentences present.
+
+The exposure is small and the failure is visible rather than corrupting. Of the 150 commits in the
+last 300 on `main` that touch this file, **4 changed any line that is not an index row**, and two
+of those would additionally have to hit the same line in parallel. A duplicated sentence reads as
+an obvious editing mistake in the PR diff; a wrong code merge would not. (An independent checker
+measured this as 18 of 165 using a looser definition that counts heading and blank-line shifts —
+worth knowing that the number moves with the method. Either way the prose is near-static while the
+block churns.)
+
+If that ever stops being acceptable, the fix is §3's first option applied narrowly: move the
+generated block into its own file so the driver covers only generated content. The claim to avoid
+repeating is the first draft's — that the status case was "the one case union gets wrong". An
+incomplete safety proof is worse than a stated limit.
 
 ## 5. What is not verified
 

@@ -402,8 +402,8 @@ the published inset. Without a keyboard — every desktop, and every headless br
 on both sides; the keyboard spans the screen, so nothing is ever *beside* it. Clearing the two
 as one number by short-circuiting on the horizontal test leaves a pane beside a narrow caption
 with no keyboard clearing at all — which is exactly the bug this recipe exists to avoid, and one
-the Studio shipped for a day before a review caught it. Take the caption's line as `Infinity`
-when it does not overlap, rather than returning early.
+an early draft on this branch had before a review caught it. Take the caption's line as
+`Infinity` when it does not overlap, rather than returning early.
 
 Read them from the inline style (`documentElement.style.getPropertyValue(...)`), not
 `getComputedStyle` — a host reading this per keystroke should not force a style recalculation. The

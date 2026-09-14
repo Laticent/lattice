@@ -105,3 +105,17 @@ them. `scrim`, the phone style, is full width and is unaffected either way.
 The measurement that would close the remaining question is a target inventory of the shipped
 Studio tour at 1440x900 and 820x1180, asking whether any cue target actually lands entirely in a
 `bar` gutter. That was not done.
+
+## 7. One open risk the x-test makes sharper, not new
+
+`reveal` reads `chromeInset()` before it calls `relayout()`. Under `bounds: 'host'` the dock is
+seated against the host's visible box, so after `scroll('nearest')` — which with `inline:'nearest'`
+can scroll a horizontally-scrollable ancestor — `ins` describes the dock's PRE-scroll seat. That
+staleness already existed and the code acknowledges it; before this change it made the margin's
+magnitude slightly wrong. Now it can flip `overlapsX` to `false` for a target the re-seated caption
+does cover, so the second scroll never runs at all — a boolean rather than a rounding error.
+
+Not reproduced: it needs a horizontally-scrollable host under `bounds:'host'`, which no shipped
+tour has. Recorded rather than fixed because moving `relayout()` above the measurement changes the
+ordering §3.2 of the #2209 record deliberately fixed ("scroll first, then ask"), and that is a
+bigger argument than this risk earns today.
