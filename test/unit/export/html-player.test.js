@@ -162,7 +162,16 @@ test('themeDualMode flattens against `:root` ONLY — a component-scoped decl ne
 //                      panel and must be held back too.
 //   · `.print`       — nothing is held back; a printed panel IS paper.
 // Spelling `.color-light` the same as `.light` left a 1.61:1 divider in the player's dark
-// scheme on any `color-mode: light` deck.
+// scheme — 11.29:1 once carved out.
+//
+// THE PRECONDITION IS NARROWER THAN A FIRST DRAFT CLAIMED, and the correction is worth as
+// much as the fix. That draft said "on any `color-mode: light` deck"; measured on three
+// themes, it reproduces on NONE of them, because the player's own toggle strips the class
+// first — `applyDeckMode` removes `color-light` from every section when the viewer picks
+// dark, so the rule cannot match. What reaches it is a slide carrying `color-light` as a
+// PER-SLIDE class on a deck with no deck-wide `color-mode:`, where `deckMode` is unset and
+// the toggle manages nothing. `lint:deck` warns about that spelling, which is a fair reason
+// to call the case rare and no reason at all to describe it wrongly.
 const restoreSel = (pin) => {
 	if (pin === '.print') return `section[data-lattice-slide]${pin}`;
 	const carve = pin === '.light'
@@ -368,10 +377,30 @@ test('the color-system logo rules reach ONLY slides whose ground follows the OS'
 	assert.ok(!reaches(['color-system', 'print']), 'the print band is paper');
 });
 
+test('every ALWAYS_DARK `unless` is single-class and space-free', () => {
+	// THE CARVE-OUT FILTER IS A STRING TEST, and it is right for today's data only. It asks
+	// whether an entry's `unless` contains `:not(<pin>)`. The trailing paren defeats the
+	// obvious substring hazard — `:not(.color-light)` is correctly NOT dropped for `.light` —
+	// but two re-spellings CSS would happily accept break it in the unsafe direction:
+	// `:not(.light, .bright)` and `:not( .light )` both fail to match, so `.divider` stays in
+	// the `.light` carve-out and a bright divider takes on-dark inks over its own white canvas.
+	//
+	// Nothing else pins this, and the failure is silent. So the grammar is the assertion.
+	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
+	// Recover the entries from the emitted unconditional block rather than importing them —
+	// an expectation derived from the code under test follows that code anywhere it goes.
+	const sel = darkBlock.match(/\}(section\[data-lattice-slide\]\.title[^{]*)\{/)[1];
+	for (const arm of sel.split(',')) {
+		const unless = arm.replace(/^section\[data-lattice-slide\]\.[a-z-]+/, '').replace(':not(.print)', '');
+		assert.match(unless, /^(:not\(\.[a-zA-Z0-9_-]+\))*$/,
+			`an ALWAYS_DARK \`unless\` must be a chain of single-class, space-free :not() — got '${unless}' in '${arm}'`);
+	}
+});
+
 test('the color-system rules carry a light-scheme RESET, not just a dark arm', () => {
 	// THE ARM WITH NO COVERAGE. Deleting the `:root[data-lp-scheme=light]` reset passed the
-	// ENTIRE unit tier — 9507 tests, not one moved — which is how an independent checker found
-	// it rather than the suite. It is the arm that fixes the one cell the engine rule alone
+	// ENTIRE unit tier as it then stood — 9507 tests, not one moved — which is how an
+	// independent checker found it rather than the suite. It is the arm that fixes the one cell the engine rule alone
 	// gets wrong: a viewer on a DARK OS who picks light. The engine's
 	// `@media (prefers-color-scheme: dark)` cannot see the player's attribute, so it keeps
 	// firing; without this reset the mark wears the inverse treatment on a white ground, which
