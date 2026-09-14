@@ -59,3 +59,51 @@ test('a chart deck exports to PDF with styled (non-black) chart SVGs', async ({ 
 	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
 	await expect(toastText(page)).toContainText('PDF ready.');
 });
+
+// The SAME bake, through the browser half of the export. The CLI path
+// (`tools/export-chart-svg.js`) is measured on its own exported files, but the
+// Studio reaches `flattenSvgStyles` from four other call sites and only some of
+// them ask for token definitions — so the CLI's artifact says nothing about
+// whether this one passes the flag. The oracle is the DOWNLOADED ZIP.
+//
+// What it pins: a standalone `.svg` in the image set carries its own `svg{…}`
+// rule. The bake deliberately leaves a scheme-varying paint as `fill:var(--token)`
+// so the exported player can re-theme it; a detached file has no host to define
+// that token, the `var()` resolves to nothing, and `fill` falls to its SVG
+// initial — BLACK. And the scratch attribute the two halves pass it on must not
+// survive into the file, where it would publish the deck's resolved palette a
+// second time.
+test('a standalone chart SVG in the image set defines the tokens its paints reference', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await expect(railButtons(page)).toHaveCount(SLIDES);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+
+	const download = page.waitForEvent('download', { timeout: 120_000 });
+	await shareExport(page, 'images');
+	const d = await download;
+	expect(d.suggestedFilename()).toMatch(/\.zip$/);
+
+	const zipPath = await d.path();
+	const { default: JSZip } = await import('jszip');
+	const zip = await JSZip.loadAsync(fs.readFileSync(zipPath));
+	const svgNames = Object.keys(zip.files).filter((f) => f.endsWith('.svg'));
+	expect(svgNames.length, 'the image set extracts standalone chart SVGs').toBeGreaterThan(0);
+
+	let withTokenRule = 0;
+	for (const name of svgNames) {
+		const svg = await zip.files[name].async('string');
+		// Never the scratch attribute — `finalizeStandaloneSvg` strips what it reads.
+		expect(svg, `${name} must not ship the scratch attribute`).not.toContain('data-lattice-tokens');
+		// A file that still names a token must define it.
+		const named = new Set(Array.from(svg.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g), (m) => m[1]));
+		if (!named.size) continue;
+		const rule = svg.match(/svg\{([^}]*)\}/);
+		expect(rule, `${name} references ${named.size} token(s) and must carry an svg{} rule`).not.toBeNull();
+		const defined = new Set(Array.from((rule as RegExpMatchArray)[1].matchAll(/(--[a-zA-Z0-9-]+)\s*:/g), (m) => m[1]));
+		for (const t of named) expect(defined, `${name} leaves ${t} undefined — its paint falls to black`).toContain(t);
+		withTokenRule++;
+	}
+	expect(withTokenRule, 'at least one extracted chart carries token references').toBeGreaterThan(0);
+});
