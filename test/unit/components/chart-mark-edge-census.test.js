@@ -12,7 +12,7 @@
  * exclusion has to earn its place here on every run, or the escape hatch becomes
  * the rule.
  *
- * EXCLUSION 1 — KNOCKOUTS. Six marks stroke in `var(--bg)`, the canvas color.
+ * EXCLUSION 1 — KNOCKOUTS. Eight marks stroke in `var(--bg)`, the canvas color.
  * That is a separator, not an outline: its job is to hold two touching marks
  * apart, so its correct weight follows what it has to separate. Flattening one
  * into the other took quadrant's separator from 5.49px to 1px. The test below
@@ -54,6 +54,11 @@ const KNOCKOUTS = {
   'scatter-dot': 'scatter',
   'sbar-seg': 'stacked-bar',
   'quadrant-trail-after': 'quadrant',
+  // The heatmap grid: at a 1.2-unit gap the canvas shows between cells and reads
+  // as a black lattice over the data on a dark slide, so each cell strokes the
+  // canvas instead. A separator, not an outline — its weight follows what it has
+  // to separate, which is why it is here rather than on var(--chart-edge).
+  'heatmap-cell': 'heatmap',
 };
 
 /** The class names an element that WRAPS shapes; a stroke on it paints nothing. */

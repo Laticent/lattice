@@ -302,6 +302,17 @@
       "perPage": 1,
       "relationship": null
     },
+    "heatmap": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
     "image": {
       "treatment": "asset",
       "axis": null,

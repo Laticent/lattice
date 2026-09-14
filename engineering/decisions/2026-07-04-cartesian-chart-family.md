@@ -1,9 +1,23 @@
 ---
-status: proposed
-summary: Cartesian chart family — barchart, linechart, xychart, slopechart, waterfall, bullet — sharing one axis kernel, authored in the existing list-of-pills grammar
+status: superseded
+summary: Cartesian chart family — barchart, linechart, xychart, slopechart, waterfall, bullet — sharing one axis kernel, authored in the existing list-of-pills grammar; shipped as seven members under shorter names, recorded in the 2026-09-06 expansion note
+superseded-by: 2026-09-06-cartesian-chart-expansion.md
 ---
 
 # Cartesian chart family — bar, line, xy, slope, waterfall, bullet
+
+> **Superseded (2026-09-13) by
+> [`2026-09-06-cartesian-chart-expansion.md`](2026-09-06-cartesian-chart-expansion.md),
+> which is the implementation record.** The direction below was approved and is
+> what shipped; three things about it are now out of date, which is why this is
+> superseded rather than simply marked shipped. **The names are shorter** —
+> `bar`, `line`, `scatter`, `slope`, `waterfall`, `bullet`, with `stacked-bar`
+> added as a seventh. **The axis kernel was not extracted from `quadrant`**; it
+> is a new shared substrate, `lib/components/chart/_chart-family/cartesian.js`,
+> and the expansion note §3 records why landing it FIRST was the load-bearing
+> call. And `xychart` shipped as `scatter`, with `bubble` and `trend` variants
+> this note does not anticipate. Read the sections below as the rationale of
+> record for the direction, not as a description of the tree.
 
 **Status:** proposed 2026-07-04 (approved direction; implementation staged below).
 **Scope:** six new chart-family members that plot values on a numeric axis —

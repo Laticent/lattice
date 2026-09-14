@@ -2,7 +2,7 @@
 
 # chart
 
-`21 components`
+`22 components`
 
 Chart — series-substance data visualizations (SVG kernel).
 
@@ -73,6 +73,35 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
   - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
   - GA `Q4` `milestone` `after: Org-wide rollout`
     - Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.
+
+---
+
+<!-- _class: heatmap -->
+<!-- _footer: "heatmap · chart survey" -->
+
+`Retention · 2026 cohorts`
+
+## Retention decays fastest in month two.
+
+- Jan 2026
+  - M0 `100`
+  - M1 `62`
+  - M2 `48`
+  - M3 `44`
+- Feb 2026
+  - M0 `100`
+  - M1 `58`
+  - M2 `44`
+  - M3 `41`
+- Mar 2026
+  - M0 `100`
+  - M1 `71`
+  - M2 `59`
+  - M3 `55`
+- Apr 2026
+  - M0 `100`
+  - M1 `69`
+  - M2 `57`
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   The chart family ships fourteen components and not one of them plots a value against an
   axis — `progress` is a percentage fill with no scale, `quadrant` scores on a unitless 2x2,
@@ -270,6 +270,17 @@ themselves with the same anecdote. Folding `domainFor` back into the substrate i
 right, and it moves `slope`'s axis as well as `scatter`'s, so it belongs in its
 own change with its own renders.
 
+> **Shipped.** The algorithm is `cartesian.js § niceDomain`, one copy, and the
+> `tight` flag is deleted rather than left unused. `scatter` and `bubble` render
+> pixel-identical, which is what makes the move provably a relocation. The
+> predicted move in `slope` turned out narrower than this finding assumed: the
+> DUMBBELL scales across the tick domain and grids it, the SLOPEGRAPH does not —
+> it scales to the data with its own pad and draws no gridlines, so the ticks
+> reach it only through the value formatter. Measured across every slope and
+> dumbbell slide in the shipped decks, one tick set changes and the slide it is
+> on renders pixel-identical; the single dumbbell keeps its `40 · 50 · 60` and
+> only widens its domain, 6% of air at each end to the family's 8%.
+
 **`role="img"` does not prune the SVG subtree, so a reader hears the desc AND
 every text node under it.** Dumping the real accessibility tree over the rendered
 deck (Chromium CDP `Accessibility.getFullAXTree`) shows all seven charts exposing
@@ -282,6 +293,22 @@ new here.** `funnel`, `gantt`, `map`, `piechart`, `quadrant`, `radar` and
 behave the same way, so the fix is one `aria-hidden` decision taken once for the
 whole chart family — off the path of this change under HARD RULE #18, and worth
 its own render pass because hiding the subtree also hides it from find-in-page.
+
+> **Shipped**, across all 21 charts in the family, not just the seven. Every
+> chart's marks now sit under `aria-hidden="true"`, with `<title>`/`<desc>` left
+> outside the group so each chart keeps its accessible name. Measured over the
+> rendered gallery before the fix, all fifteen chart roots leaked their whole
+> subtree — 24 unignored nodes under `bar`, 223 under `map` — which is the claim
+> `role="img"` was believed to cover and Chromium does not implement that way
+> for SVG.
+>
+> **The find-in-page cost this entry predicted does not exist**, and that was
+> measured rather than reasoned about, because the reasoning went the wrong way
+> once already. Driving the real rendered document: a token written into a
+> `<tspan>` whose only ancestor group is `aria-hidden="true"` is still returned
+> by `window.find()`, still present in `body.textContent`, and still painted.
+> `aria-hidden` removes a node from the ACCESSIBILITY tree; it is not
+> `display: none`, and Blink's text finder walks layout, not the AX tree.
 
 **The landscape canvas letterboxes, by ~16% per side — and that is INHERITED,
 not introduced here.** Measured in a real browser at a 1280px viewport, off the

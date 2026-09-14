@@ -86,7 +86,15 @@ describe('funnel kernel', () => {
       // the accessibility tree: a screen reader found an empty box. Semantic-html
       // ADR §17.5.
       const html = buildFunnel(parseFunnel(ul([['Visitors', '10000'], ['Signups', '2300'], ['Paid', '410']])));
-      assert.doesNotMatch(html, /aria-hidden="true"/, 'the chart must stay in the accessibility tree');
+      // SCOPED TO THE ROOT, and that is the whole assertion. The marks now ride
+      // in an `aria-hidden` group because `role="img"` does not prune an SVG
+      // subtree in Chromium (cartesian.js § ariaHiddenMarks) — measured, every
+      // chart leaked every tick and label as loose text after its own <desc>.
+      // What must never happen is the attribute landing on the <svg> ITSELF,
+      // which would take the chart out of the tree entirely. An unscoped
+      // `doesNotMatch` cannot tell those two apart and forbade the fix.
+      assert.doesNotMatch(html, /<svg[^<>]*aria-hidden/, 'the chart root must stay in the accessibility tree');
+      assert.match(html, /<g aria-hidden="true">/, 'the marks must be hidden, or the desc is read twice');
       assert.match(html, /<svg[^>]*role="img"[^>]*>/, 'it is a graphic, and says so');
       assert.match(html, /<title>Funnel chart<\/title>/, 'and it has an accessible name');
       // The <desc> carries the DATA a sighted reader gets from the labels — the

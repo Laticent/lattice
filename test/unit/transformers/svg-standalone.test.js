@@ -89,6 +89,129 @@ describe('finalizeStandaloneSvg', () => {
   });
 });
 
+// ── The file's own token definitions ────────────────────────────────────────────
+// `flattenSvgStyles({ collectTokens: true })` deliberately leaves a scheme-varying
+// paint as `fill:var(--token)` so the exported player can re-theme it, and hands the
+// resolved values out on `data-lattice-tokens`. This half turns that into the file's
+// own `svg{…}` rule. The bake is browser-only; everything below is the pure half, so
+// it is exercised here on hand-built markup.
+describe('finalizeStandaloneSvg — the file\'s own token definitions', () => {
+  const withTokens = (css, rest) =>
+    `<svg viewBox="0 0 10 10" data-lattice-tokens="${css}"${rest || ''}><rect/></svg>`;
+
+  test('turns the attribute into a root-scoped rule and strips the attribute itself', () => {
+    const out = finalizeStandaloneSvg(withTokens('--chart-cat-1:rgb(30, 58, 95);'), { xmlProlog: false });
+    assert.match(out, /<style type="text\/css"><!\[CDATA\[\n?\[data-lattice-scope="[a-z0-9]+"\]\{--chart-cat-1:rgb\(30, 58, 95\);\}/);
+    // The attribute is scratch space between the two halves of one export — it must
+    // never survive into the file, where it would publish the palette a second time.
+    assert.doesNotMatch(out, /data-lattice-tokens/);
+  });
+
+  // An SVG `<style>` is DOCUMENT-scoped wherever the file ends up, so a bare `svg{…}`
+  // selector repaints every other chart on a page that inlines this one. Measured
+  // before this scoping: a light and a dark heatmap export inlined together resolved
+  // the same `--heatmap-step5-ink`.
+  test('scopes the rule to its own root, and never with a bare svg selector', () => {
+    const out = finalizeStandaloneSvg(withTokens('--a:red;'), { xmlProlog: false });
+    const scope = out.match(/data-lattice-scope="([^"]+)"/)?.[1] ?? '';
+    assert.match(scope, /^[a-z0-9]+$/, 'the root takes a generated scope');
+    assert.ok(out.includes(`[data-lattice-scope="${scope}"]{--a:red;}`), 'the rule selects that scope');
+    assert.doesNotMatch(out, /CDATA\[\s*svg\{/, 'never a bare svg{} selector');
+  });
+
+  test('the scope is derived from the declarations — stable per export, distinct across them', () => {
+    const red = finalizeStandaloneSvg(withTokens('--a:red;'), { xmlProlog: false });
+    const redAgain = finalizeStandaloneSvg(withTokens('--a:red;'), { xmlProlog: false });
+    const blue = finalizeStandaloneSvg(withTokens('--a:blue;'), { xmlProlog: false });
+    assert.equal(red, redAgain, 'byte-stable — a re-export must not churn the file');
+    const scopeOf = (t) => t.match(/data-lattice-scope="([^"]+)"/)?.[1] ?? '';
+    assert.notEqual(scopeOf(red), scopeOf(blue), 'two different palettes cannot collide on one page');
+  });
+
+  // The first cut of the scoping reused the root's `id` when it had one — and a
+  // Mermaid export ALWAYS has one, numbered per deck from 1. So two decks on two
+  // themes both emitted `#lattice-mmd-1{…}` and the second re-palettized the first:
+  // the exact bug the scoping was written to fix, reinstated for every diagram.
+  test('two files sharing a root id still get different scopes', () => {
+    const one = '<svg id="lattice-mmd-1" viewBox="0 0 10 10" data-lattice-tokens="--a:red;"><rect/></svg>';
+    const two = '<svg id="lattice-mmd-1" viewBox="0 0 10 10" data-lattice-tokens="--a:blue;"><rect/></svg>';
+    const a = finalizeStandaloneSvg(one, { xmlProlog: false });
+    const b = finalizeStandaloneSvg(two, { xmlProlog: false });
+    const scopeOf = (t) => t.match(/data-lattice-scope="([^"]+)"/)?.[1] ?? '';
+    assert.notEqual(scopeOf(a), scopeOf(b), 'a shared root id must not become a shared selector');
+    // And the author's own id survives — it can be the target of url(#…) or
+    // aria-labelledby inside the same file, so we never rewrite it.
+    assert.ok(a.includes('id="lattice-mmd-1"'), "the source's own id is left alone");
+    assert.equal(a.match(/ id=/g).length, 1, 'exactly one id attribute');
+  });
+
+  test('an unusable root id yields no second id attribute', () => {
+    for (const bad of ['1starts-with-a-digit', 'has:a:colon', '']) {
+      const out = finalizeStandaloneSvg(
+        `<svg id="${bad}" viewBox="0 0 10 10" data-lattice-tokens="--a:red;"><rect/></svg>`, { xmlProlog: false });
+      assert.equal(out.match(/ id=/g).length, 1, `id="${bad}" produced a duplicate id attribute`);
+    }
+  });
+
+  test('no attribute means no rule — an inline clone is byte-identical to before', () => {
+    const out = finalizeStandaloneSvg('<svg viewBox="0 0 10 10"><rect/></svg>', { xmlProlog: false });
+    assert.doesNotMatch(out, /<style/);
+  });
+
+  test('token rule and embedded fonts share one CDATA block, tokens first', () => {
+    const out = finalizeStandaloneSvg(withTokens('--a:red;'), {
+      xmlProlog: false, fontFaceCss: '@font-face{font-family:X;src:url(data:font/woff2;base64,AA)}',
+    });
+    assert.equal(out.match(/<style/g).length, 1);
+    assert.ok(out.search(/\[data-lattice-scope="[a-z0-9]+"\]\{--a:red;\}/) < out.indexOf('@font-face'),
+      'tokens precede the faces');
+  });
+
+  test('admits the shapes a resolved paint actually takes', () => {
+    for (const ok of ['rgb(30, 58, 95)', 'rgba(1, 2, 3, 0.5)', 'oklab(0.55 0.02 -0.11)',
+      'oklch(62% 0.13 264 / 0.4)', '#11131780', 'red', 'none', 'currentColor']) {
+      const out = finalizeStandaloneSvg(withTokens(`--t:${ok};`), { xmlProlog: false });
+      assert.match(out, /\[data-lattice-scope="[a-z0-9]+"\]\{--t:/, `should admit ${ok}`);
+      assert.ok(out.includes(`--t:${ok};`), `should carry ${ok} verbatim`);
+    }
+  });
+
+  test('a value must be a COLOR LITERAL — a charset filter is not enough', () => {
+    // Every one of these passes a naive "only these characters" test and must still be
+    // refused: a fetch, a nested call, a second declaration smuggled past the split, and
+    // an early CDATA close.
+    for (const bad of ['url(//evil/x)', 'url(http://evil/x)', 'a(b(c))', 'red}svg{fill:blue',
+      'red !important', ']]></style><script>alert(1)</script>', 'var(--other)', '']) {
+      const out = finalizeStandaloneSvg(withTokens(`--t:${bad};`), { xmlProlog: false });
+      assert.doesNotMatch(out, /--t:/, `should refuse ${JSON.stringify(bad)}`);
+    }
+  });
+
+  test('a name must be a custom property', () => {
+    for (const bad of ['fill', '--a b', '--a<b', 'color']) {
+      const out = finalizeStandaloneSvg(withTokens(`${bad}:red;`), { xmlProlog: false });
+      assert.doesNotMatch(out, /<style/, `should refuse name ${bad}`);
+    }
+  });
+
+  test('one bad declaration drops itself, not the good ones beside it', () => {
+    const out = finalizeStandaloneSvg(
+      withTokens('--good:red;--bad:url(//x);--also-good:rgb(1, 2, 3);'), { xmlProlog: false });
+    assert.match(out, /\[data-lattice-scope="[a-z0-9]+"\]\{--good:red;--also-good:rgb\(1, 2, 3\);\}/);
+  });
+
+  test('reads the attribute at an attribute BOUNDARY, not wherever the name appears', () => {
+    // A value that merely SPELLS the attribute is not the attribute. Searching the
+    // root's text for the name matched here and ate `viewBox` as the "declaration
+    // list"; tokenizing the attribute list cannot, because every value is "-quoted
+    // and so cannot contain a " of its own.
+    const out = finalizeStandaloneSvg(
+      '<svg aria-label=" data-lattice-tokens=" viewBox="0 0 10 10"><rect/></svg>', { xmlProlog: false });
+    assert.match(out, /viewBox="0 0 10 10"/);
+    assert.doesNotMatch(out, /<style/);
+  });
+});
+
 describe('collectFontFamilies', () => {
   test('pulls families from inline style font-family', () => {
     const m = '<text style="font-family:Outfit, system-ui;fill:red">x</text>';

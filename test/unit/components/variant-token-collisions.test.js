@@ -137,6 +137,39 @@ const KNOWN_COLLISIONS = {
     // written for, which is what this file is about.
     leakedBefore: 16,
   },
+  heatmap: {
+    variantOwner: 'journey',
+    componentOwner: 'heatmap',
+    status: 'guarded',
+    guardedFile: 'lib/components/chart/heatmap/heatmap.styles.css',
+    guard: ':where(:not(.journey))',
+    // 17, and the trip through 6 is the reason this comment is long. The in-cell
+    // value was withdrawn (taking `.heatmap-value`, its `[data-ink="flip"]` pair and
+    // the dead `.heatmap-row-label`), the ratchet was lowered to 6 with a reason in
+    // the diff — and then the value came BACK on a quantized ramp two commits later,
+    // adding `.heatmap-value` plus ten `[data-step]` rules. Nothing re-raised the
+    // number, so a floor of 6 stood against 17 real selectors: the filter could have
+    // quietly stopped matching ELEVEN of them and still reported a clean sheet, which
+    // is precisely the failure mode the pin exists to catch.
+    //
+    // The lesson is about ratchets, not about this sheet: LOWERING one is loud (it
+    // needs a justification in the diff, and this file demands one), while failing to
+    // RAISE one after the work that lowered it is undone is silent. If you withdraw a
+    // feature and later restore it, re-measure this number on the restored sheet.
+    selectorsChecked: 17,
+    // Measured against the BUILT bundle: 1 of 7 before, 0 after. The one was the
+    // token block, `:is(section.heatmap, figure.chart-frame) { --heatmap-base }`,
+    // and it painted nothing — a journey has no `.heatmap-cell` to consume the
+    // property. So this is LATENT rather than live, and it is guarded for the
+    // reason `bullet`'s entry gives: `stats` measured zero too, right up until
+    // math moved onto the Form frame and every math slide gained a `.cell-stage`.
+    //
+    // Both names are the right name for their own thing, which is why neither is
+    // renamed: journey's `heatmap` shades its stages by score, and the component
+    // is a numeric matrix. The collision is the catalog telling the truth about
+    // an encoding two members share.
+    leakedBefore: 1,
+  },
   quadrant: {
     variantOwner: 'radar',
     componentOwner: 'quadrant',

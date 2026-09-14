@@ -1729,6 +1729,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   .radar-sector-mean,
   .scatter-bubble,
   .scatter-size-ring,
+  .heatmap-cell--empty,
   .slope-dot,
   .slope-dot-from,
   .slope-dot-to,

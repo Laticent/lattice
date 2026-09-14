@@ -384,6 +384,22 @@
     ],
     "description": "Two-column term/definition table with auto-derived alphabetic range pill."
   },
+  "lattice: heatmap": {
+    "prefix": "lattice-heatmap",
+    "body": [
+      "<!-- _class: heatmap -->",
+      "",
+      "## Where it concentrates.",
+      "",
+      "- First row",
+      "  - Col A `12`",
+      "  - Col B `34`",
+      "- Second row",
+      "  - Col A `21`",
+      "  - Col B `43`"
+    ],
+    "description": "A numeric matrix read as intensity — where the value concentrates across two dimensions."
+  },
   "lattice: image": {
     "prefix": "lattice-image",
     "body": [

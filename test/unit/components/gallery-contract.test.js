@@ -76,6 +76,7 @@ const VOICE_EXEMPT = {
   pricing: { rules: ['density'], reason: 'tier cards pending a calibrated axis' },
   // Charts, math, and code: the data/notation/source IS the content — no prose axis to budget.
   funnel: { rules: ['density'], reason: 'chart data; no prose axis' },
+  heatmap: { rules: ['density'], reason: 'chart data; a numeric matrix has no prose axis' },
   bar: { rules: ['density'], reason: 'chart data; no prose axis' },
   bullet: { rules: ['density'], reason: 'chart data; no prose axis' },
   line: { rules: ['density'], reason: 'chart data; no prose axis' },

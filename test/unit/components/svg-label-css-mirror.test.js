@@ -268,6 +268,53 @@ describe('SVG label sizes stay chart-relative, not slide-relative', () => {
   });
 });
 
+describe('heatmap: kernel font sizes mirror the rules that paint them', () => {
+  const js = read('lib/components/chart/heatmap/heatmap.transform.js');
+  const fsBlock = (js.match(/const FS = \{[\s\S]*?\n\};/) || [''])[0] || js;
+  const kernel = (key) => {
+    const m = fsBlock.match(new RegExp(`\\b${key}:\\s*([\\d.]+)`));
+    return m ? Number(m[1]) : null;
+  };
+
+  // TWO STYLESHEETS, and that is the point of this block. `FS.col` mirrors a
+  // rule heatmap owns; `FS.row` mirrors the FAMILY's `.cart-cat`, because row
+  // names come off the substrate's `buildCategoryLabels`, which emits no
+  // member class. The first cut of this component styled a `.heatmap-row-label`
+  // that matched nothing, and the gutter width rode on a number nothing in the
+  // tree connected to what was painted.
+  for (const [key, file, selector] of [
+    ['col', 'lib/components/chart/heatmap/heatmap.styles.css',
+      ':is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-col-label'],
+    ['row', 'lib/components/chart/_chart-family/chart-family.css',
+      ':is(section.chart-frame, figure.chart-frame) .cart-cat'],
+    // The printed value. Its SIZE is mirrored here; its INK is per-stop and per
+    // palette, gated by heatmap.test.js and derive-chart-cat-ink.js --check.
+    ['value', 'lib/components/chart/heatmap/heatmap.styles.css',
+      ':is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value'],
+  ]) {
+    test(`${key} matches ${selector}`, () => {
+      const fromCss = declaredFontSize(read(file), selector);
+      assert.ok(fromCss != null, `no font-size found for ${selector}`);
+      assert.equal(kernel(key), fromCss,
+        `heatmap FS.${key} must equal the CSS font-size for ${selector}`);
+    });
+  }
+
+  test('every class the kernel emits on a <text> is one this gate mirrors', () => {
+    // The gate above compares numbers. This one stops a THIRD label appearing
+    // with a size nothing checks — the failure mode that let the dead
+    // `.heatmap-row-label` rule ship.
+    const { parseHeatmap, buildHeatmap } = require('../../../lib/components/chart/heatmap/heatmap.transform');
+    const ul = '<li>Jan<ul><li>M0 <code>100</code></li><li>M1 <code>62</code></li></ul></li>'
+      + '<li>Feb<ul><li>M0 <code>100</code></li><li>M1 <code>58</code></li></ul></li>';
+    const svg = buildHeatmap(parseHeatmap(ul), {});
+    const classes = new Set([...svg.matchAll(/<text class="([^"]+)"/g)].map((m) => m[1]));
+    assert.deepEqual([...classes].sort(),
+      ['cart-cat', 'heatmap-col-label cart-cat', 'heatmap-value'],
+      'a new <text> class needs a mirror arm above, or a size the kernel emits itself');
+  });
+});
+
 describe('the mirror gate itself', () => {
   test('declaredFontSize resolves a literal px size', () => {
     assert.equal(declaredFontSize('.a { font-size: 8.5px; }', '.a'), 8.5);

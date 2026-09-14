@@ -49,6 +49,23 @@ const WAS = {
 	DATA_LAYOUTS: ['bar', 'big-number', 'bullet', 'funnel', 'gantt', 'kanban', 'kpi', 'line', 'map', 'piechart', 'progress', 'quadrant', 'radar', 'scatter', 'slope', 'stacked-bar', 'state-chart', 'stats', 'timeline-list', 'waterfall', 'word-cloud'],
 };
 
+/**
+ * Members that did not EXIST at d05807e, so no literal could have carried them.
+ *
+ * Kept separate from WAS on purpose: WAS is a transcription of deleted source and
+ * must stay a faithful one, or the "four rosters were one fact" finding stops being
+ * re-derivable. A new component is not a drift in those rosters — it is a new row
+ * the projection has an answer for. Naming it here keeps BOTH facts checkable: the
+ * historical membership, and exactly which names were added since and by whom.
+ *
+ * `heatmap` — the chart family's numeric matrix (#2170). `figure: "svg"` because
+ * the kernel emits one self-contained <svg>, so it extracts as a standalone vector
+ * and re-hosts in the prose projection; `data: true` because a matrix IS data, so a
+ * deck built on it scores Data rather than reporting N/A.
+ */
+const ADDED_SINCE = ['heatmap'];
+const plus = (was, added = ADDED_SINCE) => sorted([...was, ...added]);
+
 const sorted = (a) => [...a].sort();
 
 test('the projected catalog', async (t) => {
@@ -60,13 +77,13 @@ test('the projected catalog', async (t) => {
 		assert.deepEqual(WAS.KEYED_CHART_LAYOUTS, WAS.CHART_TOKEN_COMPONENTS);
 		assert.deepEqual(WAS.CLEAN_SVG_LAYOUTS, WAS.CHART_TOKEN_COMPONENTS);
 		assert.deepEqual(WAS.TOOLS_KEYED, WAS.CHART_TOKEN_COMPONENTS);
-		assert.deepEqual(sorted(c.SVG_CHART_LAYOUTS), WAS.CHART_TOKEN_COMPONENTS,
-			'SVG_CHART_LAYOUTS must carry exactly what all four literals carried');
+		assert.deepEqual(sorted(c.SVG_CHART_LAYOUTS), plus(WAS.CHART_TOKEN_COMPONENTS),
+			'SVG_CHART_LAYOUTS must carry exactly what all four literals carried, plus ADDED_SINCE');
 	});
 
 	await t.test('the eight unchanged sets are exactly what the literals held', () => {
-		assert.deepEqual(sorted(c.SVG_CHART_LAYOUTS), WAS.CHART_TOKEN_COMPONENTS);
-		assert.deepEqual(sorted(c.MEDIA_COMPONENTS), WAS.MEDIA_COMPONENTS);
+		assert.deepEqual(sorted(c.SVG_CHART_LAYOUTS), plus(WAS.CHART_TOKEN_COMPONENTS));
+		assert.deepEqual(sorted(c.MEDIA_COMPONENTS), plus(WAS.MEDIA_COMPONENTS));
 		assert.deepEqual(sorted(c.FLOW_CHART_COMPONENTS), WAS.FLOW_CHART_COMPONENTS);
 		assert.deepEqual(sorted(c.SPATIAL_BOUNDED_COMPONENTS), WAS.SPATIAL_BOUNDED_COMPONENTS);
 		assert.deepEqual(sorted(c.SPATIAL_PLACEHOLDER_COMPONENTS), WAS.SPATIAL_PLACEHOLDER_COMPONENTS);
@@ -76,10 +93,10 @@ test('the projected catalog', async (t) => {
 		const now = sorted(c.DATA_LAYOUTS);
 		const added = now.filter((n) => !WAS.DATA_LAYOUTS.includes(n));
 		const removed = WAS.DATA_LAYOUTS.filter((n) => !now.includes(n));
-		assert.deepEqual(added, ['journey', 'matrix-grid', 'roadmap'],
-			'the only intended change is the three chart layouts the old roster had drifted ' +
-			'past. A name here that is not one of those three is a deck-scoring change nobody ' +
-			'decided on — decide it, then update this list.');
+		assert.deepEqual(added, sorted(['journey', 'matrix-grid', 'roadmap', ...ADDED_SINCE]),
+			'the intended changes are the three chart layouts the old roster had drifted past, ' +
+			'plus ADDED_SINCE. A name here that is not one of those is a deck-scoring change ' +
+			'nobody decided on — decide it, then update this list.');
 		assert.deepEqual(removed, [],
 			'nothing may LOSE its data classification: a deck that scored Data would start ' +
 			'reporting N/A, and no test renders that');

@@ -602,23 +602,109 @@ describe('cartesian — domain policy', () => {
     assert.equal(t.ticks[t.ticks.length - 1], t.max, 'the top tick IS the domain top');
   });
 
-  test('`tight` fills the plot with the data, which is right for a trend', () => {
-    // Snapping the domain gave a $60k..$420k series a $0..$600k axis — the
-    // right third of the plot spent on nothing.
-    const snapped = C.niceTicks(60000, 420000);
-    const tight = C.niceTicks(60000, 420000, { includeZero: false, tight: true });
-    assert.equal(snapped.max, 600000);
+  test('niceDomain fills the plot with the data, which is right for a trend', () => {
+    // Was `niceTicks({ tight: true })`, which is gone: the same job is done more
+    // completely by `niceDomain` (target sweep, tick ceiling, zero wall,
+    // snap-out), and keeping a thinner second answer alive is what the fold was
+    // for. Same assertions, same series — only the entry point moved.
+    const snapped = C.niceTicks(60000, 420000, { includeZero: false });
+    const tight = C.niceDomain(60000, 420000);
+    assert.ok(snapped.max >= 420000, 'the snapped axis reaches past the data');
     assert.ok(tight.min > 0 && tight.min < 60000, 'the domain hugs the data');
     assert.ok(tight.max > 420000 && tight.max < 500000);
     assert.ok(tight.ticks.every((v) => v >= tight.min && v <= tight.max),
-      'every drawn tick must fall inside the domain');
-    assert.ok(tight.ticks.length >= 2, 'a tight axis still needs gridlines');
+      'every tick drawn falls inside the padded domain');
+    assert.ok(tight.ticks.length >= 2, 'a padded axis still needs gridlines');
   });
 
-  test('`tight` falls back rather than drawing an axis with no gridlines', () => {
-    // A pad narrower than one step can leave nothing inside the domain.
-    const t = C.niceTicks(1000, 1000.0001, { tight: true, includeZero: false });
-    assert.ok(t.ticks.length >= 2);
+  test('a range too narrow to hold a step still draws gridlines', () => {
+    // `tight` carried an explicit fallback for this: pad a span that is itself
+    // almost zero and the nice-step ladder could leave nothing inside the
+    // domain. `niceDomain` has no such branch — the ladder descends until a
+    // step fits — so this pins the CONTRACT, not a branch.
+    const t = C.niceDomain(1000, 1000.0001);
+    assert.ok(t.ticks.length >= 2, 'an axis with no gridlines is never the answer');
+    assert.ok(t.ticks.every((v) => v >= t.min && v <= t.max));
+  });
+
+  test('a single repeated value gets a window, not a zero-anchored axis', () => {
+    // Several points at the same value have no range to pad. `niceTicks`' own
+    // flat-series answer is zero-anchored and hands one dot six gridlines; the
+    // window is a quarter of the value's own magnitude, so the mark lands
+    // mid-plot and inherits the same tick ceiling as every other domain.
+    const t = C.niceDomain(1000, 1000);
+    assert.ok(t.min < 1000 && t.max > 1000, 'the value sits inside the domain');
+    assert.ok(t.ticks.length >= 2 && t.ticks.length <= 5);
+    // PROPORTIONATE, not merely non-empty. A window of epsilon also puts the
+    // value strictly inside and still passes the two lines above, while handing
+    // the axis a 5e-13 step and five ticks that all print `1000`.
+    assert.ok(t.max - t.min >= 1000 * 0.25, 'the window scales with the value');
+    assert.equal(new Set(t.ticks).size, t.ticks.length, 'no two ticks print the same number');
+  });
+
+  test('the snap-out reaches the next tick when it is nearly free', () => {
+    // A domain that stops just short of a tick leaves the outermost point past
+    // the last gridline with nothing to read it against — the round-2 scatter
+    // render put a 74% dot above a 60% top tick. Here the padded top is 0.756
+    // and the next tick is 0.8: a fifth of a step away, so it is taken.
+    const t = C.niceDomain(0, 0.7);
+    assert.equal(t.max, 0.8);
+    assert.equal(t.ticks[t.ticks.length - 1], 0.8, 'the top point now has a gridline above it');
+  });
+
+  test('`maxTicks` is a hard ceiling the sweep will not trade away', () => {
+    // slope's own options. A dumbbell prints its value at both endpoints, so a
+    // fifth gridline is one more line behind data that already carries its own
+    // numbers. Without the ceiling term the sweep takes the finer 0.025 step
+    // and draws five.
+    const t = C.niceDomain(0, 0.1, { target: 4, maxTicks: 4 });
+    assert.ok(t.ticks.length <= 4, `ceiling breached: ${t.ticks}`);
+    assert.equal(t.step, 0.05);
+  });
+
+  // THE ZERO WALL IS TWO GUARDS, AND BOTH ARE PINNED AT `pad: 0.3` ON PURPOSE.
+  // Swept exhaustively over non-negative domains against a build with each
+  // guard deleted, neither changes a single result below pad 0.25: the air
+  // (pad x span) never reaches the quarter-step the snap-out prices, and the
+  // sweep's filter never has a negative candidate tick to drop. Written at the
+  // shipped 0.08 these tests pass with BOTH guards deleted — coverage in
+  // appearance only. `pad` is a parameter, so the next caller that wants more
+  // air is the one these protect.
+  test('a reversed pair is ordered, not plotted off the chart', () => {
+    // Exported substrate has no way to insist its arguments arrive sorted. Both
+    // shipped callers derive the pair themselves (`scatter` with Math.min/max,
+    // `slope` from a sorted model), so this is unreachable today — and it
+    // returned [7.5, 12.5] for (10, 2), a domain excluding the 2 entirely, with
+    // nothing anywhere to say so. The next caller has no reason to know.
+    for (const [a, b] of [[10, 2], [5, -5], [0, -10]]) {
+      const t = C.niceDomain(a, b);
+      assert.ok(t.min <= Math.min(a, b) && t.max >= Math.max(a, b),
+        `niceDomain(${a}, ${b}) -> [${t.min}, ${t.max}] does not contain its own data`);
+    }
+    // And ordering is all it does — the result matches the sorted call exactly.
+    assert.deepEqual(C.niceDomain(10, 2), C.niceDomain(2, 10));
+  });
+
+  test('the zero wall is a TICK rule — the snap-out never reaches below zero', () => {
+    // The domain is padded BELOW zero deliberately: clamping it at zero pinned
+    // a bubble's center to the plot corner and deleted the `$0` tick the
+    // scatter docs promise by name. So the wall lives on the TICKS, and the
+    // snap-out is where it was once reinstated-then-lost — it would extend the
+    // domain down to a round -0.25 on a quantity that cannot be negative.
+    const t = C.niceDomain(0, 0.7, { pad: 0.3 });
+    assert.ok(t.min < 0, 'the domain still gets its air below the data');
+    assert.deepEqual(t.ticks, [0, 0.25, 0.5, 0.75], 'no -0.25 on a non-negative measure');
+  });
+
+  test('the zero wall also runs INSIDE the sweep, where it changes which step wins', () => {
+    // Subtler than the snap-out and worth its own arm: a candidate is scored on
+    // how many ticks it keeps, so counting a negative tick it will never draw
+    // inflates that candidate. Here it flips the winner from a 0.25 step (four
+    // gridlines) to a 0.5 step (two) — a coarser axis chosen on a tick nobody
+    // sees.
+    const t = C.niceDomain(0, 0.9, { pad: 0.3 });
+    assert.equal(t.step, 0.25, 'the finer, better-scoring ladder wins');
+    assert.ok(t.ticks.every((v) => v >= 0));
   });
 
   test("target 'auto' spends less of the plot on dead headroom", () => {
@@ -671,8 +757,13 @@ describe('cartesian — gaps the member agents found', () => {
 });
 
 describe('cartesian — the magnitude unit comes from the domain', () => {
+  // Two entry points on purpose, because a real deck has both: a zero-based
+  // axis comes from `niceTicks` (a bar), a padded one from `niceDomain` (a
+  // scatter or a dumbbell). This used to pass `tight: lo !== 0` to `niceTicks`
+  // for the second case; that flag is gone, and leaving the call alone would
+  // have quietly tested a zero-based axis twice while claiming otherwise.
   const label = (lo, hi, affix = {}) => {
-    const t = C.niceTicks(lo, hi, { includeZero: lo === 0, tight: lo !== 0 });
+    const t = lo === 0 ? C.niceTicks(lo, hi, { includeZero: true }) : C.niceDomain(lo, hi);
     return t.ticks.map(C.axisFormatter({ ticks: t.ticks, step: t.step, affix })).join(' · ');
   };
 
