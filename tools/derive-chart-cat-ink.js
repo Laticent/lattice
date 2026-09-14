@@ -349,6 +349,28 @@ function renderRampBlock({ mixes, inks }) {
  * This one gates the pair that actually paints: the committed `--heatmap-stepN-ink`
  * against the fill the committed `--heatmap-stepN` produces, on each canvas.
  */
+/**
+ * What the ramp gates refuse, and why it is NOT a bare AA.
+ *
+ * `solveHeatmapRamp` targets `AA + MARGIN` (4.65) and stops the moment it clears —
+ * so every pair it can produce lands at or above that. A gate set at a bare 4.5
+ * therefore certifies a band of values the solver could never have written: a hand
+ * edit, or a drift, sails through 4.51.
+ *
+ * And the gate's own arithmetic has a model error to pay for. Its fill and ratio
+ * are computed in JS (`resolveTokenExpr` + `contrastRatio`), not by Chrome's paint.
+ * Measured across all 330 shipped pairs against real browser readings, the gate is
+ * always slightly OPTIMISTIC, by up to 0.08 — so a pair it certifies at 4.51 can
+ * paint at 4.43, below the line it was checked against. Holding the gate to the
+ * solver's own target absorbs that error instead of spending it.
+ *
+ * The epsilon is there because the shipped minimum is 4.6501 and the print band's
+ * is 4.6513: a bare `>=` at the boundary is a knife edge that the last bits of a
+ * float could tip on another machine, which would be a flaky gate rather than a
+ * strict one.
+ */
+const RAMP_FLOOR = 4.65 - 1e-6;
+
 function rampContrastFailures(theme) {
 	const raw = declaredVars(paletteSource(theme));
 	const bad = [];
@@ -376,7 +398,7 @@ function rampContrastFailures(theme) {
 				continue;
 			}
 			const r = contrastRatio(ink, fill);
-			if (r < 4.5) bad.push(`${theme} ${key} step ${n}: ${r.toFixed(2)}:1 of ink on its own cell`);
+			if (r < RAMP_FLOOR) bad.push(`${theme} ${key} step ${n}: ${r.toFixed(2)}:1 of ink on its own cell (floor ${RAMP_FLOOR.toFixed(2)})`);
 		}
 	}
 	return bad;
@@ -502,7 +524,7 @@ function printContrastFailures() {
 		const fill = resolveTokenExpr(`color-mix(in oklab, ${hue} ${Number.parseFloat(mix)}%, ${anchor})`, raw, false);
 		if (!isHex(fill)) { bad.push(`print band step ${n}: the fill did not resolve`); continue; }
 		const r = contrastRatio(ink, fill);
-		if (r < 4.5) bad.push(`print band step ${n}: ${r.toFixed(2)}:1 of ink on its own cell`);
+		if (r < RAMP_FLOOR) bad.push(`print band step ${n}: ${r.toFixed(2)}:1 of ink on its own cell (floor ${RAMP_FLOOR.toFixed(2)})`);
 	}
 	return bad;
 }

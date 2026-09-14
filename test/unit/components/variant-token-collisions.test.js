@@ -143,12 +143,20 @@ const KNOWN_COLLISIONS = {
     status: 'guarded',
     guardedFile: 'lib/components/chart/heatmap/heatmap.styles.css',
     guard: ':where(:not(.journey))',
-    // 6, not the 7 this started at. Three rules went when the in-cell value was
-    // withdrawn (`.heatmap-value`, its `[data-ink="flip"]` pair) and the dead
-    // `.heatmap-row-label` with them; the sheet has six owning selectors now and
-    // all six carry the guard. Lowering a ratchet needs a reason in the diff —
-    // this is it.
-    selectorsChecked: 6,
+    // 17, and the trip through 6 is the reason this comment is long. The in-cell
+    // value was withdrawn (taking `.heatmap-value`, its `[data-ink="flip"]` pair and
+    // the dead `.heatmap-row-label`), the ratchet was lowered to 6 with a reason in
+    // the diff — and then the value came BACK on a quantized ramp two commits later,
+    // adding `.heatmap-value` plus ten `[data-step]` rules. Nothing re-raised the
+    // number, so a floor of 6 stood against 17 real selectors: the filter could have
+    // quietly stopped matching ELEVEN of them and still reported a clean sheet, which
+    // is precisely the failure mode the pin exists to catch.
+    //
+    // The lesson is about ratchets, not about this sheet: LOWERING one is loud (it
+    // needs a justification in the diff, and this file demands one), while failing to
+    // RAISE one after the work that lowered it is undone is silent. If you withdraw a
+    // feature and later restore it, re-measure this number on the restored sheet.
+    selectorsChecked: 17,
     // Measured against the BUILT bundle: 1 of 7 before, 0 after. The one was the
     // token block, `:is(section.heatmap, figure.chart-frame) { --heatmap-base }`,
     // and it painted nothing — a journey has no `.heatmap-cell` to consume the

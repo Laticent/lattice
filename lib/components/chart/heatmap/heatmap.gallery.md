@@ -251,7 +251,7 @@ A numeric matrix read as intensity — where the value concentrates across two d
 - Qualitative cells
   - If the cells are verbs, owners or statuses rather than numbers, the ramp has nothing to encode. Use `matrix-grid`, whose cells are tagged at parse time.
 - Precise comparison
-  - Asking a reader which of two similar cells is larger spends the one thing intensity is bad at. If the comparison has to be exact, the value belongs on an axis — `bar` or `line`.
+  - Asking a reader which of two similar cells is larger spends the one thing intensity is bad at, and the five-tone binning above makes it stricter: two cells in the same band are the same color by design. If the comparison has to be exact, the value belongs on an axis — `bar` or `line`.
 - Geography
   - A value per country or region belongs on the `map` choropleth, which shares this ramp but places the cells where the reader expects them.
 

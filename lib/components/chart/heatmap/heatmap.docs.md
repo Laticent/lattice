@@ -32,6 +32,7 @@ Use when the question is 'where does this concentrate', not 'how do these compar
 - Every row should name the same columns in the same order — a column that appears in one row and not another is a gap, and paints as one.
 - Up to 12 columns and 10 rows. Past that the cells stop carrying a readable value; consolidate a long tail rather than shrinking the grid.
 - One unit across the whole matrix. The affix is read from the values and printed once in the description.
+- **Values are binned into five tones, so near-equal cells share one.** The ramp is quantized rather than continuous — that is what lets the printed value keep AA contrast on every palette. The number in the cell is exact; the tone is a band. If a reader has to tell two close values apart by color, the comparison belongs on an axis.
 
 ## When to use
 
@@ -43,7 +44,7 @@ Use when the question is 'where does this concentrate', not 'how do these compar
 
 - **One row of numbers.** A single series is not a matrix — it is a comparison, and a reader judges length far more precisely than intensity. Use `bar`. The kernel declines a flat list for this reason rather than painting a one-row grid.
 - **Qualitative cells.** If the cells are verbs, owners or statuses rather than numbers, the ramp has nothing to encode. Use `matrix-grid`, whose cells are tagged at parse time.
-- **Precise comparison.** Asking a reader which of two similar cells is larger spends the one thing intensity is bad at. If the comparison has to be exact, the value belongs on an axis — `bar` or `line`.
+- **Precise comparison.** Asking a reader which of two similar cells is larger spends the one thing intensity is bad at, and the five-tone binning above makes it stricter: two cells in the same band are the same color by design. If the comparison has to be exact, the value belongs on an axis — `bar` or `line`.
 - **Geography.** A value per country or region belongs on the `map` choropleth, which shares this ramp but places the cells where the reader expects them.
 
 ## Authoring

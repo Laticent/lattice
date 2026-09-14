@@ -466,12 +466,20 @@ section.state-chart .state-edge-label {
    *     portrait   k=1.000  → 11.00px effective
    *     square     k=0.771  →  8.48px effective
    *
-   * So the floor helps (it lifted landscape from ~5.5px to 6.5px) but cannot
-   * pin an effective minimum: the only lever that would is k, and squeezing to
-   * fit is the whole point of the self-scale decision — which explicitly accepts
-   * that an over-stuffed machine "just gets cramped." A real guarantee has to be
-   * applied in `draw()`, where k is known, or by bounding k. Tracked on #1213;
-   * not silently claimed here. */
+   * So the floor helps (it lifted landscape from ~5.5px to 6.5px) but on its own
+   * cannot pin an effective minimum: the only lever that would is k, and squeezing
+   * to fit is the whole point of the self-scale decision — which explicitly accepts
+   * that an over-stuffed machine "just gets cramped."
+   *
+   * THAT GUARANTEE NOW EXISTS, and this comment described the world before it.
+   * #1213 is closed: `applyFit` raises the DECLARED `--chart-text-min` by 1/k
+   * whenever it scales down, in `draw()`, where k is known — which is exactly the
+   * fix this paragraph asked for. So the numbers above are the pre-fix measurement,
+   * kept because they are why the fix was needed. Measured on the real render after
+   * it, `examples/state-chart.md` slide 3: k=0.4240, declared 25.942px on the
+   * geometry, 11.00px effective on the figure. Charts scaled UP (k > 1) are
+   * untouched. The floor is therefore a real minimum now, not a best effort — read
+   * `applyFit`, not this declaration, for how. */
   font-size: max(var(--chart-text-min), 0.859375cqi);
   font-family: var(--font-label);
   paint-order: stroke;

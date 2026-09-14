@@ -205,6 +205,43 @@ describe('heatmap — the quantized ramp', () => {
       [Number(defaults[1]), Number(defaults[2]), Number(defaults[3])],
       [MIX_FLOOR, MIX_TOP, RAMP_STEPS],
       "solveHeatmapRamp's defaults differ from the kernel's ramp — derive.js rides them without passing its own");
+
+    // AND THE ANCHOR, which is one input further up than everything above and was
+    // pinned by nothing. The cell's fill is the hue mixed over `--heatmap-base`, and
+    // `--heatmap-base` is `16%` of the muted mark over the canvas — a number that
+    // lives in the stylesheet and is HAND-COPIED into four more places: the theme
+    // solve, the print solve, the print GATE, and the Studio.
+    //
+    // Re-tune it in the stylesheet alone and every generated ink is solved against a
+    // fill that no longer paints, while `derive-chart-cat-ink.js --check` stays green
+    // — because the check recomputes the fill from its own copy. That is precisely
+    // the shape of the three bugs this component already shipped and fixed (the
+    // print band at 1.40:1, the Studio hue at 3.68:1, the standalone export at
+    // 1.98:1): a gate re-asking the producer the question the producer answered.
+    // The knob is real — the stylesheet's own docblock records the anchor having
+    // been changed once already — so the mirror gets a pin like the rest.
+    const anchorPct = css.match(/--heatmap-base:\s*color-mix\(in oklab, var\(--muted-mark\) ([\d.]+)%/);
+    assert.ok(anchorPct, 'could not find --heatmap-base in the stylesheet');
+    const ANCHOR = Number(anchorPct[1]);
+    for (const decl of css.match(/--heatmap-base:[^;]+;/g) || []) {
+      assert.ok(decl.includes(`var(--muted-mark) ${ANCHOR}%`),
+        `a second --heatmap-base declaration uses a different anchor than ${ANCHOR}% — the two canvases would diverge`);
+    }
+    const genSrc = fs.readFileSync(path.join(__dirname, '../../../tools/derive-chart-cat-ink.js'), 'utf8');
+    const genAnchors = genSrc.match(/color-mix\(in oklab, \$\{muted\} ([\d.]+)%, \$\{bg\}\)/g) || [];
+    assert.ok(genAnchors.length >= 3,
+      `expected the generator to build the anchor in the theme solve, the print solve and the print check — found ${genAnchors.length}`);
+    for (const a of genAnchors) {
+      assert.ok(a.includes(`\${muted} ${ANCHOR}%`),
+        `the generator mixes the anchor at a different percentage than the stylesheet's ${ANCHOR}%: ${a}`);
+    }
+    const deriveAnchors = derive.match(/mix\((?:e\.bg|darkBgDeeper), mutedMark(?:Light|Dark), ([\d.]+)\)/g) || [];
+    assert.equal(deriveAnchors.length, 2, "expected derive.js to build the anchor for both canvases");
+    for (const a of deriveAnchors) {
+      const pct = Number(a.match(/, ([\d.]+)\)$/)[1]) * 100;
+      assert.ok(Math.abs(pct - ANCHOR) < 1e-9,
+        `derive.js mixes the Studio anchor at ${pct}% against the stylesheet's ${ANCHOR}%`);
+    }
   });
 });
 
@@ -287,6 +324,26 @@ describe('heatmap — capacity is reported, never silently dropped', () => {
     assert.equal(model.overflowRows.length, 2);
   });
 
+  // The block above pins the model FIELD. For one commit that was all it pinned,
+  // and nothing read the field — so a 14-column deck lost two columns of authored
+  // data with no signal on the slide, in the `<desc>`, or anywhere else, while a
+  // test called "never silently dropped" stayed green. A capacity report nobody
+  // reads is not a report.
+  test('what the cap cut reaches the reader, not just the model', () => {
+    const cols = Array.from({ length: MAX_COLS + 2 }, (_, i) => `  - C${i} \`${i + 1}\``).join('\n');
+    const rows = Array.from({ length: MAX_ROWS + 2 }, (_, i) => `- R${i}\n${cols}`).join('\n');
+    const model = parseHeatmap(ul(rows));
+    const desc = (buildHeatmap(model, {}).match(/<desc>([^<]*)<\/desc>/) || ['', ''])[1];
+    for (const name of [...model.overflowCols, ...model.overflowRows]) {
+      assert.ok(desc.includes(name), `${name} was cut by the cap and the description never says so`);
+    }
+  });
+
+  test('a grid inside the cap says nothing about overflow', () => {
+    const desc = (buildHeatmap(parseHeatmap(ul(GRID)), {}).match(/<desc>([^<]*)<\/desc>/) || ['', ''])[1];
+    assert.doesNotMatch(desc, /Not shown/, 'a grid that fits must not carry an overflow sentence');
+  });
+
   test('the domain is taken from the rows that SURVIVE the cap', () => {
     // A value on a row that did not make it must not stretch the ramp every
     // painted cell is read against.
@@ -295,6 +352,55 @@ describe('heatmap — capacity is reported, never silently dropped', () => {
         + `\n  - M1 \`${i + 2}\``).join('\n');
     const model = parseHeatmap(ul(rows));
     assert.ok(model.max < 9999, 'a dropped row must not set the maximum');
+  });
+});
+
+// The guard measures an ADVANCE; the slide paints a FACE. When those disagree the
+// whole grid goes at once, because every cell is the same width — so this is the
+// all-or-nothing arm, not a rounding one.
+// Four places assume `data-step` is an integer in 1..RAMP_STEPS: the stylesheet's
+// five rule pairs, the generator's five token pairs, the print band's remap, and
+// the tests. A step outside that range matches no rule, so `--mix` is never set,
+// `color-mix()` is invalid at computed-value time, and the cell paints the
+// inherited BLACK — the signature the repo keeps a whole gate for.
+describe('heatmap — every step lands inside the ramp', () => {
+  test('a span that overflows a double does not produce NaN', () => {
+    // `max > min` holds and the ratio is still not finite: both terms go Infinity
+    // and Infinity/Infinity is NaN. Authorable as plain literals, no API misuse.
+    assert.equal(stepFor(1e308, -1e308, 1e308), Math.ceil(RAMP_STEPS / 2));
+    assert.equal(stepFor(0, -1e308, 1e308), 1);
+  });
+
+  test('no input drives the step out of 1..RAMP_STEPS', () => {
+    const spans = [[0, 100], [41, 100], [5, 5], [-1e308, 1e308], [0, 1e-16], [-10, -1], [0, Number.MAX_VALUE]];
+    for (const [lo, hi] of spans) {
+      for (const n of [lo, hi, (lo + hi) / 2, lo - 1, hi + 1, 0]) {
+        const s = stepFor(n, lo, hi);
+        assert.ok(Number.isInteger(s) && s >= 1 && s <= RAMP_STEPS,
+          `stepFor(${n}, ${lo}, ${hi}) = ${s}, outside 1..${RAMP_STEPS}`);
+      }
+    }
+  });
+});
+
+describe('heatmap — the fit guard reads the face the slide will paint', () => {
+  const { readsHandBody } = require('../../../lib/components/chart/_chart-family/transform-utils');
+
+  test('sketch-clean is measured on the CLEAN face, not the hand one', () => {
+    // `mode: sketch-clean` resolves to `sketch sketch-clean-body`, and that token
+    // puts `--font-body` — which `.heatmap-value` names — back on the clean face.
+    // A `includes('sketch')` test measures the hand advance against clean glyphs,
+    // 50% too wide, and refuses every value in the grid. Measured on a 12-column
+    // matrix of four-digit values: all 72 printed numbers lost, silently.
+    assert.equal(readsHandBody(['sketch', 'sketch-clean-body']), false,
+      'sketch-clean paints the clean body face, so it must not take the hand advance');
+    assert.equal(readsHandBody(['sketch']), true, 'plain sketch does paint the hand face');
+    const src = fs.readFileSync(
+      path.join(__dirname, '../../../lib/components/chart/heatmap/heatmap.transform.js'), 'utf8');
+    assert.match(src, /readsHandBody\(ctx\.classTokens/,
+      'the fit guard must ask the family predicate, never test for a `sketch` substring');
+    assert.doesNotMatch(src, /classTokens \|\| \[\]\)\.includes\('sketch'\)/,
+      'a bare sketch substring test is the defect this arm exists to catch');
   });
 });
 

@@ -932,3 +932,7 @@ panel token, not to re-litigate that. -->
   - M1 `61`
 - August 2026
   - M0 `100`
+- September 2026
+  - M0 `100`
+- October 2026
+  - M0 `100`
