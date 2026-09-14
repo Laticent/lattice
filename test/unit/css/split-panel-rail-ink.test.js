@@ -62,13 +62,32 @@ const SANCTIONED_BELOW = {
 };
 const FLOOR = 3.0;
 
-const deck = (palette, variant) => `---
+// THE TWO AXES ARE SEPARATE, and multiplying them measures neither. At portrait, `mirror` renders
+// DEGENERATELY — `.panel-left` is 1594px wide on a 1080px slide and `.panel-right` sits entirely
+// off-slide at x-448..-88 — so a "5 variants x 6 palettes" grid over portrait+mirror is a matrix
+// over a layout that does not exist on any page of it. The contrast NUMBERS from those cells are
+// still right (the whole slide is the panel, and an independent pixel check matched `fieldOf`
+// against the painted pixel under the rail 48/48), but three things are never exercised there:
+// `fieldOf`'s `.panel-right` branch, the unmirrored `:not(.mirror).metric` rule, and the `form`
+// canvas rule.
+//
+// So: PALETTES sweep the three variants whose ink is palette-derived, and a separate GEOMETRY pass
+// on one palette covers the shapes that reach the other branches. Twelve added cells rather than
+// a hundred.
+const GEOMETRY = [
+  { size: 'square', cls: 'mirror', why: 'both panels on-slide — the only mirror that is not degenerate' },
+  { size: 'portrait', cls: 'metric', why: 'unmirrored: the corner is .panel-right (the :not(.mirror).metric rule)' },
+  { size: 'portrait', cls: 'form', why: 'the corner is the frame canvas, which is what `inherit` rests on' },
+  { size: 'portrait', cls: '', why: 'unmirrored plain — the panel-right branch of fieldOf' },
+];
+
+const deck = (palette, variant, size = 'portrait', mirror = true) => `---
 marp: true
 theme: ${palette}
-size: portrait
+size: ${size}
 ---
 
-<!-- _class: split-panel pullquote mirror${variant ? ` ${variant}` : ''} -->
+<!-- _class: split-panel pullquote${mirror ? ' mirror' : ''}${variant ? ` ${variant}` : ''} -->
 
 > pullquote gives half the slide to one voice, and the other half to what it means.
 
@@ -101,6 +120,15 @@ describe('split-panel: the k-of-N rail clears 3:1 on the field it sits on, acros
         execFileSync(process.execPath, [EMU, md, html, '-q'], { stdio: 'ignore' });
         rendered.set(key, html);
       }
+    }
+    for (const g of GEOMETRY) {
+      const key = `geom|${g.size}|${g.cls || 'plain'}`;
+      const md = path.join(dir, `${key.replace(/\|/g, '_')}.md`);
+      const html = path.join(dir, `${key.replace(/\|/g, '_')}.html`);
+      const isMirror = g.cls.includes('mirror');
+      fs.writeFileSync(md, deck('indaco', g.cls.replace('mirror', '').trim(), g.size, isMirror));
+      execFileSync(process.execPath, [EMU, md, html, '-q'], { stdio: 'ignore' });
+      rendered.set(key, html);
     }
     const puppeteer = require('puppeteer-core');
     browser = await puppeteer.launch({ executablePath: exe, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
@@ -153,6 +181,19 @@ describe('split-panel: the k-of-N rail clears 3:1 on the field it sits on, acros
         }
         return [255, 255, 255, 1];
       };
+      // …and report WHICH branch decided, so a geometry arm can prove it reached the shape it was
+      // added for rather than silently measuring the same panel as every other cell.
+      const fieldBranch = (el, section) => {
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        for (const sel of ['.panel-left', '.panel-right']) {
+          const panel = section.querySelector(sel);
+          if (!panel) continue;
+          const b = panel.getBoundingClientRect();
+          if (cx >= b.left && cx <= b.right && cy >= b.top && cy <= b.bottom) return sel;
+        }
+        return 'section';
+      };
       const fieldOf = (el, section) => {
         const r = el.getBoundingClientRect();
         const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
@@ -183,6 +224,7 @@ describe('split-panel: the k-of-N rail clears 3:1 on the field it sits on, acros
           out.push({
             page: i + 1, seg: j, on: seg.classList.contains('on'),
             ratio: +ratio(composited, field).toFixed(2),
+            branch: fieldBranch(rail, s),
           });
         });
       });
@@ -231,6 +273,32 @@ describe('split-panel: the k-of-N rail clears 3:1 on the field it sits on, acros
           + `the field that holds the corner. Cells: ${JSON.stringify(bad)}`);
       });
     }
+  }
+
+  // THE GEOMETRY PASS. One palette, the shapes the portrait+mirror grid above cannot reach. Each
+  // arm asserts the FIELD BRANCH it was added for, because a geometry case that quietly resolves
+  // to the same panel as every other cell has added a row and no coverage.
+  for (const g of GEOMETRY) {
+    test(`geometry · ${g.size} ${g.cls || 'plain'}: ${g.why}`, async (t) => {
+      if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+      const cells = await measure(`geom|${g.size}|${g.cls || 'plain'}`);
+      assert.ok(cells.length > 0, 'no rail segments were measured — the deck did not split');
+      const branches = [...new Set(cells.map((c) => c.branch))];
+      if (g.cls === 'form') {
+        assert.ok(branches.includes('section'),
+          `the Form frame is supposed to lift both panels off the corner so the field is the `
+          + `section's own canvas, and that is what the rail's \`inherit\` rests on — but the field `
+          + `resolved to ${branches.join(', ')}`);
+      } else if (!g.cls.includes('mirror')) {
+        assert.ok(branches.includes('.panel-right'),
+          `unmirrored, the corner belongs to .panel-right — the branch the portrait+mirror grid `
+          + `can never reach — but the field resolved to ${branches.join(', ')}`);
+      }
+      const bad = cells.filter((c) => c.ratio < FLOOR);
+      assert.deepEqual(bad, [],
+        `${g.size} ${g.cls || 'plain'}: ${bad.length} of ${cells.length} rail segments under `
+        + `${FLOOR}:1 — ${JSON.stringify(bad)}`);
+    });
   }
 
   test('no sanctioned cell is stale — a fixed one must lose its exemption', async (t) => {

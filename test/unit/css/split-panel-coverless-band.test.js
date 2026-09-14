@@ -65,7 +65,26 @@
  *     bottom-right corner is the panel: 52 of 198 palette/variant cells under WCAG 1.4.11's 3:1,
  *     bottoming out at 1.00:1.
  *
- * MUTATION-PROVED, and the counts are against the 76 arms as they stand today — re-derive them
+ * A KNOWN RESIDUAL THIS FILE DOES NOT COVER, stated so nobody re-derives the wrong fix. An
+ * over-stuffed member still paints under the pill: 396.1x51.5px of opaque pill over `li` ink at
+ * portrait with three members at 32 words, page 1 (296.4x51.5 on page 2), SILENT — no `overflow`
+ * class, no `clip-marked`, clean `lint:deck`. The same defect reaches an ORDERED list one
+ * keystroke away (`1.` instead of `-`). The earlier figure of "past ~20 words" was wrong: it
+ * compared LAYOUT rects, and `getBoundingClientRect()` is clip-blind.
+ *
+ * `> .panel-right > ul { min-height: 0; overflow: clip }` was tried and REVERTED. It removes the
+ * overprint and also lets the list shrink to whatever a flex SIBLING leaves it — on a
+ * `split-panel pullquote qr` deck the list collapsed 287px -> 52.6px and the member column
+ * rendered with ZERO painted words, while an arm asserting "no ink under the pill" passed,
+ * because there was no ink at all. An arm whose success condition is satisfiable by DELETING the
+ * content it measures is not a test, and that is why no such arm lives here now.
+ *
+ * The real cause is one level up and is not this component's: `overflow-probe.js` measures a clip
+ * cell as `scrollHeight - clientHeight`, and `clientHeight` INCLUDES padding — so any chrome band
+ * reserved with `padding-bottom` on a clip cell is a blind zone of exactly that height, for every
+ * `CLIP_CELL`, not just this one (HARD RULE #1).
+ *
+ * MUTATION-PROVED, and the counts are against the arms as they stand today — re-derive them
  * before quoting one, because every count in this file's history was measured against a different
  * number of arms (20, then 40, 56, 64, now 76) AND against a different fixture AND against a
  * different MEASURE. The two columns below are the same mutations counted before and after this
@@ -189,35 +208,6 @@ size: ${size}
 ${['a', 'b', 'c', 'd'].map(() => `- ${LONG_TITLE}\n  - ${'clause '.repeat(12).trim()}.`).join('\n')}
 `;
 
-// AN OVER-STUFFED MEMBER, which is the case the reserve alone could never hold. `overflow: clip`
-// clips at the PADDING box, and the reserved band IS padding — so the list's own spill used to
-// paint straight back down through it and under the pill: measured 396.1x51.5px of opaque pill
-// over `li` ink at portrait page 1 and 296.4x51.5 on page 2, with NO `overflow` class and NO
-// `clip-marked`. Silent is the part that mattered. 32 words per member is the length that
-// reproduces at portrait; the arm asserts the INVARIANT (nothing painted under the pill, and if
-// it does not fit the engine SAYS so) rather than that one number.
-const LONG_BODY = Array.from({ length: 32 },
-  (_, i) => 'clause about the governing terms and their effect on parties involved here today onward next'.split(' ')[i % 15]).join(' ');
-const longDeck = (size, cls) => `---
-marp: true
-theme: indaco
-size: ${size}
----
-
-<!-- _class: split-panel pullquote${cls ? ` ${cls}` : ''} -->
-
-> pullquote gives half the slide to one voice, and the other half to what it means.
-
-\`split-panel pullquote · the layout, quoted\`
-
-- The quote claims
-  - ${LONG_BODY}.
-- The column interprets
-  - ${LONG_BODY}.
-- A third reading
-  - ${LONG_BODY}.
-`;
-
 // THE ONE CLASS LIST. `before()` renders it and every arm below loops it, so "rendered but never
 // asserted against" — round 9's defect, where three of five rendered classes were produced and
 // never read — cannot recur by editing one loop and not the other. The structural gate at the
@@ -263,12 +253,6 @@ describe('split-panel: a coverless split page places its marks and reserves the 
         fs.writeFileSync(wmd, wideDeck(size, `pullquote${cls ? ` ${cls}` : ''}`));
         execFileSync(process.execPath, [EMU, wmd, whtml, '-q'], { stdio: 'ignore' });
         rendered.set(`${key}|wide`, whtml);
-        // …and the same shape with a member body far past what the panel can hold.
-        const lmd = path.join(dir, `${size}${cls}-long.md`);
-        const lhtml = path.join(dir, `${size}${cls}-long.html`);
-        fs.writeFileSync(lmd, longDeck(size, cls));
-        execFileSync(process.execPath, [EMU, lmd, lhtml, '-q'], { stdio: 'ignore' });
-        rendered.set(`${key}|long`, lhtml);
       }
     }
     const puppeteer = require('puppeteer-core');
@@ -360,17 +344,6 @@ describe('split-panel: a coverless split page places its marks and reserves the 
           page: i + 1,
           position: getComputedStyle(ptr).position,
           insideSlide: pi.right <= sr.right + 0.5 && pi.left >= sr.left - 0.5,
-          // The engine's OWN verdict on this page. A band defect that the engine already flags is
-          // a different (and far less serious) thing from one it stays silent about, and this
-          // file could not tell them apart until now.
-          flags: ['overflow', 'clip-marked', 'fit-marked', 'illegible'].filter((c) => s.classList.contains(c)),
-          // Did any bounded box on this page actually SWALLOW content? This is the antecedent the
-          // flag arm needs: asserting "an over-stuffed deck is always flagged" is wrong, because
-          // the same word count fits at `square` and does not at `portrait`, and demanding a flag
-          // where content fits is demanding the engine cry wolf. The honest invariant is the
-          // conditional one — clipped implies flagged.
-          contentClipped: [...s.querySelectorAll('.panel-left, .panel-right, .panel-right > ul')]
-            .some((b) => b.scrollHeight - b.clientHeight > 1),
           // THE CLAMP'S OWN MARGIN, which is a stronger statement than "inside the slide" and the
           // reason this arm exists. Containment is satisfied by LUCK at `square`, where the
           // unclamped pill happened to land 11.2px inside; the same mutation that reddens portrait,
@@ -632,32 +605,6 @@ describe('split-panel: a coverless split page places its marks and reserves the 
     // pages at the same (0,3,1) specificity and later in the bundle. The pill ran 79.0 / 88.7 /
     // 92.7px off the LEFT EDGE on an authored `split-panel pullquote form`, silently, with the
     // suite at 64/64. Rendering a class is not asserting against it.
-    // AN OVER-STUFFED MEMBER IS CLIPPED ABOVE THE BAND, AND THE ENGINE SAYS SO. Two assertions,
-    // and the second is the one that makes this honest: the reserve can only reposition content
-    // that FITS, so the question for content that does not is whether it lands under the pill in
-    // silence. `min-height: 0; overflow: clip` on `> ul` makes it clip at the LIST's edge, and
-    // because `overflow-probe.js` folds a child's internal overflow onto `.panel-right` — a
-    // probed CLIP_CELL — the section is flagged and runtime auto-split can act on it.
-    for (const cls of CLASSES) {
-      test(`${size}${cls ? ` + ${cls}` : ''}: an over-stuffed member clips above the band and is flagged`, async (t) => {
-        if (!exe) return t.skip('no Chromium — set CHROME_PATH');
-        const pages = await measure(size, cls, '|long');
-        assert.ok(pages.length >= 1, 'the over-stuffed run produced no coverless page');
-        for (const x of pages) {
-          assert.equal(x.overContent, null,
-            `page ${x.page}: an over-stuffed member paints under the pill — ${JSON.stringify(x.overContent)}`);
-          assert.ok(x.insideSlide, `page ${x.page}: the pointer ran past the slide edge`);
-        }
-        // CLIPPED IMPLIES FLAGGED, per page. Silence about content the layout swallowed is the
-        // defect; a page whose content genuinely fits owes no marker. Before the `> ul` clip, the
-        // portrait pages below both swallowed content AND reported nothing.
-        for (const x of pages.filter((x) => x.contentClipped)) {
-          assert.ok(x.flags.length > 0,
-            `page ${x.page}: a bounded box swallowed content and the section carries NO overflow `
-            + `marker — the engine is silent about content it could not fit`);
-        }
-      });
-    }
 
     for (const cls of CLASSES) {
       test(`${size}${cls ? ` + ${cls}` : ''}: the pill covers no content at the 42-character label cap`, async (t) => {
@@ -738,45 +685,94 @@ describe('split-panel: a coverless split page places its marks and reserves the 
  * It also fails on a STALE sanction, so the list cannot rot into permanent permission.
  */
 describe('split-panel: every variant the band rules name is covered or sanctioned', () => {
-  // Structural tokens — the page class and the parts, not variants of it.
-  const STRUCTURAL = new Set([
-    'split-panel', 'lat-split-native', 'panel-left', 'panel-right', 'lat-split-rel',
-    'lat-split-rail', 'cell-stage', 'cell-footer',
-  ]);
+  // Parsed with css-tree, NOT `split('}')`. The hand-rolled parser this replaces took everything
+  // before a block's first `{` as its selector, so an at-rule's OWN brace truncated the slice and
+  // any rule wrapped in `@media` / `@supports` / `@container` / `@layer`, or written with CSS
+  // nesting, was never examined — measured escaping on all five. It also treated every class it
+  // did not recognize as a variant, so `.seg`, `.lat-split-label`, `.cell-coda` and
+  // `.lat-pagination` were all reported as uncovered variants, blocking legitimate edits, and its
+  // `[a-z][a-z0-9-]*` class pattern truncated `.myVariant` to `my`.
+  //
+  // A variant is a class ON THE SECTION, so collect classes only from the compound that carries
+  // `lat-split-native`. That is what retires the old STRUCTURAL denylist: panel parts and chrome
+  // live in other compounds and are simply never collected.
+  const csstree = require('css-tree');
 
-  // Variants a band rule names that the fixture does NOT render, each with the reason it is
-  // acceptable to leave uncovered. Delete an entry the moment the fixture grows that class.
+  // BOTH FILES. The gate used to read only this component's stylesheet — while
+  // `base.modifiers.css` holds 21 `lat-split-native` selectors, INCLUDING
+  // `section.form.lat-split-native > .lat-split-rel`, the rule whose (0,3,1) tie caused round 9's
+  // shipped defect. A gate written because rounds 5-9 happened could not see the file that
+  // produced round 9.
+  const SOURCES = [
+    'lib/components/statement/split-panel/split-panel.styles.css',
+    'lib/base/base.modifiers.css',
+  ];
+
+  // Classes that are the PAGE itself rather than a variant of it.
+  const PAGE = new Set(['split-panel', 'lat-split-native']);
+
   const SANCTIONED_UNCOVERED = {
     steps: 'Named only in the mirrored rail-ink arm, sharing one `color: inherit` declaration with '
-      + '`metric`, which IS rendered at every size. Its own corner-field contrast is measured by '
-      + 'the palette sweep in split-panel-rail-ink.test.js, which does render it.',
+      + '`metric`, which IS rendered at every size. Its corner-field contrast is measured by the '
+      + 'palette sweep in split-panel-rail-ink.test.js, which does render it.',
     watermark: 'Same rail-ink block; its corner field is `--accent`, measured across palettes in '
-      + 'split-panel-rail-ink.test.js rather than here, because the question is contrast, not band '
-      + 'geometry, and needs a palette matrix rather than a size matrix.',
+      + 'split-panel-rail-ink.test.js, because the question is contrast and needs a palette matrix '
+      + 'rather than a size matrix.',
     'claim-hero': 'Appears only as a NEGATION (`:not(.claim-hero)`) narrowing the Form canvas arm. '
       + 'A negation cannot be exercised by rendering the class — the covering case is the Form page '
       + 'the fixture already renders at every size.',
     'claim-bleed': 'Negation, exactly as `claim-hero` above.',
     'cat-1': 'The eight categorical tints share ONE declaration (`--cat-on-fill`) in a single '
-      + 'selector list. split-panel-rail-ink.test.js renders the representative and sweeps palettes; '
-      + 'rendering all eight here would quadruple this file\'s runtime to re-measure one rule.',
+      + 'selector list. split-panel-rail-ink.test.js renders the representative and sweeps '
+      + 'palettes; rendering all eight here would quadruple this file\'s runtime for one rule.',
   };
   for (const n of [2, 3, 4, 5, 6, 7, 8]) SANCTIONED_UNCOVERED[`cat-${n}`] = SANCTIONED_UNCOVERED['cat-1'];
 
-  const css = fs.readFileSync(
-    path.join(ROOT, 'lib/components/statement/split-panel/split-panel.styles.css'), 'utf8');
-
-  /** Variant classes named by any selector that keys on a coverless split page. */
+  /**
+   * Every variant class named by a selector that keys on a coverless split page, across SOURCES.
+   * Walks nested rules with an ancestor prelude stack so CSS nesting cannot hide a compound.
+   */
   const namedVariants = () => {
     const out = new Set();
-    // Selectors only: everything before a `{`, with comments stripped so prose cannot vote.
-    const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
-    for (const block of bare.split('}')) {
-      const sel = block.slice(0, block.indexOf('{') < 0 ? block.length : block.indexOf('{'));
-      if (!sel.includes('lat-split-native')) continue;
-      for (const m of sel.matchAll(/\.([a-z][a-z0-9-]*)/g)) {
-        if (!STRUCTURAL.has(m[1])) out.add(m[1]);
+    const collect = (full) => {
+      if (!full.includes('lat-split-native')) return;
+      // The COMPOUND carrying the page class: a variant is a class on the SECTION, so anything in
+      // another compound (panel parts, rail chrome, the pagination span) is simply never read.
+      // That is what retires the old STRUCTURAL denylist, which blocked `.seg` and
+      // `.lat-split-label` by treating every unrecognized class as a variant.
+      for (const compound of full.split(/[\s>+~]+/)) {
+        if (!compound.includes('lat-split-native')) continue;
+        for (const m of compound.matchAll(/\.([A-Za-z_][\w-]*)/g)) {
+          if (!PAGE.has(m[1])) out.add(m[1]);
+        }
       }
+    };
+    // Manual descent, carrying the ancestor prelude. `csstree.walk` visits nested rules but tells
+    // you nothing about their parents, so a nested `&.proof` was judged on its own and escaped —
+    // measured escaping until this was threaded through.
+    const descend = (node, inherited) => {
+      if (!node?.children) return;
+      for (const child of node.children.toArray()) {
+        if (child.type === 'Rule') {
+          const branches = child.prelude.type === 'SelectorList'
+            ? child.prelude.children.toArray().map((sel) => csstree.generate(sel))
+            : [csstree.generate(child.prelude)];
+          const resolved = branches.map((br) => (br.includes('&')
+            ? br.replace(/&/g, inherited)
+            : (inherited ? `${inherited} ${br}` : br)));
+          for (const full of resolved) collect(full);
+          // Nested rules resolve against the FIRST branch of their parent, which is enough here:
+          // a variant named in a nested block under a `lat-split-native` parent is what we hunt.
+          descend(child.block, resolved[0] || inherited);
+        } else if (child.type === 'Atrule') {
+          // An at-rule's own braces used to truncate the selector slice and hide everything
+          // inside it. Its block is just more rules, so walk straight through.
+          descend(child.block, inherited);
+        }
+      }
+    };
+    for (const rel of SOURCES) {
+      descend(csstree.parse(fs.readFileSync(path.join(ROOT, rel), 'utf8'), { positions: false }), '');
     }
     return out;
   };
@@ -794,8 +790,7 @@ describe('split-panel: every variant the band rules name is covered or sanctione
   test('no sanctioned entry is stale', () => {
     const named = namedVariants();
     const covered = new Set(CLASSES.flatMap((c) => c.split(' ')).filter(Boolean));
-    const stale = Object.keys(SANCTIONED_UNCOVERED)
-      .filter((v) => !named.has(v) || covered.has(v));
+    const stale = Object.keys(SANCTIONED_UNCOVERED).filter((v) => !named.has(v) || covered.has(v));
     assert.deepEqual(stale, [],
       `these sanctions no longer describe anything — the rule that named the variant is gone, or `
       + `the fixture now renders it. Delete them: ${stale.join(', ')}`);
