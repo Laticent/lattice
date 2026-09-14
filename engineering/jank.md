@@ -464,20 +464,33 @@ got each of them wrong once.** It is a fallback by construction: the rule below 
 wherever the real element exists. It is also live on committed decks, which is the part the
 first version of this section denied. What it is NOT is the common case — a draft of this
 paragraph called it "the page number on most paginated slides we ship", and it is the
-minority mark on every sample anyone has taken. The real `span.lat-pagination` carries most
-of the remainder — not all of it, because a slide can also suppress the numeral outright with
-`silent`, and then neither mark paints.
+minority mark. Measured over the whole population — every deck in `examples/` that sets
+`paginate: true`, exported through `dist/lattice-emulator.js` and read in Chromium:
 
-**The share is deliberately not stated here yet**, and the reason is worth more than the
-number would be. A draft quoted **5.5%** from a 12-deck stride sample; an independent pass
-over a different 27-deck sample got **17.8%**. Two samples of the same population disagreeing
-threefold is the finding: at that size the draw dominates the answer, so a decimal place is
-noise dressed as precision. Neither draft named its decks or its command, so no reader could
-re-derive either. A population figure over all 164 decks, with the command that produces it,
-replaces this paragraph. `bloom-engineering-journey`'s 7 of 13 is six
+| of 1882 paginated slides | | |
+|---|---:|---:|
+| the real `span.lat-pagination` | 1485 | 78.9% |
+| the `::after` pseudo | **232** | **12.3%** |
+| neither — `silent` suppresses the numeral | 165 | 8.8% |
+
+89 of the 164 decks paint the pseudo at least once. The counting rule: a section carrying
+`data-lattice-pagination`, pseudo painted when `getComputedStyle(sec, '::after').content`
+is not `none` and it is not hidden, span shown when `span.lat-pagination` has a client rect.
+Validated against this section's own published datum — it returns `bloom`'s 7 of 13 exactly.
+
+**Two smaller samples got this wrong, and the sample size is why.** A draft quoted **5.5%**
+from 12 decks; an independent pass over 27 decks got **17.8%**. Resampling the 164 decks
+20,000 times says neither was unlucky — at n=12 the 5th-95th percentile band is **4.6%-21.3%**
+(full range 0.0%-37.6%), and at n=27 it is 6.6%-18.4%. Both drafts sat inside their own band.
+A decimal place off a dozen decks is noise dressed as precision, and neither draft named its
+decks or its command, so no reader could re-derive either. That is the reason the table above
+gives a population figure and the rule that produces it rather than a sample.
+
+**And one deck is not the population.** `bloom-engineering-journey`'s 7 of 13 is six
 `split-panel` slides plus a `premise`, not seven of anything — and it is high rather than
-exceptional: six other shipped decks match or exceed its share, and 89 of the 164 paint the
-pseudo at least once. Quoting one deck as the general case is how "most" got written.
+exceptional: six other shipped decks match or exceed its share (`scene` 6/8, `adaptive-image`
+6/9, `motion-asset` 4/6, `anima-scene` 3/5, `seven-steps-problem-to-code` 10/17,
+`marker-corner` 4/7). Quoting one deck as the general case is how "most" got written.
 
 **The split is by frame kind.** The retirement rule keys on a `.cell-footer` DIV
 (`section.form:has(> .cell-footer)::after { content: none }`), which `buildFooterCell`
