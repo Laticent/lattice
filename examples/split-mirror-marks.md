@@ -13,7 +13,7 @@ footer: "split-panel mirror · the wayfinding marks change sides"
 
 `Auto-split · split-panel mirror`
 
-`mirror` reverses the panel row, so the bottom-right corner the split page puts its wayfinding marks in stops being the supporting column and becomes the panel. Both marks had to be told.
+`mirror` reverses the panel row, so the corner a split page puts its wayfinding marks in stops being the supporting column and becomes the panel. Both marks had to be told.
 
 ---
 
@@ -47,23 +47,8 @@ footer: "split-panel mirror · the wayfinding marks change sides"
 
 ---
 
-<!-- _class: split-panel pullquote mirror cat-4 -->
-
-> A tinted panel now takes the ink its contract guarantees.
-
-`the tinted panels`
-
-- Light fills read fine
-  - Canvas ink cleared 3 to 1 on every palette.
-- The contract is stronger
-  - `--cat-on-fill` holds against any fill.
-- Metric and steps untouched
-  - Their panels are canvas, so they keep canvas ink.
-
----
-
 <!-- _class: closing -->
 
 ## What a reader should see
 
-Nothing printed through, on either panel, at any size — and a progress rail you can actually find. The page number in the same corner is still canvas ink on the panel (1.07 to 1 here); it sits on the unsplit slide too, so it is not this change's and is recorded rather than folded in.
+Nothing printed through, on either panel, at any size — and a progress rail you can find. Two other marks in that corner read the same way unsplit, so they are recorded, not fixed here.

@@ -518,6 +518,24 @@ probe calls fine.
   `.panel-right` would now win where it previously lost. No theme carries one — themes supply
   tokens, not layout — so this is latent rather than a defect, and it is recorded because the
   thing that would make it real is a theme starting to ship layout.
+- **Two more marks in the split page's own corner are canvas ink on the panel under `mirror`, and
+  both are PRE-EXISTING.** Found by rasterizing the new demo deck rather than by any probe, which
+  is the third time on this branch that a raster saw what the geometry did not.
+  - The DECK PAGE NUMBER is `section::after`, not a split mark, so the rail fix does not reach it:
+    `rgb(92,111,138)` on `watermark`'s accent panel measures **1.07:1**, read off the raster
+    (an `elementsFromPoint` probe reported white there and was wrong — the sections below the
+    fold are outside the viewport it queries).
+  - A `cat-N` panel's OWN QUOTATION and cite are white at **1.34:1** and **1.27:1** on the tinted
+    fill, against the categorical contract's own rule that every text run on a tinted panel takes
+    `--cat-on-fill`. `watermark`'s cite is 3.84:1, under the 4.5:1 a text run owes.
+  Both are byte-identical on the `--no-split` render of the same deck, so neither is this change's
+  and neither is folded in (HARD RULE #18's off-path arm). The `cat-N` one is the more serious:
+  the quotation is the slide's whole content, and `split-panel pullquote cat-N` is unreadable at
+  every size, split or not.
+- **A split page's lone member sits where the variant's own `justify-content` puts it**, which on
+  `watermark` is the top of an otherwise empty column. Pre-existing: `split-panel watermark` with
+  an `<h2>` splits 1 -> 4 identically at base `7d68461` and at head. It is the shape
+  one-element-per-page splitting has on a `flex-start` column, not something this branch caused.
 - **`split-panel steps` overflows at `wide` from step 1 of the jank sweep** — the component's
   own skeleton, at its own authoring size, with a six-word heading. Pre-existing, off this
   change's path, and recorded here rather than walked past (HARD RULE #18's off-path arm).
