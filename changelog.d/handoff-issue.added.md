@@ -8,3 +8,9 @@
   the gate strips `status:ready`; and `pr-autoclose-issues.yml` closes every issue
   under a closing keyword, so a nine-item handoff referenced as `Closes #N` by a
   six-item PR loses three items silently.
+  The contract was then tested by handing a real handoff issue to a session with
+  no transcript. It found the card wanting in two ways the rules now cover: a
+  base that named only a sha left it unable to tell whether to continue the
+  unmerged PR's branch or cut a fresh one from `main` (the card's constants and
+  evidence script existed only on that branch), and an item added by comment sat
+  outside the body's own "every item below is ticked" acceptance check.

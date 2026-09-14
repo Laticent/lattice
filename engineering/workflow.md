@@ -1560,14 +1560,28 @@ ordering that makes it work.
    keyword — it exists to defeat partial-close. A nine-item handoff closed by a
    six-item PR loses three items silently. Link it as `#N` or `Refs #N`, never
    `Closes #N`.
-3. **Items are checkboxes, capped at five or six.** One swimlane per handoff. The
-   cap is not tidiness: HARD RULE #28 derives **one** confidence level per PR on
-   the lowest qualifying axis, so nine unrelated items means one weak item floors
-   the whole card and the merge ask stops being informative.
+3. **Items are checkboxes in the BODY, capped at five or six.** One swimlane per
+   handoff. The cap is not tidiness: HARD RULE #28 derives **one** confidence
+   level per PR on the lowest qualifying axis, so nine unrelated items means one
+   weak item floors the whole card and the merge ask stops being informative.
+   **A later finding gets added to the body, never left in a comment** — the
+   acceptance check reads "every item below is ticked", and a comment is not
+   below. A cold session ticked the four body boxes in a live test and would have
+   closed the card with a fifth item, added by comment, silently unaddressed.
 4. **Only off-path findings go in.** On-path defects get fixed in the change that
    found them (#18). A handoff issue is not a place to park a window you created.
-5. **Stamp the base sha.** The next session needs to know what tree the brief was
-   true of; `main` will have moved.
+5. **Name the base — the sha, the branch, AND any open PR the work sits on.** The
+   sha alone is not enough, and this is the rule a live cold-start test broke
+   hardest against. If the work the card describes is on an unmerged PR, say so
+   and say which base to start from: *continue that branch*, or *wait for it to
+   merge and cut a fresh one from `main`*. Otherwise the card names a constant, a
+   script or a label that exists only on that branch, while the working agreement
+   says "one branch, one PR: `claude/<slug>`" — and a session that cuts from
+   `main` finds the target missing, while one that continues the branch is
+   stacking on an open PR, which HARD RULE #17 forbids. Neither reading is
+   recoverable from the repo; only the author can settle it. Re-stamp the sha
+   when you push again — a base naming the commit *before* the one that added the
+   card's own evidence tool is worse than no sha.
 6. **Close it by hand.** Tick the items a PR delivered, then — if anything
    remains — rewrite the remainder into a fresh handoff issue and close this one
    with a pointer to it. A partially-done handoff is never left open to rot, and
@@ -1599,7 +1613,9 @@ closed with a pointer to it.
 <the fenced 🎯 continuation brief, verbatim — paste-ready>
 
 ### Base
-<sha> on main, <date>
+<sha> on <branch>, branched from <sha> on main, <date>
+Sits on PR #<N>, <merged | OPEN and unmerged>.
+Start from: <continue that branch | wait for #<N> to merge, then branch from main>
 ```
 
 **Use those four H2s, in that order.** `Summary`, `Swimlane / governing decision

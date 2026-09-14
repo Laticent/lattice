@@ -308,4 +308,24 @@ describe('parseForm — the handoff issue (engineering/workflow.md § The handof
     assert.doesNotMatch(f.acceptance, /Items|Base|Continuation/);
     assert.match(f.notes, /### Items/);
   });
+
+  test('the Base block names the PR the work sits on, not just a sha', () => {
+    // A live cold-start test stalled here: three of the card's items named a
+    // constant, a script and two labels that existed only on an unmerged PR's
+    // branch, while the working agreement said to cut a fresh branch from main.
+    // Neither reading is recoverable from the repo.
+    const body = [
+      '## Summary', '', 'x', '',
+      '## Swimlane / governing decision doc', '', 'decisions/y.md', '',
+      '## Acceptance check', '', 'every item ticked', '',
+      '## Notes / context', '',
+      '### Base',
+      '20c6567 on claude/slug, branched from df36705 on main, 2026-09-14',
+      'Sits on PR #2215, OPEN and unmerged.',
+      'Start from: wait for #2215 to merge, then branch from main',
+    ].join('\n');
+    const notes = parseForm(body).notes;
+    assert.match(notes, /Sits on PR #\d+/, 'the base must name the PR');
+    assert.match(notes, /Start from:/, 'the base must say which branch to start from');
+  });
 });
