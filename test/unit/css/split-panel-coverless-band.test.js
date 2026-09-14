@@ -55,29 +55,38 @@
  *     beats the portrait column rule, so a mirrored section is a ROW at EVERY size, not just at
  *     square, which is how three write-ups of this defect came to call it square-only. The
  *     pointer then sits over `.panel-left`, and reserving only `.panel-right` printed the pill
- *     through the cite line at all four sizes (217.1x28.4px at square page 1). Reserving BOTH
- *     fixes that and breaks the seam, so the `.panel-left` arm is gated on `.mirror`.
+ *     through the cite line at all four sizes — opaque pill BOX against cite INK, on this file's
+ *     own fixture, page 1: portrait 361.4x51.5, square 305.0x38.5, story 381.6x45.9, mobile
+ *     390.1x41.8. (The pill is filled, so its box is the occluder; three earlier write-ups quoted
+ *     three different numbers here by not saying which measure they used.) Reserving BOTH fixes
+ *     that and breaks the seam, so the `.panel-left` arm is gated on `.mirror` — and the
+ *     `.panel-right` arm on `:not(.mirror)`, so each reserves only the panel in the corner.
  *   · THE k-OF-N RAIL NEEDS THE PANEL'S INK. It draws in `currentColor`, and under `mirror` the
  *     bottom-right corner is the panel: 52 of 198 palette/variant cells under WCAG 1.4.11's 3:1,
  *     bottoming out at 1.00:1.
  *
- * MUTATION-PROVED, and the counts are against the 40 arms as they stand today — re-derive them
+ * MUTATION-PROVED, and the counts are against the 56 arms as they stand today — re-derive them
  * before quoting one, because every count in this file's history was measured against a different
- * number of arms:
+ * number of arms (20, then 40, now 56):
  *
  *     mutation                                          arms that fail
- *     pointer `position: static`                             21
- *     the every-page keying → `:has(> .lat-split-rel)`        8
+ *     pointer `position: static`                             23
+ *     the reserve widened back to BOTH panels                11
+ *     every rail-ink rule deleted                             8
+ *     the every-page keying → `:has(> .lat-split-rel)`        4
  *     `:not(.form)` back on both native rules                 4
  *     the `.mirror > .panel-left` reserve deleted             4
- *     the rail-ink rules deleted                              4
- *     the reserve widened back to BOTH panels                 3
+ *     the non-mirror `metric` rail arm deleted                4
+ *     the `form` canvas rail arm deleted                      4
+ *     the reserve un-gated from `mirror`                      4
  *
- * The `.mirror` row was ZERO until the content probe was widened from `.panel-right` to both
- * panels: the overprint it exists to catch lands on `.panel-left cite`, so the arm asserted
- * `overContent === null` against a set that structurally could not contain its own defect, and
- * stayed green with the fix deleted. That is the shape of every miss on this surface — each round
- * widened WHICH PAGES OR PANELS get the reserve, and nobody widened WHAT THE PROBE LOOKS AT.
+ * THREE OF THOSE ROWS WERE ZERO UNTIL THE FIXTURE SET GREW, and the pattern is the same one every
+ * time. The `.mirror` row was zero while the content probe read `.panel-right` only — the
+ * overprint it exists to catch lands on `.panel-left cite`, so the arm asserted `overContent ===
+ * null` against a set that structurally could not contain its own defect. The `form` and `metric`
+ * rows were zero while the file rendered `form` and `mirror` separately and never together, and
+ * treated `.panel-right` as always the light one. Each round widened WHICH PAGES OR PANELS the
+ * rule covers; nobody widened WHAT THE PROBE LOOKS AT, or WHICH DECKS IT LOOKS AT.
  */
 
 const { describe, test, before, after } = require('node:test');
@@ -129,7 +138,12 @@ describe('split-panel: a coverless split page places its marks and reserves the 
     if (!exe) return;
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-spband-'));
     for (const size of SIZES) {
-      for (const cls of ['', 'form', 'mirror']) {
+      // `form mirror` and `metric` are the CROSS PRODUCT and the INVERTED VARIANT. The file used
+      // to render `form` and `mirror` separately and never together, and to treat `.panel-right`
+      // as always the light one — which is how the rail-ink rules shipped painting white on white
+      // (`form mirror`, 1.00:1) and left a dark panel un-inked (`metric`, 1.02:1). Rendering a
+      // representative of each axis is not rendering the matrix.
+      for (const cls of ['', 'form', 'mirror', 'form mirror', 'metric']) {
         const key = `${size}|${cls}`;
         const md = path.join(dir, `${size}${cls}.md`);
         const html = path.join(dir, `${size}${cls}.html`);
@@ -238,11 +252,16 @@ describe('split-panel: a coverless split page places its marks and reserves the 
         const b = L.getBoundingClientRect();
         const column = getComputedStyle(s).flexDirection.startsWith('column');
         // In a column the seam is the panel's BOTTOM edge; in a row it is its far side.
+        const R = s.querySelector('.panel-right');
         out.push({
           page: i + 1,
           column,
           seam: +(((column ? b.bottom - sr.top : b.right - sr.left)
             / (column ? sr.height : sr.width)) * 100).toFixed(2),
+          // The band is reserved by ADDING bottom padding, so the two panels' padding says which
+          // one the rule picked — without needing to know the token's computed value.
+          pbL: getComputedStyle(L).paddingBottom,
+          pbR: R ? getComputedStyle(R).paddingBottom : null,
         });
       });
       return out;
@@ -344,6 +363,14 @@ describe('split-panel: a coverless split page places its marks and reserves the 
     // Every geometry probe on this branch reported "no overprint" and was right; a raster is what
     // caught it. The reference is the SAME deck rendered `--no-split`, so the arm says what it
     // means: splitting a slide does not repaint it.
+    // THE ARM IS ONLY LIVE IN A COLUMN, and saying so is the point. Bottom padding can only
+    // inflate a panel whose height is content-driven, which happens exactly when the section is a
+    // FLEX COLUMN. In a row the panels are full height and the padding shrinks a content box, so
+    // the comparison below is trivially true there and would certify nothing on its own. An
+    // earlier version ran it for `mirror` too and reported four green arms; `mirror` forces
+    // `row-reverse` at EVERY size, so all four were trivially true — a placebo, and the mutation
+    // count (3, the three stacked non-mirror sizes) was the only thing saying so. Each branch now
+    // asserts what is actually true of it, so a change to either trips something.
     for (const cls of ['', 'mirror']) {
       test(`${size}${cls ? ' + mirror' : ''}: splitting does not move the dark panel's seam`, async (t) => {
         if (!exe) return t.skip('no Chromium — set CHROME_PATH');
@@ -351,10 +378,18 @@ describe('split-panel: a coverless split page places its marks and reserves the 
         const split = await measureSeam(`${size}|${cls}`);
         assert.ok(whole.length === 1, `the reference render split (${whole.length} page(s))`);
         assert.ok(split.length >= 2, `the run did not split (${split.length} page(s))`);
+
+        if (!whole[0].column) {
+          // A ROW. The reserve cannot move the seam here, and the arm's job is to pin the reason:
+          // if this ever becomes a column, the comparison below has to start running for it.
+          assert.ok(split.every((x) => !x.column),
+            'the section became a COLUMN — the seam comparison must now run for this shape');
+          return;
+        }
         // `mirror` at a STACKED size is a pre-existing defect, and the seam has no meaning there.
-        // `section.split-panel.mirror { flex-direction: row-reverse }` (base.modifiers.css) and
+        // `section.split-panel.mirror { flex-direction: row-reverse }` (`base.modifiers.css`) and
         // `section.split-panel[data-orientation="portrait"] { flex-direction: column }` have the
-        // same specificity (0,2,1) and the mirror rule is later in the bundle, so a mirrored
+        // SAME specificity (0,2,1) and the mirror rule sits later in the bundle, so a mirrored
         // section stays a ROW at every size — and a 38/62 row on a 1080x1350 slide overflows:
         // measured `.panel-left` at x-62.4 w1594, `.panel-right` entirely off-slide at x-451.6,
         // the engine's own "Content clipped" badge on the page. IDENTICAL on the `--no-split`
@@ -373,6 +408,29 @@ describe('split-panel: a coverless split page places its marks and reserves the 
       });
     }
 
+    // ONLY THE CORNER PANEL GIVES UP THE BAND. The rule reserves it by adding bottom padding, so
+    // the panel the pointer cannot reach must keep exactly the padding the unsplit slide gives it.
+    // Ungated, the `.panel-right` arm reserved ~89px on a mirrored page where the pointer is in
+    // the other column — dead band, and content lifted 44.4px off where the whole slide puts it.
+    // Nothing caught that: it is not an overprint, it does not drift across a run, and the seam
+    // arm watches `.panel-left`.
+    for (const cls of ['', 'mirror']) {
+      test(`${size}${cls ? ' + mirror' : ''}: the panel the pointer cannot reach keeps its own padding`, async (t) => {
+        if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+        const whole = await measureSeam(`${size}|${cls}|whole`);
+        const split = await measureSeam(`${size}|${cls}`);
+        assert.ok(whole.length === 1 && split.length >= 2, 'the fixture did not render as expected');
+        // `mirror` puts the pointer over `.panel-left`, so `.panel-right` is the untouched one;
+        // unmirrored it is the other way round.
+        const key = cls.includes('mirror') ? 'pbR' : 'pbL';
+        for (const x of split) {
+          assert.equal(x[key], whole[0][key],
+            `page ${x.page}: ${key === 'pbR' ? '.panel-right' : '.panel-left'} reserved a band the`
+            + ` pointer never reaches — ${x[key]} split vs ${whole[0][key]} unsplit`);
+        }
+      });
+    }
+
     // THE RAIL IS LEGIBLE ON THE FIELD IT LANDS ON. `.lat-split-rail .seg` draws in
     // `currentColor`, which is the section's canvas ink — right over `.panel-right`, invisible
     // over `.panel-left`. Under `mirror` the bottom-right corner IS `.panel-left`, and this is a
@@ -380,14 +438,16 @@ describe('split-panel: a coverless split page places its marks and reserves the 
     // path it never split and no rail existed here. Measured across all 33 shipped palettes, six
     // variants each: 52 of 198 cells under WCAG 1.4.11's 3:1 for a meaningful graphical object,
     // bottoming out at 1.00:1 — a rail nobody can see. 0 of 198 after, worst cell 5.33:1.
-    test(`${size} + mirror: the k-of-N rail clears 3:1 on the panel it lands on`, async (t) => {
-      if (!exe) return t.skip('no Chromium — set CHROME_PATH');
-      const rows = await measureRail(`${size}|mirror`);
-      assert.ok(rows.length >= 2, `the mirror run did not split (${rows.length} page(s))`);
-      for (const x of rows) {
-        assert.ok(x.ratio >= 3, `page ${x.page}: the rail is ${x.ratio}:1 against the panel behind it`);
-      }
-    });
+    for (const cls of ['mirror', 'form mirror', 'metric']) {
+      test(`${size} + ${cls}: the k-of-N rail clears 3:1 on the field it lands on`, async (t) => {
+        if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+        const rows = await measureRail(`${size}|${cls}`);
+        assert.ok(rows.length >= 2, `the ${cls} run did not split (${rows.length} page(s))`);
+        for (const x of rows) {
+          assert.ok(x.ratio >= 3, `page ${x.page}: the rail is ${x.ratio}:1 against the field behind it`);
+        }
+      });
+    }
 
     // …INCLUDING UNDER `mirror`, which row-reverses the panels. At square that swaps which column
     // the pointer sits over, so a reservation on one named panel lands on the wrong one.

@@ -698,11 +698,27 @@ section.split-panel-points:is(
  *   straight through the reserve. The same sweep run WITH the reserve shows exactly that: the
  *   16-word collision goes to zero, and 20, 24, 28 and 32 words print the identical overprint they
  *   printed without it — the reserve was never the thing standing in the way there. Those lengths
- *   are not silent, but the thing that sees them is the DECK LINTER, not the engine: `lint:deck`
- *   calls `density-overflow` on every one of them against this component's ~16-word target, which
- *   is the same boundary the reserve stops working at. An earlier draft of this comment credited
- *   the engine's own overflow probe; it prints nothing on these decks, and that sentence is
- *   withdrawn along with "their content stops above the band".
+ *   are not silent, but the thing that sees them is the DECK LINTER, not the engine — and naming
+ *   ONE linter rule for it was wrong twice over. `lint:deck` has two density rules and this
+ *   component declares both thresholds (`density: soft 16, hard 24` in its manifest):
+ *   `density-crowd` past the soft target, `density-overflow` past the hard one. Which of the two
+ *   fires at a colliding length depends on the element's TITLE, because the rule counts the whole
+ *   element. Measured, four members, same body length, two title widths:
+ *
+ *       body words   with a 3-word title      with an 8-word title
+ *       12           nothing (15 total)       density-crowd (20)
+ *       16           density-crowd (19)       density-crowd (24)
+ *       20           density-crowd (23)       density-overflow (28)
+ *       24           density-overflow (27)    density-overflow (32)
+ *
+ *   So every colliding length IS flagged, by one rule or the other, and an earlier draft that
+ *   named `density-overflow` alone described only the long-titled half. The draft before THAT
+ *   credited the ENGINE's own overflow probe, which is wrong in the other direction: whether the
+ *   engine flags depends on the deck too — a 20-word body of short words measures
+ *   `scrollHeight === clientHeight` with no `overflow` class and no CLI warning while the pill
+ *   covers the words, and a 24-word body of ordinary words trips the class on all four pages. The
+ *   durable claim, and the only one worth writing down, is the weak one: **a page whose content
+ *   fits its panel can still have the pill over its words, and nothing in the engine says so.**
  *
  *   THE PANEL THE POINTER CAN REACH, AND EVERY PAGE OF THE RUN. Three versions of this rule
  *   picked three different sets of panels, and each was wrong in its own way. The first reserved
@@ -714,9 +730,19 @@ section.split-panel-points:is(
  *     column rule — same specificity (0,2,1), later in the bundle — so a mirrored section is a ROW
  *     at every size. At square that puts `.panel-right` in the LEFT half — measured x0-450.9 —
  *     while the pointer sits at x708-1013, inside `.panel-left`. Reserving only `.panel-right` put
- *     the band on the column the pill does not cover: with the `.mirror` arm removed, the pill
- *     prints 217.1x28.4px over the cite line on page 1 and 143.6x28.4px on page 2, while ~89px of
- *     dead space is held at the bottom of the other column. Hence the second selector.
+ *     the band on the column the pill does not cover. Measured with the `.mirror` arm removed, on
+ *     the fixture `split-panel-coverless-band.test.js` defines, OPAQUE PILL BOX against the ink of
+ *     the cite line — the pill is filled, so its box is what paints over the words, and saying
+ *     which measure is used is the point: this figure has been quoted four different ways in this
+ *     file (217.1x28.4, 199.5x23.1, 236.7x26.0) because nobody said.
+ *
+ *       page 1        page 2
+ *       portrait  361.4x51.5    287.8x51.5
+ *       square    305.0x38.5    231.6x38.5
+ *       story     381.6x45.9    308.0x45.9
+ *       mobile    390.1x41.8    313.4x41.8
+ *
+ *     All four sizes, both pages that carry a pointer. Hence the second selector.
  *
  *   · BUT RESERVING BOTH INFLATES THE DARK PANEL, and reserving both on EVERY size is how that
  *     shipped for a round. Once the section is a COLUMN, `.panel-left` is a flex item whose height
@@ -729,6 +755,18 @@ section.split-panel-points:is(
  *     `.mirror` forces a row at every size (previous bullet), the padding there always shrinks a
  *     content box and never inflates anything. The measurement that caught this was a RASTER of
  *     the split deck — the geometry probes had all reported "no overprint" and were right.
+ *
+ *   · AND ONLY THE CORNER PANEL, which is the same correction the rail rules below needed. The
+ *     `.panel-right` arm was ungated on `mirror`, so a mirrored page reserved the band on BOTH
+ *     columns — and under `mirror` the pointer is in the other one. Measured at square across 22
+ *     configurations, the pointer overlaps the corner panel by 347-390px of its 390px width and
+ *     the other panel by 0-43px; on an UNMIRRORED page that other-panel sliver is 0-7px and has
+ *     never had a reserve. So the ungated arm held ~89px of dead band at the bottom of the light
+ *     column and lifted its content 44.4px off where the unsplit slide puts it — the same defect,
+ *     in the same rule, that round 4 wrote up as "~89px of dead space held at the bottom of the
+ *     other column" when the reserve was on the wrong panel. Round 5 added the right panel and
+ *     left the wrong one in place. `:not(.mirror)` makes the two arms one statement: the band is
+ *     reserved on the panel in the corner, and on no other.
  *
  *   · THE LAST PAGE OF A RUN CARRIES NO FORWARD POINTER, so `:has(> .lat-split-rel)` was false
  *     there and that page alone got no reserve. `.panel-right > ul` is `justify-content:
@@ -778,7 +816,7 @@ section.split-panel.lat-split-native > .lat-split-rel {
   left: auto;
   z-index: var(--z-chrome);
 }
-section.split-panel.lat-split-native > .panel-right,
+section.split-panel.lat-split-native:not(.mirror) > .panel-right,
 section.split-panel.mirror.lat-split-native > .panel-left {
   padding-bottom: max(var(--sp-xl), calc(var(--_sec-1cqi, 1cqi) * 14.4));
 }
@@ -824,12 +862,41 @@ section.split-panel.mirror.lat-split-native > .panel-left {
  * 52 failing cells to 76. The header table above already warns about exactly those two variants,
  * in exactly those words, and the warning was read only after the sweep failed.
  *
- * `>` scopes this to the SECTION-level rail, which is the one measured. A `form` page docks its
- * rail in `.cell-footer` instead, on the Cell's own band rather than on the panel. */
+ * THE SECOND VERSION KEYED ON `mirror`, AND THAT WAS THE WRONG QUESTION — twice over. The rail
+ * does not care about `mirror`; it cares WHICH PANEL IS IN THE BOTTOM-RIGHT CORNER and what that
+ * panel is filled with. `mirror` is only one of the three things that decide it, and keying on it
+ * shipped one defect and missed another. Measured with a probe that reports, per configuration,
+ * which box the rail's own rect sits inside (`.scratch/r7/where.js`), at square and portrait:
+ *
+ *   · AN INSETTING FORM FRAME PUTS THE RAIL ON THE CANVAS, NOT ON A PANEL. `.lat-split-rail` is
+ *     absolutely positioned on the SECTION at `bottom: 2.35cqi`, and a coverless native page has
+ *     no `.cell-footer` for it to dock into — so on `form` the panels are inset (measured
+ *     `.panel-left` y74.3 h909.2 in a 1080 section, ending at y983.5) and the rail sits at
+ *     y1051.3, 68px BELOW them on the frame's white margin. Painting it the panel's ink there
+ *     measured 1.00:1 on `form mirror`, `form mirror claim-quiet` and `watermark form mirror`, at
+ *     both sizes — an invisible rail, where before this rule it was 11.50:1. `claim-hero` and
+ *     `claim-bleed` zero the inset, so on those the panel does reach the corner and the panel ink
+ *     is right; that set is MEASURED, not assumed, and a new Frame has to be measured into it.
+ *   · `metric` INVERTS THE PANELS (line 140: `.panel-right { background-color: --surface-inverse }`),
+ *     so on an UNMIRRORED `metric` page the corner panel is the dark one and canvas ink measured
+ *     1.02:1 — the identical defect, on a surface no `.mirror` selector can reach. The 33-palette
+ *     sweep could not see it because every deck in that sweep was mirrored.
+ *
+ * So the rules below key on THE CORNER PANEL. `mirror` selects `.panel-left`, its absence
+ * `.panel-right`, and each arm names the fill that panel actually carries. The last rule is the
+ * canvas case and wins over all of them, because an inset frame moves the rail off both panels
+ * whatever they are filled with. */
+/* the corner is `.panel-right` — light on every variant except `metric`, which inverts it */
+section.split-panel.lat-split-native:not(.mirror).metric > .lat-split-rail { color: var(--on-dark-secondary); }
+/* the corner is `.panel-left` — the inverse fill, unless the variant repaints it */
 section.split-panel.mirror.lat-split-native > .lat-split-rail { color: var(--on-dark-secondary); }
 section.split-panel.mirror.lat-split-native:is(.metric, .steps) > .lat-split-rail { color: inherit; }
 section.split-panel.mirror.watermark.lat-split-native > .lat-split-rail { color: var(--on-accent); }
 section.split-panel.mirror.lat-split-native:is(.cat-1, .cat-2, .cat-3, .cat-4,
                                                .cat-5, .cat-6, .cat-7, .cat-8) > .lat-split-rail {
   color: var(--cat-on-fill);
+}
+/* the corner is the FRAME'S CANVAS — an insetting Form frame lifts both panels off it */
+section.split-panel.lat-split-native.form:not(.claim-hero):not(.claim-bleed) > .lat-split-rail {
+  color: inherit;
 }

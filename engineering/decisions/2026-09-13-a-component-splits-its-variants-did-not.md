@@ -386,7 +386,10 @@ probe calls fine.
   | 4 | the run's last page has no pointer, so it alone got no reserve → 31-44px content drift | fixed, pinned (8 of 40 arms) |
   | 5 | round 4's fix reserved BOTH panels and inflated the dark panel at every stacked size | fixed, pinned (3 of 40 arms) |
   | 5 | the arm pinning round 4's `mirror` fix could not see its own defect — vacuously green | fixed; the mutation now fails 4 arms, was 0 |
-  | 5 | the k-of-N rail draws in canvas ink and lands on the PANEL under `mirror` — 1.00:1 | fixed, pinned (4 of 40 arms) |
+  | 5 | the k-of-N rail draws in canvas ink and lands on the PANEL under `mirror` — 1.00:1 | fixed, pinned (8 of 56 arms) |
+  | 6 | round 5's rail fix keyed on `mirror`, and two corners never have a mirror in them | fixed, pinned (4 + 4 of 56) |
+  | 6 | the `.panel-right` reserve was ungated on `mirror`, holding ~89px of dead band | fixed, pinned (4 of 56) |
+  | 6 | four `mirror` seam arms were placebo, and three quoted figures did not reproduce | fixed |
 
   **Round 5's three are one finding wearing three hats, and it is the same one as rounds 1-4.**
   Round 4 widened WHICH PANELS reserve the band; nobody widened WHAT THE PROBE LOOKS AT. The test's
@@ -413,6 +416,49 @@ probe calls fine.
   two arms instead of four caught `metric` and `steps`, whose panels are light, and took the sweep
   to 76 failing cells. The header table above it warns about exactly those two variants by name.
 
+  **Round 6 is the same lesson one level out: `mirror` was never the question.** Round 5 wrote the
+  rail rules as "under `mirror` the corner is the panel", and a sixth round found two corners that
+  are not the panel and have no mirror in them. The rail lands wherever the section's bottom-right
+  corner is, and THREE things decide what is there — measured with a probe that reports which box
+  the rail's own rect sits inside, over 22 configurations at two sizes:
+
+  - **An insetting Form frame lifts both panels off the corner.** `.lat-split-rail` is absolutely
+    positioned on the SECTION at `bottom: 2.35cqi`, and a coverless native page has no
+    `.cell-footer` to dock it into — so on `form` the panels end at y983.5 of a 1080 section and
+    the rail sits at y1051.3, on the frame's white margin. Round 5's rule painted it the panel's
+    ink there: **1.00:1** on `form mirror`, `form mirror claim-quiet` and `watermark form mirror`,
+    at both sizes, where before the rule it was 11.50:1. A regression this branch introduced.
+    `claim-hero` and `claim-bleed` zero the inset, so the panel does reach the corner on those and
+    the panel ink is right; that set is measured, not assumed.
+  - **`metric` inverts the panels** (`.panel-right { background-color: --surface-inverse }`), so on
+    an UNMIRRORED `metric` page the corner is the dark one and canvas ink measured **1.02:1** — the
+    identical defect on a surface no `.mirror` selector can reach. The 33-palette sweep could not
+    see it because every deck in that sweep was mirrored: a corpus that does not contain the case
+    cannot clear it, for the fourth time on this branch.
+
+  The rules now key on the corner panel, and the sweep grew with them: **627 cells (33 palettes x
+  19 configurations), 90 under 3:1 before, 0 after, floor 5.11:1.** The same correction applies to
+  the RESERVE: it was ungated on `mirror`, so a mirrored page reserved the band on both columns
+  while the pointer is in one. Measured over 22 configurations, the pointer overlaps the corner
+  panel by 347-390px of its 390px width and the other by 0-43px — and an unmirrored page's
+  other-panel sliver, 0-7px, has never had a reserve. The ungated arm held ~89px of dead band and
+  lifted that column's content 44.4px off where the unsplit slide puts it.
+
+  **And four seam arms were a placebo.** The seam arm can only catch a panel inflating, which only
+  happens in a flex COLUMN; `mirror` forces `row-reverse` at every size, so its four arms were
+  trivially true. They now assert the row-ness that makes them unnecessary, so a reflow change
+  trips them.
+
+  **Three more quoted figures did not reproduce, and the reason is the same every time: nobody
+  said which measure.** The mirror overprint has now been written up as 199.5x23.1, 217.1x28.4 and
+  236.7x26.0 by three different passes. It is quoted here as OPAQUE PILL BOX against CITE INK — the
+  pill is filled, so its box is what paints over the words — on this file's own fixture, page 1:
+  portrait 361.4x51.5, square 305.0x38.5, story 381.6x45.9, mobile 390.1x41.8. Also corrected: the
+  band reserve's `.mirror` selector is (0,4,1), not the (0,3,1) a commit message claimed for the
+  pair; `1c14463` says "two slides" added to `autosplit-coverage.md` and one was; and the
+  blast-radius count is 66 authored `_class:` split-panel slides across 14 decks, or 78 rendered
+  sections, not the 71 across 13 a PR body said.
+
   **What the reserve does NOT do, measured rather than argued.** It repositions content that
   FITS — which is the drift fix and the mirror fix, and both are real. It cannot hold longer
   content out of the band, because `.panel-right` is `overflow: clip` and a clip edge is the
@@ -420,13 +466,27 @@ probe calls fine.
   16 words prints 351.5x14.6px of pill over the last line without the reserve and nothing with it;
   20, 24, 28 and 32 words print the pill's full 51.5px height either way.
 
-  **And the engine does NOT flag those pages** — an earlier version of this section said it did,
-  and a fifth checker round refuted it. At 20 and 24 words the panel's content still FITS
-  (`scrollHeight === clientHeight`, nothing clipped), so no `overflow` class is set and the CLI
-  prints no warning. The signal that does fire is the deck linter: `lint:deck` calls
-  `density-overflow` against this component's ~16-word target — advisory, never blocking — at every
-  length that collides. That is a weaker guarantee than the one first written down here, and it is
-  the true one.
+  **What the engine and the linter actually say, after two wrong answers.** The first version of
+  this section said the engine flags these pages; round 5 refuted it and the replacement
+  over-corrected to "the engine does not flag them", which round 6 refuted in turn. Both are
+  deck-dependent: a 20-word body of short words measures `scrollHeight === clientHeight` with no
+  `overflow` class and no CLI warning while the pill covers the words, and a 24-word body of
+  ordinary words trips the class on all four pages. The linter is deck-dependent too, and naming
+  one of its rules was the same error: `lint:deck` calls `density-crowd` past this component's
+  16-word soft target and `density-overflow` past its 24-word hard limit, and which fires at a
+  colliding length depends on the element's TITLE, because the rule counts the whole element —
+  measured, same body length, two title widths:
+
+  | body words | 3-word title | 8-word title |
+  |---|---|---|
+  | 12 | nothing (15 total) | `density-crowd` (20) |
+  | 16 | `density-crowd` (19) | `density-crowd` (24) |
+  | 20 | `density-crowd` (23) | `density-overflow` (28) |
+  | 24 | `density-overflow` (27) | `density-overflow` (32) |
+
+  The durable claim, and the only one worth writing down, is the weak one: **a page whose content
+  fits its panel can still have the pill over its words, and nothing in the engine says so.** Both
+  linter rules are advisory and neither blocks.
 
   **The root fix is a kernel change and is deliberately not taken here.** `dockInFooterCell`
   appends both marks at SECTION level whenever a page has no `.cell-footer` row; docking the
@@ -441,6 +501,17 @@ probe calls fine.
   written for. The lesson is one line: **a corpus that does not contain the case cannot clear
   it**, and on a layout that reflows by size AND by modifier the corpus has to be the cross
   product, not a representative.
+- **The long-run `k/N` rail form is under the 4.5:1 a TEXT run owes on some palettes, and that is
+  pre-existing and repo-wide.** Past `RAIL_DOT_MAX` (12 pages) the rail prints `k/N` instead of
+  pills, and `.lat-split-rail .seg-count` carries `opacity: 0.8` from `base.modifiers.css`. Swept
+  33 palettes x 5 mirrored variants at 15-member runs: all 165 cells clear the 3:1 a graphical
+  object owes; 15 are under 4.5, worst 3.60. It is NOT this change's: on the NON-mirror surface at
+  cuoio and laguna, 10 of 10 cells are under 4.5, worst 1.90 — the dim is short of the text floor
+  on ordinary split pages too, and the re-inking here took the mirrored case from ~1-2:1 to
+  4.09-13.08. Removing the dim on the re-inked arms was measured (5.33 / 5.49 / 7.19 worst) and
+  deliberately NOT taken: it would make this PR's mirrored count louder than every other split
+  page in the same deck, to partially fix a condition whose home is `.lat-split-rail .seg-count`
+  itself.
 - **`split-panel`'s running footer is illegible on its coverless split pages, and was before
   them.** The layout inks its chrome `--on-dark-secondary` — white at 0.76 alpha — because that
   chrome normally sits over the dark panel. At portrait the panel is on TOP and the footer sits
