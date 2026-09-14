@@ -90,7 +90,17 @@ export type NotifyOptions = {
 	/** Secondary lines, for an outcome one line cannot carry honestly. Renders the
 	 *  card shape rather than the capsule, and keeps its newlines. */
 	description?: string;
-	/** Override the dwell. Rare — a longer read needs longer on screen. */
+	/**
+	 * Override the dwell. Rare — a longer read needs longer on screen.
+	 *
+	 * The kernel owns each KIND's default (`STATUS_DURATION`, `ACTION_DURATION`). A
+	 * shared override for a kind of CONTENT lives with the call sites that share it:
+	 * `studio/toast-duration.ts`'s `DEGRADED_TOAST_MS` is the one today, and its own
+	 * docblock carries the reasoning — a degradation names a file the author has to go
+	 * and fix, and is the only surviving record that the export shipped something
+	 * lesser, so it outlasts a confirmation by design. That division is deliberate: a
+	 * default belongs to the kind, an override belongs to the thing being said.
+	 */
 	duration?: number;
 };
 
