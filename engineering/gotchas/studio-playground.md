@@ -1391,3 +1391,56 @@ never turn "passed in headless" into "works on iOS."
   (`engineering/decisions/2026-08-17-gotchas-topic-refile.md`). This stub exists so the
   Studio/Playground section of the symptom index still names it, which was the one
   thing that decision gave up.
+
+## A Radix Sheet's first control is dead to the first tap on iOS
+
+- **Symptom** — a panel in a `Sheet` / `Dialog` opens and its **first** control does
+  nothing when you tap it. Tap any other control, come back, and it works. Only on a
+  real iOS device; headless Chromium and the desktop browser are fine.
+- **Cause** — Radix focuses the first focusable descendant on open (`onOpenAutoFocus`).
+  iOS Safari opens a `<select>`'s picker on the tap that **gives** it focus, so a
+  select that arrives already focused swallows that tap: the tap changes nothing, and
+  nothing opens. The same shape bites any control whose iOS behavior is keyed to a
+  focus *transition*. This is invisible to every gate — the element is focusable,
+  visible, hit-testable and enabled; only the ORDER is wrong.
+- **Mitigation** — prevent the auto-focus and park focus on the panel itself, which
+  keeps keyboard entry working without arming a control:
+  ```tsx
+  <SheetContent
+    tabIndex={-1}
+    onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement)?.focus(); }}
+  >
+  ```
+  Confirm without a device: open the panel and read `document.activeElement.tagName`.
+  A `SELECT` / `INPUT` there is the bug, whatever the surface looks like. Pinned in
+  `docs/e2e/playground-deck-settings.spec.ts` and `DeckSetupSheet.test.tsx`.
+- **Triggered by** — any `Sheet`/`Dialog`/`Popover` whose first focusable child is a
+  form control. `DeckSetupSheet` hit it when `mode` led the field profile.
+- **Removable when** — never, while Radix auto-focuses and iOS keys the picker to a
+  focus change. Treat "does the panel arm a control on open?" as part of adding one.
+
+## A panel's controls fall outside it when the reader scales text up
+
+- **Symptom** — a settings panel looks right on a phone at the default text size, and
+  at a larger one its controls sit past the panel's edge, half-clipped, with a
+  horizontal scrollbar under them. Narrow phones show it at the default size too.
+- **Cause** — a flex row whose two halves both refuse to give: a `min-width` floor on
+  the label column against a control at `flex: 0 0 auto` (**shrink 0**) with a `rem`
+  `max-width`. Their sum is the row's incompressible minimum, and it is in `rem` —
+  while the panel is capped in `px`/`vw`. Scaling text moves the minimum and not the
+  cap, so a width that was comfortable stops fitting and the overflow goes OUTSIDE the
+  panel rather than being absorbed. Measured on `.deck-config` before the fix: 5
+  clipped rows at a 320px viewport, and 4 at 390px with an 18px root.
+- **Mitigation** — let the control shrink (`flex: 0 1 auto; min-width: 0`), drop the
+  label column's floor to `min-width: 0`, and stack the row once the panel is too
+  narrow to seat both. Size that decision with a **container query**, not a media
+  query: the sheet hosting this panel is a fixed 360px on any screen wider than about
+  409px, so the viewport says "desktop" for a panel that is phone-narrow either way.
+  Put the container-query threshold in `rem` — text scaling is the axis that breaks
+  the layout, so the breakpoint has to move with the text.
+- **Triggered by** — a browser's default-font-size setting, or iOS text scaling. NOT
+  by `--blink-settings=minimumFontSize` (the `minfont` Playwright project): that knob
+  raises computed sizes and leaves `rem` alone, so the row's minimum never moves and
+  the project cannot see this class. Sweep the ROOT font size instead.
+- **Removable when** — never; it is a property of mixing `rem` minimums with a capped
+  container. Any new row in a panel inherits it.

@@ -464,7 +464,7 @@ describe('createConfigPanel (DOM)', () => {
     assert.ok(!get().includes('glossary'), 'disabling clears the key (back to default)');
   });
 
-  test('theme select is pre-filled (deck theme, else default) and writes on change', async () => {
+  test('theme select is pre-filled (deck theme, else Automatic) and writes on change', async () => {
     const withTheme = await mount('---\nmarp: true\ntheme: cuoio\n---\n\n# Deck\n');
     withTheme.panel.render();
     assert.equal(withTheme.host.querySelector('select').value, 'cuoio', 'reflects the deck theme');
@@ -472,11 +472,24 @@ describe('createConfigPanel (DOM)', () => {
     const clean = await mount(CLEAN);
     clean.panel.render();
     const themeSel = clean.host.querySelector('select');
-    assert.equal(themeSel.value, 'indaco', 'falls back to the default theme when the deck declares none');
+    // A deck that declares no theme sits at the AUTOMATIC stop — the empty value, which
+    // is a real state (follow the host palette), not a pin. It used to show the fallback
+    // palette's own name, which read as "this deck is pinned to indaco" when it was not,
+    // and left no option that could clear the key again.
+    assert.equal(themeSel.value, '', 'a deck with no theme sits at Automatic, not at the fallback name');
+    assert.match(themeSel.options[0].textContent, /^Automatic/, 'Automatic is the first stop');
+    assert.match(themeSel.options[0].textContent, /Indaco/, 'and it names where an un-pinned deck lands');
+
     themeSel.value = 'atelier';
     themeSel.dispatchEvent(new dom.window.Event('change'));
     assert.ok(clean.get().includes('theme: atelier'), 'picking writes theme into the source');
     assert.equal(clean.trigger.classList.contains('is-set'), false, 'theme alone does not light the chip');
+
+    // …and Automatic takes it back out, which is the half that did not exist before.
+    const back = clean.host.querySelector('select');
+    back.value = '';
+    back.dispatchEvent(new dom.window.Event('change'));
+    assert.ok(!clean.get().includes('theme:'), 'Automatic clears the key rather than pinning another palette');
   });
 
   test('an unknown deck theme shows a caution note and falls back', async () => {
@@ -485,7 +498,35 @@ describe('createConfigPanel (DOM)', () => {
     const warn = host.querySelector('.db-config-warn');
     assert.ok(warn, 'a caution note renders for the unknown theme');
     assert.match(warn.textContent, /made-up/);
-    assert.equal(host.querySelector('select').value, 'indaco', 'the select shows the fallback, not the bad value');
+    // `resolveDeckTheme` drops an unknown name to the SITE palette, so the row reports
+    // the same thing the renderer does: Automatic, with the fallback named in the note.
+    assert.equal(host.querySelector('select').value, '', 'the select shows Automatic, not the bad value');
+    assert.match(warn.textContent, /Indaco/, 'the note names the palette it actually falls back to');
+  });
+
+  test('palette naming is injected, not derived here', async () => {
+    // The host owns how a palette is written and which ones group (the docs site's own
+    // `paletteLabel` + the Accessibility heading). Without an injection the panel stays
+    // on its flat, title-cased list — which is what keeps this module runnable under
+    // plain `node --test`, where the site's TypeScript catalog is not resolvable.
+    const host = document.createElement('div');
+    let source = CLEAN;
+    const { createConfigPanel } = await import(MOD);
+    createConfigPanel({
+      host,
+      getSource: () => source,
+      setSource: (next) => { source = next; },
+      palettes: ['indaco', 'a11y-tritanopia'],
+      getDefaultTheme: () => 'indaco',
+      paletteNaming: { label: (n) => n.replace(/^a11y-/, '').toUpperCase(), group: { label: 'Accessibility', has: (n) => n.startsWith('a11y-') } },
+    }).render();
+    const sel = host.querySelector('select[aria-label="Theme"]');
+    const group = sel.querySelector('optgroup');
+    assert.ok(group, 'a grouped palette lands under its heading');
+    assert.equal(group.label, 'Accessibility');
+    assert.equal(group.querySelector('option').textContent, 'TRITANOPIA', 'the injected label wins');
+    assert.equal([...sel.children].filter((c) => c.tagName === 'OPTION').map((o) => o.value).join(','), ',indaco',
+      'ungrouped palettes stay at the top level, Automatic first');
   });
 
   // A profile mount: pass an explicit `fields` allow-list + finishes/note.

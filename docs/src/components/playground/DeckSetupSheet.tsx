@@ -4,6 +4,8 @@ import { MODES } from '@/components/studio/mode-catalog';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
+import { A11Y_GROUP_LABEL, paletteLabel } from '@/lib/palette-label';
+import { isA11yPalette } from '@/lib/theme-catalog.generated';
 import { useIsPhone } from '@/lib/use-breakpoint';
 import { deckDebugOn } from '@/playground/debug-overlay.js';
 import { debugEffectiveOn, onDebugOverrideChange, setDebugOverride } from '@/playground/debug-prefs.js';
@@ -17,9 +19,17 @@ import { CONFIG_PROFILES, createConfigPanel } from '@/playground/deck-config.js'
  * config.render() each time the Sheet opens. Writes flow setSource → editor →
  * onChange → live re-render, exactly as before.
  *
- * `noTheme` profile: the top-bar palette picker owns theme on this surface.
+ * The profile is `author` (every field, `theme` included). It was `noTheme` on the
+ * reasoning that "the top-bar palette picker owns theme on this surface" — true only
+ * while that picker is on screen, and `PaletteControls` hides it below `lg` (its
+ * `compact` prop). On a phone the near control was withheld in favor of a far one
+ * that wasn't rendered, so the surface had no theme control anywhere. The row writes
+ * the deck's own `theme:`, which is the authoritative axis (`@/lib/deck-theme`), with
+ * an Automatic stop that clears the key and hands the deck back to the site palette.
+ *
  * The trigger icon tints when the deck carries non-theme managed front matter
  * (readFrontMatter().configured) — the same cue the vanilla `is-set` class gave.
+ * `theme` stays out of that cue, unchanged: it is excluded at the reader.
  *
  * `modes` is REQUIRED for the Mode row to render at all — deck-config gates it on
  * `modes.length`, and this host passed nothing, so the row was in the profile and
@@ -30,6 +40,10 @@ import { CONFIG_PROFILES, createConfigPanel } from '@/playground/deck-config.js'
 // Module scope: a stable identity, so the mount callback's dep list doesn't change
 // every render (which would rebuild the whole vanilla panel on each parent update).
 const MODE_NAMES = MODES.map((m) => m.name);
+const PALETTE_NAMING = {
+	label: paletteLabel,
+	group: { label: A11Y_GROUP_LABEL, has: isA11yPalette },
+};
 
 export function DeckSetupSheet({
 	getSource,
@@ -74,7 +88,19 @@ export function DeckSetupSheet({
 				palettes,
 				finishes,
 				modes: MODE_NAMES,
-				fields: CONFIG_PROFILES.noTheme,
+				// What an un-pinned deck renders with, so the theme row's Automatic stop can
+				// name it. Read from the DOM at render time rather than threaded as a prop:
+				// the site palette lives on `<html data-palette>` (site-chrome.ts) and the
+				// panel is rebuilt on every open, so this is always the current answer.
+				getDefaultTheme: () => document.documentElement.getAttribute('data-palette') || '',
+				// The site's OWN palette naming, handed down rather than re-derived in the
+				// panel: `paletteLabel` strips the `a11y-` prefix for a palette the manifests
+				// DECLARE as one of the curated color-vision themes, which is only legible
+				// because those options sit under the group heading below — the same pairing
+				// `PaletteSelectItems` uses in the header picker. Injected, not imported by
+				// deck-config.js, because that module is also run straight under `node --test`.
+				paletteNaming: PALETTE_NAMING,
+				fields: CONFIG_PROFILES.author,
 			});
 			panel.render();
 		},
@@ -94,7 +120,21 @@ export function DeckSetupSheet({
 					<span className="hidden sm:inline">Deck Setting</span>
 				</Button>
 			</SheetTrigger>
-			<SheetContent overlay={false} className="w-[360px] max-w-[88vw] gap-0 overflow-y-auto overscroll-contain [touch-action:pan-y]">
+			<SheetContent
+				overlay={false}
+				className="w-[360px] max-w-[88vw] gap-0 overflow-y-auto overscroll-contain [touch-action:pan-y]"
+				tabIndex={-1}
+				// Radix focuses the first focusable descendant on open, which here is the
+				// FIRST ROW'S <select> (Mode). iOS Safari opens a select's picker on the tap
+				// that gives it focus, so a select arriving already-focused swallows that
+				// first tap: Mode did nothing until you touched another control and came
+				// back. Park focus on the panel itself instead — keyboard users still Tab
+				// straight in, and no live control is armed by merely opening the sheet.
+				onOpenAutoFocus={(e) => {
+					e.preventDefault();
+					(e.currentTarget as HTMLElement | null)?.focus();
+				}}
+			>
 				<SheetHeader className="border-b border-border">
 					<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings className="size-[18px] text-[var(--accent)]" />Deck settings</SheetTitle>
 					<SheetDescription className="sr-only">

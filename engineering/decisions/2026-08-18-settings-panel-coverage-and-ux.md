@@ -65,7 +65,7 @@ editor autocomplete only · **—** = no control anywhere.
 | Key | Reader | S | P | Note |
 |---|---|:-:|:-:|---|
 | `title:` | `studio-store.ts:157` (app metadata, not LFM) | ✓ | — | "Deck name" |
-| `theme:` | `lib/core/resolve-palette.js` | ✓ | ✓* | *P omits it by profile — the top bar owns theme there |
+| `theme:` | `lib/core/resolve-palette.js` | ✓ | ✓* | *P omitted it by profile — superseded, see below |
 | `lang:` | `lib/engine/directives.js` | ✓ | ✓ | |
 | `size:` | `lib/engine/directives.js` | ✓ | ✓ | |
 | `color-mode:` | `lib/core/resolve-color-mode.js` | ✓ | ✓ | |
@@ -249,6 +249,22 @@ drift `slide-directives.ts` already solved for `DIRECTIVE_KEYS` with a parity te
 `DeckSetupSheet` never passes `modes`, and `deck-config.js:490` renders the Mode row
 only `if (show('mode') && modes.length)`. **The Playground's Mode row never renders.**
 `mode` is in the `noTheme` profile, so the intent was clearly for it to.
+
+> **Superseded (2026-09-14) — the `theme:` row is back in the Playground.** The
+> table's footnote above ("the top bar owns theme there") restated `deck-config.js`'s
+> own reasoning for the `noTheme` profile, and neither noticed that the top bar's
+> palette `<select>` is hidden below the `lg` breakpoint (`PaletteControls`' `compact`
+> prop). On a phone the near control was withheld in favor of a far one that was not
+> rendered, so the surface had **no** theme control at all — the audit's §4.2 defect
+> shape (a field in the profile whose row never draws) with the halves reversed: a row
+> deliberately removed on an assumption about a different component. The sheet now uses
+> the `author` profile, and the row leads with an **Automatic** stop that clears the key
+> — the state the old row could not express, which is why "P omits it" was not obviously
+> wrong at the time: there was no way to say "this deck follows the site" either.
+>
+> The lesson for this audit's method: a per-panel field census cannot see a field
+> delegated ACROSS panels. Two of these tables were right about their own surface and
+> the delegation between them was broken.
 
 ### 4.3 The same setting, two mechanisms
 Inline validation is a **deck** setting in the Playground (`validate:` front matter,

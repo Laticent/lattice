@@ -243,6 +243,8 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The Playground's preview pane is empty for seconds after a reload](gotchas/studio-playground.md#the-playgrounds-preview-pane-is-empty-for-seconds-after-a-reload)
 - [The Playground's cached slide jumps when the live preview takes over](gotchas/studio-playground.md#the-playgrounds-cached-slide-jumps-when-the-live-preview-takes-over)
 - [The Playground's Explore layout arrives a second after the page does](gotchas/studio-playground.md#the-playgrounds-explore-layout-arrives-a-second-after-the-page-does)
+- [A Radix Sheet's first control is dead to the first tap on iOS](gotchas/studio-playground.md#a-radix-sheets-first-control-is-dead-to-the-first-tap-on-ios)
+- [A panel's controls fall outside it when the reader scales text up](gotchas/studio-playground.md#a-panels-controls-fall-outside-it-when-the-reader-scales-text-up)
 - [The Playground's divider is in one place before hydration and another after](gotchas/studio-playground.md#the-playgrounds-divider-is-in-one-place-before-hydration-and-another-after)
 - [A header control shows nothing (or the wrong thing) for a second after every page load](gotchas/studio-playground.md#a-header-control-shows-nothing-or-the-wrong-thing-for-a-second-after-every-page-load)
 - [The Studio counts fewer slides than the deck renders — or an edit destroys a slide](gotchas/studio-playground.md#the-studio-counts-fewer-slides-than-the-deck-renders--or-an-edit-destroys-a-slide)

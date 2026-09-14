@@ -20,6 +20,15 @@
 	color: var(--text-heading);
 }
 
+/* The panel sizes its rows against ITS OWN width, not the viewport's. The sheet
+ * hosting it is a fixed 360px on any screen wider than ~409px, so a viewport
+ * media query would say "desktop" for a panel that is phone-narrow either way —
+ * and the Studio hosts the same panel at a different width again. */
+.deck-config {
+	container-type: inline-size;
+	container-name: deckcfg;
+}
+
 /* Inline select / switch rows (finish, tokens, size, paginate, form, …). */
 .deck-config .db-pref-row {
 	display: flex;
@@ -33,7 +42,14 @@
 	flex: 1 1 auto;
 	flex-direction: column;
 	gap: 0.1rem;
-	min-width: 7rem;
+	/* NOT a `min-width` floor. A 7rem floor here, against a select that refused to
+	 * shrink (below), gave the row an incompressible 18.6rem minimum — wider than
+	 * the panel's content box on a narrow phone, and wider on EVERY phone once the
+	 * reader scales text up, because both halves of that sum are in rem while the
+	 * panel is capped in px/vw. The control was pushed out of the panel and the
+	 * whole thing grew a horizontal scrollbar. Measured before the fix: 4 clipped
+	 * rows at 390px with an 18px root, 6 at 320px. */
+	min-width: 0;
 }
 .deck-config .db-pref-label {
 	font-size: 0.82rem;
@@ -44,8 +60,18 @@
 	color: var(--text-muted);
 }
 .deck-config .db-pref-select {
+	/* The select keeps its preferred width (up to 11rem) and the LABEL column absorbs
+	 * the pressure — `.db-pref-text` has `min-width: 0` and can. Letting the select
+	 * shrink too was the first attempt and it read worse than the bug: both halves have
+	 * shrink 1, so they gave proportionally and the desktop panel showed
+	 * "Boardroom — c", "HD · 1280×720 (1". A truncated option label is not a fix.
+	 *
+	 * What makes the overflow IMPOSSIBLE is the percentage in the cap, not the shrink:
+	 * the select can never claim more than 55% of the row, so the other 45% is always
+	 * the label's, whatever the text size does to the 11rem half. */
 	flex: 0 0 auto;
-	max-width: 11rem;
+	min-width: 0;
+	max-width: min(11rem, 55%);
 	font: inherit;
 	font-size: 0.78rem;
 	color: var(--text-body);
@@ -62,6 +88,23 @@
 	outline: none;
 	border-color: var(--accent);
 	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Below the width where a label and its control can sit side by side, stack them —
+ * label + hint, then a full-width control underneath, which is what the text-field
+ * rows (.db-config-field) already do. The threshold is in `rem` ON PURPOSE: text
+ * scaling is the axis that breaks this layout, so the breakpoint has to move with
+ * the text rather than stay pinned to a pixel width the reader can invalidate. */
+@container deckcfg (max-width: 20rem) {
+	.deck-config .db-pref-row {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.3rem;
+	}
+	.deck-config .db-pref-select {
+		max-width: 100%;
+		width: 100%;
+	}
 }
 
 /* Slider row (backdrop / finish strength) — a range input + a live % readout. */
