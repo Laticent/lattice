@@ -180,22 +180,39 @@ Identical, and neither ever sustained past a frame or two. A 48px `yMargin` on t
 against the WebKit lag and made no difference (53px with it and without), so it was dropped rather
 than shipped as a number with nothing behind it.
 
-The four cells are the sampler's own output, in the order old-Chromium, old-WebKit, new-Chromium,
-new-WebKit:
+**All four cells were re-measured by a second party**, on the shipped spec, and the sampler's output
+is below verbatim. (An earlier draft of this block pasted MY run and called it verbatim; two of those
+four lines read `slack 40px` on the WebKit rows, which no committed revision of the spec can print —
+it passes 120 there. The numbers were right and the transcription was not, in the one block whose
+whole job is to be the thing nobody has to re-derive. The lines below come from a run someone else
+drove, on this commit's spec.)
 
 ```
-[tail] 611 samples while typing, worst instantaneous offset 0px  (slack 40px)    old · chromium 390
-[tail] 252 samples while typing, worst instantaneous offset 53px (slack 40px)    old · webkit iPhone
-[tail] 619 samples while typing, worst instantaneous offset 0px  (slack 40px)    new · chromium 390
-[tail] 245 samples while typing, worst instantaneous offset 53px (slack 40px)    new · webkit iPhone
+[mobile]        [tail] 620 samples while typing, worst instantaneous offset 0px  (slack 40px)    old
+[webkit-phone]  [tail] 259 samples while typing, worst instantaneous offset 53px (slack 120px)   old
+[mobile]        [tail] 608 samples while typing, worst instantaneous offset 0px  (slack 40px)    new
+[webkit-phone]  [tail] 246 samples while typing, worst instantaneous offset 53px (slack 120px)   new
 ```
 
-**To regenerate the OLD row** — an independent checker could not, because nothing in the tree is an
-artifact of that build, and this is the recipe it needed: restore `Editor.tsx` and
-`use-studio-demo.ts` from `main`, `node tools/build-vetrina-lib.js && (cd docs && npm run build:e2e)`,
-then `npx playwright test e2e/demo-mobile.spec.ts --grep "follows the typing"` on `--project=mobile`
-and `--project=webkit-phone`. The arm passes either way; the number is in the `[tail]` line it prints
-on a pass, which is exactly why that line prints on a pass.
+My own four runs agreed on every offset and came within ~1.5% on the sample counts (611 / 252 / 619 /
+245). Each count is an order of magnitude above the sampler's own "this proves nothing" floor, so no
+run measured little. One run per engine per state, though: 53px is a single reading on each side, not
+a characterized ceiling.
+
+**To regenerate the OLD row**: restore `Editor.tsx` and `use-studio-demo.ts` from `main`, then
+`node tools/build-vetrina-lib.js && (cd docs && npm run build:e2e)` — skipping the vetrina dist
+measures a stale bundle, because that directory import resolves through the built artifact — then
+`npx playwright test e2e/demo-mobile.spec.ts --grep "follows the typing"` on `--project=mobile` and
+on `--project=webkit-phone`, one at a time. The arm passes either way; the number is in the `[tail]`
+line, which is exactly why that line prints on a pass.
+
+**It is a TWO-FILE counterfactual, not `main`.** `stage.ts` stays at branch state, so the row named
+"old" is "the old follow mechanism against this branch's stage", not "the Studio before this PR" —
+`main` has no sampler to run at all. That is the isolation the table wants (its rows name the follow,
+not the branch), and the confound is unreachable by construction: the tours target
+`#studio-pane-editor`, the pane, so a cue's reveal scrolls the pane's ANCESTORS, while the sampler
+compares two viewport-relative coordinates and is invariant to ancestor scroll. Reasoned, not
+instrumented.
 
 So the fragilities above are real by construction and this change removes them before they bite —
 but they are not what the iPhone report was seeing. **That symptom is still unexplained**, and the
@@ -269,5 +286,12 @@ test is the surface wiring has.
   claims that were broader than the code. Everything it named is either fixed above or restated.
   What it could NOT verify from an artifact: the OLD column of the tail table and the `yMargin`
   experiment, both of which needed a build of the pre-change code that no longer exists in the tree.
+- **A second independent run then did reproduce the OLD column** — it drove the recipe above and got
+  the same two offsets (0px Chromium, 53px real WebKit), with sample counts within ~1.5% of mine, and
+  re-measured the NEW column for comparison. It also found that my "verbatim" paste of those lines
+  was not verbatim (the slack values), and that the recipe did not say the old row is a two-file
+  counterfactual rather than `main`. Both are corrected above. The one thing it verified that I had
+  taken on trust: the tree it measured was not a stale build — it read the old `scrollTop =
+  scrollHeight` out of the built bundle before running, and `revealTail` out of it afterwards.
 - **UNVERIFIED: real iOS Safari on a device.** Touch, Safari's collapsing chrome and the
   visual-viewport offset (which shifts what "in view" means) are not reachable from this sandbox.
