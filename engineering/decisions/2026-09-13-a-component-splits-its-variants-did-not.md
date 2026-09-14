@@ -251,7 +251,9 @@ collision sweep compares a mark to other MARKS. A mark that is absolutely positi
 whatever the page flowed underneath it, and neither that sweep nor the overflow probe can see it:
 the probe reads FLOW height, and an out-of-flow mark contributes none. A third checker pass
 measured 102.2x38.0px of the `split-panel` pointer's opaque pill over a body line, on a page the
-engine considered to fit — after a fix on this branch took that pointer out of flow.
+engine considered to fit — after a fix on this branch took that pointer out of flow. (That figure
+did not reproduce on a later attempt and is replaced by a sweep in the closing section below: the
+same deck at seven body lengths, which gives the whole band rather than one number.)
 
 So a second probe, over the same corpus: every wayfinding mark's ink against the ink of every box
 carrying readable text. 1,456 pages, 9 hits, all accounted for:
@@ -380,15 +382,51 @@ probe calls fine.
   | 2 | section-level reserve cut the dark panel short at square | fixed, pinned |
   | 3 | `:not(.form)` left an authored `form` page with every round-1 defect | fixed, pinned (4 of 28 arms) |
   | 3 | pointer out of flow with no reserve → pill over body text | partly fixed — see below |
-  | 4 | `mirror` row-reverses the panels; the reserve was on the wrong column | fixed, pinned |
-  | 4 | the run's last page has no pointer, so it alone got no reserve → 31-44px content drift | fixed, pinned (8 of 28 arms) |
+  | 4 | `mirror` row-reverses the panels; the reserve was on the wrong column | fixed, pinned (4 of 40 arms) |
+  | 4 | the run's last page has no pointer, so it alone got no reserve → 31-44px content drift | fixed, pinned (8 of 40 arms) |
+  | 5 | round 4's fix reserved BOTH panels and inflated the dark panel at every stacked size | fixed, pinned (3 of 40 arms) |
+  | 5 | the arm pinning round 4's `mirror` fix could not see its own defect — vacuously green | fixed; the mutation now fails 4 arms, was 0 |
+  | 5 | the k-of-N rail draws in canvas ink and lands on the PANEL under `mirror` — 1.00:1 | fixed, pinned (4 of 40 arms) |
+
+  **Round 5's three are one finding wearing three hats, and it is the same one as rounds 1-4.**
+  Round 4 widened WHICH PANELS reserve the band; nobody widened WHAT THE PROBE LOOKS AT. The test's
+  content list was `.panel-right li, strong, p`, and the mirrored overprint lands on
+  `.panel-left cite` — so the arm written to pin the mirror fix asserted `overContent === null`
+  against a set that structurally could not contain the defect, and stayed green with the fix
+  deleted. The inflation and the rail were both invisible to every geometry probe on this branch
+  and both were caught by RASTERIZING the split deck, which is what the QUALITY BAR asks for and
+  what nobody had done for round 4's change.
+
+  **The seam.** `.panel-left` in a COLUMN is a flex item sized by its content, so bottom padding
+  grows the panel instead of shrinking a content box: the dark/light seam went 49.3% → 55.0% of the
+  slide at portrait, 35.9% → 39.4% at story, 29.9% → 32.6% at mobile. At square nothing moved, a
+  row's panels being full height already — which is why the round-4 comment's "on the panel the
+  pointer never reaches, the padding is invisible" read true and was not. The reserve now goes to
+  `.panel-right`, and to `.panel-left` only under `.mirror`, which is the one configuration that
+  puts the pointer over that panel and is always a row.
+
+  **The rail.** `.lat-split-rail .seg` draws in `currentColor`. Under `mirror` the bottom-right
+  corner is the panel, so it draws canvas ink on the panel fill: swept across all 33 shipped
+  palettes × six variants, 52 of 198 cells under WCAG 1.4.11's 3:1, bottoming at 1.00:1. It now
+  takes the ink of the field it lands on, from the four-token table this layout's header and footer
+  already use. 0 of 198 after, worst cell 5.33:1. The first attempt at this fix made it WORSE —
+  two arms instead of four caught `metric` and `steps`, whose panels are light, and took the sweep
+  to 76 failing cells. The header table above it warns about exactly those two variants by name.
 
   **What the reserve does NOT do, measured rather than argued.** It repositions content that
-  FITS — which is the drift fix and the mirror fix, and both are real. It cannot hold OVERFLOWING
+  FITS — which is the drift fix and the mirror fix, and both are real. It cannot hold longer
   content out of the band, because `.panel-right` is `overflow: clip` and a clip edge is the
-  padding box. On a three-member deck with 48-word bodies the pill prints 321.1x38.0px over the
-  text WITH the reserve and 321.1x38.0px WITHOUT it — byte-identical. Those pages carry the
-  engine's `overflow` flag, so the surface is not silent.
+  padding box. Swept on a four-member portrait deck at seven body lengths: 8 and 12 words clear;
+  16 words prints 351.5x14.6px of pill over the last line without the reserve and nothing with it;
+  20, 24, 28 and 32 words print the pill's full 51.5px height either way.
+
+  **And the engine does NOT flag those pages** — an earlier version of this section said it did,
+  and a fifth checker round refuted it. At 20 and 24 words the panel's content still FITS
+  (`scrollHeight === clientHeight`, nothing clipped), so no `overflow` class is set and the CLI
+  prints no warning. The signal that does fire is the deck linter: `lint:deck` calls
+  `density-overflow` against this component's ~16-word target — advisory, never blocking — at every
+  length that collides. That is a weaker guarantee than the one first written down here, and it is
+  the true one.
 
   **The root fix is a kernel change and is deliberately not taken here.** `dockInFooterCell`
   appends both marks at SECTION level whenever a page has no `.cell-footer` row; docking the
@@ -460,10 +498,26 @@ probe calls fine.
   for the author, at bless time), run on a cadence over the whole corpus rather than on the
   decks a PR happens to touch. That is a CI-contract change and belongs to its owner, not to
   this PR.
-- **`split-panel pullquote mirror` renders its right panel entirely off-slide at portrait** —
-  `{left: -62.4 to 1531.6, right: -451.6 to -62.4}` on a 1080px slide. Identical with
-  `--no-split` (one whole slide, `overflow clip-marked`), so it is pre-existing and not this
-  change's; found by the round-4 checker and unrecorded anywhere else.
+- **`split-panel mirror` renders its right panel entirely off-slide at every STACKED size** —
+  `{left: -62.4 to 1531.6, right: -451.6 to -62.4}` on a 1080px slide at portrait, the same shape
+  at story and mobile. Identical with `--no-split` (one whole slide, `overflow clip-marked`), so
+  it is pre-existing and not this change's; found by the round-4 checker and unrecorded anywhere
+  else. **The cause is now known**, which it was not when this bullet was first written:
+  `section.split-panel.mirror { flex-direction: row-reverse }` (`base.modifiers.css`) and
+  `section.split-panel[data-orientation="portrait"] { flex-direction: column }` have the SAME
+  specificity (0,2,1), and the mirror rule sits later in the bundle — so a mirrored section never
+  takes the portrait reflow and a 38/62 row overflows a narrow slide. The fix is one line in
+  whichever file should win, and picking which is a layout-ownership call, not a split one. The
+  seam arm in `split-panel-coverless-band.test.js` asserts the off-slide shape rather than
+  skipping it, so a fix trips the arm and says to turn the comparison back on.
+- **The band reserve's selector is (0,3,1), down from (0,4,1) before this change** —
+  `section.split-panel.lat-split-native > .panel-right` versus the `:has(> .lat-split-rel)` form
+  it replaced. It still beats every `.panel-right` padding rule in the bundle, including
+  `watermark`'s, on source order (verified: `155.52px` computed on all 28 variant/size
+  combinations). But a THEME stylesheet loads after the engine bundle, so a (0,3,1) theme rule on
+  `.panel-right` would now win where it previously lost. No theme carries one — themes supply
+  tokens, not layout — so this is latent rather than a defect, and it is recorded because the
+  thing that would make it real is a theme starting to ship layout.
 - **`split-panel steps` overflows at `wide` from step 1 of the jank sweep** — the component's
   own skeleton, at its own authoring size, with a six-word heading. Pre-existing, off this
   change's path, and recorded here rather than walked past (HARD RULE #18's off-path arm).
