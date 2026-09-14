@@ -9,5 +9,11 @@
   `.github/scripts/triage.js` (a replay over the real queue flags 7 rather than
   218), and end-user `feedback` reports are exempt — a bug reporter cannot name
   the decision doc their crash belongs to.
+  The cutoff governs what the **gate** flags, never what a human may flag: a
+  `needs:definition` applied by hand to a legacy card sticks, because that
+  labeling pass is how the backlog gets swept.
+- **Added: `npm run audit:queue`.** Counts open cards against the Definition of
+  Ready and replays the intake gate over them, with and without the cutoff, so
+  the numbers above are re-derivable instead of asserted.
 - **Fixed: the BACKLOG triage banner read "1 card need triage".** It agreed the
   noun and left the verb plural.

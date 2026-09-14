@@ -1778,13 +1778,21 @@ this asks for substance, not a template.
   (`.github/scripts/triage.js`) are judged. Age-blind flagging would have
   commented on up to **218** cards as they were touched and buried the 29-card
   triage banner under them; with the cutoff, the same replay over the real queue
-  flags **7**. Sweeping the legacy 218 is a deliberate labeling pass — the cheap
-  move that took the Ready column from 4 to 64 in about a minute — never a side
-  effect of landing a gate.
+  flags **7**. Re-derive both numbers with `npm run audit:queue` — they move with
+  the queue. Sweeping the legacy 218 is a deliberate labeling pass, never a side
+  effect of landing a gate. **The cutoff governs what the GATE flags, never what a
+  human may flag:** applying `needs:definition` to a pre-cutoff card by hand
+  sticks, because that labeling pass is exactly how the 218 get swept.
 - **Exempt.** `studio-feedback.yml` files an end-user bug report, and the
   reporter cannot name the decision doc their crash belongs to. Cards labeled
-  `feedback` are never asked for a swimlane; triage turns such a report into a
-  card, and the bar then applies to the card.
+  `feedback` are never asked for a swimlane. **The exemption follows the label, so
+  promoting a report into a work item means removing `feedback`** — nothing
+  automates that, it is the human triage step, and until it happens the card stays
+  outside the bar. The label is also what couples three files: the template that
+  applies it, `.github/labels.json` that creates it, and `DOR_EXEMPT_LABELS` that
+  honors it. It was missing from the taxonomy when the bar was first written —
+  which would have handed every Studio bug reporter a demand for a governing
+  decision doc — so the three are pinned together by test.
 
 The flag is pushed into `BACKLOG.md` as its own 📐 banner, for the same reason
 `needs:triage` is: a flag behind a board filter nobody opened is not surfaced.

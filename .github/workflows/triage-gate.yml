@@ -46,14 +46,14 @@ jobs:
         with:
           script: |
             const { parseForm } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/issue-form.js`);
-            const { computeTriage } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/triage.js`);
+            const { computeTriage, freshNotices } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/triage.js`);
 
             const issue = context.payload.issue;
             const labels = (issue.labels || []).map((l) => (typeof l === 'string' ? l : l.name));
             const form = parseForm(issue.body || '');
             // created_at drives the DoR arm's grandfathering — without it every
             // legacy card would be flagged the moment anything touches it.
-            const { add, remove, comment, sentinels } = computeTriage({
+            const { add, remove, notices } = computeTriage({
               labels, form, createdAt: issue.created_at,
             });
 
@@ -69,24 +69,27 @@ jobs:
                 .catch(() => {}); // tolerate a concurrent removal
               core.info(`Removed: ${name}`);
             }
-            if (comment) {
-              // Post the explainer at most once per concern — guard against a
-              // concurrent open+edit or a remove-axis → re-flag cycle by checking
-              // for this comment's sentinels among existing comments. Every
-              // sentinel already present means the card has been told everything
-              // this comment would say, so skip; otherwise post.
+            if (notices.length) {
+              // Explain each concern EXACTLY ONCE, and let the existing comments
+              // be the record of what has been explained — not the label. Posting
+              // the whole combined body whenever any one concern went fresh would
+              // repeat the other concern's explainer verbatim; gating on the label
+              // instead would leave a card flagged-but-never-explained if this run
+              // were cancelled between the label write and this one.
               const prior = await github.paginate(github.rest.issues.listComments, {
                 ...context.repo, issue_number: issue.number, per_page: 100,
               });
               const seen = prior.map((c) => c.body || '').join('\n');
-              const fresh = sentinels.filter((s) => !seen.includes(s));
+              const fresh = freshNotices(notices, seen);
               if (fresh.length === 0) {
-                core.info('Intake comment already present for every concern — skip.');
+                core.info('Every concern on this card has already been explained — skip.');
               } else {
                 await github.rest.issues.createComment({
-                  ...context.repo, issue_number: issue.number, body: comment,
+                  ...context.repo,
+                  issue_number: issue.number,
+                  body: fresh.map((n) => n.body).join('\n\n---\n\n'),
                 });
-                core.info(`Posted intake comment covering: ${fresh.join(', ')}`);
+                core.info(`Explained: ${fresh.map((n) => n.sentinel).join(', ')}`);
               }
             }
-            if (!add.length && !remove.length && !comment) core.info('Card already compliant — no-op.');
+            if (!add.length && !remove.length && !notices.length) core.info('Card already compliant — no-op.');
