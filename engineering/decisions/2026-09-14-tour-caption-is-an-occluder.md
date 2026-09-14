@@ -261,6 +261,17 @@ ever saw and the case asserts it was non-zero.
   `pointerdown`, which the take-over guard reads as taking the wheel — so a finger scroll *ends the
   run* rather than reaching this. What reaches it is a wheel or trackpad scroll, a host scrolling its
   own page, an anchor jump, and momentum still running when a run starts.
+- **A tour started in COMPOSE mode follows its typing.** `ComposeHandle` gains `revealTail`, and
+  `revealEditorTail` drives both refs the way `goToSlide` already drives both `revealSlide`s — only
+  one editor is mounted per `editMode`, so the other call is a free no-op. It scrolls the host
+  directly, because `revealSlide` already paid for the measurement that ProseMirror's own
+  `tr.scrollIntoView()` does not move `.cs-host` at all. A second, non-obvious half came with it:
+  `tour-kit.ts`'s `editorMounted` gate looked for `.cm-content`, which Compose does not render. It is
+  the `until` on the PANE-SWITCH step that precedes each typing beat — one per `revealSlide`, four in
+  a four-slide tour, not one per keystroke — and an unmet `until` spins to `holdUntil`'s 15s timeout
+  before advancing with a warning. So a Compose phone tour crawled rather than hung. The predicate
+  now accepts either editor.
+
 ## What is verified, and what is not (HARD RULE #23)
 
 - **Real Chromium at 390x844 and real WebKit at an iPhone 15 Pro box** — the geometry table in §1 and

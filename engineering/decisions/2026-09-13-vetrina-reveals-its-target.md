@@ -140,6 +140,9 @@ comparing the before/after rects would have cost anyway.
   path): `ComposeView` already documents, with a measurement, that ProseMirror's own
   `tr.scrollIntoView()` does not scroll that host, so the fix there is a different mechanism and
   jsdom has no layout to test it with.
+  **CLOSED (2026-09-14)** — `2026-09-14-tour-caption-is-an-occluder.md` §5, which also found that the
+  tour's own `editorMounted` gate could not see a ProseMirror editor at all, so every typing beat of
+  a Compose phone tour was spinning to its timeout.
 - **`leadMs()` predicts a word-cued beat's travel from the PRE-scroll rect.** The prediction is
   now long for an off-screen target, so a cued action starts marginally early. Left alone
   deliberately: the alternative is scrolling the page at prediction time, well before the beat.

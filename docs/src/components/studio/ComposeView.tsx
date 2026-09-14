@@ -18,6 +18,7 @@ import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
 import { TableControls } from './table-controls';
+import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
 
 // The slide divider borrows the deck's STRUCTURAL TRIM (`spectrum-trim:`) — the same
@@ -810,6 +811,16 @@ export type ComposeHandle = {
 	/** Scroll slide `index` into view. `focus` also takes keyboard focus and parks the
 	 *  caret at the slide's first editable position (#1288). */
 	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
+	/** Scroll the document's END into view — the twin of `EditorHandle.revealTail`, and owed
+	 *  for the same reason. A tour types through the CONTROLLED `source` path (`editorRef` is
+	 *  null in Compose mode, so `buildTypeOps` never picks the native channel), which replaces
+	 *  the document from React state and moves no caret, so nothing scrolls to follow it.
+	 *
+	 *  Like `revealSlide`, it scrolls the HOST rather than riding ProseMirror's own
+	 *  `tr.scrollIntoView()` — measured not to move `.cs-host` at all (see that method). It is a
+	 *  PURE scroll: no transaction, so it cannot disturb the document, move the caret, or fire
+	 *  the caret→slide channel that would jump the preview on every keystroke of a demo. */
+	revealTail: () => void;
 };
 
 export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, onInsertBelow, onCursorSlide }, ref) {
@@ -882,6 +893,28 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				host.scrollTop += top - 8; // the same 8px breathing room the markdown editor leaves
 			}
 			if (opts?.focus) v.focus();
+		},
+		revealTail() {
+			const v = viewRef.current;
+			const host = hostRef.current;
+			if (!v || !host) return;
+			// The end of the DOCUMENT, not the last slide's box: a slide can be taller than the
+			// pane, and scrolling its bottom edge in would race past the line being typed. This is
+			// the direct analogue of CodeMirror's `coordsAtPos(doc.length)`.
+			let bottom: number;
+			try {
+				bottom = v.coordsAtPos(v.state.doc.content.size).bottom;
+			} catch {
+				return; // a position ProseMirror cannot place (mid-resync) is not worth throwing over
+			}
+			const box = host.getBoundingClientRect();
+			if (!(box.height > 0)) return;
+			// Leave the room the TOUR'S OWN CAPTION is covering, for the reason `tour-chrome.ts`
+			// documents: revealing to the bottom edge of the pane is revealing under the caption.
+			const over = bottom - (box.bottom - tourChromeOverlap(host));
+			// `nearest`, by hand: a tail already on screen moves nothing. The 8px is the same
+			// breathing room `revealSlide` leaves.
+			if (over > 0.5) host.scrollTop += over + 8;
 		},
 	}), []);
 

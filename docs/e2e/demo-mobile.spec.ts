@@ -345,3 +345,98 @@ test('@mobile the editor follows the typing — the tail of the deck stays on sc
 test('@webkit-phone the editor follows the typing on real WebKit too', async ({ page }) => {
 	await expectTailFollows(page, TAIL_SLACK.webkit);
 });
+
+// ── And the same question for the OTHER editor ────────────────────────────────────────────────
+//
+// A tour started in COMPOSE mode types through the same controlled `setSource` path — the
+// markdown editor is not mounted in that mode, so `buildTypeOps` never picks the native channel —
+// and a controlled replace moves no caret there either. `ComposeHandle.revealTail` is the
+// compensation, and this is its real surface: jsdom has no layout, so the unit arms in
+// `ComposeView.sync.test.tsx` stub both geometry reads and can only pin the wiring (HARD RULE #23).
+//
+// THE ORACLE IS DIFFERENT BY NECESSITY. ProseMirror hangs no back-reference to its view off the
+// DOM, so there is no `coordsAtPos` to ask from out here. What stands in is the end of the
+// rendered document — the last element inside `.ProseMirror` — measured against the visible part
+// of `.cs-host`. That is weaker than the CodeMirror oracle (it cannot report "the tail is not
+// rendered at all") and it is the strongest one available without a test hook in the component.
+async function expectComposeTailFollows(page: import('@playwright/test').Page, slack: number): Promise<void> {
+	const pageErrors: string[] = [];
+	page.on('pageerror', (e) => pageErrors.push(String(e)));
+
+	await page.addInitScript(
+		([sustain, slackPx, typingMs]: [number, number, number]) => {
+			const w = window as unknown as { __tail: TailReport };
+			w.__tail = { samples: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0 };
+			let run = 0;
+			let lastLen = -1;
+			let lastChange = 0;
+			let lastHost: unknown = null;
+			const tick = () => {
+				try {
+					const host = document.querySelector('#studio-pane-editor .cs-host') as HTMLElement | null;
+					const pm = host?.querySelector('.ProseMirror') as HTMLElement | null;
+					const last = pm?.lastElementChild as HTMLElement | null;
+					const len = pm ? (pm.textContent ?? '').length : -1;
+					// A remount arrives holding the whole document — not a change, same as the
+					// CodeMirror sampler above.
+					if (host !== lastHost) {
+						lastHost = host;
+						lastLen = len;
+						lastChange = 0;
+						run = 0;
+					} else if (len !== lastLen) {
+						lastLen = len;
+						lastChange = performance.now();
+					}
+					const typing = lastChange > 0 && performance.now() - lastChange < typingMs;
+					const overflow = host ? host.scrollHeight - host.clientHeight : 0;
+					if (host && last && typing && overflow > 60) {
+						const box = host.getBoundingClientRect();
+						const chrome = Number.parseFloat(document.documentElement.style.getPropertyValue('--vt-chrome-bottom')) || 0;
+						w.__tail.chrome = Math.max(w.__tail.chrome, chrome);
+						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome);
+						const off = Math.max(0, last.getBoundingClientRect().bottom - visibleBottom);
+						w.__tail.samples++;
+						w.__tail.maxOff = Math.max(w.__tail.maxOff, Math.round(off));
+						run = off > slackPx ? run + 1 : 0;
+						w.__tail.maxRun = Math.max(w.__tail.maxRun, run);
+						if (run >= sustain && (!w.__tail.worst || off > w.__tail.worst.off)) {
+							w.__tail.worst = { off: Math.round(off), scrollTop: Math.round(host.scrollTop), overflow: Math.round(overflow), rendered: true };
+						}
+					} else {
+						run = 0;
+					}
+				} catch (e) {
+					w.__tail.error = String(e);
+				}
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		},
+		[TAIL_SUSTAIN, slack, TAIL_TYPING_MS] as [number, number, number],
+	);
+
+	await gotoStudio(page);
+	// Switch the phone to the RICH editor before the tour starts. No tour changes `editMode`, so
+	// this is the only way into the state — an author who chose Compose and then asked for a tour.
+	await page.getByRole('button', { name: 'Compose — rich editor' }).click();
+	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
+	await startMobileDemo(page);
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect.poll(() => firstDeckSource(page), { timeout: 120_000 }).toContain('_class: closing');
+
+	const tail = await page.evaluate(() => (window as unknown as { __tail: TailReport }).__tail);
+	expect(pageErrors, `the page threw: ${pageErrors.join(' | ')}`).toEqual([]);
+	expect(tail.error, 'the sampler threw inside the page, so it measured nothing').toBeUndefined();
+	expect(tail.samples, 'Compose was never both overflowing and being typed into — this proves nothing').toBeGreaterThan(TAIL_SUSTAIN * 5);
+	expect(tail.chrome, 'the stage never published a chrome inset, so this measured a blind ruler').toBeGreaterThan(0);
+	expect(
+		tail.worst,
+		tail.worst ? `the tail was ${tail.worst.off}px off screen for ${TAIL_SUSTAIN}+ consecutive frames while typing (scrollTop ${tail.worst.scrollTop} of ${tail.worst.overflow})` : '',
+	).toBeNull();
+	console.log(`[compose-tail] ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px), longest run over budget ${tail.maxRun} frames (of ${TAIL_SUSTAIN}), caption band ${tail.chrome}px`);
+}
+
+test('@mobile a tour started in COMPOSE mode follows its typing too', async ({ page }) => {
+	await expectComposeTailFollows(page, TAIL_SLACK.chromium);
+});

@@ -77,9 +77,16 @@ export const newDeckItem = (): HTMLElement | null => document.querySelector<HTML
 // ── Readiness gates (parent-DOM; the same signals the e2e trusts) ───────────────────────────────
 /** True once the deck has PARSED into ≥ `k` slides — the desktop rail shows one button per slide. */
 export const railReady = (k: number) => (): boolean => document.querySelectorAll(`${SEL.rail} button`).length >= k;
-/** True once the editor's CodeMirror content node is live (both mobile panes stay mounted, so
- *  effectively always true — a cheap guard kept in case the layout ever reverts to conditional). */
-export const editorMounted = (): boolean => !!document.querySelector(`${SEL.editor} .cm-content`);
+/** True once the editor's content node is live (both mobile panes stay mounted, so effectively
+ *  always true — a cheap guard kept in case the layout ever reverts to conditional).
+ *
+ *  EITHER editor, because `editMode` picks which one is mounted and no tour changes it: an author
+ *  who switched to Compose and then started a tour was gating every typing beat on a CodeMirror
+ *  node that mode does not render. That is not a no-op — an unmet `until` spins to `holdUntil`'s
+ *  timeout and advances with a warning, so each beat of a phone tour cost ~15 seconds of nothing.
+ *  `#studio-pane-editor` wraps both editors, so `SEL.editor` already resolves in either mode; only
+ *  this predicate was shaped for one of them. */
+export const editorMounted = (): boolean => !!document.querySelector(`${SEL.editor} .cm-content, ${SEL.editor} .cs-host .ProseMirror`);
 /** True once the live preview (a SAME-ORIGIN srcdoc frame) has PAINTED a slide. */
 export const previewPainted = (): boolean => {
 	const doc = document.querySelector<HTMLIFrameElement>('[aria-label="Live deck preview"] iframe')?.contentDocument;
