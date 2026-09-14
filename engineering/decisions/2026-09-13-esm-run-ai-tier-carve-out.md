@@ -138,13 +138,32 @@ mutations, each red for its own reason, baseline green after each is reverted:
 | A fourth `esm.run/evil-pkg` added to the already-sanctioned `voice-model.js` | 1 fail |
 | `cdn.jsdelivr.net/npm/mermaid@11/+esm` reintroduced (the original bar still bites) | 1 fail |
 | A bare `unpkg.com` mention — prose must not be a loophole for an unsanctioned host | 1 fail |
+| A barred host reintroduced WITH a path (`fonts.googleapis.com/css2?family=X`) | 1 fail |
 | One sanctioned key renamed so it matches nothing (stale entry) | 2 fail |
 
-The regex that extracts a URL from a hit line was itself the first thing this caught: written
-inside a template literal, its `\s` collapsed to the letter `s`, so the character class excluded
-`s` and `@huggingface/transformers` was truncated to `@huggingface/tran`. The truncated string
-matched no sanction and the gate went red for the wrong reason — visibly, which is the only
-thing that made it a five-minute bug instead of a shipped one.
+**There is no regex in the gate, and CodeQL is why.** Two bugs, in order.
+
+The first was mine and visible: the extractor was written inside a template literal, so its `\s`
+collapsed to the letter `s`, the character class excluded `s`, and `@huggingface/transformers`
+truncated to `@huggingface/tran`. It matched no sanction and the gate went red for the wrong
+reason — which is the only thing that made it a five-minute bug instead of a shipped one.
+
+The second CodeQL found, and it condemned the whole approach rather than the bug on top of it.
+Six high-severity alerts on this one file: five `js/incomplete-hostname-regexp` on the
+`BARRED_HOSTS` literals flowing into a constructed `RegExp`, and one `js/incomplete-sanitization`
+on `host.replace(/\./g, '\\.')` — which escapes the dot and not the backslash. That is the
+**exact** partial-escape defect CodeQL caught in this repo three weeks earlier, in the test file
+of the change this note continues. Twice in one month is not a coincidence; it says that
+interpolating a hostname into a regex is the thing to delete, not the escaping bug on top of it.
+
+So the gate scans strings. It finds `host + '/'` with `indexOf` and reads forward to a delimiter:
+no escaping, nothing a metacharacter in a host can defeat, and it says what it means. Proven
+behavior-preserving rather than assumed — run over the real `docs/src`, **198,226 lines, 4 URL
+hits, zero disagreements** with the regex it replaces. All five mutation arms still go red.
+
+Worth recording HOW the alerts were read, because the previous round got this wrong: off the
+**annotations**, naming file and line — not guessed from the query list. A guess would have fixed
+the escape and left five alerts standing.
 
 ## Follow-up, in the order it should be taken
 

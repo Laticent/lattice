@@ -121,8 +121,37 @@ const SANCTIONED_CDN_IMPORTS = new Map([
 
 // Every `esm.run/<specifier>` (or any other barred host followed by a path) written
 // in docs/src, whatever quoting or scheme carries it.
-const CDN_IMPORT_RE = (host) =>
-	new RegExp(host.replace(/\./g, '\\.') + '/[^\\s\'"`)]+', 'g');
+//
+// PLAIN STRING SCANNING, NOT A BUILT REGEX, and CodeQL is why. The first cut built
+// `new RegExp(host.replace(/\./g, '\\.') + …)` and drew SIX high-severity alerts on
+// this one file: five `js/incomplete-hostname-regexp` on the BARRED_HOSTS literals
+// flowing into a RegExp, and one `js/incomplete-sanitization` on the escape itself —
+// which escapes `.` and not `\`, the exact partial-escape defect CodeQL already
+// caught in this repo once (#2176, `2026-09-13-plugin-architecture.md`). A host
+// carries no backslash today, so nothing was exploitable; a partial escape is still
+// wrong the moment the input widens, and the alert was right to say so.
+//
+// Interpolating a hostname into a regex at all is the thing worth deleting, not the
+// escaping bug on top of it. Scanning for `host + '/'` and reading forward to a
+// delimiter needs no escaping, cannot be defeated by a metacharacter in a host, and
+// says what it means. The delimiter set is the old character class verbatim —
+// whitespace, quote, double-quote, backtick, close-paren.
+const isDelimiter = (ch) => /\s/.test(ch) || ch === "'" || ch === '"' || ch === '`' || ch === ')';
+
+function cdnImportsOn(line, host) {
+	const found = [];
+	const needle = `${host}/`;
+	for (let from = 0; ; ) {
+		const at = line.indexOf(needle, from);
+		if (at === -1) return found;
+		let end = at + needle.length;
+		while (end < line.length && !isDelimiter(line[end])) end++;
+		// The old pattern required at least one character after the slash, so a bare
+		// `host/` is not a URL — it is prose about the host.
+		if (end > at + needle.length) found.push(line.slice(at, end));
+		from = at + 1;
+	}
+}
 
 // The hosts that carry at least one sanctioned URL. Derived, never written twice.
 const sanctionedHosts = new Set([...SANCTIONED_CDN_IMPORTS.keys()].map((u) => u.split('/')[0]));
@@ -162,7 +191,7 @@ test('no docs/src file references a CDN host', () => {
 				// FIFTH package inside a file that already carries a sanctioned one — is
 				// a hit. A bare hostname with no path is prose (a comment explaining the
 				// carve-out), and cannot load anything by itself.
-				const urls = line.match(CDN_IMPORT_RE(host)) || [];
+				const urls = cdnImportsOn(line, host);
 				const unsanctioned = urls.filter((u) => !SANCTIONED_CDN_IMPORTS.has(u));
 				if (unsanctioned.length > 0) {
 					hits.push(`${rel}:${i + 1} → ${unsanctioned.join(', ')}`);
