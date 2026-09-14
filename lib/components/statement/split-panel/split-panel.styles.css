@@ -876,6 +876,27 @@ section.split-panel.lat-split-native:is(.mirror, :not([data-orientation="portrai
   padding-bottom: max(var(--sp-xl), calc(var(--_sec-1cqi, 1cqi) * 14.4));
 }
 
+/* …AND THE RESERVE ALONE CANNOT HOLD CONTENT OUT, because `overflow: clip` clips at the
+ * PADDING box. The band above IS padding, so it is inside the clip region: the reserve shrinks
+ * `> ul`'s content box, but the list's own overflow spills straight back down through it and
+ * paints under the pill. Measured on the fixture below at portrait, three members at 32 words:
+ * 396.1x51.5px of opaque pill over `li` ink on page 1, 296.4x51.5 on page 2 — with NO
+ * `overflow` class, NO `clip-marked`, and a clean `lint:deck`. Silent, which is the part that
+ * matters.
+ *
+ * So the list takes the flex cell-tree clip contract its own parent took in 2026-06-26, for the
+ * same reason and with the same two declarations: a flex child defaults to `min-height: auto`
+ * and refuses to shrink, so it needs `min-height: 0` before `overflow: clip` can bite. Content
+ * that does not fit now clips at the LIST's edge — above the band — instead of painting over
+ * the pill.
+ *
+ * And clipping here is what makes the failure LOUD rather than lossy. `overflow-probe.js`
+ * discovers clipping boxes and folds a child's internal overflow (`scrollHeight - clientHeight`)
+ * onto its parent's content bottom; `.panel-right` is a probed CLIP_CELL, so the list's spill
+ * now reaches the section measure. That is the same signal runtime auto-split divides by — so an
+ * over-stuffed member gets another page rather than a pill through its third line. */
+section.split-panel.lat-split-native > .panel-right > ul { min-height: 0; overflow: clip; }
+
 /* ── AND THE k-OF-N RAIL NEEDS THE PANEL'S INK, FOR THE SAME REASON ────────────────────────
  *
  * The band the two rules above clear is the bottom-right corner, and under `mirror` that corner

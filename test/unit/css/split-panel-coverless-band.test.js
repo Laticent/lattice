@@ -189,6 +189,42 @@ size: ${size}
 ${['a', 'b', 'c', 'd'].map(() => `- ${LONG_TITLE}\n  - ${'clause '.repeat(12).trim()}.`).join('\n')}
 `;
 
+// AN OVER-STUFFED MEMBER, which is the case the reserve alone could never hold. `overflow: clip`
+// clips at the PADDING box, and the reserved band IS padding — so the list's own spill used to
+// paint straight back down through it and under the pill: measured 396.1x51.5px of opaque pill
+// over `li` ink at portrait page 1 and 296.4x51.5 on page 2, with NO `overflow` class and NO
+// `clip-marked`. Silent is the part that mattered. 32 words per member is the length that
+// reproduces at portrait; the arm asserts the INVARIANT (nothing painted under the pill, and if
+// it does not fit the engine SAYS so) rather than that one number.
+const LONG_BODY = Array.from({ length: 32 },
+  (_, i) => 'clause about the governing terms and their effect on parties involved here today onward next'.split(' ')[i % 15]).join(' ');
+const longDeck = (size, cls) => `---
+marp: true
+theme: indaco
+size: ${size}
+---
+
+<!-- _class: split-panel pullquote${cls ? ` ${cls}` : ''} -->
+
+> pullquote gives half the slide to one voice, and the other half to what it means.
+
+\`split-panel pullquote · the layout, quoted\`
+
+- The quote claims
+  - ${LONG_BODY}.
+- The column interprets
+  - ${LONG_BODY}.
+- A third reading
+  - ${LONG_BODY}.
+`;
+
+// THE ONE CLASS LIST. `before()` renders it and every arm below loops it, so "rendered but never
+// asserted against" — round 9's defect, where three of five rendered classes were produced and
+// never read — cannot recur by editing one loop and not the other. The structural gate at the
+// bottom of this file is the other half: it fails when the CSS grows a rule for a variant this
+// list does not carry.
+const CLASSES = ['', 'form', 'mirror', 'form mirror', 'metric'];
+
 const SIZES = ['portrait', 'square', 'story', 'mobile'];
 
 describe('split-panel: a coverless split page places its marks and reserves the band', () => {
@@ -207,7 +243,7 @@ describe('split-panel: a coverless split page places its marks and reserves the 
       // as always the light one — which is how the rail-ink rules shipped painting white on white
       // (`form mirror`, 1.00:1) and left a dark panel un-inked (`metric`, 1.02:1). Rendering a
       // representative of each axis is not rendering the matrix.
-      for (const cls of ['', 'form', 'mirror', 'form mirror', 'metric']) {
+      for (const cls of CLASSES) {
         const key = `${size}|${cls}`;
         const md = path.join(dir, `${size}${cls}.md`);
         const html = path.join(dir, `${size}${cls}.html`);
@@ -227,6 +263,12 @@ describe('split-panel: a coverless split page places its marks and reserves the 
         fs.writeFileSync(wmd, wideDeck(size, `pullquote${cls ? ` ${cls}` : ''}`));
         execFileSync(process.execPath, [EMU, wmd, whtml, '-q'], { stdio: 'ignore' });
         rendered.set(`${key}|wide`, whtml);
+        // …and the same shape with a member body far past what the panel can hold.
+        const lmd = path.join(dir, `${size}${cls}-long.md`);
+        const lhtml = path.join(dir, `${size}${cls}-long.html`);
+        fs.writeFileSync(lmd, longDeck(size, cls));
+        execFileSync(process.execPath, [EMU, lmd, lhtml, '-q'], { stdio: 'ignore' });
+        rendered.set(`${key}|long`, lhtml);
       }
     }
     const puppeteer = require('puppeteer-core');
@@ -243,14 +285,34 @@ describe('split-panel: a coverless split page places its marks and reserves the 
   const measure = async (size, cls, variant = '') => {
     await p.goto(`file://${rendered.get(`${size}|${cls}${variant}`)}`, { waitUntil: 'networkidle0' });
     return p.evaluate(() => {
+      // PAINTED ink, not the layout rect. `getBoundingClientRect()` is clip-BLIND: an element
+      // whose ancestor clips still reports its full layout box, so a probe reading it raw claims
+      // an overprint that is not on the glass. That is how the ">20 words" residual was recorded
+      // as shipping when the painted result was already clean at some lengths — and it is the
+      // same wrong-measure error as round 9's ink-vs-box, one level up. Intersect with every
+      // clipping ancestor before comparing anything.
+      const clipTo = (el, r) => {
+        let n = el.parentElement, out = r;
+        while (n && n !== document.body) {
+          const o = getComputedStyle(n).overflow;
+          if (o === 'clip' || o === 'hidden' || o === 'auto' || o === 'scroll') {
+            const c = n.getBoundingClientRect();
+            const L = Math.max(out.left, c.left), T = Math.max(out.top, c.top);
+            const R = Math.min(out.right, c.right), B = Math.min(out.bottom, c.bottom);
+            out = new DOMRect(L, T, Math.max(0, R - L), Math.max(0, B - T));
+          }
+          n = n.parentElement;
+        }
+        return out;
+      };
       const ink = (el) => {
         const b = el.getBoundingClientRect();
         if (!(el.textContent || '').trim()) return b;
         const rg = document.createRange(); rg.selectNodeContents(el);
         const i = rg.getBoundingClientRect();
         if (!i.width || !i.height) return b;
-        return new DOMRect(Math.max(b.left, i.left), Math.max(b.top, i.top),
-          Math.min(b.right, i.right) - Math.max(b.left, i.left), Math.min(b.bottom, i.bottom) - Math.max(b.top, i.top));
+        return clipTo(el, new DOMRect(Math.max(b.left, i.left), Math.max(b.top, i.top),
+          Math.min(b.right, i.right) - Math.max(b.left, i.left), Math.min(b.bottom, i.bottom) - Math.max(b.top, i.top)));
       };
       const over = (a, b) => {
         const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
@@ -298,6 +360,17 @@ describe('split-panel: a coverless split page places its marks and reserves the 
           page: i + 1,
           position: getComputedStyle(ptr).position,
           insideSlide: pi.right <= sr.right + 0.5 && pi.left >= sr.left - 0.5,
+          // The engine's OWN verdict on this page. A band defect that the engine already flags is
+          // a different (and far less serious) thing from one it stays silent about, and this
+          // file could not tell them apart until now.
+          flags: ['overflow', 'clip-marked', 'fit-marked', 'illegible'].filter((c) => s.classList.contains(c)),
+          // Did any bounded box on this page actually SWALLOW content? This is the antecedent the
+          // flag arm needs: asserting "an over-stuffed deck is always flagged" is wrong, because
+          // the same word count fits at `square` and does not at `portrait`, and demanding a flag
+          // where content fits is demanding the engine cry wolf. The honest invariant is the
+          // conditional one — clipped implies flagged.
+          contentClipped: [...s.querySelectorAll('.panel-left, .panel-right, .panel-right > ul')]
+            .some((b) => b.scrollHeight - b.clientHeight > 1),
           // THE CLAMP'S OWN MARGIN, which is a stronger statement than "inside the slide" and the
           // reason this arm exists. Containment is satisfied by LUCK at `square`, where the
           // unclamped pill happened to land 11.2px inside; the same mutation that reddens portrait,
@@ -559,7 +632,34 @@ describe('split-panel: a coverless split page places its marks and reserves the 
     // pages at the same (0,3,1) specificity and later in the bundle. The pill ran 79.0 / 88.7 /
     // 92.7px off the LEFT EDGE on an authored `split-panel pullquote form`, silently, with the
     // suite at 64/64. Rendering a class is not asserting against it.
-    for (const cls of ['', 'form', 'mirror', 'form mirror', 'metric']) {
+    // AN OVER-STUFFED MEMBER IS CLIPPED ABOVE THE BAND, AND THE ENGINE SAYS SO. Two assertions,
+    // and the second is the one that makes this honest: the reserve can only reposition content
+    // that FITS, so the question for content that does not is whether it lands under the pill in
+    // silence. `min-height: 0; overflow: clip` on `> ul` makes it clip at the LIST's edge, and
+    // because `overflow-probe.js` folds a child's internal overflow onto `.panel-right` — a
+    // probed CLIP_CELL — the section is flagged and runtime auto-split can act on it.
+    for (const cls of CLASSES) {
+      test(`${size}${cls ? ` + ${cls}` : ''}: an over-stuffed member clips above the band and is flagged`, async (t) => {
+        if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+        const pages = await measure(size, cls, '|long');
+        assert.ok(pages.length >= 1, 'the over-stuffed run produced no coverless page');
+        for (const x of pages) {
+          assert.equal(x.overContent, null,
+            `page ${x.page}: an over-stuffed member paints under the pill — ${JSON.stringify(x.overContent)}`);
+          assert.ok(x.insideSlide, `page ${x.page}: the pointer ran past the slide edge`);
+        }
+        // CLIPPED IMPLIES FLAGGED, per page. Silence about content the layout swallowed is the
+        // defect; a page whose content genuinely fits owes no marker. Before the `> ul` clip, the
+        // portrait pages below both swallowed content AND reported nothing.
+        for (const x of pages.filter((x) => x.contentClipped)) {
+          assert.ok(x.flags.length > 0,
+            `page ${x.page}: a bounded box swallowed content and the section carries NO overflow `
+            + `marker — the engine is silent about content it could not fit`);
+        }
+      });
+    }
+
+    for (const cls of CLASSES) {
       test(`${size}${cls ? ` + ${cls}` : ''}: the pill covers no content at the 42-character label cap`, async (t) => {
         if (!exe) return t.skip('no Chromium — set CHROME_PATH');
         const pages = await measure(size, cls, '|wide');
@@ -618,4 +718,86 @@ describe('split-panel: a coverless split page places its marks and reserves the 
       assert.ok(spread <= 1, `under mirror the member block moves ${spread.toFixed(1)}px between pages`);
     });
   }
+});
+
+/**
+ * THE VARIANT AXIS, CLOSED BY A MACHINE RATHER THAN BY MEMORY.
+ *
+ * Every defect this file was written for had the same shape: a rule keyed on a variant the
+ * fixture never rendered, or rendered and never asserted against. Nine checker rounds found
+ * seven of them, one at a time, because nothing in the tree could see the gap — `CLASSES` was
+ * hand-typed, and a rule naming `.steps` or `.cat-3` sat beside arms that had never produced
+ * such a page.
+ *
+ * So this arm reads the component's own stylesheet, pulls every variant class out of the
+ * selectors that key on a coverless split page, and demands each one be either COVERED by the
+ * fixture list above or SANCTIONED with a reason. It is deliberately structural: it needs no
+ * browser, it runs in milliseconds, and it fails the moment someone adds a rule for a variant
+ * nothing renders — which is the event that produced rounds 5 through 9.
+ *
+ * It also fails on a STALE sanction, so the list cannot rot into permanent permission.
+ */
+describe('split-panel: every variant the band rules name is covered or sanctioned', () => {
+  // Structural tokens — the page class and the parts, not variants of it.
+  const STRUCTURAL = new Set([
+    'split-panel', 'lat-split-native', 'panel-left', 'panel-right', 'lat-split-rel',
+    'lat-split-rail', 'cell-stage', 'cell-footer',
+  ]);
+
+  // Variants a band rule names that the fixture does NOT render, each with the reason it is
+  // acceptable to leave uncovered. Delete an entry the moment the fixture grows that class.
+  const SANCTIONED_UNCOVERED = {
+    steps: 'Named only in the mirrored rail-ink arm, sharing one `color: inherit` declaration with '
+      + '`metric`, which IS rendered at every size. Its own corner-field contrast is measured by '
+      + 'the palette sweep in split-panel-rail-ink.test.js, which does render it.',
+    watermark: 'Same rail-ink block; its corner field is `--accent`, measured across palettes in '
+      + 'split-panel-rail-ink.test.js rather than here, because the question is contrast, not band '
+      + 'geometry, and needs a palette matrix rather than a size matrix.',
+    'claim-hero': 'Appears only as a NEGATION (`:not(.claim-hero)`) narrowing the Form canvas arm. '
+      + 'A negation cannot be exercised by rendering the class — the covering case is the Form page '
+      + 'the fixture already renders at every size.',
+    'claim-bleed': 'Negation, exactly as `claim-hero` above.',
+    'cat-1': 'The eight categorical tints share ONE declaration (`--cat-on-fill`) in a single '
+      + 'selector list. split-panel-rail-ink.test.js renders the representative and sweeps palettes; '
+      + 'rendering all eight here would quadruple this file\'s runtime to re-measure one rule.',
+  };
+  for (const n of [2, 3, 4, 5, 6, 7, 8]) SANCTIONED_UNCOVERED[`cat-${n}`] = SANCTIONED_UNCOVERED['cat-1'];
+
+  const css = fs.readFileSync(
+    path.join(ROOT, 'lib/components/statement/split-panel/split-panel.styles.css'), 'utf8');
+
+  /** Variant classes named by any selector that keys on a coverless split page. */
+  const namedVariants = () => {
+    const out = new Set();
+    // Selectors only: everything before a `{`, with comments stripped so prose cannot vote.
+    const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const block of bare.split('}')) {
+      const sel = block.slice(0, block.indexOf('{') < 0 ? block.length : block.indexOf('{'));
+      if (!sel.includes('lat-split-native')) continue;
+      for (const m of sel.matchAll(/\.([a-z][a-z0-9-]*)/g)) {
+        if (!STRUCTURAL.has(m[1])) out.add(m[1]);
+      }
+    }
+    return out;
+  };
+
+  test('no band rule names a variant that is neither rendered nor sanctioned', () => {
+    const covered = new Set(CLASSES.flatMap((c) => c.split(' ')).filter(Boolean));
+    const uncovered = [...namedVariants()].filter((v) => !covered.has(v));
+    const unexplained = uncovered.filter((v) => !SANCTIONED_UNCOVERED[v]);
+    assert.deepEqual(unexplained, [],
+      `these variants are named by a coverless-split rule but no fixture renders them and nothing `
+      + `explains why: ${unexplained.join(', ')}. Add the class to CLASSES, or add a `
+      + `SANCTIONED_UNCOVERED entry saying where it IS measured.`);
+  });
+
+  test('no sanctioned entry is stale', () => {
+    const named = namedVariants();
+    const covered = new Set(CLASSES.flatMap((c) => c.split(' ')).filter(Boolean));
+    const stale = Object.keys(SANCTIONED_UNCOVERED)
+      .filter((v) => !named.has(v) || covered.has(v));
+    assert.deepEqual(stale, [],
+      `these sanctions no longer describe anything — the rule that named the variant is gone, or `
+      + `the fixture now renders it. Delete them: ${stale.join(', ')}`);
+  });
 });

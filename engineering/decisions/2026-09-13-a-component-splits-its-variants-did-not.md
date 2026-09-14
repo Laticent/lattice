@@ -624,6 +624,71 @@ probe calls fine.
   coincidence. No dead or contradicted rule in the block. And with the fix in, the stricter
   box-based measure is clean across all 60 class x size x page configurations.
 
+  **Round 10: the residual was real, the threshold was wrong, and the fix makes the failure
+  LOUD.** This round was not a checker finding — it is the owner declining to ship at `low` and
+  asking for the two blockers to be closed. Both were.
+
+  **The overprint reproduces, but not where this note said.** The recorded residual read "20 and
+  up print the pill's full height either way". Swept again with a CLIP-AWARE measure, on the test
+  file's own deck shape at portrait, square, story and mobile x {plain, mirror} x {8, 12, 16, 20,
+  24, 32} words: the only painted overprint is at **32 words, portrait, non-mirrored** —
+  396.1x51.5px of opaque pill over `li` ink on page 1 and 296.4x51.5 on page 2. Nothing at 20 or
+  24. The earlier number came from comparing LAYOUT rects, and `getBoundingClientRect()` is
+  clip-blind: an element whose ancestor clips still reports its full box, so a probe reading it
+  raw claims ink that is not on the glass. Round 9 caught this one level down (pill ink vs pill
+  box); it was also wrong one level up.
+
+  **The cause, and why padding could never fix it.** `overflow: clip` clips at the PADDING box,
+  and the reserved band IS padding — it is inside the clip region. So the reserve correctly
+  shrinks `> ul`'s content box, and the list's own overflow spills straight back down through it
+  and paints under the pill. No amount of reserve closes that, which is why five rounds of
+  widening the rule never did.
+
+  **The fix is the flex cell-tree contract, applied one level in:**
+  `section.split-panel.lat-split-native > .panel-right > ul { min-height: 0; overflow: clip; }` —
+  the same two declarations `.panel-right` itself took in 2026-06-26, for the same reason (a flex
+  child defaults to `min-height: auto` and refuses to shrink). Content that does not fit now clips
+  at the LIST's edge, above the band.
+
+  **And clipping is what makes it honest.** Before: 396.1x51.5 of overprint with NO `overflow`
+  class and NO `clip-marked` — silent. After: zero painted overprint, and the same page carries
+  `overflow, clip-marked`. `overflow-probe.js` discovers clipping boxes and folds a child's
+  internal overflow onto its parent's content bottom; `.panel-right` is a probed CLIP_CELL, so the
+  list's spill now reaches the section measure — the same signal runtime auto-split divides by. An
+  over-stuffed member gets another page instead of a pill through its third line. Mutation:
+  removing the clip reddens 2 arms (portrait plain, portrait form), predicted 2-4.
+
+  **The variant axis is closed by a machine, which is the more important half.** Every defect in
+  rounds 5-9 had one shape: a rule keyed on a variant the fixture never rendered, or rendered and
+  never asserted against. Two structural changes:
+
+  · **ONE `CLASSES` constant** drives both `before()`'s renders and every arm's loop, so round 9's
+  exact defect — five classes rendered, two asserted — cannot recur by editing one and not the
+  other.
+
+  · **A gate reads the stylesheet** and pulls every variant class out of the selectors keying on
+  `lat-split-native`, then demands each be COVERED by that list or SANCTIONED with a reason. It
+  needs no browser and runs in milliseconds. It found what prose never did: `steps`, `watermark`,
+  `cat-1` through `cat-8`, `claim-hero` and `claim-bleed` are all named by band rules and **no
+  fixture renders any of them**. Each now carries a written exemption saying where it IS measured,
+  and a stale exemption fails too. Mutations: a rule naming an uncovered variant reddens 1 arm; a
+  sanction whose rule is deleted reddens 1. Both predicted 1.
+
+  **The palette axis gets a real matrix, and its first draft was wrong in the instructive way.**
+  `split-panel-rail-ink.test.js` renders 5 variants x 6 palettes mirrored and measures EVERY
+  segment's composited contrast (token alpha x element opacity, blended onto the field) against
+  the field behind it. The first run failed 11 of 32 — and the failures were the INSTRUMENT, not
+  the CSS. The rail is `position: absolute` at SECTION level, so its DOM parent chain runs rail ->
+  section and skips the panels entirely; walking it reported the section canvas as the field on
+  every page, turning a passing white-on-navy pill into a failure. **The field is GEOMETRIC, not
+  ancestral** — which is precisely what the four rail-ink rules claim, since "holds the corner" is
+  a statement about overlap. Answering it by containment of the rail's center: 32/32. Mutation:
+  pointing the `watermark` rail at its own field reddens 6, predicted 6.
+
+  That is the third time in two rounds that a probe walked the wrong relation. Ancestry is not
+  overlap, a layout rect is not painted ink, and a text range is not a filled box. All three read
+  as plausible code and all three fail green.
+
   **What the reserve does NOT do, measured rather than argued.** It repositions content that
   FITS — which is the drift fix and the mirror fix, and both are real. It cannot hold longer
   content out of the band, because `.panel-right` is `overflow: clip` and a clip edge is the
