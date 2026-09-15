@@ -467,6 +467,11 @@ paragraph called it "the page number on most paginated slides we ship", and it i
 minority mark. Measured over the whole population — every deck in `examples/` that sets
 `paginate: true`, exported through `dist/lattice-emulator.js` and read in Chromium:
 
+**Everything from here to "The page number is ONE mark now" describes the tree BEFORE #2206.**
+The split it measures is closed: the pseudo no longer ships on any frame, and the figures below
+are kept because they are what made the case, not because they still describe a render. The
+after-measurement, taken with the same predicate, is in that section.
+
 | of 1882 paginated slides | count | share |
 |---|---:|---:|
 | the real `span.lat-pagination` | 1490 | 79.2% |
@@ -536,15 +541,20 @@ exceptional: six other shipped decks match or exceed its share (`scene` 6/8, `ad
 6/9, `motion-asset` 4/6, `anima-scene` 3/5, `seven-steps-problem-to-code` 10/17,
 `marker-corner` 4/7). Quoting one deck as the general case is how "most" got written.
 
-**The split is by frame kind.** The retirement rule keys on a `.cell-footer` DIV
+**The split was by frame kind.** The retirement rule keyed on a `.cell-footer` DIV
 (`section.form:has(> .cell-footer)::after { content: none }`), which `buildFooterCell`
 (`lib/forms/cell/masthead/masthead.transform.js`) emits only for a frame that is not
-chrome-exempt. So `kind` / `exemptFromChrome` decides it, not the `cells` array:
+chrome-exempt. So `kind` / `exemptFromChrome` decided it, not the `cells` array:
 
-| | frames | `.cell-footer` | page number |
+| | frames | `.cell-footer` | page number (before #2206) |
 |---|---|---|---|
 | root (`kind: root`) | `minimal`, `standard` | emitted | the real `span.lat-pagination` |
 | sovereign (`exemptFromChrome: true`) | the other **nine** | never emitted | the `::after` pseudo |
+
+**That second row is now the first.** The retirement rule keys on the ELEMENT
+(`section[data-lattice-pagination]:has(> .lat-pagination)::after`), the pagination Tile mints
+the element on every paginated frame, and `.cell-footer` decides only WHERE the element sits —
+a flex item in the band, or a direct section child — never whether there is one.
 
 **Measured on a committed deck, not inferred.** `examples/bloom-engineering-journey.md`
 exported through `dist/lattice-emulator.js` and opened in Chromium paints the pseudo on **7 of
@@ -593,10 +603,11 @@ step 9**, and at step 10 the ink is 30.9px PAST the anchor without touching it, 
 not share a column — the tool's `PASSES` line, and one wider line away from a collision. The
 probe flags overflow from step 11. So the pseudo does not drift; the copy arrives at it.
 
-**Which makes the two marks a question, not a curiosity — #2206.** The page number is
+**Which makes the two marks a question, not a curiosity — #2206.** The page number was
 `span.lat-pagination` on a root frame and `section::after` on a sovereign one: different box
-models, different styling surfaces, and nothing tells an author which they have. The 4.2px
-clearance above belongs to the pseudo alone.
+models, different styling surfaces, and nothing told an author which they had. The 4.2px
+clearance above belonged to the pseudo alone. It belongs to the element now, unchanged — see
+"The page number is ONE mark now", below.
 
 **The first attempt at this measurement was vacuous, and the tool could not say so because of a
 defect this change introduced.** `compare-code` was swept instead. SIX of the nine sovereign
@@ -792,6 +803,86 @@ test rather than an AABB.
 census tries all three axes before saying so, because one refusal reads as a bad
 invocation and three read as a hole in the instrument.
 
+### The page number is ONE mark now (2026-09-15, #2206)
+
+**The split above is closed.** The page number is a real `<span class="lat-pagination">` on
+every frame — a pagination Tile (`lib/forms/tile/pagination`) mints it on any paginated frame
+that has none, and the retirement rule keys on the ELEMENT
+(`section[data-lattice-pagination]:has(> .lat-pagination)::after`) rather than on a frame kind.
+It EMPTIES that pseudo (`content: ''`) rather than deleting its box, because one treatment
+co-opts the slide-own `::after` for a decorative mask — `mark-asterisks` puts its bottom-left
+cluster there — and `content: none` took the cluster with it on every paginated slide.
+
+**Re-measured over the population, with the same predicate** — 168 decks, on this branch — by `tools/census-pagination-marks.mjs`, which is committed for the reason the
+sampling section above gives: neither earlier pass named its decks or its command, so no reader
+could re-derive either number.
+
+| of 1914 paginated slides | count | share |
+|---|---:|---:|
+| the real `span.lat-pagination` | 1742 | 91.0% |
+| the `::after` pseudo | **0** | **0.0%** |
+| BOTH, overprinted | **0** | **0.0%** |
+| neither mark is used | 172 | 9.0% |
+
+**The "neither" column is broken down, not just counted**, and that is what makes the run
+evidence rather than a number. A paginated slide with no mark is either a deliberate
+suppression or a page number that went missing, and a count cannot tell them apart. Every one
+of them is a suppression: 170 `silent`, one `image statement`, one
+`big-number claim-bleed`. That is the same shape as the pre-change breakdown (158 `silent`
+plus the same two singletons), grown with the corpus — so nothing lost its number.
+
+**AND THE CENSUS'S COVERAGE IS NOT ITS COUNT**, which is the honest caveat on the row of
+zeros above. The maker-checker pass found a real regression this run could not see: on an
+`image` slide with NO prose, the numeral's own text defeated `wrapImageText`'s "is there any
+prose?" guard, so a slide that is meant to stay unwrapped got wrapped — the span folded into
+`.image-text` as static body copy across the photo, and the pseudo came back beside it.
+Measured on a real `.pdf` export. The census reported zero because **no deck in the corpus
+has that shape**: every `image` slide in `examples/`, the baseline decks and the component
+docs carries prose. The population figure is a true measurement of a population that did not
+contain the failing case, which is a different thing from a clean bill. What closed it is a
+real-surface test carrying all ELEVEN frame kinds, including a deliberately prose-free
+`image` slide (`pagination-one-mark.test.js`); mutation-tested — undo the keep-out and it
+fails on exactly that slide.
+
+**The BOTH row is in the table because it is a real failure mode, and it happened.** The
+first cut of the retirement rule read `section:has(> .lat-pagination)::after`, which is
+(0,1,2) — and LOSES to the engine scaffold's `article.lattice > section::after { content:
+attr(…) }` at (0,1,3), because `:has()` takes the specificity of its most specific argument.
+The pseudo kept painting underneath the new element: two numerals overprinted in one corner
+on all seven sovereign slides of `bloom-engineering-journey`, and every count in the element
+column was still correct. A census that only asked "does the element paint?" would have
+reported a clean sweep. The `[data-lattice-pagination]` term carries each arm to (0,2,2).
+
+**The mark did not move.** `premise`, the sweep from the section above, re-run against the
+element instead of the pseudo:
+
+```
+anchor: .lat-pagination
+slide   elements   ink top   ink bot   anchor   clearance
+    1          1     327.9     396.1      681       284.9
+    9          9      47.2     676.8      681         4.2
+   10         10      12.1     711.9      681       -30.9
+   11         11       -23       747      681         -66     OVER
+```
+
+`DRIFT 0.0px`, clearance 284.9 -> 4.2 at step 9, overflow first flagged at step 11 — the same
+numbers to the tenth of a pixel, against a different node. The exposure the pseudo had is the
+element's now, unchanged; what changed is that a rule can reach it.
+
+**And the mark is DISCOVERABLE, which it was not.** `--anchors` on `premise` with
+`--front-matter 'paginate: true'` now returns `span.lat-pagination  9.9x15  24 slides  0px` —
+a real candidate the walk can place. The section above records this mark going into the
+committed table's "no placeable positioned mark" list and then being moved to OUT OF REACH
+with its reason. It is in reach.
+
+**What is deliberately NOT unified: the numeral's HEIGHT.** The two homes still resolve the
+ink 3.98px apart — a sovereign frame's span is pinned at `bottom: var(--frame-inset-y)` with
+`line-height: 1`, a chrome-hosting frame's is a flex item vertically centered in a band the
+running footer sizes to `1.6em`. Both predate #2206 and neither is changed by it. Closing it
+means re-deciding whether the frame inset or the band's center is the reference, which
+reverses a recorded decision about that band (`2026-07-27-footer-band-allocation.md`) and
+moves the number on every deck shipping a `footer:`. Logged as #2224, not folded in.
+
 ## Canonical sources
 
 - `tools/check-jank.js` — the measurement, and the long form of every flag.
@@ -799,6 +890,10 @@ invocation and three read as a hole in the instrument.
 - `test/integration/parity/numbered-bookend-stamp.test.js` — the hand-written, per-component
   version of the same invariant.
 - `test/integration/invariants/jank-sweep.test.js` — the proof the tool can still fail.
+- `tools/census-pagination-marks.mjs` — which NODE draws the page number, over the whole
+  shipped deck population. The counting rule is in its header and in the section above.
+- `test/integration/invariants/pagination-one-mark.test.js` — the real-surface guard that one
+  mark, and only one, paints on every frame kind.
 - `tools/jank-census.js` + `engineering/jank-census.md` — the same measurement across the
   whole catalog, and the committed table.
 - `engineering/capabilities.md` — every neighboring instrument, and what each one measures.

@@ -219,23 +219,46 @@ const EXEMPT_TIER_FLOOR = {
   // the 3:1 graphical floor became 1 / 1 / 0. The gate printed the instruction and it is
   // taken here rather than left for the next reader:
   //   ↓ exempt-tier progress — gallery @ indaco: 1 below 3:1, ceiling 14. Lower it to 1.
+  //
+  // RATCHETED AGAIN to ZERO by #2206, and the way it got there is the point. Unifying the
+  // page number onto a real `<span class="lat-pagination">` put the mark into this gate's
+  // measured population for the first time — a `section::after` pseudo has no run to
+  // measure — and it failed immediately: `split-panel watermark mirror` p57 at 1.07:1
+  // (`--text-muted` on the accent field, gone) and `split-panel metric` p94 at 2.2:1 on
+  // the inverse fill. Both were pre-existing: the committed pre-#2206 gallery.pdf renders
+  // the same numeral just as illegibly. Inking the numeral from the field it lands on
+  // (split-panel.styles.css, the mirror image of the header/footer rule beside it) cleared
+  // those two AND the one run that was already recorded here, so the ceiling is 0.
   counts: {
-    'gallery @ indaco': 1,
-    'gallery @ indaco-dark': 1,
+    'gallery @ indaco': 0,
+    'gallery @ indaco-dark': 0,
     'gallery-jargon @ indaco': 0,
     'seq-ramp @ indaco': 0,
   },
   size: {
-    'gallery @ indaco': 333,
-    'gallery @ indaco-dark': 333,
+    // 333 until #2206. The page number on the NINE sovereign frames was a pseudo, so it
+    // was never in this population at all; as a real element inked with `--text-muted` it
+    // is, and the tier grew by 10 here / 1 on seq-ramp. This is the argued raise the
+    // ceiling exists to force, and the argument is that the mark did not change tier —
+    // it entered measurement. A page number is exactly the chrome this exclusion was
+    // written for (the tier's own note names "pagination/header/footer"), and the runs
+    // that were NOT correct as muted chrome are the two the floor arm above just caught
+    // and the fix removed from this count rather than hid inside it.
+    'gallery @ indaco': 343,
+    'gallery @ indaco-dark': 343,
     // 184 until the kanban de-emphasis stopped being an opacity wash. One `.kanban-size`
     // token ("M"/"L"/"XL") returned to the tier: the wash had been shifting its COMPOSITED
     // value off `--text-muted`, so a run authored in the exempt tier was being measured as
     // failing body copy. It sits at 3.24:1, above the graphical floor. Raised here with its
     // reason attached, which is exactly what this ceiling exists to force.
-    'gallery-jargon @ indaco': 185,
+    // 185 until #2206. This one SHRANK, and the direction is informative: jargon's
+    // split-panel slides took the new field-aware numeral ink, which moves those runs OUT
+    // of the exempt tier and into the measured one. Lowered as the gate instructed, so the
+    // new floor holds.
+    'gallery-jargon @ indaco': 181,
     // The spectrum deck's exempt tier, pinned like the rest so it cannot grow quietly.
-    'seq-ramp @ indaco': 27,
+    // 27 until #2206 — one sovereign-frame page number entering measurement, as above.
+    'seq-ramp @ indaco': 28,
   },
 };
 

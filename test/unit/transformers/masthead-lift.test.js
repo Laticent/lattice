@@ -588,3 +588,42 @@ describe('masthead-lift — the coda Cell is the stage\'s SIBLING, not its child
     assert.ok(kids.indexOf('cell-stage') < kids.indexOf('cell-coda'), `order was ${kids.join(',')}`);
   });
 });
+
+// ── The page number survives the stage sweep, once (#2206) ───────────────────────
+// This path can see a section-level `<span class="lat-pagination">` ALREADY THERE, because
+// the document it walks is often one the engine's pagination Tile has been through (the
+// Studio / Playground preview, a `--player` export, the fluid viewer). Swept into the
+// stage it becomes in-flow body copy, and the footer Cell this same pass builds then mints
+// a SECOND one — the slide draws the number twice, once in the corner and once in the
+// middle. The Tile cannot repair it: its idempotence guard is a descendant query, so a
+// swept span still reads as present.
+//
+// The realistic trigger is the runtime's deck-wide `class:` / `form:` registers arriving
+// from a one-shot async source-`.md` fetch: an early pass runs before the register (not
+// wrappable, so the Tile mints a section-level span) and a later one after it (now
+// wrappable, so this sweep runs). A live `_class:` edit in the Studio opens the same
+// window. Found by the maker-checker pass on #2206.
+describe('masthead lift — the page number is relocated, never duplicated', () => {
+  const doc = (inner, cls = 'content form') => new JSDOM(
+    `<!DOCTYPE html><body><section class="${cls}" data-lattice-slide="1" data-lattice-pagination="4">${inner}</section></body>`,
+  ).window.document;
+
+  test('an existing section-level span MOVES into the footer Cell', () => {
+    const d = doc('<h2>T</h2><p>Body</p><span class="lat-pagination">4</span>');
+    adapter.applyToDom(d);
+    const sec = d.querySelector('section');
+    const found = sec.querySelectorAll('.lat-pagination');
+    assert.equal(found.length, 1, 'exactly one page number');
+    assert.equal(found[0].parentElement.className, 'cell-footer');
+    assert.equal(found[0].textContent, '4');
+    assert.equal(sec.querySelectorAll('.cell-stage .lat-pagination').length, 0, 'never swept into the stage');
+  });
+
+  test('with no existing span the footer Cell still mints one', () => {
+    const d = doc('<h2>T</h2><p>Body</p>');
+    adapter.applyToDom(d);
+    const found = d.querySelectorAll('.lat-pagination');
+    assert.equal(found.length, 1);
+    assert.equal(found[0].parentElement.className, 'cell-footer');
+  });
+});

@@ -104,6 +104,20 @@ describe('image text panel — applyToDom', () => {
     assert.equal(doc.querySelector('.image-text code').textContent, 'c', 'real markup survives as an element');
   });
 
+  // The DOM mirror's half of the same defect, and the ordering is why it needs its own
+  // arm. The runtime calls `wrapImageTextToDom` BEFORE its pagination Tile, so a FRESH
+  // document is safe — but the Studio preview, a `--player` export and the fluid viewer
+  // all load a document the ENGINE's Tile has already been through, so the span is a
+  // sibling on that first pass. `IMAGE_TEXT_DONE` stamps the decision, so it protects
+  // re-passes and not the one that matters. Found by the maker-checker pass on #2206.
+  test('the page number stays a direct child on an already-engine-rendered document', () => {
+    const doc = dom(`${BG}${PROSE}<span class="lat-pagination">2</span>`);
+    bgImage.wrapImageTextToDom(doc);
+    const section = doc.querySelector('section.image');
+    assert.ok(section.querySelector(':scope > .lat-pagination'), 'the page number stays a direct child');
+    assert.equal(section.querySelectorAll('.image-text .lat-pagination').length, 0);
+  });
+
   test('survives a null / non-DOM root', () => {
     assert.doesNotThrow(() => bgImage.wrapImageTextToDom(null));
     assert.doesNotThrow(() => bgImage.wrapImageTextToDom({}));

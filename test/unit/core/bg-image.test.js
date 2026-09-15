@@ -167,3 +167,33 @@ describe('bg-image — primitives', () => {
     assert.equal(bg.resolveInlineImageSrcs(html, ''), html);
   });
 });
+
+// ── The page number is section chrome, not prose (#2206) ─────────────────────────
+// The pagination Tile mints a real `<span class="lat-pagination">` at section level on
+// every paginated frame. It is the only keep-out in this pass that carries TEXT, and that
+// is what makes it the worst of them: the "is there any prose?" guard below strips tags
+// and asks whether anything survives, so the numeral makes a slide the pass is explicitly
+// written NOT to wrap get wrapped. Measured on a real `.pdf` export of a bg-only `image`
+// slide before the fix: the span landed inside `.image-text` at `position: static`,
+// `display: block`, ~473px wide — the page number rendered as body copy across the photo
+// — the three marker berths were buried with it, and because the retirement rule keys on
+// `section > .lat-pagination` the `::after` pseudo came back, so the slide drew TWO
+// numbers. Found by the maker-checker pass on #2206.
+describe('bg-image — the page number never folds into .image-text', () => {
+  const sec = (inner) => `<section class="image" data-lattice-pagination="2">${inner}</section>`;
+  const BGDIV = '<div class="lattice-bg lattice-bg-full" style="background-image:url(\'a.jpg\')"></div>';
+  const PAGE = '<span class="lat-pagination">2</span>';
+
+  test('a PROSE-FREE image slide stays unwrapped even though the numeral is text', () => {
+    const out = bg.wrapImageText(sec(`${BGDIV}${PAGE}`));
+    assert.doesNotMatch(out, /image-text/, 'the numeral must not count as prose');
+    assert.match(out, /<span class="lat-pagination">2<\/span>/);
+  });
+
+  test('a slide WITH prose wraps the prose and leaves the numeral a direct child', () => {
+    const out = bg.wrapImageText(sec(`${BGDIV}<h2>T</h2><p>B</p>${PAGE}`));
+    assert.match(out, /<div class="image-text"><h2>T<\/h2><p>B<\/p><\/div>/);
+    assert.doesNotMatch(out, /<div class="image-text">[\s\S]*lat-pagination[\s\S]*<\/div>/);
+    assert.match(out, /<\/div><span class="lat-pagination">2<\/span><\/section>/);
+  });
+});

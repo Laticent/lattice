@@ -58,8 +58,13 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 
 // Each step names its generator script and whether it accepts --check.
-// The guard runs first and has no build/check distinction (it only
-// reads), so it is always invoked plain.
+// The guard runs first and is invoked in the CALLER'S MODE — `runStep(GUARD, check)`,
+// the only step that is. It used to be invoked plain, on the reasoning that the guard
+// only reads and so has no build/check distinction. One arm does: its dist/ verbatim-copy
+// check (`checkVerbatimDistCopies`) must fail a `--check` and must NOT fail a plain
+// `build`, because `build` is the repair — it regenerates the copy being complained about.
+// See the note at the call site; changing this back silently returns build:check to the
+// #2204 behavior, and test/unit/cli/build-orchestrator.test.js pins it for that reason.
 const GUARD = { label: 'ownership guard', script: 'check-ownership.js' };
 
 // Read-only preflight gates that run after the ownership guard and before any
@@ -329,7 +334,16 @@ async function main(argv) {
   // --only-uncommitted, which runs precisely to give this guard the files it reads.
   if (!onlyUncommitted) {
   process.stdout.write(`▸ ${GUARD.label}\n`);
-  if (!runStep(GUARD, false)) {
+  // The guard runs in the caller's MODE. It is the only step invoked this way, and the
+  // reason is narrow: its dist/ verbatim-copy arm (checkVerbatimDistCopies) must fail a
+  // `--check` and must NOT fail a plain `build`, because `build` is the repair — it
+  // regenerates the copy the arm is complaining about. Blocked in both modes, a drifted
+  // kit is unfixable: the guard aborts the build that would fix it, which is exactly what
+  // happened the first time this arm was wired in. Every other arm is mode-blind — traced:
+  // check-ownership.js reads `process.argv` in exactly two places, `--json` and this arm's
+  // default — and
+  // ignores the flag; the PREFLIGHT gates below stay plain, as their own comment says.
+  if (!runStep(GUARD, check)) {
     process.stderr.write('\nbuild aborted: ownership guard failed.\n');
     return 1;
   }
@@ -393,7 +407,23 @@ async function main(argv) {
     }
     return 1;
   }
-  process.stdout.write(check ? 'build:check OK — all artifacts up to date.\n' : 'build OK — all artifacts regenerated.\n');
+  // SAY WHAT WAS MEASURED. This line used to read "all artifacts up to date" on every
+  // run, including the `--exclude-uncommitted` one that is the ONLY way anybody invokes
+  // it (`npm run build:check`) — so the gate's closing claim contradicted its own opening
+  // line, which names the skipped half. A developer with a stale local dist/ read the
+  // closing line, believed it, and spent a detour hunting the resulting unit failures in
+  // their own diff (#2204). The scope is already computed for the header; print it here
+  // too, and name the command that covers the rest.
+  if (check) {
+    process.stdout.write(
+      excludeUncommitted
+        ? `build:check OK — ${scope} are up to date. The built-not-committed artifacts were NOT checked; ` +
+          '`npm run build:check:all` covers them.\n'
+        : `build:check OK — ${scope} are up to date.\n`,
+    );
+  } else {
+    process.stdout.write('build OK — all artifacts regenerated.\n');
+  }
   return 0;
 }
 

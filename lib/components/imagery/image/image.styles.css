@@ -93,6 +93,16 @@ section.image > footer { display: none; }
  * singly first, this rule was in the bundle, more specific than the scaffold default, and
  * changed exactly zero pixels. */
 section.image.image[data-img-composition="statement"]::after { content: none; }
+/* The same suppression on the REAL element. Since #2206 the page number is one mark on
+ * every frame — a `<span class="lat-pagination">` the pagination Tile injects
+ * (lib/forms/tile/pagination) — and the pseudo above is retired wherever it exists. So
+ * the pseudo arm is now the fallback path's (a Marp render, which runs no Tile) and THIS
+ * is the arm that fires on every Lattice render. Both are kept: the measurement that
+ * justified the suppression is about the CORNER, not about which node draws in it.
+ * `display: none` rather than `content: none` because an element has no `content` to
+ * null; the doubled class is unnecessary here (a child selector already beats the Tile's
+ * `section > .lat-pagination`) but is kept so the two arms read as one pair. */
+section.image.image[data-img-composition="statement"] > .lat-pagination { display: none; }
 
 /* The photo. Base = full-bleed cover layer behind everything; each composition
  * repositions/resizes it. No <img>, so no Marpit `section img` override needed. */

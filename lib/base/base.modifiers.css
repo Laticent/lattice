@@ -3065,8 +3065,12 @@ section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > .lat-
   color: currentColor;
   opacity: 0.9;
 }
-/* The pagination PSEUDO — what a cover uses, since it has no footer Cell to hold the real
-   element (`section.form:has(> .cell-footer)::after { content: none }`, stage Cell). */
+/* The pagination PSEUDO. This used to be what a cover actually drew, since a cover has no
+   footer Cell to hold the real element. Since #2206 it does have one — the pagination Tile
+   mints a section-level `<span class="lat-pagination">` on every paginated frame, which the
+   `> .lat-pagination` arm above already covered — so on a Lattice render the `::after` arm
+   is inert and the element arms carry the cover. Kept for the Marp path, which runs no Tile
+   and still draws the pseudo. Three arms for ONE mark is the cost this issue was about. */
 section[data-split-role="cover"][data-split-role="cover"]::after {
   color: currentColor;
   opacity: 0.9;

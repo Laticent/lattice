@@ -1,0 +1,47 @@
+/* ── PAGINATION Tile — the page number, as ONE mark on every frame ────────────
+ * The section-level page number: the real `<span class="lat-pagination">` the
+ * pagination Tile injects (pagination.transform.js) on every paginated frame
+ * that has no footer Cell to hold one. Before #2206 those frames — every
+ * sovereign frame, nine of the eleven — drew a `section::after` PSEUDO instead,
+ * so one deck carried two marks with two box models and two styling surfaces,
+ * and nothing told the author which one a slide had.
+ *
+ * This rule reproduces the pseudo's berth and appearance EXACTLY (the scaffold's
+ * `section::after`, lib/integrations/markdown-it/scaffold.css + lib/engine/css.js,
+ * plus the pagination-right Cell's `--pagination-inset` hook), so the change is
+ * the NODE, not the picture: same corner, same insets, same type, same color,
+ * same chrome plane. The pseudo is retired wherever this element exists
+ * (`section:has(> .lat-pagination)::after`, lib/forms/cell/stage/stage.css) — keyed
+ * on the element's PRESENCE rather than on a frame kind, so a path that does not
+ * run the Tile keeps the pseudo and still shows a number.
+ *
+ * `position: absolute` is load-bearing beyond placement: it takes the span OUT OF
+ * FLOW, so injecting it into a sovereign frame's own grid adds no grid item and
+ * moves nothing. That is what makes a bare direct child safe here where a
+ * `.cell-footer` DIV would not be.
+ *
+ * Scoped `:not(.cell-footer > *)` is NOT needed — the footer-Cell span is a child
+ * of `.cell-footer`, never a direct child of the section, so `section > …` cannot
+ * reach it. It keeps its own in-flow flex-item rule in stage.css. */
+section > .lat-pagination {
+  position: absolute;
+  /* CHROME plane — the pagination Tile's declared `"z": 3` (pagination.manifest.json),
+   * matching the pseudo it replaces. base.tokens.css § depth axis. */
+  z-index: var(--z-chrome);
+  /* The pagination-right Cell's hook (lib/forms/cell/pagination-right/pagination-right.css)
+   * — the page number stays INDEPENDENTLY MOVABLE (design/forms.md §7.3) by the same
+   * token on both marks. Default: bottom-right, the pseudo's berth unchanged. */
+  inset: var(--pagination-inset, auto var(--frame-inset-x) var(--frame-inset-y) auto);
+  padding: 0;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--marp-slide-pagination-color, var(--marp-slide-footer-color, var(--text-muted)));
+  white-space: nowrap;
+  /* The pseudo carried `pointer-events: none` (the engine scaffold) so the number
+   * never swallowed a click meant for the slide. A real element would, so it
+   * carries the same declaration — the footer-Cell span already does. */
+  pointer-events: none;
+}

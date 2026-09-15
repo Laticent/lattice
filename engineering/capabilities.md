@@ -418,6 +418,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/calibrate-capacity.js` | calibrate-capacity — find the ELEMENT COUNT a layout overflows at, per box |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
+| `tools/census-pagination-marks.mjs` | census-pagination-marks — which NODE actually paints the page number, over the WHOLE shipped deck population. |
 | `tools/chart-colour-reach.js` | chart-colour-reach — how far does colour actually travel into a chart? |
 | `tools/chart-contrast-solve.js` | CONTRAST SOLVER — every text and every mark against WHAT IS ACTUALLY BEHIND IT. |
 | `tools/chart-finish-coherence.mjs` | chart-finish-coherence — does every chart member actually CHANGE when the |

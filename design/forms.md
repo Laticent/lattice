@@ -793,6 +793,16 @@ universal modifier lifts it into the frame so the bottom inset mirrors the top. 
 page number is a real `<span class="lat-pagination">`, not a `section::after` pseudo —
 a page number is content, not decoration (the decorative numbered-divider numeral stays
 a pseudo).
+
+**That sentence used to be true only of a chrome-hosting frame, and it is now true of all
+eleven** (#2206). A sovereign frame emits no footer Cell, so it fell back to the pseudo —
+which meant the page number was TWO marks with two box models and two styling surfaces,
+chosen by the frame's `kind` and invisible to the author. The **pagination Tile**
+(`lib/forms/tile/pagination`) mints the real element on any paginated frame that has none,
+as a DIRECT section child rather than in a Cell: a sovereign frame owns its grid, and an
+absolutely positioned span is out of flow, so it adds no grid item and moves nothing. The
+pseudo retires wherever the element exists. The berth is identical either way — both read
+the `pagination-right` Cell's `--pagination-inset`, so the Cell still owns the position.
 An un-migrated frame still uses the legacy model: three **independently-positionable
 Cells** (footer-left · progress · pagination), each token-driven
 (`var(--<cell>-inset)`), so per-family `slicing` can relocate any one (§7.3). Either
