@@ -9,9 +9,11 @@ The live, claimable work queue — a read-only mirror of [open issues](https://g
 grouped by board column. Design lives in `engineering/decisions/`; this tracks
 only *status*. **317 open** items.
 
-> ⚠️ **29 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2004](https://github.com/Laticent/lattice/issues/2004), [#2010](https://github.com/Laticent/lattice/issues/2010), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2105](https://github.com/Laticent/lattice/issues/2105), [#2121](https://github.com/Laticent/lattice/issues/2121), [#2133](https://github.com/Laticent/lattice/issues/2133), [#2137](https://github.com/Laticent/lattice/issues/2137), [#2145](https://github.com/Laticent/lattice/issues/2145), [#2180](https://github.com/Laticent/lattice/issues/2180), [#2181](https://github.com/Laticent/lattice/issues/2181), [#2182](https://github.com/Laticent/lattice/issues/2182), [#2183](https://github.com/Laticent/lattice/issues/2183), [#2187](https://github.com/Laticent/lattice/issues/2187), [#2189](https://github.com/Laticent/lattice/issues/2189), [#2190](https://github.com/Laticent/lattice/issues/2190), [#2191](https://github.com/Laticent/lattice/issues/2191), [#2192](https://github.com/Laticent/lattice/issues/2192), [#2201](https://github.com/Laticent/lattice/issues/2201), [#2203](https://github.com/Laticent/lattice/issues/2203).
+> ⚠️ **29 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2004](https://github.com/Laticent/lattice/issues/2004), [#2010](https://github.com/Laticent/lattice/issues/2010), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054), [#2096](https://github.com/Laticent/lattice/issues/2096), [#2098](https://github.com/Laticent/lattice/issues/2098), [#2099](https://github.com/Laticent/lattice/issues/2099), [#2105](https://github.com/Laticent/lattice/issues/2105), [#2121](https://github.com/Laticent/lattice/issues/2121), [#2133](https://github.com/Laticent/lattice/issues/2133), [#2137](https://github.com/Laticent/lattice/issues/2137), [#2145](https://github.com/Laticent/lattice/issues/2145), [#2180](https://github.com/Laticent/lattice/issues/2180), [#2181](https://github.com/Laticent/lattice/issues/2181), [#2182](https://github.com/Laticent/lattice/issues/2182), [#2183](https://github.com/Laticent/lattice/issues/2183), [#2187](https://github.com/Laticent/lattice/issues/2187), [#2189](https://github.com/Laticent/lattice/issues/2189), [#2190](https://github.com/Laticent/lattice/issues/2190), [#2191](https://github.com/Laticent/lattice/issues/2191), [#2192](https://github.com/Laticent/lattice/issues/2192), [#2203](https://github.com/Laticent/lattice/issues/2203), [#2228](https://github.com/Laticent/lattice/issues/2228).
 
-## Backlog (308)
+> 📐 **3 cards need definition** (missing a swimlane or an acceptance check, so nothing can pull them): [#2224](https://github.com/Laticent/lattice/issues/2224), [#2225](https://github.com/Laticent/lattice/issues/2225), [#2231](https://github.com/Laticent/lattice/issues/2231).
+
+## Backlog (307)
 
 - [#515](https://github.com/Laticent/lattice/issues/515) feat(playground): Google Drive bring-your-own-storage — Connect / Save / Open — high · website
 - [#617](https://github.com/Laticent/lattice/issues/617) Harden .lattice-*.zip import against zip-slip / path traversal on filesystem-backed (desktop/CLI) imports — high · engine
@@ -111,7 +113,6 @@ only *status*. **317 open** items.
 - [#1534](https://github.com/Laticent/lattice/issues/1534) Spike: let the pre-paint skeletons wrap the real components instead of hand-mirroring them — medium · website
 - [#1536](https://github.com/Laticent/lattice/issues/1536) The chart categorical cycle has no curated ink — charts still run the live color-mix the --cat-* tier retired — medium · theming
 - [#1537](https://github.com/Laticent/lattice/issues/1537) SessionStart hook skips the docs install on a warm container, so docs deps go stale — medium · infra
-- [#1538](https://github.com/Laticent/lattice/issues/1538) The thumbnail preview budget is device-blind — a phone holds a workstation's working set — medium · website
 - [#1542](https://github.com/Laticent/lattice/issues/1542) Read the divider flag off the engine's token stream — `blankCode` is the last hand-written approximation on the preview path — medium · engine
 - [#1549](https://github.com/Laticent/lattice/issues/1549) math: three variants centre the MASTHEAD with the body, dropping the title ~150px off the top berth — medium · math
 - [#1550](https://github.com/Laticent/lattice/issues/1550) `coverWindow`'s balanced-chunking fix is unguarded — reverting it passes 5773 tests — medium · engine
@@ -199,16 +200,14 @@ only *status*. **317 open** items.
 - [#2082](https://github.com/Laticent/lattice/issues/2082) kit(marp): rework the Marp kit once @laticent/lattice is on npm — medium · infra
 - [#2134](https://github.com/Laticent/lattice/issues/2134) The E2E suite runs against a site `npm run build` would not ship — `build:e2e` skips two head-rewriting post-build steps — medium · website
 - [#2153](https://github.com/Laticent/lattice/issues/2153) check-jank measures a ROTATED anchor as its axis-aligned bounding box, so `stamp-ribbon` reports a confident COLLISION over ~145px of real clearance — medium · infra
-- [#2156](https://github.com/Laticent/lattice/issues/2156) The deck logo is near-invisible on any `-dark` THEME — the canvas is dark but no class says so — medium · engine
-- [#2158](https://github.com/Laticent/lattice/issues/2158) The PDF and the exported player disagree about the canvas when two canvas modifiers stack (`divider light dark`, `dark light`) — medium · engine
 - [#2160](https://github.com/Laticent/lattice/issues/2160) check-family-tiers reports four live rules as `unexercised` — three of them could be deleted and the oracle would not move — medium · infra
 - [#2168](https://github.com/Laticent/lattice/issues/2168) Nothing has ever measured whether the page number holds position — `section.form::after` is unreachable from a `_class` string — medium · infra
 - [#2171](https://github.com/Laticent/lattice/issues/2171) chart: a dropped label is still silent for an author — the census only covers decks we ship — medium · chart
 - [#2172](https://github.com/Laticent/lattice/issues/2172) split: a component cannot declare a density limit without also opting into being split — medium · engine
 - [#2173](https://github.com/Laticent/lattice/issues/2173) test: two committed goldens are stale on main, and nothing watches a golden nobody edits — medium · engine
-- [#2204](https://github.com/Laticent/lattice/issues/2204) build:check reports "all artifacts up to date" while dist/agent-kit skill copies have drifted — medium · infra
 - [#2205](https://github.com/Laticent/lattice/issues/2205) state-chart linearity arm is a wall-clock assertion in disguise, and false-trips ~0.4% of runs — medium · engine
-- [#2206](https://github.com/Laticent/lattice/issues/2206) Nine sovereign frames paint a pseudo page number when a deck sets `paginate: true` — medium · engine
+- [#2225](https://github.com/Laticent/lattice/issues/2225) `.tile-watermark` keys its ink on the `.dark` CLASS, not the resolved ground — the bug #2196 fixed for the deck logo — medium · engine
+- [#2231](https://github.com/Laticent/lattice/issues/2231) word-cloud: examples/seq-ramp-canvas-aware.md loses a word from the artifact at landscape and square — medium · chart
 - [#180](https://github.com/Laticent/lattice/issues/180) epic(chart): resolution-independent charts — cqi-first, kill fixed-px, for any-format / 10K export — low · chart
 - [#279](https://github.com/Laticent/lattice/issues/279) docs: reconcile Mermaid diagram-type count (README "25" vs gallery "26") — low · diagram
 - [#280](https://github.com/Laticent/lattice/issues/280) docs: fix phantom `--hljs-name`/`--hljs-meta` token rows in highlight-js.docs.md — low · docs
@@ -291,6 +290,8 @@ only *status*. **317 open** items.
 - [#2154](https://github.com/Laticent/lattice/issues/2154) check-jank has no notion of a deliberately full-bleed anchor, so `stamp-mark` and `stamp-veil` always report COLLISION — low · infra
 - [#2155](https://github.com/Laticent/lattice/issues/2155) check-jank cannot sweep `big-number` or `quote` on ANY axis — no heading to grow, no element builder — low · infra
 - [#2159](https://github.com/Laticent/lattice/issues/2159) `list-tabular`'s pill rule is the only genuine gallery gap among the `unexercised` family rules — low · engine
+- [#2211](https://github.com/Laticent/lattice/issues/2211) engineering/decisions/README.md is one row out of sort order vs its own generator — low · infra
+- [#2224](https://github.com/Laticent/lattice/issues/2224) The page number's ink sits 4px higher on a root frame than on a sovereign one — low · engine
 - [#1745](https://github.com/Laticent/lattice/issues/1745) contrast(sweep): 285 sub-AA text runs in the exported players — 148 genuinely low-contrast, 137 from the new 4.5:1 floor — p3 · theme
 - [#1973](https://github.com/Laticent/lattice/issues/1973) Expose categorical tokens as Mermaid-consumable node classes, so `:::` can pin an entity's color — diagram
 - [#2004](https://github.com/Laticent/lattice/issues/2004) fix(list): an inline-code chip in a list card swallows the space beside it — engine
@@ -319,10 +320,10 @@ only *status*. **317 open** items.
 - [#2190](https://github.com/Laticent/lattice/issues/2190) A cold first paste paints raw Mermaid fence source for 13–27 painted frames before the diagram lands
 - [#2191](https://github.com/Laticent/lattice/issues/2191) Typing on a diagram deck peaks at 96 documents, and nothing identifies what they are
 - [#2192](https://github.com/Laticent/lattice/issues/2192) studio(library): the search field's Clear ✕ is off the edge of the panel header — unclickable at the docked width
-- [#2201](https://github.com/Laticent/lattice/issues/2201) `color-mode: system` resolves to opposite grounds in the PDF and the player, so no deck-logo treatment is right on both
 - [#2203](https://github.com/Laticent/lattice/issues/2203) Studio settings panel scrolls sideways in the General section — the Language trigger won't shrink
+- [#2228](https://github.com/Laticent/lattice/issues/2228) split-panel watermark: the pagination number is canvas ink on an accent panel (1.01 contrast)
 
-## Ready (6)
+## Ready (7)
 
 - [#1437](https://github.com/Laticent/lattice/issues/1437) Configure Release Pipeline — critical · infra
 - [#287](https://github.com/Laticent/lattice/issues/287) refactor(engine): LPM Phase 1 — manifest `render` block + `transformSection` adapter; migrate the chart kernels — high · engine
@@ -330,6 +331,7 @@ only *status*. **317 open** items.
 - [#667](https://github.com/Laticent/lattice/issues/667) Verify + fix debug-overlay touch reveal on real iOS Safari (PR #658) — high · website
 - [#1605](https://github.com/Laticent/lattice/issues/1605) quadrant: one crowded slide sets the label size for every slide — and a name that doesn't fit is silently deleted — high · chart
 - [#1621](https://github.com/Laticent/lattice/issues/1621) fix(studio): the crash report is invisible on the browser's own post-crash reload — three designs withdrawn — high · website
+- [#2213](https://github.com/Laticent/lattice/issues/2213) Finish the agent-workflow hardening swimlane: sweep the 218 grandfathered cards, and three gaps the intake bar exposed — medium · infra
 
 ## In progress (0)
 
