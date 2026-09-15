@@ -58,8 +58,13 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 
 // Each step names its generator script and whether it accepts --check.
-// The guard runs first and has no build/check distinction (it only
-// reads), so it is always invoked plain.
+// The guard runs first and is invoked in the CALLER'S MODE — `runStep(GUARD, check)`,
+// the only step that is. It used to be invoked plain, on the reasoning that the guard
+// only reads and so has no build/check distinction. One arm does: its dist/ verbatim-copy
+// check (`checkVerbatimDistCopies`) must fail a `--check` and must NOT fail a plain
+// `build`, because `build` is the repair — it regenerates the copy being complained about.
+// See the note at the call site; changing this back silently returns build:check to the
+// #2204 behavior, and test/unit/cli/build-orchestrator.test.js pins it for that reason.
 const GUARD = { label: 'ownership guard', script: 'check-ownership.js' };
 
 // Read-only preflight gates that run after the ownership guard and before any
@@ -334,8 +339,10 @@ async function main(argv) {
   // `--check` and must NOT fail a plain `build`, because `build` is the repair — it
   // regenerates the copy the arm is complaining about. Blocked in both modes, a drifted
   // kit is unfixable: the guard aborts the build that would fix it, which is exactly what
-  // happened the first time this arm was wired in. Every other arm is mode-blind and
-  // ignores the flag; the PREFLIGHT gates below stay plain, as their own comment says. */
+  // happened the first time this arm was wired in. Every other arm is mode-blind — traced:
+  // check-ownership.js reads `process.argv` in exactly two places, `--json` and this arm's
+  // default — and
+  // ignores the flag; the PREFLIGHT gates below stay plain, as their own comment says.
   if (!runStep(GUARD, check)) {
     process.stderr.write('\nbuild aborted: ownership guard failed.\n');
     return 1;

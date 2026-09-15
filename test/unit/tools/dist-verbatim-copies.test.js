@@ -57,7 +57,10 @@ describe('verbatimCopyProblems — one file pair', () => {
     assert.equal(rest.length, 0);
     assert.match(msg, /dist\/kit\/LICENSE has drifted from LICENSE/);
     assert.match(msg, /npm run build/);
-    assert.match(msg, /edit the source, never the copy/);
+    // The message leads with the COMMON cause — a local dist/ older than the working
+    // tree — rather than with "edit the source, never the copy", which accuses the
+    // reader of a hand-edit they almost certainly did not make.
+    assert.match(msg, /Your dist\/ is behind/);
   });
 
   test('an ABSENT copy is not a failure — dist\' is built after this guard runs', () => {
@@ -145,6 +148,59 @@ describe('checkVerbatimDistCopies — mode and table', () => {
     assert.match(errors[0], /has drifted/);
   });
 
+  // ── THE TWO WIRING LINES, pinned ────────────────────────────────────────────────
+  // The whole fix hangs on two statements that no other assertion in the tree touches:
+  // `checkVerbatimDistCopies(errors)` inside check-ownership's `run()`, and
+  // `runStep(GUARD, check)` in tools/build.js. Revert either and every gate stays green
+  // while `build:check` silently returns to the #2204 behavior. This repo has written
+  // precedent for both pins — four other gates carry a "run() actually invokes the gate"
+  // arm (test/unit/cli/check-ownership.test.js), added after a maker-checker pass on
+  // #1187 found the same hole; and check-lint-coverage.test.js imports `PREFLIGHT` from
+  // tools/build.js for exactly this reason. Raised by the maker-checker pass on #2204.
+  test('run() actually invokes the arm — it is wired into build:check', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'tools/check-ownership.js'), 'utf8');
+    const body = src.slice(src.lastIndexOf('function run('));
+    assert.match(body, /\n\s*checkVerbatimDistCopies\(errors\);/,
+      'checkVerbatimDistCopies is defined but never called from run() — the gate is inert');
+  });
+
+  test('tools/build.js invokes the GUARD in the caller\'s mode', () => {
+    // `runStep(GUARD, false)` would leave the arm silent on `build:check` too, since it
+    // defaults off outside --check. Matched on source text because the mode is decided at
+    // one call site and there is nothing else to import.
+    // Matched WITH its `if (!…)` call-site frame, not as a bare substring: the GUARD
+    // comment a few lines above quotes `runStep(GUARD, check)` verbatim, so a loose match
+    // would be satisfied by the documentation while the call itself said `false`.
+    const src = fs.readFileSync(path.join(ROOT, 'tools/build.js'), 'utf8');
+    assert.match(src, /if \(!runStep\(GUARD,\s*check\)\)/,
+      'the ownership guard is no longer invoked in the caller\'s mode, so the dist/ '
+      + 'verbatim-copy arm never fires (tools/build.js; see the GUARD comment)');
+  });
+
+  test('every declared COPY path resolves, when dist/ has been built', () => {
+    // The mirror of the stale-SOURCE arm above, and the hole it closes is worse: a missing
+    // copy is TOLERATED (a cold checkout has no dist/), so a typo or a renamed output
+    // directory disables an entry permanently and silently. CI always has dist/ — it runs
+    // `build:uncommitted` before `build:check` — so this fires there; it skips on a cold
+    // clone rather than failing it. Raised by the maker-checker pass on #2204.
+    if (!fs.existsSync(path.join(ROOT, 'dist'))) return;
+    const missing = DIST_VERBATIM_COPIES
+      .map((e) => e.copy)
+      .filter((c) => !fs.existsSync(path.join(ROOT, c)));
+    assert.deepEqual(missing, [],
+      'DIST_VERBATIM_COPIES names copies that dist/ does not contain — those entries are no-ops');
+  });
+
+  test('the table has not silently shrunk', () => {
+    // The shape assertions below cannot see coverage loss: drop the marp-kit fonts entry
+    // (17 files) and both agent-kit LICENSE pairs and all four still pass, because the
+    // remaining entries cover all three shapes. The count moves rarely — it has not moved
+    // once since the table was written — so pinning it costs nothing and is the only thing
+    // that notices an entry going missing.
+    assert.equal(DIST_VERBATIM_COPIES.length, 11,
+      'an entry was added or removed — update this number and say why in the PR');
+  });
+
   test('every declared SOURCE exists in this tree', () => {
     // The stale-entry guard above proves the arm reports one; this proves the committed
     // table has none, which is the part that rots.
@@ -155,10 +211,13 @@ describe('checkVerbatimDistCopies — mode and table', () => {
   });
 
   test('the table covers all three shapes the measurement found', () => {
-    // Enumerated by hashing `git ls-files` and walking a freshly built dist/: 48 files as
-    // six hand-written skills, the fonts into two kits, and eight one-off pairs. The
-    // count is not asserted (it moves with the tree); the SHAPES are, because a table
-    // that lost its directory sets would still pass a "sources exist" check.
+    // Enumerated by hashing `git ls-files` and walking a freshly built dist/: 49 files as
+    // SEVEN hand-written skills, the fonts into two kits, and eight one-off pairs. (An
+    // earlier draft said 48 and "six skills" — a hash walk grouped one skill under a
+    // same-content path elsewhere in the tree. Counted through the table's own pick()
+    // logic it is 49.) The FILE count is not asserted — it moves whenever a skill or a
+    // face is added — but the ENTRY count is, above, and the shapes are here, because a
+    // table that lost its directory sets would still pass a "sources exist" check.
     assert.ok(DIST_VERBATIM_COPIES.some((e) => e.exhaustive), 'no exhaustive directory set');
     assert.ok(DIST_VERBATIM_COPIES.some((e) => e.include && !e.exhaustive), 'no one-directional set');
     assert.ok(DIST_VERBATIM_COPIES.some((e) => !e.include), 'no single-file pair');
