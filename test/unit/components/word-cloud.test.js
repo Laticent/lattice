@@ -475,3 +475,51 @@ describe('word-cloud', () => {
     assert.match(out, /<section id="3" class="roadmap"[\s\S]*<ul>/);
   });
 });
+
+// ── The portrait size scale ────────────────────────────────────────────────
+// Word sizes are viewBox units, so a portrait cloud that does not scale them with
+// its pack box renders under-sized in a canvas it cannot fill. The scale is the
+// sqrt of the AREA ratio between the two boxes the packer PACKS INTO — and the
+// trap is that those are not the two canvases: landscape keeps 38% of its canvas
+// for the key rail, portrait keeps none. Reading the full canvas width on both
+// sides made this 1.54 where it should be 1.96, a 27% under-size that no gate
+// could see (`.wc-svg` is `overflow:visible`, so check-chart-fit skips its viewBox
+// assertion by design).
+//
+// Pinned by RE-DERIVING from the exported constants rather than asserting 1.957.
+// A literal would pass just as well against a scale solved from the wrong boxes —
+// which is exactly how the wrong one shipped — and would have to be re-blessed on
+// any legitimate re-tune of the canvas, teaching the next editor to update the
+// number rather than to check the derivation.
+describe('word-cloud: the portrait size scale is derived from the pack boxes', () => {
+  const wc = require('../../../lib/components/chart/word-cloud/word-cloud.transform.js');
+  // Its own fixture — the dispatch suite's `WC_SECTION` is scoped to that describe.
+  const SECTION = '<section id="1" class="word-cloud" data-lattice-slide="1"><h2>Q1</h2>' +
+    '<ul><li>velocity <code>12</code></li><li>ownership <code>9</code></li>' +
+    '<li>handoffs <code>7</code></li><li>review <code>5</code></li></ul></section>';
+
+  test('scales by the sqrt of the pack-box area ratio, not the canvas height ratio', () => {
+    const { CANVAS_W, CANVAS_H, PORTRAIT_CANVAS_H, WC_PACK_FRAC, PORTRAIT_SIZE_SCALE } = wc;
+    for (const [k, v] of Object.entries({ CANVAS_W, CANVAS_H, PORTRAIT_CANVAS_H, WC_PACK_FRAC, PORTRAIT_SIZE_SCALE })) {
+      assert.equal(typeof v, 'number', `${k} must be exported for this to be checkable`);
+    }
+    const landscapePack = Math.round(CANVAS_W * WC_PACK_FRAC) * CANVAS_H;
+    const portraitPack = CANVAS_W * PORTRAIT_CANVAS_H;
+    assert.ok(Math.abs(PORTRAIT_SIZE_SCALE - Math.sqrt(portraitPack / landscapePack)) < 1e-9,
+      'the scale must come from the two PACK boxes');
+    // And explicitly NOT the shape it used to have — the arm that would have caught it.
+    assert.ok(Math.abs(PORTRAIT_SIZE_SCALE - Math.sqrt(PORTRAIT_CANVAS_H / CANVAS_H)) > 0.1,
+      'a height-only ratio ignores that landscape packs into 62% of the width and portrait into all of it');
+  });
+
+  test('a portrait cloud sets its words larger than the landscape one', () => {
+    // The outcome, through the public transform: same markdown, two orientations.
+    const sizesOf = (html) => (html.match(/font-size="([\d.]+)"/g) || [])
+      .map((m) => parseFloat(m.match(/[\d.]+/)[0]));
+    const land = sizesOf(transformWordCloudSection(SECTION, 'word-cloud', 'landscape'));
+    const port = sizesOf(transformWordCloudSection(SECTION, 'word-cloud', 'portrait'));
+    assert.ok(land.length && port.length, 'both orientations must emit sized words');
+    assert.ok(Math.max(...port) > Math.max(...land) * 1.5,
+      `portrait's largest word (${Math.max(...port)}) must grow with its box, not stay near landscape's (${Math.max(...land)})`);
+  });
+});

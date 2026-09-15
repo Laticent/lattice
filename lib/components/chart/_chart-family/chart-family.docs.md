@@ -145,6 +145,32 @@ in the family is now drawn by `svg-legend.js buildSpine`. The
 roadmap/gantt/journey keys ride the shared `transformChartSection`, adding no
 slides, so cross-renderer parity holds.
 
+### At portrait the key moves below, and the diagram has to grow into what it frees
+
+A keyed chart's key and diagram are ONE viewBox, so CSS cannot reflow them — the
+kernel does, at render time. In a tall box the right rail letterboxes the whole
+unit into a short band, so `svg-legend.js buildPortrait` stacks the key beneath
+the diagram instead (`piechart`, `radar`, `map`, `quadrant·cohort`, and
+`word-cloud` with its own A-ramp).
+
+**Moving the key is only half of it.** The diagram now gets the full canvas width
+instead of the ~62-70% the rail left it, and everything inside the viewBox is in
+viewBox UNITS — so a diagram that does not scale up with its new box simply fills
+less of it. `preserveAspectRatio: meet` then scales the whole drawing back down to
+the container, and the marks end up no bigger than they were in the short band,
+adrift in a canvas they cannot fill.
+
+`word-cloud` is the worked example, and its trap is worth knowing before you tune
+another member: the word sizes scale by the square root of the AREA ratio between
+the two boxes the packer PACKS INTO, and those are **not** the two canvases.
+Landscape packs into 682 × 320 (the rest of its canvas is the rail); portrait packs
+into 1100 × 760. The scale was derived from the canvas width on both sides, making
+it 1.54 where the real ratio gives 1.96 — a 27% under-size that nothing caught,
+because `.wc-svg` is `overflow: visible` by design and `check-chart-fit` therefore
+skips its viewBox assertion. It is derived from the two pack boxes now. If you
+re-tune a portrait canvas, check what its member actually packs into, not what its
+canvas measures.
+
 ---
 
 ## Standalone export — one chart as a self-contained `.svg`
