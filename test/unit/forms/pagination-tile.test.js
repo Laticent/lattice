@@ -108,6 +108,31 @@ describe('pagination Tile — applyToDom (live-DOM path)', () => {
   });
 });
 
+describe('the two marks read the SAME --pagination-inset default', () => {
+  // The pagination-right Cell owns the page number's POSITION (design/forms.md 7.3), and
+  // since #2206 two rules read its token: `section.form::after` in the Cell's own file
+  // (what the Marp path still draws) and `section > .lat-pagination` in the Tile's
+  // (what every Lattice render draws). Both spell the same fallback. Nothing made them
+  // stay equal, and a drift would move the mark on ONE path only — the cross-path split
+  // HARD RULE #1 exists to stop, and the hardest kind to notice because each path looks
+  // internally consistent. Compared as TEXT because that is the only thing a CSS file
+  // offers; if the fallback is ever extracted into a shared token this arm should follow
+  // it rather than be deleted.
+  const inset = (file) => {
+    const css = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    const m = css.match(/inset:\s*var\(--pagination-inset,\s*([^)]*\)?[^;]*)\);/);
+    return m ? m[1].replace(/\s+/g, ' ').trim() : null;
+  };
+
+  test('the Cell\'s pseudo rule and the Tile\'s element rule agree', () => {
+    const cell = inset('lib/forms/cell/pagination-right/pagination-right.css');
+    const tile = inset('lib/forms/tile/pagination/pagination.css');
+    assert.ok(cell, 'no --pagination-inset default found in the pagination-right Cell');
+    assert.ok(tile, 'no --pagination-inset default found in the pagination Tile');
+    assert.equal(tile, cell, 'the two marks would sit in different places on different paths');
+  });
+});
+
 describe('the retirement rule\'s SELECTOR SHAPE (lib/forms/cell/stage/stage.css)', () => {
   const stageCss = fs.readFileSync(path.join(ROOT, 'lib/forms/cell/stage/stage.css'), 'utf8');
   // The two arms, as committed. Matched on the selector text rather than on a render,

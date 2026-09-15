@@ -417,9 +417,24 @@ section.form > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
  *     combinator, so the mask would delete this `content: none` on the packed path the
  *     Playground, the Studio and lib/runtime all load. `> ` puts it out of reach. It is
  *     exactly the trap that leaves `section.silent.silent::after { content: none }`
- *     inert there — see base.variants.css, which needs its element arm for this reason. */
+ *     inert there — see base.variants.css, which needs its element arm for this reason.
+ *
+ * AND IT IS `content: ''`, NOT `content: none`, which looks like a typo and is the third
+ * load-bearing thing here. `none` generates NO PSEUDO BOX; `''` generates an empty one.
+ * The difference matters because one treatment CO-OPTS this pseudo for something that is
+ * not a page number: `mark-asterisks` needs two corner clusters, so it puts the top-right
+ * one on `::before` and the bottom-left one on the slide-own `::after`
+ * (base.treatments.css). With `none`, retiring the numeral deleted that cluster from every
+ * paginated slide — a treatment silently losing half its mark, which is exactly the
+ * low-visibility regression HARD RULE #18 says is not an exit. With `''` the box survives
+ * with its background, mask and position intact and only the numeral goes, which is all
+ * this rule ever needed to do. Measured: the asterisk cluster paints, the page number is
+ * the real element, and a 13-page raster diff against the pre-change PDF is unchanged.
+ * An empty box at the pagination berth paints nothing on its own — no background, no
+ * border, `pointer-events: none` from the engine scaffold. Found by the maker-checker
+ * pass on #2206. */
 section[data-lattice-pagination]:has(> .lat-pagination)::after,
-section[data-lattice-pagination]:has(> .cell-footer > .lat-pagination)::after { content: none; }
+section[data-lattice-pagination]:has(> .cell-footer > .lat-pagination)::after { content: ''; }
 /* ── Universal ALIGNMENT modifiers (#527) — the author's call ────────────────
  * Two independent axes act on the stage cell, so they read the same on EVERY
  * frame. Default is top-left (the natural reading origin); a component never

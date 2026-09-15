@@ -21,8 +21,13 @@
  * rule):
  *
  *   · a slide counts when its section carries `data-lattice-pagination`;
- *   · the PSEUDO counts as painted when `getComputedStyle(sec, '::after').content` is
- *     neither `none` nor `normal` and the pseudo is not itself hidden;
+ *   · the PSEUDO counts as painted when it DRAWS A NUMERAL — `getComputedStyle(sec,
+ *     '::after').content` is a non-empty string — and the pseudo is not itself hidden.
+ *     "Non-empty" is load-bearing, not pedantry: the retirement rule empties the pseudo
+ *     (`content: ''`) rather than deleting its box, so that one treatment which co-opts
+ *     that box for a decorative mask keeps it (`mark-asterisks`, base.treatments.css). A
+ *     retired pseudo therefore computes `""`, and a predicate testing only for `none`
+ *     reports every paginated slide in the corpus as drawing two marks;
  *   · the ELEMENT counts as shown when a `.lat-pagination` exists and nothing FROM THE
  *     SPAN UP TO THE SECTION, THE SPAN INCLUDED, hides it (`display: none` or
  *     `visibility: hidden`).
@@ -135,7 +140,9 @@ for (const [i, r] of rendered.entries()) {
     for (const sec of document.querySelectorAll('section[data-lattice-pagination]')) {
       out.slides += 1;
       const af = getComputedStyle(sec, '::after');
-      const pseudo = !(af.content === 'none' || af.content === 'normal') && af.display !== 'none';
+      const c = af.content;
+      const drawsText = Boolean(c) && c !== 'none' && c !== 'normal' && c !== '""' && c !== "''";
+      const pseudo = drawsText && af.display !== 'none';
       const element = [...sec.querySelectorAll('.lat-pagination')].some((el) => {
         for (let n = el; n; n = n.parentElement) {
           const cs = getComputedStyle(n);

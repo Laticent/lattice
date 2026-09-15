@@ -809,9 +809,11 @@ invocation and three read as a hole in the instrument.
 every frame — a pagination Tile (`lib/forms/tile/pagination`) mints it on any paginated frame
 that has none, and the retirement rule keys on the ELEMENT
 (`section[data-lattice-pagination]:has(> .lat-pagination)::after`) rather than on a frame kind.
+It EMPTIES that pseudo (`content: ''`) rather than deleting its box, because one treatment
+co-opts the slide-own `::after` for a decorative mask — `mark-asterisks` puts its bottom-left
+cluster there — and `content: none` took the cluster with it on every paginated slide.
 
-**Re-measured over the population, with the same predicate** — 168 decks, base `6f34452` plus
-this change — by `tools/census-pagination-marks.mjs`, which is committed for the reason the
+**Re-measured over the population, with the same predicate** — 168 decks, on this branch — by `tools/census-pagination-marks.mjs`, which is committed for the reason the
 sampling section above gives: neither earlier pass named its decks or its command, so no reader
 could re-derive either number.
 
@@ -828,6 +830,19 @@ suppression or a page number that went missing, and a count cannot tell them apa
 of them is a suppression: 170 `silent`, one `image statement`, one
 `big-number claim-bleed`. That is the same shape as the pre-change breakdown (158 `silent`
 plus the same two singletons), grown with the corpus — so nothing lost its number.
+
+**AND THE CENSUS'S COVERAGE IS NOT ITS COUNT**, which is the honest caveat on the row of
+zeros above. The maker-checker pass found a real regression this run could not see: on an
+`image` slide with NO prose, the numeral's own text defeated `wrapImageText`'s "is there any
+prose?" guard, so a slide that is meant to stay unwrapped got wrapped — the span folded into
+`.image-text` as static body copy across the photo, and the pseudo came back beside it.
+Measured on a real `.pdf` export. The census reported zero because **no deck in the corpus
+has that shape**: every `image` slide in `examples/`, the baseline decks and the component
+docs carries prose. The population figure is a true measurement of a population that did not
+contain the failing case, which is a different thing from a clean bill. What closed it is a
+real-surface test carrying all ELEVEN frame kinds, including a deliberately prose-free
+`image` slide (`pagination-one-mark.test.js`); mutation-tested — undo the keep-out and it
+fails on exactly that slide.
 
 **The BOTH row is in the table because it is a real failure mode, and it happened.** The
 first cut of the retirement rule read `section:has(> .lat-pagination)::after`, which is

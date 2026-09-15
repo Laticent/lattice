@@ -12,3 +12,10 @@
   also honored on the packed web paths now: `packTheme` strips generated content from a
   slide-own `section…::after` rule, so hiding the number through the pseudo was inert in the
   Playground, the Studio and `lib/runtime`.
+- **Fixed: the page number is legible on a dark split-panel.** On `split-panel mirror` and
+  `split-panel metric` the number sits on the panel rather than the canvas, and it kept the
+  canvas's muted ink — measured at **1.07:1** on the accent field and 2.2:1 on the inverse
+  fill, under the 3:1 graphical floor. It now takes the same ink the panel's own text uses,
+  the mirror image of the rule that already does this for the running header and footer.
+  Pre-existing, and invisible until the mark became a real element: a pseudo has no run for
+  the contrast gate to measure.
