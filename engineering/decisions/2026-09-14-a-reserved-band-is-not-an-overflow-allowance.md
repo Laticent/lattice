@@ -85,3 +85,47 @@ over-stuffed member is now reported like any other overflow — the author is to
 warns, and the page carries the ring — which is the contract every other layout in the engine
 already has. Whether that band should also be un-enterable is a layout question, and a separate
 one.
+
+## Attempt 2 — the DECLARED band, also rejected, and the reason is not the same one
+
+The note above says "a reserved band must be DECLARED". That was built and measured, and it fails
+too — for a reason the geometric attempt hid.
+
+**The mechanism.** `@property --lat-band-reserve` (`inherits: false`), set on the rule that
+reserves the band; `flowedSpill` compares that box's children against `bottom - reserve` instead
+of the border box. Opt-in, so a box that declares nothing is measured exactly as before. That
+part held: 15 `split-panel` decks plus the component gallery at portrait and square report
+identical warning counts on base and head, and the detection genuinely fires — the three sweep
+cases this note recorded as silent (+18, +22, +26 words of body) all warn.
+
+**Why it was reverted.** On a 3-page coverless `pullquote` run at 40–42 words per member, ALL
+THREE pages report `over: true` while **0 px² of glyph ink sits under any chrome on any of
+them** — measured by intersecting `Range.getClientRects()` with the `.lat-split-rel` and
+`.lat-split-rail` boxes. Nothing is covered; nothing is clipped. Two independent causes, both
+structural:
+
+- **The last page of a run has no forward pointer, and reserves the band anyway.** That is
+  deliberate — the band keeps the member block from jumping between pages — so it is a LAYOUT
+  reserve, not chrome. Declaring it "chrome" makes every last page a false positive the moment
+  content reaches the band. Measured false continuously from 40 through 50 words.
+- **The reserve is a BOTTOM EDGE; the chrome is a BOX.** The pill spans x695–1001 of a 0–1080
+  panel — 28% of the width. Ragged-right content whose last line ends left of x695 is flagged
+  with empty space above it.
+
+**The lesson, and it is the one that generalizes.** Both attempts modelled occlusion as a
+one-dimensional edge. It is two-dimensional: the question is not "is content below a line" but
+"is content under a box, on a page that has that box". A declaration fixes WHICH BOXES may be
+asked; it does not make the answer right. Anyone trying this a third time needs a 2D test
+(content rect ∩ chrome rect, evaluated per page against the chrome that page actually carries),
+and should expect that to be most of the work.
+
+**Two smaller findings worth keeping.**
+- The justification for reading the amount from `padding-bottom` rather than the token — "a
+  custom property computes to its token text" — is true of an UNREGISTERED property and FALSE of
+  a registered one. A registered `<length>` resolves tokens and container-query units to used px
+  (`155.52px`, measured, identical to `paddingBottom`).
+- But the length form has a hole the flag form did not: overriding the DECLARATION moves the
+  padding, while overriding the PADDING does not move the declaration — and editing a panel's
+  padding is the ordinary edit. Demonstrated in a browser by forcing `padding-bottom: 0`, after
+  which the reserve still read `155.52px`: a standing phantom overflow. "The two cannot drift"
+  was written as the justification for the length form and is false in the direction that matters.
