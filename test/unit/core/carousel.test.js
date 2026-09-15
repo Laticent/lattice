@@ -213,6 +213,117 @@ describe('core: carousel — cover-rows (list-tabular)', () => {
     assert.doesNotMatch(rows[0].body, /<\/?li/);
   });
 
+  // ── A ROW WITH NO CLAUSE IS STILL A ROW ────────────────────────────────────────────────
+  //
+  // `readRows` required a nested body (`.filter(r => r.title && r.body)`), so a FLAT register —
+  // `1. Coverage \`98.4% of policies\``, chip and no clause — yielded zero rows and the strategy
+  // declined. Measured on `list-tabular`'s own gallery at portrait: 5 of its 14 variants
+  // (metric, register, metric+solid, register+outline, fit-meta) never split at all, while
+  // their nested-clause siblings did. The MIXED case is the sharper one, and it is arm 2: the
+  // flat rows were dropped from the member set while the strategy still succeeded on the rest,
+  // so the page count was right and the content was not.
+  test('a flat row — chip, no nested clause — is a member', () => {
+    const flat = (t) => `<li>${t}</li>`;
+    const inner = `<div class="cell-stage"><ol>${flat('Coverage <code>98.4%</code>')}${flat('Backlog <code>31 open</code>')}${flat('Cadence <code>fortnightly</code>')}</ol></div>`;
+    const rows = readRows(inner);
+    assert.equal(rows.length, 3, 'a bodyless row was dropped from the member set');
+    assert.equal(rows[0].body, null);
+  });
+
+  test('a MIXED list keeps its flat rows beside its nested ones', () => {
+    const inner = '<div class="cell-stage"><ol>'
+      + '<li>Coverage <code>98.4%</code></li>'
+      + '<li>Backlog<ul><li>Thirty-one findings are open.</li></ul></li>'
+      + '<li>Cadence <code>fortnightly</code></li>'
+      + '</ol></div>';
+    const rows = readRows(inner);
+    assert.equal(rows.length, 3, 'the flat rows were silently dropped beside the nested one');
+    assert.deepEqual(rows.map((r) => Boolean(r.body)), [false, true, false]);
+  });
+
+  // The title used to be flattened with `.replace(/<[^>]+>/g, '')`, which threw away the
+  // `<code>` chip that IS the register's second column: a `def` row authored `1. Label \`Term\``
+  // reached its split page as the bare word "Label". The body span never flattened, so one
+  // member's two halves were held to different standards.
+  test("the title keeps its inline markup — the chip is the register's second column", () => {
+    const rows = readRows('<div class="cell-stage"><ol><li>Label <code>Term</code><ul><li>One clause.</li></ul></li></ol></div>');
+    assert.match(rows[0].title, /<code>Term<\/code>/, 'the chip was flattened out of the title');
+  });
+
+  // …AND A LOOSE LIST'S `<p>` WRAPPER IS NOT INLINE MARKUP. Blank lines between items is
+  // ordinary authoring, and markdown-it then wraps each item's content in `<p>`. Title and body
+  // both land inside a `<span>` (`.split-pt-t`, `.split-pt-b` / `.split-pt-line`), where a
+  // block-level `<p>` computes `display: block` and breaks the line the span exists to hold
+  // together.
+  //
+  // THIS COMMENT USED TO SAY the browser closes the span and reparents the paragraph. It does
+  // not — measured in real Chromium, the `<p>` stays inside the span and the label stays in its
+  // row. The markup is invalid per spec (a `<p>` is not phrasing content) and Chromium's parser
+  // does not act on it here. The layout reason above is the whole reason. Found by the
+  // HARD RULE #25 checker, which also found that the first fix did the TITLE only.
+  test('a LOOSE list drops the <p> wrapper from BOTH halves of a member', () => {
+    const rows = readRows('<div class="cell-stage"><ol>'
+      + '<li><p>Label <code>Term</code></p><ul><li><p>One clause.</p></li></ul></li>'
+      + '<li><p>Second <em>row</em></p></li>'
+      + '</ol></div>');
+    assert.equal(rows.length, 2);
+    for (const r of rows) assert.doesNotMatch(r.title, /<\/?p\b/, `a <p> reached the title: ${r.title}`);
+    assert.match(rows[0].title, /<code>Term<\/code>/, 'unwrapping the <p> also stripped the chip');
+    assert.match(rows[1].title, /<em>row<\/em>/, 'unwrapping the <p> also stripped the emphasis');
+    assert.doesNotMatch(rows[0].body, /<\/?p\b/, `a <p> reached the body: ${rows[0].body}`);
+  });
+
+  // A MULTI-bullet body is the shape that actually ships loose, and each line is its own span.
+  test('a loose MULTI-bullet body unwraps every line, not just the first', () => {
+    const rows = readRows('<div class="cell-stage"><ol><li><p>Coverage</p><ul>'
+      + '<li><p>What it <strong>measures</strong>.</p></li>'
+      + '<li><p>How it scores.</p></li>'
+      + '</ul></li></ol></div>');
+    assert.doesNotMatch(rows[0].body, /<\/?p\b/, `a <p> reached the body: ${rows[0].body}`);
+    assert.equal((rows[0].body.match(/split-pt-line/g) || []).length, 2, 'the two lines were fused');
+    assert.match(rows[0].body, /<strong>measures<\/strong>/, 'unwrapping stripped the inline markup');
+  });
+
+  // A title that holds TWO paragraphs is not a wrapper to unwrap — it is a title with a
+  // paragraph in it, and flattening the pair would silently join two blocks into one line.
+  // The unwrap fires only on a single paragraph that spans the whole title.
+  test('a title holding two paragraphs is left alone', () => {
+    const rows = readRows('<div class="cell-stage"><ol><li><p>One</p><p>Two</p></li></ol></div>');
+    assert.match(rows[0].title, /<p>One<\/p><p>Two<\/p>/);
+  });
+
+  // `<pre>` IS NOT A SECOND `<p>`. The "only one paragraph" test was `indexOf('<p', 1)`, a
+  // SUBSTRING search, so `<pre>`, `<picture>` and `<param>` all read as a second paragraph and
+  // the wrapper was silently left on. A fenced sample inside a list item is authorable.
+  test('a title containing <pre> still unwraps its lone <p>', () => {
+    const rows = readRows('<div class="cell-stage"><ol><li><p>Label <pre>z</pre></p></li></ol></div>');
+    assert.doesNotMatch(rows[0].title, /^<p\b/, `the <p> wrapper survived: ${rows[0].title}`);
+    assert.match(rows[0].title, /<pre>z<\/pre>/, 'unwrapping ate the sample');
+  });
+
+  // AN EMPTY WRAPPER IS LEFT ALONE, because peeling it turns a member that SURVIVED into one
+  // that is dropped: `readPoints` and `readSubjects` filter on `title && body`, and `''` is
+  // falsy. Conservation beats tidiness.
+  test('an empty <p> body is not peeled into nothing', () => {
+    const rows = readRows('<div class="cell-stage"><ol>'
+      + '<li>Label<ul><li><p></p></li></ul></li>'
+      + '</ol></div>');
+    assert.equal(rows.length, 1, 'the member was dropped');
+    assert.ok(rows[0].body, `the body was peeled away: ${JSON.stringify(rows[0].body)}`);
+  });
+
+  // A bodyless member must not print the string "null" where its body span would go.
+  test('a bodyless member renders without a body span', () => {
+    const inner = '<div class="cell-masthead"><div class="masthead-lede"><h2>The register.</h2></div></div>'
+      + '<div class="cell-stage"><ol><li>Coverage <code>98.4%</code></li><li>Backlog <code>31</code></li></ol></div>';
+    const parts = carouselize(ltSection.openTag, inner, cvRecipe);
+    assert.ok(parts, 'the strategy declined a flat register');
+    const body = parts.slice(1).join('');
+    assert.doesNotMatch(body, /null/, 'a null body was interpolated onto the page');
+    assert.doesNotMatch(body, /split-pt-b/, 'an empty body span was emitted');
+    assert.match(body, /split-pt-t/);
+  });
+
   test('emits a title cover then the rows windowed perPage at a time', () => {
     const parts = carouselize(ltSection.openTag, ltSection.inner, cvRecipe); // 2 rows, perPage 1 → 2 pages
     assert.equal(parts.length, 3); // cover + 2 row pages
@@ -470,32 +581,43 @@ describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {
     '<footer>F</footer>';
   const rlRecipe = { strategy: 'redline-blocks' };
   const parts = carouselize(rlTag, rlInner, rlRecipe);
+  // THE RUN OPENS ON A COVER (owner's call, 2026-09-13). `redline`'s two pages are the same
+  // clause before and after, so the masthead belongs on a page of its own rather than being
+  // met already inside the "before" page.
+  const blocks = parts.slice(1);
+
+  test('the run opens on the shared accent cover', () => {
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.match(parts[0], /split-feat-h">SB-362 rewrote the rule\./);
+    assert.doesNotMatch(parts[0], /rl-old|rl-new/);
+  });
 
   test('OLD → its own slide, NEW (+ note) → the next', () => {
-    assert.equal(parts.length, 2);
-    assert.match(parts[0], /blockquote class="rl-old"/);
-    assert.match(parts[0], /two or more methods/);
-    assert.doesNotMatch(parts[0], /<ul\b/); // the note rides NEW, not OLD
-    assert.match(parts[1], /blockquote class="rl-new"/);
-    assert.match(parts[1], /at least one method/);
-    assert.match(parts[1], /Why this matters/); // note rides the NEW slide
+    assert.equal(blocks.length, 2);
+    assert.match(blocks[0], /blockquote class="rl-old"/);
+    assert.match(blocks[0], /two or more methods/);
+    assert.doesNotMatch(blocks[0], /<ul\b/); // the note rides NEW, not OLD
+    assert.match(blocks[1], /blockquote class="rl-new"/);
+    assert.match(blocks[1], /at least one method/);
+    assert.match(blocks[1], /Why this matters/); // note rides the NEW slide
   });
 
   test('the heading + citation repeat on both slides; the 2nd is marked (cont.)', () => {
-    assert.ok(parts.every((p) => /SB-362 rewrote the rule\./.test(p) && /Cal\. Civ\. Code/.test(p)));
-    assert.doesNotMatch(parts[0], /lat-cont/);
-    assert.match(parts[1], /lat-cont/);
+    assert.ok(blocks.every((p) => /SB-362 rewrote the rule\./.test(p) && /Cal\. Civ\. Code/.test(p)));
+    assert.match(blocks[1], /lat-cont/);
   });
 
-  test('only the first slide keeps the engine id; the wide variant class is dropped', () => {
+  test('exactly one page keeps the engine id; the wide variant class is dropped', () => {
     assert.equal(parts.filter((p) => /\sid="r1"/.test(p)).length, 1);
+    assert.match(parts[0], /\sid="r1"/, 'the cover should hold the id it took from the source');
     const tokens = (p) => p.match(/class="([^"]*)"/)[1].split(/\s+/);
-    assert.ok(parts.every((p) => !tokens(p).includes('split') && tokens(p).includes('redline')));
-    assert.ok(parts.every((p) => tokens(p).includes('lat-split-native')));
+    assert.ok(blocks.every((p) => !tokens(p).includes('split') && tokens(p).includes('redline')));
+    assert.ok(blocks.every((p) => tokens(p).includes('lat-split-native')));
   });
 
   test('every frame carries the Form chrome (header + footer)', () => {
-    assert.ok(parts.every((p) => /<header>H<\/header>/.test(p) && /<footer>F<\/footer>/.test(p)));
+    assert.ok(blocks.every((p) => /<header>H<\/header>/.test(p) && /<footer>F<\/footer>/.test(p)));
+    assert.match(parts[0], /<header>H<\/header>/);
   });
 
   test('a single-passage redline (1 blockquote) → null, left for the ring', () => {
@@ -526,9 +648,9 @@ describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {
     assert.equal(out.filter((p) => /\sdata-split-role="closing"/.test(p)).length, 0,
       'a claimed blockquote must not be promoted to a closing page');
     assert.match(out.at(-1), /One duty is cheaper to audit/);
-    // …and the two passages are still where they belong.
-    assert.match(out[0], /blockquote class="rl-old"/);
-    assert.match(out[1], /blockquote class="rl-new"/);
+    // …and the two passages are still where they belong, after the run's cover.
+    assert.match(out[1], /blockquote class="rl-old"/);
+    assert.match(out[2], /blockquote class="rl-new"/);
   });
 
   test('a NON-trailing third blockquote rides the last body page — never dropped', () => {
@@ -567,33 +689,191 @@ describe('core: carousel — kanban-lanes (kanban portrait, one lane per slide)'
     '</div></div>' +
     '<footer>F</footer>';
   const parts = carouselize(kbTag, kbInner, { strategy: 'kanban-lanes' });
+  // A NATIVE-SLICE RUN NOW OPENS ON A COVER (owner's call, 2026-09-13), so the lanes start at
+  // index 1. Before that the run opened straight into "Backlog" while a `content` slide beside
+  // it in the same deck opened on the shared accent field.
+  const lanes = parts.slice(1);
+
+  test('the run opens on the shared accent cover', () => {
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.match(parts[0], /lat-split-cover/);
+    assert.match(parts[0], /split-feat-h">Where work stands\./);
+    assert.ok(!/kanban-column"/.test(parts[0]), 'the cover carried a lane');
+  });
 
   test('one slide per lane, each holding a single column', () => {
-    assert.equal(parts.length, 3);
-    assert.ok(parts.every((p) => (p.match(/kanban-column"/g) || []).length === 1));
-    assert.match(parts[0], /kanban-column-header">Backlog</);
-    assert.match(parts[1], /kanban-column-header">In progress</);
-    assert.match(parts[2], /kanban-column-header">Done</);
+    assert.equal(lanes.length, 3);
+    assert.ok(lanes.every((p) => (p.match(/kanban-column"/g) || []).length === 1));
+    assert.match(lanes[0], /kanban-column-header">Backlog</);
+    assert.match(lanes[1], /kanban-column-header">In progress</);
+    assert.match(lanes[2], /kanban-column-header">Done</);
   });
 
   test('each lane keeps only its own cards', () => {
-    assert.equal((parts[0].match(/kanban-card"/g) || []).length, 2); // Backlog: A, B
-    assert.equal((parts[1].match(/kanban-card"/g) || []).length, 1); // In progress: C
-    assert.equal((parts[2].match(/kanban-card"/g) || []).length, 2); // Done: D, E
-    assert.doesNotMatch(parts[0], />C</); // no cross-lane bleed
+    assert.equal((lanes[0].match(/kanban-card"/g) || []).length, 2); // Backlog: A, B
+    assert.equal((lanes[1].match(/kanban-card"/g) || []).length, 1); // In progress: C
+    assert.equal((lanes[2].match(/kanban-card"/g) || []).length, 2); // Done: D, E
+    assert.doesNotMatch(lanes[0], />C</); // no cross-lane bleed
   });
 
-  test('the chart-header repeats; the first keeps the id, later slides are (cont.) + id-less', () => {
-    assert.ok(parts.every((p) => /Where work stands\./.test(p)));
+  test('the chart-header repeats; the COVER keeps the id, lanes are id-less and later ones (cont.)', () => {
+    assert.ok(lanes.every((p) => /Where work stands\./.test(p)));
+    // Exactly one element carries the engine id, and it is the cover — the page that now opens
+    // the run. Two elements with one id is the defect this arm has always been about.
     assert.equal(parts.filter((p) => /\sid="k1"/.test(p)).length, 1);
     assert.match(parts[0], /\sid="k1"/);
-    assert.doesNotMatch(parts[0], /lat-cont/);
-    assert.ok(parts.slice(1).every((p) => /lat-cont/.test(p) && /lat-split-native/.test(p)));
+    assert.doesNotMatch(lanes[0], /lat-cont/);
+    assert.ok(lanes.slice(1).every((p) => /lat-cont/.test(p) && /lat-split-native/.test(p)));
   });
 
   test('a single-lane board → null (nothing to split between)', () => {
     const one = '<div class="chart-header"><h2>X</h2></div><div class="chart-body"><div class="kanban-board">' + col('Only', 'A', 'B') + '</div></div>';
     assert.equal(carouselize(kbTag, one, { strategy: 'kanban-lanes' }), null);
+  });
+});
+
+describe('core: carousel — code-cards (code: by block, then by line-run)', () => {
+  // `code` was the one component in the catalog with a §0c treatment and NO processor: the
+  // treatment read "code-cards (by line / block — PROPOSED)" and nothing was ever built, so a
+  // listing past the component's own stated wall rang at every presentation @size while its own
+  // docs told authors "fourteen is the wall … split it".
+  const cdTag = '<section id="c1" class="code form" data-lattice-slide="2">';
+  const mast = '<div class="cell-masthead"><div class="masthead-lede"><h2>The endpoint.</h2></div></div>';
+  const pre = (...lines) => `<pre><code class="language-js">\n${lines.join('\n')}\n</code></pre>`;
+  const wrap = (...pres) => `${mast}<div class="cell-stage">${pres.join('')}</div>`;
+  const recipe = { strategy: 'code-cards', axis: 'line', perPage: 12 };
+  const bodies = (parts) => parts.filter((x) => /\sdata-split-role="body"/.test(x));
+
+  test('MORE THAN ONE fenced block → one block per page, source-sliced', () => {
+    const parts = carouselize(cdTag, wrap(pre('const a = 1;'), pre('const b = 2;'), pre('const c = 3;')), recipe);
+    const body = bodies(parts);
+    assert.equal(body.length, 3, 'one page per fenced block');
+    assert.ok(body.every((p) => (p.match(/<pre\b/g) || []).length === 1), 'a page carried more than one block');
+    assert.match(body[0], /const a = 1;/);
+    assert.doesNotMatch(body[0], /const b = 2;/);
+    assert.match(body[2], /const c = 3;/);
+    // Source-sliced, not re-authored: the component's own stage cell and masthead survive, which
+    // is what keeps `code.styles.css` applying to the page.
+    assert.ok(body.every((p) => /cell-stage/.test(p) && /The endpoint\./.test(p)));
+  });
+
+  test('ONE block inside the budget → null, left whole', () => {
+    const lines = Array.from({ length: 12 }, (_, i) => `const a${i} = ${i};`);
+    assert.equal(carouselize(cdTag, wrap(pre(...lines)), recipe), null);
+  });
+
+  test('ONE block over the budget → line-runs of perPage lines', () => {
+    const lines = Array.from({ length: 27 }, (_, i) => `const a${i} = ${i};`);
+    const body = bodies(carouselize(cdTag, wrap(pre(...lines)), recipe));
+    assert.equal(body.length, 3, '27 lines at 12 per page is 12 + 12 + 3');
+    const counts = body.map((p) => (p.match(/const a\d+ = /g) || []).length);
+    assert.deepEqual(counts, [12, 12, 3]);
+    // Conservation: every line reaches exactly one page, in order.
+    const seen = body.flatMap((p) => [...p.matchAll(/const a(\d+) = /g)].map((m) => Number(m[1])));
+    assert.deepEqual(seen, lines.map((_, i) => i));
+  });
+
+  // THE ARM THIS KERNEL EXISTS FOR. Highlighted code is HTML and a span can legitimately cross a
+  // newline — a block comment, a template literal, a multi-line string. Cutting the string at a
+  // `\n` would leave one page with an unclosed `<span>` and the next starting inside a tag that
+  // never opened; a browser then re-parses both pages wrong and the highlight bleeds over
+  // everything after the cut. The walk closes what is open at the break and re-opens it.
+  test('a highlight span crossing the cut is closed and re-opened', () => {
+    const lines = [
+      ...Array.from({ length: 11 }, (_, i) => `const a${i} = ${i};`),
+      '<span class="hljs-comment">/* a block comment',
+      '   that crosses the page boundary',
+      '   on purpose */</span>',
+      ...Array.from({ length: 3 }, (_, i) => `const b${i} = ${i};`),
+    ];
+    const body = bodies(carouselize(cdTag, wrap(pre(...lines)), recipe));
+    assert.equal(body.length, 2);
+    const balanced = (html) => {
+      const code = html.slice(html.indexOf('<code'), html.indexOf('</code>'));
+      const open = (code.match(/<span\b/g) || []).length;
+      const close = (code.match(/<\/span>/g) || []).length;
+      return open === close;
+    };
+    assert.ok(balanced(body[0]), 'page 1 left a span open across the cut');
+    assert.ok(balanced(body[1]), 'page 2 opened inside a span that was never opened');
+    // …and the comment's own text is not lost or duplicated by the re-open.
+    const all = body.join('');
+    assert.equal(all.split('that crosses the page boundary').length - 1, 1);
+    assert.match(body[0], /a block comment/);
+    assert.match(body[1], /on purpose \*\//);
+  });
+
+  test('pages after the first are marked (cont.)', () => {
+    const lines = Array.from({ length: 25 }, (_, i) => `const a${i} = ${i};`);
+    const body = bodies(carouselize(cdTag, wrap(pre(...lines)), recipe));
+    assert.doesNotMatch(body[0], /lat-cont/);
+    assert.ok(body.slice(1).every((p) => /lat-cont/.test(p)));
+  });
+
+  test('the run opens on the shared accent cover, and only it keeps the id', () => {
+    const lines = Array.from({ length: 25 }, (_, i) => `const a${i} = ${i};`);
+    const parts = carouselize(cdTag, wrap(pre(...lines)), recipe);
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.match(parts[0], /split-feat-h">The endpoint\./);
+    assert.equal(parts.filter((p) => /\sid="c1"/.test(p)).length, 1);
+    assert.match(parts[0], /\sid="c1"/);
+  });
+
+  test('a section with no fenced block at all → null', () => {
+    assert.equal(carouselize(cdTag, `${mast}<div class="cell-stage"><p>prose</p></div>`, recipe), null);
+  });
+
+  // THE LINE-RUN SEAM CONSERVES CHARACTERS, INCLUDING A `<` THAT OPENS NO TAG. The slicer walks
+  // the highlighted inner with a tag-or-text pattern, and neither alternative matched a bare
+  // `<`, so `exec` skipped it and the character was DELETED. Not reachable from authored
+  // markdown — the highlighter escapes `<` to `&lt;` inside a fence — but this function's whole
+  // contract is conservation, and `carouselize` takes rendered inner HTML, so a producer that
+  // does not escape reaches it. Found by the HARD RULE #25 checker.
+  test('a `<` that opens no tag survives the line-run slice', () => {
+    const lines = Array.from({ length: 30 }, (_, i) => (i === 7 ? 'if (a < b) return;' : `const a${i} = ${i};`));
+    const parts = carouselize(cdTag, wrap(pre(...lines)), recipe);
+    assert.ok(parts && parts.length > 1, 'the run did not split');
+    const all = parts.join('');
+    assert.match(all, /if \(a < b\) return;/, 'the stray `<` was dropped from the sliced line');
+    for (const l of lines) assert.ok(all.includes(l), `line lost: ${l}`);
+    // THE STRAY `<` IS TEXT, NOT AN OPENING TAG — and asserting only the line above is what let
+    // the first version of this fix ship. It put the `<` through the TAG arm, which pushed a
+    // frame with `tag: undefined`; every line break after it emitted `</undefined>` and re-opened
+    // a stray `<`, so the lines were all present in the MARKUP (this arm passed) and seven of
+    // them were gone from the rendered page. `undefined` in engine output is never anything but
+    // that class of bug, and it is the cheap sentinel for it.
+    assert.doesNotMatch(all, /undefined/, 'a stack frame with no tag name reached the output');
+    // …and the stack really does balance: every page closes what it opened.
+    for (const page of parts) {
+      const opens = [...page.matchAll(/<([a-zA-Z][\w-]*)\b(?![^>]*\/>)[^>]*>/g)].map((m) => m[1].toLowerCase());
+      const closes = [...page.matchAll(/<\/([a-zA-Z][\w-]*)\s*>/g)].map((m) => m[1].toLowerCase());
+      const voidish = new Set(['br', 'hr', 'img', 'wbr', 'input', 'source', 'meta', 'link']);
+      const opened = opens.filter((t) => !voidish.has(t));
+      assert.equal(opened.length, closes.length, `unbalanced page: ${opened.length} open vs ${closes.length} close`);
+    }
+  });
+
+  // THE ENGINE ID LANDS EXACTLY ONCE PER RUN. With a cover the cover holds it and every body
+  // page drops it; with no masthead there is no cover, so the FIRST body page keeps it. Both
+  // seams are asserted, because they stamp their pages through different code.
+  test('with a cover, the cover holds the engine id and no body page repeats it', () => {
+    const parts = carouselize(cdTag, wrap(pre('const a = 1;'), pre('const b = 2;')), recipe);
+    assert.equal(parts.join('').match(/\sid="c1"/g).length, 1, 'the id was duplicated or lost');
+    assert.match(parts[0], /\sdata-split-role="cover"[^>]*\sid="c1"|\sid="c1"[^>]*\sdata-split-role="cover"/);
+  });
+
+  test('with NO masthead, the first body page keeps the engine id — the run still anchors', () => {
+    for (const inner of [
+      `<div class="cell-stage">${pre('const a = 1;')}${pre('const b = 2;')}</div>`,
+      `<div class="cell-stage">${pre(...Array.from({ length: 30 }, (_, i) => `const a${i} = ${i};`))}</div>`,
+    ]) {
+      const parts = carouselize(cdTag, inner, recipe);
+      assert.ok(parts && parts.length > 1, 'the heading-less run did not split');
+      assert.ok(!parts.some((x) => /\sdata-split-role="cover"/.test(x)), 'a coverless run grew a cover');
+      const ids = parts.join('').match(/\sid="c1"/g) || [];
+      assert.equal(ids.length, 1, `the heading-less run emitted ${ids.length} ids`);
+      assert.match(parts[0], /\sid="c1"/, 'the id did not land on the first page');
+    }
   });
 });
 
@@ -696,6 +976,14 @@ const mtInner = '<div class="cell-masthead"><div class="masthead-lede">' +
   '<blockquote><p><strong>Theorem.</strong> Every intermediate value is attained.</p></blockquote>' +
   '<blockquote><p><strong>Proof.</strong> Take the supremum of the sublevel set.</p></blockquote>' +
   '</div><div class="cell-footer"><footer>math</footer></div>';
+// `code-cards`'s case is the LINE-RUN seam, not the block seam: the block seam is a plain source
+// slice (the same shape `redline-blocks` already contributes), while the line cut is the one that
+// rewrites a `<pre>`'s contents and so the one both gates should be watching.
+const cdTag2 = '<section data-lattice-slide="1" id="s1" class="code form">';
+const cdInner = '<div class="cell-masthead"><div class="masthead-lede"><h2>The endpoint.</h2></div></div>'
+  + '<div class="cell-stage"><pre><code class="language-js">\n'
+  + Array.from({ length: 25 }, (_, i) => `const a${i} = ${i};`).join('\n')
+  + '\n</code></pre></div>';
 
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
@@ -711,6 +999,7 @@ const STRATEGY_CASES = [
   ['journey-stages', jnTag,             jnInner,         { strategy: 'journey-stages' }],
   ['compare-options', scSection.openTag, scSection.inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }],
   ['math-structures', mtTag,             mtInner,         { strategy: 'math-structures' }],
+  ['code-cards',     cdTag2,            cdInner,         { strategy: 'code-cards', axis: 'line', perPage: 12 }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to
@@ -1492,9 +1781,19 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
     '</div><ul class="roadmap-legend"><li>shipped</li></ul></div></div>' +
     '<footer>F</footer>';
   const split = (...phases) => carouselize(rmTag, innerFor(...phases), { strategy: 'roadmap-horizons' });
+  // A NATIVE-SLICE RUN OPENS ON A COVER (owner's call, 2026-09-13), so the phase pages start at
+  // index 1. Before that a split roadmap opened straight into "Foundation".
+  const cards = (parts) => parts.slice(1);
+
+  test('the run opens on the shared accent cover', () => {
+    const parts = split('Foundation', 'Hardening', 'Scale');
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.match(parts[0], /split-feat-h">The rollout plan\./);
+    assert.doesNotMatch(parts[0], /horizon-card"/);
+  });
 
   test('one page per phase while inside the budget', () => {
-    const parts = split('Foundation', 'Hardening', 'Scale');
+    const parts = cards(split('Foundation', 'Hardening', 'Scale'));
     assert.equal(parts.length, 3);
     assert.ok(parts.every((p) => (p.match(/horizon-card"/g) || []).length === 1));
     assert.match(parts[0], /horizon-title">Foundation</);
@@ -1509,8 +1808,8 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
     // page reads best" — and then paid it away to stay under the cap.
     for (let n = 2; n <= 16; n += 1) {
       const phases = Array.from({ length: n }, (_, i) => `P${i + 1}`);
-      const parts = split(...phases);
-      assert.equal(parts.length, n, `${n} phases must produce ${n} pages`);
+      const parts = cards(split(...phases));
+      assert.equal(parts.length, n, `${n} phases must produce ${n} body pages`);
       assert.ok(parts.every((p) => (p.match(/horizon-card"/g) || []).length === 1),
         `${n} phases: a page carried more than one card`);
       // Conservation: every phase appears exactly once across the run.
@@ -1522,17 +1821,19 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
 
   test('pages are balanced — no page carries 2+ more cards than another', () => {
     for (let n = 2; n <= 16; n += 1) {
-      const parts = split(...Array.from({ length: n }, (_, i) => `P${i + 1}`));
+      const parts = cards(split(...Array.from({ length: n }, (_, i) => `P${i + 1}`)));
       const counts = parts.map((p) => (p.match(/horizon-card"/g) || []).length);
       assert.ok(Math.max(...counts) - Math.min(...counts) <= 1,
         `${n} phases split unevenly: ${counts.join('+')}`);
     }
   });
 
-  test('the chart-header repeats; the first keeps the id, later pages are (cont.) + id-less', () => {
-    const parts = split('A', 'B', 'C');
+  test('the chart-header repeats; the COVER keeps the id, later pages are (cont.) + id-less', () => {
+    const all = split('A', 'B', 'C');
+    const parts = cards(all);
     assert.ok(parts.every((p) => /The rollout plan\./.test(p)));
-    assert.equal(parts.filter((p) => /\sid="r1"/.test(p)).length, 1);
+    assert.equal(all.filter((p) => /\sid="r1"/.test(p)).length, 1);
+    assert.match(all[0], /\sid="r1"/);
     assert.doesNotMatch(parts[0], /lat-cont/);
     assert.ok(parts.slice(1).every((p) => /lat-cont/.test(p) && /lat-split-native/.test(p)));
   });
@@ -1565,8 +1866,11 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
 // So the negative is pinned here, from the same engine-derived fixture as the positive.
 describe('core: carousel — journey-stages splits the vertical stack and never the grid', () => {
   test('portrait: one page per stage, and the stage bands survive the cut', () => {
-    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
-    assert.ok(Array.isArray(parts), 'portrait journey did not split');
+    const all = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    assert.ok(Array.isArray(all), 'portrait journey did not split');
+    // The run opens on the shared accent cover (owner's call, 2026-09-13); the stages follow.
+    assert.match(all[0], /data-split-role="cover"/);
+    const parts = all.slice(1);
     assert.equal(parts.length, 3, `expected one page per authored stage, got ${parts.length}`);
     for (const [i, p] of parts.entries()) {
       assert.equal((p.match(/class="journey-vstage"/g) || []).length, 1,
@@ -1591,7 +1895,10 @@ describe('core: carousel — journey-stages splits the vertical stack and never 
   });
 
   test('portrait: both legends ride every page — a mood face without its key is unreadable', () => {
-    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    // BODY pages. The cover shows no mood faces, so it needs no key; every page that draws one
+    // must carry both legends, which is what this has always been about.
+    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey')
+      .filter((p) => /\sdata-split-role="body"/.test(p));
     for (const [i, p] of parts.entries()) {
       assert.ok(/journey-legend/.test(p), `page ${i + 1} lost the actor legend`);
       assert.ok(/journey-mood-legend/.test(p), `page ${i + 1} lost the mood key`);
@@ -1654,10 +1961,11 @@ describe('core: carousel — a native slice stamps the member it carries', () =>
       + buildKanbanBoard(
         '<li>The "big" lane<ul><li>one</li></ul></li><li>Second<ul><li>two</li></ul></li>')
       + '</div>';
-    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
-    const raw = (parts[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
+    const body = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban')
+      .filter((p) => /\sdata-split-role="body"/.test(p));
+    const raw = (body[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
     assert.equal(raw, 'The &quot;big&quot; lane', 'an unescaped quote would end the attribute early');
-    assert.ok(!/data-split-label="[^"]*"[^>]*big/.test(parts[0]), 'title text leaked outside the attribute');
+    assert.ok(!/data-split-label="[^"]*"[^>]*big/.test(body[0]), 'title text leaked outside the attribute');
   });
 
   // FOUND BY THE INDEPENDENT CHECKER. The extractor matched `([\\s\\S]*?)</[a-z0-9]+>` — lazy, and
@@ -1687,8 +1995,9 @@ describe('core: carousel — a native slice stamps the member it carries', () =>
     const inner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">'
       + buildKanbanBoard('<li>Ops &amp; IT<ul><li>a</li></ul></li><li>Second<ul><li>b</li></ul></li>')
       + '</div>';
-    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
-    const raw = (parts[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
+    const body = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban')
+      .filter((p) => /\sdata-split-role="body"/.test(p));
+    const raw = (body[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
     assert.equal(raw, 'Ops &amp; IT', 'stored double-escaped — one decode on read yields `&amp;`');
   });
 

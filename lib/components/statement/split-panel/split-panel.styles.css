@@ -603,3 +603,64 @@ section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .
  * checking why the header is not inverse here should find the answer at the header rule. */
 section.split-panel:is(.metric, .steps) :is(header, footer),
 section.split-panel.mirror :is(header, footer) { color: var(--marp-slide-header-color, var(--text-muted)); }
+
+/* ── AUTO-SPLIT: the categorical tint follows the run ──────────────────────────
+ *
+ * `cat-1…cat-8` are declared `section.split-panel.cat-N`, and a re-authored split page is
+ * classed `content split-panel-split split-panel-{cover,points} form` — `roleOpenTag` REPLACES
+ * the class attribute and keeps only the canvas axis. So the selector could never match, and a
+ * split `cat-3` slide opened on the plain `--accent` field: all eight variants rendered
+ * identically once split, and the one thing they exist to say was gone. Nothing failed — the
+ * pages were simply the wrong color.
+ *
+ * The modifiers reach the page as `data-split-mods` (lib/core/split-envelope.js `roleOpenTag`),
+ * an attribute rather than classes, so opting in here cannot collide with any other selector in
+ * the bundle. What is set is the same THREE custom properties `section.split-panel.cat-N` sets —
+ * the recipe below them is untouched and shared, so this is the tint being reused rather than
+ * re-authored.
+ *
+ * `--cat-on-fill` for every text run, for the reason the panel's own block gives at length: it
+ * is the one ink the categorical token contract guarantees against any `--cat-N-fill` (>= 4.5:1,
+ * gated by checkCatContrast). `--cat-N-mark` is a STROKE token and is used for rules only. */
+section.split-panel-split[data-split-mods~="cat-1"] { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); --panel-label-ink: var(--cat-1-ink, var(--cat-1-mark)); }
+section.split-panel-split[data-split-mods~="cat-2"] { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); --panel-label-ink: var(--cat-2-ink, var(--cat-2-mark)); }
+section.split-panel-split[data-split-mods~="cat-3"] { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); --panel-label-ink: var(--cat-3-ink, var(--cat-3-mark)); }
+section.split-panel-split[data-split-mods~="cat-4"] { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); --panel-label-ink: var(--cat-4-ink, var(--cat-4-mark)); }
+section.split-panel-split[data-split-mods~="cat-5"] { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); --panel-label-ink: var(--cat-5-ink, var(--cat-5-mark)); }
+section.split-panel-split[data-split-mods~="cat-6"] { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); --panel-label-ink: var(--cat-6-ink, var(--cat-6-mark)); }
+section.split-panel-split[data-split-mods~="cat-7"] { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); --panel-label-ink: var(--cat-7-ink, var(--cat-7-mark)); }
+section.split-panel-split[data-split-mods~="cat-8"] { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); --panel-label-ink: var(--cat-8-ink, var(--cat-8-mark)); }
+/* The cover IS the panel on a split run — it is the feature's own page — so the tint paints the
+ * whole field, exactly as `.panel-left` takes it on an unsplit slide. */
+section.split-panel-cover:is(
+  [data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"],
+  [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) {
+  background: var(--panel-fill);
+  color: var(--cat-on-fill);
+}
+section.split-panel-cover:is(
+  [data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"],
+  [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) :is(.split-feat-h, .split-feat-eye, .split-feat-lede, .split-cover-lead) {
+  color: var(--cat-on-fill);
+}
+/* The point pages keep the canvas and take the category on their RULE and their label ink —
+ * the same two channels `.panel-right` uses on an unsplit slide, so a run reads as one
+ * category rather than a tinted cover followed by neutral pages. */
+section.split-panel-points:is(
+  [data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"],
+  [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) .split-pts > li {
+  border-left-color: var(--panel-mark);
+}
+
+/* ── THE COVERLESS SPLIT PAGE'S WAYFINDING CHROME LIVES IN ITS OWN CHANGE ─────────────────
+ *
+ * `pullquote` carries no `<h2>`, so it takes the native split path and its body pages are
+ * coverless. Those pages would carry a forward pointer and a k-of-N rail — but the pointer is a
+ * flex ITEM of the panel row, so in flow at a row size it becomes a third COLUMN and squeezes
+ * `.panel-right` from 450.9px to 252.7px, running off the slide with the section flagged
+ * `overflow`. Placing it, reserving the band it lands in, and inking the rail for whichever
+ * field holds the corner is a self-contained piece of work with its own measured residual, so
+ * `applyRelationshipSignals` does not emit the pointer on these pages and this file styles
+ * nothing for them. See the decision record; the chrome follows in its own PR. */
+
+

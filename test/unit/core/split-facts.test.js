@@ -58,7 +58,12 @@ describe('core: splitFactsFor — mirrors what the split registry actually reads
 
 describe('core: treatmentViolations — the invariants prose cannot enforce', () => {
   test('an atomic/graphic/anchor/asset component that opts into splitting FAILS', () => {
-    for (const [name, treatment] of [['matrix-2x2', 'atomic'], ['funnel', 'graphic'], ['title', 'anchor'], ['image', 'asset']]) {
+    // `big-number` is the atomic fixture, NOT `matrix-2x2`, and the swap is worth a line: this
+    // arm used matrix-2x2 until 2026-09-13, when the owner moved it to `read-across`. The arm
+    // then still failed — on the read-across message instead of the atomic one — which is the
+    // right outcome for a fixture that named a live placement. A fixture drawn from the real
+    // catalog tracks the catalog; pick one whose placement the change under test is not about.
+    for (const [name, treatment] of [['big-number', 'atomic'], ['funnel', 'graphic'], ['title', 'anchor'], ['image', 'asset']]) {
       const m = { name, adapt: { capacity: { axis: 'item' } } };
       const v = treatmentViolations(m, splitFactsFor(m));
       assert.equal(v.length, 1, `${name} (${treatment}) must be flagged`);
