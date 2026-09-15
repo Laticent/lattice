@@ -47,7 +47,20 @@ const versionedRoots = [
   join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'playground', 'v'),
 ];
 
-/** @returns {string} the content-hash dir name sync created, or '' if none. */
+/**
+ * ONE DIR IS AN INVARIANT HERE, NOT AN ACCIDENT TO LEAN ON. `dirs[0]` is `readdirSync`
+ * order, which is not creation order — it is the right answer only because
+ * `sync-playground-assets.mjs` deletes the whole `v/` tree each run, so exactly one dir
+ * ever exists. Measured with four dirs present, this filesystem returned them
+ * lexicographically, which is worse than random rather than better: hash names are
+ * content-derived, so `dirs[0]` is reliably the LOWEST hash — deterministically a stale
+ * one most of the time. Anything that starts retaining previous hash dirs must make the
+ * current hash explicit (a pointer file sync writes) before touching that script, or
+ * every page bakes an arbitrary hash. Measured, and costed with the retention options,
+ * in engineering/decisions/2026-09-15-playground-asset-retention.md.
+ *
+ * @returns {string} the content-hash dir name sync created, or '' if none.
+ */
 export function assetVersion() {
   for (const root of versionedRoots) {
     try {

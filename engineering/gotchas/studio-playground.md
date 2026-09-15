@@ -1444,3 +1444,42 @@ never turn "passed in headless" into "works on iOS."
   the project cannot see this class. Sweep the ROOT font size instead.
 - **Removable when** — never; it is a property of mixing `rem` minimums with a capped
   container. Any new row in a panel inherits it.
+
+## A long-lived tab 404s on the next asset it fetches after a deploy
+
+- **Symptom** — a Playground tab that has been open for a while suddenly fails on
+  something it did not need until now. The reported instance: switching palette raises
+  `theme crepuscolo (404)` and the palette never applies, no matter how many times you
+  switch away and back. A reload fixes it. A freshly-opened tab never shows it, which
+  is why it reads as random.
+- **Cause** — a deploy landed while the tab was open. `sync-playground-assets.mjs`
+  deletes the **whole** `public/playground/v/` tree before staging, so a deploy
+  publishes exactly one content-hash directory and every predecessor stops existing at
+  the origin. The page baked its hash in at build time (`asset-version.mjs`), so it is
+  still asking the old directory for things. What breaks is any request that **reaches
+  the network** under the old hash. Anything already loaded and parsed is in memory and
+  unaffected, and anything still in the service worker's cache is served from there with
+  no network call (versioned assets are cache-first) — so the casualty is a **lazily**
+  fetched asset the tab had not needed yet. Theme CSS is fetched per palette on first
+  use (`docs/src/lib/theme-fetch.ts`), so switching to a palette this tab has never
+  selected is the common one: a palette error for a problem that has nothing to do with
+  palettes. Measured across a simulated deploy: all six probed assets under the previous
+  hash return 404.
+- **Why it never recovers** — `theme-fetch.ts` caches a 404 **negatively**, on purpose:
+  many palettes ship no `-dark` companion and `ensure(dark)` fetches it with a
+  swallowing `.catch`, so retrying that 404 on every render would be waste. The side
+  effect here is that one 404 pins the palette as broken for the life of the page.
+- **Mitigation** — reload the tab. There is no in-page recovery today. Whether a deploy
+  should retain the previous N hash directories, or the fetcher should recognize a stale
+  base and re-resolve it, is costed but **not decided** in
+  `engineering/decisions/2026-09-15-playground-asset-retention.md`.
+- **The service worker is a second, rarer route to the same 404.** It is not needed to
+  produce this — a tab with nothing cached fails identically — but its version eviction
+  can turn a warm-cache asset that WOULD have survived into a miss: the "current" hash is
+  whichever `put()` saw most recently, so a second tab on the new deploy caching the same
+  asset drops the straddling tab's copy. That copy cannot come back; the origin deleted
+  the directory. The comment there used to claim the opposite ("its evicted hash is a
+  miss → re-fetched") and is corrected in place.
+- **Triggered by** — any deploy, for every page open at that moment. The window re-opens
+  on every deploy, so frequency scales with release cadence, not with anything in the code.
+- **Removable when** — a retention or recovery option above is chosen and shipped.
