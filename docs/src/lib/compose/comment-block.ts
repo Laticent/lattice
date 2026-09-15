@@ -26,15 +26,36 @@ import type { NodeSpec } from 'prosemirror-model';
 // as ONE token whatever its internal shape, the node carries the source bytes verbatim, and the
 // serializer writes them back unchanged — so there is no reflow to get wrong.
 
-/** A well-formed, self-contained HTML comment: opens once, closes once, closes at the END.
+/** A well-formed, self-contained HTML comment: opens once, closes once, closes at the END — where
+ *  "closes" means what a BROWSER means by it, not what the obvious regex means.
  *
- *  This is the CLIPBOARD gate, and it is the same reasoning as `DIRECTIVE_SHAPE` in deck-doc —
- *  a comment node's text is written into the deck source VERBATIM, so text arriving from a page
- *  the author does not control is an injection vector, not content. `<!-- --><script>…</script><!-- -->`
- *  is a single string that passes a naive "starts with `<!--`, ends with `-->`" check and lands
- *  live markup in the export. Requiring that no `-->` appear before the final one makes the node
- *  incapable of carrying anything but one inert comment. */
-const COMMENT_SHAPE = /^<!--(?:(?!-->)[\s\S])*-->$/;
+ *  This is the CLIPBOARD gate, and it is the same reasoning as `DIRECTIVE_SHAPE` in deck-doc — a
+ *  comment node's text is written into the deck source VERBATIM, so text arriving from a page the
+ *  author does not control is an injection vector, not content. `<!-- --><script>…</script><!-- -->`
+ *  is one string that passes a naive "starts with `<!--`, ends with `-->`" check and lands live
+ *  markup in the export.
+ *
+ *  BANNING ONLY `-->` IS NOT ENOUGH, and the first version of this gate did exactly that. The HTML
+ *  spec ends a comment on THREE more conditions, and a real Chromium honors all of them — measured,
+ *  by rendering each payload through the engine's own markdown-it config and counting the elements
+ *  that came out:
+ *
+ *    <!-- a --!><img src=x onerror=…><!-- b -->    "incorrectly closed comment": `--!>` ends it
+ *    <!-->      <img …><!-- b -->                  "abrupt closing": `<!--` then `>`
+ *    <!--->     <img …><!-- b -->                  "abrupt closing": `<!--` then `->`
+ *
+ *  All three passed the `-->`-only gate, and all three put a LIVE `<img>` in the document with its
+ *  `onerror` running. They are why this pattern carries two lookaheads rather than one: `(?!>|->)`
+ *  refuses the abrupt forms, and `(?!--!?>)` refuses both real terminators. A plain `--` inside a
+ *  comment is still fine (parsers accept it), so `<!-- a -- b -->` is not collateral damage.
+ *
+ *  CodeQL's `js/bad-tag-filter` is what surfaced this, on the PR that introduced the gate, and its
+ *  premise is the durable lesson: a regex that models HTML parsing will miss a spec case. So each
+ *  payload above is pinned as a REJECTION in `comment-block.test.ts` — that is the arm that runs on
+ *  every PR. What those tests cannot do is re-derive the browser behavior that makes the payloads
+ *  dangerous; that was measured once, against a real Chromium, and a new spec case would need the
+ *  same measurement rather than a guess at this pattern. */
+const COMMENT_SHAPE = /^<!--(?!>|->)(?:(?!--!?>)[\s\S])*-->$/;
 
 /** Whether a string is exactly one inert HTML comment (see COMMENT_SHAPE). */
 export function isWellFormedComment(text: string): boolean {

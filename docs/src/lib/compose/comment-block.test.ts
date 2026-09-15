@@ -133,6 +133,27 @@ describe('the clipboard shape gate', () => {
 		expect(isWellFormedComment('<!-- a --><img src=x onerror=1><!-- b -->')).toBe(false);
 	});
 
+	// The three comment-end conditions BEYOND `-->`. Every one of these passed the gate's first
+	// version and put a LIVE `<img>` in the document with its `onerror` running — measured through
+	// the engine's own markdown-it config into a real Chromium, which is what CodeQL's
+	// `js/bad-tag-filter` alert on this PR was pointing at. They are the reason the pattern carries
+	// two lookaheads; if one is ever "simplified" away, these go red.
+	it('REJECTS an incorrectly-closed comment (`--!>` ends a comment too)', () => {
+		expect(isWellFormedComment('<!-- a --!><img src=x onerror=1><!-- b -->')).toBe(false);
+		expect(isWellFormedComment('<!-- a\n--!><img src=x onerror=1><!-- b -->')).toBe(false);
+	});
+
+	it('REJECTS the abrupt-closing forms (`<!-->` and `<!--->` are complete comments)', () => {
+		expect(isWellFormedComment('<!--><img src=x onerror=1><!-- b -->')).toBe(false);
+		expect(isWellFormedComment('<!---><img src=x onerror=1><!-- b -->')).toBe(false);
+	});
+
+	it('still accepts a plain `--` inside a comment — parsers do, so this is not collateral damage', () => {
+		expect(isWellFormedComment('<!-- a -- b - c -->')).toBe(true);
+		expect(isWellFormedComment('<!-- a > b -->')).toBe(true);
+		expect(isWellFormedComment('<!-- a <!-- b -->')).toBe(true);
+	});
+
 	it('REJECTS anything that is not exactly one comment', () => {
 		for (const bad of ['plain text', '<!-- unterminated', 'trailing --> only', '<!-- a --> tail', 'head <!-- a -->', '']) {
 			expect(isWellFormedComment(bad)).toBe(false);

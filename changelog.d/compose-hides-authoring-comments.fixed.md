@@ -7,7 +7,10 @@
   across 7 shipped decks were exposed. Comments are now a schema node carrying their source bytes
   verbatim: Compose shows a quiet `note` chip that expands to the text read-only, and the round-trip
   is byte-exact whatever shape the comment is in. Removal is a deliberate two-step inside the opened
-  panel — reading a note can never delete it.
+  panel — reading a note can never delete it. A comment pasted from outside the editor is admitted
+  only if it is one self-contained, inert comment: the check refuses every way the HTML parser can
+  end a comment early (`-->`, `--!>`, and the abrupt `<!-->` / `<!--->` forms), so pasted text cannot
+  smuggle live markup into the deck source and from there into an export.
 - **Fixed: a trailing note no longer mislabels the block above it in Compose.** The engine renders a
   comment as an HTML comment node, which CSS `:last-child` and `+` look straight through, so a
   key-insight blockquote followed by a note is still the slide's last element. Compose's register
