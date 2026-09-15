@@ -191,6 +191,21 @@ describe('the comment CHANNEL drives the pill label, never the bytes', () => {
 		expect(commentText('<!-- a plain note -->')).toBe('a plain note');
 	});
 
+	it('shows nothing for a DASH-ONLY comment, as the engine does', () => {
+		// `<!---->` is a node `deckToDoc` really produces. Two sequential replaces cannot backtrack
+		// the way the engine's single `<!--+([\s\S]*?)--+!?>` does, so a greedy `^<!--+` ate the
+		// dashes the closer needed and the panel showed a literal `>`.
+		expect(commentText('<!---->')).toBe('');
+		expect(commentText('<!----->')).toBe('');
+		expect(commentText('<!--->')).toBe('');
+		expect(commentText('<!---->')).not.toContain('>');
+	});
+
+	it('leaves a body that legitimately begins or ends with a dash alone', () => {
+		expect(commentText('<!-- - a leading dash -->')).toBe('- a leading dash');
+		expect(commentText('<!-- a trailing dash - -->')).toBe('a trailing dash -');
+	});
+
 	it('strips extra dashes on both ends, as the engine does', () => {
 		// The engine's own comment source is `<!--+([\s\S]*?)--+!?>`, so `<!--- x --->` is a comment
 		// too. Stripping exactly two dashes left the extras in the words the author reads.

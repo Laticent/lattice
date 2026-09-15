@@ -8,7 +8,7 @@
   verbatim. The COMMENT'S OWN BYTES survive whatever shape it is in — internal line breaks, hanging
   indent and all. Its surrounding blank line is normalized like any other block's, so a comment
   written tight against a paragraph gains one on the next edit to that slide; that changes the
-  source, never the render.
+  source, never the render, and it affects a handful of shipped decks.
 - **Added: a run of comments reads as one control.** Adjacent comments — a `caption:`, a
   `describe:` and a note all belong to the same slide — show as pills on a single row, labeled by
   CHANNEL rather than all called "note", with exactly one open at a time and its words in a shared

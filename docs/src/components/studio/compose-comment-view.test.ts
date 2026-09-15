@@ -291,6 +291,30 @@ describe('a comment nested in a blockquote is a first-class pill', () => {
 		expect(v.state.doc.textContent).toContain('quoted');
 	});
 
+	it('removing a blockquote’s ONLY comment takes the emptied quote with it', () => {
+		// A plain `tr.delete` left the blockquote behind (ProseMirror fills it with an empty
+		// paragraph), so the author got a bare `> ` line they never wrote. Newly reachable in this
+		// design, because a nested comment had no Remove control before it.
+		const v = mount(['<!-- _class: content -->', '', '## H', '', '> <!-- lonely -->', '', 'after'].join('\n'));
+		pills()[0].click();
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(commentCount(v)).toBe(0);
+		let quotes = 0;
+		v.state.doc.descendants((n) => {
+			if (n.type.name === 'blockquote') quotes++;
+		});
+		expect(quotes).toBe(0);
+		expect(v.state.doc.textContent).toContain('after');
+	});
+
+	it('but a blockquote with real content survives the removal', () => {
+		const v = mount(['<!-- _class: content -->', '', '> quoted', '>', '> <!-- inner -->'].join('\n'));
+		pills()[0].click();
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(commentCount(v)).toBe(0);
+		expect(v.state.doc.textContent).toContain('quoted');
+	});
+
 	it('does not merge a nested run with a comment outside the blockquote', () => {
 		mount(['<!-- _class: content -->', '', '> quoted', '>', '> <!-- inner -->', '', '<!-- outer -->'].join('\n'));
 		expect(pills()).toHaveLength(2);
@@ -304,6 +328,14 @@ describe('the panel lays the note out for reading', () => {
 		mount(['<!-- _class: content -->', '', '## H', '', '<!-- one wrapped', '     line here.', '', '     And a second paragraph. -->'].join('\n'));
 		pills()[0].click();
 		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('one wrapped line here.\n\nAnd a second paragraph.');
+	});
+
+	it('keeps a NESTED list’s shape, not just its breaks', () => {
+		// Trimming every line flattened the nesting: `- a` / `  - b` / `    - c` all came out flush.
+		// Strip the COMMON indent, keep the relative one.
+		mount(['<!-- _class: content -->', '', '## H', '', '<!-- plan:', '- a', '  - b', '    - c -->'].join('\n'));
+		pills()[0].click();
+		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('plan:\n- a\n  - b\n    - c');
 	});
 
 	it('keeps the line breaks of a LIST-shaped note', () => {
@@ -331,6 +363,54 @@ describe('the row announces itself as the tab bar it is', () => {
 		const controls = pills()[0].getAttribute('aria-controls');
 		expect(controls).toBeTruthy();
 		expect(document.getElementById(controls as string)).not.toBeNull();
+	});
+
+	// THE ARM THAT WAS MISSING, and its absence is the lesson. The version above asserted the id
+	// resolved AT MOUNT — certifying precisely the property that stopped holding one keystroke
+	// later, because the id embedded a document position while `render()` only re-runs when the
+	// node or its decorations change, not when the node merely shifts.
+	it('keeps aria-controls resolvable after an edit MOVES the comment', () => {
+		const v = mount(['<!-- _class: content -->', '', 'lead paragraph', '', '<!-- a note -->'].join('\n'));
+		pills()[0].click();
+		expect(document.getElementById(pills()[0].getAttribute('aria-controls') as string)).not.toBeNull();
+		// Type into the paragraph above, shifting every position after it.
+		v.dispatch(v.state.tr.insertText('xyz', 3));
+		expect(pills()[0].getAttribute('aria-expanded')).toBe('true');
+		const controls = pills()[0].getAttribute('aria-controls');
+		expect(controls).toBeTruthy();
+		expect(document.getElementById(controls as string)).not.toBeNull();
+	});
+
+	it('and after a SIBLING comment is deleted', () => {
+		const v = mount();
+		pills()[2].click();
+		let first = -1;
+		v.state.doc.descendants((node, p) => {
+			if (first < 0 && node.type.name === 'comment') first = p;
+		});
+		const n = v.state.doc.nodeAt(first) as never as { nodeSize: number };
+		v.dispatch(v.state.tr.delete(first, first + n.nodeSize));
+		const open = pills().find((p) => p.getAttribute('aria-expanded') === 'true');
+		expect(open).toBeTruthy();
+		expect(document.getElementById(open?.getAttribute('aria-controls') as string)).not.toBeNull();
+	});
+
+	it('claims no aria-controls while closed, so it never points at nothing', () => {
+		mount();
+		expect(pills()[0].getAttribute('aria-controls')).toBeNull();
+		pills()[0].click();
+		expect(pills()[0].getAttribute('aria-controls')).toBeTruthy();
+		pills()[0].click();
+		expect(pills()[0].getAttribute('aria-controls')).toBeNull();
+	});
+
+	it('never says "note" on a channel that is not one', () => {
+		// Only a screen-reader user met this: the visible chip said "caption" while the accessible
+		// name ended "— authoring note", which is the word the whole feature exists to stop using.
+		mount();
+		expect(pills()[0].getAttribute('aria-label')).not.toMatch(/note/);
+		pills()[0].click();
+		expect(panels()[0].getAttribute('aria-label')).toBe('caption');
 	});
 
 	it('marks the panel as a labeled region', () => {

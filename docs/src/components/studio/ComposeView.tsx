@@ -820,6 +820,10 @@ function commentRuns(doc: PMNode) {
  *  "note" mislabels what the author is looking at. */
 const KIND_LABEL: Record<CommentKind, string> = { caption: 'caption', describe: 'describe', note: 'note' };
 
+/** The open panel's id. Constant because exactly one panel is open at a time — see the note in
+ *  `buildCommentPanel` on why a position-derived id could not stay correct. */
+const COMMENT_PANEL_ID = 'cs-comment-panel';
+
 /** A note's words, laid out for reading rather than as the author's editor happened to wrap them.
  *
  *  PARAGRAPHS are meaning, so blank lines survive. Within a paragraph, WRAPPED lines are joined —
@@ -835,9 +839,16 @@ function readableNote(text: string): string {
 	return commentText(text)
 		.split(/\n[ \t]*\n/)
 		.map((para) => {
-			const lines = para.split('\n').map((l) => l.trim());
-			if (lines.some((l) => LIST_LINE.test(l))) return lines.filter(Boolean).join('\n');
-			return lines.join(' ').replace(/\s+/g, ' ').trim();
+			const raw = para.split('\n').map((l) => l.replace(/\s+$/, ''));
+			if (raw.some((l) => LIST_LINE.test(l))) {
+				// A LIST keeps its breaks AND its shape. Trimming each line flattened a nested list
+				// (`- a` / `  - b` / `    - c` all came out flush), so strip only the COMMON indent
+				// and leave the relative one.
+				const present = raw.filter((l) => l.trim());
+				const strip = present.length ? Math.min(...present.map((l) => (l.match(/^[ \t]*/) as RegExpMatchArray)[0].length)) : 0;
+				return present.map((l) => l.slice(strip)).join('\n');
+			}
+			return raw.join(' ').replace(/\s+/g, ' ').trim();
 		})
 		.filter(Boolean)
 		.join('\n\n');
@@ -850,14 +861,26 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	const wrap = document.createElement('div');
 	wrap.className = 'cs-comment-panel';
 	wrap.contentEditable = 'false';
-	// The row is a tab bar, so it should announce as one. Without this a screen reader met three
-	// unlabeled buttons and a region with no relationship to any of them.
+	// A DISCLOSURE, not a tab bar — an earlier comment here said "tab bar" while the code built a
+	// region, and only one of those can be true. The pills toggle one shared panel, which is what
+	// `aria-expanded` on the pill plus a labeled region here describes. (It looks like a tab bar; it
+	// does not behave like one — no roving focus, no arrow-key cycle — so claiming `tablist` would
+	// promise keyboard behavior that is not implemented.)
 	wrap.setAttribute('role', 'region');
-	wrap.setAttribute('aria-label', `${KIND_LABEL[commentKind(node.attrs.text as string)]} — authoring note`);
+	// Named for its CHANNEL alone. The label used to end "— authoring note", which put the word this
+	// feature exists to stop using back on the caption and describe channels, where only a
+	// screen-reader user would ever meet it.
+	wrap.setAttribute('aria-label', KIND_LABEL[commentKind(node.attrs.text as string)]);
 
 	const body = document.createElement('div');
 	body.className = 'cs-comment-body';
-	body.id = `cs-comment-panel-${pos}`;
+	// A CONSTANT id, because exactly one panel is open at a time. It used to embed `pos`, which moves
+	// on every edit — and `render()` only re-runs when the node or its decorations change, not when
+	// the node merely shifts. So after three keystrokes in a paragraph above, the pill still pointed
+	// `aria-controls` at `cs-comment-panel-7` while the panel had become `cs-comment-panel-10`:
+	// `aria-expanded="true"` aimed at nothing. The shipped test asserted the id resolved AT MOUNT,
+	// certifying precisely the property that stops holding.
+	body.id = COMMENT_PANEL_ID;
 	body.textContent = readableNote(node.attrs.text as string);
 	wrap.append(body);
 
@@ -878,7 +901,11 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 		remove.addEventListener('click', () => {
 			const n = view.state.doc.nodeAt(pos);
 			if (!n || n.type.name !== 'comment') return; // stale decoration — the doc moved under us
-			view.dispatch(view.state.tr.delete(pos, pos + n.nodeSize).setMeta(commentOpenKey, { open: null }));
+			// deleteRange, NOT delete: when the comment is a blockquote's only child, a plain delete
+			// leaves the blockquote behind (ProseMirror fills it with an empty paragraph) and the
+			// author gets a bare `> ` line they never wrote. deleteRange lifts the parent that became
+			// empty. Newly reachable in this design, because a nested comment had no Remove before it.
+			view.dispatch(view.state.tr.deleteRange(pos, pos + n.nodeSize).setMeta(commentOpenKey, { open: null }));
 			view.focus();
 		});
 	}
@@ -916,7 +943,12 @@ export function commentRunPlugin() {
 						if (k === 0) cls.push('cs-comment-first');
 						if (k === run.nodes.length - 1) cls.push('cs-comment-last');
 						if (pos === open) cls.push('cs-comment-open');
-						decos.push(Decoration.node(pos, pos + node.nodeSize, { class: cls.join(' ') }));
+						// ARIA rides the DECORATION so it is recomputed from state every transaction.
+						// `aria-controls` is set ONLY on the open pill: pointing at an id that does not
+						// exist while the panel is closed is what axe's aria-valid-attr-value flags.
+						const attrs: Record<string, string> = { class: cls.join(' '), 'aria-expanded': String(pos === open) };
+						if (pos === open) attrs['aria-controls'] = COMMENT_PANEL_ID;
+						decos.push(Decoration.node(pos, pos + node.nodeSize, attrs));
 					});
 					if (openIdx >= 0) {
 						const node = run.nodes[openIdx];
@@ -988,11 +1020,11 @@ export class CommentView {
 		// The pill NAMES a channel; it does not read the note out. Putting the whole body in the
 		// accessible name made a screen reader announce the entire note as the button's label and
 		// then again when the panel opened.
-		this.dom.setAttribute('aria-label', `${KIND_LABEL[kind]} — show this authoring note`);
-		const pos = this.getPos();
-		const isOpen = pos !== undefined && commentOpenKey.getState(this.view.state) === pos;
-		this.dom.setAttribute('aria-expanded', String(isOpen));
-		if (pos !== undefined) this.dom.setAttribute('aria-controls', `cs-comment-panel-${pos}`);
+		this.dom.setAttribute('aria-label', `show the ${KIND_LABEL[kind]}`);
+		// `aria-expanded` and `aria-controls` are NOT set here. They are decoration attributes (see
+		// commentRunPlugin), because decorations are recomputed from state on every transaction while
+		// this view is only updated when its node or decorations change — which is how the old
+		// position-derived `aria-controls` went stale after a single keystroke.
 	}
 
 	update(node: PMNode) {

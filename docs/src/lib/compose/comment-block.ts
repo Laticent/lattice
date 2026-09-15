@@ -31,11 +31,18 @@ import { CLIP_ORIGIN } from './clip-origin';
 // WHAT "VERBATIM" DOES AND DOES NOT COVER. The comment's own bytes are exact: internal line breaks,
 // hanging indent, odd dash counts, all of it. Its BLOCK SEPARATION is normalized, because
 // `closeBlock` emits a blank line the way it does for every other block — so `A para\n<!-- n -->`
-// re-emits as `A para\n\n<!-- n -->` once that slide is edited. That is 7 places across 3 shipped
-// decks, it is render-neutral (a comment is invisible either way, and the html_block boundaries do
-// not move), and it is the same normalization `initBaseline` already documents for inter-slide
-// separators. Worth stating because an earlier draft claimed the round-trip was "byte-exact
-// whatever shape the comment is in", which is true of the comment and false of the gap beside it.
+// re-emits as `A para\n\n<!-- n -->` once that slide is edited. It is render-neutral (a comment is
+// invisible either way, and the html_block boundaries do not move), and it is the same
+// normalization `initBaseline` already documents for inter-slide separators.
+//
+// A COUNT IS DELIBERATELY NOT STATED HERE, and that is the second correction this paragraph has
+// taken. It first claimed the round-trip was "byte-exact whatever shape the comment is in" — true
+// of the comment, false of the gap beside it. It then said "7 places across 3 shipped decks", a
+// number that did not reproduce: a round-trip measure gives 7 across 2 decks, a looser source scan
+// 11 across 5, and counting container-nested comments 13 across 7. They are all defensible and
+// they are all different, so the figure means nothing without its method. Re-derive the one you
+// want rather than trusting a number here — parse and re-serialize each deck with
+// `docToDeck(deckToDoc(src))` and diff, and say which shapes you counted.
 
 /** A well-formed, self-contained HTML comment: opens once, closes once, closes at the END — where
  *  "closes" means what a BROWSER means by it, not what the obvious regex means.
@@ -97,7 +104,7 @@ export function readCommentText(raw: string | null, origin?: string | null): { t
 }
 
 // ── What CHANNEL is this comment on? ─────────────────────────────────────────
-// Not every `<!-- … -->` is a speaker note, and labelling them all "note" is wrong on the slide's
+// Not every `<!-- … -->` is a speaker note, and labeling them all "note" is wrong on the slide's
 // own terms: `caption:` is the text the slide NARRATES and `describe:` is its WCAG text
 // alternative — different channels with different sinks, neither a note.
 //
@@ -109,7 +116,7 @@ export function readCommentText(raw: string | null, origin?: string | null): { t
 // regex and a docblock claiming it mirrored the kernel. It did not: measured against the real
 // `notes-core`, it disagreed on 22 of 32 probed bodies IN BOTH DIRECTIONS — missing every real
 // remark pragma (the kernel's is `lint disable`, with a space; the regex had `lint-`), inventing
-// `fit:` and `scrub:` which are not pragmas anywhere in the repo, and labelling ordinary author
+// `fit:` and `scrub:` which are not pragmas anywhere in the repo, and labeling ordinary author
 // prose as machinery ("tier: enterprise customers churn faster", "color-mode: we should discuss
 // the palette" — strings the kernel's own docblock names as the cases its value constraints exist
 // to get right). The kernel needs 15 value-constrained matchers to make that call; a label on a
@@ -117,13 +124,18 @@ export function readCommentText(raw: string | null, origin?: string | null): { t
 // the author wrote — instead of confidently wrong.
 export type CommentKind = 'caption' | 'describe' | 'note';
 
-/** The comment's body — its text with the `<!--` / `-->` fence removed and trimmed. Dash-tolerant
- *  on both ends, matching the engine's own `<!--+([\s\S]*?)--+!?>`: `<!--- x --->` is a comment
- *  too, and stripping exactly two dashes left the extras in the text the author reads. */
+/** The comment's body — its text with the fence removed and trimmed.
+ *
+ *  DASH-TOLERANT ON BOTH ENDS, matching what the engine treats as a comment (`<!--+…--+!?>`):
+ *  `<!--- x --->` is a comment too, and stripping exactly two dashes left the extras in the words
+ *  the author reads. The opener strip is `<!-{2,}` and the closer `-*!?>` so the DASH-ONLY family
+ *  comes out empty rather than as punctuation: an earlier pair of `^<!--+` / `--+!?>$` replaces
+ *  could not backtrack the way one regex does, so `<!---->` — a node `deckToDoc` really produces —
+ *  showed a literal `>`. */
 export function commentBody(text: string): string {
 	return String(text || '')
-		.replace(/^<!--+/, '')
-		.replace(/--+!?>$/, '')
+		.replace(/^<!-{2,}/, '')
+		.replace(/-*!?>$/, '')
 		.trim();
 }
 
@@ -136,13 +148,15 @@ export function commentKind(text: string): CommentKind {
 }
 
 /** The words to SHOW for a comment — its body with the channel prefix stripped, because
- *  "caption: " is the syntax that selects the channel, not part of what the author wrote. */
+ *  "caption: " is the syntax that selects the channel, not part of what the author wrote.
+ *
+ *  The prefix is removed by SHAPE (`word:`) rather than by a second copy of the channel regexes.
+ *  Spelling the matchers out again here meant `commentKind` used the imported predicate while this
+ *  used a local literal — so if the predicate ever widened, the pill would say "caption" and the
+ *  panel would still show `caption:` to the reader. One decision, made once, by the predicate. */
 export function commentText(text: string): string {
 	const body = commentBody(text);
-	const kind = commentKind(text);
-	if (kind === 'caption') return body.replace(/^caption\s*:/i, '').trim();
-	if (kind === 'describe') return body.replace(/^describe\s*:/i, '').trim();
-	return body;
+	return commentKind(text) === 'note' ? body : body.replace(/^[A-Za-z]+\s*:/, '').trim();
 }
 
 /** The `comment` node: a block-level ATOM carrying its source bytes.
