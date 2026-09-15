@@ -405,6 +405,31 @@ quadrant is ~76% of that quadrant in label, which no arrangement fixes — it is
 names and says nothing; the dropped one still rides `data-label`, the popover
 and the speaker note.
 
+**And the render says so.** A drop is the right answer and a silent drop is not:
+an author could publish a chart missing a row and never learn it, precisely
+because nothing is lost from the *artifact* — only from the picture. Two
+mechanisms decline to paint a name (this one, `overlap`, and the category
+gap-cull below, `pitch`), and both report through one channel,
+`_chart-family/label-drops.js`:
+
+- `transformChartSection` opens a sink around each chart's transform, so every
+  mechanism is caught at ONE bracket and a future one needs no second wiring.
+  Outside the bracket a note is a no-op, so no other render path changes.
+- The names ride out on `data-label-drops` on that chart's `.chart-body`, with
+  `data-label-drops-component` naming the member. It is **absent**, not empty,
+  on a chart that dropped nothing — an empty attribute on every healthy chart
+  would be a golden-file diff across the whole corpus for no signal.
+- The CLI prints `⚠ CHART LABELS DROPPED`, naming each lost label and its slide.
+
+**The note is taken on the FINAL result, never inside the search.** `quadrant`
+runs `placeLabels` up to nine times per slide — once per rung of its size ladder
+— and keeps one. Reporting from inside the pass would attribute every rejected
+rung's casualties to the slide that shipped.
+
+The channel measures what ships and changes nothing about it. Our own corpus
+drops nothing (`chart-label-drop-census.test.js`), so no shipped deck prints this
+warning; the shapes that do are pinned in `test/fixtures/chart-label-drops.md`.
+
 Two more properties come out of the same pass, and both are about what a reader
 takes off the finished picture rather than about fitting boxes.
 

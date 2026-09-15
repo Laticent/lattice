@@ -515,6 +515,9 @@ const {
 const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
 const { exportSettingsBlock } = require('./lib/core/export-settings');
 const { readClassAttr } = require('./lib/core/section-walk');
+// The label-drop channel's READER half — same grammar as the writer, one module
+// (lib/components/chart/_chart-family/label-drops.js), so the two cannot drift.
+const { decodeLabelDrops } = require('./lib/components/chart/_chart-family/label-drops');
 const {
   ENGINE_SCRIPT_ATTR,
   INSTALL_AUTHOR_DEFERRAL_PROBE_SRC,
@@ -3733,6 +3736,54 @@ async function renderBody(browser, g, closeBrowser) {
     console.warn(`    First cut on each: ${contentOnly.map((o) => `p${o.slide} "${o.first}"`).join(', ')}.`);
     console.warn('    An ellipsis, a line-clamp or a sheared panel head loses text with no box overflow to see,');
     console.warn('    so the frame check above cannot report it. Shorten the copy or give that box more room.');
+  }
+  // …and the CHART LABELS the family declined to paint. A third question again: the
+  // box fits, nothing is clipped, and the name was never emitted — so neither probe
+  // above can see it. The family drops a name on purpose in two places
+  // (`placeLabels`' hide-overlap, the category gap-cull) and both calls are right:
+  // two overprinted names are not one readable name plus one lost, they are two lost.
+  // What was wrong is that they were SILENT, so an author could publish a chart
+  // missing a row and never learn it (#2171). Nothing is lost from the ARTIFACT — the
+  // name still rides `data-label` on the mark, the mark-detail popover and the
+  // speaker note — which is exactly why the picture can lose it unnoticed.
+  //
+  // The transform stamps `data-label-drops` on the `.chart-body` it builds, so this
+  // reads a fact the render already recorded rather than re-deriving it here. That
+  // matters more than the convenience: a probe that re-measured "how many names SHOULD
+  // be painted" would be a second implementation of the layout's own decision, and it
+  // would disagree with the producer the first time either moved.
+  const labelDrops = await g(() => page.evaluate(() => {
+    const out = [];
+    document.querySelectorAll('section[data-lattice-slide]').forEach((sec, i) => {
+      for (const body of sec.querySelectorAll('[data-label-drops]')) {
+        out.push({
+          slide: i + 1,
+          component: body.getAttribute('data-label-drops-component') || 'chart',
+          raw: body.getAttribute('data-label-drops') || '',
+        });
+      }
+    });
+    return out;
+  }), 'measure chart label drops');
+  if (labelDrops.length) {
+    const decoded = labelDrops.map((d) => ({ ...d, drops: decodeLabelDrops(d.raw) }));
+    const total = decoded.reduce((t, d) => t + d.drops.length, 0);
+    const n = decoded.length;
+    console.warn(`  ⚠ CHART LABELS DROPPED — ${total} name${total > 1 ? 's' : ''} ${total > 1 ? 'are' : 'is'} not painted on ${n} chart${n > 1 ? 's' : ''}: ` +
+      decoded.map((d) => `page ${d.slide} (${d.component})`).join(', ') + '.');
+    // NAME THEM. "3 labels dropped on page 7" sends the author back to count; the
+    // names are the whole point of the channel, and they are what the reader of the
+    // slide will never see. Capped per chart so a twenty-row cull does not bury the
+    // rest of the run — the count above stays exact.
+    for (const d of decoded) {
+      const shown = d.drops.slice(0, 6);
+      const more = d.drops.length - shown.length;
+      console.warn(`    page ${d.slide}: ${shown.map((x) => `"${x.label}" (${x.reason})`).join(', ')}${more > 0 ? `, and ${more} more` : ''}.`);
+    }
+    console.warn('    `overlap` — the name could not be placed clear of its neighbors at any position, so it was');
+    console.warn('    dropped rather than printed through one; `pitch` — the rows are closer together than one line');
+    console.warn('    of type. Fewer items, shorter names, or split the chart across two slides. The names are still');
+    console.warn('    in the artifact (mark detail, speaker notes, the SVG description) — only the picture loses them.');
   }
   // Strip the authoring-only overflow signal before exporting. The injected
   // watcher (and base.modifiers.css) draw a loud red ring + "OVERFLOWS" tab on
