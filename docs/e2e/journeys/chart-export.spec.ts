@@ -163,10 +163,19 @@ test('a flattened chart defines, on its own root, every token its paints still n
 		// function-plot) are skipped by flattenChartSvgs and carry their own <style>.
 		const roots = Array.from(d.querySelectorAll('section svg')).filter((sv) => !sv.querySelector('style'));
 		if (!roots.length) return null; // capture frame not up yet — keep polling
-		if (!roots.every((r) => (r as SVGElement).style?.width)) return null; // mid-bake
+		// A root the bake SKIPPED never gets a width, and two paths skip on purpose:
+		// the per-svg `catch` that leaves one vector-unstyled rather than failing the
+		// export, and the `if (!w || !h) continue` for a zero-box svg. Waiting on
+		// `every` would hang on those forever and end as the bare timeout this probe
+		// exists to avoid. Wait for the bake to have REACHED a steady state instead:
+		// a non-zero baked count that has stopped growing between polls.
+		const baked = roots.filter((r) => (r as SVGElement).style?.width);
+		const w = window as unknown as { __bakedSeen?: number };
+		if (!baked.length) return null;
+		if (w.__bakedSeen !== baked.length) { w.__bakedSeen = baked.length; return null; }
 		let referencing = 0;
 		const undefinedOn: string[] = [];
-		for (const root of roots) {
+		for (const root of baked) {
 			const named = new Set<string>();
 			for (const el of Array.from(root.querySelectorAll('[style]'))) {
 				for (const m of ((el as SVGElement).getAttribute('style') || '').matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) named.add(m[1]);
@@ -177,14 +186,14 @@ test('a flattened chart defines, on its own root, every token its paints still n
 			for (const t of named) if (!own.includes(`${t}:`)) undefinedOn.push(t);
 		}
 		if (!referencing) return null;
-		return { roots: roots.length, referencing, undefinedOn };
+		return { roots: roots.length, baked: baked.length, referencing, undefinedOn };
 	}, undefined, { timeout: 60_000 });
 
 	const download = page.waitForEvent('download', { timeout: 60_000 });
 	await shareExport(page, 'pdf');
 	// `waitForFunction` only ever resolves on a truthy value, so the object above is
 	// always present here; the cast is for the checker, not for the runtime.
-	const verdict = (await (await tokenProbe).jsonValue()) as { roots: number; referencing: number; undefinedOn: string[] };
+	const verdict = (await (await tokenProbe).jsonValue()) as { roots: number; baked: number; referencing: number; undefinedOn: string[] };
 	expect(verdict.undefinedOn,
 		`flattened charts reference tokens their own root does not define — each of these paints black in the export: ${verdict.undefinedOn.join(', ')}`)
 		.toEqual([]);

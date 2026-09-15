@@ -18,15 +18,27 @@ At portrait the cloud packs into a box nearly three times the area of its landsc
 
 <!-- _class: content -->
 
-## The size scale was solved against the wrong box.
+## The scale was solved against the wrong box.
 
-Word sizes are viewBox units, so they scale by the square root of the area ratio between the box landscape packs into and the box portrait packs into. That ratio was read off the wrong pair.
+Word sizes are viewBox units. They scale by the square root of the area ratio between the two boxes the packer packs into — and that ratio was read off the wrong pair.
 
-- **Landscape does not pack the full width.** It keeps the right 38% for the key rail, so it packs 682 × 320, not 1100 × 320.
-- **Portrait packs all of it** — the key moves below the cloud, so the cloud gets 1100 × 760.
-- The real area ratio is **3.83**, not 2.375. The scale was **1.54** where it should have been **1.96**.
+- **Landscape does not pack the full width.** It keeps 38% for the key rail: 682 × 320.
+- **Portrait packs all of it.** The key moves below the cloud: 1100 × 760.
+- So the ratio is **3.83**, not 2.375 — a scale of **1.96**, not 1.54.
 
-The constant is now derived from those two boxes rather than restating their dimensions, so re-tuning either cannot leave the scale solved against a box nobody packs.
+---
+
+<!-- _class: content -->
+
+## A constant is still the wrong shape.
+
+Growing the type costs words. An unplaced word is gone from the *artifact*, not just the picture — it reaches no `data-label`, no note, no description.
+
+- A 24-term `dense` deck painted **22 of 24** at the flat scale. The old constant painted all 24.
+- Our gallery is **blind** to this: it paints the same count at every scale in the range.
+- So the scale is a **ladder**, largest-first, keyed on how many words place.
+
+Its floor rung is no scaling at all. Every shipped slide still takes the top rung.
 
 ---
 
@@ -121,9 +133,19 @@ The constant is now derived from those two boxes rather than restating their dim
 
 <!-- _class: content -->
 
-## What was verified, and what was not.
+## What was verified.
 
-- **Every word still places.** Rendered word counts across the nine gallery slides at portrait are identical before and after: `[9, 6, 15, 8, 5, 20, 9, 9, 9]`. Growing the type bought no silent drop — which is the failure this change could most easily have caused.
-- **Nothing escapes its canvas.** `.wc-svg` is `overflow: visible` on purpose, so `check-chart-fit` skips its viewBox assertion and cannot see this. Measured directly instead: worst overhang **0** on all nine slides.
-- **Landscape is untouched.** Cloud extent is unchanged to the pixel — 557 × 288 and 592 × 317 on the two `chart-fit` slides.
-- **Not verified:** the size key below the cloud still sets small against a 164px word. It measures 16.1px, above the legibility floor the render probe enforces, so it is left alone — resizing chart chrome is a separate design call, not this fix.
+- **The ladder beats the constant.** A 15-phrase portrait deck paints 11 words before, 10 at the flat scale, **12** with the ladder.
+- **Nothing escapes its canvas.** Worst overhang **0** across the gallery — measured directly, because `overflow: visible` makes `check-chart-fit` skip it.
+- **Landscape is byte-identical** — one pack at scale 1.
+- **The packer's drops are now reported.** That found a real one on its first run: a shipped deck has been losing a word at landscape since before this work (#2231).
+
+---
+
+<!-- _class: content -->
+
+## What was not.
+
+The size key under the cloud renders at **14.2px** against a 13.5px floor — a 5% margin, and this change did not move it. Resizing chart chrome is a separate call.
+
+That number is worth its own line: it was first reported here as 16.1px, which is the *declared* size. A viewBox `meet` scale of 0.884 sits between the declaration and the reader.

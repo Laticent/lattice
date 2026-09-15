@@ -160,16 +160,32 @@ less of it. `preserveAspectRatio: meet` then scales the whole drawing back down 
 the container, and the marks end up no bigger than they were in the short band,
 adrift in a canvas they cannot fill.
 
-`word-cloud` is the worked example, and its trap is worth knowing before you tune
-another member: the word sizes scale by the square root of the AREA ratio between
-the two boxes the packer PACKS INTO, and those are **not** the two canvases.
-Landscape packs into 682 × 320 (the rest of its canvas is the rail); portrait packs
-into 1100 × 760. The scale was derived from the canvas width on both sides, making
-it 1.54 where the real ratio gives 1.96 — a 27% under-size that nothing caught,
-because `.wc-svg` is `overflow: visible` by design and `check-chart-fit` therefore
-skips its viewBox assertion. It is derived from the two pack boxes now. If you
-re-tune a portrait canvas, check what its member actually packs into, not what its
-canvas measures.
+`word-cloud` is the worked example, and it carries two lessons.
+
+The first is the ratio itself: the word sizes scale by the square root of the AREA
+ratio between the two boxes the packer PACKS INTO, and those are **not** the two
+canvases. Landscape packs into 682 × 320 (the rest of its canvas is the rail);
+portrait packs into 1100 × 760. The scale was derived from the canvas width on both
+sides, making it 1.54 where the real ratio gives 1.96 — a 27% under-size that
+nothing caught, because `.wc-svg` is `overflow: visible` by design and
+`check-chart-fit` therefore skips its viewBox assertion. If you re-tune a portrait
+canvas, check what its member actually packs into, not what its canvas measures.
+
+**The second is that the right ratio is still the wrong SHAPE.** Growing the type
+costs words: `packCloud` seats each word on a spiral and returns only the ones that
+fit, so a scale correct on average is wrong for any deck whose words happen not to
+fit at it. Measured at the flat derived scale: a 24-term `dense` portrait deck
+painted 22 of 24 where the old constant painted all 24. So the scale is a **ladder**
+walked largest-first with **presence as the primary key** — the same rule
+`quadrant`'s dot-label ladder uses (HARD RULE #15: same problem, same answer) — and
+its floor rung is no scaling at all, so a portrait cloud can never paint fewer words
+than an unscaled one. Every shipped slide still wins at the top rung.
+
+**And the corpus could not have told you any of that.** Every shipped word-cloud
+slide paints the same count at *every* scale in the range, so a "the counts are
+identical before and after" check passes while proving nothing about the property
+it looks like it is testing. When a change moves a size that a packer or placer
+consumes, the arm has to be a deck that is ALREADY near the cliff — ours are not.
 
 ---
 
@@ -443,7 +459,15 @@ gap-cull below, `pitch`), and both report through one channel,
   Outside the bracket a note is a no-op, so no other render path changes. The
   bracket is **synchronous**, and its `finally` pops on return — an async
   transform would pop at its first `await` and lose every note after it.
-- There is a **third** reason beside `overlap` and `pitch`: `density`, for
+- `word-cloud`'s packer reports as `pack`, and it is the **worst** of the four:
+  every other mechanism leaves the name somewhere a reader can still reach it
+  (`data-label` on the mark, the speaker note, the SVG `<desc>`), but `packCloud`
+  returns only the placed words and the `<desc>` is built from that return, so an
+  unplaced word is gone from the artifact entirely. It needed no new wiring — the
+  bracket already surrounded the call, which is the property the one-bracket design
+  was for. It found a real one on its first run: `examples/seq-ramp-canvas-aware.md`
+  has been losing a word at landscape since before the channel existed.
+- There is a reason beside `overlap` and `pitch`: `density`, for
   `quadrant` past its 16-item ceiling, where no name is offered to the placement
   pass at all. It is the only all-or-nothing mechanism, and it was the one the
   channel could not see — `noteHiddenLabels` needs a `hidden` entry to find, and
@@ -476,9 +500,13 @@ runs `placeLabels` up to nine times per slide — once per rung of its size ladd
 — and keeps one. Reporting from inside the pass would attribute every rejected
 rung's casualties to the slide that shipped.
 
-The channel measures what ships and changes nothing about it. Our own corpus
-drops nothing (`chart-label-drop-census.test.js`), so no shipped deck prints this
-warning; the shapes that do are pinned in `test/fixtures/chart-label-drops.md`.
+The channel measures what ships and changes nothing about it. One shipped deck
+does print it: `examples/seq-ramp-canvas-aware.md` loses the word *leverage* at
+landscape and square, and has since before the channel existed — the first thing
+the channel found, and the reason the corpus census's "our decks never drop"
+claim is now scoped to the two mechanisms that census can actually see. Every
+other deck is silent. The shapes that warn on purpose are pinned in
+`test/fixtures/chart-label-drops.md`.
 
 Two more properties come out of the same pass, and both are about what a reader
 takes off the finished picture rather than about fitting boxes.

@@ -3780,11 +3780,26 @@ async function renderBody(browser, g, closeBrowser) {
       const more = d.drops.length - shown.length;
       console.warn(`    page ${d.slide}: ${shown.map((x) => `"${x.label}" (${x.reason})`).join(', ')}${more > 0 ? `, and ${more} more` : ''}.`);
     }
-    console.warn('    `overlap` — the name could not be placed clear of its neighbors at any position, so it was');
-    console.warn('    dropped rather than printed through one; `pitch` — the rows are closer together than one line');
-    console.warn('    of type; `density` — the chart carries more items than it labels at all, so EVERY name is off.');
-    console.warn('    Fewer items, shorter names, or split the chart across two slides. The names are still in the');
-    console.warn('    artifact (mark detail, speaker notes, the SVG description) — only the picture loses them.');
+    console.warn('    `overlap` — no position clears the neighbors, so the name was dropped rather than printed');
+    console.warn('    through one; `pitch` — the rows sit closer together than one line of type; `density` — the');
+    console.warn('    chart carries more items than it labels at all, so EVERY name is off; `pack` — the word');
+    console.warn('    cloud could not seat the word anywhere on its spiral.');
+    console.warn('    Fewer items, shorter names, or split the chart across two slides.');
+    // The recoverability line is PER REASON, because it is not true of all of them.
+    // A `pack` word is gone from the artifact outright — `packCloud` returns only the
+    // placed words and the SVG <desc> is built from that return — so telling its
+    // author the name is still in the mark detail and the notes is simply false, and
+    // false in the direction that stops them acting on the warning.
+    const packed = decoded.some((d) => d.drops.some((x) => x.reason === 'pack'));
+    const other = decoded.some((d) => d.drops.some((x) => x.reason !== 'pack'));
+    if (other) {
+      console.warn('    For every reason but `pack` the name is still in the artifact (mark detail, speaker notes,');
+      console.warn('    the SVG description) — only the picture loses it.');
+    }
+    if (packed) {
+      console.warn('    A `pack` word is GONE FROM THE ARTIFACT, not just the picture: it reaches no mark detail,');
+      console.warn('    no speaker note and no SVG description, so a screen reader loses it too. Fix those first.');
+    }
   }
   // Strip the authoring-only overflow signal before exporting. The injected
   // watcher (and base.modifiers.css) draw a loud red ring + "OVERFLOWS" tab on

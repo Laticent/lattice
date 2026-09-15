@@ -99,6 +99,61 @@ describe('the render reports the labels it declined to paint', () => {
   });
 });
 
+// THE TWO ALL-OR-NOTHING MECHANISMS, and neither was pinned when it shipped. The
+// census next door cannot reach either: it patches `placeLabels` and
+// `buildCategoryLabels`, and past the quadrant cliff neither is called with a name,
+// while `packCloud` is a third path it never patched at all. So a re-tune of the
+// 16-item ceiling, or of the portrait scale ladder, would leave every arm green and
+// put the silence back.
+describe('the mechanisms the census is blind to', () => {
+  const quadrantOf = (n) => {
+    const rows = Array.from({ length: n }, (_, i) => `  - Initiative ${i + 1} \`${2 + (i % 4)}, ${30 + i * 3}\``);
+    return `## Density\n\n- Strategic Bets\n${rows.join('\n')}\n- Quick Wins\n- Defer\n- Time Sinks`;
+  };
+
+  test('past the 16-item ceiling a quadrant reports EVERY name as `density`', () => {
+    // The boundary is the claim, and it is shape-invariant: at 17 a quadrant offers
+    // no name to the placement pass at all, so every one of them is off the slide.
+    const under = dropsOn(quadrantOf(16), 'quadrant');
+    const over = dropsOn(quadrantOf(17), 'quadrant');
+    assert.ok(!over.drops.some((d) => d.reason !== 'density'),
+      'past the ceiling every drop is the ceiling, not a placement failure');
+    assert.equal(over.drops.length, 17, 'all seventeen names are lost, so all seventeen are named');
+    assert.ok(!under.drops.some((d) => d.reason === 'density'),
+      'at the ceiling the names are still offered — any drop here is a placement failure, not the cliff');
+  });
+
+  test('a word the cloud packer cannot seat is reported as `pack`', () => {
+    // The worst of the four: `packCloud` returns only the placed words and the SVG
+    // <desc> is built from that return, so an unplaced word leaves no trace at all.
+    const body = `## Terms\n\n${[
+      'Cloud migration', 'Data quality', 'Vendor risk', 'Field service', 'Supply chain',
+      'Brand equity', 'Cyber posture', 'Working capital', 'Regulatory load', 'Talent pipeline',
+      'Channel mix', 'Unit economics', 'Service levels', 'Change fatigue', 'Tooling debt',
+    ].map((t, i) => `- ${t} \`${15 - i}\``).join('\n')}`;
+    const { drops, component, html } = dropsOn(body, 'word-cloud');
+    assert.equal(component, 'word-cloud');
+    assert.ok(drops.length > 0, 'this shape must lose words, or the arm proves nothing');
+    assert.ok(drops.every((d) => d.reason === 'pack'));
+    // Each reported word really is absent from the render — the point of the arm.
+    for (const d of drops) {
+      assert.ok(!html.includes(`>${d.label}<`), `${d.label} was reported lost but is painted`);
+    }
+  });
+
+  test('the portrait ladder never paints fewer words than no scaling would', () => {
+    // The floor rung is scale 1, so portrait is bounded below by landscape's count.
+    // This is what keeps a density tune from costing words — the property the
+    // shipped corpus cannot demonstrate, because it drops nothing at any scale.
+    const body = `## Terms\n\n${Array.from({ length: 24 }, (_, i) =>
+      `- term-${String(i + 1).padStart(2, '0')} \`${24 - i}\``).join('\n')}`;
+    const count = (o) => (transformChartSection(md.render(body), 'word-cloud dense', o)
+      .html.match(/class="wc-word"/g) || []).length;
+    assert.ok(count('portrait') >= count('landscape'),
+      `portrait (${count('portrait')}) must never paint fewer than landscape (${count('landscape')})`);
+  });
+});
+
 describe('the bracket', () => {
   test('outside a bracket a note is a no-op — no other render path changes', () => {
     // The channel must cost nothing where nobody asked for it. If this ever throws
