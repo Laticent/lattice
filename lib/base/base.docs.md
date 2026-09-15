@@ -1229,6 +1229,50 @@ the canvas only while those layouts are always dark. They are not:
 both the mark rendered light-gray on a light ground and disappeared (#2149).
 A theme retunes the flip with `:root { --deck-logo-filter-inverse: … }`.
 
+**A dark THEME is a canvas too, and no class carries it.** A `-dark` theme's
+whole content is `color-scheme: dark` at the root — it never touches a slide
+class, so every class-keyed rule above is blind to it, and the mark rendered at
+the canvas's own lightness: not an error, not missing, just a slide that looks
+as though it has no logo (#2156). `section[data-theme$="-dark"]` reaches it on
+the theme's own name, declared ABOVE the per-slide rules so `light`,
+`color-light` and `print` still win — a slide pinned light inside a dark deck
+takes the light mark. The suffix is a convention, and
+`test/unit/theme/dark-theme-logo-token.test.js` holds it: all 14 themes with
+`role: variant-dark` are named `*-dark`, and nothing else is.
+
+**That gate reaches SHIPPED manifests only, and one surface is outside it.**
+The docs Studio registers a FABRICATED theme under whatever full name the user
+gave it (`docs/src/lib/deck-theme.ts`), and that name may legitimately end in
+`-dark` without the palette being dark — or be a genuinely dark palette named
+without the suffix. Either way the mark is derived from the name rather than
+from the ground, and no gate can see it, because the theme does not exist until
+someone makes one. The equality above is a property of `themes/`, not of the
+selector. Reading the declared ROLE instead of the name would close it, and
+`checkThemeOwnership` is what currently prevents that: a `variant-dark` wrapper
+"only pins the canvas", so it may not declare the token itself.
+
+**And a light slide gives the token back.** `dark light` and
+`divider light dark` are reachable by hand and deliberately un-linted; before
+this the scheme and the ground went light while the INVERSE filter survived, so
+the mark came out brightened at 0.45 opacity on white. `section.light` and
+`section.color-light` now reset the token exactly as `.print` does.
+
+**A bookend is a dark panel even when the slide is pinned light.**
+`section:is(.title, .closing):not(.print)` forces `color-scheme: dark` at (0,2,1),
+so a hand-authored `title light dark` renders dark and takes the inverse mark. The
+exported player has to be told that separately — it rebuilds dark from flat rules
+and has no cascade to consult — and until it was, such a slide came out white ink
+on a white ground, 1.00:1.
+
+One canvas is genuinely unanswerable, and one is not:
+
+- `color-mode: inherited` takes its scheme from the deck root, which on a `-dark`
+  theme is that theme. Knowable, so it gets the flip.
+- `color-mode: system` defers to the reader's OS. A PDF rendered headless resolves
+  light; the exported player resolves dark. No single treatment is right on both,
+  so it keeps the light-canvas mark and is wrong on a dark OS.
+- A full-bleed cover photograph has a lightness no token describes.
+
 ```yaml
 ---
 logo: lattice                     # a built-in name, or a path / URL of your own

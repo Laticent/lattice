@@ -202,14 +202,31 @@ section.divider.light p:has(> code:only-child):has(+ h2) > code { color: var(--t
 section.closing p:has(> code:only-child):has(+ h1) > code,
 section.closing p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark-secondary); }
 /* Dark modifier (any layout + dark class) */
-section.dark p:has(> code:only-child):has(+ h1) > code,
-section.dark p:has(> code:only-child):has(+ h2) > code,
-section.dark p:has(> code:only-child):has(+ h3) > code,
-section.dark p:has(> code:only-child):has(+ h4) > code,
-section.dark p:has(> code:only-child):has(+ h5) > code,
-section.dark p:has(> code:only-child):has(+ ul) > code,
-section.dark p:has(> code:only-child):has(+ ol) > code,
-section.dark p:has(> code:only-child):has(+ pre) > code { color: var(--on-dark-secondary); }
+/* THE EYEBROW'S INK FOLLOWS THE RESOLVED GROUND, not the `.dark` class. (#2158)
+ *
+ * Same defect as the deck logo two hundred lines down, on the element beside it: this rule
+ * keyed on `.dark` while `.light` — later in source order — decides the ground. On a
+ * `content dark light` slide the ground goes white and the eyebrow kept its on-dark ink.
+ * Measured by this repo's own `check-player-contrast` on
+ * `examples/deck-logo-dark-theme.md` p5: `rgb(255,255,255)` on `rgb(255,255,255)`, 1.00:1.
+ *
+ * `:where()` carries no specificity, so the rule keeps the exact rank it had and still
+ * beats the `section p:has(…)` default it overrides. The bookends are re-admitted for the
+ * reason `lib/export/player-core.mjs` re-admits them: `section:is(.title, .closing)` forces
+ * `color-scheme: dark` even under `.light`, so a bookend IS a dark panel and its eyebrow
+ * should stay on-dark.
+ *
+ * `section.dark.form .tile-watermark` (lib/forms/tile/watermark/watermark.css) has the
+ * identical bug and is NOT fixed here — the contrast gate does not audit a watermark, so
+ * changing it would be an unmeasured rendered change. Logged instead. */
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h1) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h2) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h3) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h4) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ h5) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ ul) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ ol) > code,
+section.dark:where(:not(.light):not(.color-light), .title, .closing) p:has(> code:only-child):has(+ pre) > code { color: var(--on-dark-secondary); }
 
 
 /* ── KEY INSIGHT ──────────────────────────────────────────────
@@ -453,6 +470,93 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
  *   style: ":root{color-scheme:dark}"
  * (or the cuoio-dark / indaco-dark variant theme, which is just a
  * thin :root color-scheme:dark wrapper). */
+/* ── A DARK-CANVAS THEME OWES THE LOGO ITS FLIP, AND NO CLASS CAN CARRY IT ──────────
+ * A `variant-dark` theme is a thin wrapper whose whole content is `:root { color-scheme:
+ * dark }` — it makes the deck dark WITHOUT touching a single slide class, so every
+ * class-keyed rule below is blind to it. The mark then renders at the canvas's own
+ * lightness, which does not error and is not missing: the slide simply looks as though it
+ * has no logo. Measured on `indaco-dark`, mean |ΔL| between the logo box and its ground
+ * fell to 0.0015 against 0.1382 on plain `indaco` — a 92× collapse no gate in the tree
+ * could see, because the contrast checkers audit TEXT RUNS and this mark is an
+ * aria-hidden decorative watermark (#2156).
+ *
+ * WHY THE THEME NAME AND NOT THE THEME FILE. The obvious fix — declare the token beside
+ * the `color-scheme: dark` in each wrapper, exactly as `section.dark` does above — is
+ * barred by an architectural invariant, and rightly: `checkThemeOwnership` holds that a
+ * `variant-dark` "only pins the canvas", and a wrapper declaring tokens of its own is a
+ * `derived-variant`. So the rule lives here, in the engine, keyed on the `data-theme`
+ * attribute the engine itself writes onto every section. Verified present on both the
+ * emulator's HTML and a `--player` export.
+ *
+ * THE SUFFIX IS A CONVENTION, SO IT IS PINNED AS ONE. Measured over all 33 manifests:
+ * 14 carry `role: variant-dark`, 14 are named `*-dark`, and the two sets are identical.
+ * `test/unit/theme/dark-theme-logo-token.test.js` asserts that equality, so a dark theme
+ * named off-convention fails there rather than losing its logo silently.
+ *
+ * POSITION IS LOAD-BEARING. This is (0,1,1), the same as `.print`, `.light` and
+ * `.color-light` below, so source order decides — and it must LOSE to all three: paper is
+ * a light canvas whatever the theme, and a slide pinned light inside a dark deck takes the
+ * light mark. Declared here, above them, it is the deck-wide DEFAULT that a per-slide
+ * modifier overrides. Moving it below any of them silently inverts that. */
+/* `.color-system` ONLY, and the asymmetry is the point. Both registers defer the side, but
+ * only one of them defers it somewhere this rule cannot see:
+ *   · `.color-system` is `color-scheme: light dark` — the RECEIVER's OS decides, so no
+ *     treatment is knowable when the deck is written. Measured on a `-dark` theme: headless
+ *     Chrome resolves `prefers-color-scheme: light`, the ground comes back #FFFFFF, and
+ *     pinning the inverse there put a brightened mark on white — #2149 on a shipped PDF.
+ *   · `.color-inherited` is `color-scheme: inherit`, and on a `-dark` theme the thing it
+ *     inherits from is that theme's own `:root { color-scheme: dark }`. Measured: scheme
+ *     `dark`, ground rgb(0,29,51). Deterministic, so it keeps the flip.
+ * An earlier cut excluded both and handed `color-inherited` a light mark on a dark ground —
+ * giving up a real fix to be symmetrical.
+ *
+ * `:where()` so the exclusion costs NO specificity: this rule has to stay (0,1,1) and lose
+ * to `.print` / `.light` / `.color-light` below on source order. A plain `:not()` would take
+ * it to (0,2,1) and invert every one of those. */
+section[data-theme$="-dark"]:where(:not(.color-system)) {
+  --deck-logo-filter: var(--deck-logo-filter-inverse);
+  --deck-logo-opacity: var(--deck-logo-opacity-inverse);
+}
+
+/* `.color-system` DEFERS the side to the receiver, so the mark defers with it. (#2201)
+ *
+ * The rule above excludes `color-system` because its ground is not knowable at author
+ * time — and the earlier reading of that was that no treatment could be right, since a
+ * static pin is wrong half the time. That is true of a PIN. It is not true of a MEDIA
+ * QUERY, which resolves per receiver exactly as `color-scheme: light dark` does, so the
+ * mark simply follows the same signal the canvas already follows.
+ *
+ * Measured before this rule existed, on `theme: indaco-dark` + `color-mode: system`,
+ * emulating both OS settings on the HTML export and the `--player` export:
+ *
+ *   os=light  bg rgb(255,255,255)  filter brightness(0.4)   correct
+ *   os=dark   bg rgb(0,29,51)      filter brightness(0.4)   WRONG, both surfaces
+ *
+ * The ground follows the receiver on both of those; only the mark did not.
+ *
+ * THE PDF IS A THIRD ANSWER, and a draft of this comment got it wrong. It claimed #2201's
+ * "PDF light, player dark" table came from two runs on hosts with different OS settings.
+ * It does not: there is no `emulateMediaFeatures` call anywhere in the render path, and
+ * headless Chrome resolves `prefers-color-scheme: light` here — so the PDF is light
+ * whatever the exporting host prefers, and one dark-OS host reproduces that table on its
+ * own. Whether a dark-OS host would change the PDF is UNVERIFIED; a headless sandbox has
+ * no desktop preference to give it.
+ *
+ * None of that changes this rule, which is why it is worth stating plainly rather than
+ * arguing: the mark now follows whatever the SURFACE resolves. Light PDF, light mark.
+ * OS-following player, following mark. The open question about the PDF stays open and the
+ * mark is right either way.
+ *
+ * Position and specificity as the rule above: `section.color-system` is (0,1,1) and a
+ * media query adds none, so `.print` / `.light` / `.color-light` below still win on source
+ * order. A printed system slide is paper, and stays light. */
+@media (prefers-color-scheme: dark) {
+  section.color-system {
+    --deck-logo-filter: var(--deck-logo-filter-inverse);
+    --deck-logo-opacity: var(--deck-logo-opacity-inverse);
+  }
+}
+
 section.dark {
   color-scheme: dark;
   /* THE LOGO FLIP RIDES THE CANVAS, not the layout class. `img.deck-logo` reads this
@@ -664,6 +768,25 @@ section.print {
  * bright divider IS a light surface, so this forced scheme is consistent with it.) */
 section.light {
   color-scheme: light;
+  /* A light canvas takes the light-canvas mark, even when an earlier modifier on the SAME
+   * slide already set the inverse. `section.dark` sets the token at (0,1,1) and this rule
+   * is (0,1,1) too, but it is emitted later — so a hand-authored `dark light` or
+   * `divider light dark` resolves here. Without it the scheme and the ground both went
+   * light while the INVERSE filter survived: a brightened mark at 0.45 opacity on white.
+   * `initial` is the spelling, for the reason the `.print` reset above gives — it makes
+   * the property the guaranteed-invalid value, which is what sends
+   * `var(--deck-logo-filter, <light>)` to its fallback. There is no "unset back to the
+   * other rule" for a property an earlier matching rule already set.
+   *
+   * `dark light` is reachable by hand and deliberately un-linted — see
+   * lib/core/color-mode.js, "an un-linted footgun that CSS resolves deterministically".
+   * This is what makes it resolve to something a reader can actually see. (#2156)
+   *
+   * NOT extended to `.color-system` / `.color-inherited` below: those defer the side to
+   * the receiver's OS or the host, so neither treatment is knowable at author time and
+   * pinning either would be wrong half the time. That gap is real and recorded. */
+  --deck-logo-filter: initial;
+  --deck-logo-opacity: initial;
 }
 
 
@@ -674,6 +797,9 @@ section.light {
  * forces `color-scheme: light` so the palette's light-dark() tokens resolve light. */
 section.color-light {
   color-scheme: light;
+  /* Same reset as `.light` above, and for the same reason — see that rule. (#2156) */
+  --deck-logo-filter: initial;
+  --deck-logo-opacity: initial;
 }
 
 
