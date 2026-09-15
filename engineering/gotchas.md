@@ -272,6 +272,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A 4K deck renders oversized and cropped in docs-site preview and export](gotchas/studio-playground.md#a-4k-deck-renders-oversized-and-cropped-in-docs-site-preview-and-export)
 - [A Radix Sheet's first control is dead to the first tap on iOS](gotchas/studio-playground.md#a-radix-sheets-first-control-is-dead-to-the-first-tap-on-ios)
 - [A panel's controls fall outside it when the reader scales text up](gotchas/studio-playground.md#a-panels-controls-fall-outside-it-when-the-reader-scales-text-up)
+- [A long-lived tab 404s on the next asset it fetches after a deploy](gotchas/studio-playground.md#a-long-lived-tab-404s-on-the-next-asset-it-fetches-after-a-deploy)
 
 ### [VS Code / marp-vscode](gotchas/vscode.md)
 

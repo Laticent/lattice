@@ -278,6 +278,16 @@ for (const [rel, bytes] of hashed.sort((a, b) => a[0].localeCompare(b[0]))) {
 const version = hash.digest('hex').slice(0, 12);
 
 // Rewrite the whole versioned tree so stale hash dirs don't accumulate.
+//
+// KNOWN CONSEQUENCE, open question. A deploy therefore publishes exactly one hash dir
+// and every predecessor 404s at the origin — so a page that was already open keeps
+// referencing a dir that no longer exists, and the first asset it asks for afterwards
+// fails. Theme CSS is fetched lazily per palette, so switching palette in a long-lived
+// tab is exactly that first ask. Whether a deploy should retain the previous N dirs, or
+// the fetcher should recover from a stale base, is costed but NOT decided in
+// engineering/decisions/2026-09-15-playground-asset-retention.md. Retaining dirs also
+// needs asset-version.mjs fixed first: assetVersion() takes readdirSync's dirs[0], which
+// is correct only while exactly one dir exists.
 const versionedRoot = join(pgDir, 'v');
 rmSync(versionedRoot, { recursive: true, force: true });
 

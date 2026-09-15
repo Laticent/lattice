@@ -61,12 +61,25 @@ const RETIRED_PAGES = ['/drawing-board/', '/workbench/'];
 const SKIP_EXTENSIONS = /\.(pdf|pptx|zip)$/i;
 // Per-cache entry caps — a coarse FIFO trim keeps storage bounded.
 // ASSETS holds BOTH immutable families served cache-first (a single deploy is ~280 /_astro/
-// chunks + ~213 /playground/v/ files ≈ 500) plus mutable SWR assets. Since cache-first no
+// chunks + 437 /playground/v/ files ≈ 717) plus mutable SWR assets. Since cache-first no
 // longer re-`put`s an asset on a hit, the FIFO trim lost the incidental "re-put moves it
 // young" LRU protection SWR gave — so the cap must clear one deploy's whole immutable
 // inventory with headroom, or a heavy single-session working set could FIFO-evict an
-// in-use core chunk and break it OFFLINE. 800 clears ~500 + transitional cross-deploy
-// overlap; the browser's own storage-pressure eviction is the real backstop. (Old-deploy
+// in-use core chunk and break it OFFLINE. 800 clears ~717; the browser's own
+// storage-pressure eviction is the real backstop.
+//
+// THE HEADROOM IS THINNER THAN THIS COMMENT ONCE CLAIMED. It read "~213 /playground/v/
+// files ≈ 500 … 800 clears ~500 + transitional cross-deploy overlap"; the staged tree is
+// 437 files today (measured), so on this comment's own metric one deploy is ~717 of 800
+// and the cross-deploy overlap that sentence budgeted for no longer fits. The cap still
+// clears one deploy, which is what it has to do, so it is left alone here.
+//
+// MIND THE METRIC IF YOU EVER RE-SIZE IT. 437 counts files at the ORIGIN; this cap bounds
+// entries a reader actually cached, and most of the 437 (157 hljs grammars, 70 plans, 31
+// samples) no session ever fetches. So ~717 is an upper bound, not an occupancy figure —
+// good enough to say the old number was stale, not good enough to pick a new cap from.
+// Relevant to anything that would RETAIN previous hash dirs, which doubles the versioned
+// half: engineering/decisions/2026-09-15-playground-asset-retention.md § Option A. (Old-deploy
 // /_astro/ orphans are NOT version-evicted — see the dispatch comment — but a new deploy's
 // HTML references new hashes, so orphans are never re-requested → stay oldest-inserted →
 // FIFO ages them out before current entries.)
@@ -123,21 +136,42 @@ async function put(cacheName, request, response) {
 	await cache.put(request, response);
 
 	// VERSION EVICTION: a content-hashed asset supersedes every OTHER-hash copy of
-	// the same logical asset (same <suffix>). The live page only ever references
-	// the CURRENT deploy's hash, so a stale-hash sibling is dead weight the moment
-	// we cache the current one — drop it. This bounds the versioned-asset footprint
+	// the same logical asset (same <suffix>). This bounds the versioned-asset footprint
 	// to ~one deploy's worth no matter how many deploys the browser has seen, so
 	// Cache Storage can't bloat with dead engine bundles / theme sheets across the
 	// lifetime a returning user actually spans. Runs before the FIFO cap so the cap
 	// is a backstop for un-versioned entries, not the only bound on versioned ones.
 	//
-	// LAST-WRITER-WINS across tabs: the "current" hash is whichever a put() saw most
-	// recently, not a globally-pinned deploy. Two tabs straddling a deploy can evict
-	// each other's same-suffix copies. These families are now CACHE-FIRST (no re-put on a
-	// hit), so an evicted copy is not silently re-cached the way SWR did — but the straddling
-	// tab's assets are already loaded + parsed, so the only concrete break is an OFFLINE
-	// reload of that tab (online, its evicted hash is a miss → re-fetched). Narrow and
-	// acceptable: a page only ever references ONE hash dir (asset-version.mjs).
+	// "DEAD WEIGHT" IS NOT ALWAYS TRUE, AND THAT IS THE WHOLE COST OF THIS BLOCK. This
+	// comment used to justify the drop with "the live page only ever references the CURRENT
+	// deploy's hash, so a stale-hash sibling is dead weight", and used to close with "online,
+	// its evicted hash is a miss → re-fetched". A page that was open when a deploy landed
+	// references the PREVIOUS hash — it was baked in at build time (asset-version.mjs) — so
+	// for that tab the sibling is the only copy it can use, and re-fetching it is not
+	// available: sync-playground-assets.mjs deletes the WHOLE v/ tree each build, so a deploy
+	// publishes exactly one hash dir, and because both our deploy targets publish a complete
+	// snapshot of the build output rather than rsyncing additively, every predecessor 404s at
+	// the ORIGIN. Measured across a simulated deploy: all six probed assets under the previous
+	// hash returned 404.
+	//
+	// WHAT ACTUALLY SURVIVES A DEPLOY, precisely, because the two wrong sentences above came
+	// from getting this backwards. Anything the tab already loaded and parsed is in memory and
+	// unaffected. Anything still in THIS cache is also fine while it lasts: these families are
+	// cache-first, so a hit is served with no network call at all. The break is any request
+	// that REACHES the network under the old hash, and there are two ways to get there —
+	//   • never cached: a lazily-fetched asset the tab had not needed yet. Theme CSS is
+	//     fetched per palette on first use (docs/src/lib/theme-fetch.ts), so switching to a
+	//     palette this tab had never selected is the common one. That is the reported
+	//     `theme <name> (404)`, and it happens with or without a service worker.
+	//   • evicted right here: LAST-WRITER-WINS across tabs. The "current" hash is whichever a
+	//     put() saw most recently, not a globally-pinned deploy, so a second tab on the new
+	//     deploy caching the same suffix drops the straddling tab's copy — turning a warm-cache
+	//     asset that WOULD have survived into a 404. Cache-first means it is never silently
+	//     re-cached the way SWR did, so the loss is permanent for that tab.
+	// Either way `theme-fetch.ts` caches the 404 negatively, so the palette stays broken for
+	// the life of the page. Whether a deploy should retain previous hash dirs, or the fetcher
+	// should re-resolve a stale base, is open:
+	// engineering/decisions/2026-09-15-playground-asset-retention.md.
 	const cur = new URL(request.url).pathname.match(VERSIONED);
 	if (cur) {
 		for (const key of await cache.keys()) {
