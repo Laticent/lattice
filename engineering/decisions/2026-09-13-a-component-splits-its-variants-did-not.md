@@ -7,15 +7,17 @@ supersedes: the native-slice cover question left open by 2026-09-01-autosplit-sp
 
 
 > **SCOPE NOTE (2026-09-15).** This record covers the whole investigation, including ten rounds on
-> `split-panel`'s coverless-page wayfinding chrome. **That chrome is NOT in the PR this record
-> ships with.** The engine work — variant-level enrollment, the four readers, the `code`
-> processor, the two reversed placements — lands first; the pointer placement, its reserved band
-> and the rail ink follow in their own change, because that piece carries a measured residual (an
-> over-stuffed member can still paint under the pill, silently) and because a fix for it must be
-> reviewed on its own evidence rather than inside a larger diff. `applyRelationshipSignals`
-> therefore does not emit a forward pointer on these pages yet: in flow it becomes a third column
-> of the panel row and squeezes `.panel-right` from 450.9px to 252.7px at `square`. The rounds
-> below are kept because they are what was learned, not because they all shipped here.
+> `split-panel`'s coverless-page wayfinding chrome. **The work shipped in two PRs, and this note
+> is the record for both.** #2219 landed the engine — variant-level enrollment, the four readers,
+> the `code` processor, the two reversed placements — and deliberately held the chrome back,
+> suppressing the forward pointer on these pages in the meantime, because in flow it becomes a
+> third column of the panel row and squeezes `.panel-right` from 450.9px to 252.7px at `square`.
+> The follow-up PR lands the chrome and removes that suppression: the pointer is positioned in a
+> reserved band and the rail takes its ink from whichever field holds the corner. The split was
+> made on CONFIDENCE, not on scope — the engine half was graded `high` and the chrome `low`, and
+> the chrome carries a measured residual that survives it (an over-stuffed member can still paint
+> under the pill, silently; see §"What is not resolved"). The rounds below are kept because
+> they are what was learned, not because they all shipped in the same change.
 
 # A component splits; its variants did not
 
