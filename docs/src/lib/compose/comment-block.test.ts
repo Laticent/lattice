@@ -1,6 +1,9 @@
+import MarkdownIt from 'markdown-it';
+import { DOMParser as PMDOMParser } from 'prosemirror-model';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { isWellFormedComment, readCommentText } from './comment-block';
+import { CLIP_ORIGIN } from './clip-origin';
+import { commentKind, commentText, isWellFormedComment, readCommentText } from './comment-block';
 import { deckSchema, deckToDoc, docToDeck } from './deck-doc';
 import { hasLossyConstruct, parseDeck } from './deck-source';
 import { activeRegister, slideContext } from './registers';
@@ -117,10 +120,97 @@ describe('shapes that are NOT block comments stay exactly as they were', () => {
 	});
 });
 
-// The clipboard gate. A comment node's text is written into the deck source verbatim, so text from
-// a page the author does not control is an injection vector — the same reasoning as CLIP_ORIGIN /
-// DIRECTIVE_SHAPE in deck-doc. A string that closes its comment EARLY smuggles live markup past a
-// naive starts-with/ends-with check, so the gate requires a single, self-contained comment.
+// Positions where modeling the comment would CHANGE THE RENDER, or where the scan used to run past
+// a terminator and swallow slide-visible text. Each is measured against the real engine.
+describe('scope: the rule never hides text the slide renders', () => {
+	it('an abrupt-closing comment does not swallow the lines after it', () => {
+		// `<!--->` carries its terminator at offset 3; scanning from `start + 4` skipped it, so the
+		// rule consumed VISIBLE TEXT and the second comment into one node. The engine renders that
+		// text — so the editor was hiding it, and "Remove note" would have deleted it.
+		const src = '<!--->\nVISIBLE TEXT\n<!-- second note -->';
+		expect(blocks(src)).toEqual(['comment', 'paragraph', 'comment']);
+		expect(docToDeck(deckToDoc(src))).toContain('VISIBLE TEXT');
+	});
+
+	it('`<!-->` likewise closes at its own terminator', () => {
+		expect(blocks('<!-->\nVISIBLE TEXT')).toEqual(['comment', 'paragraph']);
+	});
+
+	// RENDER-NEUTRALITY, not byte-exactness, is the contract inside a list. `origin/main` already
+	// reflowed `- item one` / `  <!-- note -->` onto one line, and that is harmless: the list stays
+	// TIGHT either way. What was NOT harmless was modeling the comment — that splits the item's
+	// paragraph, and markdown-it then renders the list LOOSE, giving every `<li>` a `<p>`. So the
+	// arm checks the rendered shape through the engine's own config, which is the thing that moved.
+	const tight = (md: string) => {
+		const html = new MarkdownIt('commonmark', { html: true, breaks: true }).render(md);
+		return !/<li>\s*<p>/.test(html);
+	};
+
+	it('a comment inside a list item stays prose, so the list stays TIGHT', () => {
+		const src = '- item one\n  <!-- note -->\n- item two';
+		expect(blocks(src)).toEqual(['bullet_list']);
+		expect(tight(src)).toBe(true);
+		expect(tight(docToDeck(deckToDoc(src)))).toBe(true);
+	});
+
+	it('a comment as a list item’s first block stays prose too', () => {
+		const src = '- <!-- a -->\n- second';
+		expect(blocks(src)).not.toContain('comment');
+		expect(tight(src)).toBe(true);
+		expect(tight(docToDeck(deckToDoc(src)))).toBe(true);
+	});
+
+	it('a `---` inside a comment is not read as a setext underline', () => {
+		// The rule registers before `heading`, where the engine's own html_block sits. Registered
+		// after `lheading` instead, this turned the comment's first line into a visible `<h2>`.
+		const src = '<!-- TODO\n---\nnext steps -->';
+		expect(blocks(src)).toEqual(['comment']);
+		expect(docToDeck(deckToDoc(src)).trim()).toBe(src);
+	});
+
+	it('a comment still ends a paragraph it follows, as the engine does', () => {
+		expect(blocks('Some text\n<!-- note -->')).toEqual(['paragraph', 'comment']);
+	});
+});
+
+describe('the comment KIND drives the chip label, never the bytes', () => {
+	it('classifies the engine’s own channels', () => {
+		expect(commentKind('<!-- caption: the slide reads as this. -->')).toBe('caption');
+		expect(commentKind('<!-- describe: a bar chart with four bars. -->')).toBe('describe');
+		expect(commentKind('<!-- tier: short -->')).toBe('pragma');
+		expect(commentKind('<!-- markdownlint-disable -->')).toBe('pragma');
+		expect(commentKind('<!-- just a note to self -->')).toBe('note');
+	});
+
+	it('is case- and space-tolerant, the way the kernel is', () => {
+		expect(commentKind('<!--Caption : x-->')).toBe('caption');
+		expect(commentKind('<!--  DESCRIBE: x -->')).toBe('describe');
+	});
+
+	it('shows the words, not the channel prefix', () => {
+		expect(commentText('<!-- caption: FY26 revenue grew. -->')).toBe('FY26 revenue grew.');
+		expect(commentText('<!-- describe: a bar chart. -->')).toBe('a bar chart.');
+		expect(commentText('<!-- a plain note -->')).toBe('a plain note');
+	});
+
+	// PARITY with lib/authoring/notes-core.js — these matchers mirror the kernel rather than fork
+	// it, so this arm reads the real kernel and fails if the two drift.
+	it('agrees with the engine kernel on caption / describe', async () => {
+		const kernel = await import('../../../../lib/authoring/notes-core.js');
+		const samples = ['caption: x', 'describe: x', 'Caption : x', 'DESCRIBE:x', 'a plain note', 'captions are nice', 'described below'];
+		for (const body of samples) {
+			const text = `<!-- ${body} -->`;
+			expect([body, commentKind(text) === 'caption']).toEqual([body, kernel.isCaptionComment(body)]);
+			expect([body, commentKind(text) === 'describe']).toEqual([body, kernel.isDescriptionComment(body)]);
+		}
+	});
+});
+
+// THE CLIPBOARD GATE. A comment node's text is written into the deck source verbatim, so text from
+// a page the author does not control is an injection vector — the same reasoning as CLIP_ORIGIN and
+// DIRECTIVE_SHAPE in deck-doc. Three things have to hold: the string must be one self-contained
+// INERT comment (a string that closes early smuggles live markup), it must have come from THIS
+// editor, and it must not be a directive.
 describe('the clipboard shape gate', () => {
 	it('accepts one inert comment, single- or multi-line', () => {
 		expect(isWellFormedComment('<!-- fine -->')).toBe(true);
@@ -161,10 +251,55 @@ describe('the clipboard shape gate', () => {
 	});
 
 	it('readCommentText refuses a rejected string, so the paste falls back to plain text', () => {
-		expect(readCommentText('<!-- ok -->')).toEqual({ text: '<!-- ok -->' });
-		expect(readCommentText('<!-- --><script>x</script><!-- -->')).toBe(false);
-		expect(readCommentText(null)).toBe(false);
-		expect(readCommentText(`<!-- ${'x'.repeat(9000)} -->`)).toBe(false);
+		expect(readCommentText('<!-- ok -->', CLIP_ORIGIN)).toEqual({ text: '<!-- ok -->' });
+		expect(readCommentText('<!-- --><script>x</script><!-- -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText(null, CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText(`<!-- ${'x'.repeat(9000)} -->`, CLIP_ORIGIN)).toBe(false);
+	});
+
+	// PROVENANCE. The shape gate alone re-opened the exact hole CLIP_ORIGIN was built to close:
+	// `<!-- _backgroundImage: url(…) -->` is a well-formed INERT comment, so it passed — and
+	// `DIRECTIVE_LINE_RE` then hoisted it out of the emitted source into the slide's `directives`
+	// on the next parse. Measured end-to-end before the fix.
+	it('REJECTS a comment with no provenance, however well-formed', () => {
+		expect(readCommentText('<!-- ok -->', null)).toBe(false);
+		expect(readCommentText('<!-- ok -->', 'some-other-session')).toBe(false);
+	});
+
+	it('REJECTS a directive-shaped comment even WITH provenance (defense in depth)', () => {
+		expect(readCommentText('<!-- _backgroundImage: url(https://evil.example/beacon.png) -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- _class: quote -->', CLIP_ORIGIN)).toBe(false);
+	});
+
+	it('a foreign div.cs-comment cannot put a directive into the deck source', () => {
+		const payload = '<!-- _backgroundImage: url(https://evil.example/beacon.png) -->';
+		const host = document.createElement('div');
+		const div = document.createElement('div');
+		div.className = 'cs-comment';
+		div.setAttribute('data-comment', payload);
+		div.setAttribute('data-lattice-origin', 'forged-token');
+		host.append(div);
+		const slice = PMDOMParser.fromSchema(deckSchema).parseSlice(host);
+		const kinds: string[] = [];
+		slice.content.forEach((n) => {
+			kinds.push(n.type.name);
+		});
+		expect(kinds).not.toContain('comment');
+	});
+
+	it('but a comment copied from THIS session round-trips', () => {
+		const host = document.createElement('div');
+		const div = document.createElement('div');
+		div.className = 'cs-comment';
+		div.setAttribute('data-comment', '<!-- a real note -->');
+		div.setAttribute('data-lattice-origin', CLIP_ORIGIN);
+		host.append(div);
+		const slice = PMDOMParser.fromSchema(deckSchema).parseSlice(host);
+		const texts: string[] = [];
+		slice.content.forEach((n) => {
+			if (n.type.name === 'comment') texts.push(n.attrs.text as string);
+		});
+		expect(texts).toEqual(['<!-- a real note -->']);
 	});
 });
 
@@ -196,8 +331,19 @@ describe('register inference looks through a comment, as the engine does', () =>
 		expect(activeRegister(state)).toBe('eyebrow');
 	});
 
-	it('and still a subtitle on the other side of the heading', () => {
+	// THE ASYMMETRY, and the reason it is not a tidiness problem. An earlier version of this file
+	// asserted `subtitle` here, because the skip was applied in both directions on the claim that
+	// eyebrow and subtitle are "pure CSS". They are not the same mechanism: the subtitle is hoisted
+	// into `.masthead-lede` by `masthead.transform.js`, whose adjacency test is a string match that
+	// a comment defeats. Measured on the real engine — with a comment between, the lede renders as
+	// `<h2>H</h2>` alone and the label falls through as ordinary prose. Compose must agree.
+	it('but NOT a subtitle on the other side of the heading — the engine drops it there', () => {
 		const state = caretIn('## H\n\n<!-- a note -->\n\n`LABEL`\n\nbody', 2);
+		expect(activeRegister(state)).toBe(null);
+	});
+
+	it('with no comment in the way, the subtitle still reads as one', () => {
+		const state = caretIn('## H\n\n`LABEL`\n\nbody', 1);
 		expect(activeRegister(state)).toBe('subtitle');
 	});
 

@@ -1,5 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import type { NodeSpec } from 'prosemirror-model';
+import { CLIP_ORIGIN } from './clip-origin';
 
 // An authoring COMMENT, modeled as a real schema node instead of falling through as prose.
 //
@@ -29,14 +30,8 @@ import type { NodeSpec } from 'prosemirror-model';
 /** A well-formed, self-contained HTML comment: opens once, closes once, closes at the END — where
  *  "closes" means what a BROWSER means by it, not what the obvious regex means.
  *
- *  This is the CLIPBOARD gate, and it is the same reasoning as `DIRECTIVE_SHAPE` in deck-doc — a
- *  comment node's text is written into the deck source VERBATIM, so text arriving from a page the
- *  author does not control is an injection vector, not content. `<!-- --><script>…</script><!-- -->`
- *  is one string that passes a naive "starts with `<!--`, ends with `-->`" check and lands live
- *  markup in the export.
- *
  *  BANNING ONLY `-->` IS NOT ENOUGH, and the first version of this gate did exactly that. The HTML
- *  spec ends a comment on THREE more conditions, and a real Chromium honors all of them — measured,
+ *  spec ends a comment on three more conditions, and a real Chromium honors all of them — measured,
  *  by rendering each payload through the engine's own markdown-it config and counting the elements
  *  that came out:
  *
@@ -49,25 +44,92 @@ import type { NodeSpec } from 'prosemirror-model';
  *  refuses the abrupt forms, and `(?!--!?>)` refuses both real terminators. A plain `--` inside a
  *  comment is still fine (parsers accept it), so `<!-- a -- b -->` is not collateral damage.
  *
- *  CodeQL's `js/bad-tag-filter` is what surfaced this, on the PR that introduced the gate, and its
- *  premise is the durable lesson: a regex that models HTML parsing will miss a spec case. So each
- *  payload above is pinned as a REJECTION in `comment-block.test.ts` — that is the arm that runs on
- *  every PR. What those tests cannot do is re-derive the browser behavior that makes the payloads
- *  dangerous; that was measured once, against a real Chromium, and a new spec case would need the
- *  same measurement rather than a guess at this pattern. */
+ *  CodeQL's `js/bad-tag-filter` is what surfaced this, and its premise is the durable lesson: a
+ *  regex that models HTML parsing will miss a spec case. So each payload is pinned as a REJECTION
+ *  in `comment-block.test.ts` — the arm that runs on every PR. What those tests cannot do is
+ *  re-derive the browser behavior that makes the payloads dangerous; that was measured once,
+ *  against a real Chromium, and a new spec case needs the same measurement, not a guess here. */
 const COMMENT_SHAPE = /^<!--(?!>|->)(?:(?!--!?>)[\s\S])*-->$/;
+
+/** A `_`-prefixed DIRECTIVE, which a comment node must never carry. See `readCommentText`. */
+const DIRECTIVE_SHAPED = /^<!--\s*_[A-Za-z]/;
 
 /** Whether a string is exactly one inert HTML comment (see COMMENT_SHAPE). */
 export function isWellFormedComment(text: string): boolean {
 	return COMMENT_SHAPE.test(text);
 }
 
-/** Read a comment's text back off pasted DOM. Anything that is not exactly one inert comment is
- *  REJECTED (`false` tells ProseMirror to skip the parse rule), so the paste degrades to plain
- *  text — the pre-node behavior, and therefore never a regression. */
-export function readCommentText(raw: string | null): { text: string } | false {
-	if (!raw || raw.length > 8192 || !isWellFormedComment(raw)) return false;
+/** Read a comment's text back off pasted DOM.
+ *
+ *  THREE gates, and the first two exist because the markup gate alone was not enough. The original
+ *  version checked shape only, and that re-opened the exact hole `CLIP_ORIGIN` was built to close:
+ *  `<!-- _backgroundImage: url(https://evil.example/beacon.png) -->` is a perfectly well-formed
+ *  INERT comment, so it passed — and `DIRECTIVE_LINE_RE` (deck-source) then hoisted it out of the
+ *  emitted source into the slide's `directives` attr on the next parse. Measured end-to-end: a
+ *  crafted `div.cs-comment` pasted into Compose produced
+ *  `directives: ['<!-- _class: content -->', '<!-- _backgroundImage: url(…) -->']`, with the chip
+ *  that briefly showed it gone after the resync. Attributes are not content; a foreign page must
+ *  not be able to set them.
+ *
+ *  1. PROVENANCE — `data-lattice-origin` must be this session's token, so foreign HTML is inert.
+ *  2. NOT A DIRECTIVE — defense in depth for the case where the token leaks or a future change
+ *     relaxes it. A directive is hoisted out of the prose before parsing ever reaches this node,
+ *     so a directive-shaped comment arriving here is already anomalous; refusing it keeps the
+ *     invariant "a comment node never carries a directive" true by construction.
+ *  3. SHAPE — exactly one inert comment (COMMENT_SHAPE).
+ *
+ *  Anything failing any gate is REJECTED (`false` tells ProseMirror to skip the parse rule), so the
+ *  paste degrades to plain text — the pre-node behavior, and therefore never a regression. */
+export function readCommentText(raw: string | null, origin?: string | null): { text: string } | false {
+	if (!raw || origin !== CLIP_ORIGIN) return false;
+	if (raw.length > 8192 || DIRECTIVE_SHAPED.test(raw) || !isWellFormedComment(raw)) return false;
 	return { text: raw };
+}
+
+// ── What KIND of comment is this? ────────────────────────────────────────────
+// Not every `<!-- … -->` is a speaker note, and labelling them all "note" is wrong on the slide's
+// own terms: `caption:` is the text the slide NARRATES and `describe:` is its WCAG text
+// alternative — different channels, different sinks, neither a note. The classifier is the
+// engine's own (`lib/authoring/notes-core.js`), and these matchers MIRROR it rather than fork it.
+//
+// Why mirror instead of import: `notes-core` is a CommonJS module in `lib/authoring/` carrying the
+// whole notes/pragma/scrub surface, and Compose needs four predicates over a string it already
+// holds. The parity test in `comment-block.test.ts` reads the real kernel and fails if these
+// drift, which is the same shape of guarantee `DIRECTIVE_NAMES` in notes-core keeps against
+// `lib/engine/directives.js`.
+export type CommentKind = 'caption' | 'describe' | 'pragma' | 'note';
+
+const CAPTION_MATCHER = /^caption\s*:/i;
+const DESCRIBE_MATCHER = /^describe\s*:/i;
+// A tooling pragma (markdownlint / prettier / remark) or one of Lattice's own structured markers.
+// Deliberately broad-but-anchored: it only changes a CHIP'S LABEL, never what is written back.
+const PRAGMA_MATCHER = /^(?:markdownlint|prettier-ignore|remark-ignore|eslint-|lint-|tier\s*:|galleryAuthored\s*:|color-mode\s*:|fit\s*:|scrub\s*:)/i;
+
+/** The comment's body — its text with the `<!--` / `-->` fence removed and trimmed. */
+export function commentBody(text: string): string {
+	return String(text || '')
+		.replace(/^<!--/, '')
+		.replace(/--!?>$/, '')
+		.trim();
+}
+
+/** Which channel this comment belongs to. Drives the chip's LABEL only — the bytes are untouched. */
+export function commentKind(text: string): CommentKind {
+	const body = commentBody(text);
+	if (CAPTION_MATCHER.test(body)) return 'caption';
+	if (DESCRIBE_MATCHER.test(body)) return 'describe';
+	if (PRAGMA_MATCHER.test(body)) return 'pragma';
+	return 'note';
+}
+
+/** The words to SHOW for a comment — its body with the channel prefix stripped, because
+ *  "caption: " is the syntax that selects the channel, not part of what the author wrote. */
+export function commentText(text: string): string {
+	const body = commentBody(text);
+	const kind = commentKind(text);
+	if (kind === 'caption') return body.replace(CAPTION_MATCHER, '').trim();
+	if (kind === 'describe') return body.replace(DESCRIBE_MATCHER, '').trim();
+	return body;
 }
 
 /** The `comment` node: a block-level ATOM carrying its source bytes.
@@ -87,46 +149,74 @@ export const commentNodeSpec: NodeSpec = {
 	attrs: { text: { default: '' } },
 	selectable: true,
 	defining: true,
-	toDOM: (node) => ['div', { class: 'cs-comment', 'data-comment': node.attrs.text as string }],
-	parseDOM: [{ tag: 'div.cs-comment', getAttrs: (dom) => readCommentText((dom as HTMLElement).getAttribute('data-comment')) }],
+	toDOM: (node) => ['div', { class: 'cs-comment', 'data-comment': node.attrs.text as string, 'data-lattice-origin': CLIP_ORIGIN }],
+	parseDOM: [
+		{
+			tag: 'div.cs-comment',
+			getAttrs: (dom) => readCommentText((dom as HTMLElement).getAttribute('data-comment'), (dom as HTMLElement).getAttribute('data-lattice-origin')),
+		},
+	],
 };
 
 /** A markdown-it BLOCK rule recognizing a whole `<!-- … -->` comment, however many lines it spans.
  *
- *  Registered before `paragraph` (and before `code`, which is why the opener's indent is checked):
- *  with `html: false` there is no `html_block` rule to do this, and we specifically do not want to
- *  turn `html: true` on — that would also start modeling inline tags and block HTML, which the
- *  round-trip deliberately refuses (they lock the slide instead). This rule is comments only.
+ *  Registered before `heading`, which is exactly where markdown-it's own `html_block` sits
+ *  (measured ruler order: table, code, fence, blockquote, hr, list, reference, html_block,
+ *  heading, lheading, paragraph). That position is load-bearing in both directions: with
+ *  `html: false` there is no `html_block` to do this job, and registering any LATER — the first
+ *  version used `before('paragraph')` — puts the rule after `lheading`, so
+ *  `<!-- TODO` / `---` / `more -->` has its middle line taken as a SETEXT UNDERLINE and the
+ *  comment's first line is rewritten into a visible `<h2>`. The engine does not do that, because
+ *  its `html_block` runs first.
  *
- *  It bails unless the comment ENDS its line. A trailing `<!-- x --> and more text` is a paragraph
- *  with an inline comment in it; hoisting only its head would split the author's line. Leaving it
- *  to `paragraph` keeps today's behavior for that shape. */
+ *  `html: true` is deliberately NOT turned on instead: that would also model inline tags and block
+ *  HTML, which the round-trip refuses on purpose (they lock the slide). This rule is comments only. */
 export function commentBlockRule(md: MarkdownIt): void {
 	md.block.ruler.before(
-		'paragraph',
+		'heading',
 		'lattice_comment',
 		// biome-ignore lint/suspicious/noExplicitAny: markdown-it's StateBlock is loosely typed upstream.
 		(state: any, startLine: number, endLine: number, silent: boolean) => {
-			// An opener indented 4+ is an indented code block, and `code` owns it.
+			// TOP LEVEL ONLY — `blkIndent > 0` means we are inside a list item, and modeling a
+			// comment there CHANGES THE RENDER. `- item` / `  <!-- note -->` / `- item` is a TIGHT
+			// list; lifting the comment out of the item's paragraph splits it, and markdown-it then
+			// renders the list LOOSE — every `<li>` gains a `<p>`. Measured against `origin/main`,
+			// which was render-neutral here. Bailing in BOTH the silent and non-silent paths is
+			// what keeps it neutral: returning true in silent mode would terminate the item's
+			// paragraph and produce the same loose list by another route. So a comment inside a
+			// list item stays prose, exactly as before this node existed. (blkIndent is 0 inside a
+			// blockquote and after a paragraph, so neither of those loses the chip — measured.)
+			if (state.blkIndent > 0) return false;
+			// An opener indented 4+ is an indented code block. The `code` rule is registered BEFORE
+			// this one and owns that case at the opener; the guard is still load-bearing in the
+			// TERMINATOR path (a paragraph line followed by `    <!-- x -->`), where `code` is never
+			// consulted. An earlier version of this comment had the ordering backwards.
 			if (state.sCount[startLine] - state.blkIndent >= 4) return false;
 			const start = state.bMarks[startLine] + state.tShift[startLine];
 			if (state.src.slice(start, start + 4) !== '<!--') return false;
 
 			// Scan forward for the line that closes the comment. `endLine` is exclusive.
 			//
-			// `-->` ONLY, deliberately — and this is the one place in this file where stopping at
-			// `--!>` too would be WRONG. markdown-it's own comment scanning ends at `-->`, so the
-			// ENGINE keeps consuming past a `--!>`; matching that is how the Compose node boundary
-			// stays the same boundary the render uses (HARD RULE #1). The browser disagreeing with
-			// markdown-it here is real, but it is an engine-level property of authored source that
-			// predates this node, not something a parser fork would fix — and forking would create
-			// a slide that edits differently from how it renders. What that mismatch DOES make
-			// dangerous is untrusted text, which is why the paste gate refuses both terminators.
+			// The search starts at `start`, NOT at `start + 4`, because markdown-it tests `/-->/`
+			// against the WHOLE line including the opener — and `<!-->` carries its terminator at
+			// offset 2, `<!--->` at offset 3. Skipping the opener made this rule consume PAST them
+			// and swallow the following lines: `<!--->` / `VISIBLE TEXT` / `<!-- note -->` became a
+			// single comment node, so the editor hid text the slide actually renders and "Remove
+			// note" would have deleted it. Measured against the real engine.
+			//
+			// `-->` ONLY, deliberately — and this is the one place here where stopping at `--!>`
+			// too would be WRONG. markdown-it's comment scanning ends at `-->`, so the ENGINE keeps
+			// consuming past a `--!>`; matching that is how the Compose node boundary stays the
+			// same boundary the render uses (HARD RULE #1). The browser disagreeing with
+			// markdown-it there is real, but it is an engine-level property of authored source that
+			// predates this node, and forking the parser would make a slide edit differently from
+			// how it renders. What that mismatch makes dangerous is UNTRUSTED text, which is why
+			// the paste gate refuses both terminators.
 			let line = startLine;
 			let close = -1;
 			for (; line < endLine; line++) {
 				const to = state.eMarks[line];
-				const at = state.src.indexOf('-->', line === startLine ? start + 4 : state.bMarks[line]);
+				const at = state.src.indexOf('-->', line === startLine ? start : state.bMarks[line]);
 				if (at !== -1 && at + 3 <= to) {
 					close = at + 3;
 					break;
@@ -134,7 +224,9 @@ export function commentBlockRule(md: MarkdownIt): void {
 			}
 			// Unterminated — not our token. `paragraph` takes it, exactly as before.
 			if (close === -1) return false;
-			// Trailing content on the closing line: an inline comment, not a block one (see above).
+			// Trailing content on the closing line: an inline comment, not a block one. A
+			// `<!-- x --> and more text` is a paragraph with a comment in it; hoisting only its
+			// head would split the author's line.
 			if (state.src.slice(close, state.eMarks[line]).trim() !== '') return false;
 			if (silent) return true;
 
@@ -147,6 +239,8 @@ export function commentBlockRule(md: MarkdownIt): void {
 			state.line = line + 1;
 			return true;
 		},
-		{ alt: ['paragraph', 'blockquote', 'list'] },
+		// Mirrors markdown-it's own `html_block` terminator list. `reference` is included for the
+		// same reason it is there: `reference.mjs` runs its own block chain.
+		{ alt: ['paragraph', 'reference', 'blockquote'] },
 	);
 }

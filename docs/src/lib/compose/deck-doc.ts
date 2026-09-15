@@ -1,4 +1,5 @@
 import { Fragment, type Node as PMNode, Schema } from 'prosemirror-model';
+import { CLIP_ORIGIN } from './clip-origin';
 import { latticeMarkdownSerializer, parseSlideProse, proseSchema } from './deck-markdown';
 import { composeSlideChunk, hasLossyConstruct, parseDeck } from './deck-source';
 
@@ -53,43 +54,27 @@ const nodes = proseSchema.spec.nodes
 	});
 
 /**
- * A PER-SESSION token stamped on every slide this editor copies, and required before a
- * pasted slide's directives are believed.
+ * The provenance token guarding a pasted slide's directives now lives in `./clip-origin` — ONE
+ * token for the whole editor, because `comment-block` needs the same guarantee for a comment's
+ * text and a second, independently-generated token would mean two editors' worth of trust.
  *
- * `parseDOM` matches `section.cs-slide` in ANY pasted HTML, including HTML from a page
- * the author does not control. Directive strings are not content: `composeSlideChunk`
- * joins them and prepends them to the slide's prose, so whatever a foreign page puts in
- * `data-directives` lands in the DECK SOURCE, and from there in the exported artifact.
- * Measured on the real Studio: a crafted `section.cs-slide` carrying
- * `<!-- _backgroundImage: url(https://evil.example/beacon.png) -->` pasted over one
- * slide-scoped selection put that URL into the exported HTML three times, with nothing
- * visible in Compose — directives are an attribute, not content, so the author sees only
- * the innocent paragraph. A directive string containing newlines could also forge `---`
- * slide boundaries and smuggle a `<style>` block into the export.
+ * Why it exists, kept here because this is where it was measured: `parseDOM` matches
+ * `section.cs-slide` in ANY pasted HTML, including HTML from a page the author does not control.
+ * Directive strings are not content — `composeSlideChunk` joins them and prepends them to the
+ * slide's prose, so whatever a foreign page puts in `data-directives` lands in the DECK SOURCE and
+ * from there in the exported artifact. Measured on the real Studio: a crafted `section.cs-slide`
+ * carrying `<!-- _backgroundImage: url(https://evil.example/beacon.png) -->` pasted over one
+ * slide-scoped selection put that URL into the exported HTML three times, with nothing visible in
+ * Compose. A directive string containing newlines could also forge `---` slide boundaries and
+ * smuggle a `<style>` block into the export.
  *
- * A shape check alone does not close it, because `_backgroundImage: url(…)` is a
- * perfectly well-formed, KNOWN directive. What actually separates the two cases is
- * PROVENANCE: directives are trustworthy when they came out of this editor and never
- * otherwise. The token is random per page load, so a foreign document cannot carry a
- * valid one; a copy from this session round-trips, and anything else falls back to `[]`,
- * which is exactly the pre-bridge behavior and therefore no regression.
+ * A shape check alone does not close it, because `_backgroundImage: url(…)` is a perfectly
+ * well-formed, KNOWN directive. What separates the two cases is PROVENANCE.
  *
- * Cost, stated plainly: copying a slide between two Studio TABS no longer carries its
- * `_class`. That is the pre-bridge behavior for that path, and it is the safe direction —
- * an author who wants the class across tabs has the Markdown pane.
+ * Cost, stated plainly: copying a slide between two Studio TABS no longer carries its `_class`.
+ * That is the pre-bridge behavior for that path, and it is the safe direction — an author who
+ * wants the class across tabs has the Markdown pane.
  */
-const CLIP_ORIGIN = (() => {
-	try {
-		const c = globalThis.crypto;
-		if (c?.randomUUID) return c.randomUUID();
-		if (c?.getRandomValues) return Array.from(c.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
-	} catch {
-		/* no crypto (an old jsdom) — fall through */
-	}
-	// Last resort. Weaker, but it still has to be GUESSED by an attacker writing a static
-	// page, and the fallback only runs where `crypto` is absent.
-	return `l${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-})();
 
 /** One directive line, as this editor writes them: a single-line `<!-- _name: … -->` HTML
  *  comment. NEWLINES ARE THE POINT — a directive carrying one would forge a `---` slide

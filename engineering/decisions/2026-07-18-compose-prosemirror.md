@@ -158,7 +158,29 @@ and verified on the real built Studio (HARD RULE #23):
   the claim it made was half wrong, which is the more useful half of this entry. Comments now
   take the same path tables did: a real schema node (`docs/src/lib/compose/comment-block.ts`),
   parsed by a markdown-it block rule, carrying the comment's SOURCE BYTES and writing them back
-  verbatim. Compose shows a quiet `note` chip that expands read-only.
+  verbatim.
+  **A RUN of comments is ONE control.** Adjacent comments are the common case — a `caption:`, a
+  `describe:` and a note all belong to the same slide — so they render as pills on one row, labeled
+  by CHANNEL (`lib/authoring/notes-core.js`'s classification, mirrored with a parity test), with
+  exactly one open and its words in a shared panel below. The open state is PLUGIN state keyed by
+  document position and the panel is a WIDGET DECORATION after the run, not per-view state: a
+  nodeView cannot see its siblings, and ProseMirror maps the decoration through every transaction,
+  so the panel follows its own note through inserts, deletes and undo. The first version rendered
+  one box per comment with its own Remove button, which on a three-comment slide was three
+  identical stacked "NOTE" panels.
+  **Removal is a second deliberate act** inside the opened panel. Letting the pill's mousedown reach
+  ProseMirror was tried, because it enables the ordinary atom gesture (click, Backspace) — and
+  reverted, because with an atom selected the next printed character REPLACES it, so reading a note
+  and carrying on typing destroyed it. On a LOCKED slide the control is disabled and says to edit in
+  Markdown rather than being filtered by the structural guard and looking like it worked; that is
+  reachable by accident, because a note containing `~~` or `$math$` locks its own slide.
+  **Two scope lines keep the node off text the slide renders.** `<!-->` and `<!--->` carry their
+  terminator inside the opener, so the scan starts at the opener as markdown-it's does — skipping it
+  swallowed the following prose into the comment. And the rule registers where the engine's own
+  `html_block` sits (before `heading`), because after `lheading` a `---` inside a comment is read as
+  a setext underline and the comment's first line becomes a visible `<h2>`. A comment inside a LIST
+  ITEM stays prose: lifting it out splits the item's paragraph and markdown-it renders the list
+  loose, which changes what ships.
   **"Round-trip byte-stable" held only for a ONE-LINE comment.** With `html: false` the parser
   does not drop HTML, it declines to model it — so a comment fell through as prose, and a
   multi-line one was reflowed onto a single line. A comment with a blank line inside was worse:
@@ -177,17 +199,30 @@ and verified on the real built Studio (HARD RULE #23):
   (`base.modifiers.css`) rather than pattern-matching: a code label is an Eyebrow before a
   heading / a Subtitle after one (the gutter gained a 6th **Subtitle** register); a blockquote
   is Key-insight ONLY when trailing; an em-dash paragraph is Below-note ONLY when trailing.
-  **A comment is invisible to that read (2026-09-15)**, because it is invisible to the engine —
-  by TWO mechanisms, not one, and the distinction is the useful part. **Key-insight and
-  below-note are decided in the TRANSFORM:** `harvestBody` (`lib/core/coda.js`) peels the tail off
-  `topLevelElements()`, which sees elements only. **Eyebrow and subtitle are pure CSS:**
-  `h2 + p:has(> code:only-child)` in `base.modifiers.css`, with no stamped class. Both were
-  measured rather than reasoned — the engine renders the identical `.cell-coda` with and without a
-  comment after the quote, and real Chromium's `+` looks straight through one comment node and
-  through two. `slideContext` skips comments when resolving `prev` / `next` / `isLast`; counting
-  them as ordinary siblings lit the wrong register on a slide whose quote or note was followed by
-  one. (A first draft of this credited the CSS mechanism for all four registers. It was wrong for
-  the two the transform owns, and the measurement is what caught it.)
+  **A comment is invisible to that read LOOKING FORWARD, and not looking back (2026-09-15).** The
+  asymmetry is the whole finding, and it was got wrong twice before it was measured per register —
+  each slide rendered twice, with and without a comment in the gap, and the output diffed:
+
+  | register | comment in the gap | `slideContext` |
+  |---|---|---|
+  | eyebrow (label **before** h2) | still hoisted | SKIP (`next`) |
+  | **subtitle** (label **after** h2) | **subtitle is lost** | **DO NOT SKIP** (`prev`) |
+  | key-insight (trailing quote) | still harvested | SKIP (`isLast`) |
+  | below-note (trailing em-dash) | still a note | SKIP (`isLast`) |
+
+  Three of those are the TRANSFORM counting elements only (`harvestBody` in `lib/core/coda.js`
+  peels the tail off `topLevelElements()`). The subtitle is different: `masthead.transform.js`
+  hoists the label into `.masthead-lede` with a string match (`/^\s*<p[^>]*><code/` against the
+  rest of the slide's HTML), and `^\s*` admits whitespace only, so an intervening comment defeats
+  it and the label renders as ordinary stage prose.
+
+  **Two drafts of this note got it wrong, in instructive ways.** The first credited pure CSS for
+  all four registers. The second kept that claim for eyebrow and subtitle and "measured" it in real
+  Chromium — confirming that `+` looks through a comment node, which is true and irrelevant: the
+  element never reaches the position where that selector could match. Compose lit a Subtitle pill
+  on a slide the engine renders without one until an independent check went to the transform. The
+  lesson is not about comments; it is that measuring the mechanism you assumed confirms the
+  assumption rather than testing it.
   Applying Key-insight / Below-note relocates the block to the slide's end (the "naturally
   goes to the end" model), since the engine renders them only there. (There is no register
   *class* to make first-class — the engine detects by position; matching that IS the fix.)

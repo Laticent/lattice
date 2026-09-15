@@ -40,26 +40,31 @@ export function slideContext(state: EditorState) {
 	const slide = $from.node(1);
 	const index = $from.index(1);
 	const block = slide.child(index);
-	// AUTHORING COMMENTS ARE SKIPPED when looking for siblings, because the ENGINE skips them —
-	// by TWO different mechanisms, and it is worth naming both, because an earlier version of this
-	// comment credited the CSS one for all of it and was wrong about half the registers:
+	// AUTHORING COMMENTS ARE SKIPPED LOOKING FORWARD, AND NOT LOOKING BACK. The asymmetry is not a
+	// subtlety to tidy away — it is what the engine actually does, measured per register by
+	// rendering each slide twice (with and without a comment in the gap) and diffing the output:
 	//
-	//   KEY-INSIGHT / BELOW-NOTE are decided in the TRANSFORM, not by a selector. `harvestBody`
-	//   (lib/core/coda.js) peels the tail off `topLevelElements()`, which sees elements only, and
-	//   lifts the trailing blockquote into `.cell-coda`. Measured through the real engine: a slide
-	//   renders the identical coda cell with and without a comment after the quote.
+	//   register                       comment in the gap   so here
+	//   eyebrow   (label BEFORE h2)    still hoisted        SKIP  (`next`)
+	//   subtitle  (label AFTER h2)     SUBTITLE IS LOST     DO NOT SKIP (`prev`)
+	//   insight   (trailing quote)     still harvested      SKIP  (`isLast`)
+	//   below-note(trailing em-dash)   still a note         SKIP  (`isLast`)
 	//
-	//   EYEBROW / SUBTITLE are pure CSS — `h2 + p:has(> code:only-child)` in base.modifiers.css,
-	//   no stamped class. Measured in real Chromium: `+` looks straight through one comment node
-	//   and through two, so the label is still adjacent to its heading.
+	// Three of those four are one mechanism and subtitle is another, which is why a blanket skip
+	// got it wrong. Key-insight and below-note are decided in the TRANSFORM — `harvestBody`
+	// (lib/core/coda.js) peels the tail off `topLevelElements()`, which sees elements only. The
+	// EYEBROW survives for the same kind of reason. But the SUBTITLE is hoisted into
+	// `.masthead-lede` by `masthead.transform.js`, whose adjacency test is a string match
+	// (`/^\s*<p[^>]*><code/` against the rest of the slide's HTML) — and `^\s*` admits whitespace
+	// only, so an intervening comment defeats it and the label renders as ordinary stage prose.
 	//
-	// Either way the comment is invisible to the render, so it must be invisible here too.
-	// Treating it as an ordinary sibling mislabels the block the author is standing in — which is
-	// what happened while comments parsed as paragraphs, and is exactly the drift this function's
-	// contract ("EXACTLY as the engine renders it") exists to prevent.
+	// An earlier version of this skipped comments in BOTH directions on the claim that eyebrow and
+	// subtitle are "pure CSS, and `+` looks through a comment node". The CSS part is true and
+	// irrelevant: the element never reaches the position where that selector could match. Compose
+	// then lit a Subtitle pill on a slide the engine renders without one — the exact drift this
+	// function's contract ("EXACTLY as the engine renders it") exists to prevent.
 	const visible = (n: PMNode | null) => (n && n.type.name !== 'comment' ? n : null);
-	let prev: PMNode | null = null;
-	for (let i = index - 1; i >= 0 && !prev; i--) prev = visible(slide.child(i));
+	const prev: PMNode | null = index > 0 ? slide.child(index - 1) : null; // NOT comment-skipping — see above
 	let next: PMNode | null = null;
 	for (let i = index + 1; i < slide.childCount && !next; i++) next = visible(slide.child(i));
 	let isLast = true;
