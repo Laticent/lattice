@@ -177,9 +177,10 @@ fit, so a scale correct on average is wrong for any deck whose words happen not 
 fit at it. Measured at the flat derived scale: a 24-term `dense` portrait deck
 painted 22 of 24 where the old constant painted all 24. So the scale is a **ladder**
 walked largest-first with **presence as the primary key** — the same rule
-`quadrant`'s dot-label ladder uses (HARD RULE #15: same problem, same answer) — and
-its floor rung is no scaling at all, so a portrait cloud can never paint fewer words
-than an unscaled one. Every shipped slide still wins at the top rung.
+`quadrant`'s dot-label ladder already uses, reused rather than reinvented because
+it is the same problem — and its floor rung is no scaling at all, so a portrait
+cloud can never paint fewer words than an unscaled one. Every shipped slide still
+wins at the top rung.
 
 **And the corpus could not have told you any of that.** Every shipped word-cloud
 slide paints the same count at *every* scale in the range, so a "the counts are
