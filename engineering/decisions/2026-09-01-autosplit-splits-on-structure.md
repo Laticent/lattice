@@ -7,6 +7,12 @@ supersedes: the trigger clause of 2026-07-29-autosplit-is-not-a-toggle.md; the p
 
 # Auto-split splits on structure
 
+> **PART SUPERSEDED (2026-09-13).** The native-slice cover this note leaves as an open
+> question ("**Owner's call**") is decided — every run opens on a cover. The chrome ruling is
+> extended to a slide's own `_footer:`, which is now said once, on the page that opens the run.
+> And the variant blindness this note shares with every reader before it is measured and fixed in
+> [`2026-09-13-a-component-splits-its-variants-did-not.md`](2026-09-13-a-component-splits-its-variants-did-not.md).
+
 **Date:** 2026-09-01 · **Status:** Shipped · **Decision owner:** Sharmarke
 
 ## The rule

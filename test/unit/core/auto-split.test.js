@@ -200,6 +200,101 @@ describe('core: the carousel points at what is next — on EVERY run', () => {
   });
 });
 
+// ── A RECIPE THAT DECLINES FALLS THROUGH TO THE DERIVED AXIS ────────────────────────────
+//
+// `splitDoc` used to `return whole` the moment a component's declared carousel strategy handed
+// back null, so a VARIANT whose rendered DOM was not the shape that one strategy reads never
+// split at all — however plain its seam. Measured on the component galleries at portrait:
+// `compare-prose axis` renders numeral-led facet cards instead of two panes (`readSubjects`
+// found no sides), `split-panel pullquote` leads with the quote and carries no `<h2>`
+// (`readFeature` found no feature). Both hold a top-level list of independent members, both
+// clip, and neither split.
+//
+// A strategy declining means "this is not my shape". It is not the claim "this slide has no
+// seam", and the two were being conflated.
+describe('core: a declined recipe falls through to the derived axis', () => {
+  const stage = (n) => `<div class="cell-masthead"><div class="masthead-lede"><h2>A heading.</h2></div></div>`
+    + `<div class="cell-stage">${list(n)}</div>`;
+
+  test('a strategy that cannot read the section still lets the DOM be asked', () => {
+    // `cover-sides` reads two panes; there are none here, so it declines — and the three-item
+    // list under the stage is a seam the derived axis can see.
+    const capacity = { widget: { axis: 'item', hard: 4, split: { strategy: 'cover-sides', perPage: 1 } } };
+    const out = split(docSec(1, 'widget', stage(3)), capacity).html;
+    assert.ok(sections(out) > 1, 'a declined recipe left the slide whole');
+    assert.deepEqual(rolesOf(out), ['cover', 'body', 'body', 'body']);
+  });
+
+  test('a genuinely single-member slide still rings', () => {
+    const capacity = { widget: { axis: 'item', hard: 4, split: { strategy: 'cover-sides', perPage: 1 } } };
+    const out = split(docSec(1, 'widget', stage(1)), capacity).html;
+    assert.equal(sections(out), 1, 'a one-member slide was paginated');
+  });
+
+  // THE PROTECTION THIS MUST NOT REMOVE. A page the recipe ALREADY emitted (`lat-split-native`)
+  // keeps taking the recipe's declared axis — deriving there is what cut redline's reasoning
+  // away from the passage it explains. The recipe never declined on such a page; it produced it.
+  test('a page the recipe already emitted is NOT re-derived', () => {
+    const capacity = { widget: { hard: 2, split: { strategy: 'cover-sides', perPage: 1 } } };
+    const out = split(docSec(1, 'widget form lat-split-native', stage(3)), capacity).html;
+    assert.equal(sections(out), 1, 'an already-emitted split page derived an axis it was never given');
+  });
+
+  // THE FALLTHROUGH IS AN ALLOWLIST OF SHAPE READERS, NOT A DEFAULT — the strategies whose
+  // `null` is a VETO must still ring. Each of these was a real, measured regression when the
+  // fallthrough was unconditional; each is asserted against the strategy name, so admitting one
+  // to `SHAPE_READER_STRATEGIES` without thinking fails here rather than on a slide.
+  for (const strategy of ['journey-stages', 'roadmap-horizons', 'redline-blocks', 'kanban-lanes']) {
+    test(`a VETO from ${strategy} rings the slide — it does not re-derive an axis`, () => {
+      const capacity = { widget: { axis: 'item', hard: 4, split: { strategy, perPage: 1 } } };
+      const out = split(docSec(1, 'widget', stage(3)), capacity).html;
+      assert.equal(sections(out), 1,
+        `${strategy} declined and the slide was paginated on a derived axis anyway`);
+    });
+  }
+
+  // `math-structures` IS THE FIFTH VETO AND IT NEEDS ITS OWN SHAPE, which is why it is not in
+  // the loop above. It is a reader that ALSO vetoes: on a generic list it finds a seam and
+  // splits, and it refuses only its two fixed scaffolds BY CLASS NAME (`stats`, `canvas`,
+  // `MATH_SCAFFOLDS`). A generic fixture therefore proves nothing about it. Its exclusion from
+  // the allowlist was not mentioned in that list's own justification until a checker asked — an
+  // exclusion nobody has stated is an exclusion nobody is holding.
+  for (const scaffold of ['stats', 'canvas']) {
+    test(`math \`${scaffold}\` refuses by name, and the refusal is not re-derived`, () => {
+      const capacity = { math: { axis: 'item', hard: 4, split: { strategy: 'math-structures', perPage: 1 } } };
+      const out = split(docSec(1, `math ${scaffold}`, stage(4)), capacity).html;
+      assert.equal(sections(out), 1, `the ${scaffold} scaffold was paginated on a derived axis`);
+    });
+  }
+
+  // The measured shape behind the `journey-stages` row above: a landscape-form journey board at
+  // `size: square`. `deriveAxis` reaches the MOOD LEGEND once the stage seam is refused, so the
+  // board was repeated on every page and only the legend changed.
+  test('a journey board whose only list is a legend is not sliced on the legend', () => {
+    const capacity = { journey: { axis: 'item', hard: 4, split: { strategy: 'journey-stages', perPage: 1 } } };
+    const board = '<div class="journey-grid"><div class="journey-stage">S1</div>'
+      + '<div class="journey-stage">S2</div></div>'
+      + `<div class="journey-legend">${list(7)}</div>`;
+    const out = split(docSec(1, 'journey', `<h2>T</h2>${board}`), capacity).html;
+    assert.equal(sections(out), 1, 'the legend became the split axis');
+    assert.equal((out.match(/journey-grid/g) || []).length, 1, 'the board was repeated per page');
+  });
+
+  // A HEADING-LESS SLIDE STILL SPLITS, AND COVERLESS IS THE RIGHT ANSWER FOR IT. The envelope's
+  // own rule is "a missing masthead costs the COVER, not the split" — there is nothing to build a
+  // cover from — so the run is body pages carrying the run's k-of-N rail and its forward pointer.
+  // This is the case `split-panel pullquote` is: it leads with the quotation and carries no
+  // `<h2>`, so `readFeature` declines and there is no masthead either. Ringing it instead was
+  // tried on this branch and reverted — it took three slides of real coverage, that flagship
+  // variant among them, to protect against a shape that turned out to be identical at base.
+  test('a heading-less slide whose recipe declined splits, coverless', () => {
+    const capacity = { widget: { axis: 'item', hard: 4, split: { strategy: 'cover-sides', perPage: 1 } } };
+    const out = split(docSec(1, 'widget', `<div class="cell-stage">${list(4)}</div>`), capacity).html;
+    assert.equal(sections(out), 4, 'the heading-less run did not split');
+    assert.deepEqual(rolesOf(out), ['body', 'body', 'body', 'body']);
+  });
+});
+
 describe('core: document-level bookkeeping across a split', () => {
   test('preserves gaps and the section openTag/attributes across copies', () => {
     const html = `\n<section data-lattice-slide="1" class="cards" data-x="1">${list(3)}</section>\n`;
