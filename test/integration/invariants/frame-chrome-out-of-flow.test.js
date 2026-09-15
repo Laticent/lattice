@@ -435,20 +435,47 @@ describe('the k-of-N split rail stays out of flow under a finish (real render)',
 
   after(async () => { if (browser) await browser.close(); });
 
-  test('the deck actually produces section-level rails (else this suite asserts nothing)', async () => {
-    const n = await page.evaluate(() =>
-      [...document.querySelectorAll('.lat-split-rail')].filter((r) => r.parentElement === r.closest('section')).length);
-    assert.ok(n > 0, 'expected at least one rail docked at section level — check the split still fires');
+  test('the deck actually produces split rails (else this suite asserts nothing)', async () => {
+    const n = await page.evaluate(() => document.querySelectorAll('.lat-split-rail').length);
+    assert.ok(n > 0, 'expected the run to emit a k-of-N rail — check the split still fires');
   });
 
-  test('every section-level rail is absolutely positioned, finish or not', async () => {
+  // THE INVARIANT IS "OUT OF FLOW", NOT "AT SECTION LEVEL", and the two stopped being the
+  // same thing when every page of a run gained a footer Cell. A rail used to dock straight
+  // onto the section (`footer-dock.js` appends at section level when it finds no Cell), so
+  // asking whether a SECTION-LEVEL rail was absolutely positioned was the whole question.
+  // Now the rail is a static child of the Cell and the CELL is the absolutely-positioned
+  // berth — so the old arm read zero section-level rails and its own guard fired. Measured
+  // on this deck: 27 rails, 1 Cell and 27 section-level rails before; 27 rails, 27 Cells and
+  // 0 section-level rails after.
+  //
+  // So the arm asks what it always meant to ask — can this rail take stage height from the
+  // run it is measuring — and answers it for EITHER docking, which is what keeps it honest
+  // if the degrade path ever fires again.
+  test('no rail can take stage height — it docks itself, or rides an out-of-flow Cell', async () => {
     const bad = await page.evaluate(() =>
       [...document.querySelectorAll('.lat-split-rail')]
-        .filter((r) => r.parentElement === r.closest('section'))
-        .filter((r) => getComputedStyle(r).position !== 'absolute')
+        .filter((r) => {
+          if (getComputedStyle(r).position === 'absolute') return false;
+          const cell = r.closest('.cell-footer');
+          return !(cell && getComputedStyle(cell).position === 'absolute');
+        })
         .map((r) => r.closest('section').className));
     assert.deepEqual(bad, [],
-      'a rail forced into flow by the finish stacking rule loses its reserved berth AND takes ' +
-      'stage height from the run it is measuring (lib/core/footer-dock.js)');
+      'a rail in flow loses its reserved berth AND takes stage height from the run it is ' +
+      'measuring. It must either position itself (lib/core/footer-dock.js\'s section-level ' +
+      'degrade path) or sit inside the absolutely-positioned footer Cell.');
+  });
+
+  // The Cell is the berth the arm above depends on, so its coverage is pinned here rather
+  // than left implicit: a run whose pages silently lost their Cell would still pass that arm
+  // (every rail would dock itself again) while regressing the thing the Cell exists for.
+  test('every page of the run carries a footer Cell, so no rail falls back to the section', async () => {
+    const { pages, withCell } = await page.evaluate(() => {
+      const secs = [...document.querySelectorAll('section[data-split-run]')];
+      return { pages: secs.length, withCell: secs.filter((s) => s.querySelector(':scope > .cell-footer')).length };
+    });
+    assert.ok(pages > 0, 'expected a split run — check the split still fires');
+    assert.equal(withCell, pages, `${pages - withCell} of ${pages} run pages have no footer Cell`);
   });
 });
