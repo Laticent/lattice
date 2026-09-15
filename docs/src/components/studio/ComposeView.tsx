@@ -783,47 +783,65 @@ class SlideView {
 // inserts, deletes and undo instead of a recycled view showing the wrong note's text.
 export const commentOpenKey = new PluginKey<number | null>('cs-comment-open');
 
-/** The comment nodes forming the run that contains top-level index `i` of `slide`, as
- *  `{ from, to, nodes, positions }` — `from`/`to` in document coordinates. */
-function commentRunAt(slidePos: number, slide: PMNode, i: number) {
-	let start = i;
-	while (start > 0 && slide.child(start - 1).type.name === 'comment') start--;
-	let end = i;
-	while (end < slide.childCount - 1 && slide.child(end + 1).type.name === 'comment') end++;
-	let pos = slidePos + 1;
-	for (let k = 0; k < start; k++) pos += slide.child(k).nodeSize;
-	const nodes: PMNode[] = [];
-	const positions: number[] = [];
-	let p = pos;
-	for (let k = start; k <= end; k++) {
-		nodes.push(slide.child(k));
-		positions.push(p);
-		p += slide.child(k).nodeSize;
-	}
-	return { from: pos, to: p, nodes, positions };
-}
-
-/** Every comment run in the document, in order. */
+/** Every comment RUN in the document, in order — a run being consecutive `comment` siblings.
+ *
+ *  DEPTH-AGNOSTIC, and that is the point. An earlier version walked `slide.child(i)` only, while
+ *  `nodeViews.comment` mounts a CommentView at ANY depth — so a comment inside a blockquote
+ *  (which `comment-block.ts` deliberately models: `blkIndent` is 0 there) rendered a pill whose
+ *  position no run ever yielded. Clicking it set the open state to a position `openIdx` could
+ *  never match, so it showed no panel, no channel class and no Remove: a control that is visibly
+ *  present and does nothing, on a surface this branch's own docs claim works.
+ *
+ *  Grouping is by PARENT plus adjacency, so `> quoted` / `> <!-- a -->` / `> <!-- b -->` is one
+ *  run inside the blockquote and never merges with a comment outside it. */
 function commentRuns(doc: PMNode) {
-	const runs: { from: number; to: number; nodes: PMNode[]; positions: number[] }[] = [];
-	doc.forEach((slide, slideOff) => {
-		if (slide.type.name !== 'slide') return;
-		let i = 0;
-		while (i < slide.childCount) {
-			if (slide.child(i).type.name === 'comment') {
-				const run = commentRunAt(slideOff, slide, i);
-				runs.push(run);
-				i += run.nodes.length;
-			} else i++;
+	type Run = { from: number; to: number; nodes: PMNode[]; positions: number[] };
+	const runs: Run[] = [];
+	let open: (Run & { parent: PMNode | null; lastIndex: number }) | null = null;
+	doc.descendants((node, pos, parent, index) => {
+		if (node.type.name !== 'comment') return true;
+		if (open && open.parent === parent && index === open.lastIndex + 1) {
+			open.nodes.push(node);
+			open.positions.push(pos);
+			open.to = pos + node.nodeSize;
+			open.lastIndex = index;
+		} else {
+			const run = { from: pos, to: pos + node.nodeSize, nodes: [node], positions: [pos], parent, lastIndex: index };
+			runs.push(run);
+			open = run;
 		}
+		return false; // an atom has no children to walk
 	});
-	return runs;
+	return runs.map(({ from, to, nodes, positions }) => ({ from, to, nodes, positions }));
 }
 
 /** The label a pill carries, by channel. `caption:` and `describe:` are not notes — they are the
  *  slide's narration text and its WCAG text alternative, with their own sinks — so calling them
  *  "note" mislabels what the author is looking at. */
-const KIND_LABEL: Record<CommentKind, string> = { caption: 'caption', describe: 'describe', pragma: 'setting', note: 'note' };
+const KIND_LABEL: Record<CommentKind, string> = { caption: 'caption', describe: 'describe', note: 'note' };
+
+/** A note's words, laid out for reading rather than as the author's editor happened to wrap them.
+ *
+ *  PARAGRAPHS are meaning, so blank lines survive. Within a paragraph, WRAPPED lines are joined —
+ *  showing the source breaks verbatim produced a ragged "for the rest of his / life, and the /
+ *  distinction is…" in a panel narrower than the author's editor.
+ *
+ *  But a paragraph whose lines are a LIST keeps its breaks. Joining them turned
+ *  `TODO before Monday:` / `- call finance` / `- redo the chart` into one run-on line, and a
+ *  multi-line note is exactly the shape this feature exists to surface. Display only: the node's
+ *  bytes, and therefore the deck source, are never touched. */
+function readableNote(text: string): string {
+	const LIST_LINE = /^\s*(?:[-*+]|\d+[.)])\s/;
+	return commentText(text)
+		.split(/\n[ \t]*\n/)
+		.map((para) => {
+			const lines = para.split('\n').map((l) => l.trim());
+			if (lines.some((l) => LIST_LINE.test(l))) return lines.filter(Boolean).join('\n');
+			return lines.join(' ').replace(/\s+/g, ' ').trim();
+		})
+		.filter(Boolean)
+		.join('\n\n');
+}
 
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
  *  removes it. Removal is a SECOND deliberate act inside a panel the author chose to open —
@@ -832,18 +850,15 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	const wrap = document.createElement('div');
 	wrap.className = 'cs-comment-panel';
 	wrap.contentEditable = 'false';
+	// The row is a tab bar, so it should announce as one. Without this a screen reader met three
+	// unlabeled buttons and a region with no relationship to any of them.
+	wrap.setAttribute('role', 'region');
+	wrap.setAttribute('aria-label', `${KIND_LABEL[commentKind(node.attrs.text as string)]} — authoring note`);
 
 	const body = document.createElement('div');
 	body.className = 'cs-comment-body';
-	// A note's PARAGRAPHS are meaning; its line wrapping is an artifact of the width of the editor
-	// it was typed in. Reflow each paragraph, keep the blank lines between them — showing the source
-	// breaks verbatim produced a ragged "for the rest of his / life, and the / distinction is…" in a
-	// panel narrower than the author's. Display only: the node's bytes are never touched.
-	body.textContent = commentText(node.attrs.text as string)
-		.split(/\n[ \t]*\n/)
-		.map((para) => para.replace(/\s+/g, ' ').trim())
-		.filter(Boolean)
-		.join('\n\n');
+	body.id = `cs-comment-panel-${pos}`;
+	body.textContent = readableNote(node.attrs.text as string);
 	wrap.append(body);
 
 	const remove = document.createElement('button');
@@ -969,8 +984,15 @@ export class CommentView {
 		const text = this.node.attrs.text as string;
 		const kind = commentKind(text);
 		this.tag.textContent = KIND_LABEL[kind];
-		this.dom.title = commentText(text);
-		this.dom.setAttribute('aria-label', `${KIND_LABEL[kind]}: ${commentText(text)}`);
+		this.dom.title = readableNote(text);
+		// The pill NAMES a channel; it does not read the note out. Putting the whole body in the
+		// accessible name made a screen reader announce the entire note as the button's label and
+		// then again when the panel opened.
+		this.dom.setAttribute('aria-label', `${KIND_LABEL[kind]} — show this authoring note`);
+		const pos = this.getPos();
+		const isOpen = pos !== undefined && commentOpenKey.getState(this.view.state) === pos;
+		this.dom.setAttribute('aria-expanded', String(isOpen));
+		if (pos !== undefined) this.dom.setAttribute('aria-controls', `cs-comment-panel-${pos}`);
 	}
 
 	update(node: PMNode) {
@@ -1555,7 +1577,6 @@ function ComposeStyles() {
 			/* CHANNEL, not decoration: caption and describe are different registers from a note — the
 			   slide's narration text and its WCAG alternative — so they read differently at rest. */
 			.cs-host .cs-comment-caption:not(.cs-comment-open),.cs-host .cs-comment-describe:not(.cs-comment-open){border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
-			.cs-host .cs-comment-pragma:not(.cs-comment-open){opacity:.72}
 			/* the shared panel — one per run, below the row, never one per pill */
 			.cs-host .cs-comment-panel{margin:.1em 0 .7em;padding:9px 12px;max-width:62ch;border:1px solid var(--border,#e4eaf2);border-left:2px solid var(--accent,#006fa8);border-radius:0 8px 8px 0;background:var(--bg-alt,#f2f5fa)}
 			.cs-host .cs-comment-body{color:var(--text-body,#2b3a4f);font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}

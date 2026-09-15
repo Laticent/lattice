@@ -5,7 +5,10 @@
   BLOCK, so re-serializing the slide put the closing `-->` inside a fence and the engine rendered an
   empty `pre` onto the slide. One keystroke on such a slide was enough, and 25 multi-line comments
   across 7 shipped decks were exposed. Comments are now a schema node carrying their source bytes
-  verbatim, and the round-trip is byte-exact whatever shape the comment is in.
+  verbatim. The COMMENT'S OWN BYTES survive whatever shape it is in — internal line breaks, hanging
+  indent and all. Its surrounding blank line is normalized like any other block's, so a comment
+  written tight against a paragraph gains one on the next edit to that slide; that changes the
+  source, never the render.
 - **Added: a run of comments reads as one control.** Adjacent comments — a `caption:`, a
   `describe:` and a note all belong to the same slide — show as pills on a single row, labeled by
   CHANNEL rather than all called "note", with exactly one open at a time and its words in a shared

@@ -1,5 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import type { NodeSpec } from 'prosemirror-model';
+import { isCaptionBody, isDescriptionBody } from '../../components/studio/slide-directives';
 import { CLIP_ORIGIN } from './clip-origin';
 
 // An authoring COMMENT, modeled as a real schema node instead of falling through as prose.
@@ -26,6 +27,15 @@ import { CLIP_ORIGIN } from './clip-origin';
 // Modeling the comment fixes all of that at the root: the rule below consumes the whole comment
 // as ONE token whatever its internal shape, the node carries the source bytes verbatim, and the
 // serializer writes them back unchanged — so there is no reflow to get wrong.
+//
+// WHAT "VERBATIM" DOES AND DOES NOT COVER. The comment's own bytes are exact: internal line breaks,
+// hanging indent, odd dash counts, all of it. Its BLOCK SEPARATION is normalized, because
+// `closeBlock` emits a blank line the way it does for every other block — so `A para\n<!-- n -->`
+// re-emits as `A para\n\n<!-- n -->` once that slide is edited. That is 7 places across 3 shipped
+// decks, it is render-neutral (a comment is invisible either way, and the html_block boundaries do
+// not move), and it is the same normalization `initBaseline` already documents for inter-slide
+// separators. Worth stating because an earlier draft claimed the round-trip was "byte-exact
+// whatever shape the comment is in", which is true of the comment and false of the gap beside it.
 
 /** A well-formed, self-contained HTML comment: opens once, closes once, closes at the END — where
  *  "closes" means what a BROWSER means by it, not what the obvious regex means.
@@ -86,39 +96,42 @@ export function readCommentText(raw: string | null, origin?: string | null): { t
 	return { text: raw };
 }
 
-// ── What KIND of comment is this? ────────────────────────────────────────────
+// ── What CHANNEL is this comment on? ─────────────────────────────────────────
 // Not every `<!-- … -->` is a speaker note, and labelling them all "note" is wrong on the slide's
 // own terms: `caption:` is the text the slide NARRATES and `describe:` is its WCAG text
-// alternative — different channels, different sinks, neither a note. The classifier is the
-// engine's own (`lib/authoring/notes-core.js`), and these matchers MIRROR it rather than fork it.
+// alternative — different channels with different sinks, neither a note.
 //
-// Why mirror instead of import: `notes-core` is a CommonJS module in `lib/authoring/` carrying the
-// whole notes/pragma/scrub surface, and Compose needs four predicates over a string it already
-// holds. The parity test in `comment-block.test.ts` reads the real kernel and fails if these
-// drift, which is the same shape of guarantee `DIRECTIVE_NAMES` in notes-core keeps against
-// `lib/engine/directives.js`.
-export type CommentKind = 'caption' | 'describe' | 'pragma' | 'note';
+// The two predicates are REUSED from `slide-directives.ts`, which is the Studio's existing mirror
+// of `notes-core.isCaptionComment` / `isDescriptionComment` (HARD RULE #15 — this module had its
+// own third copy until a review pointed at the two that already existed).
+//
+// THERE IS DELIBERATELY NO "pragma" CHANNEL. A first version added one with a hand-written prefix
+// regex and a docblock claiming it mirrored the kernel. It did not: measured against the real
+// `notes-core`, it disagreed on 22 of 32 probed bodies IN BOTH DIRECTIONS — missing every real
+// remark pragma (the kernel's is `lint disable`, with a space; the regex had `lint-`), inventing
+// `fit:` and `scrub:` which are not pragmas anywhere in the repo, and labelling ordinary author
+// prose as machinery ("tier: enterprise customers churn faster", "color-mode: we should discuss
+// the palette" — strings the kernel's own docblock names as the cases its value constraints exist
+// to get right). The kernel needs 15 value-constrained matchers to make that call; a label on a
+// pill does not earn that surface. A pragma now reads as a note, which is honest — it IS a comment
+// the author wrote — instead of confidently wrong.
+export type CommentKind = 'caption' | 'describe' | 'note';
 
-const CAPTION_MATCHER = /^caption\s*:/i;
-const DESCRIBE_MATCHER = /^describe\s*:/i;
-// A tooling pragma (markdownlint / prettier / remark) or one of Lattice's own structured markers.
-// Deliberately broad-but-anchored: it only changes a CHIP'S LABEL, never what is written back.
-const PRAGMA_MATCHER = /^(?:markdownlint|prettier-ignore|remark-ignore|eslint-|lint-|tier\s*:|galleryAuthored\s*:|color-mode\s*:|fit\s*:|scrub\s*:)/i;
-
-/** The comment's body — its text with the `<!--` / `-->` fence removed and trimmed. */
+/** The comment's body — its text with the `<!--` / `-->` fence removed and trimmed. Dash-tolerant
+ *  on both ends, matching the engine's own `<!--+([\s\S]*?)--+!?>`: `<!--- x --->` is a comment
+ *  too, and stripping exactly two dashes left the extras in the text the author reads. */
 export function commentBody(text: string): string {
 	return String(text || '')
-		.replace(/^<!--/, '')
-		.replace(/--!?>$/, '')
+		.replace(/^<!--+/, '')
+		.replace(/--+!?>$/, '')
 		.trim();
 }
 
-/** Which channel this comment belongs to. Drives the chip's LABEL only — the bytes are untouched. */
+/** Which channel this comment belongs to. Drives the pill's LABEL only — the bytes are untouched. */
 export function commentKind(text: string): CommentKind {
 	const body = commentBody(text);
-	if (CAPTION_MATCHER.test(body)) return 'caption';
-	if (DESCRIBE_MATCHER.test(body)) return 'describe';
-	if (PRAGMA_MATCHER.test(body)) return 'pragma';
+	if (isCaptionBody(body)) return 'caption';
+	if (isDescriptionBody(body)) return 'describe';
 	return 'note';
 }
 
@@ -127,8 +140,8 @@ export function commentKind(text: string): CommentKind {
 export function commentText(text: string): string {
 	const body = commentBody(text);
 	const kind = commentKind(text);
-	if (kind === 'caption') return body.replace(CAPTION_MATCHER, '').trim();
-	if (kind === 'describe') return body.replace(DESCRIBE_MATCHER, '').trim();
+	if (kind === 'caption') return body.replace(/^caption\s*:/i, '').trim();
+	if (kind === 'describe') return body.replace(/^describe\s*:/i, '').trim();
 	return body;
 }
 

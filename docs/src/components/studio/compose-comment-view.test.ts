@@ -260,6 +260,87 @@ describe('a locked slide says so instead of doing nothing', () => {
 	});
 });
 
+// A comment inside a BLOCKQUOTE is deliberately modeled (the block rule bails only on a list
+// item), and `nodeViews.comment` mounts at any depth. An earlier run detection walked the slide's
+// top-level children only, so the nested pill's position was one no run ever yielded: it rendered,
+// clicked, and then showed no panel, no channel class and no Remove — visibly present, doing
+// nothing, and unremovable from Compose.
+describe('a comment nested in a blockquote is a first-class pill', () => {
+	const NESTED = ['<!-- _class: content -->', '', '## H', '', '> quoted', '>', '> <!-- inner note -->', '', 'after'].join('\n');
+
+	it('models the nested comment at all', () => {
+		const v = mount(NESTED);
+		expect(commentCount(v)).toBe(1);
+		expect(pills()).toHaveLength(1);
+	});
+
+	it('gives it a channel class and run marks like any other', () => {
+		mount(NESTED);
+		expect(pills()[0].classList.contains('cs-comment-note')).toBe(true);
+		expect(pills()[0].classList.contains('cs-comment-first')).toBe(true);
+		expect(pills()[0].classList.contains('cs-comment-last')).toBe(true);
+	});
+
+	it('opens a panel with its words, and removes cleanly', () => {
+		const v = mount(NESTED);
+		pills()[0].click();
+		expect(panels()).toHaveLength(1);
+		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('inner note');
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(commentCount(v)).toBe(0);
+		expect(v.state.doc.textContent).toContain('quoted');
+	});
+
+	it('does not merge a nested run with a comment outside the blockquote', () => {
+		mount(['<!-- _class: content -->', '', '> quoted', '>', '> <!-- inner -->', '', '<!-- outer -->'].join('\n'));
+		expect(pills()).toHaveLength(2);
+		// Two runs of one, not one run of two — different parents.
+		expect(pills().every((p) => p.classList.contains('cs-comment-first') && p.classList.contains('cs-comment-last'))).toBe(true);
+	});
+});
+
+describe('the panel lays the note out for reading', () => {
+	it('joins WRAPPED lines but keeps blank-line paragraphs', () => {
+		mount(['<!-- _class: content -->', '', '## H', '', '<!-- one wrapped', '     line here.', '', '     And a second paragraph. -->'].join('\n'));
+		pills()[0].click();
+		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('one wrapped line here.\n\nAnd a second paragraph.');
+	});
+
+	it('keeps the line breaks of a LIST-shaped note', () => {
+		// Joining these turned a checklist into one run-on line, and the multi-line note is exactly
+		// the shape this feature exists to surface.
+		mount(['<!-- _class: content -->', '', '## H', '', '<!-- TODO before Monday:', '- call finance', '- redo the chart', '- send to Dana -->'].join('\n'));
+		pills()[0].click();
+		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('TODO before Monday:\n- call finance\n- redo the chart\n- send to Dana');
+	});
+});
+
+describe('the row announces itself as the tab bar it is', () => {
+	it('names the CHANNEL on the pill, not the whole note', () => {
+		mount();
+		const label = pills()[0].getAttribute('aria-label') || '';
+		expect(label).toContain('caption');
+		expect(label).not.toContain('the slide reads as this');
+	});
+
+	it('reports expanded state and points at its panel', () => {
+		mount();
+		expect(pills()[0].getAttribute('aria-expanded')).toBe('false');
+		pills()[0].click();
+		expect(pills()[0].getAttribute('aria-expanded')).toBe('true');
+		const controls = pills()[0].getAttribute('aria-controls');
+		expect(controls).toBeTruthy();
+		expect(document.getElementById(controls as string)).not.toBeNull();
+	});
+
+	it('marks the panel as a labeled region', () => {
+		mount();
+		pills()[1].click();
+		expect(panels()[0].getAttribute('role')).toBe('region');
+		expect(panels()[0].getAttribute('aria-label')).toContain('describe');
+	});
+});
+
 describe('the open state is plugin state, not view state', () => {
 	it('tracks the open comment by document position', () => {
 		const v = mount();

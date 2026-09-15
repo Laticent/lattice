@@ -173,12 +173,10 @@ describe('scope: the rule never hides text the slide renders', () => {
 	});
 });
 
-describe('the comment KIND drives the chip label, never the bytes', () => {
-	it('classifies the engine’s own channels', () => {
+describe('the comment CHANNEL drives the pill label, never the bytes', () => {
+	it('classifies the engine\u2019s two structured channels', () => {
 		expect(commentKind('<!-- caption: the slide reads as this. -->')).toBe('caption');
 		expect(commentKind('<!-- describe: a bar chart with four bars. -->')).toBe('describe');
-		expect(commentKind('<!-- tier: short -->')).toBe('pragma');
-		expect(commentKind('<!-- markdownlint-disable -->')).toBe('pragma');
 		expect(commentKind('<!-- just a note to self -->')).toBe('note');
 	});
 
@@ -193,11 +191,34 @@ describe('the comment KIND drives the chip label, never the bytes', () => {
 		expect(commentText('<!-- a plain note -->')).toBe('a plain note');
 	});
 
-	// PARITY with lib/authoring/notes-core.js — these matchers mirror the kernel rather than fork
-	// it, so this arm reads the real kernel and fails if the two drift.
+	it('strips extra dashes on both ends, as the engine does', () => {
+		// The engine's own comment source is `<!--+([\s\S]*?)--+!?>`, so `<!--- x --->` is a comment
+		// too. Stripping exactly two dashes left the extras in the words the author reads.
+		expect(commentText('<!--- extra dashes --->')).toBe('extra dashes');
+		expect(commentText('<!-- ends oddly --!>')).toBe('ends oddly');
+	});
+
+	// THERE IS NO PRAGMA CHANNEL, and that is deliberate. A first version added one with a
+	// hand-written prefix regex whose docblock claimed it mirrored `notes-core`. Measured against
+	// the real kernel it disagreed on 22 of 32 probed bodies in BOTH directions. These arms pin the
+	// honest behavior: machinery reads as a note rather than as a confidently wrong label.
+	it('does not try to guess "pragma" — a tooling comment reads as a note', () => {
+		expect(commentKind('<!-- markdownlint-disable -->')).toBe('note');
+		expect(commentKind('<!-- tier: short -->')).toBe('note');
+	});
+
+	it('and never mislabels author prose that merely starts with such a word', () => {
+		// The exact strings the kernel's own docblock names as the cases its constraints exist for.
+		expect(commentKind('<!-- tier: enterprise customers churn faster -->')).toBe('note');
+		expect(commentKind('<!-- color-mode: we should discuss the palette -->')).toBe('note');
+		expect(commentKind('<!-- fit: this into the Q3 story -->')).toBe('note');
+	});
+
+	// PARITY with lib/authoring/notes-core.js on the two channels we DO claim. This reads the real
+	// kernel, so a drift in either direction fails here.
 	it('agrees with the engine kernel on caption / describe', async () => {
 		const kernel = await import('../../../../lib/authoring/notes-core.js');
-		const samples = ['caption: x', 'describe: x', 'Caption : x', 'DESCRIBE:x', 'a plain note', 'captions are nice', 'described below'];
+		const samples = ['caption: x', 'describe: x', 'Caption : x', 'DESCRIBE:x', 'a plain note', 'captions are nice', 'described below', 'tier: short', 'markdownlint-disable'];
 		for (const body of samples) {
 			const text = `<!-- ${body} -->`;
 			expect([body, commentKind(text) === 'caption']).toEqual([body, kernel.isCaptionComment(body)]);
