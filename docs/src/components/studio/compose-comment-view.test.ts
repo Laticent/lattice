@@ -65,6 +65,21 @@ describe('the comment chip stands in for the note', () => {
 		expect(text).toBe('A note.\n\nWith a second paragraph.');
 	});
 
+	it('strips an `--!>` terminator too, so no stray `--!` is ever shown', () => {
+		// Only `-->` can reach the view today (the block rule stops there, and the paste gate
+		// requires it), so this is defense in depth — the display stays right if either changes.
+		// CodeQL's `js/bad-tag-filter` flags the one-terminator form on sight, and the same
+		// assumption in the paste gate WAS exploitable.
+		const v = mount();
+		let pos = 0;
+		v.state.doc.descendants((node, p) => {
+			if (node.type.name === 'comment') pos = p;
+		});
+		v.dispatch(v.state.tr.setNodeMarkup(pos, undefined, { text: '<!-- ends oddly --!>' }));
+		const text = (document.querySelector('.cs-comment-body') as HTMLElement).textContent || '';
+		expect(text).toBe('ends oddly');
+	});
+
 	it('closes again on a second click', () => {
 		mount();
 		chip().click();

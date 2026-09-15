@@ -113,6 +113,15 @@ export function commentBlockRule(md: MarkdownIt): void {
 			if (state.src.slice(start, start + 4) !== '<!--') return false;
 
 			// Scan forward for the line that closes the comment. `endLine` is exclusive.
+			//
+			// `-->` ONLY, deliberately — and this is the one place in this file where stopping at
+			// `--!>` too would be WRONG. markdown-it's own comment scanning ends at `-->`, so the
+			// ENGINE keeps consuming past a `--!>`; matching that is how the Compose node boundary
+			// stays the same boundary the render uses (HARD RULE #1). The browser disagreeing with
+			// markdown-it here is real, but it is an engine-level property of authored source that
+			// predates this node, not something a parser fork would fix — and forking would create
+			// a slide that edits differently from how it renders. What that mismatch DOES make
+			// dangerous is untrusted text, which is why the paste gate refuses both terminators.
 			let line = startLine;
 			let close = -1;
 			for (; line < endLine; line++) {

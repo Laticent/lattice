@@ -835,10 +835,18 @@ export class CommentView {
 
 	/** The comment's text with its opening/closing fence and the authoring indent stripped — the
 	 *  words the author wrote, not the syntax they had to type to hide them. The bytes on the
-	 *  node are untouched; this is display only. */
+	 *  node are untouched; this is display only.
+	 *
+	 *  The closing strip takes `--!>` as well as `-->`, because BOTH end a comment in the HTML
+	 *  parser (the "incorrectly closed comment" case). Only `-->` can actually reach here — the
+	 *  markdown-it rule stops at `-->` and `COMMENT_SHAPE` requires the text to end with one — so
+	 *  this is defense in depth rather than a live bug: it is here so the display stays right if
+	 *  either of those ever changes, instead of silently showing a stray `--!` to the author.
+	 *  CodeQL's `js/bad-tag-filter` flags the one-terminator form on sight, and it is right to:
+	 *  the same incomplete assumption in `comment-block.ts` WAS exploitable, and was fixed there. */
 	private text(): string {
 		const raw = (this.node.attrs.text as string) || '';
-		const inner = raw.replace(/^<!--/, '').replace(/-->$/, '');
+		const inner = raw.replace(/^<!--/, '').replace(/--!?>$/, '');
 		// A note's PARAGRAPHS are meaning; its line wrapping is an artifact of the width of the
 		// editor it was typed in. Reflowing each paragraph and keeping the blank lines between them
 		// is what makes it read as prose — showing the source breaks verbatim produced a ragged
