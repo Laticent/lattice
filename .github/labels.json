@@ -37,5 +37,5 @@
   { "name": "needs:triage",       "color": "e99695", "description": "Missing a required axis (area/type/priority) — set by the triage gate, clears when complete" },
   { "name": "needs:definition",   "color": "e99695", "description": "Missing a swimlane or an acceptance check — set by the intake gate, clears when both are written" },
 
-  { "name": "feedback",           "color": "d4c5f9", "description": "An end-user report from the Studio feedback form — exempt from the intake bar until triage turns it into a card" }
+  { "name": "feedback",           "color": "d4c5f9", "description": "An end-user Studio feedback report — exempt from the intake bar until triage makes it a card" }
 ]
