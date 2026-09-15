@@ -294,11 +294,11 @@ A bare URL auto-resolves; the caption line labels the scan.
 
 <!-- _class: split-panel -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · split-panel — Three items at full budget." -->
+<!-- _footer: "Stress test · split-panel — Five items at full budget." -->
 
 `split-panel · stress`
 
-## Three full items is this column's ceiling.
+## Five full items is this column's ceiling.
 
 The framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.
 
@@ -306,9 +306,12 @@ The framing paragraph can run two lines when every item below uses its whole bud
   - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.
 - Second item, same weight
   - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.
-- Third item closes the set
-  - A fourth would push past the footer — split the slide instead.
-
+- Third item holds the middle
+  - Every row carries a short bold title and one line of support, never two, at this count.
+- Fourth item keeps the rhythm
+  - The column is tight here; a longer opening on any row starts to crowd the one beneath.
+- Fifth item closes the set
+  - A sixth would push past the frame — split the slide instead.
 
 ---
 

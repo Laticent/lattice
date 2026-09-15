@@ -8,6 +8,24 @@
       "lede",
       "points",
       "eyebrow"
+    ],
+    "capacity": {
+      "square": {
+        "sweet": 2,
+        "soft": 2,
+        "hard": 3
+      },
+      "tall": {
+        "sweet": 2,
+        "soft": 2,
+        "hard": 2
+      }
+    },
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
     ]
   },
   "split": {
@@ -23,13 +41,31 @@
   },
   "function": "statement",
   "form": "panel",
-  "coda": { "dock": "row", "claims": ["blockquote", "trailing-paragraph"] },
+  "coda": {
+    "dock": "row",
+    "claims": [
+      "blockquote",
+      "trailing-paragraph"
+    ]
+  },
   "substance": "structure",
   "density": {
     "axis": "item",
     "soft": 16,
     "hard": 24,
     "note": "one finding per row, a sentence"
+  },
+  "capacity": {
+    "axis": "item",
+    "min": 2,
+    "sweet": 3,
+    "soft": 4,
+    "hard": 5,
+    "escalateTo": [
+      "split across slides (automatic)",
+      "list-steps"
+    ],
+    "note": "Measured with `node tools/calibrate-capacity.js split-panel --all` at this component's own density basis (16 words an item). Ceilings by family: wide 5, square 3, tall 2, strip 5 — so the flat block is the LANDSCAPE budget with `hard` at its ceiling, and `adapt.capacity` tightens only the two families that measured lower, the same shape `premise` uses. `sweet` 3 / `soft` 4 are editorial rather than geometric: the manifest's own whenToUse says \"three or four points read best; more crowds the panel\". `tall` is the binding family at 2, which is why a three-item split-panel splits at portrait and not at 16:9."
   },
   "bucket": "statement",
   "tags": [
@@ -243,8 +279,8 @@
     }
   ],
   "stressDoc": {
-    "summary": "Three items at full budget.",
-    "sample": "<!-- _class: split-panel -->\n\n`split-panel · stress`\n\n## Three full items is this column's ceiling.\n\nThe framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.\n\n- First item at full width\n  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.\n- Second item, same weight\n  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.\n- Third item closes the set\n  - A fourth would push past the footer — split the slide instead.\n"
+    "summary": "Five items at full budget.",
+    "sample": "<!-- _class: split-panel -->\n\n`split-panel · stress`\n\n## Five full items is this column's ceiling.\n\nThe framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.\n\n- First item at full width\n  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.\n- Second item, same weight\n  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.\n- Third item holds the middle\n  - Every row carries a short bold title and one line of support, never two, at this count.\n- Fourth item keeps the rhythm\n  - The column is tight here; a longer opening on any row starts to crowd the one beneath.\n- Fifth item closes the set\n  - A sixth would push past the frame — split the slide instead."
   },
   "variantDecisionRule": [
     {
