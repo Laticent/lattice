@@ -75,3 +75,49 @@ describe('committed .github/labels.json', () => {
     assert.deepEqual(names.filter((n) => n.startsWith('model:')), []);
   });
 });
+
+describe('the committed taxonomy is within GitHub limits', () => {
+  // A label description over GitHub's 100-character cap is rejected with
+  // `HTTP 422: Validation Failed`, and `tools/sync-labels.js` throws on the
+  // first failure — so one long description aborts the run and every label
+  // AFTER it in file order silently never gets created.
+  //
+  // That is not hypothetical. #2215 merged `feedback` with a 111-character
+  // description; the Sync labels run on the merge commit created
+  // `needs:definition` (96 chars, earlier in the file) and then died on
+  // `feedback`. The taxonomy on the repo silently disagreed with the taxonomy
+  // in the tree, and the intake bar's exemption — which keys on that exact
+  // label — was inert, which is the failure the exemption exists to prevent.
+  //
+  // Nothing else catches it: the JSON is well-formed, lint is clean, and the
+  // workflow only runs on a push to main that touches labels.json, so the first
+  // signal is a red run AFTER the merge.
+  const DESCRIPTION_CAP = 100; // GitHub's documented limit
+
+  const labels = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '..', '..', '..', '.github', 'labels.json'), 'utf8'),
+  );
+
+  test('every description fits GitHub\'s 100-character cap', () => {
+    const over = labels
+      .map((l) => ({ name: l.name, length: (l.description || '').length }))
+      .filter((l) => l.length > DESCRIPTION_CAP);
+    assert.deepEqual(
+      over, [],
+      `these descriptions would be rejected 422 and abort the sync mid-run: ${
+        over.map((l) => `${l.name} (${l.length})`).join(', ')}`,
+    );
+  });
+
+  test('every label has a name and a description', () => {
+    for (const l of labels) {
+      assert.ok(l.name?.trim(), 'a label is missing its name');
+      assert.ok(l.description?.trim(), `${l.name} is missing its description`);
+    }
+  });
+
+  test('no duplicate label names — a later entry would silently re-upsert the earlier', () => {
+    const names = labels.map((l) => l.name);
+    assert.deepEqual(names.length, new Set(names).size, 'duplicate label name in the taxonomy');
+  });
+});
