@@ -285,7 +285,14 @@ section.form.footer-inset:has(> .cell-footer) {
  * The cost this DOES carry, accepted deliberately: a footer longer than the band no longer
  * wraps to a second line, it ellipsises — so the tail is absent from the exported text layer,
  * not merely off-screen. engineering/decisions/2026-07-27-footer-band-allocation.md */
-section.form > .cell-footer > footer {
+/* The split-run arm rides along for the same reason the band geometry and the marks'
+ * rigidity do: a run's pages get the Cell whatever their Frame, so the caption inside it
+ * has to become a flex ITEM there too. Without this arm the caption stayed `position:
+ * absolute` after `ensureRunFooterCell` moved it in, and the forward-pointer pill printed
+ * straight over it — measured 305.0x38.5px of overprint on `split-panel.gallery.md` p9 at
+ * `square`, on a shipped deck. */
+section.form > .cell-footer > footer,
+section[data-split-run]:not(.form) > .cell-footer > footer {
   position: static;
   inset: auto;
   /* `block`, not the band's `flex`: `text-overflow: ellipsis` never applies to a flex
@@ -408,9 +415,17 @@ section.form > .cell-footer > .tile-progress {
  * claimed to be redundant, and is not to be removed on the argument that it is. */
 .tile-progress .dot,
 .lat-split-rail .seg { flex: 0 0 auto; }
-/* Ranks 1 and 2 again, at the item level: neither wayfinding mark bids for or yields width. */
+/* Ranks 1 and 2 again, at the item level: neither wayfinding mark bids for or yields width.
+ * The split-run arms carry this for the same reason the band geometry above does — a run's
+ * pages get the Cell whatever their Frame, so they get its rigidity too. Without them the
+ * marks computed `0 1 auto` in the new band (measured on `premise lat-split-native`, against
+ * `0 0 auto` on the same run's Form cover), and a rail allowed to SHRINK does not clip its
+ * dots: it spills them leftward over the author's words, which is the fail-green overprint
+ * the docblock above this rule was written for. */
 section.form > .cell-footer > .lat-pagination,
-section.form > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
+section.form > .cell-footer > .lat-split-rail,
+section[data-split-run]:not(.form) > .cell-footer > .lat-pagination,
+section[data-split-run]:not(.form) > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
 /* Retire the pagination PSEUDO wherever the real element exists (the decorative
  * numbered-divider numeral, a different `::after`, is untouched).
  *
