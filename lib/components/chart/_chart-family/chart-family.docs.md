@@ -145,6 +145,49 @@ in the family is now drawn by `svg-legend.js buildSpine`. The
 roadmap/gantt/journey keys ride the shared `transformChartSection`, adding no
 slides, so cross-renderer parity holds.
 
+### At portrait the key moves below, and the diagram has to grow into what it frees
+
+A keyed chart's key and diagram are ONE viewBox, so CSS cannot reflow them — the
+kernel does, at render time. In a tall box the right rail letterboxes the whole
+unit into a short band, so `svg-legend.js buildPortrait` stacks the key beneath
+the diagram instead (`piechart`, `radar`, `map`, `quadrant·cohort`, and
+`word-cloud` with its own A-ramp).
+
+**Moving the key is only half of it.** The diagram now gets the full canvas width
+instead of the ~62-70% the rail left it, and everything inside the viewBox is in
+viewBox UNITS — so a diagram that does not scale up with its new box simply fills
+less of it. `preserveAspectRatio: meet` then scales the whole drawing back down to
+the container, and the marks end up no bigger than they were in the short band,
+adrift in a canvas they cannot fill.
+
+`word-cloud` is the worked example, and it carries two lessons.
+
+The first is the ratio itself: the word sizes scale by the square root of the AREA
+ratio between the two boxes the packer PACKS INTO, and those are **not** the two
+canvases. Landscape packs into 682 × 320 (the rest of its canvas is the rail);
+portrait packs into 1100 × 760. The scale was derived from the canvas width on both
+sides, making it 1.54 where the real ratio gives 1.96 — a 27% under-size that
+nothing caught, because `.wc-svg` is `overflow: visible` by design and
+`check-chart-fit` therefore skips its viewBox assertion. If you re-tune a portrait
+canvas, check what its member actually packs into, not what its canvas measures.
+
+**The second is that the right ratio is still the wrong SHAPE.** Growing the type
+costs words: `packCloud` seats each word on a spiral and returns only the ones that
+fit, so a scale correct on average is wrong for any deck whose words happen not to
+fit at it. Measured at the flat derived scale: a 24-term `dense` portrait deck
+painted 22 of 24 where the old constant painted all 24. So the scale is a **ladder**
+walked largest-first with **presence as the primary key** — the same rule
+`quadrant`'s dot-label ladder already uses, reused rather than reinvented because
+it is the same problem — and its floor rung is no scaling at all, so a portrait
+cloud can never paint fewer words than an unscaled one. Every shipped slide still
+wins at the top rung.
+
+**And the corpus could not have told you any of that.** Every shipped word-cloud
+slide paints the same count at *every* scale in the range, so a "the counts are
+identical before and after" check passes while proving nothing about the property
+it looks like it is testing. When a change moves a size that a packer or placer
+consumes, the arm has to be a deck that is ALREADY near the cliff — ours are not.
+
 ---
 
 ## Standalone export — one chart as a self-contained `.svg`
@@ -178,10 +221,24 @@ stylesheet renders **black, unstyled, serif**. The export resolves this:
   true })`; the bake resolves every token the clone still names — through the
   computed-style pass, an element's own inline style, and a presentation attribute
   like `fill="color-mix(in oklab, var(--chart-cat-1-hue) 88%, …)"` — and hands them
-  to `finalizeStandaloneSvg` on a `data-lattice-tokens` attribute, which strips it
-  and writes a sanitized `svg{…}` rule into the file's own `<style>` block. A
-  caller whose clone stays INLINE in a themed host omits the flag and gets the
-  previous bytes exactly.
+  to its consumer on a `data-lattice-tokens` attribute, which strips it and turns it
+  into definitions the output can carry. A caller whose clone stays INLINE in a
+  themed host omits the flag and gets the previous bytes exactly.
+
+  **There are two consumers, because "no host" is not only a file.**
+  `finalizeStandaloneSvg` writes a sanitized, root-scoped `<style>` rule — right when
+  the output is a `.svg` file. The Studio's PDF/PPTX rasterizer has no file to write
+  into: it hands the flattened clone to `html-to-image`, which serializes it into a
+  detached document with no deck stylesheet. And an `<svg>` is the one subtree
+  html-to-image never walks — it deep-clones the root and returns early instead of
+  copying computed styles onto the descendants — so every `var(--token)` the bake left
+  arrives undefined, and undefined `fill` is the same black. Measured on a flattened
+  heatmap: **47 of 62 paints opaque black** in that serialized clone. So that caller
+  passes the same flag and calls **`applyCollectedTokens`**, which puts the definitions
+  on the clone root's own inline style, where the root's attribute clone carries them
+  and the descendants inherit. Both consumers read the attribute through one shared
+  grammar, `parseTokenDecls` — a second reader with its own copy of the format drifts
+  the first time the emit changes.
 - **CLI — `tools/export-chart-svg.js`** (headless): `node tools/export-chart-svg.js
   <deck.md> [--slide N] [--chart I] [--theme NAME] [--mode light|dark]
   [-o out.svg] [--all]`. Renders through `window.LatticePlayground.render` in a
@@ -390,6 +447,67 @@ quadrant is ~76% of that quadrant in label, which no arrangement fixes — it is
 **dropped** rather than painted through its neighbor. Overprinting loses both
 names and says nothing; the dropped one still rides `data-label`, the popover
 and the speaker note.
+
+**And the render says so.** A drop is the right answer and a silent drop is not:
+an author could publish a chart missing a row and never learn it, precisely
+because nothing is lost from the *artifact* — only from the picture. Two
+mechanisms decline to paint a name (this one, `overlap`, and the category
+gap-cull below, `pitch`), and both report through one channel,
+`_chart-family/label-drops.js`:
+
+- `transformChartSection` opens a sink around each chart's transform, so every
+  mechanism is caught at ONE bracket and a future one needs no second wiring.
+  Outside the bracket a note is a no-op, so no other render path changes. The
+  bracket is **synchronous**, and its `finally` pops on return — an async
+  transform would pop at its first `await` and lose every note after it.
+- `word-cloud`'s packer reports as `pack`, and it is the **worst** of the four:
+  every other mechanism leaves the name somewhere a reader can still reach it
+  (`data-label` on the mark, the speaker note, the SVG `<desc>`), but `packCloud`
+  returns only the placed words and the `<desc>` is built from that return, so an
+  unplaced word is gone from the artifact entirely. It needed no new wiring — the
+  bracket already surrounded the call, which is the property the one-bracket design
+  was for. It found a real one on its first run: `examples/seq-ramp-canvas-aware.md`
+  has been losing a word at landscape since before the channel existed.
+- There is a reason beside `overlap` and `pitch`: `density`, for
+  `quadrant` past its 16-item ceiling, where no name is offered to the placement
+  pass at all. It is the only all-or-nothing mechanism, and it was the one the
+  channel could not see — `noteHiddenLabels` needs a `hidden` entry to find, and
+  a suppressed name never becomes one. Measured at the boundary on one deck
+  shape: 16 items paints 13 and names the 3 it lost; 17 painted 0 and said
+  nothing. The author losing every name was the only one getting no warning.
+- The names ride out on `data-label-drops` on that chart's `.chart-body`, with
+  `data-label-drops-component` naming the member. It is **absent**, not empty,
+  on a chart that dropped nothing — an empty attribute on every healthy chart
+  would be a golden-file diff across the whole corpus for no signal.
+- The value is **percent-encoded**, not HTML-escaped. Its only reader is
+  `getAttribute`, which sees the value *after* the HTML parser has decoded every
+  character reference in it — so escaping the `|` and `:` separators as `&#124;`
+  and `&#58;` hands them straight back as separators. Measured before that was
+  fixed: a run that lost 10 names reported 12, with two split in half and one
+  half handed a fabricated reason.
+- The CLI prints `⚠ CHART LABELS DROPPED`, naming the lost labels and their
+  slides — up to six per chart, with `and N more` past that; the count on the
+  headline is always exact.
+- **The attribute stays in the rendered HTML**, unlike the overflow ring, which
+  is stripped before export. It carries no name the artifact was not already
+  carrying (`data-label` on every mark, plus the speaker note and the SVG
+  `<desc>`), and the `.html` sidecar is the author's own surface — the same one
+  the overflow ring is drawn on at `author` level. It is left in deliberately, so
+  a preview surface can draw an authoring marker from it without re-deriving the
+  layout's decision.
+
+**The note is taken on the FINAL result, never inside the search.** `quadrant`
+runs `placeLabels` up to nine times per slide — once per rung of its size ladder
+— and keeps one. Reporting from inside the pass would attribute every rejected
+rung's casualties to the slide that shipped.
+
+The channel measures what ships and changes nothing about it. One shipped deck
+does print it: `examples/seq-ramp-canvas-aware.md` loses the word *leverage* at
+landscape and square, and has since before the channel existed — the first thing
+the channel found, and the reason the corpus census's "our decks never drop"
+claim is now scoped to the two mechanisms that census can actually see. Every
+other deck is silent. The shapes that warn on purpose are pinned in
+`test/fixtures/chart-label-drops.md`.
 
 Two more properties come out of the same pass, and both are about what a reader
 takes off the finished picture rather than about fitting boxes.

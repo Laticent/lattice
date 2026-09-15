@@ -99,11 +99,103 @@ test('a standalone chart SVG in the image set defines the tokens its paints refe
 		// A file that still names a token must define it.
 		const named = new Set(Array.from(svg.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g), (m) => m[1]));
 		if (!named.size) continue;
-		const rule = svg.match(/svg\{([^}]*)\}/);
-		expect(rule, `${name} references ${named.size} token(s) and must carry an svg{} rule`).not.toBeNull();
+		// The selector is the file's OWN scope attribute, not a bare `svg` — a `<style>`
+		// inside an SVG is document-scoped wherever the file ends up, so `svg{…}` would
+		// repaint every other chart on a page that inlines this one. This assertion read
+		// `/svg\{…\}/` and went stale the moment the scoping landed in the same commit
+		// that wrote it; it was matching nothing and could not have failed.
+		const rule = svg.match(/\[data-lattice-scope="[^"]+"\]\{([^}]*)\}/);
+		expect(rule, `${name} references ${named.size} token(s) and must carry a scoped token rule`).not.toBeNull();
 		const defined = new Set(Array.from((rule as RegExpMatchArray)[1].matchAll(/(--[a-zA-Z0-9-]+)\s*:/g), (m) => m[1]));
 		for (const t of named) expect(defined, `${name} leaves ${t} undefined — its paint falls to black`).toContain(t);
 		withTokenRule++;
 	}
 	expect(withTokenRule, 'at least one extracted chart carries token references').toBeGreaterThan(0);
+});
+
+// The RASTERIZER half of the same bake — the path a user's PDF and PPTX actually
+// come down. The journey above pins the `.svg` FILE exporter, and the two are not
+// the same claim: the file path calls `finalizeStandaloneSvg`, which writes the
+// definitions into a `<style>` rule. Nothing finalizes on the rasterizer path,
+// because there is no file — so for as long as it passed no options at all, every
+// paint the bake left as `var(--token)` reached html-to-image undefined.
+//
+// Why undefined there and not in the live frame: html-to-image deep-clones an
+// `<svg>` root (`cloneSingleNode` → `node.cloneNode(isSVGElement(node))`) and then
+// `cloneChildren` returns early on it, so not one descendant ever gets a
+// computed-style copy. Descendants arrive carrying exactly the inline style the bake
+// wrote, into a detached document with no deck stylesheet. `var()` resolves to
+// nothing, `fill` falls to its SVG initial, and the initial is BLACK — 47 of 62
+// paints on a flattened heatmap (#2210).
+//
+// The oracle is the CAPTURE FRAME rather than the downloaded PDF: the defect is
+// exactly "a descendant names a token its root does not define", which is a DOM fact
+// available before rasterization and an ink-color fact afterwards. Reading it here
+// names the token that would have gone black instead of reporting a dark pixel and
+// leaving the reader to guess which chart it came from. The downloaded file is still
+// asserted — an export that never completes must not pass this.
+test('a flattened chart defines, on its own root, every token its paints still name', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await expect(railButtons(page)).toHaveCount(SLIDES);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+
+	// TWO QUESTIONS, and conflating them is a race. "Has the bake finished?" is what
+	// the poll waits on; "did it define what it referenced?" is what the assertion
+	// reads. An earlier cut polled on the SECOND — resolve only when no token is
+	// undefined — which passed, but could only ever fail as a bare timeout with the
+	// token names it had computed thrown away. Inverting it to resolve immediately
+	// then caught `flattenChartSvgs` mid-walk, reporting charts it had not reached
+	// yet: it replaces roots one at a time, so "no definitions" and "not baked yet"
+	// look identical from outside.
+	//
+	// The discriminator is POSITIVE and per-root: `flattenChartSvgs` pins an inline
+	// `width` on every clone it swaps in (it has to — the style-less serialization
+	// would otherwise rescale the viewBox). A root without one has not been through
+	// the bake. So the poll waits for every candidate to carry one, and only the
+	// complete state is ever read as a verdict.
+	const tokenProbe = page.waitForFunction(() => {
+		const f = document.querySelector('[data-lattice-export="capture"] iframe') as HTMLIFrameElement | null;
+		const d = f?.contentDocument;
+		if (!d) return null;
+		// Only the roots this bake actually touches: self-styled SVGs (Mermaid,
+		// function-plot) are skipped by flattenChartSvgs and carry their own <style>.
+		const roots = Array.from(d.querySelectorAll('section svg')).filter((sv) => !sv.querySelector('style'));
+		if (!roots.length) return null; // capture frame not up yet — keep polling
+		// A root the bake SKIPPED never gets a width, and two paths skip on purpose:
+		// the per-svg `catch` that leaves one vector-unstyled rather than failing the
+		// export, and the `if (!w || !h) continue` for a zero-box svg. Waiting on
+		// `every` would hang on those forever and end as the bare timeout this probe
+		// exists to avoid. Wait for the bake to have REACHED a steady state instead:
+		// a non-zero baked count that has stopped growing between polls.
+		const baked = roots.filter((r) => (r as SVGElement).style?.width);
+		const w = window as unknown as { __bakedSeen?: number };
+		if (!baked.length) return null;
+		if (w.__bakedSeen !== baked.length) { w.__bakedSeen = baked.length; return null; }
+		let referencing = 0;
+		const undefinedOn: string[] = [];
+		for (const root of baked) {
+			const named = new Set<string>();
+			for (const el of Array.from(root.querySelectorAll('[style]'))) {
+				for (const m of ((el as SVGElement).getAttribute('style') || '').matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) named.add(m[1]);
+			}
+			if (!named.size) continue;
+			referencing++;
+			const own = (root as SVGElement).getAttribute('style') || '';
+			for (const t of named) if (!own.includes(`${t}:`)) undefinedOn.push(t);
+		}
+		if (!referencing) return null;
+		return { roots: roots.length, baked: baked.length, referencing, undefinedOn };
+	}, undefined, { timeout: 60_000 });
+
+	const download = page.waitForEvent('download', { timeout: 60_000 });
+	await shareExport(page, 'pdf');
+	// `waitForFunction` only ever resolves on a truthy value, so the object above is
+	// always present here; the cast is for the checker, not for the runtime.
+	const verdict = (await (await tokenProbe).jsonValue()) as { roots: number; baked: number; referencing: number; undefinedOn: string[] };
+	expect(verdict.undefinedOn,
+		`flattened charts reference tokens their own root does not define — each of these paints black in the export: ${verdict.undefinedOn.join(', ')}`)
+		.toEqual([]);
+	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
 });

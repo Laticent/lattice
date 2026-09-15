@@ -17,6 +17,18 @@
  *      substrate ever sees it, so the axis reads FY2024 … FY2026. The point is
  *      still plotted; only its tick is thinned.
  *
+ * TWO MECHANISMS THIS CENSUS CANNOT SEE, named so the coverage claim below is not
+ * read wider than it is. It instruments `placeLabels` and `buildCategoryLabels`, so
+ * it is blind to (a) `quadrant`'s 16-item ceiling, past which no name is offered to
+ * the placement pass at all, and (b) `word-cloud`'s `packCloud`, a third path it
+ * never patched. (b) is not hypothetical: `examples/seq-ramp-canvas-aware.md` loses
+ * the word "leverage" at landscape and square and has since before this census was
+ * written, which makes "the decks we ship never reach any drop path" false as a
+ * statement about the whole family. Both are covered instead by
+ * `test/unit/components/label-drops.test.js`, through the render-time channel
+ * (#2171), which sees every mechanism because it is fed by the drop sites rather
+ * than by a patch over two of them.
+ *
  * So the invariant worth pinning is not "the kernel can never drop a name" —
  * that would demand overprinting, which loses more. It is that **the decks WE
  * ship never reach any of those paths**, which is what makes our corpus the

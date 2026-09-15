@@ -693,8 +693,8 @@ async function sectionsOf(frame) {
 // Fix by REUSE (HARD RULE #15): flattenSvgStyles (standalone-svg.js — the same
 // kernel behind "download chart as SVG") walks the LIVE rendered svg, inlines
 // the browser's already-computed paint/text props (incl. gradient stops via a
-// probe), and returns a styled clone; we swap it in place and pin the root's
-// layout box. The capture frame is a throwaway srcdoc, so the swap needs no
+// probe), and returns a styled clone; we swap it in place, define the tokens it
+// still references on the clone's own root, and pin the root's layout box. The capture frame is a throwaway srcdoc, so the swap needs no
 // restore, and one pass here covers the PDF (both lanes) AND PPTX rasterizers.
 // SVGs that carry their own <style> (Mermaid, function-plot) are self-styled —
 // the block survives cloneNode — so they're skipped. Any per-svg failure leaves
@@ -702,7 +702,7 @@ async function sectionsOf(frame) {
 async function flattenChartSvgs(frame, sections) {
 	const win = frame.contentWindow;
 	if (!win) return;
-	const { flattenSvgStyles } = await import('../../../playground/standalone-svg.generated.js');
+	const { flattenSvgStyles, applyCollectedTokens } = await import('../../../playground/standalone-svg.generated.js');
 	for (const sec of sections) {
 		for (const svg of Array.from(sec.querySelectorAll('svg'))) {
 			if (svg.querySelector('style')) continue; // self-styled (Mermaid, function-plot)
@@ -714,7 +714,18 @@ async function flattenChartSvgs(frame, sections) {
 				const w = parseFloat(cs.width);
 				const h = parseFloat(cs.height);
 				if (!w || !h) continue;
-				const flat = flattenSvgStyles(svg, win);
+				// Bake the paint, then DEFINE what the bake left as `var(--token)`. The bake
+				// deliberately follows a scheme-varying paint so a re-themable host can move it —
+				// but the host html-to-image builds is a detached document with no deck stylesheet
+				// in it, and an `<svg>` is the one subtree it never walks (`cloneChildren` returns
+				// early on an SVG root), so every descendant arrives with the `var()` intact and
+				// nothing to resolve it against. Undefined `fill` is SVG-initial BLACK: 47 of 62
+				// paints on a flattened heatmap (#2210). `finalizeStandaloneSvg`'s `<style>` rule
+				// is not available here — there is no file — so the definitions go onto the
+				// clone root's own inline style, which the root's attribute clone does carry, and
+				// every descendant inherits from there.
+				const flat = flattenSvgStyles(svg, win, { collectTokens: true });
+				applyCollectedTokens(flat);
 				flat.setAttribute('width', String(w));
 				flat.setAttribute('height', String(h));
 				flat.style.width = `${w}px`;
