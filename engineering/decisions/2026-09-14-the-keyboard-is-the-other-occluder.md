@@ -111,6 +111,29 @@ Two consequences worth keeping:
   early from the x-test left a pane beside a narrow caption with no keyboard clearing at all.
   The caption's line is now `Infinity` when it does not overlap. Pinned by an arm that dies to
   the early return.
+- **REAL ENGINE, not a stub** — `docs/e2e/tour-chrome-visual-viewport.spec.ts`. This is the arm that
+  closes this record's original evidence gap. A software keyboard is not reachable here, but a
+  keyboard is not the only thing that shrinks the VISUAL viewport while leaving the LAYOUT one
+  alone: pinch-zoom does exactly that, `Emulation.setPageScaleFactor` drives it, and
+  `visibleBottom()` cannot tell the two apart — it reads `height` and `offsetTop` and never asks
+  why they disagree with `innerHeight`. So the SHIPPED module is bundled (not re-implemented) into
+  real Chromium and called against geometry Chromium produced: at scale 2 on an 800x900 box,
+  `innerHeight` stays 900 while `visualViewport.height` reads 450, and `tourChromeOverlap` clears
+  450 instead of the caption's 230.
+  Driven against three mutants: `visibleBottom()` → `innerHeight` fails BOTH arms; the caption's
+  x-test gating the full-width obstruction fails the "beside" arm; **dropping the `offsetTop` term
+  passes both**, and that limit is stated in the spec rather than glossed — headless Chromium will
+  not produce a non-zero `offsetTop` (a page-scale factor shrinks the visual viewport without
+  sliding it, and a synthesized scroll gesture moves the page as a whole; both tried). `offsetTop`
+  is therefore pinned only in jsdom, where the arm asserts its DIRECTION — it makes the reveal clear
+  LESS, not more.
+- **The whole chain in the real app**: `demo-mobile.spec.ts`'s `@vv` arm drives the actual Studio
+  tour with the viewport stepped mid-run, 608 samples, worst 94px against a 60px budget with no
+  sustained miss, on a measured 334px visual-viewport divergence. It is a REGRESSION GUARD, not a
+  discriminator, and saying which matters: the `visibleBottom()` mutant SURVIVES it, because
+  CodeMirror's native scroll path keeps the tail on screen regardless and the margin difference
+  shows only as a transient. It proves nothing breaks under a real divergence; the spec above is
+  what proves the term is load-bearing.
 - **The arithmetic**: unit arms in `docs/src/components/studio/tour-chrome.test.ts`, with a
   `visualViewport` stub the suite did not have before (jsdom ships none, which is itself the
   no-keyboard path every pre-existing arm runs on). Two mutants were driven: reverting `chromeTop`
@@ -119,7 +142,9 @@ Two consequences worth keeping:
 - **The `scrollPastEnd` reserve**: read out of the installed `@codemirror/view` build, quoted above.
   That is a source reading, not a device measurement.
 - **UNVERIFIED: real iOS Safari on a device.** Unchanged from #2209, and this note does not claim
-  otherwise. Headless engines have no software keyboard, so `visualViewport` there reports
+  otherwise. What the real-engine arm above changed is the MECHANISM's standing, not this one's:
+  the geometry is now confirmed on the engine iOS ships a cousin of, but whether iOS's keyboard
+  produces it, and whether this is the reported symptom, still needs the phone. Headless engines have no software keyboard, so `visualViewport` there reports
   `innerHeight` and the new line equals the old one — which is precisely why it is safe to land,
   and precisely why landing it does not settle ATTRIBUTION.
   **An earlier draft of this note said the branch "is never taken" on desktop. That is false, and
