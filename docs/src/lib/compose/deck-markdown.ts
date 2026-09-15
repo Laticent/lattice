@@ -9,6 +9,7 @@ import {
 } from 'prosemirror-markdown';
 import { type Node as PMNode, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
+import { commentBlockRule, commentNodeSpec } from './comment-block';
 
 // The deck-model library core — Lattice slide prose ⟷ ProseMirror document,
 // LOSSLESS. This is the foundation the Compose editor (Option B, one true
@@ -53,11 +54,11 @@ const composeTableNodes = tableNodes({
 	},
 });
 
-/** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes.
- *  `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a slide node,
- *  so the table node specs are identical on both sides of the JSON bridge. */
+/** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes and the
+ *  authoring-comment atom. `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
+ *  slide node, so every node spec is identical on both sides of the JSON bridge. */
 export const proseSchema = new Schema({
-	nodes: mdSchema.spec.nodes.append(composeTableNodes),
+	nodes: mdSchema.spec.nodes.append(composeTableNodes).addToEnd('comment', commentNodeSpec),
 	marks: mdSchema.spec.marks,
 });
 
@@ -66,7 +67,7 @@ export const proseSchema = new Schema({
 // tasklists, etc. stay locked for now) plus token→node rules for the GFM table.
 // `thead`/`tbody` are transparent (`ignore`), so their child rows attach directly
 // to the `table` node, matching prosemirror-tables' flat `table → table_row+` shape.
-const tableTokenizer = new MarkdownIt('commonmark', { html: false }).enable('table');
+const tableTokenizer = new MarkdownIt('commonmark', { html: false }).enable('table').use(commentBlockRule);
 
 // biome-ignore lint/suspicious/noExplicitAny: markdown-it Token is loosely typed upstream.
 function alignAttrs(token: any) {
@@ -79,6 +80,8 @@ function alignAttrs(token: any) {
 export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokenizer, {
 	...defaultMarkdownParser.tokens,
 	table: { block: 'table' },
+	// The whole `<!-- … -->` arrives as one token; its `content` is the source bytes.
+	lattice_comment: { node: 'comment', getAttrs: (tok) => ({ text: tok.content }) },
 	thead: { ignore: true },
 	tbody: { ignore: true },
 	tr: { block: 'table_row' },
@@ -172,6 +175,12 @@ const latticeNodes = {
 	// deck's own separator convention uses.
 	horizontal_rule(state: SerializerState, node: PMNode) {
 		state.write('***');
+		state.closeBlock(node);
+	},
+	// An authoring comment writes its source bytes back VERBATIM — no escaping, no reflow.
+	// That is the point of carrying them on the node: the round-trip has nothing to get wrong.
+	comment(state: SerializerState, node: PMNode) {
+		state.write(node.attrs.text as string);
 		state.closeBlock(node);
 	},
 	// GFM tables — the whole grid in one pass (see serializeTable). The row/cell nodes

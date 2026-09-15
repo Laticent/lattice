@@ -40,14 +40,21 @@ export function slideContext(state: EditorState) {
 	const slide = $from.node(1);
 	const index = $from.index(1);
 	const block = slide.child(index);
-	return {
-		slide,
-		index,
-		block,
-		isLast: index === slide.childCount - 1,
-		prev: index > 0 ? slide.child(index - 1) : null,
-		next: index < slide.childCount - 1 ? slide.child(index + 1) : null,
-	};
+	// AUTHORING COMMENTS ARE SKIPPED when looking for siblings, because the ENGINE skips them.
+	// A comment renders as an HTML comment NODE, and CSS counts only ELEMENTS: `:last-child` and
+	// `+` both look straight through it. So `> quote` `> comment` still matches the trailing-
+	// blockquote key-insight rule on the slide, and a code label separated from its heading by a
+	// note is still an eyebrow. Treating the comment as an ordinary sibling would mislabel both —
+	// which is what happened while comments parsed as paragraphs, and is exactly the drift this
+	// function's contract ("EXACTLY as the engine renders it") exists to prevent.
+	const visible = (n: PMNode | null) => (n && n.type.name !== 'comment' ? n : null);
+	let prev: PMNode | null = null;
+	for (let i = index - 1; i >= 0 && !prev; i--) prev = visible(slide.child(i));
+	let next: PMNode | null = null;
+	for (let i = index + 1; i < slide.childCount && !next; i++) next = visible(slide.child(i));
+	let isLast = true;
+	for (let i = index + 1; i < slide.childCount && isLast; i++) if (slide.child(i).type.name !== 'comment') isLast = false;
+	return { slide, index, block, isLast, prev, next };
 }
 
 // Which register the caret's block currently IS — EXACTLY as the engine renders it, so the
