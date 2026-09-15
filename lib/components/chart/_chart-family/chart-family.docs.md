@@ -178,10 +178,24 @@ stylesheet renders **black, unstyled, serif**. The export resolves this:
   true })`; the bake resolves every token the clone still names — through the
   computed-style pass, an element's own inline style, and a presentation attribute
   like `fill="color-mix(in oklab, var(--chart-cat-1-hue) 88%, …)"` — and hands them
-  to `finalizeStandaloneSvg` on a `data-lattice-tokens` attribute, which strips it
-  and writes a sanitized `svg{…}` rule into the file's own `<style>` block. A
-  caller whose clone stays INLINE in a themed host omits the flag and gets the
-  previous bytes exactly.
+  to its consumer on a `data-lattice-tokens` attribute, which strips it and turns it
+  into definitions the output can carry. A caller whose clone stays INLINE in a
+  themed host omits the flag and gets the previous bytes exactly.
+
+  **There are two consumers, because "no host" is not only a file.**
+  `finalizeStandaloneSvg` writes a sanitized, root-scoped `<style>` rule — right when
+  the output is a `.svg` file. The Studio's PDF/PPTX rasterizer has no file to write
+  into: it hands the flattened clone to `html-to-image`, which serializes it into a
+  detached document with no deck stylesheet. And an `<svg>` is the one subtree
+  html-to-image never walks — it deep-clones the root and returns early instead of
+  copying computed styles onto the descendants — so every `var(--token)` the bake left
+  arrives undefined, and undefined `fill` is the same black. Measured on a flattened
+  heatmap: **47 of 62 paints opaque black** in that serialized clone. So that caller
+  passes the same flag and calls **`applyCollectedTokens`**, which puts the definitions
+  on the clone root's own inline style, where the root's attribute clone carries them
+  and the descendants inherit. Both consumers read the attribute through one shared
+  grammar, `parseTokenDecls` — a second reader with its own copy of the format drifts
+  the first time the emit changes.
 - **CLI — `tools/export-chart-svg.js`** (headless): `node tools/export-chart-svg.js
   <deck.md> [--slide N] [--chart I] [--theme NAME] [--mode light|dark]
   [-o out.svg] [--all]`. Renders through `window.LatticePlayground.render` in a

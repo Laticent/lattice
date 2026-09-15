@@ -99,11 +99,80 @@ test('a standalone chart SVG in the image set defines the tokens its paints refe
 		// A file that still names a token must define it.
 		const named = new Set(Array.from(svg.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g), (m) => m[1]));
 		if (!named.size) continue;
-		const rule = svg.match(/svg\{([^}]*)\}/);
-		expect(rule, `${name} references ${named.size} token(s) and must carry an svg{} rule`).not.toBeNull();
+		// The selector is the file's OWN scope attribute, not a bare `svg` — a `<style>`
+		// inside an SVG is document-scoped wherever the file ends up, so `svg{…}` would
+		// repaint every other chart on a page that inlines this one. This assertion read
+		// `/svg\{…\}/` and went stale the moment the scoping landed in the same commit
+		// that wrote it; it was matching nothing and could not have failed.
+		const rule = svg.match(/\[data-lattice-scope="[^"]+"\]\{([^}]*)\}/);
+		expect(rule, `${name} references ${named.size} token(s) and must carry a scoped token rule`).not.toBeNull();
 		const defined = new Set(Array.from((rule as RegExpMatchArray)[1].matchAll(/(--[a-zA-Z0-9-]+)\s*:/g), (m) => m[1]));
 		for (const t of named) expect(defined, `${name} leaves ${t} undefined — its paint falls to black`).toContain(t);
 		withTokenRule++;
 	}
 	expect(withTokenRule, 'at least one extracted chart carries token references').toBeGreaterThan(0);
+});
+
+// The RASTERIZER half of the same bake — the path a user's PDF and PPTX actually
+// come down. The journey above pins the `.svg` FILE exporter, and the two are not
+// the same claim: the file path calls `finalizeStandaloneSvg`, which writes the
+// definitions into a `<style>` rule. Nothing finalizes on the rasterizer path,
+// because there is no file — so for as long as it passed no options at all, every
+// paint the bake left as `var(--token)` reached html-to-image undefined.
+//
+// Why undefined there and not in the live frame: html-to-image deep-clones an
+// `<svg>` root (`cloneSingleNode` → `node.cloneNode(isSVGElement(node))`) and then
+// `cloneChildren` returns early on it, so not one descendant ever gets a
+// computed-style copy. Descendants arrive carrying exactly the inline style the bake
+// wrote, into a detached document with no deck stylesheet. `var()` resolves to
+// nothing, `fill` falls to its SVG initial, and the initial is BLACK — 47 of 62
+// paints on a flattened heatmap (#2210).
+//
+// The oracle is the CAPTURE FRAME rather than the downloaded PDF: the defect is
+// exactly "a descendant names a token its root does not define", which is a DOM fact
+// available before rasterization and an ink-color fact afterwards. Reading it here
+// names the token that would have gone black instead of reporting a dark pixel and
+// leaving the reader to guess which chart it came from. The downloaded file is still
+// asserted — an export that never completes must not pass this.
+test('a flattened chart defines, on its own root, every token its paints still name', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await expect(railButtons(page)).toHaveCount(SLIDES);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+
+	const tokenProbe = page.waitForFunction(() => {
+		const f = document.querySelector('[data-lattice-export="capture"] iframe') as HTMLIFrameElement | null;
+		const d = f?.contentDocument;
+		if (!d) return null;
+		// Only the roots this bake actually touched: self-styled SVGs (Mermaid,
+		// function-plot) are skipped by flattenChartSvgs and carry their own <style>.
+		const roots = Array.from(d.querySelectorAll('section svg')).filter((sv) => !sv.querySelector('style'));
+		if (!roots.length) return null; // capture frame not up yet — keep polling
+		let referencing = 0;
+		const undefinedOn: string[] = [];
+		for (const root of roots) {
+			const named = new Set<string>();
+			for (const el of Array.from(root.querySelectorAll('[style]'))) {
+				for (const m of ((el as SVGElement).getAttribute('style') || '').matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) named.add(m[1]);
+			}
+			if (!named.size) continue;
+			referencing++;
+			const own = (root as SVGElement).getAttribute('style') || '';
+			for (const t of named) if (!own.includes(`${t}:`)) undefinedOn.push(t);
+		}
+		// Keep polling until at least one root has been flattened AND every one of them
+		// is complete — the probe can fire between frame load and flattenChartSvgs, and
+		// a half-baked intermediate state must not be read as a verdict. On regression
+		// the roots flatten but define nothing, so `undefinedOn` never empties and this
+		// times out with the failure below.
+		if (!referencing) return null;
+		if (undefinedOn.length) return null;
+		return `roots=${roots.length} referencing=${referencing} undefined=0`;
+	}, undefined, { timeout: 60_000 });
+
+	const download = page.waitForEvent('download', { timeout: 60_000 });
+	await shareExport(page, 'pdf');
+	await tokenProbe; // resolves only once every flattened chart carries its own definitions
+	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
 });

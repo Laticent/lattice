@@ -8,9 +8,12 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { JSDOM } = require('jsdom');
 const {
   finalizeStandaloneSvg,
   collectFontFamilies,
+  parseTokenDecls,
+  applyCollectedTokens,
 } = require('../../../lib/components/chart/_chart-family/standalone-svg.js');
 
 describe('finalizeStandaloneSvg', () => {
@@ -312,5 +315,99 @@ describe('the flattener carries the edge contract into the exported file', () =>
       'a stroked element must pin stroke-width and vector-effect past the initial-value skip');
     assert.match(SRC, /if \(!pinned && Object\.hasOwn\(INIT, p\) && v === INIT\[p\]\) continue;/,
       'the initial-value skip must consult that pin');
+  });
+});
+
+// ── The OTHER consumer of the same collection ───────────────────────────────────
+// `finalizeStandaloneSvg` above writes the definitions into a FILE's `<style>`. The
+// Studio's PDF/PPTX rasterizer has no file: it hands the flattened clone to
+// html-to-image, which deep-clones an `<svg>` root and then walks none of its
+// descendants — so every paint the bake left as `var(--token)` arrives in a detached
+// document with nothing to define it, and an undefined `fill` is SVG-initial BLACK
+// (#2210: 47 of 62 paints on a flattened heatmap). `applyCollectedTokens` is that
+// path's consumer — same attribute, same grammar, onto the root's own inline style.
+//
+// jsdom, not a hand-rolled stub: the claim under test is that real CSSOM accepts these
+// declarations and hands them back, and a fake `style` object would assert only that
+// the test's own object works. What jsdom canNOT show is the html-to-image half — that
+// an inherited custom property actually repaints a descendant in the serialized
+// document. That is a real-browser claim and it is pinned in
+// docs/e2e/journeys/chart-export.spec.ts, not here.
+describe('applyCollectedTokens — the rasterizer path\'s definitions', () => {
+  const rootOf = (attr) => {
+    const dom = new JSDOM(`<!doctype html><body><svg ${attr}><rect/></svg></body>`);
+    return dom.window.document.querySelector('svg');
+  };
+
+  test('moves each definition onto the root\'s own inline style and strips the scratch attribute', () => {
+    const el = rootOf('data-lattice-tokens="--chart-cat-1:rgb(30, 58, 95);--chart-cat-2:#ff0000;"');
+    assert.equal(applyCollectedTokens(el), 2);
+    assert.equal(el.style.getPropertyValue('--chart-cat-1'), 'rgb(30, 58, 95)');
+    assert.equal(el.style.getPropertyValue('--chart-cat-2'), '#ff0000');
+    // Scratch space between the two halves of one export — a clone that keeps it
+    // publishes the deck's resolved palette into whatever happens to the element next.
+    assert.equal(el.hasAttribute('data-lattice-tokens'), false);
+  });
+
+  test('a paint that references the token now resolves against the root', () => {
+    // The whole point: the definition has to be INHERITABLE by the descendants the
+    // bake wrote `var()` onto, not merely present somewhere on the element.
+    const dom = new JSDOM('<!doctype html><body><svg data-lattice-tokens="--c:#336699;"><rect style="fill:var(--c)"/></svg></body>');
+    const svg = dom.window.document.querySelector('svg');
+    applyCollectedTokens(svg);
+    const rect = dom.window.document.querySelector('rect');
+    assert.equal(dom.window.getComputedStyle(rect).getPropertyValue('--c'), '#336699',
+      'the rect must inherit the definition from the root, or its var(--c) fill stays undefined and falls to black');
+  });
+
+  test('no attribute is a no-op — the two non-collecting call sites are unaffected', () => {
+    const el = rootOf('viewBox="0 0 10 10"');
+    assert.equal(applyCollectedTokens(el), 0);
+    assert.equal(el.getAttribute('style'), null);
+  });
+
+  test('strips the attribute even when nothing in it is admitted', () => {
+    const el = rootOf('data-lattice-tokens="notatoken:red;"');
+    assert.equal(applyCollectedTokens(el), 0);
+    assert.equal(el.hasAttribute('data-lattice-tokens'), false);
+  });
+
+  test('a missing or style-less element is tolerated, never thrown from', () => {
+    // One un-tokenized chart must not fail a whole deck export — the caller's catch
+    // already leaves the svg unstyled, but this should not be the thing that trips it.
+    assert.equal(applyCollectedTokens(null), 0);
+    assert.equal(applyCollectedTokens({}), 0);
+  });
+});
+
+// ONE grammar, two consumers. The producer (`flattenSvgStyles`) writes the attribute;
+// `finalizeStandaloneSvg` and `applyCollectedTokens` read it. A second reader that
+// re-derived the producer's format from its own copy of the rules is exactly the shape
+// of defect this branch was handed a warning about — it passes on the day it is written
+// and drifts silently the first time the emit changes.
+describe('parseTokenDecls — the shared grammar', () => {
+  test('admits a computed color in each of the three shapes getComputedStyle produces', () => {
+    assert.deepEqual(parseTokenDecls('--a:rgb(1, 2, 3);--b:#abc;--c:red;'),
+      [['--a', 'rgb(1, 2, 3)'], ['--b', '#abc'], ['--c', 'red']]);
+  });
+
+  test('refuses a name that is not a custom property, and a value that is not a color literal', () => {
+    for (const bad of ['color:red;', 'a:red;', '--a:url(//evil/x);', '--a:b(c(d));', '--a:;', '--bad name:red;']) {
+      assert.deepEqual(parseTokenDecls(bad), [], `admitted ${bad}`);
+    }
+  });
+
+  test('both consumers admit exactly the same set', () => {
+    // The drift arm. If one reader ever grows its own filter, this fails.
+    const css = '--ok:rgb(1, 2, 3);--nope:url(//evil/x);--fine:#abc;';
+    const fromFile = finalizeStandaloneSvg(
+      `<svg viewBox="0 0 10 10" data-lattice-tokens="${css}"><rect/></svg>`, { xmlProlog: false });
+    const fileNames = new Set(Array.from(fromFile.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g), (m) => m[1]));
+    const dom = new JSDOM(`<!doctype html><body><svg data-lattice-tokens="${css}"></svg></body>`);
+    const el = dom.window.document.querySelector('svg');
+    applyCollectedTokens(el);
+    const domNames = new Set(parseTokenDecls(css).map(([n]) => n));
+    assert.deepEqual([...domNames].sort(), [...fileNames].sort());
+    for (const n of domNames) assert.notEqual(el.style.getPropertyValue(n), '', `${n} missing from the inline style`);
   });
 });
