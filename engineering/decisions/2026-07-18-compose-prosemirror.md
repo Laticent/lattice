@@ -177,11 +177,17 @@ and verified on the real built Studio (HARD RULE #23):
   (`base.modifiers.css`) rather than pattern-matching: a code label is an Eyebrow before a
   heading / a Subtitle after one (the gutter gained a 6th **Subtitle** register); a blockquote
   is Key-insight ONLY when trailing; an em-dash paragraph is Below-note ONLY when trailing.
-  **A comment is invisible to that read (2026-09-15)**, because it is invisible to the engine's:
-  a comment renders as an HTML comment NODE and CSS counts only elements, so `:last-child` and
-  `+` look straight through it. `slideContext` skips comments when resolving `prev` / `next` /
-  `isLast`; counting them as ordinary siblings lit the wrong register on a slide whose quote or
-  note was followed by one.
+  **A comment is invisible to that read (2026-09-15)**, because it is invisible to the engine —
+  by TWO mechanisms, not one, and the distinction is the useful part. **Key-insight and
+  below-note are decided in the TRANSFORM:** `harvestBody` (`lib/core/coda.js`) peels the tail off
+  `topLevelElements()`, which sees elements only. **Eyebrow and subtitle are pure CSS:**
+  `h2 + p:has(> code:only-child)` in `base.modifiers.css`, with no stamped class. Both were
+  measured rather than reasoned — the engine renders the identical `.cell-coda` with and without a
+  comment after the quote, and real Chromium's `+` looks straight through one comment node and
+  through two. `slideContext` skips comments when resolving `prev` / `next` / `isLast`; counting
+  them as ordinary siblings lit the wrong register on a slide whose quote or note was followed by
+  one. (A first draft of this credited the CSS mechanism for all four registers. It was wrong for
+  the two the transform owns, and the measurement is what caught it.)
   Applying Key-insight / Below-note relocates the block to the slide's end (the "naturally
   goes to the end" model), since the engine renders them only there. (There is no register
   *class* to make first-class — the engine detects by position; matching that IS the fix.)

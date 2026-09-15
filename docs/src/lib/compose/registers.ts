@@ -40,13 +40,23 @@ export function slideContext(state: EditorState) {
 	const slide = $from.node(1);
 	const index = $from.index(1);
 	const block = slide.child(index);
-	// AUTHORING COMMENTS ARE SKIPPED when looking for siblings, because the ENGINE skips them.
-	// A comment renders as an HTML comment NODE, and CSS counts only ELEMENTS: `:last-child` and
-	// `+` both look straight through it. So `> quote` `> comment` still matches the trailing-
-	// blockquote key-insight rule on the slide, and a code label separated from its heading by a
-	// note is still an eyebrow. Treating the comment as an ordinary sibling would mislabel both —
-	// which is what happened while comments parsed as paragraphs, and is exactly the drift this
-	// function's contract ("EXACTLY as the engine renders it") exists to prevent.
+	// AUTHORING COMMENTS ARE SKIPPED when looking for siblings, because the ENGINE skips them —
+	// by TWO different mechanisms, and it is worth naming both, because an earlier version of this
+	// comment credited the CSS one for all of it and was wrong about half the registers:
+	//
+	//   KEY-INSIGHT / BELOW-NOTE are decided in the TRANSFORM, not by a selector. `harvestBody`
+	//   (lib/core/coda.js) peels the tail off `topLevelElements()`, which sees elements only, and
+	//   lifts the trailing blockquote into `.cell-coda`. Measured through the real engine: a slide
+	//   renders the identical coda cell with and without a comment after the quote.
+	//
+	//   EYEBROW / SUBTITLE are pure CSS — `h2 + p:has(> code:only-child)` in base.modifiers.css,
+	//   no stamped class. Measured in real Chromium: `+` looks straight through one comment node
+	//   and through two, so the label is still adjacent to its heading.
+	//
+	// Either way the comment is invisible to the render, so it must be invisible here too.
+	// Treating it as an ordinary sibling mislabels the block the author is standing in — which is
+	// what happened while comments parsed as paragraphs, and is exactly the drift this function's
+	// contract ("EXACTLY as the engine renders it") exists to prevent.
 	const visible = (n: PMNode | null) => (n && n.type.name !== 'comment' ? n : null);
 	let prev: PMNode | null = null;
 	for (let i = index - 1; i >= 0 && !prev; i--) prev = visible(slide.child(i));
