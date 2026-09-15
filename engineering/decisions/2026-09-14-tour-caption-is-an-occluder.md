@@ -333,8 +333,12 @@ ever saw and the case asserts it was non-zero.
   instrument that could not see; there is now a mechanism that reproduces off-device, is measured in
   rendered pixels on the engine iOS ships, and is fixed. What still needs the phone is ATTRIBUTION —
   whether this is the symptom that was reported.
-  **A second defect on that path is still live and is not touched here:** the markdown editor has no
-  software-keyboard inset at all (`useVisualViewport` is wired only into `ComposeView`), and every
-  number in this change — the caption's band, `boundsRect`, `tourChromeOverlap` — is expressed in the
-  LAYOUT viewport, which on iOS does not shrink for the keyboard. With the keyboard up the caption is
-  itself partly behind it. That is off this change's path (HARD RULE #18) and worth its own work.
+  **A second defect on that path was live and is now closed** — see
+  `2026-09-14-the-keyboard-is-the-other-occluder.md`. The frame half of it was real: every number in
+  this change is expressed in the LAYOUT viewport, which on iOS does not shrink for the keyboard, so
+  with the keyboard up the caption is itself partly behind it and `tourChromeOverlap` was clearing
+  the wrong edge. `tourChromeOverlap` now takes whichever obstruction reaches higher. The other half
+  of the claim — that the markdown editor "has no software-keyboard inset at all" — did not survive
+  measurement: CodeMirror's `scrollPastEnd()` already reserves a full pane height of scroll extent
+  below the last line, which is more than any keyboard takes, so the reserve `ComposeView` had to
+  add by hand was never missing here.

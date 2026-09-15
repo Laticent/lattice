@@ -348,10 +348,13 @@ inline on the document element:
 ```
 --vt-chrome-top     px of the viewport's TOP edge the caption is covering
 --vt-chrome-bottom  px of the viewport's BOTTOM edge the caption is covering
+--vt-chrome-left    px of CLEAR space between the window's LEFT edge and the band
+--vt-chrome-right   px of CLEAR space between the window's RIGHT edge and the band
 ```
 
-Both are measured **from the window's edges**, so a host recovers the band's top as
-`innerHeight - inset` whatever `bounds` is set to. They are removed on `destroy()` — removed, not
+All four are measured **from the window's edges**, so a host recovers the band's top as
+`innerHeight - inset` whatever `bounds` is set to. The vertical pair says how much is COVERED;
+the horizontal pair how much is CLEAR (see below, where that asymmetry is the point). They are removed on `destroy()` — removed, not
 zeroed, so a stale value can never make a later reveal reserve room for a caption that has gone —
 and only when the value is still the one this stage published, so a second stage tearing down
 cannot take a running tour's number with it.
@@ -360,11 +363,47 @@ They are **measured from the rendered box**, not derived from the style constant
 wraps to three lines reports its real height; and `caption: 'cursor'` publishes `0`, because its
 balloon already places itself out of the way of whatever is being pointed at.
 
-Two honest limits on what the number means. It is a conservative **band**, not a paint mask: for an
-edge dock it runs from the window's edge up to the dock's box, so it includes the ~78px transparent
-gutter the dock floats above (123px for a ~45px `bar`). And it is purely **vertical** — a centered
-`progress` pill 380px wide is reported as a full-width band. Both over-reserve rather than
-under-reserve, which is the right direction to be wrong in.
+The horizontal pair reads the other way round from the vertical one, and the asymmetry is
+deliberate: the vertical numbers say how much is COVERED, the horizontal ones how much is CLEAR. A
+full-width caption — `scrim`, the phone style — therefore publishes `0px` on both sides, so a
+consumer that ignores them, or reads a missing property as `0`, reconstructs exactly the full-width
+band that was published before they existed. The covered x-range is
+`[left, innerWidth - right]`. It is worth reading: a centered `progress` pill is capped at 380px and
+a `split` cap at 560px, so on a 1440px window the band is a quarter of the width and a target beside
+it is covered by nothing at all.
+
+One honest limit remains on what the number means. It is a conservative **band**, not a paint mask:
+for an edge dock it runs from the window's edge up to the dock's box, so it includes the ~78px
+transparent gutter the dock floats above (123px for a ~45px `bar`). That over-reserves rather than
+under-reserves, which is the right direction to be wrong in.
+
+**A SOFTWARE KEYBOARD is the third limit, and it is the host's to handle, not the stage's.** The
+band is measured against `window.innerHeight` — the LAYOUT viewport — and iOS does not shrink that
+for the keyboard; it shrinks the VISUAL one. So with a keyboard up the caption is itself partly or
+wholly behind it, and a host that clears only the published band still reveals into pixels the
+viewer cannot see. The stage cannot fix this for you: it has no way to know whether the host's
+surface even takes text input. What a host does instead is take whichever obstruction reaches
+higher:
+
+```js
+const vv = window.visualViewport;
+const seen = vv && vv.height > 0 ? Math.min(innerHeight, vv.offsetTop + vv.height) : innerHeight;
+const clearBelow = Math.min(innerHeight - chromeBottom, seen);
+```
+
+`offsetTop` matters as much as `height`: it is the visual viewport sliding down the layout one as
+the page scrolls under the keyboard, and a `resize` listener alone never reports it. Both numbers
+are in the same frame as `getBoundingClientRect()`, which is what makes them directly comparable to
+the published inset. Without a keyboard — every desktop, and every headless browser — `seen` is
+`innerHeight` and the expression is exactly the published band. The Studio does this in
+`tourChromeOverlap` (`docs/src/components/studio/tour-chrome.ts`).
+
+**Apply the horizontal test to the caption only, never to the keyboard.** The caption is bounded
+on both sides; the keyboard spans the screen, so nothing is ever *beside* it. Clearing the two
+as one number by short-circuiting on the horizontal test leaves a pane beside a narrow caption
+with no keyboard clearing at all — which is exactly the bug this recipe exists to avoid, and one
+an early draft on this branch had before a review caught it. Take the caption's line as
+`Infinity` when it does not overlap, rather than returning early.
 
 Read them from the inline style (`documentElement.style.getPropertyValue(...)`), not
 `getComputedStyle` — a host reading this per keystroke should not force a style recalculation. The

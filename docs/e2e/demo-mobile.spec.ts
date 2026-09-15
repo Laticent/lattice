@@ -175,7 +175,7 @@ test('@mobile a real tap mid-run takes over — stage detaches, the deck is kept
 // by CodeMirror after the frame that caused it, so the tail is legitimately a frame or two behind.
 // What a missing follow looks like is an offset that never closes.
 type TailSample = { off: number; scrollTop: number; overflow: number; rendered: boolean };
-type TailReport = { samples: number; worst: TailSample | null; maxOff: number; maxRun: number; chrome: number; error?: string };
+type TailReport = { samples: number; worst: TailSample | null; maxOff: number; maxRun: number; chrome: number; vv: number; error?: string };
 // SUSTAIN IS THE DISCRIMINATOR, NOT SLACK. What separates an engine's measure lag from a follow
 // that is broken is DURATION: the lag is a couple of frames and then the view catches up, while a
 // broken follow never closes. Measured on the shipped build, the longest run of frames over budget
@@ -223,7 +223,7 @@ const TAIL_TYPING_MS = 500; // a doc that changed this recently is being typed i
 // caption's top (615 against a caption at 614 on Chromium, 429 against 429 on WebKit).
 const TAIL_SLACK = { chromium: 60, webkit: 120 };
 
-async function expectTailFollows(page: import('@playwright/test').Page, slack: number): Promise<void> {
+async function expectTailFollows(page: import('@playwright/test').Page, slack: number, pageScale?: number): Promise<void> {
 	const pageErrors: string[] = [];
 	page.on('pageerror', (e) => pageErrors.push(String(e)));
 
@@ -232,7 +232,7 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 	await page.addInitScript(
 		([sustain, slackPx, typingMs]: [number, number, number]) => {
 			const w = window as unknown as { __tail: TailReport };
-			w.__tail = { samples: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0 };
+			w.__tail = { samples: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0, vv: 0 };
 			let run = 0;
 			let lastView: unknown = null;
 			let lastLen = -1;
@@ -273,7 +273,27 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 						// the scroller's own bottom, which is what this used to compare against.
 						const chrome = Number.parseFloat(document.documentElement.style.getPropertyValue('--vt-chrome-bottom')) || 0;
 						w.__tail.chrome = Math.max(w.__tail.chrome, chrome);
-						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome);
+						// THE SAME FRAME `tourChromeOverlap` NOW WORKS IN. The published band is measured
+						// against the LAYOUT viewport, which a software keyboard does not shrink, so the
+						// lowest line a viewer can see is the visual viewport's bottom when there is one.
+						// Headless has no keyboard, so `vv` equals `innerHeight` here and this arm reads
+						// exactly as it did — but if the oracle kept the layout-only formula it would stop
+						// being a ruler for the helper the moment either one moved.
+						//
+						// IT DELIBERATELY DOES NOT CARRY THE HORIZONTAL TEST the helper also gained. This
+						// spec drives the phone Studio, whose caption is `scrim` — full width, publishing
+						// 0 on both sides — so the test would be a no-op here. Leaving it out keeps the
+						// oracle STRICTER than the implementation rather than looser, which is the safe
+						// direction for a ruler: on a hypothetical narrow-caption project it would demand
+						// clearing the helper no longer asks for, and fail loudly, rather than certify a
+						// reveal that landed under a caption.
+						const vv = window.visualViewport;
+						const seen = vv && vv.height > 0 ? Math.min(window.innerHeight, vv.offsetTop + vv.height) : window.innerHeight;
+						// How far the VISUAL viewport fell short of the layout one — the divergence a
+						// software keyboard produces, and the one the `@vv` arm induces for real with a
+						// page-scale factor. 0 whenever the two agree, which is every headless default.
+						w.__tail.vv = Math.max(w.__tail.vv, window.innerHeight - seen);
+						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome, seen);
 						// How far the END of the document is from being on screen. `coordsAtPos` is null
 						// when the tail is not rendered at all, and then the distance from the bottom of
 						// the scroll range is the honest measure of how far behind the view is.
@@ -305,6 +325,37 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 	await gotoStudio(page);
 	await startMobileDemo(page);
 	await expect(page.locator(STAGE)).toBeVisible();
+	// SHRINK THE VISUAL VIEWPORT FOR REAL, on the engine, once the tour is up. A page-scale factor
+	// IS pinch-zoom, and pinch-zoom shrinks the VISUAL viewport while leaving the LAYOUT one alone —
+	// the same divergence a software keyboard produces, and the one this swimlane is about. It is
+	// not a keyboard and nothing here claims it is; what it does is put a REAL `window.visualViewport`
+	// disagreeing with `window.innerHeight` in front of the shipped code, instead of the jsdom stub
+	// the unit arms use. Measured on this engine: at scale 2 on a 390x844 box, `innerHeight` stays
+	// 844 while `visualViewport.height` reads 422.
+	//
+	// AFTER the demo starts, not before, for two reasons. The zoomed layout overlaps the mobile
+	// chrome enough that the start control gets pointer-intercepted (measured: a 15s click timeout).
+	// And a keyboard rises mid-session too, so shrinking the viewport into a RUNNING tour is the
+	// more faithful shape anyway — it exercises the resize listener, not just the mount path.
+	//
+	// 1.85 IS DERIVED, and the derivation is the difference between an arm that pins the branch and
+	// one that only looks like it does. 1.5 was tried first and the mutant SURVIVED it: the
+	// divergence came out 227px, putting the visible bottom at 617 while the caption's own line is
+	// 844-230 = 614 — so the caption still bound, by 3px, and `visibleBottom()` never entered the
+	// answer. The requested factor is also not the effective one (1.5 measured as ~1.37 here), so it
+	// has to be calibrated against what the engine actually reports rather than assumed.
+	//
+	// Two bounds, both load-bearing, with the phone pane at 741px and `keep` 48 (half-clamp 346):
+	//   LOWER — the visible bottom must clear the caption's line by enough that a mutant reading
+	//           `innerHeight` lands the tail more than `slack` (60px) low. That needs vvBottom < 555.
+	//   UPPER — it must stay inside the half-clamp, or the CORRECT code also fails, on the documented
+	//           partial lift rather than on a defect. That needs vvBottom > 440.
+	// Target is the middle of [440, 555]; 1.85 lands ~500, where the correct code is 0px off and the
+	// mutant is ~114px off — a 114px separation rather than the 3px 1.5 gave.
+	if (pageScale) {
+		const cdp = await page.context().newCDPSession(page);
+		await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: pageScale });
+	}
 	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain('_class: closing');
 
 	const tail = await page.evaluate(() => (window as unknown as { __tail: TailReport }).__tail);
@@ -319,9 +370,23 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 	// in one stroke, and the arm would go green. That is the exact shape of failure this whole
 	// change is about, so the sampler records whether it ever saw a real band and says so here.
 	expect(tail.chrome, 'the stage never published a chrome inset, so this measured the OLD blind ruler').toBeGreaterThan(0);
+	// GUARD THE SECOND RULER THE SAME WAY. With a page scale applied the visual viewport MUST have
+	// disagreed with the layout one; if it did not, the engine ignored the override and this arm
+	// quietly re-ran the ordinary case under a different name — worse than not running it at all.
+	if (pageScale) {
+		expect(tail.vv, `the visual viewport never diverged from the layout one (max ${tail.vv}px), so the page-scale override did nothing and this measured the ordinary case`).toBeGreaterThan(150);
+	}
 	// And the headroom the pass actually had, as an assertion rather than a log line: a legitimate
 	// transient is a couple of frames, so a run anywhere near the window is drift worth seeing.
-	expect(tail.maxRun, `the longest run over budget was ${tail.maxRun} frames against a ${TAIL_SUSTAIN}-frame window — the headroom this case relies on is gone`).toBeLessThan(TAIL_SUSTAIN / 2);
+	// THE HEADROOM ASSERTION IS FOR A STEADY-STATE RUN, and the `@vv` arm is deliberately not one:
+	// it steps the viewport mid-typing, so the view legitimately spends frames catching up (measured:
+	// 13 against the 20-frame window). Holding it to half the window there would be asserting that a
+	// correct reveal reacts instantly to a viewport change, which it does not and should not.
+	// The SUSTAINED oracle below is untouched and is what actually catches the defect — a mutant
+	// reading `innerHeight` sits ~114px low for the rest of the run, not for 13 frames.
+	if (!pageScale) {
+		expect(tail.maxRun, `the longest run over budget was ${tail.maxRun} frames against a ${TAIL_SUSTAIN}-frame window — the headroom this case relies on is gone`).toBeLessThan(TAIL_SUSTAIN / 2);
+	}
 	expect(
 		tail.worst,
 		tail.worst
@@ -329,12 +394,36 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 			: '',
 	).toBeNull();
 	// Printed on a PASS too: the headroom this case actually has, so "it still passes" can be read
-	// as a number rather than taken on faith.
-	console.log(`[tail] ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px), longest run over budget ${tail.maxRun} frames (of ${TAIL_SUSTAIN}), caption band ${tail.chrome}px`);
+	// as a number rather than taken on faith. `vv` is the visual-viewport divergence the run saw —
+	// 0 on every ordinary arm, and the whole subject of the `@vv` one.
+	console.log(`[tail] ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px), longest run over budget ${tail.maxRun} frames (of ${TAIL_SUSTAIN}), caption band ${tail.chrome}px, visual-viewport divergence ${tail.vv}px`);
 }
 
 test('@mobile the editor follows the typing — the tail of the deck stays on screen', async ({ page }) => {
 	await expectTailFollows(page, TAIL_SLACK.chromium);
+});
+
+// THE SAME DRIVE WITH THE VISUAL VIEWPORT GENUINELY SMALLER THAN THE LAYOUT ONE.
+//
+// This is the arm that answers the one thing the rest of this swimlane could not. Every number
+// behind `visibleBottom()` was, until this existed, measured in jsdom against a stub we wrote
+// ourselves — and the first version of that stub was physically impossible (it shrank `height` as
+// `offsetTop` grew, holding their sum invariant, which no engine does). A claim about how a browser
+// reports its visual viewport cannot rest on our own model of a browser.
+//
+// A software keyboard is still not reachable here. But a keyboard is not the only thing that
+// shrinks the visual viewport and leaves the layout viewport alone — PINCH-ZOOM does exactly that,
+// it is what `Emulation.setPageScaleFactor` drives, and `visibleBottom()` cannot tell the two
+// apart because it reads `height` and `offsetTop` and never asks why. So this exercises the real
+// branch, with numbers Chromium produced, through the shipped `revealTail` → `tourChromeMargin` →
+// `tourChromeOverlap` → `visibleBottom` chain inside the real Studio.
+//
+// What it establishes: the mechanism is right on a real engine. What it does NOT establish: that
+// iOS's keyboard produces this geometry, or that this is the reported symptom. Both remain
+// UNVERIFIED and are marked so in
+// `engineering/decisions/2026-09-14-the-keyboard-is-the-other-occluder.md`.
+test('@mobile @vv the editor follows the typing when the VISUAL viewport is smaller than the layout one', async ({ page }) => {
+	await expectTailFollows(page, TAIL_SLACK.chromium, 1.85);
 });
 
 // THE SAME ON REAL WEBKIT AT AN IPHONE BOX, because the report this came from was an iPhone and
@@ -366,7 +455,7 @@ async function expectComposeTailFollows(page: import('@playwright/test').Page, s
 	await page.addInitScript(
 		([sustain, slackPx, typingMs]: [number, number, number]) => {
 			const w = window as unknown as { __tail: TailReport };
-			w.__tail = { samples: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0 };
+			w.__tail = { samples: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0, vv: 0 };
 			let run = 0;
 			let lastLen = -1;
 			let lastChange = 0;
@@ -394,7 +483,10 @@ async function expectComposeTailFollows(page: import('@playwright/test').Page, s
 						const box = host.getBoundingClientRect();
 						const chrome = Number.parseFloat(document.documentElement.style.getPropertyValue('--vt-chrome-bottom')) || 0;
 						w.__tail.chrome = Math.max(w.__tail.chrome, chrome);
-						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome);
+						// Same frame as the editor sampler above — see its note.
+						const vv = window.visualViewport;
+						const seen = vv && vv.height > 0 ? Math.min(window.innerHeight, vv.offsetTop + vv.height) : window.innerHeight;
+						const visibleBottom = Math.min(box.bottom, window.innerHeight - chrome, seen);
 						const off = Math.max(0, last.getBoundingClientRect().bottom - visibleBottom);
 						w.__tail.samples++;
 						w.__tail.maxOff = Math.max(w.__tail.maxOff, Math.round(off));

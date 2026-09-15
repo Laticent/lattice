@@ -573,8 +573,14 @@ interface BuiltDock {
 	 *  the published inset runs from the window's edge up to it — so it includes the ~78px
 	 *  transparent gutter the dock is seated above (123px published for a ~45px `bar`). That
 	 *  over-reserves rather than under-reserves, which is the right direction, but it is why this
-	 *  is "the band a reveal must stay clear of" and not "the pixels this style paints". It is
-	 *  also purely VERTICAL: a centered `progress` pill 380px wide reports a full-width band. */
+	 *  is "the band a reveal must stay clear of" and not "the pixels this style paints".
+	 *
+	 *  IT IS NO LONGER PURELY VERTICAL. The rect's `left`/`width` used to be read by nothing, so a
+	 *  centered `progress` pill 380px wide reported a full-width band and every reveal whose target
+	 *  sat in the 1060px beside it on a 1440px window scrolled the page for nothing. `chromeInset`
+	 *  now carries the horizontal extent too — see its note, and
+	 *  `engineering/decisions/2026-09-14-the-band-is-a-rect.md`. Nothing changed about what a style
+	 *  has to RETURN: every one of them already handed back a full rect. */
 	occludes: () => RectLike | null;
 }
 
@@ -1171,8 +1177,8 @@ export function createStage(opts: StageOptions): Stage {
 	// the stage is a body-portalled fixed layer the host knows nothing about.
 	//
 	// It is measured from the PAINTED box, not from the style constants — see `BuiltDock.occludes`.
-	const chromeInset = (): { top: number; bottom: number } => {
-		const zero = { top: 0, bottom: 0 };
+	const chromeInset = (): { top: number; bottom: number; left: number; right: number } => {
+		const zero = { top: 0, bottom: 0, left: 0, right: 0 };
 		if (destroyed || !dockOccludes) return zero;
 		const box = dockOccludes();
 		if (!box) return zero;
@@ -1184,10 +1190,27 @@ export function createStage(opts: StageOptions): Stage {
 		// nothing is painted, and nothing over the band that is. `bounds` decides where the caption
 		// is SEATED; it has no business deciding what frame the number is reported in.
 		const vh = window.innerHeight;
+		const vw = window.innerWidth;
+		// THE HORIZONTAL EXTENT, in the same frame and the same sense as the vertical pair: each
+		// number is the CLEAR strip between a window edge and the band, so a full-width caption
+		// reports 0 and 0. That default is what makes this additive rather than breaking — a
+		// consumer that never heard of these, or reads a missing property as 0, reconstructs
+		// exactly the full-width band it reconstructed before they existed.
+		//
+		// It matters because most captions are NOT full width: a centered `progress` pill is
+		// capped at 380px and a `split` cap at 560px, so on a 1440px window the old vertical-only
+		// band claimed 1060px that nothing is painted over — and every reveal whose target sat in
+		// that clear space scrolled the page for nothing. `scrim` is the honest full-width case,
+		// and it is the one that still reports 0 and 0.
+		const left = Math.max(0, Math.min(box.left, vw));
+		const right = Math.max(0, Math.min(vw - r2(box).right, vw));
+		// A box scrolled entirely off one side leaves no band at all; reporting `left + right >= vw`
+		// would be an empty band that still reads as "covered" to anything comparing edges.
+		if (left + right >= vw) return zero;
 		// Which edge the chrome is against is `placement`, but the number comes from the box:
 		// a `bar` grows upward as its text wraps, and the inset has to grow with it.
-		if (placement === 'top') return { top: Math.max(0, Math.min(r2(box).bottom, vh)), bottom: 0 };
-		return { top: 0, bottom: Math.max(0, Math.min(vh - box.top, vh)) };
+		if (placement === 'top') return { top: Math.max(0, Math.min(r2(box).bottom, vh)), bottom: 0, left, right };
+		return { top: 0, bottom: Math.max(0, Math.min(vh - box.top, vh)), left, right };
 	};
 
 	// The published half. Two custom properties, inline on the document element so a host reads
@@ -1198,6 +1221,12 @@ export function createStage(opts: StageOptions): Stage {
 	// reveal leave room for chrome that is no longer there.
 	const CHROME_TOP = '--vt-chrome-top';
 	const CHROME_BOTTOM = '--vt-chrome-bottom';
+	// The horizontal extent of the same band — the CLEAR strip at each side, so full width is
+	// `0px` / `0px` and a consumer that ignores them is byte-identical to one written before they
+	// existed. `publishedBottom` stays the single ownership token: all four are written together
+	// in one place, so whoever owns the bottom owns the set.
+	const CHROME_LEFT = '--vt-chrome-left';
+	const CHROME_RIGHT = '--vt-chrome-right';
 	let publishedBottom = '';
 	const publishChromeInset = (): void => {
 		if (destroyed) return;
@@ -1205,6 +1234,8 @@ export function createStage(opts: StageOptions): Stage {
 		const ins = chromeInset();
 		const top = `${Math.round(ins.top)}px`;
 		const bottom = `${Math.round(ins.bottom)}px`;
+		const left = `${Math.round(ins.left)}px`;
+		const right = `${Math.round(ins.right)}px`;
 		// Skip the write when the property ALREADY HOLDS this value. A custom property on the
 		// document element is a document-wide style invalidation, and this runs on every perform
 		// bracket and (under `bounds: 'host'`) on a scroll that moved the box, so an unconditional
@@ -1218,10 +1249,22 @@ export function createStage(opts: StageOptions): Stage {
 		// property outright. With a cache, the live stage's memo still agreed with a value that was
 		// gone, so it never wrote again and every reveal for the rest of the run silently reverted
 		// to the defect this whole change exists to fix.
-		if (el.style.getPropertyValue(CHROME_BOTTOM) === bottom && el.style.getPropertyValue(CHROME_TOP) === top) return;
+		//
+		// ALL FOUR join the comparison. Skipping on the vertical pair alone would certify a stale
+		// horizontal extent for free: a `bar` re-seated by a resize can keep its height — so the
+		// same `top`/`bottom` — while its left and right move by hundreds of pixels.
+		if (
+			el.style.getPropertyValue(CHROME_BOTTOM) === bottom &&
+			el.style.getPropertyValue(CHROME_TOP) === top &&
+			el.style.getPropertyValue(CHROME_LEFT) === left &&
+			el.style.getPropertyValue(CHROME_RIGHT) === right
+		)
+			return;
 		publishedBottom = bottom;
 		el.style.setProperty(CHROME_TOP, top);
 		el.style.setProperty(CHROME_BOTTOM, bottom);
+		el.style.setProperty(CHROME_LEFT, left);
+		el.style.setProperty(CHROME_RIGHT, right);
 	};
 	// A resize moves the box every caption is measured against. Cheap, idempotent, and removed
 	// on destroy — the stage must not outlive its listeners.
@@ -1424,7 +1467,15 @@ export function createStage(opts: StageOptions): Stage {
 			const box = src.getBoundingClientRect();
 			const vh = window.innerHeight;
 			// Does it actually need lifting, and is there room to lift it? Both halves matter.
-			const intrudes = ins.bottom > 0 ? box.bottom > vh - ins.bottom : box.top < ins.top;
+			//
+			// AND IS IT EVEN BEHIND THE CAPTION? A centered `progress` pill is 380px wide; a target
+			// in the 1060px of clear space beside it on a 1440px window is not covered by anything,
+			// and scrolling the page to "clear" it moved the viewer's world for nothing. Edges only
+			// touching is not an overlap, which is why both tests are strict.
+			const bandLeft = ins.left;
+			const bandRight = window.innerWidth - ins.right;
+			const overlapsX = box.right > bandLeft && box.left < bandRight;
+			const intrudes = overlapsX && (ins.bottom > 0 ? box.bottom > vh - ins.bottom : box.top < ins.top);
 			// A TARGET THAT NO LONGER FITS GETS NO MARGIN, and skipping is the only safe answer.
 			// Per CSSOM-View, `nearest` acts on the scroll-MARGIN box: once that box is taller than
 			// the viewport, a target that was fully visible has one edge in and one out, so
@@ -2754,6 +2805,8 @@ export function createStage(opts: StageOptions): Stage {
 			if (doc.documentElement.style.getPropertyValue(CHROME_BOTTOM) === publishedBottom) {
 				doc.documentElement.style.removeProperty(CHROME_TOP);
 				doc.documentElement.style.removeProperty(CHROME_BOTTOM);
+				doc.documentElement.style.removeProperty(CHROME_LEFT);
+				doc.documentElement.style.removeProperty(CHROME_RIGHT);
 			}
 			layer.remove();
 		},

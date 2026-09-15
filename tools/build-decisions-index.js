@@ -71,7 +71,19 @@
  *     one insertion point → a textual git CONFLICT. Visible on the PR and resolved
  *     mechanically (HARD RULE #16) — but resolving it by keeping both sides leaves the
  *     rows in MERGE order, not sort order, which a byte-comparison would reject in
- *     turn. This is the RARE case: it needs the two notes to be neighbors among ~380.
+ *     turn.
+ *
+ *     THIS PARAGRAPH USED TO CALL THAT THE RARE CASE — "it needs the two notes to be
+ *     neighbors among ~380" — AND THAT WAS WRONG. Neighborliness is not a lottery over
+ *     the corpus, because rows sort DATE-DESCENDING: a note carrying today's date sorts
+ *     above every existing note in its status group. Two notes written the same day into
+ *     the same group are therefore ALWAYS immediate neighbors, whatever their filenames,
+ *     and that is the ordinary shape of two concurrent decision-doc PRs. Measured with
+ *     real branches off `main`: same date with far-apart filenames CONFLICTS, both dated
+ *     today CONFLICTS, and only a third note already sorting BETWEEN them merges cleanly.
+ *     It is now handled by a `merge=union` driver in `.gitattributes` (see the long note
+ *     there, and `engineering/decisions/2026-09-14-the-decision-index-merges-as-a-union.md`)
+ *     rather than by hand.
  *   - the two notes are in DIFFERENT STATUS GROUPS → the footer counts each group
  *     separately, so the two sides rewrite that line to DIFFERENT text and git raises an
  *     ordinary conflict. Also visible.

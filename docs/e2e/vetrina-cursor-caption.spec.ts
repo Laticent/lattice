@@ -517,3 +517,46 @@ test.describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", 
 		expect(running.mean, `a running tour added ${(running.mean - idle.mean).toFixed(2)}ms to the mean scroll frame`).toBeLessThan(idle.mean + 4);
 	});
 });
+
+test.describe('the caption band is a RECT — a narrow caption leaves the rest of the window clear', () => {
+	// The jsdom arms in `docs/src/lib/vetrina/reveal.test.ts` pin the arithmetic; this pins that a
+	// REAL browser lays the narrow styles out narrow, and that the number the stage publishes is
+	// the box it actually painted (HARD RULE #23 — a rect supplied by a fixture is not a rect a
+	// browser produced).
+
+	test('progress publishes a band narrower than the window, matching its painted pill', async ({ page }) => {
+		await start(page, { caption: 'progress', bounds: 'viewport', pacing: 'grounded', narr: 'off' });
+		await waitForPhase(page, 'say');
+		const dock = await page.locator(DOCK).boundingBox();
+		expect(dock).toBeTruthy();
+		if (!dock) return;
+		const band = await page.evaluate(() => {
+			const d = document.documentElement.style;
+			const n = (k: string) => Number.parseFloat(d.getPropertyValue(k)) || 0;
+			return { left: n('--vt-chrome-left'), right: n('--vt-chrome-right'), bottom: n('--vt-chrome-bottom'), vw: window.innerWidth };
+		});
+		// The pill is capped at min(90%, 380px), so on any width this suite runs at it is narrower
+		// than the window — and the published strips are the real gutters beside the painted box.
+		expect(dock.width).toBeLessThan(band.vw);
+		expect(band.bottom).toBeGreaterThan(0);
+		expect(band.left).toBeCloseTo(dock.x, 0);
+		expect(band.right).toBeCloseTo(band.vw - (dock.x + dock.width), 0);
+		// The whole point: most of the window is NOT covered.
+		expect(band.left + band.right).toBeGreaterThan(0);
+	});
+
+	test('bar publishes its real gutters too, and they agree with the painted dock', async ({ page }) => {
+		await start(page, { caption: 'bar', bounds: 'viewport', pacing: 'grounded', narr: 'off' });
+		await waitForPhase(page, 'say');
+		const dock = await page.locator(DOCK).boundingBox();
+		expect(dock).toBeTruthy();
+		if (!dock) return;
+		const band = await page.evaluate(() => {
+			const d = document.documentElement.style;
+			const n = (k: string) => Number.parseFloat(d.getPropertyValue(k)) || 0;
+			return { left: n('--vt-chrome-left'), right: n('--vt-chrome-right'), vw: window.innerWidth };
+		});
+		expect(band.left).toBeCloseTo(dock.x, 0);
+		expect(band.right).toBeCloseTo(band.vw - (dock.x + dock.width), 0);
+	});
+});

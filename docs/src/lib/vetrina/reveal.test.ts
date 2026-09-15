@@ -364,14 +364,19 @@ describe('the reveal clears the tour\'s own caption', () => {
 	 *  box is deliberately NOT an occluder — so without this the stage would correctly report an
 	 *  inset of 0 and these arms would be about jsdom. `h` px tall, against the bottom of a
 	 *  ~768px window. */
-	function captionCovering(h: number, theme: Parameters<typeof resolveTheme>[0] = {}): Stage {
+	function captionCovering(h: number, theme: Parameters<typeof resolveTheme>[0] = {}, span?: { left: number; width: number }): Stage {
 		const stage = mount({ caption: 'bar', ...theme });
 		const painted = document.querySelector('.vetrina-caption') as HTMLElement;
 		// `bar` paints the dock itself; `split`/`scrim` paint into a child. Either way the element
 		// the style declared as its occluder is what gets measured, so stub whichever this is.
 		const el = (painted.querySelector('div[aria-hidden="true"]') as HTMLElement) ?? painted;
 		const top = (theme.placement === 'top' ? 0 : window.innerHeight - h);
-		el.getBoundingClientRect = () => ({ left: 0, top, width: window.innerWidth, height: h, right: window.innerWidth, bottom: top + h, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+		// `span` narrows the caption horizontally, which is what a centered `progress` pill (380px)
+		// or a `split` cap (560px) really is. Default is full width — the `scrim` case, and what
+		// every arm written before the extent existed assumed.
+		const left = span ? span.left : 0;
+		const width = span ? span.width : window.innerWidth;
+		el.getBoundingClientRect = () => ({ left, top, width, height: h, right: left + width, bottom: top + h, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
 		return stage;
 	}
 
@@ -381,10 +386,10 @@ describe('the reveal clears the tour\'s own caption', () => {
 	 *  the whole point of the fixture — a stub that ignored it could not tell the fix from its
 	 *  absence, which is the failure mode this file's subject is about. `seen` records the margin
 	 *  at each call, so the two-pass shape (scroll, look, lift clear) is assertable. */
-	function elementTarget(height = 40) {
+	function elementTarget(height = 40, left = 300) {
 		const el = document.createElement('div');
 		document.body.appendChild(el);
-		const box = { left: 300, top: 2400, width: 120, height };
+		const box = { left, top: 2400, width: 120, height };
 		el.getBoundingClientRect = () => ({ left: box.left, top: box.top, width: box.width, height: box.height, right: box.left + box.width, bottom: box.top + box.height, x: box.left, y: box.top, toJSON: () => ({}) }) as DOMRect;
 		const seen: { top: string; bottom: string; block?: ScrollLogicalPosition }[] = [];
 		el.scrollIntoView = (arg?: boolean | ScrollIntoViewOptions) => {
@@ -398,7 +403,7 @@ describe('the reveal clears the tour\'s own caption', () => {
 		return { el, seen, box };
 	}
 
-	const published = (name: 'top' | 'bottom') => document.documentElement.style.getPropertyValue(`--vt-chrome-${name}`);
+	const published = (name: 'top' | 'bottom' | 'left' | 'right') => document.documentElement.style.getPropertyValue(`--vt-chrome-${name}`);
 
 	it('lands the target clear of the caption, and hands the element back unchanged', async () => {
 		const stage = captionCovering(230);
@@ -562,6 +567,132 @@ describe('the reveal clears the tour\'s own caption', () => {
 		expect(calls).toHaveLength(1);
 		expect(calls[0]).toEqual({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
 	});
+
+	// ── The band is a RECT, not a full-width stripe ──────────────────────────────────────
+	//
+	// `chromeInset` used to read two fields of the caption's box and throw away the other two, so
+	// a 380px centered `progress` pill on a 1024px window claimed all 1024 of them. Everything
+	// that reveals then dodged a caption that was nowhere near it. jsdom has no layout, so the
+	// pill's width is supplied the same way its height always has been — the input to this
+	// arithmetic IS a rect (see `captionCovering`).
+	//
+	// A centered 380px caption on jsdom's 1024px window spans x 322..702, so the clear strips are
+	// 322px on each side.
+	const PILL = { left: 322, width: 380 };
+
+	it('publishes the clear strip at each side, so a host can see the caption is not full width', async () => {
+		const stage = captionCovering(230, {}, PILL);
+		await frames(2);
+		expect(published('left')).toBe('322px');
+		expect(published('right')).toBe('322px');
+		// The vertical pair is untouched by any of this — the published contract did not move.
+		expect(published('bottom')).toBe('230px');
+		stage.destroy();
+	});
+
+	it('re-publishes when only the EXTENT moved, which the vertical pair alone cannot see', async () => {
+		// The write-skip compares the LIVE value, and it has to compare all four. A caption re-seated
+		// by a window resize keeps its HEIGHT — so `top`/`bottom` are byte-identical — while its
+		// gutters move by hundreds of pixels. Comparing the vertical pair alone would skip the write
+		// and leave a stale extent published, which reads as "this pane is beside the caption" for a
+		// pane the caption now covers: the original defect, restored by a resize.
+		const stage = captionCovering(230, {}, { left: 322, width: 380 });
+		await frames(2);
+		expect(published('left')).toBe('322px');
+		// Same height, different gutters — exactly what a re-seat produces.
+		const painted = document.querySelector('.vetrina-caption') as HTMLElement;
+		const el = (painted.querySelector('div[aria-hidden="true"]') as HTMLElement) ?? painted;
+		const top = window.innerHeight - 230;
+		el.getBoundingClientRect = () => ({ left: 100, top, width: 380, height: 230, right: 480, bottom: top + 230, x: 100, y: top, toJSON: () => ({}) }) as DOMRect;
+		window.dispatchEvent(new Event('resize'));
+		await frames(2);
+		expect(published('bottom'), 'the vertical band did not move, which is the point').toBe('230px');
+		expect(published('left'), 'the extent went stale — the dedupe skipped on the vertical pair').toBe('100px');
+		expect(published('right')).toBe(`${window.innerWidth - 480}px`);
+		stage.destroy();
+	});
+
+	it('takes all four properties back on destroy, not just the pair it owns the token for', async () => {
+		const stage = captionCovering(230, {}, { left: 322, width: 380 });
+		await frames(2);
+		expect(published('left')).toBe('322px');
+		stage.destroy();
+		expect(published('top')).toBe('');
+		expect(published('bottom')).toBe('');
+		expect(published('left')).toBe('');
+		expect(published('right')).toBe('');
+	});
+
+	it('publishes 0 on both sides for a FULL-WIDTH caption, which is what `scrim` is', async () => {
+		// The default `captionCovering` box, i.e. every arm above this one. 0/0 is what makes the
+		// extent additive: a consumer that reads a missing property as 0 rebuilds the old band.
+		const stage = captionCovering(230);
+		await frames(2);
+		expect(published('left')).toBe('0px');
+		expect(published('right')).toBe('0px');
+		stage.destroy();
+	});
+
+	it('does NOT scroll for a target sitting BESIDE a narrow caption', async () => {
+		const stage = captionCovering(230, {}, PILL);
+		await frames(2);
+		// x 40..160 — well clear of the pill's 322..702, and vertically deep in the band.
+		const { el, seen } = elementTarget(40, 40);
+		await stage.point(el);
+		// ONE pass, not two: the first `nearest` brings it on screen, and the lift never runs
+		// because nothing is painted over where it landed. Before this, it scrolled twice.
+		expect(seen.length, 'the reveal lifted a target the caption does not cover').toBe(1);
+		expect(seen[0].bottom, 'a scroll-margin was borrowed for a caption that is elsewhere').toBe('');
+		stage.destroy();
+	});
+
+	it('still scrolls for a target BEHIND the same narrow caption', async () => {
+		const stage = captionCovering(230, {}, PILL);
+		await frames(2);
+		// x 450..570 — inside the pill's span, so this is the case the lift exists for.
+		const { el, seen } = elementTarget(40, 450);
+		await stage.point(el);
+		expect(seen.length).toBe(2);
+		expect(seen[1].bottom).toBe('230px');
+		expect(seen[1].block).toBe('end');
+		stage.destroy();
+	});
+
+	it('distinguishes LEFT from RIGHT — an asymmetric band, target on the far side', async () => {
+		// The stage-side twin of the host-side arm: every other fixture here is horizontally
+		// SYMMETRIC, so swapping `ins.left`/`ins.right` or dropping either half of `overlapsX`
+		// passed the whole suite when a checker mutated them. Band [100, 480] on a 1024px window.
+		const stage = captionCovering(230, {}, { left: 100, width: 380 });
+		await frames(2);
+		// x 700..820 — entirely right of the band, covered by nothing, so no lift.
+		const { el, seen } = elementTarget(40, 700);
+		await stage.point(el);
+		expect(seen.length, 'lifted a target the asymmetric band does not cover').toBe(1);
+		stage.destroy();
+	});
+
+	it('still lifts a target the ASYMMETRIC band covers', async () => {
+		// Same band, x 200..320, squarely inside [100, 480]. A swap would read [544, 924] and skip
+		// the lift here — the defect this pair exists to catch, in the direction that UNDER-reserves.
+		const stage = captionCovering(230, {}, { left: 100, width: 380 });
+		await frames(2);
+		const { el, seen } = elementTarget(40, 200);
+		await stage.point(el);
+		expect(seen.length).toBe(2);
+		expect(seen[1].bottom).toBe('230px');
+		stage.destroy();
+	});
+
+	it('treats a touching edge as clear, not as covered', async () => {
+		const stage = captionCovering(230, {}, PILL);
+		await frames(2);
+		// x 202..322: its right edge is exactly the band's left edge. Nothing is painted over a
+		// zero-width intersection, and a >= test here would lift for it.
+		const { el, seen } = elementTarget(40, 202);
+		await stage.point(el);
+		expect(seen.length).toBe(1);
+		stage.destroy();
+	});
 });
 
 describe('the drag path reveals both of its ends, and the snap-back reveals again', () => {
@@ -605,6 +736,7 @@ describe('the drag path reveals both of its ends, and the snap-back reveals agai
 		// on 218 — not on 518, where `to` is and where the unfixed draft left it shaking.
 		expect(at(cursorEl(), 'top'), 'the cursor stayed on `to` — the shake plays where the item is not').toBeCloseTo(218, 0);
 	});
+
 });
 
 describe('a gesture that does not use its target does not scroll to it', () => {

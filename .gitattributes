@@ -76,3 +76,49 @@
 # builds its fixture at runtime with `.replace()`, which is better; this escape hatch exists so
 # that a fixture that MUST live on disk has a correct way to.
 *.crlf.* -text
+
+# THE DECISION INDEX IS A GENERATED LIST OF UNIQUE ROWS, SO KEEPING BOTH SIDES IS THE RIGHT
+# MERGE. `engineering/decisions/README.md` carries a block, spliced between two sentinels, with
+# one row per note — and roughly half of all merged PRs rewrite it (44-50% across the last 100,
+# 200 and 300 commits; `CHANGELOG.md` sat at the same place before per-PR fragments fixed it in
+# #1593, and is now at 1%). That makes it the repo's highest-churn shared region.
+#
+# WHEN IT CONFLICTS IS NOT RANDOM, AND IT IS NOT RARE. Rows sort date-descending then filename,
+# so a note carrying TODAY's date sorts above every existing note in its status group. Two notes
+# written the same day into the same group are therefore ALWAYS immediate neighbours — one
+# insertion point, one textual conflict — whatever their filenames are. Measured with real
+# branches: same-date-far-apart-filenames conflicts, both-dated-today conflicts, and only a
+# straddling note that already sorts BETWEEN them merges cleanly. This is the common shape, not
+# a corner; #1547's mitigation closed the SILENT miscount case and left this one.
+#
+# `union` keeps both sides' rows. That is correct here because every row is unique to one note
+# and the block's order is not asserted — `build-decisions-index.js --check` was deliberately
+# weakened in #1547 to verify per-note correctness rather than byte-identity, so a union-merged
+# index passes it. Verified by merging two real branches: both rows present, gate green.
+#
+# INSIDE THE BLOCK, A WRONG UNION FAILS LOUDLY. If two branches change the SAME note's status,
+# union keeps both of that note's rows. The note file itself still conflicts (a real semantic
+# conflict, correctly surfaced), and `--check` then refuses with "2 entries in the index — it
+# must appear exactly once". Measured. That class of wrong merge cannot reach `main` quietly.
+#
+# OUTSIDE THE BLOCK IT DOES NOT, AND THAT IS THIS DRIVER'S REAL LIMIT. A merge driver applies to
+# a whole file, but the gate reads only between the sentinels (`parseIndex` slices the text
+# between them), and they sit at lines 130 and 695 — so the 129 lines of hand-written prose above
+# the block (the Convention section, the status-lifecycle table, the ROW_CAP guidance) are under
+# union with NO gate behind them. Two PRs rewording the same prose line would merge clean and
+# commit both sentences back to back. Reproduced with `git merge-file --union`; exit 0, no
+# conflict, both sentences present.
+#
+# Why that is still the right trade: the prose is nearly static while the block churns. Of the
+# 150 commits in the last 300 on `main` that touch this file, 4 changed any line that is not an
+# index row — and two of those four would additionally have to hit the SAME line in parallel.
+# The failure is also visible rather than corrupting: a duplicated sentence in a rendered README
+# reads as an obvious editing mistake in the PR diff, where a wrong CODE merge would not. If that
+# ever stops being acceptable, the fix is to move the generated block into its own file so the
+# driver covers only generated content — a bigger change, costed as the alternative in
+# `engineering/decisions/2026-09-14-the-decision-index-merges-as-a-union.md` §3.
+#
+# (An earlier version of this note claimed the status case was "THE ONE case union gets wrong".
+# It is the one case INSIDE the block. A review caught the prose region; the claim was an
+# incomplete safety proof, which is worse than a stated limit.)
+engineering/decisions/README.md merge=union

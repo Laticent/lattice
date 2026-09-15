@@ -4,7 +4,9 @@
 // Route: /proto/vetrina-caption/ · not linked from nav · delete this one file to revert.
 //
 // Three things are being judged here, and each has an A and a B on the same page:
-//   caption   'bar' (the edge dock that ships) vs 'cursor' (the speech balloon)
+//   caption   'bar' (the edge dock that ships) vs 'cursor' (the speech balloon), plus the two
+//             NARROW styles 'progress' and 'split' — there so the published band's HORIZONTAL
+//             extent has a real surface to be measured on
 //   bounds    'viewport' vs 'host' (the containment question, answered by looking)
 //   pacing    'legacy' (the five hand-tuned literals) vs 'grounded' (./pacing)
 // plus narration off vs a Cadenza-timed silent narrator, which is what makes the word cue
@@ -103,6 +105,8 @@
 					<legend>Caption</legend>
 					<label class="opt"><input type="radio" name="caption" value="bar" checked /> bar (ships today)</label>
 					<label class="opt"><input type="radio" name="caption" value="cursor" /> cursor (new)</label>
+					<label class="opt"><input type="radio" name="caption" value="progress" /> progress (narrow pill)</label>
+					<label class="opt"><input type="radio" name="caption" value="split" /> split (narrow cap)</label>
 				</fieldset>
 				<fieldset>
 					<legend>Bounds</legend>
@@ -303,7 +307,10 @@
 				reset();
 				// A tour confined to the host panel is only watchable if the panel is on screen.
 				$('#app').scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-				const caption = pick('caption') as 'bar' | 'cursor';
+				// `progress` and `split` are the NARROW styles — capped at 380px and 560px, so on a wide
+				// window they leave most of it clear. They are here so the horizontal extent of the
+				// published band has a real surface to be measured on rather than only a jsdom rect.
+				const caption = pick('caption') as 'bar' | 'cursor' | 'progress' | 'split';
 				const bounds = pick('bounds') as 'viewport' | 'host';
 				const pacing = pick('pacing') as 'legacy' | 'grounded';
 				const narrMode = pick('narr') as 'off' | 'cadenza' | 'voiced';
