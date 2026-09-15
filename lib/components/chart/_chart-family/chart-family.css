@@ -1470,9 +1470,28 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-b
   border-radius: 0;
   box-shadow: none;
 }
-/* Pagination reads through the band — lifted above it and recolored. */
+/* Pagination reads through the band — lifted above it and recolored.
+ *
+ * THIS RULE HAD NEVER PAINTED, and finding out why is what #2206 is about. A
+ * `chart-frame` slide emits a footer Cell, and the old retirement rule
+ * (`section.form:has(> .cell-footer)::after { content: none }`) therefore retired its
+ * pagination pseudo — so the mark this rule names did not exist on any chart slide, on
+ * any path, ever. The page number kept the footer band's `--marp-slide-footer-color`
+ * while the sheen band was drawn for a recolored one. That is the cost of a mark with
+ * two styling surfaces stated as plainly as it can be: the rule was correct, current,
+ * committed, and dead.
+ *
+ * The element arm below is the one that fires. It carries the COLOR only, not the
+ * `z-index`: the footer Cell is already the chrome plane (`z-index: var(--z-chrome)`)
+ * and is its own stacking context, so a local `3` inside it would order the span
+ * against its band siblings rather than against the sheen — and on the Tile's
+ * section-level span it would REPLACE the chrome plane rather than lift anything. The
+ * pseudo arm keeps its `z-index` for the Marp path, where it is still what draws. */
 section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed)::after {
   z-index: 3;
+  color: color-mix(in oklab, var(--text-heading) 62%, transparent);
+}
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .lat-pagination {
   color: color-mix(in oklab, var(--text-heading) 62%, transparent);
 }
 /* Under Form the chart's title is LIFTED into the masthead Cell (not the

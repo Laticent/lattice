@@ -1,11 +1,22 @@
 /* ── PAGINATION-RIGHT Cell — the page-number's slot ──────────────────────────
- * Real Form Cell (was css:false). The page number is Marp's `section::after`
- * pseudo-element; this Cell token-drives its POSITION so it is INDEPENDENTLY
- * movable (design/forms.md §7.3) WITHOUT converting the pseudo to injected DOM —
- * which would change exported bytes and touch all three render paths. The pseudo's
- * appearance (mono, --fs-meta, color) stays in the engine scaffold
- * (lib/integrations/markdown-it/scaffold.css + lib/engine/css.js); this form-scoped
- * rule wins on specificity and only re-anchors it. Default: bottom-right, unchanged. */
+ * Real Form Cell (was css:false). This Cell token-drives the page number's POSITION so it
+ * is INDEPENDENTLY movable (design/forms.md §7.3) — one token, `--pagination-inset`, and
+ * the default is bottom-right, unchanged.
+ *
+ * IT USED TO SAY the position could be driven "WITHOUT converting the pseudo to injected
+ * DOM — which would change exported bytes and touch all three render paths". Both halves
+ * of that were true, and #2206 paid them: the conversion happened, it touched all three
+ * paths, and it does change exported bytes. What it bought is that the page number is ONE
+ * mark. It was two — this pseudo on the nine sovereign frames, a real
+ * `<span class="lat-pagination">` in the footer Cell on `minimal`/`standard` — with two box
+ * models, two styling surfaces, and no way for an author to tell which a slide had.
+ *
+ * So the token is read in TWO places now, and they are the same value: this rule (the
+ * pseudo, which is what the Marp path still draws, since it runs no Lattice Tile) and
+ * `section > .lat-pagination` (lib/forms/tile/pagination/pagination.css, the real element
+ * every Lattice render draws). The pseudo's appearance (mono, --fs-meta, color) stays in
+ * the engine scaffold (lib/integrations/markdown-it/scaffold.css + lib/engine/css.js); the
+ * element's sits beside its inset in pagination.css. */
 section.form::after {
   inset: var(--pagination-inset, auto var(--frame-inset-x) var(--frame-inset-y) auto);
 }

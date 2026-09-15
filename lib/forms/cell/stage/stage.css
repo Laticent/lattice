@@ -378,8 +378,48 @@ section.form > .cell-footer > .tile-progress {
 section.form > .cell-footer > .lat-pagination,
 section.form > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
 /* Retire the pagination PSEUDO wherever the real element exists (the decorative
- * numbered-divider numeral, a different `::after`, is untouched). */
-section.form:has(> .cell-footer)::after { content: none; }
+ * numbered-divider numeral, a different `::after`, is untouched).
+ *
+ * KEYED ON THE ELEMENT, not on the frame kind — and that is the whole of #2206's
+ * fix at the CSS end. It used to read `section.form:has(> .cell-footer)`, i.e. "a
+ * chrome-hosting frame", which made the page number TWO marks: the real span on
+ * `minimal`/`standard`, the pseudo on the nine sovereign frames, with different box
+ * models and different styling surfaces and nothing telling the author which. The
+ * pagination Tile (lib/forms/tile/pagination) now mints the real element on every
+ * paginated frame, so the condition can be the thing it actually cares about.
+ *
+ * Asking for the ELEMENT also makes this FAIL-SAFE. A render path that does not run
+ * the Tile — the export-to-Marp bundle (lib/core/marp-bundle.js), where Marp draws
+ * its own pseudo — matches neither arm, keeps the pseudo, and still shows a number.
+ * The old form could not have that property: `.cell-footer` is emitted by a
+ * transform too, so a path without it silently lost the number instead.
+ *
+ * Both arms are needed because the element has two homes: a direct section child
+ * (the Tile's, on a sovereign frame) and the footer Cell's flex row (buildFooterCell
+ * and split-envelope's `footerCell`, on a chrome-hosting one).
+ *
+ * TWO THINGS IN THESE SELECTORS ARE LOAD-BEARING, and the first draft got both wrong.
+ *
+ *   · `[data-lattice-pagination]` is there for SPECIFICITY, not for meaning. `:has()`
+ *     takes the specificity of its most specific argument, so a bare
+ *     `section:has(> .lat-pagination)::after` is (0,1,2) — which LOSES to the engine
+ *     scaffold's `article.lattice > section::after { content: attr(…) }` at (0,1,3),
+ *     and the pseudo kept painting UNDER the new element: two numerals in one corner,
+ *     overprinted, on all seven sovereign slides of `bloom-engineering-journey`. The
+ *     attribute adds the second class-level term that carries it to (0,2,2), the same
+ *     count the rule this replaced reached with `.form` + `.cell-footer`. It is also
+ *     true of every section this can match, so it narrows nothing.
+ *   · The CHILD COMBINATOR is what keeps the rule out of `packTheme`'s mask
+ *     (lib/engine/css.js). That mask mirrors Marpit's pagination plugin and COMMENTS
+ *     OUT every `content` declaration on a SLIDE-OWN `section…::after` rule — the
+ *     selector shape is the whole test, and `section:has(.lat-pagination)::after`,
+ *     with the descendant form inside `:has()`, matches it: no whitespace, no
+ *     combinator, so the mask would delete this `content: none` on the packed path the
+ *     Playground, the Studio and lib/runtime all load. `> ` puts it out of reach. It is
+ *     exactly the trap that leaves `section.silent.silent::after { content: none }`
+ *     inert there — see base.variants.css, which needs its element arm for this reason. */
+section[data-lattice-pagination]:has(> .lat-pagination)::after,
+section[data-lattice-pagination]:has(> .cell-footer > .lat-pagination)::after { content: none; }
 /* ── Universal ALIGNMENT modifiers (#527) — the author's call ────────────────
  * Two independent axes act on the stage cell, so they read the same on EVERY
  * frame. Default is top-left (the natural reading origin); a component never
@@ -518,4 +558,12 @@ section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video)
 }
 section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video).claim-bleed::after {
   content: none;
+}
+/* …and the same on the REAL element, which is what every Lattice render now draws
+ * (#2206 — the pagination Tile mints it on every frame, and the retirement rule above
+ * keys on its presence). The `> .cell-footer` arm just above already covers a
+ * chrome-hosting frame by hiding the whole band; this reaches the Tile's section-level
+ * span on a sovereign one, and the pseudo arm stays for the Marp path that runs no Tile. */
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video) > .lat-pagination {
+  display: none;
 }
