@@ -270,6 +270,8 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The two deck editors dressed themselves independently](gotchas/studio-playground.md#the-two-deck-editors-dressed-themselves-independently)
 - [A chat panel's state lands on whichever deck is on screen when the turn ends](gotchas/studio-playground.md#a-chat-panels-state-lands-on-whichever-deck-is-on-screen-when-the-turn-ends)
 - [A 4K deck renders oversized and cropped in docs-site preview and export](gotchas/studio-playground.md#a-4k-deck-renders-oversized-and-cropped-in-docs-site-preview-and-export)
+- [A Radix Sheet's first control is dead to the first tap on iOS](gotchas/studio-playground.md#a-radix-sheets-first-control-is-dead-to-the-first-tap-on-ios)
+- [A panel's controls fall outside it when the reader scales text up](gotchas/studio-playground.md#a-panels-controls-fall-outside-it-when-the-reader-scales-text-up)
 
 ### [VS Code / marp-vscode](gotchas/vscode.md)
 

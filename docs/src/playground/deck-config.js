@@ -129,10 +129,16 @@ const COLOR_MODE_OPTIONS = [
 const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'lang'];
 
 // Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
-//   author  — every field (the Drawing Board: full set, theme three-way synced).
-//   noTheme — full set minus `theme` (the Playground: its top-bar palette picker
-//             is the theme control, and there's no source-theme sync there, so a
-//             drawer theme row would be a confusing no-op).
+//   author  — every field, `theme` included. The Playground's Deck settings sheet
+//             uses this. It was the Drawing Board's profile until that route was
+//             removed (2026-07-03 studio succession).
+//   noTheme — full set minus `theme`. RETIRED as of the theme row landing, kept
+//             defined because it costs nothing and names the shape. It was the
+//             Playground's profile on the reasoning that "its top-bar palette
+//             picker is the theme control" — which held only while that picker was
+//             visible. It is hidden below the `lg` breakpoint (PaletteControls'
+//             `compact`), so on a phone the surface had NO theme control at all:
+//             the near one was withheld for a far one that wasn't there.
 //   preview — the render registers only (the Workbench: knobs that change how a
 //             theme/component PREVIEWS — finish/size/paginate/form —
 //             with no deck chrome and no theme, which the studio itself owns).
@@ -363,12 +369,13 @@ export function writeFrontMatter(source, key, value) {
  *   palettes?: string[],
  *   finishes?: string[],
  *   modes?: string[],
+ *   paletteNaming?: { label(name): string, group?: { label: string, has(name): boolean } },
  *   getDefaultTheme?: () => string,
  *   fields?: string[] | null,
  *   note?: string,
  * }} [opts]
  */
-export function createConfigPanel({ host, trigger, getSource, setSource, palettes = [], finishes = [], modes = [], getDefaultTheme = () => '', fields = null, note } = {}) {
+export function createConfigPanel({ host, trigger, getSource, setSource, palettes = [], finishes = [], modes = [], getDefaultTheme = () => '', paletteNaming = null, fields = null, note } = {}) {
   if (!host || typeof getSource !== 'function' || typeof setSource !== 'function') {
     return { render() {}, syncTrigger() {}, writeFrontMatter };
   }
@@ -385,6 +392,16 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     return e;
   };
   const titleCase = (s) => s.replace(/(^|-)(\w)/g, (_, sep, c) => (sep ? ' ' : '') + c.toUpperCase());
+
+  // How a palette NAME is written, and which ones sit under a group heading. The host
+  // injects both (`paletteNaming`) rather than this module deriving them, for the same
+  // reason `palettes` / `finishes` / `modes` are injected: the docs site's own picker
+  // already owns that derivation, and a second private copy here would be the tenth
+  // place in the repo deciding theme scope by its own rule. It stays OPTIONAL because
+  // this module is also run straight under `node --test`, where the site's TypeScript
+  // catalog is not resolvable — no injection means the flat, title-cased list.
+  const nameOf = (n) => (paletteNaming?.label ? paletteNaming.label(n) : titleCase(n));
+  const inGroup = (n) => !!(paletteNaming?.group?.has?.(n));
 
   // Reflect whether the deck carries managed front matter on the trigger — a
   // quiet accent cue (matching the model chip's active state) that the deck has
@@ -412,16 +429,27 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
   // An inline select row (theme, size, color mode) — label/hint left, <select> right.
   // `rerender` re-paints the panel after a change (the theme row uses it so the
   // "unknown theme" note + the select settle on the new valid value).
+  // `options` entries are either a plain `[value, label]` pair or a GROUP —
+  // `{ label, options: [[value, label], …] }` — which renders as an <optgroup>. The
+  // theme row is the one caller that groups today (the curated color-vision palettes,
+  // matching how the site header's picker lists them).
   function selectRow(key, label, hint, options, current, rerender = false) {
     const row = el('div', 'db-pref-row');
     const sel = el('select', 'db-pref-select');
     sel.setAttribute('aria-label', label);
-    for (const [value, optLabel] of options) {
+    const addOption = (parent, [value, optLabel]) => {
       const o = document.createElement('option');
       o.value = value;
       o.textContent = optLabel;
       if (value === current) o.selected = true;
-      sel.append(o);
+      parent.append(o);
+    };
+    for (const entry of options) {
+      if (Array.isArray(entry)) { addOption(sel, entry); continue; }
+      const group = document.createElement('optgroup');
+      group.label = entry.label;
+      for (const pair of entry.options) addOption(group, pair);
+      sel.append(group);
     }
     sel.addEventListener('change', () => { apply(key, sel.value); if (rerender) render(); });
     row.append(text(label, hint), sel);
@@ -470,21 +498,34 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
       'These live in the deck’s front matter — managed for you, so the Markdown stays clean. ' +
       'They apply to the whole deck and travel with an exported .md.'));
 
-    // Theme — the deck's palette, written into the front matter and kept in sync
-    // with the top-bar palette picker (same value, set in either place). Light /
-    // dark is the separate top-bar toggle, so the options are the base palettes.
+    // Theme — the deck's palette, written into the deck's own front matter. This is
+    // the INDEPENDENT axis, not a mirror of the site chrome: `resolveDeckTheme`
+    // (docs/src/lib/deck-theme.ts) makes a deck's `theme:` authoritative and falls
+    // back to the site palette only when the deck names none. So the row has a real
+    // AUTOMATIC stop — the empty value, which `normalize('theme', '')` turns into
+    // null and `writeFrontMatter` then CLEARS, leaving a deck that follows the site
+    // again. Without that stop every option wrote a pin and there was no way back.
+    // Light/dark stays the separate top-bar toggle, so the options are base palettes.
     if (show('theme') && palettes.length) {
       const raw = fm.theme;
       const valid = !!raw && palettes.includes(raw);
-      const current = valid ? raw : (getDefaultTheme() || palettes[0] || '');
+      // What an un-pinned deck actually renders with, named so the Automatic row
+      // says where it lands instead of making the reader guess.
+      const site = getDefaultTheme() || palettes[0] || '';
+      const auto = site ? `Automatic — follow the site (${nameOf(site)})` : 'Automatic — follow the site';
+      const brand = palettes.filter((n) => !inGroup(n));
+      const cvd = palettes.filter(inGroup);
+      const options = [['', auto], ...brand.map((n) => [n, nameOf(n)])];
+      if (cvd.length) options.push({ label: paletteNaming.group.label, options: cvd.map((n) => [n, nameOf(n)]) });
       host.append(selectRow('theme', 'Theme',
-        'Palette — synced with the top-bar picker', // transparent, not magic
-        palettes.map((p) => [p, titleCase(p)]), current, true));
+        'Palette for this deck. Automatic follows the site; any other choice pins it and travels with the exported .md',
+        options, valid ? raw : '', true));
       if (raw && !valid) {
         // Don't propagate a nonexistent theme — say so, and keep rendering the
-        // fallback rather than blanking the deck.
+        // fallback rather than blanking the deck. `resolveDeckTheme` drops an
+        // unknown name to the site palette, which is what this sentence promises.
         host.append(el('p', 'db-settings-note db-config-warn',
-          `“${raw}” isn’t a known theme — the deck renders with ${current} until you pick a valid one.`));
+          `“${raw}” isn’t a known theme — the deck follows the site palette${site ? ` (${nameOf(site)})` : ''} until you pick a valid one.`));
       }
     }
 
