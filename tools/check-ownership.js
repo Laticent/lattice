@@ -10844,6 +10844,143 @@ function checkChangelogFragments(errors) {
   for (const problem of changelogFragmentProblems()) errors.push(problem);
 }
 
+// ─── dist/ verbatim copies ────────────────────────────────────────────────────
+// A file that dist/ COPIES from a committed source must still equal it. A copy is
+// the one class of generated artifact with a second, silently drifting original:
+// everything else in dist/ is derived, so a stale derivation reproduces itself on
+// the next build and nothing else can disagree with it.
+//
+// WHAT WENT WRONG WITHOUT IT (#2204). `npm run build:check` is `--check
+// --exclude-uncommitted`, and dist/ is not committed — so every dist/ artifact is
+// OUT OF ITS SCOPE, deliberately and for a good reason the build's own comment
+// gives: an artifact that is never committed cannot be stale relative to a commit,
+// and a CI checkout has no dist/ at all. The closing line, though, is the
+// unqualified "build:check OK — all artifacts up to date." A developer whose local
+// dist/ predated a `design/skills/` edit ran it, was told every artifact was
+// current, then watched the unit suite go red on two tests their branch did not
+// touch — and spent the detour looking for the fault in their own diff. The gate
+// whose whole job is to say "your dist/ is behind" said the opposite.
+//
+// WHY HERE AND NOT IN THE BUILD'S SCOPE. Widening `build:check` to run the
+// built-not-committed generators would cost every PR a full bundle build and, on a
+// cold CI checkout, would fail on ABSENCE rather than staleness. This gate is the
+// GUARD — it runs first, on every `build` and every `build:check`, before any step
+// — and a byte-compare of 48 files is microseconds. It answers the only question a
+// copy can be wrong about, at no measurable cost, inside the run that already makes
+// the claim. (`npm run build:check:all` still runs the full per-generator --check;
+// `tools/build-agent-kit.mjs --check` in particular is a complete byte-diff of the
+// kit. Neither is reached by `build:check`.)
+//
+// ABSENT dist/ IS NOT A FAILURE. On a cold checkout there is nothing to compare, and
+// the bootstrap that generates it runs AFTER this guard. Each entry skips when its
+// copy is missing — the same posture the other dist-reading arms here take. What it
+// does NOT tolerate is a declared SOURCE that has gone: that is a stale entry, and
+// it fails, so the table cannot quietly stop covering something.
+//
+// THE TABLE IS MEASURED, NOT GUESSED. It is every dist/ file that is byte-identical
+// to a committed source, enumerated by hashing `git ls-files` and walking dist/ on a
+// freshly built tree: 48 files in three shapes — the six hand-written skills, the
+// fonts (17 each into two kits), and eight one-off pairs. Re-derive it the same way
+// if a builder starts copying something new; a copy that has ALREADY drifted is
+// invisible to that enumeration, which is why the table is declared here rather than
+// re-derived at check time.
+const DIST_VERBATIM_COPIES = Object.freeze([
+  // Directory sets. `exhaustive` means the copy must hold exactly the source's
+  // matching files — the agent kit ships all seven skills or it is short one.
+  {
+    copy: 'dist/agent-kit/skills', source: 'design/skills', include: /\.md$/,
+    // The kit's skills/README.md is WRITTEN by the builder (a kit reader is outside
+    // the repo; design/skills/README.md addresses someone inside it), so it is the
+    // one file in this folder that is not a copy.
+    exclude: ['README.md'], exhaustive: true, builder: 'tools/build-agent-kit.mjs',
+    why: 'the skills are HAND-WRITTEN and copied verbatim — the only files in the kit a generator does not derive',
+  },
+  {
+    copy: 'dist/fonts', source: 'assets/fonts', include: /\.woff2$/,
+    // Not exhaustive: dist/fonts also carries faces that do not come from assets/.
+    exhaustive: false, builder: 'tools/build-css.js',
+    why: 'the embedded faces ship byte-for-byte; a re-encoded face is a different file with the same name',
+  },
+  {
+    copy: 'dist/marp-kit/fonts', source: 'assets/fonts', include: /\.woff2$/,
+    exhaustive: false, builder: 'tools/build-marp-kit.js',
+    why: 'the kit carries its own copy of the same faces',
+  },
+  // One-off pairs.
+  { copy: 'dist/agent-kit/LICENSE', source: 'LICENSE', builder: 'tools/build-agent-kit.mjs' },
+  { copy: 'dist/agent-kit/LICENSE-EXCEPTIONS', source: 'LICENSE-EXCEPTIONS', builder: 'tools/build-agent-kit.mjs' },
+  { copy: 'dist/marp-kit/LICENSE', source: 'LICENSE', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/LICENSE-EXCEPTIONS', source: 'LICENSE-EXCEPTIONS', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/Sample-Deck.md', source: 'kit/Sample-Deck.md', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/cuoio.css', source: 'themes/cuoio.css', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/cuoio-dark.css', source: 'themes/cuoio-dark.css', builder: 'tools/build-marp-kit.js' },
+  { copy: 'dist/marp-kit/mermaid-v11.min.js', source: 'mermaid-v11.min.js', builder: 'tools/build-marp-kit.js' },
+]);
+
+/** One entry's problems. Split out so the unit suite can drive a synthetic table. */
+function verbatimCopyProblems(entry, root = ROOT) {
+  const out = [];
+  const srcAbs = path.join(root, entry.source);
+  const copyAbs = path.join(root, entry.copy);
+  const rebuild = `Run \`npm run build\` (${entry.builder}) — edit the source, never the copy.`;
+  if (!fs.existsSync(srcAbs)) {
+    // A STALE ENTRY. Never skipped: a table that silently stops covering a copy is
+    // the same defect this gate exists to catch, one level up.
+    out.push(
+      `${entry.copy} is declared a verbatim copy of ${entry.source}, which does not exist. ` +
+      'Retire the entry in DIST_VERBATIM_COPIES (tools/check-ownership.js) or restore the source.',
+    );
+    return out;
+  }
+  if (!fs.existsSync(copyAbs)) return out; // dist/ not built — the bootstrap runs after this guard
+  if (!entry.include) {
+    if (!fs.readFileSync(srcAbs).equals(fs.readFileSync(copyAbs))) {
+      out.push(`${entry.copy} has drifted from ${entry.source}. ${rebuild}`);
+    }
+    return out;
+  }
+  const exclude = new Set(entry.exclude || []);
+  const pick = (dir) => fs.readdirSync(dir).filter((f) => entry.include.test(f) && !exclude.has(f)).sort();
+  const src = pick(srcAbs);
+  const copied = pick(copyAbs);
+  if (entry.exhaustive) {
+    const missing = src.filter((f) => !copied.includes(f));
+    const extra = copied.filter((f) => !src.includes(f));
+    if (missing.length) out.push(`${entry.copy} is missing ${missing.join(', ')} from ${entry.source}. ${rebuild}`);
+    if (extra.length) out.push(`${entry.copy} ships ${extra.join(', ')}, which ${entry.source} does not have. ${rebuild}`);
+  }
+  for (const f of src) {
+    if (!copied.includes(f)) continue; // already reported above when exhaustive; not a copy otherwise
+    if (!fs.readFileSync(path.join(srcAbs, f)).equals(fs.readFileSync(path.join(copyAbs, f)))) {
+      out.push(`${entry.copy}/${f} has drifted from ${entry.source}/${f}. ${rebuild}`);
+    }
+  }
+  return out;
+}
+
+// CHECK MODE ONLY, and the reason is that a plain `npm run build` is the REPAIR: it
+// regenerates every copy this arm inspects. Firing in build mode aborts the build that
+// would fix the drift, leaving a drifted kit with no way back — which is what the first
+// wiring of this arm actually did. `tools/build.js` passes `--check` through to the
+// guard for this arm alone; every other arm here is mode-blind.
+//
+// WHAT IT CANNOT CATCH, stated because a gate that quietly measures nothing is the
+// failure this repo keeps paying for. On CI the freshness job runs `build:uncommitted`
+// BEFORE `build:check`, so dist/ is regenerated from source moments earlier and a
+// hand-edited copy cannot survive to be seen. What survives that bootstrap — and what
+// this arm therefore does catch on CI — is a BUILDER that stops copying verbatim. The
+// stale-local-dist case it was written for is a developer-machine failure, and that is
+// where it fires.
+function checkVerbatimDistCopies(
+  errors,
+  { check = process.argv.includes('--check'), table = DIST_VERBATIM_COPIES, root = ROOT } = {},
+) {
+  if (!check) return;
+  for (const entry of table) {
+    for (const problem of verbatimCopyProblems(entry, root)) errors.push(problem);
+  }
+}
+
 // ─── Lockfile optional-peer materialization ────────────────────────────────
 // A committed lockfile must never hold a node that npm placed for an OPTIONAL
 // PEER dependency, because npm and Dependabot disagree about whether such a node
@@ -11654,6 +11791,7 @@ function run() {
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
   checkChangelogFragments(errors);
+  checkVerbatimDistCopies(errors);
   checkLockfileOptionalPeers(errors);
   checkDanglingTokenReads(errors);
   checkAnimaColorVocabulary(errors);
@@ -11729,6 +11867,9 @@ module.exports = {
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
+  checkVerbatimDistCopies,
+  verbatimCopyProblems,
+  DIST_VERBATIM_COPIES,
   checkLockfileOptionalPeers,
   optionalPeerNodes,
   lockAnnotationCount,

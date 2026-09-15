@@ -81,10 +81,40 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
 | `lint:coverage`, `lint:coverage:bless` | Gate / re-record what Biome actually checks — see *Lint (Biome)* below |
 | `preview` | Fast visual-iteration loop (scope-detect, rebuild affected, pixel-diff) |
-| `build`, `build:check` | Regenerate / freshness-gate every generated artifact |
+| `build`, `build:check` | Regenerate / freshness-gate the COMMITTED generated artifacts — see below |
+| `build:check:all` | The same gate WITHOUT `--exclude-uncommitted`: every generator, dist/ bundles included |
 
 Everything else — the `*:build` / `*:check` generators, `new:*` scaffolders,
 gallery builds, release and docs-portal scripts — lives in `capabilities.md`.
+
+### What `build:check` does and does not cover
+
+`build:check` is `node tools/build.js --check --exclude-uncommitted`, so it checks the
+16 COMMITTED generated artifacts and skips the 28 built-not-committed ones (`dist/`, the
+docs-site bundles). That scope is deliberate and its reasoning is in `tools/build.js`: the
+gate's question is "did you commit the regenerated artifacts you own?", and an artifact
+that is never committed cannot be stale relative to a commit — a CI checkout has no `dist/`
+at all, so those generators would fail on a missing file rather than a stale one.
+
+**Its closing line says which half it measured**, and that is a fix rather than a detail
+(#2204). It used to read "all artifacts up to date" on every run, contradicting the opening
+line that names the skipped half. A developer whose local `dist/` predated a
+`design/skills/` edit read it, believed it, and then spent a detour reading the resulting
+unit failures as a defect in their own diff.
+
+**One class of `dist/` staleness IS caught, at no cost: a verbatim COPY.** A handful of
+`dist/` files are byte-copies of committed sources — the six hand-written
+`design/skills/*.md` the agent kit ships, the embedded fonts, the LICENSE files, the marp
+kit's theme and sample deck. A copy is the only generated artifact with a second, silently
+drifting original; everything else is derived, so a stale derivation reproduces itself on
+the next build and has nothing to disagree with. `checkVerbatimDistCopies` in the ownership
+guard compares them, skips cleanly when `dist/` is absent, and fires only under `--check`
+because a plain `npm run build` is the repair.
+
+**When `dist/` really is stale, the symptom is a red unit suite, not a red gate.** Several
+unit tests read `dist/` (`agent-kit-structure.test.js` reads the built kit). If the suite
+fails on a test your branch does not touch, run `npm run build` before reading further —
+and `npm run build:check:all` is what asks the question directly.
 
 ## Test layout
 
