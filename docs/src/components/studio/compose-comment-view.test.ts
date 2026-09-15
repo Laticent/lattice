@@ -291,6 +291,32 @@ describe('a comment nested in a blockquote is a first-class pill', () => {
 		expect(v.state.doc.textContent).toContain('quoted');
 	});
 
+	// THE CEILING. `deleteRange` fixed the dangling `>` and introduced something worse: it has no
+	// upper bound, so a comment that is a SLIDE's only block made it climb to the slide, where the
+	// structural guard rejected the whole transaction — Remove became the silently dead control
+	// this design exists to stop shipping. On a single-slide deck it climbed to the doc and the
+	// replacement slide came back without its `_class`. The lift is now exactly one level, and only
+	// into a container that is not the slide.
+	it('removes a comment that is the slide’s ONLY block, without eating the slide', () => {
+		const v = mount(['<!-- _class: quote -->', '', '<!-- lonely -->'].join('\n'));
+		const before = v.state.doc.childCount;
+		pills()[0].click();
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(commentCount(v)).toBe(0);
+		expect(v.state.doc.childCount).toBe(before);
+		expect(v.state.doc.child(0).attrs.directives).toEqual(['<!-- _class: quote -->']);
+	});
+
+	it('and keeps every OTHER slide when the lone-comment slide is not the only one', () => {
+		const v = mount(['<!-- _class: content -->', '', '## First', '', '---', '', '<!-- lonely -->'].join('\n'));
+		const before = v.state.doc.childCount;
+		pills()[0].click();
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(commentCount(v)).toBe(0);
+		expect(v.state.doc.childCount).toBe(before);
+		expect(v.state.doc.textContent).toContain('First');
+	});
+
 	it('removing a blockquote’s ONLY comment takes the emptied quote with it', () => {
 		// A plain `tr.delete` left the blockquote behind (ProseMirror fills it with an empty
 		// paragraph), so the author got a bare `> ` line they never wrote. Newly reachable in this
@@ -328,6 +354,21 @@ describe('the panel lays the note out for reading', () => {
 		mount(['<!-- _class: content -->', '', '## H', '', '<!-- one wrapped', '     line here.', '', '     And a second paragraph. -->'].join('\n'));
 		pills()[0].click();
 		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('one wrapped line here.\n\nAnd a second paragraph.');
+	});
+
+	// The opposite failure to the one below, and the one the first fix created: dedenting by the
+	// minimum indent read a FALSE baseline, because `commentBody` trims and the first line arrived
+	// at zero. A flat list written under its opener then rendered as if it were nested.
+	it('does not INVENT nesting in a flat list written under the opener', () => {
+		mount(['<!-- _class: content -->', '', '## H', '', '<!--', '  - a', '  - b', '-->'].join('\n'));
+		pills()[0].click();
+		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('- a\n- b');
+	});
+
+	it('and strips a deep hanging indent rather than showing it', () => {
+		mount(['<!-- _class: content -->', '', '## H', '', '<!-- TODO:', '     - call finance', '     - redo the chart -->'].join('\n'));
+		pills()[0].click();
+		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('TODO:\n- call finance\n- redo the chart');
 	});
 
 	it('keeps a NESTED list’s shape, not just its breaks', () => {
@@ -411,6 +452,30 @@ describe('the row announces itself as the tab bar it is', () => {
 		expect(pills()[0].getAttribute('aria-label')).not.toMatch(/note/);
 		pills()[0].click();
 		expect(panels()[0].getAttribute('aria-label')).toBe('caption');
+	});
+
+	it('gives each editor instance its OWN panel id, so two on a page cannot collide', () => {
+		// "Only one panel is open at a time" is true per EditorState, not per document. Two mounted
+		// editors meant two `#cs-comment-panel` nodes and getElementById resolving one editor's
+		// aria-controls into the other's panel.
+		const a = mount();
+		const hostB = document.createElement('div');
+		document.body.append(hostB);
+		const b = new EditorView(hostB, {
+			state: EditorState.create({ doc: deckToDoc(DECK), plugins: [structuralGuard(), commentRunPlugin()] }),
+			nodeViews: { comment: (node, v, getPos) => new CommentView(node, v, getPos as () => number | undefined) },
+		});
+		try {
+			(a.dom.querySelector('.cs-comment') as HTMLElement).click();
+			(b.dom.querySelector('.cs-comment') as HTMLElement).click();
+			const idA = (a.dom.parentElement?.querySelector('.cs-comment-body') as HTMLElement).id;
+			const idB = (hostB.querySelector('.cs-comment-body') as HTMLElement).id;
+			expect(idA).not.toBe(idB);
+			expect(document.querySelectorAll(`#${CSS.escape(idA)}`)).toHaveLength(1);
+		} finally {
+			b.destroy();
+			hostB.remove();
+		}
 	});
 
 	it('marks the panel as a labeled region', () => {

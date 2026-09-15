@@ -9,7 +9,7 @@ import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { type CommentKind, commentKind, commentText } from '@/lib/compose/comment-block';
+import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
@@ -820,9 +820,15 @@ function commentRuns(doc: PMNode) {
  *  "note" mislabels what the author is looking at. */
 const KIND_LABEL: Record<CommentKind, string> = { caption: 'caption', describe: 'describe', note: 'note' };
 
-/** The open panel's id. Constant because exactly one panel is open at a time — see the note in
- *  `buildCommentPanel` on why a position-derived id could not stay correct. */
-const COMMENT_PANEL_ID = 'cs-comment-panel';
+/** The open panel's id, PER EDITOR INSTANCE.
+ *
+ *  It must be stable (a position-derived id went stale the moment an edit moved the comment) and it
+ *  must be unique in the DOCUMENT, not merely in the editor. "Exactly one panel is open at a time"
+ *  is true per `EditorState` — mount two Compose editors on one page and there are two live
+ *  `#cs-comment-panel` nodes, so `getElementById` resolves one editor's `aria-controls` into the
+ *  other's panel. Only one is mounted today, which is exactly the kind of premise that breaks
+ *  silently later, so the id carries a per-instance suffix instead of relying on it. */
+let commentPanelSeq = 0;
 
 /** A note's words, laid out for reading rather than as the author's editor happened to wrap them.
  *
@@ -830,34 +836,41 @@ const COMMENT_PANEL_ID = 'cs-comment-panel';
  *  showing the source breaks verbatim produced a ragged "for the rest of his / life, and the /
  *  distinction is…" in a panel narrower than the author's editor.
  *
- *  But a paragraph whose lines are a LIST keeps its breaks. Joining them turned
- *  `TODO before Monday:` / `- call finance` / `- redo the chart` into one run-on line, and a
- *  multi-line note is exactly the shape this feature exists to surface. Display only: the node's
- *  bytes, and therefore the deck source, are never touched. */
+ *  A paragraph whose lines are a LIST keeps its breaks AND its relative indent, so nesting reads as
+ *  nesting. Two failures are guarded here, in opposite directions: trimming every line FLATTENED a
+ *  nested list, and then dedenting by the minimum indent INVENTED one — because `commentBody`
+ *  trims, so the first line arrived at zero and set a false baseline, making a flat `- a` / `- b`
+ *  render as `- a` / `  - b`. Hence `commentInner` (untrimmed) and a first line handled on its own:
+ *  it follows `<!--` directly, so its leading space is a separator, not indentation.
+ *
+ *  Display only — the node's bytes, and therefore the deck source, are never touched. */
 function readableNote(text: string): string {
 	const LIST_LINE = /^\s*(?:[-*+]|\d+[.)])\s/;
-	return commentText(text)
+	const lines = commentInner(text).split('\n').map((l) => l.replace(/\s+$/, ''));
+	const head = (lines[0] ?? '').replace(/^\s+/, '');
+	const rest = lines.slice(1);
+	const indented = rest.filter((l) => l.trim());
+	const strip = indented.length ? Math.min(...indented.map((l) => (l.match(/^[ \t]*/) as RegExpMatchArray)[0].length)) : 0;
+	const body = [head, ...rest.map((l) => l.slice(strip))].join('\n');
+	const prose = body
 		.split(/\n[ \t]*\n/)
 		.map((para) => {
-			const raw = para.split('\n').map((l) => l.replace(/\s+$/, ''));
-			if (raw.some((l) => LIST_LINE.test(l))) {
-				// A LIST keeps its breaks AND its shape. Trimming each line flattened a nested list
-				// (`- a` / `  - b` / `    - c` all came out flush), so strip only the COMMON indent
-				// and leave the relative one.
-				const present = raw.filter((l) => l.trim());
-				const strip = present.length ? Math.min(...present.map((l) => (l.match(/^[ \t]*/) as RegExpMatchArray)[0].length)) : 0;
-				return present.map((l) => l.slice(strip)).join('\n');
-			}
+			const raw = para.split('\n').filter((l) => l.trim());
+			if (!raw.length) return '';
+			if (raw.some((l) => LIST_LINE.test(l))) return raw.join('\n');
 			return raw.join(' ').replace(/\s+/g, ' ').trim();
 		})
 		.filter(Boolean)
 		.join('\n\n');
+	// The channel prefix selects the channel; it is not part of what the author wrote. Shared with
+	// `commentText` so the two can never disagree about what a prefix is.
+	return stripChannelPrefix(prose, text);
 }
 
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
  *  removes it. Removal is a SECOND deliberate act inside a panel the author chose to open —
  *  reading a note must never arm a delete (see `stopEvent` on CommentView). */
-function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: boolean): HTMLElement {
+function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: boolean, panelId: string): HTMLElement {
 	const wrap = document.createElement('div');
 	wrap.className = 'cs-comment-panel';
 	wrap.contentEditable = 'false';
@@ -880,7 +893,7 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	// `aria-controls` at `cs-comment-panel-7` while the panel had become `cs-comment-panel-10`:
 	// `aria-expanded="true"` aimed at nothing. The shipped test asserted the id resolved AT MOUNT,
 	// certifying precisely the property that stops holding.
-	body.id = COMMENT_PANEL_ID;
+	body.id = panelId;
 	body.textContent = readableNote(node.attrs.text as string);
 	wrap.append(body);
 
@@ -901,11 +914,24 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 		remove.addEventListener('click', () => {
 			const n = view.state.doc.nodeAt(pos);
 			if (!n || n.type.name !== 'comment') return; // stale decoration — the doc moved under us
-			// deleteRange, NOT delete: when the comment is a blockquote's only child, a plain delete
-			// leaves the blockquote behind (ProseMirror fills it with an empty paragraph) and the
-			// author gets a bare `> ` line they never wrote. deleteRange lifts the parent that became
-			// empty. Newly reachable in this design, because a nested comment had no Remove before it.
-			view.dispatch(view.state.tr.deleteRange(pos, pos + n.nodeSize).setMeta(commentOpenKey, { open: null }));
+			// A BOUNDED lift, not `deleteRange`. When the comment is a blockquote's only child a plain
+			// delete leaves the emptied quote behind, so the author gets a bare `> ` line they never
+			// wrote — that is why this stopped being a plain delete. But `deleteRange` was the wrong
+			// instrument: it has no ceiling. `slide` content is `block+`, so a slide holding only this
+			// comment is not a valid end state either, and deleteRange climbs to the SLIDE — where
+			// `structuralGuard` rejects the whole transaction and Remove becomes the silently dead
+			// control this design exists to stop shipping. On a single-slide deck it climbed to the
+			// DOC, and ProseMirror's replacement slide came back without the `_class`: the author
+			// removed a note and lost the slide's layout.
+			//
+			// So lift exactly one level, and only into a container that is NOT the slide: depth >= 2
+			// means the comment sits inside a blockquote, and `childCount === 1` means that container
+			// is about to be empty. Everything else is a plain delete, which is what base did and what
+			// ProseMirror already handles (it refills an emptied slide with a paragraph).
+			const $c = view.state.doc.resolve(pos);
+			const liftParent = $c.depth >= 2 && $c.parent.childCount === 1;
+			const tr = liftParent ? view.state.tr.delete($c.before($c.depth), $c.after($c.depth)) : view.state.tr.delete(pos, pos + n.nodeSize);
+			view.dispatch(tr.setMeta(commentOpenKey, { open: null }));
 			view.focus();
 		});
 	}
@@ -916,6 +942,7 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 /** The pill row + shared panel. Node decorations carry each pill's label and open state; one
  *  widget decoration renders the open panel directly after the run. */
 export function commentRunPlugin() {
+	const panelId = `cs-comment-panel-${++commentPanelSeq}`;
 	return new Plugin<number | null>({
 		key: commentOpenKey,
 		state: {
@@ -947,7 +974,7 @@ export function commentRunPlugin() {
 						// `aria-controls` is set ONLY on the open pill: pointing at an id that does not
 						// exist while the panel is closed is what axe's aria-valid-attr-value flags.
 						const attrs: Record<string, string> = { class: cls.join(' '), 'aria-expanded': String(pos === open) };
-						if (pos === open) attrs['aria-controls'] = COMMENT_PANEL_ID;
+						if (pos === open) attrs['aria-controls'] = panelId;
 						decos.push(Decoration.node(pos, pos + node.nodeSize, attrs));
 					});
 					if (openIdx >= 0) {
@@ -955,7 +982,7 @@ export function commentRunPlugin() {
 						const pos = run.positions[openIdx];
 						// `side: 1` keeps the panel after the run even when content is inserted at `to`.
 						decos.push(
-							Decoration.widget(run.to, (view) => buildCommentPanel(view, node, pos, Boolean(slideOfPos(view.state, pos)?.attrs.locked)), {
+							Decoration.widget(run.to, (view) => buildCommentPanel(view, node, pos, Boolean(slideOfPos(view.state, pos)?.attrs.locked), panelId), {
 								side: 1,
 								key: `cs-panel-${pos}-${node.attrs.text}`,
 							}),

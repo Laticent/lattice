@@ -132,11 +132,18 @@ export type CommentKind = 'caption' | 'describe' | 'note';
  *  comes out empty rather than as punctuation: an earlier pair of `^<!--+` / `--+!?>$` replaces
  *  could not backtrack the way one regex does, so `<!---->` — a node `deckToDoc` really produces —
  *  showed a literal `>`. */
-export function commentBody(text: string): string {
+export function commentInner(text: string): string {
 	return String(text || '')
 		.replace(/^<!-{2,}/, '')
-		.replace(/-*!?>$/, '')
-		.trim();
+		.replace(/-*!?>$/, '');
+}
+
+/** The same, trimmed — what the channel predicates and the pill label read. Callers that care
+ *  about the note's INDENTATION (the panel's layout) must use `commentInner`: the trim here eats
+ *  the first line's leading space, which a dedent would then read as a zero baseline and render
+ *  every following line as if it were nested. */
+export function commentBody(text: string): string {
+	return commentInner(text).trim();
 }
 
 /** Which channel this comment belongs to. Drives the pill's LABEL only — the bytes are untouched. */
@@ -147,16 +154,22 @@ export function commentKind(text: string): CommentKind {
 	return 'note';
 }
 
-/** The words to SHOW for a comment — its body with the channel prefix stripped, because
- *  "caption: " is the syntax that selects the channel, not part of what the author wrote.
+/** Drop the channel prefix from an already-extracted body. ONE implementation, because
+ *  `commentText` (the pill's title) and `readableNote` (the panel's layout) both need it and a
+ *  second copy is how `commentKind` and the strip could disagree — the pill saying "caption" while
+ *  the panel still showed `caption:` to the reader.
  *
- *  The prefix is removed by SHAPE (`word:`) rather than by a second copy of the channel regexes.
- *  Spelling the matchers out again here meant `commentKind` used the imported predicate while this
- *  used a local literal — so if the predicate ever widened, the pill would say "caption" and the
- *  panel would still show `caption:` to the reader. One decision, made once, by the predicate. */
-export function commentText(text: string): string {
-	const body = commentBody(text);
+ *  The prefix is removed by SHAPE (`word:`) rather than by re-spelling the channel matchers: this
+ *  runs only when `commentKind` already said the body starts with `caption:`/`describe:`, so the
+ *  greedy `[A-Za-z]+` can land on nothing else. */
+export function stripChannelPrefix(body: string, text: string): string {
 	return commentKind(text) === 'note' ? body : body.replace(/^[A-Za-z]+\s*:/, '').trim();
+}
+
+/** The words to SHOW for a comment — its body with the channel prefix stripped, because
+ *  "caption: " is the syntax that selects the channel, not part of what the author wrote. */
+export function commentText(text: string): string {
+	return stripChannelPrefix(commentBody(text), text);
 }
 
 /** The `comment` node: a block-level ATOM carrying its source bytes.
