@@ -603,6 +603,50 @@ section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .
  * checking why the header is not inverse here should find the answer at the header rule. */
 section.split-panel:is(.metric, .steps) :is(header, footer),
 section.split-panel.mirror :is(header, footer) { color: var(--marp-slide-header-color, var(--text-muted)); }
+/* ── THE PAGE NUMBER TAKES THE MIRROR IMAGE OF THE RULE ABOVE ────────────────────
+ * The header and footer are LEFT-anchored, so they sit on the panel in the default
+ * polarity and on canvas under `.mirror` — which is why `.mirror` is in the canvas-ink
+ * list above. The page number is RIGHT-anchored, so every one of those cases inverts:
+ * it sits on CANVAS by default and on the PANEL exactly where the header does not.
+ *
+ * THE DEFECT WAS INVISIBLE UNTIL #2206, and that is the whole reason it is fixed here
+ * rather than having been fixed with the header. On a sovereign frame the page number was
+ * a `section::after` PSEUDO, and a pseudo has no run for `slide-contrast.test.js` to
+ * measure — so the gate that caught the header carrying canvas ink onto the panel at
+ * 2.76:1 could not see the numeral doing the same thing beside it. Making the mark a real
+ * element put it in the measured population and it failed immediately: on `gallery @
+ * indaco`, `split-panel watermark mirror` p57 measured **1.07:1** — `--text-muted` on the
+ * accent field, gone — and `split-panel metric` p94 **2.2:1** on the inverse fill, both
+ * under the 3:1 graphical floor WCAG 1.4.11 holds non-text to. The committed pre-#2206
+ * `gallery.pdf` renders the same numeral just as illegibly, so this is pre-existing and
+ * unchanged by that diff; what changed is that it can be seen. Same defect, same surface,
+ * same rule as the footer note above — HARD RULE #18's on-path test.
+ *
+ * Each field hands the number the SAME ink its own text already uses, exactly as the
+ * header block does, so no token is invented and every one is already gated:
+ * `--on-dark-secondary` (7.17:1 worst case), `--on-accent`, `--cat-on-fill` (>=4.5:1 by
+ * the categorical token contract).
+ *
+ * THE POLARITY IS AN XOR, not a list. `.metric` swaps the panels' fills — its `.panel-left`
+ * is `--bg` and its `.panel-right` is `--surface-inverse` — so it is dark-on-the-right
+ * WITHOUT `.mirror` and light-on-the-right WITH it. `.steps` needs no arm at all: its panel
+ * is `--bg-alt`, an ordinary light surface where `--text-muted` is already correct, which is
+ * the same reason it sits in the canvas-ink list above.
+ *
+ * KNOWN LIMIT, inherited from the header rule and worth stating rather than discovering:
+ * this keys on the CLASS, not on a measurement of what is actually behind the numeral. A
+ * future variant that moves a panel edge without touching these class names gets the wrong
+ * ink and no gate will say so until a slide lands in the contrast corpus. */
+section.split-panel.mirror:not(.metric) > .lat-pagination,
+section.split-panel.metric:not(.mirror) > .lat-pagination {
+  color: var(--on-dark-secondary);
+}
+/* The two FIELD variants, after the inverse default so they win on source order at the
+ * same specificity — mirroring the header block's own order for the same reason. */
+section.split-panel.watermark.mirror > .lat-pagination { color: var(--on-accent); }
+section.split-panel.mirror:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) > .lat-pagination {
+  color: var(--cat-on-fill);
+}
 
 /* ── AUTO-SPLIT: the categorical tint follows the run ──────────────────────────
  *
