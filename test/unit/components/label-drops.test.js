@@ -19,6 +19,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const MarkdownIt = require('markdown-it');
+const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const P = (p) => path.join(ROOT, p);
@@ -47,11 +48,23 @@ const HOSTILE_QUADRANT = `
 const HOSTILE_BAR = `## Hostile.\n\n${
   Array.from({ length: 20 }, (_, i) => `- Business unit number ${i + 1} \`${10 + i}\``).join('\n')}`;
 
+// READ THE ATTRIBUTE THROUGH AN HTML PARSER, never off the markup string. The raw
+// string is the one place in the pipeline where the escaping is still intact — the
+// shipped reader is `getAttribute` in a puppeteer page, which sees the value AFTER
+// the parser has had it. Lifting it with a regex here is how a codec that escaped
+// its separators as HTML character references passed this suite while misreporting
+// every label containing a `|` on the real surface: the parser decoded them back
+// into separators, and a 10-name loss printed as 12 with two names split in half.
+// A test that does not cross the layer the bug lives in cannot see the bug.
 const dropsOn = (body, cls) => {
   const html = transformChartSection(md.render(body), cls, 'landscape').html;
-  const raw = html.match(/data-label-drops="([^"]*)"/);
-  const comp = html.match(/data-label-drops-component="([^"]*)"/);
-  return { drops: raw ? decodeLabelDrops(raw[1]) : [], component: comp ? comp[1] : null, html };
+  const doc = new JSDOM(`<!doctype html><section>${html}</section>`).window.document;
+  const el = doc.querySelector('[data-label-drops]');
+  return {
+    drops: el ? decodeLabelDrops(el.getAttribute('data-label-drops')) : [],
+    component: el ? el.getAttribute('data-label-drops-component') : null,
+    html,
+  };
 };
 
 describe('the render reports the labels it declined to paint', () => {
@@ -126,16 +139,31 @@ describe('the bracket', () => {
 });
 
 describe('the attribute grammar — one module, both directions', () => {
-  test('round-trips a label carrying every character that would break the attribute', () => {
+  test('round-trips through a real HTML parser, which is the only round trip that ships', () => {
     // A label is AUTHOR text: it can hold the `|` this joins on, the `:` that splits
-    // reason from label, and the `"` that would close the attribute outright.
+    // reason from label, and the `"` that would close the attribute outright. The last
+    // two entries are the arm that matters — an author who TYPES a character reference
+    // must get that text back, not one decode level past it.
     const nasty = [
       { reason: 'overlap', label: 'Revenue | Cost: "FY26" <b> & more' },
+      { reason: 'pitch', label: 'Entity &amp; and &#124; as typed' },
       { reason: 'pitch', label: 'Plain name' },
     ];
     const enc = encodeLabelDrops(nasty);
-    assert.doesNotMatch(enc, /"/, 'an unescaped quote closes the attribute and injects markup');
-    assert.deepEqual(decodeLabelDrops(enc), nasty);
+    assert.doesNotMatch(enc, /["<>&]/,
+      'the value must carry nothing the HTML parser will rewrite on the way back out');
+    // Serialize into markup, parse it, read it the way the CLI does.
+    const doc = new JSDOM(`<!doctype html><div data-label-drops="${enc}"></div>`).window.document;
+    const backOut = doc.querySelector('div').getAttribute('data-label-drops');
+    assert.deepEqual(decodeLabelDrops(backOut), nasty);
+  });
+
+  test('a malformed value is degraded, never thrown from', () => {
+    // This reads an ATTRIBUTE — hand-edited HTML, a re-serialization, a future
+    // writer. A diagnostic that throws inside the export it is reporting on would
+    // turn a lost label into a lost deck.
+    assert.doesNotThrow(() => decodeLabelDrops('pitch:%E0%A4%A'));
+    assert.deepEqual(decodeLabelDrops('pitch:%zz'), [{ reason: 'pitch', label: '%zz' }]);
   });
 
   test('a real transform emits an attribute a regex can lift whole', () => {

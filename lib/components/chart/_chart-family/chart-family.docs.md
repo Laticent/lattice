@@ -440,12 +440,36 @@ gap-cull below, `pitch`), and both report through one channel,
 
 - `transformChartSection` opens a sink around each chart's transform, so every
   mechanism is caught at ONE bracket and a future one needs no second wiring.
-  Outside the bracket a note is a no-op, so no other render path changes.
+  Outside the bracket a note is a no-op, so no other render path changes. The
+  bracket is **synchronous**, and its `finally` pops on return — an async
+  transform would pop at its first `await` and lose every note after it.
+- There is a **third** reason beside `overlap` and `pitch`: `density`, for
+  `quadrant` past its 16-item ceiling, where no name is offered to the placement
+  pass at all. It is the only all-or-nothing mechanism, and it was the one the
+  channel could not see — `noteHiddenLabels` needs a `hidden` entry to find, and
+  a suppressed name never becomes one. Measured at the boundary on one deck
+  shape: 16 items paints 13 and names the 3 it lost; 17 painted 0 and said
+  nothing. The author losing every name was the only one getting no warning.
 - The names ride out on `data-label-drops` on that chart's `.chart-body`, with
   `data-label-drops-component` naming the member. It is **absent**, not empty,
   on a chart that dropped nothing — an empty attribute on every healthy chart
   would be a golden-file diff across the whole corpus for no signal.
-- The CLI prints `⚠ CHART LABELS DROPPED`, naming each lost label and its slide.
+- The value is **percent-encoded**, not HTML-escaped. Its only reader is
+  `getAttribute`, which sees the value *after* the HTML parser has decoded every
+  character reference in it — so escaping the `|` and `:` separators as `&#124;`
+  and `&#58;` hands them straight back as separators. Measured before that was
+  fixed: a run that lost 10 names reported 12, with two split in half and one
+  half handed a fabricated reason.
+- The CLI prints `⚠ CHART LABELS DROPPED`, naming the lost labels and their
+  slides — up to six per chart, with `and N more` past that; the count on the
+  headline is always exact.
+- **The attribute stays in the rendered HTML**, unlike the overflow ring, which
+  is stripped before export. It carries no name the artifact was not already
+  carrying (`data-label` on every mark, plus the speaker note and the SVG
+  `<desc>`), and the `.html` sidecar is the author's own surface — the same one
+  the overflow ring is drawn on at `author` level. It is left in deliberately, so
+  a preview surface can draw an authoring marker from it without re-deriving the
+  layout's decision.
 
 **The note is taken on the FINAL result, never inside the search.** `quadrant`
 runs `placeLabels` up to nine times per slide — once per rung of its size ladder

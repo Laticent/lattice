@@ -3782,8 +3782,9 @@ async function renderBody(browser, g, closeBrowser) {
     }
     console.warn('    `overlap` — the name could not be placed clear of its neighbors at any position, so it was');
     console.warn('    dropped rather than printed through one; `pitch` — the rows are closer together than one line');
-    console.warn('    of type. Fewer items, shorter names, or split the chart across two slides. The names are still');
-    console.warn('    in the artifact (mark detail, speaker notes, the SVG description) — only the picture loses them.');
+    console.warn('    of type; `density` — the chart carries more items than it labels at all, so EVERY name is off.');
+    console.warn('    Fewer items, shorter names, or split the chart across two slides. The names are still in the');
+    console.warn('    artifact (mark detail, speaker notes, the SVG description) — only the picture loses them.');
   }
   // Strip the authoring-only overflow signal before exporting. The injected
   // watcher (and base.modifiers.css) draw a loud red ring + "OVERFLOWS" tab on

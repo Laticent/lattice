@@ -141,14 +141,29 @@ test('a flattened chart defines, on its own root, every token its paints still n
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 
+	// TWO QUESTIONS, and conflating them is a race. "Has the bake finished?" is what
+	// the poll waits on; "did it define what it referenced?" is what the assertion
+	// reads. An earlier cut polled on the SECOND — resolve only when no token is
+	// undefined — which passed, but could only ever fail as a bare timeout with the
+	// token names it had computed thrown away. Inverting it to resolve immediately
+	// then caught `flattenChartSvgs` mid-walk, reporting charts it had not reached
+	// yet: it replaces roots one at a time, so "no definitions" and "not baked yet"
+	// look identical from outside.
+	//
+	// The discriminator is POSITIVE and per-root: `flattenChartSvgs` pins an inline
+	// `width` on every clone it swaps in (it has to — the style-less serialization
+	// would otherwise rescale the viewBox). A root without one has not been through
+	// the bake. So the poll waits for every candidate to carry one, and only the
+	// complete state is ever read as a verdict.
 	const tokenProbe = page.waitForFunction(() => {
 		const f = document.querySelector('[data-lattice-export="capture"] iframe') as HTMLIFrameElement | null;
 		const d = f?.contentDocument;
 		if (!d) return null;
-		// Only the roots this bake actually touched: self-styled SVGs (Mermaid,
+		// Only the roots this bake actually touches: self-styled SVGs (Mermaid,
 		// function-plot) are skipped by flattenChartSvgs and carry their own <style>.
 		const roots = Array.from(d.querySelectorAll('section svg')).filter((sv) => !sv.querySelector('style'));
 		if (!roots.length) return null; // capture frame not up yet — keep polling
+		if (!roots.every((r) => (r as SVGElement).style?.width)) return null; // mid-bake
 		let referencing = 0;
 		const undefinedOn: string[] = [];
 		for (const root of roots) {
@@ -161,18 +176,17 @@ test('a flattened chart defines, on its own root, every token its paints still n
 			const own = (root as SVGElement).getAttribute('style') || '';
 			for (const t of named) if (!own.includes(`${t}:`)) undefinedOn.push(t);
 		}
-		// Keep polling until at least one root has been flattened AND every one of them
-		// is complete — the probe can fire between frame load and flattenChartSvgs, and
-		// a half-baked intermediate state must not be read as a verdict. On regression
-		// the roots flatten but define nothing, so `undefinedOn` never empties and this
-		// times out with the failure below.
 		if (!referencing) return null;
-		if (undefinedOn.length) return null;
-		return `roots=${roots.length} referencing=${referencing} undefined=0`;
+		return { roots: roots.length, referencing, undefinedOn };
 	}, undefined, { timeout: 60_000 });
 
 	const download = page.waitForEvent('download', { timeout: 60_000 });
 	await shareExport(page, 'pdf');
-	await tokenProbe; // resolves only once every flattened chart carries its own definitions
+	// `waitForFunction` only ever resolves on a truthy value, so the object above is
+	// always present here; the cast is for the checker, not for the runtime.
+	const verdict = (await (await tokenProbe).jsonValue()) as { roots: number; referencing: number; undefinedOn: string[] };
+	expect(verdict.undefinedOn,
+		`flattened charts reference tokens their own root does not define — each of these paints black in the export: ${verdict.undefinedOn.join(', ')}`)
+		.toEqual([]);
 	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
 });
