@@ -40,14 +40,36 @@ export function slideContext(state: EditorState) {
 	const slide = $from.node(1);
 	const index = $from.index(1);
 	const block = slide.child(index);
-	return {
-		slide,
-		index,
-		block,
-		isLast: index === slide.childCount - 1,
-		prev: index > 0 ? slide.child(index - 1) : null,
-		next: index < slide.childCount - 1 ? slide.child(index + 1) : null,
-	};
+	// AUTHORING COMMENTS ARE SKIPPED LOOKING FORWARD, AND NOT LOOKING BACK. The asymmetry is not a
+	// subtlety to tidy away — it is what the engine actually does, measured per register by
+	// rendering each slide twice (with and without a comment in the gap) and diffing the output:
+	//
+	//   register                       comment in the gap   so here
+	//   eyebrow   (label BEFORE h2)    still hoisted        SKIP  (`next`)
+	//   subtitle  (label AFTER h2)     SUBTITLE IS LOST     DO NOT SKIP (`prev`)
+	//   insight   (trailing quote)     still harvested      SKIP  (`isLast`)
+	//   below-note(trailing em-dash)   still a note         SKIP  (`isLast`)
+	//
+	// Three of those four are one mechanism and subtitle is another, which is why a blanket skip
+	// got it wrong. Key-insight and below-note are decided in the TRANSFORM — `harvestBody`
+	// (lib/core/coda.js) peels the tail off `topLevelElements()`, which sees elements only. The
+	// EYEBROW survives for the same kind of reason. But the SUBTITLE is hoisted into
+	// `.masthead-lede` by `masthead.transform.js`, whose adjacency test is a string match
+	// (`/^\s*<p[^>]*><code/` against the rest of the slide's HTML) — and `^\s*` admits whitespace
+	// only, so an intervening comment defeats it and the label renders as ordinary stage prose.
+	//
+	// An earlier version of this skipped comments in BOTH directions on the claim that eyebrow and
+	// subtitle are "pure CSS, and `+` looks through a comment node". The CSS part is true and
+	// irrelevant: the element never reaches the position where that selector could match. Compose
+	// then lit a Subtitle pill on a slide the engine renders without one — the exact drift this
+	// function's contract ("EXACTLY as the engine renders it") exists to prevent.
+	const visible = (n: PMNode | null) => (n && n.type.name !== 'comment' ? n : null);
+	const prev: PMNode | null = index > 0 ? slide.child(index - 1) : null; // NOT comment-skipping — see above
+	let next: PMNode | null = null;
+	for (let i = index + 1; i < slide.childCount && !next; i++) next = visible(slide.child(i));
+	let isLast = true;
+	for (let i = index + 1; i < slide.childCount && isLast; i++) if (slide.child(i).type.name !== 'comment') isLast = false;
+	return { slide, index, block, isLast, prev, next };
 }
 
 // Which register the caret's block currently IS — EXACTLY as the engine renders it, so the

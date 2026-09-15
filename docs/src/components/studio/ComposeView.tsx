@@ -9,6 +9,7 @@ import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
@@ -759,9 +760,332 @@ class SlideView {
 	}
 }
 
+// ── Authoring comments: the pill row ─────────────────────────────────────────
+// An HTML comment is a note TO the author, never a thing on the slide, so Compose — the mode for
+// people who do not want markdown's machinery — must not set it as prose. The `comment` node
+// (lib/compose/comment-block) carries the source bytes; what follows is what the author sees.
+//
+// NOT invisible, and that is a decision rather than a compromise. A zero-height node the author
+// cannot see is two footguns: the caret lands in a gap that looks like nothing, and Backspace at
+// the start of the following block silently destroys a note somebody wrote. A quiet pill costs one
+// line of very small type and removes both.
+//
+// A RUN OF COMMENTS IS ONE CONTROL, not N stacked ones. Adjacent comments are extremely common —
+// a `caption:`, a `describe:` and a note all belong to the same slide — and rendering each as its
+// own block with its own panel and its own Remove button produced three identical "NOTE" boxes
+// down the page (the shipped screenshot). So the run reads as a TAB BAR: the pills sit on one row,
+// exactly one is open at a time, and the open one's text appears in a single panel BELOW the row.
+//
+// The open state lives in a PLUGIN keyed by the run's position, and the panel is a WIDGET
+// DECORATION after the run — not per-view instance state. That is what makes the behavior
+// coordinated at all (a nodeView cannot see its siblings), and it is also why removal is correct:
+// ProseMirror maps the decoration through every transaction, so the panel follows its run through
+// inserts, deletes and undo instead of a recycled view showing the wrong note's text.
+export const commentOpenKey = new PluginKey<number | null>('cs-comment-open');
+
+/** Every comment RUN in the document, in order — a run being consecutive `comment` siblings.
+ *
+ *  DEPTH-AGNOSTIC, and that is the point. An earlier version walked `slide.child(i)` only, while
+ *  `nodeViews.comment` mounts a CommentView at ANY depth — so a comment inside a blockquote
+ *  (which `comment-block.ts` deliberately models: `blkIndent` is 0 there) rendered a pill whose
+ *  position no run ever yielded. Clicking it set the open state to a position `openIdx` could
+ *  never match, so it showed no panel, no channel class and no Remove: a control that is visibly
+ *  present and does nothing, on a surface this branch's own docs claim works.
+ *
+ *  Grouping is by PARENT plus adjacency, so `> quoted` / `> <!-- a -->` / `> <!-- b -->` is one
+ *  run inside the blockquote and never merges with a comment outside it. */
+function commentRuns(doc: PMNode) {
+	type Run = { from: number; to: number; nodes: PMNode[]; positions: number[] };
+	const runs: Run[] = [];
+	let open: (Run & { parent: PMNode | null; lastIndex: number }) | null = null;
+	doc.descendants((node, pos, parent, index) => {
+		if (node.type.name !== 'comment') return true;
+		if (open && open.parent === parent && index === open.lastIndex + 1) {
+			open.nodes.push(node);
+			open.positions.push(pos);
+			open.to = pos + node.nodeSize;
+			open.lastIndex = index;
+		} else {
+			const run = { from: pos, to: pos + node.nodeSize, nodes: [node], positions: [pos], parent, lastIndex: index };
+			runs.push(run);
+			open = run;
+		}
+		return false; // an atom has no children to walk
+	});
+	return runs.map(({ from, to, nodes, positions }) => ({ from, to, nodes, positions }));
+}
+
+/** The label a pill carries, by channel. `caption:` and `describe:` are not notes — they are the
+ *  slide's narration text and its WCAG text alternative, with their own sinks — so calling them
+ *  "note" mislabels what the author is looking at. */
+const KIND_LABEL: Record<CommentKind, string> = { caption: 'caption', describe: 'describe', note: 'note' };
+
+/** The open panel's id, PER EDITOR INSTANCE.
+ *
+ *  It must be stable (a position-derived id went stale the moment an edit moved the comment) and it
+ *  must be unique in the DOCUMENT, not merely in the editor. "Exactly one panel is open at a time"
+ *  is true per `EditorState` — mount two Compose editors on one page and there are two live
+ *  `#cs-comment-panel` nodes, so `getElementById` resolves one editor's `aria-controls` into the
+ *  other's panel. Only one is mounted today, which is exactly the kind of premise that breaks
+ *  silently later, so the id carries a per-instance suffix instead of relying on it. */
+let commentPanelSeq = 0;
+
+/** A note's words, laid out for reading rather than as the author's editor happened to wrap them.
+ *
+ *  PARAGRAPHS are meaning, so blank lines survive. Within a paragraph, WRAPPED lines are joined —
+ *  showing the source breaks verbatim produced a ragged "for the rest of his / life, and the /
+ *  distinction is…" in a panel narrower than the author's editor.
+ *
+ *  A paragraph whose lines are a LIST keeps its breaks AND its relative indent, so nesting reads as
+ *  nesting. Two failures are guarded here, in opposite directions: trimming every line FLATTENED a
+ *  nested list, and then dedenting by the minimum indent INVENTED one — because `commentBody`
+ *  trims, so the first line arrived at zero and set a false baseline, making a flat `- a` / `- b`
+ *  render as `- a` / `  - b`. Hence `commentInner` (untrimmed) and a first line handled on its own:
+ *  it follows `<!--` directly, so its leading space is a separator, not indentation.
+ *
+ *  Display only — the node's bytes, and therefore the deck source, are never touched. */
+function readableNote(text: string): string {
+	const LIST_LINE = /^\s*(?:[-*+]|\d+[.)])\s/;
+	const lines = commentInner(text).split('\n').map((l) => l.replace(/\s+$/, ''));
+	const head = (lines[0] ?? '').replace(/^\s+/, '');
+	const rest = lines.slice(1);
+	const indented = rest.filter((l) => l.trim());
+	const strip = indented.length ? Math.min(...indented.map((l) => (l.match(/^[ \t]*/) as RegExpMatchArray)[0].length)) : 0;
+	const body = [head, ...rest.map((l) => l.slice(strip))].join('\n');
+	const prose = body
+		.split(/\n[ \t]*\n/)
+		.map((para) => {
+			const raw = para.split('\n').filter((l) => l.trim());
+			if (!raw.length) return '';
+			if (raw.some((l) => LIST_LINE.test(l))) return raw.join('\n');
+			return raw.join(' ').replace(/\s+/g, ' ').trim();
+		})
+		.filter(Boolean)
+		.join('\n\n');
+	// The channel prefix selects the channel; it is not part of what the author wrote. Shared with
+	// `commentText` so the two can never disagree about what a prefix is.
+	return stripChannelPrefix(prose, text);
+}
+
+/** Build the shared panel for an open comment: its words, read-only, plus the one control that
+ *  removes it. Removal is a SECOND deliberate act inside a panel the author chose to open —
+ *  reading a note must never arm a delete (see `stopEvent` on CommentView). */
+function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: boolean, panelId: string): HTMLElement {
+	const wrap = document.createElement('div');
+	wrap.className = 'cs-comment-panel';
+	wrap.contentEditable = 'false';
+	// A DISCLOSURE, not a tab bar — an earlier comment here said "tab bar" while the code built a
+	// region, and only one of those can be true. The pills toggle one shared panel, which is what
+	// `aria-expanded` on the pill plus a labeled region here describes. (It looks like a tab bar; it
+	// does not behave like one — no roving focus, no arrow-key cycle — so claiming `tablist` would
+	// promise keyboard behavior that is not implemented.)
+	wrap.setAttribute('role', 'region');
+	// Named for its CHANNEL alone. The label used to end "— authoring note", which put the word this
+	// feature exists to stop using back on the caption and describe channels, where only a
+	// screen-reader user would ever meet it.
+	wrap.setAttribute('aria-label', KIND_LABEL[commentKind(node.attrs.text as string)]);
+
+	const body = document.createElement('div');
+	body.className = 'cs-comment-body';
+	// A CONSTANT id, because exactly one panel is open at a time. It used to embed `pos`, which moves
+	// on every edit — and `render()` only re-runs when the node or its decorations change, not when
+	// the node merely shifts. So after three keystrokes in a paragraph above, the pill still pointed
+	// `aria-controls` at `cs-comment-panel-7` while the panel had become `cs-comment-panel-10`:
+	// `aria-expanded="true"` aimed at nothing. The shipped test asserted the id resolved AT MOUNT,
+	// certifying precisely the property that stops holding.
+	body.id = panelId;
+	body.textContent = readableNote(node.attrs.text as string);
+	wrap.append(body);
+
+	const remove = document.createElement('button');
+	remove.type = 'button';
+	remove.className = 'cs-comment-remove';
+	// A LOCKED slide takes no edits — the structural guard filters the delete — so the control says
+	// so instead of looking like it worked and doing nothing. This is reachable by accident: a note
+	// containing `~~` or `$math$` locks its OWN slide, so `<!-- TODO: kill the ~~old~~ wording -->`
+	// makes the slide read-only with no visible cause. `registers.ts` short-circuits for the same
+	// reason on the same surface.
+	if (locked) {
+		remove.disabled = true;
+		remove.textContent = 'Edit in Markdown to remove';
+		remove.title = 'This slide carries a construct Compose cannot round-trip, so it is read-only here.';
+	} else {
+		remove.textContent = 'Remove';
+		remove.addEventListener('click', () => {
+			const n = view.state.doc.nodeAt(pos);
+			if (!n || n.type.name !== 'comment') return; // stale decoration — the doc moved under us
+			// A BOUNDED lift, not `deleteRange`. When the comment is a blockquote's only child a plain
+			// delete leaves the emptied quote behind, so the author gets a bare `> ` line they never
+			// wrote — that is why this stopped being a plain delete. But `deleteRange` was the wrong
+			// instrument: it has no ceiling. `slide` content is `block+`, so a slide holding only this
+			// comment is not a valid end state either, and deleteRange climbs to the SLIDE — where
+			// `structuralGuard` rejects the whole transaction and Remove becomes the silently dead
+			// control this design exists to stop shipping. On a single-slide deck it climbed to the
+			// DOC, and ProseMirror's replacement slide came back without the `_class`: the author
+			// removed a note and lost the slide's layout.
+			//
+			// So lift exactly one level, and only into a container that is NOT the slide: depth >= 2
+			// means the comment sits inside a blockquote, and `childCount === 1` means that container
+			// is about to be empty. Everything else is a plain delete, which is what base did and what
+			// ProseMirror already handles (it refills an emptied slide with a paragraph).
+			const $c = view.state.doc.resolve(pos);
+			const liftParent = $c.depth >= 2 && $c.parent.childCount === 1;
+			const tr = liftParent ? view.state.tr.delete($c.before($c.depth), $c.after($c.depth)) : view.state.tr.delete(pos, pos + n.nodeSize);
+			view.dispatch(tr.setMeta(commentOpenKey, { open: null }));
+			view.focus();
+		});
+	}
+	wrap.append(remove);
+	return wrap;
+}
+
+/** The pill row + shared panel. Node decorations carry each pill's label and open state; one
+ *  widget decoration renders the open panel directly after the run. */
+export function commentRunPlugin() {
+	const panelId = `cs-comment-panel-${++commentPanelSeq}`;
+	return new Plugin<number | null>({
+		key: commentOpenKey,
+		state: {
+			init: () => null,
+			apply(tr, open) {
+				const meta = tr.getMeta(commentOpenKey) as { open: number | null } | undefined;
+				if (meta) return meta.open;
+				if (open == null) return null;
+				// Follow the open comment through every edit; drop it when it is gone.
+				const mapped = tr.mapping.mapResult(open, 1);
+				if (mapped.deleted) return null;
+				const n = tr.doc.nodeAt(mapped.pos);
+				return n && n.type.name === 'comment' ? mapped.pos : null;
+			},
+		},
+		props: {
+			decorations(state) {
+				const open = commentOpenKey.getState(state);
+				const decos: Decoration[] = [];
+				for (const run of commentRuns(state.doc)) {
+					const openIdx = run.positions.indexOf(open ?? -1);
+					run.nodes.forEach((node, k) => {
+						const pos = run.positions[k];
+						const cls = ['cs-comment', `cs-comment-${commentKind(node.attrs.text as string)}`];
+						if (k === 0) cls.push('cs-comment-first');
+						if (k === run.nodes.length - 1) cls.push('cs-comment-last');
+						if (pos === open) cls.push('cs-comment-open');
+						// ARIA rides the DECORATION so it is recomputed from state every transaction.
+						// `aria-controls` is set ONLY on the open pill: pointing at an id that does not
+						// exist while the panel is closed is what axe's aria-valid-attr-value flags.
+						const attrs: Record<string, string> = { class: cls.join(' '), 'aria-expanded': String(pos === open) };
+						if (pos === open) attrs['aria-controls'] = panelId;
+						decos.push(Decoration.node(pos, pos + node.nodeSize, attrs));
+					});
+					if (openIdx >= 0) {
+						const node = run.nodes[openIdx];
+						const pos = run.positions[openIdx];
+						// `side: 1` keeps the panel after the run even when content is inserted at `to`.
+						decos.push(
+							Decoration.widget(run.to, (view) => buildCommentPanel(view, node, pos, Boolean(slideOfPos(view.state, pos)?.attrs.locked), panelId), {
+								side: 1,
+								key: `cs-panel-${pos}-${node.attrs.text}`,
+							}),
+						);
+					}
+				}
+				return DecorationSet.create(state.doc, decos);
+			},
+		},
+	});
+}
+
+/** The slide node containing document position `pos`, or null. */
+function slideOfPos(state: EditorState, pos: number): PMNode | null {
+	const $p = state.doc.resolve(pos);
+	return $p.depth >= 1 ? $p.node(1) : null;
+}
+
+// The pill itself. Deliberately thin: it renders a label and reports a click. Everything that
+// needs to know about SIBLINGS — which one is open, where the panel goes — belongs to the plugin.
+export class CommentView {
+	dom: HTMLElement;
+	private tag: HTMLElement;
+	private ac = new AbortController();
+
+	constructor(
+		private node: PMNode,
+		private view: EditorView,
+		private getPos: () => number | undefined,
+	) {
+		this.dom = document.createElement('button');
+		(this.dom as HTMLButtonElement).type = 'button';
+		this.dom.className = 'cs-comment';
+		// The whole view is chrome, never editable text — an atom node with its own DOM.
+		this.dom.contentEditable = 'false';
+		// The shape is DRAWN, not typed (HARD RULE #29's reasoning: a typed glyph falls back to
+		// whatever font the machine has). Inline SVG, currentColor, so it themes with the pill.
+		this.dom.innerHTML =
+			'<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5H2.5v7h3v2.2l2.6-2.2h5.4z"/></svg><span class="cs-comment-tag"></span>';
+		this.tag = this.dom.querySelector('.cs-comment-tag') as HTMLElement;
+		this.dom.addEventListener(
+			'click',
+			() => {
+				const pos = this.getPos();
+				if (pos === undefined) return;
+				const open = commentOpenKey.getState(this.view.state);
+				// A TOGGLE, and a radio at the same time: clicking the open pill closes it, clicking any
+				// other pill moves the panel to that one. Selection-only transaction — no doc change —
+				// so the structural guard waves it through and nothing re-emits the deck source.
+				this.view.dispatch(this.view.state.tr.setMeta(commentOpenKey, { open: open === pos ? null : pos }));
+			},
+			{ signal: this.ac.signal },
+		);
+		this.render();
+	}
+
+	private render() {
+		const text = this.node.attrs.text as string;
+		const kind = commentKind(text);
+		this.tag.textContent = KIND_LABEL[kind];
+		this.dom.title = readableNote(text);
+		// The pill NAMES a channel; it does not read the note out. Putting the whole body in the
+		// accessible name made a screen reader announce the entire note as the button's label and
+		// then again when the panel opened.
+		this.dom.setAttribute('aria-label', `show the ${KIND_LABEL[kind]}`);
+		// `aria-expanded` and `aria-controls` are NOT set here. They are decoration attributes (see
+		// commentRunPlugin), because decorations are recomputed from state on every transaction while
+		// this view is only updated when its node or decorations change — which is how the old
+		// position-derived `aria-controls` went stale after a single keystroke.
+	}
+
+	update(node: PMNode) {
+		if (node.type !== this.node.type) return false;
+		this.node = node;
+		this.render();
+		return true;
+	}
+	// The pill rewrites its own DOM; without this ProseMirror reads that as an external mutation.
+	ignoreMutation() {
+		return true;
+	}
+	// The pill's own events stay in this view. Letting the mousedown through to ProseMirror was
+	// tried, because it makes clicking a pill a NodeSelection and thus enables the ordinary atom
+	// gesture (click, Backspace). It was REVERTED after measuring what else it enables: with the
+	// node selected, the next printed character REPLACES it — so the innocent act of clicking a note
+	// to read it, then carrying on typing, silently destroyed the note. Verified on the real Studio.
+	// Reading must never arm a delete, so removal has its own control in the panel.
+	//
+	// `selectable: true` still earns its place on the spec, for the OTHER route in: Backspace at the
+	// start of the following block selects the atom rather than deleting it — ProseMirror's designed
+	// stop — which is why that arm leaves the source intact.
+	stopEvent(e: Event) {
+		return this.dom.contains(e.target as Node);
+	}
+	destroy() {
+		this.ac.abort();
+	}
+}
+
 function buildPlugins() {
 	return [
 		structuralGuard(),
+		commentRunPlugin(),
 		collapsePlugin(),
 		activeSlidePlugin(),
 		stateMarkerPlugin(),
@@ -1031,6 +1355,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
 						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountTable, () => slideBlocksRef.current),
+					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
 				// not just the toolbar — a pasted colspan/rowspan can't corrupt the serialized grid.
@@ -1298,6 +1623,27 @@ function ComposeStyles() {
 			   auto-cancels after 4s), it is the thing the author is looking at, and "edit in
 			   Markdown" is not the advice that matters while a delete is pending. */
 			.cs-host .cs-slide-locked:has(.cs-sb-danger.cs-confirming)::after{opacity:0}
+			/* AUTHORING COMMENTS — a PILL ROW, not a stack. A run of adjacent comments reads as one
+			   control: the pills sit on a single row, exactly one is open, and its words appear in a
+			   shared panel below. Three stacked NOTE boxes with three Remove buttons is what this
+			   replaces. Faint at rest, LIT when open — the register gutter's posture. */
+			.cs-host .cs-comment{display:inline-flex;align-items:center;gap:5px;max-width:100%;margin:0 4px .25em 0;padding:2px 9px 2px 7px;border:1px dashed var(--border,#e4eaf2);border-radius:999px;background:transparent;color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;line-height:1.5;vertical-align:middle;cursor:pointer;user-select:none;transition:color .12s,border-color .12s,background .12s}
+			.cs-host .cs-comment svg{flex:none;width:11px;height:11px;opacity:.8}
+			.cs-host .cs-comment:hover{color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			/* the open pill is the selected tab — solid, accent, and visually joined to its panel */
+			.cs-host .cs-comment-open,.cs-host .cs-comment-open:hover{color:var(--on-accent,#fff);background:var(--accent,#006fa8);border-style:solid;border-color:var(--accent,#006fa8)}
+			.cs-host .cs-comment-open svg{opacity:1}
+			/* CHANNEL, not decoration: caption and describe are different registers from a note — the
+			   slide's narration text and its WCAG alternative — so they read differently at rest. */
+			.cs-host .cs-comment-caption:not(.cs-comment-open),.cs-host .cs-comment-describe:not(.cs-comment-open){border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
+			/* the shared panel — one per run, below the row, never one per pill */
+			.cs-host .cs-comment-panel{margin:.1em 0 .7em;padding:9px 12px;max-width:62ch;border:1px solid var(--border,#e4eaf2);border-left:2px solid var(--accent,#006fa8);border-radius:0 8px 8px 0;background:var(--bg-alt,#f2f5fa)}
+			.cs-host .cs-comment-body{color:var(--text-body,#2b3a4f);font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
+			/* Removal is the panel's own control — reading a note must never arm a delete. */
+			.cs-host .cs-comment-remove{margin-top:8px;padding:2px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
+			.cs-host .cs-comment-remove:hover:not(:disabled){color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e) 10%,var(--bg,#fff))}
+			/* A locked slide takes no edits, so the control says why instead of doing nothing. */
+			.cs-host .cs-comment-remove:disabled{cursor:default;opacity:.7;text-transform:none;letter-spacing:.02em}
 			.cs-host h1{font-family:inherit;font-size:1.95rem;font-weight:700;line-height:1.12;margin:.1em 0 .35em;color:var(--text-heading,#14243a);letter-spacing:-.01em}
 			.cs-host h2{font-family:inherit;font-size:1.45rem;font-weight:700;line-height:1.18;margin:.5em 0 .32em;color:var(--text-heading,#14243a);letter-spacing:-.005em}
 			.cs-host h3{font-family:inherit;font-size:1.15rem;font-weight:600;margin:.5em 0 .25em;color:var(--text-heading,#14243a)}
@@ -1377,6 +1723,12 @@ function ComposeStyles() {
 				/* keep the state-marker picker — it's the point of obligation-matrix / roadmap — just bigger */
 				.cs-tblc-mark{width:28px;height:28px}
 				.cs-tblc-mark svg{width:15px;height:15px}
+				/* the pills are tap targets here, not just labels — 28px like the other caps. They
+				   still share a row and wrap onto a second only when the slide really has that many. */
+				.cs-host .cs-comment{min-height:28px;padding:2px 11px 2px 9px;font-size:10px}
+				.cs-host .cs-comment svg{width:13px;height:13px}
+				.cs-host .cs-comment-body{font-size:12px}
+				.cs-host .cs-comment-remove{min-height:28px;font-size:10px}
 			}
 			/* floating selection bar — inline marks over a text selection (portaled to body).
 			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */

@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Compose — a rich, calm editing MODE of the Studio editor pane (the "Quiet Page" design), rebuilt on ProseMirror as ONE continuous document (Option B) after an adversarial trio found the first Lexical version structurally unfit (lossy nested-list round-trip; corruption on selection; N stacked editors couldn't span slides). A DOM-less deck-model core (docs/src/lib/compose) round-trips a deck's markdown losslessly incl. the nested KPI/cards grammar; a quiet left-margin grammar gutter applies Lattice's registers to the caret's block, and a floating bar over a text selection applies inline marks (Bold/Italic/Code). Both modes read/write the same source (HARD RULE #1). Slices 1–3 + hardening + the selection bar + exact registers + math-lock + the real `--spectrum` trim + a mobile polish pass landed and verified on the real Studio.
+summary: Compose — a rich, calm editing MODE of the Studio editor pane (the "Quiet Page" design), rebuilt on ProseMirror as ONE continuous document (Option B) after an adversarial trio found the first Lexical version structurally unfit (lossy nested-list round-trip; corruption on selection; N stacked editors couldn't span slides). A DOM-less deck-model core (docs/src/lib/compose) round-trips a deck's markdown losslessly incl. the nested KPI/cards grammar; a quiet left-margin grammar gutter applies Lattice's registers to the caret's block, and a floating bar over a text selection applies inline marks (Bold/Italic/Code). Both modes read/write the same source (HARD RULE #1). Slices 1–3 + hardening + the selection bar + exact registers + math-lock + the real `--spectrum` trim + a mobile polish pass landed and verified on the real Studio. Authoring comments are a hidden node as of 2026-09-15 (a quiet `note` chip), which also closed a corruption: a multi-line comment used to parse as prose + an indented code block and re-serialize its `-->` inside a fence, putting an empty `pre` on the rendered slide.
 ---
 
 # Compose — the rich-markdown editing mode, on ProseMirror
@@ -153,12 +153,76 @@ and verified on the real built Studio (HARD RULE #23):
   losslessly-round-tripped nodes, so a table slide edits in place — see
   `2026-07-19-compose-table-editing.md`. (A cell that itself holds one of the still-unmodeled
   constructs above keeps the slide locked, so the guard degrades safely.)
-- Non-`_` HTML comments (speaker notes / captions) inside prose round-trip byte-stable but
-  show as literal editable text — no dedicated hidden node yet.
+- ~~Non-`_` HTML comments (speaker notes / captions) inside prose round-trip byte-stable but
+  show as literal editable text — no dedicated hidden node yet.~~ **RESOLVED 2026-09-15** — and
+  the claim it made was half wrong, which is the more useful half of this entry. Comments now
+  take the same path tables did: a real schema node (`docs/src/lib/compose/comment-block.ts`),
+  parsed by a markdown-it block rule, carrying the comment's SOURCE BYTES and writing them back
+  verbatim.
+  **A RUN of comments is ONE control.** Adjacent comments are the common case — a `caption:`, a
+  `describe:` and a note all belong to the same slide — so they render as pills on one row, labeled
+  by CHANNEL (`lib/authoring/notes-core.js`'s classification, mirrored with a parity test), with
+  exactly one open and its words in a shared panel below. The open state is PLUGIN state keyed by
+  document position and the panel is a WIDGET DECORATION after the run, not per-view state: a
+  nodeView cannot see its siblings, and ProseMirror maps the decoration through every transaction,
+  so the panel follows its own note through inserts, deletes and undo. The first version rendered
+  one box per comment with its own Remove button, which on a three-comment slide was three
+  identical stacked "NOTE" panels.
+  **Removal is a second deliberate act** inside the opened panel. Letting the pill's mousedown reach
+  ProseMirror was tried, because it enables the ordinary atom gesture (click, Backspace) — and
+  reverted, because with an atom selected the next printed character REPLACES it, so reading a note
+  and carrying on typing destroyed it. On a LOCKED slide the control is disabled and says to edit in
+  Markdown rather than being filtered by the structural guard and looking like it worked; that is
+  reachable by accident, because a note containing `~~` or `$math$` locks its own slide.
+  **Two scope lines keep the node off text the slide renders.** `<!-->` and `<!--->` carry their
+  terminator inside the opener, so the scan starts at the opener as markdown-it's does — skipping it
+  swallowed the following prose into the comment. And the rule registers where the engine's own
+  `html_block` sits (before `heading`), because after `lheading` a `---` inside a comment is read as
+  a setext underline and the comment's first line becomes a visible `<h2>`. A comment inside a LIST
+  ITEM stays prose: lifting it out splits the item's paragraph and markdown-it renders the list
+  loose, which changes what ships.
+  **"Round-trip byte-stable" held only for a ONE-LINE comment.** With `html: false` the parser
+  does not drop HTML, it declines to model it — so a comment fell through as prose, and a
+  multi-line one was reflowed onto a single line. A comment with a blank line inside was worse:
+  its indented continuation parsed as an INDENTED CODE BLOCK, so the serializer emitted the
+  closing `-->` inside a fence, and the engine (`commonmark` + `html: true`) then read the fence
+  opener as part of the comment and left the closer as a block of its own — an empty
+  `<pre><code></code></pre>` on the rendered slide. One keystroke on such a slide was enough. 25
+  multi-line comments across 7 shipped decks were exposed, 14 of them the blank-line variant.
+  **Two scope lines stayed as they were**, because both already behaved correctly: an INLINE
+  comment (`text <!-- x --> more`) is part of its paragraph, and a comment with trailing content
+  on its closing line is a paragraph too — annexing either would split the author's line. A
+  comment inside a fence stays code (the rule registers after `fence`).
+  **Inline HTML is NOT covered** and still shows as a raw tag; it round-trips byte-exact, so it
+  is untidy rather than dangerous. Block HTML and entity-encoded tags still lock the slide.
 - The grammar-gutter register read is now EXACT — it mirrors the engine's positional rules
   (`base.modifiers.css`) rather than pattern-matching: a code label is an Eyebrow before a
   heading / a Subtitle after one (the gutter gained a 6th **Subtitle** register); a blockquote
   is Key-insight ONLY when trailing; an em-dash paragraph is Below-note ONLY when trailing.
+  **A comment is invisible to that read LOOKING FORWARD, and not looking back (2026-09-15).** The
+  asymmetry is the whole finding, and it was got wrong twice before it was measured per register —
+  each slide rendered twice, with and without a comment in the gap, and the output diffed:
+
+  | register | comment in the gap | `slideContext` |
+  |---|---|---|
+  | eyebrow (label **before** h2) | still hoisted | SKIP (`next`) |
+  | **subtitle** (label **after** h2) | **subtitle is lost** | **DO NOT SKIP** (`prev`) |
+  | key-insight (trailing quote) | still harvested | SKIP (`isLast`) |
+  | below-note (trailing em-dash) | still a note | SKIP (`isLast`) |
+
+  Three of those are the TRANSFORM counting elements only (`harvestBody` in `lib/core/coda.js`
+  peels the tail off `topLevelElements()`). The subtitle is different: `masthead.transform.js`
+  hoists the label into `.masthead-lede` with a string match (`/^\s*<p[^>]*><code/` against the
+  rest of the slide's HTML), and `^\s*` admits whitespace only, so an intervening comment defeats
+  it and the label renders as ordinary stage prose.
+
+  **Two drafts of this note got it wrong, in instructive ways.** The first credited pure CSS for
+  all four registers. The second kept that claim for eyebrow and subtitle and "measured" it in real
+  Chromium — confirming that `+` looks through a comment node, which is true and irrelevant: the
+  element never reaches the position where that selector could match. Compose lit a Subtitle pill
+  on a slide the engine renders without one until an independent check went to the transform. The
+  lesson is not about comments; it is that measuring the mechanism you assumed confirms the
+  assumption rather than testing it.
   Applying Key-insight / Below-note relocates the block to the slide's end (the "naturally
   goes to the end" model), since the engine renders them only there. (There is no register
   *class* to make first-class — the engine detects by position; matching that IS the fix.)

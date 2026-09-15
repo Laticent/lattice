@@ -57,8 +57,17 @@ export function composeSlideChunk(directives: string[], prose: string): string {
 // Constructs the engine renders (commonmark + html:true + strikethrough) but the Compose
 // parser does NOT model — so re-serializing a slide that contains one would flatten/escape
 // it. A slide whose prose matches is LOCKED in Compose (read-only, "edit in Markdown"), so a
-// keystroke can never reflow it. Inline HTML and `<!-- … -->` comments are excluded: they
-// round-trip as literal text byte-exact.
+// keystroke can never reflow it. Inline HTML is excluded: it round-trips as literal text
+// byte-exact (it is still SHOWN as a raw tag in Compose, which is untidy but harmless).
+//
+// HTML COMMENTS are excluded for a stronger reason as of 2026-09-15: they are no longer prose at
+// all. `comment-block.ts` models them as an atom node carrying their source bytes, so Compose
+// hides them behind a chip and the serializer writes them back verbatim. Before that they were
+// excluded on the claim that they "round-trip as literal text byte-exact" — true of a ONE-LINE
+// comment and false of every other shape. A multi-line one was reflowed onto a single line, and
+// one with a blank line inside parsed its tail as an INDENTED CODE BLOCK, so the round-trip put
+// the closing fence inside a code fence and the engine rendered an empty `pre` onto the slide.
+// 25 such comments across 7 shipped decks were one keystroke away from that.
 //
 // GFM pipe TABLES are NOT here: the Compose parser now models them as real schema nodes and
 // round-trips them to pipe syntax (deck-markdown, 2026-07-19-compose-table-editing.md), so a
