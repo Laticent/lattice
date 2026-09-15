@@ -12,14 +12,17 @@ import { debugEffectiveOn, onDebugOverrideChange, setDebugOverride } from '@/pla
 import { CONFIG_PROFILES, createConfigPanel } from '@/playground/deck-config.js';
 
 /**
- * Deck setup — the universal front-matter config panel (createConfigPanel,
- * shared with Workbench + Drawing Board) mounted inside a shadcn Sheet. The
+ * Deck setup — the universal front-matter config panel (createConfigPanel) mounted
+ * inside a shadcn Sheet. "Universal" is now aspirational rather than descriptive: this
+ * is the ONLY host. It used to be shared with the Workbench and the Drawing Board, both
+ * deleted in the 2026-07-03 studio succession, and the panel stayed host-agnostic. The
  * panel itself is NOT rewritten: deck-config.js builds its own `.deck-config`
  * rows (styled by deck-config.css), and we host it in a React-owned div, calling
  * config.render() each time the Sheet opens. Writes flow setSource → editor →
  * onChange → live re-render, exactly as before.
  *
- * The profile is `author` (every field, `theme` included). It was `noTheme` on the
+ * The profile is `author` (every field, `theme` included) — since 2026-09-15 the only
+ * profile `deck-config.js` exports. It was `noTheme`, on the
  * reasoning that "the top-bar palette picker owns theme on this surface" — true only
  * while that picker is on screen, and `PaletteControls` hides it below `lg` (its
  * `compact` prop). On a phone the near control was withheld in favor of a far one

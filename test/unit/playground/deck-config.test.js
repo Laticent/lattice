@@ -544,25 +544,31 @@ describe('createConfigPanel (DOM)', () => {
     });
   }
 
-  test('the preview profile renders only the render-register rows (no theme / chrome / Advanced)', async () => {
-    const { CONFIG_PROFILES } = await import(MOD);
-    const { panel, host } = await mountProfile(CLEAN, CONFIG_PROFILES.preview);
+  // The `preview` and `noTheme` profile tests were removed with the profiles themselves
+  // (2026-09-15): both were callerless, so each asserted on a field list nothing
+  // constructed. They were, however, the only tests asserting that the allow-list
+  // EXCLUDES anything — with `show()` stubbed to always-true the rest of this file still
+  // passed 44/44 — so the exclusion half moved here, onto an explicit array rather than
+  // onto a named profile. It matters more now, not less: `author` is null, so no caller
+  // passes an array and `fields` has no production exercise left at all.
+  test('an explicit fields array EXCLUDES every key it omits', async () => {
+    const { panel, host } = await mountProfile(CLEAN, ['finish', 'size', 'paginate', 'form']);
     panel.render();
     const labels = [...host.querySelectorAll('.db-pref-label')].map((n) => n.textContent);
-    assert.ok(labels.includes('Finish'), 'finish present');
-    assert.ok(labels.includes('Slide size'), 'size present');
-    assert.ok(labels.includes('Form'), 'form present');
-    assert.ok(!labels.includes('Theme'), 'theme excluded — the studio owns the palette');
-    assert.ok(!labels.includes('Header'), 'deck chrome excluded');
-    assert.ok(!host.textContent.includes('Advanced'), 'no Advanced section in a preview profile');
+    assert.ok(labels.includes('Finish') && labels.includes('Slide size') && labels.includes('Form'), 'the listed keys draw');
+    assert.ok(!labels.includes('Theme'), 'theme excluded — it is not in the list');
+    assert.ok(!labels.includes('Header') && !labels.includes('Footer'), 'deck chrome excluded');
+    assert.ok(!labels.includes('Default slide class'), 'class excluded');
+    assert.ok(!host.textContent.includes('Advanced'), 'no Advanced section when the list omits every key in it');
   });
 
-  test('the noTheme profile (Playground) drops theme but keeps everything else, incl. Advanced', async () => {
+  test('the author profile is the full set — every managed row draws, Advanced included', async () => {
     const { CONFIG_PROFILES } = await import(MOD);
-    const { panel, host } = await mountProfile(CLEAN, CONFIG_PROFILES.noTheme);
+    assert.equal(CONFIG_PROFILES.author, null, 'author is the no-allow-list spelling of "every field"');
+    const { panel, host } = await mountProfile(CLEAN, CONFIG_PROFILES.author);
     panel.render();
     const labels = [...host.querySelectorAll('.db-pref-label')].map((n) => n.textContent);
-    assert.ok(!labels.includes('Theme'), 'theme excluded — the top-bar picker owns it');
+    assert.ok(labels.includes('Theme'), 'theme present — the deck can pin its own palette here');
     assert.ok(labels.includes('Finish') && labels.includes('Header') && labels.includes('Default slide class'));
     assert.ok(host.textContent.includes('Advanced'), 'Advanced section present');
   });

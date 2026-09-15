@@ -9,9 +9,15 @@ const createConfigPanel = vi.fn((_opts: PanelOpts) => ({ render: () => {}, syncT
 vi.mock('@/playground/deck-config.js', () => ({
 	createConfigPanel: (opts: PanelOpts) => createConfigPanel(opts),
 	// `author` is null in the real module — "every field", which is how the theme row
-	// reaches this surface. `noTheme` is kept here only so a regression back to it would
-	// fail loudly on the profile assertions below rather than silently pass.
-	CONFIG_PROFILES: { author: null, noTheme: ['mode', 'color-mode', 'finish'] },
+	// reaches this surface. It is now the ONLY profile the real module exports (the
+	// callerless `noTheme` and `preview` went on 2026-09-15), so the mock carries just it:
+	// a `fields` value the module cannot produce would make this suite pass against a
+	// shape production can't reach. Note what this suite can and cannot catch: it mocks
+	// the module, so a change to the REAL `CONFIG_PROFILES.author` is invisible here —
+	// that is pinned in test/unit/playground/deck-config.test.js. What the `theme`-keyed
+	// assertions below catch is a SHEET-side regression: this host inlining its own field
+	// list, or reading a profile key that no longer exists (→ `undefined`, → they fail).
+	CONFIG_PROFILES: { author: null },
 	readFrontMatter: () => ({ configured: false }),
 }));
 vi.mock('@/playground/debug-overlay.js', () => ({ deckDebugOn: () => false }));
@@ -25,8 +31,8 @@ import { DeckSetupSheet } from './DeckSetupSheet';
 
 describe('DeckSetupSheet — what it hands the vanilla config panel', () => {
 	it('passes MODE NAMES, so the Mode row actually renders', async () => {
-		// The defect this pins (2026-08-18 coverage audit §4.2): `mode` was in the noTheme
-		// profile, but deck-config gates the row on `modes.length` and this host passed
+		// The defect this pins (2026-08-18 coverage audit §4.2): `mode` was in the profile,
+		// but deck-config gates the row on `modes.length` and this host passed
 		// none — so the Playground's Mode row was in the config and never drawn. A profile
 		// entry is not enough on its own; the names have to arrive too.
 		const user = userEvent.setup();
@@ -53,8 +59,8 @@ describe('DeckSetupSheet — what it hands the vanilla config panel', () => {
 	});
 
 	it('uses a profile that ADMITS theme, and tells the panel what the site palette is', async () => {
-		// The defect this pins: the sheet passed `noTheme`, which is the full field set
-		// MINUS `theme`, on the stated reasoning that "the top-bar palette picker owns
+		// The defect this pins: the sheet passed a profile (`noTheme`, since removed) that
+		// was the full field set MINUS `theme`, on the stated reasoning that "the top-bar palette picker owns
 		// theme on this surface". That picker is hidden below the `lg` breakpoint
 		// (PaletteControls' `compact`), so on a phone the near control was withheld in
 		// favor of a far one that was not rendered — the Playground had no theme control

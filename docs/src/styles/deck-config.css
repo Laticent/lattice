@@ -1,6 +1,14 @@
 /* deck-config.css — the universal deck-setup panel (createConfigPanel in
  * docs/src/playground/deck-config.js), styled for the surfaces that DON'T already
- * carry a surface's own full stylesheet — today the Playground and the Studio.
+ * carry a surface's own full stylesheet.
+ *
+ * ONE HOST TODAY: the Playground's Deck settings sheet (DeckSetupSheet.tsx), the only
+ * module that calls createConfigPanel and the only one that renders a `.deck-config`
+ * wrapper. This header used to say "the Playground and the Studio"; the Studio never
+ * mounted this panel, and the Workbench that did was deleted in the 2026-07-03 studio
+ * succession. The sheet is still not the only POSSIBLE host — the `db-*` classes and
+ * the container query below are written for a panel at any width — so the rules stay
+ * host-agnostic.
  *
  * The Drawing Board used to style the same `db-*` panel classes itself (in its own
  * unscoped). Here they're scoped under a `.deck-config` host wrapper, so the two

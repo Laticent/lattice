@@ -250,6 +250,18 @@ drift `slide-directives.ts` already solved for `DIRECTIVE_KEYS` with a parity te
 only `if (show('mode') && modes.length)`. **The Playground's Mode row never renders.**
 `mode` is in the `noTheme` profile, so the intent was clearly for it to.
 
+> **Fixed (2026-09-07, #2114) — the Mode row renders.** `DeckSetupSheet.tsx` passes
+> `modes: MODE_NAMES`, so the `modes.length` half of the gate is satisfied and the row
+> draws. `DeckSetupSheet.test.tsx` pins it: the host must hand the panel a non-empty
+> mode vocabulary, and every name must be a register value rather than a label. The
+> paragraph above is left as written because it is what the audit found; read it as
+> history, not as the current state.
+>
+> **Also stale in it: the `noTheme` profile is gone** (2026-09-15). It had no caller
+> left once the sheet moved to `author` — see the note below — so it was removed with
+> `preview`, whose host (the Workbench) was deleted in the 2026-07-03 studio
+> succession. `CONFIG_PROFILES` now carries `author` alone.
+
 > **Superseded (2026-09-14) — the `theme:` row is back in the Playground.** The
 > table's footnote above ("the top bar owns theme there") restated `deck-config.js`'s
 > own reasoning for the `noTheme` profile, and neither noticed that the top bar's

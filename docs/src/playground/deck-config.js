@@ -6,20 +6,27 @@ import { SIZE_OPTIONS } from './deck-sizes.js';
 // hand-writes YAML and the Markdown body stays content-only ("the deck stays
 // clean"). The controls read/write a MANAGED `---` block at the very top of a
 // deck source through an injected getSource/setSource pair — so the panel is
-// decoupled from where the source lives. It backs three surfaces:
-//   • Drawing Board / Playground — SOURCE-backed: the block lives inline at the
-//     top of the editor's markdown (persists + exports with the deck for free).
-//   • Workbench (Theme / Layout Studio) — STATE-backed: the studio hands the
-//     panel a VIRTUAL source (`block + fixed specimen/skeleton`); setSource
-//     strips the block back off and stores just it, applying it at render time —
-//     so a fixed preview deck is configurable "behind the scenes", no raw YAML.
+// decoupled from where the source lives. ONE surface backs it today — the
+// Playground's Deck settings sheet (DeckSetupSheet.tsx), SOURCE-backed: the block
+// lives inline at the top of the editor's markdown, so it persists and exports with
+// the deck for free.
+//
+// It was written for three. The Drawing Board was the other SOURCE-backed one, and the
+// Workbench (Theme / Layout Studio) was STATE-backed — the studio handed the panel a
+// VIRTUAL source (`block + fixed specimen/skeleton`) and setSource stripped the block
+// back off, so a fixed preview deck stayed configurable with no raw YAML. Both routes
+// were deleted in the 2026-07-03 studio succession. The injected getSource/setSource
+// pair is what made that work and is worth keeping: it is why this module needs no
+// opinion about where a deck lives.
 //
 // `fields` (optional) is an allow-list of which managed keys to render — the
-// surface's PROFILE. Omitted = every field (the Drawing Board's full author
-// set). A preview surface passes the render-register subset (finish,
-// size, paginate, form) so deck chrome (header/footer/lang/…) stays out of a
-// theme/component preview. The parse/serialize layer is field-agnostic; only the
-// rendered rows are filtered.
+// surface's PROFILE. Omitted (`null`) = every field, which is what the sole caller
+// passes. An explicit array renders only the keys it names, so a host can drop deck
+// chrome (header/footer/lang/…) from a panel that has no business showing it — the
+// shape the deleted Workbench used. The parse/serialize layer is field-agnostic; only
+// the rendered rows are filtered. NOTHING IN PRODUCTION PASSES AN ARRAY TODAY, so the
+// filtering branch is exercised only by test/unit/playground/deck-config.test.js —
+// treat that test as the contract if you touch `show()`.
 //
 // The parse/serialize helpers are PURE (no DOM, no storage) and unit-tested in
 // test/unit/playground/deck-config.test.js. createConfigPanel() is the only DOM
@@ -129,23 +136,34 @@ const COLOR_MODE_OPTIONS = [
 const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'lang'];
 
 // Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
-//   author  — every field, `theme` included. The Playground's Deck settings sheet
-//             uses this. It was the Drawing Board's profile until that route was
-//             removed (2026-07-03 studio succession).
-//   noTheme — full set minus `theme`. RETIRED as of the theme row landing, kept
-//             defined because it costs nothing and names the shape. It was the
-//             Playground's profile on the reasoning that "its top-bar palette
-//             picker is the theme control" — which held only while that picker was
-//             visible. It is hidden below the `lg` breakpoint (PaletteControls'
-//             `compact`), so on a phone the surface had NO theme control at all:
-//             the near one was withheld for a far one that wasn't there.
-//   preview — the render registers only (the Workbench: knobs that change how a
-//             theme/component PREVIEWS — finish/size/paginate/form —
-//             with no deck chrome and no theme, which the studio itself owns).
+//   author  — every field, `theme` included. `null` means "no allow-list", which is
+//             how the panel spells the full set. The Playground's Deck settings sheet
+//             (DeckSetupSheet.tsx) is the only caller; it was the Drawing Board's
+//             profile until that route was removed (2026-07-03 studio succession).
+//
+// TWO PROFILES WERE REMOVED HERE ON 2026-09-15, both callerless.
+//   noTheme — the full set minus `theme`. It was the Playground's profile on the
+//             reasoning that "the top-bar palette picker is the theme control", which
+//             held only while that picker was rendered: it is hidden below the `lg`
+//             breakpoint (PaletteControls' `compact`), so on a phone the surface had NO
+//             theme control at all. The sheet moved to `author` when the theme row came
+//             back, and the comment here then claimed noTheme was "kept because it costs
+//             nothing and names the shape". It was not free — it cost a test asserting a
+//             profile nothing constructed, and it is what the stale PlaygroundApp mock
+//             was modeled on. The regression it was nominally guarding is still guarded,
+//             by two tests in different files, and it is worth knowing which does what:
+//             deck-config.test.js pins `CONFIG_PROFILES.author === null` — that is the
+//             one that fails if THIS module's profile ever drops theme. DeckSetupSheet's
+//             suite MOCKS this module, so its `theme`-specific assertion cannot see a
+//             change here at all; what it catches is a sheet-side regression, the host
+//             inlining its own list or reading a key that no longer exists.
+//   preview — the render registers only (finish/size/paginate/form, no deck chrome and
+//             no theme). Its host was the Workbench, deleted in the same 2026-07-03
+//             studio succession.
+// The `fields` MECHANISM is unaffected and still covered: the suite exercises it with
+// an explicit array (`['finish']`) and with `null` (the full author set).
 export const CONFIG_PROFILES = Object.freeze({
   author: null,
-  noTheme: ['mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'lang'],
-  preview: ['mode', 'color-mode', 'finish', 'size', 'paginate', 'form', 'lift'],
 });
 
 const TRUEY = /^(true|yes|on|1)$/i;
@@ -627,7 +645,8 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     }
 
     // Advanced — the lower-traffic deck-authoring keys. Only shown when the
-    // profile includes at least one of them (a preview surface omits them all).
+    // profile includes at least one of them, so a `fields` array that names neither
+    // draws no Advanced section at all.
     if (show('class') || show('lang')) {
       host.append(el('h3', 'db-settings-head db-settings-subhead', 'Advanced'));
       // Deliberately NOT `dark` as the example: the color axis belongs to `color-mode:`
