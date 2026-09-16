@@ -10,7 +10,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 
 ## Agent contract
 
-**Capacity** ~3 items (crowds past 4, overflows past 5) — past that, split across slides (automatic) / list-steps. Measured with `node tools/calibrate-capacity.js split-panel --all` at this component's own density basis (16 words an item). Ceilings by family: wide 5, square 3, tall 2, strip 5 — so the flat block is the LANDSCAPE budget with `hard` at its ceiling, and `adapt.capacity` tightens only the two families that measured lower, the same shape `premise` uses. `sweet` 3 / `soft` 4 are editorial rather than geometric: the manifest's own whenToUse says "three or four points read best; more crowds the panel". `tall` is the binding family at 2, which is why a three-item split-panel splits at portrait and not at 16:9.
+**Capacity** ~3 items (crowds past 4, overflows past 5) — past that, split across slides (automatic) / list-steps. Measured per family with `tools/calibrate-capacity.js` at this component's own density basis (16 words an item): ceilings wide 5, square 3, tall 2, strip 5. The flat block is the landscape budget; adapt.capacity tightens the two families that measured lower. `tall` binds, which is why a three-item panel splits at portrait and not at 16:9.
 
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one finding per row, a sentence.
 
