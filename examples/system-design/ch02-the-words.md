@@ -7,7 +7,6 @@ profile: teaching
 glossary: auto
 header: "System design · Chapter 2"
 acronyms:
-  CI: { expansion: continuous integration }
   VPN: { expansion: virtual private network }
 ---
 

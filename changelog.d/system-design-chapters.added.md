@@ -22,7 +22,12 @@
   carrying a `definition` (`lib/core/glossary-auto.mjs` `glossaryEntries`), so an
   untrimmed copy would have ended all thirteen PDFs with the same appendix, defining
   terms the chapter never used. The network chapter keeps 4 of the omnibus's 21 terms;
-  three chapters define none and correctly render no glossary at all.
+  three chapters define none and correctly render no glossary at all. What counts as
+  "said" is the text a reader meets: inside a mermaid fence only the labels count, so a
+  node identifier (`PUSH --> CI([...])`) and a direction keyword (`flowchart TB`) earn
+  nothing, while a node LABEL does. Every term each chapter keeps was checked against
+  that chapter's rendered PDF text — 33 kept terms across the thirteen, none of them
+  absent from a rendered page.
 - **New script `chapters:system-design`.** Rebuilds the chapters and their index from
   the omnibus. The thirteen chapter PDFs are rebuilt by the existing pre-commit
   staged-PDF hook, not by `npm run build` — thirteen real Chromium renders do not

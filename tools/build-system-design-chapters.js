@@ -71,7 +71,8 @@ const path = require('node:path');
 // read, so one `#` comment in the omnibus would have silently emptied every chapter's
 // glossary. Both are ESM; the CJS emulator already `require()`s this pair's neighbor
 // (`glossary-auto.mjs`), so the route is established.
-const { frontMatterBlockOf, splitSlideChunks } = require('../lib/core/slide-boundaries.mjs');
+const { frontMatterBlockOf, splitSlideChunks, normalizeSourceText } = require('../lib/core/slide-boundaries.mjs');
+const { slideClassDirectives } = require('../lib/core/class-directive-scan.mjs');
 const { acronymEntries } = require('../lib/core/resolve-captions.mjs');
 
 const ROOT = path.join(__dirname, '..');
@@ -310,10 +311,32 @@ const CHAPTERS = Object.freeze([
  * `---` byte for byte while splitting differently.
  */
 function splitDeck(src) {
-  const block = frontMatterBlockOf(src);
+  // NORMALIZE FIRST. `frontMatterBlockOf` accepts a lone `\r` as a terminator and the
+  // acronym parser's `blockLines` splits on `/\r?\n/` only, so a CR-only source parsed
+  // as 232 slides with a registry of ZERO — thirteen chapters shipping no glossary at
+  // all, silently, with the re-emission guard comparing 0 against 0 and passing. The
+  // engine's own normalizer folds `\r\n` and `\r` to `\n` and drops a BOM, which is the
+  // line geometry every other reader here already assumes.
+  const text = normalizeSourceText(String(src ?? ''));
+  const block = frontMatterBlockOf(text);
   const inner = FRONT_MATTER_INNER.exec(block);
   if (!inner) throw new Error(`${path.relative(ROOT, OMNIBUS)} has no front matter to inherit`);
-  return { frontMatter: inner[1], slides: splitSlideChunks(src.slice(block.length)).chunks };
+
+  // WHICH SLIDES ARE DIVIDERS, from the canonical scanner. A `/<!--\s*_class:…divider/`
+  // regex — which is what this was — is the one `class-directive-scan.mjs` documents as
+  // three defects: it cannot see Marp's running global `<!-- class: … -->` form, it
+  // therefore picks up a directive merely QUOTED in prose, and `\bdivider\b` also
+  // matches `divider-lead`. The two agree on today's omnibus; that is luck, not a
+  // reason to keep a fourth reader of a question the tree answers once (HARD RULE #1).
+  const slides = splitSlideChunks(text.slice(block.length)).chunks;
+  const directives = slideClassDirectives(text);
+  const offset = directives.length - slides.length;
+  const dividers = new Set();
+  for (let i = 0; i < slides.length; i++) {
+    const payload = directives[i + offset]?.payload || '';
+    if (payload.split(/\s+/).includes('divider')) dividers.add(i);
+  }
+  return { frontMatter: inner[1], slides, dividers };
 }
 
 /** A slide's eyebrow: the first paragraph that is nothing but one inline-code span. */
@@ -328,38 +351,49 @@ function eyebrowOf(slide) {
 }
 
 /**
- * Resolve each chapter's slide range: its anchor is the eyebrow of the FIRST DIVIDER
- * slide carrying that text at or after the previous chapter's start.
+ * Resolve each chapter's slide range from the DIVIDER slide whose eyebrow is its anchor.
  *
- * Two narrowings, and both matter. Scoping to `divider` slides and to what follows the
- * previous anchor is what lets a generic word like `Security` be an anchor at all:
- * repeated eyebrows are this deck's own idiom — 224 of its 232 slides carry one across
- * 199 distinct strings, and `Your turn` alone repeats 14 times — so a rule demanding
- * global uniqueness would turn an ordinary prose edit (writing `Security` on a slide
- * inside the Instagram chapter) into a hard failure of `npm run build` that only an
- * edit to THIS FILE could clear.
+ * An anchor must match EXACTLY ONE divider in the deck. Both halves of that are load-
+ * bearing, and the second was briefly lost:
  *
- * A MISSING anchor still fails loudly, because a cut that cannot be resolved must never
- * be guessed at, and the message says which slide the search started from.
+ *   - Scoping to dividers is what lets a generic word like `Security` be an anchor at
+ *     all. Repeated eyebrows are this deck's own idiom — 224 of its 232 slides carry one
+ *     across 199 distinct strings, `Your turn` alone ×14 — so demanding global uniqueness
+ *     over ALL slides would make writing `Security` on an ordinary content slide a hard
+ *     failure of `npm run build` that only an edit to this file could clear.
+ *   - Requiring uniqueness AMONG DIVIDERS is what keeps a duplicate loud. A "first
+ *     divider at or after the previous chapter" rule looks equivalent and is not: adding
+ *     one `Network` recap divider inside the compute kit silently moved five slides from
+ *     chapter 6 to chapter 7, and every gate in the tree certified the result, because
+ *     the README, the page counts and the PDFs all regenerate to agree with the wrong
+ *     cut. Measured, on this deck: ch06 10 slides → 5, ch07 11 → 17, no error.
+ *
+ * So a missing anchor and a duplicated one both fail loudly, and neither is guessed at.
  */
-function ranges(slides) {
-  const isDivider = (s) => /<!--\s*_class:[^>]*\bdivider\b/.test(s);
-  const starts = [];
-  let from = 0;
-  for (const c of CHAPTERS) {
-    let at = -1;
-    for (let i = from; i < slides.length; i++) {
-      if (isDivider(slides[i]) && eyebrowOf(slides[i]) === c.anchor) { at = i; break; }
+function ranges({ slides, dividers }) {
+  const starts = CHAPTERS.map((c, n) => {
+    const hits = [];
+    for (let i = 0; i < slides.length; i++) {
+      if (dividers.has(i) && eyebrowOf(slides[i]) === c.anchor) hits.push(i);
     }
-    if (at === -1) {
+    if (hits.length !== 1) {
       throw new Error(
-        `no divider slide with the eyebrow \`${c.anchor}\` at or after slide ${from} of ` +
-          `${path.relative(ROOT, OMNIBUS)} — chapter ${starts.length + 1} (${c.slug}) cannot be cut. ` +
-          'Fix the anchor in tools/build-system-design-chapters.js, or restore the divider.',
+        `the eyebrow \`${c.anchor}\` marks ${hits.length} divider slides in ` +
+          `${path.relative(ROOT, OMNIBUS)} (expected exactly 1), so chapter ${n + 1} ` +
+          `(${c.slug}) cannot be cut${hits.length ? ` — slides ${hits.join(', ')}` : ''}. ` +
+          'Give one of them a different eyebrow, or fix the anchor in ' +
+          'tools/build-system-design-chapters.js.',
       );
     }
-    starts.push(at);
-    from = at + 1;
+    return hits[0];
+  });
+  for (let i = 1; i < starts.length; i++) {
+    if (starts[i] <= starts[i - 1]) {
+      throw new Error(
+        `\`${CHAPTERS[i].anchor}\` (slide ${starts[i]}) precedes \`${CHAPTERS[i - 1].anchor}\` ` +
+          `(slide ${starts[i - 1]}) — CHAPTERS is out of order against the deck.`,
+      );
+    }
   }
   return CHAPTERS.map((c, i) => ({
     ...c,
@@ -377,22 +411,33 @@ function acronymRegistry(frontMatter) {
 }
 
 /**
- * The text of a chapter as a READER meets it, for deciding which acronyms that chapter
- * earns. Only mermaid's direction keywords come out.
+ * The text of a chapter as a READER meets it, for deciding which acronyms it earns.
  *
- * It is tempting to strip code fences wholesale, and that is wrong here — measured, not
- * assumed. Three DEFINED terms in this deck are matched only inside a fence, and all
- * three are on the slide: `CDN` is a node label in a mermaid diagram (`C3(["CDN
- * verifies"])`), and `MVP` sits in the printed worksheet on two `code`-class slides.
- * Stripping fences would have deleted three glossary entries a reader genuinely needs.
+ * Only ONE thing is removed: the non-label parts of a mermaid diagram. Inside a
+ * ```mermaid fence the visible text is the LABELS — quoted strings and bracketed
+ * contents. Everything else is syntax: node identifiers, direction keywords, arrows,
+ * `subgraph`. A node identifier is not a hypothetical source of a phantom term — it is
+ * where `CI` came from (`PUSH --> CI(["Build and test…"])`), which put
+ * `CI: { expansion: continuous integration }` into chapter 2's registry even though
+ * `pdftotext` finds no `CI` on any of that chapter's rendered pages. An earlier fix
+ * stripped only `flowchart TB`-style direction keywords, so it caught `TB` and missed
+ * `CI`; extracting labels catches the whole class, direction keywords included.
  *
- * What is NOT on the slide is `flowchart TB` — diagram syntax, where `TB` means
- * top-to-bottom. That match alone keeps `TB` in seven chapters' registries today. It is
- * harmless while `TB` carries no `definition`, and it would stop being harmless the
- * moment somebody gave it one, which is the whole reason to remove it now.
+ * NON-MERMAID FENCES STAY WHOLE, and that is measured, not assumed. Three DEFINED terms
+ * in this deck are matched only inside a fence and all three are on the slide: `CDN` is
+ * a mermaid node LABEL (`C3(["CDN verifies"])`), and `MVP` is printed on a `code`-class
+ * worksheet slide in two chapters. Stripping fences wholesale — the obvious fix — would
+ * have deleted three glossary entries a reader genuinely needs.
+ *
+ * The check on all of this is the RENDERED ARTIFACT, not this function: every term a
+ * chapter keeps is asserted to appear in that chapter's committed PDF text.
  */
 function readerText(body) {
-  return body.replace(/^[ \t]*(?:flowchart|graph|direction)[ \t]+(?:TB|TD|BT|RL|LR)[ \t]*$/gm, '');
+  return body.replace(/^([ \t]*)```mermaid[^\n]*\n([\s\S]*?)^\1```/gm, (_all, _indent, inner) =>
+    [...inner.matchAll(/"([^"]*)"|\[([^[\]"]*)\]|\(([^()"]*)\)|\{([^{}"]*)\}/g)]
+      .map((m) => m[1] ?? m[2] ?? m[3] ?? m[4])
+      .join(' '),
+  );
 }
 
 /**
@@ -556,16 +601,18 @@ function composeChapter(frontMatter, slides, c, items) {
   const wrapped = [titleSlide(c), agendaSlide(c, items), orientSlide(c), ...body];
   const close = closingSlide(c);
   if (close) wrapped.push(close);
-  assertNoRelativeAssets(body.join('\n\n'), c);
+  assertNoRelativeAssets(`${frontMatter}\n${body.join('\n\n')}`, c);
   const bodyText = wrapped.join('\n\n');
   const out = `---\n${chapterFrontMatter(frontMatter, c, bodyText)}\n---\n\n${wrapped.join('\n\n---\n\n')}\n`;
 
-  // RE-SPLIT WHAT WE JUST WROTE, with the same parser that cut it. The slides came out
-  // of the omnibus at boundaries the engine drew; they go back in joined by a literal
-  // `---`, and re-emission is its own chance to be wrong — a chunk ending in a line of
-  // text with no blank line after it would make the following `---` a setext heading and
-  // silently weld two slides into one. Counting the chapter's own boundaries is what
-  // proves the re-emission preserved them.
+  // RE-SPLIT WHAT WE JUST WROTE, with the same parser that cut it — cheap insurance, and
+  // NOT the proof the commit that added it claimed. Its reach, honestly: the joiner
+  // always writes a blank line before `---`, so the setext case originally cited here
+  // cannot arise, and the chunks came out of `splitSlideChunks` so none carries a
+  // top-level `hr`. It is also count-only, so a compensating pair (one boundary lost,
+  // one gained) would pass. What it does catch is a wrapper slide that stops producing
+  // tokens, a body substituted from somewhere other than the split, and any future
+  // change to the joiner.
   const n = chapterSlideCount(out);
   if (n !== wrapped.length) {
     throw new Error(
@@ -588,10 +635,15 @@ function chapterSlideCount(doc) {
  *  The omnibus carries no images today; this refuses rather than rewrites, because
  *  rewriting would break the one property the chapters rest on — that every body is the
  *  omnibus's own bytes. */
-function assertNoRelativeAssets(body, c) {
-  const img = body.match(/!\[[^\]]*\]\((?!https?:|data:|#|\/)([^)\s]+)/);
-  const bg = body.match(/_backgroundImage:\s*url\(\s*['"]?(?!https?:|data:|\/)([^)'"\s]+)/);
-  const hit = img || bg;
+function assertNoRelativeAssets(text, c) {
+  // The FRONT MATTER is scanned too, not just the slides. A deck-level
+  // `backgroundImage:` is copied verbatim into all thirteen chapters, which makes it the
+  // highest-blast-radius relative path in the file, and it was the one thing this guard
+  // never looked at.
+  const img = text.match(/!\[[^\]]*\]\((?!https?:|data:|#|\/)([^)\s]+)/);
+  const bg = text.match(/_?[bB]ackgroundImage:\s*(?:url\(\s*)?['"]?(?!https?:|data:|\/)([^)'"\s]+)/);
+  const img2 = text.match(/<img\b[^>]*\ssrc=["'](?!https?:|data:|\/)([^"']+)/);
+  const hit = img || bg || img2;
   if (hit) {
     throw new Error(
       `chapter ${c.n} (${c.slug}) carries the relative asset path \`${hit[1]}\`, which would ` +
@@ -659,8 +711,9 @@ node lattice-emulator.js examples/system-design/ch07-the-network-kit.md examples
 function main(argv) {
   const check = argv.includes('--check');
   const src = fs.readFileSync(OMNIBUS, 'utf8');
-  const { frontMatter, slides } = splitDeck(src);
-  const chapters = ranges(slides);
+  const deck = splitDeck(src);
+  const { frontMatter, slides } = deck;
+  const chapters = ranges(deck);
 
   const wanted = new Map();
   const items = agendaItems(slides);

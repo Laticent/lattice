@@ -26,24 +26,38 @@ const path = require('node:path');
 
 const chapters = require('../../../tools/build-system-design-chapters');
 const { classify } = require('../../../tools/build-staged-pdfs');
-const { frontMatterBlockOf } = require('../../../lib/core/slide-boundaries.mjs');
 const { acronymEntries } = require('../../../lib/core/resolve-captions.mjs');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const OMNIBUS = path.join(ROOT, 'examples', 'system-design-foundations.md');
 
 const src = fs.readFileSync(OMNIBUS, 'utf8');
-const { frontMatter, slides } = chapters.splitDeck(src);
-const ranges = chapters.ranges(slides);
+const deck = chapters.splitDeck(src);
+const { frontMatter, slides } = deck;
+const ranges = chapters.ranges(deck);
 const items = chapters.agendaItems(slides);
 const composed = new Map(ranges.map((c) => [c.slug, chapters.composeChapter(frontMatter, slides, c, items)]));
 
 test('system-design chapters — the cut', async (t) => {
-  await t.test('covers the deck from the first anchor to the last slide, with no gaps', () => {
-    assert.equal(ranges.at(-1).to, slides.length, 'the last chapter runs to the end of the deck');
-    for (let i = 1; i < ranges.length; i++) {
-      assert.equal(ranges[i].from, ranges[i - 1].to, `chapter ${i + 1} starts where chapter ${i} ends`);
+  await t.test('marks exactly the deck\'s 14 divider slides, and nothing else', () => {
+    // Pinned because "every slide is a divider" is a NO-OP on this omnibus — no content
+    // slide happens to carry an anchor eyebrow — so it survived every other assertion.
+    // 14 = the eight `Part` dividers plus the six kit dividers; thirteen are anchors.
+    assert.equal(deck.dividers.size, 14);
+    assert.equal(deck.dividers.has(0), false, 'the title slide is not a divider');
+    assert.equal(deck.dividers.has(1), false, 'nor the agenda');
+    for (const c of ranges) assert.equal(deck.dividers.has(c.from), true);
+  });
+
+  await t.test('starts each chapter on the divider its anchor names', () => {
+    // Derived INDEPENDENTLY of ranges(). The arm this replaces asserted
+    // `ranges[i].from === ranges[i-1].to`, which is the same ternary compared to
+    // itself and true for any `starts`, including a wrong one.
+    for (const c of ranges) {
+      assert.ok(deck.dividers.has(c.from), `chapter ${c.n} does not start on a divider`);
+      assert.equal(chapters.eyebrowOf(slides[c.from]), c.anchor, `chapter ${c.n} anchor`);
     }
+    assert.equal(ranges.at(-1).to, slides.length, 'the last chapter runs to the end of the deck');
   });
 
   await t.test('assigns every covered slide to exactly one chapter', () => {
@@ -63,31 +77,50 @@ test('system-design chapters — the cut', async (t) => {
     assert.match(slides[1], /_class: agenda/);
   });
 
-  await t.test('finds an anchor only on a DIVIDER, so a repeated eyebrow is harmless', () => {
-    // Repeated eyebrows are this deck's idiom — `Your turn` alone repeats many times —
-    // so the anchor scan must not be a global text search. An earlier version threw
-    // unless an eyebrow matched exactly once deck-wide, which would have turned writing
-    // `Security` on an ordinary slide into a hard failure of `npm run build`.
-    const eyebrows = slides.map((s) => chapters.eyebrowOf(s)).filter(Boolean);
-    const repeated = eyebrows.filter((e, i) => eyebrows.indexOf(e) !== i);
-    assert.ok(repeated.length > 0, 'the deck is expected to repeat eyebrows; if not, this arm proves nothing');
+  await t.test('ignores a repeated eyebrow on a NON-divider slide', () => {
+    // Scoping to dividers is what lets a generic word like `Security` be an anchor.
+    // The arm this replaces built a decoy deck and then never called `ranges` on it,
+    // so `isDivider = () => true` passed all 38 assertions.
+    const decoy = slides.slice();
+    decoy.splice(ranges[6].from, 0, '<!-- _class: content -->\n\n`Network`\n\nprose that merely quotes the eyebrow');
+    const shifted = new Set([...deck.dividers].map((i) => (i >= ranges[6].from ? i + 1 : i)));
+    const after = chapters.ranges({ slides: decoy, dividers: shifted });
+    assert.equal(after[6].from, ranges[6].from + 1, 'the real divider shifted by one, and the cut follows IT');
+    assert.equal(after[6].to - after[6].from, ranges[6].to - ranges[6].from, 'chapter 7 is unchanged');
+    assert.equal(after[5].to - after[5].from, ranges[5].to - ranges[5].from + 1, 'the decoy lands in chapter 6, where it sits');
+  });
 
-    const deck = [
-      '---', 'marp: true', '---', '',
-      '<!-- _class: divider -->', '', '`Alpha`', '',
-      '---', '',
-      '<!-- _class: content -->', '', '`Alpha`', '', 'a decoy on a non-divider slide', '',
-      '---', '',
-      '<!-- _class: divider -->', '', '`Beta`', '',
-    ].join('\n');
-    const { slides: s2 } = chapters.splitDeck(deck);
-    assert.equal(chapters.eyebrowOf(s2[1]), 'Alpha', 'the decoy really does carry the same eyebrow');
+  await t.test('a DUPLICATED divider anchor is a loud error, not a silent mis-cut', () => {
+    // The regression this pins: a "first divider at or after the previous chapter" rule
+    // looks equivalent to uniqueness and is not. Adding one `Network` recap divider
+    // inside the compute kit silently moved five slides from chapter 6 to chapter 7 —
+    // ch06 10 slides -> 5, ch07 11 -> 17 — and every gate regenerated to agree with it.
+    const hacked = slides.slice();
+    const at = ranges[5].from + 5;
+    hacked.splice(at, 0, '<!-- _class: divider -->\n\n`Network`\n\n## A look ahead at the next kit.');
+    const dividers = new Set([...deck.dividers].map((i) => (i >= at ? i + 1 : i)));
+    dividers.add(at);
+    assert.throws(
+      () => chapters.ranges({ slides: hacked, dividers }),
+      /marks 2 divider slides/,
+    );
   });
 
   await t.test('a missing anchor is a loud error naming the chapter, not a shifted cut', () => {
     assert.throws(
-      () => chapters.ranges(['', '<!-- _class: divider -->\n\n`Nowhere`']),
-      /no divider slide with the eyebrow .* cannot be cut/s,
+      () => chapters.ranges({ slides: ['', '<!-- _class: divider -->\n\n`Nowhere`'], dividers: new Set([1]) }),
+      /marks 0 divider slides .*cannot be cut/s,
+    );
+  });
+
+  await t.test('anchors that appear out of order against the deck are an error', () => {
+    // Exercised on a synthetic deck of nothing but the thirteen anchor dividers, with
+    // two swapped — the ordering branch is otherwise unreachable from a real omnibus.
+    const fake = chapters.CHAPTERS.map((c) => `<!-- _class: divider -->\n\n\`${c.anchor}\``);
+    [fake[3], fake[4]] = [fake[4], fake[3]];
+    assert.throws(
+      () => chapters.ranges({ slides: fake, dividers: new Set(fake.map((_, i) => i)) }),
+      /out of order against the deck/,
     );
   });
 });
@@ -143,24 +176,49 @@ test('system-design chapters — the acronym trim', async (t) => {
     assert.deepEqual([...chapters.acronymRegistry(frontMatter).keys()], registry);
   });
 
-  await t.test('keeps every term the chapter says, and no term it does not', () => {
+  await t.test('keeps exactly these terms, per chapter', () => {
+    // PINNED LITERALS, not a re-derivation. The arm this replaces called the tool's own
+    // `readerText` and rebuilt its escape regex on the same input, so it was blind to a
+    // wrong notion of "used" — with `readerText` stubbed to the identity it still passed
+    // while seven chapters regained `TB`. Every set below was checked against that
+    // chapter's COMMITTED PDF text: each term appears on a rendered page, and no omnibus
+    // term absent from this list appears on one.
+    const want = {
+      ch01: ['VPN'], ch02: ['VPN'], ch03: ['MVP'], ch04: ['MVP'],
+      ch05: ['ACID', 'API', 'CAP', 'CDN', 'BASE', 'CPU'],
+      ch06: ['API'], ch07: ['API', 'CDN', 'DNS', 'L7'], ch08: [],
+      ch09: ['SLA', 'SLI', 'SLO'], ch10: ['API', 'CDN', 'HSM', 'TLS'],
+      ch11: ['API', 'CDN', 'MVP', 'GB', 'POST', 'PUT', 'TB', 'TTL'],
+      ch12: ['MVP'], ch13: ['CDN', 'MVP'],
+    };
     for (const c of ranges) {
-      const out = composed.get(c.slug);
-      const kept = new Set(acronymEntries(out).keys());
-      const body = chapters.readerText(out.slice(frontMatterBlockOf(out).length));
-      for (const term of registry) {
-        const used = new RegExp(`(?<![A-Za-z0-9])${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9])`).test(body);
-        assert.equal(kept.has(term), used, `chapter ${c.n} (${c.slug}): ${term} is ${used ? 'used but dropped' : 'unused but kept'}`);
-      }
+      const key = `ch${String(c.n).padStart(2, '0')}`;
+      assert.deepEqual([...acronymEntries(composed.get(c.slug)).keys()], want[key], key);
     }
   });
 
-  await t.test('a mermaid DIRECTION keyword does not earn a term', () => {
-    // `flowchart TB` is diagram syntax, not a word on the slide. It alone used to keep
-    // `TB` in seven chapters. The scale kit says "TB" nowhere else.
+  await t.test('mermaid SYNTAX earns nothing — neither a direction nor a node id', () => {
+    // Two separate sources of phantom terms, found one commit apart. `flowchart TB` kept
+    // `TB` in seven chapters; the node identifier in `PUSH --> CI([...])` kept `CI` in
+    // chapter 2, where `pdftotext` finds no `CI` on any rendered page.
     const scale = composed.get('the-scale-kit');
     assert.match(scale, /flowchart TB/, 'the scale kit really does contain the keyword');
-    assert.equal(acronymEntries(scale).has('TB'), false, 'TB is kept only by mermaid syntax');
+    assert.equal(acronymEntries(scale).has('TB'), false, 'TB is a direction keyword here');
+
+    const words = composed.get('the-words');
+    assert.match(words, /CI\(\["Build and test/, 'chapter 2 really does contain the node id');
+    assert.equal(acronymEntries(words).has('CI'), false, 'CI is a node identifier, not a label');
+  });
+
+  await t.test('readerText keeps mermaid LABELS and drops the syntax around them', () => {
+    // Asserted on a literal, independently of any chapter, so a stub cannot pass it.
+    const fence = ['```mermaid', 'flowchart TB', '  PUSH --> CI(["Build and test"])', '  CI --> REV{"Review"}', '```'].join('\n');
+    const seen = chapters.readerText(fence);
+    assert.match(seen, /Build and test/, 'a quoted label is visible');
+    assert.match(seen, /Review/, 'a braced label is visible');
+    assert.doesNotMatch(seen, /(?<![A-Za-z0-9])CI(?![A-Za-z0-9])/, 'a node id is not');
+    assert.doesNotMatch(seen, /flowchart|PUSH|REV/, 'nor a keyword, nor the other ids');
+    assert.equal(chapters.readerText('```js\nconst CI = 1;\n```'), '```js\nconst CI = 1;\n```', 'a non-mermaid fence is untouched');
   });
 
   await t.test('a term inside a fence that a READER sees still earns its entry', () => {
@@ -188,6 +246,59 @@ test('system-design chapters — the acronym trim', async (t) => {
   await t.test('actually trims — no chapter carries the whole registry', () => {
     const widest = Math.max(...ranges.map((c) => acronymEntries(composed.get(c.slug)).size));
     assert.ok(widest < registry.length, 'every chapter kept every term — the trim is a no-op');
+  });
+});
+
+test('system-design chapters — the guards actually guard', async (t) => {
+  const fm = 'marp: true\nheader: "System design"\nacronyms:\n';
+
+  await t.test('a regex metacharacter in a term is escaped, not interpreted', () => {
+    // The canonical key class admits `.` (resolve-captions.mjs: [A-Za-z0-9][\w.&/-]*),
+    // so an unescaped `v1.2` would match `v1X2` and keep a term the chapter never says.
+    const withDot = `${fm}  v1.2: { expansion: version one point two }`;
+    const kept = (body) => chapters.chapterFrontMatter(withDot, { n: 1, slug: 't' }, body);
+    assert.match(kept('we shipped v1.2 last week'), /v1\.2:/, 'the real term is kept');
+    assert.doesNotMatch(kept('we shipped v1X2 last week'), /v1\.2:/, 'a wildcard match must not keep it');
+  });
+
+  await t.test('an expansion needing quotes gets them, and survives the round trip', () => {
+    const tricky = `${fm}  X: { expansion: "a, b: c" }`;
+    const out = chapters.chapterFrontMatter(tricky, { n: 1, slug: 't' }, 'X is said here');
+    assert.equal(acronymEntries(`---\n${out}\n---\n`).get('X').expansion, 'a, b: c');
+  });
+
+  await t.test('a relative background image in the FRONT MATTER is refused', () => {
+    // Copied verbatim into all thirteen chapters, so it is the highest-blast-radius
+    // relative path in the file — and the branch the guard never looked at.
+    assert.throws(
+      () => chapters.composeChapter(`${frontMatter}\nbackgroundImage: url('assets/x.png')`, slides, ranges[0], items),
+      /relative asset path/,
+    );
+  });
+
+  await t.test('a relative <img src> in a body slide is refused', () => {
+    const hacked = slides.slice();
+    hacked[ranges[0].from] = `${hacked[ranges[0].from]}\n\n<img src="assets/x.png">`;
+    assert.throws(() => chapters.composeChapter(frontMatter, hacked, ranges[0], items), /relative asset path/);
+  });
+
+  await t.test('the re-split assertion fires when a body would change the boundaries', () => {
+    const hacked = slides.slice();
+    hacked[ranges[0].from] = 'one\n\n***\n\ntwo';
+    assert.throws(
+      () => chapters.composeChapter(frontMatter, hacked, ranges[0], items),
+      /the parser reads \d+ in the output/,
+    );
+  });
+
+  await t.test('a CR-only source still finds its acronyms', () => {
+    // frontMatterBlockOf accepts a lone \r; the acronym parser's blockLines does not.
+    // Unnormalized, a CR-only omnibus parsed as 232 slides with a registry of ZERO —
+    // thirteen chapters with no glossary, and the re-emission guard comparing 0 to 0.
+    const cr = src.replace(/\n/g, '\r');
+    const crDeck = chapters.splitDeck(cr);
+    assert.equal(crDeck.slides.length, slides.length);
+    assert.equal(chapters.acronymRegistry(crDeck.frontMatter).size, 21);
   });
 });
 
