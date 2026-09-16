@@ -1,7 +1,7 @@
 - **Added: `examples/system-design/`, the 232-slide system-design tutorial cut into
   thirteen standalone chapter decks.** `examples/system-design-foundations.md` is one
   file and one 233-page PDF, so a reader who wants the network kit carried the other
-  222 slides to get it. The thirteen chapters follow the seams the deck already drew —
+  221 slides to get it. The thirteen chapters follow the seams the deck already drew —
   its seven Parts, with Part four (108 slides, 46% of the deck on its own) opened out
   into its six kits: data 44, compute 10, network 11, scale 12, reliability 13,
   security 18. Each chapter stands alone: its own title slide, an agenda marking which
@@ -21,7 +21,7 @@
   is load-bearing rather than tidy: `glossary: auto` renders every registry entry
   carrying a `definition` (`lib/core/glossary-auto.mjs` `glossaryEntries`), so an
   untrimmed copy would have ended all thirteen PDFs with the same appendix, defining
-  terms the chapter never used. The network chapter keeps 5 of the omnibus's 24 terms;
+  terms the chapter never used. The network chapter keeps 4 of the omnibus's 21 terms;
   three chapters define none and correctly render no glossary at all.
 - **New script `chapters:system-design`.** Rebuilds the chapters and their index from
   the omnibus. The thirteen chapter PDFs are rebuilt by the existing pre-commit

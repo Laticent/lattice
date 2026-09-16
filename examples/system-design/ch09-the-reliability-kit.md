@@ -8,7 +8,6 @@ glossary: auto
 header: "System design · Chapter 9"
 acronyms:
   SLA: { expansion: service level agreement, definition: "The external promise, with money attached, always looser than the objective." }
-  TB: { expansion: terabytes }
   SLI: { expansion: service level indicator, definition: "The measurement: the share of requests served inside your target." }
   SLO: { expansion: service level objective, definition: "Your internal target for that measurement, over a stated window." }
 ---

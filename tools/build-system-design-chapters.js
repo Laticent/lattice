@@ -4,8 +4,9 @@
  * build-system-design-chapters.js — cut examples/system-design-foundations.md into
  * the thirteen standalone chapter decks under examples/system-design/.
  *
- * WHY THIS EXISTS. The tutorial is 233 slides in one file, and a reader who wants
- * the network kit should not have to carry the other 222. But a hand-split copy is
+ * WHY THIS EXISTS. The tutorial is 232 slides in one file (233 PDF pages, with its
+ * generated glossary), and a reader who wants the network kit should not have to carry
+ * the other 221. But a hand-split copy is
  * the same prose in two places, and nothing in the tree would notice when they
  * diverged — so the chapters are GENERATED and byte-checked like every other
  * artifact behind `build:check`. The omnibus stays the single source of truth for
@@ -33,7 +34,14 @@
  * WHERE A CHAPTER STARTS. By the EYEBROW TEXT of the divider slide that opens it
  * (`Part zero`, `Data`, `Compute`, …), never a slide index — an index rots the
  * first time somebody inserts a slide, silently and in the middle of a chapter.
- * An anchor that no longer matches is an error, not a shifted cut.
+ * An anchor with no divider is an error, not a shifted cut. See `ranges` for why the
+ * search is scoped to dividers and to what follows the previous chapter.
+ *
+ * WHAT THIS FILE DOES NOT DECIDE FOR ITSELF. Two questions the tree already answers
+ * once are asked, not re-derived: where a deck's slides break (`splitSlideChunks`,
+ * lib/core/slide-boundaries.mjs) and what its `acronyms:` registry holds
+ * (`acronymEntries`, lib/core/resolve-captions.mjs). An earlier draft hand-rolled both
+ * and was wrong about both — see the note beside the requires. HARD RULE #1.
  *
  * FILENAMES START WITH A LETTER (`ch01-…`, not `01-…`) ON PURPOSE. The pre-commit
  * PDF rebuild classifies a subdirectory deck with
@@ -50,10 +58,26 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// HARD RULE #1: both of these questions are already answered ONCE in the tree, and
+// this tool asks them rather than re-deriving them. `slide-boundaries.mjs` is "THE ONE
+// derivation of a deck's slide boundaries", written because every caller-side splitter
+// in the tree had derived that set independently and each one differently; an earlier
+// draft of this file was splitter number four, and it disagreed with the engine on
+// `***`, `___`, `----`, `- - -`, an indented `---`, a setext heading over `---`, and a
+// four-backtick fence containing a three-backtick line. `resolve-captions.mjs` is the
+// same for the `acronyms:` registry: it accepts digit-leading (`5G`) and punctuated
+// (`I/O`) terms, block-scalar entries and comment lines inside the block, all of which
+// the line parser this replaces got wrong — it stopped at the first line it could not
+// read, so one `#` comment in the omnibus would have silently emptied every chapter's
+// glossary. Both are ESM; the CJS emulator already `require()`s this pair's neighbor
+// (`glossary-auto.mjs`), so the route is established.
+const { frontMatterBlockOf, splitSlideChunks } = require('../lib/core/slide-boundaries.mjs');
+const { acronymEntries } = require('../lib/core/resolve-captions.mjs');
+
 const ROOT = path.join(__dirname, '..');
 const OMNIBUS = path.join(ROOT, 'examples', 'system-design-foundations.md');
 const OUT_DIR = path.join(ROOT, 'examples', 'system-design');
-const FRONT_MATTER = /^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/;
+const FRONT_MATTER_INNER = /^---(?:\r\n|\r|\n)([\s\S]*?)(?:\r\n|\r|\n)---[ \t]*(?:\r\n|\r|\n)?$/;
 
 /**
  * The cut. `anchor` is the eyebrow of the divider slide the chapter opens on; a
@@ -273,42 +297,23 @@ const CHAPTERS = Object.freeze([
 ]);
 
 /**
- * Split a deck into its front-matter block and its slides.
+ * Split a deck into its front-matter block and its slides — by asking the engine's
+ * own parser, never a regex over `---`.
  *
- * FENCE-AWARE, and that is not decoration. A bare `---` line inside a ``` or ~~~
- * block is code, not a slide break — markdown-it closes the fence before any
- * thematic break is considered, so the renderer keeps it. A naive line split
- * would cut a slide in half there, and the halves would be re-emitted with their
- * interior whitespace trimmed, silently corrupting a code slide. The omnibus has
- * no such line today; this keeps the day someone adds one from being a mystery.
- *
- * The split is asserted to round-trip: rejoining the slides must reproduce the
- * body byte for byte, or the cut is wrong in a way the chapters would inherit.
+ * `splitSlideChunks` runs markdown-it's block parser and reads the top-level `hr`
+ * tokens, which is the only way to get this right: `***`, `___`, `----`, `- - -` and
+ * an indented `---` are all separators the engine honors, while `Interlude` over a
+ * `---` is a setext HEADING and no boundary at all. A chapter cut on the wrong side of
+ * any of those would ship a slide the omnibus does not have, which is exactly the claim
+ * this tool exists to make impossible — and the round-trip assertion the hand-rolled
+ * splitter carried caught NONE of them, because every one of those bodies rejoins with
+ * `---` byte for byte while splitting differently.
  */
 function splitDeck(src) {
-  const m = src.match(FRONT_MATTER);
-  if (!m) throw new Error('omnibus has no front matter');
-  const body = src.slice(m[0].length);
-  const lines = body.split('\n');
-  const slides = [];
-  let current = [];
-  let fence = null;
-  for (const line of lines) {
-    const open = line.match(/^\s*(```+|~~~+)/);
-    if (fence === null && open) fence = open[1][0].repeat(3);
-    else if (fence !== null && open && line.trim().startsWith(fence)) fence = null;
-    else if (fence === null && /^---[ \t]*\r?$/.test(line)) {
-      slides.push(current.join('\n'));
-      current = [];
-      continue;
-    }
-    current.push(line);
-  }
-  slides.push(current.join('\n'));
-  if (slides.join('\n---\n') !== body) {
-    throw new Error('slide split does not round-trip the omnibus body — the cut cannot be trusted');
-  }
-  return { frontMatter: m[1], slides };
+  const block = frontMatterBlockOf(src);
+  const inner = FRONT_MATTER_INNER.exec(block);
+  if (!inner) throw new Error(`${path.relative(ROOT, OMNIBUS)} has no front matter to inherit`);
+  return { frontMatter: inner[1], slides: splitSlideChunks(src.slice(block.length)).chunks };
 }
 
 /** A slide's eyebrow: the first paragraph that is nothing but one inline-code span. */
@@ -322,29 +327,39 @@ function eyebrowOf(slide) {
   return null;
 }
 
-/** Resolve each chapter's slide range from its anchor eyebrow. Anchors must be
- *  present, unique, and in manifest order — anything else is an error, because a
- *  silently shifted cut lands in the middle of a chapter. */
+/**
+ * Resolve each chapter's slide range: its anchor is the eyebrow of the FIRST DIVIDER
+ * slide carrying that text at or after the previous chapter's start.
+ *
+ * Two narrowings, and both matter. Scoping to `divider` slides and to what follows the
+ * previous anchor is what lets a generic word like `Security` be an anchor at all:
+ * repeated eyebrows are this deck's own idiom — 224 of its 232 slides carry one across
+ * 199 distinct strings, and `Your turn` alone repeats 14 times — so a rule demanding
+ * global uniqueness would turn an ordinary prose edit (writing `Security` on a slide
+ * inside the Instagram chapter) into a hard failure of `npm run build` that only an
+ * edit to THIS FILE could clear.
+ *
+ * A MISSING anchor still fails loudly, because a cut that cannot be resolved must never
+ * be guessed at, and the message says which slide the search started from.
+ */
 function ranges(slides) {
-  const starts = CHAPTERS.map((c) => {
-    const hits = slides
-      .map((s, i) => (eyebrowOf(s) === c.anchor ? i : -1))
-      .filter((i) => i !== -1);
-    if (hits.length !== 1) {
+  const isDivider = (s) => /<!--\s*_class:[^>]*\bdivider\b/.test(s);
+  const starts = [];
+  let from = 0;
+  for (const c of CHAPTERS) {
+    let at = -1;
+    for (let i = from; i < slides.length; i++) {
+      if (isDivider(slides[i]) && eyebrowOf(slides[i]) === c.anchor) { at = i; break; }
+    }
+    if (at === -1) {
       throw new Error(
-        `anchor \`${c.anchor}\` matches ${hits.length} slides in the omnibus (expected exactly 1) — ` +
-          'the chapter cut cannot be resolved. Fix the anchor in tools/build-system-design-chapters.js.',
+        `no divider slide with the eyebrow \`${c.anchor}\` at or after slide ${from} of ` +
+          `${path.relative(ROOT, OMNIBUS)} — chapter ${starts.length + 1} (${c.slug}) cannot be cut. ` +
+          'Fix the anchor in tools/build-system-design-chapters.js, or restore the divider.',
       );
     }
-    return hits[0];
-  });
-  for (let i = 1; i < starts.length; i++) {
-    if (starts[i] <= starts[i - 1]) {
-      throw new Error(
-        `anchor \`${CHAPTERS[i].anchor}\` precedes \`${CHAPTERS[i - 1].anchor}\` in the omnibus — ` +
-          'CHAPTERS is out of order against the deck.',
-      );
-    }
+    starts.push(at);
+    from = at + 1;
   }
   return CHAPTERS.map((c, i) => ({
     ...c,
@@ -354,24 +369,64 @@ function ranges(slides) {
   }));
 }
 
-/** The omnibus `acronyms:` entries, as ordered [key, line] pairs. Line-based on
- *  purpose: each entry is one line in this registry and is copied through
- *  verbatim, so a `definition` containing a colon or a brace survives. */
-function acronymLines(frontMatter) {
-  const out = [];
-  let inside = false;
-  for (const line of frontMatter.split(/\r?\n/)) {
-    if (/^acronyms:[ \t]*$/.test(line)) { inside = true; continue; }
-    if (!inside) continue;
-    const m = line.match(/^[ \t]+([A-Za-z][A-Za-z0-9]*):[ \t]/);
-    if (m) { out.push([m[1], line]); continue; }
-    if (line.trim()) break; // a non-indented key ends the block
-  }
-  return out;
+/** The acronym registry of a front-matter block, via the canonical parser — term →
+ *  `{ expansion, definition? }`. Wrapped back into a document because that parser's
+ *  entry point takes a deck source, and there must not be a second way to read this. */
+function acronymRegistry(frontMatter) {
+  return acronymEntries(`---\n${frontMatter}\n---\n`);
 }
 
-/** Front matter for one chapter: the omnibus's scalars, a per-chapter `header:`,
- *  and only the acronyms this chapter says. */
+/**
+ * The text of a chapter as a READER meets it, for deciding which acronyms that chapter
+ * earns. Only mermaid's direction keywords come out.
+ *
+ * It is tempting to strip code fences wholesale, and that is wrong here — measured, not
+ * assumed. Three DEFINED terms in this deck are matched only inside a fence, and all
+ * three are on the slide: `CDN` is a node label in a mermaid diagram (`C3(["CDN
+ * verifies"])`), and `MVP` sits in the printed worksheet on two `code`-class slides.
+ * Stripping fences would have deleted three glossary entries a reader genuinely needs.
+ *
+ * What is NOT on the slide is `flowchart TB` — diagram syntax, where `TB` means
+ * top-to-bottom. That match alone keeps `TB` in seven chapters' registries today. It is
+ * harmless while `TB` carries no `definition`, and it would stop being harmless the
+ * moment somebody gave it one, which is the whole reason to remove it now.
+ */
+function readerText(body) {
+  return body.replace(/^[ \t]*(?:flowchart|graph|direction)[ \t]+(?:TB|TD|BT|RL|LR)[ \t]*$/gm, '');
+}
+
+/**
+ * One `acronyms:` entry, re-emitted in the omnibus's own house style: a bare `expansion`
+ * where that is unambiguous, and a `definition` ALWAYS quoted.
+ *
+ * The definition is quoted unconditionally rather than only when it has to be, because
+ * the alternative is a chapter whose front matter is styled differently from the deck it
+ * came from, one term at a time, by whether that sentence happens to contain a comma. A
+ * definition is a sentence; sentences take quotes here. The caller parses the result back
+ * and compares, so a shape this cannot carry fails loudly rather than shipping.
+ */
+function serializeAcronym(term, entry) {
+  const bare = (v) => (/[,{}[\]:#"'\n]/.test(v) || v !== v.trim() ? JSON.stringify(v) : v);
+  const parts = [`expansion: ${bare(entry.expansion)}`];
+  if (entry.definition) parts.push(`definition: ${JSON.stringify(entry.definition)}`);
+  return `  ${term}: { ${parts.join(', ')} }`;
+}
+
+/**
+ * Front matter for one chapter: the omnibus's scalars, a per-chapter `header:`, and only
+ * the acronyms this chapter earns.
+ *
+ * The trim is load-bearing rather than tidy. `glossary: auto` renders every registry
+ * entry that carries a `definition` (`lib/core/glossary-auto.mjs` `glossaryEntries`) —
+ * usage never enters into it — so an untrimmed copy would end all thirteen PDFs with the
+ * same appendix, defining terms the chapter never says.
+ *
+ * Entries are RE-EMITTED from the parsed registry rather than spliced out of the source
+ * as raw lines, and the result is parsed back and compared before it is returned. A
+ * splice cannot represent a block-scalar entry and silently mangles one; this way a
+ * shape this serializer cannot carry fails loudly, here, instead of shipping a chapter
+ * whose glossary quietly lost a term.
+ */
 function chapterFrontMatter(frontMatter, chapter, bodyText) {
   const scalars = [];
   let inside = false;
@@ -384,15 +439,40 @@ function chapterFrontMatter(frontMatter, chapter, bodyText) {
     if (/^header:/.test(line)) { scalars.push(`header: "System design · Chapter ${chapter.n}"`); continue; }
     if (line.trim()) scalars.push(line);
   }
-  const used = acronymLines(frontMatter).filter(([key]) =>
-    new RegExp(`(?<![A-Za-z0-9])${key}(?![A-Za-z0-9])`).test(bodyText),
-  );
-  const lines = [...scalars];
-  if (used.length) {
-    lines.push('acronyms:');
-    for (const [, line] of used) lines.push(line);
+  const reader = readerText(bodyText);
+  const used = new Map();
+  for (const [term, entry] of acronymRegistry(frontMatter)) {
+    if (new RegExp(`(?<![A-Za-z0-9])${escapeRe(term)}(?![A-Za-z0-9])`).test(reader)) used.set(term, entry);
   }
-  return lines.join('\n');
+  const lines = [...scalars];
+  if (used.size) {
+    lines.push('acronyms:');
+    for (const [term, entry] of used) lines.push(serializeAcronym(term, entry));
+  }
+  const out = lines.join('\n');
+
+  const back = acronymRegistry(out);
+  if (back.size !== used.size) {
+    throw new Error(`chapter ${chapter.n} (${chapter.slug}): re-emitted ${used.size} acronyms, parsed back ${back.size}`);
+  }
+  for (const [term, entry] of used) {
+    const got = back.get(term);
+    if (!got || got.expansion !== entry.expansion || (got.definition ?? '') !== (entry.definition ?? '')) {
+      throw new Error(
+        `chapter ${chapter.n} (${chapter.slug}): acronym \`${term}\` does not survive re-emission — ` +
+          'serializeAcronym cannot carry this entry shape. Fix the serializer rather than the deck.',
+      );
+    }
+  }
+  return out;
+}
+
+/** A term goes into a RegExp, and the canonical registry admits `.`, `&`, `/` and `-`
+ *  in a key (`resolve-captions.mjs`: `[A-Za-z0-9][\w.&/-]*`), so `I/O` unescaped would
+ *  make `.` a wildcard. The narrower key class this replaces made that unreachable —
+ *  which is why widening it and escaping had to land together. */
+function escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -476,8 +556,49 @@ function composeChapter(frontMatter, slides, c, items) {
   const wrapped = [titleSlide(c), agendaSlide(c, items), orientSlide(c), ...body];
   const close = closingSlide(c);
   if (close) wrapped.push(close);
+  assertNoRelativeAssets(body.join('\n\n'), c);
   const bodyText = wrapped.join('\n\n');
-  return `---\n${chapterFrontMatter(frontMatter, c, bodyText)}\n---\n\n${wrapped.join('\n\n---\n\n')}\n`;
+  const out = `---\n${chapterFrontMatter(frontMatter, c, bodyText)}\n---\n\n${wrapped.join('\n\n---\n\n')}\n`;
+
+  // RE-SPLIT WHAT WE JUST WROTE, with the same parser that cut it. The slides came out
+  // of the omnibus at boundaries the engine drew; they go back in joined by a literal
+  // `---`, and re-emission is its own chance to be wrong — a chunk ending in a line of
+  // text with no blank line after it would make the following `---` a setext heading and
+  // silently weld two slides into one. Counting the chapter's own boundaries is what
+  // proves the re-emission preserved them.
+  const n = chapterSlideCount(out);
+  if (n !== wrapped.length) {
+    throw new Error(
+      `chapter ${c.n} (${c.slug}): composed ${wrapped.length} slides but the parser reads ${n} ` +
+        'in the output — re-emitting the omnibus chunks changed where the slides break.',
+    );
+  }
+  return out;
+}
+
+/** The slide count of a COMPOSED chapter, read by the engine's parser rather than by
+ *  counting `---` lines — a chapter body carries fenced code, and a naive count would
+ *  both mis-report the index's `Pages` column and agree with itself when wrong. */
+function chapterSlideCount(doc) {
+  return splitDeck(doc).slides.length;
+}
+
+/** A chapter sits one directory deeper than the omnibus, so a relative asset path would
+ *  resolve from `examples/system-design/` and quietly render nothing in all thirteen.
+ *  The omnibus carries no images today; this refuses rather than rewrites, because
+ *  rewriting would break the one property the chapters rest on — that every body is the
+ *  omnibus's own bytes. */
+function assertNoRelativeAssets(body, c) {
+  const img = body.match(/!\[[^\]]*\]\((?!https?:|data:|#|\/)([^)\s]+)/);
+  const bg = body.match(/_backgroundImage:\s*url\(\s*['"]?(?!https?:|data:|\/)([^)'"\s]+)/);
+  const hit = img || bg;
+  if (hit) {
+    throw new Error(
+      `chapter ${c.n} (${c.slug}) carries the relative asset path \`${hit[1]}\`, which would ` +
+        'resolve from examples/system-design/ and break. Make it repo-absolute in the omnibus, ' +
+        'or teach this tool to rewrite it.',
+    );
+  }
 }
 
 function chapterPath(c) {
@@ -490,9 +611,8 @@ function chapterPath(c) {
  *  is a no-op otherwise, so three chapters correctly render none). */
 function pageCount(frontMatter, slides, c, items) {
   const out = composeChapter(frontMatter, slides, c, items);
-  const [, fm] = out.split(/^---[ \t]*$/m);
-  const defined = acronymLines(fm).some(([, line]) => /definition:/.test(line));
-  return out.split(/\r?\n---[ \t]*\r?\n/).length - 1 + (defined ? 1 : 0);
+  const defined = [...acronymRegistry(splitDeck(out).frontMatter).values()].some((e) => e.definition);
+  return chapterSlideCount(out) + (defined ? 1 : 0);
 }
 
 /** The index. Prose, not a deck — the repo deck linter walks this folder. */
@@ -589,4 +709,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { CHAPTERS, splitDeck, eyebrowOf, ranges, acronymLines, agendaItems, chapterFrontMatter, composeChapter, composeReadme, pageCount, chapterPath };
+module.exports = { CHAPTERS, splitDeck, eyebrowOf, ranges, acronymRegistry, readerText, serializeAcronym, agendaItems, chapterFrontMatter, composeChapter, chapterSlideCount, composeReadme, pageCount, chapterPath };

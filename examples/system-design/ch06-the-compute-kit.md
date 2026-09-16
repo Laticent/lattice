@@ -8,7 +8,6 @@ glossary: auto
 header: "System design · Chapter 6"
 acronyms:
   API: { expansion: application programming interface, definition: "The contract one system offers another: the operations and what they promise." }
-  TB: { expansion: terabytes }
 ---
 
 <!-- _class: title silent spectrum -->

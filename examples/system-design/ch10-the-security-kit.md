@@ -10,7 +10,6 @@ acronyms:
   API: { expansion: application programming interface, definition: "The contract one system offers another: the operations and what they promise." }
   CDN: { expansion: content delivery network, definition: "Caches near readers, so bytes travel a short distance instead of an ocean." }
   HSM: { expansion: hardware security module }
-  TB: { expansion: terabytes }
   TLS: { expansion: transport layer security, definition: "The encryption any connection crossing a network you do not own should have." }
 ---
 

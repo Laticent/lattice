@@ -11,7 +11,6 @@ acronyms:
   CDN: { expansion: content delivery network, definition: "Caches near readers, so bytes travel a short distance instead of an ocean." }
   DNS: { expansion: domain name system }
   L7: { expansion: layer seven }
-  TB: { expansion: terabytes }
 ---
 
 <!-- _class: title silent spectrum -->

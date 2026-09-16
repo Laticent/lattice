@@ -6,8 +6,6 @@ paginate: true
 profile: teaching
 glossary: auto
 header: "System design · Chapter 8"
-acronyms:
-  TB: { expansion: terabytes }
 ---
 
 <!-- _class: title silent spectrum -->

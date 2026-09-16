@@ -8,7 +8,6 @@ glossary: auto
 header: "System design · Chapter 2"
 acronyms:
   CI: { expansion: continuous integration }
-  TB: { expansion: terabytes }
   VPN: { expansion: virtual private network }
 ---
 

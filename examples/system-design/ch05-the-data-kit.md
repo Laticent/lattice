@@ -13,7 +13,6 @@ acronyms:
   CDN: { expansion: content delivery network, definition: "Caches near readers, so bytes travel a short distance instead of an ocean." }
   BASE: { expansion: basically available soft state eventual consistency, definition: "ACID's loose counterpart: answer under failure, let replicas converge later." }
   CPU: { expansion: central processing unit }
-  TB: { expansion: terabytes }
 ---
 
 <!-- _class: title silent spectrum -->
