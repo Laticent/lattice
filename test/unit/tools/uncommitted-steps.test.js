@@ -92,6 +92,11 @@ const EXPECTED_PR_OWNED = new Set([
   'build-split-treatments.js', // engineering/decisions/*.md
   'build-decisions-index.js', // engineering/decisions/README.md
   'build-gotchas-index.js', // engineering/gotchas.md
+  // Measured 2026-09-16 against a timestamped tree: its entire write set is the
+  // thirteen examples/system-design/ch*.md chapters plus that folder's README.md,
+  // every one of them tracked. The chapter PDFs are NOT in its write set — the
+  // pre-commit staged-PDF hook renders those, not the build.
+  'build-system-design-chapters.js',
 ]);
 
 test('built-not-committed build steps', async (t) => {
