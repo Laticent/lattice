@@ -40,7 +40,7 @@ Assume the boundary is already crossed. Least privilege is measured by what one 
 
 `Where this sits`
 
-## Chapter nine asked whether the copies fail apart. Ask it about keys.
+## Chapter nine asked if copies fail apart. Now ask about keys.
 
 Redundancy only helps when failures are independent, and the same question about credentials is this chapter: what one stolen key can reach. It assumes the boundary from chapter two and the dependency and quota practices from the kits before it. Six questions find the holes before somebody else does, and the chapter closes the shelf with a full discover-then-design pass on a registration spike.
 

@@ -39,7 +39,7 @@ Failure is the environment, not the exception. Redundancy only helps when the co
 
 `Where this sits`
 
-## The scale kit asked for admission control. This chapter is where it lives.
+## Scale asked for admission control. This is where it lives.
 
 Chapter eight’s third invariant asked you to shed load before the system collapses — a reliability pattern doing scale’s work. The two kits differ in the question they ask: chapter eight asks what happens when there is more of everything, this one asks what happens when one part of it stops. It assumes the four scaling moves and the tail latency from chapter eight.
 

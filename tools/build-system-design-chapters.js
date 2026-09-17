@@ -89,6 +89,11 @@ const FRONT_MATTER_INNER = /^---(?:\r\n|\r|\n)([\s\S]*?)(?:\r\n|\r|\n)---[ \t]*(
  * `closing: null` means the chapter already ends on the omnibus's own closing
  * slide and must not get a second one.
  */
+// ORIENTATION HEADINGS FIT ON ONE LINE — keep them at 63 characters or fewer.
+// Measured on the rendered 4K PDFs, not guessed: 62 and 63 set on one line, while 68
+// and 74 wrap and leave a one-word widow on line two ("keys." and "lives." alone). The
+// overflow oracle cannot see this — the slide still fits its frame — so it is pinned in
+// test/unit/tools/system-design-chapters.test.js instead.
 const CHAPTERS = Object.freeze([
   {
     slug: 'a-tuesday',
@@ -226,7 +231,7 @@ const CHAPTERS = Object.freeze([
     title: 'The Reliability Kit',
     standfirst:
       'Failure is the environment, not the exception. Redundancy only helps when the copies can fail apart.',
-    orientHeading: 'The scale kit asked for admission control. This chapter is where it lives.',
+    orientHeading: 'Scale asked for admission control. This is where it lives.',
     orientBody:
       'Chapter eight’s third invariant asked you to shed load before the system collapses — a reliability pattern doing scale’s work. The two kits differ in the question they ask: chapter eight asks what happens when there is more of everything, this one asks what happens when one part of it stops. It assumes the four scaling moves and the tail latency from chapter eight.',
     closingHeading:
@@ -242,7 +247,7 @@ const CHAPTERS = Object.freeze([
     title: 'The Security Kit',
     standfirst:
       'Assume the boundary is already crossed. Least privilege is measured by what one stolen credential can reach.',
-    orientHeading: 'Chapter nine asked whether the copies fail apart. Ask it about keys.',
+    orientHeading: 'Chapter nine asked if copies fail apart. Now ask about keys.',
     orientBody:
       'Redundancy only helps when failures are independent, and the same question about credentials is this chapter: what one stolen key can reach. It assumes the boundary from chapter two and the dependency and quota practices from the kits before it. Six questions find the holes before somebody else does, and the chapter closes the shelf with a full discover-then-design pass on a registration spike.',
     closingHeading:
@@ -274,7 +279,7 @@ const CHAPTERS = Object.freeze([
     title: 'Designing a Parking App',
     standfirst:
       'A driver scans a sticker on the bay and pays. One table, three rungs, and the bill is not the one you expected.',
-    orientHeading: 'Chapter eleven designed at the top of the ladder. This one climbs it.',
+    orientHeading: 'Chapter eleven designed at the top. This one climbs the ladder.',
     orientBody:
       'Same method, smaller product, and nothing is skipped on the way up: a one-table MVP, then a scaled rung, then an optimized one. The payment path is worked to the point you could implement it — deduplicated taps, a unique index over the bay, a webhook that writes only while the row still waits, and a sweep that asks the provider rather than guessing what silence means.',
     closingHeading:
@@ -290,7 +295,7 @@ const CHAPTERS = Object.freeze([
     title: 'The Map Back',
     standfirst:
       'Every entry landed somewhere specific in the feed design, and the most useful one is the entry we refused.',
-    orientHeading: 'This chapter reads the two designs back against the ten before them.',
+    orientHeading: 'Both designs, read back against the ten chapters before them.',
     orientBody:
       'It assumes chapter eleven’s feed design in detail and the six kits from chapters five to ten. Chapter four’s removal test runs on the finished design, six review questions run on the parking app from memory, and the deck closes on the two movements it did not teach — develop and deliver — which are the only real check on the two it did.',
     closing: null,

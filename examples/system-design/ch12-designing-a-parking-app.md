@@ -37,7 +37,7 @@ A driver scans a sticker on the bay and pays. One table, three rungs, and the bi
 
 `Where this sits`
 
-## Chapter eleven designed at the top of the ladder. This one climbs it.
+## Chapter eleven designed at the top. This one climbs the ladder.
 
 Same method, smaller product, and nothing is skipped on the way up: a one-table MVP, then a scaled rung, then an optimized one. The payment path is worked to the point you could implement it — deduplicated taps, a unique index over the bay, a webhook that writes only while the row still waits, and a sweep that asks the provider rather than guessing what silence means.
 

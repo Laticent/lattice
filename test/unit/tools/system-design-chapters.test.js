@@ -267,6 +267,20 @@ test('system-design chapters — the guards actually guard', async (t) => {
     assert.equal(acronymEntries(`---\n${out}\n---\n`).get('X').expansion, 'a, b: c');
   });
 
+  await t.test('every orientation heading fits on one rendered line', () => {
+    // MEASURED on the 4K PDFs, not guessed: 62 and 63 characters set on one line, 68 and
+    // 74 wrap and strand a single word on line two ("keys." and "lives." alone). The
+    // overflow oracle is blind to this — the slide still fits its frame — and so is
+    // lint:deck, whose heading budget is counted in WORDS. Without this arm, the next
+    // chapter added here re-introduces the widow silently.
+    for (const c of chapters.CHAPTERS) {
+      assert.ok(
+        c.orientHeading.length <= 63,
+        `${c.slug}: orientation heading is ${c.orientHeading.length} chars, over the measured 63-char one-line budget`,
+      );
+    }
+  });
+
   await t.test('a relative background image in the FRONT MATTER is refused', () => {
     // Copied verbatim into all thirteen chapters, so it is the highest-blast-radius
     // relative path in the file — and the branch the guard never looked at.

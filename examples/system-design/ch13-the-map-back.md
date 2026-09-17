@@ -38,7 +38,7 @@ Every entry landed somewhere specific in the feed design, and the most useful on
 
 `Where this sits`
 
-## This chapter reads the two designs back against the ten before them.
+## Both designs, read back against the ten chapters before them.
 
 It assumes chapter eleven’s feed design in detail and the six kits from chapters five to ten. Chapter four’s removal test runs on the finished design, six review questions run on the parking app from memory, and the deck closes on the two movements it did not teach — develop and deliver — which are the only real check on the two it did.
 
