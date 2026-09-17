@@ -217,7 +217,7 @@ const CHAPTERS = Object.freeze([
       'Every scaling change is one of four moves. Little’s law sizes the pool before anyone has to guess.',
     orientHeading: 'The cache and the replica return here as moves, not stores.',
     orientBody:
-      'Chapter five introduced them as places data lives. This chapter uses them as things you do when load grows: add a copy of something you already had, or move the work — to later, or to somewhere else. It assumes the data kit’s copies and the network kit’s latency budget. The average request is a fiction, and your users live in the tail.',
+      'Chapter five introduced the cache and the replica as places data lives. Here they are things you do when load grows. Four moves cover every scaling change: reduce, duplicate, defer, spread. This chapter assumes the data kit’s copies and the network kit’s latency budget, and it ends on the arithmetic that sizes a pool.',
     closingHeading:
       'Scale asks what happens when there is more.',
     closingBody:
