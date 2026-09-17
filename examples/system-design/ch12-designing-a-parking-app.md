@@ -22,7 +22,7 @@ A driver scans a sticker on the bay and pays. One table, three rungs, and the bi
 
 <!-- _class: agenda progress-6 -->
 
-## Thirteen chapters, gathered into six movements.
+## Thirteen chapters, gathered into six groups.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched

@@ -22,7 +22,7 @@ Ten ideas ran through Maya’s Tuesday. This chapter gives each one its name, an
 
 <!-- _class: agenda progress-2 -->
 
-## Thirteen chapters, gathered into six movements.
+## Thirteen chapters, gathered into six groups.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched

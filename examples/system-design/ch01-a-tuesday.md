@@ -22,7 +22,7 @@ One engineer, wake to sleep. Ten ideas run through her day, and not one of them 
 
 <!-- _class: agenda progress-1 -->
 
-## Thirteen chapters, gathered into six movements.
+## Thirteen chapters, gathered into six groups.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched

@@ -527,12 +527,19 @@ function escapeRe(s) {
 
 /**
  * The series roadmap, lifted off the omnibus's OWN agenda slide rather than retyped
- * here — six movements, in its words, so a chapter can never advertise a shape the
+ * here — six groups, in its words, so a chapter can never advertise a shape the
  * deck no longer has. Each chapter marks its stop with `progress-N`.
+ *
+ * NOT "movements": that word is the deck's own, and it means the four lifecycle
+ * stages (discover, design, develop, deliver). Chapter four carries both slides —
+ * this agenda and the omnibus's "Four movements carry a system from nothing to
+ * running" — so one word meaning two things would contradict itself ten pages apart.
+ * The omnibus's own agenda says "eight parts, gathered here into six", so "parts" is
+ * spoken for too.
  *
  * Six is also the agenda component's ceiling ("~4 items, over 6 overflows",
  * lib/components/inventory/agenda/agenda.docs.md), which is why the roadmap is the
- * six movements and not the thirteen chapters — thirteen items would crowd the slide
+ * six groups and not the thirteen chapters — thirteen items would crowd the slide
  * off its own capacity budget. The count is asserted for that reason: if the omnibus
  * regroups into seven, this fails loudly instead of shipping an overflowing agenda.
  */
@@ -570,7 +577,7 @@ function agendaSlide(c, items) {
   return [
     `<!-- _class: agenda progress-${c.stop} -->`,
     '',
-    '## Thirteen chapters, gathered into six movements.',
+    '## Thirteen chapters, gathered into six groups.',
     '',
     ...items.map((t, i) => `${i + 1}. ${t}`),
   ].join('\n');
@@ -685,7 +692,7 @@ function composeReadme(frontMatter, slides, chapters, items) {
 \`examples/system-design-foundations.md\` is one deck: ${slides.length} slides, ${slides.length + 1}
 PDF pages with its generated glossary. These are the same slides cut into
 ${chapters.length} chapter decks, each one readable on its own — its own title slide, an
-agenda marking which of the deck's six movements it sits in, an orientation
+agenda marking which of the deck's six chapter groups it sits in, an orientation
 slide saying what it assumes from the chapters before it, and a closing slide
 pointing at the next one. Chapter ${chapters.length} ends on the deck's own closing slide
 instead of a second one.

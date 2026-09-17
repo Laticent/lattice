@@ -22,7 +22,7 @@ Five rungs run from an MVP to a specialized system, and each one costs more and 
 
 <!-- _class: agenda progress-4 -->
 
-## Thirteen chapters, gathered into six movements.
+## Thirteen chapters, gathered into six groups.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched

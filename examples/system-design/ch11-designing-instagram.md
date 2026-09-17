@@ -29,7 +29,7 @@ The antagonist is not scale. It is the shape of the follow graph, and it forces 
 
 <!-- _class: agenda progress-6 -->
 
-## Thirteen chapters, gathered into six movements.
+## Thirteen chapters, gathered into six groups.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched

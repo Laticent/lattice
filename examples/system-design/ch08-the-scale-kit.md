@@ -20,7 +20,7 @@ Every scaling change is one of four moves. Little’s law sizes the pool before 
 
 <!-- _class: agenda progress-5 -->
 
-## Thirteen chapters, gathered into six movements.
+## Thirteen chapters, gathered into six groups.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched

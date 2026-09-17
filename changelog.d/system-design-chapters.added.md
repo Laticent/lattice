@@ -5,7 +5,7 @@
   its seven Parts, with Part four (108 slides, 46% of the deck on its own) opened out
   into its six kits: data 44, compute 10, network 11, scale 12, reliability 13,
   security 18. Each chapter stands alone: its own title slide, an agenda marking which
-  of the deck's six movements it sits in, an orientation slide naming what it assumes
+  of the deck's six chapter groups it sits in, an orientation slide naming what it assumes
   from the chapters before it, the omnibus slides verbatim, and a closing slide
   pointing at the next chapter. Chapter thirteen ends on the deck's own closing slide
   rather than a second one.

@@ -3,7 +3,7 @@
 `examples/system-design-foundations.md` is one deck: 234 slides, 235
 PDF pages with its generated glossary. These are the same slides cut into
 13 chapter decks, each one readable on its own — its own title slide, an
-agenda marking which of the deck's six movements it sits in, an orientation
+agenda marking which of the deck's six chapter groups it sits in, an orientation
 slide saying what it assumes from the chapters before it, and a closing slide
 pointing at the next one. Chapter 13 ends on the deck's own closing slide
 instead of a second one.

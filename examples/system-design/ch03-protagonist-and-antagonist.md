@@ -22,7 +22,7 @@ Name the person and the force in two sentences, and everything downstream has an
 
 <!-- _class: agenda progress-3 -->
 
-## Thirteen chapters, gathered into six movements.
+## Thirteen chapters, gathered into six groups.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched

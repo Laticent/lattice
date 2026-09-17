@@ -25,7 +25,7 @@ Assume the boundary is already crossed. Least privilege is measured by what one 
 
 <!-- _class: agenda progress-5 -->
 
-## Thirteen chapters, gathered into six movements.
+## Thirteen chapters, gathered into six groups.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched
