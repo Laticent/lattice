@@ -39,7 +39,7 @@ One engineer, wake to sleep. Ten ideas run through her day, and not one of them 
 
 ## Read this chapter without looking anything up.
 
-Thirteen chapters carry one method: watch a system, name its parts, cast a design, pick the rung, reach into six kits, then design two products end to end. This first chapter spends no systems-design vocabulary on purpose. You meet each idea the way Maya meets it, against a timestamp, and chapter two hands you the word for it afterwards. Nothing here needs a chapter before it.
+Thirteen chapters carry one method: watch a system, name its parts, find who wants what and what blocks them, decide which kind of answer the job needs, pick your parts off six shelves, then design two products end to end. This first chapter spends no systems-design vocabulary on purpose. You meet each idea the way Maya meets it, against a timestamp, and chapter two hands you the word for it afterwards. Nothing here needs a chapter before it.
 
 ---
 

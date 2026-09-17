@@ -398,4 +398,4 @@ Do not hunt for a clever answer. The point is that you now have words for a thin
 
 `Chapter 2 of 13 · How to Think About Systems`
 
-Chapter three casts every system as a protagonist who wants something and an antagonist standing in the way. Two sentences, ninety seconds, and four things you were guessing at settle.
+Chapter three casts every system as a protagonist who wants something and an antagonist standing in the way. Two sentences take ninety seconds and settle four things you were guessing at.

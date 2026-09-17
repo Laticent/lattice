@@ -105,7 +105,7 @@ const CHAPTERS = Object.freeze([
       'One engineer, wake to sleep. Ten ideas run through her day, and not one of them gets a name until the next chapter.',
     orientHeading: 'Read this chapter without looking anything up.',
     orientBody:
-      'Thirteen chapters carry one method: watch a system, name its parts, cast a design, pick the rung, reach into six kits, then design two products end to end. This first chapter spends no systems-design vocabulary on purpose. You meet each idea the way Maya meets it, against a timestamp, and chapter two hands you the word for it afterwards. Nothing here needs a chapter before it.',
+      'Thirteen chapters carry one method: watch a system, name its parts, find who wants what and what blocks them, decide which kind of answer the job needs, pick your parts off six shelves, then design two products end to end. This first chapter spends no systems-design vocabulary on purpose. You meet each idea the way Maya meets it, against a timestamp, and chapter two hands you the word for it afterwards. Nothing here needs a chapter before it.',
     closingHeading:
       'Ten ideas ran through that day, unnamed.',
     closingBody:
@@ -125,7 +125,7 @@ const CHAPTERS = Object.freeze([
     closingHeading:
       'You have the words. Now find the start.',
     closingBody:
-      'Chapter three casts every system as a protagonist who wants something and an antagonist standing in the way. Two sentences, ninety seconds, and four things you were guessing at settle.',
+      'Chapter three casts every system as a protagonist who wants something and an antagonist standing in the way. Two sentences take ninety seconds and settle four things you were guessing at.',
   },
   {
     slug: 'protagonist-and-antagonist',
@@ -173,7 +173,7 @@ const CHAPTERS = Object.freeze([
     closingHeading:
       'Every derived copy here rebuilds unattended.',
     closingBody:
-      'Something has to run the rebuild, and chapter six is that something: four compute shapes, four runtimes, and the four properties anything you run must satisfy before it meets real traffic.',
+      'Something has to run the rebuild, and chapter six is that something: four compute shapes, three runtimes, and the four properties anything you run must satisfy before it meets real traffic.',
   },
   {
     slug: 'the-compute-kit',

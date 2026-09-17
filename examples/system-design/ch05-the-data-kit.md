@@ -749,4 +749,4 @@ Write the store and the one query that will cross a partition. Then turn the pag
 
 `Chapter 5 of 13 · How to Think About Systems`
 
-Something has to run the rebuild, and chapter six is that something: four compute shapes, four runtimes, and the four properties anything you run must satisfy before it meets real traffic.
+Something has to run the rebuild, and chapter six is that something: four compute shapes, three runtimes, and the four properties anything you run must satisfy before it meets real traffic.
