@@ -9,8 +9,11 @@ Conventions:
   auto-rebuilds `feature-name.pdf` when the source is staged.
 - The PDFs are committed on purpose — reviewers read them without
   building.
-- Subfolders: `assets/` (sample images), `chart-theme-gallery/` and
-  `token-contrast/` (own docs inside).
+- Subfolders: `assets/` (sample images), `chart-theme-gallery/`,
+  `token-contrast/` and `system-design/` (own docs inside).
+- `system-design/` is GENERATED from `system-design-foundations.md` by
+  `npm run chapters:system-design` — edit the omnibus, not the chapters.
+  `build:check` fails on a stale one.
 
 To render one by hand: `node lattice-emulator.js examples/<name>.md
 examples/<name>.pdf` (set `CHROME_PATH` first; see

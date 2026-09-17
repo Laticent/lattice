@@ -58,6 +58,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `cadenza-lib:check` | Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
+| `chapters:system-design` | Cut examples/system-design-foundations.md into the thirteen standalone chapter decks under examples/system-design/ (wrapper slides, per-chapter acronym registry, index). The omnibus stays the single source of every slide body; build:check fails on a stale chapter. |
 | `css:build` | Bundle dist/lattice.css (+ .min) — the palette-blind engine stylesheet. |
 | `css:check` | Freshness gate for dist/lattice.css. |
 | `decisions:index` | Regenerate the "Current notes" index in engineering/decisions/README.md from each note's YAML front-matter. |
@@ -414,6 +415,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/build-stress-deck.js` | build-stress-deck — assemble one bucket's CEILING cases into a single deck. |
 | `tools/build-suono-lib.js` | Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type |
+| `tools/build-system-design-chapters.js` | build-system-design-chapters.js — cut examples/system-design-foundations.md into |
 | `tools/build-theme-catalog.js` | Generates docs/src/components/studio/palettes.generated.ts — the palette picker's |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/calibrate-capacity.js` | calibrate-capacity — find the ELEMENT COUNT a layout overflows at, per box |

@@ -156,6 +156,12 @@ const STEPS = [
   { label: 'split treatments (§0c of the split decision note)', script: 'build-split-treatments.js' },
   // Decision-doc index — reads each note's front-matter; order-independent.
   { label: 'decision index (engineering/decisions/README.md)', script: 'build-decisions-index.js' },
+  // The system-design tutorial, cut into thirteen standalone chapter decks. Reads
+  // examples/system-design-foundations.md (a hand-authored SOURCE deck, not a built
+  // artifact), so it is order-independent. It writes markdown only — the chapter PDFs
+  // are rebuilt by the pre-commit staged-PDF hook like every other example deck, never
+  // here: thirteen real Chromium renders do not belong in `npm run build`.
+  { label: 'system-design chapters (examples/system-design/)', script: 'build-system-design-chapters.js' },
   // Gotchas symptom index — reads the entry headings in engineering/gotchas/;
   // order-independent, same as the decision index above.
   { label: 'gotchas index (engineering/gotchas.md)', script: 'build-gotchas-index.js' },

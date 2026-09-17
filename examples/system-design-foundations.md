@@ -1934,7 +1934,7 @@ Add it up, name the one change that buys back the most, and say what that change
 
 `Scale`
 
-## Every scaling change is one of four moves.
+## Every scaling change is one of four moves: reduce, duplicate, defer, spread.
 
 ---
 
@@ -1942,7 +1942,7 @@ Add it up, name the one change that buys back the most, and say what that change
 
 `Scale kit · adding a copy`
 
-## The first two moves both add a copy of something you already had.
+## Reduce and duplicate both add a copy of something you already had.
 
 ```mermaid
 flowchart TB
@@ -1959,7 +1959,7 @@ flowchart TB
 
 > Both bills arrive in the same currency: something you are reading is now out of date.
 
-*You have met both of these already, as stores. The cache was a data choice and the replica was a consistency choice; here they are again as scaling moves. The network kit is why: once distance is counted on purpose, the only way to spend less of it is to keep a copy nearer — and the bill is the one the data kit already named.*
+*You met both of these as stores — the cache was a data choice, the replica a consistency choice. Here they are again as moves. Distance is why: the only way to spend less of it is to keep a copy nearer.*
 
 ---
 
@@ -1967,7 +1967,7 @@ flowchart TB
 
 `Scale kit · moving the work`
 
-## The other two move the work instead — to later, or to somewhere else.
+## Defer and spread move the work instead — to later, or somewhere else.
 
 ```mermaid
 flowchart TB
@@ -1996,7 +1996,7 @@ $$ L = \lambda W $$
 
 - $L$ — requests in flight at once
 - $\lambda$ — arrivals per second
-- $W$ — time each one spends inside
+- $W$ — seconds each one spends inside
 
 ---
 
@@ -2004,11 +2004,23 @@ $$ L = \lambda W $$
 
 `Using it`
 
-## The formula sizes your thread pool before anyone guesses.
+## Multiply arrivals by seconds inside to get requests in flight.
 
-At 2,000 requests per second averaging 50 milliseconds each, 100 requests are in flight at any moment. That is your minimum concurrency, and no tuning makes it smaller while the other two numbers hold.
+Your service takes 2,000 requests a second, and each one spends 50 milliseconds inside. Convert first — 50 milliseconds is 0.05 seconds — then multiply: 2,000 × 0.05 = 100.
 
-Maya's Tuesday is the same arithmetic at human scale. Two builds a day at twelve minutes each leave the build fleet idle almost all day — which tells you it has spare capacity and nothing else. Low utilization never means off the critical path. The reviewer was her bottleneck because he was serial, had five pull requests queued in front of him, and was awake for one of the hours that mattered.
+A hundred requests sit inside your service at every instant. If your server hands each request a thread while it runs, that is 100 threads. It is a floor, not a preference: while those two numbers hold, no setting makes it 80.
+
+---
+
+<!-- _class: content -->
+
+`Using it · the other reading`
+
+## An idle machine can still be the thing everyone waits for.
+
+Maya's build fleet ran two builds a day at twelve minutes each, so it sat idle almost all day. That tells you it has spare capacity. It tells you nothing else.
+
+Her reviewer was the bottleneck: one person, five pull requests taken in order, awake for one of the hours that mattered. The critical path is the chain of steps that decides when the work finishes. Idle time never tells you whether something sits on it.
 
 ---
 
@@ -2018,29 +2030,41 @@ Maya's Tuesday is the same arithmetic at human scale. Two builds a day at twelve
 
 ## Tripled latency breaks a bounded pool and an unbounded one in opposite directions.
 
-Leave the pool unbounded and the arithmetic runs forward: latency triples, so the requests in flight triple with it, and a machine sized for the good day runs out of memory.
+Latency triples to 150 milliseconds. Leave the pool unbounded and the arithmetic runs forward: 2,000 × 0.15 is 300 in flight where you sized for 100. Each one holds a thread, a buffer and a connection, so the machine runs out of memory.
 
-Bound it at 100 and concurrency cannot rise, so throughput falls instead. `100/0.15s` is about 667 a second against the 2,000 still arriving, and the queue in front grows without limit until something sheds it.
+Bound it at 100 and concurrency cannot rise, so throughput falls instead: 100 ÷ 0.15 is about 667 a second against the 2,000 still arriving. The queue in front grows until something sheds it.
 
-Neither is a tuning problem. The first is why pools have ceilings, and the second is why every queue behind one needs a ceiling too.
+Neither is a tuning problem.
+
+---
+
+<!-- _class: content -->
+
+`Scale kit · tail latency`
+
+## Your average request is a fiction. Your users live in the tail.
+
+The tail is the slow end of your response times: the few requests that take far longer than the middle.
+
+A page that makes 100 parallel calls waits for the slowest one. Give each call a one-percent chance of being slow, and 63 percent of pages hit at least one. That is `1 - 0.99^100`.
+
+More parallel calls turn a rare slow response into a common slow page.
 
 ---
 
 <!-- _class: split-panel proof cat-3 -->
 <!-- _header: "" -->
 
-`Scale kit · tail latency`
+`Scale kit · working the tail`
 
-## The average request is a fiction, and your users live in the tail.
+## Measure the tail per dependency, and buy it back on a budget.
 
-A page that makes 100 parallel calls waits for the slowest one. Give each call a one-percent chance of being slow. Then 63 percent of pages hit at least one slow call. That is `1 - 0.99^100`, and you can redo it on a napkin.
-
-- The check
-  - A percentile describes requests. A person makes dozens a day, so far more than one percent of people meet your p99. Report the 99th per dependency, and keep the average for capacity only.
-- Fan-out amplifies it
-  - More parallel calls turn a rare slow response into a common slow page.
-- Hedging buys it back, on a budget
-  - Send a duplicate after the 95th percentile and take whichever answers first. A hedge is a second request, so cap it — a few percent of traffic. Unbudgeted, it is the reinforcing loop again, arriving exactly when you are already slow.
+- Read the number right
+  - Your p99 is the time 99 percent of requests come in under. A person makes dozens a day, so far more than one percent of people meet it.
+- Hedging buys it back
+  - Waited longer than 95 percent normally take? Send a duplicate, take the first answer.
+- Budget the hedge
+  - Cap it at a few percent of traffic, or it floods you when you are already slow.
 
 ---
 
@@ -2051,9 +2075,9 @@ A page that makes 100 parallel calls waits for the slowest one. Give each call a
 ## Each caching pattern owns a different failure.
 
 - Cache-aside
-  - The app fills the cache on a miss. Simple, and it stampedes on a cold key unless one reader fills it while the rest wait on that one fill.
+  - The app fills the cache on a miss. A cold key means every reader misses and rebuilds at once.
 - Read-through
-  - The cache fetches for you. Cleaner code, and now the cache is on the critical path.
+  - The cache fetches for you. Cleaner code, and now the cache sits on the critical path.
 - Write-through
   - Write both together. Always fresh, and every write pays the cache's latency.
 - Write-behind
@@ -2070,7 +2094,7 @@ A page that makes 100 parallel calls waits for the slowest one. Give each call a
 
 ## Idempotency is what makes a retry safe, and retries are not optional.
 
-Networks duplicate, clients retry, queues redeliver. The only question is whether the second delivery is harmless or charges somebody twice.
+An idempotent call runs twice and leaves the same result as running once. Networks duplicate, clients retry, queues redeliver. The only question is whether the second delivery is harmless or charges somebody twice.
 
 - The rule
   - Every mutating endpoint takes a client-supplied key and deduplicates on it.
@@ -2085,14 +2109,14 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 `Scale kit · the invariants`
 
-## Nothing here is scalable until the last of the four is true.
+## All four must be true before you call any of this scalable.
 
 1. The bottleneck is named and measured
    - Not suspected. A number, a graph, and the resource it belongs to.
 2. Every queue is bounded
    - An unbounded queue turns a throughput problem into a memory outage.
-3. Admission control sheds load before the system collapses
-   - A balancing loop from Part one, and the move Maya made at 15:50 when she stopped answering.
+3. Admission control sheds load on purpose
+   - Refuse some at the door so the rest succeed — Maya's move at 15:50.
 4. Adding a machine is routine
    - No manual steps, no rebalancing outage, no cold-cache stampede.
 
@@ -2117,11 +2141,11 @@ Second: say what happens with an unbounded pool, and what happens with the pool 
 ## One number, then two failures that look nothing alike.
 
 1. In flight at once
-   - `1,200 × 0.04` is 48. Arrivals and service time are both givens here, so 48 is arithmetic, not a setting you can tune down.
+   - `1,200 × 0.04` is 48 — a floor on a good day, not your setting.
 2. Unbounded
    - `1,200 × 0.16` is 192 in flight. The machine you sized for 48 runs out of memory, and nothing warned you on the way.
 3. Bounded at 48
-   - Concurrency cannot rise, so throughput falls to `48 / 0.16`, about 300 a second against 1,200 still arriving. Nine hundred a second pile up in front, and nothing stops that except shedding them.
+   - Throughput falls to `48 / 0.16`, about 300 a second against 1,200 arriving. Nine hundred a second pile up.
 
 ---
 

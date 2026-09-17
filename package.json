@@ -177,6 +177,7 @@
     "split:treatments": "node tools/build-split-treatments.js",
     "split:treatments:check": "node tools/build-split-treatments.js --check",
     "decisions:index": "node tools/build-decisions-index.js",
+    "chapters:system-design": "node tools/build-system-design-chapters.js",
     "decisions:index:check": "node tools/build-decisions-index.js --check",
     "gotchas:index": "node tools/build-gotchas-index.js",
     "gotchas:index:check": "node tools/build-gotchas-index.js --check",
