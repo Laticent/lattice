@@ -1,4 +1,4 @@
-- The docs test suite runs ~9% faster (233.3s to 212.2s on a 4-core box). 135 of its
+- The docs test suite runs ~8% faster (233.3s to 214.0s mean, on a 4-core box). 136 of its
   test files touch no DOM and were building a jsdom window they never used; they now
   declare `// @vitest-environment node`. All 313 files and 4,483 tests still pass, and
   no test behavior changed.

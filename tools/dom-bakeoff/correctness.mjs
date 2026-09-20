@@ -27,6 +27,12 @@ const adapters = await loadAdapters();
 const names = Object.keys(adapters);
 const FIX = await fixtures();
 
+/** Can this adapter answer a selector at all? Used to mark a probe unmeasurable
+ *  rather than scoring the harness's own shim as a library failure. */
+const hasSelectors = (a) => {
+  try { a.parse('<p>x</p>').root.querySelector('p'); return true; } catch { return false; }
+};
+
 const probes = [];
 // `refKey` names the jsdom reference serialization a probe is compared against;
 // only the differential Serialization probes pass one.
@@ -64,16 +70,30 @@ for (const [key, label] of [['slideMedian', 'median slide'], ['slideHeaviest', '
 
 // ── Selectors this repo actually writes (from the Node census) ──────────────
 // `:has()`, `:is()` and `:where()` are deliberately absent: zero uses on the Node side.
-for (const [label, sel] of [
-  ['child >', 'body > section'], ['attribute', 'section[data-lattice]'], [':scope', ':scope > section'],
-  ['selector list', 'h1, h2, h3'], [':not()', 'section:not(.lead)'], [':nth-child', 'section:nth-child(2)'],
+//
+// EVERY ROW ASSERTS THE MATCH COUNT. An earlier cut asserted only that the call did
+// not throw and printed the count as detail — so a selector engine that silently
+// matched NOTHING scored a clean PASS. Three candidates did exactly that on `:scope`
+// (domino, basichtml and cheerio all return 0 where every other library returns 2),
+// and the false pass reached the decision note's table before an independent checker
+// caught it. A parser that returns an empty NodeList is the single worst failure mode
+// here: every transform finds no sections and no-ops, silently, output unchanged.
+const SELECTOR_FIXTURE = '<section class="lattice lead" data-lattice="1"><h1>t</h1><p>a</p></section><section class="lattice"><h2>u</h2></section>';
+for (const [label, sel, expected] of [
+  ['child >', 'body > section', 2],
+  ['attribute', 'section[data-lattice]', 1],
+  [':scope', ':scope > section', 2],
+  ['selector list', 'h1, h2, h3', 2],
+  [':not()', 'section:not(.lead)', 1],
+  [':nth-child', 'section:nth-child(2)', 1],
 ]) {
-  probe(`selector:${label}`, 'Selectors', `querySelectorAll('${sel}')`, (a) => {
-    const { root, doc, window } = a.parse('<section class="lattice lead" data-lattice="1"><h1>t</h1><p>a</p></section><section class="lattice"><h2>u</h2></section>');
+  probe(`selector:${label}`, 'Selectors', `querySelectorAll('${sel}') returns exactly ${expected}`, (a) => {
+    const { root, doc, window } = a.parse(SELECTOR_FIXTURE);
     try {
       const target = sel.startsWith(':scope') ? root : (doc.querySelectorAll ? doc : root);
-      const n = target.querySelectorAll(sel).length; closeWindow(window);
-      return { pass: true, detail: `${n} match(es)` };
+      const n = target.querySelectorAll(sel).length;
+      closeWindow(window);
+      return { pass: n === expected, detail: n === expected ? `${n} match(es)` : `matched ${n}, expected ${expected}` };
     } catch (e) { closeWindow(window); return { pass: false, detail: `throws: ${String(e.message).slice(0, 56)}` }; }
   });
 }
@@ -172,11 +192,13 @@ probe('html:implicit tbody', 'Parser', 'table rows get the implicit <tbody> the 
   return { pass: out.includes('<tbody>'), detail: out.slice(0, 48) };
 });
 probe('html:template content', 'Parser', '<template> exposes .content as an inert fragment', (a) => {
+  if (a.kind === 'parse-only' && !hasSelectors(a)) return { pass: null, detail: 'adapter has no selector engine — not measurable here' };
   const { root, window } = a.parse('<template><p>x</p></template>');
   try { const t = root.querySelector('template'); const ok = !!t?.content?.querySelector('p'); closeWindow(window); return { pass: ok, detail: ok ? 'has .content' : 'no .content' }; }
   catch (e) { closeWindow(window); return { pass: false, detail: `throws: ${String(e.message).slice(0, 56)}` }; }
 });
 probe('html:style rawtext', 'Parser', 'a </style> inside CSS ends the element — the HARD RULE #22 breakout', (a) => {
+  if (a.kind === 'parse-only' && !hasSelectors(a)) return { pass: null, detail: 'adapter has no selector engine — not measurable here' };
   // Not a defect to fix: spec behavior the stylesheet guard is built around. A parser
   // that does NOT break out here would make the guard's own tests read green falsely.
   const { root, window } = a.parse('<style>.a{content:"</style><img src=x onerror=1>"}</style>');
@@ -184,6 +206,7 @@ probe('html:style rawtext', 'Parser', 'a </style> inside CSS ends the element �
   catch (e) { closeWindow(window); return { pass: false, detail: `throws: ${String(e.message).slice(0, 56)}` }; }
 });
 probe('html:entities', 'Parser', 'named and numeric entities decode without corruption', (a) => {
+  if (a.kind === 'parse-only' && !hasSelectors(a)) return { pass: null, detail: 'adapter has no selector engine — not measurable here' };
   const { root, window } = a.parse('<p>a&amp;b &lt;c&gt; &#169;</p>');
   try { const t = root.querySelector('p').textContent; closeWindow(window); return { pass: t.includes('a&b') && t.includes('<c>') && t.includes('©'), detail: JSON.stringify(t.slice(0, 32)) }; }
   catch (e) { closeWindow(window); return { pass: false, detail: `throws: ${String(e.message).slice(0, 56)}` }; }

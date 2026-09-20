@@ -21,13 +21,14 @@
  */
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { loadAdapters } from './adapters.mjs';
 
 const adapters = await loadAdapters();
 const names = Object.keys(adapters);
 const OPS = ['parse', 'parse + serialize', 'parse + query + mutate + serialize'];
 const INPUTS = ['median slide', 'heaviest slide', 'whole deck'];
-const CELL = new URL('./speed-cell.mjs', import.meta.url).pathname;
+const CELL = fileURLToPath(new URL('./speed-cell.mjs', import.meta.url));
 
 // ── cold module load: the cost `node --test` pays once per file ─────────────
 const LOAD_SAMPLES = 5;
@@ -36,8 +37,14 @@ for (const n of names) {
   const runs = [];
   for (let i = 0; i < LOAD_SAMPLES; i++) {
     const r = spawnSync(process.execPath, ['-e', `const t=process.hrtime.bigint();require(${JSON.stringify(n)});console.log(Number(process.hrtime.bigint()-t)/1e6)`], { encoding: 'utf8' });
-    const v = Number(String(r.stdout).trim());
-    if (Number.isFinite(v)) runs.push(v);
+    // Check the EXIT STATUS, not just the parse. A child that throws prints nothing,
+    // `Number("")` is 0, and `Number.isFinite(0)` is true — so the guard that looks
+    // like it rejects an unmeasurable candidate instead records the fastest possible
+    // score for it. An ESM-only candidate (the common case for a new library) would
+    // top the cold-load table at 0.0ms, and cold load is this bake-off's headline.
+    const out = String(r.stdout).trim();
+    const v = Number(out);
+    if (r.status === 0 && out !== '' && Number.isFinite(v)) runs.push(v);
   }
   loadMs[n] = runs.length ? runs.sort((a, b) => a - b)[Math.floor(runs.length / 2)] : null;
 }
@@ -49,8 +56,17 @@ for (const n of names) {
     for (let inp = 0; inp < INPUTS.length; inp++) {
       const r = spawnSync(process.execPath, ['--expose-gc', '--max-old-space-size=3500', CELL, n, String(op), String(inp)], { encoding: 'utf8' });
       let parsed = null;
-      try { parsed = JSON.parse(String(r.stdout).trim().split('\n').pop()); } catch { /* crashed */ }
-      cells.push(parsed || { lib: n, opIdx: op, inIdx: inp, op: OPS[op], input: INPUTS[inp], ms: null, err: 'out of memory or crash' });
+      try { parsed = JSON.parse(String(r.stdout).trim().split('\n').pop()); } catch { /* the cell died before printing */ }
+      // Say what actually happened. Labelling every silent cell "out of memory" is a
+      // confidently wrong diagnosis: a missing fixture or a throwing engine dies the same
+      // way, and the whole matrix then reads as an OOM that never occurred.
+      const why = (() => {
+        const errText = String(r.stderr || '').trim();
+        if (/heap out of memory|Allocation failed/i.test(errText)) return 'out of memory';
+        if (errText) return errText.split('\n').find((l) => /Error|error:/.test(l))?.slice(0, 60) ?? errText.slice(0, 60);
+        return `no output (exit ${r.status})`;
+      })();
+      cells.push(parsed || { lib: n, opIdx: op, inIdx: inp, op: OPS[op], input: INPUTS[inp], ms: null, err: why });
     }
   }
 }

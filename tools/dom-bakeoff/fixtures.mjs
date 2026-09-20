@@ -14,6 +14,7 @@
 
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const ROOT = new URL('../../', import.meta.url);
@@ -22,7 +23,9 @@ let memo;
 
 export async function fixtures() {
   if (memo) return memo;
-  const engine = require(new URL('lib/engine', ROOT).pathname).createEngine({ mathOutput: 'html' });
+  // fileURLToPath, not `.pathname`: the latter is percent-encoded, so a checkout under a
+  // path containing a space or a `%` resolves to a module that does not exist.
+  const engine = require(fileURLToPath(new URL('lib/engine', ROOT))).createEngine({ mathOutput: 'html' });
   const src = readFileSync(new URL('test/integration/baseline-decks/gallery.md', ROOT), 'utf8');
   const { html } = engine.render(src, 'indaco');
 
