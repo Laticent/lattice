@@ -17,6 +17,8 @@
  * every Lattice render draws). The pseudo's appearance (mono, --fs-meta, color) stays in
  * the engine scaffold (lib/integrations/markdown-it/scaffold.css + lib/engine/css.js); the
  * element's sits beside its inset in pagination.css. */
-section.form::after {
+/* `:not(.frame-sovereign)` — every slide carries `form`; only a chrome-hosting
+   Frame reserves a pagination Cell for the number to sit in. */
+section.form:not(.frame-sovereign)::after {
   inset: var(--pagination-inset, auto var(--frame-inset-x) var(--frame-inset-y) auto);
 }

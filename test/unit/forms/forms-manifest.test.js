@@ -108,9 +108,11 @@ test('(c) the browser-baked SOVEREIGN_FRAMES_FALLBACK matches the manifest-deriv
   assert.deepEqual([...plugins.SOVEREIGN_FRAMES].sort(), [...forms.frameToggleSkip()].sort());
 });
 
-test('(c) plugins.formToggleClass skips every historical sovereign Frame', () => {
+test('(c) plugins.formToggleClass marks every historical sovereign Frame as one', () => {
+  // Every slide composes as Form; a sovereign Frame is TAGGED rather than skipped.
   for (const skip of HISTORICAL_SKIP) {
-    assert.equal(plugins.formToggleClass(skip, 'standard'), skip, `should skip ${skip}`);
+    assert.equal(plugins.formToggleClass(skip), `${skip} frame-sovereign form`, `should tag ${skip}`);
+    assert.equal(plugins.hostsChromeCells(plugins.formToggleClass(skip)), false, `${skip} hosts no chrome Cells`);
   }
   // AND MATH IS NOT ONE OF THEM, at any variant. Asserted from the COMPONENT manifest
   // rather than a second hardcoded list, so a ninth variant is covered the day it is
@@ -118,7 +120,7 @@ test('(c) plugins.formToggleClass skips every historical sovereign Frame', () =>
   const MATH = require('../../../lib/components/math/math/math.manifest.json');
   for (const variant of MATH.variants) {
     const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
-    assert.equal(plugins.formToggleClass(cls, 'standard'), `${cls} form`,
+    assert.equal(plugins.formToggleClass(cls), `${cls} form`,
       `math ${variant} must take the form class`);
   }
   assert.ok(!forms.frameToggleSkip().includes('math'),

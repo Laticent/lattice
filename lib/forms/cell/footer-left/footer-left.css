@@ -3,9 +3,9 @@
  * `--footerleft-inset` var() hook, so a Frame's `slicing` can relocate it
  * INDEPENDENTLY — the infinite-layouts contract (design/forms.md §7.3: freedom of
  * movement bounded only by kind-fit + the box guarantee, not a whitelist). The
- * default is the authored bottom-left. Scoped to `section.form`; non-form decks
- * keep the legacy base footer (lib/base/base.modifiers.css). */
-section.form > footer {
+ * default is the authored bottom-left. Scoped to a chrome-hosting `section.form`;
+ * everything else keeps the legacy base footer (lib/base/base.modifiers.css). */
+section.form:not(.frame-sovereign) > footer {
   /* inset: top right bottom left — default anchors bottom-left. A Frame override
    * (e.g. relocate to the right, or vertically center) just sets this one token. */
   inset: var(--footerleft-inset, auto auto var(--frame-inset-y) var(--frame-inset-x));
@@ -13,8 +13,8 @@ section.form > footer {
    * no longer dodges a centered rail with a magic-number calc; it is simply
    * width-bounded on its own side.
    * THIS RULE IS THE LEGACY PATH ONLY. It matches a footer that is a DIRECT child of
-   * `section.form` — the un-migrated / sovereign frames that have no `.cell-footer`. Every frame
-   * that has one routes through `section.form > .cell-footer > footer` in stage.css, where the
+   * `section.form` — an un-migrated frame with no `.cell-footer`. Every frame that has one
+   * routes through `section.form > .cell-footer > footer` in stage.css, where the
    * band's allocation policy lives: the footer is a flex item taking whatever the wayfinding marks
    * do not need, and no budget applies. That policy is settled, not open
    * (engineering/decisions/2026-07-27-footer-band-allocation.md).
@@ -22,6 +22,16 @@ section.form > footer {
    * without telling it what the rail is doing, so if both strings are long they overprint —
    * 105.2px of real INK overlap on p78 of the shipped gallery, measured by rasterizing the band.
    * (Comparing the two BOXES says 233–301px, which is not the truth: an absolute footer's box is
-   * its 52cqi budget, not its text.) */
+   * its 52cqi budget, not its text.)
+   *
+   * IT DOES NOT REACH A SOVEREIGN FRAME, and the comment used to claim it did. Until
+   * 2026-09-20 a sovereign slide carried no `form` class at all, so this rule could never
+   * match one — the `:not(.frame-sovereign)` above now says so explicitly, because that is
+   * the day every slide started carrying `form` and the rule would otherwise have begun
+   * matching nine components it had never touched. Measured: it wraps the running footer
+   * onto a second line on compare-code p3 and premise p3 (and one logo page), on slides
+   * where nothing was overprinting. Giving sovereign frames a footer budget may well be
+   * right — they do carry a page number to collide with — but it is a LAYOUT decision with
+   * its own evidence, not a side effect of naming the Frame. */
   max-width: var(--footerleft-w, 52cqi);
 }

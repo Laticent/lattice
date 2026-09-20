@@ -42,15 +42,19 @@ function runRuntimePass(html) {
 describe('runtime Form wiring — raw Marp deck composes as Form', () => {
   test('the full chrome layer materializes on eligible slides only', () => {
     const doc = runRuntimePass(RAW);
-    // form on the two eligible content slides; sovereign frames skipped.
-    assert.equal(doc.querySelectorAll('section.form').length, 2);
+    // EVERY slide composes as Form — all five carry the class.
+    assert.equal(doc.querySelectorAll('section.form').length, 5);
+    // The three sovereign Frames say so POSITIVELY, and host no chrome Cells.
     for (const cls of ['title', 'divider', 'closing']) {
-      assert.equal(doc.querySelector(`section.${cls}`).classList.contains('form'), false,
-        `${cls} must stay Form-free`);
+      const sec = doc.querySelector(`section.${cls}`);
+      assert.equal(sec.classList.contains('form'), true, `${cls} composes as Form`);
+      assert.equal(sec.classList.contains('frame-sovereign'), true, `${cls} is a sovereign Frame`);
     }
-    // masthead bands built by masthead-lift on the formed slides.
+    // ...so the chrome layer still lands on the two chrome-hosting slides only.
+    assert.equal(doc.querySelectorAll('section.form:not(.frame-sovereign)').length, 2);
+    // masthead bands built by masthead-lift on the chrome-hosting slides.
     assert.equal(doc.querySelectorAll('.cell-masthead').length, 2);
-    // progress rail docked on the form slides within a divider section.
+    // progress rail docked on the chrome-hosting slides within a divider section.
     assert.equal(doc.querySelectorAll('.tile-progress').length, 2);
     // watermark glyph on the single `watermark` form slide.
     assert.equal(doc.querySelectorAll('.tile-watermark').length, 1);

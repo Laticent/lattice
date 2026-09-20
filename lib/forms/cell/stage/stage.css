@@ -47,8 +47,12 @@
  *                     slide edge.
  *   · per-Cell       — the masthead + bay clip their own overflow, so a long
  *                     title or meta line is cut at its Cell, never bled. */
-section.form {
+section.form:not(.frame-sovereign) {
   /* THE ROOT CHROME FRAME — masthead Cell · stage Cell · footer Cell.
+   * `:not(.frame-sovereign)` because EVERY slide carries `form` since 2026-09-20:
+   * Form is the composition model, and which FRAME a slide composes under is the
+   * separate fact this guard reads. A sovereign Frame declares one Cell and no
+   * chrome Cells, so none of the chrome geometry below is its to reserve.
    * The masthead Cell is an IN-FLOW band sized to its own content (so the
    * hairline sits directly under the title — no dead space), then the STAGE Cell
    * is the flex content region below it. The footer Cell is an absolutely-

@@ -36,16 +36,19 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
     assert.equal(d.querySelector('section').className, 'form');
   });
 
-  test('skips every sovereign frame (the render-time skip set)', () => {
+  test('a sovereign frame composes as Form too, and says which Frame it is', () => {
     // Mirrors SOVEREIGN_FRAMES_FALLBACK — the engine and this path must agree.
-    // `math` is NOT in this list any more: it left its sovereign frame in 2026-09 and
-    // takes `form` like any other component. Its own test below asserts that, per
-    // variant, and is the thing that would fail if the frame were ever put back.
+    // EVERY slide carries `form` since 2026-09-20; a sovereign one also carries
+    // `frame-sovereign`, which is what the chrome injectors and the handful of
+    // universal `section.form` CSS rules gate on. Sovereignty is a property of the
+    // FRAME (one Cell, no chrome Cells), not an absence of Form.
+    // `math` is NOT sovereign: it left its frame in 2026-09. Its own test below
+    // asserts that per variant, and is what fails if the frame is ever put back.
     for (const cls of ['title', 'divider', 'closing', 'image', 'compare-code', 'split-panel', 'split-compare']) {
       const d = doc(`<section class="${cls}"><h2>T</h2></section>`);
       applyFormDefaultToDom(d);
       const sec = d.querySelector('section');
-      assert.equal(sec.className, cls, `${cls} must not gain form`);
+      assert.equal(sec.className, `${cls} frame-sovereign form`, `${cls} composes as Form, sovereign Frame`);
       // still marked as a slide, so slide-scoped features can see it
       assert.equal(sec.getAttribute('data-lattice-slide'), '1');
     }
