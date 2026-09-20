@@ -1544,3 +1544,33 @@ test('narrateJourneyMood: the dispatcher reaches it for a plain journey slide', 
   const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `@prospect` `:5`'].join('\n');
   assert.ok(narrateChart(md).includes('five out of five'));
 });
+
+// ── Regressions the maker-checker caught before merge ───────────────────────────────
+test('narrateStateChart: a Mermaid `:::class` suffix does not hide a transition', () => {
+  // The pill pattern required the target to be the LAST thing, so a styled transition matched
+  // neither the narrator nor the suppression filter — a chart mixing the two forms read half
+  // its transitions by name and the other half as raw `accept => 3:::state-pass-hue` glyphs,
+  // which is worse than main, where they were at least uniformly raw.
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2:::state-pass-hue`', '   - `hold => self`', '2. Done `end`'].join('\n');
+  const out = narrateStateChart(md);
+  assert.ok(out.includes('submit goes to Done'), out);
+  assert.ok(out.includes('hold stays here'), out);
+  assert.ok(!out.includes('=>'), `a raw pill survived: ${out}`);
+  assert.ok(!out.includes(':::'), `a style hook was spoken: ${out}`);
+});
+
+test('narrateJourneyMood: mirrors the transform’s clampMood, so it cannot state a score the chart does not plot', () => {
+  // journey.transform.js clamps to 1..5 with Math.round, parses with parseInt, and ignores a
+  // bare `@`. The narrator did none of those: `:99` read "ninety-nine out of five", `:0` read
+  // "zero", `:4x` read nothing, and `@` produced an empty actor and a double comma.
+  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Stage', '  - High `@prospect` `:99`', '  - Low `@` `:0`', '  - Odd `@user` `:4x`', '  - Half `@user` `:2.5`'].join('\n');
+  const out = narrateJourneyMood(md);
+  assert.ok(out.includes('High, prospect, five out of five'), out); // 99 clamps to 5
+  assert.ok(out.includes('Low, one out of five'), out); // 0 clamps to 1, bare @ dropped
+  assert.ok(out.includes('Odd, user, four out of five'), out); // parseInt reads 4 from `4x`
+  // `:2.5` reads TWO, not three: the transform runs `parseInt` BEFORE `clampMood`, so the
+  // fraction is gone before any rounding happens. Asserted against journey.transform.js
+  // itself rather than against what rounding alone would suggest.
+  assert.ok(out.includes('Half, user, two out of five'), out);
+  assert.ok(!out.includes(', ,'), `an empty actor left a double comma: ${out}`);
+});

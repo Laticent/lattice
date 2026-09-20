@@ -90,13 +90,16 @@ function tripletToWords(n: number): string {
 /**
  * Read a non-negative integer as words (up to trillions).
  *
- * BEYOND TRILLIONS, the digits are read one at a time rather than named. `SCALES` stops at
- * trillion, and the group loop used to index past it and STRING-CONCATENATE `undefined`:
- * `1000000000000000` spoke as "oneundefined", and `9007199254740991` as "nineundefined seven
+ * NAMED THROUGH QUINTILLION, which covers every integer JavaScript represents exactly
+ * (`Number.MAX_SAFE_INTEGER` is ~9.007e15, a quadrillion). `SCALES` used to stop at trillion
+ * while the group loop indexed PAST its end and string-concatenated `undefined`:
+ * `1000000000000000` spoke as "oneundefined" and `9007199254740991` as "nineundefined seven
  * trillion …". `Number.isFinite` passed all of them, so the literal word "undefined" reached
- * the voice. Reading the digits is the honest fallback — a quadrillion is not a quantity a
- * deck means to say aloud, and it is far more often an id, a hash or a timestamp that wandered
- * into a number slot.
+ * the voice.
+ *
+ * Past the last named scale the digits are read one at a time — a value that large is far more
+ * often an id, a hash or a timestamp that wandered into a number slot than a quantity a deck
+ * means to say aloud.
  */
 export function integerToWords(n: number): string {
   if (!Number.isFinite(n) || n < 0) return String(n);
@@ -140,7 +143,18 @@ export function numberToWords(value: number): string {
     if (abs < 1 && abs > 0) asString = abs.toFixed(20).replace(/0+$/, '');
     // A value too LARGE for exact representation has no honest word form; its own digits
     // are the least-wrong reading, and never the literal string "1e+21".
-    else return (neg ? 'negative ' : '') + abs.toFixed(0).split('').map((d) => ONES[Number(d)] ?? d).join(' ');
+    // `toFixed(0)` is itself exponential at or above 1e21 (ECMA-262), so it fed the fallback
+    // "1e+21" and the digit map spoke the exponent's LETTERS: "one e + two one". BigInt renders
+    // the integer in full, which is the thing being read out.
+    else {
+      let digits: string;
+      try {
+        digits = BigInt(abs).toString();
+      } catch {
+        digits = abs.toFixed(0); // not an exact integer — nothing better to say than its own text
+      }
+      return (neg ? 'negative ' : '') + digits.split('').map((d) => ONES[Number(d)] ?? d).join(' ');
+    }
   }
   const [intPart, decPart] = asString.split('.');
   let out = integerToWords(Number(intPart));
@@ -458,16 +472,31 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
 
   // RANGES — "$1.2–1.4B", "50-60%", "2-3x", "12–15". The single most common shape in guidance,
   // and it used to pass through WHOLE, brackets and all, even though each side on its own
-  // normalized perfectly: `$4.2M` worked, `$1.2–1.4B` did not. One separator only, and BOTH
-  // sides must be numeric, which is what keeps `ID-4471` (no leading number) and `2026-09-20`
-  // (two separators) out of here.
+  // normalized perfectly: `$4.2M` worked, `$1.2–1.4B` did not.
+  //
+  // A BARE HYPHEN BETWEEN BARE NUMBERS IS NOT A RANGE, and the first cut of this rule got that
+  // wrong in the worst available way: `§22-1201` — a real citation on six shipped decks —
+  // narrated as "section twenty-two to one thousand two hundred one", a section number the slide
+  // does not show. `2026-09`, `555-1234` and `9-5` went the same way. A hyphen joins compounds,
+  // ids, dates and phone numbers far more often than it spans a range, so it is admitted only
+  // when the token carries a UNIT that settles the reading — a currency, a magnitude, a percent
+  // or a multiplier. An EN or EM DASH is admitted on its own, because that is the mark authors
+  // reach for when they mean "through".
+  //
+  // This also restores `citationNumber`'s invariant eleven lines up ("NOT routed through
+  // `numberToWords`/`Number()`, which would drop digits and speak a different, wrong section") —
+  // the section parser recurses into `spokenCore`, so a rule added here reaches citations too.
   //
   // A magnitude or unit written once, on the right, applies to the whole range — that is what
   // the notation means and how a person reads it aloud: "$1.2–1.4B" is "one point two to one
   // point four billion dollars", not "one point two dollars to one point four billion".
-  const range = core.match(new RegExp(`^([$£€]?)([\\d,]+(?:\\.\\d+)?)(${MAG_RE})?\\s*[–—-]\\s*([$£€]?)([\\d,]+(?:\\.\\d+)?)(${MAG_RE})?([%]|[×x])?$`, 'i'));
-  if (range) {
-    const [, curL, numL, magL, curR, numR, magR, suffix] = range;
+  const range = core.match(new RegExp(`^([$\u00a3\u20ac]?)([\\d,]+(?:\\.\\d+)?)(${MAG_RE})?\\s*([\u2013\u2014-])\\s*([$\u00a3\u20ac]?)([\\d,]+(?:\\.\\d+)?)(${MAG_RE})?([%]|[\u00d7x])?$`, 'i'));
+  // Groups: 1 curL · 2 numL · 3 magL · 4 separator · 5 curR · 6 numR · 7 magR · 8 suffix.
+  // The unit test is on 1/3/5/7/8 — NOT 6, which is the right-hand NUMBER and always present,
+  // so including it made this condition unconditionally true and the guard a no-op.
+  const rangeHasUnit = range && Boolean(range[1] || range[3] || range[5] || range[7] || range[8]);
+  if (range && (range[4] !== '-' || rangeHasUnit)) {
+    const [, curL, numL, magL, , curR, numR, magR, suffix] = range;
     const cur = curL || curR;
     const lo = numberToWords(Number(numL.replace(/,/g, '')));
     const hi = numberToWords(Number(numR.replace(/,/g, '')));
@@ -481,7 +510,7 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
     return `${lo}${loMag} to ${hi}${magWord(magR || magL)}${tail}`;
   }
 
-  // ISO date — "2026-09-20" → "September twentieth, twenty twenty-six". Read as a DATE rather
+  // ISO date — "2026-09-20" → "September twentieth, two thousand twenty-six". Read as a DATE rather
   // than as three numbers, which is what the digits alone would have given if anything had
   // claimed them; nothing did, so the whole string reached the voice raw.
   const iso = core.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -501,10 +530,19 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
     return `${h} ${m < 10 ? `oh ${integerToWords(m)}` : integerToWords(m)}`;
   }
 
-  // Rank — "#1" → "number one". Unambiguous: a `#` before a bare number is a rank or an issue
-  // reference in every register a deck uses.
+  // Rank — "#1" → "number one". A `#` before a bare number is a rank or an issue reference in
+  // most registers a deck uses — but NOT all of them, and the exception is shipped: an all-digit
+  // HEX COLOR. `#000000` narrated as "number zero" on examples/per-slide-diagram-band.md, and
+  // `#123456` as "number one hundred twenty-three thousand four hundred fifty-six". It took two
+  // changes in one PR to surface: slide-speech.js stopped stripping a mid-sentence `#` (correctly
+  // — it was eating real text), and this rule then claimed what arrived. So the two hex LENGTHS
+  // are refused: exactly three or exactly six digits is a color far more often than a rank, and a
+  // deck that means issue #123 is better served by silence than by a wrong reading of a color.
   const rank = core.match(/^#([\d,]+)$/);
-  if (rank) return `number ${numberToWords(Number(rank[1].replace(/,/g, '')))}`;
+  if (rank) {
+    const digits = rank[1].replace(/,/g, '');
+    if (digits.length !== 3 && digits.length !== 6) return `number ${numberToWords(Number(digits))}`;
+  }
 
   // Version — "v2.1" → "version two point one". The `v` prefix is what disambiguates it from a
   // plain decimal, so this never fires on a bare number.
@@ -592,11 +630,18 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
  * inference — "Costs fell −12%" still reads "fell down twelve percent", because guessing
  * which verbs imply a direction is a different and much less safe problem.
  *
+ * A SENTENCE BOUNDARY ENDS THE DEDUP. "We are up. +18% YoY." is two sentences, and the second
+ * one's `+` is not a duplicate of anything — it is the only direction that sentence states. The
+ * two producers segment differently before calling this (`buildTrack` per cue, `toSpokenText`
+ * over the whole text), so without this test they disagreed on exactly that input and the
+ * claim below was false.
+ *
  * Lives here, and is called by every producer of a spoken sequence, so the rule cannot
  * drift between the caption track and a plain text render.
  */
 export function dedupeDirection(prevDisplay: string | undefined, spoken: string): string {
   if (!prevDisplay || !spoken) return spoken;
+  if (/[.!?…]["'\u201d\u2019)\]]*$/.test(prevDisplay)) return spoken; // previous word ended the sentence
   const prev = prevDisplay.toLowerCase().replace(/[^a-z]/g, '');
   if (prev !== 'up' && prev !== 'down') return spoken;
   const m = spoken.match(/^(up|down)\s+([\s\S]*)$/i);

@@ -569,3 +569,76 @@ describe('a direction word is not said twice', () => {
     expect(toSpokenText('Costs fell -12%.')).toBe('Costs fell down twelve percent.');
   });
 });
+
+// ── Regressions the maker-checker caught before merge ───────────────────────────────
+//
+// Every case here is a defect the range and rank rules SHIPPED into this branch and a
+// checker found on real decks. They are the reason those two rules are narrow.
+describe('the range rule does not claim things that are not ranges', () => {
+  it('never renumbers a legal citation', () => {
+    // The worst one: `§22-1201` is a real citation on six shipped decks, and it narrated as
+    // "section twenty-two to one thousand two hundred one" — a section the slide does not
+    // show. The section parser recurses into spokenCore, so a rule added there reaches
+    // citations, and `citationNumber` exists precisely to stop a citation being renumbered.
+    expect(toSpoken('§22-1201')).toBe('section 22-1201');
+    expect(toSpoken('§59.1-575')).toBe('section 59.1-575');
+    expect(toSpoken('§12-345')).toBe('section 12-345');
+  });
+
+  it('leaves a bare hyphen between bare numbers alone — it is not a range', () => {
+    // A hyphen joins ids, dates, phone numbers and scores far more often than it spans a range.
+    for (const t of ['2026-09', '555-1234', '9-5', '24-7', '3-1']) expect(toSpoken(t)).toBe(t);
+  });
+
+  it('still reads a range that carries a unit, or an EN DASH', () => {
+    expect(toSpoken('$1.2–1.4B')).toBe('one point two to one point four billion dollars');
+    expect(toSpoken('$1.2-1.4B')).toBe('one point two to one point four billion dollars'); // unit settles it
+    expect(toSpoken('50-60%')).toBe('fifty to sixty percent');
+    expect(toSpoken('2-3x')).toBe('two to three times');
+    expect(toSpoken('12–15')).toBe('twelve to fifteen'); // en dash needs no unit
+  });
+});
+
+describe('the rank rule does not claim a hex color', () => {
+  it('leaves a 3- or 6-digit all-digit # token alone', () => {
+    // `#000000` narrated as "number zero" on examples/per-slide-diagram-band.md. It took two
+    // changes in one PR: slide-speech stopped stripping a mid-sentence `#`, and this rule
+    // claimed what arrived.
+    for (const t of ['#000000', '#123456', '#000', '#999']) expect(toSpoken(t)).toBe(t);
+  });
+
+  it('still reads a rank of any other length', () => {
+    expect(toSpoken('#1')).toBe('number one');
+    expect(toSpoken('#42')).toBe('number forty-two');
+    expect(toSpoken('#1234')).toBe('number one thousand two hundred thirty-four');
+  });
+});
+
+describe('a very large integer reads its digits, not an exponent', () => {
+  it('never speaks the letters of exponential notation', () => {
+    // `toFixed(0)` is itself exponential at or above 1e21, so the digit fallback was fed
+    // "1e+21" and spoke "one e + two one".
+    const spoken = toSpoken('1000000000000000000000'); // 1e21
+    expect(spoken).not.toMatch(/\be\b/); // the exponent marker read as its own word
+    expect(spoken).not.toContain('+');
+    expect(spoken.startsWith('one zero zero')).toBe(true);
+    expect(spoken.split(' ')).toHaveLength(22); // every digit, and only the digits
+  });
+
+  it('still names every scale it can', () => {
+    expect(toSpoken('1000000000000000')).toBe('one quadrillion');
+  });
+});
+
+describe('the direction dedup stops at a sentence boundary', () => {
+  it('keeps a new sentence’s own direction word', () => {
+    // The two producers segment differently before calling dedupeDirection — buildTrack per
+    // cue, toSpokenText over the whole text — so they disagreed on exactly this input, while
+    // the docblock claimed they could not drift.
+    expect(toSpokenText('We are up. +18% YoY.')).toBe('We are up. up eighteen percent year over year.');
+  });
+
+  it('still dedups inside one sentence', () => {
+    expect(toSpokenText('We are up +18% YoY.')).toBe('We are up eighteen percent year over year.');
+  });
+});

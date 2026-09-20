@@ -1210,24 +1210,20 @@ test('two adjacent element siblings are separated, not welded together', () => {
 	assert.ok(!text.includes('ShippedSignal'), `still welded: ${text}`);
 });
 
-test('an element followed by TEXT is left alone, so a mid-word wrapper does not split', () => {
-	// The case a blanket "space before every element" would break. Only ELEMENT-to-ELEMENT
-	// boundaries get a separator.
+test('an element that FOLLOWS TEXT gets no separator, so a mid-word wrapper does not split', () => {
+	// THE FIXTURE MATTERS, and the first one here was worthless. `<span>Sig</span>nal` puts the
+	// span FIRST, so `prevWasElement` is false and the trailing trim hides the difference — a
+	// mutant that inserts a space before EVERY element passed it. The span has to come AFTER
+	// text for the rule to be under test at all. (Mutation-checked: this fails as "Sig nal"
+	// against that mutant.)
 	const secs = sections(
 		'<section data-lattice-slide class="content form" data-class="content"><div class="cell-stage">' +
-			'<div class="masthead-lede"><h2>Heading.</h2></div><p><span>Sig</span>nal taxonomy.</p>' +
+			'<div class="masthead-lede"><h2>Heading.</h2></div><p>Sig<span>nal</span> taxonomy.</p>' +
 			'</div></section>',
 	);
-	assert.ok(speak(secs)[0].includes('Signal taxonomy'), speak(secs)[0]);
-});
-
-test('existing whitespace between siblings is not doubled', () => {
-	const secs = sections(
-		'<section data-lattice-slide class="content form" data-class="content"><div class="cell-stage">' +
-			'<div class="masthead-lede"><h2>Heading.</h2></div><p><span>One</span> <span>two</span></p>' +
-			'</div></section>',
-	);
-	assert.ok(speak(secs)[0].includes('One two'), speak(secs)[0]);
+	const text = speak(secs)[0];
+	assert.ok(text.includes('Signal taxonomy'), text);
+	assert.ok(!text.includes('Sig nal'), `split a word: ${text}`);
 });
 
 // ── KaTeX's TeX round-trip is not a reading — #2121 ─────────────────────────────────

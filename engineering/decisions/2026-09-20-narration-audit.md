@@ -44,7 +44,9 @@ it separates the two populations cleanly with nothing in between.
 
 Artifacts: 70 `.vtt` sidecars, the gallery deck's 116, and a direct probe of
 `slideToSpeech`, `narrateChart` and `buildTrack`. Every number below is reproducible
-from a clean checkout.
+from a clean checkout with `node tools/measure-narration-coverage.mjs` — which was a
+scratch script during the audit, and is committed because that sentence was not true
+while it wasn't.
 
 **Not verified:** how any of it SOUNDS. There is no TTS in the sandbox, so every claim
 here is about the spoken STRING, never the audio (HARD RULE #23). The one claim that
@@ -405,6 +407,15 @@ that already 400s on an unexpected `response_format` would risk breaking synthes
 so what shipped is the part that is real: `utterance.lang` on the Web Speech path, `<html
 lang>` on the Stage document, and `voiceLanguageMismatch()` — because for the two model rungs
 the VOICE is the language, and what was missing was anyone noticing they disagreed.
+
+**A maker-checker pass ran on the fixes themselves** and blocked the first merge ask. It found
+two regressions this branch had introduced onto shipped decks — a hyphenated legal citation
+renumbered by the new range rule (`§22-1201` → "section twenty-two to one thousand two hundred
+one", on six decks) and an all-digit hex color read as a rank (`#000000` → "number zero"). Both
+are the defect class this audit is about: narration stating a fact the slide does not show. It
+also mutation-proved two of my own tests unfalsifiable, and found four comments and three
+changelog lines asserting things the code did not do. All fixed; the record of what it caught
+is in the PR.
 
 **Still open, and deliberately:** the abbreviation over-split in `segment.ts` (Finding 3), the
 remaining nine token passthroughs (a slash means four different things; guessing is worse than
