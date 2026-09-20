@@ -251,6 +251,24 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
     return spoken ? spoken + spokenPunct : '';
   }
 
+  // BRACKETING punctuation is VISUAL — the display word keeps it, the voice does not say it.
+  // Peel it and re-run the whole pipeline on the value inside, so `($4.2M)` normalizes exactly
+  // as `$4.2M` does. This runs AFTER both author registries so a deck can still override the
+  // wrapped form verbatim (`lexicon: {"(12)": "negative twelve"}`), and before the symbol
+  // commons so the operand inside is expanded rather than the brackets being glyph-spoken.
+  //
+  // NOTE ON `(12)`: peeling makes this "twelve", not "negative twelve". The accounting-negative
+  // convention is real but domain-specific — the same shape is a footnote marker in prose — so
+  // this does not guess. Reading it as a number beats reading it as glyphs; a deck that means
+  // the accounting sense says so with `lexicon:`, and a `finance` domain pack is the right home
+  // for making it automatic. See 2026-09-20-narration-audit.md Finding 3.
+  const unwrapped = peelWrappers(core);
+  if (unwrapped !== core) {
+    if (!unwrapped) return ''; // brackets and nothing else — silence, like a dropped glyph
+    const spoken = toSpoken(unwrapped, opts);
+    return spoken ? spoken + spokenPunct : '';
+  }
+
   // Speech Symbol Commons — arrows, math operators, typographic marks, emoji. One glyph pass
   // handles standalone ("→"), embedded ("red↔green"), and mixed ("3×4"): each known glyph becomes
   // a spoken word (SPEAK), a silence (DROP / decorative emoji), or the author's lexicon override;
@@ -424,6 +442,67 @@ export function spokenWordCount(spoken: string): number {
  */
 const isAlphaNum = (c: string): boolean =>
   (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+
+// Wrapping punctuation — the marks that DELIMIT a token and are never part of its value.
+// Deliberately NOT the same set as `edgeTrim`'s "anything non-alphanumeric": `$`, `€`, `§`,
+// `+`, `−`, `#`, `~`, `≥` all LEAD a value and carry meaning the parsers below depend on, so
+// peeling them would break money, sections and signed deltas. These only ever bracket.
+const WRAP_PAIRS: Record<string, string> = {
+  '(': ')',
+  '[': ']',
+  '{': '}',
+  '"': '"',
+  "'": "'",
+  '“': '”', // “ ”
+  '‘': '’', // ‘ ’
+  '«': '»', // « »
+  '*': '*', // markdown emphasis that survived an upstream strip
+  _: '_',
+};
+const WRAP_CLOSERS = new Set(Object.values(WRAP_PAIRS));
+
+/**
+ * Peel BRACKETING punctuation off a token so the rules below see the value inside it.
+ *
+ * Without this, any wrapped token skipped every rule the library has and reached the voice as
+ * raw glyphs — `($4.2M)`, `"ARR"`, `[CEO]`, `(§5)`, `(12)` — while the BARE forms all normalized
+ * correctly. The peel was already written (`edgeTrim`) and called only by `unmatchedAcronyms`,
+ * the lint's discovery signal, so the lint trimmed the token, found it resolvable and reported
+ * nothing, on exactly the tokens the voice would mangle.
+ *
+ * Two rules keep it from eating a value's own punctuation:
+ *  • An opener is peeled only when the token CLOSES with its partner (`(12)`) or contains no
+ *    partner at all (`(Reason` — a parenthetical broken across words). So `§1798.140(o)` keeps
+ *    its `(o)`: it neither starts with `(` nor lacks a `)`.
+ *  • A closer is peeled only when the token contains no matching opener, which is what lets
+ *    `ARR)` through while `§1798.140(o)` is left alone.
+ *
+ * Loops rather than recursing so `((ARR))` resolves in one call, and each pass strips at least
+ * one character, so it terminates. Linear index work only — no anchored `+` quantifier, for the
+ * same ReDoS reason `edgeTrim` documents.
+ */
+function peelWrappers(raw: string): string {
+  let s = raw;
+  for (;;) {
+    if (s.length < 2) return s;
+    const first = s[0];
+    const last = s[s.length - 1];
+    const partner = WRAP_PAIRS[first];
+    if (partner !== undefined && (last === partner || !s.includes(partner, 1))) {
+      s = last === partner ? s.slice(1, -1) : s.slice(1);
+      continue;
+    }
+    // A bare closer: peel only when its opener is genuinely absent from the token.
+    if (WRAP_CLOSERS.has(last)) {
+      const opener = Object.keys(WRAP_PAIRS).find((k) => WRAP_PAIRS[k] === last);
+      if (opener !== undefined && !s.slice(0, -1).includes(opener)) {
+        s = s.slice(0, -1);
+        continue;
+      }
+    }
+    return s;
+  }
+}
 
 /** Trim leading/trailing non-alphanumerics via linear index scans — NOT a `[^…]+$`-anchored
  *  regex, whose `+`-quantifier backtracks polynomially on a run of many non-alphanumerics

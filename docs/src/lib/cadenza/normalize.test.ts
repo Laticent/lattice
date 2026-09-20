@@ -412,3 +412,62 @@ describe('say-as lexicon — expand / word / spell (§14)', () => {
     expect(toSpokenText('reap what you sow')).toBe('reap what you sow'); // SOW never always-on
   });
 });
+
+// ── Bracketing punctuation — 2026-09-20-narration-audit.md Finding 3 ─────────────────
+//
+// Any WRAPPED token used to skip every rule in this file and reach the voice as raw
+// glyphs, while the bare form normalized correctly. The peel existed (`edgeTrim`) and was
+// wired only to the LINT, so the lint reported a deck clean on exactly the tokens the
+// voice would mangle. These pin the peel, and — more importantly — pin what it must NOT eat.
+describe('bracketing punctuation is peeled, value-leading punctuation is not', () => {
+  it('normalizes a wrapped token exactly as it normalizes the bare one', () => {
+    for (const [wrapped, bare] of [
+      ['($4.2M)', '$4.2M'],
+      ['"ARR"', 'ARR'],
+      ['[CEO]', 'CEO'],
+      ['(§5)', '§5'],
+      ['(+9%)', '+9%'],
+      ['(4.2×)', '4.2×'],
+      ['*ROI*', 'ROI'],
+      ['((ARR))', 'ARR'], // several layers, one call
+      ['ARR)', 'ARR'], // an unpaired closer, from a parenthetical broken across words
+      ['(Reason', 'Reason'], // and an unpaired opener
+    ] as const) {
+      expect(toSpoken(wrapped)).toBe(toSpoken(bare));
+    }
+  });
+
+  it('keeps the sentence terminator outside the brackets', () => {
+    expect(toSpoken('(ARR).')).toBe('annual recurring revenue.');
+    expect(toSpoken('"$4.2M",')).toBe('four point two million dollars,');
+  });
+
+  it('NEVER peels punctuation that leads a value', () => {
+    // The reason this is a wrapper-only peel and not `edgeTrim`: every one of these
+    // characters carries meaning the parsers depend on.
+    expect(toSpoken('$4.2M')).toBe('four point two million dollars');
+    expect(toSpoken('+9%')).toBe('up nine percent');
+    expect(toSpoken('-9%')).toBe('down nine percent');
+    expect(toSpoken('≥5')).toBe('greater than or equal to five');
+    expect(toSpoken('±3%')).toBe('plus or minus three percent');
+  });
+
+  it('leaves a section reference’s own parenthetical alone', () => {
+    // `§1798.140(o)` neither starts with `(` nor lacks a `)`, so neither peel rule fires.
+    // This is the case a naive edge-trim breaks.
+    expect(toSpoken('§1798.140(o)')).toBe('section one thousand seven hundred ninety-eight point one four zero, subsection o');
+  });
+
+  it('leaves a mid-token colon alone (a time, a ratio)', () => {
+    expect(toSpoken('3:30')).toBe('3:30');
+    expect(toSpoken('16:9')).toBe('16:9');
+  });
+
+  it('lets an author override the WRAPPED form verbatim', () => {
+    // The peel runs after both author registries, so a deck that means the
+    // accounting-negative sense of `(12)` can still say so.
+    const lexicon = new Map([['(12)', 'negative twelve']]);
+    expect(toSpoken('(12)', { lexicon })).toBe('negative twelve');
+    expect(toSpoken('(12)')).toBe('twelve'); // unguessed by default — see the peel's docblock
+  });
+});
