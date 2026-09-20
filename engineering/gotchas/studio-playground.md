@@ -1483,3 +1483,37 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — any deploy, for every page open at that moment. The window re-opens
   on every deploy, so frequency scales with release cadence, not with anything in the code.
 - **Removable when** — a retention or recovery option above is chosen and shipped.
+
+## A chart's hover card flashes up and vanishes as you sweep onto a mark
+
+- **Symptom** — sweep the pointer onto a chart mark in the Playground, the Studio
+  preview or Present and the detail card appears for a frame, then goes. Arrive on the
+  mark and STOP and it stays open indefinitely — which is what makes this read as an
+  intermittent glitch: the deliberate way you test it is the way that works. It is
+  worst on small marks (a heatmap's 69px cells failed 7 sweeps in 9) but it is not a
+  small-mark bug; a funnel's full-width bands fail too.
+- **Cause** — the card is a Radix `Popover`, and `ChartDetailLayer` sets
+  `pointer-events:none` on the `PopoverContent`. Radix renders that content inside its
+  OWN positioning div, `[data-radix-popper-content-wrapper]`, and the wrapper keeps
+  `pointer-events:auto`. The card opens 12.13px below the cursor (`sideOffset={12}`),
+  so a stationary pointer is never inside it. Under a sweep the reveal fires
+  mid-gesture, the wrapper is placed at that earlier cursor point, and the continuing
+  motion carries the pointer into the wrapper a few pixels later. The preview iframe
+  gets `pointerleave`, and `chart-interact.js` reads that as a deliberate dismiss.
+- **Fix** — `docs/src/styles/chart-interact.css` takes the pointer off the wrapper,
+  scoped with `:has(> .lat-chart-detail-pop)` so only our card is affected, and with
+  `@media (pointer: fine)` so it applies only where there is a hover to protect. The
+  second half matters: on a coarse pointer the card would otherwise become
+  tap-through, and a tap meant to dismiss it could reach Present's capture layer and
+  advance a slide.
+- **The general shape** — `pointer-events:none` on a floating element is not enough
+  when a library wraps it. Check the wrapper the library renders, not only the node you
+  styled. The same applies to any Radix surface positioned over an iframe.
+- **How it stayed hidden** — nothing drove the reveal in a browser. jsdom has no
+  hit-testing and no stacking, so `chart-detail-layer.test.tsx` cannot see it, and the
+  per-chart transform tests compare strings. `docs/e2e/chart-detail-reveal.spec.ts` is
+  the arm that can, and it sweeps for the reason above. Reverting the rule at source
+  turns all three of its tests red (three runs of three, arm 1 reporting seven
+  `NO CARD` of nine); an independent run that instead injected an `!important`
+  counter-rule at runtime saw the third survive. Treat arms 1 and 3 as the rule's
+  dependable mutation proof.

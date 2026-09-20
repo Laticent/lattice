@@ -15,52 +15,93 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const MarkdownIt = require('markdown-it');
+const { JSDOM } = require('jsdom');
+
+// Query the RENDERED SVG through a real parser rather than by regex. The first
+// cut scraped it with patterns like /<text class="chart-key-label"[^>]*>(…)/,
+// which CodeQL flagged as polynomial backtracking on library input (6 alerts),
+// and /<[^>]*>/ as incomplete sanitization — both fair: hand-rolled HTML
+// scraping is exactly the shape that bites. A parser also reads better, since
+// an assertion about a swatch should query a swatch.
+const parse = (svg) => new JSDOM(`<!doctype html><body>${svg}</body>`).window.document;
+const textsOf = (svg, sel) => [...parse(svg).querySelectorAll(sel)].map((n) => n.textContent);
 
 const {
-  parseHeatmap, buildHeatmap,
+  parseHeatmapTable, readCell, buildHeatmap, deriveBands, liftLabelSet, cellMarks, transformSection,
   MAX_COLS, MAX_ROWS, MIX_FLOOR, MIX_TOP, RAMP_STEPS, stepFor, rampBreaks,
 } = require('../../../lib/components/chart/heatmap/heatmap.transform');
 
 const md = new MarkdownIt({ html: true });
-/** The `<li>` HTML of the first list in an authored body — what the kernel takes. */
-const ul = (body) => (md.render(body).match(/<ul>([\s\S]*)<\/ul>/) || ['', ''])[1];
+/** The `<table>` HTML of an authored body — what the kernel takes. */
+const tbl = (body) => (md.render(body).match(/<table>[\s\S]*<\/table>/) || [''])[0];
 
-const GRID = `
-- Jan
-  - M0 \`100\`
-  - M1 \`62\`
-  - M2 \`48\`
-- Feb
-  - M0 \`100\`
-  - M1 \`58\`
-  - M2 \`44\`
-`;
+/** A matrix as an author writes it: header names the columns, each row leads with
+ *  its label, a BLANK cell is a crossing nobody measured. */
+const grid = (...rows) => tbl(['|  | M0 | M1 | M2 |', '| --- | --: | --: | --: |', ...rows].join('\n'));
+
+const GRID = grid('| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |');
+
+/** A TWO-column matrix, for the arms that count empty crossings exactly — a
+ *  three-column helper would add a phantom blank to every row. */
+const grid2 = (...rows) => tbl(['|  | M0 | M1 |', '| --- | --: | --: |', ...rows].join('\n'));
 
 describe('heatmap — what it refuses to draw', () => {
-  test('a FLAT list is declined, not painted as one row', () => {
-    // A single series is a comparison, and a reader judges length far more
-    // precisely than intensity. Painting it as a row of cells would invite the
-    // wrong reading rather than merely looking odd.
-    assert.equal(parseHeatmap(ul('- Jan `62`\n- Feb `58`\n')), null);
+  test('a header with no column names is declined', () => {
+    // Only the corner cell, so there is no second dimension to cross. The
+    // FLAT-list case this replaced cannot be written as a table at all: a value
+    // in a table always sits under a column name, so the shape that used to be
+    // ambiguous simply has no spelling here.
+    assert.equal(parseHeatmapTable(tbl('|  |\n| --- |\n| Jan |\n')), null);
   });
 
-  test('an empty list is declined', () => {
-    assert.equal(parseHeatmap(ul('- Jan\n- Feb\n')), null);
+  test('a header-only table is declined', () => {
+    assert.equal(parseHeatmapTable(tbl('|  | M0 | M1 |\n| --- | --: | --: |\n')), null);
   });
 
   test('rows with labels but no numbers anywhere are declined', () => {
-    assert.equal(parseHeatmap(ul('- Jan\n  - M0 `n/a`\n- Feb\n  - M0 `tbd`\n')), null);
+    assert.equal(parseHeatmapTable(grid('| Jan | n/a | tbd |  |')), null);
+  });
+});
+
+describe('a cell can carry its own annotation', () => {
+  // The table has no sublist channel, so a cell's "why" rides a `# prose` sigil
+  // in the cell itself. The arms below hold the two things that makes or breaks:
+  // the annotation must not disturb the VALUE, and the sigil must not eat the
+  // `#`-leading strings an author legitimately writes.
+  test('the prose is captured and the value is left exactly as authored', () => {
+    assert.deepEqual(readCell('62 <code># dipped after the onboarding change</code>'),
+      { raw: '62', detail: 'dipped after the onboarding change' });
+  });
+
+  test('an annotated cell measures as the same number as a bare one', () => {
+    assert.equal(readCell('62 <code># why</code>').raw, readCell('62').raw);
+  });
+
+  test('a hex color or an issue ref is NOT an annotation', () => {
+    // Measured over the shipped decks: 12 inline-code spans start with `#` and
+    // they are hex colors, issue refs and quoted heading syntax. Requiring the
+    // SPACE is what separates prose from a literal an author pasted in.
+    assert.equal(readCell('62 <code>#7DE38A</code>').detail, '');
+    assert.equal(readCell('62 <code>#1311</code>').detail, '');
+  });
+
+  test('a cell with no annotation reports none', () => {
+    assert.equal(readCell('100').detail, '');
+  });
+
+  test('the annotated crossing SURVIVES — the failure a trailing pill caused', () => {
+    // A second value pill made the cell vanish (readLeadValue takes the LAST
+    // <code>), and a heatmap paints a vanished crossing as unmeasured — so the
+    // slide asserted something false about the data. This is that regression.
+    const m = parseHeatmapTable(grid2('| Jan | 100 | 62 `# dipped` |', '| Feb | 100 | 58 |'));
+    assert.equal(m.rows[0].cells.filter(Boolean).length, 2, 'the annotated cell must still be a cell');
+    assert.equal(m.rows[0].cells[1].num, 62);
+    assert.equal(m.rows[0].cells[1].detail, 'dipped');
   });
 });
 
 describe('heatmap — a missing cell is not a zero', () => {
-  const model = parseHeatmap(ul(`
-- Jan
-  - M0 \`100\`
-  - M1 \`62\`
-- Feb
-  - M0 \`100\`
-`));
+  const model = parseHeatmapTable(grid2('| Jan | 100 | 62 |', '| Feb | 100 |  |'));
 
   test('an unwritten crossing parses as null, not 0', () => {
     assert.equal(model.rows[1].cells[1], null,
@@ -84,7 +125,7 @@ describe('heatmap — a missing cell is not a zero', () => {
   });
 
   test('an authored ZERO is a value, and does land on the ramp', () => {
-    const m = parseHeatmap(ul('- Jan\n  - M0 `0`\n  - M1 `50`\n- Feb\n  - M0 `25`\n  - M1 `75`\n'));
+    const m = parseHeatmapTable(grid2('| Jan | 0 | 50 |', '| Feb | 25 | 75 |'));
     assert.equal(m.rows[0].cells[0].num, 0);
     assert.equal(m.min, 0);
     const svg = buildHeatmap(m, {});
@@ -159,7 +200,7 @@ describe('heatmap — the quantized ramp', () => {
   });
 
   test('every cell and every value carries a step, and they agree', () => {
-    const svg = buildHeatmap(parseHeatmap(ul(GRID)), {});
+    const svg = buildHeatmap(parseHeatmapTable(GRID), {});
     const cells = [...svg.matchAll(/<rect class="heatmap-cell"[^>]*data-step="(\d+)"[^>]*data-value="([^"]*)"/g)];
     assert.ok(cells.length > 0, 'no cells carried a step');
     const values = [...svg.matchAll(/<text class="heatmap-value"[^>]*data-step="(\d+)"/g)];
@@ -180,7 +221,7 @@ describe('heatmap — the quantized ramp', () => {
     // HARD RULE #3, and the reason a rendered deck stays theme-swappable: the
     // same HTML has to paint correctly under all 33 palettes, so a mix percentage
     // or an ink baked in here would be wrong the moment the stylesheet changed.
-    const svg = buildHeatmap(parseHeatmap(ul(GRID)), {});
+    const svg = buildHeatmap(parseHeatmapTable(GRID), {});
     assert.doesNotMatch(svg, /--mix\s*:/, 'the kernel must not set a mix percentage');
     assert.doesNotMatch(svg, /#[0-9a-fA-F]{3,8}\b/, 'the kernel must not emit a color');
   });
@@ -341,17 +382,22 @@ describe('heatmap — every shipped palette carries an AA-clean ramp', () => {
 
 describe('heatmap — capacity is reported, never silently dropped', () => {
   test('columns past the cap are reported', () => {
-    const cols = Array.from({ length: MAX_COLS + 3 }, (_, i) => `  - C${i} \`${i + 1}\``).join('\n');
-    const model = parseHeatmap(ul(`- Row A\n${cols}\n- Row B\n${cols}\n`));
+    const names = Array.from({ length: MAX_COLS + 3 }, (_, i) => `C${i}`);
+    const vals = names.map((_, i) => i + 1);
+    const model = parseHeatmapTable(tbl([
+      `|  | ${names.join(' | ')} |`,
+      `| --- |${' --: |'.repeat(names.length)}`,
+      `| Row A | ${vals.join(' | ')} |`,
+      `| Row B | ${vals.join(' | ')} |`,
+    ].join('\n')));
     assert.equal(model.cols.length, MAX_COLS);
     assert.equal(model.overflowCols.length, 3,
       'the columns that did not fit must be named, not dropped in silence');
   });
 
   test('rows past the cap are reported', () => {
-    const rows = Array.from({ length: MAX_ROWS + 2 },
-      (_, i) => `- R${i}\n  - M0 \`${i + 1}\`\n  - M1 \`${i + 2}\``).join('\n');
-    const model = parseHeatmap(ul(rows));
+    const model = parseHeatmapTable(tbl(['|  | M0 | M1 |', '| --- | --: | --: |',
+      ...Array.from({ length: MAX_ROWS + 2 }, (_, i) => `| R${i} | ${i + 1} | ${i + 2} |`)].join('\n')));
     assert.equal(model.rows.length, MAX_ROWS);
     assert.equal(model.overflowRows.length, 2);
   });
@@ -362,9 +408,13 @@ describe('heatmap — capacity is reported, never silently dropped', () => {
   // test called "never silently dropped" stayed green. A capacity report nobody
   // reads is not a report.
   test('what the cap cut reaches the reader, not just the model', () => {
-    const cols = Array.from({ length: MAX_COLS + 2 }, (_, i) => `  - C${i} \`${i + 1}\``).join('\n');
-    const rows = Array.from({ length: MAX_ROWS + 2 }, (_, i) => `- R${i}\n${cols}`).join('\n');
-    const model = parseHeatmap(ul(rows));
+    const names = Array.from({ length: MAX_COLS + 2 }, (_, i) => `C${i}`);
+    const vals = names.map((_, i) => i + 1);
+    const model = parseHeatmapTable(tbl([
+      `|  | ${names.join(' | ')} |`,
+      `| --- |${' --: |'.repeat(names.length)}`,
+      ...Array.from({ length: MAX_ROWS + 2 }, (_, i) => `| R${i} | ${vals.join(' | ')} |`),
+    ].join('\n')));
     const desc = (buildHeatmap(model, {}).match(/<desc>([^<]*)<\/desc>/) || ['', ''])[1];
     for (const name of [...model.overflowCols, ...model.overflowRows]) {
       assert.ok(desc.includes(name), `${name} was cut by the cap and the description never says so`);
@@ -372,17 +422,16 @@ describe('heatmap — capacity is reported, never silently dropped', () => {
   });
 
   test('a grid inside the cap says nothing about overflow', () => {
-    const desc = (buildHeatmap(parseHeatmap(ul(GRID)), {}).match(/<desc>([^<]*)<\/desc>/) || ['', ''])[1];
+    const desc = (buildHeatmap(parseHeatmapTable(GRID), {}).match(/<desc>([^<]*)<\/desc>/) || ['', ''])[1];
     assert.doesNotMatch(desc, /Not shown/, 'a grid that fits must not carry an overflow sentence');
   });
 
   test('the domain is taken from the rows that SURVIVE the cap', () => {
     // A value on a row that did not make it must not stretch the ramp every
     // painted cell is read against.
-    const rows = Array.from({ length: MAX_ROWS + 1 },
-      (_, i) => `- R${i}\n  - M0 \`${i === MAX_ROWS ? 9999 : i + 1}\``
-        + `\n  - M1 \`${i + 2}\``).join('\n');
-    const model = parseHeatmap(ul(rows));
+    const model = parseHeatmapTable(tbl(['|  | M0 | M1 |', '| --- | --: | --: |',
+      ...Array.from({ length: MAX_ROWS + 1 },
+        (_, i) => `| R${i} | ${i === MAX_ROWS ? 9999 : i + 1} | ${i + 2} |`)].join('\n')));
     assert.ok(model.max < 9999, 'a dropped row must not set the maximum');
   });
 });
@@ -448,7 +497,7 @@ describe('heatmap — the fit guard reads the face the slide will paint', () => 
 });
 
 describe('heatmap — the accessible description', () => {
-  const svg = buildHeatmap(parseHeatmap(ul(GRID)), {});
+  const svg = buildHeatmap(parseHeatmapTable(GRID), {});
   const desc = (svg.match(/<desc>([^<]*)<\/desc>/) || ['', ''])[1];
 
   test('it states the shape and the range', () => {
@@ -464,9 +513,356 @@ describe('heatmap — the accessible description', () => {
   });
 
   test('it counts the crossings that carry no value, in agreeing grammar', () => {
-    const one = buildHeatmap(parseHeatmap(ul('- Jan\n  - M0 `1`\n  - M1 `2`\n- Feb\n  - M0 `3`\n')), {});
+    const one = buildHeatmap(parseHeatmapTable(grid2('| Jan | 1 | 2 |', '| Feb | 3 |  |')), {});
     assert.match(one, /1 crossing carries no value/);
-    const two = buildHeatmap(parseHeatmap(ul('- Jan\n  - M0 `1`\n  - M1 `2`\n- Feb\n')), {});
+    const two = buildHeatmap(parseHeatmapTable(grid2('| Jan | 1 | 2 |', '| Feb |  |  |')), {});
     assert.match(two, /2 crossings carry no value/);
+  });
+});
+
+describe('the band key', () => {
+  // The key is the answer to the one question the printed cell values cannot
+  // answer: why are these two cells the same color?
+  const model = () => parseHeatmapTable(grid(
+    '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
+  const withBands = (bands) => { const m = model(); m.bands = bands; return m; };
+  const labels = (svg) => textsOf(svg, 'text.chart-key-label');
+
+  test('is OPT-IN — a heatmap that did not ask for one is unchanged', () => {
+    // Every shipped heatmap was composed without a rail, so turning the key on
+    // by default would re-lay-out slides nobody touched.
+    const svg = buildHeatmap(model(), {});
+    assert.equal(parse(svg).querySelectorAll('.chart-key-swatch').length, 0);
+    assert.equal(parse(svg).querySelector('svg').getAttribute('viewBox'), '0 0 320 180',
+      'the grid must keep the whole box');
+  });
+
+  test('the derived bands name value RANGES, not words', () => {
+    // Polarity is unknowable — high retention is good, high churn is bad — and
+    // the bands are quantile-cut per matrix, so a word would name different
+    // numbers on every slide.
+    for (const l of labels(buildHeatmap(withBands([]), {}))) {
+      assert.match(l, /^[\d.,]+(–[\d.,]+)?$/, `${l} is not a range`);
+    }
+  });
+
+  test("an author's words merge over the derived set, band by band", () => {
+    const svg = buildHeatmap(withBands([{ key: '1', label: 'Cold' }]), {});
+    const got = labels(svg);
+    assert.ok(got.includes('Cold'), 'the named band takes the word');
+    assert.ok(got.some((l) => /^[\d.,]+(–[\d.,]+)?$/.test(l)),
+      'the bands the author did not name stay derived — that is the whole point');
+  });
+
+  test('only the bands the matrix USES are keyed', () => {
+    // A quantile cut over few distinct values leaves steps empty, and an empty
+    // band is a key row pointing at a color nowhere on the slide.
+    const small = parseHeatmapTable(grid2('| Jan | 100 | 62 |', '| Feb | 100 | 58 |'));
+    small.bands = [];
+    const keys = deriveBands(small, (n) => String(n)).map((b) => b.key);
+    assert.ok(keys.length < RAMP_STEPS, 'a small matrix must not key all five steps');
+  });
+
+  test('the swatch carries the cell CLASS, never a resolved fill (HARD RULE #3)', () => {
+    // A heatmap cell is painted by CSS color-mix on [data-step]. A fill baked in
+    // here would be a color in the kernel, and the key would stop matching the
+    // grid the moment the palette changed.
+    const swatch = parse(buildHeatmap(withBands([]), {})).querySelector('.chart-key-swatch');
+    assert.ok(swatch.classList.contains('heatmap-cell'));
+    assert.match(swatch.getAttribute('data-step'), /^\d$/);
+    assert.equal(swatch.getAttribute('fill'), null, 'the kernel must not resolve the ramp color');
+  });
+
+  test('the bands reach a reader who cannot see them', () => {
+    const desc = parse(buildHeatmap(withBands([{ key: '1', label: 'Cold' }]), {}))
+      .querySelector('desc').textContent;
+    assert.match(desc, /Bands:/, 'a key nobody can see is decoration');
+    assert.match(desc, /Cold/);
+  });
+});
+
+describe('lifting the authored set off the slide', () => {
+  const P = (t) => `<p><code>${t}</code></p>`;
+
+  test('finds the set and removes it, so it keys the bands instead of printing', () => {
+    const { html, set } = liftLabelSet(`<h2>T</h2>${P('[{1, Cold}, {5, Hot}]')}<table></table>`);
+    assert.deepEqual(set, [{ key: '1', label: 'Cold' }, { key: '5', label: 'Hot' }]);
+    assert.doesNotMatch(html, /Cold/, 'the set must not also render as a subtitle');
+  });
+
+  test('an EYEBROW is not mistaken for a set — and does not stop the search', () => {
+    // The regression this arm exists for: a heatmap slide routinely opens with a
+    // one-code eyebrow, which sits above the set and matches the same shape.
+    // Testing only the FIRST one-code paragraph found the eyebrow, failed to
+    // parse it, and gave up — so the set rendered as a subtitle and no key
+    // appeared.
+    const { html, set } = liftLabelSet(
+      `${P('Retention · 2026 cohorts')}<h2>T</h2>${P('[{1, Cold}]')}<table></table>`);
+    assert.deepEqual(set, [{ key: '1', label: 'Cold' }]);
+    assert.match(html, /Retention · 2026 cohorts/, 'the eyebrow must survive');
+  });
+
+  test('a slide with no set is left exactly as it was', () => {
+    const src = `${P('Retention · 2026 cohorts')}<h2>T</h2><table></table>`;
+    const { html, set } = liftLabelSet(src);
+    assert.equal(set, null);
+    assert.equal(html, src);
+  });
+});
+
+describe('a cell annotation reaches both surfaces', () => {
+  const slide = (body) => {
+    const html = md.render(body);
+    return transformSection(html, { cls: 'heatmap', classTokens: ['heatmap'] });
+  };
+  const RAGGED = ['## T.', '', '|  | M0 | M1 | M2 |', '| --- | --: | --: | --: |',
+    '| Jan | 100 | 62 |  |', '| Feb | 90 | 58 `# the one that matters` | 40 |'].join('\n');
+
+  test('the template index matches the rect it describes, across a ragged matrix', () => {
+    // The reveal layer looks a template up BY data-mark. A crossing nobody
+    // measured still consumes an index on the grid, so the marks have to be
+    // counted the same way or the popover opens on the wrong cell.
+    const d = parse(slide(RAGGED));
+    const tpl = d.querySelector('template.chart-detail');
+    assert.ok(tpl, 'an annotated cell must emit a template');
+    const rect = d.querySelector(`rect.heatmap-cell[data-mark="${tpl.getAttribute('data-mark')}"]`);
+    assert.equal(rect.getAttribute('data-label'), 'Feb · M1',
+      'the template points at the cell that was annotated');
+  });
+
+  test('the template holds an <li>, which is what the reveal layer actually reads', () => {
+    // NOT a shape preference. `chart-interact.js` reveal() builds the card from
+    // `tpl.content.querySelectorAll('li')` — first item body, rest meta. Bare text
+    // in the template yields zero items, so body and meta come back empty and the
+    // layer treats the mark as LEAN: the compact value-only tooltip a cell with no
+    // authored detail gets. The annotation then vanishes on every live surface
+    // while still reading correctly in the PDF, because detailNote has its own
+    // bare-text fallback. Measured on the real Playground before this arm existed.
+    const d = parse(slide(RAGGED));
+    const li = d.querySelector('template.chart-detail').content.querySelectorAll('li');
+    assert.equal(li.length, 1, 'exactly one item — the cell carries one annotation');
+    assert.equal(li[0].textContent, 'the one that matters');
+  });
+
+  test('the same words fold into the speaker note, so print keeps them', () => {
+    assert.match(slide(RAGGED), /Feb · M1 \(58\): the one that matters/);
+  });
+
+  test('a heatmap with no annotation emits neither, and is byte-identical', () => {
+    const plain = ['## T.', '', '|  | M0 |', '| --- | --: |', '| Jan | 1 |', '| Feb | 2 |'].join('\n');
+    const out = slide(plain);
+    assert.equal(parse(out).querySelectorAll('template.chart-detail').length, 0);
+    assert.ok(!out.includes('<!--'), 'no annotation means no speaker note');
+  });
+
+  test('cellMarks counts every crossing, measured or not', () => {
+    const m = parseHeatmapTable(grid('| Jan | 1 | 2 |  |', '| Feb | 3 |  | 5 |'));
+    assert.equal(cellMarks(m).length, m.rows.length * m.cols.length);
+  });
+});
+
+describe('the mark index holds its alignment across every matrix shape', () => {
+  // The single highest-risk claim in the band-key change, and the reason it gets
+  // a property arm rather than an example: `cellMarks` counts crossings
+  // row-major over the WHOLE grid while `buildHeatmap` assigns `data-mark` as it
+  // paints. Those are two walks of the same matrix, and if they ever disagree by
+  // one the reveal layer opens a popover describing the wrong cell — a silent
+  // wrong answer on a slide, not a crash. The caps are where they would most
+  // plausibly drift, so the shapes deliberately straddle MAX_COLS and MAX_ROWS.
+  const grid = (nr, nc, holes, notes) => {
+    const cols = Array.from({ length: nc }, (_, i) => `C${i}`);
+    const rows = Array.from({ length: nr }, (_, r) => `| R${r} | ${cols.map((_, c) => {
+      if (holes.has(`${r},${c}`)) return '';
+      const v = r * 7 + c * 3 + 1;
+      return notes.has(`${r},${c}`) ? `${v} \`# note-${r}-${c}\`` : String(v);
+    }).join(' | ')} |`);
+    return tbl([`|  | ${cols.join(' | ')} |`, `| --- |${' --: |'.repeat(nc)}`, ...rows].join('\n'));
+  };
+
+  test('every emitted template resolves to the cell that was annotated', () => {
+    let checked = 0;
+    for (const nr of [1, 3, MAX_ROWS, MAX_ROWS + 2]) {
+      for (const nc of [1, 4, MAX_COLS, MAX_COLS + 2]) {
+        for (const seed of [0, 1, 2]) {
+          const holes = new Set(); const notes = new Set();
+          for (let r = 0; r < nr; r += 1) {
+            for (let c = 0; c < nc; c += 1) {
+              if ((r * 31 + c * 17 + seed * 7) % 5 === 0) holes.add(`${r},${c}`);
+              else if ((r * 13 + c * 29 + seed * 3) % 4 === 0) notes.add(`${r},${c}`);
+            }
+          }
+          const out = transformSection(grid(nr, nc, holes, notes), { cls: 'heatmap', classTokens: ['heatmap'] });
+          if (!out.includes('heatmap-cell')) continue;
+          const d = parse(out);
+          for (const t of d.querySelectorAll('template.chart-detail')) {
+            const [, r, c] = t.innerHTML.trim().match(/note-(\d+)-(\d+)/);
+            const rect = d.querySelector(`rect.heatmap-cell[data-mark="${t.getAttribute('data-mark')}"]`);
+            assert.equal(rect?.getAttribute('data-label'), `R${r} · C${c}`,
+              `${nr}x${nc} seed ${seed}: template ${t.getAttribute('data-mark')} points at the wrong cell`);
+            checked += 1;
+          }
+        }
+      }
+    }
+    assert.ok(checked > 300, `the sweep must actually exercise the claim — only ${checked} templates`);
+  });
+});
+
+describe('findings from the checker pass — each one a regression arm', () => {
+  const slide = (body) => transformSection(md.render(body),
+    { cls: 'heatmap', classTokens: ['heatmap'] });
+
+  test('F1: a cell annotation cannot inject markup into the export', () => {
+    // The worst defect this change introduced. `readCell` runs plainText, which
+    // DECODES entities so the speaker note reads as prose; handing that decoded
+    // string to detailPayload unescaped let an authored cell close its own
+    // <template> and run script in the exported .html — proved in real Chromium,
+    // document.title became PWNED. Every other detailPayload caller passes
+    // already-rendered markdown where `<` is still `&lt;`, which is why the
+    // substrate never needed to escape and heatmap does.
+    const out = slide(['|  | M0 |', '| --- | --: |',
+      '| Jan | 100 `# </template><img src=x onerror="alert(1)">` |',
+      '| Feb | 58 |'].join('\n'));
+    const d = parse(out);
+    assert.equal(d.querySelectorAll('img').length, 0, 'no live element may escape the template');
+    const tpl = d.querySelector('template.chart-detail');
+    assert.ok(tpl.innerHTML.includes('&lt;'), 'the payload survives as inert text, not as markup');
+    assert.ok(!tpl.innerHTML.includes('<img'), 'and not as markup inside the template either');
+  });
+
+  test('F3: every value falls inside the label of the band that paints it', () => {
+    // The boundaries are half-open (stepFor advances on >=), so printing them as
+    // a closed range put the upper bound in the label of the band BELOW the one
+    // that paints it — the key answering wrong about the one thing it is for.
+    const m = parseHeatmapTable(grid(
+      '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
+    const bands = deriveBands(m, (n) => String(n));
+    for (const row of m.rows) {
+      for (const cell of row.cells.filter(Boolean)) {
+        const band = bands.find((b) => b.key === String(stepFor(cell.num, m.breaks)));
+        const [lo, hi] = band.label.includes('–')
+          ? band.label.split('–').map(Number) : [Number(band.label), Number(band.label)];
+        assert.ok(cell.num >= lo && cell.num <= hi,
+          `${cell.num} paints band ${band.key} but that band is labelled ${band.label}`);
+      }
+    }
+  });
+
+  test('F4: a blank column header does not re-bind the columns after it', () => {
+    // Filtering unnamed columns out and then reading body cells by the POST-filter
+    // position painted each named column with its neighbour's data and dropped the
+    // tail, silently — the exact failure this component's docblock promises never
+    // happens.
+    const m = parseHeatmapTable(tbl(['| X |  | A |  | C |', '| - | - | - | - | - |',
+      '| r | 10 | 20 | 30 | 40 |'].join('\n')));
+    assert.deepEqual(m.cols, ['A', 'C']);
+    assert.deepEqual(m.rows[0].cells.map((c) => c?.raw), ['20', '40']);
+  });
+
+  test('F6: a named band that no cell reaches is reported, not silently dropped', () => {
+    // The ramp is cut per matrix, so an author cannot predict which step a value
+    // lands in. Dropping their name without a word is what label-set.js disclaims.
+    const out = slide(['`[{1, Contained}, {2, Monitor}, {5, Act now}]`', '',
+      '|  | Q1 | Q2 |', '| --- | --: | --: |',
+      '| Payments | 2 | 9 |', '| Search | 1 | 2 |'].join('\n'));
+    assert.match(parse(out).querySelector('desc').textContent, /Named but unused/);
+  });
+
+  test('F7: the set paragraph survives a slide that builds no chart', () => {
+    const out = slide('`[{1, Cold}, {5, Hot}]`\n\nJust prose, no table.\n');
+    assert.ok(out.includes('Cold'), 'nothing may be removed when no heatmap is drawn');
+  });
+
+  test('F8: a negative band reads as a range, not as a run of dashes', () => {
+    // `−10–−5` is the en-dash and the minus as the same stroke twice.
+    const bands = deriveBands(
+      { breaks: [-5, -3, -1], rows: [{ cells: [{ num: -9 }, { num: -6 }, { num: -2 }] }] },
+      (n) => String(n));
+    for (const b of bands) assert.doesNotMatch(b.label, /-–|–-/, `${b.label} is unreadable`);
+  });
+
+  test('F12: a second annotation in one cell is captured, not left in the value', () => {
+    // A non-global regex left the extra span in the value text, where affixOf
+    // adopted it as the matrix's common suffix and printed it on every cell.
+    assert.deepEqual(readCell('7 <code># one</code> <code># two</code>'),
+      { raw: '7', detail: 'one two' });
+  });
+});
+
+describe('the portrait key is a centered wrapping band', () => {
+  // `roadmap` puts its status key under the grid with
+  // `flex-wrap:wrap; justify-content:center`, and its docblock calls bottom-center
+  // "the best-practice spot for a wide, full-width chart". A portrait heatmap is
+  // that situation, but SVG has no flex-wrap, so the key came out as a narrow
+  // five-row column with the width beside it unused.
+  const band = () => {
+    const model = parseHeatmapTable(grid(
+      '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
+    model.bands = [];
+    return parse(buildHeatmap(model, { orientation: 'portrait' }));
+  };
+  const rowsOf = (d) => {
+    const byY = new Map();
+    for (const r of d.querySelectorAll('.chart-key-swatch')) {
+      const y = Number(r.getAttribute('y')).toFixed(0);
+      byY.set(y, [...(byY.get(y) || []), Number(r.getAttribute('x'))]);
+    }
+    return [...byY.values()];
+  };
+
+  test('entries flow across and wrap, rather than stacking one per row', () => {
+    const rows = rowsOf(band());
+    assert.ok(rows.length < 5, `five bands should not take ${rows.length} rows`);
+    assert.ok(rows.some((r) => r.length > 1), 'at least one row must carry several entries');
+  });
+
+  test('every row is centered in the box', () => {
+    const d = band();
+    const viewW = Number(d.querySelector('svg').getAttribute('viewBox').split(' ')[2]);
+    const fs = Number(d.querySelector('text.chart-key-label').getAttribute('font-size'));
+    // Pair each label with the swatch row it belongs to, by baseline. Reading the
+    // labels as one flat list crosses rows and measures a box that never existed.
+    const swatches = [...d.querySelectorAll('.chart-key-swatch')]
+      .map((r) => ({ x: Number(r.getAttribute('x')), y: Number(r.getAttribute('y')) }));
+    const labels = [...d.querySelectorAll('text.chart-key-label tspan')]
+      .map((t) => ({ x: Number(t.getAttribute('x')), y: Number(t.getAttribute('y')), n: t.textContent.length }));
+    const bands = [...new Set(swatches.map((s) => s.y.toFixed(0)))];
+    for (const by of bands) {
+      const rowSw = swatches.filter((s) => s.y.toFixed(0) === by);
+      // A label's baseline sits BELOW its swatch top by about one font size.
+      // The window has to be directional: rows are only ~1.7x fs apart, so an
+      // absolute window also catches the previous row's labels and measures a
+      // box that spans two rows.
+      const rowLb = labels.filter((l) => l.y > Number(by) && l.y - Number(by) < fs * 1.6);
+      const left = Math.min(...rowSw.map((s) => s.x));
+      const last = rowLb.reduce((a, b) => (b.x > a.x ? b : a));
+      const right = last.x + last.n * fs * 0.6;
+      assert.ok(Math.abs(left - (viewW - right)) < viewW * 0.06,
+        `row at y=${by} off-center: ${left.toFixed(1)} left vs ${(viewW - right).toFixed(1)} right`);
+    }
+  });
+
+  test('the band costs less height than the column it replaces', () => {
+    const vh = Number(band().querySelector('svg').getAttribute('viewBox').split(' ')[3]);
+    assert.ok(vh < 460, `portrait viewH ${vh} — the band should give the grid its height back`);
+  });
+});
+
+describe('fitLabels still governs the column fallback', () => {
+  // The band supersedes the column for single-line keys, but the column is still
+  // what a wrapped or valued key gets — and there it must be centered by ink
+  // rather than by the reserved category-name budget.
+  test('a key whose labels wrap falls back to the column, centered by ink', () => {
+    const model = parseHeatmapTable(grid(
+      '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
+    // long words force a wrap, which the band declines by design
+    model.bands = [{ key: '1', label: 'Substantially below the renewal threshold' }];
+    const d = parse(buildHeatmap(model, { orientation: 'portrait' }));
+    const ys = new Set([...d.querySelectorAll('.chart-key-swatch')].map((r) => r.getAttribute('y')));
+    assert.equal(ys.size, d.querySelectorAll('.chart-key-swatch').length,
+      'a wrapped key stays one entry per row');
+    const viewW = Number(d.querySelector('svg').getAttribute('viewBox').split(' ')[2]);
+    const swatchX = Number(d.querySelector('.chart-key-swatch').getAttribute('x'));
+    assert.ok(swatchX > 0, `column key flush at ${swatchX} of ${viewW}`);
   });
 });

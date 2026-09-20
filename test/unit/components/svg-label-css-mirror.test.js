@@ -304,10 +304,11 @@ describe('heatmap: kernel font sizes mirror the rules that paint them', () => {
     // The gate above compares numbers. This one stops a THIRD label appearing
     // with a size nothing checks — the failure mode that let the dead
     // `.heatmap-row-label` rule ship.
-    const { parseHeatmap, buildHeatmap } = require('../../../lib/components/chart/heatmap/heatmap.transform');
-    const ul = '<li>Jan<ul><li>M0 <code>100</code></li><li>M1 <code>62</code></li></ul></li>'
-      + '<li>Feb<ul><li>M0 <code>100</code></li><li>M1 <code>58</code></li></ul></li>';
-    const svg = buildHeatmap(parseHeatmap(ul), {});
+    const { parseHeatmapTable, buildHeatmap } = require('../../../lib/components/chart/heatmap/heatmap.transform');
+    const table = '<table><thead><tr><th></th><th>M0</th><th>M1</th></tr></thead><tbody>'
+      + '<tr><td>Jan</td><td>100</td><td>62</td></tr>'
+      + '<tr><td>Feb</td><td>100</td><td>58</td></tr></tbody></table>';
+    const svg = buildHeatmap(parseHeatmapTable(table), {});
     const classes = new Set([...svg.matchAll(/<text class="([^"]+)"/g)].map((m) => m[1]));
     assert.deepEqual([...classes].sort(),
       ['cart-cat', 'heatmap-col-label cart-cat', 'heatmap-value'],

@@ -83,25 +83,12 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 ## Retention decays fastest in month two.
 
-- Jan 2026
-  - M0 `100`
-  - M1 `62`
-  - M2 `48`
-  - M3 `44`
-- Feb 2026
-  - M0 `100`
-  - M1 `58`
-  - M2 `44`
-  - M3 `41`
-- Mar 2026
-  - M0 `100`
-  - M1 `71`
-  - M2 `59`
-  - M3 `55`
-- Apr 2026
-  - M0 `100`
-  - M1 `69`
-  - M2 `57`
+|  | M0 | M1 | M2 | M3 |
+| --- | --: | --: | --: | --: |
+| Jan 2026 | 100 | 62 | 48 | 44 |
+| Feb 2026 | 100 | 58 | 44 | 41 |
+| Mar 2026 | 100 | 71 | 59 | 55 |
+| Apr 2026 | 100 | 69 | 57 |  |
 
 ---
 

@@ -391,12 +391,10 @@
       "",
       "## Where it concentrates.",
       "",
-      "- First row",
-      "  - Col A `12`",
-      "  - Col B `34`",
-      "- Second row",
-      "  - Col A `21`",
-      "  - Col B `43`"
+      "|  | Col A | Col B |",
+      "| --- | --: | --: |",
+      "| First row | 12 | 34 |",
+      "| Second row | 21 | 43 |"
     ],
     "description": "A numeric matrix read as intensity — where the value concentrates across two dimensions."
   },

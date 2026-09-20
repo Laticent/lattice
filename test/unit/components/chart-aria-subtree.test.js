@@ -77,7 +77,7 @@ const SLIDES = {
   // one wrapped root satisfies it for the whole slide.
   'radar small-multiples': '## RM.\n\n- Meridian\n  - Speed `8`\n  - Cost `6`\n  - Care `7`\n'
     + '- Kestrel\n  - Speed `6`\n  - Cost `8`\n  - Care `5`\n',
-  heatmap: '## H.\n\n- Jan\n  - M0 `100`\n  - M1 `62`\n- Feb\n  - M0 `100`\n  - M1 `58`\n',
+  heatmap: '## H.\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| Jan | 100 | 62 |\n| Feb | 100 | 58 |\n',
   map: '## M.\n\n- Kenya `4.2`\n- Nigeria `3.1`\n- India `2.8`\n',
 };
 

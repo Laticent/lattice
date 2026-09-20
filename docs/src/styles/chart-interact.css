@@ -92,3 +92,43 @@
 	text-transform: uppercase;
 	color: var(--text-muted);
 }
+
+/* THE POPPER WRAPPER MUST NOT TAKE THE POINTER EITHER — ON A HOVER DEVICE.
+ *
+ * `ChartDetailLayer` marks its `PopoverContent` `pointer-events:none`, because a
+ * hover tooltip that eats the pointer it is following closes itself. But Radix
+ * renders that content inside its OWN positioning div —
+ * `[data-radix-popper-content-wrapper]` — and that div keeps `pointer-events:auto`,
+ * so the card is transparent to the pointer and the box around it is not.
+ *
+ * THE MECHANISM NEEDS CONTINUED MOTION, and saying so is the point — an earlier
+ * draft of this comment said the card shut "with the pointer never having moved",
+ * which is measurably false and would send the next reader hunting the wrong cause.
+ * The card opens 12.13px below the cursor (measured; it is the `sideOffset={12}` on
+ * `PopoverContent`, and there is no second main-axis offset), so a cursor that
+ * ARRIVES and STOPS is never inside the wrapper — a stationary hover stays open
+ * indefinitely. What fails is a SWEEP: the reveal fires mid-gesture, the wrapper is
+ * placed at that earlier cursor point, and the still-moving pointer is carried into
+ * the wrapper box a few pixels later. The iframe then gets `pointerleave`, which the
+ * layer reads as a deliberate dismiss. That is an author's pointer, not a contrived
+ * one, which is why it read as an intermittent glitch rather than a rule.
+ *
+ * Measured on the real Playground, sweeping onto each mark: a heatmap's 69px cells
+ * failed 7 of 9. A funnel's bands failed too — this is NOT a small-mark bug, and an
+ * earlier draft's "a funnel's bands are tall enough that the wrapper lands clear"
+ * was a story with no measurement behind it. What actually varies is how much
+ * pointer travel continues after the reveal fires.
+ *
+ * SCOPED TWO WAYS. `:has()` binds it to OUR card, so every other popover on the
+ * site — menus, selects, anything a visitor clicks — keeps its pointer. And the
+ * media query binds it to devices that HOVER: this is a hover defect, and a coarse
+ * pointer reveals by tap instead (`COARSE` in chart-interact.js gates exactly the
+ * same way, on `(pointer: coarse)`). Without that half, a tap landing on the part of
+ * the card that overhangs the chart's hit rectangle would fall THROUGH to Present's
+ * capture layer, so dismissing the card could advance a slide.
+ */
+@media (pointer: fine) {
+	[data-radix-popper-content-wrapper]:has(> .lat-chart-detail-pop) {
+		pointer-events: none;
+	}
+}

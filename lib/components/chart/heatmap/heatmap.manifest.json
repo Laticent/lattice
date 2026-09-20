@@ -59,18 +59,20 @@
 			"description": "Optional kicker above the title — the dataset and its period."
 		},
 		"rows": {
-			"selector": "ul > li",
+			"selector": "table > tbody > tr",
 			"required": true,
-			"description": "One top-level list item per ROW. Its nested items are the columns, each `- Column `value``."
+			"description": "One table row per ROW of the matrix, leading with its label. The header row names the columns; a blank cell is a crossing nobody measured."
 		}
 	},
-	"skeleton": "<!-- _class: heatmap -->\n\n## Where it concentrates.\n\n- First row\n  - Col A `12`\n  - Col B `34`\n- Second row\n  - Col A `21`\n  - Col B `43`\n",
-	"sample": "<!-- _class: heatmap -->\n\n`Retention · 2026 cohorts`\n\n## Retention decays fastest in month two.\n\n- Jan 2026\n  - M0 `100`\n  - M1 `62`\n  - M2 `48`\n  - M3 `44`\n- Feb 2026\n  - M0 `100`\n  - M1 `58`\n  - M2 `44`\n  - M3 `41`\n- Mar 2026\n  - M0 `100`\n  - M1 `71`\n  - M2 `59`\n  - M3 `55`\n- Apr 2026\n  - M0 `100`\n  - M1 `69`\n  - M2 `57`\n",
+	"skeleton": "<!-- _class: heatmap -->\n\n## Where it concentrates.\n\n|  | Col A | Col B |\n| --- | --: | --: |\n| First row | 12 | 34 |\n| Second row | 21 | 43 |\n",
+	"sample": "<!-- _class: heatmap -->\n\n`Retention · 2026 cohorts`\n\n## Retention decays fastest in month two.\n\n|  | M0 | M1 | M2 | M3 |\n| --- | --: | --: | --: | --: |\n| Jan 2026 | 100 | 62 | 48 | 44 |\n| Feb 2026 | 100 | 58 | 44 | 41 |\n| Mar 2026 | 100 | 71 | 59 | 55 |\n| Apr 2026 | 100 | 69 | 57 |  |\n",
 	"stressDoc": {
 		"summary": "Ten rows by twelve columns at the ceiling, the longest realistic row name, a ragged tail where the newest cohorts have not reached the later months, and a flat row where every value is identical. The grid is bound by cell size on both axes at once, so the ceiling is the only place you can see whether a column name still sets above its column, whether a long row name ellipsizes rather than being culled, and whether an unmeasured crossing still reads as unmeasured rather than as the bottom of the ramp.",
-		"sample": "<!-- _class: heatmap -->\n\n`Retention · the ceiling`\n\n## Ten cohorts by twelve months — the density this holds.\n\n- January 2026 acquisition cohort\n  - M0 `100`\n  - M1 `71`\n  - M2 `59`\n  - M3 `55`\n  - M4 `52`\n  - M5 `50`\n  - M6 `48`\n  - M7 `47`\n  - M8 `46`\n  - M9 `45`\n  - M10 `44`\n  - M11 `43`\n- February 2026\n  - M0 `100`\n  - M1 `58`\n  - M2 `44`\n  - M3 `41`\n  - M4 `39`\n  - M5 `38`\n  - M6 `37`\n  - M7 `36`\n  - M8 `35`\n  - M9 `34`\n  - M10 `33`\n  - M11 `32`\n- March 2026\n  - M0 `100`\n  - M1 `62`\n  - M2 `48`\n  - M3 `45`\n  - M4 `43`\n  - M5 `42`\n  - M6 `41`\n  - M7 `40`\n  - M8 `39`\n  - M9 `38`\n  - M10 `37`\n- April 2026\n  - M0 `100`\n  - M1 `69`\n  - M2 `57`\n  - M3 `54`\n  - M4 `51`\n  - M5 `49`\n  - M6 `48`\n  - M7 `47`\n  - M8 `46`\n  - M9 `45`\n- May 2026\n  - M0 `100`\n  - M1 `66`\n  - M2 `54`\n  - M3 `50`\n  - M4 `48`\n  - M5 `47`\n  - M6 `46`\n  - M7 `45`\n  - M8 `44`\n- June 2026\n  - M0 `100`\n  - M1 `64`\n  - M2 `52`\n  - M3 `49`\n  - M4 `47`\n  - M5 `46`\n  - M6 `45`\n  - M7 `44`\n- July 2026\n  - M0 `100`\n  - M1 `61`\n  - M2 `50`\n  - M3 `47`\n  - M4 `45`\n  - M5 `44`\n  - M6 `43`\n- August 2026\n  - M0 `100`\n  - M1 `59`\n  - M2 `48`\n  - M3 `45`\n  - M4 `43`\n  - M5 `42`\n- September 2026\n  - M0 `100`\n  - M1 `57`\n  - M2 `47`\n  - M3 `44`\n  - M4 `42`\n- October 2026\n  - M0 `55`\n  - M1 `55`\n  - M2 `55`\n  - M3 `55`\n"
+		"sample": "<!-- _class: heatmap -->\n\n`Retention · the ceiling`\n\n## Ten cohorts by twelve months — the density this holds.\n\n|  | M0 | M1 | M2 | M3 | M4 | M5 | M6 | M7 | M8 | M9 | M10 | M11 |\n| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |\n| January 2026 acquisition cohort | 100 | 71 | 59 | 55 | 52 | 50 | 48 | 47 | 46 | 45 | 44 | 43 |\n| February 2026 | 100 | 58 | 44 | 41 | 39 | 38 | 37 | 36 | 35 | 34 | 33 | 32 |\n| March 2026 | 100 | 62 | 48 | 45 | 43 | 42 | 41 | 40 | 39 | 38 | 37 |  |\n| April 2026 | 100 | 69 | 57 | 54 | 51 | 49 | 48 | 47 | 46 | 45 |  |  |\n| May 2026 | 100 | 66 | 54 | 50 | 48 | 47 | 46 | 45 | 44 |  |  |  |\n| June 2026 | 100 | 64 | 52 | 49 | 47 | 46 | 45 | 44 |  |  |  |  |\n| July 2026 | 100 | 61 | 50 | 47 | 45 | 44 | 43 |  |  |  |  |  |\n| August 2026 | 100 | 59 | 48 | 45 | 43 | 42 |  |  |  |  |  |  |\n| September 2026 | 100 | 57 | 47 | 44 | 42 |  |  |  |  |  |  |  |\n| October 2026 | 55 | 55 | 55 | 55 |  |  |  |  |  |  |  |  |\n"
 	},
-	"variants": [],
+	"variants": [
+		"scale"
+	],
 	"whenToUse": [
 		{
 			"title": "Two dimensions, one measure",
@@ -88,7 +90,7 @@
 	"antiPatterns": [
 		{
 			"title": "One row of numbers",
-			"body": "A single series is not a matrix — it is a comparison, and a reader judges length far more precisely than intensity. Use `bar`. The kernel declines a flat list for this reason rather than painting a one-row grid."
+			"body": "A single series is not a matrix — it is a comparison, and a reader judges length far more precisely than intensity. Use `bar`. The kernel declines a one-column table for this reason rather than painting a single strip."
 		},
 		{
 			"title": "Qualitative cells",
@@ -123,12 +125,12 @@
 	],
 	"commonMistakes": [
 		{
-			"mistake": "Writing a flat list — `- Jan `62`` with no nested columns.",
-			"fix": "A heatmap needs two depths: the top-level item is the row, its nested items are the columns. A flat list renders nothing, deliberately."
+			"mistake": "Putting every value in one column.",
+			"fix": "A heatmap needs two dimensions. The header row names the columns and each body row leads with its label; one value column is a comparison, not a matrix, and renders nothing deliberately."
 		},
 		{
-			"mistake": "Padding a ragged matrix with zeros so every row is the same length.",
-			"fix": "Leave the crossing out. A zero states a measurement; an absent cell states that none was taken, and the chart paints the two differently."
+			"mistake": "Padding a ragged matrix with zeros so every cell is filled.",
+			"fix": "Leave the cell blank. A zero states a measurement; an absent cell states that none was taken, and the chart paints the two differently."
 		},
 		{
 			"mistake": "Mixing units down a column — `62%` in one row and `0.62` in the next.",
@@ -136,15 +138,25 @@
 		}
 	],
 	"dataShapeGuidance": [
-		"Two depths: top-level items are rows, nested items are columns with a trailing value pill.",
-		"Every row should name the same columns in the same order — a column that appears in one row and not another is a gap, and paints as one.",
+		"A markdown table: the header names the columns, each body row leads with its label.",
+		"A blank cell is a crossing nobody measured, and paints as one. That is the normal case for a ragged matrix, not an authoring error.",
 		"Up to 12 columns and 10 rows. Past that the cells stop carrying a readable value; consolidate a long tail rather than shrinking the grid.",
 		"One unit across the whole matrix. The affix is read from the values and printed once in the description.",
-		"**Values are binned into five tones, so near-equal cells share one.** The ramp is quantized rather than continuous — that is what lets the printed value keep AA contrast on every palette. The bands are cut at the matrix's own quantiles, so a skewed table still uses the whole ramp, but tone is not linear in value: the number in the cell is exact, the tone is a band. If a reader has to tell two close values apart by color, the comparison belongs on an axis."
+		"**Values are binned into five tones, so near-equal cells share one.** The ramp is quantized rather than continuous — that is what lets the printed value keep AA contrast on every palette. The bands are cut at the matrix's own quantiles, so a skewed table still uses the whole ramp, but tone is not linear in value: the number in the cell is exact, the tone is a band. If a reader has to tell two close values apart by color, the comparison belongs on an axis.",
+		"The band key is OPT-IN. Add `scale` to the slide and the chart names each of the five ramp bands by the range of values that band actually holds.",
+		"To name the bands yourself, write a label set in an inline-code span above the table: `[{1, Cold}, {3, Warm}, {5, Hot}]`. The KEY IS THE RAMP STEP, 1 through 5 — not a value from your data. Name only the steps that carry meaning; the rest keep their derived range.",
+		"The ramp is cut at the matrix's own quantiles, so which step a value lands in depends on the whole matrix. If a step you named carries no cells, its label is dropped and the description says so — check the rendered key rather than assuming step 2 is 'the second-smallest value'.",
+		"A cell can carry its own description with a `# prose` annotation — `| Jan | 100 | 62 `# dipped after onboarding` |`. It shows on hover on the live surfaces, folds into the slide's speaker note for print, and never changes the value. The `#` must be followed by a space, so a hex color or an issue number in a cell is left alone."
 	],
 	"specimenVoice": true,
 	"projection": {
 		"figure": "svg",
 		"data": true
+	},
+	"variantDocs": {
+		"scale": {
+			"summary": "Renders the band key beside the grid, naming each ramp step by the range of values it covers — reach for it when a reader has to know why two cells share a tone.",
+			"sample": "<!-- _class: heatmap scale -->\n\n`Retention · 2026 cohorts`\n\n## The chart names its own bands.\n\n|  | M0 | M1 | M2 | M3 |\n| --- | --: | --: | --: | --: |\n| Jan 2026 | 100 | 62 | 48 | 44 |\n| Feb 2026 | 100 | 58 | 44 | 41 |\n| Mar 2026 | 100 | 71 | 59 | 55 |\n| Apr 2026 | 100 | 69 | 57 |  |\n"
+		}
 	}
 }
