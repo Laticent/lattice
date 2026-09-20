@@ -122,6 +122,58 @@
 			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px; cursor: pointer; font-family: var(--sans); }
 			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+			/* ── THE CONTROL STRIP ─────────────────────────────────────────────────────
+			   Vetrina's most VISIBLE choices are theme options, and this page used to pass
+			   no theme at all — so the caption styles, pointer shapes, speeds, motion tiers
+			   and the two pacing models were invisible on the one page that exists to show
+			   them. Each control re-runs the current beat, because the library's own
+			   `pacing` doc asks for exactly this: "compare the two on one surface in one
+			   session — a pacing change that cannot be A/B'd is a matter of taste." */
+			.controls { margin: 18px 0 0; display: grid; gap: 10px; }
+			.ctl-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+			.ctl-label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+				color: var(--muted); font-weight: 700; min-width: 74px; }
+			.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px;
+				background: var(--panel); overflow: hidden; }
+			.seg button { appearance: none; border: 0; background: transparent; color: var(--muted);
+				font: inherit; font-size: 12px; font-weight: 600; padding: 5px 11px; cursor: pointer;
+				border-right: 1px solid var(--line); white-space: nowrap; }
+			.seg button:last-child { border-right: 0; }
+			.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+			.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+			.ctl-note { font-size: 12px; color: var(--muted); margin: 0; }
+			.ctl-note code { font-family: var(--mono); font-size: 11px; }
+
+			/* ── THE BEAT LOG — what actually happened, with the clock on it ───────────
+			   Borrowed from the caption prototype bench. The sibling showcases report
+			   NUMBERS (Suono prints its real `produce()` delta); this page asserted. */
+			details.pane { margin: 16px 0 0; border: 1px solid var(--line); border-radius: 14px;
+				background: var(--panel); overflow: hidden; }
+			details.pane > summary { cursor: pointer; padding: 11px 15px; font-size: 13px; font-weight: 600;
+				list-style: none; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+			details.pane > summary::-webkit-details-marker { display: none; }
+			details.pane > summary::after { content: "+"; color: var(--muted); font-weight: 700; }
+			details.pane[open] > summary::after { content: "\2013"; }
+			details.pane > summary:hover { color: var(--accent); }
+			.pane-body { padding: 0 15px 14px; }
+			.pane-note { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+			.log { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+			.log th { text-align: left; color: var(--muted); font-weight: 700; padding: 4px 8px 4px 0;
+				border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+			.log td { padding: 3px 8px 3px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+			.log td.num { text-align: right; color: var(--muted); white-space: nowrap; }
+			.log td.verb { color: var(--accent); font-weight: 700; white-space: nowrap; }
+			.log-scroll { max-height: 260px; overflow: auto; }
+			.log-empty { color: var(--muted); font-size: 12px; padding: 8px 0; }
+			pre.data { margin: 0; font-family: var(--mono); font-size: 11px; line-height: 1.55;
+				color: var(--ink); background: var(--stage); border: 1px solid var(--line);
+				border-radius: 10px; padding: 12px; overflow: auto; max-height: 300px; }
+
+			@media (max-width: 560px) {
+				.ctl-label { min-width: 0; flex-basis: 100%; }
+				.seg button { padding: 6px 10px; }
+			}
 		</style>
 	</head>
 	<body>
@@ -137,8 +189,7 @@
 				</div>
 			</header>
 			<p class="sub">
-				A self-driving product tour — a cursor that <b>narrates and operates real UI</b>, theater over
-				<b>real state</b>, and hands you the wheel the instant you touch anything. Framework-free; it drives
+				A self-driving product tour — a cursor that <b>narrates and operates real UI</b>, theater over <b>real state</b>, and hands you the wheel the instant you touch anything. Framework-free; it drives
 				plain DOM. Every beat below runs the <b>real engine</b> over the mini dashboard.
 			</p>
 
@@ -156,6 +207,29 @@
 					<button class="board-btn primary" id="vt-finish" type="button">Publish release</button>
 				</div>
 			</div>
+			<div class="controls" id="controls">
+				<div class="ctl-row">
+					<span class="ctl-label" id="lbl-caption">Caption</span>
+					<span class="seg" role="group" aria-labelledby="lbl-caption" data-opt="caption"></span>
+				</div>
+				<div class="ctl-row">
+					<span class="ctl-label" id="lbl-pointer">Pointer</span>
+					<span class="seg" role="group" aria-labelledby="lbl-pointer" data-opt="pointer"></span>
+					<span class="ctl-label" id="lbl-hand">Hand</span>
+					<span class="seg" role="group" aria-labelledby="lbl-hand" data-opt="hand"></span>
+				</div>
+				<div class="ctl-row">
+					<span class="ctl-label" id="lbl-speed">Speed</span>
+					<span class="seg" role="group" aria-labelledby="lbl-speed" data-opt="speed"></span>
+					<span class="ctl-label" id="lbl-pacing">Pacing</span>
+					<span class="seg" role="group" aria-labelledby="lbl-pacing" data-opt="pacing"></span>
+				</div>
+				<div class="ctl-row">
+					<span class="ctl-label" id="lbl-motion">Motion</span>
+					<span class="seg" role="group" aria-labelledby="lbl-motion" data-opt="motion"></span>
+				</div>
+				<p class="ctl-note" id="ctl-note"></p>
+			</div>
 			<div class="transport">
 				<button class="btn" id="stopBtn" type="button">Stop</button>
 				<button class="btn" id="resetBtn" type="button">Reset board</button>
@@ -165,17 +239,46 @@
 			<div class="rail">
 				<div class="rail-head">
 					<h2>The storyboard</h2>
-					<button class="btn primary" id="tourBtn" type="button">▸ Play all five</button>
+					<button class="btn primary" id="tourBtn" type="button">▸ Play all seven</button>
 				</div>
 				<div class="beats" id="beats"></div>
 			</div>
+
+			<details class="pane" id="logPane">
+				<summary>The beat log — what ran, and when<span class="log-sum" id="logSum"></span></summary>
+				<div class="pane-body">
+					<p class="pane-note">
+						Every verb the engine performed, timestamped from the run's first frame. The gap column is
+						where the pacing model shows itself — switch <code>Pacing</code> above and play the same
+						beat twice.
+					</p>
+					<div class="log-scroll">
+						<table class="log">
+							<thead><tr><th>t (ms)</th><th>gap</th><th>verb</th><th>detail</th></tr></thead>
+							<tbody id="logBody"></tbody>
+						</table>
+					</div>
+					<p class="log-empty" id="logEmpty">Nothing yet — play a beat.</p>
+				</div>
+			</details>
+
+			<details class="pane" id="dataPane">
+				<summary>The storyboard, as data<span class="log-sum" id="dataSum"></span></summary>
+				<div class="pane-body">
+					<p class="pane-note">
+						<code>scene()</code> is a recorder, not a runtime: it compiles to a plain <code>Step[]</code> that <code>storyboard()</code> plays. That array is the wire format —
+						inspectable, generatable, diffable. Below is the selected beat's, verbatim
+						(<code>ƒ</code> marks a callback, which is the one thing that does not serialize).
+					</p>
+					<pre class="data" id="dataOut">Pick a beat to see its steps.</pre>
+				</div>
+			</details>
 
 			<p class="foot">
 				Driven by the real engine (<code>@/lib/vetrina</code>): <code>run()</code> owns the take-over race +
 				teardown; the self-directing cursor calls <code>stage.say</code> / <code>point</code> /
 				<code>gesture</code> and <code>ctx.type</code> / <code>awaitUser</code> over the real board above.
-				The board is a <b>working CRUD example</b> — <b>Create</b> (type + Add), <b>Read</b> (the list),
-				<b>Update</b> (click a note to edit), <b>Delete</b> (×), then Publish. The tour calls the <i>same</i>
+				The board is a <b>working CRUD example</b> — <b>Create</b> (type + Add), <b>Read</b> (the list), <b>Update</b> (click a note to edit), <b>Delete</b> (×), then Publish. The tour calls the <i>same</i>
 				<code>actions.add</code> / <code>update</code> / <code>remove</code> / <code>publish</code> you do — it
 				mutates real state, it doesn't paint it. Operate it yourself any time; touch anything mid-tour and it
 				hands you the wheel. A plain DOM page, no framework — the proof the core is standalone.
@@ -183,7 +286,7 @@
 		</div>
 
 		<script>
-			import { run, wait } from '@/lib/vetrina';
+			import { run, scene, wait } from '@/lib/vetrina';
 
 			const $ = (s) => document.querySelector(s);
 			const root = document.documentElement;
@@ -298,16 +401,140 @@
 			const tourBtn = $('#tourBtn');
 			// Halt the "Play all five" loop and restore the button — called by every manual
 			// interruption (Stop, Reset, picking a single beat) so the tour can't march on.
-			function endTour() { touring = false; tourBtn.textContent = '▸ Play all five'; }
+			function endTour() { touring = false; tourBtn.textContent = '▸ Play all seven'; }
 			function stopCurrent() { if (handle) { try { handle.stop(); } catch {} handle = null; } }
+			// The beat a control change replays, so switching `caption` or `pacing` shows the
+			// difference on the thing you were already watching rather than on nothing.
+			let lastBeat = null;
+
+			// ── THE STORYBOARD, AS DATA ───────────────────────────────────────────────
+			// `scene()` records; it does not run. What it compiles to is a plain Step[] — the
+			// wire format, which is why a walkthrough can be generated, diffed or shipped as
+			// JSON. A callback cannot serialize, so it prints as a marker rather than silently
+			// vanishing, which is the one thing a reader would be misled by.
+			const dataOut = $('#dataOut'), dataSum = $('#dataSum');
+			function stepToPlain(step) {
+				const out = {};
+				for (const [k, v] of Object.entries(step)) {
+					if (typeof v === 'function') out[k] = k === 'act' || k === 'until' ? 'ƒ' : `ƒ ${k}`;
+					else if (v && typeof v === 'object') out[k] = JSON.parse(JSON.stringify(v, (_, x) => (typeof x === 'function' ? 'ƒ' : x)));
+					else out[k] = v;
+				}
+				return out;
+			}
+			function renderData(beat) {
+				if (!beat || !beat.scene) {
+					dataOut.textContent = `“${beat ? beat.t : '—'}” is a raw Walkthrough — an async function over the run context, the lowest of the three authoring layers. It has no Step[] to show; the recorder is what produces one.`;
+					dataSum.textContent = '';
+					return;
+				}
+				const steps = beat.scene().toData().map(stepToPlain);
+				dataOut.textContent = JSON.stringify(steps, null, 2);
+				dataSum.textContent = `${steps.length} steps`;
+			}
+
+			// ── THE LIVE THEME, and why it is a control and not a constant ────────────
+			// This page passed NO theme for its whole life, so every option below — the five
+			// caption styles, three pointer shapes, three speeds, three motion tiers, the hand
+			// model and the two pacing models — was invisible on the one page that exists to
+			// show them. `pacing` in particular is documented as a choice that "cannot be A/B'd
+			// is a matter of taste", so the page owes the A/B.
+			const OPTIONS = {
+				caption: { label: 'caption', values: ['bar', 'split', 'scrim', 'progress', 'cursor', 'none'], def: 'bar',
+					note: { bar: 'Full-width dock with an Exit icon — the universal default.', split: 'Text-only caption, Exit as its own chip.', scrim: 'A gradient band; the phone posture.', progress: 'The dock carries a progress ring.', cursor: 'A speech balloon anchored to the cursor — it steps aside while the cursor performs.', none: 'The bare pointer layer. What Present uses: the deck narrates, so the tour must not.' } },
+				pointer: { label: 'pointer', values: ['arrow', 'ring', 'dot'], def: 'arrow', note: {} },
+				hand: { label: 'hand', values: ['0', '1', '2'], def: '1',
+					note: { 0: 'A straight path at a symmetric ease — the glide this library shipped before. No hand arcs, overshoots or tremors.', 1: 'Default. An arc, a ballistic overshoot-and-correct, and a band-limited tremor at real hand frequencies.', 2: 'Twice the amplitude — legible on a small screen, and past what a hand does.' } },
+				speed: { label: 'speed', values: ['slow', 'moderate', 'fast'], def: 'moderate', note: {} },
+				pacing: { label: 'pacing', values: ['legacy', 'grounded'], def: 'legacy',
+					note: { legacy: 'The five hand-tuned literals this library shipped first.', grounded: 'One cited model. Costs ~21% run length and every number is sourced — read the gap column below.' } },
+				motion: { label: 'motion', values: ['system', 'full', 'legible', 'still'], def: 'system',
+					note: { system: 'Follow prefers-reduced-motion: reduce lands on legible, never still.', full: 'Play everything, ignore the OS preference.', legible: 'Suppress vestibular motion (glides, orbits, sweeps) but KEEP the cadence a viewer reads by — typing, cross-fades, settles.', still: 'Collapse everything to instant. The maximal-suppression escape hatch.' } },
+			};
+			const picked = Object.fromEntries(Object.entries(OPTIONS).map(([k, o]) => [k, o.def]));
+			const noteEl2 = $('#ctl-note');
+			// `hand` is the one numeric option, so it round-trips through the control as a string.
+			const themeNow = () => ({ ...picked, hand: Number(picked.hand), accent: 'var(--accent)' });
+			function renderControls() {
+				for (const [key, opt] of Object.entries(OPTIONS)) {
+					const host = document.querySelector(`.seg[data-opt="${key}"]`);
+					if (!host) continue;
+					host.textContent = '';
+					for (const v of opt.values) {
+						const b = document.createElement('button');
+						b.type = 'button'; b.textContent = v;
+						b.setAttribute('aria-pressed', String(picked[key] === v));
+						b.addEventListener('click', () => {
+							picked[key] = v;
+							renderControls();
+							const note = OPTIONS[key].note[v];
+							noteEl2.textContent = note ? `${key}: ${v} — ${note}` : '';
+							// Re-run what is on screen so the change is SEEN, not just stored.
+							if (lastBeat) { resetBoard(); lastBeat.run(); }
+						});
+						host.appendChild(b);
+					}
+				}
+			}
+
+			// ── THE BEAT LOG ──────────────────────────────────────────────────────────
+			// The sibling showcases report numbers (Suono prints its real produce() delta);
+			// this page asserted. Wrapping the stage's own verbs is the only honest source —
+			// it records what the engine DID, not what the beat list says it would.
+			const logRows = [];
+			let logT0 = 0;
+			const logBody = $('#logBody'), logEmpty = $('#logEmpty'), logSum = $('#logSum');
+			function logReset() { logRows.length = 0; logT0 = performance.now(); paintLog(); }
+			function logAdd(verb, detail) {
+				const t = Math.round(performance.now() - logT0);
+				logRows.push({ t, gap: logRows.length ? t - logRows[logRows.length - 1].t : 0, verb, detail: detail ?? '' });
+				paintLog();
+			}
+			function paintLog() {
+				logBody.textContent = '';
+				for (const r of logRows) {
+					const tr = document.createElement('tr');
+					const cells = [[String(r.t), 'num'], [r.gap ? `+${r.gap}` : '', 'num'], [r.verb, 'verb'], [r.detail, '']];
+					for (const [text, cls] of cells) {
+						const td = document.createElement('td');
+						if (cls) td.className = cls;
+						td.textContent = text;
+						tr.appendChild(td);
+					}
+					logBody.appendChild(tr);
+				}
+				logEmpty.hidden = logRows.length > 0;
+				const last = logRows[logRows.length - 1];
+				logSum.textContent = logRows.length ? `${logRows.length} verbs · ${last.t} ms` : '';
+				logBody.parentElement.parentElement.scrollTop = logBody.parentElement.parentElement.scrollHeight;
+			}
+			// A short, readable form of a target for the log — a selector stays as typed, an
+			// element becomes its own selector-ish name, anything else is named by its kind.
+			const targetName = (t) => (typeof t === 'string' ? t : t && t.tagName ? `<${t.tagName.toLowerCase()}>` : t ? 'rect source' : '');
+			/** Wrap the stage so every verb lands in the log. The stage is the library's object,
+			 *  so this observes rather than reimplements — a log built from the BEAT LIST would
+			 *  report the script, not the run. */
+			function instrument(stage) {
+				const say = stage.say.bind(stage), point = stage.point.bind(stage), gesture = stage.gesture.bind(stage);
+				stage.say = (text, ...rest) => { logAdd('say', text); return say(text, ...rest); };
+				stage.point = (t, ...rest) => { logAdd('point', targetName(t)); return point(t, ...rest); };
+				stage.gesture = (kind, t, ...rest) => { logAdd(`gesture ${kind}`, targetName(t)); return gesture(kind, t, ...rest); };
+				return stage;
+			}
+
 			// Run one walkthrough `play` over the board; resolves when it tears down. Guard the
 			// engine call so a synchronous throw can't wedge the awaiting tour loop.
 			function playScene(play) {
 				stopCurrent();
+				logReset();
+				// The stage is wrapped on its way INTO the walkthrough, so the log records the
+				// verbs the engine actually performed rather than the ones the beat list names.
+				const instrumented = (ctx) => play({ ...ctx, stage: instrument(ctx.stage) });
 				return new Promise((resolve) => {
 					try {
 						handle = run({
-							root: board, actions, type, play,
+							root: board, actions, type, play: instrumented,
+							theme: themeNow(),
 							takeover: { scope: 'window' },
 							onStop: (reason) => { handle = null; setDiag(reason === 'takeover' ? 'You took the wheel.' : reason === 'error' ? 'Beat error — see console.' : ''); resolve(reason); },
 						});
@@ -351,13 +578,35 @@
 					actions.publish(); await stage.gesture('check', '#vt-finish', signal);
 					stage.say('Published — the whole CRUD loop, self-driven and yours.'); await wait(900, signal);
 				}) },
+				// ── THE DEICTIC FOUR, which had no demo surface anywhere on this site ──
+				// underline / wash / bracket / tap are the gestures the Studio's Present guide
+				// uses to point INSIDE a slide, and until now a reader could only meet them in
+				// a decision record. They name a thing by its shape: a line gets a rule under
+				// it, a phrase gets its words swept, a box that draws no boundary of its own
+				// gets one, and something small enough to be a point gets tapped.
+				{ id: 'deictic', t: 'Point at a thing', d: 'The four deictic strokes — underline a line, wash a phrase, bracket a block, tap a point. Chosen by the SHAPE of what is named.', api: "scene().gesture('underline'…)", scene: () => scene()
+					.say('A hand names a thing by its shape. A line gets a rule under it.').point('#vt-list .note:first-child').gesture('underline', '#vt-list .note:first-child').hold(700)
+					.say('A block that draws no boundary of its own gets one.').gesture('bracket', '#vt-list').hold(700)
+					.say('A phrase inside a longer line gets its words swept.').gesture('wash', '#vt-list .note:last-child').hold(700)
+					.say('And a thing small enough to be a point gets tapped.').gesture('tap', '#vt-count').hold(800)
+				},
+				// ── THE TEACHING BEAT ──
+				{ id: 'teach', t: 'Teach, then do', d: 'A read() beat dips the cursor to the caption, pulses the words, and DWELLS long enough to read them — before the action runs.', api: 'scene().read()', scene: () => scene()
+					.say('A teaching beat says the words first, and waits while you read them.').read().hold(500)
+					.say('Then it does the thing.').point('#vt-finish').read()
+					.act((a) => a.publish()).gesture('check', '#vt-finish').hold(900)
+				},
 			];
 			function setCurrentBeat(id) { [...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id))); }
+			// A `scene` beat compiles through the recorder; a `run` beat is a raw Walkthrough.
+			// Both shapes ship on this page deliberately — they are two of the library's three
+			// authoring layers, and only the recorder can show you its Step[].
+			for (const b of BEATS) if (!b.run) b.run = () => playScene(b.scene().build());
 			BEATS.forEach((b, i) => {
 				const el = document.createElement('button');
 				el.className = 'beat'; el.type = 'button'; el.dataset.id = b.id;
 				el.innerHTML = `<span class="n">${i + 1}</span><span><span class="bt">${b.t}</span><p class="bd">${b.d}</p><span class="api">${b.api}</span></span>`;
-				el.addEventListener('click', () => { endTour(); setCurrentBeat(b.id); resetBoard(); b.run(); });
+				el.addEventListener('click', () => { endTour(); setCurrentBeat(b.id); resetBoard(); lastBeat = b; renderData(b); b.run(); });
 				beatsEl.appendChild(el);
 			});
 
@@ -370,6 +619,7 @@
 				for (const b of BEATS) {
 					if (!touring) break;
 					setCurrentBeat(b.id);
+					lastBeat = b; renderData(b);
 					await b.run(); // resolves when the beat tears down (awaitUser beat resolves on click or 8s timeout)
 					if (!touring) break;
 					await new Promise((r) => setTimeout(r, 500));
@@ -377,8 +627,10 @@
 				endTour();
 			});
 
-			// Boot — seed the records and paint the board.
+			// Boot — seed the records, paint the board, and raise the controls.
 			resetBoard();
+			renderControls();
+			renderData(null);
 		</script>
 	</body>
 </html>
