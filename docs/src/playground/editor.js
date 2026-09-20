@@ -43,7 +43,7 @@ import { typeaheadContext } from './slide-context.js';
 // and Mermaid sources are never proactive (their sources need a typed prefix).
 const TYPEAHEAD_KINDS = {
 	class: new Set(['class', 'modifier']),
-	all: new Set(['class', 'modifier', 'directive', 'paginate', 'fence', 'theme', 'finish', 'form', 'split']),
+	all: new Set(['class', 'modifier', 'directive', 'paginate', 'fence', 'theme', 'finish', 'split']),
 };
 function normalizeTypeahead(mode) {
 	return mode === 'all' || mode === 'off' ? mode : 'class';

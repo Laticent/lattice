@@ -195,15 +195,6 @@ export function themeValuePosition(before) {
 	return { from: m[1].length, typed: m[2] };
 }
 
-// The cursor's position on a value being typed after the deck-level `form:`
-// front-matter key — `form: m|`. Returns `{ from, typed }` or null, so the
-// off/standard/minimal vocabulary completes here.
-export function formValuePosition(before) {
-	const m = before.match(/^(\s*form:\s*)(\S*)$/);
-	if (!m) return null;
-	return { from: m[1].length, typed: m[2] };
-}
-
 // The cursor's position on a `split:` front-matter line, for split-mode
 // completion (`rule` / `headings`).
 export function splitValuePosition(before) {
@@ -334,7 +325,7 @@ export function identifierBefore(before) {
 //   'directive'                                 — a directive NAME `<!-- _pag…`
 //   'paginate'                                  — a `<!-- _paginate: … value
 //   'fence'                                     — a fence info string ` ```…`
-//   'theme' | 'finish' | 'form' | 'split'       — front-matter value lines
+//   'theme' | 'finish' | 'split'                 — front-matter value lines
 //   null                                        — none of the above
 // `getLine(n)` is the 1-based line accessor; `lineNo` the cursor's line; `before`
 // the line text up to the cursor. This function only CLASSIFIES — it owns no
@@ -356,7 +347,6 @@ export function typeaheadContext(getLine, lineNo, before) {
 	if (inFrontMatter(getLine, lineNo)) {
 		if (themeValuePosition(before)) return 'theme';
 		if (finishValuePosition(before)) return 'finish';
-		if (formValuePosition(before)) return 'form';
 		if (splitValuePosition(before)) return 'split';
 		if (sizeValuePosition(before)) return 'size';
 	}

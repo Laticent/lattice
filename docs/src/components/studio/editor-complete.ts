@@ -29,7 +29,6 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'size', info: 'Slide size — hd (16:9), standard, square, 4k, or a portrait format.' },
 	{ key: 'split', info: 'How the body divides into slides — headings (default) or rule (--- only).' },
 	{ key: 'profile', info: 'Genre the Coach judges STYLE against — general (default), teaching, or mission. Never affects the Craft score.' },
-	{ key: 'form', info: 'Deck chrome — the masthead band, status bay and rail. standard (default) / off.' },
 	{ key: 'glossary', info: 'Auto-glossary — append a reference slide built from the acronyms: definitions. auto / off.' },
 	{ key: 'class', info: 'Default _class applied to every slide (a modifier — a component name is ignored).' },
 	{ key: 'validate', info: "Inline validation in the editor — on (default) / off. Travels with the deck." },

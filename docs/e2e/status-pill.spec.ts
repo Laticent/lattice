@@ -216,9 +216,9 @@ test('an action message raised inside a CLICKED affordance’s exit window survi
 	// Every Inspector write raises an Undo through the `action` kind (`settingsWrite`
 	// → `showUndo` → `notifyAction`). Two different toggles, so the second message is
 	// distinguishable from the first by text rather than by counting.
-	await page.getByRole('switch', { name: 'Deck chrome' }).click();
+	await page.getByRole('switch', { name: 'Section rail' }).click();
 	const undo = pills(page).first();
-	await expect(undo).toContainText('Deck chrome off');
+	await expect(undo).toContainText('Section rail off');
 
 	await armExitReply(page, 'button[role="switch"][aria-label="Auto-glossary"]');
 
