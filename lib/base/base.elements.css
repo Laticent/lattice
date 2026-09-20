@@ -196,7 +196,7 @@ section blockquote { margin:0; padding:0; border:none; }
  *
  * TWO scoping decisions, both load-bearing:
  *
- * 1. DIRECT STAGE CHILD ONLY (`> table` when the slide is `no-form`,
+ * 1. DIRECT STAGE CHILD ONLY (`> table` when the slide is unwrapped,
  *    `> .cell-stage > table` when it carries `form`). An author's markdown table
  *    lands exactly there. A table a TRANSFORM generated does not: roadmap wraps
  *    its table in `.roadmap-figure` and matrix-grid in `.matrix-grid-figure`, and

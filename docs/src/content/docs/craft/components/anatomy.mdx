@@ -100,14 +100,18 @@ why the lab's slide had a properly set heading before you had written a
 single rule. Once `takeaway` is a real registered component, the fallback
 stops applying.
 
-**Not every component gets this shape.** Ten layouts are *sovereign*: they
-own the whole page and take neither cell, because their design is the
-full-bleed slide. `title`, `closing`, `divider`, `image`, `scene`, `math`,
-`premise`, `compare-code`, `split-compare` and `split-panel` style
-`section.<name>` directly, which is the one legitimate exception to the rule
-above. If you are building a full-bleed cover or a two-halves layout, open
-one of those and follow it. Everything else — the large majority — is the
-shape shown here.
+**Not every component gets this shape.** Nine layouts compose as a *sovereign
+Frame* — a Frame that declares one Cell (`stage`) instead of nine — so its stage
+*is* the section box and there is no `.cell-stage` wrapper element to target.
+`title`, `closing`, `divider`, `image`, `scene`, `premise`, `compare-code`,
+`split-compare` and `split-panel` therefore style `section.<name>` directly, which
+is the one legitimate exception to the rule above. If you are building a full-bleed
+cover or a two-halves layout, open one of those and follow it. Everything else —
+the large majority — is the shape shown here.
+
+A sovereign Frame is not "Form switched off": every slide composes as Form, and a
+sovereign one simply declares no chrome Cells. (`math` was the tenth until 2026-09.
+It composes as `standard` now, so style `section.math.form > .cell-stage`.)
 
 ## The three questions
 

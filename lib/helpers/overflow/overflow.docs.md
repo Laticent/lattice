@@ -79,8 +79,8 @@ staying silent.
 
 Case A needs a bounded clip-cell to blame; some layouts (`kanban`,
 `timeline-list` — the `STAGE_DEFERRED` bucket in
-`lib/forms/cell/masthead/masthead.transform.js`, plus any component under
-`form: off`/`no-form`) never get wrapped in one, so a genuine "grow-to-fit
+`lib/forms/cell/masthead/masthead.transform.js`, plus every sovereign Frame)
+never get wrapped in one, so a genuine "grow-to-fit
 push" overflow on those slides gives Case A nothing to point at. Case B
 covers that gap: when a section overflows with **zero** clip-cell spill at
 all, `lattice-runtime.js` falls back to the component's own

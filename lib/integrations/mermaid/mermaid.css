@@ -34,7 +34,7 @@
  * into the frame's `.cell-stage` cell. On the RUNTIME/DOM path the `.mermaid`
  * SVG-target div therefore lands INSIDE `.cell-stage`, so the direct-child rule
  * needs the wrapped arm too. The bare `section.diagram > .mermaid` arm stays for
- * the `no-form` (unwrapped) slide. */
+ * an unwrapped slide. */
 section.diagram > .mermaid,
 section.diagram > .cell-stage > .mermaid { display:flex; align-items:safe center; justify-content:safe center; width:100%; flex:1; min-height:0; overflow:hidden; }
 .mermaid-svg svg,

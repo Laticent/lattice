@@ -26,11 +26,13 @@ There are only two kinds of object — **slicers** (Frames) that make boxes, and
 
 ## 1 · Frame → Cell
 
-A Frame is, concretely, a `cells: […]` list (plus an optional `suppresses: […]`). The root **`standard`** frame composes the full chrome — a masthead band, the stage, and a footer row. A sovereign frame like **`split-panel`** keeps only the `stage` and suppresses the rest, so it reads as a completely different slide.
+A Frame is, concretely, a `cells: […]` list (plus an optional `suppresses: […]`). The root **`standard`** frame composes the full chrome — a masthead band, the stage, and a footer row. A sovereign frame like **`split-panel`** declares exactly one Cell — `cells: ["stage"]` — and no chrome Cells, so it reads as a completely different slide.
+
+**Form itself is not a setting.** Every slide composes as Form; there is no front-matter key, no per-slide token and no way to turn it off. What varies is which Frame a slide composes as, and its component decides that. A sovereign frame is not "Form off" — it is a Frame with one Cell instead of nine. The one axis that could ever vary is the rendering **medium**: `2d` (CSS) today, and a spatial renderer would be a second medium, chosen by the renderer and never by a deck.
 
 <FormDiagram fig="frame-cell" />
 
-A slide has exactly **one** Frame — the root chrome frame, or a **sovereign** frame (like `split-panel`) that claims the whole canvas and suppresses the chrome. Cells hold Tiles; **Frames do not nest inside content cells** — that recursion was considered and [rejected](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-06-18-frame-recursion-cells.md).
+A slide has exactly **one** Frame — the root chrome frame, or a **sovereign** frame (like `split-panel`) that claims the whole canvas and declares no chrome Cells. Cells hold Tiles; **Frames do not nest inside content cells** — that recursion was considered and [rejected](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-06-18-frame-recursion-cells.md).
 
 ---
 

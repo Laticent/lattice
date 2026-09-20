@@ -53,7 +53,7 @@ section.state-chart {
  * to the family's inset TOKENS (chart-family.css): a parent's padding cannot be
  * overridden by a child, so the tuning has to live where the inset now does — and
  * as a token it reaches BOTH holders (`.cell-stage` under the Form, the section on
- * the `no-form` path) from one declaration. Only the block token differs from the
+ * the unwrapped path) from one declaration. Only the block token differs from the
  * family default, so only that one is restated.
  *
  * The values are state-chart's own, moved verbatim — and because state-chart never

@@ -313,15 +313,15 @@ The runtime reads CSS custom properties from the loaded palette, derives
 the Mermaid `themeVariables` object, and fetches the Mermaid CSS section
 from the palette file. Same theme as the build path; one file to edit.
 
-It also composes every slide as **Form** by default — the masthead band, bay,
-progress rail, and section watermarks — matching the engine, so a deck dropped
-into a Marp tool gets the full layout with no per-slide tagging. Opt a single
-slide out with a `no-form` class (DOM-visible, honored everywhere). The
-deck-wide `form: off` opt-out is applied only on Lattice's own engine render
-paths (the `lattice` CLI, the docs playground); a Marp-rendered surface never
-runs the toggle, and the runtime reads no front matter, so it composes Form
-there regardless. See `design/forms.md` and
-`engineering/decisions/2026-07-08-runtime-form-default.md`.
+It also composes every slide as **Form** — the masthead band, bay, progress rail,
+and section watermarks — matching the engine, so a deck dropped into a Marp tool
+gets the full layout with no per-slide tagging. Form is unconditional: there is no
+front-matter key and no per-slide opt-out, on any render path. What varies is which
+**Frame** a slide composes as, and its component decides that: nine sovereign Frames
+(`title`, `divider`, `closing`, `image`, `premise`, `scene`, `split-panel`,
+`split-compare`, `compare-code`) declare a single Cell and carry no chrome, while
+everything else composes as the chrome-hosting `standard` Frame. See
+`design/forms.md`.
 
 **Where this actually runs.** Anywhere the browser executes the `<script>`
 tags: a plain HTML page, an Export-to-Marp bundle's `.html`, and marp-cli's

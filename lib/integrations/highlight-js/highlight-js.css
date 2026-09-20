@@ -127,7 +127,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code [
 /* `> .cell-stage >` arm: diagram is `conformance:"strict"`, so its body — the
  * source `<pre>`, the runtime `.mermaid` SVG target, and the `.mermaid-error`
  * block attached after it — hoists into `.cell-stage` on the wrapped (Form) path.
- * The bare `section.diagram >` arm keeps the `no-form` (unwrapped) slide working. */
+ * The bare `section.diagram >` arm keeps an unwrapped slide working. */
 /* Full width of the box that already carries the frame inset (#1598) — the error
  * block replaces the diagram in place, so it must sit on the diagram's own edges;
  * the retired `calc(100cqi - 2 * var(--sp-2xl))` was a second inset that put it

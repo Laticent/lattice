@@ -241,7 +241,7 @@ exercised by the unit suite:
 | Post-process | What it does | Why not CSS | Home (kernel → adapter) |
 |---|---|---|---|
 | masthead lift | moves eyebrow + title into `.cell-masthead` | re-parent | `lib/forms/cell/masthead/masthead.transform.js` (kernel, co-located with the Cell) → `lib/transformers/masthead-lift.js` (registry adapter + DOM mirror) — self-contained Cell (#356) |
-| `form:` toggle | adds `form` / `no-progress` per mode; skip-set from `lib/forms` | read front-matter, tag classes | `lib/integrations/markdown-it/plugins.js` (`readFormMode`, `formToggleClass`, `deriveFormToggleSkip`) |
+| universal `form` class | stamps `form` on every top-level slide, plus `frame-sovereign` on the nine sovereign Frames | tag classes | `lib/integrations/markdown-it/plugins.js` (`applyFormToHtml`, `formToggleClass`, `deriveSovereignFrames`) + `lib/forms/form-default.js` (the DOM twin) |
 | meta Tile | inserts `meta:` into the masthead bay | front-matter text | `lib/forms/tile/meta/meta.transform.js` (`applyToHtml` + `applyToDom` + `readFrontMatter`) — self-contained Tile (#356) |
 | logo Tile | inserts the `logo:` image | front-matter image | `plugins.js` `applyDeckLogoToHtml` |
 | progress Tile | counts `divider` sections → dot-rail + `has-progress` | derive from deck structure | `lib/forms/tile/progress/progress.transform.js` (`applyToHtml` + `applyToDom`) — self-contained Tile (#356) |
@@ -270,17 +270,18 @@ Two consequences worth keeping in mind:
   are imported by both render paths (above) — but the manifest *data* is gate-checked,
   not interpreted at render. Placement is still hand-written transforms + class-keyed
   CSS, and the only manifest fields read at render are a Frame's `id` + `exemptFromChrome`
-  (the `form:` skip-set, via `deriveFormToggleSkip`, with a baked fallback for the
-  fs-free browser bundle). The build gate (`tools/build-forms.js`) keeps manifest and
+  (which Frames declare no chrome Cells, via `frameToggleSkip()`, with a baked fallback
+  for the fs-free browser bundle — it is what `hostsChromeCells()` answers from). The build gate (`tools/build-forms.js`) keeps manifest and
   CSS in step (token refs resolve, the `css` flag matches the filesystem, z-order
   isn't inverted, `suppresses` never drops the stage); the loader cross-validates
   referential integrity (`Tile.fits` → a real Cell; every `Cell.accepts` kind met by
   ≥1 Tile). What the manifest does **not** do is *generate* CSS — the `--frame-*` grid
   and each Cell/Tile sheet are hand-authored, co-located files (`lib/forms/cell/<id>/<id>.css`).
   So "adding a Tile is a folder" is real; "adding a new spatial Frame type" is not —
-  the `form` enum is still closed at twelve (mirrored in `lib/forms/index.js`,
+  the composition-axis `form` enum — the manifest FIELD, twelve values, not the
+  eleven-Frame catalog — is still closed at twelve (mirrored in `lib/forms/index.js`,
   `lib/components/index.js`, and `lib/components/manifest.schema.json`), so a thirteenth
-  Frame is a multi-file change.
+  axis value is a multi-file change.
 
 ## The concept model in code
 
@@ -313,7 +314,8 @@ enforced" without the concept map itself turning into engineering prose.
 | Cell → Tile | holds | `Cell.accepts` kinds; the `frame` kind is a **fixed** band split (masthead→lede/bay, footer→zones) only — content cells hold Tiles, never nested Frames (recursion rejected: `engineering/decisions/2026-06-18-frame-recursion-cells.md`) |
 | Tile → Cell | fits | `Tile.fits`, the dual of `Cell.accepts`; validated |
 | Component → Function | is-a | `function` field |
-| Component → Frame | selects | `form` field |
+| Component → Frame | composes as | the `_class` token, matched against `lib/forms/frame/<id>/`; `standard` when no Frame carries the name |
+| Component → composition axis | classified by | the manifest `form` field (the twelve values — NOT a Frame selector) |
 | Component → Substance | binds | `substance` field + kernel |
 | Component → Finish | receives | variant tiers + theme tokens |
 | Component → Bucket | grouped by | `bucket` field (defaults to Function) |
