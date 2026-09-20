@@ -88,7 +88,37 @@ export function makeCursor(input: CaptionTrack): Cursor {
     align(cueIndex, onsetMs, durationMs) {
       const cue = track.cues[cueIndex];
       if (!cue?.words.length) return cursor;
-      const dur = Math.max(0, durationMs);
+      // PRECONDITIONS. `align` takes numbers measured by a player — a decode that failed, a
+      // clip that never loaded, a seek that ran backwards — and it used to accept all of them.
+      // `Math.max(0, durationMs)` clamps a negative but NOT a NaN, and each bad value corrupts
+      // the timeline in a different, silent way:
+      //
+      //  · NaN duration      — every word's span becomes NaN, so the highlight dies, `onEnd`
+      //                        never fires (`x >= NaN` is always false, so the read hangs), and
+      //                        `toVtt` emits `00:00:00.000 --> NaN:NaN:NaN.NaN` — a structurally
+      //                        invalid caption file, shipped to a viewer.
+      //  · zero duration     — REACHABLE, not theoretical: suono's stage computes
+      //                        `(buffer.duration || 0) * 1000`, so a failed decode yields 0. The
+      //                        cue collapses to a single point and drags the whole tail backwards.
+      //  · out-of-order onset — `at()` binary-searches `flat` assuming it is sorted by startMs.
+      //                        Anchoring a later cue before an earlier one breaks that sort, and
+      //                        `at()` then returns null at EVERY probe: the read-along goes
+      //                        permanently dark, with no exception and no recovery.
+      //
+      // Each one is REFUSED rather than repaired, so the cue keeps its estimate. A highlight
+      // running on an estimate is a small, self-correcting error; a timeline that can never be
+      // read again is not. `calibrate.observe` already guards the same measured value from the
+      // same callback — this is that discipline on the other consumer.
+      //
+      // Every reference here is local, for the reason `makeCursor`'s header gives: this source
+      // is inlined into the exported player via `.toString()` and a module-scope binding would
+      // be undefined there.
+      if (!Number.isFinite(onsetMs) || !Number.isFinite(durationMs)) return cursor;
+      if (durationMs <= 0 || onsetMs < 0) return cursor;
+      // Overlapping the previous cue's END is normal (a clip can start before the last one's
+      // trailing silence is over). Starting before the previous cue BEGINS is the sort-breaker.
+      if (cueIndex > 0 && onsetMs < track.cues[cueIndex - 1].startMs) return cursor;
+      const dur = durationMs;
       const estStart = cue.startMs;
       const estDur = Math.max(1, cue.endMs - cue.startMs);
       const oldEnd = cue.endMs;

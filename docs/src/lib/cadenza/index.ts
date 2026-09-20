@@ -54,5 +54,5 @@ export { splitParagraphs, splitSentences, splitWords } from './segment';
 export type { LexiconMap, ResolveSymbolsOptions } from './symbols';
 export { resolveSymbols, SEPARATOR_GLYPHS, SYMBOL_SPEAK } from './symbols';
 export type { BuildOptions, CaptionTrack, Cue, EmphasisSpan, Word } from './track';
-export { buildTrack } from './track';
+export { buildTrack, validateTrack } from './track';
 export { formatTimestamp, toSrt, toVtt } from './vtt';
