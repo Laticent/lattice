@@ -76,3 +76,31 @@ test('the heading reader is depth-aware — a nested h2 is not the slide title',
     'a heading inside a component card must never become the topic name');
   assert.ok(t[0].some((i) => i.name === 'Real'));
 });
+
+test('a list nested in a blockquote is NOT an override — both adapters agree', () => {
+  // The string arm used a bare /<ul[\s>]/, which matched a `> - source note`
+  // blockquote list; the DOM arm's `:scope > ul` did not. The two paths then
+  // disagreed about whether the slide was overridden, and the string path
+  // silently dropped the slide's track AND withheld its name from its siblings,
+  // so the surviving tracks asserted a two-topic section that had three.
+  const deck = S('divider', '<h2>One</h2>') +
+    S('topic', '<h2>Alpha</h2><p>A claim.</p><blockquote><ul><li>Source: v9</li></ul></blockquote>') +
+    topic('Beta') + topic('Gamma');
+  const t = tracks(tt.applyToHtml(deck));
+  assert.equal(t.length, 3, 'the blockquote slide still gets its own track');
+  assert.deepEqual(t[0].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'],
+    'and every track lists all three topics');
+  assert.equal(t[0].findIndex((i) => i.on), 0);
+});
+
+test('a topic slide with no heading gets no track, rather than lighting a sibling', () => {
+  // It contributed '' to the section, which `shown` dropped — but the slide
+  // still got a track whose `on` landed on the NEXT topic, so two consecutive
+  // slides claimed to be the same one.
+  const deck = S('divider', '<h2>One</h2>') +
+    S('topic', '<p>No heading here.</p>') + topic('Beta') + topic('Gamma');
+  const t = tracks(tt.applyToHtml(deck));
+  assert.equal(t.length, 2, 'only the two named slides get a track');
+  assert.deepEqual(t.map((x) => x.findIndex((i) => i.on)), [0, 1],
+    'and each lights itself, not its neighbour');
+});

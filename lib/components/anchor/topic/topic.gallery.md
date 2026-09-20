@@ -24,6 +24,11 @@ Topic anchor inside a section. A horizontal cut: the topic above, the section's 
 
 Fourteen months blended, against a nine-month plan.
 
+- Cost to win
+- Lifetime value
+- **Payback**
+- The assumptions
+
 
 ---
 
@@ -50,6 +55,16 @@ Fourteen months blended, against a nine-month plan.
 ## Escalation paths
 
 Three of the nine paths route to a team that no longer owns the service.
+
+- Intake
+- Triage
+- Ownership
+- Runbooks
+- On-call
+- **Escalation paths**
+- Postmortems
+- Action tracking
+- Review cadence
 
 
 ---

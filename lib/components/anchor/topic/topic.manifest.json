@@ -50,7 +50,7 @@
     "track": {
       "selector": "ul > li",
       "required": false,
-      "description": "DERIVED, not authored — `lib/transformers/topic-track.js` builds it from the headings of every `topic` slide in this section and lights the current one. Author a `ul` yourself ONLY to override it (shorter labels than the headings, or a section whose later topics are not written yet); an authored list is left untouched, and that slide then contributes no name to its siblings' tracks."
+      "description": "DERIVED, not authored — `lib/transformers/topic-track.js` builds it from the headings of every `topic` slide in this section and lights the current one. Author a `ul` yourself ONLY to override it (shorter labels than the headings, or a section whose later topics are not written yet); an authored list is left untouched, and that slide then contributes no name to its siblings' tracks. In the GALLERY the samples author it explicitly, because a gallery slide has no section around it and derivation needs one — the composition is identical either way, and an authored item is marked with `**bold**`. At the nine-topic ceiling a column is about a tenth of the slide, so a single word longer than ~10 characters BREAKS MID-WORD — the track keeps its equal columns rather than letting one word widen them, which is the lesser of the two failures. Keep ceiling-count sections to short labels, or split the section."
     },
     "basis": {
       "selector": "p:last-of-type > code",
@@ -59,10 +59,10 @@
     }
   },
   "skeleton": "<!-- _class: topic -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
-  "sample": "<!-- _class: topic -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
+  "sample": "<!-- _class: topic -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n\n- Cost to win\n- Lifetime value\n- **Payback**\n- The assumptions\n",
   "stressDoc": {
     "summary": "a nine-topic section — the track at its documented ceiling, labels stepped down two rungs",
-    "sample": "<!-- _class: topic -->\n\n`Section 04 · Operating review`\n\n## Escalation paths\n\nThree of the nine paths route to a team that no longer owns the service.\n"
+    "sample": "<!-- _class: topic -->\n\n`Section 04 · Operating review`\n\n## Escalation paths\n\nThree of the nine paths route to a team that no longer owns the service.\n\n- Intake\n- Triage\n- Ownership\n- Runbooks\n- On-call\n- **Escalation paths**\n- Postmortems\n- Action tracking\n- Review cadence\n"
   },
   "whenToUse": [
     {
@@ -122,6 +122,10 @@
     {
       "mistake": "Reaching for `fact` and leaving the claim as a fragment or a label.",
       "fix": "`fact` puts the claim at display size, so it must be a whole sentence that states something — and one sentence, not three. Start it with the number (`Fourteen months blended, …`) rather than bolding the figure; two typographic registers inside one display line is one too many."
+    },
+    {
+      "mistake": "A long single-word topic name in a section at or near the nine-topic ceiling.",
+      "fix": "The track's columns are equal by construction, so at nine a word over ~10 characters breaks mid-word rather than widening its column (the gallery's stress slide shows it on `Postmortems`). Either shorten the name — the heading register is two to four short words anyway — or split the section, which is what a nine-topic section usually wants."
     }
   ],
   "variantDecisionRule": [
