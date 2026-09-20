@@ -171,6 +171,19 @@ a full object form with a bare-scalar shorthand:
 | **Inline literal** | `` `[{1, Good}, {2, Better}, {3, The Best}]` `` | a compact one-slide override |
 | **Register** | `scale:` in front matter, `1: { label: Cold, detail: "…" }` | deck-wide, with descriptions |
 
+**Two of the three shipped; the register did not, and the reason is worth
+recording.** A chart transform receives `{ cls, classTokens, orientation, utils }`
+and nothing else — front matter never reaches it. Wiring it in means changing
+`transformChartSection`'s signature and every caller on BOTH render paths, which
+is exactly the kind of change HARD RULE #1 says must land in one coordinated pass
+rather than riding along with a component's feature. So the slide-local forms
+ship now: an inline set names the bands, and the `scale` token asks for the
+derived ones. `lib/core/label-set.js` already parses the register block
+(`parseRegisterBlock`, tested), so the remaining work is the plumbing, not the
+grammar. A deck that wants the key on every slide can set `class: scale` in its
+own front matter today, which Marp applies deck-wide — that carries the key but
+not the words.
+
 The inline literal is free today: `[{1, Good}, …]` dispatches to nothing
 (measured against `inline-code-directives.js`). Note that `{1}` and `{Good}` ARE
 pills on their own — the comma is what distinguishes a set entry from a pill, and

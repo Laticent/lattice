@@ -70,7 +70,9 @@
 		"summary": "Ten rows by twelve columns at the ceiling, the longest realistic row name, a ragged tail where the newest cohorts have not reached the later months, and a flat row where every value is identical. The grid is bound by cell size on both axes at once, so the ceiling is the only place you can see whether a column name still sets above its column, whether a long row name ellipsizes rather than being culled, and whether an unmeasured crossing still reads as unmeasured rather than as the bottom of the ramp.",
 		"sample": "<!-- _class: heatmap -->\n\n`Retention · the ceiling`\n\n## Ten cohorts by twelve months — the density this holds.\n\n|  | M0 | M1 | M2 | M3 | M4 | M5 | M6 | M7 | M8 | M9 | M10 | M11 |\n| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |\n| January 2026 acquisition cohort | 100 | 71 | 59 | 55 | 52 | 50 | 48 | 47 | 46 | 45 | 44 | 43 |\n| February 2026 | 100 | 58 | 44 | 41 | 39 | 38 | 37 | 36 | 35 | 34 | 33 | 32 |\n| March 2026 | 100 | 62 | 48 | 45 | 43 | 42 | 41 | 40 | 39 | 38 | 37 |  |\n| April 2026 | 100 | 69 | 57 | 54 | 51 | 49 | 48 | 47 | 46 | 45 |  |  |\n| May 2026 | 100 | 66 | 54 | 50 | 48 | 47 | 46 | 45 | 44 |  |  |  |\n| June 2026 | 100 | 64 | 52 | 49 | 47 | 46 | 45 | 44 |  |  |  |  |\n| July 2026 | 100 | 61 | 50 | 47 | 45 | 44 | 43 |  |  |  |  |  |\n| August 2026 | 100 | 59 | 48 | 45 | 43 | 42 |  |  |  |  |  |  |\n| September 2026 | 100 | 57 | 47 | 44 | 42 |  |  |  |  |  |  |  |\n| October 2026 | 55 | 55 | 55 | 55 |  |  |  |  |  |  |  |  |\n"
 	},
-	"variants": [],
+	"variants": [
+		"scale"
+	],
 	"whenToUse": [
 		{
 			"title": "Two dimensions, one measure",
@@ -146,5 +148,11 @@
 	"projection": {
 		"figure": "svg",
 		"data": true
+	},
+	"variantDocs": {
+		"scale": {
+			"summary": "Renders the band key beside the grid, naming each ramp step by the range of values it covers — reach for it when a reader has to know why two cells share a tone.",
+			"sample": "<!-- _class: heatmap scale -->\n\n`Retention · 2026 cohorts`\n\n## The chart names its own bands.\n\n|  | M0 | M1 | M2 | M3 |\n| --- | --: | --: | --: | --: |\n| Jan 2026 | 100 | 62 | 48 | 44 |\n| Feb 2026 | 100 | 58 | 44 | 41 |\n| Mar 2026 | 100 | 71 | 59 | 55 |\n| Apr 2026 | 100 | 69 | 57 |  |\n"
+		}
 	}
 }

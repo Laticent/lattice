@@ -62,6 +62,27 @@ Use when the question is 'where does this concentrate', not 'how do these compar
   - Col B `43`
 ```
 
+## Variants (component-specific)
+
+### `scale`
+
+Renders the band key beside the grid, naming each ramp step by the range of values it covers — reach for it when a reader has to know why two cells share a tone.
+
+```markdown
+<!-- _class: heatmap scale -->
+
+`Retention · 2026 cohorts`
+
+## The chart names its own bands.
+
+|  | M0 | M1 | M2 | M3 |
+| --- | --: | --: | --: | --: |
+| Jan 2026 | 100 | 62 | 48 | 44 |
+| Feb 2026 | 100 | 58 | 44 | 41 |
+| Mar 2026 | 100 | 71 | 59 | 55 |
+| Apr 2026 | 100 | 69 | 57 |  |
+```
+
 ## Universal modifiers
 
 This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.

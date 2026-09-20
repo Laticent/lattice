@@ -17,7 +17,7 @@ const path = require('node:path');
 const MarkdownIt = require('markdown-it');
 
 const {
-  parseHeatmapTable, readCell, buildHeatmap,
+  parseHeatmapTable, readCell, buildHeatmap, deriveBands, liftLabelSet, cellMarks, transformSection,
   MAX_COLS, MAX_ROWS, MIX_FLOOR, MIX_TOP, RAMP_STEPS, stepFor, rampBreaks,
 } = require('../../../lib/components/chart/heatmap/heatmap.transform');
 
@@ -507,5 +507,131 @@ describe('heatmap — the accessible description', () => {
     assert.match(one, /1 crossing carries no value/);
     const two = buildHeatmap(parseHeatmapTable(grid2('| Jan | 1 | 2 |', '| Feb |  |  |')), {});
     assert.match(two, /2 crossings carry no value/);
+  });
+});
+
+describe('the band key', () => {
+  // The key is the answer to the one question the printed cell values cannot
+  // answer: why are these two cells the same color?
+  const model = () => parseHeatmapTable(grid(
+    '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
+  const withBands = (bands) => { const m = model(); m.bands = bands; return m; };
+  const labels = (svg) => [...svg.matchAll(/<text class="chart-key-label"[^>]*>([\s\S]*?)<\/text>/g)]
+    .map((m) => m[1].replace(/<[^>]*>/g, ''));
+
+  test('is OPT-IN — a heatmap that did not ask for one is unchanged', () => {
+    // Every shipped heatmap was composed without a rail, so turning the key on
+    // by default would re-lay-out slides nobody touched.
+    const svg = buildHeatmap(model(), {});
+    assert.doesNotMatch(svg, /chart-key-swatch/);
+    assert.match(svg, /viewBox="0 0 320 180"/, 'the grid must keep the whole box');
+  });
+
+  test('the derived bands name value RANGES, not words', () => {
+    // Polarity is unknowable — high retention is good, high churn is bad — and
+    // the bands are quantile-cut per matrix, so a word would name different
+    // numbers on every slide.
+    for (const l of labels(buildHeatmap(withBands([]), {}))) {
+      assert.match(l, /^[\d.,]+(–[\d.,]+)?$/, `${l} is not a range`);
+    }
+  });
+
+  test("an author's words merge over the derived set, band by band", () => {
+    const svg = buildHeatmap(withBands([{ key: '1', label: 'Cold' }]), {});
+    const got = labels(svg);
+    assert.ok(got.includes('Cold'), 'the named band takes the word');
+    assert.ok(got.some((l) => /^[\d.,]+(–[\d.,]+)?$/.test(l)),
+      'the bands the author did not name stay derived — that is the whole point');
+  });
+
+  test('only the bands the matrix USES are keyed', () => {
+    // A quantile cut over few distinct values leaves steps empty, and an empty
+    // band is a key row pointing at a color nowhere on the slide.
+    const small = parseHeatmapTable(grid2('| Jan | 100 | 62 |', '| Feb | 100 | 58 |'));
+    small.bands = [];
+    const keys = deriveBands(small, (n) => String(n)).map((b) => b.key);
+    assert.ok(keys.length < RAMP_STEPS, 'a small matrix must not key all five steps');
+  });
+
+  test('the swatch carries the cell CLASS, never a resolved fill (HARD RULE #3)', () => {
+    // A heatmap cell is painted by CSS color-mix on [data-step]. A fill baked in
+    // here would be a color in the kernel, and the key would stop matching the
+    // grid the moment the palette changed.
+    const swatch = buildHeatmap(withBands([]), {}).match(/<rect class="chart-key-swatch[^>]*>/)[0];
+    assert.match(swatch, /heatmap-cell/);
+    assert.match(swatch, /data-step="\d"/);
+    assert.doesNotMatch(swatch, /fill="/, 'the kernel must not resolve the ramp color');
+  });
+
+  test('the bands reach a reader who cannot see them', () => {
+    const desc = buildHeatmap(withBands([{ key: '1', label: 'Cold' }]), {})
+      .match(/<desc[^>]*>([^<]*)<\/desc>/)[1];
+    assert.match(desc, /Bands:/, 'a key nobody can see is decoration');
+    assert.match(desc, /Cold/);
+  });
+});
+
+describe('lifting the authored set off the slide', () => {
+  const P = (t) => `<p><code>${t}</code></p>`;
+
+  test('finds the set and removes it, so it keys the bands instead of printing', () => {
+    const { html, set } = liftLabelSet(`<h2>T</h2>${P('[{1, Cold}, {5, Hot}]')}<table></table>`);
+    assert.deepEqual(set, [{ key: '1', label: 'Cold' }, { key: '5', label: 'Hot' }]);
+    assert.doesNotMatch(html, /Cold/, 'the set must not also render as a subtitle');
+  });
+
+  test('an EYEBROW is not mistaken for a set — and does not stop the search', () => {
+    // The regression this arm exists for: a heatmap slide routinely opens with a
+    // one-code eyebrow, which sits above the set and matches the same shape.
+    // Testing only the FIRST one-code paragraph found the eyebrow, failed to
+    // parse it, and gave up — so the set rendered as a subtitle and no key
+    // appeared.
+    const { html, set } = liftLabelSet(
+      `${P('Retention · 2026 cohorts')}<h2>T</h2>${P('[{1, Cold}]')}<table></table>`);
+    assert.deepEqual(set, [{ key: '1', label: 'Cold' }]);
+    assert.match(html, /Retention · 2026 cohorts/, 'the eyebrow must survive');
+  });
+
+  test('a slide with no set is left exactly as it was', () => {
+    const src = `${P('Retention · 2026 cohorts')}<h2>T</h2><table></table>`;
+    const { html, set } = liftLabelSet(src);
+    assert.equal(set, null);
+    assert.equal(html, src);
+  });
+});
+
+describe('a cell annotation reaches both surfaces', () => {
+  const slide = (body) => {
+    const html = md.render(body);
+    return transformSection(html, { cls: 'heatmap', classTokens: ['heatmap'] });
+  };
+  const RAGGED = ['## T.', '', '|  | M0 | M1 | M2 |', '| --- | --: | --: | --: |',
+    '| Jan | 100 | 62 |  |', '| Feb | 90 | 58 `# the one that matters` | 40 |'].join('\n');
+
+  test('the template index matches the rect it describes, across a ragged matrix', () => {
+    // The reveal layer looks a template up BY data-mark. A crossing nobody
+    // measured still consumes an index on the grid, so the marks have to be
+    // counted the same way or the popover opens on the wrong cell.
+    const out = slide(RAGGED);
+    const tpl = out.match(/<template class="chart-detail" data-mark="(\d+)">([^<]*)</);
+    assert.ok(tpl, 'an annotated cell must emit a template');
+    const rect = new RegExp(`data-mark="${tpl[1]}" data-label="([^"]*)"`).exec(out);
+    assert.equal(rect[1], 'Feb · M1', 'the template points at the cell that was annotated');
+  });
+
+  test('the same words fold into the speaker note, so print keeps them', () => {
+    assert.match(slide(RAGGED), /Feb · M1 \(58\): the one that matters/);
+  });
+
+  test('a heatmap with no annotation emits neither, and is byte-identical', () => {
+    const plain = ['## T.', '', '|  | M0 |', '| --- | --: |', '| Jan | 1 |', '| Feb | 2 |'].join('\n');
+    const out = slide(plain);
+    assert.doesNotMatch(out, /chart-detail/);
+    assert.doesNotMatch(out, /<!--/);
+  });
+
+  test('cellMarks counts every crossing, measured or not', () => {
+    const m = parseHeatmapTable(grid('| Jan | 1 | 2 |  |', '| Feb | 3 |  | 5 |'));
+    assert.equal(cellMarks(m).length, m.rows.length * m.cols.length);
   });
 });
