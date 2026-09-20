@@ -97,6 +97,12 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 	const [html, setHtml] = React.useState('');
 	const [toc, setToc] = React.useState<ArticleToc[]>([]);
 
+	// `extraTheme` is read WHOLE and its identity is captured by (name, css). StudioShell
+	// rebuilds that wrapper object on every render whenever a saved library theme is active,
+	// so depending on the object itself re-runs this effect on any unrelated re-render —
+	// replacing the article with the loading state and re-rendering the whole deck through
+	// the engine. DeckPreview depends on the same two fields, for the same reason.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: see above — (name, css) is the identity.
 	React.useEffect(() => {
 		let canceled = false;
 		setState('loading');
@@ -113,7 +119,7 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 		return () => {
 			canceled = true;
 		};
-	}, [options, source, palette, mode, extraTheme, extraCss]);
+	}, [options, source, palette, mode, extraTheme?.name, extraTheme?.css, extraCss]);
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">

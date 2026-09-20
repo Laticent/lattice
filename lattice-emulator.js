@@ -4709,10 +4709,18 @@ async function renderBody(browser, g, closeBrowser) {
     // pre-layout guess. AFTER THE RASTER, deliberately, exactly as the fluid rewrite
     // above is: the PDF / PPTX / PNG were rendered from the clean file written before
     // this line, so those bytes do not move.
-    const articleHtml = await projectDeckArticleFromHtml(cleanDocHtml);
-    if (articleHtml) {
-      cleanDocHtml = toReadingArticle(cleanDocHtml, articleHtml);
-      fs.writeFileSync(outHtml, cleanDocHtml);
+    //
+    // `cleanDocHtml` IS NOT REASSIGNED, and that is load-bearing rather than style. It is
+    // the module's one handle on the SLIDE document, and three things downstream still
+    // need it: the caption projection narrates `section[data-lattice-slide]` from it, and
+    // `notesPerRenderedPage` / `writeCaptionsSidecar` index off the same string. Pointing
+    // it at the article — which by design contains no sections at all — silently produced
+    // ZERO .vtt files for `--read --captions` and blamed the deck ("nothing to narrate")
+    // rather than the flag. `--fluid` above never had the bug because it writes without
+    // reassigning; this now does the same. Found by an independent checker.
+    const articleDoc = await buildReadingArticleDocument(cleanDocHtml);
+    if (articleDoc) {
+      fs.writeFileSync(outHtml, articleDoc);
       if (!QUIET) console.log(`Reading article: ${outHtml}`);
     } else if (!QUIET) {
       // Never silent: the operator asked for an article and is getting the slide stack.
@@ -5386,21 +5394,22 @@ html,body{background:var(--bg,#fff)}
 `;
 
 /**
- * The deck as a reading ARTICLE, projected from the finished export document.
+ * The deck as a reading ARTICLE DOCUMENT — project the prose, then swap it in for the
+ * slide stack, in ONE jsdom pass over the finished export document.
  *
- * WHY a deck needs one at all. Reader-mode text extractors decide what to summarize from
- * `p`, `pre` and `article` elements, each needing 140+ characters. A slide stack is
- * headings and short list items inside `section` elements, which are not candidates, so
- * most decks were invisible to them — 2 of 6 test decks cleared the eligibility check.
+ * WHY a deck needs one. Reader-mode text extractors score `p`, `pre` and `article`
+ * elements, each needing 140+ characters. A slide stack is headings and short list items
+ * inside `section` elements, which are not candidates, so most decks are invisible to
+ * them — 2 of 6 test decks cleared the eligibility check. Wrapping the stack in an
+ * `<article>` is the tempting one-line fix and is the WRONG one, measured: it flips the
+ * check for all 6, but the extractor that follows keeps one top-candidate subtree and
+ * discards the rest, so 45-76% of the deck reached the summarizer. The projection
+ * extracts at 66-100% instead.
  *
- * Wrapping the slide stack in an `<article>` is the tempting one-line fix and it is the
- * WRONG one, measured. It does flip the check for all 6, but the extractor that follows
- * keeps one top-candidate subtree and discards the rest, so 45-76% of the deck reached
- * the summarizer. The projection extracts at 66-100% instead, four of six at 100%.
- *
- * Returns '' (never throws): a projection failure must not sink a render that succeeded.
+ * Returns '' (never throws): a projection failure must not sink a render that succeeded,
+ * and the caller keeps the clean slide render in that case.
  */
-async function projectDeckArticleFromHtml(docHtml) {
+async function buildReadingArticleDocument(docHtml) {
   if (!docHtml || typeof docHtml !== 'string') return '';
   try {
     const { JSDOM } = require('jsdom');
@@ -5408,7 +5417,9 @@ async function projectDeckArticleFromHtml(docHtml) {
     const { createSlideSanitizer } = await import('./lib/core/sanitize-slide-html.mjs');
     const { projectDeckToProse } = await import('./lib/transformers/prose-projection.mjs');
     const sanitize = createSlideSanitizer(DOMPurify, new JSDOM('').window);
-    const doc = new JSDOM(docHtml).window.document;
+    const dom = new JSDOM(docHtml);
+    const doc = dom.window.document;
+
     // Sanitize each section in isolation, then project the clean nodes — the
     // caller-sanitizes contract prose-projection states in its own header (HARD RULE #22).
     const clean = [...doc.querySelectorAll('section[data-lattice-slide]')]
@@ -5416,28 +5427,52 @@ async function projectDeckArticleFromHtml(docHtml) {
       .filter(Boolean);
     if (!clean.length) return '';
     const { articleHtml } = projectDeckToProse(clean);
-    return articleHtml || '';
+    if (!articleHtml) return '';
+
+    // KEYED ON THE SLIDES, NOT ON THEIR CONTAINER — and both earlier attempts got this
+    // wrong in the same way. The engine passes an author's RAW HTML through unescaped, so
+    // a slide that merely WRITES the characters of a closing main tag (teaching HTML,
+    // quoting one in an attribute) ENDS `main#deck` where it sits. A regex over the
+    // document mis-split there; so does replacing the `#deck` NODE, because by then the
+    // parser has already hung the remaining sections outside it as siblings — the same
+    // thing a browser does with that markup. Either way a whole
+    // `section[data-lattice-slide]` survived the swap, un-styled, with its text in the
+    // document TWICE: exactly the double copy this flag exists to prevent, on the deck
+    // most likely to carry the trigger.
+    //
+    // So the transform removes every slide section WHEREVER the parse put it, and drops
+    // the container only if it is left empty. That holds however badly the document was
+    // split, because the thing being counted is the thing that must not survive.
+    const sections = [...doc.querySelectorAll('section[data-lattice-slide]')];
+    if (!sections.length) return '';
+    const main = doc.createElement('main');
+    main.id = 'lat-read-main';
+    const article = doc.createElement('article');
+    article.id = 'lat-read';
+    article.setAttribute('aria-label', 'Reading version');
+    article.innerHTML = articleHtml;
+    main.appendChild(article);
+    sections[0].parentNode?.insertBefore(main, sections[0]);
+    for (const sec of sections) sec.remove();
+    const deck = doc.querySelector('main#deck');
+    if (deck && !deck.textContent.trim() && !deck.querySelector('img, svg, video, canvas')) deck.remove();
+
+    // A "Skip to the slides" link aimed at a main#deck that no longer exists is a dead
+    // anchor, so it goes with the slides.
+    doc.querySelector('a.lat-skip-link')?.remove();
+
+    const style = doc.createElement('style');
+    // textContent, never innerHTML: a closing style tag inside the sheet would otherwise
+    // end the element and hand the remainder to the markup parser. Guarded as well, per
+    // the census in test/unit/export/style-guard-census.test.js.
+    style.textContent = sanitizeStyleText(READING_ARTICLE_CSS);
+    doc.head.appendChild(style);
+
+    return dom.serialize();
   } catch (e) {
     console.warn(`  warning: reading-article projection failed (${e?.message}); ${outHtml} is the clean render, not the article.`);
     return '';
   }
-}
-
-/**
- * Swap the slide stack for the article, keeping the document's own head. The deck's
- * stylesheet, embedded fonts and palette tokens all ride along, so a re-hosted chart SVG
- * or table keeps the component rules it was styled with on the slide.
- */
-function toReadingArticle(cleanHtml, articleHtml) {
-  return cleanHtml
-    // Drop the slide stack and the skip link that points at it. A `<main id="deck">` that
-    // is gone must not leave a "Skip to the slides" link aiming at a dead anchor.
-    .replace(/<a class="lat-skip-link"[^>]*>.*?<\/a>\s*/is, '')
-    .replace(
-      /<main id="deck"[^>]*>[\s\S]*?<\/main>/i,
-      () => `<main id="lat-read-main"><article id="lat-read" aria-label="Reading version">${articleHtml}</article></main>`,
-    )
-    .replace(/<\/head>/i, () => `<style>${sanitizeStyleText(READING_ARTICLE_CSS)}</style></head>`);
 }
 
 /**

@@ -2910,7 +2910,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const announceMountRef = React.useRef(false);
 	React.useEffect(() => {
 		if (!announceMountRef.current) { announceMountRef.current = true; return; }
-		if (view !== 'fabricate') setStopAnnounce(POSTURE_ANNOUNCE[effectiveStop]);
+		// Every FULL-VIEW branch, not just Fabricate: a posture announcement describes a compose
+		// stop, and neither Fabricate nor the Reading view is one. Naming the views that ARE the
+		// deck, rather than excluding them one at a time, is what stops the next branch from
+		// inheriting the bug — this one already did.
+		if (view === 'compose') setStopAnnounce(POSTURE_ANNOUNCE[effectiveStop]);
 	}, [effectiveStop, view]);
 
 	// Track the document's light/dark mode reactively so exports + the preview

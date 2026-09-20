@@ -178,13 +178,22 @@ describe('exported player — one extractable copy of the deck per view', () => 
             const el = document.querySelector(sel);
             return el && { hidden: el.hasAttribute('hidden'), display: getComputedStyle(el).display };
           };
-          return { shown: read(shows), hidden: read(hides) };
+          return {
+            shown: read(shows),
+            hidden: read(hides),
+            // What view the app ACTUALLY switched to. Without this the `present` and
+            // `read-slides` arms assert identical state, and `present` is the view the
+            // page loads in — so a button that did nothing at all would pass both. That
+            // is a gate that cannot fail, which is worth less than no gate.
+            view: document.querySelector('#lp-app')?.getAttribute('data-lp-view'),
+          };
         },
         { shows, hides },
       );
       await page.close();
 
       assert.ok(state.shown && state.hidden, 'both panes must exist in the player');
+      assert.equal(state.view, view, `clicking the ${view} tab must actually switch the app to it`);
 
       // 1. The pane the reader SEES is never hidden from an extractor. This is the
       //    cloaking guard: if these ever disagree we are serving text nobody can read.

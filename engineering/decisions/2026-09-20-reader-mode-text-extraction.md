@@ -172,6 +172,49 @@ The lesson worth keeping: *running the library Firefox uses is not the same as r
 Firefox.* The library was right about eligibility and silent about which DOM it would be
 handed.
 
+## What an independent checker found, after all of the above
+
+The maker-checker pass (CLAUDE.md § MAKER-CHECKER) was skipped on the first pass and run
+late. It found three confirmed defects, all in `lattice-emulator.js`, all in code the
+measurements above had already "verified". Worth recording because of what they have in
+common: **every one of them sat in a composition the happy path never exercised.**
+
+1. **`--read --captions` wrote zero caption files.** The flag reassigned the module's
+   `cleanDocHtml` to the article document, and the caption projection reads that same
+   string afterwards to find `section[data-lattice-slide]`. The article has none by
+   design, so the sidecars vanished and the message blamed the deck ("nothing to
+   narrate") rather than the flag. `--fluid` never had it because it writes without
+   reassigning. Fixed by doing the same.
+
+2. **A deck that merely WRITES a closing `main` tag kept a slide and duplicated it.** The
+   engine passes an author's raw HTML through unescaped, so `<p>… with </main> before …</p>`
+   ends that element where it sits. The first implementation regex-matched
+   `main#deck … /main` non-greedily and mis-split there. The second replaced the `#deck`
+   NODE and *still* mis-split, because by then the parser had hung the remaining slides
+   outside it as siblings — which is exactly what a browser does with that markup. Both
+   left a whole slide after the article, un-styled, with its text in the document twice:
+   the one outcome this flag exists to prevent, on the deck most likely to carry the
+   trigger. Fixed by keying on the SLIDES rather than on their container — remove every
+   `section[data-lattice-slide]` wherever the parse put it, and drop the container only if
+   it is left empty.
+
+3. **`read: true` front matter was a documented no-op.** `--help` and the changelog both
+   promised it; `RENDER_TARGET_KEYS` did not carry `read`, so the key always read absent
+   and `lint:deck` reported such a deck clean. Fixed by registering the key, which also
+   buys the linter's on/off vocabulary.
+
+Plus two that were real and quieter: `ReadArticle`'s effect depended on an `extraTheme`
+wrapper object `StudioShell` rebuilds every render, so any unrelated re-render would
+re-render the whole deck through the engine (`DeckPreview` had already solved this by
+depending on `(name, css)`); and two of the three view arms in the player invariant
+asserted identical state, so the `read-slides` arm could not have caught a button that
+did nothing.
+
+**The lesson is not "test more".** Defects 1 and 2 were invisible to every measurement
+taken, because each measurement drove one flag on one well-formed deck. What found them
+was someone asking what ELSE touches this string and what an author might legitimately
+write. The regression tests now in `read-export.test.js` encode both questions.
+
 ## What is not resolved
 
 - **No device verification.** Every claim here is measured against the real Readability

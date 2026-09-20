@@ -105,6 +105,56 @@ describe('--read — the deck as prose, and nothing else moves', () => {
 		assert.equal(n, 1, `the deck's text must appear once, not ${n} times — a second copy double-feeds every summarizer`);
 	});
 
+  // REGRESSION, found by an independent checker, not by this file. The swap used to be a
+  // regex over the document and then a replacement of the `main#deck` NODE, and both
+  // mis-handled the same input: the engine passes an author's RAW HTML through unescaped,
+  // so a slide that merely WRITES the characters of a closing main tag ends that element
+  // where it sits — for the regex, and for the parser, which then hangs the remaining
+  // slides outside `#deck` as siblings. Either way a whole slide survived the swap with
+  // its text in the document TWICE, which is the one thing this flag exists to prevent.
+  // The fixture is deliberately the hostile case; the original fixture below could never
+  // have caught it.
+  test('an author writing a closing main tag cannot leave a slide behind', { timeout: 900000 }, () => {
+    const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-main-'));
+    try {
+      fs.writeFileSync(
+        path.join(dir2, 'deck.md'),
+        '---\ntheme: indaco\n---\n\n# Teaching the landmark\n\n' +
+          '<p>Every page closes its landmark with </main> before the scripts run, and the skip link ' +
+          'above it has to point somewhere that still exists.</p>\n\n---\n\n## Two things to start\n\n' +
+          '- Separate the parts that wear from the parts that last\n' +
+          '  - Make the join a standard, not a weld, so the sole can be replaced on its own.\n',
+      );
+      const out = render(dir2, path.join(dir2, 'read.html'), ['--read']);
+      const html = fs.readFileSync(out, 'utf8');
+      assert.doesNotMatch(html, /<section[^>]*data-lattice-slide/, 'no slide may survive the swap, however the document parsed');
+      const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+      const probe = 'Separate the parts that wear';
+      let n = 0;
+      for (let i = text.indexOf(probe); i !== -1; i = text.indexOf(probe, i + 1)) n++;
+      assert.equal(n, 1, `the deck's text must appear once, not ${n} times`);
+    } finally {
+      fs.rmSync(dir2, { recursive: true, force: true });
+    }
+  });
+
+  // REGRESSION, same review. `--read` used to REASSIGN the module's `cleanDocHtml` to the
+  // article document, and the caption projection reads that same string afterwards to find
+  // `section[data-lattice-slide]`. The article has none by design, so `--read --captions`
+  // silently wrote ZERO .vtt files and blamed the deck ("nothing to narrate") rather than
+  // the flag. The two features are orthogonal and must compose.
+  test('--read still writes the caption sidecars', { timeout: 900000 }, () => {
+    const dir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-cap-'));
+    try {
+      fs.writeFileSync(path.join(dir3, 'deck.md'), DECK_SOURCE);
+      render(dir3, path.join(dir3, 'read.html'), ['--read', '--captions']);
+      const vtts = fs.readdirSync(dir3).filter((f) => f.endsWith('.vtt'));
+      assert.ok(vtts.length > 0, '--read --captions must still narrate the slides; got no .vtt at all');
+    } finally {
+      fs.rmSync(dir3, { recursive: true, force: true });
+    }
+  });
+
 	test('--read does not move a single byte of the PDF', { timeout: 900000 }, () => {
 		const plain = render(dir, path.join(dir, 'plain.pdf'));
 		const withRead = render(dir, path.join(dir, 'read.pdf'), ['--read']);
