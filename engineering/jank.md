@@ -896,4 +896,7 @@ moves the number on every deck shipping a `footer:`. Logged as #2224, not folded
   mark, and only one, paints on every frame kind.
 - `tools/jank-census.js` + `engineering/jank-census.md` — the same measurement across the
   whole catalog, and the committed table.
+- `engineering/decisions/2026-09-20-issue-queue-triage.md` § 3 — the QUEUE-level cut of this
+  doc: which open cards are jank, sorted into the four failure modes above plus the rig, and
+  the one gap that has no card (the census's 77 leads, none re-swept for a verdict).
 - `engineering/capabilities.md` — every neighboring instrument, and what each one measures.
