@@ -166,9 +166,27 @@ Then, once approved:
 
 ## Gotchas that cost the first pass time
 
+- **A hook's ✔️ is NOT proof the job ran — read the duration.** `lefthook` prints a
+  green tick for a job that *skipped* and for one that passed, identically. The first
+  pass shipped an evidence line claiming the pre-push integration tier ran green, from
+  this output:
+
+  ```
+  ✔️ unit-tests (129.13 seconds)
+  ✔️ integration-tests (0.01 seconds)
+  ```
+
+  Nothing runs a ~4.5-minute render tier in 10ms. That job is **opt-in behind
+  `LATTICE_FULL_PUSH=1`** and skipped; `lefthook.yml`'s own comment says so. The claim
+  reached a merged PR body and a pre-merge card before anyone caught it, in a PR whose
+  subject was claims nobody re-derives. **Before citing any gate as evidence, name where
+  it ran and check that its duration is physically possible for the work it claims to
+  have done** (#23). `export LATTICE_FULL_PUSH=1` if you want it locally; otherwise cite
+  CI's `integration (node 22)`, which is the required gate and really does run it.
 - **Never wrap `git push` in a short `timeout`.** `lefthook`'s pre-push runs lint ·
-  `lint:deck:all` · `build:check` · docs-typecheck · unit (~130s) · integration. A
-  115-second cap killed the first push mid-hook and looked like a failure.
+  `lint:deck:all` · `build:check` · docs-typecheck · unit (~130s) — and integration only
+  when `LATTICE_FULL_PUSH=1`, per the entry above. A 115-second cap killed the first push
+  mid-hook and looked like a failure.
 - **`npm run audit:queue` needs issue BODIES**, because the Definition of Ready lives in
   the body's headings. A label-only fetch cannot feed it.
 - **Regenerate `engineering/decisions/README.md`** (`npm run decisions:index`) and add a
