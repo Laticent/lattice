@@ -83,6 +83,7 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	// `present` while hiding its two siblings — which is what this list did until now — left
 	// `fluid:` reachable only by already knowing it exists. Vocabulary: lib/core/render-target-keys.js.
 	{ key: 'present', info: 'Open the exported PDF in presentation mode. On: true / yes / on. Off: false / no / off. CLI and front matter only — the Studio sets it at export.' },
+	{ key: 'read', info: 'Emit the .html as the reading article — prose instead of the slide stack. On: true / yes / on. Off: false / no / off. CLI and front matter only — the Studio sets it at export.' },
 	{ key: 'fluid', info: 'Emit the .html as the responsive fluid-box viewer — each slide fills the viewport and reflows to portrait on a phone. On: true / yes / on. Off: false / no / off. PDF/PPTX/PNG are unchanged.' },
 	{ key: 'player', info: 'Emit the .html as the self-contained offline player (Present · Read Slides · Read Article). On: true / yes / on. Off: false / no / off. Supersedes fluid.' },
 ];

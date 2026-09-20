@@ -10,7 +10,7 @@ import { FeedbackIcon } from './icons';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
-	open, onOpenChange, onRun, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
+	open, onOpenChange, onRun, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReadArticle, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
 	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit, inline,
 }: {
 	/**
@@ -64,6 +64,8 @@ export function CommandPalette({
 	onPresent: () => void;
 	onShare: () => void;
 	onFabricate: () => void;
+	/** Open the deck as a prose article. Optional so the row never lists dead. */
+	onReadArticle?: () => void;
 	onReshape: () => void;
 	onWatchDemo?: () => void;
 	onInsert?: () => void;
@@ -221,6 +223,7 @@ export function CommandPalette({
 					{onInsert && <CommandItem onSelect={run(onInsert)}><Plus />Add a slide…</CommandItem>}
 					{onFocus && <CommandItem onSelect={run(onFocus)}><Focus />Focus mode — just editor &amp; preview</CommandItem>}
 					<CommandItem onSelect={run(onFabricate)}><PencilRuler />Fabricate — Theme &amp; Component Studio</CommandItem>
+					{onReadArticle && <CommandItem onSelect={run(onReadArticle)}><FileText />Read as an article</CommandItem>}
 					{onLibrary && <CommandItem onSelect={run(onLibrary)}><FileBox />Library — saved themes &amp; components</CommandItem>}
 					{onWorkspace && <CommandItem onSelect={run(onWorkspace)}><SettingsCog />Workspace settings</CommandItem>}
 					{onWatchDemo && <CommandItem onSelect={run(onWatchDemo)}><MonitorPlay />Watch demo — the Studio drives itself</CommandItem>}

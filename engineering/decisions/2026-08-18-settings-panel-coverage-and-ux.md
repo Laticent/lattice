@@ -122,10 +122,14 @@ Recorded here so the next audit doesn't "fix" them:
   flags a deck that still carries it.
 - `overflow-marker:` — moved out of front matter into the export-settings data block
   (`2026-07-30-overflow-marker-register.md`, `lib/core/export-settings.js`).
-- `present:` / `player:` / `fluid:` — read by `lattice-emulator.js` as a CLI
+- `present:` / `player:` / `fluid:` / `read:` — read by `lattice-emulator.js` as a CLI
   convenience, but they are **render-target properties**, which `export-settings.js`
-  argues at length do not belong in the deck. The Studio decides all three at export time
+  argues at length do not belong in the deck. The Studio decides them at export time
   (ShareSheet). Leave them CLI-only.
+  **`read:` joined on 2026-09-20** with the `--read` reading-article export. Same shape as
+  its three siblings — flag-or-front-matter, HTML-only, decided at render time — and it is
+  recorded here on arrival rather than years later, which is the whole point of the
+  `fluid:` note below.
   **`fluid:` was missing from this row until 2026-09-13**, and the omission cost more than
   a line. It is the same shape as its two siblings — flag-or-front-matter, HTML-only,
   decided at render time — so its absence from the Studio was *unrecorded* rather than

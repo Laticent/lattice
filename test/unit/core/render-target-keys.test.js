@@ -30,8 +30,8 @@ const nestedFindings = (src) => lintTextWith(src, {}).filter((f) => f.rule === '
 // The vocabulary itself
 // ---------------------------------------------------------------------------
 
-test('the family is exactly the three render-target keys', () => {
-	assert.deepEqual(RENDER_TARGET_KEY_NAMES, ['fluid', 'player', 'present']);
+test('the family is exactly the four render-target keys', () => {
+	assert.deepEqual(RENDER_TARGET_KEY_NAMES, ['fluid', 'player', 'present', 'read']);
 	// Every key carries the one line the linter's fix text hands the author. A key with no
 	// explanation is how `fluid:` ended up reachable only by reading the emulator.
 	for (const key of RENDER_TARGET_KEY_NAMES) {
@@ -542,7 +542,7 @@ test('the emulator reads all three through the kernel, not its own regex', () =>
 	}
 });
 
-test("the Studio editor offers all three, so a hand-typed key is discoverable", () => {
+test("the Studio editor offers every one, so a hand-typed key is discoverable", () => {
 	const src = readFileSync(join(REPO, 'docs/src/components/studio/editor-complete.ts'), 'utf8');
 	for (const key of RENDER_TARGET_KEY_NAMES) {
 		const entry = src.match(new RegExp(`\\{ key: '${key}', info: '([^']*)'`));
@@ -556,7 +556,7 @@ test("the Studio editor offers all three, so a hand-typed key is discoverable", 
 	}
 });
 
-test('the decision record names all three as control-less on purpose', () => {
+test('the decision record names every one as control-less on purpose', () => {
 	const doc = readFileSync(join(REPO, 'engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md'), 'utf8');
 	const section = doc.slice(doc.indexOf('### 2.3'), doc.indexOf('### 2.4'));
 	for (const key of RENDER_TARGET_KEY_NAMES) {
