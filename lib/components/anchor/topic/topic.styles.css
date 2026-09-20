@@ -22,20 +22,38 @@ section.topic {
   --_shelf:  calc(var(--_sec-1cqi, 1cqi) * 14.0625);
 
   /* ── THE SHELF FILL, and why it is not a second theme token ──────────────
-   * A two-band split cannot be carried by any PAIR of surface tokens. Measured
-   * across all 33 shipped palettes, `--bg-alt` vs `--surface-inverse` is
-   * IDENTICAL on crepuscolo-dark and cuoio-dark (contrast 1.00), under 1.35 on
-   * 13 of the 14 dark palettes (median 1.23), and a full inversion in light
-   * (median 15.35). Every other real surface pair was measured too; none holds
-   * across the set. So the second band is DERIVED FROM THE FIRST rather than
-   * named: on a dark scheme the field is lifted toward the display ink, which
-   * bounds the step at [0.129, 0.200] instead of an unbounded [0.000, 0.218].
+   * A two-band split cannot be carried by any PAIR of surface tokens: `--bg-alt`
+   * and `--surface-inverse` resolve to the SAME value on crepuscolo-dark and
+   * cuoio-dark, and sit far too close on the rest of the dark set, while in light
+   * they are a full inversion. (Established during the design investigation; the
+   * crepuscolo/cuoio identity re-confirmed here against the resolved token values.
+   * The per-palette spread of that RETIRED pair is quoted nowhere in this file,
+   * because nothing in the shipped code depends on it.)
+   *
+   * So the second band is DERIVED FROM THE FIRST rather than named: on a dark
+   * scheme the field is lifted toward the display ink.
+   *
+   * MEASURED, and this is the claim the code actually makes. Rendering a real
+   * `topic` slide in all 33 shipped palettes and sampling the PAINTED PIXELS of
+   * both bands (oklch L, upper band vs shelf):
+   *
+   *     dark arm    min 0.1294   median 0.1542   max 0.2002
+   *     light arm   min 0.6200   median 0.7561   max 0.9702
+   *     palettes where the two bands collapse (dL < 0.05):  0
+   *
+   * indaco-dark is the tightest at 0.1294 — which matters, because it is the
+   * family's default palette. To re-derive: render this component's deck once per
+   * file in `themes/`, then sample a pixel in each band. RENDER, never parse the
+   * theme CSS: the tokens are indirected through `var()` and resolved by
+   * `light-dark()`, so a static read returns the wrong arm — an earlier attempt at
+   * exactly that reported both bands as #ffffff on all fourteen dark palettes and
+   * would have "confirmed" this block for the wrong reason.
    *
    * The light arm stays `--bg-alt` deliberately: `--accent` — which draws the
    * mark — is near-BLACK on onyx, a11y-achromatopsia, a11y-base and concrete,
    * and so is `--surface-inverse` there, so a palette-invariant dark shelf
-   * erases the mark on four palettes. The shelf must stay the page surface on
-   * light schemes, because that is the surface `--accent` is guaranteed against.
+   * erases the mark on those four. The shelf must stay the page surface on light
+   * schemes, because that is the surface `--accent` is guaranteed against.
    *
    * `light-dark()` works here ONLY because this section does not pin
    * `color-scheme` — every ink below is named explicitly, so the section can
