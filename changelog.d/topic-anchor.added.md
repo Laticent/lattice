@@ -9,5 +9,13 @@
 - **`topic fact` variant** — one flat canvas with the type hierarchy inverted: the claim takes
   the display tier and the name demotes to a label on a rule, with a mono provenance line at
   the foot. For when the room needs the finding rather than the label.
+- On an overridden track the current item is marked by bolding the WHOLE label
+  (`- **Payback**`); if nothing is marked, the item matching the slide's own heading is lit.
+  Emphasis inside a label (`- Cost to **win**`) is styling, not a marker.
 - `findTopLevelH2` moved from the masthead kernel to `lib/core/top-level-h2.js` so both callers
-  share one depth-aware heading reader instead of cloning the depth-blind regex.
+  share one depth-aware heading reader instead of cloning the depth-blind regex. That reader is
+  now a tokenizer rather than a chain of regex masks: it skips a comment only where a comment can
+  START, skips RAWTEXT content, and honors quoted attribute values — so `<div data-tip="a <!-- b">`
+  and `<style>/* <!-- */</style>` no longer hide a slide's heading. It also matches `<H2>`
+  case-insensitively, as `:scope > h2` always did on the runtime path. Rendered output is
+  unchanged on all 182 committed `examples/*.md`.

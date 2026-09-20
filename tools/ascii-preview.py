@@ -614,6 +614,23 @@ def demo_blocks() -> dict[str, str]:
         ('blank',),
     ])
 
+    # `topic` does NOT reuse `divider-bookend`. It shares the dark field and the
+    # centered name, and then it cuts: a shelf across the bottom quarter holds
+    # the section's other topics with the current one lit. Borrowing the divider's
+    # block showed a slide with no track at all, two screens under a description
+    # whose whole subject is the track.
+    blocks['topic-track'] = frame([
+        ('center', '[dark background]'),
+        ('blank',),
+        ('center', 'SECTION 02 - UNIT ECONOMICS'),
+        ('blank',),
+        ('center', 'Topic name'),
+        ('center', 'One sentence of context.'),
+        ('blank',),
+        ('raw',   '-' * 37),
+        ('raw',   'Cost to win   Lifetime   [Payback]'.ljust(37)),
+    ])
+
     blocks['closing-bookend'] = frame([
         ('center', '[dark background]'),
         ('blank',),

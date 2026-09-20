@@ -181,30 +181,31 @@ section.topic > ul > li::marker { content: none; }
  * accent carries it on a color palette, the 3x WEIGHT carries it where
  * `--accent` collapses onto `--border` (onyx, a11y-achromatopsia, a11y-base,
  * concrete), and the label's own ink carries it a third time. Never hue alone. */
-/* `.on` is what the kernel stamps; the `strong:only-child` forms are how an
- * AUTHOR marks the current item on an overridden track. Without them the
- * override documented in the manifest rendered a scale with nothing lit — the
- * one thing the component exists to show.
+/* `.on` is the ONLY marker selector, and that is the whole fix.
  *
- * `:only-child`, NOT a bare `:has(> strong)`: `- Cost to **win**` is emphasis
- * inside a label, not a marker, and the bare form lit it too — reintroducing
- * "an author who marks two gets two", the third failure the derivation kernel
- * exists to prevent. Only a WHOLLY bold item is the mark.
+ * An earlier revision tried to read an AUTHORED mark here, with
+ * `li:has(> strong:only-child)`. It reads like "the item is nothing but bold"
+ * and it is not: `:only-child` counts ELEMENT siblings, so the text node in
+ * `- Cost to **win**` is invisible to it and that item lit too. Measured in
+ * Chromium on a rendered slide — a `topic` headed "Overridden" drew its accent
+ * under the column reading "Cost to win" — and two partly-emphasized labels lit
+ * two columns, which is the "an author who marks two gets two" failure the
+ * derivation exists to remove.
  *
- * The `> p >` arm covers a LOOSE list. A blank line between items makes
- * CommonMark wrap each one in `<p>`, so the `strong` becomes a grandchild and
- * the direct-child form misses it — the author then silently loses the mark,
- * which is the exact failure this selector was added to fix. */
-section.topic > ul > li.on,
-section.topic > ul > li:has(> strong:only-child),
-section.topic > ul > li:has(> p > strong:only-child) {
+ * CSS cannot ask the question, so it no longer tries: `topic-track.js` decides
+ * the marker where the text is readable and stamps `class="on"` on the one item
+ * it picks, on the derived track and the authored one alike. */
+section.topic > ul > li.on {
   border-top-color: var(--accent);
   color: var(--text-heading);
   font-weight: 600;
 }
 
 /* Capacity ramp — a long section steps the labels down rather than wrapping
- * them into a thicket. Thresholds match the manifest's soft/hard. */
+ * them into a thicket. The thresholds are the manifest's `purpose` prose ("four
+ * is the sweet spot, six is comfortable, past nine split the section"), NOT a
+ * `capacity` block: the ceiling is a property of the SECTION, so this component
+ * is on SANCTIONED_DENSITY_EXEMPT and has no soft/hard to match. */
 section.topic > ul:has(> li:nth-child(7)) > li { font-size: var(--fs-body-compact); }
 section.topic > ul:has(> li:nth-child(9)) > li { font-size: var(--fs-meta); }
 

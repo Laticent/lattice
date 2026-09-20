@@ -17,7 +17,7 @@ Marks a topic WITHIN a section, where `divider` marks the boundary BETWEEN secti
 | `eyebrow` | `p:first-of-type > code` | no | The section this topic sits in, as inline code. Mono caps, top-left. Usually the divider's own label — `Section 02 · Unit economics`. |
 | `heading` | `h2` | yes | The topic's name. Write it as a short noun phrase (`Payback`, `Cost to win`) — two to four words. It is also the label this topic contributes to every sibling slide's derived track, so a full sentence reads as a headline on this slide and overflows its column on the others. |
 | `claim` | `h2 + p` | no | One sentence of context under the name. In the default it supports the heading; under `fact` it becomes the slide's display line. |
-| `track` | `ul > li` | no | DERIVED, not authored — `lib/transformers/topic-track.js` builds it from the headings of every `topic` slide in this section and lights the current one. Author a `ul` yourself ONLY to override it (shorter labels than the headings, or a section whose later topics are not written yet); an authored list is left untouched, and that slide then contributes no name to its siblings' tracks. In the GALLERY the samples author it explicitly, because a gallery slide has no section around it and derivation needs one — the composition is identical either way, and an authored item is marked with `**bold**`. At the nine-topic ceiling a column is about a tenth of the slide, so a single word longer than ~10 characters BREAKS MID-WORD — the track keeps its equal columns rather than letting one word widen them, which is the lesser of the two failures. Keep ceiling-count sections to short labels, or split the section. |
+| `track` | `ul > li` | no | DERIVED, not authored — `lib/transformers/topic-track.js` builds it from the headings of every `topic` slide in this section and lights the current one. Author a `ul` yourself ONLY to override it (shorter labels than the headings, or a section whose later topics are not written yet); an authored list keeps its labels untouched, and that slide then contributes no name to its siblings' tracks. On an overridden track the kernel still decides which item is lit: the one that is WHOLLY bold (`- **Payback**`), or, if none is, the one whose label matches this slide's own heading. Emphasis INSIDE a label (`- Cost to **win**`) is not a marker and does not light it. In the GALLERY the samples author the list explicitly, because a gallery slide has no section around it and derivation needs one — the composition is identical either way. At the nine-topic ceiling a column is about a tenth of the slide, so a single word longer than ~10 characters BREAKS MID-WORD — the track keeps its equal columns rather than letting one word widen them, which is the lesser of the two failures. Keep ceiling-count sections to short labels, or split the section. |
 | `basis` | `p:last-of-type > code` | no | What the claim rests on — source, period, method. A trailing inline-code paragraph on a foot rule. Belongs with `fact`, where the slide asserts something; on the default the claim is supporting text and rarely needs provenance. |
 
 ### Variant decision rule
@@ -27,10 +27,11 @@ Marks a topic WITHIN a section, where `divider` marks the boundary BETWEEN secti
 
 ### Common mistakes
 
-- **Authoring the sibling list by hand on every topic slide.** Don't — it is derived. `lib/transformers/topic-track.js` reads the `## heading` of every `topic` slide in the section and builds the track, so renaming a topic is a one-slide edit. An authored `ul` is treated as a deliberate OVERRIDE: it is left untouched, and that slide stops contributing its name to its siblings' tracks.
+- **Authoring the sibling list by hand on every topic slide.** Don't — it is derived. `lib/transformers/topic-track.js` reads the `## heading` of every `topic` slide in the section and builds the track, so renaming a topic is a one-slide edit. An authored `ul` is treated as a deliberate OVERRIDE: its labels are left untouched, and that slide stops contributing its name to its siblings' tracks.
 - **Expecting a track on a topic slide that sits before the deck's first `divider`.** The track is scoped to a section, and a section starts at a `divider` — any divider, `light` included, matching how the section progress rail counts. A topic slide with no divider above it renders as a single dark canvas — the band, the seam and the shelf reserve are all dropped, so it composes rather than reserving room for a track that is not there. It keeps the DEFAULT type hierarchy; it does NOT become `fact`.
 - **Reaching for `fact` and leaving the claim as a fragment or a label.** `fact` puts the claim at display size, so it must be a whole sentence that states something — and one sentence, not three. Start it with the number (`Fourteen months blended, …`) rather than bolding the figure; two typographic registers inside one display line is one too many.
 - **A long single-word topic name in a section at or near the nine-topic ceiling.** The track's columns are equal by construction, so at nine a word over ~10 characters breaks mid-word rather than widening its column (the gallery's stress slide shows it on `Postmortems`). Either shorten the name — the heading register is two to four short words anyway — or split the section, which is what a nine-topic section usually wants.
+- **Marking the current item on an overridden track with emphasis inside the label — `- Cost to **win**`.** Bold the WHOLE label (`- **Cost to win**`) or leave it plain. Partial emphasis is styling, not a marker, and the kernel ignores it. If you mark nothing, the item whose label matches this slide's heading is lit; if you mark two, the first wins.
 
 ## When to use
 
@@ -63,12 +64,13 @@ Fourteen months blended, against a nine-month plan.
 ┌─────────────────────────────────────────┐
 │            [dark background]            │
 │                                         │
-│               SECTION 02                │
+│       SECTION 02 - UNIT ECONOMICS       │
 │                                         │
-│            Section headline             │
+│               Topic name                │
+│        One sentence of context.         │
 │                                         │
-│                                         │
-│                                         │
+│  -------------------------------------  │
+│  Cost to win   Lifetime   [Payback]     │
 └─────────────────────────────────────────┘
 ```
 
