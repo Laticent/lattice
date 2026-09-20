@@ -61,6 +61,24 @@ Two things heatmap already does and throws away:
   nothing ever emits it — the same shape the `acronyms:` `definition` field had before
   auto-glossary gave it a surface.
 
+### The construct already exists once, hard-coded — `roadmap`'s status key
+
+`buildStatusLegend` (`lib/components/chart/roadmap/roadmap.transform.js:66`) is the
+closest thing the repo has to a label set, and it is worth reading before building
+another one. It derives the key from the data — *"emits one chip per state ACTUALLY
+present, in lifecycle order"* — returns nothing when no marker is present, and places
+itself bottom-center because the chart is wide. All three behaviors are right and the
+label set should keep them.
+
+What it cannot do is the gap: its labels come from a hard-coded `STATE_LABEL` map, so
+an author cannot rename a state, cannot attach a description to one, and cannot reuse
+the naming on the next slide. Ten chart transforms carry legend code of some kind, so
+this is a pattern being re-solved per chart rather than a construct.
+
+The label set generalizes `buildStatusLegend` rather than competing with it: same
+derive-from-data default, plus an author override, plus an optional description per
+entry, plus placement that already knows about orientation.
+
 ## Decision 1 — heatmap is authored as a markdown table
 
 A heatmap is a matrix. A matrix's notation is a table, and the nested list makes an
