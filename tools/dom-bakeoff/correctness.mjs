@@ -106,10 +106,29 @@ for (const [label, fn] of [
   });
 }
 
+probe('nodelist-iterable', 'Mutation', 'querySelectorAll returns an ITERABLE NodeList (130 `for...of` sites depend on it)', (a) => {
+  // Not a nicety. `lib/` and `tools/` walk query results with `for (const x of ...)` in
+  // 130 places, and `withDom` is FAIL-CLOSED — it catches a throw and returns the input
+  // unchanged. So on a parser whose NodeList lacks Symbol.iterator, every one of those
+  // transforms silently no-ops and the deck still renders, untransformed, tests green.
+  const { root, window } = a.parse('<section><h1>a</h1></section><section><h2>b</h2></section>');
+  try {
+    const nl = root.querySelectorAll('section');
+    const iterable = typeof nl?.[Symbol.iterator] === 'function';
+    let walked = 0;
+    if (iterable) for (const _ of nl) walked++;
+    closeWindow(window);
+    return { pass: iterable && walked === 2, detail: iterable ? `iterated ${walked}` : 'NodeList has no Symbol.iterator' };
+  } catch (e) { closeWindow(window); return { pass: false, detail: `throws: ${String(e.message).slice(0, 56)}` }; }
+});
+
 // ── Script execution — 17 Node sites boot the real runtime inside the DOM ───
 probe('runs-script', 'Scripting', 'executes a <script> in the parsed document (dist/lattice-runtime.js needs this)', async (a) => {
-  if (a.name === 'jsdom') {
-    const { JSDOM } = await import('jsdom');
+  if (a.name === 'jsdom' || a.name === 'jsdom30') {
+    // Match the whole jsdom FAMILY: an alias installed to compare majors is still jsdom,
+    // and an earlier cut of this probe hardcoded the bare name, scoring jsdom30 as
+    // script-incapable when the adapter simply was not recognized.
+    const { JSDOM } = await import(a.name === 'jsdom30' ? 'jsdom30' : 'jsdom');
     const d = new JSDOM('<!DOCTYPE html><html><body><script>document.body.setAttribute("data-ran","1")</script></body></html>', { runScripts: 'dangerously' });
     const ok = d.window.document.body.getAttribute('data-ran') === '1';
     return { pass: ok, detail: ok ? 'runScripts: dangerously' : 'did not run' };
@@ -171,8 +190,14 @@ probe('html:entities', 'Parser', 'named and numeric entities decode without corr
 });
 
 // ── DOMPurify host — HARD RULE #22 ──────────────────────────────────────────
-probe('dompurify:strips a script', 'Sanitizer', 'DOMPurify hosted on this window removes script and event-handler vectors', async (a) => {
+probe('dompurify:strips a script', 'Sanitizer', 'DOMPurify hosted on this window removes vectors AND keeps benign markup', async (a) => {
+  // TWO directions, and the second was missing until domino exposed why it matters.
+  // An earlier cut asserted only that the payload did not survive, so a host on which
+  // DOMPurify destroys EVERYTHING scored a clean pass — domino returns "" for any
+  // markup at all, which is not sanitizing, it is deleting. A sanitizer has to be
+  // graded on what it keeps as well as on what it removes.
   const PAYLOAD = '<img src=x onerror=alert(1)><script>steal()</script><svg><foreignObject><p onclick=evil()>x</p></foreignObject></svg><p>ok</p>';
+  const BENIGN = '<h1>Title</h1><p>body <strong>bold</strong></p>';
   try {
     const DOMPurify = (await import('dompurify')).default;
     const { window } = a.parse('<p>x</p>');
@@ -180,9 +205,12 @@ probe('dompurify:strips a script', 'Sanitizer', 'DOMPurify hosted on this window
     const dp = DOMPurify(window);
     if (!dp?.sanitize) { closeWindow(window); return { pass: false, detail: 'DOMPurify() gave no sanitize' }; }
     const out = dp.sanitize(PAYLOAD);
+    const kept = dp.sanitize(BENIGN);
     closeWindow(window);
-    const leaks = ['<script', 'onerror', 'onclick', 'steal()'].filter((s) => out.includes(s));
-    return { pass: leaks.length === 0, detail: leaks.length ? `LEAKS ${leaks.join(',')} — ${out.slice(0, 44)}` : 'clean' };
+    const leaks = ['<script', 'onerror', 'onclick', 'steal()'].filter((x) => out.includes(x));
+    if (leaks.length) return { pass: false, detail: `LEAKS ${leaks.join(',')} — ${out.slice(0, 40)}` };
+    if (kept !== BENIGN) return { pass: false, detail: `DESTROYS benign markup — kept ${JSON.stringify(kept.slice(0, 40))}` };
+    return { pass: true, detail: 'removes vectors, keeps benign markup' };
   } catch (e) { return { pass: false, detail: `throws: ${String(e.message).slice(0, 56)}` }; }
 });
 

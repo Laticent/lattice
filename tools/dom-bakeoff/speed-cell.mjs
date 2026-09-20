@@ -27,7 +27,9 @@ const OPS = [
   ['parse + serialize', (html) => () => { const { root, window } = a.parse(html); const n = root.innerHTML.length; closeWindow(window); return n; }],
   ['parse + query + mutate + serialize', (html) => () => {
     const { root, doc, window } = a.parse(html);
-    for (const s of root.querySelectorAll('section')) {
+    // Array.from, not `for...of`: domino's NodeList has no Symbol.iterator, and timing
+    // my own iteration idiom instead of the library's query would measure the wrong thing.
+    for (const s of Array.from(root.querySelectorAll('section'))) {
       const h = s.querySelector('h1, h2');
       if (h) { const b = doc.createElement('span'); b.className = 'mark'; h.appendChild(b); }
     }

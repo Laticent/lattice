@@ -7,7 +7,8 @@
  * reports itself missing rather than throwing, so the harness runs out of the box
  * and gets richer when you install the competition:
  *
- *     npm i --no-save happy-dom linkedom node-html-parser cheerio
+ *     npm i --no-save happy-dom linkedom domino basichtml \
+ *         node-html-parser cheerio htmlparser2 domhandler jsdom30@npm:jsdom@30
  *
  * They are deliberately NOT dependencies. Nothing ships against them, and a
  * devDependency implies a support commitment the bake-off's own verdict refuses.
@@ -50,6 +51,62 @@ export async function loadAdapters() {
   add(await tryLoad('linkedom', 'full-dom', async () => {
     const { parseHTML } = await import('linkedom');
     return { parse(html) { const w = parseHTML(wrap(html)); return { doc: w.document, root: w.document.body, window: w }; } };
+  }));
+
+  // A SECOND jsdom major, because the incumbent's own version is a candidate: the
+  // repo pins ^29.1.1 and 30.x is out. Installed under an alias so both can load.
+  add(await tryLoad('jsdom30', 'full-dom', async () => {
+    const { JSDOM } = await import('jsdom30');
+    return { parse(html) { const w = new JSDOM(wrap(html)).window; return { doc: w.document, root: w.document.body, window: w }; } };
+  }));
+
+  // domino — Mozilla's dom.js, the DOM behind Angular's server-side rendering.
+  // The most serious omission from the first field: a real, maintained, mutable
+  // DOM that is not a browser emulator, so it carries none of the window plumbing.
+  add(await tryLoad('domino', 'full-dom', async () => {
+    const mod = await import('domino');
+    const domino = mod.default ?? mod;
+    return { parse(html) {
+      // createWindow, not createDocument: DOMPurify needs a window to host on, and
+      // grading domino without one would have scored our own adapter, not the library.
+      const w = domino.createWindow(wrap(html));
+      return { doc: w.document, root: w.document.body, window: w };
+    } };
+  }));
+
+  // basichtml — the linkedom author's earlier DOM. Deprecated upstream in favor of
+  // linkedom, and last published 2022; measured to show whether it inherited the
+  // SVG-casing defect rather than to propose it.
+  add(await tryLoad('basichtml', 'full-dom', async () => {
+    const mod = await import('basichtml');
+    const basichtml = mod.default ?? mod;
+    return { parse(html) {
+      const { document } = basichtml.init({});
+      document.documentElement.innerHTML = wrap(html);
+      return { doc: document, root: document.body, window: null };
+    } };
+  }));
+
+  // htmlparser2 + domhandler — the fastest pure-JS parser in wide use. No selector
+  // engine and no DOM API; it produces its own node tree.
+  add(await tryLoad('htmlparser2', 'parse-only', async () => {
+    const { parseDocument } = await import('htmlparser2');
+    const { default: render } = await import('dom-serializer');
+    return { parse(html) {
+      const doc = parseDocument(wrap(html));
+      const find = (n, tag) => {
+        if (n.name === tag) return n;
+        for (const c of n.children || []) { const r = find(c, tag); if (r) return r; }
+        return null;
+      };
+      const bodyNode = find(doc, 'body');
+      const root = {
+        get innerHTML() { return bodyNode ? render(bodyNode.children, { encodeEntities: false }) : ''; },
+        querySelector: () => { throw new Error('htmlparser2 ships no selector engine'); },
+        querySelectorAll: () => { throw new Error('htmlparser2 ships no selector engine'); },
+      };
+      return { doc, root, window: null };
+    } };
   }));
 
   add(await tryLoad('node-html-parser', 'parse-only', async () => {
