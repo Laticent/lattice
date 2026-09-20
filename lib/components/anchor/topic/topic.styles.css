@@ -78,10 +78,23 @@ section.topic {
    * the whole declaration at computed-value time, and the shorthand form took
    * the canvas down with it — measured on a divider that rendered white with a
    * near-white headline at 1.02:1 (#1457). */
-  background-color: var(--_shelf-fill);
+  /* THE DARK FIELD IS THE BACKGROUND-COLOR, and the shelf is the painted layer
+   * — not the other way round. Both orders paint the same pixels, and only this
+   * one is honest to a reader that cannot see a gradient.
+   *
+   * `component-invariants.test.js`'s contrast oracle walks up for the nearest
+   * non-transparent `background-color` and compares the heading's ink against
+   * it. With the shelf as the color it measured the display heading — white, on
+   * the dark band — against the LIGHT shelf two hundred pixels below it, and
+   * reported 1.09:1. Nothing was wrong with the slide; the number described a
+   * pairing that does not exist on it.
+   *
+   * Inverting also makes the no-track rule below a one-liner, because the field
+   * it falls back to is now the field it already has. */
+  background-color: var(--surface-inverse);
   background-image:
     var(--spectrum),
-    linear-gradient(to bottom, var(--surface-inverse) 0 75%, transparent 75%);
+    linear-gradient(to bottom, transparent 0 75%, var(--_shelf-fill) 75%);
   background-size: 100% var(--_seam), 100% 100%;
   background-position: 0 75%, 0 0;
   background-repeat: no-repeat, no-repeat;
@@ -312,7 +325,6 @@ section.topic.fact > p:not(:has(> code:only-child)):last-of-type { align-content
  * and claim on a single dark canvas, which is the `divider`-family composition
  * the rest of the anchor bucket already uses. */
 section.topic:not(:has(> ul)) {
-  background-image: none;
-  background-color: var(--surface-inverse);
+  background-image: none;      /* the field is already `--surface-inverse` */
   padding-bottom: var(--sp-xl);
 }
