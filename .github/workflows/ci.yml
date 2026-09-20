@@ -797,6 +797,15 @@ jobs:
         if: success() && github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/github-script@v7
+        env:
+          # The REAL per-tier verdicts, so the body can name what ran instead of
+          # reciting the roster. Passed through `env` rather than interpolated into
+          # `script:` — these are GitHub enums, not user data, but the env route is
+          # the pattern that stays safe if that ever stops being true.
+          TIER_LINT: ${{ needs.lint.result }}
+          TIER_UNIT: ${{ needs.unit.result }}
+          TIER_INTEGRATION: ${{ needs.integration.result }}
+          TIER_DOCS_BUILD: ${{ needs.docs-build.result }}
         with:
           script: |
             const marker = '<!-- ci-green-beacon -->';
@@ -837,8 +846,62 @@ jobs:
 
             const lead = failed.length ? '⚠️' : '✅';
             const uniq = (a) => [...new Set(a)].sort();
+
+            // NAME THE TIERS THAT RAN, NOT THE ROSTER. This line used to be the
+            // hardcoded string `lint · unit · integration · docs-build`, which reads as
+            // "all four passed" — and on any path-filtered PR three of them did not run
+            // at all. Observed on #2242, a docs-only change: the beacon announced
+            // `lint · unit · integration · docs-build` while unit, integration and
+            // docs-build were all `skipped`. A reader (human or agent) who takes that as
+            // "tests passed here" has been told something false by a green tick, which is
+            // the same defect the CodeQL paragraph above is about, one level in: that one
+            // overstated the beacon's SCOPE, this one overstates the result INSIDE it.
+            // The Verify gate already has the verdicts; it just was not spending them.
+            //
+            // `skipped` is not a fault — it is the path filter working (a docs-only PR
+            // should not pay for a render tier). The defect was calling it green.
+            const TIERS = [
+              ['lint', process.env.TIER_LINT],
+              ['unit', process.env.TIER_UNIT],
+              ['integration', process.env.TIER_INTEGRATION],
+              ['docs-build', process.env.TIER_DOCS_BUILD],
+            ];
+            const named = (want) => TIERS.filter(([, r]) => r === want).map(([n]) => n);
+            const ran = named('success');
+            const skipped = named('skipped');
+            // `cancelled` is NOT labelled "superseded", though supersession via
+            // `concurrency: cancel-in-progress` is how it usually arises. A MANUAL cancel
+            // from the Actions UI produces the same value with no supersession at all, so
+            // naming the cause would assert something this step cannot know. Report the
+            // state; leave the cause to the reader.
+            const cancelled = named('cancelled');
+            // EVERY OTHER VALUE GETS NAMED TOO, with its raw result. Without this bucket a
+            // tier whose result is none of the three above vanishes from the line, and the
+            // message reads as a complete accounting of a shorter workflow. That is
+            // unreachable today — the Verify gate above exits 1 outside
+            // success|skipped|cancelled and this step is `if: success()` — but the beacon
+            // then depends on its buckets matching that gate's allowlist, which nothing
+            // states or enforces. The snapshot code two screens down already uses a WIDER
+            // allowlist (it accepts `neutral`), so the two lists are not even consistent
+            // inside this one file. A fallback costs one line and makes the silent drop
+            // impossible rather than merely improbable.
+            const KNOWN = new Set(['success', 'skipped', 'cancelled']);
+            const other = TIERS.filter(([, r]) => !KNOWN.has(r)).map(([n, r]) => `${n} (${r || 'no result'})`);
+
+            const parts = [];
+            if (ran.length) parts.push(`ran: ${ran.join(' · ')}`);
+            if (skipped.length) parts.push(`skipped by the path filter: ${skipped.join(' · ')}`);
+            if (cancelled.length) parts.push(`cancelled: ${cancelled.join(' · ')}`);
+            if (other.length) parts.push(`UNEXPECTED: ${other.join(' · ')}`);
+            // Parenthesised, with `;` between groups, so the four tier groups sit BELOW the
+            // sentence's own ` — ` separators. Flat, they produced five same-weight em-dash
+            // chunks and a reader could not see where the tier accounting ended and the run
+            // link began — a legibility bug in the one message whose whole point is not
+            // being misread.
+            const tierPhrase = parts.length ? ` (${parts.join('; ')})` : '';
+
             const lines = [
-              `${lead} **\`ci\` workflow green** for \`${sha}\` — lint · unit · integration · docs-build — [run](${runUrl})`,
+              `${lead} **\`ci\` workflow green** for \`${sha}\`${tierPhrase} — [run](${runUrl})`,
               '',
             ];
             if (!snapshotOk) {

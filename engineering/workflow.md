@@ -941,8 +941,10 @@ alerts**, and again for `ef0248f` with 2 still open. Both were real
 human was watching the individual check runs. A beacon that overstates its scope
 manufactures confidence — the same defect class as a check that cannot fail.
 
-So it now leads with **`✅ \`ci\` workflow green`**, names the four tiers, and
-carries a **snapshot of every other check run on the head SHA** — leading with
+So it now leads with **`✅ \`ci\` workflow green`**, accounts for the four tiers by
+**what each one actually did** — `ran:` / `skipped by the path filter:` / `cancelled:`,
+read from `needs.*.result` — and carries a **snapshot of every other check run on the
+head SHA** — leading with
 ⚠️ instead of ✅ when one of them has failed, and saying plainly when a check is
 still running or could not be read. The snapshot is a *reading taken at beacon
 time*, deliberately not a gate: code scanning can conclude after `ci` does, and
@@ -958,6 +960,12 @@ The contract, and its limits — be precise about what it does and doesn't cover
   about lint · unit · integration · docs-build only. Everything else — CodeQL, the
   advisory `golden-diff` / `studio-smoke` jobs, other workflows — is reported as
   observed, never gated on.
+- **It names what RAN, not the roster.** Until 2026-09-20 it printed the four tier
+  names unconditionally, so on a path-filtered PR it announced skipped tiers as green
+  (observed on #2242 at head `f3ccbbb`, a docs-only commit: unit, integration and
+  docs-build were all `skipped`). It now groups them by real `needs.*.result`. **A
+  beacon on an older commit still recites the roster** — read the check runs, not the
+  beacon, on anything before that date.
 - **Create, not update.** It deletes the prior beacon and posts a fresh comment —
   only a newly *created* comment is forwarded as a wake event; an in-place edit
   (the golden-diff sticky's `updateComment`) is not, so it would never wake you.
