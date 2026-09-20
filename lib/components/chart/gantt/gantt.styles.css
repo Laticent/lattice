@@ -38,26 +38,45 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  /* DEFINITE height, so the `max-height: 100%` below actually binds. It did not:
-   * a percentage max-height resolves to `none` against an auto-height parent, and
-   * this box was auto-height, so the SVG's only real constraint was its width and
-   * it grew as tall as its aspect said. Latent until #1598 widened the body by
-   * 2 x --sp-2xl — at which point the stress slide's SVG went 306 -> 350px against
-   * a 315px stage and the page came back stamped "Content clipped". `100%` of
-   * `.chart-body`, which fills the stage by flex, so it is definite here.
+  /* DEFINITE height, so the `height: 100%` below actually resolves. A percentage
+   * height resolves to `auto` against an auto-height parent, and this box was
+   * auto-height, so the SVG's only real constraint was its width and it grew as
+   * tall as its aspect said. Latent until #1598 widened the body by 2 x --sp-2xl —
+   * at which point the stress slide's SVG went 306 -> 350px against a 315px stage
+   * and the page came back stamped "Content clipped". `100%` of `.chart-body`,
+   * which fills the stage by flex, so it is definite here.
    * (HARD RULE #18: a pre-existing fragility that MY change tipped into failure is
-   * mine to fix, not to file.) */
+   * mine to fix, not to file.)
+   *
+   * The rule below was `max-height` when this was written; it is now a plain
+   * `height: 100%`, and this parent is what both versions needed. */
   height: 100%;
   min-height: 0;
 }
 
-/* The diagram fills its box and keeps its aspect (the kernel grows the viewBox
- * HEIGHT with the lane count, so more lanes make a taller unit rather than
- * thinner rows). Mirrors the sizing the other SVG charts use. */
+/* CONTAINER-FILL, like every other SVG member of the family — `.cart-svg`,
+ * `.funnel-svg`, `.bar-svg`, `.waterfall-svg`, `.piechart-svg` are all
+ * `width:100%; height:100%`, settled in
+ * engineering/decisions/2026-07-04-chart-container-fill-sizing.md.
+ *
+ * THIS RULE USED TO SAY IT MIRRORED THEM AND DID NOT. It was
+ * `height:auto; max-height:100%`, the width-binding pattern that decision ruled
+ * out by name, and gantt never joined the sweep because it went SVG-native three
+ * weeks after it (see the header comment). The difference shows when the body is
+ * taller than the viewBox's aspect: `height:auto` sizes the element to its own
+ * aspect and `.gantt-chart` — a column flex with the default `flex-start` —
+ * collects every leftover pixel at the BOTTOM, so a short chart hung from the top
+ * of its stage with a dead band under it. At `height:100%` the element fills and
+ * `xMidYMid` splits the slack evenly above and below, which is what centers every
+ * other chart on its stage.
+ *
+ * The kernel still grows the viewBox HEIGHT with the row count, but it no longer
+ * does so without limit: ganttBandFor() compresses the row band once the aspect
+ * would fall past GANTT_ASPECT_FLOOR, because past that point the unit scales
+ * down and stops using the width it has. */
 .gantt-chart .gantt-svg {
   width: 100%;
-  height: auto;
-  max-height: 100%;
+  height: 100%;
   display: block;
 }
 
@@ -202,11 +221,30 @@
  * A thin info-toned rule spanning the lanes, with a small downward cap marking
  * "now". */
 :is(section.gantt, figure.gantt) .gantt-today line {
-  stroke: var(--state-info-ink);
-  stroke-width: 0.9;
+  /* NEUTRAL, NOT `--state-info-ink`, and that is a family rule rather than a
+   * preference. Every other reference line in the chart family wears a neutral —
+   * `.cart-zero` a `--text-body` mix, `.quadrant-split[data-kind="target"]` and
+   * `.radar-poly--target` a `--muted-mark` mix, `.bullet-target`
+   * `--text-heading`. This one wore `--state-info-ink`, which is the SAME ink its
+   * own `live` / `pilot` / `decision` bars and their key chips wear (the status
+   * table above) — so on any deck using those statuses the "now" marker was drawn
+   * in the color of a CATEGORY OF BAR it crosses, and a reader had no way to tell
+   * the reference from the data.
+   *
+   * `--text-heading` is the tier `.bullet-target` already uses for exactly this
+   * job: a reference the marks are measured against, so it is allowed to be the
+   * most definite line on the plot without claiming a status.
+   *
+   * The WEIGHT is `--chart-edge` + `non-scaling-stroke` rather than a user-unit
+   * number. A flat 0.9 is a fraction of the viewBox, and gantt has two of them
+   * (480 landscape, 300 portrait), so one declaration painted two different
+   * physical weights — the trap engineering/chart-styling.md documents. */
+  stroke: var(--text-heading);
+  stroke-width: var(--chart-edge);
+  vector-effect: non-scaling-stroke;
 }
 :is(section.gantt, figure.gantt) .gantt-today polygon {
-  fill: var(--state-info-ink);
+  fill: var(--text-heading);
 }
 
 /* ── Status key ───────────────────────────────────────────────────────────────

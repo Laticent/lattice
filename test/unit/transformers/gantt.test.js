@@ -23,7 +23,7 @@ const engine = require('../../../lib/components/chart/_chart-family/chart-family
 const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
 const core = require('../../../lib/authoring/lint-core');
 
-const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL } = ganttKernel;
+const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL, ganttGutter, ganttBandFor } = ganttKernel;
 const { extractFirstList } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
 
@@ -35,8 +35,11 @@ const inner = (ul) => extractFirstList(ul).inner;
 // keeps the tests honest if the geometry is ever retuned.
 const PLOT_X0 = GANTT_GEOM.laneW + GANTT_GEOM.gutter;
 const PLOT_W = GANTT_GEOM.vbW - GANTT_GEOM.padRight - PLOT_X0;
-// Bars carry a thin inter-bar gutter (±1.5u) so adjacent spans don't touch.
-const BAR_INSET = 1.5;
+// Bars carry a thin inter-bar gutter so adjacent spans don't touch. DERIVED, not
+// restated: a literal here went stale the moment the gutter was retuned (1.5 ->
+// 2.5, to open a real gap between two tasks that abut on the axis), and a stale
+// literal makes these axis assertions silently wrong rather than loudly red.
+const BAR_INSET = ganttGutter(GANTT_GEOM);
 const pctOfPlot = (x) => ((x - PLOT_X0) / PLOT_W) * 100;
 
 const attrNum = (html, re) => {
@@ -483,5 +486,193 @@ describe('gantt — the sketch token reaches the builder', () => {
     // MODE_REGISTER never emits it without `sketch` beside it, and base.sketch.css
     // keys every rule on section.sketch — the same trap diagram-look.js documents.
     assert.equal(tickCount('gantt sketch-clean-body'), tickCount('gantt'));
+  });
+});
+
+// ── Sub-row packing ─────────────────────────────────────────────────────────
+// A lane used to draw every one of its tasks at ONE y, so two overlapping spans
+// could not both be seen: the later bar painted over the earlier one and the
+// pair read as two abutting segments of a relay. That is the failure mode these
+// lock — a gantt whose whole job is "make concurrency visible at a glance"
+// (gantt.docs.md) was rendering the opposite of its data.
+const barYs = (html) => [...html.matchAll(/class="gantt-bar"[^>]*\sy="([-\d.]+)"/g)]
+  .map((m) => Number(m[1]));
+const barXW = (html) => [...html.matchAll(/class="gantt-bar"[^>]*\sx="([-\d.]+)"[^>]*\swidth="([-\d.]+)"/g)]
+  .map((m) => ({ x: Number(m[1]), w: Number(m[2]) }));
+const vbOf = (html) => {
+  const m = html.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
+  return { w: Number(m[1]), h: Number(m[2]) };
+};
+const WIN = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+
+describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
+  test('two OVERLAPPING tasks in one lane land on different rows', () => {
+    // Q1..Q2 runs to the END of Q2; Q2..Q3 starts at the START of Q2 — so they
+    // genuinely share a quarter. On one row the second hid half the first.
+    const ul = `<ul><li>L<ul>
+      <li>A <code>Q1..Q2</code></li>
+      <li>B <code>Q2..Q3</code></li>
+    </ul></li></ul>`;
+    const ys = barYs(buildGanttChart(inner(ul), WIN));
+    assert.equal(ys.length, 2);
+    assert.notEqual(ys[0], ys[1], 'overlapping spans must not share a row');
+  });
+
+  test('two NON-overlapping tasks in one lane still share a row', () => {
+    // The ordinary sequential lane. Packing must not cost height it does not owe.
+    const ul = `<ul><li>L<ul>
+      <li>A <code>Q1..Q2</code></li>
+      <li>B <code>Q3..Q4</code></li>
+    </ul></li></ul>`;
+    const ys = barYs(buildGanttChart(inner(ul), WIN));
+    assert.equal(ys.length, 2);
+    assert.equal(ys[0], ys[1], 'spans that clear each other belong on one row');
+  });
+
+  test('a bar is never hidden: no two marks on one row overlap in x', () => {
+    const ul = `<ul><li>L<ul>
+      <li>A <code>Q1..Q3</code></li>
+      <li>B <code>Q2..Q4</code></li>
+      <li>C <code>Q3..Q4</code></li>
+    </ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), WIN);
+    const ys = barYs(out), xw = barXW(out);
+    const byRow = new Map();
+    ys.forEach((y, i) => { if (!byRow.has(y)) byRow.set(y, []); byRow.get(y).push(xw[i]); });
+    for (const [y, marks] of byRow) {
+      marks.sort((a, b) => a.x - b.x);
+      for (let i = 1; i < marks.length; i++) {
+        assert.ok(marks[i].x >= marks[i - 1].x + marks[i - 1].w,
+          `row y=${y}: mark at ${marks[i].x} overlaps the one ending at ${marks[i - 1].x + marks[i - 1].w}`);
+      }
+    }
+    // All three mutually overlap, so this lane owes three rows.
+    assert.equal(byRow.size, 3);
+  });
+
+  test('a milestone inside a bar\'s span gets its own row', () => {
+    // GA sat ON the Org-wide rollout bar on the committed gallery page — same y,
+    // and in dark mode both resolved to the `mute` fill, so the diamond vanished.
+    const ul = `<ul><li>L<ul>
+      <li>Rollout <code>Q3..Q4</code></li>
+      <li>GA <code>Q4</code> <code>milestone</code></li>
+    </ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), WIN);
+    const barY = Number(out.match(/class="gantt-bar"[^>]*\sy="([-\d.]+)"/)[1]);
+    const dY = Number(out.match(/class="gantt-milestone"[^>]*points="[-\d.]+,([-\d.]+)/)[1]);
+    assert.ok(Math.abs((dY + GANTT_GEOM.barH * 0.42) - (barY + GANTT_GEOM.barH / 2)) > 1,
+      'a milestone within a bar\'s span must not be drawn on top of it');
+  });
+
+  test('one task per lane keeps the pre-packing band exactly', () => {
+    // The invariant that lets every simple chart through unchanged: barH at its
+    // ceiling, and a single-row lane measuring the 26 units the flat `laneH` gave.
+    const ul = `<ul>
+      <li>One<ul><li>A <code>Q1..Q2</code></li></ul></li>
+      <li>Two<ul><li>B <code>Q1..Q2</code></li></ul></li>
+    </ul>`;
+    const ys = barYs(buildGanttChart(inner(ul), WIN));
+    assert.equal(ys[1] - ys[0], 26, 'lane pitch must stay 26u for single-row lanes');
+    const band = ganttBandFor(GANTT_GEOM, 2, 2);
+    assert.equal(band.barH, GANTT_GEOM.barH);
+    assert.equal(band.rowGap, 5);
+    assert.equal(band.lanePadY, 5.5);
+  });
+});
+
+describe('gantt — the packed chart still uses its stage', () => {
+  // vbW is fixed and vbH grows with the row count, so an unbounded band turns a
+  // dense chart into a narrow column: `xMidYMid meet` fits the taller dimension
+  // and the drawing narrows. Measured in Chromium on the stress gallery page,
+  // vbH 264 used 60% of a 1152px body; the compressed band uses 75%.
+  test('a dense chart compresses the band rather than letterboxing', () => {
+    const lanes = ['P', 'Q', 'R', 'S'].map((n) =>
+      `<li>${n}<ul><li>${n}1 <code>Q1..Q3</code></li><li>${n}2 <code>Q2..Q4</code></li>` +
+      `<li>${n}3 <code>Q3..Q4</code></li></ul></li>`).join('');
+    const out = buildGanttChart(inner(`<ul>${lanes}</ul>`), WIN);
+    const vb = vbOf(out);
+    assert.ok(vb.w / vb.h >= 2.0,
+      `a 4-lane/12-task chart must stay usable: aspect ${(vb.w / vb.h).toFixed(2)}`);
+    const band = ganttBandFor(GANTT_GEOM, 12, 4);
+    assert.ok(band.barH < GANTT_GEOM.barH, 'the band should compress under load');
+    assert.ok(band.barH >= GANTT_GEOM.barHMin, 'and never past its floor');
+  });
+
+  test('the band never falls below barHMin however dense the chart', () => {
+    for (const rows of [10, 20, 40, 100]) {
+      const band = ganttBandFor(GANTT_GEOM, rows, Math.ceil(rows / 3));
+      assert.equal(band.barH, GANTT_GEOM.barHMin, `rows=${rows} should sit on the floor`);
+      assert.ok(band.rowGap > 0 && band.lanePadY > 0);
+    }
+  });
+});
+
+describe('gantt — mark chrome', () => {
+  test('the leading accent is clipped to its own bar', () => {
+    // Unclipped, the accent carried a SMALLER corner radius than the bar (0.83
+    // against 3), so across the bar's rounded corner its square-ish corners stood
+    // outside the bar's silhouette and the bar's stroke ran between the two as a
+    // seam — three vertical bands at the left edge instead of one.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>done</code></li></ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), WIN);
+    const accent = out.match(/<rect class="gantt-bar-accent"[^>]*>/)[0];
+    const clipId = accent.match(/clip-path="url\(#([^)]+)\)"/);
+    assert.ok(clipId, 'the accent must be clipped to its bar');
+    assert.doesNotMatch(accent, /\srx=/, 'a clipped accent must not carry a competing radius');
+    const clip = out.match(new RegExp(`<clipPath id="${clipId[1]}">(.*?)</clipPath>`))[1];
+    assert.match(clip, new RegExp(`rx="${GANTT_GEOM.barRx}"`),
+      'the clip must use the BAR\'s radius, not the accent\'s');
+  });
+
+  test('the today rule is painted BEHIND the marks', () => {
+    // A reference line, not a mark. Drawn last it printed a full-strength stripe
+    // across every bar it crossed. SVG has no z-index — document order is paint
+    // order — so this is an ordering assertion, not a style one.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q4</code></li></ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
+    assert.ok(out.indexOf('gantt-today') < out.indexOf('class="gantt-bar"'),
+      'the today rule must be emitted before the bars');
+  });
+
+  test('a key swatch is centered on the label it keys', () => {
+    // The label is emitted `dominant-baseline="central"` at `ly`, so its optical
+    // middle IS `ly`. The swatch used to sit at `ly - swatch*0.8` — its center 30%
+    // of its own height above the text, which measured 15px out at 200dpi.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>at-risk</code></li></ul></li></ul>`;
+    const out = buildGanttChart(inner(ul), WIN);
+    const sw = out.match(/class="gantt-legend-swatch"[^>]*\sy="([-\d.]+)"[^>]*\swidth="([-\d.]+)"/);
+    const swatchMid = Number(sw[1]) + Number(sw[2]) / 2;
+    const labelY = Number(out.match(/class="gantt-legend-label"[^>]*>\s*<tspan[^>]*\sy="([-\d.]+)"/)[1]);
+    assert.ok(Math.abs(swatchMid - labelY) < 0.01,
+      `swatch center ${swatchMid} should match the label's optical middle ${labelY}`);
+  });
+});
+
+describe('gantt — the band floor is per-orientation', () => {
+  // A single GANTT_ASPECT_FLOOR of 2.6 compressed EVERY portrait chart to
+  // barHMin, sparse ones included: portrait's natural aspect at the ceiling is
+  // 300/164 = 1.83, so the landscape floor was above it by construction and the
+  // clamp always bound. The landscape tests could not see it — portrait has its
+  // own geometry and nothing exercised the band through it.
+  test('a sparse PORTRAIT chart keeps the ceiling band', () => {
+    const band = ganttBandFor(GANTT_GEOM_TALL, 2, 2);
+    assert.equal(band.barH, GANTT_GEOM_TALL.barH, 'portrait barH must not be clamped when sparse');
+    assert.equal(band.rowGap, 6);
+    assert.equal(band.lanePadY, 8.5);
+  });
+
+  test('one task per lane keeps the 52u portrait lane pitch', () => {
+    const ul = `<ul>
+      <li>One<ul><li>A <code>Q1..Q2</code></li></ul></li>
+      <li>Two<ul><li>B <code>Q1..Q2</code></li></ul></li>
+    </ul>`;
+    const ys = barYs(buildGanttChart(inner(ul), WIN, 'portrait'));
+    assert.equal(ys[1] - ys[0], 52, 'portrait lane pitch must stay 52u for single-row lanes');
+  });
+
+  test('a DENSE portrait chart still compresses', () => {
+    const band = ganttBandFor(GANTT_GEOM_TALL, 14, 3);
+    assert.ok(band.barH < GANTT_GEOM_TALL.barH);
+    assert.ok(band.barH >= GANTT_GEOM_TALL.barHMin);
   });
 });
