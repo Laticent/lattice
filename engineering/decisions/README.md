@@ -131,7 +131,6 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
-- ☐ [2026-09-20-issue-queue-triage.md](2026-09-20-issue-queue-triage.md) — 317 open cards, and the axis that decides what to work next is not on any of them.
 - ☐ [2026-09-15-playground-asset-retention.md](2026-09-15-playground-asset-retention.md) — A docs-site deploy deletes every previous `playground/v/<hash>/` directory, so a page that was open when the deploy landed 404s on the…
 - ◐ [2026-09-13-export-survives-a-missing-image.md](2026-09-13-export-survives-a-missing-image.md) — One unreachable image failed the whole browser export — no PDF, no PowerPoint, no image set, only a message.
 - ◐ [2026-09-13-firefox-export-peak-rss.md](2026-09-13-firefox-export-peak-rss.md) — Firefox's peak RSS on an 18-page Studio export rose 257 MB when #2169 replaced the PDF encode, and nobody knew why.
@@ -310,6 +309,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-20-issue-queue-triage.md](2026-09-20-issue-queue-triage.md) — 317 open cards, and the axis that decides what to work next is not on any of them.
 - ☑ [2026-09-14-notification-subsystem.md](2026-09-14-notification-subsystem.md) — "We should have a notification subsystem and not handle notifications bespokely across the Studio." A census of every surface that tells a…
 - ☑ [2026-09-14-the-band-is-a-rect.md](2026-09-14-the-band-is-a-rect.md) — A tour's caption declared a rect and the engine read two of its four fields, so a centered 380px `progress` pill reported a full-width band…
 - ☑ [2026-09-14-the-decision-index-merges-as-a-union.md](2026-09-14-the-decision-index-merges-as-a-union.md) — `engineering/decisions/README.md` is the repo's highest-churn shared region — roughly half of all merged PRs rewrite it — and its conflicts…

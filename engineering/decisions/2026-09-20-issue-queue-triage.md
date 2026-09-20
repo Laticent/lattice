@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   317 open cards, and the axis that decides what to work next is not on any of them. The board's
   four label axes answer "which column" — `area:` is a swimlane, `priority:` is one word with no
@@ -11,8 +11,12 @@ summary: >
   than the defects it finds. It also reports three defects in the QUEUE itself: one real duplicate
   pair (#2105 / #2205, the same assertion and the same root cause), a subset pair (#2070 inside
   #1514), and 50 cards carrying a `model:*` label for a dimension HARD RULE #27 retired on
-  2026-07-28. No labels were changed — the taxonomy is shared state other sessions read, which is
-  the owner's call under CLAUDE.md's second filter, row 1.
+  2026-07-28. The taxonomy is shared state other sessions read, so every write was put to the
+  owner first under CLAUDE.md's second filter, row 1: all four were approved and applied (21
+  priority raises, 50 `model:*` strips, #2105 closed into #2205, #1514 and #2070 cross-linked,
+  and #2240 filed for the census sweep). One approved action could not be completed here — the
+  three `model:*` label DEFINITIONS survive at zero cards, because no tool in this environment
+  can delete a GitHub label.
 last-updated: 2026-09-20
 companion:
   - ../jank.md
@@ -112,13 +116,15 @@ classes A–C carry `priority:medium`, `low`, or nothing:**
   today.
 - **B (security), 4 of 9 at `medium`** — #1952, #1958 (34 open CodeQL findings),
   #1993 (the mXSS re-serialization path), #2024.
-- **C (silent wrong output), 17 of 20 at `medium` or below** — including #2052
-  (an unterminated RAWTEXT element merges two slides), #2050, #2098, #2004 and
-  #501, none of which carry a priority.
+- **C (silent wrong output), 17 of 20 at `medium` or below** — and **four carry
+  no priority at all**: #2004, #2050, #2052 (an unterminated RAWTEXT element
+  merges two slides) and #2098. The other 13 sit at `medium` or `low`, #501 and
+  #1316 and #1683 among them.
 
-**Recommendation:** raise A to `high` (or `critical` for the four nightly alarms),
-B to `high`, and give the seven unlabeled C cards `priority:high`. That is a
-label change, so § 5 puts it to the owner rather than doing it.
+**Recommendation:** raise A to `high` (`critical` for the four `[*-nightly]`
+alarms), B to `high`, and give the four unlabeled C cards `priority:high` — 21
+cards whose label actually changes. That is a label change, so § 5 puts it to the
+owner rather than doing it.
 
 ---
 
@@ -161,8 +167,12 @@ Two more lines from that file belong in any plan:
   (that is #2155), and `form` is listed *out of reach*. Those four are not clean;
   nothing was rendered.
 
-**This is the largest jank item on the board and it has no card.** § 5 asks
-whether to file it.
+**This was the largest jank item on the board and it had no card.** It is now
+[#2240](https://github.com/Laticent/lattice/issues/2240), deliberately bounded to
+a first slice — the top 10 movers and 10 `0px` rows, each swept with `--anchor`
+for a real verdict — and **blocked on #2153 and #2154**, because sweeping 20
+classes through an instrument that cries wolf produces 20 results nobody trusts.
+The remaining 57 movers and 37 `0px` rows wait on that slice's yield rate.
 
 ### 3.1 · The rig — the tool cannot see it (4 cards)
 
@@ -293,30 +303,65 @@ a card's clothes — is a real question this note does not answer.
 
 ---
 
-## 5 · What needs the owner's decision
+## 5 · What the owner decided, and what was applied
 
-Every item below changes shared state that parallel sessions read, or a number
-the owner set. CLAUDE.md's second filter, row 1 puts them here rather than in a
-commit. Nothing in § 1–4 touched a label, a milestone or an issue body.
+Every item here changes shared state that parallel sessions read, or a number the
+owner set, so each was put as a question first (CLAUDE.md's second filter, row 1).
+All four were approved on 2026-09-20 and applied. **The writes are recorded here
+because a label change leaves no diff** — this section is the only audit trail.
 
-1. **The priority raises.** 30 cards in classes A–C carry `medium`, `low` or
-   nothing. Raise them, or reject the class ordering that says they are
-   mis-labeled.
-2. **The 24 `model:sonnet` / `model:haiku` cards.** Strip the label, or strip all
-   50 `model:*`. Deleting a GitHub label is irreversible.
-3. **#2105 / #2205.** Close one as a duplicate after folding its evidence.
-4. **#1514 / #2070.** Link, or re-file.
-5. **The census sweep has no card.** 77 leads, 47 `0px` rows to check from the
-   other end, 3 unmeasured classes. It is the largest jank item on the board.
-   File it as one card with a bounded first slice, or leave it in `jank.md`.
-6. **The standing-alarm shape.** Six cards, 131 comments, none closing.
+1. **The priority raises — applied, 21 cards.** `priority:critical` on the four
+   `[*-nightly]` alarms (#1845, #2060, #2085, #2120); `priority:high` on the rest
+   of class A (#1848, #1860, #2017, #2133, #2145, #2173, #2180, #2183, #2211), on
+   the four under-labeled security cards (#1952, #1958, #1993, #2024), and on the
+   four class-C cards that carried no priority (#2004, #2050, #2052, #2098).
+   Verified after the fact by re-reading all four pages of the queue: every raise
+   landed and no card lost an `area:`, `type:` or `status:` label.
+   One side effect worth knowing: the triage gate re-ran on each edit, and #2211
+   picked up `needs:definition` — correctly, it has no swimlane heading. That is
+   the gate working, not damage.
+2. **The `model:*` labels — stripped from all 50 cards.** `model:opus` ×26,
+   `model:sonnet` ×18, `model:haiku` ×6, all gone; zero `model:*` labels remain
+   anywhere in the queue. **The three label DEFINITIONS still exist and could not
+   be deleted from this session** — the GitHub MCP server exposes no label-delete
+   operation and `gh` is not installed in the cloud sandbox. They now carry zero
+   cards, so nothing reads them, but they stay creatable until someone runs
+   `gh label delete model:opus model:sonnet model:haiku` or deletes them in the
+   repo's Labels UI. **That is the one approved action this note did not
+   complete.**
+3. **#2105 closed as a duplicate of #2205**, after its evidence was folded into
+   #2205 as a comment — the 8-run `floor engaged: true` measurement, the CI
+   failure on #2075, and the reading of that run's `0.0ms -> 3.0ms` as the clamp
+   printing itself. One thing the merge surfaced that neither card said alone:
+   **two arms trip, not one** (`:1789` and `:2261`), so the median-of-5 fix has to
+   land at the shared helper or `:1789` keeps the defect after #2205 closes.
+4. **#1514 and #2070 cross-linked, both left open.** #2070 is #1514's second spec
+   re-measured at ~75% of runs at `workers=1`, which refutes #1514's own
+   parallel-load framing for that spec. #1514's *first* spec
+   (`rotation into cinema`) is covered by no other card, so both comments say
+   explicitly that closing either one must not silently drop the other.
+5. **#2240 filed** for the census sweep — see § 3.0.
 
----
+### Still open, and not asked
+
+**The standing-alarm shape.** Six cards hold 131 of the queue's 394 comments and
+none has closed: #1530, #1845, #2035, #2060, #2085, #2120. Whether a watch that
+has re-fired 40 times into the same card is still a *card* — or has become a
+dashboard wearing a card's clothes — is a design question, not a triage one, and
+this note does not answer it. The four `[*-nightly]` ones are now
+`priority:critical`, which at least stops them reading as ordinary queue.
 
 ## 6 · The full classification — 317 cards, one class each
 
-A dated snapshot, 2026-09-20. `priority` and `area` are the card's labels as
-filed; the class is this note's judgment. `—` means the axis is absent.
+A dated snapshot, 2026-09-20. The class is this note's judgment.
+
+**`priority` and `area` are the labels as they stood when the queue was READ,
+before § 5's writes.** That is deliberate: the table is the evidence the raises
+were argued from, so showing the post-write state would erase the argument. Two
+rows are stale by construction as a result — the 21 cards § 5 raised still show
+their old priority here, and **#2105 appears as open** though it is now closed as
+a duplicate of #2205. #2240, filed by this note, is not in the table at all.
+`—` means the axis is absent.
 
 ### A · red on main — 16
 
