@@ -11,8 +11,10 @@ summary: >
   words, so round three's whole "name the handle, not the container" model never fires. The
   cause is one seam, not many: `chart-narration.js` and `prose-projection.mjs` compose speech,
   `present-guide.ts` matches display text, and the two have no contract. Component manifests
-  carry 220 slot selectors and a per-component importance order that nothing in the gesture path
-  reads. The visual defects reported from the field are NOT a model issue: no model chooses a
+  carry 220 slot selectors that nothing in the gesture path reads — and 25% of them do not survive
+  the transform anyway, so the obvious fix was measured as a no-op before it was built. What the
+  rendered DOM already declares does work: matching a cue against a mark's own `data-label` /
+  `data-value` takes `funnel` from 15.8% to 89.1% and `heatmap` from 25% to 100%. The visual defects reported from the field are NOT a model issue: no model chooses a
   cue's text, its target or its gesture, and the one model nearby (TTS) can only change WHEN a
   gesture fires.
 companion:
@@ -24,14 +26,15 @@ companion:
 
 # The Guide audit: what a gesture cannot find, and why
 
-**Date** 2026-09-20 · **Status** AUDIT — measured, with three fixes landed and one
-architectural fork left to the maintainer.
+**Date** 2026-09-20 · **Status** AUDIT + one fix, measured. The fork was put to the maintainer,
+and measuring the chosen route before building it changed what got built (§7).
 
 The ask was an audit of gestures — whether every component can present itself well, whether
 Vetrina is where it needs to be, whether component manifests feed the gesture system, and
 what a reported visual defect was. §1 answers the defect report, because it is the shortest
 answer and it reframes everything after it. §2 is the measurement. §3 is the mechanism. §4 is
-the manifest question. §5 is Vetrina. §6 is what landed. §7 is the fork.
+the manifest question. §5 is Vetrina. §6 is what landed. §7 is the fork, and why the route that
+was chosen is not the route that shipped. §8 is what is left.
 
 ---
 
@@ -255,30 +258,77 @@ where the semantics record says 74; `dist/docs/components.pick.md` says "read th
 
 ---
 
-## 7. The fork, which is the maintainer's
+## 7. The fork, and what the measurement did to it
 
-Three routes to the 1,175 dark cues. They are not exclusive, and the measurement says which
-buys what.
+Three routes were put to the maintainer. **B was chosen, and measuring before building it showed
+B as written would have been a near-no-op** — which is the part of this section worth keeping.
 
-**A — Give the projection an anchor token.** Where `chart-narration.js` / `prose-projection.mjs`
-compose a sentence they already know the element; emit a stable string anchor with it
-(`data-mark="0"` already exists on every funnel band) and let Guide prefer it over text
-matching. Reaches the impossible cases, including the whole funnel. Costs a field on a shared
-kernel contract that the CLI export also consumes — which is exactly the objection
-`present-guide.ts:26-50` raises, and it is a real one.
+**Why B failed as specified.** B was "project manifest `slots` into a generated catalog and let
+`anchorFor` consult it". `slots` is an **authoring** contract, not a rendered one: it describes the
+Markdown an author writes, and a component with a transform emits something else entirely. Measured
+over the rendered corpus: **55 of 220 slot x component pairs (25%) never match the rendered DOM**,
+and they are exactly the content slots of the transformed components — `funnel.stages`,
+`journey.sections`, `kanban.lanes`, `progress.rows`, `timeline-list.events`, every chart's data
+slot. For the 18 components that never get a handle, **the slot carrying the content is dead in
+roughly 15 of 18**. A catalog built from `slots` would have passed every gate and moved nothing.
 
-**B — Feed handles from the manifests.** Project `slots` + `adapt.priority` into a generated
-catalog on the `axis-dom-catalog` model and let `anchorFor` consult it. Reaches the nine
-`body 100%` components. Does nothing for the funnel.
+`team-profile` is the shape of it. The manifest declares `role` as `ul > li > ul > li > code`; the
+transform renders `<span class="person-role">`. It also explains the `body 100%` handle failure
+without any manifest at all: `headerRange` looks for the first nested BLOCK, and the transform has
+replaced the authored nested list with `<span>`s, so there is no block and no header.
 
-**C — Widen the matcher.** Add SVG `text`/`tspan` to `BLOCK_SELECTOR`, split joins on commas.
-Cheapest, and the one to be most suspicious of: round two MEASURED that relaxing the matcher
-bought reach by pointing at the wrong element (90.7% reach, 639 hits on an element holding
-less than half the sentence) and refused it. Any move here owes that same cross-check, which
-the sweep already prints.
+**What the rendered DOM already declares.** `kernel.marks[].class` is a RENDERED contract and it is
+accurate — 64 of 87 mark classes appear in the corpus, and the 23 that do not are conditional
+variants (`--unscaled`, `--hero`, an offscale row) the corpus never exercises. On top of that the
+marks carry their own meaning:
 
-**Recommendation: B first, then A, and C only with the cross-check.** B is the one whose blast
-radius stops inside the gesture subsystem, it reaches the failure that most looks like the
-original report ("it names the container"), and the generated-catalog pattern it needs is
-already shipped and proven. A is the larger win and the larger commitment. This is left open
-deliberately: it changes a shared kernel contract, which is not a call to take inside an audit.
+```html
+<polygon class="funnel-band" data-mark="0" data-label="Visitors" data-value="12,000">
+```
+
+Across the corpus, 41 components render marks carrying `data-label` / `data-value` / `data-mark` —
+`map` 768 labels, `funnel` 74, `heatmap` 105, `gantt` 75, `stacked-bar` 33.
+
+**So the built change is neither A nor B.** `findMarkTarget` runs as a THIRD tier after the block
+and piecewise matchers, and matches a cue against the DOM's declared identity rather than its text.
+It reaches the case §3 called impossible without touching the shared kernel: the band says `12,000`,
+the cue says `twelve thousand`, and `toSpokenText` — the very call `chart-narration.js` makes to
+produce that wording — turns one into the other.
+
+Two guards keep it from being round two's reverse-containment mistake in a new costume. **The label
+must LEAD the sentence** (the projection emits `<label>: <value>`, so a label recurring later is not
+what the sentence is about), and **the value corroborates** in either spelling. Ambiguity resolves
+to nothing rather than to a guess.
+
+**Measured, same corpus, same instrument:**
+
+| | before | after |
+|---|---|---|
+| corpus resolved | 9,376 (88.9%) | **9,501 (89.7%)** |
+| cues where the pointer hides | 1,175 | **1,087** |
+| `funnel` | 16/101 (15.8%) | **90/101 (89.1%)** |
+| `heatmap` | 6/24 (25.0%) | **24/24 (100%)** |
+| `state-chart` | 260/293 (88.7%) | **274/293 (93.5%)** |
+| `funnel` vocabulary | `underline` x16 | `tap` 36 · `underline` 29 · `bracket` 15 · `circle` 10 |
+
+That last row is the one to read. The funnel did not just get louder — each band now gets the
+gesture its own shape asks for, so a stage that narrows gets a tap where the first one gets an
+underline. Real Chromium, `funnel.html` at 1440x900: `Visitors` resolves to its band and draws an
+underline across 1107px, `Signups` a circle on 443px, `Paid` a tap on 103px.
+
+It runs LAST by construction, so it cannot change an answer the existing tiers already gave — which
+is what makes the table above a pure addition rather than a trade.
+
+## 8. What is left
+
+- **The non-chart handle failure is untouched.** `team-profile`, `kanban`, `timeline-list`,
+  `progress`, `contact`, `video`, `matrix-grid`, `logo-wall` render classes nothing declares. Fixing
+  them means a RENDERED handle declaration in the manifest — the same shape as `density.domSelector`,
+  which exists for exactly this reason and which only 4 components use. That is a new manifest field
+  plus a writing task across ~9 components, and it is the natural next slice.
+- **The prose joins are untouched.** `journey`, `compare-table`, `kpi`, `team-profile` lose cues to
+  sentences composed across elements (`Ada Okafor, Executive Sponsor: Clears blockers`), which no
+  mark declares and the piecewise matcher cannot split on a comma. Route A — an anchor token from the
+  projection — is still the answer there, and still changes a shared kernel contract.
+- **How it FEELS is still unverified**, which the semantics record named as the gate that matters
+  most. This measures reach, not quality. It needs a person, a deck and two minutes.

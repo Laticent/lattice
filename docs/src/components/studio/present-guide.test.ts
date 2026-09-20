@@ -1179,3 +1179,80 @@ describe('guideCueIn — the whole decision, on an item with a real marker', () 
 		expect(d?.fellBack, 'the marker rest was occupied, so the search had to be asked').toBe(false);
 	});
 });
+
+describe('findMarkTarget — a cue whose words are not on the slide at all', () => {
+	// The real funnel, as `funnel.transform.js` emits it: the band carries what it means, and
+	// the value is rendered in DIGITS while `chart-narration.js` narrates it in WORDS.
+	const FUNNEL = `<svg><g>
+		<polygon class="funnel-band" data-mark="0" data-label="Visitors" data-value="12,000"></polygon>
+		<polygon class="funnel-band" data-mark="1" data-label="Signups" data-value="4,800"></polygon>
+		<polygon class="funnel-band" data-mark="2" data-label="Paid" data-value="864"></polygon>
+	</g></svg>`;
+
+	it('names the band a spelled-out cue is about, though the words are nowhere in the DOM', () => {
+		// The measured defect: `funnel` resolved 15.8% of its cues, because the slide says
+		// "12,000" and the narration says "twelve thousand". No text matcher can join those.
+		const d = doc(FUNNEL);
+		const el = findCueTarget(d, 'Visitors: twelve thousand.');
+		expect(el?.getAttribute('data-label')).toBe('Visitors');
+	});
+
+	it('tells the bands apart — each cue lands on its own', () => {
+		const d = doc(FUNNEL);
+		expect(findCueTarget(d, 'Signups: four thousand eight hundred, forty percent of the prior stage.')?.getAttribute('data-mark')).toBe('1');
+		expect(findCueTarget(d, 'Paid: eight hundred sixty-four, forty percent of the prior stage.')?.getAttribute('data-mark')).toBe('2');
+	});
+
+	it('accepts the digits too, for a cue that was never spelled out', () => {
+		const d = doc(FUNNEL);
+		expect(findCueTarget(d, 'Visitors: 12,000.')?.getAttribute('data-label')).toBe('Visitors');
+	});
+
+	it('refuses a mark whose value the cue never says, in either spelling', () => {
+		// The corroboration is the guard: a label that leads the sentence but names a different
+		// number is a different mark, and answering it would be the reverse-containment mistake
+		// in a new costume.
+		const d = doc(FUNNEL);
+		expect(findCueTarget(d, 'Visitors: nine hundred.')).toBeNull();
+	});
+
+	it('refuses a label that merely RECURS in the cue rather than leading it', () => {
+		// "The band above Signups is the one that matters" is about neither band. Requiring the
+		// label to open the sentence is what makes this an identity match, not a fragment match.
+		const d = doc(FUNNEL);
+		expect(findCueTarget(d, 'The band above Signups is the one that matters.')).toBeNull();
+	});
+
+	it('refuses a recurring label EVEN WHEN the value corroborates', () => {
+		// The case that isolates the lead guard from the value guard. The sentence carries both
+		// "Visitors" and "twelve thousand", so corroboration passes and only the lead rule can
+		// refuse it — a sentence ABOUT the funnel is not a sentence about one band. Written
+		// because the first version of the test above was killed by the value guard instead,
+		// and relaxing the lead rule to `includes` left it green.
+		const d = doc(FUNNEL);
+		expect(findCueTarget(d, 'In total, Visitors reached twelve thousand.')).toBeNull();
+	});
+
+	it('hides rather than guesses when two marks both pass', () => {
+		const d = doc(`<svg><g>
+			<polygon data-label="Region" data-value="40"></polygon>
+			<polygon data-label="Region" data-value="40"></polygon>
+		</g></svg>`);
+		expect(findCueTarget(d, 'Region: forty.')).toBeNull();
+	});
+
+	it('runs LAST — a cue a real block holds still resolves to the block', () => {
+		// The tier is a pure addition by construction. If it could outrank the block matcher it
+		// would be changing answers that were already right, which no measurement here covers.
+		//
+		// The label must sit on something OTHER than the block holding the words, or both orders
+		// return the same node and the arm proves nothing — which is what the first version did.
+		const d = doc(`<p>Visitors: twelve thousand.</p>${FUNNEL}`);
+		expect(findCueTarget(d, 'Visitors: twelve thousand.')?.tagName).toBe('P');
+	});
+
+	it('ignores a mark with a label too short to identify anything', () => {
+		const d = doc('<svg><polygon data-label="A" data-value="3"></polygon></svg>');
+		expect(findCueTarget(d, 'A: three.')).toBeNull();
+	});
+});

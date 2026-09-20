@@ -1,3 +1,15 @@
+- **Fixed: a chart narrating its own data got no pointer at all.** `chart-narration.js` BUILDS a
+  chart's speech from its data model and spells numbers out, so a funnel band rendered as
+  `Visitors` + `12,000` narrates as "Visitors: twelve thousand" — words that appear nowhere on the
+  slide. Both existing matchers search the slide's TEXT, so they found nothing and the cursor hid:
+  `funnel` resolved 15.8% of its cues, `heatmap` 25%. A third tier now matches a cue against the
+  DOM's own declared identity — a mark's `data-label` / `data-value` — and turns one spelling into
+  the other with `toSpokenText`, the same call the narration used. **`funnel` 15.8% -> 89.1%,
+  `heatmap` 25% -> 100%, `state-chart` 88.7% -> 93.5%**, corpus 88.9% -> 89.7% over 10,551 cues.
+  Each band now draws the gesture its own shape asks for rather than one underline for all: on the
+  real render, `Visitors` an underline across 1107px, `Signups` a circle on 443px, `Paid` a tap on
+  103px. The tier runs LAST, so it cannot change an answer the existing two already gave.
+
 - **Fixed: `useWalkthrough` latched `active: true` forever when `run()` threw.** The hook set
   its flag before calling the engine, so on either of `run()`'s two documented synchronous
   throws — the single-flight guard and an accent `resolveTheme` refuses — no handle was ever

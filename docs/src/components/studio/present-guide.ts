@@ -1,3 +1,4 @@
+import { toSpokenText } from '@/lib/cadenza';
 import { type Gesture, gestureRest, type RectSource } from '@/lib/vetrina';
 import { frameGeom, innerRectToParent } from '@/playground/frame-geom.js';
 
@@ -91,7 +92,7 @@ const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, t
  * (`findSpanningTarget`), which is how a label joined to its body finds the thing it names.
  */
 export function findCueTarget(frameDoc: Document | Element | null, text: string): Element | null {
-	return findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text);
+	return findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text) ?? findMarkTarget(frameDoc, text);
 }
 
 /**
@@ -152,6 +153,72 @@ function findCueTargetIn(frameDoc: Document | Element | null, text: string): Ele
 //
 // So a cue that no block contains is matched PIECEWISE: split it at the join, resolve each part,
 // and name the smallest element that contains the parts that resolved.
+
+/**
+ * THE MARK TIER — a cue that no TEXT on the slide can answer, because the words are not there.
+ *
+ * `chart-narration.js` BUILDS a chart's speech from its data model rather than reading it off the
+ * slide, and it spells numbers: a funnel band rendered as `Visitors` + `12,000` narrates as
+ * "Visitors: twelve thousand." Neither the block matcher nor the piecewise one can find that —
+ * "twelve thousand" is nowhere in the document — so 85% of that deck's cues resolved to nothing
+ * and the pointer hid. Measured across the corpus, `funnel` resolved 15.8% of its cues.
+ *
+ * But the element is not hiding. The transform stamps its own marks with what they mean:
+ *
+ *     <polygon class="funnel-band" data-label="Visitors" data-value="12,000">
+ *
+ * So this tier matches a cue against the DOM's own DECLARED identity instead of its text. Two
+ * things keep that from becoming the reverse-containment mistake `findCueTargetIn` already
+ * refused (which bought reach by pointing at the wrong element 639 times):
+ *
+ *   - THE LABEL MUST LEAD. The projection emits "<label>: <value>", so the label opens the
+ *     sentence. A label that merely recurs later in a cue is not what the cue is about, and
+ *     requiring the lead is what makes this an identity match rather than a fragment match.
+ *   - THE VALUE CORROBORATES, through the SAME function that produced the cue's wording.
+ *     `toSpokenText('12,000')` is `twelve thousand` because that is literally the call
+ *     `chart-narration.js` makes. A mark carrying a value the cue does not mention — in either
+ *     spelling — is a different mark.
+ *
+ * Ambiguity resolves to NOTHING, not to a guess: two marks that both pass is the one case where
+ * this tier could point somewhere wrong, and hiding is what the feature already does when it
+ * cannot place a cue.
+ *
+ * Runs LAST, so it only ever answers cues the existing two tiers dropped. It cannot change an
+ * existing resolution, which is what makes its effect measurable as a pure addition.
+ */
+export function findMarkTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const needle = loose(text);
+	if (needle.length < 3) return null;
+	const passed: { el: Element; label: number; corroborated: boolean }[] = [];
+	for (const el of root.querySelectorAll('[data-label]')) {
+		const label = loose((el as HTMLElement).dataset?.label ?? el.getAttribute('data-label') ?? '');
+		// A one-character label identifies nothing and would lead half the cues on the slide.
+		if (label.length < 2 || !needle.startsWith(label)) continue;
+		const raw = (el as HTMLElement).dataset?.value ?? el.getAttribute('data-value') ?? '';
+		let corroborated = false;
+		if (raw) {
+			const digits = loose(raw);
+			let spoken = '';
+			try {
+				spoken = loose(toSpokenText(raw));
+			} catch {
+				spoken = '';
+			}
+			corroborated = (!!spoken && needle.includes(spoken)) || (!!digits && needle.includes(digits));
+			// A mark that declares a value the cue never says, in either spelling, is not this cue's.
+			if (!corroborated) continue;
+		}
+		passed.push({ el, label: label.length, corroborated });
+	}
+	if (!passed.length) return null;
+	// A corroborated mark beats an uncorroborated one; a longer label beats a shorter one. What
+	// survives that and is still tied is genuinely ambiguous.
+	passed.sort((a, b) => Number(b.corroborated) - Number(a.corroborated) || b.label - a.label);
+	const [top, next] = passed;
+	if (next && next.corroborated === top.corroborated && next.label === top.label && next.el !== top.el) return null;
+	return top.el;
+}
 
 /** Where the projection joins a label to what it labels. Not a general sentence splitter — a
  *  colon or semicolon FOLLOWED BY A SPACE, which is what the join emits and what prose rarely
