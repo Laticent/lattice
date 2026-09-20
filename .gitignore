@@ -141,3 +141,9 @@ docs/src/lib/*/dist/
 # gone — but a SIGINT between the two leaves one, and an untracked directory in `git status`
 # is noise nobody should have to explain. See tools/build-lente-lib.js § STAGING_PREFIX.
 docs/src/lib/*/.dist.tmp-*/
+
+# dom-bakeoff machine-specific run output (`npm run dom:bakeoff -- --json`). The
+# durable numbers live in engineering/decisions/2026-09-20-dom-library-bakeoff.md;
+# a committed timing file would just record whose sandbox last ran it.
+tools/dom-bakeoff/correctness.json
+tools/dom-bakeoff/speed.json

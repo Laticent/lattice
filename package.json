@@ -210,6 +210,8 @@
     "test:watch": "node --test --watch 'test/unit/**/*.test.js'",
     "torture": "node tools/perf-torture/cli.mjs",
     "bench": "node test/benchmark/engine-bench.mjs",
+    "dom:bakeoff": "node tools/dom-bakeoff/correctness.mjs",
+    "dom:bakeoff:speed": "node tools/dom-bakeoff/speed.mjs",
     "bench:bless": "node test/benchmark/engine-bench.mjs --bless",
     "bench:check": "node test/benchmark/engine-bench.mjs --check",
     "overflow:check": "node tools/check-overflow-corpus.js",
