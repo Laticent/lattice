@@ -3,7 +3,8 @@
   top of each other and only the later one survived — a lane read as a relay of
   abutting segments however much its tasks actually ran in parallel. Tasks now pack
   into sub-rows: ones that clear each other still share a row, ones that overlap get
-  their own. A one-task-per-lane chart is unchanged.
+  their own, and packing reads the bars rather than the captions, so a long task
+  name never invents a row.
 - **gantt: bar captions stop truncating with room to spare.** A caption's budget was
   bounded by the next task in the LANE rather than the next mark on its own row, so
   `Scoring model v2` ellipsized to `Scoring model…` against a bar more than twice as
@@ -27,8 +28,12 @@
 - **gantt: two independent tasks that abut on the axis show a real gap.** The
   inter-bar gutter went 1.5 → 2.5 viewBox units; at 1.5 the two bars' strokes closed
   the gap to nothing.
-- **gantt: a dense chart keeps using its stage.** The row band now compresses once
-  the viewBox aspect would fall past a floor, and `.gantt-svg` joins the family's
-  container-fill sizing instead of the `height:auto` pattern a 2026-07-04 decision
-  ruled out. Measured on the stress gallery page: 60% → 75% of the chart body's
-  width, captions 12.2px → 15.3px.
+- **gantt: a dense chart keeps using its stage.** gantt is the only chart of its
+  neighborhood rendered as SVG (kanban, progress and roadmap are HTML), so it
+  carries a baked viewBox and can fill only one dimension. Its aspect floor is now
+  the MEASURED stage — the chart body runs 3.04-3.48 across the gallery, so the
+  floor is 3.0 rather than a guessed 2.6 — the non-row chrome below the plot is
+  tighter, and `.gantt-svg` joins the family's container-fill sizing instead of the
+  `height:auto` pattern a 2026-07-04 decision ruled out by name. Measured on the
+  stress gallery page: 60% → 99% of the chart body's width, captions 12.2px →
+  20.4px. Bars give up 1.6px for it.

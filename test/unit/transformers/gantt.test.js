@@ -24,6 +24,7 @@ const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform
 const core = require('../../../lib/authoring/lint-core');
 
 const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL, ganttGutter, ganttBandFor } = ganttKernel;
+const { resetRenderIds } = require('../../../lib/core/render-ids');
 const { extractFirstList } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
 
@@ -674,5 +675,133 @@ describe('gantt — the band floor is per-orientation', () => {
     const band = ganttBandFor(GANTT_GEOM_TALL, 14, 3);
     assert.ok(band.barH < GANTT_GEOM_TALL.barH);
     assert.ok(band.barH >= GANTT_GEOM_TALL.barHMin);
+  });
+});
+
+describe('gantt — non-row chrome is a tax on the whole drawing', () => {
+  // vbW is fixed and vbH grows with the row count, so on a landscape stage every
+  // unit of NON-ROW chrome (the tick row, the key, the bottom pad) is a unit the
+  // whole drawing scales down by once the stage is shorter than the chart's
+  // aspect wants — and a landscape stage is short precisely when a lede or a
+  // two-line heading took the room. Measured in Chromium on the committed
+  // default gallery page, whose chart body is 1152x335: at legendGap 14 /
+  // legendH 16 / padBottom 6 the drawing used 1059px of 1152 (92%) with 33.1px
+  // bars; trimmed to 9 / 12 / 4 it uses 1142px (99%) with 35.7px bars.
+  //
+  // The body is 1152x335 on that page, so the shape has to come in at or under
+  // 480 * 335/1152 = 139.6 user units to draw at full width. This pins that
+  // headroom against a geometry retune that would quietly spend it.
+  //
+  // The assertion is the WIDTH USE, not a knife-edge viewBox height. `meet` fits
+  // the taller dimension, so drawn width = min(bodyW, bodyH * vbW/vbH) — that is
+  // the number a reader sees, and it is what should be pinned. An earlier cut
+  // asserted `vbH <= 139.6` and failed at 141 while the browser was measuring
+  // 99%: a threshold tight enough to fail on a rounding difference invites
+  // shaving real padding to satisfy it.
+  const REF_BODY = { w: 1152, h: 335 };
+  const widthUse = (vbH) =>
+    Math.min(REF_BODY.w, REF_BODY.h * (GANTT_GEOM.vbW / vbH)) / REF_BODY.w;
+
+  test('the default gallery shape draws at full width on a lede slide', () => {
+    const ul = `<ul>
+      <li>Framework<ul>
+        <li>Signal taxonomy <code>Q1..Q2</code> <code>done</code></li>
+        <li>Scoring model v2 <code>Q2..Q3</code> <code>live</code></li>
+        <li>Per-team weighting <code>Q3..Q4</code> <code>at-risk</code></li>
+      </ul></li>
+      <li>Adoption<ul>
+        <li>Pilot onboarding <code>Q1..Q2</code> <code>done</code></li>
+        <li>Org-wide rollout <code>Q3..Q4</code></li>
+        <li>GA <code>Q4</code> <code>milestone</code></li>
+      </ul></li>
+    </ul>`;
+    const vb = vbOf(buildGanttChart(inner(ul), WIN));
+    const use = widthUse(vb.h);
+    assert.ok(use >= 0.98,
+      `viewBox ${vb.w}x${vb.h} draws at ${(use * 100).toFixed(0)}% of a 1152x335 body's width; ` +
+      'below 98% the chart is visibly letterboxed on an ordinary lede slide');
+  });
+
+  test('the key block stays tight enough to be worth its room', () => {
+    // A guard on the trim itself: these three are what the measurement above
+    // bought, and a retune that puts them back silently costs 8% of the width.
+    assert.ok(GANTT_GEOM.legendGap + GANTT_GEOM.legendH + GANTT_GEOM.padBottom <= 25,
+      'landscape non-row chrome below the plot has grown past its measured budget');
+  });
+});
+
+// ── Findings from the independent check of the packing diff ─────────────────
+describe('gantt — checker findings', () => {
+  test('a long CAPTION never buys a sub-row (packing reads the mark)', () => {
+    // A sub-row is how this chart says "these run at the same time". Folding the
+    // caption into the packing extent let a long NAME claim one, so a strictly
+    // sequential lane rendered as two rows and a reader saw concurrency that was
+    // not in the plan — the same misreading sub-rows exist to remove, backwards.
+    const lane = (mid) => `<ul><li>Lane<ul>
+      <li>Discovery <code>Q1..Q1</code></li>
+      <li>${mid} <code>Q2..Q2</code></li>
+      <li>Rollout <code>Q3..Q3</code></li>
+    </ul></li></ul>`;
+    const rows = (mid) => new Set(barYs(buildGanttChart(inner(lane(mid)), WIN))).size;
+    assert.equal(rows('Build'), 1);
+    assert.equal(rows('Enterprise data modernization wave two'), 1,
+      'a long name must not split a lane whose spans never overlap');
+  });
+
+  test('the clip id family key IS the id stem, so the squat guard can see it', () => {
+    // lib/core/render-ids.js matches its FAMILIES pattern against the DECK
+    // SOURCE. A key of `gantt-clip` against a stem of `gantt-barclip` leaves the
+    // hole open even with the pattern updated, because a deck squatting
+    // `gantt-barclip-1-0` contains no substring `gantt-clip`.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>done</code></li></ul></li></ul>`;
+    const squat = '<clipPath id="gantt-barclip-1-0"><rect width="0" height="0"/></clipPath>';
+    resetRenderIds(squat, 0);
+    const out = buildGanttChart(inner(ul), WIN);
+    const id = out.match(/clip-path="url\(#([^)]+)\)"/)[1];
+    assert.notEqual(id, 'gantt-barclip-1-0',
+      'a deck squatting the clip id must not capture the accent\'s clip');
+    assert.match(id, /^.+gantt-barclip-/, 'the minted id should be namespace-prefixed');
+    resetRenderIds('', 0);
+  });
+
+  test('a clip rect paints nothing, explicitly', () => {
+    // `rect` is a paintable tag to tools/check-viz-render.js, which reads every
+    // one's computed fill; an omitted fill computes to BLACK and trips the
+    // scoped-CSS dropped-color guard (#956) from an element that is never
+    // painted. Two of these failed the integration tier.
+    const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>done</code></li></ul></li></ul>`;
+    const clip = buildGanttChart(inner(ul), WIN).match(/<clipPath[^>]*>(<rect[^>]*>)/)[1];
+    assert.match(clip, /fill="none"/, 'a clip rect must declare that it paints nothing');
+  });
+
+  test('the resolved band is rounded before it reaches the SVG', () => {
+    // barH is written into `height=` on every bar, milestone clip and accent. An
+    // unrounded one emits height="13.039940828402369" fifteen times per chart.
+    const band = ganttBandFor(GANTT_GEOM, 12, 4);
+    for (const [k, v] of Object.entries(band)) {
+      assert.equal(v, +v.toFixed(2), `${k}=${v} should be rounded to 2dp`);
+    }
+  });
+});
+
+describe('gantt — the ceiling threshold is derived, not asserted', () => {
+  // Three comments and the docblock state where a one-task-per-lane chart stops
+  // keeping the ceiling band. That number is a CONSEQUENCE of the aspect floor,
+  // the chrome budget and the band ratios — it moved once already in a single
+  // session when the key block was retuned, and a stale one in prose is exactly
+  // the claim a reviewer takes instead of re-deriving. This derives it.
+  const ceilingLanes = (G) => {
+    for (let n = 1; n <= 40; n++) if (ganttBandFor(G, n, n).barH < G.barH) return n - 1;
+    return 40;
+  };
+
+  test('landscape keeps the ceiling to four one-task lanes', () => {
+    assert.equal(ceilingLanes(GANTT_GEOM), 4,
+      'the comments in gantt.transform.js state four — update both together');
+  });
+
+  test('portrait keeps the ceiling to three one-task lanes', () => {
+    assert.equal(ceilingLanes(GANTT_GEOM_TALL), 3,
+      'the comments in gantt.transform.js state three — update both together');
   });
 });
