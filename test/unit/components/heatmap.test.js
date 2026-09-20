@@ -15,6 +15,16 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const MarkdownIt = require('markdown-it');
+const { JSDOM } = require('jsdom');
+
+// Query the RENDERED SVG through a real parser rather than by regex. The first
+// cut scraped it with patterns like /<text class="chart-key-label"[^>]*>(…)/,
+// which CodeQL flagged as polynomial backtracking on library input (6 alerts),
+// and /<[^>]*>/ as incomplete sanitization — both fair: hand-rolled HTML
+// scraping is exactly the shape that bites. A parser also reads better, since
+// an assertion about a swatch should query a swatch.
+const parse = (svg) => new JSDOM(`<!doctype html><body>${svg}</body>`).window.document;
+const textsOf = (svg, sel) => [...parse(svg).querySelectorAll(sel)].map((n) => n.textContent);
 
 const {
   parseHeatmapTable, readCell, buildHeatmap, deriveBands, liftLabelSet, cellMarks, transformSection,
@@ -516,15 +526,15 @@ describe('the band key', () => {
   const model = () => parseHeatmapTable(grid(
     '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
   const withBands = (bands) => { const m = model(); m.bands = bands; return m; };
-  const labels = (svg) => [...svg.matchAll(/<text class="chart-key-label"[^>]*>([\s\S]*?)<\/text>/g)]
-    .map((m) => m[1].replace(/<[^>]*>/g, ''));
+  const labels = (svg) => textsOf(svg, 'text.chart-key-label');
 
   test('is OPT-IN — a heatmap that did not ask for one is unchanged', () => {
     // Every shipped heatmap was composed without a rail, so turning the key on
     // by default would re-lay-out slides nobody touched.
     const svg = buildHeatmap(model(), {});
-    assert.doesNotMatch(svg, /chart-key-swatch/);
-    assert.match(svg, /viewBox="0 0 320 180"/, 'the grid must keep the whole box');
+    assert.equal(parse(svg).querySelectorAll('.chart-key-swatch').length, 0);
+    assert.equal(parse(svg).querySelector('svg').getAttribute('viewBox'), '0 0 320 180',
+      'the grid must keep the whole box');
   });
 
   test('the derived bands name value RANGES, not words', () => {
@@ -557,15 +567,15 @@ describe('the band key', () => {
     // A heatmap cell is painted by CSS color-mix on [data-step]. A fill baked in
     // here would be a color in the kernel, and the key would stop matching the
     // grid the moment the palette changed.
-    const swatch = buildHeatmap(withBands([]), {}).match(/<rect class="chart-key-swatch[^>]*>/)[0];
-    assert.match(swatch, /heatmap-cell/);
-    assert.match(swatch, /data-step="\d"/);
-    assert.doesNotMatch(swatch, /fill="/, 'the kernel must not resolve the ramp color');
+    const swatch = parse(buildHeatmap(withBands([]), {})).querySelector('.chart-key-swatch');
+    assert.ok(swatch.classList.contains('heatmap-cell'));
+    assert.match(swatch.getAttribute('data-step'), /^\d$/);
+    assert.equal(swatch.getAttribute('fill'), null, 'the kernel must not resolve the ramp color');
   });
 
   test('the bands reach a reader who cannot see them', () => {
-    const desc = buildHeatmap(withBands([{ key: '1', label: 'Cold' }]), {})
-      .match(/<desc[^>]*>([^<]*)<\/desc>/)[1];
+    const desc = parse(buildHeatmap(withBands([{ key: '1', label: 'Cold' }]), {}))
+      .querySelector('desc').textContent;
     assert.match(desc, /Bands:/, 'a key nobody can see is decoration');
     assert.match(desc, /Cold/);
   });
@@ -612,11 +622,12 @@ describe('a cell annotation reaches both surfaces', () => {
     // The reveal layer looks a template up BY data-mark. A crossing nobody
     // measured still consumes an index on the grid, so the marks have to be
     // counted the same way or the popover opens on the wrong cell.
-    const out = slide(RAGGED);
-    const tpl = out.match(/<template class="chart-detail" data-mark="(\d+)">([^<]*)</);
+    const d = parse(slide(RAGGED));
+    const tpl = d.querySelector('template.chart-detail');
     assert.ok(tpl, 'an annotated cell must emit a template');
-    const rect = new RegExp(`data-mark="${tpl[1]}" data-label="([^"]*)"`).exec(out);
-    assert.equal(rect[1], 'Feb · M1', 'the template points at the cell that was annotated');
+    const rect = d.querySelector(`rect.heatmap-cell[data-mark="${tpl.getAttribute('data-mark')}"]`);
+    assert.equal(rect.getAttribute('data-label'), 'Feb · M1',
+      'the template points at the cell that was annotated');
   });
 
   test('the same words fold into the speaker note, so print keeps them', () => {
@@ -626,8 +637,8 @@ describe('a cell annotation reaches both surfaces', () => {
   test('a heatmap with no annotation emits neither, and is byte-identical', () => {
     const plain = ['## T.', '', '|  | M0 |', '| --- | --: |', '| Jan | 1 |', '| Feb | 2 |'].join('\n');
     const out = slide(plain);
-    assert.doesNotMatch(out, /chart-detail/);
-    assert.doesNotMatch(out, /<!--/);
+    assert.equal(parse(out).querySelectorAll('template.chart-detail').length, 0);
+    assert.ok(!out.includes('<!--'), 'no annotation means no speaker note');
   });
 
   test('cellMarks counts every crossing, measured or not', () => {
