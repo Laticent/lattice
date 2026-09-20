@@ -21,19 +21,6 @@ Comparison — how two or more options differ.
 
 ---
 
-<!-- _class: compare-table -->
-<!-- _footer: "compare-table · comparison survey" -->
-
-## The table compares rows on consistent columns.
-
-| Row | Holds | Budget |
-| --- | --- | --- |
-| A label | One cell per column | Twelve words |
-| Every row | The same column set | Twelve words |
-| Six rows | The comfortable page | Twelve words |
-
----
-
 <!-- _class: decision -->
 <!-- _footer: "decision · comparison survey" -->
 
@@ -119,6 +106,19 @@ One question on the left; two option cards and a verdict on the right.
   - Mismatched rows read as bias
 
 > The verdict card lands last: one recommendation, one revisit date.
+
+---
+
+<!-- _class: table -->
+<!-- _footer: "table · comparison survey" -->
+
+## The table compares rows on consistent columns.
+
+| Row | Holds | Budget |
+| --- | --- | --- |
+| A label | One cell per column | Twelve words |
+| Every row | The same column set | Twelve words |
+| Six rows | The comfortable page | Twelve words |
 
 ---
 

@@ -33,12 +33,12 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 ## When to use
 
 - **Many regimes, shared obligations.** Three or more regulations or jurisdictions compared across the same set of duties. The grid lets the reader scan a row to know a regime and a column to know an obligation.
-- **State markers, not values.** Cells are pass/partial/fail/skip — the universal `[x]` / `[-]` / `[ ]` / `[/]` grammar. For textual cell values use `compare-table`.
+- **State markers, not values.** Cells are pass/partial/fail/skip — the universal `[x]` / `[-]` / `[ ]` / `[/]` grammar. For textual cell values use `table`.
 - **Risk axis with heat.** The `heat` variant flips the palette so applies (`[x]`) reads as alarm. Exempt (`[ ]`) cells resolve to the neutral state and are NOT recolored — they don't turn 'relief' green. Use when the matrix is read for exposure, not for coverage.
 
 ## When NOT to use
 
-- **Two regimes only.** Past one row vs another the grid loses its purpose. Use `compare-prose` or `compare-table` for two-regime comparisons.
+- **Two regimes only.** Past one row vs another the grid loses its purpose. Use `compare-prose` or `table` for two-regime comparisons.
 - **Mixed cell content.** Don't mix state markers with prose values in the same matrix — the cell width has to grow to fit prose and the marker grid collapses. Pick one cell type.
 - **Missing legend.** The trailing paragraph naming filled/half/empty is what onboards a first-time reader. Skipping it forces the audience to guess the mapping.
 
@@ -165,7 +165,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 ## Related components
 
-- [`compare-table`](../../comparison/compare-table/compare-table.docs.md) — cells are textual values, not state markers
+- [`table`](../../comparison/table/table.docs.md) — cells are textual values, not state markers
 - [`verdict-grid`](../../comparison/verdict-grid/verdict-grid.docs.md) — options scored against criteria with a per-card layout instead of a table
 - [`matrix-2x2`](../../comparison/matrix-2x2/matrix-2x2.docs.md) — two axes, four cells, qualitative placement
 - [`checklist`](../../inventory/checklist/checklist.docs.md) — one set of obligations against one regime, not many

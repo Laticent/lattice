@@ -259,7 +259,7 @@ The bar is ours to raise — never marp's to validate.
   target behind a clean handoff (the VS Code "gap" dissolved); scorecard reframed
   to 2 permanent costs. L3 invariant coverage grown **14 → 32 / 53** components
   (roadmap/state-chart folded into the chart-family frame check; bespoke rules for
-  code, compare-table, matrix-2x2, pricing, split-compare, verdict-grid, redline,
+  code, table, matrix-2x2, pricing, split-compare, verdict-grid, redline,
   image, actors, checklist, logo-wall, obligation-matrix, citation-card, math,
   quote, split-panel).
 - **2026-06-14 (a)** — created alongside PR #263 (marp-cli retired, `engine-parity`

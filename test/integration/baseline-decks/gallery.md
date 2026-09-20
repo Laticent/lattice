@@ -390,8 +390,8 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 
 ---
 
-<!-- _class: compare-table state-cells -->
-<!-- _footer: "Comparison table · compare-table" -->
+<!-- _class: table state-cells -->
+<!-- _footer: "Comparison table · table" -->
 
 ## The four paths side by side.
 

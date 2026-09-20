@@ -72,7 +72,7 @@
     },
     {
       "title": "State markers, not values",
-      "body": "Cells are pass/partial/fail/skip — the universal `[x]` / `[-]` / `[ ]` / `[/]` grammar. For textual cell values use `compare-table`."
+      "body": "Cells are pass/partial/fail/skip — the universal `[x]` / `[-]` / `[ ]` / `[/]` grammar. For textual cell values use `table`."
     },
     {
       "title": "Risk axis with heat",
@@ -82,7 +82,7 @@
   "antiPatterns": [
     {
       "title": "Two regimes only",
-      "body": "Past one row vs another the grid loses its purpose. Use `compare-prose` or `compare-table` for two-regime comparisons."
+      "body": "Past one row vs another the grid loses its purpose. Use `compare-prose` or `table` for two-regime comparisons."
     },
     {
       "title": "Mixed cell content",
@@ -95,7 +95,7 @@
   ],
   "related": [
     {
-      "name": "compare-table",
+      "name": "table",
       "when": "cells are textual values, not state markers"
     },
     {
@@ -171,6 +171,6 @@
     "axis": "row",
     "perPage": 1,
     "intro": "Regime by regime",
-    "note": "compare-table's reader, for compare-table's reason: a wide read-across grid cannot paginate out of HORIZONTAL overflow, so it RESHAPES -- each regime row becomes a card whose column headers become in-card labels. Landscape renders the native grid untouched. A ROW SLICE WAS TRIED FIRST AND MEASURED: `cover-paginate` with a `row` axis repeats the <thead> per page and keeps every state mark, which looked like the better answer -- and it took the gallery from 9 bad pages to 43, because slicing rows does not narrow six columns. That is the emulator's own rule (a vertical paginator never fixes a wide table) seen from the wrong end. Enrolled 2026-09-13 (owner's call) after measuring 9 of 10 gallery pages bad at portrait. NO `capacity` BLOCK: `cover-cards` reads `split.perPage`, and declaring an authoring band here is a separate decision about what authors are TOLD. The first cut invented 4/5/6 and the gallery contract caught it immediately -- the component's own sample and stress doc both hold SIX regimes, which its stress summary calls \"the grid ceiling\", so any band that admits the sample also admits the ceiling and says nothing. Same conclusion as `code`."
+    "note": "table's reader, for table's reason: a wide read-across grid cannot paginate out of HORIZONTAL overflow, so it RESHAPES -- each regime row becomes a card whose column headers become in-card labels. Landscape renders the native grid untouched. A ROW SLICE WAS TRIED FIRST AND MEASURED: `cover-paginate` with a `row` axis repeats the <thead> per page and keeps every state mark, which looked like the better answer -- and it took the gallery from 9 bad pages to 43, because slicing rows does not narrow six columns. That is the emulator's own rule (a vertical paginator never fixes a wide table) seen from the wrong end. Enrolled 2026-09-13 (owner's call) after measuring 9 of 10 gallery pages bad at portrait. NO `capacity` BLOCK: `cover-cards` reads `split.perPage`, and declaring an authoring band here is a separate decision about what authors are TOLD. The first cut invented 4/5/6 and the gallery contract caught it immediately -- the component's own sample and stress doc both hold SIX regimes, which its stress summary calls \"the grid ceiling\", so any band that admits the sample also admits the ceiling and says nothing. Same conclusion as `code`."
   }
 }

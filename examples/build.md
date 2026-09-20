@@ -47,7 +47,7 @@ You don't split the content across slides — you sequence it in place. One gram
 
 ---
 
-<!-- _class: compare-table state-cells -->
+<!-- _class: table state-cells -->
 <!-- _build: rows -->
 
 ## `_build: rows` — reveal the comparison row by row.

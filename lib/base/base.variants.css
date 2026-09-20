@@ -515,10 +515,31 @@ section.insight-why          { --insight-label: 'WHY IT MATTERS'; }
  *
  * Independent flags, not an axis: `table-plain table-fill` is a legitimate pair
  * (an unstriped table that still fills the slide). Neither reaches a component
- * that owns its own table — those are excluded from the treatment entirely, so a
- * `table-plain` on a `compare-table` slide is inert by construction. */
+ * that owns its own table — those are excluded from the treatment entirely, so
+ * a `table-plain` on a `glossary` or `roadmap` slide is inert by construction.
+ *
+ * The `table` COMPONENT is not one of them, and that is the point of it: it
+ * styles no table element, so it rides this treatment and both switches work on
+ * it. `table-fill` on a `table` slide is the supported way back to the filling,
+ * band-reading geometry that component used to hardcode under its old name.
+ * See engineering/decisions/2026-09-20-table-component.md. */
 section.table-plain { --table-zebra: transparent; }
 section.table-fill  { --table-grow: 1; --table-valign: middle; }
+
+/* The FIRST-COLUMN switch, and the one of the four that is resolved PER TABLE
+ * rather than per slide — a slide may hold two tables whose first columns are
+ * not the same kind of thing. So the marker lands on the `<table>` (stamped by
+ * lib/integrations/markdown-it/plugins.js and its DOM mirror, both asking
+ * lib/core/table-row-label.js) and the properties are set here, where the other
+ * three table switches live. base.elements.css § UNIVERSAL TABLE reads them on
+ * `td:first-child` and is inert until they are.
+ *
+ * Scoped to a stamped table rather than declared on every table on purpose: the
+ * bet is wrong on an ordinal, a status tick, a citation index and a
+ * single-column table, which is why base refuses to make it unasked. The
+ * `table` component's transform decides; `row-label` / `no-row-label` overrule.
+ * See engineering/decisions/2026-09-20-table-component.md. */
+table.lat-row-label { --table-label-weight: 600; --table-label-ink: var(--text-heading); }
 
 /* The Form (`section.form`) chrome — the root Frame box, the masthead / stage /
  * footer Cells, and the stage fill discipline — used to live here. It is now

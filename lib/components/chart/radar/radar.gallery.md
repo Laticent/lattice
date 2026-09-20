@@ -372,5 +372,5 @@ Native radar / spider chart — items rated across multiple axes.
 - `quadrant` — two axes are enough — the other six dimensions drop out
 - `verdict-grid` — the criteria are categorical (pass/fail), not graded
 - `kpi` — the comparison is one option's metrics, not multi-option
-- `compare-table` — a precise tabular comparison reads better than a shape
+- `table` — a precise tabular comparison reads better than a shape
 - `piechart` — the question is part-to-whole, not multi-criterion

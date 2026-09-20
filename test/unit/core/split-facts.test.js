@@ -79,7 +79,7 @@ describe('core: treatmentViolations — the invariants prose cannot enforce', ()
   });
 
   test('…but a read-across component WITH a carousel strategy is fine', () => {
-    const m = { name: 'compare-table', capacity: { axis: 'row' }, split: { strategy: 'cover-cards' } };
+    const m = { name: 'table', capacity: { axis: 'row' }, split: { strategy: 'cover-cards' } };
     assert.deepEqual(treatmentViolations(m, splitFactsFor(m)), []);
   });
 

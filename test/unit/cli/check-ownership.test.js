@@ -838,7 +838,7 @@ describe('check-ownership', () => {
         }
         const errors = [];
         checkUniversalTableGuard(
-          [{ name: 'compare-table' }, { name: 'math' }, { name: 'kpi' }],
+          [{ name: 'table' }, { name: 'math' }, { name: 'kpi' }],
           errors,
           { libDir: lib, guardCss: guardPath },
         );
@@ -875,11 +875,11 @@ describe('check-ownership', () => {
 
     test('a component styling a table with no deny entry fails', () => {
       withFixture(GUARD(['math.derivation']), {
-        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+        'c/table.styles.css': 'section.table td { padding:1px; }',
       }, (errors) => {
-        const hit = errors.filter((e) => e.includes("'compare-table' styles a table element"));
+        const hit = errors.filter((e) => e.includes("'table' styles a table element"));
         assert.equal(hit.length, 1, errors.join('\n'));
-        assert.match(hit[0], /Add ':not\(\.compare-table\)'/);
+        assert.match(hit[0], /Add ':not\(\.table\)'/);
       });
     });
 
@@ -902,17 +902,17 @@ describe('check-ownership', () => {
     });
 
     test('a broader claim is covered by a narrower entry (modifier stacking)', () => {
-      // `section.sketch.compare-table table` must NOT demand its own entry —
-      // ':not(.compare-table)' already denies every slide carrying that class.
-      withFixture(GUARD(['compare-table']), {
-        'c/compare-table.styles.css': 'section.compare-table table { width:100%; }',
-        'base.sketch.css': 'section.sketch.compare-table table { filter:none; }',
+      // `section.sketch.table table` must NOT demand its own entry —
+      // ':not(.table)' already denies every slide carrying that class.
+      withFixture(GUARD(['table']), {
+        'c/table.styles.css': 'section.table table { width:100%; }',
+        'base.sketch.css': 'section.sketch.table table { filter:none; }',
       }, (errors) => assert.deepEqual(errors, [], errors.join('\n')));
     });
 
     test('a stale entry fails', () => {
-      withFixture(GUARD(['compare-table', 'kpi']), {
-        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+      withFixture(GUARD(['table', 'kpi']), {
+        'c/table.styles.css': 'section.table td { padding:1px; }',
       }, (errors) => {
         const hit = errors.filter((e) => e.includes('stale universal-table deny entry'));
         assert.equal(hit.length, 1, errors.join('\n'));
@@ -925,10 +925,10 @@ describe('check-ownership', () => {
       // '.math.derivation' guarded while the `td` rule alone had lost it — which is
       // exactly the edit that doubles math.derivation's cell borders.
       const guard =
-        'section:where(:not(.compare-table):not(.math.derivation)) > table thead th { color:red; }\n' +
-        'section:where(:not(.compare-table)) > table td { color:red; }\n';
+        'section:where(:not(.table):not(.math.derivation)) > table thead th { color:red; }\n' +
+        'section:where(:not(.table)) > table td { color:red; }\n';
       withFixture(guard, {
-        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+        'c/table.styles.css': 'section.table td { padding:1px; }',
         'c/math.styles.css': 'section.math.derivation td { padding:1px; }',
       }, (errors) => {
         const hit = errors.filter((e) => e.includes('does not carry the full deny guard'));
@@ -940,10 +940,10 @@ describe('check-ownership', () => {
 
     test('an UNGUARDED new table rule in the guard file itself fails', () => {
       const guard =
-        'section:where(:not(.compare-table)) > table td { color:red; }\n' +
+        'section:where(:not(.table)) > table td { color:red; }\n' +
         'section > table caption { color:red; }\n'; // no guard at all
       withFixture(guard, {
-        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+        'c/table.styles.css': 'section.table td { padding:1px; }',
       }, (errors) => {
         assert.ok(
           errors.some((e) => e.includes('does not carry the full deny guard') && e.includes('caption')),
@@ -953,8 +953,8 @@ describe('check-ownership', () => {
     });
 
     test("an `:is(td, th)` subject is a claim — base.focus's resident idiom", () => {
-      withFixture(GUARD(['compare-table']), {
-        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+      withFixture(GUARD(['table']), {
+        'c/table.styles.css': 'section.table td { padding:1px; }',
         'c/kpi.styles.css': 'section.kpi > .cell-stage > :is(td, th) { border-bottom:1px solid red; }',
       }, (errors) => {
         assert.ok(
@@ -966,8 +966,8 @@ describe('check-ownership', () => {
 
     test('a non-subject table mention is not a claim', () => {
       // base.modifiers' below-note promotion styles the <p>, not the table.
-      withFixture(GUARD(['compare-table']), {
-        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+      withFixture(GUARD(['table']), {
+        'c/table.styles.css': 'section.table td { padding:1px; }',
         'base.modifiers.css': 'section.kpi > :is(ul, ol, table) + p { color:red; }',
       }, (errors) => assert.deepEqual(errors, [], errors.join('\n')));
     });
@@ -975,8 +975,8 @@ describe('check-ownership', () => {
     test('base SUPPORT rules written with :is() are not claims', () => {
       // The dark-bookend ink rebind rebinds color for the UNIVERSAL treatment;
       // it must not read as those components owning <table>.
-      withFixture(GUARD(['compare-table']), {
-        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+      withFixture(GUARD(['table']), {
+        'c/table.styles.css': 'section.table td { padding:1px; }',
         'base.modifiers.css': 'section:is(.kpi, .math) > table td { color:white; }',
       }, (errors) => assert.deepEqual(errors, [], errors.join('\n')));
     });

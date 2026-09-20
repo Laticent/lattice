@@ -39,7 +39,7 @@
  * unnamespaced, so any of them can collide with a component id. `stats` is the only one
  * that does today — `feature`, `derivation`, `theorem`, `canvas` and `decompose` have no
  * other owner in the tree, and `compare`/`matrix` are only ever prefixed
- * (`compare-code`, `compare-prose`, `compare-table`, `split-compare`, `matrix-grid`,
+ * (`compare-code`, `compare-prose`, `table`, `split-compare`, `matrix-grid`,
  * `matrix-2x2`). Renaming a math variant is an authoring break and is not this
  * migration's call to make.
  */

@@ -510,11 +510,11 @@ describe('lint-core: capacity rule', () => {
   // A vocab carrying a capacity contract for one layout, plus its name so the
   // unknown-class rule stays quiet.
   const capVocab = {
-    names: new Set(['cards-grid', 'compare-table']),
+    names: new Set(['cards-grid', 'table']),
     modifiers: new Set(),
     capacity: {
       'cards-grid': { axis: 'item', min: 2, sweet: 3, soft: 4, hard: 5, escalateTo: ['list-tabular', 'split across slides'], note: 'the grid loses scannability past four cards' },
-      'compare-table': { axis: 'row', sweet: 4, soft: 6, hard: 8, escalateTo: ['split across slides'] },
+      'table': { axis: 'row', sweet: 4, soft: 6, hard: 8, escalateTo: ['split across slides'] },
     },
   };
   const capRule = (src, rule) => core.lintTextWith(src, capVocab).find((f) => f.rule === rule);
@@ -552,7 +552,7 @@ describe('lint-core: capacity rule', () => {
     assert.equal(capRule(portrait, 'capacity-crowd'), undefined);
   });
   test('table layout counts the row axis', () => {
-    const rows = (n) => `${FM}<!-- _class: compare-table -->\n\n## H\n\n| A | B |\n|---|---|\n` + Array.from({ length: n }, (_, i) => `| ${i} | x |\n`).join('');
+    const rows = (n) => `${FM}<!-- _class: table -->\n\n## H\n\n| A | B |\n|---|---|\n` + Array.from({ length: n }, (_, i) => `| ${i} | x |\n`).join('');
     assert.equal(capRule(rows(6), 'capacity-crowd'), undefined); // 6 == soft, not past
     assert.ok(capRule(rows(7), 'capacity-crowd'), 'expected crowd at 7 rows');
     assert.ok(capRule(rows(9), 'capacity-overflow'), 'expected the overflow warning at 9 rows');
@@ -606,25 +606,25 @@ describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', 
 
 describe('lint-core: claim safety (2026-07-03 claim decision §8)', () => {
   const cvocab = {
-    names: new Set(['compare-table', 'big-number']),
+    names: new Set(['table', 'big-number']),
     modifiers: new Set(['claim-bleed', 'claim-hero', 'claim-quiet', 'claim-framed']),
-    claimExcludes: { 'compare-table': ['claim-bleed'] },
+    claimExcludes: { 'table': ['claim-bleed'] },
     claimNames: ['framed', 'quiet', 'hero', 'bleed'],
   };
   const table = (cls) => `${FM}<!-- _class: ${cls} -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n`;
   const has = (src, rule) => core.lintTextWith(src, cvocab).some((f) => f.rule === rule);
 
   test('per-slide claim-bleed on an excluding component warns', () => {
-    assert.ok(has(table('compare-table claim-bleed'), 'claim-bleed-unsafe'));
+    assert.ok(has(table('table claim-bleed'), 'claim-bleed-unsafe'));
   });
   test('claim-bleed on a non-excluding component is silent', () => {
     assert.equal(has(`${FM}<!-- _class: big-number claim-bleed -->\n\n- 42\n  - x\n`, 'claim-bleed-unsafe'), false);
   });
   test('deck-wide claim: bleed warns on an excluding component (no per-slide token)', () => {
-    assert.ok(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- _class: compare-table -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'));
+    assert.ok(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- _class: table -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'));
   });
   test('a per-slide claim-framed opts a slide out of a deck-wide bleed → no warning', () => {
-    assert.equal(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- _class: compare-table claim-framed -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'), false);
+    assert.equal(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- _class: table claim-framed -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'), false);
   });
   test('an unknown claim: value warns (typo → silent framed baseline)', () => {
     assert.ok(has('---\nmarp: true\nclaim: heo\n---\n\n<!-- _class: big-number -->\n\n- 42\n  - x\n', 'unknown-claim'));

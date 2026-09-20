@@ -10,7 +10,7 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 
 ## Agent contract
 
-**Capacity** ~3 items (crowds past 4, overflows past 5) — past that, compare-table / split across slides. The cards crowd and badges lose legibility past four; a split run spotlights ONE option per page and carries a derived “Option N of M · comparing …” signal so the atomized tiers still read as a compared set (§0b connected members).
+**Capacity** ~3 items (crowds past 4, overflows past 5) — past that, table / split across slides. The cards crowd and badges lose legibility past four; a split run spotlights ONE option per page and carries a derived “Option N of M · comparing …” signal so the atomized tiers still read as a compared set (§0b connected members).
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — a verdict card is a label plus its criteria, not prose.
 
@@ -92,7 +92,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 - [`compare-prose`](../../comparison/compare-prose/compare-prose.docs.md) — exactly two options with prose bodies
 - [`split-compare`](../../comparison/split-compare/split-compare.docs.md) — two options with a bottom verdict bar
 - [`obligation-matrix`](../../legal/obligation-matrix/obligation-matrix.docs.md) — many regimes scored on shared obligations in a table
-- [`compare-table`](../../comparison/compare-table/compare-table.docs.md) — cells are textual values, not state markers
+- [`table`](../../comparison/table/table.docs.md) — cells are textual values, not state markers
 - [`checklist`](../../inventory/checklist/checklist.docs.md) — one set of criteria, not many options against them
 
 ## Demo deck

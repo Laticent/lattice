@@ -224,6 +224,23 @@ const PROBES = {
     probe: marked('td .state'),
   },
 
+  // The stamp that turns first-column row-label emphasis on. TWO tables, and only
+  // ONE of them earns it: the second is a year column, which lib/core/table-row-label.js
+  // refuses. A mirror that stamped every table it found would pass a one-table probe
+  // and fails this one, which is the whole reason the deck carries a second table.
+  tableRowLabels: {
+    min: 1,
+    section: 'table',
+    body: [
+      '## Two tables, one verdict each', '',
+      '| Criterion | A | B |', '|---|---|---|',
+      '| Speed | Fast | Slow |', '| Cost | Low | High |', '',
+      '| Year | Revenue |', '|---|---|',
+      '| 2024 | 4.2 |', '| 2025 | 5.1 |',
+    ].join('\n'),
+    probe: marked('table.lat-row-label'),
+  },
+
   checklistItemStates: {
     min: 4,
     section: 'checklist',

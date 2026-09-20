@@ -484,7 +484,7 @@ You never handle the system itself. You handle a drawing of it, its limits and i
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `The translation`
 
@@ -596,7 +596,7 @@ Naming one as the protagonist decides who waits. Say who you are not designing f
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `The join`
 
@@ -1206,7 +1206,7 @@ Answer the tree's first question for each, and say whether the tree stops there.
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `Data kit · pass two`
 
@@ -1280,7 +1280,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `Data kit · the scan`
 
@@ -1297,7 +1297,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `Data kit · pass three`
 
@@ -2844,7 +2844,7 @@ following                              followers
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `Instagram · what each read costs`
 
@@ -2951,7 +2951,7 @@ The better predicate is fan-out work per day, and it is a product of two numbers
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `Instagram · the honest predicate`
 
@@ -3530,7 +3530,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `Parking · what we refused`
 
@@ -3580,7 +3580,7 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `Instagram · store and run`
 
@@ -3597,7 +3597,7 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
 `Instagram · scale and defense`
 

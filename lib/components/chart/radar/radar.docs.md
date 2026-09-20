@@ -287,7 +287,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 - [`quadrant`](../../chart/quadrant/quadrant.docs.md) — two axes are enough — the other six dimensions drop out
 - [`verdict-grid`](../../comparison/verdict-grid/verdict-grid.docs.md) — the criteria are categorical (pass/fail), not graded
 - [`kpi`](../../evidence/kpi/kpi.docs.md) — the comparison is one option's metrics, not multi-option
-- [`compare-table`](../../comparison/compare-table/compare-table.docs.md) — a precise tabular comparison reads better than a shape
+- [`table`](../../comparison/table/table.docs.md) — a precise tabular comparison reads better than a shape
 - [`piechart`](../../chart/piechart/piechart.docs.md) — the question is part-to-whole, not multi-criterion
 
 ## Demo deck

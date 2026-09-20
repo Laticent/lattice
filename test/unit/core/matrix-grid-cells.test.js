@@ -100,7 +100,7 @@ describe('matrix-grid cells — applyToDom', () => {
   });
 
   test('leaves a non-matrix-grid section alone', () => {
-    const doc = dom('compare-table');
+    const doc = dom('table');
     kernel.applyToDom(doc);
     assert.equal(doc.querySelector('section').innerHTML, TABLE);
   });

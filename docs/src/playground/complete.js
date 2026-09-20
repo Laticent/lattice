@@ -219,7 +219,7 @@ function skeletonSource(catalog) {
 
 // Completes the AXIS keyword in a `_focus:` / `_focusSteps:` directive, scoped
 // to the active slide's layout: a layout's manifest `focusAxes` (carried in the
-// catalog) narrows the offered axes — `compare-table` → row/col/cell, a card
+// catalog) narrows the offered axes — `table` → row/col/cell, a card
 // grid → item, `code` → line. A layout that declares none (or an unclassed
 // slide) falls back to the full axis set, so focus still completes everywhere.
 function focusAxisSource(catalog) {

@@ -494,9 +494,9 @@ test('typing a query moves the highlight to the top hit, so Enter picks what you
 	await gotoExplore(page, '?c=wifi&view=read');
 	await page.locator('#pg-template-trigger').click();
 	await page.keyboard.type('table');
-	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(/compare-table/);
+	await expect(page.locator('[cmdk-item][data-selected="true"]')).toHaveText(/table/);
 	await page.keyboard.press('Enter');
-	await expect(page.locator('#pg-template-trigger')).toHaveText('compare-table');
+	await expect(page.locator('#pg-template-trigger')).toHaveText('table');
 });
 
 test('the status line stops claiming the editor is collapsed once it is not', async ({ page }) => {

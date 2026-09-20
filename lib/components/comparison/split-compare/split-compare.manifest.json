@@ -49,7 +49,7 @@
     "hard": 2,
     "escalateTo": [
       "decision",
-      "compare-table"
+      "table"
     ],
     "note": "exactly two by contract — the form IS a two-way choice, so there is no band to grow into. A split run paces ONE option per page and lands the verdict on its own closing page, carrying a derived “Option N of 2 · comparing …” signal."
   },

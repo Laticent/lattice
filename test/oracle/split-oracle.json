@@ -207,7 +207,7 @@
       "perPage": null,
       "relationship": null
     },
-    "compare-table": {
+    "table": {
       "treatment": "read-across",
       "axis": "row",
       "declaredIn": "capacity",

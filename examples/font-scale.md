@@ -109,8 +109,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: compare-table scale-xl -->
-<!-- _footer: "Tables scale — cells and headers · compare-table scale-xl" -->
+<!-- _class: table scale-xl -->
+<!-- _footer: "Tables scale — cells and headers · table scale-xl" -->
 
 ## Tables scale too.
 
@@ -118,7 +118,7 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 | --- | --- | --- |
 | Cell text | `fs-body-compact` | Grows |
 | Column header | `fs-meta` | Grows |
-| Plain markdown table | `fs-body` | Grows |
+| Plain markdown table | `fs-body-compact` | Grows |
 | Slide title | `fs-h1 / fs-h2` | Holds |
 
 ---

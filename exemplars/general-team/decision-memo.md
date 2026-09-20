@@ -60,7 +60,7 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 <!-- tier: short -->
 
 ## The three options, side by side.

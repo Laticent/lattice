@@ -61,7 +61,7 @@ Options scored against criteria as a verdict matrix.
 - **Fifth.**
   - [x] Check
   - [x] Check
-  - The hard stop; six wants compare-table.
+  - The hard stop; six wants table.
 
 
 ---
@@ -154,5 +154,5 @@ Options scored against criteria as a verdict matrix.
 - `compare-prose` — exactly two options with prose bodies
 - `split-compare` — two options with a bottom verdict bar
 - `obligation-matrix` — many regimes scored on shared obligations in a table
-- `compare-table` — cells are textual values, not state markers
+- `table` — cells are textual values, not state markers
 - `checklist` — one set of criteria, not many options against them

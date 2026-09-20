@@ -24,7 +24,7 @@ const OPTS = {
   tol: 12,
   floorRatio: 0.5,
   structuralCarousel: ['compare-code'],
-  paginatorCarousel: ['compare-table'],
+  paginatorCarousel: ['table'],
 };
 
 /** A slide whose geometry is dictated rather than laid out. */
@@ -93,7 +93,7 @@ test('buildSplitVerdict', async (t) => {
   });
 
   await t.test('a paginator carousel splits on vertical overflow only', () => {
-    const s = slide('<section class="compare-table"><table></table></section>');
+    const s = slide('<section class="table"><table></table></section>');
     const wide = buildSplitVerdict(s, probes({ over: true, vOver: false, scrollH: 1400 }), OPTS);
     assert.equal(wide.canSplit, false,
       'row-splitting a too-WIDE table narrows nothing and balloons the deck');

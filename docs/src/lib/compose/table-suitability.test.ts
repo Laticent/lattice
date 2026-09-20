@@ -66,7 +66,7 @@ describe('slideTakesTable', () => {
 	});
 
 	it('offers it on the four layouts that take a table as their primary content', () => {
-		for (const cls of ['compare-table', 'matrix-grid', 'obligation-matrix', 'roadmap']) {
+		for (const cls of ['table', 'matrix-grid', 'obligation-matrix', 'roadmap']) {
 			expect(slideTakesTable(d(cls)), cls).toBe(true);
 		}
 	});

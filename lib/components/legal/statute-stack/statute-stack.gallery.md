@@ -194,4 +194,4 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 - `list-tabular` — the rows are citation-only references, no obligation prose
 - `obligation-matrix` — obligations cross-tab against actors or controls
 - `authority-chain` — the rows are a delegation lineage, not parallel jurisdictions
-- `compare-table` — the comparison is across criteria, not jurisdictions
+- `table` — the comparison is across criteria, not jurisdictions

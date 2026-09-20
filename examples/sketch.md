@@ -180,7 +180,7 @@ flowchart LR
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 <!-- _footer: "Tables get a drawn frame and ink rules — not just the cards" -->
 
 `Beyond the cards`

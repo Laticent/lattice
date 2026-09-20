@@ -31,7 +31,7 @@ describe('focus — grammar', () => {
 });
 
 describe('focus — HTML kernel (applyToHtml)', () => {
-  const TABLE = '<section data-focus="row 2" class="compare-table"><table><thead><tr><th>A</th></tr></thead><tbody>\n<tr><td>r1</td></tr>\n<tr><td>r2</td></tr>\n<tr><td>r3</td></tr>\n</tbody></table></section>';
+  const TABLE = '<section data-focus="row 2" class="table"><table><thead><tr><th>A</th></tr></thead><tbody>\n<tr><td>r1</td></tr>\n<tr><td>r2</td></tr>\n<tr><td>r3</td></tr>\n</tbody></table></section>';
   const GRID = '<section data-focus="item 2" class="cards-grid"><h2>x</h2><ul>\n<li>One<ul><li>b1</li></ul></li>\n<li>Two<ul><li>b2</li></ul></li>\n<li>Three</li>\n</ul></section>';
 
   test('tags the Nth table row .lat-focus, siblings .lat-recede; thead untouched', () => {
@@ -73,7 +73,7 @@ describe('focus — HTML kernel (applyToHtml)', () => {
   });
 
   test('col axis tags the Nth cell of every row (header + body), ring default', () => {
-    const out = focus.applyToHtml('<section data-focus="col 2" class="compare-table"><table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></section>');
+    const out = focus.applyToHtml('<section data-focus="col 2" class="table"><table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></section>');
     assert.match(out, /<th class="lat-recede">A.*<th class="lat-focus">B/s);
     assert.match(out, /<td class="lat-recede">1.*<td class="lat-focus">2/s);
     assert.match(out, /data-focus-axis="col"/);
@@ -81,7 +81,7 @@ describe('focus — HTML kernel (applyToHtml)', () => {
   });
 
   test('cell axis tags exactly one body cell at R,C', () => {
-    const out = focus.applyToHtml('<section data-focus="cell 2,3" class="compare-table"><table><tbody><tr><td>1</td><td>2</td><td>3</td></tr><tr><td>4</td><td>5</td><td>6</td></tr></tbody></table></section>');
+    const out = focus.applyToHtml('<section data-focus="cell 2,3" class="table"><table><tbody><tr><td>1</td><td>2</td><td>3</td></tr><tr><td>4</td><td>5</td><td>6</td></tr></tbody></table></section>');
     assert.equal((out.match(/lat-focus/g) || []).length, 1);
     assert.match(out, /<td class="lat-focus">6/);
     assert.match(out, /data-focus-axis="cell"/);
@@ -106,7 +106,7 @@ describe('focus — HTML kernel (applyToHtml)', () => {
 
 describe('focus — DOM kernel (applyToDom) agrees with the HTML kernel', () => {
   test('tags rows and stamps attrs on the live DOM', () => {
-    const dom = new JSDOM('<section data-focus="row 2" class="compare-table"><table><tbody><tr><td>r1</td></tr><tr><td>r2</td></tr><tr><td>r3</td></tr></tbody></table></section>');
+    const dom = new JSDOM('<section data-focus="row 2" class="table"><table><tbody><tr><td>r1</td></tr><tr><td>r2</td></tr><tr><td>r3</td></tr></tbody></table></section>');
     focus.applyToDom(dom.window.document.body);
     const sec = dom.window.document.querySelector('section');
     const rows = [...dom.window.document.querySelectorAll('tbody tr')];

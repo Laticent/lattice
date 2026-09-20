@@ -451,11 +451,11 @@ describe('core: carousel — cover-paginate (dense lists / legal batch)', () => 
   });
 });
 
-describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () => {
-  // The engine renders compare-table as <h2> + a <table> (thead/tbody). In a portrait box the
+describe('core: carousel — cover-cards (table portrait RESHAPE)', () => {
+  // The engine renders table as <h2> + a <table> (thead/tbody). In a portrait box the
   // table can't paginate out of horizontal overflow, so cover-cards TRANSPOSES each row to a
   // card (column headers → field labels) and cover-paginates the cards.
-  const ctTag = '<section id="s1" class="content compare-table form" data-lattice-slide="1">';
+  const ctTag = '<section id="s1" class="content table form" data-lattice-slide="1">';
   const ctInner =
     '<header>H</header>' +
     '<h2>Build versus buy versus delay.</h2>' +
@@ -468,7 +468,7 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
     '</tbody></table>' +
     '<footer>F</footer>';
   const ctRecipe = { strategy: 'cover-cards', axis: 'row', perPage: 2, intro: 'The full comparison' };
-  const parts = carouselize(ctTag, ctInner, ctRecipe, 2, 'compare-table');
+  const parts = carouselize(ctTag, ctInner, ctRecipe, 2, 'table');
 
   test('emits an accent cover → card pages (perPage groups the rows)', () => {
     assert.equal(parts.length, 3); // 4 rows, perPage 2 → cover + 2 card pages
@@ -476,8 +476,8 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
     assert.ok(parts.slice(1).every((p) => /lat-split-cards/.test(p)));
   });
 
-  test('the cover carries the compare-table tell marker + heading + intro lead', () => {
-    assert.match(parts[0], /split-cover-compare-table/);
+  test('the cover carries the table tell marker + heading + intro lead', () => {
+    assert.match(parts[0], /split-cover-table/);
     assert.match(parts[0], /split-feat-h">Build versus buy versus delay\./);
     assert.match(parts[0], /split-cover-lead">The full comparison/);
   });
@@ -507,7 +507,7 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
 
   test('a table with <2 rows → null, left for the ring', () => {
     const one = '<h2>X</h2><table><thead><tr><th></th><th>A</th></tr></thead><tbody><tr><td>r</td><td>v</td></tr></tbody></table>';
-    assert.equal(carouselize(ctTag, one, ctRecipe, 2, 'compare-table'), null);
+    assert.equal(carouselize(ctTag, one, ctRecipe, 2, 'table'), null);
   });
 
   // A trailing key-insight / below-note used to vanish entirely: cover-cards built its
@@ -520,7 +520,7 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
     '</table><blockquote><p>Build only wins if we actually staff it.</p></blockquote>' +
       '<div class="below-note"><p>Source: procurement review.</p></div>',
   );
-  const trailingParts = carouselize(ctTag, ctWithTrailing, ctRecipe, 2, 'compare-table');
+  const trailingParts = carouselize(ctTag, ctWithTrailing, ctRecipe, 2, 'table');
 
   // `cover-cards` re-authors its own body from a transposed table, so it never goes through
   // `splitEnvelope` — which is why it kept the retired 2026-07-26 placement (note on the last
@@ -547,7 +547,7 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
   // looking at the re-rendered demo deck.
   test('card pages are BALANCED against the density ceiling, not greedily chunked (no runt page)', () => {
     const per3 = { ...ctRecipe, perPage: 3 };
-    const parts3 = carouselize(ctTag, ctInner, per3, 2, 'compare-table');
+    const parts3 = carouselize(ctTag, ctInner, per3, 2, 'table');
     const cardPages = parts3.slice(1);
     assert.equal(cardPages.length, 2, '4 rows at a ceiling of 3 → 2 balanced pages, not 3+1');
     const counts = cardPages.map((p) => (p.match(/class="ct-card"/g) || []).length);
@@ -558,7 +558,7 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
 
   test('a note with NO insight still earns the closing page — trailing material is trailing material', () => {
     const noteOnly = ctInner.replace('</table>', '</table><div class="below-note"><p>Source only.</p></div>');
-    const parts2 = carouselize(ctTag, noteOnly, ctRecipe, 2, 'compare-table');
+    const parts2 = carouselize(ctTag, noteOnly, ctRecipe, 2, 'table');
     assert.equal(parts2.length, 4); // cover + 2 card pages + closing
     assert.match(parts2.at(-1), /lat-split-closing/);
     assert.match(parts2.at(-1), /Source only\./);
@@ -904,7 +904,7 @@ const ssTag = '<section data-lattice-slide="1" id="s1" class="statute-stack form
 const ssInner = '<h2>Statutes</h2><ul>' +
   ['A', 'B', 'C', 'D'].map((k) => `<li><strong>${k}</strong><ul><li>body ${k}</li></ul></li>`).join('') +
   '</ul>';
-const ctTag = '<section id="s1" class="content compare-table form" data-lattice-slide="1">';
+const ctTag = '<section id="s1" class="content table form" data-lattice-slide="1">';
 const ctInner = '<h2>Build versus buy.</h2>' +
   '<table><thead><tr><th></th><th>Build</th><th>Buy</th></tr></thead><tbody>' +
   '<tr><td>Cost</td><td>high</td><td>low</td></tr>' +

@@ -37,7 +37,7 @@ Five steps.
 | Token | cqi | pt | Role |
 |---|---|---|---|
 | `--fs-meta` | 1.17 | 11.25 | Chrome only — pagination, footer, eyebrow labels, micro-captions, pills. |
-| `--fs-body-compact` | 1.40 | 13.5 | **Dense reference cells** — table cells, glossary definitions, grid-quadrant prose (list-tabular, glossary, compare-table, matrix-2x2, verdict-grid, obligation-matrix, actors) **and every plain markdown table**, via the base layer's universal table treatment (`base.elements.css` § UNIVERSAL TABLE). Scanned, not read linearly; packs many cells in a fixed box, so it sits one step below the default body. |
+| `--fs-body-compact` | 1.40 | 13.5 | **Dense reference cells** — table cells, glossary definitions, grid-quadrant prose (list-tabular, glossary, table, matrix-2x2, verdict-grid, obligation-matrix, actors) **and every plain markdown table**, via the base layer's universal table treatment (`base.elements.css` § UNIVERSAL TABLE). Scanned, not read linearly; packs many cells in a fixed box, so it sits one step below the default body. |
 | `--fs-body` | 1.67 | 16 | **Default container body.** Cards, lists, inline prose, list-item bodies. The cascade default (`section { font-size }`). |
 | `--fs-message` | 2.1875 | 21 | **Slide-level statement body.** Paragraphs in statement / quote / divider / centered layouts. Anything author-written for "this is the slide's message." **NOT `content`** — it left this tier for `--fs-body` (#1292): as the DEFAULT layout it has to sit correctly beside a Key Insight and a below-note, both of which are body-tier, and at this tier the distillation rendered 24% smaller than what it distills. |
 | `--fs-emphasis` | 3.125 | 30 | Lead paragraph, key-insight callout, step-forward block. *One* block per slide that should read first. |
@@ -97,7 +97,7 @@ mechanism: `engineering/decisions/2026-06-20-typography-categories.md`.
 > default — most container content needs no override.
 >
 > **Dense table / grid cell**: `--fs-body-compact` (13.5 pt). Wired into
-> the table/grid component CSS (list-tabular, glossary, compare-table,
+> the table/grid component CSS (list-tabular, glossary, table,
 > matrix-2x2, verdict-grid, obligation-matrix, actors). Authors don't
 > pick it; the component does, because those surfaces pack many cells
 > in a fixed box.

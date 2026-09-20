@@ -27,14 +27,14 @@ A `td` hairline between rows is a separator. The same hairline under the last ro
 | ------- | --------------- | --: | --: |
 | obligation-matrix | below-note hairline | 25.0px | 133.7px |
 | statute-stack lane | below-note hairline | 25.5px | 135.2px |
-| compare-table | below-note hairline | 25.5px | 133.5px |
+| `table` at `table-fill` | below-note hairline | 25.5px | 133.5px |
 | plain table, filling the stage | below-note hairline | 25.5px | 133.5px |
 
 Measured in Chromium at design size. Two rules that close with nothing between them read as one thick line.
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table table-fill -->
 
 ## A comparison table ends on its last row.
 
@@ -45,7 +45,7 @@ Measured in Chromium at design size. Two rules that close with nothing between t
 | Calibration | None | Vendor-set | Ours to tune |
 | Running cost | Lowest | Per seat | Staff time |
 
-The table fills the stage, so its last row sits closest to this note — the case the change was made for.
+`table-fill` makes the table take the whole stage, so its last row sits closest to this note — the case the change was made for. (The default hugs its rows and centers, which moves the last row away from the note and out of the collision.)
 
 ---
 

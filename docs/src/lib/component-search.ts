@@ -132,7 +132,7 @@ export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, 
 	// pre-change 90.9%, and people type hyphenated names with spaces.
 	//
 	// The bar is set where Fuse's own score separates the two populations, measured rather
-	// than guessed: a misspelled NAME scores 0.33–0.44 (`compare tabel` → compare-table
+	// than guessed: a misspelled NAME scores 0.33–0.44 (`compare tabel` → table
 	// 0.357, `cards gid` → cards-grid 0.437), while a described INTENT either returns
 	// nothing at all ("who owns what on the team") or scores past 0.9 ("a bulleted list" →
 	// list 0.972). 0.5 sits in the empty middle. One search, reused below — running Fuse

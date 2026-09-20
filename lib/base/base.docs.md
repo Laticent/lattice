@@ -615,7 +615,10 @@ is just the author-facing spelling.
 | `table-fill` | `--table-grow: 1` (+ `--table-valign: middle`) | The table takes the leftover stage height and its rows spread to use it, centered in their band. |
 
 They are independent, not an axis — `table-plain table-fill` is a legitimate
-pair. Neither reaches a component that owns its own table.
+pair. Neither reaches a component that owns its own table. The `table`
+component is not one of those: it styles no table element, so both switches
+work on it, and `table-fill` is how you ask a `table` slide for the filling,
+band-reading geometry instead of its hug-and-center default.
 
 ```markdown
 <!-- _class: table-plain table-fill -->
@@ -637,7 +640,7 @@ DISTINCT shape, not just a distinct hue — still parses in grayscale and for a
 color-blind reader.
 
 ```markdown
-<!-- _class: compare-table state-cells -->
+<!-- _class: table state-cells -->
 
 ## Where each tool actually lands.
 
@@ -663,17 +666,36 @@ table, and it only reaches the slide body's own top level:
 
 | Not treated | Why |
 | --- | --- |
-| `compare-table` · `glossary` · `obligation-matrix` · `roadmap` · `matrix-grid` | the component styles its own table |
+| `glossary` · `obligation-matrix` · `roadmap` · `matrix-grid` | the component styles its own table |
 | `math derivation` · `statute-stack lane` | same, but only under that variant — a bare `math` or `statute-stack` slide DOES get the treatment |
 | a table inside `split-panel`, `split-compare`, `compare-code` or `image` | it lands in a side frame, not the slide body's top level |
 | a table a chart transform generated | it is wrapped in a `<figure>`, and belongs to the chart |
 
-Reach for one of the owning components when the table IS the slide — they carry
-row capacity, autosplit and the portrait card reshape that a plain table does
-not. The universal treatment is for a table that *supports* prose.
+**Reach for `<!-- _class: table -->` when the table IS the slide.** It is this
+same treatment — it adds no table CSS at all — plus the things a manifest can
+declare and a bare table cannot: a row capacity budget, autosplit, the portrait
+card reshape, the `row`/`col`/`cell` focus axes, and the first-column row-label
+switch. The bare universal treatment is for a table that *supports* prose.
 
-`checkUniversalTableGuard` fails the build if that list and the engine's CSS
-ever disagree, in either direction and at variant granularity.
+### A third switch that is not a class — `row-label`
+
+The first column of a `table` slide reads as a row label — 600 weight, heading
+ink — when it actually is one. `lib/core/table-row-label.js` decides per table,
+and it turns the emphasis OFF on the four shapes where the bet is wrong: a
+single-column table, an index header (`#`, `No.`, `Ref`), an all-numeric first
+column, and a column of bare state markers.
+
+Overrule it either way with `row-label` / `no-row-label`, which also work on a
+plain table — `row-label` is how a table outside the component opts in. The
+explicit tokens always beat the measurement, and `no-row-label` wins a slide
+carrying both.
+
+`checkUniversalTableGuard` fails the build if the engine's CSS deny list and the
+components that actually style a `<table>` ever disagree, in either direction and
+at variant granularity. **It does not read this markdown table** — it reads
+`base.elements.css` and the component manifests — so the list above is
+hand-maintained and can rot silently. Check it by eye when a component starts or
+stops owning its table.
 
 A short paragraph directly after a table **is** promoted to a Below-Note (see
 above), on `content` and on an un-classed slide alike — so a source line or a
@@ -855,7 +877,7 @@ an offset "ink" stroke, and a fractional per-card tilt on the multi-card
 grids. The same hand treatment reaches **every other structure that draws
 its own lines**, and the LINES among them are real
 [rough.js](https://roughjs.com) strokes rather than bent CSS: table frames +
-row rules (`compare-table`, `glossary`, `obligation-matrix`, `list-tabular`),
+row rules (`table`, `glossary`, `obligation-matrix`, `list-tabular`),
 the `list.principles` rules, the `<hr>` divider, an agenda ledger's active
 row, and — in place of a bespoke heading underline — the **masthead↔stage
 divider** every Form slide already draws. Boxed blockquotes (`quote`,
@@ -1121,7 +1143,7 @@ and identical in PDF, PPTX, and HTML (the dim/ring survives because PPTX
 rasterises the rendered slide).
 
 ```markdown
-<!-- _class: compare-table -->
+<!-- _class: table -->
 <!-- _focus: row 4 -->        <!-- a table body row -->
 
 <!-- _focus: col 5 -->        <!-- a column -->

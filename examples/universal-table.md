@@ -12,7 +12,7 @@ meta: "Universal table · base layer"
 
 # Universal table
 
-A plain GFM pipe table used to render at raw browser defaults on every slide that was not one of the seven table-owning components. It now inherits a house treatment from the base layer — palette-blind, and standing off every component that styles its own table.
+A plain GFM pipe table used to render at raw browser defaults on every slide that was not one of the table-owning components. It now inherits a house treatment from the base layer — palette-blind, and standing off the six components that still style their own table.
 
 ---
 
@@ -80,13 +80,15 @@ Markdown's `:---`, `:---:` and `---:` alignment survives untouched — the treat
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 
-`Standing off`
+`Riding it`
 
-## A specialist is untouched
+## The `table` component IS this treatment
 
-A component that styles `<table>` owns its tables, and base stands off. Seven do — and two of them only under a variant, so a bare `math` or `statute-stack` slide still gets the default.
+`table` styles no `<table>` element of its own — it rides the rules above and adds
+what only a manifest can declare: a row capacity, autosplit, the portrait card
+reshape, and the focus axes. That is why the switches reach it.
 
 | Dimension | Owned engine | Marp |
 | --- | --- | --- |
@@ -94,13 +96,15 @@ A component that styles `<table>` owns its tables, and base stands off. Seven do
 | Overflow | Fit Spine | none |
 | Themes | 32 | 3 |
 
-*Byte-identical to how this slide rendered before the change.*
+*Same rules as the un-classed slide above — plus a contract.*
 
 ---
 
 <!-- _class: glossary -->
 
-## Also untouched — `glossary`
+`Standing off`
+
+## A specialist IS untouched — `glossary`
 
 | Term | Meaning |
 | --- | --- |

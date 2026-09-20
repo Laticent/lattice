@@ -188,9 +188,9 @@ section blockquote { margin:0; padding:0; border:none; }
  * no class at all got nothing. This is that missing default.
  *
  * The vocabulary is the one the specialists already agree on, so a plain table
- * reads as the same family as a `compare-table`: the `--spectrum-structure`
- * thead underline (unanimous across compare-table / glossary /
- * obligation-matrix / statute-stack), label-cased column heads at `--fs-meta`,
+ * reads as the same family as every specialist: the `--spectrum-structure`
+ * thead underline (unanimous across glossary / obligation-matrix /
+ * statute-stack), label-cased column heads at `--fs-meta`,
  * `--border` hairlines under each row, `--fs-body-compact` cells (the type
  * contract's "dense reference cell" tier), and a low-alpha accent zebra.
  *
@@ -204,11 +204,15 @@ section blockquote { margin:0; padding:0; border:none; }
  *    child keeps every generated table out for free — including a future chart
  *    that follows the same wrap.
  *
- * 2. A DENY GUARD for the seven components that style `<table>` themselves.
+ * 2. A DENY GUARD for the six components that style `<table>` themselves. (Six,
+ *    not seven: the `table` component was removed from this list when it stopped
+ *    owning table CSS — it styles no table element, so it rides this treatment
+ *    rather than competing with it, and every switch below reaches it.
+ *    engineering/decisions/2026-09-20-table-component.md.)
  *    Specificity alone is NOT enough here, for two separate reasons.
  *
  *    (a) A component rule outranks a base element rule only for the properties it
- *        actually DECLARES. compare-table, math.derivation and statute-stack.lane
+ *        actually DECLARES. glossary, math.derivation and statute-stack.lane
  *        declare no zebra, so a universal `tbody tr:nth-child(odd)` background
  *        would land on them unopposed; math.derivation puts its row rule on
  *        `tbody tr` and not on `td`, so a universal `td { border-bottom }` would
@@ -258,22 +262,23 @@ section blockquote { margin:0; padding:0; border:none; }
  * spends: the threshold is 12 rows, one better than before this block existed.
  * Re-measure with the same rig if you touch either value.
  * See engineering/decisions/2026-08-02-default-slide-layout.md §4. */
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table,
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
   width:100%; table-layout:auto; border-collapse:collapse;
   font-size:var(--fs-body-compact); line-height:var(--lh-snug);
   /* Vertical fill is a TOGGLE, off by default (`flex:0 1 auto` is a flex item's
    * own default, so this declaration changes nothing until --table-grow is set).
-   * On, the table takes the leftover stage height and its rows spread to use it —
-   * compare-table's behavior, now available to a plain table. */
+   * On, the table takes the leftover stage height and its rows spread to use it.
+   * `table-fill` pairs it with `--table-valign: middle`, because a stretched row
+   * with its text pinned to the top reads as a gap rather than as a band. */
   flex:var(--table-grow, 0) 1 auto;
 }
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead tr,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead tr {
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead tr,
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead tr {
   background:var(--spectrum-structure) bottom / 100% 2px no-repeat;
 }
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead th,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead th {
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead th,
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead th {
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600;
   letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label);
   padding:var(--sp-xs) var(--sp-sm); text-align:left;
@@ -284,12 +289,12 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
  * The wash is a TOKEN, not a literal, so it is switchable from CSS at any level a
  * custom property reaches: a theme's `:root`, a deck's `style:` block, a slide.
  * `table-plain` sets it transparent; see base.variants.css. */
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table tbody tr:nth-child(odd),
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table tbody tr:nth-child(odd) {
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table tbody tr:nth-child(odd),
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table tbody tr:nth-child(odd) {
   background:var(--table-zebra, color-mix(in srgb, var(--accent) 4%, transparent));
 }
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table td,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td {
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table td,
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td {
   padding:calc(var(--sp-xs) * 0.5) var(--sp-sm); border-bottom:1px solid var(--border);
   color:var(--text-body); vertical-align:var(--table-valign, top);
   word-wrap:break-word; overflow-wrap:break-word;
@@ -336,10 +341,10 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
  * Carries the full deny guard like every rule in this block — a rule that drops an entry
  * is unguarded for the property it sets (`checkUniversalTableGuard`).
  * See engineering/decisions/2026-09-03-table-outer-edge-rules.md. */
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table > tfoot > tr:last-child > td,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table > tfoot > tr:last-child > td {
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table > tfoot > tr:last-child > td,
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table > tfoot > tr:last-child > td {
   border-bottom:none;
 }
 /* COLUMN ALIGNMENT IS THE AUTHOR'S, ALWAYS. markdown-it compiles `:---` / `:---:` /
@@ -348,12 +353,33 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
  * `text-align` above is on `thead th`, and it only replaces the browser's centered
  * default for a column the author left unaligned; the moment they write an
  * alignment marker, their inline style wins on the header too. */
-/* NO first-column emphasis here, deliberately. compare-table and
- * obligation-matrix both give `td:first-child` heading ink and 600 weight, and it
- * is right for them: their manifests declare the first column IS the row label.
- * Base cannot make that bet. It would set the identical property pair as
- * `section strong` above, so `**bold**` in column one becomes a no-op and an
- * author has no way to opt out; and it is simply wrong on a leading ordinal
- * (`| # | Finding |`), a status tick, a citation index, or a single-column table
- * — where every cell would render bold. A component that knows its first column
- * is a label says so itself. */
+/* FIRST-COLUMN EMPHASIS IS A SWITCH, OFF BY DEFAULT — and the default is the
+ * load-bearing half. Base still cannot make the bet on its own: setting weight
+ * and heading ink on `td:first-child` is the identical property pair as
+ * `section strong` above, so `**bold**` in column one would become a no-op with
+ * no way out; and it is simply wrong on a leading ordinal (`| # | Finding |`), a
+ * status tick, a citation index, or a single-column table — where every cell
+ * would render bold. So the two properties below resolve to `inherit` and this
+ * declaration changes nothing until something sets them.
+ *
+ * What CAN set them is a component that knows its first column is a label. The
+ * `table` component does, per table rather than per component — its transform
+ * (lib/core/table-row-label.js) reads the actual header cell and column and
+ * turns the bet OFF on exactly the four shapes above, and `row-label` /
+ * `no-row-label` let the author overrule it either way. `obligation-matrix`
+ * still declares it directly in its own CSS, as its manifest always has.
+ *
+ * Written as a property pair rather than a class so it reaches CSS at every
+ * level — a theme's `:root`, a deck's `style:` block, a slide — exactly like
+ * `--table-zebra` / `--table-grow` / `--table-valign` above.
+ * See engineering/decisions/2026-09-20-table-component.md. */
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table td:first-child,
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td:first-child {
+  font-weight:var(--table-label-weight, inherit);
+  /* The fallback restates the `td` rule's own `--text-body` rather than
+   * `inherit`. This rule sits AFTER that one at equal specificity, so it wins —
+   * and `inherit` on a `td` walks to `tr`, which sets no color, so the resolved
+   * value would depend on whatever the section happens to carry. Restating the
+   * token keeps an unset switch byte-identical to no rule at all. */
+  color:var(--table-label-ink, var(--text-body));
+}

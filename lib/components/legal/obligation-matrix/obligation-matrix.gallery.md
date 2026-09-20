@@ -188,7 +188,7 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 ## When NOT to reach for obligation-matrix.
 
 - Two regimes only
-  - Past one row vs another the grid loses its purpose. Use `compare-prose` or `compare-table` for two-regime comparisons.
+  - Past one row vs another the grid loses its purpose. Use `compare-prose` or `table` for two-regime comparisons.
 - Mixed cell content
   - Don't mix state markers with prose values in the same matrix — the cell width has to grow to fit prose and the marker grid collapses. Pick one cell type.
 - Missing legend
@@ -202,7 +202,7 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 
 `Related components`
 
-- `compare-table` — cells are textual values, not state markers
+- `table` — cells are textual values, not state markers
 - `verdict-grid` — options scored against criteria with a per-card layout instead of a table
 - `matrix-2x2` — two axes, four cells, qualitative placement
 - `checklist` — one set of obligations against one regime, not many

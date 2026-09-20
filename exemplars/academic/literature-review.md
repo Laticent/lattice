@@ -70,7 +70,7 @@ The albedo era proved reflective roofs cut surface temperatures sharply and chea
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: table -->
 <!-- tier: short -->
 
 ## Four mitigation families, compared on what the evidence shows.

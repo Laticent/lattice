@@ -2082,7 +2082,7 @@ const CAROUSEL_NAMES = Object.keys(SPLIT_CAP).filter((n) => SPLIT_CAP[n].split);
 // (cover-paginate & friends: rows/items divided, the read-across columns repeating on every
 // page). Only the former can fix HORIZONTAL overflow; row/item pagination never narrows a
 // wide table. So a vertical paginator is marked splittable on VERTICAL overflow ONLY — a
-// too-wide table (compare-table, obligation-matrix) falls to the ring instead of being
+// too-wide table (table, obligation-matrix) falls to the ring instead of being
 // row-split futilely, which would balloon the deck pass after pass (#499/#500). The
 // width-reducing strategies keep the any-overflow behavior they need. See the-fit-spine.md §3.
 const WIDTH_REDUCING_STRATEGIES = new Set(['cover-code', 'cover-sides', 'cover-cards']);

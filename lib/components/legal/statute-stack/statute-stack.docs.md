@@ -159,7 +159,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 - [`list-tabular`](../../inventory/list-tabular/list-tabular.docs.md) — the rows are citation-only references, no obligation prose
 - [`obligation-matrix`](../../legal/obligation-matrix/obligation-matrix.docs.md) — obligations cross-tab against actors or controls
 - [`authority-chain`](../../legal/authority-chain/authority-chain.docs.md) — the rows are a delegation lineage, not parallel jurisdictions
-- [`compare-table`](../../comparison/compare-table/compare-table.docs.md) — the comparison is across criteria, not jurisdictions
+- [`table`](../../comparison/table/table.docs.md) — the comparison is across criteria, not jurisdictions
 
 ## Demo deck
 
