@@ -1465,7 +1465,18 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// `block` demotes the item out of `display:list-item` — the bullet vanishes and an
 	// `<ol>` stops incrementing. Found by two independent reviews; see
 	// `engineering/decisions/2026-09-07-overflow-guards-trim.md`.
-	assert.equal(sha, 'd84d18b6c4bcf68977a406b46c034d15c178388c07cf7f2cafd4925a0dd23143', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED — setView now mirrors the CSS view-hide onto the inactive pane's HIDDEN
+	// ATTRIBUTE, so a text extractor stops reading the deck twice. The player ships the deck
+	// in two places at once (the slide stack in #lp-stage, the prose article in #lp-doc) and
+	// Readability's visibility check never consults COMPUTED style, so both were extracted
+	// whichever view was open: measured 2255 words for a 1080-word deck, every sentence
+	// duplicated. Diffed the assembled golden before and after — EXACTLY TWO hunks move, and
+	// the second is forced by the first: 14 lines enter the inline script, and the CSP
+	// `script-src` sha256 is derived from that script text. No markup, CSS, attribute, block
+	// order or shipped-DOM change. Verified on the real artifact in Chromium across all three
+	// views: extraction drops to 1080/1080/1040 words with no duplication, the reader-mode
+	// gate still passes in every view, and the screenshots are pixel-identical before/after.
+	assert.equal(sha, 'decdc7f71ca572799256bc6029867bd98a45449d03ce1fa8a50a785752df7d03', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
