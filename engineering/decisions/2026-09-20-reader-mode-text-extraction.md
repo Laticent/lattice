@@ -132,6 +132,46 @@ and without the flag and comparing PDF checksums, which match. That ordering is 
 in the source, so it is pinned by `test/integration/invariants/read-export.test.js`
 rather than left to a comment.
 
+## The two paths, and why one of them nearly ate this change
+
+**An extractor reaches a document two different ways, and they disagree about JavaScript.**
+This was found late, by installing a real Firefox rather than trusting the library, and it
+falsified a claim this note had already made.
+
+- **Firefox for iOS readerizes the LIVE DOM.** It calls `readerize()` inside the webview
+  (`webView.evaluateJavaScript`), so whatever the page's own scripts have done to the DOM
+  is what it sees. This is the path shake-to-summarize takes.
+- **Firefox on the desktop RE-FETCHES.** `about:reader?url=` issues a fresh request and
+  parses the server HTML with **no scripts run at all.**
+
+Measured against Firefox 142 with a purpose-built probe page: a paragraph added by page JS
+**never appears** in the reader, and a `hidden` attribute set by page JS is **ignored
+outright** — the element is extracted as if unmarked.
+
+**What that cost.** The player fix above originally set `hidden` only from `setView`, i.e.
+only from JavaScript. On the live-DOM path it worked, measured. On the re-fetch path it did
+nothing, and the player still handed the reader both copies: **2291 words for a 1080-word
+deck** in a real Firefox — exactly the defect the fix claimed to have removed. Every
+measurement behind that claim had been taken in Chromium against the library, which is the
+live-DOM path, so nothing in the original evidence could have caught it.
+
+**The fix, and the tradeoff it forces.** `#lp-doc` now ships carrying `hidden`, and
+`setView` maintains it. That reads 1099 words, single copy, on the re-fetch path. It has to
+be `#lp-doc` and not `#lp-stage`: the no-JS floor needs the slides laid out when no script
+runs, so the stack can never ship hidden. The cost is that a re-fetching reader always gets
+the SLIDES rather than the richer article — one copy of a partial deck, which beats two
+copies of a whole one. A live-DOM reader still gets whichever view is open.
+
+**`--read` is the only one of the three that is unconditional.** Its article is the single
+copy in the static markup with no JavaScript involved, so both paths agree: Firefox's own
+reader rendered it at 1057 words. **The Studio view is inherently live-DOM only** — it is a
+client-rendered app, so a re-fetching reader sees the pre-paint shell and no prose. That is
+not a defect to fix; it is what a single-page app is.
+
+The lesson worth keeping: *running the library Firefox uses is not the same as running
+Firefox.* The library was right about eligibility and silent about which DOM it would be
+handed.
+
 ## What is not resolved
 
 - **No device verification.** Every claim here is measured against the real Readability

@@ -123,16 +123,41 @@ describe('exported player — one extractable copy of the deck per view', () => 
     if (dir) fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  // The SHIPPED markup carries no `hidden` on either pane. That is the no-JS floor: with
-  // scripting off nothing runs `setView`, and playerCss lays every slide out in a column.
-  // A `hidden` baked into the file would blank that fallback.
-  test('the shipped file marks neither pane hidden (the no-JS floor)', { timeout: 900000 }, () => {
+  // THE SHIPPED MARKUP IS ASYMMETRIC, and each half is load-bearing for a different
+  // reader. An extractor reaches this file by one of two paths and they disagree about
+  // JavaScript: Firefox for iOS readerizes the LIVE DOM (it calls readerize() inside the
+  // webview), while Firefox on the desktop reaches about:reader?url= by RE-FETCHING the
+  // URL and parsing the server HTML with no scripts run at all — measured in a real
+  // Firefox, a paragraph added by page JS never appears and a `hidden` set by page JS is
+  // ignored.
+  //
+  //   #lp-doc SHIPS hidden     — the re-fetching reader never runs setView, so without it
+  //                              that reader extracts the slide stack AND the article and
+  //                              summarizes the deck twice: measured 2291 words for a
+  //                              1080-word deck, down to 1099 with the attribute.
+  //   #lp-stage NEVER ships it — the NO-JS FLOOR. With scripting off nothing runs setView
+  //                              and playerCss lays every slide out in a column; a hidden
+  //                              stack would blank the file.
+  //
+  // The two pull in opposite directions, so asserting one half would let the other
+  // regress silently. Both are pinned.
+  test('the shipped markup hides the article but never the slides', { timeout: 900000 }, () => {
     const html = fs.readFileSync(playerPath, 'utf8');
-    for (const id of ['lp-stage', 'lp-doc']) {
+    const tagOf = (id) => {
       const tag = html.match(new RegExp(`<div id="${id}"[^>]*>`));
       assert.ok(tag, `expected a <div id="${id}"> in the shipped player`);
-      assert.doesNotMatch(tag[0], /\bhidden\b/, `${id} must not ship pre-hidden — it would blank the no-JS floor`);
-    }
+      return tag[0];
+    };
+    assert.match(
+      tagOf('lp-doc'),
+      /\bhidden\b/,
+      'lp-doc must ship hidden — a re-fetching reader never runs setView and would extract the deck twice',
+    );
+    assert.doesNotMatch(
+      tagOf('lp-stage'),
+      /\bhidden\b/,
+      'lp-stage must not ship pre-hidden — it would blank the no-JS floor',
+    );
   });
 
   for (const { view, shows, hides } of VIEWS) {

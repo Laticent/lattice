@@ -1476,7 +1476,24 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// order or shipped-DOM change. Verified on the real artifact in Chromium across all three
 	// views: extraction drops to 1080/1080/1040 words with no duplication, the reader-mode
 	// gate still passes in every view, and the screenshots are pixel-identical before/after.
-	assert.equal(sha, 'decdc7f71ca572799256bc6029867bd98a45449d03ce1fa8a50a785752df7d03', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED AGAIN, same branch, because driving a REAL Firefox contradicted the note
+	// above. `#lp-doc` now ships with the `hidden` ATTRIBUTE in the markup rather than
+	// getting it from setView alone. A reader-mode extractor reaches this file by one of two
+	// paths and they disagree about JavaScript: Firefox for iOS readerizes the LIVE DOM (it
+	// calls readerize() inside the webview), but Firefox on the desktop reaches
+	// about:reader?url= by RE-FETCHING the URL and parsing the server HTML with NO SCRIPTS
+	// RUN. Measured against Firefox 142 with a purpose-built probe page: a paragraph added by
+	// page JS never appears in the reader, and a `hidden` attribute set by page JS is ignored
+	// outright. So on that path nothing setView does is visible, and this player still handed
+	// the reader both copies of the deck — 2291 words for a 1080-word deck, exactly the
+	// duplication the previous commit claimed to have fixed. With the attribute shipped it
+	// reads 1099, single copy.
+	// #lp-doc and not #lp-stage is forced: the no-JS floor needs the slides laid out when no
+	// script runs, so the stack can never ship hidden. Verified in Firefox with scripting
+	// disabled — 16 of 16 slides still visible, #lp-stage display:flex. Visually a no-op:
+	// screenshots of all three views are pixel-identical to the pre-change build, and the
+	// default view is present, where the CSS already set #lp-doc to display:none.
+	assert.equal(sha, 'f6eb8ba78cc573e06f4bbbb5fe1d3ea8ddc977eb246f6d122088bd9ff0ac57a1', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
