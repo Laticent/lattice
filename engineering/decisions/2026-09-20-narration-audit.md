@@ -411,11 +411,22 @@ the VOICE is the language, and what was missing was anyone noticing they disagre
 **A maker-checker pass ran on the fixes themselves** and blocked the first merge ask. It found
 two regressions this branch had introduced onto shipped decks — a hyphenated legal citation
 renumbered by the new range rule (`§22-1201` → "section twenty-two to one thousand two hundred
-one", on six decks) and an all-digit hex color read as a rank (`#000000` → "number zero"). Both
+one", on seven decks) and an all-digit hex color read as a rank (`#000000` → "number zero"). Both
 are the defect class this audit is about: narration stating a fact the slide does not show. It
 also mutation-proved two of my own tests unfalsifiable, and found four comments and three
 changelog lines asserting things the code did not do. All fixed; the record of what it caught
 is in the PR.
+
+**Found while fixing the transitions, NOT fixed here — a state-chart's LABELS leak their pills.**
+The transition pills are clean now; the state labels beside them are not. On
+`examples/state-chart-tint.md` the terminal sentence reads *"It ends at Accepted `done`:::state-pass-hue
+and Refused `end`:::state-fail-hue"*, and a label carrying an authored line break reads
+*"needs<br/>second review"*. Both are on `main` — `parseStateLead` and
+`narrateStateChartInference` are untouched by this branch, verified against the diff — so this is
+a pre-existing defect found off the path of the change, which #18 says to log rather than pull
+into the diff. It is the same class as everything else here: a pill that is a style hook, or
+markup, reaching the voice as glyphs. Worth noting that the fix above makes it *more* audible,
+because the transitions around it are now clean.
 
 **Still open, and deliberately:** the abbreviation over-split in `segment.ts` (Finding 3), the
 remaining nine token passthroughs (a slash means four different things; guessing is worse than

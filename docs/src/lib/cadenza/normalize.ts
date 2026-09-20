@@ -146,15 +146,8 @@ export function numberToWords(value: number): string {
     // `toFixed(0)` is itself exponential at or above 1e21 (ECMA-262), so it fed the fallback
     // "1e+21" and the digit map spoke the exponent's LETTERS: "one e + two one". BigInt renders
     // the integer in full, which is the thing being read out.
-    else {
-      let digits: string;
-      try {
-        digits = BigInt(abs).toString();
-      } catch {
-        digits = abs.toFixed(0); // not an exact integer — nothing better to say than its own text
-      }
-      return (neg ? 'negative ' : '') + digits.split('').map((d) => ONES[Number(d)] ?? d).join(' ');
-    }
+    // Every double at or above 1e21 is integer-valued, so `BigInt` is total here — no guard.
+    else return (neg ? 'negative ' : '') + BigInt(abs).toString().split('').map((d) => ONES[Number(d)] ?? d).join(' ');
   }
   const [intPart, decPart] = asString.split('.');
   let out = integerToWords(Number(intPart));
@@ -353,7 +346,13 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // `×` alternative in that rule's own character class dead code — and cost it the singular
   // agreement it exists to provide: `1x` read "one time" while `1×` read "one times", two
   // spellings an author treats as identical reading two different ways.
-  const multCore = core.replace(/^([\d,]+(?:\.\d+)?)\s*×$/, '$1x');
+  // Also normalizes a RANGE's trailing `×` ("2-3×"), for the same reason and with the same
+  // consequence if missed: `resolveSymbols` rewrites the glyph to the word "times" before
+  // `spokenCore` runs, so the range rule's `×` alternative is dead code too, and `2-3x` read as
+  // a range while `2-3×` did not — two spellings an author treats as identical, reading two ways.
+  const multCore = core
+    .replace(/^([\d,]+(?:\.\d+)?)\s*×$/, '$1x')
+    .replace(/^([\d,]+(?:\.\d+)?\s*[–—-]\s*[\d,]+(?:\.\d+)?)\s*×$/, '$1x');
   if (multCore !== core) return spokenCore(multCore, domains, acronyms, english) + spokenPunct;
 
   // Speech Symbol Commons — arrows, math operators, typographic marks, emoji. One glyph pass
@@ -536,12 +535,17 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
   // `#123456` as "number one hundred twenty-three thousand four hundred fifty-six". It took two
   // changes in one PR to surface: slide-speech.js stopped stripping a mid-sentence `#` (correctly
   // — it was eating real text), and this rule then claimed what arrived. So the two hex LENGTHS
-  // are refused: exactly three or exactly six digits is a color far more often than a rank, and a
-  // deck that means issue #123 is better served by silence than by a wrong reading of a color.
+  // is refused. SIX digits, and only six: a census of every all-digit `#` token in this tree
+  // (examples/, baseline decks, every component gallery) splits perfectly by length — the
+  // 6-digit ones are all colors (`#000000`, `#037829`, on two decks), the 3-digit ones are all
+  // ISSUE REFERENCES (`#690`, `#681`, `#527`), none of them colors. A first cut refused both
+  // lengths on the assumption that `#123` reads as a color more often than a rank; the tree
+  // says the opposite, so the 3-digit arm was removed rather than kept on an assertion.
+  // (A hex with letters never matched this rule at all — `^#([\d,]+)$` is digits only.)
   const rank = core.match(/^#([\d,]+)$/);
   if (rank) {
     const digits = rank[1].replace(/,/g, '');
-    if (digits.length !== 3 && digits.length !== 6) return `number ${numberToWords(Number(digits))}`;
+    if (digits.length !== 6) return `number ${numberToWords(Number(digits))}`;
   }
 
   // Version — "v2.1" → "version two point one". The `v` prefix is what disambiguates it from a

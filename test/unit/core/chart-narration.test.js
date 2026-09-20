@@ -1546,17 +1546,39 @@ test('narrateJourneyMood: the dispatcher reaches it for a plain journey slide', 
 });
 
 // ── Regressions the maker-checker caught before merge ───────────────────────────────
-test('narrateStateChart: a Mermaid `:::class` suffix does not hide a transition', () => {
-  // The pill pattern required the target to be the LAST thing, so a styled transition matched
-  // neither the narrator nor the suppression filter — a chart mixing the two forms read half
-  // its transitions by name and the other half as raw `accept => 3:::state-pass-hue` glyphs,
-  // which is worse than main, where they were at least uniformly raw.
-  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2:::state-pass-hue`', '   - `hold => self`', '2. Done `end`'].join('\n');
+test('narrateStateChart: a `:::tint` suffix does not hide a transition', () => {
+  // THE FIXTURE IS THE REAL AUTHORED SYNTAX, and the first version of this test was not —
+  // it put the tint INSIDE the backticks, which no deck writes and the transform rejects as a
+  // transition. So it passed against a fix that was a no-op on every shipped deck: the whole
+  // point of the finding was examples/state-chart-tint.md, which writes the tint AFTER the
+  // closing backtick (state-chart.transform.js's `codeOnly` is the authority). Verified against
+  // that file's line 56. The tint is LATTICE's own channel, not Mermaid's `:::className`.
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2`:::state-pass-hue', '   - `hold => self`', '2. Done `end`'].join('\n');
   const out = narrateStateChart(md);
   assert.ok(out.includes('submit goes to Done'), out);
   assert.ok(out.includes('hold stays here'), out);
   assert.ok(!out.includes('=>'), `a raw pill survived: ${out}`);
   assert.ok(!out.includes(':::'), `a style hook was spoken: ${out}`);
+});
+
+test('narrateStateChart: the two-slot tint form is recognized too', () => {
+  // `:::edge-token/label-bg-token` (state-chart.docs.md `tint` row, examples/state-chart-tint.md:95).
+  // A `[\\w-]+` token class could not match slot two; the transform's own class allows the slash.
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `run => 2`:::state-pass-hue/surface-raised', '2. Done `end`'].join('\n');
+  const out = narrateStateChart(md);
+  assert.ok(out.includes('run goes to Done'), out);
+  assert.ok(!out.includes(':::'), out);
+});
+
+test('narrateStateChart: an UNRESOLVED transition is still read, not silently dropped', () => {
+  // The suppression filter dropped every line matching the pill pattern, but `parseStateChart`
+  // records a transition only when its target RESOLVES — so a dangling `typo => 9` was narrated
+  // by nobody, while the slide still renders it as "typo => 9 (unresolved)". Narration going
+  // quiet about something the audience can see is the failure this pass exists to remove.
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2`', '   - `typo => 9`', '2. Done `end`'].join('\n');
+  const out = narrateStateChart(md);
+  assert.ok(out.includes('submit goes to Done'), out);
+  assert.ok(out.includes('typo => 9'), `the unresolved pill went silent: ${out}`);
 });
 
 test('narrateJourneyMood: mirrors the transform’s clampMood, so it cannot state a score the chart does not plot', () => {

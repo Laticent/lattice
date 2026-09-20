@@ -597,14 +597,43 @@ describe('the range rule does not claim things that are not ranges', () => {
     expect(toSpoken('2-3x')).toBe('two to three times');
     expect(toSpoken('12–15')).toBe('twelve to fifteen'); // en dash needs no unit
   });
+
+  it('pins EACH unit channel on its own', () => {
+    // `$1.2-1.4B` carries BOTH a leading currency and a trailing magnitude, so the suite stayed
+    // green with either channel deleted from the guard — mutation-proved. One token per channel
+    // is what actually holds them: dropping any single group now fails.
+    expect(toSpoken('$1-2')).toBe('one to two dollars'); // currency LEFT only
+    expect(toSpoken('1-€2')).toBe('one to two euros'); // currency RIGHT only (it LEADS its side)
+    // A magnitude written once carries across the range in EITHER direction, so a left-only
+    // one reads on both sides — which is what '10k-20' means.
+    expect(toSpoken('10k-20')).toBe('ten thousand to twenty thousand'); // magnitude LEFT only
+    expect(toSpoken('1-2B')).toBe('one to two billion'); // magnitude RIGHT only
+    expect(toSpoken('50-60%')).toBe('fifty to sixty percent'); // suffix only
+  });
+
+  it('reads both spellings of a range multiplier the same way', () => {
+    // `resolveSymbols` rewrites the glyph before `spokenCore` runs, so the range rule's own
+    // `×` alternative is dead code — the same trap the single-value multiplier documents.
+    // Without the normalization `2-3x` was a range and `2-3×` was not.
+    expect(toSpoken('2-3×')).toBe(toSpoken('2-3x'));
+    expect(toSpoken('2-3×')).toBe('two to three times');
+  });
 });
 
 describe('the rank rule does not claim a hex color', () => {
-  it('leaves a 3- or 6-digit all-digit # token alone', () => {
+  it('leaves a SIX-digit all-digit # token alone — that is the hex color', () => {
     // `#000000` narrated as "number zero" on examples/per-slide-diagram-band.md. It took two
     // changes in one PR: slide-speech stopped stripping a mid-sentence `#`, and this rule
     // claimed what arrived.
-    for (const t of ['#000000', '#123456', '#000', '#999']) expect(toSpoken(t)).toBe(t);
+    for (const t of ['#000000', '#123456', '#037829']) expect(toSpoken(t)).toBe(t);
+  });
+
+  it('still reads a THREE-digit # as a rank, because this tree says it is one', () => {
+    // A first cut refused three digits too, assuming `#123` is a shorthand color. A census of
+    // every all-digit `#` token in the repo says the opposite: `#690`, `#681`, `#527` are all
+    // issue references and none is a color. The assumption was dropped for the measurement.
+    expect(toSpoken('#690')).toBe('number six hundred ninety');
+    expect(toSpoken('#123')).toBe('number one hundred twenty-three');
   });
 
   it('still reads a rank of any other length', () => {
@@ -640,5 +669,17 @@ describe('the direction dedup stops at a sentence boundary', () => {
 
   it('still dedups inside one sentence', () => {
     expect(toSpokenText('We are up +18% YoY.')).toBe('We are up eighteen percent year over year.');
+  });
+
+  it('treats every sentence terminator as a boundary, closing punctuation included', () => {
+    // The character class was unpinned: dropping `!`, dropping `\u2026`, or emptying the
+    // closing-quote/bracket run all survived the suite. Each one is its own case now.
+    // The property is that the SIGN's own direction word survives the boundary — asserted on
+    // the expansion it produces, not on an adjacent-word pattern the punctuation sits inside.
+    for (const t of ['We are up! +18%.', 'We are up? +18%.', 'We are up\u2026 +18%.', 'It is "up." +18%.', '(We are up.) +18%.']) {
+      expect(toSpokenText(t)).toContain('up eighteen percent');
+    }
+    // ...and inside one sentence it is still dropped, which is what makes the above meaningful.
+    expect(toSpokenText('We are up +18%.')).not.toContain('up up');
   });
 });
