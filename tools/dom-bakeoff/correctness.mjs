@@ -28,7 +28,9 @@ const names = Object.keys(adapters);
 const FIX = await fixtures();
 
 const probes = [];
-const probe = (id, group, why, fn) => probes.push({ id, group, why, fn });
+// `refKey` names the jsdom reference serialization a probe is compared against;
+// only the differential Serialization probes pass one.
+const probe = (id, group, why, fn, refKey) => probes.push({ id, group, why, fn, refKey });
 
 // ── SVG casing — the disqualifier that has already nearly shipped ────────────
 const SVG_ELS = ['radialGradient', 'linearGradient', 'clipPath', 'foreignObject', 'textPath', 'feGaussianBlur', 'animateTransform'];
@@ -58,7 +60,6 @@ for (const [key, label] of [['slideMedian', 'median slide'], ['slideHeaviest', '
     let i = 0; while (i < Math.min(out.length, ref.length) && out[i] === ref[i]) i++;
     return { pass: false, detail: `diverges @${i}: jsdom ${JSON.stringify(ref.slice(i, i + 32))} vs ${JSON.stringify(out.slice(i, i + 32))}` };
   }, key);
-  probes[probes.length - 1].refKey = key;
 }
 
 // ── Selectors this repo actually writes (from the Node census) ──────────────
