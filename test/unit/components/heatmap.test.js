@@ -774,3 +774,39 @@ describe('findings from the checker pass — each one a regression arm', () => {
       { raw: '7', detail: 'one two' });
   });
 });
+
+describe('the portrait key is centered by its ink', () => {
+  // The kernel centers the key by the label column it RESERVES, which is sized
+  // for category names — right for the four charts that key on those, wrong for
+  // a key of numeric band ranges. heatmap reserved ~283 units for ~36 of ink, so
+  // the block was centered and the visible key still sat against the left edge.
+  const portrait = () => {
+    const model = parseHeatmapTable(grid(
+      '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
+    model.bands = [];
+    return parse(buildHeatmap(model, { orientation: 'portrait' }));
+  };
+
+  test('the left and right padding around the key match', () => {
+    const d = portrait();
+    const viewW = Number(d.querySelector('svg').getAttribute('viewBox').split(' ')[2]);
+    const swatchX = Number(d.querySelector('.chart-key-swatch').getAttribute('x'));
+    const tspans = [...d.querySelectorAll('text.chart-key-label tspan')];
+    const labelX = Number(tspans[0].getAttribute('x'));
+    const longest = Math.max(...tspans.map((t) => t.textContent.length));
+    // The kernel's own advance ratio — the same one it wraps with.
+    const fs = Number(d.querySelector('text.chart-key-label').getAttribute('font-size'));
+    const inkRight = labelX + longest * fs * 0.6;
+    const left = swatchX;
+    const right = viewW - inkRight;
+    assert.ok(Math.abs(left - right) < viewW * 0.05,
+      `key is off-center: ${left.toFixed(1)} left vs ${right.toFixed(1)} right of ${viewW}`);
+  });
+
+  test('and the key is not flush against the edge', () => {
+    const d = portrait();
+    const viewW = Number(d.querySelector('svg').getAttribute('viewBox').split(' ')[2]);
+    const swatchX = Number(d.querySelector('.chart-key-swatch').getAttribute('x'));
+    assert.ok(swatchX > viewW * 0.1, `key starts at ${swatchX} of ${viewW} — hard against the left`);
+  });
+});
