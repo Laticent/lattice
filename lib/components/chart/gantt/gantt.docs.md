@@ -32,18 +32,18 @@ Use for project plans with overlapping or staggered tasks. Each task is a bar on
 - A lane is as many SUB-ROWS as its tasks need, not one row of bars. Tasks whose spans OVERLAP get their own sub-row — `Q1..Q2` and `Q2..Q3` both cover Q2, so they stack rather than one hiding under the other. Tasks that clear each other still share a sub-row, so a sequential lane (`Q1..Q1`, `Q2..Q2`, `Q3..Q3`) stays one row tall however long its task NAMES are — packing reads the bars, never the captions.
 - Rows fill in SOURCE ORDER, first fit — task 1 takes the first row, and a later task joins the first row whose last mark clears it. Your bullet order is the reading order down the lane, so order tasks the way you want them read.
 - A milestone is a task like any other: a diamond falling inside a bar's span packs onto its own sub-row rather than being drawn on top of the bar. The lane NAME sits on the lane's first row, as the heading for the rows beneath it.
-- A dense chart tightens its own rows — past a certain row count the bar height, sub-row gap and lane padding compress together so the chart still fits its stage. The chart always spans the full width of its box and is as tall as its rows need; a chart of up to three landscape lanes (three in portrait) at one task each keeps the full-size band. If a plan is big enough to outgrow the stage even at the compressed band, the slide is flagged as clipping rather than being silently shrunk — split it across two slides.
+- The chart NEVER shrinks to fit, and it has a BUDGET instead. Bars, captions and row spacing are a fixed size whatever the plan carries; more rows make the chart taller, not smaller. Measured on a 1152x335 chart body (a heading plus a two-line lede): four one-row lanes fit and five overflow; with no lede the stage holds five. The real ceiling is about five BAR ROWS, and a lane is only one row while its tasks do not overlap — two tasks sharing a quarter stack into two rows, so three lanes of concurrent work can cost as much height as five sequential ones. Past that the chart overflows its slide and the render reports CONTENT CLIPPED, naming the first thing cut. Split the plan across two slides rather than expecting it to compress.
 
 ## When to use
 
-- **Overlapping work across lanes.** When tasks run in parallel across multiple workstreams and the audience needs to see who is busy when. The lane-stacked bars make concurrency visible at a glance.
+- **Overlapping work across lanes.** When tasks run in parallel across multiple workstreams and the audience needs to see who is busy when. Overlapping tasks stack into sub-rows, so concurrency is visible as height rather than hidden behind whichever bar was drawn last.
 - **Span is the story.** Each bar's length encodes its duration. Use gantt when start dates, end dates, and overlap are what you want the audience to remember.
 - **Status pills add a second channel.** Tint bars with `done` / `live` / `at-risk` / `blocked` to layer health onto schedule. The plan reads as both 'when' and 'how it's going' in one chart. Since the bars carry no status text, a swatch+label status key is emitted automatically below the chart for the statuses present.
 
 ## When NOT to use
 
 - **Single workstream.** One lane of bars is a timeline, not a gantt. Use `timeline` or `list-steps` when there is no parallel work to coordinate.
-- **More than five lanes.** Past five workstreams the bars compress and the labels crowd. Group lanes (collapse 'SDK' subdomains into 'SDK') or split into two slides.
+- **More than four or five lanes.** The chart does not shrink to absorb them — the bars keep their size and the chart grows taller, so past the capacity budget it overflows the slide and the render says so. Group lanes (collapse 'SDK' subdomains into 'SDK') or split into two slides. Overlapping tasks cost extra rows, so three lanes of concurrent work can reach the limit before five sequential ones do.
 - **No spans at all.** A gantt mixes bars with the odd milestone — but if every task is a point-in-time event with no durations, use `timeline` or `roadmap milestones`. gantt earns its chrome only when bars carry meaningful length.
 
 ## Authoring

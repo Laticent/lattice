@@ -70,7 +70,6 @@ The decision log's three workstreams run across each other end to end. On one ro
   - Auditor evidence pack `Q3..Q4`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide enablement `Q2..Q4` `at-risk`
   - Per-decision profiles `Q3..Q4`
 
 ---
@@ -93,30 +92,23 @@ GA falls inside the rollout's span. It is its own task, so it takes its own row 
 ---
 
 <!-- _class: gantt -->
-<!-- _footer: "Dense: the band compresses rather than letterboxing." -->
+<!-- _footer: "The chart grows; it does not shrink." -->
 
 `2026 Jan .. 2026 Dec`
 
-## A dense plan keeps the width it has.
+## The chart keeps its size and grows taller.
 
-Twelve tasks over four workstreams on a month axis. The row band tightens so the unit keeps its aspect instead of scaling down into a narrow column.
+Bars and captions are one fixed size on every gantt in the deck. More work makes the chart taller, never smaller — and past the capacity budget it overflows and the render names what was cut, rather than quietly scaling down until nobody can read it.
 
 - Signal Intake
   - Connector v1 `Jan..Apr` `done`
-  - Multi-source dedupe `Mar..Aug` `live`
   - Anomaly auto-routing `Jul..Dec` `at-risk`
 - Scoring
   - Equal-weights model `Jan..Apr` `done`
-  - Per-team calibration `Mar..Aug` `live`
   - Weight rollback tooling `Jul..Dec` `blocked`
-- Decision Log
-  - Append-only schema `Jan..Jun` `done`
-  - Outcome auto-pairing `Apr..Nov` `live`
-  - Auditor evidence pack `Sep..Dec`
 - Adoption
-  - Pilot onboarding `Jan..Apr` `done`
-  - Org-wide enablement `Apr..Nov` `at-risk`
-  - Per-decision profiles `Sep..Dec`
+  - Pilot onboarding `Jan..Jun` `done`
+  - Org-wide enablement `Jul..Dec` `live`
 
 ---
 
@@ -151,3 +143,4 @@ It takes the neutral every other reference line in the family takes, so it never
 - `accent` — the bar's leading edge is clipped to the bar, so it cannot escape the corner
 - `key` — the swatch centers on the label it keys
 - `today` — a neutral reference rule, painted behind the marks
+- `budget` — the chart never shrinks to fit; past its capacity it overflows and says so

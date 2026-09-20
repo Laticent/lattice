@@ -93,13 +93,13 @@
   "anatomyBlock": "gantt",
   "sample": "<!-- _class: gantt -->\n\n`2026 Q1 .. 2026 Q4` `today Q3`\n\n## The gantt lays the work against the calendar.\n\nThree workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.\n\n- Framework\n  - Signal taxonomy `Q1..Q2` `done`\n  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`\n  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`\n    - Two teams contest the weighting; the Q3 review decides it, and the rollout waits on the outcome.\n- Adoption\n  - Pilot onboarding `Q1..Q2` `done`\n  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`\n  - GA `Q4` `milestone` `after: Org-wide rollout`\n    - Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.\n",
   "stressDoc": {
-    "summary": "A full quarter of overlapping tracks.",
-    "sample": "<!-- _class: gantt -->\n\n`2026 Q1 .. 2026 Q4`\n\n## Stress test — four workstreams, twelve tasks, one recalibration bar nobody wants to own.\n\n- Signal Intake\n  - Connector v1 `Q1..Q2` `done`\n  - Multi-source dedupe `Q2..Q3` `live`\n  - Anomaly auto-routing `Q3..Q4` `at-risk`\n- Scoring\n  - Equal-weights model `Q1..Q2` `done`\n  - Per-team calibration `Q2..Q3` `live`\n  - Weight rollback tooling `Q3..Q4` `blocked`\n- Decision Log\n  - Append-only schema `Q1..Q3` `done`\n  - Outcome auto-pairing `Q2..Q4` `live`\n  - Auditor evidence pack `Q3..Q4`\n- Adoption\n  - Pilot onboarding `Q1..Q2` `done`\n  - Org-wide enablement `Q2..Q4` `at-risk`\n  - Per-decision profiles `Q3..Q4`\n"
+    "summary": "Three lanes at the row budget, overlap and all.",
+    "sample": "<!-- _class: gantt -->\n\n`2026 Q1 .. 2026 Q4`\n\n## Stress test — three workstreams at the row budget, with the overlap that costs the extra rows.\n\n- Signal Intake\n  - Connector v1 `Q1..Q2` `done`\n  - Multi-source dedupe `Q2..Q3` `live`\n  - Anomaly auto-routing `Q4` `at-risk`\n- Scoring\n  - Equal-weights model `Q1..Q2` `done`\n  - Weight rollback tooling `Q3..Q4` `blocked`\n- Adoption\n  - Pilot onboarding `Q1..Q2` `done`\n  - Org-wide enablement `Q3..Q4`\n"
   },
   "whenToUse": [
     {
       "title": "Overlapping work across lanes",
-      "body": "When tasks run in parallel across multiple workstreams and the audience needs to see who is busy when. The lane-stacked bars make concurrency visible at a glance."
+      "body": "When tasks run in parallel across multiple workstreams and the audience needs to see who is busy when. Overlapping tasks stack into sub-rows, so concurrency is visible as height rather than hidden behind whichever bar was drawn last."
     },
     {
       "title": "Span is the story",
@@ -116,8 +116,8 @@
       "body": "One lane of bars is a timeline, not a gantt. Use `timeline` or `list-steps` when there is no parallel work to coordinate."
     },
     {
-      "title": "More than five lanes",
-      "body": "Past five workstreams the bars compress and the labels crowd. Group lanes (collapse 'SDK' subdomains into 'SDK') or split into two slides."
+      "title": "More than four or five lanes",
+      "body": "The chart does not shrink to absorb them — the bars keep their size and the chart grows taller, so past the capacity budget it overflows the slide and the render says so. Group lanes (collapse 'SDK' subdomains into 'SDK') or split into two slides. Overlapping tasks cost extra rows, so three lanes of concurrent work can reach the limit before five sequential ones do."
     },
     {
       "title": "No spans at all",
@@ -151,7 +151,7 @@
     "A lane is as many SUB-ROWS as its tasks need, not one row of bars. Tasks whose spans OVERLAP get their own sub-row — `Q1..Q2` and `Q2..Q3` both cover Q2, so they stack rather than one hiding under the other. Tasks that clear each other still share a sub-row, so a sequential lane (`Q1..Q1`, `Q2..Q2`, `Q3..Q3`) stays one row tall however long its task NAMES are — packing reads the bars, never the captions.",
     "Rows fill in SOURCE ORDER, first fit — task 1 takes the first row, and a later task joins the first row whose last mark clears it. Your bullet order is the reading order down the lane, so order tasks the way you want them read.",
     "A milestone is a task like any other: a diamond falling inside a bar's span packs onto its own sub-row rather than being drawn on top of the bar. The lane NAME sits on the lane's first row, as the heading for the rows beneath it.",
-    "A dense chart tightens its own rows — past a certain row count the bar height, sub-row gap and lane padding compress together so the chart still fits its stage. The chart always spans the full width of its box and is as tall as its rows need; a chart of up to three landscape lanes (three in portrait) at one task each keeps the full-size band. If a plan is big enough to outgrow the stage even at the compressed band, the slide is flagged as clipping rather than being silently shrunk — split it across two slides."
+    "The chart NEVER shrinks to fit, and it has a BUDGET instead. Bars, captions and row spacing are a fixed size whatever the plan carries; more rows make the chart taller, not smaller. Measured on a 1152x335 chart body (a heading plus a two-line lede): four one-row lanes fit and five overflow; with no lede the stage holds five. The real ceiling is about five BAR ROWS, and a lane is only one row while its tasks do not overlap — two tasks sharing a quarter stack into two rows, so three lanes of concurrent work can cost as much height as five sequential ones. Past that the chart overflows its slide and the render reports CONTENT CLIPPED, naming the first thing cut. Split the plan across two slides rather than expecting it to compress."
   ],
   "specimenVoice": true
 }

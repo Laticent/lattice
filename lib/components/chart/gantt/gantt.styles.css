@@ -53,8 +53,17 @@
   height: 100%;
   min-height: 0;
   /* A width-driven svg can be SHORTER than this box; without this it hangs from
-   * the top on a tall stage and leaves the slack in one lump underneath. */
-  justify-content: center;
+   * the top on a tall stage and leaves the slack in one lump underneath.
+   *
+   * `safe` IS THE LOAD-BEARING WORD. A plain `center` also centres a chart that
+   * is TALLER than the box, so an over-budget gantt overflowed equally in both
+   * directions and the clip took the AXIS off the top along with the last lanes
+   * off the bottom — measured on a seven-lane portrait deck, where the reported
+   * first cut was the "Q1" tick. A chart missing its time axis is unreadable in a
+   * way one missing its last lane is not. `safe` falls back to `start` exactly
+   * when centring would cause overflow, so a short chart still centres and an
+   * oversized one keeps its axis and its first lanes and loses the tail. */
+  justify-content: safe center;
 }
 
 /* WIDTH-DRIVEN: the time axis takes the full width, and the height is whatever

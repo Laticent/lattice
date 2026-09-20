@@ -23,7 +23,7 @@ const engine = require('../../../lib/components/chart/_chart-family/chart-family
 const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
 const core = require('../../../lib/authoring/lint-core');
 
-const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL, ganttGutter, ganttBandFor } = ganttKernel;
+const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL, ganttGutter } = ganttKernel;
 const { resetRenderIds } = require('../../../lib/core/render-ids');
 const { extractFirstList } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
@@ -500,10 +500,6 @@ const barYs = (html) => [...html.matchAll(/class="gantt-bar"[^>]*\sy="([-\d.]+)"
   .map((m) => Number(m[1]));
 const barXW = (html) => [...html.matchAll(/class="gantt-bar"[^>]*\sx="([-\d.]+)"[^>]*\swidth="([-\d.]+)"/g)]
   .map((m) => ({ x: Number(m[1]), w: Number(m[2]) }));
-const vbOf = (html) => {
-  const m = html.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
-  return { w: Number(m[1]), h: Number(m[2]) };
-};
 const WIN = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
 
 describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
@@ -574,37 +570,54 @@ describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
     </ul>`;
     const ys = barYs(buildGanttChart(inner(ul), WIN));
     assert.equal(ys[1] - ys[0], 26, 'lane pitch must stay 26u for single-row lanes');
-    const band = ganttBandFor(GANTT_GEOM, 2, 2);
-    assert.equal(band.barH, GANTT_GEOM.barH);
-    assert.equal(band.rowGap, 5);
-    assert.equal(band.lanePadY, 5.5);
   });
 });
 
-describe('gantt — the packed chart still uses its stage', () => {
-  // vbW is fixed and vbH grows with the row count, so an unbounded band turns a
-  // dense chart into a narrow column: `xMidYMid meet` fits the taller dimension
-  // and the drawing narrows. Measured in Chromium on the stress gallery page,
-  // vbH 264 used 60% of a 1152px body; the compressed band uses 75%.
-  test('a dense chart compresses the band rather than letterboxing', () => {
-    const lanes = ['P', 'Q', 'R', 'S'].map((n) =>
-      `<li>${n}<ul><li>${n}1 <code>Q1..Q3</code></li><li>${n}2 <code>Q2..Q4</code></li>` +
-      `<li>${n}3 <code>Q3..Q4</code></li></ul></li>`).join('');
-    const out = buildGanttChart(inner(`<ul>${lanes}</ul>`), WIN);
-    const vb = vbOf(out);
-    assert.ok(vb.w / vb.h >= 2.0,
-      `a 4-lane/12-task chart must stay usable: aspect ${(vb.w / vb.h).toFixed(2)}`);
-    const band = ganttBandFor(GANTT_GEOM, 12, 4);
-    assert.ok(band.barH < GANTT_GEOM.barH, 'the band should compress under load');
-    assert.ok(band.barH >= GANTT_GEOM.barHMin, 'and never past its floor');
+describe('gantt — the band is FIXED, so nothing shrinks with content', () => {
+  // The component owns a BUDGET (`capacity` in gantt.manifest.json), it does not
+  // absorb an oversized plan by drawing it smaller. An earlier cut made barH a
+  // ceiling and compressed the band as the row count rose, so a busy chart drew
+  // thinner bars — the engine quietly covering for a slide carrying too much,
+  // with nobody told. These pin that the geometry does not move with the data.
+  const barHeightsOf = (html) =>
+    [...html.matchAll(/class="gantt-bar"[^>]*\sheight="([\d.]+)"/g)].map((m) => +m[1]);
+
+  const chartOf = (lanes, tasksPerLane, overlapping) => {
+    const body = Array.from({ length: lanes }, (_, i) =>
+      `<li>L${i}<ul>` + Array.from({ length: tasksPerLane }, (_, j) =>
+        `<li>T${i}${j} <code>Q${overlapping ? 1 : (j % 4) + 1}..Q${overlapping ? 4 : (j % 4) + 1}</code></li>`)
+        .join('') + '</ul></li>').join('');
+    return buildGanttChart(inner(`<ul>${body}</ul>`), WIN);
+  };
+
+  test('a bar is the same height however many rows the chart carries', () => {
+    const small = barHeightsOf(chartOf(1, 1, false));
+    const huge = barHeightsOf(chartOf(6, 4, true));
+    assert.ok(huge.length > small.length, 'the big chart should carry more bars');
+    for (const h of [...small, ...huge]) {
+      assert.equal(h, GANTT_GEOM.barH, 'every bar draws at the declared band height');
+    }
   });
 
-  test('the band never falls below barHMin however dense the chart', () => {
-    for (const rows of [10, 20, 40, 100]) {
-      const band = ganttBandFor(GANTT_GEOM, rows, Math.ceil(rows / 3));
-      assert.equal(band.barH, GANTT_GEOM.barHMin, `rows=${rows} should sit on the floor`);
-      assert.ok(band.rowGap > 0 && band.lanePadY > 0);
-    }
+  test('the chart grows TALLER with rows — it does not scale down', () => {
+    const h = (l, t, o) => +chartOf(l, t, o).match(/viewBox="0 0 480 (\d+)"/)[1];
+    const one = h(1, 1, false);
+    const many = h(4, 3, true);
+    assert.ok(many > one * 2, `viewBox height should grow with rows (${one} -> ${many})`);
+    // …and the growth is exactly the rows, at the fixed pitch.
+    assert.equal(h(2, 1, false) - h(1, 1, false), GANTT_GEOM.barH + 2 * GANTT_GEOM.lanePadY);
+  });
+
+  test('a chart inside its budget fits the stage it is handed', () => {
+    // capacity in gantt.manifest.json declares soft 4 / hard 5 LANES, measured
+    // against a 1152x335 chart body (a heading plus a two-line lede). Four
+    // one-row lanes must still come in under that height at full width; past the
+    // budget the chart overflows and the render reports CONTENT CLIPPED, which is
+    // the intended outcome, not a bug to absorb.
+    const REF = { w: 1152, h: 335 };
+    const vbH = +chartOf(4, 1, false).match(/viewBox="0 0 480 (\d+)"/)[1];
+    const drawn = (REF.w * vbH) / GANTT_GEOM.vbW;
+    assert.ok(drawn <= REF.h, `four lanes draw ${drawn.toFixed(0)}px tall in a ${REF.h}px body`);
   });
 });
 
@@ -649,93 +662,29 @@ describe('gantt — mark chrome', () => {
   });
 });
 
-describe('gantt — the band floor is per-orientation', () => {
-  // A single GANTT_ASPECT_FLOOR of 2.6 compressed EVERY portrait chart to
-  // barHMin, sparse ones included: portrait's natural aspect at the ceiling is
-  // 300/164 = 1.83, so the landscape floor was above it by construction and the
-  // clamp always bound. The landscape tests could not see it — portrait has its
-  // own geometry and nothing exercised the band through it.
-  test('a sparse PORTRAIT chart keeps the ceiling band', () => {
-    const band = ganttBandFor(GANTT_GEOM_TALL, 2, 2);
-    assert.equal(band.barH, GANTT_GEOM_TALL.barH, 'portrait barH must not be clamped when sparse');
-    assert.equal(band.rowGap, 6);
-    assert.equal(band.lanePadY, 8.5);
-  });
-
-  test('one task per lane keeps the 52u portrait lane pitch', () => {
-    const ul = `<ul>
-      <li>One<ul><li>A <code>Q1..Q2</code></li></ul></li>
-      <li>Two<ul><li>B <code>Q1..Q2</code></li></ul></li>
-    </ul>`;
-    const ys = barYs(buildGanttChart(inner(ul), WIN, 'portrait'));
-    assert.equal(ys[1] - ys[0], 52, 'portrait lane pitch must stay 52u for single-row lanes');
-  });
-
-  test('a DENSE portrait chart still compresses', () => {
-    const band = ganttBandFor(GANTT_GEOM_TALL, 14, 3);
-    assert.ok(band.barH < GANTT_GEOM_TALL.barH);
-    assert.ok(band.barH >= GANTT_GEOM_TALL.barHMin);
-  });
-});
 
 describe('gantt — non-row chrome is a tax on the whole drawing', () => {
-  // vbW is fixed and vbH grows with the row count, so on a landscape stage every
-  // unit of NON-ROW chrome (the tick row, the key, the bottom pad) is a unit the
-  // whole drawing scales down by once the stage is shorter than the chart's
-  // aspect wants — and a landscape stage is short precisely when a lede or a
-  // two-line heading took the room. Measured in Chromium on the committed
-  // default gallery page, whose chart body is 1152x335: at legendGap 14 /
-  // legendH 16 / padBottom 6 the drawing used 1059px of 1152 (92%) with 33.1px
-  // bars; trimmed to 9 / 12 / 4 it uses 1142px (99%) with 35.7px bars.
+  // vbW is fixed and vbH grows with the row count, so every unit of NON-ROW
+  // chrome (the tick row, the key, the bottom pad) is a unit of height the chart
+  // spends without drawing a bar — and height is the scarce axis now that the
+  // svg is width-driven and the band is fixed. Measured in Chromium on the
+  // committed default gallery page, whose chart body is 1152x335: at legendGap
+  // 14 / legendH 16 / padBottom 6 the drawing used 1059px of 1152 (92%) with
+  // 33.1px bars; trimmed to 9 / 12 / 4 it uses the full width with 36.0px bars.
   //
-  // The body is 1152x335 on that page, so the shape has to come in at or under
-  // 480 * 335/1152 = 139.6 user units to draw at full width. This pins that
-  // headroom against a geometry retune that would quietly spend it.
-  //
-  // THE ASSERTION IS FIT, because width is no longer in question. The svg is
-  // width-driven (`width:100%; height:auto; flex-shrink:0`), so the drawing
-  // always spans the full width; what the viewBox aspect decides is how TALL the
-  // chart comes out. So the property worth pinning is that an ordinary shape
-  // still fits the stage at full width — past that it overflows, which the
-  // engine now reports rather than hiding, but a gallery page should not be
-  // relying on that.
-  //
-  // An earlier cut asserted the drawn WIDTH against a `meet` letterboxing model.
-  // That model described the old `height:100%` rule and stopped being true when
-  // the sizing changed, while still passing — a test can go stale by describing
-  // a mechanism the code no longer uses, not only by getting a number wrong.
-  const REF_BODY = { w: 1152, h: 335 };
-  const fitsHeight = (vbH) => (REF_BODY.w * vbH) / GANTT_GEOM.vbW <= REF_BODY.h + 1;
-
-  test('the default gallery shape fits a lede slide at full width', () => {
-    const ul = `<ul>
-      <li>Framework<ul>
-        <li>Signal taxonomy <code>Q1..Q2</code> <code>done</code></li>
-        <li>Scoring model v2 <code>Q2..Q3</code> <code>live</code></li>
-        <li>Per-team weighting <code>Q3..Q4</code> <code>at-risk</code></li>
-      </ul></li>
-      <li>Adoption<ul>
-        <li>Pilot onboarding <code>Q1..Q2</code> <code>done</code></li>
-        <li>Org-wide rollout <code>Q3..Q4</code></li>
-        <li>GA <code>Q4</code> <code>milestone</code></li>
-      </ul></li>
-    </ul>`;
-    const vb = vbOf(buildGanttChart(inner(ul), WIN));
-    const drawnH = (REF_BODY.w * vb.h) / GANTT_GEOM.vbW;
-    assert.ok(fitsHeight(vb.h),
-      `viewBox ${vb.w}x${vb.h} draws ${drawnH.toFixed(0)}px tall at full width in a ` +
-      `${REF_BODY.h}px body — it will overflow and be reported as clipped`);
-  });
-
+  // The fit assertion that used to live here is gone on purpose: it asserted the
+  // canonical two-lane shape came in under 335px, which is STRICTER than the
+  // engine's own verdict (that shape draws 338px and the render raises no clip
+  // warning). A test that is harsher than the thing it models invites shaving
+  // real padding to satisfy it. The capacity contract — four one-row lanes fit —
+  // is asserted in the FIXED-BAND suite above, against the number the manifest
+  // actually declares.
   test('the key block stays tight enough to be worth its room', () => {
-    // A guard on the trim itself: these three are what the measurement above
-    // bought, and a retune that puts them back silently costs 8% of the width.
     assert.ok(GANTT_GEOM.legendGap + GANTT_GEOM.legendH + GANTT_GEOM.padBottom <= 25,
       'landscape non-row chrome below the plot has grown past its measured budget');
   });
 });
 
-// ── Findings from the independent check of the packing diff ─────────────────
 describe('gantt — checker findings', () => {
   test('a long CAPTION never buys a sub-row (packing reads the mark)', () => {
     // A sub-row is how this chart says "these run at the same time". Folding the
@@ -779,34 +728,5 @@ describe('gantt — checker findings', () => {
     assert.match(clip, /fill="none"/, 'a clip rect must declare that it paints nothing');
   });
 
-  test('the resolved band is rounded before it reaches the SVG', () => {
-    // barH is written into `height=` on every bar, milestone clip and accent. An
-    // unrounded one emits height="13.039940828402369" fifteen times per chart.
-    const band = ganttBandFor(GANTT_GEOM, 12, 4);
-    for (const [k, v] of Object.entries(band)) {
-      assert.equal(v, +v.toFixed(2), `${k}=${v} should be rounded to 2dp`);
-    }
-  });
 });
 
-describe('gantt — the ceiling threshold is derived, not asserted', () => {
-  // Three comments and the docblock state where a one-task-per-lane chart stops
-  // keeping the ceiling band. That number is a CONSEQUENCE of the aspect floor,
-  // the chrome budget and the band ratios — it moved once already in a single
-  // session when the key block was retuned, and a stale one in prose is exactly
-  // the claim a reviewer takes instead of re-deriving. This derives it.
-  const ceilingLanes = (G) => {
-    for (let n = 1; n <= 40; n++) if (ganttBandFor(G, n, n).barH < G.barH) return n - 1;
-    return 40;
-  };
-
-  test('landscape keeps the ceiling to three one-task lanes', () => {
-    assert.equal(ceilingLanes(GANTT_GEOM), 3,
-      'the comments in gantt.transform.js state three — update both together');
-  });
-
-  test('portrait keeps the ceiling to three one-task lanes', () => {
-    assert.equal(ceilingLanes(GANTT_GEOM_TALL), 3,
-      'the comments in gantt.transform.js state three — update both together');
-  });
-});

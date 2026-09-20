@@ -38,8 +38,22 @@
   60% → 100% of the chart body's width, captions 12.2px → 20.4px. An oversized
   gantt now overflows and is reported by name ("CONTENT CLIPPED — First cut on
   each: p1 'Workstream 3'") instead of shrinking in silence.
-- **gantt: the row band is sized against the measured stage.** The aspect floor the
-  band compresses toward was a guessed 2.6; the chart body measures 3.04-3.48
-  across the gallery and the demo deck, so it is 3.5 — at least as wide-for-its-
-  height as every stage in the corpus, so an ordinary chart fits without relying on
-  slack. Bars give up 1.5px for that.
+- **gantt: the chart never shrinks to absorb an oversized plan.** Bars, captions
+  and row spacing are a fixed size whatever the chart carries — every gantt draws
+  its bars at one height and its captions at one size, and more rows make the chart
+  taller rather than smaller. An intermediate version of this change compressed the
+  row band as the row count rose, which is the engine quietly covering for a slide
+  carrying too much: the bars thin out, the chart still "fits", and nobody is told.
+- **gantt has a stated BUDGET instead of a shrink.** Four one-row lanes fit a
+  standard slide and five overflow (measured at a 1152x335 chart body); the real
+  ceiling is about five bar ROWS, and overlapping tasks stack into extra rows, so
+  three lanes of concurrent work can cost as much height as five sequential ones.
+  The numbers are in the component's docs, and the enforcement is the render: a
+  chart past the budget overflows and is named (`CONTENT CLIPPED`, with the first
+  thing cut) rather than being quietly scaled down. The gallery's own stress slide
+  was over the budget and is now inside it, as were two other shipped decks.
+- **An over-budget gantt keeps its axis.** The chart is centered in its stage with
+  `safe center`, so a chart TALLER than the stage aligns to the top and loses its
+  tail rather than being centered and clipped at both ends — which took the time
+  axis off the top, and a gantt without its axis is unreadable in a way one missing
+  its last lane is not.

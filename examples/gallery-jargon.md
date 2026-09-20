@@ -527,10 +527,10 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 - Signal Intake
   - Connector v1 `Q1..Q2` `done`
-  - Multi-source dedupe `Q2..Q4` `at-risk`
+  - Multi-source dedupe `Q3..Q4` `at-risk`
 - Scoring
   - Equal-weights model `Q1..Q2` `done`
-  - Per-team calibration `Q2..Q4` `at-risk`
+  - Per-team calibration `Q3..Q4` `at-risk`
 - Decision Log
   - Append-only schema `Q1..Q2` `done`
   - Outcome auto-pairing `Q3..Q4` `blocked`

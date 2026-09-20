@@ -40,28 +40,22 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 <!-- _class: gantt -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · gantt — A full quarter of overlapping tracks." -->
+<!-- _footer: "Stress test · gantt — Three lanes at the row budget, overlap and all." -->
 
 `2026 Q1 .. 2026 Q4`
 
-## Stress test — four workstreams, twelve tasks, one recalibration bar nobody wants to own.
+## Stress test — three workstreams at the row budget, with the overlap that costs the extra rows.
 
 - Signal Intake
   - Connector v1 `Q1..Q2` `done`
   - Multi-source dedupe `Q2..Q3` `live`
-  - Anomaly auto-routing `Q3..Q4` `at-risk`
+  - Anomaly auto-routing `Q4` `at-risk`
 - Scoring
   - Equal-weights model `Q1..Q2` `done`
-  - Per-team calibration `Q2..Q3` `live`
   - Weight rollback tooling `Q3..Q4` `blocked`
-- Decision Log
-  - Append-only schema `Q1..Q3` `done`
-  - Outcome auto-pairing `Q2..Q4` `live`
-  - Auditor evidence pack `Q3..Q4`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
-  - Org-wide enablement `Q2..Q4` `at-risk`
-  - Per-decision profiles `Q3..Q4`
+  - Org-wide enablement `Q3..Q4`
 
 
 ---
@@ -142,8 +136,8 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 - Single workstream
   - One lane of bars is a timeline, not a gantt. Use `timeline` or `list-steps` when there is no parallel work to coordinate.
-- More than five lanes
-  - Past five workstreams the bars compress and the labels crowd. Group lanes (collapse 'SDK' subdomains into 'SDK') or split into two slides.
+- More than four or five lanes
+  - The chart does not shrink to absorb them — the bars keep their size and the chart grows taller, so past the capacity budget it overflows the slide and the render says so. Group lanes (collapse 'SDK' subdomains into 'SDK') or split into two slides. Overlapping tasks cost extra rows, so three lanes of concurrent work can reach the limit before five sequential ones do.
 - No spans at all
   - A gantt mixes bars with the odd milestone — but if every task is a point-in-time event with no durations, use `timeline` or `roadmap milestones`. gantt earns its chrome only when bars carry meaningful length.
 
