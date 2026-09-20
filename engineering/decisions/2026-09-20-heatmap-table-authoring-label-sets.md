@@ -2,7 +2,7 @@
 status: proposed
 summary: >
   A heatmap is a matrix, and a matrix's notation is a TABLE — so heatmap's nested-list authoring is
-  retired in favor of a markdown table, and all 22 shipped heatmap slides migrate in the same change.
+  retired in favor of a markdown table, and all 17 shipped heatmap slides migrate in the same change.
   BREAKING for any deck outside this repo. The table buys the thing that actually matters: heatmap
   data starts in a spreadsheet, and a table is paste-compatible where a nested list must be
   transcribed (measured: the 10x12 stress matrix is 94 authored lines as a list, 12 as a table).
@@ -43,11 +43,11 @@ that first is most of the work, because it turns "invent three systems" into
 
 | Asked for | Ships today | Where |
 |---|---|---|
-| hover detail per mark | an authored sublist becomes an inert `<template class="chart-detail" data-mark="i">`, shown in a Floating-UI popover; the same text folds into the slide's speaker note so the PDF keeps it | `_chart-family/mark-detail.js`, `docs/src/playground/chart-interact.js` — 7 charts |
+| hover detail per mark | an authored sublist becomes an inert `<template class="chart-detail" data-mark="i">`, shown in a Floating-UI popover; the same text folds into the slide's speaker note so the PDF keeps it | `_chart-family/mark-detail.js`, `docs/src/playground/chart-interact.js` — 14 charts |
 | a legend that moves by available space | a right rail on landscape, a legend-below on portrait, selected by `orientation` | `_chart-family/svg-legend.js`; `2026-06-19-chart-adaptive-sizing.md` §9 |
 | responsiveness | box families `wide`/`square`/`tall`/`strip`, stamped as `data-family` on the section | `lib/adaptive/families.js` |
 | animation | Anima, the `motion:` register, and a chart-to-scene bridge that reads `data-anima-role` off any node | `docs/src/lib/anima/`, `docs/src/lib/chart-anima.ts` |
-| a key→label→description set | the `acronyms:` registry: `ARR: { expansion: …, definition: "…" }`, with a bare-scalar shorthand | `lib/core/glossary-auto.mjs` |
+| a key→label→description set | the `acronyms:` registry: `ARR: { expansion: …, definition: "…" }`, with a bare-scalar shorthand | parsed in `lib/core/resolve-captions.mjs`; surfaced by `glossary-auto.mjs` |
 
 Two things heatmap already does and throws away:
 
@@ -72,8 +72,8 @@ label set should keep them.
 
 What it cannot do is the gap: its labels come from a hard-coded `STATE_LABEL` map, so
 an author cannot rename a state, cannot attach a description to one, and cannot reuse
-the naming on the next slide. Ten chart transforms carry legend code of some kind, so
-this is a pattern being re-solved per chart rather than a construct.
+the naming on the next slide. Twelve chart transforms emit legend markup, and only three define a builder, so this
+is a pattern being re-solved per chart rather than a construct.
 
 The label set generalizes `buildStatusLegend` rather than competing with it: same
 derive-from-data default, plus an author override, plus an optional description per
@@ -84,7 +84,8 @@ entry, plus placement that already knows about orientation.
 A heatmap is a matrix. A matrix's notation is a table, and the nested list makes an
 author write each column name once PER ROW.
 
-Measured over the 6 matrices in the shipped gallery:
+Measured over the 6 shipped gallery matrices — 5 in `heatmap.gallery.md`, 1 in
+`chart.gallery.md`:
 
 | Matrix | Cells | As a list | As a table |
 |---|---|---|---|
@@ -101,10 +102,14 @@ Three arguments, in order of weight:
 3. **The house is already on tables for grids** — `matrix-grid`, `obligation-matrix`,
    `roadmap` and `compare-table` all parse them. Heatmap was the outlier.
 
-**The list form is RETIRED, not kept alongside**, and all 22 heatmap-chart slides
-across 13 files migrate in the same change. (A further 9 slides carry
-`journey heatmap` — that is journey's mood-tint modifier, a different component, and
-it is untouched.) **This is breaking for any deck outside this repo**, so the
+**The list form is RETIRED, not kept alongside**, and all 17 heatmap-chart slides
+across 9 files migrate in the same change — 15 slides across 7 files once the
+generated `docs/public/components.md` and a dated ADR archive are set aside. (A
+further 5 slides carry `journey heatmap` — journey's mood-tint modifier, a different
+component, untouched.) A first draft of this note said 22 slides across 13 files and
+added 9 journey slides on top: 22/13 is a grep LINE count of both populations
+combined, and the 9 counted `_footer:` captions and prose as slides. Size the
+migration off 15. **This is breaking for any deck outside this repo**, so the
 changelog fragment leads with `**Breaking:**` per HARD RULE #10. The alternative —
 accepting both forms — was rejected as two parse paths and two things to teach for
 one component.
@@ -112,8 +117,8 @@ one component.
 ## Decision 2 — per-cell detail rides a cell-scoped `` `# prose` `` sigil
 
 A table has no sublist channel. That is the exact reason `roadmap` scored Tier 3 in
-the detail-reveal ADR (*"table | ❌ no list/sublist channel | med, different
-mechanism"*), and adopting the table means inheriting that problem. The sigil is the
+the detail-reveal ADR (*"roadmap | table | `<td class="cell-state">` | ❌ no list/sublist channel (table) |
+med, different mechanism | 3"*), and adopting the table means inheriting that problem. The sigil is the
 different mechanism.
 
 ```markdown
@@ -127,7 +132,9 @@ across 266 shipped decks, 12 begin with `#`, and they are hex colors (`#000000`,
 `#7DE38A`), issue refs (`#1311`) and decks quoting heading syntax. Requiring
 `#` + SPACE cuts that to **1 of 8,448** — `# H1`, in a deck demonstrating heading
 layout. Scoping the rule to the CELL rather than to the global inline-code dispatcher
-takes it to zero, because no shipped heatmap cell contains inline code at all. That
+takes it to zero — in the TABLE form, where a cell is a bare number. (Under today's
+list form every cell value is itself an inline-code pill, so the scoping argument is
+about the form being adopted, not about the tree as it stands.) That
 scoping follows `matrix-grid`, whose `[x]` markers are parsed off the cell's own text
 (`lib/core/matrix-grid-cells.js`) rather than by `inline-code-directives.js`.
 
@@ -199,7 +206,8 @@ independently addressable with per-stop solved ink, so a 3-band scale emits step
 Verified end to end rather than argued. `chartToScene` over a real rendered heatmap
 returns a scene of 38 elements, 15 of them `region` marks with stable ids. Driven
 through the real docs Playground, the live stage mounts and the cells stagger in
-reading order — 1/16 revealed at 0 ms, 16/16 by ~2.5 s, opacities sampled per frame.
+reading order over ~2.5 s, opacities sampled per frame. The deck's first matrix
+renders 15 cells, all 15 carrying a motion role — the same 15 the scene reports.
 `examples/anima-heatmap.md` is the demo deck, with the build committed at early, mid
 and settled.
 
