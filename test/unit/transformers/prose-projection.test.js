@@ -1192,3 +1192,40 @@ test('team-profile: neither projection mutates the DOM it is handed', () => {
 	speak(secs); project(secs); speak(secs);
 	assert.equal(dom.window.document.body.innerHTML, before, 'projection must be read-only');
 });
+
+// ── Element boundaries — 2026-09-20-narration-audit.md Finding 5 ────────────────────
+//
+// `speechText` read bare `textContent`, which concatenates with NOTHING. A layout that
+// sets a label and its value as adjacent spans therefore welded them into one word.
+test('two adjacent element siblings are separated, not welded together', () => {
+	// The shipped roadmap cell, verbatim. Was: "ShippedSignal taxonomy", nine times on one slide.
+	const secs = sections(
+		'<section data-lattice-slide class="roadmap form" data-class="roadmap"><div class="cell-stage">' +
+			'<div class="masthead-lede"><h2>The roadmap grids workstreams against phases.</h2></div>' +
+			'<p><span class="cell-state-label">Shipped</span><span class="cell-state-text">Signal taxonomy</span></p>' +
+			'</div></section>',
+	);
+	const text = speak(secs)[0];
+	assert.ok(text.includes('Shipped Signal taxonomy'), `welded label and value: ${text}`);
+	assert.ok(!text.includes('ShippedSignal'), `still welded: ${text}`);
+});
+
+test('an element followed by TEXT is left alone, so a mid-word wrapper does not split', () => {
+	// The case a blanket "space before every element" would break. Only ELEMENT-to-ELEMENT
+	// boundaries get a separator.
+	const secs = sections(
+		'<section data-lattice-slide class="content form" data-class="content"><div class="cell-stage">' +
+			'<div class="masthead-lede"><h2>Heading.</h2></div><p><span>Sig</span>nal taxonomy.</p>' +
+			'</div></section>',
+	);
+	assert.ok(speak(secs)[0].includes('Signal taxonomy'), speak(secs)[0]);
+});
+
+test('existing whitespace between siblings is not doubled', () => {
+	const secs = sections(
+		'<section data-lattice-slide class="content form" data-class="content"><div class="cell-stage">' +
+			'<div class="masthead-lede"><h2>Heading.</h2></div><p><span>One</span> <span>two</span></p>' +
+			'</div></section>',
+	);
+	assert.ok(speak(secs)[0].includes('One two'), speak(secs)[0]);
+});
