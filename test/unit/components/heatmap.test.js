@@ -775,38 +775,80 @@ describe('findings from the checker pass — each one a regression arm', () => {
   });
 });
 
-describe('the portrait key is centered by its ink', () => {
-  // The kernel centers the key by the label column it RESERVES, which is sized
-  // for category names — right for the four charts that key on those, wrong for
-  // a key of numeric band ranges. heatmap reserved ~283 units for ~36 of ink, so
-  // the block was centered and the visible key still sat against the left edge.
-  const portrait = () => {
+describe('the portrait key is a centered wrapping band', () => {
+  // `roadmap` puts its status key under the grid with
+  // `flex-wrap:wrap; justify-content:center`, and its docblock calls bottom-center
+  // "the best-practice spot for a wide, full-width chart". A portrait heatmap is
+  // that situation, but SVG has no flex-wrap, so the key came out as a narrow
+  // five-row column with the width beside it unused.
+  const band = () => {
     const model = parseHeatmapTable(grid(
       '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
     model.bands = [];
     return parse(buildHeatmap(model, { orientation: 'portrait' }));
   };
+  const rowsOf = (d) => {
+    const byY = new Map();
+    for (const r of d.querySelectorAll('.chart-key-swatch')) {
+      const y = Number(r.getAttribute('y')).toFixed(0);
+      byY.set(y, [...(byY.get(y) || []), Number(r.getAttribute('x'))]);
+    }
+    return [...byY.values()];
+  };
 
-  test('the left and right padding around the key match', () => {
-    const d = portrait();
-    const viewW = Number(d.querySelector('svg').getAttribute('viewBox').split(' ')[2]);
-    const swatchX = Number(d.querySelector('.chart-key-swatch').getAttribute('x'));
-    const tspans = [...d.querySelectorAll('text.chart-key-label tspan')];
-    const labelX = Number(tspans[0].getAttribute('x'));
-    const longest = Math.max(...tspans.map((t) => t.textContent.length));
-    // The kernel's own advance ratio — the same one it wraps with.
-    const fs = Number(d.querySelector('text.chart-key-label').getAttribute('font-size'));
-    const inkRight = labelX + longest * fs * 0.6;
-    const left = swatchX;
-    const right = viewW - inkRight;
-    assert.ok(Math.abs(left - right) < viewW * 0.05,
-      `key is off-center: ${left.toFixed(1)} left vs ${right.toFixed(1)} right of ${viewW}`);
+  test('entries flow across and wrap, rather than stacking one per row', () => {
+    const rows = rowsOf(band());
+    assert.ok(rows.length < 5, `five bands should not take ${rows.length} rows`);
+    assert.ok(rows.some((r) => r.length > 1), 'at least one row must carry several entries');
   });
 
-  test('and the key is not flush against the edge', () => {
-    const d = portrait();
+  test('every row is centered in the box', () => {
+    const d = band();
+    const viewW = Number(d.querySelector('svg').getAttribute('viewBox').split(' ')[2]);
+    const fs = Number(d.querySelector('text.chart-key-label').getAttribute('font-size'));
+    // Pair each label with the swatch row it belongs to, by baseline. Reading the
+    // labels as one flat list crosses rows and measures a box that never existed.
+    const swatches = [...d.querySelectorAll('.chart-key-swatch')]
+      .map((r) => ({ x: Number(r.getAttribute('x')), y: Number(r.getAttribute('y')) }));
+    const labels = [...d.querySelectorAll('text.chart-key-label tspan')]
+      .map((t) => ({ x: Number(t.getAttribute('x')), y: Number(t.getAttribute('y')), n: t.textContent.length }));
+    const bands = [...new Set(swatches.map((s) => s.y.toFixed(0)))];
+    for (const by of bands) {
+      const rowSw = swatches.filter((s) => s.y.toFixed(0) === by);
+      // A label's baseline sits BELOW its swatch top by about one font size.
+      // The window has to be directional: rows are only ~1.7x fs apart, so an
+      // absolute window also catches the previous row's labels and measures a
+      // box that spans two rows.
+      const rowLb = labels.filter((l) => l.y > Number(by) && l.y - Number(by) < fs * 1.6);
+      const left = Math.min(...rowSw.map((s) => s.x));
+      const last = rowLb.reduce((a, b) => (b.x > a.x ? b : a));
+      const right = last.x + last.n * fs * 0.6;
+      assert.ok(Math.abs(left - (viewW - right)) < viewW * 0.06,
+        `row at y=${by} off-center: ${left.toFixed(1)} left vs ${(viewW - right).toFixed(1)} right`);
+    }
+  });
+
+  test('the band costs less height than the column it replaces', () => {
+    const vh = Number(band().querySelector('svg').getAttribute('viewBox').split(' ')[3]);
+    assert.ok(vh < 460, `portrait viewH ${vh} — the band should give the grid its height back`);
+  });
+});
+
+describe('fitLabels still governs the column fallback', () => {
+  // The band supersedes the column for single-line keys, but the column is still
+  // what a wrapped or valued key gets — and there it must be centered by ink
+  // rather than by the reserved category-name budget.
+  test('a key whose labels wrap falls back to the column, centered by ink', () => {
+    const model = parseHeatmapTable(grid(
+      '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
+    // long words force a wrap, which the band declines by design
+    model.bands = [{ key: '1', label: 'Substantially below the renewal threshold' }];
+    const d = parse(buildHeatmap(model, { orientation: 'portrait' }));
+    const ys = new Set([...d.querySelectorAll('.chart-key-swatch')].map((r) => r.getAttribute('y')));
+    assert.equal(ys.size, d.querySelectorAll('.chart-key-swatch').length,
+      'a wrapped key stays one entry per row');
     const viewW = Number(d.querySelector('svg').getAttribute('viewBox').split(' ')[2]);
     const swatchX = Number(d.querySelector('.chart-key-swatch').getAttribute('x'));
-    assert.ok(swatchX > viewW * 0.1, `key starts at ${swatchX} of ${viewW} — hard against the left`);
+    assert.ok(swatchX > 0, `column key flush at ${swatchX} of ${viewW}`);
   });
 });
