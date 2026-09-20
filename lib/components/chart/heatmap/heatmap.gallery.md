@@ -22,25 +22,12 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 ## Retention decays fastest in month two.
 
-- Jan 2026
-  - M0 `100`
-  - M1 `62`
-  - M2 `48`
-  - M3 `44`
-- Feb 2026
-  - M0 `100`
-  - M1 `58`
-  - M2 `44`
-  - M3 `41`
-- Mar 2026
-  - M0 `100`
-  - M1 `71`
-  - M2 `59`
-  - M3 `55`
-- Apr 2026
-  - M0 `100`
-  - M1 `69`
-  - M2 `57`
+|  | M0 | M1 | M2 | M3 |
+| --- | --: | --: | --: | --: |
+| Jan 2026 | 100 | 62 | 48 | 44 |
+| Feb 2026 | 100 | 58 | 44 | 41 |
+| Mar 2026 | 100 | 71 | 59 | 55 |
+| Apr 2026 | 100 | 69 | 57 |  |
 
 
 ---
@@ -53,100 +40,18 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 ## Ten cohorts by twelve months — the density this holds.
 
-- January 2026 acquisition cohort
-  - M0 `100`
-  - M1 `71`
-  - M2 `59`
-  - M3 `55`
-  - M4 `52`
-  - M5 `50`
-  - M6 `48`
-  - M7 `47`
-  - M8 `46`
-  - M9 `45`
-  - M10 `44`
-  - M11 `43`
-- February 2026
-  - M0 `100`
-  - M1 `58`
-  - M2 `44`
-  - M3 `41`
-  - M4 `39`
-  - M5 `38`
-  - M6 `37`
-  - M7 `36`
-  - M8 `35`
-  - M9 `34`
-  - M10 `33`
-  - M11 `32`
-- March 2026
-  - M0 `100`
-  - M1 `62`
-  - M2 `48`
-  - M3 `45`
-  - M4 `43`
-  - M5 `42`
-  - M6 `41`
-  - M7 `40`
-  - M8 `39`
-  - M9 `38`
-  - M10 `37`
-- April 2026
-  - M0 `100`
-  - M1 `69`
-  - M2 `57`
-  - M3 `54`
-  - M4 `51`
-  - M5 `49`
-  - M6 `48`
-  - M7 `47`
-  - M8 `46`
-  - M9 `45`
-- May 2026
-  - M0 `100`
-  - M1 `66`
-  - M2 `54`
-  - M3 `50`
-  - M4 `48`
-  - M5 `47`
-  - M6 `46`
-  - M7 `45`
-  - M8 `44`
-- June 2026
-  - M0 `100`
-  - M1 `64`
-  - M2 `52`
-  - M3 `49`
-  - M4 `47`
-  - M5 `46`
-  - M6 `45`
-  - M7 `44`
-- July 2026
-  - M0 `100`
-  - M1 `61`
-  - M2 `50`
-  - M3 `47`
-  - M4 `45`
-  - M5 `44`
-  - M6 `43`
-- August 2026
-  - M0 `100`
-  - M1 `59`
-  - M2 `48`
-  - M3 `45`
-  - M4 `43`
-  - M5 `42`
-- September 2026
-  - M0 `100`
-  - M1 `57`
-  - M2 `47`
-  - M3 `44`
-  - M4 `42`
-- October 2026
-  - M0 `55`
-  - M1 `55`
-  - M2 `55`
-  - M3 `55`
+|  | M0 | M1 | M2 | M3 | M4 | M5 | M6 | M7 | M8 | M9 | M10 | M11 |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| January 2026 acquisition cohort | 100 | 71 | 59 | 55 | 52 | 50 | 48 | 47 | 46 | 45 | 44 | 43 |
+| February 2026 | 100 | 58 | 44 | 41 | 39 | 38 | 37 | 36 | 35 | 34 | 33 | 32 |
+| March 2026 | 100 | 62 | 48 | 45 | 43 | 42 | 41 | 40 | 39 | 38 | 37 |  |
+| April 2026 | 100 | 69 | 57 | 54 | 51 | 49 | 48 | 47 | 46 | 45 |  |  |
+| May 2026 | 100 | 66 | 54 | 50 | 48 | 47 | 46 | 45 | 44 |  |  |  |
+| June 2026 | 100 | 64 | 52 | 49 | 47 | 46 | 45 | 44 |  |  |  |  |
+| July 2026 | 100 | 61 | 50 | 47 | 45 | 44 | 43 |  |  |  |  |  |
+| August 2026 | 100 | 59 | 48 | 45 | 43 | 42 |  |  |  |  |  |  |
+| September 2026 | 100 | 57 | 47 | 44 | 42 |  |  |  |  |  |  |  |
+| October 2026 | 55 | 55 | 55 | 55 |  |  |  |  |  |  |  |  |
 
 
 ---
@@ -158,25 +63,12 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 ## Retention decays fastest in month two.
 
-- Jan 2026
-  - M0 `100`
-  - M1 `62`
-  - M2 `48`
-  - M3 `44`
-- Feb 2026
-  - M0 `100`
-  - M1 `58`
-  - M2 `44`
-  - M3 `41`
-- Mar 2026
-  - M0 `100`
-  - M1 `71`
-  - M2 `59`
-  - M3 `55`
-- Apr 2026
-  - M0 `100`
-  - M1 `69`
-  - M2 `57`
+|  | M0 | M1 | M2 | M3 |
+| --- | --: | --: | --: | --: |
+| Jan 2026 | 100 | 62 | 48 | 44 |
+| Feb 2026 | 100 | 58 | 44 | 41 |
+| Mar 2026 | 100 | 71 | 59 | 55 |
+| Apr 2026 | 100 | 69 | 57 |  |
 
 
 ---
@@ -188,25 +80,12 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 ## Retention decays fastest in month two.
 
-- Jan 2026
-  - M0 `100`
-  - M1 `62`
-  - M2 `48`
-  - M3 `44`
-- Feb 2026
-  - M0 `100`
-  - M1 `58`
-  - M2 `44`
-  - M3 `41`
-- Mar 2026
-  - M0 `100`
-  - M1 `71`
-  - M2 `59`
-  - M3 `55`
-- Apr 2026
-  - M0 `100`
-  - M1 `69`
-  - M2 `57`
+|  | M0 | M1 | M2 | M3 |
+| --- | --: | --: | --: | --: |
+| Jan 2026 | 100 | 62 | 48 | 44 |
+| Feb 2026 | 100 | 58 | 44 | 41 |
+| Mar 2026 | 100 | 71 | 59 | 55 |
+| Apr 2026 | 100 | 69 | 57 |  |
 
 
 ---
@@ -218,25 +97,12 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 ## Retention decays fastest in month two.
 
-- Jan 2026
-  - M0 `100`
-  - M1 `62`
-  - M2 `48`
-  - M3 `44`
-- Feb 2026
-  - M0 `100`
-  - M1 `58`
-  - M2 `44`
-  - M3 `41`
-- Mar 2026
-  - M0 `100`
-  - M1 `71`
-  - M2 `59`
-  - M3 `55`
-- Apr 2026
-  - M0 `100`
-  - M1 `69`
-  - M2 `57`
+|  | M0 | M1 | M2 | M3 |
+| --- | --: | --: | --: | --: |
+| Jan 2026 | 100 | 62 | 48 | 44 |
+| Feb 2026 | 100 | 58 | 44 | 41 |
+| Mar 2026 | 100 | 71 | 59 | 55 |
+| Apr 2026 | 100 | 69 | 57 |  |
 
 
 ---
@@ -247,7 +113,7 @@ A numeric matrix read as intensity — where the value concentrates across two d
 ## When NOT to reach for heatmap.
 
 - One row of numbers
-  - A single series is not a matrix — it is a comparison, and a reader judges length far more precisely than intensity. Use `bar`. The kernel declines a flat list for this reason rather than painting a one-row grid.
+  - A single series is not a matrix — it is a comparison, and a reader judges length far more precisely than intensity. Use `bar`. The kernel declines a one-column table for this reason rather than painting a single strip.
 - Qualitative cells
   - If the cells are verbs, owners or statuses rather than numbers, the ramp has nothing to encode. Use `matrix-grid`, whose cells are tagged at parse time.
 - Precise comparison

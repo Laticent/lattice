@@ -27,25 +27,12 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ## Retention decays fastest in month two.
 
-- Jan 2026
-  - M0 `100`
-  - M1 `62`
-  - M2 `48`
-  - M3 `44`
-- Feb 2026
-  - M0 `100`
-  - M1 `58`
-  - M2 `44`
-  - M3 `41`
-- Mar 2026
-  - M0 `100`
-  - M1 `71`
-  - M2 `59`
-  - M3 `55`
-- Apr 2026
-  - M0 `100`
-  - M1 `69`
-  - M2 `57`
+|  | M0 | M1 | M2 | M3 |
+| --- | --: | --: | --: | --: |
+| Jan 2026 | 100 | 62 | 48 | 44 |
+| Feb 2026 | 100 | 58 | 44 | 41 |
+| Mar 2026 | 100 | 71 | 59 | 55 |
+| Apr 2026 | 100 | 69 | 57 |  |
 
 ---
 
@@ -56,24 +43,11 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ## Tuesday carries the week's backlog.
 
-- Morning
-  - Mon `82`
-  - Tue `96`
-  - Wed `74`
-  - Thu `61`
-  - Fri `48`
-- Afternoon
-  - Mon `71`
-  - Tue `88`
-  - Wed `66`
-  - Thu `59`
-  - Fri `37`
-- Evening
-  - Mon `34`
-  - Tue `41`
-  - Wed `29`
-  - Thu `24`
-  - Fri `12`
+|  | Mon | Tue | Wed | Thu | Fri |
+| --- | --: | --: | --: | --: | --: |
+| Morning | 82 | 96 | 74 | 61 | 48 |
+| Afternoon | 71 | 88 | 66 | 59 | 37 |
+| Evening | 34 | 41 | 29 | 24 | 12 |
 
 ---
 
@@ -84,21 +58,11 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ## Margin recovered everywhere except EMEA.
 
-- Americas
-  - Q1 `61`
-  - Q2 `63`
-  - Q3 `66`
-  - Q4 `69`
-- EMEA
-  - Q1 `58`
-  - Q2 `55`
-  - Q3 `54`
-  - Q4 `52`
-- APAC
-  - Q1 `49`
-  - Q2 `54`
-  - Q3 `60`
-  - Q4 `64`
+|  | Q1 | Q2 | Q3 | Q4 |
+| --- | --: | --: | --: | --: |
+| Americas | 61 | 63 | 66 | 69 |
+| EMEA | 58 | 55 | 54 | 52 |
+| APAC | 49 | 54 | 60 | 64 |
 
 ---
 
@@ -109,18 +73,11 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ## Checkout carries three times the defect load.
 
-- Checkout
-  - Jan `31`
-  - Feb `28`
-  - Mar `34`
-- Catalog
-  - Jan `11`
-  - Feb `9`
-  - Mar `12`
-- Search
-  - Jan `8`
-  - Feb `7`
-  - Mar `6`
+|  | Jan | Feb | Mar |
+| --- | --: | --: | --: |
+| Checkout | 31 | 28 | 34 |
+| Catalog | 11 | 9 | 12 |
+| Search | 8 | 7 | 6 |
 
 ---
 
