@@ -6,7 +6,7 @@
 // timeline the cursor scans and vtt serializes; it owns no audio and no DOM.
 
 import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, type Pace, pauseAfter } from './cadence';
-import { type AcronymRegistry, toSpoken } from './normalize';
+import { type AcronymRegistry, dedupeDirection, toSpoken } from './normalize';
 import { splitParagraphs, splitWords } from './segment';
 import type { LexiconMap } from './symbols';
 
@@ -169,7 +169,9 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       if (found >= 0) scan = found + display.length;
       if (cueCharOffset < 0) cueCharOffset = charOffset;
 
-      const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon });
+      // `dedupeDirection` needs the word BEFORE this one, which only this loop can see —
+      // `toSpoken` is per-token and cannot look left. See its docblock for the doubling.
+      const spoken = dedupeDirection(displays[i - 1], toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon }));
       const pause = pauseAfter(display);
       // Phrase-final lengthening: a word before a boundary (it carries trailing punctuation)
       // stretches, so its highlight holds a beat longer instead of the cursor running ahead.

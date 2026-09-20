@@ -32,9 +32,16 @@ describe('toSpoken — trailing-colon hard-stop softening (#904 live-narration r
 	it('softens a trailing semicolon too', () => {
 		expect(toSpoken('first;')).toBe('first,');
 	});
-	it('does NOT touch a mid-token colon (times, ratios) — only a TRAILING one', () => {
-		expect(toSpoken('3:30')).toBe('3:30');
+	it('does NOT soften a mid-token colon to a comma — only a TRAILING one', () => {
+		// The invariant here is about the COMMA softening, which must stay trailing-only.
+		// `3:30` now reads as the clock time it is (2026-09-20-narration-audit.md Finding 3);
+		// what matters is that the colon never became a comma pause.
+		expect(toSpoken('3:30')).toBe('three thirty');
+		// A RATIO is not a time and is still left alone — the clock rule requires two digits
+		// after the colon and an hour in range, which is what keeps these out.
 		expect(toSpoken('16:9')).toBe('16:9');
+		expect(toSpoken('1:1')).toBe('1:1');
+		expect(toSpoken('60:40')).toBe('60:40');
 	});
 	it('the display word is unchanged — only the SPOKEN form softens', () => {
 		// toSpokenText joins spoken forms; the caller keeps the display token separately.
@@ -180,7 +187,10 @@ describe('toSpoken', () => {
     expect(toSpoken('18d')).toBe('eighteen days');
     expect(toSpoken('1d')).toBe('one day'); // singular
     expect(toSpoken('3D')).toBe('3D'); // capital D is NOT a duration
-    expect(toSpoken('1990s')).toBe('1990s'); // a decade, NOT "seconds"
+    // A decade, and never "seconds" — that was always the invariant. It now reads as the
+    // decade rather than passing through (2026-09-20-narration-audit.md Finding 3).
+    expect(toSpoken('1990s')).toBe('nineteen nineties');
+    expect(toSpoken('90s')).toBe('nineties');
   });
 
   it('speaks section references, preserving every citation digit (trailing zeros)', () => {
@@ -458,9 +468,9 @@ describe('bracketing punctuation is peeled, value-leading punctuation is not', (
     expect(toSpoken('§1798.140(o)')).toBe('section one thousand seven hundred ninety-eight point one four zero, subsection o');
   });
 
-  it('leaves a mid-token colon alone (a time, a ratio)', () => {
-    expect(toSpoken('3:30')).toBe('3:30');
+  it('leaves a RATIO alone — the peel never reaches inside a token', () => {
     expect(toSpoken('16:9')).toBe('16:9');
+    expect(toSpoken('60:40')).toBe('60:40');
   });
 
   it('lets an author override the WRAPPED form verbatim', () => {
@@ -469,5 +479,93 @@ describe('bracketing punctuation is peeled, value-leading punctuation is not', (
     const lexicon = new Map([['(12)', 'negative twelve']]);
     expect(toSpoken('(12)', { lexicon })).toBe('negative twelve');
     expect(toSpoken('(12)')).toBe('twelve'); // unguessed by default — see the peel's docblock
+  });
+});
+
+// ── Token coverage and number defects — 2026-09-20-narration-audit.md Finding 3 ──────
+describe('number defects that reached the voice', () => {
+  it('never speaks the literal word "undefined"', () => {
+    // `SCALES` stopped at trillion while the group loop indexed past its end and
+    // string-concatenated the result: `1000000000000000` spoke as "oneundefined".
+    expect(toSpoken('1000000000000000')).toBe('one quadrillion');
+    expect(toSpoken('9007199254740991')).not.toContain('undefined'); // MAX_SAFE_INTEGER
+  });
+
+  it('never silently DROPS a number it cannot name', () => {
+    // `String(1e-7)` is exponential, so the whole value came back empty and
+    // `toSpokenText`'s `.filter(Boolean)` removed it from the utterance:
+    // "Rate is 0.0000001 today." narrated as "Rate is  today."
+    expect(toSpoken('0.0000001')).toBe('zero point zero zero zero zero zero zero one');
+    expect(toSpokenText('Rate is 0.0000001 today.')).toContain('zero point zero');
+  });
+
+  it('agrees on singular money, like every other unit already did', () => {
+    expect(toSpoken('$1')).toBe('one dollar'); // was "one dollars"
+    expect(toSpoken('£1')).toBe('one pound');
+    expect(toSpoken('$2')).toBe('two dollars');
+    expect(toSpoken('$1M')).toBe('one million dollars'); // a magnitude always pluralizes
+  });
+
+  it('reads the two multi-letter finance magnitudes', () => {
+    expect(toSpoken('$4.2bn')).toBe('four point two billion dollars');
+    expect(toSpoken('$4.2MM')).toBe('four point two million dollars');
+  });
+
+  it('reads 1x and 1× the same, with singular agreement', () => {
+    // `resolveSymbols` rewrote every `×` to the word "times" before the multiplier rule
+    // could see it, so that rule's own `×` arm was dead code and the agreement was lost.
+    expect(toSpoken('1x')).toBe('one time');
+    expect(toSpoken('1×')).toBe('one time');
+    expect(toSpoken('4.2×')).toBe('four point two times');
+  });
+
+  it('reads the six status marks the same way, whatever code point was typed', () => {
+    // `✔` and `☑` are Extended_Pictographic and were SILENCED; the visually
+    // identical `✓` and `☒` were not, and reached the voice as raw glyphs.
+    for (const g of ['✓', '✔', '☑']) expect(toSpoken(g)).toBe('yes');
+    for (const g of ['✗', '✘', '☒']) expect(toSpoken(g)).toBe('no');
+  });
+});
+
+describe('the shapes a boardroom deck writes that used to pass through raw', () => {
+  it('reads a range as a range', () => {
+    expect(toSpoken('$1.2–1.4B')).toBe('one point two to one point four billion dollars');
+    expect(toSpoken('50-60%')).toBe('fifty to sixty percent');
+    expect(toSpoken('2-3x')).toBe('two to three times');
+    expect(toSpoken('12–15')).toBe('twelve to fifteen');
+  });
+
+  it('does not mistake an identifier or a date for a range', () => {
+    expect(toSpoken('ID-4471')).toBe('ID-4471'); // no leading number
+    expect(toSpoken('2026-09-20')).not.toContain(' to '); // two separators, not one
+  });
+
+  it('reads a date, a clock time, an ordinal, a decade, a rank and a version', () => {
+    expect(toSpoken('2026-09-20')).toBe('September twentieth, two thousand twenty-six');
+    expect(toSpoken('12:30')).toBe('twelve thirty');
+    expect(toSpoken('9:05')).toBe('nine oh five');
+    expect(toSpoken('14:00')).toBe("fourteen o'clock");
+    expect(toSpoken('1st')).toBe('first');
+    expect(toSpoken('22nd')).toBe('twenty-second');
+    expect(toSpoken('1990s')).toBe('nineteen nineties');
+    expect(toSpoken('#1')).toBe('number one');
+    expect(toSpoken('v2.1')).toBe('version two point one');
+  });
+
+  it('leaves a slash alone, because a slash means four different things', () => {
+    for (const t of ['A/B', '24/7', '3.5/5', '9/20']) expect(toSpoken(t)).toBe(t);
+  });
+});
+
+describe('a direction word is not said twice', () => {
+  it('drops the sign’s word when the sentence already said it', () => {
+    expect(toSpokenText('We are up +18% YoY.')).toBe('We are up eighteen percent year over year.');
+    expect(toSpokenText('Churn is down -9% this quarter.')).toBe('Churn is down nine percent this quarter.');
+  });
+
+  it('still reads the sign when nothing before it did', () => {
+    expect(toSpokenText('Margin moved +18%.')).toBe('Margin moved up eighteen percent.');
+    // Not an inference engine: only the SAME word is deduped, so a verb is left alone.
+    expect(toSpokenText('Costs fell -12%.')).toBe('Costs fell down twelve percent.');
   });
 });
