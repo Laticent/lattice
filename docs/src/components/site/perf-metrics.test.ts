@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Regime-aware rating for FRAME/TOTAL — the metrics-honesty fix (perf-diagnosis §C1).
 // The panel must judge a warm in-place patch against the frame budget and a cold full
 // rebuild against a realistic reparse budget — never a rebuild against the impossible

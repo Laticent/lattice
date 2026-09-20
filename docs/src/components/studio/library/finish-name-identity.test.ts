@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Unit: THE FINISH FACULTY'S GUARD AND ITS SAVE MUST AGREE ON ONE NAME.
 //
 // The Finish faculty derives two slugs from what the author typed, and for one commit it

@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Unit: renaming a saved asset, propagated into deck source.
 //
 // This is the piece that edits decks the author is NOT looking at, so the tests are

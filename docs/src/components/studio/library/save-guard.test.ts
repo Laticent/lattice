@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Unit: THE FACULTY SAVE GUARD — the second state table, enumerated like the store's.
 //
 // WHY THIS EXISTS. The pre-merge card for #1839 graded the change `high` with the floor on

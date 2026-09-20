@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 /**
  * Unit: every overwrite that reaches the asset store is versioned, and every delete
  * takes its versions with it.

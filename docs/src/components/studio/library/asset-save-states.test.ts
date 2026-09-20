@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Unit: WHICH RECORD DOES A SAVE LAND ON — the whole state table, enumerated.
 //
 // WHY THIS EXISTS, AND WHY IT IS A TABLE. Four adversarial review rounds on #1839 found

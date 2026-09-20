@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { deflateSync, inflateSync } from 'node:zlib';
 import { PDFArray, PDFDict, PDFDocument, PDFName, type PDFNumber, type PDFObject, PDFRawStream } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';

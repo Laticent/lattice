@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 // The boundary gate skips *.test.ts, which is what lets this file do the one thing the
 // library itself must not: import Cadenza, and pin the two engines' reading rate together.

@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Unit: version history for a saved Library asset.
 //
 // Driven against `fake-indexeddb` — a real IDB implementation — rather than a hand

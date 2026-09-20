@@ -1,3 +1,11 @@
+// @vitest-environment node
+// This file SUPPLIES its own DOM stubs rather than consuming jsdom's — the frame, the
+// section and `getComputedStyle` are all hand-built below, because jsdom does not lay
+// out an iframe's srcdoc and could not answer this question anyway. So it was paying
+// for a jsdom window it never read. It is the one file in this batch that touches a
+// DOM GLOBAL at all, which is why this docblock says so rather than repeating the
+// blanket "touches no DOM" line the other 134 carry.
+// See engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 import { cornerRadiusCss, slideCornerFraction } from './deck-corner';
 
@@ -13,12 +21,20 @@ import { cornerRadiusCss, slideCornerFraction } from './deck-corner';
 function host({ radius, w = 1280, section = true }: { radius: string; w?: number; section?: boolean }) {
 	const sectionEl = { getBoundingClientRect: () => ({ width: w }) } as unknown as Element;
 	const frame = { contentDocument: { querySelector: () => (section ? sectionEl : null) } } as unknown as HTMLIFrameElement;
-	// jsdom does not lay out an iframe's srcdoc, so `getComputedStyle` is stubbed for the one
-	// property the module reads. Restored in a `finally` by every caller — a failing
-	// expectation must not leave the global patched for the rest of the file.
+	// `getComputedStyle` is stubbed for the one property the module reads — jsdom does not
+	// lay out an iframe's srcdoc, so no environment can answer this for real. Restored in a
+	// `finally` by every caller: a failing expectation must not leave the global patched.
+	//
+	// There is no host `getComputedStyle` to delegate to under `@vitest-environment node`,
+	// so `original` is `undefined` here and the fall-through says that plainly instead of
+	// dying with `original is not a function`. The module under test only ever asks about
+	// `sectionEl`; if that ever changes, this throw names the reason on the first call.
 	const original = globalThis.getComputedStyle;
-	globalThis.getComputedStyle = ((el: Element) =>
-		el === sectionEl ? ({ borderTopLeftRadius: radius } as CSSStyleDeclaration) : original(el)) as typeof getComputedStyle;
+	globalThis.getComputedStyle = ((el: Element) => {
+		if (el === sectionEl) return { borderTopLeftRadius: radius } as CSSStyleDeclaration;
+		if (typeof original !== 'function') throw new Error('deck-corner.test: getComputedStyle asked about an element this stub does not model, and there is no host implementation to fall back to');
+		return original(el);
+	}) as typeof getComputedStyle;
 	return { el: { querySelector: () => frame } as unknown as Element, restore: () => { globalThis.getComputedStyle = original; } };
 }
 

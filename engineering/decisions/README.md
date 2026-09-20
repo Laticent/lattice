@@ -310,6 +310,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-20-dom-library-bakeoff.md](2026-09-20-dom-library-bakeoff.md) — jsdom is slow and we keep it — on the paths we have.
 - ☑ [2026-09-20-issue-queue-triage.md](2026-09-20-issue-queue-triage.md) — 317 open cards, and the axis that decides what to work next is not on any of them.
 - ☑ [2026-09-14-notification-subsystem.md](2026-09-14-notification-subsystem.md) — "We should have a notification subsystem and not handle notifications bespokely across the Studio." A census of every surface that tells a…
 - ☑ [2026-09-14-the-band-is-a-rect.md](2026-09-14-the-band-is-a-rect.md) — A tour's caption declared a rect and the engine read two of its four fields, so a centered 380px `progress` pill reported a full-width band…

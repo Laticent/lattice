@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The encoder is loaded through a DYNAMIC import, and how its FAILURE is remembered is a real

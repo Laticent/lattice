@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Gate: the STORAGE diagnostic overlay is wired onto every surface PerfOverlay
 // reaches, and its Workspace toggle stays present. A source-string test (like
 // RuntimeWarm.test.ts) — the unit tier never runs a real `astro build`, but the

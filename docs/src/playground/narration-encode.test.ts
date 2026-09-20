@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // The speech compressor — the one place a WAV-producing voice becomes an mp3.
 //
 // What these pin is the CONTRACT that lets the rest of the narration path trust this module
