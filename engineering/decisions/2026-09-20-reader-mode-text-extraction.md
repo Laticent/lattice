@@ -115,6 +115,23 @@ load costs **26 performance points, all of it CLS** (0.076 → 0.773). LCP (3751
 and TBT (25 → 24 ms) do not move — the article is inert markup with no JS and no blocking
 resources.
 
+**The `.html` export (`--read`).** A new flag writes the deck's prose *instead of* the
+slide stack. "Instead of" is forced, not stylistic, and it is the finding that killed the
+first attempt: appending the article *beside* the slides was built and measured, and it
+re-created the player's defect in a worse place — 2123 extracted words for a 1080-word
+deck, every sentence duplicated, in a document where both copies are visible so neither
+can be hidden without cloaking. **A document gets one copy of the deck.** Either the
+slides are the summary source (45–76%) or the prose is, and a document with two
+switchable copies is `--player`, which already exists. With `--read` the same deck
+extracts 1040 words, single copy, and the three test decks that previously failed the
+eligibility check outright now score 46.9 / 52.5 / 99.3.
+
+It runs after the raster, the placement `--fluid` already uses, so the PDF/PPTX/PNG are
+rendered from the clean pre-article document — verified by rendering the same deck with
+and without the flag and comparing PDF checksums, which match. That ordering is invisible
+in the source, so it is pinned by `test/integration/invariants/read-export.test.js`
+rather than left to a comment.
+
 ## What is not resolved
 
 - **No device verification.** Every claim here is measured against the real Readability

@@ -60,10 +60,25 @@ is proportional to how much PDF there is to encode: ~18% on the 58-slide gallery
 and 20% on the chart gallery, but **under 1% on a one-slide fixture**, where
 browser startup and `mmdc` dominate and the PDF is a few tens of milliseconds.
 
-Its best use is with **`--player` / `--fluid`**: those build a viewer at the
-`.html` path, and before `.html` was a real format they forced a full PDF encode
-plus a megabyte-plus artifact nobody asked for. That win is real at any deck
-size, unlike the percentage above.
+Its best use is with **`--player` / `--fluid` / `--read`**: those build a viewer
+at the `.html` path, and before `.html` was a real format they forced a full PDF
+encode plus a megabyte-plus artifact nobody asked for. That win is real at any
+deck size, unlike the percentage above.
+
+**`--read` is the odd one of the three: it replaces the slides rather than
+re-presenting them.** It writes the deck's prose — the shared
+`projectDeckToProse` projection — *instead of* the slide stack, which is the form
+a reader mode or a "summarize this page" feature can actually read. A slide stack
+is headings and short list items inside `<section>` elements, and those tools
+score only `p`, `pre` and `article`, so most decks are invisible to them: 2 of 6
+test decks cleared the eligibility check, and wrapping the stack in an
+`<article>` passes the check but hands the summarizer only 45–76% of the deck.
+**Instead of, not beside** — a page carrying both copies feeds a summarizer the
+same deck twice (measured: 2123 extracted words for a 1080-word deck). All three
+flags run *after* the raster, so the PDF/PPTX/PNG bytes are identical either way,
+pinned by `test/integration/invariants/read-export.test.js`. `--player` wins over
+`--read`: it already carries a Read · Article view and switches to it. Why, and
+what was measured: `engineering/decisions/2026-09-20-reader-mode-text-extraction.md`.
 
 `.html` is a **full browser render minus the PDF encode**, not a browser-free
 path: the overflow/legibility passes measure laid-out DOM, and the written file

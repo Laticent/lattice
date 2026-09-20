@@ -215,6 +215,18 @@ OPTIONS
                           HTML sanitized under a strict CSP, and the deck source
                           embedded for lossless re-import. Supersedes --fluid. Can
                           also be enabled with a 'player: true' front-matter key.
+      --read              Emit the .html as the deck's READING ARTICLE — the prose,
+                          INSTEAD of the slide stack: real headings, paragraphs and
+                          lists, with charts and tables re-hosted as figures. This is
+                          the form a reader mode or a "summarize this page" feature
+                          can actually read; a slide stack is headings and short list
+                          items inside <section> elements, which those tools do not
+                          treat as article text at all. Instead, not beside: a page
+                          carrying both would feed a summarizer the same deck twice.
+                          The PDF/PPTX/PNG bytes are unchanged (this runs after the
+                          raster, like --fluid). --player wins if both are set, since
+                          it already carries a Read Article view and switches to it.
+                          Can also be enabled with a 'read: true' front-matter key.
       --present           Mark the PDF to open directly in full-screen
                           presentation mode (Adobe Acrobat/Reader and most desktop
                           viewers honor this; browser-embedded viewers ignore it
@@ -380,6 +392,7 @@ function parseArgs(argv) {
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
     if (a === '--fluid') { flags.fluid = true; continue; }
     if (a === '--player') { flags.player = true; continue; }
+    if (a === '--read') { flags.read = true; continue; }
     if (a === '--present') { flags.present = true; continue; }
     if (a === '--print') { flags.print = true; continue; }
     if (a === '--raster') { flags.raster = true; continue; }
@@ -1982,6 +1995,26 @@ if (OUT_FORMAT === 'html') {
 // Enabled by `--player` OR a `player: true` front-matter key. Takes precedence over
 // --fluid (the player is the richer viewer). Frozen player-runtime version stamp.
 const PLAYER = !!flags.player || readRenderTargetKey(fm, 'player');
+// READING ARTICLE (--read): rewrite the .html as the deck's PROSE — the shared
+// `projectDeckToProse` projection — INSTEAD of the slide stack, not beside it.
+//
+// "Instead" is the whole design, and it is forced rather than stylistic. Reader-mode
+// text extractors (Readability, which Firefox Reader View and its shake-to-summarize
+// run on, and the reading modes Safari and Chrome ship) read a document and keep what
+// they find. A page carrying BOTH a visible slide stack and a visible article feeds them
+// the deck twice — measured 2123 extracted words for a 1080-word deck — which is the
+// same defect the player's view-hide fixes and half the deck that fits under Firefox's
+// 3000-word cap. Hiding one copy from the reader while leaving it for the extractor is
+// cloaking and is not on the table. So a document gets ONE copy of the deck, and this
+// flag is the one that makes it the prose copy.
+//
+// Like --fluid and --player it only affects the written .html, after raster: the PDF /
+// PPTX / PNG bytes are identical either way. --player wins if both are set — it already
+// carries a Read · Article view, and it switches rather than duplicating.
+const READ_VIEW = !!flags.read || readRenderTargetKey(fm, 'read');
+if (PLAYER && READ_VIEW) {
+  console.warn('  ⚠ --player and --read both set — using the player, which already carries a Read · Article view and switches to it rather than shipping a second copy of the deck.');
+}
 const PLAYER_VERSION = '1';
 const ENGINE_BUILD = pkgVersion() ?? '';
 // Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
@@ -4670,6 +4703,21 @@ async function renderBody(browser, g, closeBrowser) {
       toFluidViewer(cleanDocHtml) + exportSettingsBlock({ overflowMarker: OVERFLOW_MARKER.marker }),
     );
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
+  } else if (READ_VIEW) {
+    // Projected from `cleanDocHtml`, which at this point is the measured, SPLIT-BAKED
+    // document — so the article reflects the pages a reader actually gets, not the
+    // pre-layout guess. AFTER THE RASTER, deliberately, exactly as the fluid rewrite
+    // above is: the PDF / PPTX / PNG were rendered from the clean file written before
+    // this line, so those bytes do not move.
+    const articleHtml = await projectDeckArticleFromHtml(cleanDocHtml);
+    if (articleHtml) {
+      cleanDocHtml = toReadingArticle(cleanDocHtml, articleHtml);
+      fs.writeFileSync(outHtml, cleanDocHtml);
+      if (!QUIET) console.log(`Reading article: ${outHtml}`);
+    } else if (!QUIET) {
+      // Never silent: the operator asked for an article and is getting the slide stack.
+      console.warn(`  warning: no reading article could be projected; ${outHtml} is the clean render.`);
+    }
   }
   // ── The LIVE document's remote-subresource policy ────────────────────────────────────
   // Whatever HTML this run leaves at `outHtml` is a document someone OPENS — the `.html`
@@ -5291,6 +5339,105 @@ function writeNotesSidecar(outPath, notes) {
   const sidecar = outPath.replace(/\.(pdf|pptx|png|zip|html)$/i, '') + '.notes.txt';
   fs.writeFileSync(sidecar, blocks.length ? blocks.join('\n') : '(no speaker notes in this deck)\n');
   if (!QUIET) console.log(`Notes: ${blocks.length} slide${blocks.length === 1 ? '' : 's'} → ${sidecar}`);
+}
+
+// The reading article's stylesheet for `--read`. Targets the `lp-*` class contract the
+// shared projection emits, so the markup is one thing across every host that shows it.
+// Deliberately plain — the job here is legibility, not a second design language. The
+// deck's own stylesheet still rides in the head, so palette tokens, web fonts and every
+// component rule a re-hosted chart or table depends on resolve exactly as on a slide.
+const READING_ARTICLE_CSS = `
+html,body{background:var(--bg,#fff)}
+#lat-read{--lat-prose:68ch;box-sizing:border-box;display:grid;
+ grid-template-columns:[fig-start] minmax(0,1fr) [prose-start] min(var(--lat-prose),100%) [prose-end] minmax(0,1fr) [fig-end];
+ padding:64px 24px 120px;color:var(--text-body,#1a1a1a);
+ font-family:'Outfit',system-ui,sans-serif;font-size:17px;line-height:1.7}
+#lat-read>*{grid-column:prose-start/prose-end;min-width:0}
+#lat-read>.lp-figure:not(.lp-figure-note){grid-column:fig-start/fig-end;justify-self:center;width:100%;max-width:1100px}
+#lat-read h1{font-size:2rem;line-height:1.15;color:var(--text-heading,#0d0d0d);padding:1.3em 0 .35em}
+#lat-read h1:first-child{padding-top:0}
+#lat-read h2{font-size:1.4rem;line-height:1.2;color:var(--text-heading,#111);padding:1.6em 0 .35em}
+#lat-read h3{font-size:1.08rem;color:var(--text-heading,#111);padding:1.3em 0 .3em}
+#lat-read p{padding:0 0 .95em}
+#lat-read ul,#lat-read ol{padding:0 0 1.05em 1.25em}
+#lat-read li{padding:.14em 0}
+#lat-read li>ul,#lat-read li>ol{padding-bottom:0}
+#lat-read blockquote{border-left:3px solid var(--accent,#4338ca);padding:.15em 0 .15em 1em;color:var(--text-heading,#111)}
+#lat-read .lp-kicker{font-size:.76rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted,#777);padding:0 0 .25em}
+#lat-read .lp-stats{display:grid;grid-template-columns:auto 1fr;gap:.35em 1em;align-items:baseline;padding:0 0 1.2em}
+#lat-read .lp-stats dt{font-size:1.5em;font-weight:700;color:var(--text-heading,#0d0d0d);font-variant-numeric:tabular-nums}
+#lat-read .lp-stats dd{margin:0;color:var(--text-muted,#777)}
+#lat-read .lp-roster{list-style:none;padding-left:0}
+#lat-read .lp-roster>li{display:flex;align-items:baseline;gap:.6em}
+#lat-read .lp-roster>li>img{flex:none;width:1.9em;height:1.9em;border-radius:50%;object-fit:cover;align-self:flex-start}
+#lat-read .lp-roster>li>div{flex:1;min-width:0}
+#lat-read figure{padding:0 0 1.4em;margin:0}
+#lat-read figure svg,#lat-read figure img{max-width:100%;height:auto}
+#lat-read figcaption{font-size:.82rem;color:var(--text-muted,#777);padding:.5em 0 0}
+#lat-read .lp-figure-note{border:1px dashed var(--border,#ccc);border-radius:10px;padding:1em 1.2em;background:var(--bg-alt,#f7f7f7)}
+#lat-read table{border-collapse:collapse;width:100%;font-size:.92em}
+#lat-read th,#lat-read td{border:1px solid var(--border,#e2e2e2);padding:.4em .7em;text-align:left}
+#lat-read th{background:var(--bg-alt,#f5f5f5);font-weight:600}
+#lat-read pre{background:var(--bg-alt,#f5f5f5);padding:1em;border-radius:8px;overflow:auto;font-size:.85em}
+/* Un-trim, as the player's Read view does: a slide's guards:strict clamp rides in on the
+   cloned DOM, and this column scrolls, so the clamp is pure content loss here.
+   display:revert, not display:block — block demotes an <li> out of display:list-item. */
+#lat-read [data-lattice-trimmed]{display:revert!important;-webkit-line-clamp:none!important;overflow:visible!important}
+`;
+
+/**
+ * The deck as a reading ARTICLE, projected from the finished export document.
+ *
+ * WHY a deck needs one at all. Reader-mode text extractors decide what to summarize from
+ * `p`, `pre` and `article` elements, each needing 140+ characters. A slide stack is
+ * headings and short list items inside `section` elements, which are not candidates, so
+ * most decks were invisible to them — 2 of 6 test decks cleared the eligibility check.
+ *
+ * Wrapping the slide stack in an `<article>` is the tempting one-line fix and it is the
+ * WRONG one, measured. It does flip the check for all 6, but the extractor that follows
+ * keeps one top-candidate subtree and discards the rest, so 45-76% of the deck reached
+ * the summarizer. The projection extracts at 66-100% instead, four of six at 100%.
+ *
+ * Returns '' (never throws): a projection failure must not sink a render that succeeded.
+ */
+async function projectDeckArticleFromHtml(docHtml) {
+  if (!docHtml || typeof docHtml !== 'string') return '';
+  try {
+    const { JSDOM } = require('jsdom');
+    const DOMPurify = require('dompurify');
+    const { createSlideSanitizer } = await import('./lib/core/sanitize-slide-html.mjs');
+    const { projectDeckToProse } = await import('./lib/transformers/prose-projection.mjs');
+    const sanitize = createSlideSanitizer(DOMPurify, new JSDOM('').window);
+    const doc = new JSDOM(docHtml).window.document;
+    // Sanitize each section in isolation, then project the clean nodes — the
+    // caller-sanitizes contract prose-projection states in its own header (HARD RULE #22).
+    const clean = [...doc.querySelectorAll('section[data-lattice-slide]')]
+      .map((sec) => new JSDOM(sanitize(sec.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
+      .filter(Boolean);
+    if (!clean.length) return '';
+    const { articleHtml } = projectDeckToProse(clean);
+    return articleHtml || '';
+  } catch (e) {
+    console.warn(`  warning: reading-article projection failed (${e?.message}); ${outHtml} is the clean render, not the article.`);
+    return '';
+  }
+}
+
+/**
+ * Swap the slide stack for the article, keeping the document's own head. The deck's
+ * stylesheet, embedded fonts and palette tokens all ride along, so a re-hosted chart SVG
+ * or table keeps the component rules it was styled with on the slide.
+ */
+function toReadingArticle(cleanHtml, articleHtml) {
+  return cleanHtml
+    // Drop the slide stack and the skip link that points at it. A `<main id="deck">` that
+    // is gone must not leave a "Skip to the slides" link aiming at a dead anchor.
+    .replace(/<a class="lat-skip-link"[^>]*>.*?<\/a>\s*/is, '')
+    .replace(
+      /<main id="deck"[^>]*>[\s\S]*?<\/main>/i,
+      () => `<main id="lat-read-main"><article id="lat-read" aria-label="Reading version">${articleHtml}</article></main>`,
+    )
+    .replace(/<\/head>/i, () => `<style>${sanitizeStyleText(READING_ARTICLE_CSS)}</style></head>`);
 }
 
 /**

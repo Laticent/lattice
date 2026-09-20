@@ -48,11 +48,16 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  */
 const CENSUS = {
 	'lattice-emulator.js': {
-		guards: 4,
+		guards: 5,
 		why:
-			'page scaffold, look-diagram scratch page, and both --player prune re-wraps are guarded. ' +
-			'The fifth is embeddedFontsStyle() — a fixed face manifest from lib/fonts/text-faces.js plus ' +
-			'base64, neither of which can contain `<`.',
+			'page scaffold, look-diagram scratch page, both --player prune re-wraps, and the --read ' +
+			"reading-article sheet are guarded. That fifth one is belt and braces rather than a live " +
+			'sink — READING_ARTICLE_CSS is a fixed module constant with no interpolation, so it is in ' +
+			'the same class as embeddedFontsStyle() below. It is guarded anyway because it is the one ' +
+			'of the two a future change is likely to make dynamic (a palette or measure threaded into ' +
+			'it), and a guard already at the call site is cheaper than noticing that it is now needed. ' +
+			'The sheet that stays UNGUARDED is embeddedFontsStyle() — a fixed face manifest from ' +
+			'lib/fonts/text-faces.js plus base64, neither of which can contain `<`.',
 	},
 	'lib/export/player-core.mjs': {
 		guards: 3,
