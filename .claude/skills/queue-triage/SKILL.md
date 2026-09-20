@@ -183,6 +183,11 @@ Then, once approved:
   it ran and check that its duration is physically possible for the work it claims to
   have done** (#23). `export LATTICE_FULL_PUSH=1` if you want it locally; otherwise cite
   CI's `integration (node 22)`, which is the required gate and really does run it.
+  **The `ci-green-beacon` had the same bug and it is now fixed** (this change): it posted
+  the hardcoded roster `lint · unit · integration · docs-build` regardless of what ran, so
+  on any path-filtered PR it announced three skipped tiers as green. It now reports
+  `ran:` / `skipped by the path filter:` / `superseded:` from the real `needs.*.result`.
+  Beacons on commits before that fix still recite the roster — read the check runs.
 - **Never wrap `git push` in a short `timeout`.** `lefthook`'s pre-push runs lint ·
   `lint:deck:all` · `build:check` · docs-typecheck · unit (~130s) — and integration only
   when `LATTICE_FULL_PUSH=1`, per the entry above. A 115-second cap killed the first push
