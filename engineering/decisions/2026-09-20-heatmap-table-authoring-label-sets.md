@@ -271,6 +271,57 @@ heatmap-specific**: a funnel reports `Text too small · 4.8pt` under the same te
 Pre-existing and off the path of this work, so it is logged here rather than pulled
 into the diff.
 
+## What driving the real Playground found, after the gates were green
+
+The per-cell reveal shipped with a green lint, a green unit tier, a green
+`build:check` and a green CI — and it did not work. HARD RULE #23 asks a verification
+claim to name its surface and carry an artifact from it; the claim here rested on the
+PDF speaker note, which is a different surface with a different code path. Driving the
+actual Playground (seeded deck, real Chromium, real pointer) found two defects, neither
+of which any gate in the tree could see.
+
+**1. The card came up empty — the `<li>` is the family's contract.**
+`chart-interact.js` `reveal()` builds a card from
+`tpl.content.querySelectorAll('li')`: the first item is the body, the rest join as
+meta. A template holding bare text yields NO items, so body and meta both come back
+empty — and an empty body is exactly what the layer reads as `lean`, the compact
+value-only tooltip a mark with no authored detail is supposed to get
+(`2026-06-21-chart-reveal-lean-tooltip.md`). The annotation did not error; it
+disappeared, on every live surface, while still reading correctly in print because
+`detailNote` carries its own bare-text fallback and never needed the wrapper. Every
+other member arrives pre-wrapped because it hands `detailPayload` the inner HTML of an
+authored sublist. A table cell cannot nest one, so `markupMarks` puts the shape back.
+
+**2. The card shut itself — Radix's positioning wrapper keeps the pointer.**
+`ChartDetailLayer` marks its `PopoverContent` `pointer-events:none`, for the obvious
+reason that a tooltip following a pointer must not eat it. But Radix renders that
+content inside `[data-radix-popper-content-wrapper]`, and the WRAPPER stays
+`pointer-events:auto` — so the card is transparent to the pointer and the box around it
+is not. It opens about 26px below the cursor, which on a 69px heatmap cell is still
+inside the mark being hovered. The preview iframe then gets `pointerleave`, the layer
+reads a deliberate dismiss, and the card shuts in the same gesture that opened it.
+
+That one is **family-wide and predates this work**: with the fix reverted, the spec's
+funnel arm fails too. It went unnoticed because it is geometry-dependent — a
+full-width funnel band is tall enough that the wrapper usually lands clear of the
+cursor, while a grid of 69px tiles fails 7 times in 9. HARD RULE #18 still makes it
+this PR's: the change is what tipped a latent fragility into a failure, and the fix is
+one scoped rule rather than a follow-up issue.
+
+**3. The lift and the tilt move a matrix off its own axes.** Seen, not inferred: the
+open cell sat visibly off-grid, half under its column header. The reveal's 7px
+centroid→hub nudge assumes a mark with somewhere to step OUT to; a heatmap cell has a
+neighbour on every side. `rotateX(7deg)` is the same objection the gantt already makes
+about its time axis. Both are now off for a matrix, which keeps the dim and the
+`.chart-mark-active` stroke — the emphasis that does not move anything.
+
+**The durable fix is the tier, not the three patches.** No test drove this path on a
+browser: the coverage was `chart-detail-layer.test.tsx` (jsdom, no hit-testing, no
+stacking) plus per-chart transform tests that compare strings and never hold a pointer.
+`docs/e2e/chart-detail-reveal.spec.ts` closes that, and it is non-vacuous by
+measurement — revert the wrapper rule and all three arms go red, revert the `<li>` and
+the unit arm goes red.
+
 ## What this does NOT decide
 
 - Whether the other 19 `series`-substance components adopt the label set, and in what

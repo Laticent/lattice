@@ -1483,3 +1483,28 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — any deploy, for every page open at that moment. The window re-opens
   on every deploy, so frequency scales with release cadence, not with anything in the code.
 - **Removable when** — a retention or recovery option above is chosen and shipped.
+
+## A chart's hover card opens and shuts in the same gesture, with the pointer still
+
+- **Symptom** — hover a chart mark in the Playground, the Studio preview or Present.
+  The detail card flashes up and vanishes, without the pointer having moved. It is
+  worst on small marks — a heatmap's 69px cells failed 7 times in 9 — and looks
+  intermittent on large ones, which is what makes it read as a rendering glitch rather
+  than a rule.
+- **Cause** — the card is a Radix `Popover`, and `ChartDetailLayer` sets
+  `pointer-events:none` on the `PopoverContent`. Radix renders that content inside its
+  OWN positioning div, `[data-radix-popper-content-wrapper]`, and the wrapper keeps
+  `pointer-events:auto`. So the card is transparent to the pointer and the box around
+  it is not. The wrapper opens about 26px below the cursor — still inside the mark
+  being hovered when the mark is small — the preview iframe gets `pointerleave`, and
+  `chart-interact.js` reads that as a deliberate dismiss and clears.
+- **Fix** — `docs/src/styles/chart-interact.css` takes the pointer off the wrapper,
+  scoped with `:has(> .lat-chart-detail-pop)` so only our card is affected and every
+  other popover on the site keeps its pointer.
+- **The general shape** — `pointer-events:none` on a floating element is not enough
+  when a library wraps it. Check the wrapper the library renders, not only the node you
+  styled. The same applies to any Radix surface positioned over an iframe.
+- **How it stayed hidden** — nothing drove the reveal in a browser. jsdom has no
+  hit-testing and no stacking, so `chart-detail-layer.test.tsx` cannot see it, and the
+  per-chart transform tests compare strings. `docs/e2e/chart-detail-reveal.spec.ts` is
+  the arm that can: with the rule reverted, all three of its tests go red.

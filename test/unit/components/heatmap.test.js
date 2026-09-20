@@ -630,6 +630,20 @@ describe('a cell annotation reaches both surfaces', () => {
       'the template points at the cell that was annotated');
   });
 
+  test('the template holds an <li>, which is what the reveal layer actually reads', () => {
+    // NOT a shape preference. `chart-interact.js` reveal() builds the card from
+    // `tpl.content.querySelectorAll('li')` — first item body, rest meta. Bare text
+    // in the template yields zero items, so body and meta come back empty and the
+    // layer treats the mark as LEAN: the compact value-only tooltip a cell with no
+    // authored detail gets. The annotation then vanishes on every live surface
+    // while still reading correctly in the PDF, because detailNote has its own
+    // bare-text fallback. Measured on the real Playground before this arm existed.
+    const d = parse(slide(RAGGED));
+    const li = d.querySelector('template.chart-detail').content.querySelectorAll('li');
+    assert.equal(li.length, 1, 'exactly one item — the cell carries one annotation');
+    assert.equal(li[0].textContent, 'the one that matters');
+  });
+
   test('the same words fold into the speaker note, so print keeps them', () => {
     assert.match(slide(RAGGED), /Feb · M1 \(58\): the one that matters/);
   });

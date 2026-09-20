@@ -92,3 +92,28 @@
 	text-transform: uppercase;
 	color: var(--text-muted);
 }
+
+/* THE POPPER WRAPPER MUST NOT TAKE THE POINTER EITHER.
+ *
+ * `ChartDetailLayer` marks its `PopoverContent` `pointer-events:none`, because a
+ * hover tooltip that eats the pointer it is following closes itself. But Radix
+ * renders that content inside its OWN positioning div —
+ * `[data-radix-popper-content-wrapper]` — and that div keeps `pointer-events:auto`,
+ * so the card is transparent to the pointer while the box around it is not.
+ *
+ * The reveal runs on `pointermove` inside the preview IFRAME. The wrapper is in the
+ * PARENT document, stacked above it, and it opens ~26px below the cursor — so it
+ * lands ON the mark the pointer is still inside. The iframe document then gets
+ * `pointerleave`, which the layer reads as a deliberate dismiss and clears. The card
+ * opens and shuts in the same gesture, with the pointer never having moved.
+ *
+ * Measured on the real Playground: a heatmap's 69px cells failed this way on 7 of 9
+ * hovers; a funnel's full-width bands are tall enough that the wrapper usually lands
+ * clear of the cursor, which is why the family shipped with the hole open.
+ *
+ * Scoped by `:has()` to OUR card, so every other popover on the site — menus,
+ * selects, anything a visitor clicks — keeps its pointer.
+ */
+[data-radix-popper-content-wrapper]:has(> .lat-chart-detail-pop) {
+	pointer-events: none;
+}

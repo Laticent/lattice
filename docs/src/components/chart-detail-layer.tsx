@@ -191,7 +191,11 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
         // the tap fires, but nothing is visible). Sit above Present's whole stack, including its lens menu
         // (z-[130]). Harmless on the editing preview / Playground, which have no such overlay. tailwind-merge
         // (via cn in PopoverContent) makes this win over the base z-50.
-        className="pointer-events-none z-[140] max-w-[18rem] p-3"
+        // `lat-chart-detail-pop` is the hook chart-interact.css uses to take the pointer off Radix's
+        // positioning WRAPPER as well. `pointer-events-none` here covers the card; the wrapper around
+        // it stays `auto`, and that box is what steals the pointer from the mark underneath and shuts
+        // the card the same gesture opened.
+        className="lat-chart-detail-pop pointer-events-none z-[140] max-w-[18rem] p-3"
       >
         {detail && (
           <>

@@ -542,6 +542,25 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // so it keeps the full lift + tilt flourish (no regression).
   const isAnimaChart = () => !!chartEl?.closest?.('.scene-live');
 
+  // A MATRIX chart — a grid of abutting tiles whose ROW and COLUMN are the reading.
+  // It takes the dim and the emphasis class but NOT the lift or the tilt, for the
+  // reason the gantt refuses the tilt: here the geometry IS the data.
+  //
+  //  * The 7px centroid→hub nudge has no "out" to move along. A pie wedge steps away
+  //    from a hub into empty space; a heatmap cell has a neighbour on every side, so
+  //    the nudge slides the active tile OVER two of them and out of its own row and
+  //    column — the one thing a reader uses to locate it. Seen on the real Playground
+  //    before this guard: the open cell sat visibly off-grid, half under its column
+  //    header.
+  //  * `rotateX(7deg)` moves every tile vertically by an amount that grows with its
+  //    distance from the origin, so the grid stops lining up with the row and column
+  //    labels beside it. Same objection as the gantt's time axis, same answer.
+  //
+  // Nothing is lost that marks the active cell: the others still dim to 0.45 and the
+  // active one still takes `.chart-mark-active`, which chart-family.css already paints
+  // as a heavier stroke (`--chart-edge-strong`). That is the trade the gantt makes.
+  const isMatrixChart = () => !!chartEl?.classList?.contains('heatmap-svg');
+
   // ── interaction-coupled tilt (settles flat; resting chart stays proportion-true) ──
   function liftAndTilt(i) {
     if (!chartEl || !curSection || isAnimaChart()) return;
@@ -552,7 +571,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
       const active = markIndex(w) === i;
       w.style.transition = 'transform .22s cubic-bezier(.2,.7,.3,1), opacity .22s';
       w.style.opacity = active ? '1' : '0.45';
-      w.style.transform = active ? liftVec(w, wedges) : '';
+      w.style.transform = active && !isMatrixChart() ? liftVec(w, wedges) : '';
       // CSS emphasis hook — lets a chart style its active mark (the gantt bar
       // lift/glow) without the reveal layer hard-coding per-chart visuals.
       w.classList?.toggle('chart-mark-active', active);
@@ -571,7 +590,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     // afford to distort. A chart opts out by class, so going SVG-native can
     // never flip it back on.
     const isGantt = chartEl.classList?.contains('gantt-svg');
-    const tiltable = !isGantt && (typeof chartEl.getBBox === 'function'
+    const tiltable = !isGantt && !isMatrixChart() && (typeof chartEl.getBBox === 'function'
       || (chartEl.classList?.contains('state-chart-figure') && chartEl.getAttribute('data-variant') !== 'inline'));
     if (useTilt && tiltable) {
       chartEl.style.transition = 'transform .3s cubic-bezier(.2,.7,.3,1)';
