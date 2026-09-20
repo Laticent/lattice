@@ -117,6 +117,13 @@ import { workspaceLensConfig } from './workspace-lenses';
 // loads on first open. It's already mount-on-view, so this is a drop-in.
 const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default: m.Fabricate })));
 
+// Read · Article — the deck as prose, in the TOP-LEVEL DOM so a reader-mode extractor
+// (Firefox's shake-to-summarize, Safari Reader, the Edge/Chrome reading modes) can
+// actually see it; every other slide surface here is inside a srcdoc iframe, which those
+// tools never look into. Code-split for the same reason Fabricate is: it pulls the engine
+// render and the player-core bundle, and the /studio route has no eager budget to spare.
+const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
+
 // Editor (CodeMirror) is the single largest passenger on the cold hydration path —
 // ~196KB gz that, statically imported, bundled into the client:only StudioShell island
 // and blocked hydration. Lazy-load it: the island now hydrates that much lighter and the
@@ -515,7 +522,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setInspectorScope = React.useCallback((s: 'slide' | 'deck') => setActiveSettings(s), []);
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
-	const [view, setView] = React.useState<'compose' | 'fabricate'>('compose');
+	const [view, setView] = React.useState<'compose' | 'fabricate' | 'article'>('compose');
 	// The editor pane's editing MODE: the markdown source (CodeMirror) or the rich
 	// Compose surface (Option B continuous note). Both read/write the same `source`,
 	// so flipping never loses work and the preview tracks either. (2026-07-17 Compose.)
@@ -2379,7 +2386,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// What lies BEHIND every phone panel, named for its back chevron. Two answers, because
 	// the header and the ⋯ menu render in BOTH views — a flat "Deck" would be a lie inside
 	// Fabricate, which is the same class of mistake as the "‹ Studio" this replaces.
-	const hostLabel = view === 'fabricate' ? 'Fabricate' : 'Deck';
+	const hostLabel = view === 'fabricate' ? 'Fabricate' : view === 'article' ? 'Reading view' : 'Deck';
 	// react-resizable-panels split state via the shared hook (2026-07-19 migration).
 	// Same surface the hand-rolled useSplit had ({ collapsed, dragging, expand,
 	// collapse, reset }) so the ~20 downstream call sites are unchanged. The single-
@@ -3216,7 +3223,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Whether the editor preview should render (else it parks — iframe kept warm, per-keystroke
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
-	const editorSlotVisible = view !== 'fabricate' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
+	const editorSlotVisible = view === 'compose' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
 
 	// Structural slide ops (full lens only). Each rewrites the source, moves the
 	// active slide to follow the edit, and reveals it in the editor next frame
@@ -4864,6 +4871,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				onShare: () => setShareOpen(true),
 				onFeedback: () => setFeedbackOpen(true),
 				onFabricate: () => setView('fabricate'),
+				onReadArticle: () => setView('article'),
 				onLibrary: () => { revealCraftDock(); setLibraryOpen(true); },
 				onWorkspace: () => setWorkspaceOpen(true),
 				onReshape: () => { revealCraftDock(); setLensesOpen(true); },
@@ -5244,7 +5252,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 
 			{/* ── Body ─────────────────────────────────────────────────── */}
-			{view === 'fabricate' ? (
+			{view === 'article' ? (
+				/* A full view branch, so it carries its own `main` for the same reason Fabricate
+				   does (the ADR's §10-R-M1 miss). This one matters twice over: the whole point of
+				   the view is that a text extractor reading the TOP-LEVEL document finds the deck
+				   here, so the landmark and the heading spine are the deliverable, not chrome. */
+				<main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
+					<h1 className="sr-only">Lattice Studio</h1>
+					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Building the article…</div>}>
+						<ReadArticle
+							options={options}
+							source={source}
+							palette={preview.paletteOverride ?? palette}
+							mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')}
+							extraTheme={preview.extraTheme}
+							extraCss={previewExtraCss}
+							onClose={() => setView('compose')}
+						/>
+					</React.Suspense>
+				</main>
+			) : view === 'fabricate' ? (
 				/* Fabricate is a full view branch, so it needs its OWN `main` — the ADR's first
 				   draft missed exactly this branch (§10-R-M1). `React.Suspense` renders no DOM
 				   node, so the landmark goes inside it, around the view. */

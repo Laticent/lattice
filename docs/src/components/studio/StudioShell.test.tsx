@@ -71,6 +71,13 @@ const shareSpies = vi.hoisted(() => ({
 	),
 	sharePptx: vi.fn(async () => {}),
 	sharePrintSource: vi.fn(() => {}),
+	// The Read · Article view renders the deck through this too. A two-slide stub is
+	// enough: the projection itself is covered where it runs for real, and booting the
+	// engine here is exactly what this mock exists to avoid.
+	buildDeckRender: vi.fn(async () => ({
+		html: '<section data-lattice-slide="1" class="content"><h2>Alpha</h2><p>First slide body.</p></section>',
+		css: '', mode: 'light' as const, geom: { w: 1280, h: 720 }, runtimeUrl: '', fontCss: '',
+	})),
 }));
 vi.mock('./share-export', () => shareSpies);
 
@@ -432,6 +439,27 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(await screen.findByRole('button', { name: 'Open Library' })).toHaveAttribute('aria-pressed', 'true');
 		// …with the saved posture still Write (revealing Craft never persists it).
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+	});
+
+	it('the ⌘K "Read as an article" command opens the reading view, and it closes back to the deck', async () => {
+		// The point of this view is that the deck's PROSE lands in the top-level document,
+		// where a reader-mode extractor can see it — every other slide surface here sits in a
+		// srcdoc iframe, which those tools never look into. What THIS test can prove is the
+		// wiring: the command reaches a mounted view, and the way out works. That the article
+		// is real extractable prose is a claim about a running browser and is asserted where it
+		// can be measured, not here — jsdom would only be re-running the projection.
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		await user.keyboard('{Meta>}k{/Meta}');
+		await screen.findByPlaceholderText(/Search or run a command/i);
+		await user.click(screen.getByText(/Read as an article/));
+		// A generous budget on purpose: this crosses a React.lazy boundary, so it waits on Vite
+		// transforming a module rather than on a state update (#1471).
+		const back = await screen.findByRole('button', { name: /Back to the deck/i }, { timeout: 15000 });
+		expect(back).toBeInTheDocument();
+		await user.click(back);
+		await waitFor(() => expect(screen.queryByRole('button', { name: /Back to the deck/i })).not.toBeInTheDocument());
+		expect(screen.getByTestId('deck-preview')).toBeInTheDocument();
 	});
 });
 
