@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   A measured audit of every narration surface, run through the real export. Three
   findings. (1) Narration quality splits on ONE fact — where a component keeps its
@@ -383,6 +383,33 @@ measured, and independent of the architectural fork at the end.
      rightly killed. Do not take this branch without re-reading that record's §11.
 
 Items 1-7 are cheap, measured, and none depends on how 8 resolves.
+
+## What this PR then shipped
+
+Items 1-7, plus #2121 which turned up on the path. What changed, measured the same way:
+
+| | before | after |
+|---|---|---|
+| boardroom token corpus, raw passthroughs | 19 of 52 | 9 of 59, every one deliberate |
+| radar coverage ratio | 0.12 | 0.89 |
+| quadrant | 0.12 | 1.04 |
+| state-chart | 0.42 | 1.05 |
+| journey | 0.76 | 1.07 |
+| math | equation read twice, second time as TeX | read once |
+
+**One recommendation was not taken as written, and the reason matters.** Item 4 called for a
+`language` field on the cloud request and a `language` option to `tts.generate`. Neither
+engine has one — OpenRouter's is the OpenAI-compatible `/audio/speech` shape, and kokoro-js
+derives its language from the voice id's first letter. Shipping a speculative field to a route
+that already 400s on an unexpected `response_format` would risk breaking synthesis outright,
+so what shipped is the part that is real: `utterance.lang` on the Web Speech path, `<html
+lang>` on the Stage document, and `voiceLanguageMismatch()` — because for the two model rungs
+the VOICE is the language, and what was missing was anyone noticing they disagreed.
+
+**Still open, and deliberately:** the abbreviation over-split in `segment.ts` (Finding 3), the
+remaining nine token passthroughs (a slash means four different things; guessing is worse than
+reading the glyph), and recommendation 8 — which is now decided in principle (a generic
+data-series narrator first) but not built.
 
 ## What is NOT verified
 
