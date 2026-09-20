@@ -9,6 +9,11 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const tt = require('../../../lib/transformers/topic-track');
+// The kernel's own readers, not hand-rolled regexes. `/<[^>]+>/g` ends a tag at
+// the first `>`, including one inside a quoted attribute — which is the defect
+// this suite exists to catch, so a test helper must not contain it. CodeQL flags
+// the shape as incomplete sanitization for the same reason.
+const { maskInert, stripTags } = require('../../../lib/core/top-level-h2');
 
 const S = (cls, inner) => `<section class="${cls}">${inner}</section>`;
 const topic = (name) => S('topic', `<h2>${name}</h2><p>A claim.</p>`);
@@ -16,7 +21,7 @@ const topic = (name) => S('topic', `<h2>${name}</h2><p>A claim.</p>`);
 // not a track, and `querySelectorAll` on the DOM arm cannot see it either — so
 // counting it here would report a parity failure the product does not have.
 const tracks = (html) =>
-  [...String(html).replace(/<!--[\s\S]*?-->/g, '').matchAll(/<ul class="tile-track"[^>]*>([\s\S]*?)<\/ul>/g)].map((m) =>
+  [...maskInert(String(html)).matchAll(/<ul class="tile-track"[^>]*>([\s\S]*?)<\/ul>/g)].map((m) =>
     [...m[1].matchAll(/<li( class="on")?>(.*?)<\/li>/g)].map((li) => ({
       name: li[2], on: Boolean(li[1]),
     })));
@@ -177,7 +182,7 @@ const authored = (heading, items) =>
 const lit = (html) =>
   [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)]
     .filter((m) => /<li[^>]*\sclass="[^"]*\bon\b/.test(m[0]))
-    .map((m) => m[1].replace(/<[^>]+>/g, ''));
+    .map((m) => stripTags(m[1]));
 
 test('emphasis INSIDE a label is not a marker', () => {
   const deck = S('divider', '<h2>S</h2>') +
@@ -254,7 +259,7 @@ test('a SUB-BULLET is never the marker — the nested li CSS cannot reach', () =
     + '<li>Other</li></ul>';
   const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
   const marked = [...out.matchAll(/<li[^>]*\sclass="[^"]*\bon\b[^"]*"[^>]*>([\s\S]*?)<\/li>/g)]
-    .map((m) => m[1].replace(/<[^>]+>/g, '').trim());
+    .map((m) => stripTags(m[1]).trim());
   assert.deepEqual(marked, ['Other']);
   assert.ok(bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner)) !== undefined);
 });
