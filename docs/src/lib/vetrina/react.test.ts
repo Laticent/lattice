@@ -101,4 +101,49 @@ describe('useWalkthrough — the React lifecycle adapter', () => {
 		unmount();
 		expect(rig.handle.stop).toHaveBeenCalled();
 	});
+
+	// A THROWN `run()` IS A TERMINAL PATH TOO, and it is the one the rest of this file cannot
+	// see: every other case reaches `onStop`, which is what clears `active`. `run()` has two
+	// documented synchronous throws — the single-flight latch and an accent `resolveTheme`
+	// refuses — and on either one no handle is ever assigned, so nothing else can ever unlatch
+	// the hook. Before the fix this left `active: true` for the life of the component, with
+	// `stop()` powerless to clear it, which in the shipped consumer means a "Watch the demo"
+	// button that is disabled forever.
+	it('unlatches when run() throws, and lets the throw reach the host', () => {
+		runMock.mockImplementation(() => {
+			throw new Error('vetrina: a walkthrough is already running (single-flight)');
+		});
+		const { result } = renderHook(() => useWalkthrough(rootRef(), () => ({ actions: {}, play: async () => {} })));
+		expect(result.current.active).toBe(false);
+		// CAUGHT INSIDE THE ACT, which is the shape that actually bites. A host catches this
+		// throw — the shipped exemplar catches the unsafe-accent one by hand — so React commits
+		// the `setActive(true)` that ran just before it and the flag sticks. Letting the throw
+		// escape `act()` instead makes React discard the pending update, and the defect hides.
+		let caught: unknown = null;
+		act(() => {
+			try {
+				result.current.start();
+			} catch (err) {
+				caught = err;
+			}
+		});
+		expect(String(caught)).toMatch(/single-flight/);
+		expect(result.current.active).toBe(false);
+	});
+
+	it('can start again after a throw — the failed start is not sticky', () => {
+		runMock.mockImplementationOnce(() => {
+			throw new Error('vetrina: unsafe accent color');
+		});
+		const { result } = renderHook(() => useWalkthrough(rootRef(), () => ({ actions: {}, play: async () => {} })));
+		act(() => {
+			try {
+				result.current.start();
+			} catch {}
+		});
+		const rig = primeRun();
+		act(() => result.current.start());
+		expect(result.current.active).toBe(true);
+		expect(rig.handle.stop).not.toHaveBeenCalled();
+	});
 });

@@ -55,16 +55,30 @@ export function useWalkthrough<A>(
 		if (!opts) return; // host declined to start
 		const hostOnStop = opts.onStop;
 		setActive(true);
-		handleRef.current = run<A>({
-			...opts,
-			root,
-			onStop: (reason: StopReason) => {
-				// Reset the hook's own state, THEN let the host restore (both run after teardown).
-				handleRef.current = null;
-				setActive(false);
-				hostOnStop?.(reason);
-			},
-		});
+		// A THROWN `run()` MUST UNLATCH. Two documented paths throw synchronously — the
+		// single-flight guard, and an accent `resolveTheme` refuses — and on either one
+		// `handleRef` is never assigned, so `onStop` never fires and `stop()` has nothing to
+		// stop. Without this the hook is stuck `active: true` for the life of the component and
+		// whatever the host disabled on `active` (a "Watch the demo" button, in the one shipped
+		// consumer) never comes back. The throw is RE-thrown rather than swallowed: rejecting an
+		// unsafe accent is a feature the e2e suite asserts and a host catches by hand, so eating
+		// it here would trade one silent failure for another.
+		try {
+			handleRef.current = run<A>({
+				...opts,
+				root,
+				onStop: (reason: StopReason) => {
+					// Reset the hook's own state, THEN let the host restore (both run after teardown).
+					handleRef.current = null;
+					setActive(false);
+					hostOnStop?.(reason);
+				},
+			});
+		} catch (err) {
+			handleRef.current = null;
+			setActive(false);
+			throw err;
+		}
 	}, [rootRef]);
 
 	// Safety net: tear a live run down if the component unmounts mid-walkthrough.
