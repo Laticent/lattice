@@ -246,6 +246,23 @@ drives the shipped bundle in a jsdom window and compares its output entry-for-en
 the Node kernel call it replaced. Three mutations were applied and each turned an arm red:
 a selector that matches nothing, a bypassed sanitizer, and a reintroduced `new JSDOM(`.
 
+**An autosplit deck IS exercised, and finding one was the whole difficulty.** The hoist's
+correctness argument is that `cleanDocHtml` is final at the call site — which is precisely
+what a deck that splits stresses, so leaving it unexercised left the core claim resting on a
+static proof. Neither I nor the independent check could make `splitDoc` fire on a hand-built
+deck; both of us missed that `test/benchmark/engine-bench.mjs`'s CLI datasets already name
+decks BY their split behavior. `examples/auto-split.md` splits once and
+`examples/cover-paginate.md` twice. Exported both ways with `--captions`:
+
+- `auto-split.md` — 6 authored slides become **33 rendered sections** (`auto-split
+  (structural): 4 slide(s) split to one element per page`), 29 of them narrated.
+- `cover-paginate.md` — 43 pages, 37 narrated.
+- **72 artifacts across the two decks, zero differences** between the jsdom arm and this one.
+
+The `projected.length !== slideCount` guard fires on both and logs it, exactly as before —
+identical on both arms. So the post-split document, the count-mismatch path and the
+per-section `.vtt` split are all covered by measurement now, not by the AST argument alone.
+
 **What the unit file structurally cannot check, and who does.** It drives the bundle in a
 jsdom window, so it compares the kernel against itself rather than against Chromium, and
 it asserts an absence (`no new JSDOM(`) plus, now, the call site itself — because deleting
