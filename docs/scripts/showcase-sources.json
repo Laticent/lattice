@@ -112,12 +112,12 @@
 	"pricing.light": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "98041444df070970fcf76bc87fe1bb8b9f99e21ab3bb948954f91ade8328f487"
+		"srcSha256": "7ba85cf8b0451322eaee93f1082983fd687c3eab288b80fbdc88e40e4b9055fe"
 	},
 	"pricing.dark": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "eaa14e812b561ae7785ca78cb9182ae3415a68225373a07c3d92330c7acd0f98"
+		"srcSha256": "2ee269665b94fdbcbebc28d12f64b38c502698d481b7498c1b19839c8cfacbe9"
 	},
 	"quote.light": {
 		"src": "lib/components/statement/quote/quote.gallery.light.pdf",
@@ -132,12 +132,12 @@
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "bf8aa298f90f0011fa4b3e325f94d64e1f163341ed6ec9b03bda77bea6b25966"
+		"srcSha256": "d9b8ba4e349c183f6c76e28a5529003969a2e31ee8b6289997d9babb75f65652"
 	},
 	"radar.dark": {
 		"src": "lib/components/chart/radar/radar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "0d67b8677490e5b1e038efdb8c3003d096b6b1b6b2e8e6208f15e0eeacba66cd"
+		"srcSha256": "bfe250b3c509a03e94788a520fd943d78a3061d6213e10e5826b14ef05f2c40b"
 	},
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
@@ -162,12 +162,12 @@
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "195b47dfbde021a568aca65e0edcc1e12a346cb23a9dcd2d6a4fd90082275fde"
+		"srcSha256": "98011b6d74af9cda34c5f7758c572df5f263f3533dd3bb63f820b4862f0123b8"
 	},
 	"verdict-grid.dark": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "194be66ff25ad78189c076e50f993824229b83357ab880dc5d511c7cdbc0908b"
+		"srcSha256": "b5755c36ac8e49d0492a76cae22f9cae64eaabc08eca3c8030d631fea5d29567"
 	},
 	"waterfall.light": {
 		"src": "lib/components/chart/waterfall/waterfall.gallery.light.pdf",
