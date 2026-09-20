@@ -1229,3 +1229,24 @@ test('existing whitespace between siblings is not doubled', () => {
 	);
 	assert.ok(speak(secs)[0].includes('One two'), speak(secs)[0]);
 });
+
+// ── KaTeX's TeX round-trip is not a reading — #2121 ─────────────────────────────────
+test('a math slide narrates its equation once, not once in MathML and again in raw TeX', () => {
+	// KaTeX emits BOTH: a `.katex-html` visual span (correctly `aria-hidden`) and a
+	// `.katex-mathml` accessible span — which contains the MathML token run AND an
+	// `<annotation encoding="application/x-tex">` carrying the source for copy-paste.
+	// The annotation is not hidden, because its PARENT is the accessible representation,
+	// so the walker read the equation and then read it again as backslashes.
+	const secs = sections(
+		'<section data-lattice-slide class="math form" data-class="math"><div class="cell-stage">' +
+			'<div class="masthead-lede"><h2>One equation.</h2></div>' +
+			'<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>y</mi></mrow>' +
+			'<annotation encoding="application/x-tex">\\hat\\beta = (X^\\top X)^{-1}</annotation>' +
+			'</semantics></math></span><span class="katex-html" aria-hidden="true">yy</span></span></p>' +
+			'</div></section>',
+	);
+	const text = speak(secs)[0];
+	assert.ok(!text.includes('\\hat'), `raw TeX reached the voice: ${text}`);
+	assert.ok(!text.includes('^'), `TeX superscript reached the voice: ${text}`);
+	assert.ok(text.includes('y'), `the MathML reading was lost too: ${text}`);
+});

@@ -4,6 +4,7 @@ const {
   narrateChart,
   narrateDiagram,
   narrateFunnel,
+  narrateJourneyMood,
   narrateJourneyWeighted,
   narrateQuadrant,
   narrateRadar,
@@ -253,7 +254,12 @@ test('narrateRadar: returns null for a non-radar slide', () => {
   assert.equal(narrateRadar('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `9`'), null);
 });
 
-test('narrateRadar: returns null when the eyebrow already declares an explicit, parseable scale', () => {
+// An eyebrow that declares the scale makes OUR scale sentence redundant — it does not make
+// the narration redundant. Bailing threw away every series and axis value to avoid one
+// duplicated line, and the shipped `radar` sample declares its scale, so the canonical
+// example of the component reached no narrator at all
+// (2026-09-20-narration-audit.md Finding 5).
+test('narrateRadar: skips only the scale SENTENCE when the eyebrow already declares it', () => {
   const md = [
     '<!-- _class: radar -->',
     '',
@@ -268,7 +274,11 @@ test('narrateRadar: returns null when the eyebrow already declares an explicit, 
     '  - Performance `7`',
     '  - Pricing `8`',
   ].join('\n');
-  assert.equal(narrateRadar(md), null);
+  const out = narrateRadar(md);
+  assert.ok(!out.includes('On a scale of'), 'the eyebrow already said it');
+  assert.ok(out.includes('Scale \u00b7 0\u201310.'), 'and the eyebrow itself is still read');
+  assert.ok(out.includes('Lattice: Performance, nine; Pricing, seven.'));
+  assert.ok(out.includes('Rival North: Performance, seven; Pricing, eight.'));
 });
 
 test('narrateRadar: narrates the auto-fit scale and every series when no eyebrow is authored', () => {
@@ -346,7 +356,10 @@ test('narrateQuadrant: returns null for a non-quadrant slide', () => {
   assert.equal(narrateQuadrant('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `1, 2`'), null);
 });
 
-test('narrateQuadrant: returns null when the eyebrow already ranges BOTH axes', () => {
+// Same correction as radar: the per-axis `if (!xRange)` / `if (!yRange)` guards already skip
+// an axis sentence the eyebrow stated, so the extra whole-narrator bail only cost the reader
+// every group and coordinate on the slide.
+test('narrateQuadrant: skips only the axis SENTENCES when the eyebrow ranges both axes', () => {
   const md = [
     '<!-- _class: quadrant -->',
     '',
@@ -359,7 +372,10 @@ test('narrateQuadrant: returns null when the eyebrow already ranges BOTH axes', 
     '- Quick Wins',
     '  - Weekly signal brief `8, 80`',
   ].join('\n');
-  assert.equal(narrateQuadrant(md), null);
+  const out = narrateQuadrant(md);
+  assert.ok(!out.includes('axis runs'), 'the eyebrow already ranged both axes');
+  assert.ok(out.includes('Strategic Bets: Scoring model v2 at three, seventy.'));
+  assert.ok(out.includes('Quick Wins: Weekly signal brief at eight, eighty.'));
 });
 
 test('narrateQuadrant: narrates both axis scales and every item when no eyebrow is authored', () => {
@@ -572,9 +588,31 @@ test('narrateStateChart: leads with the heading, then the inferred facts, then t
   assert.equal(out.match(/Flow\./g).length, 1);
 });
 
-test('narrateStateChart: returns null when there is nothing inferred to add', () => {
+// With start AND end explicit there is nothing INFERRED to add — but there is still a
+// machine to read. The old docblock claimed the `event => N` pills "read as reasonable, if
+// plain, prose" through the flattener; measured, they do not: the pill is inline code, so
+// `submit => 2` reaches the voice whole and `=>` has no spoken form. The listener got a glyph
+// and a bare index where the slide draws an arrow to a named state
+// (2026-09-20-narration-audit.md Finding 5).
+test('narrateStateChart: reads the machine by name even when nothing is inferred', () => {
   const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2`', '2. Done `end`'].join('\n');
+  const out = narrateStateChart(md);
+  assert.ok(out.includes('From Draft, submit goes to Done.'), out);
+  assert.ok(!out.includes('=>'), 'the raw pill must not also be read');
+  assert.ok(!out.includes('This flow starts at'), 'start is explicit — nothing to infer');
+});
+
+test('narrateStateChart: still returns null when there is no machine and no inference', () => {
+  // A state-chart slide with no resolvable transitions has nothing this narrator can add
+  // over the flattener, so it falls through exactly as before.
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '2. Done `end`'].join('\n');
   assert.equal(narrateStateChart(md), null);
+});
+
+test('narrateStateChart: reads a self-loop as staying put, not as its own name twice', () => {
+  const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `revise => self`', '   - `submit => 2`', '2. Done `end`'].join('\n');
+  const out = narrateStateChart(md);
+  assert.ok(out.includes('revise stays here'), out);
 });
 
 test('narrateStateChart: does not speak a fenced doc-example heading as the title, and does not lose the real heading', () => {
@@ -1464,4 +1502,45 @@ test('narrateXychart: bails to match a chart that does NOT render (empty/malform
 test('narrateXychart: accessibility statements and comments carry nothing; negatives/decimals read', () => {
   assert.ok(narrateChart(mdiag('xychart-beta\n  accTitle: X\n  %% note\n  x-axis [a, b]\n  bar [1, 2]')).includes('A bar chart.'));
   assert.ok(narrateChart(mdiag('xychart-beta\n  x-axis [a, b]\n  line [-1.5, 2.5]')).includes('negative one point five'));
+});
+
+// ── journey mood — 2026-09-20-narration-audit.md Finding 5 ──────────────────────────
+//
+// `narrateJourneyWeighted` gates on the `weighted` token, so a PLAIN journey — the default,
+// and what the shipped sample uses — reached no narrator. What the listener got was the
+// rendered SVG walked in DOM order: measured on the real export, "prospect. sales. user.
+// onboarding. Pain. 1. 2. 3. 4. 5. Delight." — the legend and the mood axis read as a list,
+// with no step attached to any score.
+test('narrateJourneyMood: reads each task with its actors and its mood, by section', () => {
+  const md = ['<!-- _class: journey -->', '', '## The path.', '', '- Evaluate', '  - Read case study `@prospect` `:5`', '  - Live demo `@prospect` `@sales` `:4`', '- Trial', '  - Signup `@user` `:3`'].join('\n');
+  const out = narrateJourneyMood(md);
+  assert.ok(out.includes('Evaluate: Read case study, prospect, five out of five;'), out);
+  assert.ok(out.includes('Live demo, prospect and sales, four out of five.'), out);
+  assert.ok(out.includes('Trial: Signup, user, three out of five.'), out);
+  // The mood scale is the point, and a listener has no axis to read a bare number against.
+  assert.ok(!/\bfive\.(?! )/.test(out.replace(/out of five/g, '')), 'no bare mood numbers');
+});
+
+test('narrateJourneyMood: stands down for the weighted variant, which has its own narrator', () => {
+  const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Discover', '  - Search `@prospect` `:4` `+45`'].join('\n');
+  assert.equal(narrateJourneyMood(md), null);
+});
+
+test('narrateJourneyMood: leaves an omitted mood UNSAID rather than reporting the plotted default', () => {
+  // journey.docs.md: an omitted `:N` silently defaults to a neutral 3 and still plots.
+  // Narrating that default would state an affect the author never claimed.
+  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `@prospect`'].join('\n');
+  const out = narrateJourneyMood(md);
+  assert.ok(out.includes('Read case study, prospect.'), out);
+  assert.ok(!out.includes('out of five'), out);
+});
+
+test('narrateJourneyMood: stands down when no task carries a mood or an actor', () => {
+  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study', '  - Book demo'].join('\n');
+  assert.equal(narrateJourneyMood(md), null);
+});
+
+test('narrateJourneyMood: the dispatcher reaches it for a plain journey slide', () => {
+  const md = ['<!-- _class: journey -->', '', '## X.', '', '- Evaluate', '  - Read case study `@prospect` `:5`'].join('\n');
+  assert.ok(narrateChart(md).includes('five out of five'));
 });
