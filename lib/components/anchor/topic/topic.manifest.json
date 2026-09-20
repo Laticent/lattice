@@ -117,7 +117,7 @@
     },
     {
       "mistake": "Expecting a track on a topic slide that sits before the deck's first `divider`.",
-      "fix": "The track is scoped to a section, and a section starts at a `divider` — any divider, `light` included, matching how the section progress rail counts. A topic slide with no divider above it renders as the `fact` form, which is a composed layout, not a broken one."
+      "fix": "The track is scoped to a section, and a section starts at a `divider` — any divider, `light` included, matching how the section progress rail counts. A topic slide with no divider above it renders as a single dark canvas — the band, the seam and the shelf reserve are all dropped, so it composes rather than reserving room for a track that is not there. It keeps the DEFAULT type hierarchy; it does NOT become `fact`."
     },
     {
       "mistake": "Reaching for `fact` and leaving the claim as a fragment or a label.",

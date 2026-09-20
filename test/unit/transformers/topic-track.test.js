@@ -102,5 +102,59 @@ test('a topic slide with no heading gets no track, rather than lighting a siblin
   const t = tracks(tt.applyToHtml(deck));
   assert.equal(t.length, 2, 'only the two named slides get a track');
   assert.deepEqual(t.map((x) => x.findIndex((i) => i.on)), [0, 1],
-    'and each lights itself, not its neighbour');
+    'and each lights itself, not its neighbor');
+});
+
+// ── the DOM arm ───────────────────────────────────────────────────────────────
+// HARD RULE #1 says the two adapters must agree, and until now only one of them
+// was tested. Every case below runs BOTH and asserts they match, because a
+// divergence is the failure mode that ships a deck rendering one way in the PDF
+// and another in Marp.
+const { JSDOM } = require('jsdom');
+
+/** Run the DOM arm over the same deck and read its tracks back. */
+function domTracks(deckHtml) {
+  const slides = deckHtml.replace(/<section class="([^"]*)">/g,
+    (_m, c) => `<section data-lattice-slide class="${c}">`);
+  const dom = new JSDOM(`<body>${slides}</body>`);
+  tt.applyToDom(dom.window.document.body);
+  return [...dom.window.document.querySelectorAll('ul.tile-track')].map((ul) =>
+    [...ul.children].map((li) => ({ name: li.textContent, on: li.classList.contains('on') })));
+}
+const bothAgree = (deck) => {
+  const a = tracks(tt.applyToHtml(deck));
+  const b = domTracks(deck);
+  assert.deepEqual(b, a, 'the DOM arm must produce exactly what the HTML arm does');
+  return a;
+};
+
+test('DOM arm: both adapters agree on the ordinary deck', () => {
+  const got = bothAgree(DECK);
+  assert.deepEqual(got.map((x) => x.map((i) => i.name)), [
+    ['Alpha', 'Beta'], ['Alpha', 'Beta'], ['Gamma', 'Delta'], ['Gamma', 'Delta'],
+  ]);
+});
+
+test('DOM arm: both agree that a blockquote list is not an override', () => {
+  bothAgree(S('divider', '<h2>One</h2>') +
+    S('topic', '<h2>Alpha</h2><blockquote><ul><li>note</li></ul></blockquote>') +
+    topic('Beta') + topic('Gamma'));
+});
+
+test('both agree that a COMMENTED-OUT list is not an override', () => {
+  // The string arm counted tag-like text inside `<!-- -->` as real markup while
+  // `:scope > ul` never could, so a commented-out draft list made the engine and
+  // the runtime disagree about the whole section — the engine dropped the
+  // slide's track AND withheld its name from its siblings.
+  const got = bothAgree(S('divider', '<h2>One</h2>') +
+    S('topic', '<h2>Alpha</h2><p>x</p><!-- draft: <ul><li>d</li></ul> -->') +
+    topic('Beta') + topic('Gamma'));
+  assert.deepEqual(got[0].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'],
+    'the commented slide keeps its own name in the scale');
+});
+
+test('both agree when a section mixes an override and a headingless slide', () => {
+  bothAgree(S('divider', '<h2>One</h2>') +
+    S('topic', '<h2>Over</h2><ul><li>mine</li></ul>') +
+    S('topic', '<p>no heading</p>') + topic('Gamma') + topic('Delta'));
 });

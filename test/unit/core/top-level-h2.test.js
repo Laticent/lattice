@@ -40,3 +40,25 @@ test('hasTopLevelTag sees a direct child and not a nested one', () => {
   assert.equal(hasTopLevelTag('<blockquote><ul><li>x</li></ul></blockquote>', 'ul'), false);
   assert.equal(hasTopLevelTag('<div><div><ul><li>x</li></ul></div></div>', 'ul'), false);
 });
+
+test('a stray UPPERCASE <H2> does not hide the real heading', () => {
+  // The walk matches tag names case-insensitively but extracts the element
+  // case-sensitively, so `<H2>` is reported as a hit and then not extracted.
+  // Returning null on that first rejection deleted the masthead band on every
+  // deck containing uppercase raw HTML — silently, because the band is gated on
+  // `Boolean(findTopLevelH2(...))`. The walk must CONTINUE past a hit it cannot use.
+  assert.equal(readTopLevelH2Text('<H2>Deco</H2><h2>Real</h2>'), 'Real');
+  assert.equal(readTopLevelH2Text('<H2>Deco</H2>'), '');
+});
+
+test('tag-like text inside a comment is not markup', () => {
+  assert.equal(hasTopLevelTag('<h2>A</h2><!-- <ul><li>x</li></ul> -->', 'ul'), false);
+  // An unclosed tag inside a comment must not shift depth for what follows.
+  assert.equal(hasTopLevelTag('<!-- <div> --><ul><li>x</li></ul>', 'ul'), true);
+  assert.equal(readTopLevelH2Text('<!-- <div> --><h2>Real</h2>'), 'Real');
+});
+
+test('RAWTEXT element contents are not markup', () => {
+  assert.equal(hasTopLevelTag('<script>var s = "<ul>";</script>', 'ul'), false);
+  assert.equal(hasTopLevelTag('<style>/* <ul> */</style><ul><li>x</li></ul>', 'ul'), true);
+});
