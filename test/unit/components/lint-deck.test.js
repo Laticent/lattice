@@ -365,19 +365,52 @@ describe('deck linter', () => {
     assert.equal(ok.filter((x) => /backdrop/.test(x.rule)).length, 0);
   });
 
-  test('warns that a deck-wide `form: minimal` is retired (migrate to the rail control)', () => {
-    // Retired 2026-07-03: `form: minimal` only added `no-progress`; that look is now the
-    // `no-progress` chrome control. A lingering key silently resolves to standard, so it
-    // earns one migration warning.
-    const bad = lintText('---\ntheme: indaco\nform: minimal\n---\n\n## H.\n', { vocab });
-    const retired = bad.filter((x) => x.rule === 'retired-form-minimal');
-    assert.equal(retired.length, 1, 'exactly one migration warning for the retired toggle');
-    assert.equal(retired[0].classToken, 'form');
-    // `form: standard` / `form: off` are live values → no warning.
-    for (const v of ['standard', 'off']) {
-      const ok = lintText(`---\ntheme: indaco\nform: ${v}\n---\n\n## H.\n`, { vocab });
-      assert.equal(ok.filter((x) => x.rule === 'retired-form-minimal').length, 0, `form: ${v} is live`);
+  test('warns that the deck-wide `form:` key is retired, whatever its value', () => {
+    // Retired 2026-09-20: Form is the composition model and cannot be disabled or
+    // configured, so EVERY value is inert now — including the two that used to be
+    // live (`standard`, `off`) and the long-retired `minimal`.
+    for (const v of ['minimal', 'standard', 'off', 'false', 'no', 'on']) {
+      const found = lintText(`---\ntheme: indaco\nform: ${v}\n---\n\n## H.\n`, { vocab })
+        .filter((x) => x.rule === 'retired-form-key');
+      assert.equal(found.length, 1, `exactly one migration warning for form: ${v}`);
+      assert.equal(found[0].classToken, 'form');
+      assert.equal(found[0].severity, 'warning', 'coach, never block — the deck still renders');
     }
+    // Only `off` actually CHANGES what an existing deck renders, so only it names the
+    // consequence. The rest just say the key is inert.
+    const off = lintText('---\ntheme: indaco\nform: off\n---\n\n## H.\n', { vocab })
+      .find((x) => x.rule === 'retired-form-key');
+    assert.match(off.message, /cannot be disabled/);
+    const std = lintText('---\ntheme: indaco\nform: standard\n---\n\n## H.\n', { vocab })
+      .find((x) => x.rule === 'retired-form-key');
+    assert.match(std.message, /does nothing/);
+    // A deck with no `form:` key earns nothing.
+    assert.equal(
+      lintText('---\ntheme: indaco\n---\n\n## H.\n', { vocab }).filter((x) => x.rule === 'retired-form-key').length,
+      0, 'a clean deck is not nagged');
+  });
+
+  test('warns that a per-slide `form` / `no-form` token is retired', () => {
+    // `no-form` no longer opts a slide out and `form` no longer opts one in. A slide
+    // that carries no chrome does so because its FRAME is sovereign, which is a
+    // property of the component, not something a token selects.
+    const out = lintText('---\ntheme: indaco\n---\n\n<!-- _class: content no-form -->\n\n## H.\n', { vocab })
+      .filter((x) => x.rule === 'retired-form-token');
+    assert.equal(out.length, 1);
+    assert.equal(out[0].classToken, 'no-form');
+    assert.equal(out[0].severity, 'warning');
+    assert.match(out[0].fix, /sovereign component/);
+    // The bare `form` token too.
+    const optIn = lintText('---\ntheme: indaco\n---\n\n<!-- _class: content form -->\n\n## H.\n', { vocab })
+      .filter((x) => x.rule === 'retired-form-token');
+    assert.equal(optIn.length, 1);
+    assert.equal(optIn[0].classToken, 'form');
+    // A slide naming neither is untouched — and `no-progress`, the SURVIVING rail
+    // control, must never be mistaken for one of them.
+    assert.equal(
+      lintText('---\ntheme: indaco\n---\n\n<!-- _class: content no-progress -->\n\n## H.\n', { vocab })
+        .filter((x) => x.rule === 'retired-form-token').length,
+      0, 'no-progress is a different register and stays');
   });
 
 

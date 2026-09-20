@@ -2,12 +2,13 @@
 marp: true
 theme: indaco
 paginate: true
-# Form is ON by default (2026-06-26). This fixture pins the chart-frame DOM
-# *skeleton* parity contract (progress-bars / wedges / timeline-spine), which is
-# identical with or without Form — Form only lifts the eyebrow+title into the
-# masthead band. Pin it off so the section-class and flat-chrome assertions stay
-# isolated from the masthead hoist. Charts-under-Form are covered by the visual sweep.
-form: off
+# This fixture pins the chart-frame DOM *skeleton* parity contract (progress-bars
+# / wedges / timeline-spine). It used to carry `form: off` to isolate the
+# section-class and flat-chrome assertions from the masthead hoist; Form is the
+# composition model now and cannot be turned off, so the fixture renders as every
+# real deck does. The skeleton itself is unchanged by Form — Form lifts the
+# eyebrow+title into the masthead band and leaves the chart body alone — which is
+# the claim the parity test makes, now against the composition authors actually get.
 ---
 
 <!-- _class: progress -->

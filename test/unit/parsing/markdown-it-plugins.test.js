@@ -523,80 +523,68 @@ describe('markdown-it-plugins', () => {
   // #356): each owns its kernel + cross-path parity pin in test/unit/forms/
   // <id>-tile.test.js, so their coverage is no longer here.
 
-  // ── Form deck-wide toggle (`form: off | standard`) ─────────────────────
+  // ── Form — the composition model, applied to every slide ─────────────────
+  // There is no toggle. `readFormMode`, `FORM_MODES` and the `form:` key are
+  // retired, as are the per-slide `form` / `no-form` opt-outs. What survives is
+  // the FRAME choice: the nine sovereign Frames carry no chrome Cells.
 
-  test('readFormMode: Form is ON BY DEFAULT — absent form: key → standard; off / false / no opt out', () => {
-    for (const v of ['standard', 'true', 'on', 'yes', 'ON', '"standard"']) {
-      assert.equal(plugins.readFormMode(`---\nform: ${v}\n---\n`), 'standard', v);
-    }
-    // `form: minimal` was retired (2026-07-03) → resolves to standard now.
-    assert.equal(plugins.readFormMode('---\nform: minimal\n---\n'), 'standard');
-    // Explicit opt-out — the only way to disable now.
-    for (const v of ['false', 'off', 'no']) {
-      assert.equal(plugins.readFormMode(`---\nform: ${v}\n---\n`), 'off', v);
-    }
-    // Default-on: a deck with no `form:` key (or no front matter block) composes
-    // as Form. Only a degenerate empty source stays off.
-    assert.equal(plugins.readFormMode('---\ntheme: cuoio\n---\n'), 'standard');
-    assert.equal(plugins.readFormMode('# just a heading, no front matter\n'), 'standard');
-    assert.equal(plugins.readFormMode(''), 'off');
-    assert.equal(plugins.readFormMode(null), 'off');
+  test('the deck-wide toggle is gone — no reader, no mode vocabulary', () => {
+    // Asserted, not merely deleted: re-exporting either symbol would quietly
+    // reinstate a configurable Form, which is the thing being removed.
+    assert.equal(plugins.readFormMode, undefined);
+    assert.equal(plugins.FORM_MODES, undefined);
+    assert.equal(plugins.applyFormToggleToHtml, undefined);
   });
 
-  test('formToggleClass: `standard` adds form to content; skips bookends / sovereign / incompatible', () => {
-    assert.equal(plugins.formToggleClass('content', 'standard'), 'content form');
-    assert.equal(plugins.formToggleClass('cards-grid compact', 'standard'), 'cards-grid compact form');
-    assert.equal(plugins.formToggleClass('', 'standard'), 'form'); // bare slide
-    for (const skip of ['title', 'divider', 'closing', 'compare-code', 'split-panel', 'image']) {
-      assert.equal(plugins.formToggleClass(skip, 'standard'), skip, `should skip ${skip}`);
+  test('formToggleClass: adds form to every slide; skips the sovereign Frames', () => {
+    assert.equal(plugins.formToggleClass('content'), 'content form');
+    assert.equal(plugins.formToggleClass('cards-grid compact'), 'cards-grid compact form');
+    assert.equal(plugins.formToggleClass(''), 'form'); // bare slide
+    for (const sov of ['title', 'divider', 'closing', 'compare-code', 'split-panel', 'image', 'premise', 'scene', 'split-compare']) {
+      assert.equal(plugins.formToggleClass(sov), sov, `sovereign Frame ${sov} carries no chrome Cells`);
     }
-    // `math` IS NOT IN THAT SKIP LIST. It left its sovereign frame in 2026-09 —
-    // every variant takes `form` and renders with the masthead, the footer, the rail
-    // and `meta:` like any other component. Asserted per variant, from the COMPONENT
-    // MANIFEST rather than a hardcoded list, so a ninth variant is covered the day it
-    // is declared rather than the day someone remembers this file.
+    // `math` IS NOT SOVEREIGN. It left its sovereign frame in 2026-09 — every
+    // variant takes `form` and renders with the masthead, the footer, the rail and
+    // `meta:` like any other component. Asserted per variant, from the COMPONENT
+    // MANIFEST rather than a hardcoded list, so a ninth variant is covered the day
+    // it is declared rather than the day someone remembers this file.
     const MANIFEST = require('../../../lib/components/math/math/math.manifest.json');
     for (const variant of MANIFEST.variants) {
       // `decompose` is authored as the compound `math matrix decompose`.
       const cls = variant === 'decompose' ? 'math matrix decompose' : `math ${variant}`;
-      assert.equal(plugins.formToggleClass(cls, 'standard'), `${cls} form`,
+      assert.equal(plugins.formToggleClass(cls), `${cls} form`,
         `math ${variant} must take the form class — math has no sovereign frame`);
     }
     // A BARE `math` slide follows `feature` — math.docs.md: "the bare layout
     // defaults to it" — so it must never diverge from the variants above.
-    assert.equal(plugins.formToggleClass('math', 'standard'), 'math form',
+    assert.equal(plugins.formToggleClass('math'), 'math form',
       'bare math must track the feature variant');
   });
 
-  test('formToggleClass: `off` is a no-op; retired `minimal` no longer stamps no-progress', () => {
-    assert.equal(plugins.formToggleClass('content', 'off'), 'content');
-    // `form: minimal` is retired: a deck that still carries it resolves to standard
-    // (readFormMode above), so the toggle stamps only `form` — no auto `no-progress`.
-    // The "form, no rail" look is now the explicit `class: no-progress` chrome control.
-    const mode = plugins.readFormMode('---\nform: minimal\n---\n'); // → 'standard'
-    assert.equal(plugins.formToggleClass('content', mode), 'content form');
+  test('formToggleClass: a retired `no-form` token no longer opts out; idempotent', () => {
+    // Idempotent on a slide that already carries the class.
+    assert.equal(plugins.formToggleClass('content form'), 'content form');
+    assert.equal(plugins.formToggleClass(plugins.formToggleClass('content')), 'content form');
+    // A deck still carrying `no-form` composes as Form anyway. The dead token stays
+    // on the class list — the engine does not rewrite an author's source — and
+    // `lint:deck` is what tells them to delete it.
+    assert.equal(plugins.formToggleClass('content no-form'), 'content no-form form');
   });
 
-  test('formToggleClass: respects explicit form / no-form; idempotent', () => {
-    assert.equal(plugins.formToggleClass('content form', 'standard'), 'content form');
-    assert.equal(plugins.formToggleClass('content no-form', 'standard'), 'content no-form');
-    assert.equal(plugins.formToggleClass(plugins.formToggleClass('content', 'standard'), 'standard'), 'content form');
-  });
-
-  test('applyFormToggleToHtml: off no-ops; standard rewrites eligible sections', () => {
+  test('applyFormToHtml: rewrites every eligible section, sovereign Frames excepted', () => {
     const html =
       '<section class="content" data-lattice-slide="1"></section>' +
       '<section class="divider" data-lattice-slide="2"></section>' +
       '<section data-lattice-slide="3"></section>';
-    assert.equal(plugins.applyFormToggleToHtml(html, '---\nform: off\n---\n'), html, 'no-op when off');
-    const std = plugins.applyFormToggleToHtml(html, '---\nform: standard\n---\n');
-    assert.match(std, /<section class="content form" data-lattice-slide="1">/);
-    assert.match(std, /<section class="divider" data-lattice-slide="2">/, 'divider skipped');
-    assert.match(std, /<section class="form" data-lattice-slide="3">/, 'bare slide gets a class attr');
-    // Retired `form: minimal` resolves to standard — no auto `no-progress` stamp.
-    const min = plugins.applyFormToggleToHtml(html, '---\nform: minimal\n---\n');
-    assert.match(min, /<section class="content form" data-lattice-slide="1">/);
-    assert.doesNotMatch(min, /no-progress/);
+    const out = plugins.applyFormToHtml(html);
+    assert.match(out, /<section class="content form" data-lattice-slide="1">/);
+    assert.match(out, /<section class="divider" data-lattice-slide="2">/, 'sovereign divider skipped');
+    assert.match(out, /<section class="form" data-lattice-slide="3">/, 'bare slide gets a class attr');
+    // It takes no deck source, so there is nothing a front-matter key can change:
+    // the same HTML in gives the same HTML out, whatever the deck said.
+    assert.equal(plugins.applyFormToHtml(html), out);
+    // Idempotent across a second pass.
+    assert.equal(plugins.applyFormToHtml(out), out);
   });
 
   // ── applyDeckLogoToHtml ────────────────────────────────────────────────

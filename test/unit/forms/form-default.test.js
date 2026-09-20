@@ -37,7 +37,7 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
   });
 
   test('skips every sovereign frame (the render-time skip set)', () => {
-    // Mirrors FORM_TOGGLE_SKIP_FALLBACK — the engine and this path must agree.
+    // Mirrors SOVEREIGN_FRAMES_FALLBACK — the engine and this path must agree.
     // `math` is NOT in this list any more: it left its sovereign frame in 2026-09 and
     // takes `form` like any other component. Its own test below asserts that, per
     // variant, and is the thing that would fail if the frame were ever put back.
@@ -84,10 +84,13 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
     assert.equal(bare.querySelector('section').className, 'math form');
   });
 
-  test('respects an explicit `no-form` opt-out (unchanged)', () => {
+  test('a legacy `no-form` token no longer opts a slide out', () => {
+    // `no-form` is retired — Form is not optional. A deck still carrying the token
+    // composes as Form anyway; the token survives on the class list as the inert
+    // leftover it is, and `lint:deck` tells the author to delete it.
     const d = doc('<section class="content no-form"><h2>T</h2></section>');
     applyFormDefaultToDom(d);
-    assert.equal(d.querySelector('section').className, 'content no-form');
+    assert.equal(d.querySelector('section').className, 'content no-form form');
   });
 
   test('leaves an already-`form` slide unchanged (idempotent class)', () => {

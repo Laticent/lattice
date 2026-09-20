@@ -2,7 +2,6 @@
 size: portrait
 theme: indaco
 paginate: true
-form: standard
 header: "Lattice · connected members"
 footer: "split relationship signal"
 ---

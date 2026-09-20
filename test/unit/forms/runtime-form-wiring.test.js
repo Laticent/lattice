@@ -58,14 +58,17 @@ describe('runtime Form wiring — raw Marp deck composes as Form', () => {
     assert.equal(doc.querySelectorAll('section[data-lattice-slide]').length, 5);
   });
 
-  test('a deck-wide `no-form` (Marpit global class) opts the whole deck out', () => {
-    // Marpit propagates a global `class:` to every section; simulate that.
+  test('a deck-wide `no-form` no longer opts the deck out — Form is not optional', () => {
+    // Marpit propagates a global `class:` to every section; simulate that. The token
+    // is retired, so a deck carrying it composes exactly as it would without it.
     const optedOut = RAW.replace(/class="(?!.*\bsilent\b)/g, 'class="no-form ')
       .replace(/class="title silent"/, 'class="title silent no-form"')
       .replace(/class="closing silent"/, 'class="closing silent no-form"');
     const doc = runRuntimePass(optedOut);
-    assert.equal(doc.querySelectorAll('section.form').length, 0);
-    assert.equal(doc.querySelectorAll('.cell-masthead').length, 0);
+    const clean = runRuntimePass(RAW);
+    assert.equal(doc.querySelectorAll('section.form').length, clean.querySelectorAll('section.form').length);
+    assert.ok(doc.querySelectorAll('section.form').length > 0, 'the deck still composes as Form');
+    assert.equal(doc.querySelectorAll('.cell-masthead').length, clean.querySelectorAll('.cell-masthead').length);
   });
 
   test('idempotent — a second full pass adds nothing', () => {

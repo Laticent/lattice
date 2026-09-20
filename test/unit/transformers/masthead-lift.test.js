@@ -445,15 +445,15 @@ describe('masthead-lift — stage-wrap eligibility', () => {
     // The migration taxonomy is a TOTAL partition — every component is in exactly
     // one of three buckets: wrapped into `.cell-stage` (STAGE_MIGRATED), gets the
     // band but keeps a direct-child sized-media body (STAGE_DEFERRED), or is a
-    // sovereign frame that gets no band at all (FORM_TOGGLE_SKIP, chrome-exempt).
+    // sovereign frame that gets no band at all (SOVEREIGN_FRAMES, chrome-exempt).
     // This guard closes the gap that let `diagram` sit un-migrated yet
     // un-enumerated: a brand-new component MUST be placed into one bucket or this
     // fails — it can never default to "unwrapped and undocumented".
-    const { FORM_TOGGLE_SKIP } = require('../../../lib/integrations/markdown-it/plugins.js');
+    const { SOVEREIGN_FRAMES } = require('../../../lib/integrations/markdown-it/plugins.js');
     const all = kernel.ALL_LAYOUTS;
     const migrated = kernel.STAGE_MIGRATED;
     const deferred = kernel.STAGE_DEFERRED;
-    const exempt = new Set(FORM_TOGGLE_SKIP);
+    const exempt = new Set(SOVEREIGN_FRAMES);
 
     // disjoint — no layout wears two hats
     assert.deepEqual([...migrated].filter((n) => deferred.has(n)), [], 'a layout is in both STAGE_MIGRATED and STAGE_DEFERRED');

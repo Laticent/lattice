@@ -96,16 +96,16 @@ test('(b) checkIntegrity catches a Cell accepting a kind no Tile satisfies', () 
   assert.ok(errors.some((e) => /accepts "review"/.test(e)), errors.join('; '));
 });
 
-test('(c) manifest-derived skip set equals the historical FORM_TOGGLE_SKIP', () => {
+test('(c) manifest-derived sovereign set equals the historical set', () => {
   const derived = forms.frameToggleSkip();
   assert.deepEqual([...derived].sort(), [...HISTORICAL_SKIP].sort());
 });
 
-test('(c) the browser-baked FORM_TOGGLE_SKIP_FALLBACK matches the manifest-derived set', () => {
+test('(c) the browser-baked SOVEREIGN_FRAMES_FALLBACK matches the manifest-derived set', () => {
   // The fallback literal is what the fs-free browser bundle uses; it must never
   // drift from the manifests (the Node-derived set). This guards that claim.
-  assert.deepEqual([...plugins.FORM_TOGGLE_SKIP_FALLBACK].sort(), [...forms.frameToggleSkip()].sort());
-  assert.deepEqual([...plugins.FORM_TOGGLE_SKIP].sort(), [...forms.frameToggleSkip()].sort());
+  assert.deepEqual([...plugins.SOVEREIGN_FRAMES_FALLBACK].sort(), [...forms.frameToggleSkip()].sort());
+  assert.deepEqual([...plugins.SOVEREIGN_FRAMES].sort(), [...forms.frameToggleSkip()].sort());
 });
 
 test('(c) plugins.formToggleClass skips every historical sovereign Frame', () => {

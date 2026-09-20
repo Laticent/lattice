@@ -5,7 +5,6 @@ paginate: true
 header: "Lattice · Form"
 footer: "Laticent · The composition model"
 meta: "Composition Model · 2026-06-15 | Owner · S. Aden"
-form: standard
 logo: ../lib/base/_logo/lattice-mark-min.svg
 ---
 

@@ -2,7 +2,6 @@
 size: portrait
 theme: indaco
 paginate: true
-form: standard
 footer: "split veto — hoist-aware headroom"
 ---
 

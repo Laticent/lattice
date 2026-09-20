@@ -2,7 +2,6 @@
 size: portrait
 theme: indaco
 paginate: true
-form: standard
 header: "Lattice · Split envelope"
 footer: "Split envelope"
 ---

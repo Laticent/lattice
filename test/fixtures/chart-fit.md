@@ -456,7 +456,7 @@ flowchart LR
 
 ---
 
-<!-- _class: timeline-list no-form -->
+<!-- _class: timeline-list -->
 
 ## A chart with no Form still has a holder.
 
