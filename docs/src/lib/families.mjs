@@ -24,7 +24,7 @@
 // with no edit to this file. That is a floor, not a substitute for curation: the
 // bucket lens is coarser than the shape lens, which is why this list exists.
 export const FAMILY_DEFS = [
-	{ key: 'titles', label: 'Titles & breaks', members: ['title', 'divider', 'closing'] },
+	{ key: 'titles', label: 'Titles & breaks', members: ['title', 'divider', 'closing', 'topic'] },
 	{ key: 'statements', label: 'Statements', members: ['big-number', 'content', 'quote'] },
 	{ key: 'numbers', label: 'Numbers & KPIs', members: ['kpi', 'stats'] },
 	{ key: 'lists', label: 'Lists & inventories', members: ['list', 'list-tabular', 'checklist', 'agenda', 'actors', 'glossary', 'list-steps', 'list-criteria', 'logo-wall', 'q-and-a'] },
