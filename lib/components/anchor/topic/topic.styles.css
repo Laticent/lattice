@@ -325,6 +325,24 @@ section.topic.fact > p:not(:has(> code:only-child)):last-of-type { align-content
  * and claim on a single dark canvas, which is the `divider`-family composition
  * the rest of the anchor bucket already uses. */
 section.topic:not(:has(> ul)) {
-  background-image: none;      /* the field is already `--surface-inverse` */
+  /* RESTATE the field, do not inherit it from `section.topic`.
+   *
+   * Dropping this line looked free — the rule above sets the same value — and it
+   * was not. This selector is (0,1,2); `section.topic` is (0,1,1), and so are
+   * `section.dark`, `section.print` and `section.chart-frame`, all of which sit
+   * LATER in the bundle. So leaning on the base rule handed a trackless `topic`
+   * to whichever modifier came last, and the commit that did it claimed "both
+   * orders paint identical pixels". Measured in Chromium, they do not:
+   *
+   *     topic dark          rgb(0,61,102)  ->  rgb(0,29,51)
+   *     topic print         rgb(236,236,236) -> rgb(255,255,255)
+   *     topic chart-frame   rgb(0,61,102)  ->  rgb(255,255,255)
+   *
+   * `color-mode: print` is as reachable as `color-mode: dark`, and under print
+   * that change also split the two forms apart: a trackless `topic` went white
+   * while `topic fact` stayed `--print-bg`. Restating the value at (0,1,2) puts
+   * both back and makes the claim true. */
+  background-color: var(--surface-inverse);
+  background-image: none;
   padding-bottom: var(--sp-xl);
 }

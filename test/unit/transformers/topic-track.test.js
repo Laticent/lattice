@@ -9,6 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const tt = require('../../../lib/transformers/topic-track');
+const { readTopLevelH2Text: readH2 } = require('../../../lib/core/top-level-h2');
 // The kernel's own readers, not hand-rolled regexes. `/<[^>]+>/g` ends a tag at
 // the first `>`, including one inside a quoted attribute — which is the defect
 // this suite exists to catch, so a test helper must not contain it. CodeQL flags
@@ -120,20 +121,40 @@ test('a topic slide with no heading gets no track, rather than lighting a siblin
 // and another in Marp.
 const { JSDOM } = require('jsdom');
 
-/** Run the DOM arm over the same deck and read its tracks back. */
-function domTracks(deckHtml) {
-  const slides = deckHtml.replace(/<section class="([^"]*)">/g,
-    (_m, c) => `<section data-lattice-slide class="${c}">`);
-  const dom = new JSDOM(`<body>${slides}</body>`);
-  tt.applyToDom(dom.window.document.body);
-  return [...dom.window.document.querySelectorAll('ul.tile-track')].map((ul) =>
-    [...ul.children].map((li) => ({ name: li.textContent, on: li.classList.contains('on') })));
+/**
+ * Read EVERY `topic` slide's own list — derived or authored — with its marker,
+ * using a real parser on both sides.
+ *
+ * The previous helper compared `ul.tile-track` only. An authored list carries no
+ * such class, so on every authored-marker test it compared two EMPTY arrays and
+ * asserted nothing: the sub-bullet deck that pins round four's blocking fix
+ * passed `bothAgree` while the two arms genuinely disagreed. That is why a
+ * fuzzer found the implied-`</li>` split and this green suite did not.
+ *
+ * Both sides go through jsdom so the comparison is about what the TRANSFORM
+ * produced, not about whose string-walk is right.
+ */
+function readTopics(html) {
+  const dom = new JSDOM(`<body>${html}</body>`);
+  return [...dom.window.document.querySelectorAll('section.topic')].map((s) => {
+    const ul = s.querySelector(':scope > ul');
+    if (!ul) return null;
+    return [...ul.children]
+      .filter((c) => c.tagName === 'LI')
+      .map((li) => ({ name: li.textContent.replace(/\s+/g, ' ').trim(), on: li.classList.contains('on') }));
+  });
 }
+
+const asSlides = (deckHtml) =>
+  deckHtml.replace(/<section class="([^"]*)">/g, (_m, c) => `<section data-lattice-slide class="${c}">`);
+
 const bothAgree = (deck) => {
-  const a = tracks(tt.applyToHtml(deck));
-  const b = domTracks(deck);
-  assert.deepEqual(b, a, 'the DOM arm must produce exactly what the HTML arm does');
-  return a;
+  const stringArm = readTopics(tt.applyToHtml(asSlides(deck)));
+  const dom = new JSDOM(`<body>${asSlides(deck)}</body>`);
+  tt.applyToDom(dom.window.document.body);
+  const domArm = readTopics(dom.window.document.body.innerHTML);
+  assert.deepEqual(domArm, stringArm, 'the DOM arm must produce exactly what the HTML arm does');
+  return stringArm;
 };
 
 test('DOM arm: both adapters agree on the ordinary deck', () => {
@@ -332,4 +353,76 @@ test('markdown-it\'s inline-list shape reads the same on both arms', () => {
   // the `<p>` open derived a track here and honored an override there.
   const inner = '<h2>Alpha</h2><p>A claim: <ul><li>inline</li></ul></p>';
   bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta'));
+});
+
+/* ── THE SHAPES ROUND FIVE FOUND ─────────────────────────────────────────────
+ *
+ * Round four's tests passed on the sub-bullet deck while the two arms genuinely
+ * disagreed, because `bothAgree` compared `ul.tile-track` only and an authored
+ * list has no such class — two empty arrays. These use the repaired helper,
+ * which reads EVERY topic slide's list through a real parser, and each one
+ * asserts the comparison was not vacuous.
+ */
+test('an implied `</li>` is two items, not one — the arms agreed at NOTHING before', () => {
+  // `</li>` is optional in HTML. The walk counted only same-name tags, so
+  // `<li>Cost<li><strong>Payback</strong>` read as ONE item "CostPayback":
+  // nothing wholly bold, nothing matching the heading, so the string arm marked
+  // nothing while the DOM arm saw two children and marked the second.
+  const inner = '<h2>Beta</h2><ul><li>Cost<li><strong>Payback</strong></ul>';
+  const got = bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
+  assert.deepEqual(got, [[{ name: 'Cost', on: false }, { name: 'Payback', on: true }]]);
+});
+
+test('the parity helper is not vacuous on an authored track', () => {
+  // The guard on the guard: if this ever compares empty arrays again, the
+  // marker tests around it stop asserting anything.
+  const inner = '<h2>Other</h2><ul>'
+    + '<li>Cost<ul><li>detail</li><li><strong>Payback</strong></li></ul></li>'
+    + '<li>Other</li></ul>';
+  const got = bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
+  assert.equal(got.length, 1);
+  assert.ok(got[0] && got[0].length >= 2, 'expected a real list to compare');
+  assert.deepEqual(got[0].filter((i) => i.on).map((i) => i.name), ['Other']);
+});
+
+test('`class=` inside ANOTHER attribute value is not a class', () => {
+  // `<li data-x="a class=on b">` read as already-marked, so the string arm
+  // marked nothing and the DOM arm marked — the `#1358` family, reached from
+  // the value side rather than the name side.
+  const inner = '<h2>H</h2><ul><li data-x="a class=on b">Cost</li><li><strong>P</strong></li></ul>';
+  const got = bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
+  assert.deepEqual(got[0].filter((i) => i.on).map((i) => i.name), ['P']);
+});
+
+test('an unclosed raw <h2> still contributes its NAME to every sibling', () => {
+  // The reader required a `</h2>` and returned null without one, so the engine
+  // saw no heading where the runtime saw one and every sibling's track came out
+  // a column short on that path alone. A parser lets the heading run to the end,
+  // so both arms now read the same name.
+  const deck = S('divider', '<h2>S</h2>')
+    + S('topic', '<h2>Raw heading<p>A claim.</p>')
+    + topic('Beta') + topic('Gamma');
+  const names = tracks(tt.applyToHtml(asSlides(deck))).map((t) => t.map((i) => i.name));
+  assert.deepEqual(names, [
+    ['Raw headingA claim.', 'Beta', 'Gamma'],
+    ['Raw headingA claim.', 'Beta', 'Gamma'],
+  ]);
+
+  // The malformed slide itself gets NO track, and that is deliberate: appending
+  // to a section that leaves an element open puts the track inside it, where it
+  // would render as heading text. `appendChild` cannot hit that, so this one
+  // shape is the documented limit of a string rewriter against a DOM mutator —
+  // the string arm declines instead of emitting a visible defect.
+  const out = tt.applyToHtml(asSlides(deck));
+  const firstTopic = out.slice(out.indexOf('Raw heading'), out.indexOf('Beta'));
+  assert.ok(!firstTopic.includes('tile-track'), 'no track inside the open heading');
+});
+
+test('a heading start tag closes an open heading, and never nests', () => {
+  assert.equal(readH2('<h2>Outer<h2>Inner</h2></h2>'), 'Outer');
+  assert.equal(readH2('<h2>A</h3><p>b</p>'), 'A');
+  // …and the close tag is found through the tokenizer, so a comment or an
+  // attribute value holding `</h2>` does not end it early.
+  assert.equal(readH2('<h2>A<!-- </h2> -->B</h2>'), 'AB');
+  assert.equal(readH2('<h2><span title="</h2>">A</span></h2>'), 'A');
 });
