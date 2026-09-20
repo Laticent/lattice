@@ -8,3 +8,9 @@
   run (one of them per slide). Measured across the nine decks that ship a committed `.vtt`,
   with the two arms alternating over four rounds: 47.99s → 27.36s in total, 2.0–2.9s off each
   deck. Every exported artifact is byte-identical.
+- A `--captions` export now **fails and retries** when the browser itself dies during the
+  caption projection, instead of exiting 0 with no caption track and a possibly-wrong page
+  count on the `.html`/`--player` paths. A projection failure that leaves the browser alive
+  still warns and ships the deck, unchanged — including a scratch page that dies on its own,
+  which looks identical to a wedged browser at the error level and is told apart by asking
+  `browser.connected` rather than by matching the error message.

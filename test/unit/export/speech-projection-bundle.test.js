@@ -70,10 +70,18 @@ test('bundle output equals the Node kernel call it replaced, entry for entry', a
 	assert.match(want[1].text, /Churn fell by a third/);
 
 	assert.equal(got.length, want.length);
-	// The BUNDLE side is JSON-normalized and the reference side is NOT, on purpose. The
-	// shipped path returns this value across CDP, which applies that same transform — so
-	// normalizing BOTH sides would hide a field that does not survive the boundary by
-	// destroying it symmetrically. Normalizing one side makes the arm fail on exactly that.
+	// The BUNDLE side is JSON-normalized and the reference side is NOT, on purpose:
+	// normalizing BOTH sides would hide a field that does not survive the CDP boundary by
+	// destroying it symmetrically, so the asymmetry is what gives the arm teeth.
+	// WHAT IT DOES NOT MEAN, because the first version of this comment claimed it: CDP is
+	// NOT the same transform as `JSON.stringify`. Measured on real Chromium — a `Date`
+	// crosses as `{}` where JSON gives an ISO string, a function as `{}` where JSON drops
+	// the key, and a symbol-keyed value makes CDP return `undefined` for the WHOLE value
+	// while JSON returns the object. So this arm catches a field on the REFERENCE side that
+	// JSON mangles; it does not catch one the bundle adds that JSON drops. Today's payload
+	// is `{text: string, emphasis: {start,end,weight}[]}` — all JSON-safe — so none of the
+	// three divergences is reachable, and the guard is against a future field, not a
+	// present bug.
 	assert.deepEqual(JSON.parse(JSON.stringify(got)), want);
 });
 
@@ -100,32 +108,57 @@ test('the bundle sanitizes — the payload dies AND the real content survives', 
 	assert.match(joined, /Three cohorts drove the move/);
 });
 
-test('the emulator still CALLS the projection, with a browser and the watchdog', () => {
-	// Arms 1-3 drive the bundle in isolation and the arm below asserts an ABSENCE, so
-	// deleting the call site would leave all four green while `--captions` silently
-	// narrated nothing. This pins the call itself. The behavioral guard is one tier up —
-	// test/integration/export/html-player.test.js drives the real emulator with
-	// `--captions` and asserts narrated text in a real `.vtt` — and this arm exists so a
-	// reader does not mistake THIS file for that guard.
+test('the emulator projects the deck BEFORE any branch closes the browser', () => {
+	// POSITION, not presence — and that distinction was measured, not assumed. This arm used
+	// to assert only that the call site existed, under the message "while the browser is
+	// still open". A checker mutated the source by moving the call one line BELOW
+	// `await closeBrowser()` — which makes `--captions` silently produce nothing — and the
+	// arm stayed green. It also false-failed on a line rewrap and on renaming the `g`
+	// parameter. So it now compares offsets, which is the claim, and matches loosely enough
+	// that reformatting does not break it.
 	const src = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
-	assert.match(
-		src,
-		/const captionScript = CAPTIONS \? await projectDeckSpeechFromHtml\(cleanDocHtml, browser, g\) : \[\];/,
-		'renderBody projects the deck while the browser is still open',
+	const call = src.search(/captionScript\s*=\s*CAPTIONS[\s\S]{0,80}?projectDeckSpeechFromHtml\(/);
+	assert.ok(call > 0, 'renderBody projects the deck into `captionScript`');
+
+	// Every `closeBrowser()` inside renderBody must come AFTER the projection; the projection
+	// is useless once any of them has run, and there are eight call sites to stay ahead of.
+	const closes = [...src.matchAll(/await closeBrowser\(\)/g)].map((m) => m.index);
+	assert.ok(closes.length >= 5, `found the closeBrowser call sites (${closes.length})`);
+	const renderBodyStart = src.indexOf('async function renderBody(');
+	const inBody = closes.filter((i) => i > renderBodyStart);
+	assert.ok(inBody.length >= 5, 'closeBrowser call sites inside renderBody');
+	assert.ok(
+		call < Math.min(...inBody),
+		'the projection runs before the FIRST branch that closes the browser',
 	);
+
+	// …and its result is what reaches the sidecar writer.
 	assert.match(
 		src,
-		/writeCaptionsSidecar\(outFile, pageNotesForCaptions\.length, slideCaptions, captionScript\)/,
-		'and hands the projected script to the sidecar writer',
+		/writeCaptionsSidecar\([^)]*captionScript\s*\)/,
+		'the projected script is handed to writeCaptionsSidecar',
 	);
 });
 
 test('the caption path no longer constructs a jsdom window', () => {
+	// SCOPED TO THE FUNCTION, not to the file, and the scoping was forced rather than chosen.
+	// This arm read `assert.doesNotMatch(wholeFile, /new JSDOM\(/)` and was true when written.
+	// Then #2246 landed `buildReadingArticleDocument` on main — the SAME three-window pattern
+	// this change removes (a window for DOMPurify, one for the document, one per section),
+	// for reader-mode article projection — and a file-wide assertion went red for a reason
+	// that has nothing to do with the caption path. A test that fails when an unrelated
+	// feature lands is a test that gets deleted, so it now asserts the claim it means.
 	const src = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
-	const code = src
+	const start = src.indexOf('async function projectDeckSpeechFromHtml(');
+	assert.ok(start > 0, 'projectDeckSpeechFromHtml is still in lattice-emulator.js');
+	// The function ends at the next brace in column 0 — this file's top-level style.
+	const end = src.indexOf('\n}\n', start);
+	assert.ok(end > start, 'found the end of projectDeckSpeechFromHtml');
+	const body = src
+		.slice(start, end)
 		.split('\n')
 		.filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l))
 		.join('\n');
-	assert.doesNotMatch(code, /new JSDOM\(/, 'lattice-emulator.js builds no jsdom window');
-	assert.doesNotMatch(code, /require\(['"]jsdom['"]\)/, "lattice-emulator.js does not require('jsdom')");
+	assert.doesNotMatch(body, /new JSDOM\(/, 'the caption projection builds no jsdom window');
+	assert.doesNotMatch(body, /require\(['"]jsdom['"]\)/, "and does not require('jsdom')");
 });

@@ -163,9 +163,16 @@ and export `examples/read-along-captions.md` with `--captions` on both arms.
 | after (`dist/lattice-emulator.js`, which is the package `bin`) | **27 cues**, byte-identical to the same golden |
 
 Two cues, in a file named after the deck, is the worst version of this: not a crash, a
-caption track that looks delivered. The fix removes the last `require('jsdom')` from
-`lattice-emulator.js`; a test arm now asserts the file constructs no jsdom window, so it
+caption track that looks delivered. The fix removes `require('jsdom')` from the caption
+path; a test arm asserts `projectDeckSpeechFromHtml` constructs no jsdom window, so it
 cannot come back without a red.
+
+**Scoped to the caption path, not the file, and #2246 is why.** An earlier draft of this
+note said "the last `require('jsdom')` in `lattice-emulator.js`" and the test arm asserted
+file-wide absence. While this PR was open, #2246 landed `buildReadingArticleDocument` —
+**the same three-window pattern**, for reader-mode article projection — so a file-wide
+assertion went red for a reason unrelated to captions. The arm is scoped to the function
+now. See § Follow-up: that new instance carries the same published-install break.
 
 **The bundle still resolves jsdom, and that is the `--player` path, not this one.**
 `dist/lattice-emulator.js` inlines `lib/export/html-player.js`, whose `require('jsdom')` is
@@ -212,18 +219,37 @@ no bytes: `.pdf`, `.html`, every PNG of the set and every member of the `.zip` a
 identical with and without `--captions`. It is recorded rather than argued away, because a
 deck listening on `visibilitychange` would see a hide/show cycle that is ours.
 
-**A crashed or wedged Chrome rethrows rather than degrading.** The projection's `catch`
+**A DEAD BROWSER rethrows rather than degrading — and the first version of this tested the
+wrong thing.** The projection's `catch`
 turns any failure into a warning and an empty script — right for a projection bug, wrong
 for a dead browser, and wrong *silently* on exactly one family of branches. After
 `.html` / `--player` / `--fluid` read their page count, the only remaining CDP call sits in
 a bare swallowing `try`, and `closeBrowser` swallows too; so a browser this projection
 killed would have exited 0 with no `.vtt`, a possibly-wrong page count and **no hardened
 retry**, where the PDF and raster branches were already covered by their next guarded call.
-`isTargetGone(e)` now rethrows before the warning. Two smaller ones from the same review:
-the scratch page is closed **through the watchdog** (a `try/catch` answers a rejected
-promise and does nothing for one that never settles — that is what `guard` is for, #502),
-and because `guard` races rather than cancels, a `newPage()` the watchdog gave up on is
-closed when it arrives instead of holding a page open for the rest of the run.
+It rethrew on `isTargetGone(e)`, and a second independent check measured that as **worse
+than the bug it fixed**. Crash only the SCRATCH page and its `evaluate` never rejects with
+a target-gone message at all — it hangs, so the 90s watchdog always wins and always sets
+`wedged: true`, which `isTargetGone` reports as "target gone" **while `browser.connected`
+is still true and the render page still prints the deck**. The export therefore threw away
+a finished deliverable and re-rendered it; a content-deterministic failure would fail the
+retry identically and exit 1 with the `.html` unlinked. `isTargetGone` also matches on
+message SUBSTRING, so any projection error merely containing "Protocol error" did the same.
+
+**The condition is `browser.connected === false` now** — the one signal that separates "the
+export cannot continue" from "the captions failed". Both directions are measured on real
+Chromium: crashing only the scratch page leaves `connected: true` and the deck ships minus
+its `.vtt`; `SIGKILL`ing the browser gives `connected: false` and rethrows, so the `.html`
+hole stays closed.
+
+Two smaller ones from the same reviews: the scratch page is closed **through the watchdog**
+(a `try/catch` answers a rejected promise and does nothing for one that never settles —
+that is what `guard` is for, #502), and because `guard` races rather than cancels, a
+`newPage()` the watchdog gave up on is closed when it arrives instead of holding a page
+open for the rest of the run. That second branch was **dead** while the rethrow was
+unnarrowed — every path into it carried `wedged`, so it rethrew and the teardown closed the
+page anyway — and narrowing the rethrow makes it live, which is why its close is guarded
+too.
 
 ## Evidence
 
@@ -318,6 +344,15 @@ describes. It is off the path of this change and is recorded here rather than fi
   slides against a blessed 22, and the three CLI navigation rows render 15, 33 and 43 pages
   against a blessed 5, 9 and 30. Those rows have been recording nothing. A re-bless is one
   command; it belongs in a change that is about the baseline, not this one.
+- **`buildReadingArticleDocument` repeats this whole pattern**, landed by #2246 while this
+  PR was open: three jsdom windows (one for DOMPurify, one for the document, one per
+  section) in `lattice-emulator.js`, for reader-mode article projection. It has the same
+  published-install break — jsdom is a devDependency, so it throws outside this repo and
+  returns `''`, and the caller "keeps the clean slide render", which means the reader-mode
+  article silently never appears. The fix is the one in this note: it wants
+  `projectDeckToProse` instead of `projectDeckToScript`, from a sibling bundle. Off the path
+  of this change and belonging to that feature, so it is recorded rather than pulled in
+  (HARD RULE #18).
 - **`.filter(Boolean)` on the sanitized sections drops a section that fails to re-parse**,
   which misaligns every later slide's caption. The Studio's `projectSectionsToScript` yields
   an empty script at that index instead, deliberately, for exactly this reason. The CLI's

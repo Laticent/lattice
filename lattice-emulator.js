@@ -5492,9 +5492,11 @@ async function buildReadingArticleDocument(docHtml) {
  * Component-aware DOM speech projection for the export (2026-07-11-manifest-speech
  * -contract §6 Phase 2). Parses the sanitized-render HTML, sanitizes each slide
  * section (HARD RULE #22 — the caller-sanitizes contract prose-projection requires),
- * and projects each to natural narration DISPLAY text. Returns [] (never throws) on
- * any failure — there is no fallback behind it, so the deck then gets no caption
- * track. `docHtml` is the emulator's cleanDocHtml.
+ * and projects each to natural narration DISPLAY text. Returns [] on a projection
+ * failure — there is no fallback behind it, so the deck then gets no caption track.
+ * It THROWS in exactly one case: the browser itself is gone, which is not a caption
+ * failure but an export that cannot continue (see the catch). `docHtml` is the
+ * emulator's cleanDocHtml.
  *
  * IT RUNS IN THE BROWSER WE ALREADY HAVE OPEN. This used to build three jsdom
  * windows — one to host DOMPurify, one for the whole document, and one more per
@@ -5567,15 +5569,27 @@ async function projectDeckSpeechFromHtml(docHtml, browser, g) {
       'project deck speech',
     );
   } catch (e) {
-    // A CRASHED OR WEDGED CHROME IS NOT A CAPTION FAILURE — rethrow it, so the export
-    // routes to the hardened retry (`isTargetGone` at the renderDeck catch) the way
-    // every other CDP call on this path does. Swallowing it here was wrong on exactly
-    // one family of branches and silently: after `.html` / `--player` / `--fluid` take
-    // their page count, the only remaining CDP call sits in a bare swallowing `try` and
-    // `closeBrowser` swallows too — so a browser this projection killed would have
-    // exited 0 with no `.vtt`, a possibly-wrong page count, and no retry. The PDF and
-    // raster branches were already covered, because their next `g()` call rethrows.
-    if (isTargetGone(e)) throw e;
+    // A DEAD BROWSER IS NOT A CAPTION FAILURE — rethrow, so the export routes to the
+    // hardened retry the way every other CDP call on this path does. Swallowing it was
+    // wrong on exactly one family of branches and silently: after `.html` / `--player` /
+    // `--fluid` take their page count, the only remaining CDP call sits in a bare
+    // swallowing `try` and `closeBrowser` swallows too, so a browser this projection
+    // killed would have exited 0 with no `.vtt`, a wrong page count, and no retry.
+    //
+    // TEST THE BROWSER, NOT THE ERROR — and the first version of this line tested the
+    // error, which was worse than the bug it fixed. `isTargetGone(e)` is true for any
+    // `wedged` error, and a SCRATCH PAGE that dies on its own is measurably that: crash
+    // only the scratch target and its `evaluate` never rejects with a target-gone
+    // message at all, it hangs, so the 90s watchdog always wins and always sets
+    // `wedged: true` — while `browser.connected` is still true and the render page still
+    // prints the deck. `isTargetGone` therefore said "browser gone" for a browser that
+    // was fine, throwing away a finished deliverable and re-rendering it; a
+    // content-deterministic failure would fail the retry the same way and exit 1 with the
+    // `.html` unlinked. `isTargetGone` also matches on message SUBSTRING, so any
+    // projection error merely containing "Protocol error" would have done the same.
+    // `browser.connected` asks the question this line means to ask, and it is the one
+    // signal that separates "the export cannot continue" from "the captions failed".
+    if (browser && browser.connected === false) throw e;
     // SURFACE THE FAILURE, and say what actually happens now. This used to read
     // "falling back to speaker notes only" — true of the old ladder, false since the
     // note rung was removed: there is no fallback left, so the deck gets NO caption
@@ -5594,8 +5608,16 @@ async function projectDeckSpeechFromHtml(docHtml, browser, g) {
       try { await run(() => scratch.close(), 'close speech projection page'); } catch (_e) { /* already torn down */ }
     } else if (pagePromise) {
       // The watchdog-lost case above. Do NOT await it — that reinstates the hang this
-      // branch exists to avoid; just close it whenever it turns up.
-      pagePromise.then((p) => p.close()).catch(() => { /* never arrived, or already gone */ });
+      // branch exists to avoid; just close it whenever it turns up, THROUGH the watchdog.
+      // The guard matters precisely here: the only way to reach this branch is a Chrome
+      // slow or wedged enough to lose the race, which is exactly the Chrome whose
+      // `close()` can hang forever and leave the page this branch exists to reclaim.
+      // (While the rethrow above was unnarrowed this branch was dead — every path into it
+      // carried `wedged`, so it rethrew and `closeBrowser` tore the browser down anyway.
+      // Narrowing the rethrow to a genuinely dead browser makes it live again.)
+      pagePromise
+        .then((p) => run(() => p.close(), 'close late speech projection page'))
+        .catch(() => { /* never arrived, or already gone */ });
     }
   }
 }
