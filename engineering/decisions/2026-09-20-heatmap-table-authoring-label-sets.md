@@ -209,6 +209,34 @@ remains a real project for the `<table>` charts (`matrix-grid`, `obligation-matr
 §4 of `2026-09-02-frame-model-for-motion.md` calls for a DOM painter while §10 and
 §13 propose converting the two named DOM targets to SVG instead.
 
+## Implementation notes (verified, so the build does not re-discover them)
+
+**A table-authored heatmap already degrades gracefully.** Rendered today, a
+`_class: heatmap` slide containing a markdown table emits the plain `<table>` and no
+heatmap cells — `parseHeatmap` finds no list and returns `null`, which is the family's
+documented "leave the markup alone" contract. So the migration has no broken interim
+state: a converted deck renders as a readable table until the parser lands.
+
+**`buildSvgLegend` needs no new variant for the ramp.** Its row model is
+`{ swatchFill, swatchStroke?, label, value? }`, and heatmap's ramp is QUANTIZED into 5
+discrete stops — so five swatch rows are the right shape, not a continuous gradient.
+The existing `orientation` branch then gives the right-rail/legend-below behavior free.
+
+**But the swatch cannot take a fill, and that is HARD RULE #3.** A heatmap cell is
+painted by CSS — `color-mix()` driven by `--mix`, selected by `[data-step="N"]` — and
+the kernel deliberately emits no color. Passing a literal `swatchFill` would put a
+color in the kernel and break theme-swappability. The legend swatch therefore needs to
+carry the cell's own class and `data-step` and inherit the same rule, which means
+`buildSvgLegend` gains a `swatchClass`/`swatchAttrs` alternative to `swatchFill`. That
+is an additive change to a shared kernel used by four charts, so it takes a checker
+pass before it lands.
+
+**`html-tables.js` should be a new core kernel, not a heatmap-local parser.**
+`roadmap.transform.js` already carries `parseRowCells`, `parseRows` and a thead/tbody
+splitter privately. heatmap would be the second consumer and `obligation-matrix` the
+third, so the walkers belong beside `html-lists.js` in `lib/core` (HARD RULES #1/#15)
+rather than copied.
+
 ## Found in passing, not fixed here (HARD RULE #18)
 
 **The Playground reports a false "text too small" on any slide with a live Anima
