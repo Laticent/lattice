@@ -692,17 +692,22 @@ describe('gantt — non-row chrome is a tax on the whole drawing', () => {
   // 480 * 335/1152 = 139.6 user units to draw at full width. This pins that
   // headroom against a geometry retune that would quietly spend it.
   //
-  // The assertion is the WIDTH USE, not a knife-edge viewBox height. `meet` fits
-  // the taller dimension, so drawn width = min(bodyW, bodyH * vbW/vbH) — that is
-  // the number a reader sees, and it is what should be pinned. An earlier cut
-  // asserted `vbH <= 139.6` and failed at 141 while the browser was measuring
-  // 99%: a threshold tight enough to fail on a rounding difference invites
-  // shaving real padding to satisfy it.
+  // THE ASSERTION IS FIT, because width is no longer in question. The svg is
+  // width-driven (`width:100%; height:auto; flex-shrink:0`), so the drawing
+  // always spans the full width; what the viewBox aspect decides is how TALL the
+  // chart comes out. So the property worth pinning is that an ordinary shape
+  // still fits the stage at full width — past that it overflows, which the
+  // engine now reports rather than hiding, but a gallery page should not be
+  // relying on that.
+  //
+  // An earlier cut asserted the drawn WIDTH against a `meet` letterboxing model.
+  // That model described the old `height:100%` rule and stopped being true when
+  // the sizing changed, while still passing — a test can go stale by describing
+  // a mechanism the code no longer uses, not only by getting a number wrong.
   const REF_BODY = { w: 1152, h: 335 };
-  const widthUse = (vbH) =>
-    Math.min(REF_BODY.w, REF_BODY.h * (GANTT_GEOM.vbW / vbH)) / REF_BODY.w;
+  const fitsHeight = (vbH) => (REF_BODY.w * vbH) / GANTT_GEOM.vbW <= REF_BODY.h + 1;
 
-  test('the default gallery shape draws at full width on a lede slide', () => {
+  test('the default gallery shape fits a lede slide at full width', () => {
     const ul = `<ul>
       <li>Framework<ul>
         <li>Signal taxonomy <code>Q1..Q2</code> <code>done</code></li>
@@ -716,10 +721,10 @@ describe('gantt — non-row chrome is a tax on the whole drawing', () => {
       </ul></li>
     </ul>`;
     const vb = vbOf(buildGanttChart(inner(ul), WIN));
-    const use = widthUse(vb.h);
-    assert.ok(use >= 0.98,
-      `viewBox ${vb.w}x${vb.h} draws at ${(use * 100).toFixed(0)}% of a 1152x335 body's width; ` +
-      'below 98% the chart is visibly letterboxed on an ordinary lede slide');
+    const drawnH = (REF_BODY.w * vb.h) / GANTT_GEOM.vbW;
+    assert.ok(fitsHeight(vb.h),
+      `viewBox ${vb.w}x${vb.h} draws ${drawnH.toFixed(0)}px tall at full width in a ` +
+      `${REF_BODY.h}px body — it will overflow and be reported as clipped`);
   });
 
   test('the key block stays tight enough to be worth its room', () => {
@@ -795,9 +800,9 @@ describe('gantt — the ceiling threshold is derived, not asserted', () => {
     return 40;
   };
 
-  test('landscape keeps the ceiling to four one-task lanes', () => {
-    assert.equal(ceilingLanes(GANTT_GEOM), 4,
-      'the comments in gantt.transform.js state four — update both together');
+  test('landscape keeps the ceiling to three one-task lanes', () => {
+    assert.equal(ceilingLanes(GANTT_GEOM), 3,
+      'the comments in gantt.transform.js state three — update both together');
   });
 
   test('portrait keeps the ceiling to three one-task lanes', () => {

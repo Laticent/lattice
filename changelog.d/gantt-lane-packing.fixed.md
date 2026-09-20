@@ -28,12 +28,18 @@
 - **gantt: two independent tasks that abut on the axis show a real gap.** The
   inter-bar gutter went 1.5 → 2.5 viewBox units; at 1.5 the two bars' strokes closed
   the gap to nothing.
-- **gantt: a dense chart keeps using its stage.** gantt is the only chart of its
-  neighborhood rendered as SVG (kanban, progress and roadmap are HTML), so it
-  carries a baked viewBox and can fill only one dimension. Its aspect floor is now
-  the MEASURED stage — the chart body runs 3.04-3.48 across the gallery, so the
-  floor is 3.0 rather than a guessed 2.6 — the non-row chrome below the plot is
-  tighter, and `.gantt-svg` joins the family's container-fill sizing instead of the
-  `height:auto` pattern a 2026-07-04 decision ruled out by name. Measured on the
-  stress gallery page: 60% → 99% of the chart body's width, captions 12.2px →
-  20.4px. Bars give up 1.6px for it.
+- **gantt: the chart spans the full width of its box, and is as tall as its rows
+  need.** `.gantt-svg` was a height-capped SVG, so a chart whose viewBox was taller
+  than its stage did not clip — it letterboxed, narrowing until it fit and taking
+  the whole drawing's legibility with it, which is the one failure the Fit Spine
+  cannot see because nothing overflows. It is width-driven now (`width:100%;
+  height:auto; flex-shrink:0`), the way the `render=html` charts beside it —
+  kanban, progress, roadmap — already behave. Measured on the stress gallery page:
+  60% → 100% of the chart body's width, captions 12.2px → 20.4px. An oversized
+  gantt now overflows and is reported by name ("CONTENT CLIPPED — First cut on
+  each: p1 'Workstream 3'") instead of shrinking in silence.
+- **gantt: the row band is sized against the measured stage.** The aspect floor the
+  band compresses toward was a guessed 2.6; the chart body measures 3.04-3.48
+  across the gallery and the demo deck, so it is 3.5 — at least as wide-for-its-
+  height as every stage in the corpus, so an ordinary chart fits without relying on
+  slack. Bars give up 1.5px for that.

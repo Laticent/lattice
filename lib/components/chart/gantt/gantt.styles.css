@@ -52,31 +52,46 @@
    * `height: 100%`, and this parent is what both versions needed. */
   height: 100%;
   min-height: 0;
+  /* A width-driven svg can be SHORTER than this box; without this it hangs from
+   * the top on a tall stage and leaves the slack in one lump underneath. */
+  justify-content: center;
 }
 
-/* CONTAINER-FILL, like every other SVG member of the family — `.cart-svg`,
- * `.funnel-svg`, `.bar-svg`, `.waterfall-svg`, `.piechart-svg` are all
- * `width:100%; height:100%`, settled in
- * engineering/decisions/2026-07-04-chart-container-fill-sizing.md.
+/* WIDTH-DRIVEN: the time axis takes the full width, and the height is whatever
+ * the rows need. This is how the gantt's own neighborhood already behaves —
+ * kanban, progress and roadmap are `render=html`, so they fill their width and
+ * grow downward — and gantt is the odd one out only because it is SVG.
  *
- * THIS RULE USED TO SAY IT MIRRORED THEM AND DID NOT. It was
- * `height:auto; max-height:100%`, the width-binding pattern that decision ruled
- * out by name, and gantt never joined the sweep because it went SVG-native three
- * weeks after it (see the header comment). The difference shows when the body is
- * taller than the viewBox's aspect: `height:auto` sizes the element to its own
- * aspect and `.gantt-chart` — a column flex with the default `flex-start` —
- * collects every leftover pixel at the BOTTOM, so a short chart hung from the top
- * of its stage with a dead band under it. At `height:100%` the element fills and
- * `xMidYMid` splits the slack evenly above and below, which is what centers every
- * other chart on its stage.
+ * `flex-shrink: 0` is the load-bearing half. `.gantt-chart` is a COLUMN FLEX, so
+ * an `height: auto` svg is still a flex item with the default `flex-shrink: 1`
+ * and gets squeezed back to the container exactly as `height: 100%` would —
+ * measured identical output on all five gallery pages, which is why the plain
+ * `height: auto` this rule carried for a while never did what it said. With the
+ * shrink off, every page draws at 100% of its body's width instead of 98-99%.
  *
- * The kernel still grows the viewBox HEIGHT with the row count, but it no longer
- * does so without limit: ganttBandFor() compresses the row band once the aspect
- * would fall past GANTT_ASPECT_FLOOR, because past that point the unit scales
- * down and stops using the width it has. */
+ * WHAT THIS GIVES UP IS THE SILENT SHRINK, deliberately. The rule used to carry
+ * `max-height: 100%` (from #1598, a stress page stamped "Content clipped"), and
+ * a capped SVG whose viewBox is taller than its stage does not clip — it
+ * LETTERBOXES, narrowing until it fits and taking the whole drawing's legibility
+ * with it. That is the one failure mode the Fit Spine cannot see, because
+ * nothing overflows. Uncapped, an oversized gantt overflows like any other
+ * component and the engine says so by name: a seven-lane deck renders
+ * "CONTENT CLIPPED — First cut on each: p1 'Workstream 3'". A reader who is told
+ * is better off than a reader handed a chart quietly shrunk to unreadable.
+ *
+ * The kernel still keeps an ordinary chart well inside its stage — ganttBandFor
+ * compresses the row band against GANTT_ASPECT_FLOOR, which is the MEASURED body
+ * aspect — so reaching the clip warning means the slide is genuinely carrying
+ * more plan than one slide holds, which is what gantt.docs.md already says to do
+ * something about.
+ *
+ * `justify-content: center` on the parent keeps a SHORT chart optically centered
+ * in its stage rather than hung from the top, which is where a column flex's
+ * default `flex-start` put it. */
 .gantt-chart .gantt-svg {
   width: 100%;
-  height: 100%;
+  height: auto;
+  flex-shrink: 0;
   display: block;
 }
 
