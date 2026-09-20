@@ -81,7 +81,7 @@
     "tasks": {
       "selector": "ul > li",
       "required": true,
-      "description": "Outer li per workstream lane; nested bullets per task. Each task carries trailing inline-code tokens, in any order: a span `START..END` (a bar) or a single time point (a milestone diamond); an optional status; an optional `after: Task name` dependency; an optional `milestone` keyword. `..` is the only span delimiter. Time points are ISO dates (2026-03-15), quarters (Q1 or 2026 Q1), or months (Jan); a chart uses dates OR ordinals, not both. Status vocabulary: on-track / done / live / at-risk / warn / blocked / fail / deferred / pilot / decision. The axis derives from the data; the eyebrow may override it with a `START..END` window and add a `today <point>` marker. Tokens are validated by the linter (retired delimiter, bad span/status, dangling or inverted `after:`)."
+      "description": "Outer `li` per workstream LANE; nested bullets per TASK. A task is its name followed by trailing inline-code tokens, in any order. **Span or point:** `Q1..Q3` draws a bar (inclusive — `Q1..Q2` covers both quarters); a single point like `Q4` draws a milestone diamond. `..` is the ONLY span delimiter — a hyphen or en-dash is not recognized. **Time vocabulary:** ISO dates (`2026-03-15`), quarters (`Q1`, or year-qualified `2026 Q1`), or months (`Jan`, `2026 Jan`). One chart uses dates OR ordinals, never both. **Status (optional):** one of on-track / done / live / at-risk / warn / blocked / fail / deferred / pilot / decision. It tints the bar and adds a chip to the key that appears under the chart; a task with no status is a neutral bar and adds no chip. **`after: Task name` (optional):** a dependency, validated but never drawn — it must name another task's exact label (case-insensitive) AND that task must itself carry a parseable span. **`milestone` (optional):** forces the diamond when the point would otherwise read as a span. **The eyebrow** — a paragraph of inline-code pills above the H2 — may carry a `START..END` window that overrides the derived axis, and a `today <point>` marker that draws the now rule. Both optional; the axis derives from the data without them. Every token is checked by `lint:deck`: retired delimiter, malformed span, unknown status, dangling or inverted `after:`."
     },
     "detail": {
       "selector": "ul > li > ul > li > ul > li",
@@ -91,10 +91,10 @@
   },
   "skeleton": "<!-- _class: gantt -->\n\n`2026 Q1 .. 2026 Q4` `today Q3`\n\n## What ships in each phase, by workstream.\n\n- First workstream\n  - First task `Q1..Q2` `done`\n  - Second task `Q2..Q3` `live` `after: First task`\n  - Milestone `Q4` `milestone` `after: Second task`\n- Second workstream\n  - First task `Q1..Q2` `done`\n  - Second task `Q2..Q3`\n",
   "anatomyBlock": "gantt",
-  "sample": "<!-- _class: gantt -->\n\n`2026 Q1 .. 2026 Q4` `today Q3`\n\n## The gantt lays the work against the calendar.\n\nThree workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.\n\n- Framework\n  - Signal taxonomy `Q1..Q2` `done`\n  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`\n  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`\n    - Two teams contest the weighting; the Q3 review decides it, and the rollout waits on the outcome.\n- Adoption\n  - Pilot onboarding `Q1..Q2` `done`\n  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`\n  - GA `Q4` `milestone` `after: Org-wide rollout`\n    - Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.\n",
+  "sample": "<!-- _class: gantt -->\n\n`2026 Q1 .. 2026 Q4` `today Q3`\n\n## A gantt lays overlapping work against a shared calendar.\n\nBars are spans, diamonds are moments, color is status, and tasks that run at the same time stack rather than hide each other.\n\n- Framework\n  - Signal taxonomy `Q1..Q2` `done`\n  - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`\n    - Two teams contest the weighting; the Q3 review decides it.\n  - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`\n- Adoption\n  - Pilot onboarding `Q1..Q2` `done`\n  - Org-wide rollout `Q3..Q4` `after: Per-team weighting`\n  - GA `Q4` `milestone` `after: Org-wide rollout`\n    - Go/no-go gate: needs SOC2 sign-off and the weighting decision landed.\n",
   "stressDoc": {
-    "summary": "Three lanes at the row budget, overlap and all.",
-    "sample": "<!-- _class: gantt -->\n\n`2026 Q1 .. 2026 Q4`\n\n## Stress test — three workstreams at the row budget, with the overlap that costs the extra rows.\n\n- Signal Intake\n  - Connector v1 `Q1..Q2` `done`\n  - Multi-source dedupe `Q2..Q3` `live`\n  - Anomaly auto-routing `Q4` `at-risk`\n- Scoring\n  - Equal-weights model `Q1..Q2` `done`\n  - Weight rollback tooling `Q3..Q4` `blocked`\n- Adoption\n  - Pilot onboarding `Q1..Q2` `done`\n  - Org-wide enablement `Q3..Q4`\n"
+    "summary": "Twelve months, every lane overlapping.",
+    "sample": "<!-- _class: gantt -->\n\n`2026 Jan .. 2026 Dec`\n\n## Every lane overlaps, at the row budget.\n\n- Signal Intake\n  - Connector v1 `Jan..Apr` `done`\n  - Multi-source dedupe and replay `Mar..Aug` `live`\n- Scoring\n  - Equal-weights model `Jan..May` `done`\n  - Weight rollback tooling `Jun..Dec` `blocked`\n- Adoption\n  - Pilot onboarding `Jan..Jun` `done`\n  - Org-wide enablement `Apr..Nov` `at-risk`\n  - GA `Dec` `milestone`\n"
   },
   "whenToUse": [
     {
@@ -141,7 +141,31 @@
   "commonMistakes": [
     {
       "mistake": "Writing the detail prose as a trailing inline-code token instead of a nested bullet.",
-      "fix": "Detail must be a nested bullet ONE level deeper than the task, not a trailing `` `code` `` token — only a nested bullet drives the reveal popover and speaker note; a trailing-token 'detail' isn't recognized at all."
+      "fix": "Detail must be a nested bullet ONE level deeper than the task, not a trailing `` `code` `` token — only a nested bullet drives the reveal popover and the speaker note; a trailing-token 'detail' is not recognized at all."
+    },
+    {
+      "mistake": "Joining two dates with a hyphen or en-dash — `Q1-Q2`, `2026-01-01 – 2026-04-01`.",
+      "fix": "`..` is the only span delimiter. A hyphen is not read as a span, so the task falls back to a full-width muted placeholder and `lint:deck` flags the retired delimiter."
+    },
+    {
+      "mistake": "Mixing date spans and quarter/month spans in one chart.",
+      "fix": "A chart resolves to ONE scale — epoch-days for dates, month-index for ordinals. Pick one vocabulary for every task in the chart; convert the odd one out rather than mixing."
+    },
+    {
+      "mistake": "Pointing `after:` at a task that carries only a status and no span.",
+      "fix": "A task with no parseable span is never indexed, so `after:` naming it is flagged dangling even though its label is visibly on the slide. Give the referenced task a span, or drop the dependency."
+    },
+    {
+      "mistake": "Expecting a status alone to place a task on the axis.",
+      "fix": "Status is a tint, not a position. A task with `done` and no span renders as a full-width muted placeholder — the shape that says 'this task has no schedule' — rather than being dropped silently."
+    },
+    {
+      "mistake": "Adding lanes and tasks until the chart no longer fits, expecting it to scale down.",
+      "fix": "It does not scale down: bars and captions are a fixed size, so the chart grows taller and past the budget it overflows and the render reports CONTENT CLIPPED, naming the first thing cut. About five bar ROWS fit a standard slide, and overlapping tasks stack into extra rows — split the plan across two slides."
+    },
+    {
+      "mistake": "Writing `today Q3` in the eyebrow and expecting the marker without a window.",
+      "fix": "The `today` pill works with or without a window pill, but the point has to fall INSIDE the axis the chart resolves to. A `today` outside the derived or declared range draws nothing."
     }
   ],
   "dataShapeGuidance": [

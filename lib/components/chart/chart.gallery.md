@@ -59,15 +59,15 @@ Chart — series-substance data visualizations (SVG kernel).
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## The gantt lays the work against the calendar.
+## A gantt lays overlapping work against a shared calendar.
 
-Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
+Bars are spans, diamonds are moments, color is status, and tasks that run at the same time stack rather than hide each other.
 
 - Framework
   - Signal taxonomy `Q1..Q2` `done`
   - Scoring model v2 `Q2..Q3` `live` `after: Signal taxonomy`
+    - Two teams contest the weighting; the Q3 review decides it.
   - Per-team weighting `Q3..Q4` `at-risk` `after: Scoring model v2`
-    - Two teams contest the weighting; the Q3 review decides it, and the rollout waits on the outcome.
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
   - Org-wide rollout `Q3..Q4` `after: Per-team weighting`
