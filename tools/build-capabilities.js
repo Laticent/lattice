@@ -269,6 +269,7 @@ const SCRIPT_META = {
   'changelog:bump':           ['Release', 'Roll CHANGELOG.md ## Unreleased → a versioned section (semver from the entries).'],
 
   // Project queue
+  'audit:hygiene':            ['Project queue', 'Audit the open issue QUEUE ITSELF — labels no .github/labels.json entry declares (a retired dimension nobody swept, a typo\'d namespace, a non-taxonomy `type:` the intake gate accepts), cards missing a required axis, duplicate LEADS by stemmed title overlap, and cards holding an outsized share of all comments (a standing alarm that has become a dashboard). Sibling of audit:queue: that one asks whether a card can be PULLED, this one whether the board is telling the truth. The dupe arm is a lead generator with measured ~14% precision and a known un-tunable false positive — read every row, rank carries no truth (input: `gh issue list` JSON; see .claude/skills/queue-triage/SKILL.md for the judgment half).'],
   'audit:queue':              ['Project queue', 'Audit open issues against the Definition of Ready and replay the intake gate over them — the numbers behind the intake bar (input: `gh issue list` JSON).'],
   'sync:backlog':             ['Project queue', 'Regenerate BACKLOG.md — the one-way mirror of the open GitHub issue queue (input: `gh issue list` JSON).'],
   'sync:labels':              ['Project queue', 'Apply the .github/labels.json taxonomy to the repo labels via the gh CLI (labels-as-code; needs gh auth).'],

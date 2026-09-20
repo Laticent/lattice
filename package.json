@@ -263,6 +263,7 @@
     "lint:deck": "node tools/lint-deck.js",
     "lint:deck:all": "node tools/lint-deck.js --all --strict",
     "export:marp": "node tools/export-marp.js",
+    "audit:hygiene": "node tools/audit-queue-hygiene.js",
     "audit:queue": "node tools/audit-queue-dor.js",
     "sync:backlog": "node tools/sync-backlog.js",
     "sync:labels": "node tools/sync-labels.js",
