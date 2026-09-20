@@ -129,6 +129,8 @@ const SCRIPT_META = {
   'player-prune:check':       ['Build & bundle', 'Freshness gate for the player-prune Playground bundle.'],
   'anima-player:build':       ['Build & bundle', 'Bundle the chart-motion (Anima) player as an injectable string constant (it cannot `import`) for the standalone HTML player — the CLI `--player` path via lib/export/player-core.mjs and the Studio share-export. It HYDRATES an already-built scene spec; the scene itself is built by chartToScene in docs/src/lib/chart-anima.ts, which the docs-site preview runs from source through Vite rather than from this bundle.'],
   'anima-player:check':       ['Build & bundle', 'Freshness gate for the anima-player bundle.'],
+  'speech-projection:build':  ['Build & bundle', 'Bundle the caption SPEECH PROJECTION (dompurify + lib/core/sanitize-slide-html.mjs + lib/transformers/prose-projection.mjs) as an injectable IIFE string, for the CLI export to evaluate inside the Chromium it already has open. Replaces three jsdom windows per `--captions` run; jsdom is a devDependency, so that path threw in a published install.'],
+  'speech-projection:check':  ['Build & bundle', 'Freshness gate for the speech-projection bundle.'],
   'read-along-core:build':    ['Build & bundle', 'Bundle the read-along captions producer (lib/core/read-along-build.js + read-along-vtt.js) for the browser — the Studio Share sheet\'s "Captions (.vtt)" export.'],
   'read-along-core:check':    ['Build & bundle', 'Freshness gate for the read-along-core Playground bundle.'],
   'cadenza-lib:build':        ['Build & bundle', 'Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@laticent/cadenza\') resolves — the workspace package that retires the caption hand-mirrors.'],

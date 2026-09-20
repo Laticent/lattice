@@ -4,15 +4,22 @@
  * `lib/core/dom-provider.js` notes that the browser branch gets the native
  * `DOMParser` because it is "fast AND correct", and treats that as a property of
  * the browser environment. But the CLI export runs a real Chromium too — and
- * `lattice-emulator.js:5311-5316` builds THREE jsdom windows while a puppeteer
- * page is open in the same process. So the fastest correct parser in the repo may
- * already be running, unused, next to the slowest one.
+ * `lattice-emulator.js` used to build THREE jsdom windows for its caption
+ * projection. So the fastest correct parser in the repo may already be running,
+ * unused, next to the slowest one.
+ *
+ * SHIPPED 2026-09-20 for that one caller. The sentence this header used to carry —
+ * that the jsdom windows ran "while a puppeteer page is open in the same process" —
+ * was FALSE: every output branch closes the browser as soon as it has its pixels,
+ * long before the caption path runs, so the projection had to be HOISTED to reach a
+ * live page at all. See
+ * engineering/decisions/2026-09-20-chromium-caption-projection.md.
  *
  * WHAT DISQUALIFIES IT AS A GENERAL ANSWER, and it is structural rather than a
  * number: `withDom(html, fn)` is SYNCHRONOUS and hands `fn` a live node. CDP is
  * asynchronous and cannot pass a live node across the process boundary, so `fn`
  * has to run INSIDE the page. That is fine where the code already works that way
- * (the emulator has 39 `page.evaluate` bodies) and impossible everywhere else
+ * (the emulator has 29 `page.evaluate` bodies) and impossible everywhere else
  * without rewriting the transform contract.
  *
  * READ THE EMPTY ROUND-TRIP ROW FIRST. It is the floor: no operation can beat the

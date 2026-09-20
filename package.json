@@ -139,6 +139,8 @@
     "player-core:check": "node tools/build-player-core.js --check",
     "anima-player:build": "node tools/build-anima-player.js",
     "anima-player:check": "node tools/build-anima-player.js --check",
+    "speech-projection:build": "node tools/build-speech-projection-bundle.js",
+    "speech-projection:check": "node tools/build-speech-projection-bundle.js --check",
     "player-prune:build": "node tools/build-player-prune.js",
     "player-prune:check": "node tools/build-player-prune.js --check",
     "read-along-core:build": "node tools/build-read-along-core.js",

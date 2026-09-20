@@ -231,11 +231,23 @@ exact shape this repo's model policy warns about, and it is why a 4.7x win is no
 
 ### Chromium — already running, fastest of all, and structurally blocked
 
+> **SHIPPED, and this section's premise was wrong.** The emulator's three jsdom windows
+> moved into the page on 2026-09-20 —
+> `2026-09-20-chromium-caption-projection.md`. Read that note for the corrected
+> facts: the browser is **already closed** by the time the caption path runs (every output
+> branch calls `closeBrowser()` as soon as it has its pixels), so the projection had to be
+> hoisted rather than simply rewritten; the real input is 2.9 MB rather than the 321 KB
+> fixture below, which makes jsdom's share ~2.5s rather than ~202ms; and jsdom is a
+> devDependency, so this path threw in every published install and `--captions` silently
+> wrote no narration. The section is kept as written because its ARGUMENT held — it is the
+> facts either side of it that did not.
+
 `dom-provider.js` gives the browser branch the native `DOMParser` because it is "fast AND
 correct", and treats that as a property of the browser environment. But the CLI export
 runs a real Chromium too, and **`lattice-emulator.js:5311-5316` builds three jsdom windows
 while a puppeteer page is open in the same process.** The fastest correct parser in the
-repo may already be running, unused, next to the slowest one.
+repo may already be running, unused, next to the slowest one. *(That last sentence is the
+false one: measured after this note shipped, the page has exited by then.)*
 
 Measured with the page warm (`npm run dom:bakeoff:chromium`), against jsdom on the same op:
 
@@ -261,6 +273,12 @@ in a `.map`, paying a fresh jsdom per slide. The 0.71ms CDP floor says how to do
 the sections into one `evaluate` and pay the floor once, rather than per section. That is a
 change to the export path, which is HARD RULE #9 / export-sign-off territory and needs its
 own before-and-after on real exported bytes. Filed as follow-up, not smuggled in here.
+
+**Done, one PR later.** The batching advice was right and is what shipped. 99 artifacts
+across nine decks are byte-identical between the two arms, and a `--captions` export of
+those nine fell from 47.99s to 27.36s, measured with the arms alternating over four
+rounds. `withDom` is untouched, as this section says it must
+be. See `2026-09-20-chromium-caption-projection.md`.
 
 ## What the independent checks found
 
@@ -412,8 +430,9 @@ environment switch that silently skipped a file would also have looked like a sp
   non-iterable NodeList meets `withDom`'s fail-closed catch to make 130 transform
   sites silently no-op. See § "The two that nearly won".
 - **Chromium as a general DOM provider.** Fastest measured and correct by
-  construction, but CDP is async and `withDom` is sync. Scoped follow-up for the
-  export path only, where the code already runs inside the page.
+  construction, but CDP is async and `withDom` is sync. Still rejected as a GENERAL
+  provider, and `dom-provider.js` is untouched. The scoped follow-up it names has since
+  shipped for the caption projection — `2026-09-20-chromium-caption-projection.md`.
 - **Upgrading jsdom 29 to 30.** Same correctness (34/34), no speed win, same cold
   load. There may be other reasons to take it; performance is not one.
 - **Swapping the parser anywhere.** Correctness, as above. jsdom stays in
