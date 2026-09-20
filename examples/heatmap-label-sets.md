@@ -56,14 +56,16 @@ the words matter.
 
 ## Where a number means nothing, a word means everything.
 
+The key binds to the ramp STEP, one through five — not to a value in the table.
+
 `[{1, Contained}, {2, Monitor}, {3, Watch}, {4, Escalate}, {5, Act now}]`
 
 |  | Q1 | Q2 | Q3 | Q4 |
 | --- | --: | --: | --: | --: |
-| Payments | 2 | 4 | 7 | 9 |
-| Identity | 1 | 2 | 3 | 3 |
-| Search | 1 | 1 | 2 | 2 |
-| Catalog | 3 | 3 | 4 | 5 |
+| Payments | 1 | 4 | 7 | 9 |
+| Identity | 2 | 4 | 6 | 8 |
+| Search | 1 | 3 | 5 | 7 |
+| Catalog | 2 | 5 | 8 | 9 |
 
 ---
 

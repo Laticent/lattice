@@ -693,3 +693,84 @@ describe('the mark index holds its alignment across every matrix shape', () => {
     assert.ok(checked > 300, `the sweep must actually exercise the claim — only ${checked} templates`);
   });
 });
+
+describe('findings from the checker pass — each one a regression arm', () => {
+  const slide = (body) => transformSection(md.render(body),
+    { cls: 'heatmap', classTokens: ['heatmap'] });
+
+  test('F1: a cell annotation cannot inject markup into the export', () => {
+    // The worst defect this change introduced. `readCell` runs plainText, which
+    // DECODES entities so the speaker note reads as prose; handing that decoded
+    // string to detailPayload unescaped let an authored cell close its own
+    // <template> and run script in the exported .html — proved in real Chromium,
+    // document.title became PWNED. Every other detailPayload caller passes
+    // already-rendered markdown where `<` is still `&lt;`, which is why the
+    // substrate never needed to escape and heatmap does.
+    const out = slide(['|  | M0 |', '| --- | --: |',
+      '| Jan | 100 `# </template><img src=x onerror="alert(1)">` |',
+      '| Feb | 58 |'].join('\n'));
+    const d = parse(out);
+    assert.equal(d.querySelectorAll('img').length, 0, 'no live element may escape the template');
+    const tpl = d.querySelector('template.chart-detail');
+    assert.ok(tpl.innerHTML.includes('&lt;'), 'the payload survives as inert text, not as markup');
+    assert.ok(!tpl.innerHTML.includes('<img'), 'and not as markup inside the template either');
+  });
+
+  test('F3: every value falls inside the label of the band that paints it', () => {
+    // The boundaries are half-open (stepFor advances on >=), so printing them as
+    // a closed range put the upper bound in the label of the band BELOW the one
+    // that paints it — the key answering wrong about the one thing it is for.
+    const m = parseHeatmapTable(grid(
+      '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
+    const bands = deriveBands(m, (n) => String(n));
+    for (const row of m.rows) {
+      for (const cell of row.cells.filter(Boolean)) {
+        const band = bands.find((b) => b.key === String(stepFor(cell.num, m.breaks)));
+        const [lo, hi] = band.label.includes('–')
+          ? band.label.split('–').map(Number) : [Number(band.label), Number(band.label)];
+        assert.ok(cell.num >= lo && cell.num <= hi,
+          `${cell.num} paints band ${band.key} but that band is labelled ${band.label}`);
+      }
+    }
+  });
+
+  test('F4: a blank column header does not re-bind the columns after it', () => {
+    // Filtering unnamed columns out and then reading body cells by the POST-filter
+    // position painted each named column with its neighbour's data and dropped the
+    // tail, silently — the exact failure this component's docblock promises never
+    // happens.
+    const m = parseHeatmapTable(tbl(['| X |  | A |  | C |', '| - | - | - | - | - |',
+      '| r | 10 | 20 | 30 | 40 |'].join('\n')));
+    assert.deepEqual(m.cols, ['A', 'C']);
+    assert.deepEqual(m.rows[0].cells.map((c) => c?.raw), ['20', '40']);
+  });
+
+  test('F6: a named band that no cell reaches is reported, not silently dropped', () => {
+    // The ramp is cut per matrix, so an author cannot predict which step a value
+    // lands in. Dropping their name without a word is what label-set.js disclaims.
+    const out = slide(['`[{1, Contained}, {2, Monitor}, {5, Act now}]`', '',
+      '|  | Q1 | Q2 |', '| --- | --: | --: |',
+      '| Payments | 2 | 9 |', '| Search | 1 | 2 |'].join('\n'));
+    assert.match(parse(out).querySelector('desc').textContent, /Named but unused/);
+  });
+
+  test('F7: the set paragraph survives a slide that builds no chart', () => {
+    const out = slide('`[{1, Cold}, {5, Hot}]`\n\nJust prose, no table.\n');
+    assert.ok(out.includes('Cold'), 'nothing may be removed when no heatmap is drawn');
+  });
+
+  test('F8: a negative band reads as a range, not as a run of dashes', () => {
+    // `−10–−5` is the en-dash and the minus as the same stroke twice.
+    const bands = deriveBands(
+      { breaks: [-5, -3, -1], rows: [{ cells: [{ num: -9 }, { num: -6 }, { num: -2 }] }] },
+      (n) => String(n));
+    for (const b of bands) assert.doesNotMatch(b.label, /-–|–-/, `${b.label} is unreadable`);
+  });
+
+  test('F12: a second annotation in one cell is captured, not left in the value', () => {
+    // A non-global regex left the extra span in the value text, where affixOf
+    // adopted it as the matrix's common suffix and printed it on every cell.
+    assert.deepEqual(readCell('7 <code># one</code> <code># two</code>'),
+      { raw: '7', detail: 'one two' });
+  });
+});
