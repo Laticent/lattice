@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 import { MOTION_SPEEDS, MOTION_STYLES } from '@/playground/anima-host-sel';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';

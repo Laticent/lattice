@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Unit: which dropped file goes to which of the Library's two ingests (#1655).
 //
 // The drag wiring itself (dragenter/over/leave counting, the overlay, dropEffect) is

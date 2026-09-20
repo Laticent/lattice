@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 // The chart narrators + slideToSpeech now live once in lib/core (HARD RULE #1) and
 // reach the browser via the read-along-core bundle — the SAME module Present and the

@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Gate: the preview RUNTIME bundle is prefetched on every live app surface, and
 // the prefetch URL can't drift from the URL the island actually loads it by.
 //

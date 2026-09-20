@@ -1,3 +1,6 @@
+// @vitest-environment node
+// This file touches no DOM. Under the suite default it paid for a jsdom window it
+// never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 // Unit: the v1 → v2 upgrade of the `lattice-workbench` database.
 //
 // This is the one path in the history feature that can break somebody who already
