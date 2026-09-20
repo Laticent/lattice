@@ -853,6 +853,32 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     return silentRung;
   }
 
+  /**
+   * Resolve a rung BY NAME, for a caller that pinned one at the start of a read.
+   *
+   * `pickRung` re-decides on every call, and `synthOne` calls it once per SENTENCE — so
+   * a rung that becomes ready mid-deck (the ~80 MB on-device model finishing its
+   * download, a key arriving, a second tab writing the pref) switches the speaking voice
+   * between one sentence and the next. The two rungs read DIFFERENT voice prefs
+   * (`lattice-db-voice-or` vs `lattice-db-voice-kokoro`), which may hold voices in
+   * different LANGUAGES — measured: sentences 1-2 in `af_heart` (US English), 3-4 in
+   * `if_sara` (Italian), with no user action. That is the "read in English, then in
+   * another language" report.
+   *
+   * A pinned rung that is no longer READY falls back to `pickRung()` rather than going
+   * silent: losing a key mid-slide should degrade to the other rung, not to nothing. The
+   * flip is then bounded to once per read instead of once per sentence, and the next read
+   * re-pins. Returns null for an unknown name so the caller's `?? pickRung()` still holds.
+   */
+  function rungByName(name) {
+    if (injected && injected.name === name) return injected;
+    if (name === 'silent') return silentRung;
+    if (name === 'speechSynthesis') return speechReady() ? { name: 'speechSynthesis' } : null;
+    if (name === 'openrouter-tts') return openrouter.ready() ? openrouter : null;
+    if (name === 'kokoro') return kokoroSupported() && kokoro.ready() ? kokoro : null;
+    return null;
+  }
+
   // synthOne — synthesize ONE sentence to audio BYTES, the byte SOURCE for an EXTERNAL player (the
   // Studio read-aloud's Suono sequence, which owns the AudioContext + scheduler + clock). It picks the
   // active rung, uses this instance's shared byte cache + in-flight dedup, and PLAYS NOTHING (no
@@ -1036,8 +1062,10 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     return null;
   }
 
-  async function synthOne({ text, voice, speed, signal } = {}) {
-    const rung = pickRung();
+  async function synthOne({ text, voice, speed, rung: pinnedRung, signal } = {}) {
+    // A caller that pinned a rung at the start of a read gets that rung for the whole read —
+    // see rungByName for why re-deciding per sentence changes the LANGUAGE mid-deck.
+    const rung = (pinnedRung ? rungByName(pinnedRung) : null) ?? pickRung();
     const effSpeed = speed ?? speedPref();
     // Mirror each rung's own `voice || getVoice()` fallback EXACTLY (|| not ??) — see speak()'s
     // effVoiceFor note for why a `??` mirror would freeze a stale-voice cache key.
@@ -1065,7 +1093,14 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       return { rung: rung.name, bytes: await joined.promise, key };
     }
     const priority = priorityFor(key, false);
-    const p = fetchClip(rung, { text, voice, speed: effSpeed, signal, key, priority }).finally(() => {
+    // `effVoice`, NOT `voice` — the two are different reads of the same pref, taken at different
+    // times. The key froze `effVoice` above; passing a bare `voice` (routinely undefined) lets the
+    // rung re-read storage at request time, with an IndexedDB await and a retry backoff in between.
+    // Measured: the wire carried `if_sara` while the key said `af_heart`, and the Italian bytes were
+    // written to IndexedDB under the English key and replayed from cache on the next visit — a
+    // wrong-language clip that survives a reload. `warm()` already passes its snapshot explicitly
+    // (see its `voice: item.effVoice`); this is the same discipline on the playback path.
+    const p = fetchClip(rung, { text, voice: effVoice, speed: effSpeed, signal, key, priority }).finally(() => {
       if (inFlightSynths.get(key)?.promise === p) inFlightSynths.delete(key);
     });
     inFlightSynths.set(key, { promise: p, sig: signal ?? new AbortController().signal, priority });

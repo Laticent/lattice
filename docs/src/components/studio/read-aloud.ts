@@ -141,7 +141,11 @@ type VoiceModel = {
 	/** Synthesize ONE sentence to audio BYTES (no playback) — the byte SOURCE the Studio read-aloud's
 	 *  Suono sequence produces from. `rung` tells the caller how to play (a blob rung → decode+play the
 	 *  bytes on Suono's own clock); `key` is the exact cache identity, so a warm/replay lines up. */
-	synthOne: (o: { text: string; voice?: string; speed?: number; signal?: AbortSignal }) => Promise<{ rung: string; bytes: Bytes | null; key: string } | null>;
+	// `voice` / `speed` / `rung` are the caller's PINNED identity for a whole read. Omit them and
+	// synthOne re-resolves each one per sentence, which is how a deck came to be read in English and
+	// then in Italian (see startClocked's effVoice note). A pinned rung that is no longer ready falls
+	// back to the ladder rather than going silent.
+	synthOne: (o: { text: string; voice?: string; speed?: number; rung?: string; signal?: AbortSignal }) => Promise<{ rung: string; bytes: Bytes | null; key: string } | null>;
 	/** Speak one string via the browser speechSynthesis rung (it plays ITSELF — no bytes to cross a
 	 *  bytes-only player). The parallel path used when the active rung is 'speechSynthesis' (dev-only
 	 *  here — Studio never passes allowBrowserVoice). */
@@ -689,10 +693,25 @@ export function useReadAloud(
 			} catch {
 				r = 'silent';
 			}
+			// THE READ'S VOICE IDENTITY, resolved ONCE here and pinned for every sentence below.
+			//
+			// `synthOne` used to re-resolve the rung AND the voice pref on every sentence, so anything
+			// that changed between two sentences changed the speaking voice mid-slide: the on-device
+			// model finishing its ~80 MB download, a key expiring, a second Studio tab writing the pref
+			// (localStorage is origin-shared). The two rungs read DIFFERENT prefs, which may hold voices
+			// in different LANGUAGES — measured, sentences 1-2 spoke `af_heart` (US English) and 3-4
+			// `if_sara` (Italian) with no user action. That is the "read in English, then in another
+			// language" report, and it is ours, not the model's.
+			//
+			// It also made `keyPrefix` below a lie: it froze the voice LABEL at play() while synthesis
+			// re-read the pref per sentence, so voice-B bytes could land in the stage's decoded cache
+			// under voice-A's key and replay for the rest of the session.
+			const effSpeed = voice.speedPref?.() ?? 1;
+			const effVoice = r === 'openrouter-tts' ? (voice.orVoice?.() ?? '') : r === 'kokoro' ? (voice.kokoroVoice?.() ?? '') : '';
 			// keyOf is CONTENT-COMPLETE (rung · model·voice · speed · sentence): the module-singleton
 			// stage's decoded-clip cache persists across plays and a key HIT skips the byte compare, so a
 			// bare-sentence key would replay a stale-voice clip after a voice/speed/model change.
-			const keyPrefix = `${r}|${voiceLabelRef.current}|${voice.speedPref?.() ?? 1}`;
+			const keyPrefix = `${r}|${voiceLabelRef.current}|${effSpeed}`;
 			// This run's identity for starvation reporting (see setBufferingFrom). Claimed
 			// before the sequence exists, so the very first report already belongs to it.
 			const runToken = {};
@@ -706,7 +725,8 @@ export function useReadAloud(
 			modeRef.current = 'audio';
 			const seq = stage.sequence<string>({
 				items: spoken,
-				produce: async (s, { signal }) => (await voice.synthOne({ text: s, signal }))?.bytes ?? null,
+				// Pass the PINNED identity, never let synthOne re-resolve it per sentence (see effVoice above).
+				produce: async (s, { signal }) => (await voice.synthOne({ text: s, voice: effVoice, speed: effSpeed, rung: r, signal }))?.bytes ?? null,
 				keyOf: (s) => `${keyPrefix}|${s}`,
 				// The inter-clip breath: the boundary pause minus the clip's own sentence-final silence —
 				// `interCueGapMs`, the SAME formula (and the SAME `lastWord.display` argument) buildTrack
