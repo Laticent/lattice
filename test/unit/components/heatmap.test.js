@@ -646,3 +646,50 @@ describe('a cell annotation reaches both surfaces', () => {
     assert.equal(cellMarks(m).length, m.rows.length * m.cols.length);
   });
 });
+
+describe('the mark index holds its alignment across every matrix shape', () => {
+  // The single highest-risk claim in the band-key change, and the reason it gets
+  // a property arm rather than an example: `cellMarks` counts crossings
+  // row-major over the WHOLE grid while `buildHeatmap` assigns `data-mark` as it
+  // paints. Those are two walks of the same matrix, and if they ever disagree by
+  // one the reveal layer opens a popover describing the wrong cell — a silent
+  // wrong answer on a slide, not a crash. The caps are where they would most
+  // plausibly drift, so the shapes deliberately straddle MAX_COLS and MAX_ROWS.
+  const grid = (nr, nc, holes, notes) => {
+    const cols = Array.from({ length: nc }, (_, i) => `C${i}`);
+    const rows = Array.from({ length: nr }, (_, r) => `| R${r} | ${cols.map((_, c) => {
+      if (holes.has(`${r},${c}`)) return '';
+      const v = r * 7 + c * 3 + 1;
+      return notes.has(`${r},${c}`) ? `${v} \`# note-${r}-${c}\`` : String(v);
+    }).join(' | ')} |`);
+    return tbl([`|  | ${cols.join(' | ')} |`, `| --- |${' --: |'.repeat(nc)}`, ...rows].join('\n'));
+  };
+
+  test('every emitted template resolves to the cell that was annotated', () => {
+    let checked = 0;
+    for (const nr of [1, 3, MAX_ROWS, MAX_ROWS + 2]) {
+      for (const nc of [1, 4, MAX_COLS, MAX_COLS + 2]) {
+        for (const seed of [0, 1, 2]) {
+          const holes = new Set(); const notes = new Set();
+          for (let r = 0; r < nr; r += 1) {
+            for (let c = 0; c < nc; c += 1) {
+              if ((r * 31 + c * 17 + seed * 7) % 5 === 0) holes.add(`${r},${c}`);
+              else if ((r * 13 + c * 29 + seed * 3) % 4 === 0) notes.add(`${r},${c}`);
+            }
+          }
+          const out = transformSection(grid(nr, nc, holes, notes), { cls: 'heatmap', classTokens: ['heatmap'] });
+          if (!out.includes('heatmap-cell')) continue;
+          const d = parse(out);
+          for (const t of d.querySelectorAll('template.chart-detail')) {
+            const [, r, c] = t.innerHTML.trim().match(/note-(\d+)-(\d+)/);
+            const rect = d.querySelector(`rect.heatmap-cell[data-mark="${t.getAttribute('data-mark')}"]`);
+            assert.equal(rect?.getAttribute('data-label'), `R${r} · C${c}`,
+              `${nr}x${nc} seed ${seed}: template ${t.getAttribute('data-mark')} points at the wrong cell`);
+            checked += 1;
+          }
+        }
+      }
+    }
+    assert.ok(checked > 300, `the sweep must actually exercise the claim — only ${checked} templates`);
+  });
+});
