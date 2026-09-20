@@ -121,4 +121,29 @@ describe('stage-catalog — the single stage-cell classification', () => {
     assert.equal(kernel.wrapsStageBody('funnel form'), false);
     assert.equal(kernel.wrapsStageBody('split-panel'), false);
   });
+
+  test('THE layout token decides — a variant that shares a component name cannot veto the wrap', () => {
+    // The layout-name namespace and the variant-modifier namespace are shared, so a
+    // variant token can also name a component. Five such collisions exist today; this
+    // asserts the wrap decision follows the COMPONENT (the first layout token), not
+    // whichever colliding token happens to appear.
+    //
+    // `list bullet` is the one that actually broke. `bullet` is the chart component,
+    // classified `canvas`, and under the old any-token veto it stripped the
+    // `.cell-stage` clip cell from a `list` slide — so that one variant lost the
+    // bounded box the overflow probe walls, while its six siblings kept it.
+    assert.equal(kernel.stageSizingFor('bullet'), 'canvas', 'precondition: `bullet` names a canvas component');
+    assert.equal(kernel.wrapsStageBody('list bullet form'), true, 'list+bullet must wrap as the LIST it is');
+    for (const v of ['takeaway', 'principles', 'numbered', 'lettered', 'roman', 'bullet']) {
+      assert.equal(kernel.wrapsStageBody(`list ${v} form`), true, `list ${v} must wrap like every other list variant`);
+    }
+    // The other four collisions resolve the same under both rules — pinned so a future
+    // change to the resolution has to look at them too.
+    assert.equal(kernel.wrapsStageBody('compare-prose decision form'), true);
+    assert.equal(kernel.wrapsStageBody('math stats form'), true);
+    assert.equal(kernel.wrapsStageBody('journey heatmap form chart-frame'), true);
+    assert.equal(kernel.wrapsStageBody('radar quadrant form chart-frame'), true);
+    // A sovereign first token still refuses, even followed by a flow variant.
+    assert.equal(kernel.wrapsStageBody('split-panel steps form'), false);
+  });
 });
