@@ -1160,6 +1160,19 @@
     ],
     "description": "Opening slide. Dark canvas, centered, no chrome."
   },
+  "lattice: topic": {
+    "prefix": "lattice-topic",
+    "body": [
+      "<!-- _class: topic -->",
+      "",
+      "`Section 02 · Unit economics`",
+      "",
+      "## Payback",
+      "",
+      "Fourteen months blended, against a nine-month plan."
+    ],
+    "description": "Topic anchor inside a section. A horizontal cut: the topic above, the section's topics as a scale below."
+  },
   "lattice: verdict-grid": {
     "prefix": "lattice-verdict-grid",
     "body": [

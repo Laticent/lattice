@@ -1,0 +1,262 @@
+/* topic — anchor.split
+ *
+ * DEFAULT — a horizontal cut. Upper band: this topic (eyebrow, name, claim).
+ * Lower band: the section's topics as a scale, the current one lit on the seam.
+ * The track is DERIVED (lib/transformers/topic-track.js), not authored.
+ *
+ * `fact` — one flat canvas. The claim takes the display tier and the name
+ * demotes to a label, so the anchor states the finding rather than the label.
+ *
+ * See lib/components/anchor/topic/topic.manifest.json for the contract.
+ */
+
+section.topic {
+  --_gutter: calc(var(--_sec-1cqi, 1cqi) * 9.375);      /* divider's own gutter */
+  --_rule:   calc(var(--_sec-1cqi, 1cqi) * 0.15625);    /* 2px @ HD */
+  --_hair:   calc(var(--_sec-1cqi, 1cqi) * 0.078125);   /* 1px @ HD */
+  --_seam:   calc(var(--_sec-1cqi, 1cqi) * 0.25);
+  --_mark:   calc(var(--_sec-1cqi, 1cqi) * 0.75);       /* 3x the seam — the mark */
+  /* The shelf is 25% of HEIGHT, expressed in cqi. A percentage padding resolves
+   * against the INLINE size, so `25%` would reserve 25% of the WIDTH — 320px on
+   * a 720px-tall slide. 0.25 * (9/16) = 14.0625cqi. */
+  --_shelf:  calc(var(--_sec-1cqi, 1cqi) * 14.0625);
+
+  /* ── THE SHELF FILL, and why it is not a second theme token ──────────────
+   * A two-band split cannot be carried by any PAIR of surface tokens. Measured
+   * across all 33 shipped palettes, `--bg-alt` vs `--surface-inverse` is
+   * IDENTICAL on crepuscolo-dark and cuoio-dark (contrast 1.00), under 1.35 on
+   * 13 of the 14 dark palettes (median 1.23), and a full inversion in light
+   * (median 15.35). Every other real surface pair was measured too; none holds
+   * across the set. So the second band is DERIVED FROM THE FIRST rather than
+   * named: on a dark scheme the field is lifted toward the display ink, which
+   * bounds the step at [0.129, 0.200] instead of an unbounded [0.000, 0.218].
+   *
+   * The light arm stays `--bg-alt` deliberately: `--accent` — which draws the
+   * mark — is near-BLACK on onyx, a11y-achromatopsia, a11y-base and concrete,
+   * and so is `--surface-inverse` there, so a palette-invariant dark shelf
+   * erases the mark on four palettes. The shelf must stay the page surface on
+   * light schemes, because that is the surface `--accent` is guaranteed against.
+   *
+   * `light-dark()` works here ONLY because this section does not pin
+   * `color-scheme` — every ink below is named explicitly, so the section can
+   * inherit the palette's own scheme and `light-dark()` then means exactly
+   * "is this palette light or dark". `fact` pins the scheme and does not use it. */
+  --_shelf-fill: light-dark(
+    var(--bg-alt),
+    color-mix(in oklab, var(--surface-inverse) 80%, var(--text-display))
+  );
+
+  box-sizing: border-box;
+  border-top: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  align-items: flex-start;
+  gap: var(--sp-2xs);
+  position: relative;
+
+  /* LONGHANDS, never the `background` shorthand: a theme short of `--spectrum`
+   * then loses the SEAM and never the CANVAS. One undefined var() invalidates
+   * the whole declaration at computed-value time, and the shorthand form took
+   * the canvas down with it — measured on a divider that rendered white with a
+   * near-white headline at 1.02:1 (#1457). */
+  background-color: var(--_shelf-fill);
+  background-image:
+    var(--spectrum),
+    linear-gradient(to bottom, var(--surface-inverse) 0 75%, transparent 75%);
+  background-size: 100% var(--_seam), 100% 100%;
+  background-position: 0 75%, 0 0;
+  background-repeat: no-repeat, no-repeat;
+
+  padding-left: var(--_gutter);
+  padding-right: var(--_gutter);
+  padding-top: calc(var(--sp-xl) * 2);          /* clears the pinned eyebrow */
+  /* Reserves the shelf. Padding sits outside the content box, so centred
+   * content cannot reach the track — which closes the silent-collision window a
+   * bottom-positioned band otherwise opens (engineering/jank.md). */
+  padding-bottom: calc(var(--_shelf) + var(--sp-lg));
+}
+section.topic > * { margin: 0; }
+
+/* ── the section eyebrow — pinned, so it holds position as content grows ──── */
+section.topic > p:first-of-type:has(> code:only-child) {
+  position: absolute;
+  top: var(--sp-xl);
+  left: var(--_gutter);
+  right: var(--_gutter);
+  max-width: none;
+  padding: 0;
+}
+/* Inline code carries a filled, bordered CHIP in several themes. Both mono
+ * slots must null it explicitly or they render as boxed plates. */
+section.topic > p:has(> code:only-child) > code {
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--on-dark-secondary);
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+/* ── the topic name ───────────────────────────────────────────────────────── */
+/* `--fs-h2`, one tier below `divider`'s `--fs-h1`: a topic is smaller than the
+ * section containing it and the type says so, which is what keeps the two
+ * distinguishable even cropped to the upper band. */
+section.topic > h2 {
+  font-size: var(--fs-h2);
+  color: var(--text-display);
+  line-height: var(--lh-tight);
+  max-width: var(--measure-bookend-heading);
+  text-wrap: balance;
+  padding: 0;
+}
+section.topic > h2 + p {
+  font-size: var(--fs-message);
+  /* `--lh-snug`, not `--lh-relaxed`: at relaxed a two-line claim reads as two
+   * separate sentences rather than one paragraph. */
+  line-height: var(--lh-snug);
+  color: var(--on-dark-secondary);
+  max-width: var(--measure-bookend-lede);
+  text-wrap: balance;
+  padding-top: var(--sp-sm);
+}
+
+/* ── the derived track ────────────────────────────────────────────────────── */
+section.topic > ul {
+  position: absolute;
+  left: var(--_gutter);
+  right: var(--_gutter);
+  top: 75%;
+  list-style: none;
+  display: flex;
+  flex-direction: row;
+  align-items: start;        /* top-aligned: a wrapping label keeps its baseline */
+  gap: calc(var(--_sec-1cqi, 1cqi) * 2);
+  max-width: none;
+  padding: 0;
+}
+section.topic > ul > li {
+  flex: 1 1 0;
+  /* `min-width: 0`, or the flex base is min-content and a column cannot shrink
+   * below its longest word — the track silently stops being equal-width and
+   * overflows its own box. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border-top: var(--_mark) solid transparent;
+  padding-top: var(--sp-sm);
+  padding-right: var(--sp-xs);
+  font-size: var(--fs-body);
+  line-height: var(--lh-snug);
+  color: var(--text-body);
+  /* NO `text-wrap: balance` here: the wrap point depends on column width, which
+   * depends on every other label, so adding one topic re-wraps them all and the
+   * track visibly reflows between consecutive slides of one section. */
+}
+section.topic > ul > li::marker { content: none; }
+
+/* HERE — the seam thickens under this column. Double-coded deliberately: the
+ * accent carries it on a colour palette, the 3x WEIGHT carries it where
+ * `--accent` collapses onto `--border` (onyx, a11y-achromatopsia, a11y-base,
+ * concrete), and the label's own ink carries it a third time. Never hue alone. */
+section.topic > ul > li.on {
+  border-top-color: var(--accent);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+/* Capacity ramp — a long section steps the labels down rather than wrapping
+ * them into a thicket. Thresholds match the manifest's soft/hard. */
+section.topic > ul:has(> li:nth-child(7)) > li { font-size: var(--fs-body-compact); }
+section.topic > ul:has(> li:nth-child(9)) > li { font-size: var(--fs-meta); }
+
+/* ── fact ─────────────────────────────────────────────────────────────────────
+ * One flat canvas, and the type hierarchy inverts: the NAME becomes a label on
+ * a rule and the CLAIM takes the display tier. Every other anchor in the family
+ * spends its display tier on a name; this variant spends it on the finding.
+ *
+ * One surface edge to edge, which is why it needs none of the shelf machinery
+ * above: nothing is carried by tone or by hue, so every palette renders the
+ * same composition and `indaco` and `indaco-dark` are identical. */
+section.topic.fact {
+  background-color: var(--surface-inverse);
+  background-image: none;
+  /* Rides with the surface, as title / divider / closing do. Without it every
+   * `light-dark()` token resolves to its LIGHT arm on a dark field. */
+  color-scheme: dark;
+  justify-content: flex-start;
+  align-items: stretch;
+  padding-bottom: var(--sp-xl);
+}
+/* The derived track is suppressed rather than hidden at the kernel: a deck that
+ * mixes both forms keeps ONE derivation, so a `fact` slide still contributes its
+ * name to its siblings' tracks. */
+section.topic.fact > ul { display: none; }
+
+section.topic.fact > h2 {
+  display: flex;
+  /* flex-end, not center: a name long enough to wrap otherwise strands the rule
+   * between its two lines. */
+  align-items: flex-end;
+  gap: var(--sp-sm);
+  font-family: var(--font-body);
+  /* `--fs-message` is a REAL token. `--fs-h3` is defined NOWHERE in the repo —
+   * setting it makes the declaration invalid, so it is dropped and the name
+   * silently inherits the base `section h2` size. It looks plausible, which is
+   * exactly why it survived three review passes elsewhere. */
+  font-size: var(--fs-message);
+  font-weight: 500;
+  color: var(--on-dark-secondary);
+  line-height: var(--lh-snug);
+  max-width: none;
+  text-wrap: wrap;
+}
+section.topic.fact > h2::after {
+  content: "";
+  flex: 1 1 auto;
+  /* A floor, so a wrapping name cannot squeeze the rule into a stray dash. */
+  min-width: calc(var(--_sec-1cqi, 1cqi) * 12);
+  height: var(--_rule);
+  position: relative;
+  bottom: calc(var(--_sec-1cqi, 1cqi) * 0.7);   /* to the last line's optical middle */
+  background-color: var(--border);
+}
+
+/* The claim, promoted. It grows into the space between the pinned name and the
+ * foot rule and centres INSIDE it, so a short claim sits in symmetric air the
+ * way divider's short heading does rather than orphaning at one edge. */
+section.topic.fact > h2 + p {
+  flex: 1 1 auto;
+  align-content: safe center;
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  font-weight: 400;
+  color: var(--on-dark-primary);
+  line-height: var(--lh-tight);
+  /* `pretty`, not `balance`: balance evens lines by SHORTENING them, pulling the
+   * claim to ~58% of the measure and leaving a wedge of void down the right. */
+  text-wrap: pretty;
+  max-width: none;
+  padding: var(--sp-xl) 0 var(--sp-lg) 0;
+}
+
+/* The basis — what the claim rests on. `:last-of-type`, never `:last-child`:
+ * the engine appends a pagination span and the berth divs after the authored
+ * content, so `:last-child` never matches and the basis falls through to the
+ * default inline-code chip. */
+section.topic.fact > p:last-of-type:has(> code:only-child) {
+  padding: var(--sp-sm) 0 0 0;
+  border-top: var(--_hair) solid var(--border);
+  max-width: none;
+}
+section.topic.fact > p:last-of-type:has(> code:only-child) > code {
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+/* With no basis authored the claim has no rule to hang from, so it centres in
+ * the whole field instead of against an edge that is not there. */
+section.topic.fact > p:not(:has(> code:only-child)):last-of-type { align-content: safe center; }

@@ -38,6 +38,11 @@ const HISTORICAL_SKIP = [
   'compare-code',
   'split-panel', 'split-compare',
   'image', 'scene', 'premise',
+  // `topic` (2026-09-20) — the fourth anchor, and the first sovereign frame added
+  // since this list was written. It is chrome-exempt for the same reason the other
+  // three anchors are: it claims the whole canvas and suppresses the masthead and
+  // footer Cells.
+  'topic',
 ];
 
 test('(a) every Cell manifest validates', () => {

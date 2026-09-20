@@ -56,7 +56,7 @@ const EXPECTED_SOVEREIGN = [
   // `grid-column: 1 / -1; grid-row: 1`. Do not read math's migration as a precedent for
   // it without opening the CSS.
   'closing', 'compare-code', 'divider', 'image', 'premise', 'scene', 'split-compare',
-  'split-panel', 'title',
+  'split-panel', 'title', 'topic',
 ].sort();
 
 const withStage = (s) => Object.keys(catalog).filter((n) => catalog[n] === s).sort();
