@@ -4,30 +4,32 @@ summary: >
   jsdom is slow and we keep it — on the paths we have. TEN parsers were measured on this
   repo's own markup (`npm run dom:bakeoff`), plus the Chromium the repo already launches.
   jsdom 29 and 30 both pass 34/34 correctness probes, happy-dom 32, domino 27, linkedom 26,
-  node-html-parser 19 and cheerio 13; parse5 and htmlparser2 score 6/31 and 2/31 against a
-  smaller denominator, and basichtml 1/34. happy-dom is disqualified by DOMPurify: hosted on
-  it, `<script>` survives, and the repo's own sanitizer tests reproduce it (a full docs run
-  under happy-dom was 21% faster and failed 168 tests across 29 files). linkedom and basichtml
-  both lowercase all seven camelCase SVG element names — basichtml is deprecated INTO linkedom,
-  so they share the defect.
+  node-html-parser and basichtml 19 each, cheerio 13/33, parse5 6/31, htmlparser2 2/31.
+  happy-dom is disqualified by DOMPurify: hosted on it, `<script>` survives, and the repo's
+  own sanitizer tests reproduce it (a full docs run under happy-dom was 21% faster and failed
+  168 tests across 29 files). linkedom lowercases all seven camelCase SVG element names.
   TWO candidates the first pass missed, and both matter. DOMINO (Mozilla's dom.js, behind
-  Angular SSR) is 4.5x faster on a deck, 12x cheaper to load, serializes byte-identically to
-  jsdom and keeps SVG casing — but DOMPurify on domino DESTROYS all markup (returns "" for
+  Angular SSR) is ~4.5x faster on a deck and 12x cheaper to load, serializes byte-identically
+  to jsdom and keeps SVG casing — but DOMPurify on domino DESTROYS all markup (returns "" for
   `<p>ok</p>`), it returns ZERO for `:scope > section` where every other full DOM returns 2,
-  and its NodeList has no `Symbol.iterator` while `lib/` and `tools/` walk query results with
-  `for...of` in 130 places. Since `withDom` is fail-closed, that combination
-  would make transforms silently no-op. CHROMIUM — already running in the export path, which
-  builds three jsdom windows beside an open puppeteer page — is the fastest of all on a deck
-  (29.9ms vs jsdom's 287.5ms) and spec-perfect by construction, but CDP is async and `withDom`
-  is sync, so it fits only where code already runs inside the page.
+  and its NodeList has no `Symbol.iterator` while `lib/`, `tools/` and the emulator walk query
+  results with `for...of` in 131 places. Since `withDom` is fail-closed, that combination makes
+  transforms silently no-op. CHROMIUM — already running in the export path, which builds three
+  jsdom windows beside an open puppeteer page — is the fastest of all on a deck (26.9ms vs
+  jsdom's ~202ms) and spec-perfect by construction, but CDP is async and `withDom` is sync, so
+  it fits only where code already runs inside the page.
   The speed win was never where it looked: the advantage collapses from 4.0x on one slide to
-  1.4x on a deck for happy-dom, because jsdom's real cost is FIXED — 569ms of cold `require()`
+  1.4x on a deck for happy-dom, because jsdom's real cost is FIXED — ~587ms of cold `require()`
   per process, and `node --test` forks one process per file. So the shipped fix changes no
-  library. 136 docs test files touch no DOM and were paying for a jsdom window they never
-  used; pinning them to `environment: 'node'` cuts the docs suite from 233.3s to 212.2s
-  (-8.3%) with all 313 files and 4,483 tests still green. Rejected: every parser swap, a
-  jsdom 30 upgrade (same correctness, no speed win), and
-  `--experimental-test-isolation=none`, which is 11% SLOWER.
+  library. 136 docs test files touch no DOM and were paying for a jsdom window they never used;
+  pinning them to `environment: 'node'` cuts the docs suite from 233.3s to 214.0s (-8.3%) with
+  all 313 files and 4,483 tests still green. Rejected: every parser swap, a jsdom 30 upgrade
+  (faster at parse+serialize, slower at mutate, identical cold load — and cold load is what
+  dominates here), and `--experimental-test-isolation=none`, which is 11% SLOWER.
+  TWO independent checks ran. The second found a FOURTH false PASS in this harness and it is
+  recorded in full: the basichtml adapter was driven wrongly, every fixture read back empty,
+  and that artifact was written up as the claim that basichtml lowercases SVG element names.
+  It does not. See § "What the independent checks found".
 ---
 
 # The jsdom bake-off: the cost is startup, not parsing
@@ -40,9 +42,10 @@ Ten parsers were measured against this repo's real markup, plus the Chromium the
 already ships. jsdom is comfortably the slowest and the only one that does every job
 we ask of it. Each challenger fails on something that would ship **silently**:
 
-- **linkedom** and **basichtml** lowercase every camelCase SVG element name — 7 of 7
-  lost, in both. They share the defect because basichtml is deprecated *into* linkedom.
-  That kills every chart gradient, clip path and Mermaid node label, suite green.
+- **linkedom** lowercases every camelCase SVG element name — 7 of 7 lost. That kills
+  every chart gradient, clip path and Mermaid node label, suite green. (**basichtml does
+  not**, contrary to an earlier draft of this note — see § "What the independent checks
+  found". It is still declined: deprecated upstream into linkedom, last published 2022.)
 - **happy-dom** breaks DOMPurify: `isSupported: true`, then `<script>` passes through.
 - **domino** does the opposite — DOMPurify on domino deletes *all* markup — and its
   NodeList is not iterable, which this repo's 130 `for...of` walks depend on.
@@ -92,29 +95,38 @@ That last row is the whole shipped change.
 consulted until a candidate passes, because this repo has already been here: linkedom
 once measured 17x faster on the hot path while silently destroying SVG.
 
-| | jsdom 29 | jsdom 30 | happy-dom | domino | linkedom | nhp | cheerio | parse5 | htmlparser2 | basichtml |
+| | jsdom 29 | jsdom 30 | happy-dom | domino | linkedom | nhp | basichtml | cheerio | parse5 | htmlparser2 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **Total** | **34/34** | **34/34** | **32/34** | **27/34** | 26/34 | 19/34 | 13/34 | 6/31 | 2/31 | 1/34 |
-| SVG camelCase elements | pass | pass | pass | pass | **fail 0/7** | pass | pass | pass | pass | **fail 0/7** |
-| Serializes like jsdom | ref | pass | pass | **pass** | fail | fail | pass | pass | fail | fail |
-| Selectors (6, count-asserted) | pass | pass | pass | **`:scope` fails** | pass | pass | **`:scope` fails** | none | none | 5 fail |
-| Iterable NodeList | pass | pass | pass | **fail** | pass | pass | pass | fail | fail | fail |
-| Mutation surface (14) | pass | pass | pass | 1 fail | pass | 6 fail | 14 fail | 14 fail | 14 fail | 14 fail |
+| **Total** | **34/34** | **34/34** | **32/34** | **27/34** | 26/34 | 19/34 | 19/34 | 13/33 | 6/31 | 2/31 |
+| SVG camelCase elements | pass | pass | pass | pass | **fail 0/7** | pass | pass | pass | pass | pass |
+| Serializes like jsdom | ref | pass | pass | **pass** | fail | fail | fail | pass | pass | fail |
+| Selectors (6, count-asserted) | pass | pass | pass | **`:scope` fails** | pass | pass | 1 fail | **`:scope` fails** | none | none |
+| Iterable NodeList | pass | pass | pass | **fail** | pass | pass | fail | pass | fail | fail |
+| Mutation surface (14) | pass | pass | pass | 1 fail | pass | 6 fail | 5 fail | 14 fail | 14 fail | 14 fail |
 | Executes a `<script>` | pass | pass | **fail** | fail | fail | fail | fail | fail | fail | fail |
 | `getComputedStyle` / CSSOM | pass | pass | pass | **fail** | fail | fail | fail | fail | fail | fail |
 | DOMPurify on it | pass | pass | **leaks** | **deletes all** | leaks | n/a | n/a | n/a | n/a | n/a |
 
 Versions: jsdom 29.1.1 and 30.1.0, happy-dom 20.14.5, domino 2.1.8, linkedom 0.18.13,
-node-html-parser 9.0.4, cheerio 1.2.0, parse5 8.0.1, htmlparser2 12.0.0, basichtml 2.4.9,
-DOMPurify 3.4.15. parse5 and htmlparser2 have a denominator of 31: three parser-conformance
-probes reach the element through `querySelector`, which their adapters do not provide, so
-those cells are **not measurable here** rather than library failures — see § "What the
-independent check found".
+node-html-parser 9.0.4, basichtml 2.4.9, cheerio 1.2.0, parse5 8.0.1, htmlparser2 12.0.0,
+DOMPurify 3.4.11 (the version this repo pins). Denominators below 34 are **not measurable
+here** rather than library failures: three parser-conformance probes reach the element
+through `querySelector`, which parse5's and htmlparser2's adapters do not provide, and the
+entity probe reads `textContent`, which cheerio's nodes do not carry.
 
-**jsdom 30 is not an upgrade worth taking for speed.** It matches 29 on correctness
-(34/34) and is not reliably faster — 129.5ms against 129 on a deck parse-and-serialize,
-slower on the mutate op, and its cold `require()` is 577.8ms against 569.0ms. Worth
-tracking for its own reasons; it is not a performance lever.
+**jsdom 30 is a mixed result, and not a lever for THIS problem.** Measured interleaved,
+four rounds each, to cancel drift:
+
+| operation, whole deck | jsdom 29 | jsdom 30 | |
+|---|---:|---:|---|
+| parse + serialize | ~175ms | **~131ms** | 30 is **25% faster** |
+| parse + query + mutate + serialize | ~202ms | ~236ms | 30 is **19% slower** |
+| cold `require()` | ~587ms | ~593ms | a wash |
+
+An earlier draft of this note called it "not reliably faster" and cited "129.5ms against
+129" — a comparison against a number that appears nowhere in this note's own tables. It is
+faster at parsing. The rejection stands on the argument the rest of this note makes: cold
+load dominates our cost by a factor of three, and 30 does not move it.
 
 ### The disqualifier: DOMPurify does not sanitize on happy-dom
 
@@ -181,7 +193,7 @@ emulator, so it carries none of the window plumbing jsdom pays for, and it shows
 | cold `require()` | 569.0ms | **47.6ms** | 12.0x |
 | parse, whole deck | 163.4ms | **31.3ms** | 5.2x |
 | parse + serialize, whole deck | 170.7ms | **38.1ms** | 4.5x |
-| parse + query + mutate + serialize, whole deck | 287.5ms | **74.9ms** | 3.8x |
+| parse + query + mutate + serialize, whole deck | ~202ms | **~43ms** | 4.7x |
 
 It also **serializes byte-identically to jsdom** on all three fixtures and **preserves
 SVG casing** — the two things that disqualified linkedom. Unlike happy-dom its lead does
@@ -200,14 +212,14 @@ domino  ""
 Bare text survives; any element does not. **This harness scored that as a PASS**, because
 the DOMPurify probe only asserted that the attack payload did not survive — and a
 sanitizer that destroys its input satisfies that perfectly. The probe now asserts both
-directions, which is why domino reads 28/34 rather than 29/34. It is worth stating
+directions, which is why domino reads 27/34 rather than 28/34. It is worth stating
 plainly: the first version of this bake-off had a false-PASS hole in the one probe that
 decides the whole question, and only widening the field exposed it.
 
 **domino returns ZERO for `:scope > section`.** Not a throw — a silent empty NodeList,
 where every other full DOM returns 2. It parses `:scope` (`:scope section` works) and
 mishandles the child combinator. `:scope` appears **208 times** across `lib/`, `tools/`
-and `test/`, and the Node census counted it in 37 distinct selector strings. A selector
+and `test/`, and it appears in 86 distinct quoted selector strings across `lib/` and `tools/`. A selector
 that matches nothing means the transform finds no sections and does nothing.
 
 **domino's NodeList has no `Symbol.iterator`.** A spec NodeList is iterable; domino's is
@@ -215,7 +227,7 @@ array-*like*. `lib/` and `tools/` walk query results with `for (const x of …)`
 places**. Each would throw — and `withDom` is **fail-closed**, catching the throw and
 returning the input HTML unchanged. So the failure mode is not a red test, it is **every
 affected transform silently not applying**, on a deck that still renders. That is the
-exact shape this repo's model policy warns about, and it is why a 3.8x win is not taken.
+exact shape this repo's model policy warns about, and it is why a 4.7x win is not taken.
 
 ### Chromium — already running, fastest of all, and structurally blocked
 
@@ -229,10 +241,10 @@ Measured with the page warm (`npm run dom:bakeoff:chromium`), against jsdom on t
 
 | input | jsdom 29 | Chromium | ratio |
 |---|---:|---:|---:|
-| median slide (2KB) | 10.5ms | 1.0ms | 10.1x |
-| heaviest slide (60KB) | 33.8ms | 4.8ms | 7.0x |
-| whole deck (321KB) | 287.5ms | **29.9ms** | **9.6x** |
-| *(empty CDP round-trip)* | — | *0.71ms* | *the floor* |
+| median slide (2KB) | ~8.0ms | 0.9ms | ~8.7x |
+| heaviest slide (60KB) | ~23ms | 4.4ms | ~5.3x |
+| whole deck (321KB) | ~202ms | **26.9ms** | **7.5x** |
+| *(empty CDP round-trip)* | — | *0.49ms* | *the floor* |
 
 Faster than domino on the two larger inputs, and correct **by construction** — it is the
 same engine the PDF renders in, so there is no fidelity question to argue about.
@@ -240,7 +252,7 @@ same engine the PDF renders in, so there is no fidelity question to argue about.
 **What blocks it is the contract, not the clock.** `withDom(html, fn)` is synchronous and
 hands `fn` a live node; CDP is asynchronous and cannot pass a live node across the process
 boundary, so `fn` must run inside the page. That is impossible for the transform kernels
-without rewriting their contract — and already true for the emulator, which has 39
+without rewriting their contract — and already true for the emulator, which has 29
 `page.evaluate` bodies.
 
 **So this is scoped, real, and deliberately not in this PR.** The emulator's three jsdom
@@ -250,7 +262,7 @@ the sections into one `evaluate` and pay the floor once, rather than per section
 change to the export path, which is HARD RULE #9 / export-sign-off territory and needs its
 own before-and-after on real exported bytes. Filed as follow-up, not smuggled in here.
 
-## What the independent check found
+## What the independent checks found
 
 The maker-checker pass (HARD RULE #25) did not fault the shipped change — it audited the
 **harness**, and found that the false-PASS discovered in the DOMPurify probe was not a
@@ -263,8 +275,10 @@ one-off. It was a pattern: **three probe families scored "did not throw" as "cor
 | No "could not measure" state | three parser-conformance probes reach the element via `querySelector`, so parse5's missing selector engine was scored as parse5 failing at parsing | fixed — those cells report `n/a` for a parse-only adapter |
 
 **What the corrections cost, stated because the first table was wrong:** basichtml fell
-from 6/34 to **1/34**, domino from 28 to **27**, cheerio from 14 to **13**, and parse5's
-denominator dropped to 31. The direction of every verdict held; the numbers did not.
+from 6/34 to **1/34** — a figure the SECOND check then refuted as an adapter artifact of
+this note's own making (it is 19/34; see below) — domino from 28 to **27**, cheerio from 14
+to **13/33**, and parse5's denominator dropped to 31. The direction of every verdict held;
+the numbers did not.
 
 The check also re-derived the load-bearing claims independently and they reproduced
 exactly — the happy-dom DOMPurify output byte-for-byte, linkedom's 7-of-7 SVG loss, the
@@ -286,6 +300,37 @@ Three write-up errors it caught, corrected here:
   reading a list without a trailing newline. It is pinned now, which is why this note says
   136 where an earlier draft said 135.
 
+### The second check found a FOURTH one, and it had already become a false claim
+
+A second pass audited the widened field, which the first had explicitly not covered. It
+found the pattern again, in its worst form so far.
+
+**The basichtml adapter was driven wrongly.** It set `documentElement.innerHTML` to a whole
+`<!DOCTYPE html><html>…` document; basichtml cannot parse that shape in that position, so it
+built a doubly-nested `<html>` and left `document.body` **empty**. Every fixture read back as
+`""`. Every probe therefore failed, and basichtml scored **1/34**.
+
+**From that artifact this note asserted a mechanism it had never observed** — that basichtml
+lowercases camelCase SVG element names, "7 of 7 lost", with a causal story attached about
+basichtml being deprecated into linkedom and sharing the defect. The instrument had seen an
+empty string, from which "lost 7 of 7" follows trivially. Driven correctly,
+**basichtml preserves all seven** and scores **19/34**.
+
+That is a worse failure than a wrong cell: a wrong number invites checking, whereas a wrong
+number wearing a plausible mechanism and a lineage argument invites belief. It is exactly what
+the section above is about, committed in the same change that wrote the section.
+
+Three more, all fixed here:
+
+| Defect | Effect |
+|---|---|
+| The jsdom-30 rejection cited "129.5ms against 129" — a figure appearing nowhere in this note's tables | jsdom 30 is **25% faster** at parse+serialize. The rejection stands, on cold load; the evidence did not |
+| The 287.5ms jsdom mutate denominator came from one contended run and was borrowed across two tables | re-measured interleaved at **~202ms**, which moves Chromium from 9.6x to **7.5x** and domino from 3.8x to **4.7x** |
+| `outerHTML get` asserted `typeof x === 'string'`; `getComputedStyle` asserted any truthy color; the entity probe read `textContent`, which cheerio lacks | the first two passed on `""` and on a wrong color; the third scored cheerio as failing entity decoding, which it does correctly |
+
+**Counts corrected, with the method, because two of them were not reproducible as written:**
+131 `for...of` walks over `querySelectorAll` — `grep -rnE "for \(\s*(const|let) \w+ of [^)]*querySelectorAll" lib/ tools/ lattice-emulator.js`, and the emulator is in scope, which the earlier claim never said. The emulator has **29** `page.evaluate` bodies, not 39. `:scope` appears in **86** distinct quoted selector strings across `lib/` and `tools/`; the earlier "37 distinct" does not reproduce under any scoping tried.
+
 ## Speed, read with the correctness table beside it
 
 `npm run dom:bakeoff:speed`, real engine output, each cell in its own process (jsdom's
@@ -306,12 +351,12 @@ runs of this matrix).
 | heaviest slide (60KB) | 20.20 | 9.71 (2.1x) | 4.56 (4.4x) | 3.06 (6.6x) | 1.88 (10.7x) |
 | whole deck (321KB) | 170.67 | 126.33 (1.4x) | 46.00 (3.7x) | 38.13 (4.5x) | 25.57 (6.7x) |
 
-**Read the columns downward.** happy-dom goes 3.0x → 2.2x → 1.3x as the input grows;
-linkedom 18.9x → 4.4x → 3.9x. The advantage is mostly a *fixed* per-parse cost, and it
+**Read the columns downward.** happy-dom goes 4.0x → 2.1x → 1.4x as the input grows;
+linkedom 25.2x → 4.4x → 3.7x. The advantage is mostly a *fixed* per-parse cost, and it
 shrinks to nearly nothing on the unit the CLI export actually works in. A bake-off run
 at a single input size would have reported a number three to sixteen times off.
 
-Put next to the 598ms `require()`, the shape of the problem is clear: on the Node tier
+Put next to the ~587ms `require()`, the shape of the problem is clear: on the Node tier
 we are not paying jsdom to parse, we are paying it to load.
 
 ## Where the time actually goes
@@ -326,7 +371,7 @@ Measured on this sandbox (4 cores, Node 22.22.2), steady-state runs:
 | …65 non-jsdom files, as a control | 28.1s |
 
 So jsdom costs the Node tier about **11.7s of 129.3s (9%)**, and removing it entirely
-could not beat that. 65 files × 598ms of cold load is ~39s of CPU, which is most of the
+could not beat that. 65 files × ~587ms of cold load is ~38s of CPU, which is most of the
 39.8s those files take, divided across four cores. The Node tier is not where the money
 is, and no parser swap changes that much.
 
@@ -374,12 +419,12 @@ environment switch that silently skipped a file would also have looked like a sp
 - **Swapping the parser anywhere.** Correctness, as above. jsdom stays in
   `lib/core/dom-provider.js`, `lib/core/transform-dsl/apply-to-html.js`,
   `lib/export/html-player.js`, `lattice-emulator.js` and all 67 test files.
-- **`node --test --experimental-test-isolation=none`**, to pay the 598ms load once
+- **`node --test --experimental-test-isolation=none`**, to pay the ~587ms load once
   instead of 65 times. Measured on the 65 jsdom files: **44.3s against 39.8s isolated —
   11% slower.** It trades per-file parallelism across four cores for a single shared
   process, and the parallelism is worth more than the load.
 - **happy-dom for the docs files that do need a DOM.** It is genuinely faster: a full
-  run was 168.4s against 212.2s. It is not being proposed because it would leave the
+  run was 168.4s against 214.0s. It is not being proposed because it would leave the
   suite's sanitizer coverage inert, and a per-file environment matrix makes that a
   standing trap — a test that later starts exercising `sanitizeSlideHtml` from a
   happy-dom file would pass while proving nothing. That is a decision worth revisiting
@@ -403,7 +448,7 @@ cannot gate a merge. Nothing here is wired into `bench:check` for that reason �
 `npm run bench` measures the engine, and this is test-harness cost, which it has never
 covered.
 
-**It does not claim happy-dom is a bad library.** It passed 31 of 33 probes, including
+**It does not claim happy-dom is a bad library.** It passed 32 of 34 probes, including
 every selector, the whole mutation surface, CSSOM and all four parser corners, and it
 serialized every fixture byte-identically to jsdom. Two misses disqualify it *here*
 because of what this repo asks a DOM to do.

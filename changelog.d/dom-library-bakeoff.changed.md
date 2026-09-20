@@ -13,3 +13,8 @@
   domino (4.5x faster, but DOMPurify deletes all markup on it and its NodeList is not
   iterable, which `withDom`'s fail-closed catch would turn into silent transform
   no-ops), and Chromium (fastest measured, but CDP is async and `withDom` is not).
+- Correction, recorded because the note asserted it three times: **basichtml does not
+  lowercase camelCase SVG element names.** That claim was an artifact of a broken adapter in
+  the bake-off harness, which left every parsed document empty. Driven correctly basichtml
+  preserves all seven and scores 19/34, not 1/34. It is still declined — deprecated upstream
+  into linkedom, last published 2022.

@@ -57,7 +57,7 @@ for (const n of names) {
       const r = spawnSync(process.execPath, ['--expose-gc', '--max-old-space-size=3500', CELL, n, String(op), String(inp)], { encoding: 'utf8' });
       let parsed = null;
       try { parsed = JSON.parse(String(r.stdout).trim().split('\n').pop()); } catch { /* the cell died before printing */ }
-      // Say what actually happened. Labelling every silent cell "out of memory" is a
+      // Say what actually happened. Labeling every silent cell "out of memory" is a
       // confidently wrong diagnosis: a missing fixture or a throwing engine dies the same
       // way, and the whole matrix then reads as an OOM that never occurred.
       const why = (() => {

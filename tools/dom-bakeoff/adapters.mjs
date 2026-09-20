@@ -75,14 +75,23 @@ export async function loadAdapters() {
   }));
 
   // basichtml — the linkedom author's earlier DOM. Deprecated upstream in favor of
-  // linkedom, and last published 2022; measured to show whether it inherited the
-  // SVG-casing defect rather than to propose it.
+  // linkedom, and last published 2022.
+  //
+  // DRIVEN THROUGH `body.innerHTML`, NOT `documentElement.innerHTML = wrap(html)`.
+  // basichtml cannot parse a `<!DOCTYPE html><html>…` document in that position: it
+  // builds a doubly-nested `<html>` and leaves the real `document.body` EMPTY. A first
+  // cut of this adapter did exactly that, so every fixture read back as "" — and an
+  // empty body makes every probe fail, including the SVG one. That artifact was then
+  // written into the decision note as the claim that basichtml LOWERCASES camelCase SVG
+  // element names, with a causal story about shared lineage with linkedom attached.
+  // It does not lowercase them; it preserves all seven. The instrument had never seen
+  // a single basichtml-parsed element. Fixed here, and retracted there.
   add(await tryLoad('basichtml', 'full-dom', async () => {
     const mod = await import('basichtml');
     const basichtml = mod.default ?? mod;
     return { parse(html) {
       const { document } = basichtml.init({});
-      document.documentElement.innerHTML = wrap(html);
+      document.body.innerHTML = html;
       return { doc: document, root: document.body, window: null };
     } };
   }));

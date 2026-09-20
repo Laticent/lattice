@@ -103,7 +103,9 @@ for (const [label, fn] of [
   ['createElement + appendChild', (el, doc) => { el.appendChild(doc.createElement('span')); return !!el.querySelector('span'); }],
   ['innerHTML set', (el) => { el.querySelector('h1').innerHTML = '<em>q</em>'; return !!el.querySelector('em'); }],
   ['textContent set', (el) => { el.querySelector('h1').textContent = 'z'; return el.querySelector('h1').textContent === 'z'; }],
-  ['outerHTML get', (el) => typeof el.outerHTML === 'string'],
+  // Assert the SHAPE, not merely the type: `typeof '' === 'string'`, so a parser that
+  // serializes nothing passed this. Same weak-assertion class as the selector bug.
+  ['outerHTML get', (el) => typeof el.outerHTML === 'string' && el.outerHTML.startsWith('<section') && el.outerHTML.includes('</section>')],
   ['setAttribute / getAttribute', (el) => { el.setAttribute('data-x', '1'); return el.getAttribute('data-x') === '1'; }],
   ['classList', (el) => { el.classList.add('zz'); return el.className.includes('zz'); }],
   ['dataset', (el) => { el.dataset.foo = 'bar'; return el.getAttribute('data-foo') === 'bar'; }],
@@ -176,7 +178,10 @@ probe('cssom:getComputedStyle', 'CSSOM', 'getComputedStyle resolves a declared p
   try {
     if (!window?.getComputedStyle) { closeWindow(window); return { pass: false, detail: 'not implemented' }; }
     const v = window.getComputedStyle(root.querySelector('.k')).color; closeWindow(window);
-    return { pass: !!v, detail: `color=${v || '(empty)'}` };
+    // The DECLARED value, not merely a truthy one — a host returning a default `rgb(0, 0, 0)`
+    // would satisfy `!!v` while resolving nothing, which is what this probe claims to test.
+    const ok = typeof v === 'string' && v.replace(/\s+/g, '') === 'rgb(1,2,3)';
+    return { pass: ok, detail: `color=${v || '(empty)'}` };
   } catch (e) { closeWindow(window); return { pass: false, detail: `throws: ${String(e.message).slice(0, 56)}` }; }
 });
 probe('cssom:styleSheets', 'CSSOM', 'document.styleSheets exposes parsed cssRules', (a) => {
@@ -208,8 +213,17 @@ probe('html:style rawtext', 'Parser', 'a </style> inside CSS ends the element �
 probe('html:entities', 'Parser', 'named and numeric entities decode without corruption', (a) => {
   if (a.kind === 'parse-only' && !hasSelectors(a)) return { pass: null, detail: 'adapter has no selector engine — not measurable here' };
   const { root, window } = a.parse('<p>a&amp;b &lt;c&gt; &#169;</p>');
-  try { const t = root.querySelector('p').textContent; closeWindow(window); return { pass: t.includes('a&b') && t.includes('<c>') && t.includes('©'), detail: JSON.stringify(t.slice(0, 32)) }; }
-  catch (e) { closeWindow(window); return { pass: false, detail: `throws: ${String(e.message).slice(0, 56)}` }; }
+  try {
+    const el = root.querySelector('p');
+    // A CAPABILITY check, not a kind check. cheerio HAS a selector engine but its nodes
+    // carry no `textContent`, so an earlier cut died reading it and scored cheerio as
+    // failing entity decoding — which it does correctly. What the adapter cannot read is
+    // unmeasurable here, not a library defect, whatever `kind` the adapter is.
+    if (!el || typeof el.textContent !== 'string') { closeWindow(window); return { pass: null, detail: 'adapter exposes no textContent — not measurable here' }; }
+    const t = el.textContent;
+    closeWindow(window);
+    return { pass: t.includes('a&b') && t.includes('<c>') && t.includes('\u00a9'), detail: JSON.stringify(t.slice(0, 32)) };
+  } catch (e) { closeWindow(window); return { pass: false, detail: `throws: ${String(e.message).slice(0, 56)}` }; }
 });
 
 // ── DOMPurify host — HARD RULE #22 ──────────────────────────────────────────
