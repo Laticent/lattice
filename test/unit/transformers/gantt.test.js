@@ -568,13 +568,22 @@ describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
       <li>One<ul><li>A <code>Q1..Q2</code></li></ul></li>
       <li>Two<ul><li>B <code>Q1..Q2</code></li></ul></li>
     </ul>`;
+    // DERIVED from the band, not restated. A literal 26 lived here to pin the
+    // pre-packing lane height, and it went stale the moment the band was retuned —
+    // the third stale literal in this component's tests. The property worth pinning
+    // is that a one-row lane costs exactly one bar plus its padding, whatever the
+    // band happens to be.
     const ys = barYs(buildGanttChart(inner(ul), WIN));
-    assert.equal(ys[1] - ys[0], 26, 'lane pitch must stay 26u for single-row lanes');
+    const pitch = GANTT_GEOM.barH + 2 * GANTT_GEOM.lanePadY;
+    assert.equal(ys[1] - ys[0], pitch,
+      `a single-row lane should cost barH + 2*lanePadY (${pitch}u)`);
   });
 });
 
 describe('gantt — the band is FIXED, so nothing shrinks with content', () => {
-  // The component owns a BUDGET (`capacity` in gantt.manifest.json), it does not
+  // The component owns a BUDGET (stated in its docs — gantt deliberately declares
+  // no machine-readable `capacity` block, because the schema's required `axis`
+  // would enroll it in an auto-split it provably does not do). It does not
   // absorb an oversized plan by drawing it smaller. An earlier cut made barH a
   // ceiling and compressed the band as the row count rose, so a busy chart drew
   // thinner bars — the engine quietly covering for a slide carrying too much,
@@ -582,10 +591,11 @@ describe('gantt — the band is FIXED, so nothing shrinks with content', () => {
   const barHeightsOf = (html) =>
     [...html.matchAll(/class="gantt-bar"[^>]*\sheight="([\d.]+)"/g)].map((m) => +m[1]);
 
-  const chartOf = (lanes, tasksPerLane, overlapping) => {
+  const chartOf = (lanes, tasksPerLane, overlapping, keyed = false) => {
+    const st = keyed ? ' <code>done</code>' : '';
     const body = Array.from({ length: lanes }, (_, i) =>
       `<li>L${i}<ul>` + Array.from({ length: tasksPerLane }, (_, j) =>
-        `<li>T${i}${j} <code>Q${overlapping ? 1 : (j % 4) + 1}..Q${overlapping ? 4 : (j % 4) + 1}</code></li>`)
+        `<li>T${i}${j} <code>Q${overlapping ? 1 : (j % 4) + 1}..Q${overlapping ? 4 : (j % 4) + 1}</code>${st}</li>`)
         .join('') + '</ul></li>').join('');
     return buildGanttChart(inner(`<ul>${body}</ul>`), WIN);
   };
@@ -609,15 +619,29 @@ describe('gantt — the band is FIXED, so nothing shrinks with content', () => {
   });
 
   test('a chart inside its budget fits the stage it is handed', () => {
-    // capacity in gantt.manifest.json declares soft 4 / hard 5 LANES, measured
-    // against a 1152x335 chart body (a heading plus a two-line lede). Four
-    // one-row lanes must still come in under that height at full width; past the
-    // budget the chart overflows and the render reports CONTENT CLIPPED, which is
-    // the intended outcome, not a bug to absorb.
+    // The budget in the component's docs, re-derived here so the two cannot drift.
+    // Measured at the fixed band on a 1152x335 chart body (a heading plus a
+    // two-line lede): four one-row lanes must clear it at full width WITH a status
+    // key, which is what every real gantt carries — the key costs 21 viewBox units,
+    // about as much as one more lane, and an earlier version of this test built its
+    // chart without statuses and so certified the easier case.
     const REF = { w: 1152, h: 335 };
-    const vbH = +chartOf(4, 1, false).match(/viewBox="0 0 480 (\d+)"/)[1];
-    const drawn = (REF.w * vbH) / GANTT_GEOM.vbW;
-    assert.ok(drawn <= REF.h, `four lanes draw ${drawn.toFixed(0)}px tall in a ${REF.h}px body`);
+    const drawnFor = (html) =>
+      (REF.w * +html.match(/viewBox="0 0 480 (\d+)"/)[1]) / GANTT_GEOM.vbW;
+    // WITH a status key — the case every shipped gantt is, and the one the earlier
+    // version of this test missed by building its chart without statuses.
+    const keyed = drawnFor(chartOf(4, 1, false, true));
+    assert.ok(keyed <= REF.h,
+      `four keyed lanes draw ${keyed.toFixed(0)}px tall in a ${REF.h}px body`);
+    // And with real headroom, not by a pixel. The canonical gallery shape sat at
+    // -3px for a while and nothing reported it, because the overflow was eating
+    // padBottom. So the floor is DERIVED from padBottom rather than picked: once
+    // headroom drops below the bottom pad, the chart is paying for its overflow
+    // out of design padding and the next two-line heading shears the key off.
+    const padPx = (GANTT_GEOM.padBottom * REF.w) / GANTT_GEOM.vbW;
+    assert.ok(REF.h - keyed >= padPx,
+      `${(REF.h - keyed).toFixed(0)}px of headroom is under the ${padPx.toFixed(0)}px bottom pad — ` +
+      'the budget is eating its own padding');
   });
 });
 
@@ -676,9 +700,9 @@ describe('gantt — non-row chrome is a tax on the whole drawing', () => {
   // canonical two-lane shape came in under 335px, which is STRICTER than the
   // engine's own verdict (that shape draws 338px and the render raises no clip
   // warning). A test that is harsher than the thing it models invites shaving
-  // real padding to satisfy it. The capacity contract — four one-row lanes fit —
-  // is asserted in the FIXED-BAND suite above, against the number the manifest
-  // actually declares.
+  // real padding to satisfy it. The budget — four one-row lanes with a status key
+  // fit a 1152x335 body — is asserted in the FIXED-BAND suite above, against a
+  // headroom figure re-derived from the geometry rather than restated.
   test('the key block stays tight enough to be worth its room', () => {
     assert.ok(GANTT_GEOM.legendGap + GANTT_GEOM.legendH + GANTT_GEOM.padBottom <= 25,
       'landscape non-row chrome below the plot has grown past its measured budget');

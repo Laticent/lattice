@@ -55,13 +55,14 @@
   /* A width-driven svg can be SHORTER than this box; without this it hangs from
    * the top on a tall stage and leaves the slack in one lump underneath.
    *
-   * `safe` IS THE LOAD-BEARING WORD. A plain `center` also centres a chart that
+   * `safe` IS THE LOAD-BEARING WORD. A plain `center` also centers a chart that
    * is TALLER than the box, so an over-budget gantt overflowed equally in both
    * directions and the clip took the AXIS off the top along with the last lanes
-   * off the bottom — measured on a seven-lane portrait deck, where the reported
-   * first cut was the "Q1" tick. A chart missing its time axis is unreadable in a
+   * off the bottom — measured on an ad-hoc seven-lane portrait deck (not
+   * committed; rebuild one to re-derive), where the reported first cut was the
+   * "Q1" tick. A chart missing its time axis is unreadable in a
    * way one missing its last lane is not. `safe` falls back to `start` exactly
-   * when centring would cause overflow, so a short chart still centres and an
+   * when centering would cause overflow, so a short chart still centers and an
    * oversized one keeps its axis and its first lanes and loses the tail. */
   justify-content: safe center;
 }
@@ -84,17 +85,22 @@
  * LETTERBOXES, narrowing until it fits and taking the whole drawing's legibility
  * with it. That is the one failure mode the Fit Spine cannot see, because
  * nothing overflows. Uncapped, an oversized gantt overflows like any other
- * component and the engine says so by name: a seven-lane deck renders
- * "CONTENT CLIPPED — First cut on each: p1 'Workstream 3'". A reader who is told
+ * component and the engine says so by name: an ad-hoc seven-lane deck (not
+ * committed) renders "CONTENT CLIPPED" naming the first lane it cut. A reader who is told
  * is better off than a reader handed a chart quietly shrunk to unreadable.
  *
- * The kernel still keeps an ordinary chart well inside its stage — ganttBandFor
- * compresses the row band against GANTT_ASPECT_FLOOR, which is the MEASURED body
- * aspect — so reaching the clip warning means the slide is genuinely carrying
- * more plan than one slide holds, which is what gantt.docs.md already says to do
- * something about.
+ * WHAT KEEPS AN ORDINARY CHART INSIDE ITS STAGE IS THE BAND BEING SMALL ENOUGH,
+ * and nothing else — there is no compression left to fall back on. `ganttBandFor`
+ * and `GANTT_ASPECT_FLOOR` were deleted with the adaptive band, and an earlier
+ * version of this comment still promised they were protecting you. That is the
+ * property that had stopped being true, and it is how a shipped exemplar
+ * (exemplars/government-public/rfp-response.md) went from complete to sheared
+ * with no gate able to see it. The band is sized so an ordinary chart clears its
+ * stage with room — measured, the canonical gallery page draws 295.2px into a
+ * 335.4px body — and reaching the clip warning means the slide is carrying more
+ * plan than one slide holds, which gantt.docs.md says what to do about.
  *
- * `justify-content: center` on the parent keeps a SHORT chart optically centered
+ * `justify-content: safe center` on the parent keeps a SHORT chart optically centered
  * in its stage rather than hung from the top, which is where a column flex's
  * default `flex-start` put it. */
 .gantt-chart .gantt-svg {

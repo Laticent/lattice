@@ -44,14 +44,15 @@
   taller rather than smaller. An intermediate version of this change compressed the
   row band as the row count rose, which is the engine quietly covering for a slide
   carrying too much: the bars thin out, the chart still "fits", and nobody is told.
-- **gantt has a stated BUDGET instead of a shrink.** Four one-row lanes fit a
-  standard slide and five overflow (measured at a 1152x335 chart body); the real
-  ceiling is about five bar ROWS, and overlapping tasks stack into extra rows, so
-  three lanes of concurrent work can cost as much height as five sequential ones.
-  The numbers are in the component's docs, and the enforcement is the render: a
-  chart past the budget overflows and is named (`CONTENT CLIPPED`, with the first
-  thing cut) rather than being quietly scaled down. The gallery's own stress slide
-  was over the budget and is now inside it, as were two other shipped decks.
+- **gantt has a stated BUDGET instead of a shrink.** Count bar ROWS, not lanes:
+  overlapping tasks stack, and inclusive spans overlap more than they look
+  (`Q1..Q2` then `Q2..Q3` both cover Q2), so a sequential-looking plan written that
+  way costs two rows a lane. The status key costs about another lane (21 viewBox
+  units). Measured with a key on a 1152x335 chart body: four one-row lanes fit and
+  five overflow; on a roomier stage five fit. The numbers are in the component's
+  docs and the enforcement is the render — past the budget a chart overflows and is
+  named (`CONTENT CLIPPED`, with the first thing cut) rather than quietly scaled
+  down. Four shipped decks were over the budget and are now inside it.
 - **An over-budget gantt keeps its axis.** The chart is centered in its stage with
   `safe center`, so a chart TALLER than the stage aligns to the top and loses its
   tail rather than being centered and clipped at both ends — which took the time
