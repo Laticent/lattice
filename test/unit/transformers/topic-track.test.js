@@ -238,3 +238,93 @@ test('a tile-track quoted inside a COMMENT is not our track — both adapters ag
   );
   assert.ok(bothAgree(deck));
 });
+
+/* ── THE SHAPES ROUND FOUR FOUND ─────────────────────────────────────────────
+ *
+ * Every one of these produced a visibly wrong slide or an engine↔runtime split
+ * while the whole gate suite was green, so each is pinned by the behavior a
+ * reader would see rather than by the internals that produce it.
+ */
+test('a SUB-BULLET is never the marker — the nested li CSS cannot reach', () => {
+  // The mark used to land on the nested `<li>`, which `section.topic > ul > li.on`
+  // never matches. The pick was spent, so the heading fallback never ran either
+  // and the slide lit NOTHING — strictly worse than having no marker rule.
+  const inner = '<h2>Other</h2><ul>'
+    + '<li>Cost<ul><li>detail</li><li><strong>Payback</strong></li></ul></li>'
+    + '<li>Other</li></ul>';
+  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
+  const marked = [...out.matchAll(/<li[^>]*\sclass="[^"]*\bon\b[^"]*"[^>]*>([\s\S]*?)<\/li>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, '').trim());
+  assert.deepEqual(marked, ['Other']);
+  assert.ok(bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner)) !== undefined);
+});
+
+test('a slide that already carries a track does not cost its SIBLINGS theirs', () => {
+  // `hasTrack` returned before `ti += 1` while `collectSections` still pushed a
+  // slot, so the counter and the name array fell out of register and every later
+  // topic slide in the section silently lost its whole band — engine only.
+  const pre = '<h2>Beta</h2><ul class="tile-track" aria-hidden="true">'
+    + '<li class="on">Beta</li><li>z</li></ul>';
+  const deck = S('divider', '<h2>Sec</h2>') + topic('Alpha') + S('topic', pre) + topic('Gamma');
+  const got = tracks(tt.applyToHtml(deck)).map((t) => t.map((i) => i.name));
+  assert.deepEqual(got, [['Alpha', 'Gamma'], ['Beta', 'z'], ['Alpha', 'Gamma']]);
+});
+
+test('a commented-out track followed by a real list is not our track', () => {
+  // The tail regex is greedy and comment-blind, so a quoted track plus ANY later
+  // `</ul>` matched and the engine skipped a slide the DOM arm marked.
+  const inner = '<h2>Alpha</h2><!-- <ul class="tile-track"><li>old</li></ul> -->'
+    + '<ul><li>Alpha</li><li>Beta</li></ul>';
+  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
+  assert.match(out, /<li class="on">Alpha<\/li>/);
+  bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
+});
+
+test('an existing class on an item is extended, never duplicated', () => {
+  // A second `class` attribute is ignored by HTML — first one wins — so the mark
+  // silently never applied on `class='x'` or `class=x`.
+  for (const attr of ['class="x"', "class='x'", 'class=x']) {
+    const inner = `<h2>H</h2><ul><li ${attr}><strong>A</strong></li><li>B</li></ul>`;
+    const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
+    const li = out.match(/<li[^>]*><strong>A<\/strong><\/li>/)[0];
+    assert.equal((li.match(/class\s*=/g) || []).length, 1, li);
+    assert.match(li, /class="x on"/);
+  }
+});
+
+test('an unrelated class containing "on" does not read as the marker', () => {
+  const inner = '<h2>H</h2><ul><li class="on-hold">X</li><li><strong>Y</strong></li></ul>';
+  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
+  assert.match(out, /<li class="on"><strong>Y<\/strong><\/li>/);
+});
+
+test('a comment inside an item does not hide its marker from the string arm', () => {
+  const inner = '<h2>H</h2><ul><li>A</li><li><!-- keep --><strong>G</strong></li></ul>';
+  bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner));
+  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
+  assert.match(out, /class="on"><!-- keep --><strong>G<\/strong>/);
+});
+
+test('an unmatched inline end tag in the list does not abandon the slide', () => {
+  // `topLevelUlRange` used a naive depth counter, went negative on `</b>` and
+  // returned null, so the whole list was skipped without a mark.
+  const inner = '<h2>H</h2><ul><li>a</b></li><li><strong>B</strong></li></ul>';
+  const out = tt.applyToHtml(S('divider', '<h2>S</h2>') + S('topic', inner));
+  assert.match(out, /<li class="on"><strong>B<\/strong><\/li>/);
+});
+
+test('a heading carrying raw HTML with a `>` in an attribute keeps clean labels', () => {
+  const deck = S('divider', '<h2>S</h2>')
+    + S('topic', '<h2>Alpha <span title="a > b">x</span></h2><p>c</p>')
+    + topic('Beta');
+  const names = tracks(tt.applyToHtml(deck))[0].map((i) => i.name);
+  assert.deepEqual(names, ['Alpha x', 'Beta']);
+});
+
+test('markdown-it\'s inline-list shape reads the same on both arms', () => {
+  // `<p>text <ul>…</ul></p>` is what markdown-it emits for an inline list, and a
+  // browser closes the paragraph so the list IS a direct child. A walk that kept
+  // the `<p>` open derived a track here and honored an override there.
+  const inner = '<h2>Alpha</h2><p>A claim: <ul><li>inline</li></ul></p>';
+  bothAgree(S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta'));
+});

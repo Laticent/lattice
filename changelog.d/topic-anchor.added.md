@@ -18,4 +18,4 @@
   START, skips RAWTEXT content, and honors quoted attribute values — so `<div data-tip="a <!-- b">`
   and `<style>/* <!-- */</style>` no longer hide a slide's heading. It also matches `<H2>`
   case-insensitively, as `:scope > h2` always did on the runtime path. Rendered output is
-  unchanged on all 182 committed `examples/*.md`.
+  unchanged on all 184 committed `examples/*.md` (measured at 4999ea3).

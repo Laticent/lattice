@@ -63,11 +63,11 @@ Fourteen months blended, against a nine-month plan.
 ```text
 ┌─────────────────────────────────────────┐
 │            [dark background]            │
+│  SECTION 02 - UNIT ECONOMICS            │
 │                                         │
-│       SECTION 02 - UNIT ECONOMICS       │
 │                                         │
-│               Topic name                │
-│        One sentence of context.         │
+│  Topic name                             │
+│  One sentence of context.               │
 │                                         │
 │  -------------------------------------  │
 │  Cost to win   Lifetime   [Payback]     │

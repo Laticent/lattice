@@ -51,7 +51,7 @@ test('an UPPERCASE <H2> is the heading, matching the DOM mirror', () => {
   // render path only (HARD RULE #1). `:scope > h2` picks the FIRST direct-child
   // heading whatever its case, so the engine now does too.
   //
-  // Measured before changing it: 0 of 182 `examples/*.md` render differently
+  // Measured before changing it: 0 of 184 `examples/*.md` at 4999ea3 render differently
   // either way, so the committed corpus is indifferent and parity is free.
   assert.equal(readTopLevelH2Text('<H2>Deco</H2><h2>Real</h2>'), 'Deco');
   assert.equal(readTopLevelH2Text('<H2>Deco</H2>'), 'Deco');
@@ -116,4 +116,80 @@ test('an unmatched end tag does not walk a nested element up to top level', () =
   assert.equal(readTopLevelH2Text('<blockquote><div></blockquote><h2>Real</h2>'), 'Real');
   // Same branch, closing the inline element between.
   assert.equal(readTopLevelH2Text('<div><span></div><h2>Real</h2>'), 'Real');
+});
+
+/* ── DIFFERENTIAL AGAINST A REAL PARSER ──────────────────────────────────────
+ *
+ * The kernel's whole job is to answer, from a string, the question the runtime
+ * answers with `:scope > h2` and `:scope > ul` off a real parse. So the test is
+ * not "does it match a regex I wrote" — it is "does it agree with a parser".
+ *
+ * DETERMINISTIC, deliberately. An earlier revision of this work quoted a
+ * randomized figure ("60,000 documents, 0 divergences") in a docblock with no
+ * committed generator, which made it unfalsifiable — a checker built its own
+ * and got a different number. Every shape below is one that a randomized run
+ * actually surfaced, so the corpus IS the finding list, and a regression names
+ * the rule it broke instead of a seed.
+ */
+const { JSDOM: JSD } = require('jsdom');
+
+test('agrees with a real HTML parser on every shape that has bitten this walk', () => {
+  const CASES = [
+    // Inert spans holding tag-like text.
+    '<!-- <ul><li>c</li></ul> --><h2>Real</h2>',
+    '<!-- <div> --><ul><li>x</li></ul>',
+    '<style>/* <!-- */ a{}</style><h2>Real</h2>',
+    '<script>var a = "</div>";</script><ul><li>x</li></ul>',
+    '<div data-tip="type <!-- to open">P.</div><h2>Real</h2>',
+    // Attribute values that look like structure.
+    '<div title="a > b"><h2>Nested</h2></div><h2>Top</h2>',
+    '<h2 class="x>y">Q</h2>',
+    '<h2>Alpha <span title="a > b">x</span></h2>',
+    // End tags the parser honors, ignores, or redirects.
+    '<div></aside><ul><li>x</li></ul></div>',
+    '<span><div></span><h2>Real</h2>',
+    '<blockquote><div></blockquote><h2>Real</h2>',
+    '<div><span></div><h2>Real</h2>',
+    // `<div/>` is not self-closing in HTML.
+    '<div/><h2>Title</h2>',
+    '<div/><ul><li>x</li></ul>',
+    // A block element closes an open paragraph — in SCOPE, not just at the top.
+    '<p>A claim: <ul><li>inline list</li></ul></p>',
+    '<p><em><ul><li>x</li></ul>',
+    '<p><b><h2 class="x>y">Q</h2>',
+    // Table structure outside a table is dropped.
+    '<caption><ul><li>x</li></ul>',
+    '<tr><td><h2>Real</h2>',
+    '<table><tr><td>c</td></tr></table><h2>Real</h2>',
+    // `<template>` content is a separate fragment.
+    '<template><div></template><h2>Real</h2>',
+    '<template><h2>Inner</h2></template><h2>Real</h2>',
+    '<template><ul><li>x</li></ul></template>',
+    // Scope barriers.
+    '<button><div></button><h2>Real</h2>',
+    // Case.
+    '<H2>Deco</H2><h2>Real</h2>',
+    '<H2>Up</H2>',
+    // Ordinary shapes, as controls.
+    '<h2>A</h2><ul><li>x</li></ul>',
+    '<blockquote><ul><li>x</li></ul></blockquote>',
+    '<div><div><ul><li>x</li></ul></div></div>',
+    '<div><ul><li>x</li></ul>',
+    '<h2>A</h2><p>b</p>',
+    '',
+  ];
+  const dom = new JSD('<body><section id="s"></section></body>');
+  const sec = dom.window.document.getElementById('s');
+  const misses = [];
+  for (const html of CASES) {
+    sec.innerHTML = html;
+    const h = sec.querySelector(':scope > h2');
+    const wantH2 = h ? h.textContent.replace(/\s+/g, ' ').trim() : '';
+    const wantUl = Boolean(sec.querySelector(':scope > ul'));
+    const gotH2 = readTopLevelH2Text(html);
+    const gotUl = hasTopLevelTag(html, 'ul');
+    if (gotH2 !== wantH2) misses.push(`h2 ${JSON.stringify(html)}: ${JSON.stringify(gotH2)} != ${JSON.stringify(wantH2)}`);
+    if (gotUl !== wantUl) misses.push(`ul ${JSON.stringify(html)}: ${gotUl} != ${wantUl}`);
+  }
+  assert.deepEqual(misses, []);
 });

@@ -619,13 +619,18 @@ def demo_blocks() -> dict[str, str]:
     # the section's other topics with the current one lit. Borrowing the divider's
     # block showed a slide with no track at all, two screens under a description
     # whose whole subject is the track.
+    # LEFT-anchored, because the component is: `section.topic` sets
+    # `align-items: flex-start` and pins the eyebrow at `left: var(--_gutter)`.
+    # Measured in Chromium, the `h2` sits at x=128 against a section left of 8.
+    # A centered diagram was added to fix the borrowed `divider-bookend`
+    # misrepresenting the track, and then misrepresented the alignment instead.
     blocks['topic-track'] = frame([
         ('center', '[dark background]'),
+        ('left',   'SECTION 02 - UNIT ECONOMICS'),
         ('blank',),
-        ('center', 'SECTION 02 - UNIT ECONOMICS'),
         ('blank',),
-        ('center', 'Topic name'),
-        ('center', 'One sentence of context.'),
+        ('left',   'Topic name'),
+        ('left',   'One sentence of context.'),
         ('blank',),
         ('raw',   '-' * 37),
         ('raw',   'Cost to win   Lifetime   [Payback]'.ljust(37)),
