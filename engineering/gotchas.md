@@ -237,7 +237,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 ### [The Studio and the Playground (docs-site app surfaces)](gotchas/studio-playground.md)
 
 - [The preview `<iframe>` — trap catalog (read this first: surfaces × workarounds)](gotchas/studio-playground.md#the-preview-iframe--trap-catalog-read-this-first-surfaces--workarounds)
-- [A chart's hover card opens and shuts in the same gesture, with the pointer still](gotchas/studio-playground.md#a-charts-hover-card-opens-and-shuts-in-the-same-gesture-with-the-pointer-still)
+- [A chart's hover card flashes up and vanishes as you sweep onto a mark](gotchas/studio-playground.md#a-charts-hover-card-flashes-up-and-vanishes-as-you-sweep-onto-a-mark)
 - [Playground/specimen previews 404 on the engine CSS + runtime](gotchas/studio-playground.md#playgroundspecimen-previews-404-on-the-engine-css--runtime)
 - [Playground preview serves a STALE engine bundle (a 200, not a 404)](gotchas/studio-playground.md#playground-preview-serves-a-stale-engine-bundle-a-200-not-a-404)
 - [The editor|preview divider snaps to the middle a moment after the page loads](gotchas/studio-playground.md#the-editorpreview-divider-snaps-to-the-middle-a-moment-after-the-page-loads)

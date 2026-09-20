@@ -553,12 +553,28 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   //    before this guard: the open cell sat visibly off-grid, half under its column
   //    header.
   //  * `rotateX(7deg)` moves every tile vertically by an amount that grows with its
-  //    distance from the origin, so the grid stops lining up with the row and column
-  //    labels beside it. Same objection as the gantt's time axis, same answer.
+  //    distance from the origin, which pulls the tiles off the row and column labels
+  //    beside them. That half of the argument is deliberately the WEAKER one — a bar
+  //    and a scatter have axis labels too and still tilt, and they look fine, because
+  //    a tilt that slides a continuous axis reads as perspective. The load-bearing
+  //    argument is the one above it, specific to abutting tiles: a matrix locates a
+  //    value by the INTERSECTION of two discrete labels, so any drift makes the
+  //    reader re-count.
   //
-  // Nothing is lost that marks the active cell: the others still dim to 0.45 and the
-  // active one still takes `.chart-mark-active`, which chart-family.css already paints
-  // as a heavier stroke (`--chart-edge-strong`). That is the trade the gantt makes.
+  // WHAT CARRIES THE EMPHASIS INSTEAD is the dim, and it is worth being exact about
+  // which part does the work. The active mark does take `.chart-mark-active`, and
+  // chart-family.css thickens its stroke to `--chart-edge-strong` — but a heatmap
+  // cell's stroke is the GUTTER colour (`var(--bg)`, measured `rgb(255,255,255)` in
+  // light and `rgb(0,29,51)` in dark), so that rule only widens the gap around the
+  // tile; it adds no highlight. The cue a reader actually sees is that every OTHER
+  // tile drops to 0.45 while this one stays at 1, which for a heatmap is emphasis in
+  // the chart's own language — its whole vocabulary is colour intensity. Looked at in
+  // both modes on the real Playground before this guard shipped.
+  //
+  // This is NOT the trade the gantt makes, and an earlier draft claiming it was is
+  // corrected here: the gantt pays for losing its tilt with a bespoke ink edge
+  // (`stroke: var(--fill-ink)`, gantt.styles.css), which the heatmap has no
+  // equivalent of. It does not need one; it would if the dim were ever removed.
   const isMatrixChart = () => !!chartEl?.classList?.contains('heatmap-svg');
 
   // ── interaction-coupled tilt (settles flat; resting chart stays proportion-true) ──

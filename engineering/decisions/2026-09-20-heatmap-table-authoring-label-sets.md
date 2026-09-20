@@ -292,35 +292,78 @@ disappeared, on every live surface, while still reading correctly in print becau
 other member arrives pre-wrapped because it hands `detailPayload` the inner HTML of an
 authored sublist. A table cell cannot nest one, so `markupMarks` puts the shape back.
 
-**2. The card shut itself — Radix's positioning wrapper keeps the pointer.**
-`ChartDetailLayer` marks its `PopoverContent` `pointer-events:none`, for the obvious
-reason that a tooltip following a pointer must not eat it. But Radix renders that
-content inside `[data-radix-popper-content-wrapper]`, and the WRAPPER stays
-`pointer-events:auto` — so the card is transparent to the pointer and the box around it
-is not. It opens about 26px below the cursor, which on a 69px heatmap cell is still
-inside the mark being hovered. The preview iframe then gets `pointerleave`, the layer
-reads a deliberate dismiss, and the card shuts in the same gesture that opened it.
+**2. The card shut itself — Radix's positioning wrapper keeps the pointer, and only
+a MOVING pointer finds out.** `ChartDetailLayer` marks its `PopoverContent`
+`pointer-events:none`, for the obvious reason that a tooltip following a pointer must
+not eat it. But Radix renders that content inside
+`[data-radix-popper-content-wrapper]`, and the WRAPPER stays `pointer-events:auto` —
+so the card is transparent to the pointer and the box around it is not.
+
+The geometry decides the rest, and the first draft of this section got it wrong in a
+way worth recording, because this is a section about claims nobody re-derives. It said
+the wrapper opens "about 26px below the cursor" and that the card shut "with the
+pointer never having moved". Measured: the wrapper opens **12.13px** below the cursor —
+that is `sideOffset={12}` on `PopoverContent`, and there is no second main-axis offset;
+the 26 came from adding chart-interact's own `offset(14)`, which belongs to the LEGACY
+`.db-pp-chartpop` path the React host never takes. And at 12px a cursor that arrives
+and stops is never inside the wrapper: a stationary hover stays open indefinitely
+(measured, 1.2s, card still open). What actually fails is a SWEEP — the reveal fires
+mid-gesture, the wrapper is placed at that earlier cursor point, and the continuing
+motion carries the pointer into it. That is an author's pointer; the deliberate,
+careful way to test it is the one way that works, which is exactly why it read as an
+intermittent glitch.
 
 That one is **family-wide and predates this work**: with the fix reverted, the spec's
-funnel arm fails too. It went unnoticed because it is geometry-dependent — a
-full-width funnel band is tall enough that the wrapper usually lands clear of the
-cursor, while a grid of 69px tiles fails 7 times in 9. HARD RULE #18 still makes it
-this PR's: the change is what tipped a latent fragility into a failure, and the fix is
-one scoped rule rather than a follow-up issue.
+funnel arm fails too. An earlier draft explained the family's blind spot by band
+height — "a full-width funnel band is tall enough that the wrapper usually lands clear
+of the cursor" — which is a plausible story with no measurement behind it, and it is
+wrong in direction: at 12px a taller band makes the wrapper land MORE reliably inside
+the mark. What varies is how much pointer travel continues after the reveal fires.
+HARD RULE #18 still makes it this PR's: the change is what tipped a latent fragility
+into a failure, and the fix is one scoped rule rather than a follow-up issue.
+
+The rule is scoped twice — `:has(> .lat-chart-detail-pop)` to our card, and
+`@media (pointer: fine)` to devices that hover. The second half is not tidiness: this
+is a hover defect, a coarse pointer reveals by tap, and without the query a tap on the
+part of the card overhanging the chart's hit rectangle would fall through to Present's
+capture layer, so dismissing the card could advance a slide.
 
 **3. The lift and the tilt move a matrix off its own axes.** Seen, not inferred: the
 open cell sat visibly off-grid, half under its column header. The reveal's 7px
 centroid→hub nudge assumes a mark with somewhere to step OUT to; a heatmap cell has a
-neighbour on every side. `rotateX(7deg)` is the same objection the gantt already makes
-about its time axis. Both are now off for a matrix, which keeps the dim and the
-`.chart-mark-active` stroke — the emphasis that does not move anything.
+neighbour on every side. Both are now off for a matrix.
+
+**What carries the emphasis instead is the dim, not the stroke** — and the difference
+matters because the first draft credited the wrong one. `.chart-mark-active` does
+thicken the active mark to `--chart-edge-strong`, but a heatmap cell's stroke is the
+GUTTER colour (`var(--bg)`: measured `rgb(255,255,255)` light, `rgb(0,29,51)` dark), so
+that rule only widens the gap around the tile and adds no highlight. The cue a reader
+sees is that every other tile drops to 0.45 while this one holds at 1 — emphasis in the
+chart's own language, since a heatmap's whole vocabulary is colour intensity. Checked
+on rendered frames in both modes, not reasoned: the active tile is the only saturated
+one in light and the only bright one in dark, and it reads at a glance.
+
+This is **not** the trade the gantt makes, and the first draft claiming it was is
+corrected here. The gantt pays for losing its tilt with a bespoke ink edge
+(`stroke: var(--fill-ink)`); the heatmap has no equivalent rule and does not need one
+while the dim is there. It would need one if the dim were ever removed.
 
 **The durable fix is the tier, not the three patches.** No test drove this path on a
 browser: the coverage was `chart-detail-layer.test.tsx` (jsdom, no hit-testing, no
 stacking) plus per-chart transform tests that compare strings and never hold a pointer.
 `docs/e2e/chart-detail-reveal.spec.ts` closes that, and it is non-vacuous by
-measurement — revert the wrapper rule and all three arms go red, revert the `<li>` and
-the unit arm goes red.
+measurement — but the measurement disagreed with itself, which is worth recording in a
+section about claims nobody re-derives. Reverting the `<li>` turns the unit arm red.
+Reverting the CSS rule AT SOURCE and rebuilding turns **all three** e2e arms red, three
+runs out of three (one parallel, two `--workers=1`), with arm 1 reporting exactly seven
+`NO CARD` of nine. An independent checker measuring the same property a different way —
+leaving the rule in place and injecting an `!important` counter-rule at runtime — saw
+the third arm survive, and reported two of three. Both runs are honest; they differ in
+method, not in good faith. So the durable claim is the conservative one: **arms 1 and 3
+are the CSS rule's mutation proof**, and arm 2's coverage of it is method-sensitive —
+its reliable proof is the `<li>` wrapper and the lift guard, which it also asserts.
+An earlier draft of this line said "all three" from a single run; the point of writing
+the method down is that the next person can tell which claim they are re-deriving.
 
 ## What this does NOT decide
 

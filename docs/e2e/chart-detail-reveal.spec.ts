@@ -18,15 +18,30 @@ import { expect, test } from './studio-fixture';
 //     per-cell annotation went in as bare text, so it read correctly in the PDF (the
 //     speaker-note path has its own bare-text fallback) and silently vanished on every
 //     live surface.
-//  2. THE CARD SHUT ITSELF. Radix renders `PopoverContent` inside its own
-//     `[data-radix-popper-content-wrapper]`, which keeps `pointer-events:auto` even
-//     though the content is `none`. The wrapper opens ~26px below the cursor — on top
-//     of the mark the pointer is still inside — so the preview iframe got
-//     `pointerleave`, which the layer reads as a dismiss. 7 of 9 heatmap cells closed
-//     the instant they opened.
+//  2. THE CARD SHUT ITSELF — BUT ONLY UNDER A MOVING POINTER. Radix renders
+//     `PopoverContent` inside its own `[data-radix-popper-content-wrapper]`, which
+//     keeps `pointer-events:auto` even though the content is `none`. The card opens
+//     12.13px below the cursor (measured; it is `sideOffset={12}`), so a pointer that
+//     arrives and STOPS is never inside the wrapper and the card stays open. What
+//     fails is a sweep: the reveal fires mid-gesture, the wrapper is placed at that
+//     earlier point, and the continuing motion carries the cursor into it — the
+//     iframe gets `pointerleave` and the layer dismisses. Sweeping onto each mark,
+//     7 of 9 heatmap cells closed the instant they opened.
+//
+//     THIS IS WHY THE HELPER BELOW SWEEPS. A single settled hover passes even with
+//     the defect present, so a spec that moved straight to each mark and waited would
+//     be green against the bug.
+//
+//     MUTATION PROOF, and its one soft edge: reverting the CSS rule at source turns
+//     all three arms below red (three runs of three; arm 1 reports seven `NO CARD` of
+//     nine). An independent run that left the rule in place and injected an
+//     `!important` counter-rule at runtime saw the third arm survive. Arms 1 and 3 are
+//     therefore the dependable proof of the CSS rule; arm 2's own durable subject is
+//     the lift guard, which it asserts directly.
 //
 // Both are properties of the SHARED layer, so the funnel arm below is not decoration:
 // it is the check that fixing the grid did not narrow the path the other members use.
+// The funnel fails under mutation too — this was never a small-mark bug.
 
 const SOURCE_KEY = 'lattice-docs-pg-source';
 
@@ -78,10 +93,14 @@ async function openPlayground(page: import('@playwright/test').Page, deck: strin
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	const preview = page.frameLocator('#preview');
 	await expect(preview.locator(chartSel)).toBeVisible({ timeout: 40_000 });
-	// The chart re-fits AFTER its first paint (the preview re-fits at 60/300/1200ms),
-	// so a hover placed on the first painted box measures a rectangle that is about to
-	// move. Wait for the signal rather than for a guessed interval: the chart's own box,
-	// unchanged across two consecutive animation frames.
+	// The chart re-fits after its first paint, so hovering the first painted box aims at
+	// a rectangle that is about to move. This waits for the box to hold across two
+	// consecutive animation frames — which is a WEAK settle, not a strong one: two
+	// identical frames occur long before the preview's later re-fits, so this gate
+	// clears almost immediately. It is deliberately the cheap half. The guarantee that
+	// actually matters comes from `markPoint()` re-measuring the mark fresh inside
+	// every `revealText()` call, so a late re-fit moves the target before it is read,
+	// not after.
 	await page.waitForFunction(
 		(s) => {
 			const d = (document.querySelector('iframe') as HTMLIFrameElement)?.contentDocument;
@@ -98,7 +117,16 @@ async function openPlayground(page: import('@playwright/test').Page, deck: strin
 	);
 }
 
-/** The page-space centre-ish of one mark, read through the transform-scaled frame. */
+/**
+ * The page-space quarter-point of one mark.
+ *
+ * NOTE THE MISSING SCALE FACTOR, and do not copy this helper to the Studio. The
+ * Playground's `#preview` carries no `transform` (the fit agent scales the `.lattice`
+ * sections INSIDE the srcdoc), so the frame's own scale is 1 and frame coordinates add
+ * straight onto its page offset. The Studio's preview iframe IS transform-scaled
+ * (~0.6 desktop, ~0.28 mobile — see chart-detail-layer.tsx), and there this would aim
+ * at the wrong pixel; `chart-interact.js` divides by `g.S` for exactly that reason.
+ */
 async function markPoint(page: import('@playwright/test').Page, sel: string) {
 	return page.evaluate((s) => {
 		const fe = document.querySelector('iframe') as HTMLIFrameElement;
