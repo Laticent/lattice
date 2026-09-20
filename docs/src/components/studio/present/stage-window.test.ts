@@ -671,3 +671,31 @@ describe('stage-window — createStageController', () => {
 		});
 	});
 });
+
+// ── `<html lang>` — 2026-09-20-narration-audit.md Finding 5 ─────────────────────────
+//
+// The two sibling document builders (deck-preview.js, share-export.ts) both carry one;
+// this builder did not, so the Stage — the surface an AUDIENCE looks at — shipped a
+// document with no declared language. A screen reader falls back to the UI language and a
+// browser picks a default voice by it.
+describe('stage-window — the document declares its language', () => {
+	const base = { html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js' };
+
+	it('defaults to en and carries the deck’s declared language', () => {
+		expect(buildStageDoc(base)).toContain('<html lang="en"');
+		expect(buildStageDoc({ ...base, lang: 'es' })).toContain('<html lang="es"');
+		expect(buildStageDoc({ ...base, lang: 'pt-BR' })).toContain('<html lang="pt-BR"');
+	});
+
+	it('sanitizes the value, because deck front matter is untrusted', () => {
+		// The same `[A-Za-z0-9-]` filter deck-preview applies. This value lands in an
+		// attribute in a same-origin frame (HARD RULE #22).
+		const doc = buildStageDoc({ ...base, lang: 'en" onload="alert(1)' });
+		expect(doc).toContain('<html lang="enonloadalert1"');
+		expect(doc).not.toContain('onload=');
+	});
+
+	it('falls back to en for a value that sanitizes to nothing', () => {
+		expect(buildStageDoc({ ...base, lang: '"><<>>' })).toContain('<html lang="en"');
+	});
+});

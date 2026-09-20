@@ -55,6 +55,20 @@ const DEFAULT_OR_TTS_MODEL = 'hexgrad/kokoro-82m';
 const DEFAULT_OR_VOICE = 'af_heart';
 const DEFAULT_KOKORO_VOICE = 'af_heart';
 
+/**
+ * A BCP-47 tag reduced to its base language subtag — `en-GB` → `en`, `es-419` → `es`.
+ *
+ * Every synthesis surface wants the short form: the OpenAI-compatible speech route takes
+ * `language: "es"`, kokoro-js keys its phonemizer on a single language, and a regional
+ * variant is meaningless to both. Returns '' for anything that is not a plausible tag, so a
+ * caller's `? :` omits the field entirely rather than sending junk — and so untrusted deck
+ * front matter (HARD RULE #22) cannot inject a value into a request body or an attribute.
+ */
+function langSubtag(tag) {
+  const m = /^([A-Za-z]{2,3})(?:[-_]|$)/.exec(String(tag ?? '').trim());
+  return m ? m[1].toLowerCase() : '';
+}
+
 // The fixed sample line every "Play sample" preview speaks — pulled out as a
 // constant so previewVoice's cache key and its synth call can't drift apart.
 const PREVIEW_TEXT = 'This is how your slides will sound.';
@@ -1107,10 +1121,17 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     return { rung: rung.name, bytes: await p, key };
   }
 
-  function speakViaSpeech(text, signal) {
+  function speakViaSpeech(text, signal, lang) {
     return new Promise((resolve) => {
       if (typeof speechSynthesis === 'undefined') { resolve(); return; }
       const u = new SpeechSynthesisUtterance(text);
+      // SET THE LANGUAGE. With no `lang`, the browser picks a voice by the document language
+      // or the system default — so on a machine whose default voice is not English, an English
+      // deck is read in that language, and the choice can differ between one utterance and the
+      // next. This is the one rung where the platform gives us a real language control, so it
+      // gets one. A deck that declares no language leaves it unset, as before.
+      const sub = langSubtag(lang);
+      if (sub) u.lang = sub;
       u.onend = resolve; u.onerror = resolve;
       if (signal) signal.addEventListener('abort', () => { try { speechSynthesis.cancel(); } catch {} resolve(); }, { once: true });
       try { speechSynthesis.speak(u); } catch { resolve(); }

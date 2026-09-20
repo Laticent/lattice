@@ -149,7 +149,7 @@ type VoiceModel = {
 	/** Speak one string via the browser speechSynthesis rung (it plays ITSELF — no bytes to cross a
 	 *  bytes-only player). The parallel path used when the active rung is 'speechSynthesis' (dev-only
 	 *  here — Studio never passes allowBrowserVoice). */
-	speakThis: (text: string, signal?: AbortSignal) => void;
+	speakThis: (text: string, signal?: AbortSignal, lang?: string) => void;
 	stop: () => void;
 	pause: () => void;
 	resume: () => void;
@@ -1012,14 +1012,15 @@ export function useReadAloud(
 					// PARALLEL with the wall-clock estimate and reporting no onsets — exactly as voice.speak
 					// did for this rung. No Suono sequence (there are no clip bytes to schedule).
 					try {
-						voice.speakThis(spoken.join(' '), ctl.signal);
+						// The deck's language, so the browser does not pick a voice by system default.
+						voice.speakThis(spoken.join(' '), ctl.signal, lang);
 					} catch {
 						/* best-effort — the estimate still runs the read-along */
 					}
 				}
 			}
 		});
-	}, [track, startLoop, startClocked, resumeClockedFromCurrent]);
+	}, [track, startLoop, startClocked, resumeClockedFromCurrent, lang]);
 
 	const pause = React.useCallback(() => {
 		cancelRaf();

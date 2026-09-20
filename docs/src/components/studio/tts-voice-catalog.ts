@@ -340,3 +340,40 @@ export function groupVoices(modelId: string, voices: Voice[]): { featured: Voice
 	}
 	return { featured, groups };
 }
+
+/**
+ * Does the chosen voice speak the deck's language? Returns a sentence when they DISAGREE,
+ * and null when they agree or when there is nothing to compare.
+ *
+ * THIS IS THE LANGUAGE CONTROL THE MODEL RUNGS ACTUALLY HAVE. Neither speech route takes a
+ * `language` parameter — OpenRouter's is the OpenAI-compatible `/audio/speech` shape
+ * (`{model, input, voice, response_format, speed}`), and kokoro-js derives its phonemizer
+ * language from the voice id's own first letter. So for those two rungs the VOICE *is* the
+ * language, and the only honest thing to send is the right voice. What was missing was
+ * anyone noticing they disagreed: a deck with `lang: es` was read by the workspace's English
+ * default, with its symbols left unexpanded (the English say-as is bypassed for a non-English
+ * deck), and nothing anywhere said so.
+ *
+ * Built on `voiceMeta`, so the language of a voice id is derived in exactly one place.
+ * Comparison is on the BASE subtag — `en-GB` matches a UK English voice — because a regional
+ * variant is a narrower claim than either side is making.
+ */
+export function voiceLanguageMismatch(modelId: string, voiceId: string, deckLang?: string): string | null {
+	const want = /^([A-Za-z]{2,3})(?:[-_]|$)/.exec(String(deckLang ?? '').trim())?.[1]?.toLowerCase();
+	if (!want) return null; // the deck declares no language — nothing to disagree with
+	const meta = voiceMeta(modelId, voiceId);
+	if (!meta.langLabel) return null; // the voice id encodes no language — we cannot tell
+	// `langLabel` is a human label ("US English", "Spanish"); map it back to a subtag through
+	// the same table the picker groups by, so the two sides cannot drift.
+	const spoken = VOICE_LABEL_SUBTAG[meta.langLabel];
+	if (!spoken || spoken === want) return null;
+	return `This deck declares \`lang: ${want}\` but the chosen voice speaks ${meta.langLabel}. Neither speech engine takes a language parameter — the voice is what sets the language — so the deck will be read in ${meta.langLabel}.`;
+}
+
+/** Voice-language LABEL → base subtag. The labels come from the three `*_LANG_FULL` tables
+ *  above; this is their inverse, kept beside them so a new language is one edit in each. */
+const VOICE_LABEL_SUBTAG: Record<string, string> = {
+	'US English': 'en', 'UK English': 'en', English: 'en',
+	Spanish: 'es', French: 'fr', German: 'de', Italian: 'it',
+	Hindi: 'hi', Japanese: 'ja', Portuguese: 'pt', Chinese: 'zh',
+};

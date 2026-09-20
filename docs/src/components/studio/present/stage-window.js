@@ -76,7 +76,7 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
  * strings and could never have seen the difference — so the comment is the only place the
  * distinction can live, and it may as well be accurate.
  */
-export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', dagreUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '' }) {
+export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', dagreUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '', lang = 'en' }) {
 	html = sanitizeSlideHtml(html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
 	const sw = width;
 	const sh = height;
@@ -318,7 +318,13 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 			'</div>'
 		: '';
 	return (
-		'<!doctype html><html' + previewDiagramsAttr(mermaidUrl) + '><head><meta charset="utf-8">' +
+		// `<html lang>`, like the two sibling builders (deck-preview.js, share-export.ts). This
+		// one omitted it, so the Stage — the surface an AUDIENCE actually looks at — shipped a
+		// document with no declared language: a screen reader falls back to the UI language and
+		// a browser picks a default voice by it. Sanitized to `[A-Za-z0-9-]` exactly as
+		// deck-preview does, because the deck's front matter is untrusted (HARD RULE #22) and
+		// this value lands in an attribute.
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(mermaidUrl) + '><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
 		previewCspMeta({ katexUrl }) +
@@ -607,7 +613,7 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	// crash. Deliberately not the chrome stylesheet: it is three lines of inline CSS
 	// so it cannot itself be waiting on anything.
 	const HOLDING =
-		'<!doctype html><html><head><meta charset="utf-8"><title>Stage</title>' +
+		'<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Stage</title>' +
 		'<style>html,body{margin:0;height:100%;background:#15110D;color:#B6A488;' +
 		"font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center}" +
 		'p{font-size:.95rem;letter-spacing:.02em}</style></head><body id="latt-holding"><p>Preparing the stage…</p></body></html>';
