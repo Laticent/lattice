@@ -5060,6 +5060,179 @@ function checkChartMarks(manifests, errors) {
   }
 }
 
+/**
+ * A DECLARED HANDLE THAT NOTHING RENDERS — the `slots` failure, refused in advance.
+ *
+ * `handles` declares the RENDERED part a narrated sentence can name and the token that names
+ * it, and the Guide points with it (docs/src/components/studio/present-guide.ts). `slots` is the
+ * cautionary tale: it declares a selector too, nothing that renders reads it, and 25% of its
+ * selectors stopped matching the DOM years ago without a single test going red.
+ *
+ * So every class named here has to be one something under lib/ actually writes — the same check
+ * `checkChartMarks` already makes for `kernel.marks[].class`, for the same reason. A renamed
+ * class fails the build instead of silently un-pointing a component.
+ *
+ * WHAT IT CANNOT SEE, stated rather than implied: this is a text match over the sources, so it
+ * proves the class is WRITTEN somewhere, not that the `part` element ever contains the `names`
+ * element at render time. The render-side half is the census test
+ * (test/unit/components/guide-handles.test.js), which loads the real DOM.
+ */
+function checkGuideHandles(manifests, errors) {
+  const CLASSES = /\.([A-Za-z_][-\w]*)/g;
+  for (const m of manifests) {
+    if (!Array.isArray(m.handles)) continue;
+    for (const h of m.handles) {
+      for (const [field, selector] of [['part', h.part], ['names', h.names]]) {
+        if (typeof selector !== 'string') continue;  // the loader reports the shape error
+        // A CLASS-FREE SELECTOR IS ALLOWED, and the split is deliberate. `tbody > tr` names
+        // structure a transform cannot rename; `.person-name` names a class it can, and did.
+        // This gate covers the second; the render-side census (test/unit/components/
+        // guide-handles.test.js) covers both by resolving every row against the real DOM.
+        const classes = [...selector.matchAll(CLASSES)].map((x) => x[1]);
+        for (const cls of classes) {
+          if (libSources().some((f) => writesClass(fs.readFileSync(f, 'utf8'), cls))) continue;
+          errors.push(
+            `${m.name}: \`handles[].${field}\` names the class "${cls}" but nothing under lib/ ` +
+            `writes it. The Guide resolves this selector against the live slide, so a class no ` +
+            `transform emits means the component silently stops getting a handle — the cue lands ` +
+            `on the whole part again and no test goes red. Either the class was renamed and this ` +
+            `row is stale, or the row describes the markdown an author writes rather than what ` +
+            `the transform renders (that is \`slots\`, and it is not this).`);
+        }
+      }
+      if (h.part && h.names && h.part === h.names) {
+        errors.push(
+          `${m.name}: \`handles[]\` declares part and names as the same selector ("${h.part}"). ` +
+          `The point of the row is that the naming token is a DIFFERENT, smaller element than ` +
+          `the part — a row where they are equal buys nothing the existing chain did not.`);
+      }
+    }
+    if (!m.handles.length) {
+      errors.push(`${m.name}: \`handles\` is present but empty. Omit the block instead — an empty one reads as "declared, none found".`);
+    }
+  }
+}
+
+/**
+ * THE MARK IDENTITY LEDGER — `data-label` / `data-value`, which nothing enforced.
+ *
+ * The Guide's mark tier (#2244) matches a spoken sentence against a mark's own declared identity:
+ * a funnel band says `data-label="Visitors" data-value="12,000"`, the cue says "Visitors: twelve
+ * thousand", and `toSpokenText` joins them. That took `funnel` from 15.8% of its cues resolving
+ * to 89.1%.
+ *
+ * It rests entirely on a CONVENTION. Twelve component transforms emit the attributes, a handful of
+ * per-component unit tests assert them, and nothing cross-cutting checks that the set holds — so
+ * a transform that drops `data-label` in a refactor degrades every gesture on that chart and no
+ * test goes red. A silent degradation is the failure mode this repo spends its gates on.
+ *
+ * The ledger is a CENSUS rather than a rule, because there is no rule to write: whether a chart's
+ * marks can carry a label is a property of the chart, not something a gate can derive. So the set
+ * is pinned, and it fails three ways — a listed file that stopped writing the attribute, a file
+ * that started writing one without being listed, and a listed file that no longer exists. The
+ * third is what keeps the list from rotting into decoration.
+ *
+ * WHAT IT CANNOT SEE, stated so the coverage claim is not read wider than it is. `writesMarkIdentity`
+ * knows two spellings — the attribute inside a string literal, and `dataset.label` — so a transform
+ * that builds the attribute name by concatenation, or stamps it through a helper that takes the key
+ * as an argument, is invisible to it. It is also a per-FILE census: it cannot say the attribute
+ * lands on a mark rather than on furniture. The render-side half of that question is
+ * `checkChartMarks` and the per-component tests, not this.
+ */
+const SANCTIONED_MARK_IDENTITY = [
+  // path under lib/, does it write data-label, does it write data-value.
+  //
+  // DERIVED FROM WHAT THE CODE WRITES, not from what it mentions. The first cut of this list was
+  // built with a raw substring search and carried three rows that were COMMENTS —
+  // `_chart-family/label-drops.js`, `_chart-family/svg-label.js` and `word-cloud.transform.js`
+  // each merely name `data-label` in prose. Two more named a DIFFERENT attribute whose name starts
+  // the same way — `_chart-family/chart-family.js` writes `data-label-drops`, `journey.transform.js`
+  // writes `data-label-len`. All five are out; `writesMarkIdentity` strips comments and bounds the
+  // attribute name, so none can come back. Thirteen files write a mark identity, not eighteen.
+  ['components/chart/bar/bar.transform.js', true, true],
+  ['components/chart/bullet/bullet.transform.js', true, true],
+  ['components/chart/funnel/funnel.transform.js', true, true],
+  ['components/chart/gantt/gantt.transform.js', true, true],
+  ['components/chart/heatmap/heatmap.transform.js', true, true],
+  ['components/chart/map/map.transform.js', true, true],
+  ['components/chart/quadrant/quadrant.transform.js', true, false],
+  ['components/chart/scatter/scatter.transform.js', true, false],
+  ['components/chart/slope/slope.transform.js', true, true],
+  ['components/chart/stacked-bar/stacked-bar.transform.js', true, true],
+  ['components/chart/state-chart/state-chart.transform.js', true, true],
+  ['components/chart/waterfall/waterfall.transform.js', true, true],
+  // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
+  // than authoring them, so it is listed to keep the census total honest, not as an emitter.
+  ['export/anima-player-bundle.generated.mjs', false, true],
+];
+
+/**
+ * Does this source actually WRITE the attribute, as opposed to mentioning it?
+ *
+ * A raw `src.includes('data-label')` was the first cut and it fired on a COMMENT — a docblock
+ * under lib/ that merely names the attribute reddened `build:check` with a message that was
+ * factually false, and a gate that cries wolf is one somebody switches off. So this strips
+ * comments the way `writesClass` does, and looks in the two places the attribute can be written:
+ * a string literal (`data-label="…"`, the markup path every transform takes) and the DOM property
+ * form (`dataset.label`), which the substring test missed entirely.
+ */
+function writesMarkIdentity(src, key) {
+  // COMMENTS STRIPPED, THEN A PLAIN SEARCH OF THE CODE — deliberately not `writesClass`'s
+  // literal-scoped match. A transform writes the attribute inside a NESTED template
+  // (bar.transform.js:576 puts `data-value` in a `${…}` arm of an outer template), and a regex
+  // that pairs backticks cannot see inside one, so literal-scoping reported four real emitters as
+  // silent. Stripping comments removes the false positive that mattered — a docblock that merely
+  // NAMES the attribute reddening the build — and nothing else here needs the narrower match.
+  const code = src.replace(COMMENTS, ' ');
+  // BOUNDED, because `data-label` is a PREFIX of `data-label-drops` — a different attribute that
+  // label-drops.js really does write, and an unbounded search would book it as a mark identity.
+  if (new RegExp(`data-${key}(?![-\\w])`).test(code)) return true;
+  // The DOM-property spelling, which a substring search for the attribute never sees.
+  return new RegExp(`\\bdataset\\s*\\.\\s*${key}\\b|\\bdataset\\s*\\[\\s*['"\`]${key}['"\`]`).test(code);
+}
+
+function checkMarkIdentity(errors) {
+  const listed = new Map(SANCTIONED_MARK_IDENTITY.map(([rel, label, value]) => [rel, { label, value }]));
+  const seen = new Set();
+  for (const abs of libSources()) {
+    const rel = path.relative(path.join(ROOT, 'lib'), abs).split(path.sep).join('/');
+    const src = fs.readFileSync(abs, 'utf8');
+    const writes = { label: writesMarkIdentity(src, 'label'), value: writesMarkIdentity(src, 'value') };
+    if (!writes.label && !writes.value) continue;
+    seen.add(rel);
+    const row = listed.get(rel);
+    if (!row) {
+      errors.push(
+        `lib/${rel}: writes ${[writes.label && '`data-label`', writes.value && '`data-value`'].filter(Boolean).join(' / ')} ` +
+        `but is not in SANCTIONED_MARK_IDENTITY (tools/check-ownership.js). The Guide's mark tier ` +
+        `matches a spoken sentence against those attributes, so the set of files that write them ` +
+        `is a contract, not an implementation detail — add the row with what it emits.`);
+      continue;
+    }
+    for (const key of ['label', 'value']) {
+      if (row[key] && !writes[key]) {
+        errors.push(
+          `lib/${rel}: SANCTIONED_MARK_IDENTITY says it writes \`data-${key}\` and it no longer ` +
+          `does. That is not a cleanup: the Guide points at a chart mark by reading that ` +
+          `attribute, so dropping it makes every cue on this chart hide, silently. Restore it, ` +
+          `or change the row and say in the PR what now carries the mark's identity.`);
+      }
+      if (!row[key] && writes[key]) {
+        errors.push(
+          `lib/${rel}: writes \`data-${key}\` but its SANCTIONED_MARK_IDENTITY row says it does ` +
+          `not. Update the row — the census is what makes a later removal visible.`);
+      }
+    }
+  }
+  for (const rel of listed.keys()) {
+    if (seen.has(rel)) continue;
+    errors.push(
+      `SANCTIONED_MARK_IDENTITY lists lib/${rel}, which writes neither \`data-label\` nor ` +
+      `\`data-value\` (or no longer exists). A stale entry is a gate certifying something that ` +
+      `is not there — drop the row.`);
+  }
+}
+
 // Every chart declares HOW its visual travels off the slide.
 //
 // This is the arm that turns the whole class of silent roster omissions into a build
@@ -11809,6 +11982,8 @@ function run() {
   checkRenderNature(manifests, errors);
   checkChartKernels(manifests, errors);
   checkChartMarks(manifests, errors);
+  checkGuideHandles(manifests, errors);
+  checkMarkIdentity(errors);
   checkProjectionCoverage(manifests, errors);
   checkDensityCoverage(manifests, errors);
   checkDiagramScopeSelectors(errors);
@@ -11959,6 +12134,9 @@ module.exports = {
   checkRenderNature,
   checkChartKernels,
   checkChartMarks,
+  checkGuideHandles,
+  checkMarkIdentity,
+  SANCTIONED_MARK_IDENTITY,
   RENDER_NATURES,
   RENDER_BUCKETS,
   RENDER_NOTE_MIN,

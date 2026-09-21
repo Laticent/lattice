@@ -33,6 +33,13 @@
     "hard": 18,
     "note": "a few words per cell"
   },
+  "handles": [
+    {
+      "part": "tbody > tr",
+      "names": ":scope > td:first-child, :scope > th:first-child",
+      "note": "The projection reads a row as `<label>: <cell>; <cell>.`, which no single element on the slide holds — so the cue hid. The row's first cell is the label it opens with. Scoped with `:scope >` because a row holding a nested table would otherwise hand back the inner table's first cell, and the handle would be drawn around the whole nested table."
+    }
+  ],
   "split": {
     "strategy": "cover-cards",
     "axis": "row",

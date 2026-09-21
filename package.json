@@ -131,6 +131,8 @@
     "projection-catalog:check": "node tools/build-projection-catalog.js --check",
     "axis-dom-catalog:build": "node tools/build-axis-dom-catalog.js",
     "axis-dom-catalog:check": "node tools/build-axis-dom-catalog.js --check",
+    "guide-handles:build": "node tools/build-guide-handles.js",
+    "guide-handles:check": "node tools/build-guide-handles.js --check",
     "stage-catalog:build": "node tools/build-stage-catalog.js",
     "stage-catalog:check": "node tools/build-stage-catalog.js --check",
     "theme-catalog:build": "node tools/build-theme-catalog.js",

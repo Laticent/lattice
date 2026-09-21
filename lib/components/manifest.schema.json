@@ -920,6 +920,37 @@
         }
       }
     },
+    "handles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "The RENDERED parts a narrated sentence can name, and the token that names each \u2014 the manifest half of the Guide handle contract (engineering/decisions/2026-09-21-manifest-handles.md). Declare a row ONLY when the component renders a repeated composite part whose naming token is a DIFFERENT element from the part itself: team-profile's `.person` is a photo plus three spans, so `headerRange`'s \"everything before the first nested block\" finds no block and hands back the whole card. This is NOT `slots`: `slots` describes the MARKDOWN an author writes, and 25% of slot \u00d7 component pairs never match the rendered DOM. Every selector here is checked against what lib/ actually writes, so a renamed class fails the build rather than rotting.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "part",
+          "names"
+        ],
+        "properties": {
+          "part": {
+            "type": "string",
+            "minLength": 1,
+            "description": "CSS selector for the repeated part, scoped WITHIN the component's own section (the catalog prefixes `section.<name> `). The element a cue resolves to \u2014 a card, a node, a row."
+          },
+          "names": {
+            "type": "string",
+            "minLength": 1,
+            "description": "CSS selector, scoped within `part`, for the token that NAMES it \u2014 the smallest visual thing that stands for the part. Two consumers: the ink goes on it instead of the whole part, and its text is the identity a spoken sentence is matched against."
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One line on why this part needs a declaration \u2014 what the Guide's heuristics find instead when it is absent."
+          }
+        }
+      }
+    },
     "families": {
       "type": "array",
       "uniqueItems": true,

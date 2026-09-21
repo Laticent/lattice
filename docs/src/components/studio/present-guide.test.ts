@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	aimTarget,
+	anchorFor,
 	type Box,
 	chooseGesture,
 	cueDisplayText,
 	findCueTarget,
+	findNamedTarget,
 	findSpanningTarget,
 	type GuideShape,
 	guideAimFor,
@@ -1362,5 +1364,194 @@ describe('chooseGesture — a mark is geometry, not words', () => {
 
 	it('text still classifies by its own measurements', () => {
 		expect(chooseGesture(shape({ box: { left: 0, top: 0, width: 900, height: 30 } }))).toBe('underline');
+	});
+});
+
+describe('findNamedTarget — a cue the projection composed out of a part’s own spans', () => {
+	// The real roster, as `team-profile.transform.js` emits it. Nothing here is a BLOCK, so
+	// `headerRange` finds no cut and `findCueTargetIn` has nothing in `BLOCK_SELECTOR` to search;
+	// and the sentence is composed across three spans, so no element holds it. Measured on the
+	// component's own gallery: 47 of 86 cues resolved to nothing at all.
+	const ROSTER = (cls = 'team-profile') => `<section class="lattice ${cls}"><ul class="team-roster">
+		<li class="person"><span class="person-figure"></span><span class="person-text">
+			<span class="person-name">Ada Okafor</span><span class="person-role">Executive Sponsor</span><span class="person-note">Clears blockers above the program.</span>
+		</span></li>
+		<li class="person"><span class="person-figure"></span><span class="person-text">
+			<span class="person-name">Marcus Vale</span><span class="person-role">Program Director</span><span class="person-note">Runs the weekly cadence.</span>
+		</span></li>
+	</ul></section>`;
+	const roster = (cls?: string): Document => new DOMParser().parseFromString(`<html><body>${ROSTER(cls)}</body></html>`, 'text/html');
+
+	it('names the person a composed sentence is about', () => {
+		const el = findCueTarget(roster(), 'Marcus Vale, Program Director: Runs the weekly cadence.');
+		expect(el?.querySelector('.person-name')?.textContent).toBe('Marcus Vale');
+	});
+
+	it('tells the people apart', () => {
+		// Asserted against `findNamedTarget`, not `findCueTarget`: mutation-testing showed this test
+		// survives the tier being replaced with `return null`, because `findSpanningTarget`'s partial
+		// branch hands back the same `li.person` (share 0.55 clears LONGEST_SHARE). A test that passes
+		// with the feature removed is pinning the other tier.
+		const d = roster();
+		expect(findNamedTarget(d, 'Ada Okafor, Executive Sponsor: Clears blockers above the program.')?.querySelector('.person-name')?.textContent).toBe('Ada Okafor');
+	});
+
+	it('refuses a name that merely RECURS in the sentence', () => {
+		// The lead rule, isolated. A sentence about the team is not a sentence about one person,
+		// and this tier has no value to corroborate with — the lead is the whole defense.
+		expect(findCueTarget(roster(), 'The program is sponsored by Ada Okafor.')).toBeNull();
+	});
+
+	it('refuses a name that is only a character prefix of the first word', () => {
+		// `data-label="AI"` leading "Airlines were the worst performer." is the mark tier's
+		// measured version of this. Whole words, or a person called `Al` leads "Already shipped."
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice team-profile"><ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Al</span></span></li></ul></section></body></html>`,
+			'text/html',
+		);
+		expect(findCueTarget(d, 'Already shipped, and ahead of plan.')).toBeNull();
+	});
+
+	it('hides rather than guesses when two parts carry the same name', () => {
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice team-profile"><ul class="team-roster">
+				<li class="person"><span class="person-text"><span class="person-name">Ada Okafor</span></span></li>
+				<li class="person"><span class="person-text"><span class="person-name">Ada Okafor</span></span></li>
+			</ul></section></body></html>`,
+			'text/html',
+		);
+		expect(findCueTarget(d, 'Ada Okafor, Executive Sponsor: Clears blockers.')).toBeNull();
+	});
+
+	it('is SCOPED to the component that declared it', () => {
+		// The catalog prefixes every part with `section.<name> `, so one component's anatomy can
+		// never answer for another's. Without the prefix a `.person` in some other layout would
+		// be matched by team-profile's row.
+		expect(findNamedTarget(roster('cards-grid'), 'Marcus Vale, Program Director: Runs the weekly cadence.')).toBeNull();
+	});
+
+	it('runs LAST — a cue a real block holds still resolves to the block', () => {
+		// The pure-addition property, pinned. A `<p>` holding the whole sentence is in
+		// `BLOCK_SELECTOR`, so the block matcher answers first and this tier never sees the cue.
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice team-profile"><p>Marcus Vale, Program Director: Runs the weekly cadence.</p><ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">Marcus Vale</span></span></li></ul></section></body></html>`,
+			'text/html',
+		);
+		expect(findCueTarget(d, 'Marcus Vale, Program Director: Runs the weekly cadence.')?.tagName).toBe('P');
+	});
+
+	// THE SECOND SHAPE THE CATALOG DECLARES, and the class name is load-bearing. This test read
+	// `class="lattice compare-table"` until an independent check caught it: `compare-table` was
+	// renamed to `table` by this branch's own BASE commit, so no catalog row matched the section
+	// and `findSpanningTarget` was quietly answering instead. Both assertions passed either way,
+	// which is why it is asserted against `findNamedTarget` directly below — this shape produces
+	// 6 of the 13 catalog rows and the two largest measured wins, and it had no real coverage.
+	const TABLE = (cls: string): Document =>
+		new DOMParser().parseFromString(
+			`<html><body><section class="lattice ${cls}"><table><tbody>
+				<tr><td>A label</td><td>One cell per column</td><td>Twelve words</td></tr>
+				<tr><td>Every row</td><td>The same column set</td><td>Twelve words</td></tr>
+			</tbody></table></section></body></html>`,
+			'text/html',
+		);
+
+	it('answers a TABLE ROW by the cell that labels it', () => {
+		const el = findNamedTarget(TABLE('table'), 'A label: One cell per column; Twelve words.');
+		expect(el?.tagName).toBe('TR');
+		expect(el?.querySelector('td')?.textContent).toBe('A label');
+	});
+
+	it('is the tier that answers it — not the piecewise matcher wearing its clothes', () => {
+		// The regression the rename caused, pinned. A section no catalog row names must get NOTHING
+		// from this tier, however well some other tier would cope.
+		expect(findNamedTarget(TABLE('cards-grid'), 'A label: One cell per column; Twelve words.')).toBeNull();
+	});
+
+	it('will not take a name from a NESTED table', () => {
+		// `td:first-child` matches the outer row's first cell, whose textContent swallows an inner
+		// table — so an unscoped selector handed back the whole nested table as the "name", and the
+		// handle would be drawn around it. `:scope >` is what the manifests declare, and this is why.
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice table"><table><tbody>
+				<tr><td><table><tbody><tr><td>Inner label</td><td>inner cell</td></tr></tbody></table></td><td>outer</td></tr>
+			</tbody></table></section></body></html>`,
+			'text/html',
+		);
+		const el = findNamedTarget(d, 'Inner label: inner cell.');
+		// The INNER row may legitimately answer for its own text; the OUTER row must not.
+		expect(el === null || el.closest('table') !== d.querySelector('section > table')).toBe(true);
+	});
+
+	it('refuses a one-character name outright', () => {
+		// The `length < 2` floor, which had no test: the `Al` case above is killed by `leadsWord`,
+		// so removing the floor left all 132 tests green.
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice team-profile"><ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name">A</span></span></li></ul></section></body></html>`,
+			'text/html',
+		);
+		expect(findNamedTarget(d, 'A label that starts with one letter.')).toBeNull();
+	});
+});
+
+describe('anchorFor — a declared part beats the header heuristic, and loses to a real marker', () => {
+	// `anchorFor` only accepts a handle it can MEASURE, and jsdom has no layout, so every range
+	// reports no client rects and every role falls through to `body`. The stub keyed on the
+	// range's own text is this file's existing answer to that (see `guideCueFor, with line
+	// boxes`): a rect is served for the text the test means and for nothing else, so a handle
+	// that resolved to the wrong token still reports no geometry and still fails.
+	let original: typeof Range.prototype.getClientRects;
+	const MEASURED = new Set(['Ada Okafor', 'Executive Sponsor']);
+	beforeEach(() => {
+		original = Range.prototype.getClientRects;
+		Range.prototype.getClientRects = function () {
+			if (!MEASURED.has(this.toString().trim())) return [] as unknown as DOMRectList;
+			return [{ x: 0, y: 0, left: 0, top: 0, width: 120, height: 18, right: 120, bottom: 18, toJSON: () => ({}) }] as unknown as DOMRectList;
+		};
+	});
+	afterEach(() => {
+		Range.prototype.getClientRects = original;
+	});
+
+	const person = (): Element => {
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice team-profile"><ul class="team-roster"><li class="person"><span class="person-figure"></span><span class="person-text"><span class="person-name">Ada Okafor</span><span class="person-role">Executive Sponsor</span></span></li></ul></section></body></html>`,
+			'text/html',
+		);
+		return d.querySelector('.person') as Element;
+	};
+
+	it('puts the ink on the declared token instead of the whole card', () => {
+		// The reported defect: no nested block inside the card, so `headerRange` returns null and
+		// the handle used to be the element's own words — a box drawn around a card that already
+		// has a border.
+		const el = person();
+		expect(headerRange(el)).toBeNull();
+		const a = anchorFor(el, null, 1);
+		expect(a.role).toBe('part');
+		expect(a.range?.toString().trim()).toBe('Ada Okafor');
+	});
+
+	it('still yields to a PHRASE — the cue’s own words win when only part of the card is read', () => {
+		const el = person();
+		const sentence = sentenceRange(el, 'Executive Sponsor');
+		expect(anchorFor(el, sentence, 0.3).role).toBe('phrase');
+	});
+
+	it('leaves an undeclared element alone', () => {
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice cards-grid"><ul><li class="person"><span class="person-text"><span class="person-name">Ada Okafor</span></span></li></ul></section></body></html>`,
+			'text/html',
+		);
+		expect(anchorFor(d.querySelector('.person') as Element, null, 1).role).not.toBe('part');
+	});
+
+	it('falls through when the declared token renders empty', () => {
+		// A declaration that resolves to nothing is not a handle. The next rule down is the one
+		// that would have run anyway, rather than a zero-width range nobody can draw on.
+		const d = new DOMParser().parseFromString(
+			`<html><body><section class="lattice team-profile"><ul class="team-roster"><li class="person"><span class="person-text"><span class="person-name"></span><span class="person-role">Executive Sponsor</span></span></li></ul></section></body></html>`,
+			'text/html',
+		);
+		expect(anchorFor(d.querySelector('.person') as Element, null, 1).role).not.toBe('part');
 	});
 });

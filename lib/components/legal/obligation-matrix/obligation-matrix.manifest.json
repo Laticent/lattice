@@ -195,5 +195,12 @@
     "perPage": 1,
     "intro": "Regime by regime",
     "note": "table's reader, for table's reason: a wide read-across grid cannot paginate out of HORIZONTAL overflow, so it RESHAPES -- each regime row becomes a card whose column headers become in-card labels. Landscape renders the native grid untouched. A ROW SLICE WAS TRIED FIRST AND MEASURED: `cover-paginate` with a `row` axis repeats the <thead> per page and keeps every state mark, which looked like the better answer -- and it took the gallery from 9 bad pages to 43, because slicing rows does not narrow six columns. That is the emulator's own rule (a vertical paginator never fixes a wide table) seen from the wrong end. Enrolled 2026-09-13 (owner's call) after measuring 9 of 10 gallery pages bad at portrait. NO `capacity` BLOCK: `cover-cards` reads `split.perPage`, and declaring an authoring band here is a separate decision about what authors are TOLD. The first cut invented 4/5/6 and the gallery contract caught it immediately -- the component's own sample and stress doc both hold SIX regimes, which its stress summary calls \"the grid ceiling\", so any band that admits the sample also admits the ceiling and says nothing. Same conclusion as `code`."
-  }
+  },
+  "handles": [
+    {
+      "part": "tbody > tr",
+      "names": ":scope > td:first-child, :scope > th:first-child",
+      "note": "The projection reads a row as `<label>: <cell>; <cell>.`, which no single element on the slide holds — so the cue hid. The row's first cell is the label it opens with. Scoped with `:scope >` because a row holding a nested table would otherwise hand back the inner table's first cell, and the handle would be drawn around the whole nested table."
+    }
+  ]
 }

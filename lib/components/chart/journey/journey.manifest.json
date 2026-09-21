@@ -237,5 +237,32 @@
       "useWhen": "Traffic volume through each step matters as much as mood — chip width encodes the `+N` volume token."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "handles": [
+      {
+        "part": ".journey-actor",
+        "names": ".journey-actor-name",
+        "note": "An actor chip is a colored dot plus a name span, so there is no nested block to cut a header from and the whole chip becomes the handle. HANDLE ONLY: the legend and the lane headers carry the SAME actor names, so neither can ever win the name-led matcher — the two tie on length and the ambiguity rule refuses both. Measured: all 9 of journey's new resolutions come from `.journey-vstage`; this row's work is moving already-resolved cues off the container."
+      },
+      {
+        "part": ".journey-task",
+        "names": ".journey-task-label",
+        "note": "A task cell is its actor initials plus a label span. HANDLE ONLY in practice: `narrateJourneyMood` emits `<stage>: <task>, <actor>, <mood>`, so a real cue opens with the STAGE, never the task label — the matcher fires on a task-led sentence but the projection does not write one."
+      },
+      {
+        "part": ".journey-stage",
+        "names": ".journey-stage-name",
+        "note": "The LANDSCAPE board's stage, and the counterpart to `.journey-vstage`. Found by presenting a landscape deck: `narrateJourneyMood` opens each cue with the stage name, so this is the row that places them — the portrait row alone left every landscape stage cue hiding."
+      },
+      {
+        "part": ".journey-vstage",
+        "names": ".journey-vstage-name",
+        "note": "The portrait board's stage: a name span above a row list, so the cue that opens with the stage name had nothing to land on."
+      },
+      {
+        "part": ".journey-lane",
+        "names": ".journey-lane-label",
+        "note": "A lane header is a label span beside its span count. HANDLE ONLY, and for the same measured reason as `.journey-actor`: its text is the actor name the legend also carries, so the two tie and the name-led matcher refuses both. It earns its place by moving the ink off the whole lane header, not by placing a cue."
+      }
+    ]
 }

@@ -79,6 +79,10 @@ const EXPECTED_PR_OWNED = new Set([
   'build-stage-catalog.js', // lib/forms/cell/masthead
   'build-theme-catalog.js', // lib/theme/edges.generated.mjs AND the palette catalog
   'build-axis-dom-catalog.js', // lib/runtime
+  // Measured 2026-09-21 against a timestamped tree: its whole write set is
+  // docs/src/components/studio/guide-handles.generated.ts, which git tracks — the Guide
+  // imports it as an ordinary module, so a missing file is a docs build error.
+  'build-guide-handles.js', // docs/src/components/studio
   'build-chart-registry.js', // lib/components/chart/_chart-family/chart-registry.generated.js
   'build-projection-catalog.js', // lib/core/projection-catalog.generated.mjs
   'build-snippets.js', // .vscode
