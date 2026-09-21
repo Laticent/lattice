@@ -304,6 +304,19 @@ describe('--read — the deck as prose, and nothing else moves', () => {
       const deckKey = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), path.join(dir6, 'fm.md'), path.join(dir6, 'fm.html'), 'indaco', '--read'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
       assert.equal(deckKey.status, 0, deckKey.stderr);
       assert.match(fs.readFileSync(path.join(dir6, 'fm.html'), 'utf8'), /id="lat-read"/, "a deck's fluid: must not override an explicit --read");
+      // Pin the MESSAGE too, not just the winner. "Say which one won" is half of what this
+      // change is for, and without this the warning could be reworded or deleted and the arm
+      // would stay green.
+      assert.match(`${deckKey.stdout}${deckKey.stderr}`, /--read was asked for explicitly/, 'the winning flag must say why it won');
+
+      // (c) BOTH FROM THE DECK, no flags at all — fluid still wins, and the warning must name
+      // the KEYS rather than flags the operator never typed.
+      fs.writeFileSync(path.join(dir6, 'both.md'), DECK_SOURCE.replace('theme: indaco', 'theme: indaco\nfluid: true\nread: true'));
+      const bothKeys = spawnSync('node', [path.join(ROOT, 'lattice-emulator.js'), path.join(dir6, 'both.md'), path.join(dir6, 'bothkeys.html'), 'indaco'], { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
+      assert.equal(bothKeys.status, 0, bothKeys.stderr);
+      const said = `${bothKeys.stdout}${bothKeys.stderr}`;
+      assert.match(said, /this deck sets both `fluid: true` and `read: true`/, 'name the keys, not flags that were never typed');
+      assert.doesNotMatch(said, /--fluid and --read both set/, 'an author greps their invocation for a flag that is not there');
     } finally {
       fs.rmSync(dir6, { recursive: true, force: true });
     }
@@ -326,6 +339,21 @@ describe('--read — the deck as prose, and nothing else moves', () => {
         doc.documentElement.getAttribute('style') || '', /color-scheme:\s*dark/,
         "a dark deck's reading article must carry the scheme, or every light-dark() token resolves light",
       );
+      // `system` DEFERS to the reader's OS, which is exactly what `.color-system` sets on the
+      // section. It was missing from the first cut and is not an "unknown value" — it is a
+      // first-class shipped register, and without it a `color-mode: system` deck read light in
+      // the article while the player read dark on a dark-mode machine, which is the divergence
+      // this whole arm exists to close.
+      const dir7s = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-mode-system-'));
+      try {
+        fs.writeFileSync(path.join(dir7s, 'deck.md'), DECK_SOURCE.replace('theme: indaco', 'theme: indaco\ncolor-mode: system'));
+        const sys = render(dir7s, path.join(dir7s, 'read.html'), ['--read']);
+        const sdoc = new JSDOM(fs.readFileSync(sys, 'utf8')).window.document;
+        assert.match(sdoc.documentElement.getAttribute('style') || '', /color-scheme:\s*light dark/, 'system defers the side to the reader');
+      } finally {
+        fs.rmSync(dir7s, { recursive: true, force: true });
+      }
+
       // `print` is a CANVAS treatment, not a scheme, and `color-scheme` has no print branch.
       // A handout is a light canvas, so it maps to light — written explicitly rather than
       // left to the default, so an undeclared print deck cannot start reading dark if the

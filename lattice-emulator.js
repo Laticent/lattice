@@ -226,6 +226,13 @@ OPTIONS
                           The PDF/PPTX/PNG bytes are unchanged (this runs after the
                           raster, like --fluid). --player wins if both are set, since
                           it already carries a Read Article view and switches to it.
+                          Against --fluid the rule is direction-dependent: an explicit
+                          flag beats a front-matter key, so --read wins over a deck's
+                          'fluid: true' and --fluid wins over a deck's 'read: true';
+                          with both as flags, or both as keys, --fluid wins. Whichever
+                          loses is named on stderr rather than dropped silently.
+                          The article follows the deck's 'color-mode:' — 'print' reads
+                          as a light canvas and 'system' defers to the reader's OS.
                           Can also be enabled with a 'read: true' front-matter key.
       --present           Mark the PDF to open directly in full-screen
                           presentation mode (Adobe Acrobat/Reader and most desktop
@@ -2058,10 +2065,17 @@ if (PLAYER && READ_VIEW) {
 // already had; either way it is now said out loud.
 const FLUID_BEATS_READ = !(READ_VIEW_FLAG && !flags.fluid);
 if (FLUID_VIEW && READ_VIEW && !PLAYER) {
+  // NAME WHAT THE OPERATOR ACTUALLY TYPED. A deck can set both `fluid:` and `read:` in front
+  // matter and be rendered with no flags at all; saying "--fluid and --read both set" then
+  // sends the author grepping an invocation that carries neither, with no pointer to the two
+  // keys that really caused it.
+  const bothFromDeck = !flags.fluid && !READ_VIEW_FLAG;
   console.warn(
-    FLUID_BEATS_READ
-      ? '  ⚠ --fluid and --read both set — using the fluid viewer, which shows the slides; the reading article is NOT in this file.'
-      : '  ⚠ --read was asked for explicitly and this deck sets `fluid: true` — using the reading article, and the fluid viewer is NOT in this file.',
+    !FLUID_BEATS_READ
+      ? '  ⚠ --read was asked for explicitly and this deck sets `fluid: true` — using the reading article, and the fluid viewer is NOT in this file.'
+      : bothFromDeck
+        ? '  ⚠ this deck sets both `fluid: true` and `read: true` — using the fluid viewer, which shows the slides; the reading article is NOT in this file.'
+        : '  ⚠ --fluid and --read both set — using the fluid viewer, which shows the slides; the reading article is NOT in this file.',
   );
 }
 const PLAYER_VERSION = '1';
@@ -3680,7 +3694,16 @@ async function renderBody(browser, g, closeBrowser) {
   // problem 6 argues against for export-to-Marp — a trim running in the recipient's
   // browser, at their window size, with no author present. `--fluid` is that opt-in,
   // deliberately (2026-09-07-overflow-guards-trim.md, open problem 10).
-  const TRIM_REACHES_DELIVERABLE = !(OUT_FORMAT === 'html' && !FLUID_VIEW && !PLAYER);
+  // `FLUID_VIEW && FLUID_BEATS_READ`, not `FLUID_VIEW` — the question is which arm of the
+  // write chain actually WINS, and an explicit `--read` now beats a deck's `fluid: true`.
+  // Keying on `FLUID_VIEW` alone made a `fluid: true` + `--read` deck claim its trim reached
+  // the deliverable: the deliverable is the reading article, projected from a Node-side
+  // string built before the page rendered, so the trim reaches nothing. Measured on a
+  // `guards: strict` deck — the console printed "✂ TRIMMED … pages 1" naming a cut present in
+  // no artifact (the extracted prose is character-identical either way) AND suppressed the
+  // honest "NOT APPLIED" line. That is the exact failure this constant was introduced to end.
+  const FLUID_WINS = FLUID_VIEW && FLUID_BEATS_READ;
+  const TRIM_REACHES_DELIVERABLE = !(OUT_FORMAT === 'html' && !FLUID_WINS && !PLAYER);
   const trimmed = TRIM_REACHES_DELIVERABLE
     ? await applyGuardsTrim()
     : { slides: 0, pages: [], reverted: [], detail: [] };
@@ -3709,7 +3732,7 @@ async function renderBody(browser, g, closeBrowser) {
     // one export contradicting each other is the defect class engineering/gotchas/overflow.md
     // already catalogues for the marker; it is named here rather than fixed, because
     // re-serializing the export HTML from the live DOM is an owner call under the Quality Bar.
-    if (OUT_FORMAT !== 'html' && !FLUID_VIEW && !PLAYER) {
+    if (OUT_FORMAT !== 'html' && !FLUID_WINS && !PLAYER) {
       console.warn(`    The .html sidecar does NOT carry the trim \u2014 it is written before the page renders, so page${trimmed.slides > 1 ? 's' : ''} ${pages} clip${trimmed.slides > 1 ? '' : 's'} there. --fluid or --player make it agree.`);
     }
   }
@@ -4797,6 +4820,8 @@ async function renderBody(browser, g, closeBrowser) {
     //
     // The scheme is `readFrontMatterColorMode` rather than the palette-derived one: this is the
     // DECK's declared intent, which is what the slide sections carry and what the player honors.
+    // See the mapping at the call — `print` resolves to a light canvas, `system` defers to the
+    // reader's OS, and anything unrecognized falls through to the document's default.
     const articleDoc = await buildReadingArticleDocument(
       inflatedDocHtml || cleanDocHtml,
       (readFrontMatterColorMode(md) || '').trim().toLowerCase()
@@ -5619,19 +5644,33 @@ async function buildReadingArticleDocument(docHtml, deckScheme) {
     // for that deck. It goes on the ROOT rather than the article so the page's own
     // background follows; an article on a white page in a dark deck is the same defect
     // one element smaller.
-    // PRINT MAPS TO LIGHT, and the mapping is a decision rather than a fallback. `print` is a
-    // CANVAS treatment — B&W-safe ink for paper — and `color-scheme` takes only
-    // `light`/`dark`/`normal`, so there is no print branch to resolve to. A handout is a light
-    // canvas, so `light` is the honest reading of the deck's intent. Today it is also a no-op:
-    // an unset `color-scheme` is `normal`, under which `light-dark()` already resolves light.
-    // It is written anyway so the intent is in the document rather than in the absence of a
-    // declaration — if the shell ever adopts `color-scheme: light dark`, an undeclared print
-    // deck would silently start reading dark on a dark-mode machine, which is the one thing a
-    // B&W handout must not do.
-    const scheme = deckScheme === 'print' ? 'light' : deckScheme;
-    if (scheme === 'dark' || scheme === 'light') {
-      doc.documentElement.style.setProperty('color-scheme', scheme);
-    }
+    // THE WHOLE REGISTER, not just the two obvious rows. `color-mode:` has five values and
+    // each already has a defined `color-scheme` on the SLIDE SECTION (`lib/base/base.modifiers.css`
+    // § the color registers); `--read` deletes the sections, so this is where they have to be
+    // re-stated for the article.
+    //
+    //   dark / light  — as declared.
+    //   print         — a CANVAS treatment, B&W-safe ink for paper, and `color-scheme` has no
+    //                   print branch. A handout is a light canvas, so it resolves to `light`.
+    //                   This is NOT a no-op, and an earlier draft of this comment claimed it
+    //                   was: 14 shipped themes set `:root { color-scheme: dark }`, and an
+    //                   inline declaration on `<html>` beats that. Measured on
+    //                   `ardesia-dark` + `color-mode: print`: body rgb(15,15,15) → rgb(250,250,249),
+    //                   ink rgb(200,200,197) → rgb(42,42,42) — which is what the player's
+    //                   Read · Article already showed for that deck, so it closes a divergence.
+    //   system        — `light dark`, exactly what `.color-system` sets, so the RECEIVER's OS
+    //                   decides. Left out of the first cut and it was not an "unknown value":
+    //                   it is a first-class shipped register, and without it a `color-mode: system`
+    //                   deck read light in the article while the player read dark on a
+    //                   dark-mode machine — the very divergence this change exists to close.
+    //   inherited     — deliberately absent. `.color-inherited` is `color-scheme: inherit`, and
+    //                   with the sections gone there is nothing between the article and the
+    //                   theme's own `:root` to inherit FROM. Leaving the root alone inherits the
+    //                   theme, which is what the register asks for; writing `inherit` on the
+    //                   root would be a no-op at best.
+    const SCHEME_BY_COLOR_MODE = { dark: 'dark', light: 'light', print: 'light', system: 'light dark' };
+    const scheme = SCHEME_BY_COLOR_MODE[deckScheme];
+    if (scheme) doc.documentElement.style.setProperty('color-scheme', scheme);
 
     const style = doc.createElement('style');
     // textContent, never innerHTML: a closing style tag inside the sheet would otherwise
