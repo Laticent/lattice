@@ -12,12 +12,14 @@ This file is an **index, not a manual**: it orients you and points to the
 canonical doc for each topic. Each rule is one line + a pointer; the rationale
 lives in the pointed-to doc. **Read that doc before non-trivial work in its
 area — don't work from memory of it.**
-**Six of them are too big to open whole** — `workflow.md` (29.5k tokens), `mermaid.md`
-(19.8k), `design/forms.md` (17.7k), `development.md` (17.5k), `jank.md` (16.3k),
-`design/design-system.md` (14.9k). For those, open the SECTION, not the file:
-`grep -n '^## ' <doc>` then `sed -n 'A,Bp' <doc>`. A pre-merge card needs 1.2k of
-`workflow.md`, not 29.5k of it — and every token read stays in context, billed, for
-the rest of the session (`engineering/development.md` §Context cost).
+**Six of them are too big to open whole** — `workflow.md`, `mermaid.md`,
+`design/forms.md`, `development.md`, `jank.md`, `design/design-system.md`, each between
+15k and 30k tokens. For those, open the SECTION, not the file: `grep -n '^## ' <doc>`
+then `sed -n 'A,Bp' <doc>`. A pre-merge card needs about 1.2k of `workflow.md` rather
+than all 29.5k, and every token you read stays in context, billed, for the rest of the
+session. Sizes deliberately not listed per doc — six numbers here would rot with nothing
+to catch them, and this file's own edit already staled one. Measure when you need it;
+`engineering/development.md` §Context cost has the method and the table.
 
 ---
 
