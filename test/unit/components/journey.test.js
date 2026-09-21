@@ -385,3 +385,99 @@ describe('journey', () => {
     assert.equal(once, twice);
   });
 });
+
+// ── The mood ramp's poles ──────────────────────────────────────────────────
+//
+// `Pain` and `Delight` were string literals, duplicated verbatim in both board
+// builders. They assert a POLARITY the engine cannot derive — the same argument
+// the ramp decision record made about heatmap ("high retention is good; high
+// churn is bad") before declining to ship worded defaults there. Here the words
+// stay as defaults, because a journey's ramp genuinely is a sentiment scale by
+// default, and an author renames them.
+
+describe('the mood scale label set', () => {
+  const journey = require('../../../lib/components/chart/journey/journey.transform');
+  const { labelSetFor } = require('../../../lib/core/label-set');
+
+  const LIST = '<ul>'
+    + '<li>Discover<ul><li>Find docs @dev 4</li><li>Read guide @dev 3</li></ul></li>'
+    + '<li>Install<ul><li>Run installer @dev 2</li><li>Fix path @dev 1</li></ul></li>'
+    + '</ul>';
+  const section = (extra = '') => `<h2>Onboarding</h2>${extra}${LIST}`;
+  const setPara = (t) => `<p><code>${t}</code></p>`;
+  const poles = (html) => [
+    (html.match(/journey-mood-key-low">([^<]*)</) || [])[1],
+    (html.match(/journey-mood-key-high">([^<]*)</) || [])[1],
+  ];
+  const run = (html, orientation) =>
+    journey.transformSection(html, { cls: 'journey', orientation });
+
+  for (const orientation of ['landscape', 'portrait']) {
+    describe(`${orientation} board`, () => {
+      test('defaults to the manifest\'s words', () => {
+        assert.deepEqual(poles(run(section(), orientation).html ?? run(section(), orientation)),
+          ['Pain', 'Delight']);
+      });
+
+      test('an author renames both poles', () => {
+        const out = run(section(setPara('[{1, Friction}, {5, Flow}]')), orientation);
+        assert.deepEqual(poles(out.html ?? out), ['Friction', 'Flow']);
+      });
+
+      test('naming ONE pole leaves the other on its default', () => {
+        const out = run(section(setPara('[{1, Friction}]')), orientation);
+        assert.deepEqual(poles(out.html ?? out), ['Friction', 'Delight']);
+      });
+
+      test('the rename reaches the accessible name too', () => {
+        // The key's aria-label used to be a second hard-coded copy of the same
+        // two words. A screen reader and the slide must not disagree.
+        const out = run(section(setPara('[{1, Friction}, {5, Flow}]')), orientation);
+        assert.match(out.html ?? out, /aria-label="Mood scale: 1 \(friction\) to 5 \(flow\)"/);
+      });
+
+      test('the set paragraph is consumed, not printed beside the board', () => {
+        const out = run(section(setPara('[{1, Friction}]')), orientation);
+        assert.ok(!(out.html ?? out).includes('Friction}'),
+          'the raw set must not survive in the body');
+      });
+    });
+  }
+
+  test('only the two POLES are keyable; the middle steps are refused', () => {
+    // The steps between show their number, which IS the scale. The manifest
+    // declares that refusal so lint:deck can explain it rather than say
+    // "unknown key".
+    const declared = labelSetFor('journey');
+    assert.deepEqual(declared.members.map((m) => m.key), ['1', '5']);
+    assert.deepEqual((declared.unkeyed || []).map((u) => u.key), ['2', '3', '4']);
+    assert.match(declared.unkeyed[0].why, /only the two POLES carry words/);
+  });
+
+  test('keying a middle step binds to nothing and is dropped', () => {
+    const out = run(section(setPara('[{3, Neutral}]')), 'landscape');
+    assert.deepEqual(poles(out.html ?? out), ['Pain', 'Delight']);
+    assert.ok(!(out.html ?? out).includes('Neutral'));
+  });
+
+  test('an ordinary one-code paragraph survives untouched', () => {
+    const out = run(section(setPara('Onboarding · FY26')), 'landscape');
+    assert.match(out.html ?? out, /Onboarding · FY26/);
+    assert.deepEqual(poles(out.html ?? out), ['Pain', 'Delight']);
+  });
+
+  test('an authored pole lands as text, never as markup', () => {
+    const out = run(section(setPara('[{1, &lt;img src=x onerror=alert(1)&gt;}]')), 'landscape');
+    assert.ok(!(out.html ?? out).includes('<img'), 'the pole must not become a live element');
+    assert.match(out.html ?? out, /journey-mood-key-low">&lt;img/);
+  });
+
+  test('both board shapes emit the SAME key — one builder, not two copies', () => {
+    // They were verbatim duplicates, each hard-coding the words. Two copies of a
+    // decision is two places to change it and one to forget.
+    const land = run(section(setPara('[{1, Friction}, {5, Flow}]')), 'landscape');
+    const port = run(section(setPara('[{1, Friction}, {5, Flow}]')), 'portrait');
+    const keyOf = (h) => (String(h).match(/<ol class="journey-mood-legend"[\s\S]*?<\/ol>/) || [])[0];
+    assert.equal(keyOf(land.html ?? land), keyOf(port.html ?? port));
+  });
+});
