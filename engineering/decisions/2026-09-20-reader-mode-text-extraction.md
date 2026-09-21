@@ -233,6 +233,33 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   reachable from the sandbox, so the end-to-end shake gesture is **UNVERIFIED**. Safari
   Reader's own heuristic (a heading plus ~2000+ characters) is stricter than Readability's
   and was not measured against a deck.
+- ~~**`journey` describes itself nowhere, so its content is in no article.**~~ **Resolved
+  2026-09-21.** A visual-layout slide now contributes whatever description its visual already
+  carries, which recovered `state-chart` immediately — its transform authors "States — 1. Draft
+  (start); … Transitions — on submit, Draft to In Review" for the accessibility tree, and the
+  article was throwing it away. `journey` had no equivalent, and that was a gap in the
+  COMPONENT rather than the projection: a screen-reader user got actor initials and a run of
+  bare digits. So `journeyDesc` was built where `stateChartDesc` lives, and the board carries
+  it as an sr-only first child — "Actors — prospect, user. Discover — Search (prospect), mood 4
+  of 5; …". Both readers are served by one sentence. Verified pixel-identical across all eight
+  slides of `examples/chart-narration.md`, because an sr-only element that stopped being hidden
+  would print on every journey slide and in every raster.
+  The kernel reads three channels off the SECTION — the author's `describe:`, a component's
+  `data-lattice-desc`, then an SVG `<desc>` — and the first of those was dead on arrival when
+  scoped to the stage, since `describe:` is injected outside `.cell-stage`. Document order gives
+  the author priority for free. Deliberately NOT synthesized from markup: measured, the generic
+  block walk over a journey stage yields `PprospectSsalesUuserOonboarding` and
+  `Pain12345Delight`, the index welded to its label. An invented description is worse than an
+  absent one, so a component that describes itself nowhere still gets the note alone.
+- **The bake's UTF-8 double-encoding now reaches the reading article.** A browser-drawn
+  `function-plot` captured by the bake ships its axis label as `x²` double-encoded — it renders
+  `XÂ²`. Pre-existing in the capture (`--player` has carried the identical bytes all along), and
+  the net for that slide is still a plot instead of a placeholder, but `--read` is a surface
+  that did not show it before. Off-path for the change that surfaced it; recorded rather than
+  fixed. Same shape: a journey step labelled `R&D` reads `R&amp;D` in the article and to a
+  screen reader, because the label arrives already entity-encoded and is escaped again — the
+  visible chip on the slide has always done the same, so the description is consistent with
+  shipped behavior rather than newly wrong.
 - **Readability drops part of short decks even from a clean article.** `examples/a11y.md`
   extracts 216 of 334 words (65%) from the projection alone, because its paragraphs are
   short. That is a floor in their algorithm, not something this change can move.

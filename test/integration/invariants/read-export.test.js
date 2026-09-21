@@ -241,6 +241,46 @@ describe('--read — the deck as prose, and nothing else moves', () => {
     assert.ok(doc.querySelector('main#lat-read-main > article#lat-read'), 'the article should still be inside the reading main');
   });
 
+  // REGRESSION, found by a second independent checker pass over this feature as landed.
+  // `--read` projects its article from the slide DOM, and a Mermaid diagram carries EVERY
+  // node label in a `<foreignObject>` — HTML smuggled into the SVG namespace — which
+  // `buildReadingArticleDocument`'s own sanitizer removes. So the article shipped the
+  // flowchart as empty coloured boxes with arrows and no words at all. `--player` never had
+  // it because the player branch BAKES the diagram first, flattening each label to a native
+  // `<text>`; that bake was gated on `PLAYER` alone and now runs for `--read` too.
+  //
+  // Measured before the fix on this fixture: 0 occurrences of a node's label in the article,
+  // against 2 in the player for the same deck.
+  test('a diagram reaches the article as a drawing with its labels, not as empty boxes', { timeout: 900000 }, async () => {
+    const dir5 = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-mer-'));
+    try {
+      fs.writeFileSync(
+        path.join(dir5, 'deck.md'),
+        '---\ntheme: indaco\n---\n\n# Diagram deck\n\n' +
+          'A short lede so the page carries some prose of its own before the diagram arrives.\n\n' +
+          '---\n\n<!-- _class: diagram -->\n\n## How a deck becomes a PDF\n\n' +
+          '```mermaid\ngraph LR\n  A[Markdown source] --> B[Engine render]\n  B --> C[Rasterize]\n```\n',
+      );
+      const out = render(dir5, path.join(dir5, 'read.html'), ['--read']);
+      const { JSDOM } = require('jsdom');
+      const article = new JSDOM(fs.readFileSync(out, 'utf8')).window.document.querySelector('#lat-read');
+      assert.ok(article, 'expected the reading article');
+      const labels = [...article.querySelectorAll('text')].map((t) => t.textContent.trim()).filter(Boolean);
+      // The label text is the assertion. An SVG alone would also be satisfied by the empty
+      // boxes this arm exists to catch.
+      for (const want of ['Markdown source', 'Engine render', 'Rasterize']) {
+        assert.ok(labels.some((l) => l.includes(want)), `the diagram must carry its "${want}" label; got ${JSON.stringify(labels)}`);
+      }
+      // NO `foreignObject === 0` ARM. It reads like the detector for this and is not one: the
+      // article's sanitizer removes `<foreignObject>` either way, so the count is 0 on the
+      // broken code too and the assertion could never fail. Measured on main, which has the
+      // defect: 0 foreignObject, 0 `<text>`. The LABELS above are the whole test.
+      assert.ok(labels.length >= 3, `expected the diagram's own labels, got ${labels.length} text nodes`);
+    } finally {
+      fs.rmSync(dir5, { recursive: true, force: true });
+    }
+  });
+
 	test('--read does not move a single byte of the PDF', { timeout: 900000 }, () => {
 		const plain = render(dir, path.join(dir, 'plain.pdf'));
 		const withRead = render(dir, path.join(dir, 'read.pdf'), ['--read']);

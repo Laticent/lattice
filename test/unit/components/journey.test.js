@@ -10,6 +10,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  journeyDesc,
   parseJourney,
   parseTask,
   parseSection,
@@ -479,5 +480,67 @@ describe('the mood scale label set', () => {
     const port = run(section(setPara('[{1, Friction}, {5, Flow}]')), 'portrait');
     const keyOf = (h) => (String(h).match(/<ol class="journey-mood-legend"[\s\S]*?<\/ol>/) || [])[0];
     assert.equal(keyOf(land.html ?? land), keyOf(port.html ?? port));
+  });
+});
+
+// ── The board's own text alternative ────────────────────────────────────────────────────
+//
+// Every other spatial chart already says what it is — `state-chart` builds a <desc> in its
+// own transform, the keyed charts through svg-legend.js. The journey board said NOTHING
+// anywhere, so a screen-reader user got actor initials and a run of bare digits, and the
+// Read · Article projection had nothing to recover and fell back to "this is a visual
+// layout". Both readers are served by one sentence, built here.
+describe('journeyDesc — the board in words', () => {
+  const MODEL = {
+    sections: [
+      { name: 'Discover', tasks: [
+        { label: 'Search', actors: ['prospect'], mood: 4, volume: 1 },
+        { label: 'Referral', actors: ['prospect'], mood: 5, volume: 1 },
+      ] },
+      { name: 'Convert', tasks: [{ label: 'Checkout', actors: ['user'], mood: 2, volume: 1 }] },
+    ],
+  };
+
+  test('names the actors once, then each stage with its steps', () => {
+    assert.equal(
+      journeyDesc(MODEL),
+      'Actors — prospect, user. Discover — Search (prospect), mood 4 of 5; Referral (prospect), mood 5 of 5. Convert — Checkout (user), mood 2 of 5',
+    );
+  });
+
+  // "mood 4 of 5", not a bare "4". The visible legend is a 1-5 scale between "Pain" and
+  // "Delight"; a bare digit read aloud between two labels is exactly the welded-digit noise
+  // this description exists to replace.
+  test('spells the mood against its scale', () => {
+    assert.match(journeyDesc(MODEL), /mood 4 of 5/);
+    assert.doesNotMatch(journeyDesc(MODEL), /\(prospect\), 4\b/);
+  });
+
+  test('a step with no actor is described without an empty bracket', () => {
+    const out = journeyDesc({ sections: [{ name: 'Solo', tasks: [{ label: 'Wait', actors: [], mood: 3 }] }] });
+    assert.equal(out, 'Solo — Wait, mood 3 of 5');
+    assert.doesNotMatch(out, /\(\)/);
+  });
+
+  test('an empty model describes nothing rather than an empty sentence', () => {
+    assert.equal(journeyDesc({ sections: [] }), '');
+    assert.equal(journeyDesc({ sections: [{ name: 'Empty', tasks: [] }] }), '');
+  });
+
+  // SR-ONLY AND AT-EXPOSED, and the two halves are separate risks. If it stopped being
+  // hidden it would print on every journey slide and in every raster; if it were `hidden`
+  // or display:none it would leave the accessibility tree, which is the one reader it
+  // exists for. The class carries the clip (journey.styles.css) and the attribute is the
+  // projection's hook.
+  test('the board carries it as a hidden first child, with the projection hook', () => {
+    const html = emitJourneyBoard(MODEL);
+    assert.match(html, /<div class="journey-board"[^>]*><p class="journey-desc" data-lattice-desc>/, 'first child of the board');
+    assert.match(html, /Actors — prospect, user/);
+    assert.doesNotMatch(html, /<p class="journey-desc"[^>]*\shidden/, 'never `hidden` — that would take it out of the a11y tree');
+    assert.doesNotMatch(html, /<p class="journey-desc"[^>]*aria-hidden/, 'nor aria-hidden, for the same reason');
+  });
+
+  test('a model that describes nothing emits no element at all', () => {
+    assert.doesNotMatch(emitJourneyBoard({ sections: [] }), /journey-desc/);
   });
 });
