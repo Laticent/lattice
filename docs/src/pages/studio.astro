@@ -127,6 +127,35 @@ try {
 	slideBlocks = {};
 }
 
+// The per-class FENCE map for Compose: a `_class` name → the fence language its own
+// grammar SKELETON writes (`diagram` → mermaid, `code` and `compare-code` → js,
+// `scene` → anima, `math` → functionplot). The insert-code door and the ``` input
+// rule both default to it, so neither has to open a modal asking a question the
+// layout has already answered — and the answer is the component's own skeleton, the
+// same string the slide gallery inserts, rather than a second list to keep in sync
+// (HARD RULE #1, same shape and route as the two maps above).
+//
+// An ABSENT class falls back to the tag this deck already uses most, then to plain
+// text — so an unrecognized `_class` and a missing map both still produce a TAGGED
+// fence, which is the part that matters (`code.docs.md`: a bare fence renders as
+// undifferentiated mono).
+let slideFences = {};
+try {
+	const grammarForFences = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/grammar.json'), 'utf8'));
+	for (const c of grammarForFences.components || []) {
+		if (!c.name || typeof c.skeleton !== 'string') continue;
+		// The FIRST fence of the skeleton, tagged. `compare-code` opens two and both are
+		// `js`; taking the first is right for a door that inserts one.
+		const m = /^```([A-Za-z0-9_+#-]+)\s*$/m.exec(c.skeleton);
+		if (m) slideFences[c.name] = m[1].toLowerCase();
+	}
+} catch (e) {
+	// Same observable degradation as the two above: without the map the door still
+	// writes a tagged fence, just from the deck's own habit rather than the layout's.
+	console.warn('[studio] slideFences: could not derive the grammar fence map — the insert-code door falls back to the deck default', e && e.message);
+	slideFences = {};
+}
+
 // The deterministic lint vocabulary — built at build time from the LIVE component
 // manifests (the SAME buildVocab the Drawing Board and the Node CLI use), so the
 // editor's inline grammar linter is the canonical lint-core, not a reduced copy.
@@ -959,7 +988,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		</div>
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
-		<StudioIsland client:only="react" options={options} componentNames={componentNames} catalogUrl={url('studio/component-catalog.json')} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} />
+		<StudioIsland client:only="react" options={options} componentNames={componentNames} catalogUrl={url('studio/component-catalog.json')} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} />
 		{/* Live viz diagnostics — renders nothing until the Workspace → Diagnostics
 		    switch (or ?viz) turns it on; then reads dropped-to-black chart paint from
 		    the render pipeline. */}

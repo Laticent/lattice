@@ -135,10 +135,28 @@ function entryFor(name) {
   );
 }
 
+/**
+ * The `common` build's own languages, name → declared aliases.
+ *
+ * These ship INSIDE the engine bundle, so they are never fetched and must not go
+ * into `languages` (which maps a name to a file to request). They are recorded
+ * anyway because the manifest is the only complete, machine-readable answer to
+ * "what can this renderer highlight" — the Compose language picker reads it to
+ * offer all 192 rather than only the 156 that happen to need a download, and a
+ * hand-kept list of the other 36 in the docs bundle would rot on the next hljs
+ * bump. Same alias reader as the lazy set, so the two halves agree.
+ */
+function commonLanguages() {
+  const common = require(path.join(HLJS_LIB, 'common.js')).default;
+  const out = {};
+  for (const name of common.listLanguages().sort()) out[name] = aliasesOf(name);
+  return out;
+}
+
 async function buildAll() {
   const names = extraLanguages();
   const files = new Map(); // relative name → text
-  const manifest = { languages: {}, aliases: {} };
+  const manifest = { languages: {}, aliases: {}, common: commonLanguages() };
 
   // Sequential rather than a Promise.all over 156 esbuild calls: each is ~15ms and
   // the flat fan-out oversubscribes esbuild's worker pool on a small runner, which

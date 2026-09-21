@@ -1,17 +1,21 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { latticeHighlight } from '@/playground/editor.js';
 import { tokenColor } from './chat-highlight';
 import { studioHighlight } from './editor-theme';
 
-// The Studio highlights code on TWO surfaces from two independent maps: the CodeMirror
-// editors go through `studioHighlight` (lezer tags → a CSS rule per row) and chat code
-// blocks go through `tokenColor` (a lezer CLASS name → a color string). Nothing in the
-// type system ties them together, and they have already drifted once: the propertyName
-// row read `var(--chart-2)` — the NUMBER color — while its own comment claimed parity
-// with the editor's `--text-heading` (#1688).
+// The Studio highlights code on THREE surfaces from three independent maps: the
+// CodeMirror editors go through `studioHighlight` (lezer tags → a CSS rule per row),
+// chat code blocks go through `tokenColor` (a lezer CLASS name → a color string), and
+// Compose's fenced code goes through plain CSS rules keyed on hljs token classes
+// (ComposeView's stylesheet — a ProseMirror decoration carries a class, not a color).
+// Nothing in the type system ties any of them together, and they have already drifted
+// once: the propertyName row read `var(--chart-2)` — the NUMBER color — while its own
+// comment claimed parity with the editor's `--text-heading` (#1688).
 //
 // So this asserts the two agree per ROLE, and that neither has quietly reverted to the
 // status trio the syntax ink tier replaced.
@@ -167,4 +171,58 @@ describe('every CodeMirror surface INSTALLS its highlighter', () => {
 				.toMatch(new RegExp(`syntaxHighlighting\\(\\s*${style}\\s*\\)`));
 		});
 	}
+});
+
+
+// ── Compose's fenced code — the third surface, and the only one in raw CSS ──────
+//
+// It is CSS rather than a HighlightStyle because the tokens arrive as ProseMirror
+// decorations carrying an hljs CLASS name (the engine tokenizes; see
+// `lib/core/highlight-spans.js`), so there is no object to read rows off. A text
+// matcher over the stylesheet is therefore the only instrument available — narrow by
+// construction, and it says what it cannot see: it checks the TOKENS each rule
+// resolves to, never which hljs class sits in which row.
+
+const COMPOSE_VIEW = path.resolve(__dirname, 'ComposeView.tsx');
+
+/** Every `color:` value in a `pre.cs-code .hljs-*` rule of Compose's stylesheet. */
+function composeFenceColors(): string[] {
+	const src = fs.readFileSync(COMPOSE_VIEW, 'utf8');
+	const rules = [...src.matchAll(/\.cs-host pre\.cs-code[^{}\n]*\.hljs-[^{}\n]*\{([^}]*)\}/g)];
+	expect(rules.length, 'no `pre.cs-code .hljs-*` rules found — re-point this test').toBeGreaterThan(3);
+	const out: string[] = [];
+	for (const rule of rules) {
+		for (const m of rule[1].matchAll(/color:([^;}]+)/g)) out.push(m[1].trim());
+	}
+	return out;
+}
+
+describe('Compose fenced code agrees with the other two surfaces', () => {
+	// The five tokens the tier sanctions for a writing surface: the three inks, plus the
+	// two text tokens that are AA against the canvas by contract. `--accent` is NOT among
+	// them (3.89:1 at its worst), and neither is a status token.
+	const SANCTIONED = new Set(['var(--syntax-keyword-ink)', 'var(--syntax-string-ink)', 'var(--syntax-number-ink)', 'var(--text-heading)', 'var(--text-muted)', 'inherit']);
+
+	it('paints all three syntax inks', () => {
+		const colors = composeFenceColors();
+		for (const t of ['string', 'number', 'keyword']) {
+			expect(colors, t).toContain(`var(--syntax-${t}-ink)`);
+		}
+	});
+
+	it('reads only sanctioned tokens — no accent, no status token, no hex', () => {
+		for (const c of composeFenceColors()) {
+			expect(SANCTIONED.has(c), `${c} is not a sanctioned syntax color`).toBe(true);
+		}
+	});
+
+	it('does not color an engine sub-language, because the rendered slide does not', () => {
+		// highlight-js.css suppresses hljs tokens inside a mermaid fence on purpose —
+		// coloring them "paints a JavaScript-style highlight" that is "misleading
+		// (mermaid is not a programming language)". Compose skips tokenizing them at all
+		// (`highlightFences` returns early on `isEngineFence`); this pins the decision at
+		// the place a future change would most plausibly undo it.
+		const src = fs.readFileSync(COMPOSE_VIEW, 'utf8');
+		expect(src).toMatch(/if \(!tag \|\| isEngineFence\(tag\)\) return false;/);
+	});
 });

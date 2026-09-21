@@ -1,0 +1,198 @@
+import type { Page } from '@playwright/test';
+import { expect, gotoStudio, persistedSource, test } from './studio-fixture';
+
+// ── Fenced code in Compose, driven on the REAL Studio ──────────────────────────
+//
+// HARD RULE #23: every claim about this feature is a claim about a running editor —
+// a caret in a contenteditable, a Tab that either indents or throws focus out of the
+// pane, a popover that either anchors to a chip or floats in a corner. None of that
+// is reachable from jsdom, and the unit tier next door (`code-commands.test.ts`,
+// `fence-catalog.test.ts`) deliberately asserts only the pure half.
+//
+// So this spec asserts the four things only a browser can answer:
+//
+//   1. The PANEL. The bug this began as: a fence inherited the INLINE-code chip
+//      style, and an inline box spanning lines fragments into one bordered box per
+//      line. Asserted by measuring the `<code>`'s own boxes, not by looking at CSS.
+//   2. The CHIP names the language, and picking a new one rewrites the SOURCE.
+//   3. `Tab` indents instead of moving focus out of the editor.
+//   4. The insert door writes a TAGGED fence, defaulted from the slide's layout.
+//
+// Design: engineering/decisions/2026-09-21-compose-fenced-code.md.
+
+const COMPOSE = 'Compose — rich editor';
+
+async function toCompose(page: Page): Promise<void> {
+	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+	await page.locator('.cs-host .ProseMirror').waitFor();
+	await page.locator('.cs-slide').first().waitFor();
+}
+
+/** Replace the whole deck with `source`, through the REAL markdown editor. */
+async function seedDeck(page: Page, source: string): Promise<void> {
+	await page.getByLabel('Deck source').click();
+	await page.keyboard.press('ControlOrMeta+a');
+	await page.keyboard.press('Backspace');
+	// `type` rather than `insertText`: the editor's own input handling (front-matter
+	// parse, lint, the persist debounce) is part of what we are seeding through.
+	await page.keyboard.type(source, { delay: 0 });
+	await expect.poll(() => persistedSource(page)).toContain('```');
+}
+
+const DECK = [
+	'<!-- _class: content -->',
+	'',
+	'## A fence on a content slide',
+	'',
+	'```js',
+	'const greeting = "hello";',
+	'```',
+	'',
+	'Body prose after it.',
+].join('\n');
+
+test('a fence renders as ONE panel, not a bordered box per line', async ({ page }) => {
+	await gotoStudio(page);
+	await seedDeck(page, DECK);
+	await toCompose(page);
+
+	const pre = page.locator('.cs-host pre.cs-code').first();
+	await expect(pre).toBeVisible();
+
+	// THE ACTUAL BUG, measured rather than inspected. The inline-code chip rule
+	// (`.cs-host code { border; background; padding }`) reaching inside a `<pre>`
+	// fragments the inline box once per line — three lines of source, three boxes.
+	// `getClientRects()` counts the fragments the browser actually laid out.
+	const codeRects = await pre.locator('code').evaluate((el) => el.getClientRects().length);
+	const codeBorder = await pre.locator('code').evaluate((el) => getComputedStyle(el).borderTopWidth);
+	expect(codeBorder, 'the inner <code> must carry no border of its own').toBe('0px');
+
+	// The PANEL is the thing with a border, and there is exactly one of it.
+	const preBorder = await pre.evaluate((el) => getComputedStyle(el).borderTopWidth);
+	expect(preBorder).not.toBe('0px');
+
+	// A multi-line fence whose inner <code> is still inline would report one rect per
+	// line. It is `display:block`, so it reports one whatever the line count.
+	expect(codeRects, 'the inner <code> must lay out as ONE box').toBe(1);
+
+	// And it is monospace, not the page's serif.
+	const family = await pre.evaluate((el) => getComputedStyle(el).fontFamily);
+	expect(family.toLowerCase()).toMatch(/mono/);
+});
+
+test('the chip names the language, and picking a new one rewrites the source', async ({ page }) => {
+	await gotoStudio(page);
+	await seedDeck(page, DECK);
+	await toCompose(page);
+
+	const chip = page.locator('.cs-code-chip').first();
+	await expect(chip).toHaveText('js');
+
+	await chip.click();
+	// The picker is a real Radix popover over cmdk — so it has a search field, and
+	// searching by the ALIAS is the spelling an author reaches for first.
+	const search = page.getByPlaceholder('Language…');
+	await expect(search).toBeVisible();
+	await search.fill('py');
+	await page.getByRole('option', { name: /python/i }).first().click();
+
+	// The SOURCE is the deliverable: the tag changed and the body did not.
+	await expect.poll(() => persistedSource(page)).toContain('```python');
+	const src = await persistedSource(page);
+	expect(src).toContain('const greeting = "hello";');
+	expect(src).not.toContain('```js');
+	await expect(chip).toHaveText('python');
+});
+
+test('the picker leads with the Lattice fence languages, whatever the deck uses', async ({ page }) => {
+	await gotoStudio(page);
+	await seedDeck(page, DECK);
+	await toCompose(page);
+
+	await page.locator('.cs-code-chip').first().click();
+	// Two thirds of the fences we ship are `mermaid`, and it is not a programming
+	// language — so the engine's own three lead the list rather than sitting at
+	// position 97 of an alphabetical 192.
+	const groups = page.locator('[cmdk-group-heading]');
+	await expect(groups.first()).toHaveText('Lattice');
+	for (const tag of ['mermaid', 'anima', 'functionplot']) {
+		await expect(page.getByRole('option', { name: new RegExp(tag) })).toBeVisible();
+	}
+});
+
+test('Tab indents inside a fence instead of throwing focus out of the editor', async ({ page }) => {
+	await gotoStudio(page);
+	await seedDeck(page, DECK);
+	await toCompose(page);
+
+	// Caret at the start of the fence body.
+	await page.locator('.cs-host pre.cs-code code').first().click({ position: { x: 2, y: 6 } });
+	await page.keyboard.press('Home');
+	await page.keyboard.press('Tab');
+
+	await expect.poll(() => persistedSource(page)).toContain('```js\n  const greeting');
+
+	// THE TRAP THIS CLOSES: with no binding, Tab falls through to the browser and
+	// moves focus off the editing surface entirely. Assert focus is still in it.
+	const stillInEditor = await page.evaluate(() => !!document.activeElement?.closest('.cs-host .ProseMirror'));
+	expect(stillInEditor, 'Tab must not move focus out of the editor').toBe(true);
+
+	await page.keyboard.press('Shift+Tab');
+	await expect.poll(() => persistedSource(page)).toContain('```js\nconst greeting');
+});
+
+test('Enter on a blank last line leaves the fence — the only exit a phone can reach', async ({ page }) => {
+	await gotoStudio(page);
+	await seedDeck(page, DECK);
+	await toCompose(page);
+
+	const code = page.locator('.cs-host pre.cs-code code').first();
+	await code.click();
+	await page.keyboard.press('ControlOrMeta+End'); // end of the fence body
+	// Two Enters: the first opens a blank last line, the second takes the exit.
+	await page.keyboard.press('Enter');
+	await page.keyboard.press('Enter');
+	await page.keyboard.type('after the fence');
+
+	const src = await persistedSource(page);
+	// The typed text landed OUTSIDE the fence…
+	expect(src).toMatch(/```\n\nafter the fence/);
+	// …and the blank line the author used to get out is not left behind in the snippet.
+	expect(src).toContain('const greeting = "hello";\n```');
+});
+
+test('the insert door writes a TAGGED fence, defaulted from the slide layout', async ({ page }) => {
+	await gotoStudio(page);
+	// A diagram slide: its own grammar skeleton opens a ```mermaid fence, so the door
+	// must not ask a question the layout has already answered.
+	await seedDeck(page, ['<!-- _class: diagram -->', '', '## How signals move', '', 'A caption line.'].join('\n').replace('A caption line.', 'A caption line.\n\n```text\nseed\n```'));
+	await toCompose(page);
+
+	// Caret in the prose, then the door.
+	await page.locator('.cs-slide-content p').first().click();
+	await page.getByRole('button', { name: 'Insert code', exact: true }).first().click();
+
+	await expect.poll(() => persistedSource(page)).toContain('```mermaid');
+	// Never a BARE fence — `code.docs.md` says three times that an untagged one renders
+	// as undifferentiated mono, so a door that produced one would produce a defect.
+	const src = await persistedSource(page);
+	expect(src).not.toMatch(/\n```\n(?![\s\S]*?```)/);
+});
+
+test('@mobile the chip and the pill picker are both reachable at 390px', async ({ page }) => {
+	await gotoStudio(page);
+	await seedDeck(page, DECK);
+	await toCompose(page);
+
+	const chip = page.locator('.cs-code-chip').first();
+	await expect(chip).toBeVisible();
+	// A tap target, not just a label: the mobile rule lifts it to 24px.
+	const box = await chip.boundingBox();
+	expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
+
+	// Putting the caret in the fence swaps the divider pill's Format group to the
+	// language picker — the toolbar half of the control (design § Axis B).
+	await page.locator('.cs-host pre.cs-code code').first().click();
+	await expect(page.locator('.cs-codec-trigger')).toBeVisible();
+	await expect(page.locator('.cs-codec-tag')).toHaveText('js');
+});
