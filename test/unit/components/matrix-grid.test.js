@@ -383,3 +383,82 @@ describe('the cell key', () => {
     assert.match(out.html, /matrix-grid-key-label">&lt;img/);
   });
 });
+
+/**
+ * The key and the accessibility tree have to say the SAME words.
+ *
+ * These fixtures are built with the REAL `cellHtml` emitter rather than a
+ * hand-written `<span class="cell …">`, because the bug this block pins lives
+ * exactly in the part a hand-written fixture leaves out: the parse-time
+ * `.cell-sr-label` span. A synthetic cell with no sr span passes whether or not
+ * the sync runs, which is how the divergence survived the first round of tests
+ * here (HARD RULE #23 — a proxy that omits the failing element is not a test of
+ * it). Issue #2263, criterion 3.
+ */
+describe('the cell key and the screen-reader label agree', () => {
+  const {
+    buildMatrixGridSection,
+  } = require('../../../lib/components/chart/matrix-grid/matrix-grid.transform');
+  const { cellHtml } = require('../../../lib/core/matrix-grid-cells');
+
+  const CTX = { cls: 'matrix-grid', classTokens: ['matrix-grid'], orientation: 'landscape' };
+  const td = (shape, label, stateLabel) => `<td>${cellHtml({ shape, label, stateLabel })}</td>`;
+  const grid = (cells, extra = '') => `<h2>Rubric</h2>${extra}`
+    + `<table><tbody><tr><td>A</td>${cells}</tr></tbody></table>`;
+  const setPara = (t) => `<p><code>${t}</code></p>`;
+  const keyLabels = (h) => [...h.matchAll(/matrix-grid-key-label">([^<]*)</g)].map((m) => m[1]);
+  const srLabels = (h) => [...h.matchAll(/cell-sr-label">([^<]*)</g)].map((m) => m[1]);
+
+  const OUTLINED = td('cell-outlined', '', 'reachable');
+  const EMPTY = td('cell-empty', '', 'not applicable');
+  const FILLED = td('cell-filled', 'Senior', '');
+
+  test('with no override, both surfaces carry the manifest default', () => {
+    const out = buildMatrixGridSection(grid(OUTLINED + EMPTY), CTX);
+    assert.deepEqual(keyLabels(out.html), ['reachable', 'not applicable']);
+    assert.deepEqual(srLabels(out.html), ['reachable', 'not applicable']);
+  });
+
+  test('an override reaches the screen reader, not just the visible key', () => {
+    // THE REGRESSION ARM. Before the sync, this read
+    //   key ['Partially reachable', 'Out of scope']
+    //   sr  ['reachable',           'not applicable']
+    // — the same cell announced with words the slide does not show.
+    const out = buildMatrixGridSection(
+      grid(OUTLINED + EMPTY, setPara('[{[-], Partially reachable}, {[ ], Out of scope}]')), CTX);
+    assert.deepEqual(keyLabels(out.html), ['Partially reachable', 'Out of scope']);
+    assert.deepEqual(srLabels(out.html), ['Partially reachable', 'Out of scope']);
+  });
+
+  test('renaming one member leaves the other on its default', () => {
+    const out = buildMatrixGridSection(
+      grid(OUTLINED + EMPTY, setPara('[{[-], Partially reachable}]')), CTX);
+    assert.deepEqual(srLabels(out.html), ['Partially reachable', 'not applicable']);
+  });
+
+  test('a filled cell keeps its own trailing text and gains no sr label', () => {
+    // `[x]` is `unkeyed`, so nothing may be injected for it — the cell's own
+    // text ("Senior") IS its label.
+    const out = buildMatrixGridSection(grid(FILLED + OUTLINED), CTX);
+    assert.deepEqual(srLabels(out.html), ['reachable']);
+    assert.match(out.html, /class="cell cell-filled">Senior</);
+  });
+
+  test('an override lands as TEXT in the sr label, never as markup', () => {
+    const out = buildMatrixGridSection(
+      grid(OUTLINED, setPara('[{[-], &lt;img src=x onerror=alert(1)&gt;}]')), CTX);
+    assert.ok(!out.html.includes('<img'), 'must not become a live element');
+    assert.match(out.html, /cell-sr-label">&lt;img/);
+  });
+
+  test('a label carrying a replacement pattern is inserted verbatim', () => {
+    // `$&` handed to a STRING replacer expands to the whole match, splicing the
+    // surrounding section into the cell; the function replacer inserts it as
+    // written. The `&` is then HTML-escaped on the way out, which is why this
+    // reads `$&amp;` in the markup and `$&` on the slide — both correct, and
+    // asserting the decoded form here would have been asserting the bug's shape.
+    const out = buildMatrixGridSection(grid(OUTLINED, setPara('[{[-], cost $& fee}]')), CTX);
+    assert.deepEqual(srLabels(out.html), ['cost $&amp; fee']);
+    assert.ok(!out.html.includes('<table'.repeat(2)), 'nothing spliced in');
+  });
+});

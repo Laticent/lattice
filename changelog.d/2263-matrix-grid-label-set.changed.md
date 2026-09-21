@@ -21,3 +21,14 @@
   when no row hue is set; an earlier cut neutralized both swatches and, measured on the
   rendered gallery, the two read as the same box.
   (`lib/components/chart/matrix-grid/matrix-grid.styles.css`)
+- **A rename now reaches the screen reader too, which is the whole point of the
+  construct.** The parse-time cell rule stamps `.cell-sr-label` from `STATE_LABELS`
+  before any author label set has been lifted, so an author who renamed `[-]` to
+  "Partially reachable" got the new word on the visible key and the old "reachable" in
+  the accessibility tree — the same cell announced with words the slide does not show,
+  and the surface that disagreed was the one nobody can see to check. The transform is
+  the first point that holds both the cells and the resolved rows, so it re-points the
+  labels there; both render paths reach it, so one pass fixes both (HARD RULE #1).
+  Measured before and after on a real engine render AND the shipped runtime bundle in
+  real Chromium. `[x]` is untouched — it is `unkeyed` and emits no such label.
+  (`lib/components/chart/matrix-grid/matrix-grid.transform.js`)
