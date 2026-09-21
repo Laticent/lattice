@@ -86,9 +86,10 @@
   refuses what its children could have changed and no more — where a nested line
   carries a VALUE the whole relationship goes, where the children are prose the row's
   own numbers stand, and the slide speaks no tally either way. The lines are still
-  read aloud. The cost is real and measured: on a generated corpus 343 of 400 decks
-  spoke a tally before and 141 after. On the 16 bullet slides in this repo it is
-  exactly zero — none of them narrates differently.
+  read aloud. The refusal is keyed on what markdown-it can fold into the row's own
+  paragraph, not on whether the children look like prose. The cost is real and
+  measured, and it moves with how malformed the corpus is: on the decks in this
+  repo it is exactly zero — all 16 bullet slides narrate identically.
 - **Fixed: a `state-chart` no longer says a state "stops without being marked an
   ending" over a slide that draws it into the finish marker.** It reads *"nothing
   leads out of X"* — true of both rules the chart uses to decide that. A state

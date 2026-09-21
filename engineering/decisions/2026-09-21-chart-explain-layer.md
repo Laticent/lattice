@@ -593,6 +593,80 @@ untracked, and that it carries none of the refusal shapes. The real answer is
 stronger than the one that was written — the sentence was a guess dressed as a
 measurement, in a section about exactly that.)*
 
+## The eighth round — the corpus could not reach the fix (2026-09-21)
+
+The seventh round's fixes went to an eighth checker. It found **three more
+regressions** and one thing that reframes the whole sequence.
+
+**THE ROUND'S CENTRAL CHANGE WAS EXERCISED BY ZERO DECKS IN THE CORPUS IT SHIPPED.**
+Round seven's headline was a narrowing: a row refuses its relationship only when a
+nested line carries a VALUE, so prose children leave the row's own pills alone.
+Every ambiguity shape in the generator carried a `Target` or `Floor` — so
+`nestedHasValue` was always true and the narrowing never changed an outcome on a
+single deck. Measured by the checker: "restores a spoken target on 0 rows across 0
+decks". A fix with no coverage in the corpus that ships with it is a fix nobody has
+tested, and it is the fourth consecutive round where the corpus, not the code, was
+what let the defect through.
+
+**AND THE PROJECTION COULD NOT HAVE SEEN IT EITHER.** When a nested line is absorbed
+into the ROW's lead, the `<desc>` clause it produces CONTAINS A NEWLINE. The
+row-level cell's regex had no whitespace normalization, `.filter(Boolean)` dropped
+the row, and the "skip rows the `<desc>` does not name" rule then skipped exactly
+the rows the defect produces. One `.replace(/\s+/g, ' ')` takes that cell from 0
+invented rows to 60 on the same corpus and the same narrator.
+
+### The three regressions, each verified against the render
+
+**`rowLineAmbiguous` fired on a typo and deleted the author's target.** The
+threshold was "more than one space after the dash". CommonMark caps the content
+column at five and only then is the row's content an indented CODE BLOCK — so
+`-  Uptime \`5\` \`4\`` is an ordinary scored row, and refusing it deleted the `4`
+the chart draws as its plan line. That is verbatim the defect the same commit's
+third paragraph says it fixed. **Two claims, two thresholds now**: any gap over one
+moves the content column and makes the CHILDREN unreadable; only past four are the
+ROW's own pills unreadable.
+
+**"Prose children can override nothing" is false.** markdown-it folds an ambiguous
+non-bullet line into the row's own `<li>` lead — a lazy continuation at any indent,
+an indented code chunk — the pills stop being TRAILING, `stripTrailingPills` returns
+none, and `parseBullet` drops the row from `drawable` entirely. The chart draws no
+bar and no plan line while the voice spoke both. The axis is not "is this child
+prose" but **"can markdown-it fold this into the row's own paragraph"**.
+
+**The four-column rule had a one-line bypass.** A non-bullet line set
+`contentCol = Infinity`, which made both the enclosure test and the four-column test
+false on the line after it — so a `- Target \`4\`` six spaces under a continuation
+slipped past the rule the round had just added.
+
+### And the three-level test bailed on ordinary markdown
+
+Moving it ahead of the `keyInPills` return was right; comparing INDENTS was not.
+`  - a plain note` (content column 4) over `   - \`Target\` \`4\`` (indent 3) makes
+the two SIBLINGS — a readable two-level shape the chart scores — and the narrator
+returned `null` for the whole slide, so `slideToSpeech` read the raw bullets. Three-
+space child indentation is used in this repo. It compares against the prose line's
+CONTENT COLUMN now. A pilled line genuinely inside a kept child's item is newly
+caught, which nothing had ever marked.
+
+### Measured
+
+```
+round 7   invented rows 11 | tally diverged 2 of 122
+round 8   invented rows  0 | tally diverged 0 of  86
+```
+
+The shipped corpus is unchanged again: 16 bullet slides, 0 differ from round 7.
+
+**The floor moved with the corpus, and that is worth recording.** With the ambiguity
+shapes at equal odds with the clean ones, only 21 of 400 decks spoke a tally at all
+— a number that measures the generator, not the narrator. They are drawn at about
+one child in five now, every shape is still counted as reached, and the floor is
+set against that.
+
+**A THIRD UN-DERIVABLE NUMBER SHIPPED IN THE COMMIT THAT CORRECTED TWO.** "81 rows
+across 72 generated decks" reproduces under neither natural reading (0, or 152/129).
+It is removed rather than re-invented.
+
 **A guard was written, shipped and inert for one iteration.** `parseBulletRow`
 returns a NEW object and did not carry `structurallyAmbiguous` over, so
 `narrateBullet` read the flag off the mapped rows and it was always false. The fuzz
@@ -664,7 +738,12 @@ side. `narrateBullet` seeds `consumed` with every row's own line index
 unconditionally, and the ambiguous path threw away `targetRaw` — so the second pill
 an author typed ON THE ROW LINE was consumed by the narrator and spoken by nobody.
 `- Uptime \`5\` \`4\`` with a tab-indented prose note narrated "Uptime, five." while
-the chart drew the 4 as its plan line. Measured at 81 rows across 72 generated decks.
+the chart drew the 4 as its plan line.
+
+*(An earlier draft quoted "81 rows across 72 generated decks". A checker could not
+reproduce it under either natural reading — 0 rows, or 152 across 129 — and the
+commit gave no recipe. It was the THIRD un-derivable number in a commit whose own
+section corrected two, and it is removed rather than re-invented.)*
 
 The fix is the distinction the round should have drawn in the first place: **a row
 refuses what its children could have changed, and no more.** Where a nested line

@@ -66,6 +66,20 @@ const CHILD = [
   (n) => `  - Target \`${n()}\`\n    1. note`,                           // 5 (ordered)
   (n) => `   - Target \`${n()}\``,
   (n) => `   - \`Target\` \`${n()}\``,
+];
+
+/**
+ * THE AMBIGUITY AXIS — shapes a LINE SCANNER cannot resolve into markdown-it's
+ * nesting, kept in their OWN list and drawn less often than the clean ones.
+ *
+ * Weighting matters, and getting it wrong is visible in the floor below. When these
+ * sat in `CHILD` at equal odds, roughly half of every generated deck was malformed
+ * and only 21 of 400 spoke a tally at all — which says nothing about whether the
+ * narrator goes quiet on decks an author would actually write. They are drawn at
+ * about one child in five now: common enough that every shape is reached (the cell
+ * below counts each one), rare enough that the tally floor still means something.
+ */
+const AMBIGUOUS_CHILD = [
   // ── THE AMBIGUITY AXIS ───────────────────────────────────────────────────────
   //
   // Shapes a LINE SCANNER cannot resolve into markdown-it's nesting, and which the
@@ -92,6 +106,24 @@ const CHILD = [
   (n) => `      - Target \`${n()}\``,
   (n) => `        - Target \`${n()}\``,
   (n) => `      - \`Target\` \`${n()}\``,
+  // ── PROSE-ONLY AMBIGUITY, WHICH IS THE AXIS THE NARROWING TURNS ON ───────────
+  //
+  // Every ambiguity entry above carries a `Target` or `Floor`, so `nestedHasValue`
+  // was ALWAYS true and the prose/value narrowing — the round-seven headline change —
+  // never changed an outcome on a single deck in this corpus. A checker measured it:
+  // "restores a spoken target on 0 rows across 0 decks". A fix with no coverage in
+  // the corpus that ships with it is a fix nobody has tested.
+  //
+  // These also carry the claim the narrowing was built on ("prose children can
+  // override nothing"), which is FALSE: markdown-it folds an ambiguous non-bullet
+  // line into the ROW's own lead, the pills stop being trailing, and the transform
+  // drops the row entirely.
+  () => '\t- a plain note',
+  () => '\tmore text',
+  () => '      - a plain note',
+  () => ' - a plain note',
+  () => '  -     a plain note',
+  () => '  continuation',
 ];
 
 function corpus(count, startSeed = 20260921) {
@@ -107,9 +139,14 @@ function corpus(count, startSeed = 20260921) {
       // MIXED CASE, because `rowTargets` used to anchor on a capital and nothing in
       // the corpus could show it. A lowercase label is ordinary in a real deck.
       const name = rnd() < 0.5 ? `Row${i}` : `row${i}`;
-      lines.push(`- ${name}` + (rnd() < 0.5 ? ` \`${num()}\`` : ` \`${num()}\` \`${num()}\``));
+      // THE ROW'S OWN MARKER GAP VARIES, because `rowLineAmbiguous` keys on it and
+      // every row this generator emitted had exactly one space — so that branch, too,
+      // was uncovered. Two to four spaces still render a normal scored row; five or
+      // more makes the row's own content an indented code block.
+      const gap = rnd() < 0.9 ? ' ' : ' '.repeat(2 + Math.floor(rnd() * 5));
+      lines.push(`-${gap}${name}` + (rnd() < 0.5 ? ` \`${num()}\`` : ` \`${num()}\` \`${num()}\``));
       const kids = Math.floor(rnd() * 3);
-      for (let k = 0; k < kids; k++) lines.push(pick(CHILD)(num));
+      for (let k = 0; k < kids; k++) lines.push(pick(rnd() < 0.2 ? AMBIGUOUS_CHILD : CHILD)(num));
     }
     decks.push(`<!-- _class: bullet -->\n\n## H.\n\n${lines.join('\n')}`);
   }
@@ -142,8 +179,15 @@ function drawnTally(source) {
     scored: scored.length,
     // WHICH ROWS carry a plan line, by label. The tally alone is too coarse a
     // projection — see `rowTargets` below.
-    scoredRows: new Set(scored.map((c) => c.trim().match(/^(.*?)\s+\S+,\s+−?\d/)).filter(Boolean).map((x) => x[1])),
-    allRows: new Set(clauses.map((c) => c.trim().match(/^(\w[\w -]*?)(?:\s+[\d−$(].*)?$/)).filter(Boolean).map((x) => x[1].trim())),
+    // WHITESPACE-NORMALIZED, and that is the difference between this cell seeing the
+    // defect class and reporting zero. When a nested line is absorbed into the ROW's
+    // own lead, the `<desc>` clause it produces CONTAINS A NEWLINE (`Uptime 5 4\nmore
+    // text`) — the un-normalized regex failed on it, `.filter(Boolean)` dropped the
+    // row, and `surveyRows`'s "skip rows the <desc> does not name" rule then skipped
+    // exactly the rows the defect produces. Measured: 0 invented rows before this
+    // one-line change and 60 after, on the same corpus and the same narrator.
+    scoredRows: new Set(scored.map((c) => c.replace(/\s+/g, ' ').trim().match(/^(.*?)\s+\S+,\s+−?\d/)).filter(Boolean).map((x) => x[1])),
+    allRows: new Set(clauses.map((c) => c.replace(/\s+/g, ' ').trim().match(/^(\w[\w -]*?)(?:\s+[\d−$(].*)?$/)).filter(Boolean).map((x) => x[1].trim())),
   };
 }
 
@@ -221,13 +265,21 @@ test('a spoken bullet tally never contradicts the tally the rendered chart state
   // The floor is here so the cell cannot pass by speaking no tally at all — the
   // whole failure mode this replaces was a tally that should not have been spoken.
   //
-  // IT DROPPED FROM 250 TO 100 WHEN THE AMBIGUITY AXIS LANDED, and that is the cost
-  // of the sixth round's whitelist, stated rather than hidden: a deck whose nested
-  // structure a line scanner cannot resolve now gets no tally at all. 343 of 400
-  // decks spoke one before, 141 after. On the SHIPPED corpus the cost is zero — one
-  // slide in the tree has an indent this refuses, and it is a `components.md`
-  // fragment with no tally to lose.
-  assert.ok(r.spoke > 100, `only ${r.spoke} decks spoke a tally — the corpus stopped exercising it`);
+  // THE FLOOR MOVES WITH THE CORPUS, and both numbers are the cost of the refusal
+  // stated rather than hidden: a deck whose nested structure a line scanner cannot
+  // resolve gets no tally at all.
+  //
+  //   · before the ambiguity axis existed   343 of 400 spoke a tally
+  //   · with it at EQUAL odds                21 of 400  <- a corpus half malformed
+  //   · with it at one child in five         ~85 of 400 <- what is asserted here
+  //
+  // On the SHIPPED corpus the cost is exactly ZERO: all 16 bullet slides in the tree
+  // narrate identically before and after, and the refusal fires on none of them.
+  //
+  // The middle row is why the weighting is part of the test rather than an
+  // afterthought. A floor is only meaningful against a corpus that resembles what an
+  // author writes; against one that is mostly malformed it measures the generator.
+  assert.ok(r.spoke > 70, `only ${r.spoke} decks spoke a tally — the corpus stopped exercising it`);
   assert.deepEqual(
     r.diverged.slice(0, 2),
     [],
