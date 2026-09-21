@@ -265,3 +265,30 @@ test('read-aloud: every synth failing falls to the silent estimate (highlight ne
 	const done = await until(page, (s) => s.finished >= 1, 12000);
 	expect(done.finished).toBe(1);
 });
+
+test('read-aloud: the voice is pinned for the whole read — a mid-read pref change does not switch it', async ({ page }) => {
+	// The reported symptom was a slide read in English and then in another language. `synthOne`
+	// re-resolved the rung AND the voice pref per SENTENCE, and the two rungs read different prefs,
+	// so anything that changed the pref mid-read (the on-device model finishing its download, a key
+	// arriving, a second tab writing the pref) switched the speaking voice between one sentence and
+	// the next. The hook now resolves the voice once per read and passes it down.
+	//
+	// Measured on the real Studio against `main`'s modules: one slide's read put `af_heart` AND
+	// `if_sara` on the wire, `if_sara` five times, interleaved. Here the stub records the `voice` it
+	// is handed for each sentence, and the pref is flipped while the read is in flight.
+	await open(page);
+	// The stub flips the pref from inside its FIRST synth call, so the change is guaranteed to
+	// land between sentence 1 and sentence 2 of this read. Flipping from the test on `cue >= 1`
+	// does not: at 220ms a clip, Suono produces every sentence before the first cue ends, and
+	// the test then passes against the regression it exists for — measured, it did.
+	await page.evaluate(() => {
+		(globalThis as unknown as { __VOICE_FLIP_AFTER: number }).__VOICE_FLIP_AFTER = 1;
+	});
+	await page.click('#play');
+	const done = await until(page, (s) => s.finished >= 1, 12000);
+	expect(done.finished).toBe(1);
+
+	const calls = await page.evaluate(() => (globalThis as unknown as { __SYNTH_CALLS?: { voice: string | null }[] }).__SYNTH_CALLS ?? []);
+	expect(calls.length).toBeGreaterThan(1); // the read has to have spanned the flip to prove anything
+	expect([...new Set(calls.map((c) => c.voice))]).toEqual(['v']); // one identity, start to finish
+});
