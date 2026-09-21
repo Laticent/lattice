@@ -26,3 +26,13 @@
 - **Fixed: a `bullet` row's `Band` and `Floor` bullets are no longer read aloud as
   prose.** They are structural inputs to the chart's zones; the caption track spoke
   them as content at the end of the slide.
+- **Fixed: the same number now narrates the same way however it was typed.** `900k`
+  and `0.9M` both read as *"nine hundred thousand"*; `1.2M` and `1200k` both as *"one
+  point two million"* — narration was reading the author's spelling rather than the
+  value, so two decks carrying identical data narrated differently and `1200k` came
+  out as *"one thousand two hundred thousand"*.
+- **Fixed: a European-spreadsheet paste no longer narrates a hundred times too big.**
+  `1,25M` read as *"one hundred twenty-five million"* over a chart correctly drawing
+  1.25M — the voice took the decimal comma for a thousands separator where the chart's
+  parser did not. A bare number is deliberately left alone, so `Closed \`2024\`` still
+  reads as a year.

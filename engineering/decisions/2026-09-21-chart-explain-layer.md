@@ -265,18 +265,67 @@ rebuilt.** After `npm run build`, the emitted caption bytes carry "Organic 60%",
 "raised in Q3 3" and "Band 99.5% 99.7%" — all three authored lines restored, in the
 artifact a listener actually receives.
 
+## Reading a value by what it IS, not by how it was typed
+
+Raised as feedback on the first cut of this work — *"my hope is narration reads
+900K and 0.9M the same. It shouldn't care."* That is right, and it turned out to
+be a defect rather than a preference. Narration handed the author's raw pill to
+the speech layer, so it was reading a SPELLING:
+
+```
+900k     -> "nine hundred thousand"             } one quantity,
+0.9M     -> "zero point nine million"           } two readings
+
+1.2M     -> "one point two million"             } one quantity, three readings,
+1200k    -> "one thousand two hundred thousand" } and the second is not English
+1200000  -> "one million two hundred thousand"  }
+
+1,25M    -> "one hundred twenty-five million"   <- A HUNDRED TIMES TOO MUCH
+```
+
+**The last one is the serious one.** `1,25M` is what a deck pasted out of a
+French, German, Italian or Swedish spreadsheet contains — `normalizeSeparators`
+exists because this repo has had those decks. The PICTURE reads it correctly and
+draws 1.25M; the VOICE read the comma as a thousands separator and said "one
+hundred twenty-five million" over that chart. A confidently wrong number is the
+worst thing narration can do, and it was doing it on the one input class the
+parser had been hardened for.
+
+`spokenValue` parses to the value and then says it the way a person would: the
+largest magnitude whose mantissa is at least one. **Three narrowings, each from a
+defect the first draft shipped** — a bare number is never re-scaled (`2024`, a
+documented data value, came out as "two point zero two four thousand"); a unit
+suffix is not a magnitude (`150 ms` is the author's unit); and the sign rides in
+front of a currency prefix (rebuilding it after produced the unreadable literal
+`"$-800k"`).
+
+**It deliberately does not reproduce the chart's PRINTED form**, and that is the
+part worth keeping straight. `fmtFor` normalizes every row on a chart to one
+magnitude so a reader's eye does not re-scale between rows — a whole-chart
+decision, entangled with the axis, that a per-value function cannot make. So a
+chart mixing `900k` and `1.2M` still prints "0.9M" while the voice says "nine
+hundred thousand". Both are correct readings of the same number; only the CHART
+has a reason to prefer one unit. The earlier framing of this as "the voice should
+match the print" had it backwards: the voice should match the NUMBER.
+
 ## Known limits
 
 - **Nobody has listened.** Every number here is emitted `.vtt` bytes or a value
   computed in process (HARD RULE #23). Whether it SOUNDS right needs an ear.
-- **The spoken numbers are the author's RAW pills.** The picture normalizes to one
-  magnitude per chart, so a row typed `900k` beside a `1.2M` row prints `0.9M` and is
-  spoken "nine hundred thousand". Never wrong, differently scaled. Matching the print
-  means reproducing `fmtFor`'s precision escalation and its whole-chart affix
-  negotiation, which is entangled with the axis.
-- **The `<desc>` strings are unchanged.** Improving `word-cloud`'s flat `<desc>` is
-  the obvious next use of its kernel and would move rendered bytes, so it is a
-  separate, visible decision.
+- **The voice and the printed slide may pick different units for the same number.**
+  Narration now canonicalizes the VALUE (see the section above), and the chart
+  normalizes the whole chart to one magnitude, so a deck mixing `900k` and `1.2M`
+  prints "0.9M" and says "nine hundred thousand". Both are correct; only the chart
+  has a reason to prefer one unit, and `bullet.docs.md` already tells authors not to
+  mix magnitudes. A BARE number is left entirely alone, so `1200000` and `1.2M` still
+  read differently — deliberate, because a bare number has only one spelling and
+  rescaling one is how `2024` became "two point zero two four thousand".
+- **The `<desc>` strings are unchanged** — tracked as #2278. `word-cloud`'s is still
+  the flat list of counts the caption stopped giving, and improving it moves rendered
+  bytes, which would have muddied this PR's output-identical claim.
+- **`lint:deck` coaches on speaker-note prose that never narrates** — tracked as
+  #2277, 161 spurious wall-of-text flags across 187 decks. Found here, off this
+  change's path, so logged rather than pulled into the diff (HARD RULE #18).
 - **Only the CLI export path was driven.** Present and the browser read-along run the
   same kernel; both narrators were added to `tools/build-read-along-core.js`'s
   re-export list, which is still hand-kept and still has no gate.
