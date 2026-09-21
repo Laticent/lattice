@@ -442,6 +442,12 @@ remaining nine token passthroughs (a slash means four different things; guessing
 reading the glyph), and recommendation 8 — which is now decided in principle (a generic
 data-series narrator first) but not built.
 
+> **Since (2026-09-21).** The abbreviation over-split is fixed, together with the
+> under-split it mirrors — see `./2026-09-21-narration-segmentation.md`, which also
+> records the two regressions the first draft of that fix introduced onto shipped decks
+> and how a whole-corpus scan found them. This record's Finding 3 stands as the
+> measurement; it is no longer the current state.
+
 **The component count moved under this record, and Finding 1 predicted the new one.** The
 coverage table measured the 70 components that existed on 2026-09-20; `anchor/topic` landed on
 `main` the next day. Re-running the script on the rebased tree reproduces every number above and

@@ -317,6 +317,7 @@ it is load-bearing.
 - ☑ [2026-09-22-thinking-is-a-third-of-output.md](2026-09-22-thinking-is-a-third-of-output.md) — Thinking is 37% of output tokens and about 6% of the billable total, measured over 69 usable turns across a main thread and two subagents.
 - ☑ [2026-09-21-manifest-handles.md](2026-09-21-manifest-handles.md) — The Guide could not point at a part nothing declares.
 - ☑ [2026-09-21-what-a-turn-bills.md](2026-09-21-what-a-turn-bills.md) — A session's budget is spent on what ENTERS the conversation, not on how long it runs.
+- ☑ [2026-09-21-narration-segmentation.md](2026-09-21-narration-segmentation.md) — The abbreviation over-split from the 2026-09-20 audit's Finding 3, fixed, plus the under-split it mirrors.
 - ☑ [2026-09-20-chromium-caption-projection.md](2026-09-20-chromium-caption-projection.md) — The CLI's `--captions` projection now runs in the Chromium the export already launched, not in three jsdom windows.
 - ☑ [2026-09-20-dom-library-bakeoff.md](2026-09-20-dom-library-bakeoff.md) — jsdom is slow and we keep it — on the paths we have.
 - ☑ [2026-09-20-form-is-not-configurable.md](2026-09-20-form-is-not-configurable.md) — Form is the composition model and cannot be disabled, configured or selected.

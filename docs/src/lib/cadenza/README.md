@@ -88,7 +88,7 @@ and the highlight still lands on the single token a reader sees.
 | `makeReader({ track, onWord?, onEnd? })` | the read-along driver: `sync(nowMs)` emits `onWord` on change + `onEnd` once; `align(...)` re-anchors; `reset()` re-arms. |
 | `makeCursor(track)` | the lower-level primitive: `at(timeMs)` + `align(cueIndex, onsetMs, durationMs)`. |
 | `toVtt(track)` / `toSrt(track)` | WebVTT (with karaoke word timestamps) / SRT. |
-| `splitSentences` / `splitWords` | the canonical segmenter (one cue == one sentence). |
+| `splitSentences` / `splitWords` | the canonical segmenter, and now the ONLY one — voice-model's local copy was deleted 2026-09-21. One cue == one sentence, where an abbreviation's period does not end one and a terminator inside a closing quote does (`../../../../engineering/decisions/2026-09-21-narration-segmentation.md`). |
 | `toSpoken` / `numberToWords` | display→spoken normalization. |
 | `estimateWordMs` / `readMs` / `PACE_WPM` | the single cadence source. |
 
