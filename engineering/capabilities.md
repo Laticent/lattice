@@ -471,6 +471,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/manifest-schemas.js` | The ONE declaration of which manifest families exist, which schema governs |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
 | `tools/measure-narration-coverage.mjs` | Measure how much of each component's slide actually reaches the voice. |
+| `tools/measure-token-narration.mjs` | Measure which display tokens reach the voice UNCHANGED. |
 | `tools/mutate-stage-window.mjs` | mutate-stage-window — break what each Stage-window cell NAMES, and watch it go red. |
 | `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |

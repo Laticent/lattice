@@ -3,7 +3,7 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 import { lookupLexicon } from './lexicon';
-import { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms } from './normalize';
+import { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens } from './normalize';
 
 // The locale guard (#919): Cadenza's say-as (lexicon, number-to-words, fiscal/period parser)
 // is US-English, so a non-English deck bypasses it — the display token passes through — while
@@ -554,6 +554,58 @@ describe('the shapes a boardroom deck writes that used to pass through raw', () 
 
   it('leaves a slash alone, because a slash means four different things', () => {
     for (const t of ['A/B', '24/7', '3.5/5', '9/20']) expect(toSpoken(t)).toBe(t);
+  });
+});
+
+// ── the coaching path for the shapes there is deliberately no rule for ─────────────
+// `unspokenTokens` is the sibling of `unmatchedAcronyms`: it finds the tokens that WILL
+// read as glyphs and that an author can fix with one `lexicon:` line. Its whole value is
+// precision — a first cut that reported every unchanged value-shaped token found 467
+// across the 186 shipped decks, nearly all inline SVG attributes and markdown image
+// targets, which is a coach nobody would leave switched on. See
+// engineering/decisions/2026-09-21-token-passthrough-coaching.md.
+describe('unspokenTokens', () => {
+  it('finds the slash, ratio and identifier shapes that reach the voice as glyphs', () => {
+    expect(unspokenTokens('Our A/B test ran 24/7 at a 4.5:1 ratio under ID-4471.')).toEqual([
+      'A/B', '24/7', '4.5:1', 'ID-4471',
+    ]);
+    // Real tokens from the shipped decks, each in a deck that authors it today.
+    expect(unspokenTokens('CCPA/CPRA win/loss N/A I/O CI/CD 16:9')).toEqual([
+      'CCPA/CPRA', 'win/loss', 'N/A', 'I/O', 'CI/CD', '16:9',
+    ]);
+  });
+
+  it('reports a token ONCE, in first-seen order, and peels wrapping punctuation', () => {
+    expect(unspokenTokens('A/B, then (A/B) again, then "24/7".')).toEqual(['A/B', '24/7']);
+  });
+
+  it('says nothing about a token the normalizer already handles', () => {
+    // A clock time IS claimed by the time parser, so it is not a passthrough and not coachable.
+    expect(unspokenTokens('At 12:30 we shipped $4.2M, up +9%, on 2026-09-20.')).toEqual([]);
+  });
+
+  it('goes quiet once the author has coached it — the whole point of the hint', () => {
+    const lexicon = new Map([['24/7', 'twenty-four seven']]);
+    expect(unspokenTokens('We run 24/7.')).toEqual(['24/7']);
+    expect(unspokenTokens('We run 24/7.', { lexicon })).toEqual([]);
+  });
+
+  // PRECISION GUARDS. Each of these was a real false positive in the first cut, measured on
+  // the shipped decks. A coach that reports them is one an author learns to ignore.
+  it('does NOT report markup, image targets, LaTeX or a compound adjective', () => {
+    expect(unspokenTokens('<svg viewBox="0 0 240 150" stroke-width="9"/><polygon points="120,50"')).toEqual([]);
+    expect(unspokenTokens('![Acme](../lib/components/inventory/logo-wall/acme.svg)')).toEqual([]);
+    expect(unspokenTokens('\\hat\\beta = (X^\\top X)^{-1}')).toEqual([]);
+    // Compound adjectives read correctly in any TTS front end; the identifier prefix is
+    // uppercase precisely so these do not match.
+    expect(unspokenTokens('under-13 over-16 45-day 22-1201')).toEqual([]);
+  });
+
+  it('leaves an acronym to unmatchedAcronyms rather than reporting it twice', () => {
+    expect(unspokenTokens('ARR and NDR and CAC')).toEqual([]);
+    // ARR is in the built-in lexicon, so it is not unmatched either — only the two the
+    // library has no expansion for are reported, and by the OTHER pass.
+    expect(unmatchedAcronyms('ARR and NDR and CAC')).toEqual(['NDR', 'CAC']);
   });
 });
 
