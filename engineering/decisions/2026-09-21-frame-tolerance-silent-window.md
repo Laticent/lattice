@@ -5,8 +5,9 @@ summary: >-
   to 12px outside a box that CROPS passes every channel while the pixels are gone. Measured on a
   probe deck: 12px prints nothing, 13px prints the frame warning. A sweep of all 334 shipped decks
   (4026 slides, real Chromium, each rendered as authored) says the window is not theoretical — 34
-  slides across 21 decks sit in it, and 28 of them are ones the truthful content probe calls a cut
-  at zero tolerance, 27 of those BODY content rather than caption-footer chrome. The tolerance is NOT changed
+  slides across 21 decks sit in it, and 18 of those 34 are ones the truthful content probe calls a
+  cut at zero tolerance. Across the whole corpus that probe finds 28 silent cuts, 27 of them BODY
+  content rather than caption-footer chrome; this change names 18 and ten stay silent. The tolerance is NOT changed
   here: it feeds `buildSplitVerdict`, so lowering it re-decides autosplit corpus-wide and adds 34
   slides to a ratchet nobody has fixed. What changes is the SILENCE — the export now names the
   slides in the band and points at `check:chart-fit`, which adjudicates it with 1.5px of slack.
@@ -43,24 +44,82 @@ The boundary is exactly the tolerance: **12px silent, 13px reported**. That matc
 independent finding (`-18.6px` reported, `-10.2px` not) and its live instance — a gantt painting
 10.2px outside a stage that is `overflow: clip`.
 
-**The window, across the shipped corpus.** All 334 decks the `overflow:check` glob covers, 4026
-slides, real Chromium, each slide probed at tolerances 0 · 1 · 2 · 3 · 4 · 6 · 8 · 12 in one
-render. Of the 3996 slides the export says nothing about today:
+**The window, across the shipped corpus.** Every deck the `overflow:check` glob covers — 335
+decks, 4043 slides — real Chromium, each slide probed at tolerances 0 · 1 · 2 · 3 · 4 · 6 · 8 · 12
+in one render. Of the 4013 slides the export says nothing about today:
 
 | excess past the frame | slides |
 |---|---|
-| 0 | 3931 |
-| (0, 1] | 10 |
+| 0 | 3955 |
+| (0, 1] | 6 |
 | (1, 2] | 16 |
 | (2, 3] | 2 |
-| (3, 12] | **34** |
+| (3, 4] | 3 |
+| (4, 6] | 17 |
+| (6, 8] | 2 |
+| (8, 12] | 12 |
+| **(3, 12] total** | **34** |
 
 The `(0, 2]` band is phantom and it is worth naming why, because it is what the tolerance is
 genuinely for: **14 of the 16 slides in `(1, 2]` are the same `split-panel metric` slide**
 repeated across the `token-contrast` decks, all at exactly 2px — and `probeContentClipped`
-answers `cut: false` on every slide in that band, all 26 of them. No ink outside any box. Above
+answers `cut: false` on every slide in that band, all 22 of them. No ink outside any box. Above
 3, the measured ink tracks the number: excess 4 → 4.02px of a `<strong>` outside its box, 6 →
 5.58, 11 → 10.64, and 18 of the 34 come back `cut: true`.
+
+**THE FLOOR IS NOT A CLAIM THAT NOTHING IS LOST BELOW IT**, and the first draft of this note said
+it was: *"probeContentClipped answers `cut: false` on every slide in that band."* Its own dataset
+refutes that. Three slides in `(0, 2]` lose author body content:
+
+| deck | page | excess | first cut |
+|---|---|---|---|
+| `inventory/list/list.gallery.md` | 9 | 1 | `"A stress line may spend twenty words, an…"` |
+| `legal/legal.gallery.md` | 25 | **0.02** | `"Added"` |
+| `legal/regulatory-update/regulatory-update.gallery.md` | 6 | **0.03** | `"Added"` |
+
+Two of them at three hundredths of a pixel. That is not a flaw in the floor — it is the point
+`probeContentClipped` exists to make: a formatter-truncated line crosses a box edge without moving
+the section's scroll height at all, so **section excess is uncorrelated with loss at the low end**
+and no floor on it can be a completeness claim.
+
+**WHAT THE ADVISORY BUYS, AND WHAT IT DOES NOT.** Of the 28 slides the truthful probe calls a
+silent cut, this change names **18**. **Ten stay silent, nine of them body content** — and lowering
+the floor would not reach them, because eight sit at excess 0:
+
+| deck | page | excess | first cut |
+|---|---|---|---|
+| `examples/adaptive-sweep.md` | 72 | 0 | `"92%"` |
+| `examples/chart-family-coverage.md` | 4 | 0 | `"1"` |
+| `examples/gallery-jargon.md` | 35 | 0 | `"Examiner export"` |
+| `examples/legend-below-portrait.md` | 8 | 0 | *(chrome)* |
+| `chart/journey/journey.gallery.md` | 4 | 0 | `"1"` |
+| `progression/cycle/cycle.gallery.md` | 3 | 0 | `"Sedimentation"` |
+| `inventory/list/list.gallery.md` | 9 | 1 | `"A stress line may spend twenty words, an…"` |
+| `legal/legal.gallery.md` | 25 | 0.02 | `"Added"` |
+| `legal/regulatory-update/regulatory-update.gallery.md` | 6 | 0.03 | `"Added"` |
+
+*(A tenth, `examples/gantt-status-key.md` p4, was in the sweep and is not in this list: it was this
+branch's own demo deck, 4.6px over its stage, and it was trimmed before the branch shipped —
+`check-chart-fit` is green on it now. HARD RULE #18: a window this branch created, closed here
+rather than logged.)*
+
+Reaching those nine needs the CONTENT probe run on every slide rather than only on the ones the
+cheap probe marks suspect — an order of magnitude dearer, and its own change. Recorded in Open.
+
+**These two tables are the durable form of the claim.** `.scratch/` is gitignored and
+`npm run clean:scratch` wipes it, so a reader six months from now cannot re-run the analysis
+scripts; they can check these named slides against the repo.
+
+**ONE MEASURE, NOT TWO.** An earlier draft of this table was wrong in a way worth recording,
+because it is the same failure the note is about. Its buckets were computed as
+`max(scrollH − clientH, worst cell dy/dx)` while its `(3, 12]` headline used `scrollH − clientH`
+alone — so the histogram did not sum to its own total and the phantom band read 26 instead of 22.
+The advisory reads the vertical excess only, so that is the measure the whole table uses now.
+
+**Two decks entered after the sweep ran.** `#2249` renamed `compare-table` to `table` and added
+`examples/table-component.md` while this branch was open. Both were swept separately and are
+entirely clean — 0 reported, 0 in the band, 0 cuts — as was the deck the rename replaced, so no
+count above moves; only the zero-excess bucket grows.
 
 **MEASURE THE DECK AS AUTHORED.** The first version of this sweep normalized every deck's front
 matter to a landscape frame, which strips a deck's own `size:` and `autosplit:` — a different
@@ -119,11 +178,15 @@ fall in `(NEAR_MISS_FLOOR, FRAME_TOLERANCE]` and are on neither list:
 ```
 
 It is an ADVISORY and deliberately not a verdict: no class is stamped, no export marker is drawn,
-the exit code does not move, and the ratchet is untouched. It follows the file's own `ⓘ TYPE FLOOR
+the exit code does not move, and the ratchet is untouched — measured, not assumed: a full
+`check-overflow-corpus` sweep of the shipped tree reports exactly one deck above its baseline,
+`heatmap.gallery.md` p3/p4, which is #2254 and is equally red on `main`. (The commit that first
+made this claim asserted it before that sweep had finished. The sweep has since run and the claim
+holds; recorded because asserting it early is the failure this note is about.) It follows the file's own `ⓘ TYPE FLOOR
 NOT MEASURED` precedent — "not measured" is an honest answer, a quiet pass is not (HARD RULE #23).
 
 **`NEAR_MISS_FLOOR = 3` is taken from the distribution above**, not from taste. It costs an
-advisory on 34 slides across 21 of 334 decks — 6.3% of the corpus. The advisory reads the
+advisory on 34 slides across 21 of 335 decks — 6.3% of the corpus. The advisory reads the
 VERTICAL excess (`scrollH - clientH`) off the probe call the export already makes, so it adds no
 measurement: `scrollH` and `clientH` are not gated by the tolerance, which only decides `over`,
 `overCells` and `clipSuspect`. An earlier cut probed a second time at zero tolerance and bought
@@ -156,6 +219,19 @@ guarding a literal nobody reads any more).
   and `probeContentClipped` still says `cut: false`. They sit below the floor, so they stay silent.
 - **The horizontal axis.** The advisory measures vertical excess only, because the probe does not
   return the width pair. A slide spilling sideways inside the budget is still silent.
+- **The nine body cuts at excess ≤ 3**, named above. Reaching them means running the content probe
+  on every slide rather than only on the ones the cheap probe marks suspect.
+- **The advisory's second line states one mechanism, and `scrollH` has three.** It says "that box
+  clips, so the pixels are gone", but `scrollH` can also be raised by `squeezed` — OVERPRINT, which
+  crosses no box edge, and for which `check:chart-fit` is the wrong remedy. Raised by the HARD RULE
+  #25 checker; not reproduced on a shipped deck (`examples/math-form-frame.md` p9 has
+  `squeezed: 10` AND a matching `.cell-stage` overflow, so both mechanisms agree there). If a
+  squeeze-only slide is ever found in the band, the line needs to say which mechanism it saw.
+- **A `guards: strict` slide could be double-reported.** `verifyTrim` declares a trimmed slide
+  clean at the same 12px tolerance, so a slide can be called fit AND land in this band, printing
+  "those slides FIT because text was removed" beside "pN paints past a box that crops". Same
+  checker; also not reproduced (`examples/overflow-guards.md` trims p2 and does not enter the
+  band).
 
 ## Reproducing
 

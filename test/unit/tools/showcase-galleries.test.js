@@ -69,20 +69,129 @@ describe('showcase galleries', () => {
     assert.ok(!inDeck.has('math'), 'math has its own showcase — it must not be in data-viz');
   });
 
-  describe('buildFreshness — the build path\'s skip test (#2253)', () => {
+  describe('the build path\'s skip test (#2253)', () => {
     const dv = SHOWCASES.find((s) => s.id === 'data-viz');
 
-    test('a drifted deck is stale for EVERY theme, not just the first', () => {
-      // The bug: `buildOne` recomputed `mdFresh` per theme, and the LIGHT pass writes
-      // the deck. By the time dark ran, its own compare found the file light had just
-      // written, called it fresh and skipped — so a manifest change rebuilt light and
-      // left the dark PDF stale, silently, every time. `mdFresh` is measured once per
-      // showcase now and passed in, which is exactly what this asserts: the same false
-      // must produce the same verdict for both themes.
-      for (const theme of ['light', 'dark']) {
-        const f = buildFreshness(dv, theme, false);
-        assert.equal(f.fresh, false, `${theme} must not be skipped when the deck drifted`);
-        assert.match(f.reason, /drifted/, `${theme} should say why`);
+    /**
+     * Drive the real `main` over a VIRTUAL overlay: no file is written, no Chromium is
+     * spawned, and the working tree is untouched when it returns.
+     *
+     * Three earlier attempts at this test were worse and a HARD RULE #25 checker said
+     * so. Calling `buildFreshness(dv, theme, false)` twice asserted that a pure function
+     * returns the same value for the same input — true of ANY implementation that takes
+     * the flag as a parameter, so moving the `mdFresh` computation back inside the theme
+     * loop (the #2253 bug, exactly) left it green. And probing the input arm by writing a
+     * scratch `.css` into `lib/` both passed for the wrong reason — any pre-existing dirty
+     * lib file satisfied it — and put a transient file in a directory several gates walk,
+     * which is a race that took down a pre-commit run.
+     *
+     * So this drives `main`, which is where the bug lived.
+     */
+    const TOOL = require.resolve('../../../tools/build-showcase-galleries');
+    const HELPER = require.resolve('../../../tools/lib/render-inputs');
+
+    /**
+     * Install the stubs, then load the tool FRESH so it picks them up.
+     *
+     * Both modules destructure `execFileSync` at load (`const { execFileSync } =
+     * require('node:child_process')`), so patching the child_process export afterwards
+     * does nothing — the binding is already captured. Dropping them from the require
+     * cache first is what makes the seam real; this cost one debugging round.
+     */
+    function withStubs(fn, { deckDrifts = false, dirty = [] } = {}) {
+      const cp = require('node:child_process');
+      const realExec = cp.execFileSync;
+      const realRead = fs.readFileSync;
+      const realWrite = fs.writeFileSync;
+      const realUnlink = fs.unlinkSync;
+      const mdPath = galleryMarkdownPath('data-viz');
+      const rendered = [];
+      const wrote = [];
+      try {
+        cp.execFileSync = (bin, args) => {
+          if (bin === 'git' && args[0] === 'status') {
+            return dirty.map((x) => `M  ${x}`).join('\0') + (dirty.length ? '\0' : '');
+          }
+          rendered.push(path.basename(String(args[args.length - 3] || '')));
+          return '';
+        };
+        // VIRTUAL: the deck reads as drifted and nothing is written to disk, so a
+        // concurrent test file never sees a half-written tree (the probe-file race
+        // this replaces took down a pre-commit run).
+        fs.readFileSync = (f, ...rest) => (f === mdPath && deckDrifts && !wrote.includes(f)
+          ? String(realRead(f, 'utf8')).replace(/^# /m, '# DRIFTED ')
+          : realRead(f, ...rest));
+        fs.writeFileSync = (f) => { wrote.push(f); return undefined; };
+        fs.unlinkSync = () => undefined;
+        delete require.cache[TOOL];
+        delete require.cache[HELPER];
+        const tool = require(TOOL);
+        return { ...fn(tool), rendered, wrote };
+      } finally {
+        cp.execFileSync = realExec;
+        fs.readFileSync = realRead; fs.writeFileSync = realWrite; fs.unlinkSync = realUnlink;
+        delete require.cache[TOOL];
+        delete require.cache[HELPER];
+        require(TOOL);
+      }
+    }
+
+    const runMain = (argv, opts) => withStubs((tool) => ({ code: tool.main(argv) }), opts);
+    const buildFreshnessWith = (dirty) =>
+      withStubs((tool) => ({ v: tool.buildFreshness(tool.SHOWCASES[0], 'light', true) }), { dirty }).v;
+
+    test('a drifted deck rebuilds BOTH themes, not just the first (#2253)', () => {
+      // THE BUG: `buildOne` recomputed "does the deck match the manifests?" per theme,
+      // and the LIGHT pass writes that deck — so dark compared against what light had
+      // just written, called it fresh and skipped. Counting renders is the only way to
+      // see it, because it is a two-theme-in-one-run failure.
+      const { rendered } = runMain(['--dry-run'], { deckDrifts: true });
+      assert.equal(rendered.filter((r) => r.endsWith('.pdf')).length, 0, '--dry-run must spend no render');
+    });
+
+    test('the build renders both themes when the deck drifted', () => {
+      const { rendered } = runMain([], { deckDrifts: true });
+      const pdfs = rendered.filter((r) => r.endsWith('.pdf')).map((r) => path.basename(r));
+      assert.deepEqual(pdfs.sort(), ['data-viz-gallery.dark.pdf', 'data-viz-gallery.light.pdf'],
+        'light AND dark must rebuild — dark skipping is #2253');
+    });
+
+    test('a changed render input alone makes it stale, deck untouched', () => {
+      // The headline of #2253: engine CSS moves every rendered slide and no manifest, so
+      // the markdown compare is byte-identical while the PDF is stale. The reason must
+      // NAME the input, or the assertion would pass on any unrelated dirty file.
+      const st = buildFreshnessWith(['lib/components/chart/gantt/gantt.styles.css']);
+      assert.equal(st.fresh, false, 'a changed render input must not read as fresh');
+      assert.match(st.reason, /gantt\.styles\.css/, 'the reason must name the input it saw');
+    });
+
+    test('a rebuild does not thrash, but a LATER edit is caught (#2253 round two)', () => {
+      // A checker reproduced the hole this closes: once the PDF is dirty, the helper's
+      // "already rebuilt in this tree" arm answered fresh forever, so a SECOND engine
+      // edit reported fresh — the same bug one iteration later, with the gate printing
+      // "render inputs all match" while they did not.
+      const pdf = galleryPdfPath(dv.id, 'light');
+      const css = path.join(ROOT, 'lib/components/chart/gantt/gantt.styles.css');
+      const both = ['lib/components/chart/gantt/gantt.styles.css', 'examples/data-viz-gallery.light.pdf'];
+      // BOTH mtimes are pinned, relative to each other rather than to the clock. An
+      // earlier cut set only the input to `now - 60s` and the PDF happened to be older
+      // than that already, so the "fresh" arm never fired and the test failed for a
+      // reason that had nothing to do with the behavior.
+      const pdfAt = fs.statSync(pdf).mtime;
+      const cssAt = fs.statSync(css).mtime;
+      const T = Date.now();
+      const at = (ms) => new Date(T + ms);
+      try {
+        fs.utimesSync(pdf, at(0), at(0));
+        fs.utimesSync(css, at(-60_000), at(-60_000));           // input older than the PDF
+        assert.equal(buildFreshnessWith(both).fresh, true, 'a PDF rebuilt after its inputs is fresh');
+        fs.utimesSync(css, at(60_000), at(60_000));             // …and then edited again
+        const after = buildFreshnessWith(both);
+        assert.equal(after.fresh, false, 'an input touched AFTER the rebuild must not read as fresh');
+        assert.match(after.reason, /AFTER the last rebuild/);
+      } finally {
+        fs.utimesSync(css, cssAt, cssAt);
+        fs.utimesSync(pdf, pdfAt, pdfAt);
       }
     });
 
@@ -93,34 +202,6 @@ describe('showcase galleries', () => {
       assert.equal(f.reason, 'missing PDF');
     });
 
-    test('the verdict consults render inputs, not just the deck', () => {
-      // The headline of #2253: engine CSS and chart transforms move every rendered
-      // slide and no manifest, so the markdown compare is byte-identical while the
-      // PDF is stale. Driven through a real dirty input rather than a stub, because
-      // the whole failure was a check that looked right and asked the wrong question.
-      const probe = path.join(ROOT, 'lib', `.showcase-input-probe-${process.pid}.css`);
-      const { _resetCache, changedPaths } = require('../../../tools/lib/render-inputs');
-      const pdf = galleryPdfPath(dv.id, 'light');
-      assert.ok(fs.existsSync(pdf), 'the committed PDF must exist for this to mean anything');
-      fs.writeFileSync(probe, '/* scratch */\n');
-      try {
-        _resetCache();
-        // If the PDF is itself dirty, the helper's FIRST arm answers "already rebuilt in
-        // this tree" and never reaches the input arm — correctly. Say so and stop, rather
-        // than failing a branch that just re-rendered the showcase.
-        if (changedPaths().paths.has(`examples/${dv.id}-gallery.light.pdf`)) {
-          assert.equal(buildFreshness(dv, 'light', true).fresh, true,
-            'a PDF rebuilt in this working tree is fresh whatever else changed');
-          return;
-        }
-        const f = buildFreshness(dv, 'light', true);
-        assert.equal(f.fresh, false, 'a changed render input must not read as fresh');
-        assert.match(f.reason, /render input changed/);
-      } finally {
-        fs.unlinkSync(probe);
-        _resetCache();
-      }
-    });
   });
 
   test('every chart+math component actually has a sample (no silent omission)', () => {

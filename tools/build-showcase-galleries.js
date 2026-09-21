@@ -141,7 +141,10 @@ function buildFreshness(showcase, theme, mdFresh) {
   // a render is not wasted when the engine moved under it.
   const st = stalenessAgainstInputs(outPdf, mdPath);
   if (st.stale) return { fresh: false, reason: st.reason };
-  return { fresh: true, reason: 'deck, PDF and render inputs all match' };
+  // "git could not answer" is not "everything matches", and saying the second is the
+  // guessing this module's header refuses. The helper hands back its own reason when it
+  // declined to judge; pass it through rather than overwriting it with a claim.
+  return { fresh: true, reason: st.reason || 'deck, PDF and render inputs all match' };
 }
 
 function buildOne(showcase, groups, theme, mdFresh) {
@@ -176,6 +179,11 @@ function checkOne(showcase, groups, theme) {
   const outPdf = galleryPdfPath(showcase.id, theme);
   if (!fs.existsSync(mdPath)) return { id: showcase.id, theme, stale: true, reason: 'no source .md' };
   if (!fs.existsSync(outPdf)) return { id: showcase.id, theme, stale: true, reason: 'missing PDF' };
+  // The SAME size floor the build path applies. Without it the two verdicts could
+  // disagree on a truncated PDF — the build would re-render it and `--check` would call
+  // it up to date — which makes the documented "`--dry-run` reports the same verdict"
+  // false for exactly the artifact you most want a gate to catch.
+  if (fs.statSync(outPdf).size <= 10000) return { id: showcase.id, theme, stale: true, reason: 'PDF is implausibly small' };
   if (composeShowcase(showcase, groups) !== fs.readFileSync(mdPath, 'utf8')) {
     return { id: showcase.id, theme, stale: true, reason: 'source .md drifted from manifests (a component was added/changed)' };
   }

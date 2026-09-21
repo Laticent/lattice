@@ -69,7 +69,10 @@ const isGalleryDeck = (p) => p.endsWith('.gallery.md');
 // the "already rebuilt in this tree" escape could never fire, and the gate would have
 // reported stale forever — a red no rebuild could clear. The query is the whole tree
 // now and the classifier is the only filter. Measured cost of dropping the pathspec on
-// this repo: 35ms -> 106ms for one `git status`, memoized once per process.
+// this repo, 25 interleaved reps after a warm-up: p50 13.1ms -> 17.8ms for one `git
+// status`, memoized once per process — about 5ms. (An earlier version of this comment
+// said 35ms -> 106ms. That was one unwarmed `time` call per side, so it was mostly
+// process start-up; a checker could not reproduce it and was right not to.)
 
 function isRenderInput(rel) {
   if (isGalleryDeck(rel)) return false;
@@ -129,6 +132,11 @@ function _resetCache() { memo = null; }
 
 const relOf = (p) => path.relative(ROOT, p).split(path.sep).join('/');
 
+/** Modification time in ms, or 0 when the file cannot be stat'd (treated as oldest). */
+function mtimeOf(p) {
+  try { return fs.statSync(p).mtimeMs; } catch { return 0; }
+}
+
 /**
  * @param {string} pdfPath   the artifact
  * @param {string} deckPath  its own deck source
@@ -138,11 +146,30 @@ function stalenessAgainstInputs(pdfPath, deckPath) {
   if (!fs.existsSync(pdfPath)) return { stale: true, reason: 'missing' };
 
   const { paths, available } = changedPaths();
-  if (!available) return { stale: false };
+  if (!available) return { stale: false, reason: 'git cannot answer — not checked' };
 
   // A dirty PDF means a rebuild already happened in this working tree — whatever else
   // changed, this artifact has been regenerated against it.
-  if (paths.has(relOf(pdfPath))) return { stale: false };
+  //
+  // …UNLESS an input changed AGAIN after that rebuild, and that hole is the whole
+  // failure this module exists to stop, one iteration later: edit the engine, rebuild,
+  // edit the engine again, and the arm below would answer "fresh" while the artifact
+  // shows the first edit. A HARD RULE #25 checker reproduced exactly that loop.
+  //
+  // AN MTIME IS SOUND *HERE*, where the header rejects it everywhere else, and the
+  // reason is the guard above it: this line is reached only when the artifact is
+  // ALREADY DIRTY in this working tree. That excludes both failure modes the header
+  // names — a fresh clone has nothing dirty at all, and `git checkout <ref> -- themes`
+  // dirties inputs while leaving the PDF clean, so it never gets here. What is left is
+  // one honest question: was this PDF written after the newest input that changed?
+  if (paths.has(relOf(pdfPath))) {
+    const pdfAt = mtimeOf(pdfPath);
+    const newer = changedRenderInputs().files.filter((f) => mtimeOf(path.join(ROOT, f)) > pdfAt);
+    if (!newer.length) return { stale: false };
+    const shown = newer.slice(0, 2).join(', ');
+    const more = newer.length > 2 ? ` +${newer.length - 2} more` : '';
+    return { stale: true, reason: `render input changed AFTER the last rebuild (${shown}${more})` };
+  }
 
   // The deck is checked the same way as every other input, deliberately. An earlier cut
   // kept an mtime comparison for this one arm and it reproduced the false-stale failure

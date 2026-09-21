@@ -20,3 +20,19 @@
   could never appear in the changed set, so the helper's "this PDF was already
   rebuilt in this tree" arm could not fire for the showcase gallery, whose PDFs
   live in `examples/`. `isRenderInput` still decides what counts as an input.
+  Measured cost: about 5ms on one memoized `git status`.
+- **Fixed: a freshness gate that went GREEN after the second edit.** The arm above
+  answered "already rebuilt in this tree" from the fact that the artifact was
+  dirty, which is only true if nothing changed *after* that rebuild. So the loop
+  edit → build → edit again reported "deck, PDF and render inputs all match" while
+  the artifact showed the first edit — the same failure this change set out to fix,
+  one iteration later. The arm now asks whether the artifact is newer than the
+  newest changed input. This also closes the hole for the component and bucket
+  gallery gates, where it was reachable already.
+- **Changed: `build:showcase-galleries:check` is red more often, on purpose.** Any
+  uncommitted `.css`/`.js` under `lib/`, `themes/` or `dist/` now makes the
+  showcase PDFs stale — the same posture the component and bucket gates already
+  have. It is on-demand and the pre-commit rebuild, so no CI tax.
+- **Fixed: `--check` and the build could disagree.** `--check` had no size floor, so
+  a truncated PDF passed the gate and failed the build. And "git cannot answer" no
+  longer reports as "everything matches" — it says it was not checked.

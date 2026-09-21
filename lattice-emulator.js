@@ -3527,7 +3527,7 @@ async function renderBody(browser, g, closeBrowser) {
    * and `golden-diff` stays green.
    */
   const applyGuardsTrim = () => g(async () => {
-    const models = await page.evaluate(({ roleSrc, measureSrc, clearSrc, clipSel, enabledSrc }) => {
+    const models = await page.evaluate(({ roleSrc, measureSrc, clearSrc, clipSel, enabledSrc, tol }) => {
       // `measureTrim` calls `trimRoleOf` by name. Under `require` that is module
       // scope; injected through `new Function` it is not, so the role classifier is
       // bound globally FIRST. Inlining it into the measurer instead would put the
@@ -3543,11 +3543,11 @@ async function renderBody(browser, g, closeBrowser) {
         clearTrim(s);
         // A PER-SLIDE id namespace, matching the runtime. The export bakes one
         // document too, and an id only has to be unique where it is resolved.
-        const model = measureTrim(s, clipSel, 12, 's' + i + 'tb');
+        const model = measureTrim(s, clipSel, tol, 's' + i + 'tb');
         if (model.boxes.length) out.push({ index: i, model });
       });
       return out;
-    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: GUARDS_ENABLED_SRC });
+    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: GUARDS_ENABLED_SRC, tol: FRAME_TOLERANCE });
 
     const pages = [];
     const reverted = [];
@@ -3863,7 +3863,7 @@ async function renderBody(browser, g, closeBrowser) {
   // slide that paints up to that far outside a box passes every channel while the box
   // — `.cell-stage` is `overflow: clip` — genuinely cuts it. Measured on a probe deck:
   // a gantt forced 12px past its stage prints nothing, 13px prints the frame warning.
-  // #2252 found a real one at 10.2px, and a sweep of all 334 shipped decks found 27
+  // #2252 found a real one at 10.2px, and a sweep of all 335 shipped decks found 27
   // slides across 21 decks losing BODY content in this band with nothing said.
   //
   // This is an ADVISORY, not a verdict: no class is stamped, no marker is drawn, the

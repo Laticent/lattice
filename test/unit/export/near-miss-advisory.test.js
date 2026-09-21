@@ -2,16 +2,23 @@
  * Gate: the emulator's "INSIDE THE FIT TOLERANCE" advisory cannot hijack the
  * overflow ratchet's page list.
  *
- * `tools/check-overflow-corpus.js` harvests the pages a deck clips by running two
- * regexes over the emulator's WHOLE stdout+stderr buffer and taking the FIRST hit:
+ * THREE tools harvest pages out of the emulator's output, not one, and they do not
+ * agree on strictness. `tools/check-overflow-corpus.js` is line-bounded and
+ * case-SENSITIVE; the other two cross newlines and one ignores case entirely:
  *
- *     /OVERFLOW[^\n]*?pages? ([\d,\s]+)/
- *     /CONTENT CLIPPED[^\n]*?pages? ([\d,\s]+)/
+ *     check-overflow-corpus.js  /OVERFLOW[^\n]*?pages? ([\d,\s]+)/        + CONTENT CLIPPED twin
+ *     check-family-tiers.js     /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/
+ *     lib/calibrate-core.js     /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i   <- case-insensitive
  *
- * The advisory added for #2252 prints page numbers too. If its wording ever carried
- * either literal, and it printed BEFORE the real warning, the ratchet would read the
- * advisory's pages as the deck's clipped pages — a corpus-wide gate quietly measuring
- * the wrong thing. Nothing about the advisory's text says that; this does.
+ * The advisory added for #2252 prints page numbers too, and it creates a buffer shape
+ * that did not exist before: an export with an advisory and NO other warning line, where
+ * "first match wins" protects nobody. So a reword using the lowercase word "overflow"
+ * and "page 3" instead of "p3" — both entirely natural, every other line in that file
+ * says "page" — would be harvested by `calibrate-core` as if it were real clipping.
+ *
+ * The HARD RULE #25 checker constructed exactly that reword against the first version of
+ * this test, which asserted only the two case-SENSITIVE literals and so passed it. The
+ * forbidden set below is the union of what all three tools can match.
  *
  * Pinned by the SOURCE STRING rather than by a render, so it costs no Chromium and
  * fails the moment someone rewords the line rather than the next time a sweep runs.
@@ -26,39 +33,63 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const SRC = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
 const CORPUS = fs.readFileSync(path.join(ROOT, 'tools', 'check-overflow-corpus.js'), 'utf8');
 
-/** The advisory's own console.warn calls, extracted from the emulator source. */
+/**
+ * The TEXT the advisory prints, and only that.
+ *
+ * Scoped to the `console.warn` arguments rather than the whole block, because the
+ * block also names the local `overflowing` — an identifier, never printed, which a
+ * case-insensitive check for the word "overflow" would otherwise flag. What the
+ * harvesters see is the buffer, so the buffer is what this reads.
+ */
 function advisoryLines() {
   const start = SRC.indexOf('ⓘ INSIDE THE FIT TOLERANCE');
   assert.notEqual(start, -1, 'the #2252 advisory must still be in lattice-emulator.js');
-  // The whole emitting block: from the enclosing `if (nearMiss.length)` to its close.
   const blockStart = SRC.lastIndexOf('if (nearMiss.length)', start);
   assert.notEqual(blockStart, -1);
   const block = SRC.slice(blockStart, SRC.indexOf('\n  }\n', start));
-  return block;
+  const printed = [...block.matchAll(/console\.warn\(([\s\S]*?)\);/g)].map((m) => m[1]);
+  assert.ok(printed.length >= 2, 'the advisory should still print its lines through console.warn');
+  return printed.join('\n');
 }
 
 describe('the near-miss advisory (#2252)', () => {
-  test('carries neither literal the corpus ratchet greps for', () => {
+  test('carries no token any of the three harvesters can key on', () => {
     const block = advisoryLines();
-    assert.equal(/OVERFLOW/.test(block), false,
-      'the advisory must not print the word OVERFLOW — check-overflow-corpus.js would read its pages as clipped pages');
-    assert.equal(/CONTENT CLIPPED/.test(block), false,
-      'the advisory must not print CONTENT CLIPPED, for the same reason');
+    // CASE-INSENSITIVE, because `tools/lib/calibrate-core.js` is. The first version of
+    // this test used /OVERFLOW/ and a lowercase reword walked straight through it.
+    assert.equal(/overflow/i.test(block), false,
+      'the advisory must not print the word "overflow" in ANY case — calibrate-core.js greps /i');
+    assert.equal(/content clipped/i.test(block), false,
+      'the advisory must not print "content clipped", for the same reason');
+    // …and not the page-list SHAPE either. All three harvesters want `page`/`pages`
+    // followed by digits; the advisory writes `p3 (4px)` precisely so it cannot match.
+    assert.equal(/pages?\s+\d/i.test(block), false,
+      'the advisory must not write "page N" — it writes pN, so no harvester can read it');
   });
 
-  test('the ratchet still greps for exactly those two literals', () => {
-    // If the harvest ever keys on something else, the assertion above is guarding a
-    // literal nobody reads any more — a test that passes for the wrong reason.
+  test('all three harvesters still key on the literals this guards', () => {
+    // If a harvest ever keys on something else, the assertions above guard a literal
+    // nobody reads any more — a test that passes for the wrong reason.
     assert.match(CORPUS, /grabPages\(\/OVERFLOW\[\^\\n\]\*\?pages\? \(\[\\d,\\s\]\+\)\/\)/);
     assert.match(CORPUS, /grabPages\(\/CONTENT CLIPPED\[\^\\n\]\*\?pages\? \(\[\\d,\\s\]\+\)\/\)/);
+    for (const rel of ['tools/check-family-tiers.js', 'tools/lib/calibrate-core.js']) {
+      const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      assert.match(src, /OVERFLOW\[\\s\\S\]\*\?pages\?\\s\+\(\[\\d,\\s\]\+\)/,
+        `${rel} should still harvest pages the way this test assumes`);
+    }
   });
 
-  test('a rendered advisory line is inert against both harvest regexes', () => {
-    // The real shape, as the emulator prints it — three slides, px in parentheses.
-    const line = '  ⓘ INSIDE THE FIT TOLERANCE — 3 slides paint past a box that crops by less than '
-      + 'the 12px budget every check above is read against, so nothing reports them: p3 (4px), p4 (6px), p5 (8px).';
-    assert.equal(/OVERFLOW[^\n]*?pages? ([\d,\s]+)/.test(line), false);
-    assert.equal(/CONTENT CLIPPED[^\n]*?pages? ([\d,\s]+)/.test(line), false);
+  test('a rendered advisory line is inert against every harvest regex', () => {
+    // Built from the SOURCE's own format string rather than hard-coded, so the
+    // assertion cannot go vacuous the moment someone rewords the line it polices.
+    const block = advisoryLines();
+    const line = block.replace(/\$\{[^}]*\}/g, '3').replace(/[`'"]/g, '').replace(/\s+/g, ' ');
+    for (const re of [
+      /OVERFLOW[^\n]*?pages? ([\d,\s]+)/,
+      /CONTENT CLIPPED[^\n]*?pages? ([\d,\s]+)/,
+      /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/,
+      /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i,
+    ]) assert.equal(re.test(line), false, `advisory source matched ${re}`);
   });
 
   test('the floor and the tolerance come from the kernel, not from a literal here', () => {
