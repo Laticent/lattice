@@ -80,7 +80,7 @@ test('bullet — every authored band under the floor falls back to the derived c
   const swallowed = row({ measure: 99.6, target: 99.9, floor: 99, bands: [10, 20] });
   assert.equal(bullet.cutsAreDerived(swallowed), true,
     'every band under the floor — nothing authored survived, so the range is derived');
-  assert.equal(bullet.zoneOf(swallowed).name, 'nearly there',
+  assert.equal(bullet.zoneOf(swallowed).name, 'closing on plan',
     'and it is named, which is the observable the provenance flag actually drives');
 });
 
@@ -89,9 +89,9 @@ test('bullet — the zone a measure landed in, named only when the cuts are deri
   const z = bullet.zoneOf(derived);
   assert.equal(z.index, 1);
   assert.equal(z.count, 3);
-  assert.equal(z.name, 'nearly there');
+  assert.equal(z.name, 'closing on plan');
 
-  assert.equal(bullet.zoneOf(row({ measure: 40, target: 100 })).name, 'short of plan');
+  assert.equal(bullet.zoneOf(row({ measure: 40, target: 100 })).name, 'well short of plan');
   assert.equal(bullet.zoneOf(row({ measure: 120, target: 100 })).name, 'at or past plan');
 
   // An authored range gets NO name. Its zones mean whatever the author meant, and

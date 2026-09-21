@@ -55,6 +55,12 @@ const FIXTURES = {
 	narrateRadarBeta: ['diagram', `${F}mermaid\nradar-beta\n  axis a, b\n  curve x{1,2}\n${F}`],
 	narrateXychart: ['diagram', `${F}mermaid\nxychart-beta\n  title "Rev"\n  x-axis [a, b]\n  bar [3, 5]\n${F}`],
 	narrateDiagram: ['diagram', `${F}mermaid\nflowchart LR\n  A["One"] --> B["Two"]\n${F}`],
+	// The two explain-layer pilots. Both sit ABOVE the generic floor in NARRATORS and both
+	// reach `speakLeftover`, which is the path the leak came through. `bullet` needs two
+	// value pills per row for the relationship to exist at all; the cloud needs two ranked
+	// terms.
+	narrateBullet: ['bullet', '- New ARR `4.2M` `5.0M`\n- Expansion ARR `3.6M` `3.0M`'],
+	narrateWordCloud: ['word-cloud', '- velocity `12`\n- ownership `9`\n- handoffs `7`'],
 	// The generic floor. `bar` is a roster member with no hand-written narrator, so this body
 	// engages narrateDataSeries specifically rather than riding on another one; two rows is its
 	// documented minimum. It reaches `speakLeftover` like every narrator above, which is the

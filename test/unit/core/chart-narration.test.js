@@ -582,10 +582,17 @@ test('narrateStateChartInference: does not include a status keyword pill in the 
 });
 
 // ── narrateStateChart ─────────────────────────────────────────────────────────
-test('narrateStateChart: leads with the heading, then the inferred facts, then the rest via slideToSpeech', () => {
+// The SHAPE sentence replaced the old "This flow starts at Draft. It ends at Done."
+// pair, and it must carry strictly more: the same two endpoints PLUS the size, which
+// the inference sentence never said. It also now runs on every machine rather than
+// only on one whose author left the roles untagged — the case the old sentence covered
+// was the rarer one, and every shipped sample got nothing from it.
+test('narrateStateChart: leads with the heading, then the machine SHAPE, then the rest', () => {
   const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Review', '   - `approve => 3`', '3. Done'].join('\n');
   const out = narrateStateChart(md);
-  assert.ok(out.startsWith('Flow. This flow starts at Draft. It ends at Done.'));
+  assert.ok(out.startsWith('Flow. A three-state machine from Draft to Done'), out);
+  assert.ok(!out.includes('This flow starts at'), 'the shape sentence subsumes it — saying both is the duplication this pass removes');
+  assert.ok(out.includes('it runs as a straight chain with no forks'), out);
   assert.equal(out.match(/Flow\./g).length, 1);
 });
 
@@ -601,6 +608,10 @@ test('narrateStateChart: reads the machine by name even when nothing is inferred
   assert.ok(out.includes('From Draft, submit goes to Done.'), out);
   assert.ok(!out.includes('=>'), 'the raw pill must not also be read');
   assert.ok(!out.includes('This flow starts at'), 'start is explicit — nothing to infer');
+  // …and the shape sentence still names both endpoints, which is the whole point:
+  // the old inference sentence went SILENT on every deck that tagged its roles, and
+  // all five samples in state-chart.docs.md tag both.
+  assert.ok(out.includes('A two-state machine from Draft to Done'), out);
 });
 
 test('narrateStateChart: still returns null when there is no machine and no inference', () => {
@@ -633,7 +644,7 @@ test('narrateStateChart: does not speak a fenced doc-example heading as the titl
     '3. Done',
   ].join('\n');
   const out = narrateStateChart(md);
-  assert.ok(out.startsWith('The real heading. This flow starts at Draft. It ends at Done.'));
+  assert.ok(out.startsWith('The real heading. A three-state machine from Draft to Done'), out);
   assert.ok(!out.includes('Not the real heading'));
 });
 
@@ -647,9 +658,9 @@ test('narrateChart: recognizes a weighted journey slide', () => {
   assert.ok(narrateChart(md).includes('ninety percent'));
 });
 
-test('narrateChart: recognizes a state-chart slide with an inference to add', () => {
+test('narrateChart: recognizes a state-chart slide and reads its shape', () => {
   const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Done'].join('\n');
-  assert.ok(narrateChart(md).includes('This flow starts at Draft.'));
+  assert.ok(narrateChart(md).includes('A two-state machine from Draft to Done'));
 });
 
 test('narrateChart: returns null for a slide no narrator recognizes', () => {

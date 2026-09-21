@@ -51,14 +51,14 @@ const { slideToSpeech } = require('./slide-speech.js');
 const {
   narrateChart, narrateFunnel, narrateJourneyWeighted, narrateJourneyMood, narrateRadar,
   narrateQuadrant, narrateStateChart, narrateStateChartInference, narrateDiagram,
-  narrateDataSeries,
+  narrateBullet, narrateWordCloud, narrateDataSeries,
 } = require('./chart-narration.js');
 export {
   buildReadAlong, emphasisForResolved, mergeNarration, readAlongToVtt, readAlongToVttParts,
   slideToSpeech,
   narrateChart, narrateFunnel, narrateJourneyWeighted, narrateJourneyMood, narrateRadar,
   narrateQuadrant, narrateStateChart, narrateStateChartInference, narrateDiagram,
-  narrateDataSeries,
+  narrateBullet, narrateWordCloud, narrateDataSeries,
 };
 `;
 
