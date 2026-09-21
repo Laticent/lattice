@@ -6,9 +6,10 @@
   (`diagram` → mermaid, `code` → js) so it is never bare. Typing ` ``` ` does the
   same.
 - **Syntax highlighting in Compose comes from the engine's own highlighter**, so a
-  fence's colors in the editor are its colors on the slide — including Lattice's own
-  mermaid and shell grammars, and including the rendered deck's deliberate choice
-  *not* to color an engine sub-language.
+  fence's colors in the editor are its colors on the slide — Lattice's own mermaid and
+  augmented-shell grammars included. An engine sub-language is colored through the body
+  grammar it declares: `mermaid` by our mermaid grammar, `anima` and `functionplot` as
+  the JSON they are.
 - **The language picker offers every grammar the renderer carries** — all 192, the
   three Lattice fence languages first, then the ones this deck already uses — and
   coaches rather than refuses: it names the `shell`-versus-`bash` mix-up that
@@ -16,3 +17,8 @@
 - **Fixed: `Tab` inside a fence moved focus out of the editor.** It now indents (and
   `Shift-Tab` outdents). `Enter` on a blank last line leaves the fence, which is the
   only exit reachable from a phone — previously it was `Mod-Enter` or nothing.
+- **Fixed: the language picker ran off the edge of a phone screen**, and its search
+  field's focus ring was clipped by the panel. It now wears the same
+  `useKeyboardInset` + Radix available-height + shared search-box shape as the command
+  palette and the component picker, so it caps against the space a software keyboard
+  leaves instead of a flat height.

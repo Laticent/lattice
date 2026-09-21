@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { deckFenceTags, fenceAdvice, fenceGroups, type HljsManifest, hljsOptions, isEngineFence, LATTICE_FENCES, latticeFencesCovered, PLAIN_FENCE, resolveFenceTag } from './fence-catalog';
+import { deckFenceTags, fenceAdvice, fenceGroups, type HljsManifest, highlightLanguageFor, hljsOptions, isEngineFence, LATTICE_FENCES, latticeFencesCovered, PLAIN_FENCE, resolveFenceTag } from './fence-catalog';
 
 // A stand-in manifest: two lazy grammars with aliases, two common ones. Small on
 // purpose — the REAL manifest is exercised by the last block, which reads the built
@@ -15,7 +15,10 @@ const MANIFEST: HljsManifest = {
 describe('the Lattice group', () => {
 	it('carries every engine sub-language, and each one is named for what it draws', () => {
 		expect(LATTICE_FENCES.map((f) => f.tag)).toEqual(['mermaid', 'anima', 'functionplot']);
-		for (const f of LATTICE_FENCES) expect(f.label).toBeTruthy();
+		for (const f of LATTICE_FENCES) {
+			expect(f.label).toBeTruthy();
+			expect(f.highlight, `${f.tag} must declare the grammar that colors it`).toBeTruthy();
+		}
 	});
 
 	it('covers every fence the LFM grammar registry declares', () => {
@@ -35,10 +38,33 @@ describe('the Lattice group', () => {
 		}
 	});
 
-	it('treats an engine fence as rendered, not colored', () => {
+	it('knows which fences the engine renders into a figure', () => {
 		expect(isEngineFence('mermaid')).toBe(true);
 		expect(isEngineFence('latticeplot')).toBe(true); // the deprecated alias of functionplot
 		expect(isEngineFence('javascript')).toBe(false);
+	});
+
+	it('colors an engine fence through its BODY grammar', () => {
+		// Rendered-into-a-figure is not the same question as how the SOURCE is colored, and
+		// conflating them is what left a mermaid fence flat in Compose while the js fence
+		// beside it was colored (reported from a real iPhone).
+		expect(highlightLanguageFor('mermaid')).toBe('mermaid'); // our own hljs grammar
+		expect(highlightLanguageFor('anima')).toBe('json');
+		expect(highlightLanguageFor('functionplot')).toBe('json');
+		expect(highlightLanguageFor('latticeplot')).toBe('json'); // the deprecated alias too
+		// An ordinary language is its own grammar, normalized.
+		expect(highlightLanguageFor('JS {highlight=1}')).toBe('js');
+		expect(highlightLanguageFor('')).toBe('');
+	});
+
+	it('agrees with the LFM grammar registry about each fence body', () => {
+		const grammarPath = path.resolve(__dirname, '../../../../dist/docs/grammar.json');
+		if (!fs.existsSync(grammarPath)) return;
+		const grammar = JSON.parse(fs.readFileSync(grammarPath, 'utf8')) as { fences?: Record<string, { body?: string }> };
+		for (const [tag, spec] of Object.entries(grammar.fences || {})) {
+			if (!spec.body) continue;
+			expect(highlightLanguageFor(tag), tag).toBe(spec.body);
+		}
 	});
 });
 

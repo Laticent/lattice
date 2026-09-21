@@ -34,6 +34,16 @@ export type FenceOption = {
 	aliases?: string[];
 	/** One line of context; the picker shows it under the row. */
 	note?: string;
+	/**
+	 * The grammar that COLORS this fence, when it differs from the tag.
+	 *
+	 * Only an engine sub-language needs it, and each has a real answer: `mermaid` is
+	 * colored by Lattice's OWN highlight.js grammar
+	 * (`lib/integrations/mermaid/mermaid.hljs.js`, registered by `registerMermaidHljs`),
+	 * and `anima` / `functionplot` are JSON specs — `dist/docs/grammar.json` records
+	 * exactly that as each fence's `body`.
+	 */
+	highlight?: string;
 };
 
 export type FenceGroup = { key: 'lattice' | 'deck' | 'all'; label: string; options: FenceOption[] };
@@ -62,9 +72,9 @@ export type HljsManifest = {
  * the picker learning it.
  */
 export const LATTICE_FENCES: readonly FenceOption[] = Object.freeze([
-	{ tag: 'mermaid', label: 'Diagram', note: 'Mermaid — flowcharts, sequences, state charts. Pairs with `_class: diagram`.' },
-	{ tag: 'anima', label: 'Motion', note: 'An Anima scene spec (JSON). Pairs with `_class: scene`.' },
-	{ tag: 'functionplot', label: 'Plot', aliases: ['latticeplot'], note: 'A function-plot config (JSON). Pairs with `_class: math`.' },
+	{ tag: 'mermaid', label: 'Diagram', highlight: 'mermaid', note: 'Mermaid — flowcharts, sequences, state charts. Pairs with `_class: diagram`.' },
+	{ tag: 'anima', label: 'Motion', highlight: 'json', note: 'An Anima scene spec (JSON). Pairs with `_class: scene`.' },
+	{ tag: 'functionplot', label: 'Plot', highlight: 'json', aliases: ['latticeplot'], note: 'A function-plot config (JSON). Pairs with `_class: math`.' },
 ]);
 
 /** Deliberately uncolored. Offered, not implied — twelve shipped fences ask for it. */
@@ -72,11 +82,32 @@ export const PLAIN_FENCE: FenceOption = Object.freeze({ tag: 'text', label: 'Pla
 
 const LATTICE_TAGS = new Set(LATTICE_FENCES.map((f) => f.tag));
 
-/** Is this tag one the engine renders rather than colors? */
+/** Is this tag one the engine RENDERS into a figure, rather than an ordinary language? */
 export function isEngineFence(tag: string): boolean {
 	const t = normalizeInfo(tag);
 	if (LATTICE_TAGS.has(t)) return true;
 	return LATTICE_FENCES.some((f) => f.aliases?.includes(t));
+}
+
+/**
+ * The grammar to color a fence with — the tag itself, unless it is an engine
+ * sub-language with a different body language.
+ *
+ * AN ENGINE FENCE IS STILL COLORED, and an earlier cut of this feature got that
+ * backwards. It read `highlight-js.css`'s mermaid suppression as "mermaid is never
+ * colored" and skipped tokenizing all three. That rule is scoped to
+ * `section.diagram … :not([data-mermaid-state="rendered"])` — the transient SOURCE
+ * `<pre>` on a slide whose fence is about to become a picture, where syntax colors on
+ * a placeholder are noise. Compose is an EDITOR: the fence is source the author is
+ * typing into, and `mermaid.hljs.js` exists for exactly this case, in its own words
+ * "so that when a `mermaid` fence either has not yet been runtime-rendered or fails to
+ * parse, the source still reads as syntax-colored code". The Studio's markdown editor
+ * colors mermaid for the same reason (`EAGER_LANGUAGES` in playground/editor.js).
+ */
+export function highlightLanguageFor(tag: string): string {
+	const t = normalizeInfo(tag);
+	const lattice = LATTICE_FENCES.find((f) => f.tag === t || f.aliases?.includes(t));
+	return lattice?.highlight ?? t;
 }
 
 /**
@@ -216,7 +247,9 @@ export function fenceAdvice(tag: string, body: string, manifest: HljsManifest | 
 	if ((SESSION_TAGS as readonly string[]).includes(t) && looksLikeShellScript(body)) {
 		return `\`${t}\` is a terminal-session grammar — it only marks the \`$\` prompt. This body is a script, so tag it \`${SCRIPT_TAGS[0]}\` to color it.`;
 	}
-	if (isEngineFence(t)) return null; // rendered by the engine, not colored — that is the point
+	// An engine sub-language IS colored (see `highlightLanguageFor`), so the only thing
+	// worth saying about one is nothing: the tag is right, the grammar exists.
+	if (isEngineFence(t)) return null;
 	if (t === PLAIN_FENCE.tag) return null;
 	if (!manifest) return null; // catalog not loaded yet — say nothing rather than guess
 	if (!resolveFenceTag(t, manifest)) return `No grammar for \`${t}\` — the fence will render uncolored.`;

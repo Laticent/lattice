@@ -279,6 +279,45 @@ whole SLIDE, which is a different gesture, and they are unaffected.
 Roughly one PR: a pure catalog module plus its tests, the chrome, the decoration
 plugin, and the one engine read API behind maker-checker.
 
+## Correction — an engine sub-language IS colored (2026-09-21, after the device check)
+
+The first cut of this feature did **not** color `mermaid`, `anima` or `functionplot`,
+and argued for it here and in the PR as a fidelity win: *"the rendered slide
+deliberately suppresses its hljs tokens, so Compose does too."* **That was wrong, and
+the device check is what caught it** — on a real iPhone the mermaid fence sat flat
+while the `js` fence beside it was colored, which is not a considered design, it just
+looks broken.
+
+The rule I misread is scoped:
+
+```css
+section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code [class*="hljs-"]
+```
+
+It suppresses tokens in the **transient source `<pre>` on a diagram SLIDE** — the
+placeholder standing in for a picture that Mermaid is about to draw over. Syntax
+colors on a placeholder are noise; that is the whole of what it says. It is silent
+about an editor.
+
+And the opposite intent is written down, twice:
+
+- `lib/integrations/mermaid/mermaid.hljs.js` exists, in its own words, *"so that when a
+  `mermaid` fence either has not yet been runtime-rendered or fails to parse, the
+  source still reads as syntax-colored code"*. Lattice ships a hand-written mermaid
+  grammar for precisely this case.
+- The Studio's markdown editor already colors mermaid fences, through a hand-written
+  CodeMirror `StreamLanguage` (`EAGER_LANGUAGES`, `playground/editor.js`).
+
+So Compose colors all three, through the BODY grammar each one declares:
+`highlightLanguageFor()` maps `mermaid` → our mermaid grammar and `anima` /
+`functionplot` → `json`, which is exactly what `dist/docs/grammar.json`'s `fences`
+registry records as each fence's `body`. A test pins the map against that registry, so
+a fourth engine fence cannot arrive uncolored.
+
+**The general lesson, because it is the second time in this note:** a narrowly-scoped
+CSS rule is not a statement of policy. Both times the fix was to read what the rule
+is scoped TO before generalizing from what its comment says.
+
 ## What this does NOT do
 
 - **No nested editor.** See Axis A.

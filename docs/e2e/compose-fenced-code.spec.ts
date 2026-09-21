@@ -250,6 +250,44 @@ test('the untagged-fence walker can actually fail', async () => {
 	expect(untaggedFenceCount('````js\n```\n````\n')).toBe(0);
 });
 
+test('an engine sub-language is COLORED — by our own mermaid grammar', async ({ page }) => {
+	// Reported from a real iPhone: the mermaid fence sat flat while the js fence beside
+	// it was colored. The first cut skipped all three engine sub-languages, reading
+	// `highlight-js.css`'s suppression as a blanket rule — it is scoped to the transient
+	// source <pre> on a diagram SLIDE. `mermaid.hljs.js` exists to color mermaid source.
+	await gotoStudio(page);
+	await seedDeck(page, ['<!-- _class: diagram -->', '', '## D', '', '```mermaid', 'flowchart LR', '  A[Input] --> B{Fits?}', '```'].join('\n'));
+	await toCompose(page);
+	const fence = page.locator('.cs-host pre.cs-code[data-lang=mermaid]');
+	await expect(fence).toBeVisible();
+	// The grammar registers into the engine's hljs on its first render, so the editor's
+	// bounded poll is what brings it in — hence a polled assertion, not an instant one.
+	await expect.poll(() => fence.locator('[class*=hljs-]').count(), { timeout: 30_000 }).toBeGreaterThan(2);
+});
+
+test('@mobile the picker fits the viewport and leaves room for its focus ring', async ({ page }) => {
+	// The other half of the same report: a flat 19rem popover ran off the right edge of a
+	// 390px screen, and a `p-0` panel clipped the search field's focus ring along its top
+	// edge. Both are geometry, so both are measured rather than asserted from classes.
+	await gotoStudio(page);
+	await seedDeck(page, DECK);
+	await toCompose(page);
+	await page.locator('.cs-code-chip').first().click();
+	const pop = page.locator('[data-slot=popover-content]');
+	await expect(pop).toBeVisible();
+	const box = await pop.evaluate((el) => {
+		const r = el.getBoundingClientRect();
+		const input = el.querySelector('[data-slot=command-input-wrapper]');
+		const ir = input?.getBoundingClientRect();
+		return { left: r.left, right: r.right, vw: window.innerWidth, ringRoom: ir ? ir.top - r.top : -1 };
+	});
+	expect(box.right, 'the picker must not run off the right edge').toBeLessThanOrEqual(box.vw + 1);
+	expect(box.left, 'nor off the left').toBeGreaterThanOrEqual(-1);
+	// The site-wide :focus-visible glow is 2px at 2px offset — 4px outside the input's
+	// border box — and the panel clips. Anything under 4px reproduces the ragged ring.
+	expect(box.ringRoom, 'no room for the focus ring inside the clipped panel').toBeGreaterThanOrEqual(4);
+});
+
 test('@mobile the chip and the pill picker are both reachable at 390px', async ({ page }) => {
 	await gotoStudio(page);
 	await seedDeck(page, DECK);

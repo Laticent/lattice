@@ -13,7 +13,7 @@ import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, insertFence, isInCo
 import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
-import { deckFenceTags, isEngineFence } from '@/lib/compose/fence-catalog';
+import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
@@ -823,11 +823,14 @@ class SlideView {
 //
 // Three things are deliberate:
 //
-//  · AN ENGINE SUB-LANGUAGE IS SKIPPED. The rendered slide suppresses hljs tokens
-//    inside a mermaid fence on purpose — `highlight-js.css` says coloring them
-//    "paints a JavaScript-style highlight" that is "misleading (mermaid is not a
-//    programming language)". Compose colors what the slide colors, so it skips them
-//    too; that is also two thirds of the fences we ship never tokenized at all.
+//  · AN ENGINE SUB-LANGUAGE IS COLORED TOO, through its BODY grammar
+//    (`highlightLanguageFor`): mermaid by Lattice's own hljs grammar, anima and
+//    functionplot as the JSON they are. An earlier cut skipped all three, reading
+//    `highlight-js.css`'s mermaid suppression as a blanket rule; it is scoped to the
+//    transient source `<pre>` on a diagram SLIDE, where the fence is a placeholder for
+//    a picture. In an editor the fence is source, and `mermaid.hljs.js` exists to color
+//    exactly that. Two thirds of the fences we ship are mermaid, so this is most of
+//    them.
 //  · IT DEGRADES TO PLAIN MONO. The engine bundle is loaded by the preview, not by
 //    this editor, so on the first frames (or with no engine at all) there is nothing
 //    to ask. Decorations are then empty and the fence is honest monospace.
@@ -849,15 +852,15 @@ function highlightFences(doc: PMNode, cache: Map<string, SpanList>): DecorationS
 	doc.descendants((node, pos) => {
 		if (node.type.name !== 'code_block') return true;
 		const tag = leadingTag((node.attrs.params as string) || '');
-		// The engine renders these; it does not color them. Neither do we.
-		if (!tag || isEngineFence(tag)) return false;
+		const lang = highlightLanguageFor(tag);
+		if (!lang) return false;
 		const text = node.textContent;
 		if (!text) return false;
-		const key = `${tag}\u0000${text}`;
+		const key = `${lang}\u0000${text}`;
 		let spans = cache.get(key);
 		if (!spans) {
 			try {
-				spans = pg.highlightSpans?.(text, tag) ?? [];
+				spans = pg.highlightSpans?.(text, lang) ?? [];
 			} catch {
 				spans = []; // a grammar that throws costs one fence its color
 			}
@@ -1524,8 +1527,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const missing: string[] = [];
 			v.state.doc.descendants((node) => {
 				if (node.type.name !== 'code_block') return true;
-				const tag = leadingTag((node.attrs.params as string) || '');
-				if (tag && !isEngineFence(tag) && pg.languages?.has && !pg.languages.has(tag)) missing.push(tag);
+				// Ask about the grammar that will actually COLOR it — `mermaid` registers into
+				// the engine's hljs on its first render, so the poll has to wait for that too.
+				const lang = highlightLanguageFor(leadingTag((node.attrs.params as string) || ''));
+				if (lang && pg.languages?.has && !pg.languages.has(lang)) missing.push(lang);
 				return false;
 			});
 			return missing.sort().join(',');
@@ -2103,13 +2108,6 @@ function ComposeStyles() {
 			.cs-host pre.cs-code .hljs-title,.cs-host pre.cs-code .hljs-attr,.cs-host pre.cs-code .hljs-attribute,.cs-host pre.cs-code .hljs-variable,.cs-host pre.cs-code .hljs-params,.cs-host pre.cs-code .hljs-property{color:var(--text-heading)}
 			.cs-host pre.cs-code .hljs-emphasis{font-style:italic}
 			.cs-host pre.cs-code .hljs-strong{font-weight:700}
-			/* AN ENGINE SUB-LANGUAGE IS NOT COLORED, and this is fidelity rather than
-			   restraint. The rendered slide suppresses hljs tokens inside a mermaid fence
-			   on purpose — highlight-js.css says painting them "paints a JavaScript-style
-			   highlight" that is "misleading (mermaid is not a programming language)". A
-			   Compose that colored them would be showing the author something the export
-			   will not do, which is the one thing this surface must never do. */
-			.cs-host pre.cs-code[data-lang=mermaid] [class*=hljs-],.cs-host pre.cs-code[data-lang=anima] [class*=hljs-],.cs-host pre.cs-code[data-lang=functionplot] [class*=hljs-],.cs-host pre.cs-code[data-lang=latticeplot] [class*=hljs-]{color:inherit;font-style:normal;font-weight:inherit}
 			/* the pill-hosted twin of the chip — the Format group's third mode */
 			.cs-codec{display:inline-flex}
 			.cs-codec-trigger{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;letter-spacing:.04em;line-height:1;cursor:pointer;transition:color .12s,background .12s}

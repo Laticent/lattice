@@ -2,6 +2,7 @@ import { Check, Code2 } from 'lucide-react';
 import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { useKeyboardInset } from '@/components/ui/panel';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { codeBlockAt, currentFenceTag, fenceClassHint, setFenceTag } from '@/lib/compose/code-commands';
 import { type FenceOption, fenceAdvice, fenceGroups, type HljsManifest } from '@/lib/compose/fence-catalog';
@@ -102,8 +103,23 @@ export function FencePicker({
 		[controlled, onOpenChange],
 	);
 	const [query, setQuery] = React.useState('');
+	// THE REPO'S ONE ANSWER to "how much of the viewport is left" (ui/panel.tsx). It
+	// publishes `--vvh` / `--kb`; the height cap below reads Radix's own visual-viewport
+	// measurement rather than re-deriving either. Mounting a second `visualViewport`
+	// listener here is the duplication HARD RULE #15 forbids, and — per that file's
+	// history — how the keyboard bugs got written twice.
+	useKeyboardInset(open);
 	const manifest = useHljsManifest(open);
 	const current = currentFenceTag(view.state);
+	// A NEW QUERY STARTS AT THE TOP. Re-ranking leaves `scrollTop` where the previous
+	// list left it, so a search run after scrolling shows the tail of the results with
+	// the best answer off-screen — and with the list capped to the band above a
+	// keyboard, that is most of what the author can see.
+	const [listEl, setListEl] = React.useState<HTMLDivElement | null>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on what makes the RESULT SET new — the query — not on the derived groups. Same reasoning as ComponentPicker's twin.
+	React.useLayoutEffect(() => {
+		if (listEl) listEl.scrollTop = 0;
+	}, [listEl, query]);
 	const groups = React.useMemo(() => fenceGroups({ source, manifest, query }), [source, manifest, query]);
 	// A STABLE Measurable whose rect is read at position time — Radix keeps the ref
 	// object, so it must not be rebuilt each render, and the live rect rides in a second
@@ -137,10 +153,56 @@ export function FencePicker({
 			) : (
 				<PopoverAnchor virtualRef={anchorRef} />
 			)}
-			<PopoverContent align={align} className="w-[19rem] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
-				<Command shouldFilter={false}>
-					<CommandInput placeholder="Language…" value={query} onValueChange={setQuery} autoFocus />
-					<CommandList className="max-h-[16rem]">
+			{/* THE CAP IS RADIX'S OWN MEASUREMENT, and the shape is `ComponentPicker`'s —
+			    the surface that already solved this on a real phone, rather than a fourth
+			    arrangement. `--radix-popover-content-available-height` is the room below the
+			    anchor computed from the VISUAL viewport, so the keyboard is already in it
+			    (measured there: a 336px iPhone keyboard took it 500px → 164px). Hand-written
+			    `--vvh` arithmetic here would DOUBLE-SUBTRACT, which is the mistake that file
+			    records making twice.
+			    `max(140px, …)` is a floor: a cap below it is worse than overflowing, because
+			    two rows and a scrollbar still work and one clipped row does not. The 12px is
+			    the panel's borders plus enough that the last row is never tangent to the
+			    keyboard's top edge. And the WIDTH is viewport-relative — a flat 19rem ran off
+			    the right edge of a 390px screen, which is the clipping in the report. */}
+			<PopoverContent
+				align={align}
+				collisionPadding={8}
+				className="flex w-[min(22rem,86vw)] flex-col overflow-hidden p-0 max-h-[max(140px,min(388px,calc(var(--radix-popover-content-available-height)-12px)))]"
+				onOpenAutoFocus={(e) => e.preventDefault()}
+			>
+				<Command
+					shouldFilter={false}
+					className={cn(
+						// THE FIELD WEARS `PANEL_SEARCH_BOX`, like the Studio's palette and the
+						// component picker. Without it the site-wide `:focus-visible` glow —
+						// `outline: 2px solid var(--accent); outline-offset: 2px` from
+						// native-widgets.css — lands 4px OUTSIDE the input's border box and the
+						// popover's `overflow-hidden` clips it along the top edge. That is the
+						// ragged focus ring in the report; same rule, same symptom, third surface.
+						//
+						// SPELLED OUT, NOT INTERPOLATED from the constant. Tailwind's scanner reads
+						// source text, so `cn(PANEL_SEARCH_BOX)` inside a variant prefix generates no
+						// rule at all; `code-controls.search-box.test.ts` pins this copy against it.
+						'[&_[data-slot=command-input-wrapper]]:flex [&_[data-slot=command-input-wrapper]]:min-w-0 [&_[data-slot=command-input-wrapper]]:items-center [&_[data-slot=command-input-wrapper]]:gap-2',
+						'[&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border [&_[data-slot=command-input-wrapper]]:bg-background',
+						'[&_[data-slot=command-input-wrapper]]:px-3 [&_[data-slot=command-input-wrapper]]:py-2',
+						'[&_[data-slot=command-input-wrapper]]:focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] [&_[data-slot=command-input-wrapper]]:focus-within:ring-2 [&_[data-slot=command-input-wrapper]]:focus-within:ring-[var(--accent-soft)]',
+						'[&_[data-slot=command-input]]:h-auto [&_[data-slot=command-input]]:rounded-none [&_[data-slot=command-input]]:outline-none',
+						'[&_[data-slot=command-input-wrapper]>svg]:size-4 [&_[data-slot=command-input-wrapper]>svg]:opacity-100 [&_[data-slot=command-input-wrapper]>svg]:text-muted-foreground',
+						// ROOM FOR THE RING inside a panel that clips: `focus-within:ring-2` paints
+						// 2px beyond the wrapper, so it cannot sit flush against the clipped edge.
+						'p-1.5',
+						'flex min-h-0 flex-col',
+					)}
+				>
+					{/* `data-focus-ring="container"` is the opt-out native-widgets.css ships for
+					    exactly this: the BOX paints the affordance and the input paints none.
+					    Without it a phone shows a second rounded box drawn inside the first. */}
+					<CommandInput data-focus-ring="container" placeholder="Language…" value={query} onValueChange={setQuery} autoFocus />
+					{/* `min-h-0 flex-1` so the panel's cap can shrink the LIST rather than the
+					    popover growing past it. */}
+					<CommandList ref={setListEl} className="min-h-0 flex-1">
 						<CommandEmpty className="px-3 py-4 text-[12px] text-muted-foreground">No language matches “{query}”.</CommandEmpty>
 						{groups.map((group) => (
 							<CommandGroup key={group.key} heading={group.label}>

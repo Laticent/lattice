@@ -30,9 +30,14 @@ import { PANEL_SEARCH_BOX } from './panel';
 // input y=172..212, so its ring wanted y=168..216, against a panel clipping at y=171.
 // Reported from a real iPhone. Adding the surface here rather than writing it a private
 // test is the point — the next cmdk field gets one line, and the convention holds.
+// Compose's fence LANGUAGE PICKER is the fourth, and it arrived the same way the third
+// did: reported from a real iPhone, the field's focus ring ragged along the popover's
+// clipped top edge, because it wore a plain `p-0` popover and a flat `max-h` instead of
+// this convention. One line here; the convention holds.
 const SURFACES = [
 	{ file: '../studio/CommandPalette.tsx', name: 'CommandPalette.tsx' },
 	{ file: '../playground/ComponentPicker.tsx', name: 'ComponentPicker.tsx' },
+	{ file: '../studio/code-controls.tsx', name: 'code-controls.tsx' },
 ] as const;
 const WRAPPER = '[&_[data-slot=command-input-wrapper]]:';
 

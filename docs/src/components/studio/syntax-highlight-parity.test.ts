@@ -216,13 +216,18 @@ describe('Compose fenced code agrees with the other two surfaces', () => {
 		}
 	});
 
-	it('does not color an engine sub-language, because the rendered slide does not', () => {
-		// highlight-js.css suppresses hljs tokens inside a mermaid fence on purpose —
-		// coloring them "paints a JavaScript-style highlight" that is "misleading
-		// (mermaid is not a programming language)". Compose skips tokenizing them at all
-		// (`highlightFences` returns early on `isEngineFence`); this pins the decision at
-		// the place a future change would most plausibly undo it.
+	it('colors an engine sub-language through its BODY grammar, not by skipping it', () => {
+		// REVERSED, and the reversal is the point. An earlier cut skipped mermaid, anima and
+		// functionplot entirely, reading `highlight-js.css`'s suppression as "mermaid is
+		// never colored". That rule is scoped to `section.diagram … :not([data-mermaid-state=
+		// "rendered"])` — the transient source `<pre>` on a SLIDE whose fence is about to
+		// become a picture. Compose is an editor, `mermaid.hljs.js` exists to color mermaid
+		// source, and the Studio's markdown editor already does. Reported from a real iPhone:
+		// the mermaid fence sat flat while the js fence beside it was colored.
 		const src = fs.readFileSync(COMPOSE_VIEW, 'utf8');
-		expect(src).toMatch(/if \(!tag \|\| isEngineFence\(tag\)\) return false;/);
+		expect(src).toMatch(/const lang = highlightLanguageFor\(tag\);/);
+		expect(src, 'the skip-engine-fences early return must not come back').not.toMatch(/isEngineFence\(tag\)\) return false/);
+		// And the CSS must not suppress them either — the rule that used to.
+		expect(src).not.toMatch(/data-lang=mermaid\] \[class\*=hljs-\]/);
 	});
 });
