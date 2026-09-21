@@ -7,15 +7,16 @@ summary: >
   150,087 tokens by the end, re-sent every turn — costing almost nothing. That re-ranks
   every lever: compaction is a context-window tool rather than a budget one, and the
   expensive things are verbose tools and whole-file reads. `npm test` printed 657,806
-  o200k tokens to report 256 lines of facts and is now 477; the SessionStart hook put
+  o200k tokens to report what 8 counter lines say and is now 1,182; the SessionStart hook put
   3,763 tokens of successful build log into every session's opening context and is now 29;
   `CLAUDE.md`, resident once per session AND once per subagent, is 15,785 -> 13,233. It
   also records two things that did NOT ship: a file-total gate on the decisions index,
   which `build-decisions-index.js` already refutes in its own docblock and forbids in its
-  tests, and a repo-wide thinking cap, which would apply to the reasoning we want. Two
-  figures in the investigation's own first report were wrong — a section-splitting bug
-  inflated one rule from 567 tokens to 2,725 — and that is recorded because the same bug
-  is what a reader would otherwise reproduce.
+  tests, and a repo-wide thinking cap, which would apply to the reasoning we want. Four
+  figures in the investigation's own reports were wrong and are recorded in §6, because
+  each is a mistake the next re-derivation would repeat: a section-splitting bug inflated
+  one rule from 567 tokens to 2,725, and the headline reporter figure was read off a
+  capture file while the run was still writing it.
 companion:
   - ./2026-08-17-context-index-tiering.md
   - ./2026-08-30-router-size-budget.md
@@ -79,14 +80,14 @@ only for the top two rows would have been built for the wrong billing.
 
 **This is what explains "two days".** A turn using targeted `sed`/`grep` reads charged
 683-8,305 in the measured session. A turn that opens `engineering/workflow.md` whole
-(29,507) plus one `gotchas/` topic (15,934) charges about 31,800 — ten times as much. At
-~35k a turn a 15M budget is ~430 turns, which is about two days of work.
+(29,507) plus one `gotchas/` topic (`css.md`, 16,648) charges about 32,300 — ten times as
+much. At ~35k a turn a 15M budget is ~430 turns, which is about two days of work.
 
 ## 4. What shipped
 
 | change | before | after |
 |---|---:|---:|
-| `npm test` output | 657,806 | **477** |
+| `npm test` output (unit scripts) | 657,806 | **1,182** |
 | SessionStart hook stdout | 3,763 | **29** |
 | `CLAUDE.md`, resident per session AND per subagent | 15,785 | **13,233** |
 
@@ -94,8 +95,18 @@ only for the top two rows would have been built for the wrong billing.
 bookkeeping, and the eight counters that say whether the run passed print LAST — so a
 reader on a truncated view paid thousands of tokens and then lost the verdict.
 `--test-reporter=dot` keeps the full assertion diff, the stack and exit 1 on a failure
-(measured at 231 tokens on a seeded failure), and `test:tap` remains for anything that
-parses TAP. Nothing in CI or lefthook does today; both read only the exit code.
+(the same suite with one seeded failure captures at 1,371 tokens), and `test:tap` remains
+for anything that parses TAP.
+
+**Two scripts deliberately keep the default reporter, and finding out why is what the
+checkers were for.** `test:watch` had to: node's dot reporter only flushes its failure
+block on `test:summary`, an event `--watch` never emits, so a failing test in the TDD loop
+printed two characters and no name, message or stack. And `test:integration*` had to,
+because the first draft's claim that "nothing in CI or lefthook parses TAP" was **false** —
+`.github/workflows/integration-nightly.yml` greps its report for `^not ok ` as the generic
+marker that a test failed, and dot never emits it. Left alone, the first red nightly render
+tier would have printed `(no failure markers)` into the rolling issue. `lefthook.yml` and
+`ci.yml` really do read only the exit code; the claim was half-true and shipped as whole.
 
 **The router trim** cut five rules that carried their rationale inline while also naming a
 canonical doc. Every distinctive claim dropped from #22 and #29 was confirmed present in
@@ -105,7 +116,7 @@ remainder of 71 where house-style records a measured 84 -> 30.
 
 `2026-08-30-router-size-budget.md` declined this trim, on the ground that moving resident
 text out "buys tokens by spending a read". That priced the read boundary correctly and left
-two terms out: `CLAUDE.md` is paid again by **every subagent** (it is 57% of a measured
+two terms out: `CLAUDE.md` is paid again by **every subagent** (at 13,418 tokens it is 44% of a measured
 30,074-token subagent baseline), and a rarely-fired rule's resident cost is paid on every
 session whether it fires or not. Neither term appears in #1897's bake-off, which measured
 cache-creation for a single main-thread surface.
@@ -136,7 +147,7 @@ is a real lever — but one number applies equally to the routine turn and to th
 reasoning the cap would damage. It is documented in `engineering/development.md`
 §Context cost as a per-session lever instead of set as a default anyone inherits.
 
-## 6. Two figures this investigation got wrong
+## 6. Four figures this investigation got wrong
 
 Both were caught in-flight and both are recorded, because the same mistakes are the ones a
 reader re-deriving these numbers would make.
@@ -148,6 +159,22 @@ therefore said the five trimmed rules were 6,563 tokens and 42% of the router. C
 bounded at the section's closing `---`, they are **4,405 and 28%**, and the delivered
 saving is 2,552 rather than the ~4,800 projected from the bad figure. The decision to trim
 survives the correction; the number quoted for it did not.
+
+**The headline reporter figure was read off a file that was still being written.** The
+first report said a green `npm test` under `dot` costs **477** tokens. It costs **1,182**.
+The capture was measured while the background run that produced it was still appending —
+the same path held 4,797 bytes at the moment of measurement and 12,152 bytes when the run
+finished. Nothing about the tokenizer or the tree was wrong; the file was half there. A
+capture-then-count is only valid after the producing command has exited, and the check that
+would have caught it costs nothing: the dot reporter emits one dot per test, so 11,489 dots
+against a suite of 10,241 tests is the right order of magnitude and 477 tokens is not. The
+real ratio is 557x, not the 1,379x first published.
+
+**"Nothing in CI or lefthook parses TAP" was false**, and it is recorded here rather than
+quietly corrected because it is the claim that authorized the change. It was checked
+against `lefthook.yml` and `ci.yml`, where it holds, and not against
+`integration-nightly.yml`, where it does not. A negative claim over "CI" has to be checked
+against every workflow, or stated as the narrower thing actually verified.
 
 **The resident baseline was nearly overstated by 55,002 tokens.** The transcript's
 `prompt_snapshot` attachment is a RECORDING of the system prompt and tool schemas, not a

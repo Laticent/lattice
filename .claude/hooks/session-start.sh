@@ -32,13 +32,37 @@ cd "$CLAUDE_PROJECT_DIR"
 # Not a silencer: a failing step is LOUDER than before, because its output is no longer
 # buried in a hundred lines of successful noise.
 QUIET_LOG="${TMPDIR:-/tmp}/lattice-session-start.$$.log"
+# Harden the path before anything writes to it. A TMPDIR pointing at a missing directory
+# makes the redirect fail, which under `set -e` would kill the hook at a step that never
+# ran; and the file is truncated because a reused PID would otherwise append to a previous
+# session's log and get tailed with it.
+mkdir -p "$(dirname "$QUIET_LOG")" 2>/dev/null || QUIET_LOG="/tmp/lattice-session-start.$$.log"
+: >"$QUIET_LOG" 2>/dev/null || QUIET_LOG=/dev/null
+
+# Run a step quietly, and on failure print THAT STEP'S OWN output — not the tail of the
+# shared log, which would hand a reader 39 lines of the previous successful step framed as
+# this one's error. The line count before the call is the delta's left edge.
 quiet() {
-  if ! "$@" >>"$QUIET_LOG" 2>&1; then
-    echo "  (session-start: \`$*\` failed — output follows; full log at $QUIET_LOG)"
-    tail -40 "$QUIET_LOG"
-    return 1
+  local before after delta
+  before=$(wc -l <"$QUIET_LOG" 2>/dev/null || echo 0)
+  if "$@" >>"$QUIET_LOG" 2>&1; then return 0; fi
+  after=$(wc -l <"$QUIET_LOG" 2>/dev/null || echo 0)
+  delta=$(( after - before ))
+  echo "  (session-start: '$*' failed — its own output follows; full log at $QUIET_LOG)"
+  if [ "$delta" -gt 0 ]; then
+    tail -n "$delta" "$QUIET_LOG" | tail -40
+  else
+    echo "  (the step produced no output)"
   fi
-  return 0
+  return 1
+}
+
+# Same capture, but SILENT on failure — for a step that has a fallback arm after it. A
+# non-root container fails every bare `apt-get` and succeeds on `sudo`; reporting the first
+# arm would print four false alarms into the session's opening context, which is the exact
+# cost this wrapper exists to remove.
+quiet_try() {
+  "$@" >>"$QUIET_LOG" 2>&1
 }
 
 # 1. JS deps. npm install (not ci) is idempotent and benefits from
@@ -58,7 +82,7 @@ quiet npm install --no-audit --no-fund
 # the render pipeline needs, and losing those to a build error would strand the
 # session with a far more confusing failure than a missing dist/. The build also
 # self-bootstraps a cold tree, so this is a no-op on a warm one.
-quiet npm run build || echo "  (build failed — run 'npm run build' to see why; continuing)"
+quiet_try npm run build || echo "  (build failed — run 'npm run build' to see why; continuing)"
 
 # 2. System deps for the PDF pipeline. A fresh container's apt index is often
 #    stale, so refresh it once before installing — a stale index 404s on the
@@ -67,14 +91,14 @@ quiet npm run build || echo "  (build failed — run 'npm run build' to see why;
 #    exported). Only pay the update cost when something actually needs installing.
 if ! command -v pdfinfo >/dev/null 2>&1 || ! command -v mogrify >/dev/null 2>&1 \
    || ! fc-list 2>/dev/null | grep -qi "noto color emoji"; then
-  quiet apt-get update || quiet sudo apt-get update || true
+  quiet_try apt-get update || quiet sudo apt-get update || true
 fi
 
 # 2a. poppler-utils → pdfinfo / pdftoppm (PDF page counts + rasterize-for-review).
 #     Non-fatal: a transient apt outage must not abort the rest of setup; the
 #     pre-push gate re-checks pdfinfo loudly anyway.
 if ! command -v pdfinfo >/dev/null 2>&1; then
-  quiet apt-get install -y poppler-utils || quiet sudo apt-get install -y poppler-utils || true
+  quiet_try apt-get install -y poppler-utils || quiet sudo apt-get install -y poppler-utils || true
 fi
 
 # 2b. ImageMagick → mogrify / identify, used by tools/rasterize-for-review.sh
@@ -83,7 +107,7 @@ fi
 #     read via python3) when ImageMagick is absent, so a transient apt outage
 #     only costs the crop feature, not visual review.
 if ! command -v mogrify >/dev/null 2>&1; then
-  quiet apt-get install -y imagemagick || quiet sudo apt-get install -y imagemagick || true
+  quiet_try apt-get install -y imagemagick || quiet sudo apt-get install -y imagemagick || true
 fi
 
 # 2c. Color emoji font. The owned render paths (lattice-engine, lattice-emulator)
@@ -92,7 +116,7 @@ fi
 #     webfont @import in lattice.css is a portable bonus, but an installed font
 #     is the reliable guarantee. Idempotent: skip if already present.
 if ! fc-list 2>/dev/null | grep -qi "noto color emoji"; then
-  quiet apt-get install -y fonts-noto-color-emoji || quiet sudo apt-get install -y fonts-noto-color-emoji || true
+  quiet_try apt-get install -y fonts-noto-color-emoji || quiet sudo apt-get install -y fonts-noto-color-emoji || true
 fi
 
 # 3. Point marp-cli at the puppeteer-cached Chromium for the whole session

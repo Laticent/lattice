@@ -143,13 +143,14 @@ and never will be — it runs as long as it needs to, and trimming it to look ti
 costs a future reader the reconstruction. The same four rules govern both; only the
 stopping point moves.
 
-There is a cost argument underneath, and it points the same way. A reply's tokens
-are billed at roughly the weight of the context they displace, and every token in
-the conversation is re-sent on every turn that follows it — so padding a chat reply
-is paid again and again for the rest of the session, while a doc is paid once by
-whoever opens it. That is a reason to cut filler from a reply, never a reason to
-under-answer: a gate you skipped, a caveat you dropped, or a surface you did not
-verify (HARD RULE #23) is not concision, it is an omission.
+There is a cost argument underneath, and it points the same way. Measured on this
+repo's own sessions, a turn is billed for what ENTERS the conversation plus what the
+model writes, at roughly the same weight for each — the prefix re-sent every turn is
+close to free (`engineering/development.md` §Context cost). So a padded reply is paid
+once, in full, on the turn that writes it, and a doc is paid once by whoever opens it.
+That is a reason to cut filler from a reply, never a reason to under-answer: a gate you
+skipped, a caveat you dropped, or a surface you did not verify (HARD RULE #23) is not
+concision, it is an omission.
 
 ---
 

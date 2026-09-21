@@ -589,10 +589,10 @@ Two consequences, and they are the whole of the discipline:
 
 | | tokens | note |
 |---|---:|---|
-| Session baseline, before any work | 86,790 | tool schemas 36,680 · `CLAUDE.md` ~13,200 · harness prompt 7,353 · skill/agent/MCP listings 5,895 |
-| Subagent baseline | 30,074 | 35% of the main thread — it gets ~3k of tool schemas, not 36,680 |
-| `npm test`, TAP (the old default) | 657,806 | 70,172 noise lines against 256 of signal |
-| `npm test`, dot reporter | 477 | a seeded failure still costs only 231 |
+| Session baseline, before any work | 86,790 | tool schemas ~36,700 · `CLAUDE.md` ~13,400 · harness prompt ~7,400 · skill/agent/MCP listings ~5,900. Read off one session's `prompt_snapshot`; the parts sum to ~85% of the measured total, so treat them as a breakdown rather than an audit. |
+| Subagent baseline | 30,074 | 35% of the main thread — it gets ~3k of tool schemas, not ~36,700. `CLAUDE.md` is 44% of it, so the router is paid again per agent. |
+| `npm test`, TAP (the old default) | 657,806 | 70,172 lines of TAP bookkeeping; the other 256 are mostly runtime debug dumps, and only 8 are the counters that say whether it passed |
+| `npm test`, dot reporter | 1,182 | 1,371 with one seeded failure — diff, stack and exit 1 intact |
 | `npm run lint:deck -- examples/*.md` | 72,422 | 190 files — use `--json`, or one file |
 | `npm run build` | 1,848 | |
 | `npm run build:check` | 544 | |
@@ -601,8 +601,12 @@ Two consequences, and they are the whole of the discipline:
 
 ### What to do about it
 
-- **Read sections, not files.** `grep -n '^## ' <doc>` then `sed -n 'A,Bp'`. Six canonical
-  docs are over 14k tokens; `CLAUDE.md` names them.
+- **Read sections, not files.** `grep -n '^## ' <doc>` then `sed -n 'A,Bp'`. Ten documents
+  reachable from `CLAUDE.md`'s routing table are 14k tokens or more — the largest being
+  `engineering/decisions/README.md` (36k), `engineering/workflow.md` (29.5k) and
+  `lib/base/base.docs.md` (21.6k), and that last is a HARD RULE #6 mandated read carrying no
+  "don't open it whole" guidance anywhere. Don't work from a list of names; measure, or just
+  open the section.
 - **Delegate any read over ~10k tokens.** A subagent's context never enters yours — only
   its report does. Measured: a probe agent captured a 2.4 MB test log across 20 tool calls
   for 55,951 subagent tokens and handed back ~1,200. In-thread that is 657,806 tokens, and

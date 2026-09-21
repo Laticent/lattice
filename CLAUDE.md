@@ -12,14 +12,14 @@ This file is an **index, not a manual**: it orients you and points to the
 canonical doc for each topic. Each rule is one line + a pointer; the rationale
 lives in the pointed-to doc. **Read that doc before non-trivial work in its
 area — don't work from memory of it.**
-**Six of them are too big to open whole** — `workflow.md`, `mermaid.md`,
-`design/forms.md`, `development.md`, `jank.md`, `design/design-system.md`, each between
-15k and 30k tokens. For those, open the SECTION, not the file: `grep -n '^## ' <doc>`
-then `sed -n 'A,Bp' <doc>`. A pre-merge card needs about 1.2k of `workflow.md` rather
-than all 29.5k, and every token you read stays in context, billed, for the rest of the
-session. Sizes deliberately not listed per doc — six numbers here would rot with nothing
-to catch them, and this file's own edit already staled one. Measure when you need it;
-`engineering/development.md` §Context cost has the method and the table.
+**Many of them are too big to open whole** — ten documents this table routes to are 14k
+tokens or more, `engineering/decisions/README.md` and `engineering/workflow.md` past 29k,
+and `lib/base/base.docs.md` (a #6 mandated read) past 21k. So make the SECTION the unit,
+always: `grep -n '^## ' <doc>` then `sed -n 'A,Bp' <doc>`. A pre-merge card needs about
+1.2k of `workflow.md` rather than all 29.5k, and every token you read stays in context,
+billed, for the rest of the session. No list of names or sizes here on purpose — it would
+rot with nothing to catch it, and an earlier draft of this very paragraph staled a figure
+in the commit that wrote it. `engineering/development.md` §Context cost has the method.
 
 ---
 
@@ -444,9 +444,12 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   *(gated — `checkMarginDiscipline` in `tools/check-ownership.js`, via `build:check`;
   layout budget 0 + allowlist; `engineering/gotchas.md`,
   `engineering/decisions/2026-06-27-stage-flow-no-margins.md`.)*
-- **#21 — US English is the house dialect — American spellings only.** Every surface a
-  human reads, and that includes the ones no gate can reach: a chat reply, an issue body, a
-  PR description, a review comment, a commit message. **Never rewrite an EXTERNAL string** —
+- **#21 — US English is the house dialect — American spellings only.** `-or` not `-our`,
+  `-ize` not `-ise`, `-er` not `-re`; `gray`, `license`, `defense`, `catalog`, `while`.
+  Every surface a human reads, and that includes the ones no gate can reach — a chat reply,
+  an issue body, a PR description, a review comment, a commit message — **and hyphenated
+  identifiers, classes and tokens**, which is the non-obvious half: `--progress-centre` was
+  a real 39-hit cluster. **Never rewrite an EXTERNAL string** —
   GitHub's `cancelled` conclusion enum, a real legal name, a third-party keyword, a synonym
   key an author might type, a pre-registered benchmark fixture. A sweep that rewrote three
   of those shipped a dead CI allowlist, an unresolvable map region and a tautological test;
@@ -470,7 +473,14 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   INSIDE the frame AFTER the builder sanitized (`lib/runtime`, where re-sanitizing is not
   available — DOMPurify deletes `<foreignObject>` and `<style>`, i.e. every Mermaid node
   label and all diagram styling — so the pin is a census of provenance instead).
-  **Read the threat model before touching any of them:**
+  **Know which shape you are in, because each is FOUND differently**: a preview builder by
+  the split runtime-`<script>` injection idiom, a style sink by assembling a whole document
+  (`<!doctype html`), a re-wrap by taking CSS back out of a document and re-serializing it,
+  and the fourth by writing markup from inside the frame. **A new entry on any allowlist —
+  `SANCTIONED_PREVIEW_BUILDERS`, `DOC_STYLE_SINK_ROOTS`, `SANCTIONED_STYLE_SINK_EXEMPT`,
+  `SANCTIONED_RUNTIME_MARKUP_SINKS` — goes in WITH ITS JUSTIFICATION**, never as a silent
+  edit; that justification is what the second filter above relies on when it lets you add a
+  sanction without asking. **Read the threat model before touching any of them:**
   `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9, and
   `2026-08-18-post-sanitize-injection-queue.md`. *(gated — `checkPreviewHtmlSinks`,
   `checkDocumentStyleSinks`, `checkCssTreeRewrapSinks` and `checkRuntimeMarkupSinks`, with
