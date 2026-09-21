@@ -83,6 +83,42 @@ const loose = (s: string): string =>
 
 /** Blocks worth pointing at — the same shape the projection walks, minus the containers, so a
  *  match lands on the paragraph rather than on the `<section>` that also contains it. */
+/**
+ * WORD-AWARE CONTAINMENT, over a `loose()`-normalized haystack and needle.
+ *
+ * `loose` strips punctuation but does not tokenize, so a bare `startsWith` / `includes` is a
+ * CHARACTER test and every short label becomes a prefix of some word. Both of these were
+ * measured on the real corpus, and both are the reverse-containment mistake `findCueTargetIn`
+ * already refused, arriving through a different door:
+ *
+ *   - `data-label="AI"`  led  "Airlines were the worst performer."
+ *   - `data-value="8"` -> "eight"  corroborated  "Budget: eighteen."
+ *   - `data-value="N/A"` -> "na"   corroborated  "Budget analysis pending." — a mark declaring
+ *     N/A corroborated practically any cue.
+ *
+ * A boundary is the string's edge or a space, which is all `loose` leaves between words.
+ */
+function boundedAt(hay: string, sub: string, at: number): boolean {
+	if (at < 0) return false;
+	const before = at === 0 || hay[at - 1] === ' ';
+	const end = at + sub.length;
+	return before && (end === hay.length || hay[end] === ' ');
+}
+
+/** Does `hay` OPEN with `sub` as whole words? */
+function leadsWord(hay: string, sub: string): boolean {
+	return !!sub && hay.startsWith(sub) && boundedAt(hay, sub, 0);
+}
+
+/** Does `hay` contain `sub` as whole words, anywhere? */
+function containsWord(hay: string, sub: string): boolean {
+	if (!sub) return false;
+	for (let at = hay.indexOf(sub); at !== -1; at = hay.indexOf(sub, at + 1)) {
+		if (boundedAt(hay, sub, at)) return true;
+	}
+	return false;
+}
+
 const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, th, td, code';
 
 /**
@@ -171,13 +207,21 @@ function findCueTargetIn(frameDoc: Document | Element | null, text: string): Ele
  * things keep that from becoming the reverse-containment mistake `findCueTargetIn` already
  * refused (which bought reach by pointing at the wrong element 639 times):
  *
- *   - THE LABEL MUST LEAD. The projection emits "<label>: <value>", so the label opens the
- *     sentence. A label that merely recurs later in a cue is not what the cue is about, and
- *     requiring the lead is what makes this an identity match rather than a fragment match.
- *   - THE VALUE CORROBORATES, through the SAME function that produced the cue's wording.
- *     `toSpokenText('12,000')` is `twelve thousand` because that is literally the call
- *     `chart-narration.js` makes. A mark carrying a value the cue does not mention — in either
- *     spelling — is a different mark.
+ *   - THE LABEL MUST LEAD, as WHOLE WORDS. The projection emits "<label>: <value>", so the label
+ *     opens the sentence. A label that merely recurs later in a cue is not what the cue is about.
+ *     The word boundary is not decoration: a character prefix let `data-label="AI"` lead
+ *     "Airlines were the worst performer."
+ *   - THE VALUE CORROBORATES when the mark declares one, through the SAME function that produced
+ *     the cue's wording. `toSpokenText('12,000')` is `twelve thousand` because that is literally
+ *     the call `chart-narration.js` makes. Whole words again, or `data-value="8"` corroborates
+ *     "eighteen" and `N/A` corroborates any cue containing "analysis".
+ *
+ * WHAT THE SECOND GUARD DOES NOT COVER, stated because an earlier draft of this comment claimed
+ * it did: a mark with a `data-label` and NO `data-value` has nothing to corroborate, and rests on
+ * the lead rule alone. 16% of the corpus's marks are that shape — `scatter`, `quadrant` and
+ * `slope` emit labels without values by construction. For them the word-boundary lead and the
+ * ambiguity refusal are the whole defense, which is why the lead rule is strict rather than a
+ * prefix test.
  *
  * Ambiguity resolves to NOTHING, not to a guess: two marks that both pass is the one case where
  * this tier could point somewhere wrong, and hiding is what the feature already does when it
@@ -189,12 +233,14 @@ function findCueTargetIn(frameDoc: Document | Element | null, text: string): Ele
 export function findMarkTarget(root: Document | Element | null, text: string): Element | null {
 	if (!root) return null;
 	const needle = loose(text);
-	if (needle.length < 3) return null;
-	const passed: { el: Element; label: number; corroborated: boolean }[] = [];
+	// The same floor `findCueTargetIn` carries, and for the same reason: a needle of pure
+	// separators matches whatever holds as many of them, which is not a match.
+	if (needle.length < 3 || !/[\p{L}\p{N}]/u.test(needle)) return null;
+	const passed: { el: Element; labelLen: number; corroborated: boolean }[] = [];
 	for (const el of root.querySelectorAll('[data-label]')) {
 		const label = loose((el as HTMLElement).dataset?.label ?? el.getAttribute('data-label') ?? '');
 		// A one-character label identifies nothing and would lead half the cues on the slide.
-		if (label.length < 2 || !needle.startsWith(label)) continue;
+		if (label.length < 2 || !leadsWord(needle, label)) continue;
 		const raw = (el as HTMLElement).dataset?.value ?? el.getAttribute('data-value') ?? '';
 		let corroborated = false;
 		if (raw) {
@@ -205,18 +251,24 @@ export function findMarkTarget(root: Document | Element | null, text: string): E
 			} catch {
 				spoken = '';
 			}
-			corroborated = (!!spoken && needle.includes(spoken)) || (!!digits && needle.includes(digits));
+			corroborated = containsWord(needle, spoken) || containsWord(needle, digits);
 			// A mark that declares a value the cue never says, in either spelling, is not this cue's.
 			if (!corroborated) continue;
 		}
-		passed.push({ el, label: label.length, corroborated });
+		passed.push({ el, labelLen: label.length, corroborated });
 	}
 	if (!passed.length) return null;
-	// A corroborated mark beats an uncorroborated one; a longer label beats a shorter one. What
-	// survives that and is still tied is genuinely ambiguous.
-	passed.sort((a, b) => Number(b.corroborated) - Number(a.corroborated) || b.label - a.label);
+	// THE LONGER LABEL WINS FIRST, and corroboration only breaks its ties. Ranking corroboration
+	// above specificity let a short, wrong, value-bearing mark beat the exact one: `Rev` (value 40)
+	// outranked `Revenue growth` on "Revenue growth: forty million dollars." Length is the better
+	// signal because every candidate is already a word-leading prefix of the same sentence, so the
+	// longest one is the most of the sentence any mark accounts for.
+	passed.sort((a, b) => b.labelLen - a.labelLen || Number(b.corroborated) - Number(a.corroborated));
 	const [top, next] = passed;
-	if (next && next.corroborated === top.corroborated && next.label === top.label && next.el !== top.el) return null;
+	// Equal length means IDENTICAL label text — every candidate leads the same needle — so this
+	// two-element check is complete for the label dimension rather than a shortcut.
+	if (next && next.labelLen === top.labelLen && next.corroborated === top.corroborated) return null;
+	markHit += 1;
 	return top.el;
 }
 
@@ -319,6 +371,24 @@ export let spanPartial = 0;
 export const resetSpanPartial = (): number => {
 	const n = spanPartial;
 	spanPartial = 0;
+	return n;
+};
+
+/**
+ * Did the MARK tier answer the last cue? The same shape as `spanPartial`, for the same reason.
+ *
+ * The corpus sweep derives "matched piecewise" from the ABSENCE of a containing block, which was
+ * a sound proxy while `findSpanningTarget` was the only tier that could answer such a cue. It is
+ * not one now: every mark-tier hit has no containing block either, so without this counter all of
+ * them are booked to the piecewise row — inflating it, and driving its "how much of the cue does
+ * the resolved element hold" ratio to zero, because a `<polygon>` has no text at all. That ratio
+ * is round two's wrong-element cross-check, and a branch that relaxes the matcher owes it rather
+ * than quietly voiding it.
+ */
+export let markHit = 0;
+export const resetMarkHit = (): number => {
+	const n = markHit;
+	markHit = 0;
 	return n;
 };
 
@@ -617,6 +687,13 @@ const num = (v: string | undefined): number => Number.parseFloat(v ?? '');
  * A fully transparent border/shadow is NOT a boundary. Chromium reports `rgba(0, 0, 0, 0) 0px 0px
  * 0px 0px` for `box-shadow` on elements that merely inherit a shadow token slot, and treating that
  * as a boundary would exempt half the slide from `bracket` for nothing.
+ *
+ * AN SVG MARK IS FILLED, NOT BACKGROUNDED. `fill` is the paint that makes a `<polygon>` or a
+ * `<rect>` a solid region, and it is not `background-color` — so reading only the CSS box
+ * properties reported "no boundary" for every filled chart mark, and `bracket` drew a second
+ * outline around a solid colored cell. That is exactly the defect the redundant-boundary rule
+ * exists to stop, arriving through the one element class that has no CSS background. Measured on
+ * a real heatmap: 15 of 90 cells took a bracket, each around an already-filled rectangle.
  */
 export function hasOwnBoundary(el: Element): boolean {
 	const cs = styleOf(el);
@@ -630,6 +707,12 @@ export function hasOwnBoundary(el: Element): boolean {
 	}
 	if (!isTransparent(cs.backgroundColor)) return true;
 	if (cs.backgroundImage && cs.backgroundImage !== 'none') return true;
+	// `fill` only means a region on a shape — on an HTML element it is inherited and inert, so it
+	// is asked of SVG geometry alone rather than of everything that happens to carry the property.
+	if (el instanceof SVGElement && el.tagName.toLowerCase() !== 'svg') {
+		const fill = cs.getPropertyValue('fill');
+		if (fill && fill !== 'none' && !isTransparent(fill)) return true;
+	}
 	const shadow = cs.boxShadow;
 	return !!shadow && shadow !== 'none' && !isTransparent(shadow);
 }
@@ -822,6 +905,13 @@ export type GuideShape = {
 	role: AnchorRole;
 	/** True when the thing being named already draws its own border / fill / shadow. */
 	enclosed: boolean;
+	/** True when the target carries NO text of its own — a chart mark, which is geometry rather
+	 *  than words. Two of the five gestures are about words specifically (`underline` names their
+	 *  extent, `wash` sweeps them), and neither has anything to measure here: a mark's range
+	 *  produces no client rects, so both fall back to the element's BOUNDING BOX. On a funnel
+	 *  trapezoid that is the wide end's width drawn under the narrow end — measured at 1107px of
+	 *  ink under a 443px edge, overhanging the shape by 332px on each side. */
+	textless: boolean;
 };
 
 /** More lines than this is a BLOCK, not a line — and the bound is 1, deliberately.
@@ -865,9 +955,15 @@ const MARKER_RING = 0.012;
  * rather than the other way round (HARD RULE #19's discipline applied to a design constant).
  */
 export function chooseGesture(shape: GuideShape): Gesture {
-	const { box, lines, slideW, role, enclosed } = shape;
+	const { box, lines, slideW, role, enclosed, textless } = shape;
 	if (role === 'phrase') return 'wash';
 	if (role === 'marker') return Math.min(box.width, box.height) >= MARKER_RING * slideW ? 'circle' : 'tap';
+	// A SHAPE IS NAMED BY ITS LOCATION, not by the extent of words it does not have. `underline`
+	// and `wash` both lay ink along line rects; a chart mark has none, so both degrade to its
+	// bounding box and draw ink the shape's own outline does not follow. `bracket` is barred
+	// separately by the redundant-boundary rule, since a mark is filled. That leaves the two
+	// gestures that name a point, which is what a presenter does with a band or a cell anyway.
+	if (textless) return box.width <= RING_WIDTH * slideW ? 'circle' : 'tap';
 	if (lines > LINES_BLOCK) return enclosed ? 'wash' : 'bracket';
 	if (box.width <= TAP_WIDTH * slideW && lines <= 1) return 'tap';
 	if (box.width <= RING_WIDTH * slideW && box.width / Math.max(1, box.height) <= RING_ASPECT) return 'circle';
@@ -1079,6 +1175,15 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 		// Asked of the ELEMENT, not of the handle: it is the card that already has the border, and
 		// it is the card a `bracket` would draw its second outline around.
 		enclosed: hasOwnBoundary(el),
+		// NO TEXT OF ITS OWN — asked of the element's CONTENT, not of its client rects.
+		//
+		// Rects were the first discriminator and they are wrong in a way worth recording: jsdom has
+		// no layout, so every element reports none, and the rule fired on all of them in the unit
+		// tier while firing correctly in a browser. A check that means two different things in the
+		// two places it runs is not a check. Text content means the same thing in both.
+		//
+		// A marker is excluded because its own box IS its geometry; it was never measuring words.
+		textless: anchor.role !== 'marker' && !(el.textContent ?? '').trim(),
 	});
 	// WHAT THE CURSOR MUST CLEAR. The handle, except for a phrase — resting just past a phrase puts
 	// the hand on the words that follow it, so a phrase clears its whole block (the round-two

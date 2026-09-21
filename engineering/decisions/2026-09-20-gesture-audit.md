@@ -14,7 +14,11 @@ summary: >
   carry 220 slot selectors that nothing in the gesture path reads — and 25% of them do not survive
   the transform anyway, so the obvious fix was measured as a no-op before it was built. What the
   rendered DOM already declares does work: matching a cue against a mark's own `data-label` /
-  `data-value` takes `funnel` from 15.8% to 89.1% and `heatmap` from 25% to 100%. The visual defects reported from the field are NOT a model issue: no model chooses a
+  `data-value` takes `funnel` from 15.8% to 89.1%. An independent check then refuted this note's
+  own first result table — a `heatmap` gain that was a rebased deck rather than the change, and
+  a corpus figure that straddled two corpora — and found four defects in the shipped code; §7
+  carries the re-run and what the first version got wrong.
+  The visual defects reported from the field are NOT a model issue: no model chooses a
   cue's text, its target or its gesture, and the one model nearby (TTS) can only change WHEN a
   gesture fires.
 companion:
@@ -266,7 +270,9 @@ B as written would have been a near-no-op** — which is the part of this sectio
 **Why B failed as specified.** B was "project manifest `slots` into a generated catalog and let
 `anchorFor` consult it". `slots` is an **authoring** contract, not a rendered one: it describes the
 Markdown an author writes, and a component with a transform emits something else entirely. Measured
-over the rendered corpus: **55 of 220 slot x component pairs (25%) never match the rendered DOM**,
+over the rendered corpus with a throwaway probe — **not re-derivable from the tree, so read it as a
+measurement taken once rather than a number this repo can reproduce on demand**: **55 of 220
+slot x component pairs (25%) never match the rendered DOM**,
 and they are exactly the content slots of the transformed components — `funnel.stages`,
 `journey.sections`, `kanban.lanes`, `progress.rows`, `timeline-list.events`, every chart's data
 slot. For the 18 components that never get a handle, **the slot carrying the content is dead in
@@ -286,8 +292,12 @@ marks carry their own meaning:
 <polygon class="funnel-band" data-mark="0" data-label="Visitors" data-value="12,000">
 ```
 
-Across the corpus, 41 components render marks carrying `data-label` / `data-value` / `data-mark` —
-`map` 768 labels, `funnel` 74, `heatmap` 105, `gantt` 75, `stacked-bar` 33.
+Across the corpus, **12** components render marks carrying `data-label`, 1,519 of them — `map` 768,
+`heatmap` 223, `state-chart` 159, `quadrant` 123, `gantt` 75, `funnel` 74, `stacked-bar` 33. (An
+earlier draft said 41 components and `heatmap` 105, from a count that split a section's class list
+without intersecting it against the catalog, so every modifier was counted as a component. The
+figures here attribute by section the way the sweep does. **1,272 of the 1,519 carry a
+`data-value` and 247 do not**, which is the 16% the matcher's second guard cannot reach.)
 
 **So the built change is neither A nor B.** `findMarkTarget` runs as a THIRD tier after the block
 and piecewise matchers, and matches a cue against the DOM's declared identity rather than its text.
@@ -300,21 +310,57 @@ must LEAD the sentence** (the projection emits `<label>: <value>`, so a label re
 what the sentence is about), and **the value corroborates** in either spelling. Ambiguity resolves
 to nothing rather than to a guess.
 
-**Measured, same corpus, same instrument:**
+**Measured — one corpus, both runs back to back, 184 decks / 10,588 cues:**
 
-| | before | after |
+| | tier off | tier on |
 |---|---|---|
-| corpus resolved | 9,376 (88.9%) | **9,501 (89.7%)** |
-| cues where the pointer hides | 1,175 | **1,087** |
+| corpus resolved | 9,413 (88.9%) | **9,499 (89.7%)** |
+| cues where the pointer hides | 1,175 | **1,089** |
 | `funnel` | 16/101 (15.8%) | **90/101 (89.1%)** |
-| `heatmap` | 6/24 (25.0%) | **24/24 (100%)** |
-| `state-chart` | 260/293 (88.7%) | **274/293 (93.5%)** |
-| `funnel` vocabulary | `underline` x16 | `tap` 36 · `underline` 29 · `bracket` 15 · `circle` 10 |
+| `state-chart` | 260/293 (88.7%) | **272/293 (92.8%)** |
+| `funnel` vocabulary | `underline` x16 | `underline` x16 · **`circle` x74** |
+| components that LOST a resolution | — | **none** |
 
-That last row is the one to read. The funnel did not just get louder — each band now gets the
-gesture its own shape asks for, so a stage that narrows gets a tap where the first one gets an
-underline. Real Chromium, `funnel.html` at 1440x900: `Visitors` resolves to its band and draws an
-underline across 1107px, `Signups` a circle on 443px, `Paid` a tap on 103px.
+**THE FIRST VERSION OF THIS TABLE WAS WRONG, and how is the more useful half.** It reported
+`heatmap` 25% -> 100% and a corpus gain of +125. Neither survived. The "before" run and the
+"after" run straddled a rebase that pulled main's heatmap rework (#2238) into the corpus:
+182 decks became 184, and heatmap's own decks were re-authored from 6 cues on 3 slides to 24 on
+12. **The heatmap improvement was the deck changing, not the tier — measured on one corpus the
+tier contributes exactly zero heatmap cues.** The corpus figure compared 10,551 cues against
+10,588 and overstated the gain by 42%.
+
+This note's §2 warns that a number quoted without its base will not reproduce. It was written
+before that table and did not save it. An independent check of the shipped diff caught both,
+along with the defects below; the numbers above are the re-run.
+
+**The funnel vocabulary row is the one to read.** Every one of the 74 new hits draws a `circle` —
+a ring on the band — rather than the mixed bag the first version produced. That is not a tuning
+change, it is two defects the same check found:
+
+- **`bracket` was drawing a second outline around a filled mark.** `hasOwnBoundary` never read
+  `fill`, which is the paint that makes a `<polygon>` a region, so every mark reported "no
+  boundary" and the redundant-boundary rule — the rule with four field reports behind it — was
+  bypassed for the entire class of element this change newly made targetable.
+- **`underline` was drawing along a bounding box.** A mark has no line rects, so the gesture that
+  names the EXTENT OF WORDS fell back to the element's box: 1107px of ink under a 443px edge,
+  overhanging a funnel band by 332px on each side. The commit's own "proof" quoted that 1107px.
+
+A target carrying no text is now classified as geometry and gets `circle` or `tap`.
+
+**Two guards, and the first version only had one.** The record said a mark is refused unless its
+value corroborates in either spelling. The code checked that only when the mark declared a
+`data-value`, and 16% of the corpus's marks do not — `scatter`, `quadrant` and `slope` emit labels
+without values by construction. For those the whole defense was `startsWith`, a CHARACTER test, so
+`data-label="AI"` led "Airlines were the worst performer." Both the lead rule and the corroboration
+are now whole-word, which also closes `data-value="8"` corroborating "eighteen" and `N/A`
+corroborating anything containing "analysis".
+
+**The instrument it is governed by needed fixing too.** The sweep derives "matched piecewise" from
+the absence of a containing block — sound while the piecewise matcher was the only tier that could
+answer such a cue, and wrong the moment this one could. All 86 mark hits were being booked to that
+row, and its wrong-element ratio read 0.00 because a `<polygon>` has no text. Mark hits now have
+their own row and the piecewise row is unchanged at 295, which is what a pure addition should do to
+a counter that is not about it.
 
 It runs LAST by construction, so it cannot change an answer the existing tiers already gave — which
 is what makes the table above a pure addition rather than a trade.

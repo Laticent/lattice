@@ -165,7 +165,7 @@ async function main() {
 	const puppeteer = require('puppeteer');
 	const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
 
-	const tally = { byComponent: {}, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const tally = { byComponent: {}, marked: 0, cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
 	const comps = componentNames();
 	if (!comps.length) console.error('  note: dist/docs/components.json is missing — per-component attribution will report everything as (none). Run `npm run build`.');
@@ -269,12 +269,18 @@ async function main() {
 							// change. This branch relaxes the matcher, so it owes the same number: how much of
 							// the spoken sentence the resolved element actually holds, and how often the climb
 							// gave up and handed back a partial answer.
-							const partial = spanned ? G.resetSpanPartial() > 0 : false;
-							const ratio = spanned && d ? (d.el.textContent ?? '').replace(/\s+/g, ' ').trim().length / Math.max(1, text.length) : null;
+							// WHICH TIER ANSWERED, asked rather than inferred. `spanned` is "no single block
+							// holds this cue", which was a sound proxy for the piecewise matcher while it
+							// was the only tier that could answer such a cue. The MARK tier answers them
+							// too, so the proxy now books every mark hit as piecewise and voids that row's
+							// wrong-element ratio (a mark has no text, so the ratio reads 0).
+							const marked = G.resetMarkHit() > 0;
+							const partial = spanned && !marked ? G.resetSpanPartial() > 0 : false;
+							const ratio = spanned && !marked && d ? (d.el.textContent ?? '').replace(/\s+/g, ' ').trim().length / Math.max(1, text.length) : null;
 							// A MISS CARRIES ITS COMPONENT TOO. `null` was enough while the question was
 							// "how often does the corpus resolve"; it cannot answer "which component goes
 							// dark", which is the question a component owner actually has.
-							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned, partial, ratio } : { comp, miss: true });
+							out.push(d ? { comp, kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: spanned && !marked, marked, partial, ratio } : { comp, miss: true });
 						}
 						out.push({ slideDone: true, any, comp });
 					}
@@ -313,6 +319,7 @@ async function main() {
 				deckRow.resolved += 1;
 				tally.byKind[row.kind] = (tally.byKind[row.kind] ?? 0) + 1;
 				tally.byRole[row.role] = (tally.byRole[row.role] ?? 0) + 1;
+				if (row.marked) tally.marked += 1;
 				if (row.spanned) {
 					tally.spanned += 1;
 					if (row.partial) tally.spanPartial += 1;
@@ -345,6 +352,7 @@ async function main() {
 	console.log(`  rest fell back to the search  ${tally.fellBack} (${pct(tally.fellBack, tally.resolved)})`);
 	const ratios = tally.spanRatio.slice().sort((a, b) => a - b);
 	const q = (f) => (ratios.length ? ratios[Math.min(ratios.length - 1, Math.floor(f * ratios.length))].toFixed(2) : 'n/a');
+	console.log(`  answered by a MARK (data-label / data-value)   ${tally.marked} (${pct(tally.marked, tally.resolved)})`);
 	console.log(`  matched piecewise (a label joined to its body)  ${tally.spanned} (${pct(tally.spanned, tally.resolved)})`);
 	console.log(`    of those, a PARTIAL answer (the climb gave up)  ${tally.spanPartial} (${pct(tally.spanPartial, tally.spanned)})`);
 	console.log(`    resolved-element text / cue text — p10 ${q(0.1)} · median ${q(0.5)} · p90 ${q(0.9)}`);

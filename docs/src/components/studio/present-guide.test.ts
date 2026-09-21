@@ -155,7 +155,7 @@ describe('cueDisplayText', () => {
 
 describe('chooseGesture', () => {
 	const W = 1280;
-	const shape = (box: Box, lines: number, extra: Partial<GuideShape> = {}): GuideShape => ({ box, lines, slideW: W, role: 'body', enclosed: false, ...extra });
+	const shape = (box: Box, lines: number, extra: Partial<GuideShape> = {}): GuideShape => ({ box, lines, slideW: W, role: 'body', enclosed: false, textless: false, ...extra });
 
 	it('underlines one wide, short line of prose — the workhorse', () => {
 		expect(chooseGesture(shape({ left: 80, top: 300, width: 900, height: 30 }, 1))).toBe('underline');
@@ -191,7 +191,7 @@ describe('chooseGesture', () => {
 	it('reads the same at 1280 and at 1920, because every threshold is in slide units', () => {
 		// A deck rendered at a different size is the same deck. A pixel threshold would silently
 		// reclassify every target on it.
-		const at = (k: number) => chooseGesture({ box: { left: 0, top: 0, width: 180 * k, height: 64 * k }, lines: 1, slideW: W * k, role: 'body', enclosed: false });
+		const at = (k: number) => chooseGesture({ box: { left: 0, top: 0, width: 180 * k, height: 64 * k }, lines: 1, slideW: W * k, role: 'body', enclosed: false, textless: false });
 		expect(at(1)).toBe(at(1.5));
 	});
 });
@@ -647,8 +647,8 @@ describe('the geometry the classifier is handed, and the units it is handed in',
 		// `guideCueIn` takes the slide's own width and every width threshold is a fraction of it.
 		// A 200px-wide target is "small" on a 3840 deck and "wide" on a 640 one.
 		const box = { left: 0, top: 0, width: 200, height: 30 };
-		const wide = chooseGesture({ box, lines: 1, slideW: 3840, role: 'body', enclosed: false });
-		const narrow = chooseGesture({ box, lines: 1, slideW: 640, role: 'body', enclosed: false });
+		const wide = chooseGesture({ box, lines: 1, slideW: 3840, role: 'body', enclosed: false, textless: false });
+		const narrow = chooseGesture({ box, lines: 1, slideW: 640, role: 'body', enclosed: false, textless: false });
 		expect(wide).toBe('tap');
 		expect(narrow).toBe('underline');
 	});
@@ -811,6 +811,37 @@ describe('hasOwnBoundary — the redundant-boundary rule', () => {
 		expect(hasOwnBoundary(styled({ backgroundColor: 'rgb(242, 245, 250)' } as Partial<CSSStyleDeclaration>))).toBe(true);
 	});
 
+	// ── SVG PAINT ────────────────────────────────────────────────────────────────────────────
+	// A chart mark is a solid region and has no `background-color` — its paint is `fill`. Reading
+	// only the CSS box properties reported "no boundary" for every filled mark, so `bracket` drew
+	// a second outline around an already-filled cell: measured at 15 of 90 on a real heatmap.
+	// Those elements became targets for the first time when the mark tier landed, so this is a
+	// regression that change would have introduced rather than a pre-existing one.
+	const svgStyled = (css: Record<string, string>) => {
+		const host = document.createElement('div');
+		host.innerHTML = '<svg><polygon points="0,0 10,0 10,10"></polygon></svg>';
+		document.body.appendChild(host);
+		const el = host.querySelector('polygon') as Element;
+		const view = window as unknown as { getComputedStyle: (e: Element, p?: string | null) => CSSStyleDeclaration };
+		view.getComputedStyle = () =>
+			({
+				getPropertyValue: (k: string) => css[k] ?? (k.endsWith('style') ? 'none' : k.endsWith('color') ? 'rgb(0, 0, 0)' : '0px'),
+				backgroundColor: 'rgba(0, 0, 0, 0)',
+				backgroundImage: 'none',
+				boxShadow: 'none',
+			}) as unknown as CSSStyleDeclaration;
+		return el;
+	};
+
+	it('sees an SVG mark’s fill as its own boundary', () => {
+		expect(hasOwnBoundary(svgStyled({ fill: 'oklab(0.515679 0.02 -0.08)' }))).toBe(true);
+	});
+
+	it('does not read `fill: none` or a transparent fill as a boundary', () => {
+		expect(hasOwnBoundary(svgStyled({ fill: 'none' }))).toBe(false);
+		expect(hasOwnBoundary(svgStyled({ fill: 'rgba(0, 0, 0, 0)' }))).toBe(false);
+	});
+
 	it('does NOT see a fully transparent shadow, which half the slide inherits', () => {
 		// Chromium reports `rgba(0, 0, 0, 0) 0px 0px 0px 0px` for an element that merely sits in a
 		// shadow token's scope. Reading that as a boundary would exempt most of a deck from
@@ -851,6 +882,7 @@ describe('chooseGesture — the semantic rules that come before the measurements
 		slideW: W,
 		role: 'body',
 		enclosed: false,
+		textless: false,
 		...extra,
 	});
 
@@ -1216,13 +1248,6 @@ describe('findMarkTarget — a cue whose words are not on the slide at all', () 
 		expect(findCueTarget(d, 'Visitors: nine hundred.')).toBeNull();
 	});
 
-	it('refuses a label that merely RECURS in the cue rather than leading it', () => {
-		// "The band above Signups is the one that matters" is about neither band. Requiring the
-		// label to open the sentence is what makes this an identity match, not a fragment match.
-		const d = doc(FUNNEL);
-		expect(findCueTarget(d, 'The band above Signups is the one that matters.')).toBeNull();
-	});
-
 	it('refuses a recurring label EVEN WHEN the value corroborates', () => {
 		// The case that isolates the lead guard from the value guard. The sentence carries both
 		// "Visitors" and "twelve thousand", so corroboration passes and only the lead rule can
@@ -1254,5 +1279,88 @@ describe('findMarkTarget — a cue whose words are not on the slide at all', () 
 	it('ignores a mark with a label too short to identify anything', () => {
 		const d = doc('<svg><polygon data-label="A" data-value="3"></polygon></svg>');
 		expect(findCueTarget(d, 'A: three.')).toBeNull();
+	});
+
+	// ── THE WORD BOUNDARY ────────────────────────────────────────────────────────────────────
+	// `loose()` strips punctuation but does not tokenize, so a bare `startsWith` / `includes` is a
+	// CHARACTER test and every short label becomes a prefix of some word. Both arms below failed
+	// against the first version of this tier.
+
+	it('a label must lead as WHOLE WORDS — not as the first letters of a longer word', () => {
+		// Measured on the real corpus: `scatter` and `quadrant` emit two-letter labels with no
+		// value, so this is the shape that had ONE guard and that guard was a character prefix.
+		const d = doc('<svg><circle data-label="AI" data-mark="7"></circle></svg>');
+		expect(findCueTarget(d, 'Airlines were the worst performer.')).toBeNull();
+		expect(findCueTarget(d, 'AI adoption doubled.')?.getAttribute('data-mark')).toBe('7');
+	});
+
+	it('a value corroborates as WHOLE WORDS — "eight" does not satisfy "eighteen"', () => {
+		const d = doc('<svg><polygon data-label="Budget" data-value="8"></polygon></svg>');
+		expect(findCueTarget(d, 'Budget: eighteen.')).toBeNull();
+		expect(findCueTarget(d, 'Budget: eight.')?.getAttribute('data-label')).toBe('Budget');
+	});
+
+	it('a non-numeric value cannot corroborate by accident', () => {
+		// `toSpokenText('N/A')` is `N/A`, which looses to "na" — a substring of "analysis", of
+		// "national", of "narrow". Unbounded, such a mark corroborated practically any cue.
+		const d = doc('<svg><polygon data-label="Region" data-value="N/A"></polygon></svg>');
+		expect(findCueTarget(d, 'Region analysis pending.')).toBeNull();
+	});
+
+	// ── THE RANKING ──────────────────────────────────────────────────────────────────────────
+
+	it('the longer label wins, and corroboration only breaks its ties', () => {
+		// Ranking corroboration first let a short, wrong, value-bearing mark beat the exact one.
+		const d = doc(`<svg>
+			<circle id="exact" data-label="Revenue growth"></circle>
+			<circle id="short" data-label="Revenue" data-value="40"></circle>
+		</svg>`);
+		expect(findCueTarget(d, 'Revenue growth: forty million dollars.')?.id).toBe('exact');
+	});
+
+	it('corroboration decides between two marks whose labels are the same length', () => {
+		// THE UNCORROBORATED ONE COMES FIRST IN THE DOM, deliberately. Sort is stable, so with the
+		// corroboration key dropped the answer falls back to document order — and with the right
+		// mark listed first, that accident gives the correct answer and the arm certifies nothing.
+		// The first version of this test was written that way and survived the mutation.
+		const d = doc(`<svg>
+			<circle id="other" data-label="North"></circle>
+			<circle id="right" data-label="North" data-value="40"></circle>
+		</svg>`);
+		expect(findCueTarget(d, 'North: forty.')?.id).toBe('right');
+	});
+});
+
+describe('chooseGesture — a mark is geometry, not words', () => {
+	const W = 1280;
+	const shape = (extra: Partial<GuideShape>): GuideShape => ({
+		box: { left: 0, top: 0, width: 400, height: 200 },
+		lines: 1,
+		slideW: W,
+		role: 'body',
+		enclosed: false,
+		textless: false,
+		...extra,
+	});
+
+	it('never underlines or washes something that carries no text', () => {
+		// `underline` names the EXTENT of words and `wash` sweeps them; a chart mark has none, so
+		// both lay their ink along the element's bounding box instead. On a funnel trapezoid that
+		// is the wide end's width drawn under the narrow end — 1107px of ink under a 443px edge.
+		for (const lines of [1, 6]) {
+			for (const enclosed of [false, true]) {
+				const kind = chooseGesture(shape({ textless: true, lines, enclosed }));
+				expect(['circle', 'tap'], `lines=${lines} enclosed=${enclosed}`).toContain(kind);
+			}
+		}
+	});
+
+	it('a wide mark is tapped and a compact one is ringed', () => {
+		expect(chooseGesture(shape({ textless: true, box: { left: 0, top: 0, width: 1100, height: 160 } }))).toBe('tap');
+		expect(chooseGesture(shape({ textless: true, box: { left: 0, top: 0, width: 120, height: 120 } }))).toBe('circle');
+	});
+
+	it('text still classifies by its own measurements', () => {
+		expect(chooseGesture(shape({ box: { left: 0, top: 0, width: 900, height: 30 } }))).toBe('underline');
 	});
 });

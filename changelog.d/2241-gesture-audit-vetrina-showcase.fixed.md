@@ -2,13 +2,22 @@
   chart's speech from its data model and spells numbers out, so a funnel band rendered as
   `Visitors` + `12,000` narrates as "Visitors: twelve thousand" — words that appear nowhere on the
   slide. Both existing matchers search the slide's TEXT, so they found nothing and the cursor hid:
-  `funnel` resolved 15.8% of its cues, `heatmap` 25%. A third tier now matches a cue against the
-  DOM's own declared identity — a mark's `data-label` / `data-value` — and turns one spelling into
-  the other with `toSpokenText`, the same call the narration used. **`funnel` 15.8% -> 89.1%,
-  `heatmap` 25% -> 100%, `state-chart` 88.7% -> 93.5%**, corpus 88.9% -> 89.7% over 10,551 cues.
-  Each band now draws the gesture its own shape asks for rather than one underline for all: on the
-  real render, `Visitors` an underline across 1107px, `Signups` a circle on 443px, `Paid` a tap on
-  103px. The tier runs LAST, so it cannot change an answer the existing two already gave.
+  `funnel` resolved 15.8% of its cues. A third tier now matches a cue against the DOM's own
+  declared identity — a mark's `data-label` / `data-value`, as whole words — and turns one spelling
+  into the other with `toSpokenText`, the same call the narration used. Measured over one corpus,
+  both runs back to back (184 decks, 10,588 cues): **`funnel` 15.8% -> 89.1%**, **`state-chart`
+  88.7% -> 92.8%**, corpus 88.9% -> 89.7%, and no component lost a resolution. The tier runs LAST,
+  so it cannot change an answer the existing two already gave.
+- **Fixed: `bracket` drew a second outline around an already-filled chart mark.** `hasOwnBoundary`
+  read `border` / `background` / `box-shadow` and never `fill` — which is the paint that makes a
+  `<polygon>` a solid region — so every filled mark reported "no boundary". That is the exact
+  defect the redundant-boundary rule exists to stop, reaching it through the one element class
+  with no CSS background.
+- **Fixed: `underline` and `wash` laid ink along a shape that has no words.** Both gestures follow
+  line rects; a chart mark has none, so both fell back to its bounding box. On a funnel trapezoid
+  that is the wide end's width drawn under the narrow end — 1107px of ink under a 443px edge. A
+  target carrying no text now gets `circle` or `tap`, which name a location rather than the extent
+  of words.
 
 - **Fixed: `useWalkthrough` latched `active: true` forever when `run()` threw.** The hook set
   its flag before calling the engine, so on either of `run()`'s two documented synchronous
