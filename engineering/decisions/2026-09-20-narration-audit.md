@@ -442,6 +442,12 @@ remaining nine token passthroughs (a slash means four different things; guessing
 reading the glyph), and recommendation 8 — which is now decided in principle (a generic
 data-series narrator first) but not built.
 
+**The component count moved under this record.** The coverage table measured the 70 components
+that existed on 2026-09-20; `anchor/topic` landed on `main` the next day and is not in it. The
+table is a dated measurement, not a live count — re-run `node tools/measure-narration-coverage.mjs`
+to see where a new component falls, and expect Finding 1 to predict it from where that component
+keeps its substance.
+
 ## What is NOT verified
 
 **Nobody has listened.** The audit itself was measured with no browser at all — every
@@ -500,9 +506,14 @@ What the real runs show:
 What none of it covers is how any of it SOUNDS — timbre, prosody, whether a sentence
 lands. Clips were synthesized and decoded; no human ear was applied (HARD RULE #23).
 
-Specifically unverified: whether Kokoro's own front-end normalizer rescues any of the raw
-passthroughs (`99th`, `12:30` and `1st` are plausible wins; `$1.2-1.4B`, `ID-4471` and
-`(API)` are not); whether the segmentation gaps are audible; and whether the out-of-order
-`align()` defect is reachable from the live Studio, which today preserves ordering at
-`read-aloud.ts:797`. The timing errors in Finding 3 are confirmed regardless of the TTS,
-because they are computed entirely inside Cadenza.
+Specifically unverified: whether Kokoro's own front-end normalizer rescues any of the
+NINE passthroughs this branch deliberately leaves raw — the slash and identifier shapes
+(`A/B`, `P/E`, `24/7`, `ID-4471`), where guessing reads worse than reading the glyph.
+(An earlier draft of this line named `99th`, `12:30` and `1st` as the plausible wins. It
+was written before the ordinal and clock-time rules landed and never updated: all three
+are handled here, and `1st` → "first" is one of the five rules read back out of a real
+utterance above.) Also unverified: whether the segmentation gaps are audible; and whether
+the out-of-order `align()` defect is reachable from the live Studio, which today preserves
+ordering at `read-aloud.ts:797` — the real clocked runs above bear that out, every onset
+arriving in order within its read. The timing errors in Finding 3 are confirmed regardless
+of the TTS, because they are computed entirely inside Cadenza.
