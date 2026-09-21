@@ -191,6 +191,34 @@ describe('--read — the deck as prose, and nothing else moves', () => {
     }
   });
 
+  // REGRESSION, found by a checker over the FIRST fix for the arm above. That fix scoped the
+  // query to the string `#deck > section[data-lattice-slide], body > …` — and a CSS id
+  // selector matches ANY element carrying that id, so a deck teaching the export shell by
+  // pasting the whole scaffold still minted a phantom slide, one wrapper deeper. The fixture
+  // is the scaffold, because that is what a deck documenting the exporter actually writes.
+  test('a pasted export scaffold does not mint a second deck', { timeout: 900000 }, () => {
+    const dir8 = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-scaffold-'));
+    try {
+      fs.writeFileSync(
+        path.join(dir8, 'deck.md'),
+        '---\ntheme: indaco\n---\n\n# How the export scaffold looks\n\n' +
+          '<main id="deck" tabindex="-1"><section data-lattice-slide="1"><p>SCAFFOLDPROBE this is ' +
+          'the shape the exporter writes around your slides.</p></section></main>\n\n---\n\n' +
+          '## Two things to start\n\n- Separate the parts that wear from the parts that last\n',
+      );
+      const out = render(dir8, path.join(dir8, 'read.html'), ['--read']);
+      const html = fs.readFileSync(out, 'utf8');
+      const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+      let n = 0;
+      for (let i = text.indexOf('SCAFFOLDPROBE'); i !== -1; i = text.indexOf('SCAFFOLDPROBE', i + 1)) n++;
+      assert.equal(n, 1, `the pasted scaffold must be projected once as part of its slide, not ${n} times`);
+      const ids = html.match(/id="lp-sec-\d+"/g) || [];
+      assert.equal(ids.length, 2, `expected one article section per real slide; got ${ids.length}`);
+    } finally {
+      fs.rmSync(dir8, { recursive: true, force: true });
+    }
+  });
+
   // REGRESSION, same pass. The article's `<main>` was inserted as a sibling of the first
   // SLIDE — i.e. INSIDE `main#deck` — and the "drop the container if it is left empty"
   // branch below it then asked `deck.textContent`, which by that point held the whole

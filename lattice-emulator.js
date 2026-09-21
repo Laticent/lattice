@@ -5445,13 +5445,31 @@ async function buildReadingArticleDocument(docHtml) {
     // `#deck > …, body > …` rather than a bare `#deck > …`, because a slide is not always
     // inside the container: a deck that merely WRITES a closing main tag ends `main#deck`
     // where it sits, and the parser then hangs the remaining slides outside it as body-level
-    // siblings. Both fixtures are pinned in `read-export.test.js`. This is the same scope
-    // `measureOverflow` uses, ~950 lines up, for the same reason.
-    const SLIDE_SEL = '#deck > section[data-lattice-slide], body > section[data-lattice-slide]';
+    // siblings. Both fixtures are pinned in `read-export.test.js`.
+    //
+    // KEYED ON THE CONTAINER NODE, not on an `#deck >` selector, and an independent checker
+    // is why. A CSS id selector matches ANY element carrying that id, so a deck teaching the
+    // export shell by pasting `<main id="deck"><section data-lattice-slide=…>` still minted a
+    // phantom slide — the same double-copy bug one wrapper deeper. Measured on such a deck:
+    // SCAFFOLDPROBE twice, 3 article sections for a 2-slide deck. Resolving `main#deck` ONCE
+    // and asking it for its own children closes that, because `querySelector` returns the
+    // FIRST in document order and the real container always encloses the pasted one.
+    // (`measureOverflow` ~950 lines up has the identical hole, pre-existing and off this
+    // change's path; recorded in the decision note rather than widened into here.)
+    const deckRoot = doc.querySelector('main#deck');
+    const slideSections = () => {
+      const inDeck = deckRoot ? [...deckRoot.querySelectorAll(':scope > section[data-lattice-slide]')] : [];
+      const atBody = [...doc.body.querySelectorAll(':scope > section[data-lattice-slide]')];
+      // Document order across both buckets: the closing-main-tag split leaves earlier slides
+      // inside the container and later ones beside it, and the article must not reorder them.
+      return [...inDeck, ...atBody].sort((a, b) =>
+        // eslint-disable-next-line no-bitwise
+        a.compareDocumentPosition(b) & 0x02 ? 1 : -1);
+    };
 
     // Sanitize each section in isolation, then project the clean nodes — the
     // caller-sanitizes contract prose-projection states in its own header (HARD RULE #22).
-    const clean = [...doc.querySelectorAll(SLIDE_SEL)]
+    const clean = slideSections()
       .map((sec) => new JSDOM(sanitize(sec.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
       .filter(Boolean);
     if (!clean.length) return '';
@@ -5472,7 +5490,7 @@ async function buildReadingArticleDocument(docHtml) {
     // So the transform removes every slide section WHEREVER the parse put it, and the
     // article TAKES THE CONTAINER'S PLACE. That holds however badly the document was split,
     // because the thing being counted is the thing that must not survive.
-    const sections = [...doc.querySelectorAll(SLIDE_SEL)];
+    const sections = slideSections();
     if (!sections.length) return '';
     const main = doc.createElement('main');
     main.id = 'lat-read-main';

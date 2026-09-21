@@ -1,9 +1,11 @@
-- **Fixed: a section an author writes themselves is no longer mistaken for a slide
+- **Fixed: markup an author writes themselves is no longer mistaken for a slide
   under `--read`.** The engine passes raw HTML through unescaped, so a deck that
-  teaches slide markup by pasting a `<section data-lattice-slide>` had that example
-  projected twice — once inside its real slide, once as a phantom slide with its own
-  table-of-contents row — which is the double copy the flag exists to prevent. The
-  slide queries are now scoped the way `measureOverflow` already scopes them.
+  teaches slide markup — by pasting a bare `<section data-lattice-slide>`, or the whole
+  `<main id="deck">` export scaffold — had that example projected twice, once inside its
+  real slide and once as a phantom slide with its own table-of-contents row, which is
+  the double copy the flag exists to prevent. `--read` now resolves the real slide
+  container as a node and asks it for its own children, rather than matching an `#deck`
+  id selector that any pasted element can satisfy.
 - **Fixed: a `--read` document no longer ships a `<main>` inside a `<main>`.** The
   article was inserted inside `main#deck`, and the "drop the container if it is left
   empty" branch then asked a container that held the whole article, so it could never
