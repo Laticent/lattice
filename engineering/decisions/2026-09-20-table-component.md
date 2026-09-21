@@ -268,8 +268,9 @@ no comments, no nesting, no `<template>`, every cell closed and no `>` in an
 attribute — a parser, in a plugin, for a shape no shipped deck uses, which had
 already cost two CodeQL alerts.
 
-What remains is a single documented gap: a raw-HTML table is never judged on the
-engine path, because markdown-it hands raw HTML through as an opaque block and its
+What remained after the removal was a raw-HTML table never being judged on the
+engine path — closed later in this record's § "The raw-HTML regression". It is
+still never judged there, because markdown-it hands raw HTML through as an opaque block and its
 rows never reach the kernel. That is better than a reader that is wrong eight ways,
 and it errs toward UNDER-stamping rather than stamping the wrong column.
 
@@ -312,81 +313,98 @@ commit message was wrong. It was a no-op with a test that could not fail.
 - The six long-running galleries graduate in a separate post-review commit
   (HARD RULE #8).
 
-## The raw-HTML regression: both fixes are architectural, so neither was taken
+## The raw-HTML regression, and the fix that needed no new machinery
 
-Two routes close it. Each was built and measured rather than argued about, and
-each is blocked by something bigger than this PR.
+`compare-table` styled `td:first-child` unconditionally in component CSS, so it
+emphasized the first column of a table written as raw `<table>` HTML for free.
+The renamed component stops owning table CSS and drives the emphasis from a stamp
+the markdown-it walker applies — and markdown-it hands raw HTML through as an
+opaque `html_block`, so its rows never reach the kernel. Measured on a two-slide
+probe through the real emulator, computed `font-weight` read in Chromium:
+`compare-table` 600, `table` 400. By HARD RULE #18 that is a window this change
+created, so it was fixed rather than filed.
 
-**CSS — restore the unconditional emphasis for a table the stamp could not judge.**
-It needs a rule scoped to the component, and `checkUniversalTableGuard` refuses
-exactly that: a `section.table > table … td:first-child` rule in
-`lib/base/base.variants.css` registers an ownership claim, and the gate's remedy is
-to "add `:not(.table)` to each guard in the UNIVERSAL TABLE block" — which would cut
-the component back out of the universal treatment and undo the whole change. The
-gate is right and the route is closed by design, not by accident.
+### Three routes were built and measured before the fourth was found
 
-**Engine HTML stage — parse the assembled document and run the DOM extractor.**
-Wiring `withDom` from `lib/core/dom-provider.js` into `renderHtml` stamped both
-tables; the rendered PDF of the markdown control was pixel-identical, and so was
-every one of the 16 pages of `examples/sketch.md` (rasterized at 100dpi and
-compared page by page — the surface is the PDF, not the HTML, and the distinction
-matters because a `withDom` round-trip is NOT byte-identical at the HTML level:
-jsdom normalizes bare attributes, `data-lattice-berth` becoming
-`data-lattice-berth=""`, four times per slide). `examples/universal-table.md` kept
-its verdicts: 9 tables in the deck, 3 stamped; of the 4 that sit on an opted-in
-slide, 3 stamped and 1 — the year-column demo — correctly not. (An earlier draft
-of this line said "3 ON / 4 OFF, unchanged". That came from a crude regex over the
-markdown rather than the rendered DOM and was simply wrong; the numbers here are
-read out of a real browser.)
+**CSS keyed on the component — refused, and rightly.** A rule scoped
+`section.table > table … td:first-child` makes `checkUniversalTableGuard`
+register an ownership claim, and its remedy is to add `:not(.table)` to every
+universal guard — which would cut the component back out of the treatment this
+change exists to give it.
 
-It then broke the build: `lib/engine` is bundled for the BROWSER, esbuild
-statically resolves `require('jsdom')` inside the provider's Node branch, and the
-playground bundle fails on `path` / `url` / `fs`. Reproduced independently with the
-playground's exact esbuild options. So `withDom` cannot be called from `lib/engine`
-without a bundler stub (the `katex` alias in `tools/build-playground.js` is the
-precedent).
-**A NODE-ONLY SEAM DOES EXIST, and an earlier draft of this record said it did
-not.** `lattice-emulator.js` is the CLI, built `platform: 'node'` with
-`packages: 'external'` (`tools/build-emulator.js`), and `engineSlides()` is the
-single call site every CLI export goes through — a string post-pass there is
-reachable without touching a browser bundle at all. A checker built it and it
-stamps correctly.
+**The engine's HTML stage — breaks the browser bundle.** Wiring `withDom` from
+`lib/core/dom-provider.js` into `renderHtml` works and was measured working (both
+tables stamped, the markdown control's PDF pixel-identical, all 16 pages of
+`examples/sketch.md` pixel-identical). But `lib/engine` is bundled for the
+BROWSER, esbuild statically resolves `require('jsdom')` inside the provider's Node
+branch, and the playground bundle fails on `path` / `url` / `fs`. Reproduced with
+the playground's exact esbuild options. That is why `withDom` has no production
+callers.
 
-**But the obvious version of it is barred, and the bar is already written down.**
-That seam would `require('jsdom')`, and **jsdom is a devDependency**. This exact
-mistake has been made here before: `lattice-emulator.js` used to build jsdom
-windows for caption projection, and the note at its `speechProjection` block
-records that it was "BROKEN for anyone but us: jsdom is a devDependency, so the
-`require` threw in a published install" and silently degraded `--captions` to a
-warning. A checker's route-3 demo passed only because our own tree has jsdom
-installed. Re-adding it would reintroduce a defect this repo already paid for
-(`engineering/decisions/2026-09-20-dom-library-bakeoff.md`).
+**A jsdom pass at the CLI seam — barred by a lesson already paid for.**
+`lattice-emulator.js` is Node-only (`platform: 'node'`, `packages: 'external'`)
+and `engineSlides()` is a single call site, so a post-pass there is reachable. But
+it would `require('jsdom')`, and **jsdom is a devDependency**: the emulator's own
+`speechProjection` block records that jsdom there was "BROKEN for anyone but us —
+the `require` threw in a published install", silently degrading `--captions`. A
+demo of this route passes only in a tree that has jsdom installed.
 
-**The route that survives that objection is the one the same note prescribes: do
-the DOM work in the Chromium the export already has open.** `applyToDom` is plain
-DOM code, the PDF path already drives a real browser, and that is how caption
-projection was fixed — faster than jsdom and correct in a published install. It
-would also avoid the attribute-normalization byte churn above, since it mutates a
-live DOM rather than round-tripping a string.
+**Doing the DOM work in the export's own Chromium — right in shape, wrong in
+scope.** It fixes the PDF and not the deliverable beside it: `outHtml` is written
+from `cleanDocHtml`, the engine's string, at every one of its seven write sites,
+never from the page. Stamping in the page would have produced a bold PDF and a
+plain `.html` sidecar — a NEW split, in place of one regression.
 
-**That is an EXPORT-PIPELINE change, so it stops here by rule, not by difficulty.**
-CLAUDE.md's QUALITY BAR makes a change that alters the bytes of an exported
-artifact the one exception to acting unasked: it needs a representative deck
-rendered in dark and light and signed off. So the recommendation is to take this
-route with that sign-off — not to ship the regression, and not to land an export
-change unattended.
+### What shipped: write down the verdict we DO have, and fall back where we have none
 
-The kernel half every route needs is landed and behavior-identical: the DOM
-extractor moved out of `lib/runtime/index.js` into `applyToDom` in
-`lib/core/table-row-label.js`, so the runtime and a future second caller share one
-implementation instead of two. A fourth route — a string extractor for the
-`html_block` token, needing no DOM at all — is the one this PR already built and
-removed for being wrong on eight shapes; that judgment is unchanged, but it is a
-different argument from "no route exists", which is what this section used to say.
+The fix needs no HTML parsing, no DOM library, no export change, and no bundler
+work. Three small pieces:
 
-**Scope of the live defect, so the decision can be sized:** a table an author wrote
-as raw `<table>` HTML, on a slide carrying `table` / `row-label` / `no-row-label`,
-loses the first-column emphasis `compare-table` gave it. Measured on the PDF and on
-the CLI `.html` export; the Marp-preview surface is unverified, per the correction
-above. No deck in `examples/`, `exemplars/`, `test/integration/baseline-decks/` or
-`lib/components/` has that shape.
+1. **Both verdicts are stamped.** The walker already decided ON or OFF per table;
+   it now writes the negative one down too, as `lat-row-label-off`. "Judged and
+   declined" and "never judged" were indistinguishable to CSS without it, and that
+   distinction is what makes the fallback safe.
+2. **A slide holding a raw table is marked**, `lat-raw-tables`, from a SUBSTRING
+   TEST on the `html_block` token — `/<table[\s>]/i`, not a parse. This is the
+   crucial difference from the reader removed earlier: the consequence is a CSS
+   fallback scoped to a slide, not a verdict about any one table, so a false
+   positive costs nothing. Every pipe table on that slide carries its own verdict
+   and is excluded by name.
+3. **One CSS rule** gives a table carrying NEITHER verdict the emphasis
+   `compare-table` applied unconditionally.
+
+**Why the ownership gate stays quiet, stated because it looks like a loophole and
+is not.** `universalTableClaims` registers a claim for a table-subject rule only
+when the selector chains a class that IS a component name. `lat-raw-tables` is not
+a component, and the rule genuinely claims no component's table — it says "a table
+nothing judged, on a slide that holds raw HTML". Chaining `.table` would trip the
+gate correctly. A unit test pins that the selector names no component, so the
+distinction cannot erode into the loophole it resembles.
+
+### What this buys, and what it costs
+
+A raw-HTML table is now **emphasized unconditionally** rather than judged. That is
+`compare-table`'s exact behavior restored, and it is a real choice: a raw table
+whose first column holds numbers gets bolded where a pipe table would not. Writing
+the table as pipes is what buys a decision, and `base.docs.md` says so. Matching
+the old behavior beat inventing a new one for a shape the rule cannot see.
+
+The browser-side pass keeps judging raw tables, because in a DOM a raw table and a
+pipe table are the same element. So on the VS Code Marp preview the verdict can
+differ from the engine's blanket fallback — for a numeric-first-column raw table
+only. That is a smaller and better-understood difference than the regression it
+replaces, and it is the direction that errs toward the old behavior.
+
+### Verified
+
+- raw-HTML probe, computed `font-weight` in real Chromium: **600**, matching
+  `origin/main`. The regression is closed on the surface it was measured on.
+- `examples/universal-table.md`, every table read out of a real browser: the
+  year-column demo carries `lat-row-label-off` at **400** — the fallback does not
+  reach it — `row-label` forces **600**, and plain content-slide tables stay 400.
+- `examples/sketch.md`: all 16 pages pixel-identical to the pre-fix branch. No
+  committed PDF changed.
+- Both halves of the fallback's safety are mutation-tested: dropping the
+  `:not(.lat-row-label-off)` guard turns one arm red, and so does dropping the OFF
+  stamp.
+- `npm test` 9968/9968, lint, `build:check`, `check-ownership` all green.

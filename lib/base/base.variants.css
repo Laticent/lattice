@@ -541,6 +541,33 @@ section.table-fill  { --table-grow: 1; --table-valign: middle; }
  * See engineering/decisions/2026-09-20-table-component.md. */
 table.lat-row-label { --table-label-weight: 600; --table-label-ink: var(--text-heading); }
 
+/* A table on this slide that NOTHING judged — an author's raw `<table>`.
+ *
+ * markdown-it hands raw HTML through as an opaque block, so its rows never reach
+ * the kernel and it comes out carrying neither verdict class. `compare-table`
+ * styled `td:first-child` unconditionally in component CSS and so caught raw HTML
+ * for free; without this rule the rename silently takes that away, which is a
+ * regression rather than a gap. Restores exactly the old behavior, and only where
+ * it applies: `lat-raw-tables` is stamped by the token walker on a slide whose
+ * markdown actually holds a raw `<table>`, and every pipe table on that slide
+ * carries a verdict class, so the `:not()` pair leaves them alone.
+ *
+ * THE SELECTOR DELIBERATELY NAMES NO COMPONENT. `checkUniversalTableGuard`
+ * registers an ownership claim for a table-subject rule only when the selector
+ * chains a class that is a component name; `lat-raw-tables` is not one, so this
+ * claims nothing and `table` keeps the universal treatment. Writing
+ * `section.table.lat-raw-tables` here would trip the gate, and its remedy — adding
+ * `:not(.table)` to every universal guard — would undo the component entirely.
+ *
+ * Child combinators for the same reason base uses them: a table inside a chart's
+ * `<figure>` or a split-panel side frame is not the slide's table.
+ * See engineering/decisions/2026-09-20-table-component.md § "The raw-HTML regression". */
+section.lat-raw-tables > table:not(.lat-row-label):not(.lat-row-label-off),
+section.lat-raw-tables > :where(.cell-stage) > table:not(.lat-row-label):not(.lat-row-label-off) {
+  --table-label-weight: 600;
+  --table-label-ink: var(--text-heading);
+}
+
 /* The Form (`section.form`) chrome — the root Frame box, the masthead / stage /
  * footer Cells, and the stage fill discipline — used to live here. It is now
  * self-contained per Cell under lib/forms/cell/<id>/<id>.css (stage · masthead ·

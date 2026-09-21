@@ -10,6 +10,8 @@ const {
   resolveRowLabel,
   cellText,
   applyToDom,
+  ROW_LABEL_OFF_CLASS,
+  RAW_TABLES_CLASS,
 } = require('../../../lib/core/table-row-label.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
@@ -333,4 +335,54 @@ test('applyToDom tolerates a root with no query interface', () => {
   // Fail-closed: the callers are renders, and an un-stamped table still renders.
   assert.doesNotThrow(() => applyToDom(null));
   assert.doesNotThrow(() => applyToDom({}));
+});
+
+// ── the raw-HTML fallback ─────────────────────────────────────────────────────
+// A table written as raw `<table>` HTML never reaches the rule: markdown-it hands
+// it through as an opaque block. `compare-table` styled `td:first-child`
+// unconditionally and caught it for free, so leaving it unemphasized was a
+// REGRESSION, not a gap. The fallback restores it — and these pin the two halves
+// that make the fallback safe, because a rule that emphasized every unjudged
+// table would bold the year column the kernel deliberately declines.
+
+test('a declined table is STAMPED as declined, not left bare', () => {
+  // The whole fallback rests on this. "Judged and declined" and "never judged"
+  // are indistinguishable to CSS unless the OFF verdict is written down.
+  const years = '<table><thead><tr><th>Year</th><th>Revenue</th></tr></thead>'
+    + '<tbody><tr><td>2024</td><td>4.2</td></tr><tr><td>2025</td><td>3.1</td></tr></tbody></table>';
+  const dom = new JSDOM(`<body><section class="table">${years}</section></body>`);
+  applyToDom(dom.window.document);
+  const t = dom.window.document.querySelector('table');
+  assert.equal(t.classList.contains(ROW_LABEL_OFF_CLASS), true, 'a declined table carries the OFF class');
+  assert.equal(t.classList.contains(ROW_LABEL_CLASS), false);
+});
+
+test('the CSS fallback is scoped so it cannot reach a judged table', () => {
+  // Read out of the stylesheet rather than asserted about it in prose: the rule
+  // must carry BOTH `:not()`s and must name the section marker. Drop either
+  // `:not()` and a deliberately-declined column gets bolded; drop the marker and
+  // every unjudged table in the deck does.
+  const css = readFileSync(path.join(ROOT, 'lib/base/base.variants.css'), 'utf8');
+  const rule = new RegExp(
+    `section\\.${RAW_TABLES_CLASS}[^{]*table:not\\(\\.${ROW_LABEL_CLASS}\\):not\\(\\.${ROW_LABEL_OFF_CLASS}\\)`,
+  );
+  assert.match(css, rule, 'the fallback must exclude BOTH verdicts and be scoped to the marker');
+});
+
+test('the fallback selector names no component, so the ownership gate stays quiet', () => {
+  // checkUniversalTableGuard registers a claim for a table-subject rule only when
+  // the selector chains a COMPONENT class. Writing `section.table.lat-raw-tables`
+  // here would trip it, and the gate's remedy — a `:not(.table)` deny entry —
+  // would cut this component back out of the universal treatment it exists to get.
+  // COMMENTS STRIPPED FIRST. The rule's own docblock spells out
+  // `section.table.lat-raw-tables` as the thing not to write, so a naive line scan
+  // fails on the warning rather than on a selector — which is exactly what happened.
+  const css = readFileSync(path.join(ROOT, 'lib/base/base.variants.css'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  const fallback = css.split('\n').filter((l) => l.includes(RAW_TABLES_CLASS));
+  assert.ok(fallback.length > 0, 'the fallback rule must exist');
+  for (const line of fallback) {
+    assert.doesNotMatch(line, /section\.[a-z-]*\btable\b/,
+      `the fallback must not chain the component name: ${line}`);
+  }
 });

@@ -690,15 +690,15 @@ plain table — `row-label` is how a table outside the component opts in. The
 explicit tokens always beat the measurement, and `no-row-label` wins a slide
 carrying both.
 
-**A table written as raw `<table>` HTML is not judged on the PDF path**, so its
-first column stays un-emphasized whatever the shape of the data. markdown-it
-passes raw HTML through untouched, so the rows never reach the kernel that
-decides. `row-label` does not rescue it either (verified on a render): the stamp
-lands on a table the rule never saw. Write it as a pipe table to get the emphasis.
-On the surfaces where the browser-side pass runs instead — the VS Code Marp
-preview, a Marp render of an exported bundle — such a table is indistinguishable
-from a pipe table and WOULD be judged; whether that shows up as a visible
-difference there is **unverified**. `compare-table` did emphasize such a table, so this is a
+**A table written as raw `<table>` HTML is not judged — it is emphasized.**
+markdown-it passes raw HTML through untouched, so its rows never reach the rule
+and there is no verdict to take. Rather than silently dropping the emphasis, a
+slide holding a raw table gets it unconditionally on the first column, which is
+what this component did before the rule existed. So a raw table always reads as
+though its first column were a label, even when it holds numbers — the one case
+where writing a pipe table instead buys you a real decision. `no-row-label` on
+the slide does not suppress it, because the suppression rides the same verdict
+the rule never reached. `compare-table` did emphasize such a table, so this is a
 regression against it; `engineering/decisions/2026-09-20-table-component.md`
 records the measurement and the two candidate fixes.
 
