@@ -782,6 +782,34 @@ for (const { token, reason } of deckClassRefusalsFromFrontMatter(deckFrontMatter
     : `warning: deck-wide \`class: ${token}\` is superseded by \`color-mode:\` — it is dropped, not merged. Remove it from the class list.`);
 }
 
+// THE RETIRED FORM SHAPES THAT SUPPRESSED CHROME, for the same reason and on the
+// same channel. Form stopped being configurable (2026-09-20), so a deck still
+// carrying `form: off`, a deck-wide `class: no-form`, or a slide's `no-form`
+// renders differently than it used to: the masthead band, the meta bay and the
+// progress rail come back. That is a breaking change to somebody's deck, and it
+// happens with a successful exit code and no other sign.
+//
+// The DETECTORS are the linter's own (HARD RULE #7 — lint rules live in
+// lint-core.js and are never duplicated); this reads their `shapeChange` flag
+// rather than re-deciding which values matter, so the two surfaces cannot drift.
+// The inert shapes (`form: standard`, a bare `form` token) are deliberately NOT
+// repeated here — they render identically, and a warning on a deck that did not
+// move is what teaches people to ignore warnings.
+//
+// One line per finding, capped: a deck that opted out per-slide can carry dozens,
+// and forty identical lines is not more informative than five plus a count.
+const { findRetiredFormKey, findRetiredFormTokens } = require('./lib/authoring/lint-core');
+const retiredForm = [...findRetiredFormKey(md), ...findRetiredFormTokens(md)].filter((f) => f.shapeChange);
+const RETIRED_FORM_SHOWN = 5;
+for (const f of retiredForm.slice(0, RETIRED_FORM_SHOWN)) {
+  console.error(`warning: ${f.slide ? `slide ${f.slide}: ` : ''}${f.message}`);
+}
+if (retiredForm.length > RETIRED_FORM_SHOWN) {
+  console.error(`warning: \u2026 and ${retiredForm.length - RETIRED_FORM_SHOWN} more retired Form opt-out(s). Run \`lattice lint\` for the full list and the fix.`);
+} else if (retiredForm.length) {
+  console.error(`warning: run \`lattice lint\` for the fix \u2014 Form is the composition model now and cannot be disabled.`);
+}
+
 // Resolve palette name from the precedence chain (CLI > env > front
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.

@@ -97,15 +97,15 @@ test('(b) checkIntegrity catches a Cell accepting a kind no Tile satisfies', () 
 });
 
 test('(c) manifest-derived sovereign set equals the historical set', () => {
-  const derived = forms.frameToggleSkip();
+  const derived = forms.sovereignFrames();
   assert.deepEqual([...derived].sort(), [...HISTORICAL_SKIP].sort());
 });
 
 test('(c) the browser-baked SOVEREIGN_FRAMES_FALLBACK matches the manifest-derived set', () => {
   // The fallback literal is what the fs-free browser bundle uses; it must never
   // drift from the manifests (the Node-derived set). This guards that claim.
-  assert.deepEqual([...plugins.SOVEREIGN_FRAMES_FALLBACK].sort(), [...forms.frameToggleSkip()].sort());
-  assert.deepEqual([...plugins.SOVEREIGN_FRAMES].sort(), [...forms.frameToggleSkip()].sort());
+  assert.deepEqual([...plugins.SOVEREIGN_FRAMES_FALLBACK].sort(), [...forms.sovereignFrames()].sort());
+  assert.deepEqual([...plugins.SOVEREIGN_FRAMES].sort(), [...forms.sovereignFrames()].sort());
 });
 
 test('(c) plugins.formToggleClass marks every historical sovereign Frame as one', () => {
@@ -124,7 +124,7 @@ test('(c) plugins.formToggleClass marks every historical sovereign Frame as one'
     assert.equal(plugins.formToggleClass(cls), `${cls} form`,
       `math ${variant} must take the form class`);
   }
-  assert.ok(!forms.frameToggleSkip().includes('math'),
+  assert.ok(!forms.sovereignFrames().includes('math'),
     'lib/forms/frame/math/ is deleted — math must not be in the derived skip set');
   // and still tags ordinary content
   assert.equal(plugins.formToggleClass('content', 'standard'), 'content form');
@@ -333,7 +333,7 @@ test('(i) frame admits is checked against the generated stage catalog', () => {
 // correct `admits` IS the set of non-sovereign kinds the catalog declares — and
 // `admits` never feeds that catalog back in any direction, which is what makes this
 // a check rather than a restatement. (It is NOT independent of the frame catalog as
-// a whole: build() starts from frameToggleSkip() to decide which components get
+// a whole: build() starts from sovereignFrames() to decide which components get
 // "sovereign" instead of their own stage. Independent of `admits` is the true and
 // sufficient claim; an earlier revision overstated it.) Without this arm a frame
 // could declare admits:["flow"] and pass every gate while `canvas` components still
@@ -361,7 +361,7 @@ test('(j) a root frame that under-claims a declared stage kind is rejected', () 
 });
 
 // (k) `kind` and `exemptFromChrome` encode the same fact, so they must agree — and
-// the admits under-claim arm keys on exemptFromChrome (what frameToggleSkip actually
+// the admits under-claim arm keys on exemptFromChrome (what sovereignFrames actually
 // reads), NOT on the self-declared `kind` label. Both guards exist because a checker
 // probe built a frame declaring kind:"sovereign" with exemptFromChrome:false and
 // admits:["flow"]: chrome-hosting in fact, sovereign by label, and it loaded clean —

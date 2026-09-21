@@ -139,7 +139,14 @@ way wifi does with `.qr-head > h2` — its own change, with its own evidence.
 `lint:deck` warns and never blocks (HARD RULE #29's posture). `retired-form-key` flags any
 `form:` value and, for `off` alone, names what will change about the render. `retired-form-token`
 flags a `form` / `no-form` slide token and points at a sovereign component as the real way to get
-a slide with no chrome. `form` also left `UNIVERSAL_GROUPS.chrome`, so neither editor offers it,
+a slide with no chrome. **The RENDER path warns too, as of 2026-09-21** — for the three shapes that actually moved a
+deck (`form: off`, a deck-wide `class: no-form`, a slide's `no-form`), and only those. The
+linter is the right place for the inert ones, but the person whose deck changed shape is
+rendering it, not linting it, and the change otherwise lands with a successful exit code and
+no other sign. The CLI reads the linter's own findings through a `shapeChange` flag rather
+than re-deciding which values matter (HARD RULE #7), so the two surfaces cannot drift.
+
+`form` also left `UNIVERSAL_GROUPS.chrome`, so neither editor offers it,
 and joined `STRUCTURAL_ROOT_CLASSES` in the ownership gate beside `chart-frame` — engine
 scaffolding an author can neither select nor refuse.
 
@@ -160,6 +167,36 @@ scaffolding an author can neither select nor refuse.
   with — but that is a layout decision owed its own evidence.
 
 ## Known gaps — found by this work, not caused by it
+
+**Both are now CLOSED** (2026-09-21, the follow-up branch). They are left described below as
+they were found, because the reasoning that logged them rather than pulling them into the
+original diff is the part worth keeping. What changed: `lib/core/split-sections.js` no longer
+scans for the literal string `<section` — it walks `scanTags` from `lib/core/top-level-h2.js`,
+the tokenizer whose docblock already said inert spans are yielded "because the depth walk must
+not count them". That makes a comment, a `<style>` block and a quoted attribute text, exactly as
+the DOM twin reads them, so the two paths agree by construction rather than by coincidence; and
+the single-quote gap is closed on BOTH sides, the walker's read and `applyFormToHtml`'s write,
+since fixing only one would have left the duplicate-attribute defect in place.
+
+**The first cut of that change traded one whole-deck no-op for three others, and a checker
+caught it.** Routing the walk through `scanTags` inherited two defects in that tokenizer: it
+treated every quote inside a tag as a value delimiter, so an apostrophe in an UNQUOTED
+attribute (`<div data-tip=it's>`) opened a value that ran to end of file; and it read an
+unclosed rawtext element as text to EOF, so one sentence of prose naming a `<style>` tag did
+the same. Both were reachable from ordinary authored markdown and both stamped 0 of 3 slides
+on a real render — the identical symptom, through a different door. A third came from widening
+the class regex to accept single quotes, which then matched ` class='…'` sitting inside
+ANOTHER attribute's value. All three are fixed at the root (a quote opens a value only
+directly after `=`; rawtext is skipped only when it closes; the class is found by walking
+attribute positions), and the tokenizer fixes reach `findTopLevelH2` too, so the masthead band
+had been going missing on those decks as well. The lesson is narrow and worth keeping:
+**reusing a kernel inherits its bugs along with its correctness**, and the argument "this is
+the repo's tokenizer, so it must be right" is not evidence. The gates were all green for every
+one of those three. The fix was
+NOT the "first real slide" guard this section's first bullet implies: that guard anchors on
+`data-lattice-slide`, which the owned engine never writes at the stage `applyFormToHtml` runs —
+the same trap `plugins.js`'s `applyDeckLogoToHtml` docblock records, where a function anchored on
+that attribute was silently dead code on the canonical path.
 
 Both are pre-existing on `main` and verified there, so HARD RULE #18 says log them rather than
 pull them into this diff. They are recorded because each is a live counterexample to something

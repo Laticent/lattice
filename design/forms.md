@@ -284,7 +284,7 @@ authored by a *designer*; a **Tile** binds a *source*.
   host for every component that is not its own sovereign, so its correct value IS the
   set of non-sovereign kinds the catalog declares — and `admits` never feeds that
   catalog back in any direction. The under-claim arm keys on **`exemptFromChrome`** —
-  the property `frameToggleSkip()` actually reads — not on the `kind` label a frame
+  the property `sovereignFrames()` actually reads — not on the `kind` label a frame
   declares about itself, and `validateFrame` separately pins the two to agree
   (`kind: "sovereign"` ⇔ `exemptFromChrome: true`). Both guards exist because a
   checker probe declared `kind: "sovereign"` with `exemptFromChrome: false` and

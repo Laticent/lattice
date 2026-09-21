@@ -13,7 +13,7 @@
  *   · a component manifest's `stage: "flow" | "canvas"` field
  *     (flow → wrapped in `.cell-stage`; canvas → self-sizing direct-child body)
  *   · the sovereign frames, derived from lib/forms/frame/*'s
- *     `exemptFromChrome:true` (frameToggleSkip) — these omit `stage` and are
+ *     `exemptFromChrome:true` (sovereignFrames) — these omit `stage` and are
  *     chrome-exempt (their stage is their own grid).
  * See engineering/decisions/2026-07-14-one-frame-model.md (step A).
  *
@@ -36,7 +36,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadAll } = require('../lib/components');
-const { frameToggleSkip } = require('../lib/forms');
+const { sovereignFrames } = require('../lib/forms');
 
 const ROOT = path.join(__dirname, '..');
 const OUT_FILE = path.join(ROOT, 'lib', 'forms', 'cell', 'masthead', 'stage-catalog.generated.js');
@@ -50,7 +50,7 @@ const check = argv.includes('--check');
 const silent = argv.includes('--silent') || check;
 
 function build() {
-  const sovereign = new Set(frameToggleSkip());
+  const sovereign = new Set(sovereignFrames());
   const catalog = {};
   for (const m of loadAll()) {
     const name = m.name;

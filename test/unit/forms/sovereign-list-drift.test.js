@@ -113,7 +113,7 @@ describe('no prose list of the sovereign Frames is short one', () => {
       assert.equal(
         problems.length, 0,
         `${rel} enumerates the sovereign Frames and leaves some out:\n${problems.join('\n')}\n`
-        + `The set is derived from lib/forms/frame/*'s exemptFromChrome — ask frameToggleSkip()\n`
+        + `The set is derived from lib/forms/frame/*'s exemptFromChrome — ask sovereignFrames()\n`
         + `or SOVEREIGN_FRAMES rather than retyping it.`,
       );
     });

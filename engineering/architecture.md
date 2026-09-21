@@ -270,7 +270,7 @@ Two consequences worth keeping in mind:
   are imported by both render paths (above) — but the manifest *data* is gate-checked,
   not interpreted at render. Placement is still hand-written transforms + class-keyed
   CSS, and the only manifest fields read at render are a Frame's `id` + `exemptFromChrome`
-  (which Frames declare no chrome Cells, via `frameToggleSkip()`, with a baked fallback
+  (which Frames declare no chrome Cells, via `sovereignFrames()`, with a baked fallback
   for the fs-free browser bundle — it is what `hostsChromeCells()` answers from). The build gate (`tools/build-forms.js`) keeps manifest and
   CSS in step (token refs resolve, the `css` flag matches the filesystem, z-order
   isn't inverted, `suppresses` never drops the stage); the loader cross-validates
