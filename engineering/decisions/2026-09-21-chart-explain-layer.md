@@ -781,6 +781,75 @@ round 7   invented rows   0 of 400 | tally diverged   0 of 104
 
 **The shipped corpus is unchanged across all three** — 16 bullet slides, 0 differ.
 
+## The ninth round — an exact oracle, and what it found (2026-09-21)
+
+Eight rounds of review had all measured narration against the SVG `<desc>`. That is
+a **lossy projection** of the transform: it collapses a row to one sentence, says
+nothing about which of measure/target/floor/bands moved, and drops a row whose lead
+was corrupted. Defects hid in every one of those gaps, and four consecutive rounds
+found them by hand.
+
+**So the oracle changed.** `test/unit/core/bullet-structure-parity.test.js` compares
+narration's four structural fields against `parseBullet`'s — the transform's own
+reader, on the same slide, from the same list HTML markdown-it hands it. Nothing
+internal on either side, and no projection in between.
+
+**It found 88 disagreements in 134 comparable decks, and 87 of them were the
+MEASURE.** Not one was visible to any previous test.
+
+### The contract it enforces is not equality
+
+Narration may read **less** than the transform — that is the whole refusal design.
+What it must never do is read something **different**. Those are different
+properties and only the second one is a defect, so the test asserts the second.
+
+### What the 87 said
+
+The measure is exactly as derived as the target. A child `Actual` overrides the
+row's own first pill; a malformed row line voids it entirely. So round seven's
+narrowing — "keep the row's own pills, refuse the children" — was never safe, and
+rounds six and seven were arguing about where to put a boundary that should not have
+existed.
+
+**An ambiguous row is not narrated at all now, and its line is left UNCONSUMED**, so
+`speakLeftover` reads the authored text verbatim. The listener loses the SENTENCE,
+not the numbers. That single rule replaces the three-way narrowing, and it is what
+both previous rounds were reaching for from opposite sides: refusing too little
+invented a plan line, refusing too much deleted a number the slide prints.
+
+The last five disagreements were a blank line followed by indented content, where
+what the block belongs to depends on CommonMark rules no indent comparison can
+settle. Refused, like everything else this parser cannot prove.
+
+### Measured
+
+```
+compared row-for-row   165
+  read EXACTLY          37
+  read more quietly    128   <- the cost
+  read DIFFERENTLY       0   <- the defect class
+row counts differ      331   -> of those, speaking a tally: 0
+```
+
+**The cost is real and it is bounded.** On unusual markdown narration now says less
+than it safely could. On the decks this repo ships it costs nothing: 16 bullet
+slides, 14 narrate, and **not one reads differently than it did before any of this**.
+
+### The corpus lesson, for the third and fourth time
+
+Weighting is part of the test. At equal odds the odd shapes dominated — 75% of rows
+carried a wide marker gap, every one was refused, and only 6 of 500 decks reached
+the exact-match floor. A corpus that is mostly malformed measures the generator. The
+axes are weighted toward real authoring now, each one still counted as reached, and
+there is a floor on exact matches so the refusal cannot quietly swallow the corpus.
+
+### What is still true
+
+Narration still derives list structure from a line scanner, and **#2295** is still
+the change that would remove the need to. What this round buys is different: the
+failure mode is now provably ONE-DIRECTIONAL, and it is verified against the parser
+the picture is built from rather than against my expectations.
+
 ### What this says about the next round
 
 It should be expected to find more. What changed in this one is that each fix

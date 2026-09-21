@@ -79,6 +79,15 @@
   dollars"* — positive. That is what the chart plots for that pill (`parseValue`
   reads a U+2212 in front of the symbol and not behind it), so the voice and the bar
   agree; the parser asymmetry itself is tracked as #2287.
+- **Fixed: a `bullet` row whose nested structure cannot be read from the Markdown is
+  no longer narrated at all — and its line is read aloud verbatim instead.** A
+  checker comparing narration's measure, target, floor and bands against the
+  transform's own reader — rather than against the SVG `<desc>`, which every earlier
+  check went through — found 88 disagreements in 134 decks, 87 of them the MEASURE.
+  A child `Actual` overrides the row's own first pill and a malformed row line voids
+  it, so the measure is exactly as derived as the target. The listener now loses the
+  sentence, not the numbers. On the decks in this repo it costs nothing: 16 bullet
+  slides, 14 narrate, none reads differently than before.
 - **Fixed: a `bullet` row whose nested structure cannot be read from the Markdown no
   longer claims a relationship.** A tab, a marker gap wider than one space, or a
   one-space indent each make markdown-it nest differently from anything a line
