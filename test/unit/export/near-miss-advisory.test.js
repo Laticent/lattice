@@ -1,31 +1,26 @@
 /**
- * Gate: the emulator's "INSIDE THE FIT TOLERANCE" advisory cannot hijack the
- * overflow ratchet's page list.
+ * Gate: the "INSIDE THE FIT TOLERANCE" advisory cannot hijack the overflow ratchet's
+ * page list.
  *
- * THREE tools harvest pages out of the emulator's output, not one, and they do not
- * agree on strictness. `tools/check-overflow-corpus.js` is line-bounded and
- * case-SENSITIVE; the other two cross newlines and one ignores case entirely:
+ * THREE tools harvest pages out of the export's buffer and they disagree on strictness
+ * — one is line-bounded and case-sensitive, two cross newlines, one ignores case:
  *
- *     check-overflow-corpus.js  /OVERFLOW[^\n]*?pages? ([\d,\s]+)/        + CONTENT CLIPPED twin
+ *     check-overflow-corpus.js  /OVERFLOW[^\n]*?pages? ([\d,\s]+)/  + a CONTENT CLIPPED twin
  *     check-family-tiers.js     /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/
- *     lib/calibrate-core.js     /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i   <- case-insensitive
+ *     lib/calibrate-core.js     /OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i
  *
- * The advisory added for #2252 prints page numbers too, and it creates a buffer shape
- * that did not exist before: an export with an advisory and NO other warning line, where
- * "first match wins" protects nobody. So a reword using the lowercase word "overflow"
- * and "page 3" instead of "p3" — both entirely natural, every other line in that file
- * says "page" — would be harvested by `calibrate-core` as if it were real clipping.
+ * The advisory prints page numbers, so a reword to a lowercase "overflow" or to
+ * "page 3" instead of "p3" would be harvested as real clipping.
  *
- * THIS TEST READS THE RENDERED LINES, NOT THE SOURCE, and the difference is the whole
- * reason the advisory's text moved into `lib/core/overflow-probe.js`. Two earlier cuts
- * failed here. The first asserted only the two case-SENSITIVE literals, and a HARD RULE
- * #25 checker walked a lowercase reword through it. The second tried to render the
- * emulator's inline template literal by substituting every `${…}` for a digit — but the
- * page marker lives inside a NESTED literal (`${quiet.map((o) => `p${o.slide}…`)}`), so
- * the substitution swallowed the word beside it: `page ${o.slide}` left the guarded
- * string with no "page" followed by a digit while the export printed "page 3". A second
- * checker mutation-proved that, and the fix is to call the real formatter with real
- * data rather than to read a format string at all.
+ * THIS FILE READS THE FORMATTER'S RETURN VALUE, which is why the text lives in
+ * `lib/core/overflow-probe.js`: a guard on a format string cannot see what the string
+ * renders to, and two earlier cuts of this test were walked through on exactly that.
+ *
+ * ITS SCOPE ENDS AT THE FORMATTER. Arm 5 counts `console.warn(` inside the advisory
+ * block by text, so it does not see an alternate call spelling or a call one line past
+ * the block's brace. `test/integration/export/near-miss-advisory-buffer.test.js` is the
+ * guard that covers those: it renders a real export and runs all four harvest regexes
+ * over the actual stream. Do not delete it as a duplicate of this one.
  */
 
 const { test, describe } = require('node:test');

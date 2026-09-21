@@ -222,80 +222,32 @@
    * canvas. */
   --fill-ink: var(--text-secondary);
 }
-/* The HOLLOWING is the bar's, not the accent's. The accent is a 4px leading
- * cue; at 18% it disappears, and then a deferred bar has nothing marking where
- * it starts. Its INK is shared with the bar above — which is what the defect
- * was about — and only the body goes to a wash.
+/* The HOLLOWING is the bar's, not the accent's. The accent is a 4px leading cue; at
+ * 18% it disappears, and then a deferred bar has nothing marking where it starts. Its
+ * INK is shared with the bar above, and only the body goes to a wash.
  *
- * AND THE EDGE IS DASHED, which is the half the wash could not carry (#2255). An
- * unstated bar takes the same neutral ink and the same mute ramp, and what separated
- * them was 18% body opacity plus the leading accent — which the rule at the foot of
- * this file hides on an unstated bar and keeps on `deferred`. TWO cues, not one, and
- * an earlier draft of this comment said "the only thing … was body opacity" on three
- * surfaces. Both are thin: 18% of a ramp that is already a pale tint, and a 1.67-unit
- * sliver at the bar's left edge that a reader has to know to look for. A dash runs the
- * bar's whole length and is the cue every schedule a reader has seen uses for
- * "planned, not committed".
+ * THE DASH IS THE SECOND CUE (#2255). `deferred` and an unstated task take the same
+ * mute ramp, so what separated them was an 18% wash plus the leading accent — which
+ * the rule at the foot of this file hides on an unstated bar and keeps on `deferred`.
+ * Both are thin. A dash runs the bar's whole length, and it is what a schedule uses
+ * for "planned, not committed".
  *
- * THIS IS A SEMANTIC CUE, NOT THE ACCESSIBILITY CHANNEL, and an earlier draft of this
- * comment sold it as the second thing. The engine already answers "tell marks apart
- * when hue cannot" THREE ways, all in `lib/base/base.print-textures.css` and
- * `themes/a11y-base.css` (`engineering/textures.md` is the contract): TEXTURE tiles for
- * filled marks, `stroke-dasharray` LADDERS for stroked ones, and a SHAPE GLYPH keyed on
- * `.chart-status[data-s]` — ✓ for on-track/done/live, ! for at-risk/warn, ✗ for
- * blocked/fail, ◆ for pilot/decision, – for deferred.
+ * IT IS A SEMANTIC CUE, NOT AN ACCESSIBILITY CHANNEL. The engine has three of those
+ * (texture tiles, `stroke-dasharray` ladders, a shape glyph on `.chart-status`), all
+ * under `section.print` and the a11y themes — `engineering/textures.md`. Gantt reaches
+ * none of them, because its statuses are bar FILLS carrying neither text nor a
+ * `data-hue` slot; that is #2274, and this dash does not close it. What the dash DOES
+ * answer is the one distinction no ramp-keyed channel can, texture included: `deferred`
+ * and an unstated task resolve to the same ramp and differ only in `data-s`.
  *
- * GANTT REACHES NONE OF THEM, and the third is why the gap is narrower than an earlier
- * draft of this comment claimed. It said four other status-carrying charts were "in the
- * same position"; a checker measured otherwise. `kanban`, `progress` and `timeline-list`
- * all emit `<span class="chart-status" data-s="…">`, so they take that glyph channel in
- * BOTH files and print the status WORD beside it. `state-chart` takes no glyph but
- * labels every dot in its own legend. Gantt is the one chart whose statuses are SVG bar
- * FILLS carrying neither text nor glyph — no text span for the glyph rule to reach, no
- * `data-hue` slot for a texture rule — so on achromatopsia four of its five ramps
- * resolve to stepped grays (`done` 77, `deferred` and unstated 89, `at-risk` 110,
- * `blocked` 45) and only `info`/`live` keeps a blue. Tracked as #2274, scoped to gantt.
- *
- * AND THE GAP IS ARGUABLE AT FIVE SLOTS, which is worth knowing before anyone "fixes"
- * it: `base.print-textures.css`'s own header sets the contract as stepped gray + border
- * for up to about five slots, texture past that. Gantt has exactly five. What is NOT
- * arguable is the pair this rule is about — `deferred` and unstated land on the SAME
- * step, 89, so no amount of gray stepping separates them. Do not read this dash as
- * closing #2274, and do not read #2274 as making the dash redundant.
- *
- * WHAT THE DASH DOES ANSWER is the one distinction no RAMP-keyed channel can, texture
- * included: `deferred` and an unstated task resolve to the SAME mute ramp, so a tile
- * chosen by ramp paints them identically. They differ only in `data-s` — one carries
- * the attribute, one carries none — which is what both this rule and any future
- * texture rule must key on.
- *
- * THE DASH IS IN CSS PIXELS, NOT USER UNITS, and that is not obvious from this line.
- * Every gantt mark joins the family rule that sets `vector-effect: non-scaling-stroke`,
+ * THE DASH IS IN CSS PIXELS, NOT USER UNITS, which is not obvious from the line below.
+ * Every gantt mark joins the family rule setting `vector-effect: non-scaling-stroke`,
  * which re-scopes the dash ARRAY as well as the width — so `4 2.5` is 4px on and 2.5px
- * off at every viewBox and every orientation, exactly like `--gantt-accent`. The heatmap
- * member documents the same surprise on its own dotted edge; this is that fact again.
- *
- * Measured on a real landscape render of `examples/gantt-status-key.md` (svg 1152px over a
- * 480-unit viewBox, so 2.4px/unit), reading `getComputedStyle` and `getTotalLength` off the
- * marks themselves. All three report `stroke-dasharray: 4px, 2.5px` and
- * `vector-effect: non-scaling-stroke`, which is the claim above, measured rather than argued.
- *
- * ONE MEASURE FOR ALL THREE — the path's own length, because a bar, a square and a diamond
- * have nothing else in common. Cycles of the 6.5px pattern around the outline: a two-quarter
- * bar 134.5, the 9x9 legend swatch 11.6, a milestone diamond 10.5 — the last being about 2.6
- * dashes a side, which reads. (The bar's TOP EDGE alone is 63.9, if that is the number you
- * want; it is the edge a reader actually scans.) An earlier draft gave three numbers with no
- * measure attached and mixed an edge with two perimeters, which is how a reader concludes a
- * bar is five times a swatch when along the same measure it is twelve.
- *
- * THIS COMMENT PREVIOUSLY ARGUED THE OPPOSITE — that the numbers were user units and so
- * "scaled with the bar", with a 9.6px/13.0px landscape-vs-portrait table — and a
- * HARD RULE #25 checker refuted it against a real render. A follow-on change halved the
- * pattern for milestones to fix "chipped corners" that the arithmetic had invented; both
- * the halving and its justification are reverted here. `gantt.transform.js`
- * § GANTT_ACCENT_FRAC is the case where a user-unit constant really would be two
- * physical values — it applies to geometry the transform emits, not to a stroke the
- * renderer holds at a fixed width. */
+ * off at every viewBox and orientation. Get this backwards and the arithmetic invents
+ * defects: a previous cut halved the pattern for milestones to fix "chipped corners"
+ * that only existed in user units. `heatmap.styles.css` documents the same surprise.
+ * The measurements behind all of this are in
+ * `engineering/decisions/2026-09-21-frame-tolerance-silent-window.md`. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="deferred"] {
   fill-opacity: 0.18;
   stroke-dasharray: 4 2.5;
