@@ -77,14 +77,40 @@ const READ_ARTICLE_CSS = `
 .st-read-article .lp-roster>li>img{flex:none;width:1.9em;height:1.9em;border-radius:50%;object-fit:cover;align-self:flex-start}
 .st-read-article .lp-roster>li>div{flex:1;min-width:0}
 .st-read-article figure{padding:0 0 1.4em;margin:0}
-.st-read-article figure svg,.st-read-article figure img{max-width:100%;height:auto}
-.st-read-article figcaption{font-size:.82rem;color:var(--text-muted);padding:.5em 0 0}
+/* THE PLAYER'S ARTICLE RULE (#lp-article .lp-figure svg), which this pane never got.
+   A CHART is viewBox-only and token-driven, so it fills the figure band: width:100%,
+   height:auto for the aspect, max-height so a tall or square one cannot eat the page,
+   margin-inline:auto to center it. A mermaid diagram opts out of the fill on the next
+   line — see there for why maximizing a diagram in prose is the wrong answer. */
+.st-read-article figure svg{width:100%;height:auto;max-height:78vh;display:block;margin-inline:auto}
+/* MERMAID SIZES ITSELF: width:auto takes the diagram's own viewBox size and
+   max-width:100% scales it DOWN to the column, never up — forcing the band on a 238x67
+   flowchart drew it at 1100x310, with labels 4x the body text beside it. NOT width:100%:
+   a browser-rendered flowchart states its size as px ATTRIBUTES while every other family
+   states it as an inline max-width, and auto reads both. Scoped by aria-roledescription
+   so it cannot reach a chart, which is token-driven and must keep filling its band.
+   The long form, with the measurements and why the rule is not in the kernel:
+   lib/integrations/mermaid/mermaid.css § THE RE-HOSTED FIGURE. */
+.st-read-article figure svg[aria-roledescription]{width:auto;max-width:100%}
+.st-read-article figure img{max-width:100%;height:auto;display:block;margin-inline:auto}
+.st-read-article figcaption{font-size:.82rem;color:var(--text-muted);padding:.5em 0 0;text-align:center}
 .st-read-article .lp-figure-note{border:1px dashed var(--border);border-radius:10px;padding:1em 1.2em;background:var(--bg-alt)}
 .st-read-article .lp-visual-note{font-size:.92rem;color:var(--text-muted);margin:0}
 .st-read-article table{border-collapse:collapse;width:100%;font-size:.92em}
 .st-read-article th,.st-read-article td{border:1px solid var(--border);padding:.4em .7em;text-align:left}
 .st-read-article th{background:var(--bg-alt);font-weight:600}
 .st-read-article pre{background:var(--bg-alt);padding:1em;border-radius:8px;overflow:auto;font-size:.85em}
+/* HIDE THE SPENT MERMAID SOURCE. The bake leaves the source <pre> in the section on purpose
+   — mermaid.css and highlight-js.css style the drawing with ADJACENT-SIBLING selectors on it,
+   so removing it would unstyle the very diagram the bake exists to ship — and the engine
+   hides it with this same rule. That rule travels with the deck stylesheet, which the player
+   ships and this pane does not, so before the bake existed there was nothing to hide and
+   after it there was: a fence on a slide whose component is not one of the MEDIA_COMPONENTS
+   (a plain content slide, say) projects through the generic walk, which emits the <pre> AND
+   the figure. The reader got a wall of mermaid source immediately followed by the drawing —
+   the bug this view set out to remove, now shipped beside its own fix. Kept in step with
+   lib/components/diagram/mermaid/... by intent, not by a gate. */
+.st-read-article pre[data-mermaid-state]:not([data-mermaid-state="error"]):not([data-mermaid-state="unavailable"]){display:none}
 /* Un-trim, exactly as the player's Read view does: a slide's guards:strict clamp rides
    in on the cloned DOM, and this column scrolls, so the clamp is pure content loss for a
    reader who opened this view to get the full text. display:revert, not display:block —
@@ -106,7 +132,7 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 	React.useEffect(() => {
 		let canceled = false;
 		setState('loading');
-		projectDeckArticle(options, source, palette, extraTheme, extraCss, mode)
+		projectDeckArticle(options, source, palette, extraTheme, extraCss, mode, () => canceled)
 			.then((a) => {
 				if (canceled) return;
 				setHtml(a.articleHtml);
@@ -164,8 +190,11 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 					    that `projectSectionsToArticle` sanitized with `sanitizeSlideHtml` BEFORE projecting,
 					    and adds no sink of its own — the caller-sanitizes contract `prose-projection.mjs`
 					    states in its own header, and the same division the player export relies on.
-					    Sanitizing the OUTPUT again instead would strip the `<foreignObject>` and `<style>`
-					    carrying every Mermaid node label and all diagram styling (measured; CLAUDE.md #22). */}
+					    A second pass is skipped because it would find nothing, NOT — as this comment used
+					    to say — because it would strip the `<foreignObject>` and `<style>` carrying
+					    Mermaid's node labels. Measured against `createSlideSanitizer`: the FIRST pass
+					    already removes both, and on the baked path the labels are native `<text>` by then
+					    (CLAUDE.md #22). */}
 					<article className="st-read-article px-6 py-8" dangerouslySetInnerHTML={{ __html: html }} />
 				</div>
 			)}

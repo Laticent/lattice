@@ -19,17 +19,105 @@
 // The TRANSFORM is the shared kernel and is not duplicated here (HARD RULE #1/#15):
 // `projectDeckToProse` is the same function the CLI player export runs, reached through
 // the already-lazy player-core bundle. What this module adds is the Studio's glue —
-// render, split, sanitize, project — mirroring `narration-projection.ts`, which does the
-// same for speech. The article's STYLING is deliberately the Studio's own rather than the
+// render, bake, split, sanitize, project — mirroring `narration-projection.ts`, which does
+// the same for speech. The BAKE step is the one the export path also runs and for the same
+// reason: the engine's render leaves a Mermaid fence as its source, so an un-baked article
+// showed a wall of ```mermaid where the player's Read view shows the drawing. The article's STYLING is deliberately the Studio's own rather than the
 // player's: the player is a standalone document sized to a reading window, this is a pane
 // inside an app, and the two should look like their hosts. Both target the same `lp-*`
 // class contract the shared projection emits, so the markup stays one thing.
 
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
-import { buildDeckRender, type ExtraTheme } from './share-export';
+import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
 
 export type ArticleToc = { id: string; level: number; text: string };
 export type DeckArticle = { articleHtml: string; toc: ArticleToc[] };
+
+/**
+ * Does this render carry anything the RUNTIME, not the engine, draws?
+ *
+ * The engine's render is static, so a ```mermaid fence is still a
+ * `<pre><code class="language-mermaid">`, a state chart is still un-edged nodes and a
+ * function plot is still an inert config div — all three are inflated in the preview
+ * iframe by `lib/runtime`, which this view never loads. Unbaked, the article showed the
+ * author a wall of Mermaid source where the player's Read view shows the drawing.
+ *
+ * TWO markers, not three, and the two omissions are deliberate.
+ *
+ * `data-sc-transitions` (state-chart) is NOT here. A state-chart is in
+ * `SPATIAL_PLACEHOLDER_COMPONENTS`, and `projectDeckToProse` takes that branch first — so the
+ * slide projects to its placeholder (plus the description the transform already wrote into
+ * the static render) whether or not anything was baked. Gating on it bought a byte-identical
+ * article for the full bake cost, on 8 of the shipped example decks. An independent checker
+ * found it; the gate's own rationale below is the argument against it.
+ *
+ * The Mermaid arm matches the FENCE MARKUP rather than the bare string `language-mermaid`,
+ * because a deck that merely writes that class name in prose or in an inline code span — and
+ * one shipped deck does, `examples/mermaid-tilde-fences.md` — would otherwise pay the bake
+ * for a deck with no diagram in it at all.
+ *
+ * The gate exists because the bake is NOT free and most decks earn nothing from it:
+ * `bakeDeckSections` builds a capture frame, waits for the srcdoc load, for `fonts.ready` and
+ * for a paint — several hundred ms against a projection that runs in 3.5-11.8 ms. A deck with
+ * no runtime-drawn content would pay all of it for a byte-identical result.
+ */
+// The leading `\s` is required, not cosmetic: a bare `class="` also matches `data-class="`,
+// which carries the author's RAW `_class:` payload rather than the resolved list (#1358), and
+// `check-ownership.js` rejects the unguarded form.
+const RUNTIME_DRAWN = /<code[^>]*\sclass="[^"]*language-mermaid|data-fp-config/;
+
+/**
+ * Bake the runtime-drawn content into the render's own markup, or return null to say
+ * "use the static sections".
+ *
+ * WHY THE BAKE HAS TO COME FIRST, rather than sanitizing and hoping. `projectSectionsToArticle`
+ * runs `sanitizeSlideHtml` (DOMPurify) over every section, and DOMPurify deletes exactly the
+ * two things a live Mermaid SVG leans on: the `<style>` block Mermaid injects (all of its type
+ * and paint) and the `<foreignObject>` carrying EVERY node label. `bakeDeckSections` runs the
+ * deck through the shared capture frame and then flattens each diagram SVG into a self-styled
+ * twin with native `<text>` labels, which survives the sanitizer intact. This is the same
+ * ordering, and the same measured reason, as the player export's own bake
+ * (`share-export.ts`, "BAKE FIRST").
+ *
+ * Every failure mode falls back to the static render — the article we shipped before, which
+ * shows the fence source. A missing drawing is a worse article; a thrown export is no article
+ * at all.
+ *
+ * SLIDE-COUNT PARITY is the gate, as it is on the export path. Nothing here is indexed by
+ * slide the way notes and narration cues are, but a bake that lost a section would silently
+ * drop that slide's prose AND its table-of-contents row, and a reader has no way to tell a
+ * deck that never said something from one whose article ate it.
+ */
+async function bakeArticleSections(render: DeckRender, staticSections: string[], isStale?: () => boolean): Promise<string[] | null> {
+	if (!RUNTIME_DRAWN.test(render.html)) return null;
+	try {
+		const { bakeDeckSections } = await import('./export/deck-export.js');
+		// A view switch or a palette toggle while the bake is in flight makes this render
+		// obsolete before it finishes. Checked HERE, after the dynamic import and before the
+		// capture frame, which is the last point where abandoning costs nothing.
+		if (isStale?.()) return null;
+		// `freezeTokens` — this pane ships no deck stylesheet, so a paint the bake leaves as
+		// `var(--token)` resolves to nothing here and falls to the SVG initial, BLACK. Measured
+		// on `examples/mermaid-diagram-surface.md`: every node and every connector black, with
+		// black labels inside them. The export paths must NOT freeze (it would pin the diagram
+		// to the export-time scheme and kill the player's dark/light toggle), which is why this
+		// is the caller's call and not the bake's default.
+		const result = await bakeDeckSections(render, { freezeTokens: true });
+		if (!result || result.sections.length !== staticSections.length) {
+			console.warn(
+				`lattice: the article's diagram bake produced ${result ? result.sections.length : 0} slides for a ${staticSections.length}-slide deck; showing the un-baked article.`,
+			);
+			return null;
+		}
+		if (result.failed) {
+			console.warn(`lattice: ${result.failed} diagram(s) could not be drawn; the article shows their source.`);
+		}
+		return result.sections;
+	} catch (err) {
+		console.warn('lattice: the article\'s diagram bake failed; showing the un-baked article.', err);
+		return null;
+	}
+}
 
 /**
  * Render the whole deck once and project it to a reading article: `articleHtml` (a
@@ -43,9 +131,18 @@ export type DeckArticle = { articleHtml: string; toc: ArticleToc[] };
  * neither (both are text matchers, so spelling those markers out here would trip the gate
  * on a comment). The
  * discipline is the guard. The projection RE-EMITS already-sanitized markup and adds no
- * sink of its own, so its output is not sanitized a second time — doing so would strip
- * the foreignObject and style elements that carry every Mermaid node label and all
- * diagram styling, which is the same measured reason the player does not re-sanitize.
+ * sink of its own, so its output is not sanitized a second time: a second pass has nothing
+ * left to find.
+ *
+ * THE OLD REASON GIVEN HERE WAS FALSE, and it is worth saying so rather than quietly
+ * deleting it, because it is the sentence a future reader would lean on when deciding
+ * whether a new sink owes a guard. It claimed a second pass would strip the
+ * `<foreignObject>` and `<style>` carrying every Mermaid node label. Measured directly
+ * against `createSlideSanitizer`: the FIRST pass — the one above, on the input — already
+ * removes both, label text and all. And on the baked path they are not there to remove,
+ * because the bake replaced them with native `<text>`. Either way, nothing is being
+ * preserved by skipping the second pass; it is skipped because it buys nothing, which is a
+ * different claim and the true one.
  *
  * Unlike the narration twin there is no index alignment to preserve, so a section that
  * fails to parse is SKIPPED rather than yielding an empty slot — an empty slot would mint
@@ -58,14 +155,25 @@ export async function projectDeckArticle(
 	extraTheme?: ExtraTheme,
 	extraCss?: string,
 	modeOverride?: 'light' | 'dark',
+	isStale?: () => boolean,
 ): Promise<DeckArticle> {
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
-	const { html } = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
-	const { splitSections } = (await import('@/playground/deck-preview.js')) as unknown as {
-		splitSections: (h: string) => string[];
+	const render = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
+	// THE DEPTH-AWARE SPLITTER, which is what the export twin uses (`share-export.ts` →
+	// `slideChannelRecord`). `splitSections` is a flat "scan to the next `</section>`", so a
+	// slide holding a hand-authored `<section>` counts as two — and this count is only used as
+	// the bake's parity denominator, so a miscount silently DISCARDS a good bake and hands the
+	// reader the un-baked article. `deck-export.js` documents the same trap at its own call.
+	const { splitSectionsCore } = (await import('@/playground/authoring-core.generated.js')) as unknown as {
+		splitSectionsCore: (h: string) => { type: string; openTag: string; inner: string }[];
 	};
-	return projectSectionsToArticle(splitSections(html));
+	const staticSections = splitSectionsCore(render.html)
+		.filter((p) => p.type === 'section')
+		.map((p) => `${p.openTag}${p.inner}</section>`);
+	if (!staticSections.length) return { articleHtml: '', toc: [] };
+	const baked = await bakeArticleSections(render, staticSections, isStale);
+	return projectSectionsToArticle(baked ?? staticSections);
 }
 
 /** The sanitize-then-project kernel, split out so a caller holding rendered sections

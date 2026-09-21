@@ -1493,7 +1493,26 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// disabled — 16 of 16 slides still visible, #lp-stage display:flex. Visually a no-op:
 	// screenshots of all three views are pixel-identical to the pre-change build, and the
 	// default view is present, where the CSS already set #lp-doc to display:none.
-	assert.equal(sha, 'f6eb8ba78cc573e06f4bbbb5fe1d3ea8ddc977eb246f6d122088bd9ff0ac57a1', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED — the Read·Article's diagram sizing moved out of `lattice.css` and into this
+	// file. IN THIS GOLDEN exactly ONE thing moves: the string
+	// `#lp-article .lp-figure svg[aria-roledescription]{width:auto;max-width:100%}` enters the
+	// stylesheet. Nothing else — removing just that string from the assembled artifact
+	// reproduces the previous sha byte for byte, and the fixture carries no diagram, no
+	// mermaid CSS and `now: 0`, so neither the reverted kernel rule nor a timestamp is in it.
+	// No markup, script, attribute or block-order change, so the CSP sha is untouched.
+	// (Separately, on a five-family diagram deck the whole shipped artifact moves by two CSS
+	// hunks — that rule in, the reverted `figure>svg[aria-roledescription]` arm out — plus the
+	// embedded `generatedAt`. That deck is not this fixture.)
+	// WHY: forcing the figure band onto a diagram maximizes it — a 238x67 flowchart drew at
+	// 1100x310 with labels 4x the body text beside it. `width:auto` takes the diagram's own
+	// viewBox size and `max-width:100%` scales it DOWN to the column, never up; the axis that
+	// binds follows from the aspect with no per-family rule. Keyed on `aria-roledescription`
+	// so it cannot reach a chart, which is token-driven and must keep filling its band.
+	// The rule sits HERE rather than in `mermaid.css` because the Studio's article pane ships
+	// no `lattice.css` at all, and because a kernel rule at (0,1,2) loses to the generic
+	// `#lp-article .lp-figure svg` (1,1,1) above — which is what the reverted arm's
+	// `!important` was paying for. `mermaid.css` § THE RE-HOSTED FIGURE has the long form.
+	assert.equal(sha, '1b4e175626e1fa8afd22c3df551ba02fa34c6cc776869f18f3ad027d71d314b7', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

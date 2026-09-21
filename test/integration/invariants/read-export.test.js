@@ -1,5 +1,6 @@
 /**
- * `--read` emits the deck's PROSE INSTEAD OF the slide stack, and moves no raster bytes.
+ * `--read` emits the deck's PROSE INSTEAD OF the slide stack, and moves no raster bytes
+ * in ANY of the three raster formats.
  *
  * WHY "INSTEAD OF" IS THE DESIGN, not a preference. Reader-mode text extractors —
  * Readability, which Firefox's Reader View and its shake-to-summarize run on, and the
@@ -15,8 +16,9 @@
  * placement `--fluid` uses, precisely so the PDF/PPTX/PNG are rendered from the clean
  * pre-article document. That ordering is invisible in the source — move the injection a
  * few hundred lines earlier and everything below still passes while every exported PDF
- * silently grows a wall of prose pages. The md5 comparison is the only thing that would
- * notice, so it is worth the second render.
+ * silently grows a wall of prose pages. The checksum comparison is the only thing that would
+ * notice, so it is worth the second render — and the claim covers the .pptx and the .png set
+ * as well, so each of those gets its own arm rather than riding on the PDF's.
  */
 
 const { test, describe, before, after } = require('node:test');
@@ -397,5 +399,101 @@ describe('--read — the deck as prose, and nothing else moves', () => {
 		// is not passing because the flag did nothing at all.
 		const sidecar = fs.readFileSync(path.join(dir, 'read.html'), 'utf8');
 		assert.match(sidecar, /<article id="lat-read"/, 'the --read sidecar should be the article');
+	});
+
+	// THE CLAIM WAS WIDER THAN THE TEST. The decision note and `--help` both say the
+	// PDF/PPTX/PNG are rendered from the clean pre-article document; only the PDF arm above
+	// pinned it. Move the injection earlier and the PDF arm fails while a .pptx quietly grows
+	// a wall of prose slides, which is the same defect in a format nobody is watching.
+	//
+	// Both arms render into SEPARATE DIRECTORIES under the SAME basename, unlike the PDF arm.
+	// That is not tidiness: `.pptx` writes the output filename into `docProps/core.xml` as
+	// `dc:title`, so rendering `plain.pptx` beside `read.pptx` makes the two differ for a
+	// reason that has nothing to do with the flag.
+	//
+	// WHAT THESE TWO CANNOT SEE, measured rather than assumed. The PDF prints the whole page,
+	// so merely APPENDING the article to the live document before the raster moves its bytes.
+	// These two rasterize per SLIDE — one screenshot per `section[data-lattice-slide]` — so an
+	// appended article is invisible to them and only a mutation that touches the SLIDES turns
+	// them red. Both mutations were run: appending the article ahead of the raster fails the
+	// PDF arm alone, and performing the real SWAP there (delete the sections, insert the
+	// article — what `--read` actually does, just early) fails all three. The swap is the
+	// regression these exist for, so they earn their place; the narrower one is the PDF arm's.
+
+	test('--read does not move a single byte of the PNG set', { timeout: 900000 }, () => {
+		const a = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-png-a-'));
+		const b = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-png-b-'));
+		try {
+			render(a, path.join(a, 'deck.png'));
+			render(b, path.join(b, 'deck.png'), ['--read']);
+			// THE FLAG DID SOMETHING. Byte-identity alone stays green if `--read` silently became
+			// a no-op for raster targets, which is the one way this arm could pass while the
+			// feature was broken. The PDF arm already guards this; these two did not.
+			assert.match(
+				fs.readFileSync(path.join(b, 'deck.html'), 'utf8'), /<article id="lat-read"/,
+				'the --read run must actually have produced the article, or equality proves nothing',
+			);
+			const pngs = (d) => fs.readdirSync(d).filter((f) => f.endsWith('.png')).sort();
+			const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+			// A .png render emits one numbered file per slide, so an empty set would make every
+			// comparison below vacuously true.
+			assert.ok(pngs(a).length >= 2, `expected one PNG per slide, got ${pngs(a).length}`);
+			assert.deepEqual(pngs(b), pngs(a), '--read must not add, drop or renumber a slide image');
+			for (const name of pngs(a)) {
+				assert.equal(
+					sha(path.join(b, name)), sha(path.join(a, name)),
+					`${name} moved under --read; the article reached the rasterizer`,
+				);
+			}
+		} finally {
+			fs.rmSync(a, { recursive: true, force: true });
+			fs.rmSync(b, { recursive: true, force: true });
+		}
+	});
+
+	test('--read does not move a single byte of the PPTX payload', { timeout: 900000 }, async () => {
+		const a = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-pptx-a-'));
+		const b = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-pptx-b-'));
+		try {
+			render(a, path.join(a, 'deck.pptx'));
+			render(b, path.join(b, 'deck.pptx'), ['--read']);
+			const JSZip = require('jszip');
+			const entries = async (f) => {
+				const zip = await JSZip.loadAsync(fs.readFileSync(f));
+				const out = new Map();
+				for (const name of Object.keys(zip.files)) {
+					if (zip.files[name].dir) continue;
+					out.set(name, crypto.createHash('sha256').update(await zip.files[name].async('nodebuffer')).digest('hex'));
+				}
+				return out;
+			};
+			assert.match(
+				fs.readFileSync(path.join(b, 'deck.html'), 'utf8'), /<article id="lat-read"/,
+				'the --read run must actually have produced the article, or equality proves nothing',
+			);
+			const [ea, eb] = [await entries(path.join(a, 'deck.pptx')), await entries(path.join(b, 'deck.pptx'))];
+			assert.ok(ea.size > 0, 'the .pptx should hold entries');
+			assert.deepEqual([...eb.keys()].sort(), [...ea.keys()].sort(), '--read must not add or drop a .pptx part');
+			// `docProps/core.xml` is the one part two SEPARATE RUNS can never match: it stamps
+			// `dcterms:created` / `dcterms:modified` with the wall clock. It is compared below with
+			// those two blanked rather than skipped, so a flag that DID reach the metadata — a
+			// changed title, a changed author — still fails here.
+			for (const [name, hash] of ea) {
+				if (name === 'docProps/core.xml') continue;
+				assert.equal(eb.get(name), hash, `${name} moved under --read; the article reached the rasterizer`);
+			}
+			const core = async (f) => {
+				const zip = await JSZip.loadAsync(fs.readFileSync(f));
+				return (await zip.files['docProps/core.xml'].async('string'))
+					.replace(/(<dcterms:(?:created|modified)[^>]*>)[^<]*/g, '$1');
+			};
+			assert.equal(
+				await core(path.join(b, 'deck.pptx')), await core(path.join(a, 'deck.pptx')),
+				'--read must not change the .pptx metadata either, timestamps aside',
+			);
+		} finally {
+			fs.rmSync(a, { recursive: true, force: true });
+			fs.rmSync(b, { recursive: true, force: true });
+		}
 	});
 });

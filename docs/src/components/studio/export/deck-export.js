@@ -592,10 +592,23 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  * Returns null when the frame yields nothing usable, so the caller can fall back to
  * the static render rather than fail an export over an optimization.
  *
+ * `freezeTokens` decides what happens to a paint the flatten leaves as `var(--token)`.
+ * OFF (the default, and what every export path wants): the reference survives, so the
+ * host that ships the deck CSS re-themes the diagram when its dark/light toggle moves.
+ * ON: the token's resolved value is written onto the SVG root as an inline custom
+ * property, so the diagram carries its own palette into a host that has no deck
+ * stylesheet. The Studio's Read-Article pane is exactly that host — its own stylesheet
+ * defines none of the deck's tokens, so an unfrozen diagram lands there with every paint
+ * falling to the SVG initial, which for `fill` is BLACK. It is opt-in and not the default
+ * because freezing pins the diagram to the export-time scheme, which is the one thing the
+ * player's toggle must not lose. Same collection, same reason and same shape as
+ * `flattenChartSvgs` above.
+ *
  * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, mermaidUrl }`
+ * @param {{ freezeTokens?: boolean }} [opts]
  * @returns {Promise<{ sections: string[], diagrams: number, failed: number } | null>}
  */
-export async function bakeDeckSections(render) {
+export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 	const { frame, dispose } = await createCaptureFrame(render, { releaseDiagrams: false });
 	try {
 		const doc = frame.contentDocument;
@@ -628,7 +641,7 @@ export async function bakeDeckSections(render) {
 		// player ships, and freezing their computed colors would pin them to the
 		// export-time scheme, killing the player's dark/light toggle and Read·Article's
 		// `figure.chart-frame` recolor. Mermaid bakes its colors at render time anyway.
-		const { flattenSvgStyles } = await import('../../../playground/standalone-svg.generated.js');
+		const { flattenSvgStyles, applyCollectedTokens } = await import('../../../playground/standalone-svg.generated.js');
 		const win = frame.contentWindow;
 		// COUNTED, not swallowed. An un-flattenable diagram keeps its `<foreignObject>`, the
 		// player's sanitizer strips it, and the diagram ships as shapes with no words —
@@ -638,7 +651,9 @@ export async function bakeDeckSections(render) {
 		const svgs = doc.querySelectorAll('.mermaid-svg > svg, .mermaid > svg');
 		for (const svg of svgs) {
 			try {
-				svg.replaceWith(flattenSvgStyles(svg, win, { foreignObjectLabels: 'text' }));
+				const flat = flattenSvgStyles(svg, win, { foreignObjectLabels: 'text', collectTokens: freezeTokens });
+				if (freezeTokens) applyCollectedTokens(flat);
+				svg.replaceWith(flat);
 			} catch {
 				unbaked++;
 			}

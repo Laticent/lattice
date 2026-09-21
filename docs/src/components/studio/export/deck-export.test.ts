@@ -655,3 +655,23 @@ describe('recordUnreachableAssets', () => {
 		}
 	});
 });
+
+// `freezeTokens` is OFF by default, and the export paths depend on that: the bake deliberately
+// leaves a scheme-varying paint as `var(--token)` so a host shipping the deck CSS can re-theme
+// it, and freezing would pin the player's diagram colours and kill its dark/light toggle. The
+// argument is that `collectTokens: false` and "absent" are the same value to `flattenSvgStyles`
+// — true (`const COLLECT = opts ? !!opts.collectTokens : false`), and now pinned rather than
+// argued, because it is the one claim the export-safety case rests on.
+describe('bakeDeckSections — freezeTokens is opt-in', () => {
+	it('defaults to off, so a paint keeps its var() reference for the host to re-theme', async () => {
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('data-lattice-tokens', '--cat-1:rgb(1, 2, 3)');
+		const { parseTokenDecls, applyCollectedTokens } = await import('../../../../../lib/components/chart/_chart-family/standalone-svg.js');
+		// The collection format the bake writes, and the consumer the opt-in calls.
+		expect(parseTokenDecls('--cat-1:rgb(1, 2, 3)')).toEqual([['--cat-1', 'rgb(1, 2, 3)']]);
+		expect(applyCollectedTokens(svg)).toBe(1);
+		expect(svg.style.getPropertyValue('--cat-1')).toBe('rgb(1, 2, 3)');
+		// …and the scratch attribute never survives onto a shipped element.
+		expect(svg.hasAttribute('data-lattice-tokens')).toBe(false);
+	});
+});

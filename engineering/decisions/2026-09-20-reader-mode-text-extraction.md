@@ -31,8 +31,12 @@ Mozilla's Readability. Read from its source rather than inferred:
 
 Safari Reader wants a heading followed by ~2000+ characters in a block and responds to
 `<article>`; Chrome's DOM Distiller additionally reads `og:` and schema.org `Article`
-markup, which this repo emits nowhere. So Safari's bar is higher than Firefox's, and a
-deck that clears one may not clear the other.
+markup. **"which this repo emits nowhere" was wrong, and it was wrong because it was read
+off our source rather than off a served page.** Starlight emits `og:type=article` itself,
+on every docs page — verified on the served `/getting-started/` and `/introduction/`. What
+the site genuinely had nowhere was the JSON-LD, and the component pages (real prose, 71 of
+them) had neither. Both are fixed; see the last bullet below. So Safari's bar is higher
+than Firefox's, and a deck that clears one may not clear the other.
 
 ## The three findings, measured
 
@@ -276,11 +280,40 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   …` (HARD RULE #5's nested form) projects to `<li>0<ul><li>boxes to drag…` , which reads
   as a stray "0". Pre-existing behavior of the shared projection, visible in the player's
   Read view too; logged here rather than fixed, per HARD RULE #18's off-path rule.
-- **The Studio's render is not baked.** `buildDeckRender`'s static output leaves a
-  mermaid fence as a raw `<pre><code>`; the export path bakes those through a capture
-  frame first. The Read view shows fence source where the player shows a drawing.
-- **No JSON-LD or `og:type` anywhere on the docs site.** Chrome's DOM Distiller reads
-  both. Adding them is a separate, cheap win that was not taken here.
+- ~~**The Studio's render is not baked.**~~ **Resolved 2026-09-21.** `buildDeckRender`'s
+  static output leaves a mermaid fence as a raw `<pre><code>`, so the Read view showed fence
+  source where the player shows a drawing. `article-projection.ts` now runs the same
+  `bakeDeckSections` the webpage export runs, gated on the render actually carrying
+  runtime-drawn content (the fence class, `data-sc-transitions`, `data-fp-config`) — the bake
+  costs ~1.5 s and a deck without diagrams would pay all of it for a byte-identical result.
+  Measured on `examples/mermaid-diagram-surface.md`: 4 raw fences and 0 SVGs become 0 fences
+  and 4 SVGs carrying 19 native `<text>` labels; time from the palette row to a rendered
+  article goes 480-678 ms to 2009-2320 ms, and a diagram-free deck stays at 485-687 ms.
+  It needed one thing the export path does not: **`freezeTokens`**. The bake deliberately
+  leaves a scheme-varying paint as `var(--token)` so a host shipping the deck CSS can
+  re-theme it, and this pane ships none — every node, connector and label rendered BLACK.
+  So the Studio caller opts into `applyCollectedTokens`, the same fix and the same shape as
+  `flattenChartSvgs`; the export paths keep the reference and their toggle.
+- ~~**No JSON-LD or `og:type` anywhere on the docs site.**~~ **Resolved 2026-09-21, and the
+  claim was half wrong.** Measured on the served site rather than read off the source:
+  Starlight already emitted `og:type=article` on every docs page. The real gaps were the
+  JSON-LD, missing everywhere, and the 71 component pages plus their bucket indexes, which
+  carried neither signal despite being ordinary prose. One `ArticleSchema.astro` now emits
+  the record, rendered from a Starlight `Head` override, from `ComponentsLayout`, and from
+  `/comparison`; `ComponentsLayout` and `/comparison` also emit the `og:` tags they lacked.
+  **110 of 128 built pages** now carry both, against 110 carrying only `og:type` before. The
+  one page that carries `og:type` without the record is `/404`, deliberately: Starlight flags it
+  `template: splash`, and a page with no prose in it asserting `mainEntityOfPage: /404/` is a
+  soft-404 signal. Its `og:type` is Starlight's own default and stays; only the stronger signal
+  is withheld.
+  The 17 without are app shells, redirects, the two proto routes, the marketing landing and
+  `/features`, and the four library pages — deliberately, because a shell that claims to be
+  an Article invites a reading mode onto a page with no prose in it. The probe is what
+  settled the one genuinely arguable case: `/comparison` extracts **3191 words** and is an
+  article, where `/studio` extracts 8 and `/playground` 3. This buys the **Blink** reading
+  modes only. Firefox's Reader View reads neither signal — it runs Readability, which counts
+  paragraphs — so none of it moves shake-to-summarize, and the probe confirms extraction is
+  unchanged on every page touched.
 - **The 15 non-eligible built pages** were left alone. The app shells should not be
   articles; `/overview` and `/features` are card grids, and making them eligible means
   changing what they are, not adding markup.
