@@ -1253,6 +1253,71 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     assert.equal(rule(topic('<!-- _track: a > b | [C] -->'), 'track-directive'), undefined);
   });
 
+  /* ── THE PARITY TABLE ────────────────────────────────────────────────────────
+   * The rule's only job is to agree with the renderer, and three review rounds
+   * each found a shape where it did not — in both directions. So the contract is
+   * DATA, checked against `render()` itself rather than against anyone's model of
+   * markdown-it: for every shape below, the linter must warn exactly when the
+   * engine applies a DEGENERATE `_track`. A new shape is a new row, not a new
+   * round.
+   */
+  test('the linter agrees with the ENGINE on every directive shape', () => {
+    const { render } = require('../../../lib/engine');
+    const { parseTrackSpec, MIN_TRACK_LABELS: MIN } = require('../../../lib/core/track-spec');
+    const D = '<!-- _class: topic -->\n';
+    const SHAPES = {
+      'line start': `${D}<!-- _track: A -->\n\n## T\n`,
+      // Live: a comment inside a blockquote or a list item is still its own
+      // `html_block`, and the engine walks the flat block stream.
+      blockquote: `${D}\n## T\n\n> <!-- _track: A -->\n`,
+      'nested blockquote': `${D}\n## T\n\n> > <!-- _track: A -->\n`,
+      'bullet item': `${D}\n## T\n\n- <!-- _track: A -->\n`,
+      'ordered item': `${D}\n## T\n\n1. <!-- _track: A -->\n`,
+      // Inert: inline tokens live in an `inline` token's children, which the
+      // engine's walk does not descend into.
+      'in a paragraph': `${D}\n## T\n\nSome text <!-- _track: A -->\n`,
+      'indented four': `${D}\n## T\n\n    <!-- _track: A -->\n`,
+      'inline code': `${D}\n## T\n\n\`<!-- _track: A -->\`\n`,
+      'nested in another comment': `${D}<!-- outer <!-- _track: A --> tail -->\n\n## T\n`,
+      'after an unclosed comment': `${D}\n## T\n\n<!-- oops\n\n<!-- _track: A -->\n`,
+      'fenced example': `${D}\n## B\n\n\`\`\`\n<!-- _track: A -->\n\`\`\`\n`,
+      // …but a fence INSIDE a comment closes nothing, so the directive after it lives.
+      'fence inside a comment': `${D}\n## B\n\n<!--\n\`\`\`\nnote\n-->\n\n<!-- _track: A -->\n`,
+      // The vocabulary is case-SENSITIVE, so this is not a directive at all.
+      'uppercase _TRACK': `${D}<!-- _TRACK: A -->\n\n## T\n`,
+      'no spaces at all': `${D}<!--_track:A-->\n\n## T\n`,
+      'two directives, last wins': `${D}<!-- _track: A -->\n<!-- _track: B | [C] -->\n\n## T\n`,
+    };
+    const misses = [];
+    for (const [what, body] of Object.entries(SHAPES)) {
+      const out = render(FM + body, {});
+      const html = typeof out === 'string' ? out : out.html;
+      const applied = (html.match(/data-track="([^"]*)"/) || [])[1];
+      let shouldWarn = false;
+      if (applied !== undefined) {
+        const { labels, current } = parseTrackSpec(applied);
+        shouldWarn = labels.length < MIN || current === -1;
+      }
+      const fired = Boolean(rule(FM + body, 'track-directive'));
+      if (fired !== shouldWarn) {
+        misses.push(`${what}: engine ${applied === undefined ? 'inert' : JSON.stringify(applied)},`
+          + ` should warn ${shouldWarn}, linter ${fired}`);
+      }
+    }
+    assert.deepEqual(misses, []);
+  });
+
+  test('a bare `track:` is reported as the DECK-WIDE form it is', () => {
+    // One missing underscore overrides every slide after this one; the rule used
+    // to say "_track does nothing on a slide that is not `topic`", which is the
+    // opposite of what happens.
+    const src = `${FM}<!-- _class: divider -->\n<!-- track: Alpha | [Beta] -->\n\n## S\n`;
+    const f = rule(src, 'track-directive');
+    assert.ok(f, 'expected a finding');
+    assert.match(f.message, /DECK-WIDE/);
+    assert.match(f.fix, /underscore/);
+  });
+
   test('the rule fires exactly where the ENGINE applies the directive', () => {
     // The whole point of the two rules: agree with the renderer. Each row was
     // measured through `require('lib/engine').render` — only a comment that OPENS

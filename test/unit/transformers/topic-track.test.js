@@ -190,6 +190,29 @@ test('a `tile-track` quoted inside ANOTHER attribute is not our track', () => {
     "the quoted class must not cost Alpha its place in its siblings' scale");
 });
 
+test("the SECTION's own data-track is read the same guarded way", () => {
+  // The other `tagAttr` call site, which nothing pinned: a quote-blind reader
+  // finds `data-track` inside ANOTHER attribute's value, so a slide that declared
+  // no override is treated as having one — it draws that phantom scale and stops
+  // contributing its heading to its siblings.
+  const decoy = '<section class="topic" data-note=\' data-track="X | [Y]"\'><h2>Alpha</h2></section>';
+  const deck = S('divider', '<h2>S</h2>') + decoy + topic('Beta') + topic('Gamma');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[0].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'],
+    'the decoy must not be read as an override');
+});
+
+test('an attribute NAME outside the plain charset cannot forge a class', () => {
+  // `@class`, `9class`, `[class]` — a name the walker cannot match must not let
+  // the `class` tail inside it match as an attribute of its own.
+  for (const tag of ['<ul @class="tile-track">', '<ul 9class="tile-track">', '<ul [class]="tile-track">']) {
+    const inner = `<h2>Alpha</h2>${tag}<li>x</li></ul>`;
+    const deck = S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta') + topic('Gamma');
+    const got = bothAgree(deck);
+    assert.deepEqual(got[1].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'], tag);
+  }
+});
+
 test('a class that merely CONTAINS the token is not our track', () => {
   const inner = '<h2>Alpha</h2><ul class="tile-tracker"><li>x</li></ul>';
   const deck = S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta') + topic('Gamma');
