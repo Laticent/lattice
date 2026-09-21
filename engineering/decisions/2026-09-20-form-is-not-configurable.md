@@ -11,8 +11,8 @@ summary: >-
   renderer's choice) over Frame (the component's choice). The ATTRIBUTES move nothing; the one
   deliberate repaint in the same work is the `list bullet` fix below, and the branch's deck-golden
   drift list is a strict subset of `origin/main`'s. Two conformance findings fall out: `list bullet` lost its clip cell to a
-  variant/component name collision (fixed, one of 273 combinations changes), and `video` cannot
-  reach conformance by flag alone (recorded, not forced).
+  variant/component name collision (fixed — exactly one component x variant answer changes), and
+  `video` cannot reach conformance by flag alone (recorded, not forced).
 builds-on: 2026-06-16-form-manifest-medium-independent-contract.md, 2026-07-08-runtime-form-default.md, 2026-07-15-model-driven-frame-render.md
 ---
 
@@ -70,8 +70,14 @@ confusion this record removes, not a hedge against it.
 Every slide carries `data-form="2d"` — it composes as Form, in the 2D medium — and
 `data-frame="<id>"`, naming the Frame that carves it: `standard`, or one of the ten sovereign
 ids (`title`, `divider`, `closing`, `image`, `premise`, `scene`, `split-panel`, `split-compare`,
-`compare-code`). That is the statement that replaced the absent class. Two kernel predicates,
-`isSovereignFrame` and `hostsChromeCells`, are what the chrome injectors ask.
+`compare-code`, `topic`). That is the statement that replaced the absent class.
+
+Two kernel predicates NAME the question — `isSovereignFrame` and `hostsChromeCells` — and an
+earlier draft of this paragraph said they are "what the chrome injectors ask". They are not:
+the masthead band, the footer Cell, the progress rail and the watermark all still gate on the
+`form` CLASS, exactly as they did before, and `hostsChromeCells` has no production caller at all.
+Rewiring the four injectors to ask it is a separate change with its own risk, and claiming it
+here because it sounded tidier is the same defect this record exists to stop.
 `FORM_TOGGLE_SKIP` is `SOVEREIGN_FRAMES`, because it is no longer a toggle's skip-list — it is
 the chrome-exempt half of the Frame catalog.
 
@@ -96,7 +102,7 @@ whole DOES repaint `list.gallery.{dark,light}.pdf` — the `list bullet` fix, de
 visible. An earlier draft said "every deck golden and every component gallery is byte-identical"
 without that scope, which read as a claim about what ships, and was false.)
 
-The lesson generalises past this change. **A CSS class that a decade of rules select on is an
+The lesson generalizes past this change. **A CSS class that a decade of rules select on is an
 interface, not a description.** Restating the model is worth doing; restating it by redefining
 that interface is not.
 
@@ -152,3 +158,22 @@ scaffolding an author can neither select nor refuse.
   was overprinting. Guarded, with the stale claim about its own reach corrected in place. Giving
   sovereign Frames a footer budget may well be right — they do carry a page number to collide
   with — but that is a layout decision owed its own evidence.
+
+## Known gaps — found by this work, not caused by it
+
+Both are pre-existing on `main` and verified there, so HARD RULE #18 says log them rather than
+pull them into this diff. They are recorded because each is a live counterexample to something
+this record states, and a claim with a known exception should carry it.
+
+- **`splitSections` has no "first real slide" guard, so a deck body that MENTIONS a `<section>`
+  tag derails the whole HTML-stage pass.** One HTML comment quoting `<section class="title">` and
+  nothing gets stamped at all — no `data-form`, no `data-frame`, and no `form` class either, which
+  is the part that predates this change. `lib/core/auto-split.js` has such a guard and
+  `applyFormToHtml` does not. The DOM twin is unaffected: it walks a real DOM where a comment is a
+  comment node, so it stamps both sections correctly — meaning the same deck gets two different
+  answers depending on the path. So read "every slide carries `data-form="2d"`" as true of every
+  slide the HTML pass can SEE; a deck that derails the walker loses Form entirely, exactly as it
+  did before this change.
+- **`applyFormToHtml` recognizes only a double-quoted `class="…"`.** A single-quoted attribute
+  yields a duplicate `class` attribute on the open tag. The engine only ever emits double quotes,
+  so nothing in the corpus reaches it.
