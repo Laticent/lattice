@@ -365,17 +365,23 @@ narrower, not gone.
 
 ## The fourth round — nine more, and what the pattern was (2026-09-21)
 
-Four adversarial rounds have found 5, 8, 8 and 9 defects, and the rate is not
-falling. The fourth round is worth writing down because its findings share a
-shape the first three did not: **three rounds each fixed the instance and left
-the class.**
+Three checker rounds found **8, 8 and 9** confirmed defects, on top of the **six**
+I found by reading my own first output. The rate is not falling. The fourth round
+is worth writing down because its findings share a shape the first three did not:
+**three rounds each fixed the instance and left the class.**
 
-| Round | Fixed | Left standing |
-|---|---|---|
-| 1 | eight defects in the first output | the parse each one came through |
-| 2 | eight more, including a guard a docs-only commit had deleted | why no test could see it |
-| 3 | the numbers, the pacing | the claims the comments made about both |
-| 4 | the class in each case | — |
+| Round | Found | Fixed | Left standing |
+|---|---|---|---|
+| — | 6 (+1) | by reading the first output aloud | the parse each one came through |
+| 1 | 8 | the eight, listed above | the parse each one came through |
+| 2 | 8 | eight more, including a guard a docs-only commit had deleted | why no test could see it |
+| 3 | — | the numbers, the pacing | the claims the comments made about both |
+| 4 | 9 | the class in each case | see round 5 |
+
+*(Round 3 is the value-reader and pacing work below. It is listed without a count
+because none was recorded at the time, and an earlier draft of this table invented
+one — a "5" nothing in this document supports, in a section whose subject is claims
+nobody re-derives. A checker caught it.)*
 
 **A count narration cannot check.** `narrateWordCloud` opened on "Thirteen terms"
 over a canvas drawing twelve. Rendering every deck in the tree with a word-cloud
@@ -397,13 +403,36 @@ came from one line scanner — so it saw a row the narrator could not PARSE and 
 blind to one the narrator parsed DIFFERENTLY from the transform. 91 of 356
 generated decks that spoke a tally spoke one the rendered chart contradicts.
 
-The guard was not the defect. `parseBulletRow` was, and it is now the transform's
-own rule rather than an approximation: the value is the LAST pill and the key
-swallows the rest (so `- \`Target\` \`80%\`` is structural, which it was not), and
-nothing may sit inside the item after the value (so `- Target \`4\`` over
+The guard was not the defect. `parseBulletRow` was, and it now transcribes the
+transform's rule rather than approximating it: the value is the LAST pill and the
+key swallows the rest (so `- \`Target\` \`80%\`` is structural, which it was not),
+and nothing may sit inside the item after the value (so `- Target \`4\`` over
 `  - note` is detail, which it was not). `test/unit/core/bullet-narration-parity.test.js`
 compares the tally the VOICE speaks against the tally the RENDERED chart states in
 its own `<desc>` — nothing internal on either side — and 0 of 351 diverge.
+
+**And the first cut of the second clause was wrong in five more ways, which a
+fifth checker found and the fuzz could not.** "Nothing may sit inside the item"
+was implemented as a bare `>` against the previous KEPT child's marker indent.
+markdown-it's actual rule is the item's CONTENT column — marker indent plus marker
+width — and it applies to the last line SEEN, not the last one this parser kept.
+The gap made five shapes narrate a tally the chart contradicts: a prose child
+between the structural line and a deeper line (the deeper line is inside the PROSE
+item, which this parser never keeps, so the comparison reached past it), a
+one-space over-indented sibling, three-space child indentation — which decks in
+this repo use — and the two constructs that are not bullets at all, a lazy
+continuation and an ordered sublist.
+
+The fuzz reported 0 of 351 throughout, **because its generator only ever emitted
+two-space children.** That is the round's sharpest lesson about its own evidence:
+a differential test is exactly as wide as its corpus, and "0 divergences" names
+the corpus, not the narrator. The indentation axis is in the generator now, and
+the same 400 decks put the old rule at **105 of 351**.
+
+**`transcribes` is still a claim about what was measured, not a proof.** This
+reads LINES; `parseBullet` reads markdown-it's TREE. A construct nobody thought to
+try can still come apart, and the honest version of the earlier "close match, not
+an exact one" is that the known gaps are closed and pinned rather than listed.
 
 **An endpoint claim that denied itself two sentences later.** "A three-state
 machine from Draft to Draft and Filed. … Nothing leads to Filed." Both halves read
@@ -411,6 +440,14 @@ true facts. "from X to Y" is a claim about a ROUTE, so `summarizeGraph` computes
 the forward closure from the start and the clause names only terminals in it.
 `unreachable` moves onto the same closure and gets stronger for free: in-degree
 cannot see an ISLAND, two states pointing at each other and cut off from the start.
+
+**Which needed a SECOND sentence, not a wider set under the old one.** The first
+cut widened `unreachable` and left the clause reading *"nothing leads to Alpha"* —
+an in-degree claim, refuted by the arrow this same narrator reads out three clauses
+later. That is the contradiction the endpoint fix removed, moved one clause over,
+and a test of mine pinned it as correct. `unreachable` keeps its in-degree meaning
+and its sentence; `cutOff` is the island, and it says *"the machine never reaches
+Alpha and Beta."*
 
 **Four ways the voice said less than the picture.** A row that CLEARED never
 reached the band clause, so the `Band` lines this narrator absorbs reached no
@@ -429,13 +466,32 @@ function exists to remove.
 
 **And the comments were measured instead of argued.** `isChain`'s comment asserted
 in prose that three of its four guards were "provably redundant". Enumerating every
-machine up to four states — every edge subset, in both edge orders, because `next`
-keeps the LAST edge out of a state — says otherwise: `states.length < 2` is
-LOAD-BEARING (a single state with a self-loop reads as a straight chain without
-it), the back-edge test carries 408 of 132132, and out-degree and in-degree are a
-MUTUALLY redundant PAIR — dropping either alone changes nothing, dropping both
-changes 120. That last one is the useful result: a mutation test on either reports
-it dead, and neither may be deleted.
+machine up to three states — every edge subset, in both edge orders (because `next`
+keeps the LAST edge out of a state), with every choice of START — says otherwise:
+`states.length < 2` is LOAD-BEARING (a single state with a self-loop reads as a
+straight chain without it), the back-edge test carries 256 of 4200, and out-degree
+and in-degree are a MUTUALLY redundant PAIR — dropping either alone changes nothing,
+dropping both changes 16. That last one is the useful result: a mutation test on
+either reports it dead, and neither may be deleted.
+
+**The first cut of that enumeration hard-coded `states[0]` as the start**, which
+`inferRoles` does not: one `start` tag decides it for the whole chart, and it
+changes which machines are chains. So the sweep was four states wide through a
+narrower slice of the real parameter space while its title read "every machine" — a
+false exhaustiveness claim in the test written to replace a false redundancy claim.
+A fifth checker caught it. A four-state sweep with every start ran once and agrees
+on every conclusion (655360 machines; `back` 1856, `out`/`in` 0 alone and 224
+together); three states is what is committed, because five starts by 2^16 edge
+subsets by two orders is minutes in the unit tier.
+
+**And the parse changes leaked onto narrators they had nothing to do with.**
+`nestedIsData` is a WHOLE-SLIDE flag — one row with no pills of its own but a
+pill-carrying child flips EVERY row's children into data — and the code-spanned key
+line satisfied it. On a real `scatter` render whose `<desc>` plots two points and
+files `Reviewed \`2024\`` as mark detail, the voice said *"Alpha, ten, twenty:
+Reviewed, two thousand twenty-four"*: the phantom-data-point class `classifyDepth`'s
+own docblock says was closed, reopened from the side. The key line is invisible to
+every signal now except `parseBulletRow`.
 
 ### Blast radius, measured rather than reasoned about
 
@@ -453,6 +509,20 @@ divergent bullet shape**, which is the same fact from the other side: the defect
 invisible because nothing we ship walks into it, and a fuzz found it in 91 of 356
 generated decks because a generator does not write the shapes an author has learned
 to avoid.
+
+**And the same question asked of the OTHER narrators**, since the leak above was
+found by a checker rather than by that corpus: 800 generated decks across `bar`,
+`line`, `stacked-bar`, `scatter`, `slope`, `progress`, `word-cloud` and `bullet`,
+base against head.
+
+```
+slope         0 of 87      scatter       0 of 93      line          0 of 82
+stacked-bar   0 of 81      bar           0 of 71
+word-cloud   68 of 77      bullet       45 of 97
+```
+
+Every divergence is in the two components the round set out to change. Zero
+anywhere else.
 
 One latent crash was found by re-reading the diff rather than by a checker: the
 three-level bail returned `{ rows, consumed }` without the new `dropped` key, so a

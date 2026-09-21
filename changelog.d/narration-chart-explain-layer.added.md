@@ -65,8 +65,17 @@
 - **Fixed: a `state-chart` no longer claims a route to a state it cannot reach.** "A
   three-state machine from Draft to Draft and Filed. … Nothing leads to Filed" asserted
   a route and denied it two sentences later. Endpoints are now the terminals the start
-  can actually get to — which also catches an ISLAND of states pointing at each other
-  and cut off from the machine, invisible to the in-degree test it replaces.
+  can actually get to.
+- **Added: a `state-chart` names an ISLAND — states that point at each other and that
+  the machine can never get to.** Nothing found those before; an in-degree test cannot,
+  because each of them has an edge pointing at it. It is a separate sentence from
+  *"nothing leads to X"* on purpose: on an island the picture draws the arrow that
+  would refute that one.
 - **Fixed: `$-0.8M` and `0.5k` are spoken.** The first rebuilt as the literal
   `-$-800k` and reached the voice as glyphs; the second read as *"zero point five
-  thousand"* rather than *"five hundred"*.
+  thousand"* rather than *"five hundred"*. **One spelling changes in a way worth
+  knowing:** `$−0.8M`, with a Unicode minus *behind* the currency symbol, used to
+  reach the voice as unreadable glyphs and now reads *"eight hundred thousand
+  dollars"* — positive. That is what the chart plots for that pill (`parseValue`
+  reads a U+2212 in front of the symbol and not behind it), so the voice and the bar
+  agree; the parser asymmetry itself is tracked as #2287.

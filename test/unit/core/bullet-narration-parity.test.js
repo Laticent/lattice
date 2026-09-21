@@ -7,13 +7,14 @@ const { narrateBullet } = require('../../../lib/core/chart-narration.js');
 // ARTIFACT-LEVEL DIFFERENTIAL — the tally the VOICE speaks against the tally the
 // RENDERED chart's own `<desc>` states.
 //
-// WHY THIS EXISTS. `narrateBullet` guards its tally with
+// WHY THIS EXISTS. `narrateBullet` USED to guard its tally with
 // `tally.total === drawnRowCount(md)` — "say nothing unless every drawn row was
 // scored". A checker pointed out that both sides of that comparison come from the
 // SAME line scanner, so it can see a row the narrator failed to PARSE and is blind
 // to one the narrator parsed DIFFERENTLY from the transform. It then fuzzed the
 // difference and found a third of decks carrying a tally stating one the chart
-// contradicts.
+// contradicts. `drawnRowCount` is gone with that guard — the test named above is
+// history, not the code — and the guard is now `!dropped.some(r => r.pills.some(isValuePill))`.
 //
 // So nothing internal is compared here. One side is the caption track a listener
 // hears; the other is the `<desc>` in the real render, which is what a screen
@@ -44,6 +45,27 @@ const CHILD = [
   () => '  - a plain note',
   (n) => `  - Target \`${n()}\`\n    - note`,
   (n) => `  - \`Target\` \`${n()}\`\n    - note`,
+  // ── THE INDENTATION AXIS, AND IT IS HERE BECAUSE ITS ABSENCE HID THREE DEFECTS ──
+  //
+  // Every entry above indents its children by exactly two spaces, and the only
+  // four-space line is glued to its own `Target`. So the generator could not
+  // produce a prose child followed by a deeper line, and never produced a
+  // three-space child at all — which is this repo's own house style in places.
+  // The first cut of the `hasDeeper` rule compared a bare `>` against the previous
+  // KEPT child's marker indent, and all three shapes below narrated a tally the
+  // rendered chart contradicts while the fuzz reported 0 of 351. A checker found
+  // them by hand.
+  //
+  // markdown-it closes an item when a line drops below its CONTENT column — marker
+  // indent plus marker width — so 1, 2 and 3 are each outside the `Target` above
+  // them and 4 and 5 are inside it.
+  (n) => `  - Target \`${n()}\`\n  - a plain note\n    - deeper note`,   // 1
+  (n) => `  - Target \`${n()}\`\n   - Floor \`${n()}\``,                 // 2
+  (n) => `   - Target \`${n()}\`\n    - Band \`${n()}\``,                // 3
+  (n) => `  - Target \`${n()}\`\n    continuation`,                     // 4 (lazy)
+  (n) => `  - Target \`${n()}\`\n    1. note`,                           // 5 (ordered)
+  (n) => `   - Target \`${n()}\``,
+  (n) => `   - \`Target\` \`${n()}\``,
 ];
 
 function corpus(count, startSeed = 20260921) {
@@ -119,10 +141,22 @@ test('the CORPUS reaches both shapes that used to diverge', () => {
   // A zero-divergence result means nothing if the generator stopped emitting the
   // two shapes. Counted rather than assumed.
   const decks = corpus(400);
-  const codeKey = decks.filter((d) => /^ {2}- `(?:Target|Floor)` `/m.test(d)).length;
+  const codeKey = decks.filter((d) => /^ {2,3}- `(?:Target|Floor)` `/m.test(d)).length;
   const nestedUnder = decks.filter((d) => /`\n {4}- note/.test(d)).length;
-  assert.ok(codeKey > 80, `only ${codeKey} decks carry a code-spanned key`);
-  assert.ok(nestedUnder > 40, `only ${nestedUnder} decks carry a structural line with a child`);
+  assert.ok(codeKey > 60, `only ${codeKey} decks carry a code-spanned key`);
+  assert.ok(nestedUnder > 20, `only ${nestedUnder} decks carry a structural line with a child`);
+
+  // THE INDENTATION AXIS, counted separately, because its absence is what let three
+  // `hasDeeper` defects through a fuzz reporting zero divergence.
+  const proseBetween = decks.filter((d) => /- a plain note\n {4}- deeper note/.test(d)).length;
+  const overIndentedSibling = decks.filter((d) => /`\n {3}- Floor `/.test(d)).length;
+  const threeSpace = decks.filter((d) => /^ {3}- /m.test(d)).length;
+  const lazy = decks.filter((d) => /`\n {4}continuation/.test(d)).length;
+  const ordered = decks.filter((d) => /`\n {4}1\. note/.test(d)).length;
+  for (const [name, n] of [['prose child then deeper', proseBetween], ['over-indented sibling', overIndentedSibling],
+    ['three-space child', threeSpace], ['lazy continuation', lazy], ['ordered sublist', ordered]]) {
+    assert.ok(n > 10, `only ${n} decks carry a ${name}`);
+  }
 });
 
 test('the three named shapes, each against its own rendered <desc>', () => {

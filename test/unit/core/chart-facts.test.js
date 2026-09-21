@@ -243,7 +243,20 @@ test('state-graph — reachability, not in-degree, decides what is cut off', () 
     states: [st(1, 'Draft'), st(2, 'Done'), st(3, 'Alpha'), st(4, 'Beta')],
     transitions: [{ from: 1, to: 2 }, { from: 3, to: 4 }, { from: 4, to: 3 }],
   });
-  assert.deepEqual(island.unreachable.map((s) => s.label), ['Alpha', 'Beta']);
+  // AND IT IS `cutOff`, NOT `unreachable`, BECAUSE THE TWO NEED DIFFERENT WORDS.
+  // Something DOES lead to Alpha — the picture draws that arrow — so the narrator's
+  // "nothing leads to X" sentence would be refuted by an edge it reads out three
+  // clauses later. `unreachable` keeps its in-degree meaning; `cutOff` is the island.
+  assert.deepEqual(island.unreachable.map((s) => s.label), []);
+  assert.deepEqual(island.cutOff.map((s) => s.label), ['Alpha', 'Beta']);
+
+  // A state nothing points at is still `unreachable`, and is not an island.
+  const orphan = graph.summarizeGraph({
+    states: [st(1, 'Draft'), st(2, 'Done'), st(3, 'Alpha')],
+    transitions: [{ from: 1, to: 2 }],
+  });
+  assert.deepEqual(orphan.unreachable.map((s) => s.label), ['Alpha']);
+  assert.deepEqual(orphan.cutOff.map((s) => s.label), []);
 
   // AND A TERMINAL THE MACHINE CANNOT ARRIVE AT IS NOT AN ENDPOINT. `terminals`
   // stays the honest "has no way out" set — a hazard clause wants it whole — and

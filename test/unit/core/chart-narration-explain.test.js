@@ -635,7 +635,20 @@ test('CHECKER3 — an endpoint claim names only a terminal the machine can REACH
     '3. Alpha', '   - `x => 4`', '4. Beta', '   - `y => 3`',
   ].join('\n')));
   assert.ok(island.includes('A four-state machine from Draft to Done.'), island);
-  assert.ok(/[Nn]othing leads to Alpha and Beta/.test(island), island);
+  // "THE MACHINE NEVER REACHES", NOT "NOTHING LEADS TO". Something does lead to
+  // Alpha — `y => 3` — and this narrator reads that edge out three clauses later, so
+  // the in-degree sentence would be refuted inside its own caption track. A checker
+  // caught the first cut shipping the wider set under the narrower wording, and an
+  // earlier version of THIS arm asserted the false sentence as correct.
+  assert.ok(/[Tt]he machine never reaches Alpha and Beta/.test(island), island);
+  assert.ok(!/nothing leads to/i.test(island), island);
+  assert.ok(/from Beta, y goes to Alpha/i.test(island), 'and the edge is still read');
+
+  // A state nothing points at keeps the in-degree sentence.
+  const orphan = narrateStateChart(slide('state-chart', [
+    '## Orphan.', '', '1. Draft', '   - `go => 2`', '2. Done', '3. Alpha',
+  ].join('\n')));
+  assert.ok(/[Nn]othing leads to Alpha/.test(orphan), orphan);
 });
 
 test('CHECKER2 — a SELF-LOOP-only machine claims no path', () => {
