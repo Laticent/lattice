@@ -1434,13 +1434,24 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       // absence is what let a fence bug through a 5,808-shape cross.
       '~~~ see `docs`', '~~~ run `npm`', '``` js', '- ```', '* ```', '+ ~~~',
       '1. ```', '\t```', '> ```', '~~~~', '``````',
+      // Container-prefixed MARKUP openers. Round eight's regression lived here:
+      // `- <figure>` opens an html_block that swallows the indented comment under
+      // it, and no alphabet entry could say so.
+      '- <div>', '* <figure>', '+ <table>', '1. <pre>', '> <div>', '- <!-- note',
+      '  <div>', '- <p>x</p>',
     ];
     const warned = [];
     let degenerate = 0;
     let silent = 0;
+    // THREE AXES, and the two added last are the ones the previous generator
+    // could not express — which is exactly where round eight found its two
+    // families. A directive is now also tried at a SPACE INDENT (a list
+    // continuation), and a line is generated BELOW it (a table delimiter row
+    // turns the directive into a table header before `html_block` ever runs).
     for (const a of LINES) {
-      for (const pre of ['', '> ', '- ']) {
-        const src = `${FM}<!-- _class: topic -->\n\n## T\n\n${a}\n${pre}<!-- _track: A -->\n`;
+      for (const pre of ['', '> ', '- ', ' ', '  ', '   ']) {
+        for (const below of ['', '| --- | --- |', 'prose']) {
+        const src = `${FM}<!-- _class: topic -->\n\n## T\n\n${a}\n${pre}<!-- _track: A | B -->\n${below}\n`;
         const out = render(src, {});
         const html = typeof out === 'string' ? out : out.html;
         const attr = (html.match(/data-track="([^"]*)"/) || [])[1];
@@ -1452,21 +1463,23 @@ describe("lint-core: the topic anchor's `_track` override", () => {
         }
         const fired = Boolean(rule(src, 'track-directive'));
         if (fired && !should) {
-          warned.push(`${JSON.stringify(a)} + ${JSON.stringify(pre)}: engine inert, linter WARNED`);
+          warned.push(`${JSON.stringify(a)} + ${JSON.stringify(pre)} + ${JSON.stringify(below)}:`
+            + ' engine inert, linter WARNED');
         }
         if (should) { degenerate += 1; if (!fired) silent += 1; }
+        }
       }
     }
     // The arm that bites.
     assert.deepEqual(warned, []);
     // And the arm that keeps the SUBSET honest. The curated table names its
-    // thirteen quiet shapes; this one cannot name 68, so it pins the count —
+    // thirteen quiet shapes; this one cannot name 245, so it pins the count —
     // a checker found the earlier version asserting nothing at all about
     // silence while the commit claimed the cost was written down. A rule that
     // went quiet everywhere would also pass "no false warnings"; it would not
     // pass this. Both numbers move with the alphabet, so they are a diff.
-    assert.equal(degenerate, 89, 'shapes the engine applies degenerately');
-    assert.equal(silent, 68, 'of those, the ones the subset rule declines');
+    assert.equal(degenerate, 413, 'shapes the engine applies degenerately');
+    assert.equal(silent, 245, 'of those, the ones the subset rule declines');
   });
 
   test('KNOWN RESIDUAL: a raw-text block closed by a DIFFERENT tag', () => {
