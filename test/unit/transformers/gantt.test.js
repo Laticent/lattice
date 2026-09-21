@@ -130,7 +130,24 @@ describe('gantt renderer — continuous time scale', () => {
   // explained every bar on the slide except the two a reader cannot tell apart.
   describe('the key names the neutral (#2255)', () => {
     // The label is a <tspan> inside the <text>, so read the tspan (wrapSvgLabel).
-    const chips = (out) => [...out.matchAll(/class="gantt-legend-label"[\s\S]*?<tspan[^>]*>([^<]*)</g)].map((m) => m[1]);
+    //
+    // STRING SPLITS, NOT A REGEX, and CodeQL is right to have asked. The first cut
+    // was `/class="gantt-legend-label"[\s\S]*?<tspan[^>]*>([^<]*)</g`, whose lazy
+    // `[\s\S]*?` between two literals re-scans from every failed start position —
+    // polynomial in the length of the markup, which is exactly the shape
+    // `js/polynomial-redos` names. The input here is our own engine output, so the
+    // practical risk was nil; the fix is smaller than the argument for keeping it.
+    // `indexOf`/`slice` cannot backtrack at all.
+    const chips = (out) => out.split('class="gantt-legend-label"').slice(1).map((seg) => {
+      const open = seg.indexOf('<tspan');
+      const gt = open < 0 ? -1 : seg.indexOf('>', open);
+      if (gt < 0) return '';
+      const end = seg.indexOf('<', gt + 1);
+      return end < 0 ? seg.slice(gt + 1) : seg.slice(gt + 1, end);
+    });
+    /** Each legend swatch's attribute text, by the same linear split. */
+    const swatchAttrs = (out) => out.split('<rect class="gantt-legend-swatch"').slice(1)
+      .map((seg) => seg.slice(0, seg.indexOf('>')));
     const eyebrow = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
 
     test('an unstated task adds a "no status" chip, carrying no data-s', () => {
@@ -143,7 +160,7 @@ describe('gantt renderer — continuous time scale', () => {
       // The neutral chip must NOT carry a status, or it would take that status's
       // ink and paint an unstated bar as a declared one.
       assert.equal(/class="gantt-legend-swatch" data-s="no status"/.test(out), false);
-      const swatches = [...out.matchAll(/<rect class="gantt-legend-swatch"([^>]*)>/g)].map((m) => m[1]);
+      const swatches = swatchAttrs(out);
       assert.equal(swatches.length, 2);
       assert.match(swatches[0], /data-s="at-risk"/);
       assert.equal(/data-s=/.test(swatches[1]), false, 'the neutral chip declares no status');
