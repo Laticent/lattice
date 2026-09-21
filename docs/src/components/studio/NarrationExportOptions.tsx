@@ -24,14 +24,15 @@
 // a board deck may want a different reader than the author's own working voice — so the
 // panel does not block it. It re-measures on every change and shows what it now costs.
 
-import { AudioLines, Captions, Loader2, PlugZap } from 'lucide-react';
+import { AudioLines, Captions, Loader2, PlugZap, TriangleAlert } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Announce } from '@/lib/announce';
+import { frontMatterLang } from '@/lib/resolve-captions';
 import { formatBytes, formatDuration, formatUsd, type NarrationMeasure, PAYLOAD_MAX_BYTES, PAYLOAD_WARN_BYTES } from './narration-bake';
 import { type BakeVoice, defaultBakeVoice, listTtsCatalog, type OrVoiceModel, onDeviceBakeVoice, previewTtsVoice, voiceAvailability } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
-import { resolveVoice, voicesForModel } from './tts-voice-catalog';
+import { resolveVoice, voiceLanguageMismatch, voicesForModel } from './tts-voice-catalog';
 import { VoicePicker } from './VoicePicker';
 
 export type NarrationChoice = {
@@ -88,6 +89,27 @@ export function NarrationExportOptions({
 	// The projection is a whole deck render. Cache it for this panel's lifetime, keyed on the
 	// source, so flipping a switch or auditioning three voices does not re-render three times.
 	const projectionRef = React.useRef<{ source: string; value: Promise<string[]> } | null>(null);
+
+	// DOES THE CHOSEN VOICE SPEAK THE DECK'S LANGUAGE? Neither speech engine takes a language
+	// parameter — OpenRouter's is the OpenAI-compatible `/audio/speech` shape and kokoro-js
+	// derives its language from the voice id's first letter — so for both model rungs the VOICE
+	// IS the language, and picking the wrong one is how a `lang: es` deck gets read in English
+	// with its symbols unexpanded (the English say-as is bypassed for a non-English deck, #919).
+	// Nothing anywhere said so; `voiceLanguageMismatch` shipped in #2243 to say it and had no
+	// caller until here. See engineering/decisions/2026-09-20-narration-audit.md Finding 4.
+	//
+	// THIS SURFACE RATHER THAN THE WORKSPACE'S TTS PANEL, deliberately. This is a per-DECK fact,
+	// and WorkspaceSheet's own header frames that sheet as workspace-scoped setup that a deck
+	// overrides — so a deck-specific warning does not belong in it. It also matters more here:
+	// a rehearsal voice is one listen the author can correct, while this voice is BAKED INTO
+	// every copy the recipient opens.
+	//
+	// Read from `value.voice`, not from the picker's own state, because `value.voice` is the
+	// identity that actually gets baked — including in the two branches below that render no
+	// picker at all (an unreachable catalog, and the on-device tier, which hides the picker
+	// while still naming a voice).
+	const deckLang = React.useMemo(() => frontMatterLang(source) ?? undefined, [source]);
+	const languageWarning = voiceLanguageMismatch(value.voice.model, value.voice.voice, deckLang);
 
 	// The workspace's own cloud voice is the default narrator, so a deck ships sounding like
 	// the rehearsal unless the author says otherwise.
@@ -435,6 +457,16 @@ export function NarrationExportOptions({
 									/>
 								)}
 							</div>
+
+							{/* The voice is the language control, so a mismatch is stated wherever the author can
+							    still change it — OUTSIDE the block above, which the on-device tier hides. */}
+							{languageWarning && (
+								<div className="flex items-start gap-1.5 text-[11.5px] leading-snug text-[var(--warn,#9a6a00)]">
+									<TriangleAlert className="mt-0.5 size-3 shrink-0" />
+									<span>{languageWarning}</span>
+								</div>
+							)}
+							<Announce message={languageWarning ?? ''} />
 
 							{/* The bill. Stated before the button, always. */}
 							<dl className="space-y-1 rounded-lg bg-[var(--accent-soft)] px-3 py-2.5 text-[11.5px]">

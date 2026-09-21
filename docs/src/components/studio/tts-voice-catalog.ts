@@ -367,7 +367,9 @@ export function voiceLanguageMismatch(modelId: string, voiceId: string, deckLang
 	// the same table the picker groups by, so the two sides cannot drift.
 	const spoken = VOICE_LABEL_SUBTAG[meta.langLabel];
 	if (!spoken || spoken === want) return null;
-	return `This deck declares \`lang: ${want}\` but the chosen voice speaks ${meta.langLabel}. Neither speech engine takes a language parameter — the voice is what sets the language — so the deck will be read in ${meta.langLabel}.`;
+	// Plain prose, no markdown: this string is rendered straight into JSX, where a backtick
+	// shows as a literal backtick rather than as code.
+	return `This deck declares lang: ${want}, but the chosen voice speaks ${meta.langLabel}. Neither speech engine takes a language parameter — the voice is what sets the language — so the deck will be read in ${meta.langLabel}.`;
 }
 
 /** Voice-language LABEL → base subtag. The labels come from the three `*_LANG_FULL` tables

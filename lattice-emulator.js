@@ -5903,7 +5903,7 @@ async function projectDeckSpeechFromHtml(docHtml, browser, g) {
 // narrate content, so the two flags are independent.
 async function writeCaptionsSidecar(outPath, slideCount, captions = [], script = []) {
   const { buildReadAlong, emphasisForResolved, mergeNarration } = require('./lib/core/read-along-build.js');
-  const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
+  const { readAlongProblems, readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
   const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
   // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
   // front-matter `captions:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
@@ -6068,6 +6068,12 @@ async function writeCaptionsSidecar(outPath, slideCount, captions = [], script =
   if (!readAlong.slides.length) {
     if (!QUIET) console.log('Captions: nothing to narrate (no caption overrides, no projectable slide prose) — no .vtt written');
     return;
+  }
+  // A structurally broken track (a non-finite or out-of-order time) is DROPPED by the
+  // serializer rather than written as `NaN:NaN:NaN.NaN` — so say which slide went and why,
+  // or the deck quietly loses a caption nobody can account for.
+  for (const { index, problems } of readAlongProblems(readAlong)) {
+    if (!QUIET) console.warn(`  note: slide ${index + 1}'s caption track is not serializable and was dropped — ${problems.join('; ')}`);
   }
   fs.writeFileSync(`${base}.vtt`, readAlongToVtt(readAlong)); // deck-level, continuous
   const parts = readAlongToVttParts(readAlong); // per-slide, slide-relative

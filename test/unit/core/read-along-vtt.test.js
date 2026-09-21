@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
 	formatTimestamp,
+	readAlongProblems,
 	readAlongToVtt,
 	readAlongToVttParts,
 } = require('../../../lib/core/read-along-vtt.js');
@@ -76,4 +77,84 @@ test('slides without a track are skipped; sorted by index; empty → header only
 	assert.deepEqual(parts.map((p) => p.index), [1, 2], 'skips the track-less slide, sorts by index');
 	assert.equal(readAlongToVtt({ slides: [] }), 'WEBVTT\n', 'empty deck → header only');
 	assert.equal(readAlongToVtt(null), 'WEBVTT\n', 'nullish readAlong → header only');
+});
+
+// ── a broken track never poisons the deck timeline ────────────────────────────
+// NOT the failure the 2026-09-20 audit described. It said a NaN time serializes as
+// `NaN:NaN:NaN.NaN`; `formatTimestamp` was hardened in the same PR and clamps to zero,
+// so that is stale. What actually happens is quieter and worse, and is measured below:
+// `readAlongToVtt` accumulates `offset += track.durationMs`, so ONE slide with a
+// non-finite duration collapses every LATER slide to `00:00:00.000 --> 00:00:00.000` in
+// a perfectly valid file. Reachable: `suono/stage.ts:291` computes
+// `(buffer.duration || 0) * 1000`. `validateTrack` shipped as the answer and had no caller.
+
+/** A track whose one cue carries `bad` as its end time. */
+function brokenTrack(bad) {
+	return track(1800, [
+		cue('Revenue grew.', 0, bad, [
+			{ display: 'Revenue', spoken: 'Revenue', startMs: 0, endMs: 900, charOffset: 0 },
+			{ display: 'grew.', spoken: 'grew.', startMs: 900, endMs: bad, charOffset: 8 },
+		]),
+	]);
+}
+
+test('readAlongProblems: names the slide and the defect, and is empty for a sound deck', () => {
+	assert.deepEqual(readAlongProblems({ slides: [{ index: 0, track: slide0 }, { index: 1, track: slide1 }] }), []);
+	const found = readAlongProblems({ slides: [{ index: 0, track: slide0 }, { index: 1, track: brokenTrack(Number.NaN) }] });
+	assert.equal(found.length, 1);
+	assert.equal(found[0].index, 1);
+	assert.match(found[0].problems.join(' '), /non-finite/);
+});
+
+test('readAlongToVtt: a broken cue is dropped, and the sound slides still ship', () => {
+	const vtt = readAlongToVtt({ slides: [{ index: 0, track: slide0 }, { index: 1, track: brokenTrack(Number.NaN) }] });
+	// (Cue text carries karaoke timestamps between words, so match the words, not the run.)
+	assert.match(vtt, /Revenue .*grew\./);
+	assert.equal(vtt.split('-->').length - 1, 1); // exactly the one sound cue
+	for (const line of vtt.split('\n').filter((l) => l.includes('-->'))) {
+		assert.match(line.trim(), /^\d\d:\d\d:\d\d\.\d\d\d --> \d\d:\d\d:\d\d\.\d\d\d$/);
+	}
+});
+
+test('readAlongToVtt: ONE non-finite duration does not collapse every LATER slide to zero', () => {
+	// THE MEASURED DEFECT. Unguarded, `offset += NaN` makes the running sum NaN, and
+	// `formatTimestamp` clamps each poisoned time to zero — so slides 2 and 3 both come
+	// out `00:00:00.000 --> 00:00:00.000` in a file that parses perfectly.
+	const nanDuration = { durationMs: Number.NaN, cues: slide1.cues };
+	const vtt = readAlongToVtt({
+		slides: [{ index: 0, track: nanDuration }, { index: 1, track: slide1 }, { index: 2, track: slide0 }],
+	});
+	const spans = vtt.split('\n').filter((l) => l.includes('-->')).map((l) => l.trim());
+	// Two surviving slides, laid out end to end from zero — NOT stacked at 00:00:00.000.
+	assert.deepEqual(spans, ['00:00:00.000 --> 00:00:01.000', '00:00:01.000 --> 00:00:02.800']);
+	assert.equal(new Set(spans).size, spans.length); // no two cues share a span
+});
+
+test('readAlongToVttParts: drops only the broken slide, keeping the others', () => {
+	const parts = readAlongToVttParts({
+		slides: [{ index: 0, track: slide0 }, { index: 1, track: brokenTrack(Number.NaN) }, { index: 2, track: slide1 }],
+	});
+	assert.deepEqual(parts.map((p) => p.index), [0, 2]);
+	for (const p of parts) assert.doesNotMatch(p.vtt, /NaN/);
+});
+
+test('readAlongToVtt: an OUT-OF-ORDER track is dropped too — the cursor cannot binary-search it', () => {
+	// Not a NaN, so it serializes into perfectly well-formed text — and then `makeCursor`'s
+	// binary search returns null at every probe and the highlight goes permanently dark.
+	const outOfOrder = track(2000, [
+		cue('Second.', 1000, 2000, [{ display: 'Second.', spoken: 'Second.', startMs: 1000, endMs: 2000, charOffset: 0 }]),
+		cue('First.', 0, 1000, [{ display: 'First.', spoken: 'First.', startMs: 0, endMs: 1000, charOffset: 0 }]),
+	]);
+	const found = readAlongProblems({ slides: [{ index: 0, track: outOfOrder }] });
+	assert.match(found[0]?.problems.join(' ') ?? '', /out of order|before cue/);
+	assert.equal(readAlongToVttParts({ slides: [{ index: 0, track: outOfOrder }] }).length, 0);
+});
+
+test('a sound deck is byte-identical to what it was before validation was added', () => {
+	// The guard must be invisible to every deck that was already fine — otherwise it is a
+	// silent output change dressed as a safety net.
+	const sound = { slides: [{ index: 0, track: slide0 }, { index: 1, track: slide1 }] };
+	assert.match(readAlongToVtt(sound), /00:00:00\.000 --> 00:00:01\.800/);
+	assert.match(readAlongToVtt(sound), /00:00:01\.800 --> 00:00:02\.800/);
+	assert.equal(readAlongToVttParts(sound).length, 2);
 });
