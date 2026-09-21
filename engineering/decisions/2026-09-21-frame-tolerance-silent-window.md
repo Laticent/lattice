@@ -6,8 +6,8 @@ summary: >-
   probe deck: 12px prints nothing, 13px prints the frame warning. A sweep of all 334 shipped decks
   (4026 slides, real Chromium, each rendered as authored) says the window is not theoretical — 34
   slides across 21 decks sit in it, and 18 of those 34 are ones the truthful content probe calls a
-  cut at zero tolerance. Across the whole corpus that probe finds 28 silent cuts, 27 of them BODY
-  content rather than caption-footer chrome; this change names 18 and ten stay silent. The tolerance is NOT changed
+  cut at zero tolerance. Across the whole corpus that probe finds 27 silent cuts, 26 of them BODY
+  content rather than caption-footer chrome; this change names 18 and nine stay silent. The tolerance is NOT changed
   here: it feeds `buildSplitVerdict`, so lowering it re-decides autosplit corpus-wide and adds 34
   slides to a ratchet nobody has fixed. What changes is the SILENCE — the export now names the
   slides in the band and points at `check:chart-fit`, which adjudicates it with 1.5px of slack.
@@ -44,13 +44,13 @@ The boundary is exactly the tolerance: **12px silent, 13px reported**. That matc
 independent finding (`-18.6px` reported, `-10.2px` not) and its live instance — a gantt painting
 10.2px outside a stage that is `overflow: clip`.
 
-**The window, across the shipped corpus.** Every deck the `overflow:check` glob covers — 335
-decks, 4043 slides — real Chromium, each slide probed at tolerances 0 · 1 · 2 · 3 · 4 · 6 · 8 · 12
-in one render. Of the 4013 slides the export says nothing about today:
+**The window, across the shipped corpus.** Every deck the `overflow:check` glob covers — 334
+decks, 4026 slides — real Chromium, each slide probed at tolerances 0 · 1 · 2 · 3 · 4 · 6 · 8 · 12
+in one render. Of the 3996 slides the export says nothing about today:
 
 | excess past the frame | slides |
 |---|---|
-| 0 | 3955 |
+| 0 | 3938 |
 | (0, 1] | 6 |
 | (1, 2] | 16 |
 | (2, 3] | 2 |
@@ -60,12 +60,12 @@ in one render. Of the 4013 slides the export says nothing about today:
 | (8, 12] | 12 |
 | **(3, 12] total** | **34** |
 
-The `(0, 2]` band is phantom and it is worth naming why, because it is what the tolerance is
-genuinely for: **14 of the 16 slides in `(1, 2]` are the same `split-panel metric` slide**
-repeated across the `token-contrast` decks, all at exactly 2px — and `probeContentClipped`
-answers `cut: false` on every slide in that band, all 22 of them. No ink outside any box. Above
-3, the measured ink tracks the number: excess 4 → 4.02px of a `<strong>` outside its box, 6 →
-5.58, 11 → 10.64, and 18 of the 34 come back `cut: true`.
+The `(0, 2]` band is mostly phantom, and it is worth naming why, because it is what the tolerance is
+genuinely for: **14 of the 16 slides in `(1, 2]` are the same `split-panel metric` slide**, all at
+exactly 2px — 13 of them the same page 8 across the `token-contrast` decks, the 14th that layout's
+own gallery page. `probeContentClipped` answers `cut: false` on 19 of the 22 slides in `(0, 2]`.
+Above 3, the measured ink tracks the number: excess 4 → 4.02px of a `<strong>` outside its box,
+6 → 5.58, 11 → 10.64, and 18 of the 34 come back `cut: true`.
 
 **THE FLOOR IS NOT A CLAIM THAT NOTHING IS LOST BELOW IT**, and the first draft of this note said
 it was: *"probeContentClipped answers `cut: false` on every slide in that band."* Its own dataset
@@ -82,9 +82,9 @@ Two of them at three hundredths of a pixel. That is not a flaw in the floor — 
 the section's scroll height at all, so **section excess is uncorrelated with loss at the low end**
 and no floor on it can be a completeness claim.
 
-**WHAT THE ADVISORY BUYS, AND WHAT IT DOES NOT.** Of the 28 slides the truthful probe calls a
-silent cut, this change names **18**. **Ten stay silent, nine of them body content** — and lowering
-the floor would not reach them, because eight sit at excess 0:
+**WHAT THE ADVISORY BUYS, AND WHAT IT DOES NOT.** Of the 27 slides the truthful probe calls a
+silent cut, this change names **18**. **Nine stay silent, eight of them body content** — and lowering
+the floor would not reach them, because six sit at excess 0:
 
 | deck | page | excess | first cut |
 |---|---|---|---|
@@ -98,9 +98,13 @@ the floor would not reach them, because eight sit at excess 0:
 | `legal/legal.gallery.md` | 25 | 0.02 | `"Added"` |
 | `legal/regulatory-update/regulatory-update.gallery.md` | 6 | 0.03 | `"Added"` |
 
-*(A tenth, `examples/gantt-status-key.md` p4, was in the sweep and is not in this list: it was this
-branch's own demo deck, 4.6px over its stage, and it was trimmed before the branch shipped —
-`check-chart-fit` is green on it now. HARD RULE #18: a window this branch created, closed here
+*(A tenth was in the sweep and is not in this list: `examples/gantt-status-key.md` p4, this
+branch's own demo deck. The content probe called it a cut in the authored frame at section excess
+**0** — the chart SVG crossed a box edge without moving the scroll height at all, the same
+uncorrelation the three-row table above makes — and `check-chart-fit` put it **11.2px** past
+`.cell-stage` at portrait. Repacking one lane from three sub-rows to two closed both, and the deck
+was re-probed to confirm it. That is why the totals here read 27 / nine / six rather than the
+28 / ten / seven the raw sweep recorded. HARD RULE #18: a window this branch created, closed
 rather than logged.)*
 
 Reaching those nine needs the CONTENT probe run on every slide rather than only on the ones the
@@ -186,7 +190,7 @@ holds; recorded because asserting it early is the failure this note is about.) I
 NOT MEASURED` precedent — "not measured" is an honest answer, a quiet pass is not (HARD RULE #23).
 
 **`NEAR_MISS_FLOOR = 3` is taken from the distribution above**, not from taste. It costs an
-advisory on 34 slides across 21 of 335 decks — 6.3% of the corpus. The advisory reads the
+advisory on 34 slides across 21 of 334 decks — 6.3% of the corpus. The advisory reads the
 VERTICAL excess (`scrollH - clientH`) off the probe call the export already makes, so it adds no
 measurement: `scrollH` and `clientH` are not gated by the tolerance, which only decides `over`,
 `overCells` and `clipSuspect`. An earlier cut probed a second time at zero tolerance and bought

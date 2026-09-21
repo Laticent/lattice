@@ -21,14 +21,17 @@
   rebuilt in this tree" arm could not fire for the showcase gallery, whose PDFs
   live in `examples/`. `isRenderInput` still decides what counts as an input.
   Measured cost: about 5ms on one memoized `git status`.
-- **Fixed: a freshness gate that went GREEN after the second edit.** The arm above
-  answered "already rebuilt in this tree" from the fact that the artifact was
-  dirty, which is only true if nothing changed *after* that rebuild. So the loop
-  edit → build → edit again reported "deck, PDF and render inputs all match" while
-  the artifact showed the first edit — the same failure this change set out to fix,
-  one iteration later. The arm now asks whether the artifact is newer than the
-  newest changed input. This also closes the hole for the component and bucket
-  gallery gates, where it was reachable already.
+- **Known limit, now written down and pinned by a test: a dirty PDF still reads
+  fresh.** That arm answers "already rebuilt in this tree" from the artifact being
+  dirty, which only holds if nothing changed *after* the rebuild — so edit → build →
+  edit again reports "all match" while the artifact shows the first edit. It predates
+  this change and the component and bucket gates share it. An mtime comparison was
+  tried here and **reverted**, because it is unsound in both directions: `git stash
+  pop` restores dirty inputs and a dirty artifact together, so their relative mtimes
+  become checkout order and a zero-content-change tree reports stale, and a *deleted*
+  input stats as absent, sorts oldest and reads fresh. Both were measured. The sound
+  fix is content-addressed — have the builder write the hash of the inputs it consumed
+  beside the artifact — and is its own change.
 - **Changed: `build:showcase-galleries:check` is red more often, on purpose.** Any
   uncommitted `.css`/`.js` under `lib/`, `themes/` or `dist/` now makes the
   showcase PDFs stale — the same posture the component and bucket gates already

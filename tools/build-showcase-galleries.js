@@ -144,8 +144,11 @@ function buildFreshness(showcase, theme, mdFresh) {
   // "git could not answer" is not "everything matches", and saying the second is the
   // guessing this module's header refuses. The helper hands back its own reason when it
   // declined to judge; pass it through rather than overwriting it with a claim.
-  return { fresh: true, reason: st.reason || 'deck, PDF and render inputs all match' };
+  return { fresh: true, reason: st.reason || ALL_MATCH };
 }
+
+/** The one `fresh` reason that IS a claim. Any other is a caveat `main` must print. */
+const ALL_MATCH = 'deck, PDF and render inputs all match';
 
 function buildOne(showcase, groups, theme, mdFresh) {
   const md = composeShowcase(showcase, groups);
@@ -153,8 +156,9 @@ function buildOne(showcase, groups, theme, mdFresh) {
   // Idempotent: skip the render entirely when nothing that feeds it has moved. This
   // keeps the pre-commit rebuild a no-op for an up-to-date deck (no wasted Chromium,
   // and no transient .tmp.md/.html in examples/ racing a parallel check-ownership scan).
-  if (buildFreshness(showcase, theme, mdFresh).fresh) {
-    return { id: showcase.id, theme, skipped: true };
+  const f = buildFreshness(showcase, theme, mdFresh);
+  if (f.fresh) {
+    return { id: showcase.id, theme, skipped: true, reason: f.reason };
   }
   // Persist the light-theme markdown as the canonical source (dark is injected).
   if (theme === 'light' && !mdFresh) fs.writeFileSync(mdPath, md);
@@ -212,6 +216,13 @@ function main(argv) {
   const groups = groupByBucket(loadAll());
   const stale = [];
   const failures = [];
+  // A `fresh` verdict the helper DECLINED to make — today only "git cannot answer" — is
+  // not the same as "everything matches", and until now it died inside buildFreshness:
+  // every fresh path printed the same `already fresh` line and threw the reason away, so
+  // the one run where the check did not actually run looked identical to the ones where
+  // it did. Collected here and printed once, because it is a property of the RUN.
+  const caveats = new Set();
+  const noteFresh = (reason) => { if (reason && reason !== ALL_MATCH) caveats.add(reason); };
   let built = 0;
   let upToDate = 0;
 
@@ -223,18 +234,18 @@ function main(argv) {
     for (const theme of targetThemes) {
       if (checkMode) {
         const r = checkOne(showcase, groups, theme);
-        if (r.stale) stale.push(r); else upToDate += 1;
+        if (r.stale) stale.push(r); else { upToDate += 1; noteFresh(r.reason); }
         continue;
       }
       if (dryRun) {
         const f = buildFreshness(showcase, theme, mdFresh);
-        if (f.fresh) { upToDate += 1; process.stdout.write(`· ${showcase.id} [${theme}]: already fresh\n`); }
+        if (f.fresh) { upToDate += 1; noteFresh(f.reason); process.stdout.write(`· ${showcase.id} [${theme}]: already fresh\n`); }
         else { built += 1; process.stdout.write(`↻ ${showcase.id} [${theme}]: would rebuild — ${f.reason}\n`); }
         continue;
       }
       try {
         const r = buildOne(showcase, groups, theme, mdFresh);
-        if (r.skipped) { upToDate += 1; process.stdout.write(`· ${r.id} [${theme}]: already fresh\n`); }
+        if (r.skipped) { upToDate += 1; noteFresh(r.reason); process.stdout.write(`· ${r.id} [${theme}]: already fresh\n`); }
         else if (r.failed) { failures.push(r); process.stderr.write(`✗ ${r.id} [${theme}]: render failed\n`); }
         else { built += 1; process.stdout.write(`✓ ${r.id} [${theme}]: ${r.members} members, ${(r.bytes / 1024).toFixed(0)}kb\n`); }
       } catch (e) {
@@ -244,6 +255,7 @@ function main(argv) {
     }
   }
 
+  for (const c of caveats) process.stdout.write(`ⓘ render inputs were NOT checked on some entries — ${c}\n`);
   if (checkMode) {
     if (stale.length === 0) { process.stdout.write(`✓ all ${upToDate} showcase-gallery PDFs up to date\n`); return 0; }
     process.stderr.write(`✗ ${stale.length} showcase-gallery PDFs are stale:\n`);

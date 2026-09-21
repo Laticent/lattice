@@ -9,8 +9,8 @@
   `overflow:check` ratchet is unchanged — measured on the shipped tree, which reports
   exactly one deck above its baseline, and that one is equally red on `main`. The
   sweep found **34 slides in the band, 18 of them losing real content**; across the
-  whole corpus the truthful probe finds 28 silent cuts, so this names 18 and **ten
-  stay silent, nine of them body content**. Both sets are named, and the tolerance
+  whole corpus the truthful probe finds 27 silent cuts, so this names 18 and **nine
+  stay silent, eight of them body content**. Both sets are named, and the tolerance
   recommendation recorded, in
   `engineering/decisions/2026-09-21-frame-tolerance-silent-window.md`.
 - **Changed: the fit tolerance is one constant.** `FRAME_TOLERANCE` in

@@ -20,8 +20,11 @@
  * this test, which asserted only the two case-SENSITIVE literals and so passed it. The
  * forbidden set below is the union of what all three tools can match.
  *
- * Pinned by the SOURCE STRING rather than by a render, so it costs no Chromium and
- * fails the moment someone rewords the line rather than the next time a sweep runs.
+ * Pinned by the FORMAT STRING rather than by a render, so it costs no Chromium and
+ * fails the moment someone rewords the line rather than the next time a sweep runs. The
+ * page-shape assertions read the string with its `${…}` holes filled, because in the
+ * source the page number starts with `$` — so `page ${o.slide}` would slip past a check
+ * for `page` followed by a digit while rendering as `page 3`.
  */
 
 const { test, describe } = require('node:test');
@@ -52,9 +55,24 @@ function advisoryLines() {
   return printed.join('\n');
 }
 
+/**
+ * The advisory as a READER sees it: every `${…}` collapsed to a digit, quoting and
+ * whitespace normalized.
+ *
+ * The page-shape assertion has to run against THIS, not against the source. In the
+ * source the page number is `${o.slide}`, which begins with `$` — so a reword to
+ * `page ${o.slide}` leaves `/pages?\s+\d/` unmatched and walks through a test whose
+ * whole job is to stop it, while `calibrate-core` harvests the rendered line. A
+ * checker found exactly that hole in the first cut.
+ */
+function renderedAdvisory() {
+  return advisoryLines().replace(/\$\{[^}]*\}/g, '3').replace(/[`'"]/g, '').replace(/\s+/g, ' ');
+}
+
 describe('the near-miss advisory (#2252)', () => {
   test('carries no token any of the three harvesters can key on', () => {
     const block = advisoryLines();
+    const rendered = renderedAdvisory();
     // CASE-INSENSITIVE, because `tools/lib/calibrate-core.js` is. The first version of
     // this test used /OVERFLOW/ and a lowercase reword walked straight through it.
     assert.equal(/overflow/i.test(block), false,
@@ -63,8 +81,11 @@ describe('the near-miss advisory (#2252)', () => {
       'the advisory must not print "content clipped", for the same reason');
     // …and not the page-list SHAPE either. All three harvesters want `page`/`pages`
     // followed by digits; the advisory writes `p3 (4px)` precisely so it cannot match.
-    assert.equal(/pages?\s+\d/i.test(block), false,
+    assert.equal(/pages?\s+\d/i.test(rendered), false,
       'the advisory must not write "page N" — it writes pN, so no harvester can read it');
+    // …and the same for the word itself, read off the rendered line, so neither
+    // assertion depends on the number being a literal in the source.
+    assert.equal(/overflow/i.test(rendered), false, 'nor the word "overflow" once rendered');
   });
 
   test('all three harvesters still key on the literals this guards', () => {
@@ -82,8 +103,7 @@ describe('the near-miss advisory (#2252)', () => {
   test('a rendered advisory line is inert against every harvest regex', () => {
     // Built from the SOURCE's own format string rather than hard-coded, so the
     // assertion cannot go vacuous the moment someone rewords the line it polices.
-    const block = advisoryLines();
-    const line = block.replace(/\$\{[^}]*\}/g, '3').replace(/[`'"]/g, '').replace(/\s+/g, ' ');
+    const line = renderedAdvisory();
     for (const re of [
       /OVERFLOW[^\n]*?pages? ([\d,\s]+)/,
       /CONTENT CLIPPED[^\n]*?pages? ([\d,\s]+)/,

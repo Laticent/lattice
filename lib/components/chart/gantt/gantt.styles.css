@@ -235,41 +235,28 @@
  * (HARD RULE #3), the a11y palettes, grayscale print and a photocopied handout —
  * all the channels where one more shade of neutral resolves to the same gray.
  *
- * The numbers are USER UNITS, so the dash scales with the bar it outlines rather than
- * holding a fixed physical size. Measured: 9.6px on a landscape 480u viewBox and 13.0px
- * on a portrait 300u one — 35% larger — against bars that are themselves 28.8px and
- * 51.8px tall. That is deliberately the OPPOSITE call from `--gantt-accent` and the
- * today rule, which are fixed physical weights and are emitted per orientation for
- * exactly the reason `gantt.transform.js` § GANTT_ACCENT_FRAC gives: a user-unit
- * constant is two different physical values. A dash on a bar wants to scale with the
- * bar; a hairline does not. An earlier version of this comment claimed the dash "reads
- * the same on both", which is what the accent comment says is impossible, and a
- * HARD RULE #25 checker measured that it does not.
+ * THE DASH IS IN CSS PIXELS, NOT USER UNITS, and that is not obvious from this line.
+ * Every gantt mark joins the family rule that sets `vector-effect: non-scaling-stroke`,
+ * which re-scopes the dash ARRAY as well as the width — so `4 2.5` is 4px on and 2.5px
+ * off at every viewBox and every orientation, exactly like `--gantt-accent`. The heatmap
+ * member documents the same surprise on its own dotted edge; this is that fact again.
  *
- * 4/2.5 is a 6.5u cycle: ~26 cycles along a two-quarter bar, 5.5 around the 9x9 legend
- * swatch. (An earlier draft said "~3 dashes along a short bar" — that would need a 20u
- * bar, which nothing ships.)
+ * Measured on the real render: a two-quarter bar takes ~64 cycles of the 6.5px pattern,
+ * the 9x9 legend swatch ~13, and a milestone diamond ~10.5 — about 2.6 dashes a side,
+ * which reads. One pattern serves all three because the pattern is physical.
  *
- * The ACCENT is excluded for the same reason it keeps its opacity: it is ~4 units
- * wide, so a dash pattern on it deletes most of the leading cue. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-legend-swatch)[data-s="deferred"] {
+ * THIS COMMENT PREVIOUSLY ARGUED THE OPPOSITE — that the numbers were user units and so
+ * "scaled with the bar", with a 9.6px/13.0px landscape-vs-portrait table — and a
+ * HARD RULE #25 checker refuted it against a real render. A follow-on change halved the
+ * pattern for milestones to fix "chipped corners" that the arithmetic had invented; both
+ * the halving and its justification are reverted here. `gantt.transform.js`
+ * § GANTT_ACCENT_FRAC is the case where a user-unit constant really would be two
+ * physical values — it applies to geometry the transform emits, not to a stroke the
+ * renderer holds at a fixed width. */
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="deferred"] {
   fill-opacity: 0.18;
   stroke-dasharray: 4 2.5;
 }
-/* THE DIAMOND NEEDS ITS OWN RHYTHM, because a dash is a fraction of a PERIMETER and a
- * milestone's is tiny beside a bar's. Measured: a deferred bar spanning two quarters is
- * ~173 user units along its top edge — 26 cycles of the 6.5u pattern above — while a
- * milestone is `barH * 0.42` in radius, so ~28.5u the whole way round: 4.4 cycles, about
- * one dash per side. That reads as a chipped outline rather than a dashed one, which a
- * HARD RULE #25 checker caught by rendering the case the demo deck did not ship.
- * Halving the pattern gives ~8.8 cycles, a little over two per side, which reads. The
- * 9x9 legend swatch keeps the bar's pattern — at 5.5 cycles it already reads as dashed,
- * and the swatch must match the BAR it keys. */
-:is(section.gantt, figure.gantt) .gantt-milestone[data-s="deferred"] {
-  fill-opacity: 0.18;
-  stroke-dasharray: 2 1.25;
-}
-
 /* Unparseable / missing span — a muted full-width placeholder so the task stays
  * visible (lint-core flags the cause); never a silent drop. */
 :is(section.gantt, figure.gantt) .gantt-bar--unscaled {

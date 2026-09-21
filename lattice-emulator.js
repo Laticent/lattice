@@ -3880,7 +3880,7 @@ async function renderBody(browser, g, closeBrowser) {
     const reported = new Set([...overflowing, ...contentOnly.map((o) => o.slide)]);
     const quiet = nearMiss.filter((o) => !reported.has(o.slide));
     if (quiet.length) {
-      console.warn(`  ⓘ INSIDE THE FIT TOLERANCE — ${quiet.length} slide${quiet.length > 1 ? 's' : ''} paint past a box that crops ` +
+      console.warn(`  ⓘ INSIDE THE FIT TOLERANCE — ${quiet.length} slide${quiet.length > 1 ? 's' : ''} ${quiet.length > 1 ? 'paint' : 'paints'} past a box that crops ` +
         `by less than the ${FRAME_TOLERANCE}px budget every check above is read against, so nothing reports ` +
         `${quiet.length > 1 ? 'them' : 'it'}: ${quiet.map((o) => `p${o.slide} (${o.px}px)`).join(', ')}.`);
       console.warn('    That box clips, so the pixels are gone from the export either way. Check those slides by eye,');

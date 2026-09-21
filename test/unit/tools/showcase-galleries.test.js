@@ -24,12 +24,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadAll, groupByBucket } = require('../../../lib/components');
 const {
-  SHOWCASES, composeShowcase, galleryMarkdownPath, galleryPdfPath, showcaseComponentNames,
+  SHOWCASES, composeShowcase, galleryMarkdownPath, showcaseComponentNames,
   buildFreshness,
 } = require('../../../tools/build-showcase-galleries');
 
 const groups = groupByBucket(loadAll());
-const ROOT = path.join(__dirname, '..', '..', '..');
 
 describe('showcase galleries', () => {
   for (const showcase of SHOWCASES) {
@@ -98,7 +97,7 @@ describe('showcase galleries', () => {
      * does nothing — the binding is already captured. Dropping them from the require
      * cache first is what makes the seam real; this cost one debugging round.
      */
-    function withStubs(fn, { deckDrifts = false, dirty = [] } = {}) {
+    function withStubs(fn, { deckDrifts = false, dirty = [], gitFails = false } = {}) {
       const cp = require('node:child_process');
       const realExec = cp.execFileSync;
       const realRead = fs.readFileSync;
@@ -110,6 +109,7 @@ describe('showcase galleries', () => {
       try {
         cp.execFileSync = (bin, args) => {
           if (bin === 'git' && args[0] === 'status') {
+            if (gitFails) throw new Error('not a git repository');
             return dirty.map((x) => `M  ${x}`).join('\0') + (dirty.length ? '\0' : '');
           }
           rendered.push(path.basename(String(args[args.length - 3] || '')));
@@ -165,34 +165,45 @@ describe('showcase galleries', () => {
       assert.match(st.reason, /gantt\.styles\.css/, 'the reason must name the input it saw');
     });
 
-    test('a rebuild does not thrash, but a LATER edit is caught (#2253 round two)', () => {
-      // A checker reproduced the hole this closes: once the PDF is dirty, the helper's
-      // "already rebuilt in this tree" arm answered fresh forever, so a SECOND engine
-      // edit reported fresh — the same bug one iteration later, with the gate printing
-      // "render inputs all match" while they did not.
-      const pdf = galleryPdfPath(dv.id, 'light');
-      const css = path.join(ROOT, 'lib/components/chart/gantt/gantt.styles.css');
-      const both = ['lib/components/chart/gantt/gantt.styles.css', 'examples/data-viz-gallery.light.pdf'];
-      // BOTH mtimes are pinned, relative to each other rather than to the clock. An
-      // earlier cut set only the input to `now - 60s` and the PDF happened to be older
-      // than that already, so the "fresh" arm never fired and the test failed for a
-      // reason that had nothing to do with the behavior.
-      const pdfAt = fs.statSync(pdf).mtime;
-      const cssAt = fs.statSync(css).mtime;
-      const T = Date.now();
-      const at = (ms) => new Date(T + ms);
+    test('a run where git could not answer SAYS so (it used to print `already fresh`)', () => {
+      // The reason existed and reached nobody: `buildFreshness` passed
+      // "git cannot answer — not checked" through, and all three fresh paths in `main`
+      // printed the same `already fresh` line and dropped it. So the one run where the
+      // render-input check did not actually RUN looked exactly like the runs where it
+      // passed — a quiet pass, which is the failure this branch is about (HARD RULE #23).
+      const out = [];
+      const realWrite = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (chunk) => { out.push(String(chunk)); return true; };
       try {
-        fs.utimesSync(pdf, at(0), at(0));
-        fs.utimesSync(css, at(-60_000), at(-60_000));           // input older than the PDF
-        assert.equal(buildFreshnessWith(both).fresh, true, 'a PDF rebuilt after its inputs is fresh');
-        fs.utimesSync(css, at(60_000), at(60_000));             // …and then edited again
-        const after = buildFreshnessWith(both);
-        assert.equal(after.fresh, false, 'an input touched AFTER the rebuild must not read as fresh');
-        assert.match(after.reason, /AFTER the last rebuild/);
+        runMain(['--dry-run'], { gitFails: true });
       } finally {
-        fs.utimesSync(css, cssAt, cssAt);
-        fs.utimesSync(pdf, pdfAt, pdfAt);
+        process.stdout.write = realWrite;
       }
+      const printed = out.join('');
+      assert.match(printed, /render inputs were NOT checked/, 'the caveat must reach stdout');
+      assert.match(printed, /git cannot answer/, 'and it must name why');
+      // Once per run, not once per showcase × theme.
+      assert.equal(printed.split('render inputs were NOT checked').length - 1, 1);
+    });
+
+    test('a dirty PDF reads fresh — the arm this fix does NOT close', () => {
+      // Stated as a test rather than left to a comment, because it is the one place the
+      // helper can still answer "fresh" over a stale artifact: once the PDF is dirty in
+      // this working tree, `stalenessAgainstInputs` reads that as "a rebuild already
+      // happened" and stops asking. Edit the engine, build, edit again, and this arm
+      // still says fresh.
+      //
+      // An mtime comparison was tried here and reverted: `git stash pop` restores dirty
+      // inputs and a dirty artifact together, so their relative mtimes become checkout
+      // ORDER and a zero-content-change tree reports stale — and a DELETED input stats as
+      // absent, sorts oldest, and reads fresh. The sound fix is content-addressed and is
+      // its own change. This test pins the CURRENT answer so that change has to move it.
+      const both = ['lib/components/chart/gantt/gantt.styles.css', 'examples/data-viz-gallery.light.pdf'];
+      assert.equal(buildFreshnessWith(both).fresh, true,
+        'a dirty PDF still short-circuits to fresh — change this line when content-addressing lands');
+      // …while the same input change WITHOUT a dirty PDF is caught, which is the fix.
+      const st = buildFreshnessWith(['lib/components/chart/gantt/gantt.styles.css']);
+      assert.equal(st.fresh, false, 'a changed input over a clean PDF must be stale');
     });
 
     test('a missing PDF is stale even when the deck matches', () => {

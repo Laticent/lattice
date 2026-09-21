@@ -20,16 +20,15 @@ header: "Lattice · gantt status key"
 
 `2026 Q1 .. 2026 Q4`
 
-## Two bars, one meaning each, and the key explained one.
+## Two neutrals, and the key named one.
 
-`Org-wide log` has no status. `CSV retirement` and the `Purge gate` diamond are deferred. The bars used to be one pale shape with the same neutral edge — and while `deferred` always had a chip, the unstated bar had none, so the key explained one of the two.
+`Org-wide log` has no status; `CSV retirement` and the `Purge gate` diamond are deferred. Only `deferred` ever had a chip.
 
 - Intake
   - Connector wiring `Q1..Q2` `done`
   - CSV retirement `Q3..Q4` `deferred`
 - Decision Log
-  - Pilot log `Q1..Q2` `at-risk`
-  - Org-wide log `Q3..Q4`
+  - Org-wide log `Q1..Q2`
   - Purge gate `Q3` `milestone` `deferred`
 
 ---
@@ -38,12 +37,12 @@ header: "Lattice · gantt status key"
 
 ## Read the key, then the bars.
 
-The chip without a hue is `no status` — the bar nobody labeled. It appears only when a chart carries an unstated task AND already draws a key, because a chart with no declared status has no ambiguity to resolve.
+The chip without a hue is `no status` — the bar nobody labeled. It appears only when a chart carries an unstated task *and* already draws a key.
 
 - The dash, not a shade
-  - `deferred` keeps the hollow body it already had and gains `stroke-dasharray`. Opacity alone was 18% of a ramp that is already a pale tint, so the difference was there to be hunted for rather than seen.
+  - `deferred` keeps its hollow body and gains `stroke-dasharray`. Opacity alone was 18% of a ramp that is already a pale tint — a difference to be hunted for rather than seen.
 - The neutral has a name now
-  - A chip with no status falls to the swatch's own neutral fallback, so it cannot impersonate a declared one. `unscaled` — the placeholder for a task with no parseable span — is deliberately not keyed: `lint:deck` names that cause, and one chip may carry one meaning.
+  - A chip with no status falls to the swatch's own neutral fallback, so it cannot impersonate a declared one. `unscaled` is deliberately not keyed: `lint:deck` already names that cause, and one chip carries one meaning.
 
 ---
 
@@ -52,9 +51,9 @@ The chip without a hue is `no status` — the bar nobody labeled. It appears onl
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## The full ramp, so the dashed edge has neighbors.
+## The full ramp, so the dash has neighbors.
 
-Five ramps carry eleven status words, so some share. A declared status and the absence of one must not.
+Five ramps carry ten status words, so some share. A status and the absence of one must not.
 
 - Delivery
   - Signal taxonomy `Q1..Q2` `done`
@@ -62,8 +61,8 @@ Five ramps carry eleven status words, so some share. A declared status and the a
 - Holding
   - Connector retirement `Q1..Q2` `blocked`
   - Calibration cadence `Q3..Q4` `deferred`
-  - Org-wide rollout `Q1..Q4` `at-risk`
-  - Weighting review `Q2..Q3`
+  - Org-wide rollout `Q1..Q2` `at-risk`
+  - Weighting review `Q3..Q4`
 
 ---
 
@@ -89,12 +88,12 @@ Two bars on the same row, both neutral, one declared and one not. Opacity alone 
 
 ## Why a dash rather than one more neutral.
 
-Render this deck under `theme: a11y-achromatopsia` and four of the five ramps resolve to a gray — `info` keeps a blue axis. What matters is that `deferred` and an unstated bar BOTH land on the mute ramp there, so between those two the dash is the whole distinction.
+Render this deck under `theme: a11y-achromatopsia` and four of the five ramps resolve to a gray — `info` keeps a blue axis. `deferred` and an unstated bar both land on the mute ramp there, so between those two the dash is the whole distinction.
 
 - The channels a hue does not reach
-  - The five a11y palettes, grayscale print, a photocopied handout, and the `print` finish. Each one is a place where "the paler bar" stops being a distinction a reader can make.
-- Why the numbers are user units
-  - `stroke-dasharray: 4 2.5` is in viewBox units, so the dash scales with the chart. A landscape gantt draws on a 480-unit viewBox and a portrait one on 300 — the dash reads the same on both, which a px value would not.
+  - The four a11y palettes, grayscale print, a photocopied handout, and the `print` finish. Each one is a place where "the paler bar" stops being a distinction a reader can make.
+- Why the numbers are CSS pixels
+  - Every gantt mark inherits `vector-effect: non-scaling-stroke`, which re-scopes the dash *array* as well as the stroke width. So `4 2.5` is 4px on and 2.5px off on a 480-unit landscape viewBox and a 300-unit portrait one alike — one physical pattern, not two.
 
 ---
 
