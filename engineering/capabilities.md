@@ -473,6 +473,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/measure-cue-profile.mjs` | measure-cue-profile.mjs — the listenability of an emitted caption track, measured. |
 | `tools/measure-narration-coverage.mjs` | Measure how much of each component's slide actually reaches the voice. |
 | `tools/measure-token-narration.mjs` | Measure which display tokens reach the voice UNCHANGED. |
+| `tools/measure-word-cloud-drop.mjs` | measure-word-cloud-drop.mjs — which words a word cloud LISTS and does not DRAW. |
 | `tools/mutate-stage-window.mjs` | mutate-stage-window — break what each Stage-window cell NAMES, and watch it go red. |
 | `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |

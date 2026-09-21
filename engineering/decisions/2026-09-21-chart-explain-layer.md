@@ -384,9 +384,26 @@ one — a "5" nothing in this document supports, in a section whose subject is c
 nobody re-derives. A checker caught it.)*
 
 **A count narration cannot check.** `narrateWordCloud` opened on "Thirteen terms"
-over a canvas drawing twelve. Rendering every deck in the tree with a word-cloud
-slide and comparing `data-count` against the slide's top-level bullets puts it at
-2 of 34 slides, both `examples/seq-ramp-canvas-aware.md`. There is no better
+over a canvas drawing twelve. `tools/measure-word-cloud-drop.mjs` — committed,
+because a checker could not re-derive the first measurement from its description
+(it looked at `data-label`, which by construction never carries a dropped name) and
+could not tell whether "every deck in the tree" meant its 33 slides or my 34 — names
+its roots (`examples test lib docs/public`; `docs/dist` is a build copy and would
+double-count) and compares each slide's top-level bullets against the
+`<text class="wc-word">` nodes in the real render, so it reports the NAME:
+
+```
+examples/seq-ramp-canvas-aware.md slide 1: drew 12 of 13 — lost leverage
+examples/seq-ramp-canvas-aware.md slide 2: drew 12 of 13 — lost leverage
+
+2 of 34 word-cloud slides draw fewer words than they list
+```
+
+*(Its first run reported a third slide — `gallery-jargon.md`, "drew 6 of 6 — lost
+\"next quarter\"", which is its own refutation: a `<text>` node is escaped HTML and
+the Markdown is not, so it was comparing against `&quot;`. Entity and smart-quote
+normalization fixed it. A measurement tool that can report a loss on a slide that
+lost nothing is worth the extra twelve lines.)* There is no better
 count: the packer seats words on a spiral and drops what will not fit, and which
 word that is depends on glyph widths, the pack box and the rung
 `packPortraitLadder` settles on — none of which exist until the transform runs,
