@@ -16,12 +16,15 @@
  * the class of defect a bespoke assertion cannot, because a bespoke assertion only ever
  * encodes a defect you already understand.
  *
- * THE TWO SHIPPED SHELLS. The ADR's map has three surfaces and they diverge:
+ * THE THREE SHIPPED SHELLS. The ADR's map has four surfaces and they diverge:
  *   1. the ENGINE render        — what every path starts from (covered by the hand-written
  *                                 gates beside this file; NOT run through axe here)
  *   2. the EXPORT shell         — the PDF/HTML artifact people actually ship  ← gated
  *   3. the HTML PLAYER          — the self-contained "Download as webpage" deliverable ← gated
- * Axe runs on the two ARTIFACTS. Every landmark this ADR added lives in #2 and #3, so a
+ *   4. the READING ARTICLE      — `--read`, the slide stack replaced by prose ← gated
+ * `--read` joined in #2268, and it was the only shell that failed on arrival: three landmark
+ * violations from nesting its `<main>` inside `main#deck`, plus a scrollable `<pre>` no
+ * keyboard could reach. Axe runs on the three ARTIFACTS. Every landmark this ADR added lives in #2 and #3, so a
  * gate that stopped at the engine would have watched the one surface that didn't change.
  * The player's own banner regression (the deck title sitting outside every landmark) was
  * found by running this against #3.
@@ -64,7 +67,7 @@
  * declines to grade on size at all. Fixing the player ink is a theme-token change, well
  * outside this gate.
  *
- * BUDGETS are exceed-only and seeded at zero. Both shells are clean today, so zero is
+ * BUDGETS are exceed-only and seeded at zero. All three shells are clean today, so zero is
  * the honest number and any regression fails. A budget above zero here would be a
  * scoreboard rather than a gate.
  *
@@ -103,8 +106,8 @@ const AXE_RUN_OPTIONS = {
   rules: { 'color-contrast': { enabled: false } }, // owned by tools/check-slide-contrast.js — see header
 };
 
-/** Exceed-only, seeded at the measured truth. Both shells are clean; zero is honest. */
-const VIOLATION_BUDGET = { 'export shell': 0, 'html player': 0 };
+/** Exceed-only, seeded at the measured truth. All three shells are clean; zero is honest. */
+const VIOLATION_BUDGET = { 'export shell': 0, 'html player': 0, 'read article': 0 };
 
 /**
  * `incomplete` rules we have looked at and decided ARE defects on these surfaces, so
@@ -141,6 +144,16 @@ function render(outPdf, extraArgs = []) {
   assert.equal(res.status, 0, `render failed (${extraArgs.join(' ') || 'export'}):\n${res.stderr}`);
   const html = outPdf.replace(/\.pdf$/, '.html');
   assert.ok(fs.existsSync(html), `expected an HTML sidecar at ${html}`);
+  // THE SHELL HAS TO BE THE SHELL. `buildReadingArticleDocument` returns '' on any internal
+  // failure and the emulator then leaves the CLEAN SLIDE RENDER at this path with a warning
+  // and exit 0 — so without this line the `read article` arm silently measures a second copy
+  // of `export shell`, which is already known clean, and passes 4/4 with the projection
+  // entirely disabled. Found by an independent checker, who proved it by stubbing
+  // `buildReadingArticleDocument` to return '' and watching the suite stay green.
+  if (extraArgs.includes('--read')) {
+    assert.match(fs.readFileSync(html, 'utf8'), /<article id="lat-read"/,
+      'the --read sidecar must BE the reading article; a fallback to the slide render would make this shell a duplicate of the export shell');
+  }
   return html;
 }
 
@@ -153,6 +166,12 @@ describe('axe — the WCAG rule set, on every shipped shell (G10)', () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-axe-'));
     shells['export shell'] = render(path.join(dir, 'export.pdf'));
     shells['html player'] = render(path.join(dir, 'player.pdf'), ['--player']);
+    // THE THIRD SHIPPED SHELL, and it was the only one failing. `--read` writes a document
+    // with its own structure — the slide stack replaced by one article — so it is neither of
+    // the two above, and it had no axe coverage at all. Measured before the fix: 4
+    // violations, three of them landmark rules caused by nesting the article's `<main>`
+    // inside `main#deck`.
+    shells['read article'] = render(path.join(dir, 'read.pdf'), ['--read']);
     browser = await puppeteer.launch({
       executablePath: resolveChrome(),
       args: ['--no-sandbox', '--allow-file-access-from-files'],

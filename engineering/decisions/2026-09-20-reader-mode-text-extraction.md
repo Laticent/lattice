@@ -194,9 +194,20 @@ common: **every one of them sat in a composition the happy path never exercised.
    outside it as siblings — which is exactly what a browser does with that markup. Both
    left a whole slide after the article, un-styled, with its text in the document twice:
    the one outcome this flag exists to prevent, on the deck most likely to carry the
-   trigger. Fixed by keying on the SLIDES rather than on their container — remove every
-   `section[data-lattice-slide]` wherever the parse put it, and drop the container only if
-   it is left empty.
+   trigger. Fixed by keying on the SLIDES rather than on their container — but that first fix
+   keyed on the STRING `#deck > section[data-lattice-slide], body > …`, and a CSS id selector
+   matches ANY element carrying that id, so a deck pasting the whole export scaffold
+   (`<main id="deck"><section data-lattice-slide=…>`) still minted a phantom slide: measured,
+   the probe text twice and 3 article sections for a 2-slide deck.
+   **What is in the tree** resolves `main#deck` ONCE as a node and asks it for its own
+   children — `querySelector` returns the first in document order, and the real container
+   always encloses a pasted one — with `body > …` beside it for the slides a closing `</main>`
+   hangs outside, sorted back into document order. The article then REPLACES that container
+   rather than dropping it when empty; the empty check could never fire, because by the time it
+   ran the container held the whole article, which is how every `--read` document shipped a
+   `<main>` inside a `<main>` (3 axe landmark violations). `measureOverflow` still carries the
+   identical id-selector hole — pre-existing, off that change's path, and recorded here rather
+   than widened into it.
 
 3. **`read: true` front matter was a documented no-op.** `--help` and the changelog both
    promised it; `RENDER_TARGET_KEYS` did not carry `read`, so the key always read absent

@@ -155,6 +155,92 @@ describe('--read — the deck as prose, and nothing else moves', () => {
     }
   });
 
+  // REGRESSION, found by a SECOND independent checker pass over this feature as landed.
+  // The first pass's fix — "key on the SLIDES rather than on their container" — was right
+  // about the closing-main-tag deck above and re-opened a different door with the same
+  // shape: `section[data-lattice-slide]` unscoped ALSO matches a section an AUTHOR wrote in
+  // their own markdown, which the engine passes through unescaped and the parser nests
+  // inside the real slide. It was then projected TWICE — once inside its parent slide's
+  // prose, once as a phantom slide of its own, with a phantom table-of-contents row and
+  // every later slide's number shifted. The repo already knew this hazard: `measureOverflow`
+  // scopes for it ~950 lines earlier in the emulator.
+  test('a section an author wrote themselves is not mistaken for a slide', { timeout: 900000 }, () => {
+    const dir4 = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-nest-'));
+    try {
+      fs.writeFileSync(
+        path.join(dir4, 'deck.md'),
+        '---\ntheme: indaco\n---\n\n# How a slide is marked up\n\n' +
+          'Every rendered slide carries a data attribute so the player transport can find it again.\n\n' +
+          '<section data-lattice-slide="99"><p>NESTEDPROBE the example markup an author might paste ' +
+          'into a deck that teaches what the engine emits.</p></section>\n\n---\n\n' +
+          '## Two things to start\n\n- Separate the parts that wear from the parts that last\n',
+      );
+      const out = render(dir4, path.join(dir4, 'read.html'), ['--read']);
+      const html = fs.readFileSync(out, 'utf8');
+      const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+      let n = 0;
+      for (let i = text.indexOf('NESTEDPROBE'); i !== -1; i = text.indexOf('NESTEDPROBE', i + 1)) n++;
+      assert.equal(n, 1, `the author's own section must be projected once as part of its slide, not ${n} times`);
+      // The deck has TWO slides. A third `lp-sec-` id means the nested section was counted
+      // as a slide of its own — which also mints a table-of-contents row pointing at a
+      // heading the deck never wrote, and renumbers every slide after it.
+      const ids = html.match(/id="lp-sec-\d+"/g) || [];
+      assert.equal(ids.length, 2, `expected one article section per real slide; got ${ids.length}: ${ids.join(', ')}`);
+    } finally {
+      fs.rmSync(dir4, { recursive: true, force: true });
+    }
+  });
+
+  // REGRESSION, found by a checker over the FIRST fix for the arm above. That fix scoped the
+  // query to the string `#deck > section[data-lattice-slide], body > …` — and a CSS id
+  // selector matches ANY element carrying that id, so a deck teaching the export shell by
+  // pasting the whole scaffold still minted a phantom slide, one wrapper deeper. The fixture
+  // is the scaffold, because that is what a deck documenting the exporter actually writes.
+  test('a pasted export scaffold does not mint a second deck', { timeout: 900000 }, () => {
+    const dir8 = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-scaffold-'));
+    try {
+      fs.writeFileSync(
+        path.join(dir8, 'deck.md'),
+        '---\ntheme: indaco\n---\n\n# How the export scaffold looks\n\n' +
+          '<main id="deck" tabindex="-1"><section data-lattice-slide="1"><p>SCAFFOLDPROBE this is ' +
+          'the shape the exporter writes around your slides.</p></section></main>\n\n---\n\n' +
+          '## Two things to start\n\n- Separate the parts that wear from the parts that last\n',
+      );
+      const out = render(dir8, path.join(dir8, 'read.html'), ['--read']);
+      const html = fs.readFileSync(out, 'utf8');
+      const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+      let n = 0;
+      for (let i = text.indexOf('SCAFFOLDPROBE'); i !== -1; i = text.indexOf('SCAFFOLDPROBE', i + 1)) n++;
+      assert.equal(n, 1, `the pasted scaffold must be projected once as part of its slide, not ${n} times`);
+      const ids = html.match(/id="lp-sec-\d+"/g) || [];
+      assert.equal(ids.length, 2, `expected one article section per real slide; got ${ids.length}`);
+    } finally {
+      fs.rmSync(dir8, { recursive: true, force: true });
+    }
+  });
+
+  // REGRESSION, same pass. The article's `<main>` was inserted as a sibling of the first
+  // SLIDE — i.e. INSIDE `main#deck` — and the "drop the container if it is left empty"
+  // branch below it then asked `deck.textContent`, which by that point held the whole
+  // article. So the drop could never fire and every `--read` document shipped a `<main>`
+  // inside a `<main>`: three axe landmark violations against zero for the same deck
+  // exported plain. The article now REPLACES the container. `axe-a11y.test.js` gates the
+  // whole rule set on this shell; this arm pins the specific structure, because a landmark
+  // count is the thing a future refactor would quietly change.
+  test('the article replaces the slide container rather than nesting inside it', { timeout: 900000 }, () => {
+    const out = render(dir, path.join(dir, 'read.html'), ['--read']);
+    // PARSED, not pattern-matched. The reading sheet's own comments discuss `<main>` in
+    // prose, so a regex over the file counts three landmarks in a document that has one —
+    // which is how the first cut of this arm failed against correct output.
+    const { JSDOM } = require('jsdom');
+    const doc = new JSDOM(fs.readFileSync(out, 'utf8')).window.document;
+    const mains = [...doc.querySelectorAll('main')];
+    assert.equal(mains.length, 1, `a document gets ONE main landmark; got ${mains.length}: ${mains.map((m) => m.id || '(no id)').join(', ')}`);
+    assert.equal(mains[0].id, 'lat-read-main', 'the surviving main should be the reading article, not the empty slide container');
+    assert.equal(doc.querySelector('main#deck'), null, 'the slide container must go with the slides it no longer holds');
+    assert.ok(doc.querySelector('main#lat-read-main > article#lat-read'), 'the article should still be inside the reading main');
+  });
+
 	test('--read does not move a single byte of the PDF', { timeout: 900000 }, () => {
 		const plain = render(dir, path.join(dir, 'plain.pdf'));
 		const withRead = render(dir, path.join(dir, 'read.pdf'), ['--read']);
