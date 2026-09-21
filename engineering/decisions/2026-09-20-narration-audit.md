@@ -446,23 +446,59 @@ data-series narrator first) but not built.
 
 **Nobody has listened.** The audit itself was measured with no browser at all — every
 number above is the spoken STRING, the emitted `.vtt` bytes, or a value computed inside
-Cadenza. The fixes were then driven on the REAL Studio, built and served locally and
-opened in real Chromium, with real synthesis on the bring-your-own-key path the
-Playground uses (`lattice-db-or-key`; the repo's own `OPEN_ROUTER_KEY` never entered
-`docs/**`, a file or a test — HARD RULE #24). That drive is what confirms three things a
-string can't: the voice pin holds when the pref is flipped mid-read (per-read trace,
-three reproductions, `af_heart` held across all four of slide 1's sentences while slide 2
-re-pinned to `if_sara`), the caption cursor advances and is never dark
-(`caption advanced: PASS (4 cues)`, and the silent cadence marked lines `[0,1,2,3]` with
-the spend guard confirming zero requests), and the Stage window's `<html lang>` reads
-`en` on the real document.
+Cadenza. The fixes were then driven on the REAL Studio: built, served locally, opened in
+real Chromium, synthesizing through the bring-your-own-key path the Playground uses
+(`lattice-db-or-key`; the repo's own `OPEN_ROUTER_KEY` never entered `docs/**`, a file or
+a test — HARD RULE #24).
 
-What that drive still does NOT cover is how any of it SOUNDS — timbre, prosody, whether a
-sentence lands. Synthesis ran and the audio decoded; no human ear was applied (HARD RULE
-#23). Two smaller gaps go with it: the dev-only `speechSynthesis` rung's `utterance.lang`
-never ran, because the drive exercised `openrouter-tts`; and the debug overlay's `timing`
-rows did not scrape, so the clocked `align()` path is evidenced indirectly, by
-`ctx running` plus spoken/cue counts that match.
+**One correction, because it changes what the evidence is worth.** A first pass reported
+"58–114 synthesis requests against the live endpoint" and read that as real synthesis. It
+was not. This sandbox's outbound HTTPS goes through an agent proxy, Chromium was not
+configured to use it, and every one of those requests was ISSUED AND NEVER ANSWERED —
+zero responses. A request counter cannot tell that apart from working traffic, which is
+exactly why it is the wrong instrument. With `--proxy-server` plus a loopback bypass the
+browser reaches the endpoint and the runs below carry HTTP **200**s. Anything measured
+before that is withdrawn.
+
+What the real runs show:
+
+- **The voice pin holds, and main fails the same test.** A ONE-SLIDE deck (so every
+  request belongs to one read), voice pref flipped `af_heart` → `if_sara` ~13s into the
+  read, the `voice` field read out of each request body. On this branch all eight voiced
+  requests carry `af_heart`, five of them issued after the flip. On `main`'s
+  `voice-model.js` + `read-aloud.ts` — same deck, same flip, same harness — the wire
+  carries BOTH: `if_sara` at +20.2s, +22.6s, +24.6s, +28.8s and +33.9s, interleaved with
+  `af_heart`, inside a single slide's read. That is the reported symptom — a slide read in
+  English and then in another language — reproduced on the real surface and shown to be
+  ours. Worth knowing: main's diagnostics overlay still labels that read `af_heart`
+  throughout, because `voiceLabelRef` froze at `play()` while synthesis re-read the pref
+  per sentence. The overlay was not lying about a voice it chose; it was reporting the
+  identity the read THOUGHT it had.
+- **`cursor.align()` runs on real clocked audio and accepts it.** The overlay's own
+  timing rows, on real decoded clips: `t#0 on=0 dur=1550`, `t#1 on=1939 dur=5650`, then
+  the next read `t#0 on=0 dur=1400`, `t#1 on=1782 dur=6900`, `t#3 on=9030 dur=3375` —
+  finite, `dur > 0`, `on >= 0`, and increasing within each read (each read restarts at
+  `on=0`, so ordering is a per-read property; an earlier check compared across the
+  boundary and called correct behavior a failure). The read stayed `MODE=audio` for
+  100 of 100 samples, the cue advanced `0 → 1 → 2 → 3`, reader elapsed reached 17850 ms,
+  and pace calibration folded six observations — none of which happens if the new
+  preconditions refuse a real onset.
+- **`utterance.lang` carries the deck's language on the dev `speechSynthesis` rung.**
+  Observed at the `speechSynthesis.speak` boundary, since headless Chromium ships no
+  voices: a `lang: es` deck sets `lang="es"` on every utterance, and a deck that declares
+  no language leaves it `""` — the "unset, as before" half of the rule, which is the half
+  a regression would break silently.
+- **The token rules read correctly out of a real utterance**, not a unit test:
+  `($4.2M)` → "four point two million dollars", `+18%` → "up eighteen percent" (not the
+  doubled "up"), `2026-03-31` → "March thirty-first, two thousand twenty-six",
+  `$1.2-1.4B` → "one point two to one point four billion dollars", `1st` → "first". The
+  Spanish deck confirms the other side of the language gate (#919): its numbers stay as
+  written while the bracketing peel still applies, because the peel is visual and
+  language-independent and the English expansion is not.
+- **`<html lang>` on the Stage window reads `en`** on the real Stage document.
+
+What none of it covers is how any of it SOUNDS — timbre, prosody, whether a sentence
+lands. Clips were synthesized and decoded; no human ear was applied (HARD RULE #23).
 
 Specifically unverified: whether Kokoro's own front-end normalizer rescues any of the raw
 passthroughs (`99th`, `12:30` and `1st` are plausible wins; `$1.2-1.4B`, `ID-4471` and
