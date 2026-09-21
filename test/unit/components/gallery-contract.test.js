@@ -58,6 +58,7 @@ const VOICE_EXEMPT = {
   title: { rules: ['stressDoc', 'density'], reason: 'single-element dark bookend' },
   divider: { rules: ['stressDoc', 'density'], reason: 'single-element dark bookend' },
   closing: { rules: ['stressDoc', 'density'], reason: 'single-element dark bookend' },
+  topic: { rules: ['density'], reason: 'anchor — the authorable prose is one short name and one sentence; the track labels are derived from sibling slides, not authored here' },
   // Connect cards: the slot list IS the layout — a fixed identity/credentials card, not a scalable collection.
   contact: { rules: ['stressDoc', 'density'], reason: 'fixed vCard card; slots, not a collection' },
   wifi: { rules: ['stressDoc', 'density'], reason: 'fixed credentials card; slots, not a collection' },

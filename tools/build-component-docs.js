@@ -487,7 +487,7 @@ const COMPOSITION_MODIFIERS = ['dark', 'compact', 'accent'];
  * Layouts whose default chrome already includes dark (so a `dark`
  * composition slide would be visually identical and add noise).
  */
-const DARK_BY_DEFAULT = new Set(['title', 'divider', 'closing']);
+const DARK_BY_DEFAULT = new Set(['title', 'divider', 'closing', 'topic']);
 
 /**
  * Compute the list of composition modifiers that apply to a component.

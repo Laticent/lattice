@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schema/frame.schema.json",
+  "id": "topic",
+  "form": "split",
+  "kind": "sovereign",
+  "exemptFromChrome": true,
+  "description": "Topic anchor — a horizontal cut claims the canvas: the upper band carries this topic, the lower band carries the section's topics as a scale with the current one lit. Locates the audience INSIDE a section, where `divider` marks the boundary between sections (design/forms.md §8; FORM_TOGGLE_SKIP).",
+  "admits": ["sovereign"],
+  "cells": ["stage"],
+  "suppresses": ["masthead", "masthead-lede", "masthead-bay", "footer", "footer-left", "progress-center", "pagination-right"]
+}

@@ -2,7 +2,7 @@
 
 # anchor
 
-`3 components`
+`4 components`
 
 Anchor — where you are in the deck.
 
@@ -35,3 +35,19 @@ Anchor — where you are in the deck.
 `anchor · title · the deck's first breath`
 
 One heading, an eyebrow, one line of context — centered, chrome-free, quickly gone.
+
+---
+
+<!-- _class: topic -->
+<!-- _footer: "topic · anchor survey" -->
+
+`Section 02 · Unit economics`
+
+## Payback
+
+Fourteen months blended, against a nine-month plan.
+
+- Cost to win
+- Lifetime value
+- **Payback**
+- The assumptions

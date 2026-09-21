@@ -1,0 +1,161 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "topic",
+  "function": "anchor",
+  "form": "split",
+  "substance": "prose",
+  "adapt": {
+    "mode": "native",
+    "priority": [
+      "heading",
+      "claim",
+      "eyebrow"
+    ]
+  },
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "tags": [
+    "walkthrough",
+    "agenda-setting",
+    "board-deck"
+  ],
+  "description": "Topic anchor inside a section. A horizontal cut: the topic above, the section's topics as a scale below.",
+  "purpose": "Marks a topic WITHIN a section, where `divider` marks the boundary BETWEEN sections. The lower band shows the section's other topics with the current one lit, so the audience knows not just what this is but where it sits and what is still ahead. The track is derived from the deck — every topic slide's own heading — so it is written once and cannot go stale. The track's ceiling is a property of the SECTION rather than of this slide, so it is stated here rather than in `capacity`: four sibling topics is the sweet spot, six is comfortable, and past nine the track stops being countable at a glance and the section wants splitting with a second `divider`. Below two there is no scale to draw and the track is suppressed.",
+  "variants": [
+    "fact"
+  ],
+  "excludes": [
+    "accent",
+    "compact"
+  ],
+  "slots": {
+    "eyebrow": {
+      "selector": "p:first-of-type > code",
+      "required": false,
+      "description": "The section this topic sits in, as inline code. Mono caps, top-left. Usually the divider's own label — `Section 02 · Unit economics`."
+    },
+    "heading": {
+      "selector": "h2",
+      "required": true,
+      "description": "The topic's name. Write it as a short noun phrase (`Payback`, `Cost to win`) — two to four words. It is also the label this topic contributes to every sibling slide's derived track, so a full sentence reads as a headline on this slide and overflows its column on the others."
+    },
+    "claim": {
+      "selector": "h2 + p",
+      "required": false,
+      "description": "One sentence of context under the name. In the default it supports the heading; under `fact` it becomes the slide's display line."
+    },
+    "track": {
+      "selector": "ul > li",
+      "required": false,
+      "description": "DERIVED, not authored — `lib/transformers/topic-track.js` builds it from the headings of every `topic` slide in this section and lights the current one. Author a `ul` yourself ONLY to override it (shorter labels than the headings, or a section whose later topics are not written yet); an authored list keeps its labels untouched, and that slide then contributes no name to its siblings' tracks. On an overridden track the kernel still decides which item is lit: the one that is WHOLLY bold (`- **Payback**`), or, if none is, the one whose label matches this slide's own heading. Emphasis INSIDE a label (`- Cost to **win**`) is not a marker and does not light it. In the GALLERY the samples author the list explicitly, because a gallery slide has no section around it and derivation needs one — the composition is identical either way. At the nine-topic ceiling a column is about a tenth of the slide, so a single word longer than ~10 characters BREAKS MID-WORD — the track keeps its equal columns rather than letting one word widen them, which is the lesser of the two failures. Keep ceiling-count sections to short labels, or split the section."
+    },
+    "basis": {
+      "selector": "p:last-of-type > code",
+      "required": false,
+      "description": "What the claim rests on — source, period, method. A trailing inline-code paragraph on a foot rule. Belongs with `fact`, where the slide asserts something; on the default the claim is supporting text and rarely needs provenance."
+    }
+  },
+  "skeleton": "<!-- _class: topic -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
+  "sample": "<!-- _class: topic -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n\n- Cost to win\n- Lifetime value\n- **Payback**\n- The assumptions\n",
+  "stressDoc": {
+    "summary": "a nine-topic section — the track at its documented ceiling, labels stepped down two rungs",
+    "sample": "<!-- _class: topic -->\n\n`Section 04 · Operating review`\n\n## Escalation paths\n\nThree of the nine paths route to a team that no longer owns the service.\n\n- Intake\n- Triage\n- Ownership\n- Runbooks\n- On-call\n- **Escalation paths**\n- Postmortems\n- Action tracking\n- Review cadence\n"
+  },
+  "whenToUse": [
+    {
+      "title": "A topic inside a long section",
+      "body": "A section that runs more than a handful of slides loses the audience between its dividers. A `topic` re-anchors them without spending a full section break, and shows what is still ahead."
+    },
+    {
+      "title": "When the room needs the finding, not the label",
+      "body": "The `fact` variant promotes the claim to the display line and demotes the name to a label, so the audience leaves the anchor already knowing the answer and the following slides show the work."
+    },
+    {
+      "title": "Serialized or reviewed decks",
+      "body": "A board pack read asynchronously benefits most: the derived track means a reader who opens at slide 30 can see the shape of the section they landed in."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "A section with one topic, or with ten",
+      "body": "Below two there is no scale to draw and the track is suppressed, leaving a slide that is a `divider light` with extra chrome — use `divider light`. Past nine the track has ramped its labels down twice and still runs out of room; a section with ten topics is two sections, so split it with another `divider`. If what you want is the deck's contents rather than one section's, that is `agenda`."
+    },
+    {
+      "title": "A full sentence as the heading",
+      "body": "The heading is also this topic's label in every sibling slide's track. A sentence reads as a headline here and overflows its column there. Short noun phrase; put the sentence in the claim."
+    },
+    {
+      "title": "More than one per two or three content slides",
+      "body": "A topic anchor is a breath, not a separator. Firing it between every slide makes it chrome and costs it the authority that makes it work."
+    },
+    {
+      "title": "Carrying a fact that appears nowhere else",
+      "body": "An anchor is deletable without losing information — the section proves the claim on the slides that follow. If the number lives ONLY on this slide, it is a `big-number`, not a `topic`."
+    }
+  ],
+  "related": [
+    {
+      "name": "divider",
+      "when": "the boundary BETWEEN sections, rather than a topic inside one"
+    },
+    {
+      "name": "agenda",
+      "when": "the deck's sections, listed once, as a contents page"
+    },
+    {
+      "name": "big-number",
+      "when": "the metric IS the slide, not an anchor before the evidence"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Authoring the sibling list by hand on every topic slide.",
+      "fix": "Don't — it is derived. `lib/transformers/topic-track.js` reads the `## heading` of every `topic` slide in the section and builds the track, so renaming a topic is a one-slide edit. An authored `ul` is treated as a deliberate OVERRIDE: its labels are left untouched, and that slide stops contributing its name to its siblings' tracks."
+    },
+    {
+      "mistake": "Expecting a track on a topic slide that sits before the deck's first `divider`.",
+      "fix": "The track is scoped to a section, and a section starts at a `divider` — any divider, `light` included, matching how the section progress rail counts. A topic slide with no divider above it renders as a single dark canvas — the band, the seam and the shelf reserve are all dropped, so it composes rather than reserving room for a track that is not there. It keeps the DEFAULT type hierarchy; it does NOT become `fact`."
+    },
+    {
+      "mistake": "Reaching for `fact` and leaving the claim as a fragment or a label.",
+      "fix": "`fact` puts the claim at display size, so it must be a whole sentence that states something — and one sentence, not three. Start it with the number (`Fourteen months blended, …`) rather than bolding the figure; two typographic registers inside one display line is one too many."
+    },
+    {
+      "mistake": "A long single-word topic name in a section at or near the nine-topic ceiling.",
+      "fix": "The track's columns are equal by construction, so at nine a word over ~10 characters breaks mid-word rather than widening its column (the gallery's stress slide shows it on `Postmortems`). Either shorten the name — the heading register is two to four short words anyway — or split the section, which is what a nine-topic section usually wants."
+    },
+    {
+      "mistake": "Marking the current item on an overridden track with emphasis inside the label — `- Cost to **win**`.",
+      "fix": "Bold the WHOLE label (`- **Cost to win**`) or leave it plain. Partial emphasis is styling, not a marker, and the kernel ignores it. If you mark nothing, the item whose label matches this slide's heading is lit; if you mark two, the first wins."
+    },
+    {
+      "mistake": "Expecting the two-band composition under `color-mode: dark` or in a dark-mode export.",
+      "fix": "It flattens, and that is the whole anchor family's behavior rather than this component's quirk: the deck-wide `dark` canvas replaces a sovereign anchor's own field, so `divider` loses its spectrum rail and `title` and `closing` lose `--surface-inverse` in exactly the same way (measured in Chromium; the committed `divider.gallery.dark.pdf` shows it). The track still draws and still lights the current topic, so the slide keeps saying where you are — it says it on one flat field instead of across a cut. If you need the cut, that is light mode."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "The audience needs to know where they are in the section — the topic named, with its siblings as a scale below."
+    },
+    {
+      "variant": "fact",
+      "useWhen": "The topic's finding matters more than its name. Drops the track and the cut, promotes the claim to the display line, and adds a provenance line at the foot."
+    }
+  ],
+  "variantDocs": {
+    "fact": {
+      "label": "fact",
+      "summary": "One flat canvas. The claim becomes the display line, the name a label on a rule, and a mono basis line states what the claim rests on.",
+      "sample": "<!-- _class: topic fact -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n\n`CAC ÷ monthly gross margin · 14 cohorts · FY26 actuals`\n"
+    }
+  },
+  "anatomyBlock": "topic-track",
+  "showcase": {
+    "featured": true
+  },
+  "specimenVoice": true
+}

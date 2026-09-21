@@ -7852,6 +7852,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   title: 'bookend — universal title/eyebrow budgets cover it',
   divider: 'bookend — section break, minimal text',
   closing: 'bookend — universal budgets cover it',
+  topic: 'anchor — the authorable prose is one short name and one sentence, both covered by the universal title/subtitle budgets; the track labels are DERIVED from sibling slides, not authored here',
   // data viz — content is a data series/graph, not prose.
   funnel: 'data viz — series, not prose',
     bar: 'data viz — series, not prose',
