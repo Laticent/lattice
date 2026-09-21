@@ -97,6 +97,46 @@ divergence. Two corollaries, both learned by measuring:
   which takes the theme rule off it. Frozen-together is legible-but-stale; frozen-apart is
   invisible.
 
+### How big the re-hosted diagram is (Read · Article)
+
+**A diagram in an article is drawn at its natural size, not the band's.** The prose
+projection lifts the bare `<svg>` out of the slide into a `<figure>`, and a slide's
+instinct — fill the box — is the wrong one there: forcing the 1100px figure band onto a
+two-node flowchart whose natural size is 238x67 draws it at 1100x310, with labels four
+times the size of the body text beside it. The rule each article host carries is the
+`<img>` contract instead:
+
+```css
+figure svg[aria-roledescription] { width:auto; max-width:100% }
+```
+
+`width:auto` takes the diagram's own size; `max-width:100%` scales it DOWN to the column
+when it does not fit, and never up. The host's `height:auto` and `max-height` (78vh) do
+the same on the other axis, and `margin-inline:auto` centers whichever one binds.
+
+**The viewBox is the universal dimension, so no per-family rule is needed.** A wide LR
+flowchart (aspect 13.4) runs out of column width first; a tall TB one (0.25) runs out of
+height first and shrinks proportionally — measured, a 141x976 chart draws at 113x780, not
+letterboxed inside a full-width box. Mermaid states that natural size in two different
+ways and `width:auto` reads both: `mmdc` writes `width="100%"` plus an inline
+`max-width:<natural>px`, while the browser path writes `width`/`height` ATTRIBUTES in px
+and no inline cap.
+
+The selector is keyed on `aria-roledescription` because every Mermaid family carries it
+(`flowchart-v2`, `sequence`, `stateDiagram`, `pie`, `class`) and our own chart SVGs carry
+none — a chart is token-driven and must keep filling its band. `class` is not usable
+(null on sequence and pie) and neither is the svg id (`lattice-mmd-N` from the CLI,
+`lattice-mermaid-N` from the browser).
+
+The rule lives once per host — `#lp-article` in `lib/export/player-core.mjs`, `#lat-read`
+in `lattice-emulator.js`, `.st-read-article` in `docs/src/components/studio/ReadArticle.tsx`
+— rather than in `mermaid.css`, for two reasons. SPECIFICITY: each host's generic figure
+rule is id-scoped (`#lp-article .lp-figure svg`, (1,1,1)), and a kernel rule reaching the
+same element as `figure>svg[aria-roledescription]` is (0,1,2), so it loses — which is why
+the earlier kernel arm had to carry `!important` to be seen at all. And the STUDIO pane
+ships no `lattice.css`, so a kernel-only rule never reaches it. `mermaid.css` carries the
+long-form why under THE RE-HOSTED FIGURE.
+
 Component contract, slots, and the anti-patterns:
 `lib/components/diagram/diagram/diagram.docs.md`.
 

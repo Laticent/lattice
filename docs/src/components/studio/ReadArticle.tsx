@@ -78,13 +78,21 @@ const READ_ARTICLE_CSS = `
 .st-read-article .lp-roster>li>div{flex:1;min-width:0}
 .st-read-article figure{padding:0 0 1.4em;margin:0}
 /* THE PLAYER'S ARTICLE RULE (#lp-article .lp-figure svg), which this pane never got.
-   A figure uses its whole band, and max-height keeps a SMALL diagram maximized to that
-   band from running away down the page — measured, a two-state chart reaches 1052 x 3240px
-   without it. Mermaid's own inline max-width: <intrinsic>px on the svg root is what beat
-   an earlier version of this rule and left a 121px flowchart sitting against the band's
-   left edge; mermaid.css defeats that with !important, which is where it belongs since
-   it is a Mermaid oddity rather than an article one. */
+   A CHART is viewBox-only and token-driven, so it fills the figure band: width:100%,
+   height:auto for the aspect, max-height so a tall or square one cannot eat the page,
+   margin-inline:auto to center it. A mermaid diagram opts out of the fill on the next
+   line — see there for why maximizing a diagram in prose is the wrong answer. */
 .st-read-article figure svg{width:100%;height:auto;max-height:78vh;display:block;margin-inline:auto}
+/* MERMAID SIZES ITSELF, and the two shapes it ships in are why this is width:auto and not
+   width:100%. mmdc writes width="100%" + an inline max-width:<natural>px; the browser
+   path writes width/height ATTRIBUTES in px and no inline cap (measured, same deck, same
+   five families). width:auto reads both as an <img> would — natural size, from the viewBox —
+   and max-width:100% scales it DOWN to the column when it does not fit. It never scales UP:
+   forcing the band on a 238x67 flowchart drew it at 1100x310 with labels 4x the body text
+   beside it. Scoped by aria-roledescription, which every Mermaid family carries and our own
+   chart SVGs carry none of — a chart is token-driven and must keep filling its band.
+   lib/integrations/mermaid/mermaid.css (THE RE-HOSTED FIGURE) has the long form. */
+.st-read-article figure svg[aria-roledescription]{width:auto;max-width:100%}
 .st-read-article figure img{max-width:100%;height:auto;display:block;margin-inline:auto}
 .st-read-article figcaption{font-size:.82rem;color:var(--text-muted);padding:.5em 0 0;text-align:center}
 .st-read-article .lp-figure-note{border:1px dashed var(--border);border-radius:10px;padding:1em 1.2em;background:var(--bg-alt)}

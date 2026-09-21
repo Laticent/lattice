@@ -5487,12 +5487,24 @@ html,body{background:var(--bg,#fff)}
 #lat-read .lp-roster>li>img{flex:none;width:1.9em;height:1.9em;border-radius:50%;object-fit:cover;align-self:flex-start}
 #lat-read .lp-roster>li>div{flex:1;min-width:0}
 #lat-read figure{padding:0 0 1.4em;margin:0}
-/* The player's #lp-article .lp-figure svg rule, which this article never got. width:100%
-   so a figure uses its band; max-height so a SMALL diagram maximized to that band cannot
-   run away down the page (a two-state chart measured 1052 x 3240px without it). */
+/* The player's #lp-article .lp-figure svg rule, which this article never got. A CHART is
+   viewBox-only and token-driven, so it fills the figure band: width:100%, height:auto for
+   the aspect, max-height so a tall or square one cannot eat the page (preserveAspectRatio
+   letterboxes inside the capped box, no distortion), margin-inline:auto to center it.
+   A mermaid diagram opts out of the fill on the next line. */
 #lat-read figure svg{width:100%;height:auto;max-height:78vh;display:block;margin-inline:auto}
-#lat-read figure img{max-width:100%;height:auto}
-#lat-read figcaption{font-size:.82rem;color:var(--text-muted,#777);padding:.5em 0 0}
+/* MERMAID SIZES ITSELF, and the two shapes it ships in are why this is width:auto and not
+   width:100%. mmdc writes width="100%" + an inline max-width:<natural>px; the browser
+   path writes width/height ATTRIBUTES in px and no inline cap (measured, same deck, same
+   five families). width:auto reads both as an <img> would — natural size, from the viewBox —
+   and max-width:100% scales it DOWN to the column when it does not fit. It never scales UP:
+   forcing the band on a 238x67 flowchart drew it at 1100x310 with labels 4x the body text
+   beside it. Scoped by aria-roledescription, which every Mermaid family carries and our own
+   chart SVGs carry none of — a chart is token-driven and must keep filling its band.
+   lib/integrations/mermaid/mermaid.css (THE RE-HOSTED FIGURE) has the long form. */
+#lat-read figure svg[aria-roledescription]{width:auto;max-width:100%}
+#lat-read figure img{max-width:100%;height:auto;display:block;margin-inline:auto}
+#lat-read figcaption{font-size:.82rem;color:var(--text-muted,#777);padding:.5em 0 0;text-align:center}
 #lat-read .lp-figure-note{border:1px dashed var(--border,#ccc);border-radius:10px;padding:1em 1.2em;background:var(--bg-alt,#f7f7f7)}
 #lat-read table{border-collapse:collapse;width:100%;font-size:.92em}
 #lat-read th,#lat-read td{border:1px solid var(--border,#e2e2e2);padding:.4em .7em;text-align:left}

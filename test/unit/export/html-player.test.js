@@ -1493,7 +1493,26 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// disabled — 16 of 16 slides still visible, #lp-stage display:flex. Visually a no-op:
 	// screenshots of all three views are pixel-identical to the pre-change build, and the
 	// default view is present, where the CSS already set #lp-doc to display:none.
-	assert.equal(sha, 'f6eb8ba78cc573e06f4bbbb5fe1d3ea8ddc977eb246f6d122088bd9ff0ac57a1', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED — the Read·Article's diagram sizing moved from lattice.css into this file,
+	// and the diff is exactly that trade: `figure>svg[aria-roledescription]{width:100%!important;
+	// max-width:100%!important}` leaves the pruned stylesheet and
+	// `#lp-article .lp-figure svg[aria-roledescription]{width:auto;max-width:100%}` enters
+	// `#lp-article`. Diffed the assembled artifact before/after on a five-family diagram deck:
+	// two hunks, both of them those rules, plus the embedded `generatedAt` timestamp. No markup,
+	// script, attribute or block-order change, so the CSP sha is untouched.
+	// WHY: forcing the figure band onto a diagram maximizes it — a 238x67 flowchart drew at
+	// 1100x310 with labels 4x the body text beside it. `width:auto` takes the diagram's own
+	// viewBox size and `max-width:100%` scales it DOWN to the column, never up; the axis that
+	// binds follows from the aspect with no per-family rule. Keyed on `aria-roledescription`
+	// so it cannot reach a chart, which is token-driven and must keep filling its band.
+	// The rule has to live HERE and not in `mermaid.css` because of SPECIFICITY: the generic
+	// `#lp-article .lp-figure svg` above is (1,1,1), and a kernel rule reaching the same
+	// element as `figure>svg[aria-roledescription]` is (0,1,2) — it loses, which is why the
+	// arm this replaces had to carry `!important` to be seen at all. (It did survive the CSS
+	// pruner; measured in the assembled artifact. Pruning is not the reason.) The Studio's
+	// pane settles it either way: it ships no `lattice.css`, so a kernel-only rule is invisible
+	// there and the three article hosts each carry this line.
+	assert.equal(sha, '1b4e175626e1fa8afd22c3df551ba02fa34c6cc776869f18f3ad027d71d314b7', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
