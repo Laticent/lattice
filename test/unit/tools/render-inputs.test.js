@@ -23,8 +23,13 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
+const fs = require('node:fs');
+const path = require('node:path');
+
 const { isRenderInput, changedPaths, changedRenderInputs, _resetCache } =
   require('../../../tools/lib/render-inputs');
+
+const ROOT = path.join(__dirname, '..', '..', '..');
 
 describe('render-inputs: isRenderInput', () => {
   test('counts the stylesheets a render consumes', () => {
@@ -74,6 +79,29 @@ describe('render-inputs: git query', () => {
     assert.equal(first.available, true, 'git should be able to answer inside the repo');
     assert.equal(first.paths instanceof Set, true);
     assert.equal(changedPaths(), first, 'second call should return the memoized object');
+  });
+
+  test('the changed set is NOT scoped to the render-input roots', () => {
+    // The git query used to carry `-- lib/ themes/ dist/ lattice-emulator.js`, which made
+    // `paths` unable to hold an artifact that lives anywhere else. That broke
+    // `stalenessAgainstInputs`' "this PDF was already rebuilt in this tree" arm for the
+    // showcase gallery, whose PDFs render into `examples/`: the arm could never fire, so
+    // the gate would have reported stale forever — a red no rebuild could clear (#2253).
+    // INPUT_DIRS still decides what COUNTS as an input; it no longer decides what git is
+    // allowed to see.
+    const probe = path.join(ROOT, 'examples', `.render-inputs-probe-${process.pid}.tmp`);
+    fs.writeFileSync(probe, 'scratch\n');
+    try {
+      _resetCache();
+      const { paths } = changedPaths();
+      assert.equal(paths.has(`examples/.render-inputs-probe-${process.pid}.tmp`), true,
+        'a dirty path outside lib/themes/dist must still be visible to the query');
+      assert.equal(isRenderInput(`examples/.render-inputs-probe-${process.pid}.tmp`), false,
+        'and must still not count as a render input');
+    } finally {
+      fs.unlinkSync(probe);
+      _resetCache();
+    }
   });
 
   test('the derived input list is a sorted subset of the changed paths', () => {

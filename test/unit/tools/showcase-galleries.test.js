@@ -11,6 +11,11 @@
  *      "a new component silently misses the gallery" worry, gated.
  *   2. COVERAGE — the deck walks the full chart+math component set, and every one
  *      of those components carries a `sample` (so none is silently omitted).
+ *   3. THE BUILD'S SKIP TEST — `buildFreshness`. Neither gate above can see a stale
+ *      PDF: both compare MARKDOWN, and the deck's markdown is identical whether or not
+ *      anyone re-rendered it. #2253 is two bugs in that skip, and the second one only
+ *      shows across two themes in one run, so it is pinned here rather than left to a
+ *      render.
  */
 
 const { test, describe } = require('node:test');
@@ -19,10 +24,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadAll, groupByBucket } = require('../../../lib/components');
 const {
-  SHOWCASES, composeShowcase, galleryMarkdownPath, showcaseComponentNames,
+  SHOWCASES, composeShowcase, galleryMarkdownPath, galleryPdfPath, showcaseComponentNames,
+  buildFreshness,
 } = require('../../../tools/build-showcase-galleries');
 
 const groups = groupByBucket(loadAll());
+const ROOT = path.join(__dirname, '..', '..', '..');
 
 describe('showcase galleries', () => {
   for (const showcase of SHOWCASES) {
@@ -60,6 +67,60 @@ describe('showcase galleries', () => {
     const inDeck = new Set(showcaseComponentNames('data-viz', groups));
     assert.ok(inDeck.size >= 13, `expected the full chart set, got ${inDeck.size}`);
     assert.ok(!inDeck.has('math'), 'math has its own showcase — it must not be in data-viz');
+  });
+
+  describe('buildFreshness — the build path\'s skip test (#2253)', () => {
+    const dv = SHOWCASES.find((s) => s.id === 'data-viz');
+
+    test('a drifted deck is stale for EVERY theme, not just the first', () => {
+      // The bug: `buildOne` recomputed `mdFresh` per theme, and the LIGHT pass writes
+      // the deck. By the time dark ran, its own compare found the file light had just
+      // written, called it fresh and skipped — so a manifest change rebuilt light and
+      // left the dark PDF stale, silently, every time. `mdFresh` is measured once per
+      // showcase now and passed in, which is exactly what this asserts: the same false
+      // must produce the same verdict for both themes.
+      for (const theme of ['light', 'dark']) {
+        const f = buildFreshness(dv, theme, false);
+        assert.equal(f.fresh, false, `${theme} must not be skipped when the deck drifted`);
+        assert.match(f.reason, /drifted/, `${theme} should say why`);
+      }
+    });
+
+    test('a missing PDF is stale even when the deck matches', () => {
+      const bogus = { ...dv, id: `no-such-showcase-${process.pid}` };
+      const f = buildFreshness(bogus, 'light', true);
+      assert.equal(f.fresh, false);
+      assert.equal(f.reason, 'missing PDF');
+    });
+
+    test('the verdict consults render inputs, not just the deck', () => {
+      // The headline of #2253: engine CSS and chart transforms move every rendered
+      // slide and no manifest, so the markdown compare is byte-identical while the
+      // PDF is stale. Driven through a real dirty input rather than a stub, because
+      // the whole failure was a check that looked right and asked the wrong question.
+      const probe = path.join(ROOT, 'lib', `.showcase-input-probe-${process.pid}.css`);
+      const { _resetCache, changedPaths } = require('../../../tools/lib/render-inputs');
+      const pdf = galleryPdfPath(dv.id, 'light');
+      assert.ok(fs.existsSync(pdf), 'the committed PDF must exist for this to mean anything');
+      fs.writeFileSync(probe, '/* scratch */\n');
+      try {
+        _resetCache();
+        // If the PDF is itself dirty, the helper's FIRST arm answers "already rebuilt in
+        // this tree" and never reaches the input arm — correctly. Say so and stop, rather
+        // than failing a branch that just re-rendered the showcase.
+        if (changedPaths().paths.has(`examples/${dv.id}-gallery.light.pdf`)) {
+          assert.equal(buildFreshness(dv, 'light', true).fresh, true,
+            'a PDF rebuilt in this working tree is fresh whatever else changed');
+          return;
+        }
+        const f = buildFreshness(dv, 'light', true);
+        assert.equal(f.fresh, false, 'a changed render input must not read as fresh');
+        assert.match(f.reason, /render input changed/);
+      } finally {
+        fs.unlinkSync(probe);
+        _resetCache();
+      }
+    });
   });
 
   test('every chart+math component actually has a sample (no silent omission)', () => {

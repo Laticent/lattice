@@ -158,7 +158,7 @@ const SCRIPT_META = {
   'build:bucket-galleries':   ['Galleries & preview', 'Rebuild per-bucket survey gallery PDFs (light + dark).'],
   'build:bucket-galleries:check':['Galleries & preview', 'On-demand: flags bucket survey PDFs whose render inputs changed but were not rebuilt. Not wired to CI or a hook — golden-diff is the CI gate.'],
   'build:showcase-galleries': ['Galleries & preview', 'Rebuild the consolidated cross-bucket showcase decks (data-viz = chart + math) from the live manifest set, light + dark.'],
-  'build:showcase-galleries:check':['Galleries & preview', 'Freshness gate for the consolidated showcase decks (content drift vs the manifests).'],
+  'build:showcase-galleries:check':['Galleries & preview', 'Freshness gate for the consolidated showcase decks: the deck against the live manifests, AND the committed PDFs against the render inputs (engine CSS, chart transforms, the palettes, the emulator) via tools/lib/render-inputs.js. One git status, no Chromium. `--dry-run` on the build tool reports the same verdict without rendering.'],
   'build:gallery-jargon':     ['Galleries & preview', 'Rebuild the jargon showcase gallery PDF.'],
   'build:exemplar-pdfs':      ['Galleries & preview', 'Bulk-regenerate committed PDFs for the worked exemplar decks (on-demand, like bless; not in build). `-- --only <stem>` for one.'],
   'preview':                  ['Galleries & preview', 'Fast visual-iteration loop: scope-detect from git diff, rebuild affected, pixel-diff vs last commit.'],

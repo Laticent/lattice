@@ -62,6 +62,15 @@ const INPUT_EXT = new Set(['.css', '.js', '.mjs', '.cjs']);
 // directly, and counting it here would mark every OTHER gallery stale alongside it.
 const isGalleryDeck = (p) => p.endsWith('.gallery.md');
 
+// INPUT_DIRS/INPUT_FILES classify a changed path (`isRenderInput`); they do NOT scope
+// the git query. They used to do both, and that quietly broke the third arm of
+// `stalenessAgainstInputs` for any caller whose artifact lives outside them: the
+// showcase gallery renders to `examples/`, so its PDF could never appear in `paths`,
+// the "already rebuilt in this tree" escape could never fire, and the gate would have
+// reported stale forever — a red no rebuild could clear. The query is the whole tree
+// now and the classifier is the only filter. Measured cost of dropping the pathspec on
+// this repo: 35ms -> 106ms for one `git status`, memoized once per process.
+
 function isRenderInput(rel) {
   if (isGalleryDeck(rel)) return false;
   if (INPUT_FILES.includes(rel)) return true;
@@ -72,9 +81,11 @@ function isRenderInput(rel) {
 let memo = null;
 
 /**
- * Everything under the render-input roots that differs from HEAD — modified, staged, or
- * untracked. ONE git call for the whole run, no per-artifact filtering here: callers need
- * to ask about their own deck and their own PDF too, and both live under these roots.
+ * Everything in the working tree that differs from HEAD — modified, staged, or untracked.
+ * ONE git call for the whole run and NO pathspec: callers ask about their own deck and
+ * their own PDF as well as the shared inputs, and those artifacts do not all live under
+ * `INPUT_DIRS` (see the note above the constants). Filtering to render inputs is
+ * `changedRenderInputs`' job, not this one's.
  *
  * @returns {{ paths: Set<string>, available: boolean }} `available: false` when git cannot
  *          answer (no repo, no git binary — e.g. an installed copy of the package). The
@@ -85,7 +96,7 @@ function changedPaths() {
   if (memo) return memo;
   let out;
   try {
-    out = execFileSync('git', ['status', '--porcelain', '-z', '--', ...INPUT_DIRS, ...INPUT_FILES], {
+    out = execFileSync('git', ['status', '--porcelain', '-z'], {
       cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
     });
   } catch {
