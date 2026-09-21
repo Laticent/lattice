@@ -1,16 +1,18 @@
 /**
  * Gate: the consolidated showcase galleries can't go stale.
  *
- * The `data-viz` showcase (examples/data-viz-gallery.md) is GENERATED from the
- * live chart + math manifest set (tools/build-showcase-galleries.js). Two things
+ * The `data-viz` showcase (examples/data-viz-gallery.md) is GENERATED from the live
+ * CHART manifest set (tools/build-showcase-galleries.js) — charts only; `math` has no
+ * showcase, deliberately, and the reason is asserted below. Two things
  * this locks, both fast + render-free so they BLOCK on every PR:
  *
  *   1. FRESHNESS — the committed deck must equal what the generator composes from
- *      the current manifests. Add/rename/retire a chart or math component (or edit
- *      its `sample`) without rebuilding the deck and CI goes red. This is the
+ *      the current manifests. Add/rename/retire a chart component (or edit its
+ *      `sample`) without rebuilding the deck and CI goes red. This is the
  *      "a new component silently misses the gallery" worry, gated.
- *   2. COVERAGE — the deck walks the full chart+math component set, and every one
- *      of those components carries a `sample` (so none is silently omitted).
+ *   2. COVERAGE — the deck walks the full chart component set. The `sample` hygiene
+ *      arm reaches wider, across chart AND math, because a manifest in either bucket
+ *      with no `sample` is counted by name and emits no slide.
  *   3. THE BUILD'S SKIP TEST — `buildFreshness`. Neither gate above can see a stale
  *      PDF: both compare MARKDOWN, and the deck's markdown is identical whether or not
  *      anyone re-rendered it. #2253 is two bugs in that skip, and the second one only
@@ -61,11 +63,14 @@ describe('showcase galleries', () => {
   });
 
   test('data-viz covers the full chart component set', () => {
-    // The showcase must walk every chart component plus math — the same surfaces
-    // the per-bucket family galleries cover, in one consolidated deck.
+    // Every chart component, the same surfaces the per-bucket family gallery covers,
+    // in one consolidated deck.
     const inDeck = new Set(showcaseComponentNames('data-viz', groups));
     assert.ok(inDeck.size >= 13, `expected the full chart set, got ${inDeck.size}`);
-    assert.ok(!inDeck.has('math'), 'math has its own showcase — it must not be in data-viz');
+    // NOT math — and not because math has a showcase of its own. It has none, for the
+    // reason asserted in the test above, and an earlier version of this line said the
+    // opposite twelve lines below that assertion.
+    assert.ok(!inDeck.has('math'), 'data-viz surveys charts only');
   });
 
   describe('the build path\'s skip test (#2253)', () => {

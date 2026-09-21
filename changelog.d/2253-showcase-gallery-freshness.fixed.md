@@ -5,7 +5,7 @@
   byte-identical and the tool printed "already fresh" over stale PDFs. It now also asks
   `tools/lib/render-inputs.js` whether anything a render consumes changed without the PDF
   being rebuilt — the same question the component and bucket builders already ask. One
-  memoized `git status`, no Chromium, about 6ms.
+  memoized `git status`, no Chromium, about 5ms (p50 13.1 -> 17.8ms, 25 interleaved reps).
 - **Fixed: the dark showcase PDF was never rebuilt after a manifest change.** `buildOne`
   recomputed "does the committed deck match the manifests?" per theme, and the light pass
   *writes* that deck — so the dark pass compared against what light had just written,

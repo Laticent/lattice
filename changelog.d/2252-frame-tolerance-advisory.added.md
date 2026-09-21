@@ -10,7 +10,7 @@
   by name in `engineering/decisions/2026-09-21-frame-tolerance-silent-window.md`.
 - **Changed: the fit tolerance is one constant.** `FRAME_TOLERANCE` in
   `lib/core/overflow-probe.js`, read by the emulator and the browser runtime. It was a
-  bare `12` in four places with its (long-obsolete) justification in one of them. The
+  bare `12` in six places with its (long-obsolete) justification in one of them. The
   tolerance itself is **not** lowered: it feeds `buildSplitVerdict`, so lowering it
   re-decides autosplit corpus-wide and banks 34 unfixed slides in the ratchet. The
   measured case for doing it anyway is in the decision note.

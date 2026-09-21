@@ -111,6 +111,23 @@ describe('the near-miss advisory (#2252)', () => {
       `the advisory block must print through the kernel formatter and nothing else — found ${warns.length} console.warn calls`);
   });
 
+  test('the decision note quotes the advisory the export actually prints', () => {
+    // ROUND 9 FOUND THIS FILE'S BLIND SPOT: nothing tied the note's fenced sample to the
+    // formatter, so when the advisory's text was fixed the note kept quoting the OLD
+    // lines — including the two defects that commit existed to remove (the off-by-one
+    // "by less than", and the categorical "the pixels are gone from the export either
+    // way", which is false for 16 of the 34 slides in the band). It shipped that way for
+    // a whole commit. Quoting printed output into a document is a claim like any other,
+    // and this is the one class of prose drift a test can actually hold.
+    const NOTE = fs.readFileSync(path.join(ROOT, 'engineering', 'decisions',
+      '2026-09-21-frame-tolerance-silent-window.md'), 'utf8');
+    const sample = [{ slide: 3, px: 4 }, { slide: 4, px: 6 }, { slide: 8, px: 12 }];
+    const block = formatNearMissAdvisory(sample).join('\n');
+    assert.ok(NOTE.includes(block),
+      'the decision note\'s fenced advisory block is stale — regenerate it from '
+      + `formatNearMissAdvisory(${JSON.stringify(sample)}):\n\n${block}`);
+  });
+
   test('all three harvesters still key on the literals this guards', () => {
     // If a harvest ever keys on something else, the assertions above guard a literal
     // nobody reads any more — a test that passes for the wrong reason.

@@ -246,8 +246,14 @@
  * off at every viewBox and orientation. Get this backwards and the arithmetic invents
  * defects: a previous cut halved the pattern for milestones to fix "chipped corners"
  * that only existed in user units. `heatmap.styles.css` documents the same surprise.
- * The measurements behind all of this are in
- * `engineering/decisions/2026-09-21-frame-tolerance-silent-window.md`. */
+ *
+ * Measured on a real landscape render of `examples/gantt-status-key.md` (svg 1152px over
+ * a 480-unit viewBox, 2.4px/unit): all three marks report `stroke-dasharray: 4px, 2.5px`
+ * and `vector-effect: non-scaling-stroke`, and one measure — the path's own length —
+ * gives 134.5 cycles of the 6.5px pattern around the bar, 11.6 around the 9x9 swatch and
+ * 10.5 around the diamond, the last being ~2.6 dashes a side. A trim of this comment
+ * once deleted those numbers and pointed at a decision note that does not hold them;
+ * they live here because this is where they are used. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="deferred"] {
   fill-opacity: 0.18;
   stroke-dasharray: 4 2.5;

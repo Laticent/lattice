@@ -183,12 +183,22 @@ Three things make lowering it a change of its own rather than a constant edit:
 fall in `(NEAR_MISS_FLOOR, FRAME_TOLERANCE]` and are on neither list:
 
 ```
-  ⓘ INSIDE THE FIT TOLERANCE — 6 slides paint past a box that crops by less than the 12px budget
-    every check above is read against, so nothing reports them: p3 (4px), p4 (6px), … p8 (12px).
-    That box clips, so the pixels are gone from the export either way. Check those slides by eye,
-    or run `npm run check:chart-fit -- <deck>` — it measures the painted box against the stage
-    rather than asking this report, and its slack is 1.5px.
+  ⓘ INSIDE THE FIT TOLERANCE — 3 slides paint past a box that crops, by at most the 12px budget every check above is read against, so nothing reports them: p3 (4px), p4 (6px), p8 (12px).
+    That box crops, so whatever sits outside it is gone from the export. This measure cannot
+    tell a cropped glyph from empty space, so it is a reason to LOOK, not a finding — check
+    these slides by eye.
+    On a CHART slide, `npm run check:chart-fit -- <deck>` measures the painted box against the
+    stage with 1.5px of slack. It covers chart slides only, and it re-renders at landscape,
+    portrait and square — so a deck declaring its own `size:` is measured in another frame.
 ```
+
+**That block is GENERATED, and a test pins it.** It is `formatNearMissAdvisory([{slide:3,px:4},
+{slide:4,px:6},{slide:8,px:12}])` joined with newlines, asserted verbatim against this file by
+`test/unit/export/near-miss-advisory.test.js`. Quoting printed output into a document is exactly
+how this note came to carry two defects the code had already fixed — the off-by-one "by less
+than" and the categorical "the pixels are gone from the export either way" — for a whole commit
+after the export stopped printing them. Change the advisory and this block goes red until it is
+regenerated.
 
 It is an ADVISORY and deliberately not a verdict: no class is stamped, no export marker is drawn,
 the exit code does not move, and the ratchet is untouched — measured, not assumed: a full
@@ -206,8 +216,10 @@ measurement: `scrollH` and `clientH` are not gated by the tolerance, which only 
 nothing.
 
 **The tolerance is one constant now.** `FRAME_TOLERANCE` in `lib/core/overflow-probe.js`, read by
-the emulator's three sites and the runtime's one (HARD RULE #1). It was a bare `12` written out
-four times with the reasoning — the stale reasoning — in one of them.
+the emulator's five sites and the runtime's one (HARD RULE #1). It was a bare `12` written out
+six times with the reasoning — the stale reasoning — in one of them. (Five and six, not three and
+four: a `TOL =`-shaped grep misses `measureTrim(s, clipSel, 12, …)` and `tol: 12`, which is how an
+earlier draft of this line undercounted its own subject.)
 
 **`gantt`'s capacity prose says what its enforcement cannot see** and names `check:chart-fit` as
 the gate that can. Both citations in `gantt.manifest.json` carry it; the docs and gallery are

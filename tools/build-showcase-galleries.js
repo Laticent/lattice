@@ -99,8 +99,8 @@ function showcaseManifests(showcase, groups) {
   return showcase.buckets.flatMap((b) => groups[b] || []);
 }
 
-/** The component NAMES a showcase covers — the anti-staleness contract the unit
- *  gate checks against the full chart+math manifest set. */
+/** The component NAMES a showcase covers — the anti-staleness contract the unit gate
+ *  checks, resolved from the showcase's OWN buckets (`data-viz` is charts only). */
 function showcaseComponentNames(id, groups = groupByBucket(loadAll())) {
   const s = showcaseById(id);
   return s ? showcaseManifests(s, groups).map((m) => m.name) : [];
