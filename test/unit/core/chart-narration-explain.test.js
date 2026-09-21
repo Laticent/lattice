@@ -462,6 +462,21 @@ test('CHECKER 2 — a list of states with NO transitions claims no shape at all'
   assert.ok(out.includes('This flow starts at Draft'), out);
 });
 
+test('CHECKER 2 — a CYCLE is not a straight chain', () => {
+  // THE ARM WHOSE ABSENCE LET THE GUARD VANISH. `isChain` has four conditions and
+  // three of them are provably redundant; the back-edge check is the only
+  // load-bearing one, and nothing pinned it. A second checker mutating the shared
+  // tree during a commit of mine swept the line out inside a DOCS-ONLY commit, and
+  // the whole suite stayed green — 10139 pass — while a two-state cycle narrated as
+  // "it runs as a straight chain with no forks; one transition steps back", two
+  // claims in one sentence that cannot both be true.
+  const out = narrateStateChart(slide('state-chart', [
+    '## Ping pong.', '', '1. Draft', '   - `submit => 2`', '2. Review', '   - `reject => 1`',
+  ].join('\n')));
+  assert.ok(!out.includes('straight chain'), out);
+  assert.ok(out.includes('one transition steps back'), out);
+});
+
 test('CHECKER 2 — a real chain is still called one', () => {
   // The fix must not buy correctness by never making the claim.
   const out = narrateStateChart(slide('state-chart', [
