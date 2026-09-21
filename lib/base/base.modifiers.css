@@ -582,6 +582,55 @@ section.dark {
    * `backdrop-none`, the `tint-*`/`mark-*` treatments) — 81 matching rules enumerated by
    * CSSOM, then measured across 7 themes x 88 class combinations with zero substantive
    * computed differences (#1528). */
+}
+
+/* -- THE DARK CANVAS DOES NOT REPAINT A FRAME THAT PAINTS ITS OWN --
+ *
+ * These declarations used to sit on bare section.dark, at the same (0,1,1)
+ * specificity as a canvas-owning frame own rule and LATER in the bundle, so
+ * under color-mode: dark that frame lost the canvas it paints for itself and
+ * took the deck-wide one. Measured in Chromium:
+ *
+ *     divider  background-size   3.75px 100%   ->  100% 1px
+ *              (the spectrum RAIL collapsed to the deck-wide hairline)
+ *     title    background-color  rgb(0,61,102) ->  rgb(0,29,51)
+ *     closing  background-color  rgb(0,61,102) ->  rgb(0,29,51)
+ *
+ * It had been shipping that way: divider.gallery.dark.pdf shows the rail gone.
+ *
+ * THE LIST IS THE FRAMES THAT PAINT A CANVAS OF THEIR OWN, which is not the same
+ * set as the sovereign frames and is not a set anyone guessed correctly. It was
+ * found by the gate, not by reading: five COVER variants paint an accent panel
+ * and were losing it to the deck ground under dark, the same defect as the
+ * anchors and a louder one -- measured, rgb(0,111,168) -> rgb(0,29,51).
+ *
+ * Painting var(--bg) does NOT count, and that distinction matters: image and
+ * scene declare a background, but it is the deck ground -- the same surface this
+ * rule would paint -- so the cascade taking it over costs nothing. Only a frame
+ * painting a DIFFERENT surface is erased.
+ *
+ * Keying on sovereignty instead (via the .form class the engine stamps on every
+ * non-sovereign section) needs no list at all, and is the wrong set twice over:
+ * it would miss all five covers, which are not sovereign, and it would silently
+ * take the deck-wide hairline off compare-code, image, premise, scene,
+ * split-compare and split-panel, which own their layout but no canvas and still
+ * want it.
+ *
+ * The list cannot rot: dark-canvas-ownership.test.js reads every frame CSS,
+ * finds the ones with a section-level background, and fails if that set and this
+ * selector disagree. Add a component here only when the test tells you to.
+ *
+ * :not(:where(...)), not :not(...). :where() contributes zero specificity, so
+ * this rule stays exactly (0,1,1) -- it narrows what the rule MATCHES without
+ * raising what it BEATS. The plain form is (0,4,1); measured across 102 class
+ * combinations that changes 9 of them, all `print dark`, where it starts winning
+ * against section.print canvas reset and a printed slide keeps a stray
+ * background-size slot it should not have.
+ *
+ * Only .dark needed this. .light sets no canvas, and .print works by remapping
+ * the consumed tokens rather than painting over them, so a canvas-owning frame
+ * already resolved correctly in both. */
+section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .compare-code-cover, .compare-split-cover, .list-tabular-cover, .split-panel-cover)) {
   background-color: var(--bg);
   background-image: var(--spectrum);
   background-position: top;

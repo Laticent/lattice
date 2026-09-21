@@ -80,7 +80,15 @@ describe('no var() in a multi-layer background shorthand (#1528)', () => {
 
   test('the six hoisted sites still paint their surface as background-color', () => {
     const want = [
-      ['base/base.modifiers.css', 'section.dark', '--bg'],
+      // The long selector, not bare `section.dark`: the canvas paint moved to a
+      // narrower one so a frame that paints ITS OWN canvas keeps it under
+      // `color-mode: dark`. The property this test guards is unchanged — the same
+      // longhands on the same declarations — and the selector has to be the one that
+      // actually paints, or the match below finds the scheme-flip block and passes on
+      // a rule with no background at all. `dark-canvas-ownership.test.js` is what
+      // keeps the class list inside it honest; this test only cares that whatever
+      // paints, paints with longhands.
+      ['base/base.modifiers.css', 'section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .compare-code-cover, .compare-split-cover, .list-tabular-cover, .split-panel-cover))', '--bg'],
       ['shared/shared.styles.css', 'section.accent.dark', '--bg'],
       ['components/anchor/divider/divider.styles.css', 'section.divider', '--surface-inverse'],
       ['components/code/code/code.styles.css', 'section.code pre', '--code-bg'],
