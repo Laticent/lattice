@@ -376,7 +376,7 @@ is what makes the table above a pure addition rather than a trade.
   this paragraph pointed at, would have moved nothing. And the shape is not "~9 components":
   across all 71, **nine** render a part with a name inside it, and the wins are concentrated in
   the ones this note did not name — `table` (this note's `compare-table`) 60.9% -> 97.8%,
-  `matrix-grid` 30.4% -> 100%. Corpus 87.2% -> 89.3% at `47d0f4e`, one corpus, both runs back to
+  `matrix-grid` 30.4% -> 100%. Corpus 87.2% -> 89.6% at `47d0f4e`, one corpus, both runs back to
   back, nothing lost.
 - **The prose joins — PARTLY taken, by a route this paragraph did not consider.** It is right
   that no MARK declares those sentences and that route A changes a shared kernel contract. It is
@@ -390,6 +390,6 @@ is what makes the table above a pure addition rather than a trade.
   judged them good (recorded on #2244). That closes the question for the chart mark tier and the
   showcase; it does not close it for anything built after, which is why this line says what was
   watched and when rather than carrying an absolute. `2026-09-21-manifest-handles.md` re-opens it
-  for the **191** cues whose handle it moves (and the 464 that get a different VERB as a result),
+  for the **191** cues whose handle it moves (and the 247 that get a different VERB as a result),
   and its §6b says what was driven on the real surface and what was not — including that nobody
   has yet presented a full deck with the new handles and judged the cadence.

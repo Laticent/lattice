@@ -30,6 +30,11 @@ export const GUIDE_HANDLES: readonly GuideHandle[] = [
 	},
 	{
 		"component": "journey",
+		"part": "section.journey .journey-stage",
+		"names": ".journey-stage-name"
+	},
+	{
+		"component": "journey",
 		"part": "section.journey .journey-task",
 		"names": ".journey-task-label"
 	},

@@ -250,6 +250,11 @@
         "note": "A task cell is its actor initials plus a label span. HANDLE ONLY in practice: `narrateJourneyMood` emits `<stage>: <task>, <actor>, <mood>`, so a real cue opens with the STAGE, never the task label — the matcher fires on a task-led sentence but the projection does not write one."
       },
       {
+        "part": ".journey-stage",
+        "names": ".journey-stage-name",
+        "note": "The LANDSCAPE board's stage, and the counterpart to `.journey-vstage`. Found by presenting a landscape deck: `narrateJourneyMood` opens each cue with the stage name, so this is the row that places them — the portrait row alone left every landscape stage cue hiding."
+      },
+      {
         "part": ".journey-vstage",
         "names": ".journey-vstage-name",
         "note": "The portrait board's stage: a name span above a row list, so the cue that opens with the stage name had nothing to land on."

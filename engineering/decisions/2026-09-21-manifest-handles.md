@@ -7,7 +7,7 @@ summary: >
   a border. Manifests now carry `handles` — the RENDERED part and the token that names it — and
   the Guide reads a generated catalog of them, the same arrangement `density.domSelector` already
   has with the Fix-Me overlay. Measured on one corpus, both runs back to back, 187 decks /
-  10,810 cues: 87.2% -> 89.3% resolved, 1,383 hidden cues -> 1,153, and no component loses a
+  10,810 cues: 87.2% -> 89.6% resolved, 1,383 hidden cues -> 1,122, and no component loses a
   resolution. Two findings changed what got built. `slots` was refused again, this time for a
   second reason: it is an authoring contract. And the issue's own target — "12 of the 18
   components at `body` 100%" — does not survive measurement, because ten of those eighteen are
@@ -126,10 +126,10 @@ touches nothing that renders, so "the same corpus" is by construction, not by cl
 
 | | before | after |
 |---|---|---|
-| corpus resolved | 9,427 (87.2%) | **9,657 (89.3%)** |
-| cues where the pointer hides | 1,383 | **1,153** |
+| corpus resolved | 9,427 (87.2%) | **9,688 (89.6%)** |
+| cues where the pointer hides | 1,383 | **1,122** |
 | handle `body` | 4,767 | **4,579** |
-| handle `part` | — | **421** |
+| handle `part` | — | **452** |
 | handle `marker` · `phrase` | 689 · 3,292 | **689 · 3,292** (unchanged) |
 | components that LOST a resolution | — | **none** |
 
@@ -140,7 +140,7 @@ touches nothing that renders, so "the same corpus" is by construction, not by cl
 | `matrix-grid` | 46 | 30.4% | **100%** |
 | `obligation-matrix` | 21 | 42.9% | **100%** |
 | `roadmap` | 109 | 56.0% | **69.7%** |
-| `journey` | 188 | 46.8% | **51.6%** |
+| `journey` | 188 | 46.8% | **68.1%** |
 | `glossary` | 107 | 94.4% | **100%** |
 | `statute-stack` | 79 | 74.7% | **78.5%** |
 | `state-chart` | 357 | 63.9% | 63.9% (handle mix `body` 99.6% -> `part` 62.7%) |
@@ -150,16 +150,16 @@ its cues move from "a wash over the whole node" to "a tap on the node's label". 
 679 -> 676 — three `journey` cues traded an inferred header for a declared one, which is the
 priority above working as intended rather than a loss.
 
-**The 421 is two different things and the split matters:** 191 cues whose handle MOVED (188 from
-`body`, 3 from `header`) plus 230 cues that were not resolving at all. An earlier draft of this
+**The 452 is two different things and the split matters:** 191 cues whose handle MOVED (188 from
+`body`, 3 from `header`) plus 261 cues that were not resolving at all. An earlier draft of this
 section said `state-chart` moved 224, from multiplying 62.7% by its 357 CUES instead of its 228
 RESOLVED — the table two rows up contradicts it twice over, and an independent check caught it
 rather than a reader.
 
-**What the table does not show is that 464 cues get a different VERB.** The handle moving to a
-small token changes which gesture fits it: `tap` 801 -> 1,088, `wash` 3,473 -> 3,361, `underline`
-3,210 -> 3,262, `circle` 577 -> 585, `bracket` 1,366 -> 1,361, and `fellBack` (the rest position
-had to be searched for) 1,987 -> 2,120. That is the intended effect — a name is a small thing and
+**What the table does not show is that 247 cues get a different VERB.** The handle moving to a
+small token changes which gesture fits it: `tap` 799 -> 1,119, `wash` 3,473 -> 3,361, `underline`
+3,211 -> 3,262, `circle` 578 -> 585, `bracket` 1,366 -> 1,361, and `fellBack` (the rest position
+had to be searched for) 1,992 -> 2,120. That is the intended effect — a name is a small thing and
 gets a small verb — but it is the number a reviewer weighing "how it feels" should have.
 
 **This reaches the prose joins the issue scoped out, by a different route.** Route A — an anchor
@@ -247,6 +247,14 @@ a substring search misses entirely — each arm fault-injected.
 
 The audit's §8 points here for verification, so this section has to carry it rather than gesture
 at it.
+
+**A deck found a missing row, which is the argument for presenting one.** `journey` declared only
+`.journey-vstage`, the PORTRAIT board's stage. Presenting a LANDSCAPE deck showed every one of its
+stage cues still hiding — `narrateJourneyMood` opens each cue with the stage name, and the token
+that carries it at landscape is `.journey-stage-name`, which nothing declared. One row closed it:
+`journey` went 51.6% -> **68.1%**, and the corpus 89.3% -> 89.6%. No gate could have found this —
+the census proves a declared row RESOLVES, never that an undeclared one is missing — which is why
+§6b's "present a real deck" is a gap in the evidence and not a formality.
 
 **Driven on the real Present surface**: `docs/e2e/present-guide-handles.spec.ts` opens the
 Studio, sets a roster deck, turns Guide on, plays it, and asserts a Vetrina stroke lands on a
