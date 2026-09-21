@@ -168,7 +168,7 @@ test('a SPATIAL chart (state-chart) goes to the placeholder, NOT a broken SVG re
 	);
 	const { articleHtml } = project(secs);
 	assert.doesNotMatch(articleHtml, /state-chart-edges/, 'the orphan edge SVG is not projected');
-	assert.match(articleHtml, /lp-figure-note[\s\S]*best seen/, 'projects to the visual-layout placeholder');
+	assert.match(articleHtml, /lp-figure-note/, 'projects to the visual-layout placeholder');
 });
 
 test('a SPATIAL-BOUNDED chart (word-cloud) re-hosts its .chart-body into a bounded .lp-spatial box', () => {
@@ -426,7 +426,47 @@ test('a pure-visual component with no prose gets an honest placeholder, never an
 	const { articleHtml } = project(secs);
 	assert.match(articleHtml, /<h2 id="lp-sec-0">Schedule<\/h2>/);
 	assert.match(articleHtml, /lp-visual-note/, 'an honest visual-layout note stands in for the empty body');
-	assert.match(articleHtml, /Present|Read · Slides/, 'it points to the views where the visual reads');
+	// THE NOTE NAMES NO VIEW, and this assertion used to demand the opposite. "best seen in
+	// the Present or Read · Slides view" is true in the player and false in a `--read`
+	// export, which has neither and whose slide stack was deliberately removed — a
+	// placeholder that sends a reader somewhere the artifact does not go.
+	assert.doesNotMatch(articleHtml, /Present|Read · Slides/, 'the note must not name a view the artifact may not have');
+});
+
+// A component that cannot be re-hosted as a picture is not therefore contentless.
+// `state-chart` authors a full sentence for the accessibility tree in its own transform
+// (`stateChartDesc`) and the article threw it away, so every state name and every
+// transition was absent from the only copy a summarizer gets. Measured on
+// `examples/chart-narration.md` before this: the slide projected to the note alone.
+test('a visual-layout slide contributes the description the visual already carries', () => {
+	const secs = sections(
+		`<section data-lattice-slide data-class="state-chart" class="state-chart"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Approval flow</h2></div>
+			<svg class="state-chart-edges" aria-hidden="true"><desc>States — 1. Draft (start); 2. In Review; 3. Published (end). Transitions — on submit, Draft to In Review</desc><path/></svg>
+			<ol class="state-nodes"><li class="state-node"><span class="state-index">1</span><span class="state-label">Draft</span></li></ol>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	// A real <p>, OUTSIDE the figure: Readability's candidates are `p`, `pre` and `article`,
+	// so a sentence buried in a figure caption is not one.
+	assert.match(articleHtml, /<p>States — 1\. Draft \(start\)/, "the visual's own description reaches the article as a paragraph");
+	assert.match(articleHtml, /on submit, Draft to In Review/, 'including the transitions, which no other channel carries');
+	assert.match(articleHtml, /lp-visual-note/, 'and the note still says the diagram itself is on the slide');
+	// Not the generic block walk: that yields "1Draft" — the index welded to its label.
+	assert.doesNotMatch(articleHtml, /1Draft/, 'the raw node list is noise and must not be projected');
+});
+
+test('a visual-layout slide that describes itself nowhere gets the note alone, not an invention', () => {
+	const secs = sections(
+		`<section data-lattice-slide data-class="journey" class="journey"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Onboarding</h2></div>
+			<div class="journey-board"><ol class="journey-legend"><li class="journey-actor"><span class="journey-actor-dot">P</span><span class="journey-actor-name">prospect</span></li></ol></div>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /lp-visual-note/, 'the note stands in');
+	assert.doesNotMatch(articleHtml, /<p>[^<]/, 'nothing is synthesized — journey describes itself nowhere, and inventing a description is worse than admitting there is none');
+	assert.doesNotMatch(articleHtml, /Pprospect/, 'and the welded legend is not projected as a substitute');
 });
 
 test('divider is an h2 sub-entry, not an h1 competing with the cover (§A2)', () => {

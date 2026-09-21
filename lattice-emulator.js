@@ -3444,7 +3444,7 @@ async function renderBody(browser, g, closeBrowser) {
   // overflow-marker level is applied — see "Bake the player's DOM" below. Declared
   // here only because the autosplit loop between here and there may re-render the
   // page, and a capture taken before that would be stale.
-  let inflatedPlayerHtml = null;
+  let inflatedDocHtml = null;
   // Did the assembled player actually land at outHtml? Only true after a SUCCESSFUL write
   // below; a player-assembly failure leaves the clean render there, which does want the
   // subresource policy.
@@ -3636,7 +3636,7 @@ async function renderBody(browser, g, closeBrowser) {
   //
   // Every artifact this run writes comes FROM THE LIVE DOM: the PDF and the PNGs are
   // rasterized from it, the PPTX from those rasters, the player from a capture of it
-  // (`inflatedPlayerHtml`), and the fluid viewer inlines the runtime, which re-measures
+  // (`inflatedDocHtml`), and the fluid viewer inlines the runtime, which re-measures
   // and re-trims at the reader's own size. The plain `.html` is the sole exception — it
   // is `cleanDocHtml`, a Node-side string written BEFORE the page was ever loaded, and
   // nothing rewrites it from the DOM afterwards.
@@ -3973,7 +3973,15 @@ async function renderBody(browser, g, closeBrowser) {
   //
   // Never fail-hard: a failed capture falls back to the clean static render, which is
   // exactly the behavior that shipped before.
-  if (PLAYER) {
+  //
+  // `--read` TAKES THE SAME CAPTURE, and for the same reason one level along: its article is
+  // projected from the slide DOM, and an un-baked Mermaid diagram reaches that projection as
+  // a `<foreignObject>` the sanitizer then strips — so the article showed empty boxes with
+  // arrows and no words at all, where `--player` showed the drawing. Measured on a
+  // three-slide deck with one `graph LR`: 0 occurrences of a node's label text in the
+  // `--read` article against 2 in the player. The bake is the whole difference, and it was
+  // gated on `PLAYER` alone.
+  if (PLAYER || READ_VIEW) {
     try {
       if (hasStateChart || hasFunctionPlot) {
         // Through the render guard like every other page call in this file: a CDP
@@ -4019,14 +4027,14 @@ async function renderBody(browser, g, closeBrowser) {
         }
         return { html: `<!DOCTYPE html>\n${root.outerHTML}`, unbaked, total: live.length };
       }), 'player capture: serialize baked DOM');
-      inflatedPlayerHtml = baked.html;
+      inflatedDocHtml = baked.html;
       if (baked.unbaked) {
         console.warn(
           `  WARNING: ${baked.unbaked}/${baked.total} diagram(s) could not be baked for the player; ` +
             'they will ship without their labels.'
         );
       }
-    } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
+    } catch (_e) { inflatedDocHtml = null; /* fall back to the static render */ }
   }
   // SQUARE THE CORNER for a target that cannot hold it — BEFORE any capture, so the
   // clip is never applied rather than applied and then undone. Undoing it downstream
@@ -4636,7 +4644,7 @@ async function renderBody(browser, g, closeBrowser) {
         // with state-chart / function-plot inflated to static SVG). Falls back to the
         // clean static render only if that capture failed — which also means no marker,
         // so the fallback is announced rather than silent.
-        docHtml: inflatedPlayerHtml || cleanDocHtml,
+        docHtml: inflatedDocHtml || cleanDocHtml,
         // The envelope carries verbatim source for lossless re-import — but under
         // `--strip-notes` / `--strip-captions` that source is re-serialized WITHOUT the
         // respective comments (directive-safe: notes match only the exact bodies lifted
@@ -4715,7 +4723,7 @@ async function renderBody(browser, g, closeBrowser) {
           console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
         }
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
-        if (inflatedPlayerHtml && (hasStateChart || hasFunctionPlot)) console.log('  baked dynamic components (state-chart / function-plot) to static SVG');
+        if (inflatedDocHtml && (hasStateChart || hasFunctionPlot)) console.log('  baked dynamic components (state-chart / function-plot) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
         for (const n of pruneNotes) console.log(n);
       }
@@ -4727,7 +4735,7 @@ async function renderBody(browser, g, closeBrowser) {
       // and this is the only signal that a delivered artifact silently lost its marker.
       // Gated on there being something to mark, so a clean deck whose capture failed is
       // not told it is missing a marker that was never going to appear.
-      if (!inflatedPlayerHtml && level !== 'off' && overflowing.length) {
+      if (!inflatedDocHtml && level !== 'off' && overflowing.length) {
         console.warn(`  honesty: the player DOM could not be captured — this player shows no overflow marker, not \`${level}\`.`);
       }
     } catch (err) {
@@ -4759,7 +4767,12 @@ async function renderBody(browser, g, closeBrowser) {
     // ZERO .vtt files for `--read --captions` and blamed the deck ("nothing to narrate")
     // rather than the flag. `--fluid` above never had the bug because it writes without
     // reassigning; this now does the same. Found by an independent checker.
-    const articleDoc = await buildReadingArticleDocument(cleanDocHtml);
+    // THE BAKED CAPTURE, not the static render — see the `PLAYER || READ_VIEW` bake above.
+    // `cleanDocHtml` still leaves a ```mermaid fence as its source, and the fence's rendered
+    // SVG carries every label in a `<foreignObject>` that this function's own sanitizer
+    // removes. Falls back to the static render whenever the capture did not happen, which is
+    // the article that shipped before.
+    const articleDoc = await buildReadingArticleDocument(inflatedDocHtml || cleanDocHtml);
     if (articleDoc) {
       fs.writeFileSync(outHtml, articleDoc);
       if (!QUIET) console.log(`Reading article: ${outHtml}`);

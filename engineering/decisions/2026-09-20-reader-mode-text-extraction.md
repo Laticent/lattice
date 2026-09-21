@@ -233,6 +233,17 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   reachable from the sandbox, so the end-to-end shake gesture is **UNVERIFIED**. Safari
   Reader's own heuristic (a heading plus ~2000+ characters) is stricter than Readability's
   and was not measured against a deck.
+- **`journey` describes itself nowhere, so its content is in no article.** A visual-layout
+  slide now contributes whatever description its visual already carries, which recovers
+  `state-chart` completely — its transform authors "States — 1. Draft (start); … Transitions
+  — on submit, Draft to In Review" for the accessibility tree, and the article was throwing
+  it away. `journey` has no equivalent: no `<desc>`, no `describe:`, nothing. That is a gap in
+  the COMPONENT, not in the projection — a screen-reader user gets the same nothing — and the
+  fix belongs in `journey.transform.js` beside `stateChartDesc`, not here. Deliberately not
+  synthesized from its markup: measured, the generic block walk over a journey stage yields
+  `PprospectSsalesUuserOonboarding` and `Pain12345Delight`, the index welded to its label. An
+  invented description is worse than an absent one. The recovery mechanism is already in
+  place, so journey joins the moment it describes itself.
 - **Readability drops part of short decks even from a clean article.** `examples/a11y.md`
   extracts 216 of 334 words (65%) from the projection alone, because its paragraphs are
   short. That is a floor in their algorithm, not something this change can move.
