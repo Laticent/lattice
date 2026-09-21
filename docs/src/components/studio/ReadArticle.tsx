@@ -77,16 +77,15 @@ const READ_ARTICLE_CSS = `
 .st-read-article .lp-roster>li>img{flex:none;width:1.9em;height:1.9em;border-radius:50%;object-fit:cover;align-self:flex-start}
 .st-read-article .lp-roster>li>div{flex:1;min-width:0}
 .st-read-article figure{padding:0 0 1.4em;margin:0}
-/* CENTER the visual in its breakout band, and center the caption under it. Until the
-   bake started putting real drawings here instead of Mermaid source there was nothing in
-   the band to notice: a three-node flowchart sat against the band's left edge with its
-   caption under empty space, a third of the way in from the prose. The player centers the
-   same way (#lp-article .lp-figure svg). It does NOT stretch: the player's own width:100%
-   holds because Mermaid leaves a max-width on the svg root, and the bake here rewrites
-   that style attribute away, so the same rule blew a 564px flowchart up to the full 1100px
-   band with 32px labels. Center at natural size instead — a diagram that IS wider than the
-   band still fills it through max-width. */
-.st-read-article figure svg,.st-read-article figure img{max-width:100%;height:auto;display:block;margin-inline:auto}
+/* THE PLAYER'S ARTICLE RULE (#lp-article .lp-figure svg), which this pane never got.
+   A figure uses its whole band, and max-height keeps a SMALL diagram maximized to that
+   band from running away down the page — measured, a two-state chart reaches 1052 x 3240px
+   without it. Mermaid's own inline max-width: <intrinsic>px on the svg root is what beat
+   an earlier version of this rule and left a 121px flowchart sitting against the band's
+   left edge; mermaid.css defeats that with !important, which is where it belongs since
+   it is a Mermaid oddity rather than an article one. */
+.st-read-article figure svg{width:100%;height:auto;max-height:78vh;display:block;margin-inline:auto}
+.st-read-article figure img{max-width:100%;height:auto;display:block;margin-inline:auto}
 .st-read-article figcaption{font-size:.82rem;color:var(--text-muted);padding:.5em 0 0;text-align:center}
 .st-read-article .lp-figure-note{border:1px dashed var(--border);border-radius:10px;padding:1em 1.2em;background:var(--bg-alt)}
 .st-read-article .lp-visual-note{font-size:.92rem;color:var(--text-muted);margin:0}

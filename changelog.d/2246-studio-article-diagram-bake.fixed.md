@@ -10,3 +10,9 @@
   The spent Mermaid source block is hidden in the reading pane the way the engine hides it
   on a slide — without that, a fence on a plain content slide showed its source and the
   drawing, one under the other.
+- **Fixed: a re-hosted diagram uses its band in the reading article.** Mermaid writes its
+  intrinsic width as an inline `max-width` on the SVG root, which beat every article
+  stylesheet, so one diagram sat at 687px and another at 121px in the same column. The
+  sizing rule beside the slide's own in `mermaid.css` now has the re-hosted-figure arm it
+  was missing, and the CLI and Studio articles carry the `width:100%` + `max-height` pair
+  the player's article has had all along.

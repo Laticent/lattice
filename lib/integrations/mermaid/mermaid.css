@@ -41,6 +41,36 @@ section.diagram > .cell-stage > .mermaid { display:flex; align-items:safe center
 section.diagram > .mermaid svg,
 section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:100% !important; height:100% !important; max-height:100% !important; display:block; }
 
+/* ── THE RE-HOSTED FIGURE (Read · Article) ──
+ * The rule above is the same problem solved on the slide, and the article never got an
+ * arm: all three of its selectors need either `section.diagram` or the `.mermaid-svg`
+ * wrapper, and the prose projection lifts the BARE `<svg>` into a `<figure>`, leaving
+ * both behind. The `:is(section, figure)` broadening documented further down covers the
+ * PAINT rules for exactly this reason; the sizing rule was simply missed.
+ *
+ * WHY `!important` IS LOAD-BEARING, and it is the whole bug: Mermaid writes its intrinsic
+ * width as an INLINE `style="max-width: 687px"` on the svg root — measured on all five
+ * families (flowchart, sequence, state, pie, class). An ordinary rule loses to it, so a
+ * re-hosted diagram sat at whatever pixel width Mermaid happened to measure: 687px for one
+ * flowchart and 121px for another in the same article.
+ *
+ * IT SETS WIDTH ONLY, and that is the whole division of labour. Height and the runaway cap
+ * belong to the article stylesheet, because they are not a Mermaid problem: with
+ * `height:auto` alone, maximizing the width of a SMALL diagram scales it by its aspect —
+ * measured, a two-state `stateDiagram` went to 1052 x 3240px. The host's
+ * `max-height` is what contains that, and `#lp-article` in the player has had it all along.
+ * This arm only defeats the inline cap; the hosts decide the box.
+ *
+ * KEYED ON `aria-roledescription`, which Mermaid writes on every diagram's svg root
+ * (verified across those same five families: `flowchart-v2`, `sequence`, `stateDiagram`,
+ * `pie`, `class`). `class` is NOT usable — it is null on sequence and pie — and the svg id
+ * is not either: the CLI mints `lattice-mmd-N` (mmdc's `my-svg`, renamed in
+ * lattice-emulator.js) while the browser path mints `lattice-mermaid-N`. Our own chart
+ * SVGs carry no `aria-roledescription` (measured: 0 of 3 in a chart deck's article), so
+ * this cannot reach a chart — which must stay unforced, because it is token-driven and
+ * sized by its own container rules. */
+figure > svg[aria-roledescription] { width:100% !important; max-width:100% !important; }
+
 /* Visibility states keyed off `data-mermaid-state` on the <pre>.
  *
  * The source <pre> is hidden for every tagged state except "error".

@@ -5487,7 +5487,11 @@ html,body{background:var(--bg,#fff)}
 #lat-read .lp-roster>li>img{flex:none;width:1.9em;height:1.9em;border-radius:50%;object-fit:cover;align-self:flex-start}
 #lat-read .lp-roster>li>div{flex:1;min-width:0}
 #lat-read figure{padding:0 0 1.4em;margin:0}
-#lat-read figure svg,#lat-read figure img{max-width:100%;height:auto}
+/* The player's #lp-article .lp-figure svg rule, which this article never got. width:100%
+   so a figure uses its band; max-height so a SMALL diagram maximized to that band cannot
+   run away down the page (a two-state chart measured 1052 x 3240px without it). */
+#lat-read figure svg{width:100%;height:auto;max-height:78vh;display:block;margin-inline:auto}
+#lat-read figure img{max-width:100%;height:auto}
 #lat-read figcaption{font-size:.82rem;color:var(--text-muted,#777);padding:.5em 0 0}
 #lat-read .lp-figure-note{border:1px dashed var(--border,#ccc);border-radius:10px;padding:1em 1.2em;background:var(--bg-alt,#f7f7f7)}
 #lat-read table{border-collapse:collapse;width:100%;font-size:.92em}
