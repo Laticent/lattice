@@ -321,9 +321,36 @@ section {
  * `var(--bg)`, which is why `divider` alone carries the `:not(.light)` it always had.
  * Excluding `.light` from all three was the first cut of this fix and broke `title
  * light`; the matrix caught it. */
-section:is(.title, .closing):not(.dark):not(.print),
-section.divider:not(.light):not(.dark):not(.print) {
+section:is(.title, .closing):not(.print),
+section.divider:not(.light):not(.print) {
   --fin-canvas: var(--surface-inverse);
+}
+
+/* THE `.dark` EXCLUSION IS GONE, and the paragraph above says why it was there:
+ * `section.dark` repainted a bookend with `var(--bg)`, so on `title dark` the
+ * surface really WAS the dark deck canvas and `--fin-canvas` had to follow it.
+ * That is no longer true. `section.dark:not(:where(...))` in base.modifiers.css
+ * exempts the frames that paint their own canvas, so `title dark` is
+ * rgb(0,61,102) again and the exclusion inverted the very bug it was added to
+ * prevent -- measured, surface rgb(0,61,102) against --fin-canvas rgb(0,29,51),
+ * which is the clearance mask painting a dark-deck ellipse across an inverse
+ * panel. `:not(.print)` stays: print REMAPS the consumed tokens rather than
+ * exempting anything, so a printed bookend still takes the print band.
+ *
+ * THE FIVE ACCENT COVERS ARE THE SAME EXEMPTION and were never named here,
+ * because until that change they were repainted too. Under dark they now keep
+ * `var(--accent)`, so a finish on one has to mix toward the accent panel.
+ *
+ * SCOPED TO `.dark` DELIBERATELY, which is the one asymmetry in this block. A
+ * cover paints `var(--accent)` in EVERY mode, so plain/light/print covers have
+ * carried this same mismatch all along -- measured on `main`, 32 combinations
+ * across the covers, `topic`, and `lat-split-cover`. Widening the rule would fix
+ * them and change what a LIGHT deck's finish composites against, which is a
+ * different defect from the one this change caused. Tracked as #2294; the dark
+ * rows are here because they are the ones this change broke. */
+section.dark:is(.decision-cover, .compare-code-cover, .compare-split-cover,
+                .list-tabular-cover, .split-panel-cover) {
+  --fin-canvas: var(--accent);
 }
 
 /* ── WHAT USED TO BE HERE, and what removed it ────────────────────────────────
