@@ -308,10 +308,56 @@ hundred thousand". Both are correct readings of the same number; only the CHART
 has a reason to prefer one unit. The earlier framing of this as "the voice should
 match the print" had it backwards: the voice should match the NUMBER.
 
+## Narrowing "nobody has listened"
+
+That caveat rode this swimlane from the start, and it was doing too much work. The
+shipped voices are a cloud engine (barred from the per-PR path by HARD RULE #24) or
+on-device Kokoro (WebGPU, browser), so no sandbox here can hear the artifact — true,
+and still not the whole story. **Some of what an ear catches is not about sound. It
+is about the SHAPE of the track, and the shape is in the bytes.**
+
+`tools/measure-cue-profile.mjs` reads cue lengths, pacing, monotonicity, overlaps
+and karaoke-tag containment off an emitted `.vtt`. **It found a real defect on its
+first run:** a THIRTEEN-SECOND, 39-word cue on the hazards slide, because
+`narrateMachineShape` joined six clauses with semicolons into one sentence and the
+segmenter makes one cue per sentence. A cue is three things at once — a caption
+line, a re-anchor unit, and one TTS clip — so that was also one long utterance a
+listener cannot scrub back into.
+
+| | before | after |
+|---|---|---|
+| longest cue | 13.2s / 39 words | **10.1s / 28 words** |
+| p90 duration | 7615 ms | **6940 ms** |
+| structural problems | 0 | 0 |
+
+**And the track was actually synthesized.** `espeak-ng` is not the shipped voice, so
+it says nothing about timbre — but it does turn the caption track into real audio,
+and real audio can be measured against the `.vtt`'s own timings:
+
+```
+slide 01  spoken  13.6s   vtt says  14.3s
+slide 02  spoken  49.5s   vtt says  49.3s
+…
+TOTAL     spoken 226.0s   vtt says 225.7s   ratio 1.00
+```
+
+That is a real-surface check of something previously taken on trust: the track
+builder's pacing model predicts actual synthesized duration to within **0.3 seconds
+over 226**. A model that drifted would put every caption out of step with the voice,
+and nothing before this measured it.
+
+**What none of this closes.** It cannot tell you the words are the RIGHT words. A
+track can score perfectly on shape and timing while saying something false, and the
+only check for that is a person who knows the deck listening to it. The caveat is
+narrower, not gone.
+
 ## Known limits
 
-- **Nobody has listened.** Every number here is emitted `.vtt` bytes or a value
-  computed in process (HARD RULE #23). Whether it SOUNDS right needs an ear.
+- **Nobody has judged the sound.** The track's SHAPE and TIMING are now measured
+  against real synthesized audio (see the section above), and the words are verified
+  in emitted bytes. What is not verified is whether a person who knows the deck finds
+  the readings right — and `espeak-ng` is not the shipped voice, so it says nothing
+  about how the real engines render it.
 - **The voice and the printed slide may pick different units for the same number.**
   Narration now canonicalizes the VALUE (see the section above), and the chart
   normalizes the whole chart to one magnitude, so a deck mixing `900k` and `1.2M`

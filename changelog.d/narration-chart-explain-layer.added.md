@@ -36,3 +36,8 @@
   1.25M — the voice took the decimal comma for a thousands separator where the chart's
   parser did not. A bare number is deliberately left alone, so `Closed \`2024\`` still
   reads as a year.
+- **Fixed: a state chart's shape no longer arrives as one thirteen-second breath.** The
+  machine-shape sentence joined every clause with a semicolon, and since one sentence
+  becomes one caption cue — and one TTS clip — the hazards slide produced a 39-word
+  utterance a listener cannot scrub back into. It is two sentences now: longest cue
+  13.2s → 10.1s, p90 7.6s → 6.9s.
