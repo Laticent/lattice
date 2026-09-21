@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ◐ [2026-09-21-compose-fenced-code.md](2026-09-21-compose-fenced-code.md) — Make fenced code a first-class thing in Compose — today a fence renders through the INLINE-code chip style, so a mermaid block reads as one…
 - ◐ [2026-09-20-gesture-audit.md](2026-09-20-gesture-audit.md) — The Guide points at slides by searching the live DOM for the sentence it hears.
 - ☐ [2026-09-20-heatmap-table-authoring-label-sets.md](2026-09-20-heatmap-table-authoring-label-sets.md) — A heatmap is a matrix, and a matrix's notation is a TABLE — so heatmap's nested-list authoring is retired in favor of a markdown table, and…
 - ◐ [2026-09-20-table-component.md](2026-09-20-table-component.md) — `compare-table` becomes `table` — a hard rename with no alias, matching every prior rename in this repo.
