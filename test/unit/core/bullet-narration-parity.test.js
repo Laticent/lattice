@@ -85,6 +85,13 @@ const CHILD = [
   // A one-space indent is a SIBLING to markdown-it, not a child at all.
   (n) => ` - Target \`${n()}\`\n  - note`,
   (n) => ` - \`Target\` \`${n()}\``,
+  // FOUR COLUMNS PAST THE PARENT'S CONTENT COLUMN is an indented CODE BLOCK, not
+  // markup. The sixth round's whitelist named this rule as a reason a line scanner
+  // cannot do the job and did not implement it; the corpus emitted no child deeper
+  // than four spaces, so it reported zero divergences throughout.
+  (n) => `      - Target \`${n()}\``,
+  (n) => `        - Target \`${n()}\``,
+  (n) => `      - \`Target\` \`${n()}\``,
 ];
 
 function corpus(count, startSeed = 20260921) {
@@ -97,7 +104,10 @@ function corpus(count, startSeed = 20260921) {
     const lines = [];
     const rows = 2 + Math.floor(rnd() * 4);
     for (let i = 0; i < rows; i++) {
-      lines.push(`- Row${i}` + (rnd() < 0.5 ? ` \`${num()}\`` : ` \`${num()}\` \`${num()}\``));
+      // MIXED CASE, because `rowTargets` used to anchor on a capital and nothing in
+      // the corpus could show it. A lowercase label is ordinary in a real deck.
+      const name = rnd() < 0.5 ? `Row${i}` : `row${i}`;
+      lines.push(`- ${name}` + (rnd() < 0.5 ? ` \`${num()}\`` : ` \`${num()}\` \`${num()}\``));
       const kids = Math.floor(rnd() * 3);
       for (let k = 0; k < kids; k++) lines.push(pick(CHILD)(num));
     }
@@ -150,8 +160,12 @@ function drawnTally(source) {
  * number against nothing.
  */
 function rowTargets(text) {
+  // `[\w]`, NOT `[A-Z]`. The first cut anchored on a capital, and the generator only
+  // ever emits `Row0…Row5` — so a deck with lowercase labels contributed ZERO rows to
+  // this cell, silently. That is the same "the projection is as narrow as the corpus"
+  // failure the round above says it learned, one level further in.
   return new Set(
-    [...String(text).matchAll(/(?:^|[.!?] )([A-Z][\w -]*?), [^.]*? against an? /g)].map((m) => m[1].trim()),
+    [...String(text).matchAll(/(?:^|[.!?] )([\w][\w -]*?), [^.]*? against an? /g)].map((m) => m[1].trim()),
   );
 }
 
@@ -247,7 +261,10 @@ test('the CORPUS reaches both shapes that used to diverge', () => {
   const tab = decks.filter((d) => /\n\t- /.test(d)).length;
   const wideGap = decks.filter((d) => /\n {2}- {3,}/.test(d)).length;
   const oneSpace = decks.filter((d) => /\n - /.test(d)).length;
-  for (const [name, n] of [['tab indent', tab], ['wide marker gap', wideGap], ['one-space indent', oneSpace]]) {
+  const deepCode = decks.filter((d) => /\n {6,}- /.test(d)).length;
+  const lower = decks.filter((d) => /\n- row\d/.test(d)).length;
+  for (const [name, n] of [['tab indent', tab], ['wide marker gap', wideGap], ['one-space indent', oneSpace],
+    ['four-column code child', deepCode], ['lowercase row label', lower]]) {
     assert.ok(n > 10, `only ${n} decks carry a ${name}`);
   }
 });

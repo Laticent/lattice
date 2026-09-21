@@ -83,10 +83,12 @@
   longer claims a relationship.** A tab, a marker gap wider than one space, or a
   one-space indent each make markdown-it nest differently from anything a line
   scanner can compute — and narration runs on Markdown, before any render. Such a row
-  is now read as a bare bar and the slide speaks no tally; the lines are still read
-  aloud, exactly as before. The cost is real and measured: on a generated corpus 343
-  of 400 decks spoke a tally before and 141 after. On the decks in this repo it is
-  zero.
+  refuses what its children could have changed and no more — where a nested line
+  carries a VALUE the whole relationship goes, where the children are prose the row's
+  own numbers stand, and the slide speaks no tally either way. The lines are still
+  read aloud. The cost is real and measured: on a generated corpus 343 of 400 decks
+  spoke a tally before and 141 after. On the 16 bullet slides in this repo it is
+  exactly zero — none of them narrates differently.
 - **Fixed: a `state-chart` no longer says a state "stops without being marked an
   ending" over a slide that draws it into the finish marker.** It reads *"nothing
   leads out of X"* — true of both rules the chart uses to decide that. A state

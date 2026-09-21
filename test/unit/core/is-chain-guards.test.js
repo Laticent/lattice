@@ -155,8 +155,12 @@ test('each guard, dropped in turn, over every machine up to three states and eve
   assert.equal(alone.get('back'), 256);
 
   // OUT-DEGREE AND IN-DEGREE ARE A MUTUALLY REDUNDANT PAIR. Neither can be killed
-  // by a test on its own; together they are load-bearing 120 times. This is why
-  // "no test covers this line" is not evidence it may be deleted.
+  // by a test on its own; together they are load-bearing 16 times in this space.
+  // This is why "no test covers this line" is not evidence it may be deleted.
+  // (The number read 120 for one revision — from the four-state, `states[0]`-start
+  // sweep this file replaced. The commit that corrected the twin claim in
+  // `state-graph-facts.js` cited THIS file as the authority and left it stale here,
+  // which a checker duly found.)
   assert.equal(alone.get('out'), 0);
   assert.equal(alone.get('in'), 0);
   assert.equal(pairs.get('in+out'), 16);

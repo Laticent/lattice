@@ -583,15 +583,26 @@ It fails toward silence, which is the one direction that is safe against a shape
 nobody has thought of yet.
 
 **THE COST, STATED.** On the generated corpus, 343 of 400 decks spoke a tally
-before and 141 after. On the SHIPPED corpus the cost is zero: one slide in the tree
-carries an indent this refuses, a `docs/public/components.md` fragment with no
-tally to lose.
+before and 141 after. **On the SHIPPED corpus the cost is exactly zero**: all 16
+bullet slides in the tree narrate identically before and after, and the refusal
+fires on none of them.
+
+*(An earlier draft said "one slide in the tree carries an indent this refuses, a
+`docs/public/components.md` fragment". A checker found that file is generated and
+untracked, and that it carries none of the refusal shapes. The real answer is
+stronger than the one that was written — the sentence was a guess dressed as a
+measurement, in a section about exactly that.)*
 
 **A guard was written, shipped and inert for one iteration.** `parseBulletRow`
 returns a NEW object and did not carry `structurallyAmbiguous` over, so
 `narrateBullet` read the flag off the mapped rows and it was always false. The fuzz
-still showed 45 of 317 diverging until the guard read `raw` instead. A guard nobody
-can see fail is the same defect as a measurement nobody can re-derive.
+still showed dozens of decks diverging until the guard read `raw` instead. A guard
+nobody can see fail is the same defect as a measurement nobody can re-derive.
+
+*(An earlier draft of this paragraph quoted "45 of 317". A checker swept eighteen
+reconstructions of the inert-guard state and the figure appears in none — it came
+from a working tree that was never committed, which is exactly what makes a number
+unre-derivable. It is stated qualitatively here rather than re-invented.)*
 
 ### And the test's own projection was too narrow
 
@@ -624,6 +635,72 @@ wrong for a sentence about arrows — so a state whose only inbound arrow was it
 loop read as "Orphan loops on itself … nothing leads to Orphan". `incomingAll`
 counts it, and a state stranded on both sides gets one clause rather than two true
 ones back to back.
+
+## The seventh round — the whitelist's own prose was ahead of its code (2026-09-21)
+
+The sixth round's refusal went to a seventh checker, which found **two more
+regressions and three holes in the whitelist itself** — one of them a rule the
+round's own docblock claimed to implement.
+
+**THE FOUR-COLUMN CODE RULE WAS NAMED AND NOT WRITTEN.** The docblock said structure
+is read only where the indent "is exactly a parent content column", and listed "an
+indent that matches no parent" among the refusals. The code tested three things and
+not that one. Four or more columns past the enclosing content column is an indented
+CODE BLOCK — the item's text stops being text — and `- Uptime \`5\`` over a
+six-space `- Target \`4\`` renders Uptime as a BARE BAR while narration read the
+target and said "one of two cleared" over a chart scoring one row.
+
+**THE MARKER RULE WAS NEVER APPLIED TO THE ROW'S OWN LINE**, because
+`parseDataRows` returns at `isTopLevelBullet` before the whitelist runs.
+`-     Uptime \`5\` \`4\`` makes the ROW's content an indented code block: the chart
+prints the backticks literally and scores nothing. And a nested-looking bullet
+BEFORE the first row had no row to flag at all — markdown-it makes it a sibling and
+the chart draws it as a full row, so ` - Phantom \`1\` \`2\`` above two real rows
+rendered three scored rows against a spoken "one of two".
+
+**THE REFUSAL DELETED A NUMBER THE SLIDE PRINTS.** This is the one that matters most,
+because it is the class `speakLeftover` exists to prevent, re-opened from the other
+side. `narrateBullet` seeds `consumed` with every row's own line index
+unconditionally, and the ambiguous path threw away `targetRaw` — so the second pill
+an author typed ON THE ROW LINE was consumed by the narrator and spoken by nobody.
+`- Uptime \`5\` \`4\`` with a tab-indented prose note narrated "Uptime, five." while
+the chart drew the 4 as its plan line. Measured at 81 rows across 72 generated decks.
+
+The fix is the distinction the round should have drawn in the first place: **a row
+refuses what its children could have changed, and no more.** Where a nested line
+carries a VALUE, the whole relationship goes — a child's `Floor` above its `Target`
+makes the chart decline to score at all. Where the children are pure PROSE they can
+override nothing, and the row's own pills stand. Where the ROW LINE is what is
+malformed, its own pills go too. The tally stays suppressed in every case, because
+it is a whole-chart claim and the row COUNT may itself be wrong.
+
+**AND A ROUND-FIVE BUG SURFACED UNDER IT.** The `keyInPills` early return was added
+ahead of the three-level check, so a code-spanned key never marked a row
+three-level — and a structural child at depth THREE was absorbed as the row's
+target. The check runs first now.
+
+### The state-chart clause combined two sets by LABEL
+
+`strandedBoth` matched `unreachable` against `deadEnds` on `s.label` while
+`summarizeGraph` keys everything else on `index`. Two states may share a label, and
+then a state WITH an outgoing arrow landed in the "nothing leads out of" set: the
+voice denied an edge it read out three clauses later, and the other state's clause
+was dropped. That is the self-contradiction the `unreachable`/`cutOff` split exists
+to remove, re-introduced by the clause that combined them. Keyed on index now.
+
+### Measured across the three generations, on the widened corpus
+
+The corpus gained the four-column shape, lowercase row labels (`rowTargets` anchored
+on a capital and the generator emitted only `Row0…Row5`, so a lowercase deck
+contributed nothing to that cell, silently) and counts for both:
+
+```
+round 5   invented rows  59 of 400 | tally diverged 123 of 338
+round 6   invented rows   1 of 400 | tally diverged  32 of 154
+round 7   invented rows   0 of 400 | tally diverged   0 of 104
+```
+
+**The shipped corpus is unchanged across all three** — 16 bullet slides, 0 differ.
 
 ### What this says about the next round
 
