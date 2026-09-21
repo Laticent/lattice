@@ -151,7 +151,9 @@ test/integration/components/  component- + bucket-galleries          [nightly]
 test/integration/exemplars/   exemplar-render (45 decks)            [nightly]
 test/integration/mermaid/     mermaid-smoke                         [nightly]
 test/integration/screenshot/  screenshot, svg-scaling              [nightly]
-test/benchmark/               engine-bench.mjs (npm run bench; not in npm test)
+test/benchmark/               engine-bench.mjs (npm run bench) + *.test.js
+                              scaling guards (npm run test:perf) — neither is
+                              in npm test, and neither blocks CI
 test/helpers/                 render.js, pdf.js, palette.js
 test/fixtures/                small .md decks for integration
 ```

@@ -217,6 +217,7 @@
     "dom:bakeoff:chromium": "node tools/dom-bakeoff/chromium.mjs",
     "bench:bless": "node test/benchmark/engine-bench.mjs --bless",
     "bench:check": "node test/benchmark/engine-bench.mjs --check",
+    "test:perf": "node --test 'test/benchmark/**/*.test.js'",
     "overflow:check": "node tools/check-overflow-corpus.js",
     "css:values": "node tools/check-css-values.js",
     "overflow:bless": "node tools/check-overflow-corpus.js --bless",
