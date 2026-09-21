@@ -1311,6 +1311,36 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       // mistaken for "inside an open HTML block".
       'after another directive': `${D}<!-- _footer: "x" -->\n<!-- _track: A -->\n\n## T\n`,
       'CRLF throughout': `${D.replace(/\n/g, '\r\n')}<!-- _track: A -->\r\n\r\n## T\r\n`,
+      // A MARKER NEEDS ITS SEPARATOR. `-<!--` is not a list item, so the engine
+      // reads nothing; an earlier scanner defaulted the character after the
+      // marker to a space and warned about 174 prefixes like these.
+      'bullet, no separator': `${D}${H}-<!-- _track: A -->\n`,
+      'star, no separator': `${D}${H}*<!-- _track: A -->\n`,
+      'plus, no separator': `${D}${H}+<!-- _track: A -->\n`,
+      'ordered, no separator': `${D}${H}1.<!-- _track: A -->\n`,
+      'indent then bullet, no separator': `${D}${H} -<!-- _track: A -->\n`,
+      'blockquote then bullet, no separator': `${D}${H}> -<!-- _track: A -->\n`,
+      // A type-1 raw-text block runs to its CLOSING TAG, straight through blank
+      // lines — which the blank-line back-scan this replaced could not see.
+      'inside <pre>': `${D}${H}<pre>\n\n<!-- _track: A -->\n\n</pre>\n`,
+      'inside <script>': `${D}${H}<script>\n<!-- _track: A -->\n</script>\n`,
+      'inside <style>': `${D}${H}<style>\n<!-- _track: A -->\n</style>\n`,
+      'after a closed <pre>': `${D}${H}<pre>x</pre>\n\n<!-- _track: A -->\n`,
+      // A type-2 block ends at its own `-->`, so a MULTI-LINE speaker note — the
+      // commonest multi-line comment in a deck — does not swallow what follows.
+      'after a multi-line note': `${D}${H}<!--\nnote\n-->\n<!-- _track: A -->\n`,
+      // A whitespace-only line is a blank line, so it closes a type-6 block.
+      'after a div, spaces-only line between': `${D}${H}<div>x</div>\n   \n<!-- _track: A -->\n`,
+      // `<3` is not a tag, so the line is a paragraph — and a comment interrupts
+      // a paragraph.
+      'after `<3 you`': `${D}${H}<3 you\n<!-- _track: A -->\n`,
+      // FOUR COLUMNS, not four characters. A space then a tab is four columns of
+      // indent — indented code — but it does not match `withoutCodeBlocks`'s
+      // `^(?: {4}|\t)`, so these are the only rows that reach the scanner's own
+      // leading bound. Without them, widening that bound to four passes.
+      'space then tab (code)': `${D}${H} \t<!-- _track: A -->\n`,
+      'two spaces then tab (code)': `${D}${H}  \t<!-- _track: A -->\n`,
+      'three spaces then tab (code)': `${D}${H}   \t<!-- _track: A -->\n`,
     };
     const misses = [];
     for (const [what, body] of Object.entries(SHAPES)) {
@@ -1334,14 +1364,34 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   });
 
   test('KNOWN RESIDUAL: a directive in list continuation is not seen', () => {
-    // Recorded rather than fixed. `withoutCodeBlocks` blanks any four-space
-    // indented line, and inside a list item four spaces is CONTINUATION, not
-    // code — so the engine applies this and the rule stays silent. The helper is
-    // shared by several rules, so correcting it means changing what all of them
-    // see; that is its own change. Silence is the safe direction for an advisory
-    // rule, and pinning it here means a future fix will notice this test.
+    // Recorded rather than fixed, and TWO things hold it silent — a checker found
+    // that naming only the first made this test's promise untrue, because deleting
+    // that cause alone leaves the test passing:
+    //   · `withoutCodeBlocks` blanks any four-space indented line, and inside a
+    //     list item four spaces is CONTINUATION, not code;
+    //   · `blockMarkerEnd` independently reads four columns of leading indent as
+    //     an indented code block, so the prefix test declines it too.
+    // Both are shared by other rules, so correcting either means changing what
+    // those rules see; that is its own change. Silence is the safe direction for
+    // an advisory rule. A future fix must remove BOTH to make this test fail.
     const { render } = require('../../../lib/engine');
     const src = `${FM}<!-- _class: topic -->\n\n## T\n\n- item\n\n    <!-- _track: A -->\n`;
+    const out = render(src, {});
+    const html = typeof out === 'string' ? out : out.html;
+    assert.match(html, /data-track="A"/, 'the engine really does apply it');
+    assert.equal(rule(src, 'track-directive'), undefined, 'and the rule really is silent');
+  });
+
+  test('KNOWN RESIDUAL: inline html with trailing prose reads as a block', () => {
+    // `<b>bold</b> text` is a PARAGRAPH to markdown-it — type 7 wants the tag
+    // alone on the line, and `b` is not one of the 62 type-6 tags — so a comment
+    // on the next line really is its own token. Telling that apart from
+    // `<div>x</div> text`, which IS type 6, needs that tag list: ~250 bytes gz on
+    // a route carrying 358 bytes of headroom. So this reads it as a block and
+    // stays silent. A false NEGATIVE, which is the safe direction, and pinned
+    // here so it is a known cost rather than a surprise.
+    const { render } = require('../../../lib/engine');
+    const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<b>bold</b> text\n<!-- _track: A -->\n`;
     const out = render(src, {});
     const html = typeof out === 'string' ? out : out.html;
     assert.match(html, /data-track="A"/, 'the engine really does apply it');

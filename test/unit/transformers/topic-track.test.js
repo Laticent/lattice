@@ -449,3 +449,81 @@ test('the `_track` directive reaches the slide, and its comment does not', () =>
   assert.equal(t[1].findIndex((i) => i.on), 0);
   assert.equal(t[2].findIndex((i) => i.on), 1);
 });
+
+/* ── THE ATTRIBUTE READER, AGAINST A REAL PARSER ─────────────────────────────
+ * `tagAttr` decides whether a `<ul>` on a topic slide is OUR emitted track or the
+ * author's own list, and three successive versions of it — a quote-blind regex, a
+ * pair walker, an anchored pair walker — each split the two render arms on a
+ * different tag shape. The loop that replaced them shipped with NO test: reverting
+ * it to the regex passed this whole file, and its own comment claimed a pin that
+ * did not exist.
+ *
+ * So the pin is data, and jsdom is the authority. For each tag below: what the
+ * real parser says the `class` is, and — where it matters — that both arms still
+ * agree end to end.
+ */
+test('the attribute reader agrees with jsdom about what carries `class`', () => {
+  const OURS = [
+    // The shape a minifier emits: after a QUOTED value, any character re-enters
+    // the before-attribute-name state. The anchored walker missed this one.
+    '<ul data-x="a"class="tile-track">',
+    '<ul class="tile-track">',
+    "<ul class='tile-track'>",
+    '<ul class=tile-track>',
+    '<ul  class = "tile-track" >',
+    '<ul id="x" class="tile-track" data-y="z">',
+    '<ul class="tile-track extra">',
+    '<ul\nclass="tile-track">',
+    '<ul data-q="a>b" class="tile-track">',
+    '<ul/class="tile-track">',
+  ];
+  const NOT_OURS = [
+    // Quote-blind readers matched the text INSIDE this value.
+    '<ul data-note=\' class="tile-track"\'>',
+    // A name carrying an out-of-charset character: the un-anchored walker
+    // resynced mid-name and matched the `class` tail on its own.
+    '<ul @class="tile-track">',
+    '<ul 9class="tile-track">',
+    '<ul [class]="tile-track">',
+    '<ul data-class="tile-track">',
+    '<ul classy="tile-track">',
+    '<ul class="tile-trackish">',
+    '<ul>',
+    '<ul class="">',
+    '<ul class=>',
+  ];
+  for (const tag of [...OURS, ...NOT_OURS]) {
+    const want = OURS.includes(tag);
+    const el = new JSDOM(`<body>${tag}<li>x</li></ul></body>`).window.document.querySelector('ul');
+    const cls = el?.getAttribute('class') || '';
+    const isOurs = /(?:^|\s)tile-track(?:\s|$)/.test(cls);
+    assert.equal(isOurs, want,
+      `jsdom disagrees about ${tag} — the table, not the code, is wrong`);
+  }
+});
+
+test('and both arms read every one of those shapes the same way', () => {
+  // End to end, because `tagAttr`'s answer only matters through `hasTrack`: a tag
+  // the string arm calls ours is a slide that keeps its band and withholds its
+  // name from every sibling, and a DOM arm that disagrees renders a different
+  // deck from the same markdown.
+  const TAGS = [
+    '<ul data-x="a"class="tile-track">',
+    '<ul class="tile-track">',
+    "<ul class='tile-track'>",
+    '<ul class=tile-track>',
+    '<ul data-q="a>b" class="tile-track">',
+    '<ul data-note=\' class="tile-track"\'>',
+    '<ul @class="tile-track">',
+    '<ul 9class="tile-track">',
+    '<ul [class]="tile-track">',
+    '<ul data-class="tile-track">',
+    '<ul class="tile-trackish">',
+    '<ul>',
+  ];
+  for (const tag of TAGS) {
+    bothAgree(S('divider', '<h2>One</h2>') +
+      S('topic', `<h2>Alpha</h2><p>x</p>${tag}<li>d</li></ul>`) +
+      topic('Beta') + topic('Gamma'));
+  }
+});
