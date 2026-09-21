@@ -65,7 +65,7 @@ engine owns — `> .cell-stage h2` matches nothing.
 **Your rule works, but only on some slides.**
 Ten layouts compose as a sovereign Frame and have no `.cell-stage` element. If
 you are styling one of `title`, `closing`, `divider`, `image`, `scene`, `premise`,
-`compare-code`, `split-compare` or `split-panel`, anchor on `section.<name>`
+`compare-code`, `split-compare`, `split-panel` or `topic`, anchor on `section.<name>`
 instead.
 
 A `math` rule anchored on `section.math` will **not** fire — math left the

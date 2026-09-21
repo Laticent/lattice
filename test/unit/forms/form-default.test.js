@@ -48,7 +48,10 @@ describe('applyFormDefaultToDom — the runtime Form default', () => {
     // opposite. A comment describing a design that did not ship is worse than none.
     // `math` is NOT sovereign: it left its frame in 2026-09. Its own test below
     // asserts that per variant, and is what fails if the frame is ever put back.
-    for (const cls of ['title', 'divider', 'closing', 'image', 'compare-code', 'split-panel', 'split-compare']) {
+    // Iterated from SOVEREIGN_FRAMES, not a literal: a test carrying its own stale copy
+    // of this set certifies the drift instead of catching it, and this copy was already
+    // short by three (`premise`, `scene`, `topic`).
+    for (const cls of require('../../../lib/integrations/markdown-it/plugins').SOVEREIGN_FRAMES) {
       const d = doc(`<section class="${cls}"><h2>T</h2></section>`);
       applyFormDefaultToDom(d);
       const sec = d.querySelector('section');

@@ -319,7 +319,7 @@ gets the full layout with no per-slide tagging. Form is unconditional: there is 
 front-matter key and no per-slide opt-out, on any render path. What varies is which
 **Frame** a slide composes as, and its component decides that: ten sovereign Frames
 (`title`, `divider`, `closing`, `image`, `premise`, `scene`, `split-panel`,
-`split-compare`, `compare-code`) declare a single Cell and carry no chrome, while
+`split-compare`, `compare-code`, `topic`) declare a single Cell and carry no chrome, while
 everything else composes as the chrome-hosting `standard` Frame. See
 `design/forms.md`.
 

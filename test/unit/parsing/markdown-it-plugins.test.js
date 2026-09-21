@@ -625,6 +625,27 @@ describe('markdown-it-plugins', () => {
     assert.match(forged, /data-form="2d"/);
     assert.match(forged, /data-frame="title"/);
     assert.doesNotMatch(forged, /spatial|evil/);
+    // EVERY SPELLING THE HTML GRAMMAR ADMITS, not just the double-quoted one. A
+    // single-quoted or unquoted forgery used to survive as a DUPLICATE attribute — the
+    // engine's value still won (HTML5 keeps the first), so nothing rendered wrong, but
+    // the document was invalid and the docblock's "replaced, not respected" was false
+    // for two thirds of the grammar.
+    for (const spelling of ['data-form=\'spatial\'', 'data-form=spatial', 'data-form="spatial"']) {
+      const out = plugins.applyFormToHtml(`<section class="content" ${spelling}></section>`);
+      assert.equal((out.match(/data-form=/g) || []).length, 1, `one data-form for ${spelling}`);
+      assert.match(out, /data-form="2d"/);
+    }
+    // A PREFIXED SIBLING IS NOT OURS TO TOUCH, and the strip must stay idempotent while
+    // leaving it alone. Both were got wrong at once: a lookbehind added to guard the
+    // sibling was inert (the pattern needs whitespace before `data-frame=`, which a
+    // prefixed name has none of) AND broke idempotency, because once `data-form` is
+    // stripped `data-frame` follows `<section` directly and the lookbehind skipped it —
+    // so a second pass emitted the attribute twice.
+    const sibling = '<section class="content" data-lattice-data-frame="keep" data-form=spatial></section>';
+    const once = plugins.applyFormToHtml(sibling);
+    assert.equal(plugins.applyFormToHtml(once), once, 'idempotent with a prefixed sibling present');
+    assert.match(once, /data-lattice-data-frame="keep"/, 'a prefixed sibling attribute is left alone');
+    assert.equal((once.match(/(?<!-)data-frame=/g) || []).length, 1, 'exactly one data-frame');
   });
 
   // ── applyDeckLogoToHtml ────────────────────────────────────────────────

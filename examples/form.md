@@ -46,7 +46,8 @@ There is no `form:` key and no per-slide token. Every slide carries the model, s
 - Tile — a filler
   - Leaf content sized to fill exactly one Cell. Frame-blind, so it travels.
 - Medium — the renderer
-  - `2d` today. A spatial renderer would change this, and nothing else.
+  - `2d` today. The Frame manifest is medium-independent by construction, so a second
+    medium would be a renderer — never a deck setting. None is scheduled.
 
 ---
 

@@ -16,9 +16,9 @@
  * AUTHORED class — and the auto-split pass rewrites that class much later, in the browser.
  * A `premise` cover page is re-authored into a `content lat-split-cover form` field page,
  * which changed the class and left the attribute saying `premise`. Measured on
- * examples/split-horizontal.md before the fix: 1 of 23 sections disagreed. One page, and
- * invisible — nothing selects on `data-frame` yet, so no pixel moved and every gate in
- * the repo stayed green. That is exactly the defect worth pinning: an attribute whose
+ * examples/split-horizontal.md and examples/read-across-carousel.md before the fix:
+ * eleven sections across the two. Invisible — nothing selects on `data-frame` yet, so no
+ * pixel moved and every gate in the repo stayed green. That is exactly the defect worth pinning: an attribute whose
  * whole purpose is to be the answer a future stylesheet, export tool or medium asks for,
  * silently wrong on the one slide shape that rewrites itself.
  *
@@ -56,10 +56,12 @@ function slidesOf(html) {
   for (const m of html.matchAll(/<section\b[^>]*>/g)) {
     const frame = (m[0].match(FRAME_ATTR) || [])[1];
     if (frame === undefined) continue; // a nested/template section — never stamped
+    const end = html.indexOf('</section>', m.index + m[0].length);
     out.push({
       frame,
       classes: ((m[0].match(CLASS_ATTR) || ['', ''])[1]).trim().split(/\s+/).filter(Boolean),
       tag: m[0],
+      body: html.slice(m.index + m[0].length, end < 0 ? undefined : end),
     });
   }
   return out;
@@ -73,8 +75,20 @@ const DECKS = [
   'examples/split-relationship.md',
   'examples/autosplit-coverage.md',
   'examples/read-across-carousel.md',
+  // `split-decision` and `social-grid` are the only decks that split a `split-compare`
+  // slide, which is the one strategy that keeps a sovereign layout token AND takes real
+  // chrome Cells. Their absence is why the first cut of this file passed while six
+  // sections across the two of them stated the wrong Frame.
+  'examples/split-decision.md',
+  'examples/social-grid.md',
+  'examples/topic.md',
+  'examples/cover-paginate.md',
   'examples/form.md',
 ];
+
+// A chrome Cell, as it appears in rendered output. A sovereign Frame declares `stage`
+// and nothing else, so none of these may appear inside one.
+const CHROME_CELL = /\bcell-(masthead|masthead-lede|masthead-bay|footer|footer-left)\b|\btile-progress\b/;
 
 describe('frame identity — the class and data-frame agree', () => {
   for (const deck of DECKS) {
@@ -93,6 +107,26 @@ describe('frame identity — the class and data-frame agree', () => {
         [],
         `${deck}: ${disagree.length} of ${slides.length} sections state two different Frames`,
       );
+    });
+
+    test(`${deck}: a sovereign Frame carries no chrome Cell`, () => {
+      // THE NON-CIRCULAR ARM, and the reason it exists. The arm above compares
+      // `data-frame` against the `form` CLASS — and `roleOpenTag` DERIVES `data-frame`
+      // from that same class, so it reads the signal the fix writes and cannot fail on
+      // any page the splitter touched. It was green while six sections of
+      // `split-decision` and `social-grid` stated the wrong Frame. Found by the
+      // red-team lens, which audited fourteen decks against a different property.
+      //
+      // This one asks the rendered DOM instead: a sovereign Frame declares a single
+      // `stage` Cell, so a section claiming one must contain no masthead band, no bay,
+      // no footer Cell and no rail. That is a fact about what was COMPOSED, independent
+      // of both the class and the attribute, so a wrong stamp has nowhere to hide.
+      const pdf = runEmulator(abs);
+      const html = fs.readFileSync(pdf.replace(/\.pdf$/, '.html'), 'utf8');
+      const wrong = slidesOf(html)
+        .filter((s) => SOVEREIGN.has(s.frame) && CHROME_CELL.test(s.body))
+        .map((s) => ({ frame: s.frame, cell: s.body.match(CHROME_CELL)[0], classes: s.classes.join(' ') }));
+      assert.deepEqual(wrong, [], `${deck}: a slide claims a sovereign Frame but was composed with chrome Cells`);
     });
 
     test(`${deck}: every slide carries the medium`, () => {
