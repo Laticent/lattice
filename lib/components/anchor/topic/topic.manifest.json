@@ -130,6 +130,10 @@
     {
       "mistake": "Marking the current item on an overridden track with emphasis inside the label — `- Cost to **win**`.",
       "fix": "Bold the WHOLE label (`- **Cost to win**`) or leave it plain. Partial emphasis is styling, not a marker, and the kernel ignores it. If you mark nothing, the item whose label matches this slide's heading is lit; if you mark two, the first wins."
+    },
+    {
+      "mistake": "Expecting the two-band composition under `color-mode: dark` or in a dark-mode export.",
+      "fix": "It flattens, and that is the whole anchor family's behavior rather than this component's quirk: the deck-wide `dark` canvas replaces a sovereign anchor's own field, so `divider` loses its spectrum rail and `title` and `closing` lose `--surface-inverse` in exactly the same way (measured in Chromium; the committed `divider.gallery.dark.pdf` shows it). The track still draws and still lights the current topic, so the slide keeps saying where you are — it says it on one flat field instead of across a cut. If you need the cut, that is light mode."
     }
   ],
   "variantDecisionRule": [
