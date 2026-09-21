@@ -578,8 +578,8 @@ describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
   });
 
   test('one task per lane keeps the pre-packing band exactly', () => {
-    // The invariant that lets every simple chart through unchanged: barH at its
-    // ceiling, and a single-row lane measuring the 26 units the flat `laneH` gave.
+    // The invariant that lets every simple chart through unchanged: a single-row
+    // lane measures barH + 2*lanePadY, the band a flat `laneH` used to give.
     const ul = `<ul>
       <li>One<ul><li>A <code>Q1..Q2</code></li></ul></li>
       <li>Two<ul><li>B <code>Q1..Q2</code></li></ul></li>
@@ -624,6 +624,29 @@ describe('gantt — the band is FIXED, so nothing shrinks with content', () => {
       assert.equal(h, GANTT_GEOM.barH, 'every bar draws at the declared band height');
     }
   });
+
+  // THE BAND HAS A FLOOR, and until this test it did not. Every other assertion
+  // in this suite re-derives its expectation from the same constants it polices,
+  // so they catch a band that DRIFTS and none of them catches a band that is
+  // simply too small: a checker pass mutated the band to 8 / 2 / 2 — a 19.2px
+  // bar carrying a 20.4px caption, text taller than the thing it sits in — and
+  // all 55 tests stayed green. These two pin the relations a reader actually
+  // sees, in both orientations, so the magnitude is no longer held by eye alone.
+  for (const [name, G] of [['landscape', GANTT_GEOM], ['portrait', GANTT_GEOM_TALL]]) {
+    test(`${name}: a caption fits inside the bar it labels`, () => {
+      // 1.25x the type size is the leading a single line needs; below that the
+      // caption's ink crosses its own bar's edge.
+      assert.ok(G.barH >= G.fsBar * 1.25,
+        `${name} barH ${G.barH} cannot carry a ${G.fsBar}u caption (needs ${(G.fsBar * 1.25).toFixed(2)}u)`);
+    });
+
+    test(`${name}: a lane reads as one group against its neighbors`, () => {
+      // Sub-rows inside a lane must sit CLOSER than the lanes themselves are
+      // apart, or the grouping inverts and a two-row lane reads as two lanes.
+      assert.ok(2 * G.lanePadY >= G.rowGap * 2,
+        `${name}: inter-lane ${2 * G.lanePadY}u must beat intra-lane ${G.rowGap}u`);
+    });
+  }
 
   test('the chart grows TALLER with rows — it does not scale down', () => {
     const h = (l, t, o) => +chartOf(l, t, o).match(/viewBox="0 0 480 (\d+)"/)[1];
@@ -711,14 +734,15 @@ describe('gantt — non-row chrome is a tax on the whole drawing', () => {
   // chrome (the tick row, the key, the bottom pad) is a unit of height the chart
   // spends without drawing a bar — and height is the scarce axis now that the
   // svg is width-driven and the band is fixed. Measured in Chromium on the
-  // committed default gallery page, whose chart body is 1152x335: at legendGap
-  // 14 / legendH 16 / padBottom 6 the drawing used 1059px of 1152 (92%) with
-  // 33.1px bars; trimmed to 9 / 12 / 4 it uses the full width with 36.0px bars.
+  // committed default gallery page, whose chart body is 1152x335: the svg paints
+  // the full 1152px either way (`flex-shrink: 0`), with 28.8px bars, so the trim
+  // buys none of its room back in width. 14 / 16 / 6 is 36 units against 25 for
+  // 9 / 12 / 4 — 11 units, 26.4px at 2.4px/unit, about one more bar row.
   //
   // The fit assertion that used to live here is gone on purpose: it asserted the
   // canonical two-lane shape came in under 335px, which is STRICTER than the
-  // engine's own verdict (that shape draws 338px and the render raises no clip
-  // warning). A test that is harsher than the thing it models invites shaving
+  // engine's own verdict (that shape draws 295.2px into a 335.4px body, 40.2px
+  // of headroom, and the render raises no clip warning). A test that is harsher than the thing it models invites shaving
   // real padding to satisfy it. The budget — four one-row lanes with a status key
   // fit a 1152x335 body — is asserted in the FIXED-BAND suite above, against a
   // headroom figure re-derived from the geometry rather than restated.

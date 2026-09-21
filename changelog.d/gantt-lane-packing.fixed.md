@@ -52,9 +52,25 @@
   five overflow; on a roomier stage five fit. The numbers are in the component's
   docs and the enforcement is the render — past the budget a chart overflows and is
   named (`CONTENT CLIPPED`, with the first thing cut) rather than quietly scaled
-  down. Four shipped decks were over the budget and are now inside it.
+  down. Two shipped decks were genuinely over the budget and were rewritten to
+  fit (`examples/palette-cascade-flip.md`, `exemplars/government-public/rfp-response.md`);
+  a third was trimmed and did not need to be, and has been put back.
 - **An over-budget gantt keeps its axis.** The chart is centered in its stage with
   `safe center`, so a chart TALLER than the stage aligns to the top and loses its
   tail rather than being centered and clipped at both ends — which took the time
   axis off the top, and a gantt without its axis is unreadable in a way one missing
   its last lane is not.
+- **gantt: the band is smaller, so every existing gantt redraws.** This is the
+  most broadly visible line here and the earlier draft of this fragment did not
+  state it. Landscape bars go 36px to 28.8px on a 1152px chart body (the band
+  went 15/5/5.5 to 12/4/4.5 viewBox units); portrait goes 20/6/8.5 to 16/5/7.
+  Nothing an author writes changes — a deck that fit before still fits, with
+  more room — but a committed PDF re-renders slightly tighter.
+- **gantt: a portrait chart is no longer cut at the bottom.** Both bands were
+  sized against the `max-height` cap that used to letterbox an oversized chart
+  down until it fit. Deleting the cap re-derived the landscape band and missed
+  the portrait one, so the canonical two-lane chart painted 9px past
+  `.cell-stage` — which is `overflow: clip`, so it was cut in silence, and the
+  emulator does not warn at that size. `check:chart-fit` is the gate that sees
+  it: green on the base, red on the branch, green again now, with 68.7px of
+  headroom where there was -9px.
