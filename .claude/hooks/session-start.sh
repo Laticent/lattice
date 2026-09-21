@@ -21,11 +21,31 @@ fi
 
 cd "$CLAUDE_PROJECT_DIR"
 
+# Every line this hook prints to stdout lands in the session's INITIAL CONTEXT and is
+# paid for on the spot. Measured on a real session before this wrapper existed: the
+# setup chatter below — npm's banner, the 28-artifact build log, apt's package lists —
+# came to 3,763 o200k_base tokens, none of which a reader acts on when setup SUCCEEDS.
+# So every step runs through `quiet`: its output goes to a log, and the log is printed
+# ONLY when the step fails, which is the one case where the detail is the whole point.
+# The log path is named in the failure message so a human can go read the rest.
+#
+# Not a silencer: a failing step is LOUDER than before, because its output is no longer
+# buried in a hundred lines of successful noise.
+QUIET_LOG="${TMPDIR:-/tmp}/lattice-session-start.$$.log"
+quiet() {
+  if ! "$@" >>"$QUIET_LOG" 2>&1; then
+    echo "  (session-start: \`$*\` failed — output follows; full log at $QUIET_LOG)"
+    tail -40 "$QUIET_LOG"
+    return 1
+  fi
+  return 0
+}
+
 # 1. JS deps. npm install (not ci) is idempotent and benefits from
 #    container-state caching after the first run; the lockfile pins versions.
 #    Its `prepare` step also runs `lefthook install`, wiring the git hooks so
 #    the pre-commit / pre-push gates are actually active in this session.
-npm install --no-audit --no-fund
+quiet npm install --no-audit --no-fund
 
 # 1b. The generated bundles. dist/ and the docs-site bundles are BUILT, not
 #     committed (.gitignore, 2026-08-17), so a fresh container has neither. Almost
@@ -38,7 +58,7 @@ npm install --no-audit --no-fund
 # the render pipeline needs, and losing those to a build error would strand the
 # session with a far more confusing failure than a missing dist/. The build also
 # self-bootstraps a cold tree, so this is a no-op on a warm one.
-npm run build >/dev/null 2>&1 || echo "  (build failed — run 'npm run build' to see why; continuing)" 
+quiet npm run build || echo "  (build failed — run 'npm run build' to see why; continuing)"
 
 # 2. System deps for the PDF pipeline. A fresh container's apt index is often
 #    stale, so refresh it once before installing — a stale index 404s on the
@@ -47,14 +67,14 @@ npm run build >/dev/null 2>&1 || echo "  (build failed — run 'npm run build' t
 #    exported). Only pay the update cost when something actually needs installing.
 if ! command -v pdfinfo >/dev/null 2>&1 || ! command -v mogrify >/dev/null 2>&1 \
    || ! fc-list 2>/dev/null | grep -qi "noto color emoji"; then
-  apt-get update || sudo apt-get update || true
+  quiet apt-get update || quiet sudo apt-get update || true
 fi
 
 # 2a. poppler-utils → pdfinfo / pdftoppm (PDF page counts + rasterize-for-review).
 #     Non-fatal: a transient apt outage must not abort the rest of setup; the
 #     pre-push gate re-checks pdfinfo loudly anyway.
 if ! command -v pdfinfo >/dev/null 2>&1; then
-  apt-get install -y poppler-utils || sudo apt-get install -y poppler-utils || true
+  quiet apt-get install -y poppler-utils || quiet sudo apt-get install -y poppler-utils || true
 fi
 
 # 2b. ImageMagick → mogrify / identify, used by tools/rasterize-for-review.sh
@@ -63,7 +83,7 @@ fi
 #     read via python3) when ImageMagick is absent, so a transient apt outage
 #     only costs the crop feature, not visual review.
 if ! command -v mogrify >/dev/null 2>&1; then
-  apt-get install -y imagemagick || sudo apt-get install -y imagemagick || true
+  quiet apt-get install -y imagemagick || quiet sudo apt-get install -y imagemagick || true
 fi
 
 # 2c. Color emoji font. The owned render paths (lattice-engine, lattice-emulator)
@@ -72,7 +92,7 @@ fi
 #     webfont @import in lattice.css is a portable bonus, but an installed font
 #     is the reliable guarantee. Idempotent: skip if already present.
 if ! fc-list 2>/dev/null | grep -qi "noto color emoji"; then
-  apt-get install -y fonts-noto-color-emoji || sudo apt-get install -y fonts-noto-color-emoji || true
+  quiet apt-get install -y fonts-noto-color-emoji || quiet sudo apt-get install -y fonts-noto-color-emoji || true
 fi
 
 # 3. Point marp-cli at the puppeteer-cached Chromium for the whole session
