@@ -287,3 +287,99 @@ describe('matrix-grid column geometry', () => {
     );
   });
 });
+
+// ── The cell key ───────────────────────────────────────────────────────────
+//
+// matrix-grid's shape vocabulary shipped in a `STATE_LABELS` map whose words
+// reached a screen reader and nobody looking at the slide. The key now draws
+// them, and the interesting property is what it REFUSES to draw: `[x]` has no
+// default, because a filled cell's own trailing text is its label. That refusal
+// is declared in the manifest with its reason, not left as an absence.
+
+describe('the cell key', () => {
+  const {
+    buildMatrixGridSection,
+  } = require('../../../lib/components/chart/matrix-grid/matrix-grid.transform');
+  const { labelSetFor } = require('../../../lib/core/label-set');
+
+  const cell = (shape, text = '') => `<td><span class="cell ${shape}">${text}</span></td>`;
+  const grid = (cells, extra = '') => `<h2>Rubric</h2>${extra}`
+    + `<table><tbody><tr><td>A</td>${cells}</tr></tbody></table>`;
+  const CTX = { cls: 'matrix-grid', classTokens: ['matrix-grid'], orientation: 'landscape' };
+  const setPara = (t) => `<p><code>${t}</code></p>`;
+  const labels = (html) => [...html.matchAll(/matrix-grid-key-label">([^<]*)</g)].map((m) => m[1]);
+
+  const FILLED = cell('cell-filled', 'Senior');
+  const OUTLINED = cell('cell-outlined');
+  const EMPTY = cell('cell-empty');
+
+  test('names the two keyable shapes with the manifest\'s words', () => {
+    const out = buildMatrixGridSection(grid(FILLED + OUTLINED + EMPTY), CTX);
+    assert.deepEqual(labels(out.html), ['reachable', 'not applicable']);
+  });
+
+  test('[x] is NOT keyed, and the manifest says why', () => {
+    // The refusal is the point. A filled cell's trailing text is its label, so
+    // a row reading "filled" would repeat on every slide what the cell already
+    // says better — and `lint:deck` quotes this reason back to an author.
+    const out = buildMatrixGridSection(grid(FILLED + OUTLINED), CTX);
+    assert.deepEqual(labels(out.html), ['reachable']);
+    const declared = labelSetFor('matrix-grid');
+    assert.deepEqual(declared.members.map((m) => m.key), ['[-]', '[ ]']);
+    assert.equal(declared.unkeyed[0].key, '[x]');
+    assert.match(declared.unkeyed[0].why, /own trailing text IS its label/);
+  });
+
+  test('only the shapes actually present get a row', () => {
+    assert.deepEqual(labels(buildMatrixGridSection(grid(FILLED + EMPTY), CTX).html),
+      ['not applicable']);
+  });
+
+  test('a grid of only filled cells gets no key at all', () => {
+    const out = buildMatrixGridSection(grid(FILLED), CTX);
+    assert.ok(!out.html.includes('matrix-grid-key'),
+      'every cell labels itself, so there is nothing for a key to decode');
+  });
+
+  test('an author renames a shape, and the other keeps its default', () => {
+    const out = buildMatrixGridSection(
+      grid(OUTLINED + EMPTY, setPara('[{[-], within reach}]')), CTX);
+    assert.deepEqual(labels(out.html), ['within reach', 'not applicable']);
+  });
+
+  test('keying [x] binds to nothing and is dropped', () => {
+    const out = buildMatrixGridSection(
+      grid(FILLED + OUTLINED, setPara('[{[x], filled}]')), CTX);
+    assert.deepEqual(labels(out.html), ['reachable']);
+  });
+
+  test('the key sits INSIDE the figure, under the grid', () => {
+    // Not a sibling: the generic caption lift re-homes the trailing paragraph
+    // at the figure's own position, so a key left outside prints BELOW the
+    // author's caption and reads as a footnote to the prose.
+    const out = buildMatrixGridSection(grid(OUTLINED), CTX);
+    assert.match(out.html, /<\/table><ul class="matrix-grid-key"[\s\S]*?<\/ul><\/div>/);
+  });
+
+  test('the TWO-code axis eyebrow is still read as axes, not as a set', () => {
+    // Two code spans in one paragraph is the axis discriminator. The label set
+    // is one code span alone, so the two grammars cannot collide.
+    const axes = '<p><code>Wider reach</code><code>Deeper cognition</code></p>';
+    const out = buildMatrixGridSection(axes + grid(OUTLINED), CTX);
+    assert.match(out.html, /data-col-axis="Wider reach/);
+    assert.match(out.html, /data-row-axis="Deeper cognition/);
+    assert.deepEqual(labels(out.html), ['reachable']);
+  });
+
+  test('an ordinary one-code paragraph survives untouched', () => {
+    const out = buildMatrixGridSection(grid(OUTLINED, setPara('Capability · FY26')), CTX);
+    assert.match(out.html, /Capability · FY26/);
+  });
+
+  test('an authored label lands as text, never as markup', () => {
+    const out = buildMatrixGridSection(
+      grid(OUTLINED, setPara('[{[-], &lt;img src=x onerror=alert(1)&gt;}]')), CTX);
+    assert.ok(!out.html.includes('<img'), 'the label must not become a live element');
+    assert.match(out.html, /matrix-grid-key-label">&lt;img/);
+  });
+});

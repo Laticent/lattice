@@ -640,9 +640,7 @@
       "| ---------- | :--: | :--: | :-: |",
       "| Advanced   | [ ]  | [-]  | [x] Lead |",
       "| Proficient | [-]  | [x] Senior | [-] |",
-      "| Beginner   | [x] Junior | [-]  | [ ]  |",
-      "",
-      "**Your position** · *reachable*"
+      "| Beginner   | [x] Junior | [-]  | [ ]  |"
     ],
     "description": "Two ordered axes as an N×M chart-family grid — each cell marks a position (filled / reachable / not applicable), colored by its row's category from the theme's chart palette."
   },

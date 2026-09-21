@@ -467,3 +467,60 @@ section.matrix-grid:where([data-family="square"], [data-family="tall"], [data-fa
 :where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure table {
   table-layout: auto;
 }
+
+/* ── The cell key ────────────────────────────────────────────────────────────
+ * What the hollow and the faint boxes mean. At most TWO rows: a filled cell's
+ * own trailing text is its label, so the filled shape is deliberately unkeyed
+ * (the manifest's `labelSet.unkeyed` carries that refusal and its reason).
+ *
+ * THE SWATCH IS NEUTRAL, and that is this component's rule rather than an
+ * omission. A cell is colored by its ROW's category, not by its state — the row
+ * hue carries category, not state — so a key swatch cannot borrow a cell's
+ * color without asserting a row that has nothing to do with the shape it is
+ * naming. So the key shows the border treatment WITHOUT a row: the outlined
+ * swatch takes `--accent`, which is the cell rule's own fallback when no row
+ * hue is set, and the empty swatch keeps the hairline `--border` its cells use.
+ * An earlier cut neutralized both and the two swatches read as one box.
+ *
+ * `flex:0 0 auto` beside the figure, and spaced with padding/gap rather than
+ * margin (HARD RULE #20). */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-key {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: var(--sp-sm) 0 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--sp-3xs) var(--sp-lg);
+  font-size: var(--fs-meta);
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-key-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  color: var(--text-secondary);
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-key-mark {
+  flex: 0 0 auto;
+  width: 1.4em;
+  height: 0.9em;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+/* `--accent` rather than a neutral, and it is the CELL RULE'S OWN FALLBACK:
+ * an outlined cell is `border: var(--chart-edge) solid var(--row-hue, var(--accent))`.
+ * Neutralizing it collapsed the only channel that separates this swatch from
+ * the faint one below — measured on the rendered gallery, the two read as the
+ * same box — because what distinguishes an outlined cell from an empty one IS
+ * that it carries the row's color. The key cannot assert a row, so it shows the
+ * value the component itself falls back to when no row hue is set. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-key-item.cell-outlined .matrix-grid-key-mark {
+  background: none;
+  border: var(--chart-edge) solid var(--accent);
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-key-item.cell-empty .matrix-grid-key-mark {
+  background: none;
+  border: 1px solid var(--border);
+}
