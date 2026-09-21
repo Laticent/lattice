@@ -157,7 +157,7 @@ describe('the marker literal as a key', () => {
 });
 
 describe('lifting the set out of a section', () => {
-  const { liftLabelSet } = require('../../../lib/core/label-set');
+  const { liftLabelSet } = require('../../../lib/core/lift-label-set');
 
   test('takes the set and removes only its paragraph', () => {
     const html = '<p><code>[{1, Cold}, {5, Hot}]</code></p><table>x</table>';
