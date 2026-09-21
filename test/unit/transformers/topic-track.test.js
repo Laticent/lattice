@@ -177,6 +177,26 @@ test('the engine RECOGNIZES ITS OWN OUTPUT — the track is never the last eleme
   bothAgree(deck);
 });
 
+test('a `tile-track` quoted inside ANOTHER attribute is not our track', () => {
+  // `section-walk`'s `readAttr` is quote-blind — `(?:^|\s)class="([^"]*)"` also
+  // matches inside another attribute's VALUE — so an ordinary author list whose
+  // tag carried ` class="tile-track"` in a `data-` attribute read as an emitted
+  // track on the string arm: the slide lost its band AND its name left every
+  // sibling's scale, while `:scope > ul.tile-track` was unmoved.
+  const inner = '<h2>Alpha</h2><ul data-note=\' class="tile-track"\'><li>x</li></ul>';
+  const deck = S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta') + topic('Gamma');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[1].map((i) => i.name), ['Alpha', 'Beta', 'Gamma'],
+    "the quoted class must not cost Alpha its place in its siblings' scale");
+});
+
+test('a class that merely CONTAINS the token is not our track', () => {
+  const inner = '<h2>Alpha</h2><ul class="tile-tracker"><li>x</li></ul>';
+  const deck = S('divider', '<h2>S</h2>') + S('topic', inner) + topic('Beta') + topic('Gamma');
+  const got = bothAgree(deck);
+  assert.deepEqual(got[1].map((i) => i.name), ['Alpha', 'Beta', 'Gamma']);
+});
+
 test('a slide that already carries a track does not cost its SIBLINGS theirs', () => {
   // `hasTrack` returned before `ti += 1` while `collectSections` still pushed a
   // slot, so the counter and the name array fell out of register and every later

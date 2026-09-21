@@ -132,6 +132,10 @@
       "fix": "A list on a `topic` slide is content now, not the track: the slide renders your list AND derives its own track below it. Move the labels into `<!-- _track: Cost to win | Lifetime value | [Payback] -->` and delete the list. The bracketed label is the topic this slide is on — bold does nothing, and an override that marks none draws with no column lit. `npm run lint:deck` flags both shapes."
     },
     {
+      "mistake": "Putting `_track` on a `topic fact` slide.",
+      "fix": "`fact` is one flat canvas and drops the track, so the directive draws NOTHING there — and it still opts the slide out of derivation, which quietly removes this topic's name from every sibling's scale. Measured: a three-topic section whose `fact` slide carries `_track` leaves its two siblings showing a two-topic track. Drop the directive and the slide goes back to contributing its heading; drop `fact` if what you wanted was the scale. `npm run lint:deck` flags it."
+    },
+    {
       "mistake": "Expecting the two-band composition under `color-mode: dark` or in a dark-mode export.",
       "fix": "It flattens, and that is the whole anchor family's behavior rather than this component's quirk: the deck-wide `dark` canvas replaces a sovereign anchor's own field, so `divider` loses its spectrum rail and `title` and `closing` lose `--surface-inverse` in exactly the same way (measured in Chromium; the committed `divider.gallery.dark.pdf` shows it). The track still draws and still lights the current topic, so the slide keeps saying where you are — it says it on one flat field instead of across a cut. If you need the cut, that is light mode."
     }

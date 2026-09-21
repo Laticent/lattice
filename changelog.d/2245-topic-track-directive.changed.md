@@ -13,5 +13,8 @@
   track AND the slide still stops contributing its name to its siblings' scales. The engine emits every track it draws, override or derived, so the
   string and DOM render arms read one `data-track` string instead of two readings of one `<ul>` —
   which is where half the defects in the component's review history came from.
+- **Changed: `_track` on `topic fact` is now documented and linted.** The variant's flat canvas
+  drops the track, so the directive draws nothing there — and it still stops the slide
+  contributing its heading, which quietly shortens every sibling's scale.
 - **Changed: the track's CSS is scoped to `ul.tile-track`.** A stray list on a `topic` slide is no
   longer styled as a scale it is not.

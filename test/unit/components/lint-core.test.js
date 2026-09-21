@@ -1253,6 +1253,41 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     assert.equal(rule(topic('<!-- _track: a > b | [C] -->'), 'track-directive'), undefined);
   });
 
+  test('the rule fires exactly where the ENGINE applies the directive', () => {
+    // The whole point of the two rules: agree with the renderer. Each row was
+    // measured through `require('lib/engine').render` — only a comment that OPENS
+    // A LINE becomes a directive, which is markdown-it's `html_block` rule.
+    const inert = [
+      ['inline in a paragraph', '## T\n\nSome text <!-- _track: A -->\n'],
+      ['indented four spaces', '## T\n\n    <!-- _track: A -->\n'],
+      ['inline code', '## T\n\n`<!-- _track: A -->`\n'],
+      ['nested in another comment', '<!-- outer <!-- _track: A --> tail -->\n\n## T\n'],
+    ];
+    for (const [what, body] of inert) {
+      const src = `${FM}<!-- _class: topic -->\n${body}`;
+      assert.equal(rule(src, 'track-directive'), undefined, `${what} is inert to the engine`);
+    }
+    // …and it is NOT silent where the engine does apply one.
+    const live = `${FM}<!-- _class: topic -->\n<!-- _track: A -->\n\n## T\n`;
+    assert.match(rule(live, 'track-directive').message, /one label/);
+  });
+
+  test('a stray fence inside a comment does not silence a real directive', () => {
+    // `stripFencedCode` blanks from an UNCLOSED fence to the end of the slide, so
+    // a ``` in a speaker note hid a `_track` the engine really applies — the file
+    // linted clean on a slide whose track the renderer then declined to draw.
+    const src = `${FM}<!-- _class: topic -->\n\n## B\n\n<!--\n\`\`\`\nnote\n-->\n\n<!-- _track: A -->\n`;
+    assert.match(rule(src, 'track-directive').message, /one label/);
+  });
+
+  test('bullets inside an UNTERMINATED comment are not a list either', () => {
+    // A browser swallows the rest of the slide, and the engine emits no `<ul>` at
+    // all — so `track-list` told the author to delete prose no reader ever sees,
+    // contradicting the `unterminated-comment` finding on the same slide.
+    const src = `${FM}<!-- _class: topic -->\n\n## B\n\n<!-- oops\n\n- bullet one\n- bullet two\n`;
+    assert.equal(rule(src, 'track-list'), undefined);
+  });
+
   test('bullets inside a speaker-note comment are not a list', () => {
     // markdown-it emits no list for them, so "it renders as content" was false
     // and the fix told the author to delete prose no reader ever sees.
