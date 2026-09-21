@@ -136,7 +136,7 @@ swallow, since it sets the same weight and ink.
 
 ## `state-cells` changes what a cell *means*.
 
-`[x]` `[-]` `[ ]` become the drawn status disc — distinct by shape, not only hue, so it survives grayscale and a color-blind reader. Never a typed check.
+`\[x]` `\[-]` `\[ ]` become the drawn status disc — distinct by shape, not only hue, so it survives grayscale and a color-blind reader. Never a typed check.
 
 | Criterion | Chorus | Productboard | Notion | Sprig |
 | --- | :---: | :---: | :---: | :---: |

@@ -696,7 +696,11 @@ and there is no verdict to take. Rather than silently dropping the emphasis, a
 slide holding a raw table gets it unconditionally on the first column, which is
 what this component did before the rule existed. So a raw table always reads as
 though its first column were a label, even when it holds numbers — the one case
-where writing a pipe table instead buys you a real decision. `no-row-label` on
+where writing a pipe table instead buys you a real decision. Measured caveat: on a
+Marp render of an exported bundle the browser-side pass DOES judge such a table
+and declines it, so a numeric-first-column raw table reads bold in the PDF and
+plain there. Confined to that one shape; a raw table with a genuine label column
+agrees on both. `no-row-label` on
 the slide does not suppress it, because the suppression rides the same verdict
 the rule never reached. `compare-table` did emphasize such a table, so this is a
 regression against it; `engineering/decisions/2026-09-20-table-component.md`

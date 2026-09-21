@@ -390,10 +390,29 @@ the table as pipes is what buys a decision, and `base.docs.md` says so. Matching
 the old behavior beat inventing a new one for a shape the rule cannot see.
 
 The browser-side pass keeps judging raw tables, because in a DOM a raw table and a
-pipe table are the same element. So on the VS Code Marp preview the verdict can
-differ from the engine's blanket fallback — for a numeric-first-column raw table
-only. That is a smaller and better-understood difference than the regression it
-replaces, and it is the direction that errs toward the old behavior.
+pipe table are the same element. So the verdict there can differ from the engine's
+blanket fallback — for a numeric-first-column raw table only.
+
+**That divergence is MEASURED, not predicted.** Driven on the real surface: the
+deck exported with `tools/export-marp.js` and rendered by real marp-cli (`^4.3.1`,
+fetched on demand), computed `font-weight` read in Chromium. A raw `<table>` whose
+first column holds years reads **600 in the engine's PDF** and **400 on the Marp
+render** — the engine falls back, Marp judges and declines. On a raw table whose
+first column IS a label both paths agree at 600, and every pipe table agrees on
+both paths, so the split is confined to that one shape.
+
+Two things worth stating plainly about it. It is a regression against
+`compare-table` ON THE MARP PATH ONLY: the old component styled `td:first-child`
+in CSS, which applied wherever the stylesheet did, so that shape used to read 600
+there too. And the new Marp behavior is the more CORRECT of the two — a year
+column is not a set of labels — which makes the engine's blunt fallback the
+weaker half. Closing it would need the engine to see raw tables, which is the
+thing markdown-it does not offer; the section marker it relies on is stamped by
+our markdown-it plugin, which marp-core never runs, so the runtime cannot defer
+to it either.
+
+No deck under the four corpus roots has that shape, and a first measurement of it
+is a better position than the unverified note this paragraph used to carry.
 
 ### Verified
 

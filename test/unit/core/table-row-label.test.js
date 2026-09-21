@@ -177,6 +177,11 @@ test('cellText normalizes emphasis, code fences and whitespace', () => {
 const EXPECTED_OFF = Object.freeze([
   'examples/universal-table.md: | Year | Revenue | Growth |',
   'examples/universal-table.md: | Year | Revenue | Growth |',
+  // examples/table-component.md carries the same demonstration: the rule declining
+  // over a year column, then `row-label` forcing it back on over that identical
+  // data. Two tables, one OFF and one explicitly overruled.
+  'examples/table-component.md: | Year | Revenue | Growth |',
+  'examples/table-component.md: | Year | Revenue | Growth |',
 ]);
 
 test('every table in every shipped deck resolves as the design says', (t) => {
