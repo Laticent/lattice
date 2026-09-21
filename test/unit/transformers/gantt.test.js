@@ -125,6 +125,76 @@ describe('gantt renderer — continuous time scale', () => {
     assert.match(out, /gantt-legend-swatch"[^>]*data-s="at-risk"/);
   });
 
+  // #2255 — the key names the NEUTRAL too. A bar with no status and a `deferred`
+  // bar both take the mute ramp, and only one of them was ever named, so the key
+  // explained every bar on the slide except the two a reader cannot tell apart.
+  describe('the key names the neutral (#2255)', () => {
+    // The label is a <tspan> inside the <text>, so read the tspan (wrapSvgLabel).
+    const chips = (out) => [...out.matchAll(/class="gantt-legend-label"[\s\S]*?<tspan[^>]*>([^<]*)</g)].map((m) => m[1]);
+    const eyebrow = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+
+    test('an unstated task adds a "no status" chip, carrying no data-s', () => {
+      const ul = '<ul><li>L<ul>'
+        + '<li>A <code>Q1..Q2</code> <code>at-risk</code></li>'
+        + '<li>B <code>Q3..Q4</code></li>'
+        + '</ul></li></ul>';
+      const out = buildGanttChart(inner(ul), eyebrow);
+      assert.deepEqual(chips(out), ['at-risk', 'no status']);
+      // The neutral chip must NOT carry a status, or it would take that status's
+      // ink and paint an unstated bar as a declared one.
+      assert.equal(/class="gantt-legend-swatch" data-s="no status"/.test(out), false);
+      const swatches = [...out.matchAll(/<rect class="gantt-legend-swatch"([^>]*)>/g)].map((m) => m[1]);
+      assert.equal(swatches.length, 2);
+      assert.match(swatches[0], /data-s="at-risk"/);
+      assert.equal(/data-s=/.test(swatches[1]), false, 'the neutral chip declares no status');
+    });
+
+    test('no unstated task means no extra chip', () => {
+      const ul = '<ul><li>L<ul>'
+        + '<li>A <code>Q1..Q2</code> <code>at-risk</code></li>'
+        + '<li>B <code>Q3..Q4</code> <code>done</code></li>'
+        + '</ul></li></ul>';
+      assert.deepEqual(chips(buildGanttChart(inner(ul), eyebrow)), ['done', 'at-risk']);
+    });
+
+    test('no declared status at all means no key — there is nothing to disambiguate', () => {
+      const ul = '<ul><li>L<ul><li>A <code>Q1..Q2</code></li></ul></li></ul>';
+      const out = buildGanttChart(inner(ul), eyebrow);
+      assert.equal(/gantt-legend/.test(out), false);
+    });
+
+    test('an unparseable span is not "no status" — it is its own placeholder', () => {
+      // `unscaled` is the bar drawn for a task the axis could not place. It already
+      // carries its own class and `lint:deck` names the cause, so keying it as the
+      // neutral would put two meanings on one chip.
+      const ul = '<ul><li>L<ul>'
+        + '<li>A <code>Q1..Q2</code> <code>at-risk</code></li>'
+        + '<li>B <code>done</code></li>'
+        + '</ul></li></ul>';
+      const out = buildGanttChart(inner(ul), eyebrow);
+      assert.match(out, /gantt-bar--unscaled/);
+      assert.equal(chips(out).includes('no status'), false);
+    });
+
+    test('the chip is dropped rather than pushing the key past the viewBox', () => {
+      // The key is one centered row with no wrap, so a chart carrying many statuses
+      // can already run its chips off the edge. Adding one unconditionally would make
+      // this change the cause of that on charts it has nothing to do with.
+      // Every word in the ramp. Seven still fits a 480-unit viewBox (measured: the
+      // last label starts at 426.8), so the case has to be the full set.
+      const many = ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot', 'decision', 'deferred'];
+      const ul = '<ul><li>L<ul>'
+        + many.map((st, i) => `<li>T${i} <code>Q${(i % 4) + 1}</code> <code>${st}</code></li>`).join('')
+        + '<li>Z <code>Q1..Q4</code></li>'
+        + '</ul></li></ul>';
+      const out = buildGanttChart(inner(ul), eyebrow);
+      const got = chips(out);
+      assert.ok(got.length >= many.length, `expected every declared status, got ${got.join(', ')}`);
+      assert.equal(got.includes('no status'), false,
+        'a key already at the viewBox edge must not gain another chip');
+    });
+  });
+
   // S1 regression — a solitary date milestone used to land at left:513175% (axis
   // fell back to 0..4 in ordinal units against an epoch-day value).
   test('regression(S1): a lone date milestone stays on-screen', () => {

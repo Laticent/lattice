@@ -224,9 +224,26 @@
 /* The HOLLOWING is the bar's, not the accent's. The accent is a 4px leading
  * cue; at 18% it disappears, and then a deferred bar has nothing marking where
  * it starts. Its INK is shared with the bar above — which is what the defect
- * was about — and only the body goes to a wash. */
+ * was about — and only the body goes to a wash.
+ *
+ * AND THE EDGE IS DASHED, which is the half the wash could not carry (#2255). An
+ * unstated bar takes the same neutral ink and the same mute ramp; the only thing
+ * telling it from `deferred` was body opacity, and 18% of a ramp that is already a
+ * pale tint is a difference a reader has to hunt for. A dash is the cue every
+ * schedule a reader has seen uses for "planned, not committed", and it is the right
+ * KIND of cue here: it spends no hue, so it survives the palette-blind rule
+ * (HARD RULE #3), the a11y palettes, grayscale print and a photocopied handout —
+ * all the channels where one more shade of neutral resolves to the same gray.
+ *
+ * The numbers are user units, so the dash scales with the chart and reads the same
+ * on a landscape 480u viewBox and a portrait 300u one. 4/2.5 puts ~3 dashes along a
+ * short bar and keeps the swatch in the key reading as dashed rather than as noise.
+ *
+ * The ACCENT is excluded for the same reason it keeps its opacity: it is ~4 units
+ * wide, so a dash pattern on it deletes most of the leading cue. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch)[data-s="deferred"] {
   fill-opacity: 0.18;
+  stroke-dasharray: 4 2.5;
 }
 
 /* Unparseable / missing span — a muted full-width placeholder so the task stays
