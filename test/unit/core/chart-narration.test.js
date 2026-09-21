@@ -592,7 +592,7 @@ test('narrateStateChart: leads with the heading, then the machine SHAPE, then th
   const out = narrateStateChart(md);
   assert.ok(out.startsWith('Flow. A three-state machine from Draft to Done'), out);
   assert.ok(!out.includes('This flow starts at'), 'the shape sentence subsumes it — saying both is the duplication this pass removes');
-  assert.ok(out.includes('it runs as a straight chain with no forks'), out);
+  assert.ok(out.includes('It runs as a straight chain with no forks'), out);
   assert.equal(out.match(/Flow\./g).length, 1);
 });
 

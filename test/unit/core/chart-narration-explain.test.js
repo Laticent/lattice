@@ -279,7 +279,7 @@ test('state-chart — opens with the machine\'s SHAPE, before the edge-by-edge r
 
 test('state-chart — names what comes BACK, which is the difference between progress and circling', () => {
   const out = narrateStateChart(slide('state-chart', MACHINE));
-  assert.ok(out.includes('one transition steps back'), out);
+  assert.ok(out.includes('One transition steps back'), out);
   assert.ok(out.includes('In Review loops on itself'), out);
 });
 
@@ -308,7 +308,7 @@ test('state-chart — a straight chain says so', () => {
   const out = narrateStateChart(slide('state-chart', [
     '## Chain.', '', '1. Source `start`', '   - `compile => 2`', '2. Compiled', '   - `test => 3`', '3. Tested `end`',
   ].join('\n')));
-  assert.ok(out.includes('it runs as a straight chain with no forks'), out);
+  assert.ok(out.includes('It runs as a straight chain with no forks'), out);
 });
 
 test('state-chart — names a TRAP, which no other surface does', () => {
@@ -325,7 +325,7 @@ test('state-chart — names an UNREACHABLE state', () => {
   const out = narrateStateChart(slide('state-chart', [
     '## Orphan.', '', '1. A `start`', '   - `go => 2`', '2. B `end`', '3. Forgotten',
   ].join('\n')));
-  assert.ok(out.includes('nothing leads to Forgotten'), out);
+  assert.ok(out.includes('Nothing leads to Forgotten'), out);
 });
 
 test('state-chart — names a state that STOPS but was not marked an ending', () => {
@@ -439,8 +439,8 @@ test('CHECKER 2 — a CONVERGING machine is not a straight chain', () => {
     '## Two paths converge.', '',
     '1. Web signup', '   - `verify => 3`', '2. Sales-led', '   - `verify => 3`', '3. Active',
   ].join('\n')));
-  assert.ok(!out.includes('straight chain'), out);
-  assert.ok(out.includes('nothing leads to Sales-led'), out);
+  assert.ok(!/straight chain/i.test(out), out);
+  assert.ok(out.includes('Nothing leads to Sales-led'), out);
 });
 
 test('CHECKER 2 — two DISCONNECTED chains are not one chain', () => {
@@ -448,7 +448,7 @@ test('CHECKER 2 — two DISCONNECTED chains are not one chain', () => {
     '## Two machines.', '',
     '1. Draft', '   - `submit => 2`', '2. Filed', '3. Appeal', '   - `escalate => 4`', '4. Closed',
   ].join('\n')));
-  assert.ok(!out.includes('straight chain'), out);
+  assert.ok(!/straight chain/i.test(out), out);
 });
 
 test('CHECKER 2 — a list of states with NO transitions claims no shape at all', () => {
@@ -457,7 +457,7 @@ test('CHECKER 2 — a list of states with NO transitions claims no shape at all'
   // called it a chain. With no edges there is no machine to describe, so the older
   // inference sentence speaks instead, exactly as it did before this pass.
   const out = narrateStateChart(slide('state-chart', '## No transitions yet.\n\n1. Draft\n2. Filed\n3. Closed'));
-  assert.ok(!out.includes('straight chain'), out);
+  assert.ok(!/straight chain/i.test(out), out);
   assert.ok(!out.includes('from Draft to Draft'), out);
   assert.ok(out.includes('This flow starts at Draft'), out);
 });
@@ -473,8 +473,8 @@ test('CHECKER 2 — a CYCLE is not a straight chain', () => {
   const out = narrateStateChart(slide('state-chart', [
     '## Ping pong.', '', '1. Draft', '   - `submit => 2`', '2. Review', '   - `reject => 1`',
   ].join('\n')));
-  assert.ok(!out.includes('straight chain'), out);
-  assert.ok(out.includes('one transition steps back'), out);
+  assert.ok(!/straight chain/i.test(out), out);
+  assert.ok(out.includes('One transition steps back'), out);
 });
 
 test('CHECKER 2 — a real chain is still called one', () => {
@@ -482,12 +482,12 @@ test('CHECKER 2 — a real chain is still called one', () => {
   const out = narrateStateChart(slide('state-chart', [
     '## Chain.', '', '1. Source `start`', '   - `compile => 2`', '2. Compiled', '   - `test => 3`', '3. Tested `end`',
   ].join('\n')));
-  assert.ok(out.includes('it runs as a straight chain with no forks'), out);
+  assert.ok(out.includes('It runs as a straight chain with no forks'), out);
   // …and a self-loop does not disqualify one: "In Review can hold" is not a fork.
   const looped = narrateStateChart(slide('state-chart', [
     '## Loop.', '', '1. A `start`', '   - `go => 2`', '2. B', '   - `hold => self`', '   - `go => 3`', '3. C `end`',
   ].join('\n')));
-  assert.ok(looped.includes('it runs as a straight chain with no forks'), looped);
+  assert.ok(looped.includes('It runs as a straight chain with no forks'), looped);
 });
 
 test('CHECKER 8 — a missing frame is never spoken as the word "null"', () => {
@@ -575,13 +575,35 @@ test('CHECKER2 — an AUTHORED band is voiced as a position, not silently swallo
   assert.ok(out.includes('One of two cleared the plan line'), out);
 });
 
+test('the shape is one sentence per FACT, and the hazards stay one list', () => {
+  // Two opposite failures, and the split has to avoid both. Joining every clause
+  // produced a 13.2s/39-word cue on this slide; splitting the HAZARDS as well would
+  // chop a list of the same kind of thing into three five-word fragments, and the
+  // cue profile's other tail is exactly that. Nothing pinned the grouping until a
+  // mutation walked through every arm above.
+  const out = narrateStateChart(slide('state-chart', [
+    '## Three hazards nothing else names.', '',
+    '1. Running `start`', '   - `fail => 2`', '   - `finish => 4`',
+    '2. Stuck', '   - `retry => self`', '3. Parked', '4. Done `end`',
+  ].join('\n')));
+  // Each SHAPE fact is its own sentence…
+  assert.ok(out.includes('A four-state machine from Running to Done.'), out);
+  assert.ok(out.includes('Running is where it decides, with two ways out.'), out);
+  // …and the hazards arrive as ONE sentence, semicolon-joined.
+  assert.ok(
+    out.includes('Stuck has no way out but to stay; Nothing leads to Parked; Parked stops without being marked an ending.')
+    || out.includes('Stuck has no way out but to stay; nothing leads to Parked; Parked stops without being marked an ending.'),
+    out,
+  );
+});
+
 test('CHECKER2 — a SELF-LOOP-only machine claims no path', () => {
   // `!edgeCount` closed the no-edge case and left it one self-loop away: "A two-state
   // machine from Draft to Filed; Draft loops on itself; Draft has no way out but to
   // stay; nothing leads to Filed" asserts a route its own next clauses deny.
   const out = narrateStateChart(slide('state-chart', '## Hold.\n\n1. Draft\n   - `hold => self`\n2. Filed'));
   assert.ok(!out.includes('from Draft to Filed'), out);
-  assert.ok(!out.includes('straight chain'), out);
+  assert.ok(!/straight chain/i.test(out), out);
 });
 
 // ── the declared frame ───────────────────────────────────────────────────────
