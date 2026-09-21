@@ -1159,3 +1159,59 @@ describe('lint-core: shell-fence-is-script (rule 12b)', () => {
     assert.ok(ruleFor(src, 'shell-fence-is-script'), 'a slide with no _class directive is still linted');
   });
 });
+
+describe("lint-core: the topic anchor's `_track` override", () => {
+  // The `topic` anchor derives its sibling track from every topic slide's own
+  // `<h2>`; `_track` overrides that. Both failures below are SILENT on the
+  // rendered slide — a band that never draws, or one with no column lit — which
+  // is why they are caught in the linter rather than left to a reviewer's eye.
+  const tv = { names: new Set(['topic', 'content']), modifiers: new Set(['dark', 'fact']) };
+  const rule = (src, name) => core.lintTextWith(src, tv).find((f) => f.rule === name);
+  const topic = (...lines) => `${FM}<!-- _class: topic -->\n${lines.join('\n')}\n\n## Payback\n\nA claim.\n`;
+
+  test('silent on a well-formed override', () => {
+    const src = topic('<!-- _track: Cost to win | Lifetime value | [Payback] -->');
+    assert.equal(rule(src, 'track-directive'), undefined);
+    assert.equal(rule(src, 'track-list'), undefined);
+  });
+
+  test('silent on a slide that derives — no directive is the normal case', () => {
+    assert.equal(rule(topic(), 'track-directive'), undefined);
+  });
+
+  test('flags an override that marks no current topic', () => {
+    const f = rule(topic('<!-- _track: Cost to win | Lifetime value -->'), 'track-directive');
+    assert.ok(f, 'expected a finding');
+    assert.equal(f.severity, 'warning');
+    assert.match(f.message, /no current topic/);
+    assert.match(f.fix, /square brackets/);
+  });
+
+  test('flags a scale of one — it draws no track at all', () => {
+    const f = rule(topic('<!-- _track: [Payback] -->'), 'track-directive');
+    assert.ok(f, 'expected a finding');
+    assert.match(f.message, /one label/);
+  });
+
+  test('flags `_track` on a slide that is not a topic anchor', () => {
+    const src = `${FM}<!-- _class: content -->\n<!-- _track: A | [B] -->\n\n## A heading.\n\nText.\n`;
+    const f = rule(src, 'track-directive');
+    assert.ok(f, 'expected a finding');
+    assert.match(f.message, /not `topic`/);
+  });
+
+  test('flags the RETIRED authored-list override, and names the directive', () => {
+    // A deck written against the old contract still renders — the list as
+    // content, plus a derived track below it. Warn and coach; never refuse.
+    const f = rule(topic('', '- Cost to win', '- Lifetime value', '- **Payback**'), 'track-list');
+    assert.ok(f, 'expected a finding');
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.line, '- Cost to win');
+    assert.match(f.fix, /_track:/);
+  });
+
+  test('a fenced list is not a list — the rule reads past code blocks', () => {
+    const src = `${FM}<!-- _class: topic -->\n\n## Payback\n\n\`\`\`text\n- Cost to win\n\`\`\`\n`;
+    assert.equal(rule(src, 'track-list'), undefined);
+  });
+});

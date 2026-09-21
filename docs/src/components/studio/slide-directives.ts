@@ -18,7 +18,7 @@ export const DIRECTIVE_KEYS: ReadonlySet<string> = new Set([
 	'theme', 'paginate', 'header', 'footer', 'class', 'backgroundColor',
 	'backgroundImage', 'backgroundPosition', 'backgroundRepeat', 'backgroundSize',
 	'color', 'size', 'style', 'lang', 'marp', 'logo',
-	'focus', 'focusStyle', 'focusSteps', 'build', 'debug', 'lens',
+	'focus', 'focusStyle', 'focusSteps', 'build', 'debug', 'lens', 'track',
 ]);
 
 /** The bare `key` of a comment body's FIRST directive line (leading `_` stripped),

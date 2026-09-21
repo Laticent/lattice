@@ -87,6 +87,15 @@ Four points of retention is $2.1m of ARR, and it compounds into next year.
 
 ---
 
+<!-- _class: topic -->
+<!-- _track: Renewal curve | Logo retention | [Pricing floor] -->
+
+## Pricing floor
+
+Two of the three at-risk accounts renewed below the floor, and both name the same competitor.
+
+---
+
 <!-- _class: closing silent -->
 
 ## Payback is the number to fix first.

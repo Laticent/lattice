@@ -17,17 +17,13 @@ Topic anchor inside a section. A horizontal cut: the topic above, the section's 
 
 <!-- _class: topic -->
 <!-- _footer: "Default · topic" -->
+<!-- _track: Cost to win | Lifetime value | [Payback] | The assumptions -->
 
 `Section 02 · Unit economics`
 
 ## Payback
 
 Fourteen months blended, against a nine-month plan.
-
-- Cost to win
-- Lifetime value
-- **Payback**
-- The assumptions
 
 
 ---
@@ -49,22 +45,13 @@ Fourteen months blended, against a nine-month plan.
 <!-- _class: topic -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · topic — a nine-topic section — the track at its documented ceiling, labels stepped down two rungs" -->
+<!-- _track: Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence -->
 
 `Section 04 · Operating review`
 
 ## Escalation paths
 
 Three of the nine paths route to a team that no longer owns the service.
-
-- Intake
-- Triage
-- Ownership
-- Runbooks
-- On-call
-- **Escalation paths**
-- Postmortems
-- Action tracking
-- Review cadence
 
 
 ---
