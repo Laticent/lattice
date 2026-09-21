@@ -199,6 +199,64 @@
         }
       }
     },
+    "labelSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["members"],
+      "description": "The set of members this component draws a KEY for, and the default words it names them with. A \u201cset\u201d is any small closed group a reader needs decoded: roadmap's four delivery states, obligation-matrix's four markers, matrix-grid's cell shapes, heatmap's five ramp bands. DECLARED HERE SO ONE SOURCE SERVES BOTH THE RENDER AND THE LINT \u2014 the transform takes its derived default from this field and `lint:deck` checks an authored override's keys against it, so a key vocabulary that disagrees with what the component renders is not expressible. That is the move `coda.claims` made when it replaced two hand-maintained exclusion lists that were wrong for 8 of 61 layouts. An author overrides any member with an inline label set \u2014 `[{{[x], Enacted}}, {{[-], In committee}}]` in an inline-code span \u2014 parsed by lib/core/label-set.js and merged BY KEY and PARTIALLY, so naming one member leaves the rest on their defaults. OMIT the field entirely for a component with no closed set, which is most of them.",
+      "properties": {
+        "aria": {
+          "type": "string",
+          "description": "The key's accessible name, e.g. 'Status key'. Defaults to 'Key'."
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The keyable members, IN RENDER ORDER \u2014 that order is the spine an author's override merges onto, so it decides how the key reads left to right. The `key` is what an author types to address the member, and it is deliberately the spelling they ALREADY use in the cell: the marker literal `[x]`/`[-]`/`[ ]`/`[/]` for a marker grid, the step number for a ramp. The bracketed marker survives the parser's whitespace tidy because the brackets protect the space \u2014 a bare ' ' key would collapse to empty and be dropped.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key"],
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "description": "What an author types to address this member \u2014 the marker literal or the step number."
+              },
+              "label": {
+                "type": "string",
+                "description": "The default word. OMIT IT when the component DERIVES the label from the data at render time: heatmap names each band by the value range it covers, which no fixed word could state because the bands are quantile-cut per matrix, and because polarity is unknowable \u2014 high retention is good, high churn is bad. A member with no label still belongs here; it is part of the key vocabulary the lint checks against."
+              },
+              "detail": {
+                "type": "string",
+                "description": "An optional one-line gloss, rendered as the key row's `title`."
+              }
+            }
+          }
+        },
+        "derivedLabels": {
+          "type": "string",
+          "description": "One line naming what the component derives a member's label FROM, when `label` is omitted (heatmap: 'the value range each band covers'). Documentation for whoever reads the catalog \u2014 it explains why the key says what it says."
+        },
+        "unkeyed": {
+          "type": "array",
+          "description": "Markers this component's grammar accepts in a CELL but deliberately gives no key row, each with its reason. The field exists so that 'no sensible default' is DECLARED rather than merely absent: matrix-grid's `[x]` means 'this row's position' and a filled cell's own trailing text IS its label, so there is no general word for the shape, and inventing one would be a lie the key repeats on every slide. `lint:deck` reads `why` verbatim when an author names such a key, so the coaching says what is actually wrong instead of 'unknown key'.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "why"],
+            "properties": {
+              "key": { "type": "string", "minLength": 1 },
+              "why": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Plain-language reason, shown to the author by `lint:deck`."
+              }
+            }
+          }
+        }
+      }
+    },
     "conformance": {
       "enum": [
         "strict"

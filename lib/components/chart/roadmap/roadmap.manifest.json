@@ -65,6 +65,15 @@
       "trailing-paragraph"
     ]
   },
+  "labelSet": {
+    "aria": "Status key",
+    "members": [
+      { "key": "[x]", "label": "Shipped" },
+      { "key": "[-]", "label": "In flight" },
+      { "key": "[ ]", "label": "Planned" },
+      { "key": "[/]", "label": "Out of scope" }
+    ]
+  },
   "orientation": [
     "landscape",
     "portrait"
