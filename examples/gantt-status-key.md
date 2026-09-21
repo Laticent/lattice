@@ -11,7 +11,7 @@ header: "Lattice · gantt status key"
 
 # "We pushed this" and "nobody said" are not the same bar.
 
-`deferred` and an unstated task both take the family's neutral ramp. The key now names the neutral, and a deferred bar carries a dashed edge — a cue that spends no hue, so it survives a palette that has no hue to spend.
+`deferred` and an unstated task both take the family's neutral ramp, so no re-shading can separate them. The key now names the neutral, and a deferred bar carries a dashed edge — a cue read off `data-s` rather than off the color.
 
 ---
 
@@ -86,12 +86,12 @@ Two bars on the same row, both neutral, one declared and one not. Opacity alone 
 
 <!-- _class: content -->
 
-## Why a dash rather than one more neutral.
+## What the dash is for, and what it is not for.
 
-Render this deck under `theme: a11y-achromatopsia` and four of the five ramps resolve to a gray — `info` keeps a blue axis. `deferred` and an unstated bar both land on the mute ramp there, so between those two the dash is the whole distinction.
+`deferred` and an unstated task resolve to the *same* mute ramp. Any channel chosen by ramp — hue, or a texture tile — paints them identically. They differ only in `data-s`, so that is what the cue has to key on.
 
-- The channels a hue does not reach
-  - The four a11y palettes, grayscale print, a photocopied handout, and the `print` finish. Each one is a place where "the paler bar" stops being a distinction a reader can make.
+- Not the accessibility channel
+  - The engine already textures filled marks and dashes stroked ones, under `section.print` and the a11y themes. Gantt is wired into neither, and this dash does not close that — see `engineering/textures.md`.
 - Why the numbers are CSS pixels
   - Every gantt mark inherits `vector-effect: non-scaling-stroke`, which re-scopes the dash *array* as well as the stroke width. So `4 2.5` is 4px on and 2.5px off on a 480-unit landscape viewBox and a 300-unit portrait one alike — one physical pattern, not two.
 
@@ -101,6 +101,6 @@ Render this deck under `theme: a11y-achromatopsia` and four of the five ramps re
 
 `#2255`
 
-## The cue that costs no hue is the one that survives the channel that has none.
+## Two marks on one ramp need a cue the ramp does not own.
 
-A second shade of neutral reads as the first shade of neutral in grayscale print, on an achromatopsia palette, and on a photocopied handout. A dash reads as a dash in all three.
+"We pushed this" and "nobody said" share the mute ramp, so no amount of re-shading separates them. The dash does, because it reads off the status word rather than off the color.

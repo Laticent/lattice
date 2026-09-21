@@ -230,10 +230,27 @@
  * unstated bar takes the same neutral ink and the same mute ramp; the only thing
  * telling it from `deferred` was body opacity, and 18% of a ramp that is already a
  * pale tint is a difference a reader has to hunt for. A dash is the cue every
- * schedule a reader has seen uses for "planned, not committed", and it is the right
- * KIND of cue here: it spends no hue, so it survives the palette-blind rule
- * (HARD RULE #3), the a11y palettes, grayscale print and a photocopied handout —
- * all the channels where one more shade of neutral resolves to the same gray.
+ * schedule a reader has seen uses for "planned, not committed".
+ *
+ * THIS IS A SEMANTIC CUE, NOT THE ACCESSIBILITY CHANNEL, and an earlier draft of this
+ * comment sold it as the second thing. The engine already answers "tell marks apart
+ * when hue cannot" twice over, both scoped to `section.print` and the a11y themes:
+ * TEXTURE tiles for filled marks and `stroke-dasharray` LADDERS for stroked ones, in
+ * `lib/base/base.print-textures.css` and `themes/a11y-base.css`
+ * (`engineering/textures.md` is the contract). Claiming an unconditional dash as the
+ * a11y/print answer both re-solves that and hides the fact that GANTT IS WIRED INTO
+ * NEITHER — this file has no texture reference and gantt appears in neither of those
+ * two stylesheets, so on achromatopsia or `.print` its five status ramps collapse
+ * toward gray with nothing redundant behind them, while a `waterfall` on the next
+ * slide takes three tiles keyed on its own `data-s`. That gap is real and is tracked
+ * as #2274, with the four other status-carrying charts in the same position; do not
+ * read this dash as covering it.
+ *
+ * WHAT THE DASH DOES ANSWER is the one distinction no RAMP-keyed channel can, texture
+ * included: `deferred` and an unstated task resolve to the SAME mute ramp, so a tile
+ * chosen by ramp paints them identically. They differ only in `data-s` — one carries
+ * the attribute, one carries none — which is what both this rule and any future
+ * texture rule must key on.
  *
  * THE DASH IS IN CSS PIXELS, NOT USER UNITS, and that is not obvious from this line.
  * Every gantt mark joins the family rule that sets `vector-effect: non-scaling-stroke`,
