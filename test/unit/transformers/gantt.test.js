@@ -496,10 +496,25 @@ describe('gantt — the sketch token reaches the builder', () => {
 // pair read as two abutting segments of a relay. That is the failure mode these
 // lock — a gantt whose whole job is "make concurrency visible at a glance"
 // (gantt.docs.md) was rendering the opposite of its data.
-const barYs = (html) => [...html.matchAll(/class="gantt-bar"[^>]*\sy="([-\d.]+)"/g)]
-  .map((m) => Number(m[1]));
-const barXW = (html) => [...html.matchAll(/class="gantt-bar"[^>]*\sx="([-\d.]+)"[^>]*\swidth="([-\d.]+)"/g)]
-  .map((m) => ({ x: Number(m[1]), w: Number(m[2]) }));
+// Attribute reads below go tag-first rather than through one regex spanning a
+// whole tag. A pattern like /class="gantt-bar"[^>]*\sy="…"/ lets `[^>]*` and
+// `\s` match the same characters, so a tag that never carries the attribute
+// backtracks over every split — polynomial, and 11 CodeQL js/polynomial-redos
+// alerts on #2250. Slicing the tag out first, then reading its attributes from
+// a bounded string, keeps both steps linear.
+const tagsWith = (html, needle) =>
+  (html.match(/<[^>]+>/g) || []).filter((t) => t.includes(needle));
+const attrsOf = (tag) => {
+  const out = {};
+  for (const m of (tag || '').matchAll(/\s([\w:-]+)="([^"]*)"/g)) out[m[1]] = m[2];
+  return out;
+};
+const attrsWith = (html, needle) => tagsWith(html, needle).map(attrsOf);
+const firstAttrs = (html, needle) => attrsWith(html, needle)[0] || {};
+const BAR = 'class="gantt-bar"';
+
+const barYs = (html) => attrsWith(html, BAR).map((a) => Number(a.y));
+const barXW = (html) => attrsWith(html, BAR).map((a) => ({ x: Number(a.x), w: Number(a.width) }));
 const WIN = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
 
 describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
@@ -555,8 +570,9 @@ describe('gantt — sub-row packing (overlapping tasks cannot occlude)', () => {
       <li>GA <code>Q4</code> <code>milestone</code></li>
     </ul></li></ul>`;
     const out = buildGanttChart(inner(ul), WIN);
-    const barY = Number(out.match(/class="gantt-bar"[^>]*\sy="([-\d.]+)"/)[1]);
-    const dY = Number(out.match(/class="gantt-milestone"[^>]*points="[-\d.]+,([-\d.]+)/)[1]);
+    const barY = Number(firstAttrs(out, BAR).y);
+    // points are "cx,top cx+r,mid cx,bottom cx-r,mid" — the first pair's y is the top.
+    const dY = Number(firstAttrs(out, 'class="gantt-milestone"').points.split(' ')[0].split(',')[1]);
     assert.ok(Math.abs((dY + GANTT_GEOM.barH * 0.42) - (barY + GANTT_GEOM.barH / 2)) > 1,
       'a milestone within a bar\'s span must not be drawn on top of it');
   });
@@ -589,7 +605,7 @@ describe('gantt — the band is FIXED, so nothing shrinks with content', () => {
   // thinner bars — the engine quietly covering for a slide carrying too much,
   // with nobody told. These pin that the geometry does not move with the data.
   const barHeightsOf = (html) =>
-    [...html.matchAll(/class="gantt-bar"[^>]*\sheight="([\d.]+)"/g)].map((m) => +m[1]);
+    attrsWith(html, BAR).map((a) => Number(a.height));
 
   const chartOf = (lanes, tasksPerLane, overlapping, keyed = false) => {
     const st = keyed ? ' <code>done</code>' : '';
@@ -653,8 +669,8 @@ describe('gantt — mark chrome', () => {
     // seam — three vertical bands at the left edge instead of one.
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>done</code></li></ul></li></ul>`;
     const out = buildGanttChart(inner(ul), WIN);
-    const accent = out.match(/<rect class="gantt-bar-accent"[^>]*>/)[0];
-    const clipId = accent.match(/clip-path="url\(#([^)]+)\)"/);
+    const accent = tagsWith(out, 'class="gantt-bar-accent"')[0];
+    const clipId = (attrsOf(accent)['clip-path'] || '').match(/^url\(#(.+)\)$/);
     assert.ok(clipId, 'the accent must be clipped to its bar');
     assert.doesNotMatch(accent, /\srx=/, 'a clipped accent must not carry a competing radius');
     const clip = out.match(new RegExp(`<clipPath id="${clipId[1]}">(.*?)</clipPath>`))[1];
@@ -678,9 +694,12 @@ describe('gantt — mark chrome', () => {
     // of its own height above the text, which measured 15px out at 200dpi.
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>at-risk</code></li></ul></li></ul>`;
     const out = buildGanttChart(inner(ul), WIN);
-    const sw = out.match(/class="gantt-legend-swatch"[^>]*\sy="([-\d.]+)"[^>]*\swidth="([-\d.]+)"/);
-    const swatchMid = Number(sw[1]) + Number(sw[2]) / 2;
-    const labelY = Number(out.match(/class="gantt-legend-label"[^>]*>\s*<tspan[^>]*\sy="([-\d.]+)"/)[1]);
+    const sw = firstAttrs(out, 'class="gantt-legend-swatch"');
+    const swatchMid = Number(sw.y) + Number(sw.width) / 2;
+    // The label's own y lives on the tspan the text element wraps — take the
+    // first tspan after the label tag rather than scanning across the pair.
+    const afterLabel = out.slice(out.indexOf('class="gantt-legend-label"'));
+    const labelY = Number(firstAttrs(afterLabel, '<tspan').y);
     assert.ok(Math.abs(swatchMid - labelY) < 0.01,
       `swatch center ${swatchMid} should match the label's optical middle ${labelY}`);
   });
@@ -735,7 +754,8 @@ describe('gantt — checker findings', () => {
     const squat = '<clipPath id="gantt-barclip-1-0"><rect width="0" height="0"/></clipPath>';
     resetRenderIds(squat, 0);
     const out = buildGanttChart(inner(ul), WIN);
-    const id = out.match(/clip-path="url\(#([^)]+)\)"/)[1];
+    const id = attrsOf(tagsWith(out, 'clip-path="url(#')[0])['clip-path']
+      .match(/^url\(#(.+)\)$/)[1];
     assert.notEqual(id, 'gantt-barclip-1-0',
       'a deck squatting the clip id must not capture the accent\'s clip');
     assert.match(id, /^.+gantt-barclip-/, 'the minted id should be namespace-prefixed');
@@ -748,7 +768,8 @@ describe('gantt — checker findings', () => {
     // scoped-CSS dropped-color guard (#956) from an element that is never
     // painted. Two of these failed the integration tier.
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>done</code></li></ul></li></ul>`;
-    const clip = buildGanttChart(inner(ul), WIN).match(/<clipPath[^>]*>(<rect[^>]*>)/)[1];
+    const built = buildGanttChart(inner(ul), WIN);
+    const clip = tagsWith(built.slice(built.indexOf('<clipPath')), '<rect')[0];
     assert.match(clip, /fill="none"/, 'a clip rect must declare that it paints nothing');
   });
 
