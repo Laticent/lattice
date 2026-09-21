@@ -647,6 +647,68 @@ test('CHECKER2 — a SELF-LOOP-only machine claims no path', () => {
   assert.ok(!/straight chain/i.test(out), out);
 });
 
+test('CHECKER3 — a CLEARED row still voices the bands this narrator absorbed', () => {
+  // The band clause sat below the `at.cleared` block, so a row that cleared never
+  // reached it — and this narrator CONSUMES the author's `Band` lines so they are
+  // not read back as prose. Absorbed and never voiced is deleted: the base
+  // flattener had read both, and after the pilot they reached no surface at all.
+  const body = '- Uptime `M`\n  - Target `99.5%`\n  - Band `99.0%`\n  - Band `99.3%`\n- Latency `2` `4`';
+  const cleared = narrateBullet(slide('bullet', `## H.\n\n${body.replace('`M`', '`99.9%`')}`));
+  assert.ok(cleared.includes('in band three of three'), cleared);
+  const short = narrateBullet(slide('bullet', `## H.\n\n${body.replace('`M`', '`99.1%`')}`));
+  assert.ok(short.includes('in band two of three'), short);
+});
+
+test('CHECKER3 — a rounded percentage never argues with the verdict', () => {
+  // `attainment` rounds to a whole percent, the same arithmetic the chart's own
+  // `<desc>` uses. The `<desc>` gets away with it by printing "below plan" beside
+  // the number; the voice said "one hundred percent of plan, in band two of three"
+  // over a row that MISSED — 99.1 against 99.5 is 99.6%. Where the rounding and the
+  // verdict disagree, the verdict wins.
+  const near = narrateBullet(slide('bullet', '## H.\n\n- Uptime `99.1%` `99.5%`\n- Latency `2` `4`'));
+  assert.ok(near.includes('just short of plan'), near);
+  assert.ok(!/one hundred percent of plan/.test(near), near);
+  const over = narrateBullet(slide('bullet', '## H.\n\n- Uptime `99.6%` `99.5%`\n- Latency `2` `4`'));
+  assert.ok(over.includes('just above plan'), over);
+  // …and a percentage that does NOT argue with its verdict is still spoken.
+  assert.ok(narrateBullet(slide('bullet', '## H.\n\n- A `5` `4`\n- B `2` `4`')).includes('one hundred twenty-five percent of plan'));
+});
+
+test('CHECKER3 — the tally survives a heading that merely carries two numbers', () => {
+  // `cleared !== scored` accepted ANY arrangement of the two numbers, so "Three
+  // pilots, five weeks in." — which reports nothing — deleted the one summary fact
+  // a five-row chart has. The tally SHAPE ("N of M") is what states it; anything
+  // else needs a verb. And a false positive here deletes a fact with no sign it is
+  // gone, while a false negative repeats a clause the listener just heard.
+  const d = ['## H.', '', '- A `4.2M` `5.0M`', '- B `3.6M` `3.0M`', '- C `2.8M` `2.6M`',
+    '- D `1.1M` `1.8M`', '- E `0.9M` `1.4M`'].join('\n');
+  for (const h of ['Three pilots, five weeks in.', 'Two sites, five regions.']) {
+    const out = narrateBullet(slide('bullet', d.replace('## H.', `## ${h}`)));
+    assert.ok(out.includes('cleared the plan line'), `${h} -> ${out}`);
+  }
+  // The tally shape still suppresses, whatever verb carries it — including two the
+  // verb list did not have.
+  for (const h of ['Two of five exceeded plan.', 'Two of five came in over target.', 'Two of five, measured against plan.']) {
+    const out = narrateBullet(slide('bullet', d.replace('## H.', `## ${h}`)));
+    assert.ok(!out.includes('cleared the plan line'), `${h} -> ${out}`);
+  }
+});
+
+test('CHECKER3 — one trailing prose bullet does not delete the tally', () => {
+  // The guard compared `tally.total` against every top-level bullet, so a deck
+  // ending in "A closing note with no numbers" — which the chart draws as a
+  // nameplate with no bar, no tick and no verdict in its own `<desc>` — raised the
+  // drawn count by one and suppressed a tally that was correct. A dropped row only
+  // threatens the count when it carries a VALUE.
+  const out = narrateBullet(slide('bullet', '## H.\n\n- A `5` `4`\n- B `2` `4`\n- A closing note with no numbers'));
+  assert.ok(out.includes('One of two cleared the plan line'), out);
+  assert.ok(out.includes('A closing note with no numbers'), 'and the note is still read');
+  // …while the row the transform WOULD score and this parse cannot still suppresses it.
+  const hidden = narrateBullet(slide('bullet', '## Y.\n\n- `residency` `1` `2`\n- A `5` `4`\n- B `2` `4`'));
+  assert.ok(!/cleared the plan line/.test(hidden), hidden);
+  assert.ok(/residency/.test(hidden), 'and it is not deleted either');
+});
+
 // ── the declared frame ───────────────────────────────────────────────────────
 
 test('every picture-bound data chart DECLARES what its encoding means', () => {
