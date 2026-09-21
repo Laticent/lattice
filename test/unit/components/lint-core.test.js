@@ -1442,6 +1442,8 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     ];
     const warned = [];
     let degenerate = 0;
+    let deg1 = 0;
+    let sil1 = 0;
     let silent = 0;
     // THREE AXES, and the two added last are the ones the previous generator
     // could not express — which is exactly where round eight found its two
@@ -1451,7 +1453,19 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     for (const a of LINES) {
       for (const pre of ['', '> ', '- ', ' ', '  ', '   ']) {
         for (const below of ['', '| --- | --- |', 'prose']) {
-        const src = `${FM}<!-- _class: topic -->\n\n## T\n\n${a}\n${pre}<!-- _track: A | B -->\n${below}\n`;
+        // THE DIRECTIVE COUNT IS AN AXIS, and it is the one round nine was
+        // missing. With ONE directive, declining it IS silence, so "poison can
+        // only make it quieter" holds vacuously. With TWO, declining the LATER
+        // one promotes the earlier — and if the earlier is degenerate and the
+        // later is not, silence becomes a false warning. That is why a skipped
+        // comment line now voids the whole slide's answer rather than falling
+        // back; this loop is what proves it.
+        for (const first of ['', '<!-- _track: A | B -->\n']) {
+        // And the VALUE axis: the directive under test is degenerate half the time,
+        // so the single-directive arm still exercises a real warning. Adding the
+        // `first` axis without this silently emptied that arm — `deg1` went to 0.
+        for (const value of ['A | B', 'A | [B]']) {
+        const src = `${FM}<!-- _class: topic -->\n\n## T\n\n${first}${a}\n${pre}<!-- _track: ${value} -->\n${below}\n`;
         const out = render(src, {});
         const html = typeof out === 'string' ? out : out.html;
         const attr = (html.match(/data-track="([^"]*)"/) || [])[1];
@@ -1463,23 +1477,84 @@ describe("lint-core: the topic anchor's `_track` override", () => {
         }
         const fired = Boolean(rule(src, 'track-directive'));
         if (fired && !should) {
-          warned.push(`${JSON.stringify(a)} + ${JSON.stringify(pre)} + ${JSON.stringify(below)}:`
-            + ' engine inert, linter WARNED');
+          warned.push(`${JSON.stringify(a)} + ${JSON.stringify(pre)} + ${JSON.stringify(below)}`
+            + ` + first=${first ? 'yes' : 'no'}: engine applied nothing degenerate, linter WARNED`);
         }
-        if (should) { degenerate += 1; if (!fired) silent += 1; }
+        if (should) { degenerate += 1; if (!fired) silent += 1; if (!first) { deg1 += 1; if (!fired) sil1 += 1; } }
+        }
+        }
         }
       }
     }
     // The arm that bites.
     assert.deepEqual(warned, []);
-    // And the arm that keeps the SUBSET honest. The curated table names its
-    // thirteen quiet shapes; this one cannot name 245, so it pins the count —
-    // a checker found the earlier version asserting nothing at all about
-    // silence while the commit claimed the cost was written down. A rule that
-    // went quiet everywhere would also pass "no false warnings"; it would not
-    // pass this. Both numbers move with the alphabet, so they are a diff.
-    assert.equal(degenerate, 413, 'shapes the engine applies degenerately');
-    assert.equal(silent, 245, 'of those, the ones the subset rule declines');
+    // And the arm that keeps the SUBSET honest. A rule that went quiet everywhere
+    // would also pass "no false warnings"; it would not pass this. The counts move
+    // with the alphabet, so they are a reviewed diff rather than a discovery.
+    assert.equal(degenerate, 2268, 'shapes the engine applies degenerately');
+    assert.equal(silent, 1896, 'of those, the ones the subset rule declines');
+    // SPLIT BY DIRECTIVE COUNT, because the aggregate hides the thing worth
+    // watching. Almost all the silence above is the two-directive family, where a
+    // poisoned SECOND directive makes last-wins unknowable and the rule voids the
+    // slide rather than falling back to the first. The ordinary one-directive case
+    // is unchanged by that rule: 413 / 245 here is exactly what it was before the
+    // `first` axis existed, which is the evidence that voiding cost nothing real.
+    assert.equal(deg1, 413, 'one-directive shapes the engine applies degenerately');
+    assert.equal(sil1, 245, 'of those, the ones the subset rule declines');
+  });
+
+  /* The delimiter scanner's own pins. A checker mutated it to `/-/` and to a form
+   * with no leading-indent class and BOTH passed the whole suite — the table said
+   * only "matches `| --- | --- |`, does not match `prose`", which is not a
+   * contract. Each row below dies under one of those mutants.
+   */
+  test('the table-delimiter lookahead is pinned in both directions', () => {
+    const { render } = require('../../../lib/engine');
+    const applied = (src) => {
+      const out = render(src, {});
+      const html = typeof out === 'string' ? out : out.html;
+      return (html.match(/data-track="([^"]*)"/) || [])[1];
+    };
+    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+
+    // A `- item` line is NOT a delimiter row. Reading it as one silences a real
+    // warning — the mutant that replaced the whole scanner with `/-/`.
+    const bullet = T('<!-- _track: A | B -->', '- item');
+    assert.match(applied(bullet), /A \| B/, 'the engine applies it');
+    assert.ok(rule(bullet, 'track-directive'), 'so the rule must still warn');
+
+    // An INDENTED delimiter row under an indented directive really does make a
+    // table, so declining is right — this is the shape the space-indent axis
+    // exists for, and the mutant that drops the leading-indent class warns here.
+    const indented = T('- item', '  <!-- _track: A | B -->', '  | --- | --- |');
+    assert.equal(applied(indented), undefined, 'the engine reads no directive');
+    assert.equal(rule(indented, 'track-directive'), undefined, 'so the rule is silent');
+
+    // A single-label `_track` has no pipe, so markdown-it refuses it as a header
+    // and the engine applies it. Dropping the `|` guard would silence this.
+    const single = T('<!-- _track: A -->', '| --- |');
+    assert.match(applied(single), /^A$/, 'the engine applies it');
+    assert.ok(rule(single, 'track-directive'), 'so the rule must still warn');
+
+    // END OF SLIDE: no line below at all. Every generated fixture ends in a
+    // newline, so `lines[i + 1]` is `''` there and never `undefined` — this is
+    // the only row that reaches the fallback.
+    const last = `${FM}<!-- _class: topic -->\n\n## T\n\n<!-- _track: A | B -->`;
+    assert.match(applied(last), /A \| B/, 'the engine applies it');
+    assert.ok(rule(last, 'track-directive'), 'so the rule must still warn');
+  });
+
+  test('a pipe-carrying comment over a long blank line does not hang', () => {
+    // THE FOURTH backtracking-or-quadratic defect on this rule, and the first one
+    // a test would have caught. The delimiter check runs on ANY comment line
+    // carrying a `|`, so a note plus one long whitespace-led line was enough: the
+    // regex this replaces took 33 s on a 195 KB deck, on the Studio's main-thread
+    // lint source. The scanner is linear; this arm is the standing proof.
+    const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<!-- note: revenue | margin -->\n${' '.repeat(200000)}x\n`;
+    const started = Date.now();
+    core.lintTextWith(src, { names: new Set(['topic']), modifiers: new Set() });
+    const ms = Date.now() - started;
+    assert.ok(ms < 2000, `195 KB must not take ${ms}ms — the old regex took 33,000`);
   });
 
   test('KNOWN RESIDUAL: a raw-text block closed by a DIFFERENT tag', () => {
