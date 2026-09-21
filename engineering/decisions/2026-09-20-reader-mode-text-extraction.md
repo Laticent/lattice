@@ -251,6 +251,15 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   block walk over a journey stage yields `PprospectSsalesUuserOonboarding` and
   `Pain12345Delight`, the index welded to its label. An invented description is worse than an
   absent one, so a component that describes itself nowhere still gets the note alone.
+- **The bake's UTF-8 double-encoding now reaches the reading article.** A browser-drawn
+  `function-plot` captured by the bake ships its axis label as `x²` double-encoded — it renders
+  `XÂ²`. Pre-existing in the capture (`--player` has carried the identical bytes all along), and
+  the net for that slide is still a plot instead of a placeholder, but `--read` is a surface
+  that did not show it before. Off-path for the change that surfaced it; recorded rather than
+  fixed. Same shape: a journey step labelled `R&D` reads `R&amp;D` in the article and to a
+  screen reader, because the label arrives already entity-encoded and is escaped again — the
+  visible chip on the slide has always done the same, so the description is consistent with
+  shipped behavior rather than newly wrong.
 - **Readability drops part of short decks even from a clean article.** `examples/a11y.md`
   extracts 216 of 334 words (65%) from the projection alone, because its paragraphs are
   short. That is a floor in their algorithm, not something this change can move.

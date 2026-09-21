@@ -271,10 +271,11 @@ describe('--read — the deck as prose, and nothing else moves', () => {
       for (const want of ['Markdown source', 'Engine render', 'Rasterize']) {
         assert.ok(labels.some((l) => l.includes(want)), `the diagram must carry its "${want}" label; got ${JSON.stringify(labels)}`);
       }
-      assert.equal(
-        article.querySelectorAll('foreignObject').length, 0,
-        'a surviving foreignObject means the bake did not run — the sanitizer takes it and the labels go with it',
-      );
+      // NO `foreignObject === 0` ARM. It reads like the detector for this and is not one: the
+      // article's sanitizer removes `<foreignObject>` either way, so the count is 0 on the
+      // broken code too and the assertion could never fail. Measured on main, which has the
+      // defect: 0 foreignObject, 0 `<text>`. The LABELS above are the whole test.
+      assert.ok(labels.length >= 3, `expected the diagram's own labels, got ${labels.length} text nodes`);
     } finally {
       fs.rmSync(dir5, { recursive: true, force: true });
     }

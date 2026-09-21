@@ -21,3 +21,13 @@
   ("Actors — prospect, user. Discover — Search (prospect), mood 4 of 5; …"), which also
   gives the reading article its content. No pixel moves: verified identical across all
   eight slides of a journey deck.
+- **Fixed: a visual-layout note no longer claims a diagram.** It is also the fallback for
+  any component that projects to no prose, so it fired on four `content` and two
+  `list-criteria` slides of one shipped deck saying "the diagram itself is on the slide".
+  It now asserts nothing about what the slide holds.
+- **Fixed: a split slide describes itself once, not once per page.** Autosplit copies the
+  component onto every page of a run, so a three-page journey printed the same paragraph
+  three times in a row — nine in one article.
+- **Fixed: the board's own summary is not narrated on top of the board.** It is a text
+  alternative for a DOM reader and the article reads it directly, so leaving it in the
+  speech walkers made every journey slide narrate its stages twice in the exported `.vtt`.

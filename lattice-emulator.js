@@ -4030,7 +4030,7 @@ async function renderBody(browser, g, closeBrowser) {
       inflatedDocHtml = baked.html;
       if (baked.unbaked) {
         console.warn(
-          `  WARNING: ${baked.unbaked}/${baked.total} diagram(s) could not be baked for the player; ` +
+          `  WARNING: ${baked.unbaked}/${baked.total} diagram(s) could not be baked for ${PLAYER ? 'the player' : 'the reading article'}; ` +
             'they will ship without their labels.'
         );
       }
@@ -4753,10 +4753,11 @@ async function renderBody(browser, g, closeBrowser) {
     );
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   } else if (READ_VIEW) {
-    // Projected from `cleanDocHtml`, which at this point is the measured, SPLIT-BAKED
-    // document — so the article reflects the pages a reader actually gets, not the
-    // pre-layout guess. AFTER THE RASTER, deliberately, exactly as the fluid rewrite
-    // above is: the PDF / PPTX / PNG were rendered from the clean file written before
+    // Projected from the measured, SPLIT-BAKED document — so the article reflects the pages a
+    // reader actually gets, not the pre-layout guess. (The SOURCE is the baked capture where
+    // one was taken; see the note at the call below. This comment said `cleanDocHtml` and was
+    // left behind when that changed.) AFTER THE RASTER, deliberately, exactly as the fluid
+    // rewrite above is: the PDF / PPTX / PNG were rendered from the clean file written before
     // this line, so those bytes do not move.
     //
     // `cleanDocHtml` IS NOT REASSIGNED, and that is load-bearing rather than style. It is

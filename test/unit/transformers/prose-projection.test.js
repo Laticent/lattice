@@ -492,6 +492,64 @@ test("a visual-layout slide contributes a component's own text alternative", () 
 // `describe:` pragma is injected just inside <section>, OUTSIDE `.cell-stage` — so a
 // stage-scoped lookup could never find it, and that channel was dead on arrival. Document
 // order then gives the priority for free.
+// AUTOSPLIT COPIES THE COMPONENT ONTO EVERY PAGE OF A RUN, so each page describes itself
+// identically. Measured on `examples/portrait-journey.md` before this: NINE `Actors — …`
+// paragraphs in one article, three distinct sentences in three consecutive copies each.
+test('a description is emitted once per split run, not once per page', () => {
+	const board = (run, role) =>
+		`<section data-lattice-slide data-class="journey" class="journey" data-split-run="${run}" data-split-role="${role}"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Onboarding</h2></div>
+			<div class="journey-board"><p class="journey-desc" data-lattice-desc>Actors — prospect, user.</p></div>
+		</div></section>`;
+	const { articleHtml } = project(sections(board(2, 'body'), board(2, 'body'), board(2, 'body')));
+	assert.equal((articleHtml.match(/Actors — prospect, user\./g) || []).length, 1, 'three pages of ONE board describe it once');
+	// …and every page still gets its heading and its note, so no slide vanishes.
+	assert.equal((articleHtml.match(/id="lp-sec-\d+"/g) || []).length, 3);
+	assert.equal((articleHtml.match(/lp-visual-note/g) || []).length, 3);
+});
+
+test('a different split run describes itself again', () => {
+	const board = (run, who) =>
+		`<section data-lattice-slide data-class="journey" class="journey" data-split-run="${run}"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Onboarding</h2></div>
+			<div class="journey-board"><p class="journey-desc" data-lattice-desc>Actors — ${who}.</p></div>
+		</div></section>`;
+	const { articleHtml } = project(sections(board(2, 'prospect'), board(3, 'buyer')));
+	assert.match(articleHtml, /Actors — prospect\./);
+	assert.match(articleHtml, /Actors — buyer\./, 'a second run is a second board, not a repeat');
+});
+
+// The note is ALSO the generic-produced-nothing fallback, so it fires on components that are
+// not diagrams. It used to claim "the diagram itself is on the slide" — false on four `content`
+// and two `list-criteria` slides of one shipped deck — and before that it named two views a
+// `--read` export does not have. It must assert nothing about what the slide holds.
+test('the visual-layout note claims no diagram', () => {
+	const secs = sections(
+		`<section data-lattice-slide data-class="gantt" class="gantt"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Schedule</h2></div><div class="gantt-chart"><div class="gantt-bar"></div></div>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /lp-visual-note/);
+	assert.doesNotMatch(articleHtml, /diagram/, 'this fallback also catches content and list slides');
+	assert.doesNotMatch(articleHtml, /Present|Read · Slides/, 'nor a view the artifact may not have');
+});
+
+// The board's own sr-only summary is for a reader of the DOM, and the article reads it
+// directly off the section — so leaving it in the speech walkers made every journey slide
+// narrate the summary and then narrate the board again.
+test("a component's own description is not narrated on top of the component", () => {
+	const secs = sections(
+		`<section data-lattice-slide data-class="journey" class="journey"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Onboarding</h2></div>
+			<div class="journey-board"><p class="journey-desc" data-lattice-desc>Actors — prospect, user. Discover — Search (prospect), mood 4 of 5.</p><ol class="journey-stages"><li><span class="journey-stage-name">Discover</span></li></ol></div>
+		</div></section>`,
+	);
+	const spoken = speak(secs).join(' ');
+	assert.doesNotMatch(spoken, /Actors — prospect/, 'the summary is for a DOM reader, not a second narration');
+	assert.match(spoken, /Discover/, 'the board itself still narrates');
+});
+
 test("an author's describe: beats the component's own description", () => {
 	const secs = sections(
 		`<section data-lattice-slide data-class="journey" class="journey"><p class="lattice-description" id="lat-desc-1">The onboarding path, as the sales team tells it.</p><div class="cell-stage">
