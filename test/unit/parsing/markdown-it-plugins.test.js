@@ -598,16 +598,33 @@ describe('markdown-it-plugins', () => {
     // EVERY section — sovereign or not — says it composes as Form, in the 2D medium,
     // and names its Frame. This is the statement that replaced the absent class.
     assert.equal(out.match(/data-form="2d"/g).length, 3);
-    assert.match(out, /<section data-frame="standard" data-form="2d" class="content form"/);
-    assert.match(out, /<section data-frame="divider" data-form="2d" class="divider"/,
-      'the sovereign divider names its Frame and takes no chrome hook');
-    assert.match(out, /<section data-frame="standard" data-form="2d" class="form"/,
-      'a bare slide composes under the standard Frame and gets the chrome hook');
+    // Asserted per SECTION, by field, not as one literal string. Attribute ORDER is
+    // semantically nothing in HTML, and pinning it made this arm fail for a change that
+    // altered no behavior at all — which is a test reporting on its own implementation
+    // rather than on the contract.
+    const sections = [...out.matchAll(/<section\b[^>]*>/g)].map((m) => ({
+      frame: (m[0].match(/(?<!-)\bdata-frame="([^"]*)"/) || [])[1],
+      medium: (m[0].match(/(?<!-)\bdata-form="([^"]*)"/) || [])[1],
+      classes: ((m[0].match(/(?<![-\w])class="([^"]*)"/) || ['', ''])[1]).split(/\s+/).filter(Boolean),
+    }));
+    assert.deepEqual(sections, [
+      { frame: 'standard', medium: '2d', classes: ['content', 'form'] },
+      // the sovereign divider names its Frame and takes no chrome hook
+      { frame: 'divider', medium: '2d', classes: ['divider'] },
+      // a bare slide composes under the standard Frame and gets the chrome hook
+      { frame: 'standard', medium: '2d', classes: ['form'] },
+    ]);
     // It takes no deck source, so there is nothing a front-matter key can change:
     // the same HTML in gives the same HTML out, whatever the deck said.
     assert.equal(plugins.applyFormToHtml(html), out);
     // Idempotent across a second pass.
     assert.equal(plugins.applyFormToHtml(out), out);
+    // AUTHORITATIVE: a forged value is replaced, not respected. Both values are the
+    // ENGINE's statement about the Frame — a value an author typed cannot also be that.
+    const forged = plugins.applyFormToHtml('<section class="title" data-form="spatial" data-frame="evil"></section>');
+    assert.match(forged, /data-form="2d"/);
+    assert.match(forged, /data-frame="title"/);
+    assert.doesNotMatch(forged, /spatial|evil/);
   });
 
   // ── applyDeckLogoToHtml ────────────────────────────────────────────────
