@@ -24,11 +24,11 @@
 // a board deck may want a different reader than the author's own working voice — so the
 // panel does not block it. It re-measures on every change and shows what it now costs.
 
-import { AudioLines, Captions, Loader2, PlugZap, TriangleAlert } from 'lucide-react';
+import { AudioLines, Captions, Loader2, PlugZap } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Announce } from '@/lib/announce';
-import { frontMatterLang } from '@/lib/resolve-captions';
+import { getFrontMatter } from './front-matter';
 import { formatBytes, formatDuration, formatUsd, type NarrationMeasure, PAYLOAD_MAX_BYTES, PAYLOAD_WARN_BYTES } from './narration-bake';
 import { type BakeVoice, defaultBakeVoice, listTtsCatalog, type OrVoiceModel, onDeviceBakeVoice, previewTtsVoice, voiceAvailability } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
@@ -108,7 +108,13 @@ export function NarrationExportOptions({
 	// identity that actually gets baked — including in the two branches below that render no
 	// picker at all (an unreachable catalog, and the on-device tier, which hides the picker
 	// while still naming a voice).
-	const deckLang = React.useMemo(() => frontMatterLang(source) ?? undefined, [source]);
+	// `getFrontMatter` rather than `frontMatterLang`, and the reason is bytes. Both read the same
+	// key; `@/lib/resolve-captions` is reached from this route only through a dynamic import
+	// (narration-bake's), so importing it statically here pulls the whole captions kernel into the
+	// Studio's EAGER bundle — measured against docs/route-budget.json. `./front-matter` is already
+	// eager on this route (ShareSheet, this panel's own parent, imports it). `voiceLanguageMismatch`
+	// lowercases the value itself, so the un-lowercased read is fine.
+	const deckLang = React.useMemo(() => getFrontMatter(source, 'lang') || undefined, [source]);
 	const languageWarning = voiceLanguageMismatch(value.voice.model, value.voice.voice, deckLang);
 
 	// The workspace's own cloud voice is the default narrator, so a deck ships sounding like
@@ -461,10 +467,9 @@ export function NarrationExportOptions({
 							{/* The voice is the language control, so a mismatch is stated wherever the author can
 							    still change it — OUTSIDE the block above, which the on-device tier hides. */}
 							{languageWarning && (
-								<div className="flex items-start gap-1.5 text-[11.5px] leading-snug text-[var(--warn,#9a6a00)]">
-									<TriangleAlert className="mt-0.5 size-3 shrink-0" />
-									<span>{languageWarning}</span>
-								</div>
+								<p role="status" className="text-[11.5px] leading-snug text-[var(--warn,#9a6a00)]">
+									{languageWarning}
+								</p>
 							)}
 							<Announce message={languageWarning ?? ''} />
 
