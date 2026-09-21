@@ -4,8 +4,13 @@
   A reader met two pale bars and could not tell "we pushed this" from "nobody said".
   `deferred` now keeps the hollow body and gains a dashed edge, and the status key
   gains a `no status` chip whenever a chart carries an unstated task and already draws
-  a key. The dash spends no hue, so it survives the eight a11y palettes, grayscale
-  print and a photocopy, where a second shade of neutral does not (verified by
-  rendering `examples/gantt-status-key.md` under `a11y-achromatopsia`). The chip is
-  dropped rather than pushing an already-wide key past the viewBox.
+  a key. The dash spends no hue, which is what lets it survive a channel
+  that has none. **Verified on one surface**: rendered under `a11y-achromatopsia`,
+  where `deferred` and an unstated bar both resolve to the mute ramp and the dash is
+  the whole distinction between them. Grayscale print, a photocopy, the `print` finish
+  and the other four a11y palettes (there are five, not eight) are the same argument
+  but are **UNVERIFIED** from here. A `deferred` milestone gets a halved dash — a
+  diamond's perimeter is ~28 user units against a bar's ~173, so the bar's pattern read
+  as chipped corners rather than a dash. The chip is dropped, with the bars still
+  distinct, once the key is full at nine declared statuses.
 - **Added: `examples/gantt-status-key.md`** — the demo deck for the above.

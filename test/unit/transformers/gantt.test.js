@@ -197,8 +197,13 @@ describe('gantt renderer — continuous time scale', () => {
       // The key is one centered row with no wrap, so a chart carrying many statuses
       // can already run its chips off the edge. Adding one unconditionally would make
       // this change the cause of that on charts it has nothing to do with.
-      // Every word in the ramp. Seven still fits a 480-unit viewBox (measured: the
-      // last label starts at 426.8), so the case has to be the full set.
+      // Every word in the ramp. The chip is dropped once the key is wide enough, and
+      // NINE declared statuses already do it — a checker measured that, against an
+      // earlier comment here that cited "the last label starts at 426.8" for seven and
+      // concluded the full ten was required. 426.8 is real but describes one of the four
+      // WIDEST seven-subsets, not the canonical seven. Ten is used because it is the
+      // whole vocabulary and cannot drift; nine is the tighter boundary and is asserted
+      // separately below.
       const many = ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot', 'decision', 'deferred'];
       const ul = '<ul><li>L<ul>'
         + many.map((st, i) => `<li>T${i} <code>Q${(i % 4) + 1}</code> <code>${st}</code></li>`).join('')
@@ -209,6 +214,19 @@ describe('gantt renderer — continuous time scale', () => {
       assert.ok(got.length >= many.length, `expected every declared status, got ${got.join(', ')}`);
       assert.equal(got.includes('no status'), false,
         'a key already at the viewBox edge must not gain another chip');
+    });
+
+    test('nine declared statuses is already enough to drop it', () => {
+      // The tighter boundary. Pinned so a later width tweak cannot quietly move the
+      // drop point without a test noticing.
+      const nine = ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot', 'decision'];
+      const ul = '<ul><li>L<ul>'
+        + nine.map((st, i) => `<li>T${i} <code>Q${(i % 4) + 1}</code> <code>${st}</code></li>`).join('')
+        + '<li>Z <code>Q1..Q4</code></li>'
+        + '</ul></li></ul>';
+      const got = chips(buildGanttChart(inner(ul), eyebrow));
+      assert.equal(got.includes('no status'), false, 'nine statuses already fills the key');
+      assert.ok(got.length >= nine.length, `every declared status should still be keyed, got ${got.join(', ')}`);
     });
   });
 

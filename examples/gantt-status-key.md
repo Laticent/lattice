@@ -16,21 +16,21 @@ header: "Lattice · gantt status key"
 ---
 
 <!-- _class: gantt -->
-<!-- _footer: "The dashed bar is deferred; the solid one nobody labelled" -->
+<!-- _footer: "Dashed bar and dashed diamond are deferred; the solid bar nobody labeled" -->
 
 `2026 Q1 .. 2026 Q4`
 
-## Two bars, one meaning each, and the key explained neither.
+## Two bars, one meaning each, and the key explained one.
 
-`Org-wide log` has no status. `CSV retirement` is deferred. Both used to be a pale bar with the same neutral edge, and the key listed only the three statuses that were declared.
+`Org-wide log` has no status. `CSV retirement` and the `Purge gate` diamond are deferred. The bars used to be one pale shape with the same neutral edge — and while `deferred` always had a chip, the unstated bar had none, so the key explained one of the two.
 
 - Intake
-  - Connector wiring `Q1..Q1` `done`
-  - Source-system sweep `Q2..Q2` `live`
+  - Connector wiring `Q1..Q2` `done`
   - CSV retirement `Q3..Q4` `deferred`
 - Decision Log
   - Pilot log `Q1..Q2` `at-risk`
   - Org-wide log `Q3..Q4`
+  - Purge gate `Q3` `milestone` `deferred`
 
 ---
 
@@ -38,7 +38,7 @@ header: "Lattice · gantt status key"
 
 ## Read the key, then the bars.
 
-The chip without a hue is `no status` — the bar nobody labelled. It appears only when a chart carries an unstated task AND already draws a key, because a chart with no declared status has no ambiguity to resolve.
+The chip without a hue is `no status` — the bar nobody labeled. It appears only when a chart carries an unstated task AND already draws a key, because a chart with no declared status has no ambiguity to resolve.
 
 - The dash, not a shade
   - `deferred` keeps the hollow body it already had and gains `stroke-dasharray`. Opacity alone was 18% of a ramp that is already a pale tint, so the difference was there to be hunted for rather than seen.
@@ -89,10 +89,10 @@ Two bars on the same row, both neutral, one declared and one not. Opacity alone 
 
 ## Why a dash rather than one more neutral.
 
-Render this deck under `theme: a11y-achromatopsia` and every status in the ramp resolves to a gray. A second shade of neutral is then the same mark twice; a dashed edge is still a dashed edge.
+Render this deck under `theme: a11y-achromatopsia` and four of the five ramps resolve to a gray — `info` keeps a blue axis. What matters is that `deferred` and an unstated bar BOTH land on the mute ramp there, so between those two the dash is the whole distinction.
 
 - The channels a hue does not reach
-  - The eight a11y palettes, grayscale print, a photocopied handout, and the `print` finish. Each one is a place where "the paler bar" stops being a distinction a reader can make.
+  - The five a11y palettes, grayscale print, a photocopied handout, and the `print` finish. Each one is a place where "the paler bar" stops being a distinction a reader can make.
 - Why the numbers are user units
   - `stroke-dasharray: 4 2.5` is in viewBox units, so the dash scales with the chart. A landscape gantt draws on a 480-unit viewBox and a portrait one on 300 — the dash reads the same on both, which a px value would not.
 
