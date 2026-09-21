@@ -326,6 +326,20 @@ describe('--read — the deck as prose, and nothing else moves', () => {
         doc.documentElement.getAttribute('style') || '', /color-scheme:\s*dark/,
         "a dark deck's reading article must carry the scheme, or every light-dark() token resolves light",
       );
+      // `print` is a CANVAS treatment, not a scheme, and `color-scheme` has no print branch.
+      // A handout is a light canvas, so it maps to light — written explicitly rather than
+      // left to the default, so an undeclared print deck cannot start reading dark if the
+      // shell ever adopts `color-scheme: light dark`.
+      const dir7c = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-mode-print-'));
+      try {
+        fs.writeFileSync(path.join(dir7c, 'deck.md'), DECK_SOURCE.replace('theme: indaco', 'theme: indaco\ncolor-mode: print'));
+        const printed = render(dir7c, path.join(dir7c, 'read.html'), ['--read']);
+        const cdoc = new JSDOM(fs.readFileSync(printed, 'utf8')).window.document;
+        assert.match(cdoc.documentElement.getAttribute('style') || '', /color-scheme:\s*light/, 'a print deck reads as a light canvas');
+      } finally {
+        fs.rmSync(dir7c, { recursive: true, force: true });
+      }
+
       // And a deck that says nothing is left alone rather than pinned to a scheme it never
       // asked for. A SECOND DIRECTORY, because `render` always reads `<dir>/deck.md` — the
       // first cut of this arm wrote a `plain.md` the helper ignored, so it re-rendered the

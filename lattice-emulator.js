@@ -5619,8 +5619,18 @@ async function buildReadingArticleDocument(docHtml, deckScheme) {
     // for that deck. It goes on the ROOT rather than the article so the page's own
     // background follows; an article on a white page in a dark deck is the same defect
     // one element smaller.
-    if (deckScheme === 'dark' || deckScheme === 'light') {
-      doc.documentElement.style.setProperty('color-scheme', deckScheme);
+    // PRINT MAPS TO LIGHT, and the mapping is a decision rather than a fallback. `print` is a
+    // CANVAS treatment — B&W-safe ink for paper — and `color-scheme` takes only
+    // `light`/`dark`/`normal`, so there is no print branch to resolve to. A handout is a light
+    // canvas, so `light` is the honest reading of the deck's intent. Today it is also a no-op:
+    // an unset `color-scheme` is `normal`, under which `light-dark()` already resolves light.
+    // It is written anyway so the intent is in the document rather than in the absence of a
+    // declaration — if the shell ever adopts `color-scheme: light dark`, an undeclared print
+    // deck would silently start reading dark on a dark-mode machine, which is the one thing a
+    // B&W handout must not do.
+    const scheme = deckScheme === 'print' ? 'light' : deckScheme;
+    if (scheme === 'dark' || scheme === 'light') {
+      doc.documentElement.style.setProperty('color-scheme', scheme);
     }
 
     const style = doc.createElement('style');

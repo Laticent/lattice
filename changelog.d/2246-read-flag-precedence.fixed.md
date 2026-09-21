@@ -11,3 +11,4 @@
   carries the deck's declared scheme on the document root, which takes the body from
   `rgb(255,255,255)` to `rgb(0,29,51)` and the ink from `rgb(30,58,95)` to
   `rgb(203,217,232)` — the values the player already showed for the same deck.
+  A `color-mode: print` deck maps to a light canvas, which is what a B&W handout is.
