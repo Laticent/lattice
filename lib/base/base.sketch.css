@@ -450,8 +450,11 @@ section.sketch.list.principles > .cell-stage > ol {
  * naming them rather than to add a deny entry that would cut the `table`
  * component out of the universal treatment it now rides.
  *
- * The guard MIRRORS base.elements.css's — the same four exclusions AND the same
- * CHILD combinators (`> table`, `> :where(.cell-stage) > table`). The child path
+ * The guard FOLLOWS base.elements.css's shape without copying its set. Same
+ * CHILD combinators (`> table`, `> :where(.cell-stage) > table`), but base
+ * excludes SIX components and this excludes four: `glossary` and
+ * `obligation-matrix` are deliberately kept IN, because both drew the sketch
+ * frame before and still should. Do not "align" the two lists. The child path
  * is not cosmetic: it is what keeps a chart's `<figure>`-wrapped table and a
  * table in a side frame (split-panel, split-compare, compare-code, image) out,
  * exactly as base.docs.md promises. A descendant combinator here reached both,

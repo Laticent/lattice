@@ -271,38 +271,26 @@ const PROBES = {
     probe: marked('table.lat-row-label'),
   },
 
-  // A THIRD probe: a table the author wrote as RAW HTML. markdown-it hands it
-  // through as an `html_block`, so the token walker never saw its rows while the
-  // DOM mirror saw an ordinary `<table>` — the engine left it unstamped and the
-  // runtime stamped it, which made the PDF and the HTML export of ONE deck
-  // disagree. Two tables again, so a path that stamps every raw table fails.
-  'tableRowLabels@rawhtml': {
+  // THE GATE HALF, which the shapes probe only claimed to cover. `table-fill`
+  // and `table-plain` are geometry/zebra switches that say nothing about column
+  // one; the token walker once matched them because `\btable\b` matches INSIDE
+  // `table-fill`, so the engine stamped a slide the mirror's `section.table`
+  // selector never selects. Reverting the gate to that regex turned NO test red
+  // until this probe existed — the commit that fixed it claimed otherwise.
+  //
+  // `min: 0` and an EMPTY expectation is the point: both paths must stamp
+  // nothing. The anti-vacuity floor other probes rely on cannot apply here, so
+  // the guard is the deepEqual against the engine, which the mutation breaks by
+  // producing a stamp on one side only.
+  'tableRowLabels@gate': {
     row: 'tableRowLabels',
-    min: 1,
-    section: 'table',
+    min: 0,
+    section: 'table-fill',
     body: [
-      '## Raw HTML tables', '',
-      // ONE LINE per table, deliberately. Split across source lines, markdown-it
-      // keeps the newline inside the `html_block`, and `marked` collapses
-      // whitespace in the HOST text but not in the element's own `textContent`
-      // — so the two sides differ by a `\n` and the probe reports a fidelity
-      // failure that is really the harness's own serialization divergence. The
-      // verdict agreed either way; only the string did not.
-      '<table><thead><tr><th>Metric</th><th>Q1</th></tr></thead><tbody><tr><td>Revenue</td><td>4.2</td></tr><tr><td>Churn</td><td>2%</td></tr></tbody></table>', '',
-      '<table><thead><tr><th>Year</th><th>Q1</th></tr></thead><tbody><tr><td>2024</td><td>4.2</td></tr><tr><td>2025</td><td>5.1</td></tr></tbody></table>',
+      '## Switches say nothing about column one', '',
+      '| Workstream | Owner | Q3 |', '|---|---|---|',
+      '| Migration | Platform | Complete |', '| Attestation | Legal | In flight |',
     ].join('\n'),
-    // The harness's bare `new MarkdownIt()` runs with `html: false`, so it would
-    // ESCAPE these tables and hand the runtime no `<table>` at all — the probe
-    // would be testing the harness. Marp runs with HTML enabled, so the markup
-    // the runtime really receives is the tables themselves; supply it directly,
-    // which is what this field is for.
-    markup:
-      '<section class="table"><h2>Raw HTML tables</h2>' +
-      '<table><thead><tr><th>Metric</th><th>Q1</th></tr></thead>' +
-      '<tbody><tr><td>Revenue</td><td>4.2</td></tr><tr><td>Churn</td><td>2%</td></tr></tbody></table>\n' +
-      '<table><thead><tr><th>Year</th><th>Q1</th></tr></thead>' +
-      '<tbody><tr><td>2024</td><td>4.2</td></tr><tr><td>2025</td><td>5.1</td></tr></tbody></table>' +
-      '</section>',
     probe: marked('table.lat-row-label'),
   },
 

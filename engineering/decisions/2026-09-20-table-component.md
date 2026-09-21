@@ -249,6 +249,35 @@ not: it re-derives exactly under the four roots the corpus test walks
 `lib/components/`). The fair half of that finding was that the docblock said
 "every deck in the repo" without naming them, so it now names them.
 
+## The raw-HTML arm, added and removed
+
+A first round of fixes closed an engine/runtime split by teaching the engine to
+read a table an author wrote as raw HTML. A second checker measured that arm
+against the DOM mirror and found it **re-opened the split on eight shapes** — a
+header row mixing `th` and `td`, an HTML comment containing `<tr>`, a `>` inside
+an attribute value, an unclosed `td`, `<template>` rows, `&mdash;`, a table split
+across blocks, and two tables in ONE block, where it merged their rows and
+stamped the WRONG table. Its attribute rewrite also wrote the class into
+`data-class` (the `\b` trap of #1358) and silently dropped the stamp on an
+unquoted `class=`. Three of those were reproduced here end to end.
+
+It was REMOVED rather than hardened. Its docblock promised to decline anything
+it could not read confidently, and it did the opposite: it returned confident
+wrong answers. Making that promise true means demanding exactly one `<table>`,
+no comments, no nesting, no `<template>`, every cell closed and no `>` in an
+attribute — a parser, in a plugin, for a shape no shipped deck uses, which had
+already cost two CodeQL alerts.
+
+What remains is a single documented gap: a raw-HTML table reads plain in the PDF
+and emphasized in the HTML export. That is worse than agreement and better than
+a reader that is wrong eight ways, and it errs toward UNDER-stamping rather than
+stamping the wrong column.
+
+The same round also removed a `stripTagsToFixedPoint` helper whose justification
+did not survive checking: `<[^>]*>` matches leftmost-first from a `<` to the next
+`>`, so one pass is ALREADY the fixed point and the worked counterexample in the
+commit message was wrong. It was a no-op with a test that could not fail.
+
 ## Verification
 
 - `npm run lint` · `npm test` · `npm run build:check` · `npm run test:integration`.

@@ -139,9 +139,9 @@ test('row-label and no-row-label overrule the measurement', () => {
 });
 
 test('no-row-label wins a slide carrying both', () => {
-  // The opt-OUT is what an author reaches for after SEEING the wrong thing, so
-  // it must not be overrulable by a stray token inherited from a deck-level
-  // `class:` directive.
+  // The opt-OUT is what an author reaches for after SEEING the wrong thing, so a
+  // stray `row-label` beside it must not win. (Both are per-SLIDE tokens: a
+  // deck-level `class:` never reaches the rule that feeds this — see the kernel.)
   assert.equal(
     resolveRowLabel(['table', 'row-label', 'no-row-label'], { headers: ['A', 'B'], firstColumn: ['x'] }),
     false,
@@ -218,9 +218,11 @@ test('every table in every shipped deck resolves as the design says', () => {
   }
 
   assert.ok(seen > 100, `expected a real corpus, walked ${seen} tables`);
+  // SORTED both sides: `offenders` is built in `find(1)` order, which is not
+  // stable across machines the moment a second file legitimately resolves OFF.
   assert.deepEqual(
-    offenders,
-    [...EXPECTED_OFF],
+    [...offenders].sort(),
+    [...EXPECTED_OFF].sort(),
     `the set of tables resolving OFF changed.\ngot:\n${offenders.join('\n')}`,
   );
 });
@@ -237,41 +239,4 @@ test('the stamped class name is the one the CSS selects', () => {
   const elements = readFileSync(path.join(ROOT, 'lib/base/base.elements.css'), 'utf8');
   assert.match(elements, /td:first-child[^}]*--table-label-weight/s,
     'base.elements.css must READ the property the variant sets');
-});
-
-// ── the raw-HTML reader's sanitization shape ─────────────────────────────────
-// Two CodeQL high-severity alerts on this PR, both about the PATTERN rather
-// than a reachable exploit: the text these produce is only ever classified
-// (numeric / marker / placeholder) and never inserted into a document. Pinned
-// anyway, because the defects are invisible on ordinary input and the next
-// person to reuse a helper called "strip tags" will not read its docblock.
-
-const { stripTagsToFixedPoint, rawHtmlTableCells } = require('../../../lib/integrations/markdown-it/plugins.js');
-
-test('tag stripping runs to a fixed point, so nesting cannot reassemble a tag', () => {
-  // One pass removes the inner `<script>` and lets the halves close up into a
-  // live one — "incomplete multi-character sanitization".
-  assert.doesNotMatch(stripTagsToFixedPoint('<<script>script>alert(1)'), /<script/i);
-  assert.doesNotMatch(stripTagsToFixedPoint('<<div>div>text'), /<div/i);
-  assert.equal(stripTagsToFixedPoint('<b>Revenue</b>'), 'Revenue');
-  assert.equal(stripTagsToFixedPoint('plain'), 'plain');
-});
-
-test('entities decode in ONE pass, so an escaped entity is not double-unescaped', () => {
-  // Sequenced replaces turn `&amp;lt;` into `&lt;` and then into `<`. A single
-  // regex resumes scanning after each match, so it cannot.
-  const t = (cell) => rawHtmlTableCells(`<table><tr><th>${cell}</th><th>B</th></tr><tr><td>x</td><td>y</td></tr></table>`).headers[0];
-  assert.equal(t('&amp;lt;'), '&lt;');
-  assert.equal(t('&amp;amp;'), '&amp;');
-  assert.equal(t('&lt;'), '<');
-  assert.equal(t('A &amp; B'), 'A & B');
-  assert.equal(t('&nbsp;x'), 'x');
-});
-
-test('rawHtmlTableCells declines what it cannot read confidently', () => {
-  // Declining leaves the table unstamped, which is the pre-existing behavior —
-  // the safe direction for a reader that is deliberately not an HTML parser.
-  assert.equal(rawHtmlTableCells('no table here'), null);
-  assert.equal(rawHtmlTableCells('<table><tr><th>A</th></tr>'), null, 'unterminated table');
-  assert.equal(rawHtmlTableCells('<table></table>'), null, 'no rows');
 });

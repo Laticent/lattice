@@ -690,6 +690,14 @@ plain table — `row-label` is how a table outside the component opts in. The
 explicit tokens always beat the measurement, and `no-row-label` wins a slide
 carrying both.
 
+**Both are per-SLIDE tokens.** A deck-level `class: no-row-label` in front
+matter does NOT reach them: the rule that stamps the table runs before
+deck-class propagation, so the section has not received the deck token yet. Put
+them in the slide's own `<!-- _class: … -->`. (Moving the rule later is not
+free — it would land after the state-marker plugins, which rewrite a cell's
+children into markup the text reader skips, changing what the measurement
+sees.)
+
 `checkUniversalTableGuard` fails the build if the engine's CSS deny list and the
 components that actually style a `<table>` ever disagree, in either direction and
 at variant granularity. **It does not read this markdown table** — it reads
