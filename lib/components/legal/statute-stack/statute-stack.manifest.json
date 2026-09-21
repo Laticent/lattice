@@ -40,6 +40,13 @@
     "hard": 24,
     "note": "one obligation line per statute"
   },
+  "handles": [
+    {
+      "part": "tbody > tr",
+      "names": "td:first-child, th:first-child",
+      "note": "The projection reads a row as `<label>: <cell>; <cell>.`, which no single element on the slide holds — so the cue hid. The row's first cell is the label it opens with."
+    }
+  ],
   "split": {
     "strategy": "cover-paginate",
     "axis": "item",

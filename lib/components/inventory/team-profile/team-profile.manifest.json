@@ -44,6 +44,13 @@
     "hard": 14,
     "note": "one clause on what this person owns, not a paragraph — and the count includes the name and the image reference beside it, so about four of the allowance is fixed cost before a word of prose"
   },
+  "handles": [
+    {
+      "part": ".person",
+      "names": ".person-name",
+      "note": "A person is a photo plus three spans; with no nested block the whole card becomes the handle and `bracket` draws a second outline around a bordered card."
+    }
+  ],
   "focusAxes": [
     "item"
   ],

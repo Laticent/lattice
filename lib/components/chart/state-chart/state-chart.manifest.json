@@ -230,5 +230,17 @@
       "useWhen": "Eased, curved connectors fit the deck's visual tone better than straight arrows."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "handles": [
+    {
+      "part": ".state-node",
+      "names": ".state-label",
+      "note": "A node is an index badge plus a label span, so `headerRange` finds no nested block and hands back the whole node."
+    },
+    {
+      "part": ".state-node-row",
+      "names": ".state-label",
+      "note": "The inline variant's row, same shape: spans only, no block to cut on."
+    }
+  ]
 }

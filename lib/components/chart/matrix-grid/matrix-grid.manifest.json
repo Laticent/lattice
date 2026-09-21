@@ -185,5 +185,12 @@
     "Up to eight rows are colored from the chart family's categorical palette before hues repeat; past eight, split into two grids.",
     "On a wide deck every column is the same width, so a filled cell's label has to fit that share rather than widening its own column. Keep labels to a word or two — `Senior`, `Principal`, `VP`. `Distinguished` at five columns is the longest the shipped gallery carries and it clears its cell by 75.9px; a much longer one does not get cut, it paints straight through the pill's border, so treat the pill as the budget."
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "handles": [
+      {
+        "part": "tbody > tr",
+        "names": "td:first-child, th:first-child",
+        "note": "The projection reads a row as `<label>: <cell>; <cell>.`, which no single element on the slide holds — so the cue hid. The row's first cell is the label it opens with."
+      }
+    ]
 }

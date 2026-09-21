@@ -237,5 +237,27 @@
       "useWhen": "Traffic volume through each step matters as much as mood — chip width encodes the `+N` volume token."
     }
   ],
-  "specimenVoice": true
+  "specimenVoice": true,
+  "handles": [
+      {
+        "part": ".journey-actor",
+        "names": ".journey-actor-name",
+        "note": "An actor chip is a colored dot plus a name span, so there is no nested block to cut a header from and the whole chip becomes the handle."
+      },
+      {
+        "part": ".journey-task",
+        "names": ".journey-task-label",
+        "note": "A task cell is its actor initials plus a label span; the projection names the task by its label."
+      },
+      {
+        "part": ".journey-vstage",
+        "names": ".journey-vstage-name",
+        "note": "The portrait board's stage: a name span above a row list, so the cue that opens with the stage name had nothing to land on."
+      },
+      {
+        "part": ".journey-lane",
+        "names": ".journey-lane-label",
+        "note": "A lane header is a label span beside its span count; the cue opens with the lane's name."
+      }
+    ]
 }

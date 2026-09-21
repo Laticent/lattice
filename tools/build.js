@@ -90,6 +90,10 @@ const STEPS = [
   // docs bundle can't fs-load 32 manifests at runtime.
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
+  // The Guide's rendered-part catalog, baked from every manifest's `handles` block. Committed
+  // rather than uncommitted: `present-guide.ts` imports it as an ordinary module, so a missing
+  // file is a docs-site build error rather than a degraded feature.
+  { label: 'guide handles (docs studio)', script: 'build-guide-handles.js' },
   { label: 'chart dispatch registry (lib/components/chart)', script: 'build-chart-registry.js' },
   // Also ahead of the bundles: lib/export/image-set.js and lib/authoring/scorecard.js
   // `require()` this catalog and both are inlined by esbuild, and three docs-site
