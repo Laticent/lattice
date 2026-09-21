@@ -200,6 +200,71 @@ those exposed a test passing for the wrong reason:
   first-token gate — twice: one pill was not enough either.
 - Nothing covered `deadEnds` at all; deleting the clause left every test green.
 
+## The checker round — eight confirmed defects, and what they had in common
+
+An independent checker pass **blocked** this diff. All eight reproduced first time.
+
+| # | defect | why the tests missed it |
+|---|---|---|
+| 1 | **`narrateBullet` deleted authored nested lines** on any slide where one row used the documented nested form | the fixture gave both rows their own pills, so the path never opened |
+| 2 | **`isChain` called converging, disconnected and edgeless graphs "a straight chain"** | the test pinned the WORDING, not the claim |
+| 3 | same deletion in `narrateWordCloud` | the cloud fuzz always gave every row a pill |
+| 4 | a **two-pill** nested line absorbed as a band the chart never drew | no fixture had two pills on one nested line |
+| 5 | `headingStatesTally` suppressed the tally on an **all-clear** slide whose heading merely counted rows | `cleared === scored` makes both probes read one token |
+| 6 | **"two terms" over a picture drawing three** — the count excluded a word the packer still draws | the branch's own fixture asserted the wrong number |
+| 7 | *"short of plan, well short of plan"* on a shipped gallery row | nothing asserted the echo branch's wording |
+| 8 | an unguarded frame interpolation speaks the literal word **"null"** | today's roster gate covers it only inside `PICTURE_DATA_LAYOUTS` |
+
+**Finding 1 was the worst and is worth stating precisely**, because the mechanism is
+not where anyone would look. `parseDataRows` sets `nestedIsData` when SOME row has
+no pills but does have pill-carrying children, and then copies EVERY row's children
+into `items` and marks them consumed. That is right for the floor, which speaks
+`items` — and wrong for a pilot, which never reads `items` at all. The bare-label row
+is the *documented* nested form, so one row written that way silently deleted every
+authored nested line on the slide. The checker measured it over 400 generated decks:
+**299 lost at least one line the base flattener had spoken.** This is the regression
+`speakLeftover` exists to prevent, arriving through the SEED SET rather than through
+the filter. The pilots now consume only their own row lines plus the nested lines
+they actually absorbed.
+
+**Three of the eight were tests of mine passing for the wrong reason** — 1, 3 and 6 —
+which is the same failure the mutation round had already caught three times in this
+diff. The pattern is consistent enough to name: a fixture built to exercise the happy
+path certifies the branch it never enters.
+
+**Finding 2 is the one to remember about gates.** `test/unit/core/chart-narration.test.js`
+asserted `out.includes('it runs as a straight chain with no forks')` — so the suite
+was green while the sentence was false of a converging machine, a disconnected pair,
+and a bare list of states with no transitions at all. A test that pins a string pins
+the string.
+
+**Two mutants survive and are documented as equivalent rather than papered over.**
+`isChain`'s in-degree check is provably redundant given its three neighbors (a state
+entered twice needs a cycle, and a cycle in a forward-only graph is impossible), and
+the self-loop label's index lookup agrees with positional lookup as long as both
+parsers number states contiguously. Both are kept, both say in place that no test can
+kill them and why.
+
+**The checker also refuted a claim in this note, correctly.** The extraction's proof
+was a scratch script over 8973 row shapes — and the script was gone, so the number was
+unreproducible by construction. It is now
+`test/unit/core/bullet-facts-parity.test.js`: the pre-extraction arithmetic
+transcribed verbatim from ba10cd1, run against the kernel over **8976** rows (16
+shipped gallery rows plus 8960 generated), asserting zero divergence. It carries a
+second cell proving the instrument is not vacuous — the same corpus through the two
+mistakes the extraction could plausibly have made registers >100 differences each.
+Do not refactor the reference to share helpers with the kernel; a reference that
+imports what it checks proves only that the code agrees with itself.
+
+**Artifact-level proof, because in-process was not enough.** The checker demonstrated
+findings 1, 3 and 4 through `narrateChart` rather than through an emitted `.vtt`, and
+named that as the one thing it had not produced. Driving the real CLI export found
+something the in-process check could not: **the first run still showed the old
+behavior, because `dist/lattice-emulator.js` is a build artifact and had not been
+rebuilt.** After `npm run build`, the emitted caption bytes carry "Organic 60%",
+"raised in Q3 3" and "Band 99.5% 99.7%" — all three authored lines restored, in the
+artifact a listener actually receives.
+
 ## Known limits
 
 - **Nobody has listened.** Every number here is emitted `.vtt` bytes or a value

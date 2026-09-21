@@ -350,6 +350,149 @@ test('state-chart — does not say the start twice', () => {
   assert.ok(!untagged.includes('This flow starts at'), untagged);
 });
 
+// ── what an independent checker found, each arm named for its finding ────────
+//
+// A checker pass blocked this diff with eight confirmed defects. Every one is a
+// test below, because a defect a reviewer found once and nothing pins will come
+// back. Each arm states the WRONG output it used to produce, so a future reader
+// can see what the assertion is for.
+
+test('CHECKER 1 — a bullet slide in the NESTED form keeps its authored lines', () => {
+  // THE WORST OF THE EIGHT. `parseDataRows` marks every row's children consumed as
+  // soon as SOME row has no pills of its own — which is the documented nested form
+  // (`- Uptime` / `  - Actual …`). These pilots never speak `items`, so one row
+  // written that way deleted every authored nested line on the slide. Measured by
+  // the checker over 400 generated decks: 299 lost at least one line the base
+  // flattener spoke.
+  const out = narrateBullet(slide('bullet', [
+    '## Mix.', '',
+    '- New ARR `4.2M` `5.0M`',
+    '  - Organic `60%`',
+    '- Expansion ARR',
+    '  - Actual `3.6M`',
+    '  - Target `3.0M`',
+  ].join('\n')));
+  assert.ok(out.includes('Organic'), `the author's line was deleted: ${out}`);
+  // …and the nested form still yields a real relationship, so the fix did not buy
+  // the line back by giving up the reading.
+  assert.ok(out.includes('Expansion ARR, three point six million against a three million target'), out);
+});
+
+test('CHECKER 3 — a word cloud in the same shape keeps its authored lines too', () => {
+  const out = narrateWordCloud(slide('word-cloud', [
+    '## What customers said', '',
+    '- security `5`', '- pricing', '  - raised in Q3 `3`', '- onboarding `2`',
+  ].join('\n')));
+  assert.ok(out.includes('raised in Q3'), `the author's line was deleted: ${out}`);
+});
+
+test('CHECKER 4 — a TWO-pill nested line is detail, not a band', () => {
+  // `parseBullet`'s regex takes everything before the LAST code span as the key, so
+  // `- Band `99.5%` `99.7%`` keys as "Band 99.5%", matches no keyword and becomes
+  // mark detail — the chart DERIVES its zones. Reading `pills[0]` recorded a band
+  // the picture never drew and swallowed the line.
+  const out = narrateBullet(slide('bullet', [
+    '## Two thresholds on one line.', '',
+    '- Uptime `99.4%` `99.9%`',
+    '  - Band `99.5%` `99.7%`',
+    '- Latency `180` `150`',
+  ].join('\n')));
+  assert.ok(out.includes('Band 99.5% 99.7%'), `the detail line was absorbed and never spoken: ${out}`);
+});
+
+test('CHECKER 5 — an all-clear tally is not suppressed by a heading that only COUNTS', () => {
+  // When every row clears, `cleared` and `scored` are the same number, so both
+  // probes read one token and "Three regions, one plan" suppressed the verdict —
+  // the one summary fact an all-clear slide has.
+  const body = ['## Three regions, one plan.', '',
+    '- North America `5.2M` `5.0M`', '- EMEA `3.6M` `3.0M`', '- APAC `2.8M` `2.6M`'].join('\n');
+  assert.ok(narrateBullet(slide('bullet', body)).includes('All three cleared their target'),
+    narrateBullet(slide('bullet', body)));
+  // But a heading that really does report it is still not said twice.
+  const reported = narrateBullet(slide('bullet', body.replace('Three regions, one plan.', 'All three cleared their target.')));
+  assert.equal(reported.match(/cleared their target/g).length, 1, reported);
+});
+
+test('CHECKER 6 — the term count is every word the picture DRAWS', () => {
+  // A non-finite weight is sized to the middle of the scale, not dropped, so the
+  // word is on the slide. Counting only the priced ones said "two terms" over a
+  // picture showing three — and then named the third one sentence later.
+  const out = narrateWordCloud(slide('word-cloud', [
+    '## Typo.', '', '- velocity `12`', '- ownership `9`', '- handoffs `sevn`',
+  ].join('\n')));
+  assert.ok(out.includes('Three terms'), out);
+  assert.ok(out.includes('Handoffs carries no readable weight'), out);
+});
+
+test('CHECKER 7 — the echo branch does not stutter its verdict', () => {
+  // A shipped gallery row read "zero percent against a twelve percent target —
+  // short of plan, well short of plan".
+  const out = narrateBullet(slide('bullet', '## Deflection.\n\n- Self-serve conversion `0%` `12%`\n- Win rate `112%` `100%`'));
+  assert.ok(out.includes('against a twelve percent target — well short of plan'), out);
+  assert.ok(!out.includes('short of plan, well short'), out);
+});
+
+test('CHECKER 2 — a CONVERGING machine is not a straight chain', () => {
+  // Two states stepping into a third satisfies "no state has two forward exits and
+  // no back edge", and the picture plainly shows a merge.
+  const out = narrateStateChart(slide('state-chart', [
+    '## Two paths converge.', '',
+    '1. Web signup', '   - `verify => 3`', '2. Sales-led', '   - `verify => 3`', '3. Active',
+  ].join('\n')));
+  assert.ok(!out.includes('straight chain'), out);
+  assert.ok(out.includes('nothing leads to Sales-led'), out);
+});
+
+test('CHECKER 2 — two DISCONNECTED chains are not one chain', () => {
+  const out = narrateStateChart(slide('state-chart', [
+    '## Two machines.', '',
+    '1. Draft', '   - `submit => 2`', '2. Filed', '3. Appeal', '   - `escalate => 4`', '4. Closed',
+  ].join('\n')));
+  assert.ok(!out.includes('straight chain'), out);
+});
+
+test('CHECKER 2 — a list of states with NO transitions claims no shape at all', () => {
+  // Every state is inferred terminal, the first one included, so the endpoint clause
+  // read "A three-state machine from Draft to Draft, Filed, and Closed" — and then
+  // called it a chain. With no edges there is no machine to describe, so the older
+  // inference sentence speaks instead, exactly as it did before this pass.
+  const out = narrateStateChart(slide('state-chart', '## No transitions yet.\n\n1. Draft\n2. Filed\n3. Closed'));
+  assert.ok(!out.includes('straight chain'), out);
+  assert.ok(!out.includes('from Draft to Draft'), out);
+  assert.ok(out.includes('This flow starts at Draft'), out);
+});
+
+test('CHECKER 2 — a real chain is still called one', () => {
+  // The fix must not buy correctness by never making the claim.
+  const out = narrateStateChart(slide('state-chart', [
+    '## Chain.', '', '1. Source `start`', '   - `compile => 2`', '2. Compiled', '   - `test => 3`', '3. Tested `end`',
+  ].join('\n')));
+  assert.ok(out.includes('it runs as a straight chain with no forks'), out);
+  // …and a self-loop does not disqualify one: "In Review can hold" is not a fork.
+  const looped = narrateStateChart(slide('state-chart', [
+    '## Loop.', '', '1. A `start`', '   - `go => 2`', '2. B', '   - `hold => self`', '   - `go => 3`', '3. C `end`',
+  ].join('\n')));
+  assert.ok(looped.includes('it runs as a straight chain with no forks'), looped);
+});
+
+test('CHECKER 8 — a missing frame is never spoken as the word "null"', () => {
+  // `frameFor` returns null for an unframed component. Today's roster gate catches a
+  // missing frame, but only for a component inside PICTURE_DATA_LAYOUTS — a future
+  // pilot on a `flow` component sits outside that filter, so the guard has to be at
+  // the interpolation.
+  const CN = require('../../../lib/core/chart-narration.js');
+  const { PROJECTION } = require('../../../lib/core/projection-catalog.generated.mjs');
+  const saved = PROJECTION['word-cloud'].frame;
+  try {
+    delete PROJECTION['word-cloud'].frame;
+    const out = CN.narrateWordCloud(slide('word-cloud', '## X.\n\n- a `5`\n- b `4`\n- c `1`'));
+    assert.ok(!/\bnull\b/.test(out), out);
+    assert.ok(out.includes('Three terms'), 'and the sentence still carries its count');
+  } finally {
+    PROJECTION['word-cloud'].frame = saved;
+  }
+});
+
 // ── the declared frame ───────────────────────────────────────────────────────
 
 test('every picture-bound data chart DECLARES what its encoding means', () => {
